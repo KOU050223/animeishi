@@ -41,7 +41,7 @@ export const usernameSchema = z
     "ユーザー名に使用できない文字が含まれています"
   )
   .refine(
-    (v) => !RESERVED_WORDS.some((w) => v.toLowerCase().includes(w)),
+    (v) => !RESERVED_WORDS.includes(v.trim().toLowerCase()),
     "別のユーザー名を選択してください"
   );
 

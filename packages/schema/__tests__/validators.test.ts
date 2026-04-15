@@ -96,8 +96,12 @@ describe("usernameSchema", () => {
     expect(usernameSchema.safeParse("admin").success).toBe(false);
   });
 
-  it("予約語を含む文字列を拒否する", () => {
-    expect(usernameSchema.safeParse("super_admin_user").success).toBe(false);
+  it("予約語と完全一致する文字列を拒否する (root)", () => {
+    expect(usernameSchema.safeParse("root").success).toBe(false);
+  });
+
+  it("予約語を含むが完全一致でない文字列は受け入れる", () => {
+    expect(usernameSchema.safeParse("super_admin_user").success).toBe(true);
   });
 
   it("特殊記号を拒否する", () => {
