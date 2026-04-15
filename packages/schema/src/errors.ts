@@ -1,19 +1,25 @@
-// error_handler.dart から移植したエラーメッセージ辞書
+// Clerk エラーコード → 日本語メッセージ辞書
+// ref: https://clerk.com/docs/errors/frontend-api
 
 export const AuthErrors: Record<string, string> = {
-  "user-not-found": "このメールアドレスのアカウントは存在しません",
-  "wrong-password": "パスワードが間違っています",
-  "email-already-in-use": "このメールアドレスは既に使用されています",
-  "weak-password": "パスワードが弱すぎます。8文字以上で設定してください",
-  "invalid-email": "無効なメールアドレスです",
-  "user-disabled": "このアカウントは無効化されています",
-  "too-many-requests": "ログイン試行回数が上限に達しました。しばらくしてから再試行してください",
-  "operation-not-allowed": "この認証方法は許可されていません",
-  "invalid-credential": "認証情報が無効です",
-  "account-exists-with-different-credential": "別の認証方法で登録されたアカウントが存在します",
-  "requires-recent-login": "この操作には再ログインが必要です",
-  "credential-already-in-use": "この認証情報は既に別のアカウントで使用されています",
-  "network-request-failed": "ネットワーク接続を確認してください",
+  // サインイン
+  form_identifier_not_found: "このメールアドレスのアカウントは存在しません",
+  form_password_incorrect: "パスワードが間違っています",
+  user_locked: "ログイン試行回数が上限に達しました。しばらくしてから再試行してください",
+  form_password_compromised: "このパスワードは安全でないため使用できません。別のパスワードを設定してください",
+  // サインアップ
+  form_email_conflict: "このメールアドレスは既に使用されています",
+  form_invalid_email_address: "有効なメールアドレスを入力してください",
+  form_password_not_strong_enough: "パスワードが弱すぎます。より複雑なパスワードを設定してください",
+  form_invalid_password_length_too_short: "パスワードは8文字以上で入力してください",
+  form_invalid_password_length_too_long: "パスワードは128文字以内で入力してください",
+  form_password_no_lowercase: "パスワードには英小文字を含める必要があります",
+  form_password_no_uppercase: "パスワードには英大文字を含める必要があります",
+  form_password_no_number: "パスワードには数字を含める必要があります",
+  form_password_no_special_char: "パスワードには記号を含める必要があります",
+  // セッション
+  session_reverification_required: "この操作には再ログインが必要です",
+  authentication_invalid: "セッションが無効です。再度ログインしてください",
   _default: "認証エラーが発生しました。しばらくしてから再試行してください",
 };
 
