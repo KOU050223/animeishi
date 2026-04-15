@@ -161,7 +161,7 @@ export type SignInInput = z.infer<typeof signInSchema>;
 
 // ---- Profile update ----
 export const profileUpdateSchema = z.object({
-  username: usernameSchema,
+  username: usernameSchema.optional(),
   selectedGenres: z.array(genreSchema).max(15).optional(),
   bio: commentSchema,
   favoriteQuote: commentSchema,
