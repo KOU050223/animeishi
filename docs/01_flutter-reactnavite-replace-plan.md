@@ -89,7 +89,7 @@ animeishi-next/
 │       └── package.json
 ├── packages/
 │   ├── schema/                 # Zod スキーマ（mobile/api 共有）
-│   └── contracts/              # API 型定義
+│   └── contracts/              # HonoRPC の AppType エクスポート（mobile が hc<AppType> で型安全に呼ぶ）
 ├── .github/workflows/
 │   ├── ci.yml                  # lint + test (apps/mobile, services/api)
 │   ├── eas-preview.yml
@@ -165,6 +165,38 @@ R2 は Egress 無料だが、自動画像変換はない（Cloudflare Images は
 ### Drizzle スキーマは共有 Zod の源泉にする
 `drizzle-zod` で D1 スキーマから Zod を自動生成し、`packages/schema` から mobile / api 両方に配る。mobile のフォームバリデーションは `react-hook-form` + 同じ Zod を使う。これで型パズルを最小化し、DB スキーマ変更が自動で全層に伝搬する。
 
+### クライアント-サーバー間は HonoRPC で型安全に繋ぐ
+`fetch` + 手書き型ではなく **HonoRPC**（`hono/client`）を採用する。
+
+```typescript
+// services/api/src/index.ts — ルートの型をエクスポート
+const routes = app
+  .get('/titles', ...)
+  .post('/me/favorites', ...)
+  // ...
+export type AppType = typeof routes
+
+// packages/contracts/src/index.ts — mobile へ再エクスポート
+export type { AppType } from '@animeishi/api'
+
+// apps/mobile — 型安全な呼び出し
+import { hc } from 'hono/client'
+import type { AppType } from '@animeishi/contracts'
+const client = hc<AppType>(process.env.EXPO_PUBLIC_API_URL!)
+const res = await client.titles.$get()           // 引数・レスポンスともに型推論
+const data = await res.json()                    // data の型が自動で確定
+```
+
+**メリット:**
+- ルートを追加・変更するだけで mobile 側の型エラーが即座に検出される
+- `packages/contracts` に手書きの型定義を置く必要がなくなる
+- Hono 本体に同梱（`hono/client`）なので追加依存ゼロ
+- Expo (React Native) は fetch ベースなので互換性の問題なし
+
+**注意点:**
+- `AppType` を export する都合上、`services/api/src/index.ts` では **ルートをチェーンで繋いだ変数**として定義する（`app.get(...).post(...)` の戻り値を `routes` に束縛し `export type AppType = typeof routes` する）
+- `packages/contracts` は型のみ再エクスポートするため、ランタイム依存は持たない
+
 ### リポジトリ層でユーザー ID を強制
 `authorizedDb(userId)` だけでなく、Drizzle で **高階関数ベースのリポジトリ** を作る（例: `profileRepo(userId).update(...)` は内部で `where(eq(profiles.id, userId))` を必ず付ける）。生 `db.update(profiles)` を呼ぶコードは CI で禁止（ESLint `no-restricted-syntax` + grep）。
 
@@ -184,16 +216,30 @@ R2 は Egress 無料だが、自動画像変換はない（Cloudflare Images は
 
 ---
 
-## API 設計（Hono on Workers）
+## API 設計（HonoRPC on Cloudflare Workers）
 
-- `GET /titles` — `Cache API` で CDN エッジ 24h キャッシュ。titles 全件レスポンスは gzip で ~1MB 想定、CDN ヒットすればオリジン負荷ゼロ。**cron 実行末尾で同 URL を Purge** する
-- `GET /titles/:tid`
-- `GET /me/watch-histories`, `POST /me/watch-histories`, `DELETE /me/watch-histories/:tid`
-- `GET /me/favorites`, `POST /me/favorites`, `DELETE /me/favorites/:tid`
-- `GET /me/friends`, `POST /me/friends` (QR スキャン後の双方向 upsert), `DELETE /me/friends/:id`
-- `GET /users/:id` — 公開プロフィール（旧 viewer 相当、未認証可、`is_public` で制御）。`Accept: text/html` の時は OGP 付き HTML を返す
-- `GET /users/:id/watch-histories` — 公開条件を満たす場合のみ返却
-- `POST /analysis/gemini` — 既存 `functions/src/index.ts` 相当、Gemini API プロキシ
+クライアントとバックエンドの通信は **HonoRPC**（`hono/client`）で型安全に行う。ルート定義は `services/api/src/index.ts` から `AppType` として export し、`packages/contracts` 経由で `apps/mobile` が `hc<AppType>()` で利用する（詳細は「横断的な実装方針 → HonoRPC」参照）。
+
+### エンドポイント一覧
+
+| メソッド | パス | 備考 |
+|---|---|---|
+| `GET` | `/titles` | `Cache API` で CDN エッジ 24h キャッシュ。gzip ~1MB、CDN ヒットでオリジン負荷ゼロ。**cron 末尾で Purge** |
+| `GET` | `/titles/:tid` | |
+| `GET` | `/me/profile` | |
+| `PUT` | `/me/profile` | |
+| `GET` | `/me/watch-histories` | |
+| `POST` | `/me/watch-histories` | |
+| `DELETE` | `/me/watch-histories/:tid` | |
+| `GET` | `/me/favorites` | |
+| `POST` | `/me/favorites` | |
+| `DELETE` | `/me/favorites/:tid` | |
+| `GET` | `/me/friends` | |
+| `POST` | `/me/friends` | QR スキャン後の双方向 upsert |
+| `DELETE` | `/me/friends/:id` | |
+| `GET` | `/users/:id` | 公開プロフィール（未認証可、`is_public` 制御）。`Accept: text/html` 時は OGP 付き HTML を返す |
+| `GET` | `/users/:id/watch-histories` | 公開条件を満たす場合のみ返却 |
+| `POST` | `/analysis/gemini` | 旧 `functions/src/index.ts` 相当、Gemini API プロキシ |
 
 Cron Triggers (wrangler.toml):
 - `0 18 * * *` (03:00 JST) — `cron/anime-sync` — しょぼいカレンダー / Annict から titles upsert

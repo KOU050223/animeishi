@@ -4,6 +4,8 @@
 
 `services/api` の初期化、D1ローカル環境構築、DrizzleによるDBスキーマ定義、authorizedDb（リポジトリ層）の作成、直接DB更新禁止のESLintルール追加。
 
+クライアント-サーバー間通信は **HonoRPC**（`hono/client`）を採用する。PR 2 ではその土台として、ルートチェーンを `routes` 変数に束縛し `AppType` を export できる構造にしておく。
+
 ---
 
 ## 受け入れ基準
@@ -12,6 +14,12 @@
 
 - [ ] `pnpm --filter @animeishi/api dev` を実行するとWranglerがローカルで起動する
 - [ ] `GET /health` が `{ status: "ok" }` を返す
+
+### AC-1b: HonoRPC 用の AppType が export されている
+
+- [ ] `services/api/src/index.ts` でルートがチェーン変数（`routes`）として定義されている
+- [ ] `export type AppType = typeof routes` が存在し、`tsc --noEmit` でエラーが出ない
+- [ ] PR 3 以降で `packages/contracts` が `AppType` を re-export できる構造になっている
 
 ### AC-2: DrizzleスキーマがD1に対応している
 
