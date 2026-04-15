@@ -1,0 +1,22 @@
+{
+  "name": "@animeishi/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "format": "prettier --write src"
+  },
+  "dependencies": {
+    "@animeishi/api": "workspace:*",
+    "hono": "^4.7.10"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250409.0",
+    "@types/node": "^22.14.1",
+    "typescript": "^5.8.3",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3"
+  }
+}
