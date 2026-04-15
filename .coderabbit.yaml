@@ -3,12 +3,8 @@
 
 version: "2"
 
-# main 以外へのPRもレビュー対象にする
+# main 以外へのPRもレビュー対象にする（auto_review.base_branches で設定）
 reviews:
-  # すべてのブランチへのPRをレビュー対象にする
-  base_branches:
-    - ".*"
-
   # レビューの設定
   profile: "chill"           # assertive / chill
   request_changes_workflow: false
@@ -29,6 +25,7 @@ reviews:
     - "!**/package-lock.json"
 
   # パス別の指示
+  # NOTE: apps/mobile と apps/api はディレクトリ追加後に有効になります
   path_instructions:
     - path: "apps/mobile/**"
       instructions: |
