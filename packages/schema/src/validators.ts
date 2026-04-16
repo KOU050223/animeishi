@@ -133,7 +133,7 @@ export const VALID_GENRES = [
 export type Genre = (typeof VALID_GENRES)[number];
 
 export const genreSchema = z.enum(VALID_GENRES, {
-  errorMap: () => ({ message: "有効なジャンルを選択してください" }),
+  error: () => "有効なジャンルを選択してください",
 });
 
 // ---- Sign-up form ----
