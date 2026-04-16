@@ -51,17 +51,17 @@ export const ProfileErrors: Record<string, string> = {
 };
 
 export function getAuthError(code: string): string {
-  return AuthErrors[code] ?? AuthErrors._default;
+  return AuthErrors[code] ?? AuthErrors._default!;
 }
 
 export function getQRError(code: string): string {
-  return QRErrors[code] ?? QRErrors._default;
+  return QRErrors[code] ?? QRErrors._default!;
 }
 
 export function getAnimeListError(code: string): string {
-  return AnimeListErrors[code] ?? AnimeListErrors._default;
+  return AnimeListErrors[code] ?? AnimeListErrors._default!;
 }
 
 export function getProfileError(code: string): string {
-  return ProfileErrors[code] ?? ProfileErrors._default;
+  return ProfileErrors[code] ?? ProfileErrors._default!;
 }
