@@ -26,13 +26,14 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
     },
 
-    async upsertMyProfile(data: Omit<NewUser, "id">): Promise<User> {
+    async upsertMyProfile(data: Omit<NewUser, "id" | "createdAt" | "updatedAt">): Promise<User> {
       const now = new Date();
       await db
         .insert(users)
         .values({ id: currentUserId, ...data, createdAt: now, updatedAt: now })
         .onConflictDoUpdate({
           target: users.id,
+          // createdAt は INSERT 時のみセットし、UPDATE では上書きしない
           set: { ...data, updatedAt: now },
         });
       const updated = await db.query.users.findFirst({

@@ -61,13 +61,10 @@ describe("authorizedDb", () => {
 
     it("プロフィールを更新できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      const now = new Date();
       const updated = await adb.upsertMyProfile({
         username: "更新後ユーザー",
         bio: "自己紹介文",
         isPublic: false,
-        createdAt: now,
-        updatedAt: now,
       });
       expect(updated.username).toBe("更新後ユーザー");
       expect(updated.bio).toBe("自己紹介文");
@@ -78,9 +75,8 @@ describe("authorizedDb", () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
 
-      const now = new Date();
-      await adb.upsertMyProfile({ username: "ユーザー1", isPublic: true, createdAt: now, updatedAt: now });
-      await anotherAdb.upsertMyProfile({ username: "ユーザー2", isPublic: true, createdAt: now, updatedAt: now });
+      await adb.upsertMyProfile({ username: "ユーザー1", isPublic: true });
+      await anotherAdb.upsertMyProfile({ username: "ユーザー2", isPublic: true });
 
       // 各 authorizedDb は自分のプロフィールのみ返す
       const profile1 = await adb.getMyProfile();
