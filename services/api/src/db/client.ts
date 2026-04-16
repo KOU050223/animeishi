@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
+import * as schema from "@/db/schema";
 
 export type Env = {
   DB: D1Database;

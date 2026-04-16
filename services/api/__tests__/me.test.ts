@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db";
-import { me } from "../src/routes/me";
-import { users } from "../src/db/schema";
-import { createDb } from "../src/db/client";
+import { me } from "@/routes/me";
+import { users } from "@/db/schema";
+import { createDb } from "@/db/client";
 
 // @hono/clerk-auth の getAuth をモック
 vi.mock("@hono/clerk-auth", () => ({

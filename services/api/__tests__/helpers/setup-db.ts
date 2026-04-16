@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "../../src/db/schema";
+import * as schema from "@/db/schema";
 
 const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (

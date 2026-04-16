@@ -1,7 +1,7 @@
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
-import type { Env } from "../db/client";
+import type { Env } from "@/db/client";
 
 export type AuthEnv = {
   Bindings: Env & {

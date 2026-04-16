@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { profileUpdateSchema } from "@animeishi/schema";
-import { requireAuth } from "../middleware/auth";
-import type { AuthEnv } from "../middleware/auth";
-import { authorizedDb } from "../repository/authorizedDb";
-import { createDb } from "../db/client";
+import { requireAuth } from "@/middleware/auth";
+import type { AuthEnv } from "@/middleware/auth";
+import { authorizedDb } from "@/repository/authorizedDb";
+import { createDb } from "@/db/client";
 
 const me = new Hono<AuthEnv>();
 
