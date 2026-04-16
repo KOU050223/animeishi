@@ -21,9 +21,6 @@ importers:
         specifier: ^4.7.10
         version: 4.12.14
     devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20260416.2
-        version: 4.20260416.2
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0

@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { profileUpdateSchema } from "@animeishi/schema";
 import { requireAuth } from "@/middleware/auth";
-import type { AuthEnv } from "@/middleware/auth";
+import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
-const me = new Hono<AuthEnv>();
+// ルーター自体はVariablesのみ（Bindingsなし）で定義→AppTypeがWorkers型に依存しない
+const me = new Hono<AuthVariables>();
 
 me.use("*", requireAuth);
 
@@ -16,7 +17,7 @@ me.use("*", requireAuth);
  * プロフィールが未作成の場合は 404 を返す。
  */
 me.get("/profile", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = createDb((c.env as AuthEnv["Bindings"]).DB);
   const adb = authorizedDb(db, c.var.clerkUserId);
   const profile = await adb.getMyProfile();
 
@@ -33,7 +34,7 @@ me.get("/profile", async (c) => {
  */
 me.put("/profile", zValidator("json", profileUpdateSchema), async (c) => {
   const data = c.req.valid("json");
-  const db = createDb(c.env.DB);
+  const db = createDb((c.env as AuthEnv["Bindings"]).DB);
   const adb = authorizedDb(db, c.var.clerkUserId);
 
   const profile = await adb.upsertMyProfile({
