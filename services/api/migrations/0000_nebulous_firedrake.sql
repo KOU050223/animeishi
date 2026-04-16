@@ -11,6 +11,17 @@ CREATE TABLE `anime_titles` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `users` (
+	`id` text PRIMARY KEY NOT NULL,
+	`username` text NOT NULL,
+	`bio` text,
+	`favorite_quote` text,
+	`is_public` integer DEFAULT 1 NOT NULL,
+	`profile_image_url` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `favorites` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,
@@ -42,17 +53,6 @@ CREATE TABLE `user_genres` (
 --> statement-breakpoint
 CREATE INDEX `user_genres_user_idx` ON `user_genres` (`user_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `user_genres_user_genre_unique` ON `user_genres` (`user_id`,`genre`);--> statement-breakpoint
-CREATE TABLE `users` (
-	`id` text PRIMARY KEY NOT NULL,
-	`username` text NOT NULL,
-	`bio` text,
-	`favorite_quote` text,
-	`is_public` integer DEFAULT true NOT NULL,
-	`profile_image_url` text,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE `watch_history` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` text NOT NULL,

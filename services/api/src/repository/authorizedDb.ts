@@ -150,11 +150,18 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
     // ---- User Genres ----
     async setMyGenres(genres: string[]): Promise<void> {
-      await db.delete(userGenres).where(eq(userGenres.userId, currentUserId));
+      // D1 は db.batch() でアトミックに複数クエリを実行する
+      // （SQLite の BEGIN TRANSACTION は D1 では使用不可のため db.transaction() は使わない）
+      const deleteQuery = db
+        .delete(userGenres)
+        .where(eq(userGenres.userId, currentUserId));
       if (genres.length > 0) {
-        await db.insert(userGenres).values(
-          genres.map((genre) => ({ userId: currentUserId, genre }))
-        );
+        const insertQuery = db
+          .insert(userGenres)
+          .values(genres.map((genre) => ({ userId: currentUserId, genre })));
+        await db.batch([deleteQuery, insertQuery]);
+      } else {
+        await deleteQuery;
       }
     },
 

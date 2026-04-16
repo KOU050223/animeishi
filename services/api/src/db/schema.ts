@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, index, unique } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, index, unique, check } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 // ---- users ----
 export const users = sqliteTable("users", {
@@ -49,6 +50,7 @@ export const watchHistory = sqliteTable(
   (t) => [
     unique("watch_history_user_anime_unique").on(t.userId, t.animeId),
     index("watch_history_user_idx").on(t.userId),
+    check("watch_history_score_range", sql`${t.score} IS NULL OR ${t.score} BETWEEN 1 AND 10`),
   ]
 );
 

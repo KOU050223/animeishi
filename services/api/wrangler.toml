@@ -2,14 +2,15 @@ name = "animeishi-api"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
-database_id = "local-dev-placeholder"
+database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 
 [env.production]
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
-database_id = "REPLACE_WITH_PROD_ID"
+database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
