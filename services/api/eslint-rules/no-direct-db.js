@@ -30,7 +30,7 @@ export default {
   },
 
   create(context) {
-    const filename = context.getFilename();
+    const filename = context.filename;
     // OS依存のパス区切り文字を正規化（Windows 対応）
     const normalizedFilename = filename.replace(/\\/g, "/");
 
