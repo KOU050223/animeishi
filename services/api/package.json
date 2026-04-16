@@ -19,16 +19,16 @@
   },
   "dependencies": {
     "@animeishi/schema": "workspace:*",
-    "@clerk/backend": "^3.2.11",
+    "@clerk/backend": "^3.2.12",
     "@hono/clerk-auth": "^3.1.1",
     "@hono/zod-validator": "^0.7.6",
-    "drizzle-orm": "^0.43.1",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.7.10",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.11",
-    "@cloudflare/workers-types": "^4.20250409.0",
+    "@cloudflare/workers-types": "^4.20260416.2",
     "drizzle-kit": "^0.31.1",
     "eslint": "^9.25.1",
     "prettier": "^3.5.3",
