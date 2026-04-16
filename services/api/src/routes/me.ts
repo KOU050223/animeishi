@@ -1,0 +1,55 @@
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { profileUpdateSchema } from "@animeishi/schema";
+import { requireAuth } from "../middleware/auth.js";
+import type { AuthEnv } from "../middleware/auth.js";
+import { authorizedDb } from "../repository/authorizedDb.js";
+import { createDb } from "../db/client.js";
+
+const me = new Hono<AuthEnv>();
+
+me.use("*", requireAuth);
+
+/**
+ * GET /me/profile
+ * 自分のプロフィールを取得する。
+ * プロフィールが未作成の場合は 404 を返す。
+ */
+me.get("/profile", async (c) => {
+  const db = createDb(c.env.DB);
+  const adb = authorizedDb(db, c.var.clerkUserId);
+  const profile = await adb.getMyProfile();
+
+  if (!profile) {
+    return c.json({ error: "Profile not found" }, 404);
+  }
+
+  return c.json(profile);
+});
+
+/**
+ * PUT /me/profile
+ * 自分のプロフィールを作成/更新する（upsert）。
+ */
+me.put("/profile", zValidator("json", profileUpdateSchema), async (c) => {
+  const data = c.req.valid("json");
+  const db = createDb(c.env.DB);
+  const adb = authorizedDb(db, c.var.clerkUserId);
+
+  const profile = await adb.upsertMyProfile({
+    username: data.username ?? c.var.clerkUserId, // 初回作成時のデフォルト
+    bio: data.bio ?? null,
+    favoriteQuote: data.favoriteQuote ?? null,
+    isPublic: data.isPublic ?? true,
+    profileImageUrl: null,
+  });
+
+  // genres は users テーブルへの insert 後に設定（FK制約のため）
+  if (data.selectedGenres !== undefined) {
+    await adb.setMyGenres(data.selectedGenres);
+  }
+
+  return c.json(profile);
+});
+
+export { me };
