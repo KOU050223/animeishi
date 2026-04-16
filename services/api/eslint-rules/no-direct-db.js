@@ -5,7 +5,11 @@
  * createDb() の戻り値を直接操作すること（.insert/.update/.delete）を禁止する。
  * 必ず authorizedDb（リポジトリ層）を経由してDB操作を行うこと。
  *
- * エイリアス追跡: `const x = db` や `x = db` のように別名を経由した場合も検出する。
+ * エイリアス追跡:
+ *   - `const db = createDb(...)` / `db = createDb(...)` で登録
+ *   - `const x = db` / `x = db` のようなエイリアスも追跡
+ * ブラケット記法:
+ *   - `db["insert"](...)` などのリテラル文字列によるアクセスも検出
  */
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -27,7 +31,7 @@ export default {
 
   create(context) {
     const filename = context.getFilename();
-    // OS依存のパス区切り文字を正規化
+    // OS依存のパス区切り文字を正規化（Windows 対応）
     const normalizedFilename = filename.replace(/\\/g, "/");
 
     // リポジトリ層自体は許可
@@ -39,6 +43,29 @@ export default {
 
     // createDb() 由来の識別子（およびそのエイリアス）を追跡する Set
     const dbIdentifiers = new Set();
+
+    /**
+     * MemberExpression のプロパティ名を取得する。
+     * - ドット記法: `db.insert` → "insert"
+     * - ブラケット記法（文字列リテラル）: `db["insert"]` → "insert"
+     * - ブラケット記法（変数）: `db[method]` → null（追跡不可）
+     */
+    function getPropertyName(memberExpression) {
+      if (
+        memberExpression.property.type === "Identifier" &&
+        !memberExpression.computed
+      ) {
+        return memberExpression.property.name;
+      }
+      if (
+        memberExpression.computed &&
+        memberExpression.property.type === "Literal" &&
+        typeof memberExpression.property.value === "string"
+      ) {
+        return memberExpression.property.value;
+      }
+      return null;
+    }
 
     /**
      * 識別子が dbIdentifiers に含まれているかを確認する。
@@ -79,10 +106,22 @@ export default {
         }
       },
 
-      // `x = db` のような代入によるエイリアスも追跡
+      // `x = db` および `x = createDb(...)` のような代入も追跡
       AssignmentExpression(node) {
+        if (node.left.type !== "Identifier") return;
+
+        // `db = createDb(...)` パターン
         if (
-          node.left.type === "Identifier" &&
+          node.right.type === "CallExpression" &&
+          node.right.callee.type === "Identifier" &&
+          node.right.callee.name === "createDb"
+        ) {
+          dbIdentifiers.add(node.left.name);
+          return;
+        }
+
+        // `x = db` のようなエイリアス
+        if (
           node.right.type === "Identifier" &&
           dbIdentifiers.has(node.right.name)
         ) {
@@ -90,12 +129,14 @@ export default {
         }
       },
 
-      // db.insert() / db.update() / db.delete() を検出
+      // db.insert() / db["insert"]() / db.update() / db.delete() を検出
       CallExpression(node) {
+        if (node.callee.type !== "MemberExpression") return;
+
+        const propertyName = getPropertyName(node.callee);
         if (
-          node.callee.type === "MemberExpression" &&
-          node.callee.property.type === "Identifier" &&
-          FORBIDDEN_METHODS.includes(node.callee.property.name) &&
+          propertyName &&
+          FORBIDDEN_METHODS.includes(propertyName) &&
           isDbIdentifier(node.callee.object)
         ) {
           context.report({
