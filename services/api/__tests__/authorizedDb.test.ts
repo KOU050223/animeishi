@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
-import { setupTestDb } from "./helpers/setup-db.js";
-import { authorizedDb } from "../src/repository/authorizedDb.js";
-import { animeTitles, users } from "../src/db/schema.js";
+import { setupTestDb } from "./helpers/setup-db";
+import { authorizedDb } from "../src/repository/authorizedDb";
+import { animeTitles, users } from "../src/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";
