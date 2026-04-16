@@ -79,5 +79,15 @@ export async function setupTestDb(d1: D1Database) {
   for (const sql of DDL_STATEMENTS) {
     await d1.prepare(sql).run();
   }
-  return drizzle(d1, { schema });
+  const db = drizzle(d1, { schema });
+  // テスト間でデータをリセット（外部キー制約のある順番で削除）
+  await d1.prepare("DELETE FROM user_genres").run();
+  await d1.prepare("DELETE FROM friends").run();
+  await d1.prepare("DELETE FROM favorites").run();
+  await d1.prepare("DELETE FROM watch_history").run();
+  await d1.prepare("DELETE FROM users").run();
+  await d1.prepare("DELETE FROM anime_titles").run();
+  // AUTOINCREMENTカウンターをリセット
+  await d1.prepare("DELETE FROM sqlite_sequence WHERE name IN ('anime_titles', 'watch_history', 'favorites', 'friends', 'user_genres')").run();
+  return db;
 }

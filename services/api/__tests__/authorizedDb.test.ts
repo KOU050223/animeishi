@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { setupTestDb } from "./helpers/setup-db.js";
 import { authorizedDb } from "../src/repository/authorizedDb.js";
 import { animeTitles, users } from "../src/db/schema.js";

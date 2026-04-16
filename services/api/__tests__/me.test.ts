@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db.js";
 import { me } from "../src/routes/me.js";
