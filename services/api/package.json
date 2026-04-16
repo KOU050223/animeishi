@@ -1,0 +1,36 @@
+{
+  "name": "@animeishi/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "types": "./src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "test": "vitest run && vitest run --config vitest.eslint.config.ts",
+    "test:watch": "vitest",
+    "test:eslint-rules": "vitest run --config vitest.eslint.config.ts",
+    "lint": "eslint src __tests__",
+    "format": "prettier --write src __tests__",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply animeishi-db --local",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@animeishi/schema": "workspace:*",
+    "drizzle-orm": "^0.43.1",
+    "hono": "^4.7.10",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.11",
+    "@cloudflare/workers-types": "^4.20250409.0",
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2",
+    "wrangler": "^4.12.0",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3"
+  }
+}

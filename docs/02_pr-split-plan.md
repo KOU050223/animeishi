@@ -79,37 +79,48 @@ gh stack view --json
 * **実装**: Zodスキーマの定義、旧アプリからのバリデーションルールの移植、受け入れ基準のMarkdown追加。
 * **テスト**: Zodの入力バリデーションテスト。
 
+## クライアント-サーバー間通信方針: HonoRPC
+
+すべての PR において、モバイル → API の通信は **HonoRPC**（`hono/client` の `hc<AppType>()`）で型安全に行う。
+
+* `services/api/src/index.ts` でルートチェーンを `routes` 変数に束縛し `export type AppType = typeof routes` する
+* `packages/contracts/src/index.ts` で `AppType` を re-export する（ランタイム依存なし）
+* `apps/mobile` は `hc<AppType>(EXPO_PUBLIC_API_URL)` でクライアントを生成し、`$get` / `$post` / `$delete` を使う
+* API ルートを追加・変更すると mobile 側の型エラーが即座に出るため、**手書きの型定義は不要**
+
+---
+
 ## Phase 1: API基盤と認証
 ### PR 2: Hono API基盤とD1/Drizzleセットアップ
 * **内容**: `services/api` の初期化、D1のローカル（Miniflare）環境構築。
-* **実装**: Drizzleによるスキーマ定義、`authorizedDb` (リポジトリ層) の作成、直接DB更新を禁止するESLintルールの追加。
+* **実装**: Drizzleによるスキーマ定義、`authorizedDb` (リポジトリ層) の作成、直接DB更新を禁止するESLintルールの追加。`AppType` を export できる構造にしておく（ルートはチェーンで繋ぐ）。
 * **テスト**: VitestでのDBアクセス単体テスト。
 
-### PR 3: Clerk認証とプロフィールAPI
-* **内容**: HonoのClerk JWT検証ミドルウェア追加。
-* **実装**: `GET /me/profile`, `PUT /me/profile` の作成。
+### PR 3: Clerk認証とプロフィールAPI（HonoRPC対応）
+* **内容**: HonoのClerk JWT検証ミドルウェア追加。`packages/contracts` の初期化。
+* **実装**: `GET /me/profile`, `PUT /me/profile` の作成。`AppType` を `packages/contracts` 経由でエクスポート。
 * **テスト**: 認可テスト（正しいJWTならOK、不正・無しの場合は401を返すか）。
 
 ## Phase 2: モバイル基盤
 ### PR 4: Expo基盤とサインアップUI
 * **内容**: `apps/mobile` の初期化、Expo Router, NativeWindの設定。
-* **実装**: Clerk Expo SDK導入、サインイン/サインアップ画面の作成、QueryClient/Zustandの設定。
+* **実装**: Clerk Expo SDK導入、サインイン/サインアップ画面の作成、`hc<AppType>()` で HonoRPC クライアントを生成する共通モジュール（`lib/api.ts`）の作成、QueryClient/Zustandの設定。
 * **テスト**: React Native Testing Library (RNTL) による認証フローのモックテスト。
 
 ## Phase 3: コア機能（アニメ一覧と履歴）
 ### PR 5: アニメ一覧APIとローカルキャッシュ
 * **内容**: D1からのアニメマスタ取得とモバイル側での表示。
-* **実装**: `GET /titles` API（Cache API含む）、モバイル側のローカル永続化（AsyncStorage）、一覧表示・検索・ソートUI。
+* **実装**: `GET /titles` API（Cache API含む）、モバイル側は `hc<AppType>().titles.$get()` + TanStack Query + `persistQueryClient` で AsyncStorage 永続化、一覧表示・検索・ソートUI。
 * **テスト**: モバイル側での検索・ソートのロジックテスト、APIのレスポンステスト。
 
 ### PR 6: 視聴履歴とプレビュー画面
 * **内容**: アニメの視聴記録機能。
-* **実装**: 視聴履歴のCRUD API、モバイル側のWatchListPageの実装。
+* **実装**: 視聴履歴のCRUD API、モバイル側は `hc<AppType>().me['watch-histories'].$get()` 等で呼び出し、WatchListPageを実装。
 * **テスト**: 視聴追加・削除の受け入れテスト。
 
 ### PR 7: お気に入り機能
 * **内容**: アニメのお気に入り登録機能。
-* **実装**: お気に入りCRUD API、UIへの反映。
+* **実装**: お気に入りCRUD API、モバイル側は HonoRPC クライアントでUIへ反映。
 * **テスト**: お気に入りの追加・削除テスト。
 
 ## Phase 4: ソーシャル機能
@@ -120,7 +131,7 @@ gh stack view --json
 
 ### PR 9: フレンド機能とSNSタイムライン
 * **内容**: QRスキャン後のフレンド登録と一覧表示。
-* **実装**: `POST /me/friends` API、N+1を避けたフレンド一覧取得、モバイル側のUI。
+* **実装**: `POST /me/friends` API（双方向 upsert）、N+1を避けたフレンド一覧取得、モバイル側は HonoRPC クライアントでUI実装。
 * **テスト**: 双方向でのフレンド登録テスト。
 
 ### PR 10: プロフィール画像圧縮と名刺UI
@@ -131,12 +142,12 @@ gh stack view --json
 ## Phase 5: 公開・バッチ・AI
 ### PR 11: Web公開ページと動的OGP生成
 * **内容**: 未ログインユーザー向けのビューアページ。
-* **実装**: Hono側での `Accept: text/html` 判定とOGP付き静的HTMLの返却、Expo Router Webの動的ルーティング (`app/user/[uid]`)。
+* **実装**: Hono側での `Accept: text/html` 判定とOGP付き静的HTMLの返却（HonoRPC 対象外 — ブラウザ直アクセスのため）、Expo Router Webの動的ルーティング (`app/user/[uid]`)。
 * **テスト**: E2E (Playwright) による公開ページの表示テスト。
 
 ### PR 12: Gemini分析APIの移植
 * **内容**: Geminiによる視聴傾向分析。
-* **実装**: 旧Functionsからのロジック移植、分析結果を返すエンドポイント作成。
+* **実装**: 旧Functionsからのロジック移植、`POST /analysis/gemini` エンドポイント作成、モバイルは HonoRPC クライアントで呼び出し。
 * **テスト**: モックを用いた分析レスポンスのテスト。
 
 ### PR 13: Cronトリガーとキャッシュパージ
