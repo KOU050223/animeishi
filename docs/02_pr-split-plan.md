@@ -21,6 +21,58 @@
 
 ---
 
+## gh-stack スキルの使い方
+
+本プロジェクトでは **`gh-stack`** スキル（`.agents/skills/gh-stack/`）を用いて、スタックドPRの作成・管理を Claude Code から自動化できます。
+
+### セットアップ
+
+```bash
+# GitHub CLI 拡張機能のインストール（初回のみ）
+gh extension install github/gh-stack
+
+# git 設定（インタラクティブプロンプト防止）
+git config rerere.enabled true
+git config remote.pushDefault origin
+```
+
+### 基本的なワークフロー
+
+```bash
+# 1. スタックを初期化（例: PR 2 の作業開始時）
+gh stack init -p feat hono-api-setup
+
+# 2. コードを書いてコミット
+git add <files>
+git commit -m "feat: Hono API基盤のセットアップ"
+
+# 3. 次のPR層を追加
+gh stack add clerk-auth
+
+# 4. プッシュしてドラフトPRを作成
+gh stack submit --auto --draft
+
+# 5. スタックの状態確認
+gh stack view --json
+```
+
+### PR作成後の運用
+
+| 操作 | コマンド |
+|------|---------|
+| スタック全体のリベース・同期 | `gh stack sync` |
+| 下位ブランチの修正 → 上位へ伝搬 | `gh stack down` → コミット → `gh stack rebase --upstack` |
+| squash merge 後の同期 | `gh stack sync`（自動検出）|
+| スタックの再構成 | `gh stack unstack` → `gh stack init --adopt` |
+
+### 注意事項
+
+- **`gh stack view` は必ず `--json` を付ける**（付けないとTUIが起動して固まる）
+- **`gh stack submit` は必ず `--auto` を付ける**（付けないとタイトル入力プロンプトが出る）
+- PR のマージは CLI 非対応のため、ブラウザから行う
+
+---
+
 ## Phase 0: 準備・スキーマ定義
 ### PR 1: モノレポ基盤とスキーマ定義
 * **内容**: pnpm workspace, turboの設定、`packages/schema` の作成。
