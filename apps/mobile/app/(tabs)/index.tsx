@@ -13,6 +13,8 @@ export default function HomeScreen() {
         className="bg-gray-200 rounded-lg px-6 py-3"
         onPress={() => signOut()}
         testID="sign-out-button"
+        accessibilityRole="button"
+        accessibilityLabel="サインアウト"
       >
         <Text className="text-gray-700 font-semibold">サインアウト</Text>
       </TouchableOpacity>

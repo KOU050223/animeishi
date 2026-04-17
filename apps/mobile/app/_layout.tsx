@@ -5,12 +5,14 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
-import Constants from "expo-constants";
 
-const publishableKey =
-  (Constants.expoConfig?.extra?.clerkPublishableKey as string | undefined) ??
-  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ??
-  "";
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+if (!publishableKey) {
+  throw new Error(
+    "Clerk publishable key が設定されていません。.env に EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY を設定してください。"
+  );
+}
 
 function AuthGuard() {
   const { isLoaded, isSignedIn } = useAuth();
