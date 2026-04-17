@@ -21,7 +21,7 @@
   "dependencies": {
     "@animeishi/schema": "workspace:*",
     "@clerk/backend": "^3.2.12",
-    "@hono/clerk-auth": "^3.1.1",
+    "@clerk/hono": "^0.1.15",
     "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.7.10",
@@ -30,6 +30,8 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.14.7",
     "@cloudflare/workers-types": "^4.20260416.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.9.0",
     "drizzle-kit": "^0.31.1",
     "eslint": "^10.2.0",
     "prettier": "^3.5.3",
