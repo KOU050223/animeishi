@@ -1,2 +1,2 @@
-export * from "./validators.js";
-export * from "./errors.js";
+export * from "./validators";
+export * from "./errors";
