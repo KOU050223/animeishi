@@ -23,8 +23,15 @@ export default function AnimeListScreen() {
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
+  const [refreshing, setRefreshing] = useState(false);
   const { data, isLoading, isError, refetch } = useAnimeList();
   const filtered = useFilteredAnimeList(data, query, sortKey, sortOrder);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -98,6 +105,8 @@ export default function AnimeListScreen() {
         data={filtered}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ItemSeparatorComponent={() => <View style={{ height: 1 }} className="bg-gray-100" />}
         renderItem={({ item }) => (
           <View className="flex-row items-center py-3 gap-3" testID={`anime-item-${item.id}`}>
