@@ -15,6 +15,7 @@
     "@animeishi/contracts": "workspace:*",
     "@animeishi/schema": "workspace:*",
     "@clerk/clerk-expo": "^2.10.0",
+    "@expo/metro-runtime": "^6.1.2",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/query-async-storage-persister": "^5.75.1",
