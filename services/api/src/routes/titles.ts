@@ -16,33 +16,43 @@ titles.use("*", requireAuth);
  * アニメ一覧を返す。Cloudflare Cache API で TTL=1時間キャッシュ。
  */
 titles.get("/", async (c) => {
-  const cache = caches.default;
-  const cacheReq = new Request(CACHE_KEY);
+  const env = c.env as AuthEnv["Bindings"] & { DB: unknown; ENVIRONMENT?: string };
+  const isProd = env.ENVIRONMENT === "production";
 
-  const cached = await cache.match(cacheReq);
-  if (cached) {
-    return cached;
+  if (isProd) {
+    const cache = caches.default;
+    const cacheReq = new Request(CACHE_KEY);
+
+    const cached = await cache.match(cacheReq);
+    if (cached) {
+      return cached;
+    }
+
+    const db = createDb(env.DB);
+    const adb = authorizedDb(db, c.var.clerkUserId);
+    const data = await adb.getAnimeTitles();
+
+    const response = new Response(JSON.stringify(data), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": `public, max-age=${CACHE_TTL}`,
+      },
+    });
+
+    try {
+      c.executionCtx.waitUntil(cache.put(cacheReq, response.clone()));
+    } catch {
+      // ExecutionContext が存在しない場合は無視する
+    }
+
+    return response;
   }
 
-  const env = c.env as AuthEnv["Bindings"] & { DB: unknown };
   const db = createDb(env.DB);
   const adb = authorizedDb(db, c.var.clerkUserId);
   const data = await adb.getAnimeTitles();
 
-  const response = new Response(JSON.stringify(data), {
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": `public, max-age=${CACHE_TTL}`,
-    },
-  });
-
-  try {
-    c.executionCtx.waitUntil(cache.put(cacheReq, response.clone()));
-  } catch {
-    // テスト環境など ExecutionContext が存在しない場合は無視する
-  }
-
-  return response;
+  return c.json(data);
 });
 
 export { titles };
