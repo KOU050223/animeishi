@@ -7,7 +7,10 @@
     "skipLibCheck": true,
     "declaration": true,
     "outDir": "./dist",
-    "types": ["@cloudflare/workers-types"]
+    "rootDir": "./src",
+    "paths": {
+      "@/*": ["../../services/api/src/*"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

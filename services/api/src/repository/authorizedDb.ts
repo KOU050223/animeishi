@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import type { DrizzleDb } from "../db/client.js";
-import { users, watchHistory, favorites, friends, userGenres, animeTitles } from "../db/schema.js";
+import type { DrizzleDb } from "@/db/client";
+import { users, watchHistory, favorites, friends, userGenres, animeTitles } from "@/db/schema";
 import type {
   User,
   NewUser,
@@ -10,7 +10,7 @@ import type {
   NewFavorite,
   Friend,
   AnimeTitle,
-} from "../db/schema.js";
+} from "@/db/schema";
 
 /**
  * authorizedDb: 認証済みユーザーIDを束縛したリポジトリ層。

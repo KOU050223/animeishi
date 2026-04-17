@@ -21,14 +21,39 @@
 
 ---
 
-## gh-stack スキルの使い方
+## PR 依存関係ツリー
 
-本プロジェクトでは **`gh-stack`** スキル（`.agents/skills/gh-stack/`）を用いて、スタックドPRの作成・管理を Claude Code から自動化できます。
+各 PR の作業開始前に、依存元のブランチが `main` にマージ済みか（またはローカルで同期済みか）を確認すること。
 
-### セットアップ
+```
+main
+└── PR 1: モノレポ基盤・スキーマ定義
+    └── PR 2: Hono API基盤・D1/Drizzle
+        └── PR 3: Clerk認証・プロフィールAPI
+            ├── PR 4: Expo基盤・サインアップUI
+            │   └── PR 5: アニメ一覧API＋モバイルUI  ←(API側はPR2から)
+            │       ├── PR 6: 視聴履歴
+            │       │   └── PR 7: お気に入り
+            │       │       └── PR 8: QRコード生成・スキャン
+            │       │           └── PR 9: フレンド機能
+            │       │               └── PR 10: プロフィール画像・名刺UI
+            │       │                   ├── PR 11: Web公開・OGP
+            │       │                   └── PR 12: Gemini分析API
+            │       └── PR 13: Cronバッチ ←(API基盤PR2から独立可)
+            └── PR 14: 移行スクリプト（旧リポジトリ）
+```
+
+---
+
+## gh-stack を使った開発ワークフロー
+
+本プロジェクトでは **`gh-stack`** スキル（`.agents/skills/gh-stack/`）を用いて、スタックドPRの作成・管理を行う。
+依存関係ツリーの各 PR は、1つの gh-stack スタックに対応する。
+
+### セットアップ（初回のみ）
 
 ```bash
-# GitHub CLI 拡張機能のインストール（初回のみ）
+# GitHub CLI 拡張機能のインストール
 gh extension install github/gh-stack
 
 # git 設定（インタラクティブプロンプト防止）
@@ -36,40 +61,70 @@ git config rerere.enabled true
 git config remote.pushDefault origin
 ```
 
-### 基本的なワークフロー
+### 新しい PR の作業を始めるとき
+
+依存元の PR が `main` にマージ済みであることを確認してから始める。
 
 ```bash
-# 1. スタックを初期化（例: PR 2 の作業開始時）
-gh stack init -p feat hono-api-setup
+# 1. main を最新化
+git checkout main && git pull
 
-# 2. コードを書いてコミット
+# 2. スタックを初期化（例: PR 4「Expo基盤・サインアップUI」の作業開始）
+#    -p でプレフィックスを付けると、以降の add はサフィックスだけでよい
+gh stack init -p feat pr4-expo-auth
+
+# 3. コードを書いてコミット
 git add <files>
-git commit -m "feat: Hono API基盤のセットアップ"
+git commit -m "feat: Expo基盤のセットアップ"
 
-# 3. 次のPR層を追加
-gh stack add clerk-auth
+# 4. 次の層（PR 5 など）を同じスタックに追加する場合
+gh stack add pr5-anime-list
 
-# 4. プッシュしてドラフトPRを作成
+# 5. プッシュしてドラフトPRを作成
 gh stack submit --auto --draft
 
-# 5. スタックの状態確認
+# 6. スタックの状態確認（必ず --json を付ける）
 gh stack view --json
 ```
 
-### PR作成後の運用
+### 依存ツリーとスタック対応
+
+依存関係ツリーの各行が 1 つの PR ＝ 1 つのブランチに対応する。
+直列に並んでいる PR（例: PR 6 → PR 7 → PR 8）は、**1つのスタック**として積み上げることができる。
+分岐している PR（例: PR 10 からの PR 11 と PR 12）は、**別々のスタック**として管理する。
+
+```
+# 直列スタックの例（PR 6〜9 を1スタックで管理）
+main
+ └── feat/pr6-watch-history   → PR #6
+  └── feat/pr7-favorites      → PR #7
+   └── feat/pr8-qr-code       → PR #8
+    └── feat/pr9-friends      → PR #9
+
+# 分岐スタックの例（PR 10 から PR 11 と PR 12 が分岐）
+main
+ └── feat/pr10-profile-card   → PR #10  ← まずこれを単独スタックで作成・マージ
+      ↓ マージ後
+      ├── feat/pr11-web-ogp   → PR #11  ← 別スタック A
+      └── feat/pr12-gemini    → PR #12  ← 別スタック B
+```
+
+### 日常的な運用コマンド
 
 | 操作 | コマンド |
 |------|---------|
 | スタック全体のリベース・同期 | `gh stack sync` |
-| 下位ブランチの修正 → 上位へ伝搬 | `gh stack down` → コミット → `gh stack rebase --upstack` |
+| 下位ブランチを修正して上位へ伝搬 | `gh stack down` → コミット → `gh stack rebase --upstack` |
 | squash merge 後の同期 | `gh stack sync`（自動検出）|
-| スタックの再構成 | `gh stack unstack` → `gh stack init --adopt` |
+| スタックの再構成（順序変更など）| `gh stack unstack` → `gh stack init --adopt` |
+| PRをマージする | ブラウザから行う（CLI非対応）|
 
 ### 注意事項
 
 - **`gh stack view` は必ず `--json` を付ける**（付けないとTUIが起動して固まる）
 - **`gh stack submit` は必ず `--auto` を付ける**（付けないとタイトル入力プロンプトが出る）
-- PR のマージは CLI 非対応のため、ブラウザから行う
+- **`gh stack init` / `add` / `checkout` には必ずブランチ名を渡す**（省略するとプロンプトが出る）
+- サフィックスルール: `-p feat` でプレフィックスを設定した場合、`gh stack add auth` → `feat/auth` になる。`feat/auth` と渡すと `feat/feat/auth` になるので注意
 
 ---
 

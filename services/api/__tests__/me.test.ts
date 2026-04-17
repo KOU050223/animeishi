@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "./helpers/setup-db.js";
-import { me } from "../src/routes/me.js";
-import { users } from "../src/db/schema.js";
-import { createDb } from "../src/db/client.js";
+import { setupTestDb } from "./helpers/setup-db";
+import { me } from "@/routes/me";
+import { users } from "@/db/schema";
+import { createDb } from "@/db/client";
 
 // @hono/clerk-auth の getAuth をモック
 vi.mock("@hono/clerk-auth", () => ({

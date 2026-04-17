@@ -1,15 +1,20 @@
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
-import type { Env } from "../db/client.js";
+import type { Env } from "@/db/client";
 
-export type AuthEnv = {
+// hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
+export type AuthVariables = {
+  Variables: {
+    clerkUserId: string;
+  };
+};
+
+// サーバー実装向け: Workers Bindings込みの完全な型
+export type AuthEnv = AuthVariables & {
   Bindings: Env & {
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
-  };
-  Variables: {
-    clerkUserId: string;
   };
 };
 
