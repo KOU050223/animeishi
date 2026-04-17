@@ -8,7 +8,6 @@
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
-
     "paths": {
       "@/*": ["../../services/api/src/*"]
     }

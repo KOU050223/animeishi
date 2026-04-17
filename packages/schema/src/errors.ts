@@ -1,7 +1,9 @@
 // Clerk エラーコード → 日本語メッセージ辞書
 // ref: https://clerk.com/docs/errors/frontend-api
 
-export const AuthErrors: Record<string, string> = {
+type ErrorMap = Record<string, string> & { _default: string };
+
+export const AuthErrors: ErrorMap = {
   // サインイン
   form_identifier_not_found: "このメールアドレスのアカウントは存在しません",
   form_password_incorrect: "パスワードが間違っています",
@@ -23,7 +25,7 @@ export const AuthErrors: Record<string, string> = {
   _default: "認証エラーが発生しました。しばらくしてから再試行してください",
 };
 
-export const QRErrors: Record<string, string> = {
+export const QRErrors: ErrorMap = {
   invalid_format: "無効なQRコードです",
   self_scan: "自分のQRコードはスキャンできません",
   user_not_found: "このユーザーは存在しません",
@@ -33,7 +35,7 @@ export const QRErrors: Record<string, string> = {
   _default: "QRコードの処理中にエラーが発生しました",
 };
 
-export const AnimeListErrors: Record<string, string> = {
+export const AnimeListErrors: ErrorMap = {
   fetch_failed: "アニメリストの取得に失敗しました",
   save_failed: "アニメの保存に失敗しました",
   delete_failed: "アニメの削除に失敗しました",
@@ -42,7 +44,7 @@ export const AnimeListErrors: Record<string, string> = {
   _default: "アニメリストの処理中にエラーが発生しました",
 };
 
-export const ProfileErrors: Record<string, string> = {
+export const ProfileErrors: ErrorMap = {
   update_failed: "プロフィールの更新に失敗しました",
   invalid_username: "ユーザー名が無効です",
   username_too_long: "ユーザー名が長すぎます（20文字以内で入力してください）",
@@ -51,17 +53,17 @@ export const ProfileErrors: Record<string, string> = {
 };
 
 export function getAuthError(code: string): string {
-  return AuthErrors[code] ?? AuthErrors._default!;
+  return AuthErrors[code] ?? AuthErrors._default;
 }
 
 export function getQRError(code: string): string {
-  return QRErrors[code] ?? QRErrors._default!;
+  return QRErrors[code] ?? QRErrors._default;
 }
 
 export function getAnimeListError(code: string): string {
-  return AnimeListErrors[code] ?? AnimeListErrors._default!;
+  return AnimeListErrors[code] ?? AnimeListErrors._default;
 }
 
 export function getProfileError(code: string): string {
-  return ProfileErrors[code] ?? ProfileErrors._default!;
+  return ProfileErrors[code] ?? ProfileErrors._default;
 }
