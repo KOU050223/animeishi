@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Animeishi",
+    "slug": "animeishi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "animeishi",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.animeishi.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.animeishi.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
