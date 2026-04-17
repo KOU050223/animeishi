@@ -8,5 +8,6 @@ module.exports = function (api) {
         { jsxImportSource: isTest ? "react" : "nativewind" },
       ],
     ],
+    plugins: isTest ? [] : ["react-native-reanimated/plugin"],
   };
 };
