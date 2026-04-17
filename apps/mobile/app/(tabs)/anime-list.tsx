@@ -98,17 +98,17 @@ export default function AnimeListScreen() {
         data={filtered}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-px bg-gray-100" />}
+        ItemSeparatorComponent={() => <View style={{ height: 1 }} className="bg-gray-100" />}
         renderItem={({ item }) => (
           <View className="flex-row items-center py-3 gap-3" testID={`anime-item-${item.id}`}>
             {item.thumbnailUrl ? (
               <Image
                 source={{ uri: item.thumbnailUrl }}
-                className="w-12 h-16 rounded bg-gray-200"
+                style={{ width: 48, height: 64, borderRadius: 4, backgroundColor: '#e5e7eb' }}
                 resizeMode="cover"
               />
             ) : (
-              <View className="w-12 h-16 rounded bg-gray-200 items-center justify-center">
+              <View style={{ width: 48, height: 64, borderRadius: 4 }} className="bg-gray-200 items-center justify-center">
                 <Text className="text-gray-400 text-xs">No img</Text>
               </View>
             )}
