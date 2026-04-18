@@ -26,7 +26,7 @@ titles.get("/", async (c) => {
   const isProd = env.ENVIRONMENT === "production";
 
   if (isProd) {
-    const cache = (caches as { default: Cache }).default;
+    const cache = (caches as unknown as { default: Cache }).default;
     const cacheReq = new Request(CACHE_KEY);
 
     const cached = await cache.match(cacheReq);

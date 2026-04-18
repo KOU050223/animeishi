@@ -11,5 +11,6 @@ module.exports = {
     "^@animeishi/contracts$":
       "<rootDir>/../../packages/contracts/src/index.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1",
+    "^@clerk/clerk-expo$": "<rootDir>/__mocks__/@clerk/clerk-expo.ts",
   },
 };
