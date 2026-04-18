@@ -19,7 +19,8 @@ describe("profileUpdateSchema", () => {
 
   it("有効なbioを受け入れる", () => {
     expect(
-      profileUpdateSchema.safeParse({ bio: "好きなアニメを集めています" }).success,
+      profileUpdateSchema.safeParse({ bio: "好きなアニメを集めています" })
+        .success,
     ).toBe(true);
   });
 
@@ -49,9 +50,9 @@ describe("profileUpdateSchema", () => {
   });
 
   it("1文字のusernameを拒否する", () => {
-    expect(
-      profileUpdateSchema.safeParse({ username: "a" }).success,
-    ).toBe(false);
+    expect(profileUpdateSchema.safeParse({ username: "a" }).success).toBe(
+      false,
+    );
   });
 
   it("21文字以上のusernameを拒否する", () => {
@@ -61,9 +62,9 @@ describe("profileUpdateSchema", () => {
   });
 
   it("予約語 admin をusernameとして拒否する", () => {
-    expect(
-      profileUpdateSchema.safeParse({ username: "admin" }).success,
-    ).toBe(false);
+    expect(profileUpdateSchema.safeParse({ username: "admin" }).success).toBe(
+      false,
+    );
   });
 
   it("501文字以上のbioを拒否する", () => {
@@ -73,9 +74,9 @@ describe("profileUpdateSchema", () => {
   });
 
   it("不適切な言葉を含むbioを拒否する", () => {
-    expect(
-      profileUpdateSchema.safeParse({ bio: "死ねと思う" }).success,
-    ).toBe(false);
+    expect(profileUpdateSchema.safeParse({ bio: "死ねと思う" }).success).toBe(
+      false,
+    );
   });
 
   it("URLを含むfavoriteQuoteを拒否する", () => {
