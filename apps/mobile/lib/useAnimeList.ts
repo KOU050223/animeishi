@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
+import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 
 export type SortKey = "title" | "year";
 export type SortOrder = "asc" | "desc";
+
+export type AnimeTitle = InferResponseType<typeof apiClient.titles.$get>[number];
 
 export const ANIME_LIST_QUERY_KEY = ["titles"] as const;
 
@@ -35,7 +38,7 @@ function normalizeText(text: string): string {
 }
 
 export function useFilteredAnimeList(
-  data: Awaited<ReturnType<ReturnType<typeof useAnimeList>["refetch"]>>["data"],
+  data: AnimeTitle[] | undefined,
   query: string,
   sortKey: SortKey,
   sortOrder: SortOrder

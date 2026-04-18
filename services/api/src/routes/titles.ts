@@ -4,6 +4,9 @@ import { requireAuth } from "@/middleware/auth";
 import { createDb } from "@/db/client";
 import { authorizedDb } from "@/repository/authorizedDb";
 
+// アニメマスターデータは全ユーザー共通のため、ユーザーIDでキャッシュを分けない。
+// ユーザーごとの視聴ステータスは /users/me/anime-status エンドポイントで別管理する。
+// フィルタリング（ジャンル・視聴状況等）はクライアント側（useFilteredAnimeList）で行う。
 const CACHE_KEY = "https://animeishi.internal/cache/titles";
 const CACHE_TTL = 3600;
 
@@ -13,7 +16,7 @@ titles.use("*", requireAuth);
 
 /**
  * GET /titles
- * アニメ一覧を返す。Cloudflare Cache API で TTL=1時間キャッシュ。
+ * アニメマスターデータ一覧を返す。Cloudflare Cache API で TTL=1時間キャッシュ。
  */
 titles.get("/", async (c) => {
   const env = c.env as AuthEnv["Bindings"] & { DB: unknown; ENVIRONMENT?: string };
