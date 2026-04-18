@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { profileUpdateSchema, VALID_GENRES } from "@/schema/validators";
+import {
+  profileUpdateSchema,
+  watchHistoryUpsertSchema,
+  VALID_GENRES,
+} from "@/schema/validators";
 
 // ---- profileUpdateSchema ----
 describe("profileUpdateSchema", () => {
@@ -84,6 +88,69 @@ describe("profileUpdateSchema", () => {
       profileUpdateSchema.safeParse({
         favoriteQuote: "見てhttps://example.com",
       }).success,
+    ).toBe(false);
+  });
+});
+
+// ---- watchHistoryUpsertSchema ----
+describe("watchHistoryUpsertSchema", () => {
+  it("有効なステータスのみで受け入れる", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "watching" }).success,
+    ).toBe(true);
+  });
+
+  it("全フィールドを受け入れる", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({
+        status: "completed",
+        score: 9,
+        comment: "面白かった",
+        watchedAt: "2025-01-01T00:00:00.000Z",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("無効なステータスを拒否する", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "invalid" }).success,
+    ).toBe(false);
+  });
+
+  it("スコア 0 を拒否する", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "watching", score: 0 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("スコア 11 を拒否する", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "watching", score: 11 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("スコア null を受け入れる", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "watching", score: null })
+        .success,
+    ).toBe(true);
+  });
+
+  it("スコア 1 〜 10 を受け入れる", () => {
+    for (const n of [1, 5, 10]) {
+      expect(
+        watchHistoryUpsertSchema.safeParse({ status: "completed", score: n })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  it("不適切なコメントを拒否する", () => {
+    expect(
+      watchHistoryUpsertSchema.safeParse({ status: "watching", comment: "死ね" })
+        .success,
     ).toBe(false);
   });
 });
