@@ -77,8 +77,8 @@ describe("GET /titles", () => {
     const body = await res.json() as { title: string }[];
     expect(body).toHaveLength(2);
     // title の昇順で返ってくる
-    expect(body[0].title).toBe("進撃の巨人");
-    expect(body[1].title).toBe("鬼滅の刃");
+    expect(body[0]!.title).toBe("進撃の巨人");
+    expect(body[1]!.title).toBe("鬼滅の刃");
   });
 
   it("レスポンスに Cache-Control ヘッダーが含まれる", async () => {
