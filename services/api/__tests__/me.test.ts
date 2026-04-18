@@ -5,15 +5,14 @@ import { setupTestDb } from "./helpers/setup-db";
 import { me } from "@/routes/me";
 import { users } from "@/db/schema";
 
-// @hono/clerk-auth の getAuth をモック
-vi.mock("@hono/clerk-auth", () => ({
+vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
     await next();
   },
   getAuth: vi.fn(),
 }));
 
-import { getAuth } from "@hono/clerk-auth";
+import { getAuth } from "@clerk/hono";
 
 const USER_ID = "user_testme001";
 
