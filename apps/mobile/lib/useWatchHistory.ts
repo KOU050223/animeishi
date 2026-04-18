@@ -4,7 +4,7 @@ import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
 
 type WatchHistoriesResponse = InferResponseType<
-  typeof apiClient.me["watch-histories"]["$get"],
+  (typeof apiClient.me)["watch-histories"]["$get"],
   200
 >;
 export type WatchHistoryItem = WatchHistoriesResponse[number];

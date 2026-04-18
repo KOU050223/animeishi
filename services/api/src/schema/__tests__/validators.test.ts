@@ -149,8 +149,10 @@ describe("watchHistoryUpsertSchema", () => {
 
   it("不適切なコメントを拒否する", () => {
     expect(
-      watchHistoryUpsertSchema.safeParse({ status: "watching", comment: "死ね" })
-        .success,
+      watchHistoryUpsertSchema.safeParse({
+        status: "watching",
+        comment: "死ね",
+      }).success,
     ).toBe(false);
   });
 });

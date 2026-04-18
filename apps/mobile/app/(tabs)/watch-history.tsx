@@ -46,12 +46,7 @@ export default function WatchHistoryScreen() {
     anime: AnimeTitle;
   } | null>(null);
 
-  const {
-    data: histories,
-    isLoading,
-    isError,
-    refetch,
-  } = useWatchHistory();
+  const { data: histories, isLoading, isError, refetch } = useWatchHistory();
   const { data: animes } = useAnimeList();
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
@@ -62,8 +57,9 @@ export default function WatchHistoryScreen() {
 
   const enriched = (histories ?? [])
     .map((h) => ({ history: h, anime: animeMap.get(h.animeId) }))
-    .filter((item): item is { history: WatchHistoryItem; anime: AnimeTitle } =>
-      item.anime !== undefined,
+    .filter(
+      (item): item is { history: WatchHistoryItem; anime: AnimeTitle } =>
+        item.anime !== undefined,
     );
 
   async function onRefresh() {
@@ -73,18 +69,14 @@ export default function WatchHistoryScreen() {
   }
 
   function confirmDelete(animeId: number, title: string) {
-    Alert.alert(
-      "視聴履歴を削除",
-      `「${title}」の視聴履歴を削除しますか？`,
-      [
-        { text: "キャンセル", style: "cancel" },
-        {
-          text: "削除",
-          style: "destructive",
-          onPress: () => remove.mutate(animeId),
-        },
-      ],
-    );
+    Alert.alert("視聴履歴を削除", `「${title}」の視聴履歴を削除しますか？`, [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "削除",
+        style: "destructive",
+        onPress: () => remove.mutate(animeId),
+      },
+    ]);
   }
 
   if (isLoading) {
@@ -190,7 +182,12 @@ function WatchHistoryRow({
       {anime.thumbnailUrl ? (
         <Image
           source={{ uri: anime.thumbnailUrl }}
-          style={{ width: 48, height: 64, borderRadius: 4, backgroundColor: "#e5e7eb" }}
+          style={{
+            width: 48,
+            height: 64,
+            borderRadius: 4,
+            backgroundColor: "#e5e7eb",
+          }}
           resizeMode="cover"
         />
       ) : (
@@ -259,7 +256,7 @@ function EditModal({
   onSave: (data: {
     status: WatchStatus;
     score: number | null;
-    comment: string | null;
+    comment: string | undefined;
     watchedAt: string | null;
   }) => void;
   isSaving: boolean;
@@ -269,24 +266,27 @@ function EditModal({
   const [comment, setComment] = useState<string>(history.comment ?? "");
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View
-        className="flex-1 justify-end bg-black/50"
-        accessibilityViewIsModal
-      >
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View className="flex-1 justify-end bg-black/50" accessibilityViewIsModal>
         <View className="bg-white rounded-t-2xl px-6 pt-6 pb-10">
-          <Text className="text-lg font-bold text-gray-900 mb-1" numberOfLines={2}>
+          <Text
+            className="text-lg font-bold text-gray-900 mb-1"
+            numberOfLines={2}
+          >
             {anime.title}
           </Text>
-          <Text className="text-xs text-gray-400 mb-5">視聴ステータスを編集</Text>
+          <Text className="text-xs text-gray-400 mb-5">
+            視聴ステータスを編集
+          </Text>
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">ステータス</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
+          <Text className="text-sm font-medium text-gray-700 mb-2">
+            ステータス
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-5"
+          >
             <View className="flex-row gap-2">
               {WATCH_STATUSES.map((s) => (
                 <TouchableOpacity
@@ -316,7 +316,11 @@ function EditModal({
           <Text className="text-sm font-medium text-gray-700 mb-2">
             スコア {score != null ? `(${score}/10)` : "(未評価)"}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-6"
+          >
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => setScore(null)}
@@ -362,7 +366,9 @@ function EditModal({
             </View>
           </ScrollView>
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">コメント</Text>
+          <Text className="text-sm font-medium text-gray-700 mb-2">
+            コメント
+          </Text>
           <TextInput
             className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-6"
             placeholder="感想やメモを入力..."
@@ -390,7 +396,7 @@ function EditModal({
                 onSave({
                   status,
                   score,
-                  comment: comment.trim() || null,
+                  comment: comment.trim() || undefined,
                   watchedAt: history.watchedAt
                     ? new Date(history.watchedAt).toISOString()
                     : null,
