@@ -31,6 +31,7 @@ export default function TabsLayout() {
         name="watch-history"
         options={{
           title: "視聴履歴",
+          tabBarAccessibilityLabel: "視聴履歴タブ",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),

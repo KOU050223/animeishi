@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  TextInput,
 } from "react-native";
 import {
   useWatchHistory,
@@ -265,6 +266,7 @@ function EditModal({
 }) {
   const [status, setStatus] = useState<WatchStatus>(history.status);
   const [score, setScore] = useState<number | null>(history.score ?? null);
+  const [comment, setComment] = useState<string>(history.comment ?? "");
 
   return (
     <Modal
@@ -360,6 +362,19 @@ function EditModal({
             </View>
           </ScrollView>
 
+          <Text className="text-sm font-medium text-gray-700 mb-2">コメント</Text>
+          <TextInput
+            className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-6"
+            placeholder="感想やメモを入力..."
+            placeholderTextColor="#9ca3af"
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            numberOfLines={3}
+            editable={!isSaving}
+            accessibilityLabel="コメント入力"
+          />
+
           <View className="flex-row gap-3">
             <TouchableOpacity
               className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
@@ -375,7 +390,7 @@ function EditModal({
                 onSave({
                   status,
                   score,
-                  comment: history.comment ?? null,
+                  comment: comment.trim() || null,
                   watchedAt: history.watchedAt
                     ? new Date(history.watchedAt).toISOString()
                     : null,

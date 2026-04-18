@@ -84,7 +84,8 @@ export function useDeleteWatchHistory() {
         { headers },
       );
       if (!res.ok) throw new Error("視聴履歴の削除に失敗しました");
-      return res.json();
+      const ct = res.headers.get("content-type") ?? "";
+      return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
