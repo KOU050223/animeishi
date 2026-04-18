@@ -19,7 +19,10 @@ titles.use("*", requireAuth);
  * アニメマスターデータ一覧を返す。Cloudflare Cache API で TTL=1時間キャッシュ。
  */
 titles.get("/", async (c) => {
-  const env = c.env as AuthEnv["Bindings"] & { DB: D1Database; ENVIRONMENT?: string };
+  const env = c.env as AuthEnv["Bindings"] & {
+    DB: D1Database;
+    ENVIRONMENT?: string;
+  };
   const isProd = env.ENVIRONMENT === "production";
 
   if (isProd) {

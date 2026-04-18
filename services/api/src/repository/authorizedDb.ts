@@ -1,6 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, watchHistory, favorites, friends, userGenres, animeTitles } from "@/db/schema";
+import {
+  users,
+  watchHistory,
+  favorites,
+  friends,
+  userGenres,
+  animeTitles,
+} from "@/db/schema";
 import type {
   User,
   NewUser,
@@ -25,7 +32,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
     },
 
-    async upsertMyProfile(data: Omit<NewUser, "id" | "createdAt" | "updatedAt">): Promise<User> {
+    async upsertMyProfile(
+      data: Omit<NewUser, "id" | "createdAt" | "updatedAt">,
+    ): Promise<User> {
       const now = new Date();
       await db
         .insert(users)
@@ -58,12 +67,18 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
     async upsertWatchHistory(
       animeId: number,
-      data: Pick<NewWatchHistory, "status" | "score" | "comment" | "watchedAt">
+      data: Pick<NewWatchHistory, "status" | "score" | "comment" | "watchedAt">,
     ): Promise<WatchHistory> {
       const now = new Date();
       await db
         .insert(watchHistory)
-        .values({ userId: currentUserId, animeId, ...data, createdAt: now, updatedAt: now })
+        .values({
+          userId: currentUserId,
+          animeId,
+          ...data,
+          createdAt: now,
+          updatedAt: now,
+        })
         .onConflictDoUpdate({
           target: [watchHistory.userId, watchHistory.animeId],
           set: { ...data, updatedAt: now },
@@ -79,7 +94,12 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     async deleteWatchHistory(animeId: number): Promise<void> {
       await db
         .delete(watchHistory)
-        .where(and(eq(watchHistory.userId, currentUserId), eq(watchHistory.animeId, animeId)));
+        .where(
+          and(
+            eq(watchHistory.userId, currentUserId),
+            eq(watchHistory.animeId, animeId),
+          ),
+        );
     },
 
     // ---- Favorites ----
@@ -107,7 +127,12 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     async removeFavorite(animeId: number): Promise<void> {
       await db
         .delete(favorites)
-        .where(and(eq(favorites.userId, currentUserId), eq(favorites.animeId, animeId)));
+        .where(
+          and(
+            eq(favorites.userId, currentUserId),
+            eq(favorites.animeId, animeId),
+          ),
+        );
     },
 
     // ---- Friends ----

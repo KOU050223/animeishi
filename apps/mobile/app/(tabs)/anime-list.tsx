@@ -109,17 +109,30 @@ export default function AnimeListScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        ItemSeparatorComponent={() => <View style={{ height: 1 }} className="bg-gray-100" />}
+        ItemSeparatorComponent={() => (
+          <View style={{ height: 1 }} className="bg-gray-100" />
+        )}
         renderItem={({ item }) => (
-          <View className="flex-row items-center py-3 gap-3" testID={`anime-item-${item.id}`}>
+          <View
+            className="flex-row items-center py-3 gap-3"
+            testID={`anime-item-${item.id}`}
+          >
             {item.thumbnailUrl ? (
               <Image
                 source={{ uri: item.thumbnailUrl }}
-                style={{ width: 48, height: 64, borderRadius: 4, backgroundColor: '#e5e7eb' }}
+                style={{
+                  width: 48,
+                  height: 64,
+                  borderRadius: 4,
+                  backgroundColor: "#e5e7eb",
+                }}
                 resizeMode="cover"
               />
             ) : (
-              <View style={{ width: 48, height: 64, borderRadius: 4 }} className="bg-gray-200 items-center justify-center">
+              <View
+                style={{ width: 48, height: 64, borderRadius: 4 }}
+                className="bg-gray-200 items-center justify-center"
+              >
                 <Text className="text-gray-400 text-xs">No img</Text>
               </View>
             )}
@@ -128,7 +141,10 @@ export default function AnimeListScreen() {
                 {item.title}
               </Text>
               {item.titleEnglish ? (
-                <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={1}>
+                <Text
+                  className="text-gray-400 text-xs mt-0.5"
+                  numberOfLines={1}
+                >
                   {item.titleEnglish}
                 </Text>
               ) : null}
@@ -136,11 +152,14 @@ export default function AnimeListScreen() {
                 {item.year ? (
                   <Text className="text-indigo-500 text-xs">
                     {item.year}年
-                    {item.season ? SEASONS[item.season] ?? "" : ""}
+                    {item.season ? (SEASONS[item.season] ?? "") : ""}
                   </Text>
                 ) : null}
-                {(item.genres ?? []).slice(0, 3).map((g : string) => (
-                  <Text key={g} className="text-gray-500 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                {(item.genres ?? []).slice(0, 3).map((g: string) => (
+                  <Text
+                    key={g}
+                    className="text-gray-500 text-xs bg-gray-100 px-1.5 py-0.5 rounded"
+                  >
                     {g}
                   </Text>
                 ))}
@@ -150,7 +169,9 @@ export default function AnimeListScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400">該当するアニメが見つかりません</Text>
+            <Text className="text-gray-400">
+              該当するアニメが見つかりません
+            </Text>
           </View>
         }
       />
@@ -179,7 +200,9 @@ function SortButton({
       accessibilityLabel={`${label}${order === "asc" ? " 昇順" : order === "desc" ? " 降順" : ""}`}
       accessibilityState={{ selected: active }}
     >
-      <Text className={`text-xs font-medium ${active ? "text-indigo-600" : "text-gray-500"}`}>
+      <Text
+        className={`text-xs font-medium ${active ? "text-indigo-600" : "text-gray-500"}`}
+      >
         {label}
         {order === "asc" ? " ↑" : order === "desc" ? " ↓" : ""}
       </Text>

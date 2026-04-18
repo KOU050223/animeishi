@@ -88,6 +88,10 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM users").run();
   await d1.prepare("DELETE FROM anime_titles").run();
   // AUTOINCREMENTカウンターをリセット
-  await d1.prepare("DELETE FROM sqlite_sequence WHERE name IN ('anime_titles', 'watch_history', 'favorites', 'friends', 'user_genres')").run();
+  await d1
+    .prepare(
+      "DELETE FROM sqlite_sequence WHERE name IN ('anime_titles', 'watch_history', 'favorites', 'friends', 'user_genres')",
+    )
+    .run();
   return db;
 }

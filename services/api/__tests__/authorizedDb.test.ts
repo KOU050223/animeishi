@@ -76,7 +76,10 @@ describe("authorizedDb", () => {
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
 
       await adb.upsertMyProfile({ username: "ユーザー1", isPublic: true });
-      await anotherAdb.upsertMyProfile({ username: "ユーザー2", isPublic: true });
+      await anotherAdb.upsertMyProfile({
+        username: "ユーザー2",
+        isPublic: true,
+      });
 
       // 各 authorizedDb は自分のプロフィールのみ返す
       const profile1 = await adb.getMyProfile();
@@ -128,8 +131,18 @@ describe("authorizedDb", () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
 
-      await adb.upsertWatchHistory(1, { status: "watching", score: null, comment: null, watchedAt: null });
-      await anotherAdb.upsertWatchHistory(2, { status: "completed", score: 10, comment: null, watchedAt: null });
+      await adb.upsertWatchHistory(1, {
+        status: "watching",
+        score: null,
+        comment: null,
+        watchedAt: null,
+      });
+      await anotherAdb.upsertWatchHistory(2, {
+        status: "completed",
+        score: 10,
+        comment: null,
+        watchedAt: null,
+      });
 
       const myHistory = await adb.getMyWatchHistory();
       expect(myHistory).toHaveLength(1);
@@ -138,7 +151,12 @@ describe("authorizedDb", () => {
 
     it("視聴履歴を削除できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.upsertWatchHistory(1, { status: "watching", score: null, comment: null, watchedAt: null });
+      await adb.upsertWatchHistory(1, {
+        status: "watching",
+        score: null,
+        comment: null,
+        watchedAt: null,
+      });
       await adb.deleteWatchHistory(1);
 
       const history = await adb.getMyWatchHistory();
@@ -188,7 +206,7 @@ describe("authorizedDb", () => {
     it("自分自身をフレンドに追加しようとするとエラー", async () => {
       const adb = authorizedDb(db, USER_ID);
       await expect(adb.addFriend(USER_ID)).rejects.toThrow(
-        "自分自身をフレンドに追加することはできません"
+        "自分自身をフレンドに追加することはできません",
       );
     });
   });

@@ -1,4 +1,11 @@
-import { integer, sqliteTable, text, index, unique, check } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  sqliteTable,
+  text,
+  index,
+  unique,
+  check,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // ---- users ----
@@ -50,8 +57,11 @@ export const watchHistory = sqliteTable(
   (t) => [
     unique("watch_history_user_anime_unique").on(t.userId, t.animeId),
     index("watch_history_user_idx").on(t.userId),
-    check("watch_history_score_range", sql`${t.score} IS NULL OR ${t.score} BETWEEN 1 AND 10`),
-  ]
+    check(
+      "watch_history_score_range",
+      sql`${t.score} IS NULL OR ${t.score} BETWEEN 1 AND 10`,
+    ),
+  ],
 );
 
 // ---- favorites ----
@@ -70,7 +80,7 @@ export const favorites = sqliteTable(
   (t) => [
     unique("favorites_user_anime_unique").on(t.userId, t.animeId),
     index("favorites_user_idx").on(t.userId),
-  ]
+  ],
 );
 
 // ---- friends ----
@@ -89,7 +99,7 @@ export const friends = sqliteTable(
   (t) => [
     unique("friends_user_friend_unique").on(t.userId, t.friendId),
     index("friends_user_idx").on(t.userId),
-  ]
+  ],
 );
 
 // ---- user_genres (選択ジャンル) ----
@@ -105,7 +115,7 @@ export const userGenres = sqliteTable(
   (t) => [
     unique("user_genres_user_genre_unique").on(t.userId, t.genre),
     index("user_genres_user_idx").on(t.userId),
-  ]
+  ],
 );
 
 // ---- Type exports ----

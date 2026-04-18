@@ -11,7 +11,9 @@ import { createDb } from "@/db/client";
 const me = new Hono<AuthVariables>();
 
 // Bindings へのアクセスをここに集約し、キャストが1箇所で済むようにする
-function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
+function getBindings(
+  c: Context,
+): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
 }
 

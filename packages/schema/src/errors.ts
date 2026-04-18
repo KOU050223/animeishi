@@ -7,14 +7,19 @@ export const AuthErrors: ErrorMap = {
   // サインイン
   form_identifier_not_found: "このメールアドレスのアカウントは存在しません",
   form_password_incorrect: "パスワードが間違っています",
-  user_locked: "ログイン試行回数が上限に達しました。しばらくしてから再試行してください",
-  form_password_compromised: "このパスワードは安全でないため使用できません。別のパスワードを設定してください",
+  user_locked:
+    "ログイン試行回数が上限に達しました。しばらくしてから再試行してください",
+  form_password_compromised:
+    "このパスワードは安全でないため使用できません。別のパスワードを設定してください",
   // サインアップ
   form_email_conflict: "このメールアドレスは既に使用されています",
   form_invalid_email_address: "有効なメールアドレスを入力してください",
-  form_password_not_strong_enough: "パスワードが弱すぎます。より複雑なパスワードを設定してください",
-  form_invalid_password_length_too_short: "パスワードは8文字以上で入力してください",
-  form_invalid_password_length_too_long: "パスワードは128文字以内で入力してください",
+  form_password_not_strong_enough:
+    "パスワードが弱すぎます。より複雑なパスワードを設定してください",
+  form_invalid_password_length_too_short:
+    "パスワードは8文字以上で入力してください",
+  form_invalid_password_length_too_long:
+    "パスワードは128文字以内で入力してください",
   form_password_no_lowercase: "パスワードには英小文字を含める必要があります",
   form_password_no_uppercase: "パスワードには英大文字を含める必要があります",
   form_password_no_number: "パスワードには数字を含める必要があります",

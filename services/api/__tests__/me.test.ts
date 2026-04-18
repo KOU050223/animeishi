@@ -45,16 +45,26 @@ describe("GET /me/profile & PUT /me/profile", () => {
   describe("認証なし（Authorizationヘッダーなし）", () => {
     it("401 を返す", async () => {
       // getAuth が null を返す = 未認証
-      vi.mocked(getAuth).mockReturnValue(null as unknown as ReturnType<typeof getAuth>);
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
 
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(401);
-      const body = await res.json() as { error: string };
+      const body = (await res.json()) as { error: string };
       expect(body.error).toBe("Unauthorized");
     });
   });
@@ -69,27 +79,43 @@ describe("GET /me/profile & PUT /me/profile", () => {
 
     it("GET /me/profile: プロフィール未作成なら 404", async () => {
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "GET",
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "GET",
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(404);
     });
 
     it("PUT /me/profile: プロフィールを作成できる", async () => {
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "テストユーザー",
-          bio: "自己紹介",
-          isPublic: true,
-        }),
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "テストユーザー",
+            bio: "自己紹介",
+            isPublic: true,
+          }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(200);
-      const body = await res.json() as { username: string; bio: string };
+      const body = (await res.json()) as { username: string; bio: string };
       expect(body.username).toBe("テストユーザー");
       expect(body.bio).toBe("自己紹介");
     });
@@ -106,12 +132,20 @@ describe("GET /me/profile & PUT /me/profile", () => {
       });
 
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "GET",
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "GET",
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(200);
-      const body = await res.json() as { username: string; id: string };
+      const body = (await res.json()) as { username: string; id: string };
       expect(body.id).toBe(USER_ID);
       expect(body.username).toBe("既存ユーザー");
     });
@@ -128,42 +162,69 @@ describe("GET /me/profile & PUT /me/profile", () => {
       });
 
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "新ユーザー名",
-          isPublic: false,
-        }),
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "新ユーザー名",
+            isPublic: false,
+          }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(200);
-      const body = await res.json() as { username: string; isPublic: boolean };
+      const body = (await res.json()) as {
+        username: string;
+        isPublic: boolean;
+      };
       expect(body.username).toBe("新ユーザー名");
       expect(body.isPublic).toBe(false);
     });
 
     it("PUT /me/profile: バリデーションエラー（username が空）は 400", async () => {
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "" }),
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "" }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(400);
     });
 
     it("PUT /me/profile: selectedGenres を設定できる", async () => {
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "ジャンルユーザー",
-          selectedGenres: ["アクション", "SF"],
-        }),
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "ジャンルユーザー",
+            selectedGenres: ["アクション", "SF"],
+          }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(200);
     });
@@ -176,9 +237,17 @@ describe("GET /me/profile & PUT /me/profile", () => {
       } as unknown as ReturnType<typeof getAuth>);
 
       const app = buildApp();
-      const res = await app.request("/me/profile", {
-        method: "GET",
-      }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "GET",
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
 
       expect(res.status).toBe(401);
     });

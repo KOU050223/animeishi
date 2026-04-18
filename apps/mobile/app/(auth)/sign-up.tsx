@@ -105,10 +105,7 @@ export default function SignUpScreen() {
           />
 
           {error && (
-            <Text
-              className="text-red-500 text-sm mb-4"
-              testID="error-message"
-            >
+            <Text className="text-red-500 text-sm mb-4" testID="error-message">
               {error}
             </Text>
           )}

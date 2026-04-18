@@ -113,7 +113,9 @@ describe("usernameSchema", () => {
 describe("userIdSchema", () => {
   it("28文字の英数字 (Firebase UID) を受け入れる", () => {
     expect(userIdSchema.safeParse("a".repeat(28)).success).toBe(true);
-    expect(userIdSchema.safeParse("AbCdEf1234567890AbCdEf123456").success).toBe(true);
+    expect(userIdSchema.safeParse("AbCdEf1234567890AbCdEf123456").success).toBe(
+      true,
+    );
   });
 
   it("Clerk ID (user_xxx) を受け入れる", () => {
@@ -139,7 +141,9 @@ describe("qrDataSchema", () => {
   const validClerkUid = "user_2abc123XYZ";
 
   it("animeishi://user/{uid} スキームを解析する (Firebase UID)", () => {
-    const result = qrDataSchema.safeParse(`animeishi://user/${validFirebaseUid}`);
+    const result = qrDataSchema.safeParse(
+      `animeishi://user/${validFirebaseUid}`,
+    );
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.type).toBe("scheme");
@@ -157,7 +161,9 @@ describe("qrDataSchema", () => {
   });
 
   it("https://viewer URL を解析する", () => {
-    const result = qrDataSchema.safeParse(`https://animeishi-viewer.web.app/user/${validFirebaseUid}`);
+    const result = qrDataSchema.safeParse(
+      `https://animeishi-viewer.web.app/user/${validFirebaseUid}`,
+    );
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.type).toBe("url");
@@ -223,7 +229,9 @@ describe("commentSchema", () => {
   });
 
   it("URLを含むコメントを拒否する", () => {
-    expect(commentSchema.safeParse("見てhttps://example.com").success).toBe(false);
+    expect(commentSchema.safeParse("見てhttps://example.com").success).toBe(
+      false,
+    );
   });
 });
 
@@ -254,7 +262,10 @@ describe("signUpSchema", () => {
   });
 
   it("パスワードが一致しない場合を拒否する", () => {
-    const result = signUpSchema.safeParse({ ...valid, passwordConfirmation: "Different1" });
+    const result = signUpSchema.safeParse({
+      ...valid,
+      passwordConfirmation: "Different1",
+    });
     expect(result.success).toBe(false);
   });
 });
@@ -262,11 +273,16 @@ describe("signUpSchema", () => {
 // ---- signInSchema ----
 describe("signInSchema", () => {
   it("有効なサインインデータを受け入れる", () => {
-    expect(signInSchema.safeParse({ email: "test@example.com", password: "any" }).success).toBe(true);
+    expect(
+      signInSchema.safeParse({ email: "test@example.com", password: "any" })
+        .success,
+    ).toBe(true);
   });
 
   it("メールなしを拒否する", () => {
-    expect(signInSchema.safeParse({ email: "", password: "any" }).success).toBe(false);
+    expect(signInSchema.safeParse({ email: "", password: "any" }).success).toBe(
+      false,
+    );
   });
 });
 
