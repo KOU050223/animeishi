@@ -19,11 +19,11 @@ export const passwordSchema = z
   .max(128, "パスワードは128文字以内で入力してください")
   .refine(
     (v) => /^(?=.*[a-zA-Z])(?=.*\d)/.test(v),
-    "パスワードは英字と数字を含む必要があります"
+    "パスワードは英字と数字を含む必要があります",
   )
   .refine(
     (v) => !WEAK_PATTERNS.some((p) => p.test(v)),
-    "より安全なパスワードを設定してください"
+    "より安全なパスワードを設定してください",
   );
 
 // ---- Username ----
@@ -37,11 +37,11 @@ export const usernameSchema = z
   .max(20, "ユーザー名は20文字以内で入力してください")
   .refine(
     (v) => /^[a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\-_ ]+$/.test(v),
-    "ユーザー名に使用できない文字が含まれています"
+    "ユーザー名に使用できない文字が含まれています",
   )
   .refine(
     (v) => !RESERVED_WORDS.includes(v.trim().toLowerCase()),
-    "別のユーザー名を選択してください"
+    "別のユーザー名を選択してください",
   );
 
 // ---- User ID (Firebase UID 互換: 28文字英数字 or Clerk ID: user_xxxxx) ----
@@ -50,49 +50,58 @@ export const userIdSchema = z
   .min(1, "ユーザーIDが必要です")
   .refine(
     (v) => /^[a-zA-Z0-9]{28}$/.test(v) || /^user_[a-zA-Z0-9]+$/.test(v),
-    "無効なユーザーIDです"
+    "無効なユーザーIDです",
   );
 
 // ---- QR data ----
-export const qrDataSchema = z.string().min(1, "QRコードデータが無効です").transform((v, ctx) => {
-  // animeishi://user/{userId} スキーム（new URL は authority を正しく扱えないため正規表現で解析）
-  const schemeMatch = v.match(/^animeishi:\/\/user\/([a-zA-Z0-9_]+)$/);
-  if (schemeMatch) {
-    const uid = schemeMatch[1];
-    const result = userIdSchema.safeParse(uid);
-    if (!result.success) {
-      ctx.addIssue({ code: "custom" as const, message: "無効なユーザーIDです" });
-      return z.NEVER;
-    }
-    return { type: "scheme" as const, userId: uid };
-  }
-
-  // https://... viewer URL
-  try {
-    const url = new URL(v);
-    const match = url.pathname.match(/^\/user\/([a-zA-Z0-9_]+)$/);
-    if (match) {
-      const uid = match[1];
+export const qrDataSchema = z
+  .string()
+  .min(1, "QRコードデータが無効です")
+  .transform((v, ctx) => {
+    // animeishi://user/{userId} スキーム（new URL は authority を正しく扱えないため正規表現で解析）
+    const schemeMatch = v.match(/^animeishi:\/\/user\/([a-zA-Z0-9_]+)$/);
+    if (schemeMatch) {
+      const uid = schemeMatch[1];
       const result = userIdSchema.safeParse(uid);
       if (!result.success) {
-        ctx.addIssue({ code: "custom" as const, message: "無効なユーザーIDです" });
+        ctx.addIssue({
+          code: "custom" as const,
+          message: "無効なユーザーIDです",
+        });
         return z.NEVER;
       }
-      return { type: "url" as const, userId: uid };
+      return { type: "scheme" as const, userId: uid };
     }
-  } catch {
-    // not a URL
-  }
 
-  // 28文字の英数字 (Firebase UID) または Clerk ID
-  const result = userIdSchema.safeParse(v);
-  if (result.success) {
-    return { type: "raw" as const, userId: v };
-  }
+    // https://... viewer URL
+    try {
+      const url = new URL(v);
+      const match = url.pathname.match(/^\/user\/([a-zA-Z0-9_]+)$/);
+      if (match) {
+        const uid = match[1];
+        const result = userIdSchema.safeParse(uid);
+        if (!result.success) {
+          ctx.addIssue({
+            code: "custom" as const,
+            message: "無効なユーザーIDです",
+          });
+          return z.NEVER;
+        }
+        return { type: "url" as const, userId: uid };
+      }
+    } catch {
+      // not a URL
+    }
 
-  ctx.addIssue({ code: "custom" as const, message: "無効なQRコードです" });
-  return z.NEVER;
-});
+    // 28文字の英数字 (Firebase UID) または Clerk ID
+    const result = userIdSchema.safeParse(v);
+    if (result.success) {
+      return { type: "raw" as const, userId: v };
+    }
+
+    ctx.addIssue({ code: "custom" as const, message: "無効なQRコードです" });
+    return z.NEVER;
+  });
 
 export type QRData = z.infer<typeof qrDataSchema>;
 
@@ -103,14 +112,14 @@ export const animeYearSchema = z
   .number()
   .int()
   .min(1950, `1950年から${CURRENT_YEAR + 5}年の間で入力してください`)
-  .max(CURRENT_YEAR + 5, `1950年から${CURRENT_YEAR + 5}年の間で入力してください`)
+  .max(
+    CURRENT_YEAR + 5,
+    `1950年から${CURRENT_YEAR + 5}年の間で入力してください`,
+  )
   .optional();
 
 // ---- Comment / bio ----
-const INAPPROPRIATE_PATTERNS = [
-  /死ね|殺す|バカ|アホ/,
-  /https?:\/\/[^\s]+/,
-];
+const INAPPROPRIATE_PATTERNS = [/死ね|殺す|バカ|アホ/, /https?:\/\/[^\s]+/];
 
 export const commentSchema = z
   .string()
@@ -118,15 +127,27 @@ export const commentSchema = z
   .max(500, "コメントは500文字以内で入力してください")
   .refine(
     (v) => !INAPPROPRIATE_PATTERNS.some((p) => p.test(v)),
-    "不適切な内容が含まれています"
+    "不適切な内容が含まれています",
   )
   .optional();
 
 // ---- Valid genres ----
 export const VALID_GENRES = [
-  "アクション", "コメディ", "ドラマ", "ファンタジー", "ホラー",
-  "ミステリー", "ロマンス", "SF", "スポーツ", "アドベンチャー",
-  "スリラー", "歴史", "音楽", "日常系", "異世界",
+  "アクション",
+  "コメディ",
+  "ドラマ",
+  "ファンタジー",
+  "ホラー",
+  "ミステリー",
+  "ロマンス",
+  "SF",
+  "スポーツ",
+  "アドベンチャー",
+  "スリラー",
+  "歴史",
+  "音楽",
+  "日常系",
+  "異世界",
 ] as const;
 
 export type Genre = (typeof VALID_GENRES)[number];

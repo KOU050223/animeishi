@@ -21,10 +21,10 @@ export function useAnimeList() {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await (apiClient as any).titles.$get(
+      const res = (await (apiClient as any).titles.$get(
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      ) as Response;
+        { headers: { Authorization: `Bearer ${token}` } },
+      )) as Response;
       if (!res.ok) throw new Error("アニメ一覧の取得に失敗しました");
       return res.json() as Promise<AnimeTitle[]>;
     },
@@ -34,7 +34,9 @@ export function useAnimeList() {
 function normalizeText(text: string): string {
   return text
     .normalize("NFKC")
-    .replace(/[\u30a1-\u30f6]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+    .replace(/[\u30a1-\u30f6]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0x60),
+    )
     .toLowerCase();
 }
 
@@ -42,7 +44,7 @@ export function useFilteredAnimeList(
   data: AnimeTitle[] | undefined,
   query: string,
   sortKey: SortKey,
-  sortOrder: SortOrder
+  sortOrder: SortOrder,
 ) {
   return useMemo(() => {
     if (!data) return [];
@@ -53,7 +55,7 @@ export function useFilteredAnimeList(
           (a) =>
             normalizeText(a.title).includes(q) ||
             normalizeText(a.titleReading ?? "").includes(q) ||
-            normalizeText(a.titleEnglish ?? "").includes(q)
+            normalizeText(a.titleEnglish ?? "").includes(q),
         )
       : data;
 

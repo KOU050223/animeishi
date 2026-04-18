@@ -13,4 +13,4 @@ const routes = app
   .route("/titles", titles);
 
 export type AppType = typeof routes;
-export default app;
+export default routes;
