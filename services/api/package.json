@@ -13,6 +13,7 @@
     "test:eslint-rules": "vitest run --config vitest.eslint.config.ts",
     "lint": "eslint src __tests__",
     "format": "prettier --write src __tests__",
+    "format:check": "prettier --check src __tests__",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply animeishi-db --local",
     "db:seed:local": "wrangler d1 execute animeishi-db --local --file=./seeds/seed.sql",
