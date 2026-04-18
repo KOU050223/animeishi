@@ -28,14 +28,16 @@ titles.get("/", async (c) => {
 
     const cached = await cache.match(cacheReq);
     if (cached) {
-      return cached;
+      return c.json(await cached.json(), 200, {
+        "Cache-Control": `public, max-age=${CACHE_TTL}`,
+      });
     }
 
     const db = createDb(env.DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
     const data = await adb.getAnimeTitles();
 
-    const response = new Response(JSON.stringify(data), {
+    const cacheResponse = new Response(JSON.stringify(data), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": `public, max-age=${CACHE_TTL}`,
@@ -43,12 +45,14 @@ titles.get("/", async (c) => {
     });
 
     try {
-      c.executionCtx.waitUntil(cache.put(cacheReq, response.clone()));
+      c.executionCtx.waitUntil(cache.put(cacheReq, cacheResponse.clone()));
     } catch {
       // ExecutionContext が存在しない場合は無視する
     }
 
-    return response;
+    return c.json(data, 200, {
+      "Cache-Control": `public, max-age=${CACHE_TTL}`,
+    });
   }
 
   const db = createDb(env.DB);

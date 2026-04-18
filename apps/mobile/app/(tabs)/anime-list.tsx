@@ -59,6 +59,8 @@ export default function AnimeListScreen() {
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={() => refetch()}
+          accessibilityRole="button"
+          accessibilityLabel="アニメ一覧を再取得"
         >
           <Text className="text-white font-semibold">再試行</Text>
         </TouchableOpacity>
