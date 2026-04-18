@@ -14,12 +14,9 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@animeishi/contracts':
+      '@animeishi/api':
         specifier: workspace:*
-        version: link:../../packages/contracts
-      '@animeishi/schema':
-        specifier: workspace:*
-        version: link:../../packages/schema
+        version: link:../../services/api
       '@clerk/clerk-expo':
         specifier: ^2.10.0
         version: 2.19.31(sz76z266biavpxzbzpyjpeaod4)
@@ -101,6 +98,9 @@ importers:
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19(tsx@4.21.0)(yaml@2.8.3)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
       zustand:
         specifier: ^5.0.4
         version: 5.0.12(@types/react@19.1.17)(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0))
@@ -148,64 +148,8 @@ importers:
         specifier: ^8.58.2
         version: 8.58.2(eslint@10.2.0(jiti@1.21.7))(typescript@5.9.3)
 
-  packages/contracts:
-    dependencies:
-      '@animeishi/api':
-        specifier: workspace:*
-        version: link:../../services/api
-      hono:
-        specifier: ^4.7.10
-        version: 4.12.14
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20260416.2
-        version: 4.20260416.2
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      eslint:
-        specifier: ^10.2.0
-        version: 10.2.0(jiti@1.21.7)
-      prettier:
-        specifier: ^3.5.3
-        version: 3.8.3
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      typescript-eslint:
-        specifier: ^8.58.2
-        version: 8.58.2(eslint@10.2.0(jiti@1.21.7))(typescript@6.0.2)
-
-  packages/schema:
-    dependencies:
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      eslint:
-        specifier: ^10.2.0
-        version: 10.2.0(jiti@1.21.7)
-      prettier:
-        specifier: ^3.5.3
-        version: 3.8.3
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      typescript-eslint:
-        specifier: ^8.58.2
-        version: 8.58.2(eslint@10.2.0(jiti@1.21.7))(typescript@6.0.2)
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@types/node@25.6.0)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(vite@7.3.2(@types/node@25.6.0)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
-
   services/api:
     dependencies:
-      '@animeishi/schema':
-        specifier: workspace:*
-        version: link:../../packages/schema
       '@clerk/backend':
         specifier: ^3.2.12
         version: 3.2.12(react-dom@18.3.1(react@19.2.5))(react@19.2.5)
@@ -9649,7 +9593,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 20.19.39
 
   '@types/deep-eql@4.0.2': {}
 
@@ -9708,11 +9652,11 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 20.19.39
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.6.0
+      '@types/node': 20.19.39
 
   '@types/yargs-parser@21.0.3': {}
 

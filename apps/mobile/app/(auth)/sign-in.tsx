@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useState } from "react";
-import { signInSchema } from "@animeishi/schema";
+import { signInSchema } from "@/lib/validators";
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
