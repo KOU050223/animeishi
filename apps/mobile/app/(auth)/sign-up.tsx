@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useState } from "react";
-import { signUpSchema } from "@animeishi/schema";
+import { signUpSchema } from "@/lib/validators";
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
