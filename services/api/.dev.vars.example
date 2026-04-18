@@ -1,0 +1,6 @@
+# Clerk
+# https://dashboard.clerk.com → アプリ → API Keys → Secret key
+CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Clerk Publishable key（JWT 検証に必要）
+CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
