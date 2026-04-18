@@ -8,6 +8,6 @@ module.exports = function (api) {
         { jsxImportSource: isTest ? "react" : "nativewind" },
       ],
     ],
-    plugins: isTest ? [] : ["nativewind/babel"],
+    plugins: [],
   };
 };

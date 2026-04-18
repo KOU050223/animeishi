@@ -10,6 +10,9 @@ database_name = "animeishi-db"
 database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 
 [env.production]
+[env.production.vars]
+ENVIRONMENT = "production"
+
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"

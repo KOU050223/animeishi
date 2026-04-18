@@ -18,6 +18,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="anime-list"
+        options={{
+          title: "アニメ",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

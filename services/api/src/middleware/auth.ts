@@ -1,4 +1,4 @@
-import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
+import { clerkMiddleware, getAuth } from "@clerk/hono";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { Env } from "@/db/client";

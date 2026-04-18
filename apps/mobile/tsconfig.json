@@ -3,11 +3,26 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*", "../../services/api/src/*"]
+      "@/*": [
+        "./*",
+        "../../services/api/src/*"
+      ]
     },
-    "types": ["jest", "node"],
+    "types": [
+      "jest",
+      "node",
+      "@cloudflare/workers-types"
+    ],
     "skipLibCheck": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
