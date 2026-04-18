@@ -23,7 +23,8 @@ titles.get("/", async (c) => {
   const isProd = env.ENVIRONMENT === "production";
 
   if (isProd) {
-    const cache = caches.default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cache = (caches as any).default as Cache;
     const cacheReq = new Request(CACHE_KEY);
 
     const cached = await cache.match(cacheReq);

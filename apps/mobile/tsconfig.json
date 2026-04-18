@@ -10,7 +10,8 @@
     },
     "types": [
       "jest",
-      "node"
+      "node",
+      "@cloudflare/workers-types"
     ],
     "skipLibCheck": true
   },

@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
-import type { InferResponseType } from "hono/client";
+import type { AnimeTitle } from "@/db/schema";
 import { apiClient } from "@/lib/api";
+
+export type { AnimeTitle };
 
 export type SortKey = "title" | "year";
 export type SortOrder = "asc" | "desc";
-
-export type AnimeTitle = InferResponseType<typeof apiClient.titles.$get>[number];
 
 export const ANIME_LIST_QUERY_KEY = ["titles"] as const;
 
@@ -20,12 +20,13 @@ export function useAnimeList() {
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
-      const res = await apiClient.titles.$get(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await (apiClient as any).titles.$get(
         {},
         { headers: { Authorization: `Bearer ${token}` } }
-      );
+      ) as Response;
       if (!res.ok) throw new Error("アニメ一覧の取得に失敗しました");
-      return res.json();
+      return res.json() as Promise<AnimeTitle[]>;
     },
   });
 }

@@ -139,7 +139,7 @@ export default function AnimeListScreen() {
                     {item.season ? SEASONS[item.season] ?? "" : ""}
                   </Text>
                 ) : null}
-                {(item.genres ?? []).slice(0, 3).map((g) => (
+                {(item.genres ?? []).slice(0, 3).map((g : string) => (
                   <Text key={g} className="text-gray-500 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
                     {g}
                   </Text>

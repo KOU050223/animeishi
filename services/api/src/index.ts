@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import type { Env } from "@/db/client";
-import { me } from "@/routes/me";
-import { titles } from "@/routes/titles";
+import type { Env } from "./db/client";
+import { me } from "./routes/me";
+import { titles } from "./routes/titles";
 
 const app = new Hono<{ Bindings: Env }>();
 
