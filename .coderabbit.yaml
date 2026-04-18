@@ -1,7 +1,8 @@
 # CodeRabbit 設定ファイル
 # docs: https://docs.coderabbit.ai/guides/configure-coderabbit
 
-version: "2"
+# コードレビューの言語設定
+language: "ja"
 
 # main 以外へのPRもレビュー対象にする（auto_review.base_branches で設定）
 reviews:
