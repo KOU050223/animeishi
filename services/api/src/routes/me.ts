@@ -31,12 +31,14 @@ const me = new Hono<AuthVariables>()
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
 
+    const existing = await adb.getMyProfile();
+
     const profile = await adb.upsertMyProfile({
       username: data.username ?? c.var.clerkUserId,
       bio: data.bio ?? null,
       favoriteQuote: data.favoriteQuote ?? null,
       isPublic: data.isPublic ?? true,
-      profileImageUrl: null,
+      profileImageUrl: existing?.profileImageUrl ?? null,
     });
 
     if (data.selectedGenres !== undefined) {

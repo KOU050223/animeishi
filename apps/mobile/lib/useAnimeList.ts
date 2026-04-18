@@ -4,8 +4,8 @@ import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 
-type TitlesResponse = InferResponseType<typeof apiClient.titles.$get>;
-export type AnimeTitle = Extract<TitlesResponse, unknown[]>[number];
+type TitlesResponse = InferResponseType<typeof apiClient.titles.$get, 200>;
+export type AnimeTitle = TitlesResponse[number];
 
 export type SortKey = "title" | "year";
 export type SortOrder = "asc" | "desc";
@@ -26,7 +26,7 @@ export function useAnimeList() {
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) throw new Error("アニメ一覧の取得に失敗しました");
-      return res.json() as Promise<AnimeTitle[]>;
+      return res.json();
     },
   });
 }

@@ -55,7 +55,14 @@ const genreSchema = z.enum(VALID_GENRES, {
 
 export const profileUpdateSchema = z.object({
   username: usernameSchema.optional(),
-  selectedGenres: z.array(genreSchema).max(15).optional(),
+  selectedGenres: z
+    .array(genreSchema)
+    .max(15)
+    .refine(
+      (genres) => new Set(genres).size === genres.length,
+      "ジャンルが重複しています",
+    )
+    .optional(),
   bio: commentSchema,
   favoriteQuote: commentSchema,
   isPublic: z.boolean().optional(),

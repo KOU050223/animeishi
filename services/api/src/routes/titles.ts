@@ -3,6 +3,7 @@ import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { requireAuth } from "@/middleware/auth";
 import { createDb } from "@/db/client";
 import { authorizedDb } from "@/repository/authorizedDb";
+import type { AnimeTitle } from "@/db/schema";
 
 // アニメマスターデータは全ユーザー共通のため、ユーザーIDでキャッシュを分けない。
 // ユーザーごとの視聴ステータスは /users/me/anime-status エンドポイントで別管理する。
@@ -25,7 +26,8 @@ const titles = new Hono<AuthVariables>()
 
       const cached = await cache.match(cacheReq);
       if (cached) {
-        return c.json(await cached.json(), 200, {
+        const cachedData = (await cached.json()) as AnimeTitle[];
+        return c.json(cachedData, 200, {
           "Cache-Control": `public, max-age=${CACHE_TTL}`,
         });
       }
@@ -56,7 +58,7 @@ const titles = new Hono<AuthVariables>()
     const adb = authorizedDb(db, c.var.clerkUserId);
     const data = await adb.getAnimeTitles();
 
-    return c.json(data);
+    return c.json(data, 200);
   });
 
 export { titles };

@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 const emailSchema = z
-  .email("有効なメールアドレスを入力してください")
+  .string()
   .min(1, "メールアドレスを入力してください")
-  .max(254, "メールアドレスが長すぎます");
+  .max(254, "メールアドレスが長すぎます")
+  .pipe(z.email("有効なメールアドレスを入力してください"));
 
 const WEAK_PATTERNS = [
   /^(.)\1{7,}/,
