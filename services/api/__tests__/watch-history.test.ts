@@ -133,7 +133,11 @@ describe("視聴履歴 API", () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "completed", score: 9, comment: "名作" }),
+          body: JSON.stringify({
+            status: "completed",
+            score: 9,
+            comment: "名作",
+          }),
         },
         TEST_BINDINGS,
       );
