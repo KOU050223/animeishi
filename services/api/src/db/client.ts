@@ -13,9 +13,7 @@ export type Env = {
  * 直接このクライアントを使ったDB操作は禁止。
  * 必ず authorizedDb（リポジトリ層）を経由すること。
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createDb(d1: any) {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+export function createDb(d1: D1Database) {
   return drizzle(d1, { schema });
 }
 

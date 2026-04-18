@@ -7,7 +7,6 @@ import type {
   WatchHistory,
   NewWatchHistory,
   Favorite,
-  NewFavorite,
   Friend,
   AnimeTitle,
 } from "@/db/schema";
