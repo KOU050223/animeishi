@@ -50,3 +50,6 @@ jobs:
 
       - name: TypeScript check
         run: pnpm --filter=@animeishi/schema exec tsc --noEmit
+
+      - name: ESLint check
+        run: pnpm turbo run lint
