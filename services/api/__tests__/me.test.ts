@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db";
 import { me } from "@/routes/me";
 import { users } from "@/db/schema";
-import { createDb } from "@/db/client";
 
 // @hono/clerk-auth の getAuth をモック
 vi.mock("@hono/clerk-auth", () => ({
@@ -29,7 +28,7 @@ type TestEnv = {
   };
 };
 
-function buildApp(d1: D1Database) {
+function buildApp() {
   const app = new Hono<TestEnv>();
   app.route("/me", me);
   return app;
@@ -48,7 +47,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
       // getAuth が null を返す = 未認証
       vi.mocked(getAuth).mockReturnValue(null as unknown as ReturnType<typeof getAuth>);
 
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -69,7 +68,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
     });
 
     it("GET /me/profile: プロフィール未作成なら 404", async () => {
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "GET",
       }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
@@ -78,7 +77,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
     });
 
     it("PUT /me/profile: プロフィールを作成できる", async () => {
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -106,7 +105,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
         updatedAt: now,
       });
 
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "GET",
       }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });
@@ -128,7 +127,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
         updatedAt: now,
       });
 
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -145,7 +144,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
     });
 
     it("PUT /me/profile: バリデーションエラー（username が空）は 400", async () => {
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -156,7 +155,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
     });
 
     it("PUT /me/profile: selectedGenres を設定できる", async () => {
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -176,7 +175,7 @@ describe("GET /me/profile & PUT /me/profile", () => {
         userId: null,
       } as unknown as ReturnType<typeof getAuth>);
 
-      const app = buildApp(env.DB);
+      const app = buildApp();
       const res = await app.request("/me/profile", {
         method: "GET",
       }, { DB: env.DB, CLERK_SECRET_KEY: "test_secret", CLERK_PUBLISHABLE_KEY: "test_pub" });

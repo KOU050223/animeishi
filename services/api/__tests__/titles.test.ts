@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db";
 import { titles } from "@/routes/titles";
 import { animeTitles } from "@/db/schema";
-import { createDb } from "@/db/client";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -26,7 +25,7 @@ type TestEnv = {
   Variables: { clerkUserId: string };
 };
 
-function buildApp(d1: D1Database) {
+function buildApp() {
   const app = new Hono<TestEnv>();
   app.route("/titles", titles);
   return app;
@@ -49,14 +48,14 @@ describe("GET /titles", () => {
 
   it("未認証は 401 を返す", async () => {
     vi.mocked(getAuth).mockReturnValue(null as unknown as ReturnType<typeof getAuth>);
-    const app = buildApp(env.DB);
+    const app = buildApp();
     const res = await app.request("/titles", {}, TEST_ENV);
     expect(res.status).toBe(401);
   });
 
   it("認証済みで空のアニメ一覧を返す", async () => {
     vi.mocked(getAuth).mockReturnValue({ userId: USER_ID } as ReturnType<typeof getAuth>);
-    const app = buildApp(env.DB);
+    const app = buildApp();
     const res = await app.request("/titles", {}, TEST_ENV);
     expect(res.status).toBe(200);
     const body = await res.json() as unknown[];
@@ -72,7 +71,7 @@ describe("GET /titles", () => {
     ]);
 
     vi.mocked(getAuth).mockReturnValue({ userId: USER_ID } as ReturnType<typeof getAuth>);
-    const app = buildApp(env.DB);
+    const app = buildApp();
     const res = await app.request("/titles", {}, TEST_ENV);
     expect(res.status).toBe(200);
     const body = await res.json() as { title: string }[];
@@ -84,7 +83,7 @@ describe("GET /titles", () => {
 
   it("レスポンスに Cache-Control ヘッダーが含まれる", async () => {
     vi.mocked(getAuth).mockReturnValue({ userId: USER_ID } as ReturnType<typeof getAuth>);
-    const app = buildApp(env.DB);
+    const app = buildApp();
     const res = await app.request("/titles", {}, {
       ...TEST_ENV,
       ENVIRONMENT: "production",
