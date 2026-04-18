@@ -174,6 +174,8 @@ function SortButton({
       }`}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={`${label}${order === "asc" ? " 昇順" : order === "desc" ? " 降順" : ""}`}
+      accessibilityState={{ selected: active }}
     >
       <Text className={`text-xs font-medium ${active ? "text-indigo-600" : "text-gray-500"}`}>
         {label}

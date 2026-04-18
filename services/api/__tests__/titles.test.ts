@@ -6,14 +6,14 @@ import { titles } from "@/routes/titles";
 import { animeTitles } from "@/db/schema";
 import { createDb } from "@/db/client";
 
-vi.mock("@hono/clerk-auth", () => ({
+vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
     await next();
   },
   getAuth: vi.fn(),
 }));
 
-import { getAuth } from "@hono/clerk-auth";
+import { getAuth } from "@clerk/hono";
 
 const USER_ID = "user_testanime001";
 
@@ -85,7 +85,10 @@ describe("GET /titles", () => {
   it("レスポンスに Cache-Control ヘッダーが含まれる", async () => {
     vi.mocked(getAuth).mockReturnValue({ userId: USER_ID } as ReturnType<typeof getAuth>);
     const app = buildApp(env.DB);
-    const res = await app.request("/titles", {}, TEST_ENV);
+    const res = await app.request("/titles", {}, {
+      ...TEST_ENV,
+      ENVIRONMENT: "production",
+    });
     expect(res.headers.get("Cache-Control")).toContain("max-age=");
   });
 });

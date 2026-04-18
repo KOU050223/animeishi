@@ -9,12 +9,14 @@ export type SortOrder = "asc" | "desc";
 export const ANIME_LIST_QUERY_KEY = ["titles"] as const;
 
 export function useAnimeList() {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
 
   return useQuery({
     queryKey: ANIME_LIST_QUERY_KEY,
+    enabled: !!isSignedIn,
     queryFn: async () => {
       const token = await getToken();
+      if (!token) throw new Error("認証トークンが取得できませんでした");
       const res = await apiClient.titles.$get(
         {},
         { headers: { Authorization: `Bearer ${token}` } }
@@ -23,6 +25,13 @@ export function useAnimeList() {
       return res.json();
     },
   });
+}
+
+function normalizeText(text: string): string {
+  return text
+    .normalize("NFKC")
+    .replace(/[\u30a1-\u30f6]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+    .toLowerCase();
 }
 
 export function useFilteredAnimeList(
@@ -34,13 +43,13 @@ export function useFilteredAnimeList(
   return useMemo(() => {
     if (!data) return [];
 
-    const q = query.trim().toLowerCase();
+    const q = normalizeText(query.trim());
     const filtered = q
       ? data.filter(
           (a) =>
-            a.title.toLowerCase().includes(q) ||
-            (a.titleReading ?? "").toLowerCase().includes(q) ||
-            (a.titleEnglish ?? "").toLowerCase().includes(q)
+            normalizeText(a.title).includes(q) ||
+            normalizeText(a.titleReading ?? "").includes(q) ||
+            normalizeText(a.titleEnglish ?? "").includes(q)
         )
       : data;
 

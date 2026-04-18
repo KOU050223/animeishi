@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { featureFlags } from "@/lib/featureFlags";
+import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
@@ -10,9 +11,8 @@ export default function HomeScreen() {
 
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
-    queryClient.clear();
-    await queryClient.invalidateQueries();
-    Alert.alert("キャッシュクリア完了", "データを再取得しました");
+    await queryClient.resetQueries({ queryKey: ANIME_LIST_QUERY_KEY });
+    Alert.alert("キャッシュクリア完了", "キャッシュをクリアしました");
   }
 
   return (
@@ -36,6 +36,8 @@ export default function HomeScreen() {
           <TouchableOpacity
             className="bg-yellow-400 rounded-lg px-4 py-2"
             onPress={clearCache}
+            accessibilityRole="button"
+            accessibilityLabel="クエリキャッシュをクリア"
           >
             <Text className="text-yellow-900 font-semibold">
               QueryCache クリア
