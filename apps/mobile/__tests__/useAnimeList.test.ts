@@ -11,8 +11,8 @@ const MOCK_TITLES = [
     season: "spring",
     genres: ["アクション", "ファンタジー"],
     thumbnailUrl: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 2,
@@ -23,8 +23,8 @@ const MOCK_TITLES = [
     season: "spring",
     genres: ["アクション"],
     thumbnailUrl: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 3,
@@ -35,8 +35,8 @@ const MOCK_TITLES = [
     season: "fall",
     genres: ["アクション", "アドベンチャー"],
     thumbnailUrl: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ];
 

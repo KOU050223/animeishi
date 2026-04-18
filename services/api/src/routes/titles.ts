@@ -10,28 +10,44 @@ import { authorizedDb } from "@/repository/authorizedDb";
 const CACHE_KEY = "https://animeishi.internal/cache/titles";
 const CACHE_TTL = 3600;
 
-const titles = new Hono<AuthVariables>();
+const titles = new Hono<AuthVariables>()
+  .use("*", requireAuth)
+  .get("/", async (c) => {
+    const env = c.env as AuthEnv["Bindings"] & {
+      DB: D1Database;
+      ENVIRONMENT?: string;
+    };
+    const isProd = env.ENVIRONMENT === "production";
 
-titles.use("*", requireAuth);
+    if (isProd) {
+      const cache = (caches as unknown as { default: Cache }).default;
+      const cacheReq = new Request(CACHE_KEY);
 
-/**
- * GET /titles
- * アニメマスターデータ一覧を返す。Cloudflare Cache API で TTL=1時間キャッシュ。
- */
-titles.get("/", async (c) => {
-  const env = c.env as AuthEnv["Bindings"] & {
-    DB: D1Database;
-    ENVIRONMENT?: string;
-  };
-  const isProd = env.ENVIRONMENT === "production";
+      const cached = await cache.match(cacheReq);
+      if (cached) {
+        return c.json(await cached.json(), 200, {
+          "Cache-Control": `public, max-age=${CACHE_TTL}`,
+        });
+      }
 
-  if (isProd) {
-    const cache = (caches as unknown as { default: Cache }).default;
-    const cacheReq = new Request(CACHE_KEY);
+      const db = createDb(env.DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+      const data = await adb.getAnimeTitles();
 
-    const cached = await cache.match(cacheReq);
-    if (cached) {
-      return c.json(await cached.json(), 200, {
+      const cacheResponse = new Response(JSON.stringify(data), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${CACHE_TTL}`,
+        },
+      });
+
+      try {
+        c.executionCtx.waitUntil(cache.put(cacheReq, cacheResponse.clone()));
+      } catch {
+        // ExecutionContext が存在しない場合は無視する
+      }
+
+      return c.json(data, 200, {
         "Cache-Control": `public, max-age=${CACHE_TTL}`,
       });
     }
@@ -40,29 +56,7 @@ titles.get("/", async (c) => {
     const adb = authorizedDb(db, c.var.clerkUserId);
     const data = await adb.getAnimeTitles();
 
-    const cacheResponse = new Response(JSON.stringify(data), {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": `public, max-age=${CACHE_TTL}`,
-      },
-    });
-
-    try {
-      c.executionCtx.waitUntil(cache.put(cacheReq, cacheResponse.clone()));
-    } catch {
-      // ExecutionContext が存在しない場合は無視する
-    }
-
-    return c.json(data, 200, {
-      "Cache-Control": `public, max-age=${CACHE_TTL}`,
-    });
-  }
-
-  const db = createDb(env.DB);
-  const adb = authorizedDb(db, c.var.clerkUserId);
-  const data = await adb.getAnimeTitles();
-
-  return c.json(data);
-});
+    return c.json(data);
+  });
 
 export { titles };
