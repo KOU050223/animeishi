@@ -67,7 +67,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
     async upsertWatchHistory(
       animeId: number,
-      data: Pick<NewWatchHistory, "status" | "score" | "comment" | "watchedAt">,
+      data: Pick<NewWatchHistory, "status"> &
+        Partial<Pick<NewWatchHistory, "score" | "comment" | "watchedAt">>,
     ): Promise<WatchHistory> {
       const now = new Date();
       await db

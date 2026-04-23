@@ -36,12 +36,16 @@ const watchHistory = new Hono<AuthVariables>()
       return c.json({ error: "Anime not found" }, 404);
     }
 
-    const result = await adb.upsertWatchHistory(animeId, {
+    const updateFields: Parameters<typeof adb.upsertWatchHistory>[1] = {
       status: data.status,
-      score: data.score ?? null,
-      comment: data.comment ?? null,
-      watchedAt: data.watchedAt ? new Date(data.watchedAt) : null,
-    });
+    };
+    if (data.score !== undefined) updateFields.score = data.score ?? null;
+    if (data.comment !== undefined) updateFields.comment = data.comment ?? null;
+    if (data.watchedAt !== undefined) {
+      updateFields.watchedAt = data.watchedAt ? new Date(data.watchedAt) : null;
+    }
+
+    const result = await adb.upsertWatchHistory(animeId, updateFields);
 
     return c.json(result, 200);
   })

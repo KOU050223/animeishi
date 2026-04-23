@@ -15,6 +15,9 @@ type UpsertRequest = InferRequestType<
 
 export const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
 
+const watchHistoryQueryKey = (userId: string) =>
+  [...WATCH_HISTORY_QUERY_KEY, userId] as const;
+
 export const WATCH_STATUS_LABELS: Record<WatchHistoryItem["status"], string> = {
   watching: "視聴中",
   completed: "完了",
@@ -32,11 +35,11 @@ async function getAuthHeaders(
 }
 
 export function useWatchHistory() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: WATCH_HISTORY_QUERY_KEY,
-    enabled: !!isSignedIn,
+    queryKey: userId ? watchHistoryQueryKey(userId) : WATCH_HISTORY_QUERY_KEY,
+    enabled: !!isSignedIn && !!userId,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["watch-histories"].$get({}, { headers });
@@ -47,7 +50,7 @@ export function useWatchHistory() {
 }
 
 export function useUpsertWatchHistory() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -67,13 +70,17 @@ export function useUpsertWatchHistory() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: userId
+          ? watchHistoryQueryKey(userId)
+          : WATCH_HISTORY_QUERY_KEY,
+      });
     },
   });
 }
 
 export function useDeleteWatchHistory() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -88,7 +95,11 @@ export function useDeleteWatchHistory() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: userId
+          ? watchHistoryQueryKey(userId)
+          : WATCH_HISTORY_QUERY_KEY,
+      });
     },
   });
 }

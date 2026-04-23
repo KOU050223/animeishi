@@ -43,24 +43,34 @@ export default function WatchHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<{
     history: WatchHistoryItem;
-    anime: AnimeTitle;
+    anime: AnimeTitle | undefined;
   } | null>(null);
 
-  const { data: histories, isLoading, isError, refetch } = useWatchHistory();
-  const { data: animes } = useAnimeList();
+  const {
+    data: histories,
+    isLoading: isHistoryLoading,
+    isError: isHistoryError,
+    refetch,
+  } = useWatchHistory();
+  const {
+    data: animes,
+    isLoading: isAnimeLoading,
+    isError: isAnimeError,
+  } = useAnimeList();
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
+
+  const isLoading = isHistoryLoading || isAnimeLoading;
+  const isError = isHistoryError || isAnimeError;
 
   const animeMap = new Map<number, AnimeTitle>(
     (animes ?? []).map((a) => [a.id, a]),
   );
 
-  const enriched = (histories ?? [])
-    .map((h) => ({ history: h, anime: animeMap.get(h.animeId) }))
-    .filter(
-      (item): item is { history: WatchHistoryItem; anime: AnimeTitle } =>
-        item.anime !== undefined,
-    );
+  const enriched = (histories ?? []).map((h) => ({
+    history: h,
+    anime: animeMap.get(h.animeId),
+  }));
 
   async function onRefresh() {
     setRefreshing(true);
@@ -129,7 +139,10 @@ export default function WatchHistoryScreen() {
             anime={item.anime}
             onEdit={() => setEditingItem(item)}
             onDelete={() =>
-              confirmDelete(item.history.animeId, item.anime.title)
+              confirmDelete(
+                item.history.animeId,
+                item.anime?.title ?? "（タイトル不明）",
+              )
             }
           />
         )}
@@ -167,19 +180,20 @@ function WatchHistoryRow({
   onDelete,
 }: {
   history: WatchHistoryItem;
-  anime: AnimeTitle;
+  anime: AnimeTitle | undefined;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const color = STATUS_COLORS[history.status] ?? "#6b7280";
   const label = WATCH_STATUS_LABELS[history.status];
+  const title = anime?.title ?? "（タイトル不明）";
 
   return (
     <View
       className="flex-row items-center py-3 gap-3"
       testID={`watch-history-item-${history.animeId}`}
     >
-      {anime.thumbnailUrl ? (
+      {anime?.thumbnailUrl ? (
         <Image
           source={{ uri: anime.thumbnailUrl }}
           style={{
@@ -201,7 +215,7 @@ function WatchHistoryRow({
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
-          {anime.title}
+          {title}
         </Text>
         <View className="flex-row items-center gap-2 mt-1 flex-wrap">
           <Text
@@ -226,7 +240,7 @@ function WatchHistoryRow({
           onPress={onEdit}
           className="bg-gray-100 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`${anime.title}の視聴履歴を編集`}
+          accessibilityLabel={`${title}の視聴履歴を編集`}
         >
           <Text className="text-xs text-gray-600">編集</Text>
         </TouchableOpacity>
@@ -234,13 +248,19 @@ function WatchHistoryRow({
           onPress={onDelete}
           className="bg-red-50 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`${anime.title}の視聴履歴を削除`}
+          accessibilityLabel={`${title}の視聴履歴を削除`}
         >
           <Text className="text-xs text-red-500">削除</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
+}
+
+function safeIsoString(value: unknown): string | null {
+  if (!value) return null;
+  const d = new Date(value as string);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function EditModal({
@@ -251,7 +271,7 @@ function EditModal({
   isSaving,
 }: {
   history: WatchHistoryItem;
-  anime: AnimeTitle;
+  anime: AnimeTitle | undefined;
   onClose: () => void;
   onSave: (data: {
     status: WatchStatus;
@@ -273,7 +293,7 @@ function EditModal({
             className="text-lg font-bold text-gray-900 mb-1"
             numberOfLines={2}
           >
-            {anime.title}
+            {anime?.title ?? "（タイトル不明）"}
           </Text>
           <Text className="text-xs text-gray-400 mb-5">
             視聴ステータスを編集
@@ -397,9 +417,7 @@ function EditModal({
                   status,
                   score,
                   comment: comment.trim() || undefined,
-                  watchedAt: history.watchedAt
-                    ? new Date(history.watchedAt).toISOString()
-                    : null,
+                  watchedAt: safeIsoString(history.watchedAt),
                 })
               }
               disabled={isSaving}
