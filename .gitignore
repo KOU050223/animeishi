@@ -19,6 +19,11 @@ web-build/
 # Cloudflare
 .wrangler/
 
+# Nix / direnv
+.direnv/
+result
+result-*
+
 # OS
 .DS_Store
 Thumbs.db

@@ -2,3 +2,11 @@ packages:
   - "apps/*"
   - "services/*"
   - "packages/*"
+
+# pnpm 10 はビルドスクリプトをデフォルトでブロックする。
+# テスト/実行に必要なネイティブビルドのみ許可する。
+onlyBuiltDependencies:
+  - better-sqlite3
+  - workerd
+  - esbuild
+  - sharp
