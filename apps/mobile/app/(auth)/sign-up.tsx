@@ -189,6 +189,14 @@ export default function SignUpScreen() {
           </Text>
         )}
 
+        {Platform.OS === "web" && (
+          <View
+            id="clerk-captcha"
+            className="mb-4 items-center"
+            testID="clerk-captcha"
+          />
+        )}
+
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
           onPress={handleSignUp}

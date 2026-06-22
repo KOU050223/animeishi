@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { Platform } from "react-native";
 import SignUpScreen from "@/app/(auth)/sign-up";
 
 const mockSignUpCreate = jest.fn();
@@ -27,6 +28,7 @@ jest.mock("expo-router", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
 describe("SignUpScreen", () => {
@@ -37,6 +39,14 @@ describe("SignUpScreen", () => {
     expect(screen.getByTestId("password-input")).toBeTruthy();
     expect(screen.getByTestId("password-confirmation-input")).toBeTruthy();
     expect(screen.getByTestId("sign-up-button")).toBeTruthy();
+  });
+
+  it("WebではClerk CAPTCHAのマウント先をレンダリングする", () => {
+    Object.defineProperty(Platform, "OS", { value: "web" });
+
+    const { UNSAFE_getByProps } = render(<SignUpScreen />);
+
+    expect(UNSAFE_getByProps({ id: "clerk-captcha" })).toBeTruthy();
   });
 
   it("パスワードが一致しない場合にバリデーションエラーが表示される", async () => {

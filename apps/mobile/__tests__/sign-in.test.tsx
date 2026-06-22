@@ -89,4 +89,38 @@ describe("SignInScreen", () => {
       expect(screen.getByText("認証情報が正しくありません")).toBeTruthy();
     });
   });
+
+  it("Clerk API エラーのメッセージを表示する", async () => {
+    mockSignInCreate.mockRejectedValueOnce({
+      errors: [{ message: "メールアドレスまたはパスワードが違います" }],
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("メールアドレスまたはパスワードが違います"),
+      ).toBeTruthy();
+    });
+  });
+
+  it("サインインが完了しないステータスの場合に理由を表示する", async () => {
+    mockSignInCreate.mockResolvedValueOnce({
+      status: "needs_second_factor",
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-message")).toBeTruthy();
+      expect(mockSetActive).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -12,6 +12,39 @@ import {
 import { useState } from "react";
 import { signInSchema } from "@/lib/validators";
 
+function getAuthErrorMessage(err: unknown) {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "errors" in err &&
+    Array.isArray(err.errors) &&
+    err.errors[0] &&
+    typeof err.errors[0] === "object" &&
+    "message" in err.errors[0] &&
+    typeof err.errors[0].message === "string"
+  ) {
+    return err.errors[0].message;
+  }
+
+  return err instanceof Error ? err.message : "サインインに失敗しました";
+}
+
+function getIncompleteSignInMessage(status: string | null) {
+  if (!status) {
+    return "サインインを完了できませんでした。もう一度お試しください。";
+  }
+
+  if (status === "needs_second_factor") {
+    return "二要素認証が必要ですが、この画面ではまだ対応していません。";
+  }
+
+  if (status === "needs_identifier" || status === "needs_first_factor") {
+    return "メールアドレスまたはパスワードを確認してください。";
+  }
+
+  return `サインインを完了できませんでした。状態: ${status}`;
+}
+
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
@@ -42,11 +75,11 @@ export default function SignInScreen() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
+      } else {
+        setError(getIncompleteSignInMessage(result.status));
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "サインインに失敗しました";
-      setError(message);
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
