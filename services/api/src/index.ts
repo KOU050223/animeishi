@@ -1,10 +1,20 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Env } from "./db/client";
 import { me } from "./routes/me";
 import { titles } from "./routes/titles";
 import { watchHistory } from "./routes/watch-history";
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Authorization", "Content-Type"],
+  }),
+);
 
 const routes = app
   .get("/health", (c) => {
