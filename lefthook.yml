@@ -1,0 +1,18 @@
+# Git hooks 管理 (lefthook)。Nix devShell 経由で lefthook を導入。
+# 有効化: `lefthook install`（フックを .git/hooks に設置）
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{ts,tsx,js,jsx}"
+      run: pnpm turbo run lint
+    format:
+      glob: "*.{ts,tsx,js,jsx,json,md,yml,yaml}"
+      run: pnpm turbo run format
+      stage_fixed: true
+
+pre-push:
+  commands:
+    test:
+      run: pnpm turbo run test

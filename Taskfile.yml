@@ -1,0 +1,58 @@
+# go-task タスクランナー。Nix devShell 経由で task を導入。
+# 一覧: `task --list`
+version: "3"
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  setup:
+    desc: 依存インストール + Git hooks 設置
+    cmds:
+      - pnpm install
+      - lefthook install
+
+  dev:
+    desc: 全アプリの開発サーバを起動 (turbo)
+    cmds:
+      - pnpm turbo run dev
+
+  dev:mobile:
+    desc: Expo モバイルアプリを起動
+    dir: apps/mobile
+    cmds:
+      - pnpm dev
+
+  dev:api:
+    desc: Cloudflare Workers API を起動 (wrangler dev)
+    dir: services/api
+    cmds:
+      - pnpm dev
+
+  build:
+    desc: 全パッケージをビルド
+    cmds:
+      - pnpm turbo run build
+
+  lint:
+    desc: Lint
+    cmds:
+      - pnpm turbo run lint
+
+  format:
+    desc: フォーマット
+    cmds:
+      - pnpm turbo run format
+
+  test:
+    desc: テスト
+    cmds:
+      - pnpm turbo run test
+
+  db:migrate:local:
+    desc: D1 ローカルマイグレーション適用
+    dir: services/api
+    cmds:
+      - pnpm db:migrate:local
