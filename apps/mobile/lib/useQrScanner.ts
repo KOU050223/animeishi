@@ -42,27 +42,28 @@ export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
-  // onScanned を ref で保持し、handleBarcodeScanned の同一性を安定させる。
+  // ref で保持することで handleBarcodeScanned の参照同一性を保ちつつ最新値を参照できる。
   const onScannedRef = useRef(onScanned);
   onScannedRef.current = onScanned;
+  const scannedRef = useRef(false);
 
   const handleBarcodeScanned = useCallback((result: BarcodeScanningResult) => {
     // 既にスキャン済みなら無視（同一フレームで複数回発火するため）。
-    setScanned((prev) => {
-      if (prev) return prev;
+    if (scannedRef.current) return;
 
-      const userId = parseUserIdFromQr(result.data);
-      if (!userId) {
-        // 不正な QR。スキャン状態は維持せず再スキャンを許可する。
-        return false;
-      }
+    const userId = parseUserIdFromQr(result.data);
+    // 不正な QR。状態を変えず再スキャンを許可する。
+    if (!userId) return;
 
-      onScannedRef.current?.({ userId, raw: result.data });
-      return true;
-    });
+    scannedRef.current = true;
+    setScanned(true);
+    onScannedRef.current?.({ userId, raw: result.data });
   }, []);
 
-  const reset = useCallback(() => setScanned(false), []);
+  const reset = useCallback(() => {
+    scannedRef.current = false;
+    setScanned(false);
+  }, []);
 
   return {
     permission,

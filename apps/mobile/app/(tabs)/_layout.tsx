@@ -31,6 +31,7 @@ export default function TabsLayout() {
         name="qr"
         options={{
           title: "QR",
+          tabBarAccessibilityLabel: "QRコードタブ",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="qr-code-outline" size={size} color={color} />
           ),

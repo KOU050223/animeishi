@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
@@ -49,13 +49,7 @@ function GenerateView() {
     <View className="flex-1 items-center justify-center px-8">
       <View
         className="p-6 bg-white rounded-2xl border border-gray-100"
-        style={{
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 4,
-        }}
+        style={styles.qrCard}
         testID="qr-code-container"
       >
         <QRCode value={userId} size={240} />
@@ -116,7 +110,7 @@ function ScanView() {
     <View className="flex-1">
       {isFocused ? (
         <CameraView
-          style={{ flex: 1 }}
+          style={styles.camera}
           facing="back"
           // スキャン済みのときはハンドラを外して発火を止める。
           onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
@@ -135,6 +129,19 @@ function ScanView() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  qrCard: {
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  camera: {
+    flex: 1,
+  },
+});
 
 function ModeButton({
   label,
