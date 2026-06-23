@@ -77,18 +77,38 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
     /**
      * 認証済みユーザーが users テーブルに存在することを保証する。
-     * 存在しなければ最小限のプロフィール（username = userId）で作成する。
+     * 存在しなければプロフィールを作成する。
      * watch_history / favorites などの外部キー制約を満たすために、
      * 認証ミドルウェアから初回アクセス時に呼ばれる。
      * 既存ユーザーのプロフィールは上書きしない。
+     *
+     * @param resolveDisplayName 新規作成時の表示名を解決する関数（省略可）。
+     *   Clerk から username 等を取得して渡す。失敗・未指定時は userId を表示名にフォールバックする。
+     *   既存ユーザーには呼ばれないため、Clerk API 呼び出しは初回作成時のみに抑えられる。
      */
-    async ensureUserExists(): Promise<void> {
+    async ensureUserExists(
+      resolveDisplayName?: () => Promise<string | null | undefined>,
+    ): Promise<void> {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.id, currentUserId),
+        columns: { id: true },
+      });
+      if (existing) return;
+
+      let displayName: string | null | undefined;
+      try {
+        displayName = await resolveDisplayName?.();
+      } catch {
+        // 表示名の解決に失敗してもプロビジョニング自体は止めない。
+        displayName = undefined;
+      }
+
       const now = new Date();
       await db
         .insert(users)
         .values({
           id: currentUserId,
-          username: currentUserId,
+          username: displayName?.trim() || currentUserId,
           isPublic: true,
           createdAt: now,
           updatedAt: now,

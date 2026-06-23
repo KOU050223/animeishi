@@ -44,8 +44,18 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。
   // watch_history / favorites などの外部キー制約を満たすため、
   // 認証を必要とする全エンドポイントで初回アクセス時に登録される。
+  // 表示名は Clerk のユーザー情報（username / 氏名）から解決する。
+  // Clerk API 呼び出しは users 未登録の初回のみ行われる（ensureUserExists 側で制御）。
   const db = createDb((c.env as { DB: D1Database }).DB);
-  await authorizedDb(db, auth.userId).ensureUserExists();
+  await authorizedDb(db, auth.userId).ensureUserExists(async () => {
+    const clerk = c.get("clerk");
+    const user = await clerk.users.getUser(auth.userId);
+    const fullName = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    return user.username ?? (fullName || null);
+  });
 
   await next();
 });
