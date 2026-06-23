@@ -5,12 +5,18 @@ import SignInScreen from "@/app/(auth)/sign-in";
 // Clerk のフックをモック
 const mockSignInCreate = jest.fn();
 const mockSetActive = jest.fn();
+const mockSignOut = jest.fn();
+let mockIsSignedIn = false;
 
 jest.mock("@clerk/clerk-expo", () => ({
   useSignIn: () => ({
     signIn: { create: mockSignInCreate },
     setActive: mockSetActive,
     isLoaded: true,
+  }),
+  useAuth: () => ({
+    isSignedIn: mockIsSignedIn,
+    signOut: mockSignOut,
   }),
 }));
 
@@ -25,6 +31,7 @@ jest.mock("expo-router", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsSignedIn = false;
 });
 
 describe("SignInScreen", () => {
@@ -122,5 +129,51 @@ describe("SignInScreen", () => {
       expect(mockSetActive).not.toHaveBeenCalled();
       expect(mockReplace).not.toHaveBeenCalled();
     });
+  });
+
+  it("既にサインイン済みの場合は先にサインアウトしてからサインインする", async () => {
+    mockIsSignedIn = true;
+    mockSignInCreate.mockResolvedValueOnce({
+      status: "complete",
+      createdSessionId: "session_456",
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "other@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      expect(mockSignInCreate).toHaveBeenCalledWith({
+        identifier: "other@example.com",
+        password: "StrongPass1",
+      });
+      expect(mockSetActive).toHaveBeenCalledWith({ session: "session_456" });
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+
+    // 既存セッションの破棄はサインイン作成より前に行われる
+    expect(mockSignOut.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSignInCreate.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("サインイン済みでない場合はサインアウトを呼ばない", async () => {
+    mockIsSignedIn = false;
+    mockSignInCreate.mockResolvedValueOnce({
+      status: "complete",
+      createdSessionId: "session_789",
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(mockSignInCreate).toHaveBeenCalled();
+    });
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 });

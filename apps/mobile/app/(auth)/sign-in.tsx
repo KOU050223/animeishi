@@ -1,4 +1,4 @@
-import { useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import {
   View,
@@ -47,6 +47,7 @@ function getIncompleteSignInMessage(status: string | null) {
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn, signOut } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -67,6 +68,12 @@ export default function SignInScreen() {
     setError(null);
 
     try {
+      // 別アカウントへログインし直す場合、既存セッションが残っていると
+      // Clerk が "You're already signed in." を返すため、先にサインアウトする
+      if (isSignedIn) {
+        await signOut();
+      }
+
       const result = await signIn.create({
         identifier: parsed.data.email,
         password: parsed.data.password,
