@@ -1,10 +1,18 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  StyleSheet,
+} from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import { useQrScanner } from "@/lib/useQrScanner";
+import { useAddFriend } from "@/lib/useFriends";
 
 type Mode = "generate" | "scan";
 
@@ -61,9 +69,24 @@ function GenerateView() {
   );
 }
 
+/**
+ * スキャン結果をユーザーに通知する。
+ * Web では React Native の Alert.alert のボタン onPress が発火しないため、
+ * window.alert にフォールバックして確実にメッセージを出し reset を呼ぶ。
+ */
+function notify(title: string, message: string, onClose: () => void) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n${message}`);
+    onClose();
+    return;
+  }
+  Alert.alert(title, message, [{ text: "OK", onPress: onClose }]);
+}
+
 function ScanView() {
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
+  const addFriend = useAddFriend();
   const {
     permission,
     requestPermission,
@@ -72,9 +95,23 @@ function ScanView() {
     reset,
   } = useQrScanner({
     onScanned: ({ userId }) => {
-      Alert.alert("読み取り成功", `ユーザー ID: ${userId}`, [
-        { text: "OK", onPress: reset },
-      ]);
+      // スキャンした相手をフレンドに追加する。
+      addFriend.mutate(userId, {
+        onSuccess: () => {
+          notify(
+            "フレンドに追加しました",
+            "相手をフレンドに登録しました",
+            reset,
+          );
+        },
+        onError: (e) => {
+          notify(
+            "追加できませんでした",
+            e instanceof Error ? e.message : "フレンド追加に失敗しました",
+            reset,
+          );
+        },
+      });
     },
   });
 
@@ -123,7 +160,11 @@ function ScanView() {
       )}
       <View className="absolute bottom-12 left-0 right-0 items-center">
         <Text className="text-white text-sm bg-black/50 px-4 py-2 rounded-full">
-          {scanned ? "読み取り完了" : "QR コードを枠内に収めてください"}
+          {addFriend.isPending
+            ? "フレンド登録中..."
+            : scanned
+              ? "読み取り完了"
+              : "QR コードを枠内に収めてください"}
         </Text>
       </View>
     </View>
