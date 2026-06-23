@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./db/client";
 import { favorites } from "./routes/favorites";
+import { friends } from "./routes/friends";
 import { me } from "./routes/me";
 import { titles } from "./routes/titles";
 import { watchHistory } from "./routes/watch-history";
@@ -36,6 +37,7 @@ const routes = app
   .route("/me", me)
   .route("/me/watch-histories", watchHistory)
   .route("/me/favorites", favorites)
+  .route("/me/friends", friends)
   .route("/titles", titles);
 
 export type AppType = typeof routes;

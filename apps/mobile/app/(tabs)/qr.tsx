@@ -5,6 +5,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import { useQrScanner } from "@/lib/useQrScanner";
+import { useAddFriend } from "@/lib/useFriends";
 
 type Mode = "generate" | "scan";
 
@@ -64,6 +65,7 @@ function GenerateView() {
 function ScanView() {
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
+  const addFriend = useAddFriend();
   const {
     permission,
     requestPermission,
@@ -72,9 +74,23 @@ function ScanView() {
     reset,
   } = useQrScanner({
     onScanned: ({ userId }) => {
-      Alert.alert("読み取り成功", `ユーザー ID: ${userId}`, [
-        { text: "OK", onPress: reset },
-      ]);
+      // スキャンした相手をフレンドに追加する。
+      addFriend.mutate(userId, {
+        onSuccess: () => {
+          Alert.alert(
+            "フレンドに追加しました",
+            "相手をフレンドに登録しました",
+            [{ text: "OK", onPress: reset }],
+          );
+        },
+        onError: (e) => {
+          Alert.alert(
+            "追加できませんでした",
+            e instanceof Error ? e.message : "フレンド追加に失敗しました",
+            [{ text: "OK", onPress: reset }],
+          );
+        },
+      });
     },
   });
 
