@@ -28,6 +28,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="qr"
+        options={{
+          title: "QR",
+          tabBarAccessibilityLabel: "QRコードタブ",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="qr-code-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="watch-history"
         options={{
           title: "視聴履歴",
