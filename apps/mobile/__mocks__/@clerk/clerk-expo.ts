@@ -1,6 +1,7 @@
 export const useAuth = () => ({
   getToken: async () => null,
   isSignedIn: false,
+  userId: null,
 });
 
 export const useUser = () => ({ user: null, isLoaded: true });
