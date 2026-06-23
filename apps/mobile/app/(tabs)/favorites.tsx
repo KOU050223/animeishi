@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  StyleSheet,
 } from "react-native";
 import { useFavorites, useRemoveFavorite } from "@/lib/useFavorites";
 import { useAnimeList } from "@/lib/useAnimeList";
@@ -39,14 +40,19 @@ export default function FavoritesScreen() {
     await Promise.all([refetch(), refetchAnimes()]);
   }
 
-  const animeMap = new Map<number, AnimeTitle>(
-    (animes ?? []).map((a) => [a.id, a]),
+  const animeMap = useMemo(
+    () => new Map<number, AnimeTitle>((animes ?? []).map((a) => [a.id, a])),
+    [animes],
   );
 
-  const enriched = (favorites ?? []).map((f) => ({
-    favorite: f,
-    anime: animeMap.get(f.animeId),
-  }));
+  const enriched = useMemo(
+    () =>
+      (favorites ?? []).map((f) => ({
+        favorite: f,
+        anime: animeMap.get(f.animeId),
+      })),
+    [favorites, animeMap],
+  );
 
   async function onRefresh() {
     setRefreshing(true);
@@ -114,11 +120,11 @@ export default function FavoritesScreen() {
       <FlatList
         data={enriched}
         keyExtractor={(item) => String(item.favorite.animeId)}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+        contentContainerStyle={styles.listContent}
         refreshing={refreshing}
         onRefresh={onRefresh}
         ItemSeparatorComponent={() => (
-          <View style={{ height: 1 }} className="bg-gray-100" />
+          <View style={styles.separator} className="bg-gray-100" />
         )}
         renderItem={({ item }) => (
           <FavoriteRow
@@ -163,17 +169,12 @@ function FavoriteRow({
       {anime?.thumbnailUrl ? (
         <Image
           source={{ uri: anime.thumbnailUrl }}
-          style={{
-            width: 48,
-            height: 64,
-            borderRadius: 4,
-            backgroundColor: "#e5e7eb",
-          }}
+          style={styles.thumbnail}
           resizeMode="cover"
         />
       ) : (
         <View
-          style={{ width: 48, height: 64, borderRadius: 4 }}
+          style={styles.thumbnailPlaceholder}
           className="bg-gray-200 items-center justify-center"
         >
           <Text className="text-gray-400 text-xs">No img</Text>
@@ -200,3 +201,15 @@ function FavoriteRow({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  separator: { height: 1 },
+  thumbnail: {
+    width: 48,
+    height: 64,
+    borderRadius: 4,
+    backgroundColor: "#e5e7eb",
+  },
+  thumbnailPlaceholder: { width: 48, height: 64, borderRadius: 4 },
+});

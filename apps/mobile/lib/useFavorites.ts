@@ -104,11 +104,12 @@ export function useRemoveFavorite() {
 
 /**
  * お気に入り登録状態をトグルする。登録済みなら削除、未登録なら追加。
+ * 呼び出し側で既に取得済みの `favoriteIds` を渡すことで、
+ * 同一データの派生計算（Set 生成）が重複するのを避ける。
  */
-export function useToggleFavorite() {
+export function useToggleFavorite(favoriteIds: Set<number>) {
   const add = useAddFavorite();
   const remove = useRemoveFavorite();
-  const favoriteIds = useFavoriteIds();
 
   return {
     toggle: (animeId: number) => {

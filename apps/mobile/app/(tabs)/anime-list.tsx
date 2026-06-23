@@ -30,7 +30,7 @@ export default function AnimeListScreen() {
   const filtered = useFilteredAnimeList(data, query, sortKey, sortOrder);
 
   const favoriteIds = useFavoriteIds();
-  const { toggle, isPending: isToggling } = useToggleFavorite();
+  const { toggle, isPending: isToggling } = useToggleFavorite(favoriteIds);
 
   async function onRefresh() {
     setRefreshing(true);
