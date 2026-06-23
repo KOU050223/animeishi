@@ -37,6 +37,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: "お気に入り",
+          tabBarAccessibilityLabel: "お気に入りタブ",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
