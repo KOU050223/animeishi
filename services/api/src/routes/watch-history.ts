@@ -23,7 +23,7 @@ const watchHistory = new Hono<AuthVariables>()
   })
   .put("/:animeId", zValidator("json", watchHistoryUpsertSchema), async (c) => {
     const animeId = Number(c.req.param("animeId"));
-    if (!Number.isInteger(animeId) || animeId <= 0) {
+    if (!Number.isSafeInteger(animeId) || animeId <= 0) {
       return c.json({ error: "Invalid animeId" }, 400);
     }
 
@@ -51,7 +51,7 @@ const watchHistory = new Hono<AuthVariables>()
   })
   .delete("/:animeId", async (c) => {
     const animeId = Number(c.req.param("animeId"));
-    if (!Number.isInteger(animeId) || animeId <= 0) {
+    if (!Number.isSafeInteger(animeId) || animeId <= 0) {
       return c.json({ error: "Invalid animeId" }, 400);
     }
 
