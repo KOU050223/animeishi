@@ -57,6 +57,27 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
     },
 
+    /**
+     * 認証済みユーザーが users テーブルに存在することを保証する。
+     * 存在しなければ最小限のプロフィール（username = userId）で作成する。
+     * watch_history / favorites などの外部キー制約を満たすために、
+     * 認証ミドルウェアから初回アクセス時に呼ばれる。
+     * 既存ユーザーのプロフィールは上書きしない。
+     */
+    async ensureUserExists(): Promise<void> {
+      const now = new Date();
+      await db
+        .insert(users)
+        .values({
+          id: currentUserId,
+          username: currentUserId,
+          isPublic: true,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing({ target: users.id });
+    },
+
     // ---- Watch History ----
     async getMyWatchHistory(): Promise<WatchHistory[]> {
       return db.query.watchHistory.findMany({

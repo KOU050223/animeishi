@@ -8,8 +8,10 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAnimeList, useFilteredAnimeList } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
+import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 
 const SEASONS: Record<string, string> = {
   spring: "春",
@@ -26,6 +28,9 @@ export default function AnimeListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { data, isLoading, isError, refetch } = useAnimeList();
   const filtered = useFilteredAnimeList(data, query, sortKey, sortOrder);
+
+  const favoriteIds = useFavoriteIds();
+  const { toggle, isPending: isToggling } = useToggleFavorite();
 
   async function onRefresh() {
     setRefreshing(true);
@@ -165,6 +170,12 @@ export default function AnimeListScreen() {
                 ))}
               </View>
             </View>
+            <FavoriteButton
+              isFavorite={favoriteIds.has(item.id)}
+              disabled={isToggling}
+              onPress={() => toggle(item.id)}
+              title={item.title}
+            />
           </View>
         )}
         ListEmptyComponent={
@@ -176,6 +187,39 @@ export default function AnimeListScreen() {
         }
       />
     </View>
+  );
+}
+
+function FavoriteButton({
+  isFavorite,
+  disabled,
+  onPress,
+  title,
+}: {
+  isFavorite: boolean;
+  disabled: boolean;
+  onPress: () => void;
+  title: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      className="p-2"
+      accessibilityRole="button"
+      accessibilityState={{ selected: isFavorite, disabled }}
+      accessibilityLabel={
+        isFavorite
+          ? `${title}をお気に入りから解除`
+          : `${title}をお気に入りに追加`
+      }
+    >
+      <Ionicons
+        name={isFavorite ? "heart" : "heart-outline"}
+        size={24}
+        color={isFavorite ? "#dc2626" : "#9ca3af"}
+      />
+    </TouchableOpacity>
   );
 }
 

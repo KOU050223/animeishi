@@ -2,6 +2,8 @@ import { clerkMiddleware, getAuth } from "@clerk/hono";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { Env } from "@/db/client";
+import { createDb } from "@/db/client";
+import { authorizedDb } from "@/repository/authorizedDb";
 
 // hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
 export type AuthVariables = {
@@ -38,5 +40,12 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   }
 
   c.set("clerkUserId", auth.userId);
+
+  // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。
+  // watch_history / favorites などの外部キー制約を満たすため、
+  // 認証を必要とする全エンドポイントで初回アクセス時に登録される。
+  const db = createDb((c.env as { DB: D1Database }).DB);
+  await authorizedDb(db, auth.userId).ensureUserExists();
+
   await next();
 });

@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
   TextInput,
+  Platform,
 } from "react-native";
 import {
   useWatchHistory,
@@ -79,7 +80,18 @@ export default function WatchHistoryScreen() {
   }
 
   function confirmDelete(animeId: number, title: string) {
-    Alert.alert("視聴履歴を削除", `「${title}」の視聴履歴を削除しますか？`, [
+    const message = `「${title}」の視聴履歴を削除しますか？`;
+
+    // React Native の Alert.alert は Web では複数ボタンの onPress が
+    // 発火しないため、Web では window.confirm にフォールバックする。
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) {
+        remove.mutate(animeId);
+      }
+      return;
+    }
+
+    Alert.alert("視聴履歴を削除", message, [
       { text: "キャンセル", style: "cancel" },
       {
         text: "削除",

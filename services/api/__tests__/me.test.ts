@@ -76,7 +76,10 @@ describe("GET /me/profile & PUT /me/profile", () => {
       } as ReturnType<typeof getAuth>);
     });
 
-    it("GET /me/profile: プロフィール未作成なら 404", async () => {
+    it("GET /me/profile: 初回アクセスでも自動プロビジョニングされた最小プロフィールが返る", async () => {
+      // requireAuth ミドルウェアが ensureUserExists でユーザーを
+      // 自動作成するため、プロフィール未設定でも 404 にはならず
+      // username = userId の最小プロフィールが返る。
       const app = buildApp();
       const res = await app.request(
         "/me/profile",
@@ -90,7 +93,10 @@ describe("GET /me/profile & PUT /me/profile", () => {
         },
       );
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { id: string; username: string };
+      expect(body.id).toBe(USER_ID);
+      expect(body.username).toBe(USER_ID);
     });
 
     it("PUT /me/profile: プロフィールを作成できる", async () => {
