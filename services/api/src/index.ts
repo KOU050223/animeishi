@@ -5,6 +5,7 @@ import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { me } from "./routes/me";
 import { titles } from "./routes/titles";
+import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
 
 type AppBindings = Env & {
@@ -38,7 +39,8 @@ const routes = app
   .route("/me/watch-histories", watchHistory)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
-  .route("/titles", titles);
+  .route("/titles", titles)
+  .route("/user", user);
 
 export type AppType = typeof routes;
 export default routes;

@@ -23,8 +23,9 @@ function AuthGuard() {
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const inPublicGroup = segments[0] === "user";
 
-    if (!isSignedIn && !inAuthGroup) {
+    if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthGroup) {
       router.replace("/(tabs)");
@@ -35,6 +36,7 @@ function AuthGuard() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="user" />
     </Stack>
   );
 }
