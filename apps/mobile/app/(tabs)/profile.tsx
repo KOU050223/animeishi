@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   ScrollView,
   Text,
@@ -27,6 +28,9 @@ export default function ProfileScreen() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((next: Toast) => {
     setToast(next);
+    // accessibilityLiveRegion は Android 専用のため、iOS(VoiceOver) でも
+    // 読み上げられるよう明示的にアナウンスする。
+    AccessibilityInfo.announceForAccessibility(next.message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
