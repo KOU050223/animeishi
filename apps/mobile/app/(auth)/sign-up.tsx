@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { signUpSchema } from "@/lib/validators";
+import { toAuthErrorMessage } from "@/lib/authErrors";
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -52,9 +53,7 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "サインアップに失敗しました";
-      setError(message);
+      setError(toAuthErrorMessage(err, "サインアップに失敗しました"));
     } finally {
       setLoading(false);
     }
@@ -73,9 +72,7 @@ export default function SignUpScreen() {
         router.replace("/(tabs)");
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "認証コードの検証に失敗しました";
-      setError(message);
+      setError(toAuthErrorMessage(err, "認証コードの検証に失敗しました"));
     } finally {
       setLoading(false);
     }

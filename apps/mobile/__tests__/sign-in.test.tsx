@@ -24,9 +24,7 @@ jest.mock("@clerk/clerk-expo", () => ({
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
-  Link: ({ children, href, testID }: { children: React.ReactNode; href: string; testID?: string }) => (
-    <>{children}</>
-  ),
+  Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 beforeEach(() => {
@@ -83,8 +81,8 @@ describe("SignInScreen", () => {
     });
   });
 
-  it("Clerk がエラーを返した場合にエラーメッセージが表示される", async () => {
-    mockSignInCreate.mockRejectedValueOnce(new Error("認証情報が正しくありません"));
+  it("Clerk 以外の予期しないエラー時はフォールバックメッセージを表示する", async () => {
+    mockSignInCreate.mockRejectedValueOnce(new Error("Network request failed"));
 
     render(<SignInScreen />);
     fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
@@ -93,13 +91,19 @@ describe("SignInScreen", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
-      expect(screen.getByText("認証情報が正しくありません")).toBeTruthy();
+      expect(screen.getByText("サインインに失敗しました")).toBeTruthy();
     });
   });
 
-  it("Clerk API エラーのメッセージを表示する", async () => {
+  it("Clerk のエラーコードを日本語メッセージに変換して表示する", async () => {
+    // Clerk は英語の message と code を返す。code を基準に日本語化する。
     mockSignInCreate.mockRejectedValueOnce({
-      errors: [{ message: "メールアドレスまたはパスワードが違います" }],
+      errors: [
+        {
+          code: "form_password_incorrect",
+          message: "Password is incorrect. Try again.",
+        },
+      ],
     });
 
     render(<SignInScreen />);
@@ -112,6 +116,29 @@ describe("SignInScreen", () => {
         screen.getByText("メールアドレスまたはパスワードが違います"),
       ).toBeTruthy();
     });
+  });
+
+  it("未知の Clerk エラーは英語をそのまま出さずフォールバックを表示する", async () => {
+    mockSignInCreate.mockRejectedValueOnce({
+      errors: [
+        {
+          code: "unknown_internal_error",
+          message:
+            "We were unable to complete a GET request for this Client. No sign up attempt was found. Please try again.",
+        },
+      ],
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(screen.getByText("サインインに失敗しました")).toBeTruthy();
+    });
+    // 英語のメッセージが漏れていないことを確認
+    expect(screen.queryByText(/We were unable/)).toBeNull();
   });
 
   it("サインインが完了しないステータスの場合に理由を表示する", async () => {
