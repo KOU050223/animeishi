@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import type { Env } from "./db/client";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
-import { me } from "./routes/me";
+import { avatar, me } from "./routes/me";
 import { titles } from "./routes/titles";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
@@ -35,6 +35,8 @@ const routes = app
   .get("/health", (c) => {
     return c.json({ status: "ok", timestamp: new Date().toISOString() });
   })
+  // アバター配信は認証不要のため /me（requireAuth）より先にマウントする。
+  .route("/me", avatar)
   .route("/me", me)
   .route("/me/watch-histories", watchHistory)
   .route("/me/favorites", favorites)
