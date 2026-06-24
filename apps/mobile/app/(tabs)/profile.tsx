@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -13,13 +11,7 @@ import { MeishiCard } from "@/components/MeishiCard";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 
-function notifyError(message: string) {
-  if (Platform.OS === "web") {
-    window.alert(message);
-  } else {
-    Alert.alert("エラー", message);
-  }
-}
+type Toast = { type: "success" | "error"; message: string };
 
 export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
@@ -29,6 +21,20 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [favoriteQuote, setFavoriteQuote] = useState("");
+
+  // 保存・アップロードの結果を伝えるトースト。一定時間で自動的に消える。
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((next: Toast) => {
+    setToast(next);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   // フォームを初期化済みか。保存後の invalidate による refetch で
   // 編集中の入力がサーバ値に巻き戻らないよう、初回ロード時のみ初期化する。
@@ -49,18 +55,31 @@ export default function ProfileScreen() {
         favoriteQuote: favoriteQuote.trim() || undefined,
       },
       {
+        onSuccess: () =>
+          showToast({ type: "success", message: "プロフィールを保存しました" }),
         onError: (e) =>
-          notifyError(e instanceof Error ? e.message : "保存に失敗しました"),
+          showToast({
+            type: "error",
+            message: e instanceof Error ? e.message : "保存に失敗しました",
+          }),
       },
     );
   }
 
   function onChangeAvatar() {
     uploadAvatar.mutate(undefined, {
+      onSuccess: (data) => {
+        // 画像選択をキャンセルした場合は null が返る。その時はトーストを出さない。
+        if (data) {
+          showToast({ type: "success", message: "画像を更新しました" });
+        }
+      },
       onError: (e) =>
-        notifyError(
-          e instanceof Error ? e.message : "画像のアップロードに失敗しました",
-        ),
+        showToast({
+          type: "error",
+          message:
+            e instanceof Error ? e.message : "画像のアップロードに失敗しました",
+        }),
     });
   }
 
@@ -96,10 +115,34 @@ export default function ProfileScreen() {
         <Text className="text-xl font-bold text-gray-900">プロフィール</Text>
       </View>
 
+      {/* 保存・アップロード結果のトースト */}
+      {toast ? (
+        <View
+          className={`mx-4 mb-2 rounded-lg px-4 py-3 ${
+            toast.type === "success" ? "bg-green-50" : "bg-red-50"
+          }`}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
+          <Text
+            className={
+              toast.type === "success"
+                ? "text-sm font-medium text-green-700"
+                : "text-sm font-medium text-red-600"
+            }
+          >
+            {toast.message}
+          </Text>
+        </View>
+      ) : null}
+
       {/* 名刺プレビュー（ピンチ&ズーム可） */}
       <View className="px-4">
+        <Text className="mb-0.5 text-sm font-medium text-gray-700">
+          名刺プレビュー
+        </Text>
         <Text className="mb-2 text-xs text-gray-400">
-          名刺プレビュー（ピンチで拡大）
+          2本指を広げると拡大できます
         </Text>
         <MeishiCard
           username={username || profile?.username || "ユーザー"}
