@@ -13,6 +13,7 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.toml" },
       miniflare: {
         d1Databases: ["DB"],
+        r2Buckets: ["AVATARS"],
       },
     }),
   ],

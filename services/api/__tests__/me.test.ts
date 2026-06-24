@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db";
-import { me } from "@/routes/me";
+import { avatar, me } from "@/routes/me";
 import { users } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
@@ -19,6 +19,7 @@ const USER_ID = "user_testme001";
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
   };
@@ -29,9 +30,18 @@ type TestEnv = {
 
 function buildApp() {
   const app = new Hono<TestEnv>();
+  // 本番(index.ts)同様、認証不要の avatar 配信を /me（requireAuth）より先にマウントする。
+  app.route("/me", avatar);
   app.route("/me", me);
   return app;
 }
+
+const testBindings = () => ({
+  DB: env.DB,
+  AVATARS: env.AVATARS,
+  CLERK_SECRET_KEY: "test_secret",
+  CLERK_PUBLISHABLE_KEY: "test_pub",
+});
 
 describe("GET /me/profile & PUT /me/profile", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
@@ -232,6 +242,98 @@ describe("GET /me/profile & PUT /me/profile", () => {
       );
 
       expect(res.status).toBe(200);
+    });
+
+    it("PUT /me/profile/avatar: WebP 画像をアップロードして profileImageUrl が更新される", async () => {
+      const app = buildApp();
+      // 適当なバイナリ（中身は問わない。形式判定は Content-Type で行う）
+      const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00]);
+      const res = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "image/webp" },
+          body: bytes,
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { profileImageUrl: string };
+      expect(body.profileImageUrl).toContain("/me/profile/avatar/avatars/");
+      expect(body.profileImageUrl).toContain(USER_ID);
+      expect(body.profileImageUrl).toMatch(/\.webp$/);
+    });
+
+    it("PUT /me/profile/avatar: 非対応の Content-Type は 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/pdf" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("PUT /me/profile/avatar: 空ボディは 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("アップロードした画像を GET /me/profile/avatar/* で配信できる（認証不要）", async () => {
+      const app = buildApp();
+      const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      const putRes = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "image/png" },
+          body: bytes,
+        },
+        testBindings(),
+      );
+      const { profileImageUrl } = (await putRes.json()) as {
+        profileImageUrl: string;
+      };
+      const path = new URL(profileImageUrl).pathname;
+
+      // 配信は未認証でも取得できる
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const getRes = await app.request(path, { method: "GET" }, testBindings());
+
+      expect(getRes.status).toBe(200);
+      expect(getRes.headers.get("content-type")).toContain("image/png");
+      const buf = new Uint8Array(await getRes.arrayBuffer());
+      expect(Array.from(buf)).toEqual(Array.from(bytes));
+    });
+  });
+
+  describe("GET /me/profile/avatar/*（存在しないキー）", () => {
+    it("404 を返す", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile/avatar/avatars/nope/missing.webp",
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(res.status).toBe(404);
     });
   });
 

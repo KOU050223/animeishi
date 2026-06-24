@@ -1,4 +1,5 @@
 import "../global.css";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/tokenCache";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -43,13 +44,15 @@ function AuthGuard() {
 
 export default function RootLayout() {
   return (
-    <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{ persister: asyncStoragePersister }}
-      >
-        <AuthGuard />
-      </PersistQueryClientProvider>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{ persister: asyncStoragePersister }}
+        >
+          <AuthGuard />
+        </PersistQueryClientProvider>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

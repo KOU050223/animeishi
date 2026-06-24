@@ -9,6 +9,11 @@ binding = "DB"
 database_name = "animeishi-db"
 database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 
+# プロフィール画像（アバター）保存用 R2 バケット
+[[r2_buckets]]
+binding = "AVATARS"
+bucket_name = "animeishi-avatars"
+
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -17,3 +22,7 @@ ENVIRONMENT = "production"
 binding = "DB"
 database_name = "animeishi-db"
 database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
+
+[[env.production.r2_buckets]]
+binding = "AVATARS"
+bucket_name = "animeishi-avatars"

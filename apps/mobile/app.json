@@ -26,6 +26,12 @@
         {
           "cameraPermission": "QR コードをスキャンして名刺を交換するためにカメラを使用します"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "プロフィール画像を設定するために写真へのアクセスを許可してください"
+        }
       ]
     ],
     "experiments": {
