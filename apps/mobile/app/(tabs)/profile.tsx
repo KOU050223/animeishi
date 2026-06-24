@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,12 +30,15 @@ export default function ProfileScreen() {
   const [bio, setBio] = useState("");
   const [favoriteQuote, setFavoriteQuote] = useState("");
 
-  // 取得したプロフィールでフォーム初期値を埋める。
+  // フォームを初期化済みか。保存後の invalidate による refetch で
+  // 編集中の入力がサーバ値に巻き戻らないよう、初回ロード時のみ初期化する。
+  const initialized = useRef(false);
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || initialized.current) return;
     setUsername(profile.username ?? "");
     setBio(profile.bio ?? "");
     setFavoriteQuote(profile.favoriteQuote ?? "");
+    initialized.current = true;
   }, [profile]);
 
   function onSave() {

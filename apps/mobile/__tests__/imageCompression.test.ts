@@ -1,13 +1,26 @@
 import {
   AVATAR_MAX_DIMENSION,
   calcResizedSize,
+  compressAvatarImage,
 } from "@/lib/imageCompression";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
 // expo-image-manipulator はネイティブモジュールのため、ロジックテストではモックする。
+// manipulate().resize().renderAsync().saveAsync() のチェーンを再現する。
+const saveAsync = jest.fn().mockResolvedValue({ uri: "file:///out.webp" });
+const renderAsync = jest.fn().mockResolvedValue({ saveAsync });
+const resize = jest.fn().mockReturnValue({ renderAsync });
+const manipulate = jest.fn().mockReturnValue({ resize });
+
 jest.mock("expo-image-manipulator", () => ({
   ImageManipulator: { manipulate: jest.fn() },
   SaveFormat: { WEBP: "webp" },
 }));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (ImageManipulator.manipulate as jest.Mock).mockImplementation(manipulate);
+});
 
 describe("calcResizedSize", () => {
   it("最大辺を 512px に縮小する（横長）", () => {
@@ -61,5 +74,21 @@ describe("calcResizedSize", () => {
       width: 256,
       height: 128,
     });
+  });
+});
+
+describe("compressAvatarImage", () => {
+  it("resize → renderAsync → saveAsync(WEBP) のチェーンを呼ぶ", async () => {
+    const result = await compressAvatarImage("file:///in.jpg", {
+      width: 1024,
+      height: 512,
+    });
+
+    // API 側は image/webp 前提で受けるため、WEBP 出力を固定する
+    expect(manipulate).toHaveBeenCalledWith("file:///in.jpg");
+    expect(resize).toHaveBeenCalledWith({ width: 512, height: 256 });
+    expect(renderAsync).toHaveBeenCalled();
+    expect(saveAsync).toHaveBeenCalledWith({ format: SaveFormat.WEBP });
+    expect(result).toEqual({ uri: "file:///out.webp" });
   });
 });

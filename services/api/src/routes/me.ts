@@ -28,6 +28,26 @@ const ALLOWED_AVATAR_TYPES: Record<string, string> = {
 // アバター画像の最大サイズ（5MB）。512px に圧縮済みの WebP なら十分収まる。
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
+// アバター配信パスの接頭辞。URL からの R2 キー復元・配信ハンドラで共有する。
+const AVATAR_PATH_PREFIX = "/me/profile/avatar/";
+
+/**
+ * アバター配信 URL（または同形式のパス）から R2 オブジェクトキーを復元する。
+ * 不正な URL や対象外パスの場合は null を返す（旧画像の削除をスキップするため）。
+ */
+function avatarKeyFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  if (!pathname.startsWith(AVATAR_PATH_PREFIX)) return null;
+  const key = decodeURIComponent(pathname.slice(AVATAR_PATH_PREFIX.length));
+  return key.startsWith("avatars/") ? key : null;
+}
+
 const me = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get("/profile", async (c) => {
@@ -103,6 +123,9 @@ const me = new Hono<AuthVariables>()
     const db = createDb(bindings.DB);
     const adb = authorizedDb(db, userId);
     const existing = await adb.getMyProfile();
+    // 差し替え前に旧アバターの R2 キーを控えておく（DB 更新成功後に削除する）。
+    const previousKey = avatarKeyFromUrl(existing?.profileImageUrl);
+
     const profile = await adb.upsertMyProfile({
       username: existing?.username ?? userId,
       bio: existing?.bio ?? null,
@@ -110,6 +133,12 @@ const me = new Hono<AuthVariables>()
       isPublic: existing?.isPublic ?? true,
       profileImageUrl: avatarUrl.toString(),
     });
+
+    // DB 更新が成功してから旧オブジェクトを削除する。
+    // 旧画像を残すと既知の URL から半永久的に取得できてしまうため。
+    if (previousKey && previousKey !== key) {
+      await bindings.AVATARS.delete(previousKey);
+    }
 
     return c.json(profile);
   });
@@ -120,10 +149,8 @@ const avatar = new Hono<{
   Bindings: { AVATARS: R2Bucket };
 }>().get("/profile/avatar/*", async (c) => {
   // `/me/profile/avatar/` 以降をキーとして取り出す。
-  const key = decodeURIComponent(
-    new URL(c.req.url).pathname.replace(/^\/me\/profile\/avatar\//, ""),
-  );
-  if (!key.startsWith("avatars/")) {
+  const key = avatarKeyFromUrl(c.req.url);
+  if (!key) {
     return c.json({ error: "Not found" }, 404);
   }
 

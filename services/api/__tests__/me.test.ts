@@ -323,6 +323,58 @@ describe("GET /me/profile & PUT /me/profile", () => {
       const buf = new Uint8Array(await getRes.arrayBuffer());
       expect(Array.from(buf)).toEqual(Array.from(bytes));
     });
+
+    it("PUT /me/profile/avatar: 差し替え時に旧アバターが R2 から削除される", async () => {
+      const app = buildApp();
+
+      // 1 回目のアップロード
+      const first = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+      const firstUrl = (await first.json()) as { profileImageUrl: string };
+      const firstPath = new URL(firstUrl.profileImageUrl).pathname;
+
+      // Date.now() ベースのキー衝突を避けるため、確実に別キーになるよう少し待つ
+      await new Promise((r) => setTimeout(r, 5));
+
+      // 2 回目のアップロード（差し替え）
+      const second = await app.request(
+        "/me/profile/avatar",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([4, 5, 6]),
+        },
+        testBindings(),
+      );
+      const secondUrl = (await second.json()) as { profileImageUrl: string };
+      const secondPath = new URL(secondUrl.profileImageUrl).pathname;
+      expect(secondPath).not.toBe(firstPath);
+
+      // 旧アバターは削除済みで 404、新アバターは取得できる
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const oldRes = await app.request(
+        firstPath,
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(oldRes.status).toBe(404);
+
+      const newRes = await app.request(
+        secondPath,
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(newRes.status).toBe(200);
+    });
   });
 
   describe("GET /me/profile/avatar/*（存在しないキー）", () => {
