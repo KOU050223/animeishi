@@ -14,9 +14,17 @@ type PublicProfile = {
 };
 
 async function fetchPublicProfile(uid: string): Promise<PublicProfile> {
-  const res = await fetch(`${apiUrl}/user/${uid}`, {
-    headers: { Accept: "application/json" },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/user/${uid}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (res.status === 404) throw new Error("not_found");
   if (!res.ok) throw new Error("fetch_error");
   return res.json() as Promise<PublicProfile>;
@@ -35,7 +43,7 @@ export default function PublicProfilePage() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" accessibilityLabel="読み込み中" />
       </View>
     );
   }
@@ -62,7 +70,10 @@ export default function PublicProfilePage() {
             accessibilityLabel={`${data.username}のアイコン`}
           />
         ) : (
-          <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center">
+          <View
+            className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center"
+            accessibilityLabel={`${data.username}のアイコン`}
+          >
             <Text className="text-3xl text-gray-400">
               {data.username.charAt(0).toUpperCase()}
             </Text>

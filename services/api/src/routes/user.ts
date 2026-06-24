@@ -11,14 +11,14 @@ type UserBindings = {
 const user = new Hono<UserBindings>().get("/:uid", async (c) => {
   const uid = c.req.param("uid");
   const db = createDb(c.env.DB as D1Database);
+  const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
 
   const profile = await db.query.users.findFirst({
     where: eq(users.id, uid),
   });
 
   if (!profile || !profile.isPublic) {
-    const accept = c.req.header("Accept") ?? "";
-    if (accept.includes("text/html")) {
+    if (wantsHtml) {
       return c.html(notFoundHtml(), 404);
     }
     return c.json({ error: "User not found" }, 404);
@@ -29,9 +29,11 @@ const user = new Hono<UserBindings>().get("/:uid", async (c) => {
   });
   const genreList = genres.map((g) => g.genre);
 
-  const accept = c.req.header("Accept") ?? "";
-  if (accept.includes("text/html")) {
-    return c.html(buildOgpHtml(profile, genreList), 200);
+  if (wantsHtml) {
+    const html = buildOgpHtml(profile, genreList);
+    return c.html(html, 200, {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+    });
   }
 
   return c.json(
