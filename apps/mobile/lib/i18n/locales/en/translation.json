@@ -1,0 +1,61 @@
+{
+  "common": {
+    "appName": "Animeishi",
+    "loading": "Loading..."
+  },
+  "auth": {
+    "signIn": {
+      "title": "Sign in",
+      "submit": "Sign in",
+      "emailPlaceholder": "Email address",
+      "passwordPlaceholder": "Password",
+      "noAccount": "Don't have an account? ",
+      "toSignUp": "Sign up",
+      "failed": "Sign-in failed",
+      "incomplete": {
+        "default": "Couldn't complete sign-in. Please try again.",
+        "needsSecondFactor": "Two-factor authentication is required but is not supported on this screen yet.",
+        "needsIdentifier": "Please check your email address or password.",
+        "withStatus": "Couldn't complete sign-in. Status: {{status}}"
+      }
+    },
+    "signUp": {
+      "title": "Create account",
+      "submit": "Create account",
+      "emailPlaceholder": "Email address",
+      "usernamePlaceholder": "Username",
+      "passwordPlaceholder": "Password (letters + numbers, 8+ characters)",
+      "passwordConfirmationPlaceholder": "Password (confirm)",
+      "haveAccount": "Already have an account? ",
+      "toSignIn": "Sign in",
+      "failed": "Sign-up failed",
+      "verify": {
+        "title": "Check your email",
+        "description": "Enter the verification code sent to {{email}}",
+        "codePlaceholder": "Verification code",
+        "submit": "Verify",
+        "failed": "Failed to verify the code"
+      }
+    },
+    "validation": {
+      "invalidInput": "Please check your input"
+    },
+    "errors": {
+      "fallback": "Something went wrong. Please try again",
+      "invalidCredentials": "Incorrect email address or password",
+      "invalidFormat": "The input format is invalid",
+      "missingParam": "Required fields are missing",
+      "identifierExists": "This email address is already registered",
+      "usernameExists": "This username is already taken",
+      "passwordPwned": "This password has been found in a data breach. Please choose a different one",
+      "passwordTooShort": "Password is too short",
+      "passwordValidationFailed": "Password does not meet the requirements",
+      "codeIncorrect": "The verification code is incorrect",
+      "verificationExpired": "The verification code has expired. Please try again",
+      "verificationFailed": "Verification failed. Please try again",
+      "sessionExists": "You are already signed in",
+      "rateLimitExceeded": "Too many attempts. Please try again later",
+      "tooManyRequests": "Too many requests. Please try again later"
+    }
+  }
+}

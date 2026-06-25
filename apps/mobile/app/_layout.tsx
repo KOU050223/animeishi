@@ -1,4 +1,5 @@
 import "../global.css";
+import "@/lib/i18n";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/tokenCache";
