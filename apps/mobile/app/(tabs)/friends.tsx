@@ -29,7 +29,7 @@ export default function FriendsScreen() {
       "フレンドを削除",
       `「${name}」をフレンドから削除しますか？`,
       () => remove.mutate(friendId),
-      { confirmLabel: "削除", destructive: true },
+      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
 

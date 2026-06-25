@@ -30,6 +30,7 @@ describe("dialog.native", () => {
     const onConfirm = jest.fn();
     confirmNative("削除確認", "削除しますか？", onConfirm, {
       confirmLabel: "削除",
+      cancelLabel: "キャンセル",
       destructive: true,
     });
 
@@ -42,12 +43,16 @@ describe("dialog.native", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it("confirm はオプション未指定なら既定ラベルを使う", () => {
-    confirmNative("確認", "よろしいですか？", jest.fn());
+  it("confirm は呼び出し側が渡したラベルをそのまま使う", () => {
+    confirmNative("確認", "よろしいですか？", jest.fn(), {
+      confirmLabel: "OK",
+      cancelLabel: "やめる",
+    });
 
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
-    expect(buttons[0].text).toBe("キャンセル");
+    expect(buttons[0].text).toBe("やめる");
     expect(buttons[1].text).toBe("OK");
+    // destructive 未指定なら通常スタイル。
     expect(buttons[1].style).toBe("default");
   });
 });
@@ -80,7 +85,10 @@ describe("dialog.web", () => {
     window.confirm = jest.fn(() => true);
     const onConfirm = jest.fn();
 
-    confirmWeb("削除", "削除しますか？", onConfirm);
+    confirmWeb("削除", "削除しますか？", onConfirm, {
+      confirmLabel: "削除",
+      cancelLabel: "キャンセル",
+    });
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -89,7 +97,10 @@ describe("dialog.web", () => {
     window.confirm = jest.fn(() => false);
     const onConfirm = jest.fn();
 
-    confirmWeb("削除", "削除しますか？", onConfirm);
+    confirmWeb("削除", "削除しますか？", onConfirm, {
+      confirmLabel: "削除",
+      cancelLabel: "キャンセル",
+    });
 
     expect(onConfirm).not.toHaveBeenCalled();
   });

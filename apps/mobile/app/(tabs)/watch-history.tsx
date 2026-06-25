@@ -83,7 +83,7 @@ export default function WatchHistoryScreen() {
       "視聴履歴を削除",
       `「${title}」の視聴履歴を削除しますか？`,
       () => remove.mutate(animeId),
-      { confirmLabel: "削除", destructive: true },
+      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
 

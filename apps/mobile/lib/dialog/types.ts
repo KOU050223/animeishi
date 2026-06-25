@@ -18,16 +18,20 @@ export type AlertDialog = (
 /**
  * 確認ダイアログ。ユーザーが承諾したら onConfirm を呼ぶ。
  * キャンセルされた場合は何もしない。
+ *
+ * ラベルはこの基盤では既定値を持たず、必ず呼び出し側が渡す。
+ * 表示言語の決定（i18n の t() 等）は呼び出し側の責務とし、
+ * 低レベルな抽象化基盤を i18n インスタンスに依存させないため。
  */
 export type ConfirmDialog = (
   title: string,
   message: string,
   onConfirm: () => void,
-  options?: {
-    /** 承諾ボタンのラベル (既定: "OK") */
-    confirmLabel?: string;
-    /** キャンセルボタンのラベル (既定: "キャンセル") */
-    cancelLabel?: string;
+  options: {
+    /** 承諾ボタンのラベル */
+    confirmLabel: string;
+    /** キャンセルボタンのラベル */
+    cancelLabel: string;
     /** 破壊的操作として扱うか (ネイティブでは赤字表示) */
     destructive?: boolean;
   },

@@ -64,7 +64,7 @@ export default function FavoritesScreen() {
       "お気に入りを解除",
       `「${title}」をお気に入りから外しますか？`,
       () => remove.mutate(animeId),
-      { confirmLabel: "解除", destructive: true },
+      { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
     );
   }
 

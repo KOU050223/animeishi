@@ -10,14 +10,8 @@ export const confirm: ConfirmDialog = (
   title,
   message,
   onConfirm,
-  options = {},
+  { confirmLabel, cancelLabel, destructive = false },
 ) => {
-  const {
-    confirmLabel = "OK",
-    cancelLabel = "キャンセル",
-    destructive = false,
-  } = options;
-
   Alert.alert(title, message, [
     { text: cancelLabel, style: "cancel" },
     {
