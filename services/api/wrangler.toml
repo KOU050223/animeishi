@@ -38,3 +38,18 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 [[env.production.r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
