@@ -8,11 +8,21 @@
  * 呼び出し側は常に `@/lib/dialog` から import する。
  */
 
-/** 単一メッセージの通知ダイアログ。OK で閉じると onClose が呼ばれる。 */
+/**
+ * 単一メッセージの通知ダイアログ。閉じると onClose が呼ばれる。
+ *
+ * ConfirmDialog と同様、ボタン文言は基盤に既定値を持たせず
+ * 必ず呼び出し側が渡す（i18n の責務を呼び出し側に置くため）。
+ */
 export type AlertDialog = (
   title: string,
   message: string,
-  onClose?: () => void,
+  options: {
+    /** 閉じるボタンのラベル */
+    okLabel: string;
+    /** 閉じたときに呼ばれるコールバック */
+    onClose?: () => void;
+  },
 ) => void;
 
 /**

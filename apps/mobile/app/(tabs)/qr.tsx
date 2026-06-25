@@ -78,17 +78,16 @@ function ScanView() {
       // スキャンした相手をフレンドに追加する。
       addFriend.mutate(userId, {
         onSuccess: () => {
-          alert(
-            "フレンドに追加しました",
-            "相手をフレンドに登録しました",
-            reset,
-          );
+          alert("フレンドに追加しました", "相手をフレンドに登録しました", {
+            okLabel: "OK",
+            onClose: reset,
+          });
         },
         onError: (e) => {
           alert(
             "追加できませんでした",
             e instanceof Error ? e.message : "フレンド追加に失敗しました",
-            reset,
+            { okLabel: "OK", onClose: reset },
           );
         },
       });

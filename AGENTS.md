@@ -41,7 +41,7 @@ nix develop --command task lint    # Lint
 コード中で `Platform.OS === "web"` を分岐させず、ファイル拡張子による自動解決
 （Expo 標準）でモジュールを切り替える。
 
-```
+```text
 foo.web.ts      ← Web 用実装
 foo.native.ts   ← iOS/Android 共通実装
 foo.ts          ← フォールバック兼・型定義（実装は解決されないので throw でよい）
@@ -49,7 +49,8 @@ types.ts        ← 共通インターフェース（型定義）の置き場所
 index.ts        ← バレル（呼び出し側はここを import する）
 ```
 
-呼び出し側は常に拡張子なしで import するだけでよく、バンドラー（Metro / webpack）がプラットフォームに応じて `.web` / `.native` を自動選択する。
+呼び出し側は常に拡張子なしで import するだけでよく、バンドラー
+（Metro / webpack）がプラットフォームに応じて `.web` / `.native` を自動選択する。
 
 ```ts
 import { confirm } from "@/lib/dialog"; // 実装は自動で切り替わる
@@ -62,6 +63,7 @@ import { confirm } from "@/lib/dialog"; // 実装は自動で切り替わる
 
 > 表示文言（ボタンラベル等）は基盤側に既定値を持たせず、必ず呼び出し側が渡す。
 > i18n の `t()` への依存を低レベルな抽象化基盤に持ち込まないため。
-
-> 補足: `KeyboardAvoidingView` の `behavior` のような 1 行のレイアウト微調整は、拡張子分割せず `Platform.OS` の三項演算で済ませてよい。
+>
+> 補足: `KeyboardAvoidingView` の `behavior` のような 1 行のレイアウト微調整は、
+> 拡張子分割せず `Platform.OS` の三項演算で済ませてよい。
 > モジュール単位で実装が分かれる差異だけを拡張子分割の対象とする。

@@ -17,12 +17,12 @@ describe("dialog.native", () => {
     jest.restoreAllMocks();
   });
 
-  it("alert は Alert.alert を OK ボタン付きで呼ぶ", () => {
+  it("alert は呼び出し側が渡したラベルのボタンで Alert.alert を呼ぶ", () => {
     const onClose = jest.fn();
-    alertNative("タイトル", "本文", onClose);
+    alertNative("タイトル", "本文", { okLabel: "閉じる", onClose });
 
     expect(Alert.alert).toHaveBeenCalledWith("タイトル", "本文", [
-      { text: "OK", onPress: onClose },
+      { text: "閉じる", onPress: onClose },
     ]);
   });
 
@@ -75,7 +75,7 @@ describe("dialog.web", () => {
     window.alert = alertMock;
     const onClose = jest.fn();
 
-    alertWeb("タイトル", "本文", onClose);
+    alertWeb("タイトル", "本文", { okLabel: "OK", onClose });
 
     expect(alertMock).toHaveBeenCalledWith("タイトル\n本文");
     expect(onClose).toHaveBeenCalledTimes(1);
