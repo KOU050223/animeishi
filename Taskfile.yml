@@ -65,3 +65,23 @@ tasks:
       #   curl "http://localhost:8787/__scheduled?cron=0+18+*+*+*"   # anime-sync
       #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # season-sync
       - pnpm wrangler dev --test-scheduled
+
+  anime-data-sync:
+    desc: しょぼいカレンダーから本番 D1 の anime_titles を同期（手動投入口）
+    dir: services/api
+    prompt: 本番 D1 (animeishi-db / production) に書き込みます。続行しますか？
+    cmds:
+      # 1. cron と同じ取得ロジック(fetchFromShobocal)で UPSERT 用 SQL を生成
+      - node --experimental-strip-types scripts/sync-anime.ts > /tmp/anime-sync.sql
+      - echo "生成された SQL の行数:" && wc -l < /tmp/anime-sync.sql
+      # 2. 本番 D1 へ流す（source_id の UNIQUE 制約 + ON CONFLICT で冪等）
+      - pnpm wrangler d1 execute animeishi-db --env production --remote --file /tmp/anime-sync.sql
+      # 3. 件数確認
+      - pnpm wrangler d1 execute animeishi-db --env production --remote --command "SELECT COUNT(*) AS n FROM anime_titles;"
+
+  db:migrate:remote:
+    desc: D1 本番マイグレーション適用 (production / remote)
+    dir: services/api
+    prompt: 本番 D1 (animeishi-db / production) にマイグレーションを適用します。続行しますか？
+    cmds:
+      - pnpm wrangler d1 migrations apply animeishi-db --env production --remote

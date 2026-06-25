@@ -242,27 +242,9 @@ describe("cron: handleScheduled ディスパッチ", () => {
 });
 
 describe("source: fetchFromShobocal の季節フィルタ", () => {
-  // しょぼいカレンダー TitleLookup を模した応答（spring/2026 と fall/2025 が混在）
-  const SHOBOCAL_PAYLOAD = {
-    Titles: {
-      "1": {
-        TID: "1",
-        Title: "2026春アニメ",
-        TitleYomi: "",
-        TitleEN: "",
-        FirstYear: "2026",
-        FirstMonth: "4", // spring
-      },
-      "2": {
-        TID: "2",
-        Title: "2025秋アニメ",
-        TitleYomi: "",
-        TitleEN: "",
-        FirstYear: "2025",
-        FirstMonth: "10", // fall
-      },
-    },
-  };
+  // しょぼいカレンダー db.php TitleLookup を模した XML 応答（spring/2026 と fall/2025 が混在）。
+  // db.php は Accept ヘッダに関わらず XML を返すため、実 API と同じ形式で再現する。
+  const SHOBOCAL_PAYLOAD = `<?xml version="1.0" encoding="UTF-8"?><TitleLookupResponse><Result><Code>200</Code><Message></Message></Result><TitleItems><TitleItem id="1"><TID>1</TID><Title>2026春アニメ</Title><TitleYomi></TitleYomi><TitleEN></TitleEN><FirstYear>2026</FirstYear><FirstMonth>4</FirstMonth></TitleItem><TitleItem id="2"><TID>2</TID><Title>2025秋アニメ</Title><TitleYomi></TitleYomi><TitleEN></TitleEN><FirstYear>2025</FirstYear><FirstMonth>10</FirstMonth></TitleItem></TitleItems></TitleLookupResponse>`;
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -270,7 +252,7 @@ describe("source: fetchFromShobocal の季節フィルタ", () => {
 
   it("year/season 未指定なら全件返す", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(SHOBOCAL_PAYLOAD)),
+      new Response(SHOBOCAL_PAYLOAD),
     );
     const all = await fetchFromShobocal();
     expect(all).toHaveLength(2);
@@ -278,7 +260,7 @@ describe("source: fetchFromShobocal の季節フィルタ", () => {
 
   it("year/season 指定でその条件の作品だけに絞り込む", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(SHOBOCAL_PAYLOAD)),
+      new Response(SHOBOCAL_PAYLOAD),
     );
     const spring = await fetchFromShobocal({ year: 2026, season: "spring" });
     expect(spring).toHaveLength(1);

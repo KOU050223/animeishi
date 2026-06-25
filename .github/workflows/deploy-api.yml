@@ -55,6 +55,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # マイグレーションをデプロイ前に適用する。
+      # 新カラム追加 → 新コード配信の順にすることで、デプロイ直後のスキーマ不整合を防ぐ。
+      - name: Apply D1 migrations (production)
+        run: pnpm --filter @animeishi/api exec wrangler d1 migrations apply animeishi-db --env production --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Deploy
         run: pnpm --filter @animeishi/api exec wrangler deploy --env production
         env:
