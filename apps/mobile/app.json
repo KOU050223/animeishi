@@ -7,6 +7,10 @@
     "scheme": "animeishi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.animeishi.app"

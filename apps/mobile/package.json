@@ -9,6 +9,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build": "tsc --noEmit",
+    "build:web": "expo export -p web",
+    "deploy:web": "wrangler deploy --env production",
+    "preview:web": "wrangler dev",
     "test": "jest --passWithNoTests",
     "lint": "eslint app lib store components --no-error-on-unmatched-pattern",
     "format": "prettier --write app lib store",
@@ -72,6 +75,7 @@
     "jest-expo": "~54.0.17",
     "prettier": "^3.5.3",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.58.2"
+    "typescript-eslint": "^8.58.2",
+    "wrangler": "^4.12.0"
   }
 }

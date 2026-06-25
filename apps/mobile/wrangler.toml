@@ -1,0 +1,18 @@
+# Web フロント（Expo Router の web エクスポート）を Cloudflare Workers の
+# 静的アセットとして配信する設定。`expo export -p web` が dist/ に SPA を出力する。
+name = "animeishi-web"
+compatibility_date = "2025-04-01"
+account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
+
+[assets]
+directory = "./dist"
+# SPA のためクライアントサイドルーティングへ未知のパスをフォールバックする
+not_found_handling = "single-page-application"
+
+[env.production]
+[env.production.assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+
+[env.production.vars]
+ENVIRONMENT = "production"
