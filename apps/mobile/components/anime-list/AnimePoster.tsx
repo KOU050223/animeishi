@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 import { styles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
@@ -12,6 +12,10 @@ export function AnimePoster({
 }) {
   const [failed, setFailed] = useState(false);
   const palette = getPosterPalette(title);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
 
   if (uri && !failed) {
     return (

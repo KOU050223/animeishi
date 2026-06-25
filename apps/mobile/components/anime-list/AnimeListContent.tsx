@@ -42,7 +42,8 @@ export function AnimeListContent({
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { contentWidth, cardWidth, numColumns, isWide } = getAnimeListLayout(width);
+  const { contentWidth, cardWidth, numColumns, isWide } =
+    getAnimeListLayout(width);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -53,8 +54,11 @@ export function AnimeListContent({
 
   async function onRefresh() {
     setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function toggleSort(key: SortKey) {
