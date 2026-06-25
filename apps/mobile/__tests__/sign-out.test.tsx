@@ -6,12 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import HomeScreen from "@/app/(tabs)/index";
-
-// Clerk の useAuth をモックし、signOut の呼び出しを検証する
-const mockSignOut = jest.fn();
-jest.mock("@clerk/clerk-expo", () => ({
-  useAuth: () => ({ signOut: mockSignOut }),
-}));
+import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // react-query の useQueryClient はキャッシュクリア用。本テストでは未使用。
 jest.mock("@tanstack/react-query", () => ({
@@ -25,27 +20,30 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  resetAuth();
 });
 
 describe("HomeScreen ログアウト", () => {
   it("サインアウトボタンが表示される", () => {
+    loggedInUser();
     render(<HomeScreen />);
     expect(screen.getByTestId("sign-out-button")).toBeTruthy();
   });
 
   it("サインアウトボタンを押すと signOut が呼ばれる", async () => {
-    mockSignOut.mockResolvedValueOnce(undefined);
+    const auth = loggedInUser();
 
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("sign-out-button"));
 
     await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      expect(auth.signOut).toHaveBeenCalledTimes(1);
     });
+    expect(auth.isSignedIn).toBe(false);
   });
 
   it("サインアウトボタンを連打しても signOut が押下回数ぶん呼ばれる（多重呼び出しで破綻しない）", async () => {
-    mockSignOut.mockResolvedValue(undefined);
+    const auth = loggedInUser();
 
     render(<HomeScreen />);
     const button = screen.getByTestId("sign-out-button");
@@ -54,7 +52,7 @@ describe("HomeScreen ログアウト", () => {
     fireEvent.press(button);
 
     await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledTimes(3);
+      expect(auth.signOut).toHaveBeenCalledTimes(3);
     });
   });
 });
