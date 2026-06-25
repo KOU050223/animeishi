@@ -26,6 +26,9 @@ crons = ["0 18 * * *", "0 */6 * * *"]
 
 [env.production.vars]
 ENVIRONMENT = "production"
+# CORS 許可オリジン（カンマ区切り）。"*" 始まりはサフィックス一致（プレビューデプロイ用）。
+# 詳細は src/cors.ts および docs/04_deployment.md を参照。
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
 
 [[env.production.d1_databases]]
 binding = "DB"

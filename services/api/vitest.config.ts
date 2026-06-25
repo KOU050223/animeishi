@@ -24,6 +24,7 @@ export default defineConfig({
     exclude: [
       "**/__tests__/no-direct-db.test.js",
       "src/schema/__tests__/**",
+      "src/__tests__/**",
       "node_modules/**",
     ],
   },

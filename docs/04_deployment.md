@@ -70,21 +70,33 @@ pnpm exec wrangler secret put CLERK_PUBLISHABLE_KEY --env production
 
 ## 3. CORS（`ALLOWED_ORIGINS`）の設定
 
-API は `ALLOWED_ORIGINS`（カンマ区切り）に一致するオリジンのみ CORS を許可する。未設定なら全許可（開発用）。
+API は `ALLOWED_ORIGINS`（カンマ区切り）に一致するオリジンのみ CORS を許可する（判定ロジックは [`services/api/src/cors.ts`](../services/api/src/cors.ts)）。未設定なら全許可（開発用）。
+
+各エントリは 2 形式を取れる:
+
+- **完全一致**: `https://animeishi.uomi.dev` のように、スキーム・ホスト・ポートまで含めて厳密一致。
+- **ワイルドカード**: `*-animeishi-web-production.uozumi05.workers.dev` のように先頭 `*` を任意文字列として、残りのサフィックスに末尾一致。Cloudflare のプレビューデプロイ（`<hash>-<worker>.<subdomain>.workers.dev`）を許可する用途。
+
+> `Origin` ヘッダはスキームとポート込みで送られる。`localhost` 単体やドメインだけでは一致しない（Expo web のデフォルトは `http://localhost:8081`）。
 
 Web フロントを別ドメインから配信するため、**本番では Web のオリジンを必ず設定する**。設定しないと全許可のままになり、設定し忘れて空文字を入れると全ブロックになる点に注意。
 
-`services/api/wrangler.toml` の `[env.production.vars]` に追記する:
+`services/api/wrangler.toml` の `[env.production.vars]` に設定済み（現状の値）:
 
 ```toml
 [env.production.vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://animeishi-web.example.workers.dev,https://animeishi.uomi.dev"
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
 ```
 
-Web のデプロイ先ドメイン（`*.workers.dev` か独自ドメイン）が確定してから設定する。変更後は API を再デプロイする。
+| オリジン | 用途 |
+| --- | --- |
+| `https://animeishi-web-production.uozumi05.workers.dev` | 本番 Web（`*.workers.dev`） |
+| `*-animeishi-web-production.uozumi05.workers.dev` | プレビューデプロイ（ワイルドカード） |
+| `https://animeishi.uomi.dev` | 独自ドメイン（割り当て予定） |
+| `http://localhost:8081` | ローカル開発（Expo web） |
 
-ローカル開発で試す場合は `services/api/.dev.vars` に `ALLOWED_ORIGINS=http://localhost:8081` のように記述する。
+変更後は API を再デプロイする（`pnpm --filter @animeishi/api exec wrangler deploy --env production`）。ローカル開発で別の値を試す場合は `services/api/.dev.vars` に記述する。
 
 ## 4. 手動デプロイ
 
