@@ -6,12 +6,11 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
-  Platform,
   StyleSheet,
 } from "react-native";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
+import { confirm } from "@/lib/dialog";
 
 export default function FriendsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -26,24 +25,12 @@ export default function FriendsScreen() {
   }
 
   function confirmRemove(friendId: string, name: string) {
-    const message = `「${name}」をフレンドから削除しますか？`;
-
-    // Web では Alert.alert の onPress が発火しないため window.confirm にフォールバックする。
-    if (Platform.OS === "web") {
-      if (window.confirm(message)) {
-        remove.mutate(friendId);
-      }
-      return;
-    }
-
-    Alert.alert("フレンドを削除", message, [
-      { text: "キャンセル", style: "cancel" },
-      {
-        text: "削除",
-        style: "destructive",
-        onPress: () => remove.mutate(friendId),
-      },
-    ]);
+    confirm(
+      "フレンドを削除",
+      `「${name}」をフレンドから削除しますか？`,
+      () => remove.mutate(friendId),
+      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+    );
   }
 
   if (isLoading) {

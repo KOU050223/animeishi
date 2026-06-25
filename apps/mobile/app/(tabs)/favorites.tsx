@@ -6,14 +6,13 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
-  Platform,
   StyleSheet,
 } from "react-native";
 import { useFavorites, useRemoveFavorite } from "@/lib/useFavorites";
 import { useAnimeList } from "@/lib/useAnimeList";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import type { AnimeTitle } from "@/lib/useAnimeList";
+import { confirm } from "@/lib/dialog";
 
 export default function FavoritesScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -61,25 +60,12 @@ export default function FavoritesScreen() {
   }
 
   function confirmRemove(animeId: number, title: string) {
-    const message = `「${title}」をお気に入りから外しますか？`;
-
-    // React Native の Alert.alert は Web では複数ボタンの onPress が
-    // 発火しないため、Web では window.confirm にフォールバックする。
-    if (Platform.OS === "web") {
-      if (window.confirm(message)) {
-        remove.mutate(animeId);
-      }
-      return;
-    }
-
-    Alert.alert("お気に入りを解除", message, [
-      { text: "キャンセル", style: "cancel" },
-      {
-        text: "解除",
-        style: "destructive",
-        onPress: () => remove.mutate(animeId),
-      },
-    ]);
+    confirm(
+      "お気に入りを解除",
+      `「${title}」をお気に入りから外しますか？`,
+      () => remove.mutate(animeId),
+      { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
+    );
   }
 
   if (isLoading) {

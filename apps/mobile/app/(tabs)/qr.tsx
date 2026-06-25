@@ -1,18 +1,12 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  Platform,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend } from "@/lib/useFriends";
+import { alert } from "@/lib/dialog";
 
 type Mode = "generate" | "scan";
 
@@ -69,20 +63,6 @@ function GenerateView() {
   );
 }
 
-/**
- * スキャン結果をユーザーに通知する。
- * Web では React Native の Alert.alert のボタン onPress が発火しないため、
- * window.alert にフォールバックして確実にメッセージを出し reset を呼ぶ。
- */
-function notify(title: string, message: string, onClose: () => void) {
-  if (Platform.OS === "web") {
-    window.alert(`${title}\n${message}`);
-    onClose();
-    return;
-  }
-  Alert.alert(title, message, [{ text: "OK", onPress: onClose }]);
-}
-
 function ScanView() {
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
@@ -98,17 +78,16 @@ function ScanView() {
       // スキャンした相手をフレンドに追加する。
       addFriend.mutate(userId, {
         onSuccess: () => {
-          notify(
-            "フレンドに追加しました",
-            "相手をフレンドに登録しました",
-            reset,
-          );
+          alert("フレンドに追加しました", "相手をフレンドに登録しました", {
+            okLabel: "OK",
+            onClose: reset,
+          });
         },
         onError: (e) => {
-          notify(
+          alert(
             "追加できませんでした",
             e instanceof Error ? e.message : "フレンド追加に失敗しました",
-            reset,
+            { okLabel: "OK", onClose: reset },
           );
         },
       });
