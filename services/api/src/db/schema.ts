@@ -23,6 +23,9 @@ export const users = sqliteTable("users", {
 // ---- anime_titles (master) ----
 export const animeTitles = sqliteTable("anime_titles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  // 外部ソース（しょぼいカレンダー TID 等）の安定 ID。同期バッチの重複排除キー。
+  // 手動投入分は持たないため NULL 許容。値がある場合は一意。
+  sourceId: text("source_id").unique(),
   title: text("title").notNull(),
   titleReading: text("title_reading"), // よみがな
   titleEnglish: text("title_english"),

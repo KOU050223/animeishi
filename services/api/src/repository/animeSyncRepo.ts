@@ -32,17 +32,30 @@ export type AnimeSyncResult = {
  */
 export function animeSyncRepo(db: DrizzleDb) {
   /**
-   * 1 件を title（自然キー）で突き合わせて upsert する。
-   * anime_titles には外部ソース ID 列が無いため、現状は title をキーに重複を排除する。
-   * 既存と内容が同一なら書き込みをスキップし、updatedAt の無駄な更新を避ける。
+   * 既存レコードを 1 件特定する。
+   * 外部ソース ID（sourceId）があればそれを安定キーに突き合わせる。
+   * sourceId を持たない入力（手動投入相当）は title をフォールバックキーにする。
+   */
+  async function findExisting(input: AnimeSyncInput) {
+    if (input.sourceId) {
+      return db.query.animeTitles.findFirst({
+        where: eq(animeTitles.sourceId, input.sourceId),
+      });
+    }
+    return db.query.animeTitles.findFirst({
+      where: eq(animeTitles.title, input.title),
+    });
+  }
+
+  /**
+   * 1 件を upsert する。既存と内容が同一なら書き込みをスキップし、
+   * updatedAt の無駄な更新を避ける。
    */
   async function upsertOne(
     input: AnimeSyncInput,
     now: Date,
   ): Promise<"inserted" | "updated" | "skipped"> {
-    const existing = await db.query.animeTitles.findFirst({
-      where: eq(animeTitles.title, input.title),
-    });
+    const existing = await findExisting(input);
 
     if (!existing) {
       await db
@@ -85,6 +98,8 @@ export type AnimeSyncRepo = ReturnType<typeof animeSyncRepo>;
 function hasChanges(
   existing: Pick<
     typeof animeTitles.$inferSelect,
+    | "sourceId"
+    | "title"
     | "titleReading"
     | "titleEnglish"
     | "year"
@@ -95,6 +110,8 @@ function hasChanges(
   input: AnimeSyncInput,
 ): boolean {
   return (
+    (input.sourceId ?? null) !== (existing.sourceId ?? null) ||
+    input.title !== existing.title ||
     (input.titleReading ?? null) !== (existing.titleReading ?? null) ||
     (input.titleEnglish ?? null) !== (existing.titleEnglish ?? null) ||
     (input.year ?? null) !== (existing.year ?? null) ||

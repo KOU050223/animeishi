@@ -15,6 +15,7 @@ export type AnimeSource = (options?: {
 const SHOBOCAL_ENDPOINT = "https://cal.syoboi.jp/db.php";
 
 type ShobocalTitle = {
+  TID?: string; // しょぼいカレンダーのタイトル ID（安定した外部キー）
   Title?: string;
   TitleYomi?: string;
   TitleEN?: string;
@@ -42,7 +43,7 @@ function toNumber(value: string | undefined): number | null {
  * 取得失敗時は例外を投げる（呼び出し側でログ・スキップ判断する）。
  */
 export const fetchFromShobocal: AnimeSource = async () => {
-  const url = `${SHOBOCAL_ENDPOINT}?Command=TitleLookup&Fields=Title,TitleYomi,TitleEN,FirstYear,FirstMonth&JOIN=SubTitles`;
+  const url = `${SHOBOCAL_ENDPOINT}?Command=TitleLookup&Fields=TID,Title,TitleYomi,TitleEN,FirstYear,FirstMonth&JOIN=SubTitles`;
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
   });
@@ -62,6 +63,7 @@ export const fetchFromShobocal: AnimeSource = async () => {
     .map((t) => {
       const month = toNumber(t.FirstMonth);
       return {
+        sourceId: t.TID ? `shobocal:${t.TID}` : null,
         title: t.Title,
         titleReading: t.TitleYomi || null,
         titleEnglish: t.TitleEN || null,

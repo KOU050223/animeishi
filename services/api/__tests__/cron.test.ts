@@ -14,6 +14,7 @@ type TestBindings = {
 
 const SAMPLE: AnimeSyncInput[] = [
   {
+    sourceId: "shobocal:1",
     title: "進撃の巨人",
     titleReading: "しんげきのきょじん",
     titleEnglish: "Attack on Titan",
@@ -23,6 +24,7 @@ const SAMPLE: AnimeSyncInput[] = [
     thumbnailUrl: null,
   },
   {
+    sourceId: "shobocal:2",
     title: "鬼滅の刃",
     titleReading: "きめつのやいば",
     titleEnglish: "Demon Slayer",
@@ -75,6 +77,49 @@ describe("cron: anime-sync", () => {
       where: (t, { eq }) => eq(t.title, "鬼滅の刃"),
     });
     expect(updated?.titleEnglish).toBe("Kimetsu no Yaiba");
+  });
+
+  it("sourceId が同じならタイトル変更でも新規行を作らず更新する", async () => {
+    await runAnimeSync(bindings, async () => SAMPLE);
+
+    // sourceId は据え置きでタイトルだけ改名された場合
+    const renamed: AnimeSyncInput[] = [
+      { ...SAMPLE[0]!, title: "進撃の巨人 The Final Season" },
+      SAMPLE[1]!,
+    ];
+    const result = await runAnimeSync(bindings, async () => renamed);
+
+    expect(result.sync).toEqual({ inserted: 0, updated: 1, skipped: 1 });
+
+    const rows = await db.query.animeTitles.findMany();
+    // 行が増えていない（title をキーにしていた頃は 3 件になってしまっていた）
+    expect(rows).toHaveLength(2);
+    const renamedRow = rows.find((r) => r.sourceId === "shobocal:1");
+    expect(renamedRow?.title).toBe("進撃の巨人 The Final Season");
+  });
+
+  it("sourceId を持たない入力は title をフォールバックキーにする", async () => {
+    const manual: AnimeSyncInput[] = [
+      {
+        sourceId: null,
+        title: "手動投入作品",
+        titleReading: null,
+        titleEnglish: null,
+        year: 2024,
+        season: "winter",
+        genres: null,
+        thumbnailUrl: null,
+      },
+    ];
+    const first = await runAnimeSync(bindings, async () => manual);
+    expect(first.sync.inserted).toBe(1);
+
+    // 同じ title で再実行しても重複しない（title フォールバックで突き合わせ）
+    const second = await runAnimeSync(bindings, async () => manual);
+    expect(second.sync).toEqual({ inserted: 0, updated: 0, skipped: 1 });
+
+    const rows = await db.query.animeTitles.findMany();
+    expect(rows).toHaveLength(1);
   });
 
   it("変更が無ければ Cache Purge を呼ばない", async () => {
