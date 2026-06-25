@@ -56,3 +56,12 @@ tasks:
     dir: services/api
     cmds:
       - pnpm db:migrate:local
+
+  dev:api:scheduled:
+    desc: Cron バッチを手動トリガーできる状態で API を起動 (wrangler dev --test-scheduled)
+    dir: services/api
+    cmds:
+      # 起動後に別端末から下記で手動トリガーできる:
+      #   curl "http://localhost:8787/__scheduled?cron=0+18+*+*+*"   # anime-sync
+      #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # season-sync
+      - pnpm wrangler dev --test-scheduled
