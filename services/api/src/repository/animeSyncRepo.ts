@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import { animeTitles } from "@/db/schema";
 import type { NewAnimeTitle } from "@/db/schema";
@@ -32,17 +32,44 @@ export type AnimeSyncResult = {
  */
 export function animeSyncRepo(db: DrizzleDb) {
   /**
-   * 1 件を title（自然キー）で突き合わせて upsert する。
-   * anime_titles には外部ソース ID 列が無いため、現状は title をキーに重複を排除する。
-   * 既存と内容が同一なら書き込みをスキップし、updatedAt の無駄な更新を避ける。
+   * 既存レコードを 1 件特定する。
+   *
+   * 1. sourceId があればまず sourceId で突き合わせる（安定キー）。
+   * 2. sourceId で見つからない場合は title でフォールバック検索する。
+   *    これは「sourceId 列を追加する以前から存在する行（source_id = NULL）」に
+   *    初回同期で外部 ID を後付け（backfill）するための経路。
+   *    これが無いと既存行が見つからず、同タイトルの重複行が増えてしまう。
+   * 3. sourceId を持たない入力（手動投入相当）は title をキーにする。
+   */
+  async function findExisting(input: AnimeSyncInput) {
+    if (input.sourceId) {
+      const bySourceId = await db.query.animeTitles.findFirst({
+        where: eq(animeTitles.sourceId, input.sourceId),
+      });
+      if (bySourceId) return bySourceId;
+
+      // sourceId 未設定の既存行を title で拾い、後段の update で sourceId を付与する。
+      return db.query.animeTitles.findFirst({
+        where: and(
+          eq(animeTitles.title, input.title),
+          isNull(animeTitles.sourceId),
+        ),
+      });
+    }
+    return db.query.animeTitles.findFirst({
+      where: eq(animeTitles.title, input.title),
+    });
+  }
+
+  /**
+   * 1 件を upsert する。既存と内容が同一なら書き込みをスキップし、
+   * updatedAt の無駄な更新を避ける。
    */
   async function upsertOne(
     input: AnimeSyncInput,
     now: Date,
   ): Promise<"inserted" | "updated" | "skipped"> {
-    const existing = await db.query.animeTitles.findFirst({
-      where: eq(animeTitles.title, input.title),
-    });
+    const existing = await findExisting(input);
 
     if (!existing) {
       await db
@@ -85,6 +112,8 @@ export type AnimeSyncRepo = ReturnType<typeof animeSyncRepo>;
 function hasChanges(
   existing: Pick<
     typeof animeTitles.$inferSelect,
+    | "sourceId"
+    | "title"
     | "titleReading"
     | "titleEnglish"
     | "year"
@@ -95,6 +124,8 @@ function hasChanges(
   input: AnimeSyncInput,
 ): boolean {
   return (
+    (input.sourceId ?? null) !== (existing.sourceId ?? null) ||
+    input.title !== existing.title ||
     (input.titleReading ?? null) !== (existing.titleReading ?? null) ||
     (input.titleEnglish ?? null) !== (existing.titleEnglish ?? null) ||
     (input.year ?? null) !== (existing.year ?? null) ||

@@ -4,6 +4,7 @@ import { useFilteredAnimeList } from "@/lib/useAnimeList";
 const MOCK_TITLES = [
   {
     id: 1,
+    sourceId: null,
     title: "進撃の巨人",
     titleReading: "しんげきのきょじん",
     titleEnglish: "Attack on Titan",
@@ -16,6 +17,7 @@ const MOCK_TITLES = [
   },
   {
     id: 2,
+    sourceId: null,
     title: "鬼滅の刃",
     titleReading: "きめつのやいば",
     titleEnglish: "Demon Slayer",
@@ -28,6 +30,7 @@ const MOCK_TITLES = [
   },
   {
     id: 3,
+    sourceId: null,
     title: "HUNTER×HUNTER",
     titleReading: "はんたーはんたー",
     titleEnglish: "Hunter x Hunter",

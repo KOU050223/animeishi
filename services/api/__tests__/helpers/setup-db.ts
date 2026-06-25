@@ -14,6 +14,7 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE TABLE IF NOT EXISTS anime_titles (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    source_id TEXT,
     title TEXT NOT NULL,
     title_reading TEXT,
     title_english TEXT,
@@ -24,6 +25,7 @@ const DDL_STATEMENTS = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS anime_titles_source_id_unique ON anime_titles (source_id)`,
   `CREATE TABLE IF NOT EXISTS watch_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
