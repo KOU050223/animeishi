@@ -4,6 +4,12 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 
+# Cron トリガー（src/cron/index.ts の handleScheduled が cron 式で分岐する）
+#   "0 18 * * *"  : 毎日 18:00 UTC（JST 翌 3:00）に全アニメデータを同期
+#   "0 */6 * * *" : 6 時間ごとに現在シーズンのアニメ情報を更新
+[triggers]
+crons = ["0 18 * * *", "0 */6 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
@@ -15,6 +21,9 @@ binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
 [env.production]
+[env.production.triggers]
+crons = ["0 18 * * *", "0 */6 * * *"]
+
 [env.production.vars]
 ENVIRONMENT = "production"
 
