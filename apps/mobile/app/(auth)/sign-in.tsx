@@ -11,23 +11,7 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { signInSchema } from "@/lib/validators";
-
-function getAuthErrorMessage(err: unknown) {
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "errors" in err &&
-    Array.isArray(err.errors) &&
-    err.errors[0] &&
-    typeof err.errors[0] === "object" &&
-    "message" in err.errors[0] &&
-    typeof err.errors[0].message === "string"
-  ) {
-    return err.errors[0].message;
-  }
-
-  return err instanceof Error ? err.message : "サインインに失敗しました";
-}
+import { toAuthErrorMessage } from "@/lib/authErrors";
 
 function getIncompleteSignInMessage(status: string | null) {
   if (!status) {
@@ -86,7 +70,7 @@ export default function SignInScreen() {
         setError(getIncompleteSignInMessage(result.status));
       }
     } catch (err: unknown) {
-      setError(getAuthErrorMessage(err));
+      setError(toAuthErrorMessage(err, "サインインに失敗しました"));
     } finally {
       setLoading(false);
     }
