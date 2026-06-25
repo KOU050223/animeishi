@@ -7,6 +7,7 @@ CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # CORS で許可するオリジンのカンマ区切りリスト
 # 未設定の場合は全オリジンを許可する（開発用）。本番では web フロントのオリジンを指定する。
-# 例: ALLOWED_ORIGINS=https://animeishi-web.example.workers.dev,https://animeishi.uomi.dev
+# "*" 始まりのエントリはサフィックス一致（プレビューデプロイの <hash>-... を許可する用途）。
+# 例: ALLOWED_ORIGINS=https://animeishi.uomi.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081
 # 本番の登録手順は docs/04_deployment.md を参照。
 ALLOWED_ORIGINS=
