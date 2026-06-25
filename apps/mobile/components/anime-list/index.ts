@@ -1,0 +1,1 @@
+export { AnimeListContent } from "./AnimeListContent";
