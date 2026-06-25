@@ -11,10 +11,12 @@ import {
   ScrollView,
 } from "react-native";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { signUpSchema } from "@/lib/validators";
 import { toAuthErrorMessage } from "@/lib/authErrors";
 
 export default function SignUpScreen() {
+  const { t } = useTranslation();
   const { signUp, setActive, isLoaded } = useSignUp();
   const router = useRouter();
 
@@ -37,7 +39,9 @@ export default function SignUpScreen() {
       username,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
+      setError(
+        parsed.error.issues[0]?.message ?? t("auth.validation.invalidInput"),
+      );
       return;
     }
 
@@ -53,7 +57,7 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, "サインアップに失敗しました"));
+      setError(toAuthErrorMessage(err, "auth.signUp.failed"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +76,7 @@ export default function SignUpScreen() {
         router.replace("/(tabs)");
       }
     } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, "認証コードの検証に失敗しました"));
+      setError(toAuthErrorMessage(err, "auth.signUp.verify.failed"));
     } finally {
       setLoading(false);
     }
@@ -86,15 +90,15 @@ export default function SignUpScreen() {
       >
         <View className="flex-1 justify-center px-6">
           <Text className="text-xl font-semibold mb-2 text-gray-800">
-            メールを確認してください
+            {t("auth.signUp.verify.title")}
           </Text>
           <Text className="text-gray-500 mb-6">
-            {email} に送信された認証コードを入力してください
+            {t("auth.signUp.verify.description", { email })}
           </Text>
 
           <TextInput
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center"
-            placeholder="認証コード"
+            placeholder={t("auth.signUp.verify.codePlaceholder")}
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -116,7 +120,9 @@ export default function SignUpScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-semibold text-base">確認</Text>
+              <Text className="text-white font-semibold text-base">
+                {t("auth.signUp.verify.submit")}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -134,16 +140,16 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
-          Animeishi
+          {t("common.appName")}
         </Text>
 
         <Text className="text-xl font-semibold mb-6 text-gray-800">
-          アカウント作成
+          {t("auth.signUp.title")}
         </Text>
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="メールアドレス"
+          placeholder={t("auth.signUp.emailPlaceholder")}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -154,7 +160,7 @@ export default function SignUpScreen() {
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="ユーザー名"
+          placeholder={t("auth.signUp.usernamePlaceholder")}
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -163,7 +169,7 @@ export default function SignUpScreen() {
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="パスワード（英字+数字、8文字以上）"
+          placeholder={t("auth.signUp.passwordPlaceholder")}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -173,7 +179,7 @@ export default function SignUpScreen() {
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="パスワード（確認）"
+          placeholder={t("auth.signUp.passwordConfirmationPlaceholder")}
           value={passwordConfirmation}
           onChangeText={setPasswordConfirmation}
           secureTextEntry
@@ -204,15 +210,17 @@ export default function SignUpScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text className="text-white font-semibold text-base">
-              アカウント作成
+              {t("auth.signUp.submit")}
             </Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
-          <Text className="text-gray-600">すでにアカウントをお持ちの方は </Text>
+          <Text className="text-gray-600">{t("auth.signUp.haveAccount")}</Text>
           <Link href="/(auth)/sign-in" testID="sign-in-link">
-            <Text className="text-indigo-600 font-semibold">サインイン</Text>
+            <Text className="text-indigo-600 font-semibold">
+              {t("auth.signUp.toSignIn")}
+            </Text>
           </Link>
         </View>
       </ScrollView>

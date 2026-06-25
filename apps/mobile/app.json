@@ -32,7 +32,8 @@
         {
           "photosPermission": "プロフィール画像を設定するために写真へのアクセスを許可してください"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

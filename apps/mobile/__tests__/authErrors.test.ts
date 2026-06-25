@@ -21,7 +21,7 @@ describe("toAuthErrorMessage", () => {
     );
   });
 
-  it("未知のコードの場合はフォールバックを返す（英語を漏らさない）", () => {
+  it("未知のコードの場合はフォールバックキーを翻訳して返す（英語を漏らさない）", () => {
     const err = {
       errors: [
         {
@@ -30,18 +30,18 @@ describe("toAuthErrorMessage", () => {
         },
       ],
     };
-    expect(toAuthErrorMessage(err, "サインインに失敗しました")).toBe(
+    expect(toAuthErrorMessage(err, "auth.signIn.failed")).toBe(
       "サインインに失敗しました",
     );
   });
 
-  it("errors 配列を持たないエラーはフォールバックを返す", () => {
-    expect(toAuthErrorMessage(new Error("boom"), "失敗しました")).toBe(
-      "失敗しました",
+  it("errors 配列を持たないエラーはフォールバックキーを翻訳して返す", () => {
+    expect(toAuthErrorMessage(new Error("boom"), "auth.signUp.failed")).toBe(
+      "サインアップに失敗しました",
     );
   });
 
-  it("null/undefined でもフォールバックを返す", () => {
+  it("フォールバックキー未指定なら既定のフォールバック文言を返す", () => {
     expect(toAuthErrorMessage(null)).toBe(
       "処理に失敗しました。もう一度お試しください",
     );

@@ -10,26 +10,29 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { signInSchema } from "@/lib/validators";
 import { toAuthErrorMessage } from "@/lib/authErrors";
 
-function getIncompleteSignInMessage(status: string | null) {
+function getIncompleteSignInMessage(status: string | null, t: TFunction) {
   if (!status) {
-    return "サインインを完了できませんでした。もう一度お試しください。";
+    return t("auth.signIn.incomplete.default");
   }
 
   if (status === "needs_second_factor") {
-    return "二要素認証が必要ですが、この画面ではまだ対応していません。";
+    return t("auth.signIn.incomplete.needsSecondFactor");
   }
 
   if (status === "needs_identifier" || status === "needs_first_factor") {
-    return "メールアドレスまたはパスワードを確認してください。";
+    return t("auth.signIn.incomplete.needsIdentifier");
   }
 
-  return `サインインを完了できませんでした。状態: ${status}`;
+  return t("auth.signIn.incomplete.withStatus", { status });
 }
 
 export default function SignInScreen() {
+  const { t } = useTranslation();
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn, signOut } = useAuth();
   const router = useRouter();
@@ -44,7 +47,9 @@ export default function SignInScreen() {
 
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
+      setError(
+        parsed.error.issues[0]?.message ?? t("auth.validation.invalidInput"),
+      );
       return;
     }
 
@@ -67,10 +72,10 @@ export default function SignInScreen() {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
       } else {
-        setError(getIncompleteSignInMessage(result.status));
+        setError(getIncompleteSignInMessage(result.status, t));
       }
     } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, "サインインに失敗しました"));
+      setError(toAuthErrorMessage(err, "auth.signIn.failed"));
     } finally {
       setLoading(false);
     }
@@ -83,16 +88,16 @@ export default function SignInScreen() {
     >
       <View className="flex-1 justify-center px-6">
         <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
-          Animeishi
+          {t("common.appName")}
         </Text>
 
         <Text className="text-xl font-semibold mb-6 text-gray-800">
-          サインイン
+          {t("auth.signIn.title")}
         </Text>
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="メールアドレス"
+          placeholder={t("auth.signIn.emailPlaceholder")}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -103,7 +108,7 @@ export default function SignInScreen() {
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder="パスワード"
+          placeholder={t("auth.signIn.passwordPlaceholder")}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -127,15 +132,17 @@ export default function SignInScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text className="text-white font-semibold text-base">
-              サインイン
+              {t("auth.signIn.submit")}
             </Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
-          <Text className="text-gray-600">アカウントをお持ちでない方は </Text>
+          <Text className="text-gray-600">{t("auth.signIn.noAccount")}</Text>
           <Link href="/(auth)/sign-up" testID="sign-up-link">
-            <Text className="text-indigo-600 font-semibold">サインアップ</Text>
+            <Text className="text-indigo-600 font-semibold">
+              {t("auth.signIn.toSignUp")}
+            </Text>
           </Link>
         </View>
       </View>
