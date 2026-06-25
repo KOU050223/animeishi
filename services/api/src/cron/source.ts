@@ -41,8 +41,13 @@ function toNumber(value: string | undefined): number | null {
 /**
  * しょぼいカレンダーから JSON でタイトル一覧を取得し、anime_titles 形式に正規化する。
  * 取得失敗時は例外を投げる（呼び出し側でログ・スキップ判断する）。
+ *
+ * `options.year` / `options.season` が指定された場合は、その条件に一致する作品のみに
+ * 絞り込む（season-sync が現在シーズンのみを更新するため）。
+ * しょぼいカレンダーの TitleLookup には季節での絞り込みパラメータが無いため、
+ * 取得後にクライアント側でフィルタする。
  */
-export const fetchFromShobocal: AnimeSource = async () => {
+export const fetchFromShobocal: AnimeSource = async (options) => {
   const url = `${SHOBOCAL_ENDPOINT}?Command=TitleLookup&Fields=TID,Title,TitleYomi,TitleEN,FirstYear,FirstMonth&JOIN=SubTitles`;
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
@@ -58,7 +63,7 @@ export const fetchFromShobocal: AnimeSource = async () => {
   };
   const titles = json.Titles ?? {};
 
-  return Object.values(titles)
+  const normalized = Object.values(titles)
     .filter((t): t is ShobocalTitle & { Title: string } => Boolean(t.Title))
     .map((t) => {
       const month = toNumber(t.FirstMonth);
@@ -73,4 +78,15 @@ export const fetchFromShobocal: AnimeSource = async () => {
         thumbnailUrl: null,
       } satisfies AnimeSyncInput;
     });
+
+  // year / season が指定されていれば対象シーズンに絞り込む。
+  if (options?.year === undefined && options?.season === undefined) {
+    return normalized;
+  }
+  return normalized.filter((t) => {
+    if (options.year !== undefined && t.year !== options.year) return false;
+    if (options.season !== undefined && t.season !== options.season)
+      return false;
+    return true;
+  });
 };

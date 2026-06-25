@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "./helpers/setup-db";
+import { animeTitles } from "@/db/schema";
 import { runAnimeSync } from "@/cron/anime-sync";
 import { runSeasonSync } from "@/cron/season-sync";
 import { handleScheduled, ANIME_SYNC_CRON, SEASON_SYNC_CRON } from "@/cron";
+import { fetchFromShobocal } from "@/cron/source";
 import type { AnimeSyncInput } from "@/repository/animeSyncRepo";
 
 type TestBindings = {
@@ -96,6 +98,32 @@ describe("cron: anime-sync", () => {
     expect(rows).toHaveLength(2);
     const renamedRow = rows.find((r) => r.sourceId === "shobocal:1");
     expect(renamedRow?.title).toBe("進撃の巨人 The Final Season");
+  });
+
+  it("sourceId 列追加前の既存行（source_id=NULL）に初回同期で sourceId を backfill する", async () => {
+    // #43 時代に title キーで投入された既存行を再現（source_id は NULL）
+    const now = new Date();
+    await db.insert(animeTitles).values({
+      title: "進撃の巨人",
+      titleReading: "しんげきのきょじん",
+      titleEnglish: "Attack on Titan",
+      year: 2013,
+      season: "spring",
+      genres: ["action"],
+      thumbnailUrl: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // 同じ作品が sourceId 付きで流れてくる初回同期
+    const result = await runAnimeSync(bindings, async () => [SAMPLE[0]!]);
+
+    // 重複行を作らず、既存行へ sourceId を付与（update）する
+    expect(result.sync).toEqual({ inserted: 0, updated: 1, skipped: 0 });
+
+    const rows = await db.query.animeTitles.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.sourceId).toBe("shobocal:1");
   });
 
   it("sourceId を持たない入力は title をフォールバックキーにする", async () => {
@@ -210,5 +238,51 @@ describe("cron: handleScheduled ディスパッチ", () => {
     await expect(
       handleScheduled({ cron: SEASON_SYNC_CRON }, { DB: env.DB }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("source: fetchFromShobocal の季節フィルタ", () => {
+  // しょぼいカレンダー TitleLookup を模した応答（spring/2026 と fall/2025 が混在）
+  const SHOBOCAL_PAYLOAD = {
+    Titles: {
+      "1": {
+        TID: "1",
+        Title: "2026春アニメ",
+        TitleYomi: "",
+        TitleEN: "",
+        FirstYear: "2026",
+        FirstMonth: "4", // spring
+      },
+      "2": {
+        TID: "2",
+        Title: "2025秋アニメ",
+        TitleYomi: "",
+        TitleEN: "",
+        FirstYear: "2025",
+        FirstMonth: "10", // fall
+      },
+    },
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("year/season 未指定なら全件返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(SHOBOCAL_PAYLOAD)),
+    );
+    const all = await fetchFromShobocal();
+    expect(all).toHaveLength(2);
+  });
+
+  it("year/season 指定でその条件の作品だけに絞り込む", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(SHOBOCAL_PAYLOAD)),
+    );
+    const spring = await fetchFromShobocal({ year: 2026, season: "spring" });
+    expect(spring).toHaveLength(1);
+    expect(spring[0]!.title).toBe("2026春アニメ");
+    expect(spring[0]!.sourceId).toBe("shobocal:1");
   });
 });
