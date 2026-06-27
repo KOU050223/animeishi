@@ -5,6 +5,14 @@ CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # Clerk Publishable key（JWT 検証に必要）
 CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
+# Annict OAuth
+# https://annict.com/oauth/applications でアプリ登録 → Client ID / Secret を取得。
+# redirect_uri に animeishi://annict（+ローカル/プレビュー用）を登録すること。
+# CLIENT_ID は公開可（モバイルにも埋め込む）。SECRET はサーバー専用で、
+# 本番は `wrangler secret put ANNICT_CLIENT_SECRET` で登録する（コミット禁止）。
+ANNICT_CLIENT_ID=
+ANNICT_CLIENT_SECRET=
+
 # CORS で許可するオリジンのカンマ区切りリスト
 # 未設定の場合は全オリジンを許可する（開発用）。本番では web フロントのオリジンを指定する。
 # "*" 始まりのエントリはサフィックス一致（プレビューデプロイの <hash>-... を許可する用途）。
