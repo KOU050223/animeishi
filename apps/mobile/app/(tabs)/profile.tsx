@@ -8,18 +8,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
 import { MeishiCard } from "@/components/MeishiCard";
+import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 
 type Toast = { type: "success" | "error"; message: string };
 
 export default function ProfileScreen() {
-  const { t } = useTranslation();
-  const router = useRouter();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
@@ -244,20 +240,7 @@ export default function ProfileScreen() {
 
       {/* Annict 連携 */}
       <View className="mt-6 px-4">
-        <TouchableOpacity
-          className="flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-4"
-          onPress={() => router.push("/annict")}
-          accessibilityRole="button"
-          accessibilityLabel="Annict 連携設定"
-        >
-          <View className="flex-row items-center">
-            <Ionicons name="link-outline" size={20} color="#4f46e5" />
-            <Text className="ml-2 font-semibold text-gray-900">
-              {t("annict.title")}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </TouchableOpacity>
+        <AnnictConnectionCard />
       </View>
     </ScrollView>
   );

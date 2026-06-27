@@ -11,6 +11,7 @@
     "disconnect": "Disconnect",
     "connected": "Connected to Annict",
     "notConnected": "Not connected",
+    "cancel": "Cancel",
     "softGate": {
       "title": "Annict connection required",
       "description": "Connecting Annict is required to view and update watch records.",
