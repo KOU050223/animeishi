@@ -4,9 +4,7 @@ import {
   text,
   index,
   unique,
-  check,
 } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
 
 // ---- users ----
 export const users = sqliteTable("users", {
@@ -20,24 +18,19 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ---- anime_titles (master) ----
-export const animeTitles = sqliteTable("anime_titles", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  // 外部ソース（しょぼいカレンダー TID 等）の安定 ID。同期バッチの重複排除キー。
-  // 手動投入分は持たないため NULL 許容。値がある場合は一意。
-  sourceId: text("source_id").unique(),
+// ---- annict_works (Annict 作品キャッシュ) ----
+export const annictWorks = sqliteTable("annict_works", {
+  annictWorkId: integer("annict_work_id").primaryKey(), // Annict の annictId をそのまま主キー
   title: text("title").notNull(),
-  titleReading: text("title_reading"), // よみがな
-  titleEnglish: text("title_english"),
-  year: integer("year"),
-  season: text("season"), // spring/summer/fall/winter
-  genres: text("genres", { mode: "json" }).$type<string[]>(),
-  thumbnailUrl: text("thumbnail_url"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  titleKana: text("title_kana"),
+  titleEn: text("title_en"),
+  seasonName: text("season_name"), // 例: "2026-spring"
+  seasonYear: integer("season_year"),
+  imageUrl: text("image_url"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-// ---- watch_history ----
+// ---- watch_history (Annict ライブラリのキャッシュ) ----
 export const watchHistory = sqliteTable(
   "watch_history",
   {
@@ -45,25 +38,17 @@ export const watchHistory = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    animeId: integer("anime_id")
+    annictWorkId: integer("annict_work_id")
       .notNull()
-      .references(() => animeTitles.id, { onDelete: "cascade" }),
-    status: text("status", {
-      enum: ["watching", "completed", "on_hold", "dropped", "plan_to_watch"],
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    state: text("state", {
+      enum: ["WATCHING", "WATCHED", "ON_HOLD", "STOP_WATCHING", "WANNA_WATCH"],
     }).notNull(),
-    score: integer("score"), // 1-10
-    comment: text("comment"),
-    watchedAt: integer("watched_at", { mode: "timestamp" }),
-    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [
-    unique("watch_history_user_anime_unique").on(t.userId, t.animeId),
+    unique("watch_history_user_work_unique").on(t.userId, t.annictWorkId),
     index("watch_history_user_idx").on(t.userId),
-    check(
-      "watch_history_score_range",
-      sql`${t.score} IS NULL OR ${t.score} BETWEEN 1 AND 10`,
-    ),
   ],
 );
 
@@ -75,13 +60,13 @@ export const favorites = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    animeId: integer("anime_id")
+    annictWorkId: integer("annict_work_id")
       .notNull()
-      .references(() => animeTitles.id, { onDelete: "cascade" }),
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [
-    unique("favorites_user_anime_unique").on(t.userId, t.animeId),
+    unique("favorites_user_work_unique").on(t.userId, t.annictWorkId),
     index("favorites_user_idx").on(t.userId),
   ],
 );
@@ -124,8 +109,8 @@ export const userGenres = sqliteTable(
 // ---- Type exports ----
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-export type AnimeTitle = typeof animeTitles.$inferSelect;
-export type NewAnimeTitle = typeof animeTitles.$inferInsert;
+export type AnnictWork = typeof annictWorks.$inferSelect;
+export type NewAnnictWork = typeof annictWorks.$inferInsert;
 export type WatchHistory = typeof watchHistory.$inferSelect;
 export type NewWatchHistory = typeof watchHistory.$inferInsert;
 export type Favorite = typeof favorites.$inferSelect;

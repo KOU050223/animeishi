@@ -70,29 +70,21 @@ export const profileUpdateSchema = z.object({
 
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
-export const WATCH_STATUSES = [
-  "watching",
-  "completed",
-  "on_hold",
-  "dropped",
-  "plan_to_watch",
+// Annict の StatusState enum 値（NO_STATE は除く）
+export const ANNICT_STATUS_STATES = [
+  "WATCHING",
+  "WATCHED",
+  "ON_HOLD",
+  "STOP_WATCHING",
+  "WANNA_WATCH",
 ] as const;
 
-export type WatchStatus = (typeof WATCH_STATUSES)[number];
+export type AnnictStatusState = (typeof ANNICT_STATUS_STATES)[number];
 
 export const watchHistoryUpsertSchema = z.object({
-  status: z.enum(WATCH_STATUSES, {
+  state: z.enum(ANNICT_STATUS_STATES, {
     error: () => "有効なステータスを選択してください",
   }),
-  score: z
-    .number()
-    .int()
-    .min(1, "スコアは1以上で入力してください")
-    .max(10, "スコアは10以下で入力してください")
-    .nullable()
-    .optional(),
-  comment: commentSchema,
-  watchedAt: z.string().datetime().nullable().optional(),
 });
 
 export type WatchHistoryUpsertInput = z.infer<typeof watchHistoryUpsertSchema>;

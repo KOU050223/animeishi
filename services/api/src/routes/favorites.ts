@@ -19,32 +19,32 @@ const favorites = new Hono<AuthVariables>()
     const data = await adb.getMyFavorites();
     return c.json(data, 200);
   })
-  .post("/:animeId", async (c) => {
-    const animeId = Number(c.req.param("animeId"));
-    if (!Number.isSafeInteger(animeId) || animeId <= 0) {
-      return c.json({ error: "Invalid animeId" }, 400);
+  .post("/:annictWorkId", async (c) => {
+    const annictWorkId = Number(c.req.param("annictWorkId"));
+    if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
+      return c.json({ error: "Invalid annictWorkId" }, 400);
     }
 
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
 
-    const existing = await adb.getAnimeTitleById(animeId);
+    const existing = await adb.getAnnictWorkById(annictWorkId);
     if (!existing) {
-      return c.json({ error: "Anime not found" }, 404);
+      return c.json({ error: "Work not found" }, 404);
     }
 
-    const result = await adb.addFavorite(animeId);
+    const result = await adb.addFavorite(annictWorkId);
     return c.json(result, 201);
   })
-  .delete("/:animeId", async (c) => {
-    const animeId = Number(c.req.param("animeId"));
-    if (!Number.isSafeInteger(animeId) || animeId <= 0) {
-      return c.json({ error: "Invalid animeId" }, 400);
+  .delete("/:annictWorkId", async (c) => {
+    const annictWorkId = Number(c.req.param("annictWorkId"));
+    if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
+      return c.json({ error: "Invalid annictWorkId" }, 400);
     }
 
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
-    await adb.removeFavorite(animeId);
+    await adb.removeFavorite(annictWorkId);
     return c.json({ success: true }, 200);
   });
 

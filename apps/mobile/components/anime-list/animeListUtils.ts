@@ -22,11 +22,10 @@ export function useAnimeStats(data: AnimeTitle[] | undefined) {
   return useMemo(() => {
     const list = data ?? [];
     const years = list
-      .map((item) => item.year)
+      .map((item) => item.seasonYear)
       .filter((year): year is number => typeof year === "number");
     const minYear = years.length ? Math.min(...years) : null;
     const maxYear = years.length ? Math.max(...years) : null;
-    const genres = new Set(list.flatMap((item) => item.genres ?? []));
 
     return {
       total: list.length,
@@ -36,15 +35,16 @@ export function useAnimeStats(data: AnimeTitle[] | undefined) {
             ? `${minYear}`
             : `${minYear}-${maxYear}`
           : "-",
-      genreCount: genres.size,
+      genreCount: 0,
     };
   }, [data]);
 }
 
 export function formatYearSeason(
-  year: number,
+  year: number | null | undefined,
   season: string | null | undefined,
 ) {
+  if (!year) return "";
   return `${year}年${season ? (SEASONS[season] ?? "") : ""}`;
 }
 

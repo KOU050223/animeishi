@@ -12,44 +12,36 @@ const DDL_STATEMENTS = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`,
-  `CREATE TABLE IF NOT EXISTS anime_titles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    source_id TEXT,
+  `CREATE TABLE IF NOT EXISTS annict_works (
+    annict_work_id INTEGER PRIMARY KEY NOT NULL,
     title TEXT NOT NULL,
-    title_reading TEXT,
-    title_english TEXT,
-    year INTEGER,
-    season TEXT,
-    genres TEXT,
-    thumbnail_url TEXT,
-    created_at INTEGER NOT NULL,
+    title_kana TEXT,
+    title_en TEXT,
+    season_name TEXT,
+    season_year INTEGER,
+    image_url TEXT,
     updated_at INTEGER NOT NULL
   )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS anime_titles_source_id_unique ON anime_titles (source_id)`,
   `CREATE TABLE IF NOT EXISTS watch_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
-    anime_id INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    score INTEGER,
-    comment TEXT,
-    watched_at INTEGER,
-    created_at INTEGER NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    state TEXT NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (anime_id) REFERENCES anime_titles(id) ON DELETE CASCADE
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
   )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS watch_history_user_anime_unique ON watch_history (user_id, anime_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS watch_history_user_work_unique ON watch_history (user_id, annict_work_id)`,
   `CREATE INDEX IF NOT EXISTS watch_history_user_idx ON watch_history (user_id)`,
   `CREATE TABLE IF NOT EXISTS favorites (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
-    anime_id INTEGER NOT NULL,
+    annict_work_id INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (anime_id) REFERENCES anime_titles(id) ON DELETE CASCADE
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
   )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_anime_unique ON favorites (user_id, anime_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS favorites_user_work_unique ON favorites (user_id, annict_work_id)`,
   `CREATE INDEX IF NOT EXISTS favorites_user_idx ON favorites (user_id)`,
   `CREATE TABLE IF NOT EXISTS friends (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -88,11 +80,11 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM users").run();
-  await d1.prepare("DELETE FROM anime_titles").run();
+  await d1.prepare("DELETE FROM annict_works").run();
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('anime_titles', 'watch_history', 'favorites', 'friends', 'user_genres')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres')",
     )
     .run();
   return db;

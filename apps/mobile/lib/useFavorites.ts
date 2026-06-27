@@ -29,9 +29,9 @@ async function getAuthHeaders(
  */
 export function nextFavoriteAction(
   favoriteIds: Set<number>,
-  animeId: number,
+  annictWorkId: number,
 ): "add" | "remove" {
-  return favoriteIds.has(animeId) ? "remove" : "add";
+  return favoriteIds.has(annictWorkId) ? "remove" : "add";
 }
 
 export function useFavorites() {
@@ -50,11 +50,14 @@ export function useFavorites() {
 }
 
 /**
- * お気に入り animeId の Set を返す。トグル UI で「登録済みか」を高速判定するためのヘルパー。
+ * お気に入り annictWorkId の Set を返す。トグル UI で「登録済みか」を高速判定するためのヘルパー。
  */
 export function useFavoriteIds(): Set<number> {
   const { data } = useFavorites();
-  return useMemo(() => new Set((data ?? []).map((f) => f.animeId)), [data]);
+  return useMemo(
+    () => new Set((data ?? []).map((f) => f.annictWorkId)),
+    [data],
+  );
 }
 
 export function useAddFavorite() {
@@ -62,10 +65,10 @@ export function useAddFavorite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (animeId: number) => {
+    mutationFn: async (annictWorkId: number) => {
       const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.favorites[":animeId"].$post(
-        { param: { animeId: String(animeId) } },
+      const res = await apiClient.me.favorites[":annictWorkId"].$post(
+        { param: { annictWorkId: String(annictWorkId) } },
         { headers },
       );
       if (!res.ok) throw new Error("お気に入りの追加に失敗しました");
@@ -84,10 +87,10 @@ export function useRemoveFavorite() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (animeId: number) => {
+    mutationFn: async (annictWorkId: number) => {
       const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.favorites[":animeId"].$delete(
-        { param: { animeId: String(animeId) } },
+      const res = await apiClient.me.favorites[":annictWorkId"].$delete(
+        { param: { annictWorkId: String(annictWorkId) } },
         { headers },
       );
       if (!res.ok) throw new Error("お気に入りの削除に失敗しました");
@@ -112,11 +115,11 @@ export function useToggleFavorite(favoriteIds: Set<number>) {
   const remove = useRemoveFavorite();
 
   return {
-    toggle: (animeId: number) => {
-      if (nextFavoriteAction(favoriteIds, animeId) === "remove") {
-        remove.mutate(animeId);
+    toggle: (annictWorkId: number) => {
+      if (nextFavoriteAction(favoriteIds, annictWorkId) === "remove") {
+        remove.mutate(annictWorkId);
       } else {
-        add.mutate(animeId);
+        add.mutate(annictWorkId);
       }
     },
     isPending: add.isPending || remove.isPending,

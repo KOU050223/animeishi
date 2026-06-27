@@ -4,11 +4,9 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Modal,
   ScrollView,
-  TextInput,
 } from "react-native";
 import {
   useWatchHistory,
@@ -16,61 +14,36 @@ import {
   useDeleteWatchHistory,
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
-import { useAnimeList } from "@/lib/useAnimeList";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
-import type { AnimeTitle } from "@/lib/useAnimeList";
 import { confirm } from "@/lib/dialog";
 
 const WATCH_STATUSES = [
-  "watching",
-  "completed",
-  "on_hold",
-  "dropped",
-  "plan_to_watch",
+  "WATCHING",
+  "WATCHED",
+  "ON_HOLD",
+  "STOP_WATCHING",
+  "WANNA_WATCH",
 ] as const;
 
 type WatchStatus = (typeof WATCH_STATUSES)[number];
 
 const STATUS_COLORS: Record<WatchStatus, string> = {
-  watching: "#4f46e5",
-  completed: "#16a34a",
-  on_hold: "#d97706",
-  dropped: "#dc2626",
-  plan_to_watch: "#6b7280",
+  WATCHING: "#4f46e5",
+  WATCHED: "#16a34a",
+  ON_HOLD: "#d97706",
+  STOP_WATCHING: "#dc2626",
+  WANNA_WATCH: "#6b7280",
 };
 
 export default function WatchHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
-  const [editingItem, setEditingItem] = useState<{
-    history: WatchHistoryItem;
-    anime: AnimeTitle | undefined;
-  } | null>(null);
+  const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
-  const {
-    data: histories,
-    isLoading: isHistoryLoading,
-    isError: isHistoryError,
-    refetch,
-  } = useWatchHistory();
-  const {
-    data: animes,
-    isLoading: isAnimeLoading,
-    isError: isAnimeError,
-  } = useAnimeList();
+  const { data: histories, isLoading, isError, refetch } = useWatchHistory();
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
 
-  const isLoading = isHistoryLoading || isAnimeLoading;
-  const isError = isHistoryError || isAnimeError;
-
-  const animeMap = new Map<number, AnimeTitle>(
-    (animes ?? []).map((a) => [a.id, a]),
-  );
-
-  const enriched = (histories ?? []).map((h) => ({
-    history: h,
-    anime: animeMap.get(h.animeId),
-  }));
+  const enriched = histories ?? [];
 
   async function onRefresh() {
     setRefreshing(true);
@@ -78,11 +51,11 @@ export default function WatchHistoryScreen() {
     setRefreshing(false);
   }
 
-  function confirmDelete(animeId: number, title: string) {
+  function confirmDelete(annictWorkId: number) {
     confirm(
       "視聴履歴を削除",
-      `「${title}」の視聴履歴を削除しますか？`,
-      () => remove.mutate(animeId),
+      "この視聴履歴を削除しますか？",
+      () => remove.mutate(annictWorkId),
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
@@ -124,7 +97,7 @@ export default function WatchHistoryScreen() {
 
       <FlatList
         data={enriched}
-        keyExtractor={(item) => String(item.history.animeId)}
+        keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
         refreshing={refreshing}
         onRefresh={onRefresh}
@@ -133,15 +106,9 @@ export default function WatchHistoryScreen() {
         )}
         renderItem={({ item }) => (
           <WatchHistoryRow
-            history={item.history}
-            anime={item.anime}
+            history={item}
             onEdit={() => setEditingItem(item)}
-            onDelete={() =>
-              confirmDelete(
-                item.history.animeId,
-                item.anime?.title ?? "（タイトル不明）",
-              )
-            }
+            onDelete={() => confirmDelete(item.annictWorkId)}
           />
         )}
         ListEmptyComponent={
@@ -155,12 +122,11 @@ export default function WatchHistoryScreen() {
 
       {editingItem && (
         <EditModal
-          history={editingItem.history}
-          anime={editingItem.anime}
+          history={editingItem}
           onClose={() => setEditingItem(null)}
           onSave={(data) => {
             upsert.mutate(
-              { animeId: editingItem.history.animeId, data },
+              { annictWorkId: editingItem.annictWorkId, data },
               { onSuccess: () => setEditingItem(null) },
             );
           }}
@@ -173,47 +139,31 @@ export default function WatchHistoryScreen() {
 
 function WatchHistoryRow({
   history,
-  anime,
   onEdit,
   onDelete,
 }: {
   history: WatchHistoryItem;
-  anime: AnimeTitle | undefined;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const color = STATUS_COLORS[history.status] ?? "#6b7280";
-  const label = WATCH_STATUS_LABELS[history.status];
-  const title = anime?.title ?? "（タイトル不明）";
+  const color = STATUS_COLORS[history.state as WatchStatus] ?? "#6b7280";
+  const label = WATCH_STATUS_LABELS[history.state as WatchStatus];
 
   return (
     <View
       className="flex-row items-center py-3 gap-3"
-      testID={`watch-history-item-${history.animeId}`}
+      testID={`watch-history-item-${history.annictWorkId}`}
     >
-      {anime?.thumbnailUrl ? (
-        <Image
-          source={{ uri: anime.thumbnailUrl }}
-          style={{
-            width: 48,
-            height: 64,
-            borderRadius: 4,
-            backgroundColor: "#e5e7eb",
-          }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={{ width: 48, height: 64, borderRadius: 4 }}
-          className="bg-gray-200 items-center justify-center"
-        >
-          <Text className="text-gray-400 text-xs">No img</Text>
-        </View>
-      )}
+      <View
+        style={{ width: 48, height: 64, borderRadius: 4 }}
+        className="bg-gray-200 items-center justify-center"
+      >
+        <Text className="text-gray-400 text-xs">No img</Text>
+      </View>
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
-          {title}
+          {`作品ID: ${history.annictWorkId}`}
         </Text>
         <View className="flex-row items-center gap-2 mt-1 flex-wrap">
           <Text
@@ -222,15 +172,7 @@ function WatchHistoryRow({
           >
             {label}
           </Text>
-          {history.score != null && (
-            <Text className="text-xs text-amber-500">★ {history.score}/10</Text>
-          )}
         </View>
-        {history.comment ? (
-          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-            {history.comment}
-          </Text>
-        ) : null}
       </View>
 
       <View className="flex-row gap-2">
@@ -238,7 +180,7 @@ function WatchHistoryRow({
           onPress={onEdit}
           className="bg-gray-100 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`${title}の視聴履歴を編集`}
+          accessibilityLabel="視聴履歴を編集"
         >
           <Text className="text-xs text-gray-600">編集</Text>
         </TouchableOpacity>
@@ -246,7 +188,7 @@ function WatchHistoryRow({
           onPress={onDelete}
           className="bg-red-50 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`${title}の視聴履歴を削除`}
+          accessibilityLabel="視聴履歴を削除"
         >
           <Text className="text-xs text-red-500">削除</Text>
         </TouchableOpacity>
@@ -255,33 +197,18 @@ function WatchHistoryRow({
   );
 }
 
-function safeIsoString(value: unknown): string | null {
-  if (!value) return null;
-  const d = new Date(value as string);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
 function EditModal({
   history,
-  anime,
   onClose,
   onSave,
   isSaving,
 }: {
   history: WatchHistoryItem;
-  anime: AnimeTitle | undefined;
   onClose: () => void;
-  onSave: (data: {
-    status: WatchStatus;
-    score: number | null;
-    comment: string | undefined;
-    watchedAt: string | null;
-  }) => void;
+  onSave: (data: { state: WatchStatus }) => void;
   isSaving: boolean;
 }) {
-  const [status, setStatus] = useState<WatchStatus>(history.status);
-  const [score, setScore] = useState<number | null>(history.score ?? null);
-  const [comment, setComment] = useState<string>(history.comment ?? "");
+  const [state, setState] = useState<WatchStatus>(history.state as WatchStatus);
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -291,7 +218,7 @@ function EditModal({
             className="text-lg font-bold text-gray-900 mb-1"
             numberOfLines={2}
           >
-            {anime?.title ?? "（タイトル不明）"}
+            {`作品ID: ${history.annictWorkId}`}
           </Text>
           <Text className="text-xs text-gray-400 mb-5">
             視聴ステータスを編集
@@ -309,19 +236,19 @@ function EditModal({
               {WATCH_STATUSES.map((s) => (
                 <TouchableOpacity
                   key={s}
-                  onPress={() => setStatus(s)}
+                  onPress={() => setState(s)}
                   className={`px-3 py-2 rounded-full border ${
-                    status === s
+                    state === s
                       ? "border-indigo-500 bg-indigo-50"
                       : "border-gray-200 bg-white"
                   }`}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: status === s }}
+                  accessibilityState={{ selected: state === s }}
                   accessibilityLabel={WATCH_STATUS_LABELS[s]}
                 >
                   <Text
                     className={`text-xs font-medium ${
-                      status === s ? "text-indigo-600" : "text-gray-500"
+                      state === s ? "text-indigo-600" : "text-gray-500"
                     }`}
                   >
                     {WATCH_STATUS_LABELS[s]}
@@ -330,74 +257,6 @@ function EditModal({
               ))}
             </View>
           </ScrollView>
-
-          <Text className="text-sm font-medium text-gray-700 mb-2">
-            スコア {score != null ? `(${score}/10)` : "(未評価)"}
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-6"
-          >
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => setScore(null)}
-                className={`px-3 py-2 rounded-full border ${
-                  score === null
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-gray-200 bg-white"
-                }`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: score === null }}
-                accessibilityLabel="スコアなし"
-              >
-                <Text
-                  className={`text-xs font-medium ${
-                    score === null ? "text-indigo-600" : "text-gray-500"
-                  }`}
-                >
-                  未評価
-                </Text>
-              </TouchableOpacity>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <TouchableOpacity
-                  key={n}
-                  onPress={() => setScore(n)}
-                  className={`w-10 py-2 rounded-full border items-center ${
-                    score === n
-                      ? "border-amber-400 bg-amber-50"
-                      : "border-gray-200 bg-white"
-                  }`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: score === n }}
-                  accessibilityLabel={`スコア ${n}`}
-                >
-                  <Text
-                    className={`text-xs font-medium ${
-                      score === n ? "text-amber-600" : "text-gray-500"
-                    }`}
-                  >
-                    {n}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <Text className="text-sm font-medium text-gray-700 mb-2">
-            コメント
-          </Text>
-          <TextInput
-            className="bg-gray-100 rounded-xl px-4 py-3 text-gray-900 mb-6"
-            placeholder="感想やメモを入力..."
-            placeholderTextColor="#9ca3af"
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            numberOfLines={3}
-            editable={!isSaving}
-            accessibilityLabel="コメント入力"
-          />
 
           <View className="flex-row gap-3">
             <TouchableOpacity
@@ -410,14 +269,7 @@ function EditModal({
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
-              onPress={() =>
-                onSave({
-                  status,
-                  score,
-                  comment: comment.trim() || undefined,
-                  watchedAt: safeIsoString(history.watchedAt),
-                })
-              }
+              onPress={() => onSave({ state })}
               disabled={isSaving}
               accessibilityRole="button"
               accessibilityLabel="保存"

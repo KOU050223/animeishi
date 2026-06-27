@@ -3,6 +3,7 @@ import {
   profileUpdateSchema,
   watchHistoryUpsertSchema,
   VALID_GENRES,
+  ANNICT_STATUS_STATES,
 } from "@/schema/validators";
 
 // ---- profileUpdateSchema ----
@@ -94,65 +95,31 @@ describe("profileUpdateSchema", () => {
 
 // ---- watchHistoryUpsertSchema ----
 describe("watchHistoryUpsertSchema", () => {
-  it("有効なステータスのみで受け入れる", () => {
-    expect(
-      watchHistoryUpsertSchema.safeParse({ status: "watching" }).success,
-    ).toBe(true);
-  });
-
-  it("全フィールドを受け入れる", () => {
-    expect(
-      watchHistoryUpsertSchema.safeParse({
-        status: "completed",
-        score: 9,
-        comment: "面白かった",
-        watchedAt: "2025-01-01T00:00:00.000Z",
-      }).success,
-    ).toBe(true);
+  it("有効な Annict ステータスを受け入れる", () => {
+    for (const state of ANNICT_STATUS_STATES) {
+      expect(watchHistoryUpsertSchema.safeParse({ state }).success).toBe(true);
+    }
   });
 
   it("無効なステータスを拒否する", () => {
     expect(
-      watchHistoryUpsertSchema.safeParse({ status: "invalid" }).success,
+      watchHistoryUpsertSchema.safeParse({ state: "invalid" }).success,
     ).toBe(false);
   });
 
-  it("スコア 0 を拒否する", () => {
+  it("旧ステータス値（watching）を拒否する", () => {
     expect(
-      watchHistoryUpsertSchema.safeParse({ status: "watching", score: 0 })
-        .success,
+      watchHistoryUpsertSchema.safeParse({ state: "watching" }).success,
     ).toBe(false);
   });
 
-  it("スコア 11 を拒否する", () => {
+  it("旧ステータス値（completed）を拒否する", () => {
     expect(
-      watchHistoryUpsertSchema.safeParse({ status: "watching", score: 11 })
-        .success,
+      watchHistoryUpsertSchema.safeParse({ state: "completed" }).success,
     ).toBe(false);
   });
 
-  it("スコア null を受け入れる", () => {
-    expect(
-      watchHistoryUpsertSchema.safeParse({ status: "watching", score: null })
-        .success,
-    ).toBe(true);
-  });
-
-  it("スコア 1 〜 10 を受け入れる", () => {
-    for (const n of [1, 5, 10]) {
-      expect(
-        watchHistoryUpsertSchema.safeParse({ status: "completed", score: n })
-          .success,
-      ).toBe(true);
-    }
-  });
-
-  it("不適切なコメントを拒否する", () => {
-    expect(
-      watchHistoryUpsertSchema.safeParse({
-        status: "watching",
-        comment: "死ね",
-      }).success,
-    ).toBe(false);
+  it("state フィールドが必須", () => {
+    expect(watchHistoryUpsertSchema.safeParse({}).success).toBe(false);
   });
 });
