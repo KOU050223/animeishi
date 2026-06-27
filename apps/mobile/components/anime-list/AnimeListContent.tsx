@@ -253,7 +253,9 @@ export function AnimeListContent({
                     <Text style={styles.seasonText}>
                       {formatYearSeason(
                         item.seasonYear,
-                        item.seasonName?.split("-")[1],
+                        item.seasonName?.includes("-")
+                          ? item.seasonName.split("-")[1]
+                          : item.seasonName,
                       )}
                     </Text>
                   </View>

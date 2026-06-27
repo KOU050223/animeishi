@@ -1,6 +1,11 @@
 -- Annict 連携への設計し直し: anime_titles を廃止し annict_works を導入する
 -- watch_history / favorites の FK を annict_works へ張り替える
 -- score / comment / watchedAt を廃止し、Annict の StatusState を state カラムに採用する
+--
+-- ⚠️ 破壊的リセット移行: 旧 anime_titles（しょぼいカレンダー由来）と
+-- Annict との作品 ID 対応が存在しないため、旧 favorites / watch_history /
+-- anime_titles は変換せず DROP する。既存のお気に入り・視聴履歴は消去される。
+-- Annict 連携後にユーザーが再同期する前提の意図的なリセットである。
 
 -- 1. annict_works テーブル追加（Annict 作品キャッシュ・自然キー）
 CREATE TABLE `annict_works` (
@@ -25,7 +30,8 @@ CREATE TABLE `watch_history` (
   `state` text NOT NULL,
   `updated_at` integer NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`annict_work_id`) REFERENCES `annict_works`(`annict_work_id`) ON DELETE CASCADE
+  FOREIGN KEY (`annict_work_id`) REFERENCES `annict_works`(`annict_work_id`) ON DELETE CASCADE,
+  CONSTRAINT `watch_history_state_check` CHECK (`state` IN ('WATCHING', 'WATCHED', 'ON_HOLD', 'STOP_WATCHING', 'WANNA_WATCH'))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `watch_history_user_work_unique` ON `watch_history` (`user_id`, `annict_work_id`);

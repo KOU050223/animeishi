@@ -128,7 +128,7 @@ function FavoriteRow({
         onPress={onRemove}
         className="bg-red-50 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel="お気に入りから解除"
+        accessibilityLabel={`作品ID ${favorite.annictWorkId} をお気に入りから解除`}
       >
         <Text className="text-xs text-red-500">解除</Text>
       </TouchableOpacity>
