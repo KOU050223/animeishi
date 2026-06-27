@@ -3,42 +3,33 @@ import { useFilteredAnimeList } from "@/lib/useAnimeList";
 
 const MOCK_TITLES = [
   {
-    id: 1,
-    sourceId: null,
+    annictWorkId: 1,
     title: "進撃の巨人",
-    titleReading: "しんげきのきょじん",
-    titleEnglish: "Attack on Titan",
-    year: 2013,
-    season: "spring",
-    genres: ["アクション", "ファンタジー"],
-    thumbnailUrl: null,
-    createdAt: new Date().toISOString(),
+    titleKana: "しんげきのきょじん",
+    titleEn: "Attack on Titan",
+    seasonYear: 2013,
+    seasonName: "2013-spring",
+    imageUrl: null,
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 2,
-    sourceId: null,
+    annictWorkId: 2,
     title: "鬼滅の刃",
-    titleReading: "きめつのやいば",
-    titleEnglish: "Demon Slayer",
-    year: 2019,
-    season: "spring",
-    genres: ["アクション"],
-    thumbnailUrl: null,
-    createdAt: new Date().toISOString(),
+    titleKana: "きめつのやいば",
+    titleEn: "Demon Slayer",
+    seasonYear: 2019,
+    seasonName: "2019-spring",
+    imageUrl: null,
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 3,
-    sourceId: null,
+    annictWorkId: 3,
     title: "HUNTER×HUNTER",
-    titleReading: "はんたーはんたー",
-    titleEnglish: "Hunter x Hunter",
-    year: 2011,
-    season: "fall",
-    genres: ["アクション", "アドベンチャー"],
-    thumbnailUrl: null,
-    createdAt: new Date().toISOString(),
+    titleKana: "はんたーはんたー",
+    titleEn: "Hunter x Hunter",
+    seasonYear: 2011,
+    seasonName: "2011-fall",
+    imageUrl: null,
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -112,7 +103,7 @@ describe("useFilteredAnimeList", () => {
       const { result } = renderHook(() =>
         useFilteredAnimeList(MOCK_TITLES, "", "year", "asc")
       );
-      const years = result.current.map((a) => a.year);
+      const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2011, 2013, 2019]);
     });
 
@@ -120,7 +111,7 @@ describe("useFilteredAnimeList", () => {
       const { result } = renderHook(() =>
         useFilteredAnimeList(MOCK_TITLES, "", "year", "desc")
       );
-      const years = result.current.map((a) => a.year);
+      const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2019, 2013, 2011]);
     });
   });

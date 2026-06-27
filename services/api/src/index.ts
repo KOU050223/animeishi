@@ -2,12 +2,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import type { Env } from "./db/client";
-import { handleScheduled } from "./cron";
-import type { CronBindings } from "./cron";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { avatar, me } from "./routes/me";
-import { titles } from "./routes/titles";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
 
@@ -26,7 +23,7 @@ app.use("*", (c, next) => {
   return cors({
     origin: (origin) => resolveAllowedOrigin(origin, allowlist),
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: ["Authorization", "Content-Type", "X-Annict-Token"],
   })(c, next);
 });
 
@@ -40,22 +37,10 @@ const routes = app
   .route("/me/watch-histories", watchHistory)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
-  .route("/titles", titles)
   .route("/user", user);
 
 export type AppType = typeof routes;
 
-// hono/client (RPC) は AppType（型）を import するため、
-// ランタイムのデフォルトエクスポートは fetch + scheduled を持つ
-// Workers モジュール形式に差し替える。型互換は AppType 側で担保する。
 export default {
   fetch: routes.fetch,
-  // Cron トリガー。wrangler.toml の [triggers] crons に対応する。
-  scheduled: async (
-    event: ScheduledController,
-    env: CronBindings,
-    ctx: ExecutionContext,
-  ): Promise<void> => {
-    ctx.waitUntil(handleScheduled(event, env));
-  },
-} satisfies ExportedHandler<CronBindings>;
+} satisfies ExportedHandler<AppBindings>;

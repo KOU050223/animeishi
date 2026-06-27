@@ -4,66 +4,35 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { useFavorites, useRemoveFavorite } from "@/lib/useFavorites";
-import { useAnimeList } from "@/lib/useAnimeList";
 import type { FavoriteItem } from "@/lib/useFavorites";
-import type { AnimeTitle } from "@/lib/useAnimeList";
 import { confirm } from "@/lib/dialog";
 
 export default function FavoritesScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
-  const {
-    data: favorites,
-    isLoading: isFavoritesLoading,
-    isError: isFavoritesError,
-    refetch,
-  } = useFavorites();
-  const {
-    data: animes,
-    isLoading: isAnimeLoading,
-    isError: isAnimeError,
-    refetch: refetchAnimes,
-  } = useAnimeList();
+  const { data: favorites, isLoading, isError, refetch } = useFavorites();
   const remove = useRemoveFavorite();
 
-  const isLoading = isFavoritesLoading || isAnimeLoading;
-  const isError = isFavoritesError || isAnimeError;
-
-  // 失敗したクエリの両方を再取得する（片方だけ失敗した場合も復帰できるように）
-  async function retry() {
-    await Promise.all([refetch(), refetchAnimes()]);
-  }
-
-  const animeMap = useMemo(
-    () => new Map<number, AnimeTitle>((animes ?? []).map((a) => [a.id, a])),
-    [animes],
-  );
-
   const enriched = useMemo(
-    () =>
-      (favorites ?? []).map((f) => ({
-        favorite: f,
-        anime: animeMap.get(f.animeId),
-      })),
-    [favorites, animeMap],
+    () => (favorites ?? []).map((f) => ({ favorite: f })),
+    [favorites],
   );
 
   async function onRefresh() {
     setRefreshing(true);
-    await retry();
+    await refetch();
     setRefreshing(false);
   }
 
-  function confirmRemove(animeId: number, title: string) {
+  function confirmRemove(annictWorkId: number) {
     confirm(
       "お気に入りを解除",
-      `「${title}」をお気に入りから外しますか？`,
-      () => remove.mutate(animeId),
+      "このアニメをお気に入りから外しますか？",
+      () => remove.mutate(annictWorkId),
       { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
     );
   }
@@ -84,7 +53,7 @@ export default function FavoritesScreen() {
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
-          onPress={() => retry()}
+          onPress={() => refetch()}
           accessibilityRole="button"
           accessibilityLabel="お気に入りを再取得"
         >
@@ -105,7 +74,7 @@ export default function FavoritesScreen() {
 
       <FlatList
         data={enriched}
-        keyExtractor={(item) => String(item.favorite.animeId)}
+        keyExtractor={(item) => String(item.favorite.annictWorkId)}
         contentContainerStyle={styles.listContent}
         refreshing={refreshing}
         onRefresh={onRefresh}
@@ -115,13 +84,7 @@ export default function FavoritesScreen() {
         renderItem={({ item }) => (
           <FavoriteRow
             favorite={item.favorite}
-            anime={item.anime}
-            onRemove={() =>
-              confirmRemove(
-                item.favorite.animeId,
-                item.anime?.title ?? "（タイトル不明）",
-              )
-            }
+            onRemove={() => confirmRemove(item.favorite.annictWorkId)}
           />
         )}
         ListEmptyComponent={
@@ -138,49 +101,34 @@ export default function FavoritesScreen() {
 
 function FavoriteRow({
   favorite,
-  anime,
   onRemove,
 }: {
   favorite: FavoriteItem;
-  anime: AnimeTitle | undefined;
   onRemove: () => void;
 }) {
-  const title = anime?.title ?? "（タイトル不明）";
-
   return (
     <View
       className="flex-row items-center py-3 gap-3"
-      testID={`favorite-item-${favorite.animeId}`}
+      testID={`favorite-item-${favorite.annictWorkId}`}
     >
-      {anime?.thumbnailUrl ? (
-        <Image
-          source={{ uri: anime.thumbnailUrl }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={styles.thumbnailPlaceholder}
-          className="bg-gray-200 items-center justify-center"
-        >
-          <Text className="text-gray-400 text-xs">No img</Text>
-        </View>
-      )}
+      <View
+        style={styles.thumbnailPlaceholder}
+        className="bg-gray-200 items-center justify-center"
+      >
+        <Text className="text-gray-400 text-xs">No img</Text>
+      </View>
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
-          {title}
+          {`作品ID: ${favorite.annictWorkId}`}
         </Text>
-        {anime?.year ? (
-          <Text className="text-xs text-gray-400 mt-0.5">{anime.year}</Text>
-        ) : null}
       </View>
 
       <TouchableOpacity
         onPress={onRemove}
         className="bg-red-50 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel={`${title}をお気に入りから解除`}
+        accessibilityLabel={`作品ID ${favorite.annictWorkId} をお気に入りから解除`}
       >
         <Text className="text-xs text-red-500">解除</Text>
       </TouchableOpacity>
@@ -191,11 +139,5 @@ function FavoriteRow({
 const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingBottom: 32 },
   separator: { height: 1 },
-  thumbnail: {
-    width: 48,
-    height: 64,
-    borderRadius: 4,
-    backgroundColor: "#e5e7eb",
-  },
   thumbnailPlaceholder: { width: 48, height: 64, borderRadius: 4 },
 });

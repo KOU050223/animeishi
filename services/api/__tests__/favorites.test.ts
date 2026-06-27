@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "./helpers/setup-db";
 import { favorites } from "@/routes/favorites";
-import { users, animeTitles } from "@/db/schema";
+import { users, annictWorks } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -15,6 +15,7 @@ vi.mock("@clerk/hono", () => ({
 import { getAuth } from "@clerk/hono";
 
 const USER_ID = "user_testfav001";
+const ANNICT_WORK_ID = 12345;
 
 type TestEnv = {
   Bindings: {
@@ -41,13 +42,12 @@ function buildApp() {
 
 describe("お気に入り API", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
-  let animeId: number;
 
   beforeEach(async () => {
     db = await setupTestDb(env.DB);
     vi.mocked(getAuth).mockReset();
 
-    // テスト用アニメ・ユーザーを事前作成
+    // テスト用 annict_work・ユーザーを事前作成
     const now = new Date();
     await db.insert(users).values({
       id: USER_ID,
@@ -57,15 +57,11 @@ describe("お気に入り API", () => {
       updatedAt: now,
     });
 
-    const [anime] = await db
-      .insert(animeTitles)
-      .values({
-        title: "テストアニメ",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning({ id: animeTitles.id });
-    animeId = anime.id;
+    await db.insert(annictWorks).values({
+      annictWorkId: ANNICT_WORK_ID,
+      title: "テストアニメ",
+      updatedAt: now,
+    });
   });
 
   describe("認証なし", () => {
@@ -105,29 +101,29 @@ describe("お気に入り API", () => {
       expect(body).toEqual([]);
     });
 
-    it("POST /me/favorites/:animeId: お気に入りに追加できる", async () => {
+    it("POST /me/favorites/:annictWorkId: お気に入りに追加できる", async () => {
       const app = buildApp();
       const res = await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
 
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { animeId: number };
-      expect(body.animeId).toBe(animeId);
+      const body = (await res.json()) as { annictWorkId: number };
+      expect(body.annictWorkId).toBe(ANNICT_WORK_ID);
     });
 
-    it("POST /me/favorites/:animeId: 重複追加しても成功する（冪等）", async () => {
+    it("POST /me/favorites/:annictWorkId: 重複追加しても成功する（冪等）", async () => {
       const app = buildApp();
 
       await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
       const res = await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
@@ -143,11 +139,11 @@ describe("お気に入り API", () => {
       expect(body).toHaveLength(1);
     });
 
-    it("POST /me/favorites/:animeId: 追加後 GET で取得できる", async () => {
+    it("POST /me/favorites/:annictWorkId: 追加後 GET で取得できる", async () => {
       const app = buildApp();
 
       await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
@@ -159,22 +155,22 @@ describe("お気に入り API", () => {
       );
 
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { animeId: number }[];
+      const body = (await res.json()) as { annictWorkId: number }[];
       expect(body).toHaveLength(1);
-      expect(body[0].animeId).toBe(animeId);
+      expect(body[0].annictWorkId).toBe(ANNICT_WORK_ID);
     });
 
-    it("DELETE /me/favorites/:animeId: お気に入りを削除できる", async () => {
+    it("DELETE /me/favorites/:annictWorkId: お気に入りを削除できる", async () => {
       const app = buildApp();
 
       await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
 
       const deleteRes = await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "DELETE" },
         TEST_BINDINGS,
       );
@@ -189,7 +185,7 @@ describe("お気に入り API", () => {
       expect(body).toHaveLength(0);
     });
 
-    it("POST /me/favorites/:animeId: 存在しないアニメIDは 404", async () => {
+    it("POST /me/favorites/:annictWorkId: 存在しない作品IDは 404", async () => {
       const app = buildApp();
       const res = await app.request(
         "/me/favorites/99999",
@@ -200,7 +196,7 @@ describe("お気に入り API", () => {
       expect(res.status).toBe(404);
     });
 
-    it("POST /me/favorites/:animeId: 不正なアニメIDは 400", async () => {
+    it("POST /me/favorites/:annictWorkId: 不正な作品IDは 400", async () => {
       const app = buildApp();
       const res = await app.request(
         "/me/favorites/abc",
@@ -211,7 +207,7 @@ describe("お気に入り API", () => {
       expect(res.status).toBe(400);
     });
 
-    it("POST /me/favorites/:animeId: users 未登録ユーザーでも自動プロビジョニングされ追加できる", async () => {
+    it("POST /me/favorites/:annictWorkId: users 未登録ユーザーでも自動プロビジョニングされ追加できる", async () => {
       // 事前に users へ登録していない別ユーザーで認証する。
       // requireAuth の ensureUserExists により外部キー制約を満たすため、
       // 500（FOREIGN KEY constraint failed）にならず追加できる。
@@ -222,14 +218,14 @@ describe("お気に入り API", () => {
 
       const app = buildApp();
       const res = await app.request(
-        `/me/favorites/${animeId}`,
+        `/me/favorites/${ANNICT_WORK_ID}`,
         { method: "POST" },
         TEST_BINDINGS,
       );
 
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { animeId: number };
-      expect(body.animeId).toBe(animeId);
+      const body = (await res.json()) as { annictWorkId: number };
+      expect(body.annictWorkId).toBe(ANNICT_WORK_ID);
     });
   });
 });

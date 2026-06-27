@@ -37,7 +37,7 @@ export function AnimeListContent({
   isError: boolean;
   refetch: () => Promise<unknown> | unknown;
   favoriteIds: Set<number>;
-  toggleFavorite: (animeId: number) => void;
+  toggleFavorite: (annictWorkId: number) => void;
   isToggling: boolean;
 }) {
   const insets = useSafeAreaInsets();
@@ -111,7 +111,7 @@ export function AnimeListContent({
         key={`anime-list-${numColumns}`}
         data={filtered}
         numColumns={numColumns}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={[
           styles.listContent,
           {
@@ -222,28 +222,28 @@ export function AnimeListContent({
         renderItem={({ item }) => (
           <View
             style={[styles.card, { width: cardWidth }]}
-            testID={`anime-item-${item.id}`}
+            testID={`anime-item-${item.annictWorkId}`}
           >
-            <AnimePoster uri={item.thumbnailUrl} title={item.title} />
+            <AnimePoster uri={item.imageUrl} title={item.title} />
             <View style={styles.cardBody}>
               <View style={styles.cardTitleRow}>
                 <Text style={styles.cardTitle} numberOfLines={2}>
                   {item.title}
                 </Text>
                 <FavoriteButton
-                  isFavorite={favoriteIds.has(item.id)}
+                  isFavorite={favoriteIds.has(item.annictWorkId)}
                   disabled={isToggling}
-                  onPress={() => toggleFavorite(item.id)}
+                  onPress={() => toggleFavorite(item.annictWorkId)}
                   title={item.title}
                 />
               </View>
-              {item.titleEnglish ? (
+              {item.titleEn ? (
                 <Text style={styles.englishTitle} numberOfLines={1}>
-                  {item.titleEnglish}
+                  {item.titleEn}
                 </Text>
               ) : null}
               <View style={styles.metaRow}>
-                {item.year ? (
+                {item.seasonYear ? (
                   <View style={styles.seasonChip}>
                     <Ionicons
                       name="sparkles-outline"
@@ -251,21 +251,14 @@ export function AnimeListContent({
                       color="#92400e"
                     />
                     <Text style={styles.seasonText}>
-                      {formatYearSeason(item.year, item.season)}
+                      {formatYearSeason(
+                        item.seasonYear,
+                        item.seasonName?.includes("-")
+                          ? item.seasonName.split("-")[1]
+                          : item.seasonName,
+                      )}
                     </Text>
                   </View>
-                ) : null}
-                {(item.genres ?? []).slice(0, 2).map((g: string) => (
-                  <View key={g} style={styles.genreChip}>
-                    <Text style={styles.genreText} numberOfLines={1}>
-                      {g}
-                    </Text>
-                  </View>
-                ))}
-                {(item.genres ?? []).length > 2 ? (
-                  <Text style={styles.moreGenres}>
-                    +{(item.genres ?? []).length - 2}
-                  </Text>
                 ) : null}
               </View>
             </View>

@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "./helpers/setup-db";
 import { authorizedDb } from "@/repository/authorizedDb";
-import { animeTitles, users } from "@/db/schema";
+import { annictWorks, users } from "@/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";
+const WORK_ID_1 = 1001;
+const WORK_ID_2 = 1002;
 
 describe("authorizedDb", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
@@ -32,20 +34,20 @@ describe("authorizedDb", () => {
       },
     ]);
 
-    // テスト用アニメを作成
-    await db.insert(animeTitles).values([
+    // テスト用 annict_works を作成
+    await db.insert(annictWorks).values([
       {
+        annictWorkId: WORK_ID_1,
         title: "進撃の巨人",
-        year: 2013,
-        season: "spring",
-        createdAt: now,
+        seasonName: "2013-spring",
+        seasonYear: 2013,
         updatedAt: now,
       },
       {
+        annictWorkId: WORK_ID_2,
         title: "鬼滅の刃",
-        year: 2019,
-        season: "spring",
-        createdAt: now,
+        seasonName: "2019-spring",
+        seasonYear: 2019,
         updatedAt: now,
       },
     ]);
@@ -90,74 +92,113 @@ describe("authorizedDb", () => {
     });
   });
 
+  describe("annict_works 操作", () => {
+    it("IDで作品を取得できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const work = await adb.getAnnictWorkById(WORK_ID_1);
+      expect(work).toBeDefined();
+      expect(work?.title).toBe("進撃の巨人");
+    });
+
+    it("存在しない作品IDは undefined", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const work = await adb.getAnnictWorkById(99999);
+      expect(work).toBeUndefined();
+    });
+
+    it("作品を upsert できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const now = new Date();
+      await adb.upsertAnnictWork({
+        annictWorkId: 9999,
+        title: "新作アニメ",
+        seasonName: "2026-spring",
+        seasonYear: 2026,
+        updatedAt: now,
+      });
+      const work = await adb.getAnnictWorkById(9999);
+      expect(work?.title).toBe("新作アニメ");
+    });
+
+    it("作品を upsert で更新できる（同じ ID で上書き）", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const now = new Date();
+      await adb.upsertAnnictWork({
+        annictWorkId: WORK_ID_1,
+        title: "進撃の巨人 Final Season",
+        seasonName: "2022-winter",
+        seasonYear: 2022,
+        updatedAt: now,
+      });
+      const work = await adb.getAnnictWorkById(WORK_ID_1);
+      expect(work?.title).toBe("進撃の巨人 Final Season");
+      expect(work?.seasonYear).toBe(2022);
+    });
+  });
+
   describe("視聴履歴操作", () => {
     it("視聴履歴を追加・取得できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.upsertWatchHistory(1, {
-        status: "watching",
-        score: null,
-        comment: null,
-        watchedAt: null,
-      });
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
 
       const history = await adb.getMyWatchHistory();
       expect(history).toHaveLength(1);
-      expect(history[0]?.animeId).toBe(1);
-      expect(history[0]?.status).toBe("watching");
+      expect(history[0]?.annictWorkId).toBe(WORK_ID_1);
+      expect(history[0]?.state).toBe("WATCHING");
     });
 
     it("視聴履歴を更新できる（upsert）", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.upsertWatchHistory(1, {
-        status: "watching",
-        score: null,
-        comment: null,
-        watchedAt: null,
-      });
-      await adb.upsertWatchHistory(1, {
-        status: "completed",
-        score: 9,
-        comment: "最高だった",
-        watchedAt: new Date(),
-      });
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHED" });
 
       const history = await adb.getMyWatchHistory();
       expect(history).toHaveLength(1); // 重複しない
-      expect(history[0]?.status).toBe("completed");
-      expect(history[0]?.score).toBe(9);
+      expect(history[0]?.state).toBe("WATCHED");
     });
 
     it("他ユーザーの視聴履歴は取得されない", async () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
 
-      await adb.upsertWatchHistory(1, {
-        status: "watching",
-        score: null,
-        comment: null,
-        watchedAt: null,
-      });
-      await anotherAdb.upsertWatchHistory(2, {
-        status: "completed",
-        score: 10,
-        comment: null,
-        watchedAt: null,
-      });
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await anotherAdb.upsertWatchHistory(WORK_ID_2, { state: "WATCHED" });
 
       const myHistory = await adb.getMyWatchHistory();
       expect(myHistory).toHaveLength(1);
-      expect(myHistory[0]?.animeId).toBe(1);
+      expect(myHistory[0]?.annictWorkId).toBe(WORK_ID_1);
     });
 
     it("視聴履歴を削除できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.upsertWatchHistory(1, {
-        status: "watching",
-        score: null,
-        comment: null,
-        watchedAt: null,
-      });
-      await adb.deleteWatchHistory(1);
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await adb.deleteWatchHistory(WORK_ID_1);
+
+      const history = await adb.getMyWatchHistory();
+      expect(history).toHaveLength(0);
+    });
+
+    it("視聴履歴を全置換できる（replaceMyWatchHistory）", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+
+      await adb.replaceMyWatchHistory([
+        { annictWorkId: WORK_ID_1, state: "WATCHED" },
+        { annictWorkId: WORK_ID_2, state: "WANNA_WATCH" },
+      ]);
+
+      const history = await adb.getMyWatchHistory();
+      expect(history).toHaveLength(2);
+      const work1 = history.find((h) => h.annictWorkId === WORK_ID_1);
+      const work2 = history.find((h) => h.annictWorkId === WORK_ID_2);
+      expect(work1?.state).toBe("WATCHED"); // WATCHING → WATCHED に置換されていること
+      expect(work2?.state).toBe("WANNA_WATCH");
+    });
+
+    it("replaceMyWatchHistory: 空配列で全削除できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await adb.replaceMyWatchHistory([]);
 
       const history = await adb.getMyWatchHistory();
       expect(history).toHaveLength(0);
@@ -167,17 +208,17 @@ describe("authorizedDb", () => {
   describe("お気に入り操作", () => {
     it("お気に入りを追加・取得できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.addFavorite(1);
+      await adb.addFavorite(WORK_ID_1);
 
       const favs = await adb.getMyFavorites();
       expect(favs).toHaveLength(1);
-      expect(favs[0]?.animeId).toBe(1);
+      expect(favs[0]?.annictWorkId).toBe(WORK_ID_1);
     });
 
-    it("同じアニメを重複追加しても1件のみ", async () => {
+    it("同じ作品を重複追加しても1件のみ", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.addFavorite(1);
-      await adb.addFavorite(1); // 2回目は onConflictDoNothing
+      await adb.addFavorite(WORK_ID_1);
+      await adb.addFavorite(WORK_ID_1); // 2回目は onConflictDoNothing
 
       const favs = await adb.getMyFavorites();
       expect(favs).toHaveLength(1);
@@ -185,8 +226,8 @@ describe("authorizedDb", () => {
 
     it("お気に入りを削除できる", async () => {
       const adb = authorizedDb(db, USER_ID);
-      await adb.addFavorite(1);
-      await adb.removeFavorite(1);
+      await adb.addFavorite(WORK_ID_1);
+      await adb.removeFavorite(WORK_ID_1);
 
       const favs = await adb.getMyFavorites();
       expect(favs).toHaveLength(0);
@@ -230,21 +271,6 @@ describe("authorizedDb", () => {
       const genres = await adb.getMyGenres();
       expect(genres).toHaveLength(1);
       expect(genres[0]).toBe("SF");
-    });
-  });
-
-  describe("アニメタイトル取得", () => {
-    it("全アニメタイトルを取得できる", async () => {
-      const adb = authorizedDb(db, USER_ID);
-      const titles = await adb.getAnimeTitles();
-      expect(titles.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it("IDでアニメを取得できる", async () => {
-      const adb = authorizedDb(db, USER_ID);
-      const title = await adb.getAnimeTitleById(1);
-      expect(title).toBeDefined();
-      expect(title?.title).toBe("進撃の巨人");
     });
   });
 });

@@ -6,7 +6,7 @@ import {
   favorites,
   friends,
   userGenres,
-  animeTitles,
+  annictWorks,
 } from "@/db/schema";
 import type {
   User,
@@ -15,7 +15,8 @@ import type {
   NewWatchHistory,
   Favorite,
   Friend,
-  AnimeTitle,
+  AnnictWork,
+  NewAnnictWork,
 } from "@/db/schema";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -116,6 +117,33 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         .onConflictDoNothing({ target: users.id });
     },
 
+    // ---- Annict Works (キャッシュ) ----
+    async getAnnictWorkById(
+      annictWorkId: number,
+    ): Promise<AnnictWork | undefined> {
+      return db.query.annictWorks.findFirst({
+        where: eq(annictWorks.annictWorkId, annictWorkId),
+      });
+    },
+
+    async upsertAnnictWork(data: NewAnnictWork): Promise<void> {
+      await db
+        .insert(annictWorks)
+        .values(data)
+        .onConflictDoUpdate({
+          target: annictWorks.annictWorkId,
+          set: {
+            title: data.title,
+            titleKana: data.titleKana,
+            titleEn: data.titleEn,
+            seasonName: data.seasonName,
+            seasonYear: data.seasonYear,
+            imageUrl: data.imageUrl,
+            updatedAt: data.updatedAt,
+          },
+        });
+    },
+
     // ---- Watch History ----
     async getMyWatchHistory(): Promise<WatchHistory[]> {
       return db.query.watchHistory.findMany({
@@ -125,39 +153,66 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     },
 
     async upsertWatchHistory(
-      animeId: number,
-      data: Pick<NewWatchHistory, "status"> &
-        Partial<Pick<NewWatchHistory, "score" | "comment" | "watchedAt">>,
+      annictWorkId: number,
+      data: Pick<NewWatchHistory, "state">,
     ): Promise<WatchHistory> {
       const now = new Date();
       await db
         .insert(watchHistory)
         .values({
           userId: currentUserId,
-          animeId,
+          annictWorkId,
           ...data,
-          createdAt: now,
           updatedAt: now,
         })
         .onConflictDoUpdate({
-          target: [watchHistory.userId, watchHistory.animeId],
+          target: [watchHistory.userId, watchHistory.annictWorkId],
           set: { ...data, updatedAt: now },
         });
       const updated = await db.query.watchHistory.findFirst({
         where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.animeId, animeId)),
+          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       if (!updated) throw new Error("視聴履歴の更新に失敗しました");
       return updated;
     },
 
-    async deleteWatchHistory(animeId: number): Promise<void> {
+    /**
+     * 本人の視聴履歴を Annict libraryEntries で全置換する。
+     * D1 の db.batch() でアトミックに delete → insert を実行する。
+     */
+    async replaceMyWatchHistory(
+      entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+    ): Promise<void> {
+      const now = new Date();
+      const deleteQuery = db
+        .delete(watchHistory)
+        .where(eq(watchHistory.userId, currentUserId));
+
+      if (entries.length === 0) {
+        await deleteQuery;
+        return;
+      }
+
+      const insertQuery = db.insert(watchHistory).values(
+        entries.map((e) => ({
+          userId: currentUserId,
+          annictWorkId: e.annictWorkId,
+          state: e.state,
+          updatedAt: now,
+        })),
+      );
+
+      await db.batch([deleteQuery, insertQuery]);
+    },
+
+    async deleteWatchHistory(annictWorkId: number): Promise<void> {
       await db
         .delete(watchHistory)
         .where(
           and(
             eq(watchHistory.userId, currentUserId),
-            eq(watchHistory.animeId, animeId),
+            eq(watchHistory.annictWorkId, annictWorkId),
           ),
         );
     },
@@ -170,27 +225,27 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
     },
 
-    async addFavorite(animeId: number): Promise<Favorite> {
+    async addFavorite(annictWorkId: number): Promise<Favorite> {
       const now = new Date();
       await db
         .insert(favorites)
-        .values({ userId: currentUserId, animeId, createdAt: now })
+        .values({ userId: currentUserId, annictWorkId, createdAt: now })
         .onConflictDoNothing();
       const created = await db.query.favorites.findFirst({
         where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.animeId, animeId)),
+          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       if (!created) throw new Error("お気に入りの追加に失敗しました");
       return created;
     },
 
-    async removeFavorite(animeId: number): Promise<void> {
+    async removeFavorite(annictWorkId: number): Promise<void> {
       await db
         .delete(favorites)
         .where(
           and(
             eq(favorites.userId, currentUserId),
-            eq(favorites.animeId, animeId),
+            eq(favorites.annictWorkId, annictWorkId),
           ),
         );
     },
@@ -274,19 +329,6 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             ),
           ),
       ]);
-    },
-
-    // ---- Anime Titles (read-only for users) ----
-    async getAnimeTitles(): Promise<AnimeTitle[]> {
-      return db.query.animeTitles.findMany({
-        orderBy: (t, { asc }) => [asc(t.title)],
-      });
-    },
-
-    async getAnimeTitleById(id: number): Promise<AnimeTitle | undefined> {
-      return db.query.animeTitles.findFirst({
-        where: eq(animeTitles.id, id),
-      });
     },
 
     // ---- User Genres ----

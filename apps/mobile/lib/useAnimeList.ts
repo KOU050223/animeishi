@@ -1,11 +1,16 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
 
-type TitlesResponse = InferResponseType<typeof apiClient.titles.$get, 200>;
-export type AnimeTitle = TitlesResponse[number];
+export type AnimeTitle = {
+  annictWorkId: number;
+  title: string;
+  titleKana: string | null;
+  titleEn: string | null;
+  imageUrl: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+  updatedAt: string;
+};
 
 export type SortKey = "title" | "year";
 export type SortOrder = "asc" | "desc";
@@ -13,30 +18,17 @@ export type SortOrder = "asc" | "desc";
 export const ANIME_LIST_QUERY_KEY = ["titles"] as const;
 
 export function useAnimeList() {
-  const { getToken, isSignedIn } = useAuth();
-
   return useQuery({
     queryKey: ANIME_LIST_QUERY_KEY,
-    enabled: !!isSignedIn,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const res = await apiClient.titles.$get(
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error("アニメ一覧の取得に失敗しました");
-      return res.json();
-    },
+    enabled: false,
+    queryFn: async (): Promise<AnimeTitle[]> => [],
   });
 }
 
 function normalizeText(text: string): string {
   return text
     .normalize("NFKC")
-    .replace(/[\u30a1-\u30f6]/g, (ch) =>
-      String.fromCharCode(ch.charCodeAt(0) - 0x60),
-    )
+    .replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
     .toLowerCase();
 }
 
@@ -54,8 +46,8 @@ export function useFilteredAnimeList(
       ? data.filter(
           (a) =>
             normalizeText(a.title).includes(q) ||
-            normalizeText(a.titleReading ?? "").includes(q) ||
-            normalizeText(a.titleEnglish ?? "").includes(q),
+            normalizeText(a.titleKana ?? "").includes(q) ||
+            normalizeText(a.titleEn ?? "").includes(q),
         )
       : data;
 
@@ -64,7 +56,7 @@ export function useFilteredAnimeList(
       if (sortKey === "title") {
         cmp = a.title.localeCompare(b.title, "ja");
       } else {
-        cmp = (a.year ?? 0) - (b.year ?? 0);
+        cmp = (a.seasonYear ?? 0) - (b.seasonYear ?? 0);
       }
       return sortOrder === "asc" ? cmp : -cmp;
     });
