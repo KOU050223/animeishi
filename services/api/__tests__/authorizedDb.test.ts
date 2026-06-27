@@ -119,6 +119,21 @@ describe("authorizedDb", () => {
       const work = await adb.getAnnictWorkById(9999);
       expect(work?.title).toBe("新作アニメ");
     });
+
+    it("作品を upsert で更新できる（同じ ID で上書き）", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const now = new Date();
+      await adb.upsertAnnictWork({
+        annictWorkId: WORK_ID_1,
+        title: "進撃の巨人 Final Season",
+        seasonName: "2022-winter",
+        seasonYear: 2022,
+        updatedAt: now,
+      });
+      const work = await adb.getAnnictWorkById(WORK_ID_1);
+      expect(work?.title).toBe("進撃の巨人 Final Season");
+      expect(work?.seasonYear).toBe(2022);
+    });
   });
 
   describe("視聴履歴操作", () => {
@@ -174,6 +189,10 @@ describe("authorizedDb", () => {
 
       const history = await adb.getMyWatchHistory();
       expect(history).toHaveLength(2);
+      const work1 = history.find((h) => h.annictWorkId === WORK_ID_1);
+      const work2 = history.find((h) => h.annictWorkId === WORK_ID_2);
+      expect(work1?.state).toBe("WATCHED"); // WATCHING → WATCHED に置換されていること
+      expect(work2?.state).toBe("WANNA_WATCH");
     });
 
     it("replaceMyWatchHistory: 空配列で全削除できる", async () => {
