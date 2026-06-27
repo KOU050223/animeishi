@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import type { Env } from "./db/client";
+import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { avatar, me } from "./routes/me";
@@ -34,6 +35,7 @@ const routes = app
   // アバター配信は認証不要のため /me（requireAuth）より先にマウントする。
   .route("/me", avatar)
   .route("/me", me)
+  .route("/me/annict", annict)
   .route("/me/watch-histories", watchHistory)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)

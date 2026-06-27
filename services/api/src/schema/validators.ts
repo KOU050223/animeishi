@@ -88,3 +88,13 @@ export const watchHistoryUpsertSchema = z.object({
 });
 
 export type WatchHistoryUpsertInput = z.infer<typeof watchHistoryUpsertSchema>;
+
+// Annict OAuth: モバイルが deep link で受領した認可コードを交換するリクエスト。
+// redirect_uri はトークン交換時の検証に使われるため、モバイルが実際に使った値を
+// そのまま送る（Annict アプリ設定に登録済みの deep link）。
+export const annictExchangeSchema = z.object({
+  code: z.string().trim().min(1, "認可コードが必要です"),
+  redirectUri: z.string().trim().min(1, "redirect_uri が必要です"),
+});
+
+export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
