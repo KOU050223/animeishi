@@ -133,7 +133,7 @@ describe("exchangeAnnictCode", () => {
         },
         fetchMock as unknown as typeof fetch,
       ),
-    ).rejects.toBeInstanceOf(AnnictApiError);
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 400 });
   });
 });
 
