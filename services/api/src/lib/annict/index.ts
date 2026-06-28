@@ -5,9 +5,11 @@ export {
   AnnictApiError,
   annictGraphQL,
   exchangeAnnictCode,
+  fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
 } from "./client";
 export type {
+  AnnictLibraryEntry,
   AnnictTokenInfo,
   AnnictTokenResponse,
   ExchangeCodeParams,

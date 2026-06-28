@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { getAnnictToken, useAnnictConnection } from "@/lib/annict";
+
+// Annict アクセストークンを運ぶヘッダ名（API の requireAnnictToken と対応）。
+const ANNICT_TOKEN_HEADER = "X-Annict-Token";
 
 type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],
@@ -36,13 +40,21 @@ async function getAuthHeaders(
 
 export function useWatchHistory() {
   const { getToken, isSignedIn, userId } = useAuth();
+  // 本人の視聴履歴は Annict libraryEntries を read-through する（API 側で X-Annict-Token 必須）。
+  // 未連携のうちは取得しても 401 になるだけなので、連携済みになるまでクエリを無効化する。
+  const { isConnected } = useAnnictConnection();
 
   return useQuery({
     queryKey: userId ? watchHistoryQueryKey(userId) : WATCH_HISTORY_QUERY_KEY,
-    enabled: !!isSignedIn && !!userId,
+    enabled: !!isSignedIn && !!userId && isConnected,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["watch-histories"].$get({}, { headers });
+      const annictToken = await getAnnictToken();
+      if (!annictToken) throw new Error("Annict 連携が必要です");
+      const res = await apiClient.me["watch-histories"].$get(
+        {},
+        { headers: { ...headers, [ANNICT_TOKEN_HEADER]: annictToken } },
+      );
       if (!res.ok) throw new Error("視聴履歴の取得に失敗しました");
       return res.json();
     },

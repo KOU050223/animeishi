@@ -104,6 +104,121 @@ export async function annictGraphQL<T>(
   return json.data;
 }
 
+// --- viewer.libraryEntries（本人の視聴ライブラリ取得） ---
+
+// libraryEntries の 1 ページ分を取得するクエリ。
+// 全状態（NO_STATE 含む）を一度に取り、ページングは after カーソルで回す。
+const LIBRARY_ENTRIES_QUERY = `
+query MyLibrary($after: String) {
+  viewer {
+    libraryEntries(first: 50, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        status { state }
+        work {
+          annictId
+          title
+          titleKana
+          titleEn
+          seasonName
+          seasonYear
+          image { recommendedImageUrl }
+        }
+      }
+    }
+  }
+}`;
+
+// libraryEntries が 1 ノードでも欠けると全体が落ちるのを避けるため、
+// work / status は nullable として受け、後段で検証・スキップする。
+type LibraryEntryNode = {
+  status: { state: string | null } | null;
+  work: {
+    annictId: number;
+    title: string;
+    titleKana: string | null;
+    titleEn: string | null;
+    seasonName: string | null;
+    seasonYear: number | null;
+    image: { recommendedImageUrl: string | null } | null;
+  } | null;
+};
+
+type LibraryEntriesResponse = {
+  viewer: {
+    libraryEntries: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: LibraryEntryNode[];
+    };
+  } | null;
+};
+
+/** 整形済みの 1 作品分のライブラリエントリ（D1 キャッシュへの書き込み単位）。 */
+export type AnnictLibraryEntry = {
+  annictWorkId: number;
+  state: string | null;
+  title: string;
+  titleKana: string | null;
+  titleEn: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+  imageUrl: string | null;
+};
+
+// 全置換が肥大化しないための上限ページ数（50 件 × 40 = 2000 作品）。
+// ヘビーユーザーでも現実的な範囲で、無限ループ（壊れた endCursor）も防ぐ。
+const MAX_LIBRARY_PAGES = 40;
+
+/**
+ * 本人の viewer.libraryEntries を全状態・全ページ取得し、平坦化して返す。
+ * read-through 全置換（watch_history / annict_works キャッシュ更新）の入力に使う。
+ *
+ * work が null のノード（取得不能な作品）はスキップする。state の検証
+ * （NO_STATE / 保存可否）は呼び出し側で行う。
+ */
+export async function fetchAnnictLibraryEntries(
+  accessToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictLibraryEntry[]> {
+  const entries: AnnictLibraryEntry[] = [];
+  let after: string | null = null;
+
+  for (let page = 0; page < MAX_LIBRARY_PAGES; page++) {
+    const data: LibraryEntriesResponse =
+      await annictGraphQL<LibraryEntriesResponse>(
+        accessToken,
+        LIBRARY_ENTRIES_QUERY,
+        { after },
+        fetchImpl,
+      );
+
+    const connection = data.viewer?.libraryEntries;
+    if (!connection) break;
+
+    for (const node of connection.nodes) {
+      const work = node.work;
+      if (!work) continue;
+      entries.push({
+        annictWorkId: work.annictId,
+        state: node.status?.state ?? null,
+        title: work.title,
+        titleKana: work.titleKana,
+        titleEn: work.titleEn,
+        seasonName: work.seasonName,
+        seasonYear: work.seasonYear,
+        imageUrl: work.image?.recommendedImageUrl ?? null,
+      });
+    }
+
+    if (!connection.pageInfo.hasNextPage || !connection.pageInfo.endCursor) {
+      break;
+    }
+    after = connection.pageInfo.endCursor;
+  }
+
+  return entries;
+}
+
 export type AnnictTokenResponse = {
   access_token: string;
   token_type: string;

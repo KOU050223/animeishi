@@ -206,6 +206,72 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       await db.batch([deleteQuery, insertQuery]);
     },
 
+    /**
+     * Annict libraryEntries の取得結果で本人のライブラリを read-through 同期する。
+     *
+     * watch_history.annictWorkId は annict_works への FK 制約があるため、
+     * 1 つの db.batch() の中で「作品メタ upsert → watch_history 全置換」を
+     * この順序でアトミックに実行する（作品が存在しない状態で履歴を insert すると
+     * FK 違反になる）。
+     *
+     * @param works 触れた作品のメタ（annict_works へ upsert するキャッシュ）
+     * @param entries 全置換する本人の視聴履歴（works に含まれる作品のみ）
+     * @returns 置換後の本人の視聴履歴（updatedAt 降順）
+     */
+    async syncMyLibraryFromAnnict(
+      works: NewAnnictWork[],
+      entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+    ): Promise<WatchHistory[]> {
+      const now = new Date();
+
+      // 全置換のため本人分を削除。これを batch 先頭に固定し、
+      // db.batch が要求する「非空タプル」の先頭要素を常に満たす。
+      const deleteQuery = db
+        .delete(watchHistory)
+        .where(eq(watchHistory.userId, currentUserId));
+
+      const workQueries = works.map((w) =>
+        db
+          .insert(annictWorks)
+          .values(w)
+          .onConflictDoUpdate({
+            target: annictWorks.annictWorkId,
+            set: {
+              title: w.title,
+              titleKana: w.titleKana,
+              titleEn: w.titleEn,
+              seasonName: w.seasonName,
+              seasonYear: w.seasonYear,
+              imageUrl: w.imageUrl,
+              updatedAt: w.updatedAt,
+            },
+          }),
+      );
+
+      // 順序制約: delete watch / upsert works はいずれも insert watch より前に置く
+      // （FK: watch_history.annictWorkId → annict_works）。
+      const insertQueries =
+        entries.length > 0
+          ? [
+              db.insert(watchHistory).values(
+                entries.map((e) => ({
+                  userId: currentUserId,
+                  annictWorkId: e.annictWorkId,
+                  state: e.state,
+                  updatedAt: now,
+                })),
+              ),
+            ]
+          : [];
+
+      await db.batch([deleteQuery, ...workQueries, ...insertQueries]);
+
+      return db.query.watchHistory.findMany({
+        where: eq(watchHistory.userId, currentUserId),
+        orderBy: (t, { desc }) => [desc(t.updatedAt)],
+      });
+    },
+
     async deleteWatchHistory(annictWorkId: number): Promise<void> {
       await db
         .delete(watchHistory)
