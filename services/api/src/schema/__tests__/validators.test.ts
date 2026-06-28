@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   profileUpdateSchema,
   watchHistoryUpsertSchema,
+  annictExchangeSchema,
   VALID_GENRES,
   ANNICT_STATUS_STATES,
 } from "@/schema/validators";
@@ -121,5 +122,44 @@ describe("watchHistoryUpsertSchema", () => {
 
   it("state フィールドが必須", () => {
     expect(watchHistoryUpsertSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+// ---- annictExchangeSchema ----
+describe("annictExchangeSchema", () => {
+  it("deep link の redirect_uri を受け入れる", () => {
+    expect(
+      annictExchangeSchema.safeParse({
+        code: "abc",
+        redirectUri: "animeishi://annict",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("Web (http) の redirect_uri を受け入れる", () => {
+    expect(
+      annictExchangeSchema.safeParse({
+        code: "abc",
+        redirectUri: "http://localhost:8081/annict",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("URI 形式でない redirect_uri を拒否する", () => {
+    expect(
+      annictExchangeSchema.safeParse({
+        code: "abc",
+        redirectUri: "not a uri",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("code が空文字なら拒否する", () => {
+    expect(
+      annictExchangeSchema.safeParse({
+        code: "",
+        redirectUri: "animeishi://annict",
+      }).success,
+    ).toBe(false);
   });
 });

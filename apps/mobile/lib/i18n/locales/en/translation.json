@@ -3,6 +3,29 @@
     "appName": "Animeishi",
     "loading": "Loading..."
   },
+  "annict": {
+    "title": "Annict integration",
+    "description": "Connect Annict to reflect your watch records on your anime card. Records are managed on Annict.",
+    "connect": "Connect Annict",
+    "connecting": "Connecting...",
+    "disconnect": "Disconnect",
+    "connected": "Connected to Annict",
+    "notConnected": "Not connected",
+    "cancel": "Cancel",
+    "softGate": {
+      "title": "Annict connection required",
+      "description": "Connecting Annict is required to view and update watch records.",
+      "cta": "Connect"
+    },
+    "errors": {
+      "cancelled": "Connection cancelled",
+      "notConfigured": "Annict integration is not configured",
+      "exchangeFailed": "Failed to connect Annict. Please try again",
+      "stateMismatch": "Authentication mismatch. Please try again",
+      "unexpected": "An unexpected error occurred"
+    },
+    "success": "Connected to Annict"
+  },
   "auth": {
     "signIn": {
       "title": "Sign in",

@@ -3,6 +3,29 @@
     "appName": "アニ名刺",
     "loading": "読み込み中..."
   },
+  "annict": {
+    "title": "Annict 連携",
+    "description": "Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。",
+    "connect": "Annict と連携する",
+    "connecting": "連携中...",
+    "disconnect": "連携を解除する",
+    "connected": "Annict と連携済み",
+    "notConnected": "未連携",
+    "cancel": "キャンセル",
+    "softGate": {
+      "title": "Annict 連携が必要です",
+      "description": "視聴記録の表示・更新には Annict との連携が必要です。",
+      "cta": "連携する"
+    },
+    "errors": {
+      "cancelled": "連携をキャンセルしました",
+      "notConfigured": "Annict 連携が構成されていません",
+      "exchangeFailed": "Annict 連携に失敗しました。もう一度お試しください",
+      "stateMismatch": "認証情報が一致しませんでした。もう一度お試しください",
+      "unexpected": "予期しないエラーが発生しました"
+    },
+    "success": "Annict と連携しました"
+  },
   "auth": {
     "signIn": {
       "title": "サインイン",

@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { MeishiCard } from "@/components/MeishiCard";
+import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 
@@ -235,6 +236,11 @@ export default function ProfileScreen() {
             <Text className="font-semibold text-white">保存</Text>
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* Annict 連携 */}
+      <View className="mt-6 px-4">
+        <AnnictConnectionCard />
       </View>
     </ScrollView>
   );
