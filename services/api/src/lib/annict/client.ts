@@ -28,6 +28,36 @@ export type GraphQLResponse<T> = {
   errors?: { message: string }[];
 };
 
+// Annict との通信失敗（ネットワーク障害・タイムアウト等）も AnnictApiError に正規化する。
+// これがないと fetch の reject がそのまま漏れ、routes/annict.ts の
+// `instanceof AnnictApiError` 分岐を通らず一時障害が 500 扱いに崩れる。
+async function annictFetch(
+  fetchImpl: typeof fetch,
+  input: string,
+  init: RequestInit,
+  context: string,
+): Promise<Response> {
+  try {
+    return await fetchImpl(input, init);
+  } catch (err) {
+    // status 0 は「HTTP 応答に到達しなかった（接続失敗）」を表す。
+    throw new AnnictApiError(`Annict ${context} request failed`, 0, err);
+  }
+}
+
+// 2xx 応答の JSON 解析失敗（非 JSON 応答など）も AnnictApiError に正規化する。
+async function annictParseJson<T>(res: Response, context: string): Promise<T> {
+  try {
+    return (await res.json()) as T;
+  } catch (err) {
+    throw new AnnictApiError(
+      `Annict ${context} returned invalid JSON`,
+      res.status,
+      err,
+    );
+  }
+}
+
 /**
  * Annict GraphQL に対してクエリ/ミューテーションを実行する。
  * `accessToken` は Annict のアクセストークン（X-Annict-Token で運ばれてきたもの）。
@@ -38,14 +68,19 @@ export async function annictGraphQL<T>(
   variables: Record<string, unknown> = {},
   fetchImpl: typeof fetch = fetch,
 ): Promise<T> {
-  const res = await fetchImpl(ANNICT_GRAPHQL_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+  const res = await annictFetch(
+    fetchImpl,
+    ANNICT_GRAPHQL_ENDPOINT,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ query, variables }),
     },
-    body: JSON.stringify({ query, variables }),
-  });
+    "GraphQL",
+  );
 
   if (!res.ok) {
     throw new AnnictApiError(
@@ -55,7 +90,7 @@ export async function annictGraphQL<T>(
     );
   }
 
-  const json = (await res.json()) as GraphQLResponse<T>;
+  const json = await annictParseJson<GraphQLResponse<T>>(res, "GraphQL");
   if (json.errors?.length) {
     throw new AnnictApiError(
       json.errors.map((e) => e.message).join("; "),
@@ -99,11 +134,16 @@ export async function exchangeAnnictCode(
     code: params.code,
   });
 
-  const res = await fetchImpl(ANNICT_TOKEN_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+  const res = await annictFetch(
+    fetchImpl,
+    ANNICT_TOKEN_ENDPOINT,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    },
+    "token exchange",
+  );
 
   if (!res.ok) {
     throw new AnnictApiError(
@@ -113,7 +153,7 @@ export async function exchangeAnnictCode(
     );
   }
 
-  return (await res.json()) as AnnictTokenResponse;
+  return annictParseJson<AnnictTokenResponse>(res, "token exchange");
 }
 
 export type AnnictTokenInfo = {
@@ -132,9 +172,12 @@ export async function fetchAnnictTokenInfo(
   accessToken: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<AnnictTokenInfo> {
-  const res = await fetchImpl(ANNICT_TOKEN_INFO_ENDPOINT, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await annictFetch(
+    fetchImpl,
+    ANNICT_TOKEN_INFO_ENDPOINT,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    "token info",
+  );
 
   if (!res.ok) {
     throw new AnnictApiError(
@@ -144,7 +187,7 @@ export async function fetchAnnictTokenInfo(
     );
   }
 
-  return (await res.json()) as AnnictTokenInfo;
+  return annictParseJson<AnnictTokenInfo>(res, "token info");
 }
 
 async function safeReadText(res: Response): Promise<string | undefined> {

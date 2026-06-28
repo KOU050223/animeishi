@@ -13,6 +13,9 @@ import type { TranslationKey } from "@/lib/i18n/keys";
 // 連携フローの失敗理由を i18n キーへ対応づける。
 function errorKey(reason: string): TranslationKey {
   switch (reason) {
+    // ユーザーが Annict 側で権限付与を拒否した場合。想定外エラーではなくキャンセル扱い。
+    case "access_denied":
+      return "annict.errors.cancelled";
     case "not_configured":
       return "annict.errors.notConfigured";
     case "state_mismatch":
@@ -58,8 +61,12 @@ export function AnnictConnectionCard() {
       t("annict.title"),
       t("annict.disconnect"),
       () => {
-        void disconnect();
-        setMessage(null);
+        // 削除や invalidation が失敗した場合に握りつぶさず UI へ反映する。
+        void disconnect()
+          .then(() => setMessage(null))
+          .catch(() =>
+            setMessage({ type: "error", text: t("annict.errors.unexpected") }),
+          );
       },
       {
         confirmLabel: t("annict.disconnect"),
@@ -126,6 +133,11 @@ export function AnnictConnectionCard() {
           disabled={isConnecting}
           className="items-center rounded-lg bg-indigo-600 py-3"
           accessibilityRole="button"
+          // 接続中はスピナーのみでテキストが消えるため、名前と状態を明示する。
+          accessibilityLabel={
+            isConnecting ? t("annict.connecting") : t("annict.connect")
+          }
+          accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
         >
           {isConnecting ? (
             <ActivityIndicator color="#ffffff" />

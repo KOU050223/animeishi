@@ -64,6 +64,26 @@ describe("annictGraphQL", () => {
       annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
     ).rejects.toMatchObject({ status: 500 });
   });
+
+  it("fetch の reject（ネットワーク障害）を AnnictApiError(status=0) に正規化する", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
+
+    await expect(
+      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 0 });
+  });
+
+  it("2xx の非 JSON 応答を AnnictApiError に正規化する", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("<html>not json</html>", { status: 200 }),
+      );
+
+    await expect(
+      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
+    ).rejects.toBeInstanceOf(AnnictApiError);
+  });
 });
 
 describe("exchangeAnnictCode", () => {

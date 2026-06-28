@@ -49,6 +49,9 @@ const annict = new Hono<AuthVariables>()
       // トークンの所有者 ID を取得して返す（モバイルが表示等に使える）。
       const info = await fetchAnnictTokenInfo(token.access_token);
 
+      // 生の accessToken を返すため、ブラウザ/共有プロキシにキャッシュさせない。
+      c.header("Cache-Control", "no-store");
+      c.header("Pragma", "no-cache");
       return c.json({
         accessToken: token.access_token,
         scope: token.scope,
@@ -67,7 +70,8 @@ const annict = new Hono<AuthVariables>()
   // クライアントが SecureStore のトークンを X-Annict-Token で渡して検証する。
   // ヘッダが無ければ未連携（connected: false）として扱う。
   .get("/", async (c) => {
-    const token = c.req.header(ANNICT_TOKEN_HEADER);
+    // 空白だけのヘッダで無駄な upstream 呼び出し（→5xx）を起こさないよう trim する。
+    const token = c.req.header(ANNICT_TOKEN_HEADER)?.trim();
     if (!token) {
       return c.json({ connected: false });
     }
