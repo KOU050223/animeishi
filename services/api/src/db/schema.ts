@@ -32,6 +32,11 @@ export const users = sqliteTable("users", {
 // ---- annict_works (Annict 作品キャッシュ) ----
 export const annictWorks = sqliteTable("annict_works", {
   annictWorkId: integer("annict_work_id").primaryKey(), // Annict の annictId をそのまま主キー
+  // Annict GraphQL の Work Node ID（Base64）。updateStatus(input.workId) が
+  // この Node ID を要求するため、read-through 時に取得して保持する。annictId(Int)
+  // とは別物。read-through 前に更新が来た作品では未取得（null）で、その場合は
+  // 更新時に searchWorks で解決してから埋める。
+  nodeId: text("node_id"),
   title: text("title").notNull(),
   titleKana: text("title_kana"),
   titleEn: text("title_en"),

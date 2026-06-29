@@ -14,6 +14,7 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE TABLE IF NOT EXISTS annict_works (
     annict_work_id INTEGER PRIMARY KEY NOT NULL,
+    node_id TEXT,
     title TEXT NOT NULL,
     title_kana TEXT,
     title_en TEXT,

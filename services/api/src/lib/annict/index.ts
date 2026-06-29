@@ -7,6 +7,8 @@ export {
   exchangeAnnictCode,
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
+  fetchAnnictWorkByAnnictId,
+  updateAnnictStatus,
 } from "./client";
 export type {
   AnnictLibraryEntry,

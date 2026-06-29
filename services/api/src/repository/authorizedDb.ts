@@ -134,6 +134,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         .onConflictDoUpdate({
           target: annictWorks.annictWorkId,
           set: {
+            // nodeId は読み取り経路で必ず取得できるとは限らないため、新しい値が
+            // null のときは既存値を温存する（searchWorks 解決済みの値を消さない）。
+            nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
             title: data.title,
             titleKana: data.titleKana,
             titleEn: data.titleEn,
@@ -232,8 +235,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       const now = new Date();
 
       // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-      // annict_works は 8 カラム、watch_history は 4 カラム。
-      const WORK_CHUNK = 10; // 10 * 8 = 80 変数 < 100
+      // annict_works は 9 カラム（nodeId 追加）、watch_history は 4 カラム。
+      const WORK_CHUNK = 10; // 10 * 9 = 90 変数 < 100
       const WATCH_CHUNK = 20; // 20 * 4 = 80 変数 < 100
 
       const upsertWorksChunk = (chunk: NewAnnictWork[]) =>
@@ -243,6 +246,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           .onConflictDoUpdate({
             target: annictWorks.annictWorkId,
             set: {
+              // nodeId が null（取得不能）なら既存値を温存する。
+              nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
               title: sql`excluded.title`,
               titleKana: sql`excluded.title_kana`,
               titleEn: sql`excluded.title_en`,
