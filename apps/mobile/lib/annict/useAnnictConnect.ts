@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
@@ -45,11 +45,19 @@ export function useAnnictConnect() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
+  // isConnecting(state) は非同期更新のため、ボタンの disabled だけでは反映前の連打で
+  // openAuthSessionAsync が二重起動しうる。ref で同期的に再入をブロックする。
+  const inFlightRef = useRef(false);
 
   const connect = useCallback(async (): Promise<AnnictConnectResult> => {
     if (!ANNICT_CLIENT_ID) {
       return { status: "error", reason: "not_configured" };
     }
+    // 進行中の連携があれば二重起動させない（成功/失敗/キャンセルで finally 解除）。
+    if (inFlightRef.current) {
+      return { status: "cancelled" };
+    }
+    inFlightRef.current = true;
 
     setIsConnecting(true);
     try {
@@ -103,6 +111,7 @@ export function useAnnictConnect() {
     } catch {
       return { status: "error", reason: "unexpected" };
     } finally {
+      inFlightRef.current = false;
       setIsConnecting(false);
     }
   }, [getToken, queryClient]);

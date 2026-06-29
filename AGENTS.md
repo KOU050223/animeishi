@@ -23,8 +23,9 @@ task <タスク名>
 ```
 
 > CI の "Lint & Type Check" ジョブは **ESLint と型チェック (tsc --noEmit) の 2 段**で構成される。
-> `task lint` は ESLint だけで型エラーは拾えない。push 前は必ず `task typecheck`（または
-> `task test` と併せて）を実行して CI 落ちを未然に防ぐこと。lefthook の pre-push でも自動実行される。
+> `task lint` は ESLint だけで型エラーは拾えない。push 前は必ず `nix develop --command task typecheck`
+> （または `task test` と併せて）を実行して CI 落ちを未然に防ぐこと。lefthook の pre-push でも自動実行される。
+> （devShell 内なら `task typecheck` を直接実行してよい。下記「開発環境」を参照）
 
 ## 開発環境
 開発環境は Nix で管理している。`task` や `pnpm` 等のツールは Nix devShell 経由で実行する。
