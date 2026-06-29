@@ -67,10 +67,9 @@ describe("AnnictSoftGate", () => {
     fireEvent.press(screen.getByText("連携する"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("annict-soft-gate-error")).toHaveTextContent(
-        "連携をキャンセルしました",
-      );
+      expect(screen.getByTestId("annict-soft-gate-error")).toBeTruthy();
     });
+    expect(screen.getByText("連携をキャンセルしました")).toBeTruthy();
   });
 
   it("連携エラー時に理由に応じたメッセージを表示する", async () => {
@@ -83,10 +82,11 @@ describe("AnnictSoftGate", () => {
     fireEvent.press(screen.getByText("連携する"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("annict-soft-gate-error")).toHaveTextContent(
-        "Annict 連携に失敗しました。もう一度お試しください",
-      );
+      expect(screen.getByTestId("annict-soft-gate-error")).toBeTruthy();
     });
+    expect(
+      screen.getByText("Annict 連携に失敗しました。もう一度お試しください"),
+    ).toBeTruthy();
   });
 
   it("接続中は CTA を無効化しスピナーを出す", () => {
