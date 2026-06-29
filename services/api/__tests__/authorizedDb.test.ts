@@ -275,6 +275,33 @@ describe("authorizedDb", () => {
         "状態なし作品",
       );
     });
+
+    it("syncMyLibraryFromAnnict: チャンク境界を跨ぐ大量データを全件同期できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const now = new Date();
+
+      // WORK_CHUNK(100) / WATCH_CHUNK(200) の両方を跨ぐ件数で検証する。
+      const COUNT = 250;
+      const works = Array.from({ length: COUNT }, (_, i) => ({
+        annictWorkId: 5000 + i,
+        title: `作品${i}`,
+        updatedAt: now,
+      }));
+      const entries = works.map((w, i) => ({
+        annictWorkId: w.annictWorkId,
+        state: (i % 2 === 0 ? "WATCHING" : "WATCHED") as "WATCHING" | "WATCHED",
+      }));
+
+      const result = await adb.syncMyLibraryFromAnnict(works, entries);
+
+      // 全件が漏れなく入る（チャンク分割で欠落しない）
+      expect(result).toHaveLength(COUNT);
+      expect(await adb.getMyWatchHistory()).toHaveLength(COUNT);
+      // 末尾チャンクの作品もキャッシュされている
+      expect((await adb.getAnnictWorkById(5000 + COUNT - 1))?.title).toBe(
+        `作品${COUNT - 1}`,
+      );
+    });
   });
 
   describe("お気に入り操作", () => {

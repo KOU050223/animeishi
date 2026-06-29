@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
@@ -210,9 +211,15 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
      * Annict libraryEntries の取得結果で本人のライブラリを read-through 同期する。
      *
      * watch_history.annictWorkId は annict_works への FK 制約があるため、
-     * 1 つの db.batch() の中で「作品メタ upsert → watch_history 全置換」を
-     * この順序でアトミックに実行する（作品が存在しない状態で履歴を insert すると
-     * FK 違反になる）。
+     * 「作品メタ upsert → watch_history 全置換」の順で実行する（作品が存在しない
+     * 状態で履歴を insert すると FK 違反になる）。
+     *
+     * ヘビーユーザー（数百〜数千作品）でも 1 statement に過大なバインド変数を
+     * 載せないよう、bulk insert を行ベースでチャンク分割する。D1 は 1 クエリ
+     * あたりのバインド変数を 100 に制限している（SQLite 既定の 999 より厳しい）ため、
+     * 行数 × カラム数 が 100 を超えないチャンクサイズにする。
+     * works は冪等（upsert）なので先に全チャンクを流し、その後 watch_history を
+     * 「delete を最初の insert チャンクと同 batch」にして全置換する。
      *
      * @param works 触れた作品のメタ（annict_works へ upsert するキャッシュ）
      * @param entries 全置換する本人の視聴履歴（works に含まれる作品のみ）
@@ -224,47 +231,66 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     ): Promise<WatchHistory[]> {
       const now = new Date();
 
-      // 全置換のため本人分を削除。これを batch 先頭に固定し、
-      // db.batch が要求する「非空タプル」の先頭要素を常に満たす。
+      // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
+      // annict_works は 8 カラム、watch_history は 4 カラム。
+      const WORK_CHUNK = 10; // 10 * 8 = 80 変数 < 100
+      const WATCH_CHUNK = 20; // 20 * 4 = 80 変数 < 100
+
+      const upsertWorksChunk = (chunk: NewAnnictWork[]) =>
+        db
+          .insert(annictWorks)
+          .values(chunk)
+          .onConflictDoUpdate({
+            target: annictWorks.annictWorkId,
+            set: {
+              title: sql`excluded.title`,
+              titleKana: sql`excluded.title_kana`,
+              titleEn: sql`excluded.title_en`,
+              seasonName: sql`excluded.season_name`,
+              seasonYear: sql`excluded.season_year`,
+              imageUrl: sql`excluded.image_url`,
+              updatedAt: sql`excluded.updated_at`,
+            },
+          });
+
+      // db.batch は「最低 1 要素の非空タプル」を要求するためのヘルパ。
+      const runBatch = (queries: BatchItem<"sqlite">[]) =>
+        db.batch(queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+
+      // 作品メタを先に upsert（冪等）。複数の小チャンク statement を 1 batch に
+      // まとめてネットワーク往復を抑える（パラメータ上限は statement 単位なので、
+      // batch に小 statement を多数並べるのは安全）。
+      const workQueries: BatchItem<"sqlite">[] = [];
+      for (let i = 0; i < works.length; i += WORK_CHUNK) {
+        workQueries.push(upsertWorksChunk(works.slice(i, i + WORK_CHUNK)));
+      }
+      if (workQueries.length > 0) {
+        await runBatch(workQueries);
+      }
+
       const deleteQuery = db
         .delete(watchHistory)
         .where(eq(watchHistory.userId, currentUserId));
 
-      const workQueries = works.map((w) =>
-        db
-          .insert(annictWorks)
-          .values(w)
-          .onConflictDoUpdate({
-            target: annictWorks.annictWorkId,
-            set: {
-              title: w.title,
-              titleKana: w.titleKana,
-              titleEn: w.titleEn,
-              seasonName: w.seasonName,
-              seasonYear: w.seasonYear,
-              imageUrl: w.imageUrl,
-              updatedAt: w.updatedAt,
-            },
-          }),
-      );
+      const insertWatchChunk = (
+        chunk: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+      ) =>
+        db.insert(watchHistory).values(
+          chunk.map((e) => ({
+            userId: currentUserId,
+            annictWorkId: e.annictWorkId,
+            state: e.state,
+            updatedAt: now,
+          })),
+        );
 
-      // 順序制約: delete watch / upsert works はいずれも insert watch より前に置く
-      // （FK: watch_history.annictWorkId → annict_works）。
-      const insertQueries =
-        entries.length > 0
-          ? [
-              db.insert(watchHistory).values(
-                entries.map((e) => ({
-                  userId: currentUserId,
-                  annictWorkId: e.annictWorkId,
-                  state: e.state,
-                  updatedAt: now,
-                })),
-              ),
-            ]
-          : [];
-
-      await db.batch([deleteQuery, ...workQueries, ...insertQueries]);
+      // delete + 全 insert チャンクを 1 batch にして全置換をアトミックに行う
+      // （delete 後に insert が走り切らず履歴が欠ける窓を作らない）。
+      const watchQueries: BatchItem<"sqlite">[] = [deleteQuery];
+      for (let i = 0; i < entries.length; i += WATCH_CHUNK) {
+        watchQueries.push(insertWatchChunk(entries.slice(i, i + WATCH_CHUNK)));
+      }
+      await runBatch(watchQueries);
 
       return db.query.watchHistory.findMany({
         where: eq(watchHistory.userId, currentUserId),
