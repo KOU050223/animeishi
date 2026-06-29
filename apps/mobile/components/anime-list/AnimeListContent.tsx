@@ -42,7 +42,8 @@ export function AnimeListContent({
 
   // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
   // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
-  const { data, isLoading, isError, refetch } = useAnimeList(query);
+  const { data, isLoading, isError, refetch, isConnected } =
+    useAnimeList(query);
   const hasQuery = query.trim().length > 0;
 
   const [refreshing, setRefreshing] = useState(false);
@@ -51,8 +52,9 @@ export function AnimeListContent({
 
   async function onRefresh() {
     // refetch は react-query の enabled を無視して手動実行されるため、未入力のまま
-    // pull-to-refresh すると title="" で検索が走り 400 になる。検索語が無ければ何もしない。
-    if (!hasQuery) return;
+    // または未連携で pull-to-refresh すると title="" / 401 で無駄な失敗になる。
+    // enabled と同じ条件（検索語あり + 連携済み）でのみ再取得する。
+    if (!hasQuery || !isConnected) return;
     setRefreshing(true);
     try {
       await refetch();
@@ -71,11 +73,11 @@ export function AnimeListContent({
   }
 
   // 検索バーは ListHeaderComponent 内にあるため、状態ごとに早期 return すると
-  // 入力欄ごと消えてしまう。ローディング/エラー/未入力は ListEmptyComponent 側で
+  // 入力欄ごと消えてしまう。未連携/ローディング/エラー/未入力は ListEmptyComponent 側で
   // 表現し、検索バーは常に画面に残す。
-  // 検索語が入っていてフェッチ中のときだけローディング扱いにする
-  // （クエリ無効時の pending を「検索前」と区別する）。
-  const showLoading = hasQuery && isLoading;
+  // 連携済みかつ検索語が入っていてフェッチ中のときだけローディング扱いにする
+  // （未連携・クエリ無効時の pending を「連携前/検索前」と区別する）。
+  const showLoading = isConnected && hasQuery && isLoading;
 
   return (
     <View style={styles.screen}>
@@ -237,7 +239,19 @@ export function AnimeListContent({
           </View>
         )}
         ListEmptyComponent={
-          showLoading ? (
+          !isConnected ? (
+            // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
+            // 検索結果ではなく連携誘導を最優先で出す（PR6 のソフトゲートで導線を強化）。
+            <View style={styles.emptyState}>
+              <View style={styles.stateIcon}>
+                <Ionicons name="link-outline" size={24} color="#475569" />
+              </View>
+              <Text style={styles.emptyTitle}>Annict 連携が必要です</Text>
+              <Text style={styles.emptyCopy}>
+                作品検索には Annict との連携が必要です。連携すると作品を探せます。
+              </Text>
+            </View>
+          ) : showLoading ? (
             <View style={styles.emptyState}>
               <View style={styles.loadingMark}>
                 <ActivityIndicator size="small" color="#111827" />
