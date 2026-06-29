@@ -104,3 +104,12 @@ export const annictExchangeSchema = z.object({
 });
 
 export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
+
+// 作品検索（GET /works/search）のクエリパラメータ。
+// title は Annict searchWorks に渡す検索語で必須。after はカーソルページング用。
+export const worksSearchQuerySchema = z.object({
+  title: z.string().trim().min(1, "検索語を入力してください"),
+  after: z.string().trim().min(1).optional(),
+});
+
+export type WorksSearchQueryInput = z.infer<typeof worksSearchQuerySchema>;

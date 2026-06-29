@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFilteredAnimeList } from "@/lib/useAnimeList";
-import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
+import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
+import type { SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SortButton } from "./SortButton";
@@ -24,18 +24,10 @@ import {
 } from "./animeListUtils";
 
 export function AnimeListContent({
-  data,
-  isLoading,
-  isError,
-  refetch,
   favoriteIds,
   toggleFavorite,
   isToggling,
 }: {
-  data: AnimeTitle[] | undefined;
-  isLoading: boolean;
-  isError: boolean;
-  refetch: () => Promise<unknown> | unknown;
   favoriteIds: Set<number>;
   toggleFavorite: (annictWorkId: number) => void;
   isToggling: boolean;
@@ -48,11 +40,21 @@ export function AnimeListContent({
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
+  // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
+  // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
+  const { data, isLoading, isError, refetch, isConnected } =
+    useAnimeList(query);
+  const hasQuery = query.trim().length > 0;
+
   const [refreshing, setRefreshing] = useState(false);
-  const filtered = useFilteredAnimeList(data, query, sortKey, sortOrder);
+  const sorted = useSortedAnimeList(data, sortKey, sortOrder);
   const stats = useAnimeStats(data);
 
   async function onRefresh() {
+    // refetch は react-query の enabled を無視して手動実行されるため、未入力のまま
+    // または未連携で pull-to-refresh すると title="" / 401 で無駄な失敗になる。
+    // enabled と同じ条件（検索語あり + 連携済み）でのみ再取得する。
+    if (!hasQuery || !isConnected) return;
     setRefreshing(true);
     try {
       await refetch();
@@ -70,46 +72,18 @@ export function AnimeListContent({
     }
   }
 
-  if (isLoading) {
-    return (
-      <View style={styles.stateScreen}>
-        <View style={styles.loadingMark}>
-          <ActivityIndicator size="small" color="#111827" />
-        </View>
-        <Text style={styles.stateTitle}>ライブラリを整えています</Text>
-        <Text style={styles.stateCopy}>作品棚を最新の状態にしています。</Text>
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.stateScreen}>
-        <View style={[styles.stateIcon, styles.errorIcon]}>
-          <Ionicons name="cloud-offline-outline" size={24} color="#b42318" />
-        </View>
-        <Text style={styles.stateTitle}>アニメ一覧を読み込めませんでした</Text>
-        <Text style={styles.stateCopy}>
-          通信状態を確認して、もう一度お試しください。
-        </Text>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => refetch()}
-          accessibilityRole="button"
-          accessibilityLabel="アニメ一覧を再取得"
-        >
-          <Ionicons name="refresh" size={17} color="#ffffff" />
-          <Text style={styles.primaryButtonText}>再試行</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // 検索バーは ListHeaderComponent 内にあるため、状態ごとに早期 return すると
+  // 入力欄ごと消えてしまう。未連携/ローディング/エラー/未入力は ListEmptyComponent 側で
+  // 表現し、検索バーは常に画面に残す。
+  // 連携済みかつ検索語が入っていてフェッチ中のときだけローディング扱いにする
+  // （未連携・クエリ無効時の pending を「連携前/検索前」と区別する）。
+  const showLoading = isConnected && hasQuery && isLoading;
 
   return (
     <View style={styles.screen}>
       <FlatList
         key={`anime-list-${numColumns}`}
-        data={filtered}
+        data={showLoading || isError ? [] : sorted}
         numColumns={numColumns}
         keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={[
@@ -195,9 +169,9 @@ export function AnimeListContent({
               <View>
                 <Text style={styles.sectionLabel}>コレクション</Text>
                 <Text style={styles.resultText}>
-                  {query.trim()
-                    ? `「${query.trim()}」の検索結果・${filtered.length}件`
-                    : `すべての作品・${filtered.length}件`}
+                  {hasQuery
+                    ? `「${query.trim()}」の検索結果・${sorted.length}件`
+                    : "タイトルを入力して作品を探す"}
                 </Text>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
@@ -265,15 +239,72 @@ export function AnimeListContent({
           </View>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <View style={styles.stateIcon}>
-              <Ionicons name="search-outline" size={24} color="#475569" />
+          !isConnected ? (
+            // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
+            // 検索結果ではなく連携誘導を最優先で出す（PR6 のソフトゲートで導線を強化）。
+            <View style={styles.emptyState}>
+              <View style={styles.stateIcon}>
+                <Ionicons name="link-outline" size={24} color="#475569" />
+              </View>
+              <Text style={styles.emptyTitle}>Annict 連携が必要です</Text>
+              <Text style={styles.emptyCopy}>
+                作品検索には Annict との連携が必要です。連携すると作品を探せます。
+              </Text>
             </View>
-            <Text style={styles.emptyTitle}>見つかりませんでした</Text>
-            <Text style={styles.emptyCopy}>
-              タイトル、よみがな、英語名を少し変えて探してみてください。
-            </Text>
-          </View>
+          ) : showLoading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.loadingMark}>
+                <ActivityIndicator size="small" color="#111827" />
+              </View>
+              <Text style={styles.emptyTitle}>検索しています</Text>
+              <Text style={styles.emptyCopy}>
+                Annict から作品を探しています。
+              </Text>
+            </View>
+          ) : isError ? (
+            <View style={styles.emptyState}>
+              <View style={[styles.stateIcon, styles.errorIcon]}>
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={24}
+                  color="#b42318"
+                />
+              </View>
+              <Text style={styles.emptyTitle}>検索に失敗しました</Text>
+              <Text style={styles.emptyCopy}>
+                通信状態を確認して、もう一度お試しください。
+              </Text>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => refetch()}
+                accessibilityRole="button"
+                accessibilityLabel="作品検索を再試行"
+              >
+                <Ionicons name="refresh" size={17} color="#ffffff" />
+                <Text style={styles.primaryButtonText}>再試行</Text>
+              </TouchableOpacity>
+            </View>
+          ) : !hasQuery ? (
+            <View style={styles.emptyState}>
+              <View style={styles.stateIcon}>
+                <Ionicons name="search-outline" size={24} color="#475569" />
+              </View>
+              <Text style={styles.emptyTitle}>作品を検索しましょう</Text>
+              <Text style={styles.emptyCopy}>
+                タイトル・よみがな・英語名で検索すると作品が表示されます。
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <View style={styles.stateIcon}>
+                <Ionicons name="search-outline" size={24} color="#475569" />
+              </View>
+              <Text style={styles.emptyTitle}>見つかりませんでした</Text>
+              <Text style={styles.emptyCopy}>
+                タイトル、よみがな、英語名を少し変えて探してみてください。
+              </Text>
+            </View>
+          )
         }
       />
     </View>

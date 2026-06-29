@@ -4,6 +4,10 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
+// 注: barrel ではなくサブモジュール直接 import（理由は routes/watch-history.ts 参照）。
+import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
+import { ANNICT_TOKEN_HEADER } from "@/lib/annict/middleware";
+import { annictErrorResponse } from "@/lib/annict/errors";
 
 function getBindings(
   c: Context,
@@ -28,9 +32,37 @@ const favorites = new Hono<AuthVariables>()
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
 
+    // お気に入りは annict_works への FK を満たす必要がある。read-through 済みなら
+    // キャッシュにあるが、searchWorks の検索結果（未キャッシュ）を直接お気に入り
+    // する導線もあるため、無ければ X-Annict-Token がある場合に限り searchWorks で
+    // 解決してキャッシュへ補充する。トークンが無ければ従来どおり 404。
     const existing = await adb.getAnnictWorkById(annictWorkId);
     if (!existing) {
-      return c.json({ error: "Work not found" }, 404);
+      const token = c.req.header(ANNICT_TOKEN_HEADER);
+      if (!token) {
+        return c.json({ error: "Work not found" }, 404);
+      }
+      try {
+        const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+        if (!resolved) {
+          return c.json({ error: "Work not found" }, 404);
+        }
+        await adb.upsertAnnictWork({
+          annictWorkId: resolved.annictWorkId,
+          nodeId: resolved.nodeId,
+          title: resolved.title,
+          titleKana: resolved.titleKana,
+          titleEn: resolved.titleEn,
+          seasonName: resolved.seasonName,
+          seasonYear: resolved.seasonYear,
+          imageUrl: resolved.imageUrl,
+          updatedAt: new Date(),
+        });
+      } catch (err) {
+        const res = annictErrorResponse(c, err);
+        if (res) return res;
+        throw err;
+      }
     }
 
     const result = await adb.addFavorite(annictWorkId);

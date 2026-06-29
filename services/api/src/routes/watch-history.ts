@@ -12,38 +12,19 @@ import { watchHistoryUpsertSchema } from "@/schema/validators";
 // モバイルの同名ディレクトリへ誤解決してしまう。モバイルに存在しない深いパスを
 // 指すことで、この衝突を避けつつ API 単体の解決はそのまま通る。
 import {
-  AnnictApiError,
   fetchAnnictLibraryEntries,
   fetchAnnictWorkByAnnictId,
   updateAnnictStatus,
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
+import { annictErrorResponse } from "@/lib/annict/errors";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(
   c: Context,
 ): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
-}
-
-// Annict 通信エラーをクライアント向けレスポンスへ変換する。
-// 401（トークン失効・スコープ不足）は再連携を促し、それ以外の Annict 由来障害は
-// 502（上流障害）として返す。Annict 由来でなければ null を返し、呼び出し側で再 throw する。
-function annictErrorResponse(c: Context, err: unknown) {
-  if (err instanceof AnnictApiError) {
-    if (err.status === 401) {
-      return c.json(
-        { error: "Annict 連携が無効です", code: "annict_token_invalid" },
-        401,
-      );
-    }
-    return c.json(
-      { error: "Annict との通信に失敗しました", code: "annict_upstream" },
-      502,
-    );
-  }
-  return null;
 }
 
 const watchHistory = new Hono<AuthVariables>()

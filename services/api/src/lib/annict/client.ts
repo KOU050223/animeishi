@@ -338,6 +338,91 @@ export async function fetchAnnictWorkByAnnictId(
   };
 }
 
+// --- searchWorks（タイトル検索・作品マスタの代替） ---
+
+// タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
+// 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
+const SEARCH_WORKS_BY_TITLE_QUERY = `
+query SearchWorksByTitle($titles: [String!], $after: String) {
+  searchWorks(titles: $titles, first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      annictId
+      title
+      titleKana
+      titleEn
+      seasonName
+      seasonYear
+      image { recommendedImageUrl }
+    }
+  }
+}`;
+
+type SearchWorksByTitleResponse = {
+  searchWorks: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    nodes: {
+      id: string;
+      annictId: number;
+      title: string;
+      titleKana: string | null;
+      titleEn: string | null;
+      seasonName: string | null;
+      seasonYear: number | null;
+      image: { recommendedImageUrl: string | null } | null;
+    }[];
+  } | null;
+};
+
+// 1 リクエストで返す最大件数。検索 UI は 1 ページ（first: 50）で十分なため、
+// libraryEntries のような全ページ走査はしない（追加ページはユーザー操作で取りに行く想定）。
+/**
+ * タイトル文字列で Annict 作品を検索し、整形した作品メタの配列を返す。
+ * 検索結果は作品マスタの代替であり、視聴ステータス（state）は持たない。
+ * `after` でカーソルページングできる。
+ */
+export async function searchAnnictWorksByTitle(
+  accessToken: string,
+  title: string,
+  after: string | null = null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{
+  works: AnnictLibraryEntry[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}> {
+  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    accessToken,
+    SEARCH_WORKS_BY_TITLE_QUERY,
+    { titles: [title], after },
+    fetchImpl,
+  );
+
+  const connection = data.searchWorks;
+  if (!connection) {
+    return { works: [], hasNextPage: false, endCursor: null };
+  }
+
+  const works: AnnictLibraryEntry[] = connection.nodes.map((work) => ({
+    annictWorkId: work.annictId,
+    nodeId: work.id,
+    state: null,
+    title: work.title,
+    titleKana: work.titleKana,
+    titleEn: work.titleEn,
+    seasonName: work.seasonName,
+    seasonYear: work.seasonYear,
+    imageUrl: work.image?.recommendedImageUrl ?? null,
+  }));
+
+  return {
+    works,
+    hasNextPage: connection.pageInfo.hasNextPage,
+    endCursor: connection.pageInfo.endCursor,
+  };
+}
+
 export type AnnictTokenResponse = {
   access_token: string;
   token_type: string;
