@@ -14,3 +14,4 @@ export {
   getAnnictToken,
   useAnnictConnection,
 } from "./useAnnictConnection";
+export { annictErrorKey } from "./errorMessages";

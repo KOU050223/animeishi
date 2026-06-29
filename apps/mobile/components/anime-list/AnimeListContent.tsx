@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
+import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SortButton } from "./SortButton";
@@ -241,16 +242,11 @@ export function AnimeListContent({
         ListEmptyComponent={
           !isConnected ? (
             // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
-            // 検索結果ではなく連携誘導を最優先で出す（PR6 のソフトゲートで導線を強化）。
-            <View style={styles.emptyState}>
-              <View style={styles.stateIcon}>
-                <Ionicons name="link-outline" size={24} color="#475569" />
-              </View>
-              <Text style={styles.emptyTitle}>Annict 連携が必要です</Text>
-              <Text style={styles.emptyCopy}>
-                作品検索には Annict との連携が必要です。連携すると作品を探せます。
-              </Text>
-            </View>
+            // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
+            <AnnictSoftGate
+              description="annict.softGate.works"
+              testID="anime-list-soft-gate"
+            />
           ) : showLoading ? (
             <View style={styles.emptyState}>
               <View style={styles.loadingMark}>

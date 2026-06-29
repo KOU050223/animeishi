@@ -16,6 +16,8 @@ import {
 } from "@/lib/useWatchHistory";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
 import { confirm } from "@/lib/dialog";
+import { useAnnictConnection } from "@/lib/annict";
+import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 
 const WATCH_STATUSES = [
   "WATCHING",
@@ -39,6 +41,9 @@ export default function WatchHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
+  // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
+  // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
+  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   const { data: histories, isLoading, isError, refetch } = useWatchHistory();
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
@@ -57,6 +62,30 @@ export default function WatchHistoryScreen() {
       "この視聴履歴を削除しますか？",
       () => remove.mutate(annictWorkId),
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+    );
+  }
+
+  // 連携状態の確定前はスピナー（未連携かどうかが分かるまで履歴 UI を出さない）。
+  if (isConnectionLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#4f46e5" />
+      </View>
+    );
+  }
+
+  // 未連携: 履歴クエリは無効化されているため、連携誘導を最優先で表示する。
+  if (!isConnected) {
+    return (
+      <View className="flex-1 bg-white">
+        <View className="px-4 pt-12 pb-3">
+          <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
+        </View>
+        <AnnictSoftGate
+          description="annict.softGate.watchHistory"
+          testID="watch-history-soft-gate"
+        />
+      </View>
     );
   }
 
