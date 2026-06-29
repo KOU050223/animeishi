@@ -67,6 +67,9 @@ function mockAnnictUpdate(
     nodeId?: string;
     // searchWorks が空（該当作品なし）を返すか
     searchEmpty?: boolean;
+    // searchWorks は成功させつつ updateStatus だけ 5xx で失敗させるか
+    // （searchWorks 解決後の更新失敗時にキャッシュが書き換わらないことの検証用）
+    updateFails?: boolean;
   } = {},
 ): ReturnType<typeof vi.spyOn> {
   const nodeId = opts.nodeId ?? "Work-1";
@@ -76,6 +79,9 @@ function mockAnnictUpdate(
       const body = JSON.parse((init?.body as string) ?? "{}");
       const query: string = body.query ?? "";
       if (query.includes("updateStatus")) {
+        if (opts.updateFails) {
+          return new Response("server error", { status: 500 });
+        }
         return new Response(
           JSON.stringify({
             data: { updateStatus: { clientMutationId: null } },
@@ -518,6 +524,46 @@ describe("視聴履歴 API", () => {
           and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
       });
       expect(row?.state).toBe("WATCHING");
+    });
+
+    it("PUT /me/watch-histories/:annictWorkId: searchWorks 解決後に更新失敗してもキャッシュを書き換えない", async () => {
+      // read-through 前で nodeId 未取得の作品。searchWorks は成功するが
+      // updateStatus が 5xx で失敗する → annict_works.nodeId も watch_history も
+      // 書き換わってはいけない（「Annict 更新成功後にのみ同期」の不変条件）。
+      const UNCACHED = 67890;
+      await db.insert(annictWorks).values({
+        annictWorkId: UNCACHED,
+        nodeId: null,
+        title: "未キャッシュ作品",
+        updatedAt: new Date(),
+      });
+      mockAnnictUpdate({ nodeId: "Work-67890", updateFails: true });
+
+      const app = buildApp();
+      const res = await app.request(
+        `/me/watch-histories/${UNCACHED}`,
+        {
+          method: "PUT",
+          headers: PUT_HEADER,
+          body: JSON.stringify({ state: "WATCHING" }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+
+      // nodeId は null のまま（searchWorks で解決したが upsert していない）。
+      const cached = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, UNCACHED),
+      });
+      expect(cached?.nodeId).toBeNull();
+
+      // watch_history も作られていない。
+      const row = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, UNCACHED)),
+      });
+      expect(row).toBeUndefined();
     });
 
     it("DELETE /me/watch-histories/:annictWorkId: 視聴履歴を削除できる", async () => {

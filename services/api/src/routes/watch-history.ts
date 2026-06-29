@@ -117,6 +117,10 @@ const watchHistory = new Hono<AuthVariables>()
       const cached = await adb.getAnnictWorkById(annictWorkId);
       let nodeId = cached?.nodeId ?? null;
       let work = cached;
+      // searchWorks で解決した作品メタは、updateAnnictStatus が成功するまで
+      // D1 へ書かない（「Annict 更新成功後にのみキャッシュ同期」を守るため、
+      // 失敗時に annict_works のメタ/nodeId だけ書き換わるのを防ぐ）。
+      let resolvedWork: NewAnnictWork | null = null;
 
       try {
         if (!nodeId) {
@@ -125,8 +129,7 @@ const watchHistory = new Hono<AuthVariables>()
             return c.json({ error: "Work not found" }, 404);
           }
           nodeId = resolved.nodeId;
-          // 解決した作品メタをキャッシュに反映（FK 先 annict_works を満たす）。
-          await adb.upsertAnnictWork({
+          resolvedWork = {
             annictWorkId: resolved.annictWorkId,
             nodeId: resolved.nodeId,
             title: resolved.title,
@@ -136,11 +139,17 @@ const watchHistory = new Hono<AuthVariables>()
             seasonYear: resolved.seasonYear,
             imageUrl: resolved.imageUrl,
             updatedAt: new Date(),
-          });
-          work = await adb.getAnnictWorkById(annictWorkId);
+          };
         }
 
         await updateAnnictStatus(token, nodeId, data.state);
+
+        // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
+        // （watch_history の FK 先 annict_works を満たす）。
+        if (resolvedWork) {
+          await adb.upsertAnnictWork(resolvedWork);
+          work = await adb.getAnnictWorkById(annictWorkId);
+        }
       } catch (err) {
         const res = annictErrorResponse(c, err);
         if (res) return res;
