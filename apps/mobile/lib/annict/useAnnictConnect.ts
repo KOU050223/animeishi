@@ -14,7 +14,12 @@ import { ANNICT_CONNECTION_QUERY_KEY } from "./useAnnictConnection";
 const ANNICT_CLIENT_ID = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID ?? "";
 
 // Annict アプリ設定に登録した deep link。authorize / token 交換の双方で一致させる。
-const REDIRECT_URI = Linking.createURL("annict");
+// Linking.createURL は expo-constants のマニフェストを要求し、モジュールロード時に
+// 評価するとマニフェスト未設定のテスト環境（barrel 経由 import）で落ちる。
+// connect 実行時に遅延評価することで副作用をフローの内側に閉じ込める。
+function getRedirectUri(): string {
+  return Linking.createURL("annict");
+}
 
 export type AnnictConnectResult =
   | { status: "success" }
@@ -43,16 +48,17 @@ export function useAnnictConnect() {
 
     setIsConnecting(true);
     try {
+      const redirectUri = getRedirectUri();
       const state = Crypto.randomUUID();
       const authorizeUrl = buildAuthorizeUrl({
         clientId: ANNICT_CLIENT_ID,
-        redirectUri: REDIRECT_URI,
+        redirectUri,
         state,
       });
 
       const result = await WebBrowser.openAuthSessionAsync(
         authorizeUrl,
-        REDIRECT_URI,
+        redirectUri,
       );
 
       if (result.type === "cancel" || result.type === "dismiss") {
@@ -73,7 +79,7 @@ export function useAnnictConnect() {
       }
 
       const res = await apiClient.me.annict.exchange.$post(
-        { json: { code: parsed.code, redirectUri: REDIRECT_URI } },
+        { json: { code: parsed.code, redirectUri } },
         { headers: { Authorization: `Bearer ${clerkToken}` } },
       );
       if (!res.ok) {
