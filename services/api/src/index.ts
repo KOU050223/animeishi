@@ -8,6 +8,7 @@ import { friends } from "./routes/friends";
 import { avatar, me } from "./routes/me";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
+import { works } from "./routes/works";
 
 type AppBindings = Env & {
   // CORS で許可するオリジンのカンマ区切りリスト。
@@ -37,6 +38,7 @@ const routes = app
   .route("/me", me)
   .route("/me/annict", annict)
   .route("/me/watch-histories", watchHistory)
+  .route("/works", works)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
   .route("/user", user);

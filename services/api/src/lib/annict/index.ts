@@ -8,6 +8,7 @@ export {
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
   fetchAnnictWorkByAnnictId,
+  searchAnnictWorksByTitle,
   updateAnnictStatus,
 } from "./client";
 export type {
@@ -19,6 +20,7 @@ export type {
 } from "./client";
 export { ANNICT_TOKEN_HEADER, requireAnnictToken } from "./middleware";
 export type { AnnictVariables } from "./middleware";
+export { annictErrorResponse } from "./errors";
 export {
   ANNICT_ALL_STATUS_STATES,
   ANNICT_STATUS_STATES,

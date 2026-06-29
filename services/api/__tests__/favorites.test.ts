@@ -196,6 +196,76 @@ describe("お気に入り API", () => {
       expect(res.status).toBe(404);
     });
 
+    it("POST /me/favorites/:annictWorkId: 未キャッシュ作品でも X-Annict-Token があれば searchWorks で解決して追加できる", async () => {
+      // 検索結果（annict_works 未登録）の作品をその場でお気に入りするケース。
+      const UNCACHED = 67890;
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                nodes: [
+                  {
+                    id: "Work-67890",
+                    annictId: UNCACHED,
+                    title: "検索ヒット作品",
+                    titleKana: null,
+                    titleEn: null,
+                    seasonName: null,
+                    seasonYear: null,
+                    image: { recommendedImageUrl: null },
+                  },
+                ],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const app = buildApp();
+      const res = await app.request(
+        `/me/favorites/${UNCACHED}`,
+        { method: "POST", headers: { "X-Annict-Token": "tok_test" } },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { annictWorkId: number };
+      expect(body.annictWorkId).toBe(UNCACHED);
+
+      // searchWorks が叩かれ、解決した作品メタがキャッシュへ補充されている。
+      expect(fetchMock).toHaveBeenCalled();
+      const cached = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, UNCACHED),
+      });
+      expect(cached?.nodeId).toBe("Work-67890");
+      expect(cached?.title).toBe("検索ヒット作品");
+
+      fetchMock.mockRestore();
+    });
+
+    it("POST /me/favorites/:annictWorkId: 未キャッシュ作品で searchWorks も空なら 404", async () => {
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ data: { searchWorks: { nodes: [] } } }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+
+      const app = buildApp();
+      const res = await app.request(
+        "/me/favorites/99999",
+        { method: "POST", headers: { "X-Annict-Token": "tok_test" } },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(404);
+      fetchMock.mockRestore();
+    });
+
     it("POST /me/favorites/:annictWorkId: 不正な作品IDは 400", async () => {
       const app = buildApp();
       const res = await app.request(

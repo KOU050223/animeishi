@@ -5,6 +5,7 @@ import {
   exchangeAnnictCode,
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
+  searchAnnictWorksByTitle,
   ANNICT_GRAPHQL_ENDPOINT,
   ANNICT_TOKEN_ENDPOINT,
   ANNICT_TOKEN_INFO_ENDPOINT,
@@ -314,6 +315,92 @@ describe("fetchAnnictTokenInfo", () => {
     await expect(
       fetchAnnictTokenInfo("bad", fetchMock as unknown as typeof fetch),
     ).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe("searchAnnictWorksByTitle", () => {
+  function searchPage(
+    nodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null },
+  ): Response {
+    return jsonResponse({ data: { searchWorks: { pageInfo, nodes } } });
+  }
+
+  function workNode(annictId: number, overrides: Record<string, unknown> = {}) {
+    return {
+      id: `node-${annictId}`,
+      annictId,
+      title: `作品${annictId}`,
+      titleKana: null,
+      titleEn: null,
+      seasonName: "2026-spring",
+      seasonYear: 2026,
+      image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
+      ...overrides,
+    };
+  }
+
+  it("タイトルで検索し作品メタを整形して返す", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      searchPage([workNode(1), workNode(2)], {
+        hasNextPage: true,
+        endCursor: "cursor1",
+      }),
+    );
+
+    const result = await searchAnnictWorksByTitle(
+      "tok",
+      "進撃",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
+    expect(result.works[0]?.nodeId).toBe("node-1");
+    expect(result.works[0]?.state).toBeNull();
+    expect(result.works[0]?.imageUrl).toBe("https://img/1.jpg");
+    expect(result.hasNextPage).toBe(true);
+    expect(result.endCursor).toBe("cursor1");
+
+    // GraphQL 変数に titles と after が載る
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.titles).toEqual(["進撃"]);
+    expect(body.variables.after).toBeNull();
+  });
+
+  it("after カーソルを variables に載せる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(3)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksByTitle(
+      "tok",
+      "鬼滅",
+      "cursorX",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.after).toBe("cursorX");
+  });
+
+  it("searchWorks が null なら空結果を返す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ data: { searchWorks: null } }));
+
+    const result = await searchAnnictWorksByTitle(
+      "tok",
+      "存在しない",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works).toHaveLength(0);
+    expect(result.hasNextPage).toBe(false);
+    expect(result.endCursor).toBeNull();
   });
 });
 
