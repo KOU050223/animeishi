@@ -43,7 +43,7 @@ export function AnimeListContent({
 
   // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
   // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
-  const { data, isLoading, isError, refetch, isConnected } =
+  const { data, isLoading, isError, refetch, isConnected, isConnectionLoading } =
     useAnimeList(query);
   const hasQuery = query.trim().length > 0;
 
@@ -240,7 +240,17 @@ export function AnimeListContent({
           </View>
         )}
         ListEmptyComponent={
-          !isConnected ? (
+          isConnectionLoading ? (
+            // 連携状態（SecureStore）の読み込み中は isConnected=false になるため、
+            // 連携済みユーザーに一瞬ソフトゲートを見せて誤って OAuth を再開させないよう、
+            // 確定するまではローディング表示にとどめる（watch-history と挙動を揃える）。
+            <View style={styles.emptyState}>
+              <View style={styles.loadingMark}>
+                <ActivityIndicator size="small" color="#111827" />
+              </View>
+              <Text style={styles.emptyTitle}>読み込んでいます</Text>
+            </View>
+          ) : !isConnected ? (
             // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
             // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
             <AnnictSoftGate
