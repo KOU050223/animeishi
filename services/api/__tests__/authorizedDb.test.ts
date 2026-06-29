@@ -203,6 +203,119 @@ describe("authorizedDb", () => {
       const history = await adb.getMyWatchHistory();
       expect(history).toHaveLength(0);
     });
+
+    it("syncMyLibraryFromAnnict: 未登録作品を annict_works に upsert しつつ全置換できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+
+      const now = new Date();
+      const NEW_WORK_ID = 2001; // annict_works に未登録の新規作品
+
+      // Annict 側に存在しない既存履歴。全置換契約なら同期後に消えているはず。
+      const STALE_WORK_ID = 2999;
+      await adb.upsertAnnictWork({
+        annictWorkId: STALE_WORK_ID,
+        title: "削除される作品",
+        updatedAt: now,
+      });
+      await adb.upsertWatchHistory(STALE_WORK_ID, { state: "WATCHING" });
+
+      const result = await adb.syncMyLibraryFromAnnict(
+        [
+          {
+            annictWorkId: WORK_ID_1,
+            title: "進撃の巨人",
+            seasonName: "2013-spring",
+            seasonYear: 2013,
+            updatedAt: now,
+          },
+          {
+            annictWorkId: NEW_WORK_ID,
+            title: "新規作品",
+            seasonName: "2026-spring",
+            seasonYear: 2026,
+            updatedAt: now,
+          },
+        ],
+        [
+          { annictWorkId: WORK_ID_1, state: "WATCHED" },
+          { annictWorkId: NEW_WORK_ID, state: "WANNA_WATCH" },
+        ],
+      );
+
+      // 返り値が置換後の履歴になっている
+      expect(result).toHaveLength(2);
+
+      const history = await adb.getMyWatchHistory();
+      expect(history).toHaveLength(2);
+      expect(history.find((h) => h.annictWorkId === WORK_ID_1)?.state).toBe(
+        "WATCHED",
+      );
+      expect(history.find((h) => h.annictWorkId === NEW_WORK_ID)?.state).toBe(
+        "WANNA_WATCH",
+      );
+      // Annict 側に存在しない既存履歴は全置換で削除されている
+      expect(
+        history.find((h) => h.annictWorkId === STALE_WORK_ID),
+      ).toBeUndefined();
+
+      // 新規作品が annict_works キャッシュに入っている
+      const cached = await adb.getAnnictWorkById(NEW_WORK_ID);
+      expect(cached?.title).toBe("新規作品");
+    });
+
+    it("syncMyLibraryFromAnnict: works のみ・履歴 0 件でも作品キャッシュは更新される", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+
+      const now = new Date();
+      const NEW_WORK_ID = 2002;
+      const result = await adb.syncMyLibraryFromAnnict(
+        [
+          {
+            annictWorkId: NEW_WORK_ID,
+            title: "状態なし作品",
+            updatedAt: now,
+          },
+        ],
+        [], // NO_STATE 等で保存対象の履歴が無いケース
+      );
+
+      // 履歴は全削除される
+      expect(result).toHaveLength(0);
+      expect(await adb.getMyWatchHistory()).toHaveLength(0);
+      // 作品キャッシュは残る
+      expect((await adb.getAnnictWorkById(NEW_WORK_ID))?.title).toBe(
+        "状態なし作品",
+      );
+    });
+
+    it("syncMyLibraryFromAnnict: チャンク境界を跨ぐ大量データを全件同期できる", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      const now = new Date();
+
+      // WORK_CHUNK(100) / WATCH_CHUNK(200) の両方を跨ぐ件数で検証する。
+      const COUNT = 250;
+      const works = Array.from({ length: COUNT }, (_, i) => ({
+        annictWorkId: 5000 + i,
+        title: `作品${i}`,
+        updatedAt: now,
+      }));
+      const entries = works.map((w, i) => ({
+        annictWorkId: w.annictWorkId,
+        state: (i % 2 === 0 ? "WATCHING" : "WATCHED") as "WATCHING" | "WATCHED",
+      }));
+
+      const result = await adb.syncMyLibraryFromAnnict(works, entries);
+
+      // 全件が漏れなく入る（チャンク分割で欠落しない）
+      expect(result).toHaveLength(COUNT);
+      expect(await adb.getMyWatchHistory()).toHaveLength(COUNT);
+      // 末尾チャンクの作品もキャッシュされている
+      expect((await adb.getAnnictWorkById(5000 + COUNT - 1))?.title).toBe(
+        `作品${COUNT - 1}`,
+      );
+    });
   });
 
   describe("お気に入り操作", () => {

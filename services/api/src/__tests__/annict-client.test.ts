@@ -3,6 +3,7 @@ import {
   AnnictApiError,
   annictGraphQL,
   exchangeAnnictCode,
+  fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
   ANNICT_GRAPHQL_ENDPOINT,
   ANNICT_TOKEN_ENDPOINT,
@@ -134,6 +135,152 @@ describe("exchangeAnnictCode", () => {
         fetchMock as unknown as typeof fetch,
       ),
     ).rejects.toMatchObject({ name: "AnnictApiError", status: 400 });
+  });
+});
+
+describe("fetchAnnictLibraryEntries", () => {
+  function libraryPage(
+    nodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null },
+  ): Response {
+    return jsonResponse({
+      data: { viewer: { libraryEntries: { pageInfo, nodes } } },
+    });
+  }
+
+  function node(
+    annictId: number,
+    state: string | null,
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      status: state === null ? null : { state },
+      work: {
+        annictId,
+        title: `作品${annictId}`,
+        titleKana: null,
+        titleEn: null,
+        seasonName: "2026-spring",
+        seasonYear: 2026,
+        image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
+        ...overrides,
+      },
+    };
+  }
+
+  it("全ページを after カーソルで辿って平坦化する", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        libraryPage([node(1, "WATCHING")], {
+          hasNextPage: true,
+          endCursor: "cursor1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        libraryPage([node(2, "WATCHED")], {
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries.map((e) => e.annictWorkId)).toEqual([1, 2]);
+    expect(entries[0]?.state).toBe("WATCHING");
+    expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 2 ページ目は前ページの endCursor を after に載せる
+    const secondBody = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(secondBody.variables.after).toBe("cursor1");
+  });
+
+  it("work が null のノードはスキップする", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      libraryPage(
+        [node(1, "WATCHING"), { status: { state: "WATCHED" }, work: null }],
+        {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      ),
+    );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.annictWorkId).toBe(1);
+  });
+
+  it("status が null のノードは state=null で返す（呼び出し側で保存可否を判定）", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        libraryPage([node(3, null)], { hasNextPage: false, endCursor: null }),
+      );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.state).toBeNull();
+  });
+
+  it("hasNextPage が true でも endCursor が null なら止まる（無限ループ防止）", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      libraryPage([node(1, "WATCHING")], {
+        hasNextPage: true,
+        endCursor: null,
+      }),
+    );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("同一 endCursor が再出現したら AnnictApiError(502) で失敗（部分同期を成功扱いにしない）", async () => {
+    // 壊れたページング: 常に hasNextPage=true で同じ cursor を返し続ける。
+    // ここで break して部分データを返すと、呼び出し側の全置換で履歴が欠ける。
+    // Response の body は一度しか読めないため、呼び出しごとに新しい Response を返す。
+    const fetchMock = vi.fn().mockImplementation(() =>
+      libraryPage([node(1, "WATCHING")], {
+        hasNextPage: true,
+        endCursor: "stuck",
+      }),
+    );
+
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock as unknown as typeof fetch),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
+  });
+
+  it("viewer が null（未認証相当）なら空配列", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ data: { viewer: null } }));
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries).toEqual([]);
   });
 });
 
