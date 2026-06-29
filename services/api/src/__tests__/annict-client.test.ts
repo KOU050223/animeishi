@@ -251,6 +251,25 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("同一 endCursor が再出現したら AnnictApiError(502) で失敗（部分同期を成功扱いにしない）", async () => {
+    // 壊れたページング: 常に hasNextPage=true で同じ cursor を返し続ける。
+    // ここで break して部分データを返すと、呼び出し側の全置換で履歴が欠ける。
+    // Response の body は一度しか読めないため、呼び出しごとに新しい Response を返す。
+    const fetchMock = vi.fn().mockImplementation(() =>
+      libraryPage([node(1, "WATCHING")], {
+        hasNextPage: true,
+        endCursor: "stuck",
+      }),
+    );
+
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock as unknown as typeof fetch),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
+  });
+
   it("viewer が null（未認証相当）なら空配列", async () => {
     const fetchMock = vi
       .fn()

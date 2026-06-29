@@ -182,6 +182,8 @@ export async function fetchAnnictLibraryEntries(
 ): Promise<AnnictLibraryEntry[]> {
   const entries: AnnictLibraryEntry[] = [];
   let after: string | null = null;
+  // 同一 endCursor の再出現（壊れたページング）を検出して無限ループを防ぐ。
+  const seenCursors = new Set<string>();
 
   for (let page = 0; page < MAX_LIBRARY_PAGES; page++) {
     const data: LibraryEntriesResponse =
@@ -210,10 +212,22 @@ export async function fetchAnnictLibraryEntries(
       });
     }
 
-    if (!connection.pageInfo.hasNextPage || !connection.pageInfo.endCursor) {
+    const { hasNextPage, endCursor } = connection.pageInfo;
+    if (!hasNextPage || !endCursor) {
       break;
     }
-    after = connection.pageInfo.endCursor;
+    // 次ページがあるのに上限到達、または cursor が一巡した場合、ここで break すると
+    // 部分データを「全件」として返してしまい、呼び出し側の全置換で残りの履歴が
+    // D1 から消える。部分同期は失敗として扱う（上流障害扱いの 502）。
+    if (page === MAX_LIBRARY_PAGES - 1 || seenCursors.has(endCursor)) {
+      throw new AnnictApiError(
+        "Annict libraryEntries pagination did not complete",
+        502,
+        { maxPages: MAX_LIBRARY_PAGES, endCursor },
+      );
+    }
+    seenCursors.add(endCursor);
+    after = endCursor;
   }
 
   return entries;

@@ -210,6 +210,16 @@ describe("authorizedDb", () => {
 
       const now = new Date();
       const NEW_WORK_ID = 2001; // annict_works に未登録の新規作品
+
+      // Annict 側に存在しない既存履歴。全置換契約なら同期後に消えているはず。
+      const STALE_WORK_ID = 2999;
+      await adb.upsertAnnictWork({
+        annictWorkId: STALE_WORK_ID,
+        title: "削除される作品",
+        updatedAt: now,
+      });
+      await adb.upsertWatchHistory(STALE_WORK_ID, { state: "WATCHING" });
+
       const result = await adb.syncMyLibraryFromAnnict(
         [
           {
@@ -244,6 +254,10 @@ describe("authorizedDb", () => {
       expect(history.find((h) => h.annictWorkId === NEW_WORK_ID)?.state).toBe(
         "WANNA_WATCH",
       );
+      // Annict 側に存在しない既存履歴は全置換で削除されている
+      expect(
+        history.find((h) => h.annictWorkId === STALE_WORK_ID),
+      ).toBeUndefined();
 
       // 新規作品が annict_works キャッシュに入っている
       const cached = await adb.getAnnictWorkById(NEW_WORK_ID);

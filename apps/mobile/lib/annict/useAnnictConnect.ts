@@ -13,6 +13,11 @@ import { ANNICT_CONNECTION_QUERY_KEY } from "./useAnnictConnection";
 // （client_secret は埋め込まず Workers 側にのみ置く）。
 const ANNICT_CLIENT_ID = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID ?? "";
 
+// useWatchHistory の WATCH_HISTORY_QUERY_KEY と一致させる視聴履歴キャッシュの
+// プレフィックスキー。useWatchHistory を import すると barrel 経由で循環するため
+// ここで直書きする（値がズレると連携解除時のキャッシュ破棄が効かなくなる点に注意）。
+const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
+
 // Annict アプリ設定に登録した deep link。authorize / token 交換の双方で一致させる。
 // Linking.createURL は expo-constants のマニフェストを要求し、モジュールロード時に
 // 評価するとマニフェスト未設定のテスト環境（barrel 経由 import）で落ちる。
@@ -104,6 +109,10 @@ export function useAnnictConnect() {
 
   const disconnect = useCallback(async () => {
     await annictTokenStorage.remove();
+    // 視聴履歴は Annict 連携が前提。連携解除後はクエリ無効化（enabled:false）だけでは
+    // 既存キャッシュが画面に残るため、キャッシュ自体を破棄する。
+    // useWatchHistory への import は循環参照になるためキー（プレフィックス）を直書きする。
+    queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
     await queryClient.invalidateQueries({
       queryKey: ANNICT_CONNECTION_QUERY_KEY,
     });
