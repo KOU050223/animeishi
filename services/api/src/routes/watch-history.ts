@@ -11,7 +11,12 @@ import { watchHistoryUpsertSchema } from "@/schema/validators";
 // （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を
 // モバイルの同名ディレクトリへ誤解決してしまう。モバイルに存在しない深いパスを
 // 指すことで、この衝突を避けつつ API 単体の解決はそのまま通る。
-import { AnnictApiError, fetchAnnictLibraryEntries } from "@/lib/annict/client";
+import {
+  AnnictApiError,
+  fetchAnnictLibraryEntries,
+  fetchAnnictWorkByAnnictId,
+  updateAnnictStatus,
+} from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
@@ -20,6 +25,25 @@ function getBindings(
   c: Context,
 ): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+}
+
+// Annict 通信エラーをクライアント向けレスポンスへ変換する。
+// 401（トークン失効・スコープ不足）は再連携を促し、それ以外の Annict 由来障害は
+// 502（上流障害）として返す。Annict 由来でなければ null を返し、呼び出し側で再 throw する。
+function annictErrorResponse(c: Context, err: unknown) {
+  if (err instanceof AnnictApiError) {
+    if (err.status === 401) {
+      return c.json(
+        { error: "Annict 連携が無効です", code: "annict_token_invalid" },
+        401,
+      );
+    }
+    return c.json(
+      { error: "Annict との通信に失敗しました", code: "annict_upstream" },
+      502,
+    );
+  }
+  return null;
 }
 
 const watchHistory = new Hono<AuthVariables>()
@@ -35,20 +59,8 @@ const watchHistory = new Hono<AuthVariables>()
       // Annict viewer.libraryEntries を全状態・全ページ取得する。
       entries = await fetchAnnictLibraryEntries(c.var.annictToken);
     } catch (err) {
-      if (err instanceof AnnictApiError) {
-        // トークン失効・スコープ不足は 401 として返し、クライアントに再連携を促す。
-        if (err.status === 401) {
-          return c.json(
-            { error: "Annict 連携が無効です", code: "annict_token_invalid" },
-            401,
-          );
-        }
-        // それ以外（Annict 側障害・レート制限等）は 502 として上流障害を示す。
-        return c.json(
-          { error: "Annict との通信に失敗しました", code: "annict_upstream" },
-          502,
-        );
-      }
+      const res = annictErrorResponse(c, err);
+      if (res) return res;
       throw err;
     }
 
@@ -62,6 +74,7 @@ const watchHistory = new Hono<AuthVariables>()
     for (const e of entries) {
       works.set(e.annictWorkId, {
         annictWorkId: e.annictWorkId,
+        nodeId: e.nodeId,
         title: e.title,
         titleKana: e.titleKana,
         titleEn: e.titleEn,
@@ -81,8 +94,11 @@ const watchHistory = new Hono<AuthVariables>()
     );
     return c.json(data, 200);
   })
+  // 視聴ステータス更新は「Annict updateStatus を正」とし、成功後に D1 キャッシュを
+  // 追従させる。Annict が正なので、Annict 側更新が失敗したらキャッシュは触らない。
   .put(
     "/:annictWorkId",
+    requireAnnictToken,
     zValidator("json", watchHistoryUpsertSchema),
     async (c) => {
       const annictWorkId = Number(c.req.param("annictWorkId"));
@@ -93,9 +109,47 @@ const watchHistory = new Hono<AuthVariables>()
       const data = c.req.valid("json");
       const db = createDb(getBindings(c).DB);
       const adb = authorizedDb(db, c.var.clerkUserId);
+      const token = c.var.annictToken;
 
-      const existing = await adb.getAnnictWorkById(annictWorkId);
-      if (!existing) {
+      // updateStatus(input.workId) は Annict の Work Node ID を要求する。
+      // キャッシュに nodeId があればそれを使い、無ければ searchWorks で解決する
+      // （read-through 前にこの作品へ初めて触れたケース）。
+      const cached = await adb.getAnnictWorkById(annictWorkId);
+      let nodeId = cached?.nodeId ?? null;
+      let work = cached;
+
+      try {
+        if (!nodeId) {
+          const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+          if (!resolved) {
+            return c.json({ error: "Work not found" }, 404);
+          }
+          nodeId = resolved.nodeId;
+          // 解決した作品メタをキャッシュに反映（FK 先 annict_works を満たす）。
+          await adb.upsertAnnictWork({
+            annictWorkId: resolved.annictWorkId,
+            nodeId: resolved.nodeId,
+            title: resolved.title,
+            titleKana: resolved.titleKana,
+            titleEn: resolved.titleEn,
+            seasonName: resolved.seasonName,
+            seasonYear: resolved.seasonYear,
+            imageUrl: resolved.imageUrl,
+            updatedAt: new Date(),
+          });
+          work = await adb.getAnnictWorkById(annictWorkId);
+        }
+
+        await updateAnnictStatus(token, nodeId, data.state);
+      } catch (err) {
+        const res = annictErrorResponse(c, err);
+        if (res) return res;
+        throw err;
+      }
+
+      // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で
+      // 404 にしているため、ここでは必ずキャッシュに存在する前提で履歴を upsert する。
+      if (!work) {
         return c.json({ error: "Work not found" }, 404);
       }
 

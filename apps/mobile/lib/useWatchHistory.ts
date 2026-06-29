@@ -74,9 +74,12 @@ export function useUpsertWatchHistory() {
       data: UpsertRequest;
     }) => {
       const headers = await getAuthHeaders(getToken);
+      // ステータス更新は API 側で Annict updateStatus を叩くため X-Annict-Token 必須。
+      const annictToken = await getAnnictToken();
+      if (!annictToken) throw new Error("Annict 連携が必要です");
       const res = await apiClient.me["watch-histories"][":annictWorkId"].$put(
         { param: { annictWorkId: String(annictWorkId) }, json: data },
-        { headers },
+        { headers: { ...headers, [ANNICT_TOKEN_HEADER]: annictToken } },
       );
       if (!res.ok) throw new Error("視聴履歴の更新に失敗しました");
       return res.json();

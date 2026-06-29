@@ -116,6 +116,7 @@ query MyLibrary($after: String) {
       nodes {
         status { state }
         work {
+          id
           annictId
           title
           titleKana
@@ -134,6 +135,7 @@ query MyLibrary($after: String) {
 type LibraryEntryNode = {
   status: { state: string | null } | null;
   work: {
+    id: string;
     annictId: number;
     title: string;
     titleKana: string | null;
@@ -156,6 +158,7 @@ type LibraryEntriesResponse = {
 /** 整形済みの 1 作品分のライブラリエントリ（D1 キャッシュへの書き込み単位）。 */
 export type AnnictLibraryEntry = {
   annictWorkId: number;
+  nodeId: string;
   state: string | null;
   title: string;
   titleKana: string | null;
@@ -202,6 +205,7 @@ export async function fetchAnnictLibraryEntries(
       if (!work) continue;
       entries.push({
         annictWorkId: work.annictId,
+        nodeId: work.id,
         state: node.status?.state ?? null,
         title: work.title,
         titleKana: work.titleKana,
@@ -231,6 +235,107 @@ export async function fetchAnnictLibraryEntries(
   }
 
   return entries;
+}
+
+// --- updateStatus（視聴ステータス更新） ---
+
+// 視聴ステータスを作品単位で更新する（write スコープ必須）。
+// workId は Annict GraphQL の Work Node ID（ID! 型）で、annictId(Int) とは別物。
+const UPDATE_STATUS_MUTATION = `
+mutation UpdateStatus($workId: ID!, $state: StatusState!) {
+  updateStatus(input: { workId: $workId, state: $state }) {
+    clientMutationId
+  }
+}`;
+
+type UpdateStatusResponse = {
+  updateStatus: { clientMutationId: string | null } | null;
+};
+
+/**
+ * 作品の視聴ステータスを Annict 側で更新する。
+ * @param nodeId Annict GraphQL の Work Node ID（annict_works.nodeId）。
+ * @param state Annict StatusState（NO_STATE で未設定に戻す用途も可）。
+ */
+export async function updateAnnictStatus(
+  accessToken: string,
+  nodeId: string,
+  state: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  await annictGraphQL<UpdateStatusResponse>(
+    accessToken,
+    UPDATE_STATUS_MUTATION,
+    { workId: nodeId, state },
+    fetchImpl,
+  );
+}
+
+// --- searchWorks（annictId → Node ID 解決） ---
+
+// annictId から Work Node ID を引くためのクエリ。read-through 前に更新が来て
+// annict_works.nodeId が未取得な作品で、Node ID を解決するフォールバックに使う。
+const SEARCH_WORK_BY_ANNICT_ID_QUERY = `
+query SearchWorkNodeId($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 1) {
+    nodes {
+      id
+      annictId
+      title
+      titleKana
+      titleEn
+      seasonName
+      seasonYear
+      image { recommendedImageUrl }
+    }
+  }
+}`;
+
+type SearchWorksResponse = {
+  searchWorks: {
+    nodes: {
+      id: string;
+      annictId: number;
+      title: string;
+      titleKana: string | null;
+      titleEn: string | null;
+      seasonName: string | null;
+      seasonYear: number | null;
+      image: { recommendedImageUrl: string | null } | null;
+    }[];
+  } | null;
+};
+
+/**
+ * annictId(Int) から作品メタ（Node ID 含む）を 1 件取得する。
+ * 該当作品が無ければ null。updateStatus 前の Node ID 解決に使う。
+ */
+export async function fetchAnnictWorkByAnnictId(
+  accessToken: string,
+  annictWorkId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictLibraryEntry | null> {
+  const data = await annictGraphQL<SearchWorksResponse>(
+    accessToken,
+    SEARCH_WORK_BY_ANNICT_ID_QUERY,
+    { annictIds: [annictWorkId] },
+    fetchImpl,
+  );
+
+  const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
+  if (!work) return null;
+
+  return {
+    annictWorkId: work.annictId,
+    nodeId: work.id,
+    state: null,
+    title: work.title,
+    titleKana: work.titleKana,
+    titleEn: work.titleEn,
+    seasonName: work.seasonName,
+    seasonYear: work.seasonYear,
+    imageUrl: work.image?.recommendedImageUrl ?? null,
+  };
 }
 
 export type AnnictTokenResponse = {
