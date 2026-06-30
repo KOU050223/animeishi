@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
+import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SortButton } from "./SortButton";
@@ -42,7 +43,7 @@ export function AnimeListContent({
 
   // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
   // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
-  const { data, isLoading, isError, refetch, isConnected } =
+  const { data, isLoading, isError, refetch, isConnected, isConnectionLoading } =
     useAnimeList(query);
   const hasQuery = query.trim().length > 0;
 
@@ -239,18 +240,23 @@ export function AnimeListContent({
           </View>
         )}
         ListEmptyComponent={
-          !isConnected ? (
-            // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
-            // 検索結果ではなく連携誘導を最優先で出す（PR6 のソフトゲートで導線を強化）。
+          isConnectionLoading ? (
+            // 連携状態（SecureStore）の読み込み中は isConnected=false になるため、
+            // 連携済みユーザーに一瞬ソフトゲートを見せて誤って OAuth を再開させないよう、
+            // 確定するまではローディング表示にとどめる（watch-history と挙動を揃える）。
             <View style={styles.emptyState}>
-              <View style={styles.stateIcon}>
-                <Ionicons name="link-outline" size={24} color="#475569" />
+              <View style={styles.loadingMark}>
+                <ActivityIndicator size="small" color="#111827" />
               </View>
-              <Text style={styles.emptyTitle}>Annict 連携が必要です</Text>
-              <Text style={styles.emptyCopy}>
-                作品検索には Annict との連携が必要です。連携すると作品を探せます。
-              </Text>
+              <Text style={styles.emptyTitle}>読み込んでいます</Text>
             </View>
+          ) : !isConnected ? (
+            // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
+            // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
+            <AnnictSoftGate
+              description="annict.softGate.works"
+              testID="anime-list-soft-gate"
+            />
           ) : showLoading ? (
             <View style={styles.emptyState}>
               <View style={styles.loadingMark}>

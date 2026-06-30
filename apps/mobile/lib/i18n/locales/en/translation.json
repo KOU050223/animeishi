@@ -15,7 +15,9 @@
     "softGate": {
       "title": "Annict connection required",
       "description": "Connecting Annict is required to view and update watch records.",
-      "cta": "Connect"
+      "cta": "Connect",
+      "watchHistory": "Connect Annict to view your watch history. Once connected, your Annict watch records appear on your anime card.",
+      "works": "Connect Annict to search for works. Once connected, you can find works and add them to your card."
     },
     "errors": {
       "cancelled": "Connection cancelled",

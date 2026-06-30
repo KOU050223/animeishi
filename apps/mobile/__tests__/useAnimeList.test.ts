@@ -17,9 +17,13 @@ jest.mock("@/lib/api", () => ({
 
 const mockGetAnnictToken = jest.fn();
 let mockIsConnected = true;
+let mockIsConnectionLoading = false;
 jest.mock("@/lib/annict", () => ({
   getAnnictToken: () => mockGetAnnictToken(),
-  useAnnictConnection: () => ({ isConnected: mockIsConnected }),
+  useAnnictConnection: () => ({
+    isConnected: mockIsConnected,
+    isLoading: mockIsConnectionLoading,
+  }),
 }));
 
 function makeWrapper() {
@@ -127,6 +131,7 @@ describe("useAnimeList", () => {
     mockSearchGet.mockReset();
     mockGetAnnictToken.mockReset();
     mockIsConnected = true;
+    mockIsConnectionLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
     mockGetAnnictToken.mockResolvedValue("annict_tok");
@@ -147,6 +152,15 @@ describe("useAnimeList", () => {
     });
     expect(mockSearchGet).not.toHaveBeenCalled();
     expect(result.current.isConnected).toBe(false);
+  });
+
+  it("連携状態の読み込み中は isConnectionLoading=true を返しフェッチしない", () => {
+    mockIsConnectionLoading = true;
+    const { result } = renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+    expect(mockSearchGet).not.toHaveBeenCalled();
+    expect(result.current.isConnectionLoading).toBe(true);
   });
 
   it("サインアウト中はフェッチしない", () => {

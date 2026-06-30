@@ -36,6 +36,11 @@ tasks:
     cmds:
       - pnpm turbo run build
 
+  typecheck:
+    desc: 型チェック (tsc --noEmit)。CI の "TypeScript check" 相当
+    cmds:
+      - pnpm turbo run build
+
   lint:
     desc: Lint
     cmds:

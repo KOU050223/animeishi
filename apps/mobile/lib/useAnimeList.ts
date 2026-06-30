@@ -56,7 +56,9 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export function useAnimeList(query: string) {
   const { getToken, isSignedIn } = useAuth();
   // 検索は API 側で X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
-  const { isConnected } = useAnnictConnection();
+  // isConnectionLoading は SecureStore 読み込み中の判定。連携済みでも読み込み中は
+  // isConnected=false になるため、呼び出し側はこの間ソフトゲートを出さない。
+  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   // 入力のたびに Annict を叩かないよう、検索語が落ち着いてから発火する。
   const trimmed = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
@@ -82,6 +84,7 @@ export function useAnimeList(query: string) {
     data: result.data?.works,
     // 連携状態と次ページ情報。呼び出し側のソフトゲート/追い読みに使う。
     isConnected,
+    isConnectionLoading,
     hasNextPage: result.data?.hasNextPage ?? false,
     endCursor: result.data?.endCursor ?? null,
   };

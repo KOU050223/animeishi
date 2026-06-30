@@ -3,31 +3,12 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  annictErrorKey,
   useAnnictConnect,
   useAnnictConnection,
   type AnnictConnectResult,
 } from "@/lib/annict";
 import { confirm } from "@/lib/dialog";
-import type { TranslationKey } from "@/lib/i18n/keys";
-
-// 連携フローの失敗理由を i18n キーへ対応づける。
-function errorKey(reason: string): TranslationKey {
-  switch (reason) {
-    // ユーザーが Annict 側で権限付与を拒否した場合。想定外エラーではなくキャンセル扱い。
-    case "access_denied":
-      return "annict.errors.cancelled";
-    case "not_configured":
-      return "annict.errors.notConfigured";
-    case "state_mismatch":
-      return "annict.errors.stateMismatch";
-    case "exchange_failed":
-    case "browser_failed":
-    case "unauthorized":
-      return "annict.errors.exchangeFailed";
-    default:
-      return "annict.errors.unexpected";
-  }
-}
 
 /**
  * Annict 連携の状態表示と連携/解除操作をまとめたカード。
@@ -52,7 +33,7 @@ export function AnnictConnectionCard() {
     } else if (result.status === "cancelled") {
       setMessage({ type: "error", text: t("annict.errors.cancelled") });
     } else {
-      setMessage({ type: "error", text: t(errorKey(result.reason)) });
+      setMessage({ type: "error", text: t(annictErrorKey(result.reason)) });
     }
   }, [connect, t]);
 
