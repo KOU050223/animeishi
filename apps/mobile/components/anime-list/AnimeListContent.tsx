@@ -15,13 +15,18 @@ import type { SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
+import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { StatPill } from "./StatPill";
 import { styles } from "./animeListStyles";
 import {
+  currentSeasonKey,
+  formatSeasonLabel,
   formatYearSeason,
   getAnimeListLayout,
+  toSeasonParam,
   useAnimeStats,
+  type SeasonKey,
 } from "./animeListUtils";
 
 export function AnimeListContent({
@@ -40,9 +45,15 @@ export function AnimeListContent({
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  // シーズン絞り込みの選択状態（初期は今年・今期）。検索語が空のときだけ効く。
+  const [filterYear, setFilterYear] = useState(() => new Date().getFullYear());
+  const [filterSeason, setFilterSeason] = useState<SeasonKey>(() =>
+    currentSeasonKey(),
+  );
+  const seasonParam = toSeasonParam(filterYear, filterSeason);
 
-  // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
-  // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
+  // 検索語があれば title 検索、無ければ選択中のシーズンで一覧を取得する（クライアント側に
+  // 作品マスタは持たず Annict searchWorks をプロキシ経由で叩く）。
   const {
     data,
     isLoading,
@@ -51,7 +62,7 @@ export function AnimeListContent({
     isConnected,
     isConnectionLoading,
     isSeason,
-  } = useAnimeList(query);
+  } = useAnimeList(query, seasonParam);
   const hasQuery = query.trim().length > 0;
 
   const [refreshing, setRefreshing] = useState(false);
@@ -176,12 +187,12 @@ export function AnimeListContent({
             <View style={[styles.toolbar, isWide && styles.toolbarWide]}>
               <View>
                 <Text style={styles.sectionLabel}>
-                  {hasQuery ? "コレクション" : "今期のアニメ"}
+                  {hasQuery ? "コレクション" : "シーズンで探す"}
                 </Text>
                 <Text style={styles.resultText}>
                   {hasQuery
                     ? `「${query.trim()}」の検索結果・${sorted.length}件`
-                    : `今期アニメ・${sorted.length}件`}
+                    : `${formatSeasonLabel(filterYear, filterSeason)}・${sorted.length}件`}
                 </Text>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
@@ -201,6 +212,16 @@ export function AnimeListContent({
                 />
               </View>
             </View>
+
+            {/* シーズン絞り込みは title 検索時には効かないため、検索語が無いときだけ出す。 */}
+            {!hasQuery ? (
+              <SeasonFilter
+                year={filterYear}
+                season={filterSeason}
+                onChangeYear={setFilterYear}
+                onChangeSeason={setFilterSeason}
+              />
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -272,7 +293,9 @@ export function AnimeListContent({
                 <ActivityIndicator size="small" color="#111827" />
               </View>
               <Text style={styles.emptyTitle}>
-                {isSeason ? "今期アニメを読み込んでいます" : "検索しています"}
+                {isSeason
+                  ? `${formatSeasonLabel(filterYear, filterSeason)}を読み込んでいます`
+                  : "検索しています"}
               </Text>
               <Text style={styles.emptyCopy}>
                 Annict から作品を探しています。
@@ -302,15 +325,17 @@ export function AnimeListContent({
               </TouchableOpacity>
             </View>
           ) : !hasQuery ? (
-            // 検索語が空のときは今期アニメを取得しているが、結果が 0 件のケース。
-            // 通常は何かしら返るが、シーズン端境期や障害時のフォールバック文言。
+            // 検索語が空のときは選択シーズンの作品を取得しているが、結果が 0 件のケース。
+            // 放送前で未登録のシーズンなどで起こりうる。別シーズンや検索を案内する。
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
                 <Ionicons name="search-outline" size={24} color="#475569" />
               </View>
-              <Text style={styles.emptyTitle}>今期アニメが見つかりません</Text>
+              <Text style={styles.emptyTitle}>
+                {formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません
+              </Text>
               <Text style={styles.emptyCopy}>
-                タイトル・よみがな・英語名で検索して作品を探せます。
+                別の年・シーズンを選ぶか、タイトルで検索してみてください。
               </Text>
             </View>
           ) : (

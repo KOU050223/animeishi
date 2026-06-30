@@ -208,6 +208,47 @@ export const styles = StyleSheet.create({
   sortTextActive: {
     color: "#111827",
   },
+  filterBar: {
+    gap: 8,
+  },
+  filterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterRowLabel: {
+    width: 34,
+    color: "#7c2d12",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  filterScroll: {
+    flexDirection: "row",
+    gap: 6,
+    paddingRight: 6,
+  },
+  filterChip: {
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dbe4ee",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 12,
+  },
+  filterChipActive: {
+    borderColor: "#111827",
+    backgroundColor: "#111827",
+  },
+  filterChipText: {
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  filterChipTextActive: {
+    color: "#ffffff",
+  },
   card: {
     flexDirection: "row",
     gap: 13,

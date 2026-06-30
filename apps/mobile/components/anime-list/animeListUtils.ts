@@ -4,11 +4,40 @@ import type { AnimeTitle } from "@/lib/useAnimeList";
 export const SEASONS: Record<string, string> = {
   spring: "春",
   summer: "夏",
+  autumn: "秋",
+  // Annict は秋を autumn で返すが、過去データ/表記ゆれの fall も同じ「秋」に寄せる。
   fall: "秋",
   winter: "冬",
 };
 
 export const GRID_GAP = 14;
+
+// シーズン絞り込みの並び順（API の season 文字列 = "<year>-<key>"）。
+export const SEASON_KEYS = ["winter", "spring", "summer", "autumn"] as const;
+export type SeasonKey = (typeof SEASON_KEYS)[number];
+
+/** 現在の Annict シーズンキー（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。 */
+export function currentSeasonKey(now: Date = new Date()): SeasonKey {
+  return SEASON_KEYS[Math.floor(now.getMonth() / 3)];
+}
+
+/** API に渡す season 文字列（例: "2026-spring"）を組み立てる。 */
+export function toSeasonParam(year: number, key: SeasonKey): string {
+  return `${year}-${key}`;
+}
+
+/** シーズン選択チップの表示ラベル（例: "2026年 春"）。 */
+export function formatSeasonLabel(year: number, key: SeasonKey): string {
+  return `${year}年 ${SEASONS[key] ?? ""}`;
+}
+
+/**
+ * 絞り込み用の年リストを新しい順で返す（今年から count 年分さかのぼる）。
+ */
+export function recentYears(count = 12, now: Date = new Date()): number[] {
+  const thisYear = now.getFullYear();
+  return Array.from({ length: count }, (_, i) => thisYear - i);
+}
 
 export const POSTER_PALETTES = [
   { bg: "#fff7ed", border: "#fed7aa", accent: "#f97316", text: "#7c2d12" },

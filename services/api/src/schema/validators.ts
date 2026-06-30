@@ -110,12 +110,10 @@ export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
 // 既定にして初期表示（今期アニメ）を返す。season を明示すると任意シーズンを引ける。
 // after はカーソルページング用。
 export const worksSearchQuerySchema = z.object({
-  // 空文字（?title=）は「未指定」とみなし今期シーズン検索にフォールバックする。
-  // trim 前に空へ落とすため preprocess で正規化してから optional 扱いにする。
-  title: z.preprocess(
-    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().trim().min(1, "検索語を入力してください").optional(),
-  ),
+  // title は任意。省略・空文字（?title=）はどちらも「未指定」とみなし、route 側で
+  // trim して空ならシーズン検索へフォールバックする。ここで min(1) を課さないのは、
+  // 空文字を 400 にせず今期シーズン検索に流すため。
+  title: z.string().trim().optional(),
   // 例: "2026-spring"。<年4桁>-<winter|spring|summer|autumn>。
   season: z
     .string()

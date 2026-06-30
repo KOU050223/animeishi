@@ -27,12 +27,14 @@ const works = new Hono<AuthVariables>()
     zValidator("query", worksSearchQuerySchema),
     async (c) => {
       const { title, season, after } = c.req.valid("query");
+      // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
+      const trimmedTitle = title?.trim();
 
       try {
-        const result = title
+        const result = trimmedTitle
           ? await searchAnnictWorksByTitle(
               c.var.annictToken,
-              title,
+              trimmedTitle,
               after ?? null,
             )
           : await searchAnnictWorksBySeason(
