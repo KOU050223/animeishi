@@ -117,7 +117,21 @@ describe("作品検索 API", () => {
       expect(body.code).toBe("annict_token_required");
     });
 
-    it("GET /works/search: title が無ければ 400", async () => {
+    it("GET /works/search: title が無ければ今期シーズン検索で 200", async () => {
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
       const app = buildApp();
       const res = await app.request(
         "/works/search",
@@ -125,13 +139,66 @@ describe("作品検索 API", () => {
         TEST_BINDINGS,
       );
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
+      // title 省略時は titles ではなく seasons（今期シーズン）を載せる。
+      const body = JSON.parse(
+        (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+      );
+      expect(body.variables.titles).toBeUndefined();
+      expect(body.variables.seasons).toHaveLength(1);
+      expect(body.variables.seasons[0]).toMatch(
+        /^\d{4}-(winter|spring|summer|autumn)$/,
+      );
     });
 
-    it("GET /works/search: title が空文字なら 400", async () => {
+    it("GET /works/search: title が空文字なら今期シーズン検索で 200", async () => {
+      mockSearchWorks([{ annictId: 99, title: "今期アニメ" }]);
+
       const app = buildApp();
       const res = await app.request(
         "/works/search?title=",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { works: { annictWorkId: number }[] };
+      expect(body.works[0].annictWorkId).toBe(99);
+    });
+
+    it("GET /works/search: season を明示すると指定シーズンで検索する", async () => {
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2025-summer",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = JSON.parse(
+        (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+      );
+      expect(body.variables.seasons).toEqual(["2025-summer"]);
+    });
+
+    it("GET /works/search: 不正な season 形式は 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2025-q3",
         { method: "GET", headers: ANNICT_HEADER },
         TEST_BINDINGS,
       );

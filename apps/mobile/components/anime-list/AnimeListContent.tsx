@@ -43,8 +43,15 @@ export function AnimeListContent({
 
   // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
   // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
-  const { data, isLoading, isError, refetch, isConnected, isConnectionLoading } =
-    useAnimeList(query);
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isConnected,
+    isConnectionLoading,
+    isSeason,
+  } = useAnimeList(query);
   const hasQuery = query.trim().length > 0;
 
   const [refreshing, setRefreshing] = useState(false);
@@ -52,10 +59,10 @@ export function AnimeListContent({
   const stats = useAnimeStats(data);
 
   async function onRefresh() {
-    // refetch は react-query の enabled を無視して手動実行されるため、未入力のまま
-    // または未連携で pull-to-refresh すると title="" / 401 で無駄な失敗になる。
-    // enabled と同じ条件（検索語あり + 連携済み）でのみ再取得する。
-    if (!hasQuery || !isConnected) return;
+    // refetch は react-query の enabled を無視して手動実行されるため、未連携で
+    // pull-to-refresh すると 401 で無駄な失敗になる。enabled と同じ条件（連携済み）で
+    // のみ再取得する。検索語が空でも今期アニメを取りに行くので hasQuery は問わない。
+    if (!isConnected) return;
     setRefreshing(true);
     try {
       await refetch();
@@ -76,9 +83,9 @@ export function AnimeListContent({
   // 検索バーは ListHeaderComponent 内にあるため、状態ごとに早期 return すると
   // 入力欄ごと消えてしまう。未連携/ローディング/エラー/未入力は ListEmptyComponent 側で
   // 表現し、検索バーは常に画面に残す。
-  // 連携済みかつ検索語が入っていてフェッチ中のときだけローディング扱いにする
-  // （未連携・クエリ無効時の pending を「連携前/検索前」と区別する）。
-  const showLoading = isConnected && hasQuery && isLoading;
+  // 連携済みでフェッチ中のときだけローディング扱いにする（未連携時の pending を
+  // 「連携前」と区別する）。検索語が空でも今期アニメを取得するためローディングを出す。
+  const showLoading = isConnected && isLoading;
 
   return (
     <View style={styles.screen}>
@@ -168,11 +175,13 @@ export function AnimeListContent({
 
             <View style={[styles.toolbar, isWide && styles.toolbarWide]}>
               <View>
-                <Text style={styles.sectionLabel}>コレクション</Text>
+                <Text style={styles.sectionLabel}>
+                  {hasQuery ? "コレクション" : "今期のアニメ"}
+                </Text>
                 <Text style={styles.resultText}>
                   {hasQuery
                     ? `「${query.trim()}」の検索結果・${sorted.length}件`
-                    : "タイトルを入力して作品を探す"}
+                    : `今期アニメ・${sorted.length}件`}
                 </Text>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
@@ -262,7 +271,9 @@ export function AnimeListContent({
               <View style={styles.loadingMark}>
                 <ActivityIndicator size="small" color="#111827" />
               </View>
-              <Text style={styles.emptyTitle}>検索しています</Text>
+              <Text style={styles.emptyTitle}>
+                {isSeason ? "今期アニメを読み込んでいます" : "検索しています"}
+              </Text>
               <Text style={styles.emptyCopy}>
                 Annict から作品を探しています。
               </Text>
@@ -291,13 +302,15 @@ export function AnimeListContent({
               </TouchableOpacity>
             </View>
           ) : !hasQuery ? (
+            // 検索語が空のときは今期アニメを取得しているが、結果が 0 件のケース。
+            // 通常は何かしら返るが、シーズン端境期や障害時のフォールバック文言。
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
                 <Ionicons name="search-outline" size={24} color="#475569" />
               </View>
-              <Text style={styles.emptyTitle}>作品を検索しましょう</Text>
+              <Text style={styles.emptyTitle}>今期アニメが見つかりません</Text>
               <Text style={styles.emptyCopy}>
-                タイトル・よみがな・英語名で検索すると作品が表示されます。
+                タイトル・よみがな・英語名で検索して作品を探せます。
               </Text>
             </View>
           ) : (

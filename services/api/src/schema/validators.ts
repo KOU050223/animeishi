@@ -106,9 +106,25 @@ export const annictExchangeSchema = z.object({
 export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
 
 // 作品検索（GET /works/search）のクエリパラメータ。
-// title は Annict searchWorks に渡す検索語で必須。after はカーソルページング用。
+// title は Annict searchWorks に渡す検索語。省略時はサーバーが「今期シーズン」を
+// 既定にして初期表示（今期アニメ）を返す。season を明示すると任意シーズンを引ける。
+// after はカーソルページング用。
 export const worksSearchQuerySchema = z.object({
-  title: z.string().trim().min(1, "検索語を入力してください"),
+  // 空文字（?title=）は「未指定」とみなし今期シーズン検索にフォールバックする。
+  // trim 前に空へ落とすため preprocess で正規化してから optional 扱いにする。
+  title: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().trim().min(1, "検索語を入力してください").optional(),
+  ),
+  // 例: "2026-spring"。<年4桁>-<winter|spring|summer|autumn>。
+  season: z
+    .string()
+    .trim()
+    .regex(
+      /^\d{4}-(winter|spring|summer|autumn)$/,
+      "シーズンの形式が正しくありません",
+    )
+    .optional(),
   after: z.string().trim().min(1).optional(),
 });
 

@@ -423,6 +423,87 @@ export async function searchAnnictWorksByTitle(
   };
 }
 
+// --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---
+
+// Annict のシーズン区分（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。
+// seasonName は "2026-spring" のような "<年>-<シーズン>" 形式。
+const ANNICT_SEASON_NAMES = ["winter", "spring", "summer", "autumn"] as const;
+
+/**
+ * 指定日付（既定は現在）の Annict シーズン文字列（例: "2026-spring"）を返す。
+ * 「今期アニメ」を searchWorks(seasons:) で引くためのキーに使う。
+ */
+export function currentAnnictSeason(now: Date = new Date()): string {
+  const year = now.getUTCFullYear();
+  // 0-11 の月を 3 か月区切りのシーズンインデックス（0-3）に丸める。
+  const season = ANNICT_SEASON_NAMES[Math.floor(now.getUTCMonth() / 3)];
+  return `${year}-${season}`;
+}
+
+// シーズン指定で作品を検索するクエリ。タイトル検索と返すフィールドは揃える。
+const SEARCH_WORKS_BY_SEASON_QUERY = `
+query SearchWorksBySeason($seasons: [String!], $after: String) {
+  searchWorks(seasons: $seasons, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      annictId
+      title
+      titleKana
+      titleEn
+      seasonName
+      seasonYear
+      image { recommendedImageUrl }
+    }
+  }
+}`;
+
+/**
+ * シーズン文字列（例: "2026-spring"）で Annict 作品を検索し、整形した配列を返す。
+ * 検索画面の初期表示（今期アニメ）に使う。視聴者数の多い順で返す。
+ * タイトル検索と同様、視聴ステータス（state）は持たない。
+ */
+export async function searchAnnictWorksBySeason(
+  accessToken: string,
+  season: string,
+  after: string | null = null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{
+  works: AnnictLibraryEntry[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}> {
+  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    accessToken,
+    SEARCH_WORKS_BY_SEASON_QUERY,
+    { seasons: [season], after },
+    fetchImpl,
+  );
+
+  const connection = data.searchWorks;
+  if (!connection) {
+    return { works: [], hasNextPage: false, endCursor: null };
+  }
+
+  const works: AnnictLibraryEntry[] = connection.nodes.map((work) => ({
+    annictWorkId: work.annictId,
+    nodeId: work.id,
+    state: null,
+    title: work.title,
+    titleKana: work.titleKana,
+    titleEn: work.titleEn,
+    seasonName: work.seasonName,
+    seasonYear: work.seasonYear,
+    imageUrl: work.image?.recommendedImageUrl ?? null,
+  }));
+
+  return {
+    works,
+    hasNextPage: connection.pageInfo.hasNextPage,
+    endCursor: connection.pageInfo.endCursor,
+  };
+}
+
 export type AnnictTokenResponse = {
   access_token: string;
   token_type: string;
