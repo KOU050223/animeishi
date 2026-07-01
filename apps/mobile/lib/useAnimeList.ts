@@ -3,10 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
-import { getAnnictToken, useAnnictConnection } from "@/lib/annict";
-
-// Annict アクセストークンを運ぶヘッダ名（API の requireAnnictToken と対応）。
-const ANNICT_TOKEN_HEADER = "X-Annict-Token";
+import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 const SEARCH_DEBOUNCE_MS = 300;
@@ -83,8 +80,8 @@ export function useAnimeList(query: string, season?: string) {
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<WorksSearchResponse> => {
       const headers = await getAuthHeaders(getToken);
-      const annictToken = await getAnnictToken();
-      if (!annictToken) throw new Error("Annict 連携が必要です");
+      // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
+      const annictHeader = await buildAnnictAuthHeader();
       // title 省略時はシーズン検索。season 未指定ならサーバーが今期を既定にする。
       const queryParams = isSeason
         ? season
@@ -93,7 +90,7 @@ export function useAnimeList(query: string, season?: string) {
         : { title: trimmed };
       const res = await apiClient.works.search.$get(
         { query: queryParams },
-        { headers: { ...headers, [ANNICT_TOKEN_HEADER]: annictToken } },
+        { headers: { ...headers, ...annictHeader } },
       );
       if (!res.ok) throw new Error("作品の検索に失敗しました");
       return res.json();

@@ -13,6 +13,13 @@ CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ANNICT_CLIENT_ID=
 ANNICT_CLIENT_SECRET=
 
+# Web(ブラウザ)連携で Annict トークンを D1 に暗号化保存するための鍵。
+# base64 エンコードした 32byte のランダム値。次のコマンドで生成できる:
+#   openssl rand -base64 32
+# 本番は `wrangler secret put ANNICT_ENCRYPTION_KEY` で登録する（コミット禁止）。
+# 未設定だと Web 連携(mode:web)は 500 になり、ネイティブ(ヘッダ方式)のみ動作する。
+ANNICT_ENCRYPTION_KEY=
+
 # CORS で許可するオリジンのカンマ区切りリスト
 # 未設定の場合は全オリジンを許可する（開発用）。本番では web フロントのオリジンを指定する。
 # "*" 始まりのエントリはサフィックス一致（プレビューデプロイの <hash>-... を許可する用途）。

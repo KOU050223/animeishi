@@ -15,11 +15,11 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-const mockGetAnnictToken = jest.fn();
+const mockBuildAnnictAuthHeader = jest.fn();
 let mockIsConnected = true;
 let mockIsConnectionLoading = false;
 jest.mock("@/lib/annict", () => ({
-  getAnnictToken: () => mockGetAnnictToken(),
+  buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
   useAnnictConnection: () => ({
     isConnected: mockIsConnected,
     isLoading: mockIsConnectionLoading,
@@ -129,12 +129,14 @@ describe("useAnimeList", () => {
   beforeEach(() => {
     resetAuth();
     mockSearchGet.mockReset();
-    mockGetAnnictToken.mockReset();
+    mockBuildAnnictAuthHeader.mockReset();
     mockIsConnected = true;
     mockIsConnectionLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
-    mockGetAnnictToken.mockResolvedValue("annict_tok");
+    mockBuildAnnictAuthHeader.mockResolvedValue({
+      "X-Annict-Token": "annict_tok",
+    });
   });
 
   it("検索語が空のときは今期アニメ（season）を title なしで取得する", async () => {

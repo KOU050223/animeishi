@@ -6,7 +6,7 @@ import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は routes/watch-history.ts 参照）。
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
-import { ANNICT_TOKEN_HEADER } from "@/lib/annict/middleware";
+import { resolveAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
 
 function getBindings(
@@ -34,11 +34,12 @@ const favorites = new Hono<AuthVariables>()
 
     // お気に入りは annict_works への FK を満たす必要がある。read-through 済みなら
     // キャッシュにあるが、searchWorks の検索結果（未キャッシュ）を直接お気に入り
-    // する導線もあるため、無ければ X-Annict-Token がある場合に限り searchWorks で
+    // する導線もあるため、無ければ Annict トークンがある場合に限り searchWorks で
     // 解決してキャッシュへ補充する。トークンが無ければ従来どおり 404。
+    // トークンはヘッダ(ネイティブ)または D1(Web 連携)から解決する。
     const existing = await adb.getAnnictWorkById(annictWorkId);
     if (!existing) {
-      const token = c.req.header(ANNICT_TOKEN_HEADER);
+      const token = await resolveAnnictToken(c);
       if (!token) {
         return c.json({ error: "Work not found" }, 404);
       }

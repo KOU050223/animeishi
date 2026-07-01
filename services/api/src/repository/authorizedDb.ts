@@ -8,6 +8,7 @@ import {
   friends,
   userGenres,
   annictWorks,
+  annictTokens,
 } from "@/db/schema";
 import type {
   User,
@@ -18,6 +19,7 @@ import type {
   Friend,
   AnnictWork,
   NewAnnictWork,
+  AnnictToken,
 } from "@/db/schema";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -116,6 +118,51 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           updatedAt: now,
         })
         .onConflictDoNothing({ target: users.id });
+    },
+
+    // ---- Annict Token (Web 連携用の暗号化トークン) ----
+    // Web(ブラウザ)連携でのみ使う。ネイティブはヘッダ方式でこのテーブルを触らない。
+
+    /** 保存済みの暗号化トークン行を取得する。未連携なら undefined。 */
+    async getAnnictTokenRow(): Promise<AnnictToken | undefined> {
+      return db.query.annictTokens.findFirst({
+        where: eq(annictTokens.userId, currentUserId),
+      });
+    },
+
+    /** 暗号化済みトークンを保存（upsert）する。再連携時は上書きする。 */
+    async upsertAnnictToken(data: {
+      encryptedToken: string;
+      annictUserId: number | null;
+      scope: string | null;
+    }): Promise<void> {
+      const now = new Date();
+      await db
+        .insert(annictTokens)
+        .values({
+          userId: currentUserId,
+          encryptedToken: data.encryptedToken,
+          annictUserId: data.annictUserId,
+          scope: data.scope,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: annictTokens.userId,
+          set: {
+            encryptedToken: data.encryptedToken,
+            annictUserId: data.annictUserId,
+            scope: data.scope,
+            updatedAt: now,
+          },
+        });
+    },
+
+    /** 保存済みトークンを削除する（連携解除）。 */
+    async deleteAnnictToken(): Promise<void> {
+      await db
+        .delete(annictTokens)
+        .where(eq(annictTokens.userId, currentUserId));
     },
 
     // ---- Annict Works (キャッシュ) ----

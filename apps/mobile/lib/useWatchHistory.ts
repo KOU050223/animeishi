@@ -2,10 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
-import { getAnnictToken, useAnnictConnection } from "@/lib/annict";
-
-// Annict アクセストークンを運ぶヘッダ名（API の requireAnnictToken と対応）。
-const ANNICT_TOKEN_HEADER = "X-Annict-Token";
+import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 
 type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],
@@ -17,7 +15,8 @@ type UpsertRequest = InferRequestType<
   (typeof apiClient.me)["watch-histories"][":annictWorkId"]["$put"]
 >["json"];
 
-export const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
+// キー定義は @/lib/watchHistoryKey に集約（連携解除時の破棄と一致させるため）。
+export { WATCH_HISTORY_QUERY_KEY };
 
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;
@@ -49,11 +48,11 @@ export function useWatchHistory() {
     enabled: !!isSignedIn && !!userId && isConnected,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
-      const annictToken = await getAnnictToken();
-      if (!annictToken) throw new Error("Annict 連携が必要です");
+      // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
+      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["watch-histories"].$get(
         {},
-        { headers: { ...headers, [ANNICT_TOKEN_HEADER]: annictToken } },
+        { headers: { ...headers, ...annictHeader } },
       );
       if (!res.ok) throw new Error("視聴履歴の取得に失敗しました");
       return res.json();
@@ -74,12 +73,12 @@ export function useUpsertWatchHistory() {
       data: UpsertRequest;
     }) => {
       const headers = await getAuthHeaders(getToken);
-      // ステータス更新は API 側で Annict updateStatus を叩くため X-Annict-Token 必須。
-      const annictToken = await getAnnictToken();
-      if (!annictToken) throw new Error("Annict 連携が必要です");
+      // ステータス更新は API 側で Annict updateStatus を叩くため Annict トークンが要る。
+      // native はヘッダで、Web はサーバー(D1)で解決される。
+      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["watch-histories"][":annictWorkId"].$put(
         { param: { annictWorkId: String(annictWorkId) }, json: data },
-        { headers: { ...headers, [ANNICT_TOKEN_HEADER]: annictToken } },
+        { headers: { ...headers, ...annictHeader } },
       );
       if (!res.ok) throw new Error("視聴履歴の更新に失敗しました");
       return res.json();

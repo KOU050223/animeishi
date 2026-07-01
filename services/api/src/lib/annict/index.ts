@@ -18,8 +18,13 @@ export type {
   ExchangeCodeParams,
   GraphQLResponse,
 } from "./client";
-export { ANNICT_TOKEN_HEADER, requireAnnictToken } from "./middleware";
+export {
+  ANNICT_TOKEN_HEADER,
+  requireAnnictToken,
+  resolveAnnictToken,
+} from "./middleware";
 export type { AnnictVariables } from "./middleware";
+export { encryptToken, decryptToken, assertEncryptionKey } from "./crypto";
 export { annictErrorResponse } from "./errors";
 export {
   ANNICT_ALL_STATUS_STATES,

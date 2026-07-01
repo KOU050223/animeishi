@@ -1,32 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
-import { annictTokenStorage } from "./storage";
+// フォールバック兼・型定義 + プラットフォーム共通の定数。
+// 実装はプラットフォーム別ファイルで解決される:
+// - useAnnictConnection.native.ts ... SecureStore のトークン有無で判定
+// - useAnnictConnection.web.ts     ... サーバー GET /me/annict で判定
+// 呼び出し側は常に `@/lib/annict`（index）から import する。
 
-export const ANNICT_CONNECTION_QUERY_KEY = ["annict-connection"] as const;
+// 連携状態クエリのキーは connectionKey.ts に集約し、ここから再 export する
+// （プラットフォーム実装 .web/.native も同じ connectionKey.ts を直接 import する）。
+export { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 
-/**
- * Annict 連携済みかどうか（SecureStore のトークン有無）を返す。
- *
- * 設計（docs/05）: サーバーはトークンを保存しないため、連携済み判定は
- * クライアントの SecureStore のトークン有無で行う。ソフトゲートの分岐に使う。
- * トークンの実値は返さず、有無（boolean）だけを公開する。
- */
-export function useAnnictConnection() {
-  const query = useQuery({
-    queryKey: ANNICT_CONNECTION_QUERY_KEY,
-    queryFn: async () => {
-      const token = await annictTokenStorage.get();
-      return { connected: token != null };
-    },
-  });
+export type UseAnnictConnection = {
+  isConnected: boolean;
+  isLoading: boolean;
+  refetch: () => void;
+};
 
-  return {
-    isConnected: query.data?.connected ?? false,
-    isLoading: query.isLoading,
-    refetch: query.refetch,
-  };
+export function useAnnictConnection(): UseAnnictConnection {
+  throw new Error(
+    "useAnnictConnection: プラットフォーム実装が解決されていません（.native / .web）",
+  );
 }
 
-/** X-Annict-Token ヘッダを付与するためにトークンを取得する。未連携なら null。 */
-export function getAnnictToken(): Promise<string | null> {
-  return annictTokenStorage.get();
+/**
+ * 記録系 API 呼び出しに付ける Annict 認可ヘッダを組み立てる。
+ * - ネイティブ: SecureStore のトークンを X-Annict-Token ヘッダで運ぶ。
+ * - Web:        空オブジェクト（サーバーが Clerk 認証で D1 のトークンを参照するため）。
+ * 呼び出し側は戻り値を fetch の headers に spread するだけでよい。
+ */
+export function buildAnnictAuthHeader(): Promise<Record<string, string>> {
+  throw new Error(
+    "buildAnnictAuthHeader: プラットフォーム実装が解決されていません（.native / .web）",
+  );
 }
