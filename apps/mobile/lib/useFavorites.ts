@@ -3,10 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
-import { getAnnictToken } from "@/lib/annict";
-
-// Annict アクセストークンを運ぶヘッダ名（API の requireAnnictToken と対応）。
-const ANNICT_TOKEN_HEADER = "X-Annict-Token";
+import { buildAnnictAuthHeader } from "@/lib/annict";
 
 type FavoritesResponse = InferResponseType<
   (typeof apiClient.me.favorites)["$get"],
@@ -72,16 +69,12 @@ export function useAddFavorite() {
     mutationFn: async (annictWorkId: number) => {
       const headers = await getAuthHeaders(getToken);
       // 検索結果（未キャッシュ作品）からの追加では、API が searchWorks で作品を
-      // 解決するため X-Annict-Token が要る。連携済みなら付与する（未連携でも
-      // キャッシュ済み作品なら追加できるよう、トークン無しは許容する）。
-      const annictToken = await getAnnictToken();
+      // 解決するため Annict トークンが要る。native は連携済みならヘッダで付与し、
+      // Web はサーバー(D1)側で解決される。キャッシュ済み作品ならトークン無しでも追加可。
+      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me.favorites[":annictWorkId"].$post(
         { param: { annictWorkId: String(annictWorkId) } },
-        {
-          headers: annictToken
-            ? { ...headers, [ANNICT_TOKEN_HEADER]: annictToken }
-            : headers,
-        },
+        { headers: { ...headers, ...annictHeader } },
       );
       if (!res.ok) throw new Error("お気に入りの追加に失敗しました");
       return res.json();

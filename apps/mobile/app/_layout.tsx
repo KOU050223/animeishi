@@ -25,7 +25,9 @@ function AuthGuard() {
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === "(auth)";
-    const inPublicGroup = segments[0] === "user";
+    // user: 公開プロフィール。annict: OAuth コールバック着地（サインインへ飛ばすと
+    // Clerk ロード待ちの間に URL の code/state を失うため、ガードの対象外にする）。
+    const inPublicGroup = segments[0] === "user" || segments[0] === "annict";
 
     if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
@@ -39,6 +41,8 @@ function AuthGuard() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="user" />
+      {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
+      <Stack.Screen name="annict" />
     </Stack>
   );
 }
