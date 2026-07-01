@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -115,133 +116,152 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="pb-12">
-      <View className="px-4 pb-3 pt-12">
-        <Text className="text-xl font-bold text-gray-900">プロフィール</Text>
-      </View>
+    <View className="flex-1 bg-gray-50">
+      <ScrollView className="flex-1" contentContainerClassName="pb-12">
+        <View className="px-4 pb-3 pt-12">
+          <Text className="text-xl font-bold text-gray-900">プロフィール</Text>
+        </View>
+
+        {/* 名刺プレビュー（ピンチ&ズーム可） */}
+        <View className="px-4">
+          <Text className="mb-0.5 text-sm font-medium text-gray-700">
+            名刺プレビュー
+          </Text>
+          <Text className="mb-2 text-xs text-gray-400">
+            2本指を広げると拡大できます
+          </Text>
+          <MeishiCard
+            username={username || profile?.username || "ユーザー"}
+            bio={bio}
+            favoriteQuote={favoriteQuote}
+            profileImageUrl={profile?.profileImageUrl}
+            zoomable
+          />
+        </View>
+
+        {/* アバター変更 */}
+        <View className="mt-6 px-4">
+          <TouchableOpacity
+            className="items-center rounded-xl border border-dashed border-indigo-300 bg-white py-4"
+            onPress={onChangeAvatar}
+            disabled={uploadAvatar.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="プロフィール画像を変更"
+          >
+            {uploadAvatar.isPending ? (
+              <ActivityIndicator color="#4f46e5" />
+            ) : (
+              <Text className="font-semibold text-indigo-600">
+                プロフィール画像を変更
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* 編集フォーム */}
+        <View className="mt-6 gap-4 px-4">
+          <View>
+            <Text className="mb-1 text-sm font-medium text-gray-700">
+              ユーザー名
+            </Text>
+            <TextInput
+              value={username}
+              onChangeText={setUsername}
+              placeholder="ユーザー名"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+              maxLength={20}
+              accessibilityLabel="ユーザー名入力"
+            />
+          </View>
+
+          <View>
+            <Text className="mb-1 text-sm font-medium text-gray-700">
+              自己紹介
+            </Text>
+            <TextInput
+              value={bio}
+              onChangeText={setBio}
+              placeholder="自己紹介"
+              multiline
+              numberOfLines={3}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+              maxLength={500}
+              accessibilityLabel="自己紹介入力"
+            />
+          </View>
+
+          <View>
+            <Text className="mb-1 text-sm font-medium text-gray-700">
+              好きなセリフ
+            </Text>
+            <TextInput
+              value={favoriteQuote}
+              onChangeText={setFavoriteQuote}
+              placeholder="好きなセリフ"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+              maxLength={500}
+              accessibilityLabel="好きなセリフ入力"
+            />
+          </View>
+
+          <TouchableOpacity
+            className="mt-2 items-center rounded-lg bg-indigo-600 py-3"
+            onPress={onSave}
+            disabled={updateProfile.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="プロフィールを保存"
+          >
+            {updateProfile.isPending ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="font-semibold text-white">保存</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Annict 連携 */}
+        <View className="mt-6 px-4">
+          <AnnictConnectionCard />
+        </View>
+      </ScrollView>
 
       {/* 保存・アップロード結果のトースト */}
-      {toast ? (
-        <View
-          className={`mx-4 mb-2 rounded-lg px-4 py-3 ${
-            toast.type === "success" ? "bg-green-50" : "bg-red-50"
-          }`}
-          accessibilityRole="alert"
-          accessibilityLiveRegion="polite"
-        >
-          <Text
-            className={
-              toast.type === "success"
-                ? "text-sm font-medium text-green-700"
-                : "text-sm font-medium text-red-600"
-            }
+      <View
+        testID="profile-toast-layer"
+        pointerEvents="box-none"
+        style={styles.toastLayer}
+      >
+        {toast ? (
+          <View
+            className={`mx-4 mt-12 rounded-lg px-4 py-3 shadow-md ${
+              toast.type === "success" ? "bg-green-50" : "bg-red-50"
+            }`}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
           >
-            {toast.message}
-          </Text>
-        </View>
-      ) : null}
-
-      {/* 名刺プレビュー（ピンチ&ズーム可） */}
-      <View className="px-4">
-        <Text className="mb-0.5 text-sm font-medium text-gray-700">
-          名刺プレビュー
-        </Text>
-        <Text className="mb-2 text-xs text-gray-400">
-          2本指を広げると拡大できます
-        </Text>
-        <MeishiCard
-          username={username || profile?.username || "ユーザー"}
-          bio={bio}
-          favoriteQuote={favoriteQuote}
-          profileImageUrl={profile?.profileImageUrl}
-          zoomable
-        />
-      </View>
-
-      {/* アバター変更 */}
-      <View className="mt-6 px-4">
-        <TouchableOpacity
-          className="items-center rounded-xl border border-dashed border-indigo-300 bg-white py-4"
-          onPress={onChangeAvatar}
-          disabled={uploadAvatar.isPending}
-          accessibilityRole="button"
-          accessibilityLabel="プロフィール画像を変更"
-        >
-          {uploadAvatar.isPending ? (
-            <ActivityIndicator color="#4f46e5" />
-          ) : (
-            <Text className="font-semibold text-indigo-600">
-              プロフィール画像を変更
+            <Text
+              className={
+                toast.type === "success"
+                  ? "text-sm font-medium text-green-700"
+                  : "text-sm font-medium text-red-600"
+              }
+            >
+              {toast.message}
             </Text>
-          )}
-        </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
-
-      {/* 編集フォーム */}
-      <View className="mt-6 gap-4 px-4">
-        <View>
-          <Text className="mb-1 text-sm font-medium text-gray-700">
-            ユーザー名
-          </Text>
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            placeholder="ユーザー名"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-            maxLength={20}
-            accessibilityLabel="ユーザー名入力"
-          />
-        </View>
-
-        <View>
-          <Text className="mb-1 text-sm font-medium text-gray-700">
-            自己紹介
-          </Text>
-          <TextInput
-            value={bio}
-            onChangeText={setBio}
-            placeholder="自己紹介"
-            multiline
-            numberOfLines={3}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-            maxLength={500}
-            accessibilityLabel="自己紹介入力"
-          />
-        </View>
-
-        <View>
-          <Text className="mb-1 text-sm font-medium text-gray-700">
-            好きなセリフ
-          </Text>
-          <TextInput
-            value={favoriteQuote}
-            onChangeText={setFavoriteQuote}
-            placeholder="好きなセリフ"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-            maxLength={500}
-            accessibilityLabel="好きなセリフ入力"
-          />
-        </View>
-
-        <TouchableOpacity
-          className="mt-2 items-center rounded-lg bg-indigo-600 py-3"
-          onPress={onSave}
-          disabled={updateProfile.isPending}
-          accessibilityRole="button"
-          accessibilityLabel="プロフィールを保存"
-        >
-          {updateProfile.isPending ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text className="font-semibold text-white">保存</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Annict 連携 */}
-      <View className="mt-6 px-4">
-        <AnnictConnectionCard />
-      </View>
-    </ScrollView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  toastLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    elevation: 20,
+  },
+});
