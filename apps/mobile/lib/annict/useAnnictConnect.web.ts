@@ -4,6 +4,7 @@ import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/clerk-expo";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type { AnnictConnectResult, UseAnnictConnect } from "./useAnnictConnect";
 
 // Annict OAuth クライアント ID（EXPO_PUBLIC_ なので Web バンドルに埋め込まれてよい）。
@@ -16,9 +17,6 @@ function getAnnictClientId(): string {
 // app/annict.tsx が戻り URL の state と突き合わせる。sessionStorage はタブを閉じると
 // 消えるため、CSRF 用の一時値の置き場として妥当。
 export const ANNICT_STATE_STORAGE_KEY = "annict_oauth_state";
-
-// 視聴履歴キャッシュのプレフィックスキー（native 実装と一致させる）。
-const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
 
 /** Web の Annict OAuth コールバック着地 URL（例: https://host/annict）。 */
 export function getWebRedirectUri(): string {

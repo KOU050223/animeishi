@@ -1,8 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { encryptToken, decryptToken } from "../crypto";
 
-// テスト用の 32byte 鍵（base64）。crypto.getRandomValues で生成した固定値。
-const TEST_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+// テスト用の 32byte 鍵（base64）を実行時に生成する。固定の base64 文字列を埋め込むと
+// シークレットスキャン（Betterleaks 等）に誤検知され、本物の漏えいが埋もれるため。
+function generateKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+const TEST_KEY = generateKey();
 
 describe("encryptToken / decryptToken", () => {
   it("暗号化したトークンを復号すると元に戻る", async () => {
@@ -29,7 +35,7 @@ describe("encryptToken / decryptToken", () => {
   });
 
   it("異なる鍵では復号できない（改ざん/鍵不一致で例外）", async () => {
-    const otherKey = "ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=";
+    const otherKey = generateKey();
     const encrypted = await encryptToken("token", TEST_KEY);
     await expect(decryptToken(encrypted, otherKey)).rejects.toThrow();
   });

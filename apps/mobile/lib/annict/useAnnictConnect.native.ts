@@ -8,16 +8,12 @@ import { apiClient } from "@/lib/api";
 import { annictTokenStorage } from "./storage";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type { AnnictConnectResult } from "./useAnnictConnect";
 
 // Annict OAuth クライアント ID。EXPO_PUBLIC_ なので公開ビルドに埋め込まれてよい
 // （client_secret は埋め込まず Workers 側にのみ置く）。
 const ANNICT_CLIENT_ID = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID ?? "";
-
-// useWatchHistory の WATCH_HISTORY_QUERY_KEY と一致させる視聴履歴キャッシュの
-// プレフィックスキー。useWatchHistory を import すると barrel 経由で循環するため
-// ここで直書きする（値がズレると連携解除時のキャッシュ破棄が効かなくなる点に注意）。
-const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
 
 // Annict アプリ設定に登録した deep link。authorize / token 交換の双方で一致させる。
 // Linking.createURL は expo-constants のマニフェストを要求し、モジュールロード時に

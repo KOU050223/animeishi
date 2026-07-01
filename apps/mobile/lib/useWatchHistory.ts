@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 
 type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],
@@ -14,7 +15,8 @@ type UpsertRequest = InferRequestType<
   (typeof apiClient.me)["watch-histories"][":annictWorkId"]["$put"]
 >["json"];
 
-export const WATCH_HISTORY_QUERY_KEY = ["watch-histories"] as const;
+// キー定義は @/lib/watchHistoryKey に集約（連携解除時の破棄と一致させるため）。
+export { WATCH_HISTORY_QUERY_KEY };
 
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;

@@ -20,8 +20,11 @@ vi.mock("@clerk/hono", () => ({
 import { getAuth } from "@clerk/hono";
 
 const USER_ID = "user_annict001";
-// crypto.test.ts と同じ形式の 32byte base64 鍵。
-const ENC_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+// 32byte base64 の暗号鍵をテスト実行時に生成する（固定値の埋め込みはシークレット
+// スキャンの誤検知を招くため）。
+const ENC_KEY = btoa(
+  String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))),
+);
 
 const TEST_BINDINGS = {
   DB: env.DB,
