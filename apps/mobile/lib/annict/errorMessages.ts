@@ -8,16 +8,16 @@ export function annictErrorKey(reason: string): TranslationKey {
   switch (reason) {
     // ユーザーが Annict 側で権限付与を拒否した場合。想定外エラーではなくキャンセル扱い。
     case "access_denied":
-      return "annict.errors.cancelled";
+      return "連携をキャンセルしました";
     case "not_configured":
-      return "annict.errors.notConfigured";
+      return "Annict 連携が構成されていません";
     case "state_mismatch":
-      return "annict.errors.stateMismatch";
+      return "認証情報が一致しませんでした。もう一度お試しください";
     case "exchange_failed":
     case "browser_failed":
     case "unauthorized":
-      return "annict.errors.exchangeFailed";
+      return "Annict 連携に失敗しました。もう一度お試しください";
     default:
-      return "annict.errors.unexpected";
+      return "予期しないエラーが発生しました";
   }
 }

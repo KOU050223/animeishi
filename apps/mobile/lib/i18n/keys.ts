@@ -1,12 +1,6 @@
-// 翻訳リソース(ja)の構造から、ドット記法のキー文字列リテラル型を導出する。
-// 例: "auth.signIn.title" のような型安全なキーを得る。
-import type ja from "./locales/ja/translation.json";
+// 翻訳キーの型。日本語文言をそのままキーとして扱うため（例: t("アニ名刺")）、
+// en リソース（日本語キー → 英訳のマップ）のキー集合をソースオブトゥルースとする。
+import type en from "./locales/en/translation.json";
 
-type Leaves<T> = T extends string
-  ? ""
-  : {
-      [K in keyof T & string]: T[K] extends string ? K : `${K}.${Leaves<T[K]>}`;
-    }[keyof T & string];
-
-/** translation namespace の全リーフキー（ドット記法）。 */
-export type TranslationKey = Leaves<typeof ja>;
+/** 全翻訳キー（= 日本語文言）。存在しないキーは t() で型エラーになる。 */
+export type TranslationKey = keyof typeof en;

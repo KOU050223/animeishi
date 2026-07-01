@@ -284,7 +284,7 @@ export function AnimeListContent({
             // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
             // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
             <AnnictSoftGate
-              description="annict.softGate.works"
+              description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
               testID="anime-list-soft-gate"
             />
           ) : showLoading ? (

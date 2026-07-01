@@ -5,7 +5,6 @@ import { getLocales } from "expo-localization";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-import ja from "./locales/ja/translation.json";
 import en from "./locales/en/translation.json";
 
 /** 現状サポートする言語。言語を追加する場合はここと resources を増やす。 */
@@ -14,12 +13,11 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const FALLBACK_LANGUAGE: SupportedLanguage = "ja";
 
-// en は ja と同一のキー構造を持つことを型で保証する（キー追加・削除の取りこぼし防止）。
-const enResource: typeof ja = en;
-
+// 日本語をキー兼デフォルト文言のソースオブトゥルースとして扱う（例: t("アニ名刺")）。
+// ja はリソースを持たず、翻訳が見つからないときに i18next がキー文字列（=日本語）を
+// そのまま返す挙動を利用する。en だけが「日本語キー → 英訳」のマップを持つ。
 export const resources = {
-  ja: { translation: ja },
-  en: { translation: enResource },
+  en: { translation: en },
 } as const;
 
 /** 端末ロケールから対応言語を解決する。未対応ならフォールバック言語。 */
@@ -33,9 +31,13 @@ function detectLanguage(): SupportedLanguage {
 i18n.use(initReactI18next).init({
   resources,
   lng: detectLanguage(),
+  // ja はリソースを持たないため、フォールバックしてもキー（=日本語文言）が返る。
   fallbackLng: FALLBACK_LANGUAGE,
   supportedLngs: SUPPORTED_LANGUAGES,
   defaultNS: "translation",
+  // キーに日本語文言や記号（. : 等）をそのまま使うため、区切り文字を無効化する。
+  keySeparator: false,
+  nsSeparator: false,
   interpolation: {
     // React は既に XSS をエスケープするため不要。
     escapeValue: false,

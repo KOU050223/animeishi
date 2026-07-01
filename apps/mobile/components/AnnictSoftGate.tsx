@@ -22,7 +22,7 @@ export function AnnictSoftGate({
   description,
   testID,
 }: {
-  /** 画面文脈に応じた説明文（例: annict.softGate.watchHistory）。 */
+  /** 画面文脈に応じた説明文（= 日本語キー。例: 呼び出し側が視聴履歴/作品検索用の文言を渡す）。 */
   description: TranslationKey;
   testID?: string;
 }) {
@@ -36,7 +36,7 @@ export function AnnictSoftGate({
     // 成功時は useAnnictConnect が連携状態クエリを invalidate するため、
     // 呼び出し側の isConnected が更新されてこのゲート自体が消える。
     if (result.status === "cancelled") {
-      setErrorText(t("annict.errors.cancelled"));
+      setErrorText(t("連携をキャンセルしました"));
     } else if (result.status === "error") {
       setErrorText(t(annictErrorKey(result.reason)));
     }
@@ -52,7 +52,7 @@ export function AnnictSoftGate({
       </View>
 
       <Text className="mb-2 text-center text-lg font-bold text-gray-900">
-        {t("annict.softGate.title")}
+        {t("Annict 連携が必要です")}
       </Text>
       <Text className="mb-6 text-center text-sm leading-5 text-gray-500">
         {t(description)}
@@ -74,7 +74,7 @@ export function AnnictSoftGate({
         accessibilityRole="button"
         // 接続中はスピナーのみでテキストが消えるため、名前と状態を明示する。
         accessibilityLabel={
-          isConnecting ? t("annict.connecting") : t("annict.softGate.cta")
+          isConnecting ? t("連携中...") : t("連携する")
         }
         accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
       >
@@ -82,7 +82,7 @@ export function AnnictSoftGate({
           <ActivityIndicator color="#ffffff" />
         ) : (
           <Text className="font-semibold text-white">
-            {t("annict.softGate.cta")}
+            {t("連携する")}
           </Text>
         )}
       </TouchableOpacity>

@@ -82,7 +82,7 @@ export default function WatchHistoryScreen() {
           <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
         </View>
         <AnnictSoftGate
-          description="annict.softGate.watchHistory"
+          description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。"
           testID="watch-history-soft-gate"
         />
       </View>

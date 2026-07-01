@@ -28,7 +28,7 @@ beforeEach(() => {
 
 describe("AnnictSoftGate", () => {
   it("タイトル・説明・連携 CTA をレンダリングする", () => {
-    render(<AnnictSoftGate description="annict.softGate.watchHistory" />);
+    render(<AnnictSoftGate description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。" />);
 
     expect(screen.getByText("Annict 連携が必要です")).toBeTruthy();
     expect(
@@ -40,7 +40,7 @@ describe("AnnictSoftGate", () => {
   });
 
   it("description で画面ごとの文言を切り替えられる", () => {
-    render(<AnnictSoftGate description="annict.softGate.works" />);
+    render(<AnnictSoftGate description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。" />);
 
     expect(
       screen.getByText(
@@ -51,7 +51,7 @@ describe("AnnictSoftGate", () => {
 
   it("CTA タップで連携フローを開始する", async () => {
     mockConnect.mockResolvedValueOnce({ status: "success" });
-    render(<AnnictSoftGate description="annict.softGate.works" />);
+    render(<AnnictSoftGate description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。" />);
 
     fireEvent.press(screen.getByText("連携する"));
 
@@ -62,7 +62,7 @@ describe("AnnictSoftGate", () => {
 
   it("連携キャンセル時にキャンセルメッセージを表示する", async () => {
     mockConnect.mockResolvedValueOnce({ status: "cancelled" });
-    render(<AnnictSoftGate description="annict.softGate.works" />);
+    render(<AnnictSoftGate description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。" />);
 
     fireEvent.press(screen.getByText("連携する"));
 
@@ -77,7 +77,7 @@ describe("AnnictSoftGate", () => {
       status: "error",
       reason: "exchange_failed",
     });
-    render(<AnnictSoftGate description="annict.softGate.works" />);
+    render(<AnnictSoftGate description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。" />);
 
     fireEvent.press(screen.getByText("連携する"));
 
@@ -95,7 +95,7 @@ describe("AnnictSoftGate", () => {
       disconnect: jest.fn(),
       isConnecting: true,
     });
-    render(<AnnictSoftGate description="annict.softGate.works" />);
+    render(<AnnictSoftGate description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。" />);
 
     // 接続中はラベルが annict.connecting になり、busy/disabled が立つ。
     const button = screen.getByLabelText("連携中...");
