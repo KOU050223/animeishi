@@ -17,14 +17,15 @@ const USER_ID = "user_testworks001";
 
 // Annict searchWorks（global fetch）をモックする。
 // nodes に渡した作品をそのまま searchWorks の結果として返す。
+// リクエスト body（variables）を検証したいテスト向けに fetch の spy を返す。
 function mockSearchWorks(
   nodes: { annictId: number; title?: string }[],
   pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
     hasNextPage: false,
     endCursor: null,
   },
-): void {
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+): ReturnType<typeof vi.spyOn> {
+  return vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(
       JSON.stringify({
         data: {
@@ -118,19 +119,7 @@ describe("作品検索 API", () => {
     });
 
     it("GET /works/search: title が無ければ今期シーズン検索で 200", async () => {
-      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            data: {
-              searchWorks: {
-                pageInfo: { hasNextPage: false, endCursor: null },
-                nodes: [],
-              },
-            },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+      const fetchMock = mockSearchWorks([]);
 
       const app = buildApp();
       const res = await app.request(
@@ -167,19 +156,7 @@ describe("作品検索 API", () => {
     });
 
     it("GET /works/search: season を明示すると指定シーズンで検索する", async () => {
-      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            data: {
-              searchWorks: {
-                pageInfo: { hasNextPage: false, endCursor: null },
-                nodes: [],
-              },
-            },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+      const fetchMock = mockSearchWorks([]);
 
       const app = buildApp();
       const res = await app.request(

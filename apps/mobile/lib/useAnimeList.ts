@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
@@ -78,6 +78,9 @@ export function useAnimeList(query: string, season?: string) {
     queryKey: worksSearchQueryKey(trimmed, season),
     // 検索語が空でもシーズン一覧を出すため、連携済みなら常に有効化する。
     enabled: !!isSignedIn && isConnected,
+    // 年/季節チップを切り替えると queryKey が変わり別クエリ扱いになるため、
+    // 取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<WorksSearchResponse> => {
       const headers = await getAuthHeaders(getToken);
       const annictToken = await getAnnictToken();

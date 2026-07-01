@@ -377,29 +377,16 @@ type SearchWorksByTitleResponse = {
 
 // 1 リクエストで返す最大件数。検索 UI は 1 ページ（first: 50）で十分なため、
 // libraryEntries のような全ページ走査はしない（追加ページはユーザー操作で取りに行く想定）。
-/**
- * タイトル文字列で Annict 作品を検索し、整形した作品メタの配列を返す。
- * 検索結果は作品マスタの代替であり、視聴ステータス（state）は持たない。
- * `after` でカーソルページングできる。
- */
-export async function searchAnnictWorksByTitle(
-  accessToken: string,
-  title: string,
-  after: string | null = null,
-  fetchImpl: typeof fetch = fetch,
-): Promise<{
+
+// searchWorks の connection を検索 API の戻り値（作品配列 + ページ情報）へ整形する。
+// タイトル検索・シーズン検索で返すフィールドは同一なので変換ロジックを共通化する。
+function mapSearchWorksConnection(
+  connection: SearchWorksByTitleResponse["searchWorks"] | null,
+): {
   works: AnnictLibraryEntry[];
   hasNextPage: boolean;
   endCursor: string | null;
-}> {
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
-    accessToken,
-    SEARCH_WORKS_BY_TITLE_QUERY,
-    { titles: [title], after },
-    fetchImpl,
-  );
-
-  const connection = data.searchWorks;
+} {
   if (!connection) {
     return { works: [], hasNextPage: false, endCursor: null };
   }
@@ -423,6 +410,31 @@ export async function searchAnnictWorksByTitle(
   };
 }
 
+/**
+ * タイトル文字列で Annict 作品を検索し、整形した作品メタの配列を返す。
+ * 検索結果は作品マスタの代替であり、視聴ステータス（state）は持たない。
+ * `after` でカーソルページングできる。
+ */
+export async function searchAnnictWorksByTitle(
+  accessToken: string,
+  title: string,
+  after: string | null = null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{
+  works: AnnictLibraryEntry[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}> {
+  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    accessToken,
+    SEARCH_WORKS_BY_TITLE_QUERY,
+    { titles: [title], after },
+    fetchImpl,
+  );
+
+  return mapSearchWorksConnection(data.searchWorks);
+}
+
 // --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---
 
 // Annict のシーズン区分（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。
@@ -434,9 +446,12 @@ const ANNICT_SEASON_NAMES = ["winter", "spring", "summer", "autumn"] as const;
  * 「今期アニメ」を searchWorks(seasons:) で引くためのキーに使う。
  */
 export function currentAnnictSeason(now: Date = new Date()): string {
-  const year = now.getUTCFullYear();
+  // Annict は日本のサービスなので「今期」は JST（UTC+9）基準で判定する。
+  // UTC のままだと四半期境界（例: 4/1 00:00〜08:59 JST）で 1 つ前のシーズンを返してしまう。
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = jst.getUTCFullYear();
   // 0-11 の月を 3 か月区切りのシーズンインデックス（0-3）に丸める。
-  const season = ANNICT_SEASON_NAMES[Math.floor(now.getUTCMonth() / 3)];
+  const season = ANNICT_SEASON_NAMES[Math.floor(jst.getUTCMonth() / 3)];
   return `${year}-${season}`;
 }
 
@@ -480,28 +495,7 @@ export async function searchAnnictWorksBySeason(
     fetchImpl,
   );
 
-  const connection = data.searchWorks;
-  if (!connection) {
-    return { works: [], hasNextPage: false, endCursor: null };
-  }
-
-  const works: AnnictLibraryEntry[] = connection.nodes.map((work) => ({
-    annictWorkId: work.annictId,
-    nodeId: work.id,
-    state: null,
-    title: work.title,
-    titleKana: work.titleKana,
-    titleEn: work.titleEn,
-    seasonName: work.seasonName,
-    seasonYear: work.seasonYear,
-    imageUrl: work.image?.recommendedImageUrl ?? null,
-  }));
-
-  return {
-    works,
-    hasNextPage: connection.pageInfo.hasNextPage,
-    endCursor: connection.pageInfo.endCursor,
-  };
+  return mapSearchWorksConnection(data.searchWorks);
 }
 
 export type AnnictTokenResponse = {
