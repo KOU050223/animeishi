@@ -6,9 +6,12 @@
 
 const IV_LENGTH = 12; // AES-GCM 推奨 IV 長（96bit）。
 
-function base64ToBytes(b64: string): Uint8Array {
+// SharedArrayBuffer 由来の Uint8Array を避け、必ず ArrayBuffer 実体で確保する。
+// crypto.subtle は BufferSource(ArrayBufferView<ArrayBuffer>) を要求するため、
+// モバイルの DOM 型チェック（AppType 推論経由）でも矛盾しないようにする。
+function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
+  const bytes = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
@@ -39,8 +42,8 @@ export async function encryptToken(
   keyBase64: string,
 ): Promise<string> {
   const key = await importKey(keyBase64);
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  const encoded = new TextEncoder().encode(plain);
+  const iv = crypto.getRandomValues(new Uint8Array(new ArrayBuffer(IV_LENGTH)));
+  const encoded = new Uint8Array(new TextEncoder().encode(plain));
   const cipherBuf = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
