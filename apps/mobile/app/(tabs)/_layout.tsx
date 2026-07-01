@@ -1,12 +1,30 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  // 下端（ホームインジケータ等）との干渉を避けるため、safe area 分を上乗せしてタブバーを縦に広げる。
+  const bottomInset = insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#4f46e5",
+        tabBarStyle: {
+          height: 64 + bottomInset,
+          paddingTop: 8,
+          paddingBottom: bottomInset + 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          paddingVertical: Platform.OS === "web" ? 4 : 0,
+        },
       }}
     >
       <Tabs.Screen
