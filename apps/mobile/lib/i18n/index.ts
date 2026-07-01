@@ -20,8 +20,18 @@ export const resources = {
   en: { translation: en },
 } as const;
 
-/** 端末ロケールから対応言語を解決する。未対応ならフォールバック言語。 */
+/** 端末/ブラウザのロケールから対応言語を解決する。未対応ならフォールバック言語。
+ *  Web では navigator.languages の優先順リストを順にチェックして最初にマッチした言語を使う。
+ */
 function detectLanguage(): SupportedLanguage {
+  // Web: ブラウザの言語優先リストを順にチェック
+  if (typeof navigator !== "undefined" && navigator.languages?.length) {
+    for (const lang of navigator.languages) {
+      const code = lang.split("-")[0] as SupportedLanguage;
+      if (SUPPORTED_LANGUAGES.includes(code)) return code;
+    }
+  }
+  // Native: expo-localization のロケール情報を使用
   const deviceLanguage = getLocales()[0]?.languageCode;
   return SUPPORTED_LANGUAGES.includes(deviceLanguage as SupportedLanguage)
     ? (deviceLanguage as SupportedLanguage)

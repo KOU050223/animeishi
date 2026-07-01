@@ -11,5 +11,13 @@ jest.mock("expo-localization", () => ({
   getLocales: () => [{ languageCode: "ja" }],
 }));
 
+// jsdom 環境では navigator.languages が ["en"] を返すため ja に固定する。
+// Web 向け言語検出（navigator.languages）より expo-localization モックの値が
+// 優先されるよう、テスト環境では navigator.languages を上書きする。
+Object.defineProperty(navigator, "languages", {
+  get: () => ["ja"],
+  configurable: true,
+});
+
 // 実際の翻訳でアサートできるよう、テスト全体で i18n を初期化しておく。
 require("@/lib/i18n");

@@ -9,7 +9,8 @@
     "newArchEnabled": true,
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "lang": "ja"
     },
     "ios": {
       "supportsTablet": true,
