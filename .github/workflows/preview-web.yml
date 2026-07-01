@@ -1,0 +1,98 @@
+name: Preview Web
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/preview-web.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: preview-web-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Deploy Cloudflare Workers Preview
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm --filter @animeishi/mobile build
+
+      - name: Build web
+        run: pnpm --filter @animeishi/mobile build:web
+        env:
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_PREVIEW_API_URL || vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
+
+      - name: Upload preview version
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
+          WORKER_NAME: animeishi-web-production
+          WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05' }}
+        run: |
+          set -euo pipefail
+
+          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" 2>&1)"
+          printf '%s\n' "$deploy_output"
+
+          preview_url="$(printf '%s\n' "$deploy_output" | sed -nE "s#.*(https://[a-z0-9-]+-${WORKER_NAME}\.[a-z0-9-]+\.workers\.dev).*#\1#p" | tail -n 1)"
+          if [ -z "$preview_url" ]; then
+            preview_url="https://${PREVIEW_ALIAS}-${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
+          fi
+
+          echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          marker="<!-- animeishi-web-preview -->"
+          body="$(cat <<EOF
+          ${marker}
+          ### Web preview
+
+          - URL: ${PREVIEW_URL}
+          - Alias: \`${PREVIEW_ALIAS}\`
+          - Commit: \`${GITHUB_SHA}\`
+          EOF
+          )"
+
+          comment_id="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | tail -n 1)"
+
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" -f body="$body"
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
+          fi
