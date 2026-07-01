@@ -145,6 +145,8 @@ describe("authorizedDb", () => {
       expect(history).toHaveLength(1);
       expect(history[0]?.annictWorkId).toBe(WORK_ID_1);
       expect(history[0]?.state).toBe("WATCHING");
+      // annict_works と JOIN して作品タイトルを返す
+      expect(history[0]?.title).toBe("進撃の巨人");
     });
 
     it("視聴履歴を更新できる（upsert）", async () => {
@@ -326,6 +328,8 @@ describe("authorizedDb", () => {
       const favs = await adb.getMyFavorites();
       expect(favs).toHaveLength(1);
       expect(favs[0]?.annictWorkId).toBe(WORK_ID_1);
+      // annict_works と JOIN して作品タイトルを返す
+      expect(favs[0]?.title).toBe("進撃の巨人");
     });
 
     it("同じ作品を重複追加しても1件のみ", async () => {

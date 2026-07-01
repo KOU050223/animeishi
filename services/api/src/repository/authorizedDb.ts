@@ -40,6 +40,22 @@ export type FriendWithUser = {
   profileImageUrl: string | null;
 };
 
+/** 作品メタ（annict_works）を JOIN で付与するときの共通フィールド。 */
+type AnnictWorkMeta = {
+  title: string;
+  titleKana: string | null;
+  titleEn: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+  imageUrl: string | null;
+};
+
+/** 視聴履歴の 1 件（作品メタを含む）。 */
+export type WatchHistoryWithWork = WatchHistory & AnnictWorkMeta;
+
+/** お気に入りの 1 件（作品メタを含む）。 */
+export type FavoriteWithWork = Favorite & AnnictWorkMeta;
+
 /**
  * authorizedDb: 認証済みユーザーIDを束縛したリポジトリ層。
  * 直接 drizzle クライアントを使わず、必ずこの関数を経由してDB操作を行う。
@@ -196,11 +212,28 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     },
 
     // ---- Watch History ----
-    async getMyWatchHistory(): Promise<WatchHistory[]> {
-      return db.query.watchHistory.findMany({
-        where: eq(watchHistory.userId, currentUserId),
-        orderBy: (t, { desc }) => [desc(t.updatedAt)],
-      });
+    async getMyWatchHistory(): Promise<WatchHistoryWithWork[]> {
+      return db
+        .select({
+          id: watchHistory.id,
+          userId: watchHistory.userId,
+          annictWorkId: watchHistory.annictWorkId,
+          state: watchHistory.state,
+          updatedAt: watchHistory.updatedAt,
+          title: annictWorks.title,
+          titleKana: annictWorks.titleKana,
+          titleEn: annictWorks.titleEn,
+          seasonName: annictWorks.seasonName,
+          seasonYear: annictWorks.seasonYear,
+          imageUrl: annictWorks.imageUrl,
+        })
+        .from(watchHistory)
+        .innerJoin(
+          annictWorks,
+          eq(watchHistory.annictWorkId, annictWorks.annictWorkId),
+        )
+        .where(eq(watchHistory.userId, currentUserId))
+        .orderBy(desc(watchHistory.updatedAt));
     },
 
     async upsertWatchHistory(
@@ -278,7 +311,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     async syncMyLibraryFromAnnict(
       works: NewAnnictWork[],
       entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
-    ): Promise<WatchHistory[]> {
+    ): Promise<WatchHistoryWithWork[]> {
       const now = new Date();
 
       // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
@@ -344,10 +377,29 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       }
       await runBatch(watchQueries);
 
-      return db.query.watchHistory.findMany({
-        where: eq(watchHistory.userId, currentUserId),
-        orderBy: (t, { desc }) => [desc(t.updatedAt)],
-      });
+      // 作品メタ（title 等）を含めて返すため annict_works と JOIN する。
+      // getMyWatchHistory と同一の射影。
+      return db
+        .select({
+          id: watchHistory.id,
+          userId: watchHistory.userId,
+          annictWorkId: watchHistory.annictWorkId,
+          state: watchHistory.state,
+          updatedAt: watchHistory.updatedAt,
+          title: annictWorks.title,
+          titleKana: annictWorks.titleKana,
+          titleEn: annictWorks.titleEn,
+          seasonName: annictWorks.seasonName,
+          seasonYear: annictWorks.seasonYear,
+          imageUrl: annictWorks.imageUrl,
+        })
+        .from(watchHistory)
+        .innerJoin(
+          annictWorks,
+          eq(watchHistory.annictWorkId, annictWorks.annictWorkId),
+        )
+        .where(eq(watchHistory.userId, currentUserId))
+        .orderBy(desc(watchHistory.updatedAt));
     },
 
     async deleteWatchHistory(annictWorkId: number): Promise<void> {
@@ -362,11 +414,27 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     },
 
     // ---- Favorites ----
-    async getMyFavorites(): Promise<Favorite[]> {
-      return db.query.favorites.findMany({
-        where: eq(favorites.userId, currentUserId),
-        orderBy: (t, { desc }) => [desc(t.createdAt)],
-      });
+    async getMyFavorites(): Promise<FavoriteWithWork[]> {
+      return db
+        .select({
+          id: favorites.id,
+          userId: favorites.userId,
+          annictWorkId: favorites.annictWorkId,
+          createdAt: favorites.createdAt,
+          title: annictWorks.title,
+          titleKana: annictWorks.titleKana,
+          titleEn: annictWorks.titleEn,
+          seasonName: annictWorks.seasonName,
+          seasonYear: annictWorks.seasonYear,
+          imageUrl: annictWorks.imageUrl,
+        })
+        .from(favorites)
+        .innerJoin(
+          annictWorks,
+          eq(favorites.annictWorkId, annictWorks.annictWorkId),
+        )
+        .where(eq(favorites.userId, currentUserId))
+        .orderBy(desc(favorites.createdAt));
     },
 
     async addFavorite(annictWorkId: number): Promise<Favorite> {
