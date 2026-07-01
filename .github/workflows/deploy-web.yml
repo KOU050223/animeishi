@@ -58,6 +58,7 @@ jobs:
           # EXPO_PUBLIC_* はビルド時にバンドルへ埋め込まれる（クライアント公開値）
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
 
       - name: Deploy
         run: pnpm --filter @animeishi/mobile exec wrangler deploy --env production
