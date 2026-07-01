@@ -15,13 +15,18 @@ import type { SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
+import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { StatPill } from "./StatPill";
 import { styles } from "./animeListStyles";
 import {
+  currentSeasonKey,
+  formatSeasonLabel,
   formatYearSeason,
   getAnimeListLayout,
+  toSeasonParam,
   useAnimeStats,
+  type SeasonKey,
 } from "./animeListUtils";
 
 export function AnimeListContent({
@@ -40,11 +45,24 @@ export function AnimeListContent({
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  // シーズン絞り込みの選択状態（初期は今年・今期）。検索語が空のときだけ効く。
+  const [filterYear, setFilterYear] = useState(() => new Date().getFullYear());
+  const [filterSeason, setFilterSeason] = useState<SeasonKey>(() =>
+    currentSeasonKey(),
+  );
+  const seasonParam = toSeasonParam(filterYear, filterSeason);
 
-  // 検索語のたびに Annict searchWorks をプロキシ経由で叩く（クライアント側に
-  // 作品マスタは持たない）。検索語が空のうちはクエリは無効化される。
-  const { data, isLoading, isError, refetch, isConnected, isConnectionLoading } =
-    useAnimeList(query);
+  // 検索語があれば title 検索、無ければ選択中のシーズンで一覧を取得する（クライアント側に
+  // 作品マスタは持たず Annict searchWorks をプロキシ経由で叩く）。
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isConnected,
+    isConnectionLoading,
+    isSeason,
+  } = useAnimeList(query, seasonParam);
   const hasQuery = query.trim().length > 0;
 
   const [refreshing, setRefreshing] = useState(false);
@@ -52,10 +70,10 @@ export function AnimeListContent({
   const stats = useAnimeStats(data);
 
   async function onRefresh() {
-    // refetch は react-query の enabled を無視して手動実行されるため、未入力のまま
-    // または未連携で pull-to-refresh すると title="" / 401 で無駄な失敗になる。
-    // enabled と同じ条件（検索語あり + 連携済み）でのみ再取得する。
-    if (!hasQuery || !isConnected) return;
+    // refetch は react-query の enabled を無視して手動実行されるため、未連携で
+    // pull-to-refresh すると 401 で無駄な失敗になる。enabled と同じ条件（連携済み）で
+    // のみ再取得する。検索語が空でも今期アニメを取りに行くので hasQuery は問わない。
+    if (!isConnected) return;
     setRefreshing(true);
     try {
       await refetch();
@@ -76,9 +94,9 @@ export function AnimeListContent({
   // 検索バーは ListHeaderComponent 内にあるため、状態ごとに早期 return すると
   // 入力欄ごと消えてしまう。未連携/ローディング/エラー/未入力は ListEmptyComponent 側で
   // 表現し、検索バーは常に画面に残す。
-  // 連携済みかつ検索語が入っていてフェッチ中のときだけローディング扱いにする
-  // （未連携・クエリ無効時の pending を「連携前/検索前」と区別する）。
-  const showLoading = isConnected && hasQuery && isLoading;
+  // 連携済みでフェッチ中のときだけローディング扱いにする（未連携時の pending を
+  // 「連携前」と区別する）。検索語が空でも今期アニメを取得するためローディングを出す。
+  const showLoading = isConnected && isLoading;
 
   return (
     <View style={styles.screen}>
@@ -168,11 +186,13 @@ export function AnimeListContent({
 
             <View style={[styles.toolbar, isWide && styles.toolbarWide]}>
               <View>
-                <Text style={styles.sectionLabel}>コレクション</Text>
+                <Text style={styles.sectionLabel}>
+                  {hasQuery ? "コレクション" : "シーズンで探す"}
+                </Text>
                 <Text style={styles.resultText}>
                   {hasQuery
                     ? `「${query.trim()}」の検索結果・${sorted.length}件`
-                    : "タイトルを入力して作品を探す"}
+                    : `${formatSeasonLabel(filterYear, filterSeason)}・${sorted.length}件`}
                 </Text>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
@@ -192,6 +212,16 @@ export function AnimeListContent({
                 />
               </View>
             </View>
+
+            {/* シーズン絞り込みは title 検索時には効かないため、検索語が無いときだけ出す。 */}
+            {!hasQuery ? (
+              <SeasonFilter
+                year={filterYear}
+                season={filterSeason}
+                onChangeYear={setFilterYear}
+                onChangeSeason={setFilterSeason}
+              />
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -262,7 +292,11 @@ export function AnimeListContent({
               <View style={styles.loadingMark}>
                 <ActivityIndicator size="small" color="#111827" />
               </View>
-              <Text style={styles.emptyTitle}>検索しています</Text>
+              <Text style={styles.emptyTitle}>
+                {isSeason
+                  ? `${formatSeasonLabel(filterYear, filterSeason)}を読み込んでいます`
+                  : "検索しています"}
+              </Text>
               <Text style={styles.emptyCopy}>
                 Annict から作品を探しています。
               </Text>
@@ -291,13 +325,17 @@ export function AnimeListContent({
               </TouchableOpacity>
             </View>
           ) : !hasQuery ? (
+            // 検索語が空のときは選択シーズンの作品を取得しているが、結果が 0 件のケース。
+            // 放送前で未登録のシーズンなどで起こりうる。別シーズンや検索を案内する。
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
                 <Ionicons name="search-outline" size={24} color="#475569" />
               </View>
-              <Text style={styles.emptyTitle}>作品を検索しましょう</Text>
+              <Text style={styles.emptyTitle}>
+                {formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません
+              </Text>
               <Text style={styles.emptyCopy}>
-                タイトル・よみがな・英語名で検索すると作品が表示されます。
+                別の年・シーズンを選ぶか、タイトルで検索してみてください。
               </Text>
             </View>
           ) : (

@@ -137,12 +137,27 @@ describe("useAnimeList", () => {
     mockGetAnnictToken.mockResolvedValue("annict_tok");
   });
 
-  it("検索語が空のうちはフェッチしない（enabled=false）", () => {
+  it("検索語が空のときは今期アニメ（season）を title なしで取得する", async () => {
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({
+        works: [
+          { annictWorkId: 99, nodeId: "n99", state: null, title: "今期アニメ" },
+        ],
+        hasNextPage: false,
+        endCursor: null,
+      })
+    );
+
     const { result } = renderHook(() => useAnimeList(""), {
       wrapper: makeWrapper(),
     });
-    expect(mockSearchGet).not.toHaveBeenCalled();
-    expect(result.current.data).toBeUndefined();
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.isSeason).toBe(true);
+    expect(result.current.data?.[0].title).toBe("今期アニメ");
+    // 検索語が空なので title を載せない（サーバーが今期シーズンを既定にする）。
+    const [arg] = mockSearchGet.mock.calls[0];
+    expect(arg.query.title).toBeUndefined();
   });
 
   it("未連携のうちはフェッチせず isConnected=false を返す", () => {
@@ -191,6 +206,8 @@ describe("useAnimeList", () => {
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.endCursor).toBe("cur1");
 
+    // 検索結果は今期アニメ初期表示ではない。
+    expect(result.current.isSeason).toBe(false);
     // title / X-Annict-Token を載せて呼んでいる。
     const [arg, opts] = mockSearchGet.mock.calls[0];
     expect(arg.query.title).toBe("進撃");
