@@ -120,7 +120,7 @@ function FavoriteRow({
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
-          {`作品ID: ${favorite.annictWorkId}`}
+          {favorite.title}
         </Text>
       </View>
 
@@ -128,7 +128,7 @@ function FavoriteRow({
         onPress={onRemove}
         className="bg-red-50 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel={`作品ID ${favorite.annictWorkId} をお気に入りから解除`}
+        accessibilityLabel={`${favorite.title} をお気に入りから解除`}
       >
         <Text className="text-xs text-red-500">解除</Text>
       </TouchableOpacity>

@@ -192,7 +192,7 @@ function WatchHistoryRow({
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
-          {`作品ID: ${history.annictWorkId}`}
+          {history.title}
         </Text>
         <View className="flex-row items-center gap-2 mt-1 flex-wrap">
           <Text
@@ -209,7 +209,7 @@ function WatchHistoryRow({
           onPress={onEdit}
           className="bg-gray-100 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`作品ID ${history.annictWorkId} の視聴履歴を編集`}
+          accessibilityLabel={`${history.title} の視聴履歴を編集`}
         >
           <Text className="text-xs text-gray-600">編集</Text>
         </TouchableOpacity>
@@ -217,7 +217,7 @@ function WatchHistoryRow({
           onPress={onDelete}
           className="bg-red-50 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
-          accessibilityLabel={`作品ID ${history.annictWorkId} の視聴履歴を削除`}
+          accessibilityLabel={`${history.title} の視聴履歴を削除`}
         >
           <Text className="text-xs text-red-500">削除</Text>
         </TouchableOpacity>
@@ -247,7 +247,7 @@ function EditModal({
             className="text-lg font-bold text-gray-900 mb-1"
             numberOfLines={2}
           >
-            {`作品ID: ${history.annictWorkId}`}
+            {history.title}
           </Text>
           <Text className="text-xs text-gray-400 mb-5">
             視聴ステータスを編集
