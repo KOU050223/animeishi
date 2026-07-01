@@ -216,3 +216,65 @@ query SearchWorks($titles: [String!], $seasons: [String!], $after: String) {
 - **未連携ユーザーの離脱計測**: ソフトゲートでも記録機能の連携誘導 → 連携完了のコンバージョンを計測する。
 - **`redirect_uri` 登録**: Annict アプリ設定に `animeishi://annict`(本番)とローカル/プレビュー用を登録する必要がある。
 ```
+
+---
+
+## 追補: Web(ブラウザ)での Annict 連携 — サーバー暗号化保存方式
+
+### 背景
+
+初期設計は「サーバー非保存 + `X-Annict-Token` ヘッダ」（表1・項1/2）で、
+モバイル(SecureStore)を前提にしていた。しかし Web ビルドでは:
+
+- SecureStore が無く、localStorage は XSS で長期トークンを抜かれるため本番では永続化を禁じていた
+  （`storage.web.ts` の `isProductionWeb` ガード）。結果、**Web では連携しても保持できない**。
+- OAuth の `redirect_uri` が Web では実 URL(`https://<host>/annict`)になるが、その
+  Expo Router ルートが無く **「Unmatched Route」(404)** で連携が完了しなかった。
+
+### 方針
+
+**Web のみ**、Annict アクセストークンを **Workers 側で AES-GCM 暗号化して D1 に保存し、
+Clerk 認証(`clerkUserId`)をキーに参照する**。ネイティブは従来のヘッダ方式を維持し、両系統を併存させる。
+
+> Cookie は使わない。Web でも Clerk JWT(Authorization ヘッダ)は既に全リクエストに乗るため、
+> `clerkUserId` で `annict_tokens` を引けば連携済み判定もトークン参照もできる。Cookie を足すと
+> CORS `credentials`・`SameSite`・CSRF の複雑さが増えるだけで、認可の本質は Clerk JWT が担う。
+> トークンは JS から読めないサーバー D1 にのみ暗号化保存されるため、XSS でも漏れない（目的達成）。
+
+| 項目 | ネイティブ (iOS/Android) | Web (ブラウザ) |
+| --- | --- | --- |
+| トークン保存先 | 端末 SecureStore | Workers → D1 に AES-GCM 暗号化保存 |
+| 通信での運び方 | `X-Annict-Token` ヘッダ | サーバーが D1 から復号して利用（クライアントは持たない） |
+| 認可のキー | Clerk JWT | Clerk JWT (`clerkUserId`) |
+| 連携判定 | SecureStore のトークン有無 | サーバー `GET /me/annict`(D1 の行有無 + token/info) |
+| コールバック | deep link `animeishi://annict` | 実ページ `/annict`(Expo Router ルート) |
+
+### サーバー側
+
+- **`annict_tokens` テーブル**: `userId`(PK, Clerk) / `encryptedToken` / `annictUserId` / `scope` /
+  `createdAt` / `updatedAt`。トークンは AES-GCM で暗号化して保存（平文で置かない）。
+- **暗号鍵**: `ANNICT_ENCRYPTION_KEY`(Workers Secret, 32byte base64)。`lib/annict/crypto.ts` が
+  Web Crypto API(`crypto.subtle`)で暗号化/復号する。
+- **`POST /me/annict/exchange`**: `mode: "web"` のとき交換後トークンを暗号化して D1 保存し、
+  **トークンをレスポンスボディに含めない**（連携済みフラグと annictUserId のみ返す）。
+  `mode: "native"`(既定)は従来通りトークンをボディで返す。
+- **`requireAnnictToken`**: トークン解決の順序を **`X-Annict-Token` ヘッダ → D1(clerkUserId で復号)** とする。
+  D1 経由では `clerkUserId` が要るため `AuthVariables`(requireAuth の後段)を前提にする。
+- **`POST /me/annict/disconnect`**: D1 行削除（Web の連携解除）。
+- **`GET /me/annict`**: ヘッダがあればそれで `token/info` 検証、無ければ D1 のトークンで検証する。
+- **CORS**: Cookie を使わないため変更不要（既存のヘッダ許可に `X-Annict-Token` は既にある）。
+
+### フロント側 (apps/mobile / Web)
+
+- **`app/annict.tsx`**: Web の OAuth 着地ルート。URL の `code`/`state` を読み、`state` を照合(sessionStorage)、
+  `exchange`(mode:web, Clerk JWT 付き)を叩き、成功後に連携元画面へ `router.replace`。
+- **`useAnnictConnect`**: Web は `openAuthSessionAsync` を使わず通常のページ遷移で authorize へ飛ばし、
+  戻りは `annict.tsx` が処理する。ネイティブは従来フロー。
+- **`useAnnictConnection`**: Web はサーバー `GET /me/annict` の結果で判定（localStorage を見ない）。
+
+### 残リスク / 注意
+
+- 書き込み系(exchange/disconnect)は Clerk JWT で認可する。トークンは常に D1 側にあり
+  クライアントへ渡さないため、XSS でトークンを回収されるリスクを断てる。
+- 本番 D1 マイグレーション適用が必要（`annict_tokens` 追加、`migrations/0004_annict_tokens.sql`）。
+- `ANNICT_ENCRYPTION_KEY` の本番 Secret 設定が必要（`wrangler secret put`）。

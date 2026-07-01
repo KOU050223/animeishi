@@ -62,6 +62,15 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS user_genres_user_genre_unique ON user_genres (user_id, genre)`,
   `CREATE INDEX IF NOT EXISTS user_genres_user_idx ON user_genres (user_id)`,
+  `CREATE TABLE IF NOT EXISTS annict_tokens (
+    user_id TEXT PRIMARY KEY NOT NULL,
+    encrypted_token TEXT NOT NULL,
+    annict_user_id INTEGER,
+    scope TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
 ];
 
 /**
@@ -76,6 +85,7 @@ export async function setupTestDb(d1: D1Database) {
   }
   const db = drizzle(d1, { schema });
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
+  await d1.prepare("DELETE FROM annict_tokens").run();
   await d1.prepare("DELETE FROM user_genres").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();

@@ -101,6 +101,9 @@ export const annictExchangeSchema = z.object({
     .trim()
     .min(1, "redirect_uri が必要です")
     .url("redirect_uri の形式が正しくありません"),
+  // 交換モード。"native"(既定): トークンをボディで返し、クライアント(SecureStore)が保持する。
+  // "web": トークンを D1 に暗号化保存し、ボディにトークンを含めない（Web は clerkUserId で参照）。
+  mode: z.enum(["native", "web"]).optional().default("native"),
 });
 
 export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
