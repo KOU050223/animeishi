@@ -62,6 +62,22 @@ tasks:
     cmds:
       - pnpm db:migrate:local
 
+  db:migrate:prod:list:
+    desc: 本番 D1 の未適用マイグレーションを確認（適用はしない）
+    dir: services/api
+    cmds:
+      - pnpm wrangler d1 migrations list animeishi-db --remote --env production
+
+  db:migrate:prod:
+    desc: 本番 D1 にマイグレーションを適用（破壊的操作あり・確認プロンプト付き）
+    dir: services/api
+    # 誤爆防止: 実行前に未適用一覧を見せて y/N で確認する。
+    prompt: 本番 D1 にマイグレーションを適用します。0002 等の破壊的マイグレーションを含む場合データが失われます。続行しますか？
+    cmds:
+      # まず未適用の一覧を表示してから適用する。
+      - pnpm wrangler d1 migrations list animeishi-db --remote --env production
+      - pnpm wrangler d1 migrations apply animeishi-db --remote --env production
+
   dev:api:scheduled:
     desc: Cron バッチを手動トリガーできる状態で API を起動 (wrangler dev --test-scheduled)
     dir: services/api

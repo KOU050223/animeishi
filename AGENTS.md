@@ -18,9 +18,15 @@ task <タスク名>
 * setup:                  依存インストール + Git hooks 設置
 * test:                   テスト
 * db:migrate:local:       D1 ローカルマイグレーション適用
+* db:migrate:prod:list:   本番 D1 の未適用マイグレーションを確認（非破壊）
+* db:migrate:prod:        本番 D1 にマイグレーション適用（破壊的操作あり・確認プロンプト付き）
 * dev:api:                Cloudflare Workers API を起動 (wrangler dev)
 * dev:mobile:             Expo モバイルアプリを起動
 ```
+
+> wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
+> ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は
+> 上記 `db:migrate:prod*` のように Taskfile に集約し、wrangler の場所を意識せず実行できるようにする。
 
 > CI の "Lint & Type Check" ジョブは **ESLint と型チェック (tsc --noEmit) の 2 段**で構成される。
 > `task lint` は ESLint だけで型エラーは拾えない。push 前は必ず `nix develop --command task typecheck`
