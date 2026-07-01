@@ -23,7 +23,7 @@ bucket_name = "animeishi-avatars"
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
-# ANNICT_CLIENT_ID = "<your-annict-client-id>"
+ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 # CORS 許可オリジン（カンマ区切り）。"*" 始まりはサフィックス一致（プレビューデプロイ用）。
 # 詳細は src/cors.ts および docs/04_deployment.md を参照。
 ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
