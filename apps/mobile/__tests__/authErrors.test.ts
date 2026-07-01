@@ -30,13 +30,13 @@ describe("toAuthErrorMessage", () => {
         },
       ],
     };
-    expect(toAuthErrorMessage(err, "auth.signIn.failed")).toBe(
+    expect(toAuthErrorMessage(err, "サインインに失敗しました")).toBe(
       "サインインに失敗しました",
     );
   });
 
   it("errors 配列を持たないエラーはフォールバックキーを翻訳して返す", () => {
-    expect(toAuthErrorMessage(new Error("boom"), "auth.signUp.failed")).toBe(
+    expect(toAuthErrorMessage(new Error("boom"), "サインアップに失敗しました")).toBe(
       "サインアップに失敗しました",
     );
   });

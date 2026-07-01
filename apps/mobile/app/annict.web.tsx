@@ -60,12 +60,12 @@ export default function AnnictCallbackScreen() {
     <View className="flex-1 items-center justify-center bg-white px-8">
       {phase.kind === "processing" && (
         <Text className="text-lg font-semibold text-gray-900">
-          {t("annict.connecting")}
+          {t("連携中...")}
         </Text>
       )}
       {phase.kind === "success" && (
         <Text className="text-lg font-semibold text-gray-900">
-          {t("annict.success")}
+          {t("Annict と連携しました")}
         </Text>
       )}
       {phase.kind === "error" && (
@@ -77,10 +77,10 @@ export default function AnnictCallbackScreen() {
             className="bg-gray-200 rounded-lg px-6 py-3"
             onPress={() => router.replace(RETURN_PATH)}
             accessibilityRole="button"
-            accessibilityLabel={t("annict.cancel")}
+            accessibilityLabel={t("キャンセル")}
           >
             <Text className="text-gray-700 font-semibold">
-              {t("annict.cancel")}
+              {t("キャンセル")}
             </Text>
           </TouchableOpacity>
         </View>

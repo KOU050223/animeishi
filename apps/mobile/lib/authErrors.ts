@@ -11,32 +11,35 @@
 import i18n from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
-/** Clerk のエラーコード → 翻訳キー（auth.errors.* / translation namespace）のマッピング */
+/** Clerk のエラーコード → 翻訳キー（= 日本語文言）のマッピング */
 const CLERK_ERROR_KEYS: Record<string, TranslationKey> = {
   // 認証情報の誤り
-  form_password_incorrect: "auth.errors.invalidCredentials",
-  form_identifier_not_found: "auth.errors.invalidCredentials",
-  form_param_format_invalid: "auth.errors.invalidFormat",
-  form_param_nil: "auth.errors.missingParam",
+  form_password_incorrect: "メールアドレスまたはパスワードが違います",
+  form_identifier_not_found: "メールアドレスまたはパスワードが違います",
+  form_param_format_invalid: "入力内容の形式が正しくありません",
+  form_param_nil: "必須項目が入力されていません",
 
   // サインアップ時の重複
-  form_identifier_exists: "auth.errors.identifierExists",
-  form_username_exists: "auth.errors.usernameExists",
+  form_identifier_exists: "このメールアドレスは既に登録されています",
+  form_username_exists: "このユーザー名は既に使われています",
 
   // パスワードポリシー
-  form_password_pwned: "auth.errors.passwordPwned",
-  form_password_length_too_short: "auth.errors.passwordTooShort",
-  form_password_validation_failed: "auth.errors.passwordValidationFailed",
+  form_password_pwned:
+    "このパスワードは漏洩が確認されています。別のパスワードを設定してください",
+  form_password_length_too_short: "パスワードが短すぎます",
+  form_password_validation_failed: "パスワードの要件を満たしていません",
 
   // 認証コード
-  form_code_incorrect: "auth.errors.codeIncorrect",
-  verification_expired: "auth.errors.verificationExpired",
-  verification_failed: "auth.errors.verificationFailed",
+  form_code_incorrect: "認証コードが正しくありません",
+  verification_expired:
+    "認証コードの有効期限が切れました。もう一度お試しください",
+  verification_failed: "認証に失敗しました。もう一度お試しください",
 
   // セッション・レート制限
-  session_exists: "auth.errors.sessionExists",
-  rate_limit_exceeded: "auth.errors.rateLimitExceeded",
-  too_many_requests: "auth.errors.tooManyRequests",
+  session_exists: "既にサインインしています",
+  rate_limit_exceeded:
+    "試行回数が上限に達しました。しばらくしてからお試しください",
+  too_many_requests: "リクエストが多すぎます。しばらくしてからお試しください",
 };
 
 /** Clerk のエラーオブジェクトから先頭エラーの code を取り出す */
@@ -68,7 +71,7 @@ function extractClerkErrorCode(err: unknown): string | undefined {
  */
 export function toAuthErrorMessage(
   err: unknown,
-  fallbackKey: TranslationKey = "auth.errors.fallback",
+  fallbackKey: TranslationKey = "処理に失敗しました。もう一度お試しください",
 ): string {
   const code = extractClerkErrorCode(err);
   const mapped = code ? CLERK_ERROR_KEYS[code] : undefined;

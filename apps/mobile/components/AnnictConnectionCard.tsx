@@ -29,9 +29,9 @@ export function AnnictConnectionCard() {
     setMessage(null);
     const result: AnnictConnectResult = await connect();
     if (result.status === "success") {
-      setMessage({ type: "success", text: t("annict.success") });
+      setMessage({ type: "success", text: t("Annict と連携しました") });
     } else if (result.status === "cancelled") {
-      setMessage({ type: "error", text: t("annict.errors.cancelled") });
+      setMessage({ type: "error", text: t("連携をキャンセルしました") });
     } else {
       setMessage({ type: "error", text: t(annictErrorKey(result.reason)) });
     }
@@ -39,19 +39,19 @@ export function AnnictConnectionCard() {
 
   const onDisconnect = useCallback(() => {
     confirm(
-      t("annict.title"),
-      t("annict.disconnect"),
+      t("Annict 連携"),
+      t("連携を解除する"),
       () => {
         // 削除や invalidation が失敗した場合に握りつぶさず UI へ反映する。
         void disconnect()
           .then(() => setMessage(null))
           .catch(() =>
-            setMessage({ type: "error", text: t("annict.errors.unexpected") }),
+            setMessage({ type: "error", text: t("予期しないエラーが発生しました") }),
           );
       },
       {
-        confirmLabel: t("annict.disconnect"),
-        cancelLabel: t("annict.cancel"),
+        confirmLabel: t("連携を解除する"),
+        cancelLabel: t("キャンセル"),
         destructive: true,
       },
     );
@@ -62,12 +62,12 @@ export function AnnictConnectionCard() {
       <View className="mb-2 flex-row items-center">
         <Ionicons name="link-outline" size={18} color="#4f46e5" />
         <Text className="ml-2 font-semibold text-gray-900">
-          {t("annict.title")}
+          {t("Annict 連携")}
         </Text>
       </View>
 
       <Text className="mb-3 text-xs leading-5 text-gray-500">
-        {t("annict.description")}
+        {t("Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。")}
       </Text>
 
       <View className="mb-3 flex-row items-center">
@@ -81,7 +81,7 @@ export function AnnictConnectionCard() {
             isConnected ? "text-green-700" : "text-gray-500"
           }`}
         >
-          {isConnected ? t("annict.connected") : t("annict.notConnected")}
+          {isConnected ? t("Annict と連携済み") : t("未連携")}
         </Text>
       </View>
 
@@ -105,7 +105,7 @@ export function AnnictConnectionCard() {
           accessibilityRole="button"
         >
           <Text className="font-semibold text-red-600">
-            {t("annict.disconnect")}
+            {t("連携を解除する")}
           </Text>
         </TouchableOpacity>
       ) : (
@@ -116,7 +116,7 @@ export function AnnictConnectionCard() {
           accessibilityRole="button"
           // 接続中はスピナーのみでテキストが消えるため、名前と状態を明示する。
           accessibilityLabel={
-            isConnecting ? t("annict.connecting") : t("annict.connect")
+            isConnecting ? t("連携中...") : t("Annict と連携する")
           }
           accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
         >
@@ -124,7 +124,7 @@ export function AnnictConnectionCard() {
             <ActivityIndicator color="#ffffff" />
           ) : (
             <Text className="font-semibold text-white">
-              {t("annict.connect")}
+              {t("Annict と連携する")}
             </Text>
           )}
         </TouchableOpacity>

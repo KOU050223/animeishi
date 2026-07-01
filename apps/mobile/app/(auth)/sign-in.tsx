@@ -17,18 +17,18 @@ import { toAuthErrorMessage } from "@/lib/authErrors";
 
 function getIncompleteSignInMessage(status: string | null, t: TFunction) {
   if (!status) {
-    return t("auth.signIn.incomplete.default");
+    return t("サインインを完了できませんでした。もう一度お試しください。");
   }
 
   if (status === "needs_second_factor") {
-    return t("auth.signIn.incomplete.needsSecondFactor");
+    return t("二要素認証が必要ですが、この画面ではまだ対応していません。");
   }
 
   if (status === "needs_identifier" || status === "needs_first_factor") {
-    return t("auth.signIn.incomplete.needsIdentifier");
+    return t("メールアドレスまたはパスワードを確認してください。");
   }
 
-  return t("auth.signIn.incomplete.withStatus", { status });
+  return t("サインインを完了できませんでした。状態: {{status}}", { status });
 }
 
 export default function SignInScreen() {
@@ -48,7 +48,7 @@ export default function SignInScreen() {
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message ?? t("auth.validation.invalidInput"),
+        parsed.error.issues[0]?.message ?? t("入力内容を確認してください"),
       );
       return;
     }
@@ -75,7 +75,7 @@ export default function SignInScreen() {
         setError(getIncompleteSignInMessage(result.status, t));
       }
     } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, "auth.signIn.failed"));
+      setError(toAuthErrorMessage(err, "サインインに失敗しました"));
     } finally {
       setLoading(false);
     }
@@ -88,16 +88,16 @@ export default function SignInScreen() {
     >
       <View className="flex-1 justify-center px-6">
         <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
-          {t("common.appName")}
+          {t("アニ名刺")}
         </Text>
 
         <Text className="text-xl font-semibold mb-6 text-gray-800">
-          {t("auth.signIn.title")}
+          {t("サインイン")}
         </Text>
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder={t("auth.signIn.emailPlaceholder")}
+          placeholder={t("メールアドレス")}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -108,7 +108,7 @@ export default function SignInScreen() {
 
         <TextInput
           className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder={t("auth.signIn.passwordPlaceholder")}
+          placeholder={t("パスワード")}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -132,16 +132,18 @@ export default function SignInScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text className="text-white font-semibold text-base">
-              {t("auth.signIn.submit")}
+              {t("サインイン")}
             </Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
-          <Text className="text-gray-600">{t("auth.signIn.noAccount")}</Text>
+          <Text className="text-gray-600">
+            {t("アカウントをお持ちでない方は ")}
+          </Text>
           <Link href="/(auth)/sign-up" testID="sign-up-link">
             <Text className="text-indigo-600 font-semibold">
-              {t("auth.signIn.toSignUp")}
+              {t("サインアップ")}
             </Text>
           </Link>
         </View>
