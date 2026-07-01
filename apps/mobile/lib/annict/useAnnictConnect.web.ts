@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/clerk-expo";
@@ -94,14 +94,24 @@ export function useAnnictConnect(): UseAnnictConnect {
   const { getToken } = useAuth();
   // Web の connect はページ遷移で完了するため、ボタン連打防止に軽い state を持つ。
   const [isConnecting, setIsConnecting] = useState(false);
+  // isConnecting(state) は非同期更新のため、反映前の連打で state（CSRF 値）が
+  // 上書きされうる。ref で同期的に再入をブロックする。
+  const inFlightRef = useRef(false);
 
   const connect = useCallback(async (): Promise<AnnictConnectResult> => {
     const clientId = getAnnictClientId();
     if (!clientId) {
       return { status: "error", reason: "not_configured" };
     }
+    // 進行中なら二重起動させない（遷移成功時のみ ref を立てたまま抜ける）。
+    if (inFlightRef.current) {
+      return { status: "cancelled" };
+    }
+    inFlightRef.current = true;
 
     setIsConnecting(true);
+    // 遷移が起きたら isConnecting は復元しない（ページが離れるため）。
+    let didNavigate = false;
     try {
       const redirectUri = getWebRedirectUri();
       // crypto.randomUUID は Web で標準的に使える。CSRF 用の state。
@@ -109,8 +119,8 @@ export function useAnnictConnect(): UseAnnictConnect {
       try {
         window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
       } catch {
-        // sessionStorage 無効化（プライベートブラウズ等）でも致命ではないが、
-        // state 照合ができなくなるため連携は失敗させる。
+        // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
+        // ため連携は失敗させる。finally で isConnecting/ref を復元する。
         return { status: "error", reason: "storage_unavailable" };
       }
 
@@ -124,10 +134,16 @@ export function useAnnictConnect(): UseAnnictConnect {
       // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
       // 待たず、遷移が起きたこと自体を成功とみなす。
       window.location.href = authorizeUrl;
+      didNavigate = true;
       return { status: "success" };
     } catch {
-      setIsConnecting(false);
       return { status: "error", reason: "unexpected" };
+    } finally {
+      // 遷移しなかった（＝失敗）ときだけロック/ローディングを解除する。
+      if (!didNavigate) {
+        inFlightRef.current = false;
+        setIsConnecting(false);
+      }
     }
   }, []);
 

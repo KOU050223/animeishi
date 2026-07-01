@@ -15,6 +15,7 @@ import {
   fetchAnnictTokenInfo,
   encryptToken,
   decryptToken,
+  assertEncryptionKey,
   ANNICT_TOKEN_HEADER,
 } from "../lib/annict";
 
@@ -116,6 +117,8 @@ const annict = new Hono<AuthVariables>()
     const header = c.req.header(ANNICT_TOKEN_HEADER)?.trim();
 
     let token = header ?? null;
+    // D1 から復号したトークンか（ヘッダ由来なら false）。失効時に D1 行を掃除するため。
+    let tokenFromDb = false;
     if (!token) {
       // Web 連携: D1 の暗号化トークンを復号する。
       const { DB, ANNICT_ENCRYPTION_KEY } = getBindings(c);
@@ -126,11 +129,14 @@ const annict = new Hono<AuthVariables>()
           c.var.clerkUserId,
         ).getAnnictTokenRow();
         if (row) {
+          // 鍵形式不正（設定不備）は 500 として表に出す。行の復号失敗のみ未連携扱い。
+          await assertEncryptionKey(ANNICT_ENCRYPTION_KEY);
           try {
             token = await decryptToken(
               row.encryptedToken,
               ANNICT_ENCRYPTION_KEY,
             );
+            tokenFromDb = true;
           } catch {
             token = null;
           }
@@ -151,7 +157,14 @@ const annict = new Hono<AuthVariables>()
       });
     } catch (err) {
       if (err instanceof AnnictApiError && err.status === 401) {
-        // トークンが失効・無効化されている。
+        // トークンが失効・無効化されている。D1 由来なら行を掃除して、以降の
+        // resolveAnnictToken が同じ失効トークンを返し続けないようにする。
+        if (tokenFromDb) {
+          await authorizedDb(
+            createDb(getBindings(c).DB),
+            c.var.clerkUserId,
+          ).deleteAnnictToken();
+        }
         return c.json({ connected: false });
       }
       throw err;

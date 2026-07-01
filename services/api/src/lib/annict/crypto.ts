@@ -36,6 +36,16 @@ async function importKey(keyBase64: string): Promise<CryptoKey> {
   ]);
 }
 
+/**
+ * 暗号鍵（ANNICT_ENCRYPTION_KEY）が base64 の 32byte として妥当かを検証する。
+ * 不正なら throw する。設定不備（鍵の欠落・形式不正）を「行データの復号失敗」と
+ * 区別して検出するために使う（前者はサーバー不備として 500 に出し、後者だけ
+ * 未連携扱いにする）。
+ */
+export async function assertEncryptionKey(keyBase64: string): Promise<void> {
+  await importKey(keyBase64);
+}
+
 /** 平文トークンを AES-GCM で暗号化し base64(iv||ciphertext) を返す。 */
 export async function encryptToken(
   plain: string,

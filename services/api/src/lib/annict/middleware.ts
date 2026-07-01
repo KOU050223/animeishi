@@ -2,7 +2,7 @@ import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import { createDb } from "@/db/client";
 import { authorizedDb } from "@/repository/authorizedDb";
-import { decryptToken } from "./crypto";
+import { decryptToken, assertEncryptionKey } from "./crypto";
 
 // Annict アクセストークンを解決するミドルウェア。
 // c.var.annictToken にトークンをセットする。
@@ -69,10 +69,16 @@ export async function resolveAnnictToken(c: Context): Promise<string | null> {
   const row = await authorizedDb(db, clerkUserId).getAnnictTokenRow();
   if (!row) return null;
 
+  // 設定不備（鍵の形式不正）と行データの復号失敗を区別する。
+  // 鍵自体が不正なら Web 連携済みユーザー全員が未連携に見えてしまい、サーバー不備に
+  // 気づけない。鍵は先に検証して不正なら throw（ルート層で 500 として表に出す）。
+  await assertEncryptionKey(ANNICT_ENCRYPTION_KEY);
+
   try {
     return await decryptToken(row.encryptedToken, ANNICT_ENCRYPTION_KEY);
   } catch {
-    // 鍵ローテーション等で復号できない場合は未連携扱い（再連携を促す）。
+    // 鍵は妥当なのに復号できない = この行だけ壊れている/鍵ローテーション後の旧行。
+    // 未連携扱いにして再連携を促す（サーバー全体の不備ではない）。
     return null;
   }
 }

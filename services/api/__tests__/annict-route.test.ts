@@ -176,7 +176,7 @@ describe("Annict ルート (Web 連携)", () => {
     expect(body.annictUserId).toBe(42);
   });
 
-  it("POST /exchange (mode:native 既定): 従来通りトークンをボディで返す", async () => {
+  it("POST /exchange (mode:native): 従来通りトークンをボディで返す", async () => {
     globalThis.fetch = mockAnnictFetch({
       accessToken: "native_tok",
     }) as unknown as typeof fetch;
@@ -190,6 +190,7 @@ describe("Annict ルート (Web 連携)", () => {
         body: JSON.stringify({
           code: "auth_code",
           redirectUri: "animeishi://annict",
+          mode: "native",
         }),
       },
       TEST_BINDINGS,

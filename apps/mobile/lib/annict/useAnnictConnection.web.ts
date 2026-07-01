@@ -11,11 +11,13 @@ import { type UseAnnictConnection } from "./useAnnictConnection";
  * `GET /me/annict` の connected を判定に使う。Clerk 認証が前提。
  */
 export function useAnnictConnection(): UseAnnictConnection {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   const query = useQuery({
-    queryKey: ANNICT_CONNECTION_QUERY_KEY,
-    enabled: !!isSignedIn,
+    // userId を含めて別ユーザーとキャッシュを分離する。同一ブラウザで別アカウントに
+    // 切り替えたとき、前ユーザーの connected=true が再利用されるのを防ぐ。
+    queryKey: [...ANNICT_CONNECTION_QUERY_KEY, userId],
+    enabled: !!isSignedIn && !!userId,
     queryFn: async () => {
       const clerkToken = await getToken();
       if (!clerkToken) return { connected: false };
@@ -30,7 +32,8 @@ export function useAnnictConnection(): UseAnnictConnection {
   });
 
   return {
-    isConnected: query.data?.connected ?? false,
+    // サインイン中かつクエリが connected を返したときだけ true。
+    isConnected: (!!isSignedIn && query.data?.connected) ?? false,
     isLoading: query.isLoading,
     refetch: query.refetch,
   };

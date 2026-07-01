@@ -24,7 +24,7 @@ export {
   resolveAnnictToken,
 } from "./middleware";
 export type { AnnictVariables } from "./middleware";
-export { encryptToken, decryptToken } from "./crypto";
+export { encryptToken, decryptToken, assertEncryptionKey } from "./crypto";
 export { annictErrorResponse } from "./errors";
 export {
   ANNICT_ALL_STATUS_STATES,

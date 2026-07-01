@@ -19,8 +19,8 @@ Annict ユーザーは既に記録資産を持っているため、Animeishi に
 | # | 論点 | 決定 | 根拠 |
 |---|---|---|---|
 | 0 | 認証基盤 | **Clerk 維持**。Annict は OAuth「連携」に留める | Annict OAuth はログイン(OIDC)用途ではなく API 認可。自前セッション管理・既存認証資産/テストの破棄コストが、得られる「概念の純粋さ」に見合わない |
-| 1 | Annict トークン保存 | **サーバー非保存**。モバイル SecureStore のみ | D1 トークン暗号化という難所と漏洩リスクを丸ごと回避。OGP/他人表示は元々 D1 キャッシュ前提でサーバー保持の価値が薄い。Annict トークンは無期限で SecureStore 長期保持が安全。裏同期が必要になってから保存方式を足す(YAGNI) |
-| 2 | 通信経路 | **全て Workers API プロキシ経由**。Annict トークンは `X-Annict-Token` ヘッダで運ぶ | 「Annict へ書く」と「D1 キャッシュへ書く」を 1 リクエスト・1 箇所で原子的に完結。既存 `hono/client` 型推論・`apiClient` パターンを踏襲しモバイルに GraphQL を持ち込まない |
+| 1 | Annict トークン保存 | **ネイティブはサーバー非保存**(SecureStore のみ)。**Web は例外**でサーバー(D1)に AES-GCM 暗号化保存 | ネイティブは SecureStore 長期保持が安全で D1 保存の価値が薄い。ただし Web は SecureStore が無く localStorage は XSS リスクで永続化できないため、Web に限りサーバー暗号化保存へ切り替える（下記「追補」で確定。当初の YAGNI 判断を Web 対応で改訂） |
+| 2 | 通信経路 | **全て Workers API プロキシ経由**。ネイティブは Annict トークンを `X-Annict-Token` ヘッダで運ぶ。**Web はヘッダを使わず**サーバーが D1 から復号して使う | 「Annict へ書く」と「D1 キャッシュへ書く」を 1 リクエスト・1 箇所で原子的に完結。既存 `hono/client` 型推論・`apiClient` パターンを踏襲しモバイルに GraphQL を持ち込まない。Web は clerkUserId で D1 のトークンを引くためヘッダ不要 |
 | 3 | 作品キャッシュ | **`annict_works`**(`annictWorkId` 主キーの軽量キャッシュ)。`watch_history`/`favorites` が参照 | annictWorkId(Int)を自然キーにでき、D1 autoincrement 仮想 ID の間接層が消える。作品メタが 1 箇所に集約。「触れた作品だけ」貯まるキャッシュが OGP/他人表示の要求と一致(全件同期不要) |
 | 4 | 本人の読み取り | **Annict `viewer.libraryEntries` 直引き** + read-through で D1 更新。他人/OGP は D1 固定 | 本人読み取りを D1 にすると Annict 本家/Web で付けた記録が出ず連携体験が破綻。read-through で本人が一覧を開くたび D1 が最新化され、他人表示/OGP の鮮度も追加同期なしで上がる |
 | 5 | read-through 書き込み | **全置換**(本人分を delete→insert、`db.batch()` でアトミック) | 「Annict が正」を貫くなら Annict 側の削除も反映が必要。差分 upsert だとゴミが残り続ける。libraryEntries は全状態を一度に取れるので全置換が自然 |
@@ -212,7 +212,7 @@ query SearchWorks($titles: [String!], $seasons: [String!], $after: String) {
 - **Annict GraphQL レート制限**: 値を要確認。本人 read-through を毎回フル取得すると重いユーザーで負荷大 → React Query キャッシュ + 「初回フル/以降は差分」の最適化を将来必要に応じて。
 - **libraryEntries の全ページ取得コスト**: 数百〜千作品のヘビーユーザーで全置換の delete→insert が大きくなる。PR3 時点で件数上限/ページング戦略を計測。
 - **OGP に視聴データを出すか**: 現状 `user.ts` の OGP はプロフィールのみ(視聴データ未使用)。視聴サマリを OGP に載せるなら D1 キャッシュから集計するエンドポイントが別途必要(本計画スコープ外、将来検討)。
-- **`GET /me/annict`(連携状態)の実体**: サーバーはトークンを保存しないため「連携済み」はクライアントの SecureStore 有無で判定。サーバー側で確認が要る場合のみ `oauth/token/info` を叩くラッパにする。
+- **`GET /me/annict`(連携状態)の実体**: **ネイティブ**はサーバーがトークンを保存しないため「連携済み」はクライアントの SecureStore 有無で判定し、`X-Annict-Token` があればそれで `oauth/token/info` を検証する。**Web**（追補で確定）はサーバーが D1 に保存したトークンを復号して `oauth/token/info` で検証し、`connected` を返す（クライアントは localStorage を見ない）。
 - **未連携ユーザーの離脱計測**: ソフトゲートでも記録機能の連携誘導 → 連携完了のコンバージョンを計測する。
 - **`redirect_uri` 登録**: Annict アプリ設定に `animeishi://annict`(本番)とローカル/プレビュー用を登録する必要がある。
 ```
@@ -275,6 +275,8 @@ Clerk 認証(`clerkUserId`)をキーに参照する**。ネイティブは従来
 ### 残リスク / 注意
 
 - 書き込み系(exchange/disconnect)は Clerk JWT で認可する。トークンは常に D1 側にあり
-  クライアントへ渡さないため、XSS でトークンを回収されるリスクを断てる。
+  クライアントへ渡さないため、**Annict トークンの直接流出**（トークン文字列の窃取）は防げる。
+  ただし同一オリジンの XSS から Clerk 認証済み API（記録更新など）を操作される余地までは
+  消せない点は残リスクとして留意する（これは Cookie 方式でも同様）。
 - 本番 D1 マイグレーション適用が必要（`annict_tokens` 追加、`migrations/0004_annict_tokens.sql`）。
 - `ANNICT_ENCRYPTION_KEY` の本番 Secret 設定が必要（`wrangler secret put`）。

@@ -6,12 +6,11 @@ import { useRouter } from "expo-router";
 const RETURN_PATH = "/anime-list";
 
 /**
- * Annict OAuth コールバックルートのフォールバック。
+ * Annict OAuth コールバックルート（ネイティブ）。
  *
- * 実体はプラットフォーム別に解決される:
- * - annict.web.tsx    ... Web の OAuth コールバック処理（exchange まで実行）
- * - annict.native.tsx ... ネイティブ（deep link は openAuthSessionAsync が処理）
- * どちらも解決されない環境向けに、安全に一覧へ戻すだけの実装を置く。
+ * ネイティブでは deep link を expo-web-browser の openAuthSessionAsync が
+ * インターセプトして useAnnictConnect.native 内で完結するため、このルートには
+ * 通常到達しない。万一到達した場合は安全に一覧へ戻す。
  */
 export default function AnnictCallbackScreen() {
   const router = useRouter();
