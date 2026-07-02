@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Pressable,
@@ -52,6 +53,7 @@ export default function MeishiEditScreen() {
     redo,
     canUndo,
     canRedo,
+    saveDocument,
   } = useMeishiDocument();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,6 +61,8 @@ export default function MeishiEditScreen() {
   const [textSheet, setTextSheet] = useState(false);
   const [templatePicker, setTemplatePicker] = useState(false);
   const [initialTemplateShown, setInitialTemplateShown] = useState(false);
+  const [saveFeedbackVisible, setSaveFeedbackVisible] = useState(false);
+  const saveFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (loaded && !doc && !initialTemplateShown) {
@@ -66,6 +70,12 @@ export default function MeishiEditScreen() {
       setTemplatePicker(true);
     }
   }, [loaded, doc, initialTemplateShown]);
+
+  useEffect(() => {
+    return () => {
+      if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current);
+    };
+  }, []);
 
   const context = useMemo<MeishiRenderContext>(
     () => ({
@@ -172,11 +182,24 @@ export default function MeishiEditScreen() {
     setSelectedId(el.id);
   };
 
-  const onSave = () => {
-    Alert.alert(
-      "保存しました",
-      "名刺のドラフトを端末に保存しました。（サーバー送信は後続PRで実装）",
+  const onSave = async () => {
+    await saveDocument();
+    const message = "名刺を保存しました";
+    setSaveFeedbackVisible(true);
+    AccessibilityInfo.announceForAccessibility(message);
+    if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current);
+    saveFeedbackTimer.current = setTimeout(
+      () => setSaveFeedbackVisible(false),
+      2500,
     );
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/profile");
   };
 
   return (
@@ -187,7 +210,7 @@ export default function MeishiEditScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.headerBtn}
           accessibilityRole="button"
           accessibilityLabel="戻る"
@@ -272,6 +295,7 @@ export default function MeishiEditScreen() {
           {selected ? (
             <PropertyPanel
               element={selected}
+              context={context}
               style={styles.propertyPanel}
               onChange={(patch) => updateElement(selected.id, patch)}
               onOpenTextEdit={() => setTextSheet(true)}
@@ -339,6 +363,22 @@ export default function MeishiEditScreen() {
           }}
         />
       ) : null}
+
+      <View
+        testID="meishi-save-feedback-layer"
+        pointerEvents="box-none"
+        style={styles.saveFeedbackLayer}
+      >
+        {saveFeedbackVisible ? (
+          <View
+            style={styles.saveFeedback}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={styles.saveFeedbackText}>名刺を保存しました</Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -433,4 +473,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addBtnText: { color: "#ffffff", fontWeight: "600", fontSize: 15 },
+  saveFeedbackLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    elevation: 20,
+    alignItems: "center",
+  },
+  saveFeedback: {
+    marginTop: 52,
+    marginHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: "#ecfdf5",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  saveFeedbackText: {
+    color: "#047857",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

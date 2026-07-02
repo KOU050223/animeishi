@@ -4,6 +4,15 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile";
 
 const mockMutateProfile = jest.fn();
+const mockReloadDocument = jest.fn();
+
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const React = require("react");
+    React.useEffect(effect, [effect]);
+  },
+}));
 
 jest.mock("@/components/MeishiCard", () => ({
   MeishiCard: () => {
@@ -66,6 +75,8 @@ jest.mock("@/lib/meishi/useMeishiDocument", () => ({
     undo: jest.fn(),
     redo: jest.fn(),
     clear: jest.fn(),
+    saveDocument: jest.fn(),
+    reloadDocument: mockReloadDocument,
     canUndo: false,
     canRedo: false,
   }),
@@ -80,6 +91,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockMutateProfile.mockImplementation((_input, options) => {
     options?.onSuccess?.();
+  });
+});
+
+describe("ProfileScreen の名刺プレビュー", () => {
+  it("画面フォーカス時に名刺ドキュメントを再読み込みする", () => {
+    render(<ProfileScreen />);
+
+    expect(mockReloadDocument).toHaveBeenCalledTimes(1);
   });
 });
 

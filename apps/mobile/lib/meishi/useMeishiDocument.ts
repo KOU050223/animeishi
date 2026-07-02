@@ -19,6 +19,7 @@ export type UseMeishiDocument = ReturnType<typeof useMeishiDocument>;
  * 名刺ドキュメントの状態管理。
  *
  * - update系 API はデフォルトで履歴を積んでコミットする。
+ * - 永続化は saveDocument() を呼んだ時だけ行う。
  * - `pushHistoryBeforeNextChange()` を呼んでから setDocLive で複数回更新すれば、
  *   ジェスチャ中の高頻度更新でも1コミットにまとめられる。
  */
@@ -30,6 +31,20 @@ export function useMeishiDocument() {
 
   // ジェスチャ開始時に呼ばれ、次の変更前に「その時点」を履歴に積むためのフラグ
   const pendingHistorySnapshotRef = useRef<MeishiDocument | null>(null);
+
+  const bumpHistoryVersion = useCallback(
+    () => setHistoryVersion((v) => v + 1),
+    [],
+  );
+
+  const reloadDocument = useCallback(async () => {
+    const persisted = await loadMeishiDocument();
+    setDoc(persisted);
+    setLoaded(true);
+    historyRef.current = emptyHistory();
+    pendingHistorySnapshotRef.current = null;
+    bumpHistoryVersion();
+  }, [bumpHistoryVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,18 +58,6 @@ export function useMeishiDocument() {
     };
   }, []);
 
-  // ジェスチャ中は setElementTransformLive により毎フレーム doc が更新されるため、
-  // 500ms デバウンスして最終状態だけ AsyncStorage に書く。
-  useEffect(() => {
-    if (!loaded || !doc) return;
-    const timeoutId = setTimeout(() => {
-      saveMeishiDocument(doc);
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [doc, loaded]);
-
-  const bumpHistoryVersion = () => setHistoryVersion((v) => v + 1);
-
   // 履歴を積むコミット
   const commit = useCallback(
     (updater: (prev: MeishiDocument) => MeishiDocument) => {
@@ -65,7 +68,7 @@ export function useMeishiDocument() {
         return updater(prev);
       });
     },
-    [],
+    [bumpHistoryVersion],
   );
 
   // 履歴を積まないライブ更新（ジェスチャ中用）
@@ -85,7 +88,7 @@ export function useMeishiDocument() {
         return updater(prev);
       });
     },
-    [],
+    [bumpHistoryVersion],
   );
 
   const beginGesture = useCallback(() => {
@@ -96,11 +99,14 @@ export function useMeishiDocument() {
     });
   }, []);
 
-  const replaceWithoutHistory = useCallback((next: MeishiDocument) => {
-    historyRef.current = emptyHistory();
-    bumpHistoryVersion();
-    setDoc(next);
-  }, []);
+  const replaceWithoutHistory = useCallback(
+    (next: MeishiDocument) => {
+      historyRef.current = emptyHistory();
+      bumpHistoryVersion();
+      setDoc(next);
+    },
+    [bumpHistoryVersion],
+  );
 
   const undo = useCallback(() => {
     setDoc((prev) => {
@@ -111,7 +117,7 @@ export function useMeishiDocument() {
       bumpHistoryVersion();
       return result.doc;
     });
-  }, []);
+  }, [bumpHistoryVersion]);
 
   const redo = useCallback(() => {
     setDoc((prev) => {
@@ -122,14 +128,19 @@ export function useMeishiDocument() {
       bumpHistoryVersion();
       return result.doc;
     });
-  }, []);
+  }, [bumpHistoryVersion]);
 
   const clear = useCallback(async () => {
     await clearMeishiDocument();
     setDoc(null);
     historyRef.current = emptyHistory();
     bumpHistoryVersion();
-  }, []);
+  }, [bumpHistoryVersion]);
+
+  const saveDocument = useCallback(async () => {
+    if (!doc) return;
+    await saveMeishiDocument(doc);
+  }, [doc]);
 
   const updateElement = useCallback(
     (id: string, patch: Partial<MeishiElement>) => {
@@ -234,6 +245,8 @@ export function useMeishiDocument() {
     doc,
     loaded,
     setDocFromTemplate: (next: MeishiDocument) => replaceWithoutHistory(next),
+    reloadDocument,
+    saveDocument,
     commit,
     beginGesture,
     setElementTransformLive,

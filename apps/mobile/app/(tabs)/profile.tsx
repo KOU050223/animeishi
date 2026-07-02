@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
@@ -23,12 +24,18 @@ export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
-  const { doc: meishiDoc } = useMeishiDocument();
+  const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [favoriteQuote, setFavoriteQuote] = useState("");
+
+  useFocusEffect(
+    useCallback(() => {
+      void reloadDocument();
+    }, [reloadDocument]),
+  );
 
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

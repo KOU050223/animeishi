@@ -15,6 +15,7 @@ import type {
   FontWeight,
   ImageObjectFit,
   ImageShape,
+  MeishiRenderContext,
   MeishiElement,
   QrSource,
   ShapeKind,
@@ -24,6 +25,7 @@ import type {
 
 type Props = {
   element: MeishiElement;
+  context?: MeishiRenderContext;
   style?: StyleProp<ViewStyle>;
   onChange: (patch: Partial<MeishiElement>) => void;
   onOpenTextEdit: () => void;
@@ -98,9 +100,8 @@ function renderEditor(props: Props) {
               }}
             >
               <Text style={{ flex: 1 }} numberOfLines={1}>
-                {element.source === "custom"
-                  ? element.text
-                  : `【${sourceLabel(element.source)}】`}
+                {resolveTextValue(element, props.context) ||
+                  `【${sourceLabel(element.source)}】`}
               </Text>
               <Text>✏️</Text>
             </Pressable>
@@ -357,6 +358,23 @@ const SOURCES: { value: TextSource; label: string }[] = [
 function sourceLabel(s: TextSource): string {
   const found = SOURCES.find((x) => x.value === s);
   return found?.label ?? s;
+}
+
+function resolveTextValue(
+  element: Extract<MeishiElement, { type: "text" }>,
+  context: MeishiRenderContext | undefined,
+): string {
+  switch (element.source) {
+    case "username":
+      return context?.profile.username ?? element.text;
+    case "bio":
+      return context?.profile.bio ?? element.text;
+    case "favoriteQuote":
+      return context?.profile.favoriteQuote ?? element.text;
+    case "custom":
+    default:
+      return element.text;
+  }
 }
 
 function typeLabel(t: MeishiElement["type"]): string {
