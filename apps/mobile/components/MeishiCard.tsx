@@ -1,16 +1,21 @@
-import { Image, Text, View } from "react-native";
+import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { MeishiRenderer } from "./meishi/MeishiRenderer";
+import { buildBlankDocument, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
+import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 
 export type MeishiCardProps = {
-  username: string;
+  username?: string | null;
   bio?: string | null;
   favoriteQuote?: string | null;
   profileImageUrl?: string | null;
+  profileUrl?: string | null;
+  document?: MeishiDocument | null;
   /** ピンチ&ズームを有効にするか。一覧のサムネイル等では false にする。 */
   zoomable?: boolean;
 };
@@ -24,15 +29,16 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * 名刺（アニメ名刺）の詳細ビュー。
- * zoomable=true のときピンチ操作で拡大縮小、パンで移動できる。
- * 指を離すと最小スケールへスナップバックする。
+ * 名刺の表示用ラッパー。ピンチ&ズーム対応。
+ * document が渡されればそれを、無ければ classic テンプレをフォールバックとしてレンダリングする。
  */
 export function MeishiCard({
   username,
   bio,
   favoriteQuote,
   profileImageUrl,
+  profileUrl,
+  document,
   zoomable = false,
 }: MeishiCardProps) {
   const scale = useSharedValue(1);
@@ -48,7 +54,6 @@ export function MeishiCard({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      // 等倍まで戻ったら位置もリセットする。
       if (scale.value <= MIN_SCALE) {
         scale.value = withTiming(MIN_SCALE);
         translateX.value = withTiming(0);
@@ -60,7 +65,6 @@ export function MeishiCard({
 
   const pan = Gesture.Pan()
     .onUpdate((e) => {
-      // 拡大中のみパンを許可する。
       if (scale.value <= MIN_SCALE) return;
       translateX.value = savedTranslateX.value + e.translationX;
       translateY.value = savedTranslateY.value + e.translationY;
@@ -80,49 +84,44 @@ export function MeishiCard({
     ],
   }));
 
+  const context: MeishiRenderContext = {
+    profile: {
+      username,
+      bio,
+      favoriteQuote,
+      profileImageUrl,
+      profileUrl,
+    },
+  };
+
+  const doc =
+    document ?? MEISHI_TEMPLATES.find((t) => t.id === "classic")?.build() ?? buildBlankDocument();
+
   const card = (
     <Animated.View
-      style={zoomable ? animatedStyle : undefined}
-      className="w-full rounded-2xl bg-white p-6 shadow-lg"
+      style={[
+        zoomable ? animatedStyle : undefined,
+        {
+          width: "100%",
+          borderRadius: 16,
+          overflow: "hidden",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 4,
+        },
+      ]}
     >
-      <View className="flex-row items-center gap-4">
-        {profileImageUrl ? (
-          <Image
-            source={{ uri: profileImageUrl }}
-            className="h-20 w-20 rounded-full bg-gray-200"
-            accessibilityLabel={`${username}のプロフィール画像`}
-          />
-        ) : (
-          <View className="h-20 w-20 items-center justify-center rounded-full bg-indigo-100">
-            <Text className="text-2xl font-bold text-indigo-600">
-              {username.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
-            {username}
-          </Text>
-          {favoriteQuote ? (
-            <Text className="mt-1 text-sm italic text-gray-500" numberOfLines={2}>
-              「{favoriteQuote}」
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      {bio ? (
-        <Text className="mt-4 text-base text-gray-700">{bio}</Text>
-      ) : null}
+      <MeishiRenderer document={doc} context={context} />
     </Animated.View>
   );
 
-  if (!zoomable) {
-    return card;
-  }
+  if (!zoomable) return card;
 
   return (
     <GestureDetector gesture={composed}>
-      <View className="w-full overflow-hidden">{card}</View>
+      <View style={{ width: "100%", overflow: "hidden" }}>{card}</View>
     </GestureDetector>
   );
 }
