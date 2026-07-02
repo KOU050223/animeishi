@@ -28,6 +28,39 @@ export type GraphQLResponse<T> = {
   errors?: { message: string }[];
 };
 
+const WORK_IMAGE_FIELDS = `
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+`;
+
+type AnnictWorkImage = {
+  internalUrl: string | null;
+  recommendedImageUrl: string | null;
+  facebookOgImageUrl: string | null;
+  twitterBiggerAvatarUrl: string | null;
+  twitterAvatarUrl: string | null;
+  twitterNormalAvatarUrl: string | null;
+  twitterMiniAvatarUrl: string | null;
+};
+
+function resolveWorkImageUrl(image: AnnictWorkImage | null): string | null {
+  return (
+    image?.internalUrl ??
+    image?.recommendedImageUrl ??
+    image?.facebookOgImageUrl ??
+    image?.twitterBiggerAvatarUrl ??
+    image?.twitterAvatarUrl ??
+    image?.twitterNormalAvatarUrl ??
+    image?.twitterMiniAvatarUrl ??
+    null
+  );
+}
+
 // Annict との通信失敗（ネットワーク障害・タイムアウト等）も AnnictApiError に正規化する。
 // これがないと fetch の reject がそのまま漏れ、routes/annict.ts の
 // `instanceof AnnictApiError` 分岐を通らず一時障害が 500 扱いに崩れる。
@@ -123,7 +156,7 @@ query MyLibrary($after: String) {
           titleEn
           seasonName
           seasonYear
-          image { recommendedImageUrl }
+          image { ${WORK_IMAGE_FIELDS} }
         }
       }
     }
@@ -142,7 +175,7 @@ type LibraryEntryNode = {
     titleEn: string | null;
     seasonName: string | null;
     seasonYear: number | null;
-    image: { recommendedImageUrl: string | null } | null;
+    image: AnnictWorkImage | null;
   } | null;
 };
 
@@ -212,7 +245,7 @@ export async function fetchAnnictLibraryEntries(
         titleEn: work.titleEn,
         seasonName: work.seasonName,
         seasonYear: work.seasonYear,
-        imageUrl: work.image?.recommendedImageUrl ?? null,
+        imageUrl: resolveWorkImageUrl(work.image),
       });
     }
 
@@ -286,7 +319,7 @@ query SearchWorkNodeId($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
-      image { recommendedImageUrl }
+      image { ${WORK_IMAGE_FIELDS} }
     }
   }
 }`;
@@ -301,7 +334,7 @@ type SearchWorksResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
-      image: { recommendedImageUrl: string | null } | null;
+      image: AnnictWorkImage | null;
     }[];
   } | null;
 };
@@ -334,7 +367,7 @@ export async function fetchAnnictWorkByAnnictId(
     titleEn: work.titleEn,
     seasonName: work.seasonName,
     seasonYear: work.seasonYear,
-    imageUrl: work.image?.recommendedImageUrl ?? null,
+    imageUrl: resolveWorkImageUrl(work.image),
   };
 }
 
@@ -354,7 +387,7 @@ query SearchWorksByTitle($titles: [String!], $after: String) {
       titleEn
       seasonName
       seasonYear
-      image { recommendedImageUrl }
+      image { ${WORK_IMAGE_FIELDS} }
     }
   }
 }`;
@@ -370,7 +403,7 @@ type SearchWorksByTitleResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
-      image: { recommendedImageUrl: string | null } | null;
+      image: AnnictWorkImage | null;
     }[];
   } | null;
 };
@@ -400,7 +433,7 @@ function mapSearchWorksConnection(
     titleEn: work.titleEn,
     seasonName: work.seasonName,
     seasonYear: work.seasonYear,
-    imageUrl: work.image?.recommendedImageUrl ?? null,
+    imageUrl: resolveWorkImageUrl(work.image),
   }));
 
   return {
@@ -468,7 +501,7 @@ query SearchWorksBySeason($seasons: [String!], $after: String) {
       titleEn
       seasonName
       seasonYear
-      image { recommendedImageUrl }
+      image { ${WORK_IMAGE_FIELDS} }
     }
   }
 }`;
