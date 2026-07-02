@@ -128,15 +128,17 @@ export default function ProfileScreen() {
           <Text className="mb-2 text-xs text-gray-400">
             2本指を広げると拡大できます
           </Text>
-          <MeishiCard
-            username={username || profile?.username || "ユーザー"}
-            bio={bio}
-            favoriteQuote={favoriteQuote}
-            profileImageUrl={profile?.profileImageUrl}
-            profileUrl={buildProfileUrl(profile?.id)}
-            document={meishiDoc}
-            zoomable
-          />
+          <View style={styles.meishiPreviewFrame}>
+            <MeishiCard
+              username={username || profile?.username || "ユーザー"}
+              bio={bio}
+              favoriteQuote={favoriteQuote}
+              profileImageUrl={profile?.profileImageUrl}
+              profileUrl={buildProfileUrl(profile?.id)}
+              document={meishiDoc}
+              zoomable
+            />
+          </View>
           <TouchableOpacity
             className="mt-3 items-center rounded-xl bg-indigo-50 py-3"
             onPress={() => router.push("/meishi/edit")}
@@ -262,6 +264,11 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  meishiPreviewFrame: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
   toastLayer: {
     position: "absolute",
     top: 0,
