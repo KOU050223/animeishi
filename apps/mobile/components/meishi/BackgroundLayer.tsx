@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, {
   Circle,
@@ -17,6 +18,13 @@ export function BackgroundLayer({
   style: BackgroundStyle;
   borderRadius?: number;
 }) {
+  // 複数の BackgroundLayer が同時に描画される画面（TemplatePicker 等）で
+  // SVG の url(#id) 参照が衝突しないよう、インスタンスごとに ID を分ける。
+  const rawId = useId();
+  const uid = rawId.replace(/[^a-zA-Z0-9-_]/g, "-");
+  const gradId = `bg-grad-${uid}`;
+  const patId = `bg-pat-${uid}`;
+
   if (style.kind === "solid") {
     return (
       <View
@@ -49,7 +57,7 @@ export function BackgroundLayer({
                 const y = Math.sin(angle);
                 return (
                   <LinearGradient
-                    id="bg-grad"
+                    id={gradId}
                     x1={`${50 - x * 50}%`}
                     y1={`${50 - y * 50}%`}
                     x2={`${50 + x * 50}%`}
@@ -62,14 +70,14 @@ export function BackgroundLayer({
               })()
             : null}
           {style.kind === "pattern" && style.pattern === "dots" ? (
-            <Pattern id="bg-pat" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <Pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
               <Rect width="10" height="10" fill={style.base} />
               <Circle cx="5" cy="5" r="1.5" fill={style.accent} />
             </Pattern>
           ) : null}
           {style.kind === "pattern" && style.pattern === "stripes" ? (
             <Pattern
-              id="bg-pat"
+              id={patId}
               x="0"
               y="0"
               width="8"
@@ -82,7 +90,7 @@ export function BackgroundLayer({
             </Pattern>
           ) : null}
           {style.kind === "pattern" && style.pattern === "grid" ? (
-            <Pattern id="bg-pat" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <Pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
               <Rect width="10" height="10" fill={style.base} />
               <Path
                 d="M 10 0 L 0 0 0 10"
@@ -96,7 +104,7 @@ export function BackgroundLayer({
         <Rect
           width="100"
           height="100"
-          fill={style.kind === "gradient" ? "url(#bg-grad)" : "url(#bg-pat)"}
+          fill={style.kind === "gradient" ? `url(#${gradId})` : `url(#${patId})`}
         />
       </Svg>
     </View>

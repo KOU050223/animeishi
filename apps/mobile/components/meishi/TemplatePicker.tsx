@@ -82,6 +82,8 @@ export function TemplatePicker({
           <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="閉じる"
               style={{
                 paddingVertical: 12,
                 borderRadius: 8,

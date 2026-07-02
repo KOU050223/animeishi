@@ -43,9 +43,14 @@ export function useMeishiDocument() {
     };
   }, []);
 
+  // ジェスチャ中は setElementTransformLive により毎フレーム doc が更新されるため、
+  // 500ms デバウンスして最終状態だけ AsyncStorage に書く。
   useEffect(() => {
     if (!loaded || !doc) return;
-    saveMeishiDocument(doc);
+    const timeoutId = setTimeout(() => {
+      saveMeishiDocument(doc);
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [doc, loaded]);
 
   const bumpHistoryVersion = () => setHistoryVersion((v) => v + 1);

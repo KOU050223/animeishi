@@ -73,6 +73,8 @@ export function TextEditSheet({
             <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
               <Pressable
                 onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="キャンセル"
                 style={{
                   flex: 1,
                   paddingVertical: 12,
@@ -88,6 +90,8 @@ export function TextEditSheet({
                   onSubmit(value);
                   onClose();
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="完了"
                 style={{
                   flex: 1,
                   paddingVertical: 12,

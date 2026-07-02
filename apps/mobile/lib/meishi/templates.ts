@@ -136,73 +136,82 @@ export const MEISHI_TEMPLATES: MeishiTemplate[] = [
     id: "sunset",
     name: "サンセット",
     emoji: "🌅",
-    build: () => ({
-      version: 1,
-      canvas: {
-        aspectRatio: MEISHI_ASPECT_RATIO,
-        background: {
-          kind: "gradient",
-          from: "#ff9a56",
-          to: "#ff5f6d",
-          angle: 135,
+    build: () => {
+      const base = baseDoc();
+      return {
+        ...base,
+        canvas: {
+          ...base.canvas,
+          background: {
+            kind: "gradient",
+            from: "#ff9a56",
+            to: "#ff5f6d",
+            angle: 135,
+          },
         },
-      },
-      elements: [
-        avatarImage({ shape: "rounded" }),
-        usernameText({ color: "#ffffff" }),
-        bioText({ color: "#fff1d6" }),
-        quoteText({ color: "#fff1d6" }),
-        profileQr(),
-      ],
-    }),
+        elements: [
+          avatarImage({ shape: "rounded" }),
+          usernameText({ color: "#ffffff" }),
+          bioText({ color: "#fff1d6" }),
+          quoteText({ color: "#fff1d6" }),
+          profileQr(),
+        ],
+      };
+    },
   },
   {
     id: "midnight",
     name: "ミッドナイト",
     emoji: "🌙",
-    build: () => ({
-      version: 1,
-      canvas: {
-        aspectRatio: MEISHI_ASPECT_RATIO,
-        background: {
-          kind: "gradient",
-          from: "#0f172a",
-          to: "#4c1d95",
-          angle: 160,
+    build: () => {
+      const base = baseDoc();
+      return {
+        ...base,
+        canvas: {
+          ...base.canvas,
+          background: {
+            kind: "gradient",
+            from: "#0f172a",
+            to: "#4c1d95",
+            angle: 160,
+          },
         },
-      },
-      elements: [
-        avatarImage({ shape: "circle" }),
-        usernameText({ color: "#f5f3ff", fontStyle: "italic" }),
-        bioText({ color: "#c4b5fd" }),
-        quoteText({ color: "#a78bfa" }),
-        profileQr(),
-      ],
-    }),
+        elements: [
+          avatarImage({ shape: "circle" }),
+          usernameText({ color: "#f5f3ff", fontStyle: "italic" }),
+          bioText({ color: "#c4b5fd" }),
+          quoteText({ color: "#a78bfa" }),
+          profileQr(),
+        ],
+      };
+    },
   },
   {
     id: "sakura",
     name: "さくら",
     emoji: "🌸",
-    build: () => ({
-      version: 1,
-      canvas: {
-        aspectRatio: MEISHI_ASPECT_RATIO,
-        background: {
-          kind: "gradient",
-          from: "#fce7f3",
-          to: "#fbcfe8",
-          angle: 180,
+    build: () => {
+      const base = baseDoc();
+      return {
+        ...base,
+        canvas: {
+          ...base.canvas,
+          background: {
+            kind: "gradient",
+            from: "#fce7f3",
+            to: "#fbcfe8",
+            angle: 180,
+          },
         },
-      },
-      elements: [
-        avatarImage({ shape: "rounded" }),
-        usernameText({ color: "#831843", align: "left" }),
-        bioText({ color: "#9d174d" }),
-        quoteText({ color: "#be185d" }),
-        profileQr(),
-      ],
-    }),
+        elements: [
+          avatarImage({ shape: "rounded" }),
+          usernameText({ color: "#831843", align: "left" }),
+          bioText({ color: "#9d174d" }),
+          quoteText({ color: "#be185d" }),
+          profileQr(),
+        ],
+      };
+    },
   },
 ];
 

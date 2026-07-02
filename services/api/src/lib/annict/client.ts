@@ -39,7 +39,7 @@ twitterMiniAvatarUrl
 `;
 
 type AnnictWorkImage = {
-  internalUrl?: string | null;
+  internalUrl: string | null;
   recommendedImageUrl: string | null;
   facebookOgImageUrl: string | null;
   twitterBiggerAvatarUrl: string | null;

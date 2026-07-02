@@ -120,6 +120,11 @@ function ElementBox({
   const renderScale = canvasSize.width / MEISHI_DESIGN_WIDTH;
 
   const start = useRef<Transform>(el.transform);
+  // 最新の transform を ref 経由で参照することで、pan の useMemo 依存から外す。
+  // これにより setElementTransformLive でドラッグ中に el.transform が変わっても、
+  // Gesture.Pan インスタンスが再生成されず、ジェスチャが中断されない。
+  const latestTransformRef = useRef<Transform>(el.transform);
+  latestTransformRef.current = el.transform;
 
   const tap = useMemo(
     () => Gesture.Tap().onEnd(() => onSelect()),
@@ -131,7 +136,7 @@ function ElementBox({
       Gesture.Pan()
         .enabled(isSelected)
         .onStart(() => {
-          start.current = el.transform;
+          start.current = latestTransformRef.current;
         })
         .onUpdate((e) => {
           const nx = clamp01(start.current.x + e.translationX / canvasSize.width);
@@ -141,7 +146,7 @@ function ElementBox({
         .onEnd(() => {
           onCommit?.();
         }),
-    [isSelected, el.transform, canvasSize.width, canvasSize.height, onTransform, onCommit],
+    [isSelected, canvasSize.width, canvasSize.height, onTransform, onCommit],
   );
 
   const composed = useMemo(() => Gesture.Race(pan, tap), [pan, tap]);

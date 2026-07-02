@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -6,8 +7,11 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { MeishiRenderer } from "./meishi/MeishiRenderer";
+import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { buildBlankDocument, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
+import { useFavorites } from "@/lib/useFavorites";
+import { useWatchHistory } from "@/lib/useWatchHistory";
 
 export type MeishiCardProps = {
   username?: string | null;
@@ -84,18 +88,30 @@ export function MeishiCard({
     ],
   }));
 
-  const context: MeishiRenderContext = {
-    profile: {
-      username,
-      bio,
-      favoriteQuote,
-      profileImageUrl,
-      profileUrl,
-    },
-  };
+  const { data: favorites } = useFavorites();
+  const { data: watchHistory } = useWatchHistory();
 
-  const doc =
-    document ?? MEISHI_TEMPLATES.find((t) => t.id === "classic")?.build() ?? buildBlankDocument();
+  const context = useMemo<MeishiRenderContext>(
+    () => ({
+      profile: {
+        username,
+        bio,
+        favoriteQuote,
+        profileImageUrl,
+        profileUrl,
+      },
+      ...buildMeishiAnimeContext({ favorites, watchHistory }),
+    }),
+    [username, bio, favoriteQuote, profileImageUrl, profileUrl, favorites, watchHistory],
+  );
+
+  const doc = useMemo(
+    () =>
+      document ??
+      MEISHI_TEMPLATES.find((t) => t.id === "classic")?.build() ??
+      buildBlankDocument(),
+    [document],
+  );
 
   const card = (
     <Animated.View

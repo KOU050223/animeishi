@@ -170,5 +170,10 @@ export function makeDefaultElement(type: MeishiElementType): MeishiElement {
       };
       return el;
     }
+    default: {
+      // 網羅性チェック: MeishiElementType に新しい種別を追加したらここでコンパイルエラーになる。
+      const _exhaustive: never = type;
+      throw new Error(`Unhandled element type: ${String(_exhaustive)}`);
+    }
   }
 }

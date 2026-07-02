@@ -3,9 +3,9 @@ export type MeishiAnimeContextSource = {
   watchHistory?: { state: string | null; imageUrl: string | null }[];
 };
 
-export function buildMeishiAnimeContext(_source: MeishiAnimeContextSource) {
-  const favorites = _source.favorites ?? [];
-  const watchHistory = _source.watchHistory ?? [];
+export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
+  const favorites = source.favorites ?? [];
+  const watchHistory = source.watchHistory ?? [];
   const watchHistoryImages = compactImageUrls(watchHistory);
   const favoriteImages = compactImageUrls(favorites);
 
