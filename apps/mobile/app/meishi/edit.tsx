@@ -16,10 +16,13 @@ import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
+import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { useFavorites } from "@/lib/useFavorites";
 import { useProfile } from "@/lib/useProfile";
+import { useWatchHistory } from "@/lib/useWatchHistory";
 import type {
   MeishiElement,
   MeishiElementType,
@@ -29,6 +32,8 @@ import type {
 export default function MeishiEditScreen() {
   const router = useRouter();
   const { data: profile } = useProfile();
+  const { data: favorites } = useFavorites();
+  const { data: watchHistory } = useWatchHistory();
   const {
     doc,
     loaded,
@@ -69,8 +74,9 @@ export default function MeishiEditScreen() {
         profileImageUrl: profile?.profileImageUrl,
         profileUrl: buildProfileUrl(profile?.id),
       },
+      ...buildMeishiAnimeContext({ favorites, watchHistory }),
     }),
-    [profile],
+    [favorites, profile, watchHistory],
   );
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;

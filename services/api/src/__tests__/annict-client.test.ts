@@ -5,6 +5,7 @@ import {
   exchangeAnnictCode,
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
+  fetchAnnictWorkByAnnictId,
   searchAnnictWorksByTitle,
   ANNICT_GRAPHQL_ENDPOINT,
   ANNICT_TOKEN_ENDPOINT,
@@ -235,6 +236,63 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(entries[0]?.state).toBeNull();
   });
 
+  it("recommendedImageUrl が空なら別の Annict 画像 URL にフォールバックする", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      libraryPage(
+        [
+          node(4, "WATCHING", {
+            image: {
+              recommendedImageUrl: null,
+              facebookOgImageUrl: "https://img/4-og.jpg",
+              twitterBiggerAvatarUrl: "https://img/4-twitter-bigger.jpg",
+              twitterAvatarUrl: "https://img/4-twitter.jpg",
+              twitterNormalAvatarUrl: "https://img/4-twitter-normal.jpg",
+              twitterMiniAvatarUrl: "https://img/4-twitter-mini.jpg",
+            },
+          }),
+        ],
+        { hasNextPage: false, endCursor: null },
+      ),
+    );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries[0]?.imageUrl).toBe("https://img/4-og.jpg");
+  });
+
+  it("Annict の internalUrl が返る場合は最優先で使う", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      libraryPage(
+        [
+          node(6, "WATCHING", {
+            image: {
+              internalUrl: "https://imgproxy.annict.test/works/6.jpg",
+              recommendedImageUrl: "https://img/6-recommended.jpg",
+              facebookOgImageUrl: "https://img/6-og.jpg",
+              twitterBiggerAvatarUrl: "https://img/6-twitter-bigger.jpg",
+              twitterAvatarUrl: "https://img/6-twitter.jpg",
+              twitterNormalAvatarUrl: "https://img/6-twitter-normal.jpg",
+              twitterMiniAvatarUrl: "https://img/6-twitter-mini.jpg",
+            },
+          }),
+        ],
+        { hasNextPage: false, endCursor: null },
+      ),
+    );
+
+    const entries = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(entries[0]?.imageUrl).toBe(
+      "https://imgproxy.annict.test/works/6.jpg",
+    );
+  });
+
   it("hasNextPage が true でも endCursor が null なら止まる（無限ループ防止）", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       libraryPage([node(1, "WATCHING")], {
@@ -282,6 +340,46 @@ describe("fetchAnnictLibraryEntries", () => {
     );
 
     expect(entries).toEqual([]);
+  });
+});
+
+describe("fetchAnnictWorkByAnnictId", () => {
+  it("annictId から取得した作品でも画像 URL をフォールバックする", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          searchWorks: {
+            nodes: [
+              {
+                id: "node-10",
+                annictId: 10,
+                title: "作品10",
+                titleKana: null,
+                titleEn: null,
+                seasonName: null,
+                seasonYear: null,
+                image: {
+                  recommendedImageUrl: null,
+                  facebookOgImageUrl: null,
+                  twitterBiggerAvatarUrl: "https://img/10-twitter-bigger.jpg",
+                  twitterAvatarUrl: "https://img/10-twitter.jpg",
+                  twitterNormalAvatarUrl: "https://img/10-twitter-normal.jpg",
+                  twitterMiniAvatarUrl: "https://img/10-twitter-mini.jpg",
+                },
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    const work = await fetchAnnictWorkByAnnictId(
+      "tok",
+      10,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(work?.imageUrl).toBe("https://img/10-twitter-bigger.jpg");
   });
 });
 
@@ -401,6 +499,35 @@ describe("searchAnnictWorksByTitle", () => {
     expect(result.works).toHaveLength(0);
     expect(result.hasNextPage).toBe(false);
     expect(result.endCursor).toBeNull();
+  });
+
+  it("検索結果でも画像 URL をフォールバックする", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      searchPage(
+        [
+          workNode(5, {
+            image: {
+              recommendedImageUrl: null,
+              facebookOgImageUrl: null,
+              twitterBiggerAvatarUrl: null,
+              twitterAvatarUrl: "https://img/5-twitter.jpg",
+              twitterNormalAvatarUrl: "https://img/5-twitter-normal.jpg",
+              twitterMiniAvatarUrl: "https://img/5-twitter-mini.jpg",
+            },
+          }),
+        ],
+        { hasNextPage: false, endCursor: null },
+      ),
+    );
+
+    const result = await searchAnnictWorksByTitle(
+      "tok",
+      "作品5",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works[0]?.imageUrl).toBe("https://img/5-twitter.jpg");
   });
 });
 
