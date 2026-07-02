@@ -43,6 +43,8 @@ function AuthGuard() {
       <Stack.Screen name="user" />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
       <Stack.Screen name="annict" />
+      {/* 名刺エディタ */}
+      <Stack.Screen name="meishi/edit" />
     </Stack>
   );
 }

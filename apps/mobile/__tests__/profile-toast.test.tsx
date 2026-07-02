@@ -48,6 +48,34 @@ jest.mock("@/lib/useProfileAvatar", () => ({
   }),
 }));
 
+jest.mock("@/lib/meishi/useMeishiDocument", () => ({
+  useMeishiDocument: () => ({
+    doc: null,
+    loaded: true,
+    setDocFromTemplate: jest.fn(),
+    commit: jest.fn(),
+    beginGesture: jest.fn(),
+    setElementTransformLive: jest.fn(),
+    updateElement: jest.fn(),
+    addElement: jest.fn(),
+    removeElement: jest.fn(),
+    duplicateElement: jest.fn(),
+    bringToFront: jest.fn(),
+    sendToBack: jest.fn(),
+    setBackground: jest.fn(),
+    undo: jest.fn(),
+    redo: jest.fn(),
+    clear: jest.fn(),
+    canUndo: false,
+    canRedo: false,
+  }),
+}));
+
+jest.mock("@/lib/profileUrl", () => ({
+  buildProfileUrl: (userId: string | null | undefined) =>
+    userId ? `http://localhost:8081/user/${userId}` : null,
+}));
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockMutateProfile.mockImplementation((_input, options) => {

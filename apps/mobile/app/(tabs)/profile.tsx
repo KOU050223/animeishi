@@ -9,10 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
+import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { buildProfileUrl } from "@/lib/profileUrl";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -20,18 +23,17 @@ export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
+  const { doc: meishiDoc } = useMeishiDocument();
+  const router = useRouter();
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [favoriteQuote, setFavoriteQuote] = useState("");
 
-  // 保存・アップロードの結果を伝えるトースト。一定時間で自動的に消える。
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((next: Toast) => {
     setToast(next);
-    // accessibilityLiveRegion は Android 専用のため、iOS(VoiceOver) でも
-    // 読み上げられるよう明示的にアナウンスする。
     AccessibilityInfo.announceForAccessibility(next.message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2500);
@@ -42,8 +44,6 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  // フォームを初期化済みか。保存後の invalidate による refetch で
-  // 編集中の入力がサーバ値に巻き戻らないよう、初回ロード時のみ初期化する。
   const initialized = useRef(false);
   useEffect(() => {
     if (!profile || initialized.current) return;
@@ -75,7 +75,6 @@ export default function ProfileScreen() {
   function onChangeAvatar() {
     uploadAvatar.mutate(undefined, {
       onSuccess: (data) => {
-        // 画像選択をキャンセルした場合は null が返る。その時はトーストを出さない。
         if (data) {
           showToast({ type: "success", message: "画像を更新しました" });
         }
@@ -122,7 +121,6 @@ export default function ProfileScreen() {
           <Text className="text-xl font-bold text-gray-900">プロフィール</Text>
         </View>
 
-        {/* 名刺プレビュー（ピンチ&ズーム可） */}
         <View className="px-4">
           <Text className="mb-0.5 text-sm font-medium text-gray-700">
             名刺プレビュー
@@ -135,11 +133,22 @@ export default function ProfileScreen() {
             bio={bio}
             favoriteQuote={favoriteQuote}
             profileImageUrl={profile?.profileImageUrl}
+            profileUrl={buildProfileUrl(profile?.id)}
+            document={meishiDoc}
             zoomable
           />
+          <TouchableOpacity
+            className="mt-3 items-center rounded-xl bg-indigo-50 py-3"
+            onPress={() => router.push("/meishi/edit")}
+            accessibilityRole="button"
+            accessibilityLabel="名刺エディタを開く"
+          >
+            <Text className="font-semibold text-indigo-700">
+              🎨 名刺をデザインする
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* アバター変更 */}
         <View className="mt-6 px-4">
           <TouchableOpacity
             className="items-center rounded-xl border border-dashed border-indigo-300 bg-white py-4"
@@ -158,7 +167,6 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 編集フォーム */}
         <View className="mt-6 gap-4 px-4">
           <View>
             <Text className="mb-1 text-sm font-medium text-gray-700">
@@ -219,13 +227,11 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Annict 連携 */}
         <View className="mt-6 px-4">
           <AnnictConnectionCard />
         </View>
       </ScrollView>
 
-      {/* 保存・アップロード結果のトースト */}
       <View
         testID="profile-toast-layer"
         pointerEvents="box-none"
