@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
 import { View } from "react-native";
 import type { ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { MeishiElement, Transform } from "@/lib/meishi/types";
+
+type CanvasOrigin = { x: number; y: number };
 
 type Size = { width: number; height: number };
 type Corner = "tl" | "tr" | "bl" | "br";
@@ -15,11 +17,14 @@ const MIN_H = 0.02;
 export function SelectionOverlay({
   element,
   canvasSize,
+  canvasOriginRef,
   onTransform,
   onCommit,
 }: {
   element: MeishiElement;
   canvasSize: Size;
+  /** キャンバスの画面上絶対原点（measureInWindow 結果）。回転を絶対座標基準で扱うのに使う。 */
+  canvasOriginRef?: MutableRefObject<CanvasOrigin>;
   onTransform: (t: Transform) => void;
   onCommit?: () => void;
 }) {
@@ -95,17 +100,17 @@ export function SelectionOverlay({
           start.current = latestTransformRef.current;
         })
         .onUpdate((e) => {
-          // 中心（キャンバスローカル px）
           const s = start.current;
+          // 中心（キャンバスローカル px）
           const cx = (s.x + s.width / 2) * canvasWRef.current;
           const cy = (s.y + s.height / 2) * canvasHRef.current;
-          // absoluteX/Y はスクリーン座標、e.x/e.y は要素ローカル座標。
-          // 差分 (absoluteX - x) はキャンバスの絶対原点オフセットに一致する。
-          // 「絶対原点オフセット」を使ってポインタの絶対座標を canvas ローカル座標へ変換する。
-          const canvasOffsetX = e.absoluteX - e.x;
-          const canvasOffsetY = e.absoluteY - e.y;
-          const nowPx = e.absoluteX - canvasOffsetX;
-          const nowPy = e.absoluteY - canvasOffsetY;
+          // キャンバスの画面絶対原点を差し引くことで、ポインタの absoluteX/Y を
+          // キャンバスローカル px に変換する。canvasOriginRef が渡っていない場合は
+          // 原点(0,0)としてフォールバック（回転済み要素だとズレる可能性はある）。
+          const originX = canvasOriginRef?.current.x ?? 0;
+          const originY = canvasOriginRef?.current.y ?? 0;
+          const nowPx = e.absoluteX - originX;
+          const nowPy = e.absoluteY - originY;
           const startPx = nowPx - e.translationX;
           const startPy = nowPy - e.translationY;
           const startAngle = Math.atan2(startPy - cy, startPx - cx);
@@ -115,7 +120,7 @@ export function SelectionOverlay({
           onTransform({ ...s, rotation: nextRotation });
         })
         .onEnd(() => onCommit?.()),
-    [onTransform, onCommit],
+    [canvasOriginRef, onTransform, onCommit],
   );
 
   // 移動ジェスチャ（選択枠の中央部分をドラッグ）

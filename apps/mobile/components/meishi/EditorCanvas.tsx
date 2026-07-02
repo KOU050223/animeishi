@@ -36,11 +36,22 @@ export function EditorCanvas({
   onCommit,
 }: EditorCanvasProps) {
   const [size, setSize] = useState<Size | null>(null);
+  const canvasRef = useRef<View>(null);
+  // キャンバスの画面上の絶対原点（px）。回転ジェスチャで absoluteX/Y をキャンバスローカルに変換するのに使う。
+  const canvasOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const measureCanvas = () => {
+    canvasRef.current?.measureInWindow((x, y) => {
+      canvasOriginRef.current = { x, y };
+    });
+  };
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout;
     const height = width / document.canvas.aspectRatio;
     setSize({ width, height });
+    // レイアウト確定後にウィンドウ内絶対座標を測る（スクロールや親再配置に追随）。
+    measureCanvas();
   };
 
   const tapBackground = useMemo(
@@ -51,7 +62,9 @@ export function EditorCanvas({
   return (
     <GestureDetector gesture={tapBackground}>
       <View
+        ref={canvasRef}
         onLayout={onLayout}
+        collapsable={false}
         style={{
           width: "100%",
           aspectRatio: document.canvas.aspectRatio,
@@ -83,6 +96,7 @@ export function EditorCanvas({
                     <SelectionOverlay
                       element={el}
                       canvasSize={size}
+                      canvasOriginRef={canvasOriginRef}
                       onTransform={(t) => onTransform(el.id, t)}
                       onCommit={onCommit}
                     />
