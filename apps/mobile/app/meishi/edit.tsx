@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -31,6 +32,7 @@ import type {
 
 export default function MeishiEditScreen() {
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
   const { data: watchHistory } = useWatchHistory();
@@ -80,6 +82,10 @@ export default function MeishiEditScreen() {
   );
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
+  const inspectorHeight = Math.min(
+    336,
+    Math.max(236, Math.round(windowHeight * 0.28)),
+  );
 
   const onSelect = useCallback((id: string | null) => setSelectedId(id), []);
 
@@ -232,56 +238,69 @@ export default function MeishiEditScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.canvasArea}>
-        <View style={styles.canvasWrapper}>
-          {doc ? (
-            <EditorCanvas
-              document={doc}
-              context={context}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onTransform={onTransform}
-              onCommit={onCommit}
+      <View style={styles.editorBody}>
+        <View
+          style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
+        >
+          <View style={styles.canvasWrapper}>
+            {doc ? (
+              <EditorCanvas
+                document={doc}
+                context={context}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onTransform={onTransform}
+                onCommit={onCommit}
+              />
+            ) : (
+              <View style={{ alignItems: "center", padding: 24 }}>
+                <Text style={{ color: "#6b7280" }}>
+                  テンプレートを選んでください
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View
+          style={[
+            selected ? styles.inspectorSlot : styles.addDockSlot,
+            { height: inspectorHeight },
+          ]}
+          pointerEvents="box-none"
+        >
+          {selected ? (
+            <PropertyPanel
+              element={selected}
+              style={styles.propertyPanel}
+              onChange={(patch) => updateElement(selected.id, patch)}
+              onOpenTextEdit={() => setTextSheet(true)}
+              onDelete={() => {
+                removeElement(selected.id);
+                setSelectedId(null);
+              }}
+              onDuplicate={() => {
+                const nid = newId();
+                duplicateElement(selected.id, nid);
+                setSelectedId(nid);
+              }}
+              onBringToFront={() => bringToFront(selected.id)}
+              onSendToBack={() => sendToBack(selected.id)}
             />
           ) : (
-            <View style={{ alignItems: "center", padding: 24 }}>
-              <Text style={{ color: "#6b7280" }}>
-                テンプレートを選んでください
-              </Text>
+            <View style={styles.bottomBar}>
+              <Pressable
+                onPress={() => setAddSheet(true)}
+                style={styles.addBtn}
+                accessibilityRole="button"
+                accessibilityLabel="要素を追加"
+              >
+                <Text style={styles.addBtnText}>＋ 要素を追加</Text>
+              </Pressable>
             </View>
           )}
         </View>
       </View>
-
-      {selected ? (
-        <PropertyPanel
-          element={selected}
-          onChange={(patch) => updateElement(selected.id, patch)}
-          onOpenTextEdit={() => setTextSheet(true)}
-          onDelete={() => {
-            removeElement(selected.id);
-            setSelectedId(null);
-          }}
-          onDuplicate={() => {
-            const nid = newId();
-            duplicateElement(selected.id, nid);
-            setSelectedId(nid);
-          }}
-          onBringToFront={() => bringToFront(selected.id)}
-          onSendToBack={() => sendToBack(selected.id)}
-        />
-      ) : (
-        <View style={styles.bottomBar}>
-          <Pressable
-            onPress={() => setAddSheet(true)}
-            style={styles.addBtn}
-            accessibilityRole="button"
-            accessibilityLabel="要素を追加"
-          >
-            <Text style={styles.addBtnText}>＋ 要素を追加</Text>
-          </Pressable>
-        </View>
-      )}
 
       <AddElementSheet
         visible={addSheet}
@@ -332,6 +351,11 @@ function useMeishiGestureFlag() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  editorBody: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    position: "relative",
+  },
   canvasArea: {
     flex: 1,
     padding: 12,
@@ -384,9 +408,23 @@ const styles = StyleSheet.create({
   subBtnText: { fontSize: 12, fontWeight: "600", color: "#111827" },
   bottomBar: {
     padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+  },
+  inspectorSlot: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "#ffffff",
+  },
+  addDockSlot: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "flex-end",
+  },
+  propertyPanel: {
+    flex: 1,
   },
   addBtn: {
     paddingVertical: 14,

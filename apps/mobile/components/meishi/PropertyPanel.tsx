@@ -1,4 +1,11 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import type {
   CollageSort,
@@ -17,6 +24,7 @@ import type {
 
 type Props = {
   element: MeishiElement;
+  style?: StyleProp<ViewStyle>;
   onChange: (patch: Partial<MeishiElement>) => void;
   onOpenTextEdit: () => void;
   onDelete: () => void;
@@ -31,10 +39,19 @@ type Props = {
 export function PropertyPanel(props: Props) {
   const { element, onDelete, onDuplicate, onBringToFront, onSendToBack } = props;
   return (
-    <View style={{ backgroundColor: "#ffffff", borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
+    <View
+      style={[
+        {
+          backgroundColor: "#ffffff",
+          borderTopWidth: 1,
+          borderTopColor: "#e5e7eb",
+        },
+        props.style,
+      ]}
+    >
       <ScrollView
         horizontal={false}
-        style={{ maxHeight: 260 }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ padding: 12, gap: 12 }}
         showsVerticalScrollIndicator
       >
