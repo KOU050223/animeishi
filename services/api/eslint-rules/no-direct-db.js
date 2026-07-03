@@ -1,5 +1,5 @@
 /**
- * ESLint カスタムルール: no-direct-db
+ * Oxlint JS plugin で読み込む ESLint 互換ルール: no-direct-db
  *
  * services/api/src/repository/ 以外のファイルから
  * createDb() の戻り値を直接操作すること（.insert/.update/.delete）を禁止する。
@@ -12,7 +12,6 @@
  *   - `db["insert"](...)` などのリテラル文字列によるアクセスも検出
  */
 
-/** @type {import("eslint").Rule.RuleModule} */
 export default {
   meta: {
     type: "problem",

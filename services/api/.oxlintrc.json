@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "jsPlugins": ["./eslint-rules/index.js"],
+  "rules": {
+    "animeishi-local/no-direct-db": "error"
+  },
+  "env": {
+    "builtin": true
+  }
+}
