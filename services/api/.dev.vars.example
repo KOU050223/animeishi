@@ -7,7 +7,11 @@ CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Annict OAuth
 # https://annict.com/oauth/applications でアプリ登録 → Client ID / Secret を取得。
-# redirect_uri に animeishi://annict（+ローカル/プレビュー用）を登録すること。
+# redirect_uri に下記を登録すること。
+# - development build / standalone: animeishi://annict
+# - Expo Go 実機: exp://<MacのIP>:8081/--/annict
+#   （Mac の IP や Expo のポートが変わったら Annict 側の登録も更新が必要）
+# - Web: https://<web-host>/annict（ローカル Web は http://localhost:8081/annict）
 # CLIENT_ID は公開可（モバイルにも埋め込む）。SECRET はサーバー専用で、
 # 本番は `wrangler secret put ANNICT_CLIENT_SECRET` で登録する（コミット禁止）。
 ANNICT_CLIENT_ID=

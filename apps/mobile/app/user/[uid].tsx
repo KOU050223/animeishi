@@ -1,8 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { View, Text, Image, ScrollView, ActivityIndicator } from "react-native";
-
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
+import { apiUrl } from "@/lib/apiUrl";
 
 type PublicProfile = {
   id: string;

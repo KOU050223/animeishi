@@ -5,7 +5,7 @@
   "type": "module",
   "types": "./src/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --ip 0.0.0.0",
     "build": "tsc --noEmit",
     "deploy": "wrangler deploy",
     "test": "vitest run && vitest run --config vitest.node.config.ts",

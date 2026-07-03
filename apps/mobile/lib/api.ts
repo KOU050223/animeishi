@@ -1,6 +1,5 @@
 import { hc } from "hono/client";
 import type { AppType } from "@animeishi/api";
-
-const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
+import { apiUrl } from "@/lib/apiUrl";
 
 export const apiClient = hc<AppType>(apiUrl);
