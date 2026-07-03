@@ -40,7 +40,7 @@ function AuthGuard() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="user" />
+      <Stack.Screen name="user/[uid]" />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
       <Stack.Screen name="annict" />
       {/* 名刺エディタ */}

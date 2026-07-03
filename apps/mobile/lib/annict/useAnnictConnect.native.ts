@@ -14,13 +14,28 @@ import type { AnnictConnectResult } from "./useAnnictConnect";
 // Annict OAuth クライアント ID。EXPO_PUBLIC_ なので公開ビルドに埋め込まれてよい
 // （client_secret は埋め込まず Workers 側にのみ置く）。
 const ANNICT_CLIENT_ID = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID ?? "";
+const ANNICT_NATIVE_REDIRECT_URI =
+  process.env.EXPO_PUBLIC_ANNICT_NATIVE_REDIRECT_URI ?? "";
 
 // Annict アプリ設定に登録した deep link。authorize / token 交換の双方で一致させる。
 // Linking.createURL は expo-constants のマニフェストを要求し、モジュールロード時に
 // 評価するとマニフェスト未設定のテスト環境（barrel 経由 import）で落ちる。
 // connect 実行時に遅延評価することで副作用をフローの内側に閉じ込める。
+export function resolveNativeAnnictRedirectUri({
+  configuredRedirectUri,
+  createURL,
+}: {
+  configuredRedirectUri?: string;
+  createURL: (path: string) => string;
+}): string {
+  return configuredRedirectUri?.trim() || createURL("annict");
+}
+
 function getRedirectUri(): string {
-  return Linking.createURL("annict");
+  return resolveNativeAnnictRedirectUri({
+    configuredRedirectUri: ANNICT_NATIVE_REDIRECT_URI,
+    createURL: Linking.createURL,
+  });
 }
 
 /**
