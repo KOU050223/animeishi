@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:node": "vitest run --config vitest.node.config.ts",
     "lint": "oxlint src __tests__ --deny-warnings",
+    "lint:fix": "oxlint src __tests__ --fix --deny-warnings",
     "format": "prettier --write src __tests__",
     "format:check": "prettier --check src __tests__",
     "db:generate": "drizzle-kit generate",

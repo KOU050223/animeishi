@@ -14,6 +14,7 @@
     "preview:web": "wrangler dev",
     "test": "jest --passWithNoTests",
     "lint": "oxlint app lib store components --no-error-on-unmatched-pattern --deny-warnings",
+    "lint:fix": "oxlint app lib store components --no-error-on-unmatched-pattern --fix --deny-warnings",
     "format": "prettier --write app lib store",
     "format:check": "prettier --check app lib store"
   },
