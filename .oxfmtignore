@@ -1,0 +1,29 @@
+# 依存関係とビルド成果物
+node_modules/
+dist/
+coverage/
+.turbo/
+.wrangler/
+.expo/
+web-build/
+ios/
+android/
+
+# ローカルのエージェント・エディタ状態
+.agents/
+.claude/
+.direnv/
+.vscode/
+
+# ドキュメントや文章はアプリコードとは別に整形する
+*.md
+
+# 生成物
+services/api/worker-configuration.d.ts
+worker-configuration.d.ts
+services/api/migrations/meta/
+migrations/meta/
+apps/mobile/expo-env.d.ts
+expo-env.d.ts
+pnpm-lock.yaml
+skills-lock.json
