@@ -16,7 +16,12 @@ export function TemplatePicker({
   warningMessage?: string;
 }) {
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View
         style={{
           flex: 1,
@@ -36,7 +41,13 @@ export function TemplatePicker({
             overflow: "hidden",
           }}
         >
-          <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" }}>
+          <View
+            style={{
+              padding: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: "#e5e7eb",
+            }}
+          >
             <Text style={{ fontSize: 16, fontWeight: "bold" }}>{title}</Text>
             {warningMessage ? (
               <Text style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
@@ -79,7 +90,13 @@ export function TemplatePicker({
               );
             })}
           </ScrollView>
-          <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
+          <View
+            style={{
+              padding: 12,
+              borderTopWidth: 1,
+              borderTopColor: "#e5e7eb",
+            }}
+          >
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
@@ -91,7 +108,9 @@ export function TemplatePicker({
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "600", color: "#111827" }}>閉じる</Text>
+              <Text style={{ fontWeight: "600", color: "#111827" }}>
+                閉じる
+              </Text>
             </Pressable>
           </View>
         </View>

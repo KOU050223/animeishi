@@ -78,7 +78,7 @@ describe("useSortedAnimeList", () => {
   describe("ソート", () => {
     it("タイトル昇順でソートする", () => {
       const { result } = renderHook(() =>
-        useSortedAnimeList(MOCK_WORKS, "title", "asc")
+        useSortedAnimeList(MOCK_WORKS, "title", "asc"),
       );
       const titles = result.current.map((a) => a.title);
       expect(titles).toEqual(["HUNTER×HUNTER", "鬼滅の刃", "進撃の巨人"]);
@@ -86,7 +86,7 @@ describe("useSortedAnimeList", () => {
 
     it("タイトル降順でソートする", () => {
       const { result } = renderHook(() =>
-        useSortedAnimeList(MOCK_WORKS, "title", "desc")
+        useSortedAnimeList(MOCK_WORKS, "title", "desc"),
       );
       const titles = result.current.map((a) => a.title);
       expect(titles).toEqual(["進撃の巨人", "鬼滅の刃", "HUNTER×HUNTER"]);
@@ -94,7 +94,7 @@ describe("useSortedAnimeList", () => {
 
     it("年度昇順でソートする", () => {
       const { result } = renderHook(() =>
-        useSortedAnimeList(MOCK_WORKS, "year", "asc")
+        useSortedAnimeList(MOCK_WORKS, "year", "asc"),
       );
       const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2011, 2013, 2019]);
@@ -102,7 +102,7 @@ describe("useSortedAnimeList", () => {
 
     it("年度降順でソートする", () => {
       const { result } = renderHook(() =>
-        useSortedAnimeList(MOCK_WORKS, "year", "desc")
+        useSortedAnimeList(MOCK_WORKS, "year", "desc"),
       );
       const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2019, 2013, 2011]);
@@ -118,7 +118,7 @@ describe("useSortedAnimeList", () => {
   describe("エッジケース", () => {
     it("data が undefined のとき空配列を返す", () => {
       const { result } = renderHook(() =>
-        useSortedAnimeList(undefined, "title", "asc")
+        useSortedAnimeList(undefined, "title", "asc"),
       );
       expect(result.current).toHaveLength(0);
     });
@@ -147,7 +147,7 @@ describe("useAnimeList", () => {
         ],
         hasNextPage: false,
         endCursor: null,
-      })
+      }),
     );
 
     const { result } = renderHook(() => useAnimeList(""), {
@@ -194,7 +194,7 @@ describe("useAnimeList", () => {
         ],
         hasNextPage: true,
         endCursor: "cur1",
-      })
+      }),
     );
 
     const { result } = renderHook(() => useAnimeList("進撃"), {

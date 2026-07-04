@@ -73,17 +73,13 @@ export function AnnictSoftGate({
         className="w-full items-center rounded-xl bg-indigo-600 py-3"
         accessibilityRole="button"
         // 接続中はスピナーのみでテキストが消えるため、名前と状態を明示する。
-        accessibilityLabel={
-          isConnecting ? t("連携中...") : t("連携する")
-        }
+        accessibilityLabel={isConnecting ? t("連携中...") : t("連携する")}
         accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
       >
         {isConnecting ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text className="font-semibold text-white">
-            {t("連携する")}
-          </Text>
+          <Text className="font-semibold text-white">{t("連携する")}</Text>
         )}
       </TouchableOpacity>
     </View>

@@ -332,7 +332,8 @@ export function AnimeListContent({
                 <Ionicons name="search-outline" size={24} color="#475569" />
               </View>
               <Text style={styles.emptyTitle}>
-                {formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません
+                {formatSeasonLabel(filterYear, filterSeason)}
+                の作品が見つかりません
               </Text>
               <Text style={styles.emptyCopy}>
                 別の年・シーズンを選ぶか、タイトルで検索してみてください。

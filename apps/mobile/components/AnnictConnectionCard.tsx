@@ -46,7 +46,10 @@ export function AnnictConnectionCard() {
         void disconnect()
           .then(() => setMessage(null))
           .catch(() =>
-            setMessage({ type: "error", text: t("予期しないエラーが発生しました") }),
+            setMessage({
+              type: "error",
+              text: t("予期しないエラーが発生しました"),
+            }),
           );
       },
       {
@@ -67,7 +70,9 @@ export function AnnictConnectionCard() {
       </View>
 
       <Text className="mb-3 text-xs leading-5 text-gray-500">
-        {t("Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。")}
+        {t(
+          "Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。",
+        )}
       </Text>
 
       <View className="mb-3 flex-row items-center">

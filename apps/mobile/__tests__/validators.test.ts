@@ -10,9 +10,9 @@ describe("signInSchema", () => {
   });
 
   it("空のメールを拒否する", () => {
-    expect(
-      signInSchema.safeParse({ email: "", password: "any" }).success,
-    ).toBe(false);
+    expect(signInSchema.safeParse({ email: "", password: "any" }).success).toBe(
+      false,
+    );
   });
 
   it("@のないメールアドレスを拒否する", () => {
@@ -105,8 +105,8 @@ describe("signUpSchema", () => {
   });
 
   it("無効なメールアドレスを拒否する", () => {
-    expect(
-      signUpSchema.safeParse({ ...valid, email: "invalid" }).success,
-    ).toBe(false);
+    expect(signUpSchema.safeParse({ ...valid, email: "invalid" }).success).toBe(
+      false,
+    );
   });
 });

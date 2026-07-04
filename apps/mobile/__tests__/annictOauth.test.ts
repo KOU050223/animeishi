@@ -13,7 +13,9 @@ describe("buildAuthorizeUrl", () => {
       state: "st_123",
     });
     const parsed = new URL(url);
-    expect(`${parsed.origin}${parsed.pathname}`).toBe(ANNICT_AUTHORIZE_ENDPOINT);
+    expect(`${parsed.origin}${parsed.pathname}`).toBe(
+      ANNICT_AUTHORIZE_ENDPOINT,
+    );
     expect(parsed.searchParams.get("client_id")).toBe("cid");
     expect(parsed.searchParams.get("response_type")).toBe("code");
     expect(parsed.searchParams.get("redirect_uri")).toBe("animeishi://annict");

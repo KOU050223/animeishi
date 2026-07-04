@@ -28,7 +28,9 @@ describe("parseUserIdFromQr", () => {
 
     it("旧 UID を含む旧 URL からも抽出する", () => {
       expect(
-        parseUserIdFromQr(`https://animeishi-viewer.web.app/user/${LEGACY_UID}`),
+        parseUserIdFromQr(
+          `https://animeishi-viewer.web.app/user/${LEGACY_UID}`,
+        ),
       ).toBe(LEGACY_UID);
     });
 

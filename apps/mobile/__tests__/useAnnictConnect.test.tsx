@@ -35,9 +35,7 @@ beforeEach(() => {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient();
-  return (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 describe("useAnnictConnect の in-flight ガード", () => {

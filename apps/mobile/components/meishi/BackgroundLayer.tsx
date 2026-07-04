@@ -70,7 +70,14 @@ export function BackgroundLayer({
               })()
             : null}
           {style.kind === "pattern" && style.pattern === "dots" ? (
-            <Pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <Pattern
+              id={patId}
+              x="0"
+              y="0"
+              width="10"
+              height="10"
+              patternUnits="userSpaceOnUse"
+            >
               <Rect width="10" height="10" fill={style.base} />
               <Circle cx="5" cy="5" r="1.5" fill={style.accent} />
             </Pattern>
@@ -90,7 +97,14 @@ export function BackgroundLayer({
             </Pattern>
           ) : null}
           {style.kind === "pattern" && style.pattern === "grid" ? (
-            <Pattern id={patId} x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <Pattern
+              id={patId}
+              x="0"
+              y="0"
+              width="10"
+              height="10"
+              patternUnits="userSpaceOnUse"
+            >
               <Rect width="10" height="10" fill={style.base} />
               <Path
                 d="M 10 0 L 0 0 0 10"
@@ -104,7 +118,9 @@ export function BackgroundLayer({
         <Rect
           width="100"
           height="100"
-          fill={style.kind === "gradient" ? `url(#${gradId})` : `url(#${patId})`}
+          fill={
+            style.kind === "gradient" ? `url(#${gradId})` : `url(#${patId})`
+          }
         />
       </Svg>
     </View>

@@ -19,10 +19,6 @@ export default defineConfig({
   ],
   test: {
     globals: true,
-    exclude: [
-      "src/schema/__tests__/**",
-      "src/__tests__/**",
-      "node_modules/**",
-    ],
+    exclude: ["src/schema/__tests__/**", "src/__tests__/**", "node_modules/**"],
   },
 });

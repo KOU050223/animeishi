@@ -42,9 +42,8 @@ jest.mock("@expo/vector-icons", () => {
 });
 
 // AsyncStorage はネイティブモジュールに依存するため、公式提供の in-memory モックを使う。
-jest.mock(
-  "@react-native-async-storage/async-storage",
-  () => require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 
 // expo-localization はネイティブモジュールに依存するためテストでは固定値を返す。

@@ -20,7 +20,9 @@ export function MeishiRenderer({
   context,
   borderRadius = 16,
 }: MeishiRendererProps) {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout;
@@ -38,7 +40,10 @@ export function MeishiRenderer({
         overflow: "hidden",
       }}
     >
-      <BackgroundLayer style={document.canvas.background} borderRadius={borderRadius} />
+      <BackgroundLayer
+        style={document.canvas.background}
+        borderRadius={borderRadius}
+      />
       {size
         ? document.elements.map((el) => {
             const w = el.transform.width * size.width;

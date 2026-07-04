@@ -26,7 +26,12 @@ export function TextEditSheet({
   }, [visible, initialValue]);
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -52,7 +57,9 @@ export function TextEditSheet({
               maxWidth: 560,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 12 }}>
+            <Text
+              style={{ fontSize: 16, fontWeight: "bold", marginBottom: 12 }}
+            >
               文字を編集
             </Text>
             <TextInput
@@ -83,7 +90,9 @@ export function TextEditSheet({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#111827" }}>キャンセル</Text>
+                <Text style={{ fontWeight: "600", color: "#111827" }}>
+                  キャンセル
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -100,7 +109,9 @@ export function TextEditSheet({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#ffffff" }}>完了</Text>
+                <Text style={{ fontWeight: "600", color: "#ffffff" }}>
+                  完了
+                </Text>
               </Pressable>
             </View>
           </Pressable>

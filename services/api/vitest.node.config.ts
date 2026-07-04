@@ -12,6 +12,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/schema/__tests__/**/*.test.ts", "src/__tests__/**/*.test.ts"],
+    include: [
+      "src/schema/__tests__/**/*.test.ts",
+      "src/__tests__/**/*.test.ts",
+    ],
   },
 });

@@ -1,7 +1,12 @@
 import { Modal, Pressable, Text, View } from "react-native";
 import type { MeishiElementType } from "@/lib/meishi/types";
 
-type Item = { type: MeishiElementType; label: string; emoji: string; sub?: string };
+type Item = {
+  type: MeishiElementType;
+  label: string;
+  emoji: string;
+  sub?: string;
+};
 
 const ITEMS: Item[] = [
   { type: "text", label: "テキスト", emoji: "🔤" },
@@ -24,7 +29,12 @@ export function AddElementSheet({
   onPickAvatarImage?: () => void;
 }) {
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <Pressable
         onPress={onClose}
         style={{
@@ -102,8 +112,12 @@ function PickButton({
       accessibilityLabel={`${label}を追加`}
     >
       <Text style={{ fontSize: 26 }}>{emoji}</Text>
-      <Text style={{ fontSize: 12, fontWeight: "600", marginTop: 4 }}>{label}</Text>
-      {sub ? <Text style={{ fontSize: 10, color: "#6b7280" }}>{sub}</Text> : null}
+      <Text style={{ fontSize: 12, fontWeight: "600", marginTop: 4 }}>
+        {label}
+      </Text>
+      {sub ? (
+        <Text style={{ fontSize: 10, color: "#6b7280" }}>{sub}</Text>
+      ) : null}
     </Pressable>
   );
 }
