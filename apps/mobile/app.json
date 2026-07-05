@@ -14,13 +14,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.animeishi.app"
+      "bundleIdentifier": "com.animeishi.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "QR コード読み取り時のカメラ機能で使用します（実際に音声を録音することはありません）"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.animeishi.app"
+      "package": "com.animeishi.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -42,6 +50,19 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e390c25d-6196-46c7-bd72-f24e62d24fcf"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e390c25d-6196-46c7-bd72-f24e62d24fcf"
+      }
+    },
+    "owner": "kou050223"
   }
 }
