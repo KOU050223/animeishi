@@ -1,4 +1,4 @@
-module.exports = function (api) {
+export default function babelConfig(api) {
   const isTest = api.env("test");
   api.cache.using(() => isTest);
   return {
@@ -12,4 +12,4 @@ module.exports = function (api) {
     // テスト環境では jest-expo が reanimated をモックするため不要。
     plugins: isTest ? [] : ["react-native-worklets/plugin"],
   };
-};
+}
