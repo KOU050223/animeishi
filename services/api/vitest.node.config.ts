@@ -13,8 +13,9 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: [
-      "src/schema/__tests__/**/*.test.ts",
-      "src/__tests__/**/*.test.ts",
+      "src/cors.test.ts",
+      "src/lib/annict/client.test.ts",
+      "src/schema/*.test.ts",
     ],
   },
 });

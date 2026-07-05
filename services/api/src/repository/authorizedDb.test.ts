@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
-import { setupTestDb } from "./helpers/setup-db";
+import { setupTestDb } from "../test-utils/setup-db";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { annictWorks, users } from "@/db/schema";
 

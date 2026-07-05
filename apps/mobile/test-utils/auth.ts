@@ -1,7 +1,7 @@
 /**
  * テストで認証状態を「どこからでも一行で」表現するためのファクトリ。
  *
- * jest.config.js の moduleNameMapper により @clerk/clerk-expo は常に
+ * jest.config.cjs の moduleNameMapper により @clerk/clerk-expo は常に
  * __mocks__/@clerk/clerk-expo.ts に解決される。ここではそのモックステートを
  * 意図が読める名前で差し替えるだけのシン・ラッパーを提供する。
  *

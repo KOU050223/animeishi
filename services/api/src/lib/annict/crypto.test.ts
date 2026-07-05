@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encryptToken, decryptToken } from "../crypto";
+import { encryptToken, decryptToken } from "./crypto";
 
 // テスト用の 32byte 鍵（base64）を実行時に生成する。固定の base64 文字列を埋め込むと
 // シークレットスキャン（Betterleaks 等）に誤検知され、本物の漏えいが埋もれるため。

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "./helpers/setup-db";
+import { setupTestDb } from "../test-utils/setup-db";
 import { annict } from "@/routes/annict";
 import { users, annictTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";

@@ -2,6 +2,7 @@
   "name": "@animeishi/mobile",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -12,9 +13,9 @@
     "build:web": "expo export -p web",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
-    "test": "jest --passWithNoTests",
-    "lint": "oxlint app lib store components --no-error-on-unmatched-pattern --deny-warnings",
-    "lint:fix": "oxlint app lib store components --no-error-on-unmatched-pattern --fix --deny-warnings",
+    "test": "jest --passWithNoTests --maxWorkers=2",
+    "lint": "oxlint . --deny-warnings",
+    "lint:fix": "oxlint . --fix --deny-warnings",
     "format": "oxfmt --ignore-path ../../.oxfmtignore .",
     "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
   },
@@ -75,6 +76,7 @@
     "jest-expo": "~54.0.17",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
+    "oxlint-config-universe": "0.0.3",
     "typescript": "^5.7.3",
     "wrangler": "^4.12.0"
   }

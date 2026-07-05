@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "./helpers/setup-db";
+import { setupTestDb } from "../test-utils/setup-db";
 import { user } from "@/routes/user";
 import { users, userGenres } from "@/db/schema";
 

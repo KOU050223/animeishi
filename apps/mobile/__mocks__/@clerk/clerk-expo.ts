@@ -1,7 +1,7 @@
 /**
  * Clerk (@clerk/clerk-expo) のテスト用モック。
  *
- * jest.config.js の moduleNameMapper でテスト中は常にこのファイルが
+ * jest.config.cjs の moduleNameMapper でテスト中は常にこのファイルが
  * @clerk/clerk-expo の代わりに読み込まれる。各テストが個別に jest.mock を
  * 書かなくて済むよう、認証状態を可変ステートとして保持し、テスト側からは
  * test-utils/auth.ts の loggedInUser() / signedOutUser() で差し替える。
