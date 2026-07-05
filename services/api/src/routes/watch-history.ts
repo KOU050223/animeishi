@@ -19,6 +19,10 @@ import {
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
+import {
+  isPlaceholderImageUrl,
+  resolveImagesForWorks,
+} from "@/lib/annict/imageFallback";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(
@@ -56,6 +60,7 @@ const watchHistory = new Hono<AuthVariables>()
       works.set(e.annictWorkId, {
         annictWorkId: e.annictWorkId,
         nodeId: e.nodeId,
+        malAnimeId: e.malAnimeId,
         title: e.title,
         titleKana: e.titleKana,
         titleEn: e.titleEn,
@@ -73,6 +78,50 @@ const watchHistory = new Hono<AuthVariables>()
       [...works.values()],
       historyEntries,
     );
+
+    // Annict の画像が空 / SNS placeholder に落ちている作品を、MAL ID 経由で
+    // AniList → Jikan の順に補完する。read-through 応答は待たず、waitUntil で
+    // 裏で走らせて次回アクセスからキャッシュヒットさせる（issue #86）。
+    // 既に imageSource が設定済み（'anilist' / 'jikan' / 'none'）の作品は
+    // ネガキャッシュ扱いで再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
+    const cached = await adb.getAnnictWorksByIds([...works.keys()]);
+    const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
+    // NewAnnictWork は primaryKey 由来で annictWorkId が Insert 型上 optional に
+    // なるが、Map のキーとして必ず入っている前提。malAnimeId が null でないことも
+    // ここで narrow して以降の as を減らす。
+    const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
+    for (const [annictWorkId, w] of works) {
+      if (w.malAnimeId == null) continue;
+      const c0 = cachedById.get(annictWorkId);
+      if (c0?.imageSource) continue;
+      if (!isPlaceholderImageUrl(w.imageUrl)) continue;
+      fallbackTargets.push({ annictWorkId, malAnimeId: w.malAnimeId });
+    }
+
+    // c.executionCtx はテスト経路（app.request）で未提供の場合があるため、
+    // getter の throw を吸って null に落とす。無ければ非同期解決は skip する。
+    let executionCtx: ExecutionContext | null;
+    try {
+      executionCtx = c.executionCtx;
+    } catch {
+      executionCtx = null;
+    }
+    if (fallbackTargets.length > 0 && executionCtx) {
+      executionCtx.waitUntil(
+        (async () => {
+          const results = await resolveImagesForWorks(fallbackTargets);
+          const resolvedAt = new Date();
+          for (const r of results) {
+            await adb.updateResolvedImage(r.annictWorkId, {
+              resolvedImageUrl: r.resolvedImageUrl,
+              imageSource: r.imageSource,
+              resolvedAt,
+            });
+          }
+        })(),
+      );
+    }
+
     return c.json(data, 200);
   })
   // 視聴ステータス更新は「Annict updateStatus を正」とし、成功後に D1 キャッシュを
@@ -113,6 +162,7 @@ const watchHistory = new Hono<AuthVariables>()
           resolvedWork = {
             annictWorkId: resolved.annictWorkId,
             nodeId: resolved.nodeId,
+            malAnimeId: resolved.malAnimeId,
             title: resolved.title,
             titleKana: resolved.titleKana,
             titleEn: resolved.titleEn,

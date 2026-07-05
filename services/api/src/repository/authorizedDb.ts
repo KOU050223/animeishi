@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
@@ -47,7 +47,13 @@ type AnnictWorkMeta = {
   titleEn: string | null;
   seasonName: string | null;
   seasonYear: number | null;
+  // Annict 由来の画像 URL（fallback を掛ける前のもの）。互換のため残す。
   imageUrl: string | null;
+  // AniList / Jikan で補完済みの URL があればこちら。無ければ null。
+  // クライアントは resolvedImageUrl ?? imageUrl の順で表示する。
+  resolvedImageUrl: string | null;
+  // 'annict' | 'anilist' | 'jikan' | 'none' | null。運用調査用に露出する。
+  imageSource: string | null;
 };
 
 /** 視聴履歴の 1 件（作品メタを含む）。 */
@@ -190,6 +196,18 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
     },
 
+    /**
+     * 複数の annictWorkId をまとめて取得する。fallback 対象判定などで、
+     * 「既に imageSource が設定済みの作品」を弾くために使う。
+     * ID 数が多いと D1 の IN 句が肥大化するため、呼び出し側で適度に分割する。
+     */
+    async getAnnictWorksByIds(annictWorkIds: number[]): Promise<AnnictWork[]> {
+      if (annictWorkIds.length === 0) return [];
+      return db.query.annictWorks.findMany({
+        where: inArray(annictWorks.annictWorkId, annictWorkIds),
+      });
+    },
+
     async upsertAnnictWork(data: NewAnnictWork): Promise<void> {
       await db
         .insert(annictWorks)
@@ -197,9 +215,14 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         .onConflictDoUpdate({
           target: annictWorks.annictWorkId,
           set: {
-            // nodeId は読み取り経路で必ず取得できるとは限らないため、新しい値が
-            // null のときは既存値を温存する（searchWorks 解決済みの値を消さない）。
+            // nodeId / malAnimeId / resolvedImageUrl / imageSource / resolvedAt は
+            // 読み取り経路で必ず取得できるとは限らないため、新しい値が null のときは
+            // 既存値を温存する（過去に解決済みの値を消さない）。
             nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
+            malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
+            resolvedImageUrl: sql`coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})`,
+            imageSource: sql`coalesce(excluded.image_source, ${annictWorks.imageSource})`,
+            resolvedAt: sql`coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})`,
             title: data.title,
             titleKana: data.titleKana,
             titleEn: data.titleEn,
@@ -209,6 +232,29 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             updatedAt: data.updatedAt,
           },
         });
+    },
+
+    /**
+     * 画像フォールバック解決後に、resolved_image_url / image_source / resolved_at
+     * だけを更新する。read-through / 検索経路の裏で waitUntil から呼ばれる。
+     * 作品自体が annict_works に存在しない（先に FK エラーで消えた等）場合は no-op。
+     */
+    async updateResolvedImage(
+      annictWorkId: number,
+      data: {
+        resolvedImageUrl: string | null;
+        imageSource: string;
+        resolvedAt: Date;
+      },
+    ): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({
+          resolvedImageUrl: data.resolvedImageUrl,
+          imageSource: data.imageSource,
+          resolvedAt: data.resolvedAt,
+        })
+        .where(eq(annictWorks.annictWorkId, annictWorkId));
     },
 
     // ---- Watch History ----
@@ -226,6 +272,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           seasonName: annictWorks.seasonName,
           seasonYear: annictWorks.seasonYear,
           imageUrl: annictWorks.imageUrl,
+          resolvedImageUrl: annictWorks.resolvedImageUrl,
+          imageSource: annictWorks.imageSource,
         })
         .from(watchHistory)
         .innerJoin(
@@ -315,8 +363,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       const now = new Date();
 
       // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-      // annict_works は 9 カラム（nodeId 追加）、watch_history は 4 カラム。
-      const WORK_CHUNK = 10; // 10 * 9 = 90 変数 < 100
+      // annict_works は 13 カラム（malAnimeId / resolvedImageUrl / imageSource /
+      // resolvedAt 追加）、watch_history は 4 カラム。
+      const WORK_CHUNK = 7; // 7 * 13 = 91 変数 < 100
       const WATCH_CHUNK = 20; // 20 * 4 = 80 変数 < 100
 
       const upsertWorksChunk = (chunk: NewAnnictWork[]) =>
@@ -326,8 +375,14 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           .onConflictDoUpdate({
             target: annictWorks.annictWorkId,
             set: {
-              // nodeId が null（取得不能）なら既存値を温存する。
+              // nodeId / malAnimeId / resolvedImageUrl / imageSource / resolvedAt は
+              // 取得できないパスがあるため、新しい値が null のときは既存値を温存する
+              // （過去に解決済みの値を消さない）。
               nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
+              malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
+              resolvedImageUrl: sql`coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})`,
+              imageSource: sql`coalesce(excluded.image_source, ${annictWorks.imageSource})`,
+              resolvedAt: sql`coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})`,
               title: sql`excluded.title`,
               titleKana: sql`excluded.title_kana`,
               titleEn: sql`excluded.title_en`,
@@ -392,6 +447,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           seasonName: annictWorks.seasonName,
           seasonYear: annictWorks.seasonYear,
           imageUrl: annictWorks.imageUrl,
+          resolvedImageUrl: annictWorks.resolvedImageUrl,
+          imageSource: annictWorks.imageSource,
         })
         .from(watchHistory)
         .innerJoin(
@@ -427,6 +484,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           seasonName: annictWorks.seasonName,
           seasonYear: annictWorks.seasonYear,
           imageUrl: annictWorks.imageUrl,
+          resolvedImageUrl: annictWorks.resolvedImageUrl,
+          imageSource: annictWorks.imageSource,
         })
         .from(favorites)
         .innerJoin(

@@ -43,6 +43,16 @@ export const annictWorks = sqliteTable("annict_works", {
   seasonName: text("season_name"), // 例: "2026-spring"
   seasonYear: integer("season_year"),
   imageUrl: text("image_url"),
+  // Annict Work.malAnimeId。外部画像フォールバック（AniList/Jikan）の引き当てキーに使う。
+  malAnimeId: integer("mal_anime_id"),
+  // 画像フォールバック解決後に埋まる。空なら imageUrl or プレースホルダー、非空なら
+  // これを優先して表示する。imageSource でどの供給元か判別できる。
+  resolvedImageUrl: text("resolved_image_url"),
+  // 'annict' | 'anilist' | 'jikan' | 'none'。'none' は MAL ID が誤り or 供給元にも
+  // 画像が無いことが判明したネガキャッシュ。null は未解決（一度も試していない）。
+  imageSource: text("image_source"),
+  // resolvedImageUrl / imageSource を確定した時刻。TTL 再解決の起点に使う。
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
