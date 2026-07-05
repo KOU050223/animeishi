@@ -205,6 +205,40 @@ describe("resolveImagesForWorks", () => {
     );
   });
 
+  it("Jikan が 429 の作品は結果を返さない（ネガキャッシュされない）", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === "https://graphql.anilist.co") {
+        return makeAnilistResponse({ m9999: null });
+      }
+      // Jikan は 429 (Too Many Requests)
+      return new Response("Too Many Requests", { status: 429 });
+    });
+
+    const res = await resolveImagesForWorks(
+      [{ annictWorkId: 800, malAnimeId: 9999 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    // 429 の作品は結果に含まれず、呼び出し側で保存されないようにする
+    expect(res).toEqual([]);
+  });
+
+  it("Jikan が 5xx の作品もネガキャッシュ対象にしない", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === "https://graphql.anilist.co") {
+        return makeAnilistResponse({ m1: null });
+      }
+      return new Response("boom", { status: 503 });
+    });
+
+    const res = await resolveImagesForWorks(
+      [{ annictWorkId: 900, malAnimeId: 1 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res).toEqual([]);
+  });
+
   it("MAL ID の重複は AniList 呼び出しを 1 回に dedupe する", async () => {
     const fetchImpl = vi.fn(async () =>
       makeAnilistResponse({

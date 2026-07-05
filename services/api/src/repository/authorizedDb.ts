@@ -215,14 +215,31 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         .onConflictDoUpdate({
           target: annictWorks.annictWorkId,
           set: {
-            // nodeId / malAnimeId / resolvedImageUrl / imageSource / resolvedAt は
-            // 読み取り経路で必ず取得できるとは限らないため、新しい値が null のときは
-            // 既存値を温存する（過去に解決済みの値を消さない）。
+            // nodeId / malAnimeId は取得できないパスがあるため、新しい値が null の
+            // ときは既存値を温存する（過去に解決済みの値を消さない）。
             nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
             malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
-            resolvedImageUrl: sql`coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})`,
-            imageSource: sql`coalesce(excluded.image_source, ${annictWorks.imageSource})`,
-            resolvedAt: sql`coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})`,
+            // 画像解決結果は「MAL ID が変わったら破棄」して再解決させる。SQLite の
+            // `is not` は IS DISTINCT FROM 相当（NULL-safe 比較）。新 MAL ID が
+            // null のとき（未取得）は破棄せず既存値を温存する。
+            resolvedImageUrl: sql`case
+              when excluded.mal_anime_id is not null
+               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+              then null
+              else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
+            end`,
+            imageSource: sql`case
+              when excluded.mal_anime_id is not null
+               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+              then null
+              else coalesce(excluded.image_source, ${annictWorks.imageSource})
+            end`,
+            resolvedAt: sql`case
+              when excluded.mal_anime_id is not null
+               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+              then null
+              else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
+            end`,
             title: data.title,
             titleKana: data.titleKana,
             titleEn: data.titleEn,
@@ -375,14 +392,31 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           .onConflictDoUpdate({
             target: annictWorks.annictWorkId,
             set: {
-              // nodeId / malAnimeId / resolvedImageUrl / imageSource / resolvedAt は
-              // 取得できないパスがあるため、新しい値が null のときは既存値を温存する
-              // （過去に解決済みの値を消さない）。
+              // nodeId / malAnimeId は取得できないパスがあるため、新しい値が null
+              // のときは既存値を温存する。
               nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
               malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
-              resolvedImageUrl: sql`coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})`,
-              imageSource: sql`coalesce(excluded.image_source, ${annictWorks.imageSource})`,
-              resolvedAt: sql`coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})`,
+              // 画像解決結果は「MAL ID が変わったら破棄」して再解決させる（SQLite の
+              // `is not` は IS DISTINCT FROM 相当）。新 MAL ID が null（未取得）の
+              // ときは破棄せず既存値を温存する。
+              resolvedImageUrl: sql`case
+                when excluded.mal_anime_id is not null
+                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+                then null
+                else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
+              end`,
+              imageSource: sql`case
+                when excluded.mal_anime_id is not null
+                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+                then null
+                else coalesce(excluded.image_source, ${annictWorks.imageSource})
+              end`,
+              resolvedAt: sql`case
+                when excluded.mal_anime_id is not null
+                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+                then null
+                else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
+              end`,
               title: sql`excluded.title`,
               titleKana: sql`excluded.title_kana`,
               titleEn: sql`excluded.title_en`,

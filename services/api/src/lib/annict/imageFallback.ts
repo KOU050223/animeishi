@@ -63,6 +63,10 @@ const ANILIST_BATCH_SIZE = 20;
 // 短めに設定する（waitUntil の裏で回るとはいえ、Workers の CPU budget に響く）。
 const REMOTE_FETCH_TIMEOUT_MS = 6000;
 
+// Jikan のレート制限（公称 3 req/sec / 60 req/min）を踏まえた最小間隔。
+// 350ms 空ければ理論上 2.8 req/sec で 3 req/sec に触れない。
+const JIKAN_MIN_INTERVAL_MS = 350;
+
 /**
  * MAL ID 群に対して AniList → Jikan の順でフォールバック解決する。
  * 入力の順序は保持しない。取れなかったものは imageSource='none' として返す。
@@ -96,39 +100,64 @@ export async function resolveImagesForWorks(
   }
 
   // --- Jikan フォールバック（AniList で取れなかった MAL ID のみ） ---
+  // 429（Too Many Requests）を返した MAL ID は「未解決・再試行可」なので
+  // ネガキャッシュしないよう記録して、最終出力から除外する。
+  const jikanRetry = new Set<number>();
   const remainingMalIds = uniqueMalIds.filter((id) => !anilistHits.has(id));
+  let firstJikan = true;
   for (const malId of remainingMalIds) {
-    const url = await fetchJikanImage(malId, fetchImpl);
-    if (url) jikanHits.set(malId, url);
+    // Jikan 公称 3 req/sec を踏まえて 2 件目以降に最小間隔を挟む。
+    if (!firstJikan) await sleep(JIKAN_MIN_INTERVAL_MS);
+    firstJikan = false;
+    const result = await fetchJikanImage(malId, fetchImpl);
+    if (result === "retry") {
+      jikanRetry.add(malId);
+    } else if (result) {
+      jikanHits.set(malId, result);
+    }
   }
 
   // --- 入力ごとの結果に展開 ---
-  return inputs.map((input) => {
+  // Jikan が 429 だった MAL ID は「未解決・再試行可」扱いで結果を返さない
+  // （ネガキャッシュされないように呼び出し側に見せない）。
+  const out: ImageFallbackResult[] = [];
+  for (const input of inputs) {
     const anilist = anilistHits.get(input.malAnimeId);
     if (anilist) {
-      return {
+      out.push({
         annictWorkId: input.annictWorkId,
         malAnimeId: input.malAnimeId,
         resolvedImageUrl: anilist,
-        imageSource: "anilist" as const,
-      };
+        imageSource: "anilist",
+      });
+      continue;
     }
     const jikan = jikanHits.get(input.malAnimeId);
     if (jikan) {
-      return {
+      out.push({
         annictWorkId: input.annictWorkId,
         malAnimeId: input.malAnimeId,
         resolvedImageUrl: jikan,
-        imageSource: "jikan" as const,
-      };
+        imageSource: "jikan",
+      });
+      continue;
     }
-    return {
+    if (jikanRetry.has(input.malAnimeId)) {
+      // 429 リトライ対象は保存しない（次回アクセスで再挑戦させる）。
+      continue;
+    }
+    out.push({
       annictWorkId: input.annictWorkId,
       malAnimeId: input.malAnimeId,
       resolvedImageUrl: null,
-      imageSource: "none" as const,
-    };
-  });
+      imageSource: "none",
+    });
+  }
+  return out;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -197,20 +226,27 @@ async function fetchAnilistBatch(
 }
 
 /**
- * Jikan で 1 件解決する。ネットワーク失敗・非 200 応答は null を返す。
+ * Jikan で 1 件解決する。
+ *   - 解決成功: URL 文字列
+ *   - 429（rate limit）または 5xx: `"retry"`（呼び出し側でネガキャッシュしない）
+ *   - それ以外の失敗（404 / ネットワーク失敗 / JSON 解析失敗）: null
  * MAL の CDN URL（cdn.myanimelist.net）を返す点に注意（ホットリンク運用は要検討）。
  */
 async function fetchJikanImage(
   malId: number,
   fetchImpl: typeof fetch,
-): Promise<string | null> {
+): Promise<string | "retry" | null> {
   const res = await safeFetch(
     fetchImpl,
     `${JIKAN_ENDPOINT_BASE}/${malId}`,
     { headers: { Accept: "application/json" } },
     REMOTE_FETCH_TIMEOUT_MS,
   );
-  if (!res || !res.ok) return null;
+  // ネットワーク失敗（safeFetch が null を返した）も一時障害の可能性が高い。
+  // ここで null にすると 'none' が永続化されるため retry 扱いにする。
+  if (!res) return "retry";
+  if (res.status === 429 || res.status >= 500) return "retry";
+  if (!res.ok) return null;
 
   let json: {
     data?: {

@@ -114,9 +114,10 @@ async function enrichSearchResultWithFallback(
   const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
   const enriched = works.map((w) => {
     const c0 = cachedById.get(w.annictWorkId);
-    // 既にキャッシュに resolvedImageUrl があればそれを優先。imageSource='none'
-    // なら「試したけど無かった」ネガキャッシュなので Annict 画像そのまま。
-    if (c0?.resolvedImageUrl) {
+    // resolvedImageUrl は「Annict 画像が使えないときの代替」であって、Annict が
+    // ちゃんとした画像を返しているなら優先する。ここで無条件に上書きすると、
+    // Annict 側で画像が差し替えられても古い AniList / Jikan 画像が固定化される。
+    if (c0?.resolvedImageUrl && isPlaceholderImageUrl(w.imageUrl)) {
       return { ...w, imageUrl: c0.resolvedImageUrl };
     }
     // 未解決 + Annict 画像が placeholder + malAnimeId 有 → 解決キューに積む

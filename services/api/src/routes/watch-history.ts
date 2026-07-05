@@ -84,7 +84,17 @@ const watchHistory = new Hono<AuthVariables>()
     // 裏で走らせて次回アクセスからキャッシュヒットさせる（issue #86）。
     // 既に imageSource が設定済み（'anilist' / 'jikan' / 'none'）の作品は
     // ネガキャッシュ扱いで再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
-    const cached = await adb.getAnnictWorksByIds([...works.keys()]);
+    // ヘビーユーザーで全 ID を一度に IN 句に詰めると D1 のバインド上限
+    // （100 変数）を超えて GET が壊れる。90 件ずつチャンクして安全に取る。
+    const WORK_LOOKUP_CHUNK = 90;
+    const workIds = [...works.keys()];
+    const cached: Awaited<ReturnType<typeof adb.getAnnictWorksByIds>> = [];
+    for (let i = 0; i < workIds.length; i += WORK_LOOKUP_CHUNK) {
+      const chunk = await adb.getAnnictWorksByIds(
+        workIds.slice(i, i + WORK_LOOKUP_CHUNK),
+      );
+      cached.push(...chunk);
+    }
     const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
     // NewAnnictWork は primaryKey 由来で annictWorkId が Insert 型上 optional に
     // なるが、Map のキーとして必ず入っている前提。malAnimeId が null でないことも
