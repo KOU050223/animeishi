@@ -274,6 +274,45 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         .where(eq(annictWorks.annictWorkId, annictWorkId));
     },
 
+    /**
+     * Queue/Cron で画像フォールバックを温める候補を少量取得する。
+     * 最近 Annict read-through / search で触られた作品を優先するため updated_at 降順。
+     */
+    async getPendingImageFallbackWorks(
+      limit: number,
+    ): Promise<{ annictWorkId: number; malAnimeId: number }[]> {
+      const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
+      if (safeLimit === 0) return [];
+
+      const rows = await db
+        .select({
+          annictWorkId: annictWorks.annictWorkId,
+          malAnimeId: annictWorks.malAnimeId,
+        })
+        .from(annictWorks)
+        .where(sql`
+          ${annictWorks.imageSource} is null
+          and ${annictWorks.malAnimeId} is not null
+          and (
+            ${annictWorks.imageUrl} is null
+            or trim(${annictWorks.imageUrl}) = ''
+            or lower(trim(${annictWorks.imageUrl})) like 'http:%'
+            or lower(${annictWorks.imageUrl}) like '%pbs.twimg.com%'
+            or lower(${annictWorks.imageUrl}) like '%twimg.com%'
+            or lower(${annictWorks.imageUrl}) like '%graph.facebook.com%'
+            or lower(${annictWorks.imageUrl}) like '%fbcdn.net%'
+          )
+        `)
+        .orderBy(desc(annictWorks.updatedAt))
+        .limit(safeLimit);
+
+      return rows.flatMap((row) =>
+        row.malAnimeId == null
+          ? []
+          : [{ annictWorkId: row.annictWorkId, malAnimeId: row.malAnimeId }],
+      );
+    },
+
     // ---- Watch History ----
     async getMyWatchHistory(): Promise<WatchHistoryWithWork[]> {
       return db

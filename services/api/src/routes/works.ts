@@ -14,26 +14,22 @@ import {
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
+import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
 import {
-  isPlaceholderImageUrl,
-  limitImageFallbackTargets,
-  resolveImagesForWorks,
-} from "@/lib/annict/imageFallback";
+  enqueueImageFallbackJobs,
+  type ImageFallbackJob,
+} from "@/lib/annict/imageFallbackQueue";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
-function getBindings(c: Context): AuthEnv["Bindings"] & { DB: D1Database } {
-  return c.env as AuthEnv["Bindings"] & { DB: D1Database };
-}
-
-// Hono の c.executionCtx は本番 Workers では常に取れるが、テスト時の
-// app.request では未提供で getter が throw する。安全に null を返す。
-function safeExecutionCtx(c: Context): ExecutionContext | null {
-  try {
-    return c.executionCtx;
-  } catch {
-    return null;
-  }
+function getBindings(c: Context): AuthEnv["Bindings"] & {
+  DB: D1Database;
+  IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
+} {
+  return c.env as AuthEnv["Bindings"] & {
+    DB: D1Database;
+    IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
+  };
 }
 
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
@@ -70,15 +66,11 @@ const works = new Hono<AuthVariables>()
         // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
         // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
         // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
-        // 未解決 + Annict 画像が placeholder な作品は waitUntil で非同期解決する。
+        // 未解決 + Annict 画像が placeholder な作品は Queue に積み、Consumer で
+        // 外部 API 解決する。HTTP レスポンス経路では外部補完を実行しない。
         const db = createDb(getBindings(c).DB);
         const adb = authorizedDb(db, c.var.clerkUserId);
-        const executionCtx = safeExecutionCtx(c);
-        const enriched = await attachResolvedImages(
-          executionCtx,
-          adb,
-          result.works,
-        );
+        const enriched = await attachResolvedImages(c, adb, result.works);
 
         return c.json({ ...result, works: enriched }, 200);
       } catch (err) {
@@ -97,13 +89,11 @@ type SearchWorkWithResolved = AnnictLibraryEntry & {
 /**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
- * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は waitUntil で
- * AniList / Jikan に非同期解決を依頼する。
+ * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は Queue で
+ * AniList / Jikan 解決を依頼する。
  */
 async function attachResolvedImages(
-  // 本番の Hono は必ず ExecutionContext を持つが、テストの app.request では
-  // 第 4 引数を省略するケースがあるため null 可能で受ける。
-  executionCtx: ExecutionContext | null | undefined,
+  c: Context,
   adb: ReturnType<typeof authorizedDb>,
   works: AnnictLibraryEntry[],
 ): Promise<SearchWorkWithResolved[]> {
@@ -130,41 +120,31 @@ async function attachResolvedImages(
     return { ...w, resolvedImageUrl: c0?.resolvedImageUrl ?? null };
   });
 
-  if (fallbackTargets.length > 0 && executionCtx) {
-    const limitedFallbackTargets = limitImageFallbackTargets(fallbackTargets);
-    // 検索経路は annict_works にキャッシュ行が無い場合もあるため、
-    // 先に作品メタを upsert してから resolved を書き込む必要がある。
-    // ここでは waitUntil の裏で upsert → resolve → update の順に走らせる。
+  if (fallbackTargets.length > 0) {
+    // 検索経路は annict_works にキャッシュ行が無い場合もあるため、Consumer が
+    // DB 再確認後に update できるよう、補完対象の作品メタだけ先に upsert する。
     const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
     const now = new Date();
-    executionCtx.waitUntil(
-      (async () => {
-        for (const t of limitedFallbackTargets) {
-          const w = worksById.get(t.annictWorkId);
-          if (!w) continue;
-          await adb.upsertAnnictWork({
-            annictWorkId: w.annictWorkId,
-            nodeId: w.nodeId,
-            malAnimeId: w.malAnimeId,
-            title: w.title,
-            titleKana: w.titleKana,
-            titleEn: w.titleEn,
-            seasonName: w.seasonName,
-            seasonYear: w.seasonYear,
-            imageUrl: w.imageUrl,
-            updatedAt: now,
-          });
-        }
-        const results = await resolveImagesForWorks(limitedFallbackTargets);
-        const resolvedAt = new Date();
-        for (const r of results) {
-          await adb.updateResolvedImage(r.annictWorkId, {
-            resolvedImageUrl: r.resolvedImageUrl,
-            imageSource: r.imageSource,
-            resolvedAt,
-          });
-        }
-      })(),
+    for (const t of fallbackTargets) {
+      const w = worksById.get(t.annictWorkId);
+      if (!w) continue;
+      await adb.upsertAnnictWork({
+        annictWorkId: w.annictWorkId,
+        nodeId: w.nodeId,
+        malAnimeId: w.malAnimeId,
+        title: w.title,
+        titleKana: w.titleKana,
+        titleEn: w.titleEn,
+        seasonName: w.seasonName,
+        seasonYear: w.seasonYear,
+        imageUrl: w.imageUrl,
+        updatedAt: now,
+      });
+    }
+    await enqueueImageFallbackJobs(
+      getBindings(c).IMAGE_FALLBACK_QUEUE,
+      fallbackTargets,
+      "search",
     );
   }
 

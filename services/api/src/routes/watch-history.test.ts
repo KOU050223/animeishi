@@ -29,6 +29,8 @@ function mockAnnictLibrary(
     annictId: number;
     state: string | null;
     title?: string;
+    malAnimeId?: string | null;
+    recommendedImageUrl?: string | null;
   }[],
 ): void {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -47,7 +49,16 @@ function mockAnnictLibrary(
                   titleEn: null,
                   seasonName: null,
                   seasonYear: null,
-                  image: { recommendedImageUrl: null },
+                  malAnimeId: n.malAnimeId ?? null,
+                  image: {
+                    internalUrl: null,
+                    recommendedImageUrl: n.recommendedImageUrl ?? null,
+                    facebookOgImageUrl: null,
+                    twitterBiggerAvatarUrl: null,
+                    twitterAvatarUrl: null,
+                    twitterNormalAvatarUrl: null,
+                    twitterMiniAvatarUrl: null,
+                  },
                 },
               })),
             },
@@ -132,6 +143,7 @@ type TestEnv = {
     DB: D1Database;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
+    IMAGE_FALLBACK_QUEUE?: Queue;
   };
   Variables: {
     clerkUserId: string;
@@ -283,6 +295,39 @@ describe("視聴履歴 API", () => {
       const body = (await res.json()) as { annictWorkId: number }[];
       expect(body).toHaveLength(1);
       expect(body[0].annictWorkId).toBe(ANNICT_WORK_ID);
+    });
+
+    it("GET /me/watch-histories: 未解決の補完対象を Queue に enqueue し、外部補完は直接実行しない", async () => {
+      const fetchMock = vi.spyOn(globalThis, "fetch");
+      mockAnnictLibrary([
+        {
+          annictId: 888,
+          state: "WATCHING",
+          title: "HTTP 画像作品",
+          malAnimeId: "5678",
+          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+        },
+      ]);
+      const sendBatch = vi.fn().mockResolvedValue(undefined);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+      );
+
+      expect(res.status).toBe(200);
+      expect(sendBatch).toHaveBeenCalledWith([
+        {
+          body: {
+            annictWorkId: 888,
+            malAnimeId: 5678,
+            reason: "watch-history",
+          },
+        },
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("GET /me/watch-histories: Annict が 401 ならトークン無効として 401", async () => {

@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
+import { createDb } from "./db/client";
 import type { Env } from "./db/client";
+import {
+  enqueuePendingImageFallbackJobs,
+  handleImageFallbackQueue,
+  type ImageFallbackJob,
+} from "./lib/annict/imageFallbackQueue";
 import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
@@ -11,6 +17,7 @@ import { watchHistory } from "./routes/watch-history";
 import { works } from "./routes/works";
 
 type AppBindings = Env & {
+  IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
   // CORS で許可するオリジンのカンマ区切りリスト。
   // 完全一致（"https://app.example.com"）とワイルドカード（"*-app.example.workers.dev"）を扱う。
   // 詳細は ./cors を参照。未設定の場合は開発利便のため全オリジンを許可する。
@@ -47,4 +54,13 @@ export type AppType = typeof routes;
 
 export default {
   fetch: routes.fetch,
-} satisfies ExportedHandler<AppBindings>;
+  queue: handleImageFallbackQueue,
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(
+      enqueuePendingImageFallbackJobs(
+        createDb(env.DB as D1Database),
+        env.IMAGE_FALLBACK_QUEUE,
+      ),
+    );
+  },
+} satisfies ExportedHandler<AppBindings, ImageFallbackJob>;
