@@ -65,16 +65,15 @@ const works = new Hono<AuthVariables>()
               after ?? null,
             );
 
-        // 検索結果のうち、Annict の画像が空 or SNS placeholder な作品を
-        // キャッシュから resolvedImageUrl で置き換え、未解決なら waitUntil に積む。
-        // 検索は 50 件返るのでバッチ効果が最も大きい経路（issue #86）。
+        // 検索結果に resolvedImageUrl（キャッシュ済みの AniList / Jikan 由来 URL）を
+        // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
+        // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
+        // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
+        // 未解決 + Annict 画像が placeholder な作品は waitUntil で非同期解決する。
         const db = createDb(getBindings(c).DB);
         const adb = authorizedDb(db, c.var.clerkUserId);
-        // c.executionCtx は本番 Workers 環境では常に取れるが、
-        // Hono の型定義では getter が throw する実装で、テストの app.request
-        // 経由では未提供のことがある。取れなければフォールバックは skip する。
         const executionCtx = safeExecutionCtx(c);
-        const enriched = await enrichSearchResultWithFallback(
+        const enriched = await attachResolvedImages(
           executionCtx,
           adb,
           result.works,
@@ -89,37 +88,33 @@ const works = new Hono<AuthVariables>()
     },
   );
 
+/** 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl）。 */
+type SearchWorkWithResolved = AnnictLibraryEntry & {
+  resolvedImageUrl: string | null;
+};
+
 /**
- * 検索結果の works に対して、キャッシュ済み resolvedImageUrl を反映し、
- * 未解決の候補は waitUntil で AniList / Jikan に解決を依頼する。
- *
- * ここで返す works は AnnictLibraryEntry のシェイプを保つが、imageUrl フィールド
- * だけを「resolvedImageUrl ?? 元の imageUrl」に差し替える。クライアントが
- * imageSource を意識せずそのまま表示できるようにするためで、モバイル側の
- * 型変更を最小化する。
+ * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
+ * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
+ * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は waitUntil で
+ * AniList / Jikan に非同期解決を依頼する。
  */
-async function enrichSearchResultWithFallback(
+async function attachResolvedImages(
   // 本番の Hono は必ず ExecutionContext を持つが、テストの app.request では
   // 第 4 引数を省略するケースがあるため null 可能で受ける。
   executionCtx: ExecutionContext | null | undefined,
   adb: ReturnType<typeof authorizedDb>,
   works: AnnictLibraryEntry[],
-): Promise<AnnictLibraryEntry[]> {
-  if (works.length === 0) return works;
+): Promise<SearchWorkWithResolved[]> {
+  if (works.length === 0) return [];
 
   const ids = works.map((w) => w.annictWorkId);
   const cached = await adb.getAnnictWorksByIds(ids);
   const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
 
   const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
-  const enriched = works.map((w) => {
+  const enriched: SearchWorkWithResolved[] = works.map((w) => {
     const c0 = cachedById.get(w.annictWorkId);
-    // resolvedImageUrl は「Annict 画像が使えないときの代替」であって、Annict が
-    // ちゃんとした画像を返しているなら優先する。ここで無条件に上書きすると、
-    // Annict 側で画像が差し替えられても古い AniList / Jikan 画像が固定化される。
-    if (c0?.resolvedImageUrl && isPlaceholderImageUrl(w.imageUrl)) {
-      return { ...w, imageUrl: c0.resolvedImageUrl };
-    }
     // 未解決 + Annict 画像が placeholder + malAnimeId 有 → 解決キューに積む
     if (
       w.malAnimeId != null &&
@@ -131,7 +126,7 @@ async function enrichSearchResultWithFallback(
         malAnimeId: w.malAnimeId,
       });
     }
-    return w;
+    return { ...w, resolvedImageUrl: c0?.resolvedImageUrl ?? null };
   });
 
   if (fallbackTargets.length > 0 && executionCtx) {

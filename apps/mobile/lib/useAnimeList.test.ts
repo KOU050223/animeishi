@@ -50,6 +50,7 @@ const MOCK_WORKS = [
     seasonName: "2013-spring",
     imageUrl: null,
     malAnimeId: null,
+    resolvedImageUrl: null,
   },
   {
     annictWorkId: 2,
@@ -62,6 +63,7 @@ const MOCK_WORKS = [
     seasonName: "2019-spring",
     imageUrl: null,
     malAnimeId: null,
+    resolvedImageUrl: null,
   },
   {
     annictWorkId: 3,
@@ -74,6 +76,7 @@ const MOCK_WORKS = [
     seasonName: "2011-fall",
     imageUrl: null,
     malAnimeId: null,
+    resolvedImageUrl: null,
   },
 ];
 
