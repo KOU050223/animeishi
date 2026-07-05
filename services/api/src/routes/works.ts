@@ -128,18 +128,29 @@ async function attachResolvedImages(
     for (const t of fallbackTargets) {
       const w = worksById.get(t.annictWorkId);
       if (!w) continue;
-      await adb.upsertAnnictWork({
-        annictWorkId: w.annictWorkId,
-        nodeId: w.nodeId,
-        malAnimeId: w.malAnimeId,
-        title: w.title,
-        titleKana: w.titleKana,
-        titleEn: w.titleEn,
-        seasonName: w.seasonName,
-        seasonYear: w.seasonYear,
-        imageUrl: w.imageUrl,
-        updatedAt: now,
-      });
+      try {
+        await adb.upsertAnnictWork({
+          annictWorkId: w.annictWorkId,
+          nodeId: w.nodeId,
+          malAnimeId: w.malAnimeId,
+          title: w.title,
+          titleKana: w.titleKana,
+          titleEn: w.titleEn,
+          seasonName: w.seasonName,
+          seasonYear: w.seasonYear,
+          imageUrl: w.imageUrl,
+          updatedAt: now,
+        });
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            level: "warn",
+            event: "image_fallback_upsert_failed",
+            annictWorkId: t.annictWorkId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
     await enqueueImageFallbackJobs(
       getBindings(c).IMAGE_FALLBACK_QUEUE,

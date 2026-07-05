@@ -21,7 +21,7 @@ const USER_ID = "user_testworks001";
 function mockSearchWorks(
   nodes: {
     annictId: number;
-    title?: string;
+    title?: string | null;
     malAnimeId?: string | null;
     recommendedImageUrl?: string | null;
   }[],
@@ -39,7 +39,7 @@ function mockSearchWorks(
             nodes: nodes.map((n) => ({
               id: `node-${n.annictId}`,
               annictId: n.annictId,
-              title: n.title ?? `作品${n.annictId}`,
+              title: "title" in n ? n.title : `作品${n.annictId}`,
               titleKana: null,
               titleEn: null,
               seasonName: null,
@@ -300,6 +300,40 @@ describe("作品検索 API", () => {
         },
       ]);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスと enqueue は継続する", async () => {
+      mockSearchWorks([
+        {
+          annictId: 778,
+          title: null,
+          malAnimeId: "1235",
+          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+        },
+      ]);
+      const sendBatch = vi.fn().mockResolvedValue(undefined);
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=http",
+        { method: "GET", headers: ANNICT_HEADER },
+        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+      );
+
+      expect(res.status).toBe(200);
+      expect(sendBatch).toHaveBeenCalledWith([
+        {
+          body: {
+            annictWorkId: 778,
+            malAnimeId: 1235,
+            reason: "search",
+          },
+        },
+      ]);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("image_fallback_upsert_failed"),
+      );
     });
 
     it("GET /works/search: Annict が 401 なら annict_token_invalid で 401", async () => {
