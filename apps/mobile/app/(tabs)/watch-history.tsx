@@ -18,6 +18,7 @@ import type { WatchHistoryItem } from "@/lib/useWatchHistory";
 import { confirm } from "@/lib/dialog";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
 const WATCH_STATUSES = [
   "WATCHING",
@@ -183,12 +184,7 @@ function WatchHistoryRow({
       className="flex-row items-center py-3 gap-3"
       testID={`watch-history-item-${history.annictWorkId}`}
     >
-      <View
-        style={{ width: 48, height: 64, borderRadius: 4 }}
-        className="bg-gray-200 items-center justify-center"
-      >
-        <Text className="text-gray-400 text-xs">No img</Text>
-      </View>
+      <WorkThumbnail item={history} />
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
