@@ -237,8 +237,7 @@ describe("お気に入り API", () => {
       // searchWorks が叩かれ、解決した作品メタがキャッシュへ補充されている。
       expect(fetchMock).toHaveBeenCalled();
       // read-through 経路の契約: 解決対象の annictId を Annict へ送っている。
-      const firstFetchCall = fetchMock.mock.calls[0];
-      expect(firstFetchCall).toBeDefined();
+      const firstFetchCall = fetchMock.mock.calls[0]!;
       const requestBody = JSON.parse(
         (firstFetchCall[1] as RequestInit).body as string,
       );
