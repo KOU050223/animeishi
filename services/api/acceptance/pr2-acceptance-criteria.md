@@ -43,10 +43,10 @@
 - [ ] ジャンルの設定・取得・上書きが正しく動作する
 - [ ] 各メソッドは **自分のデータにしかアクセスしない**（スコープ分離）
 
-### AC-4: 直接DB更新を禁止するESLintルールが機能する
+### AC-4: 直接DB更新を禁止するLintルールが機能する
 
-- [ ] `eslint-rules/no-direct-db.js` が定義されている
-- [ ] リポジトリ層以外のファイルで `db.insert()` / `db.update()` / `db.delete()` を呼ぶとESLintエラーになる
+- [ ] `no-restricted-properties` で直接DB更新が禁止されている
+- [ ] リポジトリ層以外のファイルで `db.insert()` / `db.update()` / `db.delete()` を呼ぶとLintエラーになる
 - [ ] リポジトリ層（`repository/` 配下）は例外として許可される
 
 ### AC-5: テストがすべて通る

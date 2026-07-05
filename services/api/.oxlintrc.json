@@ -4,10 +4,38 @@
   "categories": {
     "correctness": "error"
   },
-  "jsPlugins": ["./eslint-rules/index.js"],
   "rules": {
-    "animeishi-local/no-direct-db": "error"
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "db",
+        "property": "insert",
+        "message": "DB writes outside repository/test setup should go through authorizedDb."
+      },
+      {
+        "object": "db",
+        "property": "update",
+        "message": "DB writes outside repository/test setup should go through authorizedDb."
+      },
+      {
+        "object": "db",
+        "property": "delete",
+        "message": "DB writes outside repository/test setup should go through authorizedDb."
+      }
+    ]
   },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "src/repository/**/*.ts",
+        "src/test-utils/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-properties": "off"
+      }
+    }
+  ],
   "env": {
     "builtin": true
   }
