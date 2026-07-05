@@ -15,7 +15,7 @@ pre-commit:
 pre-push:
   parallel: true
   commands:
-    # CI の "TypeScript check" 相当。pre-commit の ESLint では型エラーを拾えないため、
+    # CI の "TypeScript check" 相当。pre-commit の Oxlint では型エラーを拾えないため、
     # push 前にここで tsc --noEmit（= turbo run build）を回して CI 落ちを未然に防ぐ。
     typecheck:
       run: pnpm turbo run build

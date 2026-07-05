@@ -12,7 +12,9 @@ import type {
   TextElement,
 } from "@/lib/meishi/types";
 
-function resolveFontFamily(family: TextElement["fontFamily"]): string | undefined {
+function resolveFontFamily(
+  family: TextElement["fontFamily"],
+): string | undefined {
   // フォント組み込みは Phase 12。現状は system 相当で描画する。
   switch (family) {
     case "system":
@@ -25,10 +27,7 @@ function fontWeightToRn(w: TextElement["fontWeight"]): "400" | "700" | "900" {
   return w === "black" ? "900" : w === "bold" ? "700" : "400";
 }
 
-function resolveTextValue(
-  el: TextElement,
-  ctx: MeishiRenderContext,
-): string {
+function resolveTextValue(el: TextElement, ctx: MeishiRenderContext): string {
   switch (el.source) {
     case "username":
       return ctx.profile.username ?? el.text;
@@ -309,7 +308,10 @@ function AnimeCountBadgeRender({
   boxHeight: number;
   renderScale: number;
 }) {
-  const count = el.metric === "watched" ? (ctx.watchedCount ?? 0) : (ctx.favoritesCount ?? 0);
+  const count =
+    el.metric === "watched"
+      ? (ctx.watchedCount ?? 0)
+      : (ctx.favoritesCount ?? 0);
   return (
     <View
       style={{
@@ -352,16 +354,63 @@ export function ElementRenderer({
 }) {
   switch (element.type) {
     case "text":
-      return <TextRender el={element} ctx={ctx} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <TextRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
     case "image":
-      return <ImageRender el={element} ctx={ctx} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <ImageRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
     case "shape":
-      return <ShapeRender el={element} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <ShapeRender
+          el={element}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
     case "qr":
-      return <QrRender el={element} ctx={ctx} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <QrRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
     case "animeCollage":
-      return <AnimeCollageRender el={element} ctx={ctx} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <AnimeCollageRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
     case "animeCountBadge":
-      return <AnimeCountBadgeRender el={element} ctx={ctx} boxWidth={boxWidth} boxHeight={boxHeight} renderScale={renderScale} />;
+      return (
+        <AnimeCountBadgeRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
   }
 }

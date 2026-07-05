@@ -140,10 +140,7 @@ function ElementBox({
   const latestTransformRef = useRef<Transform>(el.transform);
   latestTransformRef.current = el.transform;
 
-  const tap = useMemo(
-    () => Gesture.Tap().onEnd(() => onSelect()),
-    [onSelect],
-  );
+  const tap = useMemo(() => Gesture.Tap().onEnd(() => onSelect()), [onSelect]);
 
   const pan = useMemo(
     () =>
@@ -153,8 +150,12 @@ function ElementBox({
           start.current = latestTransformRef.current;
         })
         .onUpdate((e) => {
-          const nx = clamp01(start.current.x + e.translationX / canvasSize.width);
-          const ny = clamp01(start.current.y + e.translationY / canvasSize.height);
+          const nx = clamp01(
+            start.current.x + e.translationX / canvasSize.width,
+          );
+          const ny = clamp01(
+            start.current.y + e.translationY / canvasSize.height,
+          );
           onTransform({ ...start.current, x: nx, y: ny });
         })
         .onEnd(() => {

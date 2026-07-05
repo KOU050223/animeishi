@@ -6,7 +6,6 @@ import React from "react";
 // 定数化されるため、import より前に設定する必要がある。jest.mock と同様に
 // ホイストされる位置で env を立ててから対象モジュールを require する。
 process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test-client-id";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { useAnnictConnect } = require("@/lib/annict/useAnnictConnect");
 
 // OAuth フローの外部依存（ブラウザ・ディープリンク・乱数・SecureStore・API）はモックし、
@@ -36,9 +35,7 @@ beforeEach(() => {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient();
-  return (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 describe("useAnnictConnect の in-flight ガード", () => {

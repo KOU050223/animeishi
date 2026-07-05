@@ -61,7 +61,11 @@ describe("PropertyPanel", () => {
   it("好きなセリフ連携のテキスト要素は文字列欄にプロフィールの好きなセリフを表示する", () => {
     render(
       <PropertyPanel
-        element={{ ...baseTextElement, source: "favoriteQuote", text: "好きなセリフ" }}
+        element={{
+          ...baseTextElement,
+          source: "favoriteQuote",
+          text: "好きなセリフ",
+        }}
         context={context}
         onChange={jest.fn()}
         onOpenTextEdit={jest.fn()}

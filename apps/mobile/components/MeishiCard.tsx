@@ -102,7 +102,15 @@ export function MeishiCard({
       },
       ...buildMeishiAnimeContext({ favorites, watchHistory }),
     }),
-    [username, bio, favoriteQuote, profileImageUrl, profileUrl, favorites, watchHistory],
+    [
+      username,
+      bio,
+      favoriteQuote,
+      profileImageUrl,
+      profileUrl,
+      favorites,
+      watchHistory,
+    ],
   );
 
   const doc = useMemo(

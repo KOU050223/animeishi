@@ -13,7 +13,6 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: [
-      "**/__tests__/no-direct-db.test.js",
       "src/schema/__tests__/**/*.test.ts",
       "src/__tests__/**/*.test.ts",
     ],

@@ -39,7 +39,8 @@ type Props = {
  * 選択中要素のプロパティパネル。要素種別ごとに編集UIを出し分ける。
  */
 export function PropertyPanel(props: Props) {
-  const { element, onDelete, onDuplicate, onBringToFront, onSendToBack } = props;
+  const { element, onDelete, onDuplicate, onBringToFront, onSendToBack } =
+    props;
   return (
     <View
       style={[
@@ -57,7 +58,9 @@ export function PropertyPanel(props: Props) {
         contentContainerStyle={{ padding: 12, gap: 12 }}
         showsVerticalScrollIndicator
       >
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>{typeLabel(element.type)}</Text>
+        <Text style={{ fontSize: 12, color: "#6b7280" }}>
+          {typeLabel(element.type)}
+        </Text>
         {renderEditor(props)}
       </ScrollView>
       <View
@@ -110,20 +113,33 @@ function renderEditor(props: Props) {
             <SegmentedControl
               options={SOURCES}
               value={element.source}
-              onChange={(v) => onChange({ source: v as TextSource } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ source: v as TextSource } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="フォント">
             <SegmentedControl
-              options={FONT_FAMILY_OPTIONS.map((f) => ({ value: f.value, label: f.label }))}
+              options={FONT_FAMILY_OPTIONS.map((f) => ({
+                value: f.value,
+                label: f.label,
+              }))}
               value={element.fontFamily}
-              onChange={(v) => onChange({ fontFamily: v as FontFamily } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  fontFamily: v as FontFamily,
+                } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="サイズ">
             <StepControl
               value={element.fontSize}
-              onChange={(v) => onChange({ fontSize: Math.max(8, Math.min(200, v)) } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  fontSize: Math.max(8, Math.min(200, v)),
+                } as Partial<MeishiElement>)
+              }
               step={2}
             />
           </Row>
@@ -135,7 +151,11 @@ function renderEditor(props: Props) {
                 { value: "black", label: "極太" },
               ]}
               value={element.fontWeight}
-              onChange={(v) => onChange({ fontWeight: v as FontWeight } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  fontWeight: v as FontWeight,
+                } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="斜体">
@@ -145,7 +165,11 @@ function renderEditor(props: Props) {
                 { value: "italic", label: "斜" },
               ]}
               value={element.fontStyle}
-              onChange={(v) => onChange({ fontStyle: v as FontStyle } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  fontStyle: v as FontStyle,
+                } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="配置">
@@ -156,7 +180,9 @@ function renderEditor(props: Props) {
                 { value: "right", label: "右" },
               ]}
               value={element.align}
-              onChange={(v) => onChange({ align: v as TextAlign } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ align: v as TextAlign } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="色">
@@ -179,7 +205,9 @@ function renderEditor(props: Props) {
                 { value: "circle", label: "円" },
               ]}
               value={element.shape}
-              onChange={(v) => onChange({ shape: v as ImageShape } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ shape: v as ImageShape } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="フィット">
@@ -189,7 +217,11 @@ function renderEditor(props: Props) {
                 { value: "contain", label: "contain" },
               ]}
               value={element.objectFit}
-              onChange={(v) => onChange({ objectFit: v as ImageObjectFit } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  objectFit: v as ImageObjectFit,
+                } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="ソース">
@@ -214,7 +246,9 @@ function renderEditor(props: Props) {
                 { value: "circle", label: "円" },
               ]}
               value={element.shape}
-              onChange={(v) => onChange({ shape: v as ShapeKind } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ shape: v as ShapeKind } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="塗り">
@@ -226,13 +260,19 @@ function renderEditor(props: Props) {
           <Row label="枠色">
             <ColorGrid
               value={element.stroke}
-              onChange={(v) => onChange({ stroke: v } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ stroke: v } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="枠幅">
             <StepControl
               value={element.strokeWidth}
-              onChange={(v) => onChange({ strokeWidth: Math.max(0, Math.min(20, v)) } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  strokeWidth: Math.max(0, Math.min(20, v)),
+                } as Partial<MeishiElement>)
+              }
               step={1}
             />
           </Row>
@@ -240,7 +280,11 @@ function renderEditor(props: Props) {
             <Row label="角丸">
               <StepControl
                 value={element.cornerRadius}
-                onChange={(v) => onChange({ cornerRadius: Math.max(0, Math.min(60, v)) } as Partial<MeishiElement>)}
+                onChange={(v) =>
+                  onChange({
+                    cornerRadius: Math.max(0, Math.min(60, v)),
+                  } as Partial<MeishiElement>)
+                }
                 step={2}
               />
             </Row>
@@ -258,7 +302,9 @@ function renderEditor(props: Props) {
                 { value: "custom", label: "自由入力" },
               ]}
               value={element.source}
-              onChange={(v) => onChange({ source: v as QrSource } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ source: v as QrSource } as Partial<MeishiElement>)
+              }
             />
           </Row>
           {element.source === "custom" ? (
@@ -274,15 +320,27 @@ function renderEditor(props: Props) {
                   borderRadius: 6,
                 }}
               >
-                <Text numberOfLines={1}>{element.data || "タップして編集"}</Text>
+                <Text numberOfLines={1}>
+                  {element.data || "タップして編集"}
+                </Text>
               </Pressable>
             </Row>
           ) : null}
           <Row label="色">
-            <ColorGrid value={element.fgColor} onChange={(v) => onChange({ fgColor: v } as Partial<MeishiElement>)} />
+            <ColorGrid
+              value={element.fgColor}
+              onChange={(v) =>
+                onChange({ fgColor: v } as Partial<MeishiElement>)
+              }
+            />
           </Row>
           <Row label="背景">
-            <ColorGrid value={element.bgColor} onChange={(v) => onChange({ bgColor: v } as Partial<MeishiElement>)} />
+            <ColorGrid
+              value={element.bgColor}
+              onChange={(v) =>
+                onChange({ bgColor: v } as Partial<MeishiElement>)
+              }
+            />
           </Row>
         </>
       );
@@ -293,14 +351,22 @@ function renderEditor(props: Props) {
           <Row label="列">
             <StepControl
               value={element.cols}
-              onChange={(v) => onChange({ cols: Math.max(1, Math.min(6, v)) } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  cols: Math.max(1, Math.min(6, v)),
+                } as Partial<MeishiElement>)
+              }
               step={1}
             />
           </Row>
           <Row label="行">
             <StepControl
               value={element.rows}
-              onChange={(v) => onChange({ rows: Math.max(1, Math.min(6, v)) } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  rows: Math.max(1, Math.min(6, v)),
+                } as Partial<MeishiElement>)
+              }
               step={1}
             />
           </Row>
@@ -311,7 +377,9 @@ function renderEditor(props: Props) {
                 { value: "popular", label: "人気順" },
               ]}
               value={element.sortBy}
-              onChange={(v) => onChange({ sortBy: v as CollageSort } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ sortBy: v as CollageSort } as Partial<MeishiElement>)
+              }
             />
           </Row>
         </>
@@ -327,21 +395,35 @@ function renderEditor(props: Props) {
                 { value: "favorites", label: "お気に入り" },
               ]}
               value={element.metric}
-              onChange={(v) => onChange({ metric: v as CountMetric } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({ metric: v as CountMetric } as Partial<MeishiElement>)
+              }
             />
           </Row>
           <Row label="サイズ">
             <StepControl
               value={element.fontSize}
-              onChange={(v) => onChange({ fontSize: Math.max(8, Math.min(80, v)) } as Partial<MeishiElement>)}
+              onChange={(v) =>
+                onChange({
+                  fontSize: Math.max(8, Math.min(80, v)),
+                } as Partial<MeishiElement>)
+              }
               step={2}
             />
           </Row>
           <Row label="文字色">
-            <ColorGrid value={element.color} onChange={(v) => onChange({ color: v } as Partial<MeishiElement>)} />
+            <ColorGrid
+              value={element.color}
+              onChange={(v) => onChange({ color: v } as Partial<MeishiElement>)}
+            />
           </Row>
           <Row label="背景色">
-            <ColorGrid value={element.bgColor} onChange={(v) => onChange({ bgColor: v } as Partial<MeishiElement>)} />
+            <ColorGrid
+              value={element.bgColor}
+              onChange={(v) =>
+                onChange({ bgColor: v } as Partial<MeishiElement>)
+              }
+            />
           </Row>
         </>
       );
@@ -379,20 +461,36 @@ function resolveTextValue(
 
 function typeLabel(t: MeishiElement["type"]): string {
   switch (t) {
-    case "text": return "テキスト";
-    case "image": return "画像";
-    case "shape": return "図形";
-    case "qr": return "QR";
-    case "animeCollage": return "視聴コラージュ";
-    case "animeCountBadge": return "視聴数バッジ";
+    case "text":
+      return "テキスト";
+    case "image":
+      return "画像";
+    case "shape":
+      return "図形";
+    case "qr":
+      return "QR";
+    case "animeCollage":
+      return "視聴コラージュ";
+    case "animeCountBadge":
+      return "視聴数バッジ";
   }
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 11, color: "#6b7280", fontWeight: "600" }}>{label}</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>{children}</View>
+      <Text style={{ fontSize: 11, color: "#6b7280", fontWeight: "600" }}>
+        {label}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -425,7 +523,11 @@ function SegmentedControl<T extends string>({
               backgroundColor: active ? "#4f46e5" : "#f3f4f6",
             }}
           >
-            <Text style={{ color: active ? "#ffffff" : "#111827", fontSize: 12 }}>{opt.label}</Text>
+            <Text
+              style={{ color: active ? "#ffffff" : "#111827", fontSize: 12 }}
+            >
+              {opt.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -457,7 +559,9 @@ function StepControl({
       >
         <Text style={{ fontSize: 16 }}>−</Text>
       </Pressable>
-      <Text style={{ minWidth: 32, textAlign: "center" }}>{Math.round(value)}</Text>
+      <Text style={{ minWidth: 32, textAlign: "center" }}>
+        {Math.round(value)}
+      </Text>
       <Pressable
         onPress={() => onChange(value + step)}
         style={{
@@ -483,7 +587,11 @@ function ColorGrid({
   onChange: (v: string) => void;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 6 }}
+    >
       {COLOR_PALETTE.map((c) => (
         <Pressable
           key={c}
@@ -494,7 +602,8 @@ function ColorGrid({
             borderRadius: 13,
             backgroundColor: c,
             borderWidth: c.toLowerCase() === value.toLowerCase() ? 2 : 1,
-            borderColor: c.toLowerCase() === value.toLowerCase() ? "#4f46e5" : "#d1d5db",
+            borderColor:
+              c.toLowerCase() === value.toLowerCase() ? "#4f46e5" : "#d1d5db",
           }}
         />
       ))}
@@ -522,7 +631,9 @@ function ActionButton({
         alignItems: "center",
       }}
     >
-      <Text style={{ color: tint, fontWeight: "600", fontSize: 12 }}>{label}</Text>
+      <Text style={{ color: tint, fontWeight: "600", fontSize: 12 }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

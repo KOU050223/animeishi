@@ -19,13 +19,6 @@ export default defineConfig({
   ],
   test: {
     globals: true,
-    // ESLint の RuleTester は Node.js ネイティブモジュールを使うため
-    // Workers プールから除外し、Node.js プール（デフォルト）で実行する
-    exclude: [
-      "**/__tests__/no-direct-db.test.js",
-      "src/schema/__tests__/**",
-      "src/__tests__/**",
-      "node_modules/**",
-    ],
+    exclude: ["src/schema/__tests__/**", "src/__tests__/**", "node_modules/**"],
   },
 });

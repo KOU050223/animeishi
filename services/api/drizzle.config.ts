@@ -5,14 +5,16 @@ import { existsSync, readdirSync } from "node:fs";
 // ハッシュ値はwrangler起動ごとに変わらないが、念のため glob で取得する
 const D1_DIR = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
 const sqliteFiles = existsSync(D1_DIR)
-  ? readdirSync(D1_DIR).filter((f) => f.endsWith(".sqlite") && f !== "metadata.sqlite")
+  ? readdirSync(D1_DIR).filter(
+      (f) => f.endsWith(".sqlite") && f !== "metadata.sqlite",
+    )
   : [];
 
 if (sqliteFiles.length !== 1) {
   throw new Error(
     sqliteFiles.length === 0
       ? `ローカルD1のSQLiteファイルが見つかりません。先に 'pnpm dev' を一度起動してください。`
-      : `ローカルD1のSQLiteファイルを1つに絞れません: ${sqliteFiles.join(", ")}`
+      : `ローカルD1のSQLiteファイルを1つに絞れません: ${sqliteFiles.join(", ")}`,
   );
 }
 

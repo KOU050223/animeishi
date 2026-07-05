@@ -61,6 +61,11 @@ tasks:
     cmds:
       - pnpm turbo run lint
 
+  lint:fix:
+    desc: Lint の自動修正
+    cmds:
+      - pnpm turbo run lint:fix
+
   format:
     desc: フォーマット
     cmds:

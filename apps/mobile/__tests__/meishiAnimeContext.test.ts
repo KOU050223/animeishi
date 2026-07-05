@@ -30,9 +30,7 @@ describe("buildMeishiAnimeContext", () => {
         { imageUrl: "https://img.example/fav-1.jpg" },
         { imageUrl: "https://img.example/fav-2.jpg" },
       ],
-      watchHistory: [
-        { state: "WATCHED", imageUrl: null },
-      ],
+      watchHistory: [{ state: "WATCHED", imageUrl: null }],
     });
 
     expect(result.animeCollageImages).toEqual([
