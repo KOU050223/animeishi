@@ -31,7 +31,6 @@
             pnpm
 
             # 全般
-            pkgs.git
             pkgs.go-task
             pkgs.lefthook
           ];
