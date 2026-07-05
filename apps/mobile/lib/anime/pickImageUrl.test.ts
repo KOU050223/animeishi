@@ -32,6 +32,12 @@ describe("isPlaceholderImageUrl", () => {
       false,
     );
   });
+
+  it("HTTP の画像 URL は HTTPS 画面で使えないため placeholder 扱い", () => {
+    expect(isPlaceholderImageUrl("http://youjo-senki.jp/og-image.jpg")).toBe(
+      true,
+    );
+  });
 });
 
 describe("pickImageUrl", () => {
@@ -60,6 +66,24 @@ describe("pickImageUrl", () => {
         resolvedImageUrl: "https://cdn.myanimelist.net/2.jpg",
       }),
     ).toBe("https://cdn.myanimelist.net/2.jpg");
+  });
+
+  it("imageUrl が HTTP なら resolvedImageUrl を使う", () => {
+    expect(
+      pickImageUrl({
+        imageUrl: "http://youjo-senki.jp/og-image.jpg",
+        resolvedImageUrl: "https://s4.anilist.co/media/anime/21613.jpg",
+      }),
+    ).toBe("https://s4.anilist.co/media/anime/21613.jpg");
+  });
+
+  it("HTTP の imageUrl しか無ければ Mixed Content 回避のため null", () => {
+    expect(
+      pickImageUrl({
+        imageUrl: "http://youjo-senki.jp/og-image.jpg",
+        resolvedImageUrl: null,
+      }),
+    ).toBeNull();
   });
 
   it("resolvedImageUrl が無ければ placeholder でも imageUrl を返す（無いよりマシ）", () => {

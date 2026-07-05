@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { isPlaceholderImageUrl, resolveImagesForWorks } from "./imageFallback";
+import {
+  IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION,
+  isPlaceholderImageUrl,
+  limitImageFallbackTargets,
+  resolveImagesForWorks,
+} from "./imageFallback";
 
 // 決めうちの AniList JSON レスポンスを組み立てる。
 // data の各 key は `m<malId>` で、coverImage.extraLarge / large / medium を渡す。
@@ -51,6 +56,12 @@ describe("isPlaceholderImageUrl", () => {
     ).toBe(false);
   });
 
+  it("HTTP の作品画像 URL は HTTPS デプロイで使えないため fallback 対象", () => {
+    expect(isPlaceholderImageUrl("http://youjo-senki.jp/og-image.jpg")).toBe(
+      true,
+    );
+  });
+
   it("Twitter / Facebook のアバター URL は placeholder 扱い", () => {
     expect(
       isPlaceholderImageUrl(
@@ -66,6 +77,15 @@ describe("isPlaceholderImageUrl", () => {
 });
 
 describe("resolveImagesForWorks", () => {
+  it("waitUntil 用の fallback 対象は 1 invocation あたりの上限に絞る", () => {
+    const targets = [1, 2, 3, 4, 5];
+
+    expect(limitImageFallbackTargets(targets)).toEqual(
+      targets.slice(0, IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION),
+    );
+    expect(limitImageFallbackTargets(targets)).toHaveLength(3);
+  });
+
   it("空入力は fetch を叩かず空配列を返す", async () => {
     const fetchImpl = vi.fn();
     const res = await resolveImagesForWorks(

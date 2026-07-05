@@ -16,6 +16,7 @@ import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
 import {
   isPlaceholderImageUrl,
+  limitImageFallbackTargets,
   resolveImagesForWorks,
 } from "@/lib/annict/imageFallback";
 import { authorizedDb } from "@/repository/authorizedDb";
@@ -130,6 +131,7 @@ async function attachResolvedImages(
   });
 
   if (fallbackTargets.length > 0 && executionCtx) {
+    const limitedFallbackTargets = limitImageFallbackTargets(fallbackTargets);
     // 検索経路は annict_works にキャッシュ行が無い場合もあるため、
     // 先に作品メタを upsert してから resolved を書き込む必要がある。
     // ここでは waitUntil の裏で upsert → resolve → update の順に走らせる。
@@ -137,7 +139,7 @@ async function attachResolvedImages(
     const now = new Date();
     executionCtx.waitUntil(
       (async () => {
-        for (const t of fallbackTargets) {
+        for (const t of limitedFallbackTargets) {
           const w = worksById.get(t.annictWorkId);
           if (!w) continue;
           await adb.upsertAnnictWork({
@@ -153,7 +155,7 @@ async function attachResolvedImages(
             updatedAt: now,
           });
         }
-        const results = await resolveImagesForWorks(fallbackTargets);
+        const results = await resolveImagesForWorks(limitedFallbackTargets);
         const resolvedAt = new Date();
         for (const r of results) {
           await adb.updateResolvedImage(r.annictWorkId, {

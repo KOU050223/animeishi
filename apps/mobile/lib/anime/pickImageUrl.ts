@@ -11,7 +11,8 @@
 //     ロジックがサーバに埋まっているとクライアント設定で覆せなくなる。
 
 // Annict の SNS 系画像 URL は「表示できるが実質プレースホルダー」なので、
-// resolvedImageUrl があるならそちらを優先したい。
+// resolvedImageUrl があるならそちらを優先したい。また HTTPS で配信される Web 版では
+// http: 画像が Mixed Content になるため、補完画像へ落とす。
 // サーバ側 (services/api/src/lib/annict/imageFallback.ts) の同名関数と
 // 同じロジックを保つ必要がある。片方だけ変えると挙動がズレるので、変更時は
 // 両方触ること。
@@ -22,10 +23,15 @@ const PLACEHOLDER_HOST_PATTERNS = [
   /fbcdn\.net/i,
 ];
 
+function isInsecureHttpUrl(url: string): boolean {
+  return /^http:/i.test(url.trim());
+}
+
 export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   if (!url) return true;
   const trimmed = url.trim();
   if (!trimmed) return true;
+  if (isInsecureHttpUrl(trimmed)) return true;
   return PLACEHOLDER_HOST_PATTERNS.some((re) => re.test(trimmed));
 }
 
@@ -45,6 +51,6 @@ export function pickImageUrl(item: PickImageUrlInput): string | null {
   const { imageUrl, resolvedImageUrl } = item;
   if (imageUrl && !isPlaceholderImageUrl(imageUrl)) return imageUrl;
   if (resolvedImageUrl) return resolvedImageUrl;
-  if (imageUrl) return imageUrl;
+  if (imageUrl && !isInsecureHttpUrl(imageUrl)) return imageUrl;
   return null;
 }

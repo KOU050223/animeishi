@@ -21,6 +21,7 @@ import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
 import {
   isPlaceholderImageUrl,
+  limitImageFallbackTargets,
   resolveImagesForWorks,
 } from "@/lib/annict/imageFallback";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
@@ -117,9 +118,10 @@ const watchHistory = new Hono<AuthVariables>()
       executionCtx = null;
     }
     if (fallbackTargets.length > 0 && executionCtx) {
+      const limitedFallbackTargets = limitImageFallbackTargets(fallbackTargets);
       executionCtx.waitUntil(
         (async () => {
-          const results = await resolveImagesForWorks(fallbackTargets);
+          const results = await resolveImagesForWorks(limitedFallbackTargets);
           const resolvedAt = new Date();
           for (const r of results) {
             await adb.updateResolvedImage(r.annictWorkId, {

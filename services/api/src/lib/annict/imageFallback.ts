@@ -18,6 +18,8 @@ const JIKAN_ENDPOINT_BASE = "https://api.jikan.moe/v4/anime";
 // これらしか無い作品もフォールバック対象に含めたい。Twitter/Facebook の
 // アバター画像は URL パターンから判別できる。厳密なマッチ（== null）だと
 // SNS placeholder が残ってしまうため、URL のホスト部分でも判定する。
+// また Web 版は HTTPS 配信のため、http: の作品画像も Mixed Content 回避の
+// フォールバック対象にする。
 const PLACEHOLDER_HOST_PATTERNS = [
   /pbs\.twimg\.com/i,
   /twimg\.com/i,
@@ -25,14 +27,19 @@ const PLACEHOLDER_HOST_PATTERNS = [
   /fbcdn\.net/i,
 ];
 
+function isInsecureHttpUrl(url: string): boolean {
+  return /^http:/i.test(url.trim());
+}
+
 /**
- * Annict の image URL が「実質プレースホルダー」かどうかを判定する。
- * null / 空文字 / SNS のアバター URL のいずれかならフォールバック対象。
+ * Annict の image URL が「実質プレースホルダー or HTTPS 画面で使えない」かを判定する。
+ * null / 空文字 / SNS のアバター URL / http: URL のいずれかならフォールバック対象。
  */
 export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   if (!url) return true;
   const trimmed = url.trim();
   if (!trimmed) return true;
+  if (isInsecureHttpUrl(trimmed)) return true;
   return PLACEHOLDER_HOST_PATTERNS.some((re) => re.test(trimmed));
 }
 
@@ -66,6 +73,15 @@ const REMOTE_FETCH_TIMEOUT_MS = 6000;
 // Jikan のレート制限（公称 3 req/sec / 60 req/min）を踏まえた最小間隔。
 // 350ms 空ければ理論上 2.8 req/sec で 3 req/sec に触れない。
 const JIKAN_MIN_INTERVAL_MS = 350;
+
+// HTTP-triggered Workers の waitUntil はレスポンス後 30 秒で未完了タスクが
+// キャンセルされる。AniList 1 バッチ + Jikan の最悪タイムアウトを踏んでも
+// 30 秒内に収まりやすいよう、1 リクエストで裏解決する件数を小さく保つ。
+export const IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION = 3;
+
+export function limitImageFallbackTargets<T>(targets: T[]): T[] {
+  return targets.slice(0, IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION);
+}
 
 /**
  * MAL ID 群に対して AniList → Jikan の順でフォールバック解決する。
