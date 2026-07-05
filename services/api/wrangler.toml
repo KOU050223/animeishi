@@ -10,6 +10,9 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 [vars]
 # ANNICT_CLIENT_ID = "<your-annict-client-id>"
 
+[triggers]
+crons = ["0 */6 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
@@ -20,6 +23,18 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
+[[queues.producers]]
+binding = "IMAGE_FALLBACK_QUEUE"
+queue = "animeishi-image-fallback"
+
+[[queues.consumers]]
+queue = "animeishi-image-fallback"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 5
+max_concurrency = 1
+dead_letter_queue = "animeishi-image-fallback-dlq"
+
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -27,6 +42,9 @@ ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 # CORS 許可オリジン（カンマ区切り）。"*" 始まりはサフィックス一致（プレビューデプロイ用）。
 # 詳細は src/cors.ts および docs/04_deployment.md を参照。
 ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
+
+[env.production.triggers]
+crons = ["0 */6 * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -36,6 +54,18 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 [[env.production.r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
+
+[[env.production.queues.producers]]
+binding = "IMAGE_FALLBACK_QUEUE"
+queue = "animeishi-image-fallback"
+
+[[env.production.queues.consumers]]
+queue = "animeishi-image-fallback"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 5
+max_concurrency = 1
+dead_letter_queue = "animeishi-image-fallback-dlq"
 
 [observability]
 enabled = false

@@ -103,6 +103,5 @@ tasks:
     dir: services/api
     cmds:
       # 起動後に別端末から下記で手動トリガーできる:
-      #   curl "http://localhost:8787/__scheduled?cron=0+18+*+*+*"   # anime-sync
-      #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # season-sync
+      #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # image fallback warmup
       - pnpm wrangler dev --test-scheduled

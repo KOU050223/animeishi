@@ -19,7 +19,12 @@ const USER_ID = "user_testworks001";
 // nodes に渡した作品をそのまま searchWorks の結果として返す。
 // リクエスト body（variables）を検証したいテスト向けに fetch の spy を返す。
 function mockSearchWorks(
-  nodes: { annictId: number; title?: string }[],
+  nodes: {
+    annictId: number;
+    title?: string | null;
+    malAnimeId?: string | null;
+    recommendedImageUrl?: string | null;
+  }[],
   pageInfo: { hasNextPage: boolean; endCursor: string | null } = {
     hasNextPage: false,
     endCursor: null,
@@ -34,12 +39,21 @@ function mockSearchWorks(
             nodes: nodes.map((n) => ({
               id: `node-${n.annictId}`,
               annictId: n.annictId,
-              title: n.title ?? `作品${n.annictId}`,
+              title: "title" in n ? n.title : `作品${n.annictId}`,
               titleKana: null,
               titleEn: null,
               seasonName: null,
               seasonYear: null,
-              image: { recommendedImageUrl: null },
+              malAnimeId: n.malAnimeId ?? null,
+              image: {
+                internalUrl: null,
+                recommendedImageUrl: n.recommendedImageUrl ?? null,
+                facebookOgImageUrl: null,
+                twitterBiggerAvatarUrl: null,
+                twitterAvatarUrl: null,
+                twitterNormalAvatarUrl: null,
+                twitterMiniAvatarUrl: null,
+              },
             })),
           },
         },
@@ -56,6 +70,7 @@ type TestEnv = {
     DB: D1Database;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
+    IMAGE_FALLBACK_QUEUE?: Queue;
   };
   Variables: {
     clerkUserId: string;
@@ -254,6 +269,71 @@ describe("作品検索 API", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { works: unknown[] };
       expect(body.works).toHaveLength(0);
+    });
+
+    it("GET /works/search: 未解決の補完対象を Queue に enqueue し、外部補完は直接実行しない", async () => {
+      const fetchMock = mockSearchWorks([
+        {
+          annictId: 777,
+          title: "HTTP 画像作品",
+          malAnimeId: "1234",
+          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+        },
+      ]);
+      const sendBatch = vi.fn().mockResolvedValue(undefined);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=http",
+        { method: "GET", headers: ANNICT_HEADER },
+        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+      );
+
+      expect(res.status).toBe(200);
+      expect(sendBatch).toHaveBeenCalledWith([
+        {
+          body: {
+            annictWorkId: 777,
+            malAnimeId: 1234,
+            reason: "search",
+          },
+        },
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスと enqueue は継続する", async () => {
+      mockSearchWorks([
+        {
+          annictId: 778,
+          title: null,
+          malAnimeId: "1235",
+          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+        },
+      ]);
+      const sendBatch = vi.fn().mockResolvedValue(undefined);
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=http",
+        { method: "GET", headers: ANNICT_HEADER },
+        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+      );
+
+      expect(res.status).toBe(200);
+      expect(sendBatch).toHaveBeenCalledWith([
+        {
+          body: {
+            annictWorkId: 778,
+            malAnimeId: 1235,
+            reason: "search",
+          },
+        },
+      ]);
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining("image_fallback_upsert_failed"),
+      );
     });
 
     it("GET /works/search: Annict が 401 なら annict_token_invalid で 401", async () => {

@@ -19,17 +19,21 @@ import {
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
+import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
 import {
-  isPlaceholderImageUrl,
-  limitImageFallbackTargets,
-  resolveImagesForWorks,
-} from "@/lib/annict/imageFallback";
+  enqueueImageFallbackJobs,
+  type ImageFallbackJob,
+} from "@/lib/annict/imageFallbackQueue";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
-function getBindings(
-  c: Context,
-): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
-  return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
+  DB: D1Database;
+  IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
+} {
+  return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
+    DB: D1Database;
+    IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
+  };
 }
 
 const watchHistory = new Hono<AuthVariables>()
@@ -80,9 +84,8 @@ const watchHistory = new Hono<AuthVariables>()
       historyEntries,
     );
 
-    // Annict の画像が空 / SNS placeholder に落ちている作品を、MAL ID 経由で
-    // AniList → Jikan の順に補完する。read-through 応答は待たず、waitUntil で
-    // 裏で走らせて次回アクセスからキャッシュヒットさせる（issue #86）。
+    // Annict の画像が空 / SNS placeholder / http: に落ちている作品を Queue に積む。
+    // 外部 API 解決は Consumer 側で行い、read-through 応答経路から外す。
     // 既に imageSource が設定済み（'anilist' / 'jikan' / 'none'）の作品は
     // ネガキャッシュ扱いで再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
     // ヘビーユーザーで全 ID を一度に IN 句に詰めると D1 のバインド上限
@@ -109,30 +112,11 @@ const watchHistory = new Hono<AuthVariables>()
       fallbackTargets.push({ annictWorkId, malAnimeId: w.malAnimeId });
     }
 
-    // c.executionCtx はテスト経路（app.request）で未提供の場合があるため、
-    // getter の throw を吸って null に落とす。無ければ非同期解決は skip する。
-    let executionCtx: ExecutionContext | null;
-    try {
-      executionCtx = c.executionCtx;
-    } catch {
-      executionCtx = null;
-    }
-    if (fallbackTargets.length > 0 && executionCtx) {
-      const limitedFallbackTargets = limitImageFallbackTargets(fallbackTargets);
-      executionCtx.waitUntil(
-        (async () => {
-          const results = await resolveImagesForWorks(limitedFallbackTargets);
-          const resolvedAt = new Date();
-          for (const r of results) {
-            await adb.updateResolvedImage(r.annictWorkId, {
-              resolvedImageUrl: r.resolvedImageUrl,
-              imageSource: r.imageSource,
-              resolvedAt,
-            });
-          }
-        })(),
-      );
-    }
+    await enqueueImageFallbackJobs(
+      getBindings(c).IMAGE_FALLBACK_QUEUE,
+      fallbackTargets,
+      "watch-history",
+    );
 
     return c.json(data, 200);
   })
