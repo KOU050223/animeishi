@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const rootDir = path.resolve(__dirname, "..");
+const rootDir = __dirname;
 
 describe("Expo entrypoint configuration", () => {
   test("loads react-native-gesture-handler before expo-router entry", () => {

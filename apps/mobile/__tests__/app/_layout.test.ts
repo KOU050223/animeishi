@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const rootDir = path.resolve(__dirname, "..");
+const rootDir = path.resolve(__dirname, "../..");
 
 describe("root router layout", () => {
   test("declares the concrete public user profile route", () => {

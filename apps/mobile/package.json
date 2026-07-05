@@ -12,7 +12,7 @@
     "build:web": "expo export -p web",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests --maxWorkers=2",
     "lint": "oxlint app lib store components --no-error-on-unmatched-pattern --deny-warnings",
     "lint:fix": "oxlint app lib store components --no-error-on-unmatched-pattern --fix --deny-warnings",
     "format": "oxfmt --ignore-path ../../.oxfmtignore .",

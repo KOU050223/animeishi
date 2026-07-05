@@ -19,6 +19,11 @@ export default defineConfig({
   ],
   test: {
     globals: true,
-    exclude: ["src/schema/__tests__/**", "src/__tests__/**", "node_modules/**"],
+    exclude: [
+      "src/cors.test.ts",
+      "src/lib/annict/client.test.ts",
+      "src/schema/*.test.ts",
+      "node_modules/**",
+    ],
   },
 });
