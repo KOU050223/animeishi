@@ -177,6 +177,9 @@ importers:
       oxlint:
         specifier: ^1.72.0
         version: 1.72.0
+      oxlint-config-universe:
+        specifier: 0.0.3
+        version: 0.0.3(oxlint@1.72.0)
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -5579,6 +5582,11 @@ packages:
         optional: true
       vite-plus:
         optional: true
+
+  oxlint-config-universe@0.0.3:
+    resolution: {integrity: sha512-EpKPtjNpDu2EfkmIsjGMAuM3QQ37fVaLdjg6sEK+lGf5QZpK+pX9DjG6F9zz29iLfdgvojAQveQZW6ViFbhd+Q==}
+    peerDependencies:
+      oxlint: '>=1.59.0'
 
   oxlint@1.72.0:
     resolution: {integrity: sha512-1rhdZIP/EvoI91ABIwNU5Q8+bWf8mjrS5UzIOZld4d4bXxJvtlUhlQvaoTogIGin/qdErMOrwaIJvCSIAKTLhA==}
@@ -12920,6 +12928,10 @@ snapshots:
       '@oxfmt/binding-win32-arm64-msvc': 0.57.0
       '@oxfmt/binding-win32-ia32-msvc': 0.57.0
       '@oxfmt/binding-win32-x64-msvc': 0.57.0
+
+  oxlint-config-universe@0.0.3(oxlint@1.72.0):
+    dependencies:
+      oxlint: 1.72.0
 
   oxlint@1.72.0:
     optionalDependencies:
