@@ -10,6 +10,7 @@ import {
 import { useFavorites, useRemoveFavorite } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { confirm } from "@/lib/dialog";
+import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
 export default function FavoritesScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -111,12 +112,7 @@ function FavoriteRow({
       className="flex-row items-center py-3 gap-3"
       testID={`favorite-item-${favorite.annictWorkId}`}
     >
-      <View
-        style={styles.thumbnailPlaceholder}
-        className="bg-gray-200 items-center justify-center"
-      >
-        <Text className="text-gray-400 text-xs">No img</Text>
-      </View>
+      <WorkThumbnail item={favorite} />
 
       <View className="flex-1">
         <Text className="text-gray-900 font-medium" numberOfLines={2}>
@@ -139,5 +135,4 @@ function FavoriteRow({
 const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingBottom: 32 },
   separator: { height: 1 },
-  thumbnailPlaceholder: { width: 48, height: 64, borderRadius: 4 },
 });

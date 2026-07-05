@@ -151,6 +151,7 @@ query MyLibrary($after: String) {
         work {
           id
           annictId
+          malAnimeId
           title
           titleKana
           titleEn
@@ -170,6 +171,7 @@ type LibraryEntryNode = {
   work: {
     id: string;
     annictId: number;
+    malAnimeId: string | null;
     title: string;
     titleKana: string | null;
     titleEn: string | null;
@@ -199,7 +201,20 @@ export type AnnictLibraryEntry = {
   seasonName: string | null;
   seasonYear: number | null;
   imageUrl: string | null;
+  // Annict Work.malAnimeId は文字列。数値変換に失敗する値は捨てて null にする。
+  malAnimeId: number | null;
 };
+
+// Annict の malAnimeId は文字列だが空文字や非数値が混ざる可能性があるため
+// 安全にパースする。呼び出し側の分岐を減らすためここで正規化する。
+function parseMalAnimeId(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isSafeInteger(n) || n <= 0) return null;
+  return n;
+}
 
 // 全置換が肥大化しないための上限ページ数（50 件 × 40 = 2000 作品）。
 // ヘビーユーザーでも現実的な範囲で、無限ループ（壊れた endCursor）も防ぐ。
@@ -246,6 +261,7 @@ export async function fetchAnnictLibraryEntries(
         seasonName: work.seasonName,
         seasonYear: work.seasonYear,
         imageUrl: resolveWorkImageUrl(work.image),
+        malAnimeId: parseMalAnimeId(work.malAnimeId),
       });
     }
 
@@ -314,6 +330,7 @@ query SearchWorkNodeId($annictIds: [Int!]) {
     nodes {
       id
       annictId
+      malAnimeId
       title
       titleKana
       titleEn
@@ -329,6 +346,7 @@ type SearchWorksResponse = {
     nodes: {
       id: string;
       annictId: number;
+      malAnimeId: string | null;
       title: string;
       titleKana: string | null;
       titleEn: string | null;
@@ -368,6 +386,7 @@ export async function fetchAnnictWorkByAnnictId(
     seasonName: work.seasonName,
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
+    malAnimeId: parseMalAnimeId(work.malAnimeId),
   };
 }
 
@@ -382,6 +401,7 @@ query SearchWorksByTitle($titles: [String!], $after: String) {
     nodes {
       id
       annictId
+      malAnimeId
       title
       titleKana
       titleEn
@@ -398,6 +418,7 @@ type SearchWorksByTitleResponse = {
     nodes: {
       id: string;
       annictId: number;
+      malAnimeId: string | null;
       title: string;
       titleKana: string | null;
       titleEn: string | null;
@@ -434,6 +455,7 @@ function mapSearchWorksConnection(
     seasonName: work.seasonName,
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
+    malAnimeId: parseMalAnimeId(work.malAnimeId),
   }));
 
   return {
@@ -496,6 +518,7 @@ query SearchWorksBySeason($seasons: [String!], $after: String) {
     nodes {
       id
       annictId
+      malAnimeId
       title
       titleKana
       titleEn

@@ -1,6 +1,9 @@
+import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
+
 export type MeishiAnimeContextSource = {
-  favorites?: { imageUrl: string | null }[];
-  watchHistory?: { state: string | null; imageUrl: string | null }[];
+  favorites?: PickImageUrlInput[];
+  watchHistory?: (PickImageUrlInput & { state: string | null })[];
 };
 
 export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
@@ -18,6 +21,9 @@ export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
   };
 }
 
-function compactImageUrls(items: { imageUrl: string | null }[]): string[] {
-  return items.flatMap((item) => (item.imageUrl ? [item.imageUrl] : []));
+function compactImageUrls(items: PickImageUrlInput[]): string[] {
+  return items.flatMap((item) => {
+    const url = pickImageUrl(item);
+    return url ? [url] : [];
+  });
 }

@@ -21,6 +21,10 @@ const DDL_STATEMENTS = [
     season_name TEXT,
     season_year INTEGER,
     image_url TEXT,
+    mal_anime_id INTEGER,
+    resolved_image_url TEXT,
+    image_source TEXT,
+    resolved_at INTEGER,
     updated_at INTEGER NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS watch_history (
