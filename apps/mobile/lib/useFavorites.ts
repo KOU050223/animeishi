@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { buildAnnictAuthHeader } from "@/lib/annict";
+import { hiraganaToKana } from "@/lib/textNormalize";
 
 type FavoritesResponse = InferResponseType<
   (typeof apiClient.me.favorites)["$get"],
@@ -22,6 +23,27 @@ async function getAuthHeaders(
   const token = await getToken();
   if (!token) throw new Error("認証トークンが取得できませんでした");
   return { Authorization: `Bearer ${token}` };
+}
+
+/**
+ * お気に入り検索の対象フィールド。title / titleKana / titleEn のいずれかにクエリがマッチすれば true を返す。
+ */
+export function matchesFavoriteQuery(
+  favorite: Pick<FavoriteItem, "title" | "titleKana" | "titleEn">,
+  query: string,
+): boolean {
+  // クエリを正規化する
+  // 大文字小文字を無視するためにクエリを正規化
+  // ひらがな/カタカナを正規化して一致させる
+  const normalizedQuery = query.toLowerCase();
+  const normalizedTitleKana = hiraganaToKana(query);
+
+  // 部分一致でマッチするか判定する
+  return (
+    favorite.title.toLowerCase().includes(normalizedQuery) ||
+    (favorite.titleEn ?? "").toLowerCase().includes(normalizedQuery) ||
+    (favorite.titleKana ?? "").includes(normalizedTitleKana)
+  );
 }
 
 /**

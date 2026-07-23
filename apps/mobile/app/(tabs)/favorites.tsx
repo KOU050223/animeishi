@@ -2,25 +2,37 @@ import { useMemo, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { useFavorites, useRemoveFavorite } from "@/lib/useFavorites";
+import {
+  useFavorites,
+  useRemoveFavorite,
+  matchesFavoriteQuery,
+} from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { confirm } from "@/lib/dialog";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
 export default function FavoritesScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
 
   const { data: favorites, isLoading, isError, refetch } = useFavorites();
   const remove = useRemoveFavorite();
 
+  const filtered = useMemo(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return favorites ?? [];
+    return (favorites ?? []).filter((f) => matchesFavoriteQuery(f, trimmed));
+  }, [favorites, query]);
+
   const enriched = useMemo(
-    () => (favorites ?? []).map((f) => ({ favorite: f })),
-    [favorites],
+    () => filtered.map((f) => ({ favorite: f })),
+    [filtered],
   );
 
   async function onRefresh() {
@@ -71,6 +83,14 @@ export default function FavoritesScreen() {
         <Text className="text-xs text-gray-400 mt-0.5">
           {enriched.length} 件
         </Text>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="作品名で検索"
+          className="mt-3 bg-gray-100 rounded-lg px-3 py-2 text-gray-900"
+          accessibilityLabel="お気に入りを検索"
+          clearButtonMode="while-editing"
+        />
       </View>
 
       <FlatList
@@ -91,7 +111,9 @@ export default function FavoritesScreen() {
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
             <Text className="text-gray-400 text-center">
-              お気に入りがありません。{"\n"}アニメ一覧から追加してください。
+              {query.trim()
+                ? "該当するお気に入りが見つかりません。"
+                : "お気に入りがありません。\nアニメ一覧から追加してください。"}
             </Text>
           </View>
         }
