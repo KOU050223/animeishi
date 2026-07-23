@@ -26,14 +26,7 @@ async function getAuthHeaders(
 }
 
 /**
- * お気に入り検索の対象フィールド。title / titleKana / titleEn のいずれかに
- * クエリがマッチすれば true を返す。UI から切り離してテスト可能にするために分離している。
- *
- * TODO(human): 実装する。
- * - 大文字小文字を無視するか
- * - ひらがな/カタカナを正規化して一致させるか（titleKana は原則カタカナ表記）
- * - 部分一致か前方一致か
- * を決めて実装してください。
+ * お気に入り検索の対象フィールド。title / titleKana / titleEn のいずれかにクエリがマッチすれば true を返す。
  */
 export function matchesFavoriteQuery(
   favorite: Pick<FavoriteItem, "title" | "titleKana" | "titleEn">,
