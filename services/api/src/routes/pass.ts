@@ -44,7 +44,7 @@ const pass = new Hono<AuthVariables>()
     const passJson = buildMeishiPassJson({
       passTypeIdentifier,
       teamIdentifier,
-      serialNumber: `${profile.id}-${Date.now()}`,
+      serialNumber: `${profile.id}`,
       username: profile.username ?? "ユーザー",
       bio: profile.bio,
       favoriteQuote: profile.favoriteQuote,
