@@ -4,6 +4,9 @@ import { useAuth } from "@clerk/clerk-expo";
 import { apiUrl } from "@/lib/apiUrl";
 import type { AddToWalletResult, UseAddToAppleWallet } from "./types";
 
+// 事前 fetch のタイムアウト (ms)。無応答時にボタンが永久 disabled になるのを防ぐ。
+const FETCH_TIMEOUT_MS = 15_000;
+
 // Apple Wallet に .pkpass を追加するためのフック (iOS 実装)。
 // iOS Safari が Content-Type: application/vnd.apple.pkpass を検知して
 // 自動的に Wallet 追加シートを起動する仕組みを使うため、
@@ -24,9 +27,18 @@ export const useAddToAppleWallet: UseAddToAppleWallet = () => {
       // Wallet は Bearer 認証を透過的には扱えないため、
       // 一度事前に fetch して 501(未署名) の場合は結果コードで返す。
       // 署名済みの場合のみ WebBrowser で開く。
-      const res = await fetch(`${apiUrl}/me/pass/meishi.pkpass`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // 無応答でボタンが永久 disabled にならないよう AbortController で期限を設ける。
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      let res: Response;
+      try {
+        res = await fetch(`${apiUrl}/me/pass/meishi.pkpass`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (res.status === 501) {
         return { type: "not-configured" };
