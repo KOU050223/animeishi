@@ -17,6 +17,7 @@ import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { useAddToAppleWallet } from "@/lib/wallet/useAddToAppleWallet";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -26,6 +27,11 @@ export default function ProfileScreen() {
   const uploadAvatar = useProfileAvatarUpload();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const router = useRouter();
+  const {
+    addToWallet,
+    isPending: isWalletPending,
+    canUse: canUseWallet,
+  } = useAddToAppleWallet();
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -156,6 +162,31 @@ export default function ProfileScreen() {
               🎨 名刺をデザインする
             </Text>
           </TouchableOpacity>
+
+          {canUseWallet ? (
+            <TouchableOpacity
+              testID="add-to-wallet-button"
+              className="mt-2 items-center rounded-xl bg-black py-3"
+              onPress={() => {
+                void addToWallet().then((message) => {
+                  if (message) {
+                    showToast({ type: "error", message });
+                  }
+                });
+              }}
+              disabled={isWalletPending}
+              accessibilityRole="button"
+              accessibilityLabel="Apple Wallet に名刺を追加"
+            >
+              {isWalletPending ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="font-semibold text-white">
+                  🍎 Apple Wallet に追加
+                </Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View className="mt-6 px-4">
