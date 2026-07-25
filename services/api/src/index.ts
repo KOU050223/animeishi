@@ -12,6 +12,7 @@ import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { avatar, me } from "./routes/me";
+import { pass } from "./routes/pass";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
 import { works } from "./routes/works";
@@ -48,6 +49,7 @@ const routes = app
   .route("/works", works)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
+  .route("/me/pass", pass)
   .route("/user", user);
 
 export type AppType = typeof routes;

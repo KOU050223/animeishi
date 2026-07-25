@@ -17,8 +17,27 @@ import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { useAddToAppleWallet } from "@/lib/wallet";
+import type { AddToWalletResult } from "@/lib/wallet";
 
 type Toast = { type: "success" | "error"; message: string };
+
+// Apple Wallet 追加の結果コードを、この画面で表示する文言へマッピングする。
+// 文言は低レベル基盤 (lib/wallet) には持たせず、呼び出し側で組み立てる。
+// 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
+function walletErrorMessage(result: AddToWalletResult): string | null {
+  switch (result.type) {
+    case "success":
+    case "not-supported":
+      return null;
+    case "not-configured":
+      return "サーバー側で pkpass 署名が未設定のため Wallet に追加できません";
+    case "auth-failed":
+      return "認証トークンが取得できませんでした";
+    case "request-failed":
+      return `Wallet 追加リクエストが失敗しました (${result.status})`;
+  }
+}
 
 export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
@@ -26,6 +45,11 @@ export default function ProfileScreen() {
   const uploadAvatar = useProfileAvatarUpload();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const router = useRouter();
+  const {
+    addToWallet,
+    isPending: isWalletPending,
+    canUse: canUseWallet,
+  } = useAddToAppleWallet();
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -156,6 +180,32 @@ export default function ProfileScreen() {
               🎨 名刺をデザインする
             </Text>
           </TouchableOpacity>
+
+          {canUseWallet ? (
+            <TouchableOpacity
+              testID="add-to-wallet-button"
+              className="mt-2 items-center rounded-xl bg-black py-3"
+              onPress={() => {
+                void addToWallet().then((result) => {
+                  const message = walletErrorMessage(result);
+                  if (message) {
+                    showToast({ type: "error", message });
+                  }
+                });
+              }}
+              disabled={isWalletPending}
+              accessibilityRole="button"
+              accessibilityLabel="Apple Wallet に名刺を追加"
+            >
+              {isWalletPending ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="font-semibold text-white">
+                  🍎 Apple Wallet に追加
+                </Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View className="mt-6 px-4">
