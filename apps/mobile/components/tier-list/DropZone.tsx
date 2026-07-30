@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import type { DropZoneRegistry } from "./dropZones";
 
@@ -16,8 +16,8 @@ export type DropZoneProps = {
  *
  * onLayout ではなく measureInWindow で測るのは、onLayout が返すのが親からの
  * 相対座標で、ジェスチャの absoluteX/Y（ウィンドウ座標）と系が合わないため。
- * 盤面がスクロールすると矩形はズレるので、スクロール時にも測り直す
- * （呼び出し側が remeasure を叩く）。
+ * 盤面がスクロールすると矩形はズレるが onLayout は発火しないので、
+ * registry に measure を預けてドラッグ開始時に測り直させる。
  */
 export function DropZone({
   zoneKey,
@@ -27,11 +27,18 @@ export function DropZone({
 }: DropZoneProps) {
   const ref = useRef<View>(null);
 
-  const measure = () => {
+  const measure = useCallback(() => {
     ref.current?.measureInWindow((x, y, width, height) => {
       registry.register(zoneKey, { x, y, width, height });
     });
-  };
+  }, [registry, zoneKey]);
+
+  // onLayout はレイアウトが変わったときしか発火せず、スクロールでは呼ばれない。
+  // ドラッグ開始時に registry から測り直せるよう、自分の measure を預けておく。
+  useEffect(
+    () => registry.registerMeasurer(zoneKey, measure),
+    [measure, registry, zoneKey],
+  );
 
   return (
     <View

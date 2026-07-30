@@ -59,11 +59,22 @@ export function TierBoard({
     [onAssign, registry],
   );
 
+  const handleDragStart = useCallback(
+    (workId: number) => {
+      setDraggingId(workId);
+      // スクロールしていると onLayout 時に測った矩形が実際の位置とズレる
+      // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
+      // ドロップ先の判定を今の画面状態に合わせる。
+      registry.remeasureAll();
+    },
+    [registry],
+  );
+
   const renderCard = (work: TierWork) => (
     <DraggableWorkCard
       key={work.annictWorkId}
       work={work}
-      onDragStart={() => setDraggingId(work.annictWorkId)}
+      onDragStart={() => handleDragStart(work.annictWorkId)}
       onDragMove={handleDragMove}
       onDragEnd={(x, y) => handleDragEnd(work.annictWorkId, x, y)}
     />
@@ -76,6 +87,12 @@ export function TierBoard({
       // ドラッグ中はスクロールを止める。長押しで掴んだ後に盤面が動くと
       // 計測済みの行の矩形とズレてドロップ先を誤判定する。
       scrollEnabled={draggingId === null}
+      // スクロールが止まった時点でも測り直しておく。ドラッグ開始時にも
+      // 測り直すが、こちらを入れておくと掴んだ直後の 1 フレームでも
+      // 矩形が正しく、ハイライトが最初から正確に出る。
+      onMomentumScrollEnd={registry.remeasureAll}
+      onScrollEndDrag={registry.remeasureAll}
+      scrollEventThrottle={16}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       <View style={styles.board}>

@@ -102,12 +102,15 @@ export function DraggableWorkCard({
             accessibilityLabel={`${work.title}のサムネイル`}
           />
         ) : (
-          <View style={styles.cardFallback}>
-            <Text style={styles.cardFallbackText} numberOfLines={3}>
-              {work.title}
-            </Text>
+          <View style={styles.cardImageFallback}>
+            <Text style={styles.cardImageFallbackText}>🎬</Text>
           </View>
         )}
+        <View style={styles.cardLabel}>
+          <Text style={styles.cardLabelText} numberOfLines={2}>
+            {work.title}
+          </Text>
+        </View>
       </Animated.View>
     </GestureDetector>
   );

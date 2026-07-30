@@ -1,7 +1,12 @@
 import { StyleSheet } from "react-native";
 
-/** ドラッグする作品カードの一辺（正方形サムネイル）。行の高さもこれに合わせる。 */
-export const CARD_SIZE = 64;
+/** ドラッグする作品カードの幅。 */
+export const CARD_WIDTH = 60;
+export const CARD_IMAGE_HEIGHT = Math.round((CARD_WIDTH * 3) / 2);
+/** タイトルラベル部の高さ（2 行分）。 */
+export const CARD_LABEL_HEIGHT = 26;
+/** カード全体の高さ。行の最小高もこれに合わせる。 */
+export const CARD_HEIGHT = CARD_IMAGE_HEIGHT + CARD_LABEL_HEIGHT;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#111827" },
@@ -27,7 +32,7 @@ export const styles = StyleSheet.create({
   saveButtonText: { color: "#ffffff", fontWeight: "600" },
 
   board: { paddingHorizontal: 16, gap: 2 },
-  tierRow: { flexDirection: "row", minHeight: CARD_SIZE + 8 },
+  tierRow: { flexDirection: "row", minHeight: CARD_HEIGHT + 8 },
   tierLabelCell: {
     width: 76,
     alignItems: "center",
@@ -66,7 +71,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#1f2937",
     borderRadius: 8,
     padding: 8,
-    minHeight: CARD_SIZE + 16,
+    minHeight: CARD_HEIGHT + 16,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
@@ -74,21 +79,38 @@ export const styles = StyleSheet.create({
   trayActive: { backgroundColor: "#374151" },
   trayEmpty: { color: "#6b7280", fontSize: 12, padding: 8 },
 
+  // カードは「ポスター部 + タイトル部」の縦積み。画像が無い作品でも
+  // タイトルで判別できるよう、ラベルは常に表示する。
   card: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
     borderRadius: 4,
     overflow: "hidden",
     backgroundColor: "#374151",
   },
-  cardImage: { width: "100%", height: "100%" },
-  cardFallback: {
-    flex: 1,
+  cardImage: { width: "100%", height: CARD_IMAGE_HEIGHT },
+  // 画像が無いときのポスター部の代替。タイトル部と役割が重なるので、
+  // ここでは作品名を出さずプレースホルダーの記号だけを置く。
+  cardImageFallback: {
+    width: "100%",
+    height: CARD_IMAGE_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
-    padding: 2,
+    backgroundColor: "#4b5563",
   },
-  cardFallbackText: { color: "#e5e7eb", fontSize: 9, textAlign: "center" },
+  cardImageFallbackText: { color: "#9ca3af", fontSize: 20 },
+  cardLabel: {
+    height: CARD_LABEL_HEIGHT,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+    backgroundColor: "#111827",
+  },
+  cardLabelText: {
+    color: "#e5e7eb",
+    fontSize: 8,
+    lineHeight: 10,
+    textAlign: "center",
+  },
   // ドラッグ中のカードは持ち上がって見えるよう拡大＋影を付ける。
   cardDragging: { opacity: 0.9, zIndex: 100 },
 

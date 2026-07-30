@@ -17,15 +17,44 @@ export type DropZoneRegistry = {
   register: (key: string | null, rect: Rect) => void;
   /** ウィンドウ座標の点を含む行のキーを返す。どの行にも当たらなければ undefined。 */
   hitTest: (x: number, y: number) => string | null | undefined;
+  /**
+   * 各 DropZone が「自分を測り直す関数」を登録する。戻り値は登録解除関数。
+   * onLayout はレイアウトが変わったときしか発火しないため、スクロールで
+   * 位置がずれても呼ばれない。ドラッグ開始時に remeasureAll() を通して
+   * 全ゾーンを測り直すために、この登録が要る。
+   */
+  registerMeasurer: (key: string | null, measure: () => void) => () => void;
+  /** 登録済みの全ゾーンを測り直す。ドラッグ開始時に呼ぶ。 */
+  remeasureAll: () => void;
 };
 
 const NULL_KEY = "__unassigned__";
 
 export function useDropZoneRegistry(): DropZoneRegistry {
   const zonesRef = useRef(new Map<string, Rect>());
+  const measurersRef = useRef(new Map<string, () => void>());
 
   const register = useCallback((key: string | null, rect: Rect) => {
     zonesRef.current.set(key ?? NULL_KEY, rect);
+  }, []);
+
+  const registerMeasurer = useCallback(
+    (key: string | null, measure: () => void) => {
+      const mapKey = key ?? NULL_KEY;
+      measurersRef.current.set(mapKey, measure);
+      return () => {
+        // 同じキーが別の measure で上書きされている場合は消さない
+        // （行の入れ替えでアンマウント順が前後しても取りこぼさないため）。
+        if (measurersRef.current.get(mapKey) === measure) {
+          measurersRef.current.delete(mapKey);
+        }
+      };
+    },
+    [],
+  );
+
+  const remeasureAll = useCallback(() => {
+    for (const measure of measurersRef.current.values()) measure();
   }, []);
 
   const hitTest = useCallback((x: number, y: number) => {
@@ -42,5 +71,5 @@ export function useDropZoneRegistry(): DropZoneRegistry {
     return undefined;
   }, []);
 
-  return { register, hitTest };
+  return { register, hitTest, registerMeasurer, remeasureAll };
 }
