@@ -9,6 +9,8 @@ import {
   userGenres,
   annictWorks,
   annictTokens,
+  tierLists,
+  tierListItems,
 } from "@/db/schema";
 import type {
   User,
@@ -20,6 +22,7 @@ import type {
   AnnictWork,
   NewAnnictWork,
   AnnictToken,
+  TierList,
 } from "@/db/schema";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -61,6 +64,23 @@ export type WatchHistoryWithWork = WatchHistory & AnnictWorkMeta;
 
 /** お気に入りの 1 件（作品メタを含む）。 */
 export type FavoriteWithWork = Favorite & AnnictWorkMeta;
+
+/** tier 表に配置された作品 1 件（作品メタを含む）。 */
+export type TierListItemWithWork = {
+  annictWorkId: number;
+  tierKey: string;
+  position: number;
+} & AnnictWorkMeta;
+
+/** tier 表 1 件と、その配置内容。 */
+export type TierListWithItems = TierList & { items: TierListItemWithWork[] };
+
+/** tier 表を保存するときの 1 配置。position は配列順から採番するので受け取らない。 */
+export type TierListItemInput = {
+  annictWorkId: number;
+  tierKey: string;
+  position: number;
+};
 
 /**
  * authorizedDb: 認証済みユーザーIDを束縛したリポジトリ層。
@@ -590,6 +610,131 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           and(
             eq(favorites.userId, currentUserId),
             eq(favorites.annictWorkId, annictWorkId),
+          ),
+        );
+    },
+
+    // ---- Tier Lists ----
+    /**
+     * 指定シーズンの tier 表を配置内容ごと取得する。未作成なら undefined。
+     * 配置は annict_works と JOIN して作品メタ（タイトル・画像）を同梱するため、
+     * クライアントは作品情報を引き直さずに描画できる。
+     */
+    async getMyTierList(
+      season: string,
+    ): Promise<TierListWithItems | undefined> {
+      const list = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
+      });
+      if (!list) return undefined;
+
+      const items = await db
+        .select({
+          annictWorkId: tierListItems.annictWorkId,
+          tierKey: tierListItems.tierKey,
+          position: tierListItems.position,
+          title: annictWorks.title,
+          titleKana: annictWorks.titleKana,
+          titleEn: annictWorks.titleEn,
+          seasonName: annictWorks.seasonName,
+          seasonYear: annictWorks.seasonYear,
+          imageUrl: annictWorks.imageUrl,
+          resolvedImageUrl: annictWorks.resolvedImageUrl,
+          imageSource: annictWorks.imageSource,
+        })
+        .from(tierListItems)
+        .innerJoin(
+          annictWorks,
+          eq(tierListItems.annictWorkId, annictWorks.annictWorkId),
+        )
+        .where(eq(tierListItems.tierListId, list.id))
+        .orderBy(tierListItems.position);
+
+      return { ...list, items };
+    },
+
+    /** 自分の tier 表を新しい順に一覧する（配置内容は含めない）。 */
+    async getMyTierLists(): Promise<TierList[]> {
+      return db
+        .select()
+        .from(tierLists)
+        .where(eq(tierLists.userId, currentUserId))
+        .orderBy(desc(tierLists.updatedAt));
+    },
+
+    /**
+     * シーズン単位で tier 表を丸ごと保存する（作成 or 全置換）。
+     *
+     * 差分 UPDATE ではなく「items を全削除 → 全挿入」にしている。ドラッグ&ドロップの
+     * 並べ替えは 1 回の操作で多数の position が動くため、差分計算のコストと
+     * 不整合リスクに見合わない。1 シーズン ≒ 数十作品なので全置換で十分安い。
+     */
+    async saveMyTierList(input: {
+      season: string;
+      title: string;
+      tiersJson: string;
+      items: TierListItemInput[];
+    }): Promise<TierListWithItems> {
+      const now = new Date();
+      await db
+        .insert(tierLists)
+        .values({
+          userId: currentUserId,
+          season: input.season,
+          title: input.title,
+          tiersJson: input.tiersJson,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [tierLists.userId, tierLists.season],
+          // createdAt は初回のみ。更新では触らない。
+          set: {
+            title: input.title,
+            tiersJson: input.tiersJson,
+            updatedAt: now,
+          },
+        });
+
+      const saved = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, input.season)),
+      });
+      if (!saved) throw new Error("tier 表の保存に失敗しました");
+
+      await db
+        .delete(tierListItems)
+        .where(eq(tierListItems.tierListId, saved.id));
+
+      if (input.items.length > 0) {
+        // 1 行あたり 4 カラム。D1 のバインド変数上限 100 を下回るようチャンクする。
+        const ITEM_CHUNK = 20; // 20 * 4 = 80 < 100
+        for (let i = 0; i < input.items.length; i += ITEM_CHUNK) {
+          await db.insert(tierListItems).values(
+            input.items.slice(i, i + ITEM_CHUNK).map((item) => ({
+              tierListId: saved.id,
+              annictWorkId: item.annictWorkId,
+              tierKey: item.tierKey,
+              position: item.position,
+            })),
+          );
+        }
+      }
+
+      const result = await this.getMyTierList(input.season);
+      if (!result) throw new Error("tier 表の保存に失敗しました");
+      return result;
+    },
+
+    /** 指定シーズンの tier 表を削除する。items は FK の CASCADE で消える。 */
+    async deleteMyTierList(season: string): Promise<void> {
+      await db
+        .delete(tierLists)
+        .where(
+          and(
+            eq(tierLists.userId, currentUserId),
+            eq(tierLists.season, season),
           ),
         );
     },

@@ -136,6 +136,57 @@ export const friends = sqliteTable(
   ],
 );
 
+// ---- tier_lists (シーズン単位のアニメ tier 表) ----
+// tiers（S/A/B... の行定義）は行数・ラベル・色をユーザーが自由に決められるため
+// 正規化せず JSON 1 カラムに持つ。行の並び順は配列順そのもの。
+// 別テーブルにすると「行の並べ替え」がそのまま position 更新の一括 UPDATE になり、
+// MVP の費用対効果に見合わない。
+export const tierLists = sqliteTable(
+  "tier_lists",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 対象シーズン。annict_works.seasonName と同じ "2026-spring" 形式。
+    season: text("season").notNull(),
+    title: text("title").notNull(),
+    // TierRow[] の JSON 文字列。{ key, label, color } を並び順に持つ。
+    tiersJson: text("tiers_json").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    // 1 ユーザー 1 シーズンにつき 1 表。作り直しは上書きで済ませる。
+    unique("tier_lists_user_season_unique").on(t.userId, t.season),
+    index("tier_lists_user_idx").on(t.userId),
+  ],
+);
+
+// ---- tier_list_items (tier 表に配置された作品) ----
+// 未配置（どの tier にも入れていない）作品はここに行を持たない。
+// 「シーズン全作品 - 配置済み」がクライアント側の未分類トレイになる。
+export const tierListItems = sqliteTable(
+  "tier_list_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    tierListId: integer("tier_list_id")
+      .notNull()
+      .references(() => tierLists.id, { onDelete: "cascade" }),
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    // tiersJson 内の TierRow.key を指す。FK は張れないため整合性はアプリ層で担保する。
+    tierKey: text("tier_key").notNull(),
+    // 同一 tier 内での左からの並び順。
+    position: integer("position").notNull(),
+  },
+  (t) => [
+    unique("tier_list_items_list_work_unique").on(t.tierListId, t.annictWorkId),
+    index("tier_list_items_list_idx").on(t.tierListId),
+  ],
+);
+
 // ---- user_genres (選択ジャンル) ----
 export const userGenres = sqliteTable(
   "user_genres",
@@ -164,5 +215,9 @@ export type NewFavorite = typeof favorites.$inferInsert;
 export type Friend = typeof friends.$inferSelect;
 export type NewFriend = typeof friends.$inferInsert;
 export type UserGenre = typeof userGenres.$inferSelect;
+export type TierList = typeof tierLists.$inferSelect;
+export type NewTierList = typeof tierLists.$inferInsert;
+export type TierListItem = typeof tierListItems.$inferSelect;
+export type NewTierListItem = typeof tierListItems.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
