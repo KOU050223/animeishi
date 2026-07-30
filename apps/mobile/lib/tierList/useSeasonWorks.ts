@@ -66,7 +66,11 @@ export function useSeasonWorks(season: string) {
     works,
     // 追い読み中も「読み込み中」として扱う（途中の作品数で確定表示すると
     // ユーザーが「作品が足りない」と誤解するため）。
-    isLoading: query.isLoading || hasNextPage === true || isFetchingNextPage,
+    // ただしエラー時は hasNextPage が true のまま止まるので、除外しないと
+    // スピナーが永久に回り続けてエラー表示に到達できない。
+    isLoading:
+      !query.isError &&
+      (query.isLoading || hasNextPage === true || isFetchingNextPage),
     isError: query.isError,
     isConnected,
     isConnectionLoading,

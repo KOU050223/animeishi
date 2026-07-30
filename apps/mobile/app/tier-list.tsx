@@ -38,6 +38,7 @@ export default function TierListScreen() {
   const {
     works,
     isLoading: isWorksLoading,
+    isError: isWorksError,
     isConnected,
     isConnectionLoading,
   } = useSeasonWorks(season);
@@ -145,7 +146,13 @@ export default function TierListScreen() {
         onChangeSeason={setSeasonKey}
       />
 
-      {isWorksLoading || isSavedLoading ? (
+      {isWorksError ? (
+        <View style={styles.centered}>
+          <Text style={styles.centeredText}>
+            シーズンの作品を取得できませんでした
+          </Text>
+        </View>
+      ) : isWorksLoading || isSavedLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color="#9ca3af" />
           <Text style={styles.centeredText}>シーズンの作品を集めています</Text>
