@@ -14,7 +14,9 @@ import { styles } from "./tierListStyles";
 /** 長押しでドラッグを開始するまでの時間（ms）。 */
 // これを 0 にすると、トレイや盤面の縦スクロールが全部ドラッグに吸われて
 // 一覧をスクロールできなくなる。「長押ししてから掴む」で両立させる。
-const DRAG_ACTIVATE_MS = 200;
+// 200ms は体感で「待たされる」ため、掴んだ感触を損なわない下限まで詰めている。
+// これ以上短くすると、スクロールしようとした指がカードを掴んでしまう。
+const DRAG_ACTIVATE_MS = 80;
 
 export type DraggableWorkCardProps = {
   work: TierWork;

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Stack, useRouter } from "expo-router";
+import { confirm } from "@/lib/dialog";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
@@ -28,7 +30,14 @@ import { useSavedTierList, useSaveTierList } from "@/lib/tierList/useTierList";
  * 保存は明示的な操作（保存ボタン）で行う。ドロップのたびに PUT すると、
  * 数十回の並べ替えがそのまま数十リクエストになるため。
  */
+/**
+ * 年チップで遡れる年数。tier 表は過去シーズンの振り返りにも使うため、
+ * アニメ一覧の既定（12 年）より広く取る。
+ */
+const TIER_LIST_YEAR_COUNT = 26;
+
 export default function TierListScreen() {
+  const router = useRouter();
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [seasonKey, setSeasonKey] = useState<SeasonKey>(() =>
     currentSeasonKey(),
@@ -75,6 +84,33 @@ export default function TierListScreen() {
     [],
   );
 
+  const handleBack = useCallback(() => {
+    const goBack = () => {
+      if (router.canGoBack()) {
+        router.back();
+        return;
+      }
+      router.replace("/(tabs)/anime-list");
+    };
+
+    // 保存はドロップごとではなく明示操作なので、未保存のまま離れると
+    // 並べ替えが丸ごと消える。破棄する前に一度だけ確認する。
+    if (isDirty) {
+      confirm(
+        "保存していない変更があります",
+        "このまま戻ると並べ替えた内容は失われます。",
+        goBack,
+        {
+          confirmLabel: "破棄して戻る",
+          cancelLabel: "編集を続ける",
+          destructive: true,
+        },
+      );
+      return;
+    }
+    goBack();
+  }, [isDirty, router]);
+
   const handleSave = useCallback(() => {
     save.mutate(
       { season, title, tiers, items: toSaveItems(assignment, tiers) },
@@ -82,9 +118,27 @@ export default function TierListScreen() {
     );
   }, [assignment, save, season, tiers, title]);
 
+  // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
+  // （どの状態でも画面に閉じ込められないようにするため）。
+  const backBar = (
+    <View style={styles.headerTop}>
+      <TouchableOpacity
+        onPress={handleBack}
+        style={styles.backButton}
+        accessibilityRole="button"
+        accessibilityLabel="戻る"
+        testID="tier-list-back"
+      >
+        <Text style={styles.backButtonText}>‹ 戻る</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (isConnectionLoading) {
     return (
       <SafeAreaView style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.header}>{backBar}</View>
         <View style={styles.centered}>
           <ActivityIndicator color="#9ca3af" />
         </View>
@@ -97,6 +151,8 @@ export default function TierListScreen() {
     // 未連携では盤面自体が空になるため、連携誘導を最優先で出す。
     return (
       <SafeAreaView style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.header}>{backBar}</View>
         <AnnictSoftGate
           description="Tier 表の作成には Annict との連携が必要です。連携するとシーズンの全作品を並べ替えられます。"
           testID="tier-list-soft-gate"
@@ -107,7 +163,9 @@ export default function TierListScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
+        {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
         <Text style={styles.headerHint}>
           作品を長押ししてドラッグすると tier を移動できます
@@ -144,6 +202,7 @@ export default function TierListScreen() {
         season={seasonKey}
         onChangeYear={setYear}
         onChangeSeason={setSeasonKey}
+        yearCount={TIER_LIST_YEAR_COUNT}
       />
 
       {isWorksError ? (
