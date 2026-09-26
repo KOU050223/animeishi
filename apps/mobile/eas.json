@@ -16,8 +16,13 @@
       "distribution": "internal",
       "channel": "preview",
       "ios": {
-        "resourceClass": "m-medium",
-        "simulator": true
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
+        "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
       }
     },
     "production": {
@@ -25,6 +30,12 @@
       "channel": "production",
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
+        "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
       }
     }
   },
