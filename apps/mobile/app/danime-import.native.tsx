@@ -18,6 +18,7 @@ import {
   DANIME_HISTORY_URL,
 } from "@/lib/danime/extractScript";
 import type { DanimeExtractMessage } from "@/lib/danime/types";
+import { parseDanimeExtractedLists } from "@/lib/danime/validate";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 
 function errorMessage(code: string): string {
@@ -56,7 +57,13 @@ export default function DanimeImportScreen() {
       return;
     }
     if (msg.type !== DANIME_EXTRACT_OK) return;
-    setLists(msg.payload);
+    // ページから届く入力なので保存前に形を検証する。
+    const lists = parseDanimeExtractedLists(msg.payload);
+    if (!lists) {
+      setError("抽出結果の形式が正しくありませんでした。");
+      return;
+    }
+    setLists(lists);
     router.push("/danime-import-review");
   }
 

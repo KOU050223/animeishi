@@ -6,8 +6,10 @@
 // さらに Annict 上の現在ステータスと突き合わせ、
 //   - 同じステータスが既に登録済み → 既定で除外（再登録しても意味がない）
 //   - WATCHED 済みの作品へ WATCHING を登録しようとする → ダウングレードなので既定で除外
+//   - 履歴が未取得のまま照合が終わっても安全に扱うため、照合は履歴クエリの
+//     完了を待ってから実行し、取得失敗時は WATCHING 対象を既定で保留にする
 // 確定後は 50 件ずつ /me/watch-histories/bulk に送り、進捗と失敗を表示する。
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import type { ListRenderItem } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
@@ -36,13 +39,29 @@ type Row = {
   note: string | null;
 };
 
+type DoneResult = {
+  succeeded: number;
+  failed: number;
+  aborted: boolean;
+  requestError: string | null;
+};
+
 // Annict の現在ステータスと突き合わせて既定の checked / note を決める。
+// historyUnknown=true（履歴クエリ失敗・未取得）のときは WATCHING 登録を
+// 降格させ得るため既定で保留にする。WATCHED 登録は降格になり得ないので許可する。
 function defaultChecked(
   item: DanimeMatchItem,
   selected: DanimeAnnictWork | null,
   currentState: string | undefined,
+  historyUnknown: boolean,
 ): { checked: boolean; note: string | null } {
   if (!selected) return { checked: false, note: null };
+  if (historyUnknown && item.targetState === "WATCHING") {
+    return {
+      checked: false,
+      note: "Annict の現在ステータスを取得できなかったため保留",
+    };
+  }
   if (currentState === item.targetState) {
     return {
       checked: false,
@@ -63,19 +82,20 @@ export default function DanimeImportReviewScreen() {
 
   const match = useDanimeMatch();
   const bulk = useBulkRegisterWatchHistory();
-  const { data: histories } = useWatchHistory();
+  // isLoading はクエリ無効化（Annict 未連携）時も false になるため、
+  // 「ロード完了 or 無効 or 失敗」= !isLoading を待機条件に使う。
+  const { data: histories, isLoading: isHistoriesLoading } = useWatchHistory();
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [progress, setProgress] = useState<{
     done: number;
     total: number;
   } | null>(null);
-  const [doneResult, setDoneResult] = useState<{
-    succeeded: number;
-    failed: number;
-    aborted: boolean;
-  } | null>(null);
+  const [doneResult, setDoneResult] = useState<DoneResult | null>(null);
   const startedRef = useRef(false);
+
+  // 履歴が届いていない（クエリ失敗・未連携）なら既存ステータスは不明として扱う。
+  const historyUnknown = histories === undefined;
 
   // 既存ステータスの索引（ダウングレード防止用）。
   const currentStates = useMemo(() => {
@@ -84,28 +104,95 @@ export default function DanimeImportReviewScreen() {
     return m;
   }, [histories]);
 
-  function buildRows(results: DanimeMatchItem[]): Row[] {
-    return results.map((item) => {
-      const selected = item.status === "exact" ? item.work : null;
-      const { checked, note } = defaultChecked(
-        item,
-        selected,
-        selected ? currentStates.get(selected.annictWorkId) : undefined,
+  const buildRows = useCallback(
+    (results: DanimeMatchItem[]): Row[] => {
+      const built = results.map((item) => {
+        const selected = item.status === "exact" ? item.work : null;
+        const { checked, note } = defaultChecked(
+          item,
+          selected,
+          selected ? currentStates.get(selected.annictWorkId) : undefined,
+          historyUnknown,
+        );
+        return { item, selected, checked, note };
+      });
+      // 異なる dアニメ workId の行が同じ Annict 作品にマッチした場合、
+      // WATCHED と WATCHING の両方を送ると後勝ちで降格する。
+      // WATCHED 側を残し、WATCHING 側は既定で外す。
+      const watchedIds = new Set(
+        built
+          .filter((r) => r.checked && r.item.targetState === "WATCHED")
+          .map((r) => r.selected!.annictWorkId),
       );
-      return { item, selected, checked, note };
-    });
-  }
+      return built.map((r) =>
+        r.item.targetState === "WATCHING" &&
+        r.selected &&
+        watchedIds.has(r.selected.annictWorkId)
+          ? {
+              ...r,
+              checked: false,
+              note: "同じ作品が視聴済みでも登録予定のため除外",
+            }
+          : r,
+      );
+    },
+    [currentStates, historyUnknown],
+  );
 
   // マッチングは 1 度だけ実行（StrictMode の二重 effect 対策）。
+  // 既存ステータスによる降格防止を正しく効かせるため、履歴クエリの
+  // 完了（成功/失敗/無効のいずれか）を待ってから照合する。
   useEffect(() => {
-    if (!lists || startedRef.current) return;
+    if (!lists || startedRef.current || isHistoriesLoading) return;
     startedRef.current = true;
     match.mutate(lists, {
       onSuccess: (results) => setRows(buildRows(results)),
     });
-    // currentStates は初回実行時点のものを使う（履歴クエリの到着を待たない）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lists]);
+  }, [lists, isHistoriesLoading]);
+
+  const toggleRow = useCallback((index: number) => {
+    setRows(
+      (prev) =>
+        prev?.map((r, i) =>
+          i === index && r.selected ? { ...r, checked: !r.checked } : r,
+        ) ?? null,
+    );
+  }, []);
+
+  const selectCandidate = useCallback(
+    (rowIndex: number, work: DanimeAnnictWork) => {
+      setRows(
+        (prev) =>
+          prev?.map((r, i) => {
+            if (i !== rowIndex) return r;
+            const { note } = defaultChecked(
+              r.item,
+              work,
+              currentStates.get(work.annictWorkId),
+              historyUnknown,
+            );
+            // 候補選択は「登録したい」意思表示なのでチェック ON にする。
+            // ダウングレード等の注意は note として残す。
+            return { ...r, selected: work, checked: true, note };
+          }) ?? null,
+      );
+    },
+    [currentStates, historyUnknown],
+  );
+
+  const renderRow = useCallback<ListRenderItem<Row>>(
+    ({ item: row, index }) => (
+      <ReviewRow
+        row={row}
+        index={index}
+        currentStates={currentStates}
+        onToggle={toggleRow}
+        onSelectCandidate={selectCandidate}
+      />
+    ),
+    [currentStates, toggleRow, selectCandidate],
+  );
 
   if (!lists) {
     // ストアが空 = 取込画面を経ずに来た → 取込画面へ戻す。
@@ -114,42 +201,25 @@ export default function DanimeImportReviewScreen() {
 
   const checkedCount = rows?.filter((r) => r.checked && r.selected).length ?? 0;
 
-  function toggleRow(index: number) {
-    setRows(
-      (prev) =>
-        prev?.map((r, i) =>
-          i === index && r.selected ? { ...r, checked: !r.checked } : r,
-        ) ?? null,
-    );
-  }
-
-  function selectCandidate(rowIndex: number, work: DanimeAnnictWork) {
-    setRows(
-      (prev) =>
-        prev?.map((r, i) => {
-          if (i !== rowIndex) return r;
-          const { note } = defaultChecked(
-            r.item,
-            work,
-            currentStates.get(work.annictWorkId),
-          );
-          // 候補選択は「登録したい」意思表示なのでチェック ON にする。
-          // ダウングレード等の注意は note として残す。
-          return { ...r, selected: work, checked: true, note };
-        }) ?? null,
-    );
-  }
-
   function register() {
     if (!rows) return;
-    const entries: BulkRegisterEntry[] = rows
-      .filter((r) => r.checked && r.selected)
-      .map((r) => ({
-        annictWorkId: r.selected!.annictWorkId,
-        nodeId: r.selected!.nodeId,
+    // 同一 Annict 作品への重複登録は WATCHED を優先して 1 件に潰す
+    // （buildRows の UI 側除外とは別の最終防衛線）。
+    const byId = new Map<number, BulkRegisterEntry>();
+    for (const r of rows) {
+      if (!r.checked || !r.selected) continue;
+      const prev = byId.get(r.selected.annictWorkId);
+      if (
+        prev &&
+        !(prev.state === "WATCHING" && r.item.targetState === "WATCHED")
+      )
+        continue;
+      byId.set(r.selected.annictWorkId, {
+        annictWorkId: r.selected.annictWorkId,
         state: r.item.targetState,
-        work: r.selected!,
-      }));
+      });
+    }
+    const entries = [...byId.values()];
     if (entries.length === 0) return;
     setProgress({ done: 0, total: entries.length });
     bulk.mutate(
@@ -163,6 +233,7 @@ export default function DanimeImportReviewScreen() {
             succeeded: res.results.filter((r) => r.ok).length,
             failed: res.results.filter((r) => !r.ok).length,
             aborted: res.aborted,
+            requestError: res.requestError,
           });
         },
         onSettled: () => setProgress(null),
@@ -175,18 +246,30 @@ export default function DanimeImportReviewScreen() {
     router.replace("/(tabs)/watch-history");
   }
 
+  function retryMatch() {
+    match.reset();
+    match.mutate(lists!, {
+      onSuccess: (results) => setRows(buildRows(results)),
+    });
+  }
+
   // ---- 結果画面 ----
   if (doneResult) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center px-8">
-        <Text className="text-lg font-bold text-gray-900">登録完了</Text>
+        <Text className="text-lg font-bold text-gray-900">登録結果</Text>
         <Text className="text-sm text-gray-600 mt-3 text-center">
-          成功: {doneResult.succeeded} 件 / 失敗: {doneResult.failed} 件
+          成功: {doneResult.succeeded} 件 / 失敗・未処理: {doneResult.failed} 件
         </Text>
         {doneResult.aborted && (
           <Text className="text-xs text-red-500 mt-2 text-center">
             Annict
             連携が切れたため途中で中断されました。連携を確認して再度お試しください。
+          </Text>
+        )}
+        {doneResult.requestError && (
+          <Text className="text-xs text-red-500 mt-2 text-center">
+            {doneResult.requestError}
           </Text>
         )}
         <TouchableOpacity
@@ -205,7 +288,7 @@ export default function DanimeImportReviewScreen() {
   if (rows === null) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center px-8">
-        {match.isPending ? (
+        {match.isPending || isHistoriesLoading ? (
           <>
             <ActivityIndicator size="large" color="#4f46e5" />
             <Text className="text-sm text-gray-500 mt-4">
@@ -219,12 +302,7 @@ export default function DanimeImportReviewScreen() {
             </Text>
             <TouchableOpacity
               className="mt-4 bg-indigo-600 rounded-xl px-8 py-3"
-              onPress={() => {
-                match.reset();
-                match.mutate(lists, {
-                  onSuccess: (results) => setRows(buildRows(results)),
-                });
-              }}
+              onPress={retryMatch}
               accessibilityRole="button"
               accessibilityLabel="再試行"
             >
@@ -260,19 +338,11 @@ export default function DanimeImportReviewScreen() {
         data={rows}
         keyExtractor={(r) => r.item.danimeWorkId}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-        renderItem={({ item: row, index }) => (
-          <ReviewRow
-            row={row}
-            index={index}
-            currentStates={currentStates}
-            onToggle={toggleRow}
-            onSelectCandidate={selectCandidate}
-          />
-        )}
+        renderItem={renderRow}
       />
 
       <View className="px-4 py-3 border-t border-gray-100">
-        {progress && (
+        {progress !== null && (
           <Text className="text-xs text-gray-500 text-center mb-2">
             登録中… {progress.done} / {progress.total}
           </Text>
@@ -315,6 +385,8 @@ export default function DanimeImportReviewScreen() {
   );
 }
 
+// ---- 行コンポーネント ----
+
 function ReviewRow({
   row,
   index,
@@ -347,7 +419,7 @@ function ReviewRow({
           accessibilityState={{ checked: checked && !!selected }}
           accessibilityLabel={`${item.title} を登録対象にする`}
         >
-          {checked && selected && (
+          {checked && selected !== null && (
             <Text className="text-white text-xs font-bold">✓</Text>
           )}
         </TouchableOpacity>
@@ -356,81 +428,133 @@ function ReviewRow({
           <Text className="text-gray-900 font-medium" numberOfLines={2}>
             {item.title}
           </Text>
-          <View className="flex-row items-center gap-2 mt-1 flex-wrap">
-            <Text
-              className="text-xs px-2 py-0.5 rounded-full font-medium"
-              style={{ color: stateColor, backgroundColor: `${stateColor}20` }}
-            >
-              {stateLabel}に登録
-            </Text>
-            {item.status === "exact" && selected && (
-              <Text className="text-xs text-green-600">自動マッチ</Text>
-            )}
-            {item.status === "none" && (
-              <Text className="text-xs text-gray-400">
-                Annict に一致する作品が見つかりません（スキップ）
-              </Text>
-            )}
-            {note && <Text className="text-xs text-amber-600">{note}</Text>}
-          </View>
-          {selected && (
-            <View className="flex-row items-center gap-2 mt-2">
-              <WorkThumbnail item={selected} width={32} height={42} />
-              <View className="flex-1">
-                <Text className="text-xs text-gray-600" numberOfLines={2}>
-                  → {selected.title}
-                </Text>
-                {currentStates.get(selected.annictWorkId) && (
-                  <Text className="text-[10px] text-gray-400">
-                    現在:{" "}
-                    {WATCH_STATUS_LABELS[
-                      currentStates.get(
-                        selected.annictWorkId,
-                      ) as keyof typeof WATCH_STATUS_LABELS
-                    ] ?? currentStates.get(selected.annictWorkId)}
-                  </Text>
-                )}
-              </View>
-            </View>
+          <RowBadges
+            targetLabel={stateLabel}
+            targetColor={stateColor}
+            status={item.status}
+            selected={selected}
+            note={note}
+          />
+          {selected !== null && (
+            <SelectedWork
+              work={selected}
+              currentState={currentStates.get(selected.annictWorkId)}
+            />
           )}
         </View>
       </View>
 
-      {/* 曖昧マッチの候補リスト */}
       {item.status === "candidates" && (
-        <View className="mt-2 ml-9 gap-1">
-          {item.candidates.map((c) => {
-            const isSelected = selected?.annictWorkId === c.annictWorkId;
-            return (
-              <TouchableOpacity
-                key={c.annictWorkId}
-                onPress={() => onSelectCandidate(index, c)}
-                className={`flex-row items-center gap-2 rounded-lg border px-2 py-1.5 ${
-                  isSelected
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-gray-200 bg-white"
-                }`}
-                accessibilityRole="button"
-                accessibilityLabel={`候補: ${c.title}`}
-              >
-                <WorkThumbnail item={c} width={24} height={32} />
-                <Text
-                  className="flex-1 text-xs text-gray-700"
-                  numberOfLines={2}
-                >
-                  {c.title}
-                  {c.seasonYear ? `（${c.seasonYear}年）` : ""}
-                </Text>
-                {isSelected && (
-                  <Text className="text-xs text-indigo-600 font-bold">
-                    選択中
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <CandidatePicker
+          candidates={item.candidates}
+          selected={selected}
+          rowIndex={index}
+          onSelect={onSelectCandidate}
+        />
       )}
+    </View>
+  );
+}
+
+function RowBadges({
+  targetLabel,
+  targetColor,
+  status,
+  selected,
+  note,
+}: {
+  targetLabel: string;
+  targetColor: string;
+  status: DanimeMatchItem["status"];
+  selected: DanimeAnnictWork | null;
+  note: string | null;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 mt-1 flex-wrap">
+      <Text
+        className="text-xs px-2 py-0.5 rounded-full font-medium"
+        style={{ color: targetColor, backgroundColor: `${targetColor}20` }}
+      >
+        {targetLabel}に登録
+      </Text>
+      {status === "exact" && selected !== null && (
+        <Text className="text-xs text-green-600">自動マッチ</Text>
+      )}
+      {status === "none" && (
+        <Text className="text-xs text-gray-400">
+          Annict に一致する作品が見つかりません（スキップ）
+        </Text>
+      )}
+      {note !== null && <Text className="text-xs text-amber-600">{note}</Text>}
+    </View>
+  );
+}
+
+function SelectedWork({
+  work,
+  currentState,
+}: {
+  work: DanimeAnnictWork;
+  currentState: string | undefined;
+}) {
+  const stateLabel = currentState
+    ? (WATCH_STATUS_LABELS[currentState as keyof typeof WATCH_STATUS_LABELS] ??
+      currentState)
+    : null;
+
+  return (
+    <View className="flex-row items-center gap-2 mt-2">
+      <WorkThumbnail item={work} width={32} height={42} />
+      <View className="flex-1">
+        <Text className="text-xs text-gray-600" numberOfLines={2}>
+          → {work.title}
+        </Text>
+        {stateLabel !== null && (
+          <Text className="text-[10px] text-gray-400">現在: {stateLabel}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function CandidatePicker({
+  candidates,
+  selected,
+  rowIndex,
+  onSelect,
+}: {
+  candidates: DanimeAnnictWork[];
+  selected: DanimeAnnictWork | null;
+  rowIndex: number;
+  onSelect: (index: number, work: DanimeAnnictWork) => void;
+}) {
+  return (
+    <View className="mt-2 ml-9 gap-1">
+      {candidates.map((c) => {
+        const isSelected = selected?.annictWorkId === c.annictWorkId;
+        return (
+          <TouchableOpacity
+            key={c.annictWorkId}
+            onPress={() => onSelect(rowIndex, c)}
+            className={`flex-row items-center gap-2 rounded-lg border px-2 py-1.5 ${
+              isSelected
+                ? "border-indigo-500 bg-indigo-50"
+                : "border-gray-200 bg-white"
+            }`}
+            accessibilityRole="button"
+            accessibilityLabel={`候補: ${c.title}`}
+          >
+            <WorkThumbnail item={c} width={24} height={32} />
+            <Text className="flex-1 text-xs text-gray-700" numberOfLines={2}>
+              {c.title}
+              {c.seasonYear ? `（${c.seasonYear}年）` : ""}
+            </Text>
+            {isSelected && (
+              <Text className="text-xs text-indigo-600 font-bold">選択中</Text>
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }

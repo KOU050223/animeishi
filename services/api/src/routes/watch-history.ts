@@ -235,58 +235,49 @@ const watchHistory = new Hono<AuthVariables>()
         }
 
         try {
-          // nodeId は入力（match 由来）→ キャッシュ → searchWorks の順で解決する。
-          let nodeId = entry.nodeId ?? null;
+          // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
+          // 使い、無ければ searchWorks で Annict の正データを取る
+          // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
+          let nodeId: string | null = null;
           let resolvedWork: NewAnnictWork | null = null;
+          const cached = await adb.getAnnictWorkById(entry.annictWorkId);
+          nodeId = cached?.nodeId ?? null;
           if (!nodeId) {
-            const cached = await adb.getAnnictWorkById(entry.annictWorkId);
-            nodeId = cached?.nodeId ?? null;
-            if (!nodeId) {
-              const resolved = await fetchAnnictWorkByAnnictId(
-                token,
-                entry.annictWorkId,
-              );
-              if (!resolved) {
-                results.push({
-                  annictWorkId: entry.annictWorkId,
-                  ok: false,
-                  error: "work_not_found",
-                });
-                continue;
-              }
-              nodeId = resolved.nodeId;
-              resolvedWork = {
-                annictWorkId: resolved.annictWorkId,
-                nodeId: resolved.nodeId,
-                malAnimeId: resolved.malAnimeId,
-                title: resolved.title,
-                titleKana: resolved.titleKana,
-                titleEn: resolved.titleEn,
-                seasonName: resolved.seasonName,
-                seasonYear: resolved.seasonYear,
-                imageUrl: resolved.imageUrl,
-                updatedAt: now,
-              };
+            const resolved = await fetchAnnictWorkByAnnictId(
+              token,
+              entry.annictWorkId,
+            );
+            if (!resolved) {
+              results.push({
+                annictWorkId: entry.annictWorkId,
+                ok: false,
+                error: "work_not_found",
+              });
+              continue;
             }
+            nodeId = resolved.nodeId;
+            resolvedWork = {
+              annictWorkId: resolved.annictWorkId,
+              nodeId: resolved.nodeId,
+              malAnimeId: resolved.malAnimeId,
+              title: resolved.title,
+              titleKana: resolved.titleKana,
+              titleEn: resolved.titleEn,
+              seasonName: resolved.seasonName,
+              seasonYear: resolved.seasonYear,
+              imageUrl: resolved.imageUrl,
+              updatedAt: now,
+            };
           }
 
           await updateAnnictStatus(token, nodeId, entry.state);
 
           // Annict 更新が成功した後にのみキャッシュを追従させる。
-          // watch_history の FK 先となる annict_works 行を先に立てる。
-          const meta = resolvedWork ?? {
-            annictWorkId: entry.annictWorkId,
-            nodeId,
-            malAnimeId: entry.work.malAnimeId ?? null,
-            title: entry.work.title,
-            titleKana: entry.work.titleKana ?? null,
-            titleEn: entry.work.titleEn ?? null,
-            seasonName: entry.work.seasonName ?? null,
-            seasonYear: entry.work.seasonYear ?? null,
-            imageUrl: entry.work.imageUrl ?? null,
-            updatedAt: now,
-          };
-          await adb.upsertAnnictWork(meta);
+          // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
+          // 確定しているため、新規解決時だけ upsert すればよい。
+          if (resolvedWork) {
+            await adb.upsertAnnictWork(resolvedWork);
+          }
           await adb.upsertWatchHistory(entry.annictWorkId, {
             state: entry.state,
           });

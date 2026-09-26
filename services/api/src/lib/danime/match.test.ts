@@ -157,6 +157,26 @@ describe("matchDanimeWorks", () => {
     spy.mockRestore();
   });
 
+  it("元タイトルの再検索が無関係な候補しか返さない場合は単純化タイトルも試す", async () => {
+    const spy = mockAnnictSearch((titles) => {
+      if (titles.length !== 1) return []; // 第 1 パス（バッチ）は空振り
+      if (titles[0] === "作品A (2024)") {
+        // 元タイトルの部分一致で無関係な作品だけ返る → classify は none
+        return [work({ annictId: 8, title: "全く別の作品" })];
+      }
+      if (titles[0] === "作品A") {
+        return [work({ annictId: 9, title: "作品A" })];
+      }
+      return [];
+    });
+    const results = await matchDanimeWorks("tok", [
+      { danimeWorkId: "5", title: "作品A (2024)", targetState: "WATCHED" },
+    ]);
+    expect(results[0].status).toBe("exact");
+    expect(results[0].work?.annictWorkId).toBe(9);
+    spy.mockRestore();
+  });
+
   it("同一 danimeWorkId の重複は潰して同じ結果を返す", async () => {
     const spy = mockAnnictSearch(() => [
       work({ annictId: 1, title: "鬼滅の刃" }),

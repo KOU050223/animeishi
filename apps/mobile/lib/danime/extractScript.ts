@@ -222,8 +222,13 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
 
 /**
  * Web 版でユーザーにブックマーク登録させるための javascript: URL。
- * 同じ抽出コアをブックマークレットとして包むだけ。
+ *
+ * javascript: URL はブラウザが実行前に percent-decode する仕様のため、
+ * スクリプト全体を encodeURIComponent して埋め込む。生埋め込みだと
+ *   - 改行が除去され // 行コメントが後続コードを飲み込み構文エラーになる
+ *   - 正規表現内の "#" が URL フラグメントとして後半を切り捨てる
+ * という 2 つの破壊を受けるため、エンコード必須。
  */
 export function buildDanimeBookmarklet(): string {
-  return `javascript:(function(){${DANIME_EXTRACT_SCRIPT}})()`;
+  return `javascript:${encodeURIComponent(DANIME_EXTRACT_SCRIPT)}`;
 }

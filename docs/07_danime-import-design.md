@@ -74,12 +74,16 @@ completed 優先で targetState を割り当ててから match API に送る。
 
 ### `POST /me/watch-histories/bulk`
 
-- 入力: `{ entries: [{ annictWorkId, nodeId?, state, work }] }`（1 リクエスト最大 50）
-- 各エントリを逐次処理: `nodeId` を入力→D1 キャッシュ→`searchWorks` で解決し、
-  `updateAnnictStatus` が成功した作品だけ `annict_works` / `watch_history` を
-  upsert（既存 PUT と同じ「Annict が正・成功後のみキャッシュ追従」の不変条件）。
+- 入力: `{ entries: [{ annictWorkId, state }] }`（1 リクエスト最大 50）
+- **nodeId・作品メタはクライアントから受け付けない**（共有キャッシュ
+  `annict_works` の汚染と別作品への誤登録を防ぐため）。サーバー側で
+  D1 キャッシュ → `searchWorks` の順に正規解決する（既存 PUT と同じ経路）。
+- `updateAnnictStatus` が成功した作品だけ `annict_works` / `watch_history` を
+  upsert（「Annict が正・成功後のみキャッシュ追従」の不変条件）。
 - Annict 401（トークン失効）は残りを `aborted` で打ち切り。5xx 等は該当作品のみ
   失敗として続行。`{ results: [{ annictWorkId, ok, error? }], aborted }` を返す。
+- クライアントは後続チャンクが送られなかった分を `aborted`/`not_sent` として
+  結果に含め、部分失敗でも履歴キャッシュを無効化する。
 
 ## レビュー UI（ハイブリッド）
 

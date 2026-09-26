@@ -237,28 +237,18 @@ export const danimeMatchRequestSchema = z.object({
 
 export type DanimeMatchRequestInput = z.infer<typeof danimeMatchRequestSchema>;
 
-// 一括登録の 1 件。nodeId / work メタは match レスポンス由来を想定するが、
-// nodeId が無い場合は従来通り searchWorks でサーバー側解決にフォールバックする。
-const watchHistoryBulkWorkSchema = z.object({
-  title: z.string().trim().min(1).max(500),
-  titleKana: z.string().max(500).nullish(),
-  titleEn: z.string().max(500).nullish(),
-  seasonName: z.string().max(32).nullish(),
-  seasonYear: z.number().int().nullish(),
-  imageUrl: z.string().max(2000).nullish(),
-  malAnimeId: z.number().int().positive().nullish(),
-});
-
+// 一括登録の 1 件。作品メタや nodeId は受け付けず、サーバー側で
+// キャッシュ → Annict searchWorks の順に解決する。
+// クライアントが食い違う nodeId/メタを送ると共有作品キャッシュ（annict_works）
+// が汚染され updateStatus が別作品に向くため、ここでは信頼しない。
 export const watchHistoryBulkSchema = z.object({
   entries: z
     .array(
       z.object({
         annictWorkId: z.number().int().positive(),
-        nodeId: z.string().trim().min(1).nullish(),
         state: z.enum(ANNICT_STATUS_STATES, {
           error: () => "有効なステータスを選択してください",
         }),
-        work: watchHistoryBulkWorkSchema,
       }),
     )
     .min(1)

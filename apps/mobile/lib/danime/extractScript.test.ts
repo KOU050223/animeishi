@@ -254,10 +254,30 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
 });
 
 describe("buildDanimeBookmarklet", () => {
-  it("javascript: URL として抽出コアを含む", () => {
+  it("javascript: URL で、percent-decode 後に抽出コアとして実行できる", async () => {
     const bm = buildDanimeBookmarklet();
     expect(bm.startsWith("javascript:")).toBe(true);
-    expect(bm).toContain("mpa_hst_pc");
-    expect(bm).toContain("mpa_cmp_pc");
+
+    // ブラウザは javascript: URL を実行前に percent-decode する。
+    // デコード後のコードが構文エラーなく動くことを実際に eval で確認する
+    // （生の // コメントや正規表現中の # が URL を壊さないことの回帰テスト）。
+    const code = decodeURIComponent(bm.slice("javascript:".length));
+    expect(code).toContain("mpa_hst_pc");
+    expect(code).toContain("mpa_cmp_pc");
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(
+          pageHtml({ cards: [{ workId: "101", title: "作品A" }] }),
+        );
+      }
+      return htmlResponse(
+        pageHtml({ cards: [{ workId: "201", title: "作品B" }] }),
+      );
+    });
+    await eval(code);
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const msg = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(msg.type).toBe(DANIME_EXTRACT_OK);
   });
 });

@@ -34,6 +34,21 @@ describe("toMatchWorks", () => {
     ]);
   });
 
+  it("completed と同名の別 workId の履歴も弾く（降格防止）", () => {
+    // dアニメ側で同一作品に別 workId が振られた場合でも、WATCHED 登録後に
+    // WATCHING を上書きしないようタイトル一致で履歴側を落とす。
+    const works = toMatchWorks(
+      lists({
+        completed: [{ workId: "100", title: "作品A", partIds: [] }],
+        history: [{ workId: "200", title: "作品Ａ", partIds: ["201"] }],
+      }),
+    );
+    // 全角/半角の差も正規化で吸収して同一視する。
+    expect(works).toEqual([
+      { danimeWorkId: "100", title: "作品A", targetState: "WATCHED" },
+    ]);
+  });
+
   it("疑似キーでも completed に同名が無ければ WATCHING として残す", () => {
     const works = toMatchWorks(
       lists({

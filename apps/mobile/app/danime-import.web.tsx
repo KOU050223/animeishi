@@ -21,14 +21,8 @@ import {
   buildDanimeBookmarklet,
   DANIME_HISTORY_URL,
 } from "@/lib/danime/extractScript";
-import type { DanimeExtractedLists } from "@/lib/danime/types";
+import { parseDanimeExtractedLists } from "@/lib/danime/validate";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
-
-function isLists(value: unknown): value is DanimeExtractedLists {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return Array.isArray(v.completed) && Array.isArray(v.history);
-}
 
 export default function DanimeImportWebScreen() {
   const router = useRouter();
@@ -48,11 +42,12 @@ export default function DanimeImportWebScreen() {
       );
       return;
     }
-    if (!isLists(parsed)) {
+    const lists = parseDanimeExtractedLists(parsed);
+    if (!lists) {
       setError("抽出結果の形式が正しくありません。");
       return;
     }
-    setLists(parsed);
+    setLists(lists);
     router.push("/danime-import-review");
   }
 
@@ -69,12 +64,13 @@ export default function DanimeImportWebScreen() {
         <View className="mt-5 bg-gray-50 rounded-xl p-4">
           <Text className="text-sm font-semibold text-gray-800">手順</Text>
           <Text className="text-xs text-gray-600 mt-2 leading-5">
-            1. 下のブックマークレットをブックマークバーへドラッグして登録{"\n"}
-            2. dアニメストアの視聴履歴ページを開いてログイン{"\n"}
-            3.
+            1. 下のボタンでブックマークレットをコピー{"\n"}
+            2. ブラウザで新規ブックマークを作成し、URL 欄に貼り付けて保存{"\n"}
+            3. dアニメストアの視聴履歴ページを開いてログイン{"\n"}
+            4.
             登録したブックマークを実行（結果がクリップボードにコピーされます）
             {"\n"}
-            4. 下の欄に貼り付けて「レビューへ進む」
+            5. 下の欄に貼り付けて「レビューへ進む」
           </Text>
 
           <TouchableOpacity
@@ -87,15 +83,10 @@ export default function DanimeImportWebScreen() {
               void navigator.clipboard?.writeText(bookmarklet);
             }}
           >
-            <Text
-              className="text-[10px] text-indigo-600"
-              numberOfLines={3}
-              selectable
-            >
-              {bookmarklet.slice(0, 200)}…
-            </Text>
+            {/* ブックマークレットは encodeURIComponent 済みのため
+                生テキストは可読でない。コピー導線だけを提示する */}
             <Text className="text-xs text-indigo-500 mt-1">
-              タップでブックマークレットをコピー
+              タップでブックマークレット（javascript: URL）をコピー
             </Text>
           </TouchableOpacity>
 

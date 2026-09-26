@@ -39,13 +39,8 @@ function buildApp() {
   return app;
 }
 
-function entry(annictWorkId: number, nodeId = `Work-${annictWorkId}`) {
-  return {
-    annictWorkId,
-    nodeId,
-    state: "WATCHED",
-    work: { title: `作品${annictWorkId}` },
-  };
+function entry(annictWorkId: number) {
+  return { annictWorkId, state: "WATCHED" };
 }
 
 // updateStatus を nodeId ごとの挙動でモックする。
@@ -161,6 +156,7 @@ describe("POST /me/watch-histories/bulk", () => {
     });
 
     it("全件成功: Annict へ updateStatus し D1 に作品メタと履歴を書く", async () => {
+      // annict_works にキャッシュが無い作品は searchWorks でメタを解決する。
       const fetchMock = mockAnnictUpdate();
       const res = await buildApp().request(
         "/me/watch-histories/bulk",
@@ -249,7 +245,7 @@ describe("POST /me/watch-histories/bulk", () => {
       expect(body.results[2].error).toBe("aborted");
     });
 
-    it("nodeId 未指定でもキャッシュ / searchWorks で解決する", async () => {
+    it("nodeId はキャッシュ → searchWorks の順でサーバー側解決する", async () => {
       // キャッシュ済み作品（nodeId あり）と未キャッシュ作品を混ぜる。
       await db.insert(annictWorks).values({
         annictWorkId: 5,
@@ -263,12 +259,7 @@ describe("POST /me/watch-histories/bulk", () => {
         {
           method: "POST",
           headers: JSON_HEADERS,
-          body: JSON.stringify({
-            entries: [
-              { ...entry(5), nodeId: null },
-              { ...entry(6), nodeId: null },
-            ],
-          }),
+          body: JSON.stringify({ entries: [entry(5), entry(6)] }),
         },
         TEST_BINDINGS,
       );
@@ -283,6 +274,51 @@ describe("POST /me/watch-histories/bulk", () => {
         .sort();
       // 5 はキャッシュの nodeId、6 は searchWorks で解決した Node ID が使われる。
       expect(updateWorkIds).toEqual(["Work-6", "Work-cached"]);
+      // キャッシュ済みの 5 には searchWorks を投げない。
+      const searchedIds = calls
+        .filter((b) => (b.query as string).includes("searchWorks"))
+        .flatMap((b) => b.variables.annictIds as number[]);
+      expect(searchedIds).toEqual([6]);
+    });
+
+    it("クライアント提供の nodeId / メタは無視する（共有キャッシュ汚染対策）", async () => {
+      const fetchMock = mockAnnictUpdate();
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              {
+                annictWorkId: 7,
+                state: "WATCHED",
+                // 別作品を指す偽の nodeId とメタを混入させる。
+                nodeId: "Work-evil",
+                work: { title: "改ざんタイトル" },
+              },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+
+      const calls = fetchMock.mock.calls.map((c) =>
+        JSON.parse((c[1] as RequestInit).body as string),
+      );
+      // searchWorks で正規解決した Node ID が updateStatus に使われ、
+      // 入力された偽 nodeId は使われない。
+      const updateWorkIds = calls
+        .filter((b) => (b.query as string).includes("updateStatus"))
+        .map((b) => b.variables.workId);
+      expect(updateWorkIds).toEqual(["Work-7"]);
+
+      // キャッシュには Annict 由来のメタが入り、偽タイトルは書き込まれない。
+      const cached = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 7),
+      });
+      expect(cached?.title).toBe("作品7");
     });
 
     it("entries が空配列なら 400", async () => {

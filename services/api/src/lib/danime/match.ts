@@ -44,6 +44,11 @@ const CANDIDATE_THRESHOLD = 0.5;
 // レスポンスに含める候補の上限。
 const MAX_CANDIDATES = 5;
 
+// 第 2 パス（単発再検索）の Annict リクエスト上限。works=500 件の全滅時に
+// 元タイトル+単純化タイトルで最大 1000 往復になるのを防ぐため、呼び出し全体で
+// この回数までに抑える（上流リクエスト制限の緩和としても機能する）。
+const MAX_SECOND_PASS_SEARCHES = 50;
+
 /**
  * 検索プールから 1 作品ぶんのマッチング結果を作る。
  * candidate の title / titleKana / titleEn の最大スコアで評価する。
@@ -129,27 +134,37 @@ export async function matchDanimeWorks(
   }
 
   // 第 2 パス: none だけ単発で再検索する（union の打ち切り・部分一致方向の
-  // 問題を救うため）。元タイトル → 単純化タイトルの順で最初に候補が出たものを採用。
+  // 問題を救うため）。元タイトル → 単純化タイトルの順に試すが、候補があっても
+  // classify が none のままなら次の検索語に進む。Annict への往復を全体で
+  // MAX_SECOND_PASS_SEARCHES 回までに制限する。
   const unresolved = inputs.filter(
     (i) => results.get(i.danimeWorkId)?.status === "none",
   );
+  let secondPassSearches = 0;
   for (const input of unresolved) {
     const queries = [input.title, simplifyTitle(input.title)].filter(
       (q, i, arr) => q && arr.indexOf(q) === i,
     );
     for (const q of queries) {
+      if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
+      secondPassSearches++;
       const found = await searchAnnictWorksByTitles(
         accessToken,
         [q],
         fetchImpl,
       );
       if (found.length === 0) continue;
-      results.set(
-        input.danimeWorkId,
-        classifyWork(input, dedupeWorks([...poolDeduped, ...found])),
+      // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
+      // 元タイトルで再採点すると括弧差分で exact にならないため）。
+      // 結果の title はレビュー表示のため元タイトルを保持する。
+      const classified = classifyWork(
+        { ...input, title: q },
+        dedupeWorks([...poolDeduped, ...found]),
       );
-      break;
+      results.set(input.danimeWorkId, { ...classified, title: input.title });
+      if (classified.status !== "none") break;
     }
+    if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
   }
 
   // 入力順を維持して返す（dedupe で潰した重複 danimeWorkId は同じ結果を指す）。
