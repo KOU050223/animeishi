@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 
 /** ウィンドウ座標系での矩形。measureInWindow の戻り値と同じ意味。 */
 export type Rect = { x: number; y: number; width: number; height: number };
@@ -73,5 +73,11 @@ export function useDropZoneRegistry(): DropZoneRegistry {
     return undefined;
   }, []);
 
-  return { register, hitTest, registerMeasurer, remeasureAll };
+  // 返り値はメモ化しておかないと、呼び出し側（DropZone）の effect が
+  // 親の再レンダリングのたびに cleanup → 再登録を繰り返し、
+  // cleanup で矩形まで消えてドロップ判定が一切当たらなくなる。
+  return useMemo(
+    () => ({ register, hitTest, registerMeasurer, remeasureAll }),
+    [register, hitTest, registerMeasurer, remeasureAll],
+  );
 }

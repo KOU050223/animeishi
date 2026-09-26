@@ -88,6 +88,16 @@ describe("useDropZoneRegistry", () => {
     expect(measure).not.toHaveBeenCalled();
   });
 
+  it("再レンダリングしてもレジストリの参照が変わらない", () => {
+    // DropZone は registry を effect の依存にしている。参照が毎回変わると
+    // 親の再レンダリングごとに cleanup が走り、登録済みの矩形が消えて
+    // ドラッグ中の hitTest が一切当たらなくなる。
+    const { result, rerender } = renderHook(() => useDropZoneRegistry());
+    const first = result.current;
+    rerender({});
+    expect(result.current).toBe(first);
+  });
+
   it("同じキーが別の measurer で上書きされた後の解除は、新しい方を消さない", () => {
     const { result } = renderHook(() => useDropZoneRegistry());
     const oldMeasure = jest.fn();
