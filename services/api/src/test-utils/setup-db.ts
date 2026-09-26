@@ -66,6 +66,29 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS user_genres_user_genre_unique ON user_genres (user_id, genre)`,
   `CREATE INDEX IF NOT EXISTS user_genres_user_idx ON user_genres (user_id)`,
+  `CREATE TABLE IF NOT EXISTS tier_lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    season TEXT NOT NULL,
+    title TEXT NOT NULL,
+    tiers_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS tier_lists_user_season_unique ON tier_lists (user_id, season)`,
+  `CREATE INDEX IF NOT EXISTS tier_lists_user_idx ON tier_lists (user_id)`,
+  `CREATE TABLE IF NOT EXISTS tier_list_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    tier_list_id INTEGER NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    tier_key TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    FOREIGN KEY (tier_list_id) REFERENCES tier_lists(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS tier_list_items_list_work_unique ON tier_list_items (tier_list_id, annict_work_id)`,
+  `CREATE INDEX IF NOT EXISTS tier_list_items_list_idx ON tier_list_items (tier_list_id)`,
   `CREATE TABLE IF NOT EXISTS annict_tokens (
     user_id TEXT PRIMARY KEY NOT NULL,
     encrypted_token TEXT NOT NULL,
@@ -90,6 +113,8 @@ export async function setupTestDb(d1: D1Database) {
   const db = drizzle(d1, { schema });
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
   await d1.prepare("DELETE FROM annict_tokens").run();
+  await d1.prepare("DELETE FROM tier_list_items").run();
+  await d1.prepare("DELETE FROM tier_lists").run();
   await d1.prepare("DELETE FROM user_genres").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
@@ -99,7 +124,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items')",
     )
     .run();
   return db;

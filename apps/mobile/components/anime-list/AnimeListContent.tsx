@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
@@ -40,6 +41,7 @@ export function AnimeListContent({
   isToggling: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const { contentWidth, cardWidth, numColumns, isWide } =
     getAnimeListLayout(width);
@@ -138,6 +140,17 @@ export function AnimeListContent({
                   >
                     好きな作品をすばやく見つけて、名刺に残す。
                   </Text>
+                  <TouchableOpacity
+                    className="mt-3 items-center rounded-xl bg-indigo-50 py-3"
+                    onPress={() => router.push("/tier-list")}
+                    accessibilityRole="button"
+                    accessibilityLabel="シーズンの Tier 表を作る"
+                    testID="open-tier-list"
+                  >
+                    <Text className="font-semibold text-indigo-700">
+                      🏆 シーズンの Tier 表を作る
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.heroControls}>

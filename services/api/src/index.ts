@@ -13,6 +13,7 @@ import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { avatar, me } from "./routes/me";
 import { pass } from "./routes/pass";
+import { tierLists } from "./routes/tier-lists";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
 import { works } from "./routes/works";
@@ -50,6 +51,7 @@ const routes = app
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
   .route("/me/pass", pass)
+  .route("/me/tier-lists", tierLists)
   .route("/user", user);
 
 export type AppType = typeof routes;

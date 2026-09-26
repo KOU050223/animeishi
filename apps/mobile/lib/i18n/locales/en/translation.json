@@ -14,6 +14,7 @@
   "連携する": "Connect",
   "視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。": "Connect Annict to view your watch history. Once connected, your Annict watch records appear on your anime card.",
   "作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。": "Connect Annict to search for works. Once connected, you can find works and add them to your card.",
+  "Tier 表の作成には Annict との連携が必要です。連携するとシーズンの全作品を並べ替えられます。": "Connect Annict to build a tier list. Once connected, you can rank every work in a season.",
   "連携をキャンセルしました": "Connection cancelled",
   "Annict 連携が構成されていません": "Annict integration is not configured",
   "Annict 連携に失敗しました。もう一度お試しください": "Failed to connect Annict. Please try again",

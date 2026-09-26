@@ -17,13 +17,16 @@ export function SeasonFilter({
   season,
   onChangeYear,
   onChangeSeason,
+  yearCount,
 }: {
   year: number;
   season: SeasonKey;
   onChangeYear: (year: number) => void;
   onChangeSeason: (season: SeasonKey) => void;
+  /** 選べる年数（今年から遡る個数）。省略時は recentYears の既定。 */
+  yearCount?: number;
 }) {
-  const years = recentYears();
+  const years = recentYears(yearCount);
 
   return (
     <View style={styles.filterBar}>

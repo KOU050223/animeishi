@@ -45,6 +45,8 @@ function AuthGuard() {
       <Stack.Screen name="annict" />
       {/* 名刺エディタ */}
       <Stack.Screen name="meishi/edit" />
+      {/* シーズンごとのアニメ tier 表 */}
+      <Stack.Screen name="tier-list" />
     </Stack>
   );
 }
