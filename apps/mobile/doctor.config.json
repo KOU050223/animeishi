@@ -1,0 +1,24 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "files": [
+      // テスト・モックはプロダクト品質の対象外
+      "__mocks__/**",
+      "__tests__/**",
+      "test-utils/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "jest.setup.js",
+      "jest.config.cjs",
+      // 生成物・設定ファイル
+      "nativewind-env.d.ts",
+      "metro.config.ts",
+      "babel.config.js",
+      "tailwind.config.ts"
+    ]
+  }
+  // React Native 向けエスケープハッチ:
+  // - textComponents: <Text> と同様に振る舞う独自コンポーネント名
+  // - rawTextWrapperComponents: 文字列 children を内部 Text に流す独自コンポーネント名
+  // 現状は独自 Text ラッパーがないため未設定。
+}
