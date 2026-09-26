@@ -1,0 +1,58 @@
+{
+  "cli": {
+    "version": ">= 20.5.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium",
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
+        "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
+        "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+      }
+    },
+    "preview": {
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+      }
+    }
+  }
+}

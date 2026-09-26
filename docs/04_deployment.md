@@ -133,6 +133,31 @@ pnpm --filter @animeishi/api exec wrangler deploy --env production
 
 事前に `wrangler login` でローカル認証を済ませておくこと。
 
+## 6. ネイティブアプリの EAS Build
+
+iOS / Android のネイティブビルドは EAS Build で行う。設定は [`apps/mobile/eas.json`](../apps/mobile/eas.json) と `app.json`（`extra.eas.projectId` / `updates.url` / `runtimeVersion`）に置く。`eas` コマンドは `apps/mobile` ディレクトリで実行する。
+
+```bash
+cd apps/mobile
+pnpm exec eas build --profile production --platform ios
+pnpm exec eas submit --profile production --platform ios
+```
+
+### EXPO_PUBLIC_* の渡し方
+
+EAS Build は gitignore された `.env` をアップロードしないため、ローカルの `.env` はビルドに届かない。`EXPO_PUBLIC_*` はクライアントに埋め込まれる公開値なので、`eas.json` の各プロファイルの `env` に直接書く。
+
+`preview` / `production` には API / Web の URL を設定済みだが、以下は `REPLACE_WITH_*` プレースホルダのままなので、初回ビルド前に実値で置き換えること（GitHub Actions の同名 Variables と同じ値）。
+
+| 変数 | 値の入手先 |
+| --- | --- |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard → API Keys → Publishable key（`pk_live_*`） |
+| `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
+
+プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。
+
+`development` プロファイル（development build）に `env` は不要。実行時の JS はローカルの Metro から配信され、ローカルの `.env` が使われるため。
+
 ## チェックリスト（初回デプロイ前）
 
 - [ ] GitHub Variables に `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` を登録
@@ -140,3 +165,4 @@ pnpm --filter @animeishi/api exec wrangler deploy --env production
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
 - [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
+- [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）
