@@ -386,14 +386,25 @@ describe("作品検索 API", () => {
     });
 
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスと enqueue は継続する", async () => {
-      mockSearchWorks([
+      // title null → annict_works への upsert が notNull 制約で失敗する。
+      // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」
+      // 経路を検証する。
+      mockSearchWorks(
+        [
+          {
+            annictId: 778,
+            title: null,
+            malAnimeId: "1235",
+            recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          },
+        ],
+        { hasNextPage: false, endCursor: null },
         {
-          annictId: 778,
-          title: null,
-          malAnimeId: "1235",
-          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          m1235: {
+            coverImage: { extraLarge: "https://s4.anilist.co/1235.jpg" },
+          },
         },
-      ]);
+      );
       const sendBatch = vi.fn().mockResolvedValue(undefined);
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const app = buildApp();
@@ -405,6 +416,14 @@ describe("作品検索 API", () => {
       );
 
       expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { resolvedImageUrl: string | null }[];
+      };
+      // 永続化は失敗するが、解決できた URL はレスポンスには載せる
+      expect(body.works[0].resolvedImageUrl).toBe(
+        "https://s4.anilist.co/1235.jpg",
+      );
+      // 永続化できていないので解決済み扱いにはせず Queue に残す
       expect(sendBatch).toHaveBeenCalledWith([
         {
           body: {

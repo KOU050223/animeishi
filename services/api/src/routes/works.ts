@@ -129,6 +129,7 @@ async function attachResolvedImages(
     // DB 再確認後に update できるよう、補完対象の作品メタだけ先に upsert する。
     const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
     const now = new Date();
+    const upsertFailedIds = new Set<number>();
     for (const t of fallbackTargets) {
       const w = worksById.get(t.annictWorkId);
       if (!w) continue;
@@ -146,6 +147,7 @@ async function attachResolvedImages(
           updatedAt: now,
         });
       } catch (err) {
+        upsertFailedIds.add(t.annictWorkId);
         console.error(
           JSON.stringify({
             level: "warn",
@@ -165,14 +167,20 @@ async function attachResolvedImages(
     try {
       const resolved = await resolveImagesViaAnilist(fallbackTargets);
       const resolvedById = new Map(resolved.map((r) => [r.annictWorkId, r]));
+      const persistedIds = new Set<number>();
       const resolvedAt = new Date();
       for (const r of resolved) {
+        // 作品行の upsert に失敗したものは update 先の行が無いのでスキップする。
+        // updateResolvedImage は対象行が無くても例外にならず no-op になるため、
+        // ここで成功扱いにすると永続化されないまま Queue からも外れてしまう。
+        if (upsertFailedIds.has(r.annictWorkId)) continue;
         try {
           await adb.updateResolvedImage(r.annictWorkId, {
             resolvedImageUrl: r.resolvedImageUrl,
             imageSource: r.imageSource,
             resolvedAt,
           });
+          persistedIds.add(r.annictWorkId);
         } catch (err) {
           console.error(
             JSON.stringify({
@@ -182,16 +190,18 @@ async function attachResolvedImages(
               error: err instanceof Error ? err.message : String(err),
             }),
           );
-          resolvedById.delete(r.annictWorkId);
         }
       }
+      // 解決した URL は永続化の成否に関わらず今回のレスポンスには載せる
+      // （保存に失敗しても表示だけは改善する）。
       for (const w of enriched) {
         const r = resolvedById.get(w.annictWorkId);
         if (r?.resolvedImageUrl) w.resolvedImageUrl = r.resolvedImageUrl;
       }
-      // AniList で取れなかった分だけを Queue に積み、Jikan リトライに回す。
+      // AniList で取れなかった分と、永続化できなかった分だけを Queue に積み、
+      // Jikan リトライ・再解決に回す。
       pendingTargets = fallbackTargets.filter(
-        (t) => !resolvedById.has(t.annictWorkId),
+        (t) => !persistedIds.has(t.annictWorkId),
       );
     } catch (err) {
       console.error(
