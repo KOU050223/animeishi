@@ -1,9 +1,18 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { isPlaceholderImageUrl } from "@/lib/anime/pickImageUrl";
 import type { TierWork } from "./types";
+
+// 画像未解決の作品が残っている間の再取得間隔と上限。
+// サーバ側は検索ごとに未解決分を Queue 投入して非同期で resolvedImageUrl を
+// 埋める（issue #86/#99）。AniList で取れなかった分は Jikan リトライになるため
+// 初回レスポンスに間に合わず、解決済み URL を拾うには再取得が要る（issue #108）。
+// malAnimeId を持たない等で永久に解決しない作品もあるため回数上限を設ける。
+const IMAGE_RESOLVE_REFETCH_INTERVAL_MS = 5_000;
+const IMAGE_RESOLVE_REFETCH_MAX_ATTEMPTS = 6;
 
 /**
  * tier 表に並べるシーズン全作品を取得する。
@@ -62,15 +71,52 @@ export function useSeasonWorks(season: string) {
     [query.data],
   );
 
+  // シーズン全作品の取得が終わったあとも表示用画像を持たない作品があるか。
+  // Annict 画像が placeholder で resolvedImageUrl も無いものは裏の補完待ち。
+  const hasPendingImages = works.some(
+    (w) => w.resolvedImageUrl == null && isPlaceholderImageUrl(w.imageUrl),
+  );
+
+  const isLoading =
+    !query.isError &&
+    (query.isLoading || hasNextPage === true || isFetchingNextPage);
+
+  // 未解決画像が残っている間は数回だけ遅延リフェッチして、Queue 側で
+  // 解決された resolvedImageUrl を拾う。リフェッチごとに未解決分が
+  // 再 enqueue されるので、取りこぼした補完の再点火にもなる。
+  const [refetchAttempts, setRefetchAttempts] = useState(0);
+  useEffect(() => setRefetchAttempts(0), [season]);
+  useEffect(() => {
+    if (
+      isLoading ||
+      query.isFetching ||
+      query.isError ||
+      !hasPendingImages ||
+      refetchAttempts >= IMAGE_RESOLVE_REFETCH_MAX_ATTEMPTS
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setRefetchAttempts((c) => c + 1);
+      void query.refetch();
+    }, IMAGE_RESOLVE_REFETCH_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [
+    isLoading,
+    query.isFetching,
+    query.isError,
+    hasPendingImages,
+    refetchAttempts,
+    query.refetch,
+  ]);
+
   return {
     works,
     // 追い読み中も「読み込み中」として扱う（途中の作品数で確定表示すると
     // ユーザーが「作品が足りない」と誤解するため）。
     // ただしエラー時は hasNextPage が true のまま止まるので、除外しないと
     // スピナーが永久に回り続けてエラー表示に到達できない。
-    isLoading:
-      !query.isError &&
-      (query.isLoading || hasNextPage === true || isFetchingNextPage),
+    isLoading,
     isError: query.isError,
     isConnected,
     isConnectionLoading,

@@ -4,6 +4,7 @@ import {
   isPlaceholderImageUrl,
   limitImageFallbackTargets,
   resolveImagesForWorks,
+  resolveImagesViaAnilist,
 } from "./imageFallback";
 
 // 決めうちの AniList JSON レスポンスを組み立てる。
@@ -281,5 +282,88 @@ describe("resolveImagesForWorks", () => {
       "https://s4.anilist.co/42.jpg",
       "https://s4.anilist.co/42.jpg",
     ]);
+  });
+});
+
+describe("resolveImagesViaAnilist", () => {
+  it("空入力は fetch を叩かず空配列を返す", async () => {
+    const fetchImpl = vi.fn();
+    const res = await resolveImagesViaAnilist(
+      [],
+      fetchImpl as unknown as typeof fetch,
+    );
+    expect(res).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("AniList のヒットだけを返し、Jikan は叩かない", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(url).toBe("https://graphql.anilist.co");
+      return makeAnilistResponse({
+        m21: { coverImage: { extraLarge: "https://s4.anilist.co/21.jpg" } },
+        m9999: null,
+      });
+    });
+
+    const res = await resolveImagesViaAnilist(
+      [
+        { annictWorkId: 100, malAnimeId: 21 },
+        { annictWorkId: 200, malAnimeId: 9999 },
+      ],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    // AniList バッチ 1 回だけ。miss（9999）は結果に含まれず Jikan も叩かない
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(res).toEqual([
+      {
+        annictWorkId: 100,
+        malAnimeId: 21,
+        resolvedImageUrl: "https://s4.anilist.co/21.jpg",
+        imageSource: "anilist",
+      },
+    ]);
+  });
+
+  it("AniList が失敗しても例外を投げず空配列を返す", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("network down");
+    });
+
+    const res = await resolveImagesViaAnilist(
+      [{ annictWorkId: 700, malAnimeId: 7 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res).toEqual([]);
+  });
+
+  it("20 件を超える入力は複数バッチに分けて解決する", async () => {
+    const fetchImpl = vi.fn(async (input: string, init?: RequestInit) => {
+      const body = JSON.parse((init?.body as string | undefined) ?? "{}") as {
+        query?: string;
+      };
+      // クエリ内の m<id> alias に対応するエントリを全部ヒットさせる
+      const entries: Record<string, unknown> = {};
+      for (const match of body.query?.matchAll(/m(\d+):/g) ?? []) {
+        entries[`m${match[1]}`] = {
+          coverImage: { medium: `https://s4.anilist.co/${match[1]}.jpg` },
+        };
+      }
+      return makeAnilistResponse(entries);
+    });
+
+    const inputs = Array.from({ length: 21 }, (_, i) => ({
+      annictWorkId: i + 1,
+      malAnimeId: i + 1,
+    }));
+    const res = await resolveImagesViaAnilist(
+      inputs,
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    // 20 + 1 で 2 リクエスト。全件解決される
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(res).toHaveLength(21);
   });
 });
