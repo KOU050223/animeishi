@@ -4,6 +4,7 @@ import { authorizedDb } from "@/repository/authorizedDb";
 import {
   isPlaceholderImageUrl,
   resolveImagesForWorks,
+  type ImageFallbackResult,
 } from "@/lib/annict/imageFallback";
 
 export type ImageFallbackJobReason = "search" | "watch-history" | "cron";
@@ -71,39 +72,90 @@ export async function handleImageFallbackQueue(
   const db = createDb(env.DB as D1Database);
   const adb = authorizedDb(db, SYSTEM_USER_ID);
 
+  // 不正なメッセージは即 ack して捨てる。
+  const jobs = new Map<Message<ImageFallbackJob>, ImageFallbackJob>();
   for (const message of batch.messages) {
     const job = parseImageFallbackJob(message.body);
     if (!job) {
       message.ack();
       continue;
     }
+    jobs.set(message, job);
+  }
+  if (jobs.size === 0) return;
 
+  // バッチ内の作品行をまとめて引き、解決が必要なものだけに絞る。
+  // 解決不要（行なし / imageSource 済み / MAL なし / 画像 placeholder でない）
+  // メッセージはここで ack する。
+  const workIds = [...new Set([...jobs.values()].map((j) => j.annictWorkId))];
+  const works = await adb.getAnnictWorksByIds(workIds);
+  const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
+
+  const pending = new Map<
+    Message<ImageFallbackJob>,
+    { annictWorkId: number; malAnimeId: number }
+  >();
+  const targetById = new Map<number, number>();
+  for (const [message, job] of jobs) {
+    const work = worksById.get(job.annictWorkId);
+    if (
+      !work ||
+      work.imageSource ||
+      work.malAnimeId == null ||
+      !isPlaceholderImageUrl(work.imageUrl)
+    ) {
+      message.ack();
+      continue;
+    }
+    pending.set(message, {
+      annictWorkId: work.annictWorkId,
+      malAnimeId: work.malAnimeId,
+    });
+    targetById.set(work.annictWorkId, work.malAnimeId);
+  }
+  if (pending.size === 0) return;
+
+  // メッセージごとに外部 API を叩くと 1 作品 = 1 AniList リクエストになり
+  // 遅いため、バッチ内の対象をまとめて 1 回の resolveImagesForWorks で解く
+  // （内部で AniList alias バッチ + Jikan レート制御を行う）。解決自体の
+  // 失敗はバッチ内の全メッセージを retry して次のバッチに委ねる。
+  let results: ImageFallbackResult[];
+  try {
+    results = await resolveImagesForWorks(
+      [...targetById].map(([annictWorkId, malAnimeId]) => ({
+        annictWorkId,
+        malAnimeId,
+      })),
+    );
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "warn",
+        event: "image_fallback_queue_retry",
+        count: pending.size,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    for (const message of pending.keys()) {
+      message.retry({ delaySeconds: RETRY_DELAY_SECONDS });
+    }
+    return;
+  }
+
+  const resultById = new Map(results.map((r) => [r.annictWorkId, r]));
+  const resolvedAt = new Date();
+  for (const [message, target] of pending) {
+    const result = resultById.get(target.annictWorkId);
+    // 429 / 一時障害で結果が返らなかったものは retry（ネガキャッシュしない）。
+    if (!result) {
+      message.retry({ delaySeconds: RETRY_DELAY_SECONDS });
+      continue;
+    }
     try {
-      const work = await adb.getAnnictWorkById(job.annictWorkId);
-      if (
-        !work ||
-        work.imageSource ||
-        work.malAnimeId == null ||
-        !isPlaceholderImageUrl(work.imageUrl)
-      ) {
-        message.ack();
-        continue;
-      }
-
-      const malAnimeId = work.malAnimeId;
-      const results = await resolveImagesForWorks([
-        { annictWorkId: work.annictWorkId, malAnimeId },
-      ]);
-      const result = results.find((r) => r.annictWorkId === work.annictWorkId);
-      if (!result) {
-        message.retry({ delaySeconds: RETRY_DELAY_SECONDS });
-        continue;
-      }
-
       await adb.updateResolvedImage(result.annictWorkId, {
         resolvedImageUrl: result.resolvedImageUrl,
         imageSource: result.imageSource,
-        resolvedAt: new Date(),
+        resolvedAt,
       });
       message.ack();
     } catch (err) {
@@ -111,8 +163,7 @@ export async function handleImageFallbackQueue(
         JSON.stringify({
           level: "warn",
           event: "image_fallback_queue_retry",
-          annictWorkId: job.annictWorkId,
-          reason: job.reason,
+          annictWorkId: target.annictWorkId,
           error: err instanceof Error ? err.message : String(err),
         }),
       );

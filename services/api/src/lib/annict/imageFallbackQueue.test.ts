@@ -88,6 +88,60 @@ describe("image fallback queue", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
+  it("handleImageFallbackQueue: バッチ内の複数メッセージを AniList 1 リクエストでまとめて解決する", async () => {
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: 1,
+        malAnimeId: 100,
+        title: "補完対象1",
+        imageUrl: null,
+        updatedAt: new Date(),
+      },
+      {
+        annictWorkId: 2,
+        malAnimeId: 200,
+        title: "補完対象2",
+        imageUrl: null,
+        updatedAt: new Date(),
+      },
+    ]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            m100: {
+              coverImage: { extraLarge: "https://img.example/100.jpg" },
+            },
+            m200: {
+              coverImage: { extraLarge: "https://img.example/200.jpg" },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const ack = vi.fn();
+    const retry = vi.fn();
+
+    await handleImageFallbackQueue(
+      batch(
+        [
+          { annictWorkId: 1, malAnimeId: 100, reason: "search" },
+          { annictWorkId: 2, malAnimeId: 200, reason: "search" },
+        ],
+        { ack, retry },
+      ),
+      { DB: env.DB },
+    );
+
+    const rows = await db.query.annictWorks.findMany();
+    expect(rows.map((r) => r.imageSource)).toEqual(["anilist", "anilist"]);
+    // AniList バッチ 1 リクエストだけで 2 件解決される
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(ack).toHaveBeenCalledTimes(2);
+    expect(retry).not.toHaveBeenCalled();
+  });
+
   it("handleImageFallbackQueue: 既に image_source があれば冪等 no-op で ack する", async () => {
     await db.insert(annictWorks).values({
       annictWorkId: 2,

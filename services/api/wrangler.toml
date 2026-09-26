@@ -29,9 +29,13 @@ queue = "animeishi-image-fallback"
 
 [[queues.consumers]]
 queue = "animeishi-image-fallback"
-max_batch_size = 1
+# バッチ内のメッセージは consumer 側でまとめて AniList バッチ解決するため、
+# 1 メッセージずつではなくまとめて渡す（1 作品 = 1 外部リクエストを避ける）。
+# Jikan へのフォールバックは resolveImagesForWorks 内で 350ms 間隔に制御済み。
+max_batch_size = 20
 max_batch_timeout = 5
 max_retries = 5
+# Jikan の直列リトライが呼び出し間で重ならないよう同時実行は 1 に抑える。
 max_concurrency = 1
 dead_letter_queue = "animeishi-image-fallback-dlq"
 
@@ -61,7 +65,7 @@ queue = "animeishi-image-fallback"
 
 [[env.production.queues.consumers]]
 queue = "animeishi-image-fallback"
-max_batch_size = 1
+max_batch_size = 20
 max_batch_timeout = 5
 max_retries = 5
 max_concurrency = 1
