@@ -216,3 +216,55 @@ export type TierRowInput = z.infer<typeof tierRowSchema>;
 export type TierListSaveInput = z.infer<typeof tierListSaveSchema>;
 
 export const tierListSeasonParamSchema = z.object({ season: seasonSchema });
+
+// ---- dアニメストア インポート ----
+
+// インポート対象の 1 作品。クライアント（WebView 注入 / ブックマークレット）が
+// マイページ HTML から抽出し、話数単位の履歴を作品単位に集約済みのものを受け取る。
+// targetState はクライアントが決める（コンプリート → WATCHED、履歴のみ → WATCHING）。
+export const danimeMatchWorkSchema = z.object({
+  danimeWorkId: z.string().trim().min(1).max(32),
+  title: z.string().trim().min(1).max(500),
+  targetState: z.enum(["WATCHED", "WATCHING"]),
+});
+
+export const danimeMatchRequestSchema = z.object({
+  works: z
+    .array(danimeMatchWorkSchema)
+    .min(1)
+    .max(500, "一度に照合できるのは500作品までです"),
+});
+
+export type DanimeMatchRequestInput = z.infer<typeof danimeMatchRequestSchema>;
+
+// 一括登録の 1 件。nodeId / work メタは match レスポンス由来を想定するが、
+// nodeId が無い場合は従来通り searchWorks でサーバー側解決にフォールバックする。
+const watchHistoryBulkWorkSchema = z.object({
+  title: z.string().trim().min(1).max(500),
+  titleKana: z.string().max(500).nullish(),
+  titleEn: z.string().max(500).nullish(),
+  seasonName: z.string().max(32).nullish(),
+  seasonYear: z.number().int().nullish(),
+  imageUrl: z.string().max(2000).nullish(),
+  malAnimeId: z.number().int().positive().nullish(),
+});
+
+export const watchHistoryBulkSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        annictWorkId: z.number().int().positive(),
+        nodeId: z.string().trim().min(1).nullish(),
+        state: z.enum(ANNICT_STATUS_STATES, {
+          error: () => "有効なステータスを選択してください",
+        }),
+        work: watchHistoryBulkWorkSchema,
+      }),
+    )
+    .min(1)
+    // 1 リクエストで叩ける Annict updateStatus の上限。これを超える分は
+    // クライアント側でチャンク分割して逐次送信する（進捗表示にも使う）。
+    .max(50, "一度に登録できるのは50作品までです"),
+});
+
+export type WatchHistoryBulkInput = z.infer<typeof watchHistoryBulkSchema>;

@@ -47,6 +47,9 @@ function AuthGuard() {
       <Stack.Screen name="meishi/edit" />
       {/* シーズンごとのアニメ tier 表 */}
       <Stack.Screen name="tier-list" />
+      {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット） */}
+      <Stack.Screen name="danime-import" />
+      <Stack.Screen name="danime-import-review" />
     </Stack>
   );
 }

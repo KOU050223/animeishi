@@ -1,0 +1,263 @@
+/** @jest-environment jsdom */
+// 抽出スクリプト（DANIME_EXTRACT_SCRIPT）を jsdom 上で実際に eval して、
+// dアニメページ風のフィクスチャ HTML からの抽出・ページング・エラー分岐を検証する。
+// oxlint-disable: eval / javascript: URL はこのテストの検証対象そのもの。
+/* oxlint-disable no-eval, no-script-url */
+import {
+  DANIME_EXTRACT_ERR,
+  DANIME_EXTRACT_OK,
+  DANIME_EXTRACT_SCRIPT,
+  buildDanimeBookmarklet,
+} from "@/lib/danime/extractScript";
+
+type PostMessage = { type: string; payload?: unknown; message?: string };
+
+let postMessage: jest.Mock;
+let fetchMock: jest.Mock;
+
+beforeEach(() => {
+  postMessage = jest.fn();
+  (window as unknown as { ReactNativeWebView: unknown }).ReactNativeWebView = {
+    postMessage,
+  };
+  fetchMock = jest.fn();
+  globalThis.fetch = fetchMock as unknown as typeof fetch;
+});
+
+// jsdom には Response が無いため、スクリプトが使うフィールドだけのスタブを返す。
+function htmlResponse(html: string, url = "") {
+  return {
+    ok: true,
+    status: 200,
+    url,
+    text: async () => html,
+  };
+}
+
+// ページフォーム + ページャ + カードを持つフィクスチャを組み立てる。
+function pageHtml(opts: {
+  cards: { workId?: string; title: string; partIds?: string[] }[];
+  current?: number;
+  total?: number;
+  spDuplicate?: boolean;
+}): string {
+  const card = (c: { workId?: string; title: string; partIds?: string[] }) => `
+    <div class="itemWrapper clearfix">
+      <div class="itemModule">
+        <section>
+          <header><p class="line1"></p><p class="line2">${c.title}</p></header>
+          <div class="textContainer">
+            ${(c.partIds ?? [])
+              .map(
+                (p) =>
+                  `<a href="/animestore/ci?workId=${c.workId}&partId=${p}"><h3 class="line2">第1話</h3></a>`,
+              )
+              .join("")}
+          </div>
+          ${c.workId ? `<input type="hidden" class="workId" value="${c.workId}"/>` : ""}
+        </section>
+      </div>
+    </div>`;
+  const sp = opts.spDuplicate
+    ? `<div class="itemWrapper clearfix onlySpLayout">${opts.cards
+        .map(card)
+        .join("")}</div>`
+    : "";
+  return `<html><body>
+    <form name="pageForm">
+      <input name="workType" value="0"/>
+      <input name="editModeFlag" value=""/>
+      <input name="selectPage" value="${opts.current ?? 1}"/>
+    </form>
+    <div class="paging"><p class="onlySpLayout">${opts.current ?? 1} / ${opts.total ?? 1}</p></div>
+    ${opts.cards.map(card).join("")}
+    ${sp}
+  </body></html>`;
+}
+
+async function runScript(): Promise<PostMessage> {
+  // eval は IIFE の Promise を返す。スクリプト内の非同期処理完了を待つ。
+  const promise = eval(DANIME_EXTRACT_SCRIPT) as Promise<void>;
+  await promise;
+  expect(postMessage).toHaveBeenCalledTimes(1);
+  return JSON.parse(postMessage.mock.calls[0][0] as string) as PostMessage;
+}
+
+describe("DANIME_EXTRACT_SCRIPT", () => {
+  it("コンプリートと履歴の両ページから作品を抽出して postMessage する", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(
+          pageHtml({ cards: [{ workId: "101", title: "作品A" }] }),
+        );
+      }
+      return htmlResponse(
+        pageHtml({
+          cards: [
+            { workId: "201", title: "作品B", partIds: ["20101"] },
+            { workId: "202", title: "作品C", partIds: ["20201", "20202"] },
+          ],
+        }),
+      );
+    });
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_OK);
+    const payload = msg.payload as {
+      completed: { workId: string; title: string }[];
+      history: { workId: string; title: string; partIds: string[] }[];
+    };
+    expect(payload.completed).toEqual([
+      { workId: "101", title: "作品A", partIds: [] },
+    ]);
+    expect(payload.history).toEqual([
+      { workId: "201", title: "作品B", partIds: ["20101"] },
+      { workId: "202", title: "作品C", partIds: ["20201", "20202"] },
+    ]);
+  });
+
+  it("ページング: selectPage を全ページ分 fetch して結合する", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      if (url.includes("selectPage=2")) {
+        return htmlResponse(
+          pageHtml({
+            current: 2,
+            total: 2,
+            cards: [{ workId: "302", title: "2ページ目の作品" }],
+          }),
+        );
+      }
+      return htmlResponse(
+        pageHtml({
+          total: 2,
+          cards: [{ workId: "301", title: "1ページ目の作品" }],
+        }),
+      );
+    });
+
+    const msg = await runScript();
+    const payload = msg.payload as {
+      history: { workId: string }[];
+      completed: unknown[];
+    };
+    // completed が空でも history にデータがあれば成功として扱う。
+    expect(payload.history.map((w) => w.workId).sort()).toEqual(["301", "302"]);
+  });
+
+  it("同一 workId の重複カードは partId をマージして 1 件にする", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      return htmlResponse(
+        pageHtml({
+          cards: [
+            { workId: "401", title: "作品D", partIds: ["40101"] },
+            { workId: "401", title: "作品D", partIds: ["40102"] },
+          ],
+        }),
+      );
+    });
+
+    const msg = await runScript();
+    const payload = msg.payload as {
+      history: { workId: string; partIds: string[] }[];
+    };
+    expect(payload.history).toEqual([
+      { workId: "401", title: "作品D", partIds: ["40101", "40102"] },
+    ]);
+  });
+
+  it("SP 用の onlySpLayout 複製カードは二重カウントしない", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      return htmlResponse(
+        pageHtml({
+          cards: [{ workId: "501", title: "作品E", partIds: ["50101"] }],
+          spDuplicate: true,
+        }),
+      );
+    });
+
+    const msg = await runScript();
+    const payload = msg.payload as { history: { workId: string }[] };
+    expect(payload.history).toHaveLength(1);
+  });
+
+  it("input.workId が無いカードはリンクの workId= クエリにフォールバックする", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      return htmlResponse(
+        `<html><body>
+          <div class="itemWrapper clearfix">
+            <div class="itemModule"><section>
+              <div class="textContainer">
+                <a href="/animestore/sc_d_pc?workId=601"><h3 class="line2">リンクのみ作品</h3></a>
+              </div>
+            </section></div>
+          </div>
+        </body></html>`,
+      );
+    });
+
+    const msg = await runScript();
+    const payload = msg.payload as {
+      history: { workId: string; title: string }[];
+    };
+    expect(payload.history).toEqual([
+      { workId: "601", title: "リンクのみ作品", partIds: [] },
+    ]);
+  });
+
+  it("未ログイン（auth リダイレクト）は not_logged_in エラーを返す", async () => {
+    fetchMock.mockImplementation(async () =>
+      htmlResponse(
+        "<html><body>login page</body></html>",
+        "https://animestore.docomo.ne.jp/animestore/auth",
+      ),
+    );
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_ERR);
+    expect(msg.message).toBe("not_logged_in");
+  });
+
+  it("両リストが空なら empty_result エラーを返す（構造変更の検知）", async () => {
+    fetchMock.mockImplementation(async () =>
+      htmlResponse(pageHtml({ cards: [] })),
+    );
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_ERR);
+    expect(msg.message).toBe("empty_result");
+  });
+
+  it("HTTP エラーは失敗メッセージとして報告する", async () => {
+    fetchMock.mockImplementation(async () => ({
+      ok: false,
+      status: 500,
+      url: "",
+      text: async () => "oops",
+    }));
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_ERR);
+    expect(msg.message).toBe("HTTP 500");
+  });
+});
+
+describe("buildDanimeBookmarklet", () => {
+  it("javascript: URL として抽出コアを含む", () => {
+    const bm = buildDanimeBookmarklet();
+    expect(bm.startsWith("javascript:")).toBe(true);
+    expect(bm).toContain("mpa_hst_pc");
+    expect(bm).toContain("mpa_cmp_pc");
+  });
+});

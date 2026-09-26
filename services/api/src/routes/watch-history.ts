@@ -5,13 +5,17 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
-import { watchHistoryUpsertSchema } from "@/schema/validators";
+import {
+  watchHistoryBulkSchema,
+  watchHistoryUpsertSchema,
+} from "@/schema/validators";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
 // モバイルの tsconfig は AppType 推論のため API ソースを読み込むが、その paths
 // （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を
 // モバイルの同名ディレクトリへ誤解決してしまう。モバイルに存在しない深いパスを
 // 指すことで、この衝突を避けつつ API 単体の解決はそのまま通る。
 import {
+  AnnictApiError,
   fetchAnnictLibraryEntries,
   fetchAnnictWorkByAnnictId,
   updateAnnictStatus,
@@ -194,6 +198,117 @@ const watchHistory = new Hono<AuthVariables>()
       });
 
       return c.json(result, 200);
+    },
+  )
+  // dアニメインポート等の一括登録。各作品ごとに PUT と同じ不変条件
+  // （Annict updateStatus が正・成功後にのみ D1 を追従）を守りつつ、
+  // 1 リクエストで複数作品を逐次処理する。
+  // 個別失敗は呼び出し側が再挑戦できるよう per-item で返す。HTTP は成功時
+  // 200 のまま（部分成功を捨てないため）で、認証切れ（Annict 401）は以降の
+  // 作品を全滅させるだけなので検出した時点で打ち切る。
+  .post(
+    "/bulk",
+    requireAnnictToken,
+    zValidator("json", watchHistoryBulkSchema),
+    async (c) => {
+      const { entries } = c.req.valid("json");
+      const db = createDb(getBindings(c).DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+      const token = c.var.annictToken;
+      const now = new Date();
+
+      type BulkResult =
+        | { annictWorkId: number; ok: true }
+        | { annictWorkId: number; ok: false; error: string };
+
+      const results: BulkResult[] = [];
+      let aborted = false;
+
+      for (const entry of entries) {
+        if (aborted) {
+          results.push({
+            annictWorkId: entry.annictWorkId,
+            ok: false,
+            error: "aborted",
+          });
+          continue;
+        }
+
+        try {
+          // nodeId は入力（match 由来）→ キャッシュ → searchWorks の順で解決する。
+          let nodeId = entry.nodeId ?? null;
+          let resolvedWork: NewAnnictWork | null = null;
+          if (!nodeId) {
+            const cached = await adb.getAnnictWorkById(entry.annictWorkId);
+            nodeId = cached?.nodeId ?? null;
+            if (!nodeId) {
+              const resolved = await fetchAnnictWorkByAnnictId(
+                token,
+                entry.annictWorkId,
+              );
+              if (!resolved) {
+                results.push({
+                  annictWorkId: entry.annictWorkId,
+                  ok: false,
+                  error: "work_not_found",
+                });
+                continue;
+              }
+              nodeId = resolved.nodeId;
+              resolvedWork = {
+                annictWorkId: resolved.annictWorkId,
+                nodeId: resolved.nodeId,
+                malAnimeId: resolved.malAnimeId,
+                title: resolved.title,
+                titleKana: resolved.titleKana,
+                titleEn: resolved.titleEn,
+                seasonName: resolved.seasonName,
+                seasonYear: resolved.seasonYear,
+                imageUrl: resolved.imageUrl,
+                updatedAt: now,
+              };
+            }
+          }
+
+          await updateAnnictStatus(token, nodeId, entry.state);
+
+          // Annict 更新が成功した後にのみキャッシュを追従させる。
+          // watch_history の FK 先となる annict_works 行を先に立てる。
+          const meta = resolvedWork ?? {
+            annictWorkId: entry.annictWorkId,
+            nodeId,
+            malAnimeId: entry.work.malAnimeId ?? null,
+            title: entry.work.title,
+            titleKana: entry.work.titleKana ?? null,
+            titleEn: entry.work.titleEn ?? null,
+            seasonName: entry.work.seasonName ?? null,
+            seasonYear: entry.work.seasonYear ?? null,
+            imageUrl: entry.work.imageUrl ?? null,
+            updatedAt: now,
+          };
+          await adb.upsertAnnictWork(meta);
+          await adb.upsertWatchHistory(entry.annictWorkId, {
+            state: entry.state,
+          });
+          results.push({ annictWorkId: entry.annictWorkId, ok: true });
+        } catch (err) {
+          if (err instanceof AnnictApiError) {
+            // トークン失効は以降の全件が同じく失敗するため打ち切る。
+            // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
+            results.push({
+              annictWorkId: entry.annictWorkId,
+              ok: false,
+              error:
+                err.status === 401 ? "annict_token_invalid" : "annict_upstream",
+            });
+            if (err.status === 401) aborted = true;
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      return c.json({ results, aborted }, 200);
     },
   )
   .delete("/:annictWorkId", async (c) => {
