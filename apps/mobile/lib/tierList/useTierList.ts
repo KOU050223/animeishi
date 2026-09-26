@@ -61,10 +61,11 @@ export function useSaveTierList() {
       if (!res.ok) throw new Error("tier 表の保存に失敗しました");
       return res.json();
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: tierListQueryKey(variables.season),
-      });
+    onSuccess: (data, variables) => {
+      // invalidate で再取得させると、レスポンス到着までの間に進んだ編集を
+      // 画面側の hydrate が上書きしてしまう。PUT のレスポンスは GET と同じ形
+      // なので、そのままキャッシュに反映する。
+      queryClient.setQueryData(tierListQueryKey(variables.season), data);
     },
   });
 }

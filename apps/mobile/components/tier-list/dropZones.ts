@@ -28,25 +28,27 @@ export type DropZoneRegistry = {
   remeasureAll: () => void;
 };
 
-const NULL_KEY = "__unassigned__";
-
 export function useDropZoneRegistry(): DropZoneRegistry {
-  const zonesRef = useRef(new Map<string, Rect>());
-  const measurersRef = useRef(new Map<string, () => void>());
+  // 未分類トレイは null キーで持つ。番兵文字列を使うと、同じ文字列を key に
+  // 持つ TierRow ができたときにトレイの矩形を上書きしてしまうため。
+  const zonesRef = useRef(new Map<string | null, Rect>());
+  const measurersRef = useRef(new Map<string | null, () => void>());
 
   const register = useCallback((key: string | null, rect: Rect) => {
-    zonesRef.current.set(key ?? NULL_KEY, rect);
+    zonesRef.current.set(key, rect);
   }, []);
 
   const registerMeasurer = useCallback(
     (key: string | null, measure: () => void) => {
-      const mapKey = key ?? NULL_KEY;
-      measurersRef.current.set(mapKey, measure);
+      measurersRef.current.set(key, measure);
       return () => {
         // 同じキーが別の measure で上書きされている場合は消さない
         // （行の入れ替えでアンマウント順が前後しても取りこぼさないため）。
-        if (measurersRef.current.get(mapKey) === measure) {
-          measurersRef.current.delete(mapKey);
+        if (measurersRef.current.get(key) === measure) {
+          measurersRef.current.delete(key);
+          // 矩形も消す。残っていると、シーズン切替でアンマウント済みの行が
+          // 同じ画面位置に追加された新しい行より先に hitTest に当たる。
+          zonesRef.current.delete(key);
         }
       };
     },
@@ -65,7 +67,7 @@ export function useDropZoneRegistry(): DropZoneRegistry {
         y >= rect.y &&
         y <= rect.y + rect.height
       ) {
-        return key === NULL_KEY ? null : key;
+        return key;
       }
     }
     return undefined;

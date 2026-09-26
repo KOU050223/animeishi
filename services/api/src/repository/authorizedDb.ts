@@ -703,24 +703,29 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
       if (!saved) throw new Error("tier 表の保存に失敗しました");
 
-      await db
-        .delete(tierListItems)
-        .where(eq(tierListItems.tierListId, saved.id));
-
-      if (input.items.length > 0) {
-        // 1 行あたり 4 カラム。D1 のバインド変数上限 100 を下回るようチャンクする。
-        const ITEM_CHUNK = 20; // 20 * 4 = 80 < 100
-        for (let i = 0; i < input.items.length; i += ITEM_CHUNK) {
-          await db.insert(tierListItems).values(
+      // items の全削除→全挿入は db.batch() でアトミックに実行する。
+      // 逐次実行だと insert 途中の失敗で items が消えたまま残り、
+      // 同一ユーザーの並行 PUT で delete/insert が交互に走って配置が混ざる。
+      const queries: BatchItem<"sqlite">[] = [
+        db.delete(tierListItems).where(eq(tierListItems.tierListId, saved.id)),
+      ];
+      // 1 行あたり 4 カラム。D1 のバインド変数上限 100 を下回るようチャンクする。
+      const ITEM_CHUNK = 20; // 20 * 4 = 80 < 100
+      for (let i = 0; i < input.items.length; i += ITEM_CHUNK) {
+        queries.push(
+          db.insert(tierListItems).values(
             input.items.slice(i, i + ITEM_CHUNK).map((item) => ({
               tierListId: saved.id,
               annictWorkId: item.annictWorkId,
               tierKey: item.tierKey,
               position: item.position,
             })),
-          );
-        }
+          ),
+        );
       }
+      await db.batch(
+        queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+      );
 
       const result = await this.getMyTierList(input.season);
       if (!result) throw new Error("tier 表の保存に失敗しました");

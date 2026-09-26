@@ -1,6 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { DraggableWorkCard } from "./DraggableWorkCard";
+import {
+  DraggableWorkCard,
+  type TierMoveDestination,
+} from "./DraggableWorkCard";
 import { DropZone } from "./DropZone";
 import { useDropZoneRegistry } from "./dropZones";
 import { styles } from "./tierListStyles";
@@ -70,13 +73,30 @@ export function TierBoard({
     [registry],
   );
 
-  const renderCard = (work: TierWork) => (
+  // 支援技術からの移動用に、全 tier 行と未分類トレイを移動先として並べる。
+  const moveDestinations = useMemo<TierMoveDestination[]>(
+    () => [
+      ...tiers.map((tier) => ({
+        tierKey: tier.key as string | null,
+        label: `${tier.label} に移動`,
+      })),
+      { tierKey: null, label: `${UNASSIGNED_LABEL} に戻す` },
+    ],
+    [tiers],
+  );
+
+  const renderCard = (work: TierWork, currentTierKey: string | null) => (
     <DraggableWorkCard
       key={work.annictWorkId}
       work={work}
       onDragStart={() => handleDragStart(work.annictWorkId)}
       onDragMove={handleDragMove}
       onDragEnd={(x, y) => handleDragEnd(work.annictWorkId, x, y)}
+      // 今いる場所は移動先に出さない（選んでも何も起きないため）
+      moveDestinations={moveDestinations.filter(
+        (d) => d.tierKey !== currentTierKey,
+      )}
+      onMove={(tierKey) => onAssign(work.annictWorkId, tierKey)}
     />
   );
 
@@ -113,7 +133,9 @@ export function TierBoard({
                 hoverKey === tier.key && styles.tierDropAreaActive,
               ]}
             >
-              {worksInTier(works, assignment, tier.key).map(renderCard)}
+              {worksInTier(works, assignment, tier.key).map((work) =>
+                renderCard(work, tier.key),
+              )}
             </DropZone>
           </View>
         ))}
@@ -130,7 +152,7 @@ export function TierBoard({
         {tray.length === 0 ? (
           <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
         ) : (
-          tray.map(renderCard)
+          tray.map((work) => renderCard(work, null))
         )}
       </DropZone>
     </ScrollView>

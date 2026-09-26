@@ -26,9 +26,19 @@ export function DropZone({
   children,
 }: DropZoneProps) {
   const ref = useRef<View>(null);
+  // measureInWindow の結果は非同期で返る。アンマウント後にコールバックが
+  // 来ると、cleanup で消した古い矩形を登録し直してしまうため旗で弾く。
+  const aliveRef = useRef(false);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const measure = useCallback(() => {
     ref.current?.measureInWindow((x, y, width, height) => {
+      if (!aliveRef.current) return;
       registry.register(zoneKey, { x, y, width, height });
     });
   }, [registry, zoneKey]);

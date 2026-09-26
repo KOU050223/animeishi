@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -62,8 +62,14 @@ export default function TierListScreen() {
 
   // シーズンを切り替えたら、そのシーズンの保存済みデータ（あれば）で状態を差し替える。
   // 保存済みが無ければ既定の tier と空の配置に戻す。
+  // ただし編集中（isDirty）は上書きしない。保存後のキャッシュ更新や
+  // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを
+  // 消さないため。シーズン自体が変わったときは常に反映する。
+  const hydratedSeasonRef = useRef(season);
   useEffect(() => {
     if (isSavedLoading) return;
+    if (hydratedSeasonRef.current === season && isDirty) return;
+    hydratedSeasonRef.current = season;
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
       setAssignment(toAssignment(saved.items));
@@ -74,7 +80,7 @@ export default function TierListScreen() {
       setTitle(defaultTierListTitle(season));
     }
     setIsDirty(false);
-  }, [saved, isSavedLoading, season]);
+  }, [saved, isSavedLoading, season, isDirty]);
 
   const handleAssign = useCallback(
     (annictWorkId: number, tierKey: string | null) => {
@@ -110,6 +116,44 @@ export default function TierListScreen() {
     }
     goBack();
   }, [isDirty, router]);
+
+  // シーズンを変えると上の effect が盤面を丸ごと差し替えるため、
+  // 未保存の並べ替えは確認なしに消える。戻るときと同じく一度だけ確認する。
+  const confirmIfDirty = useCallback(
+    (apply: () => void) => {
+      if (!isDirty) {
+        apply();
+        return;
+      }
+      confirm(
+        "保存していない変更があります",
+        "シーズンを切り替えると並べ替えた内容は失われます。",
+        apply,
+        {
+          confirmLabel: "破棄して切り替える",
+          cancelLabel: "編集を続ける",
+          destructive: true,
+        },
+      );
+    },
+    [isDirty],
+  );
+
+  const handleChangeYear = useCallback(
+    (nextYear: number) => {
+      if (nextYear === year) return;
+      confirmIfDirty(() => setYear(nextYear));
+    },
+    [confirmIfDirty, year],
+  );
+
+  const handleChangeSeason = useCallback(
+    (nextSeasonKey: SeasonKey) => {
+      if (nextSeasonKey === seasonKey) return;
+      confirmIfDirty(() => setSeasonKey(nextSeasonKey));
+    },
+    [confirmIfDirty, seasonKey],
+  );
 
   const handleSave = useCallback(() => {
     save.mutate(
@@ -200,8 +244,8 @@ export default function TierListScreen() {
       <SeasonFilter
         year={year}
         season={seasonKey}
-        onChangeYear={setYear}
-        onChangeSeason={setSeasonKey}
+        onChangeYear={handleChangeYear}
+        onChangeSeason={handleChangeSeason}
         yearCount={TIER_LIST_YEAR_COUNT}
       />
 

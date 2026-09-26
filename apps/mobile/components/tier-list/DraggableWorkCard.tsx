@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Image, Text, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { Image, Text, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -18,6 +18,14 @@ import { styles } from "./tierListStyles";
 // これ以上短くすると、スクロールしようとした指がカードを掴んでしまう。
 const DRAG_ACTIVATE_MS = 80;
 
+/** ドラッグ以外での移動先。スイッチ操作などの支援技術から選ばせる。 */
+export type TierMoveDestination = {
+  /** 移動先の tier キー。null は未分類トレイへ戻す。 */
+  tierKey: string | null;
+  /** アクセシビリティアクションとして表示するラベル（例:「S に移動」）。 */
+  label: string;
+};
+
 export type DraggableWorkCardProps = {
   work: TierWork;
   /** ドラッグ開始時。呼び出し側はこの作品を「移動中」として扱う。 */
@@ -26,6 +34,10 @@ export type DraggableWorkCardProps = {
   onDragMove: (x: number, y: number) => void;
   /** 指を離したときの位置（ウィンドウ座標）。ここでドロップ先を確定する。 */
   onDragEnd: (x: number, y: number) => void;
+  /** 支援技術経由で提示する移動先一覧（現在位置は呼び出し側で除く）。 */
+  moveDestinations: TierMoveDestination[];
+  /** アクセシビリティアクションで移動先が選ばれたとき。 */
+  onMove: (tierKey: string | null) => void;
 };
 
 /**
@@ -40,6 +52,8 @@ export function DraggableWorkCard({
   onDragStart,
   onDragMove,
   onDragEnd,
+  moveDestinations,
+  onMove,
 }: DraggableWorkCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -87,11 +101,33 @@ export function DraggableWorkCard({
     zIndex: isDragging.value ? 100 : 0,
   }));
 
+  // ドラッグ&ドロップはスイッチ操作や VoiceOver では使えないため、
+  // 移動先を選ぶだけのカスタムアクションを各カードに登録する。
+  const accessibilityActions = useMemo(
+    () =>
+      moveDestinations.map((dest, i) => ({
+        name: `move-${i}`,
+        label: dest.label,
+      })),
+    [moveDestinations],
+  );
+
+  const handleAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const index = Number(event.nativeEvent.actionName.slice("move-".length));
+      const dest = moveDestinations[index];
+      if (dest) onMove(dest.tierKey);
+    },
+    [moveDestinations, onMove],
+  );
+
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
         style={[styles.card, animatedStyle]}
         accessibilityLabel={`${work.title}（長押しでドラッグ）`}
+        accessibilityActions={accessibilityActions}
+        onAccessibilityAction={handleAccessibilityAction}
         testID={`tier-card-${work.annictWorkId}`}
       >
         {uri ? (

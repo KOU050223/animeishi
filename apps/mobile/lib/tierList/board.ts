@@ -16,9 +16,11 @@ export function assignWork(
   tierKey: string | null,
 ): TierAssignment {
   const next = new Map(assignment);
-  if (tierKey === null) {
-    next.delete(annictWorkId);
-  } else {
+  // Map.set は既存キーの挿入位置を保つため、いったん消してから追加し直す。
+  // そうしないと「別 tier に移して戻す」で元の位置に残り、
+  // 新規配置は末尾追加という約束と表示順・保存順がずれる。
+  next.delete(annictWorkId);
+  if (tierKey !== null) {
     next.set(annictWorkId, tierKey);
   }
   return next;
@@ -105,18 +107,19 @@ export function toAssignment(
  * パース不能なら null を返して呼び出し側で既定値へフォールバックさせる。
  */
 export function parseTiersJson(json: string): TierRow[] | null {
+  const isTierRow = (r: unknown): r is TierRow =>
+    typeof r === "object" &&
+    r !== null &&
+    typeof (r as TierRow).key === "string" &&
+    typeof (r as TierRow).label === "string" &&
+    typeof (r as TierRow).color === "string";
   try {
     const parsed: unknown = JSON.parse(json);
     if (!Array.isArray(parsed)) return null;
-    const rows = parsed.filter(
-      (r): r is TierRow =>
-        typeof r === "object" &&
-        r !== null &&
-        typeof (r as TierRow).key === "string" &&
-        typeof (r as TierRow).label === "string" &&
-        typeof (r as TierRow).color === "string",
-    );
-    return rows.length > 0 ? rows : null;
+    // 不正な行だけを捨てると、その行に置かれていた作品が表示も保存も
+    // されずに消える。1 行でも壊れていれば全体を既定値にフォールバックする。
+    if (parsed.length === 0 || !parsed.every(isTierRow)) return null;
+    return parsed;
   } catch {
     return null;
   }

@@ -37,6 +37,18 @@ describe("assignWork", () => {
     expect(next.has(1)).toBe(false);
   });
 
+  it("配置済みの作品を入れ直すと末尾に移る", () => {
+    const next = assignWork(
+      new Map([
+        [1, "s"],
+        [2, "s"],
+      ]),
+      1,
+      "s",
+    );
+    expect([...next.keys()]).toEqual([2, 1]);
+  });
+
   it("元の Map を破壊しない", () => {
     const original = new Map([[1, "s"]]);
     assignWork(original, 2, "a");
@@ -137,5 +149,13 @@ describe("parseTiersJson", () => {
 
   it("形の合わない要素だけの配列では null を返す", () => {
     expect(parseTiersJson('[{"key":"s"}]')).toBeNull();
+  });
+
+  it("有効な行と不正な行が混在していても null を返す", () => {
+    // 不正な行だけを捨てると、その行の作品が表示も保存もされず消えるため、
+    // 一部でも壊れていれば全体を既定値にフォールバックさせる。
+    expect(
+      parseTiersJson(JSON.stringify([TIERS[0], { key: "bad" }])),
+    ).toBeNull();
   });
 });
