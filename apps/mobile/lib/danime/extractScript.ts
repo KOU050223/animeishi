@@ -104,11 +104,14 @@ export function danimeExtractScript(appOrigin: string): string {
     };
     send();
     var timer = setInterval(send, 500);
+    // 受信側が重複メッセージに ack を返し得るため、ack 後はリスナーを
+    // 解除しないと alert が複数回出る。
     window.addEventListener("message", function onAck(e) {
       if (e.source !== appWin || e.origin !== APP_ORIGIN) return;
       if (!e.data || e.data.type !== MSG_ACK) return;
       acked = true;
       clearInterval(timer);
+      window.removeEventListener("message", onAck);
       alert(
         "抽出結果を Animeishi に転送しました。開いたタブでレビューを続けてください。",
       );

@@ -45,11 +45,17 @@ export default function DanimeImportWebScreen() {
   const isReceiver = recv === "1";
   useEffect(() => {
     if (!isReceiver) return;
+    // 送信側は ack 到着まで 500ms 間隔で再送するため、同一メッセージが
+    // 複数回到達し得る。2 回目以降を処理すると router.push が積み上がるので
+    // 最初の 1 回だけ処理する。
+    let handled = false;
     function onMessage(e: MessageEvent) {
+      if (handled) return;
       // animestore オリジン以外からのメッセージは無視する。
       if (e.origin !== DANIME_ORIGIN) return;
       const data = e.data as { type?: string; payload?: unknown } | null;
       if (!data || data.type !== DANIME_POSTBACK_DATA) return;
+      handled = true;
       const lists = parseDanimeExtractedLists(data.payload);
       if (!lists) {
         setError("抽出結果の形式が正しくありませんでした。");
