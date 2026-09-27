@@ -96,6 +96,22 @@ Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の P
 
 cron トリガーは preview では無効化してある（`crons = []`）。Queue の consume は preview Worker のライブデプロイが担うため、PR の preview バージョンが enqueue したメッセージは preview Worker の最新デプロイ済みコードが処理する。
 
+### preview D1 の制限（共有 DB）
+
+`animeishi-db-preview` は全 PR で共有する。マイグレーションはファイル名単位で適用済み管理されるため、別々の PR の移行ファイルは両方とも適用される（スキーマは全 PR の和集合になる）。そのため以下の制限がある:
+
+- 同時期の PR 同士が同じテーブル・カラムを変更する移行を持つ場合、後着 PR の `migrations apply` が SQL エラーで失敗し得る。この場合でも version upload は続行され、API プレビュー自体は発行される（新スキーマ依存のエンドポイントのみ動かない）。ワークフローには警告が出る。
+- マージされなかった PR の移行も preview DB に残留する。
+
+プレビュー DB を作り直したい場合:
+
+```bash
+cd services/api
+pnpm exec wrangler d1 delete animeishi-db-preview   # 削除
+pnpm exec wrangler d1 create animeishi-db-preview   # 再作成（新しい database_id を wrangler.toml の [env.preview] に反映）
+task db:migrate:preview                             # マイグレーション再適用（ルートから実行）
+```
+
 ### 初回ブートストラップ（完了済み・再作成時の記録）
 
 preview 環境の初回セットアップは以下の手順で行う（初回のみ・再作成時のみ必要）。
