@@ -5,7 +5,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "apps/mobile/**"
+      - "services/api/**"
       - ".github/workflows/preview-web.yml"
+      - ".github/workflows/preview-api.yml"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "package.json"
@@ -24,6 +26,10 @@ jobs:
     name: Deploy Cloudflare Workers Preview
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      # PR プレビュー API の URL（preview-api.yml が同じ alias で発行する）。
+      # vars.EXPO_PUBLIC_PREVIEW_API_URL が設定されている場合はそちらを優先する。
+      API_PREVIEW_URL: ${{ vars.EXPO_PUBLIC_PREVIEW_API_URL || format('https://pr-{0}-animeishi-api-preview.{1}.workers.dev', github.event.pull_request.number, vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
     steps:
       - uses: actions/checkout@v7
 
@@ -46,7 +52,7 @@ jobs:
         run: pnpm --filter @animeishi/mobile build:web
         env:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_PREVIEW_API_URL || vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_API_URL: ${{ env.API_PREVIEW_URL }}
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
 
       - name: Upload preview version
@@ -81,9 +87,10 @@ jobs:
           marker="<!-- animeishi-web-preview -->"
           body="$(cat <<EOF
           ${marker}
-          ### Web preview
+          ### Preview
 
-          - URL: ${PREVIEW_URL}
+          - Web: ${PREVIEW_URL}
+          - API: ${API_PREVIEW_URL}
           - Alias: \`${PREVIEW_ALIAS}\`
           - Commit: \`${GITHUB_SHA}\`
           EOF

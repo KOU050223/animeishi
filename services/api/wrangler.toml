@@ -71,6 +71,48 @@ max_retries = 5
 max_concurrency = 1
 dead_letter_queue = "animeishi-image-fallback-dlq"
 
+# PR プレビュー環境（animeishi-api-preview）。
+# 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
+# 本番データに混入しないようにする。CI (preview-api.yml) は
+# `wrangler versions upload --env preview --preview-alias pr-<N>` で
+# PR ごとのプレビュー URL を発行する。
+# 初回利用前に docs/04_deployment.md のブートストラップ手順
+# （deploy + secret 登録）が必要。
+[env.preview]
+preview_urls = true
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
+# プレビュー web（<alias>-animeishi-web-production.*.workers.dev）からの
+# クロスオリジンを許可する。
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081"
+
+# プレビューでは定期バッチ（image fallback enqueue）を回さない。
+[env.preview.triggers]
+crons = []
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "animeishi-db-preview"
+database_id = "a429fdc7-43da-4286-93c7-f946e1b4288e"
+
+[[env.preview.r2_buckets]]
+binding = "AVATARS"
+bucket_name = "animeishi-avatars-preview"
+
+[[env.preview.queues.producers]]
+binding = "IMAGE_FALLBACK_QUEUE"
+queue = "animeishi-image-fallback-preview"
+
+[[env.preview.queues.consumers]]
+queue = "animeishi-image-fallback-preview"
+max_batch_size = 20
+max_batch_timeout = 5
+max_retries = 5
+max_concurrency = 1
+dead_letter_queue = "animeishi-image-fallback-dlq-preview"
+
 [observability]
 enabled = false
 head_sampling_rate = 1
