@@ -22,6 +22,12 @@ import { parseDanimeExtractedLists } from "@/lib/danime/validate";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 
 function errorMessage(code: string): string {
+  if (code === "wrong_page") {
+    return "dアニメストアのページが表示された状態で実行してください。ログイン画面の場合はログインを完了させてください。";
+  }
+  if (code === "network_error") {
+    return "通信に失敗しました。ネットワーク接続を確認して再度お試しください。";
+  }
   if (code === "not_logged_in") {
     return "dアニメストアにログインしていません。WebView 内でログインしてから再度お試しください。";
   }

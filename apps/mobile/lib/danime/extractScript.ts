@@ -42,7 +42,19 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
     }
     // ブックマークレット経路: postMessage の相手がいないのでクリップボードへ。
     if (obj.type === MSG_ERR) {
-      alert("dアニメ履歴の取得に失敗しました: " + obj.message);
+      var hints = {
+        wrong_page:
+          "dアニメストアのページ（animestore.docomo.ne.jp）を開いた状態で実行してください。",
+        not_logged_in: "dアニメストアにログインしてから実行してください。",
+        empty_result:
+          "履歴データが取得できませんでした。履歴が空か、ページ構造が変更された可能性があります。",
+        network_error:
+          "通信に失敗しました。ネットワーク接続を確認してから実行してください。",
+      };
+      alert(
+        "dアニメ履歴の取得に失敗しました。\n" +
+          (hints[obj.message] || obj.message),
+      );
       return;
     }
     var text = JSON.stringify(obj.payload);
@@ -65,7 +77,14 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
   }
 
   async function fetchDoc(url) {
-    var res = await fetch(url, { credentials: "same-origin" });
+    var res;
+    try {
+      res = await fetch(url, { credentials: "same-origin" });
+    } catch (e) {
+      // fetch の reject（オフライン等）は TypeError。生の "Failed to fetch"
+      // は原因が分かりにくいのでコード化する。
+      throw new Error("network_error");
+    }
     if (!res.ok) throw new Error("HTTP " + res.status);
     // 未ログイン時は /animestore/auth → id.smt.docomo.ne.jp へリダイレクトされる。
     if (
@@ -197,6 +216,14 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
       items = items.concat(extractCards(d));
     }
     return items;
+  }
+
+  // 実行ページのオリジン検査。dアニメ以外のページ（アプリ側ページや
+  // docomo ログイン画面）で実行すると same-origin でない fetch が CORS で
+  // 失敗するため、先に分かりやすいエラーを返す。
+  if (location.hostname !== "animestore.docomo.ne.jp") {
+    report({ type: MSG_ERR, message: "wrong_page" });
+    return;
   }
 
   try {

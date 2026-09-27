@@ -1,4 +1,7 @@
-/** @jest-environment jsdom */
+/**
+ * @jest-environment jsdom
+ * @jest-environment-options {"url": "https://animestore.docomo.ne.jp/animestore/mpa_hst_pc?workType=0"}
+ */
 // 抽出スクリプト（DANIME_EXTRACT_SCRIPT）を jsdom 上で実際に eval して、
 // dアニメページ風のフィクスチャ HTML からの抽出・ページング・エラー分岐を検証する。
 // oxlint-disable: eval / javascript: URL はこのテストの検証対象そのもの。
@@ -237,6 +240,28 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
     const msg = await runScript();
     expect(msg.type).toBe(DANIME_EXTRACT_ERR);
     expect(msg.message).toBe("empty_result");
+  });
+
+  it("dアニメ以外のページで実行すると fetch せず wrong_page を返す", async () => {
+    // direct eval は呼び出しスコープの変数を見るため、ローカルの location で
+    // グローバルを覆い「別オリジンで実行された」状況を再現する。
+    // oxlint-disable-next-line no-unused-vars -- eval 内スクリプトが参照する
+    const location = { hostname: "pr-111-animeishi.example.dev" };
+
+    await eval(DANIME_EXTRACT_SCRIPT);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const msg = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(msg.type).toBe(DANIME_EXTRACT_ERR);
+    expect(msg.message).toBe("wrong_page");
+  });
+
+  it("fetch が reject される（ネットワーク障害）と network_error を返す", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_ERR);
+    expect(msg.message).toBe("network_error");
   });
 
   it("HTTP エラーは失敗メッセージとして報告する", async () => {
