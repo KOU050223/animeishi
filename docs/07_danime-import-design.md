@@ -73,14 +73,24 @@ completed 優先で targetState を割り当ててから match API に送る。
 
 ### `POST /me/import/danime/match`
 
-- 入力: `{ works: [{ danimeWorkId, title, targetState }] }`（最大 500）
+- 入力: `{ works: [{ danimeWorkId, title, targetState }], registeredWorkIds? }`
+  （works は最大 500）
+- dアニメの冠+「」包みタイトル（`TVアニメ「X」` 等）は照合前に
+  `unwrapDanimeTitle` で外す（`劇場版`・`映画`・`OVA` 系の冠は Annict 側にも
+  付くため残す）。一般名詞のみ・1 文字の退化クエリ（`TVアニメ` だけ等）は
+  Annict に送らない。
 - Annict `searchWorks` は `titles: [String!]` が OR 部分一致なので、
   タイトルを 10 件チャンクで union 検索し（`searchAnnictWorksByTitles`）、
   各入力への帰属はローカルのスコアリングで行う。union の `first:50` 打ち切りで
-  候補を取りこぼした `none` だけ単発再検索（元タイトル→単純化タイトル）。
+  候補を取りこぼした `none` だけ単発再検索する。再検索語は
+  「元タイトル → 全角英数→半角 → 半角数字→全角 → 単純化タイトル」の順に試す
+  （`title_cont` が LIKE のため数字の全半角違いでヒットしないケースを救う）。
 - スコアリング（`lib/danime/titleNormalize.ts`）:
   NFKC 正規化 → 完全一致の単一候補のみ `exact`。それ以外は類似度 0.5 以上を
-  `candidates`、ゼロなら `none`。
+  `candidates`（最大 10 件）、ゼロなら `none`。劇場版・期数・番外編等の
+  メタ差分は類似度から減点し、別シーズン・別エディションが上位に来ないよう
+  にする。`registeredWorkIds`（クライアントの既存ライブラリ）が渡された場合、
+  入力が期数を明示していて登録済みの別シーズンは候補から除外する。
 - 出力: `{ results: [{ danimeWorkId, title, targetState, status, work, candidates }] }`
 
 ### `POST /me/watch-histories/bulk`

@@ -183,7 +183,9 @@ describe("dアニメインポート API", () => {
           method: "POST",
           headers: JSON_HEADERS,
           body: JSON.stringify({
-            works: [{ danimeWorkId: "1", title: "x", targetState: "WATCHED" }],
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+            ],
           }),
         },
         TEST_BINDINGS,

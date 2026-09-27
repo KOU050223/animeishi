@@ -51,9 +51,45 @@ describe("classifyWork", () => {
       work({ annictId: 3, title: "呪術廻戦" }),
     ]);
     expect(result.status).toBe("candidates");
-    // より近い（長い方の包含）候補が先頭
-    expect(result.candidates[0].annictWorkId).toBe(2);
-    expect(result.candidates.map((c) => c.annictWorkId)).not.toContain(3);
+    // 「特別編集版」は本編と別エディションのメタ差分として減点され、
+    // ベースタイトル一致の候補が先頭になる
+    expect(result.candidates[0].annictWorkId).toBe(1);
+    expect(result.candidates.map((c) => c.annictWorkId)).toEqual([1, 2]);
+  });
+
+  it("劇場版の入力では劇場版エントリが TV 版より上位になる", () => {
+    const result = classifyWork({ ...INPUT, title: "劇場版 SHIROBAKO" }, [
+      work({ annictId: 1, title: "SHIROBAKO" }),
+      work({ annictId: 2, title: "劇場版 SHIROBAKO" }),
+    ]);
+    expect(result.status).toBe("exact");
+    expect(result.work?.annictWorkId).toBe(2);
+  });
+
+  it("登録済みの別シーズンは、入力が期数を明示しているとき候補から除外する", () => {
+    const pool = [
+      work({ annictId: 1, title: "響け！ユーフォニアム" }),
+      work({ annictId: 2, title: "響け！ユーフォニアム2" }),
+    ];
+    const input = { ...INPUT, title: "響け！ユーフォニアム2" };
+    // 1期（id=1）が登録済み → 候補から落ち、2期だけが残る
+    const result = classifyWork(input, pool, new Set([1]));
+    expect(result.status).toBe("exact");
+    expect(result.work?.annictWorkId).toBe(2);
+  });
+
+  it("登録済みでも入力が期数を持たなければ除外しない", () => {
+    const result = classifyWork(
+      { ...INPUT, title: "響け！ユーフォニアム" },
+      [
+        work({ annictId: 1, title: "響け！ユーフォニアム" }),
+        work({ annictId: 2, title: "響け！ユーフォニアム2" }),
+      ],
+      new Set([1]),
+    );
+    // 1期は登録済みでも正規化一致するため exact のまま
+    expect(result.status).toBe("exact");
+    expect(result.work?.annictWorkId).toBe(1);
   });
 
   it("候補ゼロなら none", () => {
@@ -187,6 +223,91 @@ describe("matchDanimeWorks", () => {
     ]);
     expect(results).toHaveLength(2);
     expect(results[0]).toEqual(results[1]);
+    spy.mockRestore();
+  });
+
+  it("TVアニメ「X」形式のタイトルは冠を外して検索・照合する", async () => {
+    const spy = mockAnnictSearch((titles) =>
+      titles.flatMap((t) =>
+        t === "てっぺんっ!!!"
+          ? [work({ annictId: 1, title: "てっぺんっ!!!" })]
+          : [],
+      ),
+    );
+    const results = await matchDanimeWorks("tok", [
+      {
+        danimeWorkId: "1",
+        title: "TVアニメ「てっぺんっ!!!」",
+        targetState: "WATCHED",
+      },
+    ]);
+    expect(results[0].status).toBe("exact");
+    expect(results[0].work?.annictWorkId).toBe(1);
+    // レビュー画面には元タイトルを返す
+    expect(results[0].title).toBe("TVアニメ「てっぺんっ!!!」");
+    // 冠つきのまま・冠だけの退化クエリは Annict に送らない
+    const sent = spy.mock.calls.flatMap((c) => {
+      const body = JSON.parse((c[1] as RequestInit).body as string);
+      return body.variables?.titles ?? [];
+    });
+    expect(sent).not.toContain("TVアニメ");
+    expect(sent).not.toContain("TVアニメ「てっぺんっ!!!」");
+    spy.mockRestore();
+  });
+
+  it("劇場版「X」形式は冠を残してアンラップする（劇場版エントリに届く）", async () => {
+    const spy = mockAnnictSearch((titles) =>
+      titles.flatMap((t) =>
+        t === "劇場版 SHIROBAKO"
+          ? [
+              work({ annictId: 1, title: "SHIROBAKO" }),
+              work({ annictId: 2, title: "劇場版 SHIROBAKO" }),
+            ]
+          : [],
+      ),
+    );
+    const results = await matchDanimeWorks("tok", [
+      {
+        danimeWorkId: "1",
+        title: "劇場版「SHIROBAKO」",
+        targetState: "WATCHED",
+      },
+    ]);
+    expect(results[0].status).toBe("exact");
+    expect(results[0].work?.annictWorkId).toBe(2);
+    spy.mockRestore();
+  });
+
+  it("一般名詞だけの退化タイトルは Annict を叩かず none にする", async () => {
+    const spy = mockAnnictSearch(() => [
+      work({ annictId: 1, title: "炬燵猫（TVアニメ）" }),
+    ]);
+    const results = await matchDanimeWorks("tok", [
+      { danimeWorkId: "1", title: "TVアニメ", targetState: "WATCHED" },
+    ]);
+    expect(results[0].status).toBe("none");
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("全角数字のタイトルは半角バリアントの検索で拾う", async () => {
+    const spy = mockAnnictSearch((titles) =>
+      titles.flatMap((t) =>
+        // Annict 側は半角「3」表記で、dアニメ側は全角「３」
+        t === "響け！ユーフォニアム3"
+          ? [work({ annictId: 3, title: "響け！ユーフォニアム3" })]
+          : [],
+      ),
+    );
+    const results = await matchDanimeWorks("tok", [
+      {
+        danimeWorkId: "1",
+        title: "響け！ユーフォニアム３",
+        targetState: "WATCHED",
+      },
+    ]);
+    expect(results[0].status).toBe("exact");
+    expect(results[0].work?.annictWorkId).toBe(3);
     spy.mockRestore();
   });
 });

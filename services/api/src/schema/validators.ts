@@ -235,6 +235,10 @@ export const danimeMatchRequestSchema = z.object({
     .array(danimeMatchWorkSchema)
     .min(1)
     .max(500, "一度に照合できるのは500作品までです"),
+  // ユーザーの Annict ライブラリに登録済みの annictWorkId（任意）。
+  // 入力タイトルが期数を明示しているとき「登録済みの別シーズン」を候補から
+  // 外すためのヒントに使う。照合の絞り込み用途のみで、登録処理には使わない。
+  registeredWorkIds: z.array(z.number().int().positive()).max(5000).optional(),
 });
 
 export type DanimeMatchRequestInput = z.infer<typeof danimeMatchRequestSchema>;

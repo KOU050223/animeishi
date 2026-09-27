@@ -46,7 +46,15 @@ export function useDanimeMatch() {
   const { getToken } = useAuth();
 
   return useMutation({
-    mutationFn: async (lists: DanimeExtractedLists) => {
+    mutationFn: async ({
+      lists,
+      registeredWorkIds = [],
+    }: {
+      lists: DanimeExtractedLists;
+      // 登録済み Annict 作品 ID。照合時に「登録済みの別シーズン」を候補から
+      // 外すヒントとして API に渡す。
+      registeredWorkIds?: number[];
+    }) => {
       const annictHeader = await buildAnnictAuthHeader();
       const works = toMatchWorks(lists);
       if (works.length === 0) {
@@ -60,7 +68,12 @@ export function useDanimeMatch() {
       for (let i = 0; i < works.length; i += MATCH_CHUNK_SIZE) {
         const headers = await getAuthHeaders(getToken);
         const res = await apiClient.me["import"].danime.match.$post(
-          { json: { works: works.slice(i, i + MATCH_CHUNK_SIZE) } },
+          {
+            json: {
+              works: works.slice(i, i + MATCH_CHUNK_SIZE),
+              registeredWorkIds,
+            },
+          },
           { headers: { ...headers, ...annictHeader } },
         );
         if (!res.ok) {
