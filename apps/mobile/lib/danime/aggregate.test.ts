@@ -49,6 +49,22 @@ describe("toMatchWorks", () => {
     ]);
   });
 
+  it("タイトルが空白のみのカードは除外する（API スキーマで 400 になるため）", () => {
+    const works = toMatchWorks(
+      lists({
+        completed: [{ workId: "100", title: "作品A", partIds: [] }],
+        history: [
+          { workId: "200", title: "  ", partIds: ["201"] },
+          { workId: "300", title: "作品B", partIds: ["301"] },
+        ],
+      }),
+    );
+    expect(works).toEqual([
+      { danimeWorkId: "100", title: "作品A", targetState: "WATCHED" },
+      { danimeWorkId: "300", title: "作品B", targetState: "WATCHING" },
+    ]);
+  });
+
   it("疑似キーでも completed に同名が無ければ WATCHING として残す", () => {
     const works = toMatchWorks(
       lists({

@@ -34,6 +34,8 @@ export function toMatchWorks(
   );
 
   for (const w of lists.completed) {
+    // タイトルが空のカードは照合に使えない（API スキーマでも弾かれる）ので除外。
+    if (!w.title.trim()) continue;
     byKey.set(w.workId, {
       danimeWorkId: w.workId,
       title: w.title,
@@ -41,6 +43,7 @@ export function toMatchWorks(
     });
   }
   for (const w of lists.history) {
+    if (!w.title.trim()) continue;
     if (byKey.has(w.workId)) continue;
     // completed の同名作品は WATCHED で登録予定なので履歴側を弾く。
     if (completedTitles.has(normalize(w.title))) continue;

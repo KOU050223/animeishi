@@ -223,7 +223,9 @@ export const tierListSeasonParamSchema = z.object({ season: seasonSchema });
 // マイページ HTML から抽出し、話数単位の履歴を作品単位に集約済みのものを受け取る。
 // targetState はクライアントが決める（コンプリート → WATCHED、履歴のみ → WATCHING）。
 export const danimeMatchWorkSchema = z.object({
-  danimeWorkId: z.string().trim().min(1).max(32),
+  // workId が取れないカードはクライアント側で `title:<タイトル>` の疑似キーを
+  // 使うため、タイトル長 + プレフィックス分の余裕を持たせる。
+  danimeWorkId: z.string().trim().min(1).max(512),
   title: z.string().trim().min(1).max(500),
   targetState: z.enum(["WATCHED", "WATCHING"]),
 });

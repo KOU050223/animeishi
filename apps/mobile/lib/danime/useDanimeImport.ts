@@ -8,7 +8,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
 import { buildAnnictAuthHeader } from "@/lib/annict";
 import { toMatchWorks } from "@/lib/danime/aggregate";
-import type { DanimeExtractedLists } from "@/lib/danime/types";
+import type { DanimeExtractedLists, DanimeMatchItem } from "@/lib/danime/types";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
@@ -31,6 +31,9 @@ export type BulkRegisterResult = {
 /** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
 const BULK_CHUNK_SIZE = 50;
 
+/** match API の works 上限（API 側スキーマの上限と揃える）。 */
+const MATCH_CHUNK_SIZE = 500;
+
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
 ): Promise<{ Authorization: string }> {
@@ -46,13 +49,30 @@ export function useDanimeMatch() {
     mutationFn: async (lists: DanimeExtractedLists) => {
       const headers = await getAuthHeaders(getToken);
       const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.me["import"].danime.match.$post(
-        { json: { works: toMatchWorks(lists) } },
-        { headers: { ...headers, ...annictHeader } },
-      );
-      if (!res.ok) throw new Error("Annict とのマッチングに失敗しました");
-      const body = await res.json();
-      return body.results;
+      const works = toMatchWorks(lists);
+      if (works.length === 0) {
+        throw new Error("照合対象の作品がありません");
+      }
+
+      // API の works 上限（500）を超える履歴にも対応するためチャンク分割する。
+      const results: DanimeMatchItem[] = [];
+      for (let i = 0; i < works.length; i += MATCH_CHUNK_SIZE) {
+        const res = await apiClient.me["import"].danime.match.$post(
+          { json: { works: works.slice(i, i + MATCH_CHUNK_SIZE) } },
+          { headers: { ...headers, ...annictHeader } },
+        );
+        if (!res.ok) {
+          // zValidator 等のエラー詳細を拾って原因を切り分けやすくする。
+          const detail = await res.text().catch(() => "");
+          throw new Error(
+            `Annict とのマッチングに失敗しました（HTTP ${res.status}）` +
+              (detail ? `: ${detail.slice(0, 200)}` : ""),
+          );
+        }
+        const body = await res.json();
+        results.push(...body.results);
+      }
+      return results;
     },
   });
 }
