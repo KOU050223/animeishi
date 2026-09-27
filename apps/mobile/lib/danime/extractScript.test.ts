@@ -10,7 +10,10 @@ import {
   DANIME_EXTRACT_ERR,
   DANIME_EXTRACT_OK,
   DANIME_EXTRACT_SCRIPT,
+  DANIME_POSTBACK_ACK,
+  DANIME_POSTBACK_DATA,
   buildDanimeBookmarklet,
+  danimeExtractScript,
 } from "@/lib/danime/extractScript";
 
 type PostMessage = { type: string; payload?: unknown; message?: string };
@@ -278,9 +281,93 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
   });
 });
 
+describe("ブックマークレット経路（ReactNativeWebView なし）", () => {
+  const APP_ORIGIN = "https://animeishi.example";
+  let appWin: { postMessage: jest.Mock; close: jest.Mock };
+  let alertMock: jest.Mock;
+
+  beforeEach(() => {
+    // WebView 経路ではないので ReactNativeWebView を消し、window.open の
+    // 返り値をアプリ側タブのスタブにする。
+    delete (window as unknown as { ReactNativeWebView?: unknown })
+      .ReactNativeWebView;
+    appWin = { postMessage: jest.fn(), close: jest.fn() };
+    jest
+      .spyOn(window, "open")
+      .mockImplementation(() => appWin as unknown as Window);
+    alertMock = jest.fn();
+    window.alert = alertMock;
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(
+          pageHtml({ cards: [{ workId: "101", title: "作品A" }] }),
+        );
+      }
+      return htmlResponse(
+        pageHtml({ cards: [{ workId: "201", title: "作品B" }] }),
+      );
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("Animeishi 受信タブを開き postMessage で抽出結果を転送する", async () => {
+    await eval(danimeExtractScript(APP_ORIGIN));
+
+    // 受信タブは抽出前に同期で開かれる（ポップアップブロック対策）。
+    expect(window.open).toHaveBeenCalledWith(
+      `${APP_ORIGIN}/danime-import?recv=1`,
+      "_blank",
+    );
+    // 結果は ReactNativeWebView ではなく受信タブへの postMessage で送る。
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(appWin.postMessage).toHaveBeenCalled();
+    const [msg, origin] = appWin.postMessage.mock.calls[0] as [
+      { type: string; payload: { completed: { workId: string }[] } },
+      string,
+    ];
+    expect(origin).toBe(APP_ORIGIN);
+    expect(msg.type).toBe(DANIME_POSTBACK_DATA);
+    expect(msg.payload.completed[0].workId).toBe("101");
+  });
+
+  it("ack を受け取ると転送完了を通知する", async () => {
+    await eval(danimeExtractScript(APP_ORIGIN));
+    expect(alertMock).not.toHaveBeenCalled();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: DANIME_POSTBACK_ACK },
+        source: appWin as unknown as Window,
+        origin: APP_ORIGIN,
+      }),
+    );
+    expect(alertMock).toHaveBeenCalledWith(
+      expect.stringContaining("転送しました"),
+    );
+  });
+
+  it("抽出に失敗した場合は開いた受信タブを閉じてエラーを通知する", async () => {
+    // 未ログイン判定は res.url に /animestore/auth を含むこと。
+    fetchMock.mockImplementation(async () =>
+      htmlResponse(
+        "<html><body>login</body></html>",
+        "https://animestore.docomo.ne.jp/animestore/auth",
+      ),
+    );
+
+    await eval(danimeExtractScript(APP_ORIGIN));
+    expect(appWin.close).toHaveBeenCalled();
+    expect(alertMock).toHaveBeenCalledWith(expect.stringContaining("ログイン"));
+  });
+});
+
 describe("buildDanimeBookmarklet", () => {
   it("javascript: URL で、percent-decode 後に抽出コアとして実行できる", async () => {
-    const bm = buildDanimeBookmarklet();
+    const bm = buildDanimeBookmarklet("https://animeishi.example");
     expect(bm.startsWith("javascript:")).toBe(true);
 
     // ブラウザは javascript: URL を実行前に percent-decode する。
@@ -289,6 +376,8 @@ describe("buildDanimeBookmarklet", () => {
     const code = decodeURIComponent(bm.slice("javascript:".length));
     expect(code).toContain("mpa_hst_pc");
     expect(code).toContain("mpa_cmp_pc");
+    // 転送先オリジンが埋め込まれている。
+    expect(code).toContain("https://animeishi.example");
 
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes("mpa_cmp_pc")) {

@@ -43,15 +43,26 @@ dアニメストアの視聴履歴・コンプリート作品を取り込み、�
 
 - **native**: `injectJavaScript` で animestore ドメイン上に注入。
   `window.ReactNativeWebView.postMessage` で結果を受領。
-- **web**: ブックマークレット（`buildDanimeBookmarklet()`）。ReactNativeWebView が
-  無い環境では結果 JSON をクリップボードへコピー → 画面に貼り付け。
+- **web**: ブックマークレット（`buildDanimeBookmarklet(appOrigin)`）。
+  ReactNativeWebView が無い環境では、抽出完了前に Animeishi の受信タブ
+  （`/danime-import?recv=1`）を `window.open` で同期オープンし
+  （ポップアップブロック対策）、抽出結果を `postMessage` で転送する。
+  受信側は animestore オリジンからの `animeishi:danime-data` のみ受理し、
+  `animeishi:danime-ack` を返すまで送信側が 500ms 間隔で再送。
+  15 秒で ack が来ない・タブが開けない場合はクリップボード貼り付けに
+  フォールバックする。
+
+スクリプト冒頭で `location.hostname` を検査し、dアニメ以外のページで
+実行された場合は `wrong_page` を即返す（cross-origin fetch の CORS 失敗を
+分かりやすい案内に変換するため）。
 
 スクリプトは同一オリジンの `fetch`（セッション Cookie 付き）+ `DOMParser` で
 全ページを取得するため、WebView 自体の画面遷移は不要。認証情報は
 アプリ・Animeishi API のどちらにも送信されない。
 
 エラーコード: `not_logged_in`（auth リダイレクト検出）/ `empty_result`
-（構造変更疑い）/ `HTTP xxx`。
+（構造変更疑い）/ `wrong_page`（dアニメ以外のページで実行）/ `network_error`
+（fetch reject）/ `HTTP xxx`。
 
 ### 集約
 
@@ -102,4 +113,5 @@ completed 優先で targetState を割り当ててから match API に送る。
 - dアニメ側の HTML 構造変更で抽出が壊れ得る（`empty_result` で検知して通知）。
 - docomo ログインが WebView で弾かれる場合は実機検証が必要。
 - `none` 作品の手動検索紐付けは未実装（別途検討）。
-- Web の貼り付け UX は簡易版。ブラウザ拡張経路などは別 issue 候補。
+- Web は初回のみブックマーク登録が必要（ブラウザの仕組み上ワンクリック化の
+  下限）。ブラウザ拡張経路は別 issue 候補。

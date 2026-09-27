@@ -4,7 +4,9 @@
 //   - ネイティブ: react-native-webview の injectJavaScript で animestore ドメイン上に注入。
 //     結果は window.ReactNativeWebView.postMessage でアプリへ返る。
 //   - Web: ブックマークレット（javascript: URL）としてブラウザ上で実行。
-//     ReactNativeWebView が無いため、結果はクリップボードへコピーする。
+//     ReactNativeWebView が無いため、抽出後に Animeishi の受信タブを window.open で
+//     開き、postMessage で結果を転送する（貼り付け不要）。転送に失敗した場合のみ
+//     クリップボードへフォールバックする。
 // どちらも「ユーザーのログイン済みセッション Cookie で same-origin fetch できる」
 // ブラウザコンテキストを前提とし、認証情報は一切アプリ側に来ない。
 //
@@ -26,38 +28,56 @@ export const DANIME_HISTORY_URL =
 export const DANIME_EXTRACT_OK = "animeishi:danime-extract";
 export const DANIME_EXTRACT_ERR = "animeishi:danime-extract-error";
 
-// 実行本体。async IIFE でそのまま評価できる形。
-// テストでもこの文字列を eval して実行するため、モジュール import や
-// モダン構文（optional chaining 等）は使わず ES2017 程度に留める。
-export const DANIME_EXTRACT_SCRIPT = String.raw`
+// ブックマークレット → Animeishi 受信タブ間の postMessage 用 type 値。
+export const DANIME_POSTBACK_DATA = "animeishi:danime-data";
+export const DANIME_POSTBACK_ACK = "animeishi:danime-ack";
+
+// Animeishi 受信ページが payload を受け取る postMessage 送信元オリジン。
+export const DANIME_ORIGIN = "https://animestore.docomo.ne.jp";
+
+/**
+ * 実行本体（async IIFE の文字列）。テストでもこの文字列を eval して実行するため、
+ * モジュール import やモダン構文（optional chaining 等）は使わず ES2017 程度に留める。
+ *
+ * @param appOrigin ブックマークレット経路で結果を postMessage する Animeishi 側
+ *   オリジン（例: location.origin）。ネイティブ注入用は空文字（転送を無効化）。
+ */
+export function danimeExtractScript(appOrigin: string): string {
+  return String.raw`
 (async function () {
   var BASE = "https://animestore.docomo.ne.jp/animestore/";
   var MSG_OK = "${DANIME_EXTRACT_OK}";
   var MSG_ERR = "${DANIME_EXTRACT_ERR}";
+  var MSG_DATA = "${DANIME_POSTBACK_DATA}";
+  var MSG_ACK = "${DANIME_POSTBACK_ACK}";
+  var APP_ORIGIN = ${JSON.stringify(appOrigin)};
 
-  function report(obj) {
-    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-      return;
+  // ブックマークレット経路では、抽出結果を受け取る Animeishi のタブを
+  // ユーザーのクリックコンテキストのうちに同期で開く（非同期処理の後に
+  // window.open するとポップアップブロックされるため）。
+  var appWin = null;
+  if (!window.ReactNativeWebView && APP_ORIGIN) {
+    try {
+      appWin = window.open(APP_ORIGIN + "/danime-import?recv=1", "_blank");
+    } catch (e) {
+      appWin = null;
     }
-    // ブックマークレット経路: postMessage の相手がいないのでクリップボードへ。
-    if (obj.type === MSG_ERR) {
-      var hints = {
-        wrong_page:
-          "dアニメストアのページ（animestore.docomo.ne.jp）を開いた状態で実行してください。",
-        not_logged_in: "dアニメストアにログインしてから実行してください。",
-        empty_result:
-          "履歴データが取得できませんでした。履歴が空か、ページ構造が変更された可能性があります。",
-        network_error:
-          "通信に失敗しました。ネットワーク接続を確認してから実行してください。",
-      };
-      alert(
-        "dアニメ履歴の取得に失敗しました。\n" +
-          (hints[obj.message] || obj.message),
-      );
-      return;
-    }
-    var text = JSON.stringify(obj.payload);
+  }
+
+  function errorHint(code) {
+    var hints = {
+      wrong_page:
+        "dアニメストアのページ（animestore.docomo.ne.jp）を開いた状態で実行してください。",
+      not_logged_in: "dアニメストアにログインしてから実行してください。",
+      empty_result:
+        "履歴データが取得できませんでした。履歴が空か、ページ構造が変更された可能性があります。",
+      network_error:
+        "通信に失敗しました。ネットワーク接続を確認してから実行してください。",
+    };
+    return "dアニメ履歴の取得に失敗しました。\n" + (hints[code] || code);
+  }
+
+  function copyToClipboard(text) {
     var copying =
       navigator.clipboard && navigator.clipboard.writeText
         ? navigator.clipboard.writeText(text)
@@ -70,6 +90,57 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
         window.prompt("以下をコピーしてアプリの貼り付け欄に貼ってください", text);
       },
     );
+  }
+
+  // 抽出結果を開いた Animeishi タブへ postMessage で転送する。
+  // 受信側のロード完了を待てないため ack が来るまで 500ms 間隔で再送し、
+  // 15 秒で諦めてクリップボードにフォールバックする。
+  function deliverToApp(payload) {
+    var acked = false;
+    var send = function () {
+      try {
+        appWin.postMessage({ type: MSG_DATA, payload: payload }, APP_ORIGIN);
+      } catch (e) {}
+    };
+    send();
+    var timer = setInterval(send, 500);
+    window.addEventListener("message", function onAck(e) {
+      if (e.source !== appWin || e.origin !== APP_ORIGIN) return;
+      if (!e.data || e.data.type !== MSG_ACK) return;
+      acked = true;
+      clearInterval(timer);
+      alert(
+        "抽出結果を Animeishi に転送しました。開いたタブでレビューを続けてください。",
+      );
+    });
+    setTimeout(function () {
+      if (acked) return;
+      clearInterval(timer);
+      copyToClipboard(JSON.stringify(payload));
+    }, 15000);
+  }
+
+  function report(obj) {
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+      return;
+    }
+    // ブックマークレット経路: postMessage の相手がいないので転送/クリップボードへ。
+    if (obj.type === MSG_ERR) {
+      // 抽出に失敗した場合、受信待ちのまま残る受信タブは閉じる。
+      if (appWin) {
+        try {
+          appWin.close();
+        } catch (e) {}
+      }
+      alert(errorHint(obj.message));
+      return;
+    }
+    if (appWin && APP_ORIGIN) {
+      deliverToApp(obj.payload);
+      return;
+    }
+    copyToClipboard(JSON.stringify(obj.payload));
   }
 
   function parseDoc(html) {
@@ -222,6 +293,11 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
   // docomo ログイン画面）で実行すると same-origin でない fetch が CORS で
   // 失敗するため、先に分かりやすいエラーを返す。
   if (location.hostname !== "animestore.docomo.ne.jp") {
+    if (appWin) {
+      try {
+        appWin.close();
+      } catch (e) {}
+    }
     report({ type: MSG_ERR, message: "wrong_page" });
     return;
   }
@@ -246,6 +322,13 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
   }
 })();
 `;
+}
+
+/**
+ * ネイティブ WebView 注入用のスクリプト。ReactNativeWebView.postMessage に
+ * 結果が返るため転送先オリジンは不要（空文字で window.open も起きない）。
+ */
+export const DANIME_EXTRACT_SCRIPT = danimeExtractScript("");
 
 /**
  * Web 版でユーザーにブックマーク登録させるための javascript: URL。
@@ -255,7 +338,10 @@ export const DANIME_EXTRACT_SCRIPT = String.raw`
  *   - 改行が除去され // 行コメントが後続コードを飲み込み構文エラーになる
  *   - 正規表現内の "#" が URL フラグメントとして後半を切り捨てる
  * という 2 つの破壊を受けるため、エンコード必須。
+ *
+ * @param appOrigin 抽出結果の転送先となる Animeishi Web のオリジン
+ *   （呼び出し側で location.origin を渡す。デプロイ先で変わるため埋め込み必須）。
  */
-export function buildDanimeBookmarklet(): string {
-  return `javascript:${encodeURIComponent(DANIME_EXTRACT_SCRIPT)}`;
+export function buildDanimeBookmarklet(appOrigin: string): string {
+  return `javascript:${encodeURIComponent(danimeExtractScript(appOrigin))}`;
 }
