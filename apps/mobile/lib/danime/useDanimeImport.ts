@@ -47,7 +47,6 @@ export function useDanimeMatch() {
 
   return useMutation({
     mutationFn: async (lists: DanimeExtractedLists) => {
-      const headers = await getAuthHeaders(getToken);
       const annictHeader = await buildAnnictAuthHeader();
       const works = toMatchWorks(lists);
       if (works.length === 0) {
@@ -55,8 +54,11 @@ export function useDanimeMatch() {
       }
 
       // API の works 上限（500）を超える履歴にも対応するためチャンク分割する。
+      // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
+      // 期限切れにならないようチャンクごとに取得し直す。
       const results: DanimeMatchItem[] = [];
       for (let i = 0; i < works.length; i += MATCH_CHUNK_SIZE) {
+        const headers = await getAuthHeaders(getToken);
         const res = await apiClient.me["import"].danime.match.$post(
           { json: { works: works.slice(i, i + MATCH_CHUNK_SIZE) } },
           { headers: { ...headers, ...annictHeader } },
@@ -89,7 +91,6 @@ export function useBulkRegisterWatchHistory() {
       entries: BulkRegisterEntry[];
       onProgress?: (done: number, total: number) => void;
     }): Promise<BulkRegisterResult> => {
-      const headers = await getAuthHeaders(getToken);
       const annictHeader = await buildAnnictAuthHeader();
 
       const results: BulkRegisterResult["results"] = [];
@@ -100,6 +101,8 @@ export function useBulkRegisterWatchHistory() {
         const chunk = entries.slice(i, i + BULK_CHUNK_SIZE);
         let body;
         try {
+          // Clerk トークンは短命なのでチャンクごとに取得し直す。
+          const headers = await getAuthHeaders(getToken);
           const res = await apiClient.me["watch-histories"].bulk.$post(
             { json: { entries: chunk } },
             { headers: { ...headers, ...annictHeader } },
