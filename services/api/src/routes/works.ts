@@ -14,7 +14,10 @@ import {
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
-import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
+import {
+  isPlaceholderImageUrl,
+  resolveImagesViaAnilist,
+} from "@/lib/annict/imageFallback";
 import {
   enqueueImageFallbackJobs,
   type ImageFallbackJob,
@@ -66,8 +69,8 @@ const works = new Hono<AuthVariables>()
         // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
         // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
         // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
-        // 未解決 + Annict 画像が placeholder な作品は Queue に積み、Consumer で
-        // 外部 API 解決する。HTTP レスポンス経路では外部補完を実行しない。
+        // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる AniList
+        // バッチだけここで同期解決し、取れなかった分を Queue（Jikan 含む）に積む。
         const db = createDb(getBindings(c).DB);
         const adb = authorizedDb(db, c.var.clerkUserId);
         const enriched = await attachResolvedImages(c, adb, result.works);
@@ -89,8 +92,9 @@ type SearchWorkWithResolved = AnnictLibraryEntry & {
 /**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
- * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は Queue で
- * AniList / Jikan 解決を依頼する。
+ * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は、まず AniList
+ * バッチで同期解決を試みて（issue #108: Queue だけだと初回表示に間に合わない）、
+ * 取れなかった分だけ Queue に積んで Jikan を含めた非同期解決に回す。
  */
 async function attachResolvedImages(
   c: Context,
@@ -125,6 +129,7 @@ async function attachResolvedImages(
     // DB 再確認後に update できるよう、補完対象の作品メタだけ先に upsert する。
     const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
     const now = new Date();
+    const upsertFailedIds = new Set<number>();
     for (const t of fallbackTargets) {
       const w = worksById.get(t.annictWorkId);
       if (!w) continue;
@@ -142,6 +147,7 @@ async function attachResolvedImages(
           updatedAt: now,
         });
       } catch (err) {
+        upsertFailedIds.add(t.annictWorkId);
         console.error(
           JSON.stringify({
             level: "warn",
@@ -152,9 +158,65 @@ async function attachResolvedImages(
         );
       }
     }
+    // 初回表示で大半の画像が出るよう、AniList バッチによる同期解決をここで行う。
+    // Queue consumer は 1 メッセージずつ逐次処理（max_concurrency=1）するため、
+    // 全件の解決が終わるまで数十秒かかり初回表示に間に合わなかった（issue #108）。
+    // AniList は 20 件/リクエストでまとめて取れるので応答経路に載せても軽い。
+    // 同期解決そのものが失敗しても検索は壊さない — 従来通り全件 Queue に回す。
+    let pendingTargets = fallbackTargets;
+    try {
+      const resolved = await resolveImagesViaAnilist(fallbackTargets);
+      const resolvedById = new Map(resolved.map((r) => [r.annictWorkId, r]));
+      const persistedIds = new Set<number>();
+      const resolvedAt = new Date();
+      for (const r of resolved) {
+        // 作品行の upsert に失敗したものは update 先の行が無いのでスキップする。
+        // updateResolvedImage は対象行が無くても例外にならず no-op になるため、
+        // ここで成功扱いにすると永続化されないまま Queue からも外れてしまう。
+        if (upsertFailedIds.has(r.annictWorkId)) continue;
+        try {
+          await adb.updateResolvedImage(r.annictWorkId, {
+            resolvedImageUrl: r.resolvedImageUrl,
+            imageSource: r.imageSource,
+            resolvedAt,
+          });
+          persistedIds.add(r.annictWorkId);
+        } catch (err) {
+          console.error(
+            JSON.stringify({
+              level: "warn",
+              event: "image_fallback_persist_failed",
+              annictWorkId: r.annictWorkId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+      }
+      // 解決した URL は永続化の成否に関わらず今回のレスポンスには載せる
+      // （保存に失敗しても表示だけは改善する）。
+      for (const w of enriched) {
+        const r = resolvedById.get(w.annictWorkId);
+        if (r?.resolvedImageUrl) w.resolvedImageUrl = r.resolvedImageUrl;
+      }
+      // AniList で取れなかった分と、永続化できなかった分だけを Queue に積み、
+      // Jikan リトライ・再解決に回す。
+      pendingTargets = fallbackTargets.filter(
+        (t) => !persistedIds.has(t.annictWorkId),
+      );
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: "warn",
+          event: "image_fallback_inline_resolve_failed",
+          count: fallbackTargets.length,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+
     await enqueueImageFallbackJobs(
       getBindings(c).IMAGE_FALLBACK_QUEUE,
-      fallbackTargets,
+      pendingTargets,
       "search",
     );
   }

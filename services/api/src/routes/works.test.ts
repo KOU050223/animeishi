@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
+import { createDb } from "@/db/client";
 import { works } from "@/routes/works";
 
 vi.mock("@clerk/hono", () => ({
@@ -17,6 +18,8 @@ const USER_ID = "user_testworks001";
 
 // Annict searchWorks（global fetch）をモックする。
 // nodes に渡した作品をそのまま searchWorks の結果として返す。
+// /works/search は補完対象の画像を AniList に同期問い合わせするため、
+// URL で振り分けて graphql.anilist.co には anilistData を返す。
 // リクエスト body（variables）を検証したいテスト向けに fetch の spy を返す。
 function mockSearchWorks(
   nodes: {
@@ -29,38 +32,59 @@ function mockSearchWorks(
     hasNextPage: false,
     endCursor: null,
   },
+  anilistData: Record<
+    string,
+    {
+      coverImage?: {
+        extraLarge?: string | null;
+        large?: string | null;
+        medium?: string | null;
+      } | null;
+    } | null
+  > = {},
 ): ReturnType<typeof vi.spyOn> {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        data: {
-          searchWorks: {
-            pageInfo,
-            nodes: nodes.map((n) => ({
-              id: `node-${n.annictId}`,
-              annictId: n.annictId,
-              title: "title" in n ? n.title : `作品${n.annictId}`,
-              titleKana: null,
-              titleEn: null,
-              seasonName: null,
-              seasonYear: null,
-              malAnimeId: n.malAnimeId ?? null,
-              image: {
-                internalUrl: null,
-                recommendedImageUrl: n.recommendedImageUrl ?? null,
-                facebookOgImageUrl: null,
-                twitterBiggerAvatarUrl: null,
-                twitterAvatarUrl: null,
-                twitterNormalAvatarUrl: null,
-                twitterMiniAvatarUrl: null,
-              },
-            })),
-          },
+  const jsonResponse = (data: unknown) =>
+    new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    if (url === "https://graphql.anilist.co") {
+      return jsonResponse({ data: anilistData });
+    }
+    return jsonResponse({
+      data: {
+        searchWorks: {
+          pageInfo,
+          nodes: nodes.map((n) => ({
+            id: `node-${n.annictId}`,
+            annictId: n.annictId,
+            title: "title" in n ? n.title : `作品${n.annictId}`,
+            titleKana: null,
+            titleEn: null,
+            seasonName: null,
+            seasonYear: null,
+            malAnimeId: n.malAnimeId ?? null,
+            image: {
+              internalUrl: null,
+              recommendedImageUrl: n.recommendedImageUrl ?? null,
+              facebookOgImageUrl: null,
+              twitterBiggerAvatarUrl: null,
+              twitterAvatarUrl: null,
+              twitterNormalAvatarUrl: null,
+              twitterMiniAvatarUrl: null,
+            },
+          })),
         },
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ),
-  );
+      },
+    });
+  });
 }
 
 const ANNICT_HEADER = { "X-Annict-Token": "tok_test" };
@@ -271,15 +295,23 @@ describe("作品検索 API", () => {
       expect(body.works).toHaveLength(0);
     });
 
-    it("GET /works/search: 未解決の補完対象を Queue に enqueue し、外部補完は直接実行しない", async () => {
-      const fetchMock = mockSearchWorks([
+    it("GET /works/search: AniList で解決できた画像は同期で resolvedImageUrl に載せて返す", async () => {
+      mockSearchWorks(
+        [
+          {
+            annictId: 777,
+            title: "HTTP 画像作品",
+            malAnimeId: "1234",
+            recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          },
+        ],
+        { hasNextPage: false, endCursor: null },
         {
-          annictId: 777,
-          title: "HTTP 画像作品",
-          malAnimeId: "1234",
-          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          m1234: {
+            coverImage: { extraLarge: "https://s4.anilist.co/1234.jpg" },
+          },
         },
-      ]);
+      );
       const sendBatch = vi.fn().mockResolvedValue(undefined);
       const app = buildApp();
 
@@ -290,27 +322,89 @@ describe("作品検索 API", () => {
       );
 
       expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { annictWorkId: number; resolvedImageUrl: string | null }[];
+      };
+      // 初回レスポンスで解決済み URL が返る（Queue 待ちにならない）
+      expect(body.works[0].resolvedImageUrl).toBe(
+        "https://s4.anilist.co/1234.jpg",
+      );
+      // D1 のキャッシュにも保存される
+      const row = await createDb(env.DB).query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 777),
+      });
+      expect(row?.resolvedImageUrl).toBe("https://s4.anilist.co/1234.jpg");
+      expect(row?.imageSource).toBe("anilist");
+      // 解決済みなので Queue には積まない
+      expect(sendBatch).not.toHaveBeenCalled();
+    });
+
+    it("GET /works/search: AniList で取れなかった補完対象だけを Queue に enqueue する", async () => {
+      mockSearchWorks(
+        [
+          {
+            annictId: 777,
+            title: "HTTP 画像作品",
+            malAnimeId: "1234",
+            recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          },
+          {
+            annictId: 778,
+            title: "AniList に無い作品",
+            malAnimeId: "9999",
+            recommendedImageUrl: null,
+          },
+        ],
+        { hasNextPage: false, endCursor: null },
+        {
+          m1234: {
+            coverImage: { extraLarge: "https://s4.anilist.co/1234.jpg" },
+          },
+          m9999: null,
+        },
+      );
+      const sendBatch = vi.fn().mockResolvedValue(undefined);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=http",
+        { method: "GET", headers: ANNICT_HEADER },
+        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+      );
+
+      expect(res.status).toBe(200);
+      // AniList miss（9999）だけが Queue に積まれ、ヒット（1234）は積まれない
       expect(sendBatch).toHaveBeenCalledWith([
         {
           body: {
-            annictWorkId: 777,
-            malAnimeId: 1234,
+            annictWorkId: 778,
+            malAnimeId: 9999,
             reason: "search",
           },
         },
       ]);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスと enqueue は継続する", async () => {
-      mockSearchWorks([
+      // title null → annict_works への upsert が notNull 制約で失敗する。
+      // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」
+      // 経路を検証する。
+      mockSearchWorks(
+        [
+          {
+            annictId: 778,
+            title: null,
+            malAnimeId: "1235",
+            recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          },
+        ],
+        { hasNextPage: false, endCursor: null },
         {
-          annictId: 778,
-          title: null,
-          malAnimeId: "1235",
-          recommendedImageUrl: "http://images.example.invalid/poster.jpg",
+          m1235: {
+            coverImage: { extraLarge: "https://s4.anilist.co/1235.jpg" },
+          },
         },
-      ]);
+      );
       const sendBatch = vi.fn().mockResolvedValue(undefined);
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const app = buildApp();
@@ -322,6 +416,14 @@ describe("作品検索 API", () => {
       );
 
       expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { resolvedImageUrl: string | null }[];
+      };
+      // 永続化は失敗するが、解決できた URL はレスポンスには載せる
+      expect(body.works[0].resolvedImageUrl).toBe(
+        "https://s4.anilist.co/1235.jpg",
+      );
+      // 永続化できていないので解決済み扱いにはせず Queue に残す
       expect(sendBatch).toHaveBeenCalledWith([
         {
           body: {

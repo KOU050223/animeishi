@@ -96,24 +96,12 @@ export async function resolveImagesForWorks(
 ): Promise<ImageFallbackResult[]> {
   if (inputs.length === 0) return [];
 
-  // AniList 呼び出しを最小化するため malAnimeId ごとに dedupe した集合で解く。
-  const uniqueMalIds = Array.from(
-    new Set(inputs.map((i) => i.malAnimeId)),
-  ).filter((id) => Number.isSafeInteger(id) && id > 0);
+  const uniqueMalIds = uniqueMalAnimeIds(inputs);
 
   // 供給元別に「解決できた MAL ID → URL」の Map を持つ。両方失敗した MAL ID は
   // どの Map にも入らず、最終的に 'none'（ネガキャッシュ）扱いになる。
-  const anilistHits = new Map<number, string>();
+  const anilistHits = await fetchAnilistHits(uniqueMalIds, fetchImpl);
   const jikanHits = new Map<number, string>();
-
-  // --- AniList バッチ ---
-  for (let i = 0; i < uniqueMalIds.length; i += ANILIST_BATCH_SIZE) {
-    const chunk = uniqueMalIds.slice(i, i + ANILIST_BATCH_SIZE);
-    const chunkResult = await fetchAnilistBatch(chunk, fetchImpl);
-    for (const [malId, url] of chunkResult) {
-      anilistHits.set(malId, url);
-    }
-  }
 
   // --- Jikan フォールバック（AniList で取れなかった MAL ID のみ） ---
   // 429（Too Many Requests）を返した MAL ID は「未解決・再試行可」なので
@@ -170,6 +158,75 @@ export async function resolveImagesForWorks(
     });
   }
   return out;
+}
+
+/**
+ * AniList のバッチ解決だけを行う軽量版（Jikan フォールバックは実行しない）。
+ *
+ * /works/search のレスポンス経路で同期的に呼ぶためのもの。Queue consumer は
+ * 1 メッセージずつ逐次処理するため全件の解決に時間がかかり、初回表示では
+ * 大半の作品がフォールバック表示になっていた（issue #108）。AniList は
+ * 20 件/リクエストの alias バッチでまとめて取れるため、レスポンスを待たせる
+ * 経路でも許容できるコストで同期解決できる。直列呼び出しになる Jikan 側は
+ * 遅いのでここでは叩かず、miss 分は呼び出し側が Queue に積んで非同期に回す。
+ *
+ * 返り値は「解決できたものだけ」。AniList miss は結果に含まれない
+ * （'none' のネガキャッシュはしない — Jikan で取れる可能性が残るため）。
+ */
+export async function resolveImagesViaAnilist(
+  inputs: ImageFallbackInput[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<ImageFallbackResult[]> {
+  if (inputs.length === 0) return [];
+
+  const hits = await fetchAnilistHits(uniqueMalAnimeIds(inputs), fetchImpl);
+  return inputs.flatMap((input) => {
+    const resolvedImageUrl = hits.get(input.malAnimeId);
+    return resolvedImageUrl
+      ? [
+          {
+            annictWorkId: input.annictWorkId,
+            malAnimeId: input.malAnimeId,
+            resolvedImageUrl,
+            imageSource: "anilist" as const,
+          },
+        ]
+      : [];
+  });
+}
+
+/** 入力から AniList 問い合わせ用に dedupe した MAL ID 一覧を作る。 */
+function uniqueMalAnimeIds(inputs: ImageFallbackInput[]): number[] {
+  return Array.from(new Set(inputs.map((i) => i.malAnimeId))).filter(
+    (id) => Number.isSafeInteger(id) && id > 0,
+  );
+}
+
+/**
+ * MAL ID 群を AniList の alias バッチでまとめて解決し、
+ * 「解決できた MAL ID → URL」の Map を返す。失敗・miss は Map に入らない。
+ * チャンクは並列に投げる（AniList のレート制限は 90 req/min と余裕がある一方、
+ * 検索レスポンス経路では直列だとレイテンシに直結するため）。
+ */
+async function fetchAnilistHits(
+  malIds: number[],
+  fetchImpl: typeof fetch,
+): Promise<Map<number, string>> {
+  const chunks: number[][] = [];
+  for (let i = 0; i < malIds.length; i += ANILIST_BATCH_SIZE) {
+    chunks.push(malIds.slice(i, i + ANILIST_BATCH_SIZE));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) => fetchAnilistBatch(chunk, fetchImpl)),
+  );
+
+  const hits = new Map<number, string>();
+  for (const chunkResult of results) {
+    for (const [malId, url] of chunkResult) {
+      hits.set(malId, url);
+    }
+  }
+  return hits;
 }
 
 function sleep(ms: number): Promise<void> {
