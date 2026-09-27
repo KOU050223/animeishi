@@ -98,6 +98,19 @@ tasks:
       - pnpm wrangler d1 migrations list animeishi-db --remote --env production
       - pnpm wrangler d1 migrations apply animeishi-db --remote --env production
 
+  db:migrate:preview:list:
+    desc: プレビュー D1 の未適用マイグレーションを確認（適用はしない）
+    dir: services/api
+    cmds:
+      - pnpm wrangler d1 migrations list animeishi-db-preview --remote --env preview
+
+  db:migrate:preview:
+    desc: プレビュー D1 (animeishi-db-preview) にマイグレーションを適用
+    dir: services/api
+    cmds:
+      - pnpm wrangler d1 migrations list animeishi-db-preview --remote --env preview
+      - pnpm wrangler d1 migrations apply animeishi-db-preview --remote --env preview
+
   dev:api:scheduled:
     desc: Cron バッチを手動トリガーできる状態で API を起動 (wrangler dev --test-scheduled)
     dir: services/api

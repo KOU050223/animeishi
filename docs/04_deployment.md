@@ -2,14 +2,15 @@
 
 API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エクスポート）を Cloudflare Workers にデプロイする手順と、必要な環境変数の登録方法をまとめる。
 
-両アプリとも `main` への push で GitHub Actions が自動デプロイする（[`deploy-api.yml`](../.github/workflows/deploy-api.yml) / [`deploy-web.yml`](../.github/workflows/deploy-web.yml)）。Web フロントは PR ごとのプレビューデプロイも行う（[`preview-web.yml`](../.github/workflows/preview-web.yml)）。手動デプロイも可能。
+両アプリとも `main` への push で GitHub Actions が自動デプロイする（[`deploy-api.yml`](../.github/workflows/deploy-api.yml) / [`deploy-web.yml`](../.github/workflows/deploy-web.yml)）。Web フロントと API は PR ごとのプレビューデプロイも行う（[`preview-web.yml`](../.github/workflows/preview-web.yml) / [`preview-api.yml`](../.github/workflows/preview-api.yml)）。手動デプロイも可能。
 
 ## 構成概要
 
 | アプリ | Worker 名 | デプロイ内容 | 設定ファイル |
 | --- | --- | --- | --- |
-| API | `animeishi-api` | Hono のサーバコード（D1 / R2 バインディング） | [`services/api/wrangler.toml`](../services/api/wrangler.toml) |
-| Web | `animeishi-web` | Expo Router の web エクスポート（SPA 静的アセット） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) |
+| API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 / Queue バインディング） | [`services/api/wrangler.toml`](../services/api/wrangler.toml) の `[env.production]` |
+| API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 / Queue を持つ | 同上の `[env.preview]` |
+| Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) |
 
 ## 環境変数の種類と登録先
 
@@ -19,7 +20,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | --- | --- | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値（publishable） |
 | `EXPO_PUBLIC_API_URL` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
-| `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み（未設定なら `EXPO_PUBLIC_API_URL` を使用） | GitHub Actions **Variables**（任意） | 公開値 |
+| `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み。未設定なら PR 番号から組み立てる `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | Web プレビュー URL のコメント生成に使用（未設定なら `uozumi05`） | GitHub Actions **Variables**（任意） | 公開値 |
 | `CLOUDFLARE_API_TOKEN` | デプロイ時（wrangler 認証） | GitHub Actions **Secrets** | 秘密 |
@@ -39,7 +40,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_xxxxx`（Clerk Dashboard → API Keys → Publishable key） |
 | `EXPO_PUBLIC_API_URL` | `https://animeishi-api.uomi.dev` |
-| `EXPO_PUBLIC_PREVIEW_API_URL` | `https://animeishi-api.uomi.dev`（プレビュー用 API が別にある場合のみ。通常は未登録でよい） |
+| `EXPO_PUBLIC_PREVIEW_API_URL` | 通常は未登録でよい（未登録なら PR ごとの `pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` が使われる）。プレビュー web を固定の別 API に向けたい場合のみ設定 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | `uozumi05`（通常は未登録でよい） |
 
@@ -63,16 +64,69 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 
 ## 2. PR プレビューデプロイ
 
-Web フロントは、同一リポジトリ内の pull request で `apps/mobile/**` が変更されたときにプレビューデプロイを作成する。workflow は `wrangler versions upload --env production --preview-alias pr-<PR番号>` を使うため、本番 Worker 自体は更新せず、`https://pr-<PR番号>-animeishi-web-production.<subdomain>.workers.dev` 形式の preview URL だけを更新する。
+同一リポジトリ内の pull request で `apps/mobile/**` または `services/api/**` が変更されると、Web と API の両方のプレビューが作成される。両 workflow とも `wrangler versions upload --preview-alias pr-<PR番号>` を使うため、ライブデプロイ（本番・preview Worker の latest）自体は更新せず、PR ごとの preview URL だけを発行する。
+
+| 対象 | workflow | デプロイ先 env | preview URL |
+| --- | --- | --- | --- |
+| Web | `preview-web.yml` | `animeishi-web` の `production` | `https://pr-<N>-animeishi-web-production.<subdomain>.workers.dev` |
+| API | `preview-api.yml` | `animeishi-api` の `preview` | `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` |
+
+Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の PR 用 API URL が埋め込まれる（`EXPO_PUBLIC_PREVIEW_API_URL` が設定されている場合はそちらが優先される）。これにより、API に新エンドポイントを追加する PR でも、マージ前にプレビュー web 上で動作確認できる。
+
+`preview-api.yml` は `preview-web.yml` と同じ `paths` で起動する。Web プレビューが常に `pr-<N>` の API URL を参照するため、両者は必ず同じ PR で走る必要がある。
 
 必要な権限と変数:
 
 - `CLOUDFLARE_API_TOKEN`: Workers への version upload ができる API token。
-- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_ANNICT_CLIENT_ID`: Web build 用の公開値。
-- `EXPO_PUBLIC_PREVIEW_API_URL`: プレビューだけ別 API に向ける場合のみ設定する。未設定なら `EXPO_PUBLIC_API_URL` を使う。
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_ANNICT_CLIENT_ID`: Web build 用の公開値。
+- `EXPO_PUBLIC_PREVIEW_API_URL`: プレビューだけ別 API に向ける場合のみ設定する。未設定なら `pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使う。
 - `CLOUDFLARE_WORKERS_SUBDOMAIN`: PR コメントに載せる URL を組み立てるための workers.dev サブドメイン。未設定でも `uozumi05` を使うため、現状は追加不要。
 
 セキュリティ上、workflow は fork からの PR ではデプロイしない。fork PR の preview が必要な場合は、同一リポジトリ内のブランチへ取り込んでから PR を作り直す。
+
+### API プレビュー環境（`env.preview`）の構成
+
+`animeishi-api-preview` は本番とは別のリソースを持ち、PR コードからの書き込みが本番データに混入しないようにしている。
+
+| リソース | 本番 | プレビュー |
+| --- | --- | --- |
+| D1 | `animeishi-db` | `animeishi-db-preview` |
+| R2 | `animeishi-avatars` | `animeishi-avatars-preview` |
+| Queue / DLQ | `animeishi-image-fallback` / `-dlq` | `animeishi-image-fallback-preview` / `-dlq-preview` |
+
+cron トリガーは preview では無効化してある（`crons = []`）。Queue の consume は preview Worker のライブデプロイが担うため、PR の preview バージョンが enqueue したメッセージは preview Worker の最新デプロイ済みコードが処理する。
+
+### 初回ブートストラップ（完了済み・再作成時の記録）
+
+preview 環境の初回セットアップは以下の手順で行う（初回のみ・再作成時のみ必要）。
+
+```bash
+cd services/api
+
+# 1. プレビュー用リソースを作成し、wrangler.toml の [env.preview] に ID を反映
+pnpm exec wrangler d1 create animeishi-db-preview
+pnpm exec wrangler r2 bucket create animeishi-avatars-preview
+pnpm exec wrangler queues create animeishi-image-fallback-preview
+pnpm exec wrangler queues create animeishi-image-fallback-dlq-preview
+
+# 2. preview Worker を初回デプロイ（bindings・queue consumer を登録）
+pnpm exec wrangler deploy --env preview
+
+# 3. preview D1 にマイグレーション適用
+pnpm exec wrangler d1 migrations apply animeishi-db-preview --env preview --remote
+# （またはルートから `task db:migrate:preview`）
+
+# 4. preview Worker に secret を登録（値は本番と同じものを使う。
+#    Clerk は preview web が同じインスタンスで発行した JWT を検証するため必須）
+pnpm exec wrangler secret put CLERK_SECRET_KEY --env preview
+pnpm exec wrangler secret put CLERK_PUBLISHABLE_KEY --env preview
+pnpm exec wrangler secret put ANNICT_CLIENT_SECRET --env preview
+pnpm exec wrangler secret put ANNICT_ENCRYPTION_KEY --env preview
+```
+
+secret は Worker 単位の設定のため、一度登録すれば以後の `versions upload` / `deploy` で失われない（新しい version は前の version の secret を引き継ぐ）。
+
+> `wrangler secret put` は「最新 version がデプロイ済み」でないと失敗する。CI が `versions upload` した version が最新のまま残るこの環境では、実行前に `pnpm exec wrangler deploy --env preview` で最新 version をデプロイするか、デプロイを伴わない `pnpm exec wrangler versions secret put <KEY> --env preview` を使う。
 
 ## 3. Cloudflare Workers の secret 登録（API ランタイム）
 
@@ -163,6 +217,6 @@ EAS Build は gitignore された `.env` をアップロードしないため、
 - [ ] GitHub Variables に `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` を登録
 - [ ] GitHub Variables に `EXPO_PUBLIC_ANNICT_CLIENT_ID` を登録
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
-- [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API）
+- [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API 本番・preview 両方。preview への登録は「[初回ブートストラップ](#初回ブートストラップ完了済み再作成時の記録)」参照）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
 - [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）

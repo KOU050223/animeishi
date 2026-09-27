@@ -1,0 +1,60 @@
+name: Preview API
+
+# PR ごとに API のプレビューバージョンを発行する。
+# paths は preview-web.yml と揃える: Web プレビューはビルド時に
+# pr-<N>-animeishi-api-preview の URL を埋め込むため、
+# Web プレビューが走る PR では必ずこの alias も作成されている必要がある。
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/mobile/**"
+      - "services/api/**"
+      - ".github/workflows/preview-api.yml"
+      - ".github/workflows/preview-web.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-api-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Deploy Cloudflare Workers Preview
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # マイグレーションを version upload 前に適用する（本番デプロイと同じ順序）。
+      # 適用先は本番とは別の preview 専用 D1（animeishi-db-preview）。
+      - name: Apply D1 migrations (preview)
+        run: pnpm --filter @animeishi/api exec wrangler d1 migrations apply animeishi-db-preview --env preview --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # animeishi-api-preview のライブデプロイは更新せず、
+      # https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev の
+      # preview URL だけを発行する。
+      - name: Upload preview version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
+        run: pnpm --filter @animeishi/api exec wrangler versions upload --env preview --preview-alias "$PREVIEW_ALIAS"
