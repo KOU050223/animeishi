@@ -26,7 +26,9 @@ module.exports = function resolver(request, options) {
   let resolved;
   if (request === "react-native" || request.startsWith("react-native/")) {
     const sub =
-      request === "react-native" ? "index.js" : request.slice("react-native/".length);
+      request === "react-native"
+        ? "index.js"
+        : request.slice("react-native/".length);
     resolved = options.defaultResolver(path.join(rnRoot, sub), options);
   } else {
     resolved = upstream(request, options);
