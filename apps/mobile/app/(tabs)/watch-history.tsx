@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
+import { useRouter } from "expo-router";
 import {
   useWatchHistory,
   useUpsertWatchHistory,
@@ -39,6 +40,7 @@ const STATUS_COLORS: Record<WatchStatus, string> = {
 };
 
 export default function WatchHistoryScreen() {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
@@ -118,11 +120,24 @@ export default function WatchHistoryScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      <View className="px-4 pt-12 pb-3">
-        <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
-        <Text className="text-xs text-gray-400 mt-0.5">
-          {enriched.length} 件
-        </Text>
+      <View className="px-4 pt-12 pb-3 flex-row items-start justify-between">
+        <View>
+          <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
+          <Text className="text-xs text-gray-400 mt-0.5">
+            {enriched.length} 件
+          </Text>
+        </View>
+        <TouchableOpacity
+          className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5"
+          onPress={() => router.push("/danime-import")}
+          accessibilityRole="button"
+          accessibilityLabel="dアニメストアからインポート"
+          testID="danime-import-button"
+        >
+          <Text className="text-xs text-indigo-600 font-medium">
+            dアニメからインポート
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList

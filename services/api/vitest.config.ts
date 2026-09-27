@@ -22,6 +22,7 @@ export default defineConfig({
     exclude: [
       "src/cors.test.ts",
       "src/lib/annict/client.test.ts",
+      "src/lib/danime/*.test.ts",
       "src/schema/*.test.ts",
       "node_modules/**",
     ],

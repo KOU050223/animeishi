@@ -490,6 +490,28 @@ export async function searchAnnictWorksByTitle(
   return mapSearchWorksConnection(data.searchWorks);
 }
 
+/**
+ * 複数タイトルをまとめて検索する（Annict 側は title_or_title_kana の OR 部分一致）。
+ * dアニメインポートのような一括マッチングで、タイトルごとに 1 クエリ投げると
+ * 件数分の往復になるため、まとめて union を取り、各タイトルへの帰属は
+ * 呼び出し側のスコアリングで行う。ページングは取り切らず 1 ページ（50 件）まで。
+ */
+export async function searchAnnictWorksByTitles(
+  accessToken: string,
+  titles: string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictLibraryEntry[]> {
+  if (titles.length === 0) return [];
+  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    accessToken,
+    SEARCH_WORKS_BY_TITLE_QUERY,
+    { titles },
+    fetchImpl,
+  );
+
+  return mapSearchWorksConnection(data.searchWorks).works;
+}
+
 // --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---
 
 // Annict のシーズン区分（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。

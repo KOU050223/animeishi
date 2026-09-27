@@ -11,6 +11,7 @@ import {
 import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
+import { importRoute } from "./routes/import";
 import { avatar, me } from "./routes/me";
 import { pass } from "./routes/pass";
 import { tierLists } from "./routes/tier-lists";
@@ -46,6 +47,7 @@ const routes = app
   .route("/me", avatar)
   .route("/me", me)
   .route("/me/annict", annict)
+  .route("/me/import", importRoute)
   .route("/me/watch-histories", watchHistory)
   .route("/works", works)
   .route("/me/favorites", favorites)
