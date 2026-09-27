@@ -142,12 +142,16 @@ export default function DanimeImportWebScreen() {
           {/* ブックマークレットは javascript: URL を href に持つ実際の <a>
               として出す。ブックマークバーへのドラッグ or 右クリック→
               「リンクをブックマーク」で登録できる。
-              クリック自体はこのページ上で実行されてしまうため抑止する。 */}
+              クリック自体はこのページ上で実行されてしまうため抑止する。
+              なお React は href に javascript: URL を渡すとブロックするため、
+              href は ref コールバック経由の setAttribute で設定する。 */}
           <View className="mt-3">
             {createElement(
               "a",
               {
-                href: bookmarklet,
+                ref: (el: HTMLAnchorElement | null) => {
+                  el?.setAttribute("href", bookmarklet);
+                },
                 draggable: true,
                 onClick: (e: { preventDefault: () => void }) =>
                   e.preventDefault(),
@@ -167,8 +171,22 @@ export default function DanimeImportWebScreen() {
               "dアニメ履歴を取得（ドラッグでブックマーク登録）",
             )}
             <Text className="text-[10px] text-gray-400 mt-1">
-              ドラッグできない場合は右クリック → 「リンクをブックマーク」
+              ドラッグできない場合は右クリック → 「リンクをブックマーク」。
+              それも難しい場合は下のボタンで URL をコピーし、新規ブックマークの
+              URL 欄に貼り付けてください。
             </Text>
+            <TouchableOpacity
+              className="mt-1 py-1"
+              accessibilityRole="button"
+              accessibilityLabel="ブックマークレットをコピー"
+              onPress={() => {
+                void navigator.clipboard?.writeText(bookmarklet);
+              }}
+            >
+              <Text className="text-[11px] text-indigo-500 underline">
+                ブックマークレットをコピー
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
