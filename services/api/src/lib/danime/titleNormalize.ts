@@ -71,12 +71,13 @@ const GENERIC_SEARCH_TITLES = new Set([
 ]);
 
 /**
- * 検索語として不適格（一般名詞のみ・1 文字以下）かどうか。
- * 「氷菓」のような 2 文字タイトルは検索可能なので許容する。
+ * 検索語として不適格（空・一般名詞のみ）かどうか。
+ * 「K」のような 1 文字作品も実在するため長さでは制限しない
+ * （1 文字クエリの部分一致はノイズが多いが、スコアリングで弾かれる）。
  */
 export function isGenericSearchTitle(title: string): boolean {
   const n = normalizeTitle(title);
-  return n.length < 2 || GENERIC_SEARCH_TITLES.has(n);
+  return !n || GENERIC_SEARCH_TITLES.has(n);
 }
 
 /**
@@ -139,16 +140,36 @@ function bigramDice(a: string, b: string): number {
   return (2 * overlap) / (a.length - 1 + (b.length - 1));
 }
 
+// 末尾のローマ数字をアラビア数字に変換する表。1 文字（i/v/x）は英単語末尾との
+// 区別がつかないため 2 文字以上のみ期数として認める。
+const ROMAN_SEASON_SUFFIX: Record<string, number> = {
+  ii: 2,
+  iii: 3,
+  iv: 4,
+  vi: 6,
+  vii: 7,
+  viii: 8,
+  ix: 9,
+  xi: 11,
+  xii: 12,
+};
+
 // タイトル中の期数表記（第N期 / N期 / season N / Nth season / シーズン N /
-// 末尾の裸の数字）からシーズン番号を推定する。正規化済み文字列に適用する
-// （NFKC 済みなので数字・アルファベットは半角でよい）。
+// 末尾の裸の数字・ローマ数字）からシーズン番号を推定する。
+// 正規化済み文字列に適用する（NFKC 済みなので数字・アルファベットは半角でよい）。
+// 末尾の裸の数字は 1〜2 桁に限定する（4 桁は「作品 2024」のような年号で
+// 期数ではない可能性が高い）。
 function seasonSignatureOfNormalized(n: string): number | null {
   const m =
     n.match(/(?:season|シーズン)([0-9]+)/) ??
     n.match(/([0-9]+)(?:st|nd|rd|th)?(?:season|シーズン)/) ??
     n.match(/([0-9]+)期/) ??
-    n.match(/([0-9]+)$/);
-  return m ? Number(m[1]) : null;
+    // 直前が数字でない末尾の 1〜2 桁だけを期数とみなす
+    // （「作品 2024」の末尾「24」を期数と誤認しないため）。
+    n.match(/(?:^|[^0-9])([0-9]{1,2})$/);
+  if (m) return Number(m[1]);
+  const roman = n.match(/([ivx]+)$/)?.[1];
+  return roman ? (ROMAN_SEASON_SUFFIX[roman] ?? null) : null;
 }
 
 /**
@@ -176,21 +197,27 @@ const EDITION_TOKEN_RULES: [RegExp, string][] = [
 ];
 
 // メタ差分 1 個あたりの減点。包含スコア（0.6〜0.9）に対して、
-// 別シーズン（season:N の不一致=差分 2）は -0.3 で十分に順位を下げられる。
+// 1 差分 -0.15 で別エディション・別シーズンの順位を十分下げられる。
 const EDITION_DIFF_PENALTY = 0.15;
 
-function editionTokens(title: string): Set<string> {
+type EditionTokens = {
+  meta: Set<string>;
+  // 期数は null（判明しない=無印かもしれない）のとき差分にしない。
+  // 「2期の入力」対「無印の候補」は同一作品の可能性があるため、
+  // 両側で判明して食い違う場合だけ別シーズンとして減点する。
+  season: number | null;
+};
+
+function editionTokens(title: string): EditionTokens {
   // 空白を潰した正規化（"X OVA"→"xova"）だと語境界が消えて ova/oad の
   // 境界チェックが効かないため、空白保持の NFKC 小文字化版も併用する。
   const compact = normalizeTitle(title);
   const loose = title.normalize("NFKC").toLowerCase();
-  const tokens = new Set<string>();
+  const meta = new Set<string>();
   for (const [re, key] of EDITION_TOKEN_RULES) {
-    if (re.test(compact) || re.test(loose)) tokens.add(key);
+    if (re.test(compact) || re.test(loose)) meta.add(key);
   }
-  const sig = seasonSignatureOfNormalized(compact);
-  if (sig !== null) tokens.add(`season:${sig}`);
-  return tokens;
+  return { meta, season: seasonSignatureOfNormalized(compact) };
 }
 
 // タイトル同士のメタトークン対称差の個数を返す（引数は正規化前の生タイトル）。
@@ -198,8 +225,11 @@ function editionDiffCount(a: string, b: string): number {
   const ta = editionTokens(a);
   const tb = editionTokens(b);
   let diff = 0;
-  for (const t of ta) if (!tb.has(t)) diff++;
-  for (const t of tb) if (!ta.has(t)) diff++;
+  for (const t of ta.meta) if (!tb.meta.has(t)) diff++;
+  for (const t of tb.meta) if (!ta.meta.has(t)) diff++;
+  if (ta.season !== null && tb.season !== null && ta.season !== tb.season) {
+    diff++;
+  }
   return diff;
 }
 

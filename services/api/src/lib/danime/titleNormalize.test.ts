@@ -87,8 +87,11 @@ describe("isGenericSearchTitle", () => {
     expect(isGenericSearchTitle("アニメ")).toBe(true);
   });
 
-  it("1 文字のタイトルは不適格、2 文字の作品名は許容する", () => {
-    expect(isGenericSearchTitle("K")).toBe(true);
+  it("空文字は不適格、1 文字の作品名は検索対象とする", () => {
+    // 「K」のような 1 文字作品も実在するため検索は許容する
+    // （部分一致のノイズはスコアリング側で弾く）
+    expect(isGenericSearchTitle("K")).toBe(false);
+    expect(isGenericSearchTitle("　")).toBe(true);
     expect(isGenericSearchTitle("氷菓")).toBe(false);
     expect(isGenericSearchTitle("鬼滅の刃")).toBe(false);
   });
@@ -114,6 +117,22 @@ describe("seasonSignature", () => {
     expect(seasonSignature("X Season 3")).toBe(3);
     expect(seasonSignature("響け！ユーフォニアム３")).toBe(3);
     expect(seasonSignature("鬼滅の刃")).toBeNull();
+  });
+
+  it("末尾のローマ数字（2 文字以上）も期数として推定する", () => {
+    expect(seasonSignature("作品 II")).toBe(2);
+    expect(seasonSignature("作品 III")).toBe(3);
+    expect(seasonSignature("作品 IV")).toBe(4);
+    // 1 文字や英単語の一部分は期数とみなさない
+    expect(seasonSignature("作品 X")).toBeNull();
+    expect(seasonSignature("Vivid Strike")).toBeNull();
+  });
+
+  it("末尾の 4 桁数字は年号とみなして期数にしない", () => {
+    expect(seasonSignature("作品 2024")).toBeNull();
+    expect(seasonSignature("作品 2024年")).toBeNull();
+    // 1〜2 桁は期数として推定する
+    expect(seasonSignature("作品 12")).toBe(12);
   });
 });
 
