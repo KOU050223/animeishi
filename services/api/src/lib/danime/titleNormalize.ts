@@ -22,6 +22,82 @@ export function normalizeTitle(title: string): string {
     .trim();
 }
 
+// dアニメの作品タイトルは `TVアニメ「X」` `劇場版「X」` のようにメディア区分の
+// 冠 + 「」包みの形式を取ることがある。そのまま照合すると、切り詰めで
+// 「TVアニメ」のような一般語だけが残り、無関係な候補を大量に拾うため、
+// 照合前に冠を外す。
+const DANIME_WRAPPER_RE =
+  /^(tvアニメ(?:ーション)?|webアニメ|アニメーション|アニメ|劇場版|映画|ova|oad|実写)[\s　]*[「『](.+?)[」』](.*)$/is;
+
+// Annict 側タイトルにも冠が付くことが多い prefix（残す）。メディア区分のみの
+// 冠（TVアニメ等）は Annict タイトルに現れないため捨てる。
+const DANIME_KEEP_PREFIX_RE = /^(劇場版|映画|ova|oad)$/i;
+
+/**
+ * dアニメ形式の冠+「」包みタイトルをアンラップする。
+ * `TVアニメ「てっぺんっ!!!」` → `てっぺんっ!!!`、
+ * `劇場版「SHIROBAKO」` → `劇場版 SHIROBAKO`（Annict 側も劇場版冠が付くため残す）。
+ * 包み形式でなければそのまま返す。
+ */
+export function unwrapDanimeTitle(title: string): string {
+  const m = title.match(DANIME_WRAPPER_RE);
+  if (m) {
+    const [, kind = "", inner = "", rest = ""] = m;
+    const kept = DANIME_KEEP_PREFIX_RE.test(kind) ? `${kind} ` : "";
+    const tail = rest.trim();
+    return `${kept}${inner}${tail ? ` ${tail}` : ""}`.trim();
+  }
+  // 冠なしで全体が「」/『』包みの場合も同様に外す。
+  const plain = title.match(/^[「『](.+?)[」』]$/);
+  return plain?.[1] ? plain[1].trim() : title;
+}
+
+// Annict 部分一致検索の検索語として意味を持たない一般名詞。
+// アンラップ漏れや切り詰めで退化したクエリ（「TVアニメ」だけ等）を投げると
+// 無関係な候補を大量に拾うため、送信自体を抑止する。
+const GENERIC_SEARCH_TITLES = new Set([
+  "tvアニメ",
+  "tvアニメーション",
+  "webアニメ",
+  "アニメーション",
+  "アニメ",
+  "劇場版",
+  "映画",
+  "ova",
+  "oad",
+  "実写",
+  "新作",
+  "番外編",
+]);
+
+/**
+ * 検索語として不適格（空・一般名詞のみ）かどうか。
+ * 「K」のような 1 文字作品も実在するため長さでは制限しない
+ * （1 文字クエリの部分一致はノイズが多いが、スコアリングで弾かれる）。
+ */
+export function isGenericSearchTitle(title: string): boolean {
+  const n = normalizeTitle(title);
+  return !n || GENERIC_SEARCH_TITLES.has(n);
+}
+
+/**
+ * 全角英数（Ａ-Ｚａ-ｚ０-９）だけ半角に直す。記号（！等）は触らない。
+ * Annict の title_cont は DB の LIKE 部分一致で正規化されないため、
+ * 数字の全半角違い（ユーフォニアム３ ↔ 3）でヒットしない場合の再検索語に使う。
+ */
+export function toHalfWidthAlnum(title: string): string {
+  return title.replace(/[０-９Ａ-Ｚａ-ｚ]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+  );
+}
+
+/** 半角数字だけ全角に直す（toHalfWidthAlnum の逆方向の揺れ用）。 */
+export function toFullWidthDigits(title: string): string {
+  return title.replace(/[0-9]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) + 0xfee0),
+  );
+}
+
 /**
  * リトライ検索用にタイトルを単純化する。
  * Annict の searchWorks(titles:) は「Annict 側タイトルが入力を含む」部分一致なので、
@@ -33,7 +109,7 @@ export function simplifyTitle(title: string): string {
   // 「劇場版」「映画」等の先頭冠詞は Annict 側でも付くことが多いので残す。
   // 末尾の期数表記（第2期 / 2nd season / Season 2 等）はサイト間で表記が揺れやすい。
   t = t.replace(
-    /[ 　](第?\d+期|シーズン ?\d+|season ?\d+|\d+(nd|rd|th) ?シーズン)$/i,
+    /[ 　](第?[0-9０-９]+期|シーズン ?[0-9０-９]+|season ?[0-9０-９]+|[0-9０-９]+(st|nd|rd|th) ?(?:シーズン|season))$/i,
     "",
   );
   // 括弧類以降を落とす（「(2024)」「【xx編】」「『…』」）。先頭括弧はタイトル本体の
@@ -64,10 +140,105 @@ function bigramDice(a: string, b: string): number {
   return (2 * overlap) / (a.length - 1 + (b.length - 1));
 }
 
+// 末尾のローマ数字をアラビア数字に変換する表。1 文字（i/v/x）は英単語末尾との
+// 区別がつかないため 2 文字以上のみ期数として認める。
+const ROMAN_SEASON_SUFFIX: Record<string, number> = {
+  ii: 2,
+  iii: 3,
+  iv: 4,
+  vi: 6,
+  vii: 7,
+  viii: 8,
+  ix: 9,
+  xi: 11,
+  xii: 12,
+};
+
+// タイトル中の期数表記（第N期 / N期 / season N / Nth season / シーズン N /
+// 末尾の裸の数字・ローマ数字）からシーズン番号を推定する。
+// 正規化済み文字列に適用する（NFKC 済みなので数字・アルファベットは半角でよい）。
+// 末尾の裸の数字は 1〜2 桁に限定する（4 桁は「作品 2024」のような年号で
+// 期数ではない可能性が高い）。
+function seasonSignatureOfNormalized(n: string): number | null {
+  const m =
+    n.match(/(?:season|シーズン)([0-9]+)/) ??
+    n.match(/([0-9]+)(?:st|nd|rd|th)?(?:season|シーズン)/) ??
+    n.match(/([0-9]+)期/) ??
+    // 直前が数字でない末尾の 1〜2 桁だけを期数とみなす
+    // （「作品 2024」の末尾「24」を期数と誤認しないため）。
+    n.match(/(?:^|[^0-9])([0-9]{1,2})$/);
+  if (m) return Number(m[1]);
+  const roman = n.match(/([ivx]+)$/)?.[1];
+  return roman ? (ROMAN_SEASON_SUFFIX[roman] ?? null) : null;
+}
+
+/**
+ * タイトルからシーズン番号を推定する（例: 「X 第2期」→ 2、「ユーフォニアム3」→ 3）。
+ * シーズンものの別期を識別するために使う。推定できなければ null。
+ */
+export function seasonSignature(title: string): number | null {
+  return seasonSignatureOfNormalized(normalizeTitle(title));
+}
+
+// 「どの作品か」を分けるメタ表現。包含スコアは文字列の長さ比率だけを見るため、
+// 本編 / 劇場版 / 別シーズン / 番外編 を区別できず、短い方が包含で勝ってしまう
+// （例: 劇場版「SHIROBAKO」に TV 版「SHIROBAKO」が候補上位に来る）。
+// 差分 1 個ごとに EDITION_DIFF_PENALTY だけ減点して区別する。
+const EDITION_TOKEN_RULES: [RegExp, string][] = [
+  // 「劇場版」と「映画」は同じ劇場公開作品を指す揺れとして同一トークンに畳む。
+  [/劇場|映画/, "movie"],
+  // ova/oad は英単語中の部分一致（"road"→"oad"）を防ぐため非英字で囲む。
+  [/(?:^|[^a-z])(?:ova|oad)(?:[^a-z]|$)/, "ova"],
+  [/番外編/, "extra"],
+  [/特別編|総集編|再編集/, "compilation"],
+  [/完結編/, "final"],
+  [/新作/, "new"],
+  [/スペシャル/, "special"],
+];
+
+// メタ差分 1 個あたりの減点。包含スコア（0.6〜0.9）に対して、
+// 1 差分 -0.15 で別エディション・別シーズンの順位を十分下げられる。
+const EDITION_DIFF_PENALTY = 0.15;
+
+type EditionTokens = {
+  meta: Set<string>;
+  // 期数は null（判明しない=無印かもしれない）のとき差分にしない。
+  // 「2期の入力」対「無印の候補」は同一作品の可能性があるため、
+  // 両側で判明して食い違う場合だけ別シーズンとして減点する。
+  season: number | null;
+};
+
+function editionTokens(title: string): EditionTokens {
+  // 空白を潰した正規化（"X OVA"→"xova"）だと語境界が消えて ova/oad の
+  // 境界チェックが効かないため、空白保持の NFKC 小文字化版も併用する。
+  const compact = normalizeTitle(title);
+  const loose = title.normalize("NFKC").toLowerCase();
+  const meta = new Set<string>();
+  for (const [re, key] of EDITION_TOKEN_RULES) {
+    if (re.test(compact) || re.test(loose)) meta.add(key);
+  }
+  return { meta, season: seasonSignatureOfNormalized(compact) };
+}
+
+// タイトル同士のメタトークン対称差の個数を返す（引数は正規化前の生タイトル）。
+function editionDiffCount(a: string, b: string): number {
+  const ta = editionTokens(a);
+  const tb = editionTokens(b);
+  let diff = 0;
+  for (const t of ta.meta) if (!tb.meta.has(t)) diff++;
+  for (const t of tb.meta) if (!ta.meta.has(t)) diff++;
+  if (ta.season !== null && tb.season !== null && ta.season !== tb.season) {
+    diff++;
+  }
+  return diff;
+}
+
 /**
  * 入力タイトルと候補タイトルの類似度（0〜1）。
  * 正規化一致=1、包含関係=長さ比率に応じた 0.6〜0.9、それ以外は bigram Dice の半分
  * （包含未満の部分一致は弱い証拠として低めに抑える）。
+ * さらに劇場版・期数・番外編等のメタ差分ごとに減点し、
+ * 本編と別エディションが同スコアで並ばないようにする。
  */
 export function titleSimilarity(input: string, candidate: string): number {
   const a = normalizeTitle(input);
@@ -75,10 +246,14 @@ export function titleSimilarity(input: string, candidate: string): number {
   if (!a || !b) return 0;
   if (a === b) return 1;
 
+  let base: number;
   if (a.includes(b) || b.includes(a)) {
     const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-    return 0.6 + 0.3 * (short.length / long.length);
+    base = 0.6 + 0.3 * (short.length / long.length);
+  } else {
+    base = bigramDice(a, b) * 0.5;
   }
 
-  return bigramDice(a, b) * 0.5;
+  const diff = editionDiffCount(input, candidate);
+  return diff > 0 ? Math.max(0, base - EDITION_DIFF_PENALTY * diff) : base;
 }

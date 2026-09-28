@@ -104,6 +104,12 @@ export default function DanimeImportReviewScreen() {
     return m;
   }, [histories]);
 
+  // 照合 API に渡す登録済み作品 ID（別シーズン候補の除外ヒント）。
+  const registeredWorkIds = useMemo(
+    () => (histories ?? []).map((h) => h.annictWorkId),
+    [histories],
+  );
+
   const buildRows = useCallback(
     (results: DanimeMatchItem[]): Row[] => {
       const built = results.map((item) => {
@@ -145,11 +151,14 @@ export default function DanimeImportReviewScreen() {
   useEffect(() => {
     if (!lists || startedRef.current || isHistoriesLoading) return;
     startedRef.current = true;
-    match.mutate(lists, {
-      onSuccess: (results) => setRows(buildRows(results)),
-    });
+    match.mutate(
+      { lists, registeredWorkIds },
+      {
+        onSuccess: (results) => setRows(buildRows(results)),
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lists, isHistoriesLoading]);
+  }, [lists, isHistoriesLoading, registeredWorkIds]);
 
   const toggleRow = useCallback((index: number) => {
     setRows(
@@ -248,9 +257,12 @@ export default function DanimeImportReviewScreen() {
 
   function retryMatch() {
     match.reset();
-    match.mutate(lists!, {
-      onSuccess: (results) => setRows(buildRows(results)),
-    });
+    match.mutate(
+      { lists: lists!, registeredWorkIds },
+      {
+        onSuccess: (results) => setRows(buildRows(results)),
+      },
+    );
   }
 
   // ---- 結果画面 ----

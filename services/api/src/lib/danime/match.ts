@@ -12,9 +12,14 @@
 import type { AnnictLibraryEntry } from "../annict/client";
 import { searchAnnictWorksByTitles } from "../annict/client";
 import {
+  isGenericSearchTitle,
   normalizeTitle,
+  seasonSignature,
   simplifyTitle,
   titleSimilarity,
+  toFullWidthDigits,
+  toHalfWidthAlnum,
+  unwrapDanimeTitle,
 } from "./titleNormalize";
 
 export type DanimeMatchInput = {
@@ -41,22 +46,40 @@ const SEARCH_CHUNK_SIZE = 10;
 // 0.5 が上限なので、それ以下はノイズとして捨てる。
 const CANDIDATE_THRESHOLD = 0.5;
 
-// レスポンスに含める候補の上限。
-const MAX_CANDIDATES = 5;
+// レスポンスに含める候補の上限。派生作品の多いシリーズ（アイドルマスター等）
+// では 5 件では正解が並ばないことがあるため、ある程度多めに返して
+// レビュー UI で選ばせる。
+const MAX_CANDIDATES = 10;
 
 // 第 2 パス（単発再検索）の Annict リクエスト上限。works=500 件の全滅時に
 // 元タイトル+単純化タイトルで最大 1000 往復になるのを防ぐため、呼び出し全体で
 // この回数までに抑える（上流リクエスト制限の緩和としても機能する）。
 const MAX_SECOND_PASS_SEARCHES = 50;
 
+type ClassifyOptions = {
+  registeredWorkIds?: ReadonlySet<number> | undefined;
+  // 期数の判定に使うタイトル。第 2 パスでは検索語（期数を削った単純化タイトル
+  // 等）で分類するが、期数ガードは元の入力タイトルで行うために渡す。
+  // 省略時は input.title。
+  seasonRefTitle?: string;
+};
+
 /**
  * 検索プールから 1 作品ぶんのマッチング結果を作る。
  * candidate の title / titleKana / titleEn の最大スコアで評価する。
+ * registeredWorkIds が渡された場合、入力が期数を明示しているのに
+ * 「登録済みかつ別シーズンと判明している」候補は除外する（再登録対象に
+ * ならないため候補に出しても選ばれないノイズになる）。候補側の期数が
+ * 不明（無印・ローマ数字以外の表記等）なときは別シーズンと確定できない
+ * ので残す。
  */
 export function classifyWork(
   input: DanimeMatchInput,
   pool: AnnictLibraryEntry[],
+  options: ClassifyOptions = {},
 ): DanimeMatchResult {
+  const { registeredWorkIds, seasonRefTitle } = options;
+  const inputSeason = seasonSignature(seasonRefTitle ?? input.title);
   const scored = pool
     .map((w) => ({
       work: w,
@@ -67,10 +90,22 @@ export function classifyWork(
       ),
     }))
     .filter((s) => s.score >= CANDIDATE_THRESHOLD)
+    .filter(
+      (s) =>
+        inputSeason === null ||
+        !registeredWorkIds?.has(s.work.annictWorkId) ||
+        seasonSignature(s.work.title) === null ||
+        seasonSignature(s.work.title) === inputSeason,
+    )
     .sort((a, b) => b.score - a.score);
 
+  // 期数を明示した入力に対し、期数のない/違う候補が（単純化検索語経由で）
+  // 正規化一致しても別シーズンを自動確定できないため、exact からは外す。
+  // 候補自体は残してレビューで選ばせる。
   const exacts = scored.filter(
-    (s) => normalizeTitle(s.work.title) === normalizeTitle(input.title),
+    (s) =>
+      normalizeTitle(s.work.title) === normalizeTitle(input.title) &&
+      (inputSeason === null || seasonSignature(s.work.title) === inputSeason),
   );
 
   const only = exacts[0];
@@ -99,6 +134,44 @@ function dedupeWorks(works: AnnictLibraryEntry[]): AnnictLibraryEntry[] {
   });
 }
 
+// 「映画 X」↔「劇場版 X」は Annict 側の表記揺れなので、冠が付く入力は
+// もう一方の表記でも検索する。
+function moviePrefixVariant(title: string): string | null {
+  const m = title.match(/^(劇場版|映画)(.*)$/);
+  if (!m?.[2]) return null;
+  const alt = m[1] === "映画" ? "劇場版" : "映画";
+  return `${alt}${m[2]}`;
+}
+
+// 全角英数→半角・半角数字→全角のバリアント（title_cont が LIKE のため
+// 数字の全半角違いでヒットしないケースを救う）。
+function alnumVariantQueries(title: string): string[] {
+  return [toHalfWidthAlnum(title), toFullWidthDigits(title)].filter(
+    (q) => q !== title && q && !isGenericSearchTitle(q),
+  );
+}
+
+// 未解決タイトル 1 件あたりの第 2 パス再検索語を作る。
+// - 元タイトル（アンラップ済み）
+// - 全半角バリアント
+// - 映画↔劇場版の冠バリアント（単純化クエリで別表記候補が先にヒットすると
+//   そこで打ち切られるため、単純化より先に試す）
+// - 単純化タイトル（末尾の期数表記・括弧書きを落としたもの）
+// 一般名詞のみの退化クエリは Annict へ送らない。
+function secondPassQueries(title: string): string[] {
+  const simplified = simplifyTitle(title);
+  const movieVariant = moviePrefixVariant(title);
+  return [
+    title,
+    ...alnumVariantQueries(title),
+    ...(movieVariant ? [movieVariant] : []),
+    simplified,
+    toHalfWidthAlnum(simplified),
+  ]
+    .filter((q) => q && !isGenericSearchTitle(q))
+    .filter((q, i, arr) => arr.indexOf(q) === i);
+}
+
 /**
  * dアニメ抽出作品群を Annict 作品へマッチングする。
  * 返す配列は入力順を維持する。
@@ -107,6 +180,7 @@ export async function matchDanimeWorks(
   accessToken: string,
   items: DanimeMatchInput[],
   fetchImpl: typeof fetch = fetch,
+  registeredWorkIds?: Iterable<number>,
 ): Promise<DanimeMatchResult[]> {
   // danimeWorkId 重複（履歴カードの話数分重複等）は先に潰す。
   const unique = new Map<string, DanimeMatchInput>();
@@ -114,14 +188,25 @@ export async function matchDanimeWorks(
     if (!unique.has(item.danimeWorkId)) unique.set(item.danimeWorkId, item);
   }
   const inputs = [...unique.values()];
+  const registered = registeredWorkIds ? new Set(registeredWorkIds) : undefined;
+
+  // dアニメの冠+「」包みタイトル（`TVアニメ「X」`等）は Annict タイトルと
+  // 一致しないため、照合・検索にはアンラップ済みタイトルを使う。
+  // レビュー画面に返す title は元タイトルのまま保持する。
+  const matchInputs = inputs.map((i) => ({
+    ...i,
+    title: unwrapDanimeTitle(i.title) || i.title,
+  }));
 
   // 第 1 パス: タイトルをチャンクでまとめて union 検索。
   const pool: AnnictLibraryEntry[] = [];
-  for (let i = 0; i < inputs.length; i += SEARCH_CHUNK_SIZE) {
-    const chunk = inputs
+  for (let i = 0; i < matchInputs.length; i += SEARCH_CHUNK_SIZE) {
+    const chunk = matchInputs
       .slice(i, i + SEARCH_CHUNK_SIZE)
       .map((w) => w.title.trim())
-      .filter(Boolean);
+      // 退化クエリ（「TVアニメ」だけ等）はノイズしか返さないので送らない。
+      .filter((t) => t && !isGenericSearchTitle(t));
+    if (chunk.length === 0) continue;
     pool.push(
       ...(await searchAnnictWorksByTitles(accessToken, chunk, fetchImpl)),
     );
@@ -129,22 +214,33 @@ export async function matchDanimeWorks(
   const poolDeduped = dedupeWorks(pool);
 
   const results = new Map<string, DanimeMatchResult>();
-  for (const input of inputs) {
-    results.set(input.danimeWorkId, classifyWork(input, poolDeduped));
+  const originalTitle = new Map(inputs.map((i) => [i.danimeWorkId, i.title]));
+  for (const input of matchInputs) {
+    const classified = classifyWork(input, poolDeduped, {
+      registeredWorkIds: registered,
+    });
+    results.set(input.danimeWorkId, {
+      ...classified,
+      title: originalTitle.get(input.danimeWorkId)!,
+    });
   }
 
-  // 第 2 パス: none だけ単発で再検索する（union の打ち切り・部分一致方向の
-  // 問題を救うため）。元タイトル → 単純化タイトルの順に試すが、候補があっても
-  // classify が none のままなら次の検索語に進む。Annict への往復を全体で
-  // MAX_SECOND_PASS_SEARCHES 回までに制限する。
-  const unresolved = inputs.filter(
-    (i) => results.get(i.danimeWorkId)?.status === "none",
+  // 第 2 パス: exact 以外を単発で再検索する（union の打ち切り・部分一致方向の
+  // 問題を救うため）。none には元タイトル・全半角バリアント・単純化タイトル・
+  // 映画/劇場版冠バリアントを、candidates にも全半角バリアントを試す
+  // （同じ union 検索語を共有する無印作品が先に候補へ入ると、数字の
+  // 全半角違いしかない本来の作品を取りこぼすため）。
+  // Annict への往復を全体で MAX_SECOND_PASS_SEARCHES 回までに制限する。
+  const unresolved = matchInputs.filter(
+    (i) => results.get(i.danimeWorkId)?.status !== "exact",
   );
   let secondPassSearches = 0;
   for (const input of unresolved) {
-    const queries = [input.title, simplifyTitle(input.title)].filter(
-      (q, i, arr) => q && arr.indexOf(q) === i,
-    );
+    const status = results.get(input.danimeWorkId)?.status;
+    const queries =
+      status === "candidates"
+        ? alnumVariantQueries(input.title)
+        : secondPassQueries(input.title);
     for (const q of queries) {
       if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
       secondPassSearches++;
@@ -156,13 +252,25 @@ export async function matchDanimeWorks(
       if (found.length === 0) continue;
       // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
       // 元タイトルで再採点すると括弧差分で exact にならないため）。
+      // ただし期数ガードは検索語に期数が残っていなくても効くよう、
+      // 元の入力タイトルで判定する。
       // 結果の title はレビュー表示のため元タイトルを保持する。
       const classified = classifyWork(
         { ...input, title: q },
         dedupeWorks([...poolDeduped, ...found]),
+        {
+          registeredWorkIds: registered,
+          seasonRefTitle: input.title,
+        },
       );
-      results.set(input.danimeWorkId, { ...classified, title: input.title });
-      if (classified.status !== "none") break;
+      // candidates の再検索で候補が全滅しても、既存の候補を失わないよう
+      // none では上書きしない。
+      if (classified.status === "none") continue;
+      results.set(input.danimeWorkId, {
+        ...classified,
+        title: originalTitle.get(input.danimeWorkId)!,
+      });
+      break;
     }
     if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
   }

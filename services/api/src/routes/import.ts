@@ -21,9 +21,14 @@ const importRoute = new Hono<AuthVariables>()
     requireAnnictToken,
     zValidator("json", danimeMatchRequestSchema),
     async (c) => {
-      const { works } = c.req.valid("json");
+      const { works, registeredWorkIds } = c.req.valid("json");
       try {
-        const results = await matchDanimeWorks(c.var.annictToken, works);
+        const results = await matchDanimeWorks(
+          c.var.annictToken,
+          works,
+          fetch,
+          registeredWorkIds,
+        );
         return c.json({ results }, 200);
       } catch (err) {
         const res = annictErrorResponse(c, err);
