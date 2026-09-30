@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@animeishi/api": "workspace:*",
+    "@animeishi/danime-core": "workspace:*",
     "@clerk/clerk-expo": "^2.10.0",
     "@expo/metro-runtime": "^6.1.2",
     "@expo/vector-icons": "^15.1.1",

@@ -1,11 +1,10 @@
-/**
- * @jest-environment jsdom
- * @jest-environment-options {"url": "https://animestore.docomo.ne.jp/animestore/mpa_hst_pc?workType=0"}
- */
+// @vitest-environment jsdom
+// @vitest-environment-options {"url": "https://animestore.docomo.ne.jp/animestore/mpa_hst_pc?workType=0"}
 // 抽出スクリプト（DANIME_EXTRACT_SCRIPT）を jsdom 上で実際に eval して、
 // dアニメページ風のフィクスチャ HTML からの抽出・ページング・エラー分岐を検証する。
 // oxlint-disable: eval / javascript: URL はこのテストの検証対象そのもの。
 /* oxlint-disable no-eval, no-script-url */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DANIME_EXTRACT_ERR,
   DANIME_EXTRACT_OK,
@@ -14,19 +13,20 @@ import {
   DANIME_POSTBACK_DATA,
   buildDanimeBookmarklet,
   danimeExtractScript,
-} from "@/lib/danime/extractScript";
+} from "./extractScript";
+import { DANIME_EXTRACT_SCHEMA_VERSION } from "./types";
 
 type PostMessage = { type: string; payload?: unknown; message?: string };
 
-let postMessage: jest.Mock;
-let fetchMock: jest.Mock;
+let postMessage: ReturnType<typeof vi.fn>;
+let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  postMessage = jest.fn();
+  postMessage = vi.fn();
   (window as unknown as { ReactNativeWebView: unknown }).ReactNativeWebView = {
     postMessage,
   };
-  fetchMock = jest.fn();
+  fetchMock = vi.fn();
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
 
@@ -65,9 +65,7 @@ function pageHtml(opts: {
       </div>
     </div>`;
   const sp = opts.spDuplicate
-    ? `<div class="itemWrapper clearfix onlySpLayout">${opts.cards
-        .map(card)
-        .join("")}</div>`
+    ? `<div class="itemWrapper clearfix onlySpLayout">${opts.cards.map(card).join("")}</div>`
     : "";
   return `<html><body>
     <form name="pageForm">
@@ -86,7 +84,7 @@ async function runScript(): Promise<PostMessage> {
   const promise = eval(DANIME_EXTRACT_SCRIPT) as Promise<void>;
   await promise;
   expect(postMessage).toHaveBeenCalledTimes(1);
-  return JSON.parse(postMessage.mock.calls[0][0] as string) as PostMessage;
+  return JSON.parse(postMessage.mock.calls[0]?.[0] as string) as PostMessage;
 }
 
 describe("DANIME_EXTRACT_SCRIPT", () => {
@@ -110,9 +108,11 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
     const msg = await runScript();
     expect(msg.type).toBe(DANIME_EXTRACT_OK);
     const payload = msg.payload as {
+      schemaVersion: number;
       completed: { workId: string; title: string }[];
       history: { workId: string; title: string; partIds: string[] }[];
     };
+    expect(payload.schemaVersion).toBe(DANIME_EXTRACT_SCHEMA_VERSION);
     expect(payload.completed).toEqual([
       { workId: "101", title: "作品A", partIds: [] },
     ]);
@@ -254,7 +254,7 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
     await eval(DANIME_EXTRACT_SCRIPT);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(postMessage).toHaveBeenCalledTimes(1);
-    const msg = JSON.parse(postMessage.mock.calls[0][0] as string);
+    const msg = JSON.parse(postMessage.mock.calls[0]?.[0] as string);
     expect(msg.type).toBe(DANIME_EXTRACT_ERR);
     expect(msg.message).toBe("wrong_page");
   });
@@ -283,20 +283,23 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
 
 describe("ブックマークレット経路（ReactNativeWebView なし）", () => {
   const APP_ORIGIN = "https://animeishi.example";
-  let appWin: { postMessage: jest.Mock; close: jest.Mock };
-  let alertMock: jest.Mock;
+  let appWin: {
+    postMessage: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+  };
+  let alertMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     // WebView 経路ではないので ReactNativeWebView を消し、window.open の
     // 返り値をアプリ側タブのスタブにする。
     delete (window as unknown as { ReactNativeWebView?: unknown })
       .ReactNativeWebView;
-    appWin = { postMessage: jest.fn(), close: jest.fn() };
-    jest
-      .spyOn(window, "open")
-      .mockImplementation(() => appWin as unknown as Window);
-    alertMock = jest.fn();
-    window.alert = alertMock;
+    appWin = { postMessage: vi.fn(), close: vi.fn() };
+    vi.spyOn(window, "open").mockImplementation(
+      () => appWin as unknown as Window,
+    );
+    alertMock = vi.fn();
+    window.alert = alertMock as unknown as typeof window.alert;
 
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes("mpa_cmp_pc")) {
@@ -311,7 +314,7 @@ describe("ブックマークレット経路（ReactNativeWebView なし）", () 
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("Animeishi 受信タブを開き postMessage で抽出結果を転送する", async () => {
@@ -325,13 +328,20 @@ describe("ブックマークレット経路（ReactNativeWebView なし）", () 
     // 結果は ReactNativeWebView ではなく受信タブへの postMessage で送る。
     expect(postMessage).not.toHaveBeenCalled();
     expect(appWin.postMessage).toHaveBeenCalled();
-    const [msg, origin] = appWin.postMessage.mock.calls[0] as [
-      { type: string; payload: { completed: { workId: string }[] } },
+    const [msg, origin] = appWin.postMessage.mock.calls[0]! as [
+      {
+        type: string;
+        payload: {
+          schemaVersion: number;
+          completed: { workId: string }[];
+        };
+      },
       string,
     ];
     expect(origin).toBe(APP_ORIGIN);
     expect(msg.type).toBe(DANIME_POSTBACK_DATA);
-    expect(msg.payload.completed[0].workId).toBe("101");
+    expect(msg.payload.schemaVersion).toBe(DANIME_EXTRACT_SCHEMA_VERSION);
+    expect(msg.payload.completed[0]?.workId).toBe("101");
   });
 
   it("ack を受け取ると転送完了を通知する", async () => {
@@ -391,7 +401,7 @@ describe("buildDanimeBookmarklet", () => {
     });
     await eval(code);
     expect(postMessage).toHaveBeenCalledTimes(1);
-    const msg = JSON.parse(postMessage.mock.calls[0][0] as string);
+    const msg = JSON.parse(postMessage.mock.calls[0]?.[0] as string);
     expect(msg.type).toBe(DANIME_EXTRACT_OK);
   });
 });

@@ -16,9 +16,9 @@ import {
   DANIME_EXTRACT_OK,
   DANIME_EXTRACT_SCRIPT,
   DANIME_HISTORY_URL,
-} from "@/lib/danime/extractScript";
-import type { DanimeExtractMessage } from "@/lib/danime/types";
-import { parseDanimeExtractedLists } from "@/lib/danime/validate";
+  parseDanimeExtractedLists,
+  type DanimeExtractMessage,
+} from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 
 function errorMessage(code: string): string {
