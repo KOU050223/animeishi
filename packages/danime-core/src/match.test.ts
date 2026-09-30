@@ -449,6 +449,46 @@ describe("matchDanimeWorks", () => {
     expect(singleTitleCalls).toHaveLength(50);
   });
 
+  it("先頭の未解決タイトルが遅くても、後続タスクに上限枠を先食いされない", async () => {
+    // レビュー指摘: 全未解決タイトルを一括で並列化すると、先頭タイトルの
+    // 検索が遅い間に後続タスクが共有上限（50）を使い切り、先頭タイトルの
+    // 残り検索語が試されず未マッチになる。ウェーブ（同時実行数ぶん）ずつ
+    // 進めることで、先のタスクが自分の検索語を試し終わるまで後続を
+    // 開始しないことを検証する。
+    const searcher = vi.fn(async (titles: string[]) => {
+      // 先頭タイトルの再検索だけ遅くして、後続タスクの先走りを誘発する。
+      // （第 1 パスの union も遅くなるが影響は同じ方向なので許容）
+      if (titles.some((t) => t.startsWith("レア作品"))) {
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      // 「レア作品 (限定版)」の検索語列は [元タイトル, 単純化タイトル]。
+      // 単純化後の「レア作品」だけがヒットする。
+      if (titles.length === 1 && titles[0] === "レア作品") {
+        return [work({ annictId: 7, title: "レア作品" })];
+      }
+      return [] as DanimeAnnictWork[];
+    });
+    // 先頭の遅いタイトル + 共有上限を食い尽くせるだけの後続タイトル。
+    const items = [
+      {
+        danimeWorkId: "0",
+        title: "レア作品 (限定版)",
+        targetState: "WATCHED" as const,
+      },
+      ...Array.from({ length: 59 }, (_, i) => ({
+        danimeWorkId: String(i + 1),
+        title: `ない作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+    ];
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    // 先頭タイトルは単純化クエリまで到達して確定できる。
+    expect(results[0]?.status).toBe("exact");
+    expect(results[0]?.work?.annictWorkId).toBe(7);
+    // 共有上限は変わらず 50 往復に収まる。
+    expect(stats.secondPassSearches).toBe(50);
+  });
+
   it("検索回数・経過時間を stats で返す", async () => {
     const searcher = mockSearcher((titles) =>
       titles.flatMap((t) =>

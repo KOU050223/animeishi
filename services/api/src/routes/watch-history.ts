@@ -218,12 +218,18 @@ const watchHistory = new Hono<AuthVariables>()
         | { annictWorkId: number; ok: true }
         | { annictWorkId: number; ok: false; error: string };
 
+      // 同一作品が異なる状態で並列処理されると Annict への反映順と D1 への
+      // 保存順が入れ替わり最終状態が食い違うため、並列化の前に作品ごと
+      // 最後の状態だけを残す（逐次実行時代の「後勝ち」と同じ結果になる）。
+      const deduped = new Map<number, (typeof entries)[number]>();
+      for (const e of entries) deduped.set(e.annictWorkId, e);
+
       let aborted = false;
       let retries = 0;
       const retried = { onRetry: () => retries++ };
 
-      const results = await mapWithConcurrency(
-        entries,
+      const workResults = await mapWithConcurrency(
+        [...deduped.values()],
         BULK_ENTRY_CONCURRENCY,
         async (entry): Promise<BulkResult> => {
           if (aborted) {
@@ -303,9 +309,40 @@ const watchHistory = new Hono<AuthVariables>()
                     : "annict_upstream",
               };
             }
-            throw err;
+            // 想定外の失敗（D1 書き込み等）も per-item の失敗として返す。
+            // 投げ直すと Promise.all が即 reject して、応答後も他ワーカーの
+            // Annict 更新と履歴保存が続き、クライアントの表示と実態が
+            // 食い違うため。握りつぶす経路は onError を通らないので
+            // Sentry にはここで明示的に送る。
+            captureApiError(err, c);
+            console.error(
+              JSON.stringify({
+                level: "error",
+                event: "watch_history_bulk_entry",
+                annictWorkId: entry.annictWorkId,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+            return {
+              annictWorkId: entry.annictWorkId,
+              ok: false,
+              error: "internal_error",
+            };
           }
         },
+      );
+
+      // 結果は入力エントリ（重複込み）と件数を揃えて返す。クライアントは
+      // 送ったエントリ数と結果数で進捗・残件を計算するため、集約で潰した
+      // 重複分は同じ作品の結果をそのまま返す。
+      const byWorkId = new Map(workResults.map((r) => [r.annictWorkId, r]));
+      const results = entries.map(
+        (e) =>
+          byWorkId.get(e.annictWorkId) ?? {
+            annictWorkId: e.annictWorkId,
+            ok: false as const,
+            error: "internal_error",
+          },
       );
 
       const elapsedMs = Date.now() - startedAt;
@@ -314,7 +351,8 @@ const watchHistory = new Hono<AuthVariables>()
           level: "info",
           event: "watch_history_bulk",
           entries: entries.length,
-          succeeded: results.filter((r) => r.ok).length,
+          uniqueWorks: deduped.size,
+          succeeded: workResults.filter((r) => r.ok).length,
           aborted,
           retries,
           elapsedMs,

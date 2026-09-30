@@ -13,6 +13,30 @@ vi.mock("@clerk/hono", () => ({
   getAuth: vi.fn(),
 }));
 
+// D1 書き込み失敗（AnnictApiError ではない想定外の例外）を再現するため、
+// 特定作品の upsertWatchHistory だけを落とせるよう authorizedDb をラップする。
+const failUpsertIds = new Set<number>();
+vi.mock("@/repository/authorizedDb", async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import("@/repository/authorizedDb")>();
+  return {
+    ...mod,
+    authorizedDb: (db: Parameters<typeof mod.authorizedDb>[0], uid: string) => {
+      const adb = mod.authorizedDb(db, uid);
+      return {
+        ...adb,
+        upsertWatchHistory: (
+          annictWorkId: number,
+          values: Parameters<typeof adb.upsertWatchHistory>[1],
+        ) =>
+          failUpsertIds.has(annictWorkId)
+            ? Promise.reject(new Error("D1 write failed"))
+            : adb.upsertWatchHistory(annictWorkId, values),
+      };
+    },
+  };
+});
+
 import { getAuth } from "@clerk/hono";
 
 const USER_ID = "user_testbulk01";
@@ -151,6 +175,7 @@ describe("POST /me/watch-histories/bulk", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    failUpsertIds.clear();
   });
 
   it("認証なしは 401", async () => {
@@ -383,6 +408,77 @@ describe("POST /me/watch-histories/bulk", () => {
         where: (t, { eq }) => eq(t.annictWorkId, 7),
       });
       expect(cached?.title).toBe("作品7");
+    });
+
+    it("同一作品の重複エントリは最後の状態だけを適用する", async () => {
+      // 並列処理だと Annict への反映順と D1 への保存順が入れ替わり得るため、
+      // 同一 annictWorkId は入力順最後の状態に集約してから処理する
+      // （逐次実行時代の「後勝ち」と同じ結果）。
+      const fetchMock = mockAnnictUpdate();
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              { annictWorkId: 1, state: "WATCHING" },
+              { annictWorkId: 1, state: "WATCHED" },
+              { annictWorkId: 2, state: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      // 結果は入力件数分（重複込み・入力順）で返り、重複分は同じ結果を共有する。
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: true },
+        { annictWorkId: 1, ok: true },
+        { annictWorkId: 2, ok: true },
+      ]);
+
+      // 作品 1 の updateStatus は最後の状態 WATCHED で 1 回だけ送られる。
+      const updateVars = fetchMock.mock.calls
+        .map((c) => JSON.parse((c[1] as RequestInit).body as string))
+        .filter((b) => (b.query as string).includes("updateStatus"))
+        .map((b) => b.variables);
+      expect(
+        updateVars.filter((v) => v.workId === "Work-1").map((v) => v.state),
+      ).toEqual(["WATCHED"]);
+
+      // D1 にも同じ最終状態が残る（Annict と食い違わない）。
+      const history = await db.query.watchHistory.findFirst({
+        where: (t, { eq, and }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, 1)),
+      });
+      expect(history?.state).toBe("WATCHED");
+    });
+
+    it("D1 書き込み等の想定外の失敗も per-item で返し、他作品の登録は続く", async () => {
+      // AnnictApiError 以外の例外（D1 書き込み失敗等）を投げ直すと
+      // Promise.all が即 reject し、応答後も他ワーカーの更新が続いて
+      // クライアント表示と実態が食い違う。そのため internal_error として
+      // その作品だけの失敗に変換する。
+      failUpsertIds.add(2);
+      mockAnnictUpdate();
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ entries: [entry(1), entry(2), entry(3)] }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: true },
+        { annictWorkId: 2, ok: false, error: "internal_error" },
+        { annictWorkId: 3, ok: true },
+      ]);
     });
 
     it("entries が空配列なら 400", async () => {
