@@ -8,9 +8,11 @@
 //   （単純化タイトルも試す）。
 // - 正確さより安全側: 正規化完全一致の単一候補だけを "exact" とし、それ以外は
 //   レビュー（"candidates"）か未マッチ（"none"）に落とす。
+// - Annict へのアクセスは AnnictSearcher として注入する。animeishi API は
+//   Workers 側の GraphQL クライアントを包んで渡し、将来のスタンドアロン版
+//   （ブラウザ拡張等）はクライアントから Annict を直叩きする実装を差し替えられる。
 
-import type { AnnictLibraryEntry } from "../annict/client";
-import { searchAnnictWorksByTitles } from "../annict/client";
+import type { DanimeAnnictWork } from "./types";
 import {
   isGenericSearchTitle,
   normalizeTitle,
@@ -33,10 +35,17 @@ export type DanimeMatchStatus = "exact" | "candidates" | "none";
 export type DanimeMatchResult = DanimeMatchInput & {
   status: DanimeMatchStatus;
   // status==="exact" のときの確定作品。レビュー画面の既定選択としても使う。
-  work: AnnictLibraryEntry | null;
+  work: DanimeAnnictWork | null;
   // status==="candidates" のときの候補（スコア降順・先頭が既定選択）。
-  candidates: AnnictLibraryEntry[];
+  candidates: DanimeAnnictWork[];
 };
+
+/**
+ * Annict 作品検索の抽象化。タイトル群（OR 部分一致）を受け取り、
+ * ヒットした Annict 作品候補を返す。実装側でページング方針・認証・
+ * 通信先（API プロキシ / Annict 直叩き）を持つ。
+ */
+export type AnnictSearcher = (titles: string[]) => Promise<DanimeAnnictWork[]>;
 
 // union 検索 1 クエリあたりのタイトル数。多すぎると first:50 の打ち切りで
 // 候補を取りこぼす。少なすぎると往復が増える。経験的な中間値。
@@ -75,7 +84,7 @@ type ClassifyOptions = {
  */
 export function classifyWork(
   input: DanimeMatchInput,
-  pool: AnnictLibraryEntry[],
+  pool: DanimeAnnictWork[],
   options: ClassifyOptions = {},
 ): DanimeMatchResult {
   const { registeredWorkIds, seasonRefTitle } = options;
@@ -125,7 +134,7 @@ export function classifyWork(
   return { ...input, status: "none", work: null, candidates: [] };
 }
 
-function dedupeWorks(works: AnnictLibraryEntry[]): AnnictLibraryEntry[] {
+function dedupeWorks(works: DanimeAnnictWork[]): DanimeAnnictWork[] {
   const seen = new Set<number>();
   return works.filter((w) => {
     if (seen.has(w.annictWorkId)) return false;
@@ -177,9 +186,8 @@ function secondPassQueries(title: string): string[] {
  * 返す配列は入力順を維持する。
  */
 export async function matchDanimeWorks(
-  accessToken: string,
+  searcher: AnnictSearcher,
   items: DanimeMatchInput[],
-  fetchImpl: typeof fetch = fetch,
   registeredWorkIds?: Iterable<number>,
 ): Promise<DanimeMatchResult[]> {
   // danimeWorkId 重複（履歴カードの話数分重複等）は先に潰す。
@@ -199,7 +207,7 @@ export async function matchDanimeWorks(
   }));
 
   // 第 1 パス: タイトルをチャンクでまとめて union 検索。
-  const pool: AnnictLibraryEntry[] = [];
+  const pool: DanimeAnnictWork[] = [];
   for (let i = 0; i < matchInputs.length; i += SEARCH_CHUNK_SIZE) {
     const chunk = matchInputs
       .slice(i, i + SEARCH_CHUNK_SIZE)
@@ -207,9 +215,7 @@ export async function matchDanimeWorks(
       // 退化クエリ（「TVアニメ」だけ等）はノイズしか返さないので送らない。
       .filter((t) => t && !isGenericSearchTitle(t));
     if (chunk.length === 0) continue;
-    pool.push(
-      ...(await searchAnnictWorksByTitles(accessToken, chunk, fetchImpl)),
-    );
+    pool.push(...(await searcher(chunk)));
   }
   const poolDeduped = dedupeWorks(pool);
 
@@ -244,11 +250,7 @@ export async function matchDanimeWorks(
     for (const q of queries) {
       if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
       secondPassSearches++;
-      const found = await searchAnnictWorksByTitles(
-        accessToken,
-        [q],
-        fetchImpl,
-      );
+      const found = await searcher([q]);
       if (found.length === 0) continue;
       // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
       // 元タイトルで再採点すると括弧差分で exact にならないため）。

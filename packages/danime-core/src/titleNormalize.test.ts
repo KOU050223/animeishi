@@ -8,7 +8,7 @@ import {
   toFullWidthDigits,
   toHalfWidthAlnum,
   unwrapDanimeTitle,
-} from "@/lib/danime/titleNormalize";
+} from "./titleNormalize";
 
 describe("normalizeTitle", () => {
   it("全角・半角・大文字・空白・波ダッシュの揺れを同一視する", () => {

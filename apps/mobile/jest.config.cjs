@@ -17,6 +17,8 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "^@animeishi/api$": "<rootDir>/../../services/api/src/index.ts",
+    "^@animeishi/danime-core$":
+      "<rootDir>/../../packages/danime-core/src/index.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@clerk/clerk-expo$": "<rootDir>/__mocks__/@clerk/clerk-expo.ts",
   },

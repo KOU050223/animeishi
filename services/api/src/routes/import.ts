@@ -7,7 +7,8 @@ import { danimeMatchRequestSchema } from "@/schema/validators";
 // routes/watch-history.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { annictErrorResponse } from "@/lib/annict/errors";
-import { matchDanimeWorks } from "@/lib/danime/match";
+import { searchAnnictWorksByTitles } from "@/lib/annict/client";
+import { matchDanimeWorks } from "@animeishi/danime-core";
 
 // dアニメストア インポート用ルート。
 // 抽出はクライアント側（ネイティブ WebView 注入 / Web ブックマークレット）が担い、
@@ -24,9 +25,11 @@ const importRoute = new Hono<AuthVariables>()
       const { works, registeredWorkIds } = c.req.valid("json");
       try {
         const results = await matchDanimeWorks(
-          c.var.annictToken,
+          // Annict へのアクセスは AnnictSearcher として注入する
+          // （core は通信を持たない）。
+          (titles) =>
+            searchAnnictWorksByTitles(c.var.annictToken, titles, fetch),
           works,
-          fetch,
           registeredWorkIds,
         );
         return c.json({ results }, 200);

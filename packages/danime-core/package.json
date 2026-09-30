@@ -1,0 +1,26 @@
+{
+  "name": "@animeishi/danime-core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint . --deny-warnings",
+    "lint:fix": "oxlint . --fix --deny-warnings",
+    "format": "oxfmt --ignore-path ../../.oxfmtignore .",
+    "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
+  },
+  "devDependencies": {
+    "jsdom": "^20.0.3",
+    "oxfmt": "^0.57.0",
+    "oxlint": "^1.72.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}

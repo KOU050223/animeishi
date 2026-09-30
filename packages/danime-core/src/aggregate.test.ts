@@ -1,8 +1,17 @@
-import { toMatchWorks } from "@/lib/danime/aggregate";
-import type { DanimeExtractedLists } from "@/lib/danime/types";
+import { describe, expect, it } from "vitest";
+import { toMatchWorks } from "./aggregate";
+import {
+  DANIME_EXTRACT_SCHEMA_VERSION,
+  type DanimeExtractedLists,
+} from "./types";
 
 function lists(partial: Partial<DanimeExtractedLists>): DanimeExtractedLists {
-  return { completed: [], history: [], ...partial };
+  return {
+    schemaVersion: DANIME_EXTRACT_SCHEMA_VERSION,
+    completed: [],
+    history: [],
+    ...partial,
+  };
 }
 
 describe("toMatchWorks", () => {

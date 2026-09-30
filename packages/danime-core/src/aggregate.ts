@@ -8,7 +8,7 @@
 //     視聴済みが視聴中に降格してしまうため、workId 一致に加えて
 //     正規化タイトル一致でも history 側を落とす
 //     （dアニメ側で同一作品に別 workId が振られるケースへの保険）。
-import type { DanimeExtractedLists } from "@/lib/danime/types";
+import type { DanimeExtractedLists } from "./types";
 
 export type DanimeMatchWorkInput = {
   danimeWorkId: string;
@@ -16,8 +16,8 @@ export type DanimeMatchWorkInput = {
   targetState: "WATCHED" | "WATCHING";
 };
 
-// API 側 titleNormalize と同等の軽量正規化（NFKC・小文字化・空白/中黒除去）。
-// 「同一作品か」の粗い判定用で、API のスコアリングとは独立に持つ。
+// titleNormalize と同等の軽量正規化（NFKC・小文字化・空白/中黒除去）。
+// 「同一作品か」の粗い判定用で、照合スコアリングとは独立に持つ。
 function normalize(title: string): string {
   return title
     .normalize("NFKC")
