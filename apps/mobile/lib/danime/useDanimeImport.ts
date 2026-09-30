@@ -29,6 +29,24 @@ export type BulkRegisterResult = {
   aborted: boolean;
   /** 途中のチャンクで通信/HTTP エラーが起きた場合のメッセージ。 */
   requestError: string | null;
+  /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
+  elapsedMs: number;
+};
+
+// POST /me/import/danime/match の stats 要素と対応するクライアント側の型。
+export type DanimeMatchStats = {
+  firstPassSearches: number;
+  secondPassSearches: number;
+  retries: number;
+  elapsedMs: number;
+};
+
+export type DanimeMatchOutput = {
+  items: DanimeMatchItem[];
+  /** 照合フェーズの経過時間（ms、クライアント側計測）。 */
+  elapsedMs: number;
+  /** API 側の検索統計（デプロイ前の旧 API では返らないため任意）。 */
+  stats?: DanimeMatchStats;
 };
 
 /** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
@@ -67,7 +85,9 @@ export function useDanimeMatch() {
       // API の works 上限（500）を超える履歴にも対応するためチャンク分割する。
       // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
       // 期限切れにならないようチャンクごとに取得し直す。
+      const startedAt = Date.now();
       const results: DanimeMatchItem[] = [];
+      let stats: DanimeMatchStats | undefined;
       for (let i = 0; i < works.length; i += MATCH_CHUNK_SIZE) {
         const headers = await getAuthHeaders(getToken);
         const res = await apiClient.me["import"].danime.match.$post(
@@ -88,9 +108,24 @@ export function useDanimeMatch() {
           );
         }
         const body = await res.json();
+        // チャンク分割時は各チャンクの統計を合算する。
+        if (body.stats) {
+          stats = {
+            firstPassSearches:
+              (stats?.firstPassSearches ?? 0) + body.stats.firstPassSearches,
+            secondPassSearches:
+              (stats?.secondPassSearches ?? 0) + body.stats.secondPassSearches,
+            retries: (stats?.retries ?? 0) + body.stats.retries,
+            elapsedMs: (stats?.elapsedMs ?? 0) + body.stats.elapsedMs,
+          };
+        }
         results.push(...body.results);
       }
-      return results;
+      return {
+        items: results,
+        elapsedMs: Date.now() - startedAt,
+        stats,
+      } satisfies DanimeMatchOutput;
     },
   });
 }
@@ -109,6 +144,7 @@ export function useBulkRegisterWatchHistory() {
     }): Promise<BulkRegisterResult> => {
       const annictHeader = await buildAnnictAuthHeader();
 
+      const startedAt = Date.now();
       const results: BulkRegisterResult["results"] = [];
       let aborted = false;
       let requestError: string | null = null;
@@ -161,7 +197,12 @@ export function useBulkRegisterWatchHistory() {
           break;
         }
       }
-      return { results, aborted, requestError };
+      return {
+        results,
+        aborted,
+        requestError,
+        elapsedMs: Date.now() - startedAt,
+      };
     },
     // 途中失敗（requestError）でも成功分が登録されている可能性があるため、
     // onSuccess（= mutationFn が正常終了した場合）で必ず無効化する。

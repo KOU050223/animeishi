@@ -111,6 +111,7 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
       schemaVersion: number;
       completed: { workId: string; title: string }[];
       history: { workId: string; title: string; partIds: string[] }[];
+      extractElapsedMs?: number;
     };
     expect(payload.schemaVersion).toBe(DANIME_EXTRACT_SCHEMA_VERSION);
     expect(payload.completed).toEqual([
@@ -120,6 +121,9 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
       { workId: "201", title: "作品B", partIds: ["20101"] },
       { workId: "202", title: "作品C", partIds: ["20201", "20202"] },
     ]);
+    // 所要時間の可視化: 抽出フェーズの経過時間を payload に含める。
+    expect(typeof payload.extractElapsedMs).toBe("number");
+    expect(payload.extractElapsedMs).toBeGreaterThanOrEqual(0);
   });
 
   it("ページング: selectPage を全ページ分 fetch して結合する", async () => {

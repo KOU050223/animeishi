@@ -22,6 +22,11 @@ export type DanimeExtractedLists = {
   completed: DanimeExtractedWork[];
   /** 視聴履歴（mpa_hst_pc）。completed に無い作品は WATCHING 対象。 */
   history: DanimeExtractedWork[];
+  /**
+   * 抽出フェーズの所要時間（ms）。所要時間の可視化用。
+   * 手動貼り付けや古いスクリプトのペイロードには含まれないため任意。
+   */
+  extractElapsedMs?: number;
 };
 
 // WebView postMessage / ブックマークレットで運ばれるメッセージ。

@@ -56,9 +56,19 @@ export function parseDanimeExtractedLists(
   const completed = normalize(v.completed);
   const history = normalize(v.history);
   if (!completed || !history) return null;
-  return {
+  const result: DanimeExtractedLists = {
     schemaVersion: DANIME_EXTRACT_SCHEMA_VERSION,
     completed,
     history,
   };
+  // 所要時間の可視化用の抽出時間。任意項目で、数値でない値は落とす
+  // （exactOptionalPropertyTypes のため undefined 代入せず欠落させる）。
+  if (
+    typeof v.extractElapsedMs === "number" &&
+    Number.isFinite(v.extractElapsedMs) &&
+    v.extractElapsedMs >= 0
+  ) {
+    result.extractElapsedMs = v.extractElapsedMs;
+  }
+  return result;
 }

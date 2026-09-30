@@ -165,6 +165,12 @@ describe("dアニメインポート API", () => {
           work: { annictWorkId: number } | null;
           candidates: { annictWorkId: number }[];
         }[];
+        stats: {
+          firstPassSearches: number;
+          secondPassSearches: number;
+          retries: number;
+          elapsedMs: number;
+        };
       };
       expect(body.results).toHaveLength(3);
       expect(body.results[0].status).toBe("exact");
@@ -172,6 +178,68 @@ describe("dアニメインポート API", () => {
       expect(body.results[1].status).toBe("candidates");
       expect(body.results[1].candidates).toHaveLength(2);
       expect(body.results[2].status).toBe("none");
+      // 所要時間の可視化: 検索回数・リトライ・経過時間を返す。
+      expect(body.stats.firstPassSearches).toBe(1);
+      expect(body.stats.secondPassSearches).toBeGreaterThan(0);
+      expect(body.stats.retries).toBe(0);
+      expect(body.stats.elapsedMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("Annict が 429 を返した検索はリトライして回数を stats に記録する", async () => {
+      let calls = 0;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+        calls++;
+        if (calls === 1) {
+          return new Response("rate limited", { status: 429 });
+        }
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        const titles: string[] = body.variables?.titles ?? [];
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: titles.includes("鬼滅の刃")
+                  ? [
+                      {
+                        id: "Work-1",
+                        annictId: 1,
+                        malAnimeId: null,
+                        title: "鬼滅の刃",
+                        titleKana: null,
+                        titleEn: null,
+                        seasonName: null,
+                        seasonYear: null,
+                        image: { recommendedImageUrl: null },
+                      },
+                    ]
+                  : [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { status: string }[];
+        stats: { retries: number };
+      };
+      expect(body.results[0]?.status).toBe("exact");
+      expect(body.stats.retries).toBe(1);
     });
 
     it("Annict が 401 ならトークン無効として 401", async () => {

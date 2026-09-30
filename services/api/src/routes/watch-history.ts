@@ -22,6 +22,8 @@ import {
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
+import { withAnnictRetry } from "@/lib/annict/retry";
+import { mapWithConcurrency } from "@animeishi/danime-core";
 import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
 import { captureApiError } from "../observability";
 import {
@@ -39,6 +41,11 @@ function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
     IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
   };
 }
+
+// bulk 登録で 1 作品を処理する同時実行数。作品あたり searchWorks +
+// updateStatus の往復が直列だと遅いため、Annict レート制限を意識した
+// 同時実行数で並列化する（issue #115）。
+const BULK_ENTRY_CONCURRENCY = 4;
 
 const watchHistory = new Hono<AuthVariables>()
   .use("*", requireAuth)
@@ -190,10 +197,11 @@ const watchHistory = new Hono<AuthVariables>()
   )
   // dアニメインポート等の一括登録。各作品ごとに PUT と同じ不変条件
   // （Annict updateStatus が正・成功後にのみ D1 を追従）を守りつつ、
-  // 1 リクエストで複数作品を逐次処理する。
+  // 1 リクエストで複数作品を同時実行数制限付きで並列処理する。
   // 個別失敗は呼び出し側が再挑戦できるよう per-item で返す。HTTP は成功時
   // 200 のまま（部分成功を捨てないため）で、認証切れ（Annict 401）は以降の
-  // 作品を全滅させるだけなので検出した時点で打ち切る。
+  // 作品を全滅させるだけなので検出した時点で未着手分を打ち切る
+  // （処理中の分は実結果を返す）。
   .post(
     "/bulk",
     requireAnnictToken,
@@ -204,95 +212,115 @@ const watchHistory = new Hono<AuthVariables>()
       const adb = authorizedDb(db, c.var.clerkUserId);
       const token = c.var.annictToken;
       const now = new Date();
+      const startedAt = Date.now();
 
       type BulkResult =
         | { annictWorkId: number; ok: true }
         | { annictWorkId: number; ok: false; error: string };
 
-      const results: BulkResult[] = [];
       let aborted = false;
+      let retries = 0;
+      const retried = { onRetry: () => retries++ };
 
-      for (const entry of entries) {
-        if (aborted) {
-          results.push({
-            annictWorkId: entry.annictWorkId,
-            ok: false,
-            error: "aborted",
-          });
-          continue;
-        }
-
-        try {
-          // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
-          // 使い、無ければ searchWorks で Annict の正データを取る
-          // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
-          let nodeId: string | null = null;
-          let resolvedWork: NewAnnictWork | null = null;
-          const cached = await adb.getAnnictWorkById(entry.annictWorkId);
-          nodeId = cached?.nodeId ?? null;
-          if (!nodeId) {
-            const resolved = await fetchAnnictWorkByAnnictId(
-              token,
-              entry.annictWorkId,
-            );
-            if (!resolved) {
-              results.push({
-                annictWorkId: entry.annictWorkId,
-                ok: false,
-                error: "work_not_found",
-              });
-              continue;
-            }
-            nodeId = resolved.nodeId;
-            resolvedWork = {
-              annictWorkId: resolved.annictWorkId,
-              nodeId: resolved.nodeId,
-              malAnimeId: resolved.malAnimeId,
-              title: resolved.title,
-              titleKana: resolved.titleKana,
-              titleEn: resolved.titleEn,
-              seasonName: resolved.seasonName,
-              seasonYear: resolved.seasonYear,
-              imageUrl: resolved.imageUrl,
-              updatedAt: now,
+      const results = await mapWithConcurrency(
+        entries,
+        BULK_ENTRY_CONCURRENCY,
+        async (entry): Promise<BulkResult> => {
+          if (aborted) {
+            return {
+              annictWorkId: entry.annictWorkId,
+              ok: false,
+              error: "aborted",
             };
           }
 
-          await updateAnnictStatus(token, nodeId, entry.state);
-
-          // Annict 更新が成功した後にのみキャッシュを追従させる。
-          // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
-          // 確定しているため、新規解決時だけ upsert すればよい。
-          if (resolvedWork) {
-            await adb.upsertAnnictWork(resolvedWork);
-          }
-          await adb.upsertWatchHistory(entry.annictWorkId, {
-            state: entry.state,
-          });
-          results.push({ annictWorkId: entry.annictWorkId, ok: true });
-        } catch (err) {
-          if (err instanceof AnnictApiError) {
-            // トークン失効は以降の全件が同じく失敗するため打ち切る。
-            // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
-            // 部分成功で握りつぶす経路は onError を通らないため、
-            // 401 以外の障害はここで明示的に capture する。
-            if (err.status !== 401) {
-              captureApiError(err, c);
+          try {
+            // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
+            // 使い、無ければ searchWorks で Annict の正データを取る
+            // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
+            let nodeId: string | null = null;
+            let resolvedWork: NewAnnictWork | null = null;
+            const cached = await adb.getAnnictWorkById(entry.annictWorkId);
+            nodeId = cached?.nodeId ?? null;
+            if (!nodeId) {
+              const resolved = await withAnnictRetry(
+                () => fetchAnnictWorkByAnnictId(token, entry.annictWorkId),
+                retried,
+              );
+              if (!resolved) {
+                return {
+                  annictWorkId: entry.annictWorkId,
+                  ok: false,
+                  error: "work_not_found",
+                };
+              }
+              nodeId = resolved.nodeId;
+              resolvedWork = {
+                annictWorkId: resolved.annictWorkId,
+                nodeId: resolved.nodeId,
+                malAnimeId: resolved.malAnimeId,
+                title: resolved.title,
+                titleKana: resolved.titleKana,
+                titleEn: resolved.titleEn,
+                seasonName: resolved.seasonName,
+                seasonYear: resolved.seasonYear,
+                imageUrl: resolved.imageUrl,
+                updatedAt: now,
+              };
             }
-            results.push({
-              annictWorkId: entry.annictWorkId,
-              ok: false,
-              error:
-                err.status === 401 ? "annict_token_invalid" : "annict_upstream",
-            });
-            if (err.status === 401) aborted = true;
-            continue;
-          }
-          throw err;
-        }
-      }
 
-      return c.json({ results, aborted }, 200);
+            // updateStatus は冪等（同じ state の再適用は無害）なので
+            // 429 / 一時障害をリトライしてよい。
+            await withAnnictRetry(
+              () => updateAnnictStatus(token, nodeId, entry.state),
+              retried,
+            );
+
+            // Annict 更新が成功した後にのみキャッシュを追従させる。
+            // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
+            // 確定しているため、新規解決時だけ upsert すればよい。
+            if (resolvedWork) {
+              await adb.upsertAnnictWork(resolvedWork);
+            }
+            await adb.upsertWatchHistory(entry.annictWorkId, {
+              state: entry.state,
+            });
+            return { annictWorkId: entry.annictWorkId, ok: true };
+          } catch (err) {
+            if (err instanceof AnnictApiError) {
+              // トークン失効は以降の全件が同じく失敗するため未着手分を打ち切る。
+              // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
+              if (err.status === 401) aborted = true;
+              // 部分成功で握りつぶす経路は onError を通らないため、
+              // 401 以外の障害はここで明示的に capture する。
+              else captureApiError(err, c);
+              return {
+                annictWorkId: entry.annictWorkId,
+                ok: false,
+                error:
+                  err.status === 401
+                    ? "annict_token_invalid"
+                    : "annict_upstream",
+              };
+            }
+            throw err;
+          }
+        },
+      );
+
+      const elapsedMs = Date.now() - startedAt;
+      console.log(
+        JSON.stringify({
+          level: "info",
+          event: "watch_history_bulk",
+          entries: entries.length,
+          succeeded: results.filter((r) => r.ok).length,
+          aborted,
+          retries,
+          elapsedMs,
+        }),
+      );
+      return c.json({ results, aborted, elapsedMs }, 200);
     },
   )
   .delete("/:annictWorkId", async (c) => {

@@ -101,6 +101,14 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
   再検索語でヒットした候補の分類も検索語で行うが、期数ガードと
   登録済み除外は元の入力タイトルで判定する（単純化で期数が消えた
   検索語経由でも別シーズンを自動確定しない）。
+- 並列化と計測（issue #115）: union 検索チャンクと未解決タイトルの再検索は
+  同時実行数 6 の `mapWithConcurrency`（`packages/danime-core/src/concurrency.ts`）
+  で並列実行する（1 タイトル内の再検索語だけは順序依存のため逐次）。
+  API 側は注入する `AnnictSearcher` を `withAnnictRetry`
+  （`services/api/src/lib/annict/retry.ts`）で包み、429 / 5xx / 通信失敗を
+  最大 3 回までバックオフ再試行する。リトライ回数は API 側で集計して
+  stats に含める。第 2 パスの往復上限（`MAX_SECOND_PASS_SEARCHES = 50`）は
+  並列タスク間で共有する。
 - スコアリング（`packages/danime-core/src/titleNormalize.ts`）:
   NFKC 正規化 → 完全一致の単一候補のみ `exact`（入力が期数を明示している
   ときは、期数の一致しない候補は exact にしない）。それ以外は類似度
@@ -110,7 +118,10 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
   `registeredWorkIds`（クライアントの既存ライブラリ）が渡された場合、
   入力が期数を明示していて「登録済みかつ別シーズンと判明している」候補は
   候補から除外する（候補側の期数が不明なときは残す）。
-- 出力: `{ results: [{ danimeWorkId, title, targetState, status, work, candidates }] }`
+- 出力: `{ results: [{ danimeWorkId, title, targetState, status, work, candidates }], stats }`
+  - `stats`: `{ firstPassSearches, secondPassSearches, retries, elapsedMs }` —
+    検索回数・リトライ回数・経過時間の観測情報。構造化ログ
+    （`event: "danime_match"`）にも同内容を出す。
 
 ### `POST /me/watch-histories/bulk`
 
@@ -118,10 +129,14 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 - **nodeId・作品メタはクライアントから受け付けない**（共有キャッシュ
   `annict_works` の汚染と別作品への誤登録を防ぐため）。サーバー側で
   D1 キャッシュ → `searchWorks` の順に正規解決する（既存 PUT と同じ経路）。
+- 各作品は同時実行数 4 で並列処理し、Annict 呼び出しは `withAnnictRetry` で
+  429 / 5xx / 通信失敗をリトライする（updateStatus は冪等）。
 - `updateAnnictStatus` が成功した作品だけ `annict_works` / `watch_history` を
   upsert（「Annict が正・成功後のみキャッシュ追従」の不変条件）。
-- Annict 401（トークン失効）は残りを `aborted` で打ち切り。5xx 等は該当作品のみ
-  失敗として続行。`{ results: [{ annictWorkId, ok, error? }], aborted }` を返す。
+- Annict 401（トークン失効）を検知したら未着手の作品を `aborted` で打ち切る
+  （処理中の分は実結果を返す）。5xx 等は該当作品のみ失敗として続行。
+  `{ results: [{ annictWorkId, ok, error? }], aborted, elapsedMs }` を返し、
+  構造化ログ（`event: "watch_history_bulk"`）にも件数と経過時間を出す。
 - クライアントは後続チャンクが送られなかった分を `aborted`/`not_sent` として
   結果に含め、部分失敗でも履歴キャッシュを無効化する。
 
@@ -136,6 +151,10 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
   - 同一ステータス登録済み → 既定で除外
   - `WATCHED` → `WATCHING` のダウングレード → 既定で除外
 - 確定分を 50 件ずつ bulk POST。進捗 `done/total` と失敗件数を表示。
+- 所要時間の可視化: 抽出スクリプトが payload に載せる `extractElapsedMs`、
+  照合のクライアント計測時間 + API `stats`、登録の経過時間を
+  「抽出 / 照合 / 登録」のサマリとしてレビュー・結果画面に表示し、
+  照合中・登録中は経過秒数をライブ表示する。
 
 ## 既知の制約 / 今後
 
