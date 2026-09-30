@@ -6,7 +6,6 @@ import { danimeMatchRequestSchema } from "@/schema/validators";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // routes/watch-history.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
-import { annictErrorResponse } from "@/lib/annict/errors";
 import { matchDanimeWorks } from "@/lib/danime/match";
 
 // dアニメストア インポート用ルート。
@@ -22,19 +21,13 @@ const importRoute = new Hono<AuthVariables>()
     zValidator("json", danimeMatchRequestSchema),
     async (c) => {
       const { works, registeredWorkIds } = c.req.valid("json");
-      try {
-        const results = await matchDanimeWorks(
-          c.var.annictToken,
-          works,
-          fetch,
-          registeredWorkIds,
-        );
-        return c.json({ results }, 200);
-      } catch (err) {
-        const res = annictErrorResponse(c, err);
-        if (res) return res;
-        throw err;
-      }
+      const results = await matchDanimeWorks(
+        c.var.annictToken,
+        works,
+        fetch,
+        registeredWorkIds,
+      );
+      return c.json({ results }, 200);
     },
   );
 

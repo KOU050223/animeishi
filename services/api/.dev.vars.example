@@ -30,3 +30,7 @@ ANNICT_ENCRYPTION_KEY=
 # 例: ALLOWED_ORIGINS=https://animeishi.uomi.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081
 # 本番の登録手順は docs/04_deployment.md を参照。
 ALLOWED_ORIGINS=
+
+# Sentry（任意）。設定するとローカルからもイベントが送信される。
+# 未設定なら SDK は no-op。動作確認したい場合のみ設定する。
+# SENTRY_DSN=

@@ -7,7 +7,6 @@ import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は routes/watch-history.ts 参照）。
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
 import { resolveAnnictToken } from "@/lib/annict/middleware";
-import { annictErrorResponse } from "@/lib/annict/errors";
 
 function getBindings(
   c: Context,
@@ -43,27 +42,21 @@ const favorites = new Hono<AuthVariables>()
       if (!token) {
         return c.json({ error: "Work not found" }, 404);
       }
-      try {
-        const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
-        if (!resolved) {
-          return c.json({ error: "Work not found" }, 404);
-        }
-        await adb.upsertAnnictWork({
-          annictWorkId: resolved.annictWorkId,
-          nodeId: resolved.nodeId,
-          title: resolved.title,
-          titleKana: resolved.titleKana,
-          titleEn: resolved.titleEn,
-          seasonName: resolved.seasonName,
-          seasonYear: resolved.seasonYear,
-          imageUrl: resolved.imageUrl,
-          updatedAt: new Date(),
-        });
-      } catch (err) {
-        const res = annictErrorResponse(c, err);
-        if (res) return res;
-        throw err;
+      const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+      if (!resolved) {
+        return c.json({ error: "Work not found" }, 404);
       }
+      await adb.upsertAnnictWork({
+        annictWorkId: resolved.annictWorkId,
+        nodeId: resolved.nodeId,
+        title: resolved.title,
+        titleKana: resolved.titleKana,
+        titleEn: resolved.titleEn,
+        seasonName: resolved.seasonName,
+        seasonYear: resolved.seasonYear,
+        imageUrl: resolved.imageUrl,
+        updatedAt: new Date(),
+      });
     }
 
     const result = await adb.addFavorite(annictWorkId);

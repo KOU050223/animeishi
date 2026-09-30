@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
+import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { user } from "@/routes/user";
 import { users, userGenres } from "@/db/schema";
 
@@ -12,7 +13,7 @@ type TestEnv = {
 };
 
 function buildApp() {
-  const app = new Hono<TestEnv>();
+  const app = applyApiErrorHandling(new Hono<TestEnv>());
   app.route("/user", user);
   return app;
 }

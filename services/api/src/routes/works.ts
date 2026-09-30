@@ -13,7 +13,6 @@ import {
 } from "@/lib/annict/client";
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { requireAnnictToken } from "@/lib/annict/middleware";
-import { annictErrorResponse } from "@/lib/annict/errors";
 import {
   isPlaceholderImageUrl,
   resolveImagesViaAnilist,
@@ -52,35 +51,29 @@ const works = new Hono<AuthVariables>()
       // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
       const trimmedTitle = title?.trim();
 
-      try {
-        const result = trimmedTitle
-          ? await searchAnnictWorksByTitle(
-              c.var.annictToken,
-              trimmedTitle,
-              after ?? null,
-            )
-          : await searchAnnictWorksBySeason(
-              c.var.annictToken,
-              season ?? currentAnnictSeason(),
-              after ?? null,
-            );
+      const result = trimmedTitle
+        ? await searchAnnictWorksByTitle(
+            c.var.annictToken,
+            trimmedTitle,
+            after ?? null,
+          )
+        : await searchAnnictWorksBySeason(
+            c.var.annictToken,
+            season ?? currentAnnictSeason(),
+            after ?? null,
+          );
 
-        // 検索結果に resolvedImageUrl（キャッシュ済みの AniList / Jikan 由来 URL）を
-        // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
-        // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
-        // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
-        // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる AniList
-        // バッチだけここで同期解決し、取れなかった分を Queue（Jikan 含む）に積む。
-        const db = createDb(getBindings(c).DB);
-        const adb = authorizedDb(db, c.var.clerkUserId);
-        const enriched = await attachResolvedImages(c, adb, result.works);
+      // 検索結果に resolvedImageUrl（キャッシュ済みの AniList / Jikan 由来 URL）を
+      // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
+      // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
+      // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
+      // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる AniList
+      // バッチだけここで同期解決し、取れなかった分を Queue（Jikan 含む）に積む。
+      const db = createDb(getBindings(c).DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+      const enriched = await attachResolvedImages(c, adb, result.works);
 
-        return c.json({ ...result, works: enriched }, 200);
-      } catch (err) {
-        const res = annictErrorResponse(c, err);
-        if (res) return res;
-        throw err;
-      }
+      return c.json({ ...result, works: enriched }, 200);
     },
   );
 

@@ -22,7 +22,6 @@ import {
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
-import { annictErrorResponse } from "@/lib/annict/errors";
 import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
 import {
   enqueueImageFallbackJobs,
@@ -48,15 +47,9 @@ const watchHistory = new Hono<AuthVariables>()
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
 
-    let entries;
-    try {
-      // Annict viewer.libraryEntries を全状態・全ページ取得する。
-      entries = await fetchAnnictLibraryEntries(c.var.annictToken);
-    } catch (err) {
-      const res = annictErrorResponse(c, err);
-      if (res) return res;
-      throw err;
-    }
+    // Annict viewer.libraryEntries を全状態・全ページ取得する。
+    // Annict 由来のエラーは app.onError で 401/502 に変換される。
+    const entries = await fetchAnnictLibraryEntries(c.var.annictToken);
 
     // 作品メタ（annict_works キャッシュ）と視聴履歴に整形する。
     // NO_STATE / 未知の state は D1 に保存しないが、作品メタは触れた証跡として残す。
@@ -152,39 +145,33 @@ const watchHistory = new Hono<AuthVariables>()
       // 失敗時に annict_works のメタ/nodeId だけ書き換わるのを防ぐ）。
       let resolvedWork: NewAnnictWork | null = null;
 
-      try {
-        if (!nodeId) {
-          const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
-          if (!resolved) {
-            return c.json({ error: "Work not found" }, 404);
-          }
-          nodeId = resolved.nodeId;
-          resolvedWork = {
-            annictWorkId: resolved.annictWorkId,
-            nodeId: resolved.nodeId,
-            malAnimeId: resolved.malAnimeId,
-            title: resolved.title,
-            titleKana: resolved.titleKana,
-            titleEn: resolved.titleEn,
-            seasonName: resolved.seasonName,
-            seasonYear: resolved.seasonYear,
-            imageUrl: resolved.imageUrl,
-            updatedAt: new Date(),
-          };
+      if (!nodeId) {
+        const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+        if (!resolved) {
+          return c.json({ error: "Work not found" }, 404);
         }
+        nodeId = resolved.nodeId;
+        resolvedWork = {
+          annictWorkId: resolved.annictWorkId,
+          nodeId: resolved.nodeId,
+          malAnimeId: resolved.malAnimeId,
+          title: resolved.title,
+          titleKana: resolved.titleKana,
+          titleEn: resolved.titleEn,
+          seasonName: resolved.seasonName,
+          seasonYear: resolved.seasonYear,
+          imageUrl: resolved.imageUrl,
+          updatedAt: new Date(),
+        };
+      }
 
-        await updateAnnictStatus(token, nodeId, data.state);
+      await updateAnnictStatus(token, nodeId, data.state);
 
-        // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
-        // （watch_history の FK 先 annict_works を満たす）。
-        if (resolvedWork) {
-          await adb.upsertAnnictWork(resolvedWork);
-          work = await adb.getAnnictWorkById(annictWorkId);
-        }
-      } catch (err) {
-        const res = annictErrorResponse(c, err);
-        if (res) return res;
-        throw err;
+      // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
+      // （watch_history の FK 先 annict_works を満たす）。
+      if (resolvedWork) {
+        await adb.upsertAnnictWork(resolvedWork);
+        work = await adb.getAnnictWorkById(annictWorkId);
       }
 
       // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で

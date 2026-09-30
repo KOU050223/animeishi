@@ -27,6 +27,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `CLERK_SECRET_KEY` | API の**ランタイム**（JWT 検証） | Cloudflare Workers **secret** | 秘密 |
 | `CLERK_PUBLISHABLE_KEY` | API の**ランタイム** | Cloudflare Workers **secret**（または vars） | 公開値 |
 | `ALLOWED_ORIGINS` | API の**ランタイム**（CORS 判定） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
+| `SENTRY_DSN` | API の**ランタイム**（Sentry 初期化）。未設定なら SDK は no-op | Cloudflare Workers **secret** | 秘密 |
 
 > `EXPO_PUBLIC_*` は Expo の仕様でクライアント JS に平文で埋め込まれる。秘匿性は成立しないため Secrets ではなく Variables を使う。Cloudflare 側の vars に入れても Web のビルドからは読めない点に注意（Web は assets-only でワーカーコードを持たないため）。
 
@@ -154,6 +155,11 @@ cd services/api
 # 本番環境（--env production）に登録する
 pnpm exec wrangler secret put CLERK_SECRET_KEY --env production
 pnpm exec wrangler secret put CLERK_PUBLISHABLE_KEY --env production
+
+# Sentry（API のエラー収集）。preview は同一プロジェクトの DSN を入れ、
+# environment タグで分離する。詳細は「7. Sentry / Discord 通知」を参照
+pnpm exec wrangler secret put SENTRY_DSN --env production
+pnpm exec wrangler secret put SENTRY_DSN --env preview
 ```
 
 実行するとプロンプトで値の入力を求められる。ローカル開発時は `services/api/.dev.vars` に記述する（[`.dev.vars.example`](../services/api/.dev.vars.example) 参照）。
@@ -228,11 +234,38 @@ EAS Build は gitignore された `.env` をアップロードしないため、
 
 `development` プロファイル（development build）に `env` は不要。実行時の JS はローカルの Metro から配信され、ローカルの `.env` が使われるため。
 
+## 7. Sentry / Discord 通知
+
+API Workers は `@sentry/cloudflare` で例外を Sentry へ送る
+（設計は `docs/08_observability-design.md`）。`SENTRY_DSN` 未設定の
+環境では SDK は no-op になる。通知はアプリケーションから直接飛ばさず、
+Sentry Alert から Discord へ送る。
+
+### 初期設定
+
+1. Sentry でプロジェクト `animeishi-api` を作成し、DSN を取得する
+2. `SENTRY_DSN` を Workers secret として登録する（本番・preview 両方。
+   同一プロジェクトを使い、`environment` タグで分離する）
+3. Sentry の Settings → Integrations で Discord を連携する
+4. Alert rule を作成する。条件は `environment equals production` の
+   `a new issue is created`（必要なら `issue changes state from
+   resolved to regressed` も追加）、アクションは Discord チャンネル
+   への通知とする
+
+### 運用
+
+- preview / development のイベントは同一プロジェクトに入るが、
+  Alert 条件で通知対象外にしている。ノイズが多い場合は Alert 側の
+  条件を絞る
+- `wrangler tail` や Workers Logs（ダッシュボードの Observability）
+  での短期調査は従来どおり使える。invocation logs は production のみ有効
+
 ## チェックリスト（初回デプロイ前）
 
 - [ ] GitHub Variables に `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` を登録
 - [ ] GitHub Variables に `EXPO_PUBLIC_ANNICT_CLIENT_ID` を登録
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
 - [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API 本番・preview 両方。preview への登録は「[初回ブートストラップ](#初回ブートストラップ完了済み再作成時の記録)」参照）
+- [ ] Sentry プロジェクト `animeishi-api` を作成し、Workers secret に `SENTRY_DSN` を登録（本番・preview 両方）と Discord Alert を設定（「[7. Sentry / Discord 通知](#7-sentry--discord-通知)」参照）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
 - [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）
