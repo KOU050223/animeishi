@@ -234,17 +234,16 @@ EAS Build は gitignore された `.env` をアップロードしないため、
 | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard → API Keys → Publishable key（`pk_live_*`） |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
-| `EXPO_PUBLIC_SENTRY_DSN` | Sentry プロジェクト `animeishi-mobile` の DSN |
 
-プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。`EXPO_PUBLIC_SENTRY_DSN` だけはプレースホルダでもビルド・起動は通る（SDK が no-op になる）が、Sentry への送信は行われない。
+プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。`EXPO_PUBLIC_SENTRY_DSN` だけは実値登録済み。未設定やプレースホルダでもビルド・起動は通る（SDK が no-op になる）が、Sentry への送信は行われない。
 
 ### Sentry（ネイティブビルドの source map アップロード）
 
 `app.json` の `@sentry/react-native/expo` プラグインが EAS Build 中に
 source map とデバッグシンボルを Sentry へアップロードする。必要な設定は 2 つ:
 
-1. `app.json` のプラグイン設定にある `organization` の `REPLACE_WITH_SENTRY_ORG`
-   を実際の Sentry organization slug に置き換える（Organization settings で確認）
+1. `app.json` のプラグイン設定の `organization` / `project` が
+   Sentry の org slug / プロジェクト slug と一致していること（設定済み）
 2. Sentry の Organization Auth Token を発行し、EAS の環境変数に
    `SENTRY_AUTH_TOKEN` として登録する（visibility は sensitive）
 
@@ -291,9 +290,8 @@ DSN 未設定の環境ではどちらも SDK は no-op になる。
    それぞれ DSN を取得する
 2. `SENTRY_DSN`（API 用）を Workers secret として登録する（本番・preview 両方。
    同一プロジェクトを使い、`environment` タグで分離する）
-3. `EXPO_PUBLIC_SENTRY_DSN`（モバイル用）を GitHub Actions Variables に
-   登録し、`eas.json` の `REPLACE_WITH_SENTRY_DSN` を実値に置き換える。
-   `app.json` の `REPLACE_WITH_SENTRY_ORG` も org slug に置き換える
+3. `EXPO_PUBLIC_SENTRY_DSN`（モバイル用）を GitHub Actions Variables と
+   `eas.json` の各プロファイル `env` に登録する（登録済み）
 4. ネイティブビルドの source map アップロード用に `SENTRY_AUTH_TOKEN`
    を EAS の sensitive 環境変数へ登録する（「6. ネイティブアプリの
    EAS Build」参照）
@@ -318,7 +316,7 @@ DSN 未設定の環境ではどちらも SDK は no-op になる。
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
 - [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API 本番・preview 両方。preview への登録は「[初回ブートストラップ](#初回ブートストラップ完了済み再作成時の記録)」参照）
 - [ ] Sentry プロジェクト `animeishi-api` を作成し、Workers secret に `SENTRY_DSN` を登録（本番・preview 両方）と Discord Alert を設定（「[7. Sentry / Discord 通知](#7-sentry--discord-通知)」参照）
-- [ ] Sentry プロジェクト `animeishi-mobile` を作成し、`EXPO_PUBLIC_SENTRY_DSN` を GitHub Variables と `eas.json` に登録、`app.json` の `REPLACE_WITH_SENTRY_ORG` を実値に置き換え、Discord Alert を設定
-- [ ] `SENTRY_AUTH_TOKEN` を EAS の sensitive 環境変数に登録（ネイティブビルドの source map アップロード用）
+- [x] Sentry プロジェクト `animeishi-mobile` を作成し、`EXPO_PUBLIC_SENTRY_DSN` を GitHub Variables と `eas.json` に登録、Discord Alert を設定
+- [x] `SENTRY_AUTH_TOKEN` を EAS の sensitive 環境変数に登録（ネイティブビルドの source map アップロード用）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
 - [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）
