@@ -41,6 +41,35 @@ describe("parseDanimeExtractedLists", () => {
     ).toBeNull();
   });
 
+  it("extractElapsedMs があれば通し、無ければ undefined のままにする", () => {
+    const valid = {
+      completed: [VALID_WORK],
+      history: [],
+    };
+    expect(
+      parseDanimeExtractedLists({ ...valid, extractElapsedMs: 1234 })
+        ?.extractElapsedMs,
+    ).toBe(1234);
+    expect(parseDanimeExtractedLists(valid)?.extractElapsedMs).toBeUndefined();
+  });
+
+  it("extractElapsedMs が数値でなければ落とす", () => {
+    expect(
+      parseDanimeExtractedLists({
+        completed: [],
+        history: [],
+        extractElapsedMs: "1.2秒",
+      })?.extractElapsedMs,
+    ).toBeUndefined();
+    expect(
+      parseDanimeExtractedLists({
+        completed: [],
+        history: [],
+        extractElapsedMs: -1,
+      })?.extractElapsedMs,
+    ).toBeUndefined();
+  });
+
   it("completed / history が配列でなければ null", () => {
     expect(parseDanimeExtractedLists({ completed: {} })).toBeNull();
     expect(parseDanimeExtractedLists(null)).toBeNull();

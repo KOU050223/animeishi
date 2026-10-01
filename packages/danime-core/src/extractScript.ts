@@ -308,6 +308,8 @@ export function danimeExtractScript(appOrigin: string): string {
   }
 
   try {
+    // 抽出フェーズの所要時間を計測してレビュー画面へ可視化のため送る。
+    var t0 = Date.now();
     var completed = mergeWorks(await fetchList("mpa_cmp_pc", ""));
     var history = mergeWorks(await fetchList("mpa_hst_pc", "workType=0"));
     if (completed.length === 0 && history.length === 0) {
@@ -321,6 +323,7 @@ export function danimeExtractScript(appOrigin: string): string {
         schemaVersion: SCHEMA_VERSION,
         completed: completed,
         history: history,
+        extractElapsedMs: Date.now() - t0,
       },
     });
   } catch (e) {

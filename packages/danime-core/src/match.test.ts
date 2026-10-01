@@ -141,10 +141,26 @@ describe("classifyWork", () => {
 // matchDanimeWorks に注入する AnnictSearcher のスタブ。
 // handler はタイトル群ごとに返す作品を決める。呼ばれた検索語は
 // searcher.mock.calls[*][0] で検証できる。
+// delayMs / inflight を渡すと、並列実行の検証に使えるよう応答を
+// 遅らせつつ同時実行数を記録する。
 function mockSearcher(
   handler: (titles: string[]) => DanimeAnnictWork[],
+  opts: { delayMs?: number; inflight?: { current: number; max: number } } = {},
 ): AnnictSearcher & ReturnType<typeof vi.fn> {
-  return vi.fn(async (titles: string[]) => handler(titles));
+  return vi.fn(async (titles: string[]) => {
+    if (opts.inflight) {
+      opts.inflight.current++;
+      opts.inflight.max = Math.max(opts.inflight.max, opts.inflight.current);
+    }
+    try {
+      if (opts.delayMs) {
+        await new Promise((r) => setTimeout(r, opts.delayMs));
+      }
+      return handler(titles);
+    } finally {
+      if (opts.inflight) opts.inflight.current--;
+    }
+  });
 }
 
 describe("matchDanimeWorks", () => {
@@ -172,7 +188,7 @@ describe("matchDanimeWorks", () => {
       },
     ];
 
-    const results = await matchDanimeWorks(searcher, items);
+    const { results } = await matchDanimeWorks(searcher, items);
     expect(results).toHaveLength(3);
     expect(results[0]?.status).toBe("exact");
     expect(results[1]?.status).toBe("exact");
@@ -189,7 +205,7 @@ describe("matchDanimeWorks", () => {
         ? [work({ annictId: 7, title: "レア作品" })]
         : [],
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       { danimeWorkId: "9", title: "レア作品", targetState: "WATCHED" },
     ]);
     expect(results[0]?.status).toBe("exact");
@@ -208,7 +224,7 @@ describe("matchDanimeWorks", () => {
       }
       return [];
     });
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       { danimeWorkId: "5", title: "作品A (2024)", targetState: "WATCHED" },
     ]);
     expect(results[0]?.status).toBe("exact");
@@ -219,7 +235,7 @@ describe("matchDanimeWorks", () => {
     const searcher = mockSearcher(() => [
       work({ annictId: 1, title: "鬼滅の刃" }),
     ]);
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
       { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
     ]);
@@ -235,7 +251,7 @@ describe("matchDanimeWorks", () => {
           : [],
       ),
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "TVアニメ「てっぺんっ!!!」",
@@ -263,7 +279,7 @@ describe("matchDanimeWorks", () => {
           : [],
       ),
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "劇場版「SHIROBAKO」",
@@ -278,7 +294,7 @@ describe("matchDanimeWorks", () => {
     const searcher = mockSearcher(() => [
       work({ annictId: 1, title: "炬燵猫（TVアニメ）" }),
     ]);
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       { danimeWorkId: "1", title: "TVアニメ", targetState: "WATCHED" },
     ]);
     expect(results[0]?.status).toBe("none");
@@ -294,7 +310,7 @@ describe("matchDanimeWorks", () => {
           : [],
       ),
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "響け！ユーフォニアム３",
@@ -318,7 +334,7 @@ describe("matchDanimeWorks", () => {
     // 同じバッチの「響け！ユーフォニアム」の union 検索で無印（id=1）が返り、
     // 「響け！ユーフォニアム３」はそれが候補に残るため none にならない。
     // candidates でも全半角バリアントを再検索し、3期（id=3）を拾う。
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "響け！ユーフォニアム",
@@ -343,7 +359,7 @@ describe("matchDanimeWorks", () => {
         t === "MFゴースト" ? [work({ annictId: 1, title: "MFゴースト" })] : [],
       ),
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "MFゴースト 2nd Season",
@@ -366,7 +382,7 @@ describe("matchDanimeWorks", () => {
           : [],
       ),
     );
-    const results = await matchDanimeWorks(searcher, [
+    const { results } = await matchDanimeWorks(searcher, [
       {
         danimeWorkId: "1",
         title: "映画「すずめの戸締まり」",
@@ -375,5 +391,117 @@ describe("matchDanimeWorks", () => {
     ]);
     expect(results[0]?.status).toBe("exact");
     expect(results[0]?.work?.annictWorkId).toBe(4);
+  });
+
+  it("第 1 パスの union 検索は複数チャンクを並列に実行する", async () => {
+    const inflight = { current: 0, max: 0 };
+    const searcher = mockSearcher(
+      (titles) =>
+        titles.map((t) => {
+          const id = Number(t.replace("作品", ""));
+          return work({ annictId: id, title: t });
+        }),
+      { delayMs: 15, inflight },
+    );
+    // 20 件 → 10 件ずつ 2 チャンク。並列なら同時実行が 2 に達する。
+    const items = Array.from({ length: 20 }, (_, i) => ({
+      danimeWorkId: String(i),
+      title: `作品${i}`,
+      targetState: "WATCHED" as const,
+    }));
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    expect(inflight.max).toBeGreaterThanOrEqual(2);
+    expect(results.every((r) => r.status === "exact")).toBe(true);
+    expect(stats.firstPassSearches).toBe(2);
+  });
+
+  it("第 2 パスの未解決タイトル再検索も並列に実行する", async () => {
+    const inflight = { current: 0, max: 0 };
+    const searcher = mockSearcher(() => [], { delayMs: 10, inflight });
+    // 6 件とも全パスで見つからず、それぞれ複数クエリを逐次試す。
+    const items = Array.from({ length: 6 }, (_, i) => ({
+      danimeWorkId: String(i),
+      title: `ない作品${i}`,
+      targetState: "WATCHED" as const,
+    }));
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    expect(inflight.max).toBeGreaterThanOrEqual(2);
+    expect(results.every((r) => r.status === "none")).toBe(true);
+    expect(stats.secondPassSearches).toBeGreaterThan(0);
+  });
+
+  it("第 2 パスの検索回数は全体上限を超えない", async () => {
+    const searcher = mockSearcher(() => []);
+    // 未解決 60 件 × 複数クエリでも、上限（50）までしか検索しない。
+    const items = Array.from({ length: 60 }, (_, i) => ({
+      danimeWorkId: String(i),
+      title: `ない作品${i}`,
+      targetState: "WATCHED" as const,
+    }));
+    const { stats } = await matchDanimeWorks(searcher, items);
+    expect(stats.secondPassSearches).toBe(50);
+    // 第 1 パス（union）は 10 件チャンク × 6 回。
+    expect(stats.firstPassSearches).toBe(6);
+    // 単発再検索（titles 1 件の呼び出し）がちょうど 50 回。
+    const singleTitleCalls = searcher.mock.calls.filter(
+      (c) => c[0].length === 1,
+    );
+    expect(singleTitleCalls).toHaveLength(50);
+  });
+
+  it("先頭の未解決タイトルが遅くても、後続タスクに上限枠を先食いされない", async () => {
+    // レビュー指摘: 全未解決タイトルを一括で並列化すると、先頭タイトルの
+    // 検索が遅い間に後続タスクが共有上限（50）を使い切り、先頭タイトルの
+    // 残り検索語が試されず未マッチになる。ウェーブ（同時実行数ぶん）ずつ
+    // 進めることで、先のタスクが自分の検索語を試し終わるまで後続を
+    // 開始しないことを検証する。
+    const searcher = vi.fn(async (titles: string[]) => {
+      // 先頭タイトルの再検索だけ遅くして、後続タスクの先走りを誘発する。
+      // （第 1 パスの union も遅くなるが影響は同じ方向なので許容）
+      if (titles.some((t) => t.startsWith("レア作品"))) {
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      // 「レア作品 (限定版)」の検索語列は [元タイトル, 単純化タイトル]。
+      // 単純化後の「レア作品」だけがヒットする。
+      if (titles.length === 1 && titles[0] === "レア作品") {
+        return [work({ annictId: 7, title: "レア作品" })];
+      }
+      return [] as DanimeAnnictWork[];
+    });
+    // 先頭の遅いタイトル + 共有上限を食い尽くせるだけの後続タイトル。
+    const items = [
+      {
+        danimeWorkId: "0",
+        title: "レア作品 (限定版)",
+        targetState: "WATCHED" as const,
+      },
+      ...Array.from({ length: 59 }, (_, i) => ({
+        danimeWorkId: String(i + 1),
+        title: `ない作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+    ];
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    // 先頭タイトルは単純化クエリまで到達して確定できる。
+    expect(results[0]?.status).toBe("exact");
+    expect(results[0]?.work?.annictWorkId).toBe(7);
+    // 共有上限は変わらず 50 往復に収まる。
+    expect(stats.secondPassSearches).toBe(50);
+  });
+
+  it("検索回数・経過時間を stats で返す", async () => {
+    const searcher = mockSearcher((titles) =>
+      titles.flatMap((t) =>
+        t === "鬼滅の刃" ? [work({ annictId: 1, title: "鬼滅の刃" })] : [],
+      ),
+    );
+    const { results, stats } = await matchDanimeWorks(searcher, [
+      { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+      { danimeWorkId: "2", title: "ない作品", targetState: "WATCHED" },
+    ]);
+    expect(results[0]?.status).toBe("exact");
+    expect(stats.firstPassSearches).toBe(1);
+    expect(stats.secondPassSearches).toBeGreaterThan(0);
+    expect(stats.elapsedMs).toBeGreaterThanOrEqual(0);
   });
 });
