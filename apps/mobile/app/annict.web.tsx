@@ -4,7 +4,11 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@clerk/clerk-expo";
 import { useQueryClient } from "@tanstack/react-query";
-import { annictErrorKey, ANNICT_CONNECTION_QUERY_KEY } from "@/lib/annict";
+import {
+  annictErrorKey,
+  ANNICT_CONNECTION_QUERY_KEY,
+  resolveAnnictRelayTarget,
+} from "@/lib/annict";
 import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。
@@ -34,6 +38,18 @@ export default function AnnictCallbackScreen() {
   useEffect(() => {
     if (handledRef.current) return;
     handledRef.current = true;
+
+    // 登録済みの正規 redirect_uri で受け取った code を、state に埋め込まれた
+    // 本来のオリジン（プレビュー等）へ中継する。state が sessionStorage にあるのは
+    // 戻り先側なので、ここでは照合せず許可済みオリジンへそのまま転送するだけ。
+    const relayTarget = resolveAnnictRelayTarget(
+      window.location.href,
+      window.location.origin,
+    );
+    if (relayTarget) {
+      window.location.replace(relayTarget);
+      return;
+    }
 
     void (async () => {
       const result = await exchangeAnnictWebCallback(

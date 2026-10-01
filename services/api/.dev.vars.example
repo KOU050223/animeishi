@@ -12,6 +12,8 @@ CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # - Expo Go 実機: exp://<MacのIP>:8081/--/annict
 #   （Mac の IP や Expo のポートが変わったら Annict 側の登録も更新が必要）
 # - Web: https://<web-host>/annict（ローカル Web は http://localhost:8081/annict）
+#   ※ PR プレビューは正規の登録済み URL 経由で中継されるため個別登録は不要
+#   （apps/mobile/lib/annict/oauth.ts のリレー参照）
 # CLIENT_ID は公開可（モバイルにも埋め込む）。SECRET はサーバー専用で、
 # 本番は `wrangler secret put ANNICT_CLIENT_SECRET` で登録する（コミット禁止）。
 ANNICT_CLIENT_ID=

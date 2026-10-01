@@ -59,6 +59,10 @@ jobs:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
+          # Annict の正規 redirect_uri を固定する。canonical が独自ドメインでも
+          # この登録済み URL 経由に揃え、正規側 /annict が本来のオリジンへ中継する
+          # （preview-web.yml と同じ既定値・apps/mobile/lib/annict/oauth.ts 参照）。
+          EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ vars.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI || format('https://animeishi-web-production.{0}.workers.dev/annict', vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
 
       - name: Deploy
         run: pnpm --filter @animeishi/mobile exec wrangler deploy --env production

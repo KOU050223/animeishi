@@ -22,6 +22,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `EXPO_PUBLIC_API_URL` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み。未設定なら PR 番号から組み立てる `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
+| `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` | Web の**ビルド時**にバンドルへ焼き込み（本番・プレビュー両方）。Annict 登録済みの正規 redirect_uri。未設定なら `https://animeishi-web-production.<subdomain>.workers.dev/annict` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | Web プレビュー URL のコメント生成に使用（未設定なら `uozumi05`） | GitHub Actions **Variables**（任意） | 公開値 |
 | `CLOUDFLARE_API_TOKEN` | デプロイ時（wrangler 認証） | GitHub Actions **Secrets** | 秘密 |
 | `CLERK_SECRET_KEY` | API の**ランタイム**（JWT 検証） | Cloudflare Workers **secret** | 秘密 |
@@ -43,6 +44,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `EXPO_PUBLIC_API_URL` | `https://animeishi-api.uomi.dev` |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | 通常は未登録でよい（未登録なら PR ごとの `pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` が使われる）。プレビュー web を固定の別 API に向けたい場合のみ設定 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
+| `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` | 通常は未登録でよい（未登録なら `https://animeishi-web-production.<subdomain>.workers.dev/annict`）。Annict 登録済みの正規 redirect_uri。プレビューの Annict 連携はこれへ固定され、正規側から中継される（「プレビューでの Annict 連携」参照） |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | `uozumi05`（通常は未登録でよい） |
 
 CLI でも登録できる（[gh CLI](https://cli.github.com/) 使用時）:
@@ -73,6 +75,12 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 | API | `preview-api.yml` | `animeishi-api` の `preview` | `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` |
 
 Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の PR 用 API URL が埋め込まれる（`EXPO_PUBLIC_PREVIEW_API_URL` が設定されている場合はそちらが優先される）。これにより、API に新エンドポイントを追加する PR でも、マージ前にプレビュー web 上で動作確認できる。
+
+### プレビューでの Annict 連携
+
+Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごとの動的なプレビュー URL は登録できない。そこで Web の `redirect_uri` は常に登録済みの正規 URL（既定: `https://animeishi-web-production.<subdomain>.workers.dev/annict`、GitHub Variable `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` で上書き可）に固定し、戻り先オリジンを `state` に埋め込む。正規オリジン上の `/annict` が `state` をデコードし、許可済みオリジン（プレビューエイリアス・独自ドメイン・localhost）へ code/state を中継する。実装は `apps/mobile/lib/annict/oauth.ts`（`resolveAnnictRelayTarget`）と `app/annict.web.tsx`。
+
+> 中継は本番 Web の `/annict` が担うため、プレビューからの連携が機能するには中継ロジックが本番にデプロイ済みである必要がある。また `ANNICT_CLIENT_SECRET` / `ANNICT_ENCRYPTION_KEY` が preview Worker に登録済みであること（「初回ブートストラップ」参照）。
 
 `preview-api.yml` は `preview-web.yml` と同じ `paths` で起動する。Web プレビューが常に `pr-<N>` の API URL を参照するため、両者は必ず同じ PR で走る必要がある。
 

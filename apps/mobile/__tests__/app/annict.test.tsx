@@ -29,11 +29,17 @@ const getClerkToken = async () => "clerk_jwt";
 describe("exchangeAnnictWebCallback", () => {
   const STATE = "state-abc";
   const CALLBACK = `https://animeishi.uomi.dev/annict?code=auth_code&state=${STATE}`;
+  const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
 
   beforeEach(() => {
     mockExchangePost.mockReset();
     window.sessionStorage.clear();
     setOrigin("https://animeishi.uomi.dev");
+    delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+  });
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
   });
 
   it("state 一致で exchange(mode:web) を叩き success を返す", async () => {
@@ -51,6 +57,25 @@ describe("exchangeAnnictWebCallback", () => {
     expect(options.headers.Authorization).toBe("Bearer clerk_jwt");
     // 使い終わった state は消費される。
     expect(window.sessionStorage.getItem(ANNICT_STATE_STORAGE_KEY)).toBeNull();
+  });
+
+  it("EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI 設定時はそれを exchange に渡す", async () => {
+    // プレビュー等では authorize 時の redirect_uri（正規の登録済み URL）を
+    // exchange にも送る必要がある（Annict が両者の一致を検証するため）。
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI =
+      "https://animeishi-web-production.uozumi05.workers.dev/annict";
+    // プレビューオリジン上でコールバックを処理する想定。
+    setOrigin("https://pr-1-animeishi-web-production.uozumi05.workers.dev");
+    window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, STATE);
+    mockExchangePost.mockResolvedValue({ ok: true });
+
+    const res = await exchangeAnnictWebCallback(CALLBACK, getClerkToken);
+
+    expect(res).toEqual({ status: "success" });
+    const [payload] = mockExchangePost.mock.calls[0];
+    expect(payload.json.redirectUri).toBe(
+      "https://animeishi-web-production.uozumi05.workers.dev/annict",
+    );
   });
 
   it("退避 state が無ければ state_mismatch（exchange を叩かない）", async () => {

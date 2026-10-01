@@ -30,6 +30,10 @@ jobs:
       # PR プレビュー API の URL（preview-api.yml が同じ alias で発行する）。
       # vars.EXPO_PUBLIC_PREVIEW_API_URL が設定されている場合はそちらを優先する。
       API_PREVIEW_URL: ${{ vars.EXPO_PUBLIC_PREVIEW_API_URL || format('https://pr-{0}-animeishi-api-preview.{1}.workers.dev', github.event.pull_request.number, vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
+      # Annict OAuth の redirect_uri。Annict には動的なプレビュー URL を登録できない
+      # ため、登録済みの本番 Web の /annict に固定する。戻り先オリジンは state に
+      # 埋め込まれ、本番側の /annict がプレビューへ中継する（lib/annict/oauth.ts）。
+      ANNICT_WEB_REDIRECT_URI: ${{ vars.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI || format('https://animeishi-web-production.{0}.workers.dev/annict', vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
     steps:
       - uses: actions/checkout@v7
 
@@ -54,6 +58,7 @@ jobs:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EXPO_PUBLIC_API_URL: ${{ env.API_PREVIEW_URL }}
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
+          EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ env.ANNICT_WEB_REDIRECT_URI }}
 
       - name: Upload preview version
         id: deploy

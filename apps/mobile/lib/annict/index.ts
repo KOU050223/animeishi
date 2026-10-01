@@ -4,7 +4,9 @@ export {
   ANNICT_AUTHORIZE_ENDPOINT,
   ANNICT_SCOPE,
   buildAuthorizeUrl,
+  encodeWebOAuthState,
   parseAuthCallback,
+  resolveAnnictRelayTarget,
 } from "./oauth";
 export type { AuthCallbackResult, BuildAuthorizeUrlParams } from "./oauth";
 export { useAnnictConnect } from "./useAnnictConnect";
