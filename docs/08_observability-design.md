@@ -62,8 +62,10 @@ packages/observability/
 `SENSITIVE_HEADERS` = `authorization`, `x-annict-token`, `cookie`, `set-cookie`。
 `sanitizeHeaders` はこれらを `[Filtered]` に置き換える。
 request body・生のユーザー入力・個人情報は送信しない。API 側では
-`sendDefaultPii: false` と併用し、`beforeSend` で `event.request.data` を
-削除して `event.request.headers` に sanitizeHeaders を適用する。
+`dataCollection` で userInfo / cookies / httpBodies / urlQueryParams を
+無効化し `x-annict-token` を deny したうえで、`beforeSend` で
+`event.request.data` を削除し `event.request.headers` に
+sanitizeHeaders を適用する（二段構えの防御）。
 
 ## API への組み込み
 
@@ -101,8 +103,11 @@ flush は `withSentry` 側が `ctx.waitUntil` で面倒を見る。
   enabled: Boolean(env.SENTRY_DSN),   // 未設定のローカルは完全 no-op
   environment: resolveEnvironment(env.ENVIRONMENT),
   release: buildRelease("api", env.CF_VERSION_METADATA?.id ?? "dev"),
-  sendDefaultPii: false,
   tracesSampleRate: 0,                // tracing は第二弾で検討
+  dataCollection: {                   // PII・body・クエリ・秘匿ヘッダを送らない
+    userInfo: false, cookies: false, httpBodies: [], urlQueryParams: false,
+    httpHeaders: { request: { deny: ["x-annict-token"] } },
+  },
   beforeSend: (event) => { ...sanitize + error.kind 付与 },
 }
 ```
@@ -115,10 +120,13 @@ flush は `withSentry` 側が `ctx.waitUntil` で面倒を見る。
 |------|------|--------|
 | `HTTPException` status < 500（zod-validator の 400 等） | そのまま `err.getResponse()` | 送らない |
 | `HTTPException` status >= 500 | そのまま | 送る（kind: unknown） |
-| `AnnictApiError` status 4xx 系（401 トークン失効含む） | `annictErrorResponse`（401 → 401、それ以外 → 502） | 送らない（ユーザー・連携要因） |
-| `AnnictApiError` status 0（通信失敗）・5xx 系 | `annictErrorResponse` で 502 | 送る（kind: annict） |
+| `AnnictApiError` status 401（トークン失効） | `annictErrorResponse` で 401 | 送らない（再連携で解決するユーザー・連携要因） |
+| `AnnictApiError` その他（0=通信失敗、5xx、200 の異常応答、429 等） | `annictErrorResponse` で 502 | 送る（kind: annict） |
 | その他（D1 エラー等の未処理例外） | `{ error, code: "internal_error", requestId }` の 500 | 送る（kind: db または unknown） |
 
+`AnnictApiError.status` には上流の HTTP ステータスがそのまま入るため、
+200 の GraphQL エラーや不正 JSON、429（レート制限）もクライアントには
+502 として返る障害であり送信対象。非送信にするのは 401 のみ。
 4xx 相当は原則送信しない。queue / scheduled で漏れた例外は `withSentry` が
 自動 capture する。`error.kind` の判定は `beforeSend` 内で
 `exception.values[].type`（エラークラス名）を見て行い、手動 capture と
@@ -137,6 +145,11 @@ breadcrumb の最小セットはこのタグ群で代替し、別途積まない
 - Annict トークン連携時に 400/502 を分けている箇所
 - 失効トークンの D1 行を掃除する箇所
 - 画像フォールバック等、部分成功を意図して握りつぶす箇所
+
+route に残した catch が例外を応答に変換する場合、onError は通らないため
+上流障害（401 以外の AnnictApiError）は `captureApiError` で明示的に
+送る。画像フォールバックのようなベストエフォート縮退は構造化 warn ログ
+（`console.error`）のみで Sentry には送らない。
 
 ## wrangler.toml とシークレット
 

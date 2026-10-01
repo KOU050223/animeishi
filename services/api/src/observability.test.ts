@@ -26,6 +26,13 @@ app
   .get("/annict-0", () => {
     throw new AnnictApiError("network error", 0);
   })
+  .get("/annict-200", () => {
+    // HTTP 200 の GraphQL エラー等、異常応答は上流ステータスが 200 で入る
+    throw new AnnictApiError("graphql errors", 200);
+  })
+  .get("/annict-429", () => {
+    throw new AnnictApiError("rate limited", 429);
+  })
   .get("/annict-502", () => {
     throw new AnnictApiError("upstream error", 502);
   })
@@ -77,6 +84,24 @@ describe("handleError", () => {
       error: "Annict との通信に失敗しました",
       code: "annict_upstream",
     });
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("Annict 200 の異常応答（GraphQL エラー等）は 502 を返し Sentry に送る", async () => {
+    const res = await app.request("/annict-200");
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({
+      error: "Annict との通信に失敗しました",
+      code: "annict_upstream",
+    });
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("Annict 429（レート制限）は 502 を返し Sentry に送る", async () => {
+    const res = await app.request("/annict-429");
+
+    expect(res.status).toBe(502);
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 

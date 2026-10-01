@@ -23,6 +23,7 @@ import {
 import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
+import { captureApiError } from "../observability";
 import {
   enqueueImageFallbackJobs,
   type ImageFallbackJob,
@@ -273,6 +274,11 @@ const watchHistory = new Hono<AuthVariables>()
           if (err instanceof AnnictApiError) {
             // トークン失効は以降の全件が同じく失敗するため打ち切る。
             // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
+            // 部分成功で握りつぶす経路は onError を通らないため、
+            // 401 以外の障害はここで明示的に capture する。
+            if (err.status !== 401) {
+              captureApiError(err, c);
+            }
             results.push({
               annictWorkId: entry.annictWorkId,
               ok: false,

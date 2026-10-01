@@ -95,7 +95,7 @@ export function captureApiError(err: unknown, c: Context): void {
 }
 
 // Hono の app.onError 本体。分類・送信可否・応答整形をここに集約する。
-// 4xx 相当（HTTPException <500、AnnictApiError の 4xx 系）は Sentry に送らない。
+// ユーザー要因（HTTPException <500、AnnictApiError の 401）は Sentry に送らない。
 export function handleError(err: Error, c: Context): Response {
   if (err instanceof HTTPException) {
     if (err.status >= 500) {
@@ -104,9 +104,11 @@ export function handleError(err: Error, c: Context): Response {
     return err.getResponse();
   }
   if (err instanceof AnnictApiError) {
-    // 通信失敗(0)・5xx 系は上流障害として記録する。
-    // 401 トークン失効など 4xx 系はユーザー・連携要因なので送らない。
-    if (err.status === 0 || err.status >= 500) {
+    // ユーザーが再連携で解決できる 401（トークン失効）だけ送らない。
+    // status には上流の HTTP ステータスがそのまま入るため、200 の
+    // GraphQL エラーや不正 JSON、429（レート制限）もクライアントには
+    // 502 として返る障害であり、ここで記録する。
+    if (err.status !== 401) {
       captureApiError(err, c);
     }
     return annictErrorResponse(c, err) ?? internalError(c);

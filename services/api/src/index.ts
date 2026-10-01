@@ -47,7 +47,14 @@ app.use("*", (c, next) => {
   return cors({
     origin: (origin) => resolveAllowedOrigin(origin, allowlist),
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "X-Annict-Token"],
+    allowHeaders: [
+      "Authorization",
+      "Content-Type",
+      "X-Annict-Token",
+      "X-Request-Id",
+    ],
+    // ブラウザから採番された requestId を読めるよう公開する。
+    exposeHeaders: ["X-Request-Id"],
   })(c, next);
 });
 
