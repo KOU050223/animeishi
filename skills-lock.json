@@ -112,6 +112,13 @@
       "skillPath": "plugins/expo/skills/native-data-fetching/SKILL.md",
       "computedHash": "b4c14fb97506495f15840ca1ab01b8d57c9a44f47f5b851d49a9c5796cc251d1"
     },
+    "sentry-cli": {
+      "source": "cli.sentry.dev",
+      "sourceUrl": "https://cli.sentry.dev",
+      "sourceType": "well-known",
+      "computedHash": "50bab2a868dc038b602819f069981e6f7d7fafee8f26e1cc77d8116896c4c21c",
+      "wellKnownDigest": "sha256:4dfbed84492c278cc6ee0919e82af19c69632a11b615eb3c3da02cdb436bd2d8"
+    },
     "upgrading-expo": {
       "source": "expo/skills",
       "sourceType": "github",
