@@ -23,6 +23,7 @@ declare namespace Cloudflare {
 		IMAGE_FALLBACK_QUEUE: Queue;
 		ENVIRONMENT?: "production";
 		ALLOWED_ORIGINS?: "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081";
+		CF_VERSION_METADATA?: WorkerVersionMetadata;
 		CLERK_SECRET_KEY: string;
 		CLERK_PUBLISHABLE_KEY: string;
 		ANNICT_CLIENT_ID: string;

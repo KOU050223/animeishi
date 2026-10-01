@@ -3,6 +3,7 @@
   "references": [
     { "path": "./apps/mobile" },
     { "path": "./services/api" },
+    { "path": "./packages/observability" },
     { "path": "./packages/schema" },
     { "path": "./packages/contracts" }
   ]

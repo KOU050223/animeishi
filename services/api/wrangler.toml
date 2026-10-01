@@ -13,6 +13,11 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 [triggers]
 crons = ["0 */6 * * *"]
 
+# Sentry release 識別用。デプロイごとの version id / tag が
+# env.CF_VERSION_METADATA に入る（animeishi-api@<id> を組み立てる）。
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
@@ -50,6 +55,15 @@ ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-anime
 [env.production.triggers]
 crons = ["0 */6 * * *"]
 
+# version_metadata は env 間で継承されないため各 env にも定義する。
+[env.production.version_metadata]
+binding = "CF_VERSION_METADATA"
+
+# 本番のみ invocation logs を有効化する（Workers Logs 自体は
+# トップレベルの [observability.logs] で有効済み）。
+[env.production.observability]
+enabled = true
+
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
@@ -80,6 +94,9 @@ dead_letter_queue = "animeishi-image-fallback-dlq"
 # （deploy + secret 登録）が必要。
 [env.preview]
 preview_urls = true
+
+[env.preview.version_metadata]
+binding = "CF_VERSION_METADATA"
 
 [env.preview.vars]
 ENVIRONMENT = "preview"

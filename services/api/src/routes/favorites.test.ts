@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
+import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { favorites } from "@/routes/favorites";
 import { users, annictWorks } from "@/db/schema";
 
@@ -35,7 +36,7 @@ const TEST_BINDINGS = {
 };
 
 function buildApp() {
-  const app = new Hono<TestEnv>();
+  const app = applyApiErrorHandling(new Hono<TestEnv>());
   app.route("/me/favorites", favorites);
   return app;
 }

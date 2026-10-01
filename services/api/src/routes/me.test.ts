@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
+import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { avatar, me } from "@/routes/me";
 import { users } from "@/db/schema";
 
@@ -29,7 +30,7 @@ type TestEnv = {
 };
 
 function buildApp() {
-  const app = new Hono<TestEnv>();
+  const app = applyApiErrorHandling(new Hono<TestEnv>());
   // 本番(index.ts)同様、認証不要の avatar 配信を /me（requireAuth）より先にマウントする。
   app.route("/me", avatar);
   app.route("/me", me);
