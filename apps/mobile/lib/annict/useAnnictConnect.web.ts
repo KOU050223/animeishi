@@ -2,7 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/clerk-expo";
-import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
+import {
+  buildAuthorizeUrl,
+  encodeWebOAuthState,
+  parseAuthCallback,
+} from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type { AnnictConnectResult, UseAnnictConnect } from "./useAnnictConnect";
@@ -18,8 +22,18 @@ function getAnnictClientId(): string {
 // 消えるため、CSRF 用の一時値の置き場として妥当。
 export const ANNICT_STATE_STORAGE_KEY = "annict_oauth_state";
 
-/** Web の Annict OAuth コールバック着地 URL（例: https://host/annict）。 */
+/**
+ * Web の Annict OAuth コールバック着地 URL（例: https://host/annict）。
+ *
+ * Annict 側に登録できる redirect_uri は固定値のみ。PR プレビュー等の動的な
+ * オリジンは登録できないため、EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI に正規の
+ * 登録済み URL を設定してそこへ寄せ、戻り先オリジンは state に埋め込んで
+ * 正規側から中継する（app/annict.web.tsx 参照）。未設定なら現在のオリジン
+ * （ローカル開発や、オリジン自身が登録済みの本番）をそのまま使う。
+ */
 export function getWebRedirectUri(): string {
+  const configured = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI?.trim();
+  if (configured) return configured;
   return `${window.location.origin}/annict`;
 }
 
@@ -112,8 +126,12 @@ export function useAnnictConnect(): UseAnnictConnect {
     let didNavigate = false;
     try {
       const redirectUri = getWebRedirectUri();
-      // crypto.randomUUID は Web で標準的に使える。CSRF 用の state。
-      const state = crypto.randomUUID();
+      // crypto.randomUUID は Web で標準的に使える。CSRF 用の乱数に加えて
+      // 戻り先オリジンを state に埋め込み、正規オリジン着弾時の中継に使う。
+      const state = encodeWebOAuthState(
+        window.location.origin,
+        crypto.randomUUID(),
+      );
       try {
         window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
       } catch {
