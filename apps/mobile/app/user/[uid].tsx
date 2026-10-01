@@ -2,6 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { View, Text, Image, ScrollView, ActivityIndicator } from "react-native";
 import { apiUrl } from "@/lib/apiUrl";
+import { ApiRequestError } from "@/lib/apiError";
 
 type PublicProfile = {
   id: string;
@@ -24,8 +25,8 @@ async function fetchPublicProfile(uid: string): Promise<PublicProfile> {
   } finally {
     clearTimeout(timeout);
   }
-  if (res.status === 404) throw new Error("not_found");
-  if (!res.ok) throw new Error("fetch_error");
+  if (res.status === 404) throw new ApiRequestError(404, "not_found");
+  if (!res.ok) throw new ApiRequestError(res.status, "fetch_error");
   return res.json() as Promise<PublicProfile>;
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { isPlaceholderImageUrl } from "@/lib/anime/pickImageUrl";
 import type { TierWork } from "./types";
@@ -41,7 +42,12 @@ export function useSeasonWorks(season: string) {
           headers: { Authorization: `Bearer ${token}`, ...annictHeader },
         },
       );
-      if (!res.ok) throw new Error("シーズン作品の取得に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "シーズン作品の取得に失敗しました",
+        );
+      }
       return res.json();
     },
     getNextPageParam: (last) =>

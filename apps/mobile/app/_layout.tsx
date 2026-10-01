@@ -1,5 +1,7 @@
 import "../global.css";
 import "@/lib/i18n";
+import * as Sentry from "@sentry/react-native";
+import { initObservability } from "@/lib/observability";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/tokenCache";
@@ -7,6 +9,10 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
+
+// グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
+// SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
+initObservability();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -54,7 +60,8 @@ function AuthGuard() {
   );
 }
 
-export default function RootLayout() {
+// Sentry.wrap で ErrorBoundary を付与し、レンダリング中の例外も捕捉する。
+export default Sentry.wrap(function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
@@ -67,4 +74,4 @@ export default function RootLayout() {
       </ClerkProvider>
     </GestureHandlerRootView>
   );
-}
+});

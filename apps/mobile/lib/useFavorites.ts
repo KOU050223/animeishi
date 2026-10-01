@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
 import { hiraganaToKana } from "@/lib/textNormalize";
 
@@ -66,7 +67,9 @@ export function useFavorites() {
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.favorites.$get({}, { headers });
-      if (!res.ok) throw new Error("お気に入りの取得に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "お気に入りの取得に失敗しました");
+      }
       return res.json();
     },
   });
@@ -98,7 +101,9 @@ export function useAddFavorite() {
         { param: { annictWorkId: String(annictWorkId) } },
         { headers: { ...headers, ...annictHeader } },
       );
-      if (!res.ok) throw new Error("お気に入りの追加に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "お気に入りの追加に失敗しました");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -120,7 +125,9 @@ export function useRemoveFavorite() {
         { param: { annictWorkId: String(annictWorkId) } },
         { headers },
       );
-      if (!res.ok) throw new Error("お気に入りの削除に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "お気に入りの削除に失敗しました");
+      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },

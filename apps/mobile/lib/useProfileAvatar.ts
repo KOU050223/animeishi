@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import * as ImagePicker from "expo-image-picker";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { compressAvatarImage } from "@/lib/imageCompression";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 
@@ -67,7 +68,12 @@ export function useProfileAvatarUpload() {
         },
         body: blob,
       });
-      if (!res.ok) throw new Error("画像のアップロードに失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "画像のアップロードに失敗しました",
+        );
+      }
       return res.json();
     },
     onSuccess: () => {

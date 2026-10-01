@@ -19,6 +19,10 @@ module.exports = {
     "^@animeishi/api$": "<rootDir>/../../services/api/src/index.ts",
     "^@animeishi/danime-core$":
       "<rootDir>/../../packages/danime-core/src/index.ts",
+    "^@animeishi/observability$":
+      "<rootDir>/../../packages/observability/src/index.ts",
+    // @sentry/react-native はネイティブモジュールを要求するためスタブに差し替える
+    "^@sentry/react-native$": "<rootDir>/__mocks__/@sentry/react-native.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@clerk/clerk-expo$": "<rootDir>/__mocks__/@clerk/clerk-expo.ts",
   },

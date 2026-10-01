@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 
@@ -54,7 +55,9 @@ export function useWatchHistory() {
         {},
         { headers: { ...headers, ...annictHeader } },
       );
-      if (!res.ok) throw new Error("視聴履歴の取得に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "視聴履歴の取得に失敗しました");
+      }
       return res.json();
     },
   });
@@ -80,7 +83,9 @@ export function useUpsertWatchHistory() {
         { param: { annictWorkId: String(annictWorkId) }, json: data },
         { headers: { ...headers, ...annictHeader } },
       );
-      if (!res.ok) throw new Error("視聴履歴の更新に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "視聴履歴の更新に失敗しました");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -103,7 +108,9 @@ export function useDeleteWatchHistory() {
       const res = await apiClient.me["watch-histories"][
         ":annictWorkId"
       ].$delete({ param: { annictWorkId: String(annictWorkId) } }, { headers });
-      if (!res.ok) throw new Error("視聴履歴の削除に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "視聴履歴の削除に失敗しました");
+      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },
