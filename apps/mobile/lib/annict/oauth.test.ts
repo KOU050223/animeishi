@@ -79,6 +79,15 @@ describe("parseAuthCallback", () => {
 describe("resolveAnnictRelayTarget", () => {
   const PROD = "https://animeishi-web-production.uozumi05.workers.dev";
   const PREVIEW = "https://pr-1-animeishi-web-production.uozumi05.workers.dev";
+  const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+
+  beforeEach(() => {
+    delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+  });
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
+  });
 
   function callbackOn(origin: string, state: string, extra = ""): string {
     return `${origin}/annict?code=auth_code&state=${encodeURIComponent(state)}${extra}`;
@@ -135,6 +144,24 @@ describe("resolveAnnictRelayTarget", () => {
       PROD,
     );
     expect(target).toBeNull();
+  });
+
+  it("正規 URL が独自ドメインでも、設定値由来のホストのプレビューへ中継できる", () => {
+    // canonical を独自ドメインで受け、redirect_uri の設定値が workers.dev 側の
+    // ホストを指す構成。既知ホスト一覧に無いホストでも設定値から導出して許可する。
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI =
+      "https://web.exampleteam.workers.dev/annict";
+    const state = encodeWebOAuthState(
+      "https://pr-9-web.exampleteam.workers.dev",
+      "uuid-1",
+    );
+    const target = resolveAnnictRelayTarget(
+      callbackOn("https://animeishi.uomi.dev", state),
+      "https://animeishi.uomi.dev",
+    );
+    expect(new URL(target ?? "").origin).toBe(
+      "https://pr-9-web.exampleteam.workers.dev",
+    );
   });
 
   it("state 欠落・不正 URL は null", () => {

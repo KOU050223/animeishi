@@ -85,6 +85,23 @@ function decodeWebReturnOrigin(state: string): string | null {
   }
 }
 
+// 許可判定の基準となるホスト一覧を組み立てる。実行中のホストと既知ホストに加え、
+// EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI（正規 URL）のホストを含める。
+// canonical が独自ドメインで location.hostname と異なる構成でも、その workers.dev
+// 側のプレビューエイリアスを中継先として許可できるようにするため。
+function allowedRelayHosts(currentHost: string): string[] {
+  const hosts = [currentHost, ...KNOWN_APP_HOSTS];
+  const configured = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI?.trim();
+  if (configured) {
+    try {
+      hosts.push(new URL(configured).hostname);
+    } catch {
+      // 不正な設定値は無視する（接続時のフォールバック側で扱う）。
+    }
+  }
+  return hosts;
+}
+
 /** 中継先オリジンが許可リストに含まれるか判定する。 */
 function isAllowedRelayOrigin(
   targetOrigin: string,
@@ -101,7 +118,7 @@ function isAllowedRelayOrigin(
     return true;
   }
   if (url.protocol !== "https:") return false;
-  return [currentHost, ...KNOWN_APP_HOSTS].some(
+  return allowedRelayHosts(currentHost).some(
     (host) => url.hostname === host || url.hostname.endsWith(`-${host}`),
   );
 }

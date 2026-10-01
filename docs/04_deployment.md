@@ -22,7 +22,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `EXPO_PUBLIC_API_URL` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み。未設定なら PR 番号から組み立てる `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
-| `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` | Web プレビューの**ビルド時**にバンドルへ焼き込み。Annict 登録済みの正規 redirect_uri。未設定なら `https://animeishi-web-production.<subdomain>.workers.dev/annict` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
+| `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` | Web の**ビルド時**にバンドルへ焼き込み（本番・プレビュー両方）。Annict 登録済みの正規 redirect_uri。未設定なら `https://animeishi-web-production.<subdomain>.workers.dev/annict` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | Web プレビュー URL のコメント生成に使用（未設定なら `uozumi05`） | GitHub Actions **Variables**（任意） | 公開値 |
 | `CLOUDFLARE_API_TOKEN` | デプロイ時（wrangler 認証） | GitHub Actions **Secrets** | 秘密 |
 | `CLERK_SECRET_KEY` | API の**ランタイム**（JWT 検証） | Cloudflare Workers **secret** | 秘密 |
