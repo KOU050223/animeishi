@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferRequestType, InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 
 type ProfileResponse = InferResponseType<
   (typeof apiClient.me.profile)["$get"],
@@ -35,7 +36,12 @@ export function useProfile() {
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.profile.$get({}, { headers });
-      if (!res.ok) throw new Error("プロフィールの取得に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "プロフィールの取得に失敗しました",
+        );
+      }
       return res.json();
     },
   });
@@ -49,8 +55,15 @@ export function useUpdateProfile() {
     mutationFn: async (input: ProfileUpdateInput) => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.profile.$put({ json: input }, { headers });
-      if (res.status === 400) throw new Error("入力内容に誤りがあります");
-      if (!res.ok) throw new Error("プロフィールの更新に失敗しました");
+      if (res.status === 400) {
+        throw new ApiRequestError(400, "入力内容に誤りがあります");
+      }
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "プロフィールの更新に失敗しました",
+        );
+      }
       return res.json();
     },
     onSuccess: () => {

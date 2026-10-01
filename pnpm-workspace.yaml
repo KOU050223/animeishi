@@ -10,3 +10,5 @@ onlyBuiltDependencies:
   - workerd
   - esbuild
   - sharp
+  # Sentry の source map / デバッグシンボルアップロードに使う CLI バイナリの取得
+  - "@sentry/cli"

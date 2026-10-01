@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
@@ -92,7 +93,9 @@ export function useAnimeList(query: string, season?: string) {
         { query: queryParams },
         { headers: { ...headers, ...annictHeader } },
       );
-      if (!res.ok) throw new Error("作品の検索に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "作品の検索に失敗しました");
+      }
       return res.json();
     },
   });

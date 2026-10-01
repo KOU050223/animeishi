@@ -22,7 +22,9 @@
         "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
         "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
-        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID",
+        "EXPO_PUBLIC_ENVIRONMENT": "preview",
+        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE_WITH_SENTRY_DSN"
       }
     },
     "production": {
@@ -35,7 +37,9 @@
         "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
         "EXPO_PUBLIC_WEB_URL": "https://animeishi-web-production.uozumi05.workers.dev",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
-        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID"
+        "EXPO_PUBLIC_ANNICT_CLIENT_ID": "REPLACE_WITH_ANNICT_CLIENT_ID",
+        "EXPO_PUBLIC_ENVIRONMENT": "production",
+        "EXPO_PUBLIC_SENTRY_DSN": "REPLACE_WITH_SENTRY_DSN"
       }
     }
   },

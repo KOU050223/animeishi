@@ -12,13 +12,11 @@ Sentry を一次収集先に据え、Discord には Sentry Alert 経由で通知
 
 ```
 [API Workers]  ──例外──→  Sentry (project: animeishi-api)  ──Alert──→ Discord
-[Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ─┘   （第二弾）
-
-[Workers Logs] ── wrangler observability（production のみ有効化）
+[Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ─┘
 ```
 
-第一弾の範囲は API Workers 側の導入と通知運用の整備まで。
-Expo 側・source map・tracing は第二弾以降に回す。
+第一弾で API Workers 側（PR #120）、第二弾で Expo 側（issue #121）を導入した。
+source map の CI 組み込み・tracing は残課題。
 
 ## 採用する SDK
 
@@ -193,13 +191,87 @@ Sentry 側の UI 設定なので手順を docs に記録する。
 3. preview / development は通知対象外にしておき、ノイズが出たら
    Alert 側の条件で絞る
 
-## 第二弾以降（スコープ外）
+## Expo / React Native への組み込み（第二弾・実装済み）
 
-- Expo / React Native への `@sentry/react-native` 導入と EAS source map upload
-- API の source map upload と release 関連付けの CI 組み込み
+`@sentry/react-native`（Expo SDK 54 のピンは `~7.2.0`）を使う。
+Web エクスポートも react-native-web 経由で同じ SDK が動くため、
+iOS / Android / Web を 1 プロジェクト（`animeishi-mobile`）に集約し、
+`platform` タグで区別する。API とはプロジェクトを分ける
+（ランタイムもアラート閾値の性質も異なるため）。
+
+```text
+apps/mobile/
+  app.json             # @sentry/react-native/expo plugin + ios.privacyManifests
+  metro.config.ts      # getSentryExpoConfig（Debug ID 埋め込み）
+  app/_layout.tsx      # initObservability() + Sentry.wrap(RootLayout)
+  lib/
+    observability.ts   # buildSentryOptions / initObservability / finalizeEvent
+    apiError.ts        # ApiRequestError（HTTP ステータスを保持する Error）
+```
+
+### 初期化オプション（モバイル）
+
+```ts
+{
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: isSentryEnabled(dsn),        // 未設定・プレースホルダは完全 no-op
+  environment: resolveEnvironment(process.env.EXPO_PUBLIC_ENVIRONMENT),
+  release: buildRelease("mobile", Constants.expoConfig?.version ?? "dev"),
+  tracesSampleRate: 0,
+  sendDefaultPii: false,
+  beforeSend: finalizeEvent,            // タグ付与・sanitize・送信可否判定
+}
+```
+
+- `EXPO_PUBLIC_SENTRY_DSN` はクライアントに埋め込まれる公開値
+  （DSN は公開前提の設計）。`eas.json` の `env` と GitHub Actions
+  Variables の両方に登録する
+- `EXPO_PUBLIC_ENVIRONMENT` は preview / production ビルド時に固定値で
+  埋め込む。未設定は `resolveEnvironment` が `development` に倒す
+
+### 送信ポリシー（モバイル）
+
+API 側と同じく「4xx / ユーザー起因は issue にしない」を適用する。
+クライアント側で HTTP ステータスを判別できるよう、`!res.ok` で投げる
+例外は `ApiRequestError`（status フィールド付き）に統一した。
+
+| イベント | 判定 | Sentry |
+|---|---|---|
+| `ApiRequestError` status < 500 | hint.originalException の status | 送らない |
+| `ApiRequestError` status >= 500 | 同上 | 送る（kind: upstream） |
+| 通信断（Network request failed / Failed to fetch / AbortError 等） | 型名・メッセージ | 送らない |
+| その他（未処理例外・レンダリングエラー等） | — | 送る（kind は classifyEvent で推定） |
+
+react-query でハンドリングされるクエリ・ミューテーションの失敗は
+原則 Sentry に到達しない（処理済みエラーを送らない方針は API と同じ）。
+Sentry に載るのは未処理例外・ErrorBoundary 捕捉・明示的 capture のみ。
+
+sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
+適用し `event.request.data` を除去する。
+
+### source map / シンボル
+
+- ネイティブビルド: `@sentry/react-native/expo` プラグインが EAS Build 中に
+  自動アップロードする（`SENTRY_AUTH_TOKEN` を EAS の sensitive env に登録、
+  `app.json` の org slug を設定）
+- Metro の serializer が Debug ID をバンドルへ埋め込むため、
+  release/dist とアーティファクトの対応付けは Debug ID ベースで行われる
+- EAS Update（OTA）・Web エクスポートの source map アップロードは
+  手順のみ `docs/04_deployment.md` に記載（自動化は未整備）
+
+### Discord 通知
+
+プロジェクトが分かれたため、`animeishi-mobile` 側にも同条件
+（`environment equals production`）の Alert rule を作成する。
+
+## 残課題（スコープ外）
+
+- API / Web の source map upload と release 関連付けの CI 組み込み
+- EAS Update 時の source map アップロード自動化
 - Annict / D1 / Clerk ごとの breadcrumb・タグの拡充
 - `tracesSampleRate` を含む performance tracing
 - `feature` タグの付与規則（route 単位の機能名）
+- EAS Update の `expo-update-id` 等のタグ付け
 
 ## 実装時の確認事項
 

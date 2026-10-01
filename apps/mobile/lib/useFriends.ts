@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
@@ -32,7 +33,12 @@ export function useFriends() {
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.friends.$get({}, { headers });
-      if (!res.ok) throw new Error("フレンド一覧の取得に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "フレンド一覧の取得に失敗しました",
+        );
+      }
       return res.json();
     },
   });
@@ -57,10 +63,15 @@ export function useAddFriend() {
         { json: { friendId } },
         { headers },
       );
+      const status = res.status;
       if (!res.ok) {
-        if (res.status === 404) throw new Error("ユーザーが見つかりません");
-        if (res.status === 400) throw new Error("このユーザーは追加できません");
-        throw new Error("フレンド追加に失敗しました");
+        if (status === 404) {
+          throw new ApiRequestError(404, "ユーザーが見つかりません");
+        }
+        if (status === 400) {
+          throw new ApiRequestError(400, "このユーザーは追加できません");
+        }
+        throw new ApiRequestError(status, "フレンド追加に失敗しました");
       }
       return res.json();
     },
@@ -83,7 +94,9 @@ export function useRemoveFriend() {
         { param: { friendId } },
         { headers },
       );
-      if (!res.ok) throw new Error("フレンド削除に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "フレンド削除に失敗しました");
+      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },

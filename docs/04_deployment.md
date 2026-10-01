@@ -28,6 +28,9 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `CLERK_PUBLISHABLE_KEY` | API の**ランタイム** | Cloudflare Workers **secret**（または vars） | 公開値 |
 | `ALLOWED_ORIGINS` | API の**ランタイム**（CORS 判定） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `SENTRY_DSN` | API の**ランタイム**（Sentry 初期化）。未設定なら SDK は no-op | Cloudflare Workers **secret** | 秘密 |
+| `EXPO_PUBLIC_SENTRY_DSN` | Expo アプリの**ビルド時**にバンドルへ焼き込み（mobile の Sentry 初期化）。未設定なら SDK は no-op | GitHub Actions **Variables**（Web ビルド）/ `eas.json` の `env`（ネイティブビルド） | 公開値（DSN は公開前提の値） |
+| `EXPO_PUBLIC_ENVIRONMENT` | Expo アプリの**ビルド時**にバンドルへ焼き込み（Sentry の environment タグ） | workflow / `eas.json` の `env` に固定値 | 公開値 |
+| `SENTRY_AUTH_TOKEN` | ネイティブビルド時の source map アップロード | EAS の**環境変数（sensitive）** | 秘密 |
 
 > `EXPO_PUBLIC_*` は Expo の仕様でクライアント JS に平文で埋め込まれる。秘匿性は成立しないため Secrets ではなく Variables を使う。Cloudflare 側の vars に入れても Web のビルドからは読めない点に注意（Web は assets-only でワーカーコードを持たないため）。
 
@@ -43,6 +46,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 | `EXPO_PUBLIC_API_URL` | `https://animeishi-api.uomi.dev` |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | 通常は未登録でよい（未登録なら PR ごとの `pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` が使われる）。プレビュー web を固定の別 API に向けたい場合のみ設定 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
+| `EXPO_PUBLIC_SENTRY_DSN` | Sentry プロジェクト `animeishi-mobile` の DSN（Settings → Projects → Client Keys）。未登録なら Web の Sentry は no-op |
 | `CLOUDFLARE_WORKERS_SUBDOMAIN` | `uozumi05`（通常は未登録でよい） |
 
 CLI でも登録できる（[gh CLI](https://cli.github.com/) 使用時）:
@@ -51,6 +55,7 @@ CLI でも登録できる（[gh CLI](https://cli.github.com/) 使用時）:
 gh variable set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --body "pk_live_xxxxx"
 gh variable set EXPO_PUBLIC_API_URL --body "https://animeishi-api.uomi.dev"
 gh variable set EXPO_PUBLIC_ANNICT_CLIENT_ID --body "xxxxx"
+gh variable set EXPO_PUBLIC_SENTRY_DSN --body "https://xxxxx@oxxxxx.ingest.sentry.io/xxxxx"
 ```
 
 ### Secrets タブ（秘密値）
@@ -229,27 +234,73 @@ EAS Build は gitignore された `.env` をアップロードしないため、
 | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard → API Keys → Publishable key（`pk_live_*`） |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
+| `EXPO_PUBLIC_SENTRY_DSN` | Sentry プロジェクト `animeishi-mobile` の DSN |
 
-プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。
+プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。`EXPO_PUBLIC_SENTRY_DSN` だけはプレースホルダでもビルド・起動は通る（SDK が no-op になる）が、Sentry への送信は行われない。
+
+### Sentry（ネイティブビルドの source map アップロード）
+
+`app.json` の `@sentry/react-native/expo` プラグインが EAS Build 中に
+source map とデバッグシンボルを Sentry へアップロードする。必要な設定は 2 つ:
+
+1. `app.json` のプラグイン設定にある `organization` の `REPLACE_WITH_SENTRY_ORG`
+   を実際の Sentry organization slug に置き換える（Organization settings で確認）
+2. Sentry の Organization Auth Token を発行し、EAS の環境変数に
+   `SENTRY_AUTH_TOKEN` として登録する（visibility は sensitive）
+
+```bash
+cd apps/mobile
+pnpm exec eas env:create --scope project --name SENTRY_AUTH_TOKEN \
+  --value "<sentry-org-auth-token>" --visibility sensitive
+```
+
+EAS Update で OTA を配信した場合の source map は別途アップロードが必要:
+
+```bash
+pnpm exec eas update --channel production
+pnpm exec sentry-expo-upload-sourcemaps dist  # SENTRY_AUTH_TOKEN を環境変数で渡す
+```
+
+Web（`expo export -p web`）の source map アップロードは未整備。
+metro.config.ts で Debug ID は埋め込まれているため、必要になったら
+deploy-web.yml にアップロードステップを追加する。
 
 `development` プロファイル（development build）に `env` は不要。実行時の JS はローカルの Metro から配信され、ローカルの `.env` が使われるため。
 
 ## 7. Sentry / Discord 通知
 
-API Workers は `@sentry/cloudflare` で例外を Sentry へ送る
-（設計は `docs/08_observability-design.md`）。`SENTRY_DSN` 未設定の
-環境では SDK は no-op になる。通知はアプリケーションから直接飛ばさず、
-Sentry Alert から Discord へ送る。
+API Workers は `@sentry/cloudflare`、Expo アプリは `@sentry/react-native`
+で例外を Sentry へ送る（設計は `docs/08_observability-design.md`）。
+DSN 未設定の環境ではどちらも SDK は no-op になる。
+通知はアプリケーションから直接飛ばさず、Sentry Alert から Discord へ送る。
+
+プロジェクトは API / モバイルで分ける:
+
+| Sentry プロジェクト | 対象 | release 形式 |
+| --- | --- | --- |
+| `animeishi-api` | API Workers | `animeishi-api@<version id>` |
+| `animeishi-mobile` | Expo アプリ（iOS / Android / Web 共通） | `animeishi-mobile@<app.json version>` |
+
+モバイル側は `platform` タグ（ios / android / web）で端末種別を、
+`environment`（production / preview / development）で環境を分離する。
 
 ### 初期設定
 
-1. Sentry でプロジェクト `animeishi-api` を作成し、DSN を取得する
-2. `SENTRY_DSN` を Workers secret として登録する（本番・preview 両方。
+1. Sentry でプロジェクト `animeishi-api`（platform: Cloudflare）と
+   `animeishi-mobile`（platform: React Native / Expo）を作成し、
+   それぞれ DSN を取得する
+2. `SENTRY_DSN`（API 用）を Workers secret として登録する（本番・preview 両方。
    同一プロジェクトを使い、`environment` タグで分離する）
-3. Sentry の Settings → Integrations で Discord を連携する
-4. Alert rule を作成する。条件は `environment equals production` の
-   `a new issue is created`（必要なら `issue changes state from
-   resolved to regressed` も追加）、アクションは Discord チャンネル
+3. `EXPO_PUBLIC_SENTRY_DSN`（モバイル用）を GitHub Actions Variables に
+   登録し、`eas.json` の `REPLACE_WITH_SENTRY_DSN` を実値に置き換える。
+   `app.json` の `REPLACE_WITH_SENTRY_ORG` も org slug に置き換える
+4. ネイティブビルドの source map アップロード用に `SENTRY_AUTH_TOKEN`
+   を EAS の sensitive 環境変数へ登録する（「6. ネイティブアプリの
+   EAS Build」参照）
+5. Sentry の Settings → Integrations で Discord を連携する
+6. Alert rule を各プロジェクトに作成する。条件は `environment equals
+   production` の `a new issue is created`（必要なら `issue changes state
+   from resolved to regressed` も追加）、アクションは Discord チャンネル
    への通知とする
 
 ### 運用
@@ -267,5 +318,7 @@ Sentry Alert から Discord へ送る。
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
 - [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API 本番・preview 両方。preview への登録は「[初回ブートストラップ](#初回ブートストラップ完了済み再作成時の記録)」参照）
 - [ ] Sentry プロジェクト `animeishi-api` を作成し、Workers secret に `SENTRY_DSN` を登録（本番・preview 両方）と Discord Alert を設定（「[7. Sentry / Discord 通知](#7-sentry--discord-通知)」参照）
+- [ ] Sentry プロジェクト `animeishi-mobile` を作成し、`EXPO_PUBLIC_SENTRY_DSN` を GitHub Variables と `eas.json` に登録、`app.json` の `REPLACE_WITH_SENTRY_ORG` を実値に置き換え、Discord Alert を設定
+- [ ] `SENTRY_AUTH_TOKEN` を EAS の sensitive 環境変数に登録（ネイティブビルドの source map アップロード用）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
 - [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）

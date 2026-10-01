@@ -6,6 +6,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
 import {
   toMatchWorks,
@@ -82,7 +83,8 @@ export function useDanimeMatch() {
         if (!res.ok) {
           // zValidator 等のエラー詳細を拾って原因を切り分けやすくする。
           const detail = await res.text().catch(() => "");
-          throw new Error(
+          throw new ApiRequestError(
+            res.status,
             `Annict とのマッチングに失敗しました（HTTP ${res.status}）` +
               (detail ? `: ${detail.slice(0, 200)}` : ""),
           );

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import type { TierRow } from "./types";
 
 const tierListQueryKey = (season: string) =>
@@ -30,8 +31,11 @@ export function useSavedTierList(season: string) {
         { param: { season } },
         { headers },
       );
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error("tier 表の取得に失敗しました");
+      const status = res.status;
+      if (status === 404) return null;
+      if (!res.ok) {
+        throw new ApiRequestError(status, "tier 表の取得に失敗しました");
+      }
       return res.json();
     },
   });
@@ -58,7 +62,9 @@ export function useSaveTierList() {
         { json: input },
         { headers },
       );
-      if (!res.ok) throw new Error("tier 表の保存に失敗しました");
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "tier 表の保存に失敗しました");
+      }
       return res.json();
     },
     onSuccess: (data, variables) => {
