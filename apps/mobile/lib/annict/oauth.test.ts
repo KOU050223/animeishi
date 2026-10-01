@@ -1,6 +1,8 @@
 import {
   buildAuthorizeUrl,
+  encodeWebOAuthState,
   parseAuthCallback,
+  resolveAnnictRelayTarget,
   ANNICT_AUTHORIZE_ENDPOINT,
   ANNICT_SCOPE,
 } from "@/lib/annict/oauth";
@@ -71,5 +73,99 @@ describe("parseAuthCallback", () => {
   it("不正な URL は invalid_callback_url", () => {
     const result = parseAuthCallback("not a url", state);
     expect(result).toEqual({ ok: false, error: "invalid_callback_url" });
+  });
+});
+
+describe("resolveAnnictRelayTarget", () => {
+  const PROD = "https://animeishi-web-production.uozumi05.workers.dev";
+  const PREVIEW = "https://pr-1-animeishi-web-production.uozumi05.workers.dev";
+  const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+
+  beforeEach(() => {
+    delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+  });
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
+  });
+
+  function callbackOn(origin: string, state: string, extra = ""): string {
+    return `${origin}/annict?code=auth_code&state=${encodeURIComponent(state)}${extra}`;
+  }
+
+  it("プレビュー宛の state はそのオリジンの /annict へ中継する", () => {
+    const state = encodeWebOAuthState(PREVIEW, "uuid-1");
+    const target = resolveAnnictRelayTarget(callbackOn(PROD, state), PROD);
+
+    const parsed = new URL(target ?? "");
+    expect(parsed.origin).toBe(PREVIEW);
+    expect(parsed.pathname).toBe("/annict");
+    expect(parsed.searchParams.get("code")).toBe("auth_code");
+    // state は戻り先の sessionStorage と全体一致で照合されるため改変しない。
+    expect(parsed.searchParams.get("state")).toBe(state);
+  });
+
+  it("error パラメータ付きのコールバックも中継する", () => {
+    const state = encodeWebOAuthState(PREVIEW, "uuid-1");
+    const target = resolveAnnictRelayTarget(
+      `${PROD}/annict?error=access_denied&state=${encodeURIComponent(state)}`,
+      PROD,
+    );
+    expect(target).not.toBeNull();
+    expect(new URL(target ?? "").searchParams.get("error")).toBe(
+      "access_denied",
+    );
+  });
+
+  it("自分宛の state（戻り先 = 現在オリジン）は中継しない", () => {
+    const state = encodeWebOAuthState(PROD, "uuid-1");
+    expect(resolveAnnictRelayTarget(callbackOn(PROD, state), PROD)).toBeNull();
+  });
+
+  it("localhost は開発用に任意ポートで中継を許可する", () => {
+    const state = encodeWebOAuthState("http://localhost:8081", "uuid-1");
+    const target = resolveAnnictRelayTarget(callbackOn(PROD, state), PROD);
+    expect(new URL(target ?? "").origin).toBe("http://localhost:8081");
+  });
+
+  it("許可リスト外のオリジンには中継しない（open redirect 防止）", () => {
+    const state = encodeWebOAuthState("https://evil.example.com", "uuid-1");
+    expect(resolveAnnictRelayTarget(callbackOn(PROD, state), PROD)).toBeNull();
+  });
+
+  it("http スキームの外部オリジンには中継しない", () => {
+    const state = encodeWebOAuthState("http://animeishi.uomi.dev", "uuid-1");
+    expect(resolveAnnictRelayTarget(callbackOn(PROD, state), PROD)).toBeNull();
+  });
+
+  it("オリジン埋め込みでない素の state（旧形式）は中継しない", () => {
+    const target = resolveAnnictRelayTarget(
+      callbackOn(PROD, "plain-uuid-state"),
+      PROD,
+    );
+    expect(target).toBeNull();
+  });
+
+  it("正規 URL が独自ドメインでも、設定値由来のホストのプレビューへ中継できる", () => {
+    // canonical を独自ドメインで受け、redirect_uri の設定値が workers.dev 側の
+    // ホストを指す構成。既知ホスト一覧に無いホストでも設定値から導出して許可する。
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI =
+      "https://web.exampleteam.workers.dev/annict";
+    const state = encodeWebOAuthState(
+      "https://pr-9-web.exampleteam.workers.dev",
+      "uuid-1",
+    );
+    const target = resolveAnnictRelayTarget(
+      callbackOn("https://animeishi.uomi.dev", state),
+      "https://animeishi.uomi.dev",
+    );
+    expect(new URL(target ?? "").origin).toBe(
+      "https://pr-9-web.exampleteam.workers.dev",
+    );
+  });
+
+  it("state 欠落・不正 URL は null", () => {
+    expect(resolveAnnictRelayTarget(`${PROD}/annict?code=x`, PROD)).toBeNull();
+    expect(resolveAnnictRelayTarget("not a url", PROD)).toBeNull();
   });
 });

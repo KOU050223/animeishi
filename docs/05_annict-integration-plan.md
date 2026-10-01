@@ -215,6 +215,7 @@ query SearchWorks($titles: [String!], $seasons: [String!], $after: String) {
 - **`GET /me/annict`(連携状態)の実体**: **ネイティブ**はサーバーがトークンを保存しないため「連携済み」はクライアントの SecureStore 有無で判定し、`X-Annict-Token` があればそれで `oauth/token/info` を検証する。**Web**（追補で確定）はサーバーが D1 に保存したトークンを復号して `oauth/token/info` で検証し、`connected` を返す（クライアントは localStorage を見ない）。
 - **未連携ユーザーの離脱計測**: ソフトゲートでも記録機能の連携誘導 → 連携完了のコンバージョンを計測する。
 - **`redirect_uri` 登録**: Annict アプリ設定に `animeishi://annict`(本番)とローカル/プレビュー用を登録する必要がある。
+  → 解決済み: Web の PR プレビューは動的 URL のため登録不可。`redirect_uri` を正規の登録済み URL に固定し、戻り先オリジンを `state` に埋め込んで正規側 `/annict` が中継する方式にした（`lib/annict/oauth.ts` の `resolveAnnictRelayTarget`、docs/04「プレビューでの Annict 連携」参照）。Annict 側に登録が必要なのは `animeishi://annict`・`http://localhost:8081/annict`・正規 Web の `/annict` のみ。
 ```
 
 ---

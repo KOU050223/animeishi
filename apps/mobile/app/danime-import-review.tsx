@@ -25,8 +25,15 @@ import {
   useBulkRegisterWatchHistory,
   useDanimeMatch,
 } from "@/lib/danime/useDanimeImport";
-import type { BulkRegisterEntry } from "@/lib/danime/useDanimeImport";
-import type { DanimeAnnictWork, DanimeMatchItem } from "@animeishi/danime-core";
+import type {
+  BulkRegisterEntry,
+  DanimeMatchStats,
+} from "@/lib/danime/useDanimeImport";
+import {
+  toMatchWorks,
+  type DanimeAnnictWork,
+  type DanimeMatchItem,
+} from "@animeishi/danime-core";
 import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
@@ -44,7 +51,36 @@ type DoneResult = {
   failed: number;
   aborted: boolean;
   requestError: string | null;
+  /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
+  elapsedMs: number;
 };
+
+// フェーズ所要時間の可視化（issue #115）。抽出は抽出スクリプトが payload に
+// 載せ、照合/登録はクライアント側で計測する。
+type MatchTiming = {
+  elapsedMs: number;
+  stats?: DanimeMatchStats;
+};
+
+function formatSec(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}秒`;
+}
+
+// active の間だけ経過秒数を 0.5 秒刻みで返す（照合中・登録中の表示用）。
+function useElapsedSeconds(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const start = Date.now();
+    setSeconds(0);
+    const id = setInterval(
+      () => setSeconds(Math.floor((Date.now() - start) / 1000)),
+      500,
+    );
+    return () => clearInterval(id);
+  }, [active]);
+  return seconds;
+}
 
 // Annict の現在ステータスと突き合わせて既定の checked / note を決める。
 // historyUnknown=true（履歴クエリ失敗・未取得）のときは WATCHING 登録を
@@ -92,7 +128,18 @@ export default function DanimeImportReviewScreen() {
     total: number;
   } | null>(null);
   const [doneResult, setDoneResult] = useState<DoneResult | null>(null);
+  const [matchTiming, setMatchTiming] = useState<MatchTiming | null>(null);
   const startedRef = useRef(false);
+
+  // 照合対象の作品数（照合中の進捗表示用）。
+  const workCount = useMemo(
+    () => (lists ? toMatchWorks(lists).length : 0),
+    [lists],
+  );
+  const matchingActive =
+    rows === null && (match.isPending || isHistoriesLoading);
+  const matchElapsedSec = useElapsedSeconds(matchingActive);
+  const registerElapsedSec = useElapsedSeconds(progress !== null);
 
   // 履歴が届いていない（クエリ失敗・未連携）なら既存ステータスは不明として扱う。
   const historyUnknown = histories === undefined;
@@ -154,7 +201,10 @@ export default function DanimeImportReviewScreen() {
     match.mutate(
       { lists, registeredWorkIds },
       {
-        onSuccess: (results) => setRows(buildRows(results)),
+        onSuccess: (out) => {
+          setMatchTiming({ elapsedMs: out.elapsedMs, stats: out.stats });
+          setRows(buildRows(out.items));
+        },
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,6 +293,7 @@ export default function DanimeImportReviewScreen() {
             failed: res.results.filter((r) => !r.ok).length,
             aborted: res.aborted,
             requestError: res.requestError,
+            elapsedMs: res.elapsedMs,
           });
         },
         onSettled: () => setProgress(null),
@@ -260,10 +311,36 @@ export default function DanimeImportReviewScreen() {
     match.mutate(
       { lists: lists!, registeredWorkIds },
       {
-        onSuccess: (results) => setRows(buildRows(results)),
+        onSuccess: (out) => {
+          setMatchTiming({ elapsedMs: out.elapsedMs, stats: out.stats });
+          setRows(buildRows(out.items));
+        },
       },
     );
   }
+
+  // 「抽出 X秒 / 照合 Y秒（検索 N回）」形式のフェーズ所要時間サマリ。
+  // 取れている分だけ連結する（抽出時間は旧 payload / 手動貼り付けで欠け得る）。
+  const timingSummary = (() => {
+    const parts: string[] = [];
+    if (lists?.extractElapsedMs != null) {
+      parts.push(`抽出 ${formatSec(lists.extractElapsedMs)}`);
+    }
+    if (matchTiming) {
+      const s = matchTiming.stats;
+      const searches = s ? s.firstPassSearches + s.secondPassSearches : 0;
+      parts.push(
+        `照合 ${formatSec(matchTiming.elapsedMs)}` +
+          (s
+            ? `（Annict 検索 ${searches} 回${s.retries > 0 ? `・リトライ ${s.retries} 回` : ""}）`
+            : ""),
+      );
+    }
+    if (doneResult) {
+      parts.push(`登録 ${formatSec(doneResult.elapsedMs)}`);
+    }
+    return parts.join(" / ");
+  })();
 
   // ---- 結果画面 ----
   if (doneResult) {
@@ -273,6 +350,11 @@ export default function DanimeImportReviewScreen() {
         <Text className="text-sm text-gray-600 mt-3 text-center">
           成功: {doneResult.succeeded} 件 / 失敗・未処理: {doneResult.failed} 件
         </Text>
+        {timingSummary !== "" && (
+          <Text className="text-[11px] text-gray-400 mt-2 text-center">
+            {timingSummary}
+          </Text>
+        )}
         {doneResult.aborted && (
           <Text className="text-xs text-red-500 mt-2 text-center">
             Annict
@@ -305,6 +387,9 @@ export default function DanimeImportReviewScreen() {
             <ActivityIndicator size="large" color="#4f46e5" />
             <Text className="text-sm text-gray-500 mt-4">
               Annict の作品と照合しています…
+            </Text>
+            <Text className="text-[11px] text-gray-400 mt-2">
+              {workCount} 件 / {matchElapsedSec} 秒経過
             </Text>
           </>
         ) : (
@@ -344,6 +429,11 @@ export default function DanimeImportReviewScreen() {
         <Text className="text-xs text-gray-500 mt-1">
           {rows.length} 件中 {checkedCount} 件を登録します
         </Text>
+        {timingSummary !== "" && (
+          <Text className="text-[10px] text-gray-400 mt-0.5">
+            {timingSummary}
+          </Text>
+        )}
       </View>
 
       <FlatList
@@ -356,7 +446,8 @@ export default function DanimeImportReviewScreen() {
       <View className="px-4 py-3 border-t border-gray-100">
         {progress !== null && (
           <Text className="text-xs text-gray-500 text-center mb-2">
-            登録中… {progress.done} / {progress.total}
+            登録中… {progress.done} / {progress.total}（{registerElapsedSec}{" "}
+            秒経過）
           </Text>
         )}
         {bulk.isError && (

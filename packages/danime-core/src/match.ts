@@ -11,8 +11,12 @@
 // - Annict へのアクセスは AnnictSearcher として注入する。animeishi API は
 //   Workers 側の GraphQL クライアントを包んで渡し、将来のスタンドアロン版
 //   （ブラウザ拡張等）はクライアントから Annict を直叩きする実装を差し替えられる。
+// - union 検索チャンクと未解決タイトルの再検索は同時実行数を絞って並列に
+//   投げる（issue #115）。リトライ方針は searcher の実装側が持つ
+//   （API 側は withAnnictRetry で包む）。
 
 import type { DanimeAnnictWork } from "./types";
+import { mapWithConcurrency } from "./concurrency";
 import {
   isGenericSearchTitle,
   normalizeTitle,
@@ -64,6 +68,28 @@ const MAX_CANDIDATES = 10;
 // 元タイトル+単純化タイトルで最大 1000 往復になるのを防ぐため、呼び出し全体で
 // この回数までに抑える（上流リクエスト制限の緩和としても機能する）。
 const MAX_SECOND_PASS_SEARCHES = 50;
+
+// Annict 検索の同時実行数。第 1/第 2 パスはこの数まで並列で投げる。
+// 大きくしすぎると Annict のレート制限（429）に当たりやすくなるため、
+// リトライで吸収できる程度の中間値に留める。
+const SEARCH_CONCURRENCY = 6;
+
+// マッチング処理の観測情報。所要時間の可視化と次回以降の定量評価に使う。
+// searcher 内部で起きたリトライ回数はここでは分からないため、API 側が
+// 自分で集計してレスポンスに載せる。
+export type DanimeMatchStats = {
+  /** 第 1 パス（union 検索）の Annict リクエスト数。 */
+  firstPassSearches: number;
+  /** 第 2 パス（単発再検索）の Annict リクエスト数。 */
+  secondPassSearches: number;
+  /** マッチング全体の経過時間（ms）。 */
+  elapsedMs: number;
+};
+
+export type DanimeMatchOutput = {
+  results: DanimeMatchResult[];
+  stats: DanimeMatchStats;
+};
 
 type ClassifyOptions = {
   registeredWorkIds?: ReadonlySet<number> | undefined;
@@ -189,7 +215,14 @@ export async function matchDanimeWorks(
   searcher: AnnictSearcher,
   items: DanimeMatchInput[],
   registeredWorkIds?: Iterable<number>,
-): Promise<DanimeMatchResult[]> {
+): Promise<DanimeMatchOutput> {
+  const startedAt = Date.now();
+  const stats: DanimeMatchStats = {
+    firstPassSearches: 0,
+    secondPassSearches: 0,
+    elapsedMs: 0,
+  };
+
   // danimeWorkId 重複（履歴カードの話数分重複等）は先に潰す。
   const unique = new Map<string, DanimeMatchInput>();
   for (const item of items) {
@@ -207,16 +240,22 @@ export async function matchDanimeWorks(
   }));
 
   // 第 1 パス: タイトルをチャンクでまとめて union 検索。
-  const pool: DanimeAnnictWork[] = [];
+  // チャンク間に依存はないため、レート制限を意識した同時実行数で並列に投げる。
+  const chunks: string[][] = [];
   for (let i = 0; i < matchInputs.length; i += SEARCH_CHUNK_SIZE) {
     const chunk = matchInputs
       .slice(i, i + SEARCH_CHUNK_SIZE)
       .map((w) => w.title.trim())
       // 退化クエリ（「TVアニメ」だけ等）はノイズしか返さないので送らない。
       .filter((t) => t && !isGenericSearchTitle(t));
-    if (chunk.length === 0) continue;
-    pool.push(...(await searcher(chunk)));
+    if (chunk.length > 0) chunks.push(chunk);
   }
+  const pool = (
+    await mapWithConcurrency(chunks, SEARCH_CONCURRENCY, async (chunk) => {
+      stats.firstPassSearches++;
+      return searcher(chunk);
+    })
+  ).flat();
   const poolDeduped = dedupeWorks(pool);
 
   const results = new Map<string, DanimeMatchResult>();
@@ -241,42 +280,62 @@ export async function matchDanimeWorks(
     (i) => results.get(i.danimeWorkId)?.status !== "exact",
   );
   let secondPassSearches = 0;
-  for (const input of unresolved) {
-    const status = results.get(input.danimeWorkId)?.status;
-    const queries =
-      status === "candidates"
-        ? alnumVariantQueries(input.title)
-        : secondPassQueries(input.title);
-    for (const q of queries) {
-      if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
-      secondPassSearches++;
-      const found = await searcher([q]);
-      if (found.length === 0) continue;
-      // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
-      // 元タイトルで再採点すると括弧差分で exact にならないため）。
-      // ただし期数ガードは検索語に期数が残っていなくても効くよう、
-      // 元の入力タイトルで判定する。
-      // 結果の title はレビュー表示のため元タイトルを保持する。
-      const classified = classifyWork(
-        { ...input, title: q },
-        dedupeWorks([...poolDeduped, ...found]),
-        {
-          registeredWorkIds: registered,
-          seasonRefTitle: input.title,
-        },
-      );
-      // candidates の再検索で候補が全滅しても、既存の候補を失わないよう
-      // none では上書きしない。
-      if (classified.status === "none") continue;
-      results.set(input.danimeWorkId, {
-        ...classified,
-        title: originalTitle.get(input.danimeWorkId)!,
-      });
-      break;
-    }
+  // 未解決タイトル間は独立なので並列で再検索する。1 タイトル内の検索語は
+  // 「最初にヒットした語を採用する」順序依存があるため逐次のままにする。
+  // 呼び出し全体の往復上限（secondPassSearches）は各タスクが共有する。
+  // なお、全タスクを一気に並列化すると、先のタスクの検索が遅い間に後続の
+  // タスクが上限枠を先食いし、先のタスクが本来試せた検索語を失う
+  // （逐次版との差分）。そのため同時実行数ぶんずつのウェーブで進める:
+  // 1 ウェーブの最大クエリ数（同時実行数 × 1 タイトルの検索語数）は
+  // 上限 50 を下回るため、ウェーブ内のタスク同士で枠を奪い合うことはなく、
+  // 後続ウェーブも先のウェーブ完了を待つので逐次版と同じ優先順位になる。
+  for (let i = 0; i < unresolved.length; i += SEARCH_CONCURRENCY) {
     if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
+    await mapWithConcurrency(
+      unresolved.slice(i, i + SEARCH_CONCURRENCY),
+      SEARCH_CONCURRENCY,
+      async (input) => {
+        const status = results.get(input.danimeWorkId)?.status;
+        const queries =
+          status === "candidates"
+            ? alnumVariantQueries(input.title)
+            : secondPassQueries(input.title);
+        for (const q of queries) {
+          if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
+          secondPassSearches++;
+          const found = await searcher([q]);
+          if (found.length === 0) continue;
+          // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
+          // 元タイトルで再採点すると括弧差分で exact にならないため）。
+          // ただし期数ガードは検索語に期数が残っていなくても効くよう、
+          // 元の入力タイトルで判定する。
+          // 結果の title はレビュー表示のため元タイトルを保持する。
+          const classified = classifyWork(
+            { ...input, title: q },
+            dedupeWorks([...poolDeduped, ...found]),
+            {
+              registeredWorkIds: registered,
+              seasonRefTitle: input.title,
+            },
+          );
+          // candidates の再検索で候補が全滅しても、既存の候補を失わないよう
+          // none では上書きしない。
+          if (classified.status === "none") continue;
+          results.set(input.danimeWorkId, {
+            ...classified,
+            title: originalTitle.get(input.danimeWorkId)!,
+          });
+          break;
+        }
+      },
+    );
   }
 
+  stats.secondPassSearches = secondPassSearches;
+  stats.elapsedMs = Date.now() - startedAt;
   // 入力順を維持して返す（dedupe で潰した重複 danimeWorkId は同じ結果を指す）。
-  return items.map((i) => results.get(i.danimeWorkId)!);
+  return {
+    results: items.map((i) => results.get(i.danimeWorkId)!),
+    stats,
+  };
 }

@@ -28,6 +28,7 @@ jest.mock("@clerk/clerk-expo", () => ({
 
 // EXPO_PUBLIC_ANNICT_CLIENT_ID をテスト用に設定する。
 const ORIGINAL_ENV = process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID;
+const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
 
 function makeWrapper() {
   const client = new QueryClient({
@@ -43,6 +44,7 @@ describe("useAnnictConnect (web)", () => {
 
   beforeEach(() => {
     process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test_client_id";
+    delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
     mockDisconnectPost.mockReset().mockResolvedValue({ ok: true });
     window.sessionStorage.clear();
     hrefValue = "";
@@ -78,6 +80,7 @@ describe("useAnnictConnect (web)", () => {
       value: originalLocation,
     });
     process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = ORIGINAL_ENV;
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
   });
 
   it("connect: state を sessionStorage に保存し authorize へ遷移する", async () => {
@@ -99,6 +102,54 @@ describe("useAnnictConnect (web)", () => {
     expect(hrefValue).toContain(`state=${state}`);
     expect(hrefValue).toContain("client_id=test_client_id");
     expect(hrefValue).toContain(encodeURIComponent("/annict"));
+  });
+
+  it("connect: state に戻り先オリジンを埋め込む（正規側での中継用）", async () => {
+    const { result } = renderHook(() => useAnnictConnect(), {
+      wrapper: makeWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.connect();
+    });
+
+    // state は <base64url(origin)>.<uuid> 形式で sessionStorage に退避され、
+    // authorize URL の state パラメータと一致する。
+    const state = window.sessionStorage.getItem(ANNICT_STATE_STORAGE_KEY);
+    const [encodedOrigin, random] = (state ?? "").split(".");
+    expect(Buffer.from(encodedOrigin, "base64url").toString()).toBe(
+      "http://localhost",
+    );
+    expect(random).toBeTruthy();
+    const authorizeUrl = new URL(hrefValue);
+    expect(authorizeUrl.searchParams.get("state")).toBe(state);
+    // 未設定時は現在オリジンが redirect_uri になる。
+    expect(authorizeUrl.searchParams.get("redirect_uri")).toBe(
+      "http://localhost/annict",
+    );
+  });
+
+  it("connect: EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI があればそれを redirect_uri に使う", async () => {
+    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI =
+      "https://animeishi-web-production.uozumi05.workers.dev/annict";
+    const { result } = renderHook(() => useAnnictConnect(), {
+      wrapper: makeWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.connect();
+    });
+
+    const authorizeUrl = new URL(hrefValue);
+    expect(authorizeUrl.searchParams.get("redirect_uri")).toBe(
+      "https://animeishi-web-production.uozumi05.workers.dev/annict",
+    );
+    // 戻り先は実行中のオリジン（ここでは jsdom の http://localhost）。
+    const state = authorizeUrl.searchParams.get("state") ?? "";
+    const [encodedOrigin] = state.split(".");
+    expect(Buffer.from(encodedOrigin, "base64url").toString()).toBe(
+      "http://localhost",
+    );
   });
 
   it("disconnect: サーバーの disconnect を Clerk JWT 付きで呼ぶ", async () => {
