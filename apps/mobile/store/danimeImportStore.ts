@@ -1,7 +1,7 @@
 // 取込画面（WebView / ブックマークレット貼り付け）で得た抽出結果を
 // レビュー画面へ渡すための一時ストア。永続化しない（画面遷移中のみ有効）。
 import { create } from "zustand";
-import type { DanimeExtractedLists } from "@/lib/danime/types";
+import type { DanimeExtractedLists } from "@animeishi/danime-core";
 
 type DanimeImportStore = {
   lists: DanimeExtractedLists | null;

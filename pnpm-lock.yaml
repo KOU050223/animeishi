@@ -17,6 +17,9 @@ importers:
       '@animeishi/api':
         specifier: workspace:*
         version: link:../../services/api
+      '@animeishi/danime-core':
+        specifier: workspace:*
+        version: link:../../packages/danime-core
       '@clerk/clerk-expo':
         specifier: ^2.10.0
         version: 2.19.31(7ab13b42d35eafb24130132e22f42b39)
@@ -199,6 +202,24 @@ importers:
         specifier: ^4.12.0
         version: 4.83.0(@cloudflare/workers-types@4.20260416.2)(bufferutil@4.1.0)(utf-8-validate@6.0.6)
 
+  packages/danime-core:
+    devDependencies:
+      jsdom:
+        specifier: ^20.0.3
+        version: 20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      oxfmt:
+        specifier: ^0.57.0
+        version: 0.57.0
+      oxlint:
+        specifier: ^1.72.0
+        version: 1.72.0
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(vite@7.3.2(@types/node@25.6.0)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
+
   packages/observability:
     devDependencies:
       oxfmt:
@@ -216,6 +237,9 @@ importers:
 
   services/api:
     dependencies:
+      '@animeishi/danime-core':
+        specifier: workspace:*
+        version: link:../../packages/danime-core
       '@animeishi/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -16377,7 +16401,7 @@ snapshots:
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.1.1
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
       vite: 7.3.2(@types/node@25.6.0)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
       why-is-node-running: 2.3.0

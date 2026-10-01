@@ -26,7 +26,7 @@ import {
   useDanimeMatch,
 } from "@/lib/danime/useDanimeImport";
 import type { BulkRegisterEntry } from "@/lib/danime/useDanimeImport";
-import type { DanimeAnnictWork, DanimeMatchItem } from "@/lib/danime/types";
+import type { DanimeAnnictWork, DanimeMatchItem } from "@animeishi/danime-core";
 import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 

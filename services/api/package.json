@@ -21,6 +21,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@animeishi/danime-core": "workspace:*",
     "@animeishi/observability": "workspace:*",
     "@clerk/backend": "^3.2.12",
     "@clerk/hono": "^0.1.15",

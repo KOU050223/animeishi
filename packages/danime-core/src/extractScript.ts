@@ -20,6 +20,7 @@
 //
 // サイト側の構造変更で抽出が壊れ得るため、想定要素が見つからない場合は
 // 明示的にエラーを投げて呼び出し側で通知できるようにする。
+import { DANIME_EXTRACT_SCHEMA_VERSION } from "./types";
 
 export const DANIME_HISTORY_URL =
   "https://animestore.docomo.ne.jp/animestore/mpa_hst_pc?workType=0";
@@ -50,6 +51,7 @@ export function danimeExtractScript(appOrigin: string): string {
   var MSG_ERR = "${DANIME_EXTRACT_ERR}";
   var MSG_DATA = "${DANIME_POSTBACK_DATA}";
   var MSG_ACK = "${DANIME_POSTBACK_ACK}";
+  var SCHEMA_VERSION = ${DANIME_EXTRACT_SCHEMA_VERSION};
   var APP_ORIGIN = ${JSON.stringify(appOrigin)};
 
   // ブックマークレット経路では、抽出結果を受け取る Animeishi のタブを
@@ -315,7 +317,11 @@ export function danimeExtractScript(appOrigin: string): string {
     }
     report({
       type: MSG_OK,
-      payload: { completed: completed, history: history },
+      payload: {
+        schemaVersion: SCHEMA_VERSION,
+        completed: completed,
+        history: history,
+      },
     });
   } catch (e) {
     report({

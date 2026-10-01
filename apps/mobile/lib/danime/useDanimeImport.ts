@@ -7,8 +7,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import { apiClient } from "@/lib/api";
 import { buildAnnictAuthHeader } from "@/lib/annict";
-import { toMatchWorks } from "@/lib/danime/aggregate";
-import type { DanimeExtractedLists, DanimeMatchItem } from "@/lib/danime/types";
+import {
+  toMatchWorks,
+  type DanimeExtractedLists,
+  type DanimeMatchItem,
+} from "@animeishi/danime-core";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない

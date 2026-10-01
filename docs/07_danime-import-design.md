@@ -38,8 +38,10 @@ dアニメストアの視聴履歴・コンプリート作品を取り込み、�
 
 ### 抽出コア
 
-`apps/mobile/lib/danime/extractScript.ts` の `DANIME_EXTRACT_SCRIPT` が本体。
-2 経路で共用する:
+`packages/danime-core` の `DANIME_EXTRACT_SCRIPT` が本体。
+抽出・集約・検証・タイトル照合のコアロジックは framework 非依存の
+`packages/danime-core`（`@animeishi/danime-core`）に切り出してあり、
+mobile・API が同じ実装を共有する。2 経路で共用する:
 
 - **native**: `injectJavaScript` で animestore ドメイン上に注入。
   `window.ReactNativeWebView.postMessage` で結果を受領。
@@ -64,10 +66,14 @@ dアニメストアの視聴履歴・コンプリート作品を取り込み、�
 （構造変更疑い）/ `wrong_page`（dアニメ以外のページで実行）/ `network_error`
 （fetch reject）/ `HTTP xxx`。
 
+抽出ペイロードは `{ schemaVersion, completed, history }` の versioned contract
+（`DANIME_EXTRACT_SCHEMA_VERSION`）。消費側は `parseDanimeExtractedLists` で
+検証し、未付与は現行扱い、未知のバージョンは弾く。
+
 ### 集約
 
-クライアント側（`lib/danime/aggregate.ts`）で話数カードを作品単位に集約し、
-completed 優先で targetState を割り当ててから match API に送る。
+クライアント側（`@animeishi/danime-core` の `toMatchWorks`）で話数カードを
+作品単位に集約し、completed 優先で targetState を割り当ててから match API に送る。
 
 ## API
 
@@ -80,6 +86,9 @@ completed 優先で targetState を割り当ててから match API に送る。
   付くため残す）。一般名詞のみの退化クエリ（`TVアニメ` だけ等）は
   Annict に送らない（`K` のような 1 文字作品は検索対象とし、
   部分一致のノイズはスコアリングで弾く）。
+- Annict 検索は core の `AnnictSearcher` として注入する
+  （API 側は `searchAnnictWorksByTitles` を包んで渡す。将来のスタンドアロン版は
+  Annict 直叩き実装に差し替えられる）。
 - Annict `searchWorks` は `titles: [String!]` が OR 部分一致なので、
   タイトルを 10 件チャンクで union 検索し（`searchAnnictWorksByTitles`）、
   各入力への帰属はローカルのスコアリングで行う。`exact` 以外は単発再検索する
@@ -92,7 +101,7 @@ completed 優先で targetState を割り当ててから match API に送る。
   再検索語でヒットした候補の分類も検索語で行うが、期数ガードと
   登録済み除外は元の入力タイトルで判定する（単純化で期数が消えた
   検索語経由でも別シーズンを自動確定しない）。
-- スコアリング（`lib/danime/titleNormalize.ts`）:
+- スコアリング（`packages/danime-core/src/titleNormalize.ts`）:
   NFKC 正規化 → 完全一致の単一候補のみ `exact`（入力が期数を明示している
   ときは、期数の一致しない候補は exact にしない）。それ以外は類似度
   0.5 以上を `candidates`（最大 10 件）、ゼロなら `none`。

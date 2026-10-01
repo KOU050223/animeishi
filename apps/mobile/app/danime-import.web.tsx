@@ -26,8 +26,8 @@ import {
   DANIME_ORIGIN,
   DANIME_POSTBACK_ACK,
   DANIME_POSTBACK_DATA,
-} from "@/lib/danime/extractScript";
-import { parseDanimeExtractedLists } from "@/lib/danime/validate";
+  parseDanimeExtractedLists,
+} from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 
 export default function DanimeImportWebScreen() {

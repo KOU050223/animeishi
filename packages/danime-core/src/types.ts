@@ -1,5 +1,11 @@
 // dアニメストア インポートで使う共通型。
 
+// 抽出ペイロードのスキーマバージョン。WebView postMessage /
+// ブックマークレット / 将来の拡張 content script と消費側で契約が
+// ずれないよう versioned contract にする。ペイロードの形を変えるときは
+// この値を上げる（消費側は未知のバージョンを拒否する）。
+export const DANIME_EXTRACT_SCHEMA_VERSION = 1;
+
 /** 抽出結果の 1 作品。workId が取れないカードは title を疑似キーにする。 */
 export type DanimeExtractedWork = {
   /** dアニメ側の workId。カードから取れない場合は `title:<タイトル>` の疑似キー。 */
@@ -11,6 +17,7 @@ export type DanimeExtractedWork = {
 
 /** 抽出スクリプトが返すペイロード。 */
 export type DanimeExtractedLists = {
+  schemaVersion: typeof DANIME_EXTRACT_SCHEMA_VERSION;
   /** コンプリート作品（mpa_cmp_pc）。→ WATCHED に登録する対象。 */
   completed: DanimeExtractedWork[];
   /** 視聴履歴（mpa_hst_pc）。completed に無い作品は WATCHING 対象。 */
@@ -34,6 +41,11 @@ export type DanimeMatchItem = {
   candidates: DanimeAnnictWork[];
 };
 
+/**
+ * 照合候補として扱う Annict 作品の最小メタ。
+ * Annict 取得経路（animeishi API の GraphQL クライアント、将来のスタンドアロン版
+ * の直接 GraphQL 等）に依らず、照合に必要なフィールドだけを契約にする。
+ */
 export type DanimeAnnictWork = {
   annictWorkId: number;
   nodeId: string;
