@@ -144,7 +144,6 @@ type TestEnv = {
     DB: D1Database;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
-    IMAGE_FALLBACK_QUEUE?: Queue;
   };
   Variables: {
     clerkUserId: string;
@@ -298,7 +297,7 @@ describe("視聴履歴 API", () => {
       expect(body[0].annictWorkId).toBe(ANNICT_WORK_ID);
     });
 
-    it("GET /me/watch-histories: 未解決の補完対象を Queue に enqueue し、外部補完は直接実行しない", async () => {
+    it("GET /me/watch-histories: 外部補完は直接実行せず、cron の解決対象として未解決行を残す", async () => {
       const fetchMock = vi.spyOn(globalThis, "fetch");
       mockAnnictLibrary([
         {
@@ -309,25 +308,23 @@ describe("視聴履歴 API", () => {
           recommendedImageUrl: "http://images.example.invalid/poster.jpg",
         },
       ]);
-      const sendBatch = vi.fn().mockResolvedValue(undefined);
       const app = buildApp();
 
       const res = await app.request(
         "/me/watch-histories",
         { method: "GET", headers: ANNICT_HEADER },
-        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+        TEST_BINDINGS,
       );
 
       expect(res.status).toBe(200);
-      expect(sendBatch).toHaveBeenCalledWith([
-        {
-          body: {
-            annictWorkId: 888,
-            malAnimeId: 5678,
-            reason: "watch-history",
-          },
-        },
-      ]);
+      // 画像 placeholder の作品は作品メタだけ upsert され、imageSource 未解決の
+      // まま残る。cron がこの行を拾って AniList / Jikan で解決する。
+      const row = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 888),
+      });
+      expect(row?.malAnimeId).toBe(5678);
+      expect(row?.imageSource).toBeNull();
+      // 外部補完 API は叩かない（Annict ライブラリ取得の 1 回のみ）
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
