@@ -8,8 +8,8 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 
 | アプリ | Worker 名 | デプロイ内容 | 設定ファイル |
 | --- | --- | --- | --- |
-| API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 / Queue バインディング） | [`services/api/wrangler.toml`](../services/api/wrangler.toml) の `[env.production]` |
-| API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 / Queue を持つ | 同上の `[env.preview]` |
+| API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 バインディング） | [`services/api/wrangler.toml`](../services/api/wrangler.toml) の `[env.production]` |
+| API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 を持つ | 同上の `[env.preview]` |
 | Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) |
 
 ## 環境変数の種類と登録先
@@ -106,9 +106,8 @@ Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごと
 | --- | --- | --- |
 | D1 | `animeishi-db` | `animeishi-db-preview` |
 | R2 | `animeishi-avatars` | `animeishi-avatars-preview` |
-| Queue / DLQ | `animeishi-image-fallback` / `-dlq` | `animeishi-image-fallback-preview` / `-dlq-preview` |
 
-cron トリガーは preview では無効化してある（`crons = []`）。Queue の consume は preview Worker のライブデプロイが担うため、PR の preview バージョンが enqueue したメッセージは preview Worker の最新デプロイ済みコードが処理する。
+画像フォールバックの定期解決（cron が annict_works の未解決行を直接回す）は preview では無効化してある（`crons = []`）。
 
 ### preview D1 の制限（共有 DB）
 
@@ -136,10 +135,8 @@ cd services/api
 # 1. プレビュー用リソースを作成し、wrangler.toml の [env.preview] に ID を反映
 pnpm exec wrangler d1 create animeishi-db-preview
 pnpm exec wrangler r2 bucket create animeishi-avatars-preview
-pnpm exec wrangler queues create animeishi-image-fallback-preview
-pnpm exec wrangler queues create animeishi-image-fallback-dlq-preview
 
-# 2. preview Worker を初回デプロイ（bindings・queue consumer を登録）
+# 2. preview Worker を初回デプロイ（bindings を登録）
 pnpm exec wrangler deploy --env preview
 
 # 3. preview D1 にマイグレーション適用

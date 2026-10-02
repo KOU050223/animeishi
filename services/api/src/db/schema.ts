@@ -53,6 +53,13 @@ export const annictWorks = sqliteTable("annict_works", {
   imageSource: text("image_source"),
   // resolvedImageUrl / imageSource を確定した時刻。TTL 再解決の起点に使う。
   resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  // 画像フォールバック解決を最後に試行した時刻。cron が未解決作品を直接回す際の
+  // クールダウンに使い、429 等で解決できなかった作品の叩き直し頻度を抑える
+  // （issue #127）。updateResolvedImage で解決時にクリアし、mal_anime_id 変化時にも
+  // リセットする。クールダウン切れ後は再試行対象に戻る。
+  imageFallbackAttemptedAt: integer("image_fallback_attempted_at", {
+    mode: "timestamp",
+  }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 

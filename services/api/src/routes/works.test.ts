@@ -95,7 +95,6 @@ type TestEnv = {
     DB: D1Database;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
-    IMAGE_FALLBACK_QUEUE?: Queue;
   };
   Variables: {
     clerkUserId: string;
@@ -313,20 +312,19 @@ describe("作品検索 API", () => {
           },
         },
       );
-      const sendBatch = vi.fn().mockResolvedValue(undefined);
       const app = buildApp();
 
       const res = await app.request(
         "/works/search?title=http",
         { method: "GET", headers: ANNICT_HEADER },
-        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+        TEST_BINDINGS,
       );
 
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         works: { annictWorkId: number; resolvedImageUrl: string | null }[];
       };
-      // 初回レスポンスで解決済み URL が返る（Queue 待ちにならない）
+      // 初回レスポンスで解決済み URL が返る（非同期解決待ちにならない）
       expect(body.works[0].resolvedImageUrl).toBe(
         "https://s4.anilist.co/1234.jpg",
       );
@@ -336,11 +334,9 @@ describe("作品検索 API", () => {
       });
       expect(row?.resolvedImageUrl).toBe("https://s4.anilist.co/1234.jpg");
       expect(row?.imageSource).toBe("anilist");
-      // 解決済みなので Queue には積まない
-      expect(sendBatch).not.toHaveBeenCalled();
     });
 
-    it("GET /works/search: AniList で取れなかった補完対象だけを Queue に enqueue する", async () => {
+    it("GET /works/search: AniList で取れなかった作品は未解決のまま残り cron の解決対象になる", async () => {
       mockSearchWorks(
         [
           {
@@ -364,29 +360,34 @@ describe("作品検索 API", () => {
           m9999: null,
         },
       );
-      const sendBatch = vi.fn().mockResolvedValue(undefined);
       const app = buildApp();
 
       const res = await app.request(
         "/works/search?title=http",
         { method: "GET", headers: ANNICT_HEADER },
-        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+        TEST_BINDINGS,
       );
 
       expect(res.status).toBe(200);
-      // AniList miss（9999）だけが Queue に積まれ、ヒット（1234）は積まれない
-      expect(sendBatch).toHaveBeenCalledWith([
-        {
-          body: {
-            annictWorkId: 778,
-            malAnimeId: 9999,
-            reason: "search",
-          },
-        },
-      ]);
+      const body = (await res.json()) as {
+        works: { annictWorkId: number; resolvedImageUrl: string | null }[];
+      };
+      const byId = new Map(body.works.map((w) => [w.annictWorkId, w]));
+      // AniList ヒットはその場で解決、miss は未解決のまま返す
+      expect(byId.get(777)?.resolvedImageUrl).toBe(
+        "https://s4.anilist.co/1234.jpg",
+      );
+      expect(byId.get(778)?.resolvedImageUrl).toBeNull();
+      // miss も作品メタは upsert 済みで未解決（imageSource null）なので、
+      // cron の pending 解決に拾われる。
+      const row = await createDb(env.DB).query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 778),
+      });
+      expect(row?.malAnimeId).toBe(9999);
+      expect(row?.imageSource).toBeNull();
     });
 
-    it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスと enqueue は継続する", async () => {
+    it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスは継続する", async () => {
       // title null → annict_works への upsert が notNull 制約で失敗する。
       // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」
       // 経路を検証する。
@@ -406,14 +407,13 @@ describe("作品検索 API", () => {
           },
         },
       );
-      const sendBatch = vi.fn().mockResolvedValue(undefined);
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const app = buildApp();
 
       const res = await app.request(
         "/works/search?title=http",
         { method: "GET", headers: ANNICT_HEADER },
-        { ...TEST_BINDINGS, IMAGE_FALLBACK_QUEUE: { sendBatch } },
+        TEST_BINDINGS,
       );
 
       expect(res.status).toBe(200);
@@ -424,16 +424,11 @@ describe("作品検索 API", () => {
       expect(body.works[0].resolvedImageUrl).toBe(
         "https://s4.anilist.co/1235.jpg",
       );
-      // 永続化できていないので解決済み扱いにはせず Queue に残す
-      expect(sendBatch).toHaveBeenCalledWith([
-        {
-          body: {
-            annictWorkId: 778,
-            malAnimeId: 1235,
-            reason: "search",
-          },
-        },
-      ]);
+      // 作品行自体が無いので cron の解決対象にもならない（次回検索時に再試行）
+      const row = await createDb(env.DB).query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 778),
+      });
+      expect(row).toBeUndefined();
       expect(error).toHaveBeenCalledWith(
         expect.stringContaining("image_fallback_upsert_failed"),
       );

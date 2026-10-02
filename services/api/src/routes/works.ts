@@ -17,20 +17,14 @@ import {
   isPlaceholderImageUrl,
   resolveImagesViaAnilist,
 } from "@/lib/annict/imageFallback";
-import {
-  enqueueImageFallbackJobs,
-  type ImageFallbackJob,
-} from "@/lib/annict/imageFallbackQueue";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
 function getBindings(c: Context): AuthEnv["Bindings"] & {
   DB: D1Database;
-  IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
 } {
   return c.env as AuthEnv["Bindings"] & {
     DB: D1Database;
-    IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
   };
 }
 
@@ -68,10 +62,11 @@ const works = new Hono<AuthVariables>()
       // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
       // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
       // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる AniList
-      // バッチだけここで同期解決し、取れなかった分を Queue（Jikan 含む）に積む。
+      // バッチだけここで同期解決する。取れなかった分は annict_works に upsert
+      // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。
       const db = createDb(getBindings(c).DB);
       const adb = authorizedDb(db, c.var.clerkUserId);
-      const enriched = await attachResolvedImages(c, adb, result.works);
+      const enriched = await attachResolvedImages(adb, result.works);
 
       return c.json({ ...result, works: enriched }, 200);
     },
@@ -86,11 +81,11 @@ type SearchWorkWithResolved = AnnictLibraryEntry & {
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
  * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は、まず AniList
- * バッチで同期解決を試みて（issue #108: Queue だけだと初回表示に間に合わない）、
- * 取れなかった分だけ Queue に積んで Jikan を含めた非同期解決に回す。
+ * バッチで同期解決を試みる（issue #108: 非同期解決だけだと初回表示に間に合わない）。
+ * 取れなかった分は annict_works に upsert 済みの行として残り、cron が
+ * pending 行を拾って Jikan を含めた解決を行う（issue #127: Queue 廃止）。
  */
 async function attachResolvedImages(
-  c: Context,
   adb: ReturnType<typeof authorizedDb>,
   works: AnnictLibraryEntry[],
 ): Promise<SearchWorkWithResolved[]> {
@@ -103,7 +98,7 @@ async function attachResolvedImages(
   const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
   const enriched: SearchWorkWithResolved[] = works.map((w) => {
     const c0 = cachedById.get(w.annictWorkId);
-    // 未解決 + Annict 画像が placeholder + malAnimeId 有 → 解決キューに積む
+    // 未解決 + Annict 画像が placeholder + malAnimeId 有 → 同期解決の対象にする。
     if (
       w.malAnimeId != null &&
       !c0?.imageSource &&
@@ -118,8 +113,8 @@ async function attachResolvedImages(
   });
 
   if (fallbackTargets.length > 0) {
-    // 検索経路は annict_works にキャッシュ行が無い場合もあるため、Consumer が
-    // DB 再確認後に update できるよう、補完対象の作品メタだけ先に upsert する。
+    // 検索経路は annict_works にキャッシュ行が無い場合もあるため、cron が
+    // pending 行を拾って解決できるよう、補完対象の作品メタだけ先に upsert する。
     const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
     const now = new Date();
     const upsertFailedIds = new Set<number>();
@@ -152,20 +147,17 @@ async function attachResolvedImages(
       }
     }
     // 初回表示で大半の画像が出るよう、AniList バッチによる同期解決をここで行う。
-    // Queue consumer は 1 メッセージずつ逐次処理（max_concurrency=1）するため、
-    // 全件の解決が終わるまで数十秒かかり初回表示に間に合わなかった（issue #108）。
+    // 非同期解決に任せると初回表示までに全件解決が間に合わなかった（issue #108）。
     // AniList は 20 件/リクエストでまとめて取れるので応答経路に載せても軽い。
-    // 同期解決そのものが失敗しても検索は壊さない — 従来通り全件 Queue に回す。
-    let pendingTargets = fallbackTargets;
+    // 同期解決そのものが失敗しても検索は壊さない — 残りは cron の解決に委ねる。
     try {
       const resolved = await resolveImagesViaAnilist(fallbackTargets);
       const resolvedById = new Map(resolved.map((r) => [r.annictWorkId, r]));
-      const persistedIds = new Set<number>();
       const resolvedAt = new Date();
       for (const r of resolved) {
         // 作品行の upsert に失敗したものは update 先の行が無いのでスキップする。
         // updateResolvedImage は対象行が無くても例外にならず no-op になるため、
-        // ここで成功扱いにすると永続化されないまま Queue からも外れてしまう。
+        // ここで成功扱いにすると永続化されないまま検知不能になってしまう。
         if (upsertFailedIds.has(r.annictWorkId)) continue;
         try {
           await adb.updateResolvedImage(r.annictWorkId, {
@@ -173,7 +165,6 @@ async function attachResolvedImages(
             imageSource: r.imageSource,
             resolvedAt,
           });
-          persistedIds.add(r.annictWorkId);
         } catch (err) {
           console.error(
             JSON.stringify({
@@ -191,11 +182,6 @@ async function attachResolvedImages(
         const r = resolvedById.get(w.annictWorkId);
         if (r?.resolvedImageUrl) w.resolvedImageUrl = r.resolvedImageUrl;
       }
-      // AniList で取れなかった分と、永続化できなかった分だけを Queue に積み、
-      // Jikan リトライ・再解決に回す。
-      pendingTargets = fallbackTargets.filter(
-        (t) => !persistedIds.has(t.annictWorkId),
-      );
     } catch (err) {
       console.error(
         JSON.stringify({
@@ -206,12 +192,6 @@ async function attachResolvedImages(
         }),
       );
     }
-
-    await enqueueImageFallbackJobs(
-      getBindings(c).IMAGE_FALLBACK_QUEUE,
-      pendingTargets,
-      "search",
-    );
   }
 
   return enriched;
