@@ -4,6 +4,8 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 
 両アプリとも `main` への push で GitHub Actions が自動デプロイする（[`deploy-api.yml`](../.github/workflows/deploy-api.yml) / [`deploy-web.yml`](../.github/workflows/deploy-web.yml)）。Web フロントと API は PR ごとのプレビューデプロイも行う（[`preview-web.yml`](../.github/workflows/preview-web.yml) / [`preview-api.yml`](../.github/workflows/preview-api.yml)）。手動デプロイも可能。
 
+D1 マイグレーションはデプロイワークフローに組み込み済みで、`deploy-api.yml` が `wrangler deploy` の前に本番 `animeishi-db` へ、`preview-api.yml` が version upload の前に `animeishi-db-preview` へ自動適用する。マージ後に手動で `task db:migrate:prod` を実行する必要はない（手動タスクは手動デプロイ時・DB 再作成時のリカバリ用）。
+
 ## 構成概要
 
 | アプリ | Worker 名 | デプロイ内容 | 設定ファイル |
