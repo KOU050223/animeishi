@@ -20,6 +20,10 @@ task <タスク名>
 * db:migrate:local:       D1 ローカルマイグレーション適用
 * db:migrate:prod:list:   本番 D1 の未適用マイグレーションを確認（非破壊）
 * db:migrate:prod:        本番 D1 にマイグレーション適用（破壊的操作あり・確認プロンプト付き）
+
+> 本番 D1 へのマイグレーション適用は deploy-api.yml がデプロイ前に自動で行うため、
+> main へのマージ後に手動で `task db:migrate:prod` を実行する必要はない。
+> 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
 * dev:api:                Cloudflare Workers API を起動 (wrangler dev)
 * dev:mobile:             Expo モバイルアプリを起動
 ```
