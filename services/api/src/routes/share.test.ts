@@ -20,6 +20,7 @@ const USER_ID = "user_testshare001";
 const SEASON = "2026-spring";
 const WORK_A = 1001;
 const WORK_B = 1002;
+const WORK_EVIL = 1003;
 
 type TestEnv = {
   Bindings: {
@@ -146,6 +147,43 @@ describe("tier 表の共有", () => {
     expect(saved.shareToken).toBe(token1);
   });
 
+  it("POST /:season/share: 並行リクエストでも双方に同じトークンを返す", async () => {
+    const app = buildApp();
+    await seedTierList(app);
+
+    // 双方が share_token = null を読んでから UPDATE する競合を再現する。
+    // 条件付き UPDATE + 読み直しで、先に書いた側のトークンが後から
+    // 上書きされてリンク切れになることを防ぐ。
+    const [res1, res2] = await Promise.all([
+      app.request(
+        `/me/tier-lists/${SEASON}/share`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      ),
+      app.request(
+        `/me/tier-lists/${SEASON}/share`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      ),
+    ]);
+    const { shareToken: token1 } = (await res1.json()) as {
+      shareToken: string;
+    };
+    const { shareToken: token2 } = (await res2.json()) as {
+      shareToken: string;
+    };
+    expect(token1).toBeTruthy();
+    expect(token2).toBe(token1);
+
+    // 返したトークンが実際に DB に残っている（公開取得できる）こと
+    const publicRes = await app.request(
+      `/share/tier-lists/${token1}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(publicRes.status).toBe(200);
+  });
+
   it("GET /share/tier-lists/:token: 認証なしで作品メタ付きの表を JSON 取得できる", async () => {
     const app = buildApp();
     await seedTierList(app);
@@ -255,5 +293,42 @@ describe("tier 表の共有", () => {
     expect(html).toContain("アニメB");
     expect(html).toContain("テストユーザー");
     expect(html).toContain("https://example.com/a.png");
+  });
+
+  it("GET /share/tier-lists/:token: http(s) 以外の画像 URL は HTML に出力しない", async () => {
+    const app = buildApp();
+    const db = await setupTestDb(env.DB);
+    await db.insert(annictWorks).values({
+      annictWorkId: WORK_EVIL,
+      title: "悪意あるURLの作品",
+      resolvedImageUrl: "javascript:alert(1)",
+      updatedAt: new Date(),
+    });
+    await app.request(
+      "/me/tier-lists",
+      putBody({
+        season: SEASON,
+        title: "2026春のTier表",
+        tiers: TIERS,
+        items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
+      }),
+      TEST_BINDINGS,
+    );
+    const shareRes = await app.request(
+      `/me/tier-lists/${SEASON}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await shareRes.json()) as { shareToken: string };
+
+    const res = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    // タイトル自体は出るが、javascript: の src は吐かない
+    expect(html).toContain("悪意あるURLの作品");
+    expect(html).not.toContain("javascript:");
   });
 });

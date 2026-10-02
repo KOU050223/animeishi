@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import type { TierRow } from "@/lib/tierList/types";
@@ -17,6 +17,12 @@ export type TierBoardSnapshotProps = {
   tiers: TierRow[];
   /** position 昇順（サーバの返す順そのまま）で渡す。tierKey が tiers に無い作品は描画しない。 */
   items: SnapshotWork[];
+  /**
+   * 全作品画像の読み込みが完了（成功・失敗問わず onLoadEnd 到達）したときに
+   * 一度だけ呼ばれる。view-shot のキャプチャ開始タイミングに使う。
+   * 画像が 1 枚も無い場合はマウント直後に呼ばれる。
+   */
+  onReady?: () => void;
 };
 
 /** 共有画像の横幅。作品カードは 1 行に並ぶだけ敷き詰める。 */
@@ -29,7 +35,31 @@ const CARD_SIZE = 64;
  * ジェスチャを持たない。画面外にレンダリングして view-shot で PNG 化する。
  */
 export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
-  function TierBoardSnapshot({ title, tiers, items }, ref) {
+  function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
+    // 読み込み待ち対象は「画像 URL がある作品」だけ。無い作品は表示が即確定する。
+    const imageCount = useMemo(
+      () => items.filter((item) => pickImageUrl(item)).length,
+      [items],
+    );
+    const settledRef = useRef(0);
+    const firedRef = useRef(false);
+
+    const markImageSettled = useCallback(() => {
+      settledRef.current += 1;
+      if (!firedRef.current && settledRef.current >= imageCount) {
+        firedRef.current = true;
+        onReady?.();
+      }
+    }, [imageCount, onReady]);
+
+    // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
+    useEffect(() => {
+      if (imageCount === 0 && !firedRef.current) {
+        firedRef.current = true;
+        onReady?.();
+      }
+    }, [imageCount, onReady]);
+
     return (
       // Android で view-shot が失敗しないよう collapsable={false} は必須
       <View ref={ref} collapsable={false} style={styles.root}>
@@ -53,6 +83,9 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
                           source={{ uri }}
                           style={styles.cardImage}
                           resizeMode="cover"
+                          // onLoadEnd は成功・失敗どちらでも来る。
+                          // 失敗した画像は欠けたまま共有する（再試行より確実性優先）。
+                          onLoadEnd={markImageSettled}
                         />
                       ) : (
                         <View style={styles.cardImageFallback} />

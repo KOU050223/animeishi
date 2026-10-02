@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { fetchTierListItems } from "./sharedTierLists";
@@ -725,14 +725,19 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       if (!list) return undefined;
       if (list.shareToken) return list.shareToken;
 
-      // UUID なので衝突は実質起きない。仮に UNIQUE 制約に当たっても
-      // D1 側で例外になるだけで、リトライ実装を入れるほどの事象ではない。
-      const token = crypto.randomUUID();
+      // 発行は share_token がまだ null の場合だけに絞る。
+      // 同一表への並行リクエストで両方が null を読んでも、後から UPDATE した
+      // 側が先のトークンを上書きしてリンク切れにする競合を防ぐため、
+      // 条件付き UPDATE にしてから DB の値を読み直して返す。
       await db
         .update(tierLists)
-        .set({ shareToken: token })
-        .where(eq(tierLists.id, list.id));
-      return token;
+        .set({ shareToken: crypto.randomUUID() })
+        .where(and(eq(tierLists.id, list.id), isNull(tierLists.shareToken)));
+      const updated = await db.query.tierLists.findFirst({
+        where: eq(tierLists.id, list.id),
+        columns: { shareToken: true },
+      });
+      return updated?.shareToken ?? undefined;
     },
 
     /**

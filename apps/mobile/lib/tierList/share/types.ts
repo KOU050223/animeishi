@@ -22,10 +22,21 @@ export type PresentTierShareOptions = (input: {
 
 /**
  * 共有 URL を OS の共有シート or クリップボードへ渡す。
- * 戻り値は完了方法（"shared" は共有シート、"copied" はクリップボード）。
- * Web で Web Share API が使えない環境へのフォールバック表示に使う。
+ * 戻り値は完了方法:
+ * - "shared"  共有シートを開いた（キャンセルも含む）
+ * - "copied"  クリップボードにコピーした
+ * - "blocked" 自動では渡せなかった（Web でユーザー操作の有効期限が切れた等）。
+ *   呼び出し側は次のユーザー操作内で copyTierListUrl を呼ぶ導線を出すこと。
  */
-export type ShareTierListUrl = (url: string) => Promise<"shared" | "copied">;
+export type ShareTierListUrl = (
+  url: string,
+) => Promise<"shared" | "copied" | "blocked">;
+
+/**
+ * ユーザーの明示操作（ボタン押下など）内で呼ぶクリップボードコピー。
+ * shareTierListUrl が "blocked" を返したあとのリカバリ導線に使う。
+ */
+export type CopyTierListUrl = (url: string) => Promise<void>;
 
 /**
  * キャプチャ対象の View を PNG 化して共有シートへ渡す。

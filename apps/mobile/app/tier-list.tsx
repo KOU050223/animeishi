@@ -25,6 +25,7 @@ import {
 import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
 import {
   buildTierListShareUrl,
+  copyTierListUrl,
   presentTierShareOptions,
   shareTierListImage,
   shareTierListUrl,
@@ -49,6 +50,12 @@ import {
  * アニメ一覧の既定（12 年）より広く取る。
  */
 const TIER_LIST_YEAR_COUNT = 26;
+
+/**
+ * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限。
+ * これを超えても未読み込みなら欠けたまま撮る（共有自体を失敗させない）。
+ */
+const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
   const router = useRouter();
@@ -81,6 +88,10 @@ export default function TierListScreen() {
     null,
   );
   const snapshotRef = useRef<View>(null);
+  // 画像共有時に TierBoardSnapshot が全画像の読み込み（成功・失敗問わず）を
+  // 終えた合図を受け取る。resolve はレンダー内の onReady から呼ぶので
+  // ref 経由で promise に逃がす。
+  const snapshotReadyRef = useRef<(() => void) | null>(null);
 
   // シーズンを切り替えたら、そのシーズンの保存済みデータ（あれば）で状態を差し替える。
   // 保存済みが無ければ既定の tier と空の配置に戻す。
@@ -106,10 +117,14 @@ export default function TierListScreen() {
 
   const handleAssign = useCallback(
     (annictWorkId: number, tierKey: string | null) => {
+      // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
+      // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
+      // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
+      if (isSharing) return;
       setAssignment((prev) => assignWork(prev, annictWorkId, tierKey));
       setIsDirty(true);
     },
-    [],
+    [isSharing],
   );
 
   const handleBack = useCallback(() => {
@@ -163,18 +178,18 @@ export default function TierListScreen() {
 
   const handleChangeYear = useCallback(
     (nextYear: number) => {
-      if (nextYear === year) return;
+      if (isSharing || nextYear === year) return;
       confirmIfDirty(() => setYear(nextYear));
     },
-    [confirmIfDirty, year],
+    [confirmIfDirty, isSharing, year],
   );
 
   const handleChangeSeason = useCallback(
     (nextSeasonKey: SeasonKey) => {
-      if (nextSeasonKey === seasonKey) return;
+      if (isSharing || nextSeasonKey === seasonKey) return;
       confirmIfDirty(() => setSeasonKey(nextSeasonKey));
     },
-    [confirmIfDirty, seasonKey],
+    [confirmIfDirty, isSharing, seasonKey],
   );
 
   const handleSave = useCallback(() => {
@@ -202,13 +217,38 @@ export default function TierListScreen() {
     setIsSharing(true);
     try {
       const { shareToken } = await saveAndIssueShareToken();
-      const result = await shareTierListUrl(buildTierListShareUrl(shareToken));
-      // Web 等で共有シートが無い環境はクリップボードに落ちる
+      const url = buildTierListShareUrl(shareToken);
+      const result = await shareTierListUrl(url);
       if (result === "copied") {
+        // Web 等で共有シートが無い環境はクリップボードに落ちる
         alert(
           "リンクをコピーしました",
           "共有リンクを貼り付けて送ってください。",
           { okLabel: "OK" },
+        );
+      } else if (result === "blocked") {
+        // Web: 保存・トークン発行のネットワーク待ちで「ユーザー操作の有効期限」が
+        // 切れ、navigator.share / clipboard がブラウザに拒否された場合。
+        // 次のユーザー操作（コピーボタン押下）の中で clipboard API を呼ぶ。
+        confirm(
+          "リンクをコピーしますか？",
+          "ブラウザが共有をブロックしました。コピーボタンを押してください。",
+          () => {
+            void copyTierListUrl(url)
+              .then(() =>
+                alert(
+                  "リンクをコピーしました",
+                  "共有リンクを貼り付けて送ってください。",
+                  { okLabel: "OK" },
+                ),
+              )
+              .catch(() =>
+                alert("コピーに失敗しました", "URL: " + url, {
+                  okLabel: "OK",
+                }),
+              );
+          },
+          { confirmLabel: "コピー", cancelLabel: "閉じる" },
         );
       }
     } catch {
@@ -224,13 +264,22 @@ export default function TierListScreen() {
     setIsSharing(true);
     try {
       const { savedData } = await saveAndIssueShareToken();
+      const snapshotReady = new Promise<void>((resolve) => {
+        snapshotReadyRef.current = resolve;
+      });
       setSnapshotItems(savedData.items);
-      // スナップショットの描画と作品画像の読み込みを待つ。
-      // 盤面に出ている画像はキャッシュ済みなので、この程度の待ちで足りる。
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      if (snapshotRef.current) {
-        await shareTierListImage(snapshotRef, { dialogTitle: title });
+      // スナップショットの描画と作品画像の読み込み（onReady）を待ってから撮る。
+      // タイムアウトを超えたら読み込み途中のまま撮る（共有自体は失敗させない）。
+      await Promise.race([
+        snapshotReady,
+        new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
+      ]);
+      // レイアウト確定のため 1 フレーム待つ
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (!snapshotRef.current) {
+        throw new Error("スナップショットの描画に失敗しました");
       }
+      await shareTierListImage(snapshotRef, { dialogTitle: title });
     } catch {
       alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
@@ -241,7 +290,18 @@ export default function TierListScreen() {
     }
   }, [saveAndIssueShareToken, title]);
 
+  // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
+  // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を
+  // 上書き保存してしまうため、データが確定するまで共有を開始させない。
+  const shareDisabled =
+    isSharing ||
+    save.isPending ||
+    isSavedLoading ||
+    isWorksLoading ||
+    isWorksError;
+
   const handleShare = useCallback(() => {
+    if (shareDisabled) return;
     presentTierShareOptions({
       dialogTitle: "Tier 表を共有",
       urlLabel: "URL を共有",
@@ -251,7 +311,7 @@ export default function TierListScreen() {
       onShareUrl: () => void handleShareUrl(),
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage]);
+  }, [handleShareUrl, handleShareImage, shareDisabled]);
 
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。
@@ -309,13 +369,13 @@ export default function TierListScreen() {
           <TouchableOpacity
             style={[
               styles.shareButton,
-              (isSharing || save.isPending) && styles.saveButtonDisabled,
+              shareDisabled && styles.saveButtonDisabled,
             ]}
             onPress={handleShare}
-            disabled={isSharing || save.isPending}
+            disabled={shareDisabled}
             accessibilityRole="button"
             accessibilityLabel="tier 表を共有"
-            accessibilityState={{ disabled: isSharing || save.isPending }}
+            accessibilityState={{ disabled: shareDisabled }}
             testID="tier-list-share"
           >
             {isSharing ? (
@@ -397,6 +457,7 @@ export default function TierListScreen() {
             title={title}
             tiers={tiers}
             items={snapshotItems}
+            onReady={() => snapshotReadyRef.current?.()}
           />
         </View>
       )}

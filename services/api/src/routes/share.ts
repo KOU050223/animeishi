@@ -76,9 +76,18 @@ const share = new Hono<ShareBindings>().get(
   },
 );
 
+/**
+ * 公開 HTML の <img src> に入れてよい URL か。
+ * 作品メタは外部データ由来なので、http(s) 以外のスキーム（data: 等）は
+ * 属性エスケープだけでは表示先を制限できない。ここで絞る。
+ */
+function isSafeImageUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url.trim());
+}
+
 function workImageHtml(item: SharedTierList["items"][number]): string {
   const src = item.resolvedImageUrl ?? item.imageUrl;
-  if (!src) return "";
+  if (!src || !isSafeImageUrl(src)) return "";
   return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
