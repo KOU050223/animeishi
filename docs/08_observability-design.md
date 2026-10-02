@@ -21,10 +21,9 @@ source map の CI 組み込み・tracing は残課題。
 ## 採用する SDK
 
 API 側は `@sentry/cloudflare` の `withSentry` で `ExportedHandler` 全体をラップする。
-`@sentry/hono` の middleware 方式は fetch 専用で、queue consumer と scheduled
-cron をカバーするには別途 try/catch を書く必要がある。この Worker には
-image fallback の queue consumer と cron enqueue があり、これらの失敗も
-拾いたいので、handler 全体をラップする方式を取る。
+`@sentry/hono` の middleware 方式は fetch 専用で、scheduled cron をカバーするには
+別途 try/catch を書く必要がある。この Worker には image fallback の cron 解決が
+あり、その失敗も拾いたいので、handler 全体をラップする方式を取る。
 
 `nodejs_compat` は wrangler.toml に設定済みのため追加作業は不要。
 
@@ -83,7 +82,6 @@ export default Sentry.withSentry(
   (env) => buildSentryOptions(env),
   {
     fetch: routes.fetch,
-    queue: handleImageFallbackQueue,
     scheduled: ...,
   },
 );
@@ -125,7 +123,7 @@ flush は `withSentry` 側が `ctx.waitUntil` で面倒を見る。
 `AnnictApiError.status` には上流の HTTP ステータスがそのまま入るため、
 200 の GraphQL エラーや不正 JSON、429（レート制限）もクライアントには
 502 として返る障害であり送信対象。非送信にするのは 401 のみ。
-4xx 相当は原則送信しない。queue / scheduled で漏れた例外は `withSentry` が
+4xx 相当は原則送信しない。scheduled で漏れた例外は `withSentry` が
 自動 capture する。`error.kind` の判定は `beforeSend` 内で
 `exception.values[].type`（エラークラス名）を見て行い、手動 capture と
 自動 capture の両方に一律で効かせる。
@@ -275,7 +273,7 @@ sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
 
 ## 実装時の確認事項
 
-- `withSentry` が `queue` / `scheduled` ハンドラをカバーするか
+- `withSentry` が `scheduled` ハンドラをカバーするか
   （SDK の現行バージョンで確認。対象外なら個別 try/catch を追加）
 - `wrangler dev` / vitest-pool-workers で `CF_VERSION_METADATA` が
   どう解決されるか（未提供なら `"dev"` フォールバックで十分）

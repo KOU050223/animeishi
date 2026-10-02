@@ -10,8 +10,10 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 [vars]
 # ANNICT_CLIENT_ID = "<your-annict-client-id>"
 
+# 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
+# issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
 [triggers]
-crons = ["0 */6 * * *"]
+crons = ["*/10 * * * *"]
 
 # Sentry release 識別用。デプロイごとの version id / tag が
 # env.CF_VERSION_METADATA に入る（animeishi-api@<id> を組み立てる）。
@@ -28,22 +30,6 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
-[[queues.producers]]
-binding = "IMAGE_FALLBACK_QUEUE"
-queue = "animeishi-image-fallback"
-
-[[queues.consumers]]
-queue = "animeishi-image-fallback"
-# バッチ内のメッセージは consumer 側でまとめて AniList バッチ解決するため、
-# 1 メッセージずつではなくまとめて渡す（1 作品 = 1 外部リクエストを避ける）。
-# Jikan へのフォールバックは resolveImagesForWorks 内で 350ms 間隔に制御済み。
-max_batch_size = 20
-max_batch_timeout = 5
-max_retries = 5
-# Jikan の直列リトライが呼び出し間で重ならないよう同時実行は 1 に抑える。
-max_concurrency = 1
-dead_letter_queue = "animeishi-image-fallback-dlq"
-
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -53,7 +39,7 @@ ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
 
 [env.production.triggers]
-crons = ["0 */6 * * *"]
+crons = ["*/10 * * * *"]
 
 # version_metadata は env 間で継承されないため各 env にも定義する。
 [env.production.version_metadata]
@@ -72,18 +58,6 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 [[env.production.r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
-
-[[env.production.queues.producers]]
-binding = "IMAGE_FALLBACK_QUEUE"
-queue = "animeishi-image-fallback"
-
-[[env.production.queues.consumers]]
-queue = "animeishi-image-fallback"
-max_batch_size = 20
-max_batch_timeout = 5
-max_retries = 5
-max_concurrency = 1
-dead_letter_queue = "animeishi-image-fallback-dlq"
 
 # PR プレビュー環境（animeishi-api-preview）。
 # 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
@@ -105,7 +79,7 @@ ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 # クロスオリジンを許可する。
 ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081"
 
-# プレビューでは定期バッチ（image fallback enqueue）を回さない。
+# プレビューでは定期バッチ（image fallback 解決）を回さない。
 [env.preview.triggers]
 crons = []
 
@@ -117,18 +91,6 @@ database_id = "a429fdc7-43da-4286-93c7-f946e1b4288e"
 [[env.preview.r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars-preview"
-
-[[env.preview.queues.producers]]
-binding = "IMAGE_FALLBACK_QUEUE"
-queue = "animeishi-image-fallback-preview"
-
-[[env.preview.queues.consumers]]
-queue = "animeishi-image-fallback-preview"
-max_batch_size = 20
-max_batch_timeout = 5
-max_retries = 5
-max_concurrency = 1
-dead_letter_queue = "animeishi-image-fallback-dlq-preview"
 
 [observability]
 enabled = false

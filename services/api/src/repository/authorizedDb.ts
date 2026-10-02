@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { fetchTierListItems } from "./sharedTierLists";
@@ -261,6 +261,14 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
               then null
               else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
             end`,
+            // 最終試行時刻も同じ条件で破棄する（新しい MAL ID の解決を
+            // クールダウンなしで改めて試行できるようにするため）。
+            imageFallbackAttemptedAt: sql`case
+              when excluded.mal_anime_id is not null
+               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+              then null
+              else coalesce(excluded.image_fallback_attempted_at, ${annictWorks.imageFallbackAttemptedAt})
+            end`,
             title: data.title,
             titleKana: data.titleKana,
             titleEn: data.titleEn,
@@ -291,16 +299,44 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           resolvedImageUrl: data.resolvedImageUrl,
           imageSource: data.imageSource,
           resolvedAt: data.resolvedAt,
+          // 最終試行時刻をクリア（解決済みになったため）。
+          imageFallbackAttemptedAt: null,
         })
         .where(eq(annictWorks.annictWorkId, annictWorkId));
     },
 
     /**
-     * Queue/Cron で画像フォールバックを温める候補を少量取得する。
+     * 画像フォールバック解決を試行する作品に最終試行時刻
+     * （image_fallback_attempted_at）を立てる。クールダウン期間内の
+     * 叩き直しを弾くためのもので、image_source が既に立った（=解決済み）行には
+     * 立てない。D1 のバインド上限（100 変数）対策で 90 件ずつ分割する。
+     */
+    async markImageFallbackAttempted(
+      annictWorkIds: number[],
+      at: Date,
+    ): Promise<void> {
+      for (let i = 0; i < annictWorkIds.length; i += 90) {
+        const chunk = annictWorkIds.slice(i, i + 90);
+        await db
+          .update(annictWorks)
+          .set({ imageFallbackAttemptedAt: at })
+          .where(
+            and(
+              inArray(annictWorks.annictWorkId, chunk),
+              isNull(annictWorks.imageSource),
+            ),
+          );
+      }
+    },
+
+    /**
+     * cron で画像フォールバック解決を試行する候補を少量取得する。
      * 最近 Annict read-through / search で触られた作品を優先するため updated_at 降順。
+     * attemptedStaleBefore 以降に試行済みの作品（クールダウン生存中）は除外する。
      */
     async getPendingImageFallbackWorks(
       limit: number,
+      attemptedStaleBefore: Date,
     ): Promise<{ annictWorkId: number; malAnimeId: number }[]> {
       const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
       if (safeLimit === 0) return [];
@@ -311,7 +347,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           malAnimeId: annictWorks.malAnimeId,
         })
         .from(annictWorks)
-        .where(sql`
+        .where(
+          and(
+            sql`
           ${annictWorks.imageSource} is null
           and ${annictWorks.malAnimeId} is not null
           and (
@@ -323,7 +361,13 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             or lower(${annictWorks.imageUrl}) like '%graph.facebook.com%'
             or lower(${annictWorks.imageUrl}) like '%fbcdn.net%'
           )
-        `)
+        `,
+            or(
+              isNull(annictWorks.imageFallbackAttemptedAt),
+              lt(annictWorks.imageFallbackAttemptedAt, attemptedStaleBefore),
+            ),
+          ),
+        )
         .orderBy(desc(annictWorks.updatedAt))
         .limit(safeLimit);
 

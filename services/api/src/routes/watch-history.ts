@@ -24,21 +24,14 @@ import { isPersistableState } from "@/lib/annict/statusState";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { mapWithConcurrency } from "@animeishi/danime-core";
-import { isPlaceholderImageUrl } from "@/lib/annict/imageFallback";
 import { captureApiError } from "../observability";
-import {
-  enqueueImageFallbackJobs,
-  type ImageFallbackJob,
-} from "@/lib/annict/imageFallbackQueue";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;
-  IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
 } {
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
     DB: D1Database;
-    IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
   };
 }
 
@@ -89,39 +82,12 @@ const watchHistory = new Hono<AuthVariables>()
       historyEntries,
     );
 
-    // Annict の画像が空 / SNS placeholder / http: に落ちている作品を Queue に積む。
-    // 外部 API 解決は Consumer 側で行い、read-through 応答経路から外す。
-    // 既に imageSource が設定済み（'anilist' / 'jikan' / 'none'）の作品は
-    // ネガキャッシュ扱いで再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
-    // ヘビーユーザーで全 ID を一度に IN 句に詰めると D1 のバインド上限
-    // （100 変数）を超えて GET が壊れる。90 件ずつチャンクして安全に取る。
-    const WORK_LOOKUP_CHUNK = 90;
-    const workIds = [...works.keys()];
-    const cached: Awaited<ReturnType<typeof adb.getAnnictWorksByIds>> = [];
-    for (let i = 0; i < workIds.length; i += WORK_LOOKUP_CHUNK) {
-      const chunk = await adb.getAnnictWorksByIds(
-        workIds.slice(i, i + WORK_LOOKUP_CHUNK),
-      );
-      cached.push(...chunk);
-    }
-    const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
-    // NewAnnictWork は primaryKey 由来で annictWorkId が Insert 型上 optional に
-    // なるが、Map のキーとして必ず入っている前提。malAnimeId が null でないことも
-    // ここで narrow して以降の as を減らす。
-    const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
-    for (const [annictWorkId, w] of works) {
-      if (w.malAnimeId == null) continue;
-      const c0 = cachedById.get(annictWorkId);
-      if (c0?.imageSource) continue;
-      if (!isPlaceholderImageUrl(w.imageUrl)) continue;
-      fallbackTargets.push({ annictWorkId, malAnimeId: w.malAnimeId });
-    }
-
-    await enqueueImageFallbackJobs(
-      getBindings(c).IMAGE_FALLBACK_QUEUE,
-      fallbackTargets,
-      "watch-history",
-    );
+    // Annict の画像が空 / SNS placeholder / http: に落ちている作品は、
+    // upsert 済みの annict_works 行として pending のまま残る。
+    // 外部 API での解決は cron が行い、read-through 応答経路から外す
+    // （issue #127: Queue 廃止）。既に imageSource が設定済み
+    // （'anilist' / 'jikan' / 'none'）の作品はネガキャッシュ扱いで
+    // 再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
 
     return c.json(data, 200);
   })

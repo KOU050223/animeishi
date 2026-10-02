@@ -5,11 +5,7 @@ import { requestId } from "hono/request-id";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import { createDb } from "./db/client";
 import type { Env } from "./db/client";
-import {
-  enqueuePendingImageFallbackJobs,
-  handleImageFallbackQueue,
-  type ImageFallbackJob,
-} from "./lib/annict/imageFallbackQueue";
+import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
 import {
   buildSentryOptions,
   handleError,
@@ -29,7 +25,6 @@ import { works } from "./routes/works";
 
 type AppBindings = Env &
   ObservabilityBindings & {
-    IMAGE_FALLBACK_QUEUE?: Queue<ImageFallbackJob>;
     // CORS で許可するオリジンのカンマ区切りリスト。
     // 完全一致（"https://app.example.com"）とワイルドカード（"*-app.example.workers.dev"）を扱う。
     // 詳細は ./cors を参照。未設定の場合は開発利便のため全オリジンを許可する。
@@ -82,21 +77,14 @@ const routes = app
 
 export type AppType = typeof routes;
 
-// withSentry が fetch / queue / scheduled の全ハンドラを instrument する。
+// withSentry が fetch / scheduled の全ハンドラを instrument する。
 // ハンドラの外に漏れた例外は SDK が自動で capture し、app.onError で
 // 応答に変換した例外は handleError 側で明示的に capture する。
 export default Sentry.withSentry((env) => buildSentryOptions(env), {
   fetch: routes.fetch,
-  // satisfies の文脈型で env を AppBindings に揃えるため矢印関数で包む。
-  // （直接参照すると handleImageFallbackQueue 側の env 型が
-  // withSentry の env 推論に union として混ざる）
-  queue: (batch, env) => handleImageFallbackQueue(batch, env),
+  // 画像フォールバックは Queue を介さず、cron が D1 の未解決行を
+  // 直接回して解決する（issue #127）。
   scheduled(_controller, env, ctx) {
-    ctx.waitUntil(
-      enqueuePendingImageFallbackJobs(
-        createDb(env.DB as D1Database),
-        env.IMAGE_FALLBACK_QUEUE,
-      ),
-    );
+    ctx.waitUntil(resolvePendingImageFallbacks(createDb(env.DB as D1Database)));
   },
-} satisfies ExportedHandler<AppBindings, ImageFallbackJob>);
+} satisfies ExportedHandler<AppBindings>);
