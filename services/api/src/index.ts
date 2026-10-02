@@ -21,6 +21,7 @@ import { friends } from "./routes/friends";
 import { importRoute } from "./routes/import";
 import { avatar, me } from "./routes/me";
 import { pass } from "./routes/pass";
+import { share } from "./routes/share";
 import { tierLists } from "./routes/tier-lists";
 import { user } from "./routes/user";
 import { watchHistory } from "./routes/watch-history";
@@ -65,7 +66,8 @@ const routes = app
   .get("/health", (c) => {
     return c.json({ status: "ok", timestamp: new Date().toISOString() });
   })
-  // アバター配信は認証不要のため /me（requireAuth）より先にマウントする。
+  // アバター配信と共有リンクは認証不要のため /me（requireAuth）より先にマウントする。
+  .route("/share", share)
   .route("/me", avatar)
   .route("/me", me)
   .route("/me/annict", annict)

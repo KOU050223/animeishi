@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
@@ -11,6 +11,10 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { TierBoard } from "@/components/tier-list/TierBoard";
+import {
+  TierBoardSnapshot,
+  type SnapshotWork,
+} from "@/components/tier-list/TierBoardSnapshot";
 import { styles } from "@/components/tier-list/tierListStyles";
 import {
   assignWork,
@@ -19,9 +23,19 @@ import {
   toSaveItems,
 } from "@/lib/tierList/board";
 import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
+import {
+  buildTierListShareUrl,
+  presentTierShareOptions,
+  shareTierListImage,
+  shareTierListUrl,
+} from "@/lib/tierList/share";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
-import { useSavedTierList, useSaveTierList } from "@/lib/tierList/useTierList";
+import {
+  useSavedTierList,
+  useSaveTierList,
+  useShareTierList,
+} from "@/lib/tierList/useTierList";
 
 /**
  * シーズン単位のアニメ tier 表を作る画面。
@@ -53,12 +67,20 @@ export default function TierListScreen() {
   } = useSeasonWorks(season);
   const { data: saved, isLoading: isSavedLoading } = useSavedTierList(season);
   const save = useSaveTierList();
+  const share = useShareTierList();
 
   const [tiers, setTiers] = useState<TierRow[]>(DEFAULT_TIERS);
   const [assignment, setAssignment] = useState<TierAssignment>(new Map());
   const [title, setTitle] = useState(() => defaultTierListTitle(season));
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  // 画像エクスポート用。共有時だけ画面外にスナップショットを描画し、
+  // キャプチャ後に null で取り除く。
+  const [snapshotItems, setSnapshotItems] = useState<SnapshotWork[] | null>(
+    null,
+  );
+  const snapshotRef = useRef<View>(null);
 
   // シーズンを切り替えたら、そのシーズンの保存済みデータ（あれば）で状態を差し替える。
   // 保存済みが無ければ既定の tier と空の配置に戻す。
@@ -162,6 +184,75 @@ export default function TierListScreen() {
     );
   }, [assignment, save, season, tiers, title]);
 
+  // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
+  // 確認ダイアログではなく先に保存してから共有フローへ進む。
+  const saveAndIssueShareToken = useCallback(async () => {
+    const savedData = await save.mutateAsync({
+      season,
+      title,
+      tiers,
+      items: toSaveItems(assignment, tiers),
+    });
+    setIsDirty(false);
+    const { shareToken } = await share.mutateAsync(season);
+    return { savedData, shareToken };
+  }, [assignment, save, season, share, tiers, title]);
+
+  const handleShareUrl = useCallback(async () => {
+    setIsSharing(true);
+    try {
+      const { shareToken } = await saveAndIssueShareToken();
+      const result = await shareTierListUrl(buildTierListShareUrl(shareToken));
+      // Web 等で共有シートが無い環境はクリップボードに落ちる
+      if (result === "copied") {
+        alert(
+          "リンクをコピーしました",
+          "共有リンクを貼り付けて送ってください。",
+          { okLabel: "OK" },
+        );
+      }
+    } catch {
+      alert("共有に失敗しました", "時間をおいて再度お試しください。", {
+        okLabel: "OK",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  }, [saveAndIssueShareToken]);
+
+  const handleShareImage = useCallback(async () => {
+    setIsSharing(true);
+    try {
+      const { savedData } = await saveAndIssueShareToken();
+      setSnapshotItems(savedData.items);
+      // スナップショットの描画と作品画像の読み込みを待つ。
+      // 盤面に出ている画像はキャッシュ済みなので、この程度の待ちで足りる。
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      if (snapshotRef.current) {
+        await shareTierListImage(snapshotRef, { dialogTitle: title });
+      }
+    } catch {
+      alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
+        okLabel: "OK",
+      });
+    } finally {
+      setSnapshotItems(null);
+      setIsSharing(false);
+    }
+  }, [saveAndIssueShareToken, title]);
+
+  const handleShare = useCallback(() => {
+    presentTierShareOptions({
+      dialogTitle: "Tier 表を共有",
+      urlLabel: "URL を共有",
+      imageLabel: "画像で共有",
+      cancelLabel: "キャンセル",
+      // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
+      onShareUrl: () => void handleShareUrl(),
+      onShareImage: () => void handleShareImage(),
+    });
+  }, [handleShareUrl, handleShareImage]);
+
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。
   const backBar = (
@@ -215,6 +306,24 @@ export default function TierListScreen() {
           作品を長押ししてドラッグすると tier を移動できます
         </Text>
         <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[
+              styles.shareButton,
+              (isSharing || save.isPending) && styles.saveButtonDisabled,
+            ]}
+            onPress={handleShare}
+            disabled={isSharing || save.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="tier 表を共有"
+            accessibilityState={{ disabled: isSharing || save.isPending }}
+            testID="tier-list-share"
+          >
+            {isSharing ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.saveButtonText}>共有</Text>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.saveButton,
@@ -273,6 +382,23 @@ export default function TierListScreen() {
           assignment={assignment}
           onAssign={handleAssign}
         />
+      )}
+
+      {/*
+        画像共有用のスナップショット。画面外に置いて常時非表示にし、
+        共有実行の瞬間だけ描画 → キャプチャ → 破棄する。
+        中身は保存済みデータ（sharedData.items）なので、共有リンク先と
+        同じ内容が画像になる。
+      */}
+      {snapshotItems && (
+        <View style={styles.snapshotOffscreen}>
+          <TierBoardSnapshot
+            ref={snapshotRef}
+            title={title}
+            tiers={tiers}
+            items={snapshotItems}
+          />
+        </View>
       )}
     </SafeAreaView>
   );

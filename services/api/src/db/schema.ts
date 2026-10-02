@@ -153,6 +153,9 @@ export const tierLists = sqliteTable(
     title: text("title").notNull(),
     // TierRow[] の JSON 文字列。{ key, label, color } を並び順に持つ。
     tiersJson: text("tiers_json").notNull(),
+    // 共有 URL（/share/tier-lists/:token）のトークン。null は未共有。
+    // 発行は POST /me/tier-lists/:season/share、破棄は DELETE で行う。
+    shareToken: text("share_token"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -160,6 +163,9 @@ export const tierLists = sqliteTable(
     // 1 ユーザー 1 シーズンにつき 1 表。作り直しは上書きで済ませる。
     unique("tier_lists_user_season_unique").on(t.userId, t.season),
     index("tier_lists_user_idx").on(t.userId),
+    // 共有リンクからの引き当てキー。SQLite では NULL は互いに異なる値として
+    // 扱われるため、未共有行が複数あってもユニーク制約に抵触しない。
+    unique("tier_lists_share_token_unique").on(t.shareToken),
   ],
 );
 
