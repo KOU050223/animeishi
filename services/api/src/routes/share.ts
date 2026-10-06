@@ -58,8 +58,11 @@ const share = new Hono<ShareBindings>().get(
     }
 
     if (wantsHtml) {
+      // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
+      // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
+      // 返し続ける可能性がある。
       return c.html(buildSharedTierListHtml(list), 200, {
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+        "Cache-Control": "no-store",
       });
     }
 

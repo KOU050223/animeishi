@@ -92,5 +92,27 @@ describe("TierBoardSnapshot", () => {
       images[1].props.onLoadEnd();
       expect(onReady).toHaveBeenCalledTimes(1);
     });
+
+    it("tiers に無い tierKey の画像付き作品は読み込み待ちに含めない", () => {
+      // 描画されない画像は onLoadEnd が来ない。読み込み待ち対象に数えると
+      // onReady が永久に発火せずキャプチャがタイムアウト待ちになる。
+      const onReady = jest.fn();
+      render(
+        <TierBoardSnapshot
+          title="t"
+          tiers={TIERS}
+          items={[
+            {
+              annictWorkId: 9,
+              tierKey: "zzz",
+              title: "幽霊作品",
+              imageUrl: "https://example.com/ghost.png",
+            },
+          ]}
+          onReady={onReady}
+        />,
+      );
+      expect(onReady).toHaveBeenCalledTimes(1);
+    });
   });
 });

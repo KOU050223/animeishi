@@ -293,6 +293,8 @@ describe("tier 表の共有", () => {
     expect(html).toContain("アニメB");
     expect(html).toContain("テストユーザー");
     expect(html).toContain("https://example.com/a.png");
+    // 共有解除後にキャッシュへ残らないよう、HTML は保存しない
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("GET /share/tier-lists/:token: http(s) 以外の画像 URL は HTML に出力しない", async () => {

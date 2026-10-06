@@ -36,11 +36,15 @@ const CARD_SIZE = 64;
  */
 export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
   function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
-    // 読み込み待ち対象は「画像 URL がある作品」だけ。無い作品は表示が即確定する。
-    const imageCount = useMemo(
-      () => items.filter((item) => pickImageUrl(item)).length,
-      [items],
-    );
+    // 読み込み待ち対象は「実際に描画される画像」だけ。
+    // tiers に無い tierKey の作品は描画されず onLoadEnd も来ないため、
+    // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
+    const imageCount = useMemo(() => {
+      const tierKeys = new Set(tiers.map((t) => t.key));
+      return items.filter(
+        (item) => tierKeys.has(item.tierKey) && pickImageUrl(item),
+      ).length;
+    }, [items, tiers]);
     const settledRef = useRef(0);
     const firedRef = useRef(false);
 
