@@ -387,6 +387,34 @@ describe("作品検索 API", () => {
       expect(row?.imageSource).toBeNull();
     });
 
+    it("GET /works/search: 画像フォールバック対象でない作品も annict_works にキャッシュされる", async () => {
+      // tier 表の保存（PUT /me/tier-lists）は items → annict_works の FK を
+      // 要求するため、検索でユーザーに見せた作品は画像の有無に関わらず
+      // キャッシュしておく必要がある。https の通常画像は placeholder 判定に
+      // 引っかからず、従来はキャッシュされなかった。
+      mockSearchWorks([
+        {
+          annictId: 901,
+          title: "通常画像の作品",
+          malAnimeId: "555",
+          recommendedImageUrl: "https://example.com/poster.jpg",
+        },
+      ]);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=通常",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const row = await createDb(env.DB).query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 901),
+      });
+      expect(row?.title).toBe("通常画像の作品");
+    });
+
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスは継続する", async () => {
       // title null → annict_works への upsert が notNull 制約で失敗する。
       // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」
@@ -430,7 +458,7 @@ describe("作品検索 API", () => {
       });
       expect(row).toBeUndefined();
       expect(error).toHaveBeenCalledWith(
-        expect.stringContaining("image_fallback_upsert_failed"),
+        expect.stringContaining("work_cache_upsert_failed"),
       );
     });
 
