@@ -25,10 +25,9 @@ import {
 import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
 import {
   buildTierListShareUrl,
-  copyTierListUrl,
   presentTierShareOptions,
   shareTierListImage,
-  shareTierListUrl,
+  useTierUrlShare,
 } from "@/lib/tierList/share";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
@@ -213,44 +212,19 @@ export default function TierListScreen() {
     return { savedData, shareToken };
   }, [assignment, save, season, share, tiers, title]);
 
+  // web では共有モーダル（コピー / X 共有）、native では OS 共有シート。
+  const { shareUrl: presentShareUrl, urlShareElement } = useTierUrlShare({
+    tweetText: title,
+  });
+
   const handleShareUrl = useCallback(async () => {
     setIsSharing(true);
     try {
       const { shareToken } = await saveAndIssueShareToken();
       const url = buildTierListShareUrl(shareToken);
-      const result = await shareTierListUrl(url);
-      if (result === "copied") {
-        // Web 等で共有シートが無い環境はクリップボードに落ちる
-        alert(
-          "リンクをコピーしました",
-          "共有リンクを貼り付けて送ってください。",
-          { okLabel: "OK" },
-        );
-      } else if (result === "blocked") {
-        // Web: 保存・トークン発行のネットワーク待ちで「ユーザー操作の有効期限」が
-        // 切れ、navigator.share / clipboard がブラウザに拒否された場合。
-        // 次のユーザー操作（コピーボタン押下）の中で clipboard API を呼ぶ。
-        confirm(
-          "リンクをコピーしますか？",
-          "ブラウザが共有をブロックしました。コピーボタンを押してください。",
-          () => {
-            void copyTierListUrl(url)
-              .then(() =>
-                alert(
-                  "リンクをコピーしました",
-                  "共有リンクを貼り付けて送ってください。",
-                  { okLabel: "OK" },
-                ),
-              )
-              .catch(() =>
-                alert("コピーに失敗しました", "URL: " + url, {
-                  okLabel: "OK",
-                }),
-              );
-          },
-          { confirmLabel: "コピー", cancelLabel: "閉じる" },
-        );
-      }
+      // native は OS 共有シート。web は urlShareElement のモーダルを開き、
+      // コピー / X 共有はモーダル内のボタン操作で行う。
+      await presentShareUrl(url);
     } catch {
       alert("共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
@@ -258,7 +232,7 @@ export default function TierListScreen() {
     } finally {
       setIsSharing(false);
     }
-  }, [saveAndIssueShareToken]);
+  }, [presentShareUrl, saveAndIssueShareToken]);
 
   const handleShareImage = useCallback(async () => {
     setIsSharing(true);
@@ -461,6 +435,9 @@ export default function TierListScreen() {
           />
         </View>
       )}
+
+      {/* web のみ共有モーダル（native は null が返る） */}
+      {urlShareElement}
     </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { View } from "react-native";
 
 /**
@@ -37,6 +37,27 @@ export type ShareTierListUrl = (
  * shareTierListUrl が "blocked" を返したあとのリカバリ導線に使う。
  */
 export type CopyTierListUrl = (url: string) => Promise<void>;
+
+/**
+ * 共有 URL をユーザーへ届ける手段を提供するフック。
+ * - native: OS の共有シートを開く（shareTierListUrl に委譲）
+ * - web: 共有モーダルを開き [Xで共有] / [URLをコピー] をユーザー操作で実行。
+ *   保存・トークン発行のネットワーク待ちの後に navigator.share / clipboard を
+ *   自動呼び出しするとブラウザのユーザー操作期限で拒否されるため、Web では
+ *   URL 発行後にモーダルへ切り替える。
+ */
+export type UseTierUrlShare = (input?: {
+  /** X 共有インテントに載せる投稿テキスト（native では無視） */
+  tweetText?: string;
+}) => {
+  /** URL をユーザーへ届ける。戻り値の意味は ShareTierListUrl と同じ。 */
+  shareUrl: ShareTierListUrl;
+  /**
+   * Web 共有モーダルの描画要素。native では常に null。
+   * Web でモーダルを出す唯一の経路なので、画面の JSX に必ず描画すること。
+   */
+  urlShareElement: ReactNode;
+};
 
 /**
  * キャプチャ対象の View を PNG 化して共有シートへ渡す。
