@@ -141,3 +141,13 @@ describe("ProfileScreen のアカウント削除導線", () => {
     expect(screen.getByLabelText("アカウントを削除")).toBeTruthy();
   });
 });
+
+describe("ProfileScreen の法務情報セクション", () => {
+  it("プライバシーポリシー・利用規約・サポートへの導線を表示する", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByLabelText("プライバシーポリシーを開く")).toBeTruthy();
+    expect(screen.getByLabelText("利用規約を開く")).toBeTruthy();
+    expect(screen.getByLabelText("サポートを開く")).toBeTruthy();
+  });
+});
