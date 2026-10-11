@@ -3,9 +3,12 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
-import type { Env } from "@/db/client";
+import type { DrizzleDb, Env } from "@/db/client";
 import { escapeHtml } from "@/lib/html";
-import { getSharedTierList } from "@/repository/sharedTierLists";
+import {
+  getSharedTierList,
+  isKnownWorkImageUrl,
+} from "@/repository/sharedTierLists";
 import type { SharedTierList } from "@/repository/sharedTierLists";
 
 type ShareBindings = {
@@ -85,7 +88,8 @@ const share = new Hono<ShareBindings>()
     zValidator("query", z.object({ url: z.string().min(1).max(2048) })),
     async (c) => {
       const { url } = c.req.valid("query");
-      return proxyImage(c, url);
+      const db = createDb(c.env.DB as D1Database);
+      return proxyImage(c, db, url);
     },
   );
 
@@ -93,37 +97,75 @@ const share = new Hono<ShareBindings>()
 // 想定し、5 MB を上限とする。
 const IMAGE_PROXY_TIMEOUT_MS = 8000;
 const IMAGE_PROXY_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_PROXY_MAX_REDIRECTS = 3;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Web 版の画像エクスポート用プロキシ。Annict / AniList / MAL 等の外部 CDN は
  * CORS ヘッダを返さないため、html-to-image による DOM の画像インライン化が
  * 失敗する。同一 API 経由で取得し直すことで CORS 付きの画像として配信する。
  *
- * 公開エンドポイント（認証不要）。オープンプロキシ化を抑えるため
- * http(s) スキーム限定・応答 Content-Type が画像であること（SVG 除く）・
- * サイズ上限・nosniff を必須条件にしている。 Workers からはプライベート IP
- * へ接続できないため SSRF の直接経路にはならない。
+ * 公開エンドポイント（認証不要）だがオープンプロキシにはしない:
+ * - url は annict_works の作品画像カラムに実在するものだけ許可（無ければ 403）
+ * - https スキームのみ許可（http は Mixed Content になり使い道が無いため拒否）
+ * - リダイレクトは manual で扱い、遷移先も同じ検証（https + DB 実在）を通す
+ * - 応答 Content-Type が image/* であること（SVG はスクリプトを含み得るため除外）
+ * - サイズ上限・nosniff を必須条件にする
  */
-async function proxyImage(c: Context, url: string) {
+async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   let target: URL;
   try {
     target = new URL(url);
   } catch {
     return c.json({ error: "Invalid url" }, 400);
   }
-  if (target.protocol !== "https:" && target.protocol !== "http:") {
-    return c.json({ error: "Only http(s) URLs are allowed" }, 400);
+  if (target.protocol !== "https:") {
+    return c.json({ error: "Only https URLs are allowed" }, 400);
+  }
+  if (!(await isKnownWorkImageUrl(db, target.toString()))) {
+    return c.json({ error: "Image URL is not a known work image" }, 403);
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(target.toString(), {
-      signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
-      redirect: "follow",
-    });
-  } catch {
-    return c.json({ error: "Failed to fetch image" }, 502);
+  // リダイレクトは自動追従しない。遷移先が DB 照合を通らない限り追わず、
+  // 同一 URL の最大ホップ数を超えた場合も拒否する。
+  let upstream: Response | null = null;
+  for (let hop = 0; hop <= IMAGE_PROXY_MAX_REDIRECTS; hop++) {
+    let res: Response;
+    try {
+      res = await fetch(target.toString(), {
+        signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
+        redirect: "manual",
+      });
+    } catch {
+      return c.json({ error: "Failed to fetch image" }, 502);
+    }
+
+    if (!REDIRECT_STATUSES.has(res.status)) {
+      upstream = res;
+      break;
+    }
+
+    const location = res.headers.get("location");
+    if (!location) {
+      return c.json({ error: "Upstream image not available" }, 502);
+    }
+    let next: URL;
+    try {
+      next = new URL(location, target);
+    } catch {
+      return c.json({ error: "Upstream image not available" }, 502);
+    }
+    if (
+      next.protocol !== "https:" ||
+      !(await isKnownWorkImageUrl(db, next.toString()))
+    ) {
+      return c.json({ error: "Redirect target is not allowed" }, 502);
+    }
+    target = next;
+  }
+  if (!upstream) {
+    return c.json({ error: "Too many redirects" }, 502);
   }
   if (!upstream.ok) {
     return c.json({ error: "Upstream image not available" }, 502);

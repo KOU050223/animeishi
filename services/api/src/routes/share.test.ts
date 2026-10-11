@@ -340,9 +340,28 @@ describe("tier 表の共有", () => {
 });
 
 describe("GET /share/image-proxy", () => {
+  const KNOWN_IMAGE_URL = "https://s4.anilist.co/a.png";
+  const KNOWN_IMAGE_URL_2 = "https://cdn.myanimelist.net/b.jpg";
+
   beforeEach(async () => {
-    await setupTestDb(env.DB);
+    const db = await setupTestDb(env.DB);
     vi.restoreAllMocks();
+    const now = new Date();
+    // プロキシは annict_works の画像カラムに実在する URL だけを中継する
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: 9001,
+        title: "画像A",
+        imageUrl: KNOWN_IMAGE_URL,
+        updatedAt: now,
+      },
+      {
+        annictWorkId: 9002,
+        title: "画像B",
+        resolvedImageUrl: KNOWN_IMAGE_URL_2,
+        updatedAt: now,
+      },
+    ]);
   });
 
   function buildProxyApp() {
@@ -357,14 +376,29 @@ describe("GET /share/image-proxy", () => {
     expect(res.status).toBe(400);
   });
 
-  it("http(s) 以外のスキームは 400 を返す", async () => {
+  it("https 以外のスキームは 400 を返す（http も拒否）", async () => {
+    const app = buildProxyApp();
+    for (const url of ["javascript:alert(1)", "http://example.com/x.png"]) {
+      const res = await app.request(
+        `/share/image-proxy?url=${encodeURIComponent(url)}`,
+        {},
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("annict_works の画像カラムに無い URL は 403 を返す", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("javascript:alert(1)")}`,
+      `/share/image-proxy?url=${encodeURIComponent("https://evil.example.com/x.png")}`,
       {},
       TEST_BINDINGS,
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
+    // DB 照合を通らない URL は fetch すらしない
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("画像応答をそのまま中継し、キャッシュ・nosniff を付与する", async () => {
@@ -378,20 +412,86 @@ describe("GET /share/image-proxy", () => {
 
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://s4.anilist.co/a.png")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
     expect(res.status).toBe(200);
+    // リダイレクトは自動追従しない（manual で遷移先を再検証する）
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://s4.anilist.co/a.png",
-      expect.anything(),
+      KNOWN_IMAGE_URL,
+      expect.objectContaining({ redirect: "manual" }),
     );
     expect(res.headers.get("content-type")).toBe("image/png");
     expect(res.headers.get("cache-control")).toContain("public");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     const body = new Uint8Array(await res.arrayBuffer());
     expect(Array.from(body)).toEqual(Array.from(imageBytes));
+  });
+
+  it("リダイレクト先も DB にある画像 URL なら追従する", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === KNOWN_IMAGE_URL) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: KNOWN_IMAGE_URL_2 },
+          });
+        }
+        return new Response("img", {
+          status: 200,
+          headers: { "content-type": "image/jpeg" },
+        });
+      });
+
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      KNOWN_IMAGE_URL_2,
+      expect.anything(),
+    );
+  });
+
+  it("リダイレクト先が DB に無い URL / http なら 502 を返す", async () => {
+    for (const location of [
+      "https://evil.example.com/x.png",
+      "http://s4.anilist.co/a.png",
+    ]) {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(null, { status: 302, headers: { location } }),
+      );
+      const app = buildProxyApp();
+      const res = await app.request(
+        `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
+        {},
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(502);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("リダイレクトが上限を超えたら 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: KNOWN_IMAGE_URL },
+      }),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
   });
 
   it("応答 Content-Type が画像でないとき 502 を返す", async () => {
@@ -403,7 +503,7 @@ describe("GET /share/image-proxy", () => {
     );
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
@@ -419,7 +519,7 @@ describe("GET /share/image-proxy", () => {
     );
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.svg")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
@@ -432,7 +532,7 @@ describe("GET /share/image-proxy", () => {
     );
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.png")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
@@ -443,7 +543,7 @@ describe("GET /share/image-proxy", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.png")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
@@ -462,7 +562,7 @@ describe("GET /share/image-proxy", () => {
     );
     const app = buildProxyApp();
     const res = await app.request(
-      `/share/image-proxy?url=${encodeURIComponent("https://example.com/big.png")}`,
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
     );
