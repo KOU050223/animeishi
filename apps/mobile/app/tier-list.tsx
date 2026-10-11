@@ -216,7 +216,7 @@ export default function TierListScreen() {
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
-  const saveAndIssueShareToken = useCallback(async () => {
+  const saveTierListData = useCallback(async () => {
     const savedData = await save.mutateAsync({
       season,
       title,
@@ -224,19 +224,23 @@ export default function TierListScreen() {
       items: toSaveItems(assignment, tiers),
     });
     setIsDirty(false);
-    const { shareToken } = await share.mutateAsync(season);
-    return { savedData, shareToken };
-  }, [assignment, save, season, share, tiers, title]);
+    return savedData;
+  }, [assignment, save, season, tiers, title]);
 
-  // web では共有モーダル（コピー / X 共有）、native では OS 共有シート。
+  // web では共有モーダル（コピー / X 共有 / 画像を保存）、native では
+  // OS 共有シート。onShareImage は web のモーダルでのみ使われる。
+  // handleShareImage は宣言より後でしか呼ばれないため、ここで参照してよい。
   const { shareUrl: presentShareUrl, urlShareElement } = useTierUrlShare({
     tweetText: title,
+    // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
+    onShareImage: () => void handleShareImage(),
   });
 
   const handleShareUrl = useCallback(async () => {
     setIsSharing(true);
     try {
-      const { shareToken } = await saveAndIssueShareToken();
+      await saveTierListData();
+      const { shareToken } = await share.mutateAsync(season);
       const url = buildTierListShareUrl(shareToken);
       // native は OS 共有シート。web は urlShareElement のモーダルを開き、
       // コピー / X 共有はモーダル内のボタン操作で行う。
@@ -248,12 +252,13 @@ export default function TierListScreen() {
     } finally {
       setIsSharing(false);
     }
-  }, [presentShareUrl, saveAndIssueShareToken]);
+  }, [presentShareUrl, saveTierListData, share, season]);
 
   const handleShareImage = useCallback(async () => {
     setIsSharing(true);
     try {
-      const { savedData } = await saveAndIssueShareToken();
+      // 画像には共有 URL が要らないためトークン発行はしない。
+      const savedData = await saveTierListData();
       const snapshotReady = new Promise<void>((resolve) => {
         snapshotReadyRef.current = resolve;
       });
@@ -278,7 +283,7 @@ export default function TierListScreen() {
       setSnapshotItems(null);
       setIsSharing(false);
     }
-  }, [saveAndIssueShareToken, title]);
+  }, [saveTierListData, title]);
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
   // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を

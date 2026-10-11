@@ -49,6 +49,11 @@ export type CopyTierListUrl = (url: string) => Promise<void>;
 export type UseTierUrlShare = (input?: {
   /** X 共有インテントに載せる投稿テキスト（native では無視） */
   tweetText?: string;
+  /**
+   * Web 共有モーダルに「画像を保存」ボタンを追加し、押下時に呼ばれる
+   * 画像共有ハンドラ。native では無視される。未指定ならボタンを出さない。
+   */
+  onShareImage?: () => void;
 }) => {
   /** URL をユーザーへ届ける。戻り値の意味は ShareTierListUrl と同じ。 */
   shareUrl: ShareTierListUrl;
@@ -61,7 +66,9 @@ export type UseTierUrlShare = (input?: {
 
 /**
  * キャプチャ対象の View を PNG 化して共有シートへ渡す。
- * Web は非対応（options.web が画像選択肢を出さないため呼ばれない）。
+ * - native: react-native-view-shot で View を撮り OS 共有シートへ
+ * - web: DOM を html-to-image で PNG 化し、Web Share API (files) または
+ *   ダウンロードへ（web の View ref は RNW 経由で HTMLElement に解決される）
  */
 export type ShareTierListImage = (
   target: RefObject<View | null>,

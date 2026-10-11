@@ -17,10 +17,12 @@ function buildXIntentUrl(url: string, text?: string): string {
 function TierUrlShareModal({
   url,
   tweetText,
+  onShareImage,
   onClose,
 }: {
   url: string;
   tweetText?: string;
+  onShareImage?: () => void;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -32,6 +34,12 @@ function TierUrlShareModal({
       "_blank",
       "noopener,noreferrer",
     );
+  };
+
+  const handleShareImage = () => {
+    // モーダルを閉じてから画像生成へ（生成中の再描画と二重起動を避ける）
+    onClose();
+    onShareImage?.();
   };
 
   const handleCopy = async () => {
@@ -80,6 +88,17 @@ function TierUrlShareModal({
               コピーに失敗しました。URL を選択してコピーしてください。
             </Text>
           )}
+          {onShareImage && (
+            <Pressable
+              onPress={handleShareImage}
+              className="items-center rounded-lg border border-gray-300 px-4 py-2.5"
+              accessibilityRole="button"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
+                画像を保存
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={onClose}
             className="items-center px-4 py-2"
@@ -93,7 +112,10 @@ function TierUrlShareModal({
   );
 }
 
-export const useTierUrlShare: UseTierUrlShare = ({ tweetText } = {}) => {
+export const useTierUrlShare: UseTierUrlShare = ({
+  tweetText,
+  onShareImage,
+} = {}) => {
   const [modalUrl, setModalUrl] = useState<string | null>(null);
 
   const shareUrl = useCallback<ShareTierListUrl>(async (url) => {
@@ -108,6 +130,7 @@ export const useTierUrlShare: UseTierUrlShare = ({ tweetText } = {}) => {
         <TierUrlShareModal
           url={modalUrl}
           tweetText={tweetText}
+          onShareImage={onShareImage}
           onClose={() => setModalUrl(null)}
         />
       ),

@@ -19,9 +19,12 @@ jest.mock("./sheet", () => ({
 
 const SHARE_URL = "https://api.example/share/tier-lists/tok1";
 
+const mockShareImage = jest.fn();
+
 function Harness() {
   const { shareUrl, urlShareElement } = useTierUrlShare({
     tweetText: "テストTier表",
+    onShareImage: mockShareImage,
   });
   const [result, setResult] = useState("");
   return (
@@ -43,6 +46,7 @@ describe("useTierUrlShare (web)", () => {
 
   beforeEach(() => {
     openSpy.mockReset();
+    mockShareImage.mockReset();
     mockCopy.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(window, "open", { value: openSpy, writable: true });
   });
@@ -84,6 +88,16 @@ describe("useTierUrlShare (web)", () => {
     fireEvent.press(screen.getByTestId("share"));
     fireEvent.press(await screen.findByText("閉じる"));
 
+    expect(screen.queryByText(SHARE_URL)).toBeNull();
+  });
+
+  it("「画像を保存」はモーダルを閉じてから onShareImage を呼ぶ", async () => {
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId("share"));
+    fireEvent.press(await screen.findByText("画像を保存"));
+
+    expect(mockShareImage).toHaveBeenCalled();
+    // モーダルは閉じる
     expect(screen.queryByText(SHARE_URL)).toBeNull();
   });
 });

@@ -289,6 +289,10 @@ describe("tier 表の共有", () => {
     const html = await res.text();
     expect(html).toContain("<title>2026春のTier表");
     expect(html).toContain('property="og:title"');
+    // og:image には先頭の https 作品画像が入る（クローラは直接取得する）
+    expect(html).toContain(
+      'property="og:image" content="https://example.com/a.png"',
+    );
     expect(html).toContain("アニメA");
     expect(html).toContain("アニメB");
     expect(html).toContain("テストユーザー");
@@ -332,5 +336,136 @@ describe("tier 表の共有", () => {
     // タイトル自体は出るが、javascript: の src は吐かない
     expect(html).toContain("悪意あるURLの作品");
     expect(html).not.toContain("javascript:");
+  });
+});
+
+describe("GET /share/image-proxy", () => {
+  beforeEach(async () => {
+    await setupTestDb(env.DB);
+    vi.restoreAllMocks();
+  });
+
+  function buildProxyApp() {
+    const app = applyApiErrorHandling(new Hono<TestEnv>());
+    app.route("/share", share);
+    return app;
+  }
+
+  it("url パラメータ必須。未指定は 400 を返す", async () => {
+    const app = buildProxyApp();
+    const res = await app.request("/share/image-proxy", {}, TEST_BINDINGS);
+    expect(res.status).toBe(400);
+  });
+
+  it("http(s) 以外のスキームは 400 を返す", async () => {
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("javascript:alert(1)")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("画像応答をそのまま中継し、キャッシュ・nosniff を付与する", async () => {
+    const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(imageBytes, {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      }),
+    );
+
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://s4.anilist.co/a.png")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://s4.anilist.co/a.png",
+      expect.anything(),
+    );
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toContain("public");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const body = new Uint8Array(await res.arrayBuffer());
+    expect(Array.from(body)).toEqual(Array.from(imageBytes));
+  });
+
+  it("応答 Content-Type が画像でないとき 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("SVG はスクリプトを含み得るため 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<svg></svg>", {
+        status: 200,
+        headers: { "content-type": "image/svg+xml" },
+      }),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.svg")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("アップストリームが失敗したら 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not found", { status: 404 }),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.png")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("アップストリームへの fetch 自体が失敗したら 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://example.com/x.png")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("Content-Length が上限超過なら 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("x", {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+          "content-length": String(6 * 1024 * 1024),
+        },
+      }),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent("https://example.com/big.png")}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
   });
 });
