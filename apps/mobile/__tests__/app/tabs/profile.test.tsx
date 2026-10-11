@@ -48,6 +48,18 @@ jest.mock("@/lib/useProfile", () => ({
     isPending: false,
     mutate: mockMutateProfile,
   }),
+  useDeleteAccount: () => ({
+    isPending: false,
+    mutateAsync: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/annict/storage", () => ({
+  annictTokenStorage: {
+    get: jest.fn(async () => null),
+    set: jest.fn(async () => {}),
+    remove: jest.fn(async () => {}),
+  },
 }));
 
 jest.mock("@/lib/useProfileAvatar", () => ({
@@ -119,5 +131,13 @@ describe("ProfileScreen の保存トースト", () => {
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
+  });
+});
+
+describe("ProfileScreen のアカウント削除導線", () => {
+  it("アカウント削除セクションが表示される（本体の挙動は DeleteAccountSection のテストを参照）", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByLabelText("アカウントを削除")).toBeTruthy();
   });
 });

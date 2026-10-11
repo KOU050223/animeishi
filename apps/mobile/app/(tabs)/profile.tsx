@@ -13,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
@@ -314,6 +315,10 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <DeleteAccountSection
+          onError={(message) => showToast({ type: "error", message })}
+        />
       </ScrollView>
 
       <View

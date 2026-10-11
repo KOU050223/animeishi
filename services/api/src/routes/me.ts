@@ -6,6 +6,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
+import { captureApiError } from "@/observability";
 
 type MeBindings = Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;
@@ -141,6 +142,45 @@ const me = new Hono<AuthVariables>()
     }
 
     return c.json(profile);
+  })
+  // アカウント削除。App Store / Google Play の審査要件（アプリ内でアカウントを
+  // 作成できる場合はアプリ内からの削除導線が必須）に対応する。
+  // 削除順序は「D1 → R2 → Clerk」。Clerk を先に消すと D1 削除が失敗したときに
+  // 認証手段を失った孤立データが残り、再試行もできなくなるため D1 を先に処理する。
+  .delete("/", async (c) => {
+    const bindings = getBindings(c);
+    const userId = c.var.clerkUserId;
+    const db = createDb(bindings.DB);
+
+    // ユーザー関連テーブル（watch_history / favorites / friends / user_genres /
+    // tier_lists(+items) / annict_tokens / users）を 1 batch で削除する。
+    await authorizedDb(db, userId).deleteMyAccount();
+
+    // アバター画像は R2 に残ると配信 URL から取得し続けられるため、
+    // avatars/{userId}/ プレフィックスのオブジェクトを全て消す。
+    // 削除自体は完了させたいので、失敗は Sentry に送るだけで握り潰す。
+    try {
+      let cursor: string | undefined;
+      do {
+        const listed = await bindings.AVATARS.list({
+          prefix: `avatars/${userId}/`,
+          ...(cursor ? { cursor } : {}),
+        });
+        if (listed.objects.length > 0) {
+          await bindings.AVATARS.delete(listed.objects.map((o) => o.key));
+        }
+        cursor = listed.truncated ? listed.cursor : undefined;
+      } while (cursor);
+    } catch (err) {
+      captureApiError(err, c);
+    }
+
+    // Clerk Backend API でユーザー本体を削除する。ここで失敗した場合、D1 側は
+    // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる。
+    const clerk = c.get("clerk");
+    await clerk.users.deleteUser(userId);
+
+    return c.body(null, 204);
   });
 
 // アバター画像を R2 から配信する。認証不要（名刺は公開前提で他者からも閲覧される）。

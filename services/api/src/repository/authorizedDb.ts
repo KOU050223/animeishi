@@ -918,6 +918,55 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
       return rows.map((r) => r.genre);
     },
+
+    /**
+     * 本人のアカウントを D1 から削除する（アカウント削除機能）。
+     *
+     * users 起点の子テーブルは全て `onDelete: cascade` が付いているが、
+     * FK 強制の有無に依存せず確実に消すため、各テーブルを明示的に削除する。
+     * friends は「自分 → 相手」だけでなく「相手 → 自分」の行も対象にする
+     * （friend_id 側の行は相手のフレンド一覧に残るため）。
+     * tier_list_items は user_id を持たず tier_lists 経由でぶら下がるため、
+     * 先に自分の tier 表 ID を解決してから削除する。
+     * 全 statement を 1 つの db.batch() に載せてアトミックに実行する。
+     */
+    async deleteMyAccount(): Promise<void> {
+      const myTierListIds = (
+        await db
+          .select({ id: tierLists.id })
+          .from(tierLists)
+          .where(eq(tierLists.userId, currentUserId))
+      ).map((row) => row.id);
+
+      const queries: BatchItem<"sqlite">[] = [
+        db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),
+        db.delete(watchHistory).where(eq(watchHistory.userId, currentUserId)),
+        db.delete(favorites).where(eq(favorites.userId, currentUserId)),
+        db
+          .delete(friends)
+          .where(
+            or(
+              eq(friends.userId, currentUserId),
+              eq(friends.friendId, currentUserId),
+            ),
+          ),
+        db.delete(userGenres).where(eq(userGenres.userId, currentUserId)),
+      ];
+      if (myTierListIds.length > 0) {
+        queries.push(
+          db
+            .delete(tierListItems)
+            .where(inArray(tierListItems.tierListId, myTierListIds)),
+        );
+      }
+      queries.push(
+        db.delete(tierLists).where(eq(tierLists.userId, currentUserId)),
+        db.delete(users).where(eq(users.id, currentUserId)),
+      );
+      await db.batch(
+        queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+      );
+    },
   };
 }
 
