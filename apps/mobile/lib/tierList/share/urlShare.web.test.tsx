@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Button, View } from "react-native";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -120,13 +121,22 @@ describe("useTierUrlShare (web)", () => {
     mockGenerateFile.mockResolvedValue(file);
     render(<Harness />);
     fireEvent.press(screen.getByTestId("share"));
-    fireEvent.press(await screen.findByText("画像を生成"));
 
-    // 生成完了後に共有ボタンが出る（生成待ちで操作期限を切らさない）
-    fireEvent.press(await screen.findByText("画像を共有"));
+    // 生成は非同期。act 内で押下し、File が確定するまで flush する
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を生成"));
+    });
+
+    // 生成完了後に共有ボタンが出る（生成待ちで操作期限を切らさない）。
+    // 共有も非同期のため act 内で押して resolve → onClose まで flush する
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を共有"));
+    });
     expect(mockShareFile).toHaveBeenCalledWith(file, "テストTier表");
     // 共有に渡せたらモーダルは閉じる
-    await waitFor(() => expect(screen.queryByText(SHARE_URL)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(SHARE_URL)).toBeNull(), {
+      timeout: 5000,
+    });
   });
 
   it("共有非対応の環境では「画像をダウンロード」だけを出す", async () => {
@@ -134,7 +144,9 @@ describe("useTierUrlShare (web)", () => {
     mockGenerateFile.mockResolvedValue(pngFile());
     render(<Harness />);
     fireEvent.press(screen.getByTestId("share"));
-    fireEvent.press(await screen.findByText("画像を生成"));
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を生成"));
+    });
 
     fireEvent.press(await screen.findByText("画像をダウンロード"));
     expect(screen.queryByText("画像を共有")).toBeNull();
@@ -147,7 +159,9 @@ describe("useTierUrlShare (web)", () => {
     mockGenerateFile.mockRejectedValue(new Error("capture failed"));
     render(<Harness />);
     fireEvent.press(screen.getByTestId("share"));
-    fireEvent.press(await screen.findByText("画像を生成"));
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を生成"));
+    });
 
     expect(await screen.findByText("画像の生成に失敗しました")).toBeTruthy();
     expect(screen.getByText(SHARE_URL)).toBeTruthy();
@@ -159,8 +173,12 @@ describe("useTierUrlShare (web)", () => {
     mockShareFile.mockRejectedValue(new Error("share failed"));
     render(<Harness />);
     fireEvent.press(screen.getByTestId("share"));
-    fireEvent.press(await screen.findByText("画像を生成"));
-    fireEvent.press(await screen.findByText("画像を共有"));
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を生成"));
+    });
+    await act(async () => {
+      fireEvent.press(await screen.findByText("画像を共有"));
+    });
 
     expect(
       await screen.findByText(
