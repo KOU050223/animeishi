@@ -28,6 +28,13 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
   },
 }));
 
+jest.mock("@/components/AppVersionFooter", () => ({
+  AppVersionFooter: () => {
+    const { Text } = require("react-native");
+    return <Text>バージョン情報</Text>;
+  },
+}));
+
 jest.mock("@/lib/useProfile", () => ({
   useProfile: () => ({
     data: {

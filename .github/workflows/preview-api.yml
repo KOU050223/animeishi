@@ -67,4 +67,5 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
-        run: pnpm --filter @animeishi/api exec wrangler versions upload --env preview --preview-alias "$PREVIEW_ALIAS"
+        # COMMIT_SHA は --var で注入し、/health が返すバージョン情報に使う
+        run: pnpm --filter @animeishi/api exec wrangler versions upload --env preview --preview-alias "$PREVIEW_ALIAS" --var COMMIT_SHA:${{ github.sha }}

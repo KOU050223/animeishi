@@ -62,7 +62,9 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      # COMMIT_SHA は --var で注入し、/health が返すバージョン情報に使う
+      # （wrangler.toml の vars には書けないデプロイごとの動的値）。
       - name: Deploy
-        run: pnpm --filter @animeishi/api exec wrangler deploy --env production
+        run: pnpm --filter @animeishi/api exec wrangler deploy --env production --var COMMIT_SHA:${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # GitHub Actions（uses: で参照する各 Action）のメジャー遅れを防ぐ。
+  # 更新は 1 PR にまとめて通知ノイズを抑える。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
