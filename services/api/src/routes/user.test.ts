@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
@@ -6,10 +6,38 @@ import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { user } from "@/routes/user";
 import { users, userGenres } from "@/db/schema";
 
+// optionalAuth 経由で呼ばれる @clerk/hono の挙動を再現する。
+// "handshake": Accept: text/html のドキュメント取得などで Clerk が
+//              next を呼ばず handshake 応答を返すケース（clerkAuth 未設定）。
+// "next"     : middleware は通るが getAuth が throw するケース。
+const clerkMock = vi.hoisted(() => ({
+  calls: 0,
+  behavior: "handshake" as "next" | "handshake",
+}));
+
+vi.mock("@clerk/hono", () => ({
+  clerkMiddleware: () => {
+    clerkMock.calls++;
+    return async (_c: unknown, next: () => Promise<void>) => {
+      if (clerkMock.behavior === "handshake") {
+        return new Response(null, { status: 307 });
+      }
+      await next();
+    };
+  },
+  getAuth: () => {
+    throw new Error(
+      "Clerk: getAuth() called without clerkMiddleware() being applied.",
+    );
+  },
+}));
+
 type TestEnv = {
   Bindings: {
     DB: D1Database;
     PUBLIC_WEB_URL?: string;
+    CLERK_SECRET_KEY?: string;
+    CLERK_PUBLISHABLE_KEY?: string;
   };
 };
 
@@ -207,6 +235,75 @@ describe("GET /user/:uid", () => {
       );
       // 従来のカスタムスキームも残す。
       expect(html).toContain('href="animeishi://user/user_weblink001"');
+    });
+  });
+
+  // issue #154: 本番で Accept: text/html のリクエストが Clerk handshake に
+  // 突入して getAuth が throw し 500 になっていた回帰。
+  describe("optionalAuth 回帰（Accept: text/html）", () => {
+    const CLERK_BINDINGS = {
+      ...TEST_BINDINGS,
+      CLERK_SECRET_KEY: "test_secret",
+      CLERK_PUBLISHABLE_KEY: "test_pub",
+    };
+
+    beforeEach(() => {
+      clerkMock.calls = 0;
+      clerkMock.behavior = "handshake";
+    });
+
+    it("Authorization ヘッダ無しでは Clerk を呼ばず 200 HTML を返す", async () => {
+      await insertPublicUser(db, "user_regress001");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_regress001",
+        { method: "GET", headers: { Accept: "text/html" } },
+        CLERK_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type") ?? "").toContain("text/html");
+      // Bearer 無しなら handshake の可能性自体を排除する。
+      expect(clerkMock.calls).toBe(0);
+    });
+
+    it("無効な Bearer トークンで handshake 応答が返っても匿名で 200 HTML を返す", async () => {
+      await insertPublicUser(db, "user_regress002");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_regress002",
+        {
+          method: "GET",
+          headers: {
+            Accept: "text/html",
+            Authorization: "Bearer invalid-token",
+          },
+        },
+        CLERK_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type") ?? "").toContain("text/html");
+    });
+
+    it("Bearer 付きで getAuth が例外でも匿名で 200 HTML を返す", async () => {
+      clerkMock.behavior = "next";
+      await insertPublicUser(db, "user_regress003");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_regress003",
+        {
+          method: "GET",
+          headers: {
+            Accept: "text/html",
+            Authorization: "Bearer invalid-token",
+          },
+        },
+        CLERK_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type") ?? "").toContain("text/html");
     });
   });
 });
