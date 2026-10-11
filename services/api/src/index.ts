@@ -14,6 +14,7 @@ import {
 import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
+import { health } from "./routes/health";
 import { importRoute } from "./routes/import";
 import { avatar, me } from "./routes/me";
 import { pass } from "./routes/pass";
@@ -29,6 +30,8 @@ type AppBindings = Env &
     // 完全一致（"https://app.example.com"）とワイルドカード（"*-app.example.workers.dev"）を扱う。
     // 詳細は ./cors を参照。未設定の場合は開発利便のため全オリジンを許可する。
     ALLOWED_ORIGINS?: string;
+    // デプロイ CI が --var で注入するデプロイ元コミット SHA。/health が返す。
+    COMMIT_SHA?: string;
   };
 
 const app = new Hono<{ Bindings: AppBindings }>();
@@ -58,9 +61,7 @@ app.use("*", (c, next) => {
 app.onError(handleError);
 
 const routes = app
-  .get("/health", (c) => {
-    return c.json({ status: "ok", timestamp: new Date().toISOString() });
-  })
+  .route("/health", health)
   // アバター配信と共有リンクは認証不要のため /me（requireAuth）より先にマウントする。
   .route("/share", share)
   .route("/me", avatar)

@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
+import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
@@ -319,6 +320,8 @@ export default function ProfileScreen() {
         <DeleteAccountSection
           onError={(message) => showToast({ type: "error", message })}
         />
+
+        <AppVersionFooter />
       </ScrollView>
 
       <View

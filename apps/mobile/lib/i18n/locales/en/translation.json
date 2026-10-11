@@ -60,5 +60,10 @@
   "リクエストが多すぎます。しばらくしてからお試しください": "Too many requests. Please try again later",
   "アカウントを作成することで、以下に同意したものとみなします": "By creating an account, you agree to the following:",
   "利用規約": "Terms of Service",
-  "プライバシーポリシー": "Privacy Policy"
+  "プライバシーポリシー": "Privacy Policy",
+  "アプリバージョン: {{version}}": "App version: {{version}}",
+  "環境: {{environment}}": "Environment: {{environment}}",
+  "更新 ID: {{updateId}}": "Update ID: {{updateId}}",
+  "コミット: {{commitSha}}": "Commit: {{commitSha}}",
+  "API: {{apiVersion}}": "API: {{apiVersion}}"
 }
