@@ -17,10 +17,9 @@ export function AppVersionFooter() {
     : appInfo.appVersion;
 
   const health = apiHealth.data;
-  const apiVersion = health
-    ? ((health.commitSha ?? health.versionId)?.slice(0, SHORT_SHA_LENGTH) ??
-      "-")
-    : null;
+  const apiVersion =
+    (health?.commitSha ?? health?.versionId)?.slice(0, SHORT_SHA_LENGTH) ??
+    null;
 
   return (
     <View className="mt-10 items-center gap-1 px-4" testID="app-version-footer">
@@ -44,7 +43,11 @@ export function AppVersionFooter() {
           })}
         </Text>
       ) : null}
-      {apiVersion ? (
+      {apiHealth.isError ? (
+        // 永続化キャッシュの古い値を現行バージョンとして出さないよう、
+        // 直近の取得失敗は成功済み data より優先して表示する。
+        <Text className="text-xs text-gray-400">{t("API: 取得失敗")}</Text>
+      ) : apiVersion ? (
         <Text className="text-xs text-gray-400">
           {t("API: {{apiVersion}}", {
             apiVersion: health?.environment

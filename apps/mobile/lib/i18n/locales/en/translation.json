@@ -65,5 +65,6 @@
   "環境: {{environment}}": "Environment: {{environment}}",
   "更新 ID: {{updateId}}": "Update ID: {{updateId}}",
   "コミット: {{commitSha}}": "Commit: {{commitSha}}",
-  "API: {{apiVersion}}": "API: {{apiVersion}}"
+  "API: {{apiVersion}}": "API: {{apiVersion}}",
+  "API: 取得失敗": "API: failed to fetch"
 }

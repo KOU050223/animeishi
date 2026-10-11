@@ -76,4 +76,40 @@ describe("AppVersionFooter", () => {
 
     expect(screen.getByText("API: 0123456")).toBeTruthy();
   });
+
+  it("コミット SHA と versionId が共にない場合は API 行を出さない", () => {
+    mockUseApiVersion.mockReturnValue({
+      data: {
+        status: "ok",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        environment: null,
+        commitSha: null,
+        versionId: null,
+      },
+    });
+
+    render(<AppVersionFooter />);
+
+    expect(screen.queryByText(/^API:/)).toBeNull();
+  });
+
+  it("取得失敗時は成功済みデータより「取得失敗」を優先して表示する", () => {
+    // React Query はリフェッチ失敗時に直前の data を保持する。
+    // isError のときはその古い値ではなく失敗表示に切り替える。
+    mockUseApiVersion.mockReturnValue({
+      isError: true,
+      data: {
+        status: "ok",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        environment: "production",
+        commitSha: "def5678deadbeef",
+        versionId: "version-1",
+      },
+    });
+
+    render(<AppVersionFooter />);
+
+    expect(screen.getByText("API: 取得失敗")).toBeTruthy();
+    expect(screen.queryByText(/def5678/)).toBeNull();
+  });
 });
