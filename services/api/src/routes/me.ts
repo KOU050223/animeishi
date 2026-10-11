@@ -83,6 +83,13 @@ const me = new Hono<AuthVariables>()
 
     return c.json(profile);
   })
+  // 自分がブロックしているユーザーの一覧（ブロック解除画面用）。
+  .get("/blocks", async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const adb = authorizedDb(db, c.var.clerkUserId);
+    const blocked = await adb.getMyBlocks();
+    return c.json(blocked, 200);
+  })
   // プロフィール画像（アバター）をアップロードする。
   // モバイル側で 512px の WebP に圧縮した画像バイナリをそのまま body で受け取り、
   // R2 に保存したうえで users.profileImageUrl を配信用 URL に更新する。

@@ -8,8 +8,10 @@ import { avatar, me } from "@/routes/me";
 import {
   annictTokens,
   annictWorks,
+  blocks,
   favorites,
   friends,
+  reports,
   tierListItems,
   tierLists,
   userGenres,
@@ -517,6 +519,25 @@ describe("DELETE /me（アカウント削除）", () => {
       { userId: USER_ID, genre: "SF" },
       { userId: OTHER_ID, genre: "日常" },
     ]);
+    // 通報・ブロックも両方向の行を作り、「相手 → 自分」側も消えることを検証する。
+    await db.insert(reports).values([
+      {
+        reporterId: USER_ID,
+        reportedUserId: OTHER_ID,
+        reason: "スパム",
+        createdAt: now,
+      },
+      {
+        reporterId: OTHER_ID,
+        reportedUserId: USER_ID,
+        reason: "迷惑行為",
+        createdAt: now,
+      },
+    ]);
+    await db.insert(blocks).values([
+      { blockerId: USER_ID, blockedId: OTHER_ID, createdAt: now },
+      { blockerId: OTHER_ID, blockedId: USER_ID, createdAt: now },
+    ]);
     await db.insert(tierLists).values([
       {
         userId: USER_ID,
@@ -626,6 +647,26 @@ describe("DELETE /me（アカウント削除）", () => {
     ).toHaveLength(0);
     expect(
       await db.select().from(userGenres).where(eq(userGenres.userId, USER_ID)),
+    ).toHaveLength(0);
+    // reports / blocks も「自分 → 相手」「相手 → 自分」両方が消える
+    expect(
+      await db
+        .select()
+        .from(reports)
+        .where(
+          or(
+            eq(reports.reporterId, USER_ID),
+            eq(reports.reportedUserId, USER_ID),
+          ),
+        ),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(blocks)
+        .where(
+          or(eq(blocks.blockerId, USER_ID), eq(blocks.blockedId, USER_ID)),
+        ),
     ).toHaveLength(0);
     expect(
       await db.select().from(tierLists).where(eq(tierLists.userId, USER_ID)),

@@ -20,6 +20,20 @@ export type AuthEnv = AuthVariables & {
   };
 };
 
+// 任意認証向け: サインインしていれば clerkUserId が入る。未認証でも通る。
+export type OptionalAuthVariables = {
+  Variables: {
+    clerkUserId?: string;
+  };
+};
+
+export type OptionalAuthEnv = OptionalAuthVariables & {
+  Bindings: Env & {
+    CLERK_SECRET_KEY?: string;
+    CLERK_PUBLISHABLE_KEY?: string;
+  };
+};
+
 /**
  * Clerk JWT 検証ミドルウェア。
  * CLERK_SECRET_KEY バインディングが必要。
@@ -59,3 +73,30 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
 
   await next();
 });
+
+/**
+ * 任意認証ミドルウェア。公開エンドポイント（GET /user/:uid 等）で
+ * 「サインインしていれば誰が見ているか」を拾うために使う。
+ * トークンが無い・無効な場合は匿名閲覧としてそのまま通す（401 にしない）。
+ * users テーブルへのプロビジョニングは行わない（公開 GET で書き込まないため）。
+ */
+export const optionalAuth = createMiddleware<OptionalAuthEnv>(
+  async (c, next) => {
+    // Clerk キー未設定の環境では認証を試みず匿名扱いにする。
+    if (!c.env.CLERK_SECRET_KEY || !c.env.CLERK_PUBLISHABLE_KEY) {
+      await next();
+      return;
+    }
+    const middleware = clerkMiddleware({
+      secretKey: c.env.CLERK_SECRET_KEY,
+      publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    });
+    await middleware(c as unknown as Context, async () => {});
+
+    const auth = getAuth(c as unknown as Context);
+    if (auth?.userId) {
+      c.set("clerkUserId", auth.userId);
+    }
+    await next();
+  },
+);
