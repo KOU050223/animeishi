@@ -23,6 +23,7 @@ import {
   toSaveItems,
 } from "@/lib/tierList/board";
 import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
+import { renameTier } from "@/lib/tierList/label";
 import {
   buildTierListShareUrl,
   presentTierShareOptions,
@@ -124,6 +125,21 @@ export default function TierListScreen() {
       setIsDirty(true);
     },
     [isSharing],
+  );
+
+  const handleRenameTier = useCallback(
+    (tierKey: string, label: string) => {
+      // ドロップと同じく、共有中（保存→トークン発行の直列処理中）の編集は
+      // 受け付けない。ここで tiers を変えると保存応答の反映で消えるため。
+      if (isSharing) return;
+      // trim 後に名前が変わっていない（or 存在しない key）なら差分なし。
+      // renameTier が同じ配列を返すので、その場合は未保存扱いにしない。
+      const next = renameTier(tiers, tierKey, label);
+      if (next === tiers) return;
+      setTiers(next);
+      setIsDirty(true);
+    },
+    [isSharing, tiers],
   );
 
   const handleBack = useCallback(() => {
@@ -337,7 +353,8 @@ export default function TierListScreen() {
         {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
         <Text style={styles.headerHint}>
-          作品を長押ししてドラッグすると tier を移動できます
+          作品を長押ししてドラッグすると tier を移動できます。tier
+          名はタップで変更できます
         </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -415,6 +432,8 @@ export default function TierListScreen() {
           works={works}
           assignment={assignment}
           onAssign={handleAssign}
+          onRenameTier={handleRenameTier}
+          labelsEditable={!isSharing}
         />
       )}
 

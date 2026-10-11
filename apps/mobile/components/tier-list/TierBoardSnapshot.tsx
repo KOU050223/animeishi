@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { tierLabelFontSize } from "@/lib/tierList/label";
 import type { TierRow } from "@/lib/tierList/types";
 
 /** 画像共有でスナップショットに並べる作品。保存済み tier 表の items と同じ形。 */
@@ -73,7 +74,13 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
           return (
             <View key={tier.key} style={styles.row}>
               <View style={[styles.labelCell, { backgroundColor: tier.color }]}>
-                <Text style={styles.labelText} numberOfLines={3}>
+                <Text
+                  style={[
+                    styles.labelText,
+                    { fontSize: tierLabelFontSize(tier.label, 16) },
+                  ]}
+                  numberOfLines={3}
+                >
                   {tier.label}
                 </Text>
               </View>
