@@ -97,6 +97,9 @@ export function captureApiError(err: unknown, c: Context): void {
 // ユーザー通報を運営通知として Sentry に送る。
 // アプリ側に Discord Webhook を持たない方針（docs/08_observability-design.md）
 // のため、Sentry Alert 経由の Discord 通知に乗せる。
+// captureMessage のタイトルは固定なので、fingerprint で通報対象ユーザーごとに
+// Issue を分ける（「新規 Issue」トリガーの Discord アラートが初回通報で
+// しか飛ばないのを防ぐ）。report.reported_user_id タグで検索もできる。
 // SENTRY_DSN 未設定の環境では SDK が no-op になり通知は送られない。
 export function notifyUserReport(
   c: Context,
@@ -107,6 +110,8 @@ export function notifyUserReport(
     if (requestId) {
       scope.setTag(TAG_KEYS.requestId, requestId);
     }
+    scope.setFingerprint(["user_report", input.reportedUserId]);
+    scope.setTag("report.reported_user_id", input.reportedUserId);
     scope.setContext("user_report", input);
     Sentry.captureMessage("user_report_received", "warning");
   });

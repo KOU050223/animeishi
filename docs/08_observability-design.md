@@ -189,6 +189,33 @@ Sentry 側の UI 設定なので手順を docs に記録する。
 3. preview / development は通知対象外にしておき、ノイズが出たら
    Alert 側の条件で絞る
 
+### ユーザー通報の通知（UGC モデレーション）
+
+`POST /users/:id/report` は `notifyUserReport` で
+`captureMessage("user_report_received", "warning")` を送る。
+fingerprint を `["user_report", <reported_user_id>]` に固定しているため、
+Sentry 上では**通報されたユーザーごとに Issue が分かれる**
+（タイトル固定のままでは全通報が 1 Issue に集約され、
+「新規 Issue」トリガーのアラートが初回しか飛ばないため）。
+`report.reported_user_id` タグで検索もできる
+（例: `report.reported_user_id:user_xxx`）。
+
+アラートルールの設定:
+
+1. animeishi-api プロジェクトで Issue alert を作成
+   （既存の「新規 Issue → Discord」ルールに通報も乗るが、
+   エラーと混ぜず通報専用チャンネルに流す場合は別ルールにする）
+2. When: `a new issue is created`
+3. If: `environment equals production` AND
+   `The event's message value contains user_report_received`
+   （または tag `report.reported_user_id` exists）
+4. Then: 通報受付用の Discord チャンネルへ通知
+
+同一ユーザーへの複数通報は同一 Issue のイベントとして集約される。
+新規通報のたびに通知が必要な場合は When を
+`a new event occurs`（イベント発生ごと）に変更する。
+対応状況の管理（着手中・対応済み）は Sentry の Issue ステータス運用で行う。
+
 ## Expo / React Native への組み込み（第二弾・実装済み）
 
 `@sentry/react-native`（Expo SDK 54 のピンは `~7.2.0`）を使う。

@@ -17,9 +17,16 @@ vi.mock("@clerk/hono", () => ({
   getAuth: vi.fn(),
 }));
 
+// notifyUserReport が scope に載せる fingerprint / タグを検証するため、
+// withScope に渡す scope を共通化して spy する。
+const sentryScope = vi.hoisted(() => ({
+  setTag: vi.fn(),
+  setContext: vi.fn(),
+  setFingerprint: vi.fn(),
+}));
+
 vi.mock("@sentry/cloudflare", () => ({
-  withScope: (fn: (scope: unknown) => void) =>
-    fn({ setTag: vi.fn(), setContext: vi.fn() }),
+  withScope: (fn: (scope: unknown) => void) => fn(sentryScope),
   captureMessage: vi.fn(),
   captureException: vi.fn(),
 }));
@@ -79,6 +86,9 @@ describe("ユーザー通報・ブロック API", () => {
     db = await setupTestDb(env.DB);
     vi.mocked(getAuth).mockReset();
     vi.mocked(captureMessage).mockClear();
+    sentryScope.setTag.mockClear();
+    sentryScope.setContext.mockClear();
+    sentryScope.setFingerprint.mockClear();
 
     const now = new Date();
     await db.insert(users).values([
@@ -147,7 +157,20 @@ describe("ユーザー通報・ブロック API", () => {
         );
       expect(rows).toHaveLength(1);
       expect(rows[0].reason).toBe("不適切なコンテンツ");
-      expect(vi.mocked(captureMessage)).toHaveBeenCalled();
+      // 運営通知: 通報対象ユーザーごとに Issue が分かれるよう fingerprint で
+      // 区別し、report.reported_user_id タグで検索可能にする
+      expect(vi.mocked(captureMessage)).toHaveBeenCalledWith(
+        "user_report_received",
+        "warning",
+      );
+      expect(sentryScope.setFingerprint).toHaveBeenCalledWith([
+        "user_report",
+        USER_B,
+      ]);
+      expect(sentryScope.setTag).toHaveBeenCalledWith(
+        "report.reported_user_id",
+        USER_B,
+      );
     });
 
     it("自分自身は通報できない（400）", async () => {
