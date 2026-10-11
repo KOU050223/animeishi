@@ -11,18 +11,11 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
-import {
-  useDeleteAccount,
-  useProfile,
-  useUpdateProfile,
-} from "@/lib/useProfile";
+import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
+import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
-import { confirm } from "@/lib/dialog";
-import { annictTokenStorage } from "@/lib/annict/storage";
-import { queryClient } from "@/lib/queryClient";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
@@ -50,9 +43,7 @@ function walletErrorMessage(result: AddToWalletResult): string | null {
 export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
-  const deleteAccount = useDeleteAccount();
   const uploadAvatar = useProfileAvatarUpload();
-  const { signOut } = useAuth();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const router = useRouter();
   const {
@@ -111,51 +102,6 @@ export default function ProfileScreen() {
           }),
       },
     );
-  }
-
-  // アカウント削除は取り消せないため、dialog 基盤で二段階確認にする。
-  // 成功したら端末内のキャッシュ・Annict トークンも片付けてサインアウトする
-  // （削除済みユーザーの JWT が残ったまま API を叩き続けないようにするため）。
-  function onDeleteAccount() {
-    confirm(
-      "アカウントを削除しますか？",
-      "名刺・視聴履歴・お気に入り・フレンド・Tier表など、すべてのデータが削除されます。この操作は取り消せません。",
-      () =>
-        confirm(
-          "最終確認",
-          "本当にアカウントを削除しますか？削除したデータは復元できません。",
-          () => {
-            void runDeleteAccount();
-          },
-          {
-            confirmLabel: "削除する",
-            cancelLabel: "キャンセル",
-            destructive: true,
-          },
-        ),
-      {
-        confirmLabel: "削除する",
-        cancelLabel: "キャンセル",
-        destructive: true,
-      },
-    );
-  }
-
-  async function runDeleteAccount() {
-    try {
-      await deleteAccount.mutateAsync();
-    } catch (e) {
-      showToast({
-        type: "error",
-        message:
-          e instanceof Error ? e.message : "アカウントの削除に失敗しました",
-      });
-      return;
-    }
-    // 削除済みアカウントのデータを端末に残さない。
-    queryClient.clear();
-    await annictTokenStorage.remove().catch(() => {});
-    await signOut();
   }
 
   function onChangeAvatar() {
@@ -370,26 +316,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View className="mt-10 border-t border-gray-200 px-4 pt-6">
-          <TouchableOpacity
-            className="items-center rounded-xl border border-red-200 bg-red-50 py-3"
-            onPress={onDeleteAccount}
-            disabled={deleteAccount.isPending}
-            accessibilityRole="button"
-            accessibilityLabel="アカウントを削除"
-          >
-            {deleteAccount.isPending ? (
-              <ActivityIndicator color="#dc2626" />
-            ) : (
-              <Text className="font-semibold text-red-600">
-                アカウントを削除
-              </Text>
-            )}
-          </TouchableOpacity>
-          <Text className="mt-2 text-center text-xs text-gray-400">
-            削除するとすべてのデータが失われ、元に戻せません
-          </Text>
-        </View>
+        <DeleteAccountSection
+          onError={(message) => showToast({ type: "error", message })}
+        />
       </ScrollView>
 
       <View
