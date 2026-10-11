@@ -9,6 +9,11 @@ import { requireAuth, optionalAuth } from "@/middleware/auth";
 // clerkMiddleware に渡した options を捕捉するため、呼び出し引数を記録する。
 const clerkMiddlewareArgs = vi.hoisted(() => ({
   calls: [] as Record<string, unknown>[],
+  // 本番 @clerk/hono の挙動を再現するためのモード。
+  // "next"    : clerk をセットして next を呼ぶ（通常経路）
+  // "handshake": next を呼ばず Response を返す（clerkAuth 未設定になる）
+  // "throw"   : authenticateRequest 相当の例外を投げる
+  behavior: "next" as "next" | "handshake" | "throw",
 }));
 const clerkUsers = vi.hoisted(() => ({
   getUser: vi.fn(),
@@ -21,6 +26,13 @@ vi.mock("@clerk/hono", () => ({
       c: { set: (key: string, value: unknown) => void },
       next: () => Promise<void>,
     ) => {
+      if (clerkMiddlewareArgs.behavior === "handshake") {
+        // 本番同様、next を呼ばず handshake のリダイレクト応答を返す。
+        return new Response(null, { status: 307 });
+      }
+      if (clerkMiddlewareArgs.behavior === "throw") {
+        throw new Error("Clerk: authenticateRequest failed");
+      }
       c.set("clerk", { users: clerkUsers });
       await next();
     };
@@ -72,6 +84,7 @@ describe("認証ミドルウェア", () => {
   beforeEach(async () => {
     await setupTestDb(env.DB);
     clerkMiddlewareArgs.calls.length = 0;
+    clerkMiddlewareArgs.behavior = "next";
     vi.mocked(getAuth).mockReset();
     clerkUsers.getUser.mockReset();
     clerkUsers.getUser.mockResolvedValue({
@@ -106,7 +119,12 @@ describe("認証ミドルウェア", () => {
       const app = buildApp();
       await app.request(
         "/public/ping",
-        { method: "GET" },
+        {
+          method: "GET",
+          // optionalAuth は Bearer トークンが無いと Clerk を呼ばないため
+          // このテストでは認証ヘッダを付けて middleware まで到達させる。
+          headers: { Authorization: "Bearer test-token" },
+        },
         testBindings({
           CLERK_AUTHORIZED_PARTIES: "https://animeishi.uomi.dev",
         }),
@@ -205,16 +223,131 @@ describe("認証ミドルウェア", () => {
     });
   });
 
+  describe("requireAuth", () => {
+    it("clerkMiddleware が handshake 応答を返したら 401 を返す", async () => {
+      // Accept: text/html のドキュメント取得などで Clerk が handshake を
+      // 返すと auth が未設定のままになる。以前は getAuth が throw して
+      // 500 になっていた（issue #154）。
+      clerkMiddlewareArgs.behavior = "handshake";
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("clerkMiddleware が例外を投げても 401 を返す", async () => {
+      clerkMiddlewareArgs.behavior = "throw";
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer invalid-token" },
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("getAuth が例外を投げても 401 を返す", async () => {
+      vi.mocked(getAuth).mockImplementation(() => {
+        throw new Error(
+          "Clerk: getAuth() called without clerkMiddleware() being applied.",
+        );
+      });
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer invalid-token" },
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe("optionalAuth", () => {
     it("未認証でも匿名として通過する", async () => {
       signInAs(null);
       const app = buildApp();
       const res = await app.request(
         "/public/ping",
-        { method: "GET" },
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer test-token" },
+        },
         testBindings({
           CLERK_AUTHORIZED_PARTIES: "https://animeishi.uomi.dev",
         }),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ viewer: null });
+    });
+
+    it("Authorization ヘッダが無ければ Clerk を呼ばず匿名として通過する", async () => {
+      // クローラーやブラウザのドキュメント取得は Bearer を持たない。
+      // Clerk を呼ぶと handshake で getAuth が throw するため、
+      // そもそも呼ばないことで防ぐ（issue #154）。
+      const app = buildApp();
+      const res = await app.request(
+        "/public/ping",
+        { method: "GET", headers: { Accept: "text/html" } },
+        testBindings(),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ viewer: null });
+      expect(clerkMiddlewareArgs.calls).toHaveLength(0);
+    });
+
+    it("clerkMiddleware が handshake 応答を返しても匿名として通過する", async () => {
+      clerkMiddlewareArgs.behavior = "handshake";
+      const app = buildApp();
+      const res = await app.request(
+        "/public/ping",
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer test-token" },
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ viewer: null });
+    });
+
+    it("clerkMiddleware が例外を投げても匿名として通過する", async () => {
+      clerkMiddlewareArgs.behavior = "throw";
+      const app = buildApp();
+      const res = await app.request(
+        "/public/ping",
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer invalid-token" },
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ viewer: null });
+    });
+
+    it("getAuth が例外を投げても匿名として通過する", async () => {
+      vi.mocked(getAuth).mockImplementation(() => {
+        throw new Error(
+          "Clerk: getAuth() called without clerkMiddleware() being applied.",
+        );
+      });
+      const app = buildApp();
+      const res = await app.request(
+        "/public/ping",
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer invalid-token" },
+        },
+        testBindings(),
       );
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ viewer: null });

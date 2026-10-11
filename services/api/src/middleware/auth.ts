@@ -70,14 +70,28 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     // exactOptionalPropertyTypes のため未設定時はキー自体を渡さない
     ...(authorizedParties ? { authorizedParties } : {}),
   });
-  await middleware(c as unknown as Context, async () => {});
 
-  const auth = getAuth(c as unknown as Context);
-  if (!auth?.userId) {
+  let userId: string;
+  try {
+    // handshake が必要なリクエスト（Accept: text/html のドキュメント取得など）
+    // では clerkMiddleware が next を呼ばずリダイレクト応答を返す。
+    // その場合 auth が未設定で getAuth が throw するため、API としては
+    // handshake 応答をそのまま返さず 401 にする（issue #154）。
+    if (await middleware(c as unknown as Context, async () => {})) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    const auth = getAuth(c as unknown as Context);
+    if (!auth?.userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    userId = auth.userId;
+  } catch {
+    // authenticateRequest / getAuth の例外は 401 に丸める。
+    // 以前は getAuth の throw が未処理で 500 になっていた。
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  c.set("clerkUserId", auth.userId);
+  c.set("clerkUserId", userId);
 
   // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。
   // watch_history / favorites などの外部キー制約を満たすため、
@@ -85,9 +99,9 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 表示名は Clerk のユーザー情報（username / 氏名）から解決する。
   // Clerk API 呼び出しは users 未登録の初回のみ行われる（ensureUserExists 側で制御）。
   const db = createDb((c.env as { DB: D1Database }).DB);
-  await authorizedDb(db, auth.userId).ensureUserExists(async () => {
+  await authorizedDb(db, userId).ensureUserExists(async () => {
     const clerk = c.get("clerk");
-    const user = await clerk.users.getUser(auth.userId);
+    const user = await clerk.users.getUser(userId);
     const fullName = [user.firstName, user.lastName]
       .filter(Boolean)
       .join(" ")
@@ -106,8 +120,18 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
  */
 export const optionalAuth = createMiddleware<OptionalAuthEnv>(
   async (c, next) => {
-    // Clerk キー未設定の環境では認証を試みず匿名扱いにする。
-    if (!c.env.CLERK_SECRET_KEY || !c.env.CLERK_PUBLISHABLE_KEY) {
+    // Bearer トークンを持たないリクエスト（SNS クローラーやブラウザの
+    // ドキュメント取得など）は Clerk を呼ばず匿名扱いにする。
+    // 呼ぶと Accept: text/html なリクエストで Clerk が handshake 応答を返し、
+    // auth 未設定のまま getAuth が throw して 500 になる（issue #154）。
+    const authorization = c.req.header("Authorization") ?? "";
+    const hasBearerToken = /^bearer\s+\S/i.test(authorization);
+    // Clerk キー未設定の環境でも認証を試みず匿名扱いにする。
+    if (
+      !hasBearerToken ||
+      !c.env.CLERK_SECRET_KEY ||
+      !c.env.CLERK_PUBLISHABLE_KEY
+    ) {
       await next();
       return;
     }
@@ -120,11 +144,18 @@ export const optionalAuth = createMiddleware<OptionalAuthEnv>(
       // exactOptionalPropertyTypes のため未設定時はキー自体を渡さない
       ...(authorizedParties ? { authorizedParties } : {}),
     });
-    await middleware(c as unknown as Context, async () => {});
-
-    const auth = getAuth(c as unknown as Context);
-    if (auth?.userId) {
-      c.set("clerkUserId", auth.userId);
+    try {
+      // handshake 応答（Response が返り next が呼ばれない）や
+      // authenticateRequest / getAuth の例外は匿名閲覧にフォールバックする。
+      // 公開エンドポイントなので Clerk のリダイレクトは返さない。
+      if (!(await middleware(c as unknown as Context, async () => {}))) {
+        const auth = getAuth(c as unknown as Context);
+        if (auth?.userId) {
+          c.set("clerkUserId", auth.userId);
+        }
+      }
+    } catch {
+      // 無効トークン等による例外は匿名として扱う（401 にはしない）。
     }
     await next();
   },

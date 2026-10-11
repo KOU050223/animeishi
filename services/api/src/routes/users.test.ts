@@ -505,9 +505,17 @@ describe("ユーザー通報・ブロック API", () => {
         TEST_BINDINGS,
       );
 
+      // ログイン済みの閲覧者として扱われるには Authorization: Bearer が必要
+      // （optionalAuth は Bearer 無しでは匿名として素通りする）。
       const res = await app.request(
         `/user/${USER_B}`,
-        { method: "GET", headers: { Accept: "application/json" } },
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: "Bearer test-token",
+          },
+        },
         TEST_BINDINGS,
       );
       expect(res.status).toBe(404);
@@ -525,7 +533,13 @@ describe("ユーザー通報・ブロック API", () => {
       signInAs(USER_A);
       const res = await app.request(
         `/user/${USER_B}`,
-        { method: "GET", headers: { Accept: "application/json" } },
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: "Bearer test-token",
+          },
+        },
         TEST_BINDINGS,
       );
       expect(res.status).toBe(404);
