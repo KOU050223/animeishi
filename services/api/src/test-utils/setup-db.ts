@@ -101,6 +101,28 @@ const DDL_STATEMENTS = [
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    reporter_id TEXT NOT NULL,
+    reported_user_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
+  `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,
+  `CREATE TABLE IF NOT EXISTS blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    blocker_id TEXT NOT NULL,
+    blocked_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS blocks_blocker_blocked_unique ON blocks (blocker_id, blocked_id)`,
+  `CREATE INDEX IF NOT EXISTS blocks_blocker_idx ON blocks (blocker_id)`,
+  `CREATE INDEX IF NOT EXISTS blocks_blocked_idx ON blocks (blocked_id)`,
 ];
 
 /**
@@ -115,6 +137,8 @@ export async function setupTestDb(d1: D1Database) {
   }
   const db = drizzle(d1, { schema });
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
+  await d1.prepare("DELETE FROM reports").run();
+  await d1.prepare("DELETE FROM blocks").run();
   await d1.prepare("DELETE FROM annict_tokens").run();
   await d1.prepare("DELETE FROM tier_list_items").run();
   await d1.prepare("DELETE FROM tier_lists").run();
@@ -127,7 +151,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'reports', 'blocks')",
     )
     .run();
   return db;

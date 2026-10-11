@@ -71,6 +71,9 @@ export function useAddFriend() {
         if (status === 400) {
           throw new ApiRequestError(400, "このユーザーは追加できません");
         }
+        if (status === 403) {
+          throw new ApiRequestError(403, "このユーザーは追加できません");
+        }
         throw new ApiRequestError(status, "フレンド追加に失敗しました");
       }
       return res.json();

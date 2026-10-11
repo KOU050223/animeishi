@@ -1,4 +1,14 @@
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { fetchTierListItems } from "./sharedTierLists";
@@ -12,6 +22,8 @@ import {
   annictTokens,
   tierLists,
   tierListItems,
+  reports,
+  blocks,
 } from "@/db/schema";
 import type {
   User,
@@ -24,6 +36,7 @@ import type {
   NewAnnictWork,
   AnnictToken,
   TierList,
+  Report,
 } from "@/db/schema";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -31,6 +44,26 @@ export class FriendNotFoundError extends Error {
   constructor(friendId: string) {
     super(`ユーザーが見つかりません: ${friendId}`);
     this.name = "FriendNotFoundError";
+  }
+}
+
+/** 通報・ブロックの対象ユーザーが存在しないときに投げるエラー。ルート層で 404 に変換する。 */
+export class UserNotFoundError extends Error {
+  constructor(userId: string) {
+    super(`ユーザーが見つかりません: ${userId}`);
+    this.name = "UserNotFoundError";
+  }
+}
+
+/**
+ * ブロック関係（双方向）がある相手への操作を拒否するときに投げるエラー。
+ * ルート層で 403 に変換する。どちらがブロックした側かはメッセージに含めない
+ * （相手にブロックされている事実を漏らさないため）。
+ */
+export class UserBlockedError extends Error {
+  constructor(userId: string) {
+    super(`このユーザーには操作できません: ${userId}`);
+    this.name = "UserBlockedError";
   }
 }
 
@@ -65,6 +98,14 @@ export type WatchHistoryWithWork = WatchHistory & AnnictWorkMeta;
 
 /** お気に入りの 1 件（作品メタを含む）。 */
 export type FavoriteWithWork = Favorite & AnnictWorkMeta;
+
+/** ブロック一覧の 1 件（相手プロフィールを含む）。 */
+export type BlockedUser = {
+  blockedId: string;
+  createdAt: Date;
+  username: string;
+  profileImageUrl: string | null;
+};
 
 /** tier 表に配置された作品 1 件（作品メタを含む）。 */
 export type TierListItemWithWork = {
@@ -819,6 +860,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
      * フレンド一覧を取得する。
      * friends と users を JOIN し、相手のプロフィールを 1 クエリで取得する
      * （フレンドごとに users を引く N+1 を避けるため）。
+     * ブロック関係（どちら方向でも）にあるユーザーは除外する。
      */
     async getMyFriends(): Promise<FriendWithUser[]> {
       const rows = await db
@@ -832,7 +874,28 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         })
         .from(friends)
         .innerJoin(users, eq(friends.friendId, users.id))
-        .where(eq(friends.userId, currentUserId))
+        .where(
+          and(
+            eq(friends.userId, currentUserId),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(blocks)
+                .where(
+                  or(
+                    and(
+                      eq(blocks.blockerId, currentUserId),
+                      eq(blocks.blockedId, friends.friendId),
+                    ),
+                    and(
+                      eq(blocks.blockerId, friends.friendId),
+                      eq(blocks.blockedId, currentUserId),
+                    ),
+                  ),
+                ),
+            ),
+          ),
+        )
         .orderBy(desc(friends.createdAt));
       return rows;
     },
@@ -851,6 +914,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
       if (!target) {
         throw new FriendNotFoundError(friendId);
+      }
+      if (await this.isBlockedWith(friendId)) {
+        throw new UserBlockedError(friendId);
       }
       const now = new Date();
       await db.batch([
@@ -893,6 +959,126 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             ),
           ),
       ]);
+    },
+
+    // ---- Reports / Blocks ----
+    /**
+     * 自分と指定ユーザーの間にブロック関係（どちら方向でも）があるか。
+     * 名刺閲覧・フレンド追加など、相手側からのブロックにも効かせたい判定で使う。
+     */
+    async isBlockedWith(otherUserId: string): Promise<boolean> {
+      const row = await db.query.blocks.findFirst({
+        where: (t, { and: and_, or: or_, eq: eq_ }) =>
+          or_(
+            and_(
+              eq_(t.blockerId, currentUserId),
+              eq_(t.blockedId, otherUserId),
+            ),
+            and_(
+              eq_(t.blockerId, otherUserId),
+              eq_(t.blockedId, currentUserId),
+            ),
+          ),
+        columns: { id: true },
+      });
+      return row !== undefined;
+    },
+
+    /** 他ユーザーを通報する。対象が存在しなければ UserNotFoundError。 */
+    async createReport(targetUserId: string, reason: string): Promise<Report> {
+      if (targetUserId === currentUserId) {
+        throw new Error("自分自身を通報することはできません");
+      }
+      const target = await db.query.users.findFirst({
+        where: eq(users.id, targetUserId),
+        columns: { id: true },
+      });
+      if (!target) {
+        throw new UserNotFoundError(targetUserId);
+      }
+      const [created] = await db
+        .insert(reports)
+        .values({
+          reporterId: currentUserId,
+          reportedUserId: targetUserId,
+          reason,
+          createdAt: new Date(),
+        })
+        .returning();
+      if (!created) throw new Error("通報の作成に失敗しました");
+      return created;
+    },
+
+    /**
+     * 他ユーザーをブロックする（冪等）。
+     * 既存のフレンド関係があれば双方向で解消する（ブロック後もフレンド行が
+     * 残ると、相手のフレンド一覧に自分が残り続けてしまうため）。
+     * 対象が存在しなければ UserNotFoundError。
+     */
+    async blockUser(targetUserId: string): Promise<void> {
+      if (targetUserId === currentUserId) {
+        throw new Error("自分自身をブロックすることはできません");
+      }
+      const target = await db.query.users.findFirst({
+        where: eq(users.id, targetUserId),
+        columns: { id: true },
+      });
+      if (!target) {
+        throw new UserNotFoundError(targetUserId);
+      }
+      await db.batch([
+        db
+          .insert(blocks)
+          .values({
+            blockerId: currentUserId,
+            blockedId: targetUserId,
+            createdAt: new Date(),
+          })
+          .onConflictDoNothing(),
+        db
+          .delete(friends)
+          .where(
+            and(
+              eq(friends.userId, currentUserId),
+              eq(friends.friendId, targetUserId),
+            ),
+          ),
+        db
+          .delete(friends)
+          .where(
+            and(
+              eq(friends.userId, targetUserId),
+              eq(friends.friendId, currentUserId),
+            ),
+          ),
+      ]);
+    },
+
+    /** ブロックを解除する。ブロックしていなくても成功（冪等）。 */
+    async unblockUser(targetUserId: string): Promise<void> {
+      await db
+        .delete(blocks)
+        .where(
+          and(
+            eq(blocks.blockerId, currentUserId),
+            eq(blocks.blockedId, targetUserId),
+          ),
+        );
+    },
+
+    /** 自分がブロックしているユーザーの一覧（相手プロフィール付き）。 */
+    async getMyBlocks(): Promise<BlockedUser[]> {
+      return db
+        .select({
+          blockedId: blocks.blockedId,
+          createdAt: blocks.createdAt,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        })
+        .from(blocks)
+        .innerJoin(users, eq(blocks.blockedId, users.id))
+        .where(eq(blocks.blockerId, currentUserId))
+        .orderBy(desc(blocks.createdAt));
     },
 
     // ---- User Genres ----
@@ -951,6 +1137,23 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             ),
           ),
         db.delete(userGenres).where(eq(userGenres.userId, currentUserId)),
+        // friends と同様に両方向の行を対象にする
+        db
+          .delete(reports)
+          .where(
+            or(
+              eq(reports.reporterId, currentUserId),
+              eq(reports.reportedUserId, currentUserId),
+            ),
+          ),
+        db
+          .delete(blocks)
+          .where(
+            or(
+              eq(blocks.blockerId, currentUserId),
+              eq(blocks.blockedId, currentUserId),
+            ),
+          ),
       ];
       if (myTierListIds.length > 0) {
         queries.push(

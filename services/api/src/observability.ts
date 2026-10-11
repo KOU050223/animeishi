@@ -94,6 +94,24 @@ export function captureApiError(err: unknown, c: Context): void {
   });
 }
 
+// ユーザー通報を運営通知として Sentry に送る。
+// アプリ側に Discord Webhook を持たない方針（docs/08_observability-design.md）
+// のため、Sentry Alert 経由の Discord 通知に乗せる。
+// SENTRY_DSN 未設定の環境では SDK が no-op になり通知は送られない。
+export function notifyUserReport(
+  c: Context,
+  input: { reporterId: string; reportedUserId: string; reason: string },
+): void {
+  Sentry.withScope((scope) => {
+    const requestId = c.get("requestId");
+    if (requestId) {
+      scope.setTag(TAG_KEYS.requestId, requestId);
+    }
+    scope.setContext("user_report", input);
+    Sentry.captureMessage("user_report_received", "warning");
+  });
+}
+
 // Hono の app.onError 本体。分類・送信可否・応答整形をここに集約する。
 // ユーザー要因（HTTPException <500、AnnictApiError の 401）は Sentry に送らない。
 export function handleError(err: Error, c: Context): Response {

@@ -200,6 +200,51 @@ export const tierListItems = sqliteTable(
   ],
 );
 
+// ---- reports (ユーザー通報) ----
+// App Store Guideline 1.2 (UGC) 対応。運営がモデレーションするための通報を記録する。
+// reporter / reported のどちらのアカウントが削除されても cascade で消える。
+export const reports = sqliteTable(
+  "reports",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reportedUserId: text("reported_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    index("reports_reporter_idx").on(t.reporterId),
+    index("reports_reported_user_idx").on(t.reportedUserId),
+  ],
+);
+
+// ---- blocks (ユーザーブロック) ----
+// App Store Guideline 1.2 (UGC) 対応。blocker が blocked を見えなくする。
+// ブロックは双方向で効かせる（自分がブロックした相手も、自分をブロックした相手も
+// フレンド一覧・名刺閲覧・フレンド追加から除外される）。
+export const blocks = sqliteTable(
+  "blocks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    blockerId: text("blocker_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedId: text("blocked_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    unique("blocks_blocker_blocked_unique").on(t.blockerId, t.blockedId),
+    index("blocks_blocker_idx").on(t.blockerId),
+    index("blocks_blocked_idx").on(t.blockedId),
+  ],
+);
+
 // ---- user_genres (選択ジャンル) ----
 export const userGenres = sqliteTable(
   "user_genres",
@@ -234,3 +279,7 @@ export type TierListItem = typeof tierListItems.$inferSelect;
 export type NewTierListItem = typeof tierListItems.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
+export type Report = typeof reports.$inferSelect;
+export type NewReport = typeof reports.$inferInsert;
+export type Block = typeof blocks.$inferSelect;
+export type NewBlock = typeof blocks.$inferInsert;

@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb, FriendNotFoundError } from "@/repository/authorizedDb";
+import {
+  authorizedDb,
+  FriendNotFoundError,
+  UserBlockedError,
+} from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
 function getBindings(
@@ -38,6 +42,9 @@ const friends = new Hono<AuthVariables>()
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
         return c.json({ error: "User not found" }, 404);
+      }
+      if (e instanceof UserBlockedError) {
+        return c.json({ error: "このユーザーは追加できません" }, 403);
       }
       throw e;
     }

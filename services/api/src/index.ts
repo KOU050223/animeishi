@@ -20,6 +20,7 @@ import { pass } from "./routes/pass";
 import { share } from "./routes/share";
 import { tierLists } from "./routes/tier-lists";
 import { user } from "./routes/user";
+import { usersRoute } from "./routes/users";
 import { watchHistory } from "./routes/watch-history";
 import { works } from "./routes/works";
 
@@ -73,7 +74,8 @@ const routes = app
   .route("/me/friends", friends)
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
-  .route("/user", user);
+  .route("/user", user)
+  .route("/users", usersRoute);
 
 export type AppType = typeof routes;
 

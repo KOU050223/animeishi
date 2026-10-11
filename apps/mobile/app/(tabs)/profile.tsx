@@ -293,6 +293,22 @@ export default function ProfileScreen() {
 
         <View className="mt-8 px-4">
           <Text className="mb-2 text-sm font-medium text-gray-700">
+            プライバシーと安全
+          </Text>
+          <View className="rounded-xl border border-gray-200 bg-white">
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/blocked-users")}
+              accessibilityRole="button"
+              accessibilityLabel="ブロック中のユーザーを開く"
+            >
+              <Text className="text-gray-900">ブロック中のユーザー</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="mt-8 px-4">
+          <Text className="mb-2 text-sm font-medium text-gray-700">
             法務情報
           </Text>
           <View className="rounded-xl border border-gray-200 bg-white">
