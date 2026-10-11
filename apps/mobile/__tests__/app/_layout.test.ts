@@ -27,4 +27,15 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "privacy"');
     expect(source).toContain('segments[0] === "terms"');
   });
+
+  test("declares the public support route", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // ストア掲載のサポート URL（/support）も未ログインで開ける必要がある。
+    expect(source).toContain('<Stack.Screen name="support" />');
+    expect(source).toContain('segments[0] === "support"');
+  });
 });

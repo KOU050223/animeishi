@@ -314,6 +314,15 @@ export default function ProfileScreen() {
             >
               <Text className="text-gray-900">利用規約</Text>
             </TouchableOpacity>
+            <View className="h-px bg-gray-100" />
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/support")}
+              accessibilityRole="button"
+              accessibilityLabel="サポートを開く"
+            >
+              <Text className="text-gray-900">サポート</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
