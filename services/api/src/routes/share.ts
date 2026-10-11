@@ -185,12 +185,18 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   if (declaredLength > IMAGE_PROXY_MAX_BYTES) {
     return c.json({ error: "Image too large" }, 502);
   }
-  const body = await upstream.arrayBuffer();
-  if (body.byteLength > IMAGE_PROXY_MAX_BYTES) {
-    return c.json({ error: "Image too large" }, 502);
+  // content-length が無い応答を arrayBuffer() で読むと全量メモリに乗るため、
+  // ストリームで上限まで読み、超過した時点で中断する。読み取り中の切断・
+  // タイムアウトも上流の取得失敗として 502 にする。
+  const read = await readBodyWithLimit(upstream.body, IMAGE_PROXY_MAX_BYTES);
+  if (!read.ok) {
+    return c.json(
+      { error: read.tooLarge ? "Image too large" : "Failed to fetch image" },
+      502,
+    );
   }
 
-  return new Response(body, {
+  return new Response(read.data, {
     headers: {
       "content-type": contentType,
       // 作品画像は URL 単位でほぼ不変なので CDN/ブラウザにキャッシュさせる。
@@ -198,6 +204,45 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
       "x-content-type-options": "nosniff",
     },
   });
+}
+
+/**
+ * レスポンスボディを maxBytes までストリーム読みする。
+ * 超過が確定した時点で reader.cancel() して中断し、残りを受け取らない。
+ * 読み取り自体の失敗（切断・シグナル発火）は tooLarge: false の失敗として返す。
+ */
+async function readBodyWithLimit(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<{ ok: true; data: ArrayBuffer } | { ok: false; tooLarge: boolean }> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  if (stream) {
+    const reader = stream.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel();
+          return { ok: false, tooLarge: true };
+        }
+        chunks.push(value);
+      }
+    } catch {
+      return { ok: false, tooLarge: false };
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  const data = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    data.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, data: data.buffer };
 }
 
 /**
@@ -210,8 +255,12 @@ function isSafeImageUrl(url: string): boolean {
 }
 
 function workImageHtml(item: SharedTierList["items"][number]): string {
-  const src = item.resolvedImageUrl ?? item.imageUrl;
-  if (!src || !isSafeImageUrl(src)) return "";
+  // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
+  // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
+  const src = [item.resolvedImageUrl, item.imageUrl].find(
+    (u): u is string => !!u && isSafeImageUrl(u),
+  );
+  if (!src) return "";
   return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
@@ -229,8 +278,10 @@ function buildSharedTierListHtml(list: SharedTierList): string {
 
   // og:image には先頭の作品画像を使う。クローラは直接取得できるため
   // プロキシ経由は不要。https を優先し、無ければ最初の安全な URL。
+  // resolvedImageUrl が不安全なら imageUrl 側も候補にする
+  // （ページ上のポスター表示 workImageHtml と同じ選び方）。
   const ogImageCandidates = list.items
-    .map((item) => item.resolvedImageUrl ?? item.imageUrl)
+    .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
     .filter((u): u is string => !!u && isSafeImageUrl(u));
   const ogImage =
     ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??

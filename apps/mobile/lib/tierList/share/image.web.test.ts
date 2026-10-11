@@ -3,7 +3,13 @@
  */
 import type { RefObject } from "react";
 import type { View } from "react-native";
-import { shareTierListImage } from "./image.web";
+import {
+  canShareImageFile,
+  captureTierListImageFile,
+  downloadImageFile,
+  shareImageFile,
+  shareTierListImage,
+} from "./image.web";
 
 // toPng 自体はブラウザ依存（canvas）なのでモックし、dataURL を返すだけにする。
 const mockToPng = jest.fn();
@@ -160,5 +166,119 @@ describe("shareTierListImage (web)", () => {
     await expect(
       shareTierListImage(target, { dialogTitle: "t" }),
     ).rejects.toThrow("キャプチャ対象の DOM 要素が見つかりません");
+  });
+});
+
+describe("captureTierListImageFile (web)", () => {
+  const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, "click");
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    mockToPng.mockReset().mockResolvedValue(PNG_DATA_URL);
+    clickSpy.mockReset();
+    Object.defineProperty(navigator, "share", {
+      value: jest.fn(),
+      configurable: true,
+    });
+  });
+
+  it("PNG 化した File を返すだけで、共有・ダウンロードはしない", async () => {
+    const target = buildTarget("<div>tier</div>");
+    const file = await captureTierListImageFile(target, { title: "テスト表" });
+    expect(file.name).toBe("テスト表.png");
+    expect(file.type).toBe("image/png");
+    expect(file.size).toBeGreaterThan(0);
+    // 受け渡しは呼び出し側（モーダル内の別ボタン）が行う
+    expect(navigator.share).not.toHaveBeenCalled();
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it("画像が 1 枚も無くても File を返す", async () => {
+    const target = buildTarget("<span>only text</span>");
+    const file = await captureTierListImageFile(target, { title: "t" });
+    expect(file.type).toBe("image/png");
+  });
+});
+
+describe("canShareImageFile / shareImageFile / downloadImageFile (web)", () => {
+  const shareMock = jest.fn();
+  const canShareMock = jest.fn();
+  const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, "click");
+  const FILE = () =>
+    new File([new Uint8Array([1, 2, 3])], "tier.png", { type: "image/png" });
+
+  beforeEach(() => {
+    shareMock.mockReset().mockResolvedValue(undefined);
+    canShareMock.mockReset().mockReturnValue(true);
+    clickSpy.mockReset();
+    Object.defineProperty(navigator, "share", {
+      value: shareMock,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "canShare", {
+      value: canShareMock,
+      configurable: true,
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      value: jest.fn(() => "blob:mock"),
+      configurable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      value: jest.fn(),
+      configurable: true,
+    });
+  });
+
+  it("canShareImageFile は canShare({ files }) の結果を返す", () => {
+    const file = FILE();
+    expect(canShareImageFile(file)).toBe(true);
+    expect(canShareMock).toHaveBeenCalledWith({ files: [file] });
+    canShareMock.mockReturnValue(false);
+    expect(canShareImageFile(file)).toBe(false);
+  });
+
+  it("canShare / share が無い環境では canShareImageFile は false", () => {
+    Object.defineProperty(navigator, "canShare", {
+      value: undefined,
+      configurable: true,
+    });
+    expect(canShareImageFile(FILE())).toBe(false);
+  });
+
+  it("shareImageFile は生成済み File を share へ渡す", async () => {
+    const file = FILE();
+    await shareImageFile(file, "テスト表");
+    expect(shareMock).toHaveBeenCalledWith({
+      files: [file],
+      title: "テスト表",
+    });
+  });
+
+  it("shareImageFile: AbortError は完了扱い、それ以外は再 throw する", async () => {
+    shareMock.mockRejectedValueOnce(
+      Object.assign(new Error("cancelled"), { name: "AbortError" }),
+    );
+    await expect(shareImageFile(FILE(), "t")).resolves.toBeUndefined();
+
+    shareMock.mockRejectedValueOnce(
+      Object.assign(new Error("denied"), { name: "NotAllowedError" }),
+    );
+    await expect(shareImageFile(FILE(), "t")).rejects.toThrow("denied");
+  });
+
+  it("shareImageFile: navigator.share が無い環境ではエラーになる", async () => {
+    Object.defineProperty(navigator, "share", {
+      value: undefined,
+      configurable: true,
+    });
+    await expect(shareImageFile(FILE(), "t")).rejects.toThrow(
+      "Web Share API を利用できません",
+    );
+  });
+
+  it("downloadImageFile は a.download 経由で保存する", () => {
+    const file = FILE();
+    downloadImageFile(file);
+    expect(clickSpy).toHaveBeenCalled();
   });
 });

@@ -3,7 +3,12 @@
  */
 import { useState } from "react";
 import { Button, View } from "react-native";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { useTierUrlShare } from "./urlShare.web";
 
 const mockCopy = jest.fn();
@@ -13,18 +18,30 @@ jest.mock("./sheet", () => ({
   copyTierListUrl: (url: string) => mockCopy(url),
 }));
 
+const mockCanShare = jest.fn();
+const mockShareFile = jest.fn();
+const mockDownload = jest.fn();
+// 同様に "./image" もフォールバック解決になるためモックする。
+jest.mock("./image", () => ({
+  canShareImageFile: (file: File) => mockCanShare(file),
+  shareImageFile: (file: File, title: string) => mockShareFile(file, title),
+  downloadImageFile: (file: File) => mockDownload(file),
+}));
+
 // Web 共有モーダル: URL 発行後にモーダルを出し、[Xで共有] / [URLをコピー] を
 // ユーザーの操作内で実行する（ネットワーク待ち後の navigator.share は
 // ブラウザのユーザー操作期限で拒否されるため）。
+// 画像は「生成」→ 完了後の別ボタンで「共有 / ダウンロード」の 2 段階
+// （生成待ちで操作期限が切れないようにするため）。
 
 const SHARE_URL = "https://api.example/share/tier-lists/tok1";
 
-const mockShareImage = jest.fn();
+const mockGenerateFile = jest.fn();
 
 function Harness() {
   const { shareUrl, urlShareElement } = useTierUrlShare({
     tweetText: "テストTier表",
-    onShareImage: mockShareImage,
+    generateImageFile: () => mockGenerateFile(),
   });
   const [result, setResult] = useState("");
   return (
@@ -41,12 +58,19 @@ function Harness() {
   );
 }
 
+function pngFile(name = "テストTier表.png") {
+  return new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });
+}
+
 describe("useTierUrlShare (web)", () => {
   const openSpy = jest.fn();
 
   beforeEach(() => {
     openSpy.mockReset();
-    mockShareImage.mockReset();
+    mockGenerateFile.mockReset();
+    mockCanShare.mockReset().mockReturnValue(true);
+    mockShareFile.mockReset().mockResolvedValue(undefined);
+    mockDownload.mockReset();
     mockCopy.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(window, "open", { value: openSpy, writable: true });
   });
@@ -91,13 +115,58 @@ describe("useTierUrlShare (web)", () => {
     expect(screen.queryByText(SHARE_URL)).toBeNull();
   });
 
-  it("「画像を保存」はモーダルを閉じてから onShareImage を呼ぶ", async () => {
+  it("「画像を生成」で File を作り、完了後の「画像を共有」で共有シートへ渡す", async () => {
+    const file = pngFile();
+    mockGenerateFile.mockResolvedValue(file);
     render(<Harness />);
     fireEvent.press(screen.getByTestId("share"));
-    fireEvent.press(await screen.findByText("画像を保存"));
+    fireEvent.press(await screen.findByText("画像を生成"));
 
-    expect(mockShareImage).toHaveBeenCalled();
-    // モーダルは閉じる
-    expect(screen.queryByText(SHARE_URL)).toBeNull();
+    // 生成完了後に共有ボタンが出る（生成待ちで操作期限を切らさない）
+    fireEvent.press(await screen.findByText("画像を共有"));
+    expect(mockShareFile).toHaveBeenCalledWith(file, "テストTier表");
+    // 共有に渡せたらモーダルは閉じる
+    await waitFor(() => expect(screen.queryByText(SHARE_URL)).toBeNull());
+  });
+
+  it("共有非対応の環境では「画像をダウンロード」だけを出す", async () => {
+    mockCanShare.mockReturnValue(false);
+    mockGenerateFile.mockResolvedValue(pngFile());
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId("share"));
+    fireEvent.press(await screen.findByText("画像を生成"));
+
+    fireEvent.press(await screen.findByText("画像をダウンロード"));
+    expect(screen.queryByText("画像を共有")).toBeNull();
+    expect(mockDownload).toHaveBeenCalledWith(expect.any(File));
+    // ダウンロード後もモーダルは開いたまま（URL コピー等を続けられる）
+    expect(screen.getByText(SHARE_URL)).toBeTruthy();
+  });
+
+  it("画像生成に失敗したらエラーを表示し、モーダルは開いたまま", async () => {
+    mockGenerateFile.mockRejectedValue(new Error("capture failed"));
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId("share"));
+    fireEvent.press(await screen.findByText("画像を生成"));
+
+    expect(await screen.findByText("画像の生成に失敗しました")).toBeTruthy();
+    expect(screen.getByText(SHARE_URL)).toBeTruthy();
+    expect(mockShareFile).not.toHaveBeenCalled();
+  });
+
+  it("共有が失敗したらエラーを表示し、モーダルは開いたまま", async () => {
+    mockGenerateFile.mockResolvedValue(pngFile());
+    mockShareFile.mockRejectedValue(new Error("share failed"));
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId("share"));
+    fireEvent.press(await screen.findByText("画像を生成"));
+    fireEvent.press(await screen.findByText("画像を共有"));
+
+    expect(
+      await screen.findByText(
+        "共有に失敗しました。ダウンロードをお試しください。",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(SHARE_URL)).toBeTruthy();
   });
 });

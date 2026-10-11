@@ -1,6 +1,6 @@
 import { toPng } from "html-to-image";
 import { apiUrl } from "@/lib/apiUrl";
-import type { ShareTierListImage } from "./types";
+import type { CaptureTierListImageFile, ShareTierListImage } from "./types";
 
 // RN 向け tsconfig の DOM lib では Navigator.share / canShare が
 // 型に無いことがあるため、自前で補う。
@@ -64,17 +64,18 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 /**
- * Web: 画面外にレンダリングしたスナップショットの DOM を html-to-image で
- * PNG 化し、Web Share API（files）が使えれば共有シートへ、無ければ
- * ダウンロードとして保存する。
+ * 画面外にレンダリングしたスナップショットの DOM を html-to-image で PNG 化し、
+ * File として返す。共有・ダウンロードへの受け渡しは行わない
+ * （Web Share API のユーザー操作期限があるため、受け渡しは
+ * クリックハンドラ内で shareImageFile / downloadImageFile を呼ぶ）。
  *
  * 事前に <img> の src を API の画像プロキシへ差し替える。差し替えた img の
  * 読み込みに失敗したものは取り除く（タイトルだけのカードが残る）。
  * 元の src への復元はしない（スナップショットはキャプチャ後に破棄される）。
  */
-export const shareTierListImage: ShareTierListImage = async (
+export const captureTierListImageFile: CaptureTierListImageFile = async (
   target,
-  { dialogTitle },
+  { title },
 ) => {
   const node = target.current as unknown;
   if (!(node instanceof HTMLElement)) {
@@ -102,25 +103,62 @@ export const shareTierListImage: ShareTierListImage = async (
     skipFonts: true,
   });
 
-  const blob = dataUrlToBlob(dataUrl);
-  const fileName = toFileName(dialogTitle);
-  const file = new File([blob], fileName, { type: "image/png" });
-  const nav = navigator as WebNavigator;
+  return new File([dataUrlToBlob(dataUrl)], toFileName(title), {
+    type: "image/png",
+  });
+};
 
-  if (
+/** navigator.share({ files }) で画像ファイルを渡せる環境か。 */
+export function canShareImageFile(file: File): boolean {
+  const nav = navigator as WebNavigator;
+  return (
     typeof nav.canShare === "function" &&
     typeof nav.share === "function" &&
     nav.canShare({ files: [file] })
-  ) {
+  );
+}
+
+/**
+ * 共有シートで画像ファイルを渡す。ユーザーがシートを閉じた（AbortError）は
+ * 完了扱いでそのまま返る。それ以外の失敗は throw する。
+ * ユーザー操作期限があるためクリックハンドラ内で直接呼ぶこと
+ * （生成処理の後に呼ぶと期限切れで NotAllowedError になる）。
+ */
+export async function shareImageFile(file: File, title: string): Promise<void> {
+  const nav = navigator as WebNavigator;
+  if (typeof nav.share !== "function") {
+    throw new Error("Web Share API を利用できません");
+  }
+  try {
+    await nav.share({ files: [file], title });
+  } catch (e) {
+    if ((e as DOMException).name === "AbortError") return;
+    throw e;
+  }
+}
+
+/** 画像ファイルをダウンロードとして保存する。 */
+export function downloadImageFile(file: File): void {
+  downloadBlob(file, file.name);
+}
+
+/**
+ * Web: キャプチャ → 共有シート / ダウンロードまで一気に行う簡易経路。
+ * 共有モーダル経由（captureTierListImageFile + shareImageFile 等）が
+ * 通常の UI で、こちらは ShareTierListImage インターフェースの互換実装。
+ */
+export const shareTierListImage: ShareTierListImage = async (
+  target,
+  { dialogTitle },
+) => {
+  const file = await captureTierListImageFile(target, { title: dialogTitle });
+  if (canShareImageFile(file)) {
     try {
-      await nav.share({ files: [file], title: dialogTitle });
+      await shareImageFile(file, dialogTitle);
       return;
-    } catch (e) {
-      // ユーザーがシートを閉じただけ（AbortError）は完了扱い
-      if ((e as DOMException).name === "AbortError") return;
+    } catch {
       // 共有に失敗した場合はダウンロードへフォールバック
     }
   }
-
-  downloadBlob(blob, fileName);
+  downloadImageFile(file);
 };

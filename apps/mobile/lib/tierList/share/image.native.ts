@@ -1,6 +1,6 @@
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import type { ShareTierListImage } from "./types";
+import type { CaptureTierListImageFile, ShareTierListImage } from "./types";
 
 /**
  * iOS/Android: 画面外にレンダリングしたスナップショット View を PNG 化し、
@@ -16,4 +16,10 @@ export const shareTierListImage: ShareTierListImage = async (
     throw new Error("この端末では共有を利用できません");
   }
   await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle });
+};
+
+// 画像 File の生成は Web 共有モーダル専用
+// （native は shareTierListImage が OS 共有シートへ直接渡す）。
+export const captureTierListImageFile: CaptureTierListImageFile = () => {
+  throw new Error("captureTierListImageFile は Web 専用です");
 };

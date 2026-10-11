@@ -337,6 +337,48 @@ describe("tier 表の共有", () => {
     expect(html).toContain("悪意あるURLの作品");
     expect(html).not.toContain("javascript:");
   });
+
+  it("GET /share/tier-lists/:token: resolvedImageUrl が不安全なら imageUrl にフォールバックする", async () => {
+    const app = buildApp();
+    const db = await setupTestDb(env.DB);
+    // resolved は真値だが http(s) ではない。imageUrl 側が有効な作品では
+    // ページ上のポスター表示も og:image も imageUrl を使う。
+    await db.insert(annictWorks).values({
+      annictWorkId: WORK_EVIL,
+      title: "フォールバック作品",
+      resolvedImageUrl: "javascript:alert(1)",
+      imageUrl: "https://cdn.example.com/poster.png",
+      updatedAt: new Date(),
+    });
+    await app.request(
+      "/me/tier-lists",
+      putBody({
+        season: SEASON,
+        title: "2026春のTier表",
+        tiers: TIERS,
+        items: [{ annictWorkId: WORK_EVIL, tierKey: "s" }],
+      }),
+      TEST_BINDINGS,
+    );
+    const shareRes = await app.request(
+      `/me/tier-lists/${SEASON}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await shareRes.json()) as { shareToken: string };
+
+    const res = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    expect(html).toContain('src="https://cdn.example.com/poster.png"');
+    expect(html).toContain(
+      'property="og:image" content="https://cdn.example.com/poster.png"',
+    );
+    expect(html).not.toContain("javascript:");
+  });
 });
 
 describe("GET /share/image-proxy", () => {
@@ -541,6 +583,56 @@ describe("GET /share/image-proxy", () => {
 
   it("アップストリームへの fetch 自体が失敗したら 502 を返す", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("Content-Length が無くても本文が上限を超えたら途中で切って 502 を返す", async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            // 6 MB を 1 MB ずつ流す（content-length ヘッダは付けない）
+            for (let i = 0; i < 6; i++) controller.enqueue(chunk);
+            controller.close();
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        },
+      ),
+    );
+    const app = buildProxyApp();
+    const res = await app.request(
+      `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
+      {},
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("本文の読み取り途中で接続が切れたら 502 を返す", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1, 2]));
+            controller.error(new Error("connection reset"));
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        },
+      ),
+    );
     const app = buildProxyApp();
     const res = await app.request(
       `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
