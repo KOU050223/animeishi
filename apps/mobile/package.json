@@ -17,7 +17,8 @@
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix --deny-warnings",
     "format": "oxfmt --ignore-path ../../.oxfmtignore .",
-    "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
+    "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore .",
+    "generate:icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@animeishi/api": "workspace:*",
@@ -46,6 +47,7 @@
     "expo-router": "~6.0.23",
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
+    "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "~29.0.18",
     "expo-web-browser": "~15.0.10",
@@ -86,6 +88,7 @@
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
     "oxlint-config-universe": "0.0.3",
+    "sharp": "0.34.5",
     "typescript": "^5.7.3",
     "wrangler": "^4.12.0"
   }
