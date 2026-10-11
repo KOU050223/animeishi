@@ -26,7 +26,8 @@ concurrency:
 jobs:
   deploy-preview:
     name: Deploy Cloudflare Workers Preview
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Dependabot の PR には Actions secrets（CLOUDFLARE_API_TOKEN）が渡らないためスキップする
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
