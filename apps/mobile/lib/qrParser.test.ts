@@ -40,6 +40,12 @@ describe("parseUserIdFromQr", () => {
       );
     });
 
+    it("本番 Web 版プロフィール URL から抽出する（QR 埋め込み形式）", () => {
+      expect(
+        parseUserIdFromQr(`https://animeishi.uomi.dev/user/${CLERK_ID}`),
+      ).toBe(CLERK_ID);
+    });
+
     it("クエリパラメータ・フラグメントを無視する", () => {
       expect(
         parseUserIdFromQr(`https://example.com/user/${CLERK_ID}?ref=qr#top`),
