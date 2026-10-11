@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import { users, annictWorks, tierLists, tierListItems } from "@/db/schema";
 import type { TierListItemWithWork } from "./authorizedDb";
@@ -36,6 +36,25 @@ export async function fetchTierListItems(
     )
     .where(eq(tierListItems.tierListId, tierListId))
     .orderBy(tierListItems.position);
+}
+
+/**
+ * URL が annict_works の作品画像（image_url / resolved_image_url）として
+ * 実在するか。画像プロキシ（GET /share/image-proxy）の許可判定に使い、
+ * DB にある作品画像だけを中継対象に絞る。
+ */
+export async function isKnownWorkImageUrl(
+  db: DrizzleDb,
+  url: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: annictWorks.annictWorkId })
+    .from(annictWorks)
+    .where(
+      or(eq(annictWorks.imageUrl, url), eq(annictWorks.resolvedImageUrl, url)),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 export type SharedTierList = {

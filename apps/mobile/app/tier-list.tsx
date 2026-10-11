@@ -26,6 +26,7 @@ import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
 import { renameTier } from "@/lib/tierList/label";
 import {
   buildTierListShareUrl,
+  captureTierListImageFile,
   presentTierShareOptions,
   shareTierListImage,
   useTierUrlShare,
@@ -216,7 +217,7 @@ export default function TierListScreen() {
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
-  const saveAndIssueShareToken = useCallback(async () => {
+  const saveTierListData = useCallback(async () => {
     const savedData = await save.mutateAsync({
       season,
       title,
@@ -224,19 +225,22 @@ export default function TierListScreen() {
       items: toSaveItems(assignment, tiers),
     });
     setIsDirty(false);
-    const { shareToken } = await share.mutateAsync(season);
-    return { savedData, shareToken };
-  }, [assignment, save, season, share, tiers, title]);
+    return savedData;
+  }, [assignment, save, season, tiers, title]);
 
-  // web では共有モーダル（コピー / X 共有）、native では OS 共有シート。
+  // web では共有モーダル（コピー / X 共有 / 画像）、native では
+  // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
+  // generateImageFile は宣言より後でしか呼ばれないため、ここで参照してよい。
   const { shareUrl: presentShareUrl, urlShareElement } = useTierUrlShare({
     tweetText: title,
+    generateImageFile: () => generateImageFile(),
   });
 
   const handleShareUrl = useCallback(async () => {
     setIsSharing(true);
     try {
-      const { shareToken } = await saveAndIssueShareToken();
+      await saveTierListData();
+      const { shareToken } = await share.mutateAsync(season);
       const url = buildTierListShareUrl(shareToken);
       // native は OS 共有シート。web は urlShareElement のモーダルを開き、
       // コピー / X 共有はモーダル内のボタン操作で行う。
@@ -248,37 +252,62 @@ export default function TierListScreen() {
     } finally {
       setIsSharing(false);
     }
-  }, [presentShareUrl, saveAndIssueShareToken]);
+  }, [presentShareUrl, saveTierListData, share, season]);
+
+  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
+  // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
+  const withRenderedSnapshot = useCallback(
+    async <T,>(run: () => Promise<T>): Promise<T> => {
+      setIsSharing(true);
+      try {
+        const savedData = await saveTierListData();
+        const snapshotReady = new Promise<void>((resolve) => {
+          snapshotReadyRef.current = resolve;
+        });
+        setSnapshotItems(savedData.items);
+        // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
+        // 撮る。タイムアウトを超えたら読み込み途中のまま撮る
+        // （共有自体は失敗させない）。
+        await Promise.race([
+          snapshotReady,
+          new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
+        ]);
+        // レイアウト確定のため 1 フレーム待つ
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!snapshotRef.current) {
+          throw new Error("スナップショットの描画に失敗しました");
+        }
+        return await run();
+      } finally {
+        setSnapshotItems(null);
+        setIsSharing(false);
+      }
+    },
+    [saveTierListData],
+  );
 
   const handleShareImage = useCallback(async () => {
-    setIsSharing(true);
     try {
-      const { savedData } = await saveAndIssueShareToken();
-      const snapshotReady = new Promise<void>((resolve) => {
-        snapshotReadyRef.current = resolve;
-      });
-      setSnapshotItems(savedData.items);
-      // スナップショットの描画と作品画像の読み込み（onReady）を待ってから撮る。
-      // タイムアウトを超えたら読み込み途中のまま撮る（共有自体は失敗させない）。
-      await Promise.race([
-        snapshotReady,
-        new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
-      ]);
-      // レイアウト確定のため 1 フレーム待つ
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (!snapshotRef.current) {
-        throw new Error("スナップショットの描画に失敗しました");
-      }
-      await shareTierListImage(snapshotRef, { dialogTitle: title });
+      await withRenderedSnapshot(() =>
+        shareTierListImage(snapshotRef, { dialogTitle: title }),
+      );
     } catch {
       alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
       });
-    } finally {
-      setSnapshotItems(null);
-      setIsSharing(false);
     }
-  }, [saveAndIssueShareToken, title]);
+  }, [withRenderedSnapshot, title]);
+
+  // web 共有モーダル用: PNG 化した画像 File を生成して返す。
+  // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
+  // （生成待ちの後に navigator.share を呼ぶとユーザー操作期限で失敗するため）。
+  const generateImageFile = useCallback(
+    () =>
+      withRenderedSnapshot(() =>
+        captureTierListImageFile(snapshotRef, { title }),
+      ),
+    [withRenderedSnapshot, title],
+  );
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
   // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を

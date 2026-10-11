@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import type { ShareTierListUrl, UseTierUrlShare } from "./types";
 import { copyTierListUrl } from "./sheet";
+import { canShareImageFile, downloadImageFile, shareImageFile } from "./image";
 
 function buildXIntentUrl(url: string, text?: string): string {
   const params = new URLSearchParams({ url });
@@ -9,22 +10,33 @@ function buildXIntentUrl(url: string, text?: string): string {
   return `https://twitter.com/intent/tweet?${params.toString()}`;
 }
 
+type ImagePhase = "idle" | "generating" | "ready";
+
 /**
  * Web: 共有モーダル。URL を表示し [Xで共有] / [URLをコピー] をボタン操作で
  * 実行する。自動呼び出しだとブラウザのユーザー操作期限で拒否されるため、
  * 各アクションはモーダル内のクリックに委ねる。
+ *
+ * 画像共有も同じ制約があるため「画像を生成」→ 完了後に「画像を共有 /
+ * 画像をダウンロード」の別ボタンを出す 2 段階にしている
+ * （生成待ちの後に navigator.share を呼ぶと操作期限切れで失敗する）。
  */
 function TierUrlShareModal({
   url,
   tweetText,
+  generateImageFile,
   onClose,
 }: {
   url: string;
   tweetText?: string;
+  generateImageFile?: () => Promise<File>;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [imagePhase, setImagePhase] = useState<ImagePhase>("idle");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const handleShareX = () => {
     window.open(
@@ -42,6 +54,37 @@ function TierUrlShareModal({
       setCopyFailed(true);
     }
   };
+
+  const handleGenerateImage = async () => {
+    if (!generateImageFile || imagePhase === "generating") return;
+    setImagePhase("generating");
+    setImageError(null);
+    try {
+      setImageFile(await generateImageFile());
+      setImagePhase("ready");
+    } catch {
+      setImagePhase("idle");
+      setImageError("画像の生成に失敗しました");
+    }
+  };
+
+  const handleShareImage = async () => {
+    if (!imageFile) return;
+    try {
+      // 生成済み File をこのクリック内で渡すため操作期限は切れない
+      await shareImageFile(imageFile, tweetText ?? imageFile.name);
+      onClose();
+    } catch {
+      setImageError("共有に失敗しました。ダウンロードをお試しください。");
+    }
+  };
+
+  const handleDownloadImage = () => {
+    if (!imageFile) return;
+    downloadImageFile(imageFile);
+  };
+
+  const shareable = imageFile != null && canShareImageFile(imageFile);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -80,6 +123,51 @@ function TierUrlShareModal({
               コピーに失敗しました。URL を選択してコピーしてください。
             </Text>
           )}
+          {generateImageFile &&
+            (imagePhase === "ready" && imageFile ? (
+              <>
+                <Text className="text-xs text-gray-500">
+                  画像を生成しました。
+                  {shareable
+                    ? "共有またはダウンロードで保存できます。"
+                    : "ダウンロードで保存できます。"}
+                </Text>
+                {shareable && (
+                  <Pressable
+                    onPress={() => void handleShareImage()}
+                    className="items-center rounded-lg bg-gray-900 px-4 py-2.5"
+                    accessibilityRole="button"
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      画像を共有
+                    </Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={handleDownloadImage}
+                  className="items-center rounded-lg border border-gray-300 px-4 py-2.5"
+                  accessibilityRole="button"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    画像をダウンロード
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => void handleGenerateImage()}
+                disabled={imagePhase === "generating"}
+                className={`items-center rounded-lg border border-gray-300 px-4 py-2.5${imagePhase === "generating" ? " opacity-50" : ""}`}
+                accessibilityRole="button"
+              >
+                <Text className="text-sm font-semibold text-gray-900">
+                  {imagePhase === "generating" ? "画像を生成中…" : "画像を生成"}
+                </Text>
+              </Pressable>
+            ))}
+          {imageError && (
+            <Text className="text-xs text-red-600">{imageError}</Text>
+          )}
           <Pressable
             onPress={onClose}
             className="items-center px-4 py-2"
@@ -93,7 +181,10 @@ function TierUrlShareModal({
   );
 }
 
-export const useTierUrlShare: UseTierUrlShare = ({ tweetText } = {}) => {
+export const useTierUrlShare: UseTierUrlShare = ({
+  tweetText,
+  generateImageFile,
+} = {}) => {
   const [modalUrl, setModalUrl] = useState<string | null>(null);
 
   const shareUrl = useCallback<ShareTierListUrl>(async (url) => {
@@ -108,6 +199,7 @@ export const useTierUrlShare: UseTierUrlShare = ({ tweetText } = {}) => {
         <TierUrlShareModal
           url={modalUrl}
           tweetText={tweetText}
+          generateImageFile={generateImageFile}
           onClose={() => setModalUrl(null)}
         />
       ),
