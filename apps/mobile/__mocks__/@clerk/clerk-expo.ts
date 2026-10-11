@@ -26,6 +26,11 @@ type MockClerkState = {
     prepareEmailAddressVerification: jest.Mock;
     attemptEmailAddressVerification: jest.Mock;
   };
+  client: {
+    sessions: Array<{ id: string }>;
+    signedInSessions: Array<{ id: string }>;
+    lastActiveSessionId: string | null;
+  };
 };
 
 function createDefaultState(): MockClerkState {
@@ -50,6 +55,13 @@ function createDefaultState(): MockClerkState {
       create: jest.fn(),
       prepareEmailAddressVerification: jest.fn(),
       attemptEmailAddressVerification: jest.fn(),
+    },
+    // session_exists 時の既存セッション復旧で参照する client 状態。
+    // 既定は「セッション無し（isSignedIn=false と整合する通常状態）」。
+    client: {
+      sessions: [],
+      signedInSessions: [],
+      lastActiveSessionId: null,
     },
   };
 }
@@ -100,6 +112,10 @@ export const useSignUp = () => ({
   signUp: state.signUp,
   setActive: state.setActive,
   isLoaded: state.isLoaded,
+});
+
+export const useClerk = () => ({
+  client: state.client,
 });
 
 export const ClerkProvider = ({ children }: { children: unknown }) => children;

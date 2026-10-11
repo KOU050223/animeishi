@@ -1,4 +1,4 @@
-import { useAuth, useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useClerk, useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import {
   View,
@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { signInSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
+import { recoverExistingSession } from "@/lib/recoverExistingSession";
 
 function getIncompleteSignInMessage(status: string | null, t: TFunction) {
   if (!status) {
@@ -36,6 +37,7 @@ export default function SignInScreen() {
   const { t } = useTranslation();
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn, signOut } = useAuth();
+  const { client } = useClerk();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -78,9 +80,24 @@ export default function SignInScreen() {
     } catch (err: unknown) {
       // session_exists は有効なセッションが既に残っている状態
       // （サインアップ直後にセッションだけ作成されたケース等）。
-      // エラー表示せずそのままホームへ進め、振り分けは AuthGuard に任せる。
+      // client 上にセッションがあっても isSignedIn=false だと
+      // 遷移するだけでは AuthGuard に戻されてループするため、
+      // 既存セッションを活性化してから遷移する。
       if (getClerkErrorCode(err) === "session_exists") {
-        router.replace("/(tabs)");
+        const recovered = await recoverExistingSession({
+          client,
+          setActive,
+          signOut,
+        });
+        if (recovered === "activated") {
+          router.replace("/(tabs)");
+        } else {
+          setError(
+            t(
+              "既存のセッションを復元できませんでした。もう一度お試しください。",
+            ),
+          );
+        }
         return;
       }
       setError(toAuthErrorMessage(err, "サインインに失敗しました"));
