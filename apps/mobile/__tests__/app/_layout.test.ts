@@ -38,4 +38,14 @@ describe("root router layout", () => {
     expect(source).toContain('<Stack.Screen name="support" />');
     expect(source).toContain('segments[0] === "support"');
   });
+
+  test("exports a route ErrorBoundary so crashes get a retry UI", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // expo-router はルートモジュールの ErrorBoundary export を捕捉に使う。
+    expect(source).toContain("export function ErrorBoundary");
+  });
 });

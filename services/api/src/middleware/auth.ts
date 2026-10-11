@@ -17,6 +17,7 @@ export type AuthEnv = AuthVariables & {
   Bindings: Env & {
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
+    CLERK_AUTHORIZED_PARTIES?: string;
   };
 };
 
@@ -31,8 +32,26 @@ export type OptionalAuthEnv = OptionalAuthVariables & {
   Bindings: Env & {
     CLERK_SECRET_KEY?: string;
     CLERK_PUBLISHABLE_KEY?: string;
+    CLERK_AUTHORIZED_PARTIES?: string;
   };
 };
+
+/**
+ * CLERK_AUTHORIZED_PARTIES（カンマ区切り）を clerkMiddleware の
+ * authorizedParties オプションに変換する。azp クレームを持つトークン
+ * （Web ブラウザ発行）が許可オリジン以外から来ていないか検証する用途。
+ * 未設定・空の場合は undefined を返し、azp 検証自体を無効にする。
+ * azp を持たないネイティブアプリのトークンは設定の有無に関わらず通過する。
+ */
+function resolveAuthorizedParties(
+  raw: string | undefined,
+): string[] | undefined {
+  const parties = (raw ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parties.length > 0 ? parties : undefined;
+}
 
 /**
  * Clerk JWT 検証ミドルウェア。
@@ -42,9 +61,14 @@ export type OptionalAuthEnv = OptionalAuthVariables & {
  */
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // @hono/clerk-auth はリクエストごとに動的に secretKey を渡す必要がある
+  const authorizedParties = resolveAuthorizedParties(
+    c.env.CLERK_AUTHORIZED_PARTIES,
+  );
   const middleware = clerkMiddleware({
     secretKey: c.env.CLERK_SECRET_KEY,
     publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    // exactOptionalPropertyTypes のため未設定時はキー自体を渡さない
+    ...(authorizedParties ? { authorizedParties } : {}),
   });
   await middleware(c as unknown as Context, async () => {});
 
@@ -87,9 +111,14 @@ export const optionalAuth = createMiddleware<OptionalAuthEnv>(
       await next();
       return;
     }
+    const authorizedParties = resolveAuthorizedParties(
+      c.env.CLERK_AUTHORIZED_PARTIES,
+    );
     const middleware = clerkMiddleware({
       secretKey: c.env.CLERK_SECRET_KEY,
       publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+      // exactOptionalPropertyTypes のため未設定時はキー自体を渡さない
+      ...(authorizedParties ? { authorizedParties } : {}),
     });
     await middleware(c as unknown as Context, async () => {});
 

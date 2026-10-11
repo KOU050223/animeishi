@@ -5,8 +5,14 @@ import { initObservability } from "@/lib/observability";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@/lib/tokenCache";
-import { Stack, useRouter, useSegments } from "expo-router";
+import {
+  Stack,
+  useRouter,
+  useSegments,
+  type ErrorBoundaryProps,
+} from "expo-router";
 import { useEffect } from "react";
+import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 
@@ -70,6 +76,13 @@ function AuthGuard() {
       <Stack.Screen name="danime-import-review" />
     </Stack>
   );
+}
+
+// expo-router のルート ErrorBoundary。子ルートのレンダリング中に投げられた
+// 例外を捕捉し、再試行ボタン付きの画面にフォールバックする
+// （Sentry 送信は RootErrorBoundary 側）。
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  return <RootErrorBoundary {...props} />;
 }
 
 // Sentry.wrap で ErrorBoundary を付与し、レンダリング中の例外も捕捉する。

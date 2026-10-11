@@ -6,6 +6,7 @@ import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend } from "@/lib/useFriends";
+import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
 
 type Mode = "generate" | "scan";
@@ -54,7 +55,10 @@ function GenerateView() {
         style={styles.qrCard}
         testID="qr-code-container"
       >
-        <QRCode value={userId} size={240} />
+        {/* OS 標準カメラでも開けるよう、生の userId ではなく Web 版プロフィール
+            URL を埋め込む。アプリ内スキャナは URL / 生 userId の両方を受理する
+            （qrParser の後方互換）。 */}
+        <QRCode value={buildProfileUrl(userId) ?? userId} size={240} />
       </View>
       <Text className="text-gray-500 text-sm mt-6 text-center">
         この QR コードを相手に読み取ってもらうと{"\n"}名刺を交換できます
