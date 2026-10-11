@@ -1,8 +1,17 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import PrivacyScreen from "@/app/privacy";
 
+const mockBack = jest.fn();
+const mockReplace = jest.fn();
+let mockCanGoBack = true;
+
 jest.mock("expo-router", () => ({
+  useRouter: () => ({
+    canGoBack: () => mockCanGoBack,
+    back: mockBack,
+    replace: mockReplace,
+  }),
   Link: ({
     children,
     ...props
@@ -14,6 +23,11 @@ jest.mock("expo-router", () => ({
     return <Pressable {...props}>{children}</Pressable>;
   },
 }));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockCanGoBack = true;
+});
 
 describe("PrivacyScreen", () => {
   it("タイトルと主要なセクションを表示する", () => {
@@ -52,5 +66,24 @@ describe("PrivacyScreen", () => {
 
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
+  });
+
+  it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", () => {
+    render(<PrivacyScreen />);
+
+    fireEvent.press(screen.getByTestId("legal-back-button"));
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("直リンク等で遷移履歴が無い場合、戻るボタンでホームへ戻る", () => {
+    mockCanGoBack = false;
+    render(<PrivacyScreen />);
+
+    fireEvent.press(screen.getByTestId("legal-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/");
   });
 });

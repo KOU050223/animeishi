@@ -3,6 +3,11 @@ import { render, screen } from "@testing-library/react-native";
 import TermsScreen from "@/app/terms";
 
 jest.mock("expo-router", () => ({
+  useRouter: () => ({
+    canGoBack: () => true,
+    back: jest.fn(),
+    replace: jest.fn(),
+  }),
   Link: ({
     children,
     ...props
