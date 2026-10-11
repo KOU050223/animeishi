@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import {
   DraggableWorkCard,
@@ -21,6 +21,11 @@ export type TierBoardProps = {
   onAssign: (annictWorkId: number, tierKey: string | null) => void;
   /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
   onRenameTier: (tierKey: string, label: string) => void;
+  /**
+   * tier 名の編集を受け付けるか。false の間はラベルのタップを無効化し、
+   * 編集シートを開けない（共有処理中など、編集が捨てられる局面で使う）。
+   */
+  labelsEditable: boolean;
 };
 
 /**
@@ -36,6 +41,7 @@ export function TierBoard({
   assignment,
   onAssign,
   onRenameTier,
+  labelsEditable,
 }: TierBoardProps) {
   const registry = useDropZoneRegistry();
   // ドラッグ中に指が乗っている行。ハイライト表示だけに使う。
@@ -46,6 +52,12 @@ export function TierBoard({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   // 名前編集中の tier。null のとき編集シートは閉じている。
   const [editingTier, setEditingTier] = useState<TierRow | null>(null);
+
+  // 編集不可（共有処理中など）になったら開いているシートも閉じる。
+  // 開きっぱなしにすると、確定しても捨てられる入力を残してしまう。
+  useEffect(() => {
+    if (!labelsEditable) setEditingTier(null);
+  }, [labelsEditable]);
 
   const handleDragMove = useCallback(
     (x: number, y: number) => {
@@ -135,8 +147,10 @@ export function TierBoard({
             <TouchableOpacity
               style={[styles.tierLabelCell, { backgroundColor: tier.color }]}
               onPress={() => setEditingTier(tier)}
+              disabled={!labelsEditable}
               accessibilityRole="button"
               accessibilityLabel={`${tier.label} の名前を編集`}
+              accessibilityState={{ disabled: !labelsEditable }}
               testID={`tier-label-${tier.key}`}
             >
               <Text

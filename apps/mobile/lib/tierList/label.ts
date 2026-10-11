@@ -28,6 +28,9 @@ export function tierLabelError(label: string): string | null {
  * key は配置（assignment / items.tierKey）からの参照識別子なので変えず、
  * label だけを更新する。送信時にサーバが trim するため、ここでも trim 済みの
  * 値を保持して見た目と保存内容を一致させる。
+ * 差分が無い（trim 後に同じ名前、または存在しない key）ときは同じ配列を
+ * そのまま返す。呼び出し側は `next === tiers` で変更有無を判定でき、
+ * 未保存フラグを誤って立てずに済む。
  */
 export function renameTier(
   tiers: TierRow[],
@@ -35,6 +38,8 @@ export function renameTier(
   label: string,
 ): TierRow[] {
   const trimmed = label.trim();
+  const target = tiers.find((tier) => tier.key === tierKey);
+  if (!target || target.label === trimmed) return tiers;
   return tiers.map((tier) =>
     tier.key === tierKey ? { ...tier, label: trimmed } : tier,
   );

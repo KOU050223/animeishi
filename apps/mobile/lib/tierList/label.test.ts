@@ -55,8 +55,13 @@ describe("renameTier", () => {
     expect(next[0].key).toBe("0");
   });
 
-  it("存在しない key を指定しても何も変わらない", () => {
-    expect(renameTier(TIERS, "zzz", "X")).toEqual(TIERS);
+  it("trim 後に同じ名前なら同じ配列を返す（未保存扱いにしないための判定用）", () => {
+    expect(renameTier(TIERS, "0", "S")).toBe(TIERS);
+    expect(renameTier(TIERS, "0", "  S  ")).toBe(TIERS);
+  });
+
+  it("存在しない key を指定しても同じ配列を返す", () => {
+    expect(renameTier(TIERS, "zzz", "X")).toBe(TIERS);
   });
 
   it("元の配列を破壊しない", () => {

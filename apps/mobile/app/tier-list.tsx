@@ -132,10 +132,14 @@ export default function TierListScreen() {
       // ドロップと同じく、共有中（保存→トークン発行の直列処理中）の編集は
       // 受け付けない。ここで tiers を変えると保存応答の反映で消えるため。
       if (isSharing) return;
-      setTiers((prev) => renameTier(prev, tierKey, label));
+      // trim 後に名前が変わっていない（or 存在しない key）なら差分なし。
+      // renameTier が同じ配列を返すので、その場合は未保存扱いにしない。
+      const next = renameTier(tiers, tierKey, label);
+      if (next === tiers) return;
+      setTiers(next);
       setIsDirty(true);
     },
-    [isSharing],
+    [isSharing, tiers],
   );
 
   const handleBack = useCallback(() => {
@@ -429,6 +433,7 @@ export default function TierListScreen() {
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
+          labelsEditable={!isSharing}
         />
       )}
 
