@@ -141,7 +141,7 @@ function buildSharedTierListHtml(list: SharedTierList): string {
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
     .tier-works { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
     .work { width: 80px; text-align: center; }
     .work-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }

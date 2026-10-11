@@ -1,14 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import {
   DraggableWorkCard,
   type TierMoveDestination,
 } from "./DraggableWorkCard";
 import { DropZone } from "./DropZone";
 import { useDropZoneRegistry } from "./dropZones";
+import { TierLabelEditSheet } from "./TierLabelEditSheet";
 import { styles } from "./tierListStyles";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import { unassignedWorks, worksInTier } from "@/lib/tierList/board";
+import { tierLabelFontSize } from "@/lib/tierList/label";
 import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
 
 export type TierBoardProps = {
@@ -17,6 +19,8 @@ export type TierBoardProps = {
   assignment: TierAssignment;
   /** ドロップ確定時。tierKey が null なら未分類トレイへ戻す。 */
   onAssign: (annictWorkId: number, tierKey: string | null) => void;
+  /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
+  onRenameTier: (tierKey: string, label: string) => void;
 };
 
 /**
@@ -31,6 +35,7 @@ export function TierBoard({
   works,
   assignment,
   onAssign,
+  onRenameTier,
 }: TierBoardProps) {
   const registry = useDropZoneRegistry();
   // ドラッグ中に指が乗っている行。ハイライト表示だけに使う。
@@ -39,6 +44,8 @@ export function TierBoard({
     undefined,
   );
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  // 名前編集中の tier。null のとき編集シートは閉じている。
+  const [editingTier, setEditingTier] = useState<TierRow | null>(null);
 
   const handleDragMove = useCallback(
     (x: number, y: number) => {
@@ -102,6 +109,13 @@ export function TierBoard({
 
   const tray = unassignedWorks(works, assignment);
 
+  // 編集対象は開いた時点の tier ではなく最新の tiers から引く。
+  // シーズン切替などで tiers が差し替わっても、閉じるまで古い行を
+  // 編集し続けて反映が消える事故を避けるため。見つからなければ閉じる。
+  const editing = editingTier
+    ? tiers.find((tier) => tier.key === editingTier.key)
+    : undefined;
+
   return (
     <ScrollView
       // ドラッグ中はスクロールを止める。長押しで掴んだ後に盤面が動くと
@@ -118,13 +132,23 @@ export function TierBoard({
       <View style={styles.board}>
         {tiers.map((tier) => (
           <View key={tier.key} style={styles.tierRow}>
-            <View
+            <TouchableOpacity
               style={[styles.tierLabelCell, { backgroundColor: tier.color }]}
+              onPress={() => setEditingTier(tier)}
+              accessibilityRole="button"
+              accessibilityLabel={`${tier.label} の名前を編集`}
+              testID={`tier-label-${tier.key}`}
             >
-              <Text style={styles.tierLabelText} numberOfLines={3}>
+              <Text
+                style={[
+                  styles.tierLabelText,
+                  { fontSize: tierLabelFontSize(tier.label, 13) },
+                ]}
+                numberOfLines={3}
+              >
                 {tier.label}
               </Text>
-            </View>
+            </TouchableOpacity>
             <DropZone
               zoneKey={tier.key}
               registry={registry}
@@ -155,6 +179,15 @@ export function TierBoard({
           tray.map((work) => renderCard(work, null))
         )}
       </DropZone>
+
+      <TierLabelEditSheet
+        visible={!!editing}
+        initialValue={editing?.label ?? ""}
+        onClose={() => setEditingTier(null)}
+        onSubmit={(value) => {
+          if (editing) onRenameTier(editing.key, value);
+        }}
+      />
     </ScrollView>
   );
 }
