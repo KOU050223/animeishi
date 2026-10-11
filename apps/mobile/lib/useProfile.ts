@@ -47,6 +47,27 @@ export function useProfile() {
   });
 }
 
+/**
+ * アカウント削除（DELETE /me）。
+ * サーバー側で D1 のユーザーデータ・R2 アバター・Clerk ユーザー本体が削除される。
+ * 成功後は Clerk 上のユーザーが存在しないため、呼び出し側はローカル状態を
+ * 片付けて signOut まで行うこと（profile 画面の削除導線を参照）。
+ */
+export function useDeleteAccount() {
+  const { getToken } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me.$delete({}, { headers });
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "アカウントの削除に失敗しました");
+      }
+      return null;
+    },
+  });
+}
+
 export function useUpdateProfile() {
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
