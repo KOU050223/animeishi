@@ -43,7 +43,7 @@ const CLERK_ERROR_KEYS: Record<string, TranslationKey> = {
 };
 
 /** Clerk のエラーオブジェクトから先頭エラーの code を取り出す */
-function extractClerkErrorCode(err: unknown): string | undefined {
+export function getClerkErrorCode(err: unknown): string | undefined {
   if (
     typeof err === "object" &&
     err !== null &&
@@ -73,7 +73,7 @@ export function toAuthErrorMessage(
   err: unknown,
   fallbackKey: TranslationKey = "処理に失敗しました。もう一度お試しください",
 ): string {
-  const code = extractClerkErrorCode(err);
+  const code = getClerkErrorCode(err);
   const mapped = code ? CLERK_ERROR_KEYS[code] : undefined;
   return i18n.t(mapped ?? fallbackKey);
 }

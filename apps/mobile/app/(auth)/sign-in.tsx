@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useState } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { signInSchema } from "@/lib/validators";
-import { toAuthErrorMessage } from "@/lib/authErrors";
+import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 
 function getIncompleteSignInMessage(status: string | null, t: TFunction) {
   if (!status) {
@@ -75,6 +76,13 @@ export default function SignInScreen() {
         setError(getIncompleteSignInMessage(result.status, t));
       }
     } catch (err: unknown) {
+      // session_exists は有効なセッションが既に残っている状態
+      // （サインアップ直後にセッションだけ作成されたケース等）。
+      // エラー表示せずそのままホームへ進め、振り分けは AuthGuard に任せる。
+      if (getClerkErrorCode(err) === "session_exists") {
+        router.replace("/(tabs)");
+        return;
+      }
       setError(toAuthErrorMessage(err, "サインインに失敗しました"));
     } finally {
       setLoading(false);
@@ -82,72 +90,74 @@ export default function SignInScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View className="flex-1 justify-center px-6">
-        <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
-          {t("アニ名刺")}
-        </Text>
-
-        <Text className="text-xl font-semibold mb-6 text-gray-800">
-          {t("サインイン")}
-        </Text>
-
-        <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder={t("メールアドレス")}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          testID="email-input"
-        />
-
-        <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-          placeholder={t("パスワード")}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          testID="password-input"
-        />
-
-        {error && (
-          <Text className="text-red-500 text-sm mb-4" testID="error-message">
-            {error}
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View className="flex-1 justify-center px-6">
+          <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
+            {t("アニ名刺")}
           </Text>
-        )}
 
-        <TouchableOpacity
-          className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
-          onPress={handleSignIn}
-          disabled={loading}
-          testID="sign-in-button"
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold text-base">
-              {t("サインイン")}
+          <Text className="text-xl font-semibold mb-6 text-gray-800">
+            {t("サインイン")}
+          </Text>
+
+          <TextInput
+            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+            placeholder={t("メールアドレス")}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            testID="email-input"
+          />
+
+          <TextInput
+            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+            placeholder={t("パスワード")}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password"
+            testID="password-input"
+          />
+
+          {error && (
+            <Text className="text-red-500 text-sm mb-4" testID="error-message">
+              {error}
             </Text>
           )}
-        </TouchableOpacity>
 
-        <View className="flex-row justify-center">
-          <Text className="text-gray-600">
-            {t("アカウントをお持ちでない方は ")}
-          </Text>
-          <Link href="/(auth)/sign-up" testID="sign-up-link">
-            <Text className="text-indigo-600 font-semibold">
-              {t("サインアップ")}
+          <TouchableOpacity
+            className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
+            onPress={handleSignIn}
+            disabled={loading}
+            testID="sign-in-button"
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-semibold text-base">
+                {t("サインイン")}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <View className="flex-row justify-center">
+            <Text className="text-gray-600">
+              {t("アカウントをお持ちでない方は ")}
             </Text>
-          </Link>
+            <Link href="/(auth)/sign-up" testID="sign-up-link">
+              <Text className="text-indigo-600 font-semibold">
+                {t("サインアップ")}
+              </Text>
+            </Link>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

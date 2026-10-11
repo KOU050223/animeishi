@@ -46,6 +46,16 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 
+// react-native-safe-area-context の useSafeAreaInsets は SafeAreaProvider 無しだと
+// throw する。各画面テストはプロバイダを通さずに描画するため、公式の jest mock で
+// insets=0 のコンテキストを供給する（SafeAreaView 自体はネイティブビューのまま）。
+jest.mock(
+  "react-native-safe-area-context",
+  () =>
+    // jest/mock.tsx は default export のため .default で取り出す
+    require("react-native-safe-area-context/jest/mock").default,
+);
+
 // expo-localization はネイティブモジュールに依存するためテストでは固定値を返す。
 jest.mock("expo-localization", () => ({
   getLocales: () => [{ languageCode: "ja" }],

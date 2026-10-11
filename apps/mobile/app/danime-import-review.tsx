@@ -421,7 +421,7 @@ export default function DanimeImportReviewScreen() {
 
   // ---- レビュー一覧 ----
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
       <View className="px-4 pt-2 pb-3 border-b border-gray-100">
         <Text className="text-xl font-bold text-gray-900">
           インポート内容の確認

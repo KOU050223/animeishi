@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
 import { confirm } from "@/lib/dialog";
@@ -52,8 +53,8 @@ export default function BlockedUsersScreen() {
   const list = blocked ?? [];
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="px-4 pb-3 pt-12">
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+      <View className="px-4 pb-3 pt-3">
         <Text className="text-xl font-bold text-gray-900">
           ブロック中のユーザー
         </Text>
@@ -112,6 +113,6 @@ export default function BlockedUsersScreen() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }

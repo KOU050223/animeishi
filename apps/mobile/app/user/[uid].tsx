@@ -12,6 +12,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { apiUrl } from "@/lib/apiUrl";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
@@ -153,128 +154,135 @@ export default function PublicProfilePage() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="items-center pt-12 pb-6 px-6">
-        {data.profileImageUrl ? (
-          <Image
-            source={{ uri: data.profileImageUrl }}
-            className="w-24 h-24 rounded-full"
-            accessibilityLabel={`${data.username}のアイコン`}
-          />
-        ) : (
-          <View
-            className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center"
-            accessibilityLabel={`${data.username}のアイコン`}
-          >
-            <Text className="text-3xl text-gray-400">
-              {data.username.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-
-        <Text className="text-2xl font-bold text-gray-900 mt-4">
-          {data.username}
-        </Text>
-
-        {data.bio ? (
-          <Text className="text-gray-600 text-center mt-2">{data.bio}</Text>
-        ) : null}
-
-        {data.favoriteQuote ? (
-          <View className="mt-4 border-l-4 border-purple-400 pl-3 self-start">
-            <Text className="text-gray-500 italic">{data.favoriteQuote}</Text>
-          </View>
-        ) : null}
-
-        {data.genres.length > 0 ? (
-          <View className="mt-6 self-start w-full">
-            <Text className="text-sm font-semibold text-gray-700 mb-2">
-              好きなジャンル
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {data.genres.map((g) => (
-                <View key={g} className="bg-purple-100 rounded-full px-3 py-1">
-                  <Text className="text-purple-700 text-sm">{g}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {canModerate ? (
-          <View className="mt-10 w-full border-t border-gray-100 pt-4">
-            <TouchableOpacity
-              className="items-center py-2"
-              onPress={() => setReportSheetVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel="このユーザーを通報"
-              testID="report-user-button"
+    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+      <ScrollView className="flex-1">
+        <View className="items-center pt-6 pb-6 px-6">
+          {data.profileImageUrl ? (
+            <Image
+              source={{ uri: data.profileImageUrl }}
+              className="w-24 h-24 rounded-full"
+              accessibilityLabel={`${data.username}のアイコン`}
+            />
+          ) : (
+            <View
+              className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center"
+              accessibilityLabel={`${data.username}のアイコン`}
             >
-              <Text className="text-sm text-gray-500">このユーザーを通報</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="items-center py-2"
-              onPress={onPressBlock}
-              disabled={blockUser.isPending}
-              accessibilityRole="button"
-              accessibilityLabel="このユーザーをブロック"
-              testID="block-user-button"
-            >
-              <Text className="text-sm text-red-500">
-                このユーザーをブロック
+              <Text className="text-3xl text-gray-400">
+                {data.username.charAt(0).toUpperCase()}
               </Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
+            </View>
+          )}
 
-      <Modal
-        visible={reportSheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setReportSheetVisible(false)}
-      >
-        <Pressable
-          className="flex-1 justify-end bg-black/50"
-          onPress={() => setReportSheetVisible(false)}
-          accessibilityLabel="通報をやめる"
+          <Text className="text-2xl font-bold text-gray-900 mt-4">
+            {data.username}
+          </Text>
+
+          {data.bio ? (
+            <Text className="text-gray-600 text-center mt-2">{data.bio}</Text>
+          ) : null}
+
+          {data.favoriteQuote ? (
+            <View className="mt-4 border-l-4 border-purple-400 pl-3 self-start">
+              <Text className="text-gray-500 italic">{data.favoriteQuote}</Text>
+            </View>
+          ) : null}
+
+          {data.genres.length > 0 ? (
+            <View className="mt-6 self-start w-full">
+              <Text className="text-sm font-semibold text-gray-700 mb-2">
+                好きなジャンル
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {data.genres.map((g) => (
+                  <View
+                    key={g}
+                    className="bg-purple-100 rounded-full px-3 py-1"
+                  >
+                    <Text className="text-purple-700 text-sm">{g}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {canModerate ? (
+            <View className="mt-10 w-full border-t border-gray-100 pt-4">
+              <TouchableOpacity
+                className="items-center py-2"
+                onPress={() => setReportSheetVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="このユーザーを通報"
+                testID="report-user-button"
+              >
+                <Text className="text-sm text-gray-500">
+                  このユーザーを通報
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="items-center py-2"
+                onPress={onPressBlock}
+                disabled={blockUser.isPending}
+                accessibilityRole="button"
+                accessibilityLabel="このユーザーをブロック"
+                testID="block-user-button"
+              >
+                <Text className="text-sm text-red-500">
+                  このユーザーをブロック
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+
+        <Modal
+          visible={reportSheetVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setReportSheetVisible(false)}
         >
           <Pressable
-            className="rounded-t-2xl bg-white px-4 pb-8 pt-4"
-            onPress={(e) => e.stopPropagation()}
+            className="flex-1 justify-end bg-black/50"
+            onPress={() => setReportSheetVisible(false)}
+            accessibilityLabel="通報をやめる"
           >
-            <Text className="text-base font-semibold text-gray-900">
-              このユーザーを通報
-            </Text>
-            <Text className="mt-1 text-xs text-gray-500">
-              理由を選択してください。運営が内容を確認します。
-            </Text>
-            <View className="mt-4 gap-2">
-              {REPORT_REASONS.map((reason) => (
-                <TouchableOpacity
-                  key={reason}
-                  className="rounded-lg border border-gray-200 px-4 py-3"
-                  onPress={() => onSubmitReport(reason)}
-                  disabled={reportUser.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${reason}で通報`}
-                  testID={`report-reason-${reason}`}
-                >
-                  <Text className="text-gray-900">{reason}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              className="mt-4 items-center py-2"
-              onPress={() => setReportSheetVisible(false)}
-              accessibilityRole="button"
-              accessibilityLabel="キャンセル"
+            <Pressable
+              className="rounded-t-2xl bg-white px-4 pb-8 pt-4"
+              onPress={(e) => e.stopPropagation()}
             >
-              <Text className="text-gray-500">キャンセル</Text>
-            </TouchableOpacity>
+              <Text className="text-base font-semibold text-gray-900">
+                このユーザーを通報
+              </Text>
+              <Text className="mt-1 text-xs text-gray-500">
+                理由を選択してください。運営が内容を確認します。
+              </Text>
+              <View className="mt-4 gap-2">
+                {REPORT_REASONS.map((reason) => (
+                  <TouchableOpacity
+                    key={reason}
+                    className="rounded-lg border border-gray-200 px-4 py-3"
+                    onPress={() => onSubmitReport(reason)}
+                    disabled={reportUser.isPending}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${reason}で通報`}
+                    testID={`report-reason-${reason}`}
+                  >
+                    <Text className="text-gray-900">{reason}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                className="mt-4 items-center py-2"
+                onPress={() => setReportSheetVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="キャンセル"
+              >
+                <Text className="text-gray-500">キャンセル</Text>
+              </TouchableOpacity>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

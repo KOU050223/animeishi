@@ -14,6 +14,7 @@ import {
   matchesFavoriteQuery,
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { confirm } from "@/lib/dialog";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
@@ -77,8 +78,8 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="px-4 pt-12 pb-3">
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <View className="px-4 pt-3 pb-3">
         <Text className="text-xl font-bold text-gray-900">お気に入り</Text>
         <Text className="text-xs text-gray-400 mt-0.5">
           {enriched.length} 件
@@ -118,7 +119,7 @@ export default function FavoritesScreen() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

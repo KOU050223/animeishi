@@ -68,7 +68,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
-          title: "お気に入り",
+          // 7 タブでは 4 文字を超えるラベルが切れるため短い表記にする（#156）。
+          title: "推し",
           tabBarAccessibilityLabel: "お気に入りタブ",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" size={size} color={color} />
@@ -88,7 +89,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "プロフィール",
+          title: "プロフ",
           tabBarAccessibilityLabel: "プロフィールタブ",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />

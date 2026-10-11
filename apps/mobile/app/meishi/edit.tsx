@@ -205,7 +205,7 @@ export default function MeishiEditScreen() {
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: "#ffffff" }}
-      edges={["top", "left", "right"]}
+      edges={["top", "bottom", "left", "right"]}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>

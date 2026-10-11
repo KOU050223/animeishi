@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   useWatchHistory,
@@ -80,15 +81,15 @@ export default function WatchHistoryScreen() {
   // 未連携: 履歴クエリは無効化されているため、連携誘導を最優先で表示する。
   if (!isConnected) {
     return (
-      <View className="flex-1 bg-white">
-        <View className="px-4 pt-12 pb-3">
+      <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+        <View className="px-4 pt-3 pb-3">
           <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
         </View>
         <AnnictSoftGate
           description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。"
           testID="watch-history-soft-gate"
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -119,8 +120,8 @@ export default function WatchHistoryScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="px-4 pt-12 pb-3 flex-row items-start justify-between">
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <View className="px-4 pt-3 pb-3 flex-row items-start justify-between">
         <View>
           <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
           <Text className="text-xs text-gray-400 mt-0.5">
@@ -178,7 +179,7 @@ export default function WatchHistoryScreen() {
           isSaving={upsert.isPending}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

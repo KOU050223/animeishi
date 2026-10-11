@@ -159,6 +159,25 @@ describe("SignInScreen", () => {
     });
   });
 
+  it("session_exists エラーはエラー表示せずホームへ遷移する", async () => {
+    const auth = getAuthMock();
+    // サインアップ直後にセッションだけ作成された状態など、
+    // 有効なセッションが残っている場合に Clerk が返す。
+    auth.signIn.create.mockRejectedValueOnce({
+      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+    expect(screen.queryByTestId("error-message")).toBeNull();
+  });
+
   it("既にサインイン済みの場合は先にサインアウトしてからサインインする", async () => {
     // ログイン済みユーザーを表現
     const auth = loggedInUser();

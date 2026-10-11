@@ -1,13 +1,39 @@
+import { useCallback } from "react";
 import { useAuth } from "@clerk/clerk-expo";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MeishiCard } from "@/components/MeishiCard";
+import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
+import { useProfile } from "@/lib/useProfile";
+import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { buildProfileUrl } from "@/lib/profileUrl";
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { data: profile } = useProfile();
+  const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
+
+  // 名刺エディタでの変更を戻ったときに反映するため、フォーカスごとに再読み込みする。
+  useFocusEffect(
+    useCallback(() => {
+      void reloadDocument();
+    }, [reloadDocument]),
+  );
 
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
@@ -16,35 +42,90 @@ export default function HomeScreen() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <Text className="text-2xl font-bold text-gray-900 mb-4">
-        Animeishi へようこそ
-      </Text>
-      <TouchableOpacity
-        className="bg-gray-200 rounded-lg px-6 py-3"
-        onPress={() => signOut()}
-        testID="sign-out-button"
-        accessibilityRole="button"
-        accessibilityLabel="サインアウト"
-      >
-        <Text className="text-gray-700 font-semibold">サインアウト</Text>
-      </TouchableOpacity>
+    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
+    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+      <ScrollView contentContainerClassName="px-4 pb-12">
+        <View className="pb-3 pt-3">
+          <Text className="text-xl font-bold text-gray-900">ホーム</Text>
+        </View>
 
-      {featureFlags.debugPanel && (
-        <View className="mt-8 p-4 border border-yellow-400 rounded-xl bg-yellow-50">
-          <Text className="text-yellow-700 font-bold mb-2">Debug Panel</Text>
+        <Text className="mb-2 text-sm font-medium text-gray-700">
+          あなたの名刺
+        </Text>
+        <View style={styles.meishiPreviewFrame} testID="home-meishi-preview">
+          <MeishiCard
+            username={profile?.username || "ユーザー"}
+            bio={profile?.bio}
+            favoriteQuote={profile?.favoriteQuote}
+            profileImageUrl={profile?.profileImageUrl}
+            profileUrl={buildProfileUrl(profile?.id)}
+            document={meishiDoc}
+          />
+        </View>
+
+        <View className="mt-4 gap-2">
           <TouchableOpacity
-            className="bg-yellow-400 rounded-lg px-4 py-2"
-            onPress={clearCache}
+            className="items-center rounded-xl bg-indigo-50 py-3"
+            onPress={() => router.push("/meishi/edit")}
             accessibilityRole="button"
-            accessibilityLabel="クエリキャッシュをクリア"
+            accessibilityLabel="名刺をデザインする"
+            testID="home-open-meishi-edit"
           >
-            <Text className="text-yellow-900 font-semibold">
-              QueryCache クリア
+            <Text className="font-semibold text-indigo-700">
+              🎨 名刺をデザインする
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="items-center rounded-xl border border-indigo-200 bg-white py-3"
+            onPress={() => router.push("/qr")}
+            accessibilityRole="button"
+            accessibilityLabel="QR で名刺を交換"
+            testID="home-open-qr"
+          >
+            <Text className="font-semibold text-indigo-700">
+              📷 QR で名刺を交換
             </Text>
           </TouchableOpacity>
         </View>
-      )}
-    </View>
+
+        <View className="mt-4">
+          <AnnictConnectionCard />
+        </View>
+
+        <TouchableOpacity
+          className="mt-8 items-center rounded-lg bg-gray-200 px-6 py-3"
+          onPress={() => signOut()}
+          testID="sign-out-button"
+          accessibilityRole="button"
+          accessibilityLabel="サインアウト"
+        >
+          <Text className="text-gray-700 font-semibold">サインアウト</Text>
+        </TouchableOpacity>
+
+        {featureFlags.debugPanel && (
+          <View className="mt-8 p-4 border border-yellow-400 rounded-xl bg-yellow-50">
+            <Text className="text-yellow-700 font-bold mb-2">Debug Panel</Text>
+            <TouchableOpacity
+              className="bg-yellow-400 rounded-lg px-4 py-2"
+              onPress={clearCache}
+              accessibilityRole="button"
+              accessibilityLabel="クエリキャッシュをクリア"
+            >
+              <Text className="text-yellow-900 font-semibold">
+                QueryCache クリア
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  meishiPreviewFrame: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
+});
