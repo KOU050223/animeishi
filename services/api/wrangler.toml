@@ -36,7 +36,14 @@ ENVIRONMENT = "production"
 ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 # CORS 許可オリジン（カンマ区切り）。"*" 始まりはサフィックス一致（プレビューデプロイ用）。
 # 詳細は src/cors.ts および docs/04_deployment.md を参照。
-ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
+# localhost は本番では許可しない（開発は preview 環境か .dev.vars を使う）。
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev"
+# Clerk azp 検証（authorizedParties）。azp クレームを持つトークン（ブラウザ発行）
+# が許可オリジン発行か照合する。azp を持たないネイティブアプリのトークンは
+# この設定に関わらず通過する。完全一致のみ（ワイルドカード不可）。
+CLERK_AUTHORIZED_PARTIES = "https://animeishi.uomi.dev,https://animeishi-web-production.uozumi05.workers.dev"
+# OGP HTML（GET /user/:uid）の「Web で見る」導線に使う Web 版のベース URL。
+PUBLIC_WEB_URL = "https://animeishi.uomi.dev"
 
 [env.production.triggers]
 crons = ["*/10 * * * *"]

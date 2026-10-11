@@ -30,6 +30,8 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | `CLERK_SECRET_KEY` | API の**ランタイム**（JWT 検証） | Cloudflare Workers **secret** | 秘密 |
 | `CLERK_PUBLISHABLE_KEY` | API の**ランタイム** | Cloudflare Workers **secret**（または vars） | 公開値 |
 | `ALLOWED_ORIGINS` | API の**ランタイム**（CORS 判定） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
+| `CLERK_AUTHORIZED_PARTIES` | API の**ランタイム**（Clerk azp 検証）。azp クレーム付きトークンが許可オリジン発行か照合する。azp なし（ネイティブアプリ）は常に通過 | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
+| `PUBLIC_WEB_URL` | API の**ランタイム**（`GET /user/:uid` の OGP HTML「Web で見る」導線） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `SENTRY_DSN` | API の**ランタイム**（Sentry 初期化）。未設定なら SDK は no-op | Cloudflare Workers **secret** | 秘密 |
 | `EXPO_PUBLIC_SENTRY_DSN` | Expo アプリの**ビルド時**にバンドルへ焼き込み（mobile の Sentry 初期化）。未設定なら SDK は no-op | GitHub Actions **Variables**（Web ビルド）/ `eas.json` の `env`（ネイティブビルド） | 公開値（DSN は公開前提の値） |
 | `EXPO_PUBLIC_ENVIRONMENT` | Expo アプリの**ビルド時**にバンドルへ焼き込み（Sentry の environment タグ） | workflow / `eas.json` の `env` に固定値 | 公開値 |
@@ -194,7 +196,7 @@ Web フロントを別ドメインから配信するため、**本番では Web 
 ```toml
 [env.production.vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev,http://localhost:8081"
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi.uomi.dev"
 ```
 
 | オリジン | 用途 |
@@ -202,7 +204,9 @@ ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-anime
 | `https://animeishi-web-production.uozumi05.workers.dev` | 本番 Web（`*.workers.dev`） |
 | `*-animeishi-web-production.uozumi05.workers.dev` | プレビューデプロイ（ワイルドカード） |
 | `https://animeishi.uomi.dev` | 独自ドメイン（割り当て予定） |
-| `http://localhost:8081` | ローカル開発（Expo web） |
+
+> `http://localhost:8081` は本番の許可リストには含めない（issue #152）。
+> ローカル開発では `.dev.vars` か preview 環境を使う。
 
 変更後は API を再デプロイする（`pnpm --filter @animeishi/api exec wrangler deploy --env production`）。ローカル開発で別の値を試す場合は `services/api/.dev.vars` に記述する。
 

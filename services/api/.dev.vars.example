@@ -33,6 +33,17 @@ ANNICT_ENCRYPTION_KEY=
 # 本番の登録手順は docs/04_deployment.md を参照。
 ALLOWED_ORIGINS=
 
+# Clerk azp 検証（authorizedParties）の許可オリジン（カンマ区切り・完全一致のみ）。
+# 未設定なら azp 検証しない（開発用）。azp を持たないネイティブアプリの
+# トークンは設定の有無に関わらず通過する。
+# 例: CLERK_AUTHORIZED_PARTIES=http://localhost:8081
+# CLERK_AUTHORIZED_PARTIES=
+
+# OGP HTML（GET /user/:uid）の「Web で見る」導線に使う Web 版ベース URL。
+# 未設定ならリクエスト先自身のオリジンにフォールバックする。
+# 例: PUBLIC_WEB_URL=http://localhost:8081
+# PUBLIC_WEB_URL=
+
 # Sentry（任意）。設定するとローカルからもイベントが送信される。
 # 未設定なら SDK は no-op。動作確認したい場合のみ設定する。
 # SENTRY_DSN=
