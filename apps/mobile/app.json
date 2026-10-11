@@ -15,7 +15,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.animeishi.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

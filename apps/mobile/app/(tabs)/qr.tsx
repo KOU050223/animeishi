@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/clerk-expo";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
@@ -15,9 +16,10 @@ export default function QrScreen() {
   const [mode, setMode] = useState<Mode>("generate");
 
   return (
-    <View className="flex-1 bg-white">
+    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       {/* モード切替タブ */}
-      <View className="flex-row px-4 pt-12 pb-2 gap-2">
+      <View className="flex-row px-4 pt-2 pb-2 gap-2">
         <ModeButton
           label="マイQR"
           active={mode === "generate"}
@@ -31,7 +33,7 @@ export default function QrScreen() {
       </View>
 
       {mode === "generate" ? <GenerateView /> : <ScanView />}
-    </View>
+    </SafeAreaView>
   );
 }
 

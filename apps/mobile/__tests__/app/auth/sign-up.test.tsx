@@ -73,9 +73,15 @@ describe("SignUpScreen", () => {
     expect(auth.signUp.create).not.toHaveBeenCalled();
   });
 
-  it("正しい入力でメール認証フローへ進む", async () => {
+  it("正しい入力でメール認証フローへ進む（メール認証必須の設定）", async () => {
     const auth = getAuthMock();
-    auth.signUp.create.mockResolvedValueOnce({});
+    // メール認証必須のインスタンス: create 後も missing_requirements で、
+    // unverifiedFields に email_address が残る。
+    auth.signUp.create.mockResolvedValueOnce({
+      status: "missing_requirements",
+      unverifiedFields: ["email_address"],
+      missingFields: [],
+    });
     auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
 
     render(<SignUpScreen />);
@@ -103,7 +109,11 @@ describe("SignUpScreen", () => {
 
   it("認証コードを送信するとサインアップが完了しホームへ遷移する", async () => {
     const auth = getAuthMock();
-    auth.signUp.create.mockResolvedValueOnce({});
+    auth.signUp.create.mockResolvedValueOnce({
+      status: "missing_requirements",
+      unverifiedFields: ["email_address"],
+      missingFields: [],
+    });
     auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
     auth.signUp.attemptEmailAddressVerification.mockResolvedValueOnce({
       status: "complete",
@@ -139,5 +149,116 @@ describe("SignUpScreen", () => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_456" });
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
     });
+  });
+
+  it("メール認証不要の設定では create 直後にセッションを有効化してホームへ遷移する", async () => {
+    const auth = getAuthMock();
+    // メール認証不要のインスタンス: create の時点で status: complete になる。
+    // この場合に prepareEmailAddressVerification すると 400 になるため呼ばないこと。
+    auth.signUp.create.mockResolvedValueOnce({
+      status: "complete",
+      createdSessionId: "session_new",
+    });
+
+    render(<SignUpScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.changeText(
+      screen.getByTestId("password-confirmation-input"),
+      "StrongPass1",
+    );
+    fireEvent.press(screen.getByTestId("sign-up-button"));
+
+    await waitFor(() => {
+      expect(auth.setActive).toHaveBeenCalledWith({ session: "session_new" });
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+    expect(auth.signUp.prepareEmailAddressVerification).not.toHaveBeenCalled();
+    // 認証コード画面には遷移しない
+    expect(screen.queryByTestId("verification-code-input")).toBeNull();
+  });
+
+  it("complete でもメール認証待ちでもない場合はエラーを表示して止まる", async () => {
+    const auth = getAuthMock();
+    // 他の必須項目（例: 電話番号）が不足していてメール認証は要求されていない状態。
+    auth.signUp.create.mockResolvedValueOnce({
+      status: "missing_requirements",
+      unverifiedFields: [],
+      missingFields: ["phone_number"],
+    });
+
+    render(<SignUpScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.changeText(
+      screen.getByTestId("password-confirmation-input"),
+      "StrongPass1",
+    );
+    fireEvent.press(screen.getByTestId("sign-up-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-message")).toBeTruthy();
+    });
+    expect(auth.signUp.prepareEmailAddressVerification).not.toHaveBeenCalled();
+    expect(auth.setActive).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("session_exists エラーでは既存セッションを活性化してホームへ遷移する", async () => {
+    const auth = getAuthMock();
+    // client 上にセッションが残っているのに isSignedIn=false の状態で
+    // サインアップを試行した場合。遷移だけでは AuthGuard に戻されて
+    // ループするため、既存セッションの活性化が必要。
+    auth.client.signedInSessions = [{ id: "sess_existing" }];
+    auth.signUp.create.mockRejectedValueOnce({
+      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    });
+
+    render(<SignUpScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.changeText(
+      screen.getByTestId("password-confirmation-input"),
+      "StrongPass1",
+    );
+    fireEvent.press(screen.getByTestId("sign-up-button"));
+
+    await waitFor(() => {
+      expect(auth.setActive).toHaveBeenCalledWith({
+        session: "sess_existing",
+      });
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+    expect(screen.queryByTestId("error-message")).toBeNull();
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("session_exists で既存セッションを取り出せない場合はサインアウトして再試行を促す", async () => {
+    const auth = getAuthMock();
+    // client にセッションが無い（復元不能）ケース。
+    // 既定のモック状態（sessions が空）のまま試行する。
+    auth.signUp.create.mockRejectedValueOnce({
+      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    });
+
+    render(<SignUpScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.changeText(
+      screen.getByTestId("password-confirmation-input"),
+      "StrongPass1",
+    );
+    fireEvent.press(screen.getByTestId("sign-up-button"));
+
+    await waitFor(() => {
+      expect(auth.signOut).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("error-message")).toBeTruthy();
+    });
+    expect(auth.setActive).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

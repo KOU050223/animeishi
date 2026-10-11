@@ -37,6 +37,8 @@
   "パスワード（確認）": "Password (confirm)",
   "すでにアカウントをお持ちの方は ": "Already have an account? ",
   "サインアップに失敗しました": "Sign-up failed",
+  "サインアップを完了できませんでした。もう一度お試しください。": "Couldn't complete sign-up. Please try again.",
+  "既存のセッションを復元できませんでした。もう一度お試しください。": "We couldn't restore the existing session. Please try again.",
   "メールを確認してください": "Check your email",
   "{{email}} に送信された認証コードを入力してください": "Enter the verification code sent to {{email}}",
   "認証コード": "Verification code",

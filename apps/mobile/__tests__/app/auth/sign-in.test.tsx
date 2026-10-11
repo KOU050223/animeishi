@@ -159,6 +159,52 @@ describe("SignInScreen", () => {
     });
   });
 
+  it("session_exists エラーでは既存セッションを活性化してホームへ遷移する", async () => {
+    const auth = getAuthMock();
+    // サインアップ直後にセッションだけ作成された状態など、
+    // client 上にセッションが残っているのに isSignedIn=false だと
+    // 遷移だけでは AuthGuard に戻されてループする。活性化が必要。
+    auth.client.sessions = [{ id: "sess_existing" }];
+    auth.signIn.create.mockRejectedValueOnce({
+      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(auth.setActive).toHaveBeenCalledWith({
+        session: "sess_existing",
+      });
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+    expect(screen.queryByTestId("error-message")).toBeNull();
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("session_exists で既存セッションを取り出せない場合はサインアウトして再試行を促す", async () => {
+    const auth = getAuthMock();
+    // client にセッションが無い（復元不能）ケース。
+    // 既定のモック状態（sessions が空）のまま試行する。
+    auth.signIn.create.mockRejectedValueOnce({
+      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    });
+
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
+    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
+    fireEvent.press(screen.getByTestId("sign-in-button"));
+
+    await waitFor(() => {
+      expect(auth.signOut).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("error-message")).toBeTruthy();
+    });
+    expect(auth.setActive).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it("既にサインイン済みの場合は先にサインアウトしてからサインインする", async () => {
     // ログイン済みユーザーを表現
     const auth = loggedInUser();

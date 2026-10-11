@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
@@ -21,6 +22,7 @@ import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
 import type { AddToWalletResult } from "@/lib/wallet";
+import { featureFlags } from "@/lib/featureFlags";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -42,6 +44,7 @@ function walletErrorMessage(result: AddToWalletResult): string | null {
 }
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
@@ -52,6 +55,8 @@ export default function ProfileScreen() {
     isPending: isWalletPending,
     canUse: canUseWallet,
   } = useAddToAppleWallet();
+  // pkpass 署名が未実装（#103）の間はフラグでボタン自体を出さない。
+  const showWalletButton = featureFlags.wallet && canUseWallet;
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -150,7 +155,8 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" contentContainerClassName="pb-12">
-        <View className="px-4 pb-3 pt-12">
+        {/* 見出しがステータスバーに食い込まないよう safe area 上端を加味する */}
+        <View className="px-4 pb-3" style={{ paddingTop: insets.top + 12 }}>
           <Text className="text-xl font-bold text-gray-900">プロフィール</Text>
         </View>
 
@@ -183,7 +189,7 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
 
-          {canUseWallet ? (
+          {showWalletButton ? (
             <TouchableOpacity
               testID="add-to-wallet-button"
               className="mt-2 items-center rounded-xl bg-black py-3"
@@ -352,11 +358,11 @@ export default function ProfileScreen() {
       <View
         testID="profile-toast-layer"
         pointerEvents="box-none"
-        style={styles.toastLayer}
+        style={[styles.toastLayer, { top: insets.top }]}
       >
         {toast ? (
           <View
-            className={`mx-4 mt-12 rounded-lg px-4 py-3 shadow-md ${
+            className={`mx-4 mt-2 rounded-lg px-4 py-3 shadow-md ${
               toast.type === "success" ? "bg-green-50" : "bg-red-50"
             }`}
             accessibilityRole="alert"
