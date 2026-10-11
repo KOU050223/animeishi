@@ -7,10 +7,12 @@
     "scheme": "animeishi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/images/icon.png",
     "web": {
       "bundler": "metro",
       "output": "single",
-      "lang": "ja"
+      "lang": "ja",
+      "favicon": "./assets/images/favicon.png"
     },
     "ios": {
       "supportsTablet": true,
@@ -63,7 +65,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "monochromeImage": "./assets/images/adaptive-icon-monochrome.png",
+        "backgroundColor": "#6D28D9"
       },
       "package": "com.animeishi.app",
       "blockedPermissions": ["android.permission.RECORD_AUDIO"]
@@ -72,6 +76,19 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/images/splash-icon-dark.png",
+            "backgroundColor": "#0F0A1E"
+          }
+        }
+      ],
       [
         "expo-camera",
         {
