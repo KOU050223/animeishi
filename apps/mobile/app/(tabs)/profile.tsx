@@ -289,6 +289,31 @@ export default function ProfileScreen() {
         <View className="mt-6 px-4">
           <AnnictConnectionCard />
         </View>
+
+        <View className="mt-8 px-4">
+          <Text className="mb-2 text-sm font-medium text-gray-700">
+            法務情報
+          </Text>
+          <View className="rounded-xl border border-gray-200 bg-white">
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/privacy")}
+              accessibilityRole="button"
+              accessibilityLabel="プライバシーポリシーを開く"
+            >
+              <Text className="text-gray-900">プライバシーポリシー</Text>
+            </TouchableOpacity>
+            <View className="h-px bg-gray-100" />
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/terms")}
+              accessibilityRole="button"
+              accessibilityLabel="利用規約を開く"
+            >
+              <Text className="text-gray-900">利用規約</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       <View

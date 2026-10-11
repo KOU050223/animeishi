@@ -34,6 +34,19 @@ describe("SignUpScreen", () => {
     expect(screen.getByTestId("sign-up-button")).toBeTruthy();
   });
 
+  it("利用規約・プライバシーポリシーへのリンクを表示する", () => {
+    render(<SignUpScreen />);
+
+    // このファイルの Link モックは testID を落とすため、リンク内ラベルで検証する。
+    expect(screen.getByText("利用規約")).toBeTruthy();
+    expect(screen.getByText("プライバシーポリシー")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "アカウントを作成することで、以下に同意したものとみなします",
+      ),
+    ).toBeTruthy();
+  });
+
   it("WebではClerk CAPTCHAのマウント先をレンダリングする", () => {
     Object.defineProperty(Platform, "OS", { value: "web" });
 
