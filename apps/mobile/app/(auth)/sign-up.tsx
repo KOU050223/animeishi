@@ -215,6 +215,22 @@ export default function SignUpScreen() {
           )}
         </TouchableOpacity>
 
+        <Text className="text-center text-xs text-gray-500 mb-2">
+          {t("アカウントを作成することで、以下に同意したものとみなします")}
+        </Text>
+        <View className="flex-row justify-center gap-4 mb-4">
+          <Link href="/terms" testID="terms-link">
+            <Text className="text-indigo-600 font-semibold">
+              {t("利用規約")}
+            </Text>
+          </Link>
+          <Link href="/privacy" testID="privacy-link">
+            <Text className="text-indigo-600 font-semibold">
+              {t("プライバシーポリシー")}
+            </Text>
+          </Link>
+        </View>
+
         <View className="flex-row justify-center">
           <Text className="text-gray-600">
             {t("すでにアカウントをお持ちの方は ")}

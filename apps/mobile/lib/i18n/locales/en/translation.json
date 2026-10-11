@@ -57,5 +57,8 @@
   "認証に失敗しました。もう一度お試しください": "Verification failed. Please try again",
   "既にサインインしています": "You are already signed in",
   "試行回数が上限に達しました。しばらくしてからお試しください": "Too many attempts. Please try again later",
-  "リクエストが多すぎます。しばらくしてからお試しください": "Too many requests. Please try again later"
+  "リクエストが多すぎます。しばらくしてからお試しください": "Too many requests. Please try again later",
+  "アカウントを作成することで、以下に同意したものとみなします": "By creating an account, you agree to the following:",
+  "利用規約": "Terms of Service",
+  "プライバシーポリシー": "Privacy Policy"
 }

@@ -33,7 +33,12 @@ function AuthGuard() {
     const inAuthGroup = segments[0] === "(auth)";
     // user: 公開プロフィール。annict: OAuth コールバック着地（サインインへ飛ばすと
     // Clerk ロード待ちの間に URL の code/state を失うため、ガードの対象外にする）。
-    const inPublicGroup = segments[0] === "user" || segments[0] === "annict";
+    // privacy / terms: ストア審査・未ログイン参照用の公開法務ページ。
+    const inPublicGroup =
+      segments[0] === "user" ||
+      segments[0] === "annict" ||
+      segments[0] === "privacy" ||
+      segments[0] === "terms";
 
     if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
@@ -49,6 +54,9 @@ function AuthGuard() {
       <Stack.Screen name="user/[uid]" />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
       <Stack.Screen name="annict" />
+      {/* 公開法務ページ（/privacy /terms）。ストア審査で未ログイン閲覧が必要。 */}
+      <Stack.Screen name="privacy" />
+      <Stack.Screen name="terms" />
       {/* 名刺エディタ */}
       <Stack.Screen name="meishi/edit" />
       {/* シーズンごとのアニメ tier 表 */}
