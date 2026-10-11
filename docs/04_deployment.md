@@ -235,14 +235,9 @@ pnpm exec eas submit --profile production --platform ios
 
 EAS Build は gitignore された `.env` をアップロードしないため、ローカルの `.env` はビルドに届かない。`EXPO_PUBLIC_*` はクライアントに埋め込まれる公開値なので、`eas.json` の各プロファイルの `env` に直接書く。
 
-`preview` / `production` には API / Web の URL を設定済みだが、以下は `REPLACE_WITH_*` プレースホルダのままなので、初回ビルド前に実値で置き換えること（GitHub Actions の同名 Variables と同じ値）。
+`preview` / `production` の `env` には API / Web の URL・Clerk publishable key・Annict Client ID・Sentry DSN を設定済み（GitHub Actions の同名 Variables と同じ値）。`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` は現状 `pk_test_*` を埋め込んでおり、本番用 `pk_live_*` への切り替えは #136 で行う。
 
-| 変数 | 値の入手先 |
-| --- | --- |
-| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard → API Keys → Publishable key（`pk_live_*`） |
-| `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Annict OAuth の Client ID |
-
-プレースホルダのままビルドすると、起動時に「Clerk publishable key が設定されていません」で止まる。`EXPO_PUBLIC_SENTRY_DSN` だけは実値登録済み。未設定やプレースホルダでもビルド・起動は通る（SDK が no-op になる）が、Sentry への送信は行われない。
+`submit` の iOS 提出用の値（`appleId` / `ascAppId` / `appleTeamId`）だけは `REPLACE_WITH_*` プレースホルダのまま（#107 で対応）。`EXPO_PUBLIC_SENTRY_DSN` は未設定やプレースホルダでもビルド・起動は通る（SDK が no-op になる）が、Sentry への送信は行われない。
 
 ### Sentry（ネイティブビルドの source map アップロード）
 
@@ -318,12 +313,12 @@ DSN 未設定の環境ではどちらも SDK は no-op になる。
 
 ## チェックリスト（初回デプロイ前）
 
-- [ ] GitHub Variables に `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` を登録
-- [ ] GitHub Variables に `EXPO_PUBLIC_ANNICT_CLIENT_ID` を登録
+- [x] GitHub Variables に `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` / `EXPO_PUBLIC_API_URL` を登録
+- [x] GitHub Variables に `EXPO_PUBLIC_ANNICT_CLIENT_ID` を登録
 - [ ] GitHub Secrets に `CLOUDFLARE_API_TOKEN` を登録
 - [ ] Workers secret に `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` を登録（API 本番・preview 両方。preview への登録は「[初回ブートストラップ](#初回ブートストラップ完了済み再作成時の記録)」参照）
 - [ ] Sentry プロジェクト `animeishi-api` を作成し、Workers secret に `SENTRY_DSN` を登録（本番・preview 両方）と Discord Alert を設定（「[7. Sentry / Discord 通知](#7-sentry--discord-通知)」参照）
 - [x] Sentry プロジェクト `animeishi-mobile` を作成し、`EXPO_PUBLIC_SENTRY_DSN` を GitHub Variables と `eas.json` に登録、Discord Alert を設定
 - [x] `SENTRY_AUTH_TOKEN` を EAS の sensitive 環境変数に登録（ネイティブビルドの source map アップロード用）
 - [ ] Web のドメイン確定後、API の `ALLOWED_ORIGINS` に Web オリジンを設定して再デプロイ
-- [ ] `eas.json` の `env` と `submit` の `REPLACE_WITH_*` を実値で置き換える（ネイティブ初回ビルド前）
+- [ ] `eas.json` の `submit` の `REPLACE_WITH_*` を実値で置き換える（iOS 提出前・#107）
