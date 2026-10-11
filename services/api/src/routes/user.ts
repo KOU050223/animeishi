@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { users, userGenres } from "@/db/schema";
+import { escapeHtml } from "@/lib/html";
 import type { Env } from "@/db/client";
 
 type UserBindings = {
@@ -48,14 +49,6 @@ const user = new Hono<UserBindings>().get("/:uid", async (c) => {
     200,
   );
 });
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 function buildOgpHtml(
   profile: {

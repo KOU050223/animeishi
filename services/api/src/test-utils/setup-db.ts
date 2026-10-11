@@ -73,12 +73,14 @@ const DDL_STATEMENTS = [
     season TEXT NOT NULL,
     title TEXT NOT NULL,
     tiers_json TEXT NOT NULL,
+    share_token TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS tier_lists_user_season_unique ON tier_lists (user_id, season)`,
   `CREATE INDEX IF NOT EXISTS tier_lists_user_idx ON tier_lists (user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS tier_lists_share_token_unique ON tier_lists (share_token)`,
   `CREATE TABLE IF NOT EXISTS tier_list_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     tier_list_id INTEGER NOT NULL,

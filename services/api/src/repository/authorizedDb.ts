@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
+import { fetchTierListItems } from "./sharedTierLists";
 import {
   users,
   watchHistory,
@@ -673,28 +674,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       });
       if (!list) return undefined;
 
-      const items = await db
-        .select({
-          annictWorkId: tierListItems.annictWorkId,
-          tierKey: tierListItems.tierKey,
-          position: tierListItems.position,
-          title: annictWorks.title,
-          titleKana: annictWorks.titleKana,
-          titleEn: annictWorks.titleEn,
-          seasonName: annictWorks.seasonName,
-          seasonYear: annictWorks.seasonYear,
-          imageUrl: annictWorks.imageUrl,
-          resolvedImageUrl: annictWorks.resolvedImageUrl,
-          imageSource: annictWorks.imageSource,
-        })
-        .from(tierListItems)
-        .innerJoin(
-          annictWorks,
-          eq(tierListItems.annictWorkId, annictWorks.annictWorkId),
-        )
-        .where(eq(tierListItems.tierListId, list.id))
-        .orderBy(tierListItems.position);
-
+      const items = await fetchTierListItems(db, list.id);
       return { ...list, items };
     },
 
@@ -774,6 +754,52 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       const result = await this.getMyTierList(input.season);
       if (!result) throw new Error("tier 表の保存に失敗しました");
       return result;
+    },
+
+    /**
+     * 指定シーズンの tier 表の共有トークンを発行する。
+     * 既に発行済みなら同じトークンを返す（共有リンクは一度配ったら変えない方が
+     * 受け取り側でリンク切れにならないため）。表が未作成なら undefined。
+     */
+    async shareMyTierList(season: string): Promise<string | undefined> {
+      const list = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
+      });
+      if (!list) return undefined;
+      if (list.shareToken) return list.shareToken;
+
+      // 発行は share_token がまだ null の場合だけに絞る。
+      // 同一表への並行リクエストで両方が null を読んでも、後から UPDATE した
+      // 側が先のトークンを上書きしてリンク切れにする競合を防ぐため、
+      // 条件付き UPDATE にしてから DB の値を読み直して返す。
+      await db
+        .update(tierLists)
+        .set({ shareToken: crypto.randomUUID() })
+        .where(and(eq(tierLists.id, list.id), isNull(tierLists.shareToken)));
+      const updated = await db.query.tierLists.findFirst({
+        where: eq(tierLists.id, list.id),
+        columns: { shareToken: true },
+      });
+      return updated?.shareToken ?? undefined;
+    },
+
+    /**
+     * 共有トークンを破棄する。破棄後は公開エンドポイントが 404 を返す。
+     * 表が未作成なら false。
+     */
+    async unshareMyTierList(season: string): Promise<boolean> {
+      const list = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
+        columns: { id: true },
+      });
+      if (!list) return false;
+      await db
+        .update(tierLists)
+        .set({ shareToken: null })
+        .where(eq(tierLists.id, list.id));
+      return true;
     },
 
     /** 指定シーズンの tier 表を削除する。items は FK の CASCADE で消える。 */

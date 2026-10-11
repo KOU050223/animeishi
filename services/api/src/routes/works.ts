@@ -112,40 +112,40 @@ async function attachResolvedImages(
     return { ...w, resolvedImageUrl: c0?.resolvedImageUrl ?? null };
   });
 
-  if (fallbackTargets.length > 0) {
-    // 検索経路は annict_works にキャッシュ行が無い場合もあるため、cron が
-    // pending 行を拾って解決できるよう、補完対象の作品メタだけ先に upsert する。
-    const worksById = new Map(works.map((w) => [w.annictWorkId, w]));
-    const now = new Date();
-    const upsertFailedIds = new Set<number>();
-    for (const t of fallbackTargets) {
-      const w = worksById.get(t.annictWorkId);
-      if (!w) continue;
-      try {
-        await adb.upsertAnnictWork({
+  // 検索でユーザーに見せた作品はすべて annict_works にキャッシュする。
+  // tier 表の保存（PUT /me/tier-lists）が items → annict_works の FK を要求する
+  // ため、補完対象だけを upsert すると通常画像の作品で保存が 400 になる。
+  // キャッシュ失敗は検索レスポンスを壊さないよう作品ごとに握りつぶす。
+  const now = new Date();
+  const upsertFailedIds = new Set<number>();
+  for (const w of works) {
+    try {
+      await adb.upsertAnnictWork({
+        annictWorkId: w.annictWorkId,
+        nodeId: w.nodeId,
+        malAnimeId: w.malAnimeId,
+        title: w.title,
+        titleKana: w.titleKana,
+        titleEn: w.titleEn,
+        seasonName: w.seasonName,
+        seasonYear: w.seasonYear,
+        imageUrl: w.imageUrl,
+        updatedAt: now,
+      });
+    } catch (err) {
+      upsertFailedIds.add(w.annictWorkId);
+      console.error(
+        JSON.stringify({
+          level: "warn",
+          event: "work_cache_upsert_failed",
           annictWorkId: w.annictWorkId,
-          nodeId: w.nodeId,
-          malAnimeId: w.malAnimeId,
-          title: w.title,
-          titleKana: w.titleKana,
-          titleEn: w.titleEn,
-          seasonName: w.seasonName,
-          seasonYear: w.seasonYear,
-          imageUrl: w.imageUrl,
-          updatedAt: now,
-        });
-      } catch (err) {
-        upsertFailedIds.add(t.annictWorkId);
-        console.error(
-          JSON.stringify({
-            level: "warn",
-            event: "image_fallback_upsert_failed",
-            annictWorkId: t.annictWorkId,
-            error: err instanceof Error ? err.message : String(err),
-          }),
-        );
-      }
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
     }
+  }
+
+  if (fallbackTargets.length > 0) {
     // 初回表示で大半の画像が出るよう、AniList バッチによる同期解決をここで行う。
     // 非同期解決に任せると初回表示までに全件解決が間に合わなかった（issue #108）。
     // AniList は 20 件/リクエストでまとめて取れるので応答経路に載せても軽い。

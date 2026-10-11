@@ -100,6 +100,32 @@ const tierLists = new Hono<AuthVariables>()
       await adb.deleteMyTierList(season);
       return c.json({ success: true }, 200);
     },
+  )
+  // 共有リンクの発行・破棄。トークンは冪等（再発行しても変わらない）なので
+  // クライアントは「共有ボタン押下」のたびに安心して呼べる。
+  .post(
+    "/:season/share",
+    zValidator("param", tierListSeasonParamSchema),
+    async (c) => {
+      const { season } = c.req.valid("param");
+      const db = createDb(getBindings(c).DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+      const shareToken = await adb.shareMyTierList(season);
+      if (!shareToken) return c.json({ error: "Tier list not found" }, 404);
+      return c.json({ shareToken }, 200);
+    },
+  )
+  .delete(
+    "/:season/share",
+    zValidator("param", tierListSeasonParamSchema),
+    async (c) => {
+      const { season } = c.req.valid("param");
+      const db = createDb(getBindings(c).DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+      const found = await adb.unshareMyTierList(season);
+      if (!found) return c.json({ error: "Tier list not found" }, 404);
+      return c.json({ success: true }, 200);
+    },
   );
 
 export { tierLists };

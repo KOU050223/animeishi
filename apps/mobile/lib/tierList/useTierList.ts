@@ -75,3 +75,35 @@ export function useSaveTierList() {
     },
   });
 }
+
+/**
+ * 共有トークンを発行する。トークンは冪等（再呼び出しで変わらない）。
+ * 共有の対象はサーバに保存された内容なので、呼ぶ前に useSaveTierList で
+ * 保存を完了させておくこと。
+ */
+export function useShareTierList() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (season: string) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["tier-lists"][":season"].share.$post(
+        { param: { season } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "共有リンクの発行に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: (data, season) => {
+      // 共有状態を保存済みキャッシュにも反映し、「共有中」判定に使えるようにする。
+      queryClient.setQueryData(
+        tierListQueryKey(season),
+        (prev: { shareToken?: string | null } | undefined) =>
+          prev ? { ...prev, shareToken: data.shareToken } : prev,
+      );
+    },
+  });
+}

@@ -28,6 +28,12 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
+  shareButton: {
+    backgroundColor: "#7c3aed",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
   saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: "#ffffff", fontWeight: "600" },
 
@@ -116,4 +122,8 @@ export const styles = StyleSheet.create({
 
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   centeredText: { color: "#9ca3af", fontSize: 14, textAlign: "center" },
+
+  // 画像エクスポート用スナップショットの描画先。画面の外に置いて
+  // ユーザーには見せない（表示中の盤面とは別の静的ビュー）。
+  snapshotOffscreen: { position: "absolute", left: -2000, top: 0 },
 });
