@@ -21,6 +21,7 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | 変数 | 読まれるタイミング | 登録先 | 秘匿性 |
 | --- | --- | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値（publishable） |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` | PR プレビュー Web の**ビルド時**。Clerk **開発インスタンス**の `pk_test_`（本番インスタンス `clerk.animeishi.uomi.dev` は `animeishi.uomi.dev` 以外のオリジンを受け付けないため） | GitHub Actions **Variables** | 公開値（publishable） |
 | `EXPO_PUBLIC_API_URL` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み。未設定なら PR 番号から組み立てる `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
