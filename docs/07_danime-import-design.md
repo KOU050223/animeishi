@@ -2,6 +2,10 @@
 
 Issue: https://github.com/KOU050223/animeishi/issues/83
 
+> **提供範囲（v1.0 時点）**: ネイティブ（iOS/Android）では `featureFlags.danimeImport`
+> で無効化されており Web 版のみ提供（#158。App Store 審査 5.2.2 リスク回避）。
+> 再有効化は `EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=true` で行う。
+
 ## 目的
 
 dアニメストアの視聴履歴・コンプリート作品を取り込み、対応する Annict 作品に

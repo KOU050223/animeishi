@@ -6,7 +6,13 @@
 // dアカウントの認証情報・セッション Cookie は WebView 内に留まり、
 // アプリ側にも Animeishi API にも送信されない。
 import { useRef, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -20,6 +26,13 @@ import {
   type DanimeExtractMessage,
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
+import { featureFlags } from "@/lib/featureFlags";
+
+// Web 版の取り込み画面への導線（フラグ無効時の案内用）。
+// EXPO_PUBLIC_WEB_URL は EAS プロファイルで本番 URL が設定済み。
+const DANIME_IMPORT_WEB_URL = `${(
+  process.env.EXPO_PUBLIC_WEB_URL ?? "https://animeishi.uomi.dev"
+).replace(/\/+$/, "")}/danime-import`;
 
 function errorMessage(code: string): string {
   if (code === "wrong_page") {
@@ -43,6 +56,41 @@ export default function DanimeImportScreen() {
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setLists = useDanimeImportStore((s) => s.setLists);
+
+  // v1.0 ではネイティブで無効化（#158）。ディープリンク等で直接遷移された
+  // 場合に備え、Web 版への導線を案内する。
+  if (!featureFlags.danimeImport) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-white items-center justify-center px-8"
+        edges={["top", "bottom"]}
+      >
+        <Text className="text-xl font-bold text-gray-900">
+          dアニメからインポート
+        </Text>
+        <Text className="text-sm text-gray-600 mt-3 text-center leading-5">
+          この機能は現在 Web 版でのみ利用できます。
+        </Text>
+        <TouchableOpacity
+          className="mt-6 bg-indigo-600 rounded-xl px-8 py-3"
+          onPress={() => void Linking.openURL(DANIME_IMPORT_WEB_URL)}
+          accessibilityRole="button"
+          accessibilityLabel="Web 版を開く"
+          testID="danime-open-web-button"
+        >
+          <Text className="text-white font-semibold">Web 版を開く</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="mt-4 py-2"
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="戻る"
+        >
+          <Text className="text-gray-500">戻る</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   function startExtract() {
     setError(null);
