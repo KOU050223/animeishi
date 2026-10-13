@@ -21,6 +21,7 @@ import type { ListRenderItem } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
+import { featureFlags } from "@/lib/featureFlags";
 import {
   useBulkRegisterWatchHistory,
   useDanimeMatch,
@@ -252,6 +253,11 @@ export default function DanimeImportReviewScreen() {
     ),
     [currentStates, toggleRow, selectCandidate],
   );
+
+  // v1.0 ではネイティブで無効化（#158）。直接遷移されてもホームへ戻す。
+  if (!featureFlags.danimeImport) {
+    return <Redirect href="/(tabs)/watch-history" />;
+  }
 
   if (!lists) {
     // ストアが空 = 取込画面を経ずに来た → 取込画面へ戻す。

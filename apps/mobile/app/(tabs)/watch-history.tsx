@@ -18,6 +18,7 @@ import {
 } from "@/lib/useWatchHistory";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
 import { confirm } from "@/lib/dialog";
+import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
@@ -128,17 +129,21 @@ export default function WatchHistoryScreen() {
             {enriched.length} 件
           </Text>
         </View>
-        <TouchableOpacity
-          className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5"
-          onPress={() => router.push("/danime-import")}
-          accessibilityRole="button"
-          accessibilityLabel="dアニメストアからインポート"
-          testID="danime-import-button"
-        >
-          <Text className="text-xs text-indigo-600 font-medium">
-            dアニメからインポート
-          </Text>
-        </TouchableOpacity>
+        {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
+            フラグが無効な間は導線を出さない。 */}
+        {featureFlags.danimeImport && (
+          <TouchableOpacity
+            className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5"
+            onPress={() => router.push("/danime-import")}
+            accessibilityRole="button"
+            accessibilityLabel="dアニメストアからインポート"
+            testID="danime-import-button"
+          >
+            <Text className="text-xs text-indigo-600 font-medium">
+              dアニメからインポート
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
