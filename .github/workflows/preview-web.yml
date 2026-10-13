@@ -56,7 +56,8 @@ jobs:
       - name: Build web
         run: pnpm --filter @animeishi/mobile build:web
         env:
-          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          # preview は Clerk 開発インスタンス（本番インスタンスは animeishi.uomi.dev 以外のオリジンを受け付けない）
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW }}
           EXPO_PUBLIC_API_URL: ${{ env.API_PREVIEW_URL }}
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
           EXPO_PUBLIC_ENVIRONMENT: preview
