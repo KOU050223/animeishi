@@ -81,6 +81,13 @@ export function TierBoard({
     [onAssign, registry],
   );
 
+  // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
+  // これを戻さないと draggingId が残り、重なり順とスクロール停止が戻らない。
+  const handleDragCancel = useCallback(() => {
+    setHoverKey(undefined);
+    setDraggingId(null);
+  }, []);
+
   const handleDragStart = useCallback(
     (workId: number) => {
       setDraggingId(workId);
@@ -111,6 +118,7 @@ export function TierBoard({
       onDragStart={() => handleDragStart(work.annictWorkId)}
       onDragMove={handleDragMove}
       onDragEnd={(x, y) => handleDragEnd(work.annictWorkId, x, y)}
+      onDragCancel={handleDragCancel}
       // 今いる場所は移動先に出さない（選んでも何も起きないため）
       moveDestinations={moveDestinations.filter(
         (d) => d.tierKey !== currentTierKey,

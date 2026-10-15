@@ -4,7 +4,8 @@ import { TierBoard } from "./TierBoard";
 import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
 
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
-// ドラッグ開始を press、ドラッグ終了を longPress に写像したスタブに差し替える。
+// ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に
+// 写像したスタブに差し替える。
 jest.mock("./DraggableWorkCard", () => {
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -13,15 +14,18 @@ jest.mock("./DraggableWorkCard", () => {
       work,
       onDragStart,
       onDragEnd,
+      onDragCancel,
     }: {
       work: TierWork;
       onDragStart: () => void;
       onDragEnd: (x: number, y: number) => void;
+      onDragCancel: () => void;
     }) => (
       <Pressable
         testID={`tier-card-${work.annictWorkId}`}
         onPress={onDragStart}
         onLongPress={() => onDragEnd(0, 0)}
+        onTouchCancel={onDragCancel}
       >
         <Text>{work.title}</Text>
       </Pressable>
@@ -131,6 +135,20 @@ describe("ドラッグ中カードの重なり順", () => {
     fireEvent.press(getByTestId("tier-card-3"));
 
     expect(zIndexOf(getByTestId("tier-tray"))).toBeGreaterThan(0);
+  });
+
+  it("ドラッグがキャンセルされても元の重なり順に戻る", () => {
+    const { getByTestId } = render(
+      boardElement({ works: WORKS, assignment: ASSIGNMENT }),
+    );
+
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    // onEnd を通らないキャンセル（別ジェスチャに奪われた等）を再現する
+    fireEvent(card, "touchCancel");
+
+    expect(zIndexOf(getByTestId("tier-row-0")) ?? 0).toBe(0);
+    expect(zIndexOf(getByTestId("tier-board")) ?? 0).toBe(0);
   });
 
   it("ドラッグ終了後は元の重なり順に戻る", () => {

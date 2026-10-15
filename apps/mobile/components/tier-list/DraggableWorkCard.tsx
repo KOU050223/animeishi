@@ -34,6 +34,11 @@ export type DraggableWorkCardProps = {
   onDragMove: (x: number, y: number) => void;
   /** 指を離したときの位置（ウィンドウ座標）。ここでドロップ先を確定する。 */
   onDragEnd: (x: number, y: number) => void;
+  /**
+   * onEnd を通らずにジェスチャが終わったとき（別ジェスチャに奪われた等の
+   * キャンセル）。ドロップは確定せず、親側のドラッグ中フラグだけ戻す。
+   */
+  onDragCancel: () => void;
   /** 支援技術経由で提示する移動先一覧（現在位置は呼び出し側で除く）。 */
   moveDestinations: TierMoveDestination[];
   /** アクセシビリティアクションで移動先が選ばれたとき。 */
@@ -52,6 +57,7 @@ export function DraggableWorkCard({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onDragCancel,
   moveDestinations,
   onMove,
 }: DraggableWorkCardProps) {
@@ -85,11 +91,25 @@ export function DraggableWorkCard({
         })
         .onFinalize(() => {
           // キャンセル（別ジェスチャに奪われた等）でもカードが浮いたままにならないよう戻す。
-          isDragging.value = false;
+          // onEnd を通った終了では isDragging が既に false なので、
+          // ここで true が残っている場合だけが「未確定のキャンセル」。
+          // 親側のドラッグ中フラグ（スクロール停止・zIndex 制御）も戻す。
+          if (isDragging.value) {
+            isDragging.value = false;
+            runOnJS(onDragCancel)();
+          }
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
         }),
-    [isDragging, onDragEnd, onDragMove, onDragStart, translateX, translateY],
+    [
+      isDragging,
+      onDragCancel,
+      onDragEnd,
+      onDragMove,
+      onDragStart,
+      translateX,
+      translateY,
+    ],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
