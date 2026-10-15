@@ -5,7 +5,11 @@ import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import type { DrizzleDb, Env } from "@/db/client";
 import { escapeHtml } from "@/lib/html";
-import { readBodyWithLimit } from "@/lib/http";
+import {
+  fetchFollowingRedirects,
+  isPublicImageUrl,
+  readBodyWithLimit,
+} from "@/lib/http";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import {
   getSharedTierList,
@@ -105,7 +109,6 @@ const IMAGE_PROXY_TIMEOUT_MS = 8000;
 const IMAGE_PROXY_MAX_BYTES = 5 * 1024 * 1024;
 const IMAGE_PROXY_MAX_REDIRECTS = 3;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Web 版の画像エクスポート用プロキシ。Annict / AniList / MAL 等の外部 CDN は
@@ -114,8 +117,9 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
  *
  * 公開エンドポイント（認証不要）だがオープンプロキシにはしない:
  * - url は annict_works の作品画像カラムに実在するものだけ許可（無ければ 403）
- * - https スキームのみ許可（http は Mixed Content になり使い道が無いため拒否）
- * - リダイレクトは manual で扱い、遷移先も同じ検証（https + DB 実在）を通す
+ * - https スキームかつ公開ホストのみ許可（http は Mixed Content、
+ *   内部宛先は SSRF になりうるため拒否）
+ * - リダイレクトは manual で扱い、遷移先も同じ検証（公開ホスト + DB 実在）を通す
  * - 応答 Content-Type が image/* であること（SVG はスクリプトを含み得るため除外）
  * - サイズ上限・nosniff を必須条件にする
  */
@@ -129,50 +133,34 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   if (target.protocol !== "https:") {
     return c.json({ error: "Only https URLs are allowed" }, 400);
   }
+  // 作品画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
+  // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
+  // （SSRF 対策、Devin Review 指摘）。
+  if (!isPublicImageUrl(target.toString())) {
+    return c.json({ error: "Only public https URLs are allowed" }, 400);
+  }
   if (!(await isKnownWorkImageUrl(db, target.toString()))) {
     return c.json({ error: "Image URL is not a known work image" }, 403);
   }
 
-  // リダイレクトは自動追従しない。遷移先が DB 照合を通らない限り追わず、
-  // 同一 URL の最大ホップ数を超えた場合も拒否する。
-  let upstream: Response | null = null;
-  for (let hop = 0; hop <= IMAGE_PROXY_MAX_REDIRECTS; hop++) {
-    let res: Response;
-    try {
-      res = await fetch(target.toString(), {
-        signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
-        redirect: "manual",
-      });
-    } catch {
-      return c.json({ error: "Failed to fetch image" }, 502);
-    }
-
-    if (!REDIRECT_STATUSES.has(res.status)) {
-      upstream = res;
-      break;
-    }
-
-    const location = res.headers.get("location");
-    if (!location) {
-      return c.json({ error: "Upstream image not available" }, 502);
-    }
-    let next: URL;
-    try {
-      next = new URL(location, target);
-    } catch {
-      return c.json({ error: "Upstream image not available" }, 502);
-    }
-    if (
-      next.protocol !== "https:" ||
-      !(await isKnownWorkImageUrl(db, next.toString()))
-    ) {
-      return c.json({ error: "Redirect target is not allowed" }, 502);
-    }
-    target = next;
+  // リダイレクトは自動追従しない。遷移先が公開ホスト検証・DB 照合の
+  // 両方を通らない限り追わず、最大ホップ数を超えた場合も拒否する。
+  const followed = await fetchFollowingRedirects(target.toString(), {
+    timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
+    maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
+    isAllowed: async (url) =>
+      isPublicImageUrl(url) && (await isKnownWorkImageUrl(db, url)),
+  });
+  if (followed.kind === "failed") {
+    const message = {
+      fetch_error: "Failed to fetch image",
+      missing_location: "Upstream image not available",
+      blocked: "Redirect target is not allowed",
+      too_many_redirects: "Too many redirects",
+    }[followed.reason];
+    return c.json({ error: message }, 502);
   }
-  if (!upstream) {
-    return c.json({ error: "Too many redirects" }, 502);
-  }
+  const upstream = followed.response;
   if (!upstream.ok) {
     return c.json({ error: "Upstream image not available" }, 502);
   }

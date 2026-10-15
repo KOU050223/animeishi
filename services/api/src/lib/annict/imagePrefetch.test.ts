@@ -65,10 +65,23 @@ describe("pickWorkImageSource", () => {
     );
   });
 
-  it("http: の imageUrl も取り込み対象（R2 経由で https 配信に化ける）", () => {
+  it("http: の imageUrl は取り込まない（fetch は https のみ・SSRF 対策）", () => {
     expect(
       pickWorkImageSource("http://youjo-senki.jp/og-image.jpg", null),
-    ).toBe("http://youjo-senki.jp/og-image.jpg");
+    ).toBeNull();
+  });
+
+  it("内部宛先（IP リテラル・localhost 系・標準外ポート）は取り込み元にしない", () => {
+    for (const url of [
+      "https://10.0.0.1/x.png",
+      "https://169.254.169.254/latest/meta-data.png",
+      "https://[::1]/x.png",
+      "https://localhost/x.png",
+      "https://img.example.com:8443/x.png",
+      "https://printer.internal/x.png",
+    ]) {
+      expect(pickWorkImageSource(url, null)).toBeNull();
+    }
   });
 
   it("SNS アバターしか無い作品は取り込まない", () => {
@@ -175,8 +188,8 @@ describe("prefetchWorkImages", () => {
       "https://img.example.com/p101.png",
       expect.objectContaining({
         signal: expect.any(AbortSignal),
-        // リダイレクトは追わない（リダイレクト先の再検証省略で SSRF 防止）
-        redirect: "error",
+        // リダイレクトは自動追従しない（manual で遷移先を再検証する）
+        redirect: "manual",
       }),
     );
 
@@ -374,8 +387,8 @@ describe("prefetchWorkImages", () => {
 
   it("内部ホストを指す画像 URL は fetch しない（SSRF 対策）", async () => {
     for (const [annictWorkId, imageUrl] of [
-      [112, "http://169.254.169.254/latest/meta-data.png"],
-      [113, "http://localhost:8787/internal.png"],
+      [112, "https://169.254.169.254/latest/meta-data.png"],
+      [113, "https://localhost:8787/internal.png"],
       [114, "https://10.0.0.1/x.png"],
       [115, "https://img.example.com:8443/x.png"],
     ] as const) {
@@ -385,8 +398,10 @@ describe("prefetchWorkImages", () => {
 
     const result = await prefetchWorkImages(db, env.AVATARS);
 
+    // 取り込み元として不適格なので job 化されず fetch も呼ばれない。
+    // 「確認済み」として attempted は立つ（failed ではなく checked 側）。
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.failed).toBe(4);
+    expect(result).toEqual({ scanned: 4, stored: 0, failed: 0 });
     for (const id of [112, 113, 114, 115]) {
       const row = await db.query.annictWorks.findFirst({
         where: (t, { eq }) => eq(t.annictWorkId, id),
@@ -394,6 +409,57 @@ describe("prefetchWorkImages", () => {
       expect(row?.imageR2Key).toBeNull();
       expect(row?.imageR2AttemptedAt).not.toBeNull();
     }
+  });
+
+  it("公開ホストへのリダイレクトは追従して取り込む", async () => {
+    await insertWork(db, {
+      annictWorkId: 117,
+      imageUrl: "https://img.example.com/p117.png",
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === "https://img.example.com/p117.png") {
+          return new Response(null, {
+            status: 302,
+            headers: { location: "https://cdn.example.com/p117.png" },
+          });
+        }
+        return makeImageResponse();
+      });
+
+    const result = await prefetchWorkImages(db, env.AVATARS);
+
+    expect(result.stored).toBe(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cdn.example.com/p117.png",
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
+  it("リダイレクト先が内部宛先なら追わず失敗扱いにする", async () => {
+    await insertWork(db, {
+      annictWorkId: 118,
+      imageUrl: "https://img.example.com/p118.png",
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://169.254.169.254/x.png" },
+      }),
+    );
+
+    const result = await prefetchWorkImages(db, env.AVATARS);
+
+    expect(result).toEqual({ scanned: 1, stored: 0, failed: 1 });
+    // 初期 URL への fetch だけで、遷移先には行っていない
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 118),
+    });
+    expect(row?.imageR2Key).toBeNull();
+    expect(row?.imageR2AttemptedAt).not.toBeNull();
   });
 
   it("画像ソースが消えた作品は残っていた R2 オブジェクトとキーを掃除する", async () => {

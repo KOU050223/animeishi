@@ -11,8 +11,8 @@
 // 揃える:
 //   1. 実画像の imageUrl（Annict 由来・https かつ非 placeholder）
 //   2. resolvedImageUrl（imageFallback が AniList / Jikan で解決した URL）
-//   3. http: の imageUrl（表示側では placeholder 扱い＝Mixed Content 回避だが、
-//      R2 に取り込めば https で配信できるため対象に含める）
+// fetch 自体は https の公開ホストに限定する（SSRF 対策。http: の imageUrl は
+// 表示側でも placeholder 扱いなので取り込まない）。
 // SNS アバター等の placeholder は作品画像ではないので取り込まない。
 //
 // R2 オブジェクトキーは `works/<annictWorkId>/<hash(sourceUrl)>.<ext>`。
@@ -29,9 +29,13 @@
 import { mapWithConcurrency } from "@animeishi/danime-core";
 import type { DrizzleDb } from "@/db/client";
 import { authorizedDb } from "@/repository/authorizedDb";
-import { readBodyWithLimit } from "@/lib/http";
+import {
+  fetchFollowingRedirects,
+  isPublicImageUrl,
+  readBodyWithLimit,
+} from "@/lib/http";
 import { currentAnnictSeason, nextAnnictSeason } from "./client";
-import { isPlaceholderImageUrl, isSnsImageUrl } from "./imageFallback";
+import { isPlaceholderImageUrl } from "./imageFallback";
 
 /** 取り込み（または対象判定）の再試行間隔。失敗・取り込み元なしを短周期で叩き直さないためのもの。 */
 export const IMAGE_PREFETCH_ATTEMPT_COOLDOWN_MS = 60 * 60 * 1000;
@@ -50,6 +54,7 @@ const PREFETCH_FETCH_LIMIT = 10;
 const PREFETCH_FETCH_CONCURRENCY = 5;
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
+const IMAGE_FETCH_MAX_REDIRECTS = 3;
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 // 配信許可する Content-Type → キーの拡張子。
@@ -74,54 +79,11 @@ const WORK_IMAGE_KEY_PATTERN =
 
 const SYSTEM_USER_ID = "__image_prefetch_cron__";
 
-// http(s) 以外のスキーム（javascript: や data:）は外部データ由来の文字列に
-// 紛れ込み得るため、取り込み対象からは外す（fetch は data: も解釈する）。
-function isFetchableImageUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url);
-}
-
-// 内部宛先への fetch を防ぐ SSRF 対策（Devin Review 指摘）。
-// 画像 URL は上流 API 由来とはいえ、悪意ある/壊れたデータで内部アドレスを
-// 指されると、その応答を公開 R2 に置いてしまう。作品画像 CDN は必ず
-// 公開ドメイン名かつ標準ポートのため、以下を拒否する:
-//   * IP リテラル（IPv4・[v6]・0x/10進混在表記を含め、数字・16進・
-//     ドット・コロンのみで構成されるホスト）
-//   * ドット無し / localhost / .local / .internal / .lan / .home / .corp
-//   * 標準外ポート（80・443・暗黙ポート以外）
-// 公開ドメインの DNS が内部 IP を指すリバインディングは fetch 層では防げず、
-// 残余リスクとして残る。
-function isPublicImageUrl(url: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return false;
-  }
-  const host = parsed.hostname.toLowerCase();
-  if (
-    !host.includes(".") ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    host.endsWith(".lan") ||
-    host.endsWith(".home") ||
-    host.endsWith(".corp") ||
-    /^[0-9a-f.:x]+$/.test(host.replace(/^\[|\]$/g, ""))
-  ) {
-    return false;
-  }
-  if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
-    return false;
-  }
-  return true;
-}
-
 /**
  * R2 へ取り込む画像のソース URL を選ぶ。優先順位はクライアントの
  * pickImageUrl（表示側）と揃える。取り込み不能なら null。
+ * ソース URL は https の公開ホストに限定する（SSRF 対策、Devin Review 指摘。
+ * http: や内部宛先の URL はここで取り込み元から外れ、fetch にも届かない）。
  */
 export function pickWorkImageSource(
   imageUrl: string | null | undefined,
@@ -129,19 +91,13 @@ export function pickWorkImageSource(
 ): string | null {
   if (
     imageUrl &&
-    isFetchableImageUrl(imageUrl) &&
+    isPublicImageUrl(imageUrl) &&
     !isPlaceholderImageUrl(imageUrl)
   ) {
     return imageUrl;
   }
-  if (resolvedImageUrl && isFetchableImageUrl(resolvedImageUrl)) {
+  if (resolvedImageUrl && isPublicImageUrl(resolvedImageUrl)) {
     return resolvedImageUrl;
-  }
-  // ここに来る imageUrl は placeholder（null/空/http:/SNS）のいずれか。
-  // このうち http: の実画像だけは取り込み価値がある（https 配信に化ける）。
-  const trimmed = imageUrl?.trim();
-  if (trimmed && isFetchableImageUrl(trimmed) && !isSnsImageUrl(trimmed)) {
-    return trimmed;
   }
   return null;
 }
@@ -222,17 +178,17 @@ async function fetchWorkImage(
   fetchImpl: typeof fetch,
 ): Promise<FetchedImage | null> {
   if (!isPublicImageUrl(url)) return null;
-  let res: Response;
-  try {
-    res = await fetchImpl(url, {
-      signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
-      // リダイレクト先のホストを都度再検証するより、追わずに失敗扱いにする
-      // （リダイレクト経由で内部宛先へ連れて行かれる SSRF を防ぐ）。
-      redirect: "error",
-    });
-  } catch {
-    return null;
-  }
+  // リダイレクトは manual で 1 ホップずつ追い、遷移先にも同じ公開ホスト検証を
+  // かける（redirect: "follow" のまま内部宛先へ連れて行かれる SSRF を防ぐ。
+  // /share/image-proxy と同じ fetchFollowingRedirects を使う）。
+  const followed = await fetchFollowingRedirects(url, {
+    timeoutMs: IMAGE_FETCH_TIMEOUT_MS,
+    maxRedirects: IMAGE_FETCH_MAX_REDIRECTS,
+    isAllowed: isPublicImageUrl,
+    fetchImpl,
+  });
+  if (followed.kind !== "final") return null;
+  const res = followed.response;
   if (!res.ok) return null;
   const contentType =
     res.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";

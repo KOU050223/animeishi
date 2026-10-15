@@ -16,7 +16,6 @@ import {
   useSortedAnimeList,
 } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
@@ -275,7 +274,7 @@ export function AnimeListContent({
             style={[styles.card, { width: cardWidth }]}
             testID={`anime-item-${item.annictWorkId}`}
           >
-            <AnimePoster uri={pickImageUrl(item)} title={item.title} />
+            <AnimePoster item={item} title={item.title} />
             <View style={styles.cardBody}>
               <View style={styles.cardTitleRow}>
                 <Text style={styles.cardTitle} numberOfLines={2}>

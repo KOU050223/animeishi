@@ -43,19 +43,31 @@ export type PickImageUrlInput = {
 };
 
 /**
- * 作品カード・コラージュ等で表示する 1 枚の URL を返す。優先順:
+ * 表示用画像 URL の候補を優先順で返す。先頭から順に:
  *   1. hostedImageUrl（自前 R2 配信。外部 CDN の初回遅延・ホットリンク制限の
  *      影響を受けないので、取り込み済みなら最優先）
  *   2. Annict の imageUrl が非 placeholder ならそれ
  *   3. resolvedImageUrl（AniList / Jikan 由来）
  *   4. Annict の imageUrl が placeholder でも「無いよりマシ」で返す
- *   5. どれも無ければ null（呼び出し側でプレースホルダー描画）
+ * 先頭の読み込みに失敗したとき次候補へ切り替える用途に使う
+ * （hostedImageUrl が失敗しても外部 URL があれば拾い直す、Devin Review 指摘）。
+ * 同じ URL が複数経路から来ても無駄な再試行をしないよう重複は除く。
+ */
+export function pickImageUrlCandidates(item: PickImageUrlInput): string[] {
+  const { hostedImageUrl, imageUrl, resolvedImageUrl } = item;
+  const candidates: string[] = [];
+  if (hostedImageUrl) candidates.push(hostedImageUrl);
+  if (imageUrl && !isPlaceholderImageUrl(imageUrl)) candidates.push(imageUrl);
+  if (resolvedImageUrl) candidates.push(resolvedImageUrl);
+  if (imageUrl && !isInsecureHttpUrl(imageUrl)) candidates.push(imageUrl);
+  return [...new Set(candidates)];
+}
+
+/**
+ * 作品カード・コラージュ等で表示する 1 枚の URL を返す。
+ * pickImageUrlCandidates の先頭。どれも無ければ null
+ * （呼び出し側でプレースホルダー描画）。
  */
 export function pickImageUrl(item: PickImageUrlInput): string | null {
-  const { hostedImageUrl, imageUrl, resolvedImageUrl } = item;
-  if (hostedImageUrl) return hostedImageUrl;
-  if (imageUrl && !isPlaceholderImageUrl(imageUrl)) return imageUrl;
-  if (resolvedImageUrl) return resolvedImageUrl;
-  if (imageUrl && !isInsecureHttpUrl(imageUrl)) return imageUrl;
-  return null;
+  return pickImageUrlCandidates(item)[0] ?? null;
 }

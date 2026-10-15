@@ -1,29 +1,27 @@
-import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
+import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
+import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 import { styles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
 
 export function AnimePoster({
-  uri,
+  item,
   title,
 }: {
-  uri: string | null | undefined;
+  item: PickImageUrlInput;
   title: string;
 }) {
-  const [failed, setFailed] = useState(false);
   const palette = getPosterPalette(title);
+  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  const { uri, onError } = useImageUrlWithFallback(item);
 
-  useEffect(() => {
-    setFailed(false);
-  }, [uri]);
-
-  if (uri && !failed) {
+  if (uri) {
     return (
       <Image
         source={{ uri }}
         style={styles.poster}
         resizeMode="cover"
-        onError={() => setFailed(true)}
+        onError={onError}
         accessibilityLabel={`${title}のサムネイル`}
       />
     );
