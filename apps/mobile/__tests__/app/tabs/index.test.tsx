@@ -47,9 +47,12 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
 }));
 
 // 連携状態をテストごとに切り替えられるよう、変数経由で返す。
+// バレル（@/lib/annict）ごと潰すと useAnimeList が使う buildAnnictAuthHeader 等が
+// undefined になるため、解決先のプラットフォーム実装モジュールを直接モックする。
 let mockAnnictConnection = { isConnected: false, isLoading: false };
-jest.mock("@/lib/annict", () => ({
+jest.mock("@/lib/annict/useAnnictConnection", () => ({
   useAnnictConnection: () => mockAnnictConnection,
+  buildAnnictAuthHeader: async () => ({}),
 }));
 
 jest.mock("@/lib/useProfile", () => ({
