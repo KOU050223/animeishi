@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
-import type { TierWork } from "@/lib/tierList/types";
+import type { TierItem } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
 
 /** 長押しでドラッグを開始するまでの時間（ms）。 */
@@ -27,8 +27,8 @@ export type TierMoveDestination = {
 };
 
 export type DraggableWorkCardProps = {
-  work: TierWork;
-  /** ドラッグ開始時。呼び出し側はこの作品を「移動中」として扱う。 */
+  item: TierItem;
+  /** ドラッグ開始時。呼び出し側はこのアイテムを「移動中」として扱う。 */
   onDragStart: () => void;
   /** ドラッグ中の指の位置（ウィンドウ座標）。ドロップ先のハイライトに使う。 */
   onDragMove: (x: number, y: number) => void;
@@ -46,14 +46,14 @@ export type DraggableWorkCardProps = {
 };
 
 /**
- * tier 表に並ぶ作品 1 枚。長押しでドラッグを開始し、離した位置で
- * 呼び出し側がドロップ先を判定する。
+ * tier 表に並ぶアイテム 1 枚（作品・キャラクター共通。issue #169）。
+ * 長押しでドラッグを開始し、離した位置で呼び出し側がドロップ先を判定する。
  *
  * 位置判定（どの行に落ちたか）はこのコンポーネントの責務ではない。
  * カードは「指の絶対座標」だけを報告し、行の矩形を知っている親が決める。
  */
 export function DraggableWorkCard({
-  work,
+  item,
   onDragStart,
   onDragMove,
   onDragEnd,
@@ -65,7 +65,7 @@ export function DraggableWorkCard({
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
 
-  const uri = pickImageUrl(work);
+  const uri = pickImageUrl(item);
 
   const pan = useMemo(
     () =>
@@ -145,17 +145,17 @@ export function DraggableWorkCard({
     <GestureDetector gesture={pan}>
       <Animated.View
         style={[styles.card, animatedStyle]}
-        accessibilityLabel={`${work.title}（長押しでドラッグ）`}
+        accessibilityLabel={`${item.title}（長押しでドラッグ）`}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}
-        testID={`tier-card-${work.annictWorkId}`}
+        testID={`tier-card-${item.id}`}
       >
         {uri ? (
           <Image
             source={{ uri }}
             style={styles.cardImage}
             resizeMode="cover"
-            accessibilityLabel={`${work.title}のサムネイル`}
+            accessibilityLabel={`${item.title}のサムネイル`}
           />
         ) : (
           <View style={styles.cardImageFallback}>
@@ -164,7 +164,7 @@ export function DraggableWorkCard({
         )}
         <View style={styles.cardLabel}>
           <Text style={styles.cardLabelText} numberOfLines={2}>
-            {work.title}
+            {item.title}
           </Text>
         </View>
       </Animated.View>

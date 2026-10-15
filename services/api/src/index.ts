@@ -12,6 +12,7 @@ import {
   type ObservabilityBindings,
 } from "./observability";
 import { annict } from "./routes/annict";
+import { characterTierLists } from "./routes/character-tier-lists";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { health } from "./routes/health";
@@ -75,6 +76,7 @@ const routes = app
   .route("/me/friends", friends)
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
+  .route("/me/character-tier-lists", characterTierLists)
   .route("/user", user)
   .route("/users", usersRoute);
 

@@ -26,3 +26,13 @@ export function defaultTierListTitle(season: string): string {
   };
   return `${year}年${jp[name ?? ""] ?? ""}アニメ Tier`;
 }
+
+/**
+ * 新規キャラクター tier 表の既定タイトル（issue #169）。
+ * 作品タイトルがまだ取れていない（通信前）ときは汎用の名前にする。
+ */
+export function defaultCharacterTierListTitle(
+  workTitle?: string | null,
+): string {
+  return workTitle ? `${workTitle} キャラクターTier` : "キャラクター Tier 表";
+}

@@ -11,7 +11,10 @@ import {
 } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
-import { fetchTierListItems } from "./sharedTierLists";
+import {
+  fetchTierListItems,
+  fetchCharacterTierListItems,
+} from "./sharedTierLists";
 import {
   users,
   deletedUsers,
@@ -20,9 +23,12 @@ import {
   friends,
   userGenres,
   annictWorks,
+  annictCharacters,
   annictTokens,
   tierLists,
   tierListItems,
+  characterTierLists,
+  characterTierListItems,
   reports,
   blocks,
 } from "@/db/schema";
@@ -35,8 +41,11 @@ import type {
   Friend,
   AnnictWork,
   NewAnnictWork,
+  AnnictCharacter,
+  NewAnnictCharacter,
   AnnictToken,
   TierList,
+  CharacterTierList,
   Report,
 } from "@/db/schema";
 
@@ -133,6 +142,29 @@ export type TierListWithItems = TierList & { items: TierListItemWithWork[] };
 /** tier 表を保存するときの 1 配置。position は配列順から採番するので受け取らない。 */
 export type TierListItemInput = {
   annictWorkId: number;
+  tierKey: string;
+  position: number;
+};
+
+/** キャラクター tier 表に配置されたキャラクター 1 件（キャラメタを含む）。 */
+export type CharacterTierListItemWithMeta = {
+  annictCharacterId: number;
+  tierKey: string;
+  position: number;
+  name: string;
+  nameKana: string | null;
+  nameEn: string | null;
+  imageUrl: string | null;
+};
+
+/** キャラクター tier 表 1 件と、その配置内容。 */
+export type CharacterTierListWithItems = CharacterTierList & {
+  items: CharacterTierListItemWithMeta[];
+};
+
+/** キャラクター tier 表を保存するときの 1 配置。 */
+export type CharacterTierListItemInput = {
+  annictCharacterId: number;
   tierKey: string;
   position: number;
 };
@@ -581,6 +613,60 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       );
     },
 
+    // ---- Annict Characters（キャラクター名簿キャッシュ） ----
+    async getAnnictCharacterById(
+      annictCharacterId: number,
+    ): Promise<AnnictCharacter | undefined> {
+      return db.query.annictCharacters.findFirst({
+        where: eq(annictCharacters.annictCharacterId, annictCharacterId),
+      });
+    },
+
+    /**
+     * 複数の annictCharacterId をまとめて取得する。
+     * tier 表保存時の存在チェック（FK 違反を 400 に変える事前検証）に使う。
+     */
+    async getAnnictCharactersByIds(
+      annictCharacterIds: number[],
+    ): Promise<AnnictCharacter[]> {
+      if (annictCharacterIds.length === 0) return [];
+      return db.query.annictCharacters.findMany({
+        where: inArray(annictCharacters.annictCharacterId, annictCharacterIds),
+      });
+    },
+
+    /**
+     * annict_characters をまとめて upsert する。
+     * imageUrl は「今回解決できた値があるときだけ」更新する
+     * （AniList 名寄せが取れなかった回で既存の解決済み URL を消さない）。
+     * 6 カラム × 15 行 = 90 変数で D1 のバインド上限を下回るようチャンクする。
+     */
+    async upsertAnnictCharacters(data: NewAnnictCharacter[]): Promise<void> {
+      const CHUNK = 15;
+      const queries: BatchItem<"sqlite">[] = [];
+      for (let i = 0; i < data.length; i += CHUNK) {
+        queries.push(
+          db
+            .insert(annictCharacters)
+            .values(data.slice(i, i + CHUNK))
+            .onConflictDoUpdate({
+              target: annictCharacters.annictCharacterId,
+              set: {
+                name: sql`excluded.name`,
+                nameKana: sql`excluded.name_kana`,
+                nameEn: sql`excluded.name_en`,
+                imageUrl: sql`coalesce(excluded.image_url, ${annictCharacters.imageUrl})`,
+                updatedAt: sql`excluded.updated_at`,
+              },
+            }),
+        );
+      }
+      if (queries.length === 0) return;
+      await db.batch(
+        queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+      );
+    },
+
     // ---- Watch History ----
     async getMyWatchHistory(): Promise<WatchHistoryWithWork[]> {
       return db
@@ -982,6 +1068,158 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         );
     },
 
+    // ---- Character Tier Lists ----
+    /**
+     * 指定作品のキャラクター tier 表を配置内容ごと取得する。未作成なら
+     * undefined。配置は annict_characters と JOIN してキャラメタ
+     * （名前・画像）を同梱する。作品版 getMyTierList と同じ構造。
+     */
+    async getMyCharacterTierList(
+      annictWorkId: number,
+    ): Promise<CharacterTierListWithItems | undefined> {
+      const list = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+      });
+      if (!list) return undefined;
+
+      const items = await fetchCharacterTierListItems(db, list.id);
+      return { ...list, items };
+    },
+
+    /** 自分のキャラクター tier 表を新しい順に一覧する（配置内容は含めない）。 */
+    async getMyCharacterTierLists(): Promise<CharacterTierList[]> {
+      return db
+        .select()
+        .from(characterTierLists)
+        .where(eq(characterTierLists.userId, currentUserId))
+        .orderBy(desc(characterTierLists.updatedAt));
+    },
+
+    /**
+     * 作品単位でキャラクター tier 表を丸ごと保存する（作成 or 全置換）。
+     * 作品版と同じく items の差し替えは db.batch() でアトミックに行う。
+     */
+    async saveMyCharacterTierList(input: {
+      annictWorkId: number;
+      title: string;
+      tiersJson: string;
+      items: CharacterTierListItemInput[];
+    }): Promise<CharacterTierListWithItems> {
+      const now = new Date();
+      await db
+        .insert(characterTierLists)
+        .values({
+          userId: currentUserId,
+          annictWorkId: input.annictWorkId,
+          title: input.title,
+          tiersJson: input.tiersJson,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [characterTierLists.userId, characterTierLists.annictWorkId],
+          set: {
+            title: input.title,
+            tiersJson: input.tiersJson,
+            updatedAt: now,
+          },
+        });
+
+      const saved = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(
+            eq_(t.userId, currentUserId),
+            eq_(t.annictWorkId, input.annictWorkId),
+          ),
+      });
+      if (!saved) throw new Error("キャラクター tier 表の保存に失敗しました");
+
+      const queries: BatchItem<"sqlite">[] = [
+        db
+          .delete(characterTierListItems)
+          .where(eq(characterTierListItems.characterTierListId, saved.id)),
+      ];
+      // 1 行あたり 4 カラム。D1 のバインド変数上限 100 を下回るようチャンクする。
+      const ITEM_CHUNK = 20;
+      for (let i = 0; i < input.items.length; i += ITEM_CHUNK) {
+        queries.push(
+          db.insert(characterTierListItems).values(
+            input.items.slice(i, i + ITEM_CHUNK).map((item) => ({
+              characterTierListId: saved.id,
+              annictCharacterId: item.annictCharacterId,
+              tierKey: item.tierKey,
+              position: item.position,
+            })),
+          ),
+        );
+      }
+      await db.batch(
+        queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+      );
+
+      const result = await this.getMyCharacterTierList(input.annictWorkId);
+      if (!result) throw new Error("キャラクター tier 表の保存に失敗しました");
+      return result;
+    },
+
+    /**
+     * 指定作品のキャラクター tier 表の共有トークンを発行する。
+     * 既に発行済みなら同じトークンを返す。表が未作成なら undefined。
+     */
+    async shareMyCharacterTierList(
+      annictWorkId: number,
+    ): Promise<string | undefined> {
+      const list = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+      });
+      if (!list) return undefined;
+      if (list.shareToken) return list.shareToken;
+
+      await db
+        .update(characterTierLists)
+        .set({ shareToken: crypto.randomUUID() })
+        .where(
+          and(
+            eq(characterTierLists.id, list.id),
+            isNull(characterTierLists.shareToken),
+          ),
+        );
+      const updated = await db.query.characterTierLists.findFirst({
+        where: eq(characterTierLists.id, list.id),
+        columns: { shareToken: true },
+      });
+      return updated?.shareToken ?? undefined;
+    },
+
+    /** 共有トークンを破棄する。表が未作成なら false。 */
+    async unshareMyCharacterTierList(annictWorkId: number): Promise<boolean> {
+      const list = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        columns: { id: true },
+      });
+      if (!list) return false;
+      await db
+        .update(characterTierLists)
+        .set({ shareToken: null })
+        .where(eq(characterTierLists.id, list.id));
+      return true;
+    },
+
+    /** 指定作品のキャラクター tier 表を削除する。items は FK の CASCADE で消える。 */
+    async deleteMyCharacterTierList(annictWorkId: number): Promise<void> {
+      await db
+        .delete(characterTierLists)
+        .where(
+          and(
+            eq(characterTierLists.userId, currentUserId),
+            eq(characterTierLists.annictWorkId, annictWorkId),
+          ),
+        );
+    },
+
     // ---- Friends ----
     /**
      * フレンド一覧を取得する。
@@ -1251,6 +1489,12 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           .from(tierLists)
           .where(eq(tierLists.userId, currentUserId))
       ).map((row) => row.id);
+      const myCharacterTierListIds = (
+        await db
+          .select({ id: characterTierLists.id })
+          .from(characterTierLists)
+          .where(eq(characterTierLists.userId, currentUserId))
+      ).map((row) => row.id);
 
       const queries: BatchItem<"sqlite">[] = [
         db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),
@@ -1290,8 +1534,23 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             .where(inArray(tierListItems.tierListId, myTierListIds)),
         );
       }
+      if (myCharacterTierListIds.length > 0) {
+        queries.push(
+          db
+            .delete(characterTierListItems)
+            .where(
+              inArray(
+                characterTierListItems.characterTierListId,
+                myCharacterTierListIds,
+              ),
+            ),
+        );
+      }
       queries.push(
         db.delete(tierLists).where(eq(tierLists.userId, currentUserId)),
+        db
+          .delete(characterTierLists)
+          .where(eq(characterTierLists.userId, currentUserId)),
         db.delete(users).where(eq(users.id, currentUserId)),
         // 残存 JWT による users 行の再作成を防ぐ tombstone（issue #144）。
         // 削除と同一 batch に載せるため「users 行は消えたが tombstone が

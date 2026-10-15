@@ -9,16 +9,16 @@ import { useDropZoneRegistry } from "./dropZones";
 import { TierLabelEditSheet } from "./TierLabelEditSheet";
 import { styles } from "./tierListStyles";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
-import { unassignedWorks, worksInTier } from "@/lib/tierList/board";
+import { unassignedItems, itemsInTier } from "@/lib/tierList/board";
 import { tierLabelFontSize } from "@/lib/tierList/label";
-import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
+import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
 export type TierBoardProps = {
   tiers: TierRow[];
-  works: TierWork[];
+  items: TierItem[];
   assignment: TierAssignment;
   /** ドロップ確定時。tierKey が null なら未分類トレイへ戻す。 */
-  onAssign: (annictWorkId: number, tierKey: string | null) => void;
+  onAssign: (itemId: number, tierKey: string | null) => void;
   /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
   onRenameTier: (tierKey: string, label: string) => void;
   /**
@@ -26,6 +26,8 @@ export type TierBoardProps = {
    * 編集シートを開けない（共有処理中など、編集が捨てられる局面で使う）。
    */
   labelsEditable: boolean;
+  /** 未分類トレイが空のときに出す文言（作品/キャラクターで呼び出し側が指定）。 */
+  trayEmptyLabel: string;
 };
 
 /**
@@ -37,11 +39,12 @@ export type TierBoardProps = {
  */
 export function TierBoard({
   tiers,
-  works,
+  items,
   assignment,
   onAssign,
   onRenameTier,
   labelsEditable,
+  trayEmptyLabel,
 }: TierBoardProps) {
   const registry = useDropZoneRegistry();
   // ドラッグ中に指が乗っている行。ハイライト表示だけに使う。
@@ -70,13 +73,13 @@ export function TierBoard({
   );
 
   const handleDragEnd = useCallback(
-    (workId: number, x: number, y: number) => {
+    (itemId: number, x: number, y: number) => {
       const hit = registry.hitTest(x, y);
       setHoverKey(undefined);
       setDraggingId(null);
       // どの行にも当たらなかった（盤面の外で離した）なら配置は変えない。
       if (hit === undefined) return;
-      onAssign(workId, hit);
+      onAssign(itemId, hit);
     },
     [onAssign, registry],
   );
@@ -89,8 +92,8 @@ export function TierBoard({
   }, []);
 
   const handleDragStart = useCallback(
-    (workId: number) => {
-      setDraggingId(workId);
+    (itemId: number) => {
+      setDraggingId(itemId);
       // スクロールしていると onLayout 時に測った矩形が実際の位置とズレる
       // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
       // ドロップ先の判定を今の画面状態に合わせる。
@@ -111,23 +114,23 @@ export function TierBoard({
     [tiers],
   );
 
-  const renderCard = (work: TierWork, currentTierKey: string | null) => (
+  const renderCard = (item: TierItem, currentTierKey: string | null) => (
     <DraggableWorkCard
-      key={work.annictWorkId}
-      work={work}
-      onDragStart={() => handleDragStart(work.annictWorkId)}
+      key={item.id}
+      item={item}
+      onDragStart={() => handleDragStart(item.id)}
       onDragMove={handleDragMove}
-      onDragEnd={(x, y) => handleDragEnd(work.annictWorkId, x, y)}
+      onDragEnd={(x, y) => handleDragEnd(item.id, x, y)}
       onDragCancel={handleDragCancel}
       // 今いる場所は移動先に出さない（選んでも何も起きないため）
       moveDestinations={moveDestinations.filter(
         (d) => d.tierKey !== currentTierKey,
       )}
-      onMove={(tierKey) => onAssign(work.annictWorkId, tierKey)}
+      onMove={(tierKey) => onAssign(item.id, tierKey)}
     />
   );
 
-  const tray = unassignedWorks(works, assignment);
+  const tray = unassignedItems(items, assignment);
 
   // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
   // カード自身が付ける zIndex は同じ DropZone 内の兄弟にしか効かず、
@@ -135,8 +138,7 @@ export function TierBoard({
   // （Web では全 View が stacking context を持つため、カードの zIndex が
   // 祖先の外へは一切効かない）
   const draggingInTray =
-    draggingId !== null &&
-    tray.some((work) => work.annictWorkId === draggingId);
+    draggingId !== null && tray.some((item) => item.id === draggingId);
   const draggingInBoard = draggingId !== null && !draggingInTray;
 
   // 編集対象は開いた時点の tier ではなく最新の tiers から引く。
@@ -164,10 +166,8 @@ export function TierBoard({
         testID="tier-board"
       >
         {tiers.map((tier) => {
-          const rowWorks = worksInTier(works, assignment, tier.key);
-          const isDraggingRow = rowWorks.some(
-            (work) => work.annictWorkId === draggingId,
-          );
+          const rowItems = itemsInTier(items, assignment, tier.key);
+          const isDraggingRow = rowItems.some((item) => item.id === draggingId);
           return (
             <View
               key={tier.key}
@@ -201,7 +201,7 @@ export function TierBoard({
                   hoverKey === tier.key && styles.tierDropAreaActive,
                 ]}
               >
-                {rowWorks.map((work) => renderCard(work, tier.key))}
+                {rowItems.map((item) => renderCard(item, tier.key))}
               </DropZone>
             </View>
           );
@@ -222,9 +222,9 @@ export function TierBoard({
         testID="tier-tray"
       >
         {tray.length === 0 ? (
-          <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
+          <Text style={styles.trayEmpty}>{trayEmptyLabel}</Text>
         ) : (
-          tray.map((work) => renderCard(work, null))
+          tray.map((item) => renderCard(item, null))
         )}
       </DropZone>
 

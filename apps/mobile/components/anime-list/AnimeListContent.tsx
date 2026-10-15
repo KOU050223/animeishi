@@ -282,6 +282,27 @@ export function AnimeListContent({
                   </View>
                 ) : null}
               </View>
+              {/* キャラクター tier 表への入口（issue #169）。対象作品を
+                  パラメータで渡し、画面側は作品のキャスト一覧を取得する。 */}
+              <TouchableOpacity
+                className="mt-1.5 items-center rounded-lg bg-indigo-50 py-1.5"
+                onPress={() =>
+                  router.push({
+                    pathname: "/character-tier-list",
+                    params: {
+                      workId: String(item.annictWorkId),
+                      workTitle: item.title,
+                    },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title} のキャラクター Tier 表を作る`}
+                testID={`open-character-tier-list-${item.annictWorkId}`}
+              >
+                <Text className="text-xs font-semibold text-indigo-700">
+                  キャラ Tier 表
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}

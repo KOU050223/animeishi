@@ -16,18 +16,24 @@ export type TierRow = {
 };
 
 /**
- * 「どの作品がどの tier にいるか」の割り当て。
- * key は annictWorkId、value は TierRow.key。
- * 未配置の作品はここにエントリを持たない（＝未分類トレイに残る）。
+ * 「どのアイテムがどの tier にいるか」の割り当て。
+ * key はアイテム ID（作品なら annictWorkId、キャラクターなら annictCharacterId）、
+ * value は TierRow.key。未配置のアイテムはここにエントリを持たない
+ * （＝未分類トレイに残る）。
  *
- * 配列ではなく Map にしているのは、ドラッグ中に「この作品は今どこか」を
+ * 配列ではなく Map にしているのは、ドラッグ中に「このアイテムは今どこか」を
  * O(1) で引く必要があり、かつ行の並び順は tiers 側が持っているため。
  */
 export type TierAssignment = Map<number, string>;
 
-/** tier 表に並べる作品の最小形。/works/search と保存済み表の両方から作れる。 */
-export type TierWork = {
-  annictWorkId: number;
+/**
+ * tier 表に並べる対象の最小形（issue #169 で作品→汎用アイテムに拡張）。
+ * 作品モードでは /works/search や保存済み表から、キャラクターモードでは
+ * /works/:id/characters や保存済みキャラクター表から作れる。
+ */
+export type TierItem = {
+  /** 並べる対象の ID。作品なら annictWorkId、キャラクターなら annictCharacterId。 */
+  id: number;
   title: string;
   imageUrl?: string | null;
   resolvedImageUrl?: string | null;

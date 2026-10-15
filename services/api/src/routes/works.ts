@@ -3,11 +3,15 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { worksSearchQuerySchema } from "@/schema/validators";
+import {
+  annictWorkIdParamSchema,
+  worksSearchQuerySchema,
+} from "@/schema/validators";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // routes/watch-history.ts のコメント参照）。
 import {
   currentAnnictSeason,
+  fetchAnnictWorkCasts,
   searchAnnictWorksBySeason,
   searchAnnictWorksByTitle,
 } from "@/lib/annict/client";
@@ -21,6 +25,10 @@ import {
   isPlaceholderImageUrl,
   resolveImagesViaAnilist,
 } from "@/lib/annict/imageFallback";
+import {
+  fetchAnilistCharacters,
+  matchCharacterImages,
+} from "@/lib/annict/characterImageFallback";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
@@ -77,6 +85,133 @@ const works = new Hono<AuthVariables>()
       const enriched = await attachResolvedImages(adb, result.works);
 
       return c.json({ ...result, works: enriched }, 200);
+    },
+  )
+  // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。
+  // Annict GraphQL の Character 型は画像を持たないため、キャラクター画像は
+  // work.malAnimeId 経由で AniList Media.characters を取り、正規化名の
+  // 名寄せで補完する（characterImageFallback.ts）。取れないキャラは
+  // imageUrl: null で返す（best-effort で応答自体は壊さない）。
+  .get(
+    "/:annictWorkId/characters",
+    requireAnnictToken,
+    zValidator("param", annictWorkIdParamSchema),
+    async (c) => {
+      const { annictWorkId } = c.req.valid("param");
+      const result = await fetchAnnictWorkCasts(
+        c.var.annictToken,
+        annictWorkId,
+      );
+      if (!result) return c.json({ error: "Work not found" }, 404);
+      const { work, characters } = result;
+
+      const db = createDb(getBindings(c).DB);
+      const adb = authorizedDb(db, c.var.clerkUserId);
+
+      // キャラクター tier 表（character_tier_lists）の FK 先となる作品行と
+      // キャラクター行をここでキャッシュする。作品自体は /works/search の
+      // read-through でキャッシュ済みのことが多いが、キャラ一覧が保存の
+      // 前提を満たすようこの経路でも upsert する。
+      if (work.title?.trim()) {
+        try {
+          await adb.upsertAnnictWork({
+            annictWorkId: work.annictWorkId,
+            nodeId: work.nodeId,
+            malAnimeId: work.malAnimeId,
+            title: work.title,
+            titleKana: work.titleKana,
+            titleEn: work.titleEn,
+            seasonName: work.seasonName,
+            seasonYear: work.seasonYear,
+            imageUrl: work.imageUrl,
+            updatedAt: new Date(),
+          });
+        } catch (err) {
+          // キャッシュ失敗は一覧応答を壊さない（保存時の 400 で検知される）。
+          console.error(
+            JSON.stringify({
+              level: "warn",
+              event: "work_cache_upsert_failed",
+              annictWorkId: work.annictWorkId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+      }
+
+      // 既存キャッシュの imageUrl を拾い、未取得分だけ AniList 名寄せで補完する。
+      const cachedCharacters = await adb.getAnnictCharactersByIds(
+        characters.map((ch) => ch.annictCharacterId),
+      );
+      const cachedImageById = new Map(
+        cachedCharacters
+          .filter((ch) => ch.imageUrl)
+          .map((ch) => [ch.annictCharacterId, ch.imageUrl as string]),
+      );
+
+      const resolvedImages = new Map<number, string>();
+      if (work.malAnimeId != null) {
+        try {
+          const anilistCharacters = await fetchAnilistCharacters(
+            work.malAnimeId,
+          );
+          for (const [id, url] of matchCharacterImages(
+            characters,
+            anilistCharacters,
+          )) {
+            resolvedImages.set(id, url);
+          }
+        } catch (err) {
+          console.error(
+            JSON.stringify({
+              level: "warn",
+              event: "character_image_resolve_failed",
+              annictWorkId: work.annictWorkId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+      }
+
+      const now = new Date();
+      try {
+        await adb.upsertAnnictCharacters(
+          characters.map((ch) => ({
+            annictCharacterId: ch.annictCharacterId,
+            name: ch.name,
+            nameKana: ch.nameKana,
+            nameEn: ch.nameEn,
+            // 今回解決できた値だけ書き込み、取れなかった行は既存値を温存する
+            // （upsertAnnictCharacters 側で coalesce する）。
+            imageUrl: resolvedImages.get(ch.annictCharacterId) ?? null,
+            updatedAt: now,
+          })),
+        );
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            level: "warn",
+            event: "character_cache_upsert_failed",
+            annictWorkId: work.annictWorkId,
+            count: characters.length,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+
+      return c.json(
+        {
+          work,
+          characters: characters.map((ch) => ({
+            ...ch,
+            imageUrl:
+              resolvedImages.get(ch.annictCharacterId) ??
+              cachedImageById.get(ch.annictCharacterId) ??
+              null,
+          })),
+        },
+        200,
+      );
     },
   );
 

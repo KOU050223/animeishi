@@ -1,7 +1,18 @@
 import { eq, or } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, annictWorks, tierLists, tierListItems } from "@/db/schema";
-import type { TierListItemWithWork } from "./authorizedDb";
+import {
+  users,
+  annictWorks,
+  annictCharacters,
+  tierLists,
+  tierListItems,
+  characterTierLists,
+  characterTierListItems,
+} from "@/db/schema";
+import type {
+  TierListItemWithWork,
+  CharacterTierListItemWithMeta,
+} from "./authorizedDb";
 
 /**
  * 共有リンク（/share/tier-lists/:token）経由の公開参照。
@@ -38,23 +49,56 @@ export async function fetchTierListItems(
     .orderBy(tierListItems.position);
 }
 
+/** キャラクター tier 表 1 件分の配置をキャラメタ付きで取得する（position 昇順）。 */
+export async function fetchCharacterTierListItems(
+  db: DrizzleDb,
+  characterTierListId: number,
+): Promise<CharacterTierListItemWithMeta[]> {
+  return db
+    .select({
+      annictCharacterId: characterTierListItems.annictCharacterId,
+      tierKey: characterTierListItems.tierKey,
+      position: characterTierListItems.position,
+      name: annictCharacters.name,
+      nameKana: annictCharacters.nameKana,
+      nameEn: annictCharacters.nameEn,
+      imageUrl: annictCharacters.imageUrl,
+    })
+    .from(characterTierListItems)
+    .innerJoin(
+      annictCharacters,
+      eq(
+        characterTierListItems.annictCharacterId,
+        annictCharacters.annictCharacterId,
+      ),
+    )
+    .where(eq(characterTierListItems.characterTierListId, characterTierListId))
+    .orderBy(characterTierListItems.position);
+}
+
 /**
- * URL が annict_works の作品画像（image_url / resolved_image_url）として
- * 実在するか。画像プロキシ（GET /share/image-proxy）の許可判定に使い、
- * DB にある作品画像だけを中継対象に絞る。
+ * URL が DB に保存済みの画像（annict_works の作品画像 / annict_characters の
+ * キャラクター画像）として実在するか。画像プロキシ（GET /share/image-proxy）
+ * の許可判定に使い、DB にある画像だけを中継対象に絞る。
  */
-export async function isKnownWorkImageUrl(
+export async function isKnownImageUrl(
   db: DrizzleDb,
   url: string,
 ): Promise<boolean> {
-  const rows = await db
+  const workRows = await db
     .select({ id: annictWorks.annictWorkId })
     .from(annictWorks)
     .where(
       or(eq(annictWorks.imageUrl, url), eq(annictWorks.resolvedImageUrl, url)),
     )
     .limit(1);
-  return rows.length > 0;
+  if (workRows.length > 0) return true;
+  const characterRows = await db
+    .select({ id: annictCharacters.annictCharacterId })
+    .from(annictCharacters)
+    .where(eq(annictCharacters.imageUrl, url))
+    .limit(1);
+  return characterRows.length > 0;
 }
 
 export type SharedTierList = {
@@ -88,6 +132,55 @@ export async function getSharedTierList(
   const items = await fetchTierListItems(db, list.id);
   return {
     season: list.season,
+    title: list.title,
+    tiersJson: list.tiersJson,
+    ownerUsername: list.ownerUsername,
+    items,
+  };
+}
+
+export type SharedCharacterTierList = {
+  annictWorkId: number;
+  /** 表の対象作品のタイトル（共有ページの見出し・OGP 用）。 */
+  workTitle: string;
+  title: string;
+  tiersJson: string;
+  ownerUsername: string;
+  items: CharacterTierListItemWithMeta[];
+};
+
+/**
+ * 共有トークンから公開用のキャラクター tier 表を引く。未共有・破棄済みなら
+ * undefined。作品 tier 表と同じく、トークンを知っている人なら誰でも読める。
+ */
+export async function getSharedCharacterTierList(
+  db: DrizzleDb,
+  token: string,
+): Promise<SharedCharacterTierList | undefined> {
+  const rows = await db
+    .select({
+      id: characterTierLists.id,
+      annictWorkId: characterTierLists.annictWorkId,
+      title: characterTierLists.title,
+      tiersJson: characterTierLists.tiersJson,
+      ownerUsername: users.username,
+      workTitle: annictWorks.title,
+    })
+    .from(characterTierLists)
+    .innerJoin(users, eq(characterTierLists.userId, users.id))
+    .innerJoin(
+      annictWorks,
+      eq(characterTierLists.annictWorkId, annictWorks.annictWorkId),
+    )
+    .where(eq(characterTierLists.shareToken, token));
+
+  const list = rows[0];
+  if (!list) return undefined;
+
+  const items = await fetchCharacterTierListItems(db, list.id);
+  return {
+    annictWorkId: list.annictWorkId,
+    workTitle: list.workTitle,
     title: list.title,
     tiersJson: list.tiersJson,
     ownerUsername: list.ownerUsername,

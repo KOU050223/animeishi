@@ -4,9 +4,10 @@ import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { tierLabelFontSize } from "@/lib/tierList/label";
 import type { TierRow } from "@/lib/tierList/types";
 
-/** 画像共有でスナップショットに並べる作品。保存済み tier 表の items と同じ形。 */
-export type SnapshotWork = {
-  annictWorkId: number;
+/** 画像共有でスナップショットに並べるアイテム。保存済み tier 表の items と同じ形。 */
+export type SnapshotItem = {
+  /** 作品なら annictWorkId、キャラクターなら annictCharacterId。 */
+  id: number;
   tierKey: string;
   title: string;
   imageUrl?: string | null;
@@ -16,8 +17,8 @@ export type SnapshotWork = {
 export type TierBoardSnapshotProps = {
   title: string;
   tiers: TierRow[];
-  /** position 昇順（サーバの返す順そのまま）で渡す。tierKey が tiers に無い作品は描画しない。 */
-  items: SnapshotWork[];
+  /** position 昇順（サーバの返す順そのまま）で渡す。tierKey が tiers に無いアイテムは描画しない。 */
+  items: SnapshotItem[];
   /**
    * 全作品画像の読み込みが完了（成功・失敗問わず onLoadEnd 到達）したときに
    * 一度だけ呼ばれる。view-shot のキャプチャ開始タイミングに使う。
@@ -38,7 +39,7 @@ const CARD_SIZE = 64;
 export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
   function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
     // 読み込み待ち対象は「実際に描画される画像」だけ。
-    // tiers に無い tierKey の作品は描画されず onLoadEnd も来ないため、
+    // tiers に無い tierKey のアイテムは描画されず onLoadEnd も来ないため、
     // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
     const imageCount = useMemo(() => {
       const tierKeys = new Set(tiers.map((t) => t.key));
@@ -70,7 +71,7 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
       <View ref={ref} collapsable={false} style={styles.root}>
         <Text style={styles.title}>{title}</Text>
         {tiers.map((tier) => {
-          const works = items.filter((item) => item.tierKey === tier.key);
+          const rowItems = items.filter((item) => item.tierKey === tier.key);
           return (
             <View key={tier.key} style={styles.row}>
               <View style={[styles.labelCell, { backgroundColor: tier.color }]}>
@@ -85,10 +86,10 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
                 </Text>
               </View>
               <View style={styles.works}>
-                {works.map((work) => {
-                  const uri = pickImageUrl(work);
+                {rowItems.map((item) => {
+                  const uri = pickImageUrl(item);
                   return (
-                    <View key={work.annictWorkId} style={styles.card}>
+                    <View key={item.id} style={styles.card}>
                       {uri ? (
                         <Image
                           source={{ uri }}
@@ -102,7 +103,7 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
                         <View style={styles.cardImageFallback} />
                       )}
                       <Text style={styles.cardTitle} numberOfLines={2}>
-                        {work.title}
+                        {item.title}
                       </Text>
                     </View>
                   );

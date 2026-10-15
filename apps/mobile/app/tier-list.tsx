@@ -13,11 +13,11 @@ import {
 import { TierBoard } from "@/components/tier-list/TierBoard";
 import {
   TierBoardSnapshot,
-  type SnapshotWork,
+  type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
 import { styles } from "@/components/tier-list/tierListStyles";
 import {
-  assignWork,
+  assignItem,
   parseTiersJson,
   toAssignment,
   toSaveItems,
@@ -79,7 +79,7 @@ export default function TierListScreen() {
   const [isSharing, setIsSharing] = useState(false);
   // 画像エクスポート用。共有時だけ画面外にスナップショットを描画し、
   // キャプチャ後に null で取り除く。
-  const [snapshotItems, setSnapshotItems] = useState<SnapshotWork[] | null>(
+  const [snapshotItems, setSnapshotItems] = useState<SnapshotItem[] | null>(
     null,
   );
   const snapshotRef = useRef<View>(null);
@@ -100,7 +100,14 @@ export default function TierListScreen() {
     hydratedSeasonRef.current = season;
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
-      setAssignment(toAssignment(saved.items));
+      setAssignment(
+        toAssignment(
+          saved.items.map((i) => ({
+            itemId: i.annictWorkId,
+            tierKey: i.tierKey,
+          })),
+        ),
+      );
       setTitle(saved.title);
     } else {
       setTiers(DEFAULT_TIERS);
@@ -111,12 +118,12 @@ export default function TierListScreen() {
   }, [saved, isSavedLoading, season, isDirty]);
 
   const handleAssign = useCallback(
-    (annictWorkId: number, tierKey: string | null) => {
+    (itemId: number, tierKey: string | null) => {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
       if (isSharing) return;
-      setAssignment((prev) => assignWork(prev, annictWorkId, tierKey));
+      setAssignment((prev) => assignItem(prev, itemId, tierKey));
       setIsDirty(true);
     },
     [isSharing],
@@ -199,12 +206,23 @@ export default function TierListScreen() {
     [confirmIfDirty, isSharing, year, seasonKey],
   );
 
+  // ボード層の汎用 itemId を作品用フィールド名（annictWorkId）に写す。
+  // キャラクター版は annictCharacterId に写すため、ここで分岐する。
+  const buildSaveItems = useCallback(
+    () =>
+      toSaveItems(assignment, tiers).map((i) => ({
+        annictWorkId: i.itemId,
+        tierKey: i.tierKey,
+      })),
+    [assignment, tiers],
+  );
+
   const handleSave = useCallback(() => {
     save.mutate(
-      { season, title, tiers, items: toSaveItems(assignment, tiers) },
+      { season, title, tiers, items: buildSaveItems() },
       { onSuccess: () => setIsDirty(false) },
     );
-  }, [assignment, save, season, tiers, title]);
+  }, [buildSaveItems, save, season, tiers, title]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -213,11 +231,11 @@ export default function TierListScreen() {
       season,
       title,
       tiers,
-      items: toSaveItems(assignment, tiers),
+      items: buildSaveItems(),
     });
     setIsDirty(false);
     return savedData;
-  }, [assignment, save, season, tiers, title]);
+  }, [buildSaveItems, save, season, tiers, title]);
 
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
@@ -255,7 +273,15 @@ export default function TierListScreen() {
         const snapshotReady = new Promise<void>((resolve) => {
           snapshotReadyRef.current = resolve;
         });
-        setSnapshotItems(savedData.items);
+        setSnapshotItems(
+          savedData.items.map((i) => ({
+            id: i.annictWorkId,
+            tierKey: i.tierKey,
+            title: i.title,
+            imageUrl: i.imageUrl,
+            resolvedImageUrl: i.resolvedImageUrl,
+          })),
+        );
         // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
         // 撮る。タイムアウトを超えたら読み込み途中のまま撮る
         // （共有自体は失敗させない）。
@@ -447,11 +473,12 @@ export default function TierListScreen() {
       ) : (
         <TierBoard
           tiers={tiers}
-          works={works}
+          items={works}
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
           labelsEditable={!isSharing}
+          trayEmptyLabel="すべての作品を配置しました"
         />
       )}
 
