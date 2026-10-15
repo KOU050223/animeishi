@@ -94,7 +94,7 @@ export const UPDATES: ChangelogEntry[] = [
       "dアニメストアの視聴履歴を Annict に取り込めるようになりました（Web 版）",
   },
   {
-    date: "2026年9月26日",
+    date: "2026年7月30日",
     title: "シーズンごとのアニメ Tier 表を追加しました",
   },
   {
@@ -102,13 +102,14 @@ export const UPDATES: ChangelogEntry[] = [
     title: "アニメ検索を高速化しました",
   },
   {
-    date: "2026年7月2日",
+    date: "2026年7月3日",
     title: "名刺エディタを追加しました",
     description: "テンプレートやテキスト・画像などの要素を自由に配置できます。",
   },
   {
     date: "2026年7月1日",
-    title: "アニメを年・シーズンで絞り込んで検索できるようになりました",
+    title:
+      "Annict 連携でアニメを年・シーズンで絞り込んで検索できるようになりました",
     description: "初期表示に今期のアニメを表示します。",
   },
   {

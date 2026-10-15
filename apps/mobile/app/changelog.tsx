@@ -43,8 +43,9 @@ export default function ChangelogScreen() {
           <Text className="text-2xl font-bold text-gray-900">
             機能一覧・更新情報
           </Text>
+          {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
           <Text className="mt-2 text-xs text-gray-400">
-            最終更新: 2026年10月15日
+            最終更新: {UPDATES[0].date}
           </Text>
 
           <Text className="mt-8 text-base font-semibold text-gray-900">
