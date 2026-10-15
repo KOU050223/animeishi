@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
+import { ClerkAPIResponseError } from "@clerk/backend/errors";
 import { eq, inArray, or } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
@@ -9,6 +10,7 @@ import {
   annictTokens,
   annictWorks,
   blocks,
+  deletedUsers,
   favorites,
   friends,
   reports,
@@ -678,6 +680,14 @@ describe("DELETE /me（アカウント削除）", () => {
         .where(inArray(tierListItems.tierListId, [myListId])),
     ).toHaveLength(0);
 
+    // 残存 JWT による users 行の再作成を防ぐ tombstone が残る（issue #144）
+    expect(
+      await db
+        .select()
+        .from(deletedUsers)
+        .where(eq(deletedUsers.userId, USER_ID)),
+    ).toHaveLength(1);
+
     // 他ユーザーの行は残る（双方向フレンドの片側削除のみ）
     expect(
       await db.select().from(users).where(eq(users.id, OTHER_ID)),
@@ -728,5 +738,133 @@ describe("DELETE /me（アカウント削除）", () => {
     const res = await app.request("/me", { method: "DELETE" }, testBindings());
 
     expect(res.status).toBe(500);
+  });
+
+  it("削除直後に残存 JWT でアクセスしても users 行が再作成されない（issue #144）", async () => {
+    await seedUserData();
+
+    const app = buildApp();
+    const res = await app.request("/me", { method: "DELETE" }, testBindings());
+    expect(res.status).toBe(204);
+
+    // 削除前に発行された短命 JWT がまだ有効な状態を再現する
+    // （iat <= deleted_at のトークンは削除済み扱いで拒否される）。
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+      sessionClaims: { iat: Math.floor(Date.now() / 1000) - 120 },
+    } as ReturnType<typeof getAuth>);
+
+    for (const [method, path, init] of [
+      ["GET", "/me/profile", {}],
+      [
+        "PUT",
+        "/me/profile",
+        {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "復活させようとする更新" }),
+        },
+      ],
+      [
+        "PUT",
+        "/me/profile/avatar",
+        {
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      ],
+    ] as const) {
+      const stale = await app.request(
+        path,
+        { method, ...init },
+        testBindings(),
+      );
+      expect(stale.status).toBe(401);
+    }
+
+    // どの経路でも users 行は再作成されず、公開プロフィールも残らない
+    expect(
+      await db.select().from(users).where(eq(users.id, USER_ID)),
+    ).toHaveLength(0);
+  });
+
+  it("Clerk 削除失敗後、新しい iat のトークンで再試行できる（tombstone の自己修復）", async () => {
+    await seedUserData();
+    clerkUsers.deleteUser.mockRejectedValueOnce(new Error("clerk unavailable"));
+
+    const app = buildApp();
+    // 1 回目は Clerk 側の削除が失敗する。tombstone は残る。
+    const failed = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(failed.status).toBe(500);
+    expect(
+      await db
+        .select()
+        .from(deletedUsers)
+        .where(eq(deletedUsers.userId, USER_ID)),
+    ).toHaveLength(1);
+
+    // 削除時刻より新しく発行されたトークン（Clerk 側で生存している証拠）で
+    // 再試行すると、tombstone が解除されて DELETE /me が通る。
+    // iat は秒・deleted_at はミリ秒なので、切り捨て誤差を避けるため
+    // 明示的に未来側の値を使う。
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+      sessionClaims: { iat: Math.floor(Date.now() / 1000) + 60 },
+    } as ReturnType<typeof getAuth>);
+    clerkUsers.deleteUser.mockResolvedValue({});
+
+    const retried = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(retried.status).toBe(204);
+    expect(clerkUsers.deleteUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("Clerk 削除失敗後、同じ残存 JWT のまま削除を再試行できる（冪等）", async () => {
+    // Clerk deleteUser 失敗後のクライアント再試行は同じ JWT で来る。
+    // tombstone が残っていても DELETE /me は通す（iat <= deleted_at で
+    // 拒否すると、トークンが自然更新されるまで削除を完了できない）。
+    await seedUserData();
+    clerkUsers.deleteUser.mockRejectedValueOnce(new Error("clerk unavailable"));
+
+    const app = buildApp();
+    const failed = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(failed.status).toBe(500);
+
+    // sessionClaims なし（= iat 不明）の同じモックのまま再試行する
+    clerkUsers.deleteUser.mockResolvedValue({});
+    const retried = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(retried.status).toBe(204);
+    expect(clerkUsers.deleteUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("Clerk 側で既に削除済み（deleteUser が 404）でも 204 を返す", async () => {
+    // 削除成功直後の残存 JWT での重複 DELETE など。既に目的の状態なので
+    // 冪等に成功として扱う。
+    await seedUserData();
+    clerkUsers.deleteUser.mockRejectedValue(
+      new ClerkAPIResponseError("not found", {
+        data: [],
+        status: 404,
+        clerkTraceId: "trace_test",
+      }),
+    );
+
+    const app = buildApp();
+    const res = await app.request("/me", { method: "DELETE" }, testBindings());
+    expect(res.status).toBe(204);
   });
 });

@@ -10,6 +10,7 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AnnictApiError } from "@/lib/annict/client";
 import { annictErrorResponse } from "@/lib/annict/errors";
+import { DeletedUserError } from "@/repository/authorizedDb";
 
 // Sentry 初期化に必要なバインディング。
 // SENTRY_DSN は Workers Secret、ENVIRONMENT は wrangler.toml [vars]、
@@ -135,6 +136,12 @@ export function handleError(err: Error, c: Context): Response {
       captureApiError(err, c);
     }
     return annictErrorResponse(c, err) ?? internalError(c);
+  }
+  if (err instanceof DeletedUserError) {
+    // 削除済みユーザーの残存 JWT による書き込み（issue #144）。
+    // requireAuth 通過後に DELETE /me が割り込んだ race で到達する。
+    // ユーザー要因なので Sentry には送らず 401 を返す。
+    return c.json({ error: "Unauthorized" }, 401);
   }
   captureApiError(err, c);
   return internalError(c);

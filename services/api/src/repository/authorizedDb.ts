@@ -14,6 +14,7 @@ import type { DrizzleDb } from "@/db/client";
 import { fetchTierListItems } from "./sharedTierLists";
 import {
   users,
+  deletedUsers,
   watchHistory,
   favorites,
   friends,
@@ -52,6 +53,18 @@ export class UserNotFoundError extends Error {
   constructor(userId: string) {
     super(`ユーザーが見つかりません: ${userId}`);
     this.name = "UserNotFoundError";
+  }
+}
+
+/**
+ * Clerk 側にユーザーが存在しない（削除済み）ことが判明したときに投げるエラー。
+ * requireAuth で 401 に変換する。tombstone（deleted_users）を伴わない削除
+ * （運用での手動削除など）でも users 行を再作成しないための中止シグナル。
+ */
+export class DeletedUserError extends Error {
+  constructor(userId: string) {
+    super(`削除済みユーザーです: ${userId}`);
+    this.name = "DeletedUserError";
   }
 }
 
@@ -196,19 +209,67 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     async upsertMyProfile(
       data: Omit<NewUser, "id" | "createdAt" | "updatedAt">,
     ): Promise<User> {
-      const now = new Date();
-      await db
-        .insert(users)
-        .values({ id: currentUserId, ...data, createdAt: now, updatedAt: now })
-        .onConflictDoUpdate({
-          target: users.id,
-          // createdAt は INSERT 時のみセットし、UPDATE では上書きしない
-          set: { ...data, updatedAt: now },
-        });
+      // mode: "timestamp" のカラムは秒で保存されるため、raw SQL には
+      // Date.now()（ミリ秒）ではなく秒値を渡す（ミリ秒を書くと読み取り時に
+      // 1000 倍されて壊れる）。
+      const now = Math.floor(Date.now() / 1000);
+      // 削除済みユーザー（deleted_users）の残存 JWT が到達しても users 行を
+      // 再作成しないよう、INSERT は tombstone が無い場合だけ行う（issue #144）。
+      // INSERT ... SELECT ... WHERE NOT EXISTS は単一 statement なので、
+      // アカウント削除と並走するリクエストでも原子的に抑止できる
+      // （先に tombstone を読んでから insert する check-then-act だと、
+      //   読み取りと挿入の間に削除が割り込みうる）。
+      // created_at は INSERT 時のみセットし、UPDATE では上書きしない。
+      // data で省略された項目は UPDATE 対象に含めず既存値を温存する
+      // （従来の onConflictDoUpdate({ set: { ...data } }) と同じ部分更新契約。
+      //   undefined を null/true に潰して更新すると未指定項目が消える）。
+      const updateFragments = [sql`updated_at = excluded.updated_at`];
+      if (data.username !== undefined) {
+        updateFragments.push(sql`username = excluded.username`);
+      }
+      if (data.bio !== undefined) {
+        updateFragments.push(sql`bio = excluded.bio`);
+      }
+      if (data.favoriteQuote !== undefined) {
+        updateFragments.push(sql`favorite_quote = excluded.favorite_quote`);
+      }
+      if (data.isPublic !== undefined) {
+        updateFragments.push(sql`is_public = excluded.is_public`);
+      }
+      if (data.profileImageUrl !== undefined) {
+        updateFragments.push(
+          sql`profile_image_url = excluded.profile_image_url`,
+        );
+      }
+      await db.run(sql`
+        INSERT INTO ${users} (
+          id, username, bio, favorite_quote, is_public,
+          profile_image_url, created_at, updated_at
+        )
+        SELECT
+          ${currentUserId}, ${data.username ?? null}, ${data.bio ?? null},
+          ${data.favoriteQuote ?? null}, ${data.isPublic === false ? 0 : 1},
+          ${data.profileImageUrl ?? null}, ${now}, ${now}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM ${deletedUsers}
+          WHERE ${deletedUsers.userId} = ${currentUserId}
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          ${sql.join(updateFragments, sql`, `)}
+      `);
       const updated = await db.query.users.findFirst({
         where: eq(users.id, currentUserId),
       });
-      if (!updated) throw new Error("ユーザーの更新に失敗しました");
+      if (!updated) {
+        // INSERT が tombstone に抑止されたケース（requireAuth 通過後に
+        // DELETE /me が割り込んだ race）は削除済みとして区別する。
+        const tombstoned = await db.query.deletedUsers.findFirst({
+          where: eq(deletedUsers.userId, currentUserId),
+          columns: { userId: true },
+        });
+        if (tombstoned) throw new DeletedUserError(currentUserId);
+        throw new Error("ユーザーの更新に失敗しました");
+      }
       return updated;
     },
 
@@ -216,6 +277,30 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       return db.query.users.findFirst({
         where: eq(users.id, userId),
       });
+    },
+
+    /**
+     * アカウント削除の tombstone（deleted_users.deleted_at）を取得する。
+     * 未削除なら undefined。requireAuth が残存 JWT を拒否する判定に使う
+     * （issue #144）。
+     */
+    async getMyDeletedAt(): Promise<Date | undefined> {
+      const row = await db.query.deletedUsers.findFirst({
+        where: eq(deletedUsers.userId, currentUserId),
+        columns: { deletedAt: true },
+      });
+      return row?.deletedAt;
+    },
+
+    /**
+     * tombstone を解除する。D1 削除後に Clerk 側のユーザー削除が失敗して
+     * アカウントが生きている（= 削除後に新しい JWT が発行されている）
+     * 場合の自己修復用。以後は通常どおりプロビジョニングできる。
+     */
+    async clearMyDeletedAt(): Promise<void> {
+      await db
+        .delete(deletedUsers)
+        .where(eq(deletedUsers.userId, currentUserId));
     },
 
     /**
@@ -241,22 +326,29 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       let displayName: string | null | undefined;
       try {
         displayName = await resolveDisplayName?.();
-      } catch {
-        // 表示名の解決に失敗してもプロビジョニング自体は止めない。
+      } catch (err) {
+        // 削除済みユーザーの判定はプロビジョニング中止のため再送出する。
+        // それ以外の失敗は従来どおりフォールバックで続行する。
+        if (err instanceof DeletedUserError) throw err;
         displayName = undefined;
       }
 
-      const now = new Date();
-      await db
-        .insert(users)
-        .values({
-          id: currentUserId,
-          username: displayName?.trim() || currentUserId,
-          isPublic: true,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing({ target: users.id });
+      // upsertMyProfile と同じく、mode: "timestamp" に合わせて秒値を渡す。
+      const now = Math.floor(Date.now() / 1000);
+      // 削除済みユーザーの残存 JWT で users 行が再作成されないよう、
+      // INSERT は tombstone が無い場合だけ行う（issue #144）。
+      // upsertMyProfile と同じく単一 statement で原子的に判定する。
+      await db.run(sql`
+        INSERT INTO ${users} (id, username, is_public, created_at, updated_at)
+        SELECT
+          ${currentUserId}, ${displayName?.trim() || currentUserId}, 1,
+          ${now}, ${now}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM ${deletedUsers}
+          WHERE ${deletedUsers.userId} = ${currentUserId}
+        )
+        ON CONFLICT(id) DO NOTHING
+      `);
     },
 
     // ---- Annict Token (Web 連携用の暗号化トークン) ----
@@ -1152,6 +1244,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
      * 全 statement を 1 つの db.batch() に載せてアトミックに実行する。
      */
     async deleteMyAccount(): Promise<void> {
+      const now = new Date();
       const myTierListIds = (
         await db
           .select({ id: tierLists.id })
@@ -1200,6 +1293,18 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       queries.push(
         db.delete(tierLists).where(eq(tierLists.userId, currentUserId)),
         db.delete(users).where(eq(users.id, currentUserId)),
+        // 残存 JWT による users 行の再作成を防ぐ tombstone（issue #144）。
+        // 削除と同一 batch に載せるため「users 行は消えたが tombstone が
+        // 無い」窓は発生しない。Clerk 側の削除が失敗した場合でも
+        // tombstone は残り、新しい iat のトークンが来たとき requireAuth が
+        // 解除して自己修復する。
+        db
+          .insert(deletedUsers)
+          .values({ userId: currentUserId, deletedAt: now })
+          .onConflictDoUpdate({
+            target: deletedUsers.userId,
+            set: { deletedAt: now },
+          }),
       );
       await db.batch(
         queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
