@@ -13,7 +13,9 @@
 #                          --by-user は被通報ユーザーごとの件数集計
 #                          （累積通報の把握には --status all と併用する）。
 #   resolve <id> [対応メモ]  対応済みにする（resolved_at に現在時刻。
-#                          メモ省略時は既存の resolution_note を温存する）
+#                          メモ省略時は既存の resolution_note を温存する。
+#                          id・メモは REPORT_ID / REPORT_NOTE 環境変数でも
+#                          渡せる（Taskfile 経由の指定方法）
 #   dismiss <id> [対応メモ]  却下する（対応不要と判断した場合。メモの扱いは同上）
 #   reopen <id>             未対応に戻す（resolved_at をクリア。
 #                          resolution_note は過去の対応記録として残す）
@@ -31,7 +33,7 @@ SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$SCRIPT_PATH")/.."
 
 help() {
-  sed -n '2,21p' "$SCRIPT_PATH"
+  sed -n '2,25p' "$SCRIPT_PATH"
 }
 
 ENV="production"
@@ -88,8 +90,12 @@ print_rows() {
 }
 
 sql_literal() {
-  # 単一引用符を二重化した SQL 文字列リテラルを返す
-  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"
+  # 単一引用符を二重化した SQL 文字列リテラルを返す。
+  # $(...) は末尾の改行を削るため、センチネル文字を付けてから除去する
+  # （複数行メモを入力どおりに保存するため）。
+  local escaped
+  escaped="$(printf '%s_' "$1" | sed "s/'/''/g")"
+  printf "'%s'" "${escaped%_}"
 }
 
 require_numeric_id() {
@@ -153,12 +159,16 @@ case "$cmd" in
     ;;
 
   resolve | dismiss)
-    ID="${1:-}"
+    # id は REPORT_ID 環境変数でも受け付ける。Taskfile 経由（task reports:resolve
+    # 等）では CLI_ARGS がシェル再解釈されるため、コピペした通報理由中の
+    # $(...) 等がコマンド実行されないよう env 経由で渡す設計にしている。
+    ID="${1:-${REPORT_ID:-}}"
     require_numeric_id "$ID"
-    shift
-    # 引数の残り全部を対応メモとして連結する（クオート不要で書けるように）。
-    # メモ省略時は resolution_note を更新対象に含めず、過去の対応記録を温存する。
-    NOTE="$*"
+    if [ $# -gt 0 ]; then shift; fi
+    # 対応メモは REPORT_NOTE 環境変数を優先し、未設定なら残り引数を連結する
+    # （直叩きはクオート不要で書ける）。メモ省略時は resolution_note を
+    # 更新対象に含めず、過去の対応記録を温存する。
+    NOTE="${REPORT_NOTE:-$*}"
     if [ -n "$NOTE" ]; then
       NOTE_SET=", resolution_note = $(sql_literal "$NOTE")"
     else
@@ -169,7 +179,7 @@ case "$cmd" in
     ;;
 
   reopen)
-    ID="${1:-}"
+    ID="${1:-${REPORT_ID:-}}"
     require_numeric_id "$ID"
     run_update "UPDATE reports SET status = 'open', resolved_at = NULL WHERE id = $ID RETURNING id, status, reported_user_id, resolution_note;"
     ;;

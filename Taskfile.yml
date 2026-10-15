@@ -142,29 +142,44 @@ tasks:
     cmds:
       - bash scripts/reports.sh --local list {{.CLI_ARGS}}
 
+  # 更新系は id・メモを CLI_ARGS ではなく env 変数で渡す。CLI_ARGS は
+  # `sh -c` で再評価されるため、通報理由等をコピペしたメモ中の $(...) が
+  # コマンド実行されてしまう（id も同様）。env はシェル解釈を通らない
+  # 安全な経路。
   reports:resolve:
-    desc: 本番の通報を対応済みにする（task reports:resolve -- <id> [対応メモ]）
+    desc: "本番の通報を対応済みにする（task reports:resolve NOTE='メモ' -- <id>）"
     dir: services/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    env:
+      REPORT_ID: "{{.CLI_ARGS}}"
+      REPORT_NOTE: "{{.NOTE | default \"\"}}"
     cmds:
-      - bash scripts/reports.sh --env production resolve {{.CLI_ARGS}}
+      - bash scripts/reports.sh --env production resolve
 
   reports:dismiss:
-    desc: 本番の通報を却下する（task reports:dismiss -- <id> [対応メモ]）
+    desc: "本番の通報を却下する（task reports:dismiss NOTE='メモ' -- <id>）"
     dir: services/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    env:
+      REPORT_ID: "{{.CLI_ARGS}}"
+      REPORT_NOTE: "{{.NOTE | default \"\"}}"
     cmds:
-      - bash scripts/reports.sh --env production dismiss {{.CLI_ARGS}}
+      - bash scripts/reports.sh --env production dismiss
 
   reports:reopen:
     desc: 本番の通報を未対応に戻す（task reports:reopen -- <id>）
     dir: services/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    env:
+      REPORT_ID: "{{.CLI_ARGS}}"
     cmds:
-      - bash scripts/reports.sh --env production reopen {{.CLI_ARGS}}
+      - bash scripts/reports.sh --env production reopen
 
   reports:update:local:
-    desc: ローカル D1 で reports.sh の全コマンドを実行（resolve|dismiss|reopen|list 等。動作確認用）
+    desc: "ローカル D1 で reports.sh の全コマンドを実行（例: task reports:update:local ID=5 NOTE='メモ' -- resolve）"
     dir: services/api
+    env:
+      REPORT_ID: "{{.ID | default \"\"}}"
+      REPORT_NOTE: "{{.NOTE | default \"\"}}"
     cmds:
       - bash scripts/reports.sh --local {{.CLI_ARGS}}
