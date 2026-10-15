@@ -66,6 +66,9 @@ export function useWatchHistory() {
 export function useUpsertWatchHistory() {
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
+  const queryKey = userId
+    ? watchHistoryQueryKey(userId)
+    : WATCH_HISTORY_QUERY_KEY;
 
   return useMutation({
     mutationFn: async ({
@@ -88,12 +91,30 @@ export function useUpsertWatchHistory() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: userId
-          ? watchHistoryQueryKey(userId)
-          : WATCH_HISTORY_QUERY_KEY,
-      });
+    // ステータス変更は Annict updateStatus を往復するため応答が遅い。
+    // API 完了を待たずキャッシュを先に書き換え（楽観的更新）、失敗時は
+    // スナップショットへロールバックする。成否に関わらず onSettled で
+    // サーバーの正データを取り直す（issue #166）。
+    onMutate: async ({ annictWorkId, data }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous =
+        queryClient.getQueryData<WatchHistoriesResponse>(queryKey);
+      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
+        old?.map((item) =>
+          item.annictWorkId === annictWorkId
+            ? { ...item, state: data.state }
+            : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 }

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   View,
   Text,
   FlatList,
@@ -7,8 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   useWatchHistory,
@@ -41,10 +46,28 @@ const STATUS_COLORS: Record<WatchStatus, string> = {
   WANNA_WATCH: "#6b7280",
 };
 
+type Toast = { type: "success" | "error"; message: string };
+
 export default function WatchHistoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
+
+  // ステータス更新は楽観的更新のため、失敗時（ロールバック）だけトーストで知らせる。
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((next: Toast) => {
+    setToast(next);
+    AccessibilityInfo.announceForAccessibility(next.message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -178,12 +201,50 @@ export default function WatchHistoryScreen() {
           onSave={(data) => {
             upsert.mutate(
               { annictWorkId: editingItem.annictWorkId, data },
-              { onSuccess: () => setEditingItem(null) },
+              {
+                onError: (error) =>
+                  showToast({
+                    type: "error",
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "視聴履歴の更新に失敗しました",
+                  }),
+              },
             );
+            // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
+            // 失敗した場合はロールバックされ、トーストで通知される。
+            setEditingItem(null);
           }}
           isSaving={upsert.isPending}
         />
       )}
+
+      <View
+        testID="watch-history-toast-layer"
+        pointerEvents="box-none"
+        style={[styles.toastLayer, { top: insets.top }]}
+      >
+        {toast ? (
+          <View
+            className={`mx-4 mt-2 rounded-lg px-4 py-3 shadow-md ${
+              toast.type === "success" ? "bg-green-50" : "bg-red-50"
+            }`}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text
+              className={
+                toast.type === "success"
+                  ? "text-sm font-medium text-green-700"
+                  : "text-sm font-medium text-red-600"
+              }
+            >
+              {toast.message}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -332,3 +393,14 @@ function EditModal({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  toastLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    elevation: 20,
+  },
+});
