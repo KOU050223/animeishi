@@ -66,14 +66,28 @@ export const styles = StyleSheet.create({
   // ドラッグ中のカードが乗っている行のハイライト。落とす先を視覚的に示す。
   tierDropAreaActive: { backgroundColor: "#374151" },
 
-  trayHeader: {
-    color: "#e5e7eb",
-    fontSize: 14,
-    fontWeight: "600",
+  trayHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
   },
+  trayHeader: {
+    color: "#e5e7eb",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  // 未分類トレイへの手動追加（＋ボタン）。候補に載らない作品を検索で補う。
+  trayAddButton: {
+    backgroundColor: "#374151",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  trayAddButtonDisabled: { opacity: 0.5 },
+  trayAddButtonText: { color: "#e5e7eb", fontSize: 13, fontWeight: "600" },
   tray: {
     marginHorizontal: 16,
     marginBottom: 24,

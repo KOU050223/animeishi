@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -19,6 +19,7 @@ import {
 import { styles } from "@/components/tier-list/tierListStyles";
 import {
   assignWork,
+  mergeBoardWorks,
   parseTiersJson,
   toAssignment,
   toSaveItems,
@@ -32,7 +33,7 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
-import type { TierAssignment, TierRow } from "@/lib/tierList/types";
+import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
 import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
 import {
@@ -83,6 +84,11 @@ export default function TierListScreen() {
 
   const [tiers, setTiers] = useState<TierRow[]>(DEFAULT_TIERS);
   const [assignment, setAssignment] = useState<TierAssignment>(new Map());
+  // ＋ボタンの検索シートから手動追加した作品（issue #168）。
+  // シーズン候補（works）に載らない作品を未分類トレイへ並べるための追加枠。
+  // 未配置のままでは保存対象にならずリロードで消えるので、シーズン切替時に
+  // まとめてクリアする。
+  const [manualWorks, setManualWorks] = useState<TierWork[]>([]);
   const [title, setTitle] = useState(() => defaultTierListTitle(season));
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
@@ -97,6 +103,13 @@ export default function TierListScreen() {
   // 終えた合図を受け取る。resolve はレンダー内の onReady から呼ぶので
   // ref 経由で promise に逃がす。
   const snapshotReadyRef = useRef<(() => void) | null>(null);
+  // 保存データの組み立て元。保存は確認ダイアログや共有フローを挟むため、
+  // ボタンを押した時点ではなく承認・実行の時点の盤面を送れるよう
+  // 最新値を ref に逃がす（確認表示中の編集が古い配置で上書きされない）。
+  const saveSourceRef = useRef({ season, title, tiers, assignment });
+  useEffect(() => {
+    saveSourceRef.current = { season, title, tiers, assignment };
+  });
 
   // シーズンを切り替えたら、そのシーズンの保存済みデータ（あれば）で状態を差し替える。
   // 保存済みが無ければ既定の tier と空の配置に戻す。
@@ -120,23 +133,57 @@ export default function TierListScreen() {
     setIsDirty(false);
   }, [saved, isSavedLoading, season, isDirty]);
 
+  // 盤面に並べる作品集合。シーズン候補（works）を本体に、2 種類を補完する:
+  // - 保存済み items のうちシーズン外の作品。過去に手動追加→配置→保存した
+  //   作品は season 検索に出ないので、works だけでは worksInTier が
+  //   作品を引けず「配置済みなのに描画されない」状態になる。
+  // - manualWorks（今回手動追加した作品。未配置のものも含む）。
+  const boardWorks = useMemo<TierWork[]>(
+    () =>
+      mergeBoardWorks(
+        works,
+        (saved?.items ?? []).map((item) => ({
+          annictWorkId: item.annictWorkId,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          resolvedImageUrl: item.resolvedImageUrl,
+        })),
+        manualWorks,
+      ),
+    [works, saved, manualWorks],
+  );
+
   const handleAssign = useCallback(
     (annictWorkId: number, tierKey: string | null) => {
-      // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
+      // 共有・保存は「盤面を保存 → 応答を反映」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
-      // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
-      if (isSharing) return;
+      // 処理中に行った編集が消えるため、リクエスト中のドロップは受け付けない。
+      if (isSharing || save.isPending) return;
       setAssignment((prev) => assignWork(prev, annictWorkId, tierKey));
       setIsDirty(true);
     },
-    [isSharing],
+    [isSharing, save.isPending],
+  );
+
+  // 検索シートから選ばれた作品を未分類トレイ（works 側）へ追加する。
+  // 追加だけでは保存 items に載らないため、配置までが一連の編集になる。
+  const handleAddWork = useCallback(
+    (work: TierWork) => {
+      // ドロップと同じく、共有・保存中の編集は受け付けない。
+      if (isSharing || save.isPending) return;
+      // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
+      if (boardWorks.some((w) => w.annictWorkId === work.annictWorkId)) return;
+      setManualWorks((prev) => [...prev, work]);
+      setIsDirty(true);
+    },
+    [isSharing, save.isPending, boardWorks],
   );
 
   const handleRenameTier = useCallback(
     (tierKey: string, label: string) => {
-      // ドロップと同じく、共有中（保存→トークン発行の直列処理中）の編集は
-      // 受け付けない。ここで tiers を変えると保存応答の反映で消えるため。
-      if (isSharing) return;
+      // ドロップと同じく、共有・保存中の編集は受け付けない。
+      // ここで tiers を変えると保存応答の反映で消えるため。
+      if (isSharing || save.isPending) return;
       // trim 後に名前が変わっていない（or 存在しない key）なら差分なし。
       // renameTier が同じ配列を返すので、その場合は未保存扱いにしない。
       const next = renameTier(tiers, tierKey, label);
@@ -144,7 +191,7 @@ export default function TierListScreen() {
       setTiers(next);
       setIsDirty(true);
     },
-    [isSharing, tiers],
+    [isSharing, save.isPending, tiers],
   );
 
   const handleBack = useCallback(() => {
@@ -204,30 +251,73 @@ export default function TierListScreen() {
       confirmIfDirty(() => {
         setYear(nextYear);
         setSeasonKey(nextSeasonKey);
+        // 手動追加はシーズン単位の編集なので、切替先へ持ち越さない。
+        setManualWorks([]);
       });
     },
     [confirmIfDirty, isSharing, year, seasonKey],
   );
 
   const handleSave = useCallback(() => {
-    save.mutate(
-      { season, title, tiers, items: toSaveItems(assignment, tiers) },
-      { onSuccess: () => setIsDirty(false) },
+    // 承認コールバックはダイアログを開いた時点ではなく承認時点の盤面で
+    // 保存する（確認の表示中に配置を変えても古い配置で上書きされない）。
+    const doSave = () => {
+      const cur = saveSourceRef.current;
+      save.mutate(
+        {
+          season: cur.season,
+          title: cur.title,
+          tiers: cur.tiers,
+          items: toSaveItems(cur.assignment, cur.tiers),
+        },
+        {
+          onSuccess: () => {
+            setIsDirty(false);
+            // 保存対象外だった未配置の追加分は盤面からも取り除く。
+            // 残しておくと「保存済み」表示と矛盾し、再表示で消える。
+            setManualWorks((prev) =>
+              prev.filter((w) => cur.assignment.has(w.annictWorkId)),
+            );
+          },
+        },
+      );
+    };
+    // ＋で追加したがどの tier にも配置していない作品は保存対象にならず、
+    // 画面を離れると消える。「保存したのに消えた」を防ぐため一度だけ確認する。
+    const hasUnassignedManual = manualWorks.some(
+      (w) => !assignment.has(w.annictWorkId),
     );
-  }, [assignment, save, season, tiers, title]);
+    if (hasUnassignedManual) {
+      confirm(
+        "未配置の追加作品があります",
+        "未分類に残っている追加分は保存されず、このままだと消えます。",
+        doSave,
+        { confirmLabel: "このまま保存", cancelLabel: "編集を続ける" },
+      );
+      return;
+    }
+    doSave();
+  }, [assignment, manualWorks, save]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
   const saveTierListData = useCallback(async () => {
+    // 共有フローは isSharing で編集を止めるが、開始直前までの編集も
+    // 反映できるよう実行時点の最新値から組み立てる。
+    const cur = saveSourceRef.current;
     const savedData = await save.mutateAsync({
-      season,
-      title,
-      tiers,
-      items: toSaveItems(assignment, tiers),
+      season: cur.season,
+      title: cur.title,
+      tiers: cur.tiers,
+      items: toSaveItems(cur.assignment, cur.tiers),
     });
     setIsDirty(false);
+    // 保存ボタンと同じく、保存に載らなかった未配置の追加分は盤面から外す。
+    setManualWorks((prev) =>
+      prev.filter((w) => cur.assignment.has(w.annictWorkId)),
+    );
     return savedData;
-  }, [assignment, save, season, tiers, title]);
+  }, [save]);
 
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
@@ -448,20 +538,17 @@ export default function TierListScreen() {
           <ActivityIndicator color="#9ca3af" />
           <Text style={styles.centeredText}>シーズンの作品を集めています</Text>
         </View>
-      ) : works.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.centeredText}>
-            このシーズンの作品が見つかりませんでした
-          </Text>
-        </View>
       ) : (
+        // シーズン候補が 0 件でも盤面を出す。＋ボタンから手動追加できる
+        // 道を残すため（issue #168）、空のときだけ別画面にはしない。
         <TierBoard
           tiers={tiers}
-          works={works}
+          works={boardWorks}
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
-          labelsEditable={!isSharing}
+          onAddWork={handleAddWork}
+          labelsEditable={!isSharing && !save.isPending}
         />
       )}
 

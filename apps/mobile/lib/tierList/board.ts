@@ -60,6 +60,24 @@ export function unassignedWorks(
 }
 
 /**
+ * 盤面に並べる作品集合を組み立てる。
+ * シーズン候補・保存済み items 由来の作品・手動追加分など、複数の供給元を
+ * 前から順にマージする。同一 annictWorkId の重複は先に入った方を優先して潰す
+ * （先の供給元ほど新鮮な表示用メタを持つ想定）。
+ */
+export function mergeBoardWorks(
+  ...sources: (readonly TierWork[] | undefined)[]
+): TierWork[] {
+  const byId = new Map<number, TierWork>();
+  for (const source of sources) {
+    for (const w of source ?? []) {
+      if (!byId.has(w.annictWorkId)) byId.set(w.annictWorkId, w);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
  * tiers の定義から消えた tier に取り残された配置を落とす。
  * 行を削除したときに「どこにも描画されない幽霊配置」が残ると、
  * 保存時にサーバの refine で 400 になるため、削除の時点で掃除する。
