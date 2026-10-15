@@ -5,6 +5,8 @@ import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { createDb } from "@/db/client";
 import { works } from "@/routes/works";
+import { currentAnnictSeason } from "@/lib/annict/client";
+import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -63,29 +65,39 @@ function mockSearchWorks(
       data: {
         searchWorks: {
           pageInfo,
-          nodes: nodes.map((n) => ({
-            id: `node-${n.annictId}`,
-            annictId: n.annictId,
-            title: "title" in n ? n.title : `作品${n.annictId}`,
-            titleKana: null,
-            titleEn: null,
-            seasonName: null,
-            seasonYear: null,
-            malAnimeId: n.malAnimeId ?? null,
-            image: {
-              internalUrl: null,
-              recommendedImageUrl: n.recommendedImageUrl ?? null,
-              facebookOgImageUrl: null,
-              twitterBiggerAvatarUrl: null,
-              twitterAvatarUrl: null,
-              twitterNormalAvatarUrl: null,
-              twitterMiniAvatarUrl: null,
-            },
-          })),
+          nodes: nodes.map(annictNode),
         },
       },
     });
   });
+}
+
+// Annict searchWorks の 1 作品分のレスポンスノード（モック用）。
+function annictNode(n: {
+  annictId: number;
+  title?: string | null;
+  malAnimeId?: string | null;
+  recommendedImageUrl?: string | null;
+}) {
+  return {
+    id: `node-${n.annictId}`,
+    annictId: n.annictId,
+    title: "title" in n ? n.title : `作品${n.annictId}`,
+    titleKana: null,
+    titleEn: null,
+    seasonName: null,
+    seasonYear: null,
+    malAnimeId: n.malAnimeId ?? null,
+    image: {
+      internalUrl: null,
+      recommendedImageUrl: n.recommendedImageUrl ?? null,
+      facebookOgImageUrl: null,
+      twitterBiggerAvatarUrl: null,
+      twitterAvatarUrl: null,
+      twitterNormalAvatarUrl: null,
+      twitterMiniAvatarUrl: null,
+    },
+  };
 }
 
 const ANNICT_HEADER = { "X-Annict-Token": "tok_test" };
@@ -118,6 +130,15 @@ describe("作品検索 API", () => {
     await setupTestDb(env.DB);
     vi.mocked(getAuth).mockReset();
     vi.restoreAllMocks();
+    // シーズン検索結果は Cache API にキャッシュされるため、テスト間で結果が
+    // リークしないようテストで使うシーズンのキーを掃除する。
+    for (const season of [
+      currentAnnictSeason(),
+      "2025-summer",
+      "2030-winter",
+    ]) {
+      await caches.default.delete(seasonWorksCacheUrl(season));
+    }
   });
 
   describe("認証なし", () => {
@@ -209,6 +230,137 @@ describe("作品検索 API", () => {
         (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
       );
       expect(body.variables.seasons).toEqual(["2025-summer"]);
+    });
+
+    it("GET /works/search: シーズン検索は複数ページを辿って全件返す", async () => {
+      // 1 ページ目で hasNextPage=true + endCursor を返し、after=c1 の
+      // 2 ページ目で終端にするモック。
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async (_input, init) => {
+          const vars =
+            JSON.parse((init?.body as string) ?? "{}").variables ?? {};
+          const { nodes, pageInfo } =
+            vars.after === "c1"
+              ? {
+                  nodes: [annictNode({ annictId: 3 })],
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                }
+              : {
+                  nodes: [
+                    annictNode({ annictId: 1 }),
+                    annictNode({ annictId: 2 }),
+                  ],
+                  pageInfo: { hasNextPage: true, endCursor: "c1" },
+                };
+          return new Response(
+            JSON.stringify({ data: { searchWorks: { pageInfo, nodes } } }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { annictWorkId: number }[];
+        hasNextPage: boolean;
+      };
+      // issue #163: 先頭 50 件（1 ページ目）で打ち切らず全件を返す
+      expect(body.works.map((w) => w.annictWorkId)).toEqual([1, 2, 3]);
+      expect(body.hasNextPage).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const secondBody = JSON.parse(
+        (fetchMock.mock.calls[1]![1] as RequestInit).body as string,
+      );
+      expect(secondBody.variables.after).toBe("c1");
+    });
+
+    it("GET /works/search: 同一シーズンの再リクエストはキャッシュを使い Annict を叩かない", async () => {
+      const fetchMock = mockSearchWorks([
+        { annictId: 11, recommendedImageUrl: "https://example.com/11.jpg" },
+      ]);
+
+      const app = buildApp();
+      const res1 = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res1.status).toBe(200);
+
+      const res2 = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res2.status).toBe(200);
+      const body = (await res2.json()) as {
+        works: { annictWorkId: number }[];
+        hasNextPage: boolean;
+      };
+      expect(body.works[0]?.annictWorkId).toBe(11);
+      expect(body.hasNextPage).toBe(false);
+      // 2 回目はキャッシュヒットするため Annict への fetch は 1 回だけ
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("GET /works/search: after 指定の追い読みはキャッシュを介さず Annict を叩く", async () => {
+      const fetchMock = mockSearchWorks([]);
+
+      const app = buildApp();
+      // まず通常リクエストでシーズンをキャッシュさせる
+      await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const res = await app.request(
+        "/works/search?season=2030-winter&after=cursorX",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      // after 付きはキャッシュを介さず Annict へ届く
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const lastBody = JSON.parse(
+        (fetchMock.mock.calls[1]![1] as RequestInit).body as string,
+      );
+      expect(lastBody.variables.after).toBe("cursorX");
+    });
+
+    it("GET /works/search: 100 件超のシーズン結果でも IN 句のバインド上限を超えずに返せる", async () => {
+      // D1 のバインド変数上限（100）を超える件数でも getAnnictWorksByIds を
+      // チャンクして参照・キャッシュできることを確認する。
+      mockSearchWorks(
+        Array.from({ length: 120 }, (_, i) => ({
+          annictId: i + 1,
+          recommendedImageUrl: `https://example.com/${i + 1}.jpg`,
+        })),
+      );
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { works: { annictWorkId: number }[] };
+      expect(body.works).toHaveLength(120);
+      // 先頭・末尾の作品が annict_works にキャッシュされている
+      const row = await createDb(env.DB).query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 120),
+      });
+      expect(row?.title).toBe("作品120");
     });
 
     it("GET /works/search: 不正な season 形式は 400", async () => {
@@ -413,6 +565,76 @@ describe("作品検索 API", () => {
         where: (t, { eq }) => eq(t.annictWorkId, 901),
       });
       expect(row?.title).toBe("通常画像の作品");
+    });
+
+    it("GET /works/search: title null の作品が混ざっても正常な作品は annict_works に永続化される", async () => {
+      // batch 中の 1 件の不正行で他の作品まで永続化が失敗しないことを確認する。
+      // 不正行はレスポンスには返すが D1 にはキャッシュしない（FK 参照不可）。
+      mockSearchWorks([
+        {
+          annictId: 778,
+          title: null,
+          malAnimeId: "1235",
+          recommendedImageUrl: "https://example.com/778.jpg",
+        },
+        {
+          annictId: 779,
+          title: "正常な作品",
+          malAnimeId: "1236",
+          recommendedImageUrl: "https://example.com/779.jpg",
+        },
+      ]);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=検索",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { works: { annictWorkId: number }[] };
+      // title null の作品もレスポンス自体には含める
+      expect(body.works.map((w) => w.annictWorkId)).toEqual([778, 779]);
+      const db = createDb(env.DB);
+      const bad = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 778),
+      });
+      expect(bad).toBeUndefined();
+      const good = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 779),
+      });
+      expect(good?.title).toBe("正常な作品");
+    });
+
+    it("GET /works/search: 壊れたページング（hasNextPage=true だが endCursor=null）は 502 でキャッシュしない", async () => {
+      // hasNextPage=true なのに継続カーソルが取れない異常系。部分結果を
+      // 「全件」として返してシーズンキャッシュに残さないよう失敗にする。
+      const fetchMock = mockSearchWorks([{ annictId: 1 }], {
+        hasNextPage: true,
+        endCursor: null,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+      const body = (await res.json()) as { code: string };
+      expect(body.code).toBe("annict_upstream");
+
+      // キャッシュに部分結果が残っていない（再リクエストで Annict に届く）
+      const res2 = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res2.status).toBe(502);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスは継続する", async () => {

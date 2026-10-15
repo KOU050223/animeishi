@@ -8,6 +8,7 @@ export {
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
   fetchAnnictWorkByAnnictId,
+  searchAnnictWorksBySeason,
   searchAnnictWorksByTitle,
   updateAnnictStatus,
 } from "./client";

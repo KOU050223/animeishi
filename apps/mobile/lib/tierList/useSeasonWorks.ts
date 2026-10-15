@@ -18,11 +18,9 @@ const IMAGE_RESOLVE_REFETCH_MAX_ATTEMPTS = 6;
 /**
  * tier 表に並べるシーズン全作品を取得する。
  *
- * 1 シーズンは数十作品あり /works/search は 1 ページしか返さないため、
- * useInfiniteQuery で hasNextPage が尽きるまで自動で追い読みする。
- * ページ取得をサーバ側でループさせないのは、/works/search が呼び出しごとに
- * 画像フォールバックの Queue 投入を行うため、1 リクエスト内で回すと
- * Worker のサブリクエストと Annict への負荷が積み上がるため。
+ * /works/search のシーズン検索はサーバー側で全ページ取得して返す（issue #163）。
+ * サーバー側の取得上限に達した稀なケースだけ hasNextPage が立つため、
+ * useInfiniteQuery の追い読みはその継続取得の受け口として残す。
  */
 export function useSeasonWorks(season: string) {
   const { getToken, isSignedIn } = useAuth();

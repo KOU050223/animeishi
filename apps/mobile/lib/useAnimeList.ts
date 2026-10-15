@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
@@ -56,7 +56,9 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  *
  * 戻り値の `isConnected` は呼び出し側のソフトゲート（未連携時の連携誘導・手動更新の
  * ガード）に使う。`isSeason` は検索結果かシーズン一覧かの区別で、空状態の文言・件数
- * 表示の出し分けに使う。`hasNextPage` / `endCursor` は将来の追い読みに向けて公開する。
+ * 表示の出し分けに使う。シーズン検索でサーバー側のページ上限に達した場合は
+ * このフック内で次ページを自動追い読みする。`hasNextPage` / `endCursor` は
+ * 最後に取得したページの状態を公開する。
  *
  * @param query  検索語（空ならシーズン一覧）。
  * @param season 絞り込むシーズン文字列（例: "2025-summer"）。未指定なら今期。
@@ -72,23 +74,25 @@ export function useAnimeList(query: string, season?: string) {
   // 検索語が空ならシーズン検索（title を送らず season を載せる。未指定ならサーバー既定の今期）。
   const isSeason = trimmed.length === 0;
 
-  const result = useQuery({
+  const result = useInfiniteQuery({
     queryKey: worksSearchQueryKey(trimmed, season),
     // 検索語が空でもシーズン一覧を出すため、連携済みなら常に有効化する。
     enabled: !!isSignedIn && isConnected,
     // 年/季節チップを切り替えると queryKey が変わり別クエリ扱いになるため、
     // 取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。
     placeholderData: keepPreviousData,
-    queryFn: async (): Promise<WorksSearchResponse> => {
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }): Promise<WorksSearchResponse> => {
       const headers = await getAuthHeaders(getToken);
       // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
       const annictHeader = await buildAnnictAuthHeader();
       // title 省略時はシーズン検索。season 未指定ならサーバーが今期を既定にする。
       const queryParams = isSeason
-        ? season
-          ? { season }
-          : {}
-        : { title: trimmed };
+        ? {
+            ...(season ? { season } : {}),
+            ...(pageParam ? { after: pageParam } : {}),
+          }
+        : { title: trimmed, ...(pageParam ? { after: pageParam } : {}) };
       const res = await apiClient.works.search.$get(
         { query: queryParams },
         { headers: { ...headers, ...annictHeader } },
@@ -98,19 +102,45 @@ export function useAnimeList(query: string, season?: string) {
       }
       return res.json();
     },
+    getNextPageParam: (last) =>
+      last.hasNextPage ? (last.endCursor ?? undefined) : undefined,
   });
+
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = result;
+
+  // シーズン検索はサーバー側のページ上限に達したときだけ hasNextPage が立つため、
+  // 残りを自動で追い読みする（issue #163 でサーバー側全件取得にした後の受け口）。
+  // タイトル検索は先頭ページ（上位50件）だけでよく、広い語で全件走査すると
+  // 際限がないため追い読みしない。エラー時の再発火ループを防ぐため isError 中は止める。
+  useEffect(() => {
+    if (isSeason && hasNextPage && !isFetchingNextPage && !result.isError) {
+      void fetchNextPage();
+    }
+  }, [
+    isSeason,
+    hasNextPage,
+    isFetchingNextPage,
+    result.isError,
+    fetchNextPage,
+  ]);
+
+  const works = useMemo(
+    () => result.data?.pages.flatMap((page) => page.works),
+    [result.data],
+  );
+  const lastPage = result.data?.pages.at(-1);
 
   return {
     ...result,
-    // 一覧表示用に works だけを取り出した配列（後方互換のため data 名で公開）。
-    data: result.data?.works,
+    // 一覧表示用に全ページの works を平坦化した配列（後方互換のため data 名で公開）。
+    data: works,
     // 連携状態と次ページ情報。呼び出し側のソフトゲート/追い読みに使う。
     isConnected,
     isConnectionLoading,
     // 今期アニメ初期表示か検索結果かの区別（空状態の文言・件数表示の出し分け用）。
     isSeason,
-    hasNextPage: result.data?.hasNextPage ?? false,
-    endCursor: result.data?.endCursor ?? null,
+    hasNextPage: lastPage?.hasNextPage ?? false,
+    endCursor: lastPage?.endCursor ?? null,
   };
 }
 

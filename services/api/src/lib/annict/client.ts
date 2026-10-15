@@ -5,6 +5,7 @@
 // - Annict トークンはサーバー非保存。リクエストごとに呼び出し側から渡す。
 // - PR2 ではクライアントの土台と OAuth 交換のみ。libraryEntries / updateStatus を
 //   叩く高レベル関数は PR3 / PR4 で足す。
+import { withAnnictRetry } from "./retry";
 
 export const ANNICT_GRAPHQL_ENDPOINT = "https://api.annict.com/graphql";
 export const ANNICT_TOKEN_ENDPOINT = "https://api.annict.com/oauth/token";
@@ -532,6 +533,13 @@ export function currentAnnictSeason(now: Date = new Date()): string {
   return `${year}-${season}`;
 }
 
+// シーズン検索で 1 リクエスト内に辿る最大ページ数（50 件 × 12 = 600 作品）。
+// 1 シーズンの作品数（深夜アニメ・OVA 等を含む）を実用上カバーしつつ、
+// Workers のサブリクエスト上限と Annict のレート制限内に収めるための上限。
+// これを超えるシーズンは hasNextPage=true で返し、続きは呼び出し側の
+// 追い読み（after カーソル付きの別リクエスト）に委ねる。
+const MAX_SEASON_PAGES = 12;
+
 // シーズン指定で作品を検索するクエリ。タイトル検索と返すフィールドは揃える。
 const SEARCH_WORKS_BY_SEASON_QUERY = `
 query SearchWorksBySeason($seasons: [String!], $after: String) {
@@ -555,6 +563,11 @@ query SearchWorksBySeason($seasons: [String!], $after: String) {
  * シーズン文字列（例: "2026-spring"）で Annict 作品を検索し、整形した配列を返す。
  * 検索画面の初期表示（今期アニメ）に使う。視聴者数の多い順で返す。
  * タイトル検索と同様、視聴ステータス（state）は持たない。
+ *
+ * 1 シーズンは数百作品あるため pageInfo を辿って全ページ取得する（issue #163:
+ * 先頭 50 件だけで打ち切られていた）。`after` を渡すとそのカーソル以降を
+ * 全ページ取得する（上限到達時の追い読み用）。上限ページに達したときだけ
+ * hasNextPage=true と継続カーソルを返す。
  */
 export async function searchAnnictWorksBySeason(
   accessToken: string,
@@ -566,14 +579,58 @@ export async function searchAnnictWorksBySeason(
   hasNextPage: boolean;
   endCursor: string | null;
 }> {
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
-    accessToken,
-    SEARCH_WORKS_BY_SEASON_QUERY,
-    { seasons: [season], after },
-    fetchImpl,
-  );
+  // ページ境界で重複した作品が混ざり得るため（壊れた endCursor で同じページを
+  // 再取得するケース等）、annictWorkId 単位で dedupe する。Map は挿入順を
+  // 保持するので watchers 順位は維持される。
+  const worksById = new Map<number, AnnictLibraryEntry>();
+  // 同一 endCursor の再出現（壊れたページング）を検出して無限ループを防ぐ。
+  const seenCursors = new Set<string>();
+  let cursor = after;
+  let lastEndCursor: string | null = null;
 
-  return mapSearchWorksConnection(data.searchWorks);
+  for (let page = 0; page < MAX_SEASON_PAGES; page++) {
+    // ページ取得は直列なので 429 / 一時障害（status 0・5xx）はページ単位で
+    // バックオフリトライする（401 等の非リトライ系はそのまま投げる）。
+    const data = await withAnnictRetry(() =>
+      annictGraphQL<SearchWorksByTitleResponse>(
+        accessToken,
+        SEARCH_WORKS_BY_SEASON_QUERY,
+        { seasons: [season], after: cursor },
+        fetchImpl,
+      ),
+    );
+
+    const mapped = mapSearchWorksConnection(data.searchWorks);
+    for (const w of mapped.works) worksById.set(w.annictWorkId, w);
+
+    if (!mapped.hasNextPage) {
+      return {
+        works: [...worksById.values()],
+        hasNextPage: false,
+        endCursor: null,
+      };
+    }
+    // 次ページがあるのに継続カーソルが取れない/繰り返す場合、部分結果を
+    // 「全件」として返すと呼び出し側のシーズンキャッシュに欠損データが残る。
+    // libraryEntries と同じく上流のページング異常として失敗させる（502）。
+    if (!mapped.endCursor || seenCursors.has(mapped.endCursor)) {
+      throw new AnnictApiError(
+        "Annict season works pagination did not complete",
+        502,
+        { season, endCursor: mapped.endCursor },
+      );
+    }
+    seenCursors.add(mapped.endCursor);
+    lastEndCursor = mapped.endCursor;
+    cursor = mapped.endCursor;
+  }
+
+  // ページ上限に達した場合は残りをクライアントの追い読み（after）に委ねる。
+  return {
+    works: [...worksById.values()],
+    hasNextPage: true,
+    endCursor: lastEndCursor,
+  };
 }
 
 export type AnnictTokenResponse = {

@@ -124,6 +124,61 @@ export type TierListItemInput = {
   position: number;
 };
 
+// annict_works upsert（単発・バルク・ライブラリ同期）で共有する
+// onConflictDoUpdate.set。nodeId / malAnimeId は取得できないパスがあるため、
+// 新しい値が null のときは既存値を温存する（過去に解決済みの値を消さない）。
+// 画像解決結果は「MAL ID が変わったら破棄」して再解決させる。SQLite の
+// `is not` は IS DISTINCT FROM 相当（NULL-safe 比較）。新 MAL ID が
+// null のとき（未取得）は破棄せず既存値を温存する。
+function annictWorkConflictSet() {
+  return {
+    nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
+    malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
+    resolvedImageUrl: sql`case
+      when excluded.mal_anime_id is not null
+       and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+      then null
+      else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
+    end`,
+    imageSource: sql`case
+      when excluded.mal_anime_id is not null
+       and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+      then null
+      else coalesce(excluded.image_source, ${annictWorks.imageSource})
+    end`,
+    resolvedAt: sql`case
+      when excluded.mal_anime_id is not null
+       and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+      then null
+      else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
+    end`,
+    // 最終試行時刻も同じ条件で破棄する（新しい MAL ID の解決を
+    // クールダウンなしで改めて試行できるようにするため）。
+    imageFallbackAttemptedAt: sql`case
+      when excluded.mal_anime_id is not null
+       and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+      then null
+      else coalesce(excluded.image_fallback_attempted_at, ${annictWorks.imageFallbackAttemptedAt})
+    end`,
+    title: sql`excluded.title`,
+    titleKana: sql`excluded.title_kana`,
+    titleEn: sql`excluded.title_en`,
+    seasonName: sql`excluded.season_name`,
+    seasonYear: sql`excluded.season_year`,
+    imageUrl: sql`excluded.image_url`,
+    updatedAt: sql`excluded.updated_at`,
+  };
+}
+
+// 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
+// annict_works は 13 カラム（malAnimeId / resolvedImageUrl / imageSource /
+// resolvedAt 追加）なので 7 行 × 13 = 91 変数 < 100。
+const ANNICT_WORK_UPSERT_CHUNK = 7;
+
+// updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
+// statement になるため、往復回数と batch サイズのバランスで区切る。
+const RESOLVED_IMAGE_UPDATE_BATCH = 50;
+
 /**
  * authorizedDb: 認証済みユーザーIDを束縛したリポジトリ層。
  * 直接 drizzle クライアントを使わず、必ずこの関数を経由してDB操作を行う。
@@ -271,54 +326,36 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     },
 
     async upsertAnnictWork(data: NewAnnictWork): Promise<void> {
-      await db
-        .insert(annictWorks)
-        .values(data)
-        .onConflictDoUpdate({
-          target: annictWorks.annictWorkId,
-          set: {
-            // nodeId / malAnimeId は取得できないパスがあるため、新しい値が null の
-            // ときは既存値を温存する（過去に解決済みの値を消さない）。
-            nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
-            malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
-            // 画像解決結果は「MAL ID が変わったら破棄」して再解決させる。SQLite の
-            // `is not` は IS DISTINCT FROM 相当（NULL-safe 比較）。新 MAL ID が
-            // null のとき（未取得）は破棄せず既存値を温存する。
-            resolvedImageUrl: sql`case
-              when excluded.mal_anime_id is not null
-               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-              then null
-              else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
-            end`,
-            imageSource: sql`case
-              when excluded.mal_anime_id is not null
-               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-              then null
-              else coalesce(excluded.image_source, ${annictWorks.imageSource})
-            end`,
-            resolvedAt: sql`case
-              when excluded.mal_anime_id is not null
-               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-              then null
-              else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
-            end`,
-            // 最終試行時刻も同じ条件で破棄する（新しい MAL ID の解決を
-            // クールダウンなしで改めて試行できるようにするため）。
-            imageFallbackAttemptedAt: sql`case
-              when excluded.mal_anime_id is not null
-               and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-              then null
-              else coalesce(excluded.image_fallback_attempted_at, ${annictWorks.imageFallbackAttemptedAt})
-            end`,
-            title: data.title,
-            titleKana: data.titleKana,
-            titleEn: data.titleEn,
-            seasonName: data.seasonName,
-            seasonYear: data.seasonYear,
-            imageUrl: data.imageUrl,
-            updatedAt: data.updatedAt,
-          },
-        });
+      await db.insert(annictWorks).values(data).onConflictDoUpdate({
+        target: annictWorks.annictWorkId,
+        set: annictWorkConflictSet(),
+      });
+    },
+
+    /**
+     * annict_works をまとめて upsert する。検索結果（シーズン全件）のように
+     * 数百件をまとめて書く経路で、1 件ずつ往復すると D1 レイテンシが積み上がる
+     * ため、行チャンクの insert statement を 1 回の db.batch にまとめる。
+     * いずれかのチャンクが失敗すると batch 全体が失敗する点に注意
+     * （呼び出し側はまとめて失敗として扱う）。
+     */
+    async upsertAnnictWorks(data: NewAnnictWork[]): Promise<void> {
+      const queries: BatchItem<"sqlite">[] = [];
+      for (let i = 0; i < data.length; i += ANNICT_WORK_UPSERT_CHUNK) {
+        queries.push(
+          db
+            .insert(annictWorks)
+            .values(data.slice(i, i + ANNICT_WORK_UPSERT_CHUNK))
+            .onConflictDoUpdate({
+              target: annictWorks.annictWorkId,
+              set: annictWorkConflictSet(),
+            }),
+        );
+      }
+      if (queries.length === 0) return;
+      await db.batch(
+        queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+      );
     },
 
     /**
@@ -344,6 +381,39 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           imageFallbackAttemptedAt: null,
         })
         .where(eq(annictWorks.annictWorkId, annictWorkId));
+    },
+
+    /**
+     * updateResolvedImage のバルク版。検索経路の同期 AniList 解決で
+     * まとまった件数を書き込むときに、行ごとの UPDATE を batch にまとめて
+     * 往復回数を抑える。一部の batch が失敗しても他の batch には影響しない。
+     */
+    async updateResolvedImages(
+      updates: {
+        annictWorkId: number;
+        resolvedImageUrl: string | null;
+        imageSource: string;
+        resolvedAt: Date;
+      }[],
+    ): Promise<void> {
+      const queries: BatchItem<"sqlite">[] = updates.map((u) =>
+        db
+          .update(annictWorks)
+          .set({
+            resolvedImageUrl: u.resolvedImageUrl,
+            imageSource: u.imageSource,
+            resolvedAt: u.resolvedAt,
+            // 最終試行時刻をクリア（解決済みになったため）。
+            imageFallbackAttemptedAt: null,
+          })
+          .where(eq(annictWorks.annictWorkId, u.annictWorkId)),
+      );
+      for (let i = 0; i < queries.length; i += RESOLVED_IMAGE_UPDATE_BATCH) {
+        const chunk = queries.slice(i, i + RESOLVED_IMAGE_UPDATE_BATCH);
+        await db.batch(
+          chunk as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+        );
+      }
     },
 
     /**
@@ -527,50 +597,13 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
       // annict_works は 13 カラム（malAnimeId / resolvedImageUrl / imageSource /
       // resolvedAt 追加）、watch_history は 4 カラム。
-      const WORK_CHUNK = 7; // 7 * 13 = 91 変数 < 100
       const WATCH_CHUNK = 20; // 20 * 4 = 80 変数 < 100
 
       const upsertWorksChunk = (chunk: NewAnnictWork[]) =>
-        db
-          .insert(annictWorks)
-          .values(chunk)
-          .onConflictDoUpdate({
-            target: annictWorks.annictWorkId,
-            set: {
-              // nodeId / malAnimeId は取得できないパスがあるため、新しい値が null
-              // のときは既存値を温存する。
-              nodeId: sql`coalesce(excluded.node_id, ${annictWorks.nodeId})`,
-              malAnimeId: sql`coalesce(excluded.mal_anime_id, ${annictWorks.malAnimeId})`,
-              // 画像解決結果は「MAL ID が変わったら破棄」して再解決させる（SQLite の
-              // `is not` は IS DISTINCT FROM 相当）。新 MAL ID が null（未取得）の
-              // ときは破棄せず既存値を温存する。
-              resolvedImageUrl: sql`case
-                when excluded.mal_anime_id is not null
-                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-                then null
-                else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
-              end`,
-              imageSource: sql`case
-                when excluded.mal_anime_id is not null
-                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-                then null
-                else coalesce(excluded.image_source, ${annictWorks.imageSource})
-              end`,
-              resolvedAt: sql`case
-                when excluded.mal_anime_id is not null
-                 and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
-                then null
-                else coalesce(excluded.resolved_at, ${annictWorks.resolvedAt})
-              end`,
-              title: sql`excluded.title`,
-              titleKana: sql`excluded.title_kana`,
-              titleEn: sql`excluded.title_en`,
-              seasonName: sql`excluded.season_name`,
-              seasonYear: sql`excluded.season_year`,
-              imageUrl: sql`excluded.image_url`,
-              updatedAt: sql`excluded.updated_at`,
-            },
-          });
+        db.insert(annictWorks).values(chunk).onConflictDoUpdate({
+          target: annictWorks.annictWorkId,
+          set: annictWorkConflictSet(),
+        });
 
       // db.batch は「最低 1 要素の非空タプル」を要求するためのヘルパ。
       const runBatch = (queries: BatchItem<"sqlite">[]) =>
@@ -580,8 +613,10 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       // まとめてネットワーク往復を抑える（パラメータ上限は statement 単位なので、
       // batch に小 statement を多数並べるのは安全）。
       const workQueries: BatchItem<"sqlite">[] = [];
-      for (let i = 0; i < works.length; i += WORK_CHUNK) {
-        workQueries.push(upsertWorksChunk(works.slice(i, i + WORK_CHUNK)));
+      for (let i = 0; i < works.length; i += ANNICT_WORK_UPSERT_CHUNK) {
+        workQueries.push(
+          upsertWorksChunk(works.slice(i, i + ANNICT_WORK_UPSERT_CHUNK)),
+        );
       }
       if (workQueries.length > 0) {
         await runBatch(workQueries);

@@ -6,6 +6,7 @@ import {
   fetchAnnictLibraryEntries,
   fetchAnnictTokenInfo,
   fetchAnnictWorkByAnnictId,
+  searchAnnictWorksBySeason,
   searchAnnictWorksByTitle,
   ANNICT_GRAPHQL_ENDPOINT,
   ANNICT_TOKEN_ENDPOINT,
@@ -528,6 +529,171 @@ describe("searchAnnictWorksByTitle", () => {
     );
 
     expect(result.works[0]?.imageUrl).toBe("https://img/5-twitter.jpg");
+  });
+});
+
+describe("searchAnnictWorksBySeason", () => {
+  function searchPage(
+    nodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null },
+  ): Response {
+    return jsonResponse({ data: { searchWorks: { pageInfo, nodes } } });
+  }
+
+  function workNode(annictId: number) {
+    return {
+      id: `node-${annictId}`,
+      annictId,
+      title: `作品${annictId}`,
+      titleKana: null,
+      titleEn: null,
+      seasonName: "2026-spring",
+      seasonYear: 2026,
+      image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
+    };
+  }
+
+  it("pageInfo を辿って全ページを取得し平坦化する", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        searchPage([workNode(1)], { hasNextPage: true, endCursor: "c1" }),
+      )
+      .mockResolvedValueOnce(
+        searchPage([workNode(2)], { hasNextPage: false, endCursor: null }),
+      );
+
+    const result = await searchAnnictWorksBySeason(
+      "tok",
+      "2026-spring",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
+    expect(result.hasNextPage).toBe(false);
+    expect(result.endCursor).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 各ページに seasons を載せ、2 ページ目は前ページの endCursor を after に載せる。
+    const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    const second = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(first.variables.seasons).toEqual(["2026-spring"]);
+    expect(second.variables.after).toBe("c1");
+  });
+
+  it("after を渡すとそのカーソル以降を全ページ取得する", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(5)], { hasNextPage: false, endCursor: null }),
+      );
+
+    const result = await searchAnnictWorksBySeason(
+      "tok",
+      "2026-spring",
+      "cursorX",
+      fetchMock as unknown as typeof fetch,
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.after).toBe("cursorX");
+    expect(result.works.map((w) => w.annictWorkId)).toEqual([5]);
+  });
+
+  it("同一 endCursor が再出現したら AnnictApiError(502) で失敗（部分結果を全件扱いしない）", async () => {
+    // 壊れたページング: 常に hasNextPage=true で同じ cursor を返し続ける。
+    // 部分結果を返すと呼び出し側のシーズンキャッシュに欠損データが残るため失敗にする。
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        searchPage([workNode(1)], { hasNextPage: true, endCursor: "stuck" }),
+      );
+
+    await expect(
+      searchAnnictWorksBySeason(
+        "tok",
+        "2026-spring",
+        null,
+        fetchMock as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("hasNextPage が true でも endCursor が null なら AnnictApiError(502) で失敗", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: true, endCursor: null }),
+      );
+
+    await expect(
+      searchAnnictWorksBySeason(
+        "tok",
+        "2026-spring",
+        null,
+        fetchMock as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ページ上限に達したら hasNextPage=true と継続カーソルを返す", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn().mockImplementation(() => {
+      calls += 1;
+      return searchPage([workNode(calls)], {
+        hasNextPage: true,
+        endCursor: `c${calls}`,
+      });
+    });
+
+    const result = await searchAnnictWorksBySeason(
+      "tok",
+      "2026-spring",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works).toHaveLength(12);
+    expect(result.hasNextPage).toBe(true);
+    expect(result.endCursor).toBe("c12");
+    expect(fetchMock).toHaveBeenCalledTimes(12);
+  });
+
+  it("429 はリトライしてページ取得を続行する", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    const result = await searchAnnictWorksBySeason(
+      "tok",
+      "2026-spring",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works.map((w) => w.annictWorkId)).toEqual([1]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("searchWorks が null なら空結果を返す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ data: { searchWorks: null } }));
+
+    const result = await searchAnnictWorksBySeason(
+      "tok",
+      "2026-spring",
+      null,
+      fetchMock as unknown as typeof fetch,
+    );
+
+    expect(result.works).toHaveLength(0);
+    expect(result.hasNextPage).toBe(false);
   });
 });
 
