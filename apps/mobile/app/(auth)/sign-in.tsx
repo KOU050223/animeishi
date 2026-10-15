@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -112,68 +113,77 @@ export default function SignInScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View className="flex-1 justify-center px-6">
-          <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
-            {t("アニ名刺")}
-          </Text>
-
-          <Text className="text-xl font-semibold mb-6 text-gray-800">
-            {t("サインイン")}
-          </Text>
-
-          <Input
-            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-            placeholder={t("メールアドレス")}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            testID="email-input"
-          />
-
-          <Input
-            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
-            placeholder={t("パスワード")}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-            testID="password-input"
-          />
-
-          {error && (
-            <Text className="text-red-500 text-sm mb-4" testID="error-message">
-              {error}
+        <ScrollView
+          contentContainerClassName="flex-grow justify-center px-6 py-10"
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
+          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:p-8">
+            <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
+              {t("アニ名刺")}
             </Text>
-          )}
 
-          <TouchableOpacity
-            className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
-            onPress={handleSignIn}
-            disabled={loading}
-            testID="sign-in-button"
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-semibold text-base">
-                {t("サインイン")}
+            <Text className="text-xl font-semibold mb-6 text-gray-800">
+              {t("サインイン")}
+            </Text>
+
+            <Input
+              className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+              placeholder={t("メールアドレス")}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              testID="email-input"
+            />
+
+            <Input
+              className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+              placeholder={t("パスワード")}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="password"
+              testID="password-input"
+            />
+
+            {error && (
+              <Text
+                className="text-red-500 text-sm mb-4"
+                testID="error-message"
+              >
+                {error}
               </Text>
             )}
-          </TouchableOpacity>
 
-          <View className="flex-row justify-center">
-            <Text className="text-gray-600">
-              {t("アカウントをお持ちでない方は ")}
-            </Text>
-            <Link href="/(auth)/sign-up" testID="sign-up-link">
-              <Text className="text-indigo-600 font-semibold">
-                {t("サインアップ")}
+            <TouchableOpacity
+              className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
+              onPress={handleSignIn}
+              disabled={loading}
+              testID="sign-in-button"
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white font-semibold text-base">
+                  {t("サインイン")}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View className="flex-row justify-center">
+              <Text className="text-gray-600">
+                {t("アカウントをお持ちでない方は ")}
               </Text>
-            </Link>
+              <Link href="/(auth)/sign-up" testID="sign-up-link">
+                <Text className="text-indigo-600 font-semibold">
+                  {t("サインアップ")}
+                </Text>
+              </Link>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
