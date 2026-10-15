@@ -4,7 +4,13 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { user } from "@/features/user";
-import { users, userGenres } from "@/db/schema";
+import {
+  annictWorks,
+  favorites,
+  users,
+  userGenres,
+  watchHistory,
+} from "@/db/schema";
 
 // optionalAuth 経由で呼ばれる @clerk/hono の挙動を再現する。
 // "handshake": Accept: text/html のドキュメント取得などで Clerk が
@@ -60,6 +66,45 @@ async function insertPublicUser(
     isPublic: true,
     createdAt: now,
     updatedAt: now,
+  });
+}
+
+// issue #65: 名刺に載せる視聴サマリの D1 キャッシュを用意する。
+// watch_history / favorites は annict_works への FK があるため作品行を先に作る。
+async function insertWatchData(
+  db: Awaited<ReturnType<typeof setupTestDb>>,
+  uid: string,
+) {
+  const now = new Date();
+  await db.insert(annictWorks).values([
+    { annictWorkId: 1001, title: "作品A", updatedAt: now },
+    { annictWorkId: 1002, title: "作品B", updatedAt: now },
+    { annictWorkId: 1003, title: "作品C", updatedAt: now },
+  ]);
+  await db.insert(watchHistory).values([
+    {
+      userId: uid,
+      annictWorkId: 1001,
+      state: "WATCHED",
+      updatedAt: new Date("2026-10-10T00:00:00Z"),
+    },
+    {
+      userId: uid,
+      annictWorkId: 1002,
+      state: "WATCHED",
+      updatedAt: new Date("2026-10-11T00:00:00Z"),
+    },
+    {
+      userId: uid,
+      annictWorkId: 1003,
+      state: "WATCHING",
+      updatedAt: new Date("2026-10-12T00:00:00Z"),
+    },
+  ]);
+  await db.insert(favorites).values({
+    userId: uid,
+    annictWorkId: 1001,
+    createdAt: new Date("2026-10-13T00:00:00Z"),
   });
 }
 
@@ -172,6 +217,76 @@ describe("GET /user/:uid", () => {
     expect(res.status).toBe(404);
     const ct = res.headers.get("content-type") ?? "";
     expect(ct).toContain("text/html");
+  });
+
+  // issue #65: 名刺 OGP に D1 キャッシュ由来の視聴サマリを載せる。
+  describe("視聴サマリ", () => {
+    it("OGP HTML に視聴サマリとスナップショット注記を含める", async () => {
+      await insertPublicUser(db, "user_summary001");
+      await insertWatchData(db, "user_summary001");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_summary001",
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // og:description にサマリを載せる（SNS カードでの訴求）。
+      expect(html).toContain("視聴済み2作品・視聴中1作品・お気に入り1作品");
+      // 本文の統計セクションとお気に入り作品タイトル。
+      expect(html).toContain('class="stats"');
+      expect(html).toContain("お気に入り: 作品A");
+      // キャッシュ由来のスナップショットである旨の注記（鮮度の UX 表示）。
+      expect(html).toContain("スナップショット");
+      expect(html).toContain("2026/10/13");
+    });
+
+    it("JSON レスポンスに watchSummary を含める", async () => {
+      await insertPublicUser(db, "user_summary002");
+      await insertWatchData(db, "user_summary002");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_summary002",
+        { method: "GET", headers: { Accept: "application/json" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        watchSummary: {
+          watchedCount: number;
+          watchingCount: number;
+          wannaWatchCount: number;
+          favoriteCount: number;
+          favoriteTitles: string[];
+          syncedAt: string | null;
+        };
+      };
+      expect(body.watchSummary.watchedCount).toBe(2);
+      expect(body.watchSummary.watchingCount).toBe(1);
+      expect(body.watchSummary.wannaWatchCount).toBe(0);
+      expect(body.watchSummary.favoriteCount).toBe(1);
+      expect(body.watchSummary.favoriteTitles).toEqual(["作品A"]);
+      expect(body.watchSummary.syncedAt).toBe("2026-10-13T00:00:00.000Z");
+    });
+
+    it("キャッシュが無いユーザーはサマリを出さず従来どおりの OGP を返す", async () => {
+      await insertPublicUser(db, "user_summary003");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_summary003",
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).not.toContain('class="stats"');
+      expect(html).not.toContain("スナップショット");
+      expect(html).toContain("公開ユーザー のアニメプロフィール");
+    });
   });
 
   describe("キャッシュ・出し分けヘッダ", () => {

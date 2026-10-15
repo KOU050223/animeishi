@@ -5,6 +5,7 @@ import {
   findUserGenres,
   usersRepository,
 } from "../users/repository";
+import { findUserWatchSummary } from "./repository";
 import { buildOgpHtml, buildWebProfileUrl, notFoundHtml } from "./service";
 import { optionalAuth } from "@/middleware/auth";
 import type { Env } from "@/db/client";
@@ -57,6 +58,10 @@ const user = new Hono<UserRouteEnv>()
     }
 
     const genreList = await findUserGenres(db, uid);
+    // 視聴サマリは D1 キャッシュ（本人が最後に一覧を開いた時点の
+    // スナップショット）からの集計（issue #65）。公開・非ブロックが
+    // 確認できた後にだけ集計する。
+    const watchSummary = await findUserWatchSummary(db, uid);
 
     if (wantsHtml) {
       const webProfileUrl = buildWebProfileUrl(
@@ -64,7 +69,12 @@ const user = new Hono<UserRouteEnv>()
         c.req.url,
         profile.id,
       );
-      const html = buildOgpHtml(profile, genreList, webProfileUrl);
+      const html = buildOgpHtml(
+        profile,
+        genreList,
+        watchSummary,
+        webProfileUrl,
+      );
       // ブロック判定が閲覧者依存なので共有キャッシュには載せない（private）。
       return c.html(html, 200, {
         "Cache-Control": "private, max-age=60",
@@ -79,6 +89,7 @@ const user = new Hono<UserRouteEnv>()
         favoriteQuote: profile.favoriteQuote,
         profileImageUrl: profile.profileImageUrl,
         genres: genreList,
+        watchSummary,
       },
       200,
     );
