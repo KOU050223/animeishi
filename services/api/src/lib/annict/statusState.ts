@@ -4,11 +4,17 @@
 // 「Annict から来た値が D1 で扱う 5 値のいずれかであること」を保証する境界を
 // 1 箇所に集約しておく。NO_STATE（未設定）は D1 には保存しないため弾く。
 
-import { ANNICT_STATUS_STATES } from "@/schema/validators";
-import type { AnnictStatusState } from "@/schema/validators";
+// D1 に保存可能な Annict StatusState（NO_STATE は除く）。
+// バリデーション側（features/watch-history/schema.ts）もこの定義を使う。
+export const ANNICT_STATUS_STATES = [
+  "WATCHING",
+  "WATCHED",
+  "ON_HOLD",
+  "STOP_WATCHING",
+  "WANNA_WATCH",
+] as const;
 
-export type { AnnictStatusState };
-export { ANNICT_STATUS_STATES };
+export type AnnictStatusState = (typeof ANNICT_STATUS_STATES)[number];
 
 // Annict が返しうる StatusState（NO_STATE を含む全値）。
 // libraryEntries / updateStatus のレスポンス検証に使う。

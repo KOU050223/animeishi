@@ -15,7 +15,7 @@ export default defineConfig({
     include: [
       "src/cors.test.ts",
       "src/lib/annict/client.test.ts",
-      "src/schema/*.test.ts",
+      "src/features/*/schema.test.ts",
     ],
   },
 });

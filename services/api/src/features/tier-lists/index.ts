@@ -3,10 +3,7 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import {
-  tierListSaveSchema,
-  tierListSeasonParamSchema,
-} from "@/schema/validators";
+import { tierListSaveSchema, tierListSeasonParamSchema } from "./schema";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";

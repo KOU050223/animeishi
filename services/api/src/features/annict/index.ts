@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { annictExchangeSchema } from "@/schema/validators";
+import { annictExchangeSchema } from "./schema";
 import { createDb } from "@/db/client";
 import { authorizedDb } from "@/repository/authorizedDb";
 // NOTE: モバイル(apps/mobile)も同名の `@/lib/annict` を持つため、`@/` エイリアスだと

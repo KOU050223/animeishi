@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { profileUpdateSchema } from "@/schema/validators";
+import { profileUpdateSchema } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";

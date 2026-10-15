@@ -3,10 +3,7 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import {
-  annictWorkIdParamSchema,
-  worksSearchQuerySchema,
-} from "@/schema/validators";
+import { annictWorkIdParamSchema, worksSearchQuerySchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import {

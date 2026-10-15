@@ -5,10 +5,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
-import {
-  watchHistoryBulkSchema,
-  watchHistoryUpsertSchema,
-} from "@/schema/validators";
+import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
 // モバイルの tsconfig は AppType 推論のため API ソースを読み込むが、その paths
 // （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を

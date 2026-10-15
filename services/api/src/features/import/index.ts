@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
-import { danimeMatchRequestSchema } from "@/schema/validators";
+import { danimeMatchRequestSchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";

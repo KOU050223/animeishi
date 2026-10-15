@@ -3,10 +3,8 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import {
-  annictWorkIdParamSchema,
-  characterTierListSaveSchema,
-} from "@/schema/validators";
+import { characterTierListSaveSchema } from "./schema";
+import { annictWorkIdParamSchema } from "../works/schema";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
