@@ -149,8 +149,13 @@ const works = new Hono<AuthVariables>()
           .map((ch) => [ch.annictCharacterId, ch.imageUrl as string]),
       );
 
+      // 全キャラクターの画像がキャッシュ済みなら AniList を呼ばない
+      // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
       const resolvedImages = new Map<number, string>();
-      if (work.malAnimeId != null) {
+      const hasUnresolved = characters.some(
+        (ch) => !cachedImageById.has(ch.annictCharacterId),
+      );
+      if (work.malAnimeId != null && hasUnresolved) {
         try {
           const anilistCharacters = await fetchAnilistCharacters(
             work.malAnimeId,

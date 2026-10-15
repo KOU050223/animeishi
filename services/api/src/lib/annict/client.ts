@@ -689,8 +689,9 @@ type WorkCastsResponse = {
           character: {
             annictId: number;
             name: string;
-            nameKana: string;
-            nameEn: string;
+            // Annict の Character 型では nameKana/nameEn は null を返しうる
+            nameKana: string | null;
+            nameEn: string | null;
           } | null;
         }[];
       } | null;
@@ -702,8 +703,9 @@ type WorkCastsResponse = {
 export type AnnictCharacterSummary = {
   annictCharacterId: number;
   name: string;
-  nameKana: string;
-  nameEn: string;
+  // Annict の Character 型では nameKana/nameEn は null を返しうる
+  nameKana: string | null;
+  nameEn: string | null;
   sortNumber: number;
 };
 

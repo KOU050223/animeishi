@@ -614,14 +614,6 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     },
 
     // ---- Annict Characters（キャラクター名簿キャッシュ） ----
-    async getAnnictCharacterById(
-      annictCharacterId: number,
-    ): Promise<AnnictCharacter | undefined> {
-      return db.query.annictCharacters.findFirst({
-        where: eq(annictCharacters.annictCharacterId, annictCharacterId),
-      });
-    },
-
     /**
      * 複数の annictCharacterId をまとめて取得する。
      * tier 表保存時の存在チェック（FK 違反を 400 に変える事前検証）に使う。
@@ -639,6 +631,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
      * annict_characters をまとめて upsert する。
      * imageUrl は「今回解決できた値があるときだけ」更新する
      * （AniList 名寄せが取れなかった回で既存の解決済み URL を消さない）。
+     * nameKana/nameEn も同じ方針で、Annict が一時的に null を返した
+     * 取得回で既存の値を消さない（annictWorkConflictSet と同じ温存方針）。
      * 6 カラム × 15 行 = 90 変数で D1 のバインド上限を下回るようチャンクする。
      */
     async upsertAnnictCharacters(data: NewAnnictCharacter[]): Promise<void> {
@@ -653,8 +647,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
               target: annictCharacters.annictCharacterId,
               set: {
                 name: sql`excluded.name`,
-                nameKana: sql`excluded.name_kana`,
-                nameEn: sql`excluded.name_en`,
+                nameKana: sql`coalesce(excluded.name_kana, ${annictCharacters.nameKana})`,
+                nameEn: sql`coalesce(excluded.name_en, ${annictCharacters.nameEn})`,
                 imageUrl: sql`coalesce(excluded.image_url, ${annictCharacters.imageUrl})`,
                 updatedAt: sql`excluded.updated_at`,
               },

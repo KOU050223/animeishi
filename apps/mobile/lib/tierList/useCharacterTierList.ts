@@ -26,7 +26,7 @@ export function useSavedCharacterTierList(annictWorkId: number) {
 
   return useQuery({
     queryKey: characterTierListQueryKey(annictWorkId),
-    enabled: !!isSignedIn && Number.isFinite(annictWorkId),
+    enabled: !!isSignedIn && Number.isFinite(annictWorkId) && annictWorkId > 0,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["character-tier-lists"][

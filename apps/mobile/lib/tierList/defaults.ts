@@ -30,9 +30,17 @@ export function defaultTierListTitle(season: string): string {
 /**
  * 新規キャラクター tier 表の既定タイトル（issue #169）。
  * 作品タイトルがまだ取れていない（通信前）ときは汎用の名前にする。
+ * サーバのタイトル上限（50 文字）を超えると保存が常に 400 になり
+ * 画面から回復できないため、長い作品タイトルは末尾から切り詰める。
  */
 export function defaultCharacterTierListTitle(
   workTitle?: string | null,
 ): string {
-  return workTitle ? `${workTitle} キャラクターTier` : "キャラクター Tier 表";
+  const TITLE_MAX_LENGTH = 50;
+  const title = workTitle
+    ? `${workTitle} キャラクターTier`
+    : "キャラクター Tier 表";
+  return title.length > TITLE_MAX_LENGTH
+    ? title.slice(0, TITLE_MAX_LENGTH)
+    : title;
 }
