@@ -141,6 +141,14 @@ describe("ProfileScreen の保存トースト", () => {
   });
 });
 
+describe("ProfileScreen の Annict 連携セクション", () => {
+  it("連携状態の確認・解除カードを表示する（ホームからここへ集約）", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("Annict連携")).toBeTruthy();
+  });
+});
+
 describe("ProfileScreen のアカウント削除導線", () => {
   it("アカウント削除セクションが表示される（本体の挙動は DeleteAccountSection のテストを参照）", () => {
     render(<ProfileScreen />);

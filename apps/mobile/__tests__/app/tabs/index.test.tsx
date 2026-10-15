@@ -46,6 +46,12 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
   },
 }));
 
+// 連携状態をテストごとに切り替えられるよう、変数経由で返す。
+let mockAnnictConnection = { isConnected: false, isLoading: false };
+jest.mock("@/lib/annict", () => ({
+  useAnnictConnection: () => mockAnnictConnection,
+}));
+
 jest.mock("@/lib/useProfile", () => ({
   useProfile: () => ({
     data: {
@@ -78,6 +84,7 @@ jest.mock("@/lib/profileUrl", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   resetAuth();
+  mockAnnictConnection = { isConnected: false, isLoading: false };
 });
 
 describe("HomeScreen", () => {
@@ -102,6 +109,20 @@ describe("HomeScreen", () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("home-open-qr"));
     expect(mockPush).toHaveBeenCalledWith("/qr");
+  });
+
+  it("Annict 連携済みなら連携カードを表示しない（確認・解除はプロフィールに集約）", () => {
+    mockAnnictConnection = { isConnected: true, isLoading: false };
+    loggedInUser();
+    render(<HomeScreen />);
+    expect(screen.queryByText("Annict連携")).toBeNull();
+  });
+
+  it("Annict 連携状態の読み込み中は連携カードを表示しない", () => {
+    mockAnnictConnection = { isConnected: false, isLoading: true };
+    loggedInUser();
+    render(<HomeScreen />);
+    expect(screen.queryByText("Annict連携")).toBeNull();
   });
 
   it("サインアウトボタンが表示される", () => {
