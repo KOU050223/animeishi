@@ -11,12 +11,15 @@
 #   - EXPO_PUBLIC_API_URL（既定: http://localhost:8787）
 #
 # 他ワーカーと衝突しないよう、E2E 専用シミュレーター（E2E_SIM_NAME、
-# 既定 "animeishi-e2e"）を simctl create で作って使う。
+# 既定 "animeishi-e2e-<ワークツリー名>"）を simctl create で作って使う。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-SIM_NAME="${E2E_SIM_NAME:-animeishi-e2e}"
+# ワークツリー単位で一意にして、同一ホスト上の並列実行同士が
+# 同じシミュレーターを共有しないようにする。
+WORKTREE_NAME="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")"
+SIM_NAME="${E2E_SIM_NAME:-animeishi-e2e-$WORKTREE_NAME}"
 APP_BUNDLE_ID="com.animeishi.app"
 DERIVED_DATA="ios/build/e2e-dd"
 SKIP_BUILD="${E2E_SKIP_BUILD:-0}"
@@ -57,7 +60,7 @@ UDID="$("${NIX_SAFE_ENV[@]}" xcrun simctl list devices -j \
 name = os.environ["SIM_NAME"]
 for devs in json.load(sys.stdin)["devices"].values():
     for dev in devs:
-        if dev["name"] == name:
+        if dev["name"] == name and dev.get("isAvailable", True):
             print(dev["udid"])
             sys.exit()' | head -1)"
 if [ -z "$UDID" ]; then
@@ -79,22 +82,39 @@ echo "使用シミュレーター: $SIM_NAME ($UDID)"
 # --- API (wrangler dev) ------------------------------------------------------
 # アカウント削除は DELETE /me を呼ぶためローカル API が必須。
 # 起動済みならそれを使い、無ければ起動して終了時に落とす。
+# /health の "status":"ok" を確認して、同ポートを占有する別サービスを
+# API と誤認しないようにする。
 api_up() {
-  [ "$(curl -s -o /dev/null -w '%{http_code}' "${EXPO_PUBLIC_API_URL}/" || true)" != "000" ]
+  curl -fsS "${EXPO_PUBLIC_API_URL}/health" 2>/dev/null | grep -q '"status":"ok"'
 }
+# 指定 URL のポートを wrangler dev に引き継ぐ（既定 8787 以外も可）。
+API_PORT=""
+case "$EXPO_PUBLIC_API_URL" in
+  http://*:* | https://*:*)
+    API_PORT="${EXPO_PUBLIC_API_URL##*:}"
+    API_PORT="${API_PORT%%/*}"
+    ;;
+esac
 API_PID=""
 if api_up; then
   echo "API は起動済み ($EXPO_PUBLIC_API_URL)"
 else
   echo "API を起動します (wrangler dev) ..."
-  (cd ../../services/api && "${NIX_SAFE_ENV[@]}" pnpm dev >/tmp/animeishi-e2e-api.log 2>&1) &
+  API_LOG="$(mktemp -t animeishi-e2e-api.XXXXXX)"
+  # バックグラウンドジョブに独自プロセスグループを与え、pnpm → wrangler →
+  # workerd の子プロセスごと終了できるようにする。
+  set -m
+  DEV_ARGS=()
+  [ -n "$API_PORT" ] && DEV_ARGS+=(--port "$API_PORT")
+  (cd ../../services/api && "${NIX_SAFE_ENV[@]}" pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
   API_PID=$!
-  trap '[ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null || true' EXIT
+  set +m
+  trap '[ -n "$API_PID" ] && { kill -- -"$API_PID" 2>/dev/null || kill "$API_PID" 2>/dev/null; wait "$API_PID" 2>/dev/null; } || true' EXIT
   for _ in $(seq 1 60); do
     api_up && break
     sleep 1
   done
-  api_up || { echo "API の起動に失敗しました。/tmp/animeishi-e2e-api.log を確認してください" >&2; exit 1; }
+  api_up || { echo "API の起動に失敗しました。$API_LOG を確認してください" >&2; exit 1; }
   # ローカル D1 にマイグレーションを適用（適用済みならスキップされる）
   (cd ../../services/api && "${NIX_SAFE_ENV[@]}" pnpm db:migrate:local >/dev/null)
 fi

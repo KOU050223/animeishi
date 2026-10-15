@@ -65,8 +65,9 @@ task e2e:ios
 
 `task e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
 
-1. E2E 専用シミュレーター `animeishi-e2e` を `simctl create` で作成
-   （既にあれば再利用。他作業者と共有のシミュレーターを使い回さないこと）
+1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
+   （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
+   他作業者のシミュレーターと衝突しない）
 2. `ios/` が無ければ `expo prebuild -p ios`
 3. `xcodebuild -configuration Release -sdk iphonesimulator` で Release 相当ビルド
    （成果物: `ios/build/e2e-dd/Build/Products/Release-iphonesimulator/Animeishi.app`）
@@ -103,7 +104,7 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 便利な環境変数:
 
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
-- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e`）
+- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
 
 > Nix devShell 内で xcodebuild を呼ぶと toolchain 変数（`CC` `SDKROOT`
 > `DEVELOPER_DIR` `NIX_*` 等）がネイティブビルドを壊す。e2e-ios.sh は全コマンドを
