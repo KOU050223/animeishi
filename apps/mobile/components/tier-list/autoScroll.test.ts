@@ -118,10 +118,25 @@ describe("useEdgeAutoScroll", () => {
     expect(onScrolled).toHaveBeenCalledWith(50, 695);
   });
 
+  it("ドラッグ開始時に現在位置へ scrollTo を叩き、残った慣性を止める", () => {
+    const { hook, scrollTo } = setup();
+    act(() =>
+      hook.result.current.autoScroll.onScroll({
+        nativeEvent: { contentOffset: { y: 42 } },
+      } as NativeSyntheticEvent<NativeScrollEvent>),
+    );
+
+    act(() => hook.result.current.autoScroll.onDragStart());
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: 42, animated: false });
+  });
+
   it("指が中央にあるときはスクロールしない", () => {
     const { hook, scrollTo } = setup();
     act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
     act(() => hook.result.current.autoScroll.onDragStart());
+    // onDragStart の慣性止め（現在位置への scrollTo）を数えないようクリアする。
+    scrollTo.mockClear();
     act(() => hook.result.current.autoScroll.onDragMove(50, 400));
     act(() => {
       jest.advanceTimersByTime(100);
@@ -203,6 +218,7 @@ describe("useEdgeAutoScroll", () => {
     const { hook, scrollTo } = setup({ viewport: null });
     act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
     act(() => hook.result.current.autoScroll.onDragStart());
+    scrollTo.mockClear();
     act(() => hook.result.current.autoScroll.onDragMove(50, 695));
     act(() => {
       jest.advanceTimersByTime(100);
@@ -215,6 +231,7 @@ describe("useEdgeAutoScroll", () => {
     const { hook, scrollTo } = setup();
     act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
     act(() => hook.result.current.autoScroll.onDragStart());
+    scrollTo.mockClear();
     act(() => hook.result.current.autoScroll.onDragMove(50, 695));
 
     hook.unmount();
@@ -228,6 +245,7 @@ describe("useEdgeAutoScroll", () => {
     const { hook, scrollTo } = setup();
     act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
     act(() => hook.result.current.autoScroll.onDragStart());
+    scrollTo.mockClear();
     // 下端帯の 1px 外側（644 ちょうどは帯の内側ではない）
     act(() =>
       hook.result.current.autoScroll.onDragMove(

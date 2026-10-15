@@ -185,6 +185,10 @@ export function useEdgeAutoScroll({
   }, [registry, scrollRef, scrollCompensation]);
 
   const onDragStart = useCallback(() => {
+    // フリック直後に掴むと慣性減速が残ったままドラッグへ入り、tick を通らない
+    // コンテンツ移動でずらした矩形・カード補正が実態とずれ続ける。
+    // 現在位置へ即時スクロールして慣性を打ち切る。
+    scrollRef.current?.scrollTo({ y: scrollYRef.current, animated: false });
     // 掴んだ瞬間のビューポートに合わせる。レイアウト後に高さが変わっている
     // ことがあるため onLayout の値だけには頼らない。
     measureViewport();
@@ -194,7 +198,7 @@ export function useEdgeAutoScroll({
     if (timerRef.current === null) {
       timerRef.current = setInterval(tick, AUTO_SCROLL_TICK_MS);
     }
-  }, [measureViewport, scrollCompensation, tick]);
+  }, [measureViewport, scrollCompensation, scrollRef, tick]);
 
   const onDragMove = useCallback((x: number, y: number) => {
     fingerRef.current = { x, y };

@@ -52,6 +52,10 @@ export function TierBoard({
     undefined,
   );
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  // ジェスチャ由来のコールバックはクロージャに古い state を掴み得るため、
+  // ドラッグ中の workId は ref でも同期して持つ。
+  // 2 指で別カードを同時に掴んだ場合の弾きに使う。
+  const draggingIdRef = useRef<number | null>(null);
   // 名前編集中の tier。null のとき編集シートは閉じている。
   const [editingTier, setEditingTier] = useState<TierRow | null>(null);
 
@@ -81,7 +85,9 @@ export function TierBoard({
   }, [labelsEditable]);
 
   const handleDragMove = useCallback(
-    (x: number, y: number) => {
+    (workId: number, x: number, y: number) => {
+      // 開始を弾いたドラッグ（2 指目）からの更新は拾わない。
+      if (workId !== draggingIdRef.current) return;
       autoScroll.onDragMove(x, y);
       const hit = registry.hitTest(x, y);
       // ハイライトは行が変わったときだけ更新する。毎フレーム setState すると
@@ -93,6 +99,10 @@ export function TierBoard({
 
   const handleDragEnd = useCallback(
     (workId: number, x: number, y: number) => {
+      // 開始を弾いたドラッグからの終了通知は、進行中のドラッグ状態を
+      // 壊さないよう無視する。
+      if (workId !== draggingIdRef.current) return;
+      draggingIdRef.current = null;
       const hit = registry.hitTest(x, y);
       setHoverKey(undefined);
       setDraggingId(null);
@@ -108,16 +118,25 @@ export function TierBoard({
 
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
   // これを戻さないと draggingId が残り、重なり順とスクロール停止が戻らない。
-  const handleDragCancel = useCallback(() => {
-    setHoverKey(undefined);
-    setDraggingId(null);
-    autoScroll.onDragEnd();
-    // キャンセルの原因が盤面のスクロール横取り等だと矩形がずれているため測り直す。
-    registry.remeasureAll();
-  }, [autoScroll, registry]);
+  const handleDragCancel = useCallback(
+    (workId: number) => {
+      if (workId !== draggingIdRef.current) return;
+      draggingIdRef.current = null;
+      setHoverKey(undefined);
+      setDraggingId(null);
+      autoScroll.onDragEnd();
+      // キャンセルの原因が盤面のスクロール横取り等だと矩形がずれているため測り直す。
+      registry.remeasureAll();
+    },
+    [autoScroll, registry],
+  );
 
   const handleDragStart = useCallback(
     (workId: number) => {
+      // 別カードのドラッグ中に発火した開始（2 指操作）は無視する。
+      // 受け付けると補正量やタイマーがリセットされ、進行中のカードが跳ぶ。
+      if (draggingIdRef.current !== null) return;
+      draggingIdRef.current = workId;
       setDraggingId(workId);
       // スクロールしていると onLayout 時に測った矩形が実際の位置とズレる
       // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
@@ -145,9 +164,9 @@ export function TierBoard({
       key={work.annictWorkId}
       work={work}
       onDragStart={() => handleDragStart(work.annictWorkId)}
-      onDragMove={handleDragMove}
+      onDragMove={(x, y) => handleDragMove(work.annictWorkId, x, y)}
       onDragEnd={(x, y) => handleDragEnd(work.annictWorkId, x, y)}
-      onDragCancel={handleDragCancel}
+      onDragCancel={() => handleDragCancel(work.annictWorkId)}
       // 今いる場所は移動先に出さない（選んでも何も起きないため）
       moveDestinations={moveDestinations.filter(
         (d) => d.tierKey !== currentTierKey,
