@@ -220,13 +220,34 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       // （先に tombstone を読んでから insert する check-then-act だと、
       //   読み取りと挿入の間に削除が割り込みうる）。
       // created_at は INSERT 時のみセットし、UPDATE では上書きしない。
+      // data で省略された項目は UPDATE 対象に含めず既存値を温存する
+      // （従来の onConflictDoUpdate({ set: { ...data } }) と同じ部分更新契約。
+      //   undefined を null/true に潰して更新すると未指定項目が消える）。
+      const updateFragments = [sql`updated_at = excluded.updated_at`];
+      if (data.username !== undefined) {
+        updateFragments.push(sql`username = excluded.username`);
+      }
+      if (data.bio !== undefined) {
+        updateFragments.push(sql`bio = excluded.bio`);
+      }
+      if (data.favoriteQuote !== undefined) {
+        updateFragments.push(sql`favorite_quote = excluded.favorite_quote`);
+      }
+      if (data.isPublic !== undefined) {
+        updateFragments.push(sql`is_public = excluded.is_public`);
+      }
+      if (data.profileImageUrl !== undefined) {
+        updateFragments.push(
+          sql`profile_image_url = excluded.profile_image_url`,
+        );
+      }
       await db.run(sql`
         INSERT INTO ${users} (
           id, username, bio, favorite_quote, is_public,
           profile_image_url, created_at, updated_at
         )
         SELECT
-          ${currentUserId}, ${data.username}, ${data.bio ?? null},
+          ${currentUserId}, ${data.username ?? null}, ${data.bio ?? null},
           ${data.favoriteQuote ?? null}, ${data.isPublic === false ? 0 : 1},
           ${data.profileImageUrl ?? null}, ${now}, ${now}
         WHERE NOT EXISTS (
@@ -234,12 +255,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           WHERE ${deletedUsers.userId} = ${currentUserId}
         )
         ON CONFLICT(id) DO UPDATE SET
-          username = excluded.username,
-          bio = excluded.bio,
-          favorite_quote = excluded.favorite_quote,
-          is_public = excluded.is_public,
-          profile_image_url = excluded.profile_image_url,
-          updated_at = excluded.updated_at
+          ${sql.join(updateFragments, sql`, `)}
       `);
       const updated = await db.query.users.findFirst({
         where: eq(users.id, currentUserId),

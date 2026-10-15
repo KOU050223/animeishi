@@ -88,6 +88,25 @@ describe("authorizedDb", () => {
       expect(updated.updatedAt.getTime()).toBeLessThanOrEqual(after + 1000);
     });
 
+    it("省略した項目は既存値を温存する（部分更新）", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertMyProfile({
+        username: "更新前",
+        bio: "自己紹介",
+        favoriteQuote: "名言",
+        isPublic: false,
+        profileImageUrl: "https://example.com/icon.webp",
+      });
+
+      // username のみ指定 → 他の項目は既存値のまま残ること
+      const updated = await adb.upsertMyProfile({ username: "名前だけ更新" });
+      expect(updated.username).toBe("名前だけ更新");
+      expect(updated.bio).toBe("自己紹介");
+      expect(updated.favoriteQuote).toBe("名言");
+      expect(updated.isPublic).toBe(false);
+      expect(updated.profileImageUrl).toBe("https://example.com/icon.webp");
+    });
+
     it("currentUserId 以外のユーザーIDで更新できないことを確認（スコープ分離）", async () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
+import { ClerkAPIResponseError } from "@clerk/backend/errors";
 import { eq, inArray, or } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
@@ -822,5 +823,48 @@ describe("DELETE /me（アカウント削除）", () => {
     );
     expect(retried.status).toBe(204);
     expect(clerkUsers.deleteUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("Clerk 削除失敗後、同じ残存 JWT のまま削除を再試行できる（冪等）", async () => {
+    // Clerk deleteUser 失敗後のクライアント再試行は同じ JWT で来る。
+    // tombstone が残っていても DELETE /me は通す（iat <= deleted_at で
+    // 拒否すると、トークンが自然更新されるまで削除を完了できない）。
+    await seedUserData();
+    clerkUsers.deleteUser.mockRejectedValueOnce(new Error("clerk unavailable"));
+
+    const app = buildApp();
+    const failed = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(failed.status).toBe(500);
+
+    // sessionClaims なし（= iat 不明）の同じモックのまま再試行する
+    clerkUsers.deleteUser.mockResolvedValue({});
+    const retried = await app.request(
+      "/me",
+      { method: "DELETE" },
+      testBindings(),
+    );
+    expect(retried.status).toBe(204);
+    expect(clerkUsers.deleteUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("Clerk 側で既に削除済み（deleteUser が 404）でも 204 を返す", async () => {
+    // 削除成功直後の残存 JWT での重複 DELETE など。既に目的の状態なので
+    // 冪等に成功として扱う。
+    await seedUserData();
+    clerkUsers.deleteUser.mockRejectedValue(
+      new ClerkAPIResponseError("not found", {
+        data: [],
+        status: 404,
+        clerkTraceId: "trace_test",
+      }),
+    );
+
+    const app = buildApp();
+    const res = await app.request("/me", { method: "DELETE" }, testBindings());
+    expect(res.status).toBe(204);
   });
 });

@@ -359,6 +359,37 @@ describe("認証ミドルウェア", () => {
       ).toHaveLength(1);
     });
 
+    it("deleted_at 直後に発行されたトークンは自己修復せず 401（削除中トークン対策）", async () => {
+      // tombstone 書込〜Clerk 削除完了の間に発行されたトークンを再現。
+      // iat は削除時刻より新しいが猶予内なので、getUser の結果に関わらず
+      // tombstone は解除しない。
+      const deletedAt = new Date();
+      await db.insert(deletedUsers).values({ userId: USER_ID, deletedAt });
+      signInAs(USER_ID, {
+        iat: Math.floor(deletedAt.getTime() / 1000) + 2,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        { method: "GET" },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(401);
+      // 生存確認（getUser）自体が呼ばれない = iat だけでは修復しない
+      expect(clerkUsers.getUser).not.toHaveBeenCalled();
+      expect(
+        await db
+          .select()
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, USER_ID)),
+      ).toHaveLength(1);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(0);
+    });
+
     it("iat > deleted_at でも Clerk getUser が 404 なら tombstone を残して 401", async () => {
       // tombstone 書込〜Clerk 削除完了の間に発行されたトークンを再現。
       // iat は新しいが Clerk 側では既に削除済み → 自己修復しない。

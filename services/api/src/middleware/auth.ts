@@ -54,6 +54,10 @@ function resolveAuthorizedParties(
   return parties.length > 0 ? parties : undefined;
 }
 
+// tombstone 書込〜Clerk 削除完了の間に発行されたトークンを自己修復の
+// 判定に使わないための猶予（deleteUser の応答は通常数百msで返る）。
+const SELF_HEAL_TOKEN_GRACE_MS = 5_000;
+
 /**
  * Clerk JWT 検証ミドルウェア。
  * CLERK_SECRET_KEY バインディングが必要。
@@ -106,23 +110,34 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // users 行が消えていれば必ずここで検出できる。
   const deletedAt = await adb.getMyDeletedAt();
   if (deletedAt !== undefined) {
-    // JWT の発行時刻が削除時刻より新しい = 削除後に Clerk がトークンを
-    // 発行している = Clerk 側でユーザーが生存している可能性が高い
-    // （削除済みユーザーには新しいトークンを発行できないため）。
-    // ただし tombstone 書込〜Clerk 削除完了の間に発行されたトークンも
-    // 該当しうるため、iat 比較だけで tombstone は消さず Clerk で生存確認
-    // してから解除する。削除済み(404)・確認失敗(一時障害)のときは
-    // tombstone を残したまま 401 にする（fail closed）。
+    // DELETE /me は tombstone が残っていても通す。Clerk deleteUser が
+    // 失敗したあとの再試行は同じ残存 JWT で来るため、ここで弾くと
+    // トークンが自然更新されるまで削除を完了できない。削除済みデータへの
+    // 冪等操作なので残存 JWT で実行しても安全（プロビジョニングも不要）。
+    if (c.req.method === "DELETE" && c.req.path === "/me") {
+      await next();
+      return;
+    }
     const issuedAtMs = typeof tokenIat === "number" ? tokenIat * 1000 : 0;
-    if (issuedAtMs <= deletedAt.getTime()) {
+    // tombstone 書込〜Clerk 削除完了の間に発行されたトークンを自己修復の
+    // 判定に使わないよう、deleted_at 直後の発行は「新しいトークン」と
+    // 見なさない（削除中のトークンで tombstone を解除すると、削除済み
+    // アカウントの公開プロフィールが復活しうる）。deleteUser の完了は
+    // 通常数百msなので猶予はそれより十分大きく取る。
+    if (issuedAtMs <= deletedAt.getTime() + SELF_HEAL_TOKEN_GRACE_MS) {
       return c.json({ error: "Unauthorized" }, 401);
     }
+    // 削除後に発行された JWT = Clerk 側でユーザーが生存している可能性が
+    // 高い（削除済みユーザーには新しいトークンを発行できないため）。
+    // ただし確実ではないため Clerk で生存確認してから tombstone を解除
+    // する。削除済み(404)・確認失敗(一時障害)のときは tombstone を残した
+    // まま 401 にする（fail closed）。
     try {
       await c.get("clerk").users.getUser(userId);
     } catch {
       return c.json({ error: "Unauthorized" }, 401);
     }
-    // Clerk 削除失敗の自己修復（DELETE /me の再試行もこの経路で通る）。
+    // Clerk 削除失敗の自己修復。
     await adb.clearMyDeletedAt();
   }
 

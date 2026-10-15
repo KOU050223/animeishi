@@ -6,6 +6,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
+import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
 
 type MeBindings = Omit<AuthEnv["Bindings"], "DB"> & {
@@ -197,9 +198,18 @@ const me = new Hono<AuthVariables>()
     }
 
     // Clerk Backend API でユーザー本体を削除する。ここで失敗した場合、D1 側は
-    // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる。
+    // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる
+    // （requireAuth は DELETE /me を tombstone があっても通す）。
     const clerk = c.get("clerk");
-    await clerk.users.deleteUser(userId);
+    try {
+      await clerk.users.deleteUser(userId);
+    } catch (err) {
+      // 既に Clerk 側で削除済み（重複実行・残存 JWT による再試行）なら
+      // 成功として扱い DELETE を冪等にする。
+      if (!(isClerkAPIResponseError(err) && err.status === 404)) {
+        throw err;
+      }
+    }
 
     return c.body(null, 204);
   });
