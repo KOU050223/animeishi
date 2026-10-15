@@ -1,4 +1,4 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 import { getHealthRoute } from "./schema";
 
 // /health が返すバージョン情報の取得元バインディング。
@@ -11,7 +11,7 @@ export type HealthBindings = {
   CF_VERSION_METADATA?: WorkerVersionMetadata;
 };
 
-export const health = new OpenAPIHono<{
+export const health = createOpenApiApp<{
   Bindings: HealthBindings;
 }>().openapi(getHealthRoute, (c) => {
   return c.json(

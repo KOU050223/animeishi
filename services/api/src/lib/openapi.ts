@@ -1,6 +1,8 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { z, OpenAPIHono } from "@hono/zod-openapi";
-import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
+import type { Context, Env } from "hono";
+import { handleError } from "@/observability";
 
 // OpenAPI ドキュメント生成の基盤（issue #14）。
 // 各 feature の schema.ts で使う共通スキーマ・security 要件と、
@@ -31,6 +33,27 @@ export function openapiValidationHook(
       400,
     );
   }
+}
+
+/**
+ * OpenAPI 対応のサブアプリを組み立てる。
+ * - `defaultHook` で zod バリデーション失敗を `{error}` の 400 に揃える
+ * - hook を経由しない HTTPException（mediaTypeGate の 415・不正 JSON の
+ *   400 など）も `onError` で `{error}` JSON に揃える。スローをそのまま
+ *   親の `handleError` に渡すと text/plain になるため、エラー応答の形は
+ *   常に `{error: message}` で統一する
+ * - それ以外のエラーは親アプリと同じ `handleError` に委譲する
+ *   （route() マウント時もサブアプリの errorHandler が優先される）
+ */
+export function createOpenApiApp<E extends Env>() {
+  const app = new OpenAPIHono<E>({ defaultHook: openapiValidationHook });
+  app.onError((e, c) => {
+    if (e instanceof HTTPException) {
+      return c.json({ error: e.message }, e.status);
+    }
+    return handleError(e, c);
+  });
+  return app;
 }
 
 const openApiDocumentConfig = {

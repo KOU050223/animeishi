@@ -1,4 +1,3 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { blockUserRoute, reportUserRoute, unblockUserRoute } from "./schema";
 import { requireAuth } from "@/middleware/auth";
@@ -10,7 +9,7 @@ import {
 } from "./repository";
 import { createDb } from "@/db/client";
 import { notifyUserReport } from "@/observability";
-import { openapiValidationHook } from "@/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
@@ -20,9 +19,7 @@ function getBindings(
 
 // ユーザー通報・ブロック（App Store Guideline 1.2 の UGC 対策, issue #135）。
 // ブロック一覧の取得は GET /me/blocks（features/me/index.ts）側にある。
-const app = new OpenAPIHono<AuthVariables>({
-  defaultHook: openapiValidationHook,
-});
+const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
 const usersRoute = app
   .openapi(reportUserRoute, async (c) => {

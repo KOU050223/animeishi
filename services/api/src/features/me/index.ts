@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import {
   deleteMeRoute,
@@ -15,7 +14,7 @@ import { usersRepository, DeletedUserError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
-import { openapiValidationHook } from "@/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 import {
   ALLOWED_AVATAR_TYPES,
   avatarKeyFromUrl,
@@ -37,9 +36,7 @@ function getBindings(c: Context): MeBindings {
   return c.env as MeBindings;
 }
 
-const app = new OpenAPIHono<AuthVariables>({
-  defaultHook: openapiValidationHook,
-});
+const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
 const me = app
   .openapi(getProfileRoute, async (c) => {

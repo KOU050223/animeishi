@@ -1,4 +1,3 @@
-import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
@@ -14,7 +13,7 @@ import { createDb } from "@/db/client";
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { resolveAnnictToken } from "@/lib/annict/middleware";
-import { openapiValidationHook } from "@/lib/openapi";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
@@ -22,9 +21,7 @@ function getBindings(
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
 }
 
-const app = new OpenAPIHono<AuthVariables>({
-  defaultHook: openapiValidationHook,
-});
+const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
 const favorites = app
   .openapi(getFavoritesRoute, async (c) => {
