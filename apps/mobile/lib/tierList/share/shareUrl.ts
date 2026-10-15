@@ -8,3 +8,8 @@ import { apiUrl } from "@/lib/apiUrl";
 export function buildTierListShareUrl(shareToken: string): string {
   return `${apiUrl.replace(/\/+$/, "")}/share/tier-lists/${encodeURIComponent(shareToken)}`;
 }
+
+/** キャラクター tier 表の共有 URL（issue #169）。エンドポイントだけが違う。 */
+export function buildCharacterTierListShareUrl(shareToken: string): string {
+  return `${apiUrl.replace(/\/+$/, "")}/share/character-tier-lists/${encodeURIComponent(shareToken)}`;
+}

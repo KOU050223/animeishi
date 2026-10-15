@@ -14,12 +14,12 @@ import {
 import { TierBoard } from "@/components/tier-list/TierBoard";
 import {
   TierBoardSnapshot,
-  type SnapshotWork,
+  type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
 import { styles } from "@/components/tier-list/tierListStyles";
 import {
-  assignWork,
-  mergeBoardWorks,
+  assignItem,
+  mergeBoardItems,
   parseTiersJson,
   toAssignment,
   toSaveItems,
@@ -33,7 +33,7 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
-import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
+import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
 import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
 import {
@@ -88,14 +88,14 @@ export default function TierListScreen() {
   // シーズン候補（works）に載らない作品を未分類トレイへ並べるための追加枠。
   // 未配置のままでは保存対象にならずリロードで消えるので、シーズン切替時に
   // まとめてクリアする。
-  const [manualWorks, setManualWorks] = useState<TierWork[]>([]);
+  const [manualWorks, setManualWorks] = useState<TierItem[]>([]);
   const [title, setTitle] = useState(() => defaultTierListTitle(season));
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   // 画像エクスポート用。共有時だけ画面外にスナップショットを描画し、
   // キャプチャ後に null で取り除く。
-  const [snapshotItems, setSnapshotItems] = useState<SnapshotWork[] | null>(
+  const [snapshotItems, setSnapshotItems] = useState<SnapshotItem[] | null>(
     null,
   );
   const snapshotRef = useRef<View>(null);
@@ -123,7 +123,14 @@ export default function TierListScreen() {
     hydratedSeasonRef.current = season;
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
-      setAssignment(toAssignment(saved.items));
+      setAssignment(
+        toAssignment(
+          saved.items.map((i) => ({
+            itemId: i.annictWorkId,
+            tierKey: i.tierKey,
+          })),
+        ),
+      );
       setTitle(saved.title);
     } else {
       setTiers(DEFAULT_TIERS);
@@ -138,12 +145,12 @@ export default function TierListScreen() {
   //   作品は season 検索に出ないので、works だけでは worksInTier が
   //   作品を引けず「配置済みなのに描画されない」状態になる。
   // - manualWorks（今回手動追加した作品。未配置のものも含む）。
-  const boardWorks = useMemo<TierWork[]>(
+  const boardWorks = useMemo<TierItem[]>(
     () =>
-      mergeBoardWorks(
+      mergeBoardItems(
         works,
         (saved?.items ?? []).map((item) => ({
-          annictWorkId: item.annictWorkId,
+          id: item.annictWorkId,
           title: item.title,
           imageUrl: item.imageUrl,
           resolvedImageUrl: item.resolvedImageUrl,
@@ -154,12 +161,12 @@ export default function TierListScreen() {
   );
 
   const handleAssign = useCallback(
-    (annictWorkId: number, tierKey: string | null) => {
+    (itemId: number, tierKey: string | null) => {
       // 共有・保存は「盤面を保存 → 応答を反映」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 処理中に行った編集が消えるため、リクエスト中のドロップは受け付けない。
       if (isSharing || save.isPending) return;
-      setAssignment((prev) => assignWork(prev, annictWorkId, tierKey));
+      setAssignment((prev) => assignItem(prev, itemId, tierKey));
       setIsDirty(true);
     },
     [isSharing, save.isPending],
@@ -168,11 +175,11 @@ export default function TierListScreen() {
   // 検索シートから選ばれた作品を未分類トレイ（works 側）へ追加する。
   // 追加だけでは保存 items に載らないため、配置までが一連の編集になる。
   const handleAddWork = useCallback(
-    (work: TierWork) => {
+    (work: TierItem) => {
       // ドロップと同じく、共有・保存中の編集は受け付けない。
       if (isSharing || save.isPending) return;
       // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
-      if (boardWorks.some((w) => w.annictWorkId === work.annictWorkId)) return;
+      if (boardWorks.some((w) => w.id === work.id)) return;
       setManualWorks((prev) => [...prev, work]);
       setIsDirty(true);
     },
@@ -258,6 +265,8 @@ export default function TierListScreen() {
     [confirmIfDirty, isSharing, year, seasonKey],
   );
 
+  // ボード層の汎用 itemId を作品用フィールド名（annictWorkId）に写す。
+  // キャラクター版は annictCharacterId に写すため、ここで分岐する。
   const handleSave = useCallback(() => {
     // 承認コールバックはダイアログを開いた時点ではなく承認時点の盤面で
     // 保存する（確認の表示中に配置を変えても古い配置で上書きされない）。
@@ -268,7 +277,10 @@ export default function TierListScreen() {
           season: cur.season,
           title: cur.title,
           tiers: cur.tiers,
-          items: toSaveItems(cur.assignment, cur.tiers),
+          items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
+            annictWorkId: i.itemId,
+            tierKey: i.tierKey,
+          })),
         },
         {
           onSuccess: () => {
@@ -276,7 +288,7 @@ export default function TierListScreen() {
             // 保存対象外だった未配置の追加分は盤面からも取り除く。
             // 残しておくと「保存済み」表示と矛盾し、再表示で消える。
             setManualWorks((prev) =>
-              prev.filter((w) => cur.assignment.has(w.annictWorkId)),
+              prev.filter((w) => cur.assignment.has(w.id)),
             );
           },
         },
@@ -284,9 +296,7 @@ export default function TierListScreen() {
     };
     // ＋で追加したがどの tier にも配置していない作品は保存対象にならず、
     // 画面を離れると消える。「保存したのに消えた」を防ぐため一度だけ確認する。
-    const hasUnassignedManual = manualWorks.some(
-      (w) => !assignment.has(w.annictWorkId),
-    );
+    const hasUnassignedManual = manualWorks.some((w) => !assignment.has(w.id));
     if (hasUnassignedManual) {
       confirm(
         "未配置の追加作品があります",
@@ -309,13 +319,14 @@ export default function TierListScreen() {
       season: cur.season,
       title: cur.title,
       tiers: cur.tiers,
-      items: toSaveItems(cur.assignment, cur.tiers),
+      items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
+        annictWorkId: i.itemId,
+        tierKey: i.tierKey,
+      })),
     });
     setIsDirty(false);
     // 保存ボタンと同じく、保存に載らなかった未配置の追加分は盤面から外す。
-    setManualWorks((prev) =>
-      prev.filter((w) => cur.assignment.has(w.annictWorkId)),
-    );
+    setManualWorks((prev) => prev.filter((w) => cur.assignment.has(w.id)));
     return savedData;
   }, [save]);
 
@@ -355,7 +366,16 @@ export default function TierListScreen() {
         const snapshotReady = new Promise<void>((resolve) => {
           snapshotReadyRef.current = resolve;
         });
-        setSnapshotItems(savedData.items);
+        setSnapshotItems(
+          savedData.items.map((i) => ({
+            id: i.annictWorkId,
+            tierKey: i.tierKey,
+            title: i.title,
+            imageUrl: i.imageUrl,
+            resolvedImageUrl: i.resolvedImageUrl,
+            hostedImageUrl: i.hostedImageUrl,
+          })),
+        );
         // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
         // 撮る。タイムアウトを超えたら読み込み途中のまま撮る
         // （共有自体は失敗させない）。
@@ -543,12 +563,13 @@ export default function TierListScreen() {
         // 道を残すため（issue #168）、空のときだけ別画面にはしない。
         <TierBoard
           tiers={tiers}
-          works={boardWorks}
+          items={boardWorks}
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
-          onAddWork={handleAddWork}
+          onAddItem={handleAddWork}
           labelsEditable={!isSharing && !save.isPending}
+          trayEmptyLabel="すべての作品を配置しました"
         />
       )}
 

@@ -6,6 +6,7 @@ import {
   index,
   unique,
   check,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 
 // Annict の StatusState（watch_history.state の許可値）
@@ -212,6 +213,102 @@ export const tierListItems = sqliteTable(
   ],
 );
 
+// ---- annict_characters (Annict キャラクターキャッシュ) ----
+// Annict GraphQL の Character 型は画像フィールドを持たないため、image_url は
+// AniList からの名寄せ結果（見つからなければ null）。works と同じく
+// read-through で upsert する共有カタログとして扱い、ユーザー行の削除時は
+// 触らない（tier 表アイテムの FK 先として残す）。
+export const annictCharacters = sqliteTable("annict_characters", {
+  annictCharacterId: integer("annict_character_id").primaryKey(), // Annict の annictId
+  name: text("name").notNull(),
+  nameKana: text("name_kana"),
+  nameEn: text("name_en"),
+  // AniList Media.characters から名前正規化マッチで解決した画像 URL。
+  // null は未解決（表示側はフォールバック表示にする）。
+  imageUrl: text("image_url"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+// ---- annict_work_casts (作品→キャラクターの所属カタログ) ----
+// /works/:id/characters が Annict Work.casts から読み取った所属を保持する。
+// annict_characters は作品を跨いだ共有カタログのため、ここが無いと
+// 保存時に「その作品のキャストか」を検証できず、別作品のキャラクターを
+// tier 表に混入できてしまう。
+export const annictWorkCasts = sqliteTable(
+  "annict_work_casts",
+  {
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    annictCharacterId: integer("annict_character_id")
+      .notNull()
+      .references(() => annictCharacters.annictCharacterId, {
+        onDelete: "cascade",
+      }),
+    sortNumber: integer("sort_number").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.annictWorkId, t.annictCharacterId] }),
+    index("annict_work_casts_work_idx").on(t.annictWorkId),
+  ],
+);
+
+// ---- character_tier_lists (作品単位のキャラクター tier 表) ----
+// 作品 tier 表（tier_lists）のキャラクター版。対象の単位が「シーズン」ではなく
+// 「作品」になるため annict_work_id をスコープキーに持つ。
+export const characterTierLists = sqliteTable(
+  "character_tier_lists",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 対象作品。items のキャラクターはこの作品のキャストから選ばれる前提。
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    tiersJson: text("tiers_json").notNull(),
+    shareToken: text("share_token"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    // 1 ユーザー 1 作品につき 1 表。作り直しは上書きで済ませる。
+    unique("character_tier_lists_user_work_unique").on(
+      t.userId,
+      t.annictWorkId,
+    ),
+    index("character_tier_lists_user_idx").on(t.userId),
+    unique("character_tier_lists_share_token_unique").on(t.shareToken),
+  ],
+);
+
+// ---- character_tier_list_items (キャラクター tier 表に配置されたキャラクター) ----
+export const characterTierListItems = sqliteTable(
+  "character_tier_list_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    characterTierListId: integer("character_tier_list_id")
+      .notNull()
+      .references(() => characterTierLists.id, { onDelete: "cascade" }),
+    annictCharacterId: integer("annict_character_id")
+      .notNull()
+      .references(() => annictCharacters.annictCharacterId, {
+        onDelete: "cascade",
+      }),
+    tierKey: text("tier_key").notNull(),
+    position: integer("position").notNull(),
+  },
+  (t) => [
+    unique("character_tier_list_items_list_character_unique").on(
+      t.characterTierListId,
+      t.annictCharacterId,
+    ),
+    index("character_tier_list_items_list_idx").on(t.characterTierListId),
+  ],
+);
+
 // ---- reports (ユーザー通報) ----
 // App Store Guideline 1.2 (UGC) 対応。運営がモデレーションするための通報を記録する。
 // reporter / reported のどちらのアカウントが削除されても cascade で消える。
@@ -300,6 +397,15 @@ export type TierList = typeof tierLists.$inferSelect;
 export type NewTierList = typeof tierLists.$inferInsert;
 export type TierListItem = typeof tierListItems.$inferSelect;
 export type NewTierListItem = typeof tierListItems.$inferInsert;
+export type AnnictCharacter = typeof annictCharacters.$inferSelect;
+export type NewAnnictCharacter = typeof annictCharacters.$inferInsert;
+export type AnnictWorkCast = typeof annictWorkCasts.$inferSelect;
+export type NewAnnictWorkCast = typeof annictWorkCasts.$inferInsert;
+export type CharacterTierList = typeof characterTierLists.$inferSelect;
+export type NewCharacterTierList = typeof characterTierLists.$inferInsert;
+export type CharacterTierListItem = typeof characterTierListItems.$inferSelect;
+export type NewCharacterTierListItem =
+  typeof characterTierListItems.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
 export type Report = typeof reports.$inferSelect;

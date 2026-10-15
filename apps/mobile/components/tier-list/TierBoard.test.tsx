@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { TierBoard } from "./TierBoard";
-import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
+import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
 // ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に
@@ -11,23 +11,23 @@ jest.mock("./DraggableWorkCard", () => {
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     DraggableWorkCard: ({
-      work,
+      item,
       onDragStart,
       onDragEnd,
       onDragCancel,
     }: {
-      work: TierWork;
+      item: TierItem;
       onDragStart: () => void;
       onDragEnd: (x: number, y: number) => void;
       onDragCancel: () => void;
     }) => (
       <Pressable
-        testID={`tier-card-${work.annictWorkId}`}
+        testID={`tier-card-${item.id}`}
         onPress={onDragStart}
         onLongPress={() => onDragEnd(0, 0)}
         onTouchCancel={onDragCancel}
       >
-        <Text>{work.title}</Text>
+        <Text>{item.title}</Text>
       </Pressable>
     ),
   };
@@ -46,13 +46,13 @@ jest.mock("./WorkAddSheet", () => {
       onClose,
     }: {
       visible: boolean;
-      onAdd: (work: TierWork) => void;
+      onAdd: (item: TierItem) => void;
       onClose: () => void;
     }) =>
       visible ? (
         <Pressable
           testID="work-add-sheet"
-          onPress={() => onAdd({ annictWorkId: 99, title: "追加作品" })}
+          onPress={() => onAdd({ id: 99, title: "追加作品" })}
           onLongPress={onClose}
         >
           <Text>sheet</Text>
@@ -66,10 +66,10 @@ const TIERS: TierRow[] = [
   { key: "1", label: "A", color: "#ff8000" },
 ];
 
-const WORKS: TierWork[] = [
-  { annictWorkId: 1, title: "作品1" },
-  { annictWorkId: 2, title: "作品2" },
-  { annictWorkId: 3, title: "作品3" },
+const ITEMS: TierItem[] = [
+  { id: 1, title: "作品1" },
+  { id: 2, title: "作品2" },
+  { id: 3, title: "作品3" },
 ];
 // 作品1 → tier "0"、作品2 → tier "1"、作品3 は未分類トレイ
 const ASSIGNMENT: TierAssignment = new Map([
@@ -77,26 +77,27 @@ const ASSIGNMENT: TierAssignment = new Map([
   [2, "1"],
 ]);
 
-// works の既定値を空にしているのは、DraggableWorkCard（reanimated /
+// items の既定値を空にしているのは、DraggableWorkCard（reanimated /
 // gesture-handler のスタブ）をテスト対象に含めないため。
-// ラベル編集の振る舞いは作品カードに依存しない。
+// ラベル編集の振る舞いはカードに依存しない。
 const boardElement = (
   props: {
     labelsEditable?: boolean;
     onRenameTier?: jest.Mock;
-    onAddWork?: jest.Mock;
-    works?: TierWork[];
+    onAddItem?: jest.Mock;
+    items?: TierItem[];
     assignment?: TierAssignment;
   } = {},
 ) => (
   <TierBoard
     tiers={TIERS}
-    works={props.works ?? []}
+    items={props.items ?? []}
     assignment={props.assignment ?? new Map()}
     onAssign={jest.fn()}
     onRenameTier={props.onRenameTier ?? jest.fn()}
-    onAddWork={props.onAddWork ?? jest.fn()}
+    onAddItem={props.onAddItem ?? jest.fn()}
     labelsEditable={props.labelsEditable ?? true}
+    trayEmptyLabel="すべて配置しました"
   />
 );
 
@@ -148,15 +149,15 @@ describe("TierBoard の作品手動追加", () => {
     expect(queryByTestId("work-add-sheet")).toBeTruthy();
   });
 
-  it("シートで作品が選ばれると onAddWork に渡る", () => {
-    const onAddWork = jest.fn();
-    const { getByTestId } = render(boardElement({ onAddWork }));
+  it("シートで作品が選ばれると onAddItem に渡る", () => {
+    const onAddItem = jest.fn();
+    const { getByTestId } = render(boardElement({ onAddItem }));
 
     fireEvent.press(getByTestId("tier-tray-add"));
     fireEvent.press(getByTestId("work-add-sheet"));
 
-    expect(onAddWork).toHaveBeenCalledWith({
-      annictWorkId: 99,
+    expect(onAddItem).toHaveBeenCalledWith({
+      id: 99,
       title: "追加作品",
     });
   });
@@ -182,7 +183,7 @@ describe("TierBoard の作品手動追加", () => {
 describe("ドラッグ中カードの重なり順", () => {
   it("tier 内のカードをドラッグ中は、その行と盤面が最前面になる", () => {
     const { getByTestId } = render(
-      boardElement({ works: WORKS, assignment: ASSIGNMENT }),
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     fireEvent.press(getByTestId("tier-card-1"));
@@ -199,7 +200,7 @@ describe("ドラッグ中カードの重なり順", () => {
 
   it("未分類トレイのカードをドラッグ中は、トレイが最前面になる", () => {
     const { getByTestId } = render(
-      boardElement({ works: WORKS, assignment: ASSIGNMENT }),
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     fireEvent.press(getByTestId("tier-card-3"));
@@ -209,7 +210,7 @@ describe("ドラッグ中カードの重なり順", () => {
 
   it("ドラッグがキャンセルされても元の重なり順に戻る", () => {
     const { getByTestId } = render(
-      boardElement({ works: WORKS, assignment: ASSIGNMENT }),
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     const card = getByTestId("tier-card-1");
@@ -223,7 +224,7 @@ describe("ドラッグ中カードの重なり順", () => {
 
   it("ドラッグ終了後は元の重なり順に戻る", () => {
     const { getByTestId } = render(
-      boardElement({ works: WORKS, assignment: ASSIGNMENT }),
+      boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     const card = getByTestId("tier-card-1");

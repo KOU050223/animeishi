@@ -1,4 +1,7 @@
-export { buildTierListShareUrl } from "./shareUrl";
+export {
+  buildTierListShareUrl,
+  buildCharacterTierListShareUrl,
+} from "./shareUrl";
 export { presentTierShareOptions } from "./options";
 export { shareTierListUrl, copyTierListUrl } from "./sheet";
 export { shareTierListImage, captureTierListImageFile } from "./image";

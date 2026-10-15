@@ -1,4 +1,8 @@
-import { DEFAULT_TIERS, defaultTierListTitle } from "./defaults";
+import {
+  DEFAULT_TIERS,
+  defaultTierListTitle,
+  defaultCharacterTierListTitle,
+} from "./defaults";
 
 describe("DEFAULT_TIERS", () => {
   it("key が重複していない（重複するとサーバの検証で 400 になる）", () => {
@@ -33,5 +37,26 @@ describe("defaultTierListTitle", () => {
 
   it("サーバの上限（50 文字）を超えない", () => {
     expect(defaultTierListTitle("2026-winter").length).toBeLessThanOrEqual(50);
+  });
+});
+
+describe("defaultCharacterTierListTitle", () => {
+  it("作品タイトルから既定タイトルを組み立てる", () => {
+    expect(defaultCharacterTierListTitle("青春ブタ野郎")).toBe(
+      "青春ブタ野郎 キャラクターTier",
+    );
+  });
+
+  it("作品タイトルが無ければ汎用の名前を返す", () => {
+    expect(defaultCharacterTierListTitle(null)).toBe("キャラクター Tier 表");
+    expect(defaultCharacterTierListTitle()).toBe("キャラクター Tier 表");
+  });
+
+  it("長い作品タイトルでもサーバの上限（50 文字）を超えない", () => {
+    // 上限超過のまま保存すると常に 400 になり、タイトル編集 UI がないため
+    // ユーザーが回復できない。既定タイトルは必ず 50 文字以内に収める。
+    expect(
+      defaultCharacterTierListTitle("あ".repeat(60)).length,
+    ).toBeLessThanOrEqual(50);
   });
 });
