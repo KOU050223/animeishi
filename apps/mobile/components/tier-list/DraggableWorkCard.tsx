@@ -2,11 +2,11 @@ import { useCallback, useMemo } from "react";
 import { Image, Text, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import type { TierWork } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
@@ -34,6 +34,11 @@ export type DraggableWorkCardProps = {
   onDragMove: (x: number, y: number) => void;
   /** 指を離したときの位置（ウィンドウ座標）。ここでドロップ先を確定する。 */
   onDragEnd: (x: number, y: number) => void;
+  /**
+   * onEnd を通らずにジェスチャが終わったとき（別ジェスチャに奪われた等の
+   * キャンセル）。ドロップは確定せず、親側のドラッグ中フラグだけ戻す。
+   */
+  onDragCancel: () => void;
   /** 支援技術経由で提示する移動先一覧（現在位置は呼び出し側で除く）。 */
   moveDestinations: TierMoveDestination[];
   /** アクセシビリティアクションで移動先が選ばれたとき。 */
@@ -52,6 +57,7 @@ export function DraggableWorkCard({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onDragCancel,
   moveDestinations,
   onMove,
 }: DraggableWorkCardProps) {
@@ -68,28 +74,42 @@ export function DraggableWorkCard({
         .activateAfterLongPress(DRAG_ACTIVATE_MS)
         .onStart(() => {
           isDragging.value = true;
-          runOnJS(onDragStart)();
+          scheduleOnRN(onDragStart);
         })
         .onUpdate((e) => {
           translateX.value = e.translationX;
           translateY.value = e.translationY;
-          runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragMove, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
           // 配置の確定は JS 側。カードは元位置へバネで戻し、
           // 実際の再配置は親が state を更新して再レンダリングする。
-          runOnJS(onDragEnd)(e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragEnd, e.absoluteX, e.absoluteY);
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
           isDragging.value = false;
         })
         .onFinalize(() => {
           // キャンセル（別ジェスチャに奪われた等）でもカードが浮いたままにならないよう戻す。
-          isDragging.value = false;
+          // onEnd を通った終了では isDragging が既に false なので、
+          // ここで true が残っている場合だけが「未確定のキャンセル」。
+          // 親側のドラッグ中フラグ（スクロール停止・zIndex 制御）も戻す。
+          if (isDragging.value) {
+            isDragging.value = false;
+            scheduleOnRN(onDragCancel);
+          }
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
         }),
-    [isDragging, onDragEnd, onDragMove, onDragStart, translateX, translateY],
+    [
+      isDragging,
+      onDragCancel,
+      onDragEnd,
+      onDragMove,
+      onDragStart,
+      translateX,
+      translateY,
+    ],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({

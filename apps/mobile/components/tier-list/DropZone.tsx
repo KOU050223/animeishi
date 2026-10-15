@@ -8,6 +8,7 @@ export type DropZoneProps = {
   registry: DropZoneRegistry;
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
+  testID?: string;
 };
 
 /**
@@ -24,6 +25,7 @@ export function DropZone({
   registry,
   style,
   children,
+  testID,
 }: DropZoneProps) {
   const ref = useRef<View>(null);
   // measureInWindow の結果は非同期で返る。アンマウント後にコールバックが
@@ -57,6 +59,7 @@ export function DropZone({
       collapsable={false}
       onLayout={measure}
       style={style}
+      testID={testID}
     >
       {children}
     </View>
