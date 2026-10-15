@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
-import { authorizedDb } from "@/repository/authorizedDb";
-import { annictWorks, users } from "@/db/schema";
+import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
+import { annictWorks, deletedUsers, users } from "@/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";
@@ -73,6 +74,39 @@ describe("authorizedDb", () => {
       expect(updated.isPublic).toBe(false);
     });
 
+    it("raw SQL 経路でも createdAt/updatedAt が正しい単位（秒）で保存される", async () => {
+      // mode: "timestamp" は秒保存。raw SQL でミリ秒を書く回帰
+      // （読み取り時に1000倍されて壊れる）を検知する。
+      const before = Date.now();
+      const adb = authorizedDb(db, USER_ID);
+      const updated = await adb.upsertMyProfile({
+        username: "時刻確認",
+        isPublic: true,
+      });
+      const after = Date.now();
+      expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
+      expect(updated.updatedAt.getTime()).toBeLessThanOrEqual(after + 1000);
+    });
+
+    it("省略した項目は既存値を温存する（部分更新）", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.upsertMyProfile({
+        username: "更新前",
+        bio: "自己紹介",
+        favoriteQuote: "名言",
+        isPublic: false,
+        profileImageUrl: "https://example.com/icon.webp",
+      });
+
+      // username のみ指定 → 他の項目は既存値のまま残ること
+      const updated = await adb.upsertMyProfile({ username: "名前だけ更新" });
+      expect(updated.username).toBe("名前だけ更新");
+      expect(updated.bio).toBe("自己紹介");
+      expect(updated.favoriteQuote).toBe("名言");
+      expect(updated.isPublic).toBe(false);
+      expect(updated.profileImageUrl).toBe("https://example.com/icon.webp");
+    });
+
     it("currentUserId 以外のユーザーIDで更新できないことを確認（スコープ分離）", async () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
@@ -89,6 +123,78 @@ describe("authorizedDb", () => {
 
       expect(profile1?.username).toBe("ユーザー1");
       expect(profile2?.username).toBe("ユーザー2");
+    });
+  });
+
+  describe("削除済みユーザーの tombstone（issue #144）", () => {
+    const DELETED_ID = "user_deleted001";
+
+    it("deleteMyAccount は users 行と一緒に tombstone を残す", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.deleteMyAccount();
+
+      const tombstones = await db
+        .select()
+        .from(deletedUsers)
+        .where(eq(deletedUsers.userId, USER_ID));
+      expect(tombstones).toHaveLength(1);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(0);
+      // 他ユーザーには tombstone が付かない
+      expect(
+        await db
+          .select()
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, ANOTHER_USER_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("tombstone があるユーザーは upsertMyProfile で users 行が再作成されない", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      // INSERT が抑止された場合は削除済みとして DeletedUserError が投げられる
+      // （handleError で 401 に変換される）。
+      await expect(
+        adb.upsertMyProfile({ username: "復活しない", isPublic: true }),
+      ).rejects.toThrow(DeletedUserError);
+      expect(
+        await db.select().from(users).where(eq(users.id, DELETED_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("tombstone があるユーザーは ensureUserExists で users 行が作られない", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      await adb.ensureUserExists(async () => "表示名");
+      expect(
+        await db.select().from(users).where(eq(users.id, DELETED_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("clearMyDeletedAt で tombstone 解除後は通常どおりプロビジョニングできる", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      expect(await adb.getMyDeletedAt()).toBeDefined();
+      await adb.clearMyDeletedAt();
+      expect(await adb.getMyDeletedAt()).toBeUndefined();
+
+      await adb.ensureUserExists(async () => "復帰ユーザー");
+      const recreated = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, DELETED_ID));
+      expect(recreated).toHaveLength(1);
+      expect(recreated[0]?.username).toBe("復帰ユーザー");
     });
   });
 

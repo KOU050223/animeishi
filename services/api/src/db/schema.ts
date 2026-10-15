@@ -245,6 +245,17 @@ export const blocks = sqliteTable(
   ],
 );
 
+// ---- deleted_users (アカウント削除の tombstone) ----
+// DELETE /me で users 行を削除した記録。削除済みユーザーの残存 JWT が
+// ensureUserExists / upsertMyProfile 経由で users 行を再作成し、
+// 公開プロフィールが残るのを防ぐ（issue #144）。
+// 削除と同一 batch で書き込むため「行は消えたが tombstone が無い」窓は無い。
+// 他テーブルへの FK は持たせない（users 行が存在しない状態で書くため）。
+export const deletedUsers = sqliteTable("deleted_users", {
+  userId: text("user_id").primaryKey(), // 削除された Clerk user ID
+  deletedAt: integer("deleted_at", { mode: "timestamp" }).notNull(),
+});
+
 // ---- user_genres (選択ジャンル) ----
 export const userGenres = sqliteTable(
   "user_genres",
@@ -283,3 +294,4 @@ export type Report = typeof reports.$inferSelect;
 export type NewReport = typeof reports.$inferInsert;
 export type Block = typeof blocks.$inferSelect;
 export type NewBlock = typeof blocks.$inferInsert;
+export type DeletedUser = typeof deletedUsers.$inferSelect;

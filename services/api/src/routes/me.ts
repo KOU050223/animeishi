@@ -4,8 +4,9 @@ import { zValidator } from "@hono/zod-validator";
 import { profileUpdateSchema } from "@/schema/validators";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
+import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
 
 type MeBindings = Omit<AuthEnv["Bindings"], "DB"> & {
@@ -134,13 +135,27 @@ const me = new Hono<AuthVariables>()
     // 差し替え前に旧アバターの R2 キーを控えておく（DB 更新成功後に削除する）。
     const previousKey = avatarKeyFromUrl(existing?.profileImageUrl);
 
-    const profile = await adb.upsertMyProfile({
-      username: existing?.username ?? userId,
-      bio: existing?.bio ?? null,
-      favoriteQuote: existing?.favoriteQuote ?? null,
-      isPublic: existing?.isPublic ?? true,
-      profileImageUrl: avatarUrl.toString(),
-    });
+    const profile = await adb
+      .upsertMyProfile({
+        username: existing?.username ?? userId,
+        bio: existing?.bio ?? null,
+        favoriteQuote: existing?.favoriteQuote ?? null,
+        isPublic: existing?.isPublic ?? true,
+        profileImageUrl: avatarUrl.toString(),
+      })
+      .catch(async (err) => {
+        // requireAuth 通過後にアカウント削除が割り込んだ場合、今回アップした
+        // オブジェクトは削除済みユーザーのゴミになるため掃除しておく
+        // （掃除自体の失敗はゴミが残るだけなので握り潰す）。
+        if (err instanceof DeletedUserError) {
+          try {
+            await bindings.AVATARS.delete(key);
+          } catch {
+            // R2 掃除失敗は無視する
+          }
+        }
+        throw err;
+      });
 
     // DB 更新が成功してから旧オブジェクトを削除する。
     // 旧画像を残すと既知の URL から半永久的に取得できてしまうため。
@@ -183,9 +198,18 @@ const me = new Hono<AuthVariables>()
     }
 
     // Clerk Backend API でユーザー本体を削除する。ここで失敗した場合、D1 側は
-    // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる。
+    // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる
+    // （requireAuth は DELETE /me を tombstone があっても通す）。
     const clerk = c.get("clerk");
-    await clerk.users.deleteUser(userId);
+    try {
+      await clerk.users.deleteUser(userId);
+    } catch (err) {
+      // 既に Clerk 側で削除済み（重複実行・残存 JWT による再試行）なら
+      // 成功として扱い DELETE を冪等にする。
+      if (!(isClerkAPIResponseError(err) && err.status === 404)) {
+        throw err;
+      }
+    }
 
     return c.body(null, 204);
   });

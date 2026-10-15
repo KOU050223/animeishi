@@ -75,6 +75,8 @@ function AuthGuard() {
       {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット） */}
       <Stack.Screen name="danime-import" />
       <Stack.Screen name="danime-import-review" />
+      {/* 機能一覧・更新情報（issue #98）。プロフィール画面から遷移する。 */}
+      <Stack.Screen name="changelog" />
     </Stack>
   );
 }

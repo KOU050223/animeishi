@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   View,
   Text,
   FlatList,
@@ -7,8 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   useWatchHistory,
@@ -17,6 +22,7 @@ import {
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
+import { ApiRequestError } from "@/lib/apiError";
 import { confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
@@ -43,8 +49,24 @@ const STATUS_COLORS: Record<WatchStatus, string> = {
 
 export default function WatchHistoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
+
+  // ステータス更新は楽観的更新のため、失敗時（ロールバック）だけエラートーストで知らせる。
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    AccessibilityInfo.announceForAccessibility(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -176,14 +198,44 @@ export default function WatchHistoryScreen() {
           history={editingItem}
           onClose={() => setEditingItem(null)}
           onSave={(data) => {
-            upsert.mutate(
-              { annictWorkId: editingItem.annictWorkId, data },
-              { onSuccess: () => setEditingItem(null) },
-            );
+            // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
+            // 前の呼び出し分が発火しないため、mutation 個別に reject する
+            // mutateAsync の promise で失敗を拾う。
+            // ApiRequestError はユーザー向け日本語メッセージを持つ。
+            // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
+            void upsert
+              .mutateAsync({ annictWorkId: editingItem.annictWorkId, data })
+              .catch((error: unknown) =>
+                showToast(
+                  error instanceof ApiRequestError
+                    ? error.message
+                    : "視聴履歴の更新に失敗しました",
+                ),
+              );
+            // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
+            // 失敗した場合はロールバックされ、トーストで通知される。
+            setEditingItem(null);
           }}
-          isSaving={upsert.isPending}
         />
       )}
+
+      {/* トーストはタップを透過させ、表示中も背後の操作を妨げない */}
+      <View
+        testID="watch-history-toast-layer"
+        pointerEvents="box-none"
+        style={[styles.toastLayer, { top: insets.top }]}
+      >
+        {toast ? (
+          <View
+            pointerEvents="none"
+            className="mx-4 mt-2 rounded-lg px-4 py-3 shadow-md bg-red-50"
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text className="text-sm font-medium text-red-600">{toast}</Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -247,12 +299,10 @@ function EditModal({
   history,
   onClose,
   onSave,
-  isSaving,
 }: {
   history: WatchHistoryItem;
   onClose: () => void;
   onSave: (data: { state: WatchStatus }) => void;
-  isSaving: boolean;
 }) {
   const [state, setState] = useState<WatchStatus>(history.state as WatchStatus);
 
@@ -316,15 +366,10 @@ function EditModal({
             <TouchableOpacity
               className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
               onPress={() => onSave({ state })}
-              disabled={isSaving}
               accessibilityRole="button"
               accessibilityLabel="保存"
             >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text className="text-white font-semibold">保存</Text>
-              )}
+              <Text className="text-white font-semibold">保存</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -332,3 +377,13 @@ function EditModal({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  toastLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+  },
+});

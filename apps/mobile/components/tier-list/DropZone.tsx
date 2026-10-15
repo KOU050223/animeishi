@@ -39,8 +39,17 @@ export function DropZone({
   }, []);
 
   const measure = useCallback(() => {
+    // 計測要求から応答までに自動スクロールの shiftAll が走ると、応答値が
+    // ずらし前後どちらの位置を指すか分からない。ずらした矩形自体は逐次
+    // 正確に追従しているため、世代が進んでいた応答は捨てて測り直し、
+    // スクロールが止まった間の応答を採用する。
+    const requestedEpoch = registry.epoch();
     ref.current?.measureInWindow((x, y, width, height) => {
       if (!aliveRef.current) return;
+      if (registry.epoch() !== requestedEpoch) {
+        measure();
+        return;
+      }
       registry.register(zoneKey, { x, y, width, height });
     });
   }, [registry, zoneKey]);

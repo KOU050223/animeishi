@@ -39,6 +39,17 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "support"');
   });
 
+  test("declares the changelog route", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // 機能一覧・更新情報ページ（issue #98）。プロフィール画面から遷移する
+    // アプリ内ページのため公開グループには入れない。
+    expect(source).toContain('<Stack.Screen name="changelog" />');
+  });
+
   test("exports a route ErrorBoundary so crashes get a retry UI", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),

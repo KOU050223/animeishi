@@ -106,6 +106,28 @@ export function selectableSeasonKeys(
   return [...SEASON_KEYS];
 }
 
+/**
+ * (year, key) の前後シーズンの season 文字列を返す（プリフェッチ用。issue #173）。
+ * 選択上限（今期+2 シーズン）より先や Annict アーカイブ下限（SEASON_PICKER_MIN_YEAR）
+ * より前は UI から選べないため含めない。
+ */
+export function adjacentSeasonParams(
+  year: number,
+  key: SeasonKey,
+  now: Date = new Date(),
+): string[] {
+  const prev = shiftSeason(year, key, -1);
+  const next = shiftSeason(year, key, 1);
+  const params: string[] = [];
+  if (prev.year >= SEASON_PICKER_MIN_YEAR) {
+    params.push(toSeasonParam(prev.year, prev.key));
+  }
+  if (selectableSeasonKeys(next.year, now).includes(next.key)) {
+    params.push(toSeasonParam(next.year, next.key));
+  }
+  return params;
+}
+
 export const POSTER_PALETTES = [
   { bg: "#fff7ed", border: "#fed7aa", accent: "#f97316", text: "#7c2d12" },
   { bg: "#eff6ff", border: "#bfdbfe", accent: "#2563eb", text: "#1e3a8a" },

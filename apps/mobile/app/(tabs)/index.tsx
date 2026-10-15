@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { useAnnictConnection } from "@/lib/annict";
 import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 import { useProfile } from "@/lib/useProfile";
@@ -27,6 +28,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { data: profile } = useProfile();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
+  const { isConnected: isAnnictConnected, isLoading: isAnnictLoading } =
+    useAnnictConnection();
 
   // 名刺エディタでの変更を戻ったときに反映するため、フォーカスごとに再読み込みする。
   useFocusEffect(
@@ -88,9 +91,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="mt-4">
-          <AnnictConnectionCard />
-        </View>
+        {/* 連携済みユーザーには出さない（#165）。連携状態の確認・解除は
+            プロフィール画面に集約する。ロード中は連携済みか未確定なため、
+            一瞬カードが出て消えるちらつきを避けて描画を遅らせる。 */}
+        {!isAnnictLoading && !isAnnictConnected && (
+          <View className="mt-4">
+            <AnnictConnectionCard />
+          </View>
+        )}
 
         <TouchableOpacity
           className="mt-8 items-center rounded-lg bg-gray-200 px-6 py-3"

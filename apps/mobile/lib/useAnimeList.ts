@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
@@ -23,10 +27,18 @@ export type SortOrder = "asc" | "desc";
 // 検索語が空のときは season（明示された絞り込み、または今期の既定）でキャッシュを分ける。
 export const ANIME_LIST_QUERY_KEY = ["works", "search"] as const;
 
+// シーズン検索（検索語なし）のクエリキー。シーズン作品一覧は tier 表画面でも
+// 同じ /works/search?season= の結果を使うためキーを共有し、一方で取れた
+// キャッシュやプリフェッチ（issue #173）が他方の表示にも効くようにする。
+export const seasonWorksQueryKey = (season: string) =>
+  [...ANIME_LIST_QUERY_KEY, "season", season] as const;
+
 const worksSearchQueryKey = (query: string, season: string | undefined) =>
   query !== ""
     ? ([...ANIME_LIST_QUERY_KEY, "title", query] as const)
-    : ([...ANIME_LIST_QUERY_KEY, "season", season ?? "__current__"] as const);
+    : season
+      ? seasonWorksQueryKey(season)
+      : ([...ANIME_LIST_QUERY_KEY, "season", "__current__"] as const);
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -44,6 +56,43 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
     return () => clearTimeout(id);
   }, [value, delayMs]);
   return debounced;
+}
+
+/**
+ * /works/search への 1 ページ分の問い合わせ。
+ * useInfiniteQuery の queryFn とプリフェッチ（usePrefetchSeasonWorks）で共用する。
+ * `query` が空ならシーズン検索（season 未指定はサーバー既定の今期）、
+ * 非空なら title 検索が優先され season は送らない。
+ */
+export async function fetchWorksSearchPage(
+  getToken: () => Promise<string | null>,
+  params: {
+    query: string;
+    season: string | undefined;
+    pageParam: string | undefined;
+  },
+): Promise<WorksSearchResponse> {
+  const headers = await getAuthHeaders(getToken);
+  // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
+  const annictHeader = await buildAnnictAuthHeader();
+  const queryParams =
+    params.query !== ""
+      ? {
+          title: params.query,
+          ...(params.pageParam ? { after: params.pageParam } : {}),
+        }
+      : {
+          ...(params.season ? { season: params.season } : {}),
+          ...(params.pageParam ? { after: params.pageParam } : {}),
+        };
+  const res = await apiClient.works.search.$get(
+    { query: queryParams },
+    { headers: { ...headers, ...annictHeader } },
+  );
+  if (!res.ok) {
+    throw new ApiRequestError(res.status, "作品の検索に失敗しました");
+  }
+  return res.json();
 }
 
 /**
@@ -82,26 +131,13 @@ export function useAnimeList(query: string, season?: string) {
     // 取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。
     placeholderData: keepPreviousData,
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }): Promise<WorksSearchResponse> => {
-      const headers = await getAuthHeaders(getToken);
-      // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
-      const annictHeader = await buildAnnictAuthHeader();
+    queryFn: ({ pageParam }): Promise<WorksSearchResponse> =>
       // title 省略時はシーズン検索。season 未指定ならサーバーが今期を既定にする。
-      const queryParams = isSeason
-        ? {
-            ...(season ? { season } : {}),
-            ...(pageParam ? { after: pageParam } : {}),
-          }
-        : { title: trimmed, ...(pageParam ? { after: pageParam } : {}) };
-      const res = await apiClient.works.search.$get(
-        { query: queryParams },
-        { headers: { ...headers, ...annictHeader } },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "作品の検索に失敗しました");
-      }
-      return res.json();
-    },
+      fetchWorksSearchPage(getToken, {
+        query: trimmed,
+        season,
+        pageParam,
+      }),
     getNextPageParam: (last) =>
       last.hasNextPage ? (last.endCursor ?? undefined) : undefined,
   });
@@ -142,6 +178,54 @@ export function useAnimeList(query: string, season?: string) {
     hasNextPage: lastPage?.hasNextPage ?? false,
     endCursor: lastPage?.endCursor ?? null,
   };
+}
+
+/**
+ * シーズン作品一覧をキャッシュへ事前取得する（issue #173）。
+ * シーズン切り替え直後の待ち時間を消すため、表示中シーズンの前後を
+ * 呼び出し側で計算して渡す（components/anime-list の adjacentSeasonParams）。
+ *
+ * staleTime 内のキャッシュ済みシーズンは react-query 側で再取得されない。
+ * プリフェッチの失敗自体は画面に出さないが、失敗クエリは error 状態のまま
+ * キャッシュに残るため、データを持たない失敗エントリは取得後に除去する
+ * （残すと切り替え先で自動リフェッチ中ずっとエラー画面が出てしまう）。
+ * シーズン検索は 1 ページ目のレスポンスに全件が入る（サーバー側で全ページ取得）
+ * ため先頭ページだけを取る。稀な上限到達時の続きは切り替え後の追い読みに任せる。
+ */
+export function usePrefetchSeasonWorks(
+  seasons: readonly string[],
+  enabled: boolean,
+) {
+  const { getToken, isSignedIn } = useAuth();
+  const { isConnected } = useAnnictConnection();
+  const queryClient = useQueryClient();
+  const canPrefetch = enabled && !!isSignedIn && isConnected;
+  // 配列の中身が変わったときだけ発火させるためプリミティブに潰す
+  // （season 文字列に "," は含まれない）。
+  const seasonsKey = seasons.join(",");
+
+  useEffect(() => {
+    if (!canPrefetch || seasonsKey === "") return;
+    for (const season of seasonsKey.split(",")) {
+      const queryKey = seasonWorksQueryKey(season);
+      void queryClient
+        .prefetchInfiniteQuery({
+          queryKey,
+          initialPageParam: undefined as string | undefined,
+          queryFn: ({ pageParam }) =>
+            fetchWorksSearchPage(getToken, { query: "", season, pageParam }),
+        })
+        .then(() => {
+          // prefetchInfiniteQuery はエラーを握り潰して resolve するため、
+          // 終了後にクエリ状態を見て失敗を拾う。既にデータを持つエントリの
+          // 再取得失敗（error でも data 残存）は消さない。
+          const state = queryClient.getQueryState(queryKey);
+          if (state?.status === "error" && state.data === undefined) {
+            void queryClient.removeQueries({ queryKey, exact: true });
+          }
+        });
+    }
+  }, [canPrefetch, seasonsKey, queryClient, getToken]);
 }
 
 /**
