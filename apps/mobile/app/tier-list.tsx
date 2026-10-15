@@ -18,6 +18,7 @@ import {
 import { styles } from "@/components/tier-list/tierListStyles";
 import {
   assignWork,
+  mergeBoardWorks,
   parseTiersJson,
   toAssignment,
   toSaveItems,
@@ -120,25 +121,20 @@ export default function TierListScreen() {
   //   作品は season 検索に出ないので、works だけでは worksInTier が
   //   作品を引けず「配置済みなのに描画されない」状態になる。
   // - manualWorks（今回手動追加した作品。未配置のものも含む）。
-  // 同一 annictWorkId の重複は先に入った方を優先して潰す。
-  const boardWorks = useMemo<TierWork[]>(() => {
-    const byId = new Map<number, TierWork>();
-    for (const w of works) byId.set(w.annictWorkId, w);
-    for (const item of saved?.items ?? []) {
-      if (!byId.has(item.annictWorkId)) {
-        byId.set(item.annictWorkId, {
+  const boardWorks = useMemo<TierWork[]>(
+    () =>
+      mergeBoardWorks(
+        works,
+        (saved?.items ?? []).map((item) => ({
           annictWorkId: item.annictWorkId,
           title: item.title,
           imageUrl: item.imageUrl,
           resolvedImageUrl: item.resolvedImageUrl,
-        });
-      }
-    }
-    for (const w of manualWorks) {
-      if (!byId.has(w.annictWorkId)) byId.set(w.annictWorkId, w);
-    }
-    return [...byId.values()];
-  }, [works, saved, manualWorks]);
+        })),
+        manualWorks,
+      ),
+    [works, saved, manualWorks],
+  );
 
   const handleAssign = useCallback(
     (annictWorkId: number, tierKey: string | null) => {
@@ -159,11 +155,12 @@ export default function TierListScreen() {
       // ドロップと同じく、共有中（保存→トークン発行の直列処理中）の編集は
       // 受け付けない。
       if (isSharing) return;
-      if (manualWorks.some((w) => w.annictWorkId === work.annictWorkId)) return;
+      // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
+      if (boardWorks.some((w) => w.annictWorkId === work.annictWorkId)) return;
       setManualWorks((prev) => [...prev, work]);
       setIsDirty(true);
     },
-    [isSharing, manualWorks],
+    [isSharing, boardWorks],
   );
 
   const handleRenameTier = useCallback(
@@ -246,11 +243,27 @@ export default function TierListScreen() {
   );
 
   const handleSave = useCallback(() => {
-    save.mutate(
-      { season, title, tiers, items: toSaveItems(assignment, tiers) },
-      { onSuccess: () => setIsDirty(false) },
+    const doSave = () =>
+      save.mutate(
+        { season, title, tiers, items: toSaveItems(assignment, tiers) },
+        { onSuccess: () => setIsDirty(false) },
+      );
+    // ＋で追加したがどの tier にも配置していない作品は保存対象にならず、
+    // 画面を離れると消える。「保存したのに消えた」を防ぐため一度だけ確認する。
+    const hasUnassignedManual = manualWorks.some(
+      (w) => !assignment.has(w.annictWorkId),
     );
-  }, [assignment, save, season, tiers, title]);
+    if (hasUnassignedManual) {
+      confirm(
+        "未配置の追加作品があります",
+        "未分類に残っている追加分は保存されず、このままだと消えます。",
+        doSave,
+        { confirmLabel: "このまま保存", cancelLabel: "編集を続ける" },
+      );
+      return;
+    }
+    doSave();
+  }, [assignment, manualWorks, save, season, tiers, title]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。

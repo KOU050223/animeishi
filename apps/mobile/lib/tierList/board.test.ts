@@ -1,5 +1,6 @@
 import {
   assignWork,
+  mergeBoardWorks,
   parseTiersJson,
   pruneAssignment,
   toAssignment,
@@ -80,6 +81,32 @@ describe("unassignedWorks", () => {
     expect(
       unassignedWorks(WORKS, assignment).map((w) => w.annictWorkId),
     ).toEqual([1, 3]);
+  });
+});
+
+describe("mergeBoardWorks", () => {
+  it("複数の供給元を前から順に連結する", () => {
+    const savedOnly: TierWork[] = [{ annictWorkId: 9, title: "シーズン外" }];
+    const manual: TierWork[] = [{ annictWorkId: 10, title: "手動追加" }];
+    expect(
+      mergeBoardWorks(WORKS, savedOnly, manual).map((w) => w.annictWorkId),
+    ).toEqual([1, 2, 3, 9, 10]);
+  });
+
+  it("同一 annictWorkId は先に入った方を優先して重複を潰す", () => {
+    const manual: TierWork[] = [
+      { annictWorkId: 2, title: "手動側のタイトル" },
+      { annictWorkId: 4, title: "新規" },
+    ];
+    const merged = mergeBoardWorks(WORKS, manual);
+    expect(merged.map((w) => w.annictWorkId)).toEqual([1, 2, 3, 4]);
+    // シーズン候補側（先の供給元）のタイトルが残る
+    expect(merged[1].title).toBe("アニメ2");
+  });
+
+  it("空・undefined の供給元を含めても動く", () => {
+    expect(mergeBoardWorks(WORKS, undefined, [])).toEqual(WORKS);
+    expect(mergeBoardWorks()).toEqual([]);
   });
 });
 

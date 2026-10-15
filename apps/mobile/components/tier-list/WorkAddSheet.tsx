@@ -42,8 +42,10 @@ export function WorkAddSheet({
     if (visible) setQuery("");
   }, [visible]);
 
-  const { works, hasQuery, isLoading, isFetching, isError, refetch } =
-    useWorkSearch(query);
+  // シートは Modal 内で常時マウントされるため、閉じている間は空クエリを渡して
+  // 検索を無効化する（前回の検索語で再フェッチが走らないように）。
+  const { works, hasQuery, hasMore, isLoading, isFetching, isError, refetch } =
+    useWorkSearch(visible ? query : "");
 
   return (
     <Modal
@@ -84,7 +86,8 @@ export function WorkAddSheet({
               作品を追加
             </Text>
             <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
-              シーズンの候補にない作品をタイトルで検索して未分類に追加できます
+              シーズンの候補にない作品をタイトルで検索して未分類に追加できます。
+              保存対象は tier に配置した作品です
             </Text>
             <Input
               value={query}
@@ -158,6 +161,22 @@ export function WorkAddSheet({
                   data={works}
                   keyExtractor={(item) => String(item.annictWorkId)}
                   keyboardShouldPersistTaps="handled"
+                  ListFooterComponent={
+                    // タイトル検索は先頭ページのみ取得するため、末尾に
+                    // さらなる絞り込みを促す。
+                    hasMore ? (
+                      <Text
+                        style={{
+                          color: "#6b7280",
+                          fontSize: 12,
+                          textAlign: "center",
+                          paddingVertical: 12,
+                        }}
+                      >
+                        上位の結果のみを表示しています。タイトルを絞り込んでください
+                      </Text>
+                    ) : null
+                  }
                   renderItem={({ item }) => {
                     const added = existingWorkIds.has(item.annictWorkId);
                     const uri = pickImageUrl(item);

@@ -27,6 +27,7 @@ const RESULT_WORK = {
 type SearchState = {
   works: (typeof RESULT_WORK)[];
   hasQuery: boolean;
+  hasMore: boolean;
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
@@ -36,6 +37,7 @@ type SearchState = {
 const searching = (overrides: Partial<SearchState> = {}): SearchState => ({
   works: [],
   hasQuery: true,
+  hasMore: false,
   isLoading: false,
   isFetching: false,
   isError: false,

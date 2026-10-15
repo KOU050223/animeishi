@@ -62,5 +62,7 @@ export function useWorkSearch(query: string) {
     works: result.data?.works ?? [],
     /** デバウンス後の検索語が空かどうか。空の間は検索が発火しない。 */
     hasQuery: trimmed.length > 0,
+    /** 取得した先頭ページの先にまだ結果があるか（タイトル検索は追い読みしない）。 */
+    hasMore: result.data?.hasNextPage ?? false,
   };
 }
