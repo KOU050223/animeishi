@@ -151,12 +151,17 @@ const DDL_STATEMENTS = [
     reporter_id TEXT NOT NULL,
     reported_user_id TEXT NOT NULL,
     reason TEXT NOT NULL,
+    status TEXT DEFAULT 'open' NOT NULL,
+    resolution_note TEXT,
+    resolved_at INTEGER,
     created_at INTEGER NOT NULL,
+    CONSTRAINT reports_status_check CHECK (status IN ('open', 'resolved', 'dismissed')),
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,
+  `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status)`,
   `CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     blocker_id TEXT NOT NULL,

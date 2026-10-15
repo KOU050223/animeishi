@@ -18,6 +18,11 @@ export const WATCH_STATES = [
   "WANNA_WATCH",
 ] as const;
 
+// reports.status の許可値（モデレーション対応状況, issue #186）。
+// open: 未対応 / resolved: 対応済み / dismissed: 却下（対応不要と判断）。
+export const REPORT_STATUSES = ["open", "resolved", "dismissed"] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
 // ---- users ----
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(), // Clerk user ID (user_xxxxx)
@@ -323,11 +328,21 @@ export const reports = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     reason: text("reason").notNull(),
+    // モデレーション対応状況。更新は scripts/reports.sh（wrangler d1 execute）
+    // から行い、API 経路では触らない（認可設計が未決のため）。
+    status: text("status", { enum: REPORT_STATUSES }).notNull().default("open"),
+    resolutionNote: text("resolution_note"),
+    resolvedAt: integer("resolved_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [
     index("reports_reporter_idx").on(t.reporterId),
     index("reports_reported_user_idx").on(t.reportedUserId),
+    index("reports_status_idx").on(t.status),
+    check(
+      "reports_status_check",
+      sql`${t.status} IN ('open', 'resolved', 'dismissed')`,
+    ),
   ],
 );
 
