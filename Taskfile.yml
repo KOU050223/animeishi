@@ -164,7 +164,7 @@ tasks:
       - bash scripts/reports.sh --env production reopen {{.CLI_ARGS}}
 
   reports:update:local:
-    desc: ローカル D1 の通報ステータスを更新（resolve|dismiss|reopen <id> [メモ]。動作確認用）
+    desc: ローカル D1 で reports.sh の全コマンドを実行（resolve|dismiss|reopen|list 等。動作確認用）
     dir: services/api
     cmds:
       - bash scripts/reports.sh --local {{.CLI_ARGS}}

@@ -40,6 +40,8 @@ task <タスク名>
 > `task reports:list -- --status all`、`task reports:list -- --by-user` のように
 > `--` 以降でオプションを渡せる。プレビュー D1 を見る場合は
 > `bash services/api/scripts/reports.sh --env preview list` を直接叩く。
+> メモに引用符・`$`・バッククォート等のシェル特殊文字を含める場合は
+> Taskfile 経由だと引数の再解釈で崩れるため、スクリプトを直接叩くこと。
 
 > wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
 > ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は

@@ -10,9 +10,11 @@
 #
 #   list [--status open|resolved|dismissed|all] [--by-user]
 #                          通報一覧。既定は未対応(open)のみ。
-#                          --by-user は被通報ユーザーごとの件数集計。
-#   resolve <id> [対応メモ]  対応済みにする（resolved_at に現在時刻）
-#   dismiss <id> [対応メモ]  却下する（対応不要と判断した場合）
+#                          --by-user は被通報ユーザーごとの件数集計
+#                          （累積通報の把握には --status all と併用する）。
+#   resolve <id> [対応メモ]  対応済みにする（resolved_at に現在時刻。
+#                          メモ省略時は既存の resolution_note を温存する）
+#   dismiss <id> [対応メモ]  却下する（対応不要と判断した場合。メモの扱いは同上）
 #   reopen <id>             未対応に戻す（resolved_at をクリア。
 #                          resolution_note は過去の対応記録として残す）
 #
@@ -22,10 +24,14 @@
 set -euo pipefail
 
 # wrangler.toml は services/api にあるため、どこから呼んでもそこで実行する。
-cd "$(dirname "$0")/.."
+# help() が冒頭コメントを $0 から読むため、cd 前に絶対パスに解決しておく
+# （相対パスのままだと cd 後に $0 を再解決できず、ルートからの
+#   `bash services/api/scripts/reports.sh --help` が壊れる）。
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$(dirname "$SCRIPT_PATH")/.."
 
 help() {
-  sed -n '2,21p' "$0"
+  sed -n '2,21p' "$SCRIPT_PATH"
 }
 
 ENV="production"
@@ -41,7 +47,10 @@ while [ $# -gt 0 ]; do
 done
 
 DB_NAME="animeishi-db"
-D1_TARGET=(--remote --env "$ENV")
+# -y: リモート実行時に wrangler が出す確認プロンプトを自動承認する。
+# 本番更新の確認は Taskfile 側の prompt:（task reports:resolve 等）が担う
+# 設計で、list のような読み取りでも毎回確認されると運用が回らないため。
+D1_TARGET=(--remote --env "$ENV" -y)
 if [ "$LOCAL" = 1 ]; then
   D1_TARGET=(--local)
 elif [ "$ENV" = "preview" ]; then
@@ -98,6 +107,7 @@ require_numeric_id() {
 run_update() {
   local output
   if ! output="$(run_sql_file "$1")"; then
+    printf '%s\n' "$output" >&2
     echo "d1 execute に失敗しました" >&2
     exit 1
   fi
@@ -147,14 +157,15 @@ case "$cmd" in
     require_numeric_id "$ID"
     shift
     # 引数の残り全部を対応メモとして連結する（クオート不要で書けるように）。
+    # メモ省略時は resolution_note を更新対象に含めず、過去の対応記録を温存する。
     NOTE="$*"
     if [ -n "$NOTE" ]; then
-      NOTE_SQL="$(sql_literal "$NOTE")"
+      NOTE_SET=", resolution_note = $(sql_literal "$NOTE")"
     else
-      NOTE_SQL="NULL"
+      NOTE_SET=""
     fi
     if [ "$cmd" = "resolve" ]; then NEW_STATUS="resolved"; else NEW_STATUS="dismissed"; fi
-    run_update "UPDATE reports SET status = '$NEW_STATUS', resolved_at = unixepoch(), resolution_note = $NOTE_SQL WHERE id = $ID RETURNING id, status, reported_user_id, resolution_note, datetime(resolved_at, 'unixepoch') AS resolved_at;"
+    run_update "UPDATE reports SET status = '$NEW_STATUS', resolved_at = unixepoch()$NOTE_SET WHERE id = $ID RETURNING id, status, reported_user_id, resolution_note, datetime(resolved_at, 'unixepoch') AS resolved_at;"
     ;;
 
   reopen)
