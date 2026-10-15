@@ -59,6 +59,22 @@ describe("useDropZoneRegistry", () => {
     expect(result.current.hitTest(50, -50)).toBe("s");
   });
 
+  it("shiftAll で全矩形がずれ、ヒットテストが追従する", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupRows(result.current));
+
+    // 下へ 50px スクロールした状況を再現する。コンテンツは画面上で
+    // 50px 上に流れるため、矩形は dy=-50 でずれる。
+    act(() => result.current.shiftAll(-50));
+
+    // s は y:0-100 → -50-50、a は 100-200 → 50-150、
+    // トレイは 200-300 → 150-250 にずれた。
+    expect(result.current.hitTest(50, 50)).toBe("s");
+    expect(result.current.hitTest(50, -25)).toBe("s");
+    expect(result.current.hitTest(50, 51)).toBe("a");
+    expect(result.current.hitTest(50, 175)).toBeNull();
+  });
+
   it("remeasureAll は登録済みの measurer を全て呼ぶ", () => {
     const { result } = renderHook(() => useDropZoneRegistry());
     const measureS = jest.fn();

@@ -26,6 +26,13 @@ export type DropZoneRegistry = {
   registerMeasurer: (key: string | null, measure: () => void) => () => void;
   /** 登録済みの全ゾーンを測り直す。ドラッグ開始時に呼ぶ。 */
   remeasureAll: () => void;
+  /**
+   * 登録済みの全矩形を縦にずらす。ドラッグ中の自動スクロールでコンテンツが
+   * 画面上を動いた分だけ即時反映し、measureInWindow の往復を待たずに
+   * ヒットテストを追従させる。dy はウィンドウ座標での移動量
+   * （下にスクロールしてコンテンツが上に動いたときは負）。
+   */
+  shiftAll: (dy: number) => void;
 };
 
 export function useDropZoneRegistry(): DropZoneRegistry {
@@ -59,6 +66,12 @@ export function useDropZoneRegistry(): DropZoneRegistry {
     for (const measure of measurersRef.current.values()) measure();
   }, []);
 
+  const shiftAll = useCallback((dy: number) => {
+    for (const [key, rect] of zonesRef.current) {
+      zonesRef.current.set(key, { ...rect, y: rect.y + dy });
+    }
+  }, []);
+
   const hitTest = useCallback((x: number, y: number) => {
     for (const [key, rect] of zonesRef.current) {
       if (
@@ -77,7 +90,7 @@ export function useDropZoneRegistry(): DropZoneRegistry {
   // 親の再レンダリングのたびに cleanup → 再登録を繰り返し、
   // cleanup で矩形まで消えてドロップ判定が一切当たらなくなる。
   return useMemo(
-    () => ({ register, hitTest, registerMeasurer, remeasureAll }),
-    [register, hitTest, registerMeasurer, remeasureAll],
+    () => ({ register, hitTest, registerMeasurer, remeasureAll, shiftAll }),
+    [register, hitTest, registerMeasurer, remeasureAll, shiftAll],
   );
 }

@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
+import { useEdgeAutoScroll } from "./autoScroll";
 import {
   DraggableWorkCard,
   type TierMoveDestination,
@@ -53,6 +55,25 @@ export function TierBoard({
   // 名前編集中の tier。null のとき編集シートは閉じている。
   const [editingTier, setEditingTier] = useState<TierRow | null>(null);
 
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportRef = useRef<View>(null);
+  // ドラッグ中の自動スクロール累積量。動いた分だけ掴んでいるカードを
+  // 指に追従させるため、全カードへ渡してドラッグ中のものだけが加算する。
+  const dragScrollCompensation = useSharedValue(0);
+
+  const autoScroll = useEdgeAutoScroll({
+    scrollRef,
+    viewportRef,
+    registry,
+    scrollCompensation: dragScrollCompensation,
+    onScrolled: (x, y) => {
+      // 指を止めていても自動スクロールで指の下の行が変わるため、
+      // ずらした矩形でヒットテストをやり直してハイライトを追従させる。
+      const hit = registry.hitTest(x, y);
+      setHoverKey((prev) => (prev === hit ? prev : hit));
+    },
+  });
+
   // 編集不可（共有処理中など）になったら開いているシートも閉じる。
   // 開きっぱなしにすると、確定しても捨てられる入力を残してしまう。
   useEffect(() => {
@@ -61,12 +82,13 @@ export function TierBoard({
 
   const handleDragMove = useCallback(
     (x: number, y: number) => {
+      autoScroll.onDragMove(x, y);
       const hit = registry.hitTest(x, y);
       // ハイライトは行が変わったときだけ更新する。毎フレーム setState すると
       // ドラッグ中に盤面全体が再レンダリングされてカクつく。
       setHoverKey((prev) => (prev === hit ? prev : hit));
     },
-    [registry],
+    [autoScroll, registry],
   );
 
   const handleDragEnd = useCallback(
@@ -74,11 +96,14 @@ export function TierBoard({
       const hit = registry.hitTest(x, y);
       setHoverKey(undefined);
       setDraggingId(null);
+      autoScroll.onDragEnd();
+      // 自動スクロール中は矩形をずらしているだけなので、実測値に戻して誤差を清算する。
+      registry.remeasureAll();
       // どの行にも当たらなかった（盤面の外で離した）なら配置は変えない。
       if (hit === undefined) return;
       onAssign(workId, hit);
     },
-    [onAssign, registry],
+    [autoScroll, onAssign, registry],
   );
 
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
@@ -86,7 +111,10 @@ export function TierBoard({
   const handleDragCancel = useCallback(() => {
     setHoverKey(undefined);
     setDraggingId(null);
-  }, []);
+    autoScroll.onDragEnd();
+    // キャンセルの原因が盤面のスクロール横取り等だと矩形がずれているため測り直す。
+    registry.remeasureAll();
+  }, [autoScroll, registry]);
 
   const handleDragStart = useCallback(
     (workId: number) => {
@@ -95,8 +123,9 @@ export function TierBoard({
       // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
       // ドロップ先の判定を今の画面状態に合わせる。
       registry.remeasureAll();
+      autoScroll.onDragStart();
     },
-    [registry],
+    [autoScroll, registry],
   );
 
   // 支援技術からの移動用に、全 tier 行と未分類トレイを移動先として並べる。
@@ -124,6 +153,7 @@ export function TierBoard({
         (d) => d.tierKey !== currentTierKey,
       )}
       onMove={(tierKey) => onAssign(work.annictWorkId, tierKey)}
+      scrollCompensation={dragScrollCompensation}
     />
   );
 
@@ -147,95 +177,113 @@ export function TierBoard({
     : undefined;
 
   return (
-    <ScrollView
-      // ドラッグ中はスクロールを止める。長押しで掴んだ後に盤面が動くと
-      // 計測済みの行の矩形とズレてドロップ先を誤判定する。
-      scrollEnabled={draggingId === null}
-      // スクロールが止まった時点でも測り直しておく。ドラッグ開始時にも
-      // 測り直すが、こちらを入れておくと掴んだ直後の 1 フレームでも
-      // 矩形が正しく、ハイライトが最初から正確に出る。
-      onMomentumScrollEnd={registry.remeasureAll}
-      onScrollEndDrag={registry.remeasureAll}
-      scrollEventThrottle={16}
-      contentContainerStyle={{ paddingBottom: 40 }}
+    // ScrollView の ref には measureInWindow が無いため、同じ大きさの View で
+    // 包んでビューポート矩形を測る。ドラッグ中の端付近ではここが起点になる
+    // 自動スクロールが走る（scrollEnabled は指操作だけを止めるので、
+    // scrollTo によるプログラム的なスクロールは有効）。
+    <View
+      ref={viewportRef}
+      style={styles.boardViewport}
+      onLayout={autoScroll.measureViewport}
+      collapsable={false}
     >
-      <View
-        style={[styles.board, draggingInBoard && styles.draggingFront]}
-        testID="tier-board"
+      <ScrollView
+        ref={scrollRef}
+        // ドラッグ中は指によるスクロールを止める。長押しで掴んだ後に盤面が
+        // 自由に動くと、掴んだもの以外の意図しないスクロールでドロップ先を
+        // 誤判定するため。自動スクロールはフック側で矩形を同期補正する。
+        scrollEnabled={draggingId === null}
+        onScroll={autoScroll.onScroll}
+        onContentSizeChange={autoScroll.onContentSizeChange}
+        // スクロールが止まった時点でも測り直しておく。ドラッグ開始時にも
+        // 測り直すが、こちらを入れておくと掴んだ直後の 1 フレームでも
+        // 矩形が正しく、ハイライトが最初から正確に出る。
+        onMomentumScrollEnd={registry.remeasureAll}
+        onScrollEndDrag={registry.remeasureAll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {tiers.map((tier) => {
-          const rowWorks = worksInTier(works, assignment, tier.key);
-          const isDraggingRow = rowWorks.some(
-            (work) => work.annictWorkId === draggingId,
-          );
-          return (
-            <View
-              key={tier.key}
-              style={[styles.tierRow, isDraggingRow && styles.draggingFront]}
-              testID={`tier-row-${tier.key}`}
-            >
-              <TouchableOpacity
-                style={[styles.tierLabelCell, { backgroundColor: tier.color }]}
-                onPress={() => setEditingTier(tier)}
-                disabled={!labelsEditable}
-                accessibilityRole="button"
-                accessibilityLabel={`${tier.label} の名前を編集`}
-                accessibilityState={{ disabled: !labelsEditable }}
-                testID={`tier-label-${tier.key}`}
+        <View
+          style={[styles.board, draggingInBoard && styles.draggingFront]}
+          testID="tier-board"
+        >
+          {tiers.map((tier) => {
+            const rowWorks = worksInTier(works, assignment, tier.key);
+            const isDraggingRow = rowWorks.some(
+              (work) => work.annictWorkId === draggingId,
+            );
+            return (
+              <View
+                key={tier.key}
+                style={[styles.tierRow, isDraggingRow && styles.draggingFront]}
+                testID={`tier-row-${tier.key}`}
               >
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.tierLabelText,
-                    { fontSize: tierLabelFontSize(tier.label, 13) },
+                    styles.tierLabelCell,
+                    { backgroundColor: tier.color },
                   ]}
-                  numberOfLines={3}
+                  onPress={() => setEditingTier(tier)}
+                  disabled={!labelsEditable}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tier.label} の名前を編集`}
+                  accessibilityState={{ disabled: !labelsEditable }}
+                  testID={`tier-label-${tier.key}`}
                 >
-                  {tier.label}
-                </Text>
-              </TouchableOpacity>
-              <DropZone
-                zoneKey={tier.key}
-                registry={registry}
-                style={[
-                  styles.tierDropArea,
-                  hoverKey === tier.key && styles.tierDropAreaActive,
-                ]}
-              >
-                {rowWorks.map((work) => renderCard(work, tier.key))}
-              </DropZone>
-            </View>
-          );
-        })}
-      </View>
+                  <Text
+                    style={[
+                      styles.tierLabelText,
+                      { fontSize: tierLabelFontSize(tier.label, 13) },
+                    ]}
+                    numberOfLines={3}
+                  >
+                    {tier.label}
+                  </Text>
+                </TouchableOpacity>
+                <DropZone
+                  zoneKey={tier.key}
+                  registry={registry}
+                  style={[
+                    styles.tierDropArea,
+                    hoverKey === tier.key && styles.tierDropAreaActive,
+                  ]}
+                >
+                  {rowWorks.map((work) => renderCard(work, tier.key))}
+                </DropZone>
+              </View>
+            );
+          })}
+        </View>
 
-      <Text style={styles.trayHeader}>
-        {UNASSIGNED_LABEL}（{tray.length}）
-      </Text>
-      <DropZone
-        zoneKey={null}
-        registry={registry}
-        style={[
-          styles.tray,
-          hoverKey === null && styles.trayActive,
-          draggingInTray && styles.draggingFront,
-        ]}
-        testID="tier-tray"
-      >
-        {tray.length === 0 ? (
-          <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
-        ) : (
-          tray.map((work) => renderCard(work, null))
-        )}
-      </DropZone>
+        <Text style={styles.trayHeader}>
+          {UNASSIGNED_LABEL}（{tray.length}）
+        </Text>
+        <DropZone
+          zoneKey={null}
+          registry={registry}
+          style={[
+            styles.tray,
+            hoverKey === null && styles.trayActive,
+            draggingInTray && styles.draggingFront,
+          ]}
+          testID="tier-tray"
+        >
+          {tray.length === 0 ? (
+            <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
+          ) : (
+            tray.map((work) => renderCard(work, null))
+          )}
+        </DropZone>
 
-      <TierLabelEditSheet
-        visible={!!editing}
-        initialValue={editing?.label ?? ""}
-        onClose={() => setEditingTier(null)}
-        onSubmit={(value) => {
-          if (editing) onRenameTier(editing.key, value);
-        }}
-      />
-    </ScrollView>
+        <TierLabelEditSheet
+          visible={!!editing}
+          initialValue={editing?.label ?? ""}
+          onClose={() => setEditingTier(null)}
+          onSubmit={(value) => {
+            if (editing) onRenameTier(editing.key, value);
+          }}
+        />
+      </ScrollView>
+    </View>
   );
 }
