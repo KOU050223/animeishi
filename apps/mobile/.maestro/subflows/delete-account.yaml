@@ -1,0 +1,43 @@
+# ホーム → プロフィールタブ → アカウント削除（二段階確認）までの部品。
+# 削除ボタンは画面下部のため scrollUntilVisible で出す。
+# Alert の「削除する」はシステムダイアログ上のボタンをテキストでタップする。
+appId: com.animeishi.app
+---
+# サインイン直後に iOS の「パスワードを保存しますか？」シートが
+# 被さっているとタブをタップできないため、残っていれば閉じる。
+- tapOn:
+    text: 今はしない
+    optional: true
+    retryTapIfNoChange: false
+- tapOn:
+    id: profile-tab-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      text: ユーザー名入力
+    timeout: 30000
+# 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
+- scrollUntilVisible:
+    element:
+      text: アカウントを削除
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    text: アカウントを削除
+    retryTapIfNoChange: false
+# 1 段目「アカウントを削除しますか？」
+- extendedWaitUntil:
+    visible:
+      text: 削除する
+    timeout: 10000
+- tapOn:
+    text: 削除する
+    retryTapIfNoChange: false
+# 2 段目「最終確認」が出るまで待ってから「削除する」をタップする
+- extendedWaitUntil:
+    visible:
+      text: 最終確認
+    timeout: 10000
+- tapOn:
+    text: 削除する
+    retryTapIfNoChange: false

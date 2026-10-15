@@ -76,6 +76,12 @@ tasks:
     cmds:
       - pnpm turbo run test
 
+  e2e:ios:
+    desc: iOS シミュレーターで Maestro E2E を実行（専用シミュレーター作成→Release 相当ビルド→インストール→maestro test）
+    dir: apps/mobile
+    cmds:
+      - bash scripts/e2e-ios.sh
+
   db:migrate:local:
     desc: D1 ローカルマイグレーション適用
     dir: services/api

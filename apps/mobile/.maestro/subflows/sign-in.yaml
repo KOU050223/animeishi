@@ -1,0 +1,25 @@
+# サインイン画面で EMAIL/PASSWORD を入力してホームへ進む部品。
+appId: com.animeishi.app
+---
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000
+- tapOn:
+    id: email-input
+    retryTapIfNoChange: false
+- inputText: ${EMAIL}
+- tapOn:
+    id: password-input
+    retryTapIfNoChange: false
+- inputText: ${PASSWORD}
+- tapOn:
+    id: sign-in-button
+    retryTapIfNoChange: false
+
+# iOS が「パスワードを保存しますか？」のシステムシートを出すことがある。
+# 出た場合は「今はしない」で閉じる（出なければ何もしない）。
+- tapOn:
+    text: 今はしない
+    optional: true
+    retryTapIfNoChange: false

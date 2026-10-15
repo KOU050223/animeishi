@@ -1,0 +1,5 @@
+# Maestro ワークスペース設定。
+# `maestro test apps/mobile/.maestro` で flows/ 配下の E2E が実行される。
+# subflows/ は runFlow から呼ばれる部品で、直接は実行対象にしない。
+flows:
+  - flows/auth-lifecycle.yaml

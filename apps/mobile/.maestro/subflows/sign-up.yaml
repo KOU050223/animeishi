@@ -1,0 +1,54 @@
+# サインイン画面 → サインアップ → （必要なら）メール認証コード 424242、までの部品。
+# 呼び出し側で未認証状態・サインイン画面表示済みであること。
+#
+# Clerk 開発インスタンスの設定次第でメール認証が求められる/求められないがある。
+# +clerk_test アドレスの test_mode では認証が自動スキップされ status=complete で
+# ホームへ直行することもあるため、verification-code-input が出た時だけ
+# 固定コード 424242 を入力する。
+appId: com.animeishi.app
+---
+- tapOn:
+    id: sign-up-link
+    retryTapIfNoChange: false
+
+- tapOn:
+    id: email-input
+    retryTapIfNoChange: false
+- inputText: ${EMAIL}
+- tapOn:
+    id: username-input
+    retryTapIfNoChange: false
+- inputText: ${USERNAME}
+- tapOn:
+    id: password-input
+    retryTapIfNoChange: false
+- inputText: ${PASSWORD}
+- tapOn:
+    id: password-confirmation-input
+    retryTapIfNoChange: false
+- inputText: ${PASSWORD}
+
+- tapOn:
+    id: sign-up-button
+    retryTapIfNoChange: false
+
+# メール認証が求められた場合は verification-code-input が表示される。
+# test_mode の +clerk_test ではスキップされてホーム直行もあるため、
+# 短めのタイムアウトで optional 待機し、出た時だけ 424242 を入力する。
+- extendedWaitUntil:
+    visible:
+      id: verification-code-input
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: verification-code-input
+    file: verify-email.yaml
+
+# iOS が「パスワードを保存しますか？」のシステムシートを出すことがある。
+# 出た場合は「今はしない」で閉じる（出なければ何もしない）。
+- tapOn:
+    text: 今はしない
+    optional: true
+    retryTapIfNoChange: false
