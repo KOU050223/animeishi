@@ -22,6 +22,10 @@ export { WATCH_HISTORY_QUERY_KEY };
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;
 
+// upsert ミューテーションのスコープ。同じスコープの mutation は
+// MutationCache が直列実行する（先の PUT が settle してから次が走る）。
+const WATCH_HISTORY_UPSERT_SCOPE = "watch-history-upsert";
+
 export const WATCH_STATUS_LABELS: Record<WatchHistoryItem["state"], string> = {
   WATCHING: "視聴中",
   WATCHED: "視聴済",
@@ -71,6 +75,10 @@ export function useUpsertWatchHistory() {
     : WATCH_HISTORY_QUERY_KEY;
 
   return useMutation({
+    // 連続保存してもサーバーには操作順で適用される（応答順の入れ替わりで
+    // 古い選択が最終状態になるのを防ぐ）。スコープ待ちの間も onMutate は
+    // 先に走るため、楽観反映は即時のまま保たれる。
+    scope: { id: WATCH_HISTORY_UPSERT_SCOPE },
     mutationFn: async ({
       annictWorkId,
       data,
@@ -126,7 +134,18 @@ export function useUpsertWatchHistory() {
       );
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
+      // 他の upsert が残っている間は再取得しない。残っている間に refetch
+      // するとまだ PUT 未反映のサーバー状態でキャッシュ全体が上書きされ、
+      // 別作品の楽観値が一瞬巻き戻る。onSettled は自身の status が
+      // pending→settled に遷移する前に呼ばれるため、自分を含めて 1 件
+      // 以下なら「自分が最後」として invalidate する。
+      const pendingUpserts = queryClient.isMutating({
+        predicate: (mutation) =>
+          mutation.options.scope?.id === WATCH_HISTORY_UPSERT_SCOPE,
+      });
+      if (pendingUpserts <= 1) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
     },
   });
 }

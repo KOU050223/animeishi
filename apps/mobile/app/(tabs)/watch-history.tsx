@@ -198,19 +198,20 @@ export default function WatchHistoryScreen() {
           history={editingItem}
           onClose={() => setEditingItem(null)}
           onSave={(data) => {
-            upsert.mutate(
-              { annictWorkId: editingItem.annictWorkId, data },
-              {
-                // ApiRequestError はユーザー向け日本語メッセージを持つ。
-                // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
-                onError: (error) =>
-                  showToast(
-                    error instanceof ApiRequestError
-                      ? error.message
-                      : "視聴履歴の更新に失敗しました",
-                  ),
-              },
-            );
+            // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
+            // 前の呼び出し分が発火しないため、mutation 個別に reject する
+            // mutateAsync の promise で失敗を拾う。
+            // ApiRequestError はユーザー向け日本語メッセージを持つ。
+            // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
+            void upsert
+              .mutateAsync({ annictWorkId: editingItem.annictWorkId, data })
+              .catch((error: unknown) =>
+                showToast(
+                  error instanceof ApiRequestError
+                    ? error.message
+                    : "視聴履歴の更新に失敗しました",
+                ),
+              );
             // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
             // 失敗した場合はロールバックされ、トーストで通知される。
             setEditingItem(null);
@@ -384,6 +385,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    elevation: 20,
   },
 });

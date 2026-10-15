@@ -177,6 +177,8 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHING"));
     expect(getStates(client)?.[1].state).toBe("WATCHED");
 
+    // upsert はスコープで直列化されているため、B の PUT は A の settle 後に走る。
+    await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
       resolvers[1]({ ok: true, json: async () => ({}) });
     });
@@ -209,9 +211,78 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     // 1 回目の失敗で 2 回目の楽観値（ユーザーの最新の意図）を巻き戻さない。
     expect(getStates(client)?.[0].state).toBe("ON_HOLD");
 
+    // スコープで直列化されているため、2 回目の PUT は 1 回目の settle 後に走る。
+    await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
       resolvers[1]({ ok: true, json: async () => ({}) });
     });
+  });
+
+  it("連続した更新はスコープにより直列で実行される", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result } = renderHook(() => useUpsertWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    act(() => {
+      result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
+      result.current.mutate({ annictWorkId: 1, data: { state: "ON_HOLD" } });
+    });
+
+    // 応答順の入れ替わりで古い選択がサーバーの最終状態になるのを防ぐため、
+    // 2 件目の PUT は 1 件目が settle するまで開始されない。
+    await waitFor(() => expect(resolvers).toHaveLength(1));
+
+    await act(async () => {
+      resolvers[0]({ ok: true, json: async () => ({}) });
+    });
+    await waitFor(() => expect(resolvers).toHaveLength(2));
+  });
+
+  it("他の更新が残っている間は再取得を保留する", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result } = renderHook(() => useUpsertWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    act(() => {
+      result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
+      result.current.mutate({ annictWorkId: 2, data: { state: "WATCHED" } });
+    });
+    await waitFor(() => expect(resolvers).toHaveLength(1));
+
+    // A が先に settle しても B の PUT はまだ残っているため再取得しない
+    // （再取得すると B の PUT 未反映の一覧でキャッシュが上書きされ、
+    // B の楽観値が一瞬巻き戻る）。
+    await act(async () => {
+      resolvers[0]({ ok: true, json: async () => ({}) });
+    });
+    await waitFor(() => expect(resolvers).toHaveLength(2));
+    expect(client.getQueryState(queryKey)?.isInvalidated ?? false).toBe(false);
+
+    // B が settle してキューが空になった時点で初めて無効化される。
+    await act(async () => {
+      resolvers[1]({ ok: true, json: async () => ({}) });
+    });
+    await waitFor(() =>
+      expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true),
+    );
   });
 
   it("キャッシュに無い作品を更新しても既存データを壊さない", async () => {
