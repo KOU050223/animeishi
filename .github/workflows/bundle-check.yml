@@ -1,0 +1,74 @@
+name: Bundle Check
+
+# apps/mobile の JS バンドルが web / ios / android の各プラットフォームで
+# 生成できるかを expo export で検証する（issue #16）。
+# .web/.native 拡張子の解決漏れやネイティブ専用モジュールの web 混入などを
+# PR 時に検知するのが目的。Metro バンドルのみなので ubuntu で実行できる。
+# xcodebuild / gradle を要するネイティブビルドは対象外（#180 で扱う）。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # バンドルに含まれる workspace パッケージ（@animeishi/danime-core、
+      # @animeishi/observability、@animeishi/api）と依存解決に関わるルートファイル
+      - "apps/mobile/**"
+      - "packages/**"
+      - "services/api/**"
+      - ".github/workflows/bundle-check.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      # public-hoist-pattern / node-linker は Metro のモジュール解決に直結する
+      - ".npmrc"
+  pull_request:
+    # ready_for_review を含めないと draft → ready 化のタイミングで実行されない
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+      - "services/api/**"
+      - ".github/workflows/bundle-check.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".npmrc"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  export:
+    name: Export bundle (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    strategy:
+      # 1 プラットフォームの失敗で他を止めない（全環境の結果を一度に確認する）
+      fail-fast: false
+      matrix:
+        platform: [web, ios, android]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # EXPO_PUBLIC_* は値がバンドルへインライン化されるだけでモジュール評価は
+      # 行われない（web.output: "single" のため静的プリレンダも走らない）ので、
+      # 未設定でも export は成功する。secrets 不要。
+      # 将来 web.output を "static" に変えると export 時にルートが Node で
+      # レンダリングされるため、env 未設定で失敗し得る点に注意。
+      - name: Expo export (${{ matrix.platform }})
+        run: pnpm --filter @animeishi/mobile exec expo export --platform ${{ matrix.platform }}
