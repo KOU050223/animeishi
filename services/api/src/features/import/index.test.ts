@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { importRoute } from "@/routes/import";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { importRoute } from "@/features/import";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {

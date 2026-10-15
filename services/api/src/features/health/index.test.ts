@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { health } from "@/routes/health";
+import { health } from "@/features/health";
 
 describe("GET /health", () => {
   it("status / timestamp とバインディングのバージョン情報を返す", async () => {

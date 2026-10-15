@@ -8,7 +8,7 @@ import {
   worksSearchQuerySchema,
 } from "@/schema/validators";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
-// routes/watch-history.ts のコメント参照）。
+// features/watch-history/index.ts のコメント参照）。
 import {
   currentAnnictSeason,
   fetchAnnictWorkCasts,

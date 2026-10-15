@@ -25,7 +25,7 @@ import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { mapWithConcurrency } from "@animeishi/danime-core";
-import { captureApiError } from "../observability";
+import { captureApiError } from "../../observability";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {

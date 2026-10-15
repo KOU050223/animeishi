@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { watchHistory } from "@/routes/watch-history";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { watchHistory } from "@/features/watch-history";
 import {
   users,
   annictWorks,

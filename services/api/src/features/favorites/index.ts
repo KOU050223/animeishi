@@ -4,7 +4,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
-// 注: barrel ではなくサブモジュール直接 import（理由は routes/watch-history.ts 参照）。
+// 注: barrel ではなくサブモジュール直接 import（理由は features/watch-history/index.ts 参照）。
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { resolveAnnictToken } from "@/lib/annict/middleware";

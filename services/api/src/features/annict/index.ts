@@ -17,8 +17,8 @@ import {
   decryptToken,
   assertEncryptionKey,
   ANNICT_TOKEN_HEADER,
-} from "../lib/annict";
-import { captureApiError } from "../observability";
+} from "../../lib/annict";
+import { captureApiError } from "../../observability";
 
 // Annict OAuth 連携用バインディング。
 // ANNICT_CLIENT_ID は公開可（vars）、ANNICT_CLIENT_SECRET は Workers Secret。

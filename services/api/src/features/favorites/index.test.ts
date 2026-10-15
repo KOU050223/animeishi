@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { favorites } from "@/routes/favorites";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { favorites } from "@/features/favorites";
 import { users, annictWorks } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({

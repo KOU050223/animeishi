@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { createDb } from "@/db/client";
 import { annictCharacters, annictWorks } from "@/db/schema";
-import { works } from "@/routes/works";
+import { works } from "@/features/works";
 import { currentAnnictSeason } from "@/lib/annict/client";
 import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
 

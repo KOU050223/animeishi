@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { createDb } from "@/db/client";
-import { characterTierLists } from "@/routes/character-tier-lists";
-import { share } from "@/routes/share";
+import { characterTierLists } from "@/features/character-tier-lists";
+import { share } from "@/features/share";
 import {
   users,
   annictWorks,

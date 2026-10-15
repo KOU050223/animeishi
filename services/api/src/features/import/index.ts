@@ -4,7 +4,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { danimeMatchRequestSchema } from "@/schema/validators";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
-// routes/watch-history.ts のコメント参照）。
+// features/watch-history/index.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { searchAnnictWorksByTitles } from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";

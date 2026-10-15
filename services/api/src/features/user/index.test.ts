@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { user } from "@/routes/user";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { user } from "@/features/user";
 import { users, userGenres } from "@/db/schema";
 
 // optionalAuth 経由で呼ばれる @clerk/hono の挙動を再現する。

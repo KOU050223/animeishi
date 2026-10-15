@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { images } from "./images";
 
 // /images/* は公開ルート（認証不要）。作品画像の R2 配信を担う（issue #174）。

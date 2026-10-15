@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
-import { setupTestDb } from "../test-utils/setup-db";
-import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { friends } from "@/routes/friends";
-import { avatar, me } from "@/routes/me";
-import { user } from "@/routes/user";
-import { usersRoute } from "@/routes/users";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { friends } from "@/features/friends";
+import { avatar, me } from "@/features/me";
+import { user } from "@/features/user";
+import { usersRoute } from "@/features/users";
 import { friends as friendsTable, reports, users } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
