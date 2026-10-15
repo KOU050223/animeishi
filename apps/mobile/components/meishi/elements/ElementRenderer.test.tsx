@@ -128,4 +128,18 @@ describe("ElementRenderer", () => {
       "https://img.example/wanna-1.jpg",
     ]);
   });
+
+  it("コラージュ: animeLists を持たない旧コンテキストでは animeCollageImages にフォールバックする", () => {
+    const el: AnimeCollageElement = {
+      ...collageElement,
+      listSource: "favorites",
+    };
+    const legacyCtx: MeishiRenderContext = {
+      profile: {},
+      animeCollageImages: ["https://img.example/auto-1.jpg"],
+    };
+    expect(renderedUris(el, legacyCtx)).toEqual([
+      "https://img.example/auto-1.jpg",
+    ]);
+  });
 });

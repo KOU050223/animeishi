@@ -300,6 +300,15 @@ export function AnimeImagePicker({
               />
               {searchBody()}
             </>
+          ) : isConnectionLoading ? (
+            <ActivityIndicator style={{ marginTop: 32 }} />
+          ) : !isConnected ? (
+            // favorites/watchHistory のクエリは未連携時に無効化されるため、
+            // 空リストのまま出さず連携誘導を出す
+            <AnnictSoftGate
+              description="マイリストの作品画像を使うには Annict との連携が必要です。連携するとお気に入りや視聴履歴の作品から画像を選べます。"
+              testID="anime-image-picker-library-soft-gate"
+            />
           ) : (
             <>
               <ScrollView

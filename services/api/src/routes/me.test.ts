@@ -499,6 +499,31 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(res.status).toBe(400);
     });
 
+    it("POST /me/meishi-assets: ユーザーの既存アセットが 200 件超なら 400", async () => {
+      const app = buildApp();
+      // 上限超過分だけ投入（limit は最大値+1 で確認するため 201 件）
+      await Promise.all(
+        Array.from({ length: 201 }, (_, i) =>
+          env.AVATARS.put(
+            `meishi-assets/${USER_ID}/fill-${i}.webp`,
+            new Uint8Array([i % 256]),
+          ),
+        ),
+      );
+
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
     it("POST /me/meishi-assets: 認証なしは 401", async () => {
       vi.mocked(getAuth).mockReturnValue(
         null as unknown as ReturnType<typeof getAuth>,

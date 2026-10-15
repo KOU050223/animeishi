@@ -61,9 +61,13 @@ export function useMeishiAssetUpload() {
         body: blob,
       });
       if (!res.ok) {
+        // API は { error } を返す（サイズ超過・非対応形式など）。拾える場合はその文言を見せる。
+        const errBody = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new ApiRequestError(
           res.status,
-          "画像のアップロードに失敗しました",
+          errBody?.error ?? "画像のアップロードに失敗しました",
         );
       }
       return (await res.json()) as { url: string };

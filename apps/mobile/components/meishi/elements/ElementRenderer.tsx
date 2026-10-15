@@ -248,11 +248,13 @@ function resolveCollageImages(
   ctx: MeishiRenderContext,
 ): string[] {
   const lists = ctx.animeLists;
-  if (el.listSource === "favorites") return lists?.favorites ?? [];
+  const legacy = ctx.animeCollageImages ?? [];
+  // animeLists を持たない古い呼び出し側では従来リストへフォールバックする
+  if (el.listSource === "favorites") return lists?.favorites ?? legacy;
   const state = el.state;
-  if (state && state !== "all") return lists?.byState[state] ?? [];
-  if (el.listSource === "watchHistory") return lists?.watchHistory ?? [];
-  return ctx.animeCollageImages ?? [];
+  if (state && state !== "all") return lists?.byState[state] ?? legacy;
+  if (el.listSource === "watchHistory") return lists?.watchHistory ?? legacy;
+  return legacy;
 }
 
 function AnimeCollageRender({

@@ -64,9 +64,9 @@ export default function MeishiEditScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addSheet, setAddSheet] = useState(false);
   // "new" = 新規画像要素として追加、それ以外の文字列 = 既存画像要素 id の差し替え
-  const [animePickerTarget, setAnimePickerTarget] = useState<
-    "new" | string | null
-  >(null);
+  const [animePickerTarget, setAnimePickerTarget] = useState<string | null>(
+    null,
+  );
   const [textSheet, setTextSheet] = useState(false);
   const [templatePicker, setTemplatePicker] = useState(false);
   const [initialTemplateShown, setInitialTemplateShown] = useState(false);

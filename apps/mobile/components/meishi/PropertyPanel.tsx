@@ -495,7 +495,7 @@ const COLLAGE_STATE_OPTIONS: { value: CollageStateFilter; label: string }[] = [
   { value: "WATCHED", label: "視聴済" },
   { value: "WANNA_WATCH", label: "視聴予定" },
   { value: "ON_HOLD", label: "一時停止" },
-  { value: "STOP_WATCHING", label: "視聴中止" },
+  { value: "STOP_WATCHING", label: "断念" },
 ];
 
 function sourceLabel(s: TextSource): string {

@@ -39,6 +39,9 @@ const AVATAR_PATH_PREFIX = "/me/profile/avatar/";
 const MEISHI_ASSET_MAX_BYTES = 500 * 1024;
 const MEISHI_ASSET_PATH_PREFIX = "/me/meishi-assets/";
 const MEISHI_ASSET_KEY_PREFIX = "meishi-assets/";
+// 要素削除・差し替えでオーファン化したオブジェクトも残るため、
+// ストレージが無制限に増えないよう 1 ユーザーあたりの件数に緩い上限を設ける。
+const MEISHI_ASSET_MAX_PER_USER = 200;
 
 /**
  * アバター配信 URL（または同形式のパス）から R2 オブジェクトキーを復元する。
@@ -53,8 +56,12 @@ function avatarKeyFromUrl(url: string | null | undefined): string | null {
     return null;
   }
   if (!pathname.startsWith(AVATAR_PATH_PREFIX)) return null;
-  const key = decodeURIComponent(pathname.slice(AVATAR_PATH_PREFIX.length));
-  return key.startsWith("avatars/") ? key : null;
+  try {
+    const key = decodeURIComponent(pathname.slice(AVATAR_PATH_PREFIX.length));
+    return key.startsWith("avatars/") ? key : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 名刺アセット配信パスから R2 オブジェクトキーを復元する。 */
@@ -67,10 +74,15 @@ function meishiAssetKeyFromUrl(url: string | null | undefined): string | null {
     return null;
   }
   if (!pathname.startsWith(MEISHI_ASSET_PATH_PREFIX)) return null;
-  const key = decodeURIComponent(
-    pathname.slice(MEISHI_ASSET_PATH_PREFIX.length),
-  );
-  return key.startsWith(MEISHI_ASSET_KEY_PREFIX) ? key : null;
+  try {
+    const key = decodeURIComponent(
+      pathname.slice(MEISHI_ASSET_PATH_PREFIX.length),
+    );
+    return key.startsWith(MEISHI_ASSET_KEY_PREFIX) ? key : null;
+  } catch {
+    // malformed なパーセントエンコードは URIError になるため 404 扱いに倒す
+    return null;
+  }
 }
 
 const me = new Hono<AuthVariables>()
@@ -213,10 +225,25 @@ const me = new Hono<AuthVariables>()
     }
 
     const userId = c.var.clerkUserId;
+    const bindings = getBindings(c);
+
+    // 件数の緩い上限。R2 list は strong consistent なので直前のアップロードも数える。
+    const listed = await bindings.AVATARS.list({
+      prefix: `meishi-assets/${userId}/`,
+      limit: MEISHI_ASSET_MAX_PER_USER + 1,
+    });
+    if (listed.objects.length > MEISHI_ASSET_MAX_PER_USER) {
+      return c.json(
+        {
+          error: `名刺画像のアップロード上限（${MEISHI_ASSET_MAX_PER_USER}件）に達しています`,
+        },
+        400,
+      );
+    }
+
     // 同一ミリ秒の連続アップロードでも衝突しないようランダムな接尾辞を付ける。
     const key = `meishi-assets/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
 
-    const bindings = getBindings(c);
     await bindings.AVATARS.put(key, body, {
       httpMetadata: { contentType: mimeType },
     });
