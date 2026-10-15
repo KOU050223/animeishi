@@ -7,6 +7,9 @@ import {
 /** アバター画像の最大辺の長さ（px）。これを超える画像は縮小される。 */
 export const AVATAR_MAX_DIMENSION = 512;
 
+/** 名刺アセット画像の最大辺の長さ（px）。名刺幅いっぱいに置いても粗くなりにくい 1024px。 */
+export const MEISHI_IMAGE_MAX_DIMENSION = 1024;
+
 export type ImageSize = { width: number; height: number };
 
 /**
@@ -46,4 +49,22 @@ export async function compressAvatarImage(
     .resize(size)
     .renderAsync()
     .then((image) => image.saveAsync({ format: SaveFormat.WEBP }));
+}
+
+/**
+ * 名刺の任意画像を最大 1024px の WebP に圧縮する。
+ * API（POST /me/meishi-assets）の上限 500KB に収めやすくするため
+ * compress: 0.8 を指定する（アバターは 512px のため既定値で足りていた）。
+ */
+export async function compressMeishiImage(
+  uri: string,
+  source: ImageSize,
+): Promise<ImageResult> {
+  const size = calcResizedSize(source, MEISHI_IMAGE_MAX_DIMENSION);
+  return ImageManipulator.manipulate(uri)
+    .resize(size)
+    .renderAsync()
+    .then((image) =>
+      image.saveAsync({ format: SaveFormat.WEBP, compress: 0.8 }),
+    );
 }

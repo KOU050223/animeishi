@@ -148,6 +148,12 @@ export default function ProfileScreen() {
         >
           <Text className="font-semibold text-white">再試行</Text>
         </TouchableOpacity>
+        {/* 連携の確認・解除の集約先として、プロフィール取得に失敗している間も
+            解除導線を残す（ホームにはカードを出さないため）。連携カードは
+            プロフィール取得とは独立したクエリで描画できる。 */}
+        <View className="mt-6 self-stretch">
+          <AnnictConnectionCard />
+        </View>
       </View>
     );
   }
@@ -310,6 +316,22 @@ export default function ProfileScreen() {
               accessibilityLabel="ブロック中のユーザーを開く"
             >
               <Text className="text-gray-900">ブロック中のユーザー</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="mt-8 px-4">
+          <Text className="mb-2 text-sm font-medium text-gray-700">
+            このアプリについて
+          </Text>
+          <View className="rounded-xl border border-gray-200 bg-white">
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/changelog")}
+              accessibilityRole="button"
+              accessibilityLabel="機能一覧・更新情報を開く"
+            >
+              <Text className="text-gray-900">機能一覧・更新情報</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -22,6 +22,10 @@ export { WATCH_HISTORY_QUERY_KEY };
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;
 
+// upsert ミューテーションのスコープ。同じスコープの mutation は
+// MutationCache が直列実行する（先の PUT が settle してから次が走る）。
+const WATCH_HISTORY_UPSERT_SCOPE = "watch-history-upsert";
+
 export const WATCH_STATUS_LABELS: Record<WatchHistoryItem["state"], string> = {
   WATCHING: "視聴中",
   WATCHED: "視聴済",
@@ -66,8 +70,15 @@ export function useWatchHistory() {
 export function useUpsertWatchHistory() {
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
+  const queryKey = userId
+    ? watchHistoryQueryKey(userId)
+    : WATCH_HISTORY_QUERY_KEY;
 
   return useMutation({
+    // 連続保存してもサーバーには操作順で適用される（応答順の入れ替わりで
+    // 古い選択が最終状態になるのを防ぐ）。スコープ待ちの間も onMutate は
+    // 先に走るため、楽観反映は即時のまま保たれる。
+    scope: { id: WATCH_HISTORY_UPSERT_SCOPE },
     mutationFn: async ({
       annictWorkId,
       data,
@@ -88,12 +99,53 @@ export function useUpsertWatchHistory() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: userId
-          ? watchHistoryQueryKey(userId)
-          : WATCH_HISTORY_QUERY_KEY,
+    // ステータス変更は Annict updateStatus を往復するため応答が遅い。
+    // API 完了を待たずキャッシュを先に書き換え（楽観的更新）、失敗時は
+    // ロールバックする。成否に関わらず onSettled でサーバーの正データを
+    // 取り直す（issue #166）。
+    onMutate: async ({ annictWorkId, data }) => {
+      await queryClient.cancelQueries({ queryKey });
+      // ロールバック用に対象作品の旧 state だけ記録する。リスト全体の
+      // スナップショットだと、別作品への連続編集中に片方が失敗した際に
+      // もう片方の楽観表示まで巻き戻してしまうため。
+      const previousState = queryClient
+        .getQueryData<WatchHistoriesResponse>(queryKey)
+        ?.find((item) => item.annictWorkId === annictWorkId)?.state;
+      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
+        old?.map((item) =>
+          item.annictWorkId === annictWorkId
+            ? { ...item, state: data.state }
+            : item,
+        ),
+      );
+      return { previousState };
+    },
+    onError: (_error, { annictWorkId, data }, context) => {
+      if (context?.previousState === undefined) return;
+      const previousState = context.previousState;
+      // 自分が書いた楽観値のまま残っている時だけ巻き戻す。同じ作品へ後続の
+      // 更新が乗っている場合はそちらに委ねる（巻き戻すと新しい意図を消す）。
+      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
+        old?.map((item) =>
+          item.annictWorkId === annictWorkId && item.state === data.state
+            ? { ...item, state: previousState }
+            : item,
+        ),
+      );
+    },
+    onSettled: () => {
+      // 他の upsert が残っている間は再取得しない。残っている間に refetch
+      // するとまだ PUT 未反映のサーバー状態でキャッシュ全体が上書きされ、
+      // 別作品の楽観値が一瞬巻き戻る。onSettled は自身の status が
+      // pending→settled に遷移する前に呼ばれるため、自分を含めて 1 件
+      // 以下なら「自分が最後」として invalidate する。
+      const pendingUpserts = queryClient.isMutating({
+        predicate: (mutation) =>
+          mutation.options.scope?.id === WATCH_HISTORY_UPSERT_SCOPE,
       });
+      if (pendingUpserts <= 1) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
     },
   });
 }

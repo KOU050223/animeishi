@@ -9,6 +9,7 @@ import {
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import type {
   CollageSort,
+  CollageStateFilter,
   CountMetric,
   FontFamily,
   FontStyle,
@@ -33,6 +34,8 @@ type Props = {
   onDuplicate: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  /** 画像要素の差し替え（issue #96: アニメ検索/端末アップロード） */
+  onReplaceImage?: (kind: "anime" | "upload") => void;
 };
 
 /**
@@ -228,11 +231,25 @@ function renderEditor(props: Props) {
             <Text style={{ color: "#6b7280", fontSize: 12 }}>
               {element.source === "avatar"
                 ? "プロフィール画像を表示"
-                : element.uri
-                  ? "URL 設定済み"
-                  : "URLは追加時に指定"}
+                : element.source === "anime"
+                  ? "アニメ画像"
+                  : element.uri
+                    ? "アップロード済み"
+                    : "URLは追加時に指定"}
             </Text>
           </Row>
+          {props.onReplaceImage ? (
+            <Row label="差し替え">
+              <ImagePickButton
+                label="アニメから選ぶ"
+                onPress={() => props.onReplaceImage?.("anime")}
+              />
+              <ImagePickButton
+                label="端末から選ぶ"
+                onPress={() => props.onReplaceImage?.("upload")}
+              />
+            </Row>
+          ) : null}
         </>
       );
 
@@ -382,6 +399,39 @@ function renderEditor(props: Props) {
               }
             />
           </Row>
+          <Row label="リスト">
+            <SegmentedControl
+              options={[
+                { value: "auto", label: "自動" },
+                { value: "watchHistory", label: "視聴履歴" },
+                { value: "favorites", label: "お気に入り" },
+              ]}
+              value={element.listSource ?? "auto"}
+              onChange={(v) => {
+                if (v === "auto") {
+                  onChange({ listSource: undefined });
+                } else if (v === "favorites") {
+                  // お気に入りにステータスは無いので、残っていると復活してしまう値を消す
+                  onChange({ listSource: "favorites", state: undefined });
+                } else {
+                  onChange({ listSource: "watchHistory" });
+                }
+              }}
+            />
+          </Row>
+          {element.listSource !== "favorites" ? (
+            <Row label="ステータス">
+              <SegmentedControl
+                options={COLLAGE_STATE_OPTIONS}
+                value={element.state ?? "all"}
+                onChange={(v) =>
+                  onChange({
+                    state: v === "all" ? undefined : v,
+                  } as Partial<MeishiElement>)
+                }
+              />
+            </Row>
+          ) : null}
         </>
       );
 
@@ -435,6 +485,17 @@ const SOURCES: { value: TextSource; label: string }[] = [
   { value: "username", label: "名前" },
   { value: "bio", label: "紹介" },
   { value: "favoriteQuote", label: "セリフ" },
+];
+
+// Annict の視聴ステータス（useWatchHistory の WATCH_STATUS_LABELS と同じ並び）。
+// コラージュ要素の絞り込み用に「すべて」を先頭へ足したもの。
+const COLLAGE_STATE_OPTIONS: { value: CollageStateFilter; label: string }[] = [
+  { value: "all", label: "すべて" },
+  { value: "WATCHING", label: "視聴中" },
+  { value: "WATCHED", label: "視聴済" },
+  { value: "WANNA_WATCH", label: "視聴予定" },
+  { value: "ON_HOLD", label: "一時停止" },
+  { value: "STOP_WATCHING", label: "断念" },
 ];
 
 function sourceLabel(s: TextSource): string {
@@ -608,6 +669,32 @@ function ColorGrid({
         />
       ))}
     </ScrollView>
+  );
+}
+
+function ImagePickButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: "#f3f4f6",
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+      }}
+    >
+      <Text style={{ fontSize: 12, color: "#111827" }}>{label}</Text>
+    </Pressable>
   );
 }
 

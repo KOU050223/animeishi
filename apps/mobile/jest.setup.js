@@ -71,3 +71,16 @@ Object.defineProperty(navigator, "languages", {
 
 // 実際の翻訳でアサートできるよう、テスト全体で i18n を初期化しておく。
 require("@/lib/i18n");
+
+// react-test-renderer は初回 render 時に Reconciler と RN のビュー設定を
+// 遅延初期化するため、テストファイル内の最初の render だけが数秒かかる
+// （issue #41: CI の遅いランナーでは 5 秒のデフォルトタイムアウトを超えた。
+// ローカル実測でウォームアップ前の初回 render は約 3.5〜4 秒）。
+// setup ファイルはテストのタイムアウト計測に含まれないため、ここで一度
+// 描画して初期化コストを各テストの計測時間から外す。
+{
+  const { render } = require("@testing-library/react-native");
+  const { createElement } = require("react");
+  const { View } = require("react-native");
+  render(createElement(View)).unmount();
+}

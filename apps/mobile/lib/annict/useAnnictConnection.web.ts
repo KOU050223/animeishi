@@ -11,7 +11,7 @@ import { type UseAnnictConnection } from "./useAnnictConnection";
  * `GET /me/annict` の connected を判定に使う。Clerk 認証が前提。
  */
 export function useAnnictConnection(): UseAnnictConnection {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
 
   const query = useQuery({
     // userId を含めて別ユーザーとキャッシュを分離する。同一ブラウザで別アカウントに
@@ -34,7 +34,10 @@ export function useAnnictConnection(): UseAnnictConnection {
   return {
     // サインイン中かつクエリが connected を返したときだけ true。
     isConnected: (!!isSignedIn && query.data?.connected) ?? false,
-    isLoading: query.isLoading,
+    // Clerk のセッション復元中（isLoaded=false）はクエリが disabled で
+    // query.isLoading が立たない。連携状態が未確定の間もロード中として返し、
+    // 呼び出し側が「未連携」と誤表示しないようにする。
+    isLoading: !isLoaded || query.isLoading,
     refetch: query.refetch,
   };
 }

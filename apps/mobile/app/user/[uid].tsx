@@ -75,31 +75,34 @@ export default function PublicProfilePage() {
   // （両方とも認証必須の API のため）。
   const canModerate = !!data && !!isSignedIn && userId !== uid;
 
+  function runBlock() {
+    if (!uid) return;
+    blockUser.mutate(uid, {
+      onSuccess: () => {
+        alert(
+          "ブロックしました",
+          "ブロック一覧はプロフィール画面から確認できます",
+          {
+            okLabel: "OK",
+          },
+        );
+      },
+      onError: (e) => {
+        alert(
+          "ブロックできませんでした",
+          e instanceof Error ? e.message : "ブロックに失敗しました",
+          { okLabel: "OK" },
+        );
+      },
+    });
+  }
+
   function onPressBlock() {
     if (!data || !uid) return;
     confirm(
       "このユーザーをブロック",
       `「${data.username}」をブロックしますか？\nフレンド関係は解除され、お互いの名刺が見えなくなります。`,
-      () => {
-        blockUser.mutate(uid, {
-          onSuccess: () => {
-            alert(
-              "ブロックしました",
-              "ブロック一覧はプロフィール画面から確認できます",
-              {
-                okLabel: "OK",
-              },
-            );
-          },
-          onError: (e) => {
-            alert(
-              "ブロックできませんでした",
-              e instanceof Error ? e.message : "ブロックに失敗しました",
-              { okLabel: "OK" },
-            );
-          },
-        });
-      },
+      runBlock,
       {
         confirmLabel: "ブロック",
         cancelLabel: "キャンセル",
@@ -115,10 +118,16 @@ export default function PublicProfilePage() {
       {
         onSuccess: () => {
           setReportSheetVisible(false);
-          alert(
+          // 通報に続けてブロックを提案する（issue #148）。
+          confirm(
             "通報を受け付けました",
-            "ご報告ありがとうございます。運営が内容を確認します。",
-            { okLabel: "OK" },
+            `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${data?.username ?? "このユーザー"}」をブロックしますか？`,
+            runBlock,
+            {
+              confirmLabel: "ブロックする",
+              cancelLabel: "しない",
+              destructive: true,
+            },
           );
         },
         onError: (e) => {

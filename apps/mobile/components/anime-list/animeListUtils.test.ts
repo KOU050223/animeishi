@@ -1,6 +1,7 @@
 import {
   SEASON_KEYS,
   SEASON_PICKER_MIN_YEAR,
+  adjacentSeasonParams,
   currentSeason,
   maxSelectableSeason,
   seasonPickerYears,
@@ -100,5 +101,38 @@ describe("selectableSeasonKeys", () => {
 
   it("上限年より未来は選べない", () => {
     expect(selectableSeasonKeys(2028, now)).toEqual([]);
+  });
+});
+
+describe("adjacentSeasonParams", () => {
+  // 2026 秋（10 月）。選択上限は 2027 春。
+  const now = new Date(2026, 9, 15);
+
+  it("前後のシーズンを season 文字列で返す", () => {
+    expect(adjacentSeasonParams(2026, "summer", now)).toEqual([
+      "2026-spring",
+      "2026-autumn",
+    ]);
+  });
+
+  it("年をまたぐ前後シーズンも正しく組み立てる", () => {
+    expect(adjacentSeasonParams(2026, "winter", now)).toEqual([
+      "2025-autumn",
+      "2026-spring",
+    ]);
+    expect(adjacentSeasonParams(2026, "autumn", now)).toEqual([
+      "2026-summer",
+      "2027-winter",
+    ]);
+  });
+
+  it("選択上限（今期+2）にいるときは次シーズンを含めない", () => {
+    // 上限は 2027 春。2027 春の次 = 2027 夏は選べないため前期のみ。
+    expect(adjacentSeasonParams(2027, "spring", now)).toEqual(["2027-winter"]);
+  });
+
+  it("アーカイブ下限年の冬では前シーズンを含めない", () => {
+    // 1890 冬の前 = 1889 秋は SEASON_PICKER_MIN_YEAR を下回るため次のみ。
+    expect(adjacentSeasonParams(1890, "winter", now)).toEqual(["1890-spring"]);
   });
 });
