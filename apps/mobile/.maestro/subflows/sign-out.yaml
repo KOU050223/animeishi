@@ -1,0 +1,16 @@
+# ホーム → サインアウト → サインイン画面、までの部品。
+appId: com.animeishi.app
+---
+# 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
+- scrollUntilVisible:
+    element:
+      id: sign-out-button
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: sign-out-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000

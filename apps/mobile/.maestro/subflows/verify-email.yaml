@@ -1,0 +1,11 @@
+# メール認証コード入力（Clerk テストモードの固定コード 424242）。
+# sign-up.yaml から verification-code-input が見えた時だけ呼ばれる。
+appId: com.animeishi.app
+---
+- tapOn:
+    id: verification-code-input
+    retryTapIfNoChange: false
+- inputText: "424242"
+- tapOn:
+    id: verify-button
+    retryTapIfNoChange: false

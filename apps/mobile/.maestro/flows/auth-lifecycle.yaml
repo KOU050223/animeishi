@@ -1,0 +1,68 @@
+# 認証ライフサイクル E2E（issue #42 第1弾スコープ）。
+# Clerk 開発インスタンス (pk_test) + `+clerk_test` メール + 固定コード 424242 で
+# サインアップ → ホーム → サインアウト → サインイン → アカウント削除までを通す。
+#
+# 前提:
+#   - localhost:8787 で API (wrangler dev) が起動していること
+#     （アカウント削除は DELETE /me を呼ぶため）
+#   - EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY に pk_test が埋め込まれた
+#     シミュレータービルドであること（task e2e:ios が面倒を見る）
+appId: com.animeishi.app
+---
+# 毎回ユニークなテストユーザーを生成する。
+# メールは +clerk_test サフィックスで Clerk テストモード（OTP 424242）が有効になる。
+# username は 2〜20 文字・英数字等（lib/validators.ts 参照）。
+# password は英字+数字で 8 文字以上。
+- evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
+- evalScript: ${output.username = 'e2e' + Date.now()}
+- evalScript: ${output.password = 'E2e' + Date.now() + 'x'}
+
+# clearState だけでは Keychain（Clerk セッションの SecureStore）が残るため
+# clearKeychain も併せて指定して完全に未認証状態から開始する。
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# 未認証なら AuthGuard が /(auth)/sign-in へ飛ばす
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000
+
+- runFlow:
+    file: ../subflows/sign-up.yaml
+    env:
+      EMAIL: ${output.email}
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+
+# ホーム到達を確認
+- extendedWaitUntil:
+    visible:
+      id: home-open-qr
+    timeout: 30000
+
+- runFlow:
+    file: ../subflows/sign-out.yaml
+
+# 同じユーザーでサインインし直す
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.email}
+      PASSWORD: ${output.password}
+
+- extendedWaitUntil:
+    visible:
+      id: home-open-qr
+    timeout: 30000
+
+# プロフィールからアカウント削除（後片付けを兼ねる）
+- runFlow:
+    file: ../subflows/delete-account.yaml
+
+# サインアウトされてサインイン画面に戻ること
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000

@@ -91,6 +91,7 @@ export default function TabsLayout() {
         options={{
           title: "プロフ",
           tabBarAccessibilityLabel: "プロフィールタブ",
+          tabBarButtonTestID: "profile-tab-button",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

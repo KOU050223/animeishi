@@ -26,6 +26,7 @@ task <タスク名>
 > 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
 * dev:api:                Cloudflare Workers API を起動 (wrangler dev)
 * dev:mobile:             Expo モバイルアプリを起動
+* e2e:ios:                iOS シミュレーターで Maestro E2E を実行
 ```
 
 > wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
@@ -50,6 +51,65 @@ nix develop --command task setup   # 初回セットアップ（pnpm install + l
 nix develop --command task test    # テスト
 nix develop --command task lint    # Lint
 ```
+
+## E2E テスト（Maestro / iOS シミュレーター）
+
+Maestro による E2E を `apps/mobile/.maestro/` に置く。
+第 1 弾の対象は認証ライフサイクル（サインアップ→ホーム→サインアウト→
+サインイン→アカウント削除）で、`flows/auth-lifecycle.yaml` がエントリポイント。
+`subflows/` は `runFlow` から呼ばれる部品なので直接実行しない。
+
+```bash
+task e2e:ios
+```
+
+`task e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
+
+1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
+   （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
+   他作業者のシミュレーターと衝突しない）
+2. `ios/` が無ければ `expo prebuild -p ios`
+3. `xcodebuild -configuration Release -sdk iphonesimulator` で Release 相当ビルド
+   （成果物: `ios/build/e2e-dd/Build/Products/Release-iphonesimulator/Animeishi.app`）
+   - 署名は `CODE_SIGN_IDENTITY="-"`（ad-hoc）にする。
+     `CODE_SIGNING_ALLOWED=NO` にすると entitlements がバイナリに埋め込まれず
+     Keychain（expo-secure-store で Clerk のセッション保存に使用）が
+     `SecError -34018` で失敗し、`signUp.create` が `status:null` の
+     空リソースを返してサインアップが進まなくなる
+4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行
+
+### 前提
+
+- maestro CLI: `brew install mobile-dev-inc/tap/maestro`（JDK も必要）
+- Xcode + iOS シミュレーターランタイム
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
+  GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
+  未設定なら `apps/mobile/.env` を読む。pk_live はスクリプトが拒否する
+- `EXPO_PUBLIC_API_URL`: 既定 `http://localhost:8787`。
+  API（wrangler dev）が未起動ならスクリプトが起動し、終了時に停止する。
+  アカウント削除は `DELETE /me` を叩くため API が必須（`services/api/.dev.vars`
+  に開発インスタンスの `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` が要る）
+- ローカル D1 マイグレーション済みであること（`task db:migrate:local`。
+  スクリプトが API 起動時に適用するが、API 常駐派は事前に回しておく）
+
+Clerk 認証は dev インスタンスのテストモードを使う。毎回ユニークな
+`e2e<ts>+clerk_test@example.com` でサインアップする。メール認証が求められた
+場合は固定コード `424242` で通すが、test_mode の `+clerk_test` では認証が
+自動スキップされ `status=complete` でホーム直行することもあるため、
+`subflows/sign-up.yaml` は `verification-code-input` が出た時だけ
+`subflows/verify-email.yaml` でコード入力する分岐になっている。
+最後にアカウント削除まで行うため Clerk 側にゴミは残らない
+（削除失敗時のみ dev ダッシュボードから手動削除する）。
+
+便利な環境変数:
+
+- `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
+- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
+
+> Nix devShell 内で xcodebuild を呼ぶと toolchain 変数（`CC` `SDKROOT`
+> `DEVELOPER_DIR` `NIX_*` 等）がネイティブビルドを壊す。e2e-ios.sh は全コマンドを
+> `env -u ...` と `PATH=/usr/bin:/bin:...` 経由で実行するため、devShell 内外どちらでも動く。
+> 手動で xcodebuild / pod / simctl を叩くときも同じ unset が必要。
 
 ## プラットフォーム差異の吸収（Web / iOS / Android）
 
