@@ -7,9 +7,9 @@ import { fetchWorksSearchPage, seasonWorksQueryKey } from "@/lib/useAnimeList";
 import type { TierWork } from "./types";
 
 // 画像未解決の作品が残っている間の再取得間隔と上限。
-// サーバ側は検索ごとに未解決分を Queue 投入して非同期で resolvedImageUrl を
-// 埋める（issue #86/#99）。AniList で取れなかった分は Jikan リトライになるため
-// 初回レスポンスに間に合わず、解決済み URL を拾うには再取得が要る（issue #108）。
+// サーバ側は検索時の AniList 同期解決と cron の Jikan リトライで
+// resolvedImageUrl を非同期に埋める（issue #86/#99/#127）。初回レスポンスに
+// 間に合わず、解決済み URL を拾うには再取得が要る（issue #108）。
 // malAnimeId を持たない等で永久に解決しない作品もあるため回数上限を設ける。
 const IMAGE_RESOLVE_REFETCH_INTERVAL_MS = 5_000;
 const IMAGE_RESOLVE_REFETCH_MAX_ATTEMPTS = 6;
@@ -61,6 +61,7 @@ export function useSeasonWorks(season: string) {
           title: w.title,
           imageUrl: w.imageUrl,
           resolvedImageUrl: w.resolvedImageUrl,
+          hostedImageUrl: w.hostedImageUrl,
         })),
       ),
     [query.data],

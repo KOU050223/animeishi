@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 
 // 作品の小さめサムネイル（視聴履歴 / お気に入り一覧などで使う）。
 // AnimePoster は検索一覧のフルサイズ用に幅・スタイルが固定されているため、
@@ -21,13 +20,8 @@ export function WorkThumbnail({
   height?: number;
   radius?: number;
 }) {
-  const uri = pickImageUrl(item);
-  const [failed, setFailed] = useState(false);
-
-  // 別作品に切り替わったときは失敗フラグをリセットする。
-  useEffect(() => {
-    setFailed(false);
-  }, [uri]);
+  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  const { uri, onError } = useImageUrlWithFallback(item);
 
   const containerStyle = {
     width,
@@ -35,13 +29,13 @@ export function WorkThumbnail({
     borderRadius: radius,
   };
 
-  if (uri && !failed) {
+  if (uri) {
     return (
       <Image
         source={{ uri }}
         style={[containerStyle, { backgroundColor: "#e5e7eb" }]}
         resizeMode="cover"
-        onError={() => setFailed(true)}
+        onError={onError}
       />
     );
   }

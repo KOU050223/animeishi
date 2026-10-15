@@ -8,7 +8,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 import type { TierWork } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
 
@@ -85,7 +85,8 @@ export function DraggableWorkCard({
   // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
   const compensationFolded = useSharedValue(false);
 
-  const uri = pickImageUrl(work);
+  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  const { uri, onError: onImageError } = useImageUrlWithFallback(work);
 
   const pan = useMemo(
     () =>
@@ -210,6 +211,7 @@ export function DraggableWorkCard({
             source={{ uri }}
             style={styles.cardImage}
             resizeMode="cover"
+            onError={onImageError}
             accessibilityLabel={`${work.title}のサムネイル`}
           />
         ) : (

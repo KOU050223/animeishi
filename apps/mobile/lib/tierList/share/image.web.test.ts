@@ -10,6 +10,7 @@ import {
   shareImageFile,
   shareTierListImage,
 } from "./image.web";
+import { apiUrl } from "@/lib/apiUrl";
 
 // toPng 自体はブラウザ依存（canvas）なのでモックし、dataURL を返すだけにする。
 const mockToPng = jest.fn();
@@ -139,6 +140,16 @@ describe("shareTierListImage (web)", () => {
     const node = target.current as unknown as HTMLElement;
     await shareTierListImage(target, { dialogTitle: "t" });
     expect(node.querySelector("img")!.src).toBe(dataSrc);
+  });
+
+  it("API 配信の取り込み済み画像（/images/...）はプロキシに差し替えない", async () => {
+    // R2 自前配信 URL は CORS 付きなので html-to-image がそのまま fetch できる。
+    // image-proxy に通すと known-URL 照合で 403 になるため差し替えない（issue #174）。
+    const hostedSrc = `${apiUrl}/images/works/1/abc12345.png`;
+    const target = buildTarget(`<img src="${hostedSrc}" />`);
+    const node = target.current as unknown as HTMLElement;
+    await shareTierListImage(target, { dialogTitle: "t" });
+    expect(node.querySelector("img")!.src).toBe(hostedSrc);
   });
 
   it("共有シートをユーザーが閉じた（AbortError）場合は完了扱いにする", async () => {

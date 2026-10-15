@@ -1,8 +1,10 @@
 import {
   and,
+  asc,
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   lt,
   notExists,
@@ -125,6 +127,9 @@ type AnnictWorkMeta = {
   resolvedImageUrl: string | null;
   // 'annict' | 'anilist' | 'jikan' | 'none' | null。運用調査用に露出する。
   imageSource: string | null;
+  // R2 に取り込み済みの作品画像キー（issue #174）。ルート層が
+  // GET /images/<key> の配信 URL に変換してクライアントへ返す。
+  imageR2Key: string | null;
 };
 
 /** 視聴履歴の 1 件（作品メタを含む）。 */
@@ -205,9 +210,9 @@ function annictWorkConflictSet() {
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 13 カラム（malAnimeId / resolvedImageUrl / imageSource /
-// resolvedAt 追加）なので 7 行 × 13 = 91 変数 < 100。
-const ANNICT_WORK_UPSERT_CHUNK = 7;
+// annict_works は 16 カラム（R2 取り込み管理の 2 カラム追加後）なので
+// 6 行 × 16 = 96 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+const ANNICT_WORK_UPSERT_CHUNK = 6;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
 // statement になるため、往復回数と batch サイズのバランスで区切る。
@@ -664,6 +669,91 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       );
     },
 
+    /**
+     * cron の作品画像 R2 取り込み（issue #174）対象候補を取得する。
+     * 対象は「今期・来期シーズンで、取り込み元にできる画像 URL を
+     * 何かしら持つ行」のうち、最終試行（image_r2_attempted_at）から
+     * クールダウンが経過したもの。
+     *
+     * ORDER BY は試行時刻昇順（SQLite では NULL が先頭に来るため未試行が優先）。
+     * これにより「取り込み済みで試行時刻だけ古い行」を確認して回っても
+     * 未取り込みの行が飢餓しない（未取り込みは常に先頭側に残る）。
+     */
+    async getImagePrefetchTargets(
+      seasons: string[],
+      attemptedStaleBefore: Date,
+      limit: number,
+    ): Promise<
+      {
+        annictWorkId: number;
+        imageUrl: string | null;
+        resolvedImageUrl: string | null;
+        imageR2Key: string | null;
+      }[]
+    > {
+      const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 200));
+      if (safeLimit === 0 || seasons.length === 0) return [];
+      return db
+        .select({
+          annictWorkId: annictWorks.annictWorkId,
+          imageUrl: annictWorks.imageUrl,
+          resolvedImageUrl: annictWorks.resolvedImageUrl,
+          imageR2Key: annictWorks.imageR2Key,
+        })
+        .from(annictWorks)
+        .where(
+          and(
+            inArray(annictWorks.seasonName, seasons),
+            or(
+              isNotNull(annictWorks.imageUrl),
+              isNotNull(annictWorks.resolvedImageUrl),
+              // 取り込み済みの行はソース URL が消えていても走査し、
+              // 残った R2 画像を掃除する（Devin Review 指摘）。
+              isNotNull(annictWorks.imageR2Key),
+            ),
+            or(
+              isNull(annictWorks.imageR2AttemptedAt),
+              lt(annictWorks.imageR2AttemptedAt, attemptedStaleBefore),
+            ),
+          ),
+        )
+        .orderBy(asc(annictWorks.imageR2AttemptedAt))
+        .limit(safeLimit);
+    },
+
+    /**
+     * 作品画像の R2 キーを確定する（取り込み成功時）。
+     * null を渡すとキーを消去する（ソース消失時の掃除用）。
+     * attemptedAt も同時に立ててクールダウン対象にする。
+     */
+    async updateImageR2Key(
+      annictWorkId: number,
+      key: string | null,
+      attemptedAt: Date,
+    ): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({ imageR2Key: key, imageR2AttemptedAt: attemptedAt })
+        .where(eq(annictWorks.annictWorkId, annictWorkId));
+    },
+
+    /**
+     * 画像の R2 取り込みを試行（確認）した作品に最終試行時刻を立てる。
+     * markImageFallbackAttempted と同じく D1 バインド上限対策で 90 件分割。
+     */
+    async markImagePrefetchAttempted(
+      annictWorkIds: number[],
+      at: Date,
+    ): Promise<void> {
+      for (let i = 0; i < annictWorkIds.length; i += 90) {
+        const chunk = annictWorkIds.slice(i, i + 90);
+        await db
+          .update(annictWorks)
+          .set({ imageR2AttemptedAt: at })
+          .where(inArray(annictWorks.annictWorkId, chunk));
+      }
+    },
+
     // ---- Watch History ----
     async getMyWatchHistory(): Promise<WatchHistoryWithWork[]> {
       return db
@@ -681,6 +771,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           imageUrl: annictWorks.imageUrl,
           resolvedImageUrl: annictWorks.resolvedImageUrl,
           imageSource: annictWorks.imageSource,
+          imageR2Key: annictWorks.imageR2Key,
         })
         .from(watchHistory)
         .innerJoin(
@@ -838,6 +929,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           imageUrl: annictWorks.imageUrl,
           resolvedImageUrl: annictWorks.resolvedImageUrl,
           imageSource: annictWorks.imageSource,
+          imageR2Key: annictWorks.imageR2Key,
         })
         .from(watchHistory)
         .innerJoin(
@@ -875,6 +967,7 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           imageUrl: annictWorks.imageUrl,
           resolvedImageUrl: annictWorks.resolvedImageUrl,
           imageSource: annictWorks.imageSource,
+          imageR2Key: annictWorks.imageR2Key,
         })
         .from(favorites)
         .innerJoin(
