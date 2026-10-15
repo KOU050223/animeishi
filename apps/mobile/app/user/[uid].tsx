@@ -174,7 +174,7 @@ export default function PublicProfilePage() {
           {data.profileImageUrl ? (
             <Image
               source={{ uri: data.profileImageUrl }}
-              className="w-24 h-24 rounded-full"
+              className="w-24 h-24 rounded-full bg-gray-200 dark:bg-slate-700"
               accessibilityLabel={`${data.username}のアイコン`}
             />
           ) : (
