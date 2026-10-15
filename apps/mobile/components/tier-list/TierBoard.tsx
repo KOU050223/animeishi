@@ -7,6 +7,7 @@ import {
 import { DropZone } from "./DropZone";
 import { useDropZoneRegistry } from "./dropZones";
 import { TierLabelEditSheet } from "./TierLabelEditSheet";
+import { WorkAddSheet } from "./WorkAddSheet";
 import { styles } from "./tierListStyles";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import { unassignedWorks, worksInTier } from "@/lib/tierList/board";
@@ -22,8 +23,14 @@ export type TierBoardProps = {
   /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
   onRenameTier: (tierKey: string, label: string) => void;
   /**
-   * tier 名の編集を受け付けるか。false の間はラベルのタップを無効化し、
-   * 編集シートを開けない（共有処理中など、編集が捨てられる局面で使う）。
+   * 検索シートで選ばれた作品を未分類トレイへ追加するとき。
+   * 呼び出し側で works に追加する（既にある id は無視する想定）。
+   */
+  onAddWork: (work: TierWork) => void;
+  /**
+   * 盤面の編集（tier 名・作品の追加）を受け付けるか。false の間は
+   * ラベルのタップと＋ボタンを無効化し、開いているシートも閉じる
+   * （共有処理中など、編集が捨てられる局面で使う）。
    */
   labelsEditable: boolean;
 };
@@ -41,6 +48,7 @@ export function TierBoard({
   assignment,
   onAssign,
   onRenameTier,
+  onAddWork,
   labelsEditable,
 }: TierBoardProps) {
   const registry = useDropZoneRegistry();
@@ -52,11 +60,16 @@ export function TierBoard({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   // 名前編集中の tier。null のとき編集シートは閉じている。
   const [editingTier, setEditingTier] = useState<TierRow | null>(null);
+  // 作品追加の検索シートが開いているか。
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
 
   // 編集不可（共有処理中など）になったら開いているシートも閉じる。
   // 開きっぱなしにすると、確定しても捨てられる入力を残してしまう。
   useEffect(() => {
-    if (!labelsEditable) setEditingTier(null);
+    if (!labelsEditable) {
+      setEditingTier(null);
+      setAddSheetOpen(false);
+    }
   }, [labelsEditable]);
 
   const handleDragMove = useCallback(
@@ -128,6 +141,11 @@ export function TierBoard({
   );
 
   const tray = unassignedWorks(works, assignment);
+  // 追加シートの「追加済み」判定用。盤面に載っている作品は再追加させない。
+  const existingWorkIds = useMemo(
+    () => new Set(works.map((w) => w.annictWorkId)),
+    [works],
+  );
 
   // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
   // カード自身が付ける zIndex は同じ DropZone 内の兄弟にしか効かず、
@@ -208,9 +226,27 @@ export function TierBoard({
         })}
       </View>
 
-      <Text style={styles.trayHeader}>
-        {UNASSIGNED_LABEL}（{tray.length}）
-      </Text>
+      <View style={styles.trayHeaderRow}>
+        <Text style={styles.trayHeader}>
+          {UNASSIGNED_LABEL}（{tray.length}）
+        </Text>
+        {/* シーズン候補に載らない作品を検索で追加する入口（issue #168）。
+            編集ロック中（共有処理中など）は無効化する。 */}
+        <TouchableOpacity
+          style={[
+            styles.trayAddButton,
+            !labelsEditable && styles.trayAddButtonDisabled,
+          ]}
+          onPress={() => setAddSheetOpen(true)}
+          disabled={!labelsEditable}
+          accessibilityRole="button"
+          accessibilityLabel="作品を検索して追加"
+          accessibilityState={{ disabled: !labelsEditable }}
+          testID="tier-tray-add"
+        >
+          <Text style={styles.trayAddButtonText}>＋ 追加</Text>
+        </TouchableOpacity>
+      </View>
       <DropZone
         zoneKey={null}
         registry={registry}
@@ -222,7 +258,11 @@ export function TierBoard({
         testID="tier-tray"
       >
         {tray.length === 0 ? (
-          <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
+          <Text style={styles.trayEmpty}>
+            {works.length === 0
+              ? "シーズンの候補がありません。＋から作品を追加できます"
+              : "すべての作品を配置しました"}
+          </Text>
         ) : (
           tray.map((work) => renderCard(work, null))
         )}
@@ -235,6 +275,12 @@ export function TierBoard({
         onSubmit={(value) => {
           if (editing) onRenameTier(editing.key, value);
         }}
+      />
+      <WorkAddSheet
+        visible={addSheetOpen}
+        onClose={() => setAddSheetOpen(false)}
+        onAdd={onAddWork}
+        existingWorkIds={existingWorkIds}
       />
     </ScrollView>
   );

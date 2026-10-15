@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -31,7 +31,7 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
-import type { TierAssignment, TierRow } from "@/lib/tierList/types";
+import type { TierAssignment, TierRow, TierWork } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
 import {
   useSavedTierList,
@@ -73,6 +73,11 @@ export default function TierListScreen() {
 
   const [tiers, setTiers] = useState<TierRow[]>(DEFAULT_TIERS);
   const [assignment, setAssignment] = useState<TierAssignment>(new Map());
+  // ＋ボタンの検索シートから手動追加した作品（issue #168）。
+  // シーズン候補（works）に載らない作品を未分類トレイへ並べるための追加枠。
+  // 未配置のままでは保存対象にならずリロードで消えるので、シーズン切替時に
+  // まとめてクリアする。
+  const [manualWorks, setManualWorks] = useState<TierWork[]>([]);
   const [title, setTitle] = useState(() => defaultTierListTitle(season));
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
@@ -110,6 +115,31 @@ export default function TierListScreen() {
     setIsDirty(false);
   }, [saved, isSavedLoading, season, isDirty]);
 
+  // 盤面に並べる作品集合。シーズン候補（works）を本体に、2 種類を補完する:
+  // - 保存済み items のうちシーズン外の作品。過去に手動追加→配置→保存した
+  //   作品は season 検索に出ないので、works だけでは worksInTier が
+  //   作品を引けず「配置済みなのに描画されない」状態になる。
+  // - manualWorks（今回手動追加した作品。未配置のものも含む）。
+  // 同一 annictWorkId の重複は先に入った方を優先して潰す。
+  const boardWorks = useMemo<TierWork[]>(() => {
+    const byId = new Map<number, TierWork>();
+    for (const w of works) byId.set(w.annictWorkId, w);
+    for (const item of saved?.items ?? []) {
+      if (!byId.has(item.annictWorkId)) {
+        byId.set(item.annictWorkId, {
+          annictWorkId: item.annictWorkId,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          resolvedImageUrl: item.resolvedImageUrl,
+        });
+      }
+    }
+    for (const w of manualWorks) {
+      if (!byId.has(w.annictWorkId)) byId.set(w.annictWorkId, w);
+    }
+    return [...byId.values()];
+  }, [works, saved, manualWorks]);
+
   const handleAssign = useCallback(
     (annictWorkId: number, tierKey: string | null) => {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
@@ -120,6 +150,20 @@ export default function TierListScreen() {
       setIsDirty(true);
     },
     [isSharing],
+  );
+
+  // 検索シートから選ばれた作品を未分類トレイ（works 側）へ追加する。
+  // 追加だけでは保存 items に載らないため、配置までが一連の編集になる。
+  const handleAddWork = useCallback(
+    (work: TierWork) => {
+      // ドロップと同じく、共有中（保存→トークン発行の直列処理中）の編集は
+      // 受け付けない。
+      if (isSharing) return;
+      if (manualWorks.some((w) => w.annictWorkId === work.annictWorkId)) return;
+      setManualWorks((prev) => [...prev, work]);
+      setIsDirty(true);
+    },
+    [isSharing, manualWorks],
   );
 
   const handleRenameTier = useCallback(
@@ -194,6 +238,8 @@ export default function TierListScreen() {
       confirmIfDirty(() => {
         setYear(nextYear);
         setSeasonKey(nextSeasonKey);
+        // 手動追加はシーズン単位の編集なので、切替先へ持ち越さない。
+        setManualWorks([]);
       });
     },
     [confirmIfDirty, isSharing, year, seasonKey],
@@ -438,19 +484,16 @@ export default function TierListScreen() {
           <ActivityIndicator color="#9ca3af" />
           <Text style={styles.centeredText}>シーズンの作品を集めています</Text>
         </View>
-      ) : works.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.centeredText}>
-            このシーズンの作品が見つかりませんでした
-          </Text>
-        </View>
       ) : (
+        // シーズン候補が 0 件でも盤面を出す。＋ボタンから手動追加できる
+        // 道を残すため（issue #168）、空のときだけ別画面にはしない。
         <TierBoard
           tiers={tiers}
-          works={works}
+          works={boardWorks}
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
+          onAddWork={handleAddWork}
           labelsEditable={!isSharing}
         />
       )}

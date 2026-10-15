@@ -33,6 +33,34 @@ jest.mock("./DraggableWorkCard", () => {
   };
 });
 
+// WorkAddSheet 内部の検索フック（API / Annict 連携）は別のテストで検証するため、
+// シートは「開いているときだけ visible マーカーを出し、onAdd を直通する」
+// スタブに差し替える。
+jest.mock("./WorkAddSheet", () => {
+  const { Pressable, Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    WorkAddSheet: ({
+      visible,
+      onAdd,
+      onClose,
+    }: {
+      visible: boolean;
+      onAdd: (work: TierWork) => void;
+      onClose: () => void;
+    }) =>
+      visible ? (
+        <Pressable
+          testID="work-add-sheet"
+          onPress={() => onAdd({ annictWorkId: 99, title: "追加作品" })}
+          onLongPress={onClose}
+        >
+          <Text>sheet</Text>
+        </Pressable>
+      ) : null,
+  };
+});
+
 const TIERS: TierRow[] = [
   { key: "0", label: "S", color: "#ff0000" },
   { key: "1", label: "A", color: "#ff8000" },
@@ -56,6 +84,7 @@ const boardElement = (
   props: {
     labelsEditable?: boolean;
     onRenameTier?: jest.Mock;
+    onAddWork?: jest.Mock;
     works?: TierWork[];
     assignment?: TierAssignment;
   } = {},
@@ -66,6 +95,7 @@ const boardElement = (
     assignment={props.assignment ?? new Map()}
     onAssign={jest.fn()}
     onRenameTier={props.onRenameTier ?? jest.fn()}
+    onAddWork={props.onAddWork ?? jest.fn()}
     labelsEditable={props.labelsEditable ?? true}
   />
 );
@@ -106,6 +136,46 @@ describe("TierBoard の tier 名編集", () => {
 
     rerender(boardElement({ labelsEditable: false }));
     expect(queryByTestId("tier-label-input")).toBeNull();
+  });
+});
+
+describe("TierBoard の作品手動追加", () => {
+  it("未分類の＋ボタンをタップすると検索シートが開く", () => {
+    const { getByTestId, queryByTestId } = render(boardElement());
+    expect(queryByTestId("work-add-sheet")).toBeNull();
+
+    fireEvent.press(getByTestId("tier-tray-add"));
+    expect(queryByTestId("work-add-sheet")).toBeTruthy();
+  });
+
+  it("シートで作品が選ばれると onAddWork に渡る", () => {
+    const onAddWork = jest.fn();
+    const { getByTestId } = render(boardElement({ onAddWork }));
+
+    fireEvent.press(getByTestId("tier-tray-add"));
+    fireEvent.press(getByTestId("work-add-sheet"));
+
+    expect(onAddWork).toHaveBeenCalledWith({
+      annictWorkId: 99,
+      title: "追加作品",
+    });
+  });
+
+  it("labelsEditable=false の間は＋ボタンが無効でシートが開かない", () => {
+    const { getByTestId, queryByTestId } = render(
+      boardElement({ labelsEditable: false }),
+    );
+    fireEvent.press(getByTestId("tier-tray-add"));
+    expect(queryByTestId("work-add-sheet")).toBeNull();
+  });
+
+  it("シート表示中に labelsEditable が false になるとシートが閉じる", () => {
+    const { getByTestId, queryByTestId, rerender } = render(boardElement());
+    fireEvent.press(getByTestId("tier-tray-add"));
+    expect(queryByTestId("work-add-sheet")).toBeTruthy();
+
+    rerender(boardElement({ labelsEditable: false }));
+    expect(queryByTestId("work-add-sheet")).toBeNull();
   });
 });
 
