@@ -103,8 +103,11 @@ export default function CharacterTierListScreen() {
 
   // 保存成功コールバックは送信時点の state を掴むため、現在の盤面は
   // ref 経由で読む（保存中の編集を「保存済み」に誤認しないための比較用）。
+  // render 中に ref を書き換えられないため、コミット後の effect で同期する。
   const boardStateRef = useRef({ title, tiers, assignment });
-  boardStateRef.current = { title, tiers, assignment };
+  useEffect(() => {
+    boardStateRef.current = { title, tiers, assignment };
+  });
 
   // 保存済み tier 表が届いたら盤面へ流し込む（この画面の作品は固定で一度だけ）。
   // ただし編集中（isDirty）は上書きしない。保存後のキャッシュ更新や
