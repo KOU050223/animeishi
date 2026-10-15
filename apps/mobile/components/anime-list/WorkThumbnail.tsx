@@ -1,6 +1,7 @@
 import { Image, Text, View } from "react-native";
 import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
 import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
+import { useThemeColors } from "@/lib/theme";
 
 // 作品の小さめサムネイル（視聴履歴 / お気に入り一覧などで使う）。
 // AnimePoster は検索一覧のフルサイズ用に幅・スタイルが固定されているため、
@@ -22,6 +23,7 @@ export function WorkThumbnail({
 }) {
   // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
   const { uri, onError } = useImageUrlWithFallback(item);
+  const colors = useThemeColors();
 
   const containerStyle = {
     width,
@@ -33,7 +35,7 @@ export function WorkThumbnail({
     return (
       <Image
         source={{ uri }}
-        style={[containerStyle, { backgroundColor: "#e5e7eb" }]}
+        style={[containerStyle, { backgroundColor: colors.surfaceMuted }]}
         resizeMode="cover"
         onError={onError}
       />
@@ -43,9 +45,9 @@ export function WorkThumbnail({
   return (
     <View
       style={containerStyle}
-      className="bg-gray-200 items-center justify-center"
+      className="bg-gray-200 items-center justify-center dark:bg-slate-700"
     >
-      <Text className="text-gray-400 text-xs">No img</Text>
+      <Text className="text-gray-400 text-xs dark:text-slate-400">No img</Text>
     </View>
   );
 }

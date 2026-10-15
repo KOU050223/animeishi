@@ -1,5 +1,6 @@
 import { Modal, Pressable, Text, View } from "react-native";
 import type { MeishiElementType } from "@/lib/meishi/types";
+import { useThemeColors } from "@/lib/theme";
 
 type Item = {
   type: MeishiElementType;
@@ -30,6 +31,7 @@ export function AddElementSheet({
   onPickAvatarImage?: () => void;
   onPickAnimeImage?: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Modal
       transparent
@@ -41,7 +43,7 @@ export function AddElementSheet({
         onPress={onClose}
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.4)",
+          backgroundColor: colors.scrim,
           justifyContent: "flex-end",
           alignItems: "center",
         }}
@@ -49,7 +51,7 @@ export function AddElementSheet({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: "#ffffff",
+            backgroundColor: colors.surface,
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             padding: 16,
@@ -58,7 +60,14 @@ export function AddElementSheet({
             maxWidth: 560,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "bold",
+              marginBottom: 12,
+              color: colors.text,
+            }}
+          >
             要素を追加
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
@@ -105,6 +114,7 @@ function PickButton({
   sub?: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -113,7 +123,7 @@ function PickButton({
         aspectRatio: 1,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: colors.border,
         alignItems: "center",
         justifyContent: "center",
         padding: 8,
@@ -122,11 +132,18 @@ function PickButton({
       accessibilityLabel={`${label}を追加`}
     >
       <Text style={{ fontSize: 26 }}>{emoji}</Text>
-      <Text style={{ fontSize: 12, fontWeight: "600", marginTop: 4 }}>
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: "600",
+          marginTop: 4,
+          color: colors.text,
+        }}
+      >
         {label}
       </Text>
       {sub ? (
-        <Text style={{ fontSize: 10, color: "#6b7280" }}>{sub}</Text>
+        <Text style={{ fontSize: 10, color: colors.textMuted }}>{sub}</Text>
       ) : null}
     </Pressable>
   );

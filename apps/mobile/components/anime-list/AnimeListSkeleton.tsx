@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { styles } from "./animeListStyles";
+import { useAnimeListStyles } from "./animeListStyles";
 
 // スケルトンカードの最低表示数。1 列表示でもグリッドの面積が分かる程度に出す。
 const SKELETON_MIN_COUNT = 6;
@@ -22,6 +22,7 @@ export function AnimeListSkeleton({
   /** 実グリッドと同じ列数。スケルトン枚数の算出に使う。 */
   numColumns: number;
 }) {
+  const styles = useAnimeListStyles();
   const count = Math.max(numColumns * 3, SKELETON_MIN_COUNT);
   return (
     <View

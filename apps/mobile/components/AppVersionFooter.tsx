@@ -23,21 +23,21 @@ export function AppVersionFooter() {
 
   return (
     <View className="mt-10 items-center gap-1 px-4" testID="app-version-footer">
-      <Text className="text-xs text-gray-400">
+      <Text className="text-xs text-gray-400 dark:text-slate-500">
         {t("アプリバージョン: {{version}}", { version })}
       </Text>
       {appInfo.environment ? (
-        <Text className="text-xs text-gray-400">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {t("環境: {{environment}}", { environment: appInfo.environment })}
         </Text>
       ) : null}
       {appInfo.updateId ? (
-        <Text className="text-xs text-gray-400">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {t("更新 ID: {{updateId}}", { updateId: appInfo.updateId })}
         </Text>
       ) : null}
       {appInfo.commitSha ? (
-        <Text className="text-xs text-gray-400">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {t("コミット: {{commitSha}}", {
             commitSha: appInfo.commitSha.slice(0, SHORT_SHA_LENGTH),
           })}
@@ -46,9 +46,11 @@ export function AppVersionFooter() {
       {apiHealth.isError ? (
         // 永続化キャッシュの古い値を現行バージョンとして出さないよう、
         // 直近の取得失敗は成功済み data より優先して表示する。
-        <Text className="text-xs text-gray-400">{t("API: 取得失敗")}</Text>
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
+          {t("API: 取得失敗")}
+        </Text>
       ) : apiVersion ? (
-        <Text className="text-xs text-gray-400">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {t("API: {{apiVersion}}", {
             apiVersion: health?.environment
               ? `${apiVersion} (${health.environment})`

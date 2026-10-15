@@ -12,8 +12,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { confirm } from "@/lib/dialog";
+import { useThemeColors } from "@/lib/theme";
 
 export default function FriendsScreen() {
+  const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: friends, isLoading, isError, refetch } = useFriends();
@@ -36,16 +38,16 @@ export default function FriendsScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#4f46e5" />
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
-        <Text className="text-red-500 text-center mb-4">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
+        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
           フレンド一覧の取得に失敗しました
         </Text>
         <TouchableOpacity
@@ -63,10 +65,14 @@ export default function FriendsScreen() {
   const list = friends ?? [];
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
       <View className="px-4 pt-3 pb-3">
-        <Text className="text-xl font-bold text-gray-900">フレンド</Text>
-        <Text className="text-xs text-gray-400 mt-0.5">{list.length} 人</Text>
+        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+          フレンド
+        </Text>
+        <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+          {list.length} 人
+        </Text>
       </View>
 
       <FlatList
@@ -76,7 +82,10 @@ export default function FriendsScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
         ItemSeparatorComponent={() => (
-          <View style={styles.separator} className="bg-gray-100" />
+          <View
+            style={styles.separator}
+            className="bg-gray-100 dark:bg-slate-800"
+          />
         )}
         renderItem={({ item }) => (
           <FriendRow
@@ -86,7 +95,7 @@ export default function FriendsScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 text-center">
+            <Text className="text-gray-400 dark:text-slate-500 text-center">
               フレンドがいません。{"\n"}QR
               コードをスキャンして追加してください。
             </Text>
@@ -113,25 +122,33 @@ function FriendRow({
         <Image
           source={{ uri: friend.profileImageUrl }}
           style={styles.avatar}
+          // 画像読み込み中の下地。dark では slate-700 系に揃える。
+          className="bg-gray-200 dark:bg-slate-700"
           resizeMode="cover"
         />
       ) : (
         <View
           style={styles.avatarPlaceholder}
-          className="bg-indigo-100 items-center justify-center"
+          className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
         >
-          <Text className="text-indigo-500 font-semibold">
+          <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
             {friend.username.charAt(0)}
           </Text>
         </View>
       )}
 
       <View className="flex-1">
-        <Text className="text-gray-900 font-medium" numberOfLines={1}>
+        <Text
+          className="text-gray-900 dark:text-slate-100 font-medium"
+          numberOfLines={1}
+        >
           {friend.username}
         </Text>
         {friend.favoriteQuote ? (
-          <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+          <Text
+            className="text-xs text-gray-400 dark:text-slate-500 mt-0.5"
+            numberOfLines={1}
+          >
             {friend.favoriteQuote}
           </Text>
         ) : null}
@@ -139,11 +156,11 @@ function FriendRow({
 
       <TouchableOpacity
         onPress={onRemove}
-        className="bg-red-50 rounded-lg px-3 py-1.5"
+        className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
         accessibilityLabel={`${friend.username}をフレンドから削除`}
       >
-        <Text className="text-xs text-red-500">削除</Text>
+        <Text className="text-xs text-red-500 dark:text-red-400">削除</Text>
       </TouchableOpacity>
     </View>
   );
@@ -156,7 +173,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#e5e7eb",
   },
   avatarPlaceholder: { width: 48, height: 48, borderRadius: 24 },
 });

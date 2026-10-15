@@ -24,7 +24,7 @@ import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { StatPill } from "./StatPill";
-import { styles } from "./animeListStyles";
+import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,
   currentSeason,
@@ -47,6 +47,8 @@ export function AnimeListContent({
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const styles = useAnimeListStyles();
+  const palette = useAnimeListPalette();
   const { width } = useWindowDimensions();
   const { contentWidth, cardWidth, numColumns, isWide } =
     getAnimeListLayout(width);
@@ -167,7 +169,11 @@ export function AnimeListContent({
           <View style={styles.metaRow}>
             {item.seasonYear ? (
               <View style={styles.seasonChip}>
-                <Ionicons name="sparkles-outline" size={12} color="#92400e" />
+                <Ionicons
+                  name="sparkles-outline"
+                  size={12}
+                  color={palette.seasonChipText}
+                />
                 <Text style={styles.seasonText}>
                   {formatYearSeason(
                     item.seasonYear,
@@ -180,20 +186,28 @@ export function AnimeListContent({
             ) : null}
           </View>
           <TouchableOpacity
-            className="mt-1.5 items-center rounded-lg bg-indigo-50 py-1.5"
+            className="mt-1.5 items-center rounded-lg bg-indigo-50 dark:bg-indigo-950 py-1.5"
             onPress={() => openCharacterTierList(item)}
             accessibilityRole="button"
             accessibilityLabel={`${item.title} のキャラクター Tier 表を作る`}
             testID={`open-character-tier-list-${item.annictWorkId}`}
           >
-            <Text className="text-xs font-semibold text-indigo-700">
+            <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
               キャラ Tier 表
             </Text>
           </TouchableOpacity>
         </View>
       </View>
     ),
-    [cardWidth, favoriteIds, isToggling, openCharacterTierList, toggleFavorite],
+    [
+      cardWidth,
+      favoriteIds,
+      isToggling,
+      openCharacterTierList,
+      palette,
+      styles,
+      toggleFavorite,
+    ],
   );
 
   return (
@@ -236,13 +250,13 @@ export function AnimeListContent({
                     好きな作品をすばやく見つけて、名刺に残す。
                   </Text>
                   <TouchableOpacity
-                    className="mt-3 items-center rounded-xl bg-indigo-50 py-3"
+                    className="mt-3 items-center rounded-xl bg-indigo-50 py-3 dark:bg-indigo-950"
                     onPress={() => router.push("/tier-list")}
                     accessibilityRole="button"
                     accessibilityLabel="シーズンの Tier 表を作る"
                     testID="open-tier-list"
                   >
-                    <Text className="font-semibold text-indigo-700">
+                    <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
                       🏆 シーズンの Tier 表を作る
                     </Text>
                   </TouchableOpacity>
@@ -250,7 +264,11 @@ export function AnimeListContent({
 
                 <View style={styles.heroControls}>
                   <View style={styles.searchBar}>
-                    <Ionicons name="search" size={20} color="#64748b" />
+                    <Ionicons
+                      name="search"
+                      size={20}
+                      color={palette.searchIcon}
+                    />
                     <Input
                       style={styles.searchInput}
                       placeholder="タイトル・よみがな・英語名で検索"
@@ -266,7 +284,11 @@ export function AnimeListContent({
                         accessibilityRole="button"
                         accessibilityLabel="検索語をクリア"
                       >
-                        <Ionicons name="close" size={17} color="#475569" />
+                        <Ionicons
+                          name="close"
+                          size={17}
+                          color={palette.clearIcon}
+                        />
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -346,7 +368,7 @@ export function AnimeListContent({
             // 確定するまではローディング表示にとどめる（watch-history と挙動を揃える）。
             <View style={styles.emptyState}>
               <View style={styles.loadingMark}>
-                <ActivityIndicator size="small" color="#111827" />
+                <ActivityIndicator size="small" color={palette.spinner} />
               </View>
               <Text style={styles.emptyTitle}>読み込んでいます</Text>
             </View>
@@ -372,7 +394,7 @@ export function AnimeListContent({
                 <Ionicons
                   name="cloud-offline-outline"
                   size={24}
-                  color="#b42318"
+                  color={palette.errorIcon}
                 />
               </View>
               <Text style={styles.emptyTitle}>検索に失敗しました</Text>
@@ -385,7 +407,11 @@ export function AnimeListContent({
                 accessibilityRole="button"
                 accessibilityLabel="作品検索を再試行"
               >
-                <Ionicons name="refresh" size={17} color="#ffffff" />
+                <Ionicons
+                  name="refresh"
+                  size={17}
+                  color={palette.primaryButtonText}
+                />
                 <Text style={styles.primaryButtonText}>再試行</Text>
               </TouchableOpacity>
             </View>
@@ -394,7 +420,11 @@ export function AnimeListContent({
             // 放送前で未登録のシーズンなどで起こりうる。別シーズンや検索を案内する。
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
-                <Ionicons name="search-outline" size={24} color="#475569" />
+                <Ionicons
+                  name="search-outline"
+                  size={24}
+                  color={palette.stateIcon}
+                />
               </View>
               <Text style={styles.emptyTitle}>
                 {`${formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません`}
@@ -406,7 +436,11 @@ export function AnimeListContent({
           ) : (
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
-                <Ionicons name="search-outline" size={24} color="#475569" />
+                <Ionicons
+                  name="search-outline"
+                  size={24}
+                  color={palette.stateIcon}
+                />
               </View>
               <Text style={styles.emptyTitle}>見つかりませんでした</Text>
               <Text style={styles.emptyCopy}>

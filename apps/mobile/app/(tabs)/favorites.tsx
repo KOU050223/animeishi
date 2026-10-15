@@ -17,8 +17,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { confirm } from "@/lib/dialog";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { useThemeColors } from "@/lib/theme";
 
 export default function FavoritesScreen() {
+  const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -53,16 +55,16 @@ export default function FavoritesScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#4f46e5" />
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
-        <Text className="text-red-500 text-center mb-4">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
+        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
           お気に入りの取得に失敗しました
         </Text>
         <TouchableOpacity
@@ -78,17 +80,19 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
       <View className="px-4 pt-3 pb-3">
-        <Text className="text-xl font-bold text-gray-900">お気に入り</Text>
-        <Text className="text-xs text-gray-400 mt-0.5">
+        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+          お気に入り
+        </Text>
+        <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
           {enriched.length} 件
         </Text>
         <Input
           value={query}
           onChangeText={setQuery}
           placeholder="作品名で検索"
-          className="mt-3 bg-gray-100 rounded-lg px-3 py-2 text-gray-900"
+          className="mt-3 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-gray-900 dark:text-slate-100"
           accessibilityLabel="お気に入りを検索"
           clearButtonMode="while-editing"
         />
@@ -101,7 +105,10 @@ export default function FavoritesScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
         ItemSeparatorComponent={() => (
-          <View style={styles.separator} className="bg-gray-100" />
+          <View
+            style={styles.separator}
+            className="bg-gray-100 dark:bg-slate-800"
+          />
         )}
         renderItem={({ item }) => (
           <FavoriteRow
@@ -111,7 +118,7 @@ export default function FavoritesScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 text-center">
+            <Text className="text-gray-400 dark:text-slate-500 text-center">
               {query.trim()
                 ? "該当するお気に入りが見つかりません。"
                 : "お気に入りがありません。\nアニメ一覧から追加してください。"}
@@ -138,18 +145,21 @@ function FavoriteRow({
       <WorkThumbnail item={favorite} />
 
       <View className="flex-1">
-        <Text className="text-gray-900 font-medium" numberOfLines={2}>
+        <Text
+          className="text-gray-900 dark:text-slate-100 font-medium"
+          numberOfLines={2}
+        >
           {favorite.title}
         </Text>
       </View>
 
       <TouchableOpacity
         onPress={onRemove}
-        className="bg-red-50 rounded-lg px-3 py-1.5"
+        className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
         accessibilityLabel={`${favorite.title} をお気に入りから解除`}
       >
-        <Text className="text-xs text-red-500">解除</Text>
+        <Text className="text-xs text-red-500 dark:text-red-400">解除</Text>
       </TouchableOpacity>
     </View>
   );

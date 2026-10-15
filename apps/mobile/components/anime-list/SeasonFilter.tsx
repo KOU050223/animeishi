@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { styles } from "./animeListStyles";
+import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   SEASON_KEYS,
   SEASONS,
@@ -37,6 +37,8 @@ export function SeasonFilter({
   /** 年・期のどちらの操作でも (year, season) のペアで返す。 */
   onChange: (year: number, season: SeasonKey) => void;
 }) {
+  const styles = useAnimeListStyles();
+  const palette = useAnimeListPalette();
   const [pickerOpen, setPickerOpen] = useState(false);
   const years = seasonPickerYears();
   const selectable = selectableSeasonKeys(year);
@@ -65,7 +67,7 @@ export function SeasonFilter({
           testID="season-filter-year-button"
         >
           <Text style={styles.yearPickerButtonText}>{year}年</Text>
-          <Ionicons name="chevron-down" size={14} color="#475569" />
+          <Ionicons name="chevron-down" size={14} color={palette.chipText} />
         </TouchableOpacity>
       </View>
 

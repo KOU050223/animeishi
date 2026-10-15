@@ -19,5 +19,5 @@ export default function AnnictCallbackScreen() {
     router.replace(RETURN_PATH);
   }, [router]);
 
-  return <View className="flex-1 bg-white" />;
+  return <View className="flex-1 bg-white dark:bg-slate-900" />;
 }

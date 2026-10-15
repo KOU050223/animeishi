@@ -1,6 +1,6 @@
 import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { styles } from "./animeListStyles";
+import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 
 export function FavoriteButton({
   isFavorite,
@@ -13,6 +13,8 @@ export function FavoriteButton({
   onPress: () => void;
   title: string;
 }) {
+  const styles = useAnimeListStyles();
+  const palette = useAnimeListPalette();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -29,7 +31,7 @@ export function FavoriteButton({
       <Ionicons
         name={isFavorite ? "heart" : "heart-outline"}
         size={21}
-        color={isFavorite ? "#e11d48" : "#64748b"}
+        color={isFavorite ? palette.favoriteIconActive : palette.favoriteIcon}
       />
     </TouchableOpacity>
   );

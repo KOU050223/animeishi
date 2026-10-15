@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Web: OS 標準のウィジェット色（スクロールバー等）を描画中のスキームに
+   合わせる。dark: バリアントは NativeWind がルートの .dark クラスで
+   切り替えるため、UA 宣言も同じ .dark に連動させる
+   （OS の prefers-color-scheme を直接見ると、アプリ内でライト固定した
+   場合にウィジェットだけ暗くなる）。 */
+:root {
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
+}

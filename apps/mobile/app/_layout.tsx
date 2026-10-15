@@ -13,9 +13,11 @@ import {
 } from "expo-router";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
+import { useThemeColors } from "@/lib/theme";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -33,6 +35,7 @@ function AuthGuard() {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -57,7 +60,14 @@ function AuthGuard() {
   }, [isLoaded, isSignedIn, segments]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    // 画面遷移中に見えるスタックの下地もスキームに合わせる。
+    // 個別画面の背景は各スクリーン側が持つ。
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="user/[uid]" />
@@ -94,6 +104,9 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
 export default Sentry.wrap(function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* ステータスバーは OS の外観設定に追従させる（userInterfaceStyle: "automatic"）。
+          dark ではアイコン/時計が白、light では黒になる。 */}
+      <StatusBar style="auto" />
       {/* 各画面の SafeAreaView / useSafeAreaInsets の供給元。ルートで 1 度だけ包む。 */}
       <SafeAreaProvider>
         <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>

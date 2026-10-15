@@ -9,6 +9,7 @@ import {
   type AnnictConnectResult,
 } from "@/lib/annict";
 import { confirm } from "@/lib/dialog";
+import { useThemeColors } from "@/lib/theme";
 
 /**
  * Annict 連携の状態表示と連携/解除操作をまとめたカード。
@@ -18,6 +19,7 @@ import { confirm } from "@/lib/dialog";
  */
 export function AnnictConnectionCard() {
   const { t } = useTranslation();
+  const colors = useThemeColors();
   const { isConnected, isLoading } = useAnnictConnection();
   const { connect, disconnect, isConnecting } = useAnnictConnect();
   const [message, setMessage] = useState<{
@@ -61,15 +63,15 @@ export function AnnictConnectionCard() {
   }, [disconnect, t]);
 
   return (
-    <View className="rounded-xl border border-gray-200 bg-white p-4">
+    <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <View className="mb-2 flex-row items-center">
-        <Ionicons name="link-outline" size={18} color="#4f46e5" />
-        <Text className="ml-2 font-semibold text-gray-900">
+        <Ionicons name="link-outline" size={18} color={colors.primaryText} />
+        <Text className="ml-2 font-semibold text-gray-900 dark:text-slate-100">
           {t("Annict 連携")}
         </Text>
       </View>
 
-      <Text className="mb-3 text-xs leading-5 text-gray-500">
+      <Text className="mb-3 text-xs leading-5 text-gray-500 dark:text-slate-400">
         {t(
           "Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。",
         )}
@@ -79,11 +81,13 @@ export function AnnictConnectionCard() {
         <Ionicons
           name={isConnected ? "checkmark-circle" : "ellipse-outline"}
           size={18}
-          color={isConnected ? "#16a34a" : "#9ca3af"}
+          color={isConnected ? colors.success : colors.textFaint}
         />
         <Text
           className={`ml-2 text-sm ${
-            isConnected ? "text-green-700" : "text-gray-500"
+            isConnected
+              ? "text-green-700 dark:text-green-300"
+              : "text-gray-500 dark:text-slate-400"
           }`}
         >
           {isConnected ? t("Annict と連携済み") : t("未連携")}
@@ -93,7 +97,9 @@ export function AnnictConnectionCard() {
       {message && (
         <Text
           className={`mb-3 text-sm ${
-            message.type === "success" ? "text-green-600" : "text-red-500"
+            message.type === "success"
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-500 dark:text-red-400"
           }`}
           testID="annict-message"
         >
@@ -102,14 +108,14 @@ export function AnnictConnectionCard() {
       )}
 
       {isLoading ? (
-        <ActivityIndicator color="#4f46e5" />
+        <ActivityIndicator color={colors.primaryText} />
       ) : isConnected ? (
         <TouchableOpacity
           onPress={onDisconnect}
-          className="items-center rounded-lg border border-red-300 py-3"
+          className="items-center rounded-lg border border-red-300 dark:border-red-800 py-3"
           accessibilityRole="button"
         >
-          <Text className="font-semibold text-red-600">
+          <Text className="font-semibold text-red-600 dark:text-red-400">
             {t("連携を解除する")}
           </Text>
         </TouchableOpacity>
@@ -126,7 +132,7 @@ export function AnnictConnectionCard() {
           accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
         >
           {isConnecting ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text className="font-semibold text-white">
               {t("Annict と連携する")}

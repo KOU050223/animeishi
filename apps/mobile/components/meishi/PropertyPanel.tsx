@@ -7,6 +7,8 @@ import {
   type ViewStyle,
 } from "react-native";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
+import { useThemeColors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/theme";
 import type {
   CollageSort,
   CollageStateFilter,
@@ -42,15 +44,16 @@ type Props = {
  * 選択中要素のプロパティパネル。要素種別ごとに編集UIを出し分ける。
  */
 export function PropertyPanel(props: Props) {
+  const colors = useThemeColors();
   const { element, onDelete, onDuplicate, onBringToFront, onSendToBack } =
     props;
   return (
     <View
       style={[
         {
-          backgroundColor: "#ffffff",
+          backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: "#e5e7eb",
+          borderTopColor: colors.border,
         },
         props.style,
       ]}
@@ -61,16 +64,16 @@ export function PropertyPanel(props: Props) {
         contentContainerStyle={{ padding: 12, gap: 12 }}
         showsVerticalScrollIndicator
       >
-        <Text style={{ fontSize: 12, color: "#6b7280" }}>
+        <Text style={{ fontSize: 12, color: colors.textMuted }}>
           {typeLabel(element.type)}
         </Text>
-        {renderEditor(props)}
+        {renderEditor(props, colors)}
       </ScrollView>
       <View
         style={{
           flexDirection: "row",
           borderTopWidth: 1,
-          borderTopColor: "#e5e7eb",
+          borderTopColor: colors.border,
           padding: 8,
           gap: 8,
         }}
@@ -78,13 +81,13 @@ export function PropertyPanel(props: Props) {
         <ActionButton label="↑最前" onPress={onBringToFront} />
         <ActionButton label="↓最背" onPress={onSendToBack} />
         <ActionButton label="複製" onPress={onDuplicate} />
-        <ActionButton label="削除" onPress={onDelete} tint="#dc2626" />
+        <ActionButton label="削除" onPress={onDelete} tint={colors.danger} />
       </View>
     </View>
   );
 }
 
-function renderEditor(props: Props) {
+function renderEditor(props: Props, colors: ThemeColors) {
   const { element, onChange, onOpenTextEdit } = props;
   switch (element.type) {
     case "text":
@@ -98,14 +101,14 @@ function renderEditor(props: Props) {
                 paddingVertical: 8,
                 paddingHorizontal: 10,
                 borderWidth: 1,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
                 borderRadius: 6,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <Text style={{ flex: 1 }} numberOfLines={1}>
+              <Text style={{ flex: 1, color: colors.text }} numberOfLines={1}>
                 {resolveTextValue(element, props.context) ||
                   `【${sourceLabel(element.source)}】`}
               </Text>
@@ -228,7 +231,7 @@ function renderEditor(props: Props) {
             />
           </Row>
           <Row label="ソース">
-            <Text style={{ color: "#6b7280", fontSize: 12 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
               {element.source === "avatar"
                 ? "プロフィール画像を表示"
                 : element.source === "anime"
@@ -333,11 +336,11 @@ function renderEditor(props: Props) {
                   paddingVertical: 8,
                   paddingHorizontal: 10,
                   borderWidth: 1,
-                  borderColor: "#e5e7eb",
+                  borderColor: colors.border,
                   borderRadius: 6,
                 }}
               >
-                <Text numberOfLines={1}>
+                <Text numberOfLines={1} style={{ color: colors.text }}>
                   {element.data || "タップして編集"}
                 </Text>
               </Pressable>
@@ -544,9 +547,12 @@ function Row({
   label: string;
   children: React.ReactNode;
 }) {
+  const colors = useThemeColors();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 11, color: "#6b7280", fontWeight: "600" }}>
+      <Text
+        style={{ fontSize: 11, color: colors.textMuted, fontWeight: "600" }}
+      >
         {label}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -565,6 +571,7 @@ function SegmentedControl<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <ScrollView
       horizontal
@@ -581,11 +588,14 @@ function SegmentedControl<T extends string>({
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 6,
-              backgroundColor: active ? "#4f46e5" : "#f3f4f6",
+              backgroundColor: active ? colors.primary : colors.surfaceMuted,
             }}
           >
             <Text
-              style={{ color: active ? "#ffffff" : "#111827", fontSize: 12 }}
+              style={{
+                color: active ? colors.onPrimary : colors.text,
+                fontSize: 12,
+              }}
             >
               {opt.label}
             </Text>
@@ -605,6 +615,7 @@ function StepControl({
   onChange: (v: number) => void;
   step: number;
 }) {
+  const colors = useThemeColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <Pressable
@@ -613,14 +624,14 @@ function StepControl({
           width: 32,
           height: 32,
           borderRadius: 6,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: colors.surfaceMuted,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 16 }}>−</Text>
+        <Text style={{ fontSize: 16, color: colors.text }}>−</Text>
       </Pressable>
-      <Text style={{ minWidth: 32, textAlign: "center" }}>
+      <Text style={{ minWidth: 32, textAlign: "center", color: colors.text }}>
         {Math.round(value)}
       </Text>
       <Pressable
@@ -629,12 +640,12 @@ function StepControl({
           width: 32,
           height: 32,
           borderRadius: 6,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: colors.surfaceMuted,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 16 }}>＋</Text>
+        <Text style={{ fontSize: 16, color: colors.text }}>＋</Text>
       </Pressable>
     </View>
   );
@@ -647,6 +658,7 @@ function ColorGrid({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <ScrollView
       horizontal
@@ -664,7 +676,9 @@ function ColorGrid({
             backgroundColor: c,
             borderWidth: c.toLowerCase() === value.toLowerCase() ? 2 : 1,
             borderColor:
-              c.toLowerCase() === value.toLowerCase() ? "#4f46e5" : "#d1d5db",
+              c.toLowerCase() === value.toLowerCase()
+                ? colors.primary
+                : colors.border,
           }}
         />
       ))}
@@ -679,6 +693,7 @@ function ImagePickButton({
   label: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -688,12 +703,12 @@ function ImagePickButton({
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
-        backgroundColor: "#f3f4f6",
+        backgroundColor: colors.surfaceMuted,
         borderWidth: 1,
-        borderColor: "#e5e7eb",
+        borderColor: colors.border,
       }}
     >
-      <Text style={{ fontSize: 12, color: "#111827" }}>{label}</Text>
+      <Text style={{ fontSize: 12, color: colors.text }}>{label}</Text>
     </Pressable>
   );
 }
@@ -701,12 +716,13 @@ function ImagePickButton({
 function ActionButton({
   label,
   onPress,
-  tint = "#111827",
+  tint,
 }: {
   label: string;
   onPress: () => void;
   tint?: string;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -714,11 +730,13 @@ function ActionButton({
         flex: 1,
         paddingVertical: 10,
         borderRadius: 8,
-        backgroundColor: "#f3f4f6",
+        backgroundColor: colors.surfaceMuted,
         alignItems: "center",
       }}
     >
-      <Text style={{ color: tint, fontWeight: "600", fontSize: 12 }}>
+      <Text
+        style={{ color: tint ?? colors.text, fontWeight: "600", fontSize: 12 }}
+      >
         {label}
       </Text>
     </Pressable>

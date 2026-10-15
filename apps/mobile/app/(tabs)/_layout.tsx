@@ -2,9 +2,11 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useThemeColors } from "@/lib/theme";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   // 下端（ホームインジケータ等）との干渉を避けるため、safe area 分を上乗せしてタブバーを縦に広げる。
   const bottomInset = insets.bottom;
 
@@ -12,11 +14,16 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#4f46e5",
+        // 選択中のタブはアイコン・ラベルともに暗背景でも読める強調色にする
+        // （dark で primary の塗り色のままだと slate-900 背景上のコントラストが足りない）。
+        tabBarActiveTintColor: colors.primaryText,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           height: 64 + bottomInset,
           paddingTop: 8,
           paddingBottom: bottomInset + 8,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
         },
         tabBarLabelStyle: {
           fontSize: 11,

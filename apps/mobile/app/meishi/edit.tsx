@@ -30,6 +30,8 @@ import {
 } from "@/lib/useMeishiAssetUpload";
 import { useProfile } from "@/lib/useProfile";
 import { useWatchHistory } from "@/lib/useWatchHistory";
+import { useThemeColors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/theme";
 import type {
   MeishiElement,
   MeishiElementType,
@@ -38,6 +40,8 @@ import type {
 
 export default function MeishiEditScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { height: windowHeight } = useWindowDimensions();
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
@@ -131,8 +135,10 @@ export default function MeishiEditScreen() {
 
   if (!loaded) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator />
+      <SafeAreaView
+        style={[styles.center, { backgroundColor: colors.background }]}
+      >
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -192,7 +198,7 @@ export default function MeishiEditScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#ffffff" }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       edges={["top", "bottom", "left", "right"]}
     >
       <Stack.Screen options={{ headerShown: false }} />
@@ -231,7 +237,7 @@ export default function MeishiEditScreen() {
             accessibilityRole="button"
             accessibilityLabel="保存"
           >
-            <Text style={[styles.headerBtnText, { color: "#ffffff" }]}>
+            <Text style={[styles.headerBtnText, { color: colors.onPrimary }]}>
               保存
             </Text>
           </Pressable>
@@ -265,7 +271,7 @@ export default function MeishiEditScreen() {
               />
             ) : (
               <View style={{ alignItems: "center", padding: 24 }}>
-                <Text style={{ color: "#6b7280" }}>
+                <Text style={{ color: colors.textMuted }}>
                   テンプレートを選んでください
                 </Text>
               </View>
@@ -466,115 +472,118 @@ function useMeishiGestureFlag() {
   return useRef(false);
 }
 
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  editorBody: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    position: "relative",
-  },
-  canvasArea: {
-    flex: 1,
-    padding: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#e5e7eb",
-  },
-  canvasWrapper: {
-    width: "100%",
-    maxWidth: 560,
-    alignSelf: "center",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  headerTitle: { fontSize: 14, fontWeight: "600" },
-  headerBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  headerBtnText: { fontSize: 14, color: "#111827", fontWeight: "600" },
-  saveBtn: { backgroundColor: "#4f46e5" },
-  subHeader: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
-  },
-  subBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "#f3f4f6",
-  },
-  subBtnText: { fontSize: 12, fontWeight: "600", color: "#111827" },
-  bottomBar: {
-    padding: 12,
-  },
-  inspectorSlot: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#ffffff",
-  },
-  addDockSlot: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "flex-end",
-  },
-  propertyPanel: {
-    flex: 1,
-  },
-  addBtn: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: "#4f46e5",
-    alignItems: "center",
-  },
-  addBtnText: { color: "#ffffff", fontWeight: "600", fontSize: 15 },
-  saveFeedbackLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    elevation: 20,
-    alignItems: "center",
-  },
-  saveFeedback: {
-    marginTop: 52,
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: "#ecfdf5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  saveFeedbackText: {
-    color: "#047857",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    center: { flex: 1, alignItems: "center", justifyContent: "center" },
+    editorBody: {
+      flex: 1,
+      backgroundColor: colors.background,
+      position: "relative",
+    },
+    canvasArea: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      // 名刺本体（テンプレートのキャンバス）を浮かせるための背景。
+      backgroundColor: colors.canvasBackdrop,
+    },
+    canvasWrapper: {
+      width: "100%",
+      maxWidth: 560,
+      alignSelf: "center",
+      borderRadius: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 6,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
+    headerBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    headerBtnText: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    saveBtn: { backgroundColor: colors.primary },
+    subHeader: {
+      flexDirection: "row",
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderMuted,
+    },
+    subBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceMuted,
+    },
+    subBtnText: { fontSize: 12, fontWeight: "600", color: colors.text },
+    bottomBar: {
+      padding: 12,
+    },
+    inspectorSlot: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.surface,
+    },
+    addDockSlot: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "flex-end",
+    },
+    propertyPanel: {
+      flex: 1,
+    },
+    addBtn: {
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+    },
+    addBtnText: { color: colors.onPrimary, fontWeight: "600", fontSize: 15 },
+    saveFeedbackLayer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 20,
+      elevation: 20,
+      alignItems: "center",
+    },
+    saveFeedback: {
+      marginTop: 52,
+      marginHorizontal: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 8,
+      backgroundColor: colors.successSoft,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    saveFeedbackText: {
+      color: colors.successText,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+  });
+}

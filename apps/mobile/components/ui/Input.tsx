@@ -1,8 +1,7 @@
 import { forwardRef } from "react";
 import { TextInput } from "react-native";
 import type { TextInputProps } from "react-native";
-import { useColorScheme } from "nativewind";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 
 export type InputProps = TextInputProps;
 
@@ -18,13 +17,12 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   { placeholderTextColor, ...props },
   ref,
 ) {
-  const { colorScheme } = useColorScheme();
-  const scheme = colorScheme === "dark" ? "dark" : "light";
+  const colors = useThemeColors();
 
   return (
     <TextInput
       ref={ref}
-      placeholderTextColor={placeholderTextColor ?? colors[scheme].placeholder}
+      placeholderTextColor={placeholderTextColor ?? colors.placeholder}
       {...props}
     />
   );
