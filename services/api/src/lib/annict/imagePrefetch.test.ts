@@ -173,7 +173,11 @@ describe("prefetchWorkImages", () => {
     expect(result).toEqual({ scanned: 1, stored: 1, failed: 0 });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://img.example.com/p101.png",
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        // リダイレクトは追わない（リダイレクト先の再検証省略で SSRF 防止）
+        redirect: "error",
+      }),
     );
 
     const row = await db.query.annictWorks.findFirst({
@@ -366,6 +370,56 @@ describe("prefetchWorkImages", () => {
     expect(row?.imageR2Key).not.toBe(oldKey);
     // 旧ソースのオブジェクトは削除される（ゴミを残さない）
     expect(await env.AVATARS.get(oldKey)).toBeNull();
+  });
+
+  it("内部ホストを指す画像 URL は fetch しない（SSRF 対策）", async () => {
+    for (const [annictWorkId, imageUrl] of [
+      [112, "http://169.254.169.254/latest/meta-data.png"],
+      [113, "http://localhost:8787/internal.png"],
+      [114, "https://10.0.0.1/x.png"],
+      [115, "https://img.example.com:8443/x.png"],
+    ] as const) {
+      await insertWork(db, { annictWorkId, imageUrl });
+    }
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const result = await prefetchWorkImages(db, env.AVATARS);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.failed).toBe(4);
+    for (const id of [112, 113, 114, 115]) {
+      const row = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, id),
+      });
+      expect(row?.imageR2Key).toBeNull();
+      expect(row?.imageR2AttemptedAt).not.toBeNull();
+    }
+  });
+
+  it("画像ソースが消えた作品は残っていた R2 オブジェクトとキーを掃除する", async () => {
+    const staleKey = `${workImageKeyPrefix(116, "https://img.example.com/gone.png")}.png`;
+    await env.AVATARS.put(staleKey, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, {
+      annictWorkId: 116,
+      imageUrl: null,
+      resolvedImageUrl: null,
+      imageR2Key: staleKey,
+      imageR2AttemptedAt: new Date(
+        Date.now() - IMAGE_PREFETCH_ATTEMPT_COOLDOWN_MS - 1000,
+      ),
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await prefetchWorkImages(db, env.AVATARS);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await env.AVATARS.get(staleKey)).toBeNull();
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 116),
+    });
+    expect(row?.imageR2Key).toBeNull();
   });
 
   it("取り込み元の無い作品（SNS placeholder のみ）は fetch せず attempted だけ立てる", async () => {

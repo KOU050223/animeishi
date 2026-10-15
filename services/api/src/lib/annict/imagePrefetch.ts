@@ -80,6 +80,45 @@ function isFetchableImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
 }
 
+// 内部宛先への fetch を防ぐ SSRF 対策（Devin Review 指摘）。
+// 画像 URL は上流 API 由来とはいえ、悪意ある/壊れたデータで内部アドレスを
+// 指されると、その応答を公開 R2 に置いてしまう。作品画像 CDN は必ず
+// 公開ドメイン名かつ標準ポートのため、以下を拒否する:
+//   * IP リテラル（IPv4・[v6]・0x/10進混在表記を含め、数字・16進・
+//     ドット・コロンのみで構成されるホスト）
+//   * ドット無し / localhost / .local / .internal / .lan / .home / .corp
+//   * 標準外ポート（80・443・暗黙ポート以外）
+// 公開ドメインの DNS が内部 IP を指すリバインディングは fetch 層では防げず、
+// 残余リスクとして残る。
+function isPublicImageUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (
+    !host.includes(".") ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".lan") ||
+    host.endsWith(".home") ||
+    host.endsWith(".corp") ||
+    /^[0-9a-f.:x]+$/.test(host.replace(/^\[|\]$/g, ""))
+  ) {
+    return false;
+  }
+  if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
+    return false;
+  }
+  return true;
+}
+
 /**
  * R2 へ取り込む画像のソース URL を選ぶ。優先順位はクライアントの
  * pickImageUrl（表示側）と揃える。取り込み不能なら null。
@@ -182,10 +221,14 @@ async function fetchWorkImage(
   url: string,
   fetchImpl: typeof fetch,
 ): Promise<FetchedImage | null> {
+  if (!isPublicImageUrl(url)) return null;
   let res: Response;
   try {
     res = await fetchImpl(url, {
       signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      // リダイレクト先のホストを都度再検証するより、追わずに失敗扱いにする
+      // （リダイレクト経由で内部宛先へ連れて行かれる SSRF を防ぐ）。
+      redirect: "error",
     });
   } catch {
     return null;
@@ -257,10 +300,21 @@ export async function prefetchWorkImages(
   // 後続の未取り込み作品に順番が回らなくなる。
   const checkedIds: number[] = [];
 
+  // 取り込み元が消えた行（image_r2_key は残っているがソース URL が無い）。
+  // 走査対象に含めて古い画像を掃除する（Devin Review 指摘: 上流で画像が
+  // 消えてもキーが残り、API が古い自前配信を返し続けるため）。
+  const staleRows: { annictWorkId: number; imageR2Key: string }[] = [];
+
   for (const row of rows) {
     const sourceUrl = pickWorkImageSource(row.imageUrl, row.resolvedImageUrl);
     if (!sourceUrl) {
       checkedIds.push(row.annictWorkId);
+      if (row.imageR2Key) {
+        staleRows.push({
+          annictWorkId: row.annictWorkId,
+          imageR2Key: row.imageR2Key,
+        });
+      }
       continue;
     }
     const keyPrefix = workImageKeyPrefix(row.annictWorkId, sourceUrl);
@@ -277,6 +331,26 @@ export async function prefetchWorkImages(
         keyPrefix,
         previousKey: row.imageR2Key,
       });
+    }
+  }
+
+  // ソース消失分の掃除。fetch 予算は使わないので fetchLimit と独立。
+  // 掃除後は image_r2_key が消えて走査対象からも外れる（収束する）。
+  for (const stale of staleRows) {
+    try {
+      if (WORK_IMAGE_KEY_PATTERN.test(stale.imageR2Key)) {
+        await bucket.delete(stale.imageR2Key).catch(() => {});
+      }
+      await adb.updateImageR2Key(stale.annictWorkId, null, now);
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: "warn",
+          event: "work_image_prefetch_cleanup_failed",
+          annictWorkId: stale.annictWorkId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
     }
   }
 

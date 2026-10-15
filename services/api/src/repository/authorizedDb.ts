@@ -624,6 +624,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
             or(
               isNotNull(annictWorks.imageUrl),
               isNotNull(annictWorks.resolvedImageUrl),
+              // 取り込み済みの行はソース URL が消えていても走査し、
+              // 残った R2 画像を掃除する（Devin Review 指摘）。
+              isNotNull(annictWorks.imageR2Key),
             ),
             or(
               isNull(annictWorks.imageR2AttemptedAt),
@@ -637,11 +640,12 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
     /**
      * 作品画像の R2 キーを確定する（取り込み成功時）。
+     * null を渡すとキーを消去する（ソース消失時の掃除用）。
      * attemptedAt も同時に立ててクールダウン対象にする。
      */
     async updateImageR2Key(
       annictWorkId: number,
-      key: string,
+      key: string | null,
       attemptedAt: Date,
     ): Promise<void> {
       await db
