@@ -30,12 +30,14 @@ jest.mock("@/lib/annict", () => ({
   }),
 }));
 
-function makeWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  });
+function makeWrapper(client?: QueryClient) {
+  const queryClient =
+    client ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
   return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client }, children);
+    createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 function okSearchResponse(body: unknown) {
@@ -362,5 +364,51 @@ describe("usePrefetchSeasonWorks", () => {
     });
     await new Promise((r) => setTimeout(r, 50));
     expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("プリフェッチが失敗したときデータを持たないエラーエントリを残さない", async () => {
+    // 失敗エントリが残ると、後でそのシーズンへ切り替えた画面が
+    // 自動リフェッチ中ずっとエラー表示になるため除去対象にする。
+    // gcTime 既定値のままにしないと GC が先に消して検証にならない。
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    mockSearchGet.mockRejectedValue(new Error("network error"));
+
+    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(client),
+    });
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        client.getQueryState(["works", "search", "season", "2026-summer"]),
+      ).toBeUndefined(),
+    );
+  });
+
+  it("プリフェッチの再取得が失敗してもデータを持つ既存エントリは消さない", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const key = ["works", "search", "season", "2026-summer"];
+    const cached = {
+      pages: [{ works: MOCK_WORKS, hasNextPage: false, endCursor: null }],
+      pageParams: [undefined],
+    };
+    client.setQueryData(key, cached);
+    mockSearchGet.mockRejectedValue(new Error("network error"));
+
+    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(client),
+    });
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
+    // 再取得が失敗して error 状態になっても、データを持つエントリは消さず
+    // 一覧にはキャッシュ済みの作品が出せる。
+    await waitFor(() =>
+      expect(client.getQueryState(key)?.status).toBe("error"),
+    );
+    expect(client.getQueryData(key)).toEqual(cached);
   });
 });

@@ -64,7 +64,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  * `query` が空ならシーズン検索（season 未指定はサーバー既定の今期）、
  * 非空なら title 検索が優先され season は送らない。
  */
-async function fetchWorksSearchPage(
+export async function fetchWorksSearchPage(
   getToken: () => Promise<string | null>,
   params: {
     query: string;
@@ -185,8 +185,10 @@ export function useAnimeList(query: string, season?: string) {
  * シーズン切り替え直後の待ち時間を消すため、表示中シーズンの前後を
  * 呼び出し側で計算して渡す（components/anime-list の adjacentSeasonParams）。
  *
- * staleTime 内のキャッシュ済みシーズンは react-query 側で再取得されず、
- * プリフェッチの失敗も画面には出さない（prefetchQuery はエラーを投げない）。
+ * staleTime 内のキャッシュ済みシーズンは react-query 側で再取得されない。
+ * プリフェッチの失敗自体は画面に出さないが、失敗クエリは error 状態のまま
+ * キャッシュに残るため、データを持たない失敗エントリは取得後に除去する
+ * （残すと切り替え先で自動リフェッチ中ずっとエラー画面が出てしまう）。
  * シーズン検索は 1 ページ目のレスポンスに全件が入る（サーバー側で全ページ取得）
  * ため先頭ページだけを取る。稀な上限到達時の続きは切り替え後の追い読みに任せる。
  */
@@ -205,12 +207,23 @@ export function usePrefetchSeasonWorks(
   useEffect(() => {
     if (!canPrefetch || seasonsKey === "") return;
     for (const season of seasonsKey.split(",")) {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: seasonWorksQueryKey(season),
-        initialPageParam: undefined as string | undefined,
-        queryFn: ({ pageParam }) =>
-          fetchWorksSearchPage(getToken, { query: "", season, pageParam }),
-      });
+      const queryKey = seasonWorksQueryKey(season);
+      void queryClient
+        .prefetchInfiniteQuery({
+          queryKey,
+          initialPageParam: undefined as string | undefined,
+          queryFn: ({ pageParam }) =>
+            fetchWorksSearchPage(getToken, { query: "", season, pageParam }),
+        })
+        .then(() => {
+          // prefetchInfiniteQuery はエラーを握り潰して resolve するため、
+          // 終了後にクエリ状態を見て失敗を拾う。既にデータを持つエントリの
+          // 再取得失敗（error でも data 残存）は消さない。
+          const state = queryClient.getQueryState(queryKey);
+          if (state?.status === "error" && state.data === undefined) {
+            void queryClient.removeQueries({ queryKey, exact: true });
+          }
+        });
     }
   }, [canPrefetch, seasonsKey, queryClient, getToken]);
 }

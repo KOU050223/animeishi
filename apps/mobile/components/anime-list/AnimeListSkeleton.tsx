@@ -19,6 +19,7 @@ export function AnimeListSkeleton({
   cardWidth: number;
   /** グリッド全体の幅。wide レイアウトのセンタリングに合わせる。 */
   contentWidth: number;
+  /** 実グリッドと同じ列数。スケルトン枚数の算出に使う。 */
   numColumns: number;
 }) {
   const count = Math.max(numColumns * 3, SKELETON_MIN_COUNT);

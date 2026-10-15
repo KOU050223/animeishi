@@ -198,14 +198,16 @@ export function AnimeListContent({
                   </View>
 
                   <View style={styles.statsRow}>
+                    {/* ローディング中は data が前シーズン/前検索の結果を指すため
+                        旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
                     <StatPill
                       label="作品"
-                      value={`${stats.total}`}
+                      value={showLoading ? "-" : `${stats.total}`}
                       tone="ink"
                     />
                     <StatPill
                       label="年代"
-                      value={stats.yearRange}
+                      value={showLoading ? "-" : stats.yearRange}
                       tone="gold"
                     />
                     <StatPill
