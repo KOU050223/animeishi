@@ -37,7 +37,10 @@ describe("useReportUser", () => {
     await act(async () => {
       result.current.mutate({ userId: "user_target", reason: "スパム・宣伝" });
     });
-    await waitFor(() => expect(result.current.isIdle).toBe(false));
+    // mutation が settle（成功 or 失敗）するまで待つ
+    await waitFor(() =>
+      expect(result.current.isError || result.current.isSuccess).toBe(true),
+    );
     return result;
   }
 

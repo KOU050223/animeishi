@@ -1117,8 +1117,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
 
       // 制限判定を INSERT ... SELECT の WHERE に埋め込み、確認〜挿入を
       // 1 ステートメントで行う。「SELECT で確認してから INSERT」では並行
-      // リクエストが両方とも確認を通過して制限をすり抜ける（D1 には複数
-      // ステートメントにまたがるトランザクションがない）。
+      // リクエストが両方とも確認を通過して制限をすり抜ける（db.batch は
+      // アトミックだが文同士で値を受け渡せず、確認結果に応じた条件付き
+      // 挿入は組めないため）。
       // created_at は unix 秒（drizzle timestamp mode）なので閾値も秒で渡す。
       const nowMs = Date.now();
       const nowSec = Math.floor(nowMs / 1000);
