@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
+import {
+  useAnimeList,
+  usePrefetchSeasonWorks,
+  useSortedAnimeList,
+} from "@/lib/useAnimeList";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/clerk-expo";
 
@@ -287,5 +291,76 @@ describe("useAnimeList", () => {
     expect(mockSearchGet).toHaveBeenCalledTimes(1);
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.endCursor).toBe("cur1");
+  });
+});
+
+describe("usePrefetchSeasonWorks", () => {
+  beforeEach(() => {
+    resetAuth();
+    mockSearchGet.mockReset();
+    mockBuildAnnictAuthHeader.mockReset();
+    mockIsConnected = true;
+    mockIsConnectionLoading = false;
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+    mockBuildAnnictAuthHeader.mockResolvedValue({
+      "X-Annict-Token": "annict_tok",
+    });
+  });
+
+  it("enabled のとき指定シーズンを season 検索でプリフェッチする", async () => {
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({ works: [], hasNextPage: false, endCursor: null }),
+    );
+
+    renderHook(
+      () => usePrefetchSeasonWorks(["2026-summer", "2027-winter"], true),
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(2));
+    const seasons = mockSearchGet.mock.calls.map(([arg]) => arg.query.season);
+    expect(seasons).toEqual(["2026-summer", "2027-winter"]);
+    // title 検索ではなくシーズン検索として叩く。
+    for (const [arg] of mockSearchGet.mock.calls) {
+      expect(arg.query.title).toBeUndefined();
+    }
+    // Annict トークンヘッダも載る。
+    const [, opts] = mockSearchGet.mock.calls[0];
+    expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
+  });
+
+  it("enabled=false ならプリフェッチしない", async () => {
+    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], false), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("Annict 未連携ならプリフェッチしない", async () => {
+    mockIsConnected = false;
+    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("サインアウト中はプリフェッチしない", async () => {
+    signedOutUser();
+    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("seasons が空なら何もしない", async () => {
+    renderHook(() => usePrefetchSeasonWorks([], true), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockSearchGet).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { isPlaceholderImageUrl } from "@/lib/anime/pickImageUrl";
+import { seasonWorksQueryKey } from "@/lib/useAnimeList";
 import type { TierWork } from "./types";
 
 // 画像未解決の作品が残っている間の再取得間隔と上限。
@@ -27,7 +28,11 @@ export function useSeasonWorks(season: string) {
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
 
   const query = useInfiniteQuery({
-    queryKey: ["tier-list", "season-works", season] as const,
+    // シーズン作品のキャッシュはアニメ一覧画面と共有する（同一の
+    // /works/search?season= レスポンス）。一覧側の前後シーズンプリフェッチ
+    // （issue #173）がこちらのシーズン切り替えにも効き、ここで取得した
+    // データが一覧にも使い回される。
+    queryKey: seasonWorksQueryKey(season),
     enabled: !!isSignedIn && isConnected && !!season,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {

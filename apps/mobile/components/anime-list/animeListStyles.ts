@@ -436,6 +436,42 @@ export const styles = StyleSheet.create({
     backgroundColor: "#fff1f2",
     borderColor: "#fecdd3",
   },
+  // 作品一覧のローディングスケルトン（AnimeListSkeleton）。実カードと同じ
+  // 行方向レイアウト（ポスター + テキスト行）を muted 色で敷く。
+  skeletonContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 12,
+    columnGap: GRID_GAP,
+  },
+  skeletonPoster: {
+    width: 68,
+    height: 92,
+    borderRadius: 6,
+    backgroundColor: "#e2e8f0",
+  },
+  skeletonBody: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+    gap: 8,
+  },
+  skeletonLine: {
+    width: "100%",
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#e2e8f0",
+  },
+  skeletonLineShort: {
+    width: "55%",
+  },
+  skeletonChip: {
+    marginTop: 2,
+    width: 86,
+    height: 25,
+    borderRadius: 7,
+    backgroundColor: "#f1f5f9",
+  },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
