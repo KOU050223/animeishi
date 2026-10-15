@@ -21,12 +21,13 @@ services/api/src/
   middleware/                 # 認証など横断ミドルウェア
   db/                         # schema・D1 クライアント
   lib/                        # 外部 API クライアント等のドメイン非依存ユーティリティ
+    openapi.ts                # OpenAPI 基盤（共通スキーマ・/doc /ui 登録。issue #14）
   test-utils/                 # テスト基盤
   features/
     <domain>/                 # 機能単位のディレクトリ（例: tier-lists, works, me）
       index.ts                # ルート定義 + ハンドラ（Hono RPC チェーンをここに置く）
       index.test.ts           # ルートのテスト（vitest・D1 実体）
-      schema.ts               # zod スキーマ（zValidator 入力）
+      schema.ts               # zod スキーマ + createRoute 定義
       service.ts              # 純粋ロジック・外部連携・HTML 生成など（ある機能のみ）
       repository.ts           # DB アクセス層（ある機能のみ）
       repository.test.ts      # リポジトリのテスト
@@ -38,10 +39,11 @@ services/api/src/
 HTTP リクエスト
    │
    ▼
-index.ts (route/handler)   … zValidator(schema) で入力検証、認証ミドルウェア、
-   │                          レスポンス組み立て。Hono RPC の型はここから推論される
-   ├── schema.ts            … zod スキーマのみ。@hono/zod-openapi 化（issue #14）
-   │                          の際はここを openAPIRoute 化する想定
+index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証、
+   │                          認証ミドルウェア、レスポンス組み立て。
+   │                          Hono RPC の型はここから推論される
+   ├── schema.ts            … zod スキーマと createRoute 定義
+   │                          （OpenAPI 化は issue #14、段階移行中。後述）
    ├── service.ts           … 外部 API 連携・純粋関数・HTML 生成などの
    │                          振る舞いロジック。DB 参照が必要な場合は
    │                          repository 経由で行う（直接 db.insert 等は禁止）
@@ -84,6 +86,50 @@ index.ts (route/handler)   … zValidator(schema) で入力検証、認証ミド
   挙動変更として扱う
 - Hono RPC の型互換を守るため、ルートチェーン（`new Hono().get(...)` 等）は
   `index.ts` に直接記述し、`export type` 推論が途切れる中間変数を挟まない
+
+## OpenAPI 統合（issue #14）
+
+`@hono/zod-openapi` + `@hono/swagger-ui` を導入し、OpenAPI ドキュメントを
+`createRoute` 定義から自動生成する。Hono RPC の型（`AppType`）は
+`.openapi(route, handler)` のチェーンから従来どおり推論される
+（`{id}` 記法のパスは型レベルで `:id` に変換される）。
+
+- ルート app と OpenAPI 対応済み feature のサブ app は `OpenAPIHono`。
+  `.route()` でマウントすると、サブ app が登録したルート定義が親の
+  `openAPIRegistry` にマージされて /doc に載る（素の Hono のままの
+  feature は /doc に出ないだけで動作は従来どおり）
+- 共通基盤は `src/lib/openapi.ts`：`bearerAuth`（security 要件）、
+  `errorResponseSchema` / `successResponseSchema`（共通応答形）、
+  `openapiValidationHook`（入力エラーを `{error: message}` の 400 に揃える
+  `defaultHook`）、`registerOpenApiDocs`（/doc・/ui の登録）
+- `GET /doc` … OpenAPI JSON、`GET /ui` … Swagger UI。
+  `ENVIRONMENT=production` では両方 404。開発（wrangler dev・未設定）と
+  preview でのみ公開する。/doc・/ui 自体は RPC クライアントの対象外なので
+  `AppType` に含めない（`createRoute` ではなく素の `app.get` で登録）
+
+### OpenAPI 化時の注意
+
+- `createRoute` のパスは `{id}` 記法。パスパラメータは文字列のまま受け、
+  数値化などの判定は従来どおりハンドラ側で行う
+- JSON body を宣言したルートは、宣言と異なる Content-Type のリクエストに
+  415 を返す（zod-openapi の mediaTypeGate）。画像バイナリ（image/*）は
+  対象外なので Content-Type の検査は従来どおりハンドラ側で行う
+- レスポンススキーマは `InferResponseType` を使う mobile 側の型にも効く。
+  実際のハンドラ応答と一致させること（型チェックで検証される）
+
+### 移行状況（段階移行）
+
+OpenAPI 化済み（/doc に掲載される）:
+- `health` / `users`（report・block）/ `favorites` / `friends` /
+  `me`（profile・blocks・avatar 投稿・meishi-assets 投稿・アカウント削除）
+
+未移行（素の Hono のまま。動作に影響なし、/doc には出ない）:
+- `share` / `images` / `user` / `annict` / `import` / `watch-histories` /
+  `works` / `pass` / `tier-lists` / `character-tier-lists` /
+  `me` の画像配信サブ app（`avatar`・`meishiAssets`。`/*` のワイルドカード
+  配信で OpenAPI 化の優先度が低い）
+
+ルートを追加・変更する feature は、対象ルートの createRoute 化を優先する。
 
 ## 旧構成からの対応
 

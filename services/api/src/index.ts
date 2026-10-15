@@ -1,10 +1,11 @@
 import * as Sentry from "@sentry/cloudflare";
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import { createDb } from "./db/client";
 import type { Env } from "./db/client";
+import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
 import { prefetchWorkImages } from "./lib/annict/imagePrefetch";
 import {
@@ -36,12 +37,15 @@ type AppBindings = Env &
     ALLOWED_ORIGINS?: string;
     // デプロイ CI が --var で注入するデプロイ元コミット SHA。/health が返す。
     COMMIT_SHA?: string;
+    // wrangler.toml の [vars]。production / preview / 未設定（ローカル）。
+    // /doc・/ui の公開可否判定に使う（features/health も参照）。
+    ENVIRONMENT?: string;
     // アバター＋作品画像（works/ プレフィックス）共通の R2 バケット。
     // wrangler.toml で全環境にバインド済み。
     AVATARS: R2Bucket;
   };
 
-const app = new Hono<{ Bindings: AppBindings }>();
+const app = new OpenAPIHono<{ Bindings: AppBindings }>();
 
 // 受信済みの X-Request-Id を引き継ぎ、無ければ UUID を採番して
 // レスポンスヘッダに載せる。c.get("requestId") で参照できる。
@@ -87,6 +91,12 @@ const routes = app
   .route("/me/character-tier-lists", characterTierLists)
   .route("/user", user)
   .route("/users", usersRoute);
+
+// OpenAPI ドキュメント（/doc）と Swagger UI（/ui）。OpenAPI 対応済み feature
+// のルートのみ掲載される。本番では 404（開発・preview のみ公開。issue #14）。
+// Hono RPC の型（AppType）には含めないため createRoute は使わず
+// 素の app.get で登録する。
+registerOpenApiDocs(app);
 
 export type AppType = typeof routes;
 

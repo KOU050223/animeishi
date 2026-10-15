@@ -1,7 +1,5 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { reportCreateSchema } from "./schema";
+import { blockUserRoute, reportUserRoute, unblockUserRoute } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
@@ -11,6 +9,7 @@ import {
 } from "./repository";
 import { createDb } from "@/db/client";
 import { notifyUserReport } from "@/observability";
+import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
@@ -20,10 +19,11 @@ function getBindings(
 
 // ユーザー通報・ブロック（App Store Guideline 1.2 の UGC 対策, issue #135）。
 // ブロック一覧の取得は GET /me/blocks（features/me/index.ts）側にある。
-const usersRoute = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .post("/:id/report", zValidator("json", reportCreateSchema), async (c) => {
-    const targetId = c.req.param("id");
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const usersRoute = app
+  .openapi(reportUserRoute, async (c) => {
+    const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
       return c.json({ error: "自分自身を通報することはできません" }, 400);
     }
@@ -52,8 +52,8 @@ const usersRoute = new Hono<AuthVariables>()
     });
     return c.json({ success: true }, 201);
   })
-  .post("/:id/block", async (c) => {
-    const targetId = c.req.param("id");
+  .openapi(blockUserRoute, async (c) => {
+    const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
       return c.json({ error: "自分自身をブロックすることはできません" }, 400);
     }
@@ -70,8 +70,8 @@ const usersRoute = new Hono<AuthVariables>()
     }
     return c.json({ success: true }, 200);
   })
-  .delete("/:id/block", async (c) => {
-    const targetId = c.req.param("id");
+  .openapi(unblockUserRoute, async (c) => {
+    const { id: targetId } = c.req.valid("param");
     if (targetId === c.var.clerkUserId) {
       return c.json({ error: "自分自身のブロックは解除できません" }, 400);
     }
