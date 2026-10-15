@@ -73,29 +73,29 @@ export default function AnnictCallbackScreen() {
   }, [getToken, queryClient, router]);
 
   return (
-    <View className="flex-1 items-center justify-center bg-white px-8">
+    <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
       {phase.kind === "processing" && (
-        <Text className="text-lg font-semibold text-gray-900">
+        <Text className="text-lg font-semibold text-gray-900 dark:text-slate-100">
           {t("連携中...")}
         </Text>
       )}
       {phase.kind === "success" && (
-        <Text className="text-lg font-semibold text-gray-900">
+        <Text className="text-lg font-semibold text-gray-900 dark:text-slate-100">
           {t("Annict と連携しました")}
         </Text>
       )}
       {phase.kind === "error" && (
         <View className="items-center">
-          <Text className="text-lg font-semibold text-red-600 mb-4 text-center">
+          <Text className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4 text-center">
             {t(annictErrorKey(phase.reason))}
           </Text>
           <TouchableOpacity
-            className="bg-gray-200 rounded-lg px-6 py-3"
+            className="bg-gray-200 dark:bg-slate-700 rounded-lg px-6 py-3"
             onPress={() => router.replace(RETURN_PATH)}
             accessibilityRole="button"
             accessibilityLabel={t("キャンセル")}
           >
-            <Text className="text-gray-700 font-semibold">
+            <Text className="text-gray-700 dark:text-slate-200 font-semibold">
               {t("キャンセル")}
             </Text>
           </TouchableOpacity>

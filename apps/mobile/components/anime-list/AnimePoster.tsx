@@ -1,7 +1,8 @@
 import { Image, Text, View } from "react-native";
+import { useColorScheme } from "nativewind";
 import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
 import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
-import { styles } from "./animeListStyles";
+import { useAnimeListStyles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
 
 export function AnimePoster({
@@ -11,7 +12,12 @@ export function AnimePoster({
   item: PickImageUrlInput;
   title: string;
 }) {
-  const palette = getPosterPalette(title);
+  const styles = useAnimeListStyles();
+  const { colorScheme } = useColorScheme();
+  const palette = getPosterPalette(
+    title,
+    colorScheme === "dark" ? "dark" : "light",
+  );
   // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
   const { uri, onError } = useImageUrlWithFallback(item);
 

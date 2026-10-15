@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import { styles } from "./animeListStyles";
+import { useAnimeListStyles } from "./animeListStyles";
 
 export function StatPill({
   label,
@@ -10,6 +10,7 @@ export function StatPill({
   value: string;
   tone: "ink" | "gold" | "mint";
 }) {
+  const styles = useAnimeListStyles();
   return (
     <View style={[styles.statPill, styles[`statPill_${tone}`]]}>
       <Text style={styles.statValue}>{value}</Text>

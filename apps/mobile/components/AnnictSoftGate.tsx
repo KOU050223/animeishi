@@ -8,6 +8,7 @@ import {
   type AnnictConnectResult,
 } from "@/lib/annict";
 import type { TranslationKey } from "@/lib/i18n/keys";
+import { useThemeColors } from "@/lib/theme";
 
 /**
  * 記録/検索系の画面で、Annict 未連携時に表示するソフトゲート。
@@ -27,6 +28,7 @@ export function AnnictSoftGate({
   testID?: string;
 }) {
   const { t } = useTranslation();
+  const colors = useThemeColors();
   const { connect, isConnecting } = useAnnictConnect();
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -47,20 +49,20 @@ export function AnnictSoftGate({
       className="items-center justify-center px-8 py-16"
       testID={testID ?? "annict-soft-gate"}
     >
-      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-indigo-50">
-        <Ionicons name="link-outline" size={28} color="#4f46e5" />
+      <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-950">
+        <Ionicons name="link-outline" size={28} color={colors.primaryText} />
       </View>
 
-      <Text className="mb-2 text-center text-lg font-bold text-gray-900">
+      <Text className="mb-2 text-center text-lg font-bold text-gray-900 dark:text-slate-100">
         {t("Annict 連携が必要です")}
       </Text>
-      <Text className="mb-6 text-center text-sm leading-5 text-gray-500">
+      <Text className="mb-6 text-center text-sm leading-5 text-gray-500 dark:text-slate-400">
         {t(description)}
       </Text>
 
       {errorText && (
         <Text
-          className="mb-4 text-center text-sm text-red-500"
+          className="mb-4 text-center text-sm text-red-500 dark:text-red-400"
           testID="annict-soft-gate-error"
         >
           {errorText}
@@ -77,7 +79,7 @@ export function AnnictSoftGate({
         accessibilityState={{ disabled: isConnecting, busy: isConnecting }}
       >
         {isConnecting ? (
-          <ActivityIndicator color="#ffffff" />
+          <ActivityIndicator color={colors.onPrimary} />
         ) : (
           <Text className="font-semibold text-white">{t("連携する")}</Text>
         )}

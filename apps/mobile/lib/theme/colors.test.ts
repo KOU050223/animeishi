@@ -46,9 +46,24 @@ describe("colors.light.placeholder のコントラスト (WCAG AA)", () => {
 });
 
 describe("colors.dark.placeholder のコントラスト (WCAG AA)", () => {
-  it("slate-900 背景上で 4.5:1 以上", () => {
+  // dark で入力欄を置いている背景色すべてを網羅する（dark: クラス側と同じ slate 値）。
+  it.each([
+    ["画面ベース背景 (dark:bg-slate-900)", "#0f172a"],
+    ["カード/シート面 (dark:bg-slate-800)", "#1e293b"],
+    ["チップ/入力枠 (dark:bg-slate-700)", "#334155"],
+  ])("%s 上で 4.5:1 以上", (_label, background) => {
     expect(
-      contrastRatio(colors.dark.placeholder, "#0f172a"),
+      contrastRatio(colors.dark.placeholder, background),
     ).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+  });
+});
+
+describe("スキーム間のトークン対応", () => {
+  it("light と dark が同じセマンティックキーを持つ", () => {
+    // 片方にだけ存在するトークンは片側スキームで未定義色になるため、
+    // キー集合の一致をテストで担保する。
+    expect(Object.keys(colors.dark).sort()).toEqual(
+      Object.keys(colors.light).sort(),
+    );
   });
 });

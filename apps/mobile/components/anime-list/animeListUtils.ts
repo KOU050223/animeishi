@@ -136,6 +136,16 @@ export const POSTER_PALETTES = [
   { bg: "#f8fafc", border: "#cbd5e1", accent: "#475569", text: "#0f172a" },
 ];
 
+// light の POSTER_PALETTES と同じ順序・同じ色相の暗色版。
+// パステル背景のままだと dark で眩しいため、背景は 950、文字は 200 系に落とす。
+const POSTER_PALETTES_DARK = [
+  { bg: "#431407", border: "#9a3412", accent: "#fb923c", text: "#fed7aa" },
+  { bg: "#172554", border: "#1d4ed8", accent: "#60a5fa", text: "#bfdbfe" },
+  { bg: "#500724", border: "#be185d", accent: "#f472b6", text: "#fbcfe8" },
+  { bg: "#022c22", border: "#047857", accent: "#34d399", text: "#a7f3d0" },
+  { bg: "#0f172a", border: "#334155", accent: "#94a3b8", text: "#e2e8f0" },
+];
+
 export function useAnimeStats(data: AnimeTitle[] | undefined) {
   return useMemo(() => {
     const list = data ?? [];
@@ -170,12 +180,16 @@ export function getPosterInitial(title: string) {
   return Array.from(title.trim())[0] ?? "A";
 }
 
-export function getPosterPalette(title: string) {
+export function getPosterPalette(
+  title: string,
+  scheme: "light" | "dark" = "light",
+) {
   const index = Array.from(title).reduce(
     (sum, char) => sum + char.charCodeAt(0),
     0,
   );
-  return POSTER_PALETTES[index % POSTER_PALETTES.length];
+  const palettes = scheme === "dark" ? POSTER_PALETTES_DARK : POSTER_PALETTES;
+  return palettes[index % palettes.length];
 }
 
 export function getAnimeListLayout(width: number) {

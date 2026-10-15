@@ -22,6 +22,7 @@ import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme";
 
 // ピッカー行として必要な最小フィールド。FavoriteItem / WatchHistoryItem /
 // works.search の works 要素はすべてこの形を満たす。
@@ -65,6 +66,7 @@ function AnimePickRow({
   item: AnimePickItem;
   onPick: (uri: string) => void;
 }) {
+  const colors = useThemeColors();
   const uri = pickImageUrl(item);
   const sub = seasonText(item);
   return (
@@ -84,13 +86,13 @@ function AnimePickRow({
       <WorkThumbnail item={item} width={44} height={58} />
       <View style={{ flex: 1 }}>
         <Text
-          style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}
+          style={{ fontSize: 14, fontWeight: "600", color: colors.text }}
           numberOfLines={2}
         >
           {item.title}
         </Text>
         {sub ? (
-          <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
             {sub}
           </Text>
         ) : null}
@@ -124,6 +126,7 @@ function LibraryList({
   isConnectionLoading: boolean;
   onPick: (uri: string) => void;
 }) {
+  const colors = useThemeColors();
   const [listKey, setListKey] = useState<LibraryKey>("favorites");
   const renderItem = useRenderRow(onPick);
 
@@ -163,13 +166,14 @@ function LibraryList({
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 999,
-              backgroundColor: listKey === key ? "#4f46e5" : "#f3f4f6",
+              backgroundColor:
+                listKey === key ? colors.primary : colors.surfaceMuted,
             }}
           >
             <Text
               style={{
                 fontSize: 12,
-                color: listKey === key ? "#ffffff" : "#111827",
+                color: listKey === key ? colors.onPrimary : colors.text,
               }}
             >
               {libraryLabel(key)}
@@ -185,7 +189,7 @@ function LibraryList({
         ListEmptyComponent={
           <Text
             style={{
-              color: "#6b7280",
+              color: colors.textMuted,
               fontSize: 13,
               textAlign: "center",
               marginTop: 32,
@@ -209,6 +213,7 @@ function SearchList({
   query: string;
   onPick: (uri: string) => void;
 }) {
+  const colors = useThemeColors();
   const {
     data: works,
     isLoading,
@@ -236,7 +241,7 @@ function SearchList({
   if (isError) {
     return (
       <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
-        <Text style={{ color: "#6b7280", fontSize: 13 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 13 }}>
           検索に失敗しました
         </Text>
         <Pressable
@@ -247,10 +252,12 @@ function SearchList({
             paddingHorizontal: 16,
             paddingVertical: 8,
             borderRadius: 8,
-            backgroundColor: "#4f46e5",
+            backgroundColor: colors.primary,
           }}
         >
-          <Text style={{ color: "#ffffff", fontWeight: "600" }}>再試行</Text>
+          <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
+            再試行
+          </Text>
         </Pressable>
       </View>
     );
@@ -271,7 +278,7 @@ function SearchList({
         ) : (
           <Text
             style={{
-              color: "#6b7280",
+              color: colors.textMuted,
               fontSize: 13,
               textAlign: "center",
               marginTop: 32,
@@ -309,6 +316,7 @@ export function AnimeImagePicker({
   favorites?: AnimePickItem[];
   watchHistory?: (AnimePickItem & { state: string | null })[];
 }) {
+  const colors = useThemeColors();
   const { height } = useWindowDimensions();
   const [tab, setTab] = useState<"search" | "library">("search");
   const [query, setQuery] = useState("");
@@ -328,11 +336,11 @@ export function AnimeImagePicker({
       >
         <Pressable
           onPress={onClose}
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={{ flex: 1, backgroundColor: colors.scrim }}
         />
         <View
           style={{
-            backgroundColor: "#ffffff",
+            backgroundColor: colors.surface,
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             padding: 16,
@@ -351,7 +359,9 @@ export function AnimeImagePicker({
               marginBottom: 12,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "bold" }}>
+            <Text
+              style={{ fontSize: 16, fontWeight: "bold", color: colors.text }}
+            >
               アニメ画像を選ぶ
             </Text>
             <Pressable
@@ -360,7 +370,7 @@ export function AnimeImagePicker({
               accessibilityLabel="閉じる"
               style={{ padding: 6 }}
             >
-              <Text style={{ fontSize: 16, color: "#6b7280" }}>✕</Text>
+              <Text style={{ fontSize: 16, color: colors.textMuted }}>✕</Text>
             </Pressable>
           </View>
 
@@ -380,14 +390,15 @@ export function AnimeImagePicker({
                   paddingVertical: 6,
                   paddingHorizontal: 12,
                   borderRadius: 8,
-                  backgroundColor: tab === t.key ? "#4f46e5" : "#f3f4f6",
+                  backgroundColor:
+                    tab === t.key ? colors.primary : colors.surfaceMuted,
                 }}
               >
                 <Text
                   style={{
                     fontSize: 13,
                     fontWeight: "600",
-                    color: tab === t.key ? "#ffffff" : "#111827",
+                    color: tab === t.key ? colors.onPrimary : colors.text,
                   }}
                 >
                   {t.label}
@@ -406,12 +417,13 @@ export function AnimeImagePicker({
                 testID="anime-image-search-input"
                 style={{
                   borderWidth: 1,
-                  borderColor: "#e5e7eb",
+                  borderColor: colors.border,
                   borderRadius: 8,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   fontSize: 14,
                   marginBottom: 8,
+                  color: colors.text,
                 }}
               />
               <SearchList query={query} onPick={onPick} />

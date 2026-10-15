@@ -17,6 +17,7 @@ import { Input } from "@/components/ui";
 import { signInSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { useThemeColors } from "@/lib/theme";
 
 function getIncompleteSignInMessage(status: string | null, t: TFunction) {
   if (!status) {
@@ -40,6 +41,7 @@ export default function SignInScreen() {
   const { isSignedIn, signOut } = useAuth();
   const { client } = useClerk();
   const router = useRouter();
+  const colors = useThemeColors();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,7 +110,10 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -118,17 +123,17 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
-          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:p-8">
-            <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
+          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:dark:border-slate-700 md:p-8">
+            <Text className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-slate-100">
               {t("アニ名刺")}
             </Text>
 
-            <Text className="text-xl font-semibold mb-6 text-gray-800">
+            <Text className="text-xl font-semibold mb-6 text-gray-800 dark:text-slate-100">
               {t("サインイン")}
             </Text>
 
             <Input
-              className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("メールアドレス")}
               value={email}
               onChangeText={setEmail}
@@ -139,7 +144,7 @@ export default function SignInScreen() {
             />
 
             <Input
-              className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("パスワード")}
               value={password}
               onChangeText={setPassword}
@@ -150,7 +155,7 @@ export default function SignInScreen() {
 
             {error && (
               <Text
-                className="text-red-500 text-sm mb-4"
+                className="text-red-500 dark:text-red-400 text-sm mb-4"
                 testID="error-message"
               >
                 {error}
@@ -164,7 +169,7 @@ export default function SignInScreen() {
               testID="sign-in-button"
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Text className="text-white font-semibold text-base">
                   {t("サインイン")}
@@ -173,11 +178,11 @@ export default function SignInScreen() {
             </TouchableOpacity>
 
             <View className="flex-row justify-center">
-              <Text className="text-gray-600">
+              <Text className="text-gray-600 dark:text-slate-300">
                 {t("アカウントをお持ちでない方は ")}
               </Text>
               <Link href="/(auth)/sign-up" testID="sign-up-link">
-                <Text className="text-indigo-600 font-semibold">
+                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
                   {t("サインアップ")}
                 </Text>
               </Link>

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useThemeColors } from "@/lib/theme";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { ElementRenderer } from "./elements/ElementRenderer";
 import { SelectionOverlay } from "./SelectionOverlay";
@@ -35,6 +36,7 @@ export function EditorCanvas({
   onTransform,
   onCommit,
 }: EditorCanvasProps) {
+  const colors = useThemeColors();
   const [size, setSize] = useState<Size | null>(null);
   const canvasRef = useRef<View>(null);
   // キャンバスの画面上の絶対原点（px）。回転ジェスチャで absoluteX/Y をキャンバスローカルに変換するのに使う。
@@ -70,7 +72,7 @@ export function EditorCanvas({
           aspectRatio: document.canvas.aspectRatio,
           borderRadius: 12,
           overflow: "hidden",
-          backgroundColor: "#f3f4f6",
+          backgroundColor: colors.surfaceMuted,
         }}
       >
         <BackgroundLayer style={document.canvas.background} borderRadius={12} />

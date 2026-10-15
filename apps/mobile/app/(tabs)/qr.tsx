@@ -17,7 +17,7 @@ export default function QrScreen() {
 
   return (
     // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
       {/* モード切替タブ */}
       <View className="flex-row px-4 pt-2 pb-2 gap-2">
         <ModeButton
@@ -43,7 +43,7 @@ function GenerateView() {
   if (!isSignedIn || !userId) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-400 text-center">
+        <Text className="text-gray-400 dark:text-slate-500 text-center">
           QR コードを表示するにはサインインしてください
         </Text>
       </View>
@@ -52,6 +52,8 @@ function GenerateView() {
 
   return (
     <View className="flex-1 items-center justify-center px-8">
+      {/* QR コードは読み取り精度のため常に白いカードに描画する
+          （周囲の quiet zone も白が前提）。dark でも白のままにする。 */}
       <View
         className="p-6 bg-white rounded-2xl border border-gray-100"
         style={styles.qrCard}
@@ -62,7 +64,7 @@ function GenerateView() {
             （qrParser の後方互換）。 */}
         <QRCode value={buildProfileUrl(userId) ?? userId} size={240} />
       </View>
-      <Text className="text-gray-500 text-sm mt-6 text-center">
+      <Text className="text-gray-500 dark:text-slate-400 text-sm mt-6 text-center">
         この QR コードを相手に読み取ってもらうと{"\n"}名刺を交換できます
       </Text>
     </View>
@@ -104,7 +106,9 @@ function ScanView() {
   if (!permission) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-400">カメラを準備しています...</Text>
+        <Text className="text-gray-400 dark:text-slate-500">
+          カメラを準備しています...
+        </Text>
       </View>
     );
   }
@@ -113,7 +117,7 @@ function ScanView() {
   if (!permission.granted) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-600 text-center mb-4">
+        <Text className="text-gray-600 dark:text-slate-300 text-center mb-4">
           QR コードをスキャンするにはカメラの許可が必要です
         </Text>
         <TouchableOpacity
@@ -181,7 +185,9 @@ function ModeButton({
   return (
     <TouchableOpacity
       className={`flex-1 items-center px-3 py-2 rounded-full border ${
-        active ? "border-indigo-500 bg-indigo-50" : "border-gray-200 bg-white"
+        active
+          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
       }`}
       onPress={onPress}
       accessibilityRole="button"
@@ -189,7 +195,7 @@ function ModeButton({
       accessibilityState={{ selected: active }}
     >
       <Text
-        className={`text-sm font-medium ${active ? "text-indigo-600" : "text-gray-500"}`}
+        className={`text-sm font-medium ${active ? "text-indigo-600 dark:text-indigo-300" : "text-gray-500 dark:text-slate-400"}`}
       >
         {label}
       </Text>

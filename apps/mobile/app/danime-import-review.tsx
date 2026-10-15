@@ -37,6 +37,7 @@ import {
 } from "@animeishi/danime-core";
 import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { useThemeColors } from "@/lib/theme";
 
 type Row = {
   item: DanimeMatchItem;
@@ -114,6 +115,7 @@ function defaultChecked(
 
 export default function DanimeImportReviewScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
   const lists = useDanimeImportStore((s) => s.lists);
   const setLists = useDanimeImportStore((s) => s.setLists);
 
@@ -351,24 +353,26 @@ export default function DanimeImportReviewScreen() {
   // ---- 結果画面 ----
   if (doneResult) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center px-8">
-        <Text className="text-lg font-bold text-gray-900">登録結果</Text>
-        <Text className="text-sm text-gray-600 mt-3 text-center">
+      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
+        <Text className="text-lg font-bold text-gray-900 dark:text-slate-100">
+          登録結果
+        </Text>
+        <Text className="text-sm text-gray-600 dark:text-slate-300 mt-3 text-center">
           成功: {doneResult.succeeded} 件 / 失敗・未処理: {doneResult.failed} 件
         </Text>
         {timingSummary !== "" && (
-          <Text className="text-[11px] text-gray-400 mt-2 text-center">
+          <Text className="text-[11px] text-gray-400 dark:text-slate-500 mt-2 text-center">
             {timingSummary}
           </Text>
         )}
         {doneResult.aborted && (
-          <Text className="text-xs text-red-500 mt-2 text-center">
+          <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
             Annict
             連携が切れたため途中で中断されました。連携を確認して再度お試しください。
           </Text>
         )}
         {doneResult.requestError && (
-          <Text className="text-xs text-red-500 mt-2 text-center">
+          <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
             {doneResult.requestError}
           </Text>
         )}
@@ -387,20 +391,20 @@ export default function DanimeImportReviewScreen() {
   // ---- マッチング中 / 失敗 ----
   if (rows === null) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center px-8">
+      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         {match.isPending || isHistoriesLoading ? (
           <>
-            <ActivityIndicator size="large" color="#4f46e5" />
-            <Text className="text-sm text-gray-500 mt-4">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text className="text-sm text-gray-500 dark:text-slate-400 mt-4">
               Annict の作品と照合しています…
             </Text>
-            <Text className="text-[11px] text-gray-400 mt-2">
+            <Text className="text-[11px] text-gray-400 dark:text-slate-500 mt-2">
               {workCount} 件 / {matchElapsedSec} 秒経過
             </Text>
           </>
         ) : (
           <>
-            <Text className="text-sm text-red-500 text-center">
+            <Text className="text-sm text-red-500 dark:text-red-400 text-center">
               {match.error?.message ?? "マッチングに失敗しました"}
             </Text>
             <TouchableOpacity
@@ -417,7 +421,7 @@ export default function DanimeImportReviewScreen() {
               accessibilityRole="button"
               accessibilityLabel="戻る"
             >
-              <Text className="text-gray-500">戻る</Text>
+              <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
             </TouchableOpacity>
           </>
         )}
@@ -427,16 +431,19 @@ export default function DanimeImportReviewScreen() {
 
   // ---- レビュー一覧 ----
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
-      <View className="px-4 pt-2 pb-3 border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
+      <View className="px-4 pt-2 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
           インポート内容の確認
         </Text>
-        <Text className="text-xs text-gray-500 mt-1">
+        <Text className="text-xs text-gray-500 dark:text-slate-400 mt-1">
           {rows.length} 件中 {checkedCount} 件を登録します
         </Text>
         {timingSummary !== "" && (
-          <Text className="text-[10px] text-gray-400 mt-0.5">
+          <Text className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">
             {timingSummary}
           </Text>
         )}
@@ -449,15 +456,15 @@ export default function DanimeImportReviewScreen() {
         renderItem={renderRow}
       />
 
-      <View className="px-4 py-3 border-t border-gray-100">
+      <View className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
         {progress !== null && (
-          <Text className="text-xs text-gray-500 text-center mb-2">
+          <Text className="text-xs text-gray-500 dark:text-slate-400 text-center mb-2">
             登録中… {progress.done} / {progress.total}（{registerElapsedSec}{" "}
             秒経過）
           </Text>
         )}
         {bulk.isError && (
-          <Text className="text-xs text-red-500 text-center mb-2">
+          <Text className="text-xs text-red-500 dark:text-red-400 text-center mb-2">
             {bulk.error.message}
           </Text>
         )}
@@ -465,7 +472,7 @@ export default function DanimeImportReviewScreen() {
           className={`rounded-xl py-3 items-center ${
             checkedCount > 0 && !bulk.isPending
               ? "bg-indigo-600"
-              : "bg-gray-300"
+              : "bg-gray-300 dark:bg-slate-700"
           }`}
           onPress={register}
           disabled={checkedCount === 0 || bulk.isPending}
@@ -474,7 +481,7 @@ export default function DanimeImportReviewScreen() {
           testID="danime-register-button"
         >
           {bulk.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text className="text-white font-semibold">
               {checkedCount} 件を Annict に登録
@@ -487,7 +494,7 @@ export default function DanimeImportReviewScreen() {
           accessibilityRole="button"
           accessibilityLabel="戻る"
         >
-          <Text className="text-gray-500">戻る</Text>
+          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -510,11 +517,13 @@ function ReviewRow({
   onSelectCandidate: (index: number, work: DanimeAnnictWork) => void;
 }) {
   const { item, selected, checked, note } = row;
+  const colors = useThemeColors();
   const stateLabel = item.targetState === "WATCHED" ? "視聴済" : "視聴中";
-  const stateColor = item.targetState === "WATCHED" ? "#16a34a" : "#4f46e5";
+  const stateColor =
+    item.targetState === "WATCHED" ? colors.success : colors.primaryText;
 
   return (
-    <View className="py-3 border-b border-gray-100">
+    <View className="py-3 border-b border-gray-100 dark:border-slate-800">
       <View className="flex-row items-center gap-3">
         <TouchableOpacity
           onPress={() => onToggle(index)}
@@ -522,7 +531,7 @@ function ReviewRow({
           className={`w-6 h-6 rounded-md border items-center justify-center ${
             checked && selected
               ? "bg-indigo-600 border-indigo-600"
-              : "border-gray-300"
+              : "border-gray-300 dark:border-slate-600"
           }`}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: checked && !!selected }}
@@ -534,7 +543,10 @@ function ReviewRow({
         </TouchableOpacity>
 
         <View className="flex-1">
-          <Text className="text-gray-900 font-medium" numberOfLines={2}>
+          <Text
+            className="text-gray-900 dark:text-slate-100 font-medium"
+            numberOfLines={2}
+          >
             {item.title}
           </Text>
           <RowBadges
@@ -587,14 +599,20 @@ function RowBadges({
         {targetLabel}に登録
       </Text>
       {status === "exact" && selected !== null && (
-        <Text className="text-xs text-green-600">自動マッチ</Text>
+        <Text className="text-xs text-green-600 dark:text-green-400">
+          自動マッチ
+        </Text>
       )}
       {status === "none" && (
-        <Text className="text-xs text-gray-400">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           Annict に一致する作品が見つかりません（スキップ）
         </Text>
       )}
-      {note !== null && <Text className="text-xs text-amber-600">{note}</Text>}
+      {note !== null && (
+        <Text className="text-xs text-amber-600 dark:text-amber-400">
+          {note}
+        </Text>
+      )}
     </View>
   );
 }
@@ -615,11 +633,16 @@ function SelectedWork({
     <View className="flex-row items-center gap-2 mt-2">
       <WorkThumbnail item={work} width={32} height={42} />
       <View className="flex-1">
-        <Text className="text-xs text-gray-600" numberOfLines={2}>
+        <Text
+          className="text-xs text-gray-600 dark:text-slate-300"
+          numberOfLines={2}
+        >
           → {work.title}
         </Text>
         {stateLabel !== null && (
-          <Text className="text-[10px] text-gray-400">現在: {stateLabel}</Text>
+          <Text className="text-[10px] text-gray-400 dark:text-slate-500">
+            現在: {stateLabel}
+          </Text>
         )}
       </View>
     </View>
@@ -647,19 +670,24 @@ function CandidatePicker({
             onPress={() => onSelect(rowIndex, c)}
             className={`flex-row items-center gap-2 rounded-lg border px-2 py-1.5 ${
               isSelected
-                ? "border-indigo-500 bg-indigo-50"
-                : "border-gray-200 bg-white"
+                ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+                : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
             }`}
             accessibilityRole="button"
             accessibilityLabel={`候補: ${c.title}`}
           >
             <WorkThumbnail item={c} width={24} height={32} />
-            <Text className="flex-1 text-xs text-gray-700" numberOfLines={2}>
+            <Text
+              className="flex-1 text-xs text-gray-700 dark:text-slate-200"
+              numberOfLines={2}
+            >
               {c.title}
               {c.seasonYear ? `（${c.seasonYear}年）` : ""}
             </Text>
             {isSelected && (
-              <Text className="text-xs text-indigo-600 font-bold">選択中</Text>
+              <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-bold">
+                選択中
+              </Text>
             )}
           </TouchableOpacity>
         );

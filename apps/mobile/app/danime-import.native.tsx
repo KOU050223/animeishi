@@ -27,6 +27,7 @@ import {
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { featureFlags } from "@/lib/featureFlags";
+import { useThemeColors } from "@/lib/theme";
 
 // Web 版の取り込み画面への導線（フラグ無効時の案内用）。
 // EXPO_PUBLIC_WEB_URL は EAS プロファイルで本番 URL が設定済み。
@@ -52,6 +53,7 @@ function errorMessage(code: string): string {
 
 export default function DanimeImportScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
   const webViewRef = useRef<WebView>(null);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,13 +64,13 @@ export default function DanimeImportScreen() {
   if (!featureFlags.danimeImport) {
     return (
       <SafeAreaView
-        className="flex-1 bg-white items-center justify-center px-8"
+        className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8"
         edges={["top", "bottom"]}
       >
-        <Text className="text-xl font-bold text-gray-900">
+        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
           dアニメからインポート
         </Text>
-        <Text className="text-sm text-gray-600 mt-3 text-center leading-5">
+        <Text className="text-sm text-gray-600 dark:text-slate-300 mt-3 text-center leading-5">
           この機能は現在 Web 版でのみ利用できます。
         </Text>
         <TouchableOpacity
@@ -86,7 +88,7 @@ export default function DanimeImportScreen() {
           accessibilityRole="button"
           accessibilityLabel="戻る"
         >
-          <Text className="text-gray-500">戻る</Text>
+          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -122,16 +124,23 @@ export default function DanimeImportScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
-      <View className="px-4 pt-2 pb-3 border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
+      <View className="px-4 pt-2 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
           dアニメからインポート
         </Text>
-        <Text className="text-xs text-gray-500 mt-1 leading-4">
+        <Text className="text-xs text-gray-500 dark:text-slate-400 mt-1 leading-4">
           WebView 内で dアニメストアにログインし、視聴履歴ページが表示されたら
           「読み取り開始」を押してください。ログイン情報はアプリに送信されません。
         </Text>
-        {error && <Text className="text-xs text-red-500 mt-2">{error}</Text>}
+        {error && (
+          <Text className="text-xs text-red-500 dark:text-red-400 mt-2">
+            {error}
+          </Text>
+        )}
       </View>
 
       <View className="flex-1">
@@ -145,16 +154,16 @@ export default function DanimeImportScreen() {
           startInLoadingState
           renderLoading={() => (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#4f46e5" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           )}
         />
       </View>
 
-      <View className="px-4 py-3 border-t border-gray-100">
+      <View className="px-4 py-3 border-t border-gray-100 dark:border-slate-800">
         <TouchableOpacity
           className={`rounded-xl py-3 items-center ${
-            extracting ? "bg-indigo-300" : "bg-indigo-600"
+            extracting ? "bg-indigo-300 dark:bg-indigo-800" : "bg-indigo-600"
           }`}
           onPress={startExtract}
           disabled={extracting}
@@ -163,7 +172,7 @@ export default function DanimeImportScreen() {
           testID="danime-extract-button"
         >
           {extracting ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text className="text-white font-semibold">読み取り開始</Text>
           )}
@@ -174,7 +183,7 @@ export default function DanimeImportScreen() {
           accessibilityRole="button"
           accessibilityLabel="戻る"
         >
-          <Text className="text-gray-500">戻る</Text>
+          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
         </TouchableOpacity>
       </View>
 

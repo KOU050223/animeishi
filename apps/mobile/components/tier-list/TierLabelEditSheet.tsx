@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Input } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme";
 import { TIER_LABEL_MAX_LENGTH, tierLabelError } from "@/lib/tierList/label";
 
 /**
@@ -27,6 +28,7 @@ export function TierLabelEditSheet({
   onClose: () => void;
   onSubmit: (value: string) => void;
 }) {
+  const colors = useThemeColors();
   const [value, setValue] = useState(initialValue);
   useEffect(() => {
     if (visible) setValue(initialValue);
@@ -49,7 +51,7 @@ export function TierLabelEditSheet({
           onPress={onClose}
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.4)",
+            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
@@ -57,7 +59,7 @@ export function TierLabelEditSheet({
           <Pressable
             onPress={() => {}}
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: colors.surface,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
@@ -67,7 +69,12 @@ export function TierLabelEditSheet({
             }}
           >
             <Text
-              style={{ fontSize: 16, fontWeight: "bold", marginBottom: 12 }}
+              style={{
+                fontSize: 16,
+                fontWeight: "bold",
+                marginBottom: 12,
+                color: colors.text,
+              }}
             >
               tier 名を編集
             </Text>
@@ -86,21 +93,28 @@ export function TierLabelEditSheet({
               testID="tier-label-input"
               style={{
                 borderWidth: 1,
-                borderColor: error ? "#dc2626" : "#e5e7eb",
+                borderColor: error ? colors.danger : colors.border,
                 borderRadius: 8,
                 padding: 12,
                 fontSize: 16,
+                color: colors.text,
               }}
             />
             {error ? (
               <Text
                 testID="tier-label-error"
-                style={{ color: "#dc2626", fontSize: 12, marginTop: 6 }}
+                style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}
               >
                 {error}
               </Text>
             ) : (
-              <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 6 }}>
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontSize: 12,
+                  marginTop: 6,
+                }}
+              >
                 {TIER_LABEL_MAX_LENGTH}文字以内で入力してください
               </Text>
             )}
@@ -113,11 +127,11 @@ export function TierLabelEditSheet({
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 8,
-                  backgroundColor: "#e5e7eb",
+                  backgroundColor: colors.surfaceMuted,
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#111827" }}>
+                <Text style={{ fontWeight: "600", color: colors.text }}>
                   キャンセル
                 </Text>
               </Pressable>
@@ -135,12 +149,12 @@ export function TierLabelEditSheet({
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 8,
-                  backgroundColor: "#4f46e5",
+                  backgroundColor: colors.primary,
                   alignItems: "center",
                   opacity: error ? 0.5 : 1,
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#ffffff" }}>
+                <Text style={{ fontWeight: "600", color: colors.onPrimary }}>
                   完了
                 </Text>
               </Pressable>

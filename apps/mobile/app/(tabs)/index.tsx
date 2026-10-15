@@ -46,13 +46,18 @@ export default function HomeScreen() {
 
   return (
     // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-gray-50 dark:bg-slate-950"
+      edges={["top"]}
+    >
       <ScrollView contentContainerClassName="px-4 pb-12">
         <View className="pb-3 pt-3">
-          <Text className="text-xl font-bold text-gray-900">ホーム</Text>
+          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+            ホーム
+          </Text>
         </View>
 
-        <Text className="mb-2 text-sm font-medium text-gray-700">
+        <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
           あなたの名刺
         </Text>
         <View style={styles.meishiPreviewFrame} testID="home-meishi-preview">
@@ -68,24 +73,24 @@ export default function HomeScreen() {
 
         <View className="mt-4 gap-2">
           <TouchableOpacity
-            className="items-center rounded-xl bg-indigo-50 py-3"
+            className="items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
             onPress={() => router.push("/meishi/edit")}
             accessibilityRole="button"
             accessibilityLabel="名刺をデザインする"
             testID="home-open-meishi-edit"
           >
-            <Text className="font-semibold text-indigo-700">
+            <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
               🎨 名刺をデザインする
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className="items-center rounded-xl border border-indigo-200 bg-white py-3"
+            className="items-center rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 py-3"
             onPress={() => router.push("/qr")}
             accessibilityRole="button"
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"
           >
-            <Text className="font-semibold text-indigo-700">
+            <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
               📷 QR で名刺を交換
             </Text>
           </TouchableOpacity>
@@ -101,18 +106,22 @@ export default function HomeScreen() {
         )}
 
         <TouchableOpacity
-          className="mt-8 items-center rounded-lg bg-gray-200 px-6 py-3"
+          className="mt-8 items-center rounded-lg bg-gray-200 dark:bg-slate-800 px-6 py-3"
           onPress={() => signOut()}
           testID="sign-out-button"
           accessibilityRole="button"
           accessibilityLabel="サインアウト"
         >
-          <Text className="text-gray-700 font-semibold">サインアウト</Text>
+          <Text className="text-gray-700 dark:text-slate-200 font-semibold">
+            サインアウト
+          </Text>
         </TouchableOpacity>
 
         {featureFlags.debugPanel && (
-          <View className="mt-8 p-4 border border-yellow-400 rounded-xl bg-yellow-50">
-            <Text className="text-yellow-700 font-bold mb-2">Debug Panel</Text>
+          <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">
+            <Text className="text-yellow-700 dark:text-yellow-300 font-bold mb-2">
+              Debug Panel
+            </Text>
             <TouchableOpacity
               className="bg-yellow-400 rounded-lg px-4 py-2"
               onPress={clearCache}

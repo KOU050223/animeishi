@@ -28,6 +28,8 @@ import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { useThemeColors } from "@/lib/theme";
+import { useColorScheme } from "nativewind";
 
 const WATCH_STATUSES = [
   "WATCHING",
@@ -39,17 +41,29 @@ const WATCH_STATUSES = [
 
 type WatchStatus = (typeof WATCH_STATUSES)[number];
 
-const STATUS_COLORS: Record<WatchStatus, string> = {
-  WATCHING: "#4f46e5",
-  WATCHED: "#16a34a",
-  ON_HOLD: "#d97706",
-  STOP_WATCHING: "#dc2626",
-  WANNA_WATCH: "#6b7280",
+// ステータスバッジの文字色。バッジ背景は `${color}20` で自動生成するため、
+// dark では視認性の高い明るい側の色相を使う。
+const STATUS_COLORS: Record<"light" | "dark", Record<WatchStatus, string>> = {
+  light: {
+    WATCHING: "#4f46e5",
+    WATCHED: "#16a34a",
+    ON_HOLD: "#d97706",
+    STOP_WATCHING: "#dc2626",
+    WANNA_WATCH: "#6b7280",
+  },
+  dark: {
+    WATCHING: "#818cf8",
+    WATCHED: "#4ade80",
+    ON_HOLD: "#fbbf24",
+    STOP_WATCHING: "#f87171",
+    WANNA_WATCH: "#9ca3af",
+  },
 };
 
 export default function WatchHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
@@ -95,8 +109,8 @@ export default function WatchHistoryScreen() {
   // 連携状態の確定前はスピナー（未連携かどうかが分かるまで履歴 UI を出さない）。
   if (isConnectionLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#4f46e5" />
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -104,9 +118,14 @@ export default function WatchHistoryScreen() {
   // 未連携: 履歴クエリは無効化されているため、連携誘導を最優先で表示する。
   if (!isConnected) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top"]}
+      >
         <View className="px-4 pt-3 pb-3">
-          <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
+          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+            視聴履歴
+          </Text>
         </View>
         <AnnictSoftGate
           description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。"
@@ -118,16 +137,16 @@ export default function WatchHistoryScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#4f46e5" />
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
-        <Text className="text-red-500 text-center mb-4">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
+        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
           視聴履歴の取得に失敗しました
         </Text>
         <TouchableOpacity
@@ -143,11 +162,13 @@ export default function WatchHistoryScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
       <View className="px-4 pt-3 pb-3 flex-row items-start justify-between">
         <View>
-          <Text className="text-xl font-bold text-gray-900">視聴履歴</Text>
-          <Text className="text-xs text-gray-400 mt-0.5">
+          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+            視聴履歴
+          </Text>
+          <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
             {enriched.length} 件
           </Text>
         </View>
@@ -155,13 +176,13 @@ export default function WatchHistoryScreen() {
             フラグが無効な間は導線を出さない。 */}
         {featureFlags.danimeImport && (
           <TouchableOpacity
-            className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5"
+            className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
             onPress={() => router.push("/danime-import")}
             accessibilityRole="button"
             accessibilityLabel="dアニメストアからインポート"
             testID="danime-import-button"
           >
-            <Text className="text-xs text-indigo-600 font-medium">
+            <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
               dアニメからインポート
             </Text>
           </TouchableOpacity>
@@ -175,7 +196,10 @@ export default function WatchHistoryScreen() {
         refreshing={refreshing}
         onRefresh={onRefresh}
         ItemSeparatorComponent={() => (
-          <View style={{ height: 1 }} className="bg-gray-100" />
+          <View
+            style={{ height: 1 }}
+            className="bg-gray-100 dark:bg-slate-800"
+          />
         )}
         renderItem={({ item }) => (
           <WatchHistoryRow
@@ -186,7 +210,7 @@ export default function WatchHistoryScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 text-center">
+            <Text className="text-gray-400 dark:text-slate-500 text-center">
               視聴履歴がありません。{"\n"}アニメ一覧から追加してください。
             </Text>
           </View>
@@ -228,11 +252,13 @@ export default function WatchHistoryScreen() {
         {toast ? (
           <View
             pointerEvents="none"
-            className="mx-4 mt-2 rounded-lg px-4 py-3 shadow-md bg-red-50"
+            className="mx-4 mt-2 rounded-lg px-4 py-3 shadow-md bg-red-50 dark:bg-red-950"
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
           >
-            <Text className="text-sm font-medium text-red-600">{toast}</Text>
+            <Text className="text-sm font-medium text-red-600 dark:text-red-400">
+              {toast}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -249,7 +275,9 @@ function WatchHistoryRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const color = STATUS_COLORS[history.state as WatchStatus] ?? "#6b7280";
+  const { colorScheme } = useColorScheme();
+  const palette = STATUS_COLORS[colorScheme === "dark" ? "dark" : "light"];
+  const color = palette[history.state as WatchStatus] ?? palette.WANNA_WATCH;
   const label = WATCH_STATUS_LABELS[history.state as WatchStatus];
 
   return (
@@ -260,7 +288,10 @@ function WatchHistoryRow({
       <WorkThumbnail item={history} />
 
       <View className="flex-1">
-        <Text className="text-gray-900 font-medium" numberOfLines={2}>
+        <Text
+          className="text-gray-900 dark:text-slate-100 font-medium"
+          numberOfLines={2}
+        >
           {history.title}
         </Text>
         <View className="flex-row items-center gap-2 mt-1 flex-wrap">
@@ -276,19 +307,21 @@ function WatchHistoryRow({
       <View className="flex-row gap-2">
         <TouchableOpacity
           onPress={onEdit}
-          className="bg-gray-100 rounded-lg px-3 py-1.5"
+          className="bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
           accessibilityLabel={`${history.title} の視聴履歴を編集`}
         >
-          <Text className="text-xs text-gray-600">編集</Text>
+          <Text className="text-xs text-gray-600 dark:text-slate-300">
+            編集
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={onDelete}
-          className="bg-red-50 rounded-lg px-3 py-1.5"
+          className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
           accessibilityRole="button"
           accessibilityLabel={`${history.title} の視聴履歴を削除`}
         >
-          <Text className="text-xs text-red-500">削除</Text>
+          <Text className="text-xs text-red-500 dark:text-red-400">削除</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -308,19 +341,22 @@ function EditModal({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/50" accessibilityViewIsModal>
-        <View className="bg-white rounded-t-2xl px-6 pt-6 pb-10">
+      <View
+        className="flex-1 justify-end bg-black/50 dark:bg-black/70"
+        accessibilityViewIsModal
+      >
+        <View className="bg-white dark:bg-slate-800 rounded-t-2xl px-6 pt-6 pb-10">
           <Text
-            className="text-lg font-bold text-gray-900 mb-1"
+            className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1"
             numberOfLines={2}
           >
             {history.title}
           </Text>
-          <Text className="text-xs text-gray-400 mb-5">
+          <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
             視聴ステータスを編集
           </Text>
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+          <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             ステータス
           </Text>
           <ScrollView
@@ -335,8 +371,8 @@ function EditModal({
                   onPress={() => setState(s)}
                   className={`px-3 py-2 rounded-full border ${
                     state === s
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 bg-white"
+                      ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+                      : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
                   }`}
                   accessibilityRole="button"
                   accessibilityState={{ selected: state === s }}
@@ -344,7 +380,9 @@ function EditModal({
                 >
                   <Text
                     className={`text-xs font-medium ${
-                      state === s ? "text-indigo-600" : "text-gray-500"
+                      state === s
+                        ? "text-indigo-600 dark:text-indigo-300"
+                        : "text-gray-500 dark:text-slate-400"
                     }`}
                   >
                     {WATCH_STATUS_LABELS[s]}
@@ -356,12 +394,14 @@ function EditModal({
 
           <View className="flex-row gap-3">
             <TouchableOpacity
-              className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
+              className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="キャンセル"
             >
-              <Text className="text-gray-600 font-medium">キャンセル</Text>
+              <Text className="text-gray-600 dark:text-slate-300 font-medium">
+                キャンセル
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"

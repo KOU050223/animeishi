@@ -27,7 +27,10 @@ export default function ChangelogScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
           <Pressable
@@ -37,45 +40,49 @@ export default function ChangelogScreen() {
             accessibilityLabel="戻る"
             testID="changelog-back-button"
           >
-            <Text className="text-base text-indigo-600">‹ 戻る</Text>
+            <Text className="text-base text-indigo-600 dark:text-indigo-400">
+              ‹ 戻る
+            </Text>
           </Pressable>
 
-          <Text className="text-2xl font-bold text-gray-900">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
             機能一覧・更新情報
           </Text>
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
-          <Text className="mt-2 text-xs text-gray-400">
+          <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">
             最終更新: {UPDATES[0].date}
           </Text>
 
-          <Text className="mt-8 text-base font-semibold text-gray-900">
+          <Text className="mt-8 text-base font-semibold text-gray-900 dark:text-slate-100">
             このアプリでできること
           </Text>
           <View className="mt-3 gap-4">
             {FEATURES.map((feature) => (
               <View key={feature.title}>
-                <Text className="text-sm font-medium text-gray-900">
+                <Text className="text-sm font-medium text-gray-900 dark:text-slate-100">
                   {feature.title}
                 </Text>
-                <Text className="mt-1 text-sm leading-6 text-gray-700">
+                <Text className="mt-1 text-sm leading-6 text-gray-700 dark:text-slate-300">
                   {feature.description}
                 </Text>
               </View>
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-gray-900">
+          <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
             更新情報
           </Text>
           <View className="mt-3 gap-5">
             {UPDATES.map((entry) => (
               <View key={`${entry.date}-${entry.title}`}>
-                <Text className="text-xs text-gray-400">{entry.date}</Text>
-                <Text className="mt-1 text-sm font-medium text-gray-900">
+                <Text className="text-xs text-gray-400 dark:text-slate-500">
+                  {entry.date}
+                </Text>
+                <Text className="mt-1 text-sm font-medium text-gray-900 dark:text-slate-100">
                   {entry.title}
                 </Text>
                 {entry.description ? (
-                  <Text className="mt-1 text-sm leading-6 text-gray-700">
+                  <Text className="mt-1 text-sm leading-6 text-gray-700 dark:text-slate-300">
                     {entry.description}
                   </Text>
                 ) : null}
@@ -83,10 +90,10 @@ export default function ChangelogScreen() {
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-gray-900">
+          <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
             今後追加したい機能
           </Text>
-          <Text className="mt-1 text-xs text-gray-400">
+          <Text className="mt-1 text-xs text-gray-400 dark:text-slate-500">
             タップすると対応する GitHub issue を開きます。
           </Text>
           <View className="mt-3 flex-row flex-wrap gap-2">
@@ -103,16 +110,21 @@ export default function ChangelogScreen() {
 function PlannedFeatureChip({ item }: { item: PlannedFeature }) {
   const label = (
     <>
-      <Text className="text-sm text-indigo-700">{item.title}</Text>
+      <Text className="text-sm text-indigo-700 dark:text-indigo-300">
+        {item.title}
+      </Text>
       {item.issue ? (
-        <Text className="text-xs text-indigo-400"> #{item.issue}</Text>
+        <Text className="text-xs text-indigo-400 dark:text-indigo-500">
+          {" "}
+          #{item.issue}
+        </Text>
       ) : null}
     </>
   );
 
   if (!item.issue) {
     return (
-      <View className="flex-row items-center rounded-full bg-indigo-50 px-3 py-1.5">
+      <View className="flex-row items-center rounded-full bg-indigo-50 dark:bg-indigo-950 px-3 py-1.5">
         {label}
       </View>
     );
@@ -120,7 +132,7 @@ function PlannedFeatureChip({ item }: { item: PlannedFeature }) {
 
   return (
     <Pressable
-      className="flex-row items-center rounded-full bg-indigo-50 px-3 py-1.5"
+      className="flex-row items-center rounded-full bg-indigo-50 dark:bg-indigo-950 px-3 py-1.5"
       onPress={() => void Linking.openURL(`${ISSUES_URL}/${item.issue}`)}
       accessibilityRole="link"
       accessibilityLabel={`${item.title}（GitHub issue を開く）`}

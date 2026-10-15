@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Web: OS 標準のウィジェット色（スクロールバー等）を prefers-color-scheme に
+   追従させる。dark: バリアント自体の切り替えは NativeWind 側がルートの
+   .dark クラスで行うため、ここでは UA への宣言だけを行う。 */
+:root {
+  color-scheme: light dark;
+}

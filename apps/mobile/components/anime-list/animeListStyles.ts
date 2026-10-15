@@ -1,558 +1,796 @@
+import { useMemo } from "react";
 import { StyleSheet } from "react-native";
+import { useColorScheme } from "nativewind";
 import { GRID_GAP } from "./animeListUtils";
 
-export const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#f6f3ee",
-  },
-  listContent: {
-    rowGap: 12,
-  },
-  columnWrapper: {
-    gap: GRID_GAP,
-    justifyContent: "flex-start",
-    marginBottom: GRID_GAP,
-  },
-  header: {
-    gap: 16,
-    marginBottom: 2,
-  },
-  hero: {
-    overflow: "hidden",
-    borderRadius: 8,
-    backgroundColor: "#fffaf2",
-    borderWidth: 1,
-    borderColor: "#efe4d4",
-    padding: 18,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 3,
-  },
-  heroWide: {
-    padding: 28,
-  },
-  heroAccent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-    backgroundColor: "#eab308",
-  },
-  heroTop: {
-    gap: 18,
-  },
-  heroTopWide: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 32,
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  heroControls: {
-    flex: 1,
-    minWidth: 0,
-    width: "100%",
-  },
-  eyebrow: {
-    color: "#7c2d12",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0,
-  },
-  title: {
-    marginTop: 5,
-    color: "#111827",
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "900",
-    letterSpacing: 0,
-  },
-  titleWide: {
-    fontSize: 38,
-    lineHeight: 44,
-  },
-  subtitle: {
-    marginTop: 7,
-    color: "#64748b",
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: "500",
-  },
-  subtitleWide: {
-    maxWidth: 520,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  searchBar: {
-    minHeight: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    paddingHorizontal: 13,
-  },
-  searchInput: {
-    flex: 1,
-    minWidth: 0,
-    color: "#111827",
-    fontSize: 15,
-    fontWeight: "600",
-    paddingVertical: 13,
-  },
-  clearButton: {
-    width: 30,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 15,
-    backgroundColor: "#f1f5f9",
-  },
-  statsRow: {
-    marginTop: 13,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  statPill: {
-    width: "31.5%",
-    minWidth: 0,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  statPill_ink: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
-  },
-  statPill_gold: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
-  },
-  statPill_mint: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#bbf7d0",
-  },
-  statValue: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  statLabel: {
-    marginTop: 1,
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  toolbar: {
-    gap: 10,
-  },
-  toolbarWide: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-  sectionLabel: {
-    color: "#7c2d12",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0,
-  },
-  resultText: {
-    marginTop: 2,
-    color: "#111827",
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: "900",
-  },
-  sortGroup: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  sortGroupWide: {
-    width: 360,
-  },
-  sortButton: {
-    width: "49%",
-    minHeight: 36,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#dbe4ee",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 10,
-  },
-  sortButtonActive: {
-    borderColor: "#111827",
-    backgroundColor: "#ffffff",
-  },
-  sortText: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  sortTextActive: {
-    color: "#111827",
-  },
-  filterBar: {
-    gap: 8,
-  },
-  filterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  filterRowLabel: {
-    width: 34,
-    color: "#7c2d12",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  filterScroll: {
-    flexDirection: "row",
-    gap: 6,
-    paddingRight: 6,
-  },
-  filterChip: {
-    minHeight: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#dbe4ee",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 12,
-  },
-  filterChipActive: {
-    borderColor: "#111827",
-    backgroundColor: "#111827",
-  },
-  filterChipText: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  filterChipTextActive: {
-    color: "#ffffff",
-  },
-  filterChipDisabled: {
-    backgroundColor: "#f1f5f9",
-    borderColor: "#e2e8f0",
-  },
-  filterChipTextDisabled: {
-    color: "#cbd5e1",
-  },
-  yearPickerButton: {
-    minHeight: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#dbe4ee",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 12,
-  },
-  yearPickerButtonText: {
-    color: "#111827",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  yearPickerBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  yearPickerSheet: {
-    width: "100%",
-    maxWidth: 560,
-    maxHeight: "60%",
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingTop: 16,
-  },
-  yearPickerTitle: {
-    marginBottom: 8,
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "800",
-    paddingHorizontal: 16,
-  },
-  yearPickerItem: {
-    height: 44,
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  yearPickerItemActive: {
-    backgroundColor: "#f1f5f9",
-  },
-  yearPickerItemText: {
-    color: "#334155",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  yearPickerItemTextActive: {
-    color: "#111827",
-    fontWeight: "900",
-  },
-  card: {
-    flexDirection: "row",
-    gap: 13,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  poster: {
-    width: 68,
-    height: 92,
-    borderRadius: 6,
-    backgroundColor: "#e2e8f0",
-  },
-  posterPlaceholder: {
-    width: 68,
-    height: 92,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  posterPlaceholderAccent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-  },
-  posterInitial: {
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "900",
-  },
-  posterFallbackLabel: {
-    marginTop: 2,
-    fontSize: 8,
-    fontWeight: "900",
-  },
-  cardBody: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: "center",
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    minWidth: 0,
-    color: "#111827",
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: "900",
-    letterSpacing: 0,
-  },
-  englishTitle: {
-    marginTop: 4,
-    color: "#64748b",
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-  },
-  metaRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  seasonChip: {
-    minHeight: 25,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 7,
-    backgroundColor: "#fef3c7",
-    paddingHorizontal: 8,
-  },
-  seasonText: {
-    color: "#92400e",
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  genreChip: {
-    maxWidth: 92,
-    minHeight: 25,
-    justifyContent: "center",
-    borderRadius: 7,
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 8,
-  },
-  genreText: {
-    color: "#475569",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  moreGenres: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  favoriteButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  favoriteButtonActive: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
-  },
-  // 作品一覧のローディングスケルトン（AnimeListSkeleton）。実カードと同じ
-  // 行方向レイアウト（ポスター + テキスト行）を muted 色で敷く。
-  skeletonContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    rowGap: 12,
-    columnGap: GRID_GAP,
-  },
-  skeletonPoster: {
-    width: 68,
-    height: 92,
-    borderRadius: 6,
-    backgroundColor: "#e2e8f0",
-  },
-  skeletonBody: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: "center",
-    gap: 8,
-  },
-  skeletonLine: {
-    width: "100%",
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#e2e8f0",
-  },
-  skeletonLineShort: {
-    width: "55%",
-  },
-  skeletonChip: {
-    marginTop: 2,
-    width: 86,
-    height: 25,
-    borderRadius: 7,
-    backgroundColor: "#f1f5f9",
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 30,
-    paddingVertical: 54,
-  },
-  stateScreen: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f6f3ee",
-    paddingHorizontal: 32,
-  },
-  loadingMark: {
-    width: 56,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  stateIcon: {
-    width: 56,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  errorIcon: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
-  },
-  stateTitle: {
-    marginTop: 16,
-    color: "#111827",
-    textAlign: "center",
-    fontSize: 19,
-    lineHeight: 25,
-    fontWeight: "900",
-  },
-  stateCopy: {
-    marginTop: 7,
-    color: "#64748b",
-    textAlign: "center",
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: "600",
-  },
-  primaryButton: {
-    marginTop: 20,
-    minHeight: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: 8,
-    backgroundColor: "#111827",
-    paddingHorizontal: 20,
-  },
-  primaryButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  emptyTitle: {
-    marginTop: 14,
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-  emptyCopy: {
-    marginTop: 7,
-    color: "#64748b",
-    textAlign: "center",
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: "600",
-  },
-});
+/**
+ * アニメ一覧画面の配色。light は紙ライクな暖色系、dark はその印象を保ちつつ
+ * 暗い暖灰（stone 系）へ落とす。カードやチップは背景より一段明るい面にする。
+ *
+ * 直接参照するのではなく `useAnimeListStyles()` / `useAnimeListPalette()` 経由で
+ * 現在スキームに対応する値を取る（判定元は dark: バリアントと同じ
+ * nativewind の useColorScheme）。
+ */
+export type AnimeListPalette = {
+  /** 画面のベース背景。 */
+  screen: string;
+  /** ヒーローカードの面と枠。 */
+  heroBg: string;
+  heroBorder: string;
+  /** ヒーロー上端のアクセントバー（両スキーム共通の金色）。 */
+  heroAccent: string;
+  /** オレンジ系のセクションラベル（eyebrow / フィルタ行ラベル）。 */
+  accent: string;
+  /** 見出し・強調テキスト。 */
+  title: string;
+  /** 説明文・ラベル等の副テキスト。 */
+  subtitle: string;
+  /** 検索バー。 */
+  searchBg: string;
+  searchBorder: string;
+  searchText: string;
+  /** 検索バー内のアイコン・クリアボタン。 */
+  searchIcon: string;
+  clearButtonBg: string;
+  clearIcon: string;
+  /** 統計ピル（ink / gold / mint の 3 トーン）。 */
+  statInkBg: string;
+  statInkBorder: string;
+  statGoldBg: string;
+  statGoldBorder: string;
+  statMintBg: string;
+  statMintBorder: string;
+  /** 白いチップ系ボタン（ソート・シーズン・年ピッカー）。 */
+  chipBg: string;
+  chipBorder: string;
+  /** 選択中チップは反転した塗りにする。 */
+  chipActiveBg: string;
+  chipActiveBorder: string;
+  chipText: string;
+  chipTextActive: string;
+  chipDisabledBg: string;
+  chipDisabledBorder: string;
+  chipTextDisabled: string;
+  /** 年ピッカーのボトムシート。 */
+  sheetBg: string;
+  sheetItemActiveBg: string;
+  sheetItemText: string;
+  sheetItemTextActive: string;
+  /** 作品カード。 */
+  cardBg: string;
+  cardBorder: string;
+  cardShadow: string;
+  cardTitle: string;
+  cardSubtitle: string;
+  /** ポスター・スケルトンの代替面。 */
+  skeleton: string;
+  /** スケルトンのうち一段明るい部品（チップ型）。 */
+  skeletonMuted: string;
+  /** シーズン・ジャンルの小チップ。 */
+  seasonChipBg: string;
+  seasonChipText: string;
+  genreChipBg: string;
+  genreChipText: string;
+  /** お気に入りボタン。 */
+  favoriteBg: string;
+  favoriteBorder: string;
+  favoriteActiveBg: string;
+  favoriteActiveBorder: string;
+  favoriteIcon: string;
+  favoriteIconActive: string;
+  /** 空状態/エラーのアイコンを入れる白い箱。 */
+  iconBoxBg: string;
+  iconBoxBorder: string;
+  /** エラー時は rose 系に変える。 */
+  errorBoxBg: string;
+  errorBoxBorder: string;
+  errorIcon: string;
+  /** 空状態の中性アイコン。 */
+  stateIcon: string;
+  /** ローディング中のスピナー（loadingMark 内）。 */
+  spinner: string;
+  /** 画面の主ボタン（再試行）。反転した塗りにする。 */
+  primaryButtonBg: string;
+  primaryButtonText: string;
+  /** 年ピッカー背面のスクリム。 */
+  scrim: string;
+};
+
+const lightPalette: AnimeListPalette = {
+  screen: "#f6f3ee",
+  heroBg: "#fffaf2",
+  heroBorder: "#efe4d4",
+  heroAccent: "#eab308",
+  accent: "#7c2d12",
+  title: "#111827",
+  subtitle: "#64748b",
+  searchBg: "#ffffff",
+  searchBorder: "#e2e8f0",
+  searchText: "#111827",
+  searchIcon: "#64748b",
+  clearButtonBg: "#f1f5f9",
+  clearIcon: "#475569",
+  statInkBg: "#f8fafc",
+  statInkBorder: "#e2e8f0",
+  statGoldBg: "#fffbeb",
+  statGoldBorder: "#fde68a",
+  statMintBg: "#ecfdf5",
+  statMintBorder: "#bbf7d0",
+  chipBg: "#ffffff",
+  chipBorder: "#dbe4ee",
+  chipActiveBg: "#111827",
+  chipActiveBorder: "#111827",
+  chipText: "#64748b",
+  chipTextActive: "#ffffff",
+  chipDisabledBg: "#f1f5f9",
+  chipDisabledBorder: "#e2e8f0",
+  chipTextDisabled: "#cbd5e1",
+  sheetBg: "#ffffff",
+  sheetItemActiveBg: "#f1f5f9",
+  sheetItemText: "#334155",
+  sheetItemTextActive: "#111827",
+  cardBg: "#ffffff",
+  cardBorder: "#e5e7eb",
+  cardShadow: "#111827",
+  cardTitle: "#111827",
+  cardSubtitle: "#64748b",
+  skeleton: "#e2e8f0",
+  skeletonMuted: "#f1f5f9",
+  seasonChipBg: "#fef3c7",
+  seasonChipText: "#92400e",
+  genreChipBg: "#f1f5f9",
+  genreChipText: "#475569",
+  favoriteBg: "#f8fafc",
+  favoriteBorder: "#e2e8f0",
+  favoriteActiveBg: "#fff1f2",
+  favoriteActiveBorder: "#fecdd3",
+  favoriteIcon: "#64748b",
+  favoriteIconActive: "#e11d48",
+  iconBoxBg: "#ffffff",
+  iconBoxBorder: "#e5e7eb",
+  errorBoxBg: "#fff1f2",
+  errorBoxBorder: "#fecdd3",
+  errorIcon: "#b42318",
+  stateIcon: "#475569",
+  spinner: "#111827",
+  primaryButtonBg: "#111827",
+  primaryButtonText: "#ffffff",
+  scrim: "rgba(0,0,0,0.4)",
+};
+
+const darkPalette: AnimeListPalette = {
+  screen: "#0c0a09",
+  heroBg: "#1c1917",
+  heroBorder: "#44403c",
+  heroAccent: "#eab308",
+  accent: "#fdba74",
+  title: "#f5f5f4",
+  subtitle: "#a8a29e",
+  searchBg: "#292524",
+  searchBorder: "#57534e",
+  searchText: "#f5f5f4",
+  searchIcon: "#a8a29e",
+  clearButtonBg: "#44403c",
+  clearIcon: "#d6d3d1",
+  statInkBg: "#292524",
+  statInkBorder: "#57534e",
+  statGoldBg: "#451a03",
+  statGoldBorder: "#92400e",
+  statMintBg: "#022c22",
+  statMintBorder: "#065f46",
+  chipBg: "#292524",
+  chipBorder: "#57534e",
+  chipActiveBg: "#e7e5e4",
+  chipActiveBorder: "#e7e5e4",
+  chipText: "#a8a29e",
+  chipTextActive: "#1c1917",
+  chipDisabledBg: "#1c1917",
+  chipDisabledBorder: "#44403c",
+  chipTextDisabled: "#57534e",
+  sheetBg: "#1c1917",
+  sheetItemActiveBg: "#292524",
+  sheetItemText: "#d6d3d1",
+  sheetItemTextActive: "#fafaf9",
+  cardBg: "#1c1917",
+  cardBorder: "#44403c",
+  cardShadow: "#000000",
+  cardTitle: "#f5f5f4",
+  cardSubtitle: "#a8a29e",
+  skeleton: "#44403c",
+  skeletonMuted: "#57534e",
+  seasonChipBg: "#451a03",
+  seasonChipText: "#fbbf24",
+  genreChipBg: "#292524",
+  genreChipText: "#d6d3d1",
+  favoriteBg: "#292524",
+  favoriteBorder: "#57534e",
+  favoriteActiveBg: "#4c0519",
+  favoriteActiveBorder: "#9f1239",
+  favoriteIcon: "#a8a29e",
+  favoriteIconActive: "#fb7185",
+  iconBoxBg: "#1c1917",
+  iconBoxBorder: "#44403c",
+  errorBoxBg: "#4c0519",
+  errorBoxBorder: "#9f1239",
+  errorIcon: "#f87171",
+  stateIcon: "#a8a29e",
+  spinner: "#e7e5e4",
+  primaryButtonBg: "#e7e5e4",
+  primaryButtonText: "#1c1917",
+  scrim: "rgba(0,0,0,0.6)",
+};
+
+export const animeListPalettes = {
+  light: lightPalette,
+  dark: darkPalette,
+} as const;
+
+/** 現在スキームのアニメ一覧パレット。アイコン等、style 外で色が要る箇所向け。 */
+export function useAnimeListPalette(): AnimeListPalette {
+  const { colorScheme } = useColorScheme();
+  return animeListPalettes[colorScheme === "dark" ? "dark" : "light"];
+}
+
+/** 現在スキームに対応する StyleSheet。パレット差し替え時だけ再生成する。 */
+export function useAnimeListStyles() {
+  const palette = useAnimeListPalette();
+  return useMemo(() => createStyles(palette), [palette]);
+}
+
+function createStyles(p: AnimeListPalette) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: p.screen,
+    },
+    listContent: {
+      rowGap: 12,
+    },
+    columnWrapper: {
+      gap: GRID_GAP,
+      justifyContent: "flex-start",
+      marginBottom: GRID_GAP,
+    },
+    header: {
+      gap: 16,
+      marginBottom: 2,
+    },
+    hero: {
+      overflow: "hidden",
+      borderRadius: 8,
+      backgroundColor: p.heroBg,
+      borderWidth: 1,
+      borderColor: p.heroBorder,
+      padding: 18,
+      shadowColor: p.cardShadow,
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.08,
+      shadowRadius: 24,
+      elevation: 3,
+    },
+    heroWide: {
+      padding: 28,
+    },
+    heroAccent: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 5,
+      backgroundColor: p.heroAccent,
+    },
+    heroTop: {
+      gap: 18,
+    },
+    heroTopWide: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 32,
+    },
+    heroCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    heroControls: {
+      flex: 1,
+      minWidth: 0,
+      width: "100%",
+    },
+    eyebrow: {
+      color: p.accent,
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0,
+    },
+    title: {
+      marginTop: 5,
+      color: p.title,
+      fontSize: 28,
+      lineHeight: 34,
+      fontWeight: "900",
+      letterSpacing: 0,
+    },
+    titleWide: {
+      fontSize: 38,
+      lineHeight: 44,
+    },
+    subtitle: {
+      marginTop: 7,
+      color: p.subtitle,
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight: "500",
+    },
+    subtitleWide: {
+      maxWidth: 520,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    searchBar: {
+      minHeight: 50,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 8,
+      backgroundColor: p.searchBg,
+      borderWidth: 1,
+      borderColor: p.searchBorder,
+      paddingHorizontal: 13,
+    },
+    searchInput: {
+      flex: 1,
+      minWidth: 0,
+      color: p.searchText,
+      fontSize: 15,
+      fontWeight: "600",
+      paddingVertical: 13,
+    },
+    clearButton: {
+      width: 30,
+      height: 30,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 15,
+      backgroundColor: p.clearButtonBg,
+    },
+    statsRow: {
+      marginTop: 13,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      width: "100%",
+    },
+    statPill: {
+      width: "31.5%",
+      minWidth: 0,
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+    },
+    statPill_ink: {
+      backgroundColor: p.statInkBg,
+      borderColor: p.statInkBorder,
+    },
+    statPill_gold: {
+      backgroundColor: p.statGoldBg,
+      borderColor: p.statGoldBorder,
+    },
+    statPill_mint: {
+      backgroundColor: p.statMintBg,
+      borderColor: p.statMintBorder,
+    },
+    statValue: {
+      color: p.title,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+    statLabel: {
+      marginTop: 1,
+      color: p.subtitle,
+      fontSize: 10,
+      fontWeight: "700",
+    },
+    toolbar: {
+      gap: 10,
+    },
+    toolbarWide: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+    },
+    sectionLabel: {
+      color: p.accent,
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0,
+    },
+    resultText: {
+      marginTop: 2,
+      color: p.title,
+      fontSize: 17,
+      lineHeight: 22,
+      fontWeight: "900",
+    },
+    sortGroup: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      width: "100%",
+    },
+    sortGroupWide: {
+      width: 360,
+    },
+    sortButton: {
+      width: "49%",
+      minHeight: 36,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: p.chipBorder,
+      backgroundColor: p.chipBg,
+      paddingHorizontal: 10,
+    },
+    sortButtonActive: {
+      borderColor: p.title,
+      backgroundColor: p.chipBg,
+    },
+    sortText: {
+      color: p.subtitle,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    sortTextActive: {
+      color: p.title,
+    },
+    filterBar: {
+      gap: 8,
+    },
+    filterRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    filterRowLabel: {
+      width: 34,
+      color: p.accent,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    filterScroll: {
+      flexDirection: "row",
+      gap: 6,
+      paddingRight: 6,
+    },
+    filterChip: {
+      minHeight: 32,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: p.chipBorder,
+      backgroundColor: p.chipBg,
+      paddingHorizontal: 12,
+    },
+    filterChipActive: {
+      borderColor: p.chipActiveBorder,
+      backgroundColor: p.chipActiveBg,
+    },
+    filterChipText: {
+      color: p.chipText,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    filterChipTextActive: {
+      color: p.chipTextActive,
+    },
+    filterChipDisabled: {
+      backgroundColor: p.chipDisabledBg,
+      borderColor: p.chipDisabledBorder,
+    },
+    filterChipTextDisabled: {
+      color: p.chipTextDisabled,
+    },
+    yearPickerButton: {
+      minHeight: 32,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: p.chipBorder,
+      backgroundColor: p.chipBg,
+      paddingHorizontal: 12,
+    },
+    yearPickerButtonText: {
+      color: p.title,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    yearPickerBackdrop: {
+      flex: 1,
+      backgroundColor: p.scrim,
+      justifyContent: "flex-end",
+      alignItems: "center",
+    },
+    yearPickerSheet: {
+      width: "100%",
+      maxWidth: 560,
+      maxHeight: "60%",
+      backgroundColor: p.sheetBg,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingTop: 16,
+    },
+    yearPickerTitle: {
+      marginBottom: 8,
+      color: p.title,
+      fontSize: 16,
+      fontWeight: "800",
+      paddingHorizontal: 16,
+    },
+    yearPickerItem: {
+      height: 44,
+      justifyContent: "center",
+      paddingHorizontal: 16,
+    },
+    yearPickerItemActive: {
+      backgroundColor: p.sheetItemActiveBg,
+    },
+    yearPickerItemText: {
+      color: p.sheetItemText,
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    yearPickerItemTextActive: {
+      color: p.sheetItemTextActive,
+      fontWeight: "900",
+    },
+    card: {
+      flexDirection: "row",
+      gap: 13,
+      borderRadius: 8,
+      backgroundColor: p.cardBg,
+      borderWidth: 1,
+      borderColor: p.cardBorder,
+      padding: 10,
+      shadowColor: p.cardShadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.05,
+      shadowRadius: 18,
+      elevation: 2,
+    },
+    poster: {
+      width: 68,
+      height: 92,
+      borderRadius: 6,
+      backgroundColor: p.skeleton,
+    },
+    posterPlaceholder: {
+      width: 68,
+      height: 92,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      borderRadius: 6,
+      borderWidth: 1,
+    },
+    posterPlaceholderAccent: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 4,
+    },
+    posterInitial: {
+      fontSize: 25,
+      lineHeight: 30,
+      fontWeight: "900",
+    },
+    posterFallbackLabel: {
+      marginTop: 2,
+      fontSize: 8,
+      fontWeight: "900",
+    },
+    cardBody: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+    },
+    cardTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      minWidth: 0,
+      color: p.cardTitle,
+      fontSize: 16,
+      lineHeight: 21,
+      fontWeight: "900",
+      letterSpacing: 0,
+    },
+    englishTitle: {
+      marginTop: 4,
+      color: p.cardSubtitle,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: "600",
+    },
+    metaRow: {
+      marginTop: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    seasonChip: {
+      minHeight: 25,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: 7,
+      backgroundColor: p.seasonChipBg,
+      paddingHorizontal: 8,
+    },
+    seasonText: {
+      color: p.seasonChipText,
+      fontSize: 11,
+      fontWeight: "900",
+    },
+    genreChip: {
+      maxWidth: 92,
+      minHeight: 25,
+      justifyContent: "center",
+      borderRadius: 7,
+      backgroundColor: p.genreChipBg,
+      paddingHorizontal: 8,
+    },
+    genreText: {
+      color: p.genreChipText,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    moreGenres: {
+      color: p.subtitle,
+      fontSize: 11,
+      fontWeight: "900",
+    },
+    favoriteButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 18,
+      backgroundColor: p.favoriteBg,
+      borderWidth: 1,
+      borderColor: p.favoriteBorder,
+    },
+    favoriteButtonActive: {
+      backgroundColor: p.favoriteActiveBg,
+      borderColor: p.favoriteActiveBorder,
+    },
+    // 作品一覧のローディングスケルトン（AnimeListSkeleton）。実カードと同じ
+    // 行方向レイアウト（ポスター + テキスト行）を muted 色で敷く。
+    skeletonContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      rowGap: 12,
+      columnGap: GRID_GAP,
+    },
+    skeletonPoster: {
+      width: 68,
+      height: 92,
+      borderRadius: 6,
+      backgroundColor: p.skeleton,
+    },
+    skeletonBody: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+      gap: 8,
+    },
+    skeletonLine: {
+      width: "100%",
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: p.skeleton,
+    },
+    skeletonLineShort: {
+      width: "55%",
+    },
+    skeletonChip: {
+      marginTop: 2,
+      width: 86,
+      height: 25,
+      borderRadius: 7,
+      backgroundColor: p.skeletonMuted,
+    },
+    emptyState: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 30,
+      paddingVertical: 54,
+    },
+    stateScreen: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: p.screen,
+      paddingHorizontal: 32,
+    },
+    loadingMark: {
+      width: 56,
+      height: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      backgroundColor: p.iconBoxBg,
+      borderWidth: 1,
+      borderColor: p.iconBoxBorder,
+    },
+    stateIcon: {
+      width: 56,
+      height: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      backgroundColor: p.iconBoxBg,
+      borderWidth: 1,
+      borderColor: p.iconBoxBorder,
+    },
+    errorIcon: {
+      backgroundColor: p.errorBoxBg,
+      borderColor: p.errorBoxBorder,
+    },
+    stateTitle: {
+      marginTop: 16,
+      color: p.title,
+      textAlign: "center",
+      fontSize: 19,
+      lineHeight: 25,
+      fontWeight: "900",
+    },
+    stateCopy: {
+      marginTop: 7,
+      color: p.subtitle,
+      textAlign: "center",
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: "600",
+    },
+    primaryButton: {
+      marginTop: 20,
+      minHeight: 46,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 8,
+      backgroundColor: p.primaryButtonBg,
+      paddingHorizontal: 20,
+    },
+    primaryButtonText: {
+      color: p.primaryButtonText,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+    emptyTitle: {
+      marginTop: 14,
+      color: p.title,
+      fontSize: 18,
+      fontWeight: "900",
+    },
+    emptyCopy: {
+      marginTop: 7,
+      color: p.subtitle,
+      textAlign: "center",
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: "600",
+    },
+  });
+}

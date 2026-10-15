@@ -144,7 +144,7 @@ export default function PublicProfilePage() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
         <ActivityIndicator size="large" accessibilityLabel="読み込み中" />
       </View>
     );
@@ -156,14 +156,19 @@ export default function PublicProfilePage() {
         ? "このプロフィールは存在しないか、非公開です。"
         : "プロフィールの取得に失敗しました。";
     return (
-      <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-gray-500 text-center">{message}</Text>
+      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-6">
+        <Text className="text-gray-500 dark:text-slate-400 text-center">
+          {message}
+        </Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
       <ScrollView className="flex-1">
         <View className="items-center pt-6 pb-6 px-6">
           {data.profileImageUrl ? (
@@ -174,41 +179,47 @@ export default function PublicProfilePage() {
             />
           ) : (
             <View
-              className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center"
+              className="w-24 h-24 rounded-full bg-gray-200 dark:bg-slate-700 items-center justify-center"
               accessibilityLabel={`${data.username}のアイコン`}
             >
-              <Text className="text-3xl text-gray-400">
+              <Text className="text-3xl text-gray-400 dark:text-slate-500">
                 {data.username.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
 
-          <Text className="text-2xl font-bold text-gray-900 mt-4">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100 mt-4">
             {data.username}
           </Text>
 
           {data.bio ? (
-            <Text className="text-gray-600 text-center mt-2">{data.bio}</Text>
+            <Text className="text-gray-600 dark:text-slate-300 text-center mt-2">
+              {data.bio}
+            </Text>
           ) : null}
 
           {data.favoriteQuote ? (
             <View className="mt-4 border-l-4 border-purple-400 pl-3 self-start">
-              <Text className="text-gray-500 italic">{data.favoriteQuote}</Text>
+              <Text className="text-gray-500 dark:text-slate-400 italic">
+                {data.favoriteQuote}
+              </Text>
             </View>
           ) : null}
 
           {data.genres.length > 0 ? (
             <View className="mt-6 self-start w-full">
-              <Text className="text-sm font-semibold text-gray-700 mb-2">
+              <Text className="text-sm font-semibold text-gray-700 dark:text-slate-200 mb-2">
                 好きなジャンル
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {data.genres.map((g) => (
                   <View
                     key={g}
-                    className="bg-purple-100 rounded-full px-3 py-1"
+                    className="bg-purple-100 dark:bg-purple-900 rounded-full px-3 py-1"
                   >
-                    <Text className="text-purple-700 text-sm">{g}</Text>
+                    <Text className="text-purple-700 dark:text-purple-300 text-sm">
+                      {g}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -216,7 +227,7 @@ export default function PublicProfilePage() {
           ) : null}
 
           {canModerate ? (
-            <View className="mt-10 w-full border-t border-gray-100 pt-4">
+            <View className="mt-10 w-full border-t border-gray-100 dark:border-slate-800 pt-4">
               <TouchableOpacity
                 className="items-center py-2"
                 onPress={() => setReportSheetVisible(true)}
@@ -224,7 +235,7 @@ export default function PublicProfilePage() {
                 accessibilityLabel="このユーザーを通報"
                 testID="report-user-button"
               >
-                <Text className="text-sm text-gray-500">
+                <Text className="text-sm text-gray-500 dark:text-slate-400">
                   このユーザーを通報
                 </Text>
               </TouchableOpacity>
@@ -236,7 +247,7 @@ export default function PublicProfilePage() {
                 accessibilityLabel="このユーザーをブロック"
                 testID="block-user-button"
               >
-                <Text className="text-sm text-red-500">
+                <Text className="text-sm text-red-500 dark:text-red-400">
                   このユーザーをブロック
                 </Text>
               </TouchableOpacity>
@@ -251,32 +262,34 @@ export default function PublicProfilePage() {
           onRequestClose={() => setReportSheetVisible(false)}
         >
           <Pressable
-            className="flex-1 justify-end bg-black/50"
+            className="flex-1 justify-end bg-black/50 dark:bg-black/70"
             onPress={() => setReportSheetVisible(false)}
             accessibilityLabel="通報をやめる"
           >
             <Pressable
-              className="rounded-t-2xl bg-white px-4 pb-8 pt-4"
+              className="rounded-t-2xl bg-white dark:bg-slate-800 px-4 pb-8 pt-4"
               onPress={(e) => e.stopPropagation()}
             >
-              <Text className="text-base font-semibold text-gray-900">
+              <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
                 このユーザーを通報
               </Text>
-              <Text className="mt-1 text-xs text-gray-500">
+              <Text className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                 理由を選択してください。運営が内容を確認します。
               </Text>
               <View className="mt-4 gap-2">
                 {REPORT_REASONS.map((reason) => (
                   <TouchableOpacity
                     key={reason}
-                    className="rounded-lg border border-gray-200 px-4 py-3"
+                    className="rounded-lg border border-gray-200 dark:border-slate-600 px-4 py-3"
                     onPress={() => onSubmitReport(reason)}
                     disabled={reportUser.isPending}
                     accessibilityRole="button"
                     accessibilityLabel={`${reason}で通報`}
                     testID={`report-reason-${reason}`}
                   >
-                    <Text className="text-gray-900">{reason}</Text>
+                    <Text className="text-gray-900 dark:text-slate-100">
+                      {reason}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -286,7 +299,9 @@ export default function PublicProfilePage() {
                 accessibilityRole="button"
                 accessibilityLabel="キャンセル"
               >
-                <Text className="text-gray-500">キャンセル</Text>
+                <Text className="text-gray-500 dark:text-slate-400">
+                  キャンセル
+                </Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>

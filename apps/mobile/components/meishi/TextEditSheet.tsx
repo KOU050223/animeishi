@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Input } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme";
 
 export function TextEditSheet({
   visible,
@@ -20,6 +21,7 @@ export function TextEditSheet({
   onClose: () => void;
   onSubmit: (value: string) => void;
 }) {
+  const colors = useThemeColors();
   const [value, setValue] = useState(initialValue);
   useEffect(() => {
     if (visible) setValue(initialValue);
@@ -40,7 +42,7 @@ export function TextEditSheet({
           onPress={onClose}
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.4)",
+            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
@@ -48,7 +50,7 @@ export function TextEditSheet({
           <Pressable
             onPress={() => {}}
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: colors.surface,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
@@ -58,7 +60,12 @@ export function TextEditSheet({
             }}
           >
             <Text
-              style={{ fontSize: 16, fontWeight: "bold", marginBottom: 12 }}
+              style={{
+                fontSize: 16,
+                fontWeight: "bold",
+                marginBottom: 12,
+                color: colors.text,
+              }}
             >
               文字を編集
             </Text>
@@ -69,12 +76,13 @@ export function TextEditSheet({
               autoFocus
               style={{
                 borderWidth: 1,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
                 borderRadius: 8,
                 padding: 12,
                 minHeight: 100,
                 textAlignVertical: "top",
                 fontSize: 16,
+                color: colors.text,
               }}
             />
             <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
@@ -86,11 +94,11 @@ export function TextEditSheet({
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 8,
-                  backgroundColor: "#e5e7eb",
+                  backgroundColor: colors.surfaceMuted,
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#111827" }}>
+                <Text style={{ fontWeight: "600", color: colors.text }}>
                   キャンセル
                 </Text>
               </Pressable>
@@ -105,11 +113,11 @@ export function TextEditSheet({
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 8,
-                  backgroundColor: "#4f46e5",
+                  backgroundColor: colors.primary,
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#ffffff" }}>
+                <Text style={{ fontWeight: "600", color: colors.onPrimary }}>
                   完了
                 </Text>
               </Pressable>

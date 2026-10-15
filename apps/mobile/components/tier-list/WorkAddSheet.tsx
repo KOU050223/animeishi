@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Input } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
 import type { TierWork } from "@/lib/tierList/types";
@@ -36,6 +37,7 @@ export function WorkAddSheet({
   /** 既に盤面にある作品 id。検索結果で「追加済み」表示にして二重追加を防ぐ。 */
   existingWorkIds: ReadonlySet<number>;
 }) {
+  const colors = useThemeColors();
   const [query, setQuery] = useState("");
   // 開くたびに新しい検索として始める（前回の語・結果を引きずらない）。
   useEffect(() => {
@@ -69,7 +71,7 @@ export function WorkAddSheet({
           onPress={onClose}
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.4)",
+            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
@@ -77,7 +79,7 @@ export function WorkAddSheet({
           <Pressable
             onPress={() => {}}
             style={{
-              backgroundColor: "#ffffff",
+              backgroundColor: colors.surface,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
@@ -89,10 +91,23 @@ export function WorkAddSheet({
               height: "72%",
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 4 }}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "bold",
+                marginBottom: 4,
+                color: colors.text,
+              }}
+            >
               作品を追加
             </Text>
-            <Text style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.textMuted,
+                marginBottom: 12,
+              }}
+            >
               シーズンの候補にない作品をタイトルで検索して未分類に追加できます。
               保存対象は tier に配置した作品です
             </Text>
@@ -105,17 +120,18 @@ export function WorkAddSheet({
               testID="work-add-input"
               style={{
                 borderWidth: 1,
-                borderColor: "#e5e7eb",
+                borderColor: colors.border,
                 borderRadius: 8,
                 padding: 12,
                 fontSize: 16,
+                color: colors.text,
               }}
             />
             <View style={{ flex: 1, marginTop: 8 }}>
               {!hasQuery ? (
                 <Text
                   style={{
-                    color: "#6b7280",
+                    color: colors.textMuted,
                     fontSize: 13,
                     textAlign: "center",
                     marginTop: 24,
@@ -125,14 +141,14 @@ export function WorkAddSheet({
                 </Text>
               ) : works.length === 0 && (isFetching || resultsStale) ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
-                  <ActivityIndicator color="#9ca3af" />
-                  <Text style={{ color: "#6b7280", fontSize: 13 }}>
+                  <ActivityIndicator color={colors.textFaint} />
+                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
                     検索しています
                   </Text>
                 </View>
               ) : isError ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
-                  <Text style={{ color: "#b42318", fontSize: 13 }}>
+                  <Text style={{ color: colors.danger, fontSize: 13 }}>
                     検索に失敗しました
                   </Text>
                   <TouchableOpacity
@@ -141,13 +157,15 @@ export function WorkAddSheet({
                     accessibilityLabel="作品検索を再試行"
                     testID="work-add-retry"
                     style={{
-                      backgroundColor: "#4f46e5",
+                      backgroundColor: colors.primary,
                       borderRadius: 8,
                       paddingHorizontal: 16,
                       paddingVertical: 8,
                     }}
                   >
-                    <Text style={{ color: "#ffffff", fontWeight: "600" }}>
+                    <Text
+                      style={{ color: colors.onPrimary, fontWeight: "600" }}
+                    >
                       再試行
                     </Text>
                   </TouchableOpacity>
@@ -155,7 +173,7 @@ export function WorkAddSheet({
               ) : works.length === 0 ? (
                 <Text
                   style={{
-                    color: "#6b7280",
+                    color: colors.textMuted,
                     fontSize: 13,
                     textAlign: "center",
                     marginTop: 24,
@@ -174,7 +192,7 @@ export function WorkAddSheet({
                     hasMore ? (
                       <Text
                         style={{
-                          color: "#6b7280",
+                          color: colors.textMuted,
                           fontSize: 12,
                           textAlign: "center",
                           paddingVertical: 12,
@@ -219,7 +237,7 @@ export function WorkAddSheet({
                           gap: 10,
                           paddingVertical: 8,
                           borderBottomWidth: 1,
-                          borderBottomColor: "#f3f4f6",
+                          borderBottomColor: colors.borderMuted,
                           opacity: disabled ? 0.5 : 1,
                         }}
                       >
@@ -230,7 +248,7 @@ export function WorkAddSheet({
                               width: 36,
                               height: 50,
                               borderRadius: 4,
-                              backgroundColor: "#e5e7eb",
+                              backgroundColor: colors.surfaceMuted,
                             }}
                             resizeMode="cover"
                           />
@@ -240,7 +258,7 @@ export function WorkAddSheet({
                               width: 36,
                               height: 50,
                               borderRadius: 4,
-                              backgroundColor: "#e5e7eb",
+                              backgroundColor: colors.surfaceMuted,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -250,13 +268,18 @@ export function WorkAddSheet({
                         )}
                         <View style={{ flex: 1 }}>
                           <Text
-                            style={{ fontSize: 14, color: "#111827" }}
+                            style={{ fontSize: 14, color: colors.text }}
                             numberOfLines={2}
                           >
                             {item.title}
                           </Text>
                           {seasonText ? (
-                            <Text style={{ fontSize: 11, color: "#6b7280" }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                color: colors.textMuted,
+                              }}
+                            >
                               {seasonText}
                             </Text>
                           ) : null}
@@ -265,7 +288,9 @@ export function WorkAddSheet({
                           style={{
                             fontSize: 13,
                             fontWeight: "600",
-                            color: added ? "#6b7280" : "#4f46e5",
+                            color: added
+                              ? colors.textMuted
+                              : colors.primaryText,
                           }}
                         >
                           {added ? "追加済み" : "追加"}
@@ -285,11 +310,11 @@ export function WorkAddSheet({
                 marginTop: 12,
                 paddingVertical: 12,
                 borderRadius: 8,
-                backgroundColor: "#e5e7eb",
+                backgroundColor: colors.surfaceMuted,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "600", color: "#111827" }}>
+              <Text style={{ fontWeight: "600", color: colors.text }}>
                 閉じる
               </Text>
             </Pressable>

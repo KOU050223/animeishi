@@ -39,7 +39,10 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
   return (
     // 上部の safe area を確保しないと「戻る」ボタンがステータスバー / Dynamic Island
     // の下に潜ってタップ不能になる（iOS 実機検証 #156）。
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["top", "bottom"]}
+    >
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
           <Pressable
@@ -49,21 +52,27 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
             accessibilityLabel="戻る"
             testID="legal-back-button"
           >
-            <Text className="text-base text-indigo-600">‹ 戻る</Text>
+            <Text className="text-base text-indigo-600 dark:text-indigo-400">
+              ‹ 戻る
+            </Text>
           </Pressable>
 
-          <Text className="text-2xl font-bold text-gray-900">{title}</Text>
-          <Text className="mt-2 text-xs text-gray-400">{effectiveDate}</Text>
+          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+            {title}
+          </Text>
+          <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+            {effectiveDate}
+          </Text>
 
           {sections.map((section) => (
             <View key={section.heading} className="mt-8">
-              <Text className="text-base font-semibold text-gray-900">
+              <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
                 {section.heading}
               </Text>
               {section.paragraphs?.map((paragraph) => (
                 <Text
                   key={paragraph}
-                  className="mt-2 text-sm leading-6 text-gray-700"
+                  className="mt-2 text-sm leading-6 text-gray-700 dark:text-slate-300"
                 >
                   {paragraph}
                 </Text>
@@ -73,7 +82,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
                   {section.bullets.map((bullet) => (
                     <Text
                       key={bullet}
-                      className="text-sm leading-6 text-gray-700"
+                      className="text-sm leading-6 text-gray-700 dark:text-slate-300"
                     >
                       ・{bullet}
                     </Text>
@@ -83,14 +92,16 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
             </View>
           ))}
 
-          <View className="mt-12 flex-row justify-center gap-6 border-t border-gray-100 pt-6">
+          <View className="mt-12 flex-row justify-center gap-6 border-t border-gray-100 dark:border-slate-800 pt-6">
             <Link href="/privacy" testID="legal-privacy-link">
-              <Text className="text-sm text-indigo-600">
+              <Text className="text-sm text-indigo-600 dark:text-indigo-400">
                 プライバシーポリシー
               </Text>
             </Link>
             <Link href="/terms" testID="legal-terms-link">
-              <Text className="text-sm text-indigo-600">利用規約</Text>
+              <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+                利用規約
+              </Text>
             </Link>
           </View>
         </View>

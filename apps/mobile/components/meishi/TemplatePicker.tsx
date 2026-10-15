@@ -1,5 +1,6 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
+import { useThemeColors } from "@/lib/theme";
 import { MeishiRenderer } from "./MeishiRenderer";
 
 export function TemplatePicker({
@@ -15,6 +16,7 @@ export function TemplatePicker({
   title?: string;
   warningMessage?: string;
 }) {
+  const colors = useThemeColors();
   return (
     <Modal
       transparent
@@ -25,7 +27,7 @@ export function TemplatePicker({
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: colors.scrim,
           justifyContent: "center",
           alignItems: "center",
           padding: 16,
@@ -33,7 +35,7 @@ export function TemplatePicker({
       >
         <View
           style={{
-            backgroundColor: "#ffffff",
+            backgroundColor: colors.surface,
             borderRadius: 16,
             maxHeight: "90%",
             width: "100%",
@@ -45,12 +47,18 @@ export function TemplatePicker({
             style={{
               padding: 16,
               borderBottomWidth: 1,
-              borderBottomColor: "#e5e7eb",
+              borderBottomColor: colors.border,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "bold" }}>{title}</Text>
+            <Text
+              style={{ fontSize: 16, fontWeight: "bold", color: colors.text }}
+            >
+              {title}
+            </Text>
             {warningMessage ? (
-              <Text style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>
+              <Text
+                style={{ fontSize: 12, color: colors.danger, marginTop: 4 }}
+              >
                 {warningMessage}
               </Text>
             ) : null}
@@ -64,7 +72,7 @@ export function TemplatePicker({
                   onPress={() => onPick(tpl.id)}
                   style={{
                     borderWidth: 1,
-                    borderColor: "#e5e7eb",
+                    borderColor: colors.border,
                     borderRadius: 12,
                     padding: 12,
                     gap: 8,
@@ -72,7 +80,13 @@ export function TemplatePicker({
                   accessibilityRole="button"
                   accessibilityLabel={`${tpl.name}テンプレートを選ぶ`}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: colors.text,
+                    }}
+                  >
                     {tpl.emoji} {tpl.name}
                   </Text>
                   <MeishiRenderer
@@ -94,7 +108,7 @@ export function TemplatePicker({
             style={{
               padding: 12,
               borderTopWidth: 1,
-              borderTopColor: "#e5e7eb",
+              borderTopColor: colors.border,
             }}
           >
             <Pressable
@@ -104,11 +118,11 @@ export function TemplatePicker({
               style={{
                 paddingVertical: 12,
                 borderRadius: 8,
-                backgroundColor: "#e5e7eb",
+                backgroundColor: colors.surfaceMuted,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "600", color: "#111827" }}>
+              <Text style={{ fontWeight: "600", color: colors.text }}>
                 閉じる
               </Text>
             </Pressable>

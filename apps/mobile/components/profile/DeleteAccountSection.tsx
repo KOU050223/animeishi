@@ -4,6 +4,7 @@ import { useDeleteAccount } from "@/lib/useProfile";
 import { confirm } from "@/lib/dialog";
 import { annictTokenStorage } from "@/lib/annict/storage";
 import { queryClient } from "@/lib/queryClient";
+import { useThemeColors } from "@/lib/theme";
 
 type Props = {
   /** 削除失敗時のメッセージを表示側（トースト等）に渡す。 */
@@ -18,6 +19,7 @@ type Props = {
 export function DeleteAccountSection({ onError }: Props) {
   const deleteAccount = useDeleteAccount();
   const { signOut } = useAuth();
+  const colors = useThemeColors();
 
   // アカウント削除は取り消せないため、dialog 基盤で二段階確認にする。
   // 成功したら端末内のキャッシュ・Annict トークンも片付けてサインアウトする
@@ -63,21 +65,23 @@ export function DeleteAccountSection({ onError }: Props) {
   }
 
   return (
-    <View className="mt-10 border-t border-gray-200 px-4 pt-6">
+    <View className="mt-10 border-t border-gray-200 dark:border-slate-700 px-4 pt-6">
       <TouchableOpacity
-        className="items-center rounded-xl border border-red-200 bg-red-50 py-3"
+        className="items-center rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 py-3"
         onPress={onPressDelete}
         disabled={deleteAccount.isPending}
         accessibilityRole="button"
         accessibilityLabel="アカウントを削除"
       >
         {deleteAccount.isPending ? (
-          <ActivityIndicator color="#dc2626" />
+          <ActivityIndicator color={colors.danger} />
         ) : (
-          <Text className="font-semibold text-red-600">アカウントを削除</Text>
+          <Text className="font-semibold text-red-600 dark:text-red-400">
+            アカウントを削除
+          </Text>
         )}
       </TouchableOpacity>
-      <Text className="mt-2 text-center text-xs text-gray-400">
+      <Text className="mt-2 text-center text-xs text-gray-400 dark:text-slate-500">
         削除するとすべてのデータが失われ、元に戻せません
       </Text>
     </View>
