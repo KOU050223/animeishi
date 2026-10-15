@@ -12,6 +12,10 @@ import {
   searchAnnictWorksByTitle,
 } from "@/lib/annict/client";
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
+import {
+  readSeasonWorksCache,
+  writeSeasonWorksCache,
+} from "@/lib/annict/seasonWorksCache";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
   isPlaceholderImageUrl,
@@ -34,6 +38,10 @@ function getBindings(c: Context): AuthEnv["Bindings"] & {
 // title があればタイトル検索。無ければ season（明示 or 今期既定）でシーズン検索し、
 // 検索画面の初期表示（今期アニメ）を返す。どちらも視聴者数の多い順ではないが、
 // シーズン検索は WATCHERS_COUNT 降順で「人気の今期アニメ」を上位に出す。
+//
+// シーズン検索はサーバー側で全ページ取得する（issue #163: 先頭 50 件打ち切りの
+// 解消）。全件結果は全ユーザー共通データなのでシーズン単位で Cache API に
+// キャッシュし、直列の Annict 往復を繰り返さない（issue #173 の初回遅延も緩和）。
 const works = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get(
@@ -51,7 +59,7 @@ const works = new Hono<AuthVariables>()
             trimmedTitle,
             after ?? null,
           )
-        : await searchAnnictWorksBySeason(
+        : await searchSeasonWorks(
             c.var.annictToken,
             season ?? currentAnnictSeason(),
             after ?? null,
@@ -72,6 +80,36 @@ const works = new Hono<AuthVariables>()
     },
   );
 
+/**
+ * シーズン検索の入口。1 ページ目（after 無し）はシーズン単位の Cache API
+ * キャッシュを参照し、ミス時のみ Annict へ全ページ取得しにいく。
+ * after 指定はクライアントの追い読み（上限到達時の継続取得）なので
+ * キャッシュを介さず Annict を叩く。取得が打ち切られた（hasNextPage=true の）
+ * 部分結果は「全件」として共有できないためキャッシュしない。
+ */
+async function searchSeasonWorks(
+  annictToken: string,
+  season: string,
+  after: string | null,
+): Promise<{
+  works: AnnictLibraryEntry[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}> {
+  if (after) {
+    return searchAnnictWorksBySeason(annictToken, season, after);
+  }
+  const cached = await readSeasonWorksCache(season);
+  if (cached) {
+    return { works: cached, hasNextPage: false, endCursor: null };
+  }
+  const result = await searchAnnictWorksBySeason(annictToken, season, null);
+  if (!result.hasNextPage) {
+    await writeSeasonWorksCache(season, result.works);
+  }
+  return result;
+}
+
 /** 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl）。 */
 type SearchWorkWithResolved = AnnictLibraryEntry & {
   resolvedImageUrl: string | null;
@@ -91,8 +129,14 @@ async function attachResolvedImages(
 ): Promise<SearchWorkWithResolved[]> {
   if (works.length === 0) return [];
 
+  // getAnnictWorksByIds は inArray（= id 1 個につきバインド変数 1 個）なので、
+  // シーズン全件（数百件）でも D1 の 100 変数上限を超えないようチャンクして引く。
+  const ID_CHUNK = 90;
   const ids = works.map((w) => w.annictWorkId);
-  const cached = await adb.getAnnictWorksByIds(ids);
+  const cached: Awaited<ReturnType<typeof adb.getAnnictWorksByIds>> = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    cached.push(...(await adb.getAnnictWorksByIds(ids.slice(i, i + ID_CHUNK))));
+  }
   const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
 
   const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
@@ -115,12 +159,14 @@ async function attachResolvedImages(
   // 検索でユーザーに見せた作品はすべて annict_works にキャッシュする。
   // tier 表の保存（PUT /me/tier-lists）が items → annict_works の FK を要求する
   // ため、補完対象だけを upsert すると通常画像の作品で保存が 400 になる。
-  // キャッシュ失敗は検索レスポンスを壊さないよう作品ごとに握りつぶす。
+  // シーズン全件（数百件）は 1 往復ずつ書くと遅いので db.batch にまとめる
+  // バルク upsert を使う。キャッシュ失敗は検索レスポンスを壊さないよう握りつぶす
+  // （batch は原子的なので失敗時は全件を未永続化として扱う）。
   const now = new Date();
   const upsertFailedIds = new Set<number>();
-  for (const w of works) {
-    try {
-      await adb.upsertAnnictWork({
+  try {
+    await adb.upsertAnnictWorks(
+      works.map((w) => ({
         annictWorkId: w.annictWorkId,
         nodeId: w.nodeId,
         malAnimeId: w.malAnimeId,
@@ -131,18 +177,18 @@ async function attachResolvedImages(
         seasonYear: w.seasonYear,
         imageUrl: w.imageUrl,
         updatedAt: now,
-      });
-    } catch (err) {
-      upsertFailedIds.add(w.annictWorkId);
-      console.error(
-        JSON.stringify({
-          level: "warn",
-          event: "work_cache_upsert_failed",
-          annictWorkId: w.annictWorkId,
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      );
-    }
+      })),
+    );
+  } catch (err) {
+    for (const w of works) upsertFailedIds.add(w.annictWorkId);
+    console.error(
+      JSON.stringify({
+        level: "warn",
+        event: "work_cache_upsert_failed",
+        count: works.length,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 
   if (fallbackTargets.length > 0) {
@@ -154,27 +200,31 @@ async function attachResolvedImages(
       const resolved = await resolveImagesViaAnilist(fallbackTargets);
       const resolvedById = new Map(resolved.map((r) => [r.annictWorkId, r]));
       const resolvedAt = new Date();
-      for (const r of resolved) {
-        // 作品行の upsert に失敗したものは update 先の行が無いのでスキップする。
-        // updateResolvedImage は対象行が無くても例外にならず no-op になるため、
-        // ここで成功扱いにすると永続化されないまま検知不能になってしまう。
-        if (upsertFailedIds.has(r.annictWorkId)) continue;
-        try {
-          await adb.updateResolvedImage(r.annictWorkId, {
+      // 作品行の upsert に失敗したものは update 先の行が無いので除外する。
+      // update 対象が無い update は no-op だが、ここで書いたつもりになると
+      // 永続化されないまま検知不能になってしまう。まとまった件数を行ごとに
+      // 往復させないようバルク更新で書き込む。
+      const persistable = resolved.filter(
+        (r) => !upsertFailedIds.has(r.annictWorkId),
+      );
+      try {
+        await adb.updateResolvedImages(
+          persistable.map((r) => ({
+            annictWorkId: r.annictWorkId,
             resolvedImageUrl: r.resolvedImageUrl,
             imageSource: r.imageSource,
             resolvedAt,
-          });
-        } catch (err) {
-          console.error(
-            JSON.stringify({
-              level: "warn",
-              event: "image_fallback_persist_failed",
-              annictWorkId: r.annictWorkId,
-              error: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        }
+          })),
+        );
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            level: "warn",
+            event: "image_fallback_persist_failed",
+            count: persistable.length,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       }
       // 解決した URL は永続化の成否に関わらず今回のレスポンスには載せる
       // （保存に失敗しても表示だけは改善する）。
