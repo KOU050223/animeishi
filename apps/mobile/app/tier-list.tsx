@@ -6,6 +6,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
+  adjacentSeasonParams,
   currentSeason,
   toSeasonParam,
   type SeasonKey,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/tierList/share";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
+import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
 import {
   useSavedTierList,
   useSaveTierList,
@@ -68,6 +70,14 @@ export default function TierListScreen() {
     isConnectionLoading,
   } = useSeasonWorks(season);
   const { data: saved, isLoading: isSavedLoading } = useSavedTierList(season);
+
+  // 前後シーズンを先読みしてシーズン切り替え直後の待ちを消す（issue #173）。
+  // シーズン作品のキャッシュキーはアニメ一覧画面と共有しているため、
+  // ここでのプリフェッチは一覧側にも効く（逆も同じ）。
+  usePrefetchSeasonWorks(
+    adjacentSeasonParams(year, seasonKey),
+    isConnected && !isWorksLoading,
+  );
   const save = useSaveTierList();
   const share = useShareTierList();
 

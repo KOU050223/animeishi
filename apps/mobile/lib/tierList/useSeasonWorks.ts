@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/lib/annict";
 import { isPlaceholderImageUrl } from "@/lib/anime/pickImageUrl";
+import { fetchWorksSearchPage, seasonWorksQueryKey } from "@/lib/useAnimeList";
 import type { TierItem } from "./types";
 
 // 画像未解決の作品が残っている間の再取得間隔と上限。
@@ -27,27 +26,17 @@ export function useSeasonWorks(season: string) {
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
 
   const query = useInfiniteQuery({
-    queryKey: ["tier-list", "season-works", season] as const,
+    // シーズン作品のキャッシュはアニメ一覧画面と共有する（同一の
+    // /works/search?season= レスポンス）。一覧側の前後シーズンプリフェッチ
+    // （issue #173）がこちらのシーズン切り替えにも効き、ここで取得した
+    // データが一覧にも使い回される。
+    queryKey: seasonWorksQueryKey(season),
     enabled: !!isSignedIn && isConnected && !!season,
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.works.search.$get(
-        { query: pageParam ? { season, after: pageParam } : { season } },
-        {
-          headers: { Authorization: `Bearer ${token}`, ...annictHeader },
-        },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "シーズン作品の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
+    // クエリキーを共有している以上、取得ロジックも一覧側と同一関数に揃える
+    // （片方だけ変更されると同一キーに別ロジックが書き込まれる危険がある）。
+    queryFn: ({ pageParam }) =>
+      fetchWorksSearchPage(getToken, { query: "", season, pageParam }),
     getNextPageParam: (last) =>
       last.hasNextPage ? (last.endCursor ?? undefined) : undefined,
   });

@@ -46,6 +46,17 @@ export function useReportUser() {
         { headers },
       );
       if (!res.ok) {
+        // 429（レート制限・重複通報）はサーバーの理由メッセージをそのまま見せる
+        // （同一対象の再通報と回数上限で文言が違うため）。
+        if (res.status === 429) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new ApiRequestError(
+            res.status,
+            body?.error ?? "通報の送信回数が上限に達しました",
+          );
+        }
         throw new ApiRequestError(res.status, "通報に失敗しました");
       }
       return res.json();

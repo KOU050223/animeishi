@@ -4,7 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { reportCreateSchema } from "@/schema/validators";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb, UserNotFoundError } from "@/repository/authorizedDb";
+import {
+  authorizedDb,
+  ReportRateLimitError,
+  UserNotFoundError,
+} from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 import { notifyUserReport } from "@/observability";
 
@@ -32,6 +36,10 @@ const usersRoute = new Hono<AuthVariables>()
     } catch (e) {
       if (e instanceof UserNotFoundError) {
         return c.json({ error: "User not found" }, 404);
+      }
+      if (e instanceof ReportRateLimitError) {
+        c.header("Retry-After", String(e.retryAfterSeconds));
+        return c.json({ error: e.message, code: e.kind }, 429);
       }
       throw e;
     }

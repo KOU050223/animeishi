@@ -10,11 +10,16 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
+import {
+  useAnimeList,
+  usePrefetchSeasonWorks,
+  useSortedAnimeList,
+} from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
+import { AnimeListSkeleton } from "./AnimeListSkeleton";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
@@ -22,6 +27,7 @@ import { SortButton } from "./SortButton";
 import { StatPill } from "./StatPill";
 import { styles } from "./animeListStyles";
 import {
+  adjacentSeasonParams,
   currentSeason,
   formatSeasonLabel,
   formatYearSeason,
@@ -62,12 +68,22 @@ export function AnimeListContent({
     data,
     isLoading,
     isError,
+    isFetching,
+    isPlaceholderData,
     refetch,
     isConnected,
     isConnectionLoading,
     isSeason,
   } = useAnimeList(query, seasonParam);
   const hasQuery = query.trim().length > 0;
+
+  // 前後シーズンを先読みして切り替え直後の待ちを消す（issue #173）。
+  // 表示中のクエリが走っている間は譲り、確定してから発火させる。
+  // 検索語があるときはシーズン切り替え自体が起きないので無効化する。
+  usePrefetchSeasonWorks(
+    adjacentSeasonParams(filterYear, filterSeason),
+    isSeason && !isFetching,
+  );
 
   const [refreshing, setRefreshing] = useState(false);
   const sorted = useSortedAnimeList(data, sortKey, sortOrder);
@@ -100,13 +116,23 @@ export function AnimeListContent({
   // 表現し、検索バーは常に画面に残す。
   // 連携済みでフェッチ中のときだけローディング扱いにする（未連携時の pending を
   // 「連携前」と区別する）。検索語が空でも今期アニメを取得するためローディングを出す。
-  const showLoading = isConnected && isLoading;
+  // シーズン/検索キー切り替えでキャッシュ未ヒットの間（placeholderData が前回
+  // 結果を差し込んでいる間）もローディング扱いにする。前シーズンの一覧を
+  // 残したまま新しいラベルを出すと切り替えが効いたか分かりにくいため（issue #173）。
+  const showLoading =
+    isConnected && (isLoading || (isPlaceholderData && isFetching));
+
+  // 表示できる作品があるのにバックグラウンド再取得の失敗でエラー画面へ
+  // 置き換えない。tier 表側の画像補完ポーリングが同じクエリキーを再取得する
+  // （キャッシュ共有）ため、その失敗もここに現れうる。作品が無い初回失敗だけ
+  // 空配列にして ListEmptyComponent のエラー表示へ繋げる。
+  const hideForError = isError && sorted.length === 0;
 
   return (
     <View style={styles.screen}>
       <FlatList
         key={`anime-list-${numColumns}`}
-        data={showLoading || isError ? [] : sorted}
+        data={showLoading || hideForError ? [] : sorted}
         numColumns={numColumns}
         keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={[
@@ -178,14 +204,16 @@ export function AnimeListContent({
                   </View>
 
                   <View style={styles.statsRow}>
+                    {/* ローディング中は data が前シーズン/前検索の結果を指すため
+                        旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
                     <StatPill
                       label="作品"
-                      value={`${stats.total}`}
+                      value={showLoading ? "-" : `${stats.total}`}
                       tone="ink"
                     />
                     <StatPill
                       label="年代"
-                      value={stats.yearRange}
+                      value={showLoading ? "-" : stats.yearRange}
                       tone="gold"
                     />
                     <StatPill
@@ -205,8 +233,10 @@ export function AnimeListContent({
                 </Text>
                 <Text style={styles.resultText}>
                   {hasQuery
-                    ? `「${query.trim()}」の検索結果・${sorted.length}件`
-                    : `${formatSeasonLabel(filterYear, filterSeason)}・${sorted.length}件`}
+                    ? showLoading
+                      ? `「${query.trim()}」を検索しています`
+                      : `「${query.trim()}」の検索結果・${sorted.length}件`
+                    : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${sorted.length}件`}`}
                 </Text>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
@@ -325,19 +355,14 @@ export function AnimeListContent({
               testID="anime-list-soft-gate"
             />
           ) : showLoading ? (
-            <View style={styles.emptyState}>
-              <View style={styles.loadingMark}>
-                <ActivityIndicator size="small" color="#111827" />
-              </View>
-              <Text style={styles.emptyTitle}>
-                {isSeason
-                  ? `${formatSeasonLabel(filterYear, filterSeason)}を読み込んでいます`
-                  : "検索しています"}
-              </Text>
-              <Text style={styles.emptyCopy}>
-                Annict から作品を探しています。
-              </Text>
-            </View>
+            // カード型スケルトンで即時フィードバックする（issue #173）。
+            // シーズン切り替えの約 5 秒の間、スピナーだけだと操作が効いたか
+            // 不安になるため、実カードと同じ配置のプレースホルダーを敷く。
+            <AnimeListSkeleton
+              cardWidth={cardWidth}
+              contentWidth={contentWidth}
+              numColumns={numColumns}
+            />
           ) : isError ? (
             <View style={styles.emptyState}>
               <View style={[styles.stateIcon, styles.errorIcon]}>

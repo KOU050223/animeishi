@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -11,18 +10,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
 import { AddElementSheet } from "@/components/meishi/AddElementSheet";
+import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
 import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
+import { alert } from "@/lib/dialog";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useFavorites } from "@/lib/useFavorites";
+import {
+  pickMeishiImage,
+  useMeishiAssetUpload,
+} from "@/lib/useMeishiAssetUpload";
 import { useProfile } from "@/lib/useProfile";
 import { useWatchHistory } from "@/lib/useWatchHistory";
 import type {
@@ -58,6 +63,13 @@ export default function MeishiEditScreen() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addSheet, setAddSheet] = useState(false);
+  // 画像要素の追加・差し替えフロー（端末アップロード / アニメ画像ピッカー）
+  const {
+    animePickerTarget,
+    setAnimePickerTarget,
+    pickUploadImage,
+    pickAnimeImage,
+  } = useMeishiImageElements({ addElement, updateElement, setSelectedId });
   const [textSheet, setTextSheet] = useState(false);
   const [templatePicker, setTemplatePicker] = useState(false);
   const [initialTemplateShown, setInitialTemplateShown] = useState(false);
@@ -136,32 +148,8 @@ export default function MeishiEditScreen() {
   const handleAddElement = async (type: MeishiElementType) => {
     setAddSheet(false);
     if (type === "image") {
-      try {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          Alert.alert("写真へのアクセスが許可されていません");
-          return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.8,
-        });
-        if (result.canceled || result.assets.length === 0) return;
-        const base = makeDefaultElement("image");
-        if (base.type === "image") {
-          const newEl: MeishiElement = {
-            ...base,
-            uri: result.assets[0]!.uri,
-            source: "upload",
-          };
-          addElement(newEl);
-          setSelectedId(newEl.id);
-        }
-        return;
-      } catch {
-        Alert.alert("画像の追加に失敗しました");
-        return;
-      }
+      await pickUploadImage("new");
+      return;
     }
     const el = makeDefaultElement(type);
     addElement(el);
@@ -310,6 +298,13 @@ export default function MeishiEditScreen() {
               }}
               onBringToFront={() => bringToFront(selected.id)}
               onSendToBack={() => sendToBack(selected.id)}
+              onReplaceImage={(kind) => {
+                if (kind === "anime") {
+                  setAnimePickerTarget(selected.id);
+                } else {
+                  void pickUploadImage(selected.id);
+                }
+              }}
             />
           ) : (
             <View style={styles.bottomBar}>
@@ -331,7 +326,21 @@ export default function MeishiEditScreen() {
         onClose={() => setAddSheet(false)}
         onPick={handleAddElement}
         onPickAvatarImage={handleAddAvatar}
+        onPickAnimeImage={() => {
+          setAddSheet(false);
+          setAnimePickerTarget("new");
+        }}
       />
+
+      {animePickerTarget !== null ? (
+        <AnimeImagePicker
+          visible
+          onClose={() => setAnimePickerTarget(null)}
+          onPick={pickAnimeImage}
+          favorites={favorites ?? []}
+          watchHistory={watchHistory ?? []}
+        />
+      ) : null}
 
       <TemplatePicker
         visible={templatePicker}
@@ -381,6 +390,74 @@ export default function MeishiEditScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+/**
+ * 画像要素の追加・差し替えフロー。選択元は端末アップロードとアニメ画像
+ * ピッカーの 2 系統（issue #96）。animePickerTarget は "new"（新規追加）
+ * または既存画像要素の id（差し替え）を表す。
+ */
+function useMeishiImageElements({
+  addElement,
+  updateElement,
+  setSelectedId,
+}: {
+  addElement: UseMeishiDocument["addElement"];
+  updateElement: UseMeishiDocument["updateElement"];
+  setSelectedId: (id: string) => void;
+}) {
+  const uploadMeishiAsset = useMeishiAssetUpload();
+  const [animePickerTarget, setAnimePickerTarget] = useState<string | null>(
+    null,
+  );
+
+  const applyImage = (
+    target: "new" | string,
+    uri: string,
+    source: "anime" | "upload",
+  ) => {
+    if (target === "new") {
+      const base = makeDefaultElement("image");
+      if (base.type !== "image") return;
+      const newEl: MeishiElement = { ...base, uri, source };
+      addElement(newEl);
+      setSelectedId(newEl.id);
+    } else {
+      updateElement(target, { uri, source });
+    }
+  };
+
+  // 端末から選んだ画像は R2 へアップロードして公開 URL を uri に保存する
+  // （ローカル file:// URI は Web 版のプレビューや他端末で表示できないため）。
+  const pickUploadImage = async (target: "new" | string) => {
+    try {
+      const asset = await pickMeishiImage();
+      if (!asset) return;
+      const uploaded = await uploadMeishiAsset.mutateAsync(asset);
+      applyImage(target, uploaded.url, "upload");
+    } catch (error) {
+      // RN の Alert.alert は Web で表示できないため dialog 経由にする
+      alert(
+        "画像を追加できませんでした",
+        error instanceof Error ? error.message : "画像の追加に失敗しました",
+        { okLabel: "OK" },
+      );
+    }
+  };
+
+  const pickAnimeImage = (uri: string) => {
+    const target = animePickerTarget;
+    setAnimePickerTarget(null);
+    if (target === null) return;
+    applyImage(target, uri, "anime");
+  };
+
+  return {
+    animePickerTarget,
+    setAnimePickerTarget,
+    pickUploadImage,
+    pickAnimeImage,
+  };
 }
 
 function useMeishiGestureFlag() {

@@ -67,6 +67,27 @@ export class UserNotFoundError extends Error {
 }
 
 /**
+ * 通報がレート制限・重複抑止に引っかかったときに投げるエラー（issue #148）。
+ * ルート層で 429 + Retry-After に変換する。
+ * kind:
+ * - "duplicate_target" … 同一対象への再通報（24h クールダウン）
+ * - "hourly_limit"     … 通報全体のレート制限（1h に REPORT_HOURLY_LIMIT 件）
+ */
+export class ReportRateLimitError extends Error {
+  constructor(
+    readonly kind: "duplicate_target" | "hourly_limit",
+    readonly retryAfterSeconds: number,
+  ) {
+    super(
+      kind === "duplicate_target"
+        ? "同じユーザーへの通報は24時間に1回までです"
+        : "通報の送信回数が上限に達しました。しばらくしてから再度お試しください",
+    );
+    this.name = "ReportRateLimitError";
+  }
+}
+
+/**
  * Clerk 側にユーザーが存在しない（削除済み）ことが判明したときに投げるエラー。
  * requireAuth で 401 に変換する。tombstone（deleted_users）を伴わない削除
  * （運用での手動削除など）でも users 行を再作成しないための中止シグナル。
@@ -224,6 +245,68 @@ const ANNICT_WORK_UPSERT_CHUNK = 7;
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
 // statement になるため、往復回数と batch サイズのバランスで区切る。
 const RESOLVED_IMAGE_UPDATE_BATCH = 50;
+
+// ---- 通報レート制限（issue #148）----
+// 通報は Sentry 経由で運営に通知されるため、同一対象への連投と
+// 全体の短時間スパムを DB レベルで抑止する。
+// - 同一対象: 24 時間に 1 回まで（重複通報の抑止）
+// - 全体:     1 時間に REPORT_HOURLY_LIMIT 件まで
+const REPORT_SAME_TARGET_WINDOW_MS = 24 * 60 * 60 * 1000;
+const REPORT_HOURLY_WINDOW_MS = 60 * 60 * 1000;
+const REPORT_HOURLY_LIMIT = 10;
+
+/**
+ * createReport のガード付き INSERT が拒否されたとき、どちらの制限に
+ * 引っかかったかを調べて対応する ReportRateLimitError を組み立てる。
+ * 同一対象の再通報を先に見るのは、24h クールダウンのほうが制約として
+ * 長く残る（= 解放までの待ち時間が長い側を案内する）ため。
+ */
+async function buildReportRateLimitError(
+  db: DrizzleDb,
+  reporterId: string,
+  targetUserId: string,
+  nowMs: number,
+): Promise<ReportRateLimitError> {
+  const lastSameTarget = await db.query.reports.findFirst({
+    where: (t, { and: and_, eq: eq_, gt: gt_ }) =>
+      and_(
+        eq_(t.reporterId, reporterId),
+        eq_(t.reportedUserId, targetUserId),
+        gt_(t.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
+      ),
+    orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
+    columns: { createdAt: true },
+  });
+  if (lastSameTarget) {
+    const waitMs =
+      lastSameTarget.createdAt.getTime() + REPORT_SAME_TARGET_WINDOW_MS - nowMs;
+    return new ReportRateLimitError(
+      "duplicate_target",
+      Math.max(1, Math.ceil(waitMs / 1000)),
+    );
+  }
+
+  // 窓内に上限を超える行が残っている場合（制限導入前のデータ等）は、
+  // 最古 1 件が失効しても件数が LIMIT 未満に戻らない。新しい順 LIMIT 件目の
+  // 失効時点で初めて挿入可能になるため、その行を基点に待ち時間を計算する。
+  const limitNewest = await db.query.reports.findFirst({
+    where: (t, { and: and_, eq: eq_, gt: gt_ }) =>
+      and_(
+        eq_(t.reporterId, reporterId),
+        gt_(t.createdAt, new Date(nowMs - REPORT_HOURLY_WINDOW_MS)),
+      ),
+    orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
+    offset: REPORT_HOURLY_LIMIT - 1,
+    columns: { createdAt: true },
+  });
+  const waitMs = limitNewest
+    ? limitNewest.createdAt.getTime() + REPORT_HOURLY_WINDOW_MS - nowMs
+    : REPORT_HOURLY_WINDOW_MS;
+  return new ReportRateLimitError(
+    "hourly_limit",
+    Math.max(1, Math.ceil(waitMs / 1000)),
+  );
+}
 
 /**
  * authorizedDb: 認証済みユーザーIDを束縛したリポジトリ層。
@@ -1390,7 +1473,11 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       return row !== undefined;
     },
 
-    /** 他ユーザーを通報する。対象が存在しなければ UserNotFoundError。 */
+    /**
+     * 他ユーザーを通報する。対象が存在しなければ UserNotFoundError。
+     * 同一対象への再通報（24h）・短時間の大量通報（1h に REPORT_HOURLY_LIMIT 件）
+     * は ReportRateLimitError で拒否する（issue #148）。
+     */
     async createReport(targetUserId: string, reason: string): Promise<Report> {
       if (targetUserId === currentUserId) {
         throw new Error("自分自身を通報することはできません");
@@ -1402,17 +1489,56 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       if (!target) {
         throw new UserNotFoundError(targetUserId);
       }
-      const [created] = await db
-        .insert(reports)
-        .values({
-          reporterId: currentUserId,
-          reportedUserId: targetUserId,
-          reason,
-          createdAt: new Date(),
-        })
-        .returning();
-      if (!created) throw new Error("通報の作成に失敗しました");
-      return created;
+
+      // 制限判定を INSERT ... SELECT の WHERE に埋め込み、確認〜挿入を
+      // 1 ステートメントで行う。「SELECT で確認してから INSERT」では並行
+      // リクエストが両方とも確認を通過して制限をすり抜ける（db.batch は
+      // アトミックだが文同士で値を受け渡せず、確認結果に応じた条件付き
+      // 挿入は組めないため）。
+      // created_at は unix 秒（drizzle timestamp mode）なので閾値も秒で渡す。
+      // 秒切り捨てにより境界秒の行は窓外扱いになり、クールダウンは実時間で
+      // 最大 ~1 秒短くなるが、24h/1h スケールでは実害なしとして許容する
+      // （厳密化には ms 精度へのスキーマ変更が必要で本 issue のスコープ外）。
+      const nowMs = Date.now();
+      const nowSec = Math.floor(nowMs / 1000);
+      const sameTargetSinceSec = Math.floor(
+        (nowMs - REPORT_SAME_TARGET_WINDOW_MS) / 1000,
+      );
+      const hourlySinceSec = Math.floor(
+        (nowMs - REPORT_HOURLY_WINDOW_MS) / 1000,
+      );
+
+      const inserted = await db.run(sql`
+        INSERT INTO ${reports} (reporter_id, reported_user_id, reason, created_at)
+        SELECT ${currentUserId}, ${targetUserId}, ${reason}, ${nowSec}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM ${reports}
+          WHERE reporter_id = ${currentUserId}
+            AND reported_user_id = ${targetUserId}
+            AND created_at > ${sameTargetSinceSec}
+        )
+        AND (
+          SELECT COUNT(*) FROM ${reports}
+          WHERE reporter_id = ${currentUserId}
+            AND created_at > ${hourlySinceSec}
+        ) < ${REPORT_HOURLY_LIMIT}
+      `);
+
+      if (inserted.meta.changes === 0) {
+        throw await buildReportRateLimitError(
+          db,
+          currentUserId,
+          targetUserId,
+          nowMs,
+        );
+      }
+      return {
+        id: inserted.meta.last_row_id,
+        reporterId: currentUserId,
+        reportedUserId: targetUserId,
+        reason,
+        createdAt: new Date(nowSec * 1000),
+      };
     },
 
     /**

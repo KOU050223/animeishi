@@ -59,6 +59,34 @@ describe("useDropZoneRegistry", () => {
     expect(result.current.hitTest(50, -50)).toBe("s");
   });
 
+  it("shiftAll で全矩形がずれ、ヒットテストが追従する", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupRows(result.current));
+
+    // 下へ 50px スクロールした状況を再現する。コンテンツは画面上で
+    // 50px 上に流れるため、矩形は dy=-50 でずれる。
+    act(() => result.current.shiftAll(-50));
+
+    // s は y:0-100 → -50-50、a は 100-200 → 50-150、
+    // トレイは 200-300 → 150-250 にずれた。
+    expect(result.current.hitTest(50, 50)).toBe("s");
+    expect(result.current.hitTest(50, -25)).toBe("s");
+    expect(result.current.hitTest(50, 51)).toBe("a");
+    expect(result.current.hitTest(50, 175)).toBeNull();
+  });
+
+  it("shiftAll のたびにずらし世代（epoch）が増える", () => {
+    // measureInWindow の遅れ応答がずらし前の位置で矩形を上書きしないよう、
+    // DropZone は要求時・応答時の世代を比較する。そのカウンタの契約。
+    const { result } = renderHook(() => useDropZoneRegistry());
+    const before = result.current.epoch();
+
+    act(() => result.current.shiftAll(-50));
+    expect(result.current.epoch()).toBe(before + 1);
+    act(() => result.current.shiftAll(-10));
+    expect(result.current.epoch()).toBe(before + 2);
+  });
+
   it("remeasureAll は登録済みの measurer を全て呼ぶ", () => {
     const { result } = renderHook(() => useDropZoneRegistry());
     const measureS = jest.fn();

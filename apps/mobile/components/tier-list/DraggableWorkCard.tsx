@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
@@ -43,6 +44,20 @@ export type DraggableWorkCardProps = {
   moveDestinations: TierMoveDestination[];
   /** アクセシビリティアクションで移動先が選ばれたとき。 */
   onMove: (tierKey: string | null) => void;
+  /**
+   * ドラッグ中に盤面が自動スクロールした累積量（px）。行が画面上を流れても
+   * カードが指に追従するよう translateY に加算する。全カードで共有する値の
+   * ため、ドラッグ中のカードでのみ効かせる（scrollCompensationOwner 参照）。
+   */
+  scrollCompensation?: SharedValue<number>;
+  /**
+   * 補正を受けるカードの annictWorkId。-1 は「補正中のドラッグなし」。
+   * 盤面は同時に 1 枚のドラッグしか受け付けないが、2 指で掴まれたカードも
+   * isDragging は立つため、これが無いと非アクティブ側にも補正が乗って
+   * 掴んでいないカードが盤面上を流れてしまう。未指定なら従来通り
+   * isDragging だけで判定する。
+   */
+  scrollCompensationOwner?: SharedValue<number>;
 };
 
 /**
@@ -60,10 +75,15 @@ export function DraggableWorkCard({
   onDragCancel,
   moveDestinations,
   onMove,
+  scrollCompensation,
+  scrollCompensationOwner,
 }: DraggableWorkCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
+  // 終了時に scrollCompensation を translateY へ畳み込んだか。
+  // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
+  const compensationFolded = useSharedValue(false);
 
   const uri = pickImageUrl(item);
 
@@ -73,6 +93,7 @@ export function DraggableWorkCard({
         // スクロールとの競合を避けるため、長押ししてから初めてドラッグに入る。
         .activateAfterLongPress(DRAG_ACTIVATE_MS)
         .onStart(() => {
+          compensationFolded.value = false;
           isDragging.value = true;
           scheduleOnRN(onDragStart);
         })
@@ -85,6 +106,18 @@ export function DraggableWorkCard({
           // 配置の確定は JS 側。カードは元位置へバネで戻し、
           // 実際の再配置は親が state を更新して再レンダリングする。
           scheduleOnRN(onDragEnd, e.absoluteX, e.absoluteY);
+          // 自動スクロールの補正を translateY に畳み込んでから戻る。
+          // 補正は isDragging が false になるとスタイルから外れるため、
+          // 畳まないと戻り始めに補正分だけ跳んで見える。
+          // 非アクティブな 2 指目（オーナーでないカード）には畳まない。
+          if (
+            scrollCompensation &&
+            (scrollCompensationOwner === undefined ||
+              scrollCompensationOwner.value === item.id)
+          ) {
+            translateY.value += scrollCompensation.value;
+            compensationFolded.value = true;
+          }
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
           isDragging.value = false;
@@ -98,24 +131,46 @@ export function DraggableWorkCard({
             isDragging.value = false;
             scheduleOnRN(onDragCancel);
           }
+          // onEnd を通らなかったキャンセル経路でも同じく補正を畳み込む。
+          if (
+            scrollCompensation &&
+            !compensationFolded.value &&
+            (scrollCompensationOwner === undefined ||
+              scrollCompensationOwner.value === item.id)
+          ) {
+            translateY.value += scrollCompensation.value;
+            compensationFolded.value = true;
+          }
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
         }),
     [
+      compensationFolded,
       isDragging,
       onDragCancel,
       onDragEnd,
       onDragMove,
       onDragStart,
+      scrollCompensation,
+      scrollCompensationOwner,
       translateX,
       translateY,
+      item.id,
     ],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
-      { translateY: translateY.value },
+      {
+        translateY:
+          translateY.value +
+          (isDragging.value &&
+          (scrollCompensationOwner === undefined ||
+            scrollCompensationOwner.value === item.id)
+            ? (scrollCompensation?.value ?? 0)
+            : 0),
+      },
       { scale: withSpring(isDragging.value ? 1.15 : 1) },
     ],
     zIndex: isDragging.value ? 100 : 0,
