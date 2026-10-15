@@ -2,11 +2,11 @@ import { useCallback, useMemo } from "react";
 import { Image, Text, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import type { TierWork } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
@@ -74,17 +74,17 @@ export function DraggableWorkCard({
         .activateAfterLongPress(DRAG_ACTIVATE_MS)
         .onStart(() => {
           isDragging.value = true;
-          runOnJS(onDragStart)();
+          scheduleOnRN(onDragStart);
         })
         .onUpdate((e) => {
           translateX.value = e.translationX;
           translateY.value = e.translationY;
-          runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragMove, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
           // 配置の確定は JS 側。カードは元位置へバネで戻し、
           // 実際の再配置は親が state を更新して再レンダリングする。
-          runOnJS(onDragEnd)(e.absoluteX, e.absoluteY);
+          scheduleOnRN(onDragEnd, e.absoluteX, e.absoluteY);
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
           isDragging.value = false;
@@ -96,7 +96,7 @@ export function DraggableWorkCard({
           // 親側のドラッグ中フラグ（スクロール停止・zIndex 制御）も戻す。
           if (isDragging.value) {
             isDragging.value = false;
-            runOnJS(onDragCancel)();
+            scheduleOnRN(onDragCancel);
           }
           translateX.value = withSpring(0);
           translateY.value = withSpring(0);
