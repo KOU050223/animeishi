@@ -149,6 +149,14 @@ describe("ProfileScreen のアカウント削除導線", () => {
   });
 });
 
+describe("ProfileScreen のアプリ情報セクション", () => {
+  it("機能一覧・更新情報への導線を表示する", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByLabelText("機能一覧・更新情報を開く")).toBeTruthy();
+  });
+});
+
 describe("ProfileScreen の法務情報セクション", () => {
   it("プライバシーポリシー・利用規約・サポートへの導線を表示する", () => {
     render(<ProfileScreen />);
