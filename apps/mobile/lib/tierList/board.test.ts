@@ -2,6 +2,7 @@ import {
   assignItem,
   parseTiersJson,
   pruneAssignment,
+  sameBoard,
   toAssignment,
   toSaveItems,
   unassignedItems,
@@ -155,5 +156,41 @@ describe("parseTiersJson", () => {
     expect(
       parseTiersJson(JSON.stringify([TIERS[0], { key: "bad" }])),
     ).toBeNull();
+  });
+});
+
+describe("sameBoard", () => {
+  const snapshot = () => ({
+    title: "テスト表",
+    tiers: TIERS,
+    items: [
+      { itemId: 1, tierKey: "s" },
+      { itemId: 2, tierKey: "a" },
+    ],
+  });
+
+  it("title・tiers・配置がすべて同じなら true", () => {
+    expect(sameBoard(snapshot(), snapshot())).toBe(true);
+  });
+
+  it("保存中にアイテムが動くと false（isDirty を解除しない判定に使う）", () => {
+    const moved = snapshot();
+    moved.items = [
+      { itemId: 1, tierKey: "s" },
+      { itemId: 3, tierKey: "a" },
+    ];
+    expect(sameBoard(snapshot(), moved)).toBe(false);
+  });
+
+  it("保存中に tier 名が変わると false", () => {
+    const renamed = snapshot();
+    renamed.tiers = [{ key: "s", label: "最高", color: "#ff7f7f" }, TIERS[1]];
+    expect(sameBoard(snapshot(), renamed)).toBe(false);
+  });
+
+  it("配置順が違うだけでも false（position に影響するため）", () => {
+    const reordered = snapshot();
+    reordered.items = [reordered.items[1], reordered.items[0]];
+    expect(sameBoard(snapshot(), reordered)).toBe(false);
   });
 });

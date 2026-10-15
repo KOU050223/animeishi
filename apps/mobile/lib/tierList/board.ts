@@ -103,6 +103,40 @@ export function toSaveItems(
   return items;
 }
 
+/**
+ * tier 表の盤面スナップショット。保存 API に送る形（items は汎用の
+ * itemId 表記で、toSaveItems の出力そのもの）。
+ */
+export type BoardSnapshot = {
+  title: string;
+  tiers: TierRow[];
+  items: { itemId: number; tierKey: string }[];
+};
+
+/**
+ * 2 つの盤面スナップショットが一致するか（title・tiers・配置の順序まで比較）。
+ * 保存の成功コールバックは送信時点の state を掴むため、保存中に進んだ
+ * 編集を「保存済み」に誤認しないよう、送信した盤面と現在の盤面が
+ * 一致するときだけ isDirty を解除する判定に使う。
+ */
+export function sameBoard(a: BoardSnapshot, b: BoardSnapshot): boolean {
+  if (a.title !== b.title) return false;
+  if (a.tiers.length !== b.tiers.length) return false;
+  for (let i = 0; i < a.tiers.length; i += 1) {
+    const x = a.tiers[i];
+    const y = b.tiers[i];
+    if (x.key !== y.key || x.label !== y.label || x.color !== y.color) {
+      return false;
+    }
+  }
+  if (a.items.length !== b.items.length) return false;
+  for (let i = 0; i < a.items.length; i += 1) {
+    if (a.items[i].itemId !== b.items[i].itemId) return false;
+    if (a.items[i].tierKey !== b.items[i].tierKey) return false;
+  }
+  return true;
+}
+
 /** サーバから返る items（position 昇順）を TierAssignment に戻す。 */
 export function toAssignment(
   items: { itemId: number; tierKey: string }[],

@@ -13,6 +13,7 @@ import { styles } from "@/components/tier-list/tierListStyles";
 import {
   assignItem,
   parseTiersJson,
+  sameBoard,
   toAssignment,
   toSaveItems,
 } from "@/lib/tierList/board";
@@ -100,6 +101,11 @@ export default function CharacterTierListScreen() {
   // ref 経由で promise に逃がす。
   const snapshotReadyRef = useRef<(() => void) | null>(null);
 
+  // 保存成功コールバックは送信時点の state を掴むため、現在の盤面は
+  // ref 経由で読む（保存中の編集を「保存済み」に誤認しないための比較用）。
+  const boardStateRef = useRef({ title, tiers, assignment });
+  boardStateRef.current = { title, tiers, assignment };
+
   // 保存済み tier 表が届いたら盤面へ流し込む（この画面の作品は固定で一度だけ）。
   // ただし編集中（isDirty）は上書きしない。保存後のキャッシュ更新や
   // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを消さないため。
@@ -143,24 +149,24 @@ export default function CharacterTierListScreen() {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
-      // 保存中も同様に、応答が押下時の盤面しか含まないのに編集分まで
-      // 「保存済み」扱いになるため受け付けない。
-      if (isSharing || save.isPending) return;
+      // 保存中の編集は isDirty が立ったまま残る（handleSave 側で送信盤面と
+      // 現在盤面を比較して一致したときだけ解除するため）。
+      if (isSharing) return;
       setAssignment((prev) => assignItem(prev, itemId, tierKey));
       setIsDirty(true);
     },
-    [isSharing, save.isPending],
+    [isSharing],
   );
 
   const handleRenameTier = useCallback(
     (tierKey: string, label: string) => {
-      if (isSharing || save.isPending) return;
+      if (isSharing) return;
       const next = renameTier(tiers, tierKey, label);
       if (next === tiers) return;
       setTiers(next);
       setIsDirty(true);
     },
-    [isSharing, save.isPending, tiers],
+    [isSharing, tiers],
   );
 
   const handleBack = useCallback(() => {
@@ -202,11 +208,37 @@ export default function CharacterTierListScreen() {
   );
 
   const handleSave = useCallback(() => {
+    // 送信した盤面をスナップショットとして取る。保存中に編集が進むと
+    // 応答は送信時点の内容しか含まないため、現在の盤面と一致するとき
+    // だけ「保存済み」（isDirty 解除）にする。
+    const sentSnapshot = {
+      title,
+      tiers,
+      items: toSaveItems(assignment, tiers),
+    };
     save.mutate(
-      { annictWorkId, title, tiers, items: buildSaveItems() },
-      { onSuccess: () => setIsDirty(false) },
+      {
+        annictWorkId,
+        title,
+        tiers,
+        items: sentSnapshot.items.map((i) => ({
+          annictCharacterId: i.itemId,
+          tierKey: i.tierKey,
+        })),
+      },
+      {
+        onSuccess: () => {
+          const current = boardStateRef.current;
+          const unchanged = sameBoard(sentSnapshot, {
+            title: current.title,
+            tiers: current.tiers,
+            items: toSaveItems(current.assignment, current.tiers),
+          });
+          if (unchanged) setIsDirty(false);
+        },
+      },
     );
-  }, [annictWorkId, buildSaveItems, save, tiers, title]);
+  }, [annictWorkId, assignment, save, tiers, title]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -480,7 +512,7 @@ export default function CharacterTierListScreen() {
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
-          labelsEditable={!isSharing && !save.isPending}
+          labelsEditable={!isSharing}
           trayEmptyLabel="すべてのキャラクターを配置しました"
         />
       )}
