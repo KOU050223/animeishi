@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,7 +15,7 @@ import {
   usePrefetchSeasonWorks,
   useSortedAnimeList,
 } from "@/lib/useAnimeList";
-import type { SortKey, SortOrder } from "@/lib/useAnimeList";
+import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
@@ -128,6 +128,86 @@ export function AnimeListContent({
   // （キャッシュ共有）ため、その失敗もここに現れうる。作品が無い初回失敗だけ
   // 空配列にして ListEmptyComponent のエラー表示へ繋げる。
   const hideForError = isError && sorted.length === 0;
+
+  // キャラクター tier 表への入口（issue #169）。対象作品をパラメータで渡し、
+  // 画面側は作品のキャスト一覧を取得する。
+  const openCharacterTierList = useCallback(
+    (work: AnimeTitle) => {
+      router.push({
+        pathname: "/character-tier-list",
+        params: { workId: String(work.annictWorkId), workTitle: work.title },
+      });
+    },
+    [router],
+  );
+
+  // renderItem を安定化して行ごとのコールバック生成を減らす。
+  const renderItem = useCallback(
+    ({ item }: { item: AnimeTitle }) => (
+      <View
+        style={[styles.card, { width: cardWidth }]}
+        testID={`anime-item-${item.annictWorkId}`}
+      >
+        <AnimePoster item={item} title={item.title} />
+        <View style={styles.cardBody}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <FavoriteButton
+              isFavorite={favoriteIds.has(item.annictWorkId)}
+              disabled={isToggling}
+              onPress={() => toggleFavorite(item.annictWorkId)}
+              title={item.title}
+            />
+          </View>
+          {item.titleEn ? (
+            <Text style={styles.englishTitle} numberOfLines={1}>
+              {item.titleEn}
+            </Text>
+          ) : null}
+          <View style={styles.metaRow}>
+            {item.seasonYear ? (
+              <View style={styles.seasonChip}>
+                <Ionicons
+                  name="sparkles-outline"
+                  size={12}
+                  color={palette.seasonChipText}
+                />
+                <Text style={styles.seasonText}>
+                  {formatYearSeason(
+                    item.seasonYear,
+                    item.seasonName?.includes("-")
+                      ? item.seasonName.split("-")[1]
+                      : item.seasonName,
+                  )}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <TouchableOpacity
+            className="mt-1.5 items-center rounded-lg bg-indigo-50 dark:bg-indigo-950 py-1.5"
+            onPress={() => openCharacterTierList(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title} のキャラクター Tier 表を作る`}
+            testID={`open-character-tier-list-${item.annictWorkId}`}
+          >
+            <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+              キャラ Tier 表
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    ),
+    [
+      cardWidth,
+      favoriteIds,
+      isToggling,
+      openCharacterTierList,
+      palette,
+      toggleFavorite,
+    ],
+  );
 
   return (
     <View style={styles.screen}>
@@ -279,51 +359,7 @@ export function AnimeListContent({
             ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <View
-            style={[styles.card, { width: cardWidth }]}
-            testID={`anime-item-${item.annictWorkId}`}
-          >
-            <AnimePoster item={item} title={item.title} />
-            <View style={styles.cardBody}>
-              <View style={styles.cardTitleRow}>
-                <Text style={styles.cardTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <FavoriteButton
-                  isFavorite={favoriteIds.has(item.annictWorkId)}
-                  disabled={isToggling}
-                  onPress={() => toggleFavorite(item.annictWorkId)}
-                  title={item.title}
-                />
-              </View>
-              {item.titleEn ? (
-                <Text style={styles.englishTitle} numberOfLines={1}>
-                  {item.titleEn}
-                </Text>
-              ) : null}
-              <View style={styles.metaRow}>
-                {item.seasonYear ? (
-                  <View style={styles.seasonChip}>
-                    <Ionicons
-                      name="sparkles-outline"
-                      size={12}
-                      color={palette.seasonChipText}
-                    />
-                    <Text style={styles.seasonText}>
-                      {formatYearSeason(
-                        item.seasonYear,
-                        item.seasonName?.includes("-")
-                          ? item.seasonName.split("-")[1]
-                          : item.seasonName,
-                      )}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          </View>
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           isConnectionLoading ? (
             // 連携状態（SecureStore）の読み込み中は isConnected=false になるため、

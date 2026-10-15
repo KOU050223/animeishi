@@ -1,77 +1,81 @@
-import type { TierAssignment, TierRow, TierWork } from "./types";
+import type { TierAssignment, TierRow, TierItem } from "./types";
 
 /**
  * tier 表の状態遷移を担う純粋関数群。
  * ドラッグ&ドロップの UI から切り離しておくことで、ジェスチャを再現せずに
  * 「落とした結果どうなるか」をテストできる。
+ *
+ * 作品・キャラクターどちらの tier 表でも使う（issue #169）。そのため
+ * ここでは対象を「アイテム」（TierItem.id で識別）として扱い、
+ * annictWorkId / annictCharacterId への対応づけは呼び出し側が行う。
  */
 
 /**
- * 作品を指定 tier に配置する。既に別の tier にいた場合は移動になる。
+ * アイテムを指定 tier に配置する。既に別の tier にいた場合は移動になる。
  * tierKey に null を渡すと未分類（トレイ）へ戻す。
  */
-export function assignWork(
+export function assignItem(
   assignment: TierAssignment,
-  annictWorkId: number,
+  itemId: number,
   tierKey: string | null,
 ): TierAssignment {
   const next = new Map(assignment);
   // Map.set は既存キーの挿入位置を保つため、いったん消してから追加し直す。
   // そうしないと「別 tier に移して戻す」で元の位置に残り、
   // 新規配置は末尾追加という約束と表示順・保存順がずれる。
-  next.delete(annictWorkId);
+  next.delete(itemId);
   if (tierKey !== null) {
-    next.set(annictWorkId, tierKey);
+    next.set(itemId, tierKey);
   }
   return next;
 }
 
 /**
- * 指定 tier に配置された作品を、配置順（＝サーバから返る position 順、
+ * 指定 tier に配置されたアイテムを、配置順（＝サーバから返る position 順、
  * 新規配置は末尾追加）で返す。
  *
  * Map は挿入順を保つため、この順序がそのまま表示順になる。
  * ドロップは常に末尾追加なので、行内の任意位置への挿入は v1 では扱わない。
  */
-export function worksInTier(
-  works: TierWork[],
+export function itemsInTier(
+  items: TierItem[],
   assignment: TierAssignment,
   tierKey: string,
-): TierWork[] {
-  const byId = new Map(works.map((w) => [w.annictWorkId, w]));
-  const result: TierWork[] = [];
-  for (const [workId, key] of assignment) {
+): TierItem[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const result: TierItem[] = [];
+  for (const [itemId, key] of assignment) {
     if (key !== tierKey) continue;
-    const work = byId.get(workId);
-    if (work) result.push(work);
+    const item = byId.get(itemId);
+    if (item) result.push(item);
   }
   return result;
 }
 
 /**
- * どの tier にも配置されていない作品（未分類トレイの中身）を返す。
- * シーズン全作品から配置済みを引いた差分なので、作品一覧が増えれば自動で追随する。
+ * どの tier にも配置されていないアイテム（未分類トレイの中身）を返す。
+ * 全件から配置済みを引いた差分なので、アイテム一覧が増えれば自動で追随する。
  */
-export function unassignedWorks(
-  works: TierWork[],
+export function unassignedItems(
+  items: TierItem[],
   assignment: TierAssignment,
-): TierWork[] {
-  return works.filter((w) => !assignment.has(w.annictWorkId));
+): TierItem[] {
+  return items.filter((item) => !assignment.has(item.id));
 }
 
 /**
- * 盤面に並べる作品集合を組み立てる。
- * シーズン候補・保存済み items 由来の作品・手動追加分など、複数の供給元を
- * 前から順にマージする。同一 annictWorkId の重複は先に入った方を優先して潰す
+ * 盤面に並べるアイテム集合を組み立てる。
+ * シーズン候補・保存済み items 由来のアイテム・手動追加分など、複数の供給元を
+ * 前から順にマージする。同一 id の重複は先に入った方を優先して潰す
  * （先の供給元ほど新鮮な表示用メタを持つ想定）。
  */
-export function mergeBoardWorks(
-  ...sources: (readonly TierWork[] | undefined)[]
-): TierWork[] {
-  const byId = new Map<number, TierWork>();
+export function mergeBoardItems(
+  ...sources: (readonly TierItem[] | undefined)[]
+): TierItem[] {
+  const byId = new Map<number, TierItem>();
   for (const source of sources) {
-    for (const w of source ?? []) {
-      if (!byId.has(w.annictWorkId)) byId.set(w.annictWorkId, w);
+    for (const item of source ?? []) {
+      if (!byId.has(item.id)) byId.set(item.id, item);
     }
   }
   return [...byId.values()];
@@ -88,35 +92,74 @@ export function pruneAssignment(
 ): TierAssignment {
   const keys = new Set(tiers.map((t) => t.key));
   const next = new Map(assignment);
-  for (const [workId, key] of assignment) {
-    if (!keys.has(key)) next.delete(workId);
+  for (const [itemId, key] of assignment) {
+    if (!keys.has(key)) next.delete(itemId);
   }
   return next;
 }
 
 /**
- * 保存 API（PUT /me/tier-lists）へ送る items 配列を組み立てる。
+ * 保存 API へ送る items 配列を組み立てる。
  * position はサーバが配列順から採番するため送らない。tier ごとにまとめて
  * 並べることで、サーバ採番の position が行内の表示順と一致する。
+ *
+ * 返す ID は汎用の itemId。作品なら annictWorkId、キャラクターなら
+ * annictCharacterId へのフィールド名の写像は呼び出し側で行う
+ * （PUT /me/tier-lists と PUT /me/character-tier-lists で受け取る
+ * フィールド名が違うため）。
  */
 export function toSaveItems(
   assignment: TierAssignment,
   tiers: TierRow[],
-): { annictWorkId: number; tierKey: string }[] {
-  const items: { annictWorkId: number; tierKey: string }[] = [];
+): { itemId: number; tierKey: string }[] {
+  const items: { itemId: number; tierKey: string }[] = [];
   for (const tier of tiers) {
-    for (const [workId, key] of assignment) {
-      if (key === tier.key) items.push({ annictWorkId: workId, tierKey: key });
+    for (const [itemId, key] of assignment) {
+      if (key === tier.key) items.push({ itemId, tierKey: key });
     }
   }
   return items;
 }
 
+/**
+ * tier 表の盤面スナップショット。保存 API に送る形（items は汎用の
+ * itemId 表記で、toSaveItems の出力そのもの）。
+ */
+export type BoardSnapshot = {
+  title: string;
+  tiers: TierRow[];
+  items: { itemId: number; tierKey: string }[];
+};
+
+/**
+ * 2 つの盤面スナップショットが一致するか（title・tiers・配置の順序まで比較）。
+ * 保存の成功コールバックは送信時点の state を掴むため、保存中に進んだ
+ * 編集を「保存済み」に誤認しないよう、送信した盤面と現在の盤面が
+ * 一致するときだけ isDirty を解除する判定に使う。
+ */
+export function sameBoard(a: BoardSnapshot, b: BoardSnapshot): boolean {
+  if (a.title !== b.title) return false;
+  if (a.tiers.length !== b.tiers.length) return false;
+  for (let i = 0; i < a.tiers.length; i += 1) {
+    const x = a.tiers[i];
+    const y = b.tiers[i];
+    if (x.key !== y.key || x.label !== y.label || x.color !== y.color) {
+      return false;
+    }
+  }
+  if (a.items.length !== b.items.length) return false;
+  for (let i = 0; i < a.items.length; i += 1) {
+    if (a.items[i].itemId !== b.items[i].itemId) return false;
+    if (a.items[i].tierKey !== b.items[i].tierKey) return false;
+  }
+  return true;
+}
+
 /** サーバから返る items（position 昇順）を TierAssignment に戻す。 */
 export function toAssignment(
-  items: { annictWorkId: number; tierKey: string }[],
+  items: { itemId: number; tierKey: string }[],
 ): TierAssignment {
-  return new Map(items.map((i) => [i.annictWorkId, i.tierKey]));
+  return new Map(items.map((i) => [i.itemId, i.tierKey]));
 }
 
 /**
@@ -134,7 +177,7 @@ export function parseTiersJson(json: string): TierRow[] | null {
   try {
     const parsed: unknown = JSON.parse(json);
     if (!Array.isArray(parsed)) return null;
-    // 不正な行だけを捨てると、その行に置かれていた作品が表示も保存も
+    // 不正な行だけを捨てると、その行に置かれていたアイテムが表示も保存も
     // されずに消える。1 行でも壊れていれば全体を既定値にフォールバックする。
     if (parsed.length === 0 || !parsed.every(isTierRow)) return null;
     return parsed;

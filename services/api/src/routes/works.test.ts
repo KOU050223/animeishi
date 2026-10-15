@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { createDb } from "@/db/client";
-import { annictWorks } from "@/db/schema";
+import { annictCharacters, annictWorks } from "@/db/schema";
 import { works } from "@/routes/works";
 import { currentAnnictSeason } from "@/lib/annict/client";
 import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
@@ -776,5 +776,369 @@ describe("作品検索 API", () => {
       const body = (await res.json()) as { code: string };
       expect(body.code).toBe("annict_upstream");
     });
+  });
+});
+
+// --- GET /works/:annictWorkId/characters（issue #169） ---
+
+const CHAR_WORK_ID = 2001;
+
+// Annict Work.casts（searchWorks + casts）のモック。
+// キャラクター画像の名寄せ先となる AniList Media.characters も URL で振り分ける。
+function mockWorkCasts(
+  casts: {
+    sortNumber: number;
+    character: {
+      annictId: number;
+      name: string;
+      nameKana?: string | null;
+      nameEn?: string | null;
+    } | null;
+  }[],
+  options: {
+    annictId?: number;
+    malAnimeId?: string | null;
+    title?: string | null;
+    anilistNodes?: {
+      name: {
+        full?: string | null;
+        native?: string | null;
+        alternative?: (string | null)[] | null;
+      };
+      image?: { large?: string | null; medium?: string | null } | null;
+    }[];
+  } = {},
+): ReturnType<typeof vi.spyOn> {
+  const jsonResponse = (data: unknown) =>
+    new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    if (url === "https://graphql.anilist.co") {
+      return jsonResponse({
+        data: {
+          Media: { characters: { nodes: options.anilistNodes ?? [] } },
+        },
+      });
+    }
+    return jsonResponse({
+      data: {
+        searchWorks: {
+          nodes: [
+            {
+              id: `node-${options.annictId ?? CHAR_WORK_ID}`,
+              annictId: options.annictId ?? CHAR_WORK_ID,
+              malAnimeId: "malAnimeId" in options ? options.malAnimeId : "1234",
+              title: "title" in options ? options.title : "対象アニメ",
+              titleKana: null,
+              titleEn: null,
+              seasonName: null,
+              seasonYear: null,
+              image: {
+                internalUrl: null,
+                recommendedImageUrl: null,
+                facebookOgImageUrl: null,
+                twitterBiggerAvatarUrl: null,
+                twitterAvatarUrl: null,
+                twitterNormalAvatarUrl: null,
+                twitterMiniAvatarUrl: null,
+              },
+              casts: {
+                nodes: casts.map((cast) => ({
+                  sortNumber: cast.sortNumber,
+                  character: cast.character
+                    ? {
+                        annictId: cast.character.annictId,
+                        name: cast.character.name,
+                        nameKana: cast.character.nameKana ?? null,
+                        nameEn: cast.character.nameEn ?? null,
+                      }
+                    : null,
+                })),
+              },
+            },
+          ],
+        },
+      },
+    });
+  });
+}
+
+describe("キャラクター一覧 API", () => {
+  beforeEach(async () => {
+    await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.restoreAllMocks();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  it("GET /works/:id/characters: X-Annict-Token が無ければ 401", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /works/:id/characters: casts を sortNumber 順に返し、画像は AniList 名寄せで補完する", async () => {
+    mockWorkCasts(
+      [
+        // あえて順序を崩し、sortNumber で並び直されることを確認する
+        {
+          sortNumber: 2,
+          character: { annictId: 3002, name: "キャラB" },
+        },
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      {
+        anilistNodes: [
+          {
+            name: { native: "キャラA", full: "Chara A" },
+            image: { large: "https://s4.anilist.co/char-a.png" },
+          },
+        ],
+      },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      work: { annictWorkId: number; title: string };
+      characters: {
+        annictCharacterId: number;
+        name: string;
+        imageUrl: string | null;
+      }[];
+    };
+    expect(body.work).toMatchObject({
+      annictWorkId: CHAR_WORK_ID,
+      title: "対象アニメ",
+    });
+    expect(body.characters.map((c) => c.annictCharacterId)).toEqual([
+      3001, 3002,
+    ]);
+    // 名寄せできたキャラは画像 URL、できなかったキャラは null
+    expect(body.characters[0].imageUrl).toBe(
+      "https://s4.anilist.co/char-a.png",
+    );
+    expect(body.characters[1].imageUrl).toBeNull();
+
+    // キャラクターが annict_characters にキャッシュされる
+    // （tier 表保存の FK 参照先になるため）
+    const db = createDb(env.DB);
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.name).toBe("キャラA");
+    expect(row?.imageUrl).toBe("https://s4.anilist.co/char-a.png");
+
+    // 作品→キャラクターの所属も annict_work_casts にキャッシュされる
+    // （tier 表保存時に「その作品のキャストか」を検証するため）
+    const casts = await db.query.annictWorkCasts.findMany({
+      where: (t, { eq }) => eq(t.annictWorkId, CHAR_WORK_ID),
+    });
+    expect(casts.map((c) => [c.annictCharacterId, c.sortNumber])).toEqual([
+      [3001, 1],
+      [3002, 2],
+    ]);
+  });
+
+  it("GET /works/:id/characters: 同一キャラクターの複数キャスト行は sortNumber の小さい方を残す", async () => {
+    mockWorkCasts([
+      {
+        sortNumber: 5,
+        character: { annictId: 3001, name: "キャラA" },
+      },
+      {
+        sortNumber: 1,
+        character: { annictId: 3001, name: "キャラA" },
+      },
+    ]);
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { annictCharacterId: number; sortNumber: number }[];
+    };
+    expect(body.characters).toHaveLength(1);
+    expect(body.characters[0]).toMatchObject({
+      annictCharacterId: 3001,
+      sortNumber: 1,
+    });
+  });
+
+  it("GET /works/:id/characters: 作品が見つからなければ 404", async () => {
+    // 別作品 ID のみを返す（= 指定 ID の作品は Annict に無い）
+    mockWorkCasts([], { annictId: 999999 });
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /works/:id/characters: malAnimeId が無ければ AniList を叩かず imageUrl は null", async () => {
+    const fetchMock = mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      { malAnimeId: null },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBeNull();
+    // MAL ID が無ければ名寄せできないため AniList には問い合わせない
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const url =
+          typeof call[0] === "string" ? call[0] : (call[0] as Request).url;
+        return url === "https://graphql.anilist.co";
+      }),
+    ).toBe(false);
+  });
+
+  it("GET /works/:id/characters: AniList が失敗しても名簿自体は 200 で返す", async () => {
+    // AniList 側だけ落ちる想定。画像は best-effort なので応答を壊さない。
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url === "https://graphql.anilist.co") {
+        return new Response("server error", { status: 500 });
+      }
+      return new Response(
+        JSON.stringify({
+          data: {
+            searchWorks: {
+              nodes: [
+                {
+                  id: `node-${CHAR_WORK_ID}`,
+                  annictId: CHAR_WORK_ID,
+                  malAnimeId: "1234",
+                  title: "対象アニメ",
+                  titleKana: null,
+                  titleEn: null,
+                  seasonName: null,
+                  seasonYear: null,
+                  image: null,
+                  casts: {
+                    nodes: [
+                      {
+                        sortNumber: 1,
+                        character: { annictId: 3001, name: "キャラA" },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { annictCharacterId: number; imageUrl: string | null }[];
+    };
+    expect(body.characters[0].annictCharacterId).toBe(3001);
+    expect(body.characters[0].imageUrl).toBeNull();
+  });
+
+  it("GET /works/:id/characters: キャッシュ済みの画像は AniList 再解決を待たずに返す", async () => {
+    // 前回の名寄せで保存された imageUrl があれば、今回 AniList が
+    // 取れなくてもキャッシュ側を返す（解決失敗で画像が消えない）。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://s4.anilist.co/cached.png",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      { anilistNodes: [] },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBe(
+      "https://s4.anilist.co/cached.png",
+    );
+    // キャッシュの画像が upsert で消えていないこと
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe("https://s4.anilist.co/cached.png");
   });
 });

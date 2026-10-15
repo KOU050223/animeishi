@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { WorkAddSheet } from "./WorkAddSheet";
-import type { TierWork } from "@/lib/tierList/types";
+import type { TierItem } from "@/lib/tierList/types";
 
 // 実際の検索（API / Annict 連携 / デバウンス）は useWorkSearch のテストで
 // 検証する。シート側は「結果の描画と追加の受け渡し」だけを見るため、
@@ -66,14 +66,14 @@ describe("WorkAddSheet", () => {
     mockUseWorkSearch.mockReturnValue(searching({ works: [RESULT_WORK] }));
   });
 
-  it("検索結果の作品をタップすると onAdd に TierWork で渡る", () => {
+  it("検索結果の作品をタップすると onAdd に TierItem で渡る", () => {
     const onAdd = jest.fn();
     const { getByTestId } = render(sheetElement({ onAdd }));
 
     fireEvent.press(getByTestId("work-add-item-42"));
 
-    expect(onAdd).toHaveBeenCalledWith<[TierWork]>({
-      annictWorkId: 42,
+    expect(onAdd).toHaveBeenCalledWith<[TierItem]>({
+      id: 42,
       title: "劇場版テスト",
       imageUrl: null,
       resolvedImageUrl: null,

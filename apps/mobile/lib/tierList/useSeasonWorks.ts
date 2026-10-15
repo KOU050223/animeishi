@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useAnnictConnection } from "@/lib/annict";
 import { isPlaceholderImageUrl } from "@/lib/anime/pickImageUrl";
 import { fetchWorksSearchPage, seasonWorksQueryKey } from "@/lib/useAnimeList";
-import type { TierWork } from "./types";
+import type { TierItem } from "./types";
 
 // 画像未解決の作品が残っている間の再取得間隔と上限。
 // サーバ側は検索時の AniList 同期解決と cron の Jikan リトライで
@@ -53,11 +53,11 @@ export function useSeasonWorks(season: string) {
     }
   }, [hasNextPage, isFetchingNextPage, query.isError, fetchNextPage]);
 
-  const works = useMemo<TierWork[]>(
+  const works = useMemo<TierItem[]>(
     () =>
       (query.data?.pages ?? []).flatMap((page) =>
         page.works.map((w) => ({
-          annictWorkId: w.annictWorkId,
+          id: w.annictWorkId,
           title: w.title,
           imageUrl: w.imageUrl,
           resolvedImageUrl: w.resolvedImageUrl,

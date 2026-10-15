@@ -15,7 +15,7 @@ import { Input } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
-import type { TierWork } from "@/lib/tierList/types";
+import type { TierItem } from "@/lib/tierList/types";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 
 /**
@@ -33,7 +33,7 @@ export function WorkAddSheet({
   visible: boolean;
   onClose: () => void;
   /** 検索結果の作品が選ばれたとき。追加済みかの判定は呼び出し側が持つ。 */
-  onAdd: (work: TierWork) => void;
+  onAdd: (work: TierItem) => void;
   /** 既に盤面にある作品 id。検索結果で「追加済み」表示にして二重追加を防ぐ。 */
   existingWorkIds: ReadonlySet<number>;
 }) {
@@ -220,7 +220,7 @@ export function WorkAddSheet({
                       <TouchableOpacity
                         onPress={() =>
                           onAdd({
-                            annictWorkId: item.annictWorkId,
+                            id: item.annictWorkId,
                             title: item.title,
                             imageUrl: item.imageUrl,
                             resolvedImageUrl: item.resolvedImageUrl,

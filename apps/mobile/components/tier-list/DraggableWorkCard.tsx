@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
-import type { TierWork } from "@/lib/tierList/types";
+import type { TierItem } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
 
 /** 長押しでドラッグを開始するまでの時間（ms）。 */
@@ -28,8 +28,8 @@ export type TierMoveDestination = {
 };
 
 export type DraggableWorkCardProps = {
-  work: TierWork;
-  /** ドラッグ開始時。呼び出し側はこの作品を「移動中」として扱う。 */
+  item: TierItem;
+  /** ドラッグ開始時。呼び出し側はこのアイテムを「移動中」として扱う。 */
   onDragStart: () => void;
   /** ドラッグ中の指の位置（ウィンドウ座標）。ドロップ先のハイライトに使う。 */
   onDragMove: (x: number, y: number) => void;
@@ -51,7 +51,7 @@ export type DraggableWorkCardProps = {
    */
   scrollCompensation?: SharedValue<number>;
   /**
-   * 補正を受けるカードの annictWorkId。-1 は「補正中のドラッグなし」。
+   * 補正を受けるカードの item id。-1 は「補正中のドラッグなし」。
    * 盤面は同時に 1 枚のドラッグしか受け付けないが、2 指で掴まれたカードも
    * isDragging は立つため、これが無いと非アクティブ側にも補正が乗って
    * 掴んでいないカードが盤面上を流れてしまう。未指定なら従来通り
@@ -61,14 +61,14 @@ export type DraggableWorkCardProps = {
 };
 
 /**
- * tier 表に並ぶ作品 1 枚。長押しでドラッグを開始し、離した位置で
- * 呼び出し側がドロップ先を判定する。
+ * tier 表に並ぶアイテム 1 枚（作品・キャラクター共通。issue #169）。
+ * 長押しでドラッグを開始し、離した位置で呼び出し側がドロップ先を判定する。
  *
  * 位置判定（どの行に落ちたか）はこのコンポーネントの責務ではない。
  * カードは「指の絶対座標」だけを報告し、行の矩形を知っている親が決める。
  */
 export function DraggableWorkCard({
-  work,
+  item,
   onDragStart,
   onDragMove,
   onDragEnd,
@@ -86,7 +86,7 @@ export function DraggableWorkCard({
   const compensationFolded = useSharedValue(false);
 
   // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
-  const { uri, onError: onImageError } = useImageUrlWithFallback(work);
+  const { uri, onError: onImageError } = useImageUrlWithFallback(item);
 
   const pan = useMemo(
     () =>
@@ -114,7 +114,7 @@ export function DraggableWorkCard({
           if (
             scrollCompensation &&
             (scrollCompensationOwner === undefined ||
-              scrollCompensationOwner.value === work.annictWorkId)
+              scrollCompensationOwner.value === item.id)
           ) {
             translateY.value += scrollCompensation.value;
             compensationFolded.value = true;
@@ -137,7 +137,7 @@ export function DraggableWorkCard({
             scrollCompensation &&
             !compensationFolded.value &&
             (scrollCompensationOwner === undefined ||
-              scrollCompensationOwner.value === work.annictWorkId)
+              scrollCompensationOwner.value === item.id)
           ) {
             translateY.value += scrollCompensation.value;
             compensationFolded.value = true;
@@ -156,7 +156,7 @@ export function DraggableWorkCard({
       scrollCompensationOwner,
       translateX,
       translateY,
-      work.annictWorkId,
+      item.id,
     ],
   );
 
@@ -168,7 +168,7 @@ export function DraggableWorkCard({
           translateY.value +
           (isDragging.value &&
           (scrollCompensationOwner === undefined ||
-            scrollCompensationOwner.value === work.annictWorkId)
+            scrollCompensationOwner.value === item.id)
             ? (scrollCompensation?.value ?? 0)
             : 0),
       },
@@ -201,10 +201,10 @@ export function DraggableWorkCard({
     <GestureDetector gesture={pan}>
       <Animated.View
         style={[styles.card, animatedStyle]}
-        accessibilityLabel={`${work.title}（長押しでドラッグ）`}
+        accessibilityLabel={`${item.title}（長押しでドラッグ）`}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}
-        testID={`tier-card-${work.annictWorkId}`}
+        testID={`tier-card-${item.id}`}
       >
         {uri ? (
           <Image
@@ -212,7 +212,7 @@ export function DraggableWorkCard({
             style={styles.cardImage}
             resizeMode="cover"
             onError={onImageError}
-            accessibilityLabel={`${work.title}のサムネイル`}
+            accessibilityLabel={`${item.title}のサムネイル`}
           />
         ) : (
           <View style={styles.cardImageFallback}>
@@ -221,7 +221,7 @@ export function DraggableWorkCard({
         )}
         <View style={styles.cardLabel}>
           <Text style={styles.cardLabelText} numberOfLines={2}>
-            {work.title}
+            {item.title}
           </Text>
         </View>
       </Animated.View>

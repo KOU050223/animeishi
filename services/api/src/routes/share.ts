@@ -12,10 +12,14 @@ import {
 } from "@/lib/http";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import {
+  getSharedCharacterTierList,
   getSharedTierList,
-  isKnownWorkImageUrl,
+  isKnownImageUrl,
 } from "@/repository/sharedTierLists";
-import type { SharedTierList } from "@/repository/sharedTierLists";
+import type {
+  SharedCharacterTierList,
+  SharedTierList,
+} from "@/repository/sharedTierLists";
 
 type ShareBindings = {
   Bindings: Env & { DB: D1Database };
@@ -93,6 +97,41 @@ const share = new Hono<ShareBindings>()
       );
     },
   )
+  // キャラクター tier 表の共有リンク（issue #169）。作品版と同じく
+  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
+  .get(
+    "/character-tier-lists/:token",
+    zValidator("param", shareTokenParamSchema),
+    async (c) => {
+      const { token } = c.req.valid("param");
+      const db = createDb(c.env.DB as D1Database);
+      const list = await getSharedCharacterTierList(db, token);
+      const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
+
+      if (!list) {
+        if (wantsHtml) return c.html(notFoundHtml(), 404);
+        return c.json({ error: "Shared tier list not found" }, 404);
+      }
+
+      if (wantsHtml) {
+        return c.html(buildSharedCharacterTierListHtml(list), 200, {
+          "Cache-Control": "no-store",
+        });
+      }
+
+      return c.json(
+        {
+          title: list.title,
+          annictWorkId: list.annictWorkId,
+          workTitle: list.workTitle,
+          tiers: parseTiersJson(list.tiersJson),
+          owner: { username: list.ownerUsername },
+          items: list.items,
+        },
+        200,
+      );
+    },
+  )
   .get(
     "/image-proxy",
     zValidator("query", z.object({ url: z.string().min(1).max(2048) })),
@@ -116,7 +155,8 @@ const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
  * 失敗する。同一 API 経由で取得し直すことで CORS 付きの画像として配信する。
  *
  * 公開エンドポイント（認証不要）だがオープンプロキシにはしない:
- * - url は annict_works の作品画像カラムに実在するものだけ許可（無ければ 403）
+ * - url は DB 保存済みの画像（annict_works の作品画像 / annict_characters の
+ *   キャラクター画像）に実在するものだけ許可（無ければ 403）
  * - https スキームかつ公開ホストのみ許可（http は Mixed Content、
  *   内部宛先は SSRF になりうるため拒否）
  * - リダイレクトは manual で扱い、遷移先も同じ検証（公開ホスト + DB 実在）を通す
@@ -133,14 +173,14 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   if (target.protocol !== "https:") {
     return c.json({ error: "Only https URLs are allowed" }, 400);
   }
-  // 作品画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
+  // 画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
   // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
   // （SSRF 対策、Devin Review 指摘）。
   if (!isPublicImageUrl(target.toString())) {
     return c.json({ error: "Only public https URLs are allowed" }, 400);
   }
-  if (!(await isKnownWorkImageUrl(db, target.toString()))) {
-    return c.json({ error: "Image URL is not a known work image" }, 403);
+  if (!(await isKnownImageUrl(db, target.toString()))) {
+    return c.json({ error: "Image URL is not a known image" }, 403);
   }
 
   // リダイレクトは自動追従しない。遷移先が公開ホスト検証・DB 照合の
@@ -149,7 +189,7 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
     timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
     maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
     isAllowed: async (url) =>
-      isPublicImageUrl(url) && (await isKnownWorkImageUrl(db, url)),
+      isPublicImageUrl(url) && (await isKnownImageUrl(db, url)),
   });
   if (followed.kind === "failed") {
     const message = {
@@ -301,6 +341,84 @@ function buildSharedTierListHtml(
 <body>
   <h1>${escapeHtml(list.title)}</h1>
   <p class="owner">${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）</p>
+  ${rowsHtml}
+</body>
+</html>`;
+}
+
+function characterImageHtml(
+  item: SharedCharacterTierList["items"][number],
+): string {
+  const src = item.imageUrl;
+  if (!src || !isSafeImageUrl(src)) return "";
+  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
+}
+
+function buildSharedCharacterTierListHtml(
+  list: SharedCharacterTierList,
+): string {
+  const tiers = parseTiersJson(list.tiersJson);
+  const itemsByTier = new Map<string, SharedCharacterTierList["items"]>();
+  for (const item of list.items) {
+    const arr = itemsByTier.get(item.tierKey) ?? [];
+    arr.push(item);
+    itemsByTier.set(item.tierKey, arr);
+  }
+
+  const title = `${escapeHtml(list.title)} - Animeishi`;
+  const description = `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`;
+
+  // og:image には先頭のキャラクター画像を使う。
+  const ogImage = list.items
+    .map((item) => item.imageUrl)
+    .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u));
+
+  const rowsHtml = tiers
+    .map((tier) => {
+      const characters = itemsByTier.get(tier.key) ?? [];
+      const charactersHtml = characters
+        .map(
+          (item) => `<div class="character">
+      ${characterImageHtml(item)}
+      <span class="character-name">${escapeHtml(item.name)}</span>
+    </div>`,
+        )
+        .join("");
+      return `<div class="tier-row">
+    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}">${escapeHtml(tier.label)}</div>
+    <div class="tier-characters">${charactersHtml}</div>
+  </div>`;
+    })
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:type" content="website" />
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    .owner { color: #555; margin: 4px 0 24px; }
+    .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+    .tier-characters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
+    .character { width: 80px; text-align: center; }
+    .character-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
+    .character-name { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(list.title)}</h1>
+  <p class="owner">${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表</p>
   ${rowsHtml}
 </body>
 </html>`;

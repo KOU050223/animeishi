@@ -8,20 +8,20 @@ const TIERS = [
 ];
 
 const ITEMS = [
-  { annictWorkId: 1, tierKey: "s", title: "作品A" },
-  { annictWorkId: 2, tierKey: "a", title: "作品B" },
-  { annictWorkId: 3, tierKey: "s", title: "作品C" },
+  { id: 1, tierKey: "s", title: "作品A" },
+  { id: 2, tierKey: "a", title: "作品B" },
+  { id: 3, tierKey: "s", title: "作品C" },
 ];
 
 const ITEMS_WITH_IMAGES = [
   {
-    annictWorkId: 1,
+    id: 1,
     tierKey: "s",
     title: "作品A",
     imageUrl: "https://example.com/a.png",
   },
   {
-    annictWorkId: 2,
+    id: 2,
     tierKey: "a",
     title: "作品B",
     imageUrl: "https://example.com/b.png",
@@ -47,7 +47,7 @@ describe("TierBoardSnapshot", () => {
       <TierBoardSnapshot
         title="t"
         tiers={TIERS}
-        items={[{ annictWorkId: 9, tierKey: "zzz", title: "幽霊作品" }]}
+        items={[{ id: 9, tierKey: "zzz", title: "幽霊作品" }]}
       />,
     );
 
@@ -103,7 +103,7 @@ describe("TierBoardSnapshot", () => {
           tiers={TIERS}
           items={[
             {
-              annictWorkId: 9,
+              id: 9,
               tierKey: "zzz",
               title: "幽霊作品",
               imageUrl: "https://example.com/ghost.png",
