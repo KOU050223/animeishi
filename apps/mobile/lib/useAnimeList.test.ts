@@ -221,4 +221,71 @@ describe("useAnimeList", () => {
     expect(arg.query.title).toBe("進撃");
     expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
   });
+
+  it("シーズン検索で hasNextPage があれば after で自動追い読みし結果を連結する", async () => {
+    // サーバー側のページ上限に達した場合（hasNextPage=true + endCursor）でも
+    // 表示が途中で打ち切られないよう、次ページを自動で辿る。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = renderHook(() => useAnimeList("", "2026-spring"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(result.current.data?.map((w) => w.title)).toEqual([
+      "作品A",
+      "作品B",
+    ]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
+    // 2 ページ目は endCursor を after に載せて継続取得する
+    const [first] = mockSearchGet.mock.calls[0];
+    const [second] = mockSearchGet.mock.calls[1];
+    expect(first.query.season).toBe("2026-spring");
+    expect(first.query.after).toBeUndefined();
+    expect(second.query.season).toBe("2026-spring");
+    expect(second.query.after).toBe("cur1");
+  });
+
+  it("タイトル検索では hasNextPage があっても自動追い読みしない", async () => {
+    // 広い語で全件走査すると際限がないため、タイトル検索は先頭ページのみ。
+    mockSearchGet.mockResolvedValue(
+      okSearchResponse({
+        works: [
+          { annictWorkId: 1, nodeId: "n1", state: null, title: "進撃の巨人" },
+        ],
+        hasNextPage: true,
+        endCursor: "cur1",
+      }),
+    );
+
+    const { result } = renderHook(() => useAnimeList("進撃"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    // 追い読みが起きないことを確認するため少し待つ
+    await new Promise((r) => setTimeout(r, 100));
+    expect(mockSearchGet).toHaveBeenCalledTimes(1);
+    expect(result.current.hasNextPage).toBe(true);
+    expect(result.current.endCursor).toBe("cur1");
+  });
 });

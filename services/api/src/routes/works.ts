@@ -160,13 +160,30 @@ async function attachResolvedImages(
   // tier 表の保存（PUT /me/tier-lists）が items → annict_works の FK を要求する
   // ため、補完対象だけを upsert すると通常画像の作品で保存が 400 になる。
   // シーズン全件（数百件）は 1 往復ずつ書くと遅いので db.batch にまとめる
-  // バルク upsert を使う。キャッシュ失敗は検索レスポンスを壊さないよう握りつぶす
-  // （batch は原子的なので失敗時は全件を未永続化として扱う）。
+  // バルク upsert を使う。キャッシュ失敗は検索レスポンスを壊さないよう握りつぶす。
   const now = new Date();
   const upsertFailedIds = new Set<number>();
-  try {
-    await adb.upsertAnnictWorks(
-      works.map((w) => ({
+  const logUpsertFailed = (annictWorkId: number, err: unknown) =>
+    console.error(
+      JSON.stringify({
+        level: "warn",
+        event: "work_cache_upsert_failed",
+        annictWorkId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+
+  // annict_works.title は NOT NULL。title 欠落の作品を batch に混ぜると
+  // 正常な作品まで巻き込んで失敗するため事前に除外する。同一 annictWorkId の
+  // 重複行も dedupe しておく（batch 内で行が競合しないように）。
+  const rows = works.flatMap((w) => {
+    if (!w.title?.trim()) {
+      upsertFailedIds.add(w.annictWorkId);
+      logUpsertFailed(w.annictWorkId, new Error("empty title"));
+      return [];
+    }
+    return [
+      {
         annictWorkId: w.annictWorkId,
         nodeId: w.nodeId,
         malAnimeId: w.malAnimeId,
@@ -177,18 +194,25 @@ async function attachResolvedImages(
         seasonYear: w.seasonYear,
         imageUrl: w.imageUrl,
         updatedAt: now,
-      })),
-    );
-  } catch (err) {
-    for (const w of works) upsertFailedIds.add(w.annictWorkId);
-    console.error(
-      JSON.stringify({
-        level: "warn",
-        event: "work_cache_upsert_failed",
-        count: works.length,
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
+      },
+    ];
+  });
+  const dedupedRows = [
+    ...new Map(rows.map((r) => [r.annictWorkId, r])).values(),
+  ];
+  try {
+    await adb.upsertAnnictWorks(dedupedRows);
+  } catch {
+    // batch は原子的なので 1 件の不正行で全体が失敗する。正常な作品だけでも
+    // キャッシュされるよう、行ごとの upsert にフォールバックする。
+    for (const row of dedupedRows) {
+      try {
+        await adb.upsertAnnictWork(row);
+      } catch (err) {
+        upsertFailedIds.add(row.annictWorkId);
+        logUpsertFailed(row.annictWorkId, err);
+      }
+    }
   }
 
   if (fallbackTargets.length > 0) {

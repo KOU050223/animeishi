@@ -603,19 +603,22 @@ export async function searchAnnictWorksBySeason(
     const mapped = mapSearchWorksConnection(data.searchWorks);
     for (const w of mapped.works) worksById.set(w.annictWorkId, w);
 
-    // hasNextPage=true でも endCursor が取れない/繰り返す場合はこれ以上辿れない。
-    // libraryEntries と違いここで部分結果を返しても呼び出し側の全置換を壊さない
-    // ため、打ち切りは throw ではなく hasNextPage=false で表す。
-    if (
-      !mapped.hasNextPage ||
-      !mapped.endCursor ||
-      seenCursors.has(mapped.endCursor)
-    ) {
+    if (!mapped.hasNextPage) {
       return {
         works: [...worksById.values()],
         hasNextPage: false,
         endCursor: null,
       };
+    }
+    // 次ページがあるのに継続カーソルが取れない/繰り返す場合、部分結果を
+    // 「全件」として返すと呼び出し側のシーズンキャッシュに欠損データが残る。
+    // libraryEntries と同じく上流のページング異常として失敗させる（502）。
+    if (!mapped.endCursor || seenCursors.has(mapped.endCursor)) {
+      throw new AnnictApiError(
+        "Annict season works pagination did not complete",
+        502,
+        { season, endCursor: mapped.endCursor },
+      );
     }
     seenCursors.add(mapped.endCursor);
     lastEndCursor = mapped.endCursor;

@@ -567,6 +567,76 @@ describe("作品検索 API", () => {
       expect(row?.title).toBe("通常画像の作品");
     });
 
+    it("GET /works/search: title null の作品が混ざっても正常な作品は annict_works に永続化される", async () => {
+      // batch 中の 1 件の不正行で他の作品まで永続化が失敗しないことを確認する。
+      // 不正行はレスポンスには返すが D1 にはキャッシュしない（FK 参照不可）。
+      mockSearchWorks([
+        {
+          annictId: 778,
+          title: null,
+          malAnimeId: "1235",
+          recommendedImageUrl: "https://example.com/778.jpg",
+        },
+        {
+          annictId: 779,
+          title: "正常な作品",
+          malAnimeId: "1236",
+          recommendedImageUrl: "https://example.com/779.jpg",
+        },
+      ]);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=検索",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { works: { annictWorkId: number }[] };
+      // title null の作品もレスポンス自体には含める
+      expect(body.works.map((w) => w.annictWorkId)).toEqual([778, 779]);
+      const db = createDb(env.DB);
+      const bad = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 778),
+      });
+      expect(bad).toBeUndefined();
+      const good = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, 779),
+      });
+      expect(good?.title).toBe("正常な作品");
+    });
+
+    it("GET /works/search: 壊れたページング（hasNextPage=true だが endCursor=null）は 502 でキャッシュしない", async () => {
+      // hasNextPage=true なのに継続カーソルが取れない異常系。部分結果を
+      // 「全件」として返してシーズンキャッシュに残さないよう失敗にする。
+      const fetchMock = mockSearchWorks([{ annictId: 1 }], {
+        hasNextPage: true,
+        endCursor: null,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+      const body = (await res.json()) as { code: string };
+      expect(body.code).toBe("annict_upstream");
+
+      // キャッシュに部分結果が残っていない（再リクエストで Annict に届く）
+      const res2 = await app.request(
+        "/works/search?season=2030-winter",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res2.status).toBe(502);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスは継続する", async () => {
       // title null → annict_works への upsert が notNull 制約で失敗する。
       // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」

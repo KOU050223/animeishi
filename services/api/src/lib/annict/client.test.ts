@@ -600,23 +600,42 @@ describe("searchAnnictWorksBySeason", () => {
     expect(result.works.map((w) => w.annictWorkId)).toEqual([5]);
   });
 
-  it("同一 endCursor が再出現したら部分結果を返して打ち切る（無限ループ防止）", async () => {
+  it("同一 endCursor が再出現したら AnnictApiError(502) で失敗（部分結果を全件扱いしない）", async () => {
+    // 壊れたページング: 常に hasNextPage=true で同じ cursor を返し続ける。
+    // 部分結果を返すと呼び出し側のシーズンキャッシュに欠損データが残るため失敗にする。
     const fetchMock = vi
       .fn()
       .mockImplementation(() =>
         searchPage([workNode(1)], { hasNextPage: true, endCursor: "stuck" }),
       );
 
-    const result = await searchAnnictWorksBySeason(
-      "tok",
-      "2026-spring",
-      null,
-      fetchMock as unknown as typeof fetch,
-    );
-
-    expect(result.works).toHaveLength(1);
-    expect(result.hasNextPage).toBe(false);
+    await expect(
+      searchAnnictWorksBySeason(
+        "tok",
+        "2026-spring",
+        null,
+        fetchMock as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("hasNextPage が true でも endCursor が null なら AnnictApiError(502) で失敗", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: true, endCursor: null }),
+      );
+
+    await expect(
+      searchAnnictWorksBySeason(
+        "tok",
+        "2026-spring",
+        null,
+        fetchMock as unknown as typeof fetch,
+      ),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("ページ上限に達したら hasNextPage=true と継続カーソルを返す", async () => {
