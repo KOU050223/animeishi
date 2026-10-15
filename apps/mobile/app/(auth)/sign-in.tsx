@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -112,9 +113,12 @@ export default function SignInScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View className="flex-1 justify-center px-6">
+        <ScrollView
+          contentContainerClassName="flex-grow justify-center px-6 py-10"
+          keyboardShouldPersistTaps="handled"
+        >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
-          <View className="w-full max-w-md self-center md:rounded-2xl md:border md:border-gray-200 md:p-8">
+          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:p-8">
             <Text className="text-3xl font-bold text-center mb-8 text-gray-900">
               {t("アニ名刺")}
             </Text>
@@ -179,7 +183,7 @@ export default function SignInScreen() {
               </Link>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
