@@ -37,6 +37,9 @@ export const styles = StyleSheet.create({
   saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: "#ffffff", fontWeight: "600" },
 
+  // ScrollView を包む計測用の枠。ビューポート矩形を measureInWindow で測り、
+  // ドラッグ中の端付近で自動スクロールする判定に使う。
+  boardViewport: { flex: 1 },
   board: { paddingHorizontal: 16, gap: 2 },
   tierRow: { flexDirection: "row", minHeight: CARD_HEIGHT + 8 },
   tierLabelCell: {
