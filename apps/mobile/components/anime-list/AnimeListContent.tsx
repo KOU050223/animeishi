@@ -377,6 +377,7 @@ export function AnimeListContent({
             // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
             <AnnictSoftGate
               description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
+              surface="anime_list"
               testID="anime-list-soft-gate"
             />
           ) : showLoading ? (

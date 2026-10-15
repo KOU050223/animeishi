@@ -480,6 +480,7 @@ export default function TierListScreen() {
         <View style={styles.header}>{backBar}</View>
         <AnnictSoftGate
           description="Tier 表の作成には Annict との連携が必要です。連携するとシーズンの全作品を並べ替えられます。"
+          surface="tier_list"
           testID="tier-list-soft-gate"
         />
       </SafeAreaView>

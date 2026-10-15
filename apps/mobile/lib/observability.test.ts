@@ -78,6 +78,10 @@ describe("buildSentryOptions", () => {
     expect(options.tracesSampleRate).toBe(0);
     expect(options.sendDefaultPii).toBe(false);
   });
+
+  test("Sentry Logs を有効化する（ファネル計測の送信先）", () => {
+    expect(enabledOptions().enableLogs).toBe(true);
+  });
 });
 
 describe("beforeSend の送信ポリシー", () => {

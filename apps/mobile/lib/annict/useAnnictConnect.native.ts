@@ -8,8 +8,12 @@ import { apiClient } from "@/lib/api";
 import { annictTokenStorage } from "./storage";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
+import { trackAnnictFunnel } from "./funnel";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
-import type { AnnictConnectResult } from "./useAnnictConnect";
+import type {
+  AnnictConnectOptions,
+  AnnictConnectResult,
+} from "./useAnnictConnect";
 
 // Annict OAuth クライアント ID。EXPO_PUBLIC_ なので公開ビルドに埋め込まれてよい
 // （client_secret は埋め込まず Workers 側にのみ置く）。
@@ -49,84 +53,101 @@ function getRedirectUri(): string {
  * トークンはサーバーに保存されず、端末の SecureStore のみが保持点。
  */
 export function useAnnictConnect() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
   // isConnecting(state) は非同期更新のため、ボタンの disabled だけでは反映前の連打で
   // openAuthSessionAsync が二重起動しうる。ref で同期的に再入をブロックする。
   const inFlightRef = useRef(false);
 
-  const connect = useCallback(async (): Promise<AnnictConnectResult> => {
-    if (!ANNICT_CLIENT_ID) {
-      return { status: "error", reason: "not_configured" };
-    }
-    // 進行中の連携があれば二重起動させない（成功/失敗/キャンセルで finally 解除）。
-    if (inFlightRef.current) {
-      return { status: "cancelled" };
-    }
-    inFlightRef.current = true;
+  const connect = useCallback(
+    async (options?: AnnictConnectOptions): Promise<AnnictConnectResult> => {
+      // ネイティブは connect() 内で OAuth が完結するため、ここで
+      // oauth_result（成功/キャンセル/失敗理由）を送信する（issue #64）。
+      const finish = (result: AnnictConnectResult): AnnictConnectResult => {
+        trackAnnictFunnel({
+          step: "oauth_result",
+          surface: options?.surface,
+          userId,
+          result: result.status,
+          reason: result.status === "error" ? result.reason : undefined,
+        });
+        return result;
+      };
 
-    setIsConnecting(true);
-    try {
-      const redirectUri = getRedirectUri();
-      const state = Crypto.randomUUID();
-      const authorizeUrl = buildAuthorizeUrl({
-        clientId: ANNICT_CLIENT_ID,
-        redirectUri,
-        state,
-      });
-
-      const result = await WebBrowser.openAuthSessionAsync(
-        authorizeUrl,
-        redirectUri,
-      );
-
-      if (result.type === "cancel" || result.type === "dismiss") {
+      if (!ANNICT_CLIENT_ID) {
+        return finish({ status: "error", reason: "not_configured" });
+      }
+      // 進行中の連携があれば二重起動させない（成功/失敗/キャンセルで finally 解除）。
+      // 再入は OAuth の結果ではないため oauth_result は送らない。
+      if (inFlightRef.current) {
         return { status: "cancelled" };
       }
-      if (result.type !== "success") {
-        return { status: "error", reason: "browser_failed" };
+      inFlightRef.current = true;
+
+      setIsConnecting(true);
+      try {
+        const redirectUri = getRedirectUri();
+        const state = Crypto.randomUUID();
+        const authorizeUrl = buildAuthorizeUrl({
+          clientId: ANNICT_CLIENT_ID,
+          redirectUri,
+          state,
+        });
+
+        const result = await WebBrowser.openAuthSessionAsync(
+          authorizeUrl,
+          redirectUri,
+        );
+
+        if (result.type === "cancel" || result.type === "dismiss") {
+          return finish({ status: "cancelled" });
+        }
+        if (result.type !== "success") {
+          return finish({ status: "error", reason: "browser_failed" });
+        }
+
+        const parsed = parseAuthCallback(result.url, state);
+        if (!parsed.ok) {
+          return finish({ status: "error", reason: parsed.error });
+        }
+
+        const clerkToken = await getToken();
+        if (!clerkToken) {
+          return finish({ status: "error", reason: "unauthorized" });
+        }
+
+        const res = await apiClient.me.annict.exchange.$post(
+          { json: { code: parsed.code, redirectUri, mode: "native" } },
+          { headers: { Authorization: `Bearer ${clerkToken}` } },
+        );
+        if (!res.ok) {
+          return finish({ status: "error", reason: "exchange_failed" });
+        }
+
+        // native は mode:"native" のため accessToken を含むレスポンスが返る。
+        // 型は Web モードとの union なので、accessToken の存在で判別する。
+        const data = await res.json();
+        if (!("accessToken" in data)) {
+          return finish({ status: "error", reason: "exchange_failed" });
+        }
+        await annictTokenStorage.set(data.accessToken);
+
+        // 連携状態を再取得させる。
+        await queryClient.invalidateQueries({
+          queryKey: ANNICT_CONNECTION_QUERY_KEY,
+        });
+
+        return finish({ status: "success" });
+      } catch {
+        return finish({ status: "error", reason: "unexpected" });
+      } finally {
+        inFlightRef.current = false;
+        setIsConnecting(false);
       }
-
-      const parsed = parseAuthCallback(result.url, state);
-      if (!parsed.ok) {
-        return { status: "error", reason: parsed.error };
-      }
-
-      const clerkToken = await getToken();
-      if (!clerkToken) {
-        return { status: "error", reason: "unauthorized" };
-      }
-
-      const res = await apiClient.me.annict.exchange.$post(
-        { json: { code: parsed.code, redirectUri, mode: "native" } },
-        { headers: { Authorization: `Bearer ${clerkToken}` } },
-      );
-      if (!res.ok) {
-        return { status: "error", reason: "exchange_failed" };
-      }
-
-      // native は mode:"native" のため accessToken を含むレスポンスが返る。
-      // 型は Web モードとの union なので、accessToken の存在で判別する。
-      const data = await res.json();
-      if (!("accessToken" in data)) {
-        return { status: "error", reason: "exchange_failed" };
-      }
-      await annictTokenStorage.set(data.accessToken);
-
-      // 連携状態を再取得させる。
-      await queryClient.invalidateQueries({
-        queryKey: ANNICT_CONNECTION_QUERY_KEY,
-      });
-
-      return { status: "success" };
-    } catch {
-      return { status: "error", reason: "unexpected" };
-    } finally {
-      inFlightRef.current = false;
-      setIsConnecting(false);
-    }
-  }, [getToken, queryClient]);
+    },
+    [getToken, queryClient, userId],
+  );
 
   const disconnect = useCallback(async () => {
     await annictTokenStorage.remove();

@@ -144,6 +144,7 @@ function LibraryList({
     return (
       <AnnictSoftGate
         description="マイリストの作品画像を使うには Annict との連携が必要です。連携するとお気に入りや視聴履歴の作品から画像を選べます。"
+        surface="meishi_image_library"
         testID="anime-image-picker-library-soft-gate"
       />
     );
@@ -234,6 +235,7 @@ function SearchList({
     return (
       <AnnictSoftGate
         description="アニメ画像の検索には Annict との連携が必要です。連携すると作品を探して名刺に画像を追加できます。"
+        surface="meishi_image_search"
         testID="anime-image-picker-soft-gate"
       />
     );

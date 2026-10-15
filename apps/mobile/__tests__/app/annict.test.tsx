@@ -1,9 +1,13 @@
 /**
  * @jest-environment jsdom
  */
+import { waitFor } from "@testing-library/react-native";
+import * as Sentry from "@sentry/react-native";
+import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import {
   exchangeAnnictWebCallback,
   ANNICT_STATE_STORAGE_KEY,
+  ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
 } from "@/lib/annict/useAnnictConnect.web";
 
 const mockExchangePost = jest.fn();
@@ -33,6 +37,7 @@ describe("exchangeAnnictWebCallback", () => {
 
   beforeEach(() => {
     mockExchangePost.mockReset();
+    jest.mocked(Sentry.logger.info).mockClear();
     window.sessionStorage.clear();
     setOrigin("https://animeishi.uomi.dev");
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
@@ -111,5 +116,57 @@ describe("exchangeAnnictWebCallback", () => {
       "https://animeishi.uomi.dev/annict?error=access_denied&state=" + STATE;
     const res = await exchangeAnnictWebCallback(denied, getClerkToken);
     expect(res).toEqual({ status: "error", reason: "access_denied" });
+  });
+
+  it("結果を oauth_result イベントとして送り、退避した surface を引き継ぐ", async () => {
+    window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, STATE);
+    window.sessionStorage.setItem(
+      ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
+      "anime_list",
+    );
+    mockExchangePost.mockResolvedValue({ ok: true });
+
+    const res = await exchangeAnnictWebCallback(CALLBACK, getClerkToken, {
+      userId: "user_web",
+    });
+
+    expect(res).toEqual({ status: "success" });
+    await waitFor(() =>
+      expect(Sentry.logger.info).toHaveBeenCalledWith(
+        ANNICT_FUNNEL_EVENT,
+        expect.objectContaining({
+          "annict.step": "oauth_result",
+          "annict.surface": "anime_list",
+          "annict.result": "success",
+        }),
+      ),
+    );
+    // 使い終わった surface は消費される。
+    expect(
+      window.sessionStorage.getItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY),
+    ).toBeNull();
+  });
+
+  it("未知の surface 値は属性に出さない", async () => {
+    window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, STATE);
+    window.sessionStorage.setItem(
+      ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
+      "not_a_surface",
+    );
+    mockExchangePost.mockResolvedValue({ ok: true });
+
+    await exchangeAnnictWebCallback(CALLBACK, getClerkToken);
+
+    await waitFor(() =>
+      expect(Sentry.logger.info).toHaveBeenCalledWith(
+        ANNICT_FUNNEL_EVENT,
+        expect.objectContaining({ "annict.result": "success" }),
+      ),
+    );
+    const [, attributes] = jest.mocked(Sentry.logger.info).mock.calls[0] as [
+      string,
+      Record<string, string>,
+    ];
+    expect(attributes["annict.surface"]).toBeUndefined();
   });
 });

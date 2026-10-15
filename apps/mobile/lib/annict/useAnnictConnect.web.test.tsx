@@ -4,11 +4,14 @@
 import { createElement } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react-native";
+import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 
 // Web 実装を直接 import して検証する（バンドラの .web 解決に依存せず単体で確認）。
 import {
   useAnnictConnect,
   ANNICT_STATE_STORAGE_KEY,
+  ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
 } from "@/lib/annict/useAnnictConnect.web";
 
 const mockDisconnectPost = jest.fn();
@@ -150,6 +153,62 @@ describe("useAnnictConnect (web)", () => {
     expect(Buffer.from(encodedOrigin, "base64url").toString()).toBe(
       "http://localhost",
     );
+  });
+
+  it("connect: surface を sessionStorage に退避し、遷移時点では oauth_result を送らない", async () => {
+    const { result } = renderHook(() => useAnnictConnect(), {
+      wrapper: makeWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.connect({ surface: "anime_list" });
+    });
+
+    // コールバック側（exchangeAnnictWebCallback）が引き継ぐため退避される。
+    expect(
+      window.sessionStorage.getItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY),
+    ).toBe("anime_list");
+    // 遷移成功は OAuth の結果ではないため送らない（連携完了は未確定）。
+    const oauthResults = jest
+      .mocked(Sentry.logger.info)
+      .mock.calls.filter(
+        ([, attrs]) =>
+          (attrs as Record<string, string>)["annict.step"] === "oauth_result",
+      );
+    expect(oauthResults).toHaveLength(0);
+  });
+
+  it("connect: sessionStorage 不可では遷移せず oauth_result を error で送る", async () => {
+    // setItem は Storage.prototype 上にありインスタンスへは spy できないため
+    // プロトタイプを差し替える。
+    const setItemSpy = jest
+      .spyOn(window.Storage.prototype, "setItem")
+      .mockImplementationOnce(() => {
+        throw new Error("denied");
+      });
+    const { result } = renderHook(() => useAnnictConnect(), {
+      wrapper: makeWrapper(),
+    });
+
+    let res: Awaited<ReturnType<typeof result.current.connect>> | undefined;
+    await act(async () => {
+      res = await result.current.connect({ surface: "home_card" });
+    });
+
+    expect(res).toEqual({ status: "error", reason: "storage_unavailable" });
+    expect(hrefValue).toBe("");
+    await waitFor(() =>
+      expect(Sentry.logger.info).toHaveBeenCalledWith(
+        ANNICT_FUNNEL_EVENT,
+        expect.objectContaining({
+          "annict.step": "oauth_result",
+          "annict.surface": "home_card",
+          "annict.result": "error",
+          "annict.reason": "storage_unavailable",
+        }),
+      ),
+    );
+    setItemSpy.mockRestore();
   });
 
   it("disconnect: サーバーの disconnect を Clerk JWT 付きで呼ぶ", async () => {

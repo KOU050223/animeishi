@@ -3,6 +3,14 @@
 export const init = jest.fn();
 export const captureException = jest.fn();
 export const nativeCrash = jest.fn();
+export const logger = {
+  trace: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  fatal: jest.fn(),
+};
 export const wrap = <T>(component: T): T => component;
 export const withScope = (
   callback: (scope: {
