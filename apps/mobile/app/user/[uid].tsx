@@ -22,6 +22,7 @@ import {
   useReportUser,
 } from "@/lib/useModeration";
 import type { ReportReason } from "@/lib/useModeration";
+import { useThemeColors } from "@/lib/theme";
 
 type PublicProfile = {
   id: string;
@@ -60,6 +61,7 @@ async function fetchPublicProfile(
 export default function PublicProfilePage() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
   const { getToken, isSignedIn, userId } = useAuth();
+  const colors = useThemeColors();
   const reportUser = useReportUser();
   const blockUser = useBlockUser();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
@@ -145,7 +147,11 @@ export default function PublicProfilePage() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" accessibilityLabel="読み込み中" />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          accessibilityLabel="読み込み中"
+        />
       </View>
     );
   }

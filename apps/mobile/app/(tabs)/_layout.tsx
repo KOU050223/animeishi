@@ -14,8 +14,10 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textFaint,
+        // 選択中のタブはアイコン・ラベルともに暗背景でも読める強調色にする
+        // （dark で primary の塗り色のままだと slate-900 背景上のコントラストが足りない）。
+        tabBarActiveTintColor: colors.primaryText,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           height: 64 + bottomInset,
           paddingTop: 8,

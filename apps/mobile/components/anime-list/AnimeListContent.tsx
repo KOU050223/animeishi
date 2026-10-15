@@ -205,6 +205,7 @@ export function AnimeListContent({
       isToggling,
       openCharacterTierList,
       palette,
+      styles,
       toggleFavorite,
     ],
   );
