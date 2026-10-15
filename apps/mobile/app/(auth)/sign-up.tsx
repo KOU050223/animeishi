@@ -139,7 +139,10 @@ export default function SignUpScreen() {
           className="flex-1"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <View className="flex-1 justify-center px-6">
+          <ScrollView
+            contentContainerClassName="flex-grow justify-center px-6 py-10"
+            keyboardShouldPersistTaps="handled"
+          >
             <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:p-8">
               <Text className="text-xl font-semibold mb-2 text-gray-800">
                 {t("メールを確認してください")}
@@ -183,7 +186,7 @@ export default function SignUpScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
