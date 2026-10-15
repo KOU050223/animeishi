@@ -16,7 +16,7 @@ import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { health } from "./routes/health";
 import { importRoute } from "./routes/import";
-import { avatar, me } from "./routes/me";
+import { avatar, me, meishiAssets } from "./routes/me";
 import { pass } from "./routes/pass";
 import { share } from "./routes/share";
 import { tierLists } from "./routes/tier-lists";
@@ -66,6 +66,7 @@ const routes = app
   // アバター配信と共有リンクは認証不要のため /me（requireAuth）より先にマウントする。
   .route("/share", share)
   .route("/me", avatar)
+  .route("/me", meishiAssets)
   .route("/me", me)
   .route("/me/annict", annict)
   .route("/me/import", importRoute)

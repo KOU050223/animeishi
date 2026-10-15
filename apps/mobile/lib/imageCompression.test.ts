@@ -1,7 +1,9 @@
 import {
   AVATAR_MAX_DIMENSION,
+  MEISHI_IMAGE_MAX_DIMENSION,
   calcResizedSize,
   compressAvatarImage,
+  compressMeishiImage,
 } from "@/lib/imageCompression";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
@@ -90,5 +92,35 @@ describe("compressAvatarImage", () => {
     expect(renderAsync).toHaveBeenCalled();
     expect(saveAsync).toHaveBeenCalledWith({ format: SaveFormat.WEBP });
     expect(result).toEqual({ uri: "file:///out.webp" });
+  });
+});
+
+describe("compressMeishiImage", () => {
+  it("最大辺を 1024px の WebP に圧縮する（API の 500KB 上限対策で compress 指定あり）", async () => {
+    const result = await compressMeishiImage("file:///in.jpg", {
+      width: 4096,
+      height: 2048,
+    });
+
+    expect(manipulate).toHaveBeenCalledWith("file:///in.jpg");
+    expect(resize).toHaveBeenCalledWith({ width: 1024, height: 512 });
+    expect(saveAsync).toHaveBeenCalledWith({
+      format: SaveFormat.WEBP,
+      compress: 0.8,
+    });
+    expect(result).toEqual({ uri: "file:///out.webp" });
+  });
+
+  it("1024px 未満の画像は拡大しない", async () => {
+    await compressMeishiImage("file:///small.jpg", {
+      width: 400,
+      height: 300,
+    });
+
+    expect(resize).toHaveBeenCalledWith({ width: 400, height: 300 });
+  });
+
+  it("MEISHI_IMAGE_MAX_DIMENSION は 1024", () => {
+    expect(MEISHI_IMAGE_MAX_DIMENSION).toBe(1024);
   });
 });

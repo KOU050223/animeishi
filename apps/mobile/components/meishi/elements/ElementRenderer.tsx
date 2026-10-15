@@ -240,6 +240,21 @@ function QrRender({
   );
 }
 
+// コラージュに使う画像 URL を要素のリスト設定から解決する（issue #96）。
+// listSource 未設定（旧ドキュメント）は「自動」= 従来どおり
+// ctx.animeCollageImages（視聴履歴 → 空ならお気に入り）にフォールバックする。
+function resolveCollageImages(
+  el: AnimeCollageElement,
+  ctx: MeishiRenderContext,
+): string[] {
+  const lists = ctx.animeLists;
+  if (el.listSource === "favorites") return lists?.favorites ?? [];
+  const state = el.state;
+  if (state && state !== "all") return lists?.byState[state] ?? [];
+  if (el.listSource === "watchHistory") return lists?.watchHistory ?? [];
+  return ctx.animeCollageImages ?? [];
+}
+
 function AnimeCollageRender({
   el,
   ctx,
@@ -253,7 +268,7 @@ function AnimeCollageRender({
   boxHeight: number;
   renderScale: number;
 }) {
-  const images = (ctx.animeCollageImages ?? []).slice(0, el.cols * el.rows);
+  const images = resolveCollageImages(el, ctx).slice(0, el.cols * el.rows);
   const gapPx = el.gap * boxWidth;
   const cellW = (boxWidth - gapPx * (el.cols - 1)) / el.cols;
   const cellH = (boxHeight - gapPx * (el.rows - 1)) / el.rows;

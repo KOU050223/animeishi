@@ -40,6 +40,15 @@ jest.mock("@/components/meishi/AddElementSheet", () => ({
   AddElementSheet: () => null,
 }));
 
+jest.mock("@/components/meishi/AnimeImagePicker", () => ({
+  AnimeImagePicker: () => null,
+}));
+
+jest.mock("@/lib/useMeishiAssetUpload", () => ({
+  useMeishiAssetUpload: () => ({ mutateAsync: jest.fn() }),
+  pickMeishiImage: jest.fn(),
+}));
+
 jest.mock("@/components/meishi/PropertyPanel", () => ({
   PropertyPanel: () => null,
 }));
