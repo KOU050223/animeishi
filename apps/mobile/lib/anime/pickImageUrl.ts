@@ -36,19 +36,24 @@ export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
 }
 
 export type PickImageUrlInput = {
+  // API が R2 に取り込み済みの自前配信 URL（GET /images/...）。issue #174。
+  hostedImageUrl?: string | null;
   imageUrl?: string | null;
   resolvedImageUrl?: string | null;
 };
 
 /**
  * 作品カード・コラージュ等で表示する 1 枚の URL を返す。優先順:
- *   1. Annict の imageUrl が非 placeholder ならそれ
- *   2. resolvedImageUrl（AniList / Jikan 由来）
- *   3. Annict の imageUrl が placeholder でも「無いよりマシ」で返す
- *   4. どちらも無ければ null（呼び出し側でプレースホルダー描画）
+ *   1. hostedImageUrl（自前 R2 配信。外部 CDN の初回遅延・ホットリンク制限の
+ *      影響を受けないので、取り込み済みなら最優先）
+ *   2. Annict の imageUrl が非 placeholder ならそれ
+ *   3. resolvedImageUrl（AniList / Jikan 由来）
+ *   4. Annict の imageUrl が placeholder でも「無いよりマシ」で返す
+ *   5. どれも無ければ null（呼び出し側でプレースホルダー描画）
  */
 export function pickImageUrl(item: PickImageUrlInput): string | null {
-  const { imageUrl, resolvedImageUrl } = item;
+  const { hostedImageUrl, imageUrl, resolvedImageUrl } = item;
+  if (hostedImageUrl) return hostedImageUrl;
   if (imageUrl && !isPlaceholderImageUrl(imageUrl)) return imageUrl;
   if (resolvedImageUrl) return resolvedImageUrl;
   if (imageUrl && !isInsecureHttpUrl(imageUrl)) return imageUrl;

@@ -5,6 +5,8 @@ import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import type { DrizzleDb, Env } from "@/db/client";
 import { escapeHtml } from "@/lib/html";
+import { readBodyWithLimit } from "@/lib/http";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import {
   getSharedTierList,
   isKnownWorkImageUrl,
@@ -66,7 +68,7 @@ const share = new Hono<ShareBindings>()
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
-        return c.html(buildSharedTierListHtml(list), 200, {
+        return c.html(buildSharedTierListHtml(list, c.req.url), 200, {
           "Cache-Control": "no-store",
         });
       }
@@ -77,7 +79,11 @@ const share = new Hono<ShareBindings>()
           season: list.season,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
-          items: list.items,
+          // R2 取り込み済みの作品は自前配信 URL を載せる（issue #174）。
+          items: list.items.map((item) => ({
+            ...item,
+            hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+          })),
         },
         200,
       );
@@ -207,45 +213,6 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
 }
 
 /**
- * レスポンスボディを maxBytes までストリーム読みする。
- * 超過が確定した時点で reader.cancel() して中断し、残りを受け取らない。
- * 読み取り自体の失敗（切断・シグナル発火）は tooLarge: false の失敗として返す。
- */
-async function readBodyWithLimit(
-  stream: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
-): Promise<{ ok: true; data: ArrayBuffer } | { ok: false; tooLarge: boolean }> {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  if (stream) {
-    const reader = stream.getReader();
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > maxBytes) {
-          await reader.cancel();
-          return { ok: false, tooLarge: true };
-        }
-        chunks.push(value);
-      }
-    } catch {
-      return { ok: false, tooLarge: false };
-    } finally {
-      reader.releaseLock();
-    }
-  }
-  const data = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    data.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return { ok: true, data: data.buffer };
-}
-
-/**
  * 公開 HTML の <img src> に入れてよい URL か。
  * 作品メタは外部データ由来なので、http(s) 以外のスキーム（data: 等）は
  * 属性エスケープだけでは表示先を制限できない。ここで絞る。
@@ -254,17 +221,26 @@ function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
-function workImageHtml(item: SharedTierList["items"][number]): string {
+function workImageHtml(
+  item: SharedTierList["items"][number],
+  requestUrl: string,
+): string {
+  // R2 取り込み済みなら自前配信 URL を最優先（issue #174）。
   // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
   // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
-  const src = [item.resolvedImageUrl, item.imageUrl].find(
-    (u): u is string => !!u && isSafeImageUrl(u),
-  );
+  const src = [
+    hostedWorkImageUrl(requestUrl, item.imageR2Key),
+    item.resolvedImageUrl,
+    item.imageUrl,
+  ].find((u): u is string => !!u && isSafeImageUrl(u));
   if (!src) return "";
   return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
-function buildSharedTierListHtml(list: SharedTierList): string {
+function buildSharedTierListHtml(
+  list: SharedTierList,
+  requestUrl: string,
+): string {
   const tiers = parseTiersJson(list.tiersJson);
   const itemsByTier = new Map<string, SharedTierList["items"]>();
   for (const item of list.items) {
@@ -281,7 +257,11 @@ function buildSharedTierListHtml(list: SharedTierList): string {
   // resolvedImageUrl が不安全なら imageUrl 側も候補にする
   // （ページ上のポスター表示 workImageHtml と同じ選び方）。
   const ogImageCandidates = list.items
-    .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
+    .flatMap((item) => [
+      hostedWorkImageUrl(requestUrl, item.imageR2Key),
+      item.resolvedImageUrl,
+      item.imageUrl,
+    ])
     .filter((u): u is string => !!u && isSafeImageUrl(u));
   const ogImage =
     ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
@@ -293,7 +273,7 @@ function buildSharedTierListHtml(list: SharedTierList): string {
       const worksHtml = works
         .map(
           (item) => `<div class="work">
-      ${workImageHtml(item)}
+      ${workImageHtml(item, requestUrl)}
       <span class="work-title">${escapeHtml(item.title)}</span>
     </div>`,
         )

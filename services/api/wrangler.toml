@@ -10,8 +10,11 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 [vars]
 # ANNICT_CLIENT_ID = "<your-annict-client-id>"
 
-# 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
-# issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
+# 定期バッチ（cron）。
+# 1. 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
+#    issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
+# 2. 作品画像の R2 事前取り込み（issue #174。今期・来期作品の画像を
+#    AVATARS バケットの works/ プレフィックスへ保存し /images/ で配信）。
 [triggers]
 crons = ["*/10 * * * *"]
 
@@ -25,7 +28,9 @@ binding = "DB"
 database_name = "animeishi-db"
 database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 
-# プロフィール画像（アバター）保存用 R2 バケット
+# 画像保存用 R2 バケット。用途はオブジェクトキーのプレフィックスで分ける:
+#   avatars/ … プロフィール画像（アバター）
+#   works/   … 作品画像の事前取り込み（issue #174。cron が外部 CDN から取得）
 [[r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
@@ -86,7 +91,7 @@ ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
 # クロスオリジンを許可する。
 ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081"
 
-# プレビューでは定期バッチ（image fallback 解決）を回さない。
+# プレビューでは定期バッチ（image fallback 解決・作品画像の R2 取り込み）を回さない。
 [env.preview.triggers]
 crons = []
 

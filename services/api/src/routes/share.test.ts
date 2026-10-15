@@ -5,7 +5,9 @@ import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { tierLists } from "@/routes/tier-lists";
 import { share } from "@/routes/share";
+import { createDb } from "@/db/client";
 import { users, annictWorks } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -299,6 +301,57 @@ describe("tier 表の共有", () => {
     expect(html).toContain("https://example.com/a.png");
     // 共有解除後にキャッシュへ残らないよう、HTML は保存しない
     expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("GET /share/tier-lists/:token: R2 取り込み済みの作品は自前配信 URL が JSON/HTML に載る（issue #174）", async () => {
+    const app = buildApp();
+    // beforeEach でシード済みの WORK_A を R2 取り込み済みにする
+    // （setupTestDb を再実行すると行が消えるため、通常の drizzle で更新する）
+    await createDb(env.DB)
+      .update(annictWorks)
+      .set({ imageR2Key: "works/1001/deadbeef.png" })
+      .where(eq(annictWorks.annictWorkId, WORK_A));
+    await seedTierList(app);
+    const shareRes = await app.request(
+      `/me/tier-lists/${SEASON}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await shareRes.json()) as { shareToken: string };
+
+    // JSON 応答: items に hostedImageUrl が付く
+    const jsonRes = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "application/json" } },
+      TEST_BINDINGS,
+    );
+    const jsonBody = (await jsonRes.json()) as {
+      items: { annictWorkId: number; hostedImageUrl: string | null }[];
+    };
+    expect(
+      jsonBody.items.find((i) => i.annictWorkId === WORK_A)?.hostedImageUrl,
+    ).toBe("http://localhost/images/works/1001/deadbeef.png");
+    // 未取り込みの作品は null
+    expect(
+      jsonBody.items.find((i) => i.annictWorkId === WORK_B)?.hostedImageUrl,
+    ).toBeNull();
+
+    // HTML 応答: <img> は自前配信 URL を最優先で使う
+    const htmlRes = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await htmlRes.text();
+    expect(html).toContain(
+      'src="http://localhost/images/works/1001/deadbeef.png"',
+    );
+    // og:image は https を優先する既存仕様のため、テスト環境の
+    // http://localhost な配信 URL より外部 https URL が選ばれる
+    // （本番では配信 URL が https のため取り込み済み画像が優先される）。
+    expect(html).toContain(
+      'property="og:image" content="https://example.com/a.png"',
+    );
   });
 
   it("GET /share/tier-lists/:token: http(s) 以外の画像 URL は HTML に出力しない", async () => {

@@ -72,6 +72,7 @@ export function useSeasonWorks(season: string) {
           title: w.title,
           imageUrl: w.imageUrl,
           resolvedImageUrl: w.resolvedImageUrl,
+          hostedImageUrl: w.hostedImageUrl,
         })),
       ),
     [query.data],

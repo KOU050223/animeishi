@@ -6,6 +6,7 @@ import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は routes/watch-history.ts 参照）。
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { resolveAnnictToken } from "@/lib/annict/middleware";
 
 function getBindings(
@@ -20,7 +21,14 @@ const favorites = new Hono<AuthVariables>()
     const db = createDb(getBindings(c).DB);
     const adb = authorizedDb(db, c.var.clerkUserId);
     const data = await adb.getMyFavorites();
-    return c.json(data, 200);
+    // R2 取り込み済みの作品は自前配信 URL を載せる（issue #174）。
+    return c.json(
+      data.map((row) => ({
+        ...row,
+        hostedImageUrl: hostedWorkImageUrl(c.req.url, row.imageR2Key),
+      })),
+      200,
+    );
   })
   .post("/:annictWorkId", async (c) => {
     const annictWorkId = Number(c.req.param("annictWorkId"));

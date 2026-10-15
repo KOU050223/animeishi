@@ -9,6 +9,7 @@ import {
 } from "@/schema/validators";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 
 function getBindings(
   c: Context,
@@ -37,7 +38,17 @@ const tierLists = new Hono<AuthVariables>()
       const adb = authorizedDb(db, c.var.clerkUserId);
       const data = await adb.getMyTierList(season);
       if (!data) return c.json({ error: "Tier list not found" }, 404);
-      return c.json(data, 200);
+      // R2 取り込み済みの作品は自前配信 URL を items に載せる（issue #174）。
+      return c.json(
+        {
+          ...data,
+          items: data.items.map((item) => ({
+            ...item,
+            hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+          })),
+        },
+        200,
+      );
     },
   )
   // 作成・更新は季節ごとに 1 つなので PUT（冪等な全置換）にする。
@@ -88,7 +99,16 @@ const tierLists = new Hono<AuthVariables>()
       tiersJson: JSON.stringify(input.tiers),
       items,
     });
-    return c.json(saved, 200);
+    return c.json(
+      {
+        ...saved,
+        items: saved.items.map((item) => ({
+          ...item,
+          hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+        })),
+      },
+      200,
+    );
   })
   .delete(
     "/:season",

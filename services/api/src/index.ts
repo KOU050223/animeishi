@@ -6,6 +6,7 @@ import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import { createDb } from "./db/client";
 import type { Env } from "./db/client";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
+import { prefetchWorkImages } from "./lib/annict/imagePrefetch";
 import {
   buildSentryOptions,
   handleError,
@@ -15,6 +16,7 @@ import { annict } from "./routes/annict";
 import { favorites } from "./routes/favorites";
 import { friends } from "./routes/friends";
 import { health } from "./routes/health";
+import { images } from "./routes/images";
 import { importRoute } from "./routes/import";
 import { avatar, me } from "./routes/me";
 import { pass } from "./routes/pass";
@@ -33,6 +35,9 @@ type AppBindings = Env &
     ALLOWED_ORIGINS?: string;
     // デプロイ CI が --var で注入するデプロイ元コミット SHA。/health が返す。
     COMMIT_SHA?: string;
+    // アバター＋作品画像（works/ プレフィックス）共通の R2 バケット。
+    // wrangler.toml で全環境にバインド済み。
+    AVATARS: R2Bucket;
   };
 
 const app = new Hono<{ Bindings: AppBindings }>();
@@ -63,8 +68,10 @@ app.onError(handleError);
 
 const routes = app
   .route("/health", health)
-  // アバター配信と共有リンクは認証不要のため /me（requireAuth）より先にマウントする。
+  // アバター配信・作品画像配信・共有リンクは認証不要のため
+  // /me（requireAuth）より先にマウントする。
   .route("/share", share)
+  .route("/images", images)
   .route("/me", avatar)
   .route("/me", me)
   .route("/me/annict", annict)
@@ -86,8 +93,36 @@ export type AppType = typeof routes;
 export default Sentry.withSentry((env) => buildSentryOptions(env), {
   fetch: routes.fetch,
   // 画像フォールバックは Queue を介さず、cron が D1 の未解決行を
-  // 直接回して解決する（issue #127）。
+  // 直接回して解決する（issue #127）。続けて、解決済みを含む今期・来期作品の
+  // 画像を R2 へ取り込み（issue #174）、GET /images/... で自前配信できるようにする。
+  // 片方の失敗でもう片方が巻き込まれないよう個別に握る。
   scheduled(_controller, env, ctx) {
-    ctx.waitUntil(resolvePendingImageFallbacks(createDb(env.DB as D1Database)));
+    const db = createDb(env.DB as D1Database);
+    ctx.waitUntil(
+      (async () => {
+        try {
+          await resolvePendingImageFallbacks(db);
+        } catch (err) {
+          console.error(
+            JSON.stringify({
+              level: "error",
+              event: "image_fallback_cron_failed",
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+        try {
+          await prefetchWorkImages(db, env.AVATARS);
+        } catch (err) {
+          console.error(
+            JSON.stringify({
+              level: "error",
+              event: "work_image_prefetch_cron_failed",
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+      })(),
+    );
   },
 } satisfies ExportedHandler<AppBindings>);

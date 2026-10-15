@@ -21,6 +21,23 @@ function buildImageProxyUrl(imageUrl: string): string {
   return `${apiUrl.replace(/\/+$/, "")}/share/image-proxy?url=${encodeURIComponent(imageUrl)}`;
 }
 
+/**
+ * API 自身が配信する取り込み済み作品画像（/images/...）か。
+ * これらは CORS 付きで配信されるためプロキシ不要。それどころか image-proxy の
+ * known-URL 照合（image_url / resolved_image_url カラム照合）を通らず
+ * 403 になるので、ここで弾いてそのまま使う（issue #174）。
+ */
+function isApiHostedImageUrl(src: string): boolean {
+  try {
+    return (
+      new URL(src).origin === new URL(apiUrl).origin &&
+      new URL(src).pathname.startsWith("/images/")
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** load で true、error / タイムアウトで false を解決する。 */
 function waitForImage(img: HTMLImageElement): Promise<boolean> {
   return new Promise((resolve) => {
@@ -90,6 +107,8 @@ export const captureTierListImageFile: CaptureTierListImageFile = async (
       const src = img.getAttribute("src") ?? "";
       // data:/blob: や既にプロキシ済みの URL はそのまま使える
       if (!/^https?:\/\//i.test(src)) return;
+      // API 配信の取り込み済み画像は CORS 付きなのでそのまま使える
+      if (isApiHostedImageUrl(src)) return;
       img.src = buildImageProxyUrl(src);
       if (!(await waitForImage(img))) img.remove();
     }),

@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { createDb } from "@/db/client";
+import { annictWorks } from "@/db/schema";
 import { works } from "@/routes/works";
 import { currentAnnictSeason } from "@/lib/annict/client";
 import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
@@ -565,6 +566,64 @@ describe("作品検索 API", () => {
         where: (t, { eq }) => eq(t.annictWorkId, 901),
       });
       expect(row?.title).toBe("通常画像の作品");
+    });
+
+    it("GET /works/search: R2 取り込み済みの作品は自前配信の hostedImageUrl を返す（issue #174）", async () => {
+      // cron が R2 に取り込み済み（image_r2_key あり）の作品は、
+      // 外部 CDN ではなく GET /images/... の自前 URL を載せて返す。
+      await createDb(env.DB).insert(annictWorks).values({
+        annictWorkId: 950,
+        title: "取り込み済み作品",
+        imageUrl: "https://example.com/poster.jpg",
+        imageR2Key: "works/950/0123abcd.png",
+        updatedAt: new Date(),
+      });
+      mockSearchWorks([
+        {
+          annictId: 950,
+          title: "取り込み済み作品",
+          recommendedImageUrl: "https://example.com/poster.jpg",
+        },
+      ]);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=取り込み",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { hostedImageUrl: string | null }[];
+      };
+      // リクエスト先オリジン（テストでは http://localhost）上の /images/ パス
+      expect(body.works[0].hostedImageUrl).toBe(
+        "http://localhost/images/works/950/0123abcd.png",
+      );
+    });
+
+    it("GET /works/search: 未取り込みの作品は hostedImageUrl が null", async () => {
+      mockSearchWorks([
+        {
+          annictId: 951,
+          title: "未取り込み作品",
+          recommendedImageUrl: "https://example.com/951.jpg",
+        },
+      ]);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=未取り込み",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        works: { hostedImageUrl: string | null }[];
+      };
+      expect(body.works[0].hostedImageUrl).toBeNull();
     });
 
     it("GET /works/search: title null の作品が混ざっても正常な作品は annict_works に永続化される", async () => {
