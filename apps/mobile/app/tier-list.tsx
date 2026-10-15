@@ -6,7 +6,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
-  currentSeasonKey,
+  currentSeason,
   toSeasonParam,
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
@@ -47,12 +47,6 @@ import {
  * 数十回の並べ替えがそのまま数十リクエストになるため。
  */
 /**
- * 年チップで遡れる年数。tier 表は過去シーズンの振り返りにも使うため、
- * アニメ一覧の既定（12 年）より広く取る。
- */
-const TIER_LIST_YEAR_COUNT = 26;
-
-/**
  * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限。
  * これを超えても未読み込みなら欠けたまま撮る（共有自体を失敗させない）。
  */
@@ -60,9 +54,9 @@ const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
   const router = useRouter();
-  const [year, setYear] = useState(() => new Date().getFullYear());
-  const [seasonKey, setSeasonKey] = useState<SeasonKey>(() =>
-    currentSeasonKey(),
+  const [year, setYear] = useState(() => currentSeason().year);
+  const [seasonKey, setSeasonKey] = useState<SeasonKey>(
+    () => currentSeason().key,
   );
   const season = toSeasonParam(year, seasonKey);
 
@@ -192,20 +186,17 @@ export default function TierListScreen() {
     [isDirty],
   );
 
-  const handleChangeYear = useCallback(
-    (nextYear: number) => {
-      if (isSharing || nextYear === year) return;
-      confirmIfDirty(() => setYear(nextYear));
-    },
-    [confirmIfDirty, isSharing, year],
-  );
-
   const handleChangeSeason = useCallback(
-    (nextSeasonKey: SeasonKey) => {
-      if (isSharing || nextSeasonKey === seasonKey) return;
-      confirmIfDirty(() => setSeasonKey(nextSeasonKey));
+    (nextYear: number, nextSeasonKey: SeasonKey) => {
+      if (isSharing || (nextYear === year && nextSeasonKey === seasonKey)) {
+        return;
+      }
+      confirmIfDirty(() => {
+        setYear(nextYear);
+        setSeasonKey(nextSeasonKey);
+      });
     },
-    [confirmIfDirty, isSharing, seasonKey],
+    [confirmIfDirty, isSharing, year, seasonKey],
   );
 
   const handleSave = useCallback(() => {
@@ -433,9 +424,7 @@ export default function TierListScreen() {
       <SeasonFilter
         year={year}
         season={seasonKey}
-        onChangeYear={handleChangeYear}
-        onChangeSeason={handleChangeSeason}
-        yearCount={TIER_LIST_YEAR_COUNT}
+        onChange={handleChangeSeason}
       />
 
       {isWorksError ? (
