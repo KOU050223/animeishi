@@ -64,6 +64,10 @@ export function TierBoard({
   // ドラッグ中の自動スクロール累積量。動いた分だけ掴んでいるカードを
   // 指に追従させるため、全カードへ渡してドラッグ中のものだけが加算する。
   const dragScrollCompensation = useSharedValue(0);
+  // 補正を受けるカードの annictWorkId（-1 = ドラッグ中なし）。
+  // 2 指で別カードを掴んだ場合、そのカードの isDragging も立つため、
+  // 非アクティブ側に補正が乗らないようカード側で照合する。
+  const dragOwnerId = useSharedValue(-1);
 
   const autoScroll = useEdgeAutoScroll({
     scrollRef,
@@ -103,6 +107,7 @@ export function TierBoard({
       // 壊さないよう無視する。
       if (workId !== draggingIdRef.current) return;
       draggingIdRef.current = null;
+      dragOwnerId.value = -1;
       const hit = registry.hitTest(x, y);
       setHoverKey(undefined);
       setDraggingId(null);
@@ -113,7 +118,7 @@ export function TierBoard({
       if (hit === undefined) return;
       onAssign(workId, hit);
     },
-    [autoScroll, onAssign, registry],
+    [autoScroll, dragOwnerId, onAssign, registry],
   );
 
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
@@ -122,13 +127,14 @@ export function TierBoard({
     (workId: number) => {
       if (workId !== draggingIdRef.current) return;
       draggingIdRef.current = null;
+      dragOwnerId.value = -1;
       setHoverKey(undefined);
       setDraggingId(null);
       autoScroll.onDragEnd();
       // キャンセルの原因が盤面のスクロール横取り等だと矩形がずれているため測り直す。
       registry.remeasureAll();
     },
-    [autoScroll, registry],
+    [autoScroll, dragOwnerId, registry],
   );
 
   const handleDragStart = useCallback(
@@ -137,6 +143,7 @@ export function TierBoard({
       // 受け付けると補正量やタイマーがリセットされ、進行中のカードが跳ぶ。
       if (draggingIdRef.current !== null) return;
       draggingIdRef.current = workId;
+      dragOwnerId.value = workId;
       setDraggingId(workId);
       // スクロールしていると onLayout 時に測った矩形が実際の位置とズレる
       // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
@@ -144,7 +151,7 @@ export function TierBoard({
       registry.remeasureAll();
       autoScroll.onDragStart();
     },
-    [autoScroll, registry],
+    [autoScroll, dragOwnerId, registry],
   );
 
   // 支援技術からの移動用に、全 tier 行と未分類トレイを移動先として並べる。
@@ -173,6 +180,7 @@ export function TierBoard({
       )}
       onMove={(tierKey) => onAssign(work.annictWorkId, tierKey)}
       scrollCompensation={dragScrollCompensation}
+      scrollCompensationOwner={dragOwnerId}
     />
   );
 

@@ -75,6 +75,18 @@ describe("useDropZoneRegistry", () => {
     expect(result.current.hitTest(50, 175)).toBeNull();
   });
 
+  it("shiftAll のたびにずらし世代（epoch）が増える", () => {
+    // measureInWindow の遅れ応答がずらし前の位置で矩形を上書きしないよう、
+    // DropZone は要求時・応答時の世代を比較する。そのカウンタの契約。
+    const { result } = renderHook(() => useDropZoneRegistry());
+    const before = result.current.epoch();
+
+    act(() => result.current.shiftAll(-50));
+    expect(result.current.epoch()).toBe(before + 1);
+    act(() => result.current.shiftAll(-10));
+    expect(result.current.epoch()).toBe(before + 2);
+  });
+
   it("remeasureAll は登録済みの measurer を全て呼ぶ", () => {
     const { result } = renderHook(() => useDropZoneRegistry());
     const measureS = jest.fn();

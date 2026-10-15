@@ -33,6 +33,13 @@ export type DropZoneRegistry = {
    * （下にスクロールしてコンテンツが上に動いたときは負）。
    */
   shiftAll: (dy: number) => void;
+  /**
+   * ずらし世代。shiftAll が走るたびに 1 増える。
+   * measureInWindow の応答は非同期で届くため、要求から応答までにずらしが
+   * 走ると応答値がずらし前後どちらの位置を指すか分からない。計測する側は
+   * 要求時と応答時でこの値を比較し、変わっていれば応答を捨てて測り直す。
+   */
+  epoch: () => number;
 };
 
 export function useDropZoneRegistry(): DropZoneRegistry {
@@ -40,6 +47,7 @@ export function useDropZoneRegistry(): DropZoneRegistry {
   // 持つ TierRow ができたときにトレイの矩形を上書きしてしまうため。
   const zonesRef = useRef(new Map<string | null, Rect>());
   const measurersRef = useRef(new Map<string | null, () => void>());
+  const epochRef = useRef(0);
 
   const register = useCallback((key: string | null, rect: Rect) => {
     zonesRef.current.set(key, rect);
@@ -67,10 +75,13 @@ export function useDropZoneRegistry(): DropZoneRegistry {
   }, []);
 
   const shiftAll = useCallback((dy: number) => {
+    epochRef.current += 1;
     for (const [key, rect] of zonesRef.current) {
       zonesRef.current.set(key, { ...rect, y: rect.y + dy });
     }
   }, []);
+
+  const epoch = useCallback(() => epochRef.current, []);
 
   const hitTest = useCallback((x: number, y: number) => {
     for (const [key, rect] of zonesRef.current) {
@@ -90,7 +101,14 @@ export function useDropZoneRegistry(): DropZoneRegistry {
   // 親の再レンダリングのたびに cleanup → 再登録を繰り返し、
   // cleanup で矩形まで消えてドロップ判定が一切当たらなくなる。
   return useMemo(
-    () => ({ register, hitTest, registerMeasurer, remeasureAll, shiftAll }),
-    [register, hitTest, registerMeasurer, remeasureAll, shiftAll],
+    () => ({
+      register,
+      hitTest,
+      registerMeasurer,
+      remeasureAll,
+      shiftAll,
+      epoch,
+    }),
+    [register, hitTest, registerMeasurer, remeasureAll, shiftAll, epoch],
   );
 }

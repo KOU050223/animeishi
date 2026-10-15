@@ -47,9 +47,17 @@ export type DraggableWorkCardProps = {
   /**
    * ドラッグ中に盤面が自動スクロールした累積量（px）。行が画面上を流れても
    * カードが指に追従するよう translateY に加算する。全カードで共有する値の
-   * ため、ドラッグ中のカード（isDragging）でのみ効かせる。
+   * ため、ドラッグ中のカードでのみ効かせる（scrollCompensationOwner 参照）。
    */
   scrollCompensation?: SharedValue<number>;
+  /**
+   * 補正を受けるカードの annictWorkId。-1 は「補正中のドラッグなし」。
+   * 盤面は同時に 1 枚のドラッグしか受け付けないが、2 指で掴まれたカードも
+   * isDragging は立つため、これが無いと非アクティブ側にも補正が乗って
+   * 掴んでいないカードが盤面上を流れてしまう。未指定なら従来通り
+   * isDragging だけで判定する。
+   */
+  scrollCompensationOwner?: SharedValue<number>;
 };
 
 /**
@@ -68,6 +76,7 @@ export function DraggableWorkCard({
   moveDestinations,
   onMove,
   scrollCompensation,
+  scrollCompensationOwner,
 }: DraggableWorkCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -100,7 +109,12 @@ export function DraggableWorkCard({
           // 自動スクロールの補正を translateY に畳み込んでから戻る。
           // 補正は isDragging が false になるとスタイルから外れるため、
           // 畳まないと戻り始めに補正分だけ跳んで見える。
-          if (scrollCompensation) {
+          // 非アクティブな 2 指目（オーナーでないカード）には畳まない。
+          if (
+            scrollCompensation &&
+            (scrollCompensationOwner === undefined ||
+              scrollCompensationOwner.value === work.annictWorkId)
+          ) {
             translateY.value += scrollCompensation.value;
             compensationFolded.value = true;
           }
@@ -118,7 +132,12 @@ export function DraggableWorkCard({
             scheduleOnRN(onDragCancel);
           }
           // onEnd を通らなかったキャンセル経路でも同じく補正を畳み込む。
-          if (scrollCompensation && !compensationFolded.value) {
+          if (
+            scrollCompensation &&
+            !compensationFolded.value &&
+            (scrollCompensationOwner === undefined ||
+              scrollCompensationOwner.value === work.annictWorkId)
+          ) {
             translateY.value += scrollCompensation.value;
             compensationFolded.value = true;
           }
@@ -133,8 +152,10 @@ export function DraggableWorkCard({
       onDragMove,
       onDragStart,
       scrollCompensation,
+      scrollCompensationOwner,
       translateX,
       translateY,
+      work.annictWorkId,
     ],
   );
 
@@ -144,7 +165,11 @@ export function DraggableWorkCard({
       {
         translateY:
           translateY.value +
-          (isDragging.value ? (scrollCompensation?.value ?? 0) : 0),
+          (isDragging.value &&
+          (scrollCompensationOwner === undefined ||
+            scrollCompensationOwner.value === work.annictWorkId)
+            ? (scrollCompensation?.value ?? 0)
+            : 0),
       },
       { scale: withSpring(isDragging.value ? 1.15 : 1) },
     ],
