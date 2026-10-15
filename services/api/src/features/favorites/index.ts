@@ -1,14 +1,20 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { favoritesRepository } from "./repository";
 import { worksRepository } from "../works/repository";
+import {
+  addFavoriteRoute,
+  getFavoritesRoute,
+  removeFavoriteRoute,
+} from "./schema";
 import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は features/watch-history/index.ts 参照）。
 import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { resolveAnnictToken } from "@/lib/annict/middleware";
+import { openapiValidationHook } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
@@ -16,9 +22,12 @@ function getBindings(
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
 }
 
-const favorites = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get("/", async (c) => {
+const app = new OpenAPIHono<AuthVariables>({
+  defaultHook: openapiValidationHook,
+});
+app.use("*", requireAuth);
+const favorites = app
+  .openapi(getFavoritesRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = favoritesRepository(db, c.var.clerkUserId);
     const data = await repo.getMyFavorites();
@@ -31,8 +40,9 @@ const favorites = new Hono<AuthVariables>()
       200,
     );
   })
-  .post("/:annictWorkId", async (c) => {
-    const annictWorkId = Number(c.req.param("annictWorkId"));
+  .openapi(addFavoriteRoute, async (c) => {
+    const { annictWorkId: rawId } = c.req.valid("param");
+    const annictWorkId = Number(rawId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
       return c.json({ error: "Invalid annictWorkId" }, 400);
     }
@@ -72,8 +82,9 @@ const favorites = new Hono<AuthVariables>()
     const result = await repo.addFavorite(annictWorkId);
     return c.json(result, 201);
   })
-  .delete("/:annictWorkId", async (c) => {
-    const annictWorkId = Number(c.req.param("annictWorkId"));
+  .openapi(removeFavoriteRoute, async (c) => {
+    const { annictWorkId: rawId } = c.req.valid("param");
+    const annictWorkId = Number(rawId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
       return c.json({ error: "Invalid annictWorkId" }, 400);
     }

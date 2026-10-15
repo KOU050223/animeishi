@@ -1,13 +1,21 @@
 import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { profileUpdateSchema } from "./schema";
+import {
+  deleteMeRoute,
+  getBlocksRoute,
+  getProfileRoute,
+  updateProfileRoute,
+  uploadAvatarRoute,
+  uploadMeishiAssetRoute,
+} from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { usersRepository, DeletedUserError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
+import { openapiValidationHook } from "@/lib/openapi";
 import {
   ALLOWED_AVATAR_TYPES,
   avatarKeyFromUrl,
@@ -29,9 +37,12 @@ function getBindings(c: Context): MeBindings {
   return c.env as MeBindings;
 }
 
-const me = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get("/profile", async (c) => {
+const app = new OpenAPIHono<AuthVariables>({
+  defaultHook: openapiValidationHook,
+});
+app.use("*", requireAuth);
+const me = app
+  .openapi(getProfileRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
     const profile = await repo.getMyProfile();
@@ -40,9 +51,9 @@ const me = new Hono<AuthVariables>()
       return c.json({ error: "Profile not found" }, 404);
     }
 
-    return c.json(profile);
+    return c.json(profile, 200);
   })
-  .put("/profile", zValidator("json", profileUpdateSchema), async (c) => {
+  .openapi(updateProfileRoute, async (c) => {
     const data = c.req.valid("json");
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
@@ -61,10 +72,10 @@ const me = new Hono<AuthVariables>()
       await repo.setMyGenres(data.selectedGenres);
     }
 
-    return c.json(profile);
+    return c.json(profile, 200);
   })
   // 自分がブロックしているユーザーの一覧（ブロック解除画面用）。
-  .get("/blocks", async (c) => {
+  .openapi(getBlocksRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
     const blocked = await repo.getMyBlocks();
@@ -75,7 +86,7 @@ const me = new Hono<AuthVariables>()
   // R2 に保存したうえで users.profileImageUrl を配信用 URL に更新する。
   // Workers の R2 バインディングはネイティブに pre-signed URL を発行できないため、
   // Worker をプロキシとして R2.put() で保存する方式を採る。
-  .put("/profile/avatar", async (c) => {
+  .openapi(uploadAvatarRoute, async (c) => {
     const contentType = c.req.header("content-type") ?? "";
     const mimeType = contentType.split(";")[0]?.trim() ?? "";
     const ext = ALLOWED_AVATAR_TYPES[mimeType];
@@ -142,14 +153,14 @@ const me = new Hono<AuthVariables>()
       await bindings.AVATARS.delete(previousKey);
     }
 
-    return c.json(profile);
+    return c.json(profile, 200);
   })
   // 名刺エディタ用の任意画像を R2 にアップロードする（issue #96 / docs/06）。
   // アバターと同じ流儀で圧縮済み画像バイナリをそのまま受け取るが、名刺の要素は
   // 複数置けるためキーを要素ごとにユニークにし、users テーブルも更新しない
   // （参照は名刺 JSON の element.uri が持つ）。削除済み要素の画像は残す
   // （オーファン GC は第2弾）。
-  .post("/meishi-assets", async (c) => {
+  .openapi(uploadMeishiAssetRoute, async (c) => {
     const contentType = c.req.header("content-type") ?? "";
     const mimeType = contentType.split(";")[0]?.trim() ?? "";
     const ext = ALLOWED_AVATAR_TYPES[mimeType];
@@ -203,7 +214,7 @@ const me = new Hono<AuthVariables>()
   // 作成できる場合はアプリ内からの削除導線が必須）に対応する。
   // 削除順序は「D1 → R2 → Clerk」。Clerk を先に消すと D1 削除が失敗したときに
   // 認証手段を失った孤立データが残り、再試行もできなくなるため D1 を先に処理する。
-  .delete("/", async (c) => {
+  .openapi(deleteMeRoute, async (c) => {
     const bindings = getBindings(c);
     const userId = c.var.clerkUserId;
     const db = createDb(bindings.DB);

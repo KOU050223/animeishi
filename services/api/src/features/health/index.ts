@@ -1,4 +1,5 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { getHealthRoute } from "./schema";
 
 // /health が返すバージョン情報の取得元バインディング。
 // COMMIT_SHA はデプロイ CI が `wrangler deploy / versions upload --var`
@@ -10,12 +11,17 @@ export type HealthBindings = {
   CF_VERSION_METADATA?: WorkerVersionMetadata;
 };
 
-export const health = new Hono<{ Bindings: HealthBindings }>().get("/", (c) => {
-  return c.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    environment: c.env.ENVIRONMENT ?? null,
-    commitSha: c.env.COMMIT_SHA ?? null,
-    versionId: c.env.CF_VERSION_METADATA?.id ?? null,
-  });
+export const health = new OpenAPIHono<{
+  Bindings: HealthBindings;
+}>().openapi(getHealthRoute, (c) => {
+  return c.json(
+    {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      environment: c.env.ENVIRONMENT ?? null,
+      commitSha: c.env.COMMIT_SHA ?? null,
+      versionId: c.env.CF_VERSION_METADATA?.id ?? null,
+    },
+    200,
+  );
 });

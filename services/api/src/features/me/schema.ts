@@ -1,4 +1,5 @@
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
 
 const INAPPROPRIATE_PATTERNS = [/死ね|殺す|バカ|アホ/, /https?:\/\/[^\s]+/];
 
@@ -69,3 +70,157 @@ export const profileUpdateSchema = z.object({
 });
 
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
+
+// ---- OpenAPI ルート定義（issue #14）----
+
+// users 行（Drizzle User 型の JSON 表現）。createdAt / updatedAt は ISO 文字列。
+const userProfileSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  bio: z.string().nullable(),
+  favoriteQuote: z.string().nullable(),
+  isPublic: z.boolean(),
+  profileImageUrl: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+// GET /me/blocks の 1 件（BlockedUser。相手プロフィールを含む）。
+const blockedUserSchema = z.object({
+  blockedId: z.string(),
+  createdAt: z.string(),
+  username: z.string(),
+  profileImageUrl: z.string().nullable(),
+});
+
+// 画像バイナリの request body（webp / jpeg / png）。
+// バリデーションはハンドラ側で Content-Type・サイズを見るため、
+// ここはドキュメント用途のみ。
+const imageBinaryBody = {
+  content: {
+    "image/webp": {
+      schema: z.string().openapi({ format: "binary" }),
+    },
+    "image/jpeg": {
+      schema: z.string().openapi({ format: "binary" }),
+    },
+    "image/png": {
+      schema: z.string().openapi({ format: "binary" }),
+    },
+  },
+  required: true,
+};
+
+const jsonError = (description: string) => ({
+  content: { "application/json": { schema: errorResponseSchema } },
+  description,
+});
+
+export const getProfileRoute = createRoute({
+  method: "get",
+  path: "/profile",
+  tags: ["me"],
+  summary: "自分のプロフィールを取得する",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: { "application/json": { schema: userProfileSchema } },
+      description: "プロフィール",
+    },
+    401: jsonError("未認証"),
+    404: jsonError("プロフィールが存在しない"),
+  },
+});
+
+export const updateProfileRoute = createRoute({
+  method: "put",
+  path: "/profile",
+  tags: ["me"],
+  summary: "プロフィールを作成・更新する",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: profileUpdateSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { "application/json": { schema: userProfileSchema } },
+      description: "更新後のプロフィール",
+    },
+    400: jsonError("入力エラー"),
+    401: jsonError("未認証"),
+  },
+});
+
+export const getBlocksRoute = createRoute({
+  method: "get",
+  path: "/blocks",
+  tags: ["me"],
+  summary: "自分がブロックしているユーザー一覧を取得する",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: { "application/json": { schema: z.array(blockedUserSchema) } },
+      description: "ブロック一覧（ブロック日時の降順）",
+    },
+    401: jsonError("未認証"),
+  },
+});
+
+export const uploadAvatarRoute = createRoute({
+  method: "put",
+  path: "/profile/avatar",
+  tags: ["me"],
+  summary: "プロフィール画像（アバター）をアップロードする",
+  description:
+    "圧縮済み画像バイナリ（webp / jpeg / png、5MB まで）をそのまま body に載せる。",
+  security: bearerAuth,
+  request: { body: imageBinaryBody },
+  responses: {
+    200: {
+      content: { "application/json": { schema: userProfileSchema } },
+      description: "更新後のプロフィール",
+    },
+    400: jsonError("非対応の形式・空・サイズ超過"),
+    401: jsonError("未認証"),
+  },
+});
+
+export const uploadMeishiAssetRoute = createRoute({
+  method: "post",
+  path: "/meishi-assets",
+  tags: ["me"],
+  summary: "名刺エディタ用の画像をアップロードする",
+  description:
+    "圧縮済み画像バイナリ（webp / jpeg / png、500KB・ユーザーあたり 200 件まで）をそのまま body に載せる。",
+  security: bearerAuth,
+  request: { body: imageBinaryBody },
+  responses: {
+    201: {
+      content: {
+        "application/json": {
+          schema: z.object({ url: z.string() }),
+        },
+      },
+      description: "アップロードした画像の配信 URL",
+    },
+    400: jsonError("非対応の形式・空・サイズ超過・件数上限"),
+    401: jsonError("未認証"),
+  },
+});
+
+export const deleteMeRoute = createRoute({
+  method: "delete",
+  path: "/",
+  tags: ["me"],
+  summary: "自分のアカウントを削除する",
+  description:
+    "D1 のユーザーデータ・R2 の画像・Clerk ユーザー本体を削除する（審査要件の削除導線）。",
+  security: bearerAuth,
+  responses: {
+    204: { description: "削除した" },
+    401: jsonError("未認証"),
+  },
+});

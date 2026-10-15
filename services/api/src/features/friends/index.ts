@@ -1,10 +1,12 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { friendsRepository, FriendNotFoundError } from "./repository";
 import { UserBlockedError } from "../users/repository";
+import { addFriendRoute, getFriendsRoute, removeFriendRoute } from "./schema";
 import { createDb } from "@/db/client";
+import { openapiValidationHook } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
@@ -12,20 +14,19 @@ function getBindings(
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
 }
 
-const friends = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get("/", async (c) => {
+const app = new OpenAPIHono<AuthVariables>({
+  defaultHook: openapiValidationHook,
+});
+app.use("*", requireAuth);
+const friends = app
+  .openapi(getFriendsRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
     const data = await repo.getMyFriends();
     return c.json(data, 200);
   })
-  .post("/", async (c) => {
-    const body = await c.req.json<{ friendId?: unknown }>().catch(() => null);
-    const friendId = body?.friendId;
-    if (typeof friendId !== "string" || friendId.length === 0) {
-      return c.json({ error: "Invalid friendId" }, 400);
-    }
+  .openapi(addFriendRoute, async (c) => {
+    const { friendId } = c.req.valid("json");
     if (friendId === c.var.clerkUserId) {
       return c.json({ error: "自分自身をフレンドに追加できません" }, 400);
     }
@@ -46,11 +47,8 @@ const friends = new Hono<AuthVariables>()
       throw e;
     }
   })
-  .delete("/:friendId", async (c) => {
-    const friendId = c.req.param("friendId");
-    if (!friendId) {
-      return c.json({ error: "Invalid friendId" }, 400);
-    }
+  .openapi(removeFriendRoute, async (c) => {
+    const { friendId } = c.req.valid("param");
 
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
