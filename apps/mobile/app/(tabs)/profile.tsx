@@ -5,13 +5,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Input } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
@@ -239,7 +239,7 @@ export default function ProfileScreen() {
             <Text className="mb-1 text-sm font-medium text-gray-700">
               ユーザー名
             </Text>
-            <TextInput
+            <Input
               value={username}
               onChangeText={setUsername}
               placeholder="ユーザー名"
@@ -253,7 +253,7 @@ export default function ProfileScreen() {
             <Text className="mb-1 text-sm font-medium text-gray-700">
               自己紹介
             </Text>
-            <TextInput
+            <Input
               value={bio}
               onChangeText={setBio}
               placeholder="自己紹介"
@@ -269,7 +269,7 @@ export default function ProfileScreen() {
             <Text className="mb-1 text-sm font-medium text-gray-700">
               好きなセリフ
             </Text>
-            <TextInput
+            <Input
               value={favoriteQuote}
               onChangeText={setFavoriteQuote}
               placeholder="好きなセリフ"

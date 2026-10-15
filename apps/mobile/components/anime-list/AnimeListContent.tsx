@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -15,6 +14,7 @@ import { useAnimeList, useSortedAnimeList } from "@/lib/useAnimeList";
 import type { SortKey, SortOrder } from "@/lib/useAnimeList";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { Input } from "@/components/ui";
 import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
@@ -157,10 +157,9 @@ export function AnimeListContent({
                 <View style={styles.heroControls}>
                   <View style={styles.searchBar}>
                     <Ionicons name="search" size={20} color="#64748b" />
-                    <TextInput
+                    <Input
                       style={styles.searchInput}
                       placeholder="タイトル・よみがな・英語名で検索"
-                      placeholderTextColor="#94a3b8"
                       value={query}
                       onChangeText={setQuery}
                       testID="search-input"

@@ -5,9 +5,9 @@ import {
   Platform,
   Pressable,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { Input } from "@/components/ui";
 import { TIER_LABEL_MAX_LENGTH, tierLabelError } from "@/lib/tierList/label";
 
 /**
@@ -71,7 +71,7 @@ export function TierLabelEditSheet({
             >
               tier 名を編集
             </Text>
-            <TextInput
+            <Input
               value={value}
               onChangeText={setValue}
               autoFocus

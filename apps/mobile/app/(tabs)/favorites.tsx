@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -16,6 +15,7 @@ import {
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { confirm } from "@/lib/dialog";
+import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 
 export default function FavoritesScreen() {
@@ -84,7 +84,7 @@ export default function FavoritesScreen() {
         <Text className="text-xs text-gray-400 mt-0.5">
           {enriched.length} 件
         </Text>
-        <TextInput
+        <Input
           value={query}
           onChangeText={setQuery}
           placeholder="作品名で検索"
