@@ -315,6 +315,32 @@ describe("ユーザー通報・ブロック API", () => {
         expect((await reportTarget(app, USER_C)).status).toBe(201);
       });
 
+      it("窓内の通報が上限超過でも Retry-After は挿入可能な時刻を指す", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        // 制限導入前のデータなどで直近 1h に LIMIT+1 件残っている場合、
+        // 最古 1 件の失効後もまだ上限超過のまま。Retry-After は新しい順
+        // LIMIT 件目（= 2 番目に古い行）の失効時刻を指すべき。
+        const now = Date.now();
+        await db.insert(reports).values(
+          Array.from({ length: HOURLY_LIMIT + 1 }, (_, i) => ({
+            reporterId: USER_A,
+            reportedUserId: USER_B,
+            reason: "過去の通報",
+            // 最古が 55 分前、以後 5 分刻み（すべて 1h 窓内）
+            createdAt: new Date(now - (HOURLY_LIMIT + 1 - i) * 300 * 1000),
+          })),
+        );
+
+        const res = await reportTarget(app, USER_C);
+        expect(res.status).toBe(429);
+        // 最古行の失効（残り約 300s）ではなく 2 番目に古い行の失効
+        // （残り約 600s）を指すこと。処理時間・秒精度を考慮して幅を持たせる。
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        expect(retryAfter).toBeGreaterThan(550);
+        expect(retryAfter).toBeLessThan(650);
+      });
+
       it("上限カウントは通報者ごと（他人の通報は含まない）", async () => {
         signInAs(USER_A);
         const app = buildApp();

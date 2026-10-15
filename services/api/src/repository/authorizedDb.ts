@@ -222,35 +222,44 @@ async function buildReportRateLimitError(
   nowMs: number,
 ): Promise<ReportRateLimitError> {
   const lastSameTarget = await db.query.reports.findFirst({
-    where: (t, { and: and_, eq: eq_, gt: gt_ }) =>
+    where: (t, { and: and_, eq: eq_, gte: gte_ }) =>
       and_(
         eq_(t.reporterId, reporterId),
         eq_(t.reportedUserId, targetUserId),
-        gt_(t.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
+        gte_(t.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
       ),
     orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
     columns: { createdAt: true },
   });
   if (lastSameTarget) {
+    // INSERT の `created_at >= 閾値秒` と同じ境界条件に合わせる。
+    // 該当行は保存秒 + ウィンドウの次の秒までブロックに含まれるので +1 秒。
     const waitMs =
-      lastSameTarget.createdAt.getTime() + REPORT_SAME_TARGET_WINDOW_MS - nowMs;
+      lastSameTarget.createdAt.getTime() +
+      REPORT_SAME_TARGET_WINDOW_MS +
+      1000 -
+      nowMs;
     return new ReportRateLimitError(
       "duplicate_target",
       Math.max(1, Math.ceil(waitMs / 1000)),
     );
   }
 
-  const oldestInWindow = await db.query.reports.findFirst({
-    where: (t, { and: and_, eq: eq_, gt: gt_ }) =>
+  // 窓内に上限を超える行が残っている場合（制限導入前のデータ等）は、
+  // 最古 1 件が失効しても件数が LIMIT 未満に戻らない。新しい順 LIMIT 件目の
+  // 失効時点で初めて挿入可能になるため、その行を基点に待ち時間を計算する。
+  const limitNewest = await db.query.reports.findFirst({
+    where: (t, { and: and_, eq: eq_, gte: gte_ }) =>
       and_(
         eq_(t.reporterId, reporterId),
-        gt_(t.createdAt, new Date(nowMs - REPORT_HOURLY_WINDOW_MS)),
+        gte_(t.createdAt, new Date(nowMs - REPORT_HOURLY_WINDOW_MS)),
       ),
-    orderBy: (t, { asc }) => asc(t.createdAt),
+    orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
+    offset: REPORT_HOURLY_LIMIT - 1,
     columns: { createdAt: true },
   });
-  const waitMs = oldestInWindow
-    ? oldestInWindow.createdAt.getTime() + REPORT_HOURLY_WINDOW_MS - nowMs
+  const waitMs = limitNewest
+    ? limitNewest.createdAt.getTime() + REPORT_HOURLY_WINDOW_MS + 1000 - nowMs
     : REPORT_HOURLY_WINDOW_MS;
   return new ReportRateLimitError(
     "hourly_limit",
@@ -1121,6 +1130,9 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       // アトミックだが文同士で値を受け渡せず、確認結果に応じた条件付き
       // 挿入は組めないため）。
       // created_at は unix 秒（drizzle timestamp mode）なので閾値も秒で渡す。
+      // 保存時に秒未満が切り捨てられるため `>` だと境界秒の行が窓外扱いに
+      // なり、クールダウンが実時間で最大 1 秒弱短くなる。`>=` で境界秒も
+      // ブロック対象に含め、実経過時間がウィンドウ以上であることを保証する。
       const nowMs = Date.now();
       const nowSec = Math.floor(nowMs / 1000);
       const sameTargetSinceSec = Math.floor(
@@ -1137,12 +1149,12 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
           SELECT 1 FROM ${reports}
           WHERE reporter_id = ${currentUserId}
             AND reported_user_id = ${targetUserId}
-            AND created_at > ${sameTargetSinceSec}
+            AND created_at >= ${sameTargetSinceSec}
         )
         AND (
           SELECT COUNT(*) FROM ${reports}
           WHERE reporter_id = ${currentUserId}
-            AND created_at > ${hourlySinceSec}
+            AND created_at >= ${hourlySinceSec}
         ) < ${REPORT_HOURLY_LIMIT}
       `);
 
