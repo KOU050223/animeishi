@@ -217,6 +217,120 @@ describe("ユーザー通報・ブロック API", () => {
       );
       expect(res.status).toBe(400);
     });
+
+    describe("レート制限・重複抑止（issue #148）", () => {
+      // 同一対象: 24h に 1 回 / 全体: 1h に 10 件（実装側の定数と同値）
+      const HOURLY_LIMIT = 10;
+
+      const reportTarget = (
+        app: ReturnType<typeof buildApp>,
+        targetId: string,
+      ) =>
+        app.request(
+          `/users/${targetId}/report`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: "不適切なコンテンツ" }),
+          },
+          TEST_BINDINGS,
+        );
+
+      it("同一ユーザーへの再通報は 24 時間以内だと 429 + Retry-After", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        expect((await reportTarget(app, USER_B)).status).toBe(201);
+
+        const res = await reportTarget(app, USER_B);
+        expect(res.status).toBe(429);
+        expect(Number(res.headers.get("Retry-After"))).toBeGreaterThan(0);
+        const body = (await res.json()) as { code?: string };
+        expect(body.code).toBe("duplicate_target");
+
+        // 拒否された分は記録されず、運営通知も重複して飛ばない
+        expect(await db.select().from(reports)).toHaveLength(1);
+        expect(vi.mocked(captureMessage)).toHaveBeenCalledTimes(1);
+      });
+
+      it("24 時間経過すれば同一ユーザーへ再通報できる", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        await db.insert(reports).values({
+          reporterId: USER_A,
+          reportedUserId: USER_B,
+          reason: "過去の通報",
+          createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+        });
+
+        expect((await reportTarget(app, USER_B)).status).toBe(201);
+      });
+
+      it("重複抑止は対象ユーザーごと（別ユーザーへの通報は通る）", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        expect((await reportTarget(app, USER_B)).status).toBe(201);
+        expect((await reportTarget(app, USER_C)).status).toBe(201);
+      });
+
+      it("1 時間の通報上限を超えると 429", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        const now = new Date();
+        const targets = Array.from(
+          { length: HOURLY_LIMIT + 1 },
+          (_, i) => `user_target${i}`,
+        );
+        await db.insert(users).values(
+          targets.map((id) => ({
+            id,
+            username: id,
+            isPublic: true,
+            createdAt: now,
+            updatedAt: now,
+          })),
+        );
+        for (const target of targets.slice(0, HOURLY_LIMIT)) {
+          expect((await reportTarget(app, target)).status).toBe(201);
+        }
+
+        const res = await reportTarget(app, targets[HOURLY_LIMIT]);
+        expect(res.status).toBe(429);
+        const body = (await res.json()) as { code?: string };
+        expect(body.code).toBe("hourly_limit");
+      });
+
+      it("上限カウントは直近 1 時間のみ（古い通報は含まない）", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        const old = new Date(Date.now() - 61 * 60 * 1000);
+        await db.insert(reports).values(
+          Array.from({ length: HOURLY_LIMIT }, () => ({
+            reporterId: USER_A,
+            reportedUserId: USER_B,
+            reason: "過去の通報",
+            createdAt: old,
+          })),
+        );
+
+        expect((await reportTarget(app, USER_C)).status).toBe(201);
+      });
+
+      it("上限カウントは通報者ごと（他人の通報は含まない）", async () => {
+        signInAs(USER_A);
+        const app = buildApp();
+        const now = new Date();
+        await db.insert(reports).values(
+          Array.from({ length: HOURLY_LIMIT }, () => ({
+            reporterId: USER_B,
+            reportedUserId: USER_C,
+            reason: "他人の通報",
+            createdAt: now,
+          })),
+        );
+
+        expect((await reportTarget(app, USER_B)).status).toBe(201);
+      });
+    });
   });
 
   describe("POST /users/:id/block", () => {

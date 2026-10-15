@@ -96,6 +96,31 @@ describe("PublicProfilePage", () => {
     );
   });
 
+  it("通報成功後にあわせてブロックするか尋ね、承諾でブロックが実行される", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockReportMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    render(<PublicProfilePage />, { wrapper });
+    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId("report-user-button"));
+    fireEvent.press(screen.getByTestId("report-reason-不適切なコンテンツ"));
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      "通報を受け付けました",
+      expect.stringContaining("対象ユーザー"),
+      expect.any(Function),
+      expect.objectContaining({ destructive: true }),
+    );
+    // モック confirm は承諾を即時実行するため、そのままブロックに進む
+    expect(mockBlockMutate).toHaveBeenCalledWith(
+      "user_target",
+      expect.any(Object),
+    );
+  });
+
   it("ブロックボタンで確認ダイアログ経由のブロックが実行される", async () => {
     loggedInUser({ userId: "user_me" });
     render(<PublicProfilePage />, { wrapper });
