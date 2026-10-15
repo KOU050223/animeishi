@@ -40,6 +40,18 @@ export type QrSource = "profile" | "custom";
 export type CountMetric = "watched" | "favorites";
 export type CollageSort = "recent" | "popular";
 
+// コラージュの画像をどのリストから取るか。undefined は「自動」
+// （視聴履歴 → 空ならお気に入り、の従来フォールバック）を表す。
+export type CollageListSource = "watchHistory" | "favorites";
+// 視聴履歴リストを Annict の視聴ステータスで絞る。undefined/"all" は全ステータス。
+export type CollageStateFilter =
+  | "all"
+  | "WATCHING"
+  | "WATCHED"
+  | "ON_HOLD"
+  | "STOP_WATCHING"
+  | "WANNA_WATCH";
+
 export type TextElement = {
   id: string;
   type: "text";
@@ -94,6 +106,9 @@ export type AnimeCollageElement = {
   sortBy: CollageSort;
   limit: number;
   gap: number;
+  // issue #96 で追加。未設定の既存ドキュメントは「自動・全ステータス」として扱う。
+  listSource?: CollageListSource;
+  state?: CollageStateFilter;
 };
 
 export type AnimeCountBadgeElement = {
@@ -129,6 +144,13 @@ export type MeishiDocument = {
   elements: MeishiElement[];
 };
 
+// animeCollage が参照できるリスト別の画像 URL 集合（issue #96）。
+export type AnimeCollageLists = {
+  watchHistory: string[];
+  favorites: string[];
+  byState: Partial<Record<Exclude<CollageStateFilter, "all">, string[]>>;
+};
+
 // レンダラー側で source バインドや実データを解決するためのコンテキスト
 export type MeishiRenderContext = {
   profile: {
@@ -139,6 +161,8 @@ export type MeishiRenderContext = {
     profileUrl?: string | null;
   };
   animeCollageImages?: string[];
+  // リスト別の画像。古い呼び出し側が animeCollageImages だけ渡すケースに備え optional。
+  animeLists?: AnimeCollageLists;
   watchedCount?: number;
   favoritesCount?: number;
 };

@@ -10,7 +10,7 @@ type Item = {
 
 const ITEMS: Item[] = [
   { type: "text", label: "テキスト", emoji: "🔤" },
-  { type: "image", label: "画像", emoji: "🖼️", sub: "アップロード" },
+  { type: "image", label: "画像", emoji: "🖼️", sub: "端末からアップロード" },
   { type: "shape", label: "図形", emoji: "⬛", sub: "矩形・円" },
   { type: "qr", label: "QR", emoji: "🔳" },
   { type: "animeCollage", label: "視聴コラージュ", emoji: "🎬" },
@@ -22,11 +22,13 @@ export function AddElementSheet({
   onClose,
   onPick,
   onPickAvatarImage,
+  onPickAnimeImage,
 }: {
   visible: boolean;
   onClose: () => void;
   onPick: (type: MeishiElementType) => void;
   onPickAvatarImage?: () => void;
+  onPickAnimeImage?: () => void;
 }) {
   return (
     <Modal
@@ -66,6 +68,14 @@ export function AddElementSheet({
                 label="アバター"
                 sub="プロフィール画像"
                 onPress={onPickAvatarImage}
+              />
+            ) : null}
+            {onPickAnimeImage ? (
+              <PickButton
+                emoji="🎞️"
+                label="アニメ画像"
+                sub="Annict 検索/リスト"
+                onPress={onPickAnimeImage}
               />
             ) : null}
             {ITEMS.map((it) => (
