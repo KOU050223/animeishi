@@ -10,7 +10,7 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AnnictApiError } from "@/lib/annict/client";
 import { annictErrorResponse } from "@/lib/annict/errors";
-import { DeletedUserError } from "@/repository/authorizedDb";
+import { DeletedUserError } from "@/features/users/repository";
 
 // Sentry 初期化に必要なバインディング。
 // SENTRY_DSN は Workers Secret、ENVIRONMENT は wrangler.toml [vars]、

@@ -28,7 +28,7 @@
 
 import { mapWithConcurrency } from "@animeishi/danime-core";
 import type { DrizzleDb } from "@/db/client";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { worksRepository } from "@/features/works/repository";
 import {
   fetchFollowingRedirects,
   isPublicImageUrl,
@@ -76,8 +76,6 @@ export const WORK_IMAGE_PATH_PREFIX = "/images/";
 // （avatars/ 等の他用途オブジェクトへの到達を遮る）。
 const WORK_IMAGE_KEY_PATTERN =
   /^works\/\d+\/[0-9a-f]+\.(?:jpe?g|png|webp|gif)$/i;
-
-const SYSTEM_USER_ID = "__image_prefetch_cron__";
 
 /**
  * R2 へ取り込む画像のソース URL を選ぶ。優先順位はクライアントの
@@ -235,9 +233,9 @@ export async function prefetchWorkImages(
   const fetchImpl = options.fetchImpl ?? fetch;
   const scanLimit = options.scanLimit ?? PREFETCH_SCAN_LIMIT;
   const fetchLimit = options.fetchLimit ?? PREFETCH_FETCH_LIMIT;
-  const adb = authorizedDb(db, SYSTEM_USER_ID);
+  const repo = worksRepository(db);
 
-  const rows = await adb.getImagePrefetchTargets(
+  const rows = await repo.getImagePrefetchTargets(
     [currentAnnictSeason(now), nextAnnictSeason(now)],
     imagePrefetchAttemptStaleBefore(now),
     scanLimit,
@@ -297,7 +295,7 @@ export async function prefetchWorkImages(
       if (WORK_IMAGE_KEY_PATTERN.test(stale.imageR2Key)) {
         await bucket.delete(stale.imageR2Key).catch(() => {});
       }
-      await adb.updateImageR2Key(stale.annictWorkId, null, now);
+      await repo.updateImageR2Key(stale.annictWorkId, null, now);
     } catch (err) {
       console.error(
         JSON.stringify({
@@ -325,7 +323,7 @@ export async function prefetchWorkImages(
       await bucket.put(key, image.data, {
         httpMetadata: { contentType: image.contentType },
       });
-      await adb.updateImageR2Key(job.annictWorkId, key, now);
+      await repo.updateImageR2Key(job.annictWorkId, key, now);
       // ソース差し替えで残った旧キーのオブジェクトは消す
       // （残っていても参照されないだけだが、ゴミを増やさないため）。
       // DB 由来だが異常値混入に備えて works/ キー形式を検証してから消す。
@@ -354,7 +352,7 @@ export async function prefetchWorkImages(
   // 取り込み成功は updateImageR2Key が attempted も立てるので除外。
   const attemptedIds = [...checkedIds, ...failedIds];
   if (attemptedIds.length > 0) {
-    await adb.markImagePrefetchAttempted(attemptedIds, now);
+    await repo.markImagePrefetchAttempted(attemptedIds, now);
   }
 
   return { scanned: rows.length, stored, failed: failedIds.length };

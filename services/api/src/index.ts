@@ -12,21 +12,21 @@ import {
   handleError,
   type ObservabilityBindings,
 } from "./observability";
-import { annict } from "./routes/annict";
-import { characterTierLists } from "./routes/character-tier-lists";
-import { favorites } from "./routes/favorites";
-import { friends } from "./routes/friends";
-import { health } from "./routes/health";
-import { images } from "./routes/images";
-import { importRoute } from "./routes/import";
-import { avatar, me, meishiAssets } from "./routes/me";
-import { pass } from "./routes/pass";
-import { share } from "./routes/share";
-import { tierLists } from "./routes/tier-lists";
-import { user } from "./routes/user";
-import { usersRoute } from "./routes/users";
-import { watchHistory } from "./routes/watch-history";
-import { works } from "./routes/works";
+import { annict } from "./features/annict";
+import { characterTierLists } from "./features/character-tier-lists";
+import { favorites } from "./features/favorites";
+import { friends } from "./features/friends";
+import { health } from "./features/health";
+import { images } from "./features/images";
+import { importRoute } from "./features/import";
+import { avatar, me, meishiAssets } from "./features/me";
+import { pass } from "./features/pass";
+import { share } from "./features/share";
+import { tierLists } from "./features/tier-lists";
+import { user } from "./features/user";
+import { usersRoute } from "./features/users";
+import { watchHistory } from "./features/watch-history";
+import { works } from "./features/works";
 
 type AppBindings = Env &
   ObservabilityBindings & {

@@ -4,7 +4,7 @@ import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { Env } from "@/db/client";
 import { createDb } from "@/db/client";
-import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
+import { usersRepository, DeletedUserError } from "@/features/users/repository";
 
 // hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
 export type AuthVariables = {
@@ -103,12 +103,12 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   c.set("clerkUserId", userId);
 
   const db = createDb((c.env as { DB: D1Database }).DB);
-  const adb = authorizedDb(db, userId);
+  const repo = usersRepository(db, userId);
 
   // 削除済みユーザーの残存 JWT を拒否する（issue #144）。
   // tombstone は DELETE /me の削除 batch と同じくアトミックに書かれるため、
   // users 行が消えていれば必ずここで検出できる。
-  const deletedAt = await adb.getMyDeletedAt();
+  const deletedAt = await repo.getMyDeletedAt();
   if (deletedAt !== undefined) {
     // DELETE /me は tombstone が残っていても通す。Clerk deleteUser が
     // 失敗したあとの再試行は同じ残存 JWT で来るため、ここで弾くと
@@ -138,7 +138,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
       return c.json({ error: "Unauthorized" }, 401);
     }
     // Clerk 削除失敗の自己修復。
-    await adb.clearMyDeletedAt();
+    await repo.clearMyDeletedAt();
   }
 
   // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。
@@ -147,7 +147,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 表示名は Clerk のユーザー情報（username / 氏名）から解決する。
   // Clerk API 呼び出しは users 未登録の初回のみ行われる（ensureUserExists 側で制御）。
   try {
-    await adb.ensureUserExists(async () => {
+    await repo.ensureUserExists(async () => {
       const clerk = c.get("clerk");
       try {
         const user = await clerk.users.getUser(userId);
