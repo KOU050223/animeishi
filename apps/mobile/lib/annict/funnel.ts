@@ -3,7 +3,7 @@
 // 離脱ポイントを Sentry Logs へ送る。Logs は Issue を作らないため
 // エラーアラートのノイズにならず、属性で絞って集計できる。
 // 設計は docs/08_observability-design.md のファネル節を参照。
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import * as Crypto from "expo-crypto";
@@ -28,10 +28,24 @@ export type AnnictFunnelInput = {
   reason?: string;
 };
 
+// 進行中の送信を追跡する（Web のページ遷移前に flushAnnictFunnel で
+// バッファへ乗るのを待つため）。send は例外を握りつぶすので Promise は
+// 常に成功で解決する。
+const pendingSends = new Set<Promise<void>>();
+
 // ファネル計測イベントを送る。計測の失敗・遅延で本体処理を
 // 壊さないよう、常に fire-and-forget（内部で非同期にハッシュ化して送信）にする。
 export function trackAnnictFunnel(input: AnnictFunnelInput): void {
-  void send(input);
+  const promise = send(input);
+  pendingSends.add(promise);
+  void promise.finally(() => pendingSends.delete(promise));
+}
+
+// 進行中のファネル送信が Sentry のログバッファへ乗るのを待つ。
+// Web は authorize へのページ遷移でバッファごと捨てられるため、
+// 遷移前にこれと Sentry.flush() を呼んで消失を防ぐ（issue #64）。
+export async function flushAnnictFunnel(): Promise<void> {
+  await Promise.all(pendingSends);
 }
 
 async function send(input: AnnictFunnelInput): Promise<void> {
@@ -87,7 +101,12 @@ function annictFunnelUserKey(userId: string): Promise<string | undefined> {
 export function useAnnictFunnel(surface: AnnictFunnelSurface) {
   const { userId } = useAuth();
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+  // render 中の ref 更新は React の規約違反なため effect で同期する。
+  // この hook は呼び出し側の prompt_view 用 effect より先に宣言されるため、
+  // mount 直後のイベントでも同期済みの userId が読める。
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
   return useCallback(
     (
       step: AnnictFunnelStep,

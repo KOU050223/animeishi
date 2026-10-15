@@ -13,7 +13,7 @@ import {
   parseAuthCallback,
 } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
-import { trackAnnictFunnel } from "./funnel";
+import { flushAnnictFunnel, trackAnnictFunnel } from "./funnel";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type {
   AnnictConnectOptions,
@@ -191,8 +191,15 @@ export function useAnnictConnect(): UseAnnictConnect {
         );
         try {
           window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
+        } catch {
+          // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
+          // ため連携は失敗させる。finally で isConnecting/ref を復元する。
+          return fail("storage_unavailable");
+        }
+        try {
           // 前回 authorize で放棄した場合に残る surface を消してから書き込む。
           // surface 無しで connect したときに古い値が oauth_result に付かないようにする。
+          // 計測用の退避失敗（容量制限等）は連携自体を止めない。
           window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
           if (options?.surface) {
             window.sessionStorage.setItem(
@@ -201,9 +208,7 @@ export function useAnnictConnect(): UseAnnictConnect {
             );
           }
         } catch {
-          // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
-          // ため連携は失敗させる。finally で isConnecting/ref を復元する。
-          return fail("storage_unavailable");
+          // surface 無しで進むだけ（oauth_result の surface が欠けるだけ）。
         }
 
         const authorizeUrl = buildAuthorizeUrl({
@@ -217,12 +222,19 @@ export function useAnnictConnect(): UseAnnictConnect {
         // 待たず、遷移が起きたこと自体を成功とみなす。
         // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
         // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
+        // trackAnnictFunnel はハッシュ化を経て非同期にログへ載るため、まず
+        // 進行中の送信がバッファに乗るのを待ってから flush する。
         // RN 版 flush は timeout を取れず内部で握りつぶされるため、
         // 遷移を阻害しないようこちらで時間上限を設ける。
-        await Promise.race([
-          Sentry.flush(),
-          new Promise((resolve) => setTimeout(resolve, 2000)),
-        ]);
+        await flushAnnictFunnel();
+        try {
+          await Promise.race([
+            Sentry.flush(),
+            new Promise((resolve) => setTimeout(resolve, 2000)),
+          ]);
+        } catch {
+          // 計測の失敗で連携遷移を止めない。
+        }
         window.location.href = authorizeUrl;
         didNavigate = true;
         return { status: "success" };

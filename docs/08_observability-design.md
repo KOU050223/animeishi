@@ -338,8 +338,9 @@ Explore で属性フィルタ・集計ができる。
 
 Web の注意点: Sentry Logs はバッファに溜まって一定間隔で送信される。
 authorize へのページ遷移でバッファごと捨てられると `cta_tap` 等が
-消失するため、`connect()` は遷移直前に `Sentry.flush()`（上限付き）を
-呼んでから `location.href` を更新している。
+消失するため、`connect()` は遷移直前に `flushAnnictFunnel()` で進行中の
+計測送信がバッファに乗るのを待ち、`Sentry.flush()`（時間上限付き）で
+送信完了を待ってから `location.href` を更新している。
 
 ### 集計方法
 

@@ -37,7 +37,9 @@ export default function AnnictCallbackScreen() {
   // /annict 着地直後は Clerk がセッション復元中で userId が未解決なことがある。
   // ファネル計測の user_key は結果確定時の最新値を使いたいため ref 経由で渡す。
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   useEffect(() => {
     if (handledRef.current) return;
