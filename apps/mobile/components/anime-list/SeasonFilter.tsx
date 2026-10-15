@@ -71,7 +71,12 @@ export function SeasonFilter({
 
       <View style={styles.filterRow}>
         <Text style={styles.filterRowLabel}>期</Text>
-        <View style={styles.filterScroll}>
+        {/* 4 択でも狭い画面・文字拡大でははみ出すため横スクロールを残す。 */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
           {SEASON_KEYS.map((key) => {
             const active = key === season;
             const disabled = !selectable.includes(key);
@@ -102,7 +107,7 @@ export function SeasonFilter({
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       </View>
 
       <Modal
@@ -114,6 +119,8 @@ export function SeasonFilter({
         <Pressable
           style={styles.yearPickerBackdrop}
           onPress={() => setPickerOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="年の選択を閉じる"
         >
           <Pressable style={styles.yearPickerSheet} onPress={() => {}}>
             <Text style={styles.yearPickerTitle}>年を選択</Text>

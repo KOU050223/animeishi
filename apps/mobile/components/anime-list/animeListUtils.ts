@@ -16,9 +16,21 @@ export const GRID_GAP = 14;
 export const SEASON_KEYS = ["winter", "spring", "summer", "autumn"] as const;
 export type SeasonKey = (typeof SEASON_KEYS)[number];
 
-/** 現在の Annict シーズンキー（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。 */
-export function currentSeasonKey(now: Date = new Date()): SeasonKey {
-  return SEASON_KEYS[Math.floor(now.getMonth() / 3)];
+/**
+ * JST（UTC+9）基準の現在の年と Annict シーズンキー
+ * （1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。
+ * 「今期」の判定は API の currentAnnictSeason と同じく JST で行う。
+ * 端末のローカル時刻のままだと四半期境界で API とずれるため。
+ */
+export function currentSeason(now: Date = new Date()): {
+  year: number;
+  key: SeasonKey;
+} {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return {
+    year: jst.getUTCFullYear(),
+    key: SEASON_KEYS[Math.floor(jst.getUTCMonth() / 3)],
+  };
 }
 
 /** API に渡す season 文字列（例: "2026-spring"）を組み立てる。 */
@@ -60,11 +72,8 @@ export function maxSelectableSeason(now: Date = new Date()): {
   year: number;
   key: SeasonKey;
 } {
-  return shiftSeason(
-    now.getFullYear(),
-    currentSeasonKey(now),
-    FUTURE_SEASON_COUNT,
-  );
+  const current = currentSeason(now);
+  return shiftSeason(current.year, current.key, FUTURE_SEASON_COUNT);
 }
 
 /**

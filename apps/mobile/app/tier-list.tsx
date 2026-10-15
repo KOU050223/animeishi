@@ -6,7 +6,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
-  currentSeasonKey,
+  currentSeason,
   toSeasonParam,
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
@@ -54,9 +54,9 @@ const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
   const router = useRouter();
-  const [year, setYear] = useState(() => new Date().getFullYear());
-  const [seasonKey, setSeasonKey] = useState<SeasonKey>(() =>
-    currentSeasonKey(),
+  const [year, setYear] = useState(() => currentSeason().year);
+  const [seasonKey, setSeasonKey] = useState<SeasonKey>(
+    () => currentSeason().key,
   );
   const season = toSeasonParam(year, seasonKey);
 

@@ -22,7 +22,7 @@ import { SortButton } from "./SortButton";
 import { StatPill } from "./StatPill";
 import { styles } from "./animeListStyles";
 import {
-  currentSeasonKey,
+  currentSeason,
   formatSeasonLabel,
   formatYearSeason,
   getAnimeListLayout,
@@ -48,10 +48,11 @@ export function AnimeListContent({
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  // シーズン絞り込みの選択状態（初期は今年・今期）。検索語が空のときだけ効く。
-  const [filterYear, setFilterYear] = useState(() => new Date().getFullYear());
-  const [filterSeason, setFilterSeason] = useState<SeasonKey>(() =>
-    currentSeasonKey(),
+  // シーズン絞り込みの選択状態（初期は JST の今年・今期。API の「今期」判定に揃える）。
+  // 検索語が空のときだけ効く。
+  const [filterYear, setFilterYear] = useState(() => currentSeason().year);
+  const [filterSeason, setFilterSeason] = useState<SeasonKey>(
+    () => currentSeason().key,
   );
   const seasonParam = toSeasonParam(filterYear, filterSeason);
 

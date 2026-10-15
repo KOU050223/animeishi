@@ -1,6 +1,7 @@
 import {
   SEASON_KEYS,
   SEASON_PICKER_MIN_YEAR,
+  currentSeason,
   maxSelectableSeason,
   seasonPickerYears,
   selectableSeasonKeys,
@@ -27,7 +28,35 @@ describe("shiftSeason", () => {
   });
 });
 
+describe("currentSeason", () => {
+  it("端末タイムゾーンではなく JST 基準で今期を返す", () => {
+    // UTC 3/31 16:00 = JST 4/1 01:00。ローカル基準なら冬のままだが、
+    // API（currentAnnictSeason）と同じく JST なら春。
+    expect(currentSeason(new Date(Date.UTC(2026, 2, 31, 16)))).toEqual({
+      year: 2026,
+      key: "spring",
+    });
+  });
+
+  it("JST で年をまたぐ場合は新しい年を返す", () => {
+    // UTC 12/31 16:00 = JST 1/1 01:00
+    expect(currentSeason(new Date(Date.UTC(2026, 11, 31, 16)))).toEqual({
+      year: 2027,
+      key: "winter",
+    });
+  });
+});
+
 describe("maxSelectableSeason", () => {
+  it("期境界を API と同じ JST 基準で判定する", () => {
+    // UTC 3/31 16:00 = JST 4/1（春）。選択上限は 春+2 = 2026 秋。
+    // 端末ローカル基準（まだ冬）だと夏で止まってしまう。
+    expect(maxSelectableSeason(new Date(Date.UTC(2026, 2, 31, 16)))).toEqual({
+      year: 2026,
+      key: "autumn",
+    });
+  });
+
   it("今期の 2 シーズン先を返す", () => {
     // 2026 秋（10 月）→ 上限は 2027 春
     expect(maxSelectableSeason(new Date(2026, 9, 15))).toEqual({
