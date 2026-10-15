@@ -316,6 +316,22 @@ export default function ProfileScreen() {
 
         <View className="mt-8 px-4">
           <Text className="mb-2 text-sm font-medium text-gray-700">
+            このアプリについて
+          </Text>
+          <View className="rounded-xl border border-gray-200 bg-white">
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/changelog")}
+              accessibilityRole="button"
+              accessibilityLabel="機能一覧・更新情報を開く"
+            >
+              <Text className="text-gray-900">機能一覧・更新情報</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="mt-8 px-4">
+          <Text className="mb-2 text-sm font-medium text-gray-700">
             法務情報
           </Text>
           <View className="rounded-xl border border-gray-200 bg-white">
