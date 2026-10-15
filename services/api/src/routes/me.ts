@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { profileUpdateSchema } from "@/schema/validators";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 import { captureApiError } from "@/observability";
 
@@ -134,13 +134,27 @@ const me = new Hono<AuthVariables>()
     // 差し替え前に旧アバターの R2 キーを控えておく（DB 更新成功後に削除する）。
     const previousKey = avatarKeyFromUrl(existing?.profileImageUrl);
 
-    const profile = await adb.upsertMyProfile({
-      username: existing?.username ?? userId,
-      bio: existing?.bio ?? null,
-      favoriteQuote: existing?.favoriteQuote ?? null,
-      isPublic: existing?.isPublic ?? true,
-      profileImageUrl: avatarUrl.toString(),
-    });
+    const profile = await adb
+      .upsertMyProfile({
+        username: existing?.username ?? userId,
+        bio: existing?.bio ?? null,
+        favoriteQuote: existing?.favoriteQuote ?? null,
+        isPublic: existing?.isPublic ?? true,
+        profileImageUrl: avatarUrl.toString(),
+      })
+      .catch(async (err) => {
+        // requireAuth 通過後にアカウント削除が割り込んだ場合、今回アップした
+        // オブジェクトは削除済みユーザーのゴミになるため掃除しておく
+        // （掃除自体の失敗はゴミが残るだけなので握り潰す）。
+        if (err instanceof DeletedUserError) {
+          try {
+            await bindings.AVATARS.delete(key);
+          } catch {
+            // R2 掃除失敗は無視する
+          }
+        }
+        throw err;
+      });
 
     // DB 更新が成功してから旧オブジェクトを削除する。
     // 旧画像を残すと既知の URL から半永久的に取得できてしまうため。

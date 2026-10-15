@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
 import { annictWorks, deletedUsers, users } from "@/db/schema";
 
 const USER_ID = "user_testuser001";
@@ -74,6 +74,20 @@ describe("authorizedDb", () => {
       expect(updated.isPublic).toBe(false);
     });
 
+    it("raw SQL 経路でも createdAt/updatedAt が正しい単位（秒）で保存される", async () => {
+      // mode: "timestamp" は秒保存。raw SQL でミリ秒を書く回帰
+      // （読み取り時に1000倍されて壊れる）を検知する。
+      const before = Date.now();
+      const adb = authorizedDb(db, USER_ID);
+      const updated = await adb.upsertMyProfile({
+        username: "時刻確認",
+        isPublic: true,
+      });
+      const after = Date.now();
+      expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
+      expect(updated.updatedAt.getTime()).toBeLessThanOrEqual(after + 1000);
+    });
+
     it("currentUserId 以外のユーザーIDで更新できないことを確認（スコープ分離）", async () => {
       const adb = authorizedDb(db, USER_ID);
       const anotherAdb = authorizedDb(db, ANOTHER_USER_ID);
@@ -123,10 +137,11 @@ describe("authorizedDb", () => {
         .values({ userId: DELETED_ID, deletedAt: new Date() });
 
       const adb = authorizedDb(db, DELETED_ID);
-      // INSERT が抑止されるため、後続の findFirst が見つからず例外になる
+      // INSERT が抑止された場合は削除済みとして DeletedUserError が投げられる
+      // （handleError で 401 に変換される）。
       await expect(
         adb.upsertMyProfile({ username: "復活しない", isPublic: true }),
-      ).rejects.toThrow("ユーザーの更新に失敗しました");
+      ).rejects.toThrow(DeletedUserError);
       expect(
         await db.select().from(users).where(eq(users.id, DELETED_ID)),
       ).toHaveLength(0);

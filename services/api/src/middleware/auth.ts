@@ -107,16 +107,23 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const deletedAt = await adb.getMyDeletedAt();
   if (deletedAt !== undefined) {
     // JWT の発行時刻が削除時刻より新しい = 削除後に Clerk がトークンを
-    // 発行している = Clerk 側ではユーザーが生存している（削除済み
-    // ユーザーには新しいトークンを発行できないため）。Clerk deleteUser が
-    // 失敗したケースの自己修復として tombstone を解除して処理を続ける
-    // （DELETE /me の再試行もこの経路で通る）。
+    // 発行している = Clerk 側でユーザーが生存している可能性が高い
+    // （削除済みユーザーには新しいトークンを発行できないため）。
+    // ただし tombstone 書込〜Clerk 削除完了の間に発行されたトークンも
+    // 該当しうるため、iat 比較だけで tombstone は消さず Clerk で生存確認
+    // してから解除する。削除済み(404)・確認失敗(一時障害)のときは
+    // tombstone を残したまま 401 にする（fail closed）。
     const issuedAtMs = typeof tokenIat === "number" ? tokenIat * 1000 : 0;
-    if (issuedAtMs > deletedAt.getTime()) {
-      await adb.clearMyDeletedAt();
-    } else {
+    if (issuedAtMs <= deletedAt.getTime()) {
       return c.json({ error: "Unauthorized" }, 401);
     }
+    try {
+      await c.get("clerk").users.getUser(userId);
+    } catch {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    // Clerk 削除失敗の自己修復（DELETE /me の再試行もこの経路で通る）。
+    await adb.clearMyDeletedAt();
   }
 
   // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。

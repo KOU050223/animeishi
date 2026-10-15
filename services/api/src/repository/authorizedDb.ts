@@ -209,7 +209,10 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
     async upsertMyProfile(
       data: Omit<NewUser, "id" | "createdAt" | "updatedAt">,
     ): Promise<User> {
-      const now = Date.now();
+      // mode: "timestamp" のカラムは秒で保存されるため、raw SQL には
+      // Date.now()（ミリ秒）ではなく秒値を渡す（ミリ秒を書くと読み取り時に
+      // 1000 倍されて壊れる）。
+      const now = Math.floor(Date.now() / 1000);
       // 削除済みユーザー（deleted_users）の残存 JWT が到達しても users 行を
       // 再作成しないよう、INSERT は tombstone が無い場合だけ行う（issue #144）。
       // INSERT ... SELECT ... WHERE NOT EXISTS は単一 statement なので、
@@ -241,7 +244,16 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       const updated = await db.query.users.findFirst({
         where: eq(users.id, currentUserId),
       });
-      if (!updated) throw new Error("ユーザーの更新に失敗しました");
+      if (!updated) {
+        // INSERT が tombstone に抑止されたケース（requireAuth 通過後に
+        // DELETE /me が割り込んだ race）は削除済みとして区別する。
+        const tombstoned = await db.query.deletedUsers.findFirst({
+          where: eq(deletedUsers.userId, currentUserId),
+          columns: { userId: true },
+        });
+        if (tombstoned) throw new DeletedUserError(currentUserId);
+        throw new Error("ユーザーの更新に失敗しました");
+      }
       return updated;
     },
 
@@ -305,7 +317,8 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
         displayName = undefined;
       }
 
-      const now = Date.now();
+      // upsertMyProfile と同じく、mode: "timestamp" に合わせて秒値を渡す。
+      const now = Math.floor(Date.now() / 1000);
       // 削除済みユーザーの残存 JWT で users 行が再作成されないよう、
       // INSERT は tombstone が無い場合だけ行う（issue #144）。
       // upsertMyProfile と同じく単一 statement で原子的に判定する。

@@ -4,6 +4,7 @@ import { requestId } from "hono/request-id";
 import { HTTPException } from "hono/http-exception";
 import * as Sentry from "@sentry/cloudflare";
 import { AnnictApiError } from "@/lib/annict/client";
+import { DeletedUserError } from "@/repository/authorizedDb";
 import { buildSentryOptions, handleError } from "@/observability";
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => {
@@ -41,6 +42,9 @@ app
   })
   .get("/http-503", () => {
     throw new HTTPException(503, { message: "unavailable" });
+  })
+  .get("/deleted-user", () => {
+    throw new DeletedUserError("user_deleted001");
   });
 
 const captureException = vi.mocked(Sentry.captureException);
@@ -124,6 +128,14 @@ describe("handleError", () => {
 
     expect(res.status).toBe(503);
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("DeletedUserError は 401 を返し Sentry に送らない", async () => {
+    const res = await app.request("/deleted-user");
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+    expect(captureException).not.toHaveBeenCalled();
   });
 
   it("capture 時のスコープに requestId と request コンテキストを付ける", async () => {

@@ -359,6 +359,72 @@ describe("認証ミドルウェア", () => {
       ).toHaveLength(1);
     });
 
+    it("iat > deleted_at でも Clerk getUser が 404 なら tombstone を残して 401", async () => {
+      // tombstone 書込〜Clerk 削除完了の間に発行されたトークンを再現。
+      // iat は新しいが Clerk 側では既に削除済み → 自己修復しない。
+      const deletedAt = new Date(Date.now() - 60_000);
+      await db.insert(deletedUsers).values({ userId: USER_ID, deletedAt });
+      clerkUsers.getUser.mockRejectedValue(
+        new ClerkAPIResponseError("not found", {
+          data: [],
+          status: 404,
+          clerkTraceId: "trace_test",
+        }),
+      );
+      signInAs(USER_ID, {
+        iat: Math.floor(deletedAt.getTime() / 1000) + 60,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        { method: "GET" },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(401);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(0);
+      expect(
+        await db
+          .select()
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, USER_ID)),
+      ).toHaveLength(1);
+    });
+
+    it("iat > deleted_at で Clerk getUser が一時障害でも tombstone を残して 401", async () => {
+      // 生存確認が取れない限り tombstone は消さない（fail closed）。
+      const deletedAt = new Date(Date.now() - 60_000);
+      await db.insert(deletedUsers).values({ userId: USER_ID, deletedAt });
+      clerkUsers.getUser.mockRejectedValue(
+        new ClerkAPIResponseError("unavailable", {
+          data: [],
+          status: 500,
+          clerkTraceId: "trace_test",
+        }),
+      );
+      signInAs(USER_ID, {
+        iat: Math.floor(deletedAt.getTime() / 1000) + 60,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/protected/ping",
+        { method: "GET" },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(401);
+      expect(
+        await db
+          .select()
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, USER_ID)),
+      ).toHaveLength(1);
+    });
+
     it("users 行が無く Clerk getUser が 404 を返す場合も 401 で再作成しない", async () => {
       // tombstone を伴わない削除（運用での手動削除など）でも、Clerk 側の
       // 404 を根拠にプロビジョニングを中止する。
