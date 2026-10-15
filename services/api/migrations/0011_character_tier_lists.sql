@@ -17,6 +17,22 @@ CREATE TABLE `annict_characters` (
 );
 --> statement-breakpoint
 
+-- 作品→キャラクターの所属カタログ。/works/:id/characters が Annict
+-- Work.casts から読み取った所属を保持し、character_tier_lists 保存時に
+-- 「その作品のキャストか」を検証する（annict_characters は作品を跨いだ
+-- 共有カタログのため、ここが無いと別作品のキャラクターを混入できる）。
+CREATE TABLE `annict_work_casts` (
+  `annict_work_id` integer NOT NULL,
+  `annict_character_id` integer NOT NULL,
+  `sort_number` integer NOT NULL,
+  PRIMARY KEY (`annict_work_id`, `annict_character_id`),
+  FOREIGN KEY (`annict_work_id`) REFERENCES `annict_works`(`annict_work_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`annict_character_id`) REFERENCES `annict_characters`(`annict_character_id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
+CREATE INDEX `annict_work_casts_work_idx` ON `annict_work_casts` (`annict_work_id`);
+--> statement-breakpoint
+
 -- 1 ユーザー 1 作品につき 1 表。作り直しは上書きで済ませる。
 CREATE TABLE `character_tier_lists` (
   `id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,

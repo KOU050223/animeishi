@@ -69,8 +69,11 @@ export default function CharacterTierListScreen() {
     isConnected,
     isConnectionLoading,
   } = useWorkCharacters(validWorkId ? annictWorkId : null);
-  const { data: saved, isLoading: isSavedLoading } =
-    useSavedCharacterTierList(annictWorkId);
+  const {
+    data: saved,
+    isLoading: isSavedLoading,
+    isError: isSavedError,
+  } = useSavedCharacterTierList(annictWorkId);
   const save = useSaveCharacterTierList();
   const share = useShareCharacterTierList();
 
@@ -100,9 +103,11 @@ export default function CharacterTierListScreen() {
   // 保存済み tier 表が届いたら盤面へ流し込む（この画面の作品は固定で一度だけ）。
   // ただし編集中（isDirty）は上書きしない。保存後のキャッシュ更新や
   // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを消さないため。
+  // 取得に失敗したときは hydrate しない — 空の盤面を確定させてしまうと、
+  // 続く保存・共有が既存の配置を空で上書きするため。
   const hydratedRef = useRef(false);
   useEffect(() => {
-    if (isSavedLoading || hydratedRef.current) return;
+    if (isSavedLoading || isSavedError || hydratedRef.current) return;
     if (saved && isDirty) return;
     hydratedRef.current = true;
     if (saved) {
@@ -118,40 +123,44 @@ export default function CharacterTierListScreen() {
       setTitle(saved.title);
     }
     setIsDirty(false);
-  }, [saved, isSavedLoading, isDirty]);
+  }, [saved, isSavedLoading, isSavedError, isDirty]);
 
   // 作品タイトルが遅れて届いた場合、既定タイトルだけを差し替える
   // （保存済みタイトルやユーザーが付けた名前は上書きしない）。
+  // 保存済み表が無い作品では hydrate 済みでも既定タイトルのままなので、
+  // ディープリンク等で workTitle が後から届いても反映できるようにする。
   useEffect(() => {
-    if (!workTitle || hydratedRef.current) return;
+    if (!workTitle || saved) return;
     setTitle((prev) =>
       prev === defaultCharacterTierListTitle(null)
         ? defaultCharacterTierListTitle(workTitle)
         : prev,
     );
-  }, [workTitle]);
+  }, [workTitle, saved]);
 
   const handleAssign = useCallback(
     (itemId: number, tierKey: string | null) => {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
-      if (isSharing) return;
+      // 保存中も同様に、応答が押下時の盤面しか含まないのに編集分まで
+      // 「保存済み」扱いになるため受け付けない。
+      if (isSharing || save.isPending) return;
       setAssignment((prev) => assignItem(prev, itemId, tierKey));
       setIsDirty(true);
     },
-    [isSharing],
+    [isSharing, save.isPending],
   );
 
   const handleRenameTier = useCallback(
     (tierKey: string, label: string) => {
-      if (isSharing) return;
+      if (isSharing || save.isPending) return;
       const next = renameTier(tiers, tierKey, label);
       if (next === tiers) return;
       setTiers(next);
       setIsDirty(true);
     },
-    [isSharing, tiers],
+    [isSharing, save.isPending, tiers],
   );
 
   const handleBack = useCallback(() => {
@@ -307,6 +316,7 @@ export default function CharacterTierListScreen() {
     isSharing ||
     save.isPending ||
     isSavedLoading ||
+    isSavedError ||
     isCharactersLoading ||
     isCharactersError;
 
@@ -412,13 +422,16 @@ export default function CharacterTierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending) && styles.saveButtonDisabled,
+              (!isDirty || save.isPending || isSavedError) &&
+                styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending}
+            disabled={!isDirty || save.isPending || isSavedError}
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
-            accessibilityState={{ disabled: !isDirty || save.isPending }}
+            accessibilityState={{
+              disabled: !isDirty || save.isPending || isSavedError,
+            }}
             testID="character-tier-list-save"
           >
             {save.isPending ? (
@@ -441,6 +454,14 @@ export default function CharacterTierListScreen() {
             キャラクターを取得できませんでした
           </Text>
         </View>
+      ) : isSavedError ? (
+        // 保存済み表の取得失敗。空の盤面を出すと続く保存で既存配置を
+        // 消してしまうため、ボードは描画しない
+        <View style={styles.centered}>
+          <Text style={styles.centeredText}>
+            保存済みの tier 表を取得できませんでした
+          </Text>
+        </View>
       ) : isCharactersLoading || isSavedLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color="#9ca3af" />
@@ -459,7 +480,7 @@ export default function CharacterTierListScreen() {
           assignment={assignment}
           onAssign={handleAssign}
           onRenameTier={handleRenameTier}
-          labelsEditable={!isSharing}
+          labelsEditable={!isSharing && !save.isPending}
           trayEmptyLabel="すべてのキャラクターを配置しました"
         />
       )}

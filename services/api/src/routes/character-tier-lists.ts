@@ -61,24 +61,20 @@ const characterTierLists = new Hono<AuthVariables>()
       );
     }
 
-    // items は annict_characters への FK を持つ。/works/:id/characters 経由で
-    // 表示したキャラクターはキャッシュ済みのはずだが、キャッシュが消えている・
-    // 改竄されたリクエストでは FK 違反になるため、事前に存在チェックして
-    // 400 で返す（作品版と同じ方針）。
+    // items はその作品のキャスト（annict_work_casts）に限定する。
+    // annict_characters は作品を跨ぐ共有カタログなので、存在チェックだけでは
+    // 別作品のキャラクターを混入できてしまう。casts 行は annict_characters への
+    // FK を持つため、所属の確認は存在チェックも兼ねる。
     const characterIds = input.items.map((item) => item.annictCharacterId);
     if (characterIds.length > 0) {
-      const ID_CHUNK = 90;
-      const knownIds = new Set<number>();
-      for (let i = 0; i < characterIds.length; i += ID_CHUNK) {
-        const known = await adb.getAnnictCharactersByIds(
-          characterIds.slice(i, i + ID_CHUNK),
-        );
-        for (const w of known) knownIds.add(w.annictCharacterId);
-      }
-      const missing = characterIds.filter((id) => !knownIds.has(id));
-      if (missing.length > 0) {
+      const castIds = await adb.getAnnictWorkCastIds(input.annictWorkId);
+      const outside = characterIds.filter((id) => !castIds.has(id));
+      if (outside.length > 0) {
         return c.json(
-          { error: "Unknown characters", annictCharacterIds: missing },
+          {
+            error: "Characters not in this work's casts",
+            annictCharacterIds: outside,
+          },
           400,
         );
       }

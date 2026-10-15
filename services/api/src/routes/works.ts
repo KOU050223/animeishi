@@ -192,6 +192,16 @@ const works = new Hono<AuthVariables>()
             updatedAt: now,
           })),
         );
+        // 作品→キャラクターの所属もキャッシュする。tier 表保存時に
+        // 「その作品のキャストか」を検証するカタログ（annict_characters は
+        // 作品を跨ぐ共有カタログなので所属は別テーブルで持つ）。
+        await adb.upsertAnnictWorkCasts(
+          work.annictWorkId,
+          characters.map((ch) => ({
+            annictCharacterId: ch.annictCharacterId,
+            sortNumber: ch.sortNumber,
+          })),
+        );
       } catch (err) {
         console.error(
           JSON.stringify({

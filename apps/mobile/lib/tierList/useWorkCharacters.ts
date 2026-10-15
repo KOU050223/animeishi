@@ -56,7 +56,9 @@ export function useWorkCharacters(annictWorkId: number | null) {
     /** 対象作品のタイトル（ヘッダ表示用）。未取得時は null。 */
     workTitle: query.data?.work.title ?? null,
     isLoading: query.isLoading,
-    isError: query.isError,
+    // バックグラウンド再取得が失敗しても既存データがあるなら盤面を維持する
+    // （isError をそのまま見ると、表示中の編集済み盤面がエラー表示に変わる）。
+    isError: query.isError && characters.length === 0,
     isConnected,
     isConnectionLoading,
   };

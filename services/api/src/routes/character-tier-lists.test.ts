@@ -6,7 +6,12 @@ import { applyApiErrorHandling } from "../test-utils/apiApp";
 import { createDb } from "@/db/client";
 import { characterTierLists } from "@/routes/character-tier-lists";
 import { share } from "@/routes/share";
-import { users, annictWorks, annictCharacters } from "@/db/schema";
+import {
+  users,
+  annictWorks,
+  annictCharacters,
+  annictWorkCasts,
+} from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -119,6 +124,13 @@ describe("キャラクター tier 表 API", () => {
         updatedAt: now,
       },
       { annictCharacterId: CHAR_B, name: "キャラB", updatedAt: now },
+    ]);
+
+    // PUT の所属検証に使う作品→キャスト対応（/works/:id/characters が
+    // 書き込む想定の行を直接 seed する）
+    await db.insert(annictWorkCasts).values([
+      { annictWorkId: WORK_ID, annictCharacterId: CHAR_A, sortNumber: 1 },
+      { annictWorkId: WORK_ID, annictCharacterId: CHAR_B, sortNumber: 2 },
     ]);
   });
 
@@ -254,6 +266,33 @@ describe("キャラクター tier 表 API", () => {
       expect(res.status).toBe(400);
       const body = (await res.json()) as { annictCharacterIds: number[] };
       expect(body.annictCharacterIds).toEqual([999999]);
+    });
+
+    it("PUT: annict_characters にあっても別作品のキャストは 400 を返す", async () => {
+      // annict_characters は作品を跨ぐ共有カタログ。所属（annict_work_casts）
+      // が無いキャラクターを別作品の表に混ぜられないことを確認する。
+      const db = createDb(env.DB);
+      await db.insert(annictCharacters).values({
+        annictCharacterId: CHAR_EVIL,
+        name: "別作品キャラ",
+        updatedAt: new Date(),
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/me/character-tier-lists",
+        putBody({
+          annictWorkId: WORK_ID,
+          title: "tier",
+          tiers: TIERS,
+          items: [{ annictCharacterId: CHAR_EVIL, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { annictCharacterIds: number[] };
+      expect(body.annictCharacterIds).toEqual([CHAR_EVIL]);
     });
 
     it("PUT: tiers に存在しない tierKey は 400 を返す", async () => {
@@ -496,6 +535,12 @@ describe("キャラクター tier 表 API", () => {
         name: "悪意あるURLのキャラ",
         imageUrl: "javascript:alert(1)",
         updatedAt: new Date(),
+      });
+      // PUT の所属検証を通すため、この作品のキャストとして seed する
+      await db.insert(annictWorkCasts).values({
+        annictWorkId: WORK_ID,
+        annictCharacterId: CHAR_EVIL,
+        sortNumber: 3,
       });
       const app = buildApp();
       await app.request(

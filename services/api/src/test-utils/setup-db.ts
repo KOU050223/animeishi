@@ -100,6 +100,15 @@ const DDL_STATEMENTS = [
     image_url TEXT,
     updated_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS annict_work_casts (
+    annict_work_id INTEGER NOT NULL,
+    annict_character_id INTEGER NOT NULL,
+    sort_number INTEGER NOT NULL,
+    PRIMARY KEY (annict_work_id, annict_character_id),
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_character_id) REFERENCES annict_characters(annict_character_id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS annict_work_casts_work_idx ON annict_work_casts (annict_work_id)`,
   `CREATE TABLE IF NOT EXISTS character_tier_lists (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -188,6 +197,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM users").run();
+  await d1.prepare("DELETE FROM annict_work_casts").run();
   await d1.prepare("DELETE FROM annict_characters").run();
   await d1.prepare("DELETE FROM annict_works").run();
   // AUTOINCREMENTカウンターをリセット

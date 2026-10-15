@@ -894,6 +894,16 @@ describe("キャラクター一覧 API", () => {
     });
     expect(row?.name).toBe("キャラA");
     expect(row?.imageUrl).toBe("https://s4.anilist.co/char-a.png");
+
+    // 作品→キャラクターの所属も annict_work_casts にキャッシュされる
+    // （tier 表保存時に「その作品のキャストか」を検証するため）
+    const casts = await db.query.annictWorkCasts.findMany({
+      where: (t, { eq }) => eq(t.annictWorkId, CHAR_WORK_ID),
+    });
+    expect(casts.map((c) => [c.annictCharacterId, c.sortNumber])).toEqual([
+      [3001, 1],
+      [3002, 2],
+    ]);
   });
 
   it("GET /works/:id/characters: 同一キャラクターの複数キャスト行は sortNumber の小さい方を残す", async () => {

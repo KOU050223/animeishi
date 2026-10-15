@@ -6,6 +6,7 @@ import {
   index,
   unique,
   check,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 
 // Annict の StatusState（watch_history.state の許可値）
@@ -216,6 +217,30 @@ export const annictCharacters = sqliteTable("annict_characters", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
+// ---- annict_work_casts (作品→キャラクターの所属カタログ) ----
+// /works/:id/characters が Annict Work.casts から読み取った所属を保持する。
+// annict_characters は作品を跨いだ共有カタログのため、ここが無いと
+// 保存時に「その作品のキャストか」を検証できず、別作品のキャラクターを
+// tier 表に混入できてしまう。
+export const annictWorkCasts = sqliteTable(
+  "annict_work_casts",
+  {
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    annictCharacterId: integer("annict_character_id")
+      .notNull()
+      .references(() => annictCharacters.annictCharacterId, {
+        onDelete: "cascade",
+      }),
+    sortNumber: integer("sort_number").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.annictWorkId, t.annictCharacterId] }),
+    index("annict_work_casts_work_idx").on(t.annictWorkId),
+  ],
+);
+
 // ---- character_tier_lists (作品単位のキャラクター tier 表) ----
 // 作品 tier 表（tier_lists）のキャラクター版。対象の単位が「シーズン」ではなく
 // 「作品」になるため annict_work_id をスコープキーに持つ。
@@ -362,6 +387,8 @@ export type TierListItem = typeof tierListItems.$inferSelect;
 export type NewTierListItem = typeof tierListItems.$inferInsert;
 export type AnnictCharacter = typeof annictCharacters.$inferSelect;
 export type NewAnnictCharacter = typeof annictCharacters.$inferInsert;
+export type AnnictWorkCast = typeof annictWorkCasts.$inferSelect;
+export type NewAnnictWorkCast = typeof annictWorkCasts.$inferInsert;
 export type CharacterTierList = typeof characterTierLists.$inferSelect;
 export type NewCharacterTierList = typeof characterTierLists.$inferInsert;
 export type CharacterTierListItem = typeof characterTierListItems.$inferSelect;

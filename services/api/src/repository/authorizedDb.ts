@@ -24,6 +24,7 @@ import {
   userGenres,
   annictWorks,
   annictCharacters,
+  annictWorkCasts,
   annictTokens,
   tierLists,
   tierListItems,
@@ -659,6 +660,52 @@ export function authorizedDb(db: DrizzleDb, currentUserId: string) {
       await db.batch(
         queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
       );
+    },
+
+    /**
+     * 作品→キャラクターの所属（annict_work_casts）をまとめて upsert する。
+     * tier 表保存時に「その作品のキャストか」を検証するためのカタログ。
+     * 同じキャラが複数キャスト枠を持つ場合は小さい sortNumber を残す。
+     * 3 カラム × 30 行 = 90 変数で D1 のバインド上限を下回るようチャンクする。
+     */
+    async upsertAnnictWorkCasts(
+      annictWorkId: number,
+      casts: { annictCharacterId: number; sortNumber: number }[],
+    ): Promise<void> {
+      const CHUNK = 30;
+      for (let i = 0; i < casts.length; i += CHUNK) {
+        await db
+          .insert(annictWorkCasts)
+          .values(
+            casts.slice(i, i + CHUNK).map((cast) => ({
+              annictWorkId,
+              annictCharacterId: cast.annictCharacterId,
+              sortNumber: cast.sortNumber,
+            })),
+          )
+          .onConflictDoUpdate({
+            target: [
+              annictWorkCasts.annictWorkId,
+              annictWorkCasts.annictCharacterId,
+            ],
+            set: {
+              sortNumber: sql`min(${annictWorkCasts.sortNumber}, excluded.sort_number)`,
+            },
+          });
+      }
+    },
+
+    /**
+     * その作品のキャストとして記録されている annictCharacterId の集合。
+     * tier 表保存時の所属検証に使う（annict_characters の存在チェックだけでは
+     * 別作品のキャラクターを弾けない）。
+     */
+    async getAnnictWorkCastIds(annictWorkId: number): Promise<Set<number>> {
+      const rows = await db
+        .select({ id: annictWorkCasts.annictCharacterId })
+        .from(annictWorkCasts)
+        .where(eq(annictWorkCasts.annictWorkId, annictWorkId));
+      return new Set(rows.map((r) => r.id));
     },
 
     // ---- Watch History ----
