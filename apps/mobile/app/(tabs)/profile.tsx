@@ -148,6 +148,12 @@ export default function ProfileScreen() {
         >
           <Text className="font-semibold text-white">再試行</Text>
         </TouchableOpacity>
+        {/* 連携の確認・解除の集約先として、プロフィール取得に失敗している間も
+            解除導線を残す（ホームにはカードを出さないため）。連携カードは
+            プロフィール取得とは独立したクエリで描画できる。 */}
+        <View className="mt-6 self-stretch">
+          <AnnictConnectionCard />
+        </View>
       </View>
     );
   }

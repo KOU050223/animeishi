@@ -35,22 +35,26 @@ jest.mock("@/components/AppVersionFooter", () => ({
   },
 }));
 
+// 取得結果をテストごとに切り替えられるよう、変数経由で返す。
+const mockProfileData = {
+  id: "user_1",
+  username: "テストユーザー",
+  bio: "",
+  favoriteQuote: "",
+  profileImageUrl: null,
+  isPublic: true,
+  createdAt: "",
+  updatedAt: "",
+};
+let mockProfile: {
+  data: typeof mockProfileData | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  refetch: jest.Mock;
+};
+
 jest.mock("@/lib/useProfile", () => ({
-  useProfile: () => ({
-    data: {
-      id: "user_1",
-      username: "テストユーザー",
-      bio: "",
-      favoriteQuote: "",
-      profileImageUrl: null,
-      isPublic: true,
-      createdAt: "",
-      updatedAt: "",
-    },
-    isLoading: false,
-    isError: false,
-    refetch: jest.fn(),
-  }),
+  useProfile: () => mockProfile,
   useUpdateProfile: () => ({
     isPending: false,
     mutate: mockMutateProfile,
@@ -108,6 +112,12 @@ jest.mock("@/lib/profileUrl", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockProfile = {
+    data: mockProfileData,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  };
   mockMutateProfile.mockImplementation((_input, options) => {
     options?.onSuccess?.();
   });
@@ -138,6 +148,26 @@ describe("ProfileScreen の保存トースト", () => {
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
+  });
+});
+
+describe("ProfileScreen の Annict 連携セクション", () => {
+  it("連携状態の確認・解除カードを表示する（ホームからここへ集約）", () => {
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("Annict連携")).toBeTruthy();
+  });
+
+  it("プロフィール取得エラー時も連携カードを表示する（解除導線を残す）", () => {
+    mockProfile = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+    };
+    render(<ProfileScreen />);
+
+    expect(screen.getByText("Annict連携")).toBeTruthy();
   });
 });
 
