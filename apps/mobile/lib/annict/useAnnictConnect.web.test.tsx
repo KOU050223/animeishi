@@ -49,6 +49,8 @@ describe("useAnnictConnect (web)", () => {
     process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test_client_id";
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
     mockDisconnectPost.mockReset().mockResolvedValue({ ok: true });
+    jest.mocked(Sentry.logger.info).mockClear();
+    jest.mocked(Sentry.flush).mockClear();
     window.sessionStorage.clear();
     hrefValue = "";
     // jsdom によっては crypto.randomUUID が無いため、テスト用に固定値を注入する。
@@ -105,6 +107,8 @@ describe("useAnnictConnect (web)", () => {
     expect(hrefValue).toContain(`state=${state}`);
     expect(hrefValue).toContain("client_id=test_client_id");
     expect(hrefValue).toContain(encodeURIComponent("/annict"));
+    // 遷移前にバッファ済みログを flush する（消失防止）。
+    expect(Sentry.flush).toHaveBeenCalled();
   });
 
   it("connect: state に戻り先オリジンを埋め込む（正規側での中継用）", async () => {

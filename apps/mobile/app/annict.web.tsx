@@ -34,6 +34,10 @@ export default function AnnictCallbackScreen() {
   const [phase, setPhase] = useState<Phase>({ kind: "processing" });
   // React 18 の StrictMode / 再マウントで exchange を二重実行しないためのガード。
   const handledRef = useRef(false);
+  // /annict 着地直後は Clerk がセッション復元中で userId が未解決なことがある。
+  // ファネル計測の user_key は結果確定時の最新値を使いたいため ref 経由で渡す。
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   useEffect(() => {
     if (handledRef.current) return;
@@ -56,7 +60,7 @@ export default function AnnictCallbackScreen() {
         window.location.href,
         getToken,
         // ファネル計測（issue #64）の oauth_result にハッシュ化して使う。
-        { userId },
+        { getUserId: () => userIdRef.current },
       );
       if (result.status !== "success") {
         setPhase({
@@ -72,7 +76,7 @@ export default function AnnictCallbackScreen() {
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);
     })();
-  }, [getToken, userId, queryClient, router]);
+  }, [getToken, queryClient, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">

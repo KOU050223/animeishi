@@ -127,7 +127,7 @@ describe("exchangeAnnictWebCallback", () => {
     mockExchangePost.mockResolvedValue({ ok: true });
 
     const res = await exchangeAnnictWebCallback(CALLBACK, getClerkToken, {
-      userId: "user_web",
+      getUserId: () => "user_web",
     });
 
     expect(res).toEqual({ status: "success" });

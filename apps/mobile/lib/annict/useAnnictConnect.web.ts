@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/clerk-expo";
 import {
@@ -60,11 +61,14 @@ export function getWebRedirectUri(): string {
  *
  * @param callbackUrl 戻ってきた URL（window.location.href）。
  * @param getClerkToken Clerk JWT を取得する関数。
+ * @param meta.getUserId ファネル計測の user_key 元。コールバック着地直後は
+ *   Clerk のセッション復元が未完で userId が未解決なことがあるため、
+ *   結果確定時に評価する getter で渡す。
  */
 export async function exchangeAnnictWebCallback(
   callbackUrl: string,
   getClerkToken: () => Promise<string | null>,
-  meta?: { userId?: string | null },
+  meta?: { getUserId?: () => string | null | undefined },
 ): Promise<AnnictConnectResult> {
   // 退避した state を取り出して照合する（CSRF 対策）。取り出したら消費する。
   // ファネル計測用に退避した surface も同じタイミングで読み取り・消費する。
@@ -89,7 +93,7 @@ export async function exchangeAnnictWebCallback(
     trackAnnictFunnel({
       step: "oauth_result",
       surface,
-      userId: meta?.userId,
+      userId: meta?.getUserId?.(),
       result: result.status,
       reason: result.status === "error" ? result.reason : undefined,
     });
@@ -187,6 +191,9 @@ export function useAnnictConnect(): UseAnnictConnect {
         );
         try {
           window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
+          // 前回 authorize で放棄した場合に残る surface を消してから書き込む。
+          // surface 無しで connect したときに古い値が oauth_result に付かないようにする。
+          window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
           if (options?.surface) {
             window.sessionStorage.setItem(
               ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
@@ -208,6 +215,14 @@ export function useAnnictConnect(): UseAnnictConnect {
         // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
         // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
         // 待たず、遷移が起きたこと自体を成功とみなす。
+        // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
+        // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
+        // RN 版 flush は timeout を取れず内部で握りつぶされるため、
+        // 遷移を阻害しないようこちらで時間上限を設ける。
+        await Promise.race([
+          Sentry.flush(),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
         window.location.href = authorizeUrl;
         didNavigate = true;
         return { status: "success" };

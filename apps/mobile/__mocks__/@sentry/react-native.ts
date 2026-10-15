@@ -3,6 +3,7 @@
 export const init = jest.fn();
 export const captureException = jest.fn();
 export const nativeCrash = jest.fn();
+export const flush = jest.fn(async () => true);
 export const logger = {
   trace: jest.fn(),
   debug: jest.fn(),
