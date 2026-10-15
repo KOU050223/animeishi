@@ -1,9 +1,10 @@
 import { clerkMiddleware, getAuth } from "@clerk/hono";
+import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { Env } from "@/db/client";
 import { createDb } from "@/db/client";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
 
 // hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
 export type AuthVariables = {
@@ -72,6 +73,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   });
 
   let userId: string;
+  let tokenIat: number | undefined;
   try {
     // handshake が必要なリクエスト（Accept: text/html のドキュメント取得など）
     // では clerkMiddleware が next を呼ばずリダイレクト応答を返す。
@@ -85,6 +87,9 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
       return c.json({ error: "Unauthorized" }, 401);
     }
     userId = auth.userId;
+    // JWT の発行時刻（秒）。削除済み判定で「削除後に発行されたトークンか」
+    // を見るために保持しておく。
+    tokenIat = auth.sessionClaims?.iat;
   } catch {
     // authenticateRequest / getAuth の例外は 401 に丸める。
     // 以前は getAuth の throw が未処理で 500 になっていた。
@@ -93,21 +98,58 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
 
   c.set("clerkUserId", userId);
 
+  const db = createDb((c.env as { DB: D1Database }).DB);
+  const adb = authorizedDb(db, userId);
+
+  // 削除済みユーザーの残存 JWT を拒否する（issue #144）。
+  // tombstone は DELETE /me の削除 batch と同じくアトミックに書かれるため、
+  // users 行が消えていれば必ずここで検出できる。
+  const deletedAt = await adb.getMyDeletedAt();
+  if (deletedAt !== undefined) {
+    // JWT の発行時刻が削除時刻より新しい = 削除後に Clerk がトークンを
+    // 発行している = Clerk 側ではユーザーが生存している（削除済み
+    // ユーザーには新しいトークンを発行できないため）。Clerk deleteUser が
+    // 失敗したケースの自己修復として tombstone を解除して処理を続ける
+    // （DELETE /me の再試行もこの経路で通る）。
+    const issuedAtMs = typeof tokenIat === "number" ? tokenIat * 1000 : 0;
+    if (issuedAtMs > deletedAt.getTime()) {
+      await adb.clearMyDeletedAt();
+    } else {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+  }
+
   // Clerk 認証済みユーザーを users テーブルへプロビジョニングする。
   // watch_history / favorites などの外部キー制約を満たすため、
   // 認証を必要とする全エンドポイントで初回アクセス時に登録される。
   // 表示名は Clerk のユーザー情報（username / 氏名）から解決する。
   // Clerk API 呼び出しは users 未登録の初回のみ行われる（ensureUserExists 側で制御）。
-  const db = createDb((c.env as { DB: D1Database }).DB);
-  await authorizedDb(db, userId).ensureUserExists(async () => {
-    const clerk = c.get("clerk");
-    const user = await clerk.users.getUser(userId);
-    const fullName = [user.firstName, user.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    return user.username ?? (fullName || null);
-  });
+  try {
+    await adb.ensureUserExists(async () => {
+      const clerk = c.get("clerk");
+      try {
+        const user = await clerk.users.getUser(userId);
+        const fullName = [user.firstName, user.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        return user.username ?? (fullName || null);
+      } catch (err) {
+        // Clerk 側にユーザーが存在しない（404）= tombstone を伴わない削除
+        // （運用での手動削除など）。この場合も users 行を再作成せず
+        // プロビジョニングを中止する（issue #144）。
+        if (isClerkAPIResponseError(err) && err.status === 404) {
+          throw new DeletedUserError(userId);
+        }
+        throw err;
+      }
+    });
+  } catch (err) {
+    if (err instanceof DeletedUserError) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    throw err;
+  }
 
   await next();
 });

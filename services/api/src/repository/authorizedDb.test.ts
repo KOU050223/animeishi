@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
 import { authorizedDb } from "@/repository/authorizedDb";
-import { annictWorks, users } from "@/db/schema";
+import { annictWorks, deletedUsers, users } from "@/db/schema";
 
 const USER_ID = "user_testuser001";
 const ANOTHER_USER_ID = "user_testuser002";
@@ -89,6 +90,77 @@ describe("authorizedDb", () => {
 
       expect(profile1?.username).toBe("ユーザー1");
       expect(profile2?.username).toBe("ユーザー2");
+    });
+  });
+
+  describe("削除済みユーザーの tombstone（issue #144）", () => {
+    const DELETED_ID = "user_deleted001";
+
+    it("deleteMyAccount は users 行と一緒に tombstone を残す", async () => {
+      const adb = authorizedDb(db, USER_ID);
+      await adb.deleteMyAccount();
+
+      const tombstones = await db
+        .select()
+        .from(deletedUsers)
+        .where(eq(deletedUsers.userId, USER_ID));
+      expect(tombstones).toHaveLength(1);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(0);
+      // 他ユーザーには tombstone が付かない
+      expect(
+        await db
+          .select()
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, ANOTHER_USER_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("tombstone があるユーザーは upsertMyProfile で users 行が再作成されない", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      // INSERT が抑止されるため、後続の findFirst が見つからず例外になる
+      await expect(
+        adb.upsertMyProfile({ username: "復活しない", isPublic: true }),
+      ).rejects.toThrow("ユーザーの更新に失敗しました");
+      expect(
+        await db.select().from(users).where(eq(users.id, DELETED_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("tombstone があるユーザーは ensureUserExists で users 行が作られない", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      await adb.ensureUserExists(async () => "表示名");
+      expect(
+        await db.select().from(users).where(eq(users.id, DELETED_ID)),
+      ).toHaveLength(0);
+    });
+
+    it("clearMyDeletedAt で tombstone 解除後は通常どおりプロビジョニングできる", async () => {
+      await db
+        .insert(deletedUsers)
+        .values({ userId: DELETED_ID, deletedAt: new Date() });
+
+      const adb = authorizedDb(db, DELETED_ID);
+      expect(await adb.getMyDeletedAt()).toBeDefined();
+      await adb.clearMyDeletedAt();
+      expect(await adb.getMyDeletedAt()).toBeUndefined();
+
+      await adb.ensureUserExists(async () => "復帰ユーザー");
+      const recreated = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, DELETED_ID));
+      expect(recreated).toHaveLength(1);
+      expect(recreated[0]?.username).toBe("復帰ユーザー");
     });
   });
 
