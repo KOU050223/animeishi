@@ -232,8 +232,10 @@ export function AnimeListContent({
               <SeasonFilter
                 year={filterYear}
                 season={filterSeason}
-                onChangeYear={setFilterYear}
-                onChangeSeason={setFilterSeason}
+                onChange={(nextYear, nextSeason) => {
+                  setFilterYear(nextYear);
+                  setFilterSeason(nextSeason);
+                }}
               />
             ) : null}
           </View>

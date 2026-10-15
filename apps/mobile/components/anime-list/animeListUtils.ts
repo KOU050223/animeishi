@@ -32,11 +32,69 @@ export function formatSeasonLabel(year: number, key: SeasonKey): string {
 }
 
 /**
- * 絞り込み用の年リストを新しい順で返す（今年から count 年分さかのぼる）。
+ * 年ピッカーで遡れる下限。Annict のシーズン別アーカイブは 1890 年まで遡れる
+ * （annict.com/works/<year>-<season>）。
  */
-export function recentYears(count = 12, now: Date = new Date()): number[] {
-  const thisYear = now.getFullYear();
-  return Array.from({ length: count }, (_, i) => thisYear - i);
+export const SEASON_PICKER_MIN_YEAR = 1890;
+
+/** 今期から先に選べるシーズン数（来期・再来期）。 */
+const FUTURE_SEASON_COUNT = 2;
+
+/** (year, key) を offset シーズン分ずらした結果を返す（負の offset で過去へ）。 */
+export function shiftSeason(
+  year: number,
+  key: SeasonKey,
+  offset: number,
+): { year: number; key: SeasonKey } {
+  const total = year * SEASON_KEYS.length + SEASON_KEYS.indexOf(key) + offset;
+  const index =
+    ((total % SEASON_KEYS.length) + SEASON_KEYS.length) % SEASON_KEYS.length;
+  return {
+    year: Math.floor(total / SEASON_KEYS.length),
+    key: SEASON_KEYS[index],
+  };
+}
+
+/** 選択可能な最も先のシーズン（今期 + FUTURE_SEASON_COUNT）。 */
+export function maxSelectableSeason(now: Date = new Date()): {
+  year: number;
+  key: SeasonKey;
+} {
+  return shiftSeason(
+    now.getFullYear(),
+    currentSeasonKey(now),
+    FUTURE_SEASON_COUNT,
+  );
+}
+
+/**
+ * 年ピッカーに出す年リストを新しい順で返す。
+ * 先頭は maxSelectableSeason の年（来期・再来期が翌年になることもある）、
+ * 末尾は Annict アーカイブの最古年。
+ */
+export function seasonPickerYears(now: Date = new Date()): number[] {
+  const maxYear = maxSelectableSeason(now).year;
+  return Array.from(
+    { length: maxYear - SEASON_PICKER_MIN_YEAR + 1 },
+    (_, i) => maxYear - i,
+  );
+}
+
+/**
+ * その年で選択可能なシーズンキーを冬→春→夏→秋の順で返す。
+ * 上限年は今期+2 シーズンまで、それより昔の年は全シーズン、
+ * 上限年より未来は空配列。
+ */
+export function selectableSeasonKeys(
+  year: number,
+  now: Date = new Date(),
+): SeasonKey[] {
+  const max = maxSelectableSeason(now);
+  if (year > max.year) return [];
+  if (year === max.year) {
+    return SEASON_KEYS.slice(0, SEASON_KEYS.indexOf(max.key) + 1);
+  }
+  return [...SEASON_KEYS];
 }
 
 export const POSTER_PALETTES = [

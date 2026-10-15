@@ -249,6 +249,68 @@ export const styles = StyleSheet.create({
   filterChipTextActive: {
     color: "#ffffff",
   },
+  filterChipDisabled: {
+    backgroundColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
+  },
+  filterChipTextDisabled: {
+    color: "#cbd5e1",
+  },
+  yearPickerButton: {
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dbe4ee",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 12,
+  },
+  yearPickerButtonText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  yearPickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  yearPickerSheet: {
+    width: "100%",
+    maxWidth: 560,
+    maxHeight: "60%",
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+  },
+  yearPickerTitle: {
+    marginBottom: 8,
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "800",
+    paddingHorizontal: 16,
+  },
+  yearPickerItem: {
+    height: 44,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  yearPickerItemActive: {
+    backgroundColor: "#f1f5f9",
+  },
+  yearPickerItemText: {
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  yearPickerItemTextActive: {
+    color: "#111827",
+    fontWeight: "900",
+  },
   card: {
     flexDirection: "row",
     gap: 13,
