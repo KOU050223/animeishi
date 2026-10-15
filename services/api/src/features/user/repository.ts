@@ -1,11 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import {
-  annictWorks,
-  favorites,
-  watchHistory,
-  type WatchHistory,
-} from "@/db/schema";
+import { annictWorks, favorites, watchHistory } from "@/db/schema";
+import type { WatchHistory } from "@/db/schema";
 
 /** 公開名刺（/user/:uid の OGP / JSON）に載せる視聴サマリ。 */
 export type UserWatchSummary = {
@@ -42,36 +38,39 @@ export async function findUserWatchSummary(
   db: DrizzleDb,
   userId: string,
 ): Promise<UserWatchSummary> {
+  // 無認証でクローラー流量を受ける公開エンドポイントのため、3 クエリを
+  // db.batch で 1 往復にまとめる。
   // updated_at / created_at は unix 秒（drizzle timestamp mode）。max() を
   // 通した値は Date 変換されず生の秒値で返るため、受け取ってから変換する。
-  const stateRows = await db
-    .select({
-      state: watchHistory.state,
-      count: sql<number>`count(*)`,
-      latest: sql<number | null>`max(${watchHistory.updatedAt})`,
-    })
-    .from(watchHistory)
-    .where(eq(watchHistory.userId, userId))
-    .groupBy(watchHistory.state);
-
-  const favoriteAggregate = await db
-    .select({
-      count: sql<number>`count(*)`,
-      latest: sql<number | null>`max(${favorites.createdAt})`,
-    })
-    .from(favorites)
-    .where(eq(favorites.userId, userId));
-
-  const favoriteTitleRows = await db
-    .select({ title: annictWorks.title })
-    .from(favorites)
-    .innerJoin(
-      annictWorks,
-      eq(favorites.annictWorkId, annictWorks.annictWorkId),
-    )
-    .where(eq(favorites.userId, userId))
-    .orderBy(desc(favorites.createdAt))
-    .limit(FAVORITE_TITLES_MAX);
+  const [stateRows, favoriteAggregate, favoriteTitleRows] = await db.batch([
+    db
+      .select({
+        state: watchHistory.state,
+        count: sql<number>`count(*)`,
+        latest: sql<number | null>`max(${watchHistory.updatedAt})`,
+      })
+      .from(watchHistory)
+      .where(eq(watchHistory.userId, userId))
+      .groupBy(watchHistory.state),
+    db
+      .select({
+        count: sql<number>`count(*)`,
+        latest: sql<number | null>`max(${favorites.createdAt})`,
+      })
+      .from(favorites)
+      .where(eq(favorites.userId, userId)),
+    db
+      .select({ title: annictWorks.title })
+      .from(favorites)
+      .innerJoin(
+        annictWorks,
+        eq(favorites.annictWorkId, annictWorks.annictWorkId),
+      )
+      .where(eq(favorites.userId, userId))
+      // created_at は秒精度で同秒があり得るため、id で順序を決定的にする。
+      .orderBy(desc(favorites.createdAt), desc(favorites.id))
+      .limit(FAVORITE_TITLES_MAX),
+  ]);
 
   const countOf = (state: WatchHistory["state"]) =>
     stateRows.find((r) => r.state === state)?.count ?? 0;

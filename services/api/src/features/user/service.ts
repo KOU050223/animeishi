@@ -13,17 +13,23 @@ function formatSnapshotDate(d: Date): string {
 
 /**
  * og:description 等に載せる視聴サマリの 1 行テキスト
- * （例: "視聴済み120作品・視聴中3作品・お気に入り8作品"）。
+ * （例: "視聴済み120作品・見たい5作品・お気に入り8作品（2026/10/13時点）"）。
  * 0 件だけ・未同期なら空文字を返す（呼び出し側でサマリ自体を省略する）。
+ * SNS カードでは description が主な露出面のため、スナップショットの時点も
+ * ここに含める（本文の注記だけではカード上で読めない）。
  */
 function buildWatchSummaryText(summary: UserWatchSummary): string {
-  return [
+  const parts = [
     summary.watchedCount > 0 ? `視聴済み${summary.watchedCount}作品` : "",
     summary.watchingCount > 0 ? `視聴中${summary.watchingCount}作品` : "",
+    summary.wannaWatchCount > 0 ? `見たい${summary.wannaWatchCount}作品` : "",
     summary.favoriteCount > 0 ? `お気に入り${summary.favoriteCount}作品` : "",
-  ]
-    .filter(Boolean)
-    .join("・");
+  ].filter(Boolean);
+  if (parts.length === 0) return "";
+  const synced = summary.syncedAt
+    ? `（${formatSnapshotDate(summary.syncedAt)}時点）`
+    : "";
+  return `${parts.join("・")}${synced}`;
 }
 
 /**
@@ -98,9 +104,12 @@ export function buildOgpHtml(
       : "";
   // D1 キャッシュは本人が一覧を開いた時点のスナップショットで、ここからは
   // 更新タイミングを制御できない。表示時点のデータではないことを明記する。
-  const snapshotNoteHtml = watchSummary.syncedAt
-    ? `<p class="snapshot-note">視聴データは ${formatSnapshotDate(watchSummary.syncedAt)} 時点のスナップショットです</p>`
-    : "";
+  // サマリの表示物が何も無いとき（集計対象外の状態だけが残っている等）は
+  // 注記だけが浮くため出さない。
+  const snapshotNoteHtml =
+    watchSummary.syncedAt && (statItems.length > 0 || favoriteTitlesHtml !== "")
+      ? `<p class="snapshot-note">視聴データは ${formatSnapshotDate(watchSummary.syncedAt)} 時点のスナップショットです</p>`
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="ja">

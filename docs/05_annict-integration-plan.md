@@ -211,7 +211,7 @@ query SearchWorks($titles: [String!], $seasons: [String!], $after: String) {
 
 - **Annict GraphQL レート制限**: 値を要確認。本人 read-through を毎回フル取得すると重いユーザーで負荷大 → React Query キャッシュ + 「初回フル/以降は差分」の最適化を将来必要に応じて。
 - **libraryEntries の全ページ取得コスト**: 数百〜千作品のヘビーユーザーで全置換の delete→insert が大きくなる。PR3 時点で件数上限/ページング戦略を計測。
-- **OGP に視聴データを出すか**: 現状 `user.ts` の OGP はプロフィールのみ(視聴データ未使用)。視聴サマリを OGP に載せるなら D1 キャッシュから集計するエンドポイントが別途必要(本計画スコープ外、将来検討)。
+- **OGP に視聴データを出すか**: ~~現状 `user.ts` の OGP はプロフィールのみ(視聴データ未使用)。視聴サマリを OGP に載せるなら D1 キャッシュから集計するエンドポイントが別途必要(本計画スコープ外、将来検討)。~~ → 解決済み: issue #65 で D1 キャッシュ由来の視聴サマリ（視聴済み/視聴中/見たい/お気に入りの件数と直近お気に入りタイトル）を `/user/:uid` の OGP・JSON に載せた（`features/user/repository.ts` の `findUserWatchSummary`）。スナップショット時点は HTML 本文と og:description で明記。
 - **`GET /me/annict`(連携状態)の実体**: **ネイティブ**はサーバーがトークンを保存しないため「連携済み」はクライアントの SecureStore 有無で判定し、`X-Annict-Token` があればそれで `oauth/token/info` を検証する。**Web**（追補で確定）はサーバーが D1 に保存したトークンを復号して `oauth/token/info` で検証し、`connected` を返す（クライアントは localStorage を見ない）。
 - **未連携ユーザーの離脱計測**: ソフトゲートでも記録機能の連携誘導 → 連携完了のコンバージョンを計測する。
 - **`redirect_uri` 登録**: Annict アプリ設定に `animeishi://annict`(本番)とローカル/プレビュー用を登録する必要がある。

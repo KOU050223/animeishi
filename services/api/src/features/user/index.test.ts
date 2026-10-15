@@ -234,7 +234,10 @@ describe("GET /user/:uid", () => {
       expect(res.status).toBe(200);
       const html = await res.text();
       // og:description にサマリを載せる（SNS カードでの訴求）。
-      expect(html).toContain("視聴済み2作品・視聴中1作品・お気に入り1作品");
+      // カードが主な露出面なのでスナップショット時点もここに含める。
+      expect(html).toContain(
+        "視聴済み2作品・視聴中1作品・お気に入り1作品（2026/10/13時点）",
+      );
       // 本文の統計セクションとお気に入り作品タイトル。
       expect(html).toContain('class="stats"');
       expect(html).toContain("お気に入り: 作品A");
@@ -286,6 +289,33 @@ describe("GET /user/:uid", () => {
       expect(html).not.toContain('class="stats"');
       expect(html).not.toContain("スナップショット");
       expect(html).toContain("公開ユーザー のアニメプロフィール");
+    });
+
+    it("集計対象外の状態（ON_HOLD 等）だけのキャッシュでは注記も出さない", async () => {
+      await insertPublicUser(db, "user_summary004");
+      await db.insert(annictWorks).values({
+        annictWorkId: 2001,
+        title: "中断作品",
+        updatedAt: new Date(),
+      });
+      await db.insert(watchHistory).values({
+        userId: "user_summary004",
+        annictWorkId: 2001,
+        state: "ON_HOLD",
+        updatedAt: new Date("2026-10-12T00:00:00Z"),
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_summary004",
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      // サマリの表示物が無いのに注記だけ出るのを防ぐ。
+      expect(html).not.toContain('class="stats"');
+      expect(html).not.toContain("スナップショット");
     });
   });
 
