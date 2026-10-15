@@ -5,10 +5,10 @@ import { reportCreateSchema } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
-  authorizedDb,
+  usersRepository,
   ReportRateLimitError,
   UserNotFoundError,
-} from "@/repository/authorizedDb";
+} from "./repository";
 import { createDb } from "@/db/client";
 import { notifyUserReport } from "@/observability";
 
@@ -19,7 +19,7 @@ function getBindings(
 }
 
 // ユーザー通報・ブロック（App Store Guideline 1.2 の UGC 対策, issue #135）。
-// ブロック一覧の取得は GET /me/blocks（me.ts）側にある。
+// ブロック一覧の取得は GET /me/blocks（features/me/index.ts）側にある。
 const usersRoute = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .post("/:id/report", zValidator("json", reportCreateSchema), async (c) => {
@@ -30,9 +30,9 @@ const usersRoute = new Hono<AuthVariables>()
     const { reason } = c.req.valid("json");
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = usersRepository(db, c.var.clerkUserId);
     try {
-      await adb.createReport(targetId, reason);
+      await repo.createReport(targetId, reason);
     } catch (e) {
       if (e instanceof UserNotFoundError) {
         return c.json({ error: "User not found" }, 404);
@@ -59,9 +59,9 @@ const usersRoute = new Hono<AuthVariables>()
     }
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = usersRepository(db, c.var.clerkUserId);
     try {
-      await adb.blockUser(targetId);
+      await repo.blockUser(targetId);
     } catch (e) {
       if (e instanceof UserNotFoundError) {
         return c.json({ error: "User not found" }, 404);
@@ -77,8 +77,8 @@ const usersRoute = new Hono<AuthVariables>()
     }
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    await adb.unblockUser(targetId);
+    const repo = usersRepository(db, c.var.clerkUserId);
+    await repo.unblockUser(targetId);
     return c.json({ success: true }, 200);
   });
 

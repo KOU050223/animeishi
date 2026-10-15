@@ -27,7 +27,8 @@ import {
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { worksRepository } from "./repository";
+import type { WorksRepository } from "./repository";
 import { createDb } from "@/db/client";
 
 function getBindings(c: Context): AuthEnv["Bindings"] & {
@@ -79,8 +80,12 @@ const works = new Hono<AuthVariables>()
       // バッチだけここで同期解決する。取れなかった分は annict_works に upsert
       // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const enriched = await attachResolvedImages(adb, result.works, c.req.url);
+      const repo = worksRepository(db);
+      const enriched = await attachResolvedImages(
+        repo,
+        result.works,
+        c.req.url,
+      );
 
       return c.json({ ...result, works: enriched }, 200);
     },
@@ -104,7 +109,7 @@ const works = new Hono<AuthVariables>()
       const { work, characters } = result;
 
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
+      const repo = worksRepository(db);
 
       // キャラクター tier 表（character_tier_lists）の FK 先となる作品行と
       // キャラクター行をここでキャッシュする。作品自体は /works/search の
@@ -112,7 +117,7 @@ const works = new Hono<AuthVariables>()
       // 前提を満たすようこの経路でも upsert する。
       if (work.title?.trim()) {
         try {
-          await adb.upsertAnnictWork({
+          await repo.upsertAnnictWork({
             annictWorkId: work.annictWorkId,
             nodeId: work.nodeId,
             malAnimeId: work.malAnimeId,
@@ -138,7 +143,7 @@ const works = new Hono<AuthVariables>()
       }
 
       // 既存キャッシュの imageUrl を拾い、未取得分だけ AniList 名寄せで補完する。
-      const cachedCharacters = await adb.getAnnictCharactersByIds(
+      const cachedCharacters = await repo.getAnnictCharactersByIds(
         characters.map((ch) => ch.annictCharacterId),
       );
       const cachedImageById = new Map(
@@ -178,7 +183,7 @@ const works = new Hono<AuthVariables>()
 
       const now = new Date();
       try {
-        await adb.upsertAnnictCharacters(
+        await repo.upsertAnnictCharacters(
           characters.map((ch) => ({
             annictCharacterId: ch.annictCharacterId,
             name: ch.name,
@@ -193,7 +198,7 @@ const works = new Hono<AuthVariables>()
         // 作品→キャラクターの所属もキャッシュする。tier 表保存時に
         // 「その作品のキャストか」を検証するカタログ（annict_characters は
         // 作品を跨ぐ共有カタログなので所属は別テーブルで持つ）。
-        await adb.upsertAnnictWorkCasts(
+        await repo.upsertAnnictWorkCasts(
           work.annictWorkId,
           characters.map((ch) => ({
             annictCharacterId: ch.annictCharacterId,
@@ -276,7 +281,7 @@ type SearchWorkWithResolved = AnnictLibraryEntry & {
  * pending 行を拾って Jikan を含めた解決を行う（issue #127: Queue 廃止）。
  */
 async function attachResolvedImages(
-  adb: ReturnType<typeof authorizedDb>,
+  repo: WorksRepository,
   works: AnnictLibraryEntry[],
   requestUrl: string,
 ): Promise<SearchWorkWithResolved[]> {
@@ -286,9 +291,12 @@ async function attachResolvedImages(
   // シーズン全件（数百件）でも D1 の 100 変数上限を超えないようチャンクして引く。
   const ID_CHUNK = 90;
   const ids = works.map((w) => w.annictWorkId);
-  const cached: Awaited<ReturnType<typeof adb.getAnnictWorksByIds>> = [];
+  const cached: Awaited<ReturnType<WorksRepository["getAnnictWorksByIds"]>> =
+    [];
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
-    cached.push(...(await adb.getAnnictWorksByIds(ids.slice(i, i + ID_CHUNK))));
+    cached.push(
+      ...(await repo.getAnnictWorksByIds(ids.slice(i, i + ID_CHUNK))),
+    );
   }
   const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
 
@@ -360,13 +368,13 @@ async function attachResolvedImages(
     ...new Map(rows.map((r) => [r.annictWorkId, r])).values(),
   ];
   try {
-    await adb.upsertAnnictWorks(dedupedRows);
+    await repo.upsertAnnictWorks(dedupedRows);
   } catch {
     // batch は原子的なので 1 件の不正行で全体が失敗する。正常な作品だけでも
     // キャッシュされるよう、行ごとの upsert にフォールバックする。
     for (const row of dedupedRows) {
       try {
-        await adb.upsertAnnictWork(row);
+        await repo.upsertAnnictWork(row);
       } catch (err) {
         upsertFailedIds.add(row.annictWorkId);
         logUpsertFailed(row.annictWorkId, err);
@@ -391,7 +399,7 @@ async function attachResolvedImages(
         (r) => !upsertFailedIds.has(r.annictWorkId),
       );
       try {
-        await adb.updateResolvedImages(
+        await repo.updateResolvedImages(
           persistable.map((r) => ({
             annictWorkId: r.annictWorkId,
             resolvedImageUrl: r.resolvedImageUrl,

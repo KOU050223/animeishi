@@ -5,7 +5,8 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { characterTierListSaveSchema } from "./schema";
 import { annictWorkIdParamSchema } from "../works/schema";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { characterTierListsRepository } from "./repository";
+import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 
 function getBindings(
@@ -23,8 +24,8 @@ const characterTierLists = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get("/", async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    const data = await adb.getMyCharacterTierLists();
+    const repo = characterTierListsRepository(db, c.var.clerkUserId);
+    const data = await repo.getMyCharacterTierLists();
     return c.json(data, 200);
   })
   .get(
@@ -33,8 +34,8 @@ const characterTierLists = new Hono<AuthVariables>()
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const data = await adb.getMyCharacterTierList(annictWorkId);
+      const repo = characterTierListsRepository(db, c.var.clerkUserId);
+      const data = await repo.getMyCharacterTierList(annictWorkId);
       if (!data) {
         return c.json({ error: "Character tier list not found" }, 404);
       }
@@ -46,12 +47,13 @@ const characterTierLists = new Hono<AuthVariables>()
   .put("/", zValidator("json", characterTierListSaveSchema), async (c) => {
     const input = c.req.valid("json");
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = characterTierListsRepository(db, c.var.clerkUserId);
+    const worksRepo = worksRepository(db);
 
     // 親表の annict_work_id は annict_works への FK。名簿取得
     // （/works/:id/characters）を経ない直接 PUT やキャッシュ消失では
     // FK 違反で 500 になるため、事前に存在チェックして 400 で返す。
-    const work = await adb.getAnnictWorkById(input.annictWorkId);
+    const work = await worksRepo.getAnnictWorkById(input.annictWorkId);
     if (!work) {
       return c.json(
         { error: "Unknown work", annictWorkId: input.annictWorkId },
@@ -65,7 +67,7 @@ const characterTierLists = new Hono<AuthVariables>()
     // FK を持つため、所属の確認は存在チェックも兼ねる。
     const characterIds = input.items.map((item) => item.annictCharacterId);
     if (characterIds.length > 0) {
-      const castIds = await adb.getAnnictWorkCastIds(input.annictWorkId);
+      const castIds = await worksRepo.getAnnictWorkCastIds(input.annictWorkId);
       const outside = characterIds.filter((id) => !castIds.has(id));
       if (outside.length > 0) {
         return c.json(
@@ -90,7 +92,7 @@ const characterTierLists = new Hono<AuthVariables>()
       };
     });
 
-    const saved = await adb.saveMyCharacterTierList({
+    const saved = await repo.saveMyCharacterTierList({
       annictWorkId: input.annictWorkId,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
@@ -104,8 +106,8 @@ const characterTierLists = new Hono<AuthVariables>()
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      await adb.deleteMyCharacterTierList(annictWorkId);
+      const repo = characterTierListsRepository(db, c.var.clerkUserId);
+      await repo.deleteMyCharacterTierList(annictWorkId);
       return c.json({ success: true }, 200);
     },
   )
@@ -116,8 +118,8 @@ const characterTierLists = new Hono<AuthVariables>()
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const shareToken = await adb.shareMyCharacterTierList(annictWorkId);
+      const repo = characterTierListsRepository(db, c.var.clerkUserId);
+      const shareToken = await repo.shareMyCharacterTierList(annictWorkId);
       if (!shareToken) {
         return c.json({ error: "Character tier list not found" }, 404);
       }
@@ -130,8 +132,8 @@ const characterTierLists = new Hono<AuthVariables>()
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const found = await adb.unshareMyCharacterTierList(annictWorkId);
+      const repo = characterTierListsRepository(db, c.var.clerkUserId);
+      const found = await repo.unshareMyCharacterTierList(annictWorkId);
       if (!found) {
         return c.json({ error: "Character tier list not found" }, 404);
       }

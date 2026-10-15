@@ -14,24 +14,29 @@ vi.mock("@clerk/hono", () => ({
 }));
 
 // D1 書き込み失敗（AnnictApiError ではない想定外の例外）を再現するため、
-// 特定作品の upsertWatchHistory だけを落とせるよう authorizedDb をラップする。
+// 特定作品の upsertWatchHistory だけを落とせるようリポジトリをラップする。
 const failUpsertIds = new Set<number>();
-vi.mock("@/repository/authorizedDb", async (importOriginal) => {
+vi.mock("@/features/watch-history/repository", async (importOriginal) => {
   const mod =
-    await importOriginal<typeof import("@/repository/authorizedDb")>();
+    await importOriginal<
+      typeof import("@/features/watch-history/repository")
+    >();
   return {
     ...mod,
-    authorizedDb: (db: Parameters<typeof mod.authorizedDb>[0], uid: string) => {
-      const adb = mod.authorizedDb(db, uid);
+    watchHistoryRepository: (
+      db: Parameters<typeof mod.watchHistoryRepository>[0],
+      uid: string,
+    ) => {
+      const repo = mod.watchHistoryRepository(db, uid);
       return {
-        ...adb,
+        ...repo,
         upsertWatchHistory: (
           annictWorkId: number,
-          values: Parameters<typeof adb.upsertWatchHistory>[1],
+          values: Parameters<typeof repo.upsertWatchHistory>[1],
         ) =>
           failUpsertIds.has(annictWorkId)
             ? Promise.reject(new Error("D1 write failed"))
-            : adb.upsertWatchHistory(annictWorkId, values),
+            : repo.upsertWatchHistory(annictWorkId, values),
       };
     },
   };

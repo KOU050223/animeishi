@@ -2,11 +2,8 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import {
-  authorizedDb,
-  FriendNotFoundError,
-  UserBlockedError,
-} from "@/repository/authorizedDb";
+import { friendsRepository, FriendNotFoundError } from "./repository";
+import { UserBlockedError } from "../users/repository";
 import { createDb } from "@/db/client";
 
 function getBindings(
@@ -19,8 +16,8 @@ const friends = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get("/", async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    const data = await adb.getMyFriends();
+    const repo = friendsRepository(db, c.var.clerkUserId);
+    const data = await repo.getMyFriends();
     return c.json(data, 200);
   })
   .post("/", async (c) => {
@@ -34,10 +31,10 @@ const friends = new Hono<AuthVariables>()
     }
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = friendsRepository(db, c.var.clerkUserId);
 
     try {
-      const result = await adb.addFriend(friendId);
+      const result = await repo.addFriend(friendId);
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
@@ -56,8 +53,8 @@ const friends = new Hono<AuthVariables>()
     }
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    await adb.removeFriend(friendId);
+    const repo = friendsRepository(db, c.var.clerkUserId);
+    await repo.removeFriend(friendId);
     return c.json({ success: true }, 200);
   });
 

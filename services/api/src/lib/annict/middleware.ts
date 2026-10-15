@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import { createDb } from "@/db/client";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { annictRepository } from "@/features/annict/repository";
 import { decryptToken, assertEncryptionKey } from "./crypto";
 
 // Annict アクセストークンを解決するミドルウェア。
@@ -66,7 +66,7 @@ export async function resolveAnnictToken(c: Context): Promise<string | null> {
   if (!ANNICT_ENCRYPTION_KEY) return null;
 
   const db = createDb(DB);
-  const row = await authorizedDb(db, clerkUserId).getAnnictTokenRow();
+  const row = await annictRepository(db, clerkUserId).getAnnictTokenRow();
   if (!row) return null;
 
   // 設定不備（鍵の形式不正）と行データの復号失敗を区別する。

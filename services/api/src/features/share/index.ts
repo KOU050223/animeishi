@@ -15,11 +15,8 @@ import {
   getSharedCharacterTierList,
   getSharedTierList,
   isKnownImageUrl,
-} from "@/repository/sharedTierLists";
-import type {
-  SharedCharacterTierList,
-  SharedTierList,
-} from "@/repository/sharedTierLists";
+} from "./repository";
+import type { SharedCharacterTierList, SharedTierList } from "./repository";
 
 type ShareBindings = {
   Bindings: Env & { DB: D1Database };

@@ -1,9 +1,11 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
 import { createDb } from "@/db/client";
-import { users, userGenres } from "@/db/schema";
 import { escapeHtml } from "@/lib/html";
-import { authorizedDb } from "@/repository/authorizedDb";
+import {
+  findUserById,
+  findUserGenres,
+  usersRepository,
+} from "../users/repository";
 import { optionalAuth } from "@/middleware/auth";
 import type { Env } from "@/db/client";
 
@@ -36,7 +38,7 @@ const user = new Hono<UserRouteEnv>()
     // 自分をブロックした相手も閲覧不可）。404 で返してブロックの有無を窺えないようにする。
     const viewerId = c.get("clerkUserId");
     if (viewerId && viewerId !== uid) {
-      const blocked = await authorizedDb(db, viewerId).isBlockedWith(uid);
+      const blocked = await usersRepository(db, viewerId).isBlockedWith(uid);
       if (blocked) {
         if (wantsHtml) {
           return c.html(notFoundHtml(), 404);
@@ -45,9 +47,7 @@ const user = new Hono<UserRouteEnv>()
       }
     }
 
-    const profile = await db.query.users.findFirst({
-      where: eq(users.id, uid),
-    });
+    const profile = await findUserById(db, uid);
 
     if (!profile || !profile.isPublic) {
       if (wantsHtml) {
@@ -56,10 +56,7 @@ const user = new Hono<UserRouteEnv>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    const genres = await db.query.userGenres.findMany({
-      where: eq(userGenres.userId, uid),
-    });
-    const genreList = genres.map((g) => g.genre);
+    const genreList = await findUserGenres(db, uid);
 
     if (wantsHtml) {
       const webProfileUrl = buildWebProfileUrl(

@@ -1,5 +1,5 @@
 import type { DrizzleDb } from "@/db/client";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { worksRepository } from "@/features/works/repository";
 import { resolveImagesForWorks } from "@/lib/annict/imageFallback";
 
 /**
@@ -21,8 +21,6 @@ export function imageFallbackAttemptStaleBefore(now: Date = new Date()): Date {
  */
 const PENDING_RESOLVE_LIMIT = 40;
 
-const SYSTEM_USER_ID = "__image_fallback_cron__";
-
 /**
  * image_source 未解決の作品を D1 から引いて AniList / Jikan で解決・永続化する。
  * cron ハンドラから定期実行される。
@@ -40,8 +38,8 @@ export async function resolvePendingImageFallbacks(
   db: DrizzleDb,
   limit = PENDING_RESOLVE_LIMIT,
 ): Promise<number> {
-  const adb = authorizedDb(db, SYSTEM_USER_ID);
-  const targets = await adb.getPendingImageFallbackWorks(
+  const repo = worksRepository(db);
+  const targets = await repo.getPendingImageFallbackWorks(
     limit,
     imageFallbackAttemptStaleBefore(),
   );
@@ -49,7 +47,7 @@ export async function resolvePendingImageFallbacks(
 
   // 実行中の中断や解決失敗が次回実行での即時リトライにならないよう、
   // 試行前に attempted マーカーを立てる（クールダウン）。
-  await adb.markImageFallbackAttempted(
+  await repo.markImageFallbackAttempted(
     targets.map((t) => t.annictWorkId),
     new Date(),
   );
@@ -73,7 +71,7 @@ export async function resolvePendingImageFallbacks(
   let persisted = 0;
   for (const result of results) {
     try {
-      await adb.updateResolvedImage(result.annictWorkId, {
+      await repo.updateResolvedImage(result.annictWorkId, {
         resolvedImageUrl: result.resolvedImageUrl,
         imageSource: result.imageSource,
         resolvedAt,

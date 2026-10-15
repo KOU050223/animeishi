@@ -11,7 +11,7 @@ export type Env = {
 /**
  * D1バインディングからDrizzle ORMクライアントを生成する。
  * 直接このクライアントを使ったDB操作は禁止。
- * 必ず authorizedDb（リポジトリ層）を経由すること。
+ * 必ず各 feature のリポジトリ層（features/<domain>/repository）を経由すること。
  */
 export function createDb(d1: D1Database) {
   return drizzle(d1, { schema });

@@ -10,17 +10,17 @@
       {
         "object": "db",
         "property": "insert",
-        "message": "DB writes outside repository/test setup should go through authorizedDb."
+        "message": "DB writes outside repository/test setup should go through features/*/repository."
       },
       {
         "object": "db",
         "property": "update",
-        "message": "DB writes outside repository/test setup should go through authorizedDb."
+        "message": "DB writes outside repository/test setup should go through features/*/repository."
       },
       {
         "object": "db",
         "property": "delete",
-        "message": "DB writes outside repository/test setup should go through authorizedDb."
+        "message": "DB writes outside repository/test setup should go through features/*/repository."
       }
     ]
   },
@@ -28,7 +28,7 @@
     {
       "files": [
         "**/*.test.ts",
-        "src/repository/**/*.ts",
+        "src/features/**/repository.ts",
         "src/test-utils/**/*.ts"
       ],
       "rules": {

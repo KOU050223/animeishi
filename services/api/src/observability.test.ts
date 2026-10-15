@@ -4,7 +4,7 @@ import { requestId } from "hono/request-id";
 import { HTTPException } from "hono/http-exception";
 import * as Sentry from "@sentry/cloudflare";
 import { AnnictApiError } from "@/lib/annict/client";
-import { DeletedUserError } from "@/repository/authorizedDb";
+import { DeletedUserError } from "@/features/users/repository";
 import { buildSentryOptions, handleError } from "@/observability";
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => {

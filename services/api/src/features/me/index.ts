@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { profileUpdateSchema } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb, DeletedUserError } from "@/repository/authorizedDb";
+import { usersRepository, DeletedUserError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
@@ -89,8 +89,8 @@ const me = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get("/profile", async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    const profile = await adb.getMyProfile();
+    const repo = usersRepository(db, c.var.clerkUserId);
+    const profile = await repo.getMyProfile();
 
     if (!profile) {
       return c.json({ error: "Profile not found" }, 404);
@@ -101,11 +101,11 @@ const me = new Hono<AuthVariables>()
   .put("/profile", zValidator("json", profileUpdateSchema), async (c) => {
     const data = c.req.valid("json");
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = usersRepository(db, c.var.clerkUserId);
 
-    const existing = await adb.getMyProfile();
+    const existing = await repo.getMyProfile();
 
-    const profile = await adb.upsertMyProfile({
+    const profile = await repo.upsertMyProfile({
       username: data.username ?? c.var.clerkUserId,
       bio: data.bio ?? null,
       favoriteQuote: data.favoriteQuote ?? null,
@@ -114,7 +114,7 @@ const me = new Hono<AuthVariables>()
     });
 
     if (data.selectedGenres !== undefined) {
-      await adb.setMyGenres(data.selectedGenres);
+      await repo.setMyGenres(data.selectedGenres);
     }
 
     return c.json(profile);
@@ -122,8 +122,8 @@ const me = new Hono<AuthVariables>()
   // 自分がブロックしているユーザーの一覧（ブロック解除画面用）。
   .get("/blocks", async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    const blocked = await adb.getMyBlocks();
+    const repo = usersRepository(db, c.var.clerkUserId);
+    const blocked = await repo.getMyBlocks();
     return c.json(blocked, 200);
   })
   // プロフィール画像（アバター）をアップロードする。
@@ -165,12 +165,12 @@ const me = new Hono<AuthVariables>()
     avatarUrl.search = "";
 
     const db = createDb(bindings.DB);
-    const adb = authorizedDb(db, userId);
-    const existing = await adb.getMyProfile();
+    const repo = usersRepository(db, userId);
+    const existing = await repo.getMyProfile();
     // 差し替え前に旧アバターの R2 キーを控えておく（DB 更新成功後に削除する）。
     const previousKey = avatarKeyFromUrl(existing?.profileImageUrl);
 
-    const profile = await adb
+    const profile = await repo
       .upsertMyProfile({
         username: existing?.username ?? userId,
         bio: existing?.bio ?? null,
@@ -266,7 +266,7 @@ const me = new Hono<AuthVariables>()
 
     // ユーザー関連テーブル（watch_history / favorites / friends / user_genres /
     // tier_lists(+items) / annict_tokens / users）を 1 batch で削除する。
-    await authorizedDb(db, userId).deleteMyAccount();
+    await usersRepository(db, userId).deleteMyAccount();
 
     // R2 上の画像は残ると配信 URL から取得し続けられるため、本人の
     // プレフィックス（アバター avatars/{userId}/ と名刺アセット

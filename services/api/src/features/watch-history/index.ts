@@ -3,7 +3,8 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { watchHistoryRepository } from "./repository";
+import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
@@ -44,7 +45,7 @@ const watchHistory = new Hono<AuthVariables>()
   // X-Annict-Token が無ければ取得できないため requireAnnictToken を GET だけに掛ける。
   .get("/", requireAnnictToken, async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
 
     // Annict viewer.libraryEntries を全状態・全ページ取得する。
     // Annict 由来のエラーは app.onError で 401/502 に変換される。
@@ -75,7 +76,7 @@ const watchHistory = new Hono<AuthVariables>()
       }
     }
 
-    const data = await adb.syncMyLibraryFromAnnict(
+    const data = await repo.syncMyLibraryFromAnnict(
       [...works.values()],
       historyEntries,
     );
@@ -111,13 +112,14 @@ const watchHistory = new Hono<AuthVariables>()
 
       const data = c.req.valid("json");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
+      const repo = watchHistoryRepository(db, c.var.clerkUserId);
+      const worksRepo = worksRepository(db);
       const token = c.var.annictToken;
 
       // updateStatus(input.workId) は Annict の Work Node ID を要求する。
       // キャッシュに nodeId があればそれを使い、無ければ searchWorks で解決する
       // （read-through 前にこの作品へ初めて触れたケース）。
-      const cached = await adb.getAnnictWorkById(annictWorkId);
+      const cached = await worksRepo.getAnnictWorkById(annictWorkId);
       let nodeId = cached?.nodeId ?? null;
       let work = cached;
       // searchWorks で解決した作品メタは、updateAnnictStatus が成功するまで
@@ -150,8 +152,8 @@ const watchHistory = new Hono<AuthVariables>()
       // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
       // （watch_history の FK 先 annict_works を満たす）。
       if (resolvedWork) {
-        await adb.upsertAnnictWork(resolvedWork);
-        work = await adb.getAnnictWorkById(annictWorkId);
+        await worksRepo.upsertAnnictWork(resolvedWork);
+        work = await worksRepo.getAnnictWorkById(annictWorkId);
       }
 
       // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で
@@ -160,7 +162,7 @@ const watchHistory = new Hono<AuthVariables>()
         return c.json({ error: "Work not found" }, 404);
       }
 
-      const result = await adb.upsertWatchHistory(annictWorkId, {
+      const result = await repo.upsertWatchHistory(annictWorkId, {
         state: data.state,
       });
 
@@ -181,7 +183,8 @@ const watchHistory = new Hono<AuthVariables>()
     async (c) => {
       const { entries } = c.req.valid("json");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
+      const repo = watchHistoryRepository(db, c.var.clerkUserId);
+      const worksRepo = worksRepository(db);
       const token = c.var.annictToken;
       const now = new Date();
       const startedAt = Date.now();
@@ -218,7 +221,9 @@ const watchHistory = new Hono<AuthVariables>()
             // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
             let nodeId: string | null = null;
             let resolvedWork: NewAnnictWork | null = null;
-            const cached = await adb.getAnnictWorkById(entry.annictWorkId);
+            const cached = await worksRepo.getAnnictWorkById(
+              entry.annictWorkId,
+            );
             nodeId = cached?.nodeId ?? null;
             if (!nodeId) {
               const resolved = await withAnnictRetry(
@@ -258,9 +263,9 @@ const watchHistory = new Hono<AuthVariables>()
             // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
             // 確定しているため、新規解決時だけ upsert すればよい。
             if (resolvedWork) {
-              await adb.upsertAnnictWork(resolvedWork);
+              await worksRepo.upsertAnnictWork(resolvedWork);
             }
-            await adb.upsertWatchHistory(entry.annictWorkId, {
+            await repo.upsertWatchHistory(entry.annictWorkId, {
               state: entry.state,
             });
             return { annictWorkId: entry.annictWorkId, ok: true };
@@ -340,8 +345,8 @@ const watchHistory = new Hono<AuthVariables>()
     }
 
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    await adb.deleteWatchHistory(annictWorkId);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    await repo.deleteWatchHistory(annictWorkId);
     return c.json({ success: true }, 200);
   });
 

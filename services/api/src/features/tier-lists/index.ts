@@ -4,7 +4,8 @@ import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { tierListSaveSchema, tierListSeasonParamSchema } from "./schema";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { tierListsRepository } from "./repository";
+import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 
@@ -22,8 +23,8 @@ const tierLists = new Hono<AuthVariables>()
   .use("*", requireAuth)
   .get("/", async (c) => {
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
-    const data = await adb.getMyTierLists();
+    const repo = tierListsRepository(db, c.var.clerkUserId);
+    const data = await repo.getMyTierLists();
     return c.json(data, 200);
   })
   .get(
@@ -32,8 +33,8 @@ const tierLists = new Hono<AuthVariables>()
     async (c) => {
       const { season } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const data = await adb.getMyTierList(season);
+      const repo = tierListsRepository(db, c.var.clerkUserId);
+      const data = await repo.getMyTierList(season);
       if (!data) return c.json({ error: "Tier list not found" }, 404);
       // R2 取り込み済みの作品は自前配信 URL を items に載せる（issue #174）。
       return c.json(
@@ -54,7 +55,8 @@ const tierLists = new Hono<AuthVariables>()
   .put("/", zValidator("json", tierListSaveSchema), async (c) => {
     const input = c.req.valid("json");
     const db = createDb(getBindings(c).DB);
-    const adb = authorizedDb(db, c.var.clerkUserId);
+    const repo = tierListsRepository(db, c.var.clerkUserId);
+    const worksRepo = worksRepository(db);
 
     // items は annict_works への FK を持つ。/works/search 経由で表示した作品は
     // read-through でキャッシュ済みのはずだが、キャッシュが消えている・改竄された
@@ -66,7 +68,7 @@ const tierLists = new Hono<AuthVariables>()
       const ID_CHUNK = 90;
       const knownIds = new Set<number>();
       for (let i = 0; i < workIds.length; i += ID_CHUNK) {
-        const known = await adb.getAnnictWorksByIds(
+        const known = await worksRepo.getAnnictWorksByIds(
           workIds.slice(i, i + ID_CHUNK),
         );
         for (const w of known) knownIds.add(w.annictWorkId);
@@ -90,7 +92,7 @@ const tierLists = new Hono<AuthVariables>()
       };
     });
 
-    const saved = await adb.saveMyTierList({
+    const saved = await repo.saveMyTierList({
       season: input.season,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
@@ -113,8 +115,8 @@ const tierLists = new Hono<AuthVariables>()
     async (c) => {
       const { season } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      await adb.deleteMyTierList(season);
+      const repo = tierListsRepository(db, c.var.clerkUserId);
+      await repo.deleteMyTierList(season);
       return c.json({ success: true }, 200);
     },
   )
@@ -126,8 +128,8 @@ const tierLists = new Hono<AuthVariables>()
     async (c) => {
       const { season } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const shareToken = await adb.shareMyTierList(season);
+      const repo = tierListsRepository(db, c.var.clerkUserId);
+      const shareToken = await repo.shareMyTierList(season);
       if (!shareToken) return c.json({ error: "Tier list not found" }, 404);
       return c.json({ shareToken }, 200);
     },
@@ -138,8 +140,8 @@ const tierLists = new Hono<AuthVariables>()
     async (c) => {
       const { season } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
-      const adb = authorizedDb(db, c.var.clerkUserId);
-      const found = await adb.unshareMyTierList(season);
+      const repo = tierListsRepository(db, c.var.clerkUserId);
+      const found = await repo.unshareMyTierList(season);
       if (!found) return c.json({ error: "Tier list not found" }, 404);
       return c.json({ success: true }, 200);
     },

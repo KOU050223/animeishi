@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { usersRepository } from "../users/repository";
 import { createDb } from "@/db/client";
 import { buildMeishiPassJson } from "@/lib/pass/buildPassJson";
 
@@ -28,7 +28,7 @@ const pass = new Hono<AuthVariables>()
     const bindings = getBindings(c);
     const userId = c.var.clerkUserId;
     const db = createDb(bindings.DB);
-    const profile = await authorizedDb(db, userId).getMyProfile();
+    const profile = await usersRepository(db, userId).getMyProfile();
     if (!profile) {
       return c.json({ error: "Profile not found" }, 404);
     }

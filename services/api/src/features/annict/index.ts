@@ -5,7 +5,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { annictExchangeSchema } from "./schema";
 import { createDb } from "@/db/client";
-import { authorizedDb } from "@/repository/authorizedDb";
+import { annictRepository } from "./repository";
 // NOTE: モバイル(apps/mobile)も同名の `@/lib/annict` を持つため、`@/` エイリアスだと
 // モバイルの tsconfig 経由で型チェックされる際にモバイル側へ誤解決される。
 // API 専用の実装を確実に指すよう相対パスで import する。
@@ -72,7 +72,7 @@ const annict = new Hono<AuthVariables>()
           ANNICT_ENCRYPTION_KEY as string,
         );
         const db = createDb(getBindings(c).DB);
-        await authorizedDb(db, c.var.clerkUserId).upsertAnnictToken({
+        await annictRepository(db, c.var.clerkUserId).upsertAnnictToken({
           encryptedToken: encrypted,
           annictUserId: info.resource_owner_id,
           scope: token.scope,
@@ -112,7 +112,7 @@ const annict = new Hono<AuthVariables>()
   // ネイティブは SecureStore をクライアント側で消すためこのルートは不要。
   .post("/disconnect", async (c) => {
     const db = createDb(getBindings(c).DB);
-    await authorizedDb(db, c.var.clerkUserId).deleteAnnictToken();
+    await annictRepository(db, c.var.clerkUserId).deleteAnnictToken();
     return c.json({ connected: false });
   })
   // 連携状態を確認する。
@@ -130,7 +130,7 @@ const annict = new Hono<AuthVariables>()
       const { DB, ANNICT_ENCRYPTION_KEY } = getBindings(c);
       if (ANNICT_ENCRYPTION_KEY) {
         const db = createDb(DB);
-        const row = await authorizedDb(
+        const row = await annictRepository(
           db,
           c.var.clerkUserId,
         ).getAnnictTokenRow();
@@ -166,7 +166,7 @@ const annict = new Hono<AuthVariables>()
         // トークンが失効・無効化されている。D1 由来なら行を掃除して、以降の
         // resolveAnnictToken が同じ失効トークンを返し続けないようにする。
         if (tokenFromDb) {
-          await authorizedDb(
+          await annictRepository(
             createDb(getBindings(c).DB),
             c.var.clerkUserId,
           ).deleteAnnictToken();
