@@ -11,10 +11,10 @@ export const colors = {
   light: {
     /**
      * TextInput のプレースホルダー色。
-     * 白背景 (#ffffff) に対するコントラスト比は約 4.8:1 で WCAG AA (4.5:1) を満たす。
-     * Tailwind の slate-500 と同値。
+     * 白背景 (#ffffff) で約 7.0:1、入力欄の薄い灰背景 (gray-100 #f3f4f6) でも
+     * 約 6.6:1 と WCAG AA (4.5:1) を満たす。Tailwind の slate-600 と同値。
      */
-    placeholder: "#64748b",
+    placeholder: "#475569",
   },
   dark: {
     /**
