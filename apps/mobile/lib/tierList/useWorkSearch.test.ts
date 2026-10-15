@@ -25,10 +25,11 @@ jest.mock("@/lib/annict", () => ({
   }),
 }));
 
-function makeWrapper() {
-  const client = new QueryClient({
+function makeWrapper(
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  });
+  }),
+) {
   return ({ children }: { children: React.ReactNode }) =>
     createElement(QueryClientProvider, { client }, children);
 }
@@ -118,6 +119,46 @@ describe("useWorkSearch", () => {
     expect(mockSearchGet).toHaveBeenCalledTimes(1);
     const [arg] = mockSearchGet.mock.calls[0];
     expect(arg.query.title).toBe("進撃");
+  });
+
+  it("入力とデバウンス後の語がずれている間は resultsStale になる", async () => {
+    const { result, rerender } = renderHook(({ q }) => useWorkSearch(q), {
+      wrapper: makeWrapper(),
+      initialProps: { q: "" },
+    });
+    rerender({ q: "進撃" });
+    // デバウンス反映前は表示中の結果と入力がずれている
+    expect(result.current.resultsStale).toBe(true);
+
+    await waitFor(() => expect(result.current.works).toHaveLength(1));
+    // 取得が終われば現在の検索語の結果なので確定操作を許可できる
+    expect(result.current.resultsStale).toBe(false);
+  });
+
+  it("enabled=false の間は検索語があってもフェッチしない", async () => {
+    renderHook(() => useWorkSearch("進撃", false), {
+      wrapper: makeWrapper(),
+    });
+    await new Promise((r) => setTimeout(r, 350));
+    expect(mockSearchGet).not.toHaveBeenCalled();
+  });
+
+  it("検索語をクリアした直後はデバウンス済みの旧語で再フェッチしない", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const { rerender } = renderHook(({ q }) => useWorkSearch(q), {
+      wrapper: makeWrapper(client),
+      initialProps: { q: "進撃" },
+    });
+    await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
+
+    // シートを閉じた相当（空クエリ）。デバウンス済みの旧語が残る間も
+    // そのクエリを無効化するので、invalidate でも再フェッチされない。
+    rerender({ q: "" });
+    await client.invalidateQueries();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(mockSearchGet).toHaveBeenCalledTimes(1);
   });
 
   it("未連携のうちはフェッチしない", async () => {

@@ -28,9 +28,9 @@ type SearchState = {
   works: (typeof RESULT_WORK)[];
   hasQuery: boolean;
   hasMore: boolean;
-  isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
+  resultsStale: boolean;
   refetch: jest.Mock;
 };
 
@@ -38,9 +38,9 @@ const searching = (overrides: Partial<SearchState> = {}): SearchState => ({
   works: [],
   hasQuery: true,
   hasMore: false,
-  isLoading: false,
   isFetching: false,
   isError: false,
+  resultsStale: false,
   refetch: jest.fn(),
   ...overrides,
 });
@@ -91,6 +91,19 @@ describe("WorkAddSheet", () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
+  it("前の語の結果を仮表示している間（resultsStale）は追加ボタンが無効", () => {
+    const onAdd = jest.fn();
+    mockUseWorkSearch.mockReturnValue(
+      searching({ works: [RESULT_WORK], resultsStale: true }),
+    );
+    const { getByTestId } = render(sheetElement({ onAdd }));
+
+    const item = getByTestId("work-add-item-42");
+    expect(item.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(item);
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
   it("検索語が空のときは結果ではなく入力案内を出す", () => {
     mockUseWorkSearch.mockReturnValue(searching({ hasQuery: false }));
     const { getByText } = render(sheetElement());
@@ -112,8 +125,10 @@ describe("WorkAddSheet", () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it("visible=false のとき検索 UI を描画しない", () => {
+  it("visible=false のとき検索 UI を描画せず、検索も無効化する", () => {
     const { queryByTestId } = render(sheetElement({ visible: false }));
     expect(queryByTestId("work-add-input")).toBeNull();
+    // 閉じている間はフック側へ enabled=false として渡す
+    expect(mockUseWorkSearch).toHaveBeenLastCalledWith("", false);
   });
 });

@@ -42,10 +42,17 @@ export function WorkAddSheet({
     if (visible) setQuery("");
   }, [visible]);
 
-  // シートは Modal 内で常時マウントされるため、閉じている間は空クエリを渡して
-  // 検索を無効化する（前回の検索語で再フェッチが走らないように）。
-  const { works, hasQuery, hasMore, isLoading, isFetching, isError, refetch } =
-    useWorkSearch(visible ? query : "");
+  // シートは Modal 内で常時マウントされるため、閉じている間は enabled で
+  // 検索を無効化する（デバウンス済みの旧語で再フェッチが走らないように）。
+  const {
+    works,
+    hasQuery,
+    hasMore,
+    isFetching,
+    isError,
+    resultsStale,
+    refetch,
+  } = useWorkSearch(query, visible);
 
   return (
     <Modal
@@ -116,7 +123,7 @@ export function WorkAddSheet({
                 >
                   追加する作品のタイトルを入力してください
                 </Text>
-              ) : isLoading || (isFetching && works.length === 0) ? (
+              ) : works.length === 0 && (isFetching || resultsStale) ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
                   <ActivityIndicator color="#9ca3af" />
                   <Text style={{ color: "#6b7280", fontSize: 13 }}>
@@ -179,6 +186,11 @@ export function WorkAddSheet({
                   }
                   renderItem={({ item }) => {
                     const added = existingWorkIds.has(item.annictWorkId);
+                    // 検索語を変えた直後は前の語の結果を仮表示している
+                    // （デバウンス待ち / keepPreviousData）。その一覧は
+                    // 新しい語の結果ではないので、入れ替わるまで追加操作を
+                    // 受け付けない。
+                    const disabled = added || resultsStale;
                     const uri = pickImageUrl(item);
                     const seasonText = formatYearSeason(
                       item.seasonYear,
@@ -196,10 +208,10 @@ export function WorkAddSheet({
                             resolvedImageUrl: item.resolvedImageUrl,
                           })
                         }
-                        disabled={added}
+                        disabled={disabled}
                         accessibilityRole="button"
                         accessibilityLabel={`${item.title}を追加`}
-                        accessibilityState={{ disabled: added }}
+                        accessibilityState={{ disabled }}
                         testID={`work-add-item-${item.annictWorkId}`}
                         style={{
                           flexDirection: "row",
@@ -208,7 +220,7 @@ export function WorkAddSheet({
                           paddingVertical: 8,
                           borderBottomWidth: 1,
                           borderBottomColor: "#f3f4f6",
-                          opacity: added ? 0.5 : 1,
+                          opacity: disabled ? 0.5 : 1,
                         }}
                       >
                         {uri ? (
