@@ -296,9 +296,7 @@ export default function TierListScreen() {
     };
     // ＋で追加したがどの tier にも配置していない作品は保存対象にならず、
     // 画面を離れると消える。「保存したのに消えた」を防ぐため一度だけ確認する。
-    const hasUnassignedManual = manualWorks.some(
-      (w) => !assignment.has(w.id),
-    );
+    const hasUnassignedManual = manualWorks.some((w) => !assignment.has(w.id));
     if (hasUnassignedManual) {
       confirm(
         "未配置の追加作品があります",
@@ -328,9 +326,7 @@ export default function TierListScreen() {
     });
     setIsDirty(false);
     // 保存ボタンと同じく、保存に載らなかった未配置の追加分は盤面から外す。
-    setManualWorks((prev) =>
-      prev.filter((w) => cur.assignment.has(w.id)),
-    );
+    setManualWorks((prev) => prev.filter((w) => cur.assignment.has(w.id)));
     return savedData;
   }, [save]);
 
