@@ -5,7 +5,7 @@ import { ClerkAPIResponseError } from "@clerk/backend/errors";
 import { eq, inArray, or } from "drizzle-orm";
 import { setupTestDb } from "../test-utils/setup-db";
 import { applyApiErrorHandling } from "../test-utils/apiApp";
-import { avatar, me } from "@/routes/me";
+import { avatar, me, meishiAssets } from "@/routes/me";
 import {
   annictTokens,
   annictWorks,
@@ -59,8 +59,9 @@ type TestEnv = {
 
 function buildApp() {
   const app = applyApiErrorHandling(new Hono<TestEnv>());
-  // 本番(index.ts)同様、認証不要の avatar 配信を /me（requireAuth）より先にマウントする。
+  // 本番(index.ts)同様、認証不要の avatar/meishiAssets 配信を /me（requireAuth）より先にマウントする。
   app.route("/me", avatar);
+  app.route("/me", meishiAssets);
   app.route("/me", me);
   return app;
 }
@@ -414,6 +415,132 @@ describe("GET /me/profile & PUT /me/profile", () => {
       );
       expect(newRes.status).toBe(200);
     });
+
+    it("POST /me/meishi-assets: 画像をアップロードして配信 URL が返る（GET は認証不要）", async () => {
+      const app = buildApp();
+      const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00]);
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: bytes,
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { url: string };
+      const url = new URL(body.url);
+      // 配信パス + R2 キー（meishi-assets/{userId}/…）の二重プレフィックスになる
+      expect(url.pathname).toContain(
+        `/me/meishi-assets/meishi-assets/${USER_ID}/`,
+      );
+      expect(url.pathname).toMatch(/\.webp$/);
+      expect(url.search).toBe("");
+
+      // 配信は未認証でも取得できる
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const getRes = await app.request(
+        url.pathname,
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(getRes.status).toBe(200);
+      expect(getRes.headers.get("content-type")).toContain("image/webp");
+      const buf = new Uint8Array(await getRes.arrayBuffer());
+      expect(Array.from(buf)).toEqual(Array.from(bytes));
+    });
+
+    it("POST /me/meishi-assets: 非対応の Content-Type は 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("POST /me/meishi-assets: 空ボディは 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("POST /me/meishi-assets: 500KB 超は 400", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: new Uint8Array(500 * 1024 + 1),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("POST /me/meishi-assets: ユーザーの既存アセットが 200 件超なら 400", async () => {
+      const app = buildApp();
+      // 上限超過分だけ投入（limit は最大値+1 で確認するため 201 件）
+      await Promise.all(
+        Array.from({ length: 201 }, (_, i) =>
+          env.AVATARS.put(
+            `meishi-assets/${USER_ID}/fill-${i}.webp`,
+            new Uint8Array([i % 256]),
+          ),
+        ),
+      );
+
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("POST /me/meishi-assets: 認証なしは 401", async () => {
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1, 2, 3]),
+        },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(401);
+    });
   });
 
   describe("GET /me/profile/avatar/*（存在しないキー）", () => {
@@ -421,6 +548,28 @@ describe("GET /me/profile & PUT /me/profile", () => {
       const app = buildApp();
       const res = await app.request(
         "/me/profile/avatar/avatars/nope/missing.webp",
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /me/meishi-assets/*（存在しないキー・不正パス）", () => {
+    it("存在しないキーは 404", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets/meishi-assets/nope/missing.webp",
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("meishi-assets/ キーに一致しないパスは 404", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/meishi-assets/avatars/x/icon.webp",
         { method: "GET" },
         testBindings(),
       );
@@ -596,6 +745,14 @@ describe("DELETE /me（アカウント削除）", () => {
       `avatars/${OTHER_ID}/icon.webp`,
       new Uint8Array([4, 5, 6]),
     );
+    await env.AVATARS.put(
+      `meishi-assets/${USER_ID}/img.webp`,
+      new Uint8Array([7, 8, 9]),
+    );
+    await env.AVATARS.put(
+      `meishi-assets/${OTHER_ID}/img.webp`,
+      new Uint8Array([10, 11, 12]),
+    );
     return { myListId, otherListId };
   }
 
@@ -720,10 +877,16 @@ describe("DELETE /me（アカウント削除）", () => {
         .where(eq(tierListItems.tierListId, otherListId)),
     ).toHaveLength(1);
 
-    // アバターも自分のものだけ消える
+    // アバター・名刺アセットも自分のものだけ消える
     expect(await env.AVATARS.get(`avatars/${USER_ID}/icon.webp`)).toBeNull();
     expect(
       await env.AVATARS.get(`avatars/${OTHER_ID}/icon.webp`),
+    ).not.toBeNull();
+    expect(
+      await env.AVATARS.get(`meishi-assets/${USER_ID}/img.webp`),
+    ).toBeNull();
+    expect(
+      await env.AVATARS.get(`meishi-assets/${OTHER_ID}/img.webp`),
     ).not.toBeNull();
 
     // 作品キャッシュ（全ユーザー共有）は削除対象外

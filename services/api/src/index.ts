@@ -18,7 +18,7 @@ import { friends } from "./routes/friends";
 import { health } from "./routes/health";
 import { images } from "./routes/images";
 import { importRoute } from "./routes/import";
-import { avatar, me } from "./routes/me";
+import { avatar, me, meishiAssets } from "./routes/me";
 import { pass } from "./routes/pass";
 import { share } from "./routes/share";
 import { tierLists } from "./routes/tier-lists";
@@ -73,6 +73,7 @@ const routes = app
   .route("/share", share)
   .route("/images", images)
   .route("/me", avatar)
+  .route("/me", meishiAssets)
   .route("/me", me)
   .route("/me/annict", annict)
   .route("/me/import", importRoute)
