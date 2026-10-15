@@ -63,7 +63,7 @@ function resolveWorkImageUrl(image: AnnictWorkImage | null): string | null {
 }
 
 // Annict との通信失敗（ネットワーク障害・タイムアウト等）も AnnictApiError に正規化する。
-// これがないと fetch の reject がそのまま漏れ、routes/annict.ts の
+// これがないと fetch の reject がそのまま漏れ、features/annict/index.ts の
 // `instanceof AnnictApiError` 分岐を通らず一時障害が 500 扱いに崩れる。
 async function annictFetch(
   fetchImpl: typeof fetch,

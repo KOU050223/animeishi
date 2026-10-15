@@ -43,7 +43,8 @@ index.ts (route/handler)   … zValidator(schema) で入力検証、認証ミド
    ├── schema.ts            … zod スキーマのみ。@hono/zod-openapi 化（issue #14）
    │                          の際はここを openAPIRoute 化する想定
    ├── service.ts           … 外部 API 連携・純粋関数・HTML 生成などの
-   │                          振る舞いロジック（DB を直に触らないならここ）
+   │                          振る舞いロジック。DB 参照が必要な場合は
+   │                          repository 経由で行う（直接 db.insert 等は禁止）
    └── repository.ts        … Drizzle/D1 へのクエリを集約。
                               ユーザー束縛ファクトリ: xxxRepository(db, userId)
                               ユーザー非束縛（共有カタログ）: worksRepository(db)
@@ -90,7 +91,7 @@ index.ts (route/handler)   … zValidator(schema) で入力検証、認証ミド
 |---|---|
 | `src/routes/<name>.ts` | `src/features/<name>/index.ts` |
 | `src/routes/<name>.test.ts` | `src/features/<name>/index.test.ts` |
-| `src/routes/watch-history.bulk.test.ts` | `src/features/watch-history/bulk.test.ts` |
+| `src/routes/watch-history-bulk.test.ts` | `src/features/watch-history/bulk.test.ts` |
 | `src/schema/validators.ts` | `src/features/*/schema.ts` に分散 |
 | `ANNICT_STATUS_STATES`（validators 内） | `src/lib/annict/statusState.ts` |
 | `src/repository/authorizedDb.ts` | `src/features/*/repository.ts` に分散 |
