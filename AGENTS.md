@@ -27,7 +27,19 @@ task <タスク名>
 * dev:api:                Cloudflare Workers API を起動 (wrangler dev)
 * dev:mobile:             Expo モバイルアプリを起動
 * e2e:ios:                iOS シミュレーターで Maestro E2E を実行
+* reports:list:           本番 D1 の通報一覧を表示（既定: 未対応のみ。issue #186）
+* reports:resolve:        本番の通報を対応済みにする（確認プロンプト付き）
+* reports:dismiss:        本番の通報を却下する（確認プロンプト付き）
+* reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
+* reports:list:local:     ローカル D1 の通報一覧を表示
+* reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
 ```
+
+> 通報モデレーション（reports.*）は `services/api/scripts/reports.sh` の
+> Taskfile ラッパー。使い方は `bash services/api/scripts/reports.sh --help`。
+> `task reports:list -- --status all`、`task reports:list -- --by-user` のように
+> `--` 以降でオプションを渡せる。プレビュー D1 を見る場合は
+> `bash services/api/scripts/reports.sh --env preview list` を直接叩く。
 
 > wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
 > ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は

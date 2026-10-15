@@ -124,3 +124,47 @@ tasks:
       # 起動後に別端末から下記で手動トリガーできる:
       #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # image fallback warmup
       - pnpm wrangler dev --test-scheduled
+
+  # ---- 通報モデレーション（issue #186）----
+  # 管理画面・管理者 API は認可設計が未決のため、運営の操作手段は
+  # scripts/reports.sh（wrangler d1 execute ベース）に集約する。
+  # ステータス: open（未対応）/ resolved（対応済み）/ dismissed（却下）
+  reports:list:
+    desc: "本番 D1 の通報一覧を表示（既定: 未対応のみ。--status/--by-user で絞込・集計可）"
+    dir: services/api
+    cmds:
+      # 例: task reports:list -- --status all / task reports:list -- --by-user
+      - bash scripts/reports.sh --env production list {{.CLI_ARGS}}
+
+  reports:list:local:
+    desc: "ローカル D1 の通報一覧を表示（既定: 未対応のみ）"
+    dir: services/api
+    cmds:
+      - bash scripts/reports.sh --local list {{.CLI_ARGS}}
+
+  reports:resolve:
+    desc: 本番の通報を対応済みにする（task reports:resolve -- <id> [対応メモ]）
+    dir: services/api
+    prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    cmds:
+      - bash scripts/reports.sh --env production resolve {{.CLI_ARGS}}
+
+  reports:dismiss:
+    desc: 本番の通報を却下する（task reports:dismiss -- <id> [対応メモ]）
+    dir: services/api
+    prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    cmds:
+      - bash scripts/reports.sh --env production dismiss {{.CLI_ARGS}}
+
+  reports:reopen:
+    desc: 本番の通報を未対応に戻す（task reports:reopen -- <id>）
+    dir: services/api
+    prompt: 本番 D1 の通報レコードを更新します。続行しますか？
+    cmds:
+      - bash scripts/reports.sh --env production reopen {{.CLI_ARGS}}
+
+  reports:update:local:
+    desc: ローカル D1 の通報ステータスを更新（resolve|dismiss|reopen <id> [メモ]。動作確認用）
+    dir: services/api
+    cmds:
+      - bash scripts/reports.sh --local {{.CLI_ARGS}}

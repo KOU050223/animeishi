@@ -404,6 +404,9 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         reporterId: currentUserId,
         reportedUserId: targetUserId,
         reason,
+        status: "open",
+        resolutionNote: null,
+        resolvedAt: null,
         createdAt: new Date(nowSec * 1000),
       };
     },

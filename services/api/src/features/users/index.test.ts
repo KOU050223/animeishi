@@ -157,6 +157,11 @@ describe("ユーザー通報・ブロック API", () => {
         );
       expect(rows).toHaveLength(1);
       expect(rows[0].reason).toBe("不適切なコンテンツ");
+      // モデレーション対応状況（issue #186）は未対応で記録される。
+      // 更新は API 経路では行わず scripts/reports.sh から運営が操作する。
+      expect(rows[0].status).toBe("open");
+      expect(rows[0].resolutionNote).toBeNull();
+      expect(rows[0].resolvedAt).toBeNull();
       // 運営通知: 通報対象ユーザーごとに Issue が分かれるよう fingerprint で
       // 区別し、report.reported_user_id タグで検索可能にする
       expect(vi.mocked(captureMessage)).toHaveBeenCalledWith(

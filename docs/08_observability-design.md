@@ -214,7 +214,19 @@ Sentry 上では**通報されたユーザーごとに Issue が分かれる**
 同一ユーザーへの複数通報は同一 Issue のイベントとして集約される。
 新規通報のたびに通知が必要な場合は When を
 `a new event occurs`（イベント発生ごと）に変更する。
-対応状況の管理（着手中・対応済み）は Sentry の Issue ステータス運用で行う。
+
+対応状況の管理は D1 の `reports` テーブルで行う（issue #186）。
+各通報は `status`（`open` / `resolved` / `dismissed`）・
+`resolution_note`（対応メモ）・`resolved_at`（対応日時）を持ち、
+棚卸し・状態更新は `services/api/scripts/reports.sh`（wrangler d1
+execute ベース）から行う。Taskfile 経由では
+`task reports:list`（未対応一覧・`--by-user` で被通報ユーザー別集計）、
+`task reports:resolve|dismiss|reopen -- <id> [メモ]` が使える。
+Sentry の Issue ステータスは通知側の既読管理として併用してよいが、
+対応済みかどうかの正は `reports.status` とする。
+
+管理画面・管理者 API は認可設計が未決のため作っていない。
+累積通報による自動凍結等のエスカレーションも未実装（閾値の検討が必要）。
 
 ## Expo / React Native への組み込み（第二弾・実装済み）
 
