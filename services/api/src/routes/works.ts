@@ -29,6 +29,7 @@ import {
   fetchAnilistCharacters,
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { authorizedDb } from "@/repository/authorizedDb";
 import { createDb } from "@/db/client";
 
@@ -82,7 +83,7 @@ const works = new Hono<AuthVariables>()
       // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。
       const db = createDb(getBindings(c).DB);
       const adb = authorizedDb(db, c.var.clerkUserId);
-      const enriched = await attachResolvedImages(adb, result.works);
+      const enriched = await attachResolvedImages(adb, result.works, c.req.url);
 
       return c.json({ ...result, works: enriched }, 200);
     },
@@ -260,9 +261,13 @@ async function searchSeasonWorks(
   return result;
 }
 
-/** 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl）。 */
+/**
+ * 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl ＋
+ * R2 取り込み済みなら自前配信の hostedImageUrl）。
+ */
 type SearchWorkWithResolved = AnnictLibraryEntry & {
   resolvedImageUrl: string | null;
+  hostedImageUrl: string | null;
 };
 
 /**
@@ -276,6 +281,7 @@ type SearchWorkWithResolved = AnnictLibraryEntry & {
 async function attachResolvedImages(
   adb: ReturnType<typeof authorizedDb>,
   works: AnnictLibraryEntry[],
+  requestUrl: string,
 ): Promise<SearchWorkWithResolved[]> {
   if (works.length === 0) return [];
 
@@ -303,7 +309,13 @@ async function attachResolvedImages(
         malAnimeId: w.malAnimeId,
       });
     }
-    return { ...w, resolvedImageUrl: c0?.resolvedImageUrl ?? null };
+    return {
+      ...w,
+      resolvedImageUrl: c0?.resolvedImageUrl ?? null,
+      // R2 取り込み済みの作品は自前 URL（GET /images/...）を最優先で
+      // 表示させるため、配信 URL をここで組み立てて載せる（issue #174）。
+      hostedImageUrl: hostedWorkImageUrl(requestUrl, c0?.imageR2Key),
+    };
   });
 
   // 検索でユーザーに見せた作品はすべて annict_works にキャッシュする。

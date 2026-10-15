@@ -64,6 +64,24 @@ export function unassignedItems(
 }
 
 /**
+ * 盤面に並べるアイテム集合を組み立てる。
+ * シーズン候補・保存済み items 由来のアイテム・手動追加分など、複数の供給元を
+ * 前から順にマージする。同一 id の重複は先に入った方を優先して潰す
+ * （先の供給元ほど新鮮な表示用メタを持つ想定）。
+ */
+export function mergeBoardItems(
+  ...sources: (readonly TierItem[] | undefined)[]
+): TierItem[] {
+  const byId = new Map<number, TierItem>();
+  for (const source of sources) {
+    for (const item of source ?? []) {
+      if (!byId.has(item.id)) byId.set(item.id, item);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
  * tiers の定義から消えた tier に取り残された配置を落とす。
  * 行を削除したときに「どこにも描画されない幽霊配置」が残ると、
  * 保存時にサーバの refine で 400 になるため、削除の時点で掃除する。

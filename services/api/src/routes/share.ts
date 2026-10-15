@@ -6,6 +6,12 @@ import { createDb } from "@/db/client";
 import type { DrizzleDb, Env } from "@/db/client";
 import { escapeHtml } from "@/lib/html";
 import {
+  fetchFollowingRedirects,
+  isPublicImageUrl,
+  readBodyWithLimit,
+} from "@/lib/http";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import {
   getSharedCharacterTierList,
   getSharedTierList,
   isKnownImageUrl,
@@ -70,7 +76,7 @@ const share = new Hono<ShareBindings>()
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
-        return c.html(buildSharedTierListHtml(list), 200, {
+        return c.html(buildSharedTierListHtml(list, c.req.url), 200, {
           "Cache-Control": "no-store",
         });
       }
@@ -81,7 +87,11 @@ const share = new Hono<ShareBindings>()
           season: list.season,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
-          items: list.items,
+          // R2 取り込み済みの作品は自前配信 URL を載せる（issue #174）。
+          items: list.items.map((item) => ({
+            ...item,
+            hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+          })),
         },
         200,
       );
@@ -138,7 +148,6 @@ const IMAGE_PROXY_TIMEOUT_MS = 8000;
 const IMAGE_PROXY_MAX_BYTES = 5 * 1024 * 1024;
 const IMAGE_PROXY_MAX_REDIRECTS = 3;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Web 版の画像エクスポート用プロキシ。Annict / AniList / MAL 等の外部 CDN は
@@ -148,8 +157,9 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
  * 公開エンドポイント（認証不要）だがオープンプロキシにはしない:
  * - url は DB 保存済みの画像（annict_works の作品画像 / annict_characters の
  *   キャラクター画像）に実在するものだけ許可（無ければ 403）
- * - https スキームのみ許可（http は Mixed Content になり使い道が無いため拒否）
- * - リダイレクトは manual で扱い、遷移先も同じ検証（https + DB 実在）を通す
+ * - https スキームかつ公開ホストのみ許可（http は Mixed Content、
+ *   内部宛先は SSRF になりうるため拒否）
+ * - リダイレクトは manual で扱い、遷移先も同じ検証（公開ホスト + DB 実在）を通す
  * - 応答 Content-Type が image/* であること（SVG はスクリプトを含み得るため除外）
  * - サイズ上限・nosniff を必須条件にする
  */
@@ -163,50 +173,34 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   if (target.protocol !== "https:") {
     return c.json({ error: "Only https URLs are allowed" }, 400);
   }
+  // 画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
+  // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
+  // （SSRF 対策、Devin Review 指摘）。
+  if (!isPublicImageUrl(target.toString())) {
+    return c.json({ error: "Only public https URLs are allowed" }, 400);
+  }
   if (!(await isKnownImageUrl(db, target.toString()))) {
     return c.json({ error: "Image URL is not a known image" }, 403);
   }
 
-  // リダイレクトは自動追従しない。遷移先が DB 照合を通らない限り追わず、
-  // 同一 URL の最大ホップ数を超えた場合も拒否する。
-  let upstream: Response | null = null;
-  for (let hop = 0; hop <= IMAGE_PROXY_MAX_REDIRECTS; hop++) {
-    let res: Response;
-    try {
-      res = await fetch(target.toString(), {
-        signal: AbortSignal.timeout(IMAGE_PROXY_TIMEOUT_MS),
-        redirect: "manual",
-      });
-    } catch {
-      return c.json({ error: "Failed to fetch image" }, 502);
-    }
-
-    if (!REDIRECT_STATUSES.has(res.status)) {
-      upstream = res;
-      break;
-    }
-
-    const location = res.headers.get("location");
-    if (!location) {
-      return c.json({ error: "Upstream image not available" }, 502);
-    }
-    let next: URL;
-    try {
-      next = new URL(location, target);
-    } catch {
-      return c.json({ error: "Upstream image not available" }, 502);
-    }
-    if (
-      next.protocol !== "https:" ||
-      !(await isKnownImageUrl(db, next.toString()))
-    ) {
-      return c.json({ error: "Redirect target is not allowed" }, 502);
-    }
-    target = next;
+  // リダイレクトは自動追従しない。遷移先が公開ホスト検証・DB 照合の
+  // 両方を通らない限り追わず、最大ホップ数を超えた場合も拒否する。
+  const followed = await fetchFollowingRedirects(target.toString(), {
+    timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
+    maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
+    isAllowed: async (url) =>
+      isPublicImageUrl(url) && (await isKnownImageUrl(db, url)),
+  });
+  if (followed.kind === "failed") {
+    const message = {
+      fetch_error: "Failed to fetch image",
+      missing_location: "Upstream image not available",
+      blocked: "Redirect target is not allowed",
+      too_many_redirects: "Too many redirects",
+    }[followed.reason];
+    return c.json({ error: message }, 502);
   }
-  if (!upstream) {
-    return c.json({ error: "Too many redirects" }, 502);
-  }
+  const upstream = followed.response;
   if (!upstream.ok) {
     return c.json({ error: "Upstream image not available" }, 502);
   }
@@ -247,45 +241,6 @@ async function proxyImage(c: Context, db: DrizzleDb, url: string) {
 }
 
 /**
- * レスポンスボディを maxBytes までストリーム読みする。
- * 超過が確定した時点で reader.cancel() して中断し、残りを受け取らない。
- * 読み取り自体の失敗（切断・シグナル発火）は tooLarge: false の失敗として返す。
- */
-async function readBodyWithLimit(
-  stream: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
-): Promise<{ ok: true; data: ArrayBuffer } | { ok: false; tooLarge: boolean }> {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  if (stream) {
-    const reader = stream.getReader();
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > maxBytes) {
-          await reader.cancel();
-          return { ok: false, tooLarge: true };
-        }
-        chunks.push(value);
-      }
-    } catch {
-      return { ok: false, tooLarge: false };
-    } finally {
-      reader.releaseLock();
-    }
-  }
-  const data = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    data.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return { ok: true, data: data.buffer };
-}
-
-/**
  * 公開 HTML の <img src> に入れてよい URL か。
  * 作品メタは外部データ由来なので、http(s) 以外のスキーム（data: 等）は
  * 属性エスケープだけでは表示先を制限できない。ここで絞る。
@@ -294,17 +249,26 @@ function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
-function workImageHtml(item: SharedTierList["items"][number]): string {
+function workImageHtml(
+  item: SharedTierList["items"][number],
+  requestUrl: string,
+): string {
+  // R2 取り込み済みなら自前配信 URL を最優先（issue #174）。
   // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
   // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
-  const src = [item.resolvedImageUrl, item.imageUrl].find(
-    (u): u is string => !!u && isSafeImageUrl(u),
-  );
+  const src = [
+    hostedWorkImageUrl(requestUrl, item.imageR2Key),
+    item.resolvedImageUrl,
+    item.imageUrl,
+  ].find((u): u is string => !!u && isSafeImageUrl(u));
   if (!src) return "";
   return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
 }
 
-function buildSharedTierListHtml(list: SharedTierList): string {
+function buildSharedTierListHtml(
+  list: SharedTierList,
+  requestUrl: string,
+): string {
   const tiers = parseTiersJson(list.tiersJson);
   const itemsByTier = new Map<string, SharedTierList["items"]>();
   for (const item of list.items) {
@@ -321,7 +285,11 @@ function buildSharedTierListHtml(list: SharedTierList): string {
   // resolvedImageUrl が不安全なら imageUrl 側も候補にする
   // （ページ上のポスター表示 workImageHtml と同じ選び方）。
   const ogImageCandidates = list.items
-    .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
+    .flatMap((item) => [
+      hostedWorkImageUrl(requestUrl, item.imageR2Key),
+      item.resolvedImageUrl,
+      item.imageUrl,
+    ])
     .filter((u): u is string => !!u && isSafeImageUrl(u));
   const ogImage =
     ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
@@ -333,7 +301,7 @@ function buildSharedTierListHtml(list: SharedTierList): string {
       const worksHtml = works
         .map(
           (item) => `<div class="work">
-      ${workImageHtml(item)}
+      ${workImageHtml(item, requestUrl)}
       <span class="work-title">${escapeHtml(item.title)}</span>
     </div>`,
         )

@@ -8,7 +8,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 import type { TierItem } from "@/lib/tierList/types";
 import { styles } from "./tierListStyles";
 
@@ -51,7 +51,7 @@ export type DraggableWorkCardProps = {
    */
   scrollCompensation?: SharedValue<number>;
   /**
-   * 補正を受けるカードの annictWorkId。-1 は「補正中のドラッグなし」。
+   * 補正を受けるカードの item id。-1 は「補正中のドラッグなし」。
    * 盤面は同時に 1 枚のドラッグしか受け付けないが、2 指で掴まれたカードも
    * isDragging は立つため、これが無いと非アクティブ側にも補正が乗って
    * 掴んでいないカードが盤面上を流れてしまう。未指定なら従来通り
@@ -85,7 +85,8 @@ export function DraggableWorkCard({
   // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
   const compensationFolded = useSharedValue(false);
 
-  const uri = pickImageUrl(item);
+  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  const { uri, onError: onImageError } = useImageUrlWithFallback(item);
 
   const pan = useMemo(
     () =>
@@ -210,6 +211,7 @@ export function DraggableWorkCard({
             source={{ uri }}
             style={styles.cardImage}
             resizeMode="cover"
+            onError={onImageError}
             accessibilityLabel={`${item.title}のサムネイル`}
           />
         ) : (

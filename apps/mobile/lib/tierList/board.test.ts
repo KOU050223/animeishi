@@ -1,5 +1,6 @@
 import {
   assignItem,
+  mergeBoardItems,
   parseTiersJson,
   pruneAssignment,
   sameBoard,
@@ -79,6 +80,32 @@ describe("unassignedItems", () => {
   it("どの tier にも配置されていないアイテムを返す", () => {
     const assignment = new Map([[2, "s"]]);
     expect(unassignedItems(ITEMS, assignment).map((w) => w.id)).toEqual([1, 3]);
+  });
+});
+
+describe("mergeBoardItems", () => {
+  it("複数の供給元を前から順に連結する", () => {
+    const savedOnly: TierItem[] = [{ id: 9, title: "シーズン外" }];
+    const manual: TierItem[] = [{ id: 10, title: "手動追加" }];
+    expect(
+      mergeBoardItems(ITEMS, savedOnly, manual).map((item) => item.id),
+    ).toEqual([1, 2, 3, 9, 10]);
+  });
+
+  it("同一 id は先に入った方を優先して重複を潰す", () => {
+    const manual: TierItem[] = [
+      { id: 2, title: "手動側のタイトル" },
+      { id: 4, title: "新規" },
+    ];
+    const merged = mergeBoardItems(ITEMS, manual);
+    expect(merged.map((item) => item.id)).toEqual([1, 2, 3, 4]);
+    // シーズン候補側（先の供給元）のタイトルが残る
+    expect(merged[1].title).toBe("アニメ2");
+  });
+
+  it("空・undefined の供給元を含めても動く", () => {
+    expect(mergeBoardItems(ITEMS, undefined, [])).toEqual(ITEMS);
+    expect(mergeBoardItems()).toEqual([]);
   });
 });
 

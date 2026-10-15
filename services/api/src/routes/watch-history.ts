@@ -21,6 +21,7 @@ import {
   updateAnnictStatus,
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
+import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { mapWithConcurrency } from "@animeishi/danime-core";
@@ -89,7 +90,15 @@ const watchHistory = new Hono<AuthVariables>()
     // （'anilist' / 'jikan' / 'none'）の作品はネガキャッシュ扱いで
     // 再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
 
-    return c.json(data, 200);
+    // R2 に取り込み済みの作品は自前配信 URL（hostedImageUrl）を載せる。
+    // 表示優先順位の判定自体はクライアントの pickImageUrl に任せる（issue #174）。
+    return c.json(
+      data.map((row) => ({
+        ...row,
+        hostedImageUrl: hostedWorkImageUrl(c.req.url, row.imageR2Key),
+      })),
+      200,
+    );
   })
   // 視聴ステータス更新は「Annict updateStatus を正」とし、成功後に D1 キャッシュを
   // 追従させる。Annict が正なので、Annict 側更新が失敗したらキャッシュは触らない。

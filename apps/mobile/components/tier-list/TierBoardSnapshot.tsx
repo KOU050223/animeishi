@@ -12,6 +12,8 @@ export type SnapshotItem = {
   title: string;
   imageUrl?: string | null;
   resolvedImageUrl?: string | null;
+  /** API が R2 に取り込み済みの自前配信 URL（issue #174）。pickImageUrl が最優先で使う。 */
+  hostedImageUrl?: string | null;
 };
 
 export type TierBoardSnapshotProps = {

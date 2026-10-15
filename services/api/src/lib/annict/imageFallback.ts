@@ -40,7 +40,17 @@ export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   const trimmed = url.trim();
   if (!trimmed) return true;
   if (isInsecureHttpUrl(trimmed)) return true;
-  return PLACEHOLDER_HOST_PATTERNS.some((re) => re.test(trimmed));
+  return isSnsImageUrl(trimmed);
+}
+
+/**
+ * SNS アバター・バナー系など「作品の表紙画像でないことがホストから分かる」URL か。
+ * null/空や http: の判定は含まない（そこまで必要なら isPlaceholderImageUrl）。
+ * R2 取り込み側（imagePrefetch）では「http: の実画像は取り込み対象だが
+ * SNS アバターは対象外」と判定したいため、ホストパターン判定だけ分離して export する。
+ */
+export function isSnsImageUrl(url: string): boolean {
+  return PLACEHOLDER_HOST_PATTERNS.some((re) => re.test(url));
 }
 
 /** 画像フォールバックの供給元。annict_works.image_source に保存する値。 */

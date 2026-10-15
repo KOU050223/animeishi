@@ -61,6 +61,18 @@ export const annictWorks = sqliteTable("annict_works", {
   imageFallbackAttemptedAt: integer("image_fallback_attempted_at", {
     mode: "timestamp",
   }),
+  // R2 に取り込み済みの作品画像のオブジェクトキー
+  // （works/<annictWorkId>/<sourceUrlHash>.<ext>）。GET /images/<key> で
+  // 自前配信する（issue #174）。取り込み元 URL のハッシュを含むため、
+  // ソースが変わった作品はキー不一致として cron が再取り込みする。
+  // null は未取り込み。
+  imageR2Key: text("image_r2_key"),
+  // 画像の R2 取り込み（または対象判定）を最後に試行した時刻。
+  // 失敗・取り込み元なしの作品が cron ごとに叩き直されるのを
+  // クールダウンで抑える。取り込み済みの行にも立つ（キー一致の確認時刻）。
+  imageR2AttemptedAt: integer("image_r2_attempted_at", {
+    mode: "timestamp",
+  }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
