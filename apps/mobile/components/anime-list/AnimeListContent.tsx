@@ -122,11 +122,17 @@ export function AnimeListContent({
   const showLoading =
     isConnected && (isLoading || (isPlaceholderData && isFetching));
 
+  // 表示できる作品があるのにバックグラウンド再取得の失敗でエラー画面へ
+  // 置き換えない。tier 表側の画像補完ポーリングが同じクエリキーを再取得する
+  // （キャッシュ共有）ため、その失敗もここに現れうる。作品が無い初回失敗だけ
+  // 空配列にして ListEmptyComponent のエラー表示へ繋げる。
+  const hideForError = isError && sorted.length === 0;
+
   return (
     <View style={styles.screen}>
       <FlatList
         key={`anime-list-${numColumns}`}
-        data={showLoading || isError ? [] : sorted}
+        data={showLoading || hideForError ? [] : sorted}
         numColumns={numColumns}
         keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={[
