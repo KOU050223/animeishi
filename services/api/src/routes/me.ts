@@ -232,7 +232,7 @@ const me = new Hono<AuthVariables>()
       prefix: `meishi-assets/${userId}/`,
       limit: MEISHI_ASSET_MAX_PER_USER + 1,
     });
-    if (listed.objects.length > MEISHI_ASSET_MAX_PER_USER) {
+    if (listed.objects.length >= MEISHI_ASSET_MAX_PER_USER) {
       return c.json(
         {
           error: `名刺画像のアップロード上限（${MEISHI_ASSET_MAX_PER_USER}件）に達しています`,
@@ -272,8 +272,10 @@ const me = new Hono<AuthVariables>()
     // プレフィックス（アバター avatars/{userId}/ と名刺アセット
     // meishi-assets/{userId}/）のオブジェクトを全て消す。
     // 削除自体は完了させたいので、失敗は Sentry に送るだけで握り潰す。
-    try {
-      for (const prefix of [`avatars/${userId}/`, `meishi-assets/${userId}/`]) {
+    // 片方のプレフィックスの掃除が失敗してももう片方は実行できるよう、
+    // try/catch はプレフィックス単位にする。
+    for (const prefix of [`avatars/${userId}/`, `meishi-assets/${userId}/`]) {
+      try {
         let cursor: string | undefined;
         do {
           const listed = await bindings.AVATARS.list({
@@ -285,9 +287,9 @@ const me = new Hono<AuthVariables>()
           }
           cursor = listed.truncated ? listed.cursor : undefined;
         } while (cursor);
+      } catch (err) {
+        captureApiError(err, c);
       }
-    } catch (err) {
-      captureApiError(err, c);
     }
 
     // Clerk Backend API でユーザー本体を削除する。ここで失敗した場合、D1 側は

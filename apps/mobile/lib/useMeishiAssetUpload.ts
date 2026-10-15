@@ -39,6 +39,8 @@ export async function pickMeishiImage(): Promise<ImagePicker.ImagePickerAsset | 
 export function useMeishiAssetUpload() {
   const { getToken } = useAuth();
 
+  // アップロード結果（URL）は名刺ドキュメントの要素に直接書き込むため、
+  // 無効化すべきクエリキャッシュは存在しない（サーバー側に一覧 API もない）。
   return useMutation({
     mutationFn: async (asset: ImagePicker.ImagePickerAsset) => {
       const token = await getToken();
@@ -49,8 +51,13 @@ export function useMeishiAssetUpload() {
         height: asset.height,
       });
 
+      // ローカル file:// の読み取りは HTTP ではないため status でなく
+      // 中身の有無で成否を判定する（file:// の status は環境により 0 になる）。
       const fileRes = await fetch(compressed.uri);
       const blob = await fileRes.blob();
+      if (blob.size === 0) {
+        throw new Error("画像の読み込みに失敗しました");
+      }
 
       const res = await fetch(MEISHI_ASSET_UPLOAD_URL, {
         method: "POST",

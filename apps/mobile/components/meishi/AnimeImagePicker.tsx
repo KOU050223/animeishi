@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,8 +11,10 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import type { ListRenderItem } from "react-native";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
 import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
+import { useAnnictConnection } from "@/lib/annict";
 import type { CollageStateFilter } from "@/lib/meishi/types";
 import { useAnimeList } from "@/lib/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
@@ -55,6 +57,239 @@ function seasonText(item: AnimePickItem): string {
   return formatYearSeason(item.seasonYear, season);
 }
 
+/** ピッカーの 1 行（サムネイル + タイトル + シーズン）。画像 URL を解決できない作品は選択不可。 */
+function AnimePickRow({
+  item,
+  onPick,
+}: {
+  item: AnimePickItem;
+  onPick: (uri: string) => void;
+}) {
+  const uri = pickImageUrl(item);
+  const sub = seasonText(item);
+  return (
+    <Pressable
+      onPress={() => uri && onPick(uri)}
+      disabled={!uri}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 8,
+        opacity: uri ? 1 : 0.4,
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.title}の画像を追加`}
+    >
+      <WorkThumbnail item={item} width={44} height={58} />
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}
+          numberOfLines={2}
+        >
+          {item.title}
+        </Text>
+        {sub ? (
+          <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+// FlatList の renderItem は再描画のたびに再生成されると行の再レンダーが走るため、
+// useCallback で固定する。
+function useRenderRow(
+  onPick: (uri: string) => void,
+): ListRenderItem<AnimePickItem> {
+  return useCallback(
+    ({ item }) => <AnimePickRow item={item} onPick={onPick} />,
+    [onPick],
+  );
+}
+
+/** 「マイリスト」タブ: お気に入り + 視聴ステータス別ライブラリから選ぶ。 */
+function LibraryList({
+  favorites,
+  watchHistory,
+  isConnected,
+  isConnectionLoading,
+  onPick,
+}: {
+  favorites: AnimePickItem[];
+  watchHistory: (AnimePickItem & { state: string | null })[];
+  isConnected: boolean;
+  isConnectionLoading: boolean;
+  onPick: (uri: string) => void;
+}) {
+  const [listKey, setListKey] = useState<LibraryKey>("favorites");
+  const renderItem = useRenderRow(onPick);
+
+  const libraryItems =
+    listKey === "favorites"
+      ? favorites
+      : watchHistory.filter((item) => item.state === listKey);
+
+  if (isConnectionLoading) {
+    return <ActivityIndicator style={{ marginTop: 32 }} />;
+  }
+  if (!isConnected) {
+    // favorites/watchHistory のクエリは未連携時に無効化されるため、
+    // 空リストのまま出さず連携誘導を出す
+    return (
+      <AnnictSoftGate
+        description="マイリストの作品画像を使うには Annict との連携が必要です。連携するとお気に入りや視聴履歴の作品から画像を選べます。"
+        testID="anime-image-picker-library-soft-gate"
+      />
+    );
+  }
+  return (
+    <>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, marginBottom: 8 }}
+        contentContainerStyle={{ gap: 6 }}
+      >
+        {LIBRARY_KEYS.map((key) => (
+          <Pressable
+            key={key}
+            onPress={() => setListKey(key)}
+            accessibilityRole="button"
+            accessibilityLabel={libraryLabel(key)}
+            style={{
+              paddingVertical: 6,
+              paddingHorizontal: 10,
+              borderRadius: 999,
+              backgroundColor: listKey === key ? "#4f46e5" : "#f3f4f6",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                color: listKey === key ? "#ffffff" : "#111827",
+              }}
+            >
+              {libraryLabel(key)}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <FlatList
+        data={libraryItems}
+        keyExtractor={(item) => `${listKey}-${item.annictWorkId}`}
+        renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          <Text
+            style={{
+              color: "#6b7280",
+              fontSize: 13,
+              textAlign: "center",
+              marginTop: 32,
+            }}
+          >
+            {listKey === "favorites"
+              ? "お気に入りに作品がありません"
+              : "このリストに作品がありません"}
+          </Text>
+        }
+      />
+    </>
+  );
+}
+
+/** 「検索」タブ: Annict 作品検索の結果一覧。 */
+function SearchList({
+  query,
+  onPick,
+}: {
+  query: string;
+  onPick: (uri: string) => void;
+}) {
+  const {
+    data: works,
+    isLoading,
+    isError,
+    refetch,
+    isConnected,
+    isConnectionLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useAnimeList(query);
+  const renderItem = useRenderRow(onPick);
+
+  if (isConnectionLoading) {
+    return <ActivityIndicator style={{ marginTop: 32 }} />;
+  }
+  if (!isConnected) {
+    return (
+      <AnnictSoftGate
+        description="アニメ画像の検索には Annict との連携が必要です。連携すると作品を探して名刺に画像を追加できます。"
+        testID="anime-image-picker-soft-gate"
+      />
+    );
+  }
+  if (isError) {
+    return (
+      <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
+        <Text style={{ color: "#6b7280", fontSize: 13 }}>
+          検索に失敗しました
+        </Text>
+        <Pressable
+          onPress={() => refetch()}
+          accessibilityRole="button"
+          accessibilityLabel="再試行"
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 8,
+            backgroundColor: "#4f46e5",
+          }}
+        >
+          <Text style={{ color: "#ffffff", fontWeight: "600" }}>再試行</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  return (
+    <FlatList
+      data={works ?? []}
+      keyExtractor={(item) => String(item.annictWorkId)}
+      renderItem={renderItem}
+      keyboardShouldPersistTaps="handled"
+      onEndReached={() => {
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+      }}
+      onEndReachedThreshold={0.5}
+      ListEmptyComponent={
+        isLoading ? (
+          <ActivityIndicator style={{ marginTop: 32 }} />
+        ) : (
+          <Text
+            style={{
+              color: "#6b7280",
+              fontSize: 13,
+              textAlign: "center",
+              marginTop: 32,
+            }}
+          >
+            {query.trim() ? "見つかりませんでした" : "作品を読み込んでいます"}
+          </Text>
+        )
+      }
+      ListFooterComponent={
+        isFetchingNextPage ? (
+          <ActivityIndicator style={{ marginVertical: 12 }} />
+        ) : null
+      }
+    />
+  );
+}
+
 /**
  * 名刺の画像要素に入れるアニメ画像を選ぶシート（issue #96）。
  * 「検索」タブは Annict 作品検索（任意のアニメ）、「マイリスト」タブは
@@ -77,127 +312,8 @@ export function AnimeImagePicker({
   const { height } = useWindowDimensions();
   const [tab, setTab] = useState<"search" | "library">("search");
   const [query, setQuery] = useState("");
-  const [listKey, setListKey] = useState<LibraryKey>("favorites");
-  const {
-    data: works,
-    isLoading,
-    isError,
-    refetch,
-    isConnected,
-    isConnectionLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useAnimeList(query);
-
-  const libraryItems =
-    listKey === "favorites"
-      ? favorites
-      : watchHistory.filter((item) => item.state === listKey);
-
-  const renderRow = (item: AnimePickItem) => {
-    const uri = pickImageUrl(item);
-    const sub = seasonText(item);
-    return (
-      <Pressable
-        onPress={() => uri && onPick(uri)}
-        disabled={!uri}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          paddingVertical: 8,
-          opacity: uri ? 1 : 0.4,
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.title}の画像を追加`}
-      >
-        <WorkThumbnail item={item} width={44} height={58} />
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}
-            numberOfLines={2}
-          >
-            {item.title}
-          </Text>
-          {sub ? (
-            <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-              {sub}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
-    );
-  };
-
-  const searchBody = () => {
-    if (isConnectionLoading) {
-      return <ActivityIndicator style={{ marginTop: 32 }} />;
-    }
-    if (!isConnected) {
-      return (
-        <AnnictSoftGate
-          description="アニメ画像の検索には Annict との連携が必要です。連携すると作品を探して名刺に画像を追加できます。"
-          testID="anime-image-picker-soft-gate"
-        />
-      );
-    }
-    if (isError) {
-      return (
-        <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
-          <Text style={{ color: "#6b7280", fontSize: 13 }}>
-            検索に失敗しました
-          </Text>
-          <Pressable
-            onPress={() => refetch()}
-            accessibilityRole="button"
-            accessibilityLabel="再試行"
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 8,
-              backgroundColor: "#4f46e5",
-            }}
-          >
-            <Text style={{ color: "#ffffff", fontWeight: "600" }}>再試行</Text>
-          </Pressable>
-        </View>
-      );
-    }
-    return (
-      <FlatList
-        data={works ?? []}
-        keyExtractor={(item) => String(item.annictWorkId)}
-        renderItem={({ item }) => renderRow(item)}
-        keyboardShouldPersistTaps="handled"
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-        }}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          isLoading ? (
-            <ActivityIndicator style={{ marginTop: 32 }} />
-          ) : (
-            <Text
-              style={{
-                color: "#6b7280",
-                fontSize: 13,
-                textAlign: "center",
-                marginTop: 32,
-              }}
-            >
-              {query.trim() ? "見つかりませんでした" : "作品を読み込んでいます"}
-            </Text>
-          )
-        }
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <ActivityIndicator style={{ marginVertical: 12 }} />
-          ) : null
-        }
-      />
-    );
-  };
+  // 連携状態はソフトゲート判定専用。作品検索自体は SearchList 側で行う。
+  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
 
   return (
     <Modal
@@ -298,70 +414,16 @@ export function AnimeImagePicker({
                   marginBottom: 8,
                 }}
               />
-              {searchBody()}
+              <SearchList query={query} onPick={onPick} />
             </>
-          ) : isConnectionLoading ? (
-            <ActivityIndicator style={{ marginTop: 32 }} />
-          ) : !isConnected ? (
-            // favorites/watchHistory のクエリは未連携時に無効化されるため、
-            // 空リストのまま出さず連携誘導を出す
-            <AnnictSoftGate
-              description="マイリストの作品画像を使うには Annict との連携が必要です。連携するとお気に入りや視聴履歴の作品から画像を選べます。"
-              testID="anime-image-picker-library-soft-gate"
-            />
           ) : (
-            <>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ flexGrow: 0, marginBottom: 8 }}
-                contentContainerStyle={{ gap: 6 }}
-              >
-                {LIBRARY_KEYS.map((key) => (
-                  <Pressable
-                    key={key}
-                    onPress={() => setListKey(key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={libraryLabel(key)}
-                    style={{
-                      paddingVertical: 6,
-                      paddingHorizontal: 10,
-                      borderRadius: 999,
-                      backgroundColor: listKey === key ? "#4f46e5" : "#f3f4f6",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: listKey === key ? "#ffffff" : "#111827",
-                      }}
-                    >
-                      {libraryLabel(key)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              <FlatList
-                data={libraryItems}
-                keyExtractor={(item) => `${listKey}-${item.annictWorkId}`}
-                renderItem={({ item }) => renderRow(item)}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={
-                  <Text
-                    style={{
-                      color: "#6b7280",
-                      fontSize: 13,
-                      textAlign: "center",
-                      marginTop: 32,
-                    }}
-                  >
-                    {listKey === "favorites"
-                      ? "お気に入りに作品がありません"
-                      : "このリストに作品がありません"}
-                  </Text>
-                }
-              />
-            </>
+            <LibraryList
+              favorites={favorites}
+              watchHistory={watchHistory}
+              isConnected={isConnected}
+              isConnectionLoading={isConnectionLoading}
+              onPick={onPick}
+            />
           )}
         </View>
       </KeyboardAvoidingView>

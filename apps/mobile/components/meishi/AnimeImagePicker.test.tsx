@@ -9,6 +9,18 @@ jest.mock("@/lib/useAnimeList", () => ({
   useAnimeList: (...args: unknown[]) => mockUseAnimeList(...args),
 }));
 
+// マイリストタブのソフトゲート判定は親の useAnnictConnection が担う。
+// バレルごと潰すと buildAnnictAuthHeader 等が巻き添えになるため、
+// 解決先のプラットフォーム実装モジュールだけをモックする。
+let mockAnnictConnected = true;
+jest.mock("@/lib/annict/useAnnictConnection", () => ({
+  useAnnictConnection: () => ({
+    isConnected: mockAnnictConnected,
+    isLoading: false,
+  }),
+  buildAnnictAuthHeader: async () => ({}),
+}));
+
 jest.mock("@/components/AnnictSoftGate", () => ({
   AnnictSoftGate: (props: { testID?: string }) => {
     const { View } = require("react-native");
@@ -57,6 +69,7 @@ function renderPicker(
 beforeEach(() => {
   mockUseAnimeList.mockReset();
   mockUseAnimeList.mockReturnValue(connectedResult);
+  mockAnnictConnected = true;
 });
 
 describe("AnimeImagePicker", () => {
@@ -137,10 +150,7 @@ describe("AnimeImagePicker", () => {
   });
 
   it("マイリストタブ: Annict 未連携ではソフトゲートを出す", () => {
-    mockUseAnimeList.mockReturnValue({
-      ...connectedResult,
-      isConnected: false,
-    });
+    mockAnnictConnected = false;
     renderPicker({
       favorites: [{ annictWorkId: 2, title: "お気に入り作品" }],
     });

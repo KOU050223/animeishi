@@ -62,7 +62,7 @@ function renderedUris(
   element: AnimeCollageElement,
   renderCtx: MeishiRenderContext,
 ): string[] {
-  const { UNSAFE_getAllByType } = render(
+  const { UNSAFE_queryAllByType } = render(
     <ElementRenderer
       element={element}
       ctx={renderCtx}
@@ -71,7 +71,7 @@ function renderedUris(
       renderScale={1}
     />,
   );
-  return UNSAFE_getAllByType(Image).map((img) => img.props.source.uri);
+  return UNSAFE_queryAllByType(Image).map((img) => img.props.source.uri);
 }
 
 describe("ElementRenderer", () => {
@@ -127,6 +127,15 @@ describe("ElementRenderer", () => {
     expect(renderedUris(el, collageCtx)).toEqual([
       "https://img.example/wanna-1.jpg",
     ]);
+  });
+
+  it("コラージュ: state 指定で該当ステータスの作品がなければ空になる", () => {
+    // legacy へフォールバックすると別ステータスの作品が混入するため
+    const el: AnimeCollageElement = {
+      ...collageElement,
+      state: "ON_HOLD",
+    };
+    expect(renderedUris(el, collageCtx)).toEqual([]);
   });
 
   it("コラージュ: animeLists を持たない旧コンテキストでは animeCollageImages にフォールバックする", () => {

@@ -249,11 +249,14 @@ function resolveCollageImages(
 ): string[] {
   const lists = ctx.animeLists;
   const legacy = ctx.animeCollageImages ?? [];
-  // animeLists を持たない古い呼び出し側では従来リストへフォールバックする
-  if (el.listSource === "favorites") return lists?.favorites ?? legacy;
+  // animeLists を持たない古い呼び出し側では従来リストへフォールバックする。
+  // animeLists がある場合は選択したリストがそのまま結果になる（空リストは
+  // 空として返す。legacy へ逃がすと別ステータスの作品が混入するため）。
+  if (!lists) return legacy;
+  if (el.listSource === "favorites") return lists.favorites;
   const state = el.state;
-  if (state && state !== "all") return lists?.byState[state] ?? legacy;
-  if (el.listSource === "watchHistory") return lists?.watchHistory ?? legacy;
+  if (state && state !== "all") return lists.byState[state] ?? [];
+  if (el.listSource === "watchHistory") return lists.watchHistory;
   return legacy;
 }
 
