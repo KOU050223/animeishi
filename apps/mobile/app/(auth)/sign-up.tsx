@@ -3,7 +3,6 @@ import { Link, useRouter } from "expo-router";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import {
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { Input } from "@/components/ui";
 import { signUpSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
@@ -149,7 +149,7 @@ export default function SignUpScreen() {
               })}
             </Text>
 
-            <TextInput
+            <Input
               className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center"
               placeholder={t("認証コード")}
               value={code}
@@ -205,7 +205,7 @@ export default function SignUpScreen() {
             {t("アカウント作成")}
           </Text>
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("メールアドレス")}
             value={email}
@@ -216,7 +216,7 @@ export default function SignUpScreen() {
             testID="email-input"
           />
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("ユーザー名")}
             value={username}
@@ -225,7 +225,7 @@ export default function SignUpScreen() {
             testID="username-input"
           />
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("パスワード（英字+数字、8文字以上）")}
             value={password}
@@ -235,7 +235,7 @@ export default function SignUpScreen() {
             testID="password-input"
           />
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("パスワード（確認）")}
             value={passwordConfirmation}

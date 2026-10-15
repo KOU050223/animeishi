@@ -5,9 +5,9 @@ import {
   Platform,
   Pressable,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { Input } from "@/components/ui";
 
 export function TextEditSheet({
   visible,
@@ -62,7 +62,7 @@ export function TextEditSheet({
             >
               文字を編集
             </Text>
-            <TextInput
+            <Input
               value={value}
               onChangeText={setValue}
               multiline

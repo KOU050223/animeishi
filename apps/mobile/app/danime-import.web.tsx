@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,6 +27,7 @@ import {
   DANIME_POSTBACK_DATA,
   parseDanimeExtractedLists,
 } from "@animeishi/danime-core";
+import { Input } from "@/components/ui";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 
 export default function DanimeImportWebScreen() {
@@ -215,7 +215,7 @@ export default function DanimeImportWebScreen() {
             ブックマークレットの転送に失敗した場合、結果がクリップボードに
             コピーされます。以下に貼り付けて進んでください。
           </Text>
-          <TextInput
+          <Input
             className="mt-3 border border-gray-300 rounded-xl p-3 text-xs text-gray-800 bg-white"
             style={{ minHeight: 120, textAlignVertical: "top" }}
             multiline

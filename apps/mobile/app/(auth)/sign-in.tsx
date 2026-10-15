@@ -3,7 +3,6 @@ import { Link, useRouter } from "expo-router";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { Input } from "@/components/ui";
 import { signInSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
@@ -121,7 +121,7 @@ export default function SignInScreen() {
             {t("サインイン")}
           </Text>
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("メールアドレス")}
             value={email}
@@ -132,7 +132,7 @@ export default function SignInScreen() {
             testID="email-input"
           />
 
-          <TextInput
+          <Input
             className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
             placeholder={t("パスワード")}
             value={password}
