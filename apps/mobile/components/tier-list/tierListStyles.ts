@@ -120,6 +120,12 @@ export const styles = StyleSheet.create({
   // ドラッグ中のカードは持ち上がって見えるよう拡大＋影を付ける。
   cardDragging: { opacity: 0.9, zIndex: 100 },
 
+  // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
+  // カード自身の zIndex は同じ DropZone 内の兄弟にしか効かず、後に描画される
+  // 下段の行や未分類トレイの下に潜ってしまう。特に Web では全 View が
+  // zIndex:0 の stacking context を持つため、祖先ごと持ち上げる必要がある。
+  draggingFront: { zIndex: 100 },
+
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   centeredText: { color: "#9ca3af", fontSize: 14, textAlign: "center" },
 

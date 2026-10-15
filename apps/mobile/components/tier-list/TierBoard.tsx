@@ -121,6 +121,16 @@ export function TierBoard({
 
   const tray = unassignedWorks(works, assignment);
 
+  // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
+  // カード自身が付ける zIndex は同じ DropZone 内の兄弟にしか効かず、
+  // 後に描画される下段の行や未分類トレイの下に潜ってしまう。
+  // （Web では全 View が stacking context を持つため、カードの zIndex が
+  // 祖先の外へは一切効かない）
+  const draggingInTray =
+    draggingId !== null &&
+    tray.some((work) => work.annictWorkId === draggingId);
+  const draggingInBoard = draggingId !== null && !draggingInTray;
+
   // 編集対象は開いた時点の tier ではなく最新の tiers から引く。
   // シーズン切替などで tiers が差し替わっても、閉じるまで古い行を
   // 編集し続けて反映が消える事故を避けるため。見つからなければ閉じる。
@@ -141,42 +151,53 @@ export function TierBoard({
       scrollEventThrottle={16}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
-      <View style={styles.board}>
-        {tiers.map((tier) => (
-          <View key={tier.key} style={styles.tierRow}>
-            <TouchableOpacity
-              style={[styles.tierLabelCell, { backgroundColor: tier.color }]}
-              onPress={() => setEditingTier(tier)}
-              disabled={!labelsEditable}
-              accessibilityRole="button"
-              accessibilityLabel={`${tier.label} の名前を編集`}
-              accessibilityState={{ disabled: !labelsEditable }}
-              testID={`tier-label-${tier.key}`}
+      <View
+        style={[styles.board, draggingInBoard && styles.draggingFront]}
+        testID="tier-board"
+      >
+        {tiers.map((tier) => {
+          const rowWorks = worksInTier(works, assignment, tier.key);
+          const isDraggingRow = rowWorks.some(
+            (work) => work.annictWorkId === draggingId,
+          );
+          return (
+            <View
+              key={tier.key}
+              style={[styles.tierRow, isDraggingRow && styles.draggingFront]}
+              testID={`tier-row-${tier.key}`}
             >
-              <Text
-                style={[
-                  styles.tierLabelText,
-                  { fontSize: tierLabelFontSize(tier.label, 13) },
-                ]}
-                numberOfLines={3}
+              <TouchableOpacity
+                style={[styles.tierLabelCell, { backgroundColor: tier.color }]}
+                onPress={() => setEditingTier(tier)}
+                disabled={!labelsEditable}
+                accessibilityRole="button"
+                accessibilityLabel={`${tier.label} の名前を編集`}
+                accessibilityState={{ disabled: !labelsEditable }}
+                testID={`tier-label-${tier.key}`}
               >
-                {tier.label}
-              </Text>
-            </TouchableOpacity>
-            <DropZone
-              zoneKey={tier.key}
-              registry={registry}
-              style={[
-                styles.tierDropArea,
-                hoverKey === tier.key && styles.tierDropAreaActive,
-              ]}
-            >
-              {worksInTier(works, assignment, tier.key).map((work) =>
-                renderCard(work, tier.key),
-              )}
-            </DropZone>
-          </View>
-        ))}
+                <Text
+                  style={[
+                    styles.tierLabelText,
+                    { fontSize: tierLabelFontSize(tier.label, 13) },
+                  ]}
+                  numberOfLines={3}
+                >
+                  {tier.label}
+                </Text>
+              </TouchableOpacity>
+              <DropZone
+                zoneKey={tier.key}
+                registry={registry}
+                style={[
+                  styles.tierDropArea,
+                  hoverKey === tier.key && styles.tierDropAreaActive,
+                ]}
+              >
+                {rowWorks.map((work) => renderCard(work, tier.key))}
+              </DropZone>
+            </View>
+          );
+        })}
       </View>
 
       <Text style={styles.trayHeader}>
@@ -185,7 +206,12 @@ export function TierBoard({
       <DropZone
         zoneKey={null}
         registry={registry}
-        style={[styles.tray, hoverKey === null && styles.trayActive]}
+        style={[
+          styles.tray,
+          hoverKey === null && styles.trayActive,
+          draggingInTray && styles.draggingFront,
+        ]}
+        testID="tier-tray"
       >
         {tray.length === 0 ? (
           <Text style={styles.trayEmpty}>すべての作品を配置しました</Text>
