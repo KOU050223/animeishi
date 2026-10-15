@@ -1,11 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import type { AnnictFunnelSurface } from "@animeishi/observability";
 import {
   annictErrorKey,
   useAnnictConnect,
   useAnnictConnection,
+  useAnnictFunnel,
   type AnnictConnectResult,
 } from "@/lib/annict";
 import { confirm } from "@/lib/dialog";
@@ -16,20 +18,37 @@ import { useThemeColors } from "@/lib/theme";
  *
  * 別ページに飛ばさず、profile や（将来の）ソフトゲート画面にインラインで
  * 埋め込んで使う。連携状態は SecureStore のトークン有無で判定する。
+ *
+ * `surface` はファネル計測（issue #64）の誘導元識別子。
  */
-export function AnnictConnectionCard() {
+export function AnnictConnectionCard({
+  surface,
+}: {
+  /** ファネル計測の誘導元（prompt_view / cta_tap / oauth_result の surface 属性）。 */
+  surface: AnnictFunnelSurface;
+}) {
   const { t } = useTranslation();
   const colors = useThemeColors();
   const { isConnected, isLoading } = useAnnictConnection();
   const { connect, disconnect, isConnecting } = useAnnictConnect();
+  const track = useAnnictFunnel(surface);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
+  // 連携 CTA が見えている状態（未連携かつ状態確定済み）だけを誘導の表示として数える。
+  // 連携済み表示やロード中は誘導ではないため対象外。解除で未連携に戻ったときは再計上される。
+  useEffect(() => {
+    if (!isLoading && !isConnected) {
+      track("prompt_view");
+    }
+  }, [isLoading, isConnected, track]);
+
   const onConnect = useCallback(async () => {
     setMessage(null);
-    const result: AnnictConnectResult = await connect();
+    track("cta_tap");
+    const result: AnnictConnectResult = await connect({ surface });
     if (result.status === "success") {
       setMessage({ type: "success", text: t("Annict と連携しました") });
     } else if (result.status === "cancelled") {
@@ -37,7 +56,7 @@ export function AnnictConnectionCard() {
     } else {
       setMessage({ type: "error", text: t(annictErrorKey(result.reason)) });
     }
-  }, [connect, t]);
+  }, [connect, surface, track, t]);
 
   const onDisconnect = useCallback(() => {
     confirm(

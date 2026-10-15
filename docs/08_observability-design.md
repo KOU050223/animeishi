@@ -303,6 +303,68 @@ sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
 プロジェクトが分かれたため、`animeishi-mobile` 側にも同条件
 （`environment equals production`）の Alert rule を作成する。
 
+## ファネル計測（Annict 連携コンバージョン、issue #64）
+
+未連携ユーザーへの連携誘導がどれだけ連携完了に繋がるかを計測する。
+新規 SaaS は入れず、Sentry Logs（`enableLogs` + `Sentry.logger`）を使う。
+Logs は Issue を作らないため大量発生してもアラートのノイズにならず、
+Explore で属性フィルタ・集計ができる。
+
+```text
+イベント: annict_connect_funnel（1 本。step 属性で段階を分ける）
+属性:
+  annict.step     prompt_view | cta_tap | oauth_result
+  annict.surface  watch_history | anime_list | tier_list |
+                  character_tier_list | meishi_image_library |
+                  meishi_image_search | home_card | profile_card
+  annict.result   success | cancelled | error   （oauth_result のみ）
+  annict.reason   error の理由（state_mismatch / exchange_failed / ...）
+  annict.user_key Clerk userId のソルト付き SHA-256 先頭16文字（PII 非送信）
+  platform        ios | android | web
+```
+
+命名・surface 一覧は `@animeishi/observability`（`src/funnel.ts`）で管理し、
+送信ロジックは `apps/mobile/lib/annict/funnel.ts` に集約する。
+
+### 送信点
+
+- `prompt_view`: `AnnictSoftGate` のマウント時、
+  `AnnictConnectionCard` で連携 CTA が見える状態になった時。
+  スクロールしないと画面に出ない位置でも計上される「レンダリング回数」
+  であり、実視認ではない点に注意。
+- `cta_tap`: 両コンポーネントの「連携する」タップ時。
+  連打時は in-flight ガードで後続がキャンセルされ、
+  `cta_tap` だけが残り `oauth_result` が出ない点に注意（離脱との区別）。
+- `oauth_result`: OAuth の結果が確定した時点。
+  - ネイティブ: `useAnnictConnect` の `connect()` 内で完結するため、
+    結果（success/cancelled/error+reason）をその場で送る。
+    in-flight ガードによる再入の cancelled は結果ではないため送らない。
+  - Web: `connect()` は authorize へのページ遷移で終わり結果が未確定なため、
+    surface を sessionStorage に退避し、コールバック側の
+    `exchangeAnnictWebCallback` が結果と一緒に送る。
+    authorize 先で中断して戻らなかった場合はイベント自体が発生しないため、
+    「cta_tap はあるが oauth_result が無い」差分が Web の途中離脱になる。
+    （Web では connect() の遷移前失敗 not_configured / storage_unavailable は
+    connect() 側が送る）
+  - `/annict` への直接アクセス等、誘導を経ないコールバック処理でも
+    `oauth_result` は送られる（`surface` 無し・`reason=state_mismatch` 等）。
+    ファネル集計では `surface` 有りで絞るか reason で除外して読む。
+
+Web の注意点: Sentry Logs はバッファに溜まって一定間隔で送信される。
+authorize へのページ遷移でバッファごと捨てられると `cta_tap` 等が
+消失するため、`connect()` は遷移直前に `flushAnnictFunnel()` で進行中の
+計測送信がバッファに乗るのを待ち、`Sentry.flush()`（時間上限付き）で
+送信完了を待ってから `location.href` を更新している。
+
+### 集計方法
+
+Sentry の Logs / Explore で `message = annict_connect_funnel` に絞り、
+`annict.step` で件数比較（表示→タップ→成功の各率）、
+`annict.reason`・`annict.surface` で離脱ポイントを見る。
+`environment = production` で絞ること（開発環境の StrictMode による
+effect 二重実行で `prompt_view` が倍計上されうるため）。
+user_key で同一ユーザーのユニークコンバージョンも概算できる。
+
 ## 残課題（スコープ外）
 
 - API / Web の source map upload と release 関連付けの CI 組み込み

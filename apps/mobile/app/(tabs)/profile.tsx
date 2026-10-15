@@ -154,7 +154,7 @@ export default function ProfileScreen() {
             解除導線を残す（ホームにはカードを出さないため）。連携カードは
             プロフィール取得とは独立したクエリで描画できる。 */}
         <View className="mt-6 self-stretch">
-          <AnnictConnectionCard />
+          <AnnictConnectionCard surface="profile_card" />
         </View>
       </View>
     );
@@ -306,7 +306,7 @@ export default function ProfileScreen() {
         </View>
 
         <View className="mt-6 px-4">
-          <AnnictConnectionCard />
+          <AnnictConnectionCard surface="profile_card" />
         </View>
 
         <View className="mt-8 px-4">

@@ -10,7 +10,13 @@ export {
 } from "./oauth";
 export type { AuthCallbackResult, BuildAuthorizeUrlParams } from "./oauth";
 export { useAnnictConnect } from "./useAnnictConnect";
-export type { AnnictConnectResult } from "./useAnnictConnect";
+export type {
+  AnnictConnectOptions,
+  AnnictConnectResult,
+  UseAnnictConnect,
+} from "./useAnnictConnect";
+export { trackAnnictFunnel, useAnnictFunnel } from "./funnel";
+export type { AnnictFunnelInput } from "./funnel";
 // 連携状態クエリのキーはプラットフォーム非依存なので connectionKey から直接 re-export する
 // （useAnnictConnection は .web/.native で解決され、定数を持たないため）。
 export { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";

@@ -419,6 +419,7 @@ export default function CharacterTierListScreen() {
         <View style={styles.header}>{backBar}</View>
         <AnnictSoftGate
           description="キャラクター Tier 表の作成には Annict との連携が必要です。連携すると作品のキャラクターを並べ替えられます。"
+          surface="character_tier_list"
           testID="character-tier-list-soft-gate"
         />
       </SafeAreaView>

@@ -42,6 +42,10 @@ export function buildSentryOptions(
     release: buildRelease("mobile", env.appVersion ?? "dev"),
     // tracing / session replay / profiling はスコープ外（エラー収集のみ）。
     tracesSampleRate: 0,
+    // 構造化ログ（Sentry Logs）を有効化。Annict 連携ファネル計測（issue #64）
+    // の送信先。enabled:false の環境ではクライアントごと no-op なので
+    // ここは常に立ててよい。
+    enableLogs: true,
     // ユーザー情報・IP・cookie などの PII は送らない。
     sendDefaultPii: false,
     beforeSend: (event, hint) => finalizeEvent(event, hint),

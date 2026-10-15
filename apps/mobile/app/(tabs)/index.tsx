@@ -101,7 +101,7 @@ export default function HomeScreen() {
             一瞬カードが出て消えるちらつきを避けて描画を遅らせる。 */}
         {!isAnnictLoading && !isAnnictConnected && (
           <View className="mt-4">
-            <AnnictConnectionCard />
+            <AnnictConnectionCard surface="home_card" />
           </View>
         )}
 

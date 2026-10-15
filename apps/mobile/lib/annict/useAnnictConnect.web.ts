@@ -1,15 +1,25 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/clerk-expo";
+import {
+  normalizeAnnictFunnelSurface,
+  type AnnictFunnelSurface,
+} from "@animeishi/observability";
 import {
   buildAuthorizeUrl,
   encodeWebOAuthState,
   parseAuthCallback,
 } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
+import { flushAnnictFunnel, trackAnnictFunnel } from "./funnel";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
-import type { AnnictConnectResult, UseAnnictConnect } from "./useAnnictConnect";
+import type {
+  AnnictConnectOptions,
+  AnnictConnectResult,
+  UseAnnictConnect,
+} from "./useAnnictConnect";
 
 // Annict OAuth クライアント ID（EXPO_PUBLIC_ なので Web バンドルに埋め込まれてよい）。
 // connect 実行時に評価する（テストで env を差し替えやすく、実挙動にも影響しない）。
@@ -21,6 +31,11 @@ function getAnnictClientId(): string {
 // app/annict.tsx が戻り URL の state と突き合わせる。sessionStorage はタブを閉じると
 // 消えるため、CSRF 用の一時値の置き場として妥当。
 export const ANNICT_STATE_STORAGE_KEY = "annict_oauth_state";
+
+// ファネル計測用に「どの誘導から連携を始めたか」を退避するキー。
+// Web は authorize へのページ遷移で connect() を抜けるため、コールバック側
+// （exchangeAnnictWebCallback）が surface を引き継げるよう sessionStorage に置く。
+export const ANNICT_FUNNEL_SURFACE_STORAGE_KEY = "annict_funnel_surface";
 
 /**
  * Web の Annict OAuth コールバック着地 URL（例: https://host/annict）。
@@ -46,31 +61,57 @@ export function getWebRedirectUri(): string {
  *
  * @param callbackUrl 戻ってきた URL（window.location.href）。
  * @param getClerkToken Clerk JWT を取得する関数。
+ * @param meta.getUserId ファネル計測の user_key 元。コールバック着地直後は
+ *   Clerk のセッション復元が未完で userId が未解決なことがあるため、
+ *   結果確定時に評価する getter で渡す。
  */
 export async function exchangeAnnictWebCallback(
   callbackUrl: string,
   getClerkToken: () => Promise<string | null>,
+  meta?: { getUserId?: () => string | null | undefined },
 ): Promise<AnnictConnectResult> {
   // 退避した state を取り出して照合する（CSRF 対策）。取り出したら消費する。
+  // ファネル計測用に退避した surface も同じタイミングで読み取り・消費する。
   let expectedState: string | null = null;
+  let surface: AnnictFunnelSurface | undefined;
   try {
     expectedState = window.sessionStorage.getItem(ANNICT_STATE_STORAGE_KEY);
     window.sessionStorage.removeItem(ANNICT_STATE_STORAGE_KEY);
+    surface = normalizeAnnictFunnelSurface(
+      window.sessionStorage.getItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY),
+    );
+    window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
   } catch {
     expectedState = null;
   }
+
+  // Web はここ（コールバック着地後）で初めて OAuth の結果が確定するため、
+  // 結果ごとに oauth_result を送信する（issue #64）。
+  // authorize 先で中断して戻ってこなかった場合はイベント自体が発生せず、
+  // 「cta_tap があり oauth_result が無い」差分が Web の離脱として読める。
+  const finish = (result: AnnictConnectResult): AnnictConnectResult => {
+    trackAnnictFunnel({
+      step: "oauth_result",
+      surface,
+      userId: meta?.getUserId?.(),
+      result: result.status,
+      reason: result.status === "error" ? result.reason : undefined,
+    });
+    return result;
+  };
+
   if (!expectedState) {
-    return { status: "error", reason: "state_mismatch" };
+    return finish({ status: "error", reason: "state_mismatch" });
   }
 
   const parsed = parseAuthCallback(callbackUrl, expectedState);
   if (!parsed.ok) {
-    return { status: "error", reason: parsed.error };
+    return finish({ status: "error", reason: parsed.error });
   }
 
   const clerkToken = await getClerkToken();
   if (!clerkToken) {
-    return { status: "error", reason: "unauthorized" };
+    return finish({ status: "error", reason: "unauthorized" });
   }
 
   try {
@@ -85,11 +126,11 @@ export async function exchangeAnnictWebCallback(
       { headers: { Authorization: `Bearer ${clerkToken}` } },
     );
     if (!res.ok) {
-      return { status: "error", reason: "exchange_failed" };
+      return finish({ status: "error", reason: "exchange_failed" });
     }
-    return { status: "success" };
+    return finish({ status: "success" });
   } catch {
-    return { status: "error", reason: "unexpected" };
+    return finish({ status: "error", reason: "unexpected" });
   }
 }
 
@@ -103,65 +144,112 @@ export async function exchangeAnnictWebCallback(
  */
 export function useAnnictConnect(): UseAnnictConnect {
   const queryClient = useQueryClient();
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   // Web の connect はページ遷移で完了するため、ボタン連打防止に軽い state を持つ。
   const [isConnecting, setIsConnecting] = useState(false);
   // isConnecting(state) は非同期更新のため、反映前の連打で state（CSRF 値）が
   // 上書きされうる。ref で同期的に再入をブロックする。
   const inFlightRef = useRef(false);
 
-  const connect = useCallback(async (): Promise<AnnictConnectResult> => {
-    const clientId = getAnnictClientId();
-    if (!clientId) {
-      return { status: "error", reason: "not_configured" };
-    }
-    // 進行中なら二重起動させない（遷移成功時のみ ref を立てたまま抜ける）。
-    if (inFlightRef.current) {
-      return { status: "cancelled" };
-    }
-    inFlightRef.current = true;
+  const connect = useCallback(
+    async (options?: AnnictConnectOptions): Promise<AnnictConnectResult> => {
+      // Web は authorize 遷移までが connect() の責務で、OAuth の結果は
+      // exchangeAnnictWebCallback が送る。ここでは遷移前に確定する失敗だけ
+      // oauth_result を送信する（issue #64）。
+      const fail = (reason: string): AnnictConnectResult => {
+        trackAnnictFunnel({
+          step: "oauth_result",
+          surface: options?.surface,
+          userId,
+          result: "error",
+          reason,
+        });
+        return { status: "error", reason };
+      };
 
-    setIsConnecting(true);
-    // 遷移が起きたら isConnecting は復元しない（ページが離れるため）。
-    let didNavigate = false;
-    try {
-      const redirectUri = getWebRedirectUri();
-      // crypto.randomUUID は Web で標準的に使える。CSRF 用の乱数に加えて
-      // 戻り先オリジンを state に埋め込み、正規オリジン着弾時の中継に使う。
-      const state = encodeWebOAuthState(
-        window.location.origin,
-        crypto.randomUUID(),
-      );
+      const clientId = getAnnictClientId();
+      if (!clientId) {
+        return fail("not_configured");
+      }
+      // 進行中なら二重起動させない（遷移成功時のみ ref を立てたまま抜ける）。
+      // 再入は OAuth の結果ではないため oauth_result は送らない。
+      if (inFlightRef.current) {
+        return { status: "cancelled" };
+      }
+      inFlightRef.current = true;
+
+      setIsConnecting(true);
+      // 遷移が起きたら isConnecting は復元しない（ページが離れるため）。
+      let didNavigate = false;
       try {
-        window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
+        const redirectUri = getWebRedirectUri();
+        // crypto.randomUUID は Web で標準的に使える。CSRF 用の乱数に加えて
+        // 戻り先オリジンを state に埋め込み、正規オリジン着弾時の中継に使う。
+        const state = encodeWebOAuthState(
+          window.location.origin,
+          crypto.randomUUID(),
+        );
+        try {
+          window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
+        } catch {
+          // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
+          // ため連携は失敗させる。finally で isConnecting/ref を復元する。
+          return fail("storage_unavailable");
+        }
+        try {
+          // 前回 authorize で放棄した場合に残る surface を消してから書き込む。
+          // surface 無しで connect したときに古い値が oauth_result に付かないようにする。
+          // 計測用の退避失敗（容量制限等）は連携自体を止めない。
+          window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
+          if (options?.surface) {
+            window.sessionStorage.setItem(
+              ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
+              options.surface,
+            );
+          }
+        } catch {
+          // surface 無しで進むだけ（oauth_result の surface が欠けるだけ）。
+        }
+
+        const authorizeUrl = buildAuthorizeUrl({
+          clientId,
+          redirectUri,
+          state,
+        });
+
+        // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
+        // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
+        // 待たず、遷移が起きたこと自体を成功とみなす。
+        // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
+        // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
+        // trackAnnictFunnel はハッシュ化を経て非同期にログへ載るため、まず
+        // 進行中の送信がバッファに乗るのを待ってから flush する。
+        // RN 版 flush は timeout を取れず内部で握りつぶされるため、
+        // 遷移を阻害しないようこちらで時間上限を設ける。
+        await flushAnnictFunnel();
+        try {
+          await Promise.race([
+            Sentry.flush(),
+            new Promise((resolve) => setTimeout(resolve, 2000)),
+          ]);
+        } catch {
+          // 計測の失敗で連携遷移を止めない。
+        }
+        window.location.href = authorizeUrl;
+        didNavigate = true;
+        return { status: "success" };
       } catch {
-        // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
-        // ため連携は失敗させる。finally で isConnecting/ref を復元する。
-        return { status: "error", reason: "storage_unavailable" };
+        return fail("unexpected");
+      } finally {
+        // 遷移しなかった（＝失敗）ときだけロック/ローディングを解除する。
+        if (!didNavigate) {
+          inFlightRef.current = false;
+          setIsConnecting(false);
+        }
       }
-
-      const authorizeUrl = buildAuthorizeUrl({
-        clientId,
-        redirectUri,
-        state,
-      });
-
-      // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
-      // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
-      // 待たず、遷移が起きたこと自体を成功とみなす。
-      window.location.href = authorizeUrl;
-      didNavigate = true;
-      return { status: "success" };
-    } catch {
-      return { status: "error", reason: "unexpected" };
-    } finally {
-      // 遷移しなかった（＝失敗）ときだけロック/ローディングを解除する。
-      if (!didNavigate) {
-        inFlightRef.current = false;
-        setIsConnecting(false);
-      }
-    }
-  }, []);
+    },
+    [userId],
+  );
 
   const disconnect = useCallback(async () => {
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。

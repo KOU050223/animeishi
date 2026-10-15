@@ -1,10 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import type { AnnictFunnelSurface } from "@animeishi/observability";
 import {
   annictErrorKey,
   useAnnictConnect,
+  useAnnictFunnel,
   type AnnictConnectResult,
 } from "@/lib/annict";
 import type { TranslationKey } from "@/lib/i18n/keys";
@@ -18,23 +20,34 @@ import { useThemeColors } from "@/lib/theme";
  * OAuth 連携フロー（useAnnictConnect）を開始して完結させる。
  *
  * `description` は画面ごとの文言を呼び出し側が渡す（基盤に既定文言を持たせない）。
+ * `surface` はファネル計測（issue #64）の誘導元識別子。
  */
 export function AnnictSoftGate({
   description,
+  surface,
   testID,
 }: {
   /** 画面文脈に応じた説明文（= 日本語キー。例: 呼び出し側が視聴履歴/作品検索用の文言を渡す）。 */
   description: TranslationKey;
+  /** ファネル計測の誘導元（prompt_view / cta_tap / oauth_result の surface 属性）。 */
+  surface: AnnictFunnelSurface;
   testID?: string;
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
   const { connect, isConnecting } = useAnnictConnect();
+  const track = useAnnictFunnel(surface);
   const [errorText, setErrorText] = useState<string | null>(null);
+
+  // このゲートは未連携時にだけ描画されるため、マウント＝誘導の表示とみなす。
+  useEffect(() => {
+    track("prompt_view");
+  }, [track]);
 
   const onConnect = useCallback(async () => {
     setErrorText(null);
-    const result: AnnictConnectResult = await connect();
+    track("cta_tap");
+    const result: AnnictConnectResult = await connect({ surface });
     // 成功時は useAnnictConnect が連携状態クエリを invalidate するため、
     // 呼び出し側の isConnected が更新されてこのゲート自体が消える。
     if (result.status === "cancelled") {
@@ -42,7 +55,7 @@ export function AnnictSoftGate({
     } else if (result.status === "error") {
       setErrorText(t(annictErrorKey(result.reason)));
     }
-  }, [connect, t]);
+  }, [connect, surface, track, t]);
 
   return (
     <View
