@@ -125,7 +125,7 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
   });
 
-  it("更新が失敗したらスナップショットへロールバックする", async () => {
+  it("更新が失敗したら楽観値をロールバックする", async () => {
     client.setQueryData(queryKey, seedHistory());
     mockPut.mockResolvedValue({ ok: false, status: 500 });
 
@@ -144,6 +144,74 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     expect(getStates(client)?.[0].state).toBe("WATCHING");
     expect(getStates(client)?.[1].state).toBe("ON_HOLD");
     expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
+  });
+
+  it("別作品への連続編集中に片方が失敗しても、もう片方の楽観表示を巻き戻さない", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result } = renderHook(() => useUpsertWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    // 作品A・作品B の更新を両方 API 応答保留中に発行する。
+    act(() => {
+      result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
+      result.current.mutate({ annictWorkId: 2, data: { state: "WATCHED" } });
+    });
+    await waitFor(() => {
+      expect(getStates(client)?.[0].state).toBe("WATCHED");
+      expect(getStates(client)?.[1].state).toBe("WATCHED");
+    });
+
+    // A 側だけ失敗させる → A だけロールバックし、B の楽観表示は維持される。
+    await act(async () => {
+      resolvers[0]({ ok: false, status: 500 });
+    });
+    await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHING"));
+    expect(getStates(client)?.[1].state).toBe("WATCHED");
+
+    await act(async () => {
+      resolvers[1]({ ok: true, json: async () => ({}) });
+    });
+  });
+
+  it("同じ作品に後続の更新が乗っている場合はロールバックしない", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result } = renderHook(() => useUpsertWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    // 同一作品へ WATCHED → ON_HOLD と続けて発行し、1 回目だけ失敗させる。
+    act(() => {
+      result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
+      result.current.mutate({ annictWorkId: 1, data: { state: "ON_HOLD" } });
+    });
+    await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
+
+    await act(async () => {
+      resolvers[0]({ ok: false, status: 500 });
+    });
+    // 1 回目の失敗で 2 回目の楽観値（ユーザーの最新の意図）を巻き戻さない。
+    expect(getStates(client)?.[0].state).toBe("ON_HOLD");
+
+    await act(async () => {
+      resolvers[1]({ ok: true, json: async () => ({}) });
+    });
   });
 
   it("キャッシュに無い作品を更新しても既存データを壊さない", async () => {

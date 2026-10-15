@@ -93,12 +93,16 @@ export function useUpsertWatchHistory() {
     },
     // ステータス変更は Annict updateStatus を往復するため応答が遅い。
     // API 完了を待たずキャッシュを先に書き換え（楽観的更新）、失敗時は
-    // スナップショットへロールバックする。成否に関わらず onSettled で
-    // サーバーの正データを取り直す（issue #166）。
+    // ロールバックする。成否に関わらず onSettled でサーバーの正データを
+    // 取り直す（issue #166）。
     onMutate: async ({ annictWorkId, data }) => {
       await queryClient.cancelQueries({ queryKey });
-      const previous =
-        queryClient.getQueryData<WatchHistoriesResponse>(queryKey);
+      // ロールバック用に対象作品の旧 state だけ記録する。リスト全体の
+      // スナップショットだと、別作品への連続編集中に片方が失敗した際に
+      // もう片方の楽観表示まで巻き戻してしまうため。
+      const previousState = queryClient
+        .getQueryData<WatchHistoriesResponse>(queryKey)
+        ?.find((item) => item.annictWorkId === annictWorkId)?.state;
       queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
         old?.map((item) =>
           item.annictWorkId === annictWorkId
@@ -106,12 +110,20 @@ export function useUpsertWatchHistory() {
             : item,
         ),
       );
-      return { previous };
+      return { previousState };
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previous !== undefined) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
+    onError: (_error, { annictWorkId, data }, context) => {
+      if (context?.previousState === undefined) return;
+      const previousState = context.previousState;
+      // 自分が書いた楽観値のまま残っている時だけ巻き戻す。同じ作品へ後続の
+      // 更新が乗っている場合はそちらに委ねる（巻き戻すと新しい意図を消す）。
+      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
+        old?.map((item) =>
+          item.annictWorkId === annictWorkId && item.state === data.state
+            ? { ...item, state: previousState }
+            : item,
+        ),
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });

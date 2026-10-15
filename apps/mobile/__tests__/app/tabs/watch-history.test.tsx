@@ -4,6 +4,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import WatchHistoryScreen from "@/app/(tabs)/watch-history";
+import { ApiRequestError } from "@/lib/apiError";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -22,8 +23,9 @@ jest.mock("@/lib/featureFlags", () => ({
   },
 }));
 
-// upsert.mutate の振る舞いをテストごとに差し替えられるよう遅延参照する。
+// upsert.mutate の振る舞いと isPending をテストごとに差し替えられるよう遅延参照する。
 const mockUpsertMutate = jest.fn();
+let mockUpsertPending = false;
 jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({
     data: [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }],
@@ -33,7 +35,9 @@ jest.mock("@/lib/useWatchHistory", () => ({
   }),
   useUpsertWatchHistory: () => ({
     mutate: (...args: unknown[]) => mockUpsertMutate(...args),
-    isPending: false,
+    get isPending() {
+      return mockUpsertPending;
+    },
   }),
   useDeleteWatchHistory: () => ({ mutate: jest.fn() }),
   WATCH_STATUS_LABELS: {
@@ -60,6 +64,7 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockDanimeImport = false;
+  mockUpsertPending = false;
   mockUpsertMutate.mockReset();
 });
 
@@ -95,10 +100,27 @@ describe("WatchHistoryScreen", () => {
     expect(screen.queryByText("視聴ステータスを編集")).toBeNull();
   });
 
+  it("前回の更新が pending 中でも次の保存を発行できる", () => {
+    // 楽観更新は並行ミューテーションを許容する設計のため、pending 中の
+    // 保存を無効化しない（item 単位ロールバックで整合性を保つ）。
+    mockUpsertPending = true;
+    render(<WatchHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+
+    expect(mockUpsertMutate).toHaveBeenCalledWith(
+      { annictWorkId: 1, data: { state: "WATCHED" } },
+      expect.objectContaining({ onError: expect.any(Function) }),
+    );
+  });
+
   it("更新に失敗したらロールバックを知らせるエラートーストを出す", () => {
     mockUpsertMutate.mockImplementation(
       (_vars: unknown, options: { onError: (e: Error) => void }) =>
-        options.onError(new Error("視聴履歴の更新に失敗しました")),
+        options.onError(
+          new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
+        ),
     );
     render(<WatchHistoryScreen />);
 
@@ -106,5 +128,19 @@ describe("WatchHistoryScreen", () => {
     fireEvent.press(screen.getByLabelText("保存"));
 
     expect(screen.getByText("視聴履歴の更新に失敗しました")).toBeTruthy();
+  });
+
+  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", () => {
+    mockUpsertMutate.mockImplementation(
+      (_vars: unknown, options: { onError: (e: Error) => void }) =>
+        options.onError(new Error("Network request failed")),
+    );
+    render(<WatchHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+
+    expect(screen.getByText("視聴履歴の更新に失敗しました")).toBeTruthy();
+    expect(screen.queryByText("Network request failed")).toBeNull();
   });
 });

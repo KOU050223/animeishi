@@ -22,6 +22,7 @@ import {
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
+import { ApiRequestError } from "@/lib/apiError";
 import { confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
@@ -46,20 +47,18 @@ const STATUS_COLORS: Record<WatchStatus, string> = {
   WANNA_WATCH: "#6b7280",
 };
 
-type Toast = { type: "success" | "error"; message: string };
-
 export default function WatchHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
-  // ステータス更新は楽観的更新のため、失敗時（ロールバック）だけトーストで知らせる。
-  const [toast, setToast] = useState<Toast | null>(null);
+  // ステータス更新は楽観的更新のため、失敗時（ロールバック）だけエラートーストで知らせる。
+  const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((next: Toast) => {
-    setToast(next);
-    AccessibilityInfo.announceForAccessibility(next.message);
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    AccessibilityInfo.announceForAccessibility(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2500);
   }, []);
@@ -202,24 +201,24 @@ export default function WatchHistoryScreen() {
             upsert.mutate(
               { annictWorkId: editingItem.annictWorkId, data },
               {
+                // ApiRequestError はユーザー向け日本語メッセージを持つ。
+                // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
                 onError: (error) =>
-                  showToast({
-                    type: "error",
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : "視聴履歴の更新に失敗しました",
-                  }),
+                  showToast(
+                    error instanceof ApiRequestError
+                      ? error.message
+                      : "視聴履歴の更新に失敗しました",
+                  ),
               },
             );
             // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
             // 失敗した場合はロールバックされ、トーストで通知される。
             setEditingItem(null);
           }}
-          isSaving={upsert.isPending}
         />
       )}
 
+      {/* トーストはタップを透過させ、表示中も背後の操作を妨げない */}
       <View
         testID="watch-history-toast-layer"
         pointerEvents="box-none"
@@ -227,21 +226,12 @@ export default function WatchHistoryScreen() {
       >
         {toast ? (
           <View
-            className={`mx-4 mt-2 rounded-lg px-4 py-3 shadow-md ${
-              toast.type === "success" ? "bg-green-50" : "bg-red-50"
-            }`}
+            pointerEvents="none"
+            className="mx-4 mt-2 rounded-lg px-4 py-3 shadow-md bg-red-50"
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
           >
-            <Text
-              className={
-                toast.type === "success"
-                  ? "text-sm font-medium text-green-700"
-                  : "text-sm font-medium text-red-600"
-              }
-            >
-              {toast.message}
-            </Text>
+            <Text className="text-sm font-medium text-red-600">{toast}</Text>
           </View>
         ) : null}
       </View>
@@ -308,12 +298,10 @@ function EditModal({
   history,
   onClose,
   onSave,
-  isSaving,
 }: {
   history: WatchHistoryItem;
   onClose: () => void;
   onSave: (data: { state: WatchStatus }) => void;
-  isSaving: boolean;
 }) {
   const [state, setState] = useState<WatchStatus>(history.state as WatchStatus);
 
@@ -377,15 +365,10 @@ function EditModal({
             <TouchableOpacity
               className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
               onPress={() => onSave({ state })}
-              disabled={isSaving}
               accessibilityRole="button"
               accessibilityLabel="保存"
             >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text className="text-white font-semibold">保存</Text>
-              )}
+              <Text className="text-white font-semibold">保存</Text>
             </TouchableOpacity>
           </View>
         </View>
