@@ -54,12 +54,14 @@ const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 // 配信許可する Content-Type → キーの拡張子。
 // SVG はスクリプトを含み得るため対象外（same-origin 配信で XSS 化しうる）。
+// AVIF も対象外にする。RN の <Image> が描画できるか環境依存のため、
+// 取り込み済みなのに表示されないケースを生み得る
+// （Devin レビュー指摘。外部 URL 側へフォールバックしてもらう方が安全）。
 const CONTENT_TYPE_TO_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
-  "image/avif": "avif",
 };
 
 // 配信パスと R2 キーの対応: GET /images/<key>。
@@ -68,7 +70,7 @@ export const WORK_IMAGE_PATH_PREFIX = "/images/";
 // works/<annictWorkId>/<hash>.<ext> 以外のキーは配信しない
 // （avatars/ 等の他用途オブジェクトへの到達を遮る）。
 const WORK_IMAGE_KEY_PATTERN =
-  /^works\/\d+\/[0-9a-f]+\.(?:jpe?g|png|webp|gif|avif)$/i;
+  /^works\/\d+\/[0-9a-f]+\.(?:jpe?g|png|webp|gif)$/i;
 
 const SYSTEM_USER_ID = "__image_prefetch_cron__";
 
@@ -296,7 +298,12 @@ export async function prefetchWorkImages(
       await adb.updateImageR2Key(job.annictWorkId, key, now);
       // ソース差し替えで残った旧キーのオブジェクトは消す
       // （残っていても参照されないだけだが、ゴミを増やさないため）。
-      if (job.previousKey && job.previousKey !== key) {
+      // DB 由来だが異常値混入に備えて works/ キー形式を検証してから消す。
+      if (
+        job.previousKey &&
+        job.previousKey !== key &&
+        WORK_IMAGE_KEY_PATTERN.test(job.previousKey)
+      ) {
         await bucket.delete(job.previousKey).catch(() => {});
       }
       stored++;
