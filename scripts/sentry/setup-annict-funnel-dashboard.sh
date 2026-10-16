@@ -31,11 +31,17 @@ try:
         raise ValueError("unexpected shape")
 except Exception:
     sys.exit(2)
-sys.exit(0 if any(isinstance(x, dict) and x.get("title") == title for x in items) else 1)
+matches = [x for x in items if isinstance(x, dict) and x.get("title") == title]
+if len(matches) > 1:
+    sys.exit(3)  # 同名が複数あるとタイトル解決が曖昧になるため止める
+sys.exit(0 if matches else 1)
 ' "${TITLE}" || FOUND=$?
 case "$FOUND" in
   0) echo "ダッシュボード「${TITLE}」は既に存在します。不足しているウィジェットだけ追加します。" ;;
   1) sentry dashboard create "${ORG}/${PROJECT}" "${TITLE}" ;;
+  3)
+    echo "ダッシュボード「${TITLE}」が複数あります。Sentry 上で 1 つにしてから再実行してください。" >&2
+    exit 1 ;;
   *)
     echo "ダッシュボード一覧の応答を解析できませんでした。二重作成を避けるため中止します。" >&2
     exit 1 ;;
@@ -47,11 +53,21 @@ if ! VIEW="$(sentry dashboard view "${ORG}" "${TITLE}" --fresh --json)"; then
   echo "ダッシュボードの取得に失敗しました。" >&2
   exit 1
 fi
-EXISTING="$(printf '%s' "$VIEW" | python3 -c '
+# 解析できない場合は止める（全ウィジェットを重複追加しないため）。
+if ! EXISTING="$(printf '%s' "$VIEW" | python3 -c '
 import json, sys
-d = json.load(sys.stdin)
-print("\n".join(w.get("title", "") for w in d.get("widgets", [])))
-')"
+try:
+    d = json.load(sys.stdin)
+    widgets = d["widgets"]
+    if not isinstance(widgets, list):
+        raise ValueError("unexpected shape")
+except Exception:
+    sys.exit(2)
+print("\n".join(w.get("title", "") for w in widgets if isinstance(w, dict)))
+')"; then
+  echo "ダッシュボードの応答を解析できませんでした。重複追加を避けるため中止します。" >&2
+  exit 1
+fi
 
 # widget add の位置引数は [<org/project>] <dashboard> <widget title> の順。
 add() {
