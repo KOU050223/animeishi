@@ -14,7 +14,7 @@ import {
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
@@ -48,7 +48,16 @@ export default function FavoritesScreen() {
     confirm(
       "お気に入りを解除",
       "このアニメをお気に入りから外しますか？",
-      () => remove.mutate(annictWorkId),
+      () =>
+        remove.mutate(annictWorkId, {
+          // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+          onError: (e) =>
+            alert(
+              "お気に入りを解除できませんでした",
+              e instanceof Error ? e.message : "お気に入りの解除に失敗しました",
+              { okLabel: "OK" },
+            ),
+        }),
       { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
     );
   }

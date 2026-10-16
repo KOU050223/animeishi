@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
 export default function BlockedUsersScreen() {
@@ -21,7 +21,16 @@ export default function BlockedUsersScreen() {
     confirm(
       "ブロックを解除",
       `「${item.username}」のブロックを解除しますか？`,
-      () => unblock.mutate(item.blockedId),
+      () =>
+        unblock.mutate(item.blockedId, {
+          // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+          onError: (e) =>
+            alert(
+              "ブロックを解除できませんでした",
+              e instanceof Error ? e.message : "ブロックの解除に失敗しました",
+              { okLabel: "OK" },
+            ),
+        }),
       { confirmLabel: "解除", cancelLabel: "キャンセル" },
     );
   }

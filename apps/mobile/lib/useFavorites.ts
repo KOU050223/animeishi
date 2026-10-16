@@ -143,17 +143,24 @@ export function useRemoveFavorite() {
  * お気に入り登録状態をトグルする。登録済みなら削除、未登録なら追加。
  * 呼び出し側で既に取得済みの `favoriteIds` を渡すことで、
  * 同一データの派生計算（Set 生成）が重複するのを避ける。
+ *
+ * 失敗時は画面上に変化が残らないため、呼び出し側は onError で
+ * 必ずユーザーへ通知する（失敗が見えないと「押したのに効かない」
+ * 状態になる）。
  */
-export function useToggleFavorite(favoriteIds: Set<number>) {
+export function useToggleFavorite(
+  favoriteIds: Set<number>,
+  options?: { onError?: (error: unknown) => void },
+) {
   const add = useAddFavorite();
   const remove = useRemoveFavorite();
 
   return {
     toggle: (annictWorkId: number) => {
       if (nextFavoriteAction(favoriteIds, annictWorkId) === "remove") {
-        remove.mutate(annictWorkId);
+        remove.mutate(annictWorkId, { onError: options?.onError });
       } else {
-        add.mutate(annictWorkId);
+        add.mutate(annictWorkId, { onError: options?.onError });
       }
     },
     isPending: add.isPending || remove.isPending,

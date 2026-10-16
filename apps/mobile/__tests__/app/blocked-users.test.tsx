@@ -5,6 +5,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockUnblockMutate = jest.fn();
 const mockUseBlockedUsers = jest.fn();
+const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
   (
@@ -27,7 +28,7 @@ jest.mock("@/lib/dialog", () => ({
     onConfirm: () => void,
     options?: unknown,
   ) => mockConfirm(title, message, onConfirm, options),
-  alert: jest.fn(),
+  alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
 beforeEach(() => {
@@ -68,7 +69,30 @@ describe("BlockedUsersScreen", () => {
       expect.any(Function),
       expect.any(Object),
     );
-    expect(mockUnblockMutate).toHaveBeenCalledWith("user_blocked001");
+    expect(mockUnblockMutate).toHaveBeenCalledWith(
+      "user_blocked001",
+      expect.objectContaining({ onError: expect.any(Function) }),
+    );
+  });
+
+  it("解除に失敗したらダイアログで通知する", () => {
+    render(<BlockedUsersScreen />);
+    fireEvent.press(
+      screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
+    );
+
+    // mutate に渡した onError を発火させる（confirm は即承諾するため
+    // mutate は既に呼ばれている）。
+    const options = mockUnblockMutate.mock.calls[0][1] as {
+      onError: (e: unknown) => void;
+    };
+    options.onError(new Error("ブロック解除に失敗しました"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "ブロックを解除できませんでした",
+      "ブロック解除に失敗しました",
+      expect.objectContaining({ okLabel: "OK" }),
+    );
   });
 
   it("ブロック中のユーザーがいなければ空表示になる", () => {

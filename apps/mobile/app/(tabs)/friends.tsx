@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
 export default function FriendsScreen() {
@@ -31,7 +31,16 @@ export default function FriendsScreen() {
     confirm(
       "フレンドを削除",
       `「${name}」をフレンドから削除しますか？`,
-      () => remove.mutate(friendId),
+      () =>
+        remove.mutate(friendId, {
+          // 削除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+          onError: (e) =>
+            alert(
+              "フレンドを削除できませんでした",
+              e instanceof Error ? e.message : "フレンドの削除に失敗しました",
+              { okLabel: "OK" },
+            ),
+        }),
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
