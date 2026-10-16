@@ -37,11 +37,11 @@ bucket_name = "animeishi-avatars"
 
 # Workers AI（視聴傾向分析 POST /me/analysis, issue #22）。
 # named env には継承されないため preview / production にも個別に定義する。
-# AI はローカル開発でも常にリモート実行される（ローカル推論は無い）ため、
-# remote = true でその旨を明示し wrangler の警告を抑える。
+# AI binding はローカル推論を持たず wrangler dev でも常にリモート実行される
+# （remote = true は不要。付けると vitest-pool-workers がリモートプロキシを
+# 起こそうとして Cloudflare 認証を要求し、CI のテストが落ちる）。
 [ai]
 binding = "AI"
-remote = true
 
 [env.production]
 [env.production.vars]
@@ -81,7 +81,6 @@ bucket_name = "animeishi-avatars"
 
 [env.production.ai]
 binding = "AI"
-remote = true
 
 # PR プレビュー環境（animeishi-api-preview）。
 # 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
@@ -118,7 +117,6 @@ bucket_name = "animeishi-avatars-preview"
 
 [env.preview.ai]
 binding = "AI"
-remote = true
 
 [observability]
 enabled = false
