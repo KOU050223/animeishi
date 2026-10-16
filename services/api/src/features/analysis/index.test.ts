@@ -274,6 +274,81 @@ describe("視聴傾向分析 API", () => {
       expect(aiRun).toHaveBeenCalledTimes(2);
     });
 
+    it("POST /me/analysis: 遅れて完了した古い生成は新しい結果を上書きしない", async () => {
+      await seedHistory([101]);
+      // 先の生成 A は AI 応答を保留にしておく。
+      let resolveA: (value: unknown) => void = () => {};
+      aiRun.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveA = resolve;
+          }),
+      );
+      const reqA = postAnalysis();
+      await vi.waitFor(() => expect(aiRun).toHaveBeenCalledTimes(1));
+
+      // A の生成中に履歴が変わり、新しい入力 B の生成が先に完了する。
+      await db
+        .update(watchHistory)
+        .set({ state: "WATCHING" })
+        .where(eq(watchHistory.userId, USER_ID));
+      aiRun.mockResolvedValueOnce(
+        aiChatCompletion({ ...AI_PAYLOAD, summary: "新しい結果" }),
+      );
+      const resB = await postAnalysis();
+      expect(resB.status).toBe(200);
+
+      // A が遅れて完了しても、保存は input_hash 不一致で破棄される。
+      resolveA(aiChatCompletion({ ...AI_PAYLOAD, summary: "古い結果" }));
+      const resA = await reqA;
+      expect(resA.status).toBe(200);
+      const bodyA = (await resA.json()) as {
+        analysis: { summary: string };
+        cached: boolean;
+      };
+      expect(bodyA.cached).toBe(true);
+      expect(bodyA.analysis.summary).toBe("新しい結果");
+
+      const getRes = await buildApp().request(
+        "/me/analysis",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await getRes.json()) as {
+        analysis: { summary: string } | null;
+      };
+      expect(body.analysis?.summary).toBe("新しい結果");
+    });
+
+    it("POST /me/analysis: 作品タイトルの改行・制御文字はプロンプトで潰す", async () => {
+      const now = new Date();
+      await db
+        .insert(annictWorks)
+        .values({
+          annictWorkId: 301,
+          title: "改行を\n含む\r\nタイトル",
+          updatedAt: now,
+        })
+        .onConflictDoNothing();
+      await db.insert(watchHistory).values({
+        userId: USER_ID,
+        annictWorkId: 301,
+        state: "WATCHED",
+        updatedAt: now,
+      });
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+      const [, inputs] = aiRun.mock.calls[0] as unknown as [
+        string,
+        { messages: { role: string; content: string }[] },
+      ];
+      const promptText = inputs.messages.map((m) => m.content).join("\n");
+      expect(promptText).toContain("改行を 含む タイトル");
+      expect(promptText).not.toContain("改行を\n含む");
+    });
+
     it("POST /me/analysis: キャッシュが 24h を超えると再生成する", async () => {
       await seedHistory([101]);
       aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
@@ -431,13 +506,18 @@ describe("computeInputHash", () => {
     expect(await computeInputHash(a)).toBe(await computeInputHash(b));
   });
 
-  it("履歴・選択ジャンルが変わるとハッシュが変わる", async () => {
+  it("履歴・選択ジャンル・タイトルが変わるとハッシュが変わる", async () => {
     const base = buildAnalysisInput([historyRow(1, "WATCHED")], []);
     const genreChanged = { ...base, selectedGenres: ["SF"] };
     const stateChanged = buildAnalysisInput([historyRow(1, "WATCHING")], []);
+    const titleChanged = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), title: "別タイトル" }],
+      [],
+    );
     const baseHash = await computeInputHash(base);
     expect(await computeInputHash(genreChanged)).not.toBe(baseHash);
     expect(await computeInputHash(stateChanged)).not.toBe(baseHash);
+    expect(await computeInputHash(titleChanged)).not.toBe(baseHash);
   });
 
   it("プロンプト上限（50 件）以降の作品変更でもハッシュが変わる", async () => {

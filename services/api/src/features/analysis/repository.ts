@@ -96,13 +96,18 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
      * 成功した場合、AI 生成の成否に関わらず 1 回消費した扱いにする
      * （失敗時に巻き戻すと障害中の AI への連打を止められないため）。
      *
+     * claim は行の input_hash を「この生成の入力」で上書きし、結果カラムを
+     * NULL に戻す（生成中マーク）。これにより後から別入力の生成が先行すると
+     * 自分の saveMyAnalysis が input_hash 不一致で破棄され、古い結果が
+     * 新しい結果を上書きしない。
+     *
      * reports の createReport と同じく、「確認してから書く」ではなく
      * 条件付きの単一 statement にして並行リクエストのすり抜けを防ぐ。
      * 行が無い or 窓切れ → INSERT/UPSERT で新しい窓を 1 から開始、
      * 窓内 → generation_count < 上限 の場合だけインクリメント。
      * @throws AnalysisRateLimitError 窓内の残スロットが無いとき
      */
-    async claimGeneration(nowSec: number): Promise<void> {
+    async claimGeneration(nowSec: number, inputHash: string): Promise<void> {
       const windowStartThresholdSec = nowSec - ANALYSIS_RATE_LIMIT_WINDOW_SEC;
 
       // 行が無い・窓切れのケースを 1 ステートメントで処理する。
@@ -111,8 +116,8 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
       //   INSERT が PK 衝突 → DO UPDATE ... WHERE 窓切れ が真 → リセット。
       // - 行あり・窓内: NOT EXISTS が偽 → 何もせず changes=0。
       const claimed = await db.run(sql`
-        INSERT INTO ${analyses} (user_id, window_started_at, generation_count)
-        SELECT ${currentUserId}, ${nowSec}, 1
+        INSERT INTO ${analyses} (user_id, window_started_at, generation_count, input_hash)
+        SELECT ${currentUserId}, ${nowSec}, 1, ${inputHash}
         WHERE NOT EXISTS (
           SELECT 1 FROM ${analyses}
           WHERE user_id = ${currentUserId}
@@ -120,7 +125,12 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
         )
         ON CONFLICT(user_id) DO UPDATE SET
           window_started_at = ${nowSec},
-          generation_count = 1
+          generation_count = 1,
+          input_hash = ${inputHash},
+          summary = NULL,
+          genres_json = NULL,
+          work_count = NULL,
+          generated_at = NULL
         WHERE ${analyses.windowStartedAt} <= ${windowStartThresholdSec}
       `);
       if (claimed.meta.changes > 0) return;
@@ -128,7 +138,12 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
       // 行あり・窓内: 上限未満の場合だけ消費する。
       const incremented = await db.run(sql`
         UPDATE ${analyses}
-        SET generation_count = generation_count + 1
+        SET generation_count = generation_count + 1,
+          input_hash = ${inputHash},
+          summary = NULL,
+          genres_json = NULL,
+          work_count = NULL,
+          generated_at = NULL
         WHERE user_id = ${currentUserId}
           AND window_started_at > ${windowStartThresholdSec}
           AND generation_count < ${ANALYSIS_MAX_GENERATIONS_PER_WINDOW}
@@ -151,38 +166,29 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
       throw new AnalysisRateLimitError(waitSec);
     },
 
-    /** 生成完了後に結果を保存する。claim で作られた行へ上書きする。 */
+    /**
+     * 生成完了後に結果を保存する。
+     * claim が書き込んだ input_hash と一致する場合だけ上書きする
+     * （compare-and-swap）。自分の生成中に新しい入力の生成が先行した
+     * 場合は false を返し、古い結果での上書きを破棄する。
+     */
     async saveMyAnalysis(data: {
       summary: string;
       recommendedGenres: string[];
       inputHash: string;
       workCount: number;
       generatedAt: Date;
-    }): Promise<void> {
-      await db
-        .insert(analyses)
-        .values({
-          userId: currentUserId,
-          summary: data.summary,
-          genresJson: JSON.stringify(data.recommendedGenres),
-          inputHash: data.inputHash,
-          workCount: data.workCount,
-          generatedAt: data.generatedAt,
-          // 通常は claim で行が存在する。analyses 行だけが消える経路
-          // （行単位の削除等）に備え、INSERT 側にも値を入れて upsert とする。
-          windowStartedAt: data.generatedAt,
-          generationCount: 1,
-        })
-        .onConflictDoUpdate({
-          target: analyses.userId,
-          set: {
-            summary: data.summary,
-            genresJson: JSON.stringify(data.recommendedGenres),
-            inputHash: data.inputHash,
-            workCount: data.workCount,
-            generatedAt: data.generatedAt,
-          },
-        });
+    }): Promise<boolean> {
+      const result = await db.run(sql`
+        UPDATE ${analyses}
+        SET summary = ${data.summary},
+          genres_json = ${JSON.stringify(data.recommendedGenres)},
+          work_count = ${data.workCount},
+          generated_at = ${Math.floor(data.generatedAt.getTime() / 1000)}
+        WHERE user_id = ${currentUserId}
+          AND input_hash = ${data.inputHash}
+      `);
+      return result.meta.changes > 0;
     },
   };
 }

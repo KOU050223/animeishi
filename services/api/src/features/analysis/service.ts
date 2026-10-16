@@ -20,6 +20,9 @@ const MAX_RECOMMENDED_GENRES = 5;
 // 傾向テキストの上限（生成モデルが長文化したときの切り詰め）。
 const MAX_SUMMARY_CHARS = 600;
 
+// プロンプトに載せる作品タイトルの上限（改行・制御文字は除去済み）。
+const MAX_TITLE_CHARS = 80;
+
 // watch_history.state をプロンプト用の日本語ラベルに変換する。
 // モバイル側の WATCH_STATUS_LABELS（lib/useWatchHistory.ts）と同じ対応。
 const STATE_LABELS: Record<(typeof WATCH_STATES)[number], string> = {
@@ -41,6 +44,19 @@ export class AnalysisGenerationError extends Error {
   }
 }
 
+/**
+ * プロンプトに埋め込む作品タイトルのサニタイズ。
+ * 制御文字・改行を潰して 1 行に揃え、長さを制限する
+ * （作品名がプロンプトの行構造を崩したり命令文を紛れ込ませるのを緩和）。
+ */
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/[\p{Cc}\p{Cf}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_TITLE_CHARS);
+}
+
 /** プロンプトへ渡す集計済み入力。computeInputHash のハッシュ対象でもある。 */
 export type AnalysisInput = {
   /** 履歴の総件数（works は MAX_PROMPT_WORKS に丸めているため別途持つ）。 */
@@ -49,11 +65,11 @@ export type AnalysisInput = {
   /** プロンプト用: 更新日時が新しい順に MAX_PROMPT_WORKS 件。 */
   works: { annictWorkId: number; title: string; state: string }[];
   /**
-   * ハッシュ用: 全履歴の (annictWorkId, state) 一覧。
+   * ハッシュ用: 全履歴の (annictWorkId, title, state) 一覧。
    * works は 50 件に丸めているため、51 件目以降の変更（作品の入替・
-   * 状態変更）も検出できるよう全件分を別途持つ。
+   * タイトル・状態変更）も検出できるよう全件分を別途持つ。
    */
-  workKeys: { annictWorkId: number; state: string }[];
+  workKeys: { annictWorkId: number; title: string; state: string }[];
   selectedGenres: string[];
 };
 
@@ -74,11 +90,12 @@ export function buildAnalysisInput(
     stateCounts,
     works: history.slice(0, MAX_PROMPT_WORKS).map((row) => ({
       annictWorkId: row.annictWorkId,
-      title: row.title,
+      title: sanitizeTitle(row.title),
       state: row.state,
     })),
     workKeys: history.map((row) => ({
       annictWorkId: row.annictWorkId,
+      title: sanitizeTitle(row.title),
       state: row.state,
     })),
     selectedGenres,

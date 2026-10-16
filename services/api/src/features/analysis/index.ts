@@ -79,8 +79,9 @@ const analysis = app
 
     // 生成回数制限。claim はカウンタを原子的に消費する（AI 呼び出しが
     // 失敗しても 1 回消費した扱い。障害中の連打防止のため）。
+    // 同時に行を「この入力ハッシュで生成中」にマークする。
     try {
-      await repo.claimGeneration(nowSec);
+      await repo.claimGeneration(nowSec, inputHash);
     } catch (e) {
       if (e instanceof AnalysisRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -112,7 +113,17 @@ const analysis = app
       generatedAt: new Date(),
       workCount: input.totalCount,
     };
-    await repo.saveMyAnalysis({ ...saved, inputHash });
+    // claim 後に別入力の生成が先行した場合は保存を破棄する（古い結果が
+    // 新しい結果を上書きしないよう compare-and-swap）。
+    const persisted = await repo.saveMyAnalysis({ ...saved, inputHash });
+    if (!persisted) {
+      const current = await repo.getMyAnalysis();
+      if (current) {
+        return c.json({ analysis: toResponse(current), cached: true }, 200);
+      }
+      // 先行した生成がまだ完了していない。今回の結果は保存しないが
+      // 応答としては返す（次回 POST で正規の結果が保存される）。
+    }
     return c.json({ analysis: toResponse(saved), cached: false }, 200);
   });
 
