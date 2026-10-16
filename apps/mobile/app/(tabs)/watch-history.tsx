@@ -16,7 +16,10 @@ import {
   useDeleteWatchHistory,
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
-import type { WatchHistoryItem } from "@/lib/useWatchHistory";
+import type {
+  WatchHistoryItem,
+  UpsertWatchHistoryError,
+} from "@/lib/useWatchHistory";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
@@ -35,6 +38,18 @@ const WATCH_STATUSES = [
 ] as const;
 
 type WatchStatus = (typeof WATCH_STATUSES)[number];
+
+// 失敗通知の種類。キュー上で同じ種類が連続した場合は件数で1件にまとめる。
+type FailureKind = "update" | "delete";
+type FailureNotice = { kind: FailureKind; title: string; message: string };
+
+// 同種の失敗を1件にまとめたときの件数入り文言。単体通知は各呼び出し側が
+// 文言を組み立てるため、まとめた場合だけこの固定文に切り替える。
+function mergedFailureMessage(kind: FailureKind, count: number): string {
+  return kind === "update"
+    ? `${count}件の視聴ステータス更新に失敗しました。`
+    : `${count}件の視聴履歴削除に失敗しました`;
+}
 
 // ステータスバッジの文字色。バッジ背景は `${color}20` で自動生成するため、
 // dark では視認性の高い明るい側の色相を使う。
@@ -63,28 +78,41 @@ export default function WatchHistoryScreen() {
 
   // ステータス更新は楽観的更新のため、失敗時（ロールバック）は必ず
   // ユーザーに伝える。短時間で消えるトーストだと見落とすため、OK を
-  // 押すまで消えないダイアログで通知する。別作品への連続編集などで
-  // 失敗が重なってもダイアログが積み上がらないよう、同じ種類の通知は
-  // 表示中に1つまでとする（種類が違う失敗はそれぞれ通知する）。
-  const openFailureKeysRef = useRef(new Set<string>());
-  const notifyFailure = useCallback(
-    (key: string, title: string, message: string) => {
-      if (openFailureKeysRef.current.has(key)) return;
-      openFailureKeysRef.current.add(key);
-      alert(title, message, {
+  // 押すまで消えないダイアログで通知する。表示中に起きた失敗は捨てずに
+  // キューへ積み、閉じたあと順に出す。同じ種類が連続する分は件数で
+  // 1件にまとめるため、ダイアログが積み上がらず取りこぼしもない。
+  const failureQueueRef = useRef<FailureNotice[]>([]);
+  const failureAlertOpenRef = useRef(false);
+  const flushFailures = useCallback(() => {
+    if (failureAlertOpenRef.current) return;
+    const first = failureQueueRef.current.shift();
+    if (!first) return;
+    // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
+    let count = 1;
+    while (failureQueueRef.current[0]?.kind === first.kind) {
+      failureQueueRef.current.shift();
+      count += 1;
+    }
+    failureAlertOpenRef.current = true;
+    alert(
+      first.title,
+      count === 1 ? first.message : mergedFailureMessage(first.kind, count),
+      {
         okLabel: "OK",
         onClose: () => {
-          openFailureKeysRef.current.delete(key);
+          failureAlertOpenRef.current = false;
+          flushFailures();
         },
-      });
+      },
+    );
+  }, []);
+  const notifyFailure = useCallback(
+    (kind: FailureKind, title: string, message: string) => {
+      failureQueueRef.current.push({ kind, title, message });
+      flushFailures();
     },
-    [],
+    [flushFailures],
   );
-
-  // 飛んでいる保存の数。同じ作品への後続保存があると先行する失敗は
-  // ロールバックされない（新しい意図を消さない onError 仕様）ため、
-  // 「元の状態に戻しました」と断定してよいかの判定に使う。
-  const savesInFlightRef = useRef(0);
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -244,26 +272,25 @@ export default function WatchHistoryScreen() {
           history={editingItem}
           onClose={() => setEditingItem(null)}
           onSave={(data) => {
-            savesInFlightRef.current += 1;
             // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
             // 前の呼び出し分が発火しないため、mutation 個別に reject する
             // mutateAsync の promise で失敗を拾う。
             void upsert
               .mutateAsync({ annictWorkId: editingItem.annictWorkId, data })
-              .catch(() => {
-                // 他の保存が飛んでいる間は表示が元に戻るとは限らない
-                // （後続の楽観値が残る）。その場合は「戻した」とは言わない。
-                const othersInFlight = savesInFlightRef.current > 1;
+              .catch((e: unknown) => {
+                // 「元の状態に戻しました」と言えるのは表示が実際に
+                // 巻き戻された場合だけ。後続の楽観値が残る失敗は onError が
+                // ロールバックをスキップするため、onError がエラーへ記録する
+                // rolledBack で文言を分ける。
+                const rolledBack =
+                  (e as UpsertWatchHistoryError).rolledBack === true;
                 notifyFailure(
                   "update",
                   "更新できませんでした",
-                  othersInFlight
-                    ? "視聴ステータスを更新できませんでした。"
-                    : "視聴ステータスを更新できませんでした。元の状態に戻しました。",
+                  rolledBack
+                    ? "視聴ステータスを更新できませんでした。元の状態に戻しました。"
+                    : "一部の更新に失敗しました。",
                 );
-              })
-              .finally(() => {
-                savesInFlightRef.current -= 1;
               });
             // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
             // 失敗した場合はロールバックされ、ダイアログで通知される。
