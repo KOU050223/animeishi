@@ -103,9 +103,11 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
   `openapiValidationHook`（入力エラーを `{error: message}` の 400 に揃える
   `defaultHook`）、`registerOpenApiDocs`（/doc・/ui の登録）
 - `GET /doc` … OpenAPI JSON、`GET /ui` … Swagger UI。
-  `ENVIRONMENT=production` では両方 404。開発（wrangler dev・未設定）と
-  preview でのみ公開する。/doc・/ui 自体は RPC クライアントの対象外なので
-  `AppType` に含めない（`createRoute` ではなく素の `app.get` で登録）
+  本番を含む全環境で公開する。ドキュメントの閲覧に認証は不要だが、
+  `security: bearerAuth` を付けた API の実行には従来どおり Clerk JWT が
+  必要（公開されるのは API 仕様のみ）。/doc・/ui 自体は RPC クライアントの
+  対象外なので `AppType` に含めない（`createRoute` ではなく素の
+  `app.get` で登録）
 
 ### OpenAPI 化時の注意
 
