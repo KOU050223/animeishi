@@ -17,6 +17,7 @@ import { setMockClerkState } from "../__mocks__/@clerk/clerk-expo";
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockWatchHistoryGet = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -24,8 +25,22 @@ jest.mock("@/lib/api", () => ({
         $get: (...args: unknown[]) => mockGet(...args),
         $post: (...args: unknown[]) => mockPost(...args),
       },
+      "watch-histories": {
+        $get: (...args: unknown[]) => mockWatchHistoryGet(...args),
+      },
     },
   },
+}));
+
+// useGenerateAnalysis は生成前に連携状態を見て履歴同期を挟む。
+// 連携状態はテストごとに差し替えられるよう関数経由にする。
+let mockIsConnected = true;
+jest.mock("@/lib/annict", () => ({
+  buildAnnictAuthHeader: async () => ({ "X-Annict-Token": "annict-token" }),
+  useAnnictConnection: () => ({
+    isConnected: mockIsConnected,
+    isLoading: false,
+  }),
 }));
 
 const ANALYSIS_BODY = {
@@ -55,6 +70,11 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     jest.clearAllMocks();
     loggedInUser({ userId });
     setMockClerkState({ getToken: async () => "test-token" });
+    mockIsConnected = true;
+    mockWatchHistoryGet.mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
     client = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -150,5 +170,77 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     expect((result.current.error as ApiRequestError).message).toContain(
       "実行回数が上限",
     );
+  });
+
+  it("useGenerateAnalysis: 連携済みなら履歴を同期してから生成する", async () => {
+    mockPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...ANALYSIS_BODY, cached: false }),
+    });
+
+    const { result } = renderHook(() => useGenerateAnalysis(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // 同期 GET が POST より先に呼ばれる（POST は D1 スナップショットを
+    // 見るため、read-through で先に最新化する必要がある）。
+    expect(mockWatchHistoryGet).toHaveBeenCalledTimes(1);
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    expect(mockWatchHistoryGet.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPost.mock.invocationCallOrder[0],
+    );
+    // 同期 GET には Clerk JWT と Annict トークンの両方が載る。
+    expect(mockWatchHistoryGet).toHaveBeenCalledWith(
+      {},
+      {
+        headers: {
+          Authorization: "Bearer test-token",
+          "X-Annict-Token": "annict-token",
+        },
+      },
+    );
+  });
+
+  it("useGenerateAnalysis: 未連携なら同期せずそのまま生成する", async () => {
+    mockIsConnected = false;
+    mockPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...ANALYSIS_BODY, cached: false }),
+    });
+
+    const { result } = renderHook(() => useGenerateAnalysis(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockWatchHistoryGet).not.toHaveBeenCalled();
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("useGenerateAnalysis: 履歴同期に失敗したら生成せずエラーになる", async () => {
+    mockWatchHistoryGet.mockResolvedValue({ ok: false, status: 502 });
+
+    const { result } = renderHook(() => useGenerateAnalysis(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeInstanceOf(ApiRequestError);
+    expect((result.current.error as ApiRequestError).status).toBe(502);
+    expect((result.current.error as ApiRequestError).message).toContain(
+      "視聴履歴の同期",
+    );
+    // 古い履歴での生成を避けるため POST には進まない。
+    expect(mockPost).not.toHaveBeenCalled();
   });
 });

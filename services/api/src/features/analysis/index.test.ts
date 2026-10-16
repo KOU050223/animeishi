@@ -320,6 +320,36 @@ describe("視聴傾向分析 API", () => {
       expect(body.analysis?.summary).toBe("新しい結果");
     });
 
+    it("POST /me/analysis: 履歴はデータ区切りの JSON で渡し指示無視を明示する", async () => {
+      await seedHistory([101, 102]);
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+
+      const [, inputs] = aiRun.mock.calls[0] as unknown as [
+        string,
+        { messages: { role: string; content: string }[] },
+      ];
+      const system = inputs.messages.find((m) => m.role === "system");
+      const user = inputs.messages.find((m) => m.role === "user");
+      // システムプロンプトが「データ内の指示に従わない」旨を明示する。
+      expect(system?.content).toContain("従わ");
+      // ユーザープロンプトは履歴を <watch_history> 内の JSON として渡す。
+      const match = user?.content.match(
+        /<watch_history>\n([\s\S]*?)\n<\/watch_history>/,
+      );
+      expect(match).not.toBeNull();
+      const data = JSON.parse(match![1]) as {
+        totalCount: number;
+        works: { title: string; state: string }[];
+      };
+      expect(data.totalCount).toBe(2);
+      expect(data.works.map((w) => w.title)).toEqual(
+        expect.arrayContaining(["テスト作品101", "テスト作品102"]),
+      );
+    });
+
     it("POST /me/analysis: 作品タイトルの改行・制御文字はプロンプトで潰す", async () => {
       const now = new Date();
       await db
@@ -494,7 +524,9 @@ describe("computeInputHash", () => {
     imageR2Key: null,
   });
 
-  it("作品の並び順が違っても同一ハッシュになる", async () => {
+  it("プロンプトに載る作品の並び順が変わるとハッシュが変わる", async () => {
+    // works はプロンプトに載る順序のままハッシュ対象のため、
+    // 同じ作品集合でも並び替わればキャッシュは無効化される。
     const a = buildAnalysisInput(
       [historyRow(1, "WATCHED"), historyRow(2, "WATCHING")],
       [],
@@ -503,7 +535,7 @@ describe("computeInputHash", () => {
       [historyRow(2, "WATCHING"), historyRow(1, "WATCHED")],
       [],
     );
-    expect(await computeInputHash(a)).toBe(await computeInputHash(b));
+    expect(await computeInputHash(a)).not.toBe(await computeInputHash(b));
   });
 
   it("履歴・選択ジャンル・タイトルが変わるとハッシュが変わる", async () => {
