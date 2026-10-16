@@ -32,11 +32,14 @@ export default function FriendsScreen() {
     confirm(
       "フレンドを削除",
       `「${name}」をフレンドから削除しますか？`,
-      () =>
-        remove.mutate(friendId, {
-          // 削除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
-          // ApiRequestError はユーザー向け日本語メッセージを持つ。
-          onError: (e) =>
+      () => {
+        // 削除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+        // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
+        // ため、mutateAsync の promise で失敗を個別に拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        void remove
+          .mutateAsync(friendId)
+          .catch((e: unknown) =>
             alert(
               "フレンドを削除できませんでした",
               e instanceof ApiRequestError
@@ -44,7 +47,8 @@ export default function FriendsScreen() {
                 : "フレンドの削除に失敗しました",
               { okLabel: "OK" },
             ),
-        }),
+          );
+      },
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }

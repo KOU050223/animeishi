@@ -64,27 +64,27 @@ export default function WatchHistoryScreen() {
   // ステータス更新は楽観的更新のため、失敗時（ロールバック）は必ず
   // ユーザーに伝える。短時間で消えるトーストだと見落とすため、OK を
   // 押すまで消えないダイアログで通知する。別作品への連続編集などで
-  // 失敗が重なってもダイアログが積み上がらないよう、表示中は追加で出さない
-  // （削除失敗の通知も同じ枠にまとめる）。
-  const failureAlertOpenRef = useRef(false);
-  const notifyFailure = useCallback((title: string, message: string) => {
-    if (failureAlertOpenRef.current) return;
-    failureAlertOpenRef.current = true;
-    alert(title, message, {
-      okLabel: "OK",
-      onClose: () => {
-        failureAlertOpenRef.current = false;
-      },
-    });
-  }, []);
-  const notifyUpdateFailure = useCallback(
-    () =>
-      notifyFailure(
-        "更新できませんでした",
-        "視聴ステータスを更新できませんでした。元の状態に戻しました。",
-      ),
-    [notifyFailure],
+  // 失敗が重なってもダイアログが積み上がらないよう、同じ種類の通知は
+  // 表示中に1つまでとする（種類が違う失敗はそれぞれ通知する）。
+  const openFailureKeysRef = useRef(new Set<string>());
+  const notifyFailure = useCallback(
+    (key: string, title: string, message: string) => {
+      if (openFailureKeysRef.current.has(key)) return;
+      openFailureKeysRef.current.add(key);
+      alert(title, message, {
+        okLabel: "OK",
+        onClose: () => {
+          openFailureKeysRef.current.delete(key);
+        },
+      });
+    },
+    [],
   );
+
+  // 飛んでいる保存の数。同じ作品への後続保存があると先行する失敗は
+  // ロールバックされない（新しい意図を消さない onError 仕様）ため、
+  // 「元の状態に戻しました」と断定してよいかの判定に使う。
+  const savesInFlightRef = useRef(0);
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -105,19 +105,24 @@ export default function WatchHistoryScreen() {
     confirm(
       "視聴履歴を削除",
       "この視聴履歴を削除しますか？",
-      () =>
-        remove.mutate(annictWorkId, {
-          // 削除失敗も黙って終わらせず、更新失敗と同じくダイアログで伝える。
-          // ApiRequestError はユーザー向け日本語メッセージを持つ。
-          // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
-          onError: (e) =>
+      () => {
+        // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
+        // 前の呼び出し分が発火しないため、mutation 個別に reject する
+        // mutateAsync の promise で失敗を拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
+        void remove
+          .mutateAsync(annictWorkId)
+          .catch((e: unknown) =>
             notifyFailure(
+              "delete",
               "削除できませんでした",
               e instanceof ApiRequestError
                 ? e.message
                 : "視聴履歴の削除に失敗しました",
             ),
-        }),
+          );
+      },
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
@@ -239,12 +244,27 @@ export default function WatchHistoryScreen() {
           history={editingItem}
           onClose={() => setEditingItem(null)}
           onSave={(data) => {
+            savesInFlightRef.current += 1;
             // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
             // 前の呼び出し分が発火しないため、mutation 個別に reject する
             // mutateAsync の promise で失敗を拾う。
             void upsert
               .mutateAsync({ annictWorkId: editingItem.annictWorkId, data })
-              .catch(() => notifyUpdateFailure());
+              .catch(() => {
+                // 他の保存が飛んでいる間は表示が元に戻るとは限らない
+                // （後続の楽観値が残る）。その場合は「戻した」とは言わない。
+                const othersInFlight = savesInFlightRef.current > 1;
+                notifyFailure(
+                  "update",
+                  "更新できませんでした",
+                  othersInFlight
+                    ? "視聴ステータスを更新できませんでした。"
+                    : "視聴ステータスを更新できませんでした。元の状態に戻しました。",
+                );
+              })
+              .finally(() => {
+                savesInFlightRef.current -= 1;
+              });
             // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
             // 失敗した場合はロールバックされ、ダイアログで通知される。
             setEditingItem(null);

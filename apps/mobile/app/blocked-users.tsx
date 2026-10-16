@@ -22,11 +22,14 @@ export default function BlockedUsersScreen() {
     confirm(
       "ブロックを解除",
       `「${item.username}」のブロックを解除しますか？`,
-      () =>
-        unblock.mutate(item.blockedId, {
-          // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
-          // ApiRequestError はユーザー向け日本語メッセージを持つ。
-          onError: (e) =>
+      () => {
+        // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+        // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
+        // ため、mutateAsync の promise で失敗を個別に拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        void unblock
+          .mutateAsync(item.blockedId)
+          .catch((e: unknown) =>
             alert(
               "ブロックを解除できませんでした",
               e instanceof ApiRequestError
@@ -34,7 +37,8 @@ export default function BlockedUsersScreen() {
                 : "ブロックの解除に失敗しました",
               { okLabel: "OK" },
             ),
-        }),
+          );
+      },
       { confirmLabel: "解除", cancelLabel: "キャンセル" },
     );
   }

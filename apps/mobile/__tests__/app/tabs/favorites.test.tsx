@@ -1,11 +1,16 @@
 // お気に入り画面のテスト。解除失敗は画面に変化が残らないため、
 // OK を押すまで消えないダイアログで必ず通知することを確認する。
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import FavoritesScreen from "@/app/(tabs)/favorites";
 import { ApiRequestError } from "@/lib/apiError";
 
-const mockRemoveMutate = jest.fn();
+const mockRemoveMutateAsync = jest.fn();
 const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
@@ -31,7 +36,9 @@ jest.mock("@/lib/useFavorites", () => ({
     isError: false,
     refetch: jest.fn(),
   }),
-  useRemoveFavorite: () => ({ mutate: mockRemoveMutate }),
+  useRemoveFavorite: () => ({
+    mutateAsync: (...args: unknown[]) => mockRemoveMutateAsync(...args),
+  }),
   // 検索語が空のとき matchesFavoriteQuery は呼ばれないためスタブで足りる。
   matchesFavoriteQuery: () => true,
 }));
@@ -52,6 +59,9 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRemoveMutateAsync.mockReset();
+  // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
+  mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
 describe("FavoritesScreen", () => {
@@ -59,43 +69,38 @@ describe("FavoritesScreen", () => {
     render(<FavoritesScreen />);
     fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
 
-    expect(mockRemoveMutate).toHaveBeenCalledWith(
-      1,
-      expect.objectContaining({ onError: expect.any(Function) }),
-    );
+    expect(mockRemoveMutateAsync).toHaveBeenCalledWith(1);
   });
 
-  it("解除に失敗したらダイアログで通知する", () => {
+  it("解除に失敗したらダイアログで通知する", async () => {
+    mockRemoveMutateAsync.mockRejectedValue(
+      new ApiRequestError(500, "お気に入りの削除に失敗しました"),
+    );
     render(<FavoritesScreen />);
     fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
 
-    // mutate に渡した onError を発火させる（confirm は即承諾するため
-    // mutate は既に呼ばれている）。
-    const options = mockRemoveMutate.mock.calls[0][1] as {
-      onError: (e: unknown) => void;
-    };
-    options.onError(new ApiRequestError(500, "お気に入りの削除に失敗しました"));
-
-    expect(mockAlert).toHaveBeenCalledWith(
-      "お気に入りを解除できませんでした",
-      "お気に入りの削除に失敗しました",
-      expect.objectContaining({ okLabel: "OK" }),
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "お気に入りを解除できませんでした",
+        "お気に入りの削除に失敗しました",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
     );
   });
 
-  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", () => {
+  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
+    mockRemoveMutateAsync.mockRejectedValue(
+      new Error("Network request failed"),
+    );
     render(<FavoritesScreen />);
     fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
 
-    const options = mockRemoveMutate.mock.calls[0][1] as {
-      onError: (e: unknown) => void;
-    };
-    options.onError(new Error("Network request failed"));
-
-    expect(mockAlert).toHaveBeenCalledWith(
-      "お気に入りを解除できませんでした",
-      "お気に入りの解除に失敗しました",
-      expect.objectContaining({ okLabel: "OK" }),
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "お気に入りを解除できませんでした",
+        "お気に入りの解除に失敗しました",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
     );
   });
 });

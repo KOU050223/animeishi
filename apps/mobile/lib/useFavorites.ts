@@ -157,11 +157,16 @@ export function useToggleFavorite(
 
   return {
     toggle: (annictWorkId: number) => {
-      if (nextFavoriteAction(favoriteIds, annictWorkId) === "remove") {
-        remove.mutate(annictWorkId, { onError: options?.onError });
-      } else {
-        add.mutate(annictWorkId, { onError: options?.onError });
-      }
+      const mutation =
+        nextFavoriteAction(favoriteIds, annictWorkId) === "remove"
+          ? remove
+          : add;
+      // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
+      // 前の呼び出し分が発火しないため、mutateAsync の promise で
+      // 失敗を個別に拾う。
+      void mutation
+        .mutateAsync(annictWorkId)
+        .catch((e: unknown) => options?.onError?.(e));
     },
     isPending: add.isPending || remove.isPending,
   };
