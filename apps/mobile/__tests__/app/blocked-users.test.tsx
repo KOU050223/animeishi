@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import BlockedUsersScreen from "@/app/blocked-users";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockUnblockMutate = jest.fn();
@@ -86,11 +87,29 @@ describe("BlockedUsersScreen", () => {
     const options = mockUnblockMutate.mock.calls[0][1] as {
       onError: (e: unknown) => void;
     };
-    options.onError(new Error("ブロック解除に失敗しました"));
+    options.onError(new ApiRequestError(500, "ブロック解除に失敗しました"));
 
     expect(mockAlert).toHaveBeenCalledWith(
       "ブロックを解除できませんでした",
       "ブロック解除に失敗しました",
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", () => {
+    render(<BlockedUsersScreen />);
+    fireEvent.press(
+      screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
+    );
+
+    const options = mockUnblockMutate.mock.calls[0][1] as {
+      onError: (e: unknown) => void;
+    };
+    options.onError(new Error("Network request failed"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "ブロックを解除できませんでした",
+      "ブロックの解除に失敗しました",
       expect.objectContaining({ okLabel: "OK" }),
     );
   });

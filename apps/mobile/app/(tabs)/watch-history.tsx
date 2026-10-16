@@ -17,6 +17,7 @@ import {
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
 import type { WatchHistoryItem } from "@/lib/useWatchHistory";
+import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
@@ -63,22 +64,27 @@ export default function WatchHistoryScreen() {
   // ステータス更新は楽観的更新のため、失敗時（ロールバック）は必ず
   // ユーザーに伝える。短時間で消えるトーストだと見落とすため、OK を
   // 押すまで消えないダイアログで通知する。別作品への連続編集などで
-  // 失敗が重なってもダイアログが積み上がらないよう、表示中は追加で出さない。
-  const updateAlertOpenRef = useRef(false);
-  const notifyUpdateFailure = useCallback(() => {
-    if (updateAlertOpenRef.current) return;
-    updateAlertOpenRef.current = true;
-    alert(
-      "更新できませんでした",
-      "視聴ステータスを更新できませんでした。元の状態に戻しました。",
-      {
-        okLabel: "OK",
-        onClose: () => {
-          updateAlertOpenRef.current = false;
-        },
+  // 失敗が重なってもダイアログが積み上がらないよう、表示中は追加で出さない
+  // （削除失敗の通知も同じ枠にまとめる）。
+  const failureAlertOpenRef = useRef(false);
+  const notifyFailure = useCallback((title: string, message: string) => {
+    if (failureAlertOpenRef.current) return;
+    failureAlertOpenRef.current = true;
+    alert(title, message, {
+      okLabel: "OK",
+      onClose: () => {
+        failureAlertOpenRef.current = false;
       },
-    );
+    });
   }, []);
+  const notifyUpdateFailure = useCallback(
+    () =>
+      notifyFailure(
+        "更新できませんでした",
+        "視聴ステータスを更新できませんでした。元の状態に戻しました。",
+      ),
+    [notifyFailure],
+  );
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -102,11 +108,14 @@ export default function WatchHistoryScreen() {
       () =>
         remove.mutate(annictWorkId, {
           // 削除失敗も黙って終わらせず、更新失敗と同じくダイアログで伝える。
+          // ApiRequestError はユーザー向け日本語メッセージを持つ。
+          // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
           onError: (e) =>
-            alert(
+            notifyFailure(
               "削除できませんでした",
-              e instanceof Error ? e.message : "視聴履歴の削除に失敗しました",
-              { okLabel: "OK" },
+              e instanceof ApiRequestError
+                ? e.message
+                : "視聴履歴の削除に失敗しました",
             ),
         }),
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },

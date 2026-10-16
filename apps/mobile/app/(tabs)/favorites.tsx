@@ -14,6 +14,7 @@ import {
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
@@ -51,10 +52,13 @@ export default function FavoritesScreen() {
       () =>
         remove.mutate(annictWorkId, {
           // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+          // ApiRequestError はユーザー向け日本語メッセージを持つ。
           onError: (e) =>
             alert(
               "お気に入りを解除できませんでした",
-              e instanceof Error ? e.message : "お気に入りの解除に失敗しました",
+              e instanceof ApiRequestError
+                ? e.message
+                : "お気に入りの解除に失敗しました",
               { okLabel: "OK" },
             ),
         }),

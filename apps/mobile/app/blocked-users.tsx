@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
+import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
@@ -24,10 +25,13 @@ export default function BlockedUsersScreen() {
       () =>
         unblock.mutate(item.blockedId, {
           // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+          // ApiRequestError はユーザー向け日本語メッセージを持つ。
           onError: (e) =>
             alert(
               "ブロックを解除できませんでした",
-              e instanceof Error ? e.message : "ブロックの解除に失敗しました",
+              e instanceof ApiRequestError
+                ? e.message
+                : "ブロックの解除に失敗しました",
               { okLabel: "OK" },
             ),
         }),
