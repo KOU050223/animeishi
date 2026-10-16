@@ -37,6 +37,17 @@ describe("featureFlags.googleSignIn（issue #89）", () => {
     delete process.env.EXPO_PUBLIC_ENVIRONMENT;
   });
 
+  it("preview でも本番 Clerk キー（pk_live_）なら既定で無効", () => {
+    jest.resetModules();
+    process.env.EXPO_PUBLIC_ENVIRONMENT = "preview";
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { googleSignIn } = require("./googleSignIn");
+    expect(googleSignIn).toBe(false);
+    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+    delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  });
+
   it("EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN で環境に関わらず上書きできる", () => {
     jest.resetModules();
     process.env.EXPO_PUBLIC_ENVIRONMENT = "production";
@@ -69,5 +80,16 @@ describe("featureFlags.passkey（issue #181）", () => {
     const { passkey: passkeyWebProd } = require("./passkey.web");
     expect(passkeyWebProd).toBe(false);
     delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+  });
+
+  it("Web は preview でも本番 Clerk キー（pk_live_）なら既定で無効", () => {
+    jest.resetModules();
+    process.env.EXPO_PUBLIC_ENVIRONMENT = "preview";
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { passkey: passkeyWebLive } = require("./passkey.web");
+    expect(passkeyWebLive).toBe(false);
+    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+    delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
   });
 });
