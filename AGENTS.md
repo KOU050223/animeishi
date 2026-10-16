@@ -78,6 +78,11 @@ Maestro による E2E を `apps/mobile/.maestro/` に置く。
 task e2e:ios
 ```
 
+> **運用ルール（#180）**: E2E は CI では回さない（macOS ランナーのコストのため）。
+> 代わりに、`apps/mobile` に影響する PR（認証・ナビゲーション・ホーム周りなど
+> E2E フローが通る画面を触るもの）は、**マージ前にローカルで `task e2e:ios` を
+> 通す**。結果（PASS / 失敗時の原因）は PR にコメントで残す。
+
 `task e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
 
 1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
