@@ -145,6 +145,32 @@ export function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
+/** ラベル文字色の候補。アプリ側 lib/tierList/label.ts と同じ値。 */
+const TIER_LABEL_TEXT_DARK = "#1f2937";
+const TIER_LABEL_TEXT_LIGHT = "#ffffff";
+
+// WCAG 2.x の相対輝度（#RRGGBB 以外はパース不能として null）。
+// https://www.w3.org/TR/WCAG/#dfn-relative-luminance
+function relativeLuminance(color: string): number | null {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(color.trim());
+  if (!match || !match[1]) return null;
+  const n = parseInt(match[1], 16);
+  const channel = (v: number) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return (
+    0.2126 * channel((n >> 16) & 0xff) +
+    0.7152 * channel((n >> 8) & 0xff) +
+    0.0722 * channel(n & 0xff)
+  );
+}
+
+function contrastRatio(l1: number, l2: number): number {
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /**
  * tier ラベルセルの文字色。tier.color はユーザーが自由に変えられるため、
  * 背景とのコントラストが高い側を濃色/白から選ぶ（アプリ側
@@ -152,22 +178,12 @@ export function isSafeImageUrl(url: string): boolean {
  * パース不能な色はアプリ側と同じく濃色に倒す。
  */
 function tierLabelTextColor(backgroundColor: string): string {
-  const match = /^#([0-9a-fA-F]{6})$/.exec(backgroundColor.trim());
-  if (!match || !match[1]) return "#1f2937";
-  const n = parseInt(match[1], 16);
-  const channel = (v: number) => {
-    const s = v / 255;
-    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  };
-  const bg =
-    0.2126 * channel((n >> 16) & 0xff) +
-    0.7152 * channel((n >> 8) & 0xff) +
-    0.0722 * channel(n & 0xff);
-  // 濃色側（#1f2937 ≈ 輝度 0.0224）と白（輝度 1）のどちらが見やすいか比較する。
-  const DARK_LUMINANCE = 0.0224;
-  const ratio = (l: number) =>
-    (Math.max(bg, l) + 0.05) / (Math.min(bg, l) + 0.05);
-  return ratio(DARK_LUMINANCE) >= ratio(1) ? "#1f2937" : "#ffffff";
+  const bg = relativeLuminance(backgroundColor);
+  if (bg === null) return TIER_LABEL_TEXT_DARK;
+  const dark = relativeLuminance(TIER_LABEL_TEXT_DARK) ?? 0;
+  return contrastRatio(bg, dark) >= contrastRatio(bg, 1)
+    ? TIER_LABEL_TEXT_DARK
+    : TIER_LABEL_TEXT_LIGHT;
 }
 
 export function workImageHtml(
@@ -239,6 +255,8 @@ export function buildSharedTierListHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
@@ -326,6 +344,8 @@ export function buildSharedCharacterTierListHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />

@@ -19,8 +19,21 @@ export const CARD_HEIGHT = CARD_IMAGE_HEIGHT + CARD_LABEL_HEIGHT;
  */
 export function useTierListStyles() {
   const colors = useThemeColors();
-  return useMemo(() => createStyles(colors), [colors]);
+  return useMemo(() => {
+    // カードは最大数百枚同時に描画され、それぞれがこのフックを呼ぶため、
+    // スキーム単位で StyleSheet を共有する。useThemeColors の返す
+    // colors.light / colors.dark はモジュール定数なので WeakMap の
+    // キーとして安定している。
+    let styles = stylesCache.get(colors);
+    if (!styles) {
+      styles = createStyles(colors);
+      stylesCache.set(colors, styles);
+    }
+    return styles;
+  }, [colors]);
 }
+
+const stylesCache = new WeakMap<ThemeColors, ReturnType<typeof createStyles>>();
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -126,7 +139,9 @@ function createStyles(colors: ThemeColors) {
       gap: 4,
     },
     trayActive: { backgroundColor: colors.tierDropAreaActive },
-    trayEmpty: { color: colors.textMuted, fontSize: 12, padding: 8 },
+    // 薄灰のトレイ面上でも WCAG AA を満たすよう一段濃い補助文字色を使う
+    // （textMuted の #6b7280/#f3f4f6 では約 4.4:1 と僅かに届かない）。
+    trayEmpty: { color: colors.textSecondary, fontSize: 12, padding: 8 },
 
     // カードは「ポスター部 + タイトル部」の縦積み。画像が無い作品でも
     // タイトルで判別できるよう、ラベルは常に表示する。
@@ -151,7 +166,7 @@ function createStyles(colors: ThemeColors) {
       justifyContent: "center",
       backgroundColor: colors.tierCardFallback,
     },
-    cardImageFallbackText: { color: colors.textFaint, fontSize: 20 },
+    cardImageFallbackText: { color: colors.textMuted, fontSize: 20 },
     cardLabel: {
       height: CARD_LABEL_HEIGHT,
       paddingHorizontal: 2,
