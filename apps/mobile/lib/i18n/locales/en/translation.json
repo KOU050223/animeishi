@@ -74,6 +74,7 @@
   "API: 取得失敗": "API: failed to fetch",
   "もう一度試す": "Try again",
   "AI 視聴傾向分析": "AI viewing-trend analysis",
+  "戻る": "Back",
   "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します": "AI analyzes your viewing trends and recommended genres from your watch history",
   "分析結果の取得に失敗しました": "Failed to load analysis",
   "分析結果を再取得": "Reload analysis",

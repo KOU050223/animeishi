@@ -17,7 +17,7 @@ import { generateAnalysisRoute, getAnalysisRoute } from "./schema";
 // POST /me/analysis が必要とするバインディング。AI は wrangler.toml の
 // [ai] binding = "AI"（preview / production 双方に定義済み）。
 function getBindings(c: Context): { DB: D1Database; AI: Ai } {
-  return c.env as unknown as { DB: D1Database; AI: Ai };
+  return c.env as { DB: D1Database; AI: Ai };
 }
 
 function toResponse(saved: SavedAnalysis) {

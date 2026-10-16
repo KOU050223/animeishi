@@ -81,6 +81,7 @@ bucket_name = "animeishi-avatars"
 
 [env.production.ai]
 binding = "AI"
+remote = true
 
 # PR プレビュー環境（animeishi-api-preview）。
 # 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
@@ -117,6 +118,7 @@ bucket_name = "animeishi-avatars-preview"
 
 [env.preview.ai]
 binding = "AI"
+remote = true
 
 [observability]
 enabled = false

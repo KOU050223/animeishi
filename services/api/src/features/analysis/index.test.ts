@@ -439,4 +439,23 @@ describe("computeInputHash", () => {
     expect(await computeInputHash(genreChanged)).not.toBe(baseHash);
     expect(await computeInputHash(stateChanged)).not.toBe(baseHash);
   });
+
+  it("プロンプト上限（50 件）以降の作品変更でもハッシュが変わる", async () => {
+    const base = buildAnalysisInput(
+      Array.from({ length: 60 }, (_, i) => historyRow(i + 1, "WATCHED")),
+      [],
+    );
+    // 51 件目以降（プロンプトには載らない範囲）の状態だけ変更する。
+    const tailChanged = buildAnalysisInput(
+      [
+        ...Array.from({ length: 50 }, (_, i) => historyRow(i + 1, "WATCHED")),
+        historyRow(51, "WATCHING"),
+        ...Array.from({ length: 9 }, (_, i) => historyRow(52 + i, "WATCHED")),
+      ],
+      [],
+    );
+    expect(await computeInputHash(tailChanged)).not.toBe(
+      await computeInputHash(base),
+    );
+  });
 });

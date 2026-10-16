@@ -1,11 +1,13 @@
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAnalysis, useGenerateAnalysis } from "@/lib/useAnalysis";
 import { ApiRequestError } from "@/lib/apiError";
@@ -27,10 +29,20 @@ function formatGeneratedAt(iso: string): string {
 export default function AnalysisScreen() {
   const colors = useThemeColors();
   const { t } = useTranslation();
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useAnalysis();
   const generate = useGenerateAnalysis();
 
   const analysis = data?.analysis ?? null;
+
+  // changelog と同じ規約。直リンクでは遷移履歴が無いためホームへ戻す。
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/");
+  };
 
   const generateErrorMessage =
     generate.error instanceof ApiRequestError
@@ -49,19 +61,37 @@ export default function AnalysisScreen() {
 
   if (isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
-        <Text className="mb-4 text-center text-red-500 dark:text-red-400">
-          {t("分析結果の取得に失敗しました")}
-        </Text>
-        <TouchableOpacity
-          className="rounded-lg bg-indigo-600 px-6 py-3"
-          onPress={() => refetch()}
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top", "bottom"]}
+      >
+        <Pressable
+          onPress={handleBack}
+          className="self-start px-4 py-3"
           accessibilityRole="button"
-          accessibilityLabel={t("分析結果を再取得")}
+          accessibilityLabel={t("戻る")}
+          testID="analysis-back-button"
         >
-          <Text className="font-semibold text-white">{t("もう一度試す")}</Text>
-        </TouchableOpacity>
-      </View>
+          <Text className="text-base text-indigo-600 dark:text-indigo-400">
+            ‹ {t("戻る")}
+          </Text>
+        </Pressable>
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+            {t("分析結果の取得に失敗しました")}
+          </Text>
+          <TouchableOpacity
+            className="rounded-lg bg-indigo-600 px-6 py-3"
+            onPress={() => refetch()}
+            accessibilityRole="button"
+            accessibilityLabel={t("分析結果を再取得")}
+          >
+            <Text className="font-semibold text-white">
+              {t("もう一度試す")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -71,7 +101,18 @@ export default function AnalysisScreen() {
       edges={["top", "bottom"]}
     >
       <ScrollView contentContainerClassName="px-4 pb-12">
-        <View className="pb-3 pt-3">
+        <Pressable
+          onPress={handleBack}
+          className="self-start py-3"
+          accessibilityRole="button"
+          accessibilityLabel={t("戻る")}
+          testID="analysis-back-button"
+        >
+          <Text className="text-base text-indigo-600 dark:text-indigo-400">
+            ‹ {t("戻る")}
+          </Text>
+        </Pressable>
+        <View className="pb-3">
           <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
             {t("AI 視聴傾向分析")}
           </Text>

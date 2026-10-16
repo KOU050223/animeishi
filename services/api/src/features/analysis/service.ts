@@ -46,7 +46,14 @@ export type AnalysisInput = {
   /** 履歴の総件数（works は MAX_PROMPT_WORKS に丸めているため別途持つ）。 */
   totalCount: number;
   stateCounts: Partial<Record<(typeof WATCH_STATES)[number], number>>;
+  /** プロンプト用: 更新日時が新しい順に MAX_PROMPT_WORKS 件。 */
   works: { annictWorkId: number; title: string; state: string }[];
+  /**
+   * ハッシュ用: 全履歴の (annictWorkId, state) 一覧。
+   * works は 50 件に丸めているため、51 件目以降の変更（作品の入替・
+   * 状態変更）も検出できるよう全件分を別途持つ。
+   */
+  workKeys: { annictWorkId: number; state: string }[];
   selectedGenres: string[];
 };
 
@@ -70,6 +77,10 @@ export function buildAnalysisInput(
       title: row.title,
       state: row.state,
     })),
+    workKeys: history.map((row) => ({
+      annictWorkId: row.annictWorkId,
+      state: row.state,
+    })),
     selectedGenres,
   };
 }
@@ -89,7 +100,9 @@ export async function computeInputHash(input: AnalysisInput): Promise<string> {
         (s) => [s, input.stateCounts[s]],
       ),
     ),
-    works: [...input.works].sort((a, b) => a.annictWorkId - b.annictWorkId),
+    workKeys: [...input.workKeys].sort(
+      (a, b) => a.annictWorkId - b.annictWorkId,
+    ),
     selectedGenres: [...input.selectedGenres].sort(),
   };
   const digest = await crypto.subtle.digest(

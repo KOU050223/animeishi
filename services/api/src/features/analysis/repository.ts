@@ -168,8 +168,8 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
           inputHash: data.inputHash,
           workCount: data.workCount,
           generatedAt: data.generatedAt,
-          // 通常は claim で行が存在するが、並行してアカウント削除等で
-          // 行が消えた経路でも書けるよう INSERT 側にも値を入れる。
+          // 通常は claim で行が存在する。analyses 行だけが消える経路
+          // （行単位の削除等）に備え、INSERT 側にも値を入れて upsert とする。
           windowStartedAt: data.generatedAt,
           generationCount: 1,
         })

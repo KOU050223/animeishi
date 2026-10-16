@@ -70,6 +70,7 @@ export const generateAnalysisRoute = createRoute({
     400: jsonError("視聴履歴が空"),
     401: jsonError("未認証"),
     429: {
+      headers: z.object({ "Retry-After": z.string() }),
       content: { "application/json": { schema: rateLimitedSchema } },
       description: "生成回数制限（Retry-After ヘッダ付き）",
     },
