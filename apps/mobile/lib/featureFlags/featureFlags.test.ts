@@ -23,21 +23,25 @@ describe("featureFlags.danimeImport", () => {
   });
 });
 
+// googleSignIn / passkey（web）の既定値は接続先 Clerk インスタンスを
+// publishable key で判定する（jest.setup.js で pk_test_ を設定済み）。
+// pk_live_ は本番インスタンス。EAS preview も pk_live_ を指すため、
+// 環境名ではなくキーの種別で無効になることを確認する。
 describe("featureFlags.googleSignIn（issue #89）", () => {
-  it("EXPO_PUBLIC_ENVIRONMENT 未設定（dev/preview 相当）では既定で有効", () => {
+  it("開発インスタンスのキー（pk_test_）では既定で有効", () => {
     expect(featureFlags.googleSignIn).toBe(true);
   });
 
-  it("production 環境では既定で無効", () => {
+  it("本番インスタンスのキー（pk_live_）では既定で無効", () => {
     jest.resetModules();
-    process.env.EXPO_PUBLIC_ENVIRONMENT = "production";
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { googleSignIn } = require("./googleSignIn");
     expect(googleSignIn).toBe(false);
-    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_jest";
   });
 
-  it("preview でも本番 Clerk キー（pk_live_）なら既定で無効", () => {
+  it("preview 環境名でも pk_live_ なら既定で無効", () => {
     jest.resetModules();
     process.env.EXPO_PUBLIC_ENVIRONMENT = "preview";
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
@@ -45,17 +49,26 @@ describe("featureFlags.googleSignIn（issue #89）", () => {
     const { googleSignIn } = require("./googleSignIn");
     expect(googleSignIn).toBe(false);
     delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_jest";
+  });
+
+  it("キー未設定では既定で無効", () => {
+    jest.resetModules();
     delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { googleSignIn } = require("./googleSignIn");
+    expect(googleSignIn).toBe(false);
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_jest";
   });
 
   it("EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN で環境に関わらず上書きできる", () => {
     jest.resetModules();
-    process.env.EXPO_PUBLIC_ENVIRONMENT = "production";
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
     process.env.EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN = "true";
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { googleSignIn } = require("./googleSignIn");
     expect(googleSignIn).toBe(true);
-    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_jest";
     delete process.env.EXPO_PUBLIC_FEATURE_GOOGLE_SIGN_IN;
   });
 });
@@ -68,28 +81,17 @@ describe("featureFlags.passkey（issue #181）", () => {
     expect(passkeyNative).toBe(false);
   });
 
-  it("Web は production で既定無効、dev/preview で既定有効", () => {
+  it("Web は pk_test_ で既定有効、pk_live_ で既定無効", () => {
     jest.resetModules();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { passkey: passkeyWeb } = require("./passkey.web");
     expect(passkeyWeb).toBe(true);
 
     jest.resetModules();
-    process.env.EXPO_PUBLIC_ENVIRONMENT = "production";
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { passkey: passkeyWebProd } = require("./passkey.web");
-    expect(passkeyWebProd).toBe(false);
-    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
-  });
-
-  it("Web は preview でも本番 Clerk キー（pk_live_）なら既定で無効", () => {
-    jest.resetModules();
-    process.env.EXPO_PUBLIC_ENVIRONMENT = "preview";
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_live_xxx";
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { passkey: passkeyWebLive } = require("./passkey.web");
     expect(passkeyWebLive).toBe(false);
-    delete process.env.EXPO_PUBLIC_ENVIRONMENT;
-    delete process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_jest";
   });
 });
