@@ -39,7 +39,12 @@ export function loggedInUser(options: LoggedInOptions = {}) {
   setMockClerkState({
     isSignedIn: true,
     userId,
-    user: { id: userId, username },
+    user: {
+      id: userId,
+      username,
+      passkeys: [],
+      createPasskey: jest.fn(async () => ({ id: "passkey_mock" })),
+    },
   });
   return getMockClerkState();
 }

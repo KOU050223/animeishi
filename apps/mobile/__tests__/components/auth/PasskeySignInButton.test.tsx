@@ -1,0 +1,104 @@
+import React from "react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react-native";
+import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
+import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
+
+// issue #181: Web のパスキーサインイン。コンポーネント自体はフラグを持たず
+// （表示制御は画面側の featureFlags.passkey が担う）、押下時の処理だけを検証する。
+
+const mockReplace = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
+
+const onError = jest.fn();
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  resetAuth();
+});
+
+describe("PasskeySignInButton", () => {
+  it("パスキー認証が成功するとセッションを活性化してホームへ遷移する", async () => {
+    const auth = getAuthMock();
+    auth.signIn.authenticateWithPasskey.mockResolvedValueOnce({
+      status: "complete",
+      createdSessionId: "session_passkey",
+    });
+
+    render(<PasskeySignInButton onError={onError} />);
+    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+
+    await waitFor(() => {
+      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalledWith({
+        flow: "discoverable",
+      });
+      expect(auth.setActive).toHaveBeenCalledWith({
+        session: "session_passkey",
+      });
+      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+    });
+  });
+
+  it("WebAuthn のキャンセル（NotAllowedError）はエラーを表示しない", async () => {
+    const auth = getAuthMock();
+    const cancelError = new Error("cancelled");
+    cancelError.name = "NotAllowedError";
+    auth.signIn.authenticateWithPasskey.mockRejectedValueOnce(cancelError);
+
+    render(<PasskeySignInButton onError={onError} />);
+    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+
+    await waitFor(() => {
+      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalled();
+    });
+    // ローディングが解除されるまで待ってから検証する
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(null);
+    });
+    expect(auth.setActive).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("認証失敗時はエラーメッセージを呼び出し側へ返す", async () => {
+    const auth = getAuthMock();
+    auth.signIn.authenticateWithPasskey.mockRejectedValueOnce(
+      new Error("network error"),
+    );
+
+    render(<PasskeySignInButton onError={onError} />);
+    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith(
+        "パスキーでのサインインに失敗しました",
+      );
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("既にサインイン済みの場合は先にサインアウトする", async () => {
+    const auth = loggedInUser();
+    auth.signIn.authenticateWithPasskey.mockResolvedValueOnce({
+      status: "complete",
+      createdSessionId: "session_passkey",
+    });
+
+    render(<PasskeySignInButton onError={onError} />);
+    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+
+    await waitFor(() => {
+      expect(auth.signOut).toHaveBeenCalledTimes(1);
+      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalled();
+    });
+    expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
+      auth.signIn.authenticateWithPasskey.mock.invocationCallOrder[0],
+    );
+  });
+});

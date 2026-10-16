@@ -261,4 +261,29 @@ describe("SignUpScreen", () => {
     expect(auth.setActive).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
+
+  describe("Google サインアップ（issue #89）", () => {
+    it("Google ボタンが表示され、SSO フローが成功するとホームへ遷移する", async () => {
+      const auth = getAuthMock();
+      // 新規ユーザーは startSSOFlow 内部で signUp.create({transfer:true}) に
+      // 振り分けられる。モックは最終結果だけを返す。
+      auth.startSSOFlow.mockResolvedValueOnce({
+        createdSessionId: "session_google",
+        authSessionResult: { type: "success" },
+      });
+
+      render(<SignUpScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.startSSOFlow).toHaveBeenCalledWith(
+          expect.objectContaining({ strategy: "oauth_google" }),
+        );
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_google",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+    });
+  });
 });

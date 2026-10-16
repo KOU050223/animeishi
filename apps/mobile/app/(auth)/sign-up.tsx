@@ -13,9 +13,11 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { signUpSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 
 export default function SignUpScreen() {
@@ -290,6 +292,20 @@ export default function SignUpScreen() {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {/* 外部プロバイダでのサインアップ。本番で未設定の間はフラグで隠す */}
+            {featureFlags.googleSignIn && (
+              <>
+                <View className="flex-row items-center mb-4">
+                  <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                  <Text className="mx-3 text-sm text-gray-400 dark:text-slate-500">
+                    {t("または")}
+                  </Text>
+                  <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                </View>
+                <GoogleAuthButton onError={setError} />
+              </>
+            )}
 
             <Text className="text-center text-xs text-gray-500 dark:text-slate-400 mb-2">
               {t("アカウントを作成することで、以下に同意したものとみなします")}
