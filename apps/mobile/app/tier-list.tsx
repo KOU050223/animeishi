@@ -16,7 +16,8 @@ import {
   TierBoardSnapshot,
   type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
-import { styles } from "@/components/tier-list/tierListStyles";
+import { useTierListStyles } from "@/components/tier-list/tierListStyles";
+import { useThemeColors } from "@/lib/theme";
 import {
   assignItem,
   mergeBoardItems,
@@ -57,6 +58,8 @@ const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
   const router = useRouter();
+  const styles = useTierListStyles();
+  const colors = useThemeColors();
   const [year, setYear] = useState(() => currentSeason().year);
   const [seasonKey, setSeasonKey] = useState<SeasonKey>(
     () => currentSeason().key,
@@ -399,15 +402,19 @@ export default function TierListScreen() {
 
   const handleShareImage = useCallback(async () => {
     try {
+      // 共有画像は撮影時点のスキームに合わせる（盤面と同じ見た目の画像にする）
       await withRenderedSnapshot(() =>
-        shareTierListImage(snapshotRef, { dialogTitle: title }),
+        shareTierListImage(snapshotRef, {
+          dialogTitle: title,
+          backgroundColor: colors.background,
+        }),
       );
     } catch {
       alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
       });
     }
-  }, [withRenderedSnapshot, title]);
+  }, [withRenderedSnapshot, title, colors]);
 
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
@@ -415,9 +422,12 @@ export default function TierListScreen() {
   const generateImageFile = useCallback(
     () =>
       withRenderedSnapshot(() =>
-        captureTierListImageFile(snapshotRef, { title }),
+        captureTierListImageFile(snapshotRef, {
+          title,
+          backgroundColor: colors.background,
+        }),
       ),
-    [withRenderedSnapshot, title],
+    [withRenderedSnapshot, title, colors],
   );
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
@@ -465,7 +475,7 @@ export default function TierListScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.header}>{backBar}</View>
         <View style={styles.centered}>
-          <ActivityIndicator color="#9ca3af" />
+          <ActivityIndicator color={colors.textMuted} />
         </View>
       </SafeAreaView>
     );
@@ -556,7 +566,7 @@ export default function TierListScreen() {
         </View>
       ) : isWorksLoading || isSavedLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#9ca3af" />
+          <ActivityIndicator color={colors.textMuted} />
           <Text style={styles.centeredText}>シーズンの作品を集めています</Text>
         </View>
       ) : (

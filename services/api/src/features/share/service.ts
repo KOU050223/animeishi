@@ -145,6 +145,31 @@ export function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
+/**
+ * tier ラベルセルの文字色。tier.color はユーザーが自由に変えられるため、
+ * 背景とのコントラストが高い側を濃色/白から選ぶ（アプリ側
+ * lib/tierList/label.ts の tierLabelTextColor と同じ判定）。
+ * パース不能な色はアプリ側と同じく濃色に倒す。
+ */
+function tierLabelTextColor(backgroundColor: string): string {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(backgroundColor.trim());
+  if (!match || !match[1]) return "#1f2937";
+  const n = parseInt(match[1], 16);
+  const channel = (v: number) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const bg =
+    0.2126 * channel((n >> 16) & 0xff) +
+    0.7152 * channel((n >> 8) & 0xff) +
+    0.0722 * channel(n & 0xff);
+  // 濃色側（#1f2937 ≈ 輝度 0.0224）と白（輝度 1）のどちらが見やすいか比較する。
+  const DARK_LUMINANCE = 0.0224;
+  const ratio = (l: number) =>
+    (Math.max(bg, l) + 0.05) / (Math.min(bg, l) + 0.05);
+  return ratio(DARK_LUMINANCE) >= ratio(1) ? "#1f2937" : "#ffffff";
+}
+
 export function workImageHtml(
   item: SharedTierList["items"][number],
   requestUrl: string,
@@ -203,7 +228,7 @@ export function buildSharedTierListHtml(
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}">${escapeHtml(tier.label)}</div>
+    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
     <div class="tier-works">${worksHtml}</div>
   </div>`;
     })
@@ -227,11 +252,20 @@ export function buildSharedTierListHtml(
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-works { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
     .work { width: 80px; text-align: center; }
     .work-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
     .work-title { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      .tier-row { background: #1e293b; }
+      .work-image { background: #334155; }
+      .work-title { color: #cbd5e1; }
+    }
   </style>
 </head>
 <body>
@@ -281,7 +315,7 @@ export function buildSharedCharacterTierListHtml(
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}">${escapeHtml(tier.label)}</div>
+    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
     <div class="tier-characters">${charactersHtml}</div>
   </div>`;
     })
@@ -305,11 +339,20 @@ export function buildSharedCharacterTierListHtml(
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-characters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
     .character { width: 80px; text-align: center; }
     .character-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
     .character-name { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      .tier-row { background: #1e293b; }
+      .character-image { background: #334155; }
+      .character-name { color: #cbd5e1; }
+    }
   </style>
 </head>
 <body>
