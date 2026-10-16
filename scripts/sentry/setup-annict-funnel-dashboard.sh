@@ -72,7 +72,9 @@ fi
 # widget add の位置引数は [<org/project>] <dashboard> <widget title> の順。
 add() {
   local wtitle="$1"; shift
-  if printf '%s\n' "$EXISTING" | grep -Fxq -- "${wtitle}"; then
+  # パイプ（printf | grep -q）だと grep の早期終了で printf が SIGPIPE になり、
+  # pipefail 下で一致を取りこぼして重複追加し得るため here-string で渡す。
+  if grep -Fxq -- "${wtitle}" <<<"${EXISTING}"; then
     echo "skip: ${wtitle}（既存）"
     return 0
   fi
