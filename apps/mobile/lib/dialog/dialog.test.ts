@@ -21,9 +21,14 @@ describe("dialog.native", () => {
     const onClose = jest.fn();
     alertNative("タイトル", "本文", { okLabel: "閉じる", onClose });
 
-    expect(Alert.alert).toHaveBeenCalledWith("タイトル", "本文", [
-      { text: "閉じる", onPress: onClose },
-    ]);
+    // Android のバックキー/外側タップで onClose 無しに消えないよう
+    // cancelable: false を必ず指定する。
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "タイトル",
+      "本文",
+      [{ text: "閉じる", onPress: onClose }],
+      { cancelable: false },
+    );
   });
 
   it("confirm は承諾ボタンの onPress で onConfirm を呼ぶ", () => {

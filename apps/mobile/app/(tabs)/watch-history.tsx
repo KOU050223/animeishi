@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   View,
   Text,
   FlatList,
@@ -8,12 +7,8 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
-  StyleSheet,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   useWatchHistory,
@@ -21,9 +16,12 @@ import {
   useDeleteWatchHistory,
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
-import type { WatchHistoryItem } from "@/lib/useWatchHistory";
+import type {
+  WatchHistoryItem,
+  UpsertWatchHistoryError,
+} from "@/lib/useWatchHistory";
 import { ApiRequestError } from "@/lib/apiError";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
@@ -40,6 +38,18 @@ const WATCH_STATUSES = [
 ] as const;
 
 type WatchStatus = (typeof WATCH_STATUSES)[number];
+
+// 失敗通知の種類。キュー上で同じ種類が連続した場合は件数で1件にまとめる。
+type FailureKind = "update" | "delete";
+type FailureNotice = { kind: FailureKind; title: string; message: string };
+
+// 同種の失敗を1件にまとめたときの件数入り文言。単体通知は各呼び出し側が
+// 文言を組み立てるため、まとめた場合だけこの固定文に切り替える。
+function mergedFailureMessage(kind: FailureKind, count: number): string {
+  return kind === "update"
+    ? `${count}件の視聴ステータス更新に失敗しました。`
+    : `${count}件の視聴履歴削除に失敗しました`;
+}
 
 // ステータスバッジの文字色。バッジ背景は `${color}20` で自動生成するため、
 // dark では視認性の高い明るい側の色相を使う。
@@ -62,25 +72,47 @@ const STATUS_COLORS: Record<"light" | "dark", Record<WatchStatus, string>> = {
 
 export default function WatchHistoryScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
 
-  // ステータス更新は楽観的更新のため、失敗時（ロールバック）だけエラートーストで知らせる。
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    AccessibilityInfo.announceForAccessibility(message);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  // ステータス更新は楽観的更新のため、失敗時（ロールバック）は必ず
+  // ユーザーに伝える。短時間で消えるトーストだと見落とすため、OK を
+  // 押すまで消えないダイアログで通知する。表示中に起きた失敗は捨てずに
+  // キューへ積み、閉じたあと順に出す。同じ種類が連続する分は件数で
+  // 1件にまとめるため、ダイアログが積み上がらず取りこぼしもない。
+  const failureQueueRef = useRef<FailureNotice[]>([]);
+  const failureAlertOpenRef = useRef(false);
+  const flushFailures = useCallback(() => {
+    if (failureAlertOpenRef.current) return;
+    const first = failureQueueRef.current.shift();
+    if (!first) return;
+    // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
+    let count = 1;
+    while (failureQueueRef.current[0]?.kind === first.kind) {
+      failureQueueRef.current.shift();
+      count += 1;
+    }
+    failureAlertOpenRef.current = true;
+    alert(
+      first.title,
+      count === 1 ? first.message : mergedFailureMessage(first.kind, count),
+      {
+        okLabel: "OK",
+        onClose: () => {
+          failureAlertOpenRef.current = false;
+          flushFailures();
+        },
+      },
+    );
   }, []);
-  useEffect(() => {
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, []);
+  const notifyFailure = useCallback(
+    (kind: FailureKind, title: string, message: string) => {
+      failureQueueRef.current.push({ kind, title, message });
+      flushFailures();
+    },
+    [flushFailures],
+  );
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -101,7 +133,24 @@ export default function WatchHistoryScreen() {
     confirm(
       "視聴履歴を削除",
       "この視聴履歴を削除しますか？",
-      () => remove.mutate(annictWorkId),
+      () => {
+        // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
+        // 前の呼び出し分が発火しないため、mutation 個別に reject する
+        // mutateAsync の promise で失敗を拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
+        void remove
+          .mutateAsync(annictWorkId)
+          .catch((e: unknown) =>
+            notifyFailure(
+              "delete",
+              "削除できませんでした",
+              e instanceof ApiRequestError
+                ? e.message
+                : "視聴履歴の削除に失敗しました",
+            ),
+          );
+      },
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }
@@ -226,43 +275,29 @@ export default function WatchHistoryScreen() {
             // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
             // 前の呼び出し分が発火しないため、mutation 個別に reject する
             // mutateAsync の promise で失敗を拾う。
-            // ApiRequestError はユーザー向け日本語メッセージを持つ。
-            // ネットワーク断等の技術メッセージはそのまま出さず固定文言に寄せる。
             void upsert
               .mutateAsync({ annictWorkId: editingItem.annictWorkId, data })
-              .catch((error: unknown) =>
-                showToast(
-                  error instanceof ApiRequestError
-                    ? error.message
-                    : "視聴履歴の更新に失敗しました",
-                ),
-              );
+              .catch((e: unknown) => {
+                // 「元の状態に戻しました」と言えるのは表示が実際に
+                // 巻き戻された場合だけ。後続の楽観値が残る失敗は onError が
+                // ロールバックをスキップするため、onError がエラーへ記録する
+                // rolledBack で文言を分ける。
+                const rolledBack =
+                  (e as UpsertWatchHistoryError).rolledBack === true;
+                notifyFailure(
+                  "update",
+                  "更新できませんでした",
+                  rolledBack
+                    ? "視聴ステータスを更新できませんでした。元の状態に戻しました。"
+                    : "一部の更新に失敗しました。",
+                );
+              });
             // キャッシュは楽観更新済みなので API 応答を待たずに閉じる。
-            // 失敗した場合はロールバックされ、トーストで通知される。
+            // 失敗した場合はロールバックされ、ダイアログで通知される。
             setEditingItem(null);
           }}
         />
       )}
-
-      {/* トーストはタップを透過させ、表示中も背後の操作を妨げない */}
-      <View
-        testID="watch-history-toast-layer"
-        pointerEvents="box-none"
-        style={[styles.toastLayer, { top: insets.top }]}
-      >
-        {toast ? (
-          <View
-            pointerEvents="none"
-            className="mx-4 mt-2 rounded-lg px-4 py-3 shadow-md bg-red-50 dark:bg-red-950"
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-          >
-            <Text className="text-sm font-medium text-red-600 dark:text-red-400">
-              {toast}
-            </Text>
-          </View>
-        ) : null}
-      </View>
     </SafeAreaView>
   );
 }
@@ -418,13 +453,3 @@ function EditModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  toastLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-  },
-});
