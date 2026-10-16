@@ -10,6 +10,7 @@ import {
   ANALYSIS_MODEL,
   buildAnalysisInput,
   computeInputHash,
+  runAnalysis,
 } from "@/features/analysis/service";
 import { ANALYSIS_MAX_GENERATIONS_PER_WINDOW } from "@/features/analysis/repository";
 import type { WatchHistoryWithWork } from "@/features/watch-history/repository";
@@ -211,16 +212,17 @@ describe("視聴傾向分析 API", () => {
       expect(aiRun).toHaveBeenCalledTimes(1);
       const [model, inputs] = aiRun.mock.calls[0] as unknown as [
         string,
-        { messages: { role: string; content: string }[] },
+        { messages: { role: string; content: string }[]; max_tokens: number },
       ];
       expect(model).toBe(ANALYSIS_MODEL);
+      expect(inputs.max_tokens).toBe(2048);
       const promptText = inputs.messages.map((m) => m.content).join("\n");
       expect(promptText).toContain("テスト作品101");
       expect(promptText).toContain("テスト作品102");
       // Qwen3 の思考モードを無効化する（思考で max_tokens を使い切り content が
       // 空になる本番障害の回帰防止）。
       const userMessage = inputs.messages.find((m) => m.role === "user");
-      expect(userMessage?.content.endsWith("/no_think")).toBe(true);
+      expect(userMessage?.content.endsWith("\n/no_think")).toBe(true);
 
       // 生成結果が保存される。
       const row = await db.query.analyses.findFirst({
@@ -478,6 +480,20 @@ describe("視聴傾向分析 API", () => {
         where: eq(analyses.userId, USER_ID),
       });
       expect(row?.summary ?? null).toBeNull();
+      // 呼び出し自体は生成回数を消費する（障害中の連打防止。既存方針どおり）。
+      expect(row?.generationCount).toBe(1);
+    });
+
+    it("POST /me/analysis: content に <think> ブロックが混ざっても後段の JSON を解釈する", async () => {
+      await seedHistory([101]);
+      aiRun.mockResolvedValue(
+        aiChatCompletion(
+          `<think>考え中</think>\n${JSON.stringify(AI_PAYLOAD)}`,
+        ),
+      );
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
     });
 
     it("POST /me/analysis: AI が不正な JSON を返したら 502", async () => {
@@ -593,5 +609,30 @@ describe("computeInputHash", () => {
     expect(await computeInputHash(tailChanged)).not.toBe(
       await computeInputHash(base),
     );
+  });
+});
+
+describe("runAnalysis", () => {
+  it("content が空なら finish_reason を含むエラーを投げる", async () => {
+    const ai = {
+      run: vi.fn().mockResolvedValue({
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "" },
+            finish_reason: "length",
+          },
+        ],
+      }),
+    } as unknown as Ai;
+    await expect(
+      runAnalysis(ai, {
+        totalCount: 1,
+        stateCounts: { WATCHED: 1 },
+        works: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+        workKeys: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+        selectedGenres: [],
+      }),
+    ).rejects.toThrow(/finish_reason: length/);
   });
 });

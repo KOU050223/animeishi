@@ -15,7 +15,7 @@ export const ANALYSIS_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8" as const;
 // ユーザーメッセージ末尾の /no_think（Qwen3 公式のソフトスイッチ）で無効化する。
 // chat_template_kwargs.enable_thinking=false は Workers AI では content が空に
 // なったため使わない（2026-10-17 実測）。
-const DISABLE_THINKING_SUFFIX = " /no_think";
+const DISABLE_THINKING_SUFFIX = "\n/no_think";
 
 // 応答の最大トークン数。思考を無効化しても長い要約で打ち切られないよう余裕を持たせる。
 const ANALYSIS_MAX_TOKENS = 2048;
@@ -245,8 +245,10 @@ function parseAiOutput(content: string): {
   summary: string;
   recommendedGenres: Genre[];
 } {
+  // reasoning が content に <think>...</think> として混ざって返る実装もあり得る
+  // ため、思考ブロック以降だけを解釈する。
   // ```json ... ``` のコードフェンスで包まれて返ることがあるため剥がす。
-  const trimmed = content
+  const trimmed = (content.split("</think>").pop() ?? content)
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
