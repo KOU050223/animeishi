@@ -69,27 +69,21 @@ const openApiDocumentConfig = {
 
 /**
  * GET /doc（OpenAPI JSON）と GET /ui（Swagger UI）を登録する。
- * 本番（ENVIRONMENT=production）では API 仕様を外部に晒さない方針のため
- * 404 にする。開発（wrangler dev・ENVIRONMENT 未設定）と preview では有効。
+ * 本番を含む全環境で公開する。ドキュメントの閲覧自体に認証は不要だが、
+ * bearerAuth を要求する各 API の実行には従来どおり Clerk JWT が必要。
  *
  * AppType（Hono RPC の型）には含めたくないため createRoute ではなく
  * 素の app.get で登録する。
  */
-export function registerOpenApiDocs<
-  E extends { Bindings: { ENVIRONMENT?: string } },
->(app: OpenAPIHono<E>): void {
+export function registerOpenApiDocs<E extends Env>(app: OpenAPIHono<E>): void {
   app.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
     type: "http",
     scheme: "bearer",
     description: "Clerk の JWT（Authorization: Bearer <token>）",
   });
-  app.get("/doc", (c) => {
-    if (c.env.ENVIRONMENT === "production") return c.notFound();
-    return c.json(app.getOpenAPIDocument(openApiDocumentConfig));
-  });
+  app.get("/doc", (c) => c.json(app.getOpenAPIDocument(openApiDocumentConfig)));
   const ui = swaggerUI<E>({ url: "/doc" });
   app.get("/ui", async (c) => {
-    if (c.env.ENVIRONMENT === "production") return c.notFound();
     const res = await ui(c, async () => {});
     return res ?? c.notFound();
   });
