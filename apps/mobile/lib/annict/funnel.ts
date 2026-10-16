@@ -57,6 +57,11 @@ export function trackAnnictFunnel(input: AnnictFunnelInput): void {
     userId: input.userId ?? null,
     userKeyAttr: ANNICT_FUNNEL_ATTRS.userKey,
     autoAttributes: false,
+    // 全ステップが同一イベント名を共有するため、prompt_view の連打で
+    // 上限に達すると cta_tap / oauth_result まで捨てられてしまう。
+    // ステップ別キーにして、結果ステップが表示ステップの枠を食われない
+    // ようにする（ファネル集計の完全性を守る）。
+    rateLimitKey: `${ANNICT_FUNNEL_EVENT}:${input.step}`,
   });
 }
 

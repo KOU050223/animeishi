@@ -1,6 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
 import * as Sentry from "@sentry/react-native";
-import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
+import {
+  ANNICT_FUNNEL_EVENT,
+  EVENT_RATE_LIMIT,
+} from "@animeishi/observability";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { resetEventTrackingForTest } from "../events";
 import { trackAnnictFunnel, useAnnictFunnel } from "./funnel";
@@ -92,6 +95,30 @@ describe("trackAnnictFunnel", () => {
     const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
     expect(attributes["annict.step"]).toBe("prompt_view");
     expect(attributes["annict.user_key"]).toBeUndefined();
+  });
+
+  it("prompt_view の連打で上限に達しても cta_tap / oauth_result は送れる", async () => {
+    // ファネルは全ステップ同一イベント名を共有するため、レート制限は
+    // ステップ別キーで分けている。表示の連打が結果の記録を潰さないこと。
+    for (let i = 0; i < EVENT_RATE_LIMIT.maxPerWindow + 5; i++) {
+      trackAnnictFunnel({ step: "prompt_view" });
+    }
+    trackAnnictFunnel({ step: "cta_tap" });
+    trackAnnictFunnel({ step: "oauth_result", result: "success" });
+
+    await waitFor(() =>
+      expect(infoMock()).toHaveBeenCalledTimes(
+        EVENT_RATE_LIMIT.maxPerWindow + 2,
+      ),
+    );
+    const steps = infoMock().mock.calls.map(
+      (c) => (c[1] as Record<string, string>)["annict.step"],
+    );
+    expect(steps.filter((s) => s === "prompt_view").length).toBe(
+      EVENT_RATE_LIMIT.maxPerWindow,
+    );
+    expect(steps).toContain("cta_tap");
+    expect(steps).toContain("oauth_result");
   });
 });
 

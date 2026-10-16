@@ -118,6 +118,47 @@ describe("trackEvent", () => {
     expect(attributes.user_key).toBeUndefined();
   });
 
+  it("ハッシュ化の失敗はキャッシュせず次回イベントで再試行する", async () => {
+    const crypto = jest.requireMock("expo-crypto");
+    crypto.digestStringAsync.mockRejectedValueOnce(new Error("no native"));
+
+    trackEvent("meishi_save", undefined, { userId: "user_retry" });
+    await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
+    expect(
+      (infoMock().mock.calls[0][1] as Record<string, string>).user_key,
+    ).toBeUndefined();
+
+    // 2 回目は digest が成功し user_key が付く（失敗をキャッシュしていない証拠）
+    trackEvent("meishi_save", undefined, { userId: "user_retry" });
+    await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(2));
+    expect(
+      (infoMock().mock.calls[1][1] as Record<string, string>).user_key,
+    ).toBe("0123456789abcdef");
+  });
+
+  it("screen オプションは同期済みコンテキストより優先される", async () => {
+    setEventContext({ screen: "previous_screen" });
+
+    trackEvent("qr_exchange_start", undefined, { screen: "qr" });
+
+    await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
+    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    expect(attributes.screen).toBe("qr");
+  });
+
+  it("rateLimitKey を分けると同じイベント名でも別枠で数える", async () => {
+    for (let i = 0; i < EVENT_RATE_LIMIT.maxPerWindow + 5; i++) {
+      trackEvent("qr_scan_start", undefined, { rateLimitKey: "key_a" });
+    }
+    trackEvent("qr_scan_start", undefined, { rateLimitKey: "key_b" });
+
+    await waitFor(() =>
+      expect(infoMock()).toHaveBeenCalledTimes(
+        EVENT_RATE_LIMIT.maxPerWindow + 1,
+      ),
+    );
+  });
+
   it("同一イベントはウィンドウあたりの上限を超えると捨てる", async () => {
     for (let i = 0; i < EVENT_RATE_LIMIT.maxPerWindow + 5; i++) {
       trackEvent("qr_scan_start");

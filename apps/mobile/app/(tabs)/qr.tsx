@@ -19,11 +19,23 @@ export default function QrScreen() {
 
   // 名刺交換（QR）画面への進入を計測する（issue #214）。タブの再訪でも
   // 発火させるためマウントではなくフォーカスを見る。
+  // 遷移直後はルートレイアウト側の画面同期がまだ前画面のままなので、
+  // screen は発火側で明示する（issue #214 の screen は所属画面を指す）。
   useEffect(() => {
     if (isFocused) {
-      trackEvent("qr_exchange_start");
+      trackEvent("qr_exchange_start", undefined, { screen: "qr" });
     }
   }, [isFocused]);
+
+  // スキャン開始。タブ切替（onPress による mode 遷移）と、スキャン状態の
+  // ままタブを離れて再訪した場合の両方を isFocused && mode で捉える。
+  // モードが "scan" に変わった時だけ発火するので、スキャン中の再タップや
+  // generate への遷移では送らない。
+  useEffect(() => {
+    if (isFocused && mode === "scan") {
+      trackEvent("qr_scan_start", undefined, { screen: "qr" });
+    }
+  }, [isFocused, mode]);
 
   return (
     // 上端だけ safe area を取る。下端はタブバー側で吸収する。
@@ -38,13 +50,7 @@ export default function QrScreen() {
         <ModeButton
           label="スキャン"
           active={mode === "scan"}
-          onPress={() => {
-            // 既にスキャンモードなら遷移ではないので計測しない
-            if (mode !== "scan") {
-              trackEvent("qr_scan_start");
-            }
-            setMode("scan");
-          }}
+          onPress={() => setMode("scan")}
         />
       </View>
 
@@ -55,14 +61,17 @@ export default function QrScreen() {
 
 function GenerateView() {
   const { userId, isSignedIn } = useAuth();
+  // タブは再訪してもマウントを維持するため、表示のたびに発火させるには
+  // フォーカスも見る（userId が変わらない再訪でも効く）。
+  const isFocused = useIsFocused();
 
   // マイ QR の表示 = 名刺の共有面。サインイン済みで QR が実際に出た時だけ
   // 計測する（issue #214）。
   useEffect(() => {
-    if (isSignedIn && userId) {
-      trackEvent("meishi_share");
+    if (isFocused && isSignedIn && userId) {
+      trackEvent("meishi_share", undefined, { screen: "qr" });
     }
-  }, [isSignedIn, userId]);
+  }, [isFocused, isSignedIn, userId]);
 
   if (!isSignedIn || !userId) {
     return (

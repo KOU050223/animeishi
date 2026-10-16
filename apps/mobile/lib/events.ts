@@ -36,6 +36,18 @@ export type TrackEventOptions = {
    * false で呼び、platform は呼び出し側が付ける。
    */
   autoAttributes?: boolean;
+  /**
+   * レート制限のキー（既定はイベント名）。annict_connect_funnel のように
+   * 同一イベント名で段階（step）を分ける計測では、先行ステップの連打が
+   * 後続ステップの送信枠を食い潰さないようステップ別キーを渡す。
+   */
+  rateLimitKey?: string;
+  /**
+   * screen 属性を同期済みコンテキストより優先する値。
+   * 画面遷移直後のイベントは親レイアウトの同期 effect より先に
+   * 発火しうるため、発火側が所属画面を明示する用途で使う。
+   */
+  screen?: string;
 };
 
 // 進行中の送信を追跡する（Web のページ遷移前に flushTrackedEvents で
@@ -78,7 +90,7 @@ export function trackEvent(
   options?: TrackEventOptions,
 ): void {
   // 上限を超えた分は捨てる（レート制限到達自体を記録すると枠を消費する）。
-  if (!rateLimiter.shouldAllow(name)) return;
+  if (!rateLimiter.shouldAllow(options?.rateLimitKey ?? name)) return;
   const promise = send(name, attributes, options);
   pendingSends.add(promise);
   void promise.finally(() => pendingSends.delete(promise));
@@ -105,8 +117,9 @@ async function send(
       attrs[TRACK_EVENT_ATTRS.platform] = Platform.OS;
       attrs[TRACK_EVENT_ATTRS.appVersion] =
         Constants.expoConfig?.version ?? "dev";
-      if (eventContext.screen) {
-        attrs[TRACK_EVENT_ATTRS.screen] = eventContext.screen;
+      const screen = options?.screen ?? eventContext.screen;
+      if (screen) {
+        attrs[TRACK_EVENT_ATTRS.screen] = screen;
       }
     }
     const rawUserId =
@@ -148,6 +161,13 @@ function hashedUserKey(userId: string): Promise<string | undefined> {
     .then((digest) => digest.slice(0, USER_KEY_LENGTH))
     .catch(() => undefined);
   userKeyCache.set(userId, promise);
+  // 失敗（undefined 解決）はキャッシュに残さない。残すと一時的な障害のあと
+  // アプリ再起動まで user_key が付かなくなるため、次回イベントで再試行させる。
+  void promise.then((value) => {
+    if (value === undefined && userKeyCache.get(userId) === promise) {
+      userKeyCache.delete(userId);
+    }
+  });
   return promise;
 }
 

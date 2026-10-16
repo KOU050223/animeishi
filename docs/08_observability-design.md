@@ -440,8 +440,8 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | イベント | 発火点 |
 |----------|--------|
 | `qr_exchange_start` | `app/(tabs)/qr.tsx` のフォーカス時（名刺交換画面への進入） |
-| `qr_scan_start` | 同画面「スキャン」タブへの切替（既にスキャン中の再タップは送らない） |
-| `meishi_share` | マイ QR が表示された時（名刺の共有面） |
+| `qr_scan_start` | スキャンが開始された時（「スキャン」タブへの切替、またはスキャン状態のままタブへ再訪。スキャン中の再タップは送らない） |
+| `meishi_share` | マイ QR が表示された時（名刺の共有面。タブ再訪でも発火） |
 | `meishi_save` | `app/meishi/edit.tsx` の保存ボタン |
 | `tier_share_open` | Tier 表 / キャラクター Tier 表の「共有」ボタン |
 | `tier_share` | 方式の選択時（native は options.native.ts の URL/画像選択、Web は共有モーダル内の X/コピー/画像ボタン。Web のモーダル表示自体では送らない） |
@@ -466,14 +466,23 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 （Developer プラン 5 GB/月、超過請求なしの上限設定）を使い切るのを防ぐ
 ためのクライアント側の安全弁であり、上限到達分は静かに捨てる。
 制限自体をイベント化しない（そのイベントも枠を消費するため）。
-`annict_connect_funnel` も同じリミッターを通る。
+
+`annict_connect_funnel` も同じリミッターを通るが、全ステップが同一
+イベント名を共有するため **`annict_connect_funnel:<step>` の
+ステップ別キー**で制限する（`rateLimitKey` オプション）。
+`prompt_view` の連打で上限に達しても `cta_tap` / `oauth_result` が
+捨てられてファネルが壊れることを防ぐ。
 
 ### 新しい計測を追加する手順
 
 1. `TRACKED_EVENTS` に `<対象>_<動作>` の snake_case でイベント名を追加する
 2. 発火点で `trackEvent("<name>", { ...属性 })` を呼ぶ
    （fire-and-forget。await 不要。属性は enum 的な固定値のみ、
-   PII・URL・ユーザー入力・ID は送らない）
+   PII・URL・ユーザー入力・ID は送らない）。
+   - 画面進入直後のイベントはルートレイアウトの `screen` 同期が間に
+     合わないことがあるため、`{ screen: "<ルートパターン>" }` を明示する
+   - 同一イベント名で段階を分ける計測（ファネル等）は
+     `{ rateLimitKey: "<name>:<step>" }` でステップ別枠にする
 3. 必要なら `TRACK_EVENT_KEYS` に属性キーを追加する
 4. `scripts/sentry/setup-ui-events-dashboard.sh` に該当ウィジェットを足す
    （既存ダッシュボードには自動反映されないため、Sentry 側で手動追加
