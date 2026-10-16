@@ -365,6 +365,20 @@ Sentry の Logs / Explore で `message = annict_connect_funnel` に絞り、
 effect 二重実行で `prompt_view` が倍計上されうるため）。
 user_key で同一ユーザーのユニークコンバージョンも概算できる。
 
+
+### ダッシュボード（再現手順）
+
+ファネル用の Sentry ダッシュボード「Annict 連携ファネル」は
+`scripts/sentry/setup-annict-funnel-dashboard.sh` で作成する（logs データセット、
+KPI 3 枚・ステップ別推移・OAuth 結果内訳・導線別表・失敗理由表）。
+
+```bash
+sentry auth login   # ダッシュボード作成権限（org:write 相当）のあるアカウント/トークンで
+bash scripts/sentry/setup-annict-funnel-dashboard.sh [org] [project]
+```
+
+既存の同名ダッシュボードがある場合は二重作成を避けるため停止する。
+
 ## 残課題（スコープ外）
 
 - API / Web の source map upload と release 関連付けの CI 組み込み
