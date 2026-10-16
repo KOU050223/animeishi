@@ -12,12 +12,21 @@ PROJECT="${2:-animeishi-mobile}"
 TITLE="Annict 連携ファネル"
 BASE="message:annict_connect_funnel environment:production"
 
-if sentry dashboard list "$ORG" --json 2>/dev/null | grep -q "\"title\": \"$TITLE\""; then
+# 二重作成防止: 一覧取得に失敗したら作成に進まない（出力は変数に確保してから判定。
+# パイプで grep -q すると pipefail 下の SIGPIPE で判定が偽になり得るため）。
+# タイトルでサーバー側絞り込みし、キャッシュを避けて厳密一致で判定する。
+if ! LIST="$(sentry dashboard list "$ORG" "$TITLE" --fresh --json)"; then
+  echo "ダッシュボード一覧の取得に失敗しました。認証・権限を確認してください。" >&2
+  exit 1
+fi
+if printf '%s' "$LIST" | python3 -c 'import json,sys; t=sys.argv[1]; d=json.load(sys.stdin); d=d.get("data",d) if isinstance(d,dict) else d; sys.exit(0 if any(x.get("title")==t for x in d) else 1)' "$TITLE"; then
   echo "ダッシュボード「$TITLE」は既に存在します。作り直す場合は Sentry 上で削除してから再実行してください。" >&2
   exit 1
 fi
 
-sentry dashboard create "$ORG/$PROJECT/$TITLE"
+sentry dashboard create "$ORG/$PROJECT" "$TITLE"
+# ウィジェット追加の途中で失敗すると不完全なダッシュボードが残るため案内を出す。
+trap 'echo "ウィジェット追加に失敗しました。Sentry 上で「$TITLE」を削除してから再実行してください。" >&2' ERR
 D="$ORG/$PROJECT/$TITLE"
 add() { sentry dashboard widget add "$D" "$@" --dataset logs; }
 
