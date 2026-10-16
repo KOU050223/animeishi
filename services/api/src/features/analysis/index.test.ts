@@ -496,6 +496,21 @@ describe("視聴傾向分析 API", () => {
       expect(res.status).toBe(200);
     });
 
+    it("POST /me/analysis: 要約の値に </think> を含む正しい JSON はそのまま解釈する", async () => {
+      await seedHistory([101]);
+      aiRun.mockResolvedValue(
+        aiChatCompletion({
+          summary: "作品 </think> の感想",
+          recommendedGenres: ["SF"],
+        }),
+      );
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { analysis: { summary: string } };
+      expect(body.analysis.summary).toBe("作品 </think> の感想");
+    });
+
     it("POST /me/analysis: AI が不正な JSON を返したら 502", async () => {
       await seedHistory([101]);
       aiRun.mockResolvedValue(aiChatCompletion("これはJSONではありません"));

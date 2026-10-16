@@ -245,10 +245,12 @@ function parseAiOutput(content: string): {
   summary: string;
   recommendedGenres: Genre[];
 } {
-  // reasoning が content に <think>...</think> として混ざって返る実装もあり得る
-  // ため、思考ブロック以降だけを解釈する。
+  // reasoning が content 先頭に <think>...</think> として混ざって返る実装も
+  // あり得るため、先頭の思考ブロックだけを取り除く（JSON の値に含まれる
+  // "</think>" まで切らないよう、先頭アンカーで最短一致させる）。
   // ```json ... ``` のコードフェンスで包まれて返ることがあるため剥がす。
-  const trimmed = (content.split("</think>").pop() ?? content)
+  const trimmed = content
+    .replace(/^\s*<think>[\s\S]*?<\/think>\s*/, "")
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
