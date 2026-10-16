@@ -1,7 +1,7 @@
 import { useClerk } from "@clerk/clerk-expo";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { handleOAuthRedirect } from "@/lib/googleAuth";
@@ -28,7 +28,8 @@ export default function SsoCallbackScreen() {
 
     const navigate = async (to: string) => {
       // clerk-js はフローで指定した遷移先（絶対/相対 URL 両方あり得る）を渡す。
-      // 同一オリジンは SPA 遷移、それ以外はブラウザ遷移に任せる。
+      // 同一オリジンだけ SPA 遷移し、それ以外や解釈不能な値は
+      // ブラウザ遷移に任せる（router.replace は外部 URL を握りつぶすため）。
       try {
         const url = new URL(to, window.location.origin);
         if (url.origin === window.location.origin) {
@@ -36,13 +37,9 @@ export default function SsoCallbackScreen() {
           return;
         }
       } catch {
-        // URL として解釈できない場合はそのまま router に渡す。
+        // そのまま location.href へ渡す。
       }
-      try {
-        router.replace(to as never);
-      } catch {
-        window.location.href = to;
-      }
+      window.location.href = to;
     };
 
     handleOAuthRedirect({
@@ -65,6 +62,13 @@ export default function SsoCallbackScreen() {
           >
             {t("サインインを完了できませんでした。もう一度お試しください。")}
           </Text>
+          <Link href="/sign-in" asChild>
+            <TouchableOpacity testID="sso-callback-back-to-sign-in">
+              <Text className="text-blue-600 dark:text-blue-400">
+                {t("サインイン画面に戻る")}
+              </Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       ) : (
         <View className="items-center">

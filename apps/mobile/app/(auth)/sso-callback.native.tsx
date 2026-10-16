@@ -1,4 +1,5 @@
-import { ActivityIndicator, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
@@ -23,6 +24,17 @@ export default function SsoCallbackScreen() {
         <Text className="mt-4 text-gray-600 dark:text-slate-300">
           {t("サインインを完了しています…")}
         </Text>
+        {/* 万が一ブラウザセッション外で着地した場合の退避導線 */}
+        <Link href="/sign-in" asChild>
+          <TouchableOpacity
+            className="mt-6"
+            testID="sso-callback-back-to-sign-in"
+          >
+            <Text className="text-blue-600 dark:text-blue-400">
+              {t("サインイン画面に戻る")}
+            </Text>
+          </TouchableOpacity>
+        </Link>
       </View>
     </SafeAreaView>
   );

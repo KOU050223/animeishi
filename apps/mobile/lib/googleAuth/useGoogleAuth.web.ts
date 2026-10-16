@@ -21,7 +21,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
     // 通常ここには到達しない（ページが Google へ遷移する）。
     // 戻った場合も遷移済み扱いにしてローディングだけ解除する。
     return { status: "redirected" };
-  }, [signIn]);
+  }, [signIn, isLoaded]);
 
   return { startGoogleAuth };
 };

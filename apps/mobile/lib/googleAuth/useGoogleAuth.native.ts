@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
 import { useSSO } from "@clerk/clerk-expo";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 
@@ -21,6 +22,14 @@ function useWarmUpBrowser() {
   }, []);
 }
 
+function googleRedirectUrl(): string {
+  try {
+    return AuthSession.makeRedirectUri({ path: "sso-callback" });
+  } catch {
+    return "animeishi://sso-callback";
+  }
+}
+
 // ネイティブの Google ログインは expo-web-browser の認証セッションを使う
 // useSSO / startSSOFlow 方式（issue #89）。新規ユーザーへの振り分け
 // （transferable → signUp.create({transfer: true})）は startSSOFlow 内部で行われる。
@@ -32,11 +41,12 @@ export const useGoogleAuth: UseGoogleAuth = () => {
     const { createdSessionId, authSessionResult } = await startSSOFlow({
       strategy: "oauth_google",
       // カスタムスキームのコールバック。ブラウザセッション側が捕捉するため
-      // アプリ内に対応ルートが無くてもよい。makeRedirectUri 相当
-      // （app.json の scheme: animeishi + /sso-callback）を直接書く。
-      // AuthSession.makeRedirectUri は expo-constants の manifest を要求し、
-      // テスト環境で解決できないため展開済みの値を使う。
-      redirectUrl: "animeishi://sso-callback",
+      // アプリ内に対応ルートが無くてもよい。makeRedirectUri は Expo Go では
+      // exp:// 系 URI を返し dev client/スタンドアロンでは
+      // animeishi://sso-callback（app.json の scheme）を返す。
+      // expo-constants の manifest を要求するため、Jest 等で解決できない
+      // 環境では展開済みの固定値にフォールバックする。
+      redirectUrl: googleRedirectUrl(),
     });
 
     if (createdSessionId) {
