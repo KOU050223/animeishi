@@ -11,6 +11,11 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.toml" },
+      // wrangler.toml の [ai] binding はリモート専用リソースのため、
+      // remoteBindings を有効にすると Cloudflare 認証なしの CI で
+      // リモートプロキシ起動に失敗する。テストでは env.AI をモックするため
+      // リモート binding は不要。
+      remoteBindings: false,
       miniflare: {
         d1Databases: ["DB"],
         r2Buckets: ["AVATARS"],
