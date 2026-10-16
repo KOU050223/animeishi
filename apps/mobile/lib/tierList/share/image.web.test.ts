@@ -67,7 +67,10 @@ describe("shareTierListImage (web)", () => {
     const target = buildTarget(
       '<img src="https://s4.anilist.co/a.png" /><img src="https://cdn.myanimelist.net/b.jpg" />',
     );
-    const promise = shareTierListImage(target, { dialogTitle: "テスト表" });
+    const promise = shareTierListImage(target, {
+      dialogTitle: "テスト表",
+      backgroundColor: "#ffffff",
+    });
     const node = target.current as unknown as HTMLElement;
     // src がプロキシ URL に差し替わったことを確認してから load を発火する
     node.querySelectorAll("img").forEach((img) => {
@@ -81,7 +84,12 @@ describe("shareTierListImage (web)", () => {
 
     expect(mockToPng).toHaveBeenCalledWith(
       node,
-      expect.objectContaining({ pixelRatio: 2, skipFonts: true }),
+      expect.objectContaining({
+        pixelRatio: 2,
+        skipFonts: true,
+        // PNG の下地色は呼び出し側が渡す（撮影時点のスキームの画面背景色）
+        backgroundColor: "#ffffff",
+      }),
     );
     expect(canShareMock).toHaveBeenCalledWith({
       files: [expect.any(File)],
@@ -99,7 +107,10 @@ describe("shareTierListImage (web)", () => {
   it("canShare が無い環境ではダウンロードにフォールバックする", async () => {
     canShareMock.mockReturnValue(false);
     const target = buildTarget("<div>tier</div>");
-    await shareTierListImage(target, { dialogTitle: "保存用" });
+    await shareTierListImage(target, {
+      dialogTitle: "保存用",
+      backgroundColor: "#ffffff",
+    });
     expect(shareMock).not.toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
   });
@@ -110,13 +121,19 @@ describe("shareTierListImage (web)", () => {
       configurable: true,
     });
     const target = buildTarget("<div>tier</div>");
-    await shareTierListImage(target, { dialogTitle: "a/b.png" });
+    await shareTierListImage(target, {
+      dialogTitle: "a/b.png",
+      backgroundColor: "#ffffff",
+    });
     expect(clickSpy).toHaveBeenCalled();
   });
 
   it("ファイル名に使えない文字は _ に置き換える", async () => {
     const target = buildTarget("<div>tier</div>");
-    await shareTierListImage(target, { dialogTitle: 'a/b:c?"d"' });
+    await shareTierListImage(target, {
+      dialogTitle: 'a/b:c?"d"',
+      backgroundColor: "#ffffff",
+    });
     const file = (shareMock.mock.calls[0][0] as { files: File[] }).files[0];
     expect(file.name).toBe("a_b_c__d_.png");
   });
@@ -126,7 +143,10 @@ describe("shareTierListImage (web)", () => {
       '<div><img src="https://example.com/ng.png" /><span>keep</span></div>',
     );
     const node = target.current as unknown as HTMLElement;
-    const promise = shareTierListImage(target, { dialogTitle: "t" });
+    const promise = shareTierListImage(target, {
+      dialogTitle: "t",
+      backgroundColor: "#ffffff",
+    });
     fireImageEvents(node, "error");
     await promise;
     expect(node.querySelector("img")).toBeNull();
@@ -138,7 +158,10 @@ describe("shareTierListImage (web)", () => {
     const dataSrc = "data:image/gif;base64,R0lGODlh";
     const target = buildTarget(`<img src="${dataSrc}" />`);
     const node = target.current as unknown as HTMLElement;
-    await shareTierListImage(target, { dialogTitle: "t" });
+    await shareTierListImage(target, {
+      dialogTitle: "t",
+      backgroundColor: "#ffffff",
+    });
     expect(node.querySelector("img")!.src).toBe(dataSrc);
   });
 
@@ -148,7 +171,10 @@ describe("shareTierListImage (web)", () => {
     const hostedSrc = `${apiUrl}/images/works/1/abc12345.png`;
     const target = buildTarget(`<img src="${hostedSrc}" />`);
     const node = target.current as unknown as HTMLElement;
-    await shareTierListImage(target, { dialogTitle: "t" });
+    await shareTierListImage(target, {
+      dialogTitle: "t",
+      backgroundColor: "#ffffff",
+    });
     expect(node.querySelector("img")!.src).toBe(hostedSrc);
   });
 
@@ -158,7 +184,10 @@ describe("shareTierListImage (web)", () => {
     );
     const target = buildTarget("<div>tier</div>");
     await expect(
-      shareTierListImage(target, { dialogTitle: "t" }),
+      shareTierListImage(target, {
+        dialogTitle: "t",
+        backgroundColor: "#ffffff",
+      }),
     ).resolves.toBeUndefined();
     expect(clickSpy).not.toHaveBeenCalled();
   });
@@ -168,14 +197,20 @@ describe("shareTierListImage (web)", () => {
       Object.assign(new Error("denied"), { name: "NotAllowedError" }),
     );
     const target = buildTarget("<div>tier</div>");
-    await shareTierListImage(target, { dialogTitle: "t" });
+    await shareTierListImage(target, {
+      dialogTitle: "t",
+      backgroundColor: "#ffffff",
+    });
     expect(clickSpy).toHaveBeenCalled();
   });
 
   it("ref が DOM 要素でなければエラーになる", async () => {
     const target = { current: {} } as unknown as RefObject<View | null>;
     await expect(
-      shareTierListImage(target, { dialogTitle: "t" }),
+      shareTierListImage(target, {
+        dialogTitle: "t",
+        backgroundColor: "#ffffff",
+      }),
     ).rejects.toThrow("キャプチャ対象の DOM 要素が見つかりません");
   });
 });
@@ -195,7 +230,10 @@ describe("captureTierListImageFile (web)", () => {
 
   it("PNG 化した File を返すだけで、共有・ダウンロードはしない", async () => {
     const target = buildTarget("<div>tier</div>");
-    const file = await captureTierListImageFile(target, { title: "テスト表" });
+    const file = await captureTierListImageFile(target, {
+      title: "テスト表",
+      backgroundColor: "#ffffff",
+    });
     expect(file.name).toBe("テスト表.png");
     expect(file.type).toBe("image/png");
     expect(file.size).toBeGreaterThan(0);
@@ -206,7 +244,10 @@ describe("captureTierListImageFile (web)", () => {
 
   it("画像が 1 枚も無くても File を返す", async () => {
     const target = buildTarget("<span>only text</span>");
-    const file = await captureTierListImageFile(target, { title: "t" });
+    const file = await captureTierListImageFile(target, {
+      title: "t",
+      backgroundColor: "#ffffff",
+    });
     expect(file.type).toBe("image/png");
   });
 });

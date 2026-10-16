@@ -299,6 +299,11 @@ describe("tier 表の共有", () => {
     expect(html).toContain("アニメB");
     expect(html).toContain("テストユーザー");
     expect(html).toContain("https://example.com/a.png");
+    // 共有ページは閲覧者のシステムスキームに追従する（issue #205）
+    expect(html).toContain("prefers-color-scheme");
+    // tier ラベルの文字色は行の背景色とのコントラストで決まる
+    // （#ff7f7f は明るい側なので濃色文字）
+    expect(html).toContain("background-color: #ff7f7f; color: #1f2937");
     // 共有解除後にキャッシュへ残らないよう、HTML は保存しない
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });

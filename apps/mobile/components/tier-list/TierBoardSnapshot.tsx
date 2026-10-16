@@ -1,7 +1,8 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { pickImageUrl } from "@/lib/anime/pickImageUrl";
-import { tierLabelFontSize } from "@/lib/tierList/label";
+import { useThemeColors, type ThemeColors } from "@/lib/theme";
+import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import type { TierRow } from "@/lib/tierList/types";
 
 /** 画像共有でスナップショットに並べるアイテム。保存済み tier 表の items と同じ形。 */
@@ -37,9 +38,13 @@ const CARD_SIZE = 64;
  * 画像エクスポート用の表示専用 tier 表。
  * ドラッグ&ドロップ版（TierBoard）とは別物で、未分類トレイ・ハイライト・
  * ジェスチャを持たない。画面外にレンダリングして view-shot で PNG 化する。
+ * 配色は撮影時点のカラースキームに追従する（ユーザーが見ている盤面と
+ * 同じ見た目の画像になる）。
  */
 export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
   function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
+    const colors = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     // 読み込み待ち対象は「実際に描画される画像」だけ。
     // tiers に無い tierKey のアイテムは描画されず onLoadEnd も来ないため、
     // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
@@ -80,7 +85,10 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
                 <Text
                   style={[
                     styles.labelText,
-                    { fontSize: tierLabelFontSize(tier.label, 16) },
+                    {
+                      fontSize: tierLabelFontSize(tier.label, 16),
+                      color: tierLabelTextColor(tier.color),
+                    },
                   ]}
                   numberOfLines={3}
                 >
@@ -119,58 +127,59 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
   },
 );
 
-const styles = StyleSheet.create({
-  root: {
-    width: SNAPSHOT_WIDTH,
-    backgroundColor: "#111827",
-    padding: 16,
-    gap: 4,
-  },
-  title: {
-    color: "#f9fafb",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  row: { flexDirection: "row", minHeight: CARD_SIZE + 16 },
-  labelCell: {
-    width: 64,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 4,
-  },
-  labelText: {
-    color: "#1f2937",
-    fontWeight: "700",
-    fontSize: 16,
-    textAlign: "center",
-  },
-  works: {
-    flex: 1,
-    backgroundColor: "#1f2937",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    padding: 6,
-    gap: 6,
-  },
-  card: { width: CARD_SIZE },
-  cardImage: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    borderRadius: 4,
-  },
-  cardImageFallback: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    borderRadius: 4,
-    backgroundColor: "#4b5563",
-  },
-  cardTitle: {
-    color: "#e5e7eb",
-    fontSize: 9,
-    lineHeight: 11,
-    textAlign: "center",
-    marginTop: 2,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: {
+      width: SNAPSHOT_WIDTH,
+      backgroundColor: colors.background,
+      padding: 16,
+      gap: 4,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+      marginBottom: 8,
+    },
+    row: { flexDirection: "row", minHeight: CARD_SIZE + 16 },
+    labelCell: {
+      width: 64,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 4,
+    },
+    labelText: {
+      fontWeight: "700",
+      fontSize: 16,
+      textAlign: "center",
+    },
+    works: {
+      flex: 1,
+      backgroundColor: colors.tierDropArea,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      padding: 6,
+      gap: 6,
+    },
+    card: { width: CARD_SIZE },
+    cardImage: {
+      width: CARD_SIZE,
+      height: CARD_SIZE,
+      borderRadius: 4,
+    },
+    cardImageFallback: {
+      width: CARD_SIZE,
+      height: CARD_SIZE,
+      borderRadius: 4,
+      backgroundColor: colors.tierCardFallback,
+    },
+    cardTitle: {
+      color: colors.text,
+      fontSize: 9,
+      lineHeight: 11,
+      textAlign: "center",
+      marginTop: 2,
+    },
+  });
+}

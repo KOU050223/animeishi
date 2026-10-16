@@ -69,6 +69,23 @@ export const colors = {
      * 実測値は colors.test.ts で検証している。
      */
     placeholder: "#475569",
+    /**
+     * Tier 表のドロップ領域・未分類トレイの面。
+     * light は白背景に浮く薄灰（gray-100）、dark は背景より一段明るい slate-800。
+     */
+    tierDropArea: "#f3f4f6",
+    /**
+     * ドラッグ中に指が乗っているドロップ領域のハイライト
+     * （indigo-100 / slate-700）。ドロップ可能であることが分かるよう、
+     * light は通常面から色相をずらして強調する。
+     */
+    tierDropAreaActive: "#e0e7ff",
+    /** Tier 表の作品カードの面（白 / slate-700）。 */
+    tierCard: "#ffffff",
+    /** 画像が無いカードのポスター部プレースホルダー（gray-200 / slate-600）。 */
+    tierCardFallback: "#e5e7eb",
+    /** カード下部のタイトル帯（白 / slate-900）。 */
+    tierCardLabel: "#ffffff",
   },
   dark: {
     background: "#0f172a",
@@ -98,6 +115,11 @@ export const colors = {
      * （slate-400 #94a3b8 だと slate-700 上で約 4.0:1 と AA を下回る）
      */
     placeholder: "#cbd5e1",
+    tierDropArea: "#1e293b",
+    tierDropAreaActive: "#334155",
+    tierCard: "#334155",
+    tierCardFallback: "#475569",
+    tierCardLabel: "#0f172a",
   },
 } as const;
 

@@ -3,6 +3,7 @@ import {
   renameTier,
   tierLabelError,
   tierLabelFontSize,
+  tierLabelTextColor,
 } from "./label";
 import type { TierRow } from "./types";
 
@@ -87,5 +88,25 @@ describe("tierLabelFontSize", () => {
       tierLabelFontSize("あ".repeat(12), 13),
     );
     expect(tierLabelFontSize("あ".repeat(24), 13)).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("tierLabelTextColor", () => {
+  // 既定 tier 色（lib/tierList/defaults.ts の DEFAULT_TIERS）を網羅する。
+  it("暗い背景色には白を返す", () => {
+    expect(tierLabelTextColor("#ff0000")).toBe("#ffffff"); // S（赤）
+    expect(tierLabelTextColor("#0000ff")).toBe("#ffffff"); // D（青）
+  });
+
+  it("明るい背景色には濃色を返す", () => {
+    expect(tierLabelTextColor("#ff8000")).toBe("#1f2937"); // A（橙）
+    expect(tierLabelTextColor("#ffff00")).toBe("#1f2937"); // B（黄）
+    expect(tierLabelTextColor("#00ff00")).toBe("#1f2937"); // C（緑）
+  });
+
+  it("パース不能な色は濃色に倒す（従来の固定色と同じ既定）", () => {
+    expect(tierLabelTextColor("red")).toBe("#1f2937");
+    expect(tierLabelTextColor("")).toBe("#1f2937");
+    expect(tierLabelTextColor("#fff")).toBe("#1f2937");
   });
 });

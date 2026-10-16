@@ -72,10 +72,13 @@ export type UseTierUrlShare = (input?: {
  * - native: react-native-view-shot で View を撮り OS 共有シートへ
  * - web: DOM を html-to-image で PNG 化し、Web Share API (files) または
  *   ダウンロードへ（web の View ref は RNW 経由で HTMLElement に解決される）
+ * backgroundColor は PNG の下地色。スナップショット自体が塗るので
+ * 縁のかけら用だが、呼び出し側は撮影時点の画面背景色を渡す
+ * （native では無視される）。
  */
 export type ShareTierListImage = (
   target: RefObject<View | null>,
-  options: { dialogTitle: string },
+  options: { dialogTitle: string; backgroundColor: string },
 ) => Promise<void>;
 
 /**
@@ -86,5 +89,5 @@ export type ShareTierListImage = (
  */
 export type CaptureTierListImageFile = (
   target: RefObject<View | null>,
-  options: { title: string },
+  options: { title: string; backgroundColor: string },
 ) => Promise<File>;

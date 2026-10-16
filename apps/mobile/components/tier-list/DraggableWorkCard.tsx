@@ -10,7 +10,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 import type { TierItem } from "@/lib/tierList/types";
-import { styles } from "./tierListStyles";
+import { useTierListStyles } from "./tierListStyles";
 
 /** 長押しでドラッグを開始するまでの時間（ms）。 */
 // これを 0 にすると、トレイや盤面の縦スクロールが全部ドラッグに吸われて
@@ -78,6 +78,7 @@ export function DraggableWorkCard({
   scrollCompensation,
   scrollCompensationOwner,
 }: DraggableWorkCardProps) {
+  const styles = useTierListStyles();
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
