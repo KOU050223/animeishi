@@ -217,6 +217,10 @@ describe("視聴傾向分析 API", () => {
       const promptText = inputs.messages.map((m) => m.content).join("\n");
       expect(promptText).toContain("テスト作品101");
       expect(promptText).toContain("テスト作品102");
+      // Qwen3 の思考モードを無効化する（思考で max_tokens を使い切り content が
+      // 空になる本番障害の回帰防止）。
+      const userMessage = inputs.messages.find((m) => m.role === "user");
+      expect(userMessage?.content.endsWith("/no_think")).toBe(true);
 
       // 生成結果が保存される。
       const row = await db.query.analyses.findFirst({
@@ -454,6 +458,26 @@ describe("視聴傾向分析 API", () => {
       });
       expect(row?.summary).toBeNull();
       expect(row?.generationCount).toBe(1);
+    });
+
+    it("POST /me/analysis: 思考で打ち切られ content が空なら 502 で保存しない", async () => {
+      await seedHistory([101]);
+      aiRun.mockResolvedValue({
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "", reasoning: "考え中…" },
+            finish_reason: "length",
+          },
+        ],
+      });
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(502);
+      const row = await db.query.analyses.findFirst({
+        where: eq(analyses.userId, USER_ID),
+      });
+      expect(row?.summary ?? null).toBeNull();
     });
 
     it("POST /me/analysis: AI が不正な JSON を返したら 502", async () => {

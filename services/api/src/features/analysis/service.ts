@@ -10,6 +10,16 @@ import type { WatchHistoryWithWork } from "../watch-history/repository";
 // availability と structured output 対応を確認すること。
 export const ANALYSIS_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8" as const;
 
+// Qwen3 は既定で思考モード（reasoning）を出力し、思考だけで max_tokens を
+// 使い切ると content が空のまま打ち切られる（本番で「AI 応答が空です」→ 502）。
+// ユーザーメッセージ末尾の /no_think（Qwen3 公式のソフトスイッチ）で無効化する。
+// chat_template_kwargs.enable_thinking=false は Workers AI では content が空に
+// なったため使わない（2026-10-17 実測）。
+const DISABLE_THINKING_SUFFIX = " /no_think";
+
+// 応答の最大トークン数。思考を無効化しても長い要約で打ち切られないよう余裕を持たせる。
+const ANALYSIS_MAX_TOKENS = 2048;
+
 // プロンプトに載せる履歴の上限。超過分は更新日時の新しい順に絞る
 // （getMyWatchHistory は updated_at 降順で返す）。
 const MAX_PROMPT_WORKS = 50;
@@ -209,6 +219,16 @@ const aiOutputSchema = z.object({
   recommendedGenres: z.array(z.string()),
 });
 
+// 空応答時の診断用に finish_reason を取り出す（"length" なら打ち切り）。
+function extractFinishReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const choices = (result as { choices?: unknown }).choices;
+  if (!Array.isArray(choices)) return null;
+  const reason = (choices[0] as { finish_reason?: unknown } | undefined)
+    ?.finish_reason;
+  return typeof reason === "string" ? reason : null;
+}
+
 function extractMessageContent(result: unknown): string | null {
   // モデルによっては応答が素の文字列で返るケースがある。
   if (typeof result === "string") return result;
@@ -263,13 +283,16 @@ export async function runAnalysis(
     result = await ai.run(ANALYSIS_MODEL, {
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(input) },
+        {
+          role: "user",
+          content: buildUserPrompt(input) + DISABLE_THINKING_SUFFIX,
+        },
       ],
       response_format: {
         type: "json_schema",
         json_schema: RESPONSE_JSON_SCHEMA,
       },
-      max_tokens: 1024,
+      max_tokens: ANALYSIS_MAX_TOKENS,
       temperature: 0.7,
     });
   } catch (err) {
@@ -279,7 +302,9 @@ export async function runAnalysis(
   }
   const content = extractMessageContent(result);
   if (content === null || content.trim() === "") {
-    throw new AnalysisGenerationError("AI 応答が空です");
+    throw new AnalysisGenerationError(
+      `AI 応答が空です（finish_reason: ${extractFinishReason(result) ?? "unknown"}）`,
+    );
   }
   return parseAiOutput(content);
 }
