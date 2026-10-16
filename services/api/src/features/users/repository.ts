@@ -15,6 +15,7 @@ import {
   characterTierListItems,
   reports,
   blocks,
+  analyses,
 } from "@/db/schema";
 import type { User, NewUser, Report } from "@/db/schema";
 
@@ -534,6 +535,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       ).map((row) => row.id);
 
       const queries: BatchItem<"sqlite">[] = [
+        db.delete(analyses).where(eq(analyses.userId, currentUserId)),
         db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),
         db.delete(watchHistory).where(eq(watchHistory.userId, currentUserId)),
         db.delete(favorites).where(eq(favorites.userId, currentUserId)),

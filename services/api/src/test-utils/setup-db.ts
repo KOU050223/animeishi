@@ -173,6 +173,17 @@ const DDL_STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS blocks_blocker_blocked_unique ON blocks (blocker_id, blocked_id)`,
   `CREATE INDEX IF NOT EXISTS blocks_blocker_idx ON blocks (blocker_id)`,
   `CREATE INDEX IF NOT EXISTS blocks_blocked_idx ON blocks (blocked_id)`,
+  `CREATE TABLE IF NOT EXISTS analyses (
+    user_id TEXT PRIMARY KEY NOT NULL,
+    summary TEXT,
+    genres_json TEXT,
+    input_hash TEXT,
+    work_count INTEGER,
+    generated_at INTEGER,
+    window_started_at INTEGER NOT NULL,
+    generation_count INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
   `CREATE TABLE IF NOT EXISTS deleted_users (
     user_id TEXT PRIMARY KEY NOT NULL,
     deleted_at INTEGER NOT NULL
@@ -192,6 +203,7 @@ export async function setupTestDb(d1: D1Database) {
   const db = drizzle(d1, { schema });
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
   await d1.prepare("DELETE FROM deleted_users").run();
+  await d1.prepare("DELETE FROM analyses").run();
   await d1.prepare("DELETE FROM reports").run();
   await d1.prepare("DELETE FROM blocks").run();
   await d1.prepare("DELETE FROM annict_tokens").run();
