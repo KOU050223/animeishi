@@ -5,6 +5,8 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { hiraganaToKana } from "@/lib/textNormalize";
 
 type FavoritesResponse = InferResponseType<
@@ -157,10 +159,11 @@ export function useToggleFavorite(
 
   return {
     toggle: (annictWorkId: number) => {
-      const mutation =
-        nextFavoriteAction(favoriteIds, annictWorkId) === "remove"
-          ? remove
-          : add;
+      const action = nextFavoriteAction(favoriteIds, annictWorkId);
+      // お気に入りの追加/解除の操作を計測する（issue #214）。成否ではなく
+      // ユーザーの操作意図を記録するため mutate 前に送る。
+      trackEvent("favorite_toggle", { [TRACK_EVENT_KEYS.action]: action });
+      const mutation = action === "remove" ? remove : add;
       // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
       // 前の呼び出し分が発火しないため、mutateAsync の promise で
       // 失敗を個別に拾う。

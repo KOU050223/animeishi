@@ -17,6 +17,7 @@ import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
 import { alert } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
@@ -177,6 +178,8 @@ export default function MeishiEditScreen() {
   };
 
   const onSave = async () => {
+    // 名刺エディタの保存ボタン押下を計測する（issue #214）。
+    trackEvent("meishi_save");
     await saveDocument();
     const message = "名刺を保存しました";
     setSaveFeedbackVisible(true);

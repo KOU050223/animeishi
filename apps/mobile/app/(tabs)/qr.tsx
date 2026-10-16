@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/clerk-expo";
@@ -9,11 +9,21 @@ import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend } from "@/lib/useFriends";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
 
 type Mode = "generate" | "scan";
 
 export default function QrScreen() {
   const [mode, setMode] = useState<Mode>("generate");
+  const isFocused = useIsFocused();
+
+  // 名刺交換（QR）画面への進入を計測する（issue #214）。タブの再訪でも
+  // 発火させるためマウントではなくフォーカスを見る。
+  useEffect(() => {
+    if (isFocused) {
+      trackEvent("qr_exchange_start");
+    }
+  }, [isFocused]);
 
   return (
     // 上端だけ safe area を取る。下端はタブバー側で吸収する。
@@ -28,7 +38,10 @@ export default function QrScreen() {
         <ModeButton
           label="スキャン"
           active={mode === "scan"}
-          onPress={() => setMode("scan")}
+          onPress={() => {
+            trackEvent("qr_scan_start");
+            setMode("scan");
+          }}
         />
       </View>
 
@@ -39,6 +52,14 @@ export default function QrScreen() {
 
 function GenerateView() {
   const { userId, isSignedIn } = useAuth();
+
+  // マイ QR の表示 = 名刺の共有面。サインイン済みで QR が実際に出た時だけ
+  // 計測する（issue #214）。
+  useEffect(() => {
+    if (isSignedIn && userId) {
+      trackEvent("meishi_share");
+    }
+  }, [isSignedIn, userId]);
 
   if (!isSignedIn || !userId) {
     return (

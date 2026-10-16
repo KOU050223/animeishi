@@ -381,6 +381,120 @@ bash scripts/sentry/setup-annict-funnel-dashboard.sh [org] [project]
 ただし既存ウィジェットの定義（クエリ・表示形式）は更新しないため、変更したい場合は
 Sentry 上で該当ウィジェットを削除してから再実行する。
 
+## UI イベント計測（主要ボタンの利用状況、issue #214）
+
+Annict ファネル計測（issue #64）の仕組みを汎用化し、名刺交換・Tier 表・
+AI 分析・視聴ステータス・お気に入りなど主要ボタンの押下を Sentry Logs で
+計測する。「何回・いつ・どの画面で」押されたかを把握するのが目的。
+新規 SaaS（プロダクト分析基盤）は入れず、既存の `Sentry.logger` を使う。
+
+```text
+送信ロジック: apps/mobile/lib/events.ts          # trackEvent(name, attributes)
+コンテキスト: apps/mobile/lib/useEventTrackingContext.ts
+              # 現在画面・userId を module 状態へ同期（app/_layout.tsx で呼ぶ）
+イベント名・属性キー: packages/observability/src/events.ts
+レート制限: packages/observability/src/rateLimit.ts
+```
+
+### イベント命名
+
+- イベント名は `<対象>_<動作>` の snake_case（例: `meishi_save`,
+  `tier_share`, `watch_status_change`）。Sentry Logs の message と
+  `event.name` 属性の両方に入る（logs では message での group-by が
+  効かないため、集計軸として `event.name` を別途属性にも持たせる）。
+- 名称は `TRACKED_EVENTS`（`packages/observability/src/events.ts`）に
+  列挙して管理する。新しい計測を足すときはここに追加する。
+- `annict_connect_funnel` は既存ダッシュボードとの互換のため
+  命名・属性を変更しないまま同じ送信経路（`trackEvent`）へ乗せている
+  （`autoAttributes: false` で自動属性を付けず、既存の属性セットを維持）。
+
+### 属性
+
+共通（`trackEvent` が自動付与、`autoAttributes: true` の場合）:
+
+| 属性 | 値 |
+|------|-----|
+| `event.name` | イベント名（集計の group-by 軸） |
+| `platform` | `ios` / `android` / `web` |
+| `app_version` | `Constants.expoConfig.version`（未解決なら `dev`） |
+| `screen` | 現在のルートパス（`/(tabs)` 等の group を含まない pathname。`/` は `index` に正規化） |
+| `user_key` | Clerk userId のソルト付き SHA-256 先頭16文字。ソルトは Annict ファネルと同じで突き合わせ可能（PII は送らない） |
+
+イベント固有（`TRACK_EVENT_KEYS` にキーを集約）:
+
+| キー | 使うイベント | 値 |
+|------|--------------|-----|
+| `method` | `tier_share` | `url` / `image` / `x` / `copy` |
+| `action` | `favorite_toggle` | `add` / `remove` |
+| `from` / `to` | `watch_status_change` | `WATCHING` / `WATCHED` / `ON_HOLD` / `STOP_WATCHING` / `WANNA_WATCH` |
+| `run_type` | `analysis_generate` | `initial` / `regenerate` |
+
+送信しないもの（PII 方針は Annict ファネルと同じ）:
+生の Clerk userId・プロフィール ID・共有 URL ・作品/キャラクター ID・
+ユーザー入力テキスト・画像コンテンツ。画面はパスだけで
+`user/[uid]` のような ID 入りのパスを持つ画面では計測イベントを置かない。
+
+### 計測する操作と発火点
+
+| イベント | 発火点 |
+|----------|--------|
+| `qr_exchange_start` | `app/(tabs)/qr.tsx` のフォーカス時（名刺交換画面への進入） |
+| `qr_scan_start` | 同画面「スキャン」タブのタップ |
+| `meishi_share` | マイ QR が表示された時（名刺の共有面） |
+| `meishi_save` | `app/meishi/edit.tsx` の保存ボタン |
+| `tier_share_open` | Tier 表 / キャラクター Tier 表の「共有」ボタン |
+| `tier_share` | 上記に続く方式選択（native は URL/画像の選択、Web モーダルは X/コピー/画像） |
+| `tier_image_generate` | Web 共有モーダルの「画像を生成」 |
+| `tier_image_save` | Web 共有モーダルの「画像をダウンロード」 |
+| `tier_work_add_open` | `TierBoard` の「＋ 追加」（作品検索シートを開く） |
+| `tier_work_add` | 検索シートから作品を追加した時（実際に盤面へ載ったものだけ） |
+| `character_tier_open` | アニメ一覧のキャラクター tier 表ボタン |
+| `analysis_generate` | 「分析する / 再分析する」ボタン |
+| `watch_status_change` | 視聴履歴の編集モーダル保存（`from` / `to` 付き） |
+| `favorite_toggle` | お気に入りトグル（`action` 付き。一覧画面・お気に入りタブの解除） |
+
+原則「ユーザーが操作した」時点で送る（成否の結果ではなく操作の意図を
+計測する）。`tier_work_add` のように「押下しても何も起きない」ケースが
+あるものだけ、実際に効果があった時点で送る。
+
+### レート制限
+
+`EventRateLimiter`（`packages/observability/src/rateLimit.ts`）で
+同一イベント名あたり **60 秒に 10 回**までに制限する
+（既定値 `EVENT_RATE_LIMIT`）。連打・ループ・異常系で無料枠
+（Developer プラン 5 GB/月、超過請求なしの上限設定）を使い切るのを防ぐ
+ためのクライアント側の安全弁であり、上限到達分は静かに捨てる。
+制限自体をイベント化しない（そのイベントも枠を消費するため）。
+`annict_connect_funnel` も同じリミッターを通る。
+
+### 新しい計測を追加する手順
+
+1. `TRACKED_EVENTS` に `<対象>_<動作>` の snake_case でイベント名を追加する
+2. 発火点で `trackEvent("<name>", { ...属性 })` を呼ぶ
+   （fire-and-forget。await 不要。属性は enum 的な固定値のみ、
+   PII・URL・ユーザー入力・ID は送らない）
+3. 必要なら `TRACK_EVENT_KEYS` に属性キーを追加する
+4. `scripts/sentry/setup-ui-events-dashboard.sh` に該当ウィジェットを足す
+   （既存ダッシュボードには自動反映されないため、Sentry 側で手動追加
+   するか該当ウィジェットを削除してスクリプト再実行）
+
+### ダッシュボード（再現手順）
+
+UI イベント用の Sentry ダッシュボード「UI イベント計測」は
+`scripts/sentry/setup-ui-events-dashboard.sh` で作成する（logs データセット。
+イベント総数・日別推移（イベント別/画面別）・ボタン別回数・
+画面 × イベント表・共有方式/ステータス遷移/お気に入り/AI 分析の内訳表）。
+
+```bash
+sentry auth login   # ダッシュボード作成・編集権限（org:write 相当）のあるアカウント/トークンで
+bash scripts/sentry/setup-ui-events-dashboard.sh [org] [project]
+```
+
+冪等性とウィジェット更新の扱いは Annict 用スクリプトと同じ。
+クエリのベースは `environment:production has:event.name`
+（`event.name` 属性を持つ UI 計測イベントだけに絞るため、
+`annict_connect_funnel` 等の他用途ログは混ざらない）。
+
 ## 残課題（スコープ外）
 
 - API / Web の source map upload と release 関連付けの CI 組み込み

@@ -11,6 +11,8 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAnalysis, useGenerateAnalysis } from "@/lib/useAnalysis";
 import { ApiRequestError } from "@/lib/apiError";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";
 
 // generatedAt（ISO 8601）の表示用。Hermes の Intl 実装差を避けるため
@@ -42,6 +44,13 @@ export default function AnalysisScreen() {
       return;
     }
     router.replace("/");
+  };
+
+  // 「分析する / 再分析する」の押下を計測する（issue #214）。
+  // 結果があるかで初回・再実行を分ける。
+  const onGenerate = (runType: "initial" | "regenerate") => {
+    trackEvent("analysis_generate", { [TRACK_EVENT_KEYS.runType]: runType });
+    generate.mutate();
   };
 
   const generateErrorMessage =
@@ -132,7 +141,7 @@ export default function AnalysisScreen() {
               label={t("分析する")}
               pendingLabel={t("分析中...")}
               isPending={generate.isPending}
-              onPress={() => generate.mutate()}
+              onPress={() => onGenerate("initial")}
               colors={colors}
             />
           </View>
@@ -181,7 +190,7 @@ export default function AnalysisScreen() {
                 label={t("再分析する")}
                 pendingLabel={t("分析中...")}
                 isPending={generate.isPending}
-                onPress={() => generate.mutate()}
+                onPress={() => onGenerate("regenerate")}
                 colors={colors}
               />
               <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">

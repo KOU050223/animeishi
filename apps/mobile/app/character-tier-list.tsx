@@ -3,6 +3,8 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { alert, confirm } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { TierBoard } from "@/components/tier-list/TierBoard";
 import {
@@ -343,16 +345,16 @@ export default function CharacterTierListScreen() {
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
   // （生成待ちの後に navigator.share を呼ぶとユーザー操作期限で失敗するため）。
-  const generateImageFile = useCallback(
-    () =>
-      withRenderedSnapshot(() =>
-        captureTierListImageFile(snapshotRef, {
-          title,
-          backgroundColor: colors.background,
-        }),
-      ),
-    [withRenderedSnapshot, title, colors],
-  );
+  const generateImageFile = useCallback(() => {
+    // web 共有モーダルの「画像を生成する」押下を計測する（issue #214）。
+    trackEvent("tier_image_generate");
+    return withRenderedSnapshot(() =>
+      captureTierListImageFile(snapshotRef, {
+        title,
+        backgroundColor: colors.background,
+      }),
+    );
+  }, [withRenderedSnapshot, title, colors]);
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・名簿の
   // 読み込み中（or 取得失敗）に実行すると、初期状態の盤面を上書き保存
@@ -367,14 +369,22 @@ export default function CharacterTierListScreen() {
 
   const handleShare = useCallback(() => {
     if (shareDisabled) return;
+    // 共有ボタンの押下と、続く選択肢の方式（issue #214）を計測する。
+    trackEvent("tier_share_open");
     presentTierShareOptions({
       dialogTitle: "Tier 表を共有",
       urlLabel: "URL を共有",
       imageLabel: "画像で共有",
       cancelLabel: "キャンセル",
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
-      onShareUrl: () => void handleShareUrl(),
-      onShareImage: () => void handleShareImage(),
+      onShareUrl: () => {
+        trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "url" });
+        void handleShareUrl();
+      },
+      onShareImage: () => {
+        trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "image" });
+        void handleShareImage();
+      },
     });
   }, [handleShareUrl, handleShareImage, shareDisabled]);
 

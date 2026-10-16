@@ -3,6 +3,8 @@ import { Modal, Pressable, Text, View } from "react-native";
 import type { ShareTierListUrl, UseTierUrlShare } from "./types";
 import { copyTierListUrl } from "./sheet";
 import { canShareImageFile, downloadImageFile, shareImageFile } from "./image";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 
 function buildXIntentUrl(url: string, text?: string): string {
   const params = new URLSearchParams({ url });
@@ -39,6 +41,8 @@ function TierUrlShareModal({
   const [imageError, setImageError] = useState<string | null>(null);
 
   const handleShareX = () => {
+    // Web モーダル内の共有方式選択を計測する（issue #214）。
+    trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "x" });
     window.open(
       buildXIntentUrl(url, tweetText),
       "_blank",
@@ -47,6 +51,7 @@ function TierUrlShareModal({
   };
 
   const handleCopy = async () => {
+    trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "copy" });
     try {
       await copyTierListUrl(url);
       setCopied(true);
@@ -70,6 +75,7 @@ function TierUrlShareModal({
 
   const handleShareImage = async () => {
     if (!imageFile) return;
+    trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "image" });
     try {
       // 生成済み File をこのクリック内で渡すため操作期限は切れない
       await shareImageFile(imageFile, tweetText ?? imageFile.name);
@@ -81,6 +87,8 @@ function TierUrlShareModal({
 
   const handleDownloadImage = () => {
     if (!imageFile) return;
+    // 画像の保存（ダウンロード）を計測する（issue #214）。
+    trackEvent("tier_image_save");
     downloadImageFile(imageFile);
   };
 

@@ -18,6 +18,7 @@ import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 import { useThemeColors } from "@/lib/theme";
+import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -36,6 +37,8 @@ function AuthGuard() {
   const segments = useSegments();
   const router = useRouter();
   const colors = useThemeColors();
+  // UI イベント計測に現在画面・サインイン中ユーザーを同期する（issue #214）。
+  useEventTrackingContext();
 
   useEffect(() => {
     if (!isLoaded) return;
