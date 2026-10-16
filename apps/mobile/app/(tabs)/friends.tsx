@@ -11,7 +11,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
-import { confirm } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
+import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
 export default function FriendsScreen() {
@@ -31,7 +32,23 @@ export default function FriendsScreen() {
     confirm(
       "フレンドを削除",
       `「${name}」をフレンドから削除しますか？`,
-      () => remove.mutate(friendId),
+      () => {
+        // 削除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+        // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
+        // ため、mutateAsync の promise で失敗を個別に拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        void remove
+          .mutateAsync(friendId)
+          .catch((e: unknown) =>
+            alert(
+              "フレンドを削除できませんでした",
+              e instanceof ApiRequestError
+                ? e.message
+                : "フレンドの削除に失敗しました",
+              { okLabel: "OK" },
+            ),
+          );
+      },
       { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
     );
   }

@@ -26,6 +26,16 @@ const watchHistoryQueryKey = (userId: string) =>
 // MutationCache が直列実行する（先の PUT が settle してから次が走る）。
 const WATCH_HISTORY_UPSERT_SCOPE = "watch-history-upsert";
 
+/**
+ * useUpsertWatchHistory の mutateAsync が reject するエラーに付与される
+ * 追加情報。onError がロールバックを実施したかを呼び出し側が判定し、
+ * 通知文言（「元の状態に戻しました」と言ってよいか）を分けるために使う。
+ */
+export interface UpsertWatchHistoryError extends Error {
+  /** 表示が元の状態へ巻き戻された場合 true。後続の楽観値を残した等で巻き戻さなかった場合は false/未設定。 */
+  rolledBack?: boolean;
+}
+
 export const WATCH_STATUS_LABELS: Record<WatchHistoryItem["state"], string> = {
   WATCHING: "視聴中",
   WATCHED: "視聴済",
@@ -120,18 +130,30 @@ export function useUpsertWatchHistory() {
       );
       return { previousState };
     },
-    onError: (_error, { annictWorkId, data }, context) => {
+    onError: (error, { annictWorkId, data }, context) => {
       if (context?.previousState === undefined) return;
       const previousState = context.previousState;
       // 自分が書いた楽観値のまま残っている時だけ巻き戻す。同じ作品へ後続の
       // 更新が乗っている場合はそちらに委ねる（巻き戻すと新しい意図を消す）。
-      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
-        old?.map((item) =>
-          item.annictWorkId === annictWorkId && item.state === data.state
-            ? { ...item, state: previousState }
-            : item,
-        ),
-      );
+      const rolledBack =
+        queryClient
+          .getQueryData<WatchHistoriesResponse>(queryKey)
+          ?.find((item) => item.annictWorkId === annictWorkId)?.state ===
+        data.state;
+      if (rolledBack) {
+        queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) =>
+          old?.map((item) =>
+            item.annictWorkId === annictWorkId
+              ? { ...item, state: previousState }
+              : item,
+          ),
+        );
+      }
+      // 実際に巻き戻したかをエラーに記録する。mutateAsync の reject 値と
+      // して呼び出し側へ伝わり、「元の状態に戻しました」の誤表示を防ぐ。
+      if (error instanceof Error) {
+        (error as UpsertWatchHistoryError).rolledBack = rolledBack;
+      }
     },
     onSettled: () => {
       // 他の upsert が残っている間は再取得しない。残っている間に refetch

@@ -2,7 +2,12 @@
 // dアニメ取り込み導線は featureFlags.danimeImport で制御する（#158）:
 // 無効（ネイティブ既定）ではボタンを出さず、有効（Web 版）では従来通り出す。
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import WatchHistoryScreen from "@/app/(tabs)/watch-history";
 import { ApiRequestError } from "@/lib/apiError";
 
@@ -23,8 +28,9 @@ jest.mock("@/lib/featureFlags", () => ({
   },
 }));
 
-// upsert.mutateAsync の振る舞いをテストごとに差し替えられるよう遅延参照する。
+// mutateAsync の振る舞いをテストごとに差し替えられるよう遅延参照する。
 const mockUpsertMutateAsync = jest.fn();
+const mockRemoveMutateAsync = jest.fn();
 jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({
     data: [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }],
@@ -35,7 +41,9 @@ jest.mock("@/lib/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutateAsync: (...args: unknown[]) => mockUpsertMutateAsync(...args),
   }),
-  useDeleteWatchHistory: () => ({ mutate: jest.fn() }),
+  useDeleteWatchHistory: () => ({
+    mutateAsync: (...args: unknown[]) => mockRemoveMutateAsync(...args),
+  }),
   WATCH_STATUS_LABELS: {
     WATCHING: "視聴中",
     WATCHED: "視聴済",
@@ -49,7 +57,28 @@ jest.mock("@/lib/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 
-jest.mock("@/lib/dialog", () => ({ confirm: jest.fn() }));
+// 更新失敗通知は lib/dialog の alert に載せ替えた（トースト廃止）。
+// mock では onClose を呼ばないため、alert 呼び出し後は「ダイアログが
+// 開いたまま」の状態として扱える。
+// confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
+const mockAlert = jest.fn();
+const mockConfirm = jest.fn(
+  (
+    _title: string,
+    _message: string,
+    onConfirm: () => void,
+    _options?: unknown,
+  ) => onConfirm(),
+);
+jest.mock("@/lib/dialog", () => ({
+  confirm: (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    options?: unknown,
+  ) => mockConfirm(title, message, onConfirm, options),
+  alert: (...args: unknown[]) => mockAlert(...args),
+}));
 jest.mock("@/components/AnnictSoftGate", () => ({
   AnnictSoftGate: () => null,
 }));
@@ -57,12 +86,25 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
 }));
 
+// フックの onError が「表示を実際に巻き戻したか」をエラーへ記録する
+// rolledBack フラグを模倣した reject 値を作る。
+function rejectedUpsertError(rolledBack: boolean) {
+  const e = new ApiRequestError(
+    500,
+    "視聴履歴の更新に失敗しました",
+  ) as ApiRequestError & { rolledBack?: boolean };
+  e.rolledBack = rolledBack;
+  return e;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockDanimeImport = false;
   mockUpsertMutateAsync.mockReset();
+  mockRemoveMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockUpsertMutateAsync.mockResolvedValue({});
+  mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
 describe("WatchHistoryScreen", () => {
@@ -114,16 +156,21 @@ describe("WatchHistoryScreen", () => {
     expect(mockUpsertMutateAsync).toHaveBeenCalledTimes(2);
   });
 
-  it("更新に失敗したらロールバックを知らせるエラートーストを出す", async () => {
-    mockUpsertMutateAsync.mockRejectedValue(
-      new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
-    );
+  it("更新に失敗したらロールバックを知らせるダイアログを出す", async () => {
+    mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
     render(<WatchHistoryScreen />);
 
     fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     fireEvent.press(screen.getByLabelText("保存"));
 
-    await screen.findByText("視聴履歴の更新に失敗しました");
+    // OK を押すまで消えないダイアログで「元の状態に戻した」ことまで伝える。
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "更新できませんでした",
+        "視聴ステータスを更新できませんでした。元の状態に戻しました。",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
+    );
   });
 
   it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
@@ -135,7 +182,95 @@ describe("WatchHistoryScreen", () => {
     fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     fireEvent.press(screen.getByLabelText("保存"));
 
-    await screen.findByText("視聴履歴の更新に失敗しました");
-    expect(screen.queryByText("Network request failed")).toBeNull();
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+    expect(mockAlert.mock.calls[0][1]).not.toContain("Network request failed");
+  });
+
+  it("表示中に起きた同種の失敗は閉じたあと件数でまとめて通知する", async () => {
+    mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
+    render(<WatchHistoryScreen />);
+
+    // 1回目の失敗でダイアログが出る（mock は onClose を呼ばないので開いたまま）。
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+
+    // 表示中に同じ種類の失敗が重なっても、都度ダイアログは出さずキューに積む。
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    await waitFor(() => expect(mockUpsertMutateAsync).toHaveBeenCalledTimes(3));
+    // catch のマイクロタスク完了を待ってから回数を確定させる。
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockAlert).toHaveBeenCalledTimes(1);
+
+    // ダイアログを閉じると、キューの2件が「2件」にまとめて1回だけ出る。
+    const options = mockAlert.mock.calls[0][2] as { onClose?: () => void };
+    options.onClose?.();
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(2));
+    expect(mockAlert.mock.calls[1][1]).toBe(
+      "2件の視聴ステータス更新に失敗しました。",
+    );
+  });
+
+  it("ダイアログを閉じた後の失敗では再度通知する", async () => {
+    mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
+    render(<WatchHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+
+    // ユーザーが OK で閉じる（onClose 発火）と次の失敗でまた出る。
+    const options = mockAlert.mock.calls[0][2] as { onClose?: () => void };
+    options.onClose?.();
+
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(2));
+  });
+
+  it("表示中の別種の失敗も捨てずに閉じたあと通知する", async () => {
+    mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
+    mockRemoveMutateAsync.mockRejectedValue(
+      new ApiRequestError(500, "視聴履歴の削除に失敗しました"),
+    );
+    render(<WatchHistoryScreen />);
+
+    // 更新失敗のダイアログが開く（mock は onClose を呼ばないので開いたまま）。
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+
+    // 表示中に削除が失敗しても捨てず、キューに積む。
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を削除"));
+    await waitFor(() => expect(mockRemoveMutateAsync).toHaveBeenCalledWith(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockAlert).toHaveBeenCalledTimes(1);
+
+    // 更新ダイアログを閉じると、キューの削除失敗が出る。
+    const options = mockAlert.mock.calls[0][2] as { onClose?: () => void };
+    options.onClose?.();
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(2));
+    expect(mockAlert.mock.calls[1][0]).toBe("削除できませんでした");
+  });
+
+  it("巻き戻さなかった失敗は「元の状態に戻しました」とは言わない", async () => {
+    // 後続の楽観値が残る失敗は onError がロールバックをスキップするため
+    // rolledBack は付かない。その場合に「戻した」と誤表示しない。
+    mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(false));
+    render(<WatchHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
+    fireEvent.press(screen.getByLabelText("保存"));
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "更新できませんでした",
+        "一部の更新に失敗しました。",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
+    );
   });
 });

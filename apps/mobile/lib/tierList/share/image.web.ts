@@ -92,7 +92,7 @@ function downloadBlob(blob: Blob, fileName: string) {
  */
 export const captureTierListImageFile: CaptureTierListImageFile = async (
   target,
-  { title },
+  { title, backgroundColor },
 ) => {
   const node = target.current as unknown;
   if (!(node instanceof HTMLElement)) {
@@ -116,7 +116,9 @@ export const captureTierListImageFile: CaptureTierListImageFile = async (
 
   const dataUrl = await toPng(node, {
     pixelRatio: 2,
-    backgroundColor: "#111827",
+    // 撮影時点のカラースキームに合わせた盤面の背景色を呼び出し側から受け取る
+    // （スナップショットの塗りと同じ色で PNG の下地を埋める）。
+    backgroundColor,
     // システムフォントだけを使うため @font-face の収集は不要。
     // 外部フォント CSS の fetch 失敗でキャプチャ全体が遅れるのを防ぐ。
     skipFonts: true,
@@ -168,9 +170,12 @@ export function downloadImageFile(file: File): void {
  */
 export const shareTierListImage: ShareTierListImage = async (
   target,
-  { dialogTitle },
+  { dialogTitle, backgroundColor },
 ) => {
-  const file = await captureTierListImageFile(target, { title: dialogTitle });
+  const file = await captureTierListImageFile(target, {
+    title: dialogTitle,
+    backgroundColor,
+  });
   if (canShareImageFile(file)) {
     try {
       await shareImageFile(file, dialogTitle);

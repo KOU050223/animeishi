@@ -39,7 +39,7 @@ type AppBindings = Env &
     // デプロイ CI が --var で注入するデプロイ元コミット SHA。/health が返す。
     COMMIT_SHA?: string;
     // wrangler.toml の [vars]。production / preview / 未設定（ローカル）。
-    // /doc・/ui の公開可否判定に使う（features/health も参照）。
+    // features/health の応答と Sentry の environment 判定に使う。
     ENVIRONMENT?: string;
     // アバター＋作品画像（works/ プレフィックス）共通の R2 バケット。
     // wrangler.toml で全環境にバインド済み。
@@ -97,7 +97,7 @@ const routes = app
   .route("/users", usersRoute);
 
 // OpenAPI ドキュメント（/doc）と Swagger UI（/ui）。OpenAPI 対応済み feature
-// のルートのみ掲載される。本番では 404（開発・preview のみ公開。issue #14）。
+// のルートのみ掲載される。本番を含む全環境で公開する（issue #14）。
 // Hono RPC の型（AppType）には含めないため createRoute は使わず
 // 素の app.get で登録する。
 registerOpenApiDocs(app);

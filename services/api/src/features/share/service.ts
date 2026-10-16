@@ -145,6 +145,47 @@ export function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
+/** ラベル文字色の候補。アプリ側 lib/tierList/label.ts と同じ値。 */
+const TIER_LABEL_TEXT_DARK = "#1f2937";
+const TIER_LABEL_TEXT_LIGHT = "#ffffff";
+
+// WCAG 2.x の相対輝度（#RRGGBB 以外はパース不能として null）。
+// https://www.w3.org/TR/WCAG/#dfn-relative-luminance
+function relativeLuminance(color: string): number | null {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(color.trim());
+  if (!match || !match[1]) return null;
+  const n = parseInt(match[1], 16);
+  const channel = (v: number) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return (
+    0.2126 * channel((n >> 16) & 0xff) +
+    0.7152 * channel((n >> 8) & 0xff) +
+    0.0722 * channel(n & 0xff)
+  );
+}
+
+function contrastRatio(l1: number, l2: number): number {
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * tier ラベルセルの文字色。tier.color はユーザーが自由に変えられるため、
+ * 背景とのコントラストが高い側を濃色/白から選ぶ（アプリ側
+ * lib/tierList/label.ts の tierLabelTextColor と同じ判定）。
+ * パース不能な色はアプリ側と同じく濃色に倒す。
+ */
+function tierLabelTextColor(backgroundColor: string): string {
+  const bg = relativeLuminance(backgroundColor);
+  if (bg === null) return TIER_LABEL_TEXT_DARK;
+  const dark = relativeLuminance(TIER_LABEL_TEXT_DARK) ?? 0;
+  return contrastRatio(bg, dark) >= contrastRatio(bg, 1)
+    ? TIER_LABEL_TEXT_DARK
+    : TIER_LABEL_TEXT_LIGHT;
+}
+
 export function workImageHtml(
   item: SharedTierList["items"][number],
   requestUrl: string,
@@ -203,7 +244,7 @@ export function buildSharedTierListHtml(
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}">${escapeHtml(tier.label)}</div>
+    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
     <div class="tier-works">${worksHtml}</div>
   </div>`;
     })
@@ -214,6 +255,8 @@ export function buildSharedTierListHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
@@ -227,11 +270,20 @@ export function buildSharedTierListHtml(
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-works { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
     .work { width: 80px; text-align: center; }
     .work-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
     .work-title { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      .tier-row { background: #1e293b; }
+      .work-image { background: #334155; }
+      .work-title { color: #cbd5e1; }
+    }
   </style>
 </head>
 <body>
@@ -281,7 +333,7 @@ export function buildSharedCharacterTierListHtml(
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}">${escapeHtml(tier.label)}</div>
+    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
     <div class="tier-characters">${charactersHtml}</div>
   </div>`;
     })
@@ -292,6 +344,8 @@ export function buildSharedCharacterTierListHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
@@ -305,11 +359,20 @@ export function buildSharedCharacterTierListHtml(
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-characters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
     .character { width: 80px; text-align: center; }
     .character-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
     .character-name { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      .tier-row { background: #1e293b; }
+      .character-image { background: #334155; }
+      .character-name { color: #cbd5e1; }
+    }
   </style>
 </head>
 <body>

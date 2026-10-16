@@ -14,7 +14,8 @@ import {
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { confirm } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
+import { alert, confirm } from "@/lib/dialog";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
@@ -48,7 +49,23 @@ export default function FavoritesScreen() {
     confirm(
       "お気に入りを解除",
       "このアニメをお気に入りから外しますか？",
-      () => remove.mutate(annictWorkId),
+      () => {
+        // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
+        // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
+        // ため、mutateAsync の promise で失敗を個別に拾う。
+        // ApiRequestError はユーザー向け日本語メッセージを持つ。
+        void remove
+          .mutateAsync(annictWorkId)
+          .catch((e: unknown) =>
+            alert(
+              "お気に入りを解除できませんでした",
+              e instanceof ApiRequestError
+                ? e.message
+                : "お気に入りの解除に失敗しました",
+              { okLabel: "OK" },
+            ),
+          );
+      },
       { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
     );
   }

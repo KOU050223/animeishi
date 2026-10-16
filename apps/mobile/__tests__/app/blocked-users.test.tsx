@@ -1,10 +1,17 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import BlockedUsersScreen from "@/app/blocked-users";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
-const mockUnblockMutate = jest.fn();
+const mockUnblockMutateAsync = jest.fn();
 const mockUseBlockedUsers = jest.fn();
+const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
   (
@@ -17,7 +24,10 @@ const mockConfirm = jest.fn(
 
 jest.mock("@/lib/useModeration", () => ({
   useBlockedUsers: () => mockUseBlockedUsers(),
-  useUnblockUser: () => ({ mutate: mockUnblockMutate, isPending: false }),
+  useUnblockUser: () => ({
+    mutateAsync: (...args: unknown[]) => mockUnblockMutateAsync(...args),
+    isPending: false,
+  }),
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -27,13 +37,16 @@ jest.mock("@/lib/dialog", () => ({
     onConfirm: () => void,
     options?: unknown,
   ) => mockConfirm(title, message, onConfirm, options),
-  alert: jest.fn(),
+  alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
 beforeEach(() => {
   jest.clearAllMocks();
   resetAuth();
   loggedInUser();
+  mockUnblockMutateAsync.mockReset();
+  // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
+  mockUnblockMutateAsync.mockResolvedValue(null);
   mockUseBlockedUsers.mockReturnValue({
     data: [
       {
@@ -68,7 +81,43 @@ describe("BlockedUsersScreen", () => {
       expect.any(Function),
       expect.any(Object),
     );
-    expect(mockUnblockMutate).toHaveBeenCalledWith("user_blocked001");
+    expect(mockUnblockMutateAsync).toHaveBeenCalledWith("user_blocked001");
+  });
+
+  it("解除に失敗したらダイアログで通知する", async () => {
+    mockUnblockMutateAsync.mockRejectedValue(
+      new ApiRequestError(500, "ブロック解除に失敗しました"),
+    );
+    render(<BlockedUsersScreen />);
+    fireEvent.press(
+      screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
+    );
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "ブロックを解除できませんでした",
+        "ブロック解除に失敗しました",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
+    );
+  });
+
+  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
+    mockUnblockMutateAsync.mockRejectedValue(
+      new Error("Network request failed"),
+    );
+    render(<BlockedUsersScreen />);
+    fireEvent.press(
+      screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
+    );
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "ブロックを解除できませんでした",
+        "ブロックの解除に失敗しました",
+        expect.objectContaining({ okLabel: "OK" }),
+      ),
+    );
   });
 
   it("ブロック中のユーザーがいなければ空表示になる", () => {

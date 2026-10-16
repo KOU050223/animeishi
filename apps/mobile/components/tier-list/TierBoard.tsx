@@ -10,10 +10,10 @@ import { DropZone } from "./DropZone";
 import { useDropZoneRegistry } from "./dropZones";
 import { TierLabelEditSheet } from "./TierLabelEditSheet";
 import { WorkAddSheet } from "./WorkAddSheet";
-import { styles } from "./tierListStyles";
+import { useTierListStyles } from "./tierListStyles";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import { unassignedItems, itemsInTier } from "@/lib/tierList/board";
-import { tierLabelFontSize } from "@/lib/tierList/label";
+import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
 export type TierBoardProps = {
@@ -58,6 +58,7 @@ export function TierBoard({
   labelsEditable,
   trayEmptyLabel,
 }: TierBoardProps) {
+  const styles = useTierListStyles();
   const registry = useDropZoneRegistry();
   // ドラッグ中に指が乗っている行。ハイライト表示だけに使う。
   // undefined は「どの行にも乗っていない」、null は「未分類トレイの上」。
@@ -282,7 +283,10 @@ export function TierBoard({
                   <Text
                     style={[
                       styles.tierLabelText,
-                      { fontSize: tierLabelFontSize(tier.label, 13) },
+                      {
+                        fontSize: tierLabelFontSize(tier.label, 13),
+                        color: tierLabelTextColor(tier.color),
+                      },
                     ]}
                     numberOfLines={3}
                   >

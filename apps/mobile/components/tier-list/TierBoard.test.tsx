@@ -1,7 +1,33 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import {
+  StyleSheet,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
+import { useColorScheme } from "nativewind";
 import { TierBoard } from "./TierBoard";
+import { colors } from "@/lib/theme";
 import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
+
+// jest.setup.js のグローバルモックと同じ形で、スキームを個別に切り替えられるよう
+// このファイル内では再モックする。
+jest.mock("nativewind", () => ({
+  useColorScheme: jest.fn(() => ({
+    colorScheme: "light",
+    setColorScheme: jest.fn(),
+    toggleColorScheme: jest.fn(),
+  })),
+}));
+
+const mockUseColorScheme = jest.mocked(useColorScheme);
+
+const setScheme = (colorScheme: "light" | "dark") =>
+  mockUseColorScheme.mockReturnValue({
+    colorScheme,
+    setColorScheme: jest.fn(),
+    toggleColorScheme: jest.fn(),
+  });
 
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
 // ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に
@@ -103,6 +129,43 @@ const boardElement = (
 
 const zIndexOf = (el: { props: { style?: unknown } }) =>
   StyleSheet.flatten(el.props.style as StyleProp<ViewStyle>)?.zIndex;
+
+const backgroundColorOf = (el: { props: { style?: unknown } }) =>
+  StyleSheet.flatten(el.props.style as StyleProp<ViewStyle>)?.backgroundColor;
+
+// スキームを切り替えたテストが後続へ漏れないよう、各テストの前に light へ戻す。
+beforeEach(() => {
+  setScheme("light");
+});
+
+describe("TierBoard の配色", () => {
+  it("light スキームでは未分類トレイを白系の面で描く", () => {
+    const { getByTestId } = render(boardElement());
+    expect(backgroundColorOf(getByTestId("tier-tray"))).toBe(
+      colors.light.tierDropArea,
+    );
+  });
+
+  it("dark スキームでは未分類トレイを暗色の面で描く", () => {
+    setScheme("dark");
+    const { getByTestId } = render(boardElement());
+    expect(backgroundColorOf(getByTestId("tier-tray"))).toBe(
+      colors.dark.tierDropArea,
+    );
+  });
+
+  it("tier ラベルの文字色は行の背景色とのコントラストで決まる", () => {
+    // TIERS の 0 番は #ff0000（白文字側）、1 番は #ff8000（濃色文字側）。
+    const { getByTestId } = render(boardElement());
+    const labelTextColor = (testId: string) =>
+      StyleSheet.flatten(
+        getByTestId(testId).findByProps({ numberOfLines: 3 }).props
+          .style as StyleProp<TextStyle>,
+      )?.color;
+    expect(labelTextColor("tier-label-0")).toBe("#ffffff");
+    expect(labelTextColor("tier-label-1")).toBe("#1f2937");
+  });
+});
 
 describe("TierBoard の tier 名編集", () => {
   it("ラベルをタップすると編集シートが開く", () => {

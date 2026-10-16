@@ -67,7 +67,7 @@ const buildApp = () => {
 
 type DocBody = {
   openapi: string;
-  paths: Record<string, Record<string, unknown>>;
+  paths: Record<string, Record<string, { security?: unknown }>>;
   components: { securitySchemes: Record<string, { type: string }> };
 };
 
@@ -79,6 +79,9 @@ describe("OpenAPI ドキュメント", () => {
     const doc = (await res.json()) as DocBody;
     expect(doc.openapi).toBe("3.0.0");
     expect(doc.paths["/ping"]?.get).toBeDefined();
+    // ドキュメントの公開に認証は要らないが、認証必須ルートの
+    // security 要件（bearerAuth）は掲載内容に残る
+    expect(doc.paths["/ping"]?.get?.security).toEqual(bearerAuth);
     expect(doc.components.securitySchemes.bearerAuth?.type).toBe("http");
   });
 
@@ -107,14 +110,14 @@ describe("OpenAPI ドキュメント", () => {
   });
 
   it.each(["/doc", "/ui"])(
-    "ENVIRONMENT=production では %s が 404",
+    "ENVIRONMENT=production でも %s が公開される",
     async (path) => {
       const res = await buildApp().request(
         path,
         {},
         { ENVIRONMENT: "production" },
       );
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
     },
   );
 });
