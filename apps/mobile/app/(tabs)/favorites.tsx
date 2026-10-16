@@ -16,6 +16,8 @@ import type { FavoriteItem } from "@/lib/useFavorites";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
@@ -50,6 +52,12 @@ export default function FavoritesScreen() {
       "お気に入りを解除",
       "このアニメをお気に入りから外しますか？",
       () => {
+        // お気に入り解除の操作を計測する（issue #214）。
+        // 一覧画面のトグルは useToggleFavorite 側で送るため、ここは
+        // 確認ダイアログ経由の解除専用。
+        trackEvent("favorite_toggle", {
+          [TRACK_EVENT_KEYS.action]: "remove",
+        });
         // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
         // ため、mutateAsync の promise で失敗を個別に拾う。

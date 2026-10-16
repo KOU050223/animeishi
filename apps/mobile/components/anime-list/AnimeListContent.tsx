@@ -23,6 +23,7 @@ import { AnimePoster } from "./AnimePoster";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
+import { trackEvent } from "@/lib/events";
 import { StatPill } from "./StatPill";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
@@ -133,6 +134,8 @@ export function AnimeListContent({
   // 画面側は作品のキャスト一覧を取得する。
   const openCharacterTierList = useCallback(
     (work: AnimeTitle) => {
+      // キャラクター tier 表を開く操作を計測する（issue #214）。
+      trackEvent("character_tier_open");
       router.push({
         pathname: "/character-tier-list",
         params: { workId: String(work.annictWorkId), workTitle: work.title },

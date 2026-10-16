@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { alert, confirm } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
@@ -183,6 +184,8 @@ export default function TierListScreen() {
       if (isSharing || save.isPending) return;
       // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
       if (boardWorks.some((w) => w.id === work.id)) return;
+      // 作品の追加（issue #214）。重複・共有中の早期 return より後で送る。
+      trackEvent("tier_work_add");
       setManualWorks((prev) => [...prev, work]);
       setIsDirty(true);
     },
@@ -419,16 +422,16 @@ export default function TierListScreen() {
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
   // （生成待ちの後に navigator.share を呼ぶとユーザー操作期限で失敗するため）。
-  const generateImageFile = useCallback(
-    () =>
-      withRenderedSnapshot(() =>
-        captureTierListImageFile(snapshotRef, {
-          title,
-          backgroundColor: colors.background,
-        }),
-      ),
-    [withRenderedSnapshot, title, colors],
-  );
+  const generateImageFile = useCallback(() => {
+    // web 共有モーダルの「画像を生成する」押下を計測する（issue #214）。
+    trackEvent("tier_image_generate");
+    return withRenderedSnapshot(() =>
+      captureTierListImageFile(snapshotRef, {
+        title,
+        backgroundColor: colors.background,
+      }),
+    );
+  }, [withRenderedSnapshot, title, colors]);
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
   // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を
@@ -442,13 +445,19 @@ export default function TierListScreen() {
 
   const handleShare = useCallback(() => {
     if (shareDisabled) return;
+    // 共有ボタンの押下と、続く選択肢の方式（issue #214）を計測する。
+    trackEvent("tier_share_open");
     presentTierShareOptions({
       dialogTitle: "Tier 表を共有",
       urlLabel: "URL を共有",
       imageLabel: "画像で共有",
       cancelLabel: "キャンセル",
+      // 方式の計測は選択肢を実際に提示する側（options.native.ts / Web は
+      // モーダル内の各ボタン）で行う。ここで送ると Web でモーダルを
+      // 開いただけなのに method:url が記録されてしまう。
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareUrl: () => void handleShareUrl(),
+      // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
   }, [handleShareUrl, handleShareImage, shareDisabled]);

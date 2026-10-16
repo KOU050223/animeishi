@@ -11,6 +11,7 @@ import { useDropZoneRegistry } from "./dropZones";
 import { TierLabelEditSheet } from "./TierLabelEditSheet";
 import { WorkAddSheet } from "./WorkAddSheet";
 import { useTierListStyles } from "./tierListStyles";
+import { trackEvent } from "@/lib/events";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import { unassignedItems, itemsInTier } from "@/lib/tierList/board";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
@@ -321,7 +322,11 @@ export function TierBoard({
                 styles.trayAddButton,
                 !labelsEditable && styles.trayAddButtonDisabled,
               ]}
-              onPress={() => setAddSheetOpen(true)}
+              onPress={() => {
+                // 作品追加シートを開く操作を計測する（issue #214）。
+                trackEvent("tier_work_add_open");
+                setAddSheetOpen(true);
+              }}
               disabled={!labelsEditable}
               accessibilityRole="button"
               accessibilityLabel="作品を検索して追加"
