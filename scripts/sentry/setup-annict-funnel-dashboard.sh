@@ -19,10 +19,29 @@ if ! LIST="$(sentry dashboard list "$ORG" "$TITLE" --fresh --json)"; then
   echo "ダッシュボード一覧の取得に失敗しました。認証・権限を確認してください。" >&2
   exit 1
 fi
-if printf '%s' "$LIST" | python3 -c 'import json,sys; t=sys.argv[1]; d=json.load(sys.stdin); d=d.get("data",d) if isinstance(d,dict) else d; sys.exit(0 if any(x.get("title")==t for x in d) else 1)' "$TITLE"; then
-  echo "ダッシュボード「$TITLE」は既に存在します。作り直す場合は Sentry 上で削除してから再実行してください。" >&2
-  exit 1
-fi
+# 判定結果: 0=同名あり / 1=同名なし / 2=一覧 JSON を解析できない（作成せず停止）
+FOUND=0
+printf '%s' "$LIST" | python3 -c '
+import json, sys
+title = sys.argv[1]
+try:
+    d = json.load(sys.stdin)
+    items = d["data"] if isinstance(d, dict) else d
+    if not isinstance(items, list):
+        raise ValueError("unexpected shape")
+except Exception:
+    sys.exit(2)
+sys.exit(0 if any(isinstance(x, dict) and x.get("title") == title for x in items) else 1)
+' "$TITLE" || FOUND=$?
+case "$FOUND" in
+  0)
+    echo "ダッシュボード「$TITLE」は既に存在します。作り直す場合は Sentry 上で削除してから再実行してください。" >&2
+    exit 1 ;;
+  1) ;;
+  *)
+    echo "ダッシュボード一覧の応答を解析できませんでした。二重作成を避けるため中止します。" >&2
+    exit 1 ;;
+esac
 
 sentry dashboard create "$ORG/$PROJECT" "$TITLE"
 # ウィジェット追加の途中で失敗すると不完全なダッシュボードが残るため案内を出す。
