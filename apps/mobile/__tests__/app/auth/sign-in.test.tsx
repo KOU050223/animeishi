@@ -255,4 +255,108 @@ describe("SignInScreen", () => {
     });
     expect(auth.signOut).not.toHaveBeenCalled();
   });
+
+  describe("Google サインイン（issue #89）", () => {
+    it("Google ボタンが表示され、SSO フローが成功するとホームへ遷移する", async () => {
+      const auth = getAuthMock();
+      auth.startSSOFlow.mockResolvedValueOnce({
+        createdSessionId: "session_google",
+        authSessionResult: { type: "success" },
+      });
+
+      render(<SignInScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.startSSOFlow).toHaveBeenCalledWith(
+          expect.objectContaining({ strategy: "oauth_google" }),
+        );
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_google",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+    });
+
+    it("ユーザーがブラウザを閉じてキャンセルした場合は何も表示しない", async () => {
+      const auth = getAuthMock();
+      auth.startSSOFlow.mockResolvedValueOnce({
+        createdSessionId: null,
+        authSessionResult: { type: "cancel" },
+      });
+
+      render(<SignInScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.startSSOFlow).toHaveBeenCalled();
+      });
+      expect(auth.setActive).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("error-message")).toBeNull();
+    });
+
+    it("SSO フローが session_exists を返す場合は既存セッションを活性化する", async () => {
+      const auth = getAuthMock();
+      auth.client.sessions = [{ id: "sess_existing" }];
+      auth.startSSOFlow.mockRejectedValueOnce({
+        errors: [
+          { code: "session_exists", message: "You're already signed in" },
+        ],
+      });
+
+      render(<SignInScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "sess_existing",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+    });
+
+    it("既にサインイン済みの場合は先にサインアウトしてから SSO を開始する", async () => {
+      const auth = loggedInUser();
+      auth.startSSOFlow.mockResolvedValueOnce({
+        createdSessionId: "session_google",
+        authSessionResult: { type: "success" },
+      });
+
+      render(<SignInScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.signOut).toHaveBeenCalledTimes(1);
+        expect(auth.startSSOFlow).toHaveBeenCalled();
+      });
+      expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
+        auth.startSSOFlow.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("SSO フローの失敗はエラーメッセージを表示する", async () => {
+      const auth = getAuthMock();
+      auth.startSSOFlow.mockRejectedValueOnce(new Error("network error"));
+
+      render(<SignInScreen />);
+      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("Google でのサインインに失敗しました"),
+        ).toBeTruthy();
+      });
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("パスキーサインイン（issue #181）", () => {
+    it("ネイティブではパスキーボタンを表示しない（#107 待ちのためフラグで無効）", () => {
+      // jest-expo は iOS で解決するため featureFlags.passkey は
+      // passkey.native.ts（常に false）になる。
+      render(<SignInScreen />);
+      expect(screen.queryByTestId("passkey-sign-in-button")).toBeNull();
+    });
+  });
 });

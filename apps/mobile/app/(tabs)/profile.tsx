@@ -15,6 +15,7 @@ import { Input } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
+import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
@@ -308,6 +309,19 @@ export default function ProfileScreen() {
         <View className="mt-6 px-4">
           <AnnictConnectionCard surface="profile_card" />
         </View>
+
+        {/* パスキー登録（#181）。Web のみ。フラグ未対応環境ではセクション自体を出さない */}
+        {featureFlags.passkey && (
+          <View className="mt-8 px-4">
+            <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
+              セキュリティ
+            </Text>
+            <PasskeySection
+              onSuccess={(message) => showToast({ type: "success", message })}
+              onError={(message) => showToast({ type: "error", message })}
+            />
+          </View>
+        )}
 
         <View className="mt-8 px-4">
           <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">

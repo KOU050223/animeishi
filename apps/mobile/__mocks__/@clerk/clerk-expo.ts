@@ -10,22 +10,33 @@
  * 通常はファクトリ（loggedInUser 等）経由での利用を推奨する。
  */
 
+type MockUser = {
+  id: string;
+  username: string | null;
+  passkeys: Array<{ id: string }>;
+  createPasskey: jest.Mock;
+};
+
 type MockClerkState = {
   isLoaded: boolean;
   isSignedIn: boolean;
   userId: string | null;
-  user: { id: string; username: string | null } | null;
+  user: MockUser | null;
   getToken: () => Promise<string | null>;
   signOut: jest.Mock;
   setActive: jest.Mock;
   signIn: {
     create: jest.Mock;
+    authenticateWithPasskey: jest.Mock;
+    authenticateWithRedirect: jest.Mock;
   };
   signUp: {
     create: jest.Mock;
     prepareEmailAddressVerification: jest.Mock;
     attemptEmailAddressVerification: jest.Mock;
   };
+  startSSOFlow: jest.Mock;
+  handleRedirectCallback: jest.Mock;
   client: {
     sessions: Array<{ id: string }>;
     signedInSessions: Array<{ id: string }>;
@@ -50,12 +61,20 @@ function createDefaultState(): MockClerkState {
       // 既定では setActive でサインイン済みへ遷移させる。
       state.isSignedIn = true;
     }),
-    signIn: { create: jest.fn() },
+    signIn: {
+      create: jest.fn(),
+      // Web パスキーサインイン（#181）と Web OAuth リダイレクト（#89）のモック。
+      authenticateWithPasskey: jest.fn(),
+      authenticateWithRedirect: jest.fn(),
+    },
     signUp: {
       create: jest.fn(),
       prepareEmailAddressVerification: jest.fn(),
       attemptEmailAddressVerification: jest.fn(),
     },
+    // ネイティブ Google SSO（useSSO）と Web コールバック完了処理のモック。
+    startSSOFlow: jest.fn(),
+    handleRedirectCallback: jest.fn(),
     // session_exists 時の既存セッション復旧で参照する client 状態。
     // 既定は「セッション無し（isSignedIn=false と整合する通常状態）」。
     client: {
@@ -116,6 +135,12 @@ export const useSignUp = () => ({
 
 export const useClerk = () => ({
   client: state.client,
+  handleRedirectCallback: state.handleRedirectCallback,
+});
+
+// useSSO は Google 等の SSO フロー用フック（clerk-expo 2.x の OAuth 推奨 API）。
+export const useSSO = () => ({
+  startSSOFlow: state.startSSOFlow,
 });
 
 export const ClerkProvider = ({ children }: { children: unknown }) => children;

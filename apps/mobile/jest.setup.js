@@ -6,6 +6,11 @@
 // Libraries/Animated/NativeAnimatedHelper.js から src/private/animated/ へ移動している。
 jest.mock("react-native/src/private/animated/NativeAnimatedHelper");
 
+// featureFlags の googleSignIn / passkey（web）は開発インスタンス
+// （pk_test_）でのみ既定 ON になる。テストでは開発インスタンス相当として
+// 扱うため、未設定の場合だけテストキーを差す。
+process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ??= "pk_test_jest";
+
 // TouchableOpacity は押下時の opacity 変更に Animated.timing を使う。
 // Jest ではその非同期更新がテストの act 境界外に残りやすいため、
 // テスト環境では同じ pressable な振る舞いを保ったままアニメーションを外す。

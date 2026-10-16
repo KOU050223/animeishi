@@ -14,9 +14,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Input } from "@/components/ui";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
 import { signInSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 
 function getIncompleteSignInMessage(status: string | null, t: TFunction) {
@@ -176,6 +179,21 @@ export default function SignInScreen() {
                 </Text>
               )}
             </TouchableOpacity>
+
+            {/* 外部プロバイダでのサインイン。本番で未設定のものはフラグで隠す */}
+            {(featureFlags.googleSignIn || featureFlags.passkey) && (
+              <View className="flex-row items-center mb-4">
+                <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                <Text className="mx-3 text-sm text-gray-400 dark:text-slate-500">
+                  {t("または")}
+                </Text>
+                <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+              </View>
+            )}
+            {featureFlags.googleSignIn && (
+              <GoogleAuthButton onError={setError} />
+            )}
+            {featureFlags.passkey && <PasskeySignInButton onError={setError} />}
 
             <View className="flex-row justify-center">
               <Text className="text-gray-600 dark:text-slate-300">
