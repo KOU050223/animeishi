@@ -13,6 +13,7 @@ import {
   handleError,
   type ObservabilityBindings,
 } from "./observability";
+import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
 import { favorites } from "./features/favorites";
@@ -43,6 +44,8 @@ type AppBindings = Env &
     // アバター＋作品画像（works/ プレフィックス）共通の R2 バケット。
     // wrangler.toml で全環境にバインド済み。
     AVATARS: R2Bucket;
+    // Workers AI（視聴傾向分析 POST /me/analysis, issue #22）。
+    AI: Ai;
   };
 
 const app = new OpenAPIHono<{ Bindings: AppBindings }>();
@@ -83,6 +86,7 @@ const routes = app
   .route("/me/annict", annict)
   .route("/me/import", importRoute)
   .route("/me/watch-histories", watchHistory)
+  .route("/me/analysis", analysis)
   .route("/works", works)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)

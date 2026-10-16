@@ -369,6 +369,30 @@ export const blocks = sqliteTable(
   ],
 );
 
+// ---- analyses (Workers AI 視聴傾向分析のキャッシュ＋生成回数制限, issue #22) ----
+// user_id 1 行に「最新の分析結果」と「生成回数カウンタ」を同居させる。
+// summary / genres_json / input_hash / work_count / generated_at は生成が
+// 完了するまで NULL（レート制限の claim が行だけ先行作成するため）。
+// input_hash は分析入力（履歴＋選択ジャンル）のハッシュで、視聴履歴が
+// 変わったことを検出してキャッシュを無効化するのに使う。
+export const analyses = sqliteTable("analyses", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  summary: text("summary"),
+  genresJson: text("genres_json"),
+  inputHash: text("input_hash"),
+  workCount: integer("work_count"),
+  generatedAt: integer("generated_at", { mode: "timestamp" }),
+  // 生成回数の計測窓。window_started_at から ANALYSIS_RATE_LIMIT_WINDOW 内に
+  // generation_count 回まで生成できる。窓切れ後の claim がカウンタを 1 に
+  // リセットする。
+  windowStartedAt: integer("window_started_at", {
+    mode: "timestamp",
+  }).notNull(),
+  generationCount: integer("generation_count").notNull(),
+});
+
 // ---- deleted_users (アカウント削除の tombstone) ----
 // DELETE /me で users 行を削除した記録。削除済みユーザーの残存 JWT が
 // ensureUserExists / upsertMyProfile 経由で users 行を再作成し、
@@ -423,6 +447,8 @@ export type NewCharacterTierListItem =
   typeof characterTierListItems.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
+export type Analysis = typeof analyses.$inferSelect;
+export type NewAnalysis = typeof analyses.$inferInsert;
 export type Report = typeof reports.$inferSelect;
 export type NewReport = typeof reports.$inferInsert;
 export type Block = typeof blocks.$inferSelect;

@@ -311,6 +311,24 @@ export default function ProfileScreen() {
 
         <View className="mt-8 px-4">
           <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
+            分析
+          </Text>
+          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <TouchableOpacity
+              className="px-4 py-3"
+              onPress={() => router.push("/analysis")}
+              accessibilityRole="button"
+              accessibilityLabel="AI 視聴傾向分析を開く"
+            >
+              <Text className="text-gray-900 dark:text-slate-100">
+                AI 視聴傾向分析
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="mt-8 px-4">
+          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
             プライバシーと安全
           </Text>
           <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">

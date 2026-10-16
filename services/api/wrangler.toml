@@ -35,6 +35,14 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
+# Workers AI（視聴傾向分析 POST /me/analysis, issue #22）。
+# named env には継承されないため preview / production にも個別に定義する。
+# AI binding はローカル推論を持たず wrangler dev でも常にリモート実行される
+# （remote = true は不要。付けると vitest-pool-workers がリモートプロキシを
+# 起こそうとして Cloudflare 認証を要求し、CI のテストが落ちる）。
+[ai]
+binding = "AI"
+
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -71,6 +79,9 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
+[env.production.ai]
+binding = "AI"
+
 # PR プレビュー環境（animeishi-api-preview）。
 # 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
 # 本番データに混入しないようにする。CI (preview-api.yml) は
@@ -103,6 +114,9 @@ database_id = "a429fdc7-43da-4286-93c7-f946e1b4288e"
 [[env.preview.r2_buckets]]
 binding = "AVATARS"
 bucket_name = "animeishi-avatars-preview"
+
+[env.preview.ai]
+binding = "AI"
 
 [observability]
 enabled = false

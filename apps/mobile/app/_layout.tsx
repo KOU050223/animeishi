@@ -89,6 +89,8 @@ function AuthGuard() {
       <Stack.Screen name="danime-import-review" />
       {/* 機能一覧・更新情報（issue #98）。プロフィール画面から遷移する。 */}
       <Stack.Screen name="changelog" />
+      {/* AI 視聴傾向分析（issue #22）。プロフィール画面から遷移する。 */}
+      <Stack.Screen name="analysis" />
     </Stack>
   );
 }

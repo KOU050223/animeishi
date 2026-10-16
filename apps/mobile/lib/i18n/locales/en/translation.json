@@ -72,5 +72,20 @@
   "コミット: {{commitSha}}": "Commit: {{commitSha}}",
   "API: {{apiVersion}}": "API: {{apiVersion}}",
   "API: 取得失敗": "API: failed to fetch",
-  "もう一度試す": "Try again"
+  "もう一度試す": "Try again",
+  "AI 視聴傾向分析": "AI viewing-trend analysis",
+  "戻る": "Back",
+  "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します": "AI analyzes your viewing trends and recommended genres from your watch history",
+  "分析結果の取得に失敗しました": "Failed to load analysis",
+  "分析結果を再取得": "Reload analysis",
+  "まだ分析結果がありません": "No analysis yet",
+  "分析する": "Analyze",
+  "分析中...": "Analyzing...",
+  "再分析する": "Analyze again",
+  "視聴傾向": "Viewing trends",
+  "おすすめジャンル": "Recommended genres",
+  "{{count}} 件の視聴履歴を分析": "Analyzed from {{count}} watch entries",
+  "分析日時: {{date}}": "Analyzed at: {{date}}",
+  "視聴履歴が変わると次回の実行で結果が更新されます（1 日あたりの実行回数に上限があります）": "Results update on the next run when your watch history changes (daily run limit applies)",
+  "分析に失敗しました。時間をおいて再度お試しください": "Analysis failed. Please try again later"
 }
