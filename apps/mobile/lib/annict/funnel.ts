@@ -6,7 +6,7 @@
 // （platform は呼び出し側で付けるため汎用経路側の自動付与は無効化する）。
 // Web は OAuth 画面へその場で遷移するため、遷移前に flushAnnictFunnel で
 // 送信済み分をバッファへ乗せてから Sentry.flush() する。
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import {
@@ -74,8 +74,11 @@ export function useAnnictFunnel(surface: AnnictFunnelSurface) {
   const { userId } = useAuth();
   // レンダー中に取得した userId をコールバック参照時に読めるよう ref に保持する
   // （getToken() 等で userId が解決する前のレンダーでも最新値を見せるため）。
+  // render 中の ref 更新は React の規約違反なため effect で同期する。
   const userIdRef = useRef(userId);
-  userIdRef.current = userId;
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
   return useCallback(
     (
       step: AnnictFunnelStep,

@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
-import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { TierBoard } from "@/components/tier-list/TierBoard";
 import {
@@ -376,15 +375,13 @@ export default function CharacterTierListScreen() {
       urlLabel: "URL を共有",
       imageLabel: "画像で共有",
       cancelLabel: "キャンセル",
+      // 方式の計測は選択肢を実際に提示する側（options.native.ts / Web は
+      // モーダル内の各ボタン）で行う。ここで送ると Web でモーダルを
+      // 開いただけなのに method:url が記録されてしまう。
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
-      onShareUrl: () => {
-        trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "url" });
-        void handleShareUrl();
-      },
-      onShareImage: () => {
-        trackEvent("tier_share", { [TRACK_EVENT_KEYS.method]: "image" });
-        void handleShareImage();
-      },
+      onShareUrl: () => void handleShareUrl(),
+      // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
+      onShareImage: () => void handleShareImage(),
     });
   }, [handleShareUrl, handleShareImage, shareDisabled]);
 

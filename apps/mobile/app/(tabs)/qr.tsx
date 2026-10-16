@@ -39,7 +39,10 @@ export default function QrScreen() {
           label="スキャン"
           active={mode === "scan"}
           onPress={() => {
-            trackEvent("qr_scan_start");
+            // 既にスキャンモードなら遷移ではないので計測しない
+            if (mode !== "scan") {
+              trackEvent("qr_scan_start");
+            }
             setMode("scan");
           }}
         />

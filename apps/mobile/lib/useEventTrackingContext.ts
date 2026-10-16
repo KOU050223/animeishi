@@ -5,21 +5,22 @@
 // （events.ts 側はフック非依存で、コンポーネント外からも trackEvent できる）。
 import { useEffect } from "react";
 import { useAuth } from "@clerk/clerk-expo";
-import { usePathname } from "expo-router";
+import { useSegments } from "expo-router";
 import { setEventContext } from "./events";
 
 export function useEventTrackingContext(): void {
   const { userId } = useAuth();
-  const pathname = usePathname();
+  const segments = useSegments();
 
   useEffect(() => {
     setEventContext({ userId });
   }, [userId]);
 
   useEffect(() => {
-    // pathname は "/(tabs)/qr" ではなく "/qr" 形式（route group を含まない）。
-    // 先頭の / は集計上意味を持たないので除き、"/" は "index" と読めるよう
-    // 正規化する。
-    setEventContext({ screen: pathname.replace(/^\/+/, "") || "index" });
-  }, [pathname]);
+    // pathname ではなく segments を使う。動的セグメントがルート定義側の
+    // "[uid]" 表記で返るため、screen 属性に実値（他人の uid 等）が載らない。
+    // "(tabs)" のような route group は集計上ノイズなので除く。
+    const screen = segments.filter((s) => !s.startsWith("(")).join("/");
+    setEventContext({ screen: screen || "index" });
+  }, [segments]);
 }

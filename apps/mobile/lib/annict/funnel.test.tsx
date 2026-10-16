@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import * as Sentry from "@sentry/react-native";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { resetEventTrackingForTest } from "../events";
 import { trackAnnictFunnel, useAnnictFunnel } from "./funnel";
 
 // ハッシュ化は expo-crypto 経由。テストでは固定値を返して
@@ -19,6 +20,9 @@ const infoMock = () => jest.mocked(Sentry.logger.info);
 beforeEach(() => {
   jest.clearAllMocks();
   resetAuth();
+  // 汎用経路（lib/events.ts）のレート制限・ハッシュキャッシュ・
+  // コンテキストはモジュール状態なのでテスト間でリセットする。
+  resetEventTrackingForTest();
 });
 
 describe("trackAnnictFunnel", () => {

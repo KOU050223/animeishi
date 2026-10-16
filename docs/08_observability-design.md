@@ -417,7 +417,7 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `event.name` | イベント名（集計の group-by 軸） |
 | `platform` | `ios` / `android` / `web` |
 | `app_version` | `Constants.expoConfig.version`（未解決なら `dev`） |
-| `screen` | 現在のルートパス（`/(tabs)` 等の group を含まない pathname。`/` は `index` に正規化） |
+| `screen` | 現在のルート（`useSegments` ベース。`/(tabs)` 等の group を除き `/` で連結。空なら `index`）。動的セグメントはルートパターンの `[uid]` 表記のままなので実値は載らない |
 | `user_key` | Clerk userId のソルト付き SHA-256 先頭16文字。ソルトは Annict ファネルと同じで突き合わせ可能（PII は送らない） |
 
 イベント固有（`TRACK_EVENT_KEYS` にキーを集約）:
@@ -431,26 +431,27 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 
 送信しないもの（PII 方針は Annict ファネルと同じ）:
 生の Clerk userId・プロフィール ID・共有 URL ・作品/キャラクター ID・
-ユーザー入力テキスト・画像コンテンツ。画面はパスだけで
-`user/[uid]` のような ID 入りのパスを持つ画面では計測イベントを置かない。
+ユーザー入力テキスト・画像コンテンツ。`screen` は pathname ではなく
+`useSegments` のルートパターンを使うため、`/user/xxx` のような
+実値が載ることはない（防御としての仕組み。運用ルールだけに依存しない）。
 
 ### 計測する操作と発火点
 
 | イベント | 発火点 |
 |----------|--------|
 | `qr_exchange_start` | `app/(tabs)/qr.tsx` のフォーカス時（名刺交換画面への進入） |
-| `qr_scan_start` | 同画面「スキャン」タブのタップ |
+| `qr_scan_start` | 同画面「スキャン」タブへの切替（既にスキャン中の再タップは送らない） |
 | `meishi_share` | マイ QR が表示された時（名刺の共有面） |
 | `meishi_save` | `app/meishi/edit.tsx` の保存ボタン |
 | `tier_share_open` | Tier 表 / キャラクター Tier 表の「共有」ボタン |
-| `tier_share` | 上記に続く方式選択（native は URL/画像の選択、Web モーダルは X/コピー/画像） |
+| `tier_share` | 方式の選択時（native は options.native.ts の URL/画像選択、Web は共有モーダル内の X/コピー/画像ボタン。Web のモーダル表示自体では送らない） |
 | `tier_image_generate` | Web 共有モーダルの「画像を生成」 |
 | `tier_image_save` | Web 共有モーダルの「画像をダウンロード」 |
 | `tier_work_add_open` | `TierBoard` の「＋ 追加」（作品検索シートを開く） |
 | `tier_work_add` | 検索シートから作品を追加した時（実際に盤面へ載ったものだけ） |
 | `character_tier_open` | アニメ一覧のキャラクター tier 表ボタン |
 | `analysis_generate` | 「分析する / 再分析する」ボタン |
-| `watch_status_change` | 視聴履歴の編集モーダル保存（`from` / `to` 付き） |
+| `watch_status_change` | 視聴履歴の編集モーダル保存（`from` / `to` 付き。値が変わらない保存は送らない） |
 | `favorite_toggle` | お気に入りトグル（`action` 付き。一覧画面・お気に入りタブの解除） |
 
 原則「ユーザーが操作した」時点で送る（成否の結果ではなく操作の意図を

@@ -276,10 +276,14 @@ export default function WatchHistoryScreen() {
           onSave={(data) => {
             // 視聴ステータスの変更操作を計測する（issue #214）。
             // 変更前後のステータスを属性に残す。
-            trackEvent("watch_status_change", {
-              [TRACK_EVENT_KEYS.from]: editingItem.state,
-              [TRACK_EVENT_KEYS.to]: data.state,
-            });
+            // 値が変わっていない保存（モーダルを開いてそのまま保存）は
+            // 「変更」ではないので送らない。
+            if (data.state !== editingItem.state) {
+              trackEvent("watch_status_change", {
+                [TRACK_EVENT_KEYS.from]: editingItem.state,
+                [TRACK_EVENT_KEYS.to]: data.state,
+              });
+            }
             // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
             // 前の呼び出し分が発火しないため、mutation 個別に reject する
             // mutateAsync の promise で失敗を拾う。

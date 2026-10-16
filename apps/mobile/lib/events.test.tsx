@@ -20,15 +20,17 @@ jest.mock("expo-crypto", () => ({
   ),
 }));
 
-// useEventTrackingContext が読む画面パス。テストでは固定値にする。
+// useEventTrackingContext が読むルートセグメント。テストでは固定値にする。
+const mockSegments = jest.fn((): string[] => ["(tabs)", "qr"]);
 jest.mock("expo-router", () => ({
-  usePathname: () => "/qr",
+  useSegments: () => mockSegments(),
 }));
 
 const infoMock = () => jest.mocked(Sentry.logger.info);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSegments.mockReturnValue(["(tabs)", "qr"]);
   resetAuth();
   resetEventTrackingForTest();
 });
@@ -153,9 +155,21 @@ describe("useEventTrackingContext", () => {
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
     const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
-    // "/qr" の先頭 / を除いた値が screen になる
+    // route group "(tabs)" を除いた残りを "/" で繋いだ値が screen になる
     expect(attributes.screen).toBe("qr");
     expect(attributes.user_key).toBe("0123456789abcdef");
     expect(JSON.stringify(attributes)).not.toContain("user_hook_raw");
+  });
+
+  it("動的セグメントはルートパターン（[uid]）のまま載せ、実値は送らない", async () => {
+    mockSegments.mockReturnValue(["user", "[uid]"]);
+    renderHook(() => useEventTrackingContext());
+
+    trackEvent("qr_exchange_start");
+
+    await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
+    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    // "/user/xxx" の実値ではなくルートパターンを送る
+    expect(attributes.screen).toBe("user/[uid]");
   });
 });
