@@ -21,7 +21,7 @@ export function WorkThumbnail({
   height?: number;
   radius?: number;
 }) {
-  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  // hostedImageUrl（画像プロキシ）が失敗しても外部 URL 候補へ順に切り替える。
   const { uri, onError } = useImageUrlWithFallback(item);
   const colors = useThemeColors();
 

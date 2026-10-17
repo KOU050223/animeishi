@@ -15,7 +15,11 @@ function makeAnilistResponse(
     { coverImage?: { extraLarge?: string | null } | null } | null
   >,
 ): Response {
-  return new Response(JSON.stringify({ data: entries }), {
+  // AniList は Page.media(idMal_in:) 形式。null の key は「AniList に無い」。
+  const media = Object.entries(entries).flatMap(([key, node]) =>
+    node ? [{ idMal: Number(key.slice(1)), ...node }] : [],
+  );
+  return new Response(JSON.stringify({ data: { Page: { media } } }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

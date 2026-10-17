@@ -37,7 +37,7 @@ export type TierItem = {
   title: string;
   imageUrl?: string | null;
   resolvedImageUrl?: string | null;
-  /** API が R2 に取り込み済みの自前配信 URL（issue #174）。pickImageUrl が最優先で使う。 */
+  /** API の作品画像プロキシ URL（GET /images/works/:id）。pickImageUrl が最優先で使う。 */
   hostedImageUrl?: string | null;
 };
 

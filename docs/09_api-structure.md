@@ -70,7 +70,7 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 | sharedTierLists.ts（公開共有リンク参照） | `features/share/repository.ts` |
 
 `works` は「作品カタログ」という共有リソースなので、他 feature のリポジトリ・
-ミドルウェア・cron（`lib/annict/imagePrefetch` 等）からも import される。
+ミドルウェア・cron・画像プロキシ（`lib/annict/workImage` 等）からも import される。
 ユーザー束縛リポジトリからは `worksRepository(db)` を別途生成して使う
 （例: watch-history が作品メタを upsert する場合）。
 

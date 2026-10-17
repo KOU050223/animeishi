@@ -112,11 +112,11 @@ Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごと
 | D1 | `animeishi-db` | `animeishi-db-preview` |
 | R2 | `animeishi-avatars` | `animeishi-avatars-preview` |
 
-> R2 バケットはアバター画像（`avatars/` キー）と作品画像の事前取り込み
-> （`works/` キー、issue #174 の cron バッチが外部 CDN から保存）の共有で、
+> R2 バケットはアバター画像（`avatars/` キー）と作品画像
+> （`works/` キー、画像プロキシ `GET /images/works/:id` が表示時に外部から保存）の共有で、
 > プレフィックスで用途を分けている。新規バケットは作っていない。
 
-定期バッチ（画像フォールバックの定期解決＋作品画像の R2 取り込み）は preview では無効化してある（`crons = []`）。
+定期バッチ（画像フォールバックの定期解決）は preview では無効化してある（`crons = []`）。
 
 ### preview D1 の制限（共有 DB）
 

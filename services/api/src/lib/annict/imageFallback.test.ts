@@ -7,8 +7,9 @@ import {
   resolveImagesViaAnilist,
 } from "./imageFallback";
 
-// 決めうちの AniList JSON レスポンスを組み立てる。
-// data の各 key は `m<malId>` で、coverImage.extraLarge / large / medium を渡す。
+// 決めうちの AniList JSON レスポンス（Page.media 形式）を組み立てる。
+// 各 key は `m<malId>` で、coverImage.extraLarge / large / medium を渡す。
+// 値が null の key は「AniList に無い」= Page.media に含めない。
 function makeAnilistResponse(
   entries: Record<
     string,
@@ -21,7 +22,10 @@ function makeAnilistResponse(
     } | null
   >,
 ): Response {
-  return new Response(JSON.stringify({ data: entries }), {
+  const media = Object.entries(entries).flatMap(([key, node]) =>
+    node ? [{ idMal: Number(key.slice(1)), ...node }] : [],
+  );
+  return new Response(JSON.stringify({ data: { Page: { media } } }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -114,7 +118,7 @@ describe("resolveImagesForWorks", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1); // alias バッチで 1 リクエスト
+    expect(fetchImpl).toHaveBeenCalledTimes(1); // Page バッチで 1 リクエスト
     expect(res).toEqual([
       {
         annictWorkId: 100,
@@ -338,22 +342,22 @@ describe("resolveImagesViaAnilist", () => {
     expect(res).toEqual([]);
   });
 
-  it("20 件を超える入力は複数バッチに分けて解決する", async () => {
-    const fetchImpl = vi.fn(async (input: string, init?: RequestInit) => {
+  it("50 件を超える入力は複数バッチに分けて解決する", async () => {
+    const fetchImpl = vi.fn(async (_input: string, init?: RequestInit) => {
       const body = JSON.parse((init?.body as string | undefined) ?? "{}") as {
-        query?: string;
+        variables?: { ids?: number[] };
       };
-      // クエリ内の m<id> alias に対応するエントリを全部ヒットさせる
+      // 問い合わせた ID をすべてヒットさせる
       const entries: Record<string, unknown> = {};
-      for (const match of body.query?.matchAll(/m(\d+):/g) ?? []) {
-        entries[`m${match[1]}`] = {
-          coverImage: { medium: `https://s4.anilist.co/${match[1]}.jpg` },
+      for (const id of body.variables?.ids ?? []) {
+        entries[`m${id}`] = {
+          coverImage: { medium: `https://s4.anilist.co/${id}.jpg` },
         };
       }
-      return makeAnilistResponse(entries);
+      return makeAnilistResponse(entries as never);
     });
 
-    const inputs = Array.from({ length: 21 }, (_, i) => ({
+    const inputs = Array.from({ length: 51 }, (_, i) => ({
       annictWorkId: i + 1,
       malAnimeId: i + 1,
     }));
@@ -362,8 +366,57 @@ describe("resolveImagesViaAnilist", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    // 20 + 1 で 2 リクエスト。全件解決される
+    // 50 + 1 で 2 リクエスト。全件解決される
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(res).toHaveLength(21);
+    expect(res).toHaveLength(51);
+  });
+
+  it("AniList に無い ID が混ざっても、見つかった ID の解決は失われない", async () => {
+    // 旧実装（alias バッチ）は 1 件でも未登録があると 404 で全滅していた。
+    // Page(idMal_in) は未登録 ID を結果から落とすだけなので部分ヒットが残る。
+    const fetchImpl = vi.fn(async (_input: string, init?: RequestInit) => {
+      const body = JSON.parse(init?.body as string) as {
+        query: string;
+        variables: { ids: number[] };
+      };
+      expect(body.query).toContain("idMal_in");
+      expect(body.variables.ids).toEqual([21, 999999999]);
+      return makeAnilistResponse({
+        m21: { coverImage: { extraLarge: "https://s4.anilist.co/21.jpg" } },
+      });
+    });
+
+    const res = await resolveImagesViaAnilist(
+      [
+        { annictWorkId: 100, malAnimeId: 21 },
+        { annictWorkId: 200, malAnimeId: 999999999 },
+      ],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res.map((r) => r.annictWorkId)).toEqual([100]);
+  });
+
+  it("問い合わせていない idMal が返っても採用しない", async () => {
+    const fetchImpl = vi.fn(async () =>
+      makeAnilistResponse({
+        m21: { coverImage: { extraLarge: "https://s4.anilist.co/21.jpg" } },
+        m22: { coverImage: { extraLarge: "https://s4.anilist.co/22.jpg" } },
+      }),
+    );
+
+    const res = await resolveImagesViaAnilist(
+      [{ annictWorkId: 100, malAnimeId: 21 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res).toEqual([
+      {
+        annictWorkId: 100,
+        malAnimeId: 21,
+        resolvedImageUrl: "https://s4.anilist.co/21.jpg",
+        imageSource: "anilist",
+      },
+    ]);
   });
 });

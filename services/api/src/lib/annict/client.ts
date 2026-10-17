@@ -533,23 +533,6 @@ export function currentAnnictSeason(now: Date = new Date()): string {
   return `${year}-${season}`;
 }
 
-/**
- * 指定日付の「次の期」の Annict シーズン文字列（例: "2026-summer"）を返す。
- * 作品画像の R2 事前取り込み（issue #174）が今期＋来期を対象にするために使う。
- * 期の判定自体は currentAnnictSeason と同じく JST 基準。
- */
-export function nextAnnictSeason(now: Date = new Date()): string {
-  const [yearStr, season] = currentAnnictSeason(now).split("-") as [
-    string,
-    (typeof ANNICT_SEASON_NAMES)[number],
-  ];
-  const nextIndex =
-    (ANNICT_SEASON_NAMES.indexOf(season) + 1) % ANNICT_SEASON_NAMES.length;
-  // autumn の次は翌年の winter なので年を進める。
-  const year = Number(yearStr) + (nextIndex === 0 ? 1 : 0);
-  return `${year}-${ANNICT_SEASON_NAMES[nextIndex]}`;
-}
-
 // シーズン検索で 1 リクエスト内に辿る最大ページ数（50 件 × 12 = 600 作品）。
 // 1 シーズンの作品数（深夜アニメ・OVA 等を含む）を実用上カバーしつつ、
 // Workers のサブリクエスト上限と Annict のレート制限内に収めるための上限。

@@ -1,15 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { annictWorks, annictCharacters, annictWorkCasts } from "@/db/schema";
@@ -24,7 +13,7 @@ import type {
  * worksRepository: 作品カタログ（annict_works / annict_characters /
  * annict_work_casts）のリポジトリ層。
  * これらのテーブルは全ユーザー共有のキャッシュで、行に userId を持たない
- * ためユーザー束縛は持たない。cron（imageFallbackPending / imagePrefetch）
+ * ためユーザー束縛は持たない。cron（imageFallbackPending）や画像プロキシ（workImage）
  * など認証コンテキスト外からも呼ばれる。
  * ユーザー固有データの操作は各 feature の束縛リポジトリを使うこと。
  */
@@ -43,8 +32,8 @@ export type AnnictWorkMeta = {
   resolvedImageUrl: string | null;
   // 'annict' | 'anilist' | 'jikan' | 'none' | null。運用調査用に露出する。
   imageSource: string | null;
-  // R2 に取り込み済みの作品画像キー（issue #174）。ルート層が
-  // GET /images/<key> の配信 URL に変換してクライアントへ返す。
+  // R2 に取り込み済みの作品画像キー。配信 URL は作品 ID から組み立てる
+  // （GET /images/works/<id>）ので、ルート層では使わない。運用調査用。
   imageR2Key: string | null;
 };
 
@@ -385,58 +374,6 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     /**
-     * cron の作品画像 R2 取り込み（issue #174）対象候補を取得する。
-     * 対象は「今期・来期シーズンで、取り込み元にできる画像 URL を
-     * 何かしら持つ行」のうち、最終試行（image_r2_attempted_at）から
-     * クールダウンが経過したもの。
-     *
-     * ORDER BY は試行時刻昇順（SQLite では NULL が先頭に来るため未試行が優先）。
-     * これにより「取り込み済みで試行時刻だけ古い行」を確認して回っても
-     * 未取り込みの行が飢餓しない（未取り込みは常に先頭側に残る）。
-     */
-    async getImagePrefetchTargets(
-      seasons: string[],
-      attemptedStaleBefore: Date,
-      limit: number,
-    ): Promise<
-      {
-        annictWorkId: number;
-        imageUrl: string | null;
-        resolvedImageUrl: string | null;
-        imageR2Key: string | null;
-      }[]
-    > {
-      const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 200));
-      if (safeLimit === 0 || seasons.length === 0) return [];
-      return db
-        .select({
-          annictWorkId: annictWorks.annictWorkId,
-          imageUrl: annictWorks.imageUrl,
-          resolvedImageUrl: annictWorks.resolvedImageUrl,
-          imageR2Key: annictWorks.imageR2Key,
-        })
-        .from(annictWorks)
-        .where(
-          and(
-            inArray(annictWorks.seasonName, seasons),
-            or(
-              isNotNull(annictWorks.imageUrl),
-              isNotNull(annictWorks.resolvedImageUrl),
-              // 取り込み済みの行はソース URL が消えていても走査し、
-              // 残った R2 画像を掃除する（Devin Review 指摘）。
-              isNotNull(annictWorks.imageR2Key),
-            ),
-            or(
-              isNull(annictWorks.imageR2AttemptedAt),
-              lt(annictWorks.imageR2AttemptedAt, attemptedStaleBefore),
-            ),
-          ),
-        )
-        .orderBy(asc(annictWorks.imageR2AttemptedAt))
-        .limit(safeLimit);
-    },
-
-    /**
      * 作品画像の R2 キーを確定する（取り込み成功時）。
      * null を渡すとキーを消去する（ソース消失時の掃除用）。
      * attemptedAt も同時に立ててクールダウン対象にする。
@@ -453,20 +390,14 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     /**
-     * 画像の R2 取り込みを試行（確認）した作品に最終試行時刻を立てる。
-     * markImageFallbackAttempted と同じく D1 バインド上限対策で 90 件分割。
+     * 作品画像の取り込みが全候補で失敗した時刻を立てる。
+     * 画像プロキシ（serveWorkImage）がクールダウン判定に使う。
      */
-    async markImagePrefetchAttempted(
-      annictWorkIds: number[],
-      at: Date,
-    ): Promise<void> {
-      for (let i = 0; i < annictWorkIds.length; i += 90) {
-        const chunk = annictWorkIds.slice(i, i + 90);
-        await db
-          .update(annictWorks)
-          .set({ imageR2AttemptedAt: at })
-          .where(inArray(annictWorks.annictWorkId, chunk));
-      }
+    async markImageR2Attempted(annictWorkId: number, at: Date): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({ imageR2AttemptedAt: at })
+        .where(eq(annictWorks.annictWorkId, annictWorkId));
     },
   };
 }

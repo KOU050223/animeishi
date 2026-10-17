@@ -14,7 +14,7 @@ const favoriteSchema = z.object({
 });
 
 // GET /me/favorites の 1 件。favorite + 作品メタ + hostedImageUrl
-// （FavoriteWithWork に imageR2Key 由来の配信 URL を載せたもの）。
+// （FavoriteWithWork に作品画像プロキシの配信 URL を載せたもの）。
 const favoriteItemSchema = z.object({
   id: z.number().int(),
   userId: z.string(),

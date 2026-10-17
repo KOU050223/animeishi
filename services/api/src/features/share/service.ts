@@ -6,7 +6,7 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 import { isKnownImageUrl } from "./repository";
 import type { SharedCharacterTierList, SharedTierList } from "./repository";
 
@@ -190,11 +190,12 @@ export function workImageHtml(
   item: SharedTierList["items"][number],
   requestUrl: string,
 ): string {
-  // R2 取り込み済みなら自前配信 URL を最優先（issue #174）。
+  // 自前の画像プロキシ URL を最優先（外部候補の取得・R2 保存はプロキシが担う）。
+  // プロキシ URL が組めない場合の保険として外部 URL も候補に残す。
   // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
   // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
   const src = [
-    hostedWorkImageUrl(requestUrl, item.imageR2Key),
+    workImageUrl(requestUrl, item.annictWorkId),
     item.resolvedImageUrl,
     item.imageUrl,
   ].find((u): u is string => !!u && isSafeImageUrl(u));
@@ -223,7 +224,7 @@ export function buildSharedTierListHtml(
   // （ページ上のポスター表示 workImageHtml と同じ選び方）。
   const ogImageCandidates = list.items
     .flatMap((item) => [
-      hostedWorkImageUrl(requestUrl, item.imageR2Key),
+      workImageUrl(requestUrl, item.annictWorkId),
       item.resolvedImageUrl,
       item.imageUrl,
     ])
