@@ -7,6 +7,7 @@ import { createDb } from "./db/client";
 import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
+import { resolveMissingMalIds } from "./lib/annict/malIdSearch";
 import {
   buildSentryOptions,
   handleError,
@@ -111,18 +112,29 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
   // 画像フォールバックは Queue を介さず、cron が D1 の未解決行を
   // 直接回して解決する（issue #127）。作品画像の R2 取り込みは cron ではなく
   // 画像プロキシ（GET /images/works/:id）が表示時に行う。
+  // 先に MAL ID を持たない作品をタイトル検索で補い（issue #223）、見つかった
+  // 作品を同じ実行の画像フォールバック解決に乗せる。片方の失敗でもう片方が
+  // 巻き込まれないよう個別に握る。
   scheduled(_controller, env, ctx) {
     const db = createDb(env.DB as D1Database);
+    const logFailure = (event: string) => (err: unknown) => {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    };
     ctx.waitUntil(
-      resolvePendingImageFallbacks(db).catch((err: unknown) => {
-        console.error(
-          JSON.stringify({
-            level: "error",
-            event: "image_fallback_cron_failed",
-            error: err instanceof Error ? err.message : String(err),
-          }),
+      (async () => {
+        await resolveMissingMalIds(db).catch(
+          logFailure("mal_id_search_cron_failed"),
         );
-      }),
+        await resolvePendingImageFallbacks(db).catch(
+          logFailure("image_fallback_cron_failed"),
+        );
+      })(),
     );
   },
 } satisfies ExportedHandler<AppBindings>);
