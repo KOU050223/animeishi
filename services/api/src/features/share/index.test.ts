@@ -424,7 +424,7 @@ describe("tier 表の共有", () => {
     // 外部 URL（不安全な resolved は飛ばして imageUrl）を切り替え先に載せる。
     expect(html).toContain(`src="http://localhost/images/works/${WORK_EVIL}"`);
     expect(html).toContain(
-      'data-fallback="https://cdn.example.com/poster.png"',
+      'data-fallback="[&quot;https://cdn.example.com/poster.png&quot;]"',
     );
     expect(html).toContain(
       'property="og:image" content="https://cdn.example.com/poster.png"',
