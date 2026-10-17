@@ -1,3 +1,4 @@
+import type { AnnictWork } from "@/db/schema";
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { searchAnnictWorksBySeason } from "@/lib/annict/client";
 import {
@@ -8,7 +9,7 @@ import {
   isPlaceholderImageUrl,
   resolveImagesViaAnilist,
 } from "@/lib/annict/imageFallback";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 import type { WorksRepository } from "./repository";
 
 /**
@@ -42,8 +43,40 @@ export async function searchSeasonWorks(
 }
 
 /**
+ * upsert しようとしている作品メタが、キャッシュ済みの行と同じか。
+ * nodeId / malAnimeId は upsert 側が「新しい値が null なら既存値を温存」する
+ * （annictWorkConflictSet）ため、新しい値が null のときは一致扱いにする。
+ */
+function isUnchangedCachedWork(
+  row: Pick<
+    AnnictWork,
+    | "nodeId"
+    | "malAnimeId"
+    | "title"
+    | "titleKana"
+    | "titleEn"
+    | "seasonName"
+    | "seasonYear"
+    | "imageUrl"
+  >,
+  cached: AnnictWork | undefined,
+): boolean {
+  if (!cached) return false;
+  return (
+    (row.nodeId == null || row.nodeId === cached.nodeId) &&
+    (row.malAnimeId == null || row.malAnimeId === cached.malAnimeId) &&
+    row.title === cached.title &&
+    row.titleKana === cached.titleKana &&
+    row.titleEn === cached.titleEn &&
+    row.seasonName === cached.seasonName &&
+    row.seasonYear === cached.seasonYear &&
+    row.imageUrl === cached.imageUrl
+  );
+}
+
+/**
  * 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl ＋
- * R2 取り込み済みなら自前配信の hostedImageUrl）。
+ * 自前の画像プロキシ URL hostedImageUrl）。
  */
 export type SearchWorkWithResolved = AnnictLibraryEntry & {
   resolvedImageUrl: string | null;
@@ -95,9 +128,10 @@ export async function attachResolvedImages(
     return {
       ...w,
       resolvedImageUrl: c0?.resolvedImageUrl ?? null,
-      // R2 取り込み済みの作品は自前 URL（GET /images/...）を最優先で
-      // 表示させるため、配信 URL をここで組み立てて載せる（issue #174）。
-      hostedImageUrl: hostedWorkImageUrl(requestUrl, c0?.imageR2Key),
+      // 自前の画像プロキシ（GET /images/works/:id）。クライアントはこれを
+      // 最優先で表示する。annict_works への upsert に失敗した作品は
+      // プロキシが行を引けず必ず 404 になるため、upsert 後に外す（下記）。
+      hostedImageUrl: workImageUrl(requestUrl, w.annictWorkId),
     };
   });
 
@@ -142,9 +176,13 @@ export async function attachResolvedImages(
       },
     ];
   });
+  // 既にキャッシュ済みで内容が変わっていない作品は書かない。シーズン一覧の
+  // 検索は数百件を返すため、毎回全件 upsert すると D1 の書き込み行数
+  // （Free プラン 100k 行/日）の過半をこの経路だけで消費していた。
+  // 比較に使う cachedById は補完対象の判定用に読んだものを流用する。
   const dedupedRows = [
     ...new Map(rows.map((r) => [r.annictWorkId, r])).values(),
-  ];
+  ].filter((r) => !isUnchangedCachedWork(r, cachedById.get(r.annictWorkId)));
   try {
     await repo.upsertAnnictWorks(dedupedRows);
   } catch {
@@ -160,10 +198,14 @@ export async function attachResolvedImages(
     }
   }
 
+  for (const w of enriched) {
+    if (upsertFailedIds.has(w.annictWorkId)) w.hostedImageUrl = null;
+  }
+
   if (fallbackTargets.length > 0) {
     // 初回表示で大半の画像が出るよう、AniList バッチによる同期解決をここで行う。
     // 非同期解決に任せると初回表示までに全件解決が間に合わなかった（issue #108）。
-    // AniList は 20 件/リクエストでまとめて取れるので応答経路に載せても軽い。
+    // AniList は 50 件/リクエストでまとめて取れるので応答経路に載せても軽い。
     // 同期解決そのものが失敗しても検索は壊さない — 残りは cron の解決に委ねる。
     try {
       const resolved = await resolveImagesViaAnilist(fallbackTargets);

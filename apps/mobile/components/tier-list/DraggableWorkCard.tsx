@@ -86,7 +86,7 @@ export function DraggableWorkCard({
   // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
   const compensationFolded = useSharedValue(false);
 
-  // hostedImageUrl が失敗しても外部 URL 候補へ順に切り替える（issue #174）。
+  // hostedImageUrl（画像プロキシ）が失敗しても外部 URL 候補へ順に切り替える。
   const { uri, onError: onImageError } = useImageUrlWithFallback(item);
 
   const pan = useMemo(

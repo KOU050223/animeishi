@@ -60,7 +60,11 @@ function mockSearchWorks(
           ? input.href
           : input.url;
     if (url === "https://graphql.anilist.co") {
-      return jsonResponse({ data: anilistData });
+      // AniList は Page.media(idMal_in:) 形式。anilistData の key は `m<malId>`。
+      const media = Object.entries(anilistData).flatMap(([key, node]) =>
+        node ? [{ idMal: Number(key.slice(1)), ...node }] : [],
+      );
+      return jsonResponse({ data: { Page: { media } } });
     }
     return jsonResponse({
       data: {
@@ -568,27 +572,69 @@ describe("作品検索 API", () => {
       expect(row?.title).toBe("通常画像の作品");
     });
 
-    it("GET /works/search: R2 取り込み済みの作品は自前配信の hostedImageUrl を返す（issue #174）", async () => {
-      // cron が R2 に取り込み済み（image_r2_key あり）の作品は、
-      // 外部 CDN ではなく GET /images/... の自前 URL を載せて返す。
-      await createDb(env.DB).insert(annictWorks).values({
-        annictWorkId: 950,
-        title: "取り込み済み作品",
-        imageUrl: "https://example.com/poster.jpg",
-        imageR2Key: "works/950/0123abcd.png",
-        updatedAt: new Date(),
+    it("GET /works/search: キャッシュ済みで内容が同じ作品は書き直さない", async () => {
+      // シーズン一覧は数百件を返すため、毎回全件 upsert すると D1 の書き込み
+      // 行数を圧迫する。変化のない作品は updated_at も含めて触らない。
+      const old = new Date("2026-01-01T00:00:00Z");
+      await createDb(env.DB)
+        .insert(annictWorks)
+        .values([
+          {
+            annictWorkId: 960,
+            nodeId: "node-960",
+            malAnimeId: 555,
+            title: "作品960",
+            imageUrl: "https://example.com/960.jpg",
+            updatedAt: old,
+          },
+          {
+            annictWorkId: 961,
+            nodeId: "node-961",
+            title: "旧タイトル",
+            imageUrl: "https://example.com/961.jpg",
+            updatedAt: old,
+          },
+        ]);
+      mockSearchWorks([
+        {
+          annictId: 960,
+          malAnimeId: "555",
+          recommendedImageUrl: "https://example.com/960.jpg",
+        },
+        { annictId: 961, recommendedImageUrl: "https://example.com/961.jpg" },
+      ]);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=作品",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const rows = await createDb(env.DB).query.annictWorks.findMany({
+        where: (t, { inArray }) => inArray(t.annictWorkId, [960, 961]),
       });
+      const byId = new Map(rows.map((r) => [r.annictWorkId, r]));
+      // 同じ内容 → 書き込みなし
+      expect(byId.get(960)?.updatedAt.getTime()).toBe(old.getTime());
+      // タイトルが変わった → 書き込む
+      expect(byId.get(961)?.title).toBe("作品961");
+      expect(byId.get(961)?.updatedAt.getTime()).toBeGreaterThan(old.getTime());
+    });
+
+    it("GET /works/search: hostedImageUrl は作品画像プロキシの URL を返す", async () => {
       mockSearchWorks([
         {
           annictId: 950,
-          title: "取り込み済み作品",
+          title: "作品",
           recommendedImageUrl: "https://example.com/poster.jpg",
         },
       ]);
       const app = buildApp();
 
       const res = await app.request(
-        "/works/search?title=取り込み",
+        "/works/search?title=作品",
         { method: "GET", headers: ANNICT_HEADER },
         TEST_BINDINGS,
       );
@@ -597,33 +643,36 @@ describe("作品検索 API", () => {
       const body = (await res.json()) as {
         works: { hostedImageUrl: string | null }[];
       };
-      // リクエスト先オリジン（テストでは http://localhost）上の /images/ パス
+      // リクエスト先オリジン（テストでは http://localhost）上のプロキシ URL
       expect(body.works[0].hostedImageUrl).toBe(
-        "http://localhost/images/works/950/0123abcd.png",
+        "http://localhost/images/works/950",
       );
     });
 
-    it("GET /works/search: 未取り込みの作品は hostedImageUrl が null", async () => {
+    it("GET /works/search: annict_works に保存できなかった作品は hostedImageUrl が null", async () => {
+      // title 欠落の作品は upsert から除外され、プロキシが行を引けず 404 に
+      // なるだけなので、最初から URL を載せない。
       mockSearchWorks([
-        {
-          annictId: 951,
-          title: "未取り込み作品",
-          recommendedImageUrl: "https://example.com/951.jpg",
-        },
+        { annictId: 951, title: null },
+        { annictId: 952, title: "通常の作品" },
       ]);
       const app = buildApp();
 
       const res = await app.request(
-        "/works/search?title=未取り込み",
+        "/works/search?title=作品",
         { method: "GET", headers: ANNICT_HEADER },
         TEST_BINDINGS,
       );
 
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
-        works: { hostedImageUrl: string | null }[];
+        works: { annictWorkId: number; hostedImageUrl: string | null }[];
       };
-      expect(body.works[0].hostedImageUrl).toBeNull();
+      const byId = new Map(body.works.map((w) => [w.annictWorkId, w]));
+      expect(byId.get(951)?.hostedImageUrl).toBeNull();
+      expect(byId.get(952)?.hostedImageUrl).toBe(
+        "http://localhost/images/works/952",
+      );
     });
 
     it("GET /works/search: title null の作品が混ざっても正常な作品は annict_works に永続化される", async () => {

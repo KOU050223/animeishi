@@ -19,7 +19,7 @@ import {
   updateAnnictStatus,
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { mapWithConcurrency } from "@animeishi/danime-core";
@@ -88,12 +88,12 @@ const watchHistory = new Hono<AuthVariables>()
     // （'anilist' / 'jikan' / 'none'）の作品はネガキャッシュ扱いで
     // 再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
 
-    // R2 に取り込み済みの作品は自前配信 URL（hostedImageUrl）を載せる。
-    // 表示優先順位の判定自体はクライアントの pickImageUrl に任せる（issue #174）。
+    // 作品画像プロキシの URL（hostedImageUrl）を載せる。クライアントは
+    // これを最優先し、失敗時のみ外部 URL へ落とす（pickImageUrl）。
     return c.json(
       data.map((row) => ({
         ...row,
-        hostedImageUrl: hostedWorkImageUrl(c.req.url, row.imageR2Key),
+        hostedImageUrl: workImageUrl(c.req.url, row.annictWorkId),
       })),
       200,
     );

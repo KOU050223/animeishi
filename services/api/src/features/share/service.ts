@@ -6,7 +6,7 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 import { isKnownImageUrl } from "./repository";
 import type { SharedCharacterTierList, SharedTierList } from "./repository";
 
@@ -186,20 +186,38 @@ function tierLabelTextColor(backgroundColor: string): string {
     : TIER_LABEL_TEXT_LIGHT;
 }
 
+// 共有ページの <img> が読み込みに失敗したときのハンドラ。data-fallback に
+// JSON 配列で載せた残りの候補を先頭から順に試し、尽きたら要素ごと消す
+// （壊れた画像アイコンを出さない）。URL は属性値として escape 済みのものを
+// dataset から読むだけで、スクリプト本体にユーザー由来の値は埋め込まない。
+const WORK_IMAGE_ONERROR =
+  "var a=[];try{a=JSON.parse(this.dataset.fallback||'[]')}catch(e){}var u=a.shift();if(u){this.dataset.fallback=JSON.stringify(a);this.src=u}else{this.remove()}";
+
 export function workImageHtml(
   item: SharedTierList["items"][number],
   requestUrl: string,
 ): string {
-  // R2 取り込み済みなら自前配信 URL を最優先（issue #174）。
+  // 自前の画像プロキシ URL を最優先（外部候補の取得・R2 保存はプロキシが担う）。
+  // プロキシが 404 を返す作品（サーバからは取れないがブラウザなら表示できる
+  // 外部画像など）に備えて、残りの候補を onerror の切り替え先に載せる。
   // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
   // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
-  const src = [
-    hostedWorkImageUrl(requestUrl, item.imageR2Key),
-    item.resolvedImageUrl,
-    item.imageUrl,
-  ].find((u): u is string => !!u && isSafeImageUrl(u));
+  const candidates = [
+    ...new Set(
+      [
+        workImageUrl(requestUrl, item.annictWorkId),
+        item.resolvedImageUrl,
+        item.imageUrl,
+      ].filter((u): u is string => !!u && isSafeImageUrl(u)),
+    ),
+  ];
+  const [src, ...fallbacks] = candidates;
   if (!src) return "";
-  return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
+  const fallbackAttr =
+    fallbacks.length > 0
+      ? ` data-fallback="${escapeHtml(JSON.stringify(fallbacks))}" onerror="${WORK_IMAGE_ONERROR}"`
+      : ` onerror="this.remove()"`;
+  return `<img class="work-image" src="${escapeHtml(src)}"${fallbackAttr} alt="" loading="lazy" />`;
 }
 
 export function buildSharedTierListHtml(
@@ -223,7 +241,7 @@ export function buildSharedTierListHtml(
   // （ページ上のポスター表示 workImageHtml と同じ選び方）。
   const ogImageCandidates = list.items
     .flatMap((item) => [
-      hostedWorkImageUrl(requestUrl, item.imageR2Key),
+      workImageUrl(requestUrl, item.annictWorkId),
       item.resolvedImageUrl,
       item.imageUrl,
     ])

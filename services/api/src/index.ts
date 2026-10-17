@@ -7,7 +7,6 @@ import { createDb } from "./db/client";
 import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
-import { prefetchWorkImages } from "./lib/annict/imagePrefetch";
 import {
   buildSentryOptions,
   handleError,
@@ -110,36 +109,20 @@ export type AppType = typeof routes;
 export default Sentry.withSentry((env) => buildSentryOptions(env), {
   fetch: routes.fetch,
   // 画像フォールバックは Queue を介さず、cron が D1 の未解決行を
-  // 直接回して解決する（issue #127）。続けて、解決済みを含む今期・来期作品の
-  // 画像を R2 へ取り込み（issue #174）、GET /images/... で自前配信できるようにする。
-  // 片方の失敗でもう片方が巻き込まれないよう個別に握る。
+  // 直接回して解決する（issue #127）。作品画像の R2 取り込みは cron ではなく
+  // 画像プロキシ（GET /images/works/:id）が表示時に行う。
   scheduled(_controller, env, ctx) {
     const db = createDb(env.DB as D1Database);
     ctx.waitUntil(
-      (async () => {
-        try {
-          await resolvePendingImageFallbacks(db);
-        } catch (err) {
-          console.error(
-            JSON.stringify({
-              level: "error",
-              event: "image_fallback_cron_failed",
-              error: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        }
-        try {
-          await prefetchWorkImages(db, env.AVATARS);
-        } catch (err) {
-          console.error(
-            JSON.stringify({
-              level: "error",
-              event: "work_image_prefetch_cron_failed",
-              error: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        }
-      })(),
+      resolvePendingImageFallbacks(db).catch((err: unknown) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            event: "image_fallback_cron_failed",
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }),
     );
   },
 } satisfies ExportedHandler<AppBindings>);

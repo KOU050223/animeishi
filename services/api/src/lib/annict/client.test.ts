@@ -721,27 +721,3 @@ describe("isPersistableState", () => {
     expect(ANNICT_ALL_STATUS_STATES).toContain("NO_STATE");
   });
 });
-
-// バレル（@/lib/annict）経由ではなく client 直下から import する
-// （ルート側と同じくサブモジュール直接 import の方針）。
-import { nextAnnictSeason } from "@/lib/annict/client";
-
-describe("nextAnnictSeason", () => {
-  it("今期の次の期を返す（issue #174 の R2 取り込み対象に使う）", () => {
-    // JST 基準。2026-04-15 JST → 2026-spring の次は 2026-summer
-    expect(nextAnnictSeason(new Date("2026-04-15T00:00:00+09:00"))).toBe(
-      "2026-summer",
-    );
-    // 2026-01-15 JST → 2026-winter の次は 2026-spring
-    expect(nextAnnictSeason(new Date("2026-01-15T00:00:00+09:00"))).toBe(
-      "2026-spring",
-    );
-  });
-
-  it("autumn の次は翌年の winter", () => {
-    // 2026-10-15 JST → 2026-autumn の次は 2027-winter
-    expect(nextAnnictSeason(new Date("2026-10-15T00:00:00+09:00"))).toBe(
-      "2027-winter",
-    );
-  });
-});

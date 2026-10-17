@@ -3,7 +3,7 @@
 // 詳細は issue #86。
 //
 // 設計方針:
-//   * AniList を第一候補にする（安定・レート制限に余裕・alias バッチが効く）。
+//   * AniList を第一候補にする（安定・レート制限に余裕・Page(idMal_in) で 50 件まとめて引ける）。
 //   * AniList で取れなかったものだけを Jikan で個別リトライ（3 req/sec 制限のため）。
 //   * どちらも失敗 or 画像が無ければ 'none' をネガキャッシュ（次回同じ MAL ID を
 //     再問い合わせしない）。
@@ -46,7 +46,7 @@ export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
 /**
  * SNS アバター・バナー系など「作品の表紙画像でないことがホストから分かる」URL か。
  * null/空や http: の判定は含まない（そこまで必要なら isPlaceholderImageUrl）。
- * R2 取り込み側（imagePrefetch）では「http: の実画像は取り込み対象だが
+ * 画像プロキシ側（workImage）では「http: の実画像は https に上げて取り込みを試すが
  * SNS アバターは対象外」と判定したいため、ホストパターン判定だけ分離して export する。
  */
 export function isSnsImageUrl(url: string): boolean {
@@ -71,10 +71,8 @@ export type ImageFallbackResult = {
 };
 
 // AniList のクエリで、1 リクエストに詰め込む最大件数。
-// Cloudflare Workers のサブリクエスト上限 (50/req) と、AniList 側の
-// 「1 クエリで多数の Media を alias で取る」パターンで実運用上の
-// 詰まりにくさを両立するため 20 件に設定。
-const ANILIST_BATCH_SIZE = 20;
+// Page.perPage の上限が 50 なので、それに合わせる。
+const ANILIST_BATCH_SIZE = 50;
 
 // AniList / Jikan への 1 リクエストのタイムアウト。read-through 全体を止めないよう
 // 短めに設定する（waitUntil の裏で回るとはいえ、Workers の CPU budget に響く）。
@@ -175,7 +173,7 @@ export async function resolveImagesForWorks(
  *
  * /works/search のレスポンス経路で同期的に呼ぶためのもの。非同期解決だけでは
  * 全件の解決に時間がかかり、初回表示では大半の作品がフォールバック表示に
- * なっていた（issue #108）。AniList は 20 件/リクエストの alias バッチで
+ * なっていた（issue #108）。AniList は 50 件/リクエストの Page(idMal_in) で
  * まとめて取れるため、レスポンスを待たせる経路でも許容できるコストで同期
  * 解決できる。直列呼び出しになる Jikan 側は遅いのでここでは叩かず、miss 分は
  * cron の pending 解決に委ねる（issue #127: Queue 廃止）。
@@ -213,7 +211,7 @@ function uniqueMalAnimeIds(inputs: ImageFallbackInput[]): number[] {
 }
 
 /**
- * MAL ID 群を AniList の alias バッチでまとめて解決し、
+ * MAL ID 群を AniList の Page(idMal_in) でまとめて解決し、
  * 「解決できた MAL ID → URL」の Map を返す。失敗・miss は Map に入らない。
  * チャンクは並列に投げる（AniList のレート制限は 90 req/min と余裕がある一方、
  * 検索レスポンス経路では直列だとレイテンシに直結するため）。
@@ -244,9 +242,16 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * AniList の alias バッチで複数 MAL ID をまとめて解決する。
+ * AniList の Page(idMal_in) で複数 MAL ID をまとめて解決する。
  * 返り値は `[malAnimeId, coverImageUrl]` の配列（取れたものだけ）。
  * ネットワーク失敗・非 200 応答は空配列で静かに返す。
+ *
+ * 以前は `m<id>: Media(idMal: <id>)` の alias バッチだったが、AniList は
+ * alias のうち 1 件でも見つからないと HTTP 404 を返し、見つかった分も含めて
+ * data を全部 null にする。20 件に 1 件でも AniList 未登録の作品が混ざると
+ * バッチ全体が空振りし、本番では AniList 由来の解決が 0 件になっていた。
+ * Page.media(idMal_in:) は見つからない ID を単に結果から落とすだけなので
+ * 部分ヒットが失われない。
  */
 async function fetchAnilistBatch(
   malIds: number[],
@@ -254,15 +259,14 @@ async function fetchAnilistBatch(
 ): Promise<[number, string][]> {
   if (malIds.length === 0) return [];
 
-  // alias 名は英数字 + アンダースコアのみ許可されるため `m<id>` で構築する。
-  const selection = malIds
-    .map(
-      (id) => `m${id}: Media(idMal: ${id}, type: ANIME) {
-  coverImage { extraLarge large medium }
-}`,
-    )
-    .join("\n");
-  const query = `query { ${selection} }`;
+  const query = `query ($ids: [Int]) {
+  Page(perPage: ${ANILIST_BATCH_SIZE}) {
+    media(idMal_in: $ids, type: ANIME) {
+      idMal
+      coverImage { extraLarge large medium }
+    }
+  }
+}`;
 
   const res = await safeFetch(
     fetchImpl,
@@ -273,34 +277,38 @@ async function fetchAnilistBatch(
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, variables: { ids: malIds } }),
     },
     REMOTE_FETCH_TIMEOUT_MS,
   );
   if (!res || !res.ok) return [];
 
   let json: {
-    data?: Record<
-      string,
-      {
-        coverImage?: {
-          extraLarge?: string | null;
-          large?: string | null;
-          medium?: string | null;
-        } | null;
-      } | null
-    >;
+    data?: {
+      Page?: {
+        media?: ({
+          idMal?: number | null;
+          coverImage?: {
+            extraLarge?: string | null;
+            large?: string | null;
+            medium?: string | null;
+          } | null;
+        } | null)[];
+      } | null;
+    };
   };
   try {
     json = (await res.json()) as typeof json;
   } catch {
     return [];
   }
-  const data = json.data ?? {};
 
+  // 問い合わせていない ID が返ってきても採用しない（idMal_in の取り違え防止）。
+  const requested = new Set(malIds);
   const out: [number, string][] = [];
-  for (const id of malIds) {
-    const node = data[`m${id}`];
+  for (const node of json.data?.Page?.media ?? []) {
+    const id = node?.idMal;
+    if (id == null || !requested.has(id)) continue;
     const img = node?.coverImage;
     const url = img?.extraLarge ?? img?.large ?? img?.medium ?? null;
     if (url) out.push([id, url]);

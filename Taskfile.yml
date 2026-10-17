@@ -125,6 +125,13 @@ tasks:
       #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # image fallback warmup
       - pnpm wrangler dev --test-scheduled
 
+  # ---- 作品画像 ----
+  images:backfill:
+    desc: "本番の未取り込み作品画像を画像プロキシ経由で一括取り込み（BACKFILL_LIMIT=N で件数制限）"
+    dir: services/api
+    cmds:
+      - bash scripts/backfill-work-images.sh --env production {{.CLI_ARGS}}
+
   # ---- 通報モデレーション（issue #186）----
   # 管理画面・管理者 API は認可設計が未決のため、運営の操作手段は
   # scripts/reports.sh（wrangler d1 execute ベース）に集約する。

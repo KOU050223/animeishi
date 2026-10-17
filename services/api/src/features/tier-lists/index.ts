@@ -7,7 +7,7 @@ import { tierListSaveSchema, tierListSeasonParamSchema } from "./schema";
 import { tierListsRepository } from "./repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 
 function getBindings(
   c: Context,
@@ -36,13 +36,13 @@ const tierLists = new Hono<AuthVariables>()
       const repo = tierListsRepository(db, c.var.clerkUserId);
       const data = await repo.getMyTierList(season);
       if (!data) return c.json({ error: "Tier list not found" }, 404);
-      // R2 取り込み済みの作品は自前配信 URL を items に載せる（issue #174）。
+      // 作品画像プロキシの URL（GET /images/works/:id）を items に載せる。
       return c.json(
         {
           ...data,
           items: data.items.map((item) => ({
             ...item,
-            hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
           })),
         },
         200,
@@ -103,7 +103,7 @@ const tierLists = new Hono<AuthVariables>()
         ...saved,
         items: saved.items.map((item) => ({
           ...item,
-          hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+          hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
         })),
       },
       200,

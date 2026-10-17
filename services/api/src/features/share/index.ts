@@ -12,7 +12,7 @@ import {
   parseTiersJson,
   proxyImage,
 } from "./service";
-import { hostedWorkImageUrl } from "@/lib/annict/imagePrefetch";
+import { workImageUrl } from "@/lib/annict/workImage";
 
 type ShareBindings = {
   Bindings: Env & { DB: D1Database };
@@ -48,10 +48,10 @@ const share = new Hono<ShareBindings>()
           season: list.season,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
-          // R2 取り込み済みの作品は自前配信 URL を載せる（issue #174）。
+          // 作品画像プロキシの URL（GET /images/works/:id）を載せる。
           items: list.items.map((item) => ({
             ...item,
-            hostedImageUrl: hostedWorkImageUrl(c.req.url, item.imageR2Key),
+            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
           })),
         },
         200,

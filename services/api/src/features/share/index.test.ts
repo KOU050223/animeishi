@@ -5,9 +5,7 @@ import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { tierLists } from "@/features/tier-lists";
 import { share } from "@/features/share";
-import { createDb } from "@/db/client";
 import { users, annictWorks } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -308,14 +306,8 @@ describe("tier 表の共有", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("GET /share/tier-lists/:token: R2 取り込み済みの作品は自前配信 URL が JSON/HTML に載る（issue #174）", async () => {
+  it("GET /share/tier-lists/:token: 作品画像プロキシの URL が JSON/HTML に載る", async () => {
     const app = buildApp();
-    // beforeEach でシード済みの WORK_A を R2 取り込み済みにする
-    // （setupTestDb を再実行すると行が消えるため、通常の drizzle で更新する）
-    await createDb(env.DB)
-      .update(annictWorks)
-      .set({ imageR2Key: "works/1001/deadbeef.png" })
-      .where(eq(annictWorks.annictWorkId, WORK_A));
     await seedTierList(app);
     const shareRes = await app.request(
       `/me/tier-lists/${SEASON}/share`,
@@ -324,7 +316,7 @@ describe("tier 表の共有", () => {
     );
     const { shareToken } = (await shareRes.json()) as { shareToken: string };
 
-    // JSON 応答: items に hostedImageUrl が付く
+    // JSON 応答: items の hostedImageUrl は作品単位のプロキシ URL
     const jsonRes = await app.request(
       `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "application/json" } },
@@ -335,25 +327,22 @@ describe("tier 表の共有", () => {
     };
     expect(
       jsonBody.items.find((i) => i.annictWorkId === WORK_A)?.hostedImageUrl,
-    ).toBe("http://localhost/images/works/1001/deadbeef.png");
-    // 未取り込みの作品は null
+    ).toBe(`http://localhost/images/works/${WORK_A}`);
     expect(
       jsonBody.items.find((i) => i.annictWorkId === WORK_B)?.hostedImageUrl,
-    ).toBeNull();
+    ).toBe(`http://localhost/images/works/${WORK_B}`);
 
-    // HTML 応答: <img> は自前配信 URL を最優先で使う
+    // HTML 応答: <img> はプロキシ URL を最優先で使う
     const htmlRes = await app.request(
       `/share/tier-lists/${shareToken}`,
       { method: "GET", headers: { Accept: "text/html" } },
       TEST_BINDINGS,
     );
     const html = await htmlRes.text();
-    expect(html).toContain(
-      'src="http://localhost/images/works/1001/deadbeef.png"',
-    );
+    expect(html).toContain(`src="http://localhost/images/works/${WORK_A}"`);
     // og:image は https を優先する既存仕様のため、テスト環境の
-    // http://localhost な配信 URL より外部 https URL が選ばれる
-    // （本番では配信 URL が https のため取り込み済み画像が優先される）。
+    // http://localhost なプロキシ URL より外部 https URL が選ばれる
+    // （本番ではプロキシ URL が https のためそちらが優先される）。
     expect(html).toContain(
       'property="og:image" content="https://example.com/a.png"',
     );
@@ -431,7 +420,12 @@ describe("tier 表の共有", () => {
       TEST_BINDINGS,
     );
     const html = await res.text();
-    expect(html).toContain('src="https://cdn.example.com/poster.png"');
+    // ポスター表示はプロキシ URL。プロキシが 404 のときに備えて、安全な
+    // 外部 URL（不安全な resolved は飛ばして imageUrl）を切り替え先に載せる。
+    expect(html).toContain(`src="http://localhost/images/works/${WORK_EVIL}"`);
+    expect(html).toContain(
+      'data-fallback="[&quot;https://cdn.example.com/poster.png&quot;]"',
+    );
     expect(html).toContain(
       'property="og:image" content="https://cdn.example.com/poster.png"',
     );

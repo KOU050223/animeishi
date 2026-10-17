@@ -33,6 +33,7 @@ task <タスク名>
 * reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
+* images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
 ```
 
 > 通報モデレーション（reports.*）は `services/api/scripts/reports.sh` の

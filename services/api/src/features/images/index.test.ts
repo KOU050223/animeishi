@@ -2,89 +2,109 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { setupTestDb } from "../../test-utils/setup-db";
+import { annictWorks } from "../../db/schema";
 import { images } from "./index";
 
-// /images/* は公開ルート（認証不要）。作品画像の R2 配信を担う（issue #174）。
-// アバター配信（GET /me/profile/avatar/*）と同じく immutable キャッシュ前提。
+// /images/* は公開ルート（認証不要）。作品画像の読み通しプロキシを担う。
+// 取り込みの詳細なふるまいは lib/annict/workImage.test.ts で検証する。
 
 const TEST_BINDINGS = {
   AVATARS: env.AVATARS,
+  DB: env.DB,
 };
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
 
 function buildApp() {
   const app = applyApiErrorHandling(
-    new Hono<{ Bindings: { AVATARS: R2Bucket } }>(),
+    new Hono<{ Bindings: { AVATARS: R2Bucket; DB: D1Database } }>(),
   );
   app.route("/images", images);
   return app;
 }
 
-describe("GET /images/works/*（作品画像の R2 配信）", () => {
+describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => {
   beforeEach(async () => {
-    // R2 オブジェクトがテスト間で残らないよう掃除する。
+    const db = await setupTestDb(env.DB);
+    await db.insert(annictWorks).values({
+      annictWorkId: 42,
+      title: "作品",
+      imageR2Key: "works/42/deadbeef.png",
+      updatedAt: new Date(),
+    });
+    await caches.default.delete("http://localhost/images/works/42");
+    await caches.default.delete("http://localhost/images/works/999");
     const listed = await env.AVATARS.list();
     if (listed.objects.length > 0) {
       await env.AVATARS.delete(listed.objects.map((o) => o.key));
     }
   });
 
-  it("保存済みの画像を immutable キャッシュ付きで配信する", async () => {
+  it("取り込み済みの画像を配信する", async () => {
     await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
     });
-    const app = buildApp();
-    const res = await app.request(
-      "/images/works/42/deadbeef.png",
+    const res = await buildApp().request(
+      "/images/works/42",
       { method: "GET" },
       TEST_BINDINGS,
     );
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
-    expect(res.headers.get("cache-control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
-    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("etag")).toBeTruthy();
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG_BYTES);
   });
 
-  it("存在しないキーは 404", async () => {
+  it("2 回目はエッジキャッシュから返し、R2 を読まない", async () => {
+    await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
     const app = buildApp();
-    const res = await app.request(
-      "/images/works/42/deadbeef.png",
+    const first = await app.request(
+      "/images/works/42",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(first.status).toBe(200);
+    await first.arrayBuffer();
+
+    // R2 から消しても、キャッシュに残っているので返せる
+    await env.AVATARS.delete("works/42/deadbeef.png");
+    const second = await app.request(
+      "/images/works/42?bust=1",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(second.status).toBe(200);
+    expect(new Uint8Array(await second.arrayBuffer())).toEqual(PNG_BYTES);
+  });
+
+  it("存在しない作品は 404", async () => {
+    const res = await buildApp().request(
+      "/images/works/999",
       { method: "GET" },
       TEST_BINDINGS,
     );
     expect(res.status).toBe(404);
   });
 
-  it("works/ 以外のプレフィックス（アバター等）には到達できない", async () => {
-    // 同じバケットのアバター画像を置いておき、/images/ 経由で
-    // 取り出せないことを確認する（キー形式チェックで弾く）。
+  it("数値 ID 以外・R2 キー直指定のパスは 404（avatars/ 等に到達できない）", async () => {
     await env.AVATARS.put("avatars/u1/icon.webp", PNG_BYTES, {
       httpMetadata: { contentType: "image/webp" },
     });
-    const app = buildApp();
-    const res = await app.request(
-      "/images/avatars/u1/icon.webp",
-      { method: "GET" },
-      TEST_BINDINGS,
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it("形式に合わないキー（非数値 ID / パストラバーサル風）は 404", async () => {
-    const app = buildApp();
     for (const path of [
-      "/images/works/abc/deadbeef.png",
-      "/images/works/42/not-hex!.png",
+      "/images/works/abc",
+      "/images/works/42/deadbeef.png",
       "/images/works/42/../../avatars/u1/icon.webp",
-      "/images/works/42/deadbeef.svg",
+      "/images/avatars/u1/icon.webp",
     ]) {
-      const res = await app.request(path, { method: "GET" }, TEST_BINDINGS);
+      const res = await buildApp().request(
+        path,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
       expect(res.status).toBe(404);
     }
   });
