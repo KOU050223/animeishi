@@ -420,8 +420,12 @@ describe("tier 表の共有", () => {
       TEST_BINDINGS,
     );
     const html = await res.text();
-    // ポスター表示はプロキシ URL（外部候補の選別はプロキシ側が行う）
+    // ポスター表示はプロキシ URL。プロキシが 404 のときに備えて、安全な
+    // 外部 URL（不安全な resolved は飛ばして imageUrl）を切り替え先に載せる。
     expect(html).toContain(`src="http://localhost/images/works/${WORK_EVIL}"`);
+    expect(html).toContain(
+      'data-fallback="https://cdn.example.com/poster.png"',
+    );
     expect(html).toContain(
       'property="og:image" content="https://cdn.example.com/poster.png"',
     );

@@ -15,8 +15,9 @@
 #                      （公称 90 req/min・混雑時は 30 req/min）に触れない間隔にする。
 #   BACKFILL_LIMIT     対象件数の上限（既定: 全件）。試し打ち用。
 #
-# 全候補が失敗した作品はプロキシ側で 6 時間のクールダウンに入るため、
-# 直後に再実行しても外部は叩かれない（404 がすぐ返る）。
+# 全候補が失敗した作品はプロキシ側で 6 時間のクールダウンに入り、その間は
+# このスクリプトの対象からも外れる。BACKFILL_LIMIT 付きで繰り返し実行すれば
+# 未試行の作品へ順に進む。
 set -euo pipefail
 
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
@@ -58,10 +59,16 @@ if [ -n "${BACKFILL_LIMIT:-}" ]; then
   LIMIT_CLAUSE="LIMIT $BACKFILL_LIMIT"
 fi
 
+# 直近に全候補が失敗した作品（プロキシのクールダウン中）は対象から外す。
+# 外さないと、BACKFILL_LIMIT 付きの再実行が失敗行ばかりを選び続け、
+# 後続の作品に進めない。値は WORK_IMAGE_FAILURE_COOLDOWN_MS（6 時間）と揃える。
+# image_r2_attempted_at は drizzle の timestamp モード（UNIX 秒）で保存されている。
+COOLDOWN_SECONDS=$((6 * 60 * 60))
+
 echo "対象を取得中（$DB_NAME / --env $ENV）..." >&2
 IDS=$(
   pnpm exec wrangler d1 execute "$DB_NAME" --remote --env "$ENV" --json \
-    --command "SELECT annict_work_id FROM annict_works WHERE image_r2_key IS NULL ORDER BY annict_work_id $LIMIT_CLAUSE" |
+    --command "SELECT annict_work_id FROM annict_works WHERE image_r2_key IS NULL AND (image_r2_attempted_at IS NULL OR image_r2_attempted_at < strftime('%s', 'now') - $COOLDOWN_SECONDS) ORDER BY annict_work_id $LIMIT_CLAUSE" |
     node -e '
       let s = "";
       process.stdin.on("data", (d) => (s += d));

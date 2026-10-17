@@ -324,4 +324,101 @@ describe("serveWorkImage", () => {
     expect(res.status).toBe(200);
     expect((await getWork(db)).imageR2Key).toBe(workImageKey(1, source, "png"));
   });
+
+  describe("取り込み済み画像の鮮度・所有者チェック", () => {
+    const OLD_SOURCE = "https://old-official.example.com/og.png";
+    const NEW_SOURCE = "https://s4.anilist.co/1.jpg";
+    const oldKey = () => workImageKey(1, OLD_SOURCE, "png");
+    const longAgo = new Date("2026-01-01T00:00:00Z");
+
+    async function seedStored(
+      overrides: Partial<typeof annictWorks.$inferInsert>,
+    ) {
+      await env.AVATARS.put(oldKey(), PNG_BYTES, {
+        httpMetadata: { contentType: "image/png" },
+      });
+      await insertWork(db, {
+        imageR2Key: oldKey(),
+        imageR2AttemptedAt: longAgo,
+        ...overrides,
+      });
+    }
+
+    it("取り込み元が今の候補に含まれていれば外部を叩かない", async () => {
+      await seedStored({ imageUrl: OLD_SOURCE });
+      const fetchImpl = vi.fn();
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("取り込み元が差し替わったら取り込み直し、旧オブジェクトを消す", async () => {
+      await seedStored({ imageUrl: null, resolvedImageUrl: NEW_SOURCE });
+      const fetchImpl = routeFetch({
+        [NEW_SOURCE]: () => makeImageResponse("image/jpeg"),
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      const newKey = workImageKey(1, NEW_SOURCE, "jpg");
+      expect((await getWork(db)).imageR2Key).toBe(newKey);
+      expect(await env.AVATARS.head(oldKey())).toBeNull();
+    });
+
+    it("差し替わっていてもクールダウン中は取り込み済みの画像を返す", async () => {
+      const now = new Date("2026-10-17T00:00:00Z");
+      await seedStored({
+        resolvedImageUrl: NEW_SOURCE,
+        imageR2AttemptedAt: new Date(now.getTime() - 60_000),
+      });
+      const fetchImpl = vi.fn();
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        now,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("取り込み直しに失敗したら古い画像を返し続け、試行時刻を立てる", async () => {
+      await seedStored({ resolvedImageUrl: NEW_SOURCE });
+      const now = new Date("2026-10-17T00:00:00Z");
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        now,
+        fetchImpl: routeFetch({}) as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG_BYTES);
+      const row = await getWork(db);
+      expect(row.imageR2Key).toBe(oldKey());
+      expect(row.imageR2AttemptedAt?.getTime()).toBe(now.getTime());
+    });
+
+    it("別作品のキーを指していても配信せず、そのオブジェクトも消さない", async () => {
+      const foreignKey = workImageKey(2, OLD_SOURCE, "png");
+      await env.AVATARS.put(foreignKey, PNG_BYTES, {
+        httpMetadata: { contentType: "image/png" },
+      });
+      await insertWork(db, { imageR2Key: foreignKey });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: routeFetch({}) as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(404);
+      expect(await env.AVATARS.head(foreignKey)).not.toBeNull();
+      expect((await getWork(db)).imageR2Key).toBeNull();
+    });
+  });
 });

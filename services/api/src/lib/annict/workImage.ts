@@ -103,13 +103,28 @@ function sourceUrlHash(url: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+/** R2 キーの拡張子手前まで（`works/<annictWorkId>/<hash>`）。 */
+function workImageKeyPrefix(annictWorkId: number, sourceUrl: string): string {
+  return `works/${annictWorkId}/${sourceUrlHash(sourceUrl)}`;
+}
+
 /** R2 キー（`works/<annictWorkId>/<hash>.<ext>`）。 */
 export function workImageKey(
   annictWorkId: number,
   sourceUrl: string,
   ext: string,
 ): string {
-  return `works/${annictWorkId}/${sourceUrlHash(sourceUrl)}.${ext}`;
+  return `${workImageKeyPrefix(annictWorkId, sourceUrl)}.${ext}`;
+}
+
+/**
+ * その作品自身の画像キーか。形式だけでなく作品 ID まで照合する
+ * （DB の値が別作品のキーを指していても、その画像を配信・削除しない）。
+ */
+function isOwnWorkImageKey(annictWorkId: number, key: string): boolean {
+  return (
+    WORK_IMAGE_KEY_PATTERN.test(key) && key.startsWith(`works/${annictWorkId}/`)
+  );
 }
 
 /**
@@ -198,7 +213,8 @@ function notFound(): Response {
 
 /**
  * GET /images/works/:annictWorkId の本体。
- * R2 ヒット → そのまま返す / ミス → 候補を fetch して R2 に保存して返す。
+ * R2 ヒット（取り込み元が今の候補と一致）→ そのまま返す /
+ * ミス・取り込み元の差し替え → 候補を fetch して R2 に保存して返す。
  */
 export async function serveWorkImage(
   db: DrizzleDb,
@@ -213,28 +229,45 @@ export async function serveWorkImage(
   const row = await repo.getAnnictWorkById(annictWorkId);
   if (!row) return notFound();
 
+  const candidates = workImageSourceCandidates(row);
+  const inCooldown =
+    row.imageR2AttemptedAt != null &&
+    now.getTime() - row.imageR2AttemptedAt.getTime() <
+      WORK_IMAGE_FAILURE_COOLDOWN_MS;
+
   // --- 1. 取り込み済み ---
-  if (row.imageR2Key && WORK_IMAGE_KEY_PATTERN.test(row.imageR2Key)) {
-    const object = await bucket.get(row.imageR2Key);
-    if (object) {
-      return imageResponse(
-        object.body,
-        object.httpMetadata?.contentType ?? "application/octet-stream",
-        object.httpEtag,
+  // 別作品のキーを指している行はキーが無いものとして扱う（配信も削除もしない）。
+  const ownKey =
+    row.imageR2Key && isOwnWorkImageKey(annictWorkId, row.imageR2Key)
+      ? row.imageR2Key
+      : null;
+  const stored = ownKey ? await bucket.get(ownKey) : null;
+  const storedResponse = () =>
+    stored
+      ? imageResponse(
+          stored.body,
+          stored.httpMetadata?.contentType ?? "application/octet-stream",
+          stored.httpEtag,
+        )
+      : notFound();
+  if (stored && ownKey) {
+    // キーには取り込み元 URL のハッシュが入っている。今の候補のどれかと
+    // 一致すれば最新。一致しなければ取り込み元が差し替わった（Annict の URL
+    // 変更・MAL ID 変更による補完のやり直し等）ので取り込み直す。
+    // 候補が 1 つも無い（上流の画像が消えた）場合は、無いよりマシなので
+    // 取り込み済みの画像を返し続ける。
+    const isFresh =
+      candidates.length === 0 ||
+      candidates.some((url) =>
+        ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
       );
-    }
-    // キーはあるがオブジェクトが消えている → 取り込み直す。
+    // 取り込み直しはクールダウンに従う（取り込み成功時にも試行時刻が立つので、
+    // 直近に取り込んだばかりの作品は叩き直さない）。
+    if (isFresh || inCooldown) return storedResponse();
   }
 
   // --- クールダウン（直近に全候補が失敗した作品は外部を叩かない） ---
-  if (
-    !row.imageR2Key &&
-    row.imageR2AttemptedAt &&
-    now.getTime() - row.imageR2AttemptedAt.getTime() <
-      WORK_IMAGE_FAILURE_COOLDOWN_MS
-  ) {
-    return notFound();
-  }
+  if (!stored && !ownKey && inCooldown) return notFound();
 
   // --- 2. 候補を順に取りに行く ---
   const tried = new Set<string>();
@@ -248,7 +281,7 @@ export async function serveWorkImage(
     return null;
   };
 
-  let hit = await tryCandidates(workImageSourceCandidates(row));
+  let hit = await tryCandidates(candidates);
 
   // --- 3. 全滅なら AniList で補完 URL を引き直す ---
   // Annict の URL が「見た目はまとも・実体は 404」の作品は、検索経路でも cron
@@ -277,8 +310,13 @@ export async function serveWorkImage(
   }
 
   if (!hit) {
-    // キーだけ残ってオブジェクトが消えていた行はキーも外す（外さないと
-    // クールダウンが効かず、表示のたびに外部を叩き直してしまう）。
+    if (stored) {
+      // 取り込み直しに失敗しただけなら、古い画像を返し続ける。
+      await repo.markImageR2Attempted(annictWorkId, now);
+      return storedResponse();
+    }
+    // キーだけ残ってオブジェクトが消えていた行（・別作品を指す行）はキーも外す
+    // （外さないとクールダウンが効かず、表示のたびに外部を叩き直してしまう）。
     if (row.imageR2Key) {
       await repo.updateImageR2Key(annictWorkId, null, now);
     } else {
@@ -294,12 +332,9 @@ export async function serveWorkImage(
   });
   await repo.updateImageR2Key(annictWorkId, key, now);
   // 取り込み元が変わって残った旧オブジェクトは消す（参照されないゴミを増やさない）。
-  if (
-    row.imageR2Key &&
-    row.imageR2Key !== key &&
-    WORK_IMAGE_KEY_PATTERN.test(row.imageR2Key)
-  ) {
-    await bucket.delete(row.imageR2Key).catch(() => {});
+  // 消すのはこの作品自身のキーだけ（別作品のオブジェクトには触れない）。
+  if (ownKey && ownKey !== key) {
+    await bucket.delete(ownKey).catch(() => {});
   }
   return imageResponse(hit.image.data, hit.image.contentType);
 }

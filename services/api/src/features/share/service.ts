@@ -186,21 +186,37 @@ function tierLabelTextColor(backgroundColor: string): string {
     : TIER_LABEL_TEXT_LIGHT;
 }
 
+// 共有ページの <img> が読み込みに失敗したときのハンドラ。data-fallback が
+// あれば 1 度だけそちらへ切り替え、それも失敗したら要素ごと消す
+// （壊れた画像アイコンを出さない）。URL は属性値として escape 済みのものを
+// dataset から読むだけで、スクリプト本体にユーザー由来の値は埋め込まない。
+const WORK_IMAGE_ONERROR =
+  "var f=this.dataset.fallback;if(f){this.removeAttribute('data-fallback');this.src=f}else{this.remove()}";
+
 export function workImageHtml(
   item: SharedTierList["items"][number],
   requestUrl: string,
 ): string {
   // 自前の画像プロキシ URL を最優先（外部候補の取得・R2 保存はプロキシが担う）。
-  // プロキシ URL が組めない場合の保険として外部 URL も候補に残す。
+  // プロキシが 404 を返す作品（サーバからは取れないがブラウザなら表示できる
+  // 外部画像など）に備えて、次の候補を onerror の切り替え先に載せる。
   // resolvedImageUrl が真値でも不安全なら imageUrl 側を使う
   // （resolved が "javascript:" 等のとき imageUrl が有効でも画像欠落するため）
-  const src = [
-    workImageUrl(requestUrl, item.annictWorkId),
-    item.resolvedImageUrl,
-    item.imageUrl,
-  ].find((u): u is string => !!u && isSafeImageUrl(u));
+  const candidates = [
+    ...new Set(
+      [
+        workImageUrl(requestUrl, item.annictWorkId),
+        item.resolvedImageUrl,
+        item.imageUrl,
+      ].filter((u): u is string => !!u && isSafeImageUrl(u)),
+    ),
+  ];
+  const [src, fallback] = candidates;
   if (!src) return "";
-  return `<img class="work-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
+  const fallbackAttr = fallback
+    ? ` data-fallback="${escapeHtml(fallback)}" onerror="${WORK_IMAGE_ONERROR}"`
+    : ` onerror="this.remove()"`;
+  return `<img class="work-image" src="${escapeHtml(src)}"${fallbackAttr} alt="" loading="lazy" />`;
 }
 
 export function buildSharedTierListHtml(
