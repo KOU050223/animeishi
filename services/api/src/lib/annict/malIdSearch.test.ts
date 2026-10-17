@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
 import { annictWorks } from "@/db/schema";
+import { worksRepository } from "@/features/works/repository";
 import {
   MAL_SEARCH_ATTEMPT_COOLDOWN_MS,
   normalizeTitle,
@@ -119,6 +120,19 @@ describe("pickUniqueMalId", () => {
     ).toBe(1);
   });
 
+  it("どちらかの放送年が不明なら照合できないので採用しない", () => {
+    expect(
+      pickUniqueMalId(input({ seasonYear: null }), [
+        media({ idMal: 1, titles: ["ポップパップポルターズ"] }),
+      ]),
+    ).toBeNull();
+    expect(
+      pickUniqueMalId(input(), [
+        media({ idMal: 1, titles: ["ポップパップポルターズ"], year: null }),
+      ]),
+    ).toBeNull();
+  });
+
   it("MAL ID を持たない検索結果は無視する", () => {
     expect(
       pickUniqueMalId(input(), [
@@ -174,6 +188,61 @@ describe("searchMalIdsByTitle", () => {
         [2, 5],
       ]),
     );
+  });
+
+  it("HTTP 200 でも GraphQL の errors があれば検索失敗（null）として扱う", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ data: null, errors: [{ message: "rate limited" }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    expect(
+      await searchMalIdsByTitle(
+        [input()],
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).toBeNull();
+  });
+
+  it("alias の結果が欠けていたら検索失敗（null）として扱う", async () => {
+    const fetchImpl = vi.fn(async () => anilistResponse({}));
+    expect(
+      await searchMalIdsByTitle(
+        [input()],
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).toBeNull();
+  });
+
+  it("次ページがある検索（取得範囲外に同名作品が残りうる）は採用しない", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              w0_0: {
+                pageInfo: { hasNextPage: true },
+                media: [
+                  {
+                    idMal: 64211,
+                    seasonYear: 2026,
+                    title: { native: "ポップパップポルターズ" },
+                  },
+                ],
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    expect(
+      await searchMalIdsByTitle(
+        [input()],
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).toEqual(new Map());
   });
 
   it("リクエストの失敗（429 等）は null を返す", async () => {
@@ -278,13 +347,65 @@ describe("resolveMissingMalIds", () => {
       .insert(annictWorks)
       .values({ annictWorkId: 1, title: "作品", updatedAt: now });
 
-    await resolveMissingMalIds(db, {
-      now,
-      fetchImpl: vi.fn(
-        async () => new Response("", { status: 500 }),
-      ) as unknown as typeof fetch,
-    });
+    for (const failure of [
+      () => new Response("", { status: 500 }),
+      () =>
+        new Response(
+          JSON.stringify({ errors: [{ message: "rate limited" }] }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    ]) {
+      await resolveMissingMalIds(db, {
+        now,
+        fetchImpl: vi.fn(async () => failure()) as unknown as typeof fetch,
+      });
+      expect((await row(1)).malSearchAttemptedAt).toBeNull();
+    }
+  });
 
+  it("改題（タイトル・英題・放送年の変更）で試行時刻を破棄し、すぐ検索し直せる", async () => {
+    const repo = worksRepository(db);
+    const base = {
+      annictWorkId: 1,
+      title: "仮題",
+      titleEn: null,
+      seasonYear: 2026,
+      updatedAt: now,
+    };
+    await db.insert(annictWorks).values({ ...base, malSearchAttemptedAt: now });
+
+    // 内容が同じ upsert では試行時刻を保つ
+    await repo.upsertAnnictWork(base);
+    expect((await row(1)).malSearchAttemptedAt?.getTime()).toBe(now.getTime());
+
+    // 改題されたら破棄する
+    await repo.upsertAnnictWork({ ...base, title: "正式タイトル" });
+    expect((await row(1)).malSearchAttemptedAt).toBeNull();
+
+    // 英題・放送年の変更も同様
+    await db
+      .update(annictWorks)
+      .set({ malSearchAttemptedAt: now })
+      .where(eq(annictWorks.annictWorkId, 1));
+    await repo.upsertAnnictWork({
+      ...base,
+      title: "正式タイトル",
+      titleEn: "Official Title",
+    });
+    expect((await row(1)).malSearchAttemptedAt).toBeNull();
+    await db
+      .update(annictWorks)
+      .set({ malSearchAttemptedAt: now })
+      .where(eq(annictWorks.annictWorkId, 1));
+    await repo.upsertAnnictWork({
+      ...base,
+      title: "正式タイトル",
+      titleEn: "Official Title",
+      seasonYear: 2027,
+    });
     expect((await row(1)).malSearchAttemptedAt).toBeNull();
   });
 });

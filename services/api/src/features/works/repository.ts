@@ -73,6 +73,16 @@ function annictWorkConflictSet() {
       then null
       else coalesce(excluded.image_fallback_attempted_at, ${annictWorks.imageFallbackAttemptedAt})
     end`,
+    // MAL ID のタイトル検索（issue #223）の試行時刻は、検索の材料である
+    // タイトル・英題・放送年のどれかが変わったら破棄する（改題後の正式タイトルで
+    // すぐに検索し直せるように）。SQLite の `is not` は NULL-safe 比較。
+    malSearchAttemptedAt: sql`case
+      when excluded.title is not ${annictWorks.title}
+        or excluded.title_en is not ${annictWorks.titleEn}
+        or excluded.season_year is not ${annictWorks.seasonYear}
+      then null
+      else ${annictWorks.malSearchAttemptedAt}
+    end`,
     title: sql`excluded.title`,
     titleKana: sql`excluded.title_kana`,
     titleEn: sql`excluded.title_en`,

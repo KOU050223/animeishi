@@ -11,9 +11,13 @@
 //   * 一致判定は「正規化したタイトルの完全一致」のみ。シリーズ違い（1st / 2nd
 //     STAGE、第七章とシリーズ全体など）がヒットしやすく、別作品の画像が出るのは
 //     画像が出ないより悪い（characterImageFallback と同じ方針）。
-//   * 完全一致した MAL ID が一意に決まらなければ採用しない。
-//   * 放送年が両方分かるときは差が 1 年以内であることも要求する
-//     （リメイク・同名の別作品対策。年またぎの放送を考えて 1 年の幅を持たせる）。
+//   * 完全一致した MAL ID が一意に決まらなければ採用しない。検索結果に
+//     次ページがある（取得範囲の外に同名作品が残りうる）場合も一意とみなさない。
+//   * 放送年の差が 1 年以内であることも要求する（リメイク・同名の別作品対策。
+//     年またぎの放送を考えて 1 年の幅を持たせる）。どちらかの年が不明なら
+//     照合できないので採用しない。
+//   * AniList が errors を返した・alias の結果が欠けたときは「見つからなかった」
+//     ではなく「検索できなかった」として扱い、クールダウンに入れない。
 //   * 検索文字列は GraphQL の変数で渡す（クエリ文字列へ埋め込まない）。
 
 import type { DrizzleDb } from "@/db/client";
@@ -22,10 +26,17 @@ import { worksRepository } from "@/features/works/repository";
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 const REMOTE_FETCH_TIMEOUT_MS = 6000;
 
-/** 1 回の cron で検索する作品数（1 作品あたり alias 最大 2 本を 1 リクエストにまとめる）。 */
-const MAL_SEARCH_BATCH_SIZE = 10;
-/** alias 1 本あたりの検索結果件数。完全一致の一意性判定に足りるだけ取る。 */
-const SEARCH_RESULTS_PER_QUERY = 5;
+/**
+ * 1 回の cron で検索する作品数（1 作品あたり alias 最大 2 本を 1 リクエストに
+ * まとめる）。alias 10 本 × 25 件で AniList のクエリ複雑度上限に収まることを実測済み。
+ */
+const MAL_SEARCH_BATCH_SIZE = 5;
+/**
+ * alias 1 本あたりの検索結果件数。これを超える（次ページがある）検索は
+ * 一意性を確かめきれないので採用しない。固有のタイトルは 1〜2 件に収まり、
+ * 25 件を超えるのは「ガンダム」のような広いシリーズ名くらい。
+ */
+const SEARCH_RESULTS_PER_QUERY = 25;
 /** 放送年の許容差。 */
 const MAX_YEAR_DIFF = 1;
 
@@ -72,15 +83,14 @@ export function pickUniqueMalId(
       .map(normalizeTitle)
       .filter(Boolean),
   );
-  if (wanted.size === 0) return null;
+  if (wanted.size === 0 || input.seasonYear == null) return null;
 
   const matched = new Set<number>();
   for (const media of candidates) {
     if (media.idMal == null) continue;
     if (!media.titles.some((t) => wanted.has(normalizeTitle(t)))) continue;
     if (
-      input.seasonYear != null &&
-      media.year != null &&
+      media.year == null ||
       Math.abs(input.seasonYear - media.year) > MAX_YEAR_DIFF
     ) {
       continue;
@@ -154,6 +164,7 @@ export async function searchMalIdsByTitle(
 ${aliases
   .map(
     (a) => `  ${a.name}: Page(perPage: ${SEARCH_RESULTS_PER_QUERY}) {
+    pageInfo { hasNextPage }
     media(search: $${a.varName}, type: ANIME) {
       idMal
       seasonYear
@@ -168,7 +179,16 @@ ${aliases
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
-  let json: { data?: Record<string, { media?: AnilistMediaNode[] } | null> };
+  let json: {
+    data?: Record<
+      string,
+      {
+        pageInfo?: { hasNextPage?: boolean | null } | null;
+        media?: AnilistMediaNode[];
+      } | null
+    > | null;
+    errors?: unknown[];
+  };
   try {
     const res = await fetchImpl(ANILIST_ENDPOINT, {
       method: "POST",
@@ -186,11 +206,21 @@ ${aliases
   } finally {
     clearTimeout(timer);
   }
+  // GraphQL は HTTP 200 のまま errors（レート制限・複雑度超過など）を返しうる。
+  // そのまま集計すると失敗した alias が「0 件ヒット」に見え、7 日間の
+  // クールダウンに入ってしまうので、errors・欠けた alias は検索失敗として扱う。
+  if (json.errors?.length) return null;
+  if (aliases.some((a) => !json.data?.[a.name])) return null;
 
   // 作品ごとに、title / titleEn 両方の検索結果をまとめてから一意性を判定する。
+  // 次ページがある検索を含む作品は、取得範囲の外に同名作品が残りうるので
+  // 一意性を確かめられない（採用しない）。
   const candidatesByWork = new Map<number, AnilistSearchMedia[]>();
+  const truncated = new Set<number>();
   for (const alias of aliases) {
-    const media = (json.data?.[alias.name]?.media ?? [])
+    const page = json.data?.[alias.name];
+    if (page?.pageInfo?.hasNextPage) truncated.add(alias.input.annictWorkId);
+    const media = (page?.media ?? [])
       .map(toSearchMedia)
       .filter((m): m is AnilistSearchMedia => m != null);
     const list = candidatesByWork.get(alias.input.annictWorkId) ?? [];
@@ -200,6 +230,7 @@ ${aliases
 
   const out = new Map<number, number>();
   for (const input of inputs) {
+    if (truncated.has(input.annictWorkId)) continue;
     const malId = pickUniqueMalId(
       input,
       candidatesByWork.get(input.annictWorkId) ?? [],
