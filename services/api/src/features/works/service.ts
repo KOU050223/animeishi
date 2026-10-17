@@ -1,3 +1,4 @@
+import type { AnnictWork } from "@/db/schema";
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { searchAnnictWorksBySeason } from "@/lib/annict/client";
 import {
@@ -39,6 +40,38 @@ export async function searchSeasonWorks(
     await writeSeasonWorksCache(season, result.works);
   }
   return result;
+}
+
+/**
+ * upsert しようとしている作品メタが、キャッシュ済みの行と同じか。
+ * nodeId / malAnimeId は upsert 側が「新しい値が null なら既存値を温存」する
+ * （annictWorkConflictSet）ため、新しい値が null のときは一致扱いにする。
+ */
+function isUnchangedCachedWork(
+  row: Pick<
+    AnnictWork,
+    | "nodeId"
+    | "malAnimeId"
+    | "title"
+    | "titleKana"
+    | "titleEn"
+    | "seasonName"
+    | "seasonYear"
+    | "imageUrl"
+  >,
+  cached: AnnictWork | undefined,
+): boolean {
+  if (!cached) return false;
+  return (
+    (row.nodeId == null || row.nodeId === cached.nodeId) &&
+    (row.malAnimeId == null || row.malAnimeId === cached.malAnimeId) &&
+    row.title === cached.title &&
+    row.titleKana === cached.titleKana &&
+    row.titleEn === cached.titleEn &&
+    row.seasonName === cached.seasonName &&
+    row.seasonYear === cached.seasonYear &&
+    row.imageUrl === cached.imageUrl
+  );
 }
 
 /**
@@ -143,9 +176,13 @@ export async function attachResolvedImages(
       },
     ];
   });
+  // 既にキャッシュ済みで内容が変わっていない作品は書かない。シーズン一覧の
+  // 検索は数百件を返すため、毎回全件 upsert すると D1 の書き込み行数
+  // （Free プラン 100k 行/日）の過半をこの経路だけで消費していた。
+  // 比較に使う cachedById は補完対象の判定用に読んだものを流用する。
   const dedupedRows = [
     ...new Map(rows.map((r) => [r.annictWorkId, r])).values(),
-  ];
+  ].filter((r) => !isUnchangedCachedWork(r, cachedById.get(r.annictWorkId)));
   try {
     await repo.upsertAnnictWorks(dedupedRows);
   } catch {

@@ -232,7 +232,8 @@ export function worksRepository(db: DrizzleDb) {
 
     /**
      * cron で画像フォールバック解決を試行する候補を少量取得する。
-     * 最近 Annict read-through / search で触られた作品を優先するため updated_at 降順。
+     * 最近 Annict read-through / search で書き込まれた作品を優先するため updated_at 降順
+     * （検索経路は内容が変わらない作品を書き直さないので、厳密な「最終閲覧順」ではない）。
      * attemptedStaleBefore 以降に試行済みの作品（クールダウン生存中）は除外する。
      */
     async getPendingImageFallbackWorks(

@@ -10,6 +10,11 @@ import { serveWorkImage } from "@/lib/annict/workImage";
  * アプリの <Image> と共有ページ HTML の <img> の両方から参照される。
  *
  * パスは数値 ID のみ受け付けるので、同じバケットの avatars/ 等には到達できない。
+ *
+ * 前段に Workers の Cache API を置く。作品一覧は 1 画面で数十枚の画像を
+ * 要求するため、毎回 D1（作品行の参照）と R2 を読むと応答が遅く、D1 の
+ * 読み取り行数も積み上がる。キャッシュ期間は serveWorkImage が付ける
+ * Cache-Control（取り込み済み 1 日 / 画像なし 5 分）に従う。
  */
 export const images = new Hono<{
   Bindings: { AVATARS: R2Bucket; DB: D1Database };
@@ -18,5 +23,40 @@ export const images = new Hono<{
   if (!Number.isSafeInteger(annictWorkId)) {
     return c.json({ error: "Not found" }, 404);
   }
-  return serveWorkImage(createDb(c.env.DB), c.env.AVATARS, annictWorkId);
+
+  // クエリ文字列でキャッシュを分けられないよう、パスだけでキーを作る。
+  const cacheKey = new Request(new URL(c.req.path, c.req.url).toString());
+  const cache = defaultCache();
+  const cached = await cache?.match(cacheKey).catch(() => undefined);
+  // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
+  // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。
+  if (cached) return new Response(cached.body, cached);
+
+  const res = await serveWorkImage(
+    createDb(c.env.DB),
+    c.env.AVATARS,
+    annictWorkId,
+  );
+  if (cache && (res.status === 200 || res.status === 404)) {
+    const put = cache.put(cacheKey, res.clone()).catch(() => {});
+    // テスト等で executionCtx が無い環境では投げるので、その場合は待つ。
+    try {
+      c.executionCtx.waitUntil(put);
+    } catch {
+      await put;
+    }
+  }
+  return res;
 });
+
+// Workers では caches.default が既定キャッシュ。ブラウザの DOM CacheStorage には
+// default が無く、本ファイルは mobile 側の型検査（AppType 経由）でも検査対象に
+// なるため、構造的に取り出す（seasonWorksCache.ts と同じ理由）。
+function defaultCache(): Cache | null {
+  try {
+    const storage = caches as CacheStorage & { default?: Cache };
+    return storage.default ?? null;
+  } catch {
+    return null;
+  }
+}

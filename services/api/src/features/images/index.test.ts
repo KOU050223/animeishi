@@ -33,6 +33,8 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       imageR2Key: "works/42/deadbeef.png",
       updatedAt: new Date(),
     });
+    await caches.default.delete("http://localhost/images/works/42");
+    await caches.default.delete("http://localhost/images/works/999");
     const listed = await env.AVATARS.list();
     if (listed.objects.length > 0) {
       await env.AVATARS.delete(listed.objects.map((o) => o.key));
@@ -53,6 +55,30 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     expect(res.headers.get("content-type")).toBe("image/png");
     expect(res.headers.get("etag")).toBeTruthy();
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG_BYTES);
+  });
+
+  it("2 回目はエッジキャッシュから返し、R2 を読まない", async () => {
+    await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    const app = buildApp();
+    const first = await app.request(
+      "/images/works/42",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(first.status).toBe(200);
+    await first.arrayBuffer();
+
+    // R2 から消しても、キャッシュに残っているので返せる
+    await env.AVATARS.delete("works/42/deadbeef.png");
+    const second = await app.request(
+      "/images/works/42?bust=1",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(second.status).toBe(200);
+    expect(new Uint8Array(await second.arrayBuffer())).toEqual(PNG_BYTES);
   });
 
   it("存在しない作品は 404", async () => {

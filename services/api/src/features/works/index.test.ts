@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { createDb } from "@/db/client";
-import { annictCharacters } from "@/db/schema";
+import { annictCharacters, annictWorks } from "@/db/schema";
 import { works } from "@/features/works";
 import { currentAnnictSeason } from "@/lib/annict/client";
 import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
@@ -570,6 +570,57 @@ describe("作品検索 API", () => {
         where: (t, { eq }) => eq(t.annictWorkId, 901),
       });
       expect(row?.title).toBe("通常画像の作品");
+    });
+
+    it("GET /works/search: キャッシュ済みで内容が同じ作品は書き直さない", async () => {
+      // シーズン一覧は数百件を返すため、毎回全件 upsert すると D1 の書き込み
+      // 行数を圧迫する。変化のない作品は updated_at も含めて触らない。
+      const old = new Date("2026-01-01T00:00:00Z");
+      await createDb(env.DB)
+        .insert(annictWorks)
+        .values([
+          {
+            annictWorkId: 960,
+            nodeId: "node-960",
+            malAnimeId: 555,
+            title: "作品960",
+            imageUrl: "https://example.com/960.jpg",
+            updatedAt: old,
+          },
+          {
+            annictWorkId: 961,
+            nodeId: "node-961",
+            title: "旧タイトル",
+            imageUrl: "https://example.com/961.jpg",
+            updatedAt: old,
+          },
+        ]);
+      mockSearchWorks([
+        {
+          annictId: 960,
+          malAnimeId: "555",
+          recommendedImageUrl: "https://example.com/960.jpg",
+        },
+        { annictId: 961, recommendedImageUrl: "https://example.com/961.jpg" },
+      ]);
+      const app = buildApp();
+
+      const res = await app.request(
+        "/works/search?title=作品",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const rows = await createDb(env.DB).query.annictWorks.findMany({
+        where: (t, { inArray }) => inArray(t.annictWorkId, [960, 961]),
+      });
+      const byId = new Map(rows.map((r) => [r.annictWorkId, r]));
+      // 同じ内容 → 書き込みなし
+      expect(byId.get(960)?.updatedAt.getTime()).toBe(old.getTime());
+      // タイトルが変わった → 書き込む
+      expect(byId.get(961)?.title).toBe("作品961");
+      expect(byId.get(961)?.updatedAt.getTime()).toBeGreaterThan(old.getTime());
     });
 
     it("GET /works/search: hostedImageUrl は作品画像プロキシの URL を返す", async () => {
