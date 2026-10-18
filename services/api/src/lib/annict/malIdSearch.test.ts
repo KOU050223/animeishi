@@ -206,6 +206,24 @@ describe("searchMalIdsByTitle", () => {
     ).toBeNull();
   });
 
+  it("本文が null・配列など検索レスポンスとして扱えない形なら検索失敗（null）", async () => {
+    for (const body of ["null", "[]", '"oops"']) {
+      const fetchImpl = vi.fn(
+        async () =>
+          new Response(body, {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      );
+      expect(
+        await searchMalIdsByTitle(
+          [input()],
+          fetchImpl as unknown as typeof fetch,
+        ),
+      ).toBeNull();
+    }
+  });
+
   it("alias の結果が欠けていたら検索失敗（null）として扱う", async () => {
     const fetchImpl = vi.fn(async () => anilistResponse({}));
     expect(

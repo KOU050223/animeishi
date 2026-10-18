@@ -209,6 +209,10 @@ ${aliases
   // GraphQL は HTTP 200 のまま errors（レート制限・複雑度超過など）を返しうる。
   // そのまま集計すると失敗した alias が「0 件ヒット」に見え、7 日間の
   // クールダウンに入ってしまうので、errors・欠けた alias は検索失敗として扱う。
+  // 本文が null・配列・プリミティブなど、検索レスポンスとして扱えない形も失敗扱い。
+  if (json === null || typeof json !== "object" || Array.isArray(json)) {
+    return null;
+  }
   if (json.errors?.length) return null;
   if (aliases.some((a) => !json.data?.[a.name])) return null;
 
