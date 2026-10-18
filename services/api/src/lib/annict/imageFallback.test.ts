@@ -410,4 +410,109 @@ describe("resolveImagesViaKitsu", () => {
 
     expect(res).toEqual([]);
   });
+
+  describe("Kitsu mappings のページング", () => {
+    // 1 ページ分の応答を組み立てる（rows は [malId, kitsuId, poster]）。
+    function page(
+      rows: [number, string, string | null][],
+      next: string | null,
+    ): Response {
+      return new Response(
+        JSON.stringify({
+          data: rows.map(([malId, kitsuId]) => ({
+            attributes: { externalId: String(malId) },
+            relationships: { item: { data: { id: kitsuId, type: "anime" } } },
+          })),
+          included: rows.map(([, kitsuId, poster]) => ({
+            id: kitsuId,
+            type: "anime",
+            attributes: { posterImage: poster ? { large: poster } : null },
+          })),
+          links: next ? { next } : {},
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/vnd.api+json" },
+        },
+      );
+    }
+    const NEXT =
+      "https://kitsu.io/api/edge/mappings?filter%5BexternalId%5D=1%2C2&page%5Boffset%5D=20";
+
+    it("1 つの MAL ID に複数行あって後続 ID が次ページに回っても、links.next を追って回収する", async () => {
+      const fetchImpl = vi.fn(async (input: string) =>
+        input === NEXT
+          ? page([[2, "k2", "https://media.kitsu.app/2.jpg"]], null)
+          : page(
+              [
+                [1, "k1a", "https://media.kitsu.app/1a.jpg"],
+                [1, "k1b", "https://media.kitsu.app/1b.jpg"],
+              ],
+              NEXT,
+            ),
+      );
+
+      const res = await resolveImagesViaKitsu(
+        [
+          { annictWorkId: 100, malAnimeId: 1 },
+          { annictWorkId: 200, malAnimeId: 2 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(res.map((r) => [r.annictWorkId, r.resolvedImageUrl])).toEqual([
+        [100, "https://media.kitsu.app/1a.jpg"],
+        [200, "https://media.kitsu.app/2.jpg"],
+      ]);
+    });
+
+    it("全 ID が解決済みなら次ページは取りに行かない", async () => {
+      const fetchImpl = vi.fn(async () =>
+        page([[1, "k1", "https://media.kitsu.app/1.jpg"]], NEXT),
+      );
+
+      await resolveImagesViaKitsu(
+        [{ annictWorkId: 100, malAnimeId: 1 }],
+        fetchImpl as unknown as typeof fetch,
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("Kitsu の mappings 以外を指す links.next は追わない", async () => {
+      const fetchImpl = vi.fn(async () =>
+        page(
+          [[1, "k1", "https://media.kitsu.app/1.jpg"]],
+          "https://evil.example.com/api/edge/mappings?page%5Boffset%5D=20",
+        ),
+      );
+
+      await resolveImagesViaKitsu(
+        [
+          { annictWorkId: 100, malAnimeId: 1 },
+          { annictWorkId: 200, malAnimeId: 2 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("ページ数には上限がある（未解決の ID が残っても 3 ページで打ち切る）", async () => {
+      const fetchImpl = vi.fn(async () =>
+        page([[1, "k1", "https://media.kitsu.app/1.jpg"]], NEXT),
+      );
+
+      await resolveImagesViaKitsu(
+        [
+          { annictWorkId: 100, malAnimeId: 1 },
+          { annictWorkId: 200, malAnimeId: 2 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+  });
 });

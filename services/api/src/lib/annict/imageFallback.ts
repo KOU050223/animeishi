@@ -79,6 +79,9 @@ export type ImageFallbackResult = {
 // Kitsu の mappings で、1 リクエストに詰め込む最大件数。
 // JSON:API の page[limit] の上限が 20 なので、それに合わせる。
 const KITSU_BATCH_SIZE = 20;
+// 1 バッチで追う mappings のページ数の上限。重複行は稀なので通常は 1 ページで
+// 済み、追加ページが要るのは重複が多いときだけ。
+const KITSU_MAX_PAGES = 3;
 
 // Kitsu / Jikan への 1 リクエストのタイムアウト。read-through 全体を止めないよう
 // 短めに設定する（waitUntil の裏で回るとはいえ、Workers の CPU budget に響く）。
@@ -258,67 +261,99 @@ async function fetchKitsuBatch(
 ): Promise<[number, string][]> {
   if (malIds.length === 0) return [];
 
-  const url = new URL(KITSU_MAPPINGS_ENDPOINT);
-  url.searchParams.set("filter[externalSite]", "myanimelist/anime");
-  url.searchParams.set("filter[externalId]", malIds.join(","));
-  url.searchParams.set("include", "item");
-  url.searchParams.set("fields[anime]", "posterImage");
-  url.searchParams.set("page[limit]", String(KITSU_BATCH_SIZE));
-
-  const res = await safeFetch(
-    fetchImpl,
-    url.toString(),
-    { headers: { Accept: "application/vnd.api+json" } },
-    REMOTE_FETCH_TIMEOUT_MS,
-  );
-  if (!res || !res.ok) return [];
-
-  let json: {
-    data?: ({
-      attributes?: { externalId?: string | null } | null;
-      relationships?: {
-        item?: { data?: { id?: string; type?: string } | null } | null;
-      } | null;
-    } | null)[];
-    included?: ({
-      id?: string;
-      type?: string;
-      attributes?: {
-        posterImage?: {
-          large?: string | null;
-          original?: string | null;
-          medium?: string | null;
-        } | null;
-      } | null;
-    } | null)[];
-  };
-  try {
-    json = (await res.json()) as typeof json;
-  } catch {
-    return [];
-  }
-
-  const posterByAnimeId = new Map<string, string>();
-  for (const item of json.included ?? []) {
-    if (item?.type !== "anime" || !item.id) continue;
-    const img = item.attributes?.posterImage;
-    const poster = img?.large ?? img?.original ?? img?.medium ?? null;
-    if (poster) posterByAnimeId.set(item.id, poster);
-  }
+  const first = new URL(KITSU_MAPPINGS_ENDPOINT);
+  first.searchParams.set("filter[externalSite]", "myanimelist/anime");
+  first.searchParams.set("filter[externalId]", malIds.join(","));
+  first.searchParams.set("include", "item");
+  first.searchParams.set("fields[anime]", "posterImage");
+  first.searchParams.set("page[limit]", String(KITSU_BATCH_SIZE));
 
   // 問い合わせていない ID が返ってきても採用しない（フィルタの取り違え防止）。
   // 1 つの MAL ID に複数の Kitsu 作品が対応していたら、先に見つかった方を使う。
   const requested = new Set(malIds);
   const out = new Map<number, string>();
-  for (const mapping of json.data ?? []) {
-    const malId = Number(mapping?.attributes?.externalId);
-    if (!requested.has(malId) || out.has(malId)) continue;
-    const item = mapping?.relationships?.item?.data;
-    if (item?.type !== "anime" || !item.id) continue;
-    const poster = posterByAnimeId.get(item.id);
-    if (poster) out.set(malId, poster);
+
+  // mappings の応答は「作品」ではなく「対応表の行」でページングされる。
+  // 1 つの MAL ID に複数行ある作品が混ざると 20 件の問い合わせでも 20 行を
+  // 超え、後続の ID が次ページに回るので links.next を追う。サブリクエスト
+  // 予算を食い潰さないようページ数には上限を設ける。
+  let next: string | null = first.toString();
+  for (let page = 0; next && page < KITSU_MAX_PAGES; page++) {
+    const res = await safeFetch(
+      fetchImpl,
+      next,
+      { headers: { Accept: "application/vnd.api+json" } },
+      REMOTE_FETCH_TIMEOUT_MS,
+    );
+    if (!res || !res.ok) break;
+
+    let json: KitsuMappingsResponse;
+    try {
+      json = (await res.json()) as KitsuMappingsResponse;
+    } catch {
+      break;
+    }
+
+    const posterByAnimeId = new Map<string, string>();
+    for (const item of json.included ?? []) {
+      if (item?.type !== "anime" || !item.id) continue;
+      const img = item.attributes?.posterImage;
+      const poster = img?.large ?? img?.original ?? img?.medium ?? null;
+      if (poster) posterByAnimeId.set(item.id, poster);
+    }
+    for (const mapping of json.data ?? []) {
+      const malId = Number(mapping?.attributes?.externalId);
+      if (!requested.has(malId) || out.has(malId)) continue;
+      const item = mapping?.relationships?.item?.data;
+      if (item?.type !== "anime" || !item.id) continue;
+      const poster = posterByAnimeId.get(item.id);
+      if (poster) out.set(malId, poster);
+    }
+
+    // 全 ID が解決済みなら次ページは不要。links.next は応答由来の URL なので、
+    // Kitsu の mappings エンドポイント以外は追わない。
+    next =
+      out.size < requested.size && isKitsuMappingsPageUrl(json.links?.next)
+        ? (json.links?.next ?? null)
+        : null;
   }
   return [...out];
+}
+
+type KitsuMappingsResponse = {
+  data?: ({
+    attributes?: { externalId?: string | null } | null;
+    relationships?: {
+      item?: { data?: { id?: string; type?: string } | null } | null;
+    } | null;
+  } | null)[];
+  included?: ({
+    id?: string;
+    type?: string;
+    attributes?: {
+      posterImage?: {
+        large?: string | null;
+        original?: string | null;
+        medium?: string | null;
+      } | null;
+    } | null;
+  } | null)[];
+  links?: { next?: string | null } | null;
+};
+
+function isKitsuMappingsPageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const base = new URL(KITSU_MAPPINGS_ENDPOINT);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.host === base.host &&
+      parsed.pathname === base.pathname
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
