@@ -1,7 +1,9 @@
-// Kitsu の mappings API（MAL ID → Kitsu 作品）のモック応答を組み立てるテスト用ヘルパー。
-// 画像フォールバック（lib/annict/imageFallback.ts）の各テストから共有する。
+// Kitsu の JSON:API（mappings / 作品のキャラクター一覧）のモック応答を組み立てる
+// テスト用ヘルパー。画像フォールバック系（lib/annict/*Fallback.ts）の
+// 各テストから共有する。
 
 export const KITSU_MAPPINGS_URL_PREFIX = "https://kitsu.io/api/edge/mappings";
+export const KITSU_ANIME_URL_PREFIX = "https://kitsu.io/api/edge/anime/";
 
 /** fetch の URL が Kitsu の mappings API か。 */
 export function isKitsuMappingsUrl(url: string): boolean {
@@ -57,4 +59,68 @@ export function makeKitsuResponse(
     status: 200,
     headers: { "Content-Type": "application/vnd.api+json" },
   });
+}
+
+/** fetch の URL が Kitsu の作品 characters API（/anime/<id>/characters）か。 */
+export function isKitsuCharactersUrl(url: string): boolean {
+  if (!url.startsWith(KITSU_ANIME_URL_PREFIX)) return false;
+  try {
+    return new URL(url).pathname.endsWith("/characters");
+  } catch {
+    return false;
+  }
+}
+
+type KitsuCharacterEntry = {
+  id: string;
+  canonicalName?: string | null;
+  /** names オブジェクト（en / ja_jp 等の言語キー → 名前）。 */
+  names?: Record<string, string | null> | null;
+  otherNames?: (string | null)[] | null;
+  image?: {
+    large?: string | null;
+    original?: string | null;
+    medium?: string | null;
+    small?: string | null;
+  } | null;
+};
+
+/**
+ * Kitsu の /anime/<id>/characters?include=character の JSON:API 応答を組み立てる。
+ * data は mediaCharacters 行（character 参照）、included に characters を載せる。
+ * next を渡すと links.next にその URL を置く（ページングのテスト用）。
+ */
+export function makeKitsuCharactersResponse(
+  characters: KitsuCharacterEntry[],
+  next: string | null = null,
+): Response {
+  const data = characters.map((c) => ({
+    id: `mc-${c.id}`,
+    type: "mediaCharacters",
+    relationships: {
+      character: { data: { type: "characters", id: c.id } },
+    },
+  }));
+  const included = characters.map((c) => ({
+    id: c.id,
+    type: "characters",
+    attributes: {
+      canonicalName: c.canonicalName ?? null,
+      name: c.canonicalName ?? null,
+      names: c.names ?? null,
+      otherNames: c.otherNames ?? [],
+      image: c.image ?? null,
+    },
+  }));
+  return new Response(
+    JSON.stringify({
+      data,
+      included,
+      links: next ? { next } : {},
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/vnd.api+json" },
+    },
+  );
 }

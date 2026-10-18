@@ -3,7 +3,13 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
-import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
+import {
+  isKitsuCharactersUrl,
+  isKitsuMappingsUrl,
+  kitsuRequestedMalIds,
+  makeKitsuCharactersResponse,
+  makeKitsuResponse,
+} from "@/test-utils/kitsu";
 import { createDb } from "@/db/client";
 import { annictCharacters, annictWorks } from "@/db/schema";
 import { works } from "@/features/works";
@@ -830,7 +836,9 @@ describe("作品検索 API", () => {
 const CHAR_WORK_ID = 2001;
 
 // Annict Work.casts（searchWorks + casts）のモック。
-// キャラクター画像の名寄せ先となる AniList Media.characters も URL で振り分ける。
+// キャラクター画像の名寄せに使う Kitsu（mappings → anime/<id>/characters）も
+// URL で振り分ける。mappings は問い合わせた MAL ID すべてに
+// Kitsu 作品 ID（k<malId>）を返す。
 function mockWorkCasts(
   casts: {
     sortNumber: number;
@@ -845,14 +853,7 @@ function mockWorkCasts(
     annictId?: number;
     malAnimeId?: string | null;
     title?: string | null;
-    anilistNodes?: {
-      name: {
-        full?: string | null;
-        native?: string | null;
-        alternative?: (string | null)[] | null;
-      };
-      image?: { large?: string | null; medium?: string | null } | null;
-    }[];
+    kitsuCharacters?: Parameters<typeof makeKitsuCharactersResponse>[0];
   } = {},
 ): ReturnType<typeof vi.spyOn> {
   const jsonResponse = (data: unknown) =>
@@ -867,12 +868,15 @@ function mockWorkCasts(
         : input instanceof URL
           ? input.href
           : input.url;
-    if (url === "https://graphql.anilist.co") {
-      return jsonResponse({
-        data: {
-          Media: { characters: { nodes: options.anilistNodes ?? [] } },
-        },
-      });
+    if (isKitsuMappingsUrl(url)) {
+      return makeKitsuResponse(
+        Object.fromEntries(
+          kitsuRequestedMalIds(url).map((id) => [`m${id}`, {}]),
+        ),
+      );
+    }
+    if (isKitsuCharactersUrl(url)) {
+      return makeKitsuCharactersResponse(options.kitsuCharacters ?? []);
     }
     return jsonResponse({
       data: {
@@ -938,7 +942,7 @@ describe("キャラクター一覧 API", () => {
     expect(res.status).toBe(401);
   });
 
-  it("GET /works/:id/characters: casts を sortNumber 順に返し、画像は AniList 名寄せで補完する", async () => {
+  it("GET /works/:id/characters: casts を sortNumber 順に返し、画像は Kitsu 名寄せで補完する", async () => {
     mockWorkCasts(
       [
         // あえて順序を崩し、sortNumber で並び直されることを確認する
@@ -952,10 +956,12 @@ describe("キャラクター一覧 API", () => {
         },
       ],
       {
-        anilistNodes: [
+        kitsuCharacters: [
           {
-            name: { native: "キャラA", full: "Chara A" },
-            image: { large: "https://s4.anilist.co/char-a.png" },
+            id: "c1",
+            canonicalName: "Chara A",
+            names: { ja_jp: "キャラA" },
+            image: { large: "https://media.kitsu.app/char-a.png" },
           },
         ],
       },
@@ -986,7 +992,7 @@ describe("キャラクター一覧 API", () => {
     ]);
     // 名寄せできたキャラは画像 URL、できなかったキャラは null
     expect(body.characters[0].imageUrl).toBe(
-      "https://s4.anilist.co/char-a.png",
+      "https://media.kitsu.app/char-a.png",
     );
     expect(body.characters[1].imageUrl).toBeNull();
 
@@ -997,7 +1003,7 @@ describe("キャラクター一覧 API", () => {
       where: (t, { eq }) => eq(t.annictCharacterId, 3001),
     });
     expect(row?.name).toBe("キャラA");
-    expect(row?.imageUrl).toBe("https://s4.anilist.co/char-a.png");
+    expect(row?.imageUrl).toBe("https://media.kitsu.app/char-a.png");
 
     // 作品→キャラクターの所属も annict_work_casts にキャッシュされる
     // （tier 表保存時に「その作品のキャストか」を検証するため）
@@ -1054,7 +1060,7 @@ describe("キャラクター一覧 API", () => {
     expect(res.status).toBe(404);
   });
 
-  it("GET /works/:id/characters: malAnimeId が無ければ AniList を叩かず imageUrl は null", async () => {
+  it("GET /works/:id/characters: malAnimeId が無ければ Kitsu を叩かず imageUrl は null", async () => {
     const fetchMock = mockWorkCasts(
       [
         {
@@ -1077,18 +1083,18 @@ describe("キャラクター一覧 API", () => {
       characters: { imageUrl: string | null }[];
     };
     expect(body.characters[0].imageUrl).toBeNull();
-    // MAL ID が無ければ名寄せできないため AniList には問い合わせない
+    // MAL ID が無ければ名寄せできないため Kitsu には問い合わせない
     expect(
       fetchMock.mock.calls.some((call) => {
         const url =
           typeof call[0] === "string" ? call[0] : (call[0] as Request).url;
-        return url === "https://graphql.anilist.co";
+        return url.startsWith("https://kitsu.io");
       }),
     ).toBe(false);
   });
 
-  it("GET /works/:id/characters: AniList が失敗しても名簿自体は 200 で返す", async () => {
-    // AniList 側だけ落ちる想定。画像は best-effort なので応答を壊さない。
+  it("GET /works/:id/characters: Kitsu が失敗しても名簿自体は 200 で返す", async () => {
+    // Kitsu 側だけ落ちる想定。画像は best-effort なので応答を壊さない。
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url =
         typeof input === "string"
@@ -1096,7 +1102,7 @@ describe("キャラクター一覧 API", () => {
           : input instanceof URL
             ? input.href
             : input.url;
-      if (url === "https://graphql.anilist.co") {
+      if (url.startsWith("https://kitsu.io")) {
         return new Response("server error", { status: 500 });
       }
       return new Response(
@@ -1147,14 +1153,14 @@ describe("キャラクター一覧 API", () => {
     expect(body.characters[0].imageUrl).toBeNull();
   });
 
-  it("GET /works/:id/characters: キャッシュ済みの画像は AniList 再解決を待たずに返す", async () => {
-    // 前回の名寄せで保存された imageUrl があれば、今回 AniList が
+  it("GET /works/:id/characters: キャッシュ済みの画像は Kitsu 再解決を待たずに返す", async () => {
+    // 前回の名寄せで保存された imageUrl があれば、今回 Kitsu が
     // 取れなくてもキャッシュ側を返す（解決失敗で画像が消えない）。
     const db = createDb(env.DB);
     await db.insert(annictCharacters).values({
       annictCharacterId: 3001,
       name: "キャラA",
-      imageUrl: "https://s4.anilist.co/cached.png",
+      imageUrl: "https://media.kitsu.app/cached.png",
       updatedAt: new Date(),
     });
     mockWorkCasts(
@@ -1164,7 +1170,7 @@ describe("キャラクター一覧 API", () => {
           character: { annictId: 3001, name: "キャラA" },
         },
       ],
-      { anilistNodes: [] },
+      { kitsuCharacters: [] },
     );
 
     const app = buildApp();
@@ -1179,12 +1185,98 @@ describe("キャラクター一覧 API", () => {
       characters: { imageUrl: string | null }[];
     };
     expect(body.characters[0].imageUrl).toBe(
-      "https://s4.anilist.co/cached.png",
+      "https://media.kitsu.app/cached.png",
     );
     // キャッシュの画像が upsert で消えていないこと
     const row = await db.query.annictCharacters.findFirst({
       where: (t, { eq }) => eq(t.annictCharacterId, 3001),
     });
-    expect(row?.imageUrl).toBe("https://s4.anilist.co/cached.png");
+    expect(row?.imageUrl).toBe("https://media.kitsu.app/cached.png");
+  });
+
+  it("GET /works/:id/characters: 旧 AniList CDN のキャッシュ画像は Kitsu で取り直す", async () => {
+    // AniList 名寄せ時代に保存された URL は Workers から参照できないため、
+    // キャッシュ済みでも未解決扱いにして Kitsu で再解決する。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://s4.anilist.co/stale.png",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      {
+        kitsuCharacters: [
+          {
+            id: "c1",
+            names: { ja_jp: "キャラA" },
+            image: { large: "https://media.kitsu.app/fresh.png" },
+          },
+        ],
+      },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBe(
+      "https://media.kitsu.app/fresh.png",
+    );
+    // 再解決できた値でキャッシュも置き換わる
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe("https://media.kitsu.app/fresh.png");
+  });
+
+  it("GET /works/:id/characters: 旧 AniList URL の再解決に失敗したら既存値を返す", async () => {
+    // Kitsu で取り直せなかった回でも、既存の URL を消さずに返す。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://s4.anilist.co/stale.png",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      { kitsuCharacters: [] },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBe("https://s4.anilist.co/stale.png");
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe("https://s4.anilist.co/stale.png");
   });
 });

@@ -341,7 +341,7 @@ export function worksRepository(db: DrizzleDb) {
     /**
      * annict_characters をまとめて upsert する。
      * imageUrl は「今回解決できた値があるときだけ」更新する
-     * （AniList 名寄せが取れなかった回で既存の解決済み URL を消さない）。
+     * （Kitsu 名寄せが取れなかった回で既存の解決済み URL を消さない）。
      * nameKana/nameEn も同じ方針で、Annict が一時的に null を返した
      * 取得回で既存の値を消さない（annictWorkConflictSet と同じ温存方針）。
      * 6 カラム × 15 行 = 90 変数で D1 のバインド上限を下回るようチャンクする。
