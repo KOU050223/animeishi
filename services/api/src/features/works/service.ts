@@ -7,7 +7,7 @@ import {
 } from "@/lib/annict/seasonWorksCache";
 import {
   isPlaceholderImageUrl,
-  resolveImagesViaAnilist,
+  resolveImagesViaKitsu,
 } from "@/lib/annict/imageFallback";
 import { workImageUrl } from "@/lib/annict/workImage";
 import type { WorksRepository } from "./repository";
@@ -86,7 +86,7 @@ export type SearchWorkWithResolved = AnnictLibraryEntry & {
 /**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
- * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は、まず AniList
+ * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は、まず Kitsu
  * バッチで同期解決を試みる（issue #108: 非同期解決だけだと初回表示に間に合わない）。
  * 取れなかった分は annict_works に upsert 済みの行として残り、cron が
  * pending 行を拾って Jikan を含めた解決を行う（issue #127: Queue 廃止）。
@@ -203,12 +203,12 @@ export async function attachResolvedImages(
   }
 
   if (fallbackTargets.length > 0) {
-    // 初回表示で大半の画像が出るよう、AniList バッチによる同期解決をここで行う。
+    // 初回表示で大半の画像が出るよう、Kitsu バッチによる同期解決をここで行う。
     // 非同期解決に任せると初回表示までに全件解決が間に合わなかった（issue #108）。
-    // AniList は 50 件/リクエストでまとめて取れるので応答経路に載せても軽い。
+    // Kitsu は 20 件/リクエストでまとめて取れるので応答経路に載せても軽い。
     // 同期解決そのものが失敗しても検索は壊さない — 残りは cron の解決に委ねる。
     try {
-      const resolved = await resolveImagesViaAnilist(fallbackTargets);
+      const resolved = await resolveImagesViaKitsu(fallbackTargets);
       const resolvedById = new Map(resolved.map((r) => [r.annictWorkId, r]));
       const resolvedAt = new Date();
       // 作品行の upsert に失敗したものは update 先の行が無いので除外する。

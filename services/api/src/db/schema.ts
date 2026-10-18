@@ -49,7 +49,7 @@ export const annictWorks = sqliteTable("annict_works", {
   seasonName: text("season_name"), // 例: "2026-spring"
   seasonYear: integer("season_year"),
   imageUrl: text("image_url"),
-  // Annict Work.malAnimeId。外部画像フォールバック（AniList/Jikan）の引き当てキーに使う。
+  // Annict Work.malAnimeId。外部画像フォールバック（Kitsu/Jikan）の引き当てキーに使う。
   malAnimeId: integer("mal_anime_id"),
   // 画像フォールバック解決後に埋まる。空なら imageUrl or プレースホルダー、非空なら
   // これを優先して表示する。imageSource でどの供給元か判別できる。

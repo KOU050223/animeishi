@@ -1,17 +1,22 @@
 // Annict の画像フィールド（image.internalUrl / recommendedImageUrl / SNS 系）が
-// 空 or SNS placeholder に落ちる作品を、malAnimeId 経由で AniList → Jikan の順で補完する。
+// 空 or SNS placeholder に落ちる作品を、malAnimeId 経由で Kitsu → Jikan の順で補完する。
 // 詳細は issue #86。
 //
 // 設計方針:
-//   * AniList を第一候補にする（安定・レート制限に余裕・Page(idMal_in) で 50 件まとめて引ける）。
-//   * AniList で取れなかったものだけを Jikan で個別リトライ（3 req/sec 制限のため）。
+//   * Kitsu を第一候補にする（MAL ID の対応表 mappings を 20 件まとめて引け、
+//     ポスター画像の CDN も Cloudflare Workers から取得できる）。
+//     以前は AniList を使っていたが、AniList は Cloudflare Workers からの
+//     リクエストを API・画像 CDN とも 403（"You have been manually blocked"）で
+//     拒否しており、本番では一度も解決できていなかった。
+//   * Kitsu で取れなかったものだけを Jikan で個別リトライ（3 req/sec 制限のため）。
+//     Jikan も Workers からは 522 になることが多いので、取れたら儲けもの扱い。
 //   * どちらも失敗 or 画像が無ければ 'none' をネガキャッシュ（次回同じ MAL ID を
 //     再問い合わせしない）。
 //   * ネットワーク失敗（fetch reject / 5xx）は throw せず「未解決」として静かに落とす。
 //     lazy resolve は best-effort であり、失敗しても呼び出し元（read-through / 検索）を
 //     壊してはいけない。次回アクセス時にまた挑戦できる。
 
-const ANILIST_ENDPOINT = "https://graphql.anilist.co";
+const KITSU_MAPPINGS_ENDPOINT = "https://kitsu.io/api/edge/mappings";
 const JIKAN_ENDPOINT_BASE = "https://api.jikan.moe/v4/anime";
 
 // Annict の SNS 系画像 URL は「表示できるが実質プレースホルダー」なため、
@@ -54,7 +59,8 @@ export function isSnsImageUrl(url: string): boolean {
 }
 
 /** 画像フォールバックの供給元。annict_works.image_source に保存する値。 */
-export type ImageSource = "anilist" | "jikan" | "none";
+// 'anilist' は AniList を使っていた頃の値（既存行の互換のため残す）。
+export type ImageSource = "kitsu" | "anilist" | "jikan" | "none";
 
 /** 解決対象の 1 件。annictWorkId は D1 更新のキーに使うため必須。 */
 export type ImageFallbackInput = {
@@ -70,11 +76,11 @@ export type ImageFallbackResult = {
   imageSource: ImageSource;
 };
 
-// AniList のクエリで、1 リクエストに詰め込む最大件数。
-// Page.perPage の上限が 50 なので、それに合わせる。
-const ANILIST_BATCH_SIZE = 50;
+// Kitsu の mappings で、1 リクエストに詰め込む最大件数。
+// JSON:API の page[limit] の上限が 20 なので、それに合わせる。
+const KITSU_BATCH_SIZE = 20;
 
-// AniList / Jikan への 1 リクエストのタイムアウト。read-through 全体を止めないよう
+// Kitsu / Jikan への 1 リクエストのタイムアウト。read-through 全体を止めないよう
 // 短めに設定する（waitUntil の裏で回るとはいえ、Workers の CPU budget に響く）。
 const REMOTE_FETCH_TIMEOUT_MS = 6000;
 
@@ -83,7 +89,7 @@ const REMOTE_FETCH_TIMEOUT_MS = 6000;
 const JIKAN_MIN_INTERVAL_MS = 350;
 
 // HTTP-triggered Workers の waitUntil はレスポンス後 30 秒で未完了タスクが
-// キャンセルされる。AniList 1 バッチ + Jikan の最悪タイムアウトを踏んでも
+// キャンセルされる。Kitsu 1 バッチ + Jikan の最悪タイムアウトを踏んでも
 // 30 秒内に収まりやすいよう、1 リクエストで裏解決する件数を小さく保つ。
 export const IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION = 3;
 
@@ -92,7 +98,7 @@ export function limitImageFallbackTargets<T>(targets: T[]): T[] {
 }
 
 /**
- * MAL ID 群に対して AniList → Jikan の順でフォールバック解決する。
+ * MAL ID 群に対して Kitsu → Jikan の順でフォールバック解決する。
  * 入力の順序は保持しない。取れなかったものは imageSource='none' として返す。
  *
  * @param inputs   解決対象の (annictWorkId, malAnimeId) の配列。
@@ -108,14 +114,14 @@ export async function resolveImagesForWorks(
 
   // 供給元別に「解決できた MAL ID → URL」の Map を持つ。両方失敗した MAL ID は
   // どの Map にも入らず、最終的に 'none'（ネガキャッシュ）扱いになる。
-  const anilistHits = await fetchAnilistHits(uniqueMalIds, fetchImpl);
+  const kitsuHits = await fetchKitsuHits(uniqueMalIds, fetchImpl);
   const jikanHits = new Map<number, string>();
 
-  // --- Jikan フォールバック（AniList で取れなかった MAL ID のみ） ---
+  // --- Jikan フォールバック（Kitsu で取れなかった MAL ID のみ） ---
   // 429（Too Many Requests）を返した MAL ID は「未解決・再試行可」なので
   // ネガキャッシュしないよう記録して、最終出力から除外する。
   const jikanRetry = new Set<number>();
-  const remainingMalIds = uniqueMalIds.filter((id) => !anilistHits.has(id));
+  const remainingMalIds = uniqueMalIds.filter((id) => !kitsuHits.has(id));
   let firstJikan = true;
   for (const malId of remainingMalIds) {
     // Jikan 公称 3 req/sec を踏まえて 2 件目以降に最小間隔を挟む。
@@ -134,13 +140,13 @@ export async function resolveImagesForWorks(
   // （ネガキャッシュされないように呼び出し側に見せない）。
   const out: ImageFallbackResult[] = [];
   for (const input of inputs) {
-    const anilist = anilistHits.get(input.malAnimeId);
-    if (anilist) {
+    const kitsu = kitsuHits.get(input.malAnimeId);
+    if (kitsu) {
       out.push({
         annictWorkId: input.annictWorkId,
         malAnimeId: input.malAnimeId,
-        resolvedImageUrl: anilist,
-        imageSource: "anilist",
+        resolvedImageUrl: kitsu,
+        imageSource: "kitsu",
       });
       continue;
     }
@@ -169,25 +175,25 @@ export async function resolveImagesForWorks(
 }
 
 /**
- * AniList のバッチ解決だけを行う軽量版（Jikan フォールバックは実行しない）。
+ * Kitsu のバッチ解決だけを行う軽量版（Jikan フォールバックは実行しない）。
  *
  * /works/search のレスポンス経路で同期的に呼ぶためのもの。非同期解決だけでは
  * 全件の解決に時間がかかり、初回表示では大半の作品がフォールバック表示に
- * なっていた（issue #108）。AniList は 50 件/リクエストの Page(idMal_in) で
+ * なっていた（issue #108）。Kitsu は 20 件/リクエストの mappings で
  * まとめて取れるため、レスポンスを待たせる経路でも許容できるコストで同期
  * 解決できる。直列呼び出しになる Jikan 側は遅いのでここでは叩かず、miss 分は
  * cron の pending 解決に委ねる（issue #127: Queue 廃止）。
  *
- * 返り値は「解決できたものだけ」。AniList miss は結果に含まれない
+ * 返り値は「解決できたものだけ」。Kitsu miss は結果に含まれない
  * （'none' のネガキャッシュはしない — Jikan で取れる可能性が残るため）。
  */
-export async function resolveImagesViaAnilist(
+export async function resolveImagesViaKitsu(
   inputs: ImageFallbackInput[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<ImageFallbackResult[]> {
   if (inputs.length === 0) return [];
 
-  const hits = await fetchAnilistHits(uniqueMalAnimeIds(inputs), fetchImpl);
+  const hits = await fetchKitsuHits(uniqueMalAnimeIds(inputs), fetchImpl);
   return inputs.flatMap((input) => {
     const resolvedImageUrl = hits.get(input.malAnimeId);
     return resolvedImageUrl
@@ -196,14 +202,14 @@ export async function resolveImagesViaAnilist(
             annictWorkId: input.annictWorkId,
             malAnimeId: input.malAnimeId,
             resolvedImageUrl,
-            imageSource: "anilist" as const,
+            imageSource: "kitsu" as const,
           },
         ]
       : [];
   });
 }
 
-/** 入力から AniList 問い合わせ用に dedupe した MAL ID 一覧を作る。 */
+/** 入力から Kitsu 問い合わせ用に dedupe した MAL ID 一覧を作る。 */
 function uniqueMalAnimeIds(inputs: ImageFallbackInput[]): number[] {
   return Array.from(new Set(inputs.map((i) => i.malAnimeId))).filter(
     (id) => Number.isSafeInteger(id) && id > 0,
@@ -211,21 +217,20 @@ function uniqueMalAnimeIds(inputs: ImageFallbackInput[]): number[] {
 }
 
 /**
- * MAL ID 群を AniList の Page(idMal_in) でまとめて解決し、
+ * MAL ID 群を Kitsu の mappings でまとめて解決し、
  * 「解決できた MAL ID → URL」の Map を返す。失敗・miss は Map に入らない。
- * チャンクは並列に投げる（AniList のレート制限は 90 req/min と余裕がある一方、
- * 検索レスポンス経路では直列だとレイテンシに直結するため）。
+ * チャンクは並列に投げる（検索レスポンス経路では直列だとレイテンシに直結するため）。
  */
-async function fetchAnilistHits(
+async function fetchKitsuHits(
   malIds: number[],
   fetchImpl: typeof fetch,
 ): Promise<Map<number, string>> {
   const chunks: number[][] = [];
-  for (let i = 0; i < malIds.length; i += ANILIST_BATCH_SIZE) {
-    chunks.push(malIds.slice(i, i + ANILIST_BATCH_SIZE));
+  for (let i = 0; i < malIds.length; i += KITSU_BATCH_SIZE) {
+    chunks.push(malIds.slice(i, i + KITSU_BATCH_SIZE));
   }
   const results = await Promise.all(
-    chunks.map((chunk) => fetchAnilistBatch(chunk, fetchImpl)),
+    chunks.map((chunk) => fetchKitsuBatch(chunk, fetchImpl)),
   );
 
   const hits = new Map<number, string>();
@@ -242,60 +247,50 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * AniList の Page(idMal_in) で複数 MAL ID をまとめて解決する。
- * 返り値は `[malAnimeId, coverImageUrl]` の配列（取れたものだけ）。
+ * Kitsu の mappings（MAL ID → Kitsu 作品の対応表）で複数 MAL ID をまとめて解決する。
+ * 返り値は `[malAnimeId, posterImageUrl]` の配列（取れたものだけ）。
  * ネットワーク失敗・非 200 応答は空配列で静かに返す。
- *
- * 以前は `m<id>: Media(idMal: <id>)` の alias バッチだったが、AniList は
- * alias のうち 1 件でも見つからないと HTTP 404 を返し、見つかった分も含めて
- * data を全部 null にする。20 件に 1 件でも AniList 未登録の作品が混ざると
- * バッチ全体が空振りし、本番では AniList 由来の解決が 0 件になっていた。
- * Page.media(idMal_in:) は見つからない ID を単に結果から落とすだけなので
- * 部分ヒットが失われない。
+ * 見つからない MAL ID は結果から落ちるだけで、他の ID の解決は失われない。
  */
-async function fetchAnilistBatch(
+async function fetchKitsuBatch(
   malIds: number[],
   fetchImpl: typeof fetch,
 ): Promise<[number, string][]> {
   if (malIds.length === 0) return [];
 
-  const query = `query ($ids: [Int]) {
-  Page(perPage: ${ANILIST_BATCH_SIZE}) {
-    media(idMal_in: $ids, type: ANIME) {
-      idMal
-      coverImage { extraLarge large medium }
-    }
-  }
-}`;
+  const url = new URL(KITSU_MAPPINGS_ENDPOINT);
+  url.searchParams.set("filter[externalSite]", "myanimelist/anime");
+  url.searchParams.set("filter[externalId]", malIds.join(","));
+  url.searchParams.set("include", "item");
+  url.searchParams.set("fields[anime]", "posterImage");
+  url.searchParams.set("page[limit]", String(KITSU_BATCH_SIZE));
 
   const res = await safeFetch(
     fetchImpl,
-    ANILIST_ENDPOINT,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ query, variables: { ids: malIds } }),
-    },
+    url.toString(),
+    { headers: { Accept: "application/vnd.api+json" } },
     REMOTE_FETCH_TIMEOUT_MS,
   );
   if (!res || !res.ok) return [];
 
   let json: {
-    data?: {
-      Page?: {
-        media?: ({
-          idMal?: number | null;
-          coverImage?: {
-            extraLarge?: string | null;
-            large?: string | null;
-            medium?: string | null;
-          } | null;
-        } | null)[];
+    data?: ({
+      attributes?: { externalId?: string | null } | null;
+      relationships?: {
+        item?: { data?: { id?: string; type?: string } | null } | null;
       } | null;
-    };
+    } | null)[];
+    included?: ({
+      id?: string;
+      type?: string;
+      attributes?: {
+        posterImage?: {
+          large?: string | null;
+          original?: string | null;
+          medium?: string | null;
+        } | null;
+      } | null;
+    } | null)[];
   };
   try {
     json = (await res.json()) as typeof json;
@@ -303,17 +298,27 @@ async function fetchAnilistBatch(
     return [];
   }
 
-  // 問い合わせていない ID が返ってきても採用しない（idMal_in の取り違え防止）。
-  const requested = new Set(malIds);
-  const out: [number, string][] = [];
-  for (const node of json.data?.Page?.media ?? []) {
-    const id = node?.idMal;
-    if (id == null || !requested.has(id)) continue;
-    const img = node?.coverImage;
-    const url = img?.extraLarge ?? img?.large ?? img?.medium ?? null;
-    if (url) out.push([id, url]);
+  const posterByAnimeId = new Map<string, string>();
+  for (const item of json.included ?? []) {
+    if (item?.type !== "anime" || !item.id) continue;
+    const img = item.attributes?.posterImage;
+    const poster = img?.large ?? img?.original ?? img?.medium ?? null;
+    if (poster) posterByAnimeId.set(item.id, poster);
   }
-  return out;
+
+  // 問い合わせていない ID が返ってきても採用しない（フィルタの取り違え防止）。
+  // 1 つの MAL ID に複数の Kitsu 作品が対応していたら、先に見つかった方を使う。
+  const requested = new Set(malIds);
+  const out = new Map<number, string>();
+  for (const mapping of json.data ?? []) {
+    const malId = Number(mapping?.attributes?.externalId);
+    if (!requested.has(malId) || out.has(malId)) continue;
+    const item = mapping?.relationships?.item?.data;
+    if (item?.type !== "anime" || !item.id) continue;
+    const poster = posterByAnimeId.get(item.id);
+    if (poster) out.set(malId, poster);
+  }
+  return [...out];
 }
 
 /**

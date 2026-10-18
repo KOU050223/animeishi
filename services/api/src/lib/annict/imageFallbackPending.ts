@@ -22,7 +22,7 @@ export function imageFallbackAttemptStaleBefore(now: Date = new Date()): Date {
 const PENDING_RESOLVE_LIMIT = 40;
 
 /**
- * image_source 未解決の作品を D1 から引いて AniList / Jikan で解決・永続化する。
+ * image_source 未解決の作品を D1 から引いて Kitsu / Jikan で解決・永続化する。
  * cron ハンドラから定期実行される。
  *
  * issue #127 までは Cloudflare Queues にジョブを積んでいたが、「未解決作品の

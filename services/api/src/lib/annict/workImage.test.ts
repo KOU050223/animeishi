@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
 import {
   WORK_IMAGE_FAILURE_COOLDOWN_MS,
@@ -23,16 +24,6 @@ function makeImageResponse(
     headers.set("content-length", String(init.contentLength));
   }
   return new Response(PNG_BYTES, { status: init.status ?? 200, headers });
-}
-
-function makeAnilistResponse(malId: number, cover: string | null): Response {
-  const media = cover
-    ? [{ idMal: malId, coverImage: { extraLarge: cover } }]
-    : [];
-  return new Response(JSON.stringify({ data: { Page: { media } } }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 type Db = Awaited<ReturnType<typeof setupTestDb>>;
@@ -60,10 +51,12 @@ async function getWork(db: Db, annictWorkId = 1) {
 }
 
 // URL ごとの応答を決め打ちする fetch。未定義の URL は 404。
+// Kitsu の mappings はクエリ文字列付きで呼ばれるので、KITSU キーで受ける。
+const KITSU = "kitsu";
 function routeFetch(routes: Record<string, () => Response>) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
-    const route = routes[url];
+    const route = isKitsuMappingsUrl(url) ? routes[KITSU] : routes[url];
     return route ? route() : new Response("not found", { status: 404 });
   });
 }
@@ -217,14 +210,15 @@ describe("serveWorkImage", () => {
     );
   });
 
-  it("候補が全滅で未解決なら AniList を引き直し、その画像を取り込む", async () => {
+  it("候補が全滅で未解決なら Kitsu を引き直し、その画像を取り込む", async () => {
     await insertWork(db, {
       imageUrl: "https://old-official.example.com/og.png",
       malAnimeId: 5114,
     });
     const cover = "https://s4.anilist.co/5114.jpg";
     const fetchImpl = routeFetch({
-      "https://graphql.anilist.co": () => makeAnilistResponse(5114, cover),
+      [KITSU]: () =>
+        makeKitsuResponse({ m5114: { coverImage: { extraLarge: cover } } }),
       [cover]: () => makeImageResponse("image/jpeg"),
     });
 
@@ -235,7 +229,7 @@ describe("serveWorkImage", () => {
     expect(res.status).toBe(200);
     const row = await getWork(db);
     expect(row.resolvedImageUrl).toBe(cover);
-    expect(row.imageSource).toBe("anilist");
+    expect(row.imageSource).toBe("kitsu");
     expect(row.imageR2Key).toBe(workImageKey(1, cover, "jpg"));
   });
 
