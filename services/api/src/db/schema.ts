@@ -223,7 +223,7 @@ export const tierListItems = sqliteTable(
 
 // ---- annict_characters (Annict キャラクターキャッシュ) ----
 // Annict GraphQL の Character 型は画像フィールドを持たないため、image_url は
-// AniList からの名寄せ結果（見つからなければ null）。works と同じく
+// Kitsu からの名寄せ結果（見つからなければ null）。works と同じく
 // read-through で upsert する共有カタログとして扱い、ユーザー行の削除時は
 // 触らない（tier 表アイテムの FK 先として残す）。
 export const annictCharacters = sqliteTable("annict_characters", {
@@ -231,7 +231,7 @@ export const annictCharacters = sqliteTable("annict_characters", {
   name: text("name").notNull(),
   nameKana: text("name_kana"),
   nameEn: text("name_en"),
-  // AniList Media.characters から名前正規化マッチで解決した画像 URL。
+  // Kitsu のキャラクター一覧から名前正規化マッチで解決した画像 URL。
   // null は未解決（表示側はフォールバック表示にする）。
   imageUrl: text("image_url"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),

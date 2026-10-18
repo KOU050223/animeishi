@@ -13,7 +13,7 @@ import {
 } from "@/lib/annict/client";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
-  fetchAnilistCharacters,
+  fetchKitsuCharacters,
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
 import { worksRepository } from "./repository";
@@ -81,8 +81,9 @@ const works = new Hono<AuthVariables>()
   )
   // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。
   // Annict GraphQL の Character 型は画像を持たないため、キャラクター画像は
-  // work.malAnimeId 経由で AniList Media.characters を取り、正規化名の
-  // 名寄せで補完する（characterImageFallback.ts）。取れないキャラは
+  // work.malAnimeId 経由で Kitsu のキャラクター一覧を取り、正規化名の
+  // 名寄せで補完する（characterImageFallback.ts。AniList は Workers から
+  // 403 になるため #227 で Kitsu に切り替え）。取れないキャラは
   // imageUrl: null で返す（best-effort で応答自体は壊さない）。
   .get(
     "/:annictWorkId/characters",
@@ -131,7 +132,7 @@ const works = new Hono<AuthVariables>()
         }
       }
 
-      // 既存キャッシュの imageUrl を拾い、未取得分だけ AniList 名寄せで補完する。
+      // 既存キャッシュの imageUrl を拾い、未取得分だけ Kitsu 名寄せで補完する。
       const cachedCharacters = await repo.getAnnictCharactersByIds(
         characters.map((ch) => ch.annictCharacterId),
       );
@@ -141,7 +142,7 @@ const works = new Hono<AuthVariables>()
           .map((ch) => [ch.annictCharacterId, ch.imageUrl as string]),
       );
 
-      // 全キャラクターの画像がキャッシュ済みなら AniList を呼ばない
+      // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
       // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
       const resolvedImages = new Map<number, string>();
       const hasUnresolved = characters.some(
@@ -149,12 +150,10 @@ const works = new Hono<AuthVariables>()
       );
       if (work.malAnimeId != null && hasUnresolved) {
         try {
-          const anilistCharacters = await fetchAnilistCharacters(
-            work.malAnimeId,
-          );
+          const kitsuCharacters = await fetchKitsuCharacters(work.malAnimeId);
           for (const [id, url] of matchCharacterImages(
             characters,
-            anilistCharacters,
+            kitsuCharacters,
           )) {
             resolvedImages.set(id, url);
           }

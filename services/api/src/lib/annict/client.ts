@@ -636,7 +636,7 @@ export async function searchAnnictWorksBySeason(
 // --- work.casts（作品に紐づくキャラクター一覧） ---
 //
 // Annict GraphQL の Character 型は画像フィールドを持たない（issue #169 調査）。
-// キャラクター画像はここでは取らず、呼び出し側で AniList 等の別ソースから
+// キャラクター画像はここでは取らず、呼び出し側で Kitsu 等の別ソースから
 // 名寄せして補完する。
 
 // 1 作品から取るキャストの上限。SORT_NUMBER 順なので主要キャラが先に来る。

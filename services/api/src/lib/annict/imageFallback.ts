@@ -259,7 +259,50 @@ async function fetchKitsuBatch(
   malIds: number[],
   fetchImpl: typeof fetch,
 ): Promise<[number, string][]> {
-  if (malIds.length === 0) return [];
+  // ポスター画像のある行だけを採用する。無い行は採用しないので、
+  // 同一 MAL ID の重複行が次ページにあればそちらが拾える。
+  const entries = await fetchKitsuMappingEntries(
+    malIds,
+    fetchImpl,
+    (entry) => entry.posterUrl !== null,
+  );
+  return [...entries].flatMap(([malId, entry]) =>
+    entry.posterUrl ? [[malId, entry.posterUrl] as [number, string]] : [],
+  );
+}
+
+/**
+ * MAL ID → Kitsu 作品 ID を mappings で解決する。
+ * キャラクター画像の名寄せ（characterImageFallback）のように、ポスター画像では
+ * なく Kitsu 側のリソース ID そのものが要る用途向け（issue #227）。
+ * 取れたものだけを返し、ネットワーク失敗・非 200 応答は空の結果で静かに返す。
+ */
+export async function fetchKitsuAnimeIds(
+  malIds: number[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<Map<number, string>> {
+  const entries = await fetchKitsuMappingEntries(malIds, fetchImpl, () => true);
+  return new Map([...entries].map(([malId, entry]) => [malId, entry.animeId]));
+}
+
+/** mappings の 1 行から拾う解決結果。 */
+type KitsuMappingEntry = {
+  animeId: string;
+  posterUrl: string | null;
+};
+
+/**
+ * Kitsu の mappings をページングしながら解決し、MAL ID → 解決結果の Map を返す。
+ * accept が false の行は採用しない（= 同一 MAL ID の後続行で解決できる可能性を残す）。
+ * 採用された行が全 MAL ID 分揃った時点で打ち切る。
+ */
+async function fetchKitsuMappingEntries(
+  malIds: number[],
+  fetchImpl: typeof fetch,
+  accept: (entry: KitsuMappingEntry) => boolean,
+): Promise<Map<number, KitsuMappingEntry>> {
+  const out = new Map<number, KitsuMappingEntry>();
+  if (malIds.length === 0) return out;
 
   const first = new URL(KITSU_MAPPINGS_ENDPOINT);
   first.searchParams.set("filter[externalSite]", "myanimelist/anime");
@@ -271,7 +314,6 @@ async function fetchKitsuBatch(
   // 問い合わせていない ID が返ってきても採用しない（フィルタの取り違え防止）。
   // 1 つの MAL ID に複数の Kitsu 作品が対応していたら、先に見つかった方を使う。
   const requested = new Set(malIds);
-  const out = new Map<number, string>();
 
   // mappings の応答は「作品」ではなく「対応表の行」でページングされる。
   // 1 つの MAL ID に複数行ある作品が混ざると 20 件の問い合わせでも 20 行を
@@ -306,8 +348,11 @@ async function fetchKitsuBatch(
       if (!requested.has(malId) || out.has(malId)) continue;
       const item = mapping?.relationships?.item?.data;
       if (item?.type !== "anime" || !item.id) continue;
-      const poster = posterByAnimeId.get(item.id);
-      if (poster) out.set(malId, poster);
+      const entry: KitsuMappingEntry = {
+        animeId: item.id,
+        posterUrl: posterByAnimeId.get(item.id) ?? null,
+      };
+      if (accept(entry)) out.set(malId, entry);
     }
 
     // 全 ID が解決済みなら次ページは不要。links.next は応答由来の URL なので、
@@ -317,7 +362,7 @@ async function fetchKitsuBatch(
         ? (json.links?.next ?? null)
         : null;
   }
-  return [...out];
+  return out;
 }
 
 type KitsuMappingsResponse = {

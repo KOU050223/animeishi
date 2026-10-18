@@ -1,110 +1,183 @@
 // キャラクター画像のフォールバック解決（issue #169）。
 //
 // Annict GraphQL の Character 型は画像フィールドを持たないため、作品の
-// malAnimeId 経由で AniList の Media.characters を取り、キャラクター名の
+// malAnimeId 経由で Kitsu のキャラクター一覧を取り、キャラクター名の
 // 正規化マッチで Annict キャラクターに画像を名寄せする。
+//
+// 以前は AniList の Media(idMal).characters を使っていたが、AniList は
+// Cloudflare Workers からのリクエストを API・画像 CDN とも 403
+// （"You have been manually blocked"）で拒否するため、作品画像と同じく
+// Kitsu に切り替えた（issue #227。作品画像側は #226 で切り替え済み）。
 //
 // 設計方針:
 //   * 名寄せは「正規化した名前の一致」のみ。編集距離等のファジー一致は
 //     誤マッチで別キャラの顔が出る方が悪いため採用しない。
-//   * 正規化名が衝突した（=一意に決まらない）AniList キャラは除外する。
+//   * 正規化名が衝突した（=一意に決まらない）Kitsu キャラは除外する。
 //   * マッチしなければ画像なし（null）で返す — best-effort であり、
 //     呼び出し元のレスポンス自体は壊さない。
 
 import type { AnnictCharacterSummary } from "./client";
+import { fetchKitsuAnimeIds } from "./imageFallback";
 
-const ANILIST_ENDPOINT = "https://graphql.anilist.co";
+const KITSU_CHARACTERS_ENDPOINT_BASE = "https://kitsu.io/api/edge/anime";
 const REMOTE_FETCH_TIMEOUT_MS = 6000;
 
-/** AniList キャラクター 1 件（名寄せに必要な名前候補と画像のみ）。 */
-export type AnilistCharacter = {
-  /** 照合に使う名前候補（native=日本語名、full=英語名、alternative=別名）。 */
+// Kitsu のキャラクター一覧は JSON:API のページングで返る（page[limit] の
+// 上限は 20）。キャラの多い作品でもサブリクエストを食い潰さないよう
+// ページ数に上限を設ける。sort=role で main が先に来るため、上限で
+// 打ち切られても主要キャラは取りこぼしにくい。
+const KITSU_CHARACTERS_PAGE_LIMIT = 20;
+const KITSU_CHARACTERS_MAX_PAGES = 5;
+
+/** Kitsu キャラクター 1 件（名寄せに必要な名前候補と画像のみ）。 */
+export type KitsuCharacter = {
+  /** 照合に使う名前候補（canonicalName、names.ja_jp/en、otherNames 等）。 */
   names: string[];
   imageUrl: string | null;
 };
 
-const ANILIST_CHARACTERS_QUERY = `
-query MediaCharacters($idMal: Int) {
-  Media(idMal: $idMal, type: ANIME) {
-    characters(perPage: 50, sort: [ROLE, RELEVANCE, ID]) {
-      nodes {
-        name { full native alternative }
-        image { large medium }
-      }
-    }
-  }
-}`;
-
-type AnilistCharactersResponse = {
-  data?: {
-    Media?: {
-      characters?: {
-        nodes?: ({
-          name?: {
-            full?: string | null;
-            native?: string | null;
-            alternative?: (string | null)[] | null;
-          } | null;
-          image?: {
-            large?: string | null;
-            medium?: string | null;
-          } | null;
-        } | null)[];
+type KitsuMediaCharactersResponse = {
+  data?: ({
+    relationships?: {
+      character?: { data?: { id?: string; type?: string } | null } | null;
+    } | null;
+  } | null)[];
+  included?: ({
+    id?: string;
+    type?: string;
+    attributes?: {
+      canonicalName?: string | null;
+      name?: string | null;
+      names?: Record<string, string | null> | null;
+      otherNames?: (string | null)[] | null;
+      image?: {
+        large?: string | null;
+        original?: string | null;
+        medium?: string | null;
+        small?: string | null;
       } | null;
     } | null;
-  };
+  } | null)[];
+  links?: { next?: string | null } | null;
 };
 
 /**
- * 作品（MAL ID）に紐づく AniList キャラクター一覧を取得する。
- * 名寄せ用途なので role は見ず、主要・準レギュラーを含めた 50 件まで取る。
- * 失敗（ネットワーク・非 2xx・JSON 異常・Media 不在）は空配列を返す
+ * 作品（MAL ID）に紐づく Kitsu キャラクター一覧を取得する。
+ * MAL ID → Kitsu 作品 ID は mappings で引き（imageFallback.ts と同じ
+ * 対応表）、作品の characters エンドポイントを links.next でページングする。
+ * 失敗（ネットワーク・非 2xx・JSON 異常・対応表や作品不在）は空配列を返す
  * （画像補完は best-effort であり、キャラ一覧の応答自体は壊さないため）。
  */
-export async function fetchAnilistCharacters(
+export async function fetchKitsuCharacters(
   malAnimeId: number,
   fetchImpl: typeof fetch = fetch,
-): Promise<AnilistCharacter[]> {
-  let res: Response;
-  try {
-    res = await fetchImpl(ANILIST_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        query: ANILIST_CHARACTERS_QUERY,
-        variables: { idMal: malAnimeId },
-      }),
-      signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    return [];
-  }
-  if (!res.ok) return [];
+): Promise<KitsuCharacter[]> {
+  const animeIds = await fetchKitsuAnimeIds([malAnimeId], fetchImpl);
+  const kitsuAnimeId = animeIds.get(malAnimeId);
+  if (!kitsuAnimeId) return [];
 
-  let json: AnilistCharactersResponse;
-  try {
-    json = (await res.json()) as AnilistCharactersResponse;
-  } catch {
-    return [];
-  }
+  const first = new URL(
+    `${KITSU_CHARACTERS_ENDPOINT_BASE}/${kitsuAnimeId}/characters`,
+  );
+  first.searchParams.set("include", "character");
+  // main が supporting より先に来るよう role でソートする。
+  first.searchParams.set("sort", "role");
+  first.searchParams.set("page[limit]", String(KITSU_CHARACTERS_PAGE_LIMIT));
+  // mediaCharacters 行は character 参照だけ、characters 側は名寄せに使う
+  // 名前候補と画像だけを取る（description 等の大きいフィールドを落とす）。
+  first.searchParams.set("fields[mediaCharacters]", "character");
+  first.searchParams.set(
+    "fields[characters]",
+    "canonicalName,names,otherNames,name,image",
+  );
 
-  return (json.data?.Media?.characters?.nodes ?? []).flatMap((node) => {
-    if (!node) return [];
-    const names = [
-      node.name?.native,
-      node.name?.full,
-      ...(node.name?.alternative ?? []),
-    ].filter((n): n is string => !!n);
-    return [
-      {
+  const out = new Map<string, KitsuCharacter>();
+  let next: string | null = first.toString();
+  for (let page = 0; next && page < KITSU_CHARACTERS_MAX_PAGES; page++) {
+    const res = await safeFetch(
+      fetchImpl,
+      next,
+      { headers: { Accept: "application/vnd.api+json" } },
+      REMOTE_FETCH_TIMEOUT_MS,
+    );
+    if (!res || !res.ok) break;
+
+    let json: KitsuMediaCharactersResponse;
+    try {
+      json = (await res.json()) as KitsuMediaCharactersResponse;
+    } catch {
+      break;
+    }
+
+    // included の characters を ID で引けるようにし、mediaCharacters 行が
+    // 参照するものだけを採用する（その作品のキャスト以外を混ぜない）。
+    const characterById = new Map<string, KitsuCharacter>();
+    for (const item of json.included ?? []) {
+      if (item?.type !== "characters" || !item.id) continue;
+      const attr = item.attributes;
+      const names = [
+        attr?.canonicalName,
+        attr?.name,
+        ...Object.values(attr?.names ?? {}),
+        ...(attr?.otherNames ?? []),
+      ].filter((n): n is string => !!n);
+      const img = attr?.image;
+      characterById.set(item.id, {
         names,
-        imageUrl: node.image?.large ?? node.image?.medium ?? null,
-      },
-    ];
-  });
+        imageUrl:
+          img?.large ?? img?.original ?? img?.medium ?? img?.small ?? null,
+      });
+    }
+    for (const row of json.data ?? []) {
+      const ref = row?.relationships?.character?.data;
+      if (ref?.type !== "characters" || !ref.id) continue;
+      const character = characterById.get(ref.id);
+      if (character && !out.has(ref.id)) out.set(ref.id, character);
+    }
+
+    // links.next は応答由来の URL なので、この作品の characters
+    // エンドポイント以外は追わない。
+    next = isKitsuCharactersPageUrl(json.links?.next, kitsuAnimeId)
+      ? (json.links?.next ?? null)
+      : null;
+  }
+  return [...out.values()];
+}
+
+function isKitsuCharactersPageUrl(
+  url: string | null | undefined,
+  kitsuAnimeId: string,
+): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const base = new URL(KITSU_CHARACTERS_ENDPOINT_BASE);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.host === base.host &&
+      parsed.pathname === `${base.pathname}/${kitsuAnimeId}/characters`
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** タイムアウト・ネットワーク失敗を吸収する fetch ラッパ。失敗時は null を返す。 */
+async function safeFetch(
+  fetchImpl: typeof fetch,
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(input, { ...init, signal: controller.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -139,28 +212,28 @@ function nameCandidates(rawNames: string[]): string[] {
 }
 
 /**
- * Annict キャラクター一覧に AniList の画像を名寄せする。
+ * Annict キャラクター一覧に Kitsu の画像を名寄せする。
  * 戻り値は「annictCharacterId → imageUrl」（マッチしたものだけ）。
  *
  * 誤マッチ防止のため一意に決まる組だけ採用する:
- * - AniList 側で正規化名が複数キャラに重複したキーは除外
- * - 同じ AniList キャラに複数の Annict キャラがマッチした場合も除外
+ * - Kitsu 側で正規化名が複数キャラに重複したキーは除外
+ * - 同じ Kitsu キャラに複数の Annict キャラがマッチした場合も除外
  */
 export function matchCharacterImages(
   annictCharacters: Pick<
     AnnictCharacterSummary,
     "annictCharacterId" | "name" | "nameKana" | "nameEn"
   >[],
-  anilistCharacters: AnilistCharacter[],
+  kitsuCharacters: KitsuCharacter[],
 ): Map<number, string> {
   // Annict のレスポンス型は nameKana/nameEn を非 null と宣言しているが、
   // 実データで null が来ても正規化で落ちないよう文字列だけを候補にする。
   const toKeys = (names: (string | null | undefined)[]) =>
     nameCandidates(names.filter((n): n is string => typeof n === "string"));
-  // 正規化名 → AniList キャラの索引。同名キャラが複数いるキーは
+  // 正規化名 → Kitsu キャラの索引。同名キャラが複数いるキーは
   // 一意に決められないので除外する。
-  const byName = new Map<string, AnilistCharacter | "ambiguous">();
-  for (const c of anilistCharacters) {
+  const byName = new Map<string, KitsuCharacter | "ambiguous">();
+  for (const c of kitsuCharacters) {
     for (const key of nameCandidates(c.names)) {
       const prev = byName.get(key);
       if (prev === undefined) {
@@ -171,7 +244,7 @@ export function matchCharacterImages(
     }
   }
 
-  const matched = new Map<number, AnilistCharacter>();
+  const matched = new Map<number, KitsuCharacter>();
   for (const ch of annictCharacters) {
     const keys = toKeys([ch.name, ch.nameKana, ch.nameEn]);
     for (const key of keys) {
@@ -183,16 +256,16 @@ export function matchCharacterImages(
     }
   }
 
-  // 1 人の AniList キャラが複数の Annict キャラに割り当たる場合は
+  // 1 人の Kitsu キャラが複数の Annict キャラに割り当たる場合は
   // どちらかが誤マッチなので両方とも採用しない。
-  const anilistUseCount = new Map<AnilistCharacter, number>();
+  const kitsuUseCount = new Map<KitsuCharacter, number>();
   for (const c of matched.values()) {
-    anilistUseCount.set(c, (anilistUseCount.get(c) ?? 0) + 1);
+    kitsuUseCount.set(c, (kitsuUseCount.get(c) ?? 0) + 1);
   }
 
   const out = new Map<number, string>();
   for (const [annictCharacterId, c] of matched) {
-    if ((anilistUseCount.get(c) ?? 0) > 1) continue;
+    if ((kitsuUseCount.get(c) ?? 0) > 1) continue;
     if (c.imageUrl) out.set(annictCharacterId, c.imageUrl);
   }
   return out;
