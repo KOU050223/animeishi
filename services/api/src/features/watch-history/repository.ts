@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { watchHistory, annictWorks } from "@/db/schema";
@@ -144,14 +144,28 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
     }
     for (let i = 0; i < toInsert.length; i += WATCH_INSERT_CHUNK) {
       queries.push(
-        db.insert(watchHistory).values(
-          toInsert.slice(i, i + WATCH_INSERT_CHUNK).map((e) => ({
-            userId: currentUserId,
-            annictWorkId: e.annictWorkId,
-            state: e.state,
-            updatedAt: now,
-          })),
-        ),
+        db
+          .insert(watchHistory)
+          .values(
+            toInsert.slice(i, i + WATCH_INSERT_CHUNK).map((e) => ({
+              userId: currentUserId,
+              annictWorkId: e.annictWorkId,
+              state: e.state,
+              updatedAt: now,
+            })),
+          )
+          // 並行する同期が先に同じ行を insert していても一意制約で
+          // 失敗しないよう、競合時は upsert に倒す。state が同じなら
+          // setWhere で更新自体をスキップして既存の updated_at を
+          // 保持し、異なるときだけ state / updated_at を反映する。
+          .onConflictDoUpdate({
+            target: [watchHistory.userId, watchHistory.annictWorkId],
+            set: {
+              state: sql`excluded.state`,
+              updatedAt: sql`excluded.updated_at`,
+            },
+            setWhere: sql`${watchHistory.state} is not excluded.state`,
+          }),
       );
     }
     // statement 数が WRITE_BATCH を超えるほど差分が大きいときは batch を
