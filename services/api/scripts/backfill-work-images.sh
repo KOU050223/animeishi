@@ -65,7 +65,7 @@ fi
 # image_r2_attempted_at は drizzle の timestamp モード（UNIX 秒）で保存されている。
 COOLDOWN_SECONDS=$((6 * 60 * 60))
 
-echo "対象を取得中（$DB_NAME / --env $ENV）..." >&2
+echo "対象を取得中（${DB_NAME} / --env ${ENV}）..." >&2
 IDS=$(
   pnpm exec wrangler d1 execute "$DB_NAME" --remote --env "$ENV" --json \
     --command "SELECT annict_work_id FROM annict_works WHERE image_r2_key IS NULL AND (image_r2_attempted_at IS NULL OR image_r2_attempted_at < strftime('%s', 'now') - $COOLDOWN_SECONDS) ORDER BY annict_work_id $LIMIT_CLAUSE" |
