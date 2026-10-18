@@ -27,7 +27,7 @@ export type AnnictWorkMeta = {
   seasonYear: number | null;
   // Annict 由来の画像 URL（fallback を掛ける前のもの）。互換のため残す。
   imageUrl: string | null;
-  // AniList / Jikan で補完済みの URL があればこちら。無ければ null。
+  // Kitsu / Jikan で補完済みの URL があればこちら。無ければ null。
   // クライアントは resolvedImageUrl ?? imageUrl の順で表示する。
   resolvedImageUrl: string | null;
   // 'annict' | 'anilist' | 'jikan' | 'none' | null。運用調査用に露出する。
@@ -184,7 +184,7 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     /**
-     * updateResolvedImage のバルク版。検索経路の同期 AniList 解決で
+     * updateResolvedImage のバルク版。検索経路の同期 Kitsu 解決で
      * まとまった件数を書き込むときに、行ごとの UPDATE を batch にまとめて
      * 往復回数を抑える。一部の batch が失敗しても他の batch には影響しない。
      */

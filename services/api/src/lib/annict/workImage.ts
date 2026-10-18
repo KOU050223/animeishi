@@ -11,7 +11,7 @@
 //   1. R2 に取り込み済みならそれを返す
 //   2. 無ければ候補 URL（workImageSourceCandidates）を順に fetch し、
 //      最初に画像が返ったものを R2 に保存して返す
-//   3. 全滅したら AniList で補完 URL を引き直して（未解決時のみ）もう一度試す
+//   3. 全滅したら Kitsu で補完 URL を引き直して（未解決時のみ）もう一度試す
 //   4. それでもダメなら 404。試行時刻を立て、クールダウン中は外部を叩かない
 // 季節で対象を絞らないので過去作品も同じ経路で救える。
 //
@@ -29,7 +29,7 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { isSnsImageUrl, resolveImagesViaAnilist } from "./imageFallback";
+import { isSnsImageUrl, resolveImagesViaKitsu } from "./imageFallback";
 
 /** 全候補が失敗した作品で、外部 fetch を再試行するまでの間隔。 */
 export const WORK_IMAGE_FAILURE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -72,7 +72,7 @@ export function workImageSourceCandidates(row: {
   resolvedImageUrl: string | null | undefined;
 }): string[] {
   // 優先順:
-  //   1. resolvedImageUrl（AniList / MAL のポスター。縦長で統一感があり、
+  //   1. resolvedImageUrl（Kitsu / MAL のポスター。縦長で統一感があり、
   //      CDN も安定している。Annict 側が使えないと分かった作品にしか無い）
   //   2. Annict の imageUrl（公式サイトの OG 画像が多く、古い作品はリンク切れが多い）
   //   3. http: の Annict URL を https に上げたもの（公式サイトの多くは https にも
@@ -283,14 +283,14 @@ export async function serveWorkImage(
 
   let hit = await tryCandidates(candidates);
 
-  // --- 3. 全滅なら AniList で補完 URL を引き直す ---
+  // --- 3. 全滅なら Kitsu で補完 URL を引き直す ---
   // Annict の URL が「見た目はまとも・実体は 404」の作品は、検索経路でも cron
   // でも補完対象にならない（placeholder 判定は URL 文字列しか見ない）。
-  // 実際に取れなかったことが分かったここで、未解決なら AniList を 1 回引く。
+  // 実際に取れなかったことが分かったここで、未解決なら Kitsu を 1 回引く。
   // Jikan は遅く（直列・レート制限）画像リクエストの応答を待たせるため、
   // ここでは叩かず cron の補完に任せる。
   if (!hit && row.malAnimeId != null && !row.resolvedImageUrl) {
-    const [resolved] = await resolveImagesViaAnilist(
+    const [resolved] = await resolveImagesViaKitsu(
       [{ annictWorkId, malAnimeId: row.malAnimeId }],
       fetchImpl,
     );

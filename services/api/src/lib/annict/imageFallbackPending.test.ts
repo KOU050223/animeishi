@@ -1,29 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
 import {
   IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS,
   imageFallbackAttemptStaleBefore,
   resolvePendingImageFallbacks,
 } from "@/lib/annict/imageFallbackPending";
-
-// 決めうちの AniList JSON レスポンスを組み立てる。
-function makeAnilistResponse(
-  entries: Record<
-    string,
-    { coverImage?: { extraLarge?: string | null } | null } | null
-  >,
-): Response {
-  // AniList は Page.media(idMal_in:) 形式。null の key は「AniList に無い」。
-  const media = Object.entries(entries).flatMap(([key, node]) =>
-    node ? [{ idMal: Number(key.slice(1)), ...node }] : [],
-  );
-  return new Response(JSON.stringify({ data: { Page: { media } } }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function makeJikanResponse(
   images: {
@@ -63,7 +47,7 @@ describe("resolvePendingImageFallbacks", () => {
     vi.restoreAllMocks();
   });
 
-  it("未解決行を AniList で解決して永続化し、attempted マーカーをクリアする", async () => {
+  it("未解決行を Kitsu で解決して永続化し、attempted マーカーをクリアする", async () => {
     await insertWork(db, {
       annictWorkId: 100,
       malAnimeId: 21,
@@ -72,8 +56,8 @@ describe("resolvePendingImageFallbacks", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async () =>
-        makeAnilistResponse({
-          m21: { coverImage: { extraLarge: "https://s4.anilist.co/21.jpg" } },
+        makeKitsuResponse({
+          m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
         }),
       );
 
@@ -84,12 +68,12 @@ describe("resolvePendingImageFallbacks", () => {
     const row = await db.query.annictWorks.findFirst({
       where: (t, { eq }) => eq(t.annictWorkId, 100),
     });
-    expect(row?.resolvedImageUrl).toBe("https://s4.anilist.co/21.jpg");
-    expect(row?.imageSource).toBe("anilist");
+    expect(row?.resolvedImageUrl).toBe("https://media.kitsu.app/21.jpg");
+    expect(row?.imageSource).toBe("kitsu");
     expect(row?.imageFallbackAttemptedAt).toBeNull();
   });
 
-  it("AniList miss の作品は Jikan で解決する", async () => {
+  it("Kitsu miss の作品は Jikan で解決する", async () => {
     await insertWork(db, {
       annictWorkId: 200,
       malAnimeId: 9999,
@@ -102,8 +86,8 @@ describe("resolvePendingImageFallbacks", () => {
           : input instanceof URL
             ? input.href
             : input.url;
-      if (url === "https://graphql.anilist.co") {
-        return makeAnilistResponse({ m9999: null });
+      if (isKitsuMappingsUrl(url)) {
+        return makeKitsuResponse({ m9999: null });
       }
       return makeJikanResponse({
         jpg: { large_image_url: "https://cdn.myanimelist.net/9999.jpg" },
@@ -126,7 +110,7 @@ describe("resolvePendingImageFallbacks", () => {
       malAnimeId: 8888,
       imageUrl: null,
     });
-    // AniList miss + Jikan 429 → 結果なし（pending のまま残る）
+    // Kitsu miss + Jikan 429 → 結果なし（pending のまま残る）
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async (input) => {
@@ -136,8 +120,8 @@ describe("resolvePendingImageFallbacks", () => {
             : input instanceof URL
               ? input.href
               : input.url;
-        if (url === "https://graphql.anilist.co") {
-          return makeAnilistResponse({ m8888: null });
+        if (isKitsuMappingsUrl(url)) {
+          return makeKitsuResponse({ m8888: null });
         }
         return new Response("Too Many Requests", { status: 429 });
       });
@@ -172,8 +156,8 @@ describe("resolvePendingImageFallbacks", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async () =>
-        makeAnilistResponse({
-          m21: { coverImage: { extraLarge: "https://s4.anilist.co/21.jpg" } },
+        makeKitsuResponse({
+          m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
         }),
       );
 

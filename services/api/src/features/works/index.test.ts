@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
 import { createDb } from "@/db/client";
 import { annictCharacters, annictWorks } from "@/db/schema";
 import { works } from "@/features/works";
@@ -22,8 +23,8 @@ const USER_ID = "user_testworks001";
 
 // Annict searchWorks（global fetch）をモックする。
 // nodes に渡した作品をそのまま searchWorks の結果として返す。
-// /works/search は補完対象の画像を AniList に同期問い合わせするため、
-// URL で振り分けて graphql.anilist.co には anilistData を返す。
+// /works/search は補完対象の画像を Kitsu に同期問い合わせするため、
+// URL で振り分けて Kitsu の mappings には kitsuData（m<malId> キー）を返す。
 // リクエスト body（variables）を検証したいテスト向けに fetch の spy を返す。
 function mockSearchWorks(
   nodes: {
@@ -36,7 +37,7 @@ function mockSearchWorks(
     hasNextPage: false,
     endCursor: null,
   },
-  anilistData: Record<
+  kitsuData: Record<
     string,
     {
       coverImage?: {
@@ -59,12 +60,8 @@ function mockSearchWorks(
         : input instanceof URL
           ? input.href
           : input.url;
-    if (url === "https://graphql.anilist.co") {
-      // AniList は Page.media(idMal_in:) 形式。anilistData の key は `m<malId>`。
-      const media = Object.entries(anilistData).flatMap(([key, node]) =>
-        node ? [{ idMal: Number(key.slice(1)), ...node }] : [],
-      );
-      return jsonResponse({ data: { Page: { media } } });
+    if (isKitsuMappingsUrl(url)) {
+      return makeKitsuResponse(kitsuData);
     }
     return jsonResponse({
       data: {
@@ -452,7 +449,7 @@ describe("作品検索 API", () => {
       expect(body.works).toHaveLength(0);
     });
 
-    it("GET /works/search: AniList で解決できた画像は同期で resolvedImageUrl に載せて返す", async () => {
+    it("GET /works/search: Kitsu で解決できた画像は同期で resolvedImageUrl に載せて返す", async () => {
       mockSearchWorks(
         [
           {
@@ -490,10 +487,10 @@ describe("作品検索 API", () => {
         where: (t, { eq }) => eq(t.annictWorkId, 777),
       });
       expect(row?.resolvedImageUrl).toBe("https://s4.anilist.co/1234.jpg");
-      expect(row?.imageSource).toBe("anilist");
+      expect(row?.imageSource).toBe("kitsu");
     });
 
-    it("GET /works/search: AniList で取れなかった作品は未解決のまま残り cron の解決対象になる", async () => {
+    it("GET /works/search: Kitsu で取れなかった作品は未解決のまま残り cron の解決対象になる", async () => {
       mockSearchWorks(
         [
           {
@@ -504,7 +501,7 @@ describe("作品検索 API", () => {
           },
           {
             annictId: 778,
-            title: "AniList に無い作品",
+            title: "Kitsu に無い作品",
             malAnimeId: "9999",
             recommendedImageUrl: null,
           },
@@ -530,7 +527,7 @@ describe("作品検索 API", () => {
         works: { annictWorkId: number; resolvedImageUrl: string | null }[];
       };
       const byId = new Map(body.works.map((w) => [w.annictWorkId, w]));
-      // AniList ヒットはその場で解決、miss は未解決のまま返す
+      // Kitsu ヒットはその場で解決、miss は未解決のまま返す
       expect(byId.get(777)?.resolvedImageUrl).toBe(
         "https://s4.anilist.co/1234.jpg",
       );
@@ -747,7 +744,7 @@ describe("作品検索 API", () => {
 
     it("GET /works/search: 補完用メタ upsert が失敗しても検索レスポンスは継続する", async () => {
       // title null → annict_works への upsert が notNull 制約で失敗する。
-      // AniList では解決できる作品にして、「同期解決は成功したが永続化できない」
+      // Kitsu では解決できる作品にして、「同期解決は成功したが永続化できない」
       // 経路を検証する。
       mockSearchWorks(
         [
