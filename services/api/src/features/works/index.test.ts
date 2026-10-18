@@ -1193,4 +1193,90 @@ describe("キャラクター一覧 API", () => {
     });
     expect(row?.imageUrl).toBe("https://media.kitsu.app/cached.png");
   });
+
+  it("GET /works/:id/characters: 旧 AniList CDN のキャッシュ画像は Kitsu で取り直す", async () => {
+    // AniList 名寄せ時代に保存された URL は Workers から参照できないため、
+    // キャッシュ済みでも未解決扱いにして Kitsu で再解決する。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://s4.anilist.co/stale.png",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      {
+        kitsuCharacters: [
+          {
+            id: "c1",
+            names: { ja_jp: "キャラA" },
+            image: { large: "https://media.kitsu.app/fresh.png" },
+          },
+        ],
+      },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBe(
+      "https://media.kitsu.app/fresh.png",
+    );
+    // 再解決できた値でキャッシュも置き換わる
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe("https://media.kitsu.app/fresh.png");
+  });
+
+  it("GET /works/:id/characters: 旧 AniList URL の再解決に失敗したら既存値を返す", async () => {
+    // Kitsu で取り直せなかった回でも、既存の URL を消さずに返す。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://s4.anilist.co/stale.png",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      { kitsuCharacters: [] },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0].imageUrl).toBe("https://s4.anilist.co/stale.png");
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe("https://s4.anilist.co/stale.png");
+  });
 });

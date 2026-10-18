@@ -162,6 +162,20 @@ function isKitsuCharactersPageUrl(
   }
 }
 
+// 旧供給元 AniList の画像 CDN のホスト名（s4.anilist.co / img.anili.st）。
+// キャッシュに残った旧 URL を未解決扱いにして Kitsu で取り直す判定に使う
+// （AniList は Cloudflare Workers からの参照を 403 で拒否する。issue #227）。
+const ANILIST_IMAGE_HOST_PATTERN = /(^|\.)(anilist\.co|anili\.st)$/i;
+
+/** 旧供給元（AniList CDN）の画像 URL か。 */
+export function isAnilistImageUrl(url: string): boolean {
+  try {
+    return ANILIST_IMAGE_HOST_PATTERN.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** タイムアウト・ネットワーク失敗を吸収する fetch ラッパ。失敗時は null を返す。 */
 async function safeFetch(
   fetchImpl: typeof fetch,
