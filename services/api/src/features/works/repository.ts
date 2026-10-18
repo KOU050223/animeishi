@@ -73,6 +73,16 @@ function annictWorkConflictSet() {
       then null
       else coalesce(excluded.image_fallback_attempted_at, ${annictWorks.imageFallbackAttemptedAt})
     end`,
+    // MAL ID のタイトル検索（issue #223）の試行時刻は、検索の材料である
+    // タイトル・英題・放送年のどれかが変わったら破棄する（改題後の正式タイトルで
+    // すぐに検索し直せるように）。SQLite の `is not` は NULL-safe 比較。
+    malSearchAttemptedAt: sql`case
+      when excluded.title is not ${annictWorks.title}
+        or excluded.title_en is not ${annictWorks.titleEn}
+        or excluded.season_year is not ${annictWorks.seasonYear}
+      then null
+      else ${annictWorks.malSearchAttemptedAt}
+    end`,
     title: sql`excluded.title`,
     titleKana: sql`excluded.title_kana`,
     titleEn: sql`excluded.title_en`,
@@ -84,9 +94,9 @@ function annictWorkConflictSet() {
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 16 カラム（R2 取り込み管理の 2 カラム追加後）なので
-// 6 行 × 16 = 96 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
-const ANNICT_WORK_UPSERT_CHUNK = 6;
+// annict_works は 17 カラム（MAL ID タイトル検索の試行時刻追加後）なので
+// 5 行 × 17 = 85 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+const ANNICT_WORK_UPSERT_CHUNK = 5;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
 // statement になるため、往復回数と batch サイズのバランスで区切る。
@@ -399,6 +409,87 @@ export function worksRepository(db: DrizzleDb) {
         .update(annictWorks)
         .set({ imageR2AttemptedAt: at })
         .where(eq(annictWorks.annictWorkId, annictWorkId));
+    },
+
+    // ---- MAL ID のタイトル検索（issue #223） ----
+    /**
+     * MAL ID を持たず、タイトル検索のクールダウンが明けた作品を取得する。
+     * 最近書き込まれた（＝検索・表示された）作品を優先するため updated_at 降順。
+     */
+    async getMalSearchTargets(
+      limit: number,
+      attemptedStaleBefore: Date,
+    ): Promise<
+      {
+        annictWorkId: number;
+        title: string;
+        titleEn: string | null;
+        seasonYear: number | null;
+      }[]
+    > {
+      const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 50));
+      if (safeLimit === 0) return [];
+      return db
+        .select({
+          annictWorkId: annictWorks.annictWorkId,
+          title: annictWorks.title,
+          titleEn: annictWorks.titleEn,
+          seasonYear: annictWorks.seasonYear,
+        })
+        .from(annictWorks)
+        .where(
+          and(
+            isNull(annictWorks.malAnimeId),
+            sql`trim(${annictWorks.title}) <> ''`,
+            or(
+              isNull(annictWorks.malSearchAttemptedAt),
+              lt(annictWorks.malSearchAttemptedAt, attemptedStaleBefore),
+            ),
+          ),
+        )
+        .orderBy(desc(annictWorks.updatedAt))
+        .limit(safeLimit);
+    },
+
+    /**
+     * タイトル検索で見つかった MAL ID を書き戻す。画像補完 cron と画像プロキシの
+     * クールダウンもクリアし、新しい MAL ID ですぐに補完を試せるようにする。
+     * 検索中に Annict 側から MAL ID が入った行は上書きしない（mal_anime_id is null 条件）。
+     */
+    async updateMalAnimeIdFromSearch(
+      annictWorkId: number,
+      malAnimeId: number,
+      at: Date,
+    ): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({
+          malAnimeId,
+          malSearchAttemptedAt: at,
+          imageFallbackAttemptedAt: null,
+          imageR2AttemptedAt: null,
+        })
+        .where(
+          and(
+            eq(annictWorks.annictWorkId, annictWorkId),
+            isNull(annictWorks.malAnimeId),
+          ),
+        );
+    },
+
+    /** タイトル検索で見つからなかった作品に試行時刻を立てる（90 件ずつ分割）。 */
+    async markMalSearchAttempted(
+      annictWorkIds: number[],
+      at: Date,
+    ): Promise<void> {
+      for (let i = 0; i < annictWorkIds.length; i += 90) {
+        await db
+          .update(annictWorks)
+          .set({ malSearchAttemptedAt: at })
+          .where(
+            inArray(annictWorks.annictWorkId, annictWorkIds.slice(i, i + 90)),
+          );
+      }
     },
   };
 }

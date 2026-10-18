@@ -76,6 +76,11 @@ export const annictWorks = sqliteTable("annict_works", {
   imageR2AttemptedAt: integer("image_r2_attempted_at", {
     mode: "timestamp",
   }),
+  // MAL ID を持たない作品の AniList タイトル検索（issue #223）を最後に
+  // 試行した時刻。見つからなかった作品をクールダウン中は検索し直さない。
+  malSearchAttemptedAt: integer("mal_search_attempted_at", {
+    mode: "timestamp",
+  }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 

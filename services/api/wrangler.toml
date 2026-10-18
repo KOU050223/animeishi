@@ -11,8 +11,9 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 # ANNICT_CLIENT_ID = "<your-annict-client-id>"
 
 # 定期バッチ（cron）。
-# 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
-# issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
+# 1. MAL ID を持たない作品の AniList タイトル検索（issue #223）。
+# 2. 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
+#    issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
 # 作品画像の R2 取り込みは cron ではなく GET /images/works/:id が表示時に行う。
 [triggers]
 crons = ["*/10 * * * *"]
