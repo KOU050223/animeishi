@@ -1,4 +1,3 @@
-import type { AnnictWork } from "@/db/schema";
 import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { searchAnnictWorksBySeason } from "@/lib/annict/client";
 import {
@@ -10,7 +9,7 @@ import {
   resolveImagesViaKitsu,
 } from "@/lib/annict/imageFallback";
 import { workImageUrl } from "@/lib/annict/workImage";
-import type { WorksRepository } from "./repository";
+import { isUnchangedCachedWork, type WorksRepository } from "./repository";
 
 /**
  * シーズン検索の入口。1 ページ目（after 無し）はシーズン単位の Cache API
@@ -40,38 +39,6 @@ export async function searchSeasonWorks(
     await writeSeasonWorksCache(season, result.works);
   }
   return result;
-}
-
-/**
- * upsert しようとしている作品メタが、キャッシュ済みの行と同じか。
- * nodeId / malAnimeId は upsert 側が「新しい値が null なら既存値を温存」する
- * （annictWorkConflictSet）ため、新しい値が null のときは一致扱いにする。
- */
-function isUnchangedCachedWork(
-  row: Pick<
-    AnnictWork,
-    | "nodeId"
-    | "malAnimeId"
-    | "title"
-    | "titleKana"
-    | "titleEn"
-    | "seasonName"
-    | "seasonYear"
-    | "imageUrl"
-  >,
-  cached: AnnictWork | undefined,
-): boolean {
-  if (!cached) return false;
-  return (
-    (row.nodeId == null || row.nodeId === cached.nodeId) &&
-    (row.malAnimeId == null || row.malAnimeId === cached.malAnimeId) &&
-    row.title === cached.title &&
-    row.titleKana === cached.titleKana &&
-    row.titleEn === cached.titleEn &&
-    row.seasonName === cached.seasonName &&
-    row.seasonYear === cached.seasonYear &&
-    row.imageUrl === cached.imageUrl
-  );
 }
 
 /**

@@ -93,6 +93,40 @@ function annictWorkConflictSet() {
   };
 }
 
+/**
+ * upsert しようとしている作品メタが、キャッシュ済みの行と同じか。
+ * nodeId / malAnimeId は upsert 側が「新しい値が null なら既存値を温存」する
+ * （annictWorkConflictSet）ため、新しい値が null のときは一致扱いにする。
+ * 作品検索（attachResolvedImages）とライブラリ同期（syncMyLibraryFromAnnict）
+ * の両方が、内容の同じ作品を書き直さない判定に使う（D1 書き込み削減）。
+ */
+export function isUnchangedCachedWork(
+  row: Pick<
+    NewAnnictWork,
+    | "nodeId"
+    | "malAnimeId"
+    | "title"
+    | "titleKana"
+    | "titleEn"
+    | "seasonName"
+    | "seasonYear"
+    | "imageUrl"
+  >,
+  cached: AnnictWork | undefined,
+): boolean {
+  if (!cached) return false;
+  return (
+    (row.nodeId == null || row.nodeId === cached.nodeId) &&
+    (row.malAnimeId == null || row.malAnimeId === cached.malAnimeId) &&
+    row.title === cached.title &&
+    row.titleKana === cached.titleKana &&
+    row.titleEn === cached.titleEn &&
+    row.seasonName === cached.seasonName &&
+    row.seasonYear === cached.seasonYear &&
+    row.imageUrl === cached.imageUrl
+  );
+}
+
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
 // annict_works は 17 カラム（MAL ID タイトル検索の試行時刻追加後）なので
 // 5 行 × 17 = 85 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
