@@ -1,0 +1,214 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  notifyApiFailures,
+  SUPPRESS_SECONDS,
+  type ApiFailure,
+} from "@/lib/discordAlert";
+
+const WEBHOOK = "https://discord.com/api/webhooks/1/secret-token";
+
+const annict502: ApiFailure = {
+  kind: "annict",
+  status: 502,
+  route: "/me/annict/sync",
+  method: "POST",
+};
+const db500: ApiFailure = {
+  kind: "db",
+  status: 500,
+  route: "/user/:uid",
+  method: "GET",
+};
+
+// KV の最小フェイク。put の TTL も記録する。
+function fakeKv() {
+  const store = new Map<string, string>();
+  const ttls = new Map<string, number | undefined>();
+  const kv = {
+    get: vi.fn(async (key: string) => store.get(key) ?? null),
+    put: vi.fn(
+      async (key: string, value: string, opts?: { expirationTtl?: number }) => {
+        store.set(key, value);
+        ttls.set(key, opts?.expirationTtl);
+      },
+    ),
+  };
+  return { kv: kv as unknown as KVNamespace, store, ttls, raw: kv };
+}
+
+function okFetch() {
+  return vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+    return new Response(null, { status: 204 });
+  });
+}
+
+function sentBody(fetchImpl: ReturnType<typeof okFetch>, call = 0) {
+  const init = fetchImpl.mock.calls[call][1];
+  return JSON.parse(String(init?.body)) as {
+    content: string;
+    allowed_mentions: { parse: string[] };
+  };
+}
+
+describe("notifyApiFailures", () => {
+  it("DISCORD_WEBHOOK_URL 未設定なら何もしない", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyApiFailures(
+      { ALERT_STATE: kv },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(raw.get).not.toHaveBeenCalled();
+    expect(raw.put).not.toHaveBeenCalled();
+  });
+
+  it("初回は Webhook に送り、種別:ステータスの印を 30 分の TTL で付ける", async () => {
+    const { kv, ttls } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0][0]).toBe(WEBHOOK);
+    expect(ttls.get("api:annict:502")).toBe(SUPPRESS_SECONDS);
+    expect(SUPPRESS_SECONDS).toBe(1800);
+  });
+
+  it("同じ障害は印がある間は再送しない", async () => {
+    const { kv } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyApiFailures(env, [annict502], fetchImpl);
+    const second = await notifyApiFailures(
+      env,
+      [{ ...annict502, route: "/me/watch-histories" }],
+      fetchImpl,
+    );
+
+    expect(second).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("抑止中の障害の後ろに混ざった別の障害は通知する", async () => {
+    const { kv } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyApiFailures(env, [annict502], fetchImpl);
+    const sent = await notifyApiFailures(env, [annict502, db500], fetchImpl);
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const { content } = sentBody(fetchImpl, 1);
+    expect(content).toContain("GET /user/:uid");
+    expect(content).not.toContain("/me/annict/sync");
+  });
+
+  it("同じ障害は 1 行にまとめて件数を付ける", async () => {
+    const fetchImpl = okFetch();
+
+    await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK },
+      [annict502, annict502, annict502],
+      fetchImpl,
+    );
+
+    const { content } = sentBody(fetchImpl);
+    expect(content).toContain("`POST /me/annict/sync` → 502（annict） ×3");
+  });
+
+  it("KV の読み書きに失敗しても Webhook には送る", async () => {
+    const fetchImpl = okFetch();
+    const brokenKv = {
+      get: vi.fn(async () => {
+        throw new Error("kv down");
+      }),
+      put: vi.fn(async () => {
+        throw new Error("kv down");
+      }),
+    } as unknown as KVNamespace;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const sent = await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: brokenKv },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("ALERT_STATE 未バインドでも Webhook には送る", async () => {
+    const fetchImpl = okFetch();
+
+    const sent = await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("Webhook の送信失敗は reject せず false を返す", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("network");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(
+      notifyApiFailures(
+        { DISCORD_WEBHOOK_URL: WEBHOOK },
+        [annict502],
+        fetchImpl,
+      ),
+    ).resolves.toBe(false);
+    warn.mockRestore();
+  });
+
+  it("メンションを解釈させず、本文はルート・ステータス・種別だけにする", async () => {
+    const fetchImpl = okFetch();
+
+    await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ENVIRONMENT: "production" },
+      [annict502],
+      fetchImpl,
+    );
+
+    const body = sentBody(fetchImpl);
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+    expect(body.content).toBe(
+      [
+        "🔴 **[animeishi-api] API 障害**",
+        "`POST /me/annict/sync` → 502（annict）",
+        "詳細は Sentry を確認。同じ障害の通知は30分止めます。",
+      ].join("\n"),
+    );
+  });
+
+  it("production 以外は環境名を見出しに付ける", async () => {
+    const fetchImpl = okFetch();
+
+    await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ENVIRONMENT: "preview" },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sentBody(fetchImpl).content).toContain("[animeishi-api preview]");
+  });
+});

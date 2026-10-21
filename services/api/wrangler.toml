@@ -79,6 +79,13 @@ database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
 binding = "AVATARS"
 bucket_name = "animeishi-avatars"
 
+# Discord 障害通知の重複抑止（src/lib/discordAlert.ts）。印を 30 分 TTL で置くだけ。
+# Webhook URL は `wrangler secret put DISCORD_WEBHOOK_URL --env production` で登録する。
+# preview / ローカルは Webhook を置かないため未バインド（通知自体が no-op）。
+[[env.production.kv_namespaces]]
+binding = "ALERT_STATE"
+id = "fb229fd4fc634a53a2a0f30b912feb94"
+
 [env.production.ai]
 binding = "AI"
 

@@ -11,11 +11,13 @@ import { HTTPException } from "hono/http-exception";
 import { AnnictApiError } from "@/lib/annict/client";
 import { annictErrorResponse } from "@/lib/annict/errors";
 import { DeletedUserError } from "@/features/users/repository";
+import { notifyApiFailures, type AlertBindings } from "@/lib/discordAlert";
 
-// Sentry 初期化に必要なバインディング。
+// Sentry 初期化と障害通知に必要なバインディング。
 // SENTRY_DSN は Workers Secret、ENVIRONMENT は wrangler.toml [vars]、
 // CF_VERSION_METADATA は version_metadata バインディングから供給される。
-export type ObservabilityBindings = {
+// DISCORD_WEBHOOK_URL / ALERT_STATE は lib/discordAlert を参照。
+export type ObservabilityBindings = AlertBindings & {
   SENTRY_DSN?: string;
   ENVIRONMENT?: string;
   CF_VERSION_METADATA?: WorkerVersionMetadata;
@@ -68,8 +70,17 @@ function finalizeEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
 // exception のクラス名・メッセージから error.kind を推定する。
 function classifyEvent(event: Sentry.ErrorEvent): ErrorKind {
   const value = event.exception?.values?.[0];
-  const type = value?.type ?? "";
-  const message = value?.value ?? "";
+  return classifyByType(value?.type ?? "", value?.value ?? "");
+}
+
+// Discord 通知用に、Sentry イベントになる前の例外から error.kind を推定する。
+function classifyError(err: unknown): ErrorKind {
+  if (err instanceof AnnictApiError) return "annict";
+  if (err instanceof Error) return classifyByType(err.name, err.message);
+  return "unknown";
+}
+
+function classifyByType(type: string, message: string): ErrorKind {
   if (type === "AnnictApiError") return "annict";
   if (type === "ZodError") return "validation";
   const haystack = `${type} ${message}`;
@@ -118,24 +129,48 @@ export function notifyUserReport(
   });
 }
 
+// Sentry へ送った障害を Discord にも知らせる（Sentry の無料プランでは Discord
+// 通知のアラートが作れないため）。応答は待たせず waitUntil で送る。
+// 渡すのはルートパターンとステータスだけで、実際のパスや例外メッセージは渡さない。
+function alertApiFailure(err: unknown, c: Context, status: number): void {
+  const task = notifyApiFailures(c.env ?? {}, [
+    {
+      kind: classifyError(err),
+      status,
+      route: c.req.routePath,
+      method: c.req.method,
+    },
+  ]);
+  try {
+    c.executionCtx.waitUntil(task);
+  } catch {
+    // ExecutionContext の無い環境（テストの app.request 等）。
+    // notifyApiFailures は reject しないのでそのまま流す。
+  }
+}
+
 // Hono の app.onError 本体。分類・送信可否・応答整形をここに集約する。
 // ユーザー要因（HTTPException <500、AnnictApiError の 401）は Sentry に送らない。
+// Sentry に送る障害は Discord にも通知する（重複は discordAlert 側で抑止）。
 export function handleError(err: Error, c: Context): Response {
   if (err instanceof HTTPException) {
     if (err.status >= 500) {
       captureApiError(err, c);
+      alertApiFailure(err, c, err.status);
     }
     return err.getResponse();
   }
   if (err instanceof AnnictApiError) {
+    const res = annictErrorResponse(c, err) ?? internalError(c);
     // ユーザーが再連携で解決できる 401（トークン失効）だけ送らない。
     // status には上流の HTTP ステータスがそのまま入るため、200 の
     // GraphQL エラーや不正 JSON、429（レート制限）もクライアントには
     // 502 として返る障害であり、ここで記録する。
     if (err.status !== 401) {
       captureApiError(err, c);
+      alertApiFailure(err, c, res.status);
     }
-    return annictErrorResponse(c, err) ?? internalError(c);
+    return res;
   }
   if (err instanceof DeletedUserError) {
     // 削除済みユーザーの残存 JWT による書き込み（issue #144）。
@@ -144,6 +179,7 @@ export function handleError(err: Error, c: Context): Response {
     return c.json({ error: "Unauthorized" }, 401);
   }
   captureApiError(err, c);
+  alertApiFailure(err, c, 500);
   return internalError(c);
 }
 
