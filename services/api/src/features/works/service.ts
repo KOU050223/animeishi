@@ -53,10 +53,11 @@ export type SearchWorkWithResolved = AnnictLibraryEntry & {
 /**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
- * 未解決 + Annict 画像が placeholder + malAnimeId 有 の作品は、まず Kitsu
- * バッチで同期解決を試みる（issue #108: 非同期解決だけだと初回表示に間に合わない）。
+ * 未解決 + Annict 画像が placeholder + malAnimeId か Kitsu 作品 ID 有
+ * の作品は、まず Kitsu バッチで同期解決を試みる
+ * （issue #108: 非同期解決だけだと初回表示に間に合わない）。
  * 取れなかった分は annict_works に upsert 済みの行として残り、cron が
- * pending 行を拾って Jikan を含めた解決を行う（issue #127: Queue 廃止）。
+ * pending 行を拾って解決する（issue #127: Queue 廃止）。
  */
 export async function attachResolvedImages(
   repo: WorksRepository,
@@ -78,18 +79,25 @@ export async function attachResolvedImages(
   }
   const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
 
-  const fallbackTargets: { annictWorkId: number; malAnimeId: number }[] = [];
+  const fallbackTargets: {
+    annictWorkId: number;
+    malAnimeId: number | null;
+    kitsuAnimeId: number | null;
+  }[] = [];
   const enriched: SearchWorkWithResolved[] = works.map((w) => {
     const c0 = cachedById.get(w.annictWorkId);
-    // 未解決 + Annict 画像が placeholder + malAnimeId 有 → 同期解決の対象にする。
+    // 未解決 + Annict 画像が placeholder + malAnimeId か Kitsu ID 有
+    // → 同期解決の対象にする（kitsuAnimeId はタイトル検索で採った行。
+    // issue #227）。
     if (
-      w.malAnimeId != null &&
+      (w.malAnimeId != null || c0?.kitsuAnimeId != null) &&
       !c0?.imageSource &&
       isPlaceholderImageUrl(w.imageUrl)
     ) {
       fallbackTargets.push({
         annictWorkId: w.annictWorkId,
         malAnimeId: w.malAnimeId,
+        kitsuAnimeId: c0?.kitsuAnimeId ?? null,
       });
     }
     return {

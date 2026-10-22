@@ -29,6 +29,7 @@ const DDL_STATEMENTS = [
     image_r2_key TEXT,
     image_r2_attempted_at INTEGER,
     mal_search_attempted_at INTEGER,
+    kitsu_anime_id INTEGER,
     updated_at INTEGER NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS watch_history (

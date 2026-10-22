@@ -4,10 +4,21 @@
 
 export const KITSU_MAPPINGS_URL_PREFIX = "https://kitsu.io/api/edge/mappings";
 export const KITSU_ANIME_URL_PREFIX = "https://kitsu.io/api/edge/anime/";
+export const KITSU_ANIME_LIST_URL = "https://kitsu.io/api/edge/anime";
 
 /** fetch の URL が Kitsu の mappings API か。 */
 export function isKitsuMappingsUrl(url: string): boolean {
   return url.startsWith(KITSU_MAPPINGS_URL_PREFIX);
+}
+
+/** fetch の URL が Kitsu の作品一覧 API（/anime?filter[id]=...）か。 */
+export function isKitsuAnimeListUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}` === KITSU_ANIME_LIST_URL;
+  } catch {
+    return false;
+  }
 }
 
 /** Kitsu mappings への問い合わせ URL から、問い合わせた MAL ID 一覧を取り出す。 */
@@ -56,6 +67,25 @@ export function makeKitsuResponse(
     });
   }
   return new Response(JSON.stringify({ data, included }), {
+    status: 200,
+    headers: { "Content-Type": "application/vnd.api+json" },
+  });
+}
+
+/**
+ * Kitsu の /anime?filter[id]=... の JSON:API 応答を組み立てる。
+ * キーは Kitsu 作品 ID（文字列）。値が null の ID はポスター無しの作品、
+ * キー自体を書かなければ「Kitsu にその作品が無い」応答になる。
+ */
+export function makeKitsuAnimeListResponse(
+  posters: Record<string, string | null>,
+): Response {
+  const data = Object.entries(posters).map(([kitsuId, poster]) => ({
+    id: kitsuId,
+    type: "anime",
+    attributes: { posterImage: poster ? { large: poster } : null },
+  }));
+  return new Response(JSON.stringify({ data }), {
     status: 200,
     headers: { "Content-Type": "application/vnd.api+json" },
   });

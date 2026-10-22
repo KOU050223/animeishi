@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  isKitsuAnimeListUrl,
   isKitsuMappingsUrl,
   kitsuRequestedMalIds,
+  makeKitsuAnimeListResponse,
   makeKitsuResponse,
 } from "@/test-utils/kitsu";
 import {
@@ -189,6 +191,103 @@ describe("resolveImagesForWorks", () => {
       "https://media.kitsu.app/42.jpg",
       "https://media.kitsu.app/42.jpg",
     ]);
+  });
+
+  it("MAL ID が無い作品は kitsu_anime_id で作品リソースを直接引いて解決する", async () => {
+    // タイトル検索（issue #227）で採った MAL mapping 無しの行は
+    // kitsu_anime_id だけを持つ。/anime?filter[id]= で直接引く。
+    const fetchImpl = vi.fn(async (url: string) => {
+      expect(isKitsuAnimeListUrl(url)).toBe(true);
+      expect(new URL(url).searchParams.get("filter[id]")).toBe("50743");
+      return makeKitsuAnimeListResponse({
+        "50743": "https://media.kitsu.app/50743.jpg",
+      });
+    });
+
+    const res = await resolveImagesForWorks(
+      [{ annictWorkId: 100, malAnimeId: null, kitsuAnimeId: 50743 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(res).toEqual([
+      {
+        annictWorkId: 100,
+        malAnimeId: null,
+        resolvedImageUrl: "https://media.kitsu.app/50743.jpg",
+        imageSource: "kitsu",
+      },
+    ]);
+  });
+
+  it("MAL ID 有りと kitsu_anime_id のみの作品が混在してもそれぞれの経路で解決する", async () => {
+    const fetchImpl = vi.fn(async (url: string) =>
+      isKitsuMappingsUrl(url)
+        ? makeKitsuResponse({
+            m21: {
+              coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" },
+            },
+          })
+        : makeKitsuAnimeListResponse({
+            "50743": "https://media.kitsu.app/50743.jpg",
+          }),
+    );
+
+    const res = await resolveImagesForWorks(
+      [
+        { annictWorkId: 100, malAnimeId: 21 },
+        { annictWorkId: 200, malAnimeId: null, kitsuAnimeId: 50743 },
+      ],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    // mappings と filter[id] の 2 リクエスト（並列）
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(res).toEqual([
+      {
+        annictWorkId: 100,
+        malAnimeId: 21,
+        resolvedImageUrl: "https://media.kitsu.app/21.jpg",
+        imageSource: "kitsu",
+      },
+      {
+        annictWorkId: 200,
+        malAnimeId: null,
+        resolvedImageUrl: "https://media.kitsu.app/50743.jpg",
+        imageSource: "kitsu",
+      },
+    ]);
+  });
+
+  it("Kitsu の作品リソースにポスターが無い kitsu id は 'none' でネガキャッシュを返す", async () => {
+    const fetchImpl = vi.fn(async () =>
+      makeKitsuAnimeListResponse({ "50743": null }),
+    );
+
+    const res = await resolveImagesForWorks(
+      [{ annictWorkId: 200, malAnimeId: null, kitsuAnimeId: 50743 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res).toEqual([
+      {
+        annictWorkId: 200,
+        malAnimeId: null,
+        resolvedImageUrl: null,
+        imageSource: "none",
+      },
+    ]);
+  });
+
+  it("filter[id] リクエスト自体が失敗した kitsu id は結果を返さない（'none' にしない）", async () => {
+    const fetchImpl = vi.fn(async () => new Response("boom", { status: 503 }));
+
+    const res = await resolveImagesForWorks(
+      [{ annictWorkId: 300, malAnimeId: null, kitsuAnimeId: 50743 }],
+      fetchImpl as unknown as typeof fetch,
+    );
+
+    expect(res).toEqual([]);
   });
 });
 

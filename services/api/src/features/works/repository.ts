@@ -77,6 +77,9 @@ function annictWorkConflictSet() {
     // MAL ID のタイトル検索（issue #223）の試行時刻は、検索の材料である
     // タイトル・英題・放送年のどれかが変わったら破棄する（改題後の正式タイトルで
     // すぐに検索し直せるように）。SQLite の `is not` は NULL-safe 比較。
+    // kitsu_anime_id（issue #227）は Annict の upsert では更新されないため、
+    // 他カラムと同じく新しい値が null のときは既存値を温存する。
+    kitsuAnimeId: sql`coalesce(excluded.kitsu_anime_id, ${annictWorks.kitsuAnimeId})`,
     malSearchAttemptedAt: sql`case
       when excluded.title is not ${annictWorks.title}
         or excluded.title_en is not ${annictWorks.titleEn}
@@ -129,8 +132,8 @@ export function isUnchangedCachedWork(
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 17 カラム（MAL ID タイトル検索の試行時刻追加後）なので
-// 5 行 × 17 = 85 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+// annict_works は 18 カラム（kitsu_anime_id 追加後）なので
+// 5 行 × 18 = 90 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
 const ANNICT_WORK_UPSERT_CHUNK = 5;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
@@ -295,7 +298,13 @@ export function worksRepository(db: DrizzleDb) {
       limit: number,
       attemptedStaleBefore: Date,
       noneResolvedStaleBefore: Date,
-    ): Promise<{ annictWorkId: number; malAnimeId: number }[]> {
+    ): Promise<
+      {
+        annictWorkId: number;
+        malAnimeId: number | null;
+        kitsuAnimeId: number | null;
+      }[]
+    > {
       const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
       if (safeLimit === 0) return [];
 
@@ -303,12 +312,14 @@ export function worksRepository(db: DrizzleDb) {
         .select({
           annictWorkId: annictWorks.annictWorkId,
           malAnimeId: annictWorks.malAnimeId,
+          kitsuAnimeId: annictWorks.kitsuAnimeId,
         })
         .from(annictWorks)
         .where(
           and(
             sql`
-          ${annictWorks.malAnimeId} is not null
+          (${annictWorks.malAnimeId} is not null
+           or ${annictWorks.kitsuAnimeId} is not null)
           and (
             ${annictWorks.imageUrl} is null
             or trim(${annictWorks.imageUrl}) = ''
@@ -339,9 +350,15 @@ export function worksRepository(db: DrizzleDb) {
         .limit(safeLimit);
 
       return rows.flatMap((row) =>
-        row.malAnimeId == null
+        row.malAnimeId == null && row.kitsuAnimeId == null
           ? []
-          : [{ annictWorkId: row.annictWorkId, malAnimeId: row.malAnimeId }],
+          : [
+              {
+                annictWorkId: row.annictWorkId,
+                malAnimeId: row.malAnimeId,
+                kitsuAnimeId: row.kitsuAnimeId,
+              },
+            ],
       );
     },
 
@@ -510,16 +527,48 @@ export function worksRepository(db: DrizzleDb) {
      * タイトル検索で見つかった MAL ID を書き戻す。画像補完 cron と画像プロキシの
      * クールダウンもクリアし、新しい MAL ID ですぐに補完を試せるようにする。
      * 検索中に Annict 側から MAL ID が入った行は上書きしない（mal_anime_id is null 条件）。
+     * 一致した Kitsu 作品の ID もあわせて保持する（Kitsu 側の名寄せ結果の記録）。
      */
     async updateMalAnimeIdFromSearch(
       annictWorkId: number,
       malAnimeId: number,
+      kitsuAnimeId: number | null,
       at: Date,
     ): Promise<void> {
       await db
         .update(annictWorks)
         .set({
           malAnimeId,
+          kitsuAnimeId,
+          malSearchAttemptedAt: at,
+          imageFallbackAttemptedAt: null,
+          imageR2AttemptedAt: null,
+        })
+        .where(
+          and(
+            eq(annictWorks.annictWorkId, annictWorkId),
+            isNull(annictWorks.malAnimeId),
+          ),
+        );
+    },
+
+    /**
+     * タイトル検索で一致したが MAL mapping を持たない作品に、Kitsu 側の
+     * 作品 ID を書き戻す（issue #227）。画像プロキシが MAL ID の代わりに
+     * この ID から Kitsu のポスター画像を引くためのキー。既存のクールダウンは
+     * クリアし、新しいキーですぐに補完を試せるようにする。
+     * 検索中に Annict 側から MAL ID が入った行は上書きしない
+     * （mal_anime_id is null 条件）。
+     */
+    async updateKitsuAnimeIdFromSearch(
+      annictWorkId: number,
+      kitsuAnimeId: number,
+      at: Date,
+    ): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({
+          kitsuAnimeId,
           malSearchAttemptedAt: at,
           imageFallbackAttemptedAt: null,
           imageR2AttemptedAt: null,
