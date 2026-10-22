@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  alertKey,
   notifyApiFailures,
+  resetLocalSuppression,
   SUPPRESS_SECONDS,
   type ApiFailure,
 } from "@/lib/discordAlert";
@@ -51,6 +53,10 @@ function sentBody(fetchImpl: ReturnType<typeof okFetch>, call = 0) {
 }
 
 describe("notifyApiFailures", () => {
+  beforeEach(() => {
+    resetLocalSuppression();
+  });
+
   it("DISCORD_WEBHOOK_URL 未設定なら何もしない", async () => {
     const { kv, raw } = fakeKv();
     const fetchImpl = okFetch();
@@ -97,6 +103,68 @@ describe("notifyApiFailures", () => {
     );
 
     expect(second).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("unknown の障害は別ルートなら抑止しない", async () => {
+    const { kv } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+    const unknown500: ApiFailure = {
+      kind: "unknown",
+      status: 500,
+      route: "/user/:uid",
+      method: "GET",
+    };
+
+    await notifyApiFailures(env, [unknown500], fetchImpl);
+    const sameRoute = await notifyApiFailures(env, [unknown500], fetchImpl);
+    const otherRoute = await notifyApiFailures(
+      env,
+      [{ ...unknown500, route: "/me/tier-lists", method: "POST" }],
+      fetchImpl,
+    );
+
+    expect(sameRoute).toBe(false);
+    expect(otherRoute).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("抑止キーは基盤系の種別だけルートを含めない", () => {
+    expect(alertKey(annict502)).toBe("api:annict:502");
+    expect(alertKey(db500)).toBe("api:db:500");
+    expect(
+      alertKey({
+        kind: "unknown",
+        status: 500,
+        route: "/x/:id",
+        method: "GET",
+      }),
+    ).toBe("api:unknown:500:GET /x/:id");
+  });
+
+  it("同時に走った同じ障害の通知は KV を待たずに 1 通にする", async () => {
+    // KV の get が遅く、どちらも印を読む前に走り出すケース。
+    const store = new Map<string, string>();
+    const slowKv = {
+      get: vi.fn(async (key: string) => {
+        await new Promise((r) => setTimeout(r, 10));
+        return store.get(key) ?? null;
+      }),
+      put: vi.fn(async (key: string, value: string) => {
+        store.set(key, value);
+      }),
+    } as unknown as KVNamespace;
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: slowKv };
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        notifyApiFailures(env, [annict502], fetchImpl),
+      ),
+    );
+
+    expect(results.filter(Boolean)).toHaveLength(1);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

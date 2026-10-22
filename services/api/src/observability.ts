@@ -129,6 +129,18 @@ export function notifyUserReport(
   });
 }
 
+// サーバー側の障害を Sentry に送り、Discord にも知らせる。応答に変換して onError を
+// 通らない経路（上流障害を 502 で返す・部分失敗として握る等）はこれを明示的に呼ぶ。
+// status はクライアントに返した（部分失敗なら返したことにする）ステータス。
+export function reportApiFailure(
+  err: unknown,
+  c: Context,
+  status: number,
+): void {
+  captureApiError(err, c);
+  alertApiFailure(err, c, status);
+}
+
 // Sentry へ送った障害を Discord にも知らせる（Sentry の無料プランでは Discord
 // 通知のアラートが作れないため）。応答は待たせず waitUntil で送る。
 // 渡すのはルートパターンとステータスだけで、実際のパスや例外メッセージは渡さない。

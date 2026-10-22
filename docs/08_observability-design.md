@@ -188,18 +188,23 @@ enabled = true
 
 Sentry の Developer プランでは Discord を通知先にしたアラートルールを新規作成できない
 （`400 Organization does not allow this action type: discord`）。
-そのため `handleError` が Sentry へ送る障害（未処理例外の 500、HTTPException 5xx、
-401 以外の AnnictApiError → 502）を、`src/lib/discordAlert.ts` が Discord Webhook
-にも送る。
+そのため Sentry へ送るサーバー側の障害を、`src/lib/discordAlert.ts` が Discord Webhook にも送る。
+対象は `handleError` が受ける障害（未処理例外の 500、HTTPException 5xx、
+401 以外の AnnictApiError → 502）と、ルートが応答に変換して onError を通らない障害
+（Workers AI の 502、Annict 認可の 502、視聴履歴一括更新の部分失敗、OpenAPI サブアプリの
+HTTPException 5xx）。後者は `reportApiFailure(err, c, status)` で Sentry 送信と通知を同時に行う。
 
 - 送信は `ctx.waitUntil` で行い、応答は待たせない
 - 本文はルートパターン（`/user/:uid` の形）・メソッド・返したステータス・error.kind・件数だけ。
   実際のパス・クエリ文字列・例外メッセージ・ユーザー ID は入れない
 - `allowed_mentions: { parse: [] }` でメンションを解釈させない
-- 重複抑止: KV `ALERT_STATE` に `api:<error.kind>:<status>` の印を
-  `expirationTtl: 1800`（30 分）で付け、印がある間は同じ障害を送らない。
-  印は障害の組み合わせごとに付けるので、別種の障害は抑止中でも通知される。
-  KV の読み書きに失敗しても通知は送る（KV は重複抑止のためだけ）
+- 重複抑止: KV `ALERT_STATE` に印を `expirationTtl: 1800`（30 分）で付け、印がある間は
+  同じ障害を送らない。印は障害の組み合わせごとに付けるので、別種の障害は抑止中でも通知される
+  - 全ルートに広がる基盤系（`annict` / `upstream` / `db` / `auth`）は `api:<error.kind>:<status>`
+  - それ以外（`unknown` 等）は原因がルートごとに違うため `api:<error.kind>:<status>:<METHOD> <route>`
+  - KV は結果整合なので、同じ isolate 内の同時発生（一括更新で何十件も失敗する等）は
+    メモリ上の印でも抑える
+  - KV の読み書きに失敗しても通知は送る（KV は重複抑止のためだけ）
 - `DISCORD_WEBHOOK_URL`（Workers Secret）が未設定なら何もしない
 
 セットアップ（初回のみ）:

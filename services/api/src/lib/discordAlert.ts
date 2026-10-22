@@ -4,10 +4,11 @@
 //
 // 本文に入れるのはルートパターン・メソッド・ステータス・件数だけ。
 // エラーメッセージ・ユーザー ID・実際のパス・クエリ文字列は渡さない。
-// 障害（種別×ステータス）ごとに ALERT_STATE（KV）へ印を付け、SUPPRESS_SECONDS の間は
-// 同じ障害を再送しない。KV は重複を抑えるためだけのもので、読み書きに失敗しても
-// 通知は送る（連投より取りこぼしの方が困る）。KV は結果整合なので、ほぼ同時の
-// 失敗で 2 通届くことはありうる。
+// 障害ごとに ALERT_STATE（KV）へ印を付け、SUPPRESS_SECONDS の間は同じ障害を再送しない
+// （何を同じ障害とみなすかは alertKey を参照）。KV は重複を抑えるためだけのもので、
+// 読み書きに失敗しても通知は送る（連投より取りこぼしの方が困る）。
+// KV は結果整合なので、同じ isolate 内の同時発生（一括更新で何十件も失敗する等）は
+// メモリ上の印でも抑える。別 isolate でほぼ同時に失敗すると 2 通届くことはありうる。
 
 // 長引く障害で #bot-log が埋まらない間隔。Sentry 側のアラート間隔（30 分）に揃える。
 export const SUPPRESS_SECONDS = 30 * 60;
@@ -34,8 +35,16 @@ export async function notifyApiFailures(
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
   if (!env.DISCORD_WEBHOOK_URL) return false;
+  // await より前に同期でメモリの印を確認・設定し、同時に走った通知同士の重複を防ぐ。
+  const now = Date.now();
+  const candidates = groupFailures(failures).filter((group) => {
+    const key = alertKey(group.failure);
+    if ((localSuppressedUntil.get(key) ?? 0) > now) return false;
+    localSuppressedUntil.set(key, now + SUPPRESS_SECONDS * 1000);
+    return true;
+  });
   const fresh: { failure: ApiFailure; count: number }[] = [];
-  for (const group of groupFailures(failures)) {
+  for (const group of candidates) {
     if (!(await isSuppressed(env, alertKey(group.failure)))) fresh.push(group);
   }
   if (fresh.length === 0) return false;
@@ -68,8 +77,25 @@ export async function notifyApiFailures(
   }
 }
 
-const alertKey = (failure: ApiFailure) =>
-  `api:${failure.kind}:${failure.status}`;
+// isolate 内の印（キー → 抑止の期限 ms）。KV の結果整合を補うだけのもの。
+const localSuppressedUntil = new Map<string, number>();
+
+// テスト間で isolate 内の印を消す。
+export function resetLocalSuppression(): void {
+  localSuppressedUntil.clear();
+}
+
+// 外部 API・D1・認証基盤の障害は全ルートに広がるため、種別×ステータスで 1 件にまとめる。
+// それ以外（unknown 等）は原因がルートごとに違うことが多いので、ルート単位で印を付け、
+// 別ルートの新しい障害を抑止しない。
+const SHARED_KINDS = new Set(["annict", "upstream", "db", "auth"]);
+
+export function alertKey(failure: ApiFailure): string {
+  const base = `api:${failure.kind}:${failure.status}`;
+  return SHARED_KINDS.has(failure.kind)
+    ? base
+    : `${base}:${failure.method} ${failure.route}`;
+}
 
 function envLabel(environment: string | undefined): string {
   return environment && environment !== "production" ? ` ${environment}` : "";

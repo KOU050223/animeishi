@@ -18,7 +18,7 @@ import {
   assertEncryptionKey,
   ANNICT_TOKEN_HEADER,
 } from "../../lib/annict";
-import { captureApiError } from "../../observability";
+import { reportApiFailure } from "../../observability";
 
 // Annict OAuth 連携用バインディング。
 // ANNICT_CLIENT_ID は公開可（vars）、ANNICT_CLIENT_SECRET は Workers Secret。
@@ -98,10 +98,10 @@ const annict = new Hono<AuthVariables>()
       if (err instanceof AnnictApiError) {
         // 認可コードが不正・期限切れの場合は 400。それ以外は 502（上流障害）。
         // 応答に変換しても onError は通らないため、上流障害はここで
-        // 明示的に capture する。
+        // 明示的に capture・通知する。
         const status = err.status === 401 || err.status === 400 ? 400 : 502;
         if (status === 502) {
-          captureApiError(err, c);
+          reportApiFailure(err, c, 502);
         }
         return c.json({ error: "Annict 連携に失敗しました" }, status);
       }

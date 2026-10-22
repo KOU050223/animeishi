@@ -23,7 +23,7 @@ import { workImageUrl } from "@/lib/annict/workImage";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { mapWithConcurrency } from "@animeishi/danime-core";
-import { captureApiError } from "../../observability";
+import { reportApiFailure } from "../../observability";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
@@ -275,8 +275,9 @@ const watchHistory = new Hono<AuthVariables>()
               // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
               if (err.status === 401) aborted = true;
               // 部分成功で握りつぶす経路は onError を通らないため、
-              // 401 以外の障害はここで明示的に capture する。
-              else captureApiError(err, c);
+              // 401 以外の障害はここで明示的に capture・通知する
+              // （単独のリクエストなら 502 になる上流障害として扱う）。
+              else reportApiFailure(err, c, 502);
               return {
                 annictWorkId: entry.annictWorkId,
                 ok: false,
@@ -290,8 +291,8 @@ const watchHistory = new Hono<AuthVariables>()
             // 投げ直すと Promise.all が即 reject して、応答後も他ワーカーの
             // Annict 更新と履歴保存が続き、クライアントの表示と実態が
             // 食い違うため。握りつぶす経路は onError を通らないので
-            // Sentry にはここで明示的に送る。
-            captureApiError(err, c);
+            // Sentry・Discord にはここで明示的に送る。
+            reportApiFailure(err, c, 500);
             console.error(
               JSON.stringify({
                 level: "error",

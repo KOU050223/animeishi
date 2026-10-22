@@ -6,6 +6,8 @@ import * as Sentry from "@sentry/cloudflare";
 import { AnnictApiError } from "@/lib/annict/client";
 import { DeletedUserError } from "@/features/users/repository";
 import { buildSentryOptions, handleError } from "@/observability";
+import { resetLocalSuppression } from "@/lib/discordAlert";
+import { createOpenApiApp } from "@/lib/openapi";
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sentry/cloudflare")>();
@@ -204,6 +206,34 @@ describe("handleError の Discord 通知", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    resetLocalSuppression();
+  });
+
+  it("OpenAPI サブアプリの HTTPException 5xx も Sentry と Discord に送る", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const { ctx, settle } = fakeCtx();
+    const sub = createOpenApiApp();
+    sub.get("/unavailable", () => {
+      throw new HTTPException(503, { message: "unavailable" });
+    });
+    sub.get("/bad", () => {
+      throw new HTTPException(400, { message: "bad" });
+    });
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK };
+
+    const res = await sub.request("/unavailable", {}, env, ctx);
+    await sub.request("/bad", {}, env, ctx);
+    await settle();
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "unavailable" });
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain(
+      "GET /unavailable` → 503",
+    );
   });
 
   it("サーバー障害は waitUntil でルートパターンとステータスだけを送る", async () => {
