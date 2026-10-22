@@ -15,15 +15,29 @@ export function imageFallbackAttemptStaleBefore(now: Date = new Date()): Date {
 }
 
 /**
+ * 'none'（Kitsu にも画像が無いと確定済み）の作品を再解決するまでの間隔。
+ * resolved_at を起点にする（確定のたびに updateResolvedImage が更新するので、
+ * 再解決しても 'none' のままなら TTL がそのたび延長される）。
+ * 'none' のままにすると将来 Kitsu 側に対応・画像が登録されても二度と拾え
+ * ないため、長めの間隔で拾い直す。
+ */
+export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** 'none' の再解決対象になる境界時刻を返す。 */
+export function imageFallbackNoneStaleBefore(now: Date = new Date()): Date {
+  return new Date(now.getTime() - IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS);
+}
+
+/**
  * 1 回の実行で解決する作品数の上限。
- * Jikan フォールバックは直列（レート制限）なので件数を抑え、
- * 頻度（cron 間隔）で回収速度を稼ぐ。
+ * Kitsu は 20 件/リクエストのバッチで取れるが、未解決の溜まりを
+ * 一度に全部回さず頻度（cron 間隔）で回収速度を稼ぐ。
  */
 const PENDING_RESOLVE_LIMIT = 40;
 
 /**
- * image_source 未解決の作品を D1 から引いて Kitsu / Jikan で解決・永続化する。
- * cron ハンドラから定期実行される。
+ * image_source 未解決（null）または 'none' で TTL 切れの作品を D1 から引いて
+ * Kitsu で解決・永続化する。cron ハンドラから定期実行される。
  *
  * issue #127 までは Cloudflare Queues にジョブを積んでいたが、「未解決作品の
  * 集合」は image_source / image_url の状態として D1 上に既に表現されている。
@@ -42,6 +56,7 @@ export async function resolvePendingImageFallbacks(
   const targets = await repo.getPendingImageFallbackWorks(
     limit,
     imageFallbackAttemptStaleBefore(),
+    imageFallbackNoneStaleBefore(),
   );
   if (targets.length === 0) return 0;
 

@@ -11,7 +11,9 @@
 //   1. R2 に取り込み済みならそれを返す
 //   2. 無ければ候補 URL（workImageSourceCandidates）を順に fetch し、
 //      最初に画像が返ったものを R2 に保存して返す
-//   3. 全滅したら Kitsu で補完 URL を引き直して（未解決時のみ）もう一度試す
+//   3. 全滅したら Kitsu で補完 URL を引き直してもう一度試す
+//      （Kitsu の新しい作品は 15 分で失効する署名付き URL を返すため、
+//      解決済みでも URL が死んでいる作品はここで再解決して救う）
 //   4. それでもダメなら 404。試行時刻を立て、クールダウン中は外部を叩かない
 // 季節で対象を絞らないので過去作品も同じ経路で救える。
 //
@@ -79,7 +81,9 @@ export function workImageSourceCandidates(row: {
   //      対応しており、Mixed Content で捨てていた画像を救える）
   const candidates: string[] = [];
   const push = (url: string | null | undefined) => {
-    const trimmed = url?.trim();
+    // 本番 DB に `&` が `&amp;` で入っている行があったため & に戻す。
+    // そのままだと署名付き URL のパラメータ名が壊れて必ず失敗する。
+    const trimmed = url?.trim().replace(/&amp;/g, "&");
     if (!trimmed || isSnsImageUrl(trimmed) || !isPublicImageUrl(trimmed))
       return;
     if (!candidates.includes(trimmed)) candidates.push(trimmed);
@@ -95,12 +99,36 @@ export function workImageSourceCandidates(row: {
 // source URL → キー埋め込み用ハッシュ。FNV-1a（32bit）。
 // 暗号強度は不要（同一作品の「取り込み元が変わったか」の検出だけに使う）。
 function sourceUrlHash(url: string): string {
+  const input = stableUrlForHash(url);
   let hash = 0x811c9dc5;
-  for (let i = 0; i < url.length; i++) {
-    hash ^= url.charCodeAt(i);
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * ハッシュ入力の正規化。署名付き URL（Kitsu の Backblaze B2 が返す
+ * ?X-Amz-... 付きのもの）は再発行のたびにクエリが変わるため、署名パラメータを
+ * 除いてからハッシュする。除かないと取り込み済みでも「取り込み元が変わった」
+ * と毎回誤判定され、表示のたびに取り直しが走る。
+ * `&amp;` でエスケープ済みの値が来ても同じキーに落ちるよう & に戻す。
+ */
+function stableUrlForHash(url: string): string {
+  const unescaped = url.replace(/&amp;/g, "&");
+  try {
+    const parsed = new URL(unescaped);
+    // URLSearchParams.keys() は生きたイテレータなので、消しながら回すと
+    // 次のキーを飛ばしうる。先に配列化してから削除する。
+    for (const key of Array.from(parsed.searchParams.keys())) {
+      if (/^x-amz-/i.test(key)) parsed.searchParams.delete(key);
+    }
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return unescaped;
+  }
 }
 
 /** R2 キーの拡張子手前まで（`works/<annictWorkId>/<hash>`）。 */
@@ -267,7 +295,9 @@ export async function serveWorkImage(
   }
 
   // --- クールダウン（直近に全候補が失敗した作品は外部を叩かない） ---
-  if (!stored && !ownKey && inCooldown) return notFound();
+  // キーだけ残ってオブジェクトが消えている行もここで止める
+  // （そのまま進むとクールダウンが効かず、表示のたびに外部を叩き直す）。
+  if (!stored && inCooldown) return notFound();
 
   // --- 2. 候補を順に取りに行く ---
   const tried = new Set<string>();
@@ -286,20 +316,28 @@ export async function serveWorkImage(
   // --- 3. 全滅なら Kitsu で補完 URL を引き直す ---
   // Annict の URL が「見た目はまとも・実体は 404」の作品は、検索経路でも cron
   // でも補完対象にならない（placeholder 判定は URL 文字列しか見ない）。
-  // 実際に取れなかったことが分かったここで、未解決なら Kitsu を 1 回引く。
-  // Jikan は遅く（直列・レート制限）画像リクエストの応答を待たせるため、
-  // ここでは叩かず cron の補完に任せる。
-  if (!hit && row.malAnimeId != null && !row.resolvedImageUrl) {
+  // また Kitsu の新しい作品は 15 分で失効する署名付き URL を resolvedImageUrl
+  // に持つため、解決済みでも URL が死んでいる作品がある。実際に取れなかった
+  // ことが分かったここで MAL ID から Kitsu を 1 回引き直し、得た新しい URL を
+  // その場で取り込む（R2 に入れば以後は失効しても関係ない）。
+  // 'none'（Kitsu にも無いことが確定済み）は引き直さない。将来 Kitsu に登録
+  // されたときの拾い直しは cron（pending 解決の TTL 再解決）が担う。
+  // ここに来るのはクールダウン外だけなので、表示のたびに Kitsu を叩くことはない。
+  if (!hit && row.malAnimeId != null && row.imageSource !== "none") {
     const [resolved] = await resolveImagesViaKitsu(
       [{ annictWorkId, malAnimeId: row.malAnimeId }],
       fetchImpl,
     );
     if (resolved?.resolvedImageUrl) {
-      await repo.updateResolvedImage(annictWorkId, {
-        resolvedImageUrl: resolved.resolvedImageUrl,
-        imageSource: resolved.imageSource,
-        resolvedAt: now,
-      });
+      // Kitsu が返した URL が既存値と同じなら書き直さない（失効しても内容は
+      // 同じ署名なら取り直しても同じ結果になるため、無駄な D1 書き込みを省く）。
+      if (resolved.resolvedImageUrl !== row.resolvedImageUrl) {
+        await repo.updateResolvedImage(annictWorkId, {
+          resolvedImageUrl: resolved.resolvedImageUrl,
+          imageSource: resolved.imageSource,
+          resolvedAt: now,
+        });
+      }
       hit = await tryCandidates(
         workImageSourceCandidates({
           imageUrl: row.imageUrl,
