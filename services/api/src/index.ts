@@ -7,7 +7,7 @@ import { createDb } from "./db/client";
 import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
-import { resolveMissingMalIds } from "./lib/annict/malIdSearch";
+import { resolveMissingMalIds } from "./lib/annict/kitsuTitleSearch";
 import {
   buildSentryOptions,
   handleError,
@@ -112,9 +112,10 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
   // 画像フォールバックは Queue を介さず、cron が D1 の未解決行を
   // 直接回して解決する（issue #127）。作品画像の R2 取り込みは cron ではなく
   // 画像プロキシ（GET /images/works/:id）が表示時に行う。
-  // 先に MAL ID を持たない作品をタイトル検索で補い（issue #223）、見つかった
-  // 作品を同じ実行の画像フォールバック解決に乗せる。片方の失敗でもう片方が
-  // 巻き込まれないよう個別に握る。
+  // 先に MAL ID を持たない作品を Kitsu のタイトル検索で補い
+  // （issue #223 / #227。AniList は Workers から 403 で拒否されるため
+  // Kitsu を使う）、見つかった作品を同じ実行の画像フォールバック解決に
+  // 乗せる。片方の失敗でもう片方が巻き込まれないよう個別に握る。
   scheduled(_controller, env, ctx) {
     const db = createDb(env.DB as D1Database);
     const logFailure = (event: string) => (err: unknown) => {

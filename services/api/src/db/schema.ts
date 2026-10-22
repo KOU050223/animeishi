@@ -76,11 +76,16 @@ export const annictWorks = sqliteTable("annict_works", {
   imageR2AttemptedAt: integer("image_r2_attempted_at", {
     mode: "timestamp",
   }),
-  // MAL ID を持たない作品の AniList タイトル検索（issue #223）を最後に
+  // MAL ID を持たない作品のタイトル検索（issue #223 / #227）を最後に
   // 試行した時刻。見つからなかった作品をクールダウン中は検索し直さない。
   malSearchAttemptedAt: integer("mal_search_attempted_at", {
     mode: "timestamp",
   }),
+  // Kitsu のタイトル検索（issue #227）で一致した Kitsu 作品の ID。
+  // mappings に myanimelist/anime が無い作品（新作に多い）は mal_anime_id を
+  // 書き戻せないため、画像プロキシがこの ID から Kitsu のポスターを引く
+  // 代わりのキーにする。
+  kitsuAnimeId: integer("kitsu_anime_id"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
