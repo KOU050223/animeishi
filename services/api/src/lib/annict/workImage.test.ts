@@ -459,10 +459,13 @@ describe("serveWorkImage", () => {
   });
 
   it("キーはあるが R2 のオブジェクトが消えていれば取り込み直す", async () => {
+    // クールダウン中でも取り込み直す（失敗すれば末尾でキーを外して
+    // 試行時刻を立てるので、オブジェクト欠損のまま 404 が続かない）。
     const source = "https://s4.anilist.co/1.jpg";
     await insertWork(db, {
       resolvedImageUrl: source,
       imageR2Key: "works/1/0badf00d.png",
+      imageR2AttemptedAt: new Date(),
     });
     const fetchImpl = routeFetch({ [source]: () => makeImageResponse() });
 

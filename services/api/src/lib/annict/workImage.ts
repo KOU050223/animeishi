@@ -299,9 +299,10 @@ export async function serveWorkImage(
   }
 
   // --- クールダウン（直近に全候補が失敗した作品は外部を叩かない） ---
-  // キーだけ残ってオブジェクトが消えている行もここで止める
-  // （そのまま進むとクールダウンが効かず、表示のたびに外部を叩き直す）。
-  if (!stored && inCooldown) return notFound();
+  // キーだけ残ってオブジェクトが消えている行はクールダウンに関わらず
+  // 取り込みを試す（失敗すれば末尾でキーを外して試行時刻を立てるので、
+  // 次回以降はここで止まる）。
+  if (!stored && !ownKey && inCooldown) return notFound();
 
   // --- 2. 候補を順に取りに行く ---
   const tried = new Set<string>();
