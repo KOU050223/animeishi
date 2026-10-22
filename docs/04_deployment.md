@@ -34,6 +34,7 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | `CLERK_AUTHORIZED_PARTIES` | API の**ランタイム**（Clerk azp 検証）。azp クレーム付きトークンが許可オリジン発行か照合する。azp なし（ネイティブアプリ）は常に通過 | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `PUBLIC_WEB_URL` | API の**ランタイム**（`GET /user/:uid` の OGP HTML「Web で見る」導線） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `SENTRY_DSN` | API の**ランタイム**（Sentry 初期化）。未設定なら SDK は no-op | Cloudflare Workers **secret** | 秘密 |
+| `DISCORD_WEBHOOK_URL` | API の**ランタイム**（重大な障害の Discord `#bot-log` 通知）。未設定なら通知しない。本番のみ。モバイルには絶対に持たせない | Cloudflare Workers **secret** | 秘密 |
 | `EXPO_PUBLIC_SENTRY_DSN` | Expo アプリの**ビルド時**にバンドルへ焼き込み（mobile の Sentry 初期化）。未設定なら SDK は no-op | GitHub Actions **Variables**（Web ビルド）/ `eas.json` の `env`（ネイティブビルド） | 公開値（DSN は公開前提の値） |
 | `EXPO_PUBLIC_ENVIRONMENT` | Expo アプリの**ビルド時**にバンドルへ焼き込み（Sentry の environment タグ） | workflow / `eas.json` の `env` に固定値 | 公開値 |
 | `SENTRY_AUTH_TOKEN` | ネイティブビルド時の source map アップロード | EAS の**環境変数（sensitive）** | 秘密 |
@@ -179,6 +180,10 @@ pnpm exec wrangler secret put CLERK_PUBLISHABLE_KEY --env production
 # environment タグで分離する。詳細は「7. Sentry / Discord 通知」を参照
 pnpm exec wrangler secret put SENTRY_DSN --env production
 pnpm exec wrangler secret put SENTRY_DSN --env preview
+
+# 重大な障害の Discord 通知（本番のみ）。#bot-log に animeishi 専用の Webhook を作って
+# その URL を入れる。詳細は docs/08_observability-design.md の「運用（Discord 通知）」
+pnpm exec wrangler secret put DISCORD_WEBHOOK_URL --env production
 ```
 
 実行するとプロンプトで値の入力を求められる。ローカル開発時は `services/api/.dev.vars` に記述する（[`.dev.vars.example`](../services/api/.dev.vars.example) 参照）。

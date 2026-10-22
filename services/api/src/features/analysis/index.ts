@@ -3,7 +3,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { createDb } from "@/db/client";
 import { createOpenApiApp } from "@/lib/openapi";
-import { captureApiError } from "@/observability";
+import { reportApiFailure } from "@/observability";
 import { watchHistoryRepository } from "../watch-history/repository";
 import { usersRepository } from "../users/repository";
 import {
@@ -98,8 +98,8 @@ const analysis = app
       output = await runAnalysis(env.AI, input);
     } catch (e) {
       // Workers AI の障害・応答解釈失敗。上流起因のため 502 にし、
-      // Sentry へは明示的に送る。
-      captureApiError(e, c);
+      // Sentry・Discord へは明示的に送る。
+      reportApiFailure(e, c, 502);
       return c.json(
         {
           error: "視聴傾向の分析に失敗しました。時間をおいて再度お試しください",

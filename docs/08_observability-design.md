@@ -5,14 +5,17 @@ Issue: https://github.com/KOU050223/animeishi/issues/79
 ## 目的
 
 本番の API / アプリでエラーが起きたときに早く気づけるようにする。
-Sentry を一次収集先に据え、Discord には Sentry Alert 経由で通知する。
-アプリケーションコードに Discord Webhook を持たせる構成は取らない。
+Sentry を一次収集先に据える。Discord への通知は当初 Sentry Alert 経由だったが、
+Sentry org が無料（Developer）プランになり Discord を通知先にしたアラートルールを
+新規作成できなくなったため、API Workers の重大な障害だけ Worker から Discord
+Webhook へ直接送る（「Discord 通知」節）。モバイルアプリには Webhook を持たせない。
 
 ## 全体構成
 
 ```
-[API Workers]  ──例外──→  Sentry (project: animeishi-api)  ──Alert──→ Discord
-[Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ─┘
+[API Workers]  ──例外──→  Sentry (project: animeishi-api)  ──メール通知
+      └──5xx/上流障害──→  Discord Webhook (#bot-log)  ※30 分の重複抑止付き
+[Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ──メール通知
 ```
 
 第一弾で API Workers 側（PR #120）、第二弾で Expo 側（issue #121）を導入した。
@@ -181,7 +184,46 @@ enabled = true
 
 ## 運用（Discord 通知）
 
-Sentry 側の UI 設定なので手順を docs に記録する。
+### Worker からの直接通知（現行）
+
+Sentry の Developer プランでは Discord を通知先にしたアラートルールを新規作成できない
+（`400 Organization does not allow this action type: discord`）。
+そのため Sentry へ送るサーバー側の障害を、`src/lib/discordAlert.ts` が Discord Webhook にも送る。
+対象は `handleError` が受ける障害（未処理例外の 500、HTTPException 5xx、
+401 以外の AnnictApiError → 502）と、ルートが応答に変換して onError を通らない障害
+（Workers AI の 502、Annict 認可の 502、視聴履歴一括更新の部分失敗、OpenAPI サブアプリの
+HTTPException 5xx）。後者は `reportApiFailure(err, c, status)` で Sentry 送信と通知を同時に行う。
+
+- 送信は `ctx.waitUntil` で行い、応答は待たせない
+- 本文はルートパターン（`/user/:uid` の形）・メソッド・返したステータス・error.kind・件数だけ。
+  実際のパス・クエリ文字列・例外メッセージ・ユーザー ID は入れない
+- `allowed_mentions: { parse: [] }` でメンションを解釈させない
+- 重複抑止: KV `ALERT_STATE` に印を `expirationTtl: 1800`（30 分）で付け、印がある間は
+  同じ障害を送らない。印は障害の組み合わせごとに付けるので、別種の障害は抑止中でも通知される
+  - 全ルートに広がる基盤系（`annict` / `upstream` / `db` / `auth`）は `api:<error.kind>:<status>`
+  - それ以外（`unknown` 等）は原因がルートごとに違うため `api:<error.kind>:<status>:<METHOD> <route>`
+  - KV は結果整合なので、同じ isolate 内の同時発生（一括更新で何十件も失敗する等）は
+    メモリ上の印でも抑える
+  - KV の読み書きに失敗しても通知は送る（KV は重複抑止のためだけ）
+- `DISCORD_WEBHOOK_URL`（Workers Secret）が未設定なら何もしない
+
+セットアップ（初回のみ）:
+
+1. Discord `#bot-log` のチャンネル設定 → 連携サービス → ウェブフックで
+   animeishi 専用の Webhook を作る（他プロジェクトと分け、漏れたら単独で作り直せるようにする）
+2. `cd services/api && pnpm exec wrangler secret put DISCORD_WEBHOOK_URL --env production`
+3. KV namespace `ALERT_STATE` は wrangler.toml の `[[env.production.kv_namespaces]]`
+   に定義済み
+
+モバイルアプリに Webhook URL を埋め込むのは禁止（アプリを分解すれば誰でも抜き出して
+投稿できる）。アプリのエラーは Sentry のメール通知で受け、Discord に流したい場合は
+Workers 側を経由させる。
+
+### Sentry Alert 経由（旧構成）
+
+トライアル中に作成した Discord 宛てのアラートルール（`production errors -> Discord #bot-log` 等）は
+Sentry 上に残っている。新規作成・編集はできないため、上記の直接通知を正とする。
+当時の手順:
 
 1. Sentry の Settings → Integrations で Discord を連携
 2. Alert rule を作成: `environment equals production` の
@@ -300,8 +342,9 @@ sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
 
 ### Discord 通知
 
-プロジェクトが分かれたため、`animeishi-mobile` 側にも同条件
-（`environment equals production`）の Alert rule を作成する。
+`animeishi-mobile` にもトライアル中に Discord 宛ての Alert rule を作成したが、
+無料プランでは新規作成・編集ができない。モバイルのエラーは Sentry のメール通知で受ける
+（Webhook をアプリに持たせない理由は「運用（Discord 通知）」節を参照）。
 
 ## ファネル計測（Annict 連携コンバージョン、issue #64）
 
