@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
 import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
 import { annictWorks } from "@/db/schema";
 import {
   WORK_IMAGE_FAILURE_COOLDOWN_MS,
@@ -116,6 +117,17 @@ describe("workImageSourceCandidates", () => {
     expect(
       workImageSourceCandidates({ imageUrl: "", resolvedImageUrl: undefined }),
     ).toEqual([]);
+  });
+
+  it("&amp; でエスケープされた URL は & に戻してから候補にする", () => {
+    // 本番 DB に `&` が `&amp;` で入っている行があったための防御。
+    // そのまま fetch すると署名パラメータ名が壊れて必ず失敗する。
+    expect(
+      workImageSourceCandidates({
+        imageUrl: null,
+        resolvedImageUrl: "https://img.example.com/p.png?a=1&amp;b=2",
+      }),
+    ).toEqual(["https://img.example.com/p.png?a=1&b=2"]);
   });
 });
 
@@ -233,6 +245,149 @@ describe("serveWorkImage", () => {
     expect(row.imageR2Key).toBe(workImageKey(1, cover, "jpg"));
   });
 
+  it("resolvedImageUrl が失効した署名付き URL でも、Kitsu を引き直して取り込む", async () => {
+    // Kitsu の新しい作品は 15 分で失効する署名付き URL
+    // （kitsu-production-media.s3...backblazeb2.com?X-Amz-...）が返る。
+    // 失効後は candidates 側の fetch が 403 になるため、MAL ID で Kitsu の
+    // mappings を引き直して新しい署名付き URL を取り、その場で R2 に保存する。
+    const expired =
+      "https://kitsu-production-media.s3.us-west-002.backblazeb2.com/anime/50212/poster_image/2816144fa83a3ed0cfd57210096749ad.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20261001T000000Z&X-Amz-Expires=900&X-Amz-Signature=old";
+    const reissued =
+      "https://kitsu-production-media.s3.us-west-002.backblazeb2.com/anime/50212/poster_image/2816144fa83a3ed0cfd57210096749ad.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20261022T000000Z&X-Amz-Expires=900&X-Amz-Signature=new";
+    await insertWork(db, {
+      malAnimeId: 61806,
+      resolvedImageUrl: expired,
+      imageSource: "kitsu",
+    });
+    const fetchImpl = routeFetch({
+      [expired]: () => new Response("expired", { status: 403 }),
+      [KITSU]: () =>
+        makeKitsuResponse({
+          m61806: { coverImage: { extraLarge: reissued } },
+        }),
+      [reissued]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(200);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining("kitsu.io"),
+      expect.anything(),
+    );
+    const row = await getWork(db);
+    expect(row.resolvedImageUrl).toBe(reissued);
+    expect(row.imageR2Key).toBe(workImageKey(1, reissued, "jpg"));
+    expect(
+      await env.AVATARS.get(workImageKey(1, reissued, "jpg")),
+    ).not.toBeNull();
+  });
+
+  it("Kitsu に対応が無い作品は 404 のまま。ただし Kitsu までは引く", async () => {
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+    });
+    const fetchImpl = routeFetch({
+      [KITSU]: () => makeKitsuResponse({ m50099: null }),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(404);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining("kitsu.io"),
+      expect.anything(),
+    );
+    // Kitsu miss が確定したのでネガキャッシュが書き込まれる
+    // （Kitsu リクエスト自体の失敗とは区別する）。
+    expect((await getWork(db)).imageSource).toBe("none");
+  });
+
+  it("imageSource='none' が TTL 内なら Kitsu を引き直さない", async () => {
+    // 'none' は「Kitsu にも画像が無い」ことが確定済みのネガキャッシュ。
+    // 確定から TTL（IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）以内は
+    // 表示されても Kitsu を叩かない。
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+      imageSource: "none",
+      resolvedAt: new Date(),
+    });
+    const fetchImpl = routeFetch({});
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(404);
+    expect(fetchImpl).not.toHaveBeenCalledWith(
+      expect.stringContaining("kitsu.io"),
+      expect.anything(),
+    );
+  });
+
+  it("imageSource='none' が TTL 切れなら Kitsu を引き直して取り込む", async () => {
+    // 'none' 確定後に Annict の URL が「見た目は正常だが実体は 404」に
+    // 更新されると cron の pending 対象外（非 placeholder URL は対象外）
+    // になるため、プロキシ側でも TTL 切れの 'none' は再解決する。
+    // 将来 Kitsu に画像が登録された作品をここで救う。
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 5114,
+      imageSource: "none",
+      resolvedAt: new Date(
+        Date.now() - IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS - 1000,
+      ),
+    });
+    const cover = "https://s4.anilist.co/5114.jpg";
+    const fetchImpl = routeFetch({
+      [KITSU]: () =>
+        makeKitsuResponse({ m5114: { coverImage: { extraLarge: cover } } }),
+      [cover]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(200);
+    const row = await getWork(db);
+    expect(row.imageSource).toBe("kitsu");
+    expect(row.resolvedImageUrl).toBe(cover);
+    expect(row.imageR2Key).toBe(workImageKey(1, cover, "jpg"));
+  });
+
+  it("TTL 切れ 'none' の再解決が依然 miss なら resolvedAt を更新して先送りする", async () => {
+    // resolvedAt は秒精度で保存されるため、再解決前の古い値より
+    // 新しくなったことだけを確認する。
+    const stale = new Date(
+      Date.now() - IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS - 60_000,
+    );
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+      imageSource: "none",
+      resolvedAt: stale,
+    });
+    const fetchImpl = routeFetch({
+      [KITSU]: () => makeKitsuResponse({ m50099: null }),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(404);
+    const row = await getWork(db);
+    expect(row.imageSource).toBe("none");
+    expect(row.resolvedAt?.getTime()).toBeGreaterThan(stale.getTime());
+  });
+
   it("全滅したら 404 を返して試行時刻を立て、クールダウン中は外部を叩かない", async () => {
     await insertWork(db, { resolvedImageUrl: "https://s4.anilist.co/1.jpg" });
     const now = new Date("2026-10-17T00:00:00Z");
@@ -304,10 +459,13 @@ describe("serveWorkImage", () => {
   });
 
   it("キーはあるが R2 のオブジェクトが消えていれば取り込み直す", async () => {
+    // クールダウン中でも取り込み直す（失敗すれば末尾でキーを外して
+    // 試行時刻を立てるので、オブジェクト欠損のまま 404 が続かない）。
     const source = "https://s4.anilist.co/1.jpg";
     await insertWork(db, {
       resolvedImageUrl: source,
       imageR2Key: "works/1/0badf00d.png",
+      imageR2AttemptedAt: new Date(),
     });
     const fetchImpl = routeFetch({ [source]: () => makeImageResponse() });
 
@@ -413,6 +571,85 @@ describe("serveWorkImage", () => {
       expect(res.status).toBe(404);
       expect(await env.AVATARS.head(foreignKey)).not.toBeNull();
       expect((await getWork(db)).imageR2Key).toBeNull();
+    });
+  });
+
+  describe("署名付き URL（Kitsu / Backblaze B2）の取り扱い", () => {
+    // 署名クエリ（X-Amz-*）は再発行のたびに変わるため、キーのハッシュは
+    // クエリを除いた部分から取る。そうしないと取り込み済みでも毎回
+    // 「取り込み元が変わった」と誤判定されて取り直しが走る。
+    const signedAt = (signature: string) =>
+      `https://kitsu-production-media.s3.us-west-002.backblazeb2.com/anime/50212/poster_image/2816144fa83a3ed0cfd57210096749ad.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20261022T000000Z&X-Amz-Expires=900&X-Amz-Signature=${signature}`;
+
+    it("取り込み時と署名が変わっていても fresh と判定し、外部を叩かない", async () => {
+      const key = workImageKey(1, signedAt("oldsignature"), "jpg");
+      await env.AVATARS.put(key, PNG_BYTES, {
+        httpMetadata: { contentType: "image/jpeg" },
+      });
+      await insertWork(db, {
+        resolvedImageUrl: signedAt("newsignature"),
+        imageSource: "kitsu",
+        imageR2Key: key,
+      });
+      const fetchImpl = vi.fn();
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("署名クエリが違ってもオブジェクトの実体が違えば（= パスが違えば）取り直す", async () => {
+      const oldUrl = signedAt("oldsignature");
+      const newUrl = oldUrl.replace(
+        "/2816144fa83a3ed0cfd57210096749ad.jpg",
+        "/ffffffffffffffffffffffffffffffff.jpg",
+      );
+      const oldKey = workImageKey(1, oldUrl, "jpg");
+      await env.AVATARS.put(oldKey, PNG_BYTES, {
+        httpMetadata: { contentType: "image/jpeg" },
+      });
+      await insertWork(db, {
+        resolvedImageUrl: newUrl,
+        imageSource: "kitsu",
+        imageR2Key: oldKey,
+        imageR2AttemptedAt: new Date("2026-01-01T00:00:00Z"),
+      });
+      const fetchImpl = routeFetch({
+        [newUrl]: () => makeImageResponse("image/jpeg"),
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect((await getWork(db)).imageR2Key).toBe(
+        workImageKey(1, newUrl, "jpg"),
+      );
+      expect(await env.AVATARS.head(oldKey)).toBeNull();
+    });
+
+    it("DB に &amp; で入っている署名付き URL は & に戻してから取りに行く", async () => {
+      const escaped = signedAt("sig").replace(/&/g, "&amp;");
+      const unescaped = signedAt("sig");
+      await insertWork(db, { resolvedImageUrl: escaped });
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        // &amp; のまま叩かれたら失敗とみなす
+        return url === unescaped
+          ? makeImageResponse("image/jpeg")
+          : new Response("bad query", { status: 403 });
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(200);
+      expect(fetchImpl).toHaveBeenCalledWith(unescaped, expect.anything());
     });
   });
 });

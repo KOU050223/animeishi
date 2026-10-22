@@ -27,10 +27,11 @@ export type AnnictWorkMeta = {
   seasonYear: number | null;
   // Annict 由来の画像 URL（fallback を掛ける前のもの）。互換のため残す。
   imageUrl: string | null;
-  // Kitsu / Jikan で補完済みの URL があればこちら。無ければ null。
+  // Kitsu で補完済みの URL があればこちら。無ければ null。
   // クライアントは resolvedImageUrl ?? imageUrl の順で表示する。
   resolvedImageUrl: string | null;
-  // 'annict' | 'anilist' | 'jikan' | 'none' | null。運用調査用に露出する。
+  // 'kitsu' | 'none' | null（'anilist' / 'jikan' は過去の供給元で
+  // 既存行にのみ残る値）。運用調査用に露出する。
   imageSource: string | null;
   // R2 に取り込み済みの作品画像キー。配信 URL は作品 ID から組み立てる
   // （GET /images/works/<id>）ので、ルート層では使わない。運用調査用。
@@ -253,8 +254,10 @@ export function worksRepository(db: DrizzleDb) {
     /**
      * 画像フォールバック解決を試行する作品に最終試行時刻
      * （image_fallback_attempted_at）を立てる。クールダウン期間内の
-     * 叩き直しを弾くためのもので、image_source が既に立った（=解決済み）行には
-     * 立てない。D1 のバインド上限（100 変数）対策で 90 件ずつ分割する。
+     * 叩き直しを弾くためのもの。image_source が供給元確定済みの行には
+     * 立てないが、'none'（ネガキャッシュ。TTL 再解決の対象）と null
+     * （未解決）の行には立てる。D1 のバインド上限（100 変数）対策で
+     * 90 件ずつ分割する。
      */
     async markImageFallbackAttempted(
       annictWorkIds: number[],
@@ -268,7 +271,10 @@ export function worksRepository(db: DrizzleDb) {
           .where(
             and(
               inArray(annictWorks.annictWorkId, chunk),
-              isNull(annictWorks.imageSource),
+              or(
+                isNull(annictWorks.imageSource),
+                eq(annictWorks.imageSource, "none"),
+              ),
             ),
           );
       }
@@ -279,10 +285,16 @@ export function worksRepository(db: DrizzleDb) {
      * 最近 Annict read-through / search で書き込まれた作品を優先するため updated_at 降順
      * （検索経路は内容が変わらない作品を書き直さないので、厳密な「最終閲覧順」ではない）。
      * attemptedStaleBefore 以降に試行済みの作品（クールダウン生存中）は除外する。
+     *
+     * 対象は「未解決（image_source is null）」の作品に加えて、
+     * 「'none'（Kitsu にも無いと確定）だが確定時刻 resolved_at が
+     * noneResolvedStaleBefore より古い」作品。'none' のままだと二度と
+     * 拾えないため、TTL で再解決して将来 Kitsu に登録された画像を救う。
      */
     async getPendingImageFallbackWorks(
       limit: number,
       attemptedStaleBefore: Date,
+      noneResolvedStaleBefore: Date,
     ): Promise<{ annictWorkId: number; malAnimeId: number }[]> {
       const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
       if (safeLimit === 0) return [];
@@ -296,8 +308,7 @@ export function worksRepository(db: DrizzleDb) {
         .where(
           and(
             sql`
-          ${annictWorks.imageSource} is null
-          and ${annictWorks.malAnimeId} is not null
+          ${annictWorks.malAnimeId} is not null
           and (
             ${annictWorks.imageUrl} is null
             or trim(${annictWorks.imageUrl}) = ''
@@ -308,6 +319,16 @@ export function worksRepository(db: DrizzleDb) {
             or lower(${annictWorks.imageUrl}) like '%fbcdn.net%'
           )
         `,
+            or(
+              isNull(annictWorks.imageSource),
+              and(
+                eq(annictWorks.imageSource, "none"),
+                or(
+                  isNull(annictWorks.resolvedAt),
+                  lt(annictWorks.resolvedAt, noneResolvedStaleBefore),
+                ),
+              ),
+            ),
             or(
               isNull(annictWorks.imageFallbackAttemptedAt),
               lt(annictWorks.imageFallbackAttemptedAt, attemptedStaleBefore),

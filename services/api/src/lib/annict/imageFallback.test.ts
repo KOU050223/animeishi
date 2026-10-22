@@ -12,20 +12,6 @@ import {
   resolveImagesViaKitsu,
 } from "./imageFallback";
 
-// Jikan の /anime/{id} レスポンスを組み立てる。
-function makeJikanResponse(
-  images: {
-    jpg?: { large_image_url?: string | null; image_url?: string | null };
-    webp?: { large_image_url?: string | null; image_url?: string | null };
-  } | null,
-  status = 200,
-): Response {
-  return new Response(JSON.stringify({ data: { images } }), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 describe("isPlaceholderImageUrl", () => {
   it("null / 空文字は placeholder 扱い", () => {
     expect(isPlaceholderImageUrl(null)).toBe(true);
@@ -118,21 +104,14 @@ describe("resolveImagesForWorks", () => {
     ]);
   });
 
-  it("Kitsu で取れなかった MAL ID だけを Jikan で個別リトライする", async () => {
+  it("Kitsu で取れなかった MAL ID は 'none' でネガキャッシュを返す", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
-      if (isKitsuMappingsUrl(url)) {
-        // 21 は返す、9999 は Kitsu に無い
-        return makeKitsuResponse({
-          m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
-          m9999: null,
-        });
-      }
-      if (url === "https://api.jikan.moe/v4/anime/9999") {
-        return makeJikanResponse({
-          jpg: { large_image_url: "https://cdn.myanimelist.net/9999.jpg" },
-        });
-      }
-      throw new Error(`unexpected url: ${url}`);
+      // 21 は返す、9999 は Kitsu に無い
+      expect(isKitsuMappingsUrl(url)).toBe(true);
+      return makeKitsuResponse({
+        m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
+        m9999: null,
+      });
     });
 
     const res = await resolveImagesForWorks(
@@ -143,8 +122,9 @@ describe("resolveImagesForWorks", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    // Kitsu 1 回 + Jikan 1 回。21 は Jikan を叩かない。
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Kitsu バッチ 1 リクエストだけ（補完先は Kitsu のみ。Kitsu に無いものは
+    // 'none' で確定させ、将来の拾い直しは cron の TTL 再解決に任せる）。
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(res).toEqual([
       {
         annictWorkId: 100,
@@ -155,46 +135,15 @@ describe("resolveImagesForWorks", () => {
       {
         annictWorkId: 200,
         malAnimeId: 9999,
-        resolvedImageUrl: "https://cdn.myanimelist.net/9999.jpg",
-        imageSource: "jikan",
-      },
-    ]);
-  });
-
-  it("両方失敗すれば imageSource='none' でネガキャッシュを返す", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (isKitsuMappingsUrl(url)) {
-        return makeKitsuResponse({ m404: null });
-      }
-      if (url.startsWith("https://api.jikan.moe/v4/anime/")) {
-        return makeJikanResponse(null, 404);
-      }
-      throw new Error(`unexpected url: ${url}`);
-    });
-
-    const res = await resolveImagesForWorks(
-      [{ annictWorkId: 500, malAnimeId: 404 }],
-      fetchImpl as unknown as typeof fetch,
-    );
-
-    expect(res).toEqual([
-      {
-        annictWorkId: 500,
-        malAnimeId: 404,
         resolvedImageUrl: null,
         imageSource: "none",
       },
     ]);
   });
 
-  it("Kitsu のネットワーク失敗は例外を投げず Jikan に流す", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (isKitsuMappingsUrl(url)) {
-        throw new Error("network down");
-      }
-      return makeJikanResponse({
-        webp: { large_image_url: "https://cdn.myanimelist.net/7/large.webp" },
-      });
+  it("Kitsu のリクエスト自体が失敗した作品は結果を返さない（'none' にしない）", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("network down");
     });
 
     const res = await resolveImagesForWorks(
@@ -202,42 +151,13 @@ describe("resolveImagesForWorks", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    // Kitsu が例外でも throw せず Jikan で解決している
-    expect(res[0]).toMatchObject({
-      annictWorkId: 700,
-      malAnimeId: 7,
-      imageSource: "jikan",
-    });
-    expect(res[0].resolvedImageUrl).toBe(
-      "https://cdn.myanimelist.net/7/large.webp",
-    );
-  });
-
-  it("Jikan が 429 の作品は結果を返さない（ネガキャッシュされない）", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (isKitsuMappingsUrl(url)) {
-        return makeKitsuResponse({ m9999: null });
-      }
-      // Jikan は 429 (Too Many Requests)
-      return new Response("Too Many Requests", { status: 429 });
-    });
-
-    const res = await resolveImagesForWorks(
-      [{ annictWorkId: 800, malAnimeId: 9999 }],
-      fetchImpl as unknown as typeof fetch,
-    );
-
-    // 429 の作品は結果に含まれず、呼び出し側で保存されないようにする
+    // 一時障害かもしれないのでネガキャッシュせず、呼び出し側のクールダウン
+    // 切れ後に再試行させる
     expect(res).toEqual([]);
   });
 
-  it("Jikan が 5xx の作品もネガキャッシュ対象にしない", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (isKitsuMappingsUrl(url)) {
-        return makeKitsuResponse({ m1: null });
-      }
-      return new Response("boom", { status: 503 });
-    });
+  it("Kitsu が 5xx の作品もネガキャッシュ対象にしない", async () => {
+    const fetchImpl = vi.fn(async () => new Response("boom", { status: 503 }));
 
     const res = await resolveImagesForWorks(
       [{ annictWorkId: 900, malAnimeId: 1 }],
@@ -262,7 +182,7 @@ describe("resolveImagesForWorks", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    // dedupe しているので Kitsu は 1 回、Jikan は 0 回
+    // dedupe しているので Kitsu は 1 回
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     // 入力両方に同じ URL が展開される
     expect(res.map((r) => r.resolvedImageUrl)).toEqual([
@@ -283,7 +203,7 @@ describe("resolveImagesViaKitsu", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("Kitsu のヒットだけを返し、Jikan は叩かない", async () => {
+  it("Kitsu のヒットだけを返す", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       expect(isKitsuMappingsUrl(url)).toBe(true);
       return makeKitsuResponse({
@@ -300,7 +220,7 @@ describe("resolveImagesViaKitsu", () => {
       fetchImpl as unknown as typeof fetch,
     );
 
-    // Kitsu バッチ 1 回だけ。miss（9999）は結果に含まれず Jikan も叩かない
+    // Kitsu バッチ 1 回だけ。miss（9999）は結果に含まれない
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(res).toEqual([
       {
