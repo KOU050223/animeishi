@@ -314,7 +314,17 @@ describe("searchKitsuAnimeByTitle", () => {
   });
 
   it("本文が null・配列など検索レスポンスとして扱えない形なら検索失敗（null）", async () => {
-    for (const body of ["null", "[]", '"oops"']) {
+    for (const body of [
+      "null",
+      "[]",
+      '"oops"',
+      "{}",
+      // HTTP 200 のまま JSON:API のエラー応答を返す形も失敗扱い
+      '{"errors":[{"title":"upstream failure"}]}',
+      // data が配列でない形も同様（"0 件ヒット" と区別できない）
+      '{"data":null}',
+      '{"data":{"id":"1"}}',
+    ]) {
       const fetchImpl = vi.fn(
         async () =>
           new Response(body, {

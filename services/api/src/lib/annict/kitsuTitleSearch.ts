@@ -139,6 +139,7 @@ type KitsuAnimeSearchResponse = {
     } | null;
   } | null)[];
   links?: { next?: string | null } | null;
+  errors?: unknown[];
 };
 
 function kitsuSearchUrl(term: string): string {
@@ -247,11 +248,14 @@ export async function searchKitsuAnimeByTitle(
         clearTimeout(timer);
       }
       // 本文が null・配列・プリミティブなど、検索レスポンスとして扱えない
-      // 形は失敗扱い。失敗した検索が「0 件ヒット」に見えると、見つからない
-      // 作品として 7 日間のクールダウンに入ってしまう。
+      // 形は失敗扱い。JSON:API のエラー応答（HTTP 200 で errors を返す
+      // 形や、data が配列でない形）も「0 件ヒット」と区別できないので
+      // 失敗扱いにする。失敗した検索が「0 件ヒット」に見えると、
+      // 見つからない作品として 7 日間のクールダウンに入ってしまう。
       if (json === null || typeof json !== "object" || Array.isArray(json)) {
         return null;
       }
+      if (json.errors?.length || !Array.isArray(json.data)) return null;
       // 次ページがある検索は、取得範囲の外に同名作品が残りうるので
       // 一意性を確かめられない（その作品は採用しない）。
       if (json.links?.next) truncated.add(input.annictWorkId);
