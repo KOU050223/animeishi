@@ -1,6 +1,9 @@
 import type { DrizzleDb } from "@/db/client";
 import { worksRepository } from "@/features/works/repository";
-import { resolveImagesForWorks } from "@/lib/annict/imageFallback";
+import {
+  IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
+  resolveImagesForWorks,
+} from "@/lib/annict/imageFallback";
 
 /**
  * 最終試行時刻（annict_works.image_fallback_attempted_at）のクールダウン期間。
@@ -13,15 +16,6 @@ export const IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS = 60 * 60 * 1000;
 export function imageFallbackAttemptStaleBefore(now: Date = new Date()): Date {
   return new Date(now.getTime() - IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS);
 }
-
-/**
- * 'none'（Kitsu にも画像が無いと確定済み）の作品を再解決するまでの間隔。
- * resolved_at を起点にする（確定のたびに updateResolvedImage が更新するので、
- * 再解決しても 'none' のままなら TTL がそのたび延長される）。
- * 'none' のままにすると将来 Kitsu 側に対応・画像が登録されても二度と拾え
- * ないため、長めの間隔で拾い直す。
- */
-export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** 'none' の再解決対象になる境界時刻を返す。 */
 export function imageFallbackNoneStaleBefore(now: Date = new Date()): Date {

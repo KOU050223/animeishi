@@ -31,7 +31,11 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { isSnsImageUrl, resolveImagesViaKitsu } from "./imageFallback";
+import {
+  IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
+  isSnsImageUrl,
+  resolveImagesForWorks,
+} from "./imageFallback";
 
 /** 全候補が失敗した作品で、外部 fetch を再試行するまでの間隔。 */
 export const WORK_IMAGE_FAILURE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -320,30 +324,42 @@ export async function serveWorkImage(
   // に持つため、解決済みでも URL が死んでいる作品がある。実際に取れなかった
   // ことが分かったここで MAL ID から Kitsu を 1 回引き直し、得た新しい URL を
   // その場で取り込む（R2 に入れば以後は失効しても関係ない）。
-  // 'none'（Kitsu にも無いことが確定済み）は引き直さない。将来 Kitsu に登録
-  // されたときの拾い直しは cron（pending 解決の TTL 再解決）が担う。
-  // ここに来るのはクールダウン外だけなので、表示のたびに Kitsu を叩くことはない。
-  if (!hit && row.malAnimeId != null && row.imageSource !== "none") {
-    const [resolved] = await resolveImagesViaKitsu(
+  // 'none'（Kitsu にも無いことが確定済み）は TTL 内なら引き直さない。
+  // TTL 切れならここでも 1 回引き直す — 'none' 確定後に Annict 側の URL が
+  // 「見た目は正常だが実体は 404」に更新された作品は cron の pending 対象外
+  // （非 placeholder URL は対象外）のため、ここが唯一の拾い直し経路になる。
+  // 再解決結果は確定済みの 'none' を含めて書き戻し、resolvedAt を起点に
+  // 次の再解決を TTL 分先送りする（cron と同じ扱い）。
+  // Kitsu へのリクエスト自体の失敗は結果が返らないので書き込まない
+  // （'none' に確定させず、クールダウン切れ後にまた試行される）。
+  const noneResolutionStale =
+    row.imageSource === "none" &&
+    (row.resolvedAt == null ||
+      now.getTime() - row.resolvedAt.getTime() >=
+        IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS);
+  if (
+    !hit &&
+    row.malAnimeId != null &&
+    (row.imageSource !== "none" || noneResolutionStale)
+  ) {
+    const [resolved] = await resolveImagesForWorks(
       [{ annictWorkId, malAnimeId: row.malAnimeId }],
       fetchImpl,
     );
-    if (resolved?.resolvedImageUrl) {
-      // Kitsu が返した URL が既存値と同じなら書き直さない（失効しても内容は
-      // 同じ署名なら取り直しても同じ結果になるため、無駄な D1 書き込みを省く）。
-      if (resolved.resolvedImageUrl !== row.resolvedImageUrl) {
-        await repo.updateResolvedImage(annictWorkId, {
-          resolvedImageUrl: resolved.resolvedImageUrl,
-          imageSource: resolved.imageSource,
-          resolvedAt: now,
-        });
+    if (resolved) {
+      await repo.updateResolvedImage(annictWorkId, {
+        resolvedImageUrl: resolved.resolvedImageUrl,
+        imageSource: resolved.imageSource,
+        resolvedAt: now,
+      });
+      if (resolved.resolvedImageUrl) {
+        hit = await tryCandidates(
+          workImageSourceCandidates({
+            imageUrl: row.imageUrl,
+            resolvedImageUrl: resolved.resolvedImageUrl,
+          }),
+        );
       }
-      hit = await tryCandidates(
-        workImageSourceCandidates({
-          imageUrl: row.imageUrl,
-          resolvedImageUrl: resolved.resolvedImageUrl,
-        }),
-      );
     }
   }
 

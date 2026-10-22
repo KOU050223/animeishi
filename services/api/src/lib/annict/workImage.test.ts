@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
 import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
 import { annictWorks } from "@/db/schema";
 import {
   WORK_IMAGE_FAILURE_COOLDOWN_MS,
@@ -302,12 +303,15 @@ describe("serveWorkImage", () => {
       expect.stringContaining("kitsu.io"),
       expect.anything(),
     );
+    // Kitsu miss が確定したのでネガキャッシュが書き込まれる
+    // （Kitsu リクエスト自体の失敗とは区別する）。
+    expect((await getWork(db)).imageSource).toBe("none");
   });
 
-  it("imageSource='none' の作品は Kitsu を引き直さない", async () => {
+  it("imageSource='none' が TTL 内なら Kitsu を引き直さない", async () => {
     // 'none' は「Kitsu にも画像が無い」ことが確定済みのネガキャッシュ。
-    // 将来 Kitsu に登録されたときの拾い直しは cron（pending 解決）の
-    // TTL 再解決に任せ、表示のたびに Kitsu を叩かない。
+    // 確定から TTL（IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）以内は
+    // 表示されても Kitsu を叩かない。
     await insertWork(db, {
       imageUrl: "https://old-official.example.com/og.png",
       malAnimeId: 50099,
@@ -325,6 +329,63 @@ describe("serveWorkImage", () => {
       expect.stringContaining("kitsu.io"),
       expect.anything(),
     );
+  });
+
+  it("imageSource='none' が TTL 切れなら Kitsu を引き直して取り込む", async () => {
+    // 'none' 確定後に Annict の URL が「見た目は正常だが実体は 404」に
+    // 更新されると cron の pending 対象外（非 placeholder URL は対象外）
+    // になるため、プロキシ側でも TTL 切れの 'none' は再解決する。
+    // 将来 Kitsu に画像が登録された作品をここで救う。
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 5114,
+      imageSource: "none",
+      resolvedAt: new Date(
+        Date.now() - IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS - 1000,
+      ),
+    });
+    const cover = "https://s4.anilist.co/5114.jpg";
+    const fetchImpl = routeFetch({
+      [KITSU]: () =>
+        makeKitsuResponse({ m5114: { coverImage: { extraLarge: cover } } }),
+      [cover]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(200);
+    const row = await getWork(db);
+    expect(row.imageSource).toBe("kitsu");
+    expect(row.resolvedImageUrl).toBe(cover);
+    expect(row.imageR2Key).toBe(workImageKey(1, cover, "jpg"));
+  });
+
+  it("TTL 切れ 'none' の再解決が依然 miss なら resolvedAt を更新して先送りする", async () => {
+    // resolvedAt は秒精度で保存されるため、再解決前の古い値より
+    // 新しくなったことだけを確認する。
+    const stale = new Date(
+      Date.now() - IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS - 60_000,
+    );
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+      imageSource: "none",
+      resolvedAt: stale,
+    });
+    const fetchImpl = routeFetch({
+      [KITSU]: () => makeKitsuResponse({ m50099: null }),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(404);
+    const row = await getWork(db);
+    expect(row.imageSource).toBe("none");
+    expect(row.resolvedAt?.getTime()).toBeGreaterThan(stale.getTime());
   });
 
   it("全滅したら 404 を返して試行時刻を立て、クールダウン中は外部を叩かない", async () => {

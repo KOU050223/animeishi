@@ -3,9 +3,9 @@ import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
 import { makeKitsuResponse } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
 import {
   IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS,
-  IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
   imageFallbackAttemptStaleBefore,
   imageFallbackNoneStaleBefore,
   resolvePendingImageFallbacks,

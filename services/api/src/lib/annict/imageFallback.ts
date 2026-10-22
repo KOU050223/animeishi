@@ -12,8 +12,9 @@
 //     されないため「届かないのに毎時間叩き直される」状態になっていたので
 //     補完経路から外した。
 //   * Kitsu に対応・画像が無ければ 'none' をネガキャッシュ。
-//     'none' のままだと二度と拾えないため、resolved_at 起点の TTL で
-//     再解決される（imageFallbackPending 側で期間を管理）。
+//     'none' のままだと二度と拾えないため、resolved_at 起点の TTL
+//     （IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）で再解決される。
+//     cron（imageFallbackPending）と画像プロキシ（workImage）の両方が使う。
 //   * Kitsu へのリクエスト自体の失敗（fetch reject / 5xx / 応答の解析失敗）は
 //     「解決可否が不明」として結果を返さない（'none' にしない）。呼び出し側の
 //     クールダウン切れ後に再試行される。
@@ -60,6 +61,15 @@ export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
 export function isSnsImageUrl(url: string): boolean {
   return PLACEHOLDER_HOST_PATTERNS.some((re) => re.test(url));
 }
+
+/**
+ * 'none'（Kitsu にも画像が無いと確定済み）の作品を再解決するまでの間隔。
+ * resolved_at を起点にする（確定のたびに updateResolvedImage が更新するので、
+ * 再解決しても 'none' のままなら TTL がそのたび延長される）。
+ * 'none' のままにすると将来 Kitsu 側に対応・画像が登録されても二度と拾え
+ * ないため、長めの間隔で拾い直す。
+ */
+export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** 画像フォールバックの供給元。annict_works.image_source に保存する値。 */
 // 'anilist'・'jikan' は過去の供給元で既存行に残っている値（互換のため
