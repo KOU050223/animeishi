@@ -298,7 +298,13 @@ export function worksRepository(db: DrizzleDb) {
       limit: number,
       attemptedStaleBefore: Date,
       noneResolvedStaleBefore: Date,
-    ): Promise<{ annictWorkId: number; malAnimeId: number }[]> {
+    ): Promise<
+      {
+        annictWorkId: number;
+        malAnimeId: number | null;
+        kitsuAnimeId: number | null;
+      }[]
+    > {
       const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
       if (safeLimit === 0) return [];
 
@@ -306,12 +312,14 @@ export function worksRepository(db: DrizzleDb) {
         .select({
           annictWorkId: annictWorks.annictWorkId,
           malAnimeId: annictWorks.malAnimeId,
+          kitsuAnimeId: annictWorks.kitsuAnimeId,
         })
         .from(annictWorks)
         .where(
           and(
             sql`
-          ${annictWorks.malAnimeId} is not null
+          (${annictWorks.malAnimeId} is not null
+           or ${annictWorks.kitsuAnimeId} is not null)
           and (
             ${annictWorks.imageUrl} is null
             or trim(${annictWorks.imageUrl}) = ''
@@ -342,9 +350,15 @@ export function worksRepository(db: DrizzleDb) {
         .limit(safeLimit);
 
       return rows.flatMap((row) =>
-        row.malAnimeId == null
+        row.malAnimeId == null && row.kitsuAnimeId == null
           ? []
-          : [{ annictWorkId: row.annictWorkId, malAnimeId: row.malAnimeId }],
+          : [
+              {
+                annictWorkId: row.annictWorkId,
+                malAnimeId: row.malAnimeId,
+                kitsuAnimeId: row.kitsuAnimeId,
+              },
+            ],
       );
     },
 

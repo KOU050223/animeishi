@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
-import { makeKitsuResponse } from "@/test-utils/kitsu";
+import {
+  isKitsuAnimeListUrl,
+  makeKitsuAnimeListResponse,
+  makeKitsuResponse,
+} from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
 import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
 import {
@@ -61,6 +65,36 @@ describe("resolvePendingImageFallbacks", () => {
     expect(row?.resolvedImageUrl).toBe("https://media.kitsu.app/21.jpg");
     expect(row?.imageSource).toBe("kitsu");
     expect(row?.imageFallbackAttemptedAt).toBeNull();
+  });
+
+  it("kitsu_anime_id のみの行も pending 対象になり、Kitsu の作品リソースから解決する", async () => {
+    // タイトル検索（issue #227）で MAL mapping が無かった行は
+    // kitsu_anime_id だけを持つ。/anime?filter[id]= で直接引く。
+    await insertWork(db, {
+      annictWorkId: 150,
+      malAnimeId: null,
+      kitsuAnimeId: 50743,
+      imageUrl: null,
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        expect(isKitsuAnimeListUrl(url)).toBe(true);
+        return makeKitsuAnimeListResponse({
+          "50743": "https://media.kitsu.app/50743.jpg",
+        });
+      });
+
+    const persisted = await resolvePendingImageFallbacks(db);
+
+    expect(persisted).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 150),
+    });
+    expect(row?.resolvedImageUrl).toBe("https://media.kitsu.app/50743.jpg");
+    expect(row?.imageSource).toBe("kitsu");
   });
 
   it("Kitsu miss の作品は Jikan を呼ばず 'none' として永続化する", async () => {

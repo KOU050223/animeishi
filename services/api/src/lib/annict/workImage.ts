@@ -323,7 +323,8 @@ export async function serveWorkImage(
   // でも補完対象にならない（placeholder 判定は URL 文字列しか見ない）。
   // また Kitsu の新しい作品は 15 分で失効する署名付き URL を resolvedImageUrl
   // に持つため、解決済みでも URL が死んでいる作品がある。実際に取れなかった
-  // ことが分かったここで MAL ID から Kitsu を 1 回引き直し、得た新しい URL を
+  // ことが分かったここで MAL ID（無ければ Kitsu 作品 ID。issue #227 の
+  // タイトル検索で採った行）から Kitsu を 1 回引き直し、得た新しい URL を
   // その場で取り込む（R2 に入れば以後は失効しても関係ない）。
   // 'none'（Kitsu にも無いことが確定済み）は TTL 内なら引き直さない。
   // TTL 切れならここでも 1 回引き直す — 'none' 確定後に Annict 側の URL が
@@ -340,11 +341,17 @@ export async function serveWorkImage(
         IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS);
   if (
     !hit &&
-    row.malAnimeId != null &&
+    (row.malAnimeId != null || row.kitsuAnimeId != null) &&
     (row.imageSource !== "none" || noneResolutionStale)
   ) {
     const [resolved] = await resolveImagesForWorks(
-      [{ annictWorkId, malAnimeId: row.malAnimeId }],
+      [
+        {
+          annictWorkId,
+          malAnimeId: row.malAnimeId,
+          kitsuAnimeId: row.kitsuAnimeId,
+        },
+      ],
       fetchImpl,
     );
     if (resolved) {

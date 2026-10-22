@@ -1,6 +1,7 @@
 // Annict の画像フィールド（image.internalUrl / recommendedImageUrl / SNS 系）が
 // 空 or SNS placeholder に落ちる作品を、malAnimeId 経由で Kitsu で補完する。
-// 詳細は issue #86。
+// 詳細は issue #86。malAnimeId を持たない作品はタイトル検索で採った
+// kitsu_anime_id から Kitsu の作品リソースを直接引く（issue #227）。
 //
 // 設計方針:
 //   * 補完先は Kitsu のみ（MAL ID の対応表 mappings を 20 件まとめて引け、
@@ -22,6 +23,7 @@
 //     （read-through / 検索）を壊してはいけない。
 
 const KITSU_MAPPINGS_ENDPOINT = "https://kitsu.io/api/edge/mappings";
+const KITSU_ANIME_ENDPOINT = "https://kitsu.io/api/edge/anime";
 
 // Annict の SNS 系画像 URL は「表示できるが実質プレースホルダー」なため、
 // これらしか無い作品もフォールバック対象に含めたい。Twitter/Facebook の
@@ -79,13 +81,16 @@ export type ImageSource = "kitsu" | "none";
 /** 解決対象の 1 件。annictWorkId は D1 更新のキーに使うため必須。 */
 export type ImageFallbackInput = {
   annictWorkId: number;
-  malAnimeId: number;
+  // あればこちら優先（mappings のバッチ解決）。無い作品は kitsuAnimeId で
+  // 作品リソースを直接引く（タイトル検索で採った行。issue #227）。
+  malAnimeId: number | null;
+  kitsuAnimeId?: number | null;
 };
 
 /** 1 作品分の解決結果。resolvedImageUrl が null なら 'none'（ネガキャッシュ）。 */
 export type ImageFallbackResult = {
   annictWorkId: number;
-  malAnimeId: number;
+  malAnimeId: number | null;
   resolvedImageUrl: string | null;
   imageSource: ImageSource;
 };
@@ -125,11 +130,27 @@ export async function resolveImagesForWorks(
 ): Promise<ImageFallbackResult[]> {
   if (inputs.length === 0) return [];
 
-  const uniqueMalIds = uniqueMalAnimeIds(inputs);
-  const { hits, unresolved } = await fetchKitsuHits(uniqueMalIds, fetchImpl);
+  const [{ hits, unresolved }, posters] = await Promise.all([
+    fetchKitsuHits(uniqueMalAnimeIds(inputs), fetchImpl),
+    fetchKitsuPosterHits(uniqueKitsuAnimeIds(inputs), fetchImpl),
+  ]);
 
   return inputs.flatMap((input): ImageFallbackResult[] => {
-    const resolvedImageUrl = hits.get(input.malAnimeId);
+    // MAL ID がある作品は mappings のバッチ解決、無い作品は Kitsu の
+    // 作品 ID から直接引く。いずれも「Kitsu に無い」→ 'none'、
+    // リクエスト自体の失敗 → 結果なし（解決可否は不明）。
+    const [resolvedImageUrl, failed] =
+      input.malAnimeId != null
+        ? ([
+            hits.get(input.malAnimeId),
+            unresolved.has(input.malAnimeId),
+          ] as const)
+        : input.kitsuAnimeId != null
+          ? ([
+              posters.hits.get(input.kitsuAnimeId),
+              posters.unresolved.has(input.kitsuAnimeId),
+            ] as const)
+          : ([undefined, false] as const);
     if (resolvedImageUrl) {
       return [
         {
@@ -142,7 +163,7 @@ export async function resolveImagesForWorks(
     }
     // バッチ自体の失敗で解決可否が不明な ID は結果を返さない
     // （'none' のネガキャッシュで確定させない）。
-    if (unresolved.has(input.malAnimeId)) return [];
+    if (failed) return [];
     return [
       {
         annictWorkId: input.annictWorkId,
@@ -173,9 +194,17 @@ export async function resolveImagesViaKitsu(
 ): Promise<ImageFallbackResult[]> {
   if (inputs.length === 0) return [];
 
-  const { hits } = await fetchKitsuHits(uniqueMalAnimeIds(inputs), fetchImpl);
+  const [{ hits }, posters] = await Promise.all([
+    fetchKitsuHits(uniqueMalAnimeIds(inputs), fetchImpl),
+    fetchKitsuPosterHits(uniqueKitsuAnimeIds(inputs), fetchImpl),
+  ]);
   return inputs.flatMap((input) => {
-    const resolvedImageUrl = hits.get(input.malAnimeId);
+    const resolvedImageUrl =
+      input.malAnimeId != null
+        ? hits.get(input.malAnimeId)
+        : input.kitsuAnimeId != null
+          ? posters.hits.get(input.kitsuAnimeId)
+          : undefined;
     return resolvedImageUrl
       ? [
           {
@@ -192,7 +221,21 @@ export async function resolveImagesViaKitsu(
 /** 入力から Kitsu 問い合わせ用に dedupe した MAL ID 一覧を作る。 */
 function uniqueMalAnimeIds(inputs: ImageFallbackInput[]): number[] {
   return Array.from(new Set(inputs.map((i) => i.malAnimeId))).filter(
-    (id) => Number.isSafeInteger(id) && id > 0,
+    (id): id is number => id != null && Number.isSafeInteger(id) && id > 0,
+  );
+}
+
+/**
+ * 入力から dedupe した Kitsu 作品 ID 一覧を作る。
+ * MAL ID がある作品は mappings 側で解決するので除外する。
+ */
+function uniqueKitsuAnimeIds(inputs: ImageFallbackInput[]): number[] {
+  return Array.from(
+    new Set(
+      inputs.filter((i) => i.malAnimeId == null).map((i) => i.kitsuAnimeId),
+    ),
+  ).filter(
+    (id): id is number => id != null && Number.isSafeInteger(id) && id > 0,
   );
 }
 
@@ -233,6 +276,100 @@ async function fetchKitsuHits(
   }
   return { hits, unresolved };
 }
+
+/**
+ * MAL mapping を持たない作品（kitsu_anime_id のみの行）を、Kitsu の作品
+ * リソースを filter[id] でまとめて引いて解決する。
+ * 返り値の意味は fetchKitsuHits と同じ: hits は「ポスターが取れた ID → URL」、
+ * unresolved はバッチ失敗で解決可否が不明な ID（呼び出し側は 'none' にしない）。
+ */
+async function fetchKitsuPosterHits(
+  kitsuIds: number[],
+  fetchImpl: typeof fetch,
+): Promise<{ hits: Map<number, string>; unresolved: Set<number> }> {
+  const chunks: number[][] = [];
+  for (let i = 0; i < kitsuIds.length; i += KITSU_BATCH_SIZE) {
+    chunks.push(kitsuIds.slice(i, i + KITSU_BATCH_SIZE));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) => fetchKitsuAnimePosters(chunk, fetchImpl)),
+  );
+
+  const hits = new Map<number, string>();
+  const unresolved = new Set<number>();
+  for (const [index, chunkResult] of results.entries()) {
+    for (const [kitsuId, url] of chunkResult.hits) {
+      hits.set(kitsuId, url);
+    }
+    if (!chunkResult.complete) {
+      for (const kitsuId of chunks[index] ?? []) {
+        if (!hits.has(kitsuId)) unresolved.add(kitsuId);
+      }
+    }
+  }
+  return { hits, unresolved };
+}
+
+/**
+ * Kitsu の作品リソースを filter[id] でまとめて引き、Kitsu ID → ポスター URL
+ * を返す。filter[id] は問い合わせた ID 分しか返らないので page[limit] が
+ * チャンク内をすべて収める（1 ページで完結し、ページングは追わない）。
+ * complete=false はリクエスト自体の失敗（= 未解決 ID の可否は不明）。
+ */
+async function fetchKitsuAnimePosters(
+  kitsuIds: number[],
+  fetchImpl: typeof fetch,
+): Promise<{ hits: [number, string][]; complete: boolean }> {
+  const url = new URL(KITSU_ANIME_ENDPOINT);
+  url.searchParams.set("filter[id]", kitsuIds.join(","));
+  url.searchParams.set("fields[anime]", "posterImage");
+  url.searchParams.set("page[limit]", String(KITSU_BATCH_SIZE));
+
+  const res = await safeFetch(
+    fetchImpl,
+    url.toString(),
+    { headers: { Accept: "application/vnd.api+json" } },
+    REMOTE_FETCH_TIMEOUT_MS,
+  );
+  if (!res || !res.ok) return { hits: [], complete: false };
+
+  let json: KitsuAnimeListResponse;
+  try {
+    json = (await res.json()) as KitsuAnimeListResponse;
+  } catch {
+    return { hits: [], complete: false };
+  }
+  if (!Array.isArray(json.data)) return { hits: [], complete: false };
+
+  // 問い合わせていない ID が返ってきても採用しない（フィルタの取り違え防止）。
+  const requested = new Set(kitsuIds);
+  const hits: [number, string][] = [];
+  for (const item of json.data) {
+    if (item?.type !== "anime" || !item.id) continue;
+    const kitsuId = Number(item.id);
+    if (!requested.has(kitsuId)) continue;
+    const img = item.attributes?.posterImage;
+    const poster = img?.large ?? img?.original ?? img?.medium ?? null;
+    if (poster) hits.push([kitsuId, unescapeImageUrl(poster)]);
+  }
+  return { hits, complete: true };
+}
+
+type KitsuAnimeListResponse = {
+  data?:
+    | ({
+        id?: string;
+        type?: string;
+        attributes?: {
+          posterImage?: {
+            large?: string | null;
+            original?: string | null;
+            medium?: string | null;
+          } | null;
+        } | null;
+      } | null)[]
+    | null;
+};
 
 /**
  * Kitsu の mappings（MAL ID → Kitsu 作品の対応表）で複数 MAL ID をまとめて解決する。

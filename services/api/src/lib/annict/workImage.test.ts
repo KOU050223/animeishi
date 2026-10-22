@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
-import { isKitsuMappingsUrl, makeKitsuResponse } from "@/test-utils/kitsu";
+import {
+  isKitsuAnimeListUrl,
+  isKitsuMappingsUrl,
+  makeKitsuAnimeListResponse,
+  makeKitsuResponse,
+} from "@/test-utils/kitsu";
 import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
 import { annictWorks } from "@/db/schema";
 import {
@@ -52,12 +57,18 @@ async function getWork(db: Db, annictWorkId = 1) {
 }
 
 // URL ごとの応答を決め打ちする fetch。未定義の URL は 404。
-// Kitsu の mappings はクエリ文字列付きで呼ばれるので、KITSU キーで受ける。
+// Kitsu の API はクエリ文字列付きで呼ばれるので、KITSU（mappings）/
+// KITSU_ANIME（作品一覧）キーで受ける。
 const KITSU = "kitsu";
+const KITSU_ANIME = "kitsuAnime";
 function routeFetch(routes: Record<string, () => Response>) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
-    const route = isKitsuMappingsUrl(url) ? routes[KITSU] : routes[url];
+    const route = isKitsuMappingsUrl(url)
+      ? routes[KITSU]
+      : isKitsuAnimeListUrl(url)
+        ? routes[KITSU_ANIME]
+        : routes[url];
     return route ? route() : new Response("not found", { status: 404 });
   });
 }
@@ -305,6 +316,47 @@ describe("serveWorkImage", () => {
     );
     // Kitsu miss が確定したのでネガキャッシュが書き込まれる
     // （Kitsu リクエスト自体の失敗とは区別する）。
+    expect((await getWork(db)).imageSource).toBe("none");
+  });
+
+  it("MAL ID が無く Kitsu 作品 ID のみの作品も、全滅時に Kitsu を引き直して取り込む", async () => {
+    // タイトル検索（issue #227）で MAL mapping が無かった行は
+    // kitsu_anime_id だけを持つ。/anime?filter[id]= でポスターを引き直す。
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      kitsuAnimeId: 50743,
+    });
+    const cover = "https://media.kitsu.app/50743.jpg";
+    const fetchImpl = routeFetch({
+      [KITSU_ANIME]: () => makeKitsuAnimeListResponse({ "50743": cover }),
+      [cover]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(200);
+    const row = await getWork(db);
+    expect(row.resolvedImageUrl).toBe(cover);
+    expect(row.imageSource).toBe("kitsu");
+    expect(row.imageR2Key).toBe(workImageKey(1, cover, "jpg"));
+  });
+
+  it("Kitsu 作品 ID でもポスターが無ければ 'none' が確定して 404", async () => {
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      kitsuAnimeId: 50743,
+    });
+    const fetchImpl = routeFetch({
+      [KITSU_ANIME]: () => makeKitsuAnimeListResponse({ "50743": null }),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(404);
     expect((await getWork(db)).imageSource).toBe("none");
   });
 
