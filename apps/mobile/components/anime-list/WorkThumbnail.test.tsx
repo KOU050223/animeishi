@@ -39,6 +39,16 @@ describe("WorkThumbnail", () => {
     expect(UNSAFE_getByType(Image).props.source.uri).toBe(OTHER);
   });
 
+  it("失敗した URL から別の URL を経て戻ったときも読み込み直す", () => {
+    const { UNSAFE_getByType, rerender } = render(
+      <WorkThumbnail uri={HOSTED} />,
+    );
+    fireEvent(UNSAFE_getByType(Image), "onError");
+    rerender(<WorkThumbnail uri={OTHER} />);
+    rerender(<WorkThumbnail uri={HOSTED} />);
+    expect(UNSAFE_getByType(Image).props.source.uri).toBe(HOSTED);
+  });
+
   it("画像 URL が無ければ最初からプレースホルダー", () => {
     const { UNSAFE_queryByType, getByText } = render(
       <WorkThumbnail uri={null} />,

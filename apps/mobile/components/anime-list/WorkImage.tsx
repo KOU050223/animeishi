@@ -34,11 +34,16 @@ export function WorkImage({
   /** 読み込みの成功・失敗どちらでも呼ばれる。 */
   onLoadEnd?: () => void;
 }) {
-  // 失敗した URL を覚えておき、URL が変わったら自動で再挑戦させる
-  // （失敗フラグだけを持つと、別作品の URL に変わっても placeholder のまま残る）。
-  const [failedUri, setFailedUri] = useState<string | null>(null);
+  // 失敗フラグは表示中の URL と組で持ち、URL が変わったら下ろす
+  // （A → B → A と戻ったときも A を読み込み直す）。レンダー中の setState は
+  // 同じレンダー内で反映される公式の派生 state リセットパターン。
+  const [state, setState] = useState({ uri, failed: false });
+  if (state.uri !== uri) {
+    setState({ uri, failed: false });
+  }
+  const failed = state.uri === uri && state.failed;
 
-  if (!uri || failedUri === uri) return <>{placeholder}</>;
+  if (!uri || failed) return <>{placeholder}</>;
 
   return (
     <View style={[style, styles.frame]}>
@@ -49,7 +54,7 @@ export function WorkImage({
         contentFit="cover"
         cachePolicy="memory-disk"
         transition={transition}
-        onError={() => setFailedUri(uri)}
+        onError={() => setState({ uri, failed: true })}
         onLoadEnd={onLoadEnd}
         accessibilityLabel={accessibilityLabel}
       />
