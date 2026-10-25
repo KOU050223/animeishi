@@ -132,6 +132,15 @@ tasks:
     cmds:
       - bash scripts/backfill-work-images.sh --env production {{.CLI_ARGS}}
 
+  # MAL API 規約 3(e) の削除依頼対応（issue #241）。件数を表示してから
+  # スクリプト自身が確認プロンプトを出すため、Taskfile 側の prompt: は付けない。
+  images:takedown:
+    desc: "本番の作品画像を削除し、以後の補完を止める（task images:takedown -- <作品ID>... / -- --all-mal）"
+    dir: services/api
+    interactive: true
+    cmds:
+      - bash scripts/takedown-work-images.sh --env production {{.CLI_ARGS}}
+
   # ---- 通報モデレーション（issue #186）----
   # 管理画面・管理者 API は認可設計が未決のため、運営の操作手段は
   # scripts/reports.sh（wrangler d1 execute ベース）に集約する。

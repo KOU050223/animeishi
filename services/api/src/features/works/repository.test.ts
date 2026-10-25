@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { worksRepository } from "./repository";
@@ -94,6 +95,51 @@ describe("worksRepository", () => {
       const work = await repo.getAnnictWorkById(WORK_ID_1);
       expect(work?.title).toBe("進撃の巨人 Final Season");
       expect(work?.seasonYear).toBe(2022);
+    });
+  });
+
+  describe("削除依頼で画像を消した作品（image_source='blocked'。issue #241）", () => {
+    async function block(annictWorkId: number, malAnimeId: number) {
+      await db
+        .update(annictWorks)
+        .set({ malAnimeId, imageSource: "blocked", resolvedImageUrl: null })
+        .where(eq(annictWorks.annictWorkId, annictWorkId));
+    }
+
+    it("MAL ID が変わる upsert でも 'blocked' を外さない", async () => {
+      await block(WORK_ID_1, 21);
+      const repo = worksRepository(db);
+      await repo.upsertAnnictWork({
+        annictWorkId: WORK_ID_1,
+        malAnimeId: 22,
+        title: "進撃の巨人",
+        updatedAt: new Date(),
+      });
+      const work = await repo.getAnnictWorkById(WORK_ID_1);
+      expect(work?.malAnimeId).toBe(22);
+      expect(work?.imageSource).toBe("blocked");
+    });
+
+    it("補完結果の書き込みで 'blocked' の行を書き換えない", async () => {
+      await block(WORK_ID_1, 21);
+      const repo = worksRepository(db);
+      const update = {
+        resolvedImageUrl: "https://cdn.myanimelist.net/images/anime/21l.jpg",
+        imageSource: "mal",
+        resolvedAt: new Date(),
+      };
+      await repo.updateResolvedImage(WORK_ID_1, update);
+      await repo.updateResolvedImages([
+        { annictWorkId: WORK_ID_1, ...update },
+        { annictWorkId: WORK_ID_2, ...update },
+      ]);
+      const blocked = await repo.getAnnictWorkById(WORK_ID_1);
+      expect(blocked?.imageSource).toBe("blocked");
+      expect(blocked?.resolvedImageUrl).toBeNull();
+      // 'blocked' でない行は従来どおり書き込まれる。
+      expect((await repo.getAnnictWorkById(WORK_ID_2))?.imageSource).toBe(
+        "mal",
+      );
     });
   });
 });

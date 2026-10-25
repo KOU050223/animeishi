@@ -201,6 +201,23 @@ describe("resolvePendingImageFallbacks", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("削除依頼で画像を消した作品（'blocked'）は対象外（issue #241）", async () => {
+    await insertWork(db, {
+      annictWorkId: 600,
+      malAnimeId: 21,
+      imageUrl: null,
+      imageSource: "blocked",
+      // resolvedAt が古くても 'none' と違って再解決しない
+      resolvedAt: new Date(0),
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const persisted = await resolvePendingImageFallbacks(db);
+
+    expect(persisted).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("外部 API が全滅しても落ちず、結果は永続化せずネガキャッシュもしない", async () => {
     await insertWork(db, {
       annictWorkId: 600,

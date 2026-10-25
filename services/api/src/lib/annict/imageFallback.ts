@@ -20,6 +20,9 @@
 //     MAL を使わず Kitsu だけで解決する。
 //     MAL API の規約上、取得した画像は加工してはならず、削除依頼から 24 時間
 //     以内に消せる必要がある（image_source='mal' で見分けられる）。
+//     削除依頼が来た作品は scripts/takedown-work-images.sh で画像を消し、
+//     image_source を 'blocked' にする（issue #241）。'blocked' の行は
+//     どの経路からも補完し直さない（IMAGE_SOURCE_BLOCKED）。
 //   * Kitsu・MAL のどちらにも画像が無ければ 'none' をネガキャッシュ。
 //     'none' のままだと二度と拾えないため、resolved_at 起点の TTL
 //     （IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）で再解決される。
@@ -86,6 +89,14 @@ export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 // 'anilist'・'jikan' は過去の供給元で既存行に残っている値（互換のため
 // カラムはフリーテキストのまま）。現在書き込むのは 'kitsu' | 'mal' | 'none' だけ。
 export type ImageSource = "kitsu" | "mal" | "none";
+
+/**
+ * 削除依頼（MAL API 規約 3(e)）で画像を消した作品の image_source（issue #241）。
+ * 補完の解決結果としては書かず、削除スクリプト（scripts/takedown-work-images.sh）
+ * だけが立てる。この行は cron・画像プロキシ・検索のどの経路でも補完 URL を
+ * 取り直さない（Annict の元の image_url は MAL 由来ではないので配信してよい）。
+ */
+export const IMAGE_SOURCE_BLOCKED = "blocked";
 
 /** 解決対象の 1 件。annictWorkId は D1 更新のキーに使うため必須。 */
 export type ImageFallbackInput = {
