@@ -37,7 +37,7 @@ const connectedResult = {
     {
       annictWorkId: 1,
       title: "検索ヒット作品",
-      imageUrl: "https://img.example/search-1.jpg",
+      hostedImageUrl: "https://img.example/search-1.jpg",
     },
   ],
   isLoading: false,
@@ -84,7 +84,7 @@ describe("AnimeImagePicker", () => {
   it("画像 URL を解決できない作品は選択できない", () => {
     mockUseAnimeList.mockReturnValue({
       ...connectedResult,
-      data: [{ annictWorkId: 9, title: "画像なし作品", imageUrl: null }],
+      data: [{ annictWorkId: 9, title: "画像なし作品", hostedImageUrl: null }],
     });
     const { onPick } = renderPicker();
 
@@ -108,7 +108,7 @@ describe("AnimeImagePicker", () => {
         {
           annictWorkId: 2,
           title: "お気に入り作品",
-          imageUrl: "https://img.example/fav-1.jpg",
+          hostedImageUrl: "https://img.example/fav-1.jpg",
         },
       ],
     });
@@ -126,13 +126,13 @@ describe("AnimeImagePicker", () => {
           annictWorkId: 3,
           title: "視聴中作品",
           state: "WATCHING",
-          imageUrl: "https://img.example/watching-1.jpg",
+          hostedImageUrl: "https://img.example/watching-1.jpg",
         },
         {
           annictWorkId: 4,
           title: "視聴済作品",
           state: "WATCHED",
-          imageUrl: "https://img.example/watched-1.jpg",
+          hostedImageUrl: "https://img.example/watched-1.jpg",
         },
       ],
     });

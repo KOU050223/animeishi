@@ -1,10 +1,11 @@
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
-import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
 import type { CollageStateFilter } from "./types";
 
+// コラージュに並べる作品画像は作品画像プロキシの URL だけを使う（issue #224）。
+type WorkImageSource = { hostedImageUrl?: string | null };
+
 export type MeishiAnimeContextSource = {
-  favorites?: PickImageUrlInput[];
-  watchHistory?: (PickImageUrlInput & { state: string | null })[];
+  favorites?: WorkImageSource[];
+  watchHistory?: (WorkImageSource & { state: string | null })[];
 };
 
 export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
@@ -18,7 +19,7 @@ export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
   const byState: Partial<Record<Exclude<CollageStateFilter, "all">, string[]>> =
     {};
   for (const item of watchHistory) {
-    const url = pickImageUrl(item);
+    const url = item.hostedImageUrl;
     if (!item.state || !url) continue;
     const key = item.state as Exclude<CollageStateFilter, "all">;
     (byState[key] ??= []).push(url);
@@ -38,9 +39,8 @@ export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {
   };
 }
 
-function compactImageUrls(items: PickImageUrlInput[]): string[] {
-  return items.flatMap((item) => {
-    const url = pickImageUrl(item);
-    return url ? [url] : [];
-  });
+function compactImageUrls(items: WorkImageSource[]): string[] {
+  return items.flatMap((item) =>
+    item.hostedImageUrl ? [item.hostedImageUrl] : [],
+  );
 }

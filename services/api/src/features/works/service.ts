@@ -52,7 +52,8 @@ export type SearchWorkWithResolved = AnnictLibraryEntry & {
 
 /**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
- * imageUrl 自体は上書きしない — 表示ポリシーはクライアントの pickImageUrl に任せる。
+ * imageUrl 自体は上書きしない。表示に使う候補の選択は画像プロキシが行う
+ * （クライアントは hostedImageUrl だけを表示する。issue #224）。
  * 未解決 + Annict 画像が placeholder + malAnimeId か Kitsu 作品 ID 有
  * の作品は、まず Kitsu バッチで同期解決を試みる
  * （issue #108: 非同期解決だけだと初回表示に間に合わない）。
@@ -103,8 +104,8 @@ export async function attachResolvedImages(
     return {
       ...w,
       resolvedImageUrl: c0?.resolvedImageUrl ?? null,
-      // 自前の画像プロキシ（GET /images/works/:id）。クライアントはこれを
-      // 最優先で表示する。annict_works への upsert に失敗した作品は
+      // 自前の画像プロキシ（GET /images/works/:id）。クライアントはこれだけを
+      // 表示する。annict_works への upsert に失敗した作品は
       // プロキシが行を引けず必ず 404 になるため、upsert 後に外す（下記）。
       hostedImageUrl: workImageUrl(requestUrl, w.annictWorkId),
     };

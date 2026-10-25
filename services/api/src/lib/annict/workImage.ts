@@ -162,7 +162,7 @@ function isOwnWorkImageKey(annictWorkId: number, key: string): boolean {
 /**
  * 作品画像の配信 URL を組み立てる（リクエスト先オリジンに載せる）。
  * 画像の有無に関わらず返す。取り込めない作品はプロキシが 404 を返し、
- * クライアントはプレースホルダー（または外部 URL）に落ちる。
+ * クライアントはプレースホルダーに落ちる。
  */
 export function workImageUrl(
   requestUrl: string,

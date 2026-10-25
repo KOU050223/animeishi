@@ -333,7 +333,7 @@ function WatchHistoryRow({
       className="flex-row items-center py-3 gap-3"
       testID={`watch-history-item-${history.annictWorkId}`}
     >
-      <WorkThumbnail item={history} />
+      <WorkThumbnail uri={history.hostedImageUrl} />
 
       <View className="flex-1">
         <Text

@@ -1,15 +1,15 @@
-import { Image, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useColorScheme } from "nativewind";
-import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
-import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
 import { useAnimeListStyles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
+import { WorkImage } from "./WorkImage";
 
 export function AnimePoster({
-  item,
+  uri,
   title,
 }: {
-  item: PickImageUrlInput;
+  /** 作品画像プロキシの URL（hostedImageUrl）。 */
+  uri: string | null | undefined;
   title: string;
 }) {
   const styles = useAnimeListStyles();
@@ -18,22 +18,8 @@ export function AnimePoster({
     title,
     colorScheme === "dark" ? "dark" : "light",
   );
-  // hostedImageUrl（画像プロキシ）が失敗しても外部 URL 候補へ順に切り替える。
-  const { uri, onError } = useImageUrlWithFallback(item);
 
-  if (uri) {
-    return (
-      <Image
-        source={{ uri }}
-        style={styles.poster}
-        resizeMode="cover"
-        onError={onError}
-        accessibilityLabel={`${title}のサムネイル`}
-      />
-    );
-  }
-
-  return (
+  const placeholder = (
     <View
       style={[
         styles.posterPlaceholder,
@@ -53,5 +39,14 @@ export function AnimePoster({
         ANIME
       </Text>
     </View>
+  );
+
+  return (
+    <WorkImage
+      uri={uri}
+      style={styles.poster}
+      placeholder={placeholder}
+      accessibilityLabel={`${title}のサムネイル`}
+    />
   );
 }

@@ -89,7 +89,7 @@ const watchHistory = new Hono<AuthVariables>()
     // 再問い合わせしない（syncMyLibrary の COALESCE で温存済み）。
 
     // 作品画像プロキシの URL（hostedImageUrl）を載せる。クライアントは
-    // これを最優先し、失敗時のみ外部 URL へ落とす（pickImageUrl）。
+    // これだけを表示し、失敗時はプレースホルダーにする（issue #224）。
     return c.json(
       data.map((row) => ({
         ...row,

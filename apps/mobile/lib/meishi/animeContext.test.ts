@@ -4,13 +4,19 @@ describe("buildMeishiAnimeContext", () => {
   it("視聴履歴画像を優先してコラージュ画像と件数を作る", () => {
     const result = buildMeishiAnimeContext({
       favorites: [
-        { imageUrl: "https://img.example/fav-1.jpg" },
-        { imageUrl: null },
-        { imageUrl: "https://img.example/fav-2.jpg" },
+        { hostedImageUrl: "https://img.example/fav-1.jpg" },
+        { hostedImageUrl: null },
+        { hostedImageUrl: "https://img.example/fav-2.jpg" },
       ],
       watchHistory: [
-        { state: "WATCHED", imageUrl: "https://img.example/watched-1.jpg" },
-        { state: "WATCHING", imageUrl: "https://img.example/watching-1.jpg" },
+        {
+          state: "WATCHED",
+          hostedImageUrl: "https://img.example/watched-1.jpg",
+        },
+        {
+          state: "WATCHING",
+          hostedImageUrl: "https://img.example/watching-1.jpg",
+        },
       ],
     });
 
@@ -40,14 +46,23 @@ describe("buildMeishiAnimeContext", () => {
 
   it("ステータス別の画像リストを組み立てる（issue #96 のコラージュ絞り込み用）", () => {
     const result = buildMeishiAnimeContext({
-      favorites: [{ imageUrl: "https://img.example/fav-1.jpg" }],
+      favorites: [{ hostedImageUrl: "https://img.example/fav-1.jpg" }],
       watchHistory: [
-        { state: "WATCHED", imageUrl: "https://img.example/watched-1.jpg" },
-        { state: "WATCHED", imageUrl: "https://img.example/watched-2.jpg" },
-        { state: "WANNA_WATCH", imageUrl: "https://img.example/wanna-1.jpg" },
+        {
+          state: "WATCHED",
+          hostedImageUrl: "https://img.example/watched-1.jpg",
+        },
+        {
+          state: "WATCHED",
+          hostedImageUrl: "https://img.example/watched-2.jpg",
+        },
+        {
+          state: "WANNA_WATCH",
+          hostedImageUrl: "https://img.example/wanna-1.jpg",
+        },
         // state なし・画像なしは byState に入らない
-        { state: null, imageUrl: "https://img.example/none.jpg" },
-        { state: "WATCHED", imageUrl: null },
+        { state: null, hostedImageUrl: "https://img.example/none.jpg" },
+        { state: "WATCHED", hostedImageUrl: null },
       ],
     });
 
@@ -67,38 +82,37 @@ describe("buildMeishiAnimeContext", () => {
     ]);
   });
 
-  it("resolvedImageUrl があれば imageUrl より優先する", () => {
+  it("作品画像プロキシの URL だけを使い、外部 URL には落とさない", () => {
+    // API のレスポンスには外部 URL（imageUrl）も載っているが、
+    // プロキシの URL を持たない行は外部 URL があっても使わない。
+    const withoutHosted = {
+      state: "WATCHING",
+      hostedImageUrl: null,
+      imageUrl: "https://img.example/external.jpg",
+    };
     const result = buildMeishiAnimeContext({
       favorites: [],
       watchHistory: [
         {
           state: "WATCHED",
-          // imageUrl は SNS placeholder / null でも、resolvedImageUrl が入っていれば
-          // そちらをコラージュに使う。
-          imageUrl: "https://pbs.twimg.com/profile_images/xxx.jpg",
-          resolvedImageUrl: "https://s4.anilist.co/media/anime/1.jpg",
+          hostedImageUrl: "https://api.example/images/works/1",
         },
-        {
-          state: "WATCHING",
-          imageUrl: null,
-          resolvedImageUrl: "https://cdn.myanimelist.net/2.jpg",
-        },
+        withoutHosted,
       ],
     });
 
     expect(result.animeCollageImages).toEqual([
-      "https://s4.anilist.co/media/anime/1.jpg",
-      "https://cdn.myanimelist.net/2.jpg",
+      "https://api.example/images/works/1",
     ]);
   });
 
   it("視聴履歴画像がなければお気に入り画像を使う", () => {
     const result = buildMeishiAnimeContext({
       favorites: [
-        { imageUrl: "https://img.example/fav-1.jpg" },
-        { imageUrl: "https://img.example/fav-2.jpg" },
+        { hostedImageUrl: "https://img.example/fav-1.jpg" },
+        { hostedImageUrl: "https://img.example/fav-2.jpg" },
       ],
-      watchHistory: [{ state: "WATCHED", imageUrl: null }],
+      watchHistory: [{ state: "WATCHED", hostedImageUrl: null }],
     });
 
     expect(result.animeCollageImages).toEqual([

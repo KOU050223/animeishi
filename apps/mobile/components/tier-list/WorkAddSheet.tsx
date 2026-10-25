@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,7 +12,7 @@ import {
 } from "react-native";
 import { Input } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
 import type { TierItem } from "@/lib/tierList/types";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
@@ -209,7 +208,6 @@ export function WorkAddSheet({
                     // 新しい語の結果ではないので、入れ替わるまで追加操作を
                     // 受け付けない。
                     const disabled = added || resultsStale;
-                    const uri = pickImageUrl(item);
                     const seasonText = formatYearSeason(
                       item.seasonYear,
                       item.seasonName?.includes("-")
@@ -222,8 +220,7 @@ export function WorkAddSheet({
                           onAdd({
                             id: item.annictWorkId,
                             title: item.title,
-                            imageUrl: item.imageUrl,
-                            resolvedImageUrl: item.resolvedImageUrl,
+                            imageUrl: item.hostedImageUrl,
                           })
                         }
                         disabled={disabled}
@@ -241,31 +238,29 @@ export function WorkAddSheet({
                           opacity: disabled ? 0.5 : 1,
                         }}
                       >
-                        {uri ? (
-                          <Image
-                            source={{ uri }}
-                            style={{
-                              width: 36,
-                              height: 50,
-                              borderRadius: 4,
-                              backgroundColor: colors.surfaceMuted,
-                            }}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View
-                            style={{
-                              width: 36,
-                              height: 50,
-                              borderRadius: 4,
-                              backgroundColor: colors.surfaceMuted,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Text style={{ fontSize: 14 }}>🎬</Text>
-                          </View>
-                        )}
+                        <WorkImage
+                          uri={item.hostedImageUrl}
+                          style={{
+                            width: 36,
+                            height: 50,
+                            borderRadius: 4,
+                            backgroundColor: colors.surfaceMuted,
+                          }}
+                          placeholder={
+                            <View
+                              style={{
+                                width: 36,
+                                height: 50,
+                                borderRadius: 4,
+                                backgroundColor: colors.surfaceMuted,
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Text style={{ fontSize: 14 }}>🎬</Text>
+                            </View>
+                          }
+                        />
                         <View style={{ flex: 1 }}>
                           <Text
                             style={{ fontSize: 14, color: colors.text }}
