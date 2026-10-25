@@ -306,17 +306,23 @@ export async function serveWorkImage(
           { etag: stored.httpEtag, fromMal: row.imageSource === "mal" },
         )
       : notFound();
-  if (stored && ownKey) {
-    // キーには取り込み元 URL のハッシュが入っている。今の候補のどれかと
-    // 一致すれば最新。一致しなければ取り込み元が差し替わった（Annict の URL
-    // 変更・MAL ID 変更による補完のやり直し等）ので取り込み直す。
+  // キーには取り込み元 URL のハッシュが入っている。今の候補のどれかと
+  // 一致すれば最新。一致しなければ取り込み元が差し替わった（Annict の URL
+  // 変更・MAL ID 変更による補完のやり直し等）ので取り込み直す。
+  const keyMatchesCandidate =
+    ownKey != null &&
+    candidates.some((url) =>
+      ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
+    );
+  // 'blocked' の行は、Annict の画像から取り込み直したキー（候補と一致する
+  // もの）だけを配信する。削除スクリプトは行を 'blocked' にしてから R2 を
+  // 消すので、その間に残っている MAL 画像のキーは配信しない。
+  // キーの掃除（DB から外す・R2 から消す）も削除スクリプトに任せる。
+  const storedServable = !blocked || keyMatchesCandidate;
+  if (stored && ownKey && storedServable) {
     // 候補が 1 つも無い（上流の画像が消えた）場合は、無いよりマシなので
     // 取り込み済みの画像を返し続ける。
-    const isFresh =
-      candidates.length === 0 ||
-      candidates.some((url) =>
-        ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
-      );
+    const isFresh = candidates.length === 0 || keyMatchesCandidate;
     // 取り込み直しはクールダウンに従う（取り込み成功時にも試行時刻が立つので、
     // 直近に取り込んだばかりの作品は叩き直さない）。
     if (isFresh || inCooldown) return storedResponse();
@@ -326,7 +332,14 @@ export async function serveWorkImage(
   // キーだけ残ってオブジェクトが消えている行はクールダウンに関わらず
   // 取り込みを試す（失敗すれば末尾でキーを外して試行時刻を立てるので、
   // 次回以降はここで止まる）。
-  if (!stored && !ownKey && inCooldown) return notFound();
+  // 'blocked' の行に残った MAL 画像（配信しない）も、取り込み済みが無い
+  // ものとしてクールダウンに従う。
+  if (
+    inCooldown &&
+    ((!stored && !ownKey) || (stored != null && !storedServable))
+  ) {
+    return notFound();
+  }
 
   // --- 2. 候補を順に取りに行く ---
   const tried = new Set<string>();
@@ -401,6 +414,11 @@ export async function serveWorkImage(
   }
 
   if (!hit) {
+    if (stored && !storedServable) {
+      // 'blocked' の行に残った MAL 画像。配信せず、キーも削除スクリプトに任せる。
+      await repo.markImageR2Attempted(annictWorkId, now);
+      return notFound();
+    }
     if (stored) {
       // 取り込み直しに失敗しただけなら、古い画像を返し続ける。
       await repo.markImageR2Attempted(annictWorkId, now);
@@ -421,7 +439,18 @@ export async function serveWorkImage(
   await bucket.put(key, hit.image.data, {
     httpMetadata: { contentType: hit.image.contentType },
   });
-  await repo.updateImageR2Key(annictWorkId, key, now);
+  // 取り込み中に削除スクリプトが行を 'blocked' にしていたら（issue #241）、
+  // キーを書き戻さず、置いたオブジェクトも消して配信しない。
+  const linked = await repo.linkImageR2Key(
+    annictWorkId,
+    key,
+    now,
+    resolvedSource ?? null,
+  );
+  if (!linked) {
+    await bucket.delete(key).catch(() => {});
+    return notFound();
+  }
   // 取り込み元が変わって残った旧オブジェクトは消す（参照されないゴミを増やさない）。
   // 消すのはこの作品自身のキーだけ（別作品のオブジェクトには触れない）。
   if (ownKey && ownKey !== key) {

@@ -3,8 +3,8 @@
 #
 # MAL 公式 API から取り込んだ作品画像（annict_works.image_source='mal'）は、
 # MAL から削除依頼が来たら 24 時間以内に消す必要がある。対象の作品ごとに
-#   1. image_source を 'blocked' にし、image_r2_key / resolved_image_url を NULL にする
-#   2. R2（AVATARS バケットの works/ 配下）のオブジェクトを消す
+#   1. image_source を 'blocked' にし、resolved_image_url を NULL にする
+#   2. R2（AVATARS バケットの works/ 配下）のオブジェクトを消し、image_r2_key を NULL にする
 # を行う。'blocked' の行は cron・画像プロキシ・検索のどの経路でも補完し直さない
 # （Annict の元の image_url は MAL 由来ではないので、プロキシは引き続き配信してよい）。
 #
@@ -141,24 +141,32 @@ if [ "$ASSUME_YES" = 0 ]; then
   esac
 fi
 
-# 先に DB を 'blocked' にする。R2 を先に消すと、DB を更新するまでの間に
-# 画像プロキシが「キーはあるがオブジェクトが無い」行として取り込み直しうる。
-# 取り直したキーは手元の一覧に無いので消し漏れる。
-# R2 のキーは更新前に取得した TARGETS に控えてある。
+# 手順:
+#   1. 行を 'blocked' にし、resolved_image_url を NULL にする（キーは残す）
+#   2. 残ったキーを読み直し、R2 のオブジェクトを消す
+#   3. 消せたキーだけを DB から外す
+# 先に 'blocked' にすると、画像プロキシはそれ以降 MAL 由来のキーを配信も
+# 記録もしなくなる（workImage.ts の storedServable / linkImageR2Key）。
+# R2 を先に消すと、DB を更新するまでの間にプロキシが取り込み直し、
+# 手元の一覧に無いキーが残りうる。キーは R2 から消せるまで DB に残すので、
+# 途中で失敗・中断しても同じ作品 ID で再実行すれば消し直せる。
 TARGET_IDS="$(printf '%s\n' "$TARGETS" | cut -f1 | paste -sd, -)"
 echo "DB を更新中..." >&2
-run_sql_file "UPDATE annict_works SET image_source = 'blocked', image_r2_key = NULL, resolved_image_url = NULL WHERE annict_work_id IN ($TARGET_IDS);" >/dev/null
+run_sql_file "UPDATE annict_works SET image_source = 'blocked', resolved_image_url = NULL WHERE annict_work_id IN ($TARGET_IDS);" >/dev/null
+KEYS="$(run_sql_file "SELECT annict_work_id, image_r2_key, image_source FROM annict_works WHERE annict_work_id IN ($TARGET_IDS) AND image_r2_key IS NOT NULL ORDER BY annict_work_id;" | rows_as_tsv)"
 
 # R2 のオブジェクトを消す。形式（works/<作品ID>/<hash>.<ext>）とその作品自身の
 # キーであることを確かめ、avatars/ 等には触れない（workImage.ts の
-# isOwnWorkImageKey と同じ条件）。
+# isOwnWorkImageKey と同じ条件）。キーは形式を確かめてあるので SQL に直接埋め込める。
 FAILED_KEYS=()
 DELETED=0
+UNLINK_SQL=""
 while IFS=$'\t' read -r id key _source; do
-  [ "$key" = "-" ] && continue
+  [ -z "$id" ] && continue
   if ! [[ "$key" =~ ^works/${id}/[0-9a-f]+\.(jpe?g|png|webp|gif|JPE?G|PNG|WEBP|GIF)$ ]]; then
+    # 形式外のキーはプロキシも配信しない（isOwnWorkImageKey）。中身を確かめて手で対応する。
     echo "警告: id=$id のキーが想定外の形式なので消しません: $key" >&2
-    FAILED_KEYS+=("$key")
+    FAILED_KEYS+=("$id $key")
     continue
   fi
   ok=0
@@ -171,22 +179,30 @@ while IFS=$'\t' read -r id key _source; do
   done
   if [ "$ok" = 1 ]; then
     DELETED=$((DELETED + 1))
+    # 削除中にプロキシが Annict の画像で取り込み直した行は、新しいキーを外さない。
+    UNLINK_SQL="${UNLINK_SQL}UPDATE annict_works SET image_r2_key = NULL WHERE annict_work_id = $id AND image_r2_key = '$key';"$'\n'
     printf '\r[R2] %d 件削除   ' "$DELETED" >&2
   else
-    FAILED_KEYS+=("$key")
+    FAILED_KEYS+=("$id $key")
   fi
-done <<<"$TARGETS"
+done <<<"$KEYS"
 echo >&2
+if [ -n "$UNLINK_SQL" ]; then
+  run_sql_file "$UNLINK_SQL" >/dev/null
+fi
 
 echo "== 結果 =="
 echo "  DB を 'blocked' にした作品: $TOTAL 件"
 echo "  R2 から削除したオブジェクト: $DELETED 件"
 if [ "${#FAILED_KEYS[@]}" -gt 0 ]; then
-  # DB からはキーを外したので、再実行では拾えない。ここに出したキーを手で消す。
-  echo "== R2 から消せなかったキー（${#FAILED_KEYS[@]} 件）。手動で削除してください ==" >&2
-  for key in "${FAILED_KEYS[@]}"; do
-    echo "  pnpm exec wrangler r2 object delete '$BUCKET/$key' ${R2_TARGET[*]}" >&2
+  # 消せなかったキーは DB に残してある（プロキシは 'blocked' の行の MAL 画像を配信しない）。
+  echo "== R2 から消せなかったキー（${#FAILED_KEYS[@]} 件）==" >&2
+  FAILED_IDS=""
+  for entry in "${FAILED_KEYS[@]}"; do
+    echo "  id=${entry%% *} key=${entry#* }" >&2
+    FAILED_IDS="$FAILED_IDS ${entry%% *}"
   done
+  echo "削除の失敗は同じ作品 ID で再実行してください（形式外のキーは中身を確かめて手で消す）:${FAILED_IDS}" >&2
   exit 1
 fi
 echo "画像プロキシのキャッシュ（Cache API）は期限切れを待つ（MAL 由来は最大 12 時間）。"

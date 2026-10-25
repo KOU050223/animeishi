@@ -486,8 +486,9 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     /**
-     * 作品画像の R2 キーを確定する（取り込み成功時）。
-     * null を渡すとキーを消去する（ソース消失時の掃除用）。
+     * 作品画像の R2 キーを無条件に書き換える。画像プロキシはキーの消去
+     * （null。ソース消失時の掃除用）にだけ使い、取り込み成功時のキーの記録は
+     * linkImageR2Key で行う。
      * attemptedAt も同時に立ててクールダウン対象にする。
      */
     async updateImageR2Key(
@@ -499,6 +500,31 @@ export function worksRepository(db: DrizzleDb) {
         .update(annictWorks)
         .set({ imageR2Key: key, imageR2AttemptedAt: attemptedAt })
         .where(eq(annictWorks.annictWorkId, annictWorkId));
+    },
+
+    /**
+     * 取り込んだ作品画像の R2 キーを記録する。image_source が取り込み開始時の値
+     * （expectedImageSource）から変わっていたら書かずに false を返す。
+     * 取り込み中に削除スクリプトが行を 'blocked' にした場合（issue #241）に、
+     * 削除済みの MAL 画像のキーを書き戻さないため。SQLite の `is` は NULL-safe 比較。
+     */
+    async linkImageR2Key(
+      annictWorkId: number,
+      key: string,
+      attemptedAt: Date,
+      expectedImageSource: string | null,
+    ): Promise<boolean> {
+      const updated = await db
+        .update(annictWorks)
+        .set({ imageR2Key: key, imageR2AttemptedAt: attemptedAt })
+        .where(
+          and(
+            eq(annictWorks.annictWorkId, annictWorkId),
+            sql`${annictWorks.imageSource} is ${expectedImageSource}`,
+          ),
+        )
+        .returning({ annictWorkId: annictWorks.annictWorkId });
+      return updated.length > 0;
     },
 
     /**

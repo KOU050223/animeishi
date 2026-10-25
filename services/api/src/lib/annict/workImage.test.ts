@@ -472,6 +472,65 @@ describe("serveWorkImage", () => {
       );
     });
 
+    it("削除スクリプトが R2 を消す前の MAL 画像は配信せず、キーも残す", async () => {
+      // 削除スクリプトは行を 'blocked' にしてから R2 を消し、消せたキーを外す。
+      // その間に残っている MAL 画像は配信しない。キーの掃除はスクリプトに任せる。
+      const mal = "https://cdn.myanimelist.net/images/anime/21l.jpg";
+      const key = workImageKey(1, mal, "jpg");
+      await env.AVATARS.put(key, PNG_BYTES, {
+        httpMetadata: { contentType: "image/jpeg" },
+      });
+      await insertWork(db, {
+        imageUrl: "https://old-official.example.com/og.png",
+        imageSource: "blocked",
+        imageR2Key: key,
+        malAnimeId: 21,
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: routeFetch({}) as unknown as typeof fetch,
+      });
+
+      expect(res.status).toBe(404);
+      expect((await getWork(db)).imageR2Key).toBe(key);
+      expect(await env.AVATARS.get(key)).not.toBeNull();
+    });
+
+    it("取り込み中に行が 'blocked' になったら、キーを書き戻さず置いた画像も消す", async () => {
+      const picture = "https://cdn.myanimelist.net/images/anime/50099l.jpg";
+      await insertWork(db, {
+        imageUrl: "https://old-official.example.com/og.png",
+        malAnimeId: 50099,
+      });
+      const fetchImpl = routeFetch({
+        [KITSU]: () => makeKitsuResponse({ m50099: null }),
+        "https://api.myanimelist.net/v2/anime/50099?fields=main_picture": () =>
+          Response.json({ main_picture: { large: picture } }),
+        [picture]: () => makeImageResponse("image/jpeg"),
+      });
+      // MAL の画像を取りに行った時点で削除スクリプトが走ったことにする。
+      const blockingFetch = vi.fn(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          if (String(input) === picture) {
+            await db
+              .update(annictWorks)
+              .set({ imageSource: "blocked", resolvedImageUrl: null })
+              .where(eq(annictWorks.annictWorkId, 1));
+          }
+          return fetchImpl(input, init);
+        },
+      );
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: blockingFetch as unknown as typeof fetch,
+        malClientId: "client-id",
+      });
+
+      expect(res.status).toBe(404);
+      expect((await getWork(db)).imageR2Key).toBeNull();
+      expect(await env.AVATARS.get(workImageKey(1, picture, "jpg"))).toBeNull();
+    });
+
     it("Annict の画像が取れなくても Kitsu・MAL を引き直さず 404", async () => {
       await insertWork(db, {
         imageUrl: "https://old-official.example.com/og.png",

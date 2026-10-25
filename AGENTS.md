@@ -51,12 +51,17 @@ task <タスク名>
 > MAL 由来の画像（`image_source='mal'`）を 24 時間以内に消す必要がある。
 > 作品 ID を `--` 以降に並べる（例: `task images:takedown -- 123 456`）か、
 > `task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
-> 件数と一覧を表示してから確認プロンプトを出し、対象ごとに R2 のオブジェクトを消して
-> `image_r2_key`・`resolved_image_url` を NULL、`image_source` を `'blocked'` にする。
+> 件数と一覧を表示してから確認プロンプトを出し、対象を `image_source='blocked'`・
+> `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にする。
+> R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する。
 > `'blocked'` の作品は cron・画像プロキシ・検索のどこからも補完し直さない
 > （Annict の元の画像は MAL 由来ではないので、プロキシは引き続き配信する）。
 > プロキシ前段のキャッシュは消せないが、MAL 由来の画像は Cache-Control を
 > 合計 12 時間以下にしてあるので、実行後 12 時間以内に切れる。
+> ただし短縮前（issue #241 のデプロイ前）に入ったキャッシュは 1 日 +
+> `stale-while-revalidate` 7 日のままなので、デプロイから 8 日間は 24 時間以内に
+> 切れる保証がない。その間に削除依頼が来たら、Cloudflare ダッシュボードの
+> Purge Cache（Custom Purge の URL 指定）で `https://<API ドメイン>/images/works/<id>` も消す。
 > 使い方は `bash services/api/scripts/takedown-work-images.sh --help`。プレビューは
 > `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
 
