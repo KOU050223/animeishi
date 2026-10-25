@@ -17,7 +17,8 @@ import { serveWorkImage } from "@/lib/annict/workImage";
  * Cache-Control（取り込み済み 1 日 / 画像なし 5 分）に従う。
  */
 export const images = new Hono<{
-  Bindings: { AVATARS: R2Bucket; DB: D1Database };
+  // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
+  Bindings: { AVATARS: R2Bucket; DB: D1Database; MAL_CLIENT_ID?: string };
 }>().get("/works/:annictWorkId{[0-9]+}", async (c) => {
   const annictWorkId = Number(c.req.param("annictWorkId"));
   if (!Number.isSafeInteger(annictWorkId)) {
@@ -36,6 +37,7 @@ export const images = new Hono<{
     createDb(c.env.DB),
     c.env.AVATARS,
     annictWorkId,
+    { malClientId: c.env.MAL_CLIENT_ID },
   );
   if (cache && (res.status === 200 || res.status === 404)) {
     const put = cache.put(cacheKey, res.clone()).catch(() => {});

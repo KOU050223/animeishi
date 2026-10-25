@@ -46,6 +46,9 @@ type AppBindings = Env &
     AVATARS: R2Bucket;
     // Workers AI（視聴傾向分析 POST /me/analysis, issue #22）。
     AI: Ai;
+    // MAL API の Client ID（Workers Secret）。作品画像を Kitsu で補えない
+    // ときに MAL API から引く（issue #238）。未設定なら MAL は使わない。
+    MAL_CLIENT_ID?: string;
   };
 
 const app = new OpenAPIHono<{ Bindings: AppBindings }>();
@@ -132,9 +135,9 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
         await resolveMissingMalIds(db).catch(
           logFailure("mal_id_search_cron_failed"),
         );
-        await resolvePendingImageFallbacks(db).catch(
-          logFailure("image_fallback_cron_failed"),
-        );
+        await resolvePendingImageFallbacks(db, undefined, {
+          malClientId: env.MAL_CLIENT_ID,
+        }).catch(logFailure("image_fallback_cron_failed"));
       })(),
     );
   },
