@@ -33,6 +33,7 @@ import {
 } from "@/lib/http";
 import {
   IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
+  IMAGE_SOURCE_BLOCKED,
   isSnsImageUrl,
   resolveImagesForWorks,
 } from "./imageFallback";
@@ -48,6 +49,12 @@ const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 // immutable にはできない（取り込み元が差し替わる可能性がある）。
 const HIT_CACHE_CONTROL =
   "public, max-age=86400, stale-while-revalidate=604800";
+// MAL 由来（image_source='mal'）の画像は、MAL API 規約 3(e) の削除依頼から
+// 24 時間以内に消す必要がある（issue #241）。削除スクリプトは R2 と DB しか
+// 消せず、前段の Cache API やクライアントのキャッシュは期限切れを待つしかない
+// ため、max-age と stale-while-revalidate の合計を 12 時間に抑える。
+const MAL_HIT_CACHE_CONTROL =
+  "public, max-age=21600, stale-while-revalidate=21600";
 // 画像なしの 404 は短めにキャッシュする（補完が進めば早めに拾い直せるように）。
 const MISS_CACHE_CONTROL = "public, max-age=300";
 
@@ -221,12 +228,15 @@ async function fetchWorkImage(
 function imageResponse(
   body: ReadableStream | ArrayBuffer,
   contentType: string,
-  etag?: string,
+  options: { etag?: string | undefined; fromMal: boolean },
 ): Response {
   const headers = new Headers();
   headers.set("content-type", contentType);
-  if (etag) headers.set("etag", etag);
-  headers.set("cache-control", HIT_CACHE_CONTROL);
+  if (options.etag) headers.set("etag", options.etag);
+  headers.set(
+    "cache-control",
+    options.fromMal ? MAL_HIT_CACHE_CONTROL : HIT_CACHE_CONTROL,
+  );
   // Content-Type は取り込み時に画像系のみ許可しているが、配信経路でも
   // ブラウザの MIME スニッフィングを抑止しておく。
   headers.set("x-content-type-options", "nosniff");
@@ -265,7 +275,15 @@ export async function serveWorkImage(
   const row = await repo.getAnnictWorkById(annictWorkId);
   if (!row) return notFound();
 
-  const candidates = workImageSourceCandidates(row);
+  // 削除依頼で画像を消した作品（issue #241）は補完 URL を使わない。
+  // 削除スクリプトが resolvedImageUrl を消しているが、外部からの書き戻しが
+  // 残っていても拾わないようここでも外す。Annict の元の imageUrl は
+  // MAL 由来ではないので候補に残す。
+  const blocked = row.imageSource === IMAGE_SOURCE_BLOCKED;
+  const candidates = workImageSourceCandidates({
+    imageUrl: row.imageUrl,
+    resolvedImageUrl: blocked ? null : row.resolvedImageUrl,
+  });
   const inCooldown =
     row.imageR2AttemptedAt != null &&
     now.getTime() - row.imageR2AttemptedAt.getTime() <
@@ -283,7 +301,9 @@ export async function serveWorkImage(
       ? imageResponse(
           stored.body,
           stored.httpMetadata?.contentType ?? "application/octet-stream",
-          stored.httpEtag,
+          // 取り込み元が Annict の URL でも、行が 'mal' なら短い方に倒す
+          // （どちらから取り込んだかはキーのハッシュでしか分からないため）。
+          { etag: stored.httpEtag, fromMal: row.imageSource === "mal" },
         )
       : notFound();
   if (stored && ownKey) {
@@ -336,6 +356,7 @@ export async function serveWorkImage(
   // （非 placeholder URL は対象外）のため、ここが唯一の拾い直し経路になる。
   // 再解決結果は確定済みの 'none' を含めて書き戻し、resolvedAt を起点に
   // 次の再解決を TTL 分先送りする（cron と同じ扱い）。
+  // 'blocked'（削除依頼で画像を消した作品。issue #241）は引き直さない。
   // Kitsu へのリクエスト自体の失敗は結果が返らないので書き込まない
   // （'none' に確定させず、クールダウン切れ後にまた試行される）。
   const noneResolutionStale =
@@ -343,8 +364,10 @@ export async function serveWorkImage(
     (row.resolvedAt == null ||
       now.getTime() - row.resolvedAt.getTime() >=
         IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS);
+  let resolvedSource = row.imageSource;
   if (
     !hit &&
+    !blocked &&
     (row.malAnimeId != null || row.kitsuAnimeId != null) &&
     (row.imageSource !== "none" || noneResolutionStale)
   ) {
@@ -365,6 +388,7 @@ export async function serveWorkImage(
         imageSource: resolved.imageSource,
         resolvedAt: now,
       });
+      resolvedSource = resolved.imageSource;
       if (resolved.resolvedImageUrl) {
         hit = await tryCandidates(
           workImageSourceCandidates({
@@ -403,5 +427,7 @@ export async function serveWorkImage(
   if (ownKey && ownKey !== key) {
     await bucket.delete(ownKey).catch(() => {});
   }
-  return imageResponse(hit.image.data, hit.image.contentType);
+  return imageResponse(hit.image.data, hit.image.contentType, {
+    fromMal: resolvedSource === "mal",
+  });
 }

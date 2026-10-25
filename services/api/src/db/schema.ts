@@ -56,6 +56,7 @@ export const annictWorks = sqliteTable("annict_works", {
   resolvedImageUrl: text("resolved_image_url"),
   // 'annict' | 'anilist' | 'jikan' | 'none'。'none' は MAL ID が誤り or 供給元にも
   // 画像が無いことが判明したネガキャッシュ。null は未解決（一度も試していない）。
+  // 'blocked' は削除依頼で画像を消した作品で、二度と補完しない（issue #241）。
   imageSource: text("image_source"),
   // resolvedImageUrl / imageSource を確定した時刻。TTL 再解決の起点に使う。
   resolvedAt: integer("resolved_at", { mode: "timestamp" }),

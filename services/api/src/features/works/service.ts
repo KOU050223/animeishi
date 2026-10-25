@@ -88,7 +88,8 @@ export async function attachResolvedImages(
     const c0 = cachedById.get(w.annictWorkId);
     // 未解決 + Annict 画像が placeholder + malAnimeId か Kitsu ID 有
     // → 同期解決の対象にする（kitsuAnimeId はタイトル検索で採った行。
-    // issue #227）。
+    // issue #227）。'blocked'（削除依頼で画像を消した作品。issue #241）も
+    // imageSource が立っているので対象にならない。
     if (
       (w.malAnimeId != null || c0?.kitsuAnimeId != null) &&
       !c0?.imageSource &&

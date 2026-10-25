@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { annictWorks, annictCharacters, annictWorkCasts } from "@/db/schema";
+import { IMAGE_SOURCE_BLOCKED } from "@/lib/annict/imageFallback";
 import type {
   AnnictWork,
   NewAnnictWork,
@@ -54,9 +55,14 @@ function annictWorkConflictSet() {
       then null
       else coalesce(excluded.resolved_image_url, ${annictWorks.resolvedImageUrl})
     end`,
+    // 'blocked'（削除依頼で画像を消した作品。issue #241）は MAL ID が
+    // 変わっても外さない。外すと補完の対象に戻り、消した画像を取り直しうる。
+    // バインド変数を増やさないよう（ANNICT_WORK_UPSERT_CHUNK の前提）、
+    // IMAGE_SOURCE_BLOCKED と同じ値をリテラルで書く。
     imageSource: sql`case
       when excluded.mal_anime_id is not null
        and excluded.mal_anime_id is not ${annictWorks.malAnimeId}
+       and ${annictWorks.imageSource} is not 'blocked'
       then null
       else coalesce(excluded.image_source, ${annictWorks.imageSource})
     end`,
@@ -131,6 +137,15 @@ export function isUnchangedCachedWork(
   );
 }
 
+// image_source が 'blocked'（削除依頼で画像を消した作品。issue #241）でない。
+// 補完結果の書き込みに掛け、消した画像の URL を書き戻さないようにする。
+function notBlockedImageSource() {
+  return or(
+    isNull(annictWorks.imageSource),
+    ne(annictWorks.imageSource, IMAGE_SOURCE_BLOCKED),
+  );
+}
+
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
 // annict_works は 18 カラム（kitsu_anime_id 追加後）なので
 // 5 行 × 18 = 90 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
@@ -200,6 +215,8 @@ export function worksRepository(db: DrizzleDb) {
      * 画像フォールバック解決後に、resolved_image_url / image_source / resolved_at
      * だけを更新する。read-through / 検索経路の裏で waitUntil から呼ばれる。
      * 作品自体が annict_works に存在しない（先に FK エラーで消えた等）場合は no-op。
+     * 'blocked'（削除依頼で画像を消した作品）の行も書き換えない。解決中に
+     * 削除スクリプトが走っても、消した画像の URL を書き戻さないため。
      */
     async updateResolvedImage(
       annictWorkId: number,
@@ -218,7 +235,12 @@ export function worksRepository(db: DrizzleDb) {
           // 最終試行時刻をクリア（解決済みになったため）。
           imageFallbackAttemptedAt: null,
         })
-        .where(eq(annictWorks.annictWorkId, annictWorkId));
+        .where(
+          and(
+            eq(annictWorks.annictWorkId, annictWorkId),
+            notBlockedImageSource(),
+          ),
+        );
     },
 
     /**
@@ -244,7 +266,12 @@ export function worksRepository(db: DrizzleDb) {
             // 最終試行時刻をクリア（解決済みになったため）。
             imageFallbackAttemptedAt: null,
           })
-          .where(eq(annictWorks.annictWorkId, u.annictWorkId)),
+          .where(
+            and(
+              eq(annictWorks.annictWorkId, u.annictWorkId),
+              notBlockedImageSource(),
+            ),
+          ),
       );
       for (let i = 0; i < queries.length; i += RESOLVED_IMAGE_UPDATE_BATCH) {
         const chunk = queries.slice(i, i + RESOLVED_IMAGE_UPDATE_BATCH);
@@ -293,6 +320,8 @@ export function worksRepository(db: DrizzleDb) {
      * 「'none'（Kitsu にも無いと確定）だが確定時刻 resolved_at が
      * noneResolvedStaleBefore より古い」作品。'none' のままだと二度と
      * 拾えないため、TTL で再解決して将来 Kitsu に登録された画像を救う。
+     * 'blocked'（削除依頼で画像を消した作品。issue #241）はどちらにも
+     * 当たらないので対象にならない。
      */
     async getPendingImageFallbackWorks(
       limit: number,

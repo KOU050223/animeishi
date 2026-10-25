@@ -34,6 +34,7 @@ task <タスク名>
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
+* images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。確認プロンプト付き）
 ```
 
 > 通報モデレーション（reports.*）は `services/api/scripts/reports.sh` の
@@ -44,6 +45,20 @@ task <タスク名>
 > メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
 > そのまま含めてよい。プレビュー D1 を見る場合は
 > `bash services/api/scripts/reports.sh --env preview list` を直接叩く。
+
+> 作品画像の削除（images:takedown）は `services/api/scripts/takedown-work-images.sh` の
+> Taskfile ラッパー（issue #241）。MAL API の規約により、MAL から削除依頼が来たら
+> MAL 由来の画像（`image_source='mal'`）を 24 時間以内に消す必要がある。
+> 作品 ID を `--` 以降に並べる（例: `task images:takedown -- 123 456`）か、
+> `task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
+> 件数と一覧を表示してから確認プロンプトを出し、対象ごとに R2 のオブジェクトを消して
+> `image_r2_key`・`resolved_image_url` を NULL、`image_source` を `'blocked'` にする。
+> `'blocked'` の作品は cron・画像プロキシ・検索のどこからも補完し直さない
+> （Annict の元の画像は MAL 由来ではないので、プロキシは引き続き配信する）。
+> プロキシ前段のキャッシュは消せないが、MAL 由来の画像は Cache-Control を
+> 合計 12 時間以下にしてあるので、実行後 12 時間以内に切れる。
+> 使い方は `bash services/api/scripts/takedown-work-images.sh --help`。プレビューは
+> `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
 
 > wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
 > ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は

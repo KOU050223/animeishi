@@ -385,6 +385,122 @@ describe("serveWorkImage", () => {
     expect((await getWork(db)).imageSource).toBe("none");
   });
 
+  it("MAL 由来の画像は Cache-Control を短くする（合計 12 時間以下。issue #241）", async () => {
+    const totalSeconds = (cacheControl: string | null) => {
+      const maxAge = Number(/max-age=(\d+)/.exec(cacheControl ?? "")?.[1]);
+      const swr = Number(
+        /stale-while-revalidate=(\d+)/.exec(cacheControl ?? "")?.[1] ?? 0,
+      );
+      return maxAge + swr;
+    };
+    // 取り込み済み（R2 から返す）
+    const key = "works/1/deadbeef.png";
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, { imageR2Key: key, imageSource: "mal" });
+    const stored = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: routeFetch({}) as unknown as typeof fetch,
+    });
+    expect(stored.status).toBe(200);
+    expect(
+      totalSeconds(stored.headers.get("cache-control")),
+    ).toBeLessThanOrEqual(12 * 60 * 60);
+
+    // その場で MAL API から引いて取り込む
+    await insertWork(db, {
+      annictWorkId: 2,
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+    });
+    const picture = "https://cdn.myanimelist.net/images/anime/50099l.jpg";
+    const fetched = await serveWorkImage(db, env.AVATARS, 2, {
+      fetchImpl: routeFetch({
+        [KITSU]: () => makeKitsuResponse({ m50099: null }),
+        "https://api.myanimelist.net/v2/anime/50099?fields=main_picture": () =>
+          Response.json({ main_picture: { large: picture } }),
+        [picture]: () => makeImageResponse("image/jpeg"),
+      }) as unknown as typeof fetch,
+      malClientId: "client-id",
+    });
+    expect(fetched.status).toBe(200);
+    expect(
+      totalSeconds(fetched.headers.get("cache-control")),
+    ).toBeLessThanOrEqual(12 * 60 * 60);
+
+    // Kitsu 由来は従来どおり 1 日
+    await insertWork(db, {
+      annictWorkId: 3,
+      resolvedImageUrl: "https://media.kitsu.app/3.jpg",
+      imageSource: "kitsu",
+    });
+    const kitsu = await serveWorkImage(db, env.AVATARS, 3, {
+      fetchImpl: routeFetch({
+        "https://media.kitsu.app/3.jpg": () => makeImageResponse("image/jpeg"),
+      }) as unknown as typeof fetch,
+    });
+    expect(kitsu.headers.get("cache-control")).toBe(
+      "public, max-age=86400, stale-while-revalidate=604800",
+    );
+  });
+
+  describe("削除依頼で画像を消した作品（image_source='blocked'。issue #241）", () => {
+    it("補完 URL は使わず、Annict の元の画像だけを取り込む", async () => {
+      const annict = "https://img.example.com/poster.png";
+      const mal = "https://cdn.myanimelist.net/images/anime/21l.jpg";
+      // 削除後に補完 URL が書き戻っていても拾わないことを確かめる。
+      await insertWork(db, {
+        imageUrl: annict,
+        resolvedImageUrl: mal,
+        imageSource: "blocked",
+        malAnimeId: 21,
+      });
+      const fetchImpl = routeFetch({
+        [annict]: () => makeImageResponse(),
+        [mal]: () => makeImageResponse("image/jpeg"),
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        malClientId: "client-id",
+      });
+
+      expect(res.status).toBe(200);
+      expect(fetchImpl).not.toHaveBeenCalledWith(mal, expect.anything());
+      expect((await getWork(db)).imageR2Key).toBe(
+        workImageKey(1, annict, "png"),
+      );
+    });
+
+    it("Annict の画像が取れなくても Kitsu・MAL を引き直さず 404", async () => {
+      await insertWork(db, {
+        imageUrl: "https://old-official.example.com/og.png",
+        imageSource: "blocked",
+        malAnimeId: 21,
+      });
+      const fetchImpl = routeFetch({
+        [KITSU]: () =>
+          makeKitsuResponse({
+            m21: {
+              coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" },
+            },
+          }),
+      });
+
+      const res = await serveWorkImage(db, env.AVATARS, 1, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        malClientId: "client-id",
+      });
+
+      expect(res.status).toBe(404);
+      const calledUrls = fetchImpl.mock.calls.map(([input]) => String(input));
+      expect(calledUrls).toEqual(["https://old-official.example.com/og.png"]);
+      const row = await getWork(db);
+      expect(row.imageSource).toBe("blocked");
+      expect(row.resolvedImageUrl).toBeNull();
+    });
+  });
+
   it("imageSource='none' が TTL 内なら Kitsu を引き直さない", async () => {
     // 'none' は「Kitsu にも画像が無い」ことが確定済みのネガキャッシュ。
     // 確定から TTL（IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）以内は

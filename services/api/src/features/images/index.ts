@@ -14,7 +14,8 @@ import { serveWorkImage } from "@/lib/annict/workImage";
  * 前段に Workers の Cache API を置く。作品一覧は 1 画面で数十枚の画像を
  * 要求するため、毎回 D1（作品行の参照）と R2 を読むと応答が遅く、D1 の
  * 読み取り行数も積み上がる。キャッシュ期間は serveWorkImage が付ける
- * Cache-Control（取り込み済み 1 日 / 画像なし 5 分）に従う。
+ * Cache-Control（取り込み済み 1 日 / MAL 由来は 6 時間 / 画像なし 5 分）に従う。
+ * MAL 由来を短くしているのは、削除依頼から 24 時間以内に消すため（issue #241）。
  */
 export const images = new Hono<{
   // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
