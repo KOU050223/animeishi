@@ -156,8 +156,7 @@ export default function TierListScreen() {
         (saved?.items ?? []).map((item) => ({
           id: item.annictWorkId,
           title: item.title,
-          imageUrl: item.imageUrl,
-          resolvedImageUrl: item.resolvedImageUrl,
+          imageUrl: item.hostedImageUrl,
         })),
         manualWorks,
       ),
@@ -377,9 +376,7 @@ export default function TierListScreen() {
             id: i.annictWorkId,
             tierKey: i.tierKey,
             title: i.title,
-            imageUrl: i.imageUrl,
-            resolvedImageUrl: i.resolvedImageUrl,
-            hostedImageUrl: i.hostedImageUrl,
+            imageUrl: i.hostedImageUrl,
           })),
         );
         // スナップショットの描画と作品画像の読み込み（onReady）を待ってから

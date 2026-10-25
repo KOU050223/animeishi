@@ -35,10 +35,12 @@ export type TierItem = {
   /** 並べる対象の ID。作品なら annictWorkId、キャラクターなら annictCharacterId。 */
   id: number;
   title: string;
+  /**
+   * 表示用の画像 URL。作品なら API の作品画像プロキシ URL
+   * （GET /images/works/:id の hostedImageUrl）、キャラクターなら Annict の画像。
+   * 外部 URL への切り替えはしない（issue #224）。
+   */
   imageUrl?: string | null;
-  resolvedImageUrl?: string | null;
-  /** API の作品画像プロキシ URL（GET /images/works/:id）。pickImageUrl が最優先で使う。 */
-  hostedImageUrl?: string | null;
 };
 
 /** 画面が保持する編集中の tier 表の状態。 */

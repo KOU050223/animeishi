@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
+import { StyleSheet, Text, View } from "react-native";
+import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import type { TierRow } from "@/lib/tierList/types";
@@ -11,10 +11,11 @@ export type SnapshotItem = {
   id: number;
   tierKey: string;
   title: string;
+  /**
+   * 表示用の画像 URL。作品なら API の作品画像プロキシ URL
+   * （GET /images/works/:id の hostedImageUrl）、キャラクターなら Annict の画像。
+   */
   imageUrl?: string | null;
-  resolvedImageUrl?: string | null;
-  /** API の作品画像プロキシ URL（GET /images/works/:id）。pickImageUrl が最優先で使う。 */
-  hostedImageUrl?: string | null;
 };
 
 export type TierBoardSnapshotProps = {
@@ -51,7 +52,7 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
     const imageCount = useMemo(() => {
       const tierKeys = new Set(tiers.map((t) => t.key));
       return items.filter(
-        (item) => tierKeys.has(item.tierKey) && pickImageUrl(item),
+        (item) => tierKeys.has(item.tierKey) && !!item.imageUrl,
       ).length;
     }, [items, tiers]);
     const settledRef = useRef(0);
@@ -96,28 +97,24 @@ export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
                 </Text>
               </View>
               <View style={styles.works}>
-                {rowItems.map((item) => {
-                  const uri = pickImageUrl(item);
-                  return (
-                    <View key={item.id} style={styles.card}>
-                      {uri ? (
-                        <Image
-                          source={{ uri }}
-                          style={styles.cardImage}
-                          resizeMode="cover"
-                          // onLoadEnd は成功・失敗どちらでも来る。
-                          // 失敗した画像は欠けたまま共有する（再試行より確実性優先）。
-                          onLoadEnd={markImageSettled}
-                        />
-                      ) : (
-                        <View style={styles.cardImageFallback} />
-                      )}
-                      <Text style={styles.cardTitle} numberOfLines={2}>
-                        {item.title}
-                      </Text>
-                    </View>
-                  );
-                })}
+                {rowItems.map((item) => (
+                  <View key={item.id} style={styles.card}>
+                    <WorkImage
+                      uri={item.imageUrl}
+                      style={styles.cardImage}
+                      placeholder=<View style={styles.cardImageFallback} />
+                      // 読み込み完了直後に撮るため、フェードイン途中の
+                      // 半透明な画像が写らないよう transition は付けない。
+                      transition={0}
+                      // onLoadEnd は成功・失敗どちらでも来る。
+                      // 失敗した画像は placeholder のまま共有する（再試行より確実性優先）。
+                      onLoadEnd={markImageSettled}
+                    />
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
           );

@@ -12,8 +12,6 @@ import {
   useWindowDimensions,
 } from "react-native";
 import type { ListRenderItem } from "react-native";
-import { pickImageUrl } from "@/lib/anime/pickImageUrl";
-import type { PickImageUrlInput } from "@/lib/anime/pickImageUrl";
 import { useAnnictConnection } from "@/lib/annict";
 import type { CollageStateFilter } from "@/lib/meishi/types";
 import { useAnimeList } from "@/lib/useAnimeList";
@@ -26,8 +24,10 @@ import { useThemeColors } from "@/lib/theme";
 
 // ピッカー行として必要な最小フィールド。FavoriteItem / WatchHistoryItem /
 // works.search の works 要素はすべてこの形を満たす。
-export type AnimePickItem = PickImageUrlInput & {
+export type AnimePickItem = {
   annictWorkId: number;
+  /** 作品画像プロキシの URL。名刺にはこの URL をそのまま保存する。 */
+  hostedImageUrl?: string | null;
   title: string;
   titleEn?: string | null;
   seasonName?: string | null;
@@ -67,7 +67,7 @@ function AnimePickRow({
   onPick: (uri: string) => void;
 }) {
   const colors = useThemeColors();
-  const uri = pickImageUrl(item);
+  const uri = item.hostedImageUrl ?? null;
   const sub = seasonText(item);
   return (
     <Pressable
@@ -83,7 +83,7 @@ function AnimePickRow({
       accessibilityRole="button"
       accessibilityLabel={`${item.title}の画像を追加`}
     >
-      <WorkThumbnail item={item} width={44} height={58} />
+      <WorkThumbnail uri={uri} width={44} height={58} />
       <View style={{ flex: 1 }}>
         <Text
           style={{ fontSize: 14, fontWeight: "600", color: colors.text }}
@@ -303,7 +303,7 @@ function SearchList({
  * 名刺の画像要素に入れるアニメ画像を選ぶシート（issue #96）。
  * 「検索」タブは Annict 作品検索（任意のアニメ）、「マイリスト」タブは
  * お気に入り + Annict 視聴ステータス別ライブラリ（任意のアニメリスト）から選ぶ。
- * 選択時に表示用 URL（pickImageUrl 済み）を onPick で返す。
+ * 選択時に作品画像プロキシの URL（hostedImageUrl）を onPick で返す。
  */
 export function AnimeImagePicker({
   visible,

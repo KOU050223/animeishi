@@ -151,7 +151,7 @@ export function AnimeListContent({
         style={[styles.card, { width: cardWidth }]}
         testID={`anime-item-${item.annictWorkId}`}
       >
-        <AnimePoster item={item} title={item.title} />
+        <AnimePoster uri={item.hostedImageUrl} title={item.title} />
         <View style={styles.cardBody}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle} numberOfLines={2}>

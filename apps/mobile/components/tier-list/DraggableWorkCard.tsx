@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Image, Text, View, type AccessibilityActionEvent } from "react-native";
+import { Text, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -8,7 +8,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useImageUrlWithFallback } from "@/lib/anime/useImageUrlWithFallback";
+import { WorkImage } from "@/components/anime-list/WorkImage";
 import type { TierItem } from "@/lib/tierList/types";
 import { useTierListStyles } from "./tierListStyles";
 
@@ -85,9 +85,6 @@ export function DraggableWorkCard({
   // 終了時に scrollCompensation を translateY へ畳み込んだか。
   // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
   const compensationFolded = useSharedValue(false);
-
-  // hostedImageUrl（画像プロキシ）が失敗しても外部 URL 候補へ順に切り替える。
-  const { uri, onError: onImageError } = useImageUrlWithFallback(item);
 
   const pan = useMemo(
     () =>
@@ -207,19 +204,16 @@ export function DraggableWorkCard({
         onAccessibilityAction={handleAccessibilityAction}
         testID={`tier-card-${item.id}`}
       >
-        {uri ? (
-          <Image
-            source={{ uri }}
-            style={styles.cardImage}
-            resizeMode="cover"
-            onError={onImageError}
-            accessibilityLabel={`${item.title}のサムネイル`}
-          />
-        ) : (
-          <View style={styles.cardImageFallback}>
-            <Text style={styles.cardImageFallbackText}>🎬</Text>
-          </View>
-        )}
+        <WorkImage
+          uri={item.imageUrl}
+          style={styles.cardImage}
+          placeholder={
+            <View style={styles.cardImageFallback}>
+              <Text style={styles.cardImageFallbackText}>🎬</Text>
+            </View>
+          }
+          accessibilityLabel={`${item.title}のサムネイル`}
+        />
         <View style={styles.cardLabel}>
           <Text style={styles.cardLabelText} numberOfLines={2}>
             {item.title}

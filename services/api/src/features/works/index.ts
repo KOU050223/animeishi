@@ -62,10 +62,9 @@ const works = new Hono<AuthVariables>()
             after ?? null,
           );
 
-      // 検索結果に resolvedImageUrl（キャッシュ済みの Kitsu / Jikan 由来 URL）を
-      // 添えて返す。imageUrl 自体は上書きしない — 「Annict 画像を優先し、無ければ
-      // resolved に落とす」の判定はクライアントの表示ポリシーであってサーバの
-      // 責務ではない（クライアントの pickImageUrl で解決する。issue #86）。
+      // 検索結果に resolvedImageUrl（キャッシュ済みの Kitsu / MAL 由来 URL）を
+      // 添えて返す。imageUrl 自体は上書きしない。クライアントは画像プロキシの
+      // hostedImageUrl だけを表示に使い、候補の選択はプロキシが行う（issue #224）。
       // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる Kitsu
       // バッチだけここで同期解決する。取れなかった分は annict_works に upsert
       // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。

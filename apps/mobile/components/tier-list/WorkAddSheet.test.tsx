@@ -21,6 +21,7 @@ const RESULT_WORK = {
   seasonName: "2020-autumn",
   imageUrl: null,
   resolvedImageUrl: null,
+  hostedImageUrl: "https://api.example/images/works/42",
   malAnimeId: null,
 };
 
@@ -75,8 +76,8 @@ describe("WorkAddSheet", () => {
     expect(onAdd).toHaveBeenCalledWith<[TierItem]>({
       id: 42,
       title: "劇場版テスト",
-      imageUrl: null,
-      resolvedImageUrl: null,
+      // 盤面には作品画像プロキシの URL だけを渡す（issue #224）
+      imageUrl: "https://api.example/images/works/42",
     });
   });
 

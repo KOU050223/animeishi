@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react-native";
 import { useColorScheme } from "nativewind";
+import { Image } from "expo-image";
 import {
-  Image,
   StyleSheet,
   type StyleProp,
   type TextStyle,
@@ -159,6 +159,15 @@ describe("TierBoardSnapshot", () => {
       // 全件完了で一度だけ呼ばれる（読み込み失敗でも onLoadEnd は来る）
       images[1].props.onLoadEnd();
       expect(onReady).toHaveBeenCalledTimes(1);
+    });
+
+    it("撮影時にフェードイン途中の画像が写らないよう transition を付けない", () => {
+      const { UNSAFE_getAllByType } = render(
+        <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS_WITH_IMAGES} />,
+      );
+      for (const image of UNSAFE_getAllByType(Image)) {
+        expect(image.props.transition).toBe(0);
+      }
     });
 
     it("tiers に無い tierKey の画像付き作品は読み込み待ちに含めない", () => {
