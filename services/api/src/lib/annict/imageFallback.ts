@@ -12,7 +12,15 @@
 //     Cloudflare Workers からは 522 になることが多く、5xx はネガキャッシュ
 //     されないため「届かないのに毎時間叩き直される」状態になっていたので
 //     補完経路から外した。
-//   * Kitsu に対応・画像が無ければ 'none' をネガキャッシュ。
+//   * Kitsu に MAL ID の対応が無い作品は MAL 公式 API（v2）で MAL ID から
+//     直接ポスターを引く（issue #238）。Kitsu は新作や一部作品で MAL の
+//     mappings を欠くため。MAL API は 1 件ずつしか引けないので、1 回の解決で
+//     問い合わせる件数を MAL_MAX_LOOKUPS_PER_CALL に絞る（上限超過分は
+//     「不明」扱いで次回に回す）。Client ID（MAL_CLIENT_ID）が無い環境では
+//     MAL を使わず Kitsu だけで解決する。
+//     MAL API の規約上、取得した画像は加工してはならず、削除依頼から 24 時間
+//     以内に消せる必要がある（image_source='mal' で見分けられる）。
+//   * Kitsu・MAL のどちらにも画像が無ければ 'none' をネガキャッシュ。
 //     'none' のままだと二度と拾えないため、resolved_at 起点の TTL
 //     （IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS）で再解決される。
 //     cron（imageFallbackPending）と画像プロキシ（workImage）の両方が使う。
@@ -24,6 +32,7 @@
 
 const KITSU_MAPPINGS_ENDPOINT = "https://kitsu.io/api/edge/mappings";
 const KITSU_ANIME_ENDPOINT = "https://kitsu.io/api/edge/anime";
+const MAL_ANIME_ENDPOINT = "https://api.myanimelist.net/v2/anime";
 
 // Annict の SNS 系画像 URL は「表示できるが実質プレースホルダー」なため、
 // これらしか無い作品もフォールバック対象に含めたい。Twitter/Facebook の
@@ -75,8 +84,8 @@ export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** 画像フォールバックの供給元。annict_works.image_source に保存する値。 */
 // 'anilist'・'jikan' は過去の供給元で既存行に残っている値（互換のため
-// カラムはフリーテキストのまま）。現在書き込むのは 'kitsu' | 'none' だけ。
-export type ImageSource = "kitsu" | "none";
+// カラムはフリーテキストのまま）。現在書き込むのは 'kitsu' | 'mal' | 'none' だけ。
+export type ImageSource = "kitsu" | "mal" | "none";
 
 /** 解決対象の 1 件。annictWorkId は D1 更新のキーに使うため必須。 */
 export type ImageFallbackInput = {
@@ -102,6 +111,11 @@ const KITSU_BATCH_SIZE = 20;
 // 済み、追加ページが要るのは重複が多いときだけ。
 const KITSU_MAX_PAGES = 3;
 
+// MAL API に 1 回の解決で問い合わせる最大件数。MAL API は作品 1 件ずつの
+// エンドポイントしかなく、cron 1 回のサブリクエスト予算（Free プラン 50）と
+// MAL サーバーへの負荷（規約 6 条）の両方を考えて小さく保つ。
+export const MAL_MAX_LOOKUPS_PER_CALL = 10;
+
 // Kitsu への 1 リクエストのタイムアウト。read-through 全体を止めないよう
 // 短めに設定する（waitUntil の裏で回るとはいえ、Workers の CPU budget に響く）。
 const REMOTE_FETCH_TIMEOUT_MS = 6000;
@@ -116,34 +130,59 @@ export function limitImageFallbackTargets<T>(targets: T[]): T[] {
 }
 
 /**
- * MAL ID 群を Kitsu でフォールバック解決する。
- * 入力の順序は保持しない。Kitsu に無いものは imageSource='none' として返す。
- * Kitsu への問い合わせ自体が失敗した ID は結果に含めない（ネガキャッシュ
- * しない。呼び出し側のクールダウン切れ後に再試行される）。
+ * MAL ID 群を Kitsu（Kitsu に無ければ MAL API）でフォールバック解決する。
+ * 入力の順序は保持しない。どちらにも無いものは imageSource='none' として返す。
+ * 問い合わせ自体が失敗した ID・MAL の問い合わせ件数上限で後回しにした ID は
+ * 結果に含めない（ネガキャッシュしない。呼び出し側のクールダウン切れ後に
+ * 再試行される）。
  *
  * @param inputs   解決対象の (annictWorkId, malAnimeId) の配列。
  * @param fetchImpl 差し替え可能な fetch（テスト用）。
+ * @param options.malClientId MAL API の Client ID。無ければ MAL は使わない。
  */
 export async function resolveImagesForWorks(
   inputs: ImageFallbackInput[],
   fetchImpl: typeof fetch = fetch,
+  options: { malClientId?: string | undefined } = {},
 ): Promise<ImageFallbackResult[]> {
   if (inputs.length === 0) return [];
 
-  const [{ hits, unresolved }, posters] = await Promise.all([
+  const [kitsu, posters] = await Promise.all([
     fetchKitsuHits(uniqueMalAnimeIds(inputs), fetchImpl),
     fetchKitsuPosterHits(uniqueKitsuAnimeIds(inputs), fetchImpl),
   ]);
+
+  // Kitsu で「無い」と確定した MAL ID だけを MAL API で引き直す。
+  // Kitsu 側の失敗で不明な ID は Kitsu の再試行に任せる。
+  const kitsuMisses = uniqueMalAnimeIds(inputs).filter(
+    (id) => !kitsu.hits.has(id) && !kitsu.unresolved.has(id),
+  );
+  const mal = options.malClientId
+    ? await fetchMalPictureHits(kitsuMisses, options.malClientId, fetchImpl)
+    : { hits: new Map<number, string>(), unresolved: new Set<number>() };
 
   return inputs.flatMap((input): ImageFallbackResult[] => {
     // MAL ID がある作品は mappings のバッチ解決、無い作品は Kitsu の
     // 作品 ID から直接引く。いずれも「Kitsu に無い」→ 'none'、
     // リクエスト自体の失敗 → 結果なし（解決可否は不明）。
+    const malPicture =
+      input.malAnimeId != null ? mal.hits.get(input.malAnimeId) : undefined;
+    if (malPicture) {
+      return [
+        {
+          annictWorkId: input.annictWorkId,
+          malAnimeId: input.malAnimeId,
+          resolvedImageUrl: malPicture,
+          imageSource: "mal" as const,
+        },
+      ];
+    }
     const [resolvedImageUrl, failed] =
       input.malAnimeId != null
         ? ([
-            hits.get(input.malAnimeId),
-            unresolved.has(input.malAnimeId),
+            kitsu.hits.get(input.malAnimeId),
+            kitsu.unresolved.has(input.malAnimeId) ||
+              mal.unresolved.has(input.malAnimeId),
           ] as const)
         : input.kitsuAnimeId != null
           ? ([
@@ -276,6 +315,70 @@ async function fetchKitsuHits(
   }
   return { hits, unresolved };
 }
+
+/**
+ * MAL API（v2）で MAL ID ごとに main_picture を引く。
+ * 先頭 MAL_MAX_LOOKUPS_PER_CALL 件だけを問い合わせ、残りは unresolved
+ * （解決可否は不明）として返して次回に回す。
+ * 返り値の意味は fetchKitsuHits と同じ: hits は「画像が取れた ID → URL」、
+ * unresolved は失敗・後回しで解決可否が不明な ID（呼び出し側は 'none' にしない）。
+ * 404（MAL に作品が無い）と画像なしは miss としてどちらにも入れない。
+ */
+async function fetchMalPictureHits(
+  malIds: number[],
+  clientId: string,
+  fetchImpl: typeof fetch,
+): Promise<{ hits: Map<number, string>; unresolved: Set<number> }> {
+  const lookups = malIds.slice(0, MAL_MAX_LOOKUPS_PER_CALL);
+  const hits = new Map<number, string>();
+  const unresolved = new Set<number>(malIds.slice(MAL_MAX_LOOKUPS_PER_CALL));
+  const results = await Promise.all(
+    lookups.map((malId) => fetchMalPicture(malId, clientId, fetchImpl)),
+  );
+  for (const [index, result] of results.entries()) {
+    const malId = lookups[index];
+    if (malId === undefined) continue;
+    if (result.failed) unresolved.add(malId);
+    else if (result.url) hits.set(malId, result.url);
+  }
+  return { hits, unresolved };
+}
+
+/**
+ * MAL API で 1 作品の main_picture を引く。
+ * 404 は「MAL に無い」（failed=false, url=null）、それ以外の非 200・
+ * ネットワーク失敗・解析失敗は failed=true（解決可否は不明）。
+ */
+async function fetchMalPicture(
+  malId: number,
+  clientId: string,
+  fetchImpl: typeof fetch,
+): Promise<{ url: string | null; failed: boolean }> {
+  const url = new URL(`${MAL_ANIME_ENDPOINT}/${malId}`);
+  url.searchParams.set("fields", "main_picture");
+  const res = await safeFetch(
+    fetchImpl,
+    url.toString(),
+    { headers: { "X-MAL-CLIENT-ID": clientId } },
+    REMOTE_FETCH_TIMEOUT_MS,
+  );
+  if (!res) return { url: null, failed: true };
+  if (res.status === 404) return { url: null, failed: false };
+  if (!res.ok) return { url: null, failed: true };
+
+  let json: MalAnimeResponse;
+  try {
+    json = (await res.json()) as MalAnimeResponse;
+  } catch {
+    return { url: null, failed: true };
+  }
+  const picture = json?.main_picture?.large ?? json?.main_picture?.medium;
+  return { url: picture || null, failed: false };
+}
+
+type MalAnimeResponse = {
+  main_picture?: { large?: string | null; medium?: string | null } | null;
+} | null;
 
 /**
  * MAL mapping を持たない作品（kitsu_anime_id のみの行）を、Kitsu の作品

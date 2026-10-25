@@ -252,7 +252,11 @@ export async function serveWorkImage(
   db: DrizzleDb,
   bucket: R2Bucket,
   annictWorkId: number,
-  options: { now?: Date; fetchImpl?: typeof fetch } = {},
+  options: {
+    now?: Date;
+    fetchImpl?: typeof fetch;
+    malClientId?: string | undefined;
+  } = {},
 ): Promise<Response> {
   const now = options.now ?? new Date();
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -353,6 +357,7 @@ export async function serveWorkImage(
         },
       ],
       fetchImpl,
+      { malClientId: options.malClientId },
     );
     if (resolved) {
       await repo.updateResolvedImage(annictWorkId, {

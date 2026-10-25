@@ -31,7 +31,7 @@ const PENDING_RESOLVE_LIMIT = 40;
 
 /**
  * image_source 未解決（null）または 'none' で TTL 切れの作品を D1 から引いて
- * Kitsu で解決・永続化する。cron ハンドラから定期実行される。
+ * Kitsu（無ければ MAL API）で解決・永続化する。cron ハンドラから定期実行される。
  *
  * issue #127 までは Cloudflare Queues にジョブを積んでいたが、「未解決作品の
  * 集合」は image_source / image_url の状態として D1 上に既に表現されている。
@@ -45,6 +45,7 @@ const PENDING_RESOLVE_LIMIT = 40;
 export async function resolvePendingImageFallbacks(
   db: DrizzleDb,
   limit = PENDING_RESOLVE_LIMIT,
+  options: { malClientId?: string | undefined; fetchImpl?: typeof fetch } = {},
 ): Promise<number> {
   const repo = worksRepository(db);
   const targets = await repo.getPendingImageFallbackWorks(
@@ -63,7 +64,9 @@ export async function resolvePendingImageFallbacks(
 
   let results;
   try {
-    results = await resolveImagesForWorks(targets);
+    results = await resolveImagesForWorks(targets, options.fetchImpl, {
+      malClientId: options.malClientId,
+    });
   } catch (err) {
     console.error(
       JSON.stringify({

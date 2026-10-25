@@ -8,6 +8,7 @@ import {
 } from "@/test-utils/kitsu";
 import {
   IMAGE_FALLBACK_MAX_TARGETS_PER_INVOCATION,
+  MAL_MAX_LOOKUPS_PER_CALL,
   isPlaceholderImageUrl,
   limitImageFallbackTargets,
   resolveImagesForWorks,
@@ -156,6 +157,158 @@ describe("resolveImagesForWorks", () => {
     // 一時障害かもしれないのでネガキャッシュせず、呼び出し側のクールダウン
     // 切れ後に再試行させる
     expect(res).toEqual([]);
+  });
+
+  describe("MAL API での補完（issue #238）", () => {
+    const MAL_PREFIX = "https://api.myanimelist.net/v2/anime/";
+    const malIdOf = (url: string) =>
+      Number(new URL(url).pathname.split("/").pop());
+    const malPicture = (malId: number) =>
+      Response.json({
+        id: malId,
+        main_picture: {
+          medium: `https://cdn.myanimelist.net/images/anime/${malId}.jpg`,
+          large: `https://cdn.myanimelist.net/images/anime/${malId}l.jpg`,
+        },
+      });
+
+    it("Kitsu に無い MAL ID は MAL API で引き、imageSource='mal' で返す", async () => {
+      const headers: (string | null)[] = [];
+      const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.startsWith(MAL_PREFIX)) {
+          headers.push(new Headers(init?.headers).get("X-MAL-CLIENT-ID"));
+          return malPicture(malIdOf(url));
+        }
+        return makeKitsuResponse({
+          m21: { coverImage: { large: "https://media.kitsu.app/21.jpg" } },
+          m9999: null,
+        });
+      });
+
+      const res = await resolveImagesForWorks(
+        [
+          { annictWorkId: 100, malAnimeId: 21 },
+          { annictWorkId: 200, malAnimeId: 9999 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+        { malClientId: "client-id" },
+      );
+
+      // Kitsu で取れた 21 は MAL に問い合わせない
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(headers).toEqual(["client-id"]);
+      expect(res).toEqual([
+        {
+          annictWorkId: 100,
+          malAnimeId: 21,
+          resolvedImageUrl: "https://media.kitsu.app/21.jpg",
+          imageSource: "kitsu",
+        },
+        {
+          annictWorkId: 200,
+          malAnimeId: 9999,
+          resolvedImageUrl:
+            "https://cdn.myanimelist.net/images/anime/9999l.jpg",
+          imageSource: "mal",
+        },
+      ]);
+    });
+
+    it("MAL でも 404・画像なしなら 'none' で返す", async () => {
+      const fetchImpl = vi.fn(async (url: string) => {
+        if (!url.startsWith(MAL_PREFIX)) return makeKitsuResponse({});
+        return malIdOf(url) === 1
+          ? new Response("not found", { status: 404 })
+          : Response.json({ id: 2 });
+      });
+
+      const res = await resolveImagesForWorks(
+        [
+          { annictWorkId: 100, malAnimeId: 1 },
+          { annictWorkId: 200, malAnimeId: 2 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+        { malClientId: "client-id" },
+      );
+
+      expect(res.map((r) => [r.annictWorkId, r.imageSource])).toEqual([
+        [100, "none"],
+        [200, "none"],
+      ]);
+    });
+
+    it("MAL のリクエスト失敗（5xx・403）は結果を返さない（'none' にしない）", async () => {
+      const fetchImpl = vi.fn(async (url: string) => {
+        if (!url.startsWith(MAL_PREFIX)) return makeKitsuResponse({});
+        return malIdOf(url) === 1
+          ? new Response("boom", { status: 503 })
+          : new Response("forbidden", { status: 403 });
+      });
+
+      const res = await resolveImagesForWorks(
+        [
+          { annictWorkId: 100, malAnimeId: 1 },
+          { annictWorkId: 200, malAnimeId: 2 },
+        ],
+        fetchImpl as unknown as typeof fetch,
+        { malClientId: "client-id" },
+      );
+
+      expect(res).toEqual([]);
+    });
+
+    it("Kitsu 自体が失敗した MAL ID は MAL にも問い合わせない", async () => {
+      const fetchImpl = vi.fn(
+        async () => new Response("boom", { status: 503 }),
+      );
+
+      const res = await resolveImagesForWorks(
+        [{ annictWorkId: 100, malAnimeId: 1 }],
+        fetchImpl as unknown as typeof fetch,
+        { malClientId: "client-id" },
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(res).toEqual([]);
+    });
+
+    it("Client ID が無ければ MAL は使わず、Kitsu に無いものは 'none'", async () => {
+      const fetchImpl = vi.fn(async () => makeKitsuResponse({}));
+
+      const res = await resolveImagesForWorks(
+        [{ annictWorkId: 100, malAnimeId: 1 }],
+        fetchImpl as unknown as typeof fetch,
+      );
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(res.map((r) => r.imageSource)).toEqual(["none"]);
+    });
+
+    it("MAL への問い合わせは上限件数までで、残りは結果を返さず次回に回す", async () => {
+      const fetchImpl = vi.fn(async (url: string) =>
+        url.startsWith(MAL_PREFIX)
+          ? malPicture(malIdOf(url))
+          : makeKitsuResponse({}),
+      );
+      const count = MAL_MAX_LOOKUPS_PER_CALL + 3;
+      const inputs = Array.from({ length: count }, (_, i) => ({
+        annictWorkId: 1000 + i,
+        malAnimeId: i + 1,
+      }));
+
+      const res = await resolveImagesForWorks(
+        inputs,
+        fetchImpl as unknown as typeof fetch,
+        { malClientId: "client-id" },
+      );
+
+      const malCalls = fetchImpl.mock.calls.filter(([url]) =>
+        url.startsWith(MAL_PREFIX),
+      );
+      expect(malCalls).toHaveLength(MAL_MAX_LOOKUPS_PER_CALL);
+      expect(res).toHaveLength(MAL_MAX_LOOKUPS_PER_CALL);
+      expect(res.every((r) => r.imageSource === "mal")).toBe(true);
+    });
   });
 
   it("Kitsu が 5xx の作品もネガキャッシュ対象にしない", async () => {

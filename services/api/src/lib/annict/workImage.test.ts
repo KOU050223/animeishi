@@ -319,6 +319,31 @@ describe("serveWorkImage", () => {
     expect((await getWork(db)).imageSource).toBe("none");
   });
 
+  it("Kitsu に対応が無くても、MAL Client ID があれば MAL API の画像を取り込む", async () => {
+    await insertWork(db, {
+      imageUrl: "https://old-official.example.com/og.png",
+      malAnimeId: 50099,
+    });
+    const picture = "https://cdn.myanimelist.net/images/anime/50099l.jpg";
+    const fetchImpl = routeFetch({
+      [KITSU]: () => makeKitsuResponse({ m50099: null }),
+      "https://api.myanimelist.net/v2/anime/50099?fields=main_picture": () =>
+        Response.json({ main_picture: { large: picture } }),
+      [picture]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      malClientId: "client-id",
+    });
+
+    expect(res.status).toBe(200);
+    const row = await getWork(db);
+    expect(row.resolvedImageUrl).toBe(picture);
+    expect(row.imageSource).toBe("mal");
+    expect(row.imageR2Key).toBe(workImageKey(1, picture, "jpg"));
+  });
+
   it("MAL ID が無く Kitsu 作品 ID のみの作品も、全滅時に Kitsu を引き直して取り込む", async () => {
     // タイトル検索（issue #227）で MAL mapping が無かった行は
     // kitsu_anime_id だけを持つ。/anime?filter[id]= でポスターを引き直す。
