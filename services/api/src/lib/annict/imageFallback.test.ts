@@ -284,6 +284,60 @@ describe("resolveImagesForWorks", () => {
       expect(res.map((r) => r.imageSource)).toEqual(["none"]);
     });
 
+    it("MAL の本文が返ってこなければタイムアウトして結果を返さない", async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+          if (!url.startsWith(MAL_PREFIX)) return makeKitsuResponse({});
+          // ヘッダーは返すが本文は abort されるまで流れてこない
+          return {
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise((_, reject) => {
+                init?.signal?.addEventListener("abort", () =>
+                  reject(new Error("aborted")),
+                );
+              }),
+          } as unknown as Response;
+        });
+
+        const pending = resolveImagesForWorks(
+          [{ annictWorkId: 100, malAnimeId: 1 }],
+          fetchImpl as unknown as typeof fetch,
+          { malClientId: "client-id" },
+        );
+        await vi.advanceTimersByTimeAsync(10_000);
+
+        expect(await pending).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("上限を超えたときは、毎回同じ作品ばかり問い合わせない", async () => {
+      const asked = new Set<number>();
+      const fetchImpl = vi.fn(async (url: string) => {
+        if (!url.startsWith(MAL_PREFIX)) return makeKitsuResponse({});
+        asked.add(malIdOf(url));
+        return new Response("boom", { status: 503 });
+      });
+      const inputs = Array.from(
+        { length: MAL_MAX_LOOKUPS_PER_CALL * 3 },
+        (_, i) => ({ annictWorkId: 1000 + i, malAnimeId: i + 1 }),
+      );
+
+      for (let i = 0; i < 5; i++) {
+        await resolveImagesForWorks(
+          inputs,
+          fetchImpl as unknown as typeof fetch,
+          { malClientId: "client-id" },
+        );
+      }
+
+      expect(asked.size).toBeGreaterThan(MAL_MAX_LOOKUPS_PER_CALL);
+    });
+
     it("MAL への問い合わせは上限件数までで、残りは結果を返さず次回に回す", async () => {
       const fetchImpl = vi.fn(async (url: string) =>
         url.startsWith(MAL_PREFIX)

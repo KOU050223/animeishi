@@ -318,8 +318,10 @@ async function fetchKitsuHits(
 
 /**
  * MAL API（v2）で MAL ID ごとに main_picture を引く。
- * 先頭 MAL_MAX_LOOKUPS_PER_CALL 件だけを問い合わせ、残りは unresolved
- * （解決可否は不明）として返して次回に回す。
+ * MAL_MAX_LOOKUPS_PER_CALL 件だけを問い合わせ、残りは unresolved
+ * （解決可否は不明）として返して次回に回す。問い合わせる作品は無作為に選ぶ
+ * — cron の pending は毎回ほぼ同じ順で返るため、先頭から取ると失敗し続ける
+ * 作品が後続の作品の補完をずっと塞いでしまう。
  * 返り値の意味は fetchKitsuHits と同じ: hits は「画像が取れた ID → URL」、
  * unresolved は失敗・後回しで解決可否が不明な ID（呼び出し側は 'none' にしない）。
  * 404（MAL に作品が無い）と画像なしは miss としてどちらにも入れない。
@@ -329,9 +331,10 @@ async function fetchMalPictureHits(
   clientId: string,
   fetchImpl: typeof fetch,
 ): Promise<{ hits: Map<number, string>; unresolved: Set<number> }> {
-  const lookups = malIds.slice(0, MAL_MAX_LOOKUPS_PER_CALL);
+  const shuffled = shuffle(malIds);
+  const lookups = shuffled.slice(0, MAL_MAX_LOOKUPS_PER_CALL);
   const hits = new Map<number, string>();
-  const unresolved = new Set<number>(malIds.slice(MAL_MAX_LOOKUPS_PER_CALL));
+  const unresolved = new Set<number>(shuffled.slice(MAL_MAX_LOOKUPS_PER_CALL));
   const results = await Promise.all(
     lookups.map((malId) => fetchMalPicture(malId, clientId, fetchImpl)),
   );
@@ -356,21 +359,23 @@ async function fetchMalPicture(
 ): Promise<{ url: string | null; failed: boolean }> {
   const url = new URL(`${MAL_ANIME_ENDPOINT}/${malId}`);
   url.searchParams.set("fields", "main_picture");
-  const res = await safeFetch(
-    fetchImpl,
-    url.toString(),
-    { headers: { "X-MAL-CLIENT-ID": clientId } },
-    REMOTE_FETCH_TIMEOUT_MS,
-  );
-  if (!res) return { url: null, failed: true };
-  if (res.status === 404) return { url: null, failed: false };
-  if (!res.ok) return { url: null, failed: true };
-
+  // 本文の読み取りまでタイムアウトの対象にする（ヘッダーだけ返して本文が
+  // 止まると、画像プロキシや cron が待ち続けてしまうため）。
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
   let json: MalAnimeResponse;
   try {
+    const res = await fetchImpl(url.toString(), {
+      headers: { "X-MAL-CLIENT-ID": clientId },
+      signal: controller.signal,
+    });
+    if (res.status === 404) return { url: null, failed: false };
+    if (!res.ok) return { url: null, failed: true };
     json = (await res.json()) as MalAnimeResponse;
   } catch {
     return { url: null, failed: true };
+  } finally {
+    clearTimeout(timer);
   }
   const picture = json?.main_picture?.large ?? json?.main_picture?.medium;
   return { url: picture || null, failed: false };
@@ -642,6 +647,16 @@ function isKitsuMappingsPageUrl(url: string | null | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/** 配列を無作為に並べ替えたコピーを返す（Fisher–Yates）。 */
+function shuffle<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j] as T, out[i] as T];
+  }
+  return out;
 }
 
 /** タイムアウト・ネットワーク失敗を吸収する fetch ラッパ。失敗時は null を返す。 */
