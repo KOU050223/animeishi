@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { colors } from "./colors";
 
 // WCAG 2.x の相対輝度・コントラスト比計算（テスト専用ヘルパー）。

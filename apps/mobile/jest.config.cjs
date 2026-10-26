@@ -1,6 +1,12 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
+  // RN / Expo に依存しない純ロジックのテスト（*.unit.test.ts）は vitest で回す
+  // （issue #249、vitest.config.ts）。二重実行しないよう jest の対象から外す。
+  testPathIgnorePatterns: ["/node_modules/", "\\.unit\\.test\\.[jt]sx?$"],
+  // テストファイルの実行後にワーカーのヒープがこの値を超えていたらワーカーを
+  // 作り直し、並列 worktree 運用時のメモリ膨張を抑える（issue #249）。
+  workerIdleMemoryLimit: "512MB",
   setupFilesAfterEnv: [
     "@testing-library/react-native/extend-expect",
     "<rootDir>/jest.setup.js",

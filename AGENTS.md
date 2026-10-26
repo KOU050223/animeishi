@@ -43,7 +43,7 @@ vp run lint        # Oxlint
 vp run lint:fix    # Oxlint の自動修正
 vp run fmt         # Oxfmt で整形
 vp run fmt:check   # 整形済みかの確認。CI の "Oxfmt check" 相当
-vp run test        # テスト（mobile は jest、それ以外は vitest）
+vp run test        # テスト（mobile は jest + vitest、それ以外は vitest）
 vp run dev         # 全アプリの開発サーバを並列起動
 ```
 
@@ -69,6 +69,7 @@ typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし�
 （タスクが実際に読んだファイルを自動追跡）が変わらなければ出力を再生して実行を省く。
 キャッシュはローカルのみ（`node_modules/.vite/task-cache`）で、`vp cache clean` で消せる。
 mobile の jest は当面キャッシュしない（`apps/mobile/vite.config.ts` の `cache: false`）。
+mobile の vitest（`test:vitest`）はキャッシュする。
 
 > キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の
 > 共通の変数のみ引き継ぐ）。タスクが新たに環境変数を必要とする場合は、そのタスクの
@@ -84,6 +85,30 @@ mobile の jest は当面キャッシュしない（`apps/mobile/vite.config.ts`
 ```bash
 VP_RUN_CONCURRENCY_LIMIT=1 vp run test
 vp run --concurrency-limit 2 typecheck
+```
+
+### mobile のテスト（jest / vitest）
+
+mobile のテストは jest と vitest に分かれている（issue #249）。
+`vp run @animeishi/mobile#test` は `test:vitest`（vitest）を先に回してから jest を回す。
+
+- **vitest**（`apps/mobile/vitest.config.ts`）: RN / Expo / jest-expo のモックや
+  jsdom に依存しない純ロジックのテスト。ファイル名を `*.unit.test.ts` にし、
+  `describe` / `it` / `expect` / `vi` は `vitest` から import する
+- **jest**（`apps/mobile/jest.config.cjs`）: 上記以外（コンポーネントテスト、
+  `jest.mock` でモジュールを差し替えるテスト、jest.setup.js の初期化に依存するテスト）。
+  `*.unit.test.ts` は `testPathIgnorePatterns` で対象から外している
+
+新しく書くテストが純ロジックだけなら `*.unit.test.ts`、判断に迷うなら jest 側
+（`*.test.ts(x)`）に置く。`@/` と `@animeishi/*` の解決は両設定で揃えている。
+
+変更したファイルに関係するテストだけを回すときは、`apps/mobile` で直接実行する。
+
+```bash
+vp -C apps/mobile exec jest --findRelatedTests lib/foo.ts components/Bar.tsx  # 指定ファイルに依存する jest テスト
+vp -C apps/mobile exec jest --changedSince=main                               # main からの変更に関係する jest テスト
+vp -C apps/mobile exec vitest related --run lib/foo.ts                        # 指定ファイルに依存する vitest テスト
+vp -C apps/mobile exec vitest run --changed main                              # main からの変更に関係する vitest テスト
 ```
 
 ### Git フック
