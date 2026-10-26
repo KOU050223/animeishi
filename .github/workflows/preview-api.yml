@@ -15,7 +15,6 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "package.json"
-      - ".node-version"
 
 permissions:
   contents: read
@@ -33,11 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Vite+（vp）と Node.js（.node-version）・pnpm（packageManager）を用意し、vp install まで行う
+      # Vite+（vp）と Node.js（package.json の devEngines.runtime）・pnpm（packageManager）を用意し、vp install まで行う
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           version: 1.4.0
-          node-version-file: .node-version
           cache: true
 
       # マイグレーションを version upload 前に適用する（本番デプロイと同じ順序）。

@@ -3,9 +3,15 @@
 ## 開発環境
 
 JS ツールチェーンは [Vite+](https://viteplus.dev/guide/)（`vp`）で管理する（issue #246）。
-Node.js は `.node-version`、pnpm は package.json の `packageManager` で固定しており、
+Node.js は package.json の `devEngines.runtime`、pnpm は `packageManager` で固定しており、
 `vp` がプロジェクトに入ると自動でそのバージョンに切り替わる（`vp env current` で確認）。
+バージョンを上げるときは `vp env pin --target dev-engines <版>` を使い、
+書き込まれた `onFail` を `"error"` に戻す（下記）。
 Nix devShell・turbo・lefthook は廃止した。
+
+> `devEngines.runtime` の `onFail` は `"error"` にしておく。`"download"` だと pnpm 10 も
+> Node を依存として扱い、pnpm-lock.yaml に Node 本体を追加してダウンロードする（vp と二重管理）。
+> `"error"` なら pnpm は版の検査だけを行い、Node の取得は vp に任せられる。
 
 ```bash
 curl -fsSL https://vite.plus | bash   # vp 本体（グローバル CLI）。初回のみ

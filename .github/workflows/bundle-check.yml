@@ -19,7 +19,6 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "package.json"
-      - ".node-version"
       # public-hoist-pattern / node-linker は Metro のモジュール解決に直結する
       - ".npmrc"
   pull_request:
@@ -33,7 +32,6 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "package.json"
-      - ".node-version"
       - ".npmrc"
 
 permissions:
@@ -55,11 +53,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Vite+（vp）と Node.js（.node-version）・pnpm（packageManager）を用意し、vp install まで行う
+      # Vite+（vp）と Node.js（package.json の devEngines.runtime）・pnpm（packageManager）を用意し、vp install まで行う
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           version: 1.4.0
-          node-version-file: .node-version
           cache: true
 
       # EXPO_PUBLIC_* は値がバンドルへインライン化されるだけでモジュール評価は
