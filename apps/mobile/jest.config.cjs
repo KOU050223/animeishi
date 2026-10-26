@@ -1,6 +1,16 @@
+const expoPreset = require("jest-expo/jest-preset");
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: "jest-expo",
+  // vp run はタスクが読んだファイルとディレクトリ一覧を入力として追跡し、test をキャッシュする
+  // （issue #251）。テストファイルの一覧（Haste マップのクロール）を追跡できるように、
+  // watchman（デーモン経由で一覧を得る）と `find` の子プロセス（macOS の /usr/bin/find は
+  // SIP で保護されていて追跡できない）を使わせず、Node の fs API でクロールさせる。
+  // そうしないとテストファイルを追加・削除してもキャッシュヒットしてしまう。
+  // haste は preset とマージされず置き換わるため、jest-expo の設定を展開して引き継ぐ。
+  watchman: false,
+  haste: { ...expoPreset.haste, forceNodeFilesystemAPI: true },
   // RN / Expo に依存しない純ロジックのテスト（*.unit.test.ts）は vitest で回す
   // （issue #249、vitest.config.ts）。二重実行しないよう jest の対象から外す。
   testPathIgnorePatterns: ["/node_modules/", "\\.unit\\.test\\.[jt]sx?$"],
