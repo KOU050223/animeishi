@@ -27,6 +27,9 @@ importers:
       '@go-task/cli':
         specifier: 3.52.0
         version: 3.52.0
+      oxfmt:
+        specifier: ^0.57.0
+        version: 0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1))
       vite-plus:
         specifier: 'catalog:'
         version: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1)
@@ -17134,6 +17137,31 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.57.0
       '@oxfmt/binding-win32-x64-msvc': 0.57.0
       vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(yaml@2.9.1)
+
+  oxfmt@0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1)):
+    dependencies:
+      tinypool: 2.1.0
+    optionalDependencies:
+      '@oxfmt/binding-android-arm-eabi': 0.57.0
+      '@oxfmt/binding-android-arm64': 0.57.0
+      '@oxfmt/binding-darwin-arm64': 0.57.0
+      '@oxfmt/binding-darwin-x64': 0.57.0
+      '@oxfmt/binding-freebsd-x64': 0.57.0
+      '@oxfmt/binding-linux-arm-gnueabihf': 0.57.0
+      '@oxfmt/binding-linux-arm-musleabihf': 0.57.0
+      '@oxfmt/binding-linux-arm64-gnu': 0.57.0
+      '@oxfmt/binding-linux-arm64-musl': 0.57.0
+      '@oxfmt/binding-linux-ppc64-gnu': 0.57.0
+      '@oxfmt/binding-linux-riscv64-gnu': 0.57.0
+      '@oxfmt/binding-linux-riscv64-musl': 0.57.0
+      '@oxfmt/binding-linux-s390x-gnu': 0.57.0
+      '@oxfmt/binding-linux-x64-gnu': 0.57.0
+      '@oxfmt/binding-linux-x64-musl': 0.57.0
+      '@oxfmt/binding-openharmony-arm64': 0.57.0
+      '@oxfmt/binding-win32-arm64-msvc': 0.57.0
+      '@oxfmt/binding-win32-ia32-msvc': 0.57.0
+      '@oxfmt/binding-win32-x64-msvc': 0.57.0
+      vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1)
 
   oxfmt@0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1)):
     dependencies:

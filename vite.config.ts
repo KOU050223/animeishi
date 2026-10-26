@@ -10,6 +10,13 @@ import { defineConfig } from "vite-plus";
 // 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。
 const PACKAGES = ["apps/mobile", "services/api", "packages/danime-core", "packages/observability"];
 
+// ルート直下のファイル（vite.config.ts・.github/workflows・Taskfile.yml 等）は
+// どのパッケージの fmt にも入らないため、ルートの oxfmt（各パッケージと同じ 0.57 系）で
+// 別に整形する（issue #254）。パッケージ配下は各パッケージの fmt が担当するので除外する。
+// ルートは oxfmt の既定値で整形し、ルートに .oxfmtrc.json は置かない。置くと設定ファイルを
+// 持たないパッケージ（packages/observability）にも上位探索で効いてしまうため。
+const ROOT_FMT_TARGETS = ". '!apps/**' '!services/**' '!packages/**'";
+
 export default defineConfig({
   run: {
     tasks: {
@@ -18,8 +25,14 @@ export default defineConfig({
       lint: "vp run --cache -r lint",
       // ファイルを書き換えるタスクはキャッシュしない
       "lint:fix": { command: "vp run -r lint:fix", cache: false },
-      fmt: { command: "vp run -r fmt", cache: false },
-      "fmt:check": "vp run --cache -r fmt:check",
+      fmt: {
+        command: ["vp run -r fmt", `oxfmt --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`],
+        cache: false,
+      },
+      "fmt:check": [
+        "vp run --cache -r fmt:check",
+        `oxfmt --check --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+      ],
       // mobile の jest は apps/mobile/vite.config.ts 側で cache: false にしている
       test: "vp run --cache -r test",
       dev: { command: "vp run -r --parallel dev", cache: false },
@@ -30,16 +43,24 @@ export default defineConfig({
   // コマンドは文字列で書き、ファイル名を埋め込まない。vp staged（lint-staged 互換）は
   // コマンドをシェルを通さず string-argv で分割して実行するため、シェル流の引用は
   // 効かない。文字列タスクならファイルは分割を経ず argv の末尾にそのまま渡される。
-  staged: Object.fromEntries(
-    PACKAGES.flatMap((dir) => [
-      [
-        `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
+  staged: {
+    ...Object.fromEntries(
+      PACKAGES.flatMap((dir) => [
         [
-          `vp -C ${dir} exec oxlint --deny-warnings`,
-          `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`,
+          `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
+          [
+            `vp -C ${dir} exec oxlint --deny-warnings`,
+            `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`,
+          ],
         ],
-      ],
-      [`${dir}/**/*.{json,yml,yaml}`, `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`],
-    ]),
-  ),
+        [`${dir}/**/*.{json,yml,yaml}`, `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`],
+      ]),
+    ),
+    // ルート直下と、パッケージ以外のディレクトリ（.github 等）のファイル。パターンに "/" を
+    // 含めているので lint-staged の matchBase は効かず、パッケージ配下のファイルには当たらない。
+    // pnpm-lock.yaml などの整形対象外（.oxfmtignore）だけがステージされたときに
+    // oxfmt が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
+    "{*,!(apps|services|packages)/**/*}.{ts,mts,cts,js,mjs,cjs,json,jsonc,yml,yaml}":
+      "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
+  },
 });
