@@ -18,23 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      # Vite+（vp）と Node.js（.node-version）・pnpm（packageManager）を用意し、vp install まで行う
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          version: 10.34.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          version: 1.4.0
+          node-version-file: .node-version
+          cache: true
 
       - name: Run tests
-        run: pnpm --filter @animeishi/api test
+        run: vp run --filter @animeishi/api test
 
       - name: TypeScript check
-        run: pnpm --filter @animeishi/api build
+        run: vp run --filter @animeishi/api typecheck
 
   deploy:
     name: Deploy to Cloudflare Workers
@@ -43,17 +38,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      # Vite+（vp）と Node.js（.node-version）・pnpm（packageManager）を用意し、vp install まで行う
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          version: 10.34.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          version: 1.4.0
+          node-version-file: .node-version
+          cache: true
 
       # マイグレーションをデプロイ前に適用する。
       # 新カラム追加 → 新コード配信の順にすることで、デプロイ直後のスキーマ不整合を防ぐ。

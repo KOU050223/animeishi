@@ -9,16 +9,17 @@
     "dev": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "build:web": "expo export -p web",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
-    "test": "jest --passWithNoTests --maxWorkers=2",
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix --deny-warnings",
-    "format": "oxfmt --ignore-path ../../.oxfmtignore .",
-    "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore .",
-    "generate:icons": "node scripts/generate-icons.mjs"
+    "fmt": "oxfmt --ignore-path ../../.oxfmtignore .",
+    "fmt:check": "oxfmt --check --ignore-path ../../.oxfmtignore .",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "annict-redirect-uri": "bash scripts/annict-redirect-uri.sh",
+    "e2e:ios": "bash scripts/e2e-ios.sh"
   },
   "dependencies": {
     "@animeishi/api": "workspace:*",

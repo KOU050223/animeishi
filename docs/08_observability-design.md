@@ -262,9 +262,9 @@ Sentry 上では**通報されたユーザーごとに Issue が分かれる**
 `resolution_note`（対応メモ）・`resolved_at`（対応日時）を持ち、
 棚卸し・状態更新は `services/api/scripts/reports.sh`（wrangler d1
 execute ベース）から行う。Taskfile 経由では
-`task reports:list`（未対応一覧・`--by-user` で被通報ユーザー別集計）、
-`task reports:resolve|dismiss NOTE='対応メモ' -- <id>`、
-`task reports:reopen -- <id>` が使える（メモはシェル再解釈を避けるため
+`pnpm task reports:list`（未対応一覧・`--by-user` で被通報ユーザー別集計）、
+`pnpm task reports:resolve|dismiss NOTE='対応メモ' -- <id>`、
+`pnpm task reports:reopen -- <id>` が使える（メモはシェル再解釈を避けるため
 NOTE 環境変数経由）。
 Sentry の Issue ステータスは通知側の既読管理として併用してよいが、
 対応済みかどうかの正は `reports.status` とする。

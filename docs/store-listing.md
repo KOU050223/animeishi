@@ -107,7 +107,7 @@ docs/03 の ASO 方針に沿い、「得られる体験」を最初の 3 枚に�
 Web 版は `apps/mobile` の web エクスポート（本番は https://animeishi.uomi.dev）。ローカルで撮る場合:
 
 ```bash
-nix develop --command task dev:mobile
+vp run @animeishi/mobile#dev
 # Metro が起動したら `w` キーで Web を開く
 ```
 
@@ -120,7 +120,7 @@ nix develop --command task dev:mobile
 
 ```bash
 cd apps/mobile
-nix develop --command pnpm ios   # または eas build -p ios --profile development で dev client を作って起動
+pnpm ios   # または eas build -p ios --profile development で dev client を作って起動
 ```
 
 1. Simulator.app で対象デバイスを起動（6.9" なら iPhone Pro Max 系、13" なら iPad Pro 13 系）。
@@ -132,7 +132,7 @@ nix develop --command pnpm ios   # または eas build -p ios --profile developm
 
 ```bash
 cd apps/mobile
-nix develop --command pnpm android
+pnpm android
 ```
 
 エミュレータのカメラボタン、または `adb exec-out screencap -p > shot.png`。

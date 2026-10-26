@@ -4,7 +4,7 @@ API（`@animeishi/api`）と Web フロント（`@animeishi/mobile` の web エ�
 
 両アプリとも `main` への push で GitHub Actions が自動デプロイする（[`deploy-api.yml`](../.github/workflows/deploy-api.yml) / [`deploy-web.yml`](../.github/workflows/deploy-web.yml)）。Web フロントと API は PR ごとのプレビューデプロイも行う（[`preview-web.yml`](../.github/workflows/preview-web.yml) / [`preview-api.yml`](../.github/workflows/preview-api.yml)）。手動デプロイも可能。
 
-D1 マイグレーションはデプロイワークフローに組み込み済みで、`deploy-api.yml` が `wrangler deploy` の前に本番 `animeishi-db` へ、`preview-api.yml` が version upload の前に `animeishi-db-preview` へ自動適用する。マージ後に手動で `task db:migrate:prod` を実行する必要はない（手動タスクは手動デプロイ時・DB 再作成時のリカバリ用）。
+D1 マイグレーションはデプロイワークフローに組み込み済みで、`deploy-api.yml` が `wrangler deploy` の前に本番 `animeishi-db` へ、`preview-api.yml` が version upload の前に `animeishi-db-preview` へ自動適用する。マージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない（手動タスクは手動デプロイ時・DB 再作成時のリカバリ用）。
 
 ## 構成概要
 
@@ -132,7 +132,7 @@ Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごと
 cd services/api
 pnpm exec wrangler d1 delete animeishi-db-preview   # 削除
 pnpm exec wrangler d1 create animeishi-db-preview   # 再作成（新しい database_id を wrangler.toml の [env.preview] に反映）
-task db:migrate:preview                             # マイグレーション再適用（ルートから実行）
+pnpm task db:migrate:preview                        # マイグレーション再適用（ルートから実行）
 ```
 
 ### 初回ブートストラップ（完了済み・再作成時の記録）
@@ -151,7 +151,7 @@ pnpm exec wrangler deploy --env preview
 
 # 3. preview D1 にマイグレーション適用
 pnpm exec wrangler d1 migrations apply animeishi-db-preview --env preview --remote
-# （またはルートから `task db:migrate:preview`）
+# （またはルートから `pnpm task db:migrate:preview`）
 
 # 4. preview Worker に secret を登録（値は本番と同じものを使う。
 #    Clerk は preview web が同じインスタンスで発行した JWT を検証するため必須）

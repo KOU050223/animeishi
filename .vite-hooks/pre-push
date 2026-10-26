@@ -1,0 +1,4 @@
+# CI の "Lint & Type Check" / "Test" 相当。pre-commit の Oxlint では型エラーを
+# 拾えないため、push 前に tsc --noEmit とテストを回して CI 落ちを未然に防ぐ。
+vp run typecheck
+vp run test
