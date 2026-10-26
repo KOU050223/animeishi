@@ -174,7 +174,7 @@ enabled = true
 
 - packages/observability: node の vitest で `sanitizeHeaders` /
   `resolveEnvironment` / `buildRelease` を単体テスト
-- API: `@cloudflare/vitest-pool-workers` の既存プールを使う。
+- API: `@cloudflare/vitest-plugin`（旧 `@cloudflare/vitest-pool-workers`）の既存プールを使う。
   `handleError` は `app.onError` に渡す前に通常関数として export し、
   `vi.mock("@sentry/cloudflare")` で `captureException` を spy する
   - 未処理例外 → 500 応答の shape（`{ error, code: "internal_error", requestId }`）

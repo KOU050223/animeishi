@@ -1,3 +1,5 @@
+import { defineConfig } from "vite-plus";
+
 // ワークスペース全体の開発タスク（issue #246）。`vp run <タスク名>` で実行する。
 // 各パッケージの package.json scripts を `vp run -r` で横断実行する。
 // scripts は既定ではキャッシュされないため、読み取り専用のチェック系は
@@ -8,7 +10,7 @@
 // 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。
 const PACKAGES = ["apps/mobile", "services/api", "packages/danime-core", "packages/observability"];
 
-export default {
+export default defineConfig({
   run: {
     tasks: {
       // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit）
@@ -40,4 +42,4 @@ export default {
       [`${dir}/**/*.{json,yml,yaml}`, `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`],
     ]),
   ),
-};
+});

@@ -34,15 +34,16 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.14.7",
+    "@cloudflare/vitest-plugin": "^1.4.7",
     "@cloudflare/workers-types": "^4.20260416.2",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",
     "drizzle-kit": "^0.31.1",
     "oxfmt": "^0.57.0",
-    "oxlint": "^1.72.0",
+    "oxlint": "~1.72.0",
     "typescript": "^6.0.2",
-    "vitest": "^4.1.4",
+    "vite": "catalog:",
+    "vitest": "catalog:",
     "wrangler": "^4.12.0"
   }
 }
