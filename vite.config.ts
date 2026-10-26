@@ -4,7 +4,7 @@ import { defineConfig } from "vite-plus";
 // 各パッケージの package.json scripts を `vp run -r` で横断実行する。
 // scripts は既定ではキャッシュされないため、読み取り専用のチェック系は
 // `--cache` を付けてキャッシュを効かせる（入力ファイルは自動追跡）。
-// キャッシュは node_modules/.vite/task-cache（ローカルのみ）。
+// キャッシュは node_modules/.vite/task-cache。CI では ci.yml が GitHub Actions cache で持ち越す。
 
 // oxlint / oxfmt の設定（oxlint.config.ts・.oxfmtrc.json 等）はパッケージごとに
 // 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。

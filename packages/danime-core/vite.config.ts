@@ -11,10 +11,13 @@ export default defineConfig({
           // vitest が実行のたびに書き換える設定バンドルの一時ファイルと結果キャッシュを
           // 入力から外す（含めると毎回「入力が変わった」扱いになりキャッシュされない）。
           // 成果物ファイルは無いので出力の復元もしない。
+          // ワークスペース直下の node_modules/.vitest-cache（vitest のモジュール変換キャッシュ）も外す。
+          // CI ではこのディレクトリが空の状態から始まり「入力が消えた」扱いでミスになる（issue #253）。
           input: [
             { auto: true },
             "!node_modules/.vite-temp/**",
             "!node_modules/.vite/**",
+            { pattern: "!node_modules/.vitest-cache/**", base: "workspace" },
           ],
           output: [],
         },
