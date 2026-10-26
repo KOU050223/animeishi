@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev --ip 0.0.0.0",
     "dev:scheduled": "wrangler dev --test-scheduled",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --checkers 1",
     "deploy": "wrangler deploy",
     "test:watch": "vitest",
     "test:node": "vitest run --config vitest.node.config.ts",
@@ -37,11 +37,12 @@
     "@cloudflare/vitest-plugin": "^1.4.7",
     "@cloudflare/workers-types": "^4.20260416.2",
     "@types/better-sqlite3": "^7.6.13",
+    "@typescript/native": "catalog:",
     "better-sqlite3": "^12.9.0",
     "drizzle-kit": "^0.31.1",
     "oxfmt": "^0.57.0",
     "oxlint": "~1.72.0",
-    "typescript": "^6.0.2",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
     "wrangler": "^4.12.0"

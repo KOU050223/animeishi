@@ -20,7 +20,7 @@ const ROOT_FMT_TARGETS = ". '!apps/**' '!services/**' '!packages/**'";
 export default defineConfig({
   run: {
     tasks: {
-      // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit）
+      // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit。TypeScript 7、issue #248）
       typecheck: "vp run --cache -r typecheck",
       lint: "vp run --cache -r lint",
       // ファイルを書き換えるタスクはキャッシュしない

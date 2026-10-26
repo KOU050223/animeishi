@@ -38,7 +38,7 @@ vp install                            # 依存インストール + Git フック
 各タスクは全パッケージの package.json scripts（一部は各パッケージの `vite.config.ts` のタスク）を横断実行する。
 
 ```
-vp run typecheck   # 型チェック (tsc --noEmit)。CI の "TypeScript check" 相当
+vp run typecheck   # 型チェック (TypeScript 7 の tsc --noEmit)。CI の "TypeScript check" 相当
 vp run lint        # Oxlint
 vp run lint:fix    # Oxlint の自動修正
 vp run fmt         # Oxfmt で整形
@@ -66,6 +66,23 @@ vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレー�
 > `dev:scheduled` の起動後は、別端末から
 > `curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"` で画像フォールバックの
 > ウォームアップ Cron を手動トリガーできる。
+
+### 型チェック（TypeScript 7）
+
+型チェックは TypeScript 7（Go 実装のネイティブ版）の `tsc` で行う（issue #248）。
+各パッケージは `pnpm-workspace.yaml` の `catalog` で次の 2 つを入れている。
+
+- `@typescript/native`（`typescript@7` の別名）: bin は `tsc`。typecheck script が使う
+- `typescript`（`@typescript/typescript6` の別名）: TypeScript 6 の API 互換パッケージ。bin は `tsc6`
+
+TypeScript 7 には JS API が無い。Expo（`metro.config.ts` の読み込みや tsconfig の評価）は
+`require('typescript')` で TypeScript 6 の API を使うので、`typescript` の名前は 6 のままにしてある。
+VS Code の tsdk（`.vscode/settings.json`）は実体の TypeScript 6（`node_modules/@typescript/old/lib`）を指す。
+
+> typecheck は `tsc --noEmit --checkers 1` で実行する。TypeScript 7 は既定で型チェッカーを
+> 4 並列で動かすため、mobile ではピークメモリが tsc 6 より大きくなる。`--checkers 1` なら
+> 時間・メモリともに tsc 6 を下回る（計測は issue #248 の PR を参照）。
+> TypeScript 6 の結果と比べたいときは `vp -C apps/mobile exec tsc6 --noEmit` のように `tsc6` を使う。
 
 ### キャッシュ
 
@@ -127,7 +144,7 @@ vp -C apps/mobile exec vitest run --changed main                              # 
   ルート直下とパッケージ外のファイルは Oxfmt だけをかける
 - pre-push: `vp run typecheck` と `vp run test`
 
-> CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (tsc --noEmit) の 2 段**で構成される。
+> CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (TypeScript 7 の tsc --noEmit) の 2 段**で構成される。
 > `vp run lint` は Oxlint だけで型エラーは拾えない。push 前は必ず `vp run typecheck`
 > （または `vp run test` と併せて）を実行して CI 落ちを未然に防ぐこと。pre-push フックでも自動実行される。
 
