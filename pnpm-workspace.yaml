@@ -20,7 +20,15 @@ onlyBuiltDependencies:
 # vitest は `vp --version` が示す版に固定する。vite-plus を上げるときは 3 つを揃えて更新する。
 # vitest を使うパッケージは vite も `catalog:` で直接依存に持つ。vitest の peer の vite を
 # 自動インストールに任せると、overrides が効かず別版の vite（7.x）が lockfile に入るため。
+#
+# TypeScript（issue #248）。型チェックは TypeScript 7（Go 実装）の tsc で行い、
+# `typescript` の名前には TypeScript 6 の API 互換パッケージ（bin は tsc6）を置く。
+# TypeScript 7 には JS API が無く、Expo（metro.config.ts の読み込み、tsconfig の評価）や
+# エディタの tsdk が `typescript` を TypeScript 6 として使うため。
+# https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/ の併用手順に従う。
 catalog:
+  "@typescript/native": npm:typescript@^7.0.2
+  typescript: npm:@typescript/typescript6@^6.0.2
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
   vitest: 5.0.5

@@ -1,4 +1,6 @@
 {
-  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  // node_modules/typescript は TypeScript 6 の API 互換パッケージ（@typescript/typescript6）で
+  // tsserver.js を持たないため、実体の TypeScript 6 を指す（issue #248、pnpm-workspace.yaml の catalog を参照）
+  "js/ts.tsdk.path": "node_modules/@typescript/old/lib",
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
 }

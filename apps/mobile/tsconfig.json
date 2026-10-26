@@ -5,7 +5,7 @@
     "paths": {
       "@/*": ["./*", "../../services/api/src/*"]
     },
-    "types": ["jest", "node", "@cloudflare/workers-types"],
+    "types": ["jest", "node", "@cloudflare/workers-types", "expo/types"],
     "skipLibCheck": true
   },
   "include": [

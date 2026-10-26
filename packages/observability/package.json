@@ -8,16 +8,17 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --checkers 1",
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix --deny-warnings",
     "fmt": "oxfmt --ignore-path ../../.oxfmtignore .",
     "fmt:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
   },
   "devDependencies": {
+    "@typescript/native": "catalog:",
     "oxfmt": "^0.57.0",
     "oxlint": "~1.72.0",
-    "typescript": "^6.0.2",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   }
