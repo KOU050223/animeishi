@@ -47,6 +47,10 @@ vp run test        # テスト（mobile は jest、それ以外は vitest）
 vp run dev         # 全アプリの開発サーバを並列起動
 ```
 
+> `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
+> （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの oxfmt
+> （各パッケージと同じ 0.57 系、設定は既定値）で整形・確認する（issue #254）。
+
 パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
 （`vp run --filter <パッケージ名> <script>` も同じ）。
 
@@ -94,7 +98,8 @@ vp run --concurrency-limit 2 typecheck
 ディスパッチャを置き、`core.hooksPath` を設定する。フック本体は `.vite-hooks/` にある。
 
 - pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt にかけ、
-  整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）
+  整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）。
+  ルート直下とパッケージ外のファイルは Oxfmt だけをかける
 - pre-push: `vp run typecheck` と `vp run test`
 
 > CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (tsc --noEmit) の 2 段**で構成される。
