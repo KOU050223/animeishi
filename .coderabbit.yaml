@@ -7,7 +7,7 @@ language: "ja"
 # main 以外へのPRもレビュー対象にする（auto_review.base_branches で設定）
 reviews:
   # レビューの設定
-  profile: "chill"           # assertive / chill
+  profile: "chill" # assertive / chill
   request_changes_workflow: false
   high_level_summary: true
   high_level_summary_placeholder: "@coderabbitai summary"
@@ -61,9 +61,9 @@ reviews:
   # 自動レビューの設定
   auto_review:
     enabled: true
-    drafts: false           # ドラフトPRはレビューしない
+    drafts: false # ドラフトPRはレビューしない
     base_branches:
-      - ".*"               # すべてのブランチへのPRをレビュー
+      - ".*" # すべてのブランチへのPRをレビュー
 
 # チャット機能の設定
 chat:
@@ -72,4 +72,4 @@ chat:
 # コードの説明機能
 code_generation:
   docstrings:
-    language: "ja"         # 日本語でコメントを生成
+    language: "ja" # 日本語でコメントを生成

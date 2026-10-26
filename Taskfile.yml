@@ -83,7 +83,7 @@ tasks:
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
     env:
       REPORT_ID: "{{.CLI_ARGS}}"
-      REPORT_NOTE: "{{.NOTE | default \"\"}}"
+      REPORT_NOTE: '{{.NOTE | default ""}}'
     cmds:
       - bash scripts/reports.sh --env production resolve
 
@@ -93,7 +93,7 @@ tasks:
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
     env:
       REPORT_ID: "{{.CLI_ARGS}}"
-      REPORT_NOTE: "{{.NOTE | default \"\"}}"
+      REPORT_NOTE: '{{.NOTE | default ""}}'
     cmds:
       - bash scripts/reports.sh --env production dismiss
 
@@ -110,7 +110,7 @@ tasks:
     desc: "ローカル D1 で reports.sh の全コマンドを実行（例: task reports:update:local ID=5 NOTE='メモ' -- resolve）"
     dir: services/api
     env:
-      REPORT_ID: "{{.ID | default \"\"}}"
-      REPORT_NOTE: "{{.NOTE | default \"\"}}"
+      REPORT_ID: '{{.ID | default ""}}'
+      REPORT_NOTE: '{{.NOTE | default ""}}'
     cmds:
       - bash scripts/reports.sh --local {{.CLI_ARGS}}
