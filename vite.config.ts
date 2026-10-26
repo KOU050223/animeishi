@@ -11,10 +11,10 @@ import { defineConfig } from "vite-plus";
 const PACKAGES = ["apps/mobile", "services/api", "packages/danime-core", "packages/observability"];
 
 // ルート直下のファイル（vite.config.ts・.github/workflows・Taskfile.yml 等）は
-// どのパッケージの fmt にも入らないため、ルートの oxfmt（各パッケージと同じ 0.57 系）と
-// ルートの .oxfmtrc.json で別に整形する（issue #254）。パッケージ配下は各パッケージの
-// fmt が担当するので除外する。ルートの .oxfmtrc.json は設定ファイルを持たない
-// パッケージ（packages/observability）にも上位探索で効くため、oxfmt の既定値に揃えてある。
+// どのパッケージの fmt にも入らないため、ルートの oxfmt（各パッケージと同じ 0.57 系）で
+// 別に整形する（issue #254）。パッケージ配下は各パッケージの fmt が担当するので除外する。
+// ルートは oxfmt の既定値で整形し、ルートに .oxfmtrc.json は置かない。置くと設定ファイルを
+// 持たないパッケージ（packages/observability）にも上位探索で効いてしまうため。
 const ROOT_FMT_TARGETS = ". '!apps/**' '!services/**' '!packages/**'";
 
 export default defineConfig({

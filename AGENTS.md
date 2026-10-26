@@ -49,7 +49,7 @@ vp run dev         # 全アプリの開発サーバを並列起動
 
 > `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
 > （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの oxfmt
-> （各パッケージと同じ 0.57 系）とルートの `.oxfmtrc.json` で整形・確認する（issue #254）。
+> （各パッケージと同じ 0.57 系、設定は既定値）で整形・確認する（issue #254）。
 
 パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
 （`vp run --filter <パッケージ名> <script>` も同じ）。
