@@ -67,7 +67,9 @@ vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレー�
 
 typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル
 （タスクが実際に読んだファイルを自動追跡）が変わらなければ出力を再生して実行を省く。
-キャッシュはローカルのみ（`node_modules/.vite/task-cache`）で、`vp cache clean` で消せる。
+キャッシュは `node_modules/.vite/task-cache` に置かれ、`vp cache clean` で消せる。
+CI（ci.yml）はこのディレクトリを GitHub Actions cache で実行間に持ち越す（issue #253。
+キーと共有範囲は ci.yml 冒頭のコメントを参照）。
 mobile の jest は当面キャッシュしない（`apps/mobile/vite.config.ts` の `cache: false`）。
 
 > キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の

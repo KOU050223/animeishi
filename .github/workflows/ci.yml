@@ -8,6 +8,24 @@ on:
 permissions:
   contents: read
 
+# Vite Task のキャッシュ（issue #253、https://viteplus.dev/guide/github-actions-cache）
+#
+# vp run の typecheck / lint / fmt:check / test はタスクの結果を node_modules/.vite/task-cache に
+# 残す。これを actions/cache で次の実行に持ち越し、入力の変わらないタスクを再生で済ませる。
+# 何を再実行するかは Vite Task が入力ファイルのフィンガープリントで判断するため、
+# Actions のキーにはソースや lockfile を入れない（入れると有用な復元まで外れる）。
+#
+# - キー: vite-task-<ジョブ>-<OS>-<arch>-<run_id>-<run_attempt>。エントリは上書きできないので
+#   実行ごとに新しいキーで保存し、restore-keys の前方一致で最新のものを復元する。
+#   ジョブごとに走らせるタスクが違うため、ジョブ名で分けて他ジョブの分を拾わないようにする。
+# - 共有範囲: ブランチ名はキーに入れず、GitHub Actions cache のスコープに任せる。
+#   main への push で保存したものは全 PR から読める。PR で保存したものは
+#   refs/pull/<番号>/merge のスコープに入り、その PR の後続の push・再実行からしか読めない
+#   （main や他の PR からは見えないので、PR が main のキャッシュを汚すことはない）。
+#   フォーク PR はトークンが読み取り専用で、保存ステップは警告を出して成功扱いで終わる。
+# - キャッシュするタスクはクリーンな環境変数（PATH・HOME・CI 等）で動くため、
+#   このワークフローの env がタスクの結果に影響することはない。
+
 jobs:
   test:
     name: Test
@@ -20,8 +38,26 @@ jobs:
         with:
           cache: true
 
+      # Vite Task のキャッシュ（node_modules/.vite/task-cache）を復元する（issue #253）。
+      # vp install が node_modules を作り直すため setup-vp の後に置く。キーはファイル冒頭のコメントを参照。
+      - name: Restore Vite Task cache
+        id: vite-task-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-test-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-test-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Run tests
         run: vp run test
+
+      - name: Save Vite Task cache
+        if: success()
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
 
   lint:
     name: Lint & Type Check
@@ -34,11 +70,29 @@ jobs:
         with:
           cache: true
 
+      # Vite Task のキャッシュ（node_modules/.vite/task-cache）を復元する（issue #253）。
+      # vp install が node_modules を作り直すため setup-vp の後に置く。キーはファイル冒頭のコメントを参照。
+      - name: Restore Vite Task cache
+        id: vite-task-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-lint-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-lint-${{ runner.os }}-${{ runner.arch }}-
+
       - name: TypeScript check
         run: vp run typecheck
 
       - name: Oxlint check
         run: vp run lint
+
+      - name: Save Vite Task cache
+        if: success()
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
 
   format:
     name: Format Check
@@ -51,5 +105,23 @@ jobs:
         with:
           cache: true
 
+      # Vite Task のキャッシュ（node_modules/.vite/task-cache）を復元する（issue #253）。
+      # vp install が node_modules を作り直すため setup-vp の後に置く。キーはファイル冒頭のコメントを参照。
+      - name: Restore Vite Task cache
+        id: vite-task-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-format-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-format-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Oxfmt check
         run: vp run fmt:check
+
+      - name: Save Vite Task cache
+        if: success()
+        uses: actions/cache/save@v6
+        with:
+          path: node_modules/.vite/task-cache
+          key: ${{ steps.vite-task-cache.outputs.cache-primary-key }}
