@@ -14,7 +14,15 @@ export default defineConfig({
       // dependsOn の test:vitest で先に回す（issue #249）。
       test: {
         command: "jest --passWithNoTests --maxWorkers=2",
-        cache: { output: [] },
+        cache: {
+          // Haste マップのクロールは apps/mobile/node_modules の一覧も読む。そこには先行する
+          // test:vitest が実行されたときだけ .vite（vitest の結果キャッシュ）ができるため、
+          // CI で vitest がヒットした回は「'.vite' removed」で jest がミスする。
+          // "!node_modules" はこのディレクトリ自体（一覧）だけに一致し、配下のファイルの
+          // 読み込み（依存の変更）は引き続き入力として追跡される。
+          input: [{ auto: true }, "!node_modules"],
+          output: [],
+        },
         dependsOn: ["test:vitest"],
       },
       "test:vitest": {
