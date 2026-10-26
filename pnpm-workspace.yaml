@@ -1,6 +1,5 @@
 packages:
   - "apps/*"
-  - "services/*"
   - "packages/*"
 
 # pnpm 10 はビルドスクリプトをデフォルトでブロックする。

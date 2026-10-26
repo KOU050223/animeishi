@@ -95,7 +95,7 @@ else
   set -m
   DEV_ARGS=()
   [ -n "$API_PORT" ] && DEV_ARGS+=(--port "$API_PORT")
-  (cd ../../services/api && pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
+  (cd ../../apps/api && pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
   API_PID=$!
   set +m
   trap '[ -n "$API_PID" ] && { kill -- -"$API_PID" 2>/dev/null || kill "$API_PID" 2>/dev/null; wait "$API_PID" 2>/dev/null; } || true' EXIT
@@ -105,7 +105,7 @@ else
   done
   api_up || { echo "API の起動に失敗しました。$API_LOG を確認してください" >&2; exit 1; }
   # ローカル D1 にマイグレーションを適用（適用済みならスキップされる）
-  (cd ../../services/api && pnpm db:migrate:local >/dev/null)
+  (cd ../../apps/api && pnpm db:migrate:local >/dev/null)
 fi
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------

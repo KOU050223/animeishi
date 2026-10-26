@@ -8,14 +8,14 @@ import { defineConfig } from "vite-plus";
 
 // oxlint / oxfmt の設定（oxlint.config.ts・.oxfmtrc.json 等）はパッケージごとに
 // 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。
-const PACKAGES = ["apps/mobile", "services/api", "packages/danime-core", "packages/observability"];
+const PACKAGES = ["apps/mobile", "apps/api", "packages/danime-core", "packages/observability"];
 
 // ルート直下のファイル（vite.config.ts・.github/workflows・Taskfile.yml 等）は
 // どのパッケージの fmt にも入らないため、ルートの oxfmt（各パッケージと同じ 0.57 系）で
 // 別に整形する（issue #254）。パッケージ配下は各パッケージの fmt が担当するので除外する。
 // ルートは oxfmt の既定値で整形し、ルートに .oxfmtrc.json は置かない。置くと設定ファイルを
 // 持たないパッケージ（packages/observability）にも上位探索で効いてしまうため。
-const ROOT_FMT_TARGETS = ". '!apps/**' '!services/**' '!packages/**'";
+const ROOT_FMT_TARGETS = ". '!apps/**' '!packages/**'";
 
 export default defineConfig({
   run: {
@@ -59,7 +59,7 @@ export default defineConfig({
     // 含めているので lint-staged の matchBase は効かず、パッケージ配下のファイルには当たらない。
     // pnpm-lock.yaml などの整形対象外（.oxfmtignore）だけがステージされたときに
     // oxfmt が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
-    "{*,!(apps|services|packages)/**/*}.{ts,mts,cts,js,mjs,cjs,json,jsonc,yml,yaml}":
+    "{*,!(apps|packages)/**/*}.{ts,mts,cts,js,mjs,cjs,json,jsonc,yml,yaml}":
       "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
   },
 });

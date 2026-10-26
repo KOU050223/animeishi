@@ -13,13 +13,13 @@ tasks:
 
   db:migrate:prod:list:
     desc: 本番 D1 の未適用マイグレーションを確認（適用はしない）
-    dir: services/api
+    dir: apps/api
     cmds:
       - pnpm wrangler d1 migrations list animeishi-db --remote --env production
 
   db:migrate:prod:
     desc: 本番 D1 にマイグレーションを適用（破壊的操作あり・確認プロンプト付き）
-    dir: services/api
+    dir: apps/api
     # 誤爆防止: 実行前に未適用一覧を見せて y/N で確認する。
     prompt: 本番 D1 にマイグレーションを適用します。0002 等の破壊的マイグレーションを含む場合データが失われます。続行しますか？
     cmds:
@@ -29,13 +29,13 @@ tasks:
 
   db:migrate:preview:list:
     desc: プレビュー D1 の未適用マイグレーションを確認（適用はしない）
-    dir: services/api
+    dir: apps/api
     cmds:
       - pnpm wrangler d1 migrations list animeishi-db-preview --remote --env preview
 
   db:migrate:preview:
     desc: プレビュー D1 (animeishi-db-preview) にマイグレーションを適用
-    dir: services/api
+    dir: apps/api
     cmds:
       - pnpm wrangler d1 migrations list animeishi-db-preview --remote --env preview
       - pnpm wrangler d1 migrations apply animeishi-db-preview --remote --env preview
@@ -43,7 +43,7 @@ tasks:
   # ---- 作品画像 ----
   images:backfill:
     desc: "本番の未取り込み作品画像を画像プロキシ経由で一括取り込み（BACKFILL_LIMIT=N で件数制限）"
-    dir: services/api
+    dir: apps/api
     cmds:
       - bash scripts/backfill-work-images.sh --env production {{.CLI_ARGS}}
 
@@ -51,7 +51,7 @@ tasks:
   # スクリプト自身が確認プロンプトを出すため、Taskfile 側の prompt: は付けない。
   images:takedown:
     desc: "本番の作品画像を削除し、以後の補完を止める（task images:takedown -- <作品ID>... / -- --all-mal）"
-    dir: services/api
+    dir: apps/api
     interactive: true
     cmds:
       - bash scripts/takedown-work-images.sh --env production {{.CLI_ARGS}}
@@ -62,14 +62,14 @@ tasks:
   # ステータス: open（未対応）/ resolved（対応済み）/ dismissed（却下）
   reports:list:
     desc: "本番 D1 の通報一覧を表示（既定: 未対応のみ。--status/--by-user で絞込・集計可）"
-    dir: services/api
+    dir: apps/api
     cmds:
       # 例: task reports:list -- --status all / task reports:list -- --by-user
       - bash scripts/reports.sh --env production list {{.CLI_ARGS}}
 
   reports:list:local:
     desc: "ローカル D1 の通報一覧を表示（既定: 未対応のみ）"
-    dir: services/api
+    dir: apps/api
     cmds:
       - bash scripts/reports.sh --local list {{.CLI_ARGS}}
 
@@ -79,7 +79,7 @@ tasks:
   # 安全な経路。
   reports:resolve:
     desc: "本番の通報を対応済みにする（task reports:resolve NOTE='メモ' -- <id>）"
-    dir: services/api
+    dir: apps/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
     env:
       REPORT_ID: "{{.CLI_ARGS}}"
@@ -89,7 +89,7 @@ tasks:
 
   reports:dismiss:
     desc: "本番の通報を却下する（task reports:dismiss NOTE='メモ' -- <id>）"
-    dir: services/api
+    dir: apps/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
     env:
       REPORT_ID: "{{.CLI_ARGS}}"
@@ -99,7 +99,7 @@ tasks:
 
   reports:reopen:
     desc: 本番の通報を未対応に戻す（task reports:reopen -- <id>）
-    dir: services/api
+    dir: apps/api
     prompt: 本番 D1 の通報レコードを更新します。続行しますか？
     env:
       REPORT_ID: "{{.CLI_ARGS}}"
@@ -108,7 +108,7 @@ tasks:
 
   reports:update:local:
     desc: "ローカル D1 で reports.sh の全コマンドを実行（例: task reports:update:local ID=5 NOTE='メモ' -- resolve）"
-    dir: services/api
+    dir: apps/api
     env:
       REPORT_ID: '{{.ID | default ""}}'
       REPORT_NOTE: '{{.NOTE | default ""}}'

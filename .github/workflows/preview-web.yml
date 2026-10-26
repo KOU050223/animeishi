@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "apps/mobile/**"
-      - "services/api/**"
+      - "apps/api/**"
       - ".github/workflows/preview-web.yml"
       - ".github/workflows/preview-api.yml"
       - "pnpm-lock.yaml"

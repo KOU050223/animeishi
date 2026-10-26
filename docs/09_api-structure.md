@@ -1,11 +1,11 @@
-# 09. API のファイル構成（services/api）
+# 09. API のファイル構成（apps/api）
 
 Issue: https://github.com/KOU050223/animeishi/issues/78
 参考: https://zenn.dev/ashunar0/articles/1ba94a110d8622
 
 ## 目的
 
-`services/api` を Hono の推奨構成に沿って機能単位（feature）のディレクトリに
+`apps/api` を Hono の推奨構成に沿って機能単位（feature）のディレクトリに
 再編し、routes / schema / repository / service の責務を分離する。
 巨大化していた `repository/authorizedDb.ts`（約1800行）の解体が中心課題。
 
@@ -15,7 +15,7 @@ API のパス・レスポンス・Hono RPC の型（`AppType` → apps/mobile �
 ## 全体構成
 
 ```
-services/api/src/
+apps/api/src/
   index.ts                    # app 組み立て・ルート mount（順序は挙動に影響するため固定）
   observability.ts            # Sentry / onError
   middleware/                 # 認証など横断ミドルウェア

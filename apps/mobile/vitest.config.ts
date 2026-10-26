@@ -13,7 +13,7 @@ export default defineConfig({
       { find: /^@\/(.*)$/, replacement: resolve(__dirname, "$1") },
       {
         find: /^@animeishi\/api$/,
-        replacement: resolve(__dirname, "../../services/api/src/index.ts"),
+        replacement: resolve(__dirname, "../../apps/api/src/index.ts"),
       },
       {
         find: /^@animeishi\/danime-core$/,

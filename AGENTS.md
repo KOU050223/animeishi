@@ -180,16 +180,16 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 > main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない。
 > 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
 
-> 通報モデレーション（reports.*）は `services/api/scripts/reports.sh` の
-> Taskfile ラッパー。使い方は `bash services/api/scripts/reports.sh --help`。
+> 通報モデレーション（reports.*）は `apps/api/scripts/reports.sh` の
+> Taskfile ラッパー。使い方は `bash apps/api/scripts/reports.sh --help`。
 > `pnpm task reports:list -- --status all`、`pnpm task reports:list -- --by-user` のように
 > `--` 以降でオプションを渡せる。更新系は id を `--` 以降、対応メモを
 > `NOTE='メモ'` で渡す（例: `pnpm task reports:resolve NOTE='対応済み' -- 5`）。
 > メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
 > そのまま含めてよい。プレビュー D1 を見る場合は
-> `bash services/api/scripts/reports.sh --env preview list` を直接叩く。
+> `bash apps/api/scripts/reports.sh --env preview list` を直接叩く。
 
-> 作品画像の削除（images:takedown）は `services/api/scripts/takedown-work-images.sh` の
+> 作品画像の削除（images:takedown）は `apps/api/scripts/takedown-work-images.sh` の
 > Taskfile ラッパー（issue #241）。MAL API の規約により、MAL から削除依頼が来たら
 > MAL 由来の画像（`image_source='mal'`）を 24 時間以内に消す必要がある。
 > 作品 ID を `--` 以降に並べる（例: `pnpm task images:takedown -- 123 456`）か、
@@ -205,11 +205,11 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 > `stale-while-revalidate` 7 日のままなので、デプロイから 8 日間は 24 時間以内に
 > 切れる保証がない。その間に削除依頼が来たら、Cloudflare ダッシュボードの
 > Purge Cache（Custom Purge の URL 指定）で `https://<API ドメイン>/images/works/<id>` も消す。
-> 使い方は `bash services/api/scripts/takedown-work-images.sh --help`。プレビューは
+> 使い方は `bash apps/api/scripts/takedown-work-images.sh --help`。プレビューは
 > `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
 
-> wrangler は `services/api/node_modules` にのみ入っている（ルートには入れない方針）。
-> ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は
+> wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
+> ルートから叩くときは `dir: apps/api` 付きの task 経由にする。デプロイ・本番 D1 操作は
 > 上記 `db:migrate:prod*` のように Taskfile に集約し、wrangler の場所を意識せず実行できるようにする。
 
 ## E2E テスト（Maestro / iOS シミュレーター）
@@ -252,7 +252,7 @@ vp run @animeishi/mobile#e2e:ios
   未設定なら `apps/mobile/.env` を読む。pk_live はスクリプトが拒否する
 - `EXPO_PUBLIC_API_URL`: 既定 `http://localhost:8787`。
   API（wrangler dev）が未起動ならスクリプトが起動し、終了時に停止する。
-  アカウント削除は `DELETE /me` を叩くため API が必須（`services/api/.dev.vars`
+  アカウント削除は `DELETE /me` を叩くため API が必須（`apps/api/.dev.vars`
   に開発インスタンスの `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` が要る）
 - ローカル D1 マイグレーション済みであること（`vp run @animeishi/api#db:migrate:local`。
   スクリプトが API 起動時に適用するが、API 常駐派は事前に回しておく）

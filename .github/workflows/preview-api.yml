@@ -9,7 +9,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "apps/mobile/**"
-      - "services/api/**"
+      - "apps/api/**"
       - ".github/workflows/preview-api.yml"
       - ".github/workflows/preview-web.yml"
       - "pnpm-lock.yaml"

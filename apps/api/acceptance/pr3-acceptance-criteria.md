@@ -41,9 +41,9 @@ pnpm --filter @animeishi/api test
 
 | ファイル | 役割 |
 |---------|------|
-| `services/api/src/middleware/auth.ts` | `requireAuth` ミドルウェア（Clerk JWT 検証） |
-| `services/api/src/routes/me.ts` | `GET /me/profile`, `PUT /me/profile` |
-| `services/api/src/index.ts` | `/me` ルートのマウント |
+| `apps/api/src/middleware/auth.ts` | `requireAuth` ミドルウェア（Clerk JWT 検証） |
+| `apps/api/src/routes/me.ts` | `GET /me/profile`, `PUT /me/profile` |
+| `apps/api/src/index.ts` | `/me` ルートのマウント |
 | `packages/contracts/src/index.ts` | `AppType` の re-export |
 
 ## 環境変数（wrangler.toml / Cloudflare Bindings）

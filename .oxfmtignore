@@ -19,9 +19,9 @@ android/
 *.md
 
 # 生成物
-services/api/worker-configuration.d.ts
+apps/api/worker-configuration.d.ts
 worker-configuration.d.ts
-services/api/migrations/meta/
+apps/api/migrations/meta/
 migrations/meta/
 apps/mobile/expo-env.d.ts
 expo-env.d.ts

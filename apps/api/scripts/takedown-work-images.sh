@@ -20,7 +20,7 @@
 # （MAL 由来の画像は Cache-Control を合計 12 時間以下にしてある）。
 set -euo pipefail
 
-# wrangler.toml は services/api にあるため、どこから呼んでもそこで実行する。
+# wrangler.toml は apps/api にあるため、どこから呼んでもそこで実行する。
 # help() が冒頭コメントを $0 から読むため、cd 前に絶対パスに解決しておく。
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$SCRIPT_PATH")/.."

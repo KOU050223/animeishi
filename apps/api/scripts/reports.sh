@@ -25,10 +25,10 @@
 # 場合はエラーで終了する。
 set -euo pipefail
 
-# wrangler.toml は services/api にあるため、どこから呼んでもそこで実行する。
+# wrangler.toml は apps/api にあるため、どこから呼んでもそこで実行する。
 # help() が冒頭コメントを $0 から読むため、cd 前に絶対パスに解決しておく
 # （相対パスのままだと cd 後に $0 を再解決できず、ルートからの
-#   `bash services/api/scripts/reports.sh --help` が壊れる）。
+#   `bash apps/api/scripts/reports.sh --help` が壊れる）。
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$SCRIPT_PATH")/.."
 

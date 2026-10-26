@@ -14,7 +14,7 @@ on:
       # @animeishi/observability、@animeishi/api）と依存解決に関わるルートファイル
       - "apps/mobile/**"
       - "packages/**"
-      - "services/api/**"
+      - "apps/api/**"
       - ".github/workflows/bundle-check.yml"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -27,7 +27,7 @@ on:
     paths:
       - "apps/mobile/**"
       - "packages/**"
-      - "services/api/**"
+      - "apps/api/**"
       - ".github/workflows/bundle-check.yml"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
