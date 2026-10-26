@@ -212,10 +212,11 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
 - `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
 
-> e2e-ios.sh は旧 Nix devShell 向けに、全コマンドを `env -u CC -u SDKROOT ...` と
-> `PATH=/usr/bin:/bin:...` 経由で実行している（devShell の toolchain 変数が
-> xcodebuild のネイティブビルドを壊したため）。Nix は廃止したが、同種の変数を
-> 持つシェルから叩いても動くよう残してある。
+> e2e-ios.sh は通常のシェル（vp が入れた node / pnpm が PATH にある状態）から
+> そのまま xcodebuild 等を実行する。`CC` `SDKROOT` `DEVELOPER_DIR` などの
+> toolchain 変数を export したシェルから叩くと xcodebuild のネイティブビルドが
+> 壊れるので、その場合は変数を外してから実行する（旧 Nix devShell で起きた問題。
+> スクリプト側の回避策は #252 で外した）。
 
 ## プラットフォーム差異の吸収（Web / iOS / Android）
 
