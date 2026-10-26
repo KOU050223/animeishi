@@ -8,12 +8,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit",
-    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix --deny-warnings",
-    "format": "oxfmt --ignore-path ../../.oxfmtignore .",
-    "format:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
+    "fmt": "oxfmt --ignore-path ../../.oxfmtignore .",
+    "fmt:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
   },
   "devDependencies": {
     "oxfmt": "^0.57.0",

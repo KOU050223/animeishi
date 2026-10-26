@@ -1,5 +1,8 @@
-# go-task タスクランナー。Nix devShell 経由で task を導入。
-# 一覧: `task --list`
+# go-task タスクランナー。本番・プレビュー環境の運用操作だけを置く（issue #246）。
+# 開発ループ（typecheck / lint / fmt / test / dev 等）はルートの vite.config.ts と
+# 各 package.json の scripts に移し、`vp run` で実行する。
+# go-task はルートの devDependency（@go-task/cli）で導入する。`vp install` 後に
+# `pnpm task --list` で一覧を表示し、`pnpm task <タスク名>` で実行する。
 version: "3"
 
 tasks:
@@ -7,86 +10,6 @@ tasks:
     cmds:
       - task --list
     silent: true
-
-  setup:
-    desc: 依存インストール + Git hooks 設置
-    cmds:
-      - pnpm install
-      - lefthook install
-
-  dev:
-    desc: 全アプリの開発サーバを起動 (turbo)
-    cmds:
-      - pnpm turbo run dev
-
-  dev:mobile:
-    desc: Expo モバイルアプリを起動
-    dir: apps/mobile
-    cmds:
-      - pnpm dev
-
-  dev:mobile:annict-redirect-uri:
-    desc: Expo Go 実機用の Annict redirect_uri を表示
-    cmds:
-      - |
-        ip="$(ipconfig getifaddr en0 || ipconfig getifaddr en1)"
-        if [ -z "$ip" ]; then
-          echo "Wi-Fi/LAN の IP アドレスを取得できませんでした"
-          exit 1
-        fi
-        echo "Annict の redirect_uri に登録:"
-        echo "exp://$ip:8081/--/annict"
-        echo
-        echo "development build / standalone の場合:"
-        echo "animeishi://annict"
-
-  dev:api:
-    desc: Cloudflare Workers API を起動 (wrangler dev)
-    dir: services/api
-    cmds:
-      - pnpm dev
-
-  build:
-    desc: 全パッケージをビルド
-    cmds:
-      - pnpm turbo run build
-
-  typecheck:
-    desc: 型チェック (tsc --noEmit)。CI の "TypeScript check" 相当
-    cmds:
-      - pnpm turbo run build
-
-  lint:
-    desc: Lint
-    cmds:
-      - pnpm turbo run lint
-
-  lint:fix:
-    desc: Lint の自動修正
-    cmds:
-      - pnpm turbo run lint:fix
-
-  format:
-    desc: フォーマット
-    cmds:
-      - pnpm turbo run format
-
-  test:
-    desc: テスト
-    cmds:
-      - pnpm turbo run test
-
-  e2e:ios:
-    desc: iOS シミュレーターで Maestro E2E を実行（専用シミュレーター作成→Release 相当ビルド→インストール→maestro test）
-    dir: apps/mobile
-    cmds:
-      - bash scripts/e2e-ios.sh
-
-  db:migrate:local:
-    desc: D1 ローカルマイグレーション適用
-    dir: services/api
-    cmds:
-      - pnpm db:migrate:local
 
   db:migrate:prod:list:
     desc: 本番 D1 の未適用マイグレーションを確認（適用はしない）
@@ -116,14 +39,6 @@ tasks:
     cmds:
       - pnpm wrangler d1 migrations list animeishi-db-preview --remote --env preview
       - pnpm wrangler d1 migrations apply animeishi-db-preview --remote --env preview
-
-  dev:api:scheduled:
-    desc: Cron バッチを手動トリガーできる状態で API を起動 (wrangler dev --test-scheduled)
-    dir: services/api
-    cmds:
-      # 起動後に別端末から下記で手動トリガーできる:
-      #   curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"  # image fallback warmup
-      - pnpm wrangler dev --test-scheduled
 
   # ---- 作品画像 ----
   images:backfill:

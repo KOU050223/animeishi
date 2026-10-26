@@ -1,32 +1,112 @@
 # AGENTS.md
 
-## コマンド実行
+## 開発環境
 
-Taskfile.yml に定義されたタスクを実行するには、以下のコマンドを使用する。
+JS ツールチェーンは [Vite+](https://viteplus.dev/guide/)（`vp`）で管理する（issue #246）。
+Node.js は package.json の `devEngines.runtime`、pnpm は `packageManager` で固定しており、
+`vp` がプロジェクトに入ると自動でそのバージョンに切り替わる（`vp env current` で確認）。
+バージョンを上げるときは `vp env pin --target dev-engines <版>` を使い、
+書き込まれた `onFail` を `"error"` に戻す（下記）。
+Nix devShell・turbo・lefthook は廃止した。
+
+> `devEngines.runtime` の `onFail` は `"error"` にしておく。`"download"` だと pnpm 10 も
+> Node を依存として扱い、pnpm-lock.yaml に Node 本体を追加してダウンロードする（vp と二重管理）。
+> `"error"` なら pnpm は版の検査だけを行い、Node の取得は vp に任せられる。
 
 ```bash
-task <タスク名>
+curl -fsSL https://vite.plus | bash   # vp 本体（グローバル CLI）。初回のみ
+vp install                            # 依存インストール + Git フック設置（prepare の vp config）
 ```
 
-以下は、利用可能なタスクの一覧
+> vite-plus パッケージはプロジェクトに入れず、グローバルの `vp` を使う。
+> vite-plus は vitest 5 系に依存しており、node-linker=hoisted だと root に
+> vitest 5 の `@vitest/*` が巻き上がって api の vitest 4 + vitest-pool-workers が壊れるため。
+> そのため vp の各コマンドは `warn: This project does not use vite-plus` を出すが無視してよい。
+> CI は `voidzero-dev/setup-vp` で同じバージョンの vp を入れる。
+
+## コマンド実行
+
+開発ループのタスクはルートの `vite.config.ts`（`run.tasks`）に定義してあり、`vp run` で実行する。
+各タスクは全パッケージの package.json scripts（一部は各パッケージの `vite.config.ts` のタスク）を横断実行する。
+
 ```
-* build:                  全パッケージをビルド
-* typecheck:              型チェック (tsc --noEmit)。CI の "TypeScript check" 相当
-* dev:                    全アプリの開発サーバを起動 (turbo)
-* format:                 フォーマット
-* lint:                   Lint
-* setup:                  依存インストール + Git hooks 設置
-* test:                   テスト
-* db:migrate:local:       D1 ローカルマイグレーション適用
+vp run typecheck   # 型チェック (tsc --noEmit)。CI の "TypeScript check" 相当
+vp run lint        # Oxlint
+vp run lint:fix    # Oxlint の自動修正
+vp run fmt         # Oxfmt で整形
+vp run fmt:check   # 整形済みかの確認。CI の "Oxfmt check" 相当
+vp run test        # テスト（mobile は jest、それ以外は vitest）
+vp run dev         # 全アプリの開発サーバを並列起動
+```
+
+パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
+（`vp run --filter <パッケージ名> <script>` も同じ）。
+
+```
+vp run @animeishi/mobile#dev                   # Expo モバイルアプリを起動
+vp run @animeishi/mobile#annict-redirect-uri   # Expo Go 実機用の Annict redirect_uri を表示
+vp run @animeishi/mobile#e2e:ios               # iOS シミュレーターで Maestro E2E を実行
+vp run @animeishi/api#dev                      # Cloudflare Workers API を起動 (wrangler dev)
+vp run @animeishi/api#dev:scheduled            # Cron を手動トリガーできる状態で API を起動
+vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレーション適用
+```
+
+> `dev:scheduled` の起動後は、別端末から
+> `curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"` で画像フォールバックの
+> ウォームアップ Cron を手動トリガーできる。
+
+### キャッシュ
+
+typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル
+（タスクが実際に読んだファイルを自動追跡）が変わらなければ出力を再生して実行を省く。
+キャッシュはローカルのみ（`node_modules/.vite/task-cache`）で、`vp cache clean` で消せる。
+mobile の jest は当面キャッシュしない（`apps/mobile/vite.config.ts` の `cache: false`）。
+
+> キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の
+> 共通の変数のみ引き継ぐ）。タスクが新たに環境変数を必要とする場合は、そのタスクの
+> `cache.env`（値が変わるとキャッシュを無効化）か `cache.untrackedEnv`（渡すだけ）に追加する。
+> キャッシュしない script（dev・e2e:ios 等）には環境変数がそのまま渡る。
+
+### 並列数（並列 worktree 運用時）
+
+`vp run` は既定で最大 4 タスクを同時に実行する。複数の worktree で同時に
+エージェントを走らせるとき（jest・tsc・workerd がそれぞれメモリを食う）は、
+`VP_RUN_CONCURRENCY_LIMIT` で並列数を絞る。`--concurrency-limit` を付けた場合はそちらが優先される。
+
+```bash
+VP_RUN_CONCURRENCY_LIMIT=1 vp run test
+vp run --concurrency-limit 2 typecheck
+```
+
+### Git フック
+
+`vp install` 時の `prepare`（`vp config --no-agent`）が `.vite-hooks/_` にフックの
+ディスパッチャを置き、`core.hooksPath` を設定する。フック本体は `.vite-hooks/` にある。
+
+- pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt にかけ、
+  整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）
+- pre-push: `vp run typecheck` と `vp run test`
+
+> CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (tsc --noEmit) の 2 段**で構成される。
+> `vp run lint` は Oxlint だけで型エラーは拾えない。push 前は必ず `vp run typecheck`
+> （または `vp run test` と併せて）を実行して CI 落ちを未然に防ぐこと。pre-push フックでも自動実行される。
+
+> `core.hooksPath` は main チェックアウトと全 worktree で共有される `.git/config` に書かれる。
+> フックのディスパッチャ（`.vite-hooks/_`、gitignore 済み）は worktree ごとに `vp install`
+> で生成されるので、新しい worktree では最初に `vp install` を実行する。
+> 一時的にフックを止めたいときは `VP_GIT_HOOKS=0 git commit ...` とする。
+
+## 本番運用タスク（Taskfile）
+
+本番・プレビュー環境の運用操作は、確認プロンプト（`prompt:`）やメモの安全な受け渡しが
+go-task に依存しているため Taskfile.yml に残している。go-task はルートの devDependency
+（`@go-task/cli`）で入るので、`pnpm task <タスク名>` で実行する（一覧は `pnpm task --list`）。
+
+```
 * db:migrate:prod:list:   本番 D1 の未適用マイグレーションを確認（非破壊）
 * db:migrate:prod:        本番 D1 にマイグレーション適用（破壊的操作あり・確認プロンプト付き）
-
-> 本番 D1 へのマイグレーション適用は deploy-api.yml がデプロイ前に自動で行うため、
-> main へのマージ後に手動で `task db:migrate:prod` を実行する必要はない。
-> 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
-* dev:api:                Cloudflare Workers API を起動 (wrangler dev)
-* dev:mobile:             Expo モバイルアプリを起動
-* e2e:ios:                iOS シミュレーターで Maestro E2E を実行
+* db:migrate:preview:list: プレビュー D1 の未適用マイグレーションを確認（非破壊）
+* db:migrate:preview:     プレビュー D1 にマイグレーション適用
 * reports:list:           本番 D1 の通報一覧を表示（既定: 未対応のみ。issue #186）
 * reports:resolve:        本番の通報を対応済みにする（確認プロンプト付き）
 * reports:dismiss:        本番の通報を却下する（確認プロンプト付き）
@@ -37,11 +117,15 @@ task <タスク名>
 * images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。確認プロンプト付き）
 ```
 
+> 本番 D1 へのマイグレーション適用は deploy-api.yml がデプロイ前に自動で行うため、
+> main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない。
+> 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
+
 > 通報モデレーション（reports.*）は `services/api/scripts/reports.sh` の
 > Taskfile ラッパー。使い方は `bash services/api/scripts/reports.sh --help`。
-> `task reports:list -- --status all`、`task reports:list -- --by-user` のように
+> `pnpm task reports:list -- --status all`、`pnpm task reports:list -- --by-user` のように
 > `--` 以降でオプションを渡せる。更新系は id を `--` 以降、対応メモを
-> `NOTE='メモ'` で渡す（例: `task reports:resolve NOTE='対応済み' -- 5`）。
+> `NOTE='メモ'` で渡す（例: `pnpm task reports:resolve NOTE='対応済み' -- 5`）。
 > メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
 > そのまま含めてよい。プレビュー D1 を見る場合は
 > `bash services/api/scripts/reports.sh --env preview list` を直接叩く。
@@ -49,8 +133,8 @@ task <タスク名>
 > 作品画像の削除（images:takedown）は `services/api/scripts/takedown-work-images.sh` の
 > Taskfile ラッパー（issue #241）。MAL API の規約により、MAL から削除依頼が来たら
 > MAL 由来の画像（`image_source='mal'`）を 24 時間以内に消す必要がある。
-> 作品 ID を `--` 以降に並べる（例: `task images:takedown -- 123 456`）か、
-> `task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
+> 作品 ID を `--` 以降に並べる（例: `pnpm task images:takedown -- 123 456`）か、
+> `pnpm task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
 > 件数と一覧を表示してから確認プロンプトを出し、対象を `image_source='blocked'`・
 > `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にする。
 > R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する。
@@ -65,28 +149,9 @@ task <タスク名>
 > 使い方は `bash services/api/scripts/takedown-work-images.sh --help`。プレビューは
 > `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
 
-> wrangler は `services/api/node_modules` にのみ入っている（flake/ルートには入れない方針）。
+> wrangler は `services/api/node_modules` にのみ入っている（ルートには入れない方針）。
 > ルートから叩くときは `dir: services/api` 付きの task 経由にする。デプロイ・本番 D1 操作は
 > 上記 `db:migrate:prod*` のように Taskfile に集約し、wrangler の場所を意識せず実行できるようにする。
-
-> CI の "Lint & Type Check" ジョブは **ESLint と型チェック (tsc --noEmit) の 2 段**で構成される。
-> `task lint` は ESLint だけで型エラーは拾えない。push 前は必ず `nix develop --command task typecheck`
-> （または `task test` と併せて）を実行して CI 落ちを未然に防ぐこと。lefthook の pre-push でも自動実行される。
-> （devShell 内なら `task typecheck` を直接実行してよい。下記「開発環境」を参照）
-
-## 開発環境
-開発環境は Nix で管理している。`task` や `pnpm` 等のツールは Nix devShell 経由で実行する。
-
-```bash
-nix develop --command task <タスク名>
-```
-
-例:
-```bash
-nix develop --command task setup   # 初回セットアップ（pnpm install + lefthook install）
-nix develop --command task test    # テスト
-nix develop --command task lint    # Lint
-```
 
 ## E2E テスト（Maestro / iOS シミュレーター）
 
@@ -96,15 +161,15 @@ Maestro による E2E を `apps/mobile/.maestro/` に置く。
 `subflows/` は `runFlow` から呼ばれる部品なので直接実行しない。
 
 ```bash
-task e2e:ios
+vp run @animeishi/mobile#e2e:ios
 ```
 
 > **運用ルール（#180）**: E2E は CI では回さない（macOS ランナーのコストのため）。
 > 代わりに、`apps/mobile` に影響する PR（認証・ナビゲーション・ホーム周りなど
-> E2E フローが通る画面を触るもの）は、**マージ前にローカルで `task e2e:ios` を
+> E2E フローが通る画面を触るもの）は、**マージ前にローカルで `vp run @animeishi/mobile#e2e:ios` を
 > 通す**。結果（PASS / 失敗時の原因）は PR にコメントで残す。
 
-`task e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
+`e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
 
 1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
    （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
@@ -130,7 +195,7 @@ task e2e:ios
   API（wrangler dev）が未起動ならスクリプトが起動し、終了時に停止する。
   アカウント削除は `DELETE /me` を叩くため API が必須（`services/api/.dev.vars`
   に開発インスタンスの `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` が要る）
-- ローカル D1 マイグレーション済みであること（`task db:migrate:local`。
+- ローカル D1 マイグレーション済みであること（`vp run @animeishi/api#db:migrate:local`。
   スクリプトが API 起動時に適用するが、API 常駐派は事前に回しておく）
 
 Clerk 認証は dev インスタンスのテストモードを使う。毎回ユニークな
@@ -147,10 +212,10 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
 - `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
 
-> Nix devShell 内で xcodebuild を呼ぶと toolchain 変数（`CC` `SDKROOT`
-> `DEVELOPER_DIR` `NIX_*` 等）がネイティブビルドを壊す。e2e-ios.sh は全コマンドを
-> `env -u ...` と `PATH=/usr/bin:/bin:...` 経由で実行するため、devShell 内外どちらでも動く。
-> 手動で xcodebuild / pod / simctl を叩くときも同じ unset が必要。
+> e2e-ios.sh は旧 Nix devShell 向けに、全コマンドを `env -u CC -u SDKROOT ...` と
+> `PATH=/usr/bin:/bin:...` 経由で実行している（devShell の toolchain 変数が
+> xcodebuild のネイティブビルドを壊したため）。Nix は廃止したが、同種の変数を
+> 持つシェルから叩いても動くよう残してある。
 
 ## プラットフォーム差異の吸収（Web / iOS / Android）
 

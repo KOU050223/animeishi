@@ -62,4 +62,4 @@
 
 ### AC-6: TypeScriptのビルドエラーがない
 
-- [ ] `pnpm --filter @animeishi/api build` でビルドが通る（`tsc --noEmit`）
+- [ ] `vp run --filter @animeishi/api typecheck` で型チェックが通る（`tsc --noEmit`）

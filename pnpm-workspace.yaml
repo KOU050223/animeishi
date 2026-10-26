@@ -10,5 +10,7 @@ onlyBuiltDependencies:
   - workerd
   - esbuild
   - sharp
+  # devDependency の go-task（Taskfile 用）。postinstall でバイナリを取得する
+  - "@go-task/cli"
   # Sentry の source map / デバッグシンボルアップロードに使う CLI バイナリの取得
   - "@sentry/cli"

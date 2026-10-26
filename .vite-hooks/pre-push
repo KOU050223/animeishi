@@ -1,0 +1,7 @@
+# CI の "Lint & Type Check" / "Test" 相当。pre-commit の Oxlint では型エラーを
+# 拾えないため、push 前に tsc --noEmit とテストを回して CI 落ちを未然に防ぐ。
+# ディスパッチャ（.vite-hooks/_/h）は sh -e で実行するが、直接 sh で叩いた場合も
+# typecheck の失敗で止まるよう明示的に set -e する。
+set -e
+vp run typecheck
+vp run test
