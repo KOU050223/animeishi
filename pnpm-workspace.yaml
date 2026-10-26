@@ -14,3 +14,17 @@ onlyBuiltDependencies:
   - "@go-task/cli"
   # Sentry の source map / デバッグシンボルアップロードに使う CLI バイナリの取得
   - "@sentry/cli"
+
+# vite-plus と、それに揃える vite / vitest の版（issue #250）。
+# https://viteplus.dev/guide/local-cli の手順どおり、vite は vite-plus-core の別名に、
+# vitest は `vp --version` が示す版に固定する。vite-plus を上げるときは 3 つを揃えて更新する。
+# vitest を使うパッケージは vite も `catalog:` で直接依存に持つ。vitest の peer の vite を
+# 自動インストールに任せると、overrides が効かず別版の vite（7.x）が lockfile に入るため。
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plus: 1.4.0
+  vitest: 5.0.5
+
+overrides:
+  vite@*: "catalog:"
+  vitest@*: "catalog:"

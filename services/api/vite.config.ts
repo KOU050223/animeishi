@@ -1,6 +1,8 @@
+import { defineConfig } from "vite-plus";
+
 // vp run 用のタスク定義（issue #246）。vitest は vitest.config.ts を優先して読むため、
 // このファイルはテスト設定には使われない。
-export default {
+export default defineConfig({
   run: {
     tasks: {
       test: {
@@ -19,4 +21,4 @@ export default {
       },
     },
   },
-};
+});

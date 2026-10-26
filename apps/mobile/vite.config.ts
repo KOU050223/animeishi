@@ -1,5 +1,7 @@
+import { defineConfig } from "vite-plus";
+
 // vp run 用のタスク定義（issue #246）。Metro / Expo はこのファイルを読まない。
-export default {
+export default defineConfig({
   run: {
     tasks: {
       // jest-expo は Haste マップ等のキャッシュを OS の一時ディレクトリに持ち、
@@ -10,4 +12,4 @@ export default {
       },
     },
   },
-};
+});

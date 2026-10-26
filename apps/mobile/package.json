@@ -90,7 +90,7 @@
     "jest": "^29.7.0",
     "jest-expo": "~54.0.18",
     "oxfmt": "^0.57.0",
-    "oxlint": "^1.72.0",
+    "oxlint": "~1.72.0",
     "oxlint-config-universe": "0.0.3",
     "sharp": "0.34.5",
     "typescript": "^5.7.3",

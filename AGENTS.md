@@ -18,11 +18,19 @@ curl -fsSL https://vite.plus | bash   # vp 本体（グローバル CLI）。初
 vp install                            # 依存インストール + Git フック設置（prepare の vp config）
 ```
 
-> vite-plus パッケージはプロジェクトに入れず、グローバルの `vp` を使う。
-> vite-plus は vitest 5 系に依存しており、node-linker=hoisted だと root に
-> vitest 5 の `@vitest/*` が巻き上がって api の vitest 4 + vitest-pool-workers が壊れるため。
-> そのため vp の各コマンドは `warn: This project does not use vite-plus` を出すが無視してよい。
-> CI は `voidzero-dev/setup-vp` で同じバージョンの vp を入れる。
+> vite-plus は root の devDependency で版を固定しており（issue #250）、グローバルの `vp` は
+> プロジェクト内の vite-plus に処理を委ねる（`vp --version` の "Local vite-plus" で確認）。
+> `vite.config.ts` は `vite-plus` の `defineConfig` で書く。
+> vite-plus・vite・vitest の版は `pnpm-workspace.yaml` の `catalog` で一元管理し、
+> 各 package.json からは `catalog:` で参照する。`overrides` でも vite / vitest を同じ版に
+> 揃えている（[local-cli](https://viteplus.dev/guide/local-cli)）。vite-plus を上げるときは
+> catalog の `vite-plus`、`vite` の別名（`@voidzero-dev/vite-plus-core@<版>`）、
+> `vp --version` が示す vitest の版の 3 つを揃えて更新する。
+> vitest を使うパッケージは `vite: "catalog:"` も devDependency に持たせる
+> （vitest の peer の vite を自動インストールに任せると overrides が効かず別版が入る）。
+> api の Workers テストは vitest 5 対応の `@cloudflare/vitest-plugin`
+> （旧 `@cloudflare/vitest-pool-workers`）で動かす。
+> CI の `voidzero-dev/setup-vp` は package.json の vite-plus から版を自動検出する。
 
 ## コマンド実行
 

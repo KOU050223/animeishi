@@ -41,7 +41,6 @@ jobs:
       # Vite+（vp）と Node.js（package.json の devEngines.runtime）・pnpm（packageManager）を用意し、vp install まで行う
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          version: 1.4.0
           cache: true
 
       - name: TypeScript check
