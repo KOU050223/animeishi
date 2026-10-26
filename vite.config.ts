@@ -33,7 +33,6 @@ export default defineConfig({
         "vp run --cache -r fmt:check",
         `oxfmt --check --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
       ],
-      // mobile の jest は apps/mobile/vite.config.ts 側で cache: false にしている
       test: "vp run --cache -r test",
       dev: { command: "vp run -r --parallel dev", cache: false },
     },

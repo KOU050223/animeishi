@@ -74,8 +74,10 @@ typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし�
 キャッシュは `node_modules/.vite/task-cache` に置かれ、`vp cache clean` で消せる。
 CI（ci.yml）はこのディレクトリを GitHub Actions cache で実行間に持ち越す（issue #253。
 キーと共有範囲は ci.yml 冒頭のコメントを参照）。
-mobile の jest は当面キャッシュしない（`apps/mobile/vite.config.ts` の `cache: false`）。
-mobile の vitest（`test:vitest`）はキャッシュする。
+mobile の jest と vitest（`test:vitest`）もキャッシュする（issue #251）。jest は Haste マップの
+クロールでテストファイルの追加・削除を検知できるよう、`apps/mobile/jest.config.cjs` で
+watchman と `find` を使わず Node の fs API でクロールさせている（外すと、テストファイルを
+足してもキャッシュヒットしてしまう）。
 
 > キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の
 > 共通の変数のみ引き継ぐ）。タスクが新たに環境変数を必要とする場合は、そのタスクの

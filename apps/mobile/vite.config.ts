@@ -5,13 +5,16 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   run: {
     tasks: {
-      // jest-expo は Haste マップ等のキャッシュを OS の一時ディレクトリに持ち、
-      // 自動入力追跡の対象外の状態に依存するため、まずはキャッシュしない。
+      // jest もキャッシュする（issue #251）。jest が読む設定・セットアップ・モック・ソース・依存は
+      // 自動追跡で入力に入る。jest 自身のキャッシュ（変換結果・Haste マップ）は OS の一時
+      // ディレクトリにあり、ワークスペース外なので入力にならない（消してもヒットする）。
+      // テストファイルの追加・削除を検知するため、jest.config.cjs で Haste マップのクロールを
+      // Node の fs API に固定している。成果物ファイルは無いので出力の復元もしない。
       // RN / Expo に依存しない純ロジックのテスト（*.unit.test.ts）は
       // dependsOn の test:vitest で先に回す（issue #249）。
       test: {
         command: "jest --passWithNoTests --maxWorkers=2",
-        cache: false,
+        cache: { output: [] },
         dependsOn: ["test:vitest"],
       },
       "test:vitest": {
@@ -24,6 +27,7 @@ export default defineConfig({
             { auto: true },
             "!node_modules/.vite-temp/**",
             "!node_modules/.vite/**",
+            { pattern: "!node_modules/.vitest-cache/**", base: "workspace" },
           ],
           output: [],
         },
