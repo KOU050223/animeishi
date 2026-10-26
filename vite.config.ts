@@ -8,8 +8,6 @@
 // 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。
 const PACKAGES = ["apps/mobile", "services/api", "packages/danime-core", "packages/observability"];
 
-const quote = (files: readonly string[]) => files.map((f) => `"${f}"`).join(" ");
-
 export default {
   run: {
     tasks: {
@@ -27,20 +25,19 @@ export default {
   },
   // pre-commit（.vite-hooks/pre-commit の `vp staged`）でステージ済みファイルだけを
   // lint・整形する。整形で直した差分は vp staged がステージし直す。
+  // コマンドは文字列で書き、ファイル名を埋め込まない。vp staged（lint-staged 互換）は
+  // コマンドをシェルを通さず string-argv で分割して実行するため、シェル流の引用は
+  // 効かない。文字列タスクならファイルは分割を経ず argv の末尾にそのまま渡される。
   staged: Object.fromEntries(
     PACKAGES.flatMap((dir) => [
       [
         `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
-        (files: readonly string[]) => [
-          `vp -C ${dir} exec oxlint --deny-warnings ${quote(files)}`,
-          `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore ${quote(files)}`,
+        [
+          `vp -C ${dir} exec oxlint --deny-warnings`,
+          `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`,
         ],
       ],
-      [
-        `${dir}/**/*.{json,yml,yaml}`,
-        (files: readonly string[]) =>
-          `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore ${quote(files)}`,
-      ],
+      [`${dir}/**/*.{json,yml,yaml}`, `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`],
     ]),
   ),
 };
