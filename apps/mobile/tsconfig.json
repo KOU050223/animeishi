@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*", "../../services/api/src/*"]
+      "@/*": ["./*", "../../apps/api/src/*"]
     },
     "types": ["jest", "node", "@cloudflare/workers-types", "expo/types"],
     "skipLibCheck": true

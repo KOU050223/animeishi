@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     { "path": "./apps/mobile" },
-    { "path": "./services/api" },
+    { "path": "./apps/api" },
     { "path": "./packages/danime-core" },
     { "path": "./packages/observability" }
   ]

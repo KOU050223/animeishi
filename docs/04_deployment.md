@@ -10,7 +10,7 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 
 | アプリ | Worker 名 | デプロイ内容 | 設定ファイル |
 | --- | --- | --- | --- |
-| API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 バインディング） | [`services/api/wrangler.toml`](../services/api/wrangler.toml) の `[env.production]` |
+| API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 バインディング） | [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) の `[env.production]` |
 | API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 を持つ | 同上の `[env.preview]` |
 | Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) |
 
@@ -78,7 +78,7 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 
 ## 2. PR プレビューデプロイ
 
-同一リポジトリ内の pull request で `apps/mobile/**` または `services/api/**` が変更されると、Web と API の両方のプレビューが作成される。両 workflow とも `wrangler versions upload --preview-alias pr-<PR番号>` を使うため、ライブデプロイ（本番・preview Worker の latest）自体は更新せず、PR ごとの preview URL だけを発行する。
+同一リポジトリ内の pull request で `apps/mobile/**` または `apps/api/**` が変更されると、Web と API の両方のプレビューが作成される。両 workflow とも `wrangler versions upload --preview-alias pr-<PR番号>` を使うため、ライブデプロイ（本番・preview Worker の latest）自体は更新せず、PR ごとの preview URL だけを発行する。
 
 | 対象 | workflow | デプロイ先 env | preview URL |
 | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ Annict OAuth は `redirect_uri` の完全一致を要求するため、PR ごと
 プレビュー DB を作り直したい場合:
 
 ```bash
-cd services/api
+cd apps/api
 pnpm exec wrangler d1 delete animeishi-db-preview   # 削除
 pnpm exec wrangler d1 create animeishi-db-preview   # 再作成（新しい database_id を wrangler.toml の [env.preview] に反映）
 pnpm task db:migrate:preview                        # マイグレーション再適用（ルートから実行）
@@ -140,7 +140,7 @@ pnpm task db:migrate:preview                        # マイグレーション�
 preview 環境の初回セットアップは以下の手順で行う（初回のみ・再作成時のみ必要）。
 
 ```bash
-cd services/api
+cd apps/api
 
 # 1. プレビュー用リソースを作成し、wrangler.toml の [env.preview] に ID を反映
 pnpm exec wrangler d1 create animeishi-db-preview
@@ -167,10 +167,10 @@ secret は Worker 単位の設定のため、一度登録すれば以後の `ver
 
 ## 3. Cloudflare Workers の secret 登録（API ランタイム）
 
-API が JWT 検証に使う Clerk のキーは Workers の secret として登録する。`services/api/` で実行する。
+API が JWT 検証に使う Clerk のキーは Workers の secret として登録する。`apps/api/` で実行する。
 
 ```bash
-cd services/api
+cd apps/api
 
 # 本番環境（--env production）に登録する
 pnpm exec wrangler secret put CLERK_SECRET_KEY --env production
@@ -186,11 +186,11 @@ pnpm exec wrangler secret put SENTRY_DSN --env preview
 pnpm exec wrangler secret put DISCORD_WEBHOOK_URL --env production
 ```
 
-実行するとプロンプトで値の入力を求められる。ローカル開発時は `services/api/.dev.vars` に記述する（[`.dev.vars.example`](../services/api/.dev.vars.example) 参照）。
+実行するとプロンプトで値の入力を求められる。ローカル開発時は `apps/api/.dev.vars` に記述する（[`.dev.vars.example`](../apps/api/.dev.vars.example) 参照）。
 
 ## 4. CORS（`ALLOWED_ORIGINS`）の設定
 
-API は `ALLOWED_ORIGINS`（カンマ区切り）に一致するオリジンのみ CORS を許可する（判定ロジックは [`services/api/src/cors.ts`](../services/api/src/cors.ts)）。未設定なら全許可（開発用）。
+API は `ALLOWED_ORIGINS`（カンマ区切り）に一致するオリジンのみ CORS を許可する（判定ロジックは [`apps/api/src/cors.ts`](../apps/api/src/cors.ts)）。未設定なら全許可（開発用）。
 
 各エントリは 2 形式を取れる:
 
@@ -201,7 +201,7 @@ API は `ALLOWED_ORIGINS`（カンマ区切り）に一致するオリジンの�
 
 Web フロントを別ドメインから配信するため、**本番では Web のオリジンを必ず設定する**。設定しないと全許可のままになり、設定し忘れて空文字を入れると全ブロックになる点に注意。
 
-`services/api/wrangler.toml` の `[env.production.vars]` に設定済み（現状の値）:
+`apps/api/wrangler.toml` の `[env.production.vars]` に設定済み（現状の値）:
 
 ```toml
 [env.production.vars]
@@ -218,7 +218,7 @@ ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-anime
 > `http://localhost:8081` は本番の許可リストには含めない（issue #152）。
 > ローカル開発では `.dev.vars` か preview 環境を使う。
 
-変更後は API を再デプロイする（`pnpm --filter @animeishi/api exec wrangler deploy --env production`）。ローカル開発で別の値を試す場合は `services/api/.dev.vars` に記述する。
+変更後は API を再デプロイする（`pnpm --filter @animeishi/api exec wrangler deploy --env production`）。ローカル開発で別の値を試す場合は `apps/api/.dev.vars` に記述する。
 
 ## 5. 手動デプロイ
 

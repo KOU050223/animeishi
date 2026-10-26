@@ -4,7 +4,7 @@ import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 const OPERATOR_NAME = "{{OPERATOR_NAME}}";
 const CONTACT_EMAIL = "{{CONTACT_EMAIL}}";
 
-// 収集データと外部送信先は services/api・apps/mobile の実装を調査して記載している。
+// 収集データと外部送信先は apps/api・apps/mobile の実装を調査して記載している。
 // 変更時はコード（外部通信・永続化）と照合してこの文面も更新すること。
 const SECTIONS: LegalSection[] = [
   {
