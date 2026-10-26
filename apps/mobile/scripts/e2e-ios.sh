@@ -43,19 +43,8 @@ case "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" in
 esac
 EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-http://localhost:8787}"
 
-# --- Nix devShell 汚染の除去 -------------------------------------------------
-# devShell 内から xcodebuild 等を叩くと toolchain 変数がネイティブビルドを壊すため、
-# すべての子プロセスで unset し PATH 先頭を /usr/bin:/bin にする。
-# node / pnpm / pod は PATH 後段から解決する。
-NIX_SAFE_ENV=(
-  env -u CC -u CXX -u LD -u AR -u NM -u RANLIB -u STRIP -u SDKROOT
-  -u DEVELOPER_DIR -u NIX_CFLAGS_COMPILE -u NIX_LDFLAGS -u NIX_CFLAGS_LINK
-  -u MACOSX_DEPLOYMENT_TARGET -u CPATH -u LIBRARY_PATH
-  "PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.vite-plus/bin:$PATH"
-)
-
 # --- 専用シミュレーター -------------------------------------------------------
-UDID="$("${NIX_SAFE_ENV[@]}" xcrun simctl list devices -j \
+UDID="$(xcrun simctl list devices -j \
   | SIM_NAME="$SIM_NAME" /usr/bin/python3 -c 'import json,os,sys
 name = os.environ["SIM_NAME"]
 for devs in json.load(sys.stdin)["devices"].values():
@@ -64,18 +53,18 @@ for devs in json.load(sys.stdin)["devices"].values():
             print(dev["udid"])
             sys.exit()' | head -1)"
 if [ -z "$UDID" ]; then
-  RUNTIME_ID="$("${NIX_SAFE_ENV[@]}" xcrun simctl list runtimes -j \
+  RUNTIME_ID="$(xcrun simctl list runtimes -j \
     | /usr/bin/python3 -c 'import json,sys
 rs = [r for r in json.load(sys.stdin)["runtimes"] if r.get("platform") == "iOS" and r.get("isAvailable", True)]
 rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")], reverse=True)
 print(rs[0]["identifier"])')"
-  DEVICE_TYPE="$("${NIX_SAFE_ENV[@]}" xcrun simctl list devicetypes -j \
+  DEVICE_TYPE="$(xcrun simctl list devicetypes -j \
     | /usr/bin/python3 -c 'import json,sys
 ts = [t for t in json.load(sys.stdin)["devicetypes"] if t["identifier"].split(".")[-1].startswith("iPhone-1")]
 ts.sort(key=lambda t: t["identifier"])
 print(ts[-1]["identifier"])')"
   echo "E2E 用シミュレーターを作成: $SIM_NAME ($DEVICE_TYPE / $RUNTIME_ID)"
-  UDID="$("${NIX_SAFE_ENV[@]}" xcrun simctl create "$SIM_NAME" "$DEVICE_TYPE" "$RUNTIME_ID")"
+  UDID="$(xcrun simctl create "$SIM_NAME" "$DEVICE_TYPE" "$RUNTIME_ID")"
 fi
 echo "使用シミュレーター: $SIM_NAME ($UDID)"
 
@@ -106,7 +95,7 @@ else
   set -m
   DEV_ARGS=()
   [ -n "$API_PORT" ] && DEV_ARGS+=(--port "$API_PORT")
-  (cd ../../services/api && "${NIX_SAFE_ENV[@]}" pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
+  (cd ../../services/api && pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
   API_PID=$!
   set +m
   trap '[ -n "$API_PID" ] && { kill -- -"$API_PID" 2>/dev/null || kill "$API_PID" 2>/dev/null; wait "$API_PID" 2>/dev/null; } || true' EXIT
@@ -116,19 +105,18 @@ else
   done
   api_up || { echo "API の起動に失敗しました。$API_LOG を確認してください" >&2; exit 1; }
   # ローカル D1 にマイグレーションを適用（適用済みならスキップされる）
-  (cd ../../services/api && "${NIX_SAFE_ENV[@]}" pnpm db:migrate:local >/dev/null)
+  (cd ../../services/api && pnpm db:migrate:local >/dev/null)
 fi
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------
 if [ ! -d ios/Animeishi.xcworkspace ]; then
   echo "ios/ がないため expo prebuild を実行します ..."
-  "${NIX_SAFE_ENV[@]}" pnpm expo prebuild -p ios
+  pnpm expo prebuild -p ios
 fi
 
 if [ "$SKIP_BUILD" != "1" ]; then
   echo "Release 相当ビルド中 (iphonesimulator) ..."
-  "${NIX_SAFE_ENV[@]}" \
-    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
     EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" \
     SENTRY_DISABLE_AUTO_UPLOAD=true \
     xcodebuild \
@@ -146,13 +134,13 @@ APP_PATH="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Animeishi.app"
 [ -d "$APP_PATH" ] || { echo "アプリが見つかりません: $APP_PATH" >&2; exit 1; }
 
 # --- インストール ------------------------------------------------------------
-"${NIX_SAFE_ENV[@]}" xcrun simctl boot "$UDID" 2>/dev/null || true
-"${NIX_SAFE_ENV[@]}" open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
+xcrun simctl boot "$UDID" 2>/dev/null || true
+open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
 # 認証状態を確実にリセットするため再インストールする
-"${NIX_SAFE_ENV[@]}" xcrun simctl uninstall "$UDID" "$APP_BUNDLE_ID" 2>/dev/null || true
-"${NIX_SAFE_ENV[@]}" xcrun simctl install "$UDID" "$APP_PATH"
+xcrun simctl uninstall "$UDID" "$APP_BUNDLE_ID" 2>/dev/null || true
+xcrun simctl install "$UDID" "$APP_PATH"
 
 # --- Maestro -----------------------------------------------------------------
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
-"${NIX_SAFE_ENV[@]}" maestro test --device "$UDID" .maestro
+maestro test --device "$UDID" .maestro
