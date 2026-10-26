@@ -109,4 +109,3 @@ jobs:
 
       - name: Oxfmt check
         run: vp run fmt:check
-
