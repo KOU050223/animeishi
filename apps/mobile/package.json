@@ -94,6 +94,8 @@
     "oxlint-config-universe": "0.0.3",
     "sharp": "0.34.5",
     "typescript": "^5.7.3",
+    "vite": "catalog:",
+    "vitest": "catalog:",
     "wrangler": "^4.12.0"
   }
 }

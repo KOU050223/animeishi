@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { hiraganaToKana, kanaToHiragana } from "@/lib/textNormalize";
 
 describe("hiraganaToKana", () => {

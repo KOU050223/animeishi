@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { parseUserIdFromQr } from "@/lib/qrParser";
 
 // Clerk ID は user_ + base58。旧 Firebase UID は 28 文字英数字。
