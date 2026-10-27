@@ -49,10 +49,13 @@ export default defineConfig({
           `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
           [
             `vp -C ${dir} exec oxlint --deny-warnings`,
-            `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`,
+            `vp -C ${dir} exec oxfmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
           ],
         ],
-        [`${dir}/**/*.{json,yml,yaml}`, `vp -C ${dir} exec oxfmt --ignore-path ../../.oxfmtignore`],
+        [
+          `${dir}/**/*.{json,yml,yaml}`,
+          `vp -C ${dir} exec oxfmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
+        ],
       ]),
     ),
     // ルート直下と、パッケージ以外のディレクトリ（.github 等）のファイル。パターンに "/" を
