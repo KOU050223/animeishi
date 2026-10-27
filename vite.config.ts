@@ -24,9 +24,22 @@ export default defineConfig({
       // 2 つ目のコマンドはルートの tsconfig.json（include はこの vite.config.ts のみ）を
       // チェックする。ルートはワークスペースのパッケージではないため -r では回らない（issue #271）。
       typecheck: ["vp run --cache -r typecheck", "tsc --noEmit --checkers 1"],
-      lint: "vp run --cache -r lint",
+      lint: [
+        "vp run --cache -r lint",
+        // ルート直下とパッケージ外のファイル（vite.config.ts 等）はどのパッケージの lint にも
+        // 入らないため、ルートの oxlint（各パッケージと同じ 1.72 系、設定は既定値）で検査する
+        //（issue #269）。対象は fmt と同じ ROOT_FMT_TARGETS。--ignore-path で
+        // .agents/ 等のエージェント状態（.oxfmtignore）を除外する。
+        `oxlint --deny-warnings --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+      ],
       // ファイルを書き換えるタスクはキャッシュしない
-      "lint:fix": { command: "vp run -r lint:fix", cache: false },
+      "lint:fix": {
+        command: [
+          "vp run -r lint:fix",
+          `oxlint --fix --deny-warnings --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+        ],
+        cache: false,
+      },
       fmt: {
         command: ["vp run -r fmt", `oxfmt --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`],
         cache: false,
@@ -63,8 +76,15 @@ export default defineConfig({
     // ルート直下と、パッケージ以外のディレクトリ（.github 等）のファイル。パターンに "/" を
     // 含めているので lint-staged の matchBase は効かず、パッケージ配下のファイルには当たらない。
     // pnpm-lock.yaml などの整形対象外（.oxfmtignore）だけがステージされたときに
-    // oxfmt が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
-    "{*,!(apps|packages)/**/*}.{ts,mts,cts,js,mjs,cjs,json,jsonc,yml,yaml}":
+    // oxfmt・oxlint が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
+    // JS / TS は Oxlint もかける（issue #269）。.oxfmtignore のエージェント・エディタ状態
+    // （.agents/ 等）は oxlint が明示指定されたファイルに --ignore-path を効かせないため
+    // glob 側で外す（`vp run lint` の対象と揃える）。
+    "{*,!(apps|packages|.agents|.claude|.devin|.direnv|.vscode)/**/*}.{ts,mts,cts,js,mjs,cjs}": [
+      "vp exec oxlint --deny-warnings --no-error-on-unmatched-pattern",
+      "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
+    ],
+    "{*,!(apps|packages)/**/*}.{json,jsonc,yml,yaml}":
       "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
   },
 });

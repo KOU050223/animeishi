@@ -12,6 +12,7 @@ android/
 # ローカルのエージェント・エディタ状態
 .agents/
 .claude/
+.devin/
 .direnv/
 .vscode/
 
