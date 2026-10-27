@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useDanimeMatch } from "@/lib/danime/useDanimeImport";
 import { DANIME_EXTRACT_SCHEMA_VERSION } from "@animeishi/danime-core";
 import type {
+  DanimeAnnictWork,
   DanimeExtractedLists,
   DanimeMatchItem,
 } from "@animeishi/danime-core";
@@ -50,10 +51,10 @@ function listsOf(count: number): DanimeExtractedLists {
   };
 }
 
-function okResponse(works: { danimeWorkId: string }[]) {
+function okResponse(works: { danimeWorkId: string; title: string }[]) {
   const results: DanimeMatchItem[] = works.map((w) => ({
     danimeWorkId: w.danimeWorkId,
-    title: "作品",
+    title: w.title,
     targetState: "WATCHING",
     status: "none",
     work: null,
@@ -70,6 +71,41 @@ function okResponse(works: { danimeWorkId: string }[]) {
         elapsedMs: 1,
       },
     }),
+  };
+}
+
+function annictWork(annictWorkId: number): DanimeAnnictWork {
+  return {
+    annictWorkId,
+    nodeId: `Work-${annictWorkId}`,
+    title: `Annict作品${annictWorkId}`,
+    titleKana: null,
+    titleEn: null,
+    seasonName: null,
+    seasonYear: null,
+    imageUrl: null,
+    malAnimeId: null,
+  };
+}
+
+// 全件を exact で返すレスポンス。annictWorkId は workIdToAnnict で
+// 作品ごとに指定できる（省略時は danimeWorkId の番号）。
+function exactResponse(
+  works: { danimeWorkId: string; title: string }[],
+  workIdToAnnict: (danimeWorkId: string) => number = (id) =>
+    Number(id.slice(1)),
+) {
+  const results: DanimeMatchItem[] = works.map((w) => ({
+    danimeWorkId: w.danimeWorkId,
+    title: w.title,
+    targetState: "WATCHING",
+    status: "exact",
+    work: annictWork(workIdToAnnict(w.danimeWorkId)),
+    candidates: [],
+  }));
+  return {
+    ok: true,
+    json: async () => ({ results }),
   };
 }
 
@@ -108,5 +144,56 @@ describe("useDanimeMatch", () => {
     expect(out?.items[249]?.danimeWorkId).toBe("w249");
     // stats はチャンク間で合算される
     expect(out?.stats?.firstPassSearches).toBe(3);
+  });
+
+  // issue #219: チャンク分割により API が検出できなくなる「同名タイトルが
+  // 別 Annict 作品に exact 確定する」曖昧さを、結合後にクライアント側で
+  // 解消する（同一リクエスト内なら API が candidates にする判定と揃える）。
+  it("チャンク越しで正規化タイトルが同じ exact が別作品に確定したら candidates に降格する", async () => {
+    // 先頭（チャンク1）と index 100（チャンク2）に正規化で同一になる
+    // タイトル（中黒の表記揺れ）を置く
+    const lists = listsOf(150);
+    lists.history[0]!.title = "テスト作品";
+    lists.history[100]!.title = "テスト・作品";
+    mockMatchPost.mockImplementation(async ({ json }) =>
+      exactResponse(json.works),
+    );
+    const { result } = renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const out = result.current.data;
+    expect(out?.items).toHaveLength(150);
+    const first = out?.items[0];
+    const second = out?.items[100];
+    // 同名タイトルが別 annictWorkId（0 / 100）に確定 → 両方 candidates に降格
+    expect(first?.status).toBe("candidates");
+    expect(first?.work).toBeNull();
+    expect(first?.candidates.map((c) => c.annictWorkId)).toContain(0);
+    expect(second?.status).toBe("candidates");
+    expect(second?.work).toBeNull();
+    expect(second?.candidates.map((c) => c.annictWorkId)).toContain(100);
+    // タイトルが一意な他作品は exact のまま
+    expect(out?.items[1]?.status).toBe("exact");
+  });
+
+  it("チャンク越しで同じ annictWorkId に確定した同名タイトルは exact のまま", async () => {
+    const lists = listsOf(150);
+    lists.history[0]!.title = "テスト作品";
+    lists.history[100]!.title = "テスト作品";
+    // 両方とも同じ Annict 作品に確定したケース（dアニメ側の重複登録など）
+    mockMatchPost.mockImplementation(async ({ json }) =>
+      exactResponse(json.works, () => 999),
+    );
+    const { result } = renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.items[0]?.status).toBe("exact");
+    expect(result.current.data?.items[100]?.status).toBe("exact");
   });
 });

@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
 import {
+  normalizeTitle,
   toMatchWorks,
   type DanimeExtractedLists,
   type DanimeMatchItem,
@@ -57,6 +58,43 @@ const BULK_CHUNK_SIZE = 50;
 // issue #219（Workers の CPU 時間超過による 503）の再発に余裕を持たせるため
 // 小さく分割して逐次送信する。
 const MATCH_CHUNK_SIZE = 100;
+
+// issue #219: 照合を 100 件単位で分割送信しているため、正規化タイトルが同じ
+// dアニメ作品が別チャンクに分かれた場合、API 側は各リクエスト内の候補プール
+// しか見られず「同名だが別作品かもしれない」曖昧さを検出できない。
+// 同一リクエスト内なら API が行う判定（同名複数 exact → candidates）を、
+// 結合後にクライアント側でやり直し誤確定を防ぐ。
+export function demoteAmbiguousExactAcrossChunks(
+  items: DanimeMatchItem[],
+): DanimeMatchItem[] {
+  const groups = new Map<string, DanimeMatchItem[]>();
+  for (const item of items) {
+    if (item.status !== "exact" || !item.work) continue;
+    const key = normalizeTitle(item.title);
+    if (!key) continue;
+    const group = groups.get(key);
+    if (group) {
+      group.push(item);
+    } else {
+      groups.set(key, [item]);
+    }
+  }
+  return items.map((item) => {
+    if (item.status !== "exact" || !item.work) return item;
+    const group = groups.get(normalizeTitle(item.title));
+    const ambiguous =
+      group !== undefined &&
+      group.length > 1 &&
+      new Set(group.map((g) => g.work?.annictWorkId)).size > 1;
+    if (!ambiguous) return item;
+    return {
+      ...item,
+      status: "candidates",
+      work: null,
+      candidates: [item.work, ...item.candidates],
+    };
+  });
+}
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -126,7 +164,7 @@ export function useDanimeMatch() {
         results.push(...body.results);
       }
       return {
-        items: results,
+        items: demoteAmbiguousExactAcrossChunks(results),
         elapsedMs: Date.now() - startedAt,
         stats,
       } satisfies DanimeMatchOutput;
