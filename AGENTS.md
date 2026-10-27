@@ -84,6 +84,12 @@ VS Code の tsdk（`.vscode/settings.json`）は実体の TypeScript 6（`node_m
 > 時間・メモリともに tsc 6 を下回る（計測は issue #248 の PR を参照）。
 > TypeScript 6 の結果と比べたいときは `vp -C apps/mobile exec tsc6 --noEmit` のように `tsc6` を使う。
 
+各パッケージの tsconfig は `vite.config.ts`（`vp run` のタスク定義）も include に含めており、
+型チェックの対象になっている（issue #271）。ルートの `vite.config.ts` はどのパッケージにも
+属さないため、ルートの `tsconfig.json` が include し、`vp run typecheck` が各パッケージの
+typecheck に続いてルートでも `tsc --noEmit --checkers 1` を実行する。ルートの tsconfig は
+solution style ではなく、ルート直下の TS ファイルを直接チェックする通常の設定。
+
 ### キャッシュ
 
 typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル

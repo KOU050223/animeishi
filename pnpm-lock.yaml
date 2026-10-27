@@ -33,6 +33,9 @@ importers:
       '@go-task/cli':
         specifier: 3.52.0
         version: 3.52.0
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
       oxfmt:
         specifier: ^0.57.0
         version: 0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@7.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1))
@@ -40,11 +43,84 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(typescript@7.0.2)(utf-8-validate@6.0.6)(yaml@2.9.1)
 
+  apps/api:
+    dependencies:
+      '@animeishi/danime-core':
+        specifier: workspace:*
+        version: link:../../packages/danime-core
+      '@animeishi/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@clerk/backend':
+        specifier: ^3.2.12
+        version: 3.2.12(react-dom@18.3.1(react@19.2.5))(react@19.2.5)
+      '@clerk/hono':
+        specifier: ^0.1.15
+        version: 0.1.15(hono@4.12.14)(react-dom@18.3.1(react@19.2.5))(react@19.2.5)
+      '@hono/swagger-ui':
+        specifier: ^0.6.1
+        version: 0.6.1(hono@4.12.14)
+      '@hono/zod-openapi':
+        specifier: ^1.6.3
+        version: 1.6.3(hono@4.12.14)(zod@4.3.6)
+      '@hono/zod-validator':
+        specifier: ^0.7.6
+        version: 0.7.6(hono@4.12.14)(zod@4.3.6)
+      '@sentry/cloudflare':
+        specifier: 11.0.0
+        version: 11.0.0(@cloudflare/workers-types@4.20260416.2)(wrangler@4.83.0(@cloudflare/workers-types@4.20260416.2)(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@cloudflare/workers-types@4.20260416.2)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)
+      hono:
+        specifier: ^4.10.0
+        version: 4.12.14
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@cloudflare/vitest-plugin':
+        specifier: ^1.4.7
+        version: 1.4.8(@cloudflare/workers-types@4.20260416.2)(@types/node@25.6.0)(bufferutil@4.1.0)(utf-8-validate@6.0.6)(vitest@5.0.5)
+      '@cloudflare/workers-types':
+        specifier: ^4.20260416.2
+        version: 4.20260416.2
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
+      drizzle-kit:
+        specifier: ^0.31.1
+        version: 0.31.10
+      oxfmt:
+        specifier: ^0.57.0
+        version: 0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
+      oxlint:
+        specifier: ~1.72.0
+        version: 1.72.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: 'catalog:'
+        version: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)'
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+      wrangler:
+        specifier: ^4.12.0
+        version: 4.83.0(@cloudflare/workers-types@4.20260416.2)(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+
   apps/mobile:
     dependencies:
       '@animeishi/api':
         specifier: workspace:*
-        version: link:../../apps/api
+        version: link:../api
       '@animeishi/danime-core':
         specifier: workspace:*
         version: link:../../packages/danime-core
@@ -310,79 +386,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
-
-  apps/api:
-    dependencies:
-      '@animeishi/danime-core':
-        specifier: workspace:*
-        version: link:../../packages/danime-core
-      '@animeishi/observability':
-        specifier: workspace:*
-        version: link:../../packages/observability
-      '@clerk/backend':
-        specifier: ^3.2.12
-        version: 3.2.12(react-dom@18.3.1(react@19.2.5))(react@19.2.5)
-      '@clerk/hono':
-        specifier: ^0.1.15
-        version: 0.1.15(hono@4.12.14)(react-dom@18.3.1(react@19.2.5))(react@19.2.5)
-      '@hono/swagger-ui':
-        specifier: ^0.6.1
-        version: 0.6.1(hono@4.12.14)
-      '@hono/zod-openapi':
-        specifier: ^1.6.3
-        version: 1.6.3(hono@4.12.14)(zod@4.3.6)
-      '@hono/zod-validator':
-        specifier: ^0.7.6
-        version: 0.7.6(hono@4.12.14)(zod@4.3.6)
-      '@sentry/cloudflare':
-        specifier: 11.0.0
-        version: 11.0.0(@cloudflare/workers-types@4.20260416.2)(wrangler@4.83.0(@cloudflare/workers-types@4.20260416.2)(bufferutil@4.1.0)(utf-8-validate@6.0.6))
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@cloudflare/workers-types@4.20260416.2)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)
-      hono:
-        specifier: ^4.10.0
-        version: 4.12.14
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@cloudflare/vitest-plugin':
-        specifier: ^1.4.7
-        version: 1.4.8(@cloudflare/workers-types@4.20260416.2)(@types/node@25.6.0)(bufferutil@4.1.0)(utf-8-validate@6.0.6)(vitest@5.0.5)
-      '@cloudflare/workers-types':
-        specifier: ^4.20260416.2
-        version: 4.20260416.2
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      better-sqlite3:
-        specifier: ^12.9.0
-        version: 12.9.0
-      drizzle-kit:
-        specifier: ^0.31.1
-        version: 0.31.10
-      oxfmt:
-        specifier: ^0.57.0
-        version: 0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
-      oxlint:
-        specifier: ~1.72.0
-        version: 1.72.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vite:
-        specifier: 'catalog:'
-        version: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
-      wrangler:
-        specifier: ^4.12.0
-        version: 4.83.0(@cloudflare/workers-types@4.20260416.2)(bufferutil@4.1.0)(utf-8-validate@6.0.6)
 
 packages:
 
@@ -17410,31 +17413,6 @@ snapshots:
       '@oxfmt/binding-win32-x64-msvc': 0.57.0
       vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
 
-  oxfmt@0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
-    dependencies:
-      tinypool: 2.1.0
-    optionalDependencies:
-      '@oxfmt/binding-android-arm-eabi': 0.57.0
-      '@oxfmt/binding-android-arm64': 0.57.0
-      '@oxfmt/binding-darwin-arm64': 0.57.0
-      '@oxfmt/binding-darwin-x64': 0.57.0
-      '@oxfmt/binding-freebsd-x64': 0.57.0
-      '@oxfmt/binding-linux-arm-gnueabihf': 0.57.0
-      '@oxfmt/binding-linux-arm-musleabihf': 0.57.0
-      '@oxfmt/binding-linux-arm64-gnu': 0.57.0
-      '@oxfmt/binding-linux-arm64-musl': 0.57.0
-      '@oxfmt/binding-linux-ppc64-gnu': 0.57.0
-      '@oxfmt/binding-linux-riscv64-gnu': 0.57.0
-      '@oxfmt/binding-linux-riscv64-musl': 0.57.0
-      '@oxfmt/binding-linux-s390x-gnu': 0.57.0
-      '@oxfmt/binding-linux-x64-gnu': 0.57.0
-      '@oxfmt/binding-linux-x64-musl': 0.57.0
-      '@oxfmt/binding-openharmony-arm64': 0.57.0
-      '@oxfmt/binding-win32-arm64-msvc': 0.57.0
-      '@oxfmt/binding-win32-ia32-msvc': 0.57.0
-      '@oxfmt/binding-win32-x64-msvc': 0.57.0
-      vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
-
   oxfmt@0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
     dependencies:
       tinypool: 2.1.0
@@ -17509,32 +17487,6 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.74.0
       '@oxfmt/binding-win32-x64-msvc': 0.74.0
       vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
-    optional: true
-
-  oxfmt@0.74.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
-    dependencies:
-      tinypool: 2.2.0
-    optionalDependencies:
-      '@oxfmt/binding-android-arm-eabi': 0.74.0
-      '@oxfmt/binding-android-arm64': 0.74.0
-      '@oxfmt/binding-darwin-arm64': 0.74.0
-      '@oxfmt/binding-darwin-x64': 0.74.0
-      '@oxfmt/binding-freebsd-x64': 0.74.0
-      '@oxfmt/binding-linux-arm-gnueabihf': 0.74.0
-      '@oxfmt/binding-linux-arm-musleabihf': 0.74.0
-      '@oxfmt/binding-linux-arm64-gnu': 0.74.0
-      '@oxfmt/binding-linux-arm64-musl': 0.74.0
-      '@oxfmt/binding-linux-ppc64-gnu': 0.74.0
-      '@oxfmt/binding-linux-riscv64-gnu': 0.74.0
-      '@oxfmt/binding-linux-riscv64-musl': 0.74.0
-      '@oxfmt/binding-linux-s390x-gnu': 0.74.0
-      '@oxfmt/binding-linux-x64-gnu': 0.74.0
-      '@oxfmt/binding-linux-x64-musl': 0.74.0
-      '@oxfmt/binding-openharmony-arm64': 0.74.0
-      '@oxfmt/binding-win32-arm64-msvc': 0.74.0
-      '@oxfmt/binding-win32-ia32-msvc': 0.74.0
-      '@oxfmt/binding-win32-x64-msvc': 0.74.0
-      vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
     optional: true
 
   oxfmt@0.74.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
@@ -17625,30 +17577,6 @@ snapshots:
       oxlint-tsgolint: 7.0.2004
       vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
 
-  oxlint@1.72.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
-    optionalDependencies:
-      '@oxlint/binding-android-arm-eabi': 1.72.0
-      '@oxlint/binding-android-arm64': 1.72.0
-      '@oxlint/binding-darwin-arm64': 1.72.0
-      '@oxlint/binding-darwin-x64': 1.72.0
-      '@oxlint/binding-freebsd-x64': 1.72.0
-      '@oxlint/binding-linux-arm-gnueabihf': 1.72.0
-      '@oxlint/binding-linux-arm-musleabihf': 1.72.0
-      '@oxlint/binding-linux-arm64-gnu': 1.72.0
-      '@oxlint/binding-linux-arm64-musl': 1.72.0
-      '@oxlint/binding-linux-ppc64-gnu': 1.72.0
-      '@oxlint/binding-linux-riscv64-gnu': 1.72.0
-      '@oxlint/binding-linux-riscv64-musl': 1.72.0
-      '@oxlint/binding-linux-s390x-gnu': 1.72.0
-      '@oxlint/binding-linux-x64-gnu': 1.72.0
-      '@oxlint/binding-linux-x64-musl': 1.72.0
-      '@oxlint/binding-openharmony-arm64': 1.72.0
-      '@oxlint/binding-win32-arm64-msvc': 1.72.0
-      '@oxlint/binding-win32-ia32-msvc': 1.72.0
-      '@oxlint/binding-win32-x64-msvc': 1.72.0
-      oxlint-tsgolint: 7.0.2004
-      vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
-
   oxlint@1.72.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.72.0
@@ -17696,31 +17624,6 @@ snapshots:
       '@oxlint/binding-win32-x64-msvc': 1.89.0
       oxlint-tsgolint: 7.0.2004
       vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
-    optional: true
-
-  oxlint@1.89.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
-    optionalDependencies:
-      '@oxlint/binding-android-arm-eabi': 1.89.0
-      '@oxlint/binding-android-arm64': 1.89.0
-      '@oxlint/binding-darwin-arm64': 1.89.0
-      '@oxlint/binding-darwin-x64': 1.89.0
-      '@oxlint/binding-freebsd-x64': 1.89.0
-      '@oxlint/binding-linux-arm-gnueabihf': 1.89.0
-      '@oxlint/binding-linux-arm-musleabihf': 1.89.0
-      '@oxlint/binding-linux-arm64-gnu': 1.89.0
-      '@oxlint/binding-linux-arm64-musl': 1.89.0
-      '@oxlint/binding-linux-ppc64-gnu': 1.89.0
-      '@oxlint/binding-linux-riscv64-gnu': 1.89.0
-      '@oxlint/binding-linux-riscv64-musl': 1.89.0
-      '@oxlint/binding-linux-s390x-gnu': 1.89.0
-      '@oxlint/binding-linux-x64-gnu': 1.89.0
-      '@oxlint/binding-linux-x64-musl': 1.89.0
-      '@oxlint/binding-openharmony-arm64': 1.89.0
-      '@oxlint/binding-win32-arm64-msvc': 1.89.0
-      '@oxlint/binding-win32-ia32-msvc': 1.89.0
-      '@oxlint/binding-win32-x64-msvc': 1.89.0
-      oxlint-tsgolint: 7.0.2004
-      vite-plus: 1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)
     optional: true
 
   oxlint@1.89.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1)):
@@ -19274,68 +19177,6 @@ snapshots:
       oxlint-tsgolint: 7.0.2004
       vite: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)'
       vitest: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
-    optionalDependencies:
-      '@voidzero-dev/vite-plus-darwin-arm64': 1.4.0
-      '@voidzero-dev/vite-plus-darwin-x64': 1.4.0
-      '@voidzero-dev/vite-plus-linux-arm64-gnu': 1.4.0
-      '@voidzero-dev/vite-plus-linux-arm64-musl': 1.4.0
-      '@voidzero-dev/vite-plus-linux-x64-gnu': 1.4.0
-      '@voidzero-dev/vite-plus-linux-x64-musl': 1.4.0
-      '@voidzero-dev/vite-plus-win32-arm64-msvc': 1.4.0
-      '@voidzero-dev/vite-plus-win32-x64-msvc': 1.4.0
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@astrojs/compiler-rs'
-      - '@edge-runtime/vm'
-      - '@opentelemetry/api'
-      - '@types/node'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@vitest/coverage-istanbul'
-      - '@vitest/coverage-v8'
-      - '@vitest/ui'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - bufferutil
-      - esbuild
-      - happy-dom
-      - jiti
-      - jsdom
-      - less
-      - msw
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - svelte
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - utf-8-validate
-      - vue-tsc
-      - yaml
-    optional: true
-
-  vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1):
-    dependencies:
-      '@oxc-project/runtime': 0.155.0
-      '@oxc-project/types': 0.155.0
-      '@oxlint/plugins': 1.89.0
-      '@vitest/browser': 5.0.5(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(bufferutil@4.1.0)(utf-8-validate@6.0.6)(vitest@5.0.5)
-      '@vitest/browser-preview': 5.0.5(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(bufferutil@4.1.0)(utf-8-validate@6.0.6)(vitest@5.0.5)
-      '@vitest/mocker': 5.0.5(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))
-      '@vitest/pretty-format': 5.0.5
-      '@vitest/snapshot': 5.0.5
-      '@vitest/spy': 5.0.5
-      '@vitest/utils': 5.0.5
-      oxfmt: 0.74.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
-      oxlint: 1.89.0(oxlint-tsgolint@7.0.2004)(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5(vitest@5.0.5))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))
-      oxlint-tsgolint: 7.0.2004
-      vite: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1)'
-      vitest: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@25.6.0)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.9.1))(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
     optionalDependencies:
       '@voidzero-dev/vite-plus-darwin-arm64': 1.4.0
       '@voidzero-dev/vite-plus-darwin-x64': 1.4.0
