@@ -60,8 +60,10 @@ function runScheduled(env: object): Promise<unknown[]> {
       pending.push(p);
     }),
     passThroughOnException: () => {},
+    // テストは waitUntil の呼び出しだけを見たいので、ExecutionContext の
+    // 必須メンバを満たさない最小スタブを使う。構造的に満たせないため as unknown as が必要。
   } as unknown as ExecutionContext;
-  handler.scheduled!(
+  handler.scheduled(
     { cron: "*/10 * * * *", scheduledTime: Date.now(), noRetry: vi.fn() },
     env as ScheduledEnv,
     ctx,
@@ -106,7 +108,7 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
     await runScheduled(cronEnv(fakeKv()));
 
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(captureException.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(captureException.mock.calls[0]![0]).toBeInstanceOf(Error);
     // 失敗しても image_fallback は止まらない。
     expect(jobs.resolvePendingImageFallbacks).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -127,7 +129,7 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
 
     expect(captureException).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const body = fetchSpy.mock.calls[0][1]?.body as string;
+    const body = fetchSpy.mock.calls[0]![1]?.body as string;
     expect(body).toContain("`cron:mal_id_search` が 2 回連続で失敗");
     expect(body).not.toContain("image_fallback");
   });
@@ -161,7 +163,7 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
 
     expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
+    expect(fetchSpy.mock.calls[0]![1]?.body as string).toContain(
       "`cron:image_fallback` が 2 回連続で失敗",
     );
   });

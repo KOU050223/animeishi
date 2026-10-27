@@ -159,12 +159,12 @@ describe("ユーザー通報・ブロック API", () => {
           ),
         );
       expect(rows).toHaveLength(1);
-      expect(rows[0].reason).toBe("不適切なコンテンツ");
+      expect(rows[0]?.reason).toBe("不適切なコンテンツ");
       // モデレーション対応状況（issue #186）は未対応で記録される。
       // 更新は API 経路では行わず scripts/reports.sh から運営が操作する。
-      expect(rows[0].status).toBe("open");
-      expect(rows[0].resolutionNote).toBeNull();
-      expect(rows[0].resolvedAt).toBeNull();
+      expect(rows[0]?.status).toBe("open");
+      expect(rows[0]?.resolutionNote).toBeNull();
+      expect(rows[0]?.resolvedAt).toBeNull();
       // 運営通知: 通報対象ユーザーごとに Issue が分かれるよう fingerprint で
       // 区別し、report.reported_user_id タグで検索可能にする
       expect(vi.mocked(captureMessage)).toHaveBeenCalledWith(
@@ -212,7 +212,7 @@ describe("ユーザー通報・ブロック API", () => {
 
       expect(res.status).toBe(201);
       expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string) as {
+      const body = JSON.parse(fetchSpy.mock.calls[0]![1]?.body as string) as {
         content: string;
       };
       expect(body.content).toContain("ユーザー通報");
@@ -342,7 +342,7 @@ describe("ユーザー通報・ブロック API", () => {
           expect((await reportTarget(app, target)).status).toBe(201);
         }
 
-        const res = await reportTarget(app, targets[HOURLY_LIMIT]);
+        const res = await reportTarget(app, targets[HOURLY_LIMIT]!);
         expect(res.status).toBe(429);
         const body = (await res.json()) as { code?: string };
         expect(body.code).toBe("hourly_limit");
@@ -441,8 +441,8 @@ describe("ユーザー通報・ブロック API", () => {
         username: string;
       }[];
       expect(list).toHaveLength(1);
-      expect(list[0].blockedId).toBe(USER_B);
-      expect(list[0].username).toBe("ユーザーB");
+      expect(list[0]?.blockedId).toBe(USER_B);
+      expect(list[0]?.username).toBe("ユーザーB");
     });
 
     it("二重ブロックしても冪等（200・一覧は1件）", async () => {

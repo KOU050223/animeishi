@@ -22,8 +22,8 @@ describe("withAnnictRetry", () => {
     ).resolves.toBe("ok");
     expect(fn).toHaveBeenCalledTimes(2);
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(onRetry.mock.calls[0][0]).toBeInstanceOf(AnnictApiError);
-    expect(onRetry.mock.calls[0][1]).toBe(1);
+    expect(onRetry.mock.calls[0]![0]).toBeInstanceOf(AnnictApiError);
+    expect(onRetry.mock.calls[0]![1]).toBe(1);
   });
 
   it("5xx と通信失敗（status 0）もリトライ対象にする", async () => {

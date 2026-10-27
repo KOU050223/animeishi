@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
@@ -83,7 +83,7 @@ function mockAnnictUpdate(
     // （searchWorks 解決後の更新失敗時にキャッシュが書き換わらないことの検証用）
     updateFails?: boolean;
   } = {},
-): ReturnType<typeof vi.spyOn> {
+): Mock<typeof fetch> {
   const nodeId = opts.nodeId ?? "Work-1";
   return vi
     .spyOn(globalThis, "fetch")
@@ -294,7 +294,7 @@ describe("視聴履歴 API", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { annictWorkId: number }[];
       expect(body).toHaveLength(1);
-      expect(body[0].annictWorkId).toBe(ANNICT_WORK_ID);
+      expect(body[0]?.annictWorkId).toBe(ANNICT_WORK_ID);
     });
 
     it("GET /me/watch-histories: 外部補完は直接実行せず、cron の解決対象として未解決行を残す", async () => {

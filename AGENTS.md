@@ -122,6 +122,13 @@ VS Code の tsdk（`.vscode/settings.json`）は実体の TypeScript 6（`node_m
 typecheck に続いてルートでも `tsc --noEmit --checkers 1` を実行する。ルートの tsconfig は
 solution style ではなく、ルート直下の TS ファイルを直接チェックする通常の設定。
 
+各パッケージの tsconfig はテストファイルも型チェックの対象に含める（issue #307）。
+api / observability は tsconfig の `exclude` でテスト glob を外していない
+（mobile / danime-core と同じ）。テストは型チェックに加えて tsgolint の
+type-aware ルールの対象にもなるので、対象外の tsconfig（`tsconfig.test.json` 等）は
+作らない。api の Workers テストが使う `cloudflare:workers` の `env` と
+`caches.default` の型は `apps/api/src/test-utils/workers-env.d.ts` で宣言マージしている。
+
 ### キャッシュ
 
 typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル

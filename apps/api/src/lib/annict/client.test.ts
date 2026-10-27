@@ -39,7 +39,7 @@ describe("annictGraphQL", () => {
     );
 
     expect(data).toEqual({ viewer: { id: 1 } });
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(ANNICT_GRAPHQL_ENDPOINT);
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer tok_abc");
@@ -114,7 +114,7 @@ describe("exchangeAnnictCode", () => {
     );
 
     expect(token.access_token).toBe("at_123");
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(ANNICT_TOKEN_ENDPOINT);
     const params = new URLSearchParams(init.body as string);
     expect(params.get("grant_type")).toBe("authorization_code");
@@ -196,7 +196,7 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 2 ページ目は前ページの endCursor を after に載せる
-    const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    const secondBody = JSON.parse(fetchMock.mock.calls[1]![1].body);
     expect(secondBody.variables.after).toBe("cursor1");
   });
 
@@ -375,7 +375,7 @@ describe("fetchAnnictTokenInfo", () => {
     const info = await fetchAnnictTokenInfo("tok", fetchMock);
 
     expect(info.resource_owner_id).toBe(42);
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(ANNICT_TOKEN_INFO_ENDPOINT);
     expect(init.headers.Authorization).toBe("Bearer tok");
   });
@@ -436,7 +436,7 @@ describe("searchAnnictWorksByTitle", () => {
     expect(result.endCursor).toBe("cursor1");
 
     // GraphQL 変数に titles と after が載る
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(body.variables.titles).toEqual(["進撃"]);
     expect(body.variables.after).toBeNull();
   });
@@ -450,7 +450,7 @@ describe("searchAnnictWorksByTitle", () => {
 
     await searchAnnictWorksByTitle("tok", "鬼滅", "cursorX", fetchMock);
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(body.variables.after).toBe("cursorX");
   });
 
@@ -544,8 +544,8 @@ describe("searchAnnictWorksBySeason", () => {
     expect(result.endCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 各ページに seasons を載せ、2 ページ目は前ページの endCursor を after に載せる。
-    const first = JSON.parse(fetchMock.mock.calls[0][1].body);
-    const second = JSON.parse(fetchMock.mock.calls[1][1].body);
+    const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    const second = JSON.parse(fetchMock.mock.calls[1]![1].body);
     expect(first.variables.seasons).toEqual(["2026-spring"]);
     expect(second.variables.after).toBe("c1");
   });
@@ -564,7 +564,7 @@ describe("searchAnnictWorksBySeason", () => {
       fetchMock,
     );
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(body.variables.after).toBe("cursorX");
     expect(result.works.map((w) => w.annictWorkId)).toEqual([5]);
   });

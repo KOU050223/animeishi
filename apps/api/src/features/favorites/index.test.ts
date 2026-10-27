@@ -158,7 +158,7 @@ describe("お気に入り API", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { annictWorkId: number }[];
       expect(body).toHaveLength(1);
-      expect(body[0].annictWorkId).toBe(ANNICT_WORK_ID);
+      expect(body[0]?.annictWorkId).toBe(ANNICT_WORK_ID);
     });
 
     it("DELETE /me/favorites/:annictWorkId: お気に入りを削除できる", async () => {
@@ -238,7 +238,7 @@ describe("お気に入り API", () => {
       // searchWorks が叩かれ、解決した作品メタがキャッシュへ補充されている。
       expect(fetchMock).toHaveBeenCalled();
       // read-through 経路の契約: 解決対象の annictId を Annict へ送っている。
-      const firstFetchCall = fetchMock.mock.calls[0];
+      const firstFetchCall = fetchMock.mock.calls[0]!;
       const requestBody = JSON.parse(
         (firstFetchCall[1] as RequestInit).body as string,
       );

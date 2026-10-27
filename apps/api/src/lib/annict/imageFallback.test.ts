@@ -548,7 +548,7 @@ describe("resolveImagesViaKitsu", () => {
   it("20 件を超える入力は複数バッチに分けて解決する", async () => {
     const fetchImpl = vi.fn(async (input: string) => {
       // 問い合わせた ID をすべてヒットさせる
-      const entries: Record<string, unknown> = {};
+      const entries: Parameters<typeof makeKitsuResponse>[0] = {};
       for (const id of kitsuRequestedMalIds(input)) {
         entries[`m${id}`] = {
           coverImage: { medium: `https://media.kitsu.app/${id}.jpg` },
