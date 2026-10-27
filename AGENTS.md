@@ -50,6 +50,10 @@ vp run dev         # 全アプリの開発サーバを並列起動
 > `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
 > （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの oxfmt
 > （各パッケージと同じ 0.57 系、設定は既定値）で整形・確認する（issue #254）。
+> `lint` / `lint:fix` も同様に、ルート直下とパッケージ外の TS / JS をルートの oxlint
+> （各パッケージと同じ 1.72 系、設定は既定値）で検査する（issue #269）。
+> ルート向けの整形・検査はどちらも `.oxfmtignore` を共用し、
+> `.agents/` 等のエージェント状態は対象外。
 
 パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
 （`vp run --filter <パッケージ名> <script>` も同じ）。
@@ -143,7 +147,8 @@ vp -C apps/mobile exec vitest run --changed main                              # 
 
 - pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt にかけ、
   整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）。
-  ルート直下とパッケージ外のファイルは Oxfmt だけをかける
+  ルート直下とパッケージ外のファイルも、TS / JS は Oxlint と Oxfmt、
+  それ以外（json / yml 等）は Oxfmt だけをかける
 - pre-push: `vp run typecheck` と `vp run test`
 
 > CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (TypeScript 7 の tsc --noEmit) の 2 段**で構成される。
