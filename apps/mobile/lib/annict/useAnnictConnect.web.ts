@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/react-native";
 import { apiClient } from "@/lib/api";
@@ -150,6 +150,12 @@ export function useAnnictConnect(): UseAnnictConnect {
   // isConnecting(state) は非同期更新のため、反映前の連打で state（CSRF 値）が
   // 上書きされうる。ref で同期的に再入をブロックする。
   const inFlightRef = useRef(false);
+  // disconnect は try/finally を含み、react/memo-dependencies が deps を余剰と
+  // 誤検知する。初回キャプチャに固定しないよう ref 経由で最新値を読む。
+  const authApiRef = useRef({ getToken, queryClient });
+  useEffect(() => {
+    authApiRef.current = { getToken, queryClient };
+  });
 
   const connect = useCallback(
     async (options?: AnnictConnectOptions): Promise<AnnictConnectResult> => {
@@ -252,6 +258,7 @@ export function useAnnictConnect(): UseAnnictConnect {
   );
 
   const disconnect = useCallback(async () => {
+    const { getToken, queryClient } = authApiRef.current;
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。
     try {
       const clerkToken = await getToken();

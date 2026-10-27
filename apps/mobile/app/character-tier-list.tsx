@@ -258,6 +258,14 @@ export default function CharacterTierListScreen() {
     return savedData;
   }, [annictWorkId, save]);
 
+  // withRenderedSnapshot は try/finally を含むため react/memo-dependencies が
+  // deps を余剰と誤検知する。初回キャプチャに固定しないよう ref 経由で
+  // 最新の saveTierListData を呼ぶ。
+  const saveTierListDataRef = useRef(saveTierListData);
+  useEffect(() => {
+    saveTierListDataRef.current = saveTierListData;
+  });
+
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
   // generateImageFile は宣言より後でしか呼ばれないため、ここで参照してよい。
@@ -290,7 +298,7 @@ export default function CharacterTierListScreen() {
     async <T,>(run: () => Promise<T>): Promise<T> => {
       setIsSharing(true);
       try {
-        const savedData = await saveTierListData();
+        const savedData = await saveTierListDataRef.current();
         const snapshotReady = new Promise<void>((resolve) => {
           snapshotReadyRef.current = resolve;
         });
