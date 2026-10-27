@@ -143,9 +143,11 @@ function ElementBox({
   const renderScale = canvasSize.width / MEISHI_DESIGN_WIDTH;
 
   const start = useSharedValue<Transform>(el.transform);
-  // 最新の transform を SharedValue 経由で参照することで、pan の useMemo 依存から外す。
-  // これにより setElementTransformLive でドラッグ中に el.transform が変わっても、
-  // Gesture.Pan インスタンスが再生成されず、ジェスチャが中断されない。
+  // 最新の transform を SharedValue 経由で参照することで、pan の useMemo 依存から
+  // 変化する値を外す。SharedValue オブジェクト自体は安定した参照なので deps に
+  // 含めても Gesture.Pan インスタンスは再生成されない。これにより
+  // setElementTransformLive でドラッグ中に el.transform が変わっても、
+  // ジェスチャが中断されない。
   // ref ではなく SharedValue にするのは、ジェスチャコールバックから ref を
   // 触ると React Compiler 系 lint（react/refs）に引っかかるため。
   const latestTransform = useSharedValue<Transform>(el.transform);
@@ -172,7 +174,15 @@ function ElementBox({
         .onEnd(() => {
           onCommit?.();
         }),
-    [isSelected, canvasSize.width, canvasSize.height, onTransform, onCommit],
+    [
+      isSelected,
+      canvasSize.width,
+      canvasSize.height,
+      start,
+      latestTransform,
+      onTransform,
+      onCommit,
+    ],
   );
 
   const composed = useMemo(() => Gesture.Race(pan, tap), [pan, tap]);

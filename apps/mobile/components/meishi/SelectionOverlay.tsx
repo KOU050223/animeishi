@@ -89,7 +89,7 @@ export function SelectionOverlay({
           onTransform({ ...s, x: nx, y: ny, width: nw, height: nh });
         })
         .onEnd(() => onCommit?.()),
-    [onTransform, onCommit],
+    [start, latestTransform, canvasW, canvasH, onTransform, onCommit],
   );
 
   const resizeTl = useMemo(() => buildResize("tl"), [buildResize]);
@@ -124,7 +124,15 @@ export function SelectionOverlay({
           onTransform({ ...s, rotation: nextRotation });
         })
         .onEnd(() => onCommit?.()),
-    [canvasOrigin, onTransform, onCommit],
+    [
+      canvasOrigin,
+      start,
+      latestTransform,
+      canvasW,
+      canvasH,
+      onTransform,
+      onCommit,
+    ],
   );
 
   // 移動ジェスチャ（選択枠の中央部分をドラッグ）
@@ -141,7 +149,7 @@ export function SelectionOverlay({
           onTransform({ ...s, x: nx, y: ny });
         })
         .onEnd(() => onCommit?.()),
-    [onTransform, onCommit],
+    [start, latestTransform, canvasW, canvasH, onTransform, onCommit],
   );
 
   return (
