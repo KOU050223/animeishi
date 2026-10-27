@@ -247,7 +247,7 @@ describe("キャラクター tier 表 API", () => {
         { method: "GET" },
         TEST_BINDINGS,
       );
-      expect((await listRes.json()) as unknown[]).toHaveLength(1);
+      expect(await listRes.json()).toHaveLength(1);
     });
 
     it("PUT: annict_characters に無いキャラクターは 400 を返す", async () => {

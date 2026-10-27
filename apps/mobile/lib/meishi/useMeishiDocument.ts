@@ -57,7 +57,7 @@ export function useMeishiDocument() {
 
   useEffect(() => {
     let cancelled = false;
-    loadMeishiDocument().then((persisted) => {
+    void loadMeishiDocument().then((persisted) => {
       if (cancelled) return;
       setDoc(persisted);
       setLoaded(true);
@@ -168,7 +168,7 @@ export function useMeishiDocument() {
       setDocLive((prev) => ({
         ...prev,
         elements: prev.elements.map((el) =>
-          el.id === id ? ({ ...el, transform } as MeishiElement) : el,
+          el.id === id ? { ...el, transform } : el,
         ),
       }));
     },

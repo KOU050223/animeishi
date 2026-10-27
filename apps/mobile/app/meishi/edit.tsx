@@ -421,7 +421,7 @@ function useMeishiImageElements({
   );
 
   const applyImage = (
-    target: "new" | string,
+    target: string,
     uri: string,
     source: "anime" | "upload",
   ) => {
@@ -438,7 +438,7 @@ function useMeishiImageElements({
 
   // 端末から選んだ画像は R2 へアップロードして公開 URL を uri に保存する
   // （ローカル file:// URI は Web 版のプレビューや他端末で表示できないため）。
-  const pickUploadImage = async (target: "new" | string) => {
+  const pickUploadImage = async (target: string) => {
     try {
       const asset = await pickMeishiImage();
       if (!asset) return;

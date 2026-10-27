@@ -109,9 +109,7 @@ describe("dアニメインポート API", () => {
         TEST_BINDINGS,
       );
       expect(res.status).toBe(401);
-      expect(((await res.json()) as { code: string }).code).toBe(
-        "annict_token_required",
-      );
+      expect((await res.json()).code).toBe("annict_token_required");
     });
 
     it("タイトルを Annict 作品へ照合して exact/candidates/none を返す", async () => {
@@ -260,9 +258,7 @@ describe("dアニメインポート API", () => {
         TEST_BINDINGS,
       );
       expect(res.status).toBe(401);
-      expect(((await res.json()) as { code: string }).code).toBe(
-        "annict_token_invalid",
-      );
+      expect((await res.json()).code).toBe("annict_token_invalid");
     });
 
     it("works が空配列なら 400", async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { requestUrl } from "@/test-utils/fetch";
 import {
   isKitsuAnimeListUrl,
   makeKitsuAnimeListResponse,
@@ -79,7 +80,7 @@ describe("resolvePendingImageFallbacks", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async (input) => {
-        const url = String(input);
+        const url = requestUrl(input);
         expect(isKitsuAnimeListUrl(url)).toBe(true);
         return makeKitsuAnimeListResponse({
           "50743": "https://media.kitsu.app/50743.jpg",
@@ -116,7 +117,7 @@ describe("resolvePendingImageFallbacks", () => {
     // Workers から届かない Jikan には行かず、Kitsu に無ければその場で
     // 'none' に確定させる（再試行は resolvedAt 起点の TTL 再解決が担う）。
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]?.toString()).toContain("kitsu.io");
+    expect(requestUrl(fetchMock.mock.calls[0]?.[0])).toContain("kitsu.io");
     expect(row?.resolvedImageUrl).toBeNull();
     expect(row?.imageSource).toBe("none");
     expect(row?.resolvedAt).not.toBeNull();

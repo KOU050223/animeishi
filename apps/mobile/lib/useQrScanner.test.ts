@@ -17,7 +17,7 @@ function scan(data: string): BarcodeScanningResult {
     type: "qr",
     bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
     cornerPoints: [],
-  } as unknown as BarcodeScanningResult;
+  };
 }
 
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";

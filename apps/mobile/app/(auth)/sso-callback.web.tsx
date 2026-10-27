@@ -33,7 +33,7 @@ export default function SsoCallbackScreen() {
       try {
         const url = new URL(to, window.location.origin);
         if (url.origin === window.location.origin) {
-          router.replace((url.pathname + url.search + url.hash) as never);
+          router.replace(url.pathname + url.search + url.hash);
           return;
         }
       } catch {

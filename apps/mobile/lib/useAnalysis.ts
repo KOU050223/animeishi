@@ -98,11 +98,11 @@ export function useGenerateAnalysis() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? analysisQueryKey(userId) : ANALYSIS_QUERY_KEY,
       });
       // 生成前の同期で履歴の表示データも変わり得るため併せて無効化する。
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId
           ? [...WATCH_HISTORY_QUERY_KEY, userId]
           : WATCH_HISTORY_QUERY_KEY,

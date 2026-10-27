@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { setupTestDb } from "@/test-utils/setup-db";
+import { requestUrl } from "@/test-utils/fetch";
 import {
   isKitsuAnimeListUrl,
   isKitsuMappingsUrl,
@@ -63,7 +64,7 @@ const KITSU = "kitsu";
 const KITSU_ANIME = "kitsuAnime";
 function routeFetch(routes: Record<string, () => Response>) {
   return vi.fn(async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input.toString();
+    const url = requestUrl(input);
     const route = isKitsuMappingsUrl(url)
       ? routes[KITSU]
       : isKitsuAnimeListUrl(url)
@@ -511,7 +512,7 @@ describe("serveWorkImage", () => {
       // MAL の画像を取りに行った時点で削除スクリプトが走ったことにする。
       const blockingFetch = vi.fn(
         async (input: RequestInfo | URL, init?: RequestInit) => {
-          if (String(input) === picture) {
+          if (requestUrl(input) === picture) {
             await db
               .update(annictWorks)
               .set({ imageSource: "blocked", resolvedImageUrl: null })
@@ -552,7 +553,9 @@ describe("serveWorkImage", () => {
       });
 
       expect(res.status).toBe(404);
-      const calledUrls = fetchImpl.mock.calls.map(([input]) => String(input));
+      const calledUrls = fetchImpl.mock.calls.map(([input]) =>
+        requestUrl(input),
+      );
       expect(calledUrls).toEqual(["https://old-official.example.com/og.png"]);
       const row = await getWork(db);
       expect(row.imageSource).toBe("blocked");
@@ -889,7 +892,7 @@ describe("serveWorkImage", () => {
       const unescaped = signedAt("sig");
       await insertWork(db, { resolvedImageUrl: escaped });
       const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
-        const url = typeof input === "string" ? input : input.toString();
+        const url = requestUrl(input);
         // &amp; のまま叩かれたら失敗とみなす
         return url === unescaped
           ? makeImageResponse("image/jpeg")

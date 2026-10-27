@@ -5,6 +5,7 @@ import {
   makeKitsuCharactersResponse,
   makeKitsuResponse,
 } from "@/test-utils/kitsu";
+import { requestUrl } from "@/test-utils/fetch";
 import {
   fetchKitsuCharacters,
   matchCharacterImages,
@@ -152,7 +153,7 @@ describe("fetchKitsuCharacters", () => {
       },
     ]);
     // mappings → /anime/k1234/characters の順で呼ばれる
-    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    const urls = fetchMock.mock.calls.map((c) => requestUrl(c[0]));
     expect(isKitsuMappingsUrl(urls[0])).toBe(true);
     expect(urls[1]).toContain("/anime/k1234/characters");
   });
@@ -230,7 +231,9 @@ describe("fetchKitsuCharacters", () => {
     const result = await fetchKitsuCharacters(1234, fetchMock);
     expect(result).toEqual([]);
     expect(
-      fetchMock.mock.calls.every((c) => !isKitsuCharactersUrl(String(c[0]))),
+      fetchMock.mock.calls.every(
+        (c) => !isKitsuCharactersUrl(requestUrl(c[0])),
+      ),
     ).toBe(true);
   });
 

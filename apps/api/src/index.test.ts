@@ -36,7 +36,7 @@ import handler from "@/index";
 const WEBHOOK = "https://discord.com/api/webhooks/1/secret-token";
 const captureException = vi.mocked(Sentry.captureException);
 
-function fakeKv(): KVNamespace {
+function fakeKv() {
   const store = new Map<string, string>();
   return {
     get: vi.fn(async (key: string) => store.get(key) ?? null),
@@ -46,8 +46,10 @@ function fakeKv(): KVNamespace {
     delete: vi.fn(async (key: string) => {
       store.delete(key);
     }),
-  } as unknown as KVNamespace;
+  };
 }
+
+type ScheduledEnv = Parameters<NonNullable<typeof handler.scheduled>>[1];
 
 // scheduled は waitUntil に非同期処理を積むだけなので、積まれた promise が
 // すべて終わるのを待ってから検証する。
@@ -60,14 +62,14 @@ function runScheduled(env: object): Promise<unknown[]> {
     passThroughOnException: () => {},
   } as unknown as ExecutionContext;
   handler.scheduled!(
-    { cron: "*/10 * * * *", scheduledTime: Date.now() } as ScheduledController,
-    env as never,
+    { cron: "*/10 * * * *", scheduledTime: Date.now(), noRetry: vi.fn() },
+    env as ScheduledEnv,
     ctx,
   );
   return Promise.all(pending);
 }
 
-function cronEnv(kv: KVNamespace) {
+function cronEnv(kv: ReturnType<typeof fakeKv>) {
   return {
     DB: {},
     DISCORD_WEBHOOK_URL: WEBHOOK,
@@ -125,7 +127,7 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
 
     expect(captureException).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const body = String(fetchSpy.mock.calls[0][1]?.body);
+    const body = fetchSpy.mock.calls[0][1]?.body as string;
     expect(body).toContain("`cron:mal_id_search` が 2 回連続で失敗");
     expect(body).not.toContain("image_fallback");
   });
@@ -159,7 +161,7 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
 
     expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain(
+    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
       "`cron:image_fallback` が 2 回連続で失敗",
     );
   });

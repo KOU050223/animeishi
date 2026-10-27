@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { requestUrl } from "../../test-utils/fetch";
 import { tierLists } from "@/features/tier-lists";
 import { share } from "@/features/share";
 import { users, annictWorks } from "@/db/schema";
@@ -527,7 +528,7 @@ describe("GET /share/image-proxy", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async (input) => {
-        const url = typeof input === "string" ? input : input.toString();
+        const url = requestUrl(input);
         if (url === KNOWN_IMAGE_URL) {
           return new Response(null, {
             status: 302,

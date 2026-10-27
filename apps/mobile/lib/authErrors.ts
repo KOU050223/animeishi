@@ -49,14 +49,14 @@ export function getClerkErrorCode(err: unknown): string | undefined {
     typeof err === "object" &&
     err !== null &&
     "errors" in err &&
-    Array.isArray((err as { errors: unknown }).errors)
+    Array.isArray(err.errors)
   ) {
     const first = (err as { errors: Array<unknown> }).errors[0];
     if (
       typeof first === "object" &&
       first !== null &&
       "code" in first &&
-      typeof (first as { code: unknown }).code === "string"
+      typeof first.code === "string"
     ) {
       return (first as { code: string }).code;
     }

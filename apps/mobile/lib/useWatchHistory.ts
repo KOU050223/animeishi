@@ -189,7 +189,7 @@ export function useDeleteWatchHistory() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId
           ? watchHistoryQueryKey(userId)
           : WATCH_HISTORY_QUERY_KEY,

@@ -29,7 +29,7 @@ export async function pickAvatarImage(): Promise<ImagePicker.ImagePickerAsset | 
   if (result.canceled || result.assets.length === 0) {
     return null;
   }
-  return result.assets[0]!;
+  return result.assets[0];
 }
 
 /**
@@ -77,7 +77,7 @@ export function useProfileAvatarUpload() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? [...PROFILE_QUERY_KEY, userId] : PROFILE_QUERY_KEY,
       });
     },

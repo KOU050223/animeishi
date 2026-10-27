@@ -35,11 +35,11 @@ describe("annictGraphQL", () => {
       "tok_abc",
       "query { viewer { id } }",
       { foo: "bar" },
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(data).toEqual({ viewer: { id: 1 } });
-    const [url, init] = fetchMock.mock.calls[0]!;
+    const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(ANNICT_GRAPHQL_ENDPOINT);
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer tok_abc");
@@ -54,9 +54,10 @@ describe("annictGraphQL", () => {
       .fn()
       .mockResolvedValue(jsonResponse({ errors: [{ message: "boom" }] }));
 
-    await expect(
-      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
-    ).rejects.toMatchObject({ name: "AnnictApiError", message: "boom" });
+    await expect(annictGraphQL("t", "q", {}, fetchMock)).rejects.toMatchObject({
+      name: "AnnictApiError",
+      message: "boom",
+    });
   });
 
   it("HTTP エラーを status 付き AnnictApiError にする", async () => {
@@ -64,17 +65,18 @@ describe("annictGraphQL", () => {
       .fn()
       .mockResolvedValue(new Response("nope", { status: 500 }));
 
-    await expect(
-      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
-    ).rejects.toMatchObject({ status: 500 });
+    await expect(annictGraphQL("t", "q", {}, fetchMock)).rejects.toMatchObject({
+      status: 500,
+    });
   });
 
   it("fetch の reject（ネットワーク障害）を AnnictApiError(status=0) に正規化する", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
 
-    await expect(
-      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
-    ).rejects.toMatchObject({ name: "AnnictApiError", status: 0 });
+    await expect(annictGraphQL("t", "q", {}, fetchMock)).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 0,
+    });
   });
 
   it("2xx の非 JSON 応答を AnnictApiError に正規化する", async () => {
@@ -84,9 +86,9 @@ describe("annictGraphQL", () => {
         new Response("<html>not json</html>", { status: 200 }),
       );
 
-    await expect(
-      annictGraphQL("t", "q", {}, fetchMock as unknown as typeof fetch),
-    ).rejects.toBeInstanceOf(AnnictApiError);
+    await expect(annictGraphQL("t", "q", {}, fetchMock)).rejects.toBeInstanceOf(
+      AnnictApiError,
+    );
   });
 });
 
@@ -108,11 +110,11 @@ describe("exchangeAnnictCode", () => {
         clientSecret: "secret",
         redirectUri: "animeishi://annict",
       },
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(token.access_token).toBe("at_123");
-    const [url, init] = fetchMock.mock.calls[0]!;
+    const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(ANNICT_TOKEN_ENDPOINT);
     const params = new URLSearchParams(init.body as string);
     expect(params.get("grant_type")).toBe("authorization_code");
@@ -135,7 +137,7 @@ describe("exchangeAnnictCode", () => {
           clientSecret: "s",
           redirectUri: "r",
         },
-        fetchMock as unknown as typeof fetch,
+        fetchMock,
       ),
     ).rejects.toMatchObject({ name: "AnnictApiError", status: 400 });
   });
@@ -187,17 +189,14 @@ describe("fetchAnnictLibraryEntries", () => {
         }),
       );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries.map((e) => e.annictWorkId)).toEqual([1, 2]);
     expect(entries[0]?.state).toBe("WATCHING");
     expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 2 ページ目は前ページの endCursor を after に載せる
-    const secondBody = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(secondBody.variables.after).toBe("cursor1");
   });
 
@@ -212,10 +211,7 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.annictWorkId).toBe(1);
@@ -228,10 +224,7 @@ describe("fetchAnnictLibraryEntries", () => {
         libraryPage([node(3, null)], { hasNextPage: false, endCursor: null }),
       );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.state).toBeNull();
@@ -256,10 +249,7 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries[0]?.imageUrl).toBe("https://img/4-og.jpg");
   });
@@ -284,10 +274,7 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries[0]?.imageUrl).toBe(
       "https://imgproxy.annict.test/works/6.jpg",
@@ -302,10 +289,7 @@ describe("fetchAnnictLibraryEntries", () => {
       }),
     );
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -323,7 +307,7 @@ describe("fetchAnnictLibraryEntries", () => {
     );
 
     await expect(
-      fetchAnnictLibraryEntries("tok", fetchMock as unknown as typeof fetch),
+      fetchAnnictLibraryEntries("tok", fetchMock),
     ).rejects.toMatchObject({
       name: "AnnictApiError",
       status: 502,
@@ -335,10 +319,7 @@ describe("fetchAnnictLibraryEntries", () => {
       .fn()
       .mockResolvedValue(jsonResponse({ data: { viewer: null } }));
 
-    const entries = await fetchAnnictLibraryEntries(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries).toEqual([]);
   });
@@ -374,11 +355,7 @@ describe("fetchAnnictWorkByAnnictId", () => {
       }),
     );
 
-    const work = await fetchAnnictWorkByAnnictId(
-      "tok",
-      10,
-      fetchMock as unknown as typeof fetch,
-    );
+    const work = await fetchAnnictWorkByAnnictId("tok", 10, fetchMock);
 
     expect(work?.imageUrl).toBe("https://img/10-twitter-bigger.jpg");
   });
@@ -395,13 +372,10 @@ describe("fetchAnnictTokenInfo", () => {
       }),
     );
 
-    const info = await fetchAnnictTokenInfo(
-      "tok",
-      fetchMock as unknown as typeof fetch,
-    );
+    const info = await fetchAnnictTokenInfo("tok", fetchMock);
 
     expect(info.resource_owner_id).toBe(42);
-    const [url, init] = fetchMock.mock.calls[0]!;
+    const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(ANNICT_TOKEN_INFO_ENDPOINT);
     expect(init.headers.Authorization).toBe("Bearer tok");
   });
@@ -411,9 +385,9 @@ describe("fetchAnnictTokenInfo", () => {
       .fn()
       .mockResolvedValue(new Response("", { status: 401 }));
 
-    await expect(
-      fetchAnnictTokenInfo("bad", fetchMock as unknown as typeof fetch),
-    ).rejects.toMatchObject({ status: 401 });
+    await expect(fetchAnnictTokenInfo("bad", fetchMock)).rejects.toMatchObject({
+      status: 401,
+    });
   });
 });
 
@@ -451,7 +425,7 @@ describe("searchAnnictWorksByTitle", () => {
       "tok",
       "進撃",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
@@ -462,7 +436,7 @@ describe("searchAnnictWorksByTitle", () => {
     expect(result.endCursor).toBe("cursor1");
 
     // GraphQL 変数に titles と after が載る
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.variables.titles).toEqual(["進撃"]);
     expect(body.variables.after).toBeNull();
   });
@@ -474,14 +448,9 @@ describe("searchAnnictWorksByTitle", () => {
         searchPage([workNode(3)], { hasNextPage: false, endCursor: null }),
       );
 
-    await searchAnnictWorksByTitle(
-      "tok",
-      "鬼滅",
-      "cursorX",
-      fetchMock as unknown as typeof fetch,
-    );
+    await searchAnnictWorksByTitle("tok", "鬼滅", "cursorX", fetchMock);
 
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.variables.after).toBe("cursorX");
   });
 
@@ -494,7 +463,7 @@ describe("searchAnnictWorksByTitle", () => {
       "tok",
       "存在しない",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works).toHaveLength(0);
@@ -525,7 +494,7 @@ describe("searchAnnictWorksByTitle", () => {
       "tok",
       "作品5",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works[0]?.imageUrl).toBe("https://img/5-twitter.jpg");
@@ -567,7 +536,7 @@ describe("searchAnnictWorksBySeason", () => {
       "tok",
       "2026-spring",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
@@ -575,8 +544,8 @@ describe("searchAnnictWorksBySeason", () => {
     expect(result.endCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 各ページに seasons を載せ、2 ページ目は前ページの endCursor を after に載せる。
-    const first = JSON.parse(fetchMock.mock.calls[0]![1].body);
-    const second = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    const first = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const second = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(first.variables.seasons).toEqual(["2026-spring"]);
     expect(second.variables.after).toBe("c1");
   });
@@ -592,10 +561,10 @@ describe("searchAnnictWorksBySeason", () => {
       "tok",
       "2026-spring",
       "cursorX",
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.variables.after).toBe("cursorX");
     expect(result.works.map((w) => w.annictWorkId)).toEqual([5]);
   });
@@ -610,12 +579,7 @@ describe("searchAnnictWorksBySeason", () => {
       );
 
     await expect(
-      searchAnnictWorksBySeason(
-        "tok",
-        "2026-spring",
-        null,
-        fetchMock as unknown as typeof fetch,
-      ),
+      searchAnnictWorksBySeason("tok", "2026-spring", null, fetchMock),
     ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -628,12 +592,7 @@ describe("searchAnnictWorksBySeason", () => {
       );
 
     await expect(
-      searchAnnictWorksBySeason(
-        "tok",
-        "2026-spring",
-        null,
-        fetchMock as unknown as typeof fetch,
-      ),
+      searchAnnictWorksBySeason("tok", "2026-spring", null, fetchMock),
     ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -652,7 +611,7 @@ describe("searchAnnictWorksBySeason", () => {
       "tok",
       "2026-spring",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works).toHaveLength(12);
@@ -673,7 +632,7 @@ describe("searchAnnictWorksBySeason", () => {
       "tok",
       "2026-spring",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1]);
@@ -689,7 +648,7 @@ describe("searchAnnictWorksBySeason", () => {
       "tok",
       "2026-spring",
       null,
-      fetchMock as unknown as typeof fetch,
+      fetchMock,
     );
 
     expect(result.works).toHaveLength(0);

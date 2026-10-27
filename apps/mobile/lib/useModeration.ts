@@ -82,11 +82,11 @@ export function useBlockUser() {
     },
     onSuccess: (_data, targetUserId) => {
       // フレンド一覧から消え、ブロック一覧に現れ、名刺は見えなくなる。
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? blocksQueryKey(userId) : BLOCKS_QUERY_KEY,
       });
-      queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
+      void queryClient.invalidateQueries({
         queryKey: ["public-profile", targetUserId],
       });
     },
@@ -110,11 +110,11 @@ export function useUnblockUser() {
       return res.json();
     },
     onSuccess: (_data, targetUserId) => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? blocksQueryKey(userId) : BLOCKS_QUERY_KEY,
       });
-      queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
+      void queryClient.invalidateQueries({
         queryKey: ["public-profile", targetUserId],
       });
     },

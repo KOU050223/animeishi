@@ -39,7 +39,7 @@ vp install                            # 依存インストール + Git フック
 
 ```
 vp run typecheck   # 型チェック (TypeScript 7 の tsc --noEmit)。CI の "TypeScript check" 相当
-vp run lint        # Oxlint
+vp run lint        # Oxlint（type-aware ルール = tsgolint 有効。issue #277）
 vp run lint:fix    # Oxlint の自動修正
 vp run fmt         # Oxfmt で整形（vite-plus 同梱版を `vp fmt` 経由で実行）
 vp run fmt:check   # 整形済みかの確認。CI の "Oxfmt check" 相当
@@ -66,6 +66,22 @@ vp run dev         # 全アプリの開発サーバを並列起動
 > 整形・検査の対象外はルートの `.oxfmtignore` で指定し、fmt・lint のどちらの
 > 呼び出しにも `--ignore-path` で渡す（`.agents/` 等のエージェント状態は対象外）。
 > `.oxfmtignore` は自動では読まれないため、flag を付けない裸の `vp fmt` には効かない。
+> oxfmt では positional の `'!apps/**'` が否定パターンとして効くが、
+> oxlint の positional は `!` を解さない。ルートの `vp lint` でパッケージを
+> 外すときは `--ignore-pattern 'apps/**'` を使う（`vp run lint` の定義を参照）。
+>
+> `lint.options.typeAware` で tsgolint による type-aware ルールを有効にしている
+> （issue #277）。型情報は各ファイルから最も近い tsconfig で自動解決される
+> （`baseUrl` を含む tsconfig があると type-aware がスキップされる）。
+> 有効化しているルール: `typescript/no-floating-promises`・`typescript/await-thenable`・
+> `typescript/no-unnecessary-type-assertion`・`typescript/restrict-template-expressions`・
+> `typescript/no-misused-promises`（`checksVoidReturn: false`。onPress={asyncFn} や
+> モック実装の誤検知を避けるため universe の typescript-analysis と同じ設定）。
+> correctness カテゴリの type-aware ルール（`no-base-to-string` 等）も
+> 型情報が取れるようになったことで有効に動くようになっている。
+> type-aware は tsgolint が TypeScript プログラムを読むため、パッケージ lint 1 回で
+> ピークメモリ ~1GB 程度になる（mobile 実測）。並列 worktree 運用時は
+> `VP_RUN_CONCURRENCY_LIMIT` で `vp run` の同時実行を絞ること。
 
 パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
 （`vp run --filter <パッケージ名> <script>` も同じ）。

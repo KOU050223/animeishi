@@ -55,7 +55,7 @@ function okFetch() {
 
 function sentBody(fetchImpl: ReturnType<typeof okFetch>, call = 0) {
   const init = fetchImpl.mock.calls[call][1];
-  return JSON.parse(String(init?.body)) as {
+  return JSON.parse(init?.body as string) as {
     content: string;
     allowed_mentions: { parse: string[] };
   };

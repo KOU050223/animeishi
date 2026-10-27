@@ -427,7 +427,7 @@ describe("watchHistoryRepository", () => {
       }));
       const entries = works.map((w, i) => ({
         annictWorkId: w.annictWorkId,
-        state: (i % 2 === 0 ? "WATCHING" : "WATCHED") as "WATCHING" | "WATCHED",
+        state: i % 2 === 0 ? "WATCHING" : "WATCHED",
       }));
 
       const result = await repo.syncMyLibraryFromAnnict(works, entries);

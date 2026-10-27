@@ -327,8 +327,8 @@ function WatchHistoryRow({
 }) {
   const { colorScheme } = useColorScheme();
   const palette = STATUS_COLORS[colorScheme === "dark" ? "dark" : "light"];
-  const color = palette[history.state as WatchStatus] ?? palette.WANNA_WATCH;
-  const label = WATCH_STATUS_LABELS[history.state as WatchStatus];
+  const color = palette[history.state] ?? palette.WANNA_WATCH;
+  const label = WATCH_STATUS_LABELS[history.state];
 
   return (
     <View
@@ -387,7 +387,7 @@ function EditModal({
   onClose: () => void;
   onSave: (data: { state: WatchStatus }) => void;
 }) {
-  const [state, setState] = useState<WatchStatus>(history.state as WatchStatus);
+  const [state, setState] = useState<WatchStatus>(history.state);
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>

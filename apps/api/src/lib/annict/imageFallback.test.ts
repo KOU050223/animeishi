@@ -63,10 +63,7 @@ describe("resolveImagesForWorks", () => {
 
   it("空入力は fetch を叩かず空配列を返す", async () => {
     const fetchImpl = vi.fn();
-    const res = await resolveImagesForWorks(
-      [],
-      fetchImpl as unknown as typeof fetch,
-    );
+    const res = await resolveImagesForWorks([], fetchImpl);
     expect(res).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -151,7 +148,7 @@ describe("resolveImagesForWorks", () => {
 
     const res = await resolveImagesForWorks(
       [{ annictWorkId: 700, malAnimeId: 7 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     // 一時障害かもしれないのでネガキャッシュせず、呼び出し側のクールダウン
@@ -264,7 +261,7 @@ describe("resolveImagesForWorks", () => {
 
       const res = await resolveImagesForWorks(
         [{ annictWorkId: 100, malAnimeId: 1 }],
-        fetchImpl as unknown as typeof fetch,
+        fetchImpl,
         { malClientId: "client-id" },
       );
 
@@ -277,7 +274,7 @@ describe("resolveImagesForWorks", () => {
 
       const res = await resolveImagesForWorks(
         [{ annictWorkId: 100, malAnimeId: 1 }],
-        fetchImpl as unknown as typeof fetch,
+        fetchImpl,
       );
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -299,7 +296,7 @@ describe("resolveImagesForWorks", () => {
                   reject(new Error("aborted")),
                 );
               }),
-          } as unknown as Response;
+          };
         });
 
         const pending = resolveImagesForWorks(
@@ -370,7 +367,7 @@ describe("resolveImagesForWorks", () => {
 
     const res = await resolveImagesForWorks(
       [{ annictWorkId: 900, malAnimeId: 1 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([]);
@@ -388,7 +385,7 @@ describe("resolveImagesForWorks", () => {
         { annictWorkId: 1, malAnimeId: 42 },
         { annictWorkId: 2, malAnimeId: 42 },
       ],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     // dedupe しているので Kitsu は 1 回
@@ -473,7 +470,7 @@ describe("resolveImagesForWorks", () => {
 
     const res = await resolveImagesForWorks(
       [{ annictWorkId: 200, malAnimeId: null, kitsuAnimeId: 50743 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([
@@ -491,7 +488,7 @@ describe("resolveImagesForWorks", () => {
 
     const res = await resolveImagesForWorks(
       [{ annictWorkId: 300, malAnimeId: null, kitsuAnimeId: 50743 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([]);
@@ -501,10 +498,7 @@ describe("resolveImagesForWorks", () => {
 describe("resolveImagesViaKitsu", () => {
   it("空入力は fetch を叩かず空配列を返す", async () => {
     const fetchImpl = vi.fn();
-    const res = await resolveImagesViaKitsu(
-      [],
-      fetchImpl as unknown as typeof fetch,
-    );
+    const res = await resolveImagesViaKitsu([], fetchImpl);
     expect(res).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -545,7 +539,7 @@ describe("resolveImagesViaKitsu", () => {
 
     const res = await resolveImagesViaKitsu(
       [{ annictWorkId: 700, malAnimeId: 7 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([]);
@@ -560,7 +554,7 @@ describe("resolveImagesViaKitsu", () => {
           coverImage: { medium: `https://media.kitsu.app/${id}.jpg` },
         };
       }
-      return makeKitsuResponse(entries as never);
+      return makeKitsuResponse(entries);
     });
 
     const inputs = Array.from({ length: 21 }, (_, i) => ({
@@ -611,7 +605,7 @@ describe("resolveImagesViaKitsu", () => {
 
     const res = await resolveImagesViaKitsu(
       [{ annictWorkId: 100, malAnimeId: 21 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([
@@ -631,7 +625,7 @@ describe("resolveImagesViaKitsu", () => {
 
     const res = await resolveImagesViaKitsu(
       [{ annictWorkId: 100, malAnimeId: 21 }],
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
 
     expect(res).toEqual([]);
@@ -700,7 +694,7 @@ describe("resolveImagesViaKitsu", () => {
 
       await resolveImagesViaKitsu(
         [{ annictWorkId: 100, malAnimeId: 1 }],
-        fetchImpl as unknown as typeof fetch,
+        fetchImpl,
       );
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -719,7 +713,7 @@ describe("resolveImagesViaKitsu", () => {
           { annictWorkId: 100, malAnimeId: 1 },
           { annictWorkId: 200, malAnimeId: 2 },
         ],
-        fetchImpl as unknown as typeof fetch,
+        fetchImpl,
       );
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -735,7 +729,7 @@ describe("resolveImagesViaKitsu", () => {
           { annictWorkId: 100, malAnimeId: 1 },
           { annictWorkId: 200, malAnimeId: 2 },
         ],
-        fetchImpl as unknown as typeof fetch,
+        fetchImpl,
       );
 
       expect(fetchImpl).toHaveBeenCalledTimes(3);

@@ -109,7 +109,7 @@ export function useAddFavorite() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? favoritesQueryKey(userId) : FAVORITES_QUERY_KEY,
       });
     },
@@ -134,7 +134,7 @@ export function useRemoveFavorite() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? favoritesQueryKey(userId) : FAVORITES_QUERY_KEY,
       });
     },

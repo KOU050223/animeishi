@@ -255,7 +255,7 @@ export function useBulkRegisterWatchHistory() {
     // 途中失敗（requestError）でも成功分が登録されている可能性があるため、
     // onSuccess（= mutationFn が正常終了した場合）で必ず無効化する。
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
     },
   });
 }

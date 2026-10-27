@@ -221,7 +221,7 @@ export function usePrefetchSeasonWorks(
           // 再取得失敗（error でも data 残存）は消さない。
           const state = queryClient.getQueryState(queryKey);
           if (state?.status === "error" && state.data === undefined) {
-            void queryClient.removeQueries({ queryKey, exact: true });
+            queryClient.removeQueries({ queryKey, exact: true });
           }
         });
     }

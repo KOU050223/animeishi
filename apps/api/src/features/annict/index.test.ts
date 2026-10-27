@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
+import { requestUrl } from "../../test-utils/fetch";
 import { annict } from "@/features/annict";
 import { users, annictTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -61,7 +62,7 @@ function mockAnnictFetch(opts: {
     tokenInfoStatus = 200,
   } = opts;
   return vi.fn(async (input: string | URL | Request) => {
-    const url = typeof input === "string" ? input : input.toString();
+    const url = requestUrl(input);
     if (url === ANNICT_TOKEN_ENDPOINT) {
       return new Response(
         JSON.stringify({
@@ -119,7 +120,7 @@ describe("Annict ルート (Web 連携)", () => {
   it("POST /exchange (mode:web): トークンを D1 に暗号化保存し、ボディにトークンを含めない", async () => {
     globalThis.fetch = mockAnnictFetch({
       accessToken: "annict_tok_secret",
-    }) as unknown as typeof fetch;
+    });
 
     const app = buildApp();
     const res = await app.request(
@@ -156,7 +157,7 @@ describe("Annict ルート (Web 連携)", () => {
   });
 
   it("POST /exchange (mode:web) 後に GET / が connected:true を返す", async () => {
-    globalThis.fetch = mockAnnictFetch({}) as unknown as typeof fetch;
+    globalThis.fetch = mockAnnictFetch({});
     const app = buildApp();
 
     await app.request(
@@ -183,7 +184,7 @@ describe("Annict ルート (Web 連携)", () => {
   it("POST /exchange (mode:native): 従来通りトークンをボディで返す", async () => {
     globalThis.fetch = mockAnnictFetch({
       accessToken: "native_tok",
-    }) as unknown as typeof fetch;
+    });
     const app = buildApp();
 
     const res = await app.request(
@@ -211,7 +212,7 @@ describe("Annict ルート (Web 連携)", () => {
   });
 
   it("POST /disconnect: D1 のトークンを削除し connected:false を返す", async () => {
-    globalThis.fetch = mockAnnictFetch({}) as unknown as typeof fetch;
+    globalThis.fetch = mockAnnictFetch({});
     const app = buildApp();
     // まず連携する。
     await app.request(
@@ -243,7 +244,7 @@ describe("Annict ルート (Web 連携)", () => {
   });
 
   it("mode:web だが暗号鍵未設定: 500 を返す", async () => {
-    globalThis.fetch = mockAnnictFetch({}) as unknown as typeof fetch;
+    globalThis.fetch = mockAnnictFetch({});
     const app = buildApp();
     const noKeyBindings = {
       ...TEST_BINDINGS,

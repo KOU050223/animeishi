@@ -83,7 +83,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     // では clerkMiddleware が next を呼ばずリダイレクト応答を返す。
     // その場合 auth が未設定で getAuth が throw するため、API としては
     // handshake 応答をそのまま返さず 401 にする（issue #154）。
-    if (await middleware(c as unknown as Context, async () => {})) {
+    if (await middleware(c, async () => {})) {
       return c.json({ error: "Unauthorized" }, 401);
     }
     const auth = getAuth(c as unknown as Context);
@@ -212,7 +212,7 @@ export const optionalAuth = createMiddleware<OptionalAuthEnv>(
       // handshake 応答（Response が返り next が呼ばれない）や
       // authenticateRequest / getAuth の例外は匿名閲覧にフォールバックする。
       // 公開エンドポイントなので Clerk のリダイレクトは返さない。
-      if (!(await middleware(c as unknown as Context, async () => {}))) {
+      if (!(await middleware(c, async () => {}))) {
         const auth = getAuth(c as unknown as Context);
         if (auth?.userId) {
           c.set("clerkUserId", auth.userId);

@@ -88,7 +88,7 @@ export function useUpdateProfile() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? profileQueryKey(userId) : PROFILE_QUERY_KEY,
       });
     },

@@ -284,7 +284,7 @@ describe("作品検索 API", () => {
       expect(body.hasNextPage).toBe(false);
       expect(fetchMock).toHaveBeenCalledTimes(2);
       const secondBody = JSON.parse(
-        (fetchMock.mock.calls[1]![1] as RequestInit).body as string,
+        (fetchMock.mock.calls[1][1] as RequestInit).body as string,
       );
       expect(secondBody.variables.after).toBe("c1");
     });
@@ -434,7 +434,7 @@ describe("作品検索 API", () => {
       );
 
       const body = JSON.parse(
-        (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+        (fetchMock.mock.calls[0][1] as RequestInit).body as string,
       );
       expect(body.variables.titles).toEqual(["鬼滅"]);
       expect(body.variables.after).toBe("cursorX");
