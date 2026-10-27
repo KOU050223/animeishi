@@ -293,6 +293,25 @@ API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` �
 後の実行が回収する）。他実行の登録が残ったまま死んでいる残骸は、
 登録の照合時に掃除する。
 
+ビルドと Maestro の実行は PC への負荷が大きいため、ホスト単位で同時に
+1 本に限るロックを取る（issue #291）。ロックはユーザー固有の一時領域
+（`getconf DARWIN_USER_TEMP_DIR`、通常は `$TMPDIR`）の
+`animeishi-e2e-host.lock` に mkdir で取り、`owner` に
+PID・起動時刻・ワークツリー名・プロセスグループ ID を書く。
+ビルド開始の直前に取得して
+Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
+別ワークツリーが実行中のときはエラーにせず、所有者の
+ワークツリー名・PID を表示しながら 30 秒おきに再確認して終了を待つ。
+待ち時間の上限は `E2E_HOST_LOCK_TIMEOUT`（秒、既定 3600）で、
+超えるとエラーで終える。所有者が SIGKILL 等で落ちた残骸ロックは
+ワークツリー内の `lock/` と同じく PID + 起動時刻で判定し、
+同じ一時領域の `animeishi-e2e-host.reclaim` で回収を直列化してから
+取り除く。回収時には、所有者のプロセスグループの中で親が launchd に
+付け替わった孤児（ppid=1）かつコマンドラインがビルド・テスト系
+（xcodebuild / maestro / XCTest ドライバ / simctl）のものだけを
+停止する。生存中の親シェルや vp・エージェントは ppid=1 ではないので
+誤って止めることはなく、API サーバ系（wrangler 等）も対象外。
+
 ### 前提
 
 - maestro CLI: `brew install mobile-dev-inc/tap/maestro`（JDK も必要）
@@ -320,6 +339,8 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
 - `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
+- `E2E_HOST_LOCK_TIMEOUT` … ホストロックの待ち時間の上限（秒、既定 3600。
+  超えるとエラーで終了）
 
 > e2e-ios.sh は通常のシェル（vp が入れた node / pnpm が PATH にある状態）から
 > そのまま xcodebuild 等を実行する。`CC` `SDKROOT` `DEVELOPER_DIR` などの

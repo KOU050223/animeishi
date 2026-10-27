@@ -13,6 +13,8 @@
 # 他ワーカーと衝突しないよう、E2E 専用シミュレーター（E2E_SIM_NAME、
 # 既定 "animeishi-e2e-<ワークツリー名>"）を simctl create で作って使う。
 # 同じワークツリーでの多重起動は .e2e-ios/lock で弾く（issue #275）。
+# ビルドと Maestro の実行はユーザー固有の一時領域の animeishi-e2e-host.lock で
+# PC 全体で同時 1 本に絞り、別ワークツリーの実行中は終わるまで待つ（issue #291）。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -25,6 +27,18 @@ STATE_DIR="$PWD/.e2e-ios"
 LOCK_DIR="$STATE_DIR/lock"
 LOCK_OWNER_FILE="$LOCK_DIR/owner"
 API_PID_FILE="$STATE_DIR/api.pid"
+# PC 全体で共有するホストロック（issue #291）。ビルドと Maestro の実行は
+# PC に大きな負荷をかけるため、全ワークツリーで共通の場所にロックを取って
+# 同時実行を 1 本に絞る。取得はビルド開始の直前（後述）に行い、
+# Maestro が終わるまで持つ。E2E_SKIP_BUILD=1 でも Maestro は重いので取る。
+# TMPDIR は実行環境で差がありうるので、環境変数に依らないユーザー固有の
+# 一時領域（macOS の DARWIN_USER_TEMP_DIR、それ以外は TMPDIR か /tmp）を使う。
+HOST_LOCK_BASE="$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo "${TMPDIR:-/tmp}")"
+HOST_LOCK_DIR="$HOST_LOCK_BASE/animeishi-e2e-host.lock"
+HOST_LOCK_OWNER_FILE="$HOST_LOCK_DIR/owner"
+HOST_LOCK_RECLAIM_DIR="$HOST_LOCK_BASE/animeishi-e2e-host.reclaim"
+# ホストロックを取得済みかの印。cleanup で自分が持つロックだけを外す。
+HOST_LOCK_HELD=""
 mkdir -p "$STATE_DIR"
 
 # ps -o lstart= の出力は前後に空白が付くので両端を削って返す。
@@ -33,12 +47,55 @@ lstart() {
   ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//; s/ *$//'
 }
 
-# ロック所有者がこのワークツリーで実行中の e2e-ios.sh なら真。
+# プロセスグループ ID を返す。ホストロックの残骸回収で、SIGKILL された
+# 実行が残した子プロセス（xcodebuild 等）を止めるのに使う。
+pgid() {
+  ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '
+}
+
+# 指定したプロセスグループの中で、死んだ所有者が起動したと分かる
+# 重いプロセスの PID を列挙する。
+# 非対話シェル（vp run やエージェントの exec）では e2e-ios.sh は自分の
+# グループリーダーにならず親と同じ PGID を引き継ぐため、グループ内には
+# 生存中の親シェル・vp・エージェント本体も混ざる。そこで対象を、
+#   - 親が launchd (ppid=1) に付け替わった孤児（= 所有者の死後も残ったもの）
+#   - コマンドラインがビルド・テスト系に一致するもの
+# に限定する。生きている親プロセスは ppid=1 ではないので誤って止めない。
+host_lock_orphan_pids() {
+  local pid ppid g comm
+  ps -eo pid=,ppid=,pgid=,command= | while read -r pid ppid g comm; do
+    [ "$g" = "$1" ] && [ "$ppid" = 1 ] || continue
+    case "$comm" in
+      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl*) ;;
+      *) continue ;;
+    esac
+    echo "$pid"
+  done
+}
+
+# 残骸ホストロックの所有者（死んだ e2e-ios.sh）が残した孤児プロセスを
+# 止める。$1 = 所有者に記録されていた PGID。親が SIGKILL されても
+# xcodebuild や Maestro は生き残るので、ロックだけ回収すると孤児ビルドが
+# 残り、結局並列ビルドになる。PGID はメンバーが生きている間は再利用
+# されないため、孤児になったメンバーは死んだ実行の残りと判断できる。
+reap_host_lock_orphans() {
+  local lock_pgid="$1" pids
+  { [ -n "$lock_pgid" ] && [ "$lock_pgid" != "$(pgid $$)" ]; } || return 0
+  pids="$(host_lock_orphan_pids "$lock_pgid")"
+  [ -n "$pids" ] || return 0
+  echo "終了した e2e:ios の孤児プロセスを停止します: $(echo "$pids" | tr '\n' ' ')"
+  printf '%s\n' "$pids" | xargs kill 2>/dev/null || true
+  sleep 5
+  pids="$(host_lock_orphan_pids "$lock_pgid")"
+  [ -z "$pids" ] || printf '%s\n' "$pids" | xargs kill -9 2>/dev/null || true
+}
+
+# ロック所有者が実行中の e2e-ios.sh なら真。$1 = owner ファイルのパス。
 # 記録した PID と起動時刻が現在のプロセスと一致するときだけ有効とみなし、
 # 前回実行が SIGKILL 等で残した残骸は偽（→ 取り直し）と判定する。
 lock_owner_alive() {
   local pid started
-  { read -r pid && read -r started; } <"$LOCK_OWNER_FILE" 2>/dev/null || return 1
+  { read -r pid && read -r started; } <"$1" 2>/dev/null || return 1
   [ -n "$pid" ] && [ -n "$started" ] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
   ps -o command= -p "$pid" 2>/dev/null | grep -q e2e-ios.sh || return 1
@@ -46,13 +103,14 @@ lock_owner_alive() {
 }
 
 # 既存ロックの状態を live / acquiring / stale で返す。
+# $1 = ロックディレクトリ、$2 = owner ファイルのパス。
 # live: 実行中 / acquiring: mkdir 直後で所有者情報の公開前 / stale: 残骸。
 # 所有者情報が無いロックは「取得中」か「書き込み前に殺された残骸」なので、
 # できてからの経過時間（stat -f %B）で見分ける。
 lock_state() {
-  if [ -s "$LOCK_OWNER_FILE" ]; then
-    lock_owner_alive && echo live || echo stale
-  elif [ $(( $(date +%s) - $(stat -f %B "$LOCK_DIR" 2>/dev/null || echo 0) )) -lt 60 ]; then
+  if [ -s "$2" ]; then
+    lock_owner_alive "$2" && echo live || echo stale
+  elif [ $(( $(date +%s) - $(stat -f %B "$1" 2>/dev/null || echo 0) )) -lt 60 ]; then
     echo acquiring
   else
     echo stale
@@ -70,7 +128,7 @@ while :; do
     mv "$STATE_DIR/owner.$$" "$LOCK_OWNER_FILE"
     break
   fi
-  case "$(lock_state)" in
+  case "$(lock_state "$LOCK_DIR" "$LOCK_OWNER_FILE")" in
     live)
       echo "このワークツリーで既に e2e:ios が実行中です (PID $(sed -n '1p' "$LOCK_OWNER_FILE"))。終わるまで待ってから再実行してください" >&2
       exit 1
@@ -83,7 +141,7 @@ while :; do
   # stale → 残骸ロックの回収。reclaim も mkdir の排他ロックで、
   # 取れた者だけが lock を消して取り直せる
   if mkdir "$STATE_DIR/reclaim" 2>/dev/null; then
-    if [ "$(lock_state)" != stale ]; then
+    if [ "$(lock_state "$LOCK_DIR" "$LOCK_OWNER_FILE")" != stale ]; then
       # 回収の隙間に別の実行がロックを取り直していた
       rm -rf "$STATE_DIR/reclaim"
       echo "このワークツリーで e2e:ios が実行中です。終わるまで待ってから再実行してください" >&2
@@ -106,7 +164,9 @@ done
 API_USERS_DIR="${TMPDIR:-/tmp}/animeishi-e2e-api-users"
 API_USER_FILE="$API_USERS_DIR/$(printf '%s' "$PWD" | cksum | cut -d' ' -f1)"
 mkdir -p "$API_USERS_DIR"
-printf '%s\n%s\n' "$$" "$(lstart $$)" >"$API_USER_FILE"
+# 登録はホストロック取得後に行う（後述）。待機中の実行を利用者に数えると、
+# ロック保持側が「他に使っている実行がいる」と判断して API を残し、
+# 待機側は起動者ではないので誰も止めずに孤児化する。
 
 # 自分以外に登録のあるワークツリーが生きているか。所有者が死んだ
 # 残骸エントリはここで掃除する。
@@ -140,6 +200,9 @@ cleanup() {
     fi
   fi
   rm -rf "$LOCK_DIR" "$STATE_DIR/owner.$$"
+  if [ -n "$HOST_LOCK_HELD" ]; then
+    rm -rf "$HOST_LOCK_DIR"
+  fi
 }
 trap cleanup EXIT
 
@@ -194,6 +257,77 @@ print(ts[-1]["identifier"])')"
   UDID="$(xcrun simctl create "$SIM_NAME" "$DEVICE_TYPE" "$RUNTIME_ID")"
 fi
 echo "使用シミュレーター: $SIM_NAME ($UDID)"
+
+# --- ホストロック取得（issue #291）--------------------------------------------
+# ここから先の API 起動・ビルド・シミュレーター操作・Maestro は PC に大きな
+# 負荷をかける（xcodebuild が clang を並列で多数走らせる）ため、ホストロックを
+# 取って PC 全体で同時に 1 本に絞る。ワークツリー内の lock とは違い、別
+# ワークツリーが実行中のときはエラーにせず、所有者のワークツリー名と PID を
+# 表示しながら 30 秒おきに再確認して終了を待つ。待ち時間の上限は
+# E2E_HOST_LOCK_TIMEOUT（秒、既定 3600）で、超えたらエラーで終える。
+# API 利用者登録より前に取る: 待機中に登録すると、ロック保持側が「API の
+# 利用者がいる」と判断して終了時に API を残し、待機側は起動者でないため
+# 誰も止めずに wrangler dev が孤児化する。
+HOST_LOCK_TIMEOUT="${E2E_HOST_LOCK_TIMEOUT:-3600}"
+case "$HOST_LOCK_TIMEOUT" in
+  # 非数値と、オーバーフローしうる 10 桁以上の値は既定値に戻す
+  '' | *[!0-9]* | ??????????*) HOST_LOCK_TIMEOUT=3600 ;;
+  # 先頭ゼロは $(( )) で 8 進数と解釈され 08/09 がエラーになるため 10 進数に正規化
+  *) HOST_LOCK_TIMEOUT=$((10#$HOST_LOCK_TIMEOUT)) ;;
+esac
+host_lock_deadline=$(( $(date +%s) + HOST_LOCK_TIMEOUT ))
+while :; do
+  if mkdir "$HOST_LOCK_DIR" 2>/dev/null; then
+    HOST_LOCK_HELD=1
+    # 所有者情報（PID・起動時刻・ワークツリー名・PGID）を一時ファイル経由で
+    # 一度に公開する。PGID は残骸回収時に孤児のビルドプロセスを止めるために使う
+    printf '%s\n%s\n%s\n%s\n' "$$" "$(lstart $$)" "$WORKTREE_NAME" "$(pgid $$)" >"$HOST_LOCK_DIR/owner.$$"
+    mv "$HOST_LOCK_DIR/owner.$$" "$HOST_LOCK_OWNER_FILE"
+    echo "ホストロックを取得しました (PID $$)。ビルドと Maestro を開始します"
+    break
+  fi
+  if [ "$(lock_state "$HOST_LOCK_DIR" "$HOST_LOCK_OWNER_FILE")" = stale ]; then
+    # 所有者が死んだ残骸 → ワークツリー内の lock と同じく reclaim ロックで
+    # 回収を直列化してから取り除き、取り直す
+    if mkdir "$HOST_LOCK_RECLAIM_DIR" 2>/dev/null; then
+      # ps の一時的な失敗で live の所有者を stale と誤認して消さないよう、
+      # 間を置いてから再確認する
+      sleep 1
+      if [ "$(lock_state "$HOST_LOCK_DIR" "$HOST_LOCK_OWNER_FILE")" = stale ]; then
+        host_lock_stale_pgid="$(sed -n '4p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
+        echo "終了した e2e:ios の残骸ホストロックを回収します"
+        rm -rf "$HOST_LOCK_DIR"
+        reap_host_lock_orphans "$host_lock_stale_pgid"
+      fi
+      rm -rf "$HOST_LOCK_RECLAIM_DIR"
+      continue
+    elif [ $(( $(date +%s) - $(stat -f %B "$HOST_LOCK_RECLAIM_DIR" 2>/dev/null || echo 0) )) -gt 120 ]; then
+      rm -rf "$HOST_LOCK_RECLAIM_DIR" # 回収処理自体が殺された残骸
+      continue
+    fi
+    # 別の実行が残骸を回収中 → 下の待機に回る
+  fi
+  host_lock_now="$(date +%s)"
+  if [ "$host_lock_now" -ge "$host_lock_deadline" ]; then
+    echo "e2e:ios のホストロックが ${HOST_LOCK_TIMEOUT} 秒（E2E_HOST_LOCK_TIMEOUT）待っても取れませんでした。実行中の e2e:ios を確認してください" >&2
+    exit 1
+  fi
+  host_lock_owner_pid="$(sed -n '1p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
+  host_lock_owner_worktree="$(sed -n '3p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
+  if [ -n "$host_lock_owner_pid" ]; then
+    echo "別ワークツリーの e2e:ios (${host_lock_owner_worktree:-不明}, PID $host_lock_owner_pid) が終わるのを待っています ..."
+  else
+    echo "別ワークツリーの e2e:ios が起動処理中です。ホストロックを待っています ..."
+  fi
+  # 上限を超えて眠らないよう、残り秒数と 30 の小さい方だけ待つ
+  host_lock_sleep=$(( host_lock_deadline - host_lock_now ))
+  [ "$host_lock_sleep" -gt 30 ] && host_lock_sleep=30
+  sleep "$host_lock_sleep"
+done
+
+# ホストロックを取れたので API の利用者として登録する（待機中は登録しない。
+# 理由は上のコメント参照）
+printf '%s\n%s\n' "$$" "$(lstart $$)" >"$API_USER_FILE"
 
 # --- API (wrangler dev) ------------------------------------------------------
 # アカウント削除は DELETE /me を呼ぶためローカル API が必須。
