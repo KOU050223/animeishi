@@ -53,34 +53,40 @@ pgid() {
   ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '
 }
 
-# 指定したプロセスグループの生存メンバーの PID を列挙する。
-# API サーバ系（wrangler / workerd / node / esbuild）は別の実行と
-# 共有しうるため除外する。
-host_lock_group_pids() {
-  local pid g comm
-  ps -eo pid=,pgid=,comm= | while read -r pid g comm; do
-    [ "$g" = "$1" ] || continue
-    case "${comm##*/}" in
-      node | workerd | wrangler | esbuild) continue ;;
+# 指定したプロセスグループの中で、死んだ所有者が起動したと分かる
+# 重いプロセスの PID を列挙する。
+# 非対話シェル（vp run やエージェントの exec）では e2e-ios.sh は自分の
+# グループリーダーにならず親と同じ PGID を引き継ぐため、グループ内には
+# 生存中の親シェル・vp・エージェント本体も混ざる。そこで対象を、
+#   - 親が launchd (ppid=1) に付け替わった孤児（= 所有者の死後も残ったもの）
+#   - コマンドラインがビルド・テスト系に一致するもの
+# に限定する。生きている親プロセスは ppid=1 ではないので誤って止めない。
+host_lock_orphan_pids() {
+  local pid ppid g comm
+  ps -eo pid=,ppid=,pgid=,command= | while read -r pid ppid g comm; do
+    [ "$g" = "$1" ] && [ "$ppid" = 1 ] || continue
+    case "$comm" in
+      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl*) ;;
+      *) continue ;;
     esac
     echo "$pid"
   done
 }
 
-# 残骸ホストロックの所有者（死んだ e2e-ios.sh）が残した子プロセスを止める。
-# $1 = 所有者に記録されていた PGID。親が SIGKILL されても xcodebuild や
-# Maestro は生き残るので、ロックだけ回収すると孤児ビルドが残り、結局
-# 並列ビルドになる。PGID はメンバーが生きている間は再利用されないため、
-# 見つかったメンバーはすべて死んだ実行の残りと判断できる。
+# 残骸ホストロックの所有者（死んだ e2e-ios.sh）が残した孤児プロセスを
+# 止める。$1 = 所有者に記録されていた PGID。親が SIGKILL されても
+# xcodebuild や Maestro は生き残るので、ロックだけ回収すると孤児ビルドが
+# 残り、結局並列ビルドになる。PGID はメンバーが生きている間は再利用
+# されないため、孤児になったメンバーは死んだ実行の残りと判断できる。
 reap_host_lock_orphans() {
   local lock_pgid="$1" pids
   { [ -n "$lock_pgid" ] && [ "$lock_pgid" != "$(pgid $$)" ]; } || return 0
-  pids="$(host_lock_group_pids "$lock_pgid")"
+  pids="$(host_lock_orphan_pids "$lock_pgid")"
   [ -n "$pids" ] || return 0
-  echo "終了した e2e:ios の子プロセスを停止します: $(echo "$pids" | tr '\n' ' ')"
+  echo "終了した e2e:ios の孤児プロセスを停止します: $(echo "$pids" | tr '\n' ' ')"
   printf '%s\n' "$pids" | xargs kill 2>/dev/null || true
   sleep 5
-  pids="$(host_lock_group_pids "$lock_pgid")"
+  pids="$(host_lock_orphan_pids "$lock_pgid")"
   [ -z "$pids" ] || printf '%s\n' "$pids" | xargs kill -9 2>/dev/null || true
 }
 
