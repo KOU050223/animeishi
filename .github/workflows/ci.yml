@@ -27,6 +27,16 @@ permissions:
 #   フォーク PR はトークンが読み取り専用で、保存ステップは警告を出して成功扱いで終わる。
 # - キャッシュするタスクはクリーンな環境変数（PATH・HOME・CI 等）で動くため、
 #   このワークフローの env がタスクの結果に影響することはない。
+# - 肥大化対策（issue #272）: task-cache のエントリのキーはタスクのコマンド・引数・環境変数・
+#   入出力の設定で、入力ファイルが変わっても同じキーを上書きするだけで増えない。増えるのは
+#   script や vite.config.ts のタスク定義を変えたとき（古いキーのエントリが残る）と、
+#   vite-plus の更新でキャッシュのスキーマ版が上がったとき（古い v<版> ディレクトリが残る）。
+#   Vite Task はどちらも消さず、restore → save で引き継がれるため、復元直後にサイズを測り、
+#   VITE_TASK_CACHE_LIMIT_KB を超えていたら vp cache clean で捨てる（その回だけ全タスクを実行する）。
+#   閾値は導入時（Test 約 0.9MB、Lint 約 0.6MB）の 20 倍程度にしてある。
+
+env:
+  VITE_TASK_CACHE_LIMIT_KB: 20480
 
 jobs:
   test:
@@ -50,6 +60,16 @@ jobs:
           key: vite-task-test-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             vite-task-test-${{ runner.os }}-${{ runner.arch }}-
+
+      # 復元した task-cache が閾値を超えていたら捨てる（issue #272）。理由はファイル冒頭のコメントを参照。
+      - name: Prune Vite Task cache
+        run: |
+          size_kb=$(du -sk node_modules/.vite/task-cache 2>/dev/null | cut -f1)
+          echo "Vite Task cache: ${size_kb:-0}KB (limit: ${VITE_TASK_CACHE_LIMIT_KB}KB)"
+          if [ "${size_kb:-0}" -gt "$VITE_TASK_CACHE_LIMIT_KB" ]; then
+            echo "::notice::Vite Task cache exceeded ${VITE_TASK_CACHE_LIMIT_KB}KB (${size_kb}KB). Running vp cache clean."
+            vp cache clean
+          fi
 
       - name: Run tests
         run: vp run test
@@ -82,6 +102,16 @@ jobs:
           key: vite-task-lint-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             vite-task-lint-${{ runner.os }}-${{ runner.arch }}-
+
+      # 復元した task-cache が閾値を超えていたら捨てる（issue #272）。理由はファイル冒頭のコメントを参照。
+      - name: Prune Vite Task cache
+        run: |
+          size_kb=$(du -sk node_modules/.vite/task-cache 2>/dev/null | cut -f1)
+          echo "Vite Task cache: ${size_kb:-0}KB (limit: ${VITE_TASK_CACHE_LIMIT_KB}KB)"
+          if [ "${size_kb:-0}" -gt "$VITE_TASK_CACHE_LIMIT_KB" ]; then
+            echo "::notice::Vite Task cache exceeded ${VITE_TASK_CACHE_LIMIT_KB}KB (${size_kb}KB). Running vp cache clean."
+            vp cache clean
+          fi
 
       - name: TypeScript check
         run: vp run typecheck
