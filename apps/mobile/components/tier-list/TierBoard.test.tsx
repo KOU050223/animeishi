@@ -293,14 +293,40 @@ describe("行内の並べ替え（issue #218）", () => {
 
   it("同じ行の別カードの前半に落とすと、そのカードの直前に挿入される", () => {
     const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-3");
+    fireEvent.press(card);
+    setupDropGeometry();
+    // カード1（x 0-60、中央 30）の前半に落とす
+    dropAt(10, 50);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(3, "0", 1);
+  });
+
+  it("直後のカードの前半に落とすなど、順序が変わらないドロップでは onAssign を呼ばない", () => {
+    // 順序 [1,2,3] でカード1 をカード2 の前半に落としても [1,2,3] のまま。
+    // onAssign まで通すと配置は変わらないのに未保存フラグだけが立つ。
+    const { getByTestId, onAssign } = renderDropBoard();
     const card = getByTestId("tier-card-1");
     fireEvent.press(card);
     setupDropGeometry();
-    // カード2（x 64-124、中央 94）の前半に落とす
-    dropAt(80, 50);
+    dropAt(80, 50); // カード2 の前半
     fireEvent(card, "longPress");
 
-    expect(onAssign).toHaveBeenCalledWith(1, "0", 2);
+    expect(onAssign).not.toHaveBeenCalled();
+  });
+
+  it("末尾のカードを直前のカードの後半に落としても配置は変わらない", () => {
+    // 順序 [1,2,3] でカード3 をカード2 の後半に落とすと挿入アンカーは
+    // カード3 自身（＝今と同じ位置）になる。
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-3");
+    fireEvent.press(card);
+    setupDropGeometry();
+    dropAt(110, 50); // カード2 の後半
+    fireEvent(card, "longPress");
+
+    expect(onAssign).not.toHaveBeenCalled();
   });
 
   it("カードの後半に落とすと、次のカードの直前に挿入される", () => {

@@ -168,13 +168,28 @@ export function TierBoard({
         if (assignment.get(itemId) !== hit) onAssign(itemId, hit);
         return;
       }
+      const tierIds = itemsInTier(items, assignment, hit).map(
+        (item) => item.id,
+      );
       const beforeItemId = dropInsertAnchor(
-        itemsInTier(items, assignment, hit).map((item) => item.id),
+        tierIds,
         hitCard.itemId,
         x < hitCard.rect.x + hitCard.rect.width / 2,
       );
-      // 自分の直前に挿入（＝今と同じ位置）なら配置は変えない。
-      if (beforeItemId === itemId) return;
+      // 挿入位置が今の位置かその直後（直後のカードの前半・自分が末尾での
+      // 末尾追加など）なら順序は変わらない。配置が同じでも onAssign まで
+      // 通すと呼び出し側で未保存フラグだけが立つため、ここで捌く。
+      const fromIndex = tierIds.indexOf(itemId);
+      const insertIndex =
+        beforeItemId === undefined
+          ? tierIds.length
+          : tierIds.indexOf(beforeItemId);
+      if (
+        fromIndex >= 0 &&
+        (insertIndex === fromIndex || insertIndex === fromIndex + 1)
+      ) {
+        return;
+      }
       onAssign(itemId, hit, beforeItemId);
     },
     [autoScroll, assignment, dragOwnerId, items, onAssign, registry],
