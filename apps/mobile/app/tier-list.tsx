@@ -122,9 +122,17 @@ export default function TierListScreen() {
   // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを
   // 消さないため。シーズン自体が変わったときは常に反映する。
   // effect での同期 setState を避けるためレンダー中に調整する。
-  const [hydratedSeason, setHydratedSeason] = useState(season);
-  if (!isSavedLoading && !(hydratedSeason === season && isDirty)) {
-    setHydratedSeason(season);
+  // 適用済みのキー（シーズン + 保存データ）を覚え、元の effect と同じ
+  // タイミング（シーズン変更、または未編集中の saved 更新）だけ再適用する。
+  const [hydrated, setHydrated] = useState<{
+    season: typeof season;
+    saved: typeof saved;
+  } | null>(null);
+  if (
+    !isSavedLoading &&
+    (hydrated?.season !== season || (!isDirty && hydrated.saved !== saved))
+  ) {
+    setHydrated({ season, saved });
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
       setAssignment(
