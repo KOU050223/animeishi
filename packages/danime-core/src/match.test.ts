@@ -489,6 +489,34 @@ describe("matchDanimeWorks", () => {
     expect(stats.secondPassSearches).toBe(50);
   });
 
+  it("大規模入力でもスコアリングの CPU 時間が頭打ちになる（issue #219）", async () => {
+    // 旧実装は「入力 × 候補」の全ペアで正規化・メタ抽出をやり直していたため
+    // この条件で ~30s の CPU を消費し、本番 Workers の CPU 時間上限超過
+    // （Error 1102 → 503・CORS ヘッダなし）に達していた。シグネチャの
+    // 前計算で入力・候補それぞれ 1 回ずつの計算に抑える回帰テスト。
+    // searcher は即時応答させ、純粋な計算時間だけを測る。
+    let nextId = 0;
+    const searcher = mockSearcher(() =>
+      // Annict の first:50 打ち切りいっぱい（1 クエリ 50 件）を返す最悪ケース。
+      // 500 件入力 → union 50 回 × 50 件 = 最大 2500 件の候補プール。
+      Array.from({ length: 50 }, () =>
+        work({ annictId: nextId++, title: "似た名前の作品" }),
+      ),
+    );
+    const items = Array.from({ length: 500 }, (_, i) => ({
+      danimeWorkId: `w${i}`,
+      title: `テスト作品その${i}`,
+      targetState: "WATCHED" as const,
+    }));
+    const startedAt = performance.now();
+    const { results } = await matchDanimeWorks(searcher, items);
+    const elapsedMs = performance.now() - startedAt;
+    expect(results).toHaveLength(500);
+    // 旧実装 ~30s との識別に十分な余裕を持つ上限。CI マシンのばらつきを
+    // 考慮しても十分小さい値（現行実装の実測は数百ms）。
+    expect(elapsedMs).toBeLessThan(15_000);
+  }, 30_000);
+
   it("検索回数・経過時間を stats で返す", async () => {
     const searcher = mockSearcher((titles) =>
       titles.flatMap((t) =>

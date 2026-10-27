@@ -119,26 +119,25 @@ export function simplifyTitle(title: string): string {
   return t.trim();
 }
 
-// 文字バイグラムの Dice 係数。文字種・語順の揺れにそこそこ強い。
-function bigramDice(a: string, b: string): number {
-  if (a === b) return 1;
-  if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
-  const grams = new Map<string, number>();
-  for (let i = 0; i < a.length - 1; i++) {
-    const g = a.slice(i, i + 2);
-    grams.set(g, (grams.get(g) ?? 0) + 1);
-  }
-  let overlap = 0;
-  for (let i = 0; i < b.length - 1; i++) {
-    const g = b.slice(i, i + 2);
-    const count = grams.get(g) ?? 0;
-    if (count > 0) {
-      overlap++;
-      grams.set(g, count - 1);
-    }
-  }
-  return (2 * overlap) / (a.length - 1 + (b.length - 1));
-}
+/**
+ * スコアリング用にタイトル情報を前計算したシグネチャ。
+ * matchDanimeWorks は「入力タイトル × 候補プール」の全ペアを評価するため、
+ * ペアごとに正規化・バイグラム・メタ抽出をやり直すと計算量が爆発する
+ * （issue #219: works=500 で Workers の CPU 時間上限に達し 503 化）。
+ * タイトル 1 つにつき 1 回だけ計算して持ち回る。
+ */
+export type TitleSignature = {
+  /** normalizeTitle 済みの比較用文字列（完全一致・包含判定に使う）。 */
+  normalized: string;
+  /** normalized の文字バイグラム多重集合。 */
+  bigrams: Map<string, number>;
+  /** バイグラムの総数（normalized.length - 1）。Dice 係数の分母に使う。 */
+  bigramTotal: number;
+  /** メタ差分トークン（劇場版・番外編等）。editionTokens.meta と同じ規則。 */
+  meta: Set<string>;
+  /** 期数推定。seasonSignature と同じ規則。 */
+  season: number | null;
+};
 
 // 末尾のローマ数字をアラビア数字に変換する表。1 文字（i/v/x）は英単語末尾との
 // 区別がつかないため 2 文字以上のみ期数として認める。
@@ -200,37 +199,81 @@ const EDITION_TOKEN_RULES: [RegExp, string][] = [
 // 1 差分 -0.15 で別エディション・別シーズンの順位を十分下げられる。
 const EDITION_DIFF_PENALTY = 0.15;
 
-type EditionTokens = {
-  meta: Set<string>;
-  // 期数は null（判明しない=無印かもしれない）のとき差分にしない。
-  // 「2期の入力」対「無印の候補」は同一作品の可能性があるため、
-  // 両側で判明して食い違う場合だけ別シーズンとして減点する。
-  season: number | null;
-};
-
-function editionTokens(title: string): EditionTokens {
+/**
+ * タイトルのスコアリング用シグネチャを作る。
+ * ペア評価（signatureSimilarity）側ではこれらを再計算しない。
+ */
+export function prepareTitle(title: string): TitleSignature {
+  const normalized = normalizeTitle(title);
   // 空白を潰した正規化（"X OVA"→"xova"）だと語境界が消えて ova/oad の
   // 境界チェックが効かないため、空白保持の NFKC 小文字化版も併用する。
-  const compact = normalizeTitle(title);
   const loose = title.normalize("NFKC").toLowerCase();
   const meta = new Set<string>();
   for (const [re, key] of EDITION_TOKEN_RULES) {
-    if (re.test(compact) || re.test(loose)) meta.add(key);
+    if (re.test(normalized) || re.test(loose)) meta.add(key);
   }
-  return { meta, season: seasonSignatureOfNormalized(compact) };
+  const bigrams = new Map<string, number>();
+  for (let i = 0; i < normalized.length - 1; i++) {
+    const g = normalized.slice(i, i + 2);
+    bigrams.set(g, (bigrams.get(g) ?? 0) + 1);
+  }
+  return {
+    normalized,
+    bigrams,
+    bigramTotal: Math.max(0, normalized.length - 1),
+    meta,
+    season: seasonSignatureOfNormalized(normalized),
+  };
 }
 
-// タイトル同士のメタトークン対称差の個数を返す（引数は正規化前の生タイトル）。
-function editionDiffCount(a: string, b: string): number {
-  const ta = editionTokens(a);
-  const tb = editionTokens(b);
+// 前計算済みシグネチャ同士の bigram Dice 係数（多重集合の min-count 和）。
+function signatureBigramDice(a: TitleSignature, b: TitleSignature): number {
+  if (a.bigramTotal === 0 || b.bigramTotal === 0) return 0;
+  const [small, large] = a.bigrams.size <= b.bigrams.size ? [a, b] : [b, a];
+  let overlap = 0;
+  for (const [gram, count] of small.bigrams) {
+    overlap += Math.min(count, large.bigrams.get(gram) ?? 0);
+  }
+  return (2 * overlap) / (a.bigramTotal + b.bigramTotal);
+}
+
+// シグネチャ同士のメタトークン対称差の個数（旧 editionDiffCount と同じ規則）。
+// 期数は両側で判明して食い違う場合だけ差分に数える（無印 vs 2期は同一作品の
+// 可能性があるため減点しない）。
+function signatureEditionDiff(a: TitleSignature, b: TitleSignature): number {
   let diff = 0;
-  for (const t of ta.meta) if (!tb.meta.has(t)) diff++;
-  for (const t of tb.meta) if (!ta.meta.has(t)) diff++;
-  if (ta.season !== null && tb.season !== null && ta.season !== tb.season) {
+  for (const t of a.meta) if (!b.meta.has(t)) diff++;
+  for (const t of b.meta) if (!a.meta.has(t)) diff++;
+  if (a.season !== null && b.season !== null && a.season !== b.season) {
     diff++;
   }
   return diff;
+}
+
+/**
+ * 前計算済みシグネチャ同士の類似度（0〜1）。titleSimilarity と同じ規則。
+ * matchDanimeWorks のように同一タイトルを多数の相手と比較するときは
+ * titleSimilarity を直接呼ばず prepareTitle + signatureSimilarity を使う。
+ */
+export function signatureSimilarity(
+  input: TitleSignature,
+  candidate: TitleSignature,
+): number {
+  const a = input.normalized;
+  const b = candidate.normalized;
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+
+  let base: number;
+  if (a.includes(b) || b.includes(a)) {
+    const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+    base = 0.6 + 0.3 * (short.length / long.length);
+  } else {
+    base = signatureBigramDice(input, candidate) * 0.5;
+  }
+
+  const diff = signatureEditionDiff(input, candidate);
+  return diff > 0 ? Math.max(0, base - EDITION_DIFF_PENALTY * diff) : base;
 }
 
 /**
@@ -241,19 +284,5 @@ function editionDiffCount(a: string, b: string): number {
  * 本編と別エディションが同スコアで並ばないようにする。
  */
 export function titleSimilarity(input: string, candidate: string): number {
-  const a = normalizeTitle(input);
-  const b = normalizeTitle(candidate);
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-
-  let base: number;
-  if (a.includes(b) || b.includes(a)) {
-    const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-    base = 0.6 + 0.3 * (short.length / long.length);
-  } else {
-    base = bigramDice(a, b) * 0.5;
-  }
-
-  const diff = editionDiffCount(input, candidate);
-  return diff > 0 ? Math.max(0, base - EDITION_DIFF_PENALTY * diff) : base;
+  return signatureSimilarity(prepareTitle(input), prepareTitle(candidate));
 }

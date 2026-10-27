@@ -19,14 +19,15 @@ import type { DanimeAnnictWork } from "./types";
 import { mapWithConcurrency } from "./concurrency";
 import {
   isGenericSearchTitle,
-  normalizeTitle,
+  prepareTitle,
   seasonSignature,
   simplifyTitle,
-  titleSimilarity,
+  signatureSimilarity,
   toFullWidthDigits,
   toHalfWidthAlnum,
   unwrapDanimeTitle,
 } from "./titleNormalize";
+import type { TitleSignature } from "./titleNormalize";
 
 export type DanimeMatchInput = {
   danimeWorkId: string;
@@ -99,29 +100,44 @@ type ClassifyOptions = {
   seasonRefTitle?: string;
 };
 
-/**
- * 検索プールから 1 作品ぶんのマッチング結果を作る。
- * candidate の title / titleKana / titleEn の最大スコアで評価する。
- * registeredWorkIds が渡された場合、入力が期数を明示しているのに
- * 「登録済みかつ別シーズンと判明している」候補は除外する（再登録対象に
- * ならないため候補に出しても選ばれないノイズになる）。候補側の期数が
- * 不明（無印・ローマ数字以外の表記等）なときは別シーズンと確定できない
- * ので残す。
- */
-export function classifyWork(
+// スコアリング用に前計算済みの候補作品。
+// 正規化・バイグラム・メタトークンは作品 1 件につき 1 回だけ計算する
+// （issue #219: 入力×候補の全ペアで毎回正規化すると CPU 時間が爆発する）。
+type PreparedCandidate = {
+  work: DanimeAnnictWork;
+  /** work.title のシグネチャ（期数ガード・正規化一致の判定に使う）。 */
+  titleSig: TitleSignature;
+  /** スコアリング対象フィールド（title/titleKana/titleEn）のシグネチャ。 */
+  fieldSigs: TitleSignature[];
+};
+
+function prepareCandidate(work: DanimeAnnictWork): PreparedCandidate {
+  const titleSig = prepareTitle(work.title);
+  const fieldSigs = [titleSig];
+  for (const t of [work.titleKana, work.titleEn]) {
+    if (t) fieldSigs.push(prepareTitle(t));
+  }
+  return { work, titleSig, fieldSigs };
+}
+
+// classifyWork の内部実装。シグネチャを前計算済みで受け取る版。
+// matchDanimeWorks は同一プール・同一入力を繰り返し評価するためこちらを使う。
+function classifyPreparedWork(
   input: DanimeMatchInput,
-  pool: DanimeAnnictWork[],
-  options: ClassifyOptions = {},
+  inputSig: TitleSignature,
+  pool: readonly PreparedCandidate[],
+  options: ClassifyOptions,
 ): DanimeMatchResult {
   const { registeredWorkIds, seasonRefTitle } = options;
-  const inputSeason = seasonSignature(seasonRefTitle ?? input.title);
+  const inputSeason = seasonRefTitle
+    ? seasonSignature(seasonRefTitle)
+    : inputSig.season;
   const scored = pool
-    .map((w) => ({
-      work: w,
+    .map((c) => ({
+      work: c.work,
+      titleSig: c.titleSig,
       score: Math.max(
-        titleSimilarity(input.title, w.title),
-        w.titleKana ? titleSimilarity(input.title, w.titleKana) : 0,
-        w.titleEn ? titleSimilarity(input.title, w.titleEn) : 0,
+        ...c.fieldSigs.map((s) => signatureSimilarity(inputSig, s)),
       ),
     }))
     .filter((s) => s.score >= CANDIDATE_THRESHOLD)
@@ -129,8 +145,8 @@ export function classifyWork(
       (s) =>
         inputSeason === null ||
         !registeredWorkIds?.has(s.work.annictWorkId) ||
-        seasonSignature(s.work.title) === null ||
-        seasonSignature(s.work.title) === inputSeason,
+        s.titleSig.season === null ||
+        s.titleSig.season === inputSeason,
     )
     .sort((a, b) => b.score - a.score);
 
@@ -139,8 +155,8 @@ export function classifyWork(
   // 候補自体は残してレビューで選ばせる。
   const exacts = scored.filter(
     (s) =>
-      normalizeTitle(s.work.title) === normalizeTitle(input.title) &&
-      (inputSeason === null || seasonSignature(s.work.title) === inputSeason),
+      s.titleSig.normalized === inputSig.normalized &&
+      (inputSeason === null || s.titleSig.season === inputSeason),
   );
 
   const only = exacts[0];
@@ -160,13 +176,26 @@ export function classifyWork(
   return { ...input, status: "none", work: null, candidates: [] };
 }
 
-function dedupeWorks(works: DanimeAnnictWork[]): DanimeAnnictWork[] {
-  const seen = new Set<number>();
-  return works.filter((w) => {
-    if (seen.has(w.annictWorkId)) return false;
-    seen.add(w.annictWorkId);
-    return true;
-  });
+/**
+ * 検索プールから 1 作品ぶんのマッチング結果を作る。
+ * candidate の title / titleKana / titleEn の最大スコアで評価する。
+ * registeredWorkIds が渡された場合、入力が期数を明示しているのに
+ * 「登録済みかつ別シーズンと判明している」候補は除外する（再登録対象に
+ * ならないため候補に出しても選ばれないノイズになる）。候補側の期数が
+ * 不明（無印・ローマ数字以外の表記等）なときは別シーズンと確定できない
+ * ので残す。
+ */
+export function classifyWork(
+  input: DanimeMatchInput,
+  pool: DanimeAnnictWork[],
+  options: ClassifyOptions = {},
+): DanimeMatchResult {
+  return classifyPreparedWork(
+    input,
+    prepareTitle(input.title),
+    pool.map(prepareCandidate),
+    options,
+  );
 }
 
 // 「映画 X」↔「劇場版 X」は Annict 側の表記揺れなので、冠が付く入力は
@@ -256,14 +285,29 @@ export async function matchDanimeWorks(
       return searcher(chunk);
     })
   ).flat();
-  const poolDeduped = dedupeWorks(pool);
+  // 候補プールは入力ごとに再利用するため、dedupe とシグネチャ計算を
+  // ここで一度だけ行う（issue #219: 全ペアでの正規化やり直しを防ぐ）。
+  const basePool: PreparedCandidate[] = [];
+  const basePoolIds = new Set<number>();
+  for (const w of pool) {
+    if (basePoolIds.has(w.annictWorkId)) continue;
+    basePoolIds.add(w.annictWorkId);
+    basePool.push(prepareCandidate(w));
+  }
 
   const results = new Map<string, DanimeMatchResult>();
   const originalTitle = new Map(inputs.map((i) => [i.danimeWorkId, i.title]));
+  // 入力側のシグネチャも作品 1 件につき 1 回だけ計算する。
+  const inputSigs = new Map(
+    matchInputs.map((i) => [i.danimeWorkId, prepareTitle(i.title)]),
+  );
   for (const input of matchInputs) {
-    const classified = classifyWork(input, poolDeduped, {
-      registeredWorkIds: registered,
-    });
+    const classified = classifyPreparedWork(
+      input,
+      inputSigs.get(input.danimeWorkId)!,
+      basePool,
+      { registeredWorkIds: registered },
+    );
     results.set(input.danimeWorkId, {
       ...classified,
       title: originalTitle.get(input.danimeWorkId)!,
@@ -305,14 +349,27 @@ export async function matchDanimeWorks(
           secondPassSearches++;
           const found = await searcher([q]);
           if (found.length === 0) continue;
+          // ヒットした候補は basePool に無い分だけシグネチャを計算して足す
+          // （他タスクの再検索結果は従来どおり混ぜず、basePool + 自タスクの
+          // found で評価する）。
+          const extra: PreparedCandidate[] = [];
+          const seen = new Set<number>();
+          for (const w of found) {
+            if (basePoolIds.has(w.annictWorkId) || seen.has(w.annictWorkId)) {
+              continue;
+            }
+            seen.add(w.annictWorkId);
+            extra.push(prepareCandidate(w));
+          }
           // ヒットさせた検索語で分類する（単純化タイトルで見つけた作品を
           // 元タイトルで再採点すると括弧差分で exact にならないため）。
           // ただし期数ガードは検索語に期数が残っていなくても効くよう、
           // 元の入力タイトルで判定する。
           // 結果の title はレビュー表示のため元タイトルを保持する。
-          const classified = classifyWork(
+          const classified = classifyPreparedWork(
             { ...input, title: q },
-            dedupeWorks([...poolDeduped, ...found]),
+            prepareTitle(q),
+            extra.length > 0 ? [...basePool, ...extra] : basePool,
             {
               registeredWorkIds: registered,
               seasonRefTitle: input.title,

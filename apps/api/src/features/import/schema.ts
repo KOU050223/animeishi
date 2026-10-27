@@ -12,10 +12,13 @@ export const danimeMatchWorkSchema = z.object({
 });
 
 export const danimeMatchRequestSchema = z.object({
+  // 上限は 1 リクエストあたりの Annict 往復数・CPU 時間を頭打ちにするための
+  // もの（issue #219: 500 件の一括照合で Workers の CPU 上限を超え 503 化）。
+  // クライアントはこの件数で分割送信する（mobile useDanimeImport）。
   works: z
     .array(danimeMatchWorkSchema)
     .min(1)
-    .max(500, "一度に照合できるのは500作品までです"),
+    .max(100, "一度に照合できるのは100作品までです"),
   // ユーザーの Annict ライブラリに登録済みの annictWorkId（任意）。
   // 入力タイトルが期数を明示しているとき「登録済みの別シーズン」を候補から
   // 外すためのヒントに使う。照合の絞り込み用途のみで、登録処理には使わない。

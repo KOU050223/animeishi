@@ -53,8 +53,10 @@ export type DanimeMatchOutput = {
 /** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
 const BULK_CHUNK_SIZE = 50;
 
-/** match API の works 上限（API 側スキーマの上限と揃える）。 */
-const MATCH_CHUNK_SIZE = 500;
+// match API の works 上限（API 側スキーマの上限と揃える）。
+// issue #219: 500 件の一括照合は API の CPU 時間上限を超えて 503 になるため、
+// 小さく分割して逐次送信する。
+const MATCH_CHUNK_SIZE = 100;
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -83,7 +85,7 @@ export function useDanimeMatch() {
         throw new Error("照合対象の作品がありません");
       }
 
-      // API の works 上限（500）を超える履歴にも対応するためチャンク分割する。
+      // API の works 上限を超える履歴にも対応するためチャンク分割する。
       // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
       // 期限切れにならないようチャンクごとに取得し直す。
       const startedAt = Date.now();

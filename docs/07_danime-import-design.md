@@ -84,7 +84,10 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 ### `POST /me/import/danime/match`
 
 - 入力: `{ works: [{ danimeWorkId, title, targetState }], registeredWorkIds? }`
-  （works は最大 500）
+  （works は最大 100。issue #219: 500 件の一括照合で「入力 × 候補」の
+  スコアリングが Workers の CPU 時間上限に達し 503 化したため、件数を
+  絞りクライアント側で分割送信する。スコアリング自体も正規化結果を
+  前計算する実装に改修済み）
 - dアニメの冠+「」包みタイトル（`TVアニメ「X」` 等）は照合前に
   `unwrapDanimeTitle` で外す（`劇場版`・`映画`・`OVA` 系の冠は Annict 側にも
   付くため残す）。一般名詞のみの退化クエリ（`TVアニメ` だけ等）は
