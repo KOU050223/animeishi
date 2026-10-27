@@ -11,7 +11,12 @@ import { HTTPException } from "hono/http-exception";
 import { AnnictApiError } from "@/lib/annict/client";
 import { annictErrorResponse } from "@/lib/annict/errors";
 import { DeletedUserError } from "@/features/users/repository";
-import { notifyApiFailures, type AlertBindings } from "@/lib/discordAlert";
+import {
+  clearCronFailures,
+  notifyApiFailures,
+  notifyCronFailure,
+  type AlertBindings,
+} from "@/lib/discordAlert";
 
 // Sentry 初期化と障害通知に必要なバインディング。
 // SENTRY_DSN は Workers Secret、ENVIRONMENT は wrangler.toml [vars]、
@@ -158,6 +163,36 @@ function alertApiFailure(err: unknown, c: Context, status: number): void {
   } catch {
     // ExecutionContext の無い環境（テストの app.request 等）。
     // notifyApiFailures は reject しないのでそのまま流す。
+  }
+}
+
+// cron ジョブ 1 本を実行し、失敗を記録する（issue #233）。
+// 片方のジョブの失敗でもう片方が止まらないよう、ここで例外を握って返す
+// （scheduled 側はジョブを順に await するだけにする）。
+// 失敗は構造化ログと Sentry に毎回送り、Discord へは連続失敗のときだけ
+// 送る（閾値・連投抑止は discordAlert 側）。成功時は連続失敗カウントを消す。
+export async function runCronJob(
+  env: AlertBindings,
+  job: string,
+  task: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await task();
+    await clearCronFailures(env, job);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: `${job}_cron_failed`,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    Sentry.withScope((scope) => {
+      scope.setTag(TAG_KEYS.feature, "cron");
+      scope.setContext("cron", { job });
+      Sentry.captureException(err);
+    });
+    await notifyCronFailure(env, job);
   }
 }
 

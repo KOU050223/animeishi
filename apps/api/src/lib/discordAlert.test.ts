@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   alertKey,
+  clearCronFailures,
+  CRON_FAILURE_THRESHOLD,
   notifyApiFailures,
+  notifyCronFailure,
   resetLocalSuppression,
   SUPPRESS_SECONDS,
   type ApiFailure,
@@ -34,6 +37,10 @@ function fakeKv() {
         ttls.set(key, opts?.expirationTtl);
       },
     ),
+    delete: vi.fn(async (key: string) => {
+      store.delete(key);
+      ttls.delete(key);
+    }),
   };
   return { kv: kv as unknown as KVNamespace, store, ttls, raw: kv };
 }
@@ -278,5 +285,171 @@ describe("notifyApiFailures", () => {
     );
 
     expect(sentBody(fetchImpl).content).toContain("[animeishi-api preview]");
+  });
+});
+
+describe("notifyCronFailure / clearCronFailures", () => {
+  beforeEach(() => {
+    resetLocalSuppression();
+  });
+
+  it("1 回目の失敗では送らず、連続 2 回目で cron:<job> として送る", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+    expect(CRON_FAILURE_THRESHOLD).toBe(2);
+
+    const first = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(first).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(raw.put).toHaveBeenCalledWith(
+      "cron_fail_count:image_fallback",
+      "1",
+      expect.objectContaining({ expirationTtl: expect.any(Number) }),
+    );
+
+    const second = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(second).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const { content, allowed_mentions } = sentBody(fetchImpl);
+    expect(content).toContain("[animeishi-api] cron 障害");
+    expect(content).toContain("`cron:image_fallback` が 2 回連続で失敗");
+    expect(allowed_mentions).toEqual({ parse: [] });
+  });
+
+  it("成功（clearCronFailures）で連続カウントが消え、次の失敗はまた 1 回目になる", async () => {
+    const { kv, raw, store } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    raw.get.mockClear();
+    await clearCronFailures(env, "mal_id_search");
+
+    // この isolate が失敗を記録しているので get せずに消す。
+    expect(raw.get).not.toHaveBeenCalled();
+    expect(raw.delete).toHaveBeenCalledWith("cron_fail_count:mal_id_search");
+    expect(store.has("cron_fail_count:mal_id_search")).toBe(false);
+
+    const sent = await notifyCronFailure(env, "mal_id_search", fetchImpl);
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("カウントが無い成功では KV を消しにいかない（成功ごとの delete を省く）", async () => {
+    const { kv, raw } = fakeKv();
+
+    await clearCronFailures({ ALERT_STATE: kv }, "image_fallback");
+
+    expect(raw.get).toHaveBeenCalledWith("cron_fail_count:image_fallback");
+    expect(raw.delete).not.toHaveBeenCalled();
+  });
+
+  it("別 isolate が記録したカウント（ローカル無し）は get で見つけて消す", async () => {
+    const { kv, raw, store } = fakeKv();
+    store.set("cron_fail_count:mal_id_search", "2");
+
+    await clearCronFailures({ ALERT_STATE: kv }, "mal_id_search");
+
+    expect(raw.delete).toHaveBeenCalledWith("cron_fail_count:mal_id_search");
+    expect(store.has("cron_fail_count:mal_id_search")).toBe(false);
+  });
+
+  it("閾値到達後の通知は 30 分の印で抑止されるが、カウントは進む", async () => {
+    const { kv, store } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyCronFailure(env, "image_fallback", fetchImpl);
+    await notifyCronFailure(env, "image_fallback", fetchImpl);
+    const third = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(third).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(store.get("cron_fail_count:image_fallback")).toBe("3");
+    expect(store.get("cron:image_fallback")).not.toBeUndefined();
+  });
+
+  it("ジョブごとに連続カウントと抑止は独立する", async () => {
+    const { kv } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    // mal_id_search は 2 回到達済み、image_fallback はこれが 1 回目。
+    const otherJob = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(otherJob).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("別 isolate での成功（KV のカウントだけ消える）後は 1 回目として扱う", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    // 別 isolate での成功を模す: KV のカウントだけ消え、
+    // この isolate のローカルカウントは残る。
+    await raw.delete("cron_fail_count:mal_id_search");
+
+    const sent = await notifyCronFailure(env, "mal_id_search", fetchImpl);
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("DISCORD_WEBHOOK_URL 未設定なら送らずカウントも進めない", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyCronFailure(
+      { ALERT_STATE: kv },
+      "image_fallback",
+      fetchImpl,
+    );
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(raw.get).not.toHaveBeenCalled();
+    expect(raw.put).not.toHaveBeenCalled();
+  });
+
+  it("ALERT_STATE 未バインドでも isolate 内メモリで連続回数を数える", async () => {
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK };
+
+    const first = await notifyCronFailure(env, "image_fallback", fetchImpl);
+    const second = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(first).toBe(false);
+    expect(second).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("KV の読み書きに失敗しても連続回数を数えて送る", async () => {
+    const fetchImpl = okFetch();
+    const brokenKv = {
+      get: vi.fn(async () => {
+        throw new Error("kv down");
+      }),
+      put: vi.fn(async () => {
+        throw new Error("kv down");
+      }),
+      delete: vi.fn(async () => {}),
+    } as unknown as KVNamespace;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: brokenKv };
+
+    await notifyCronFailure(env, "image_fallback", fetchImpl);
+    const second = await notifyCronFailure(env, "image_fallback", fetchImpl);
+
+    expect(second).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

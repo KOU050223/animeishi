@@ -14,7 +14,7 @@ Webhook へ直接送る（「Discord 通知」節）。モバイルアプリに�
 
 ```
 [API Workers]  ──例外──→  Sentry (project: animeishi-api)  ──メール通知
-      └──5xx/上流障害──→  Discord Webhook (#bot-log)  ※30 分の重複抑止付き
+      └──5xx/上流障害・cron 連続失敗──→  Discord Webhook (#bot-log)  ※重複抑止付き
 [Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ──メール通知
 ```
 
@@ -206,6 +206,21 @@ HTTPException 5xx）。後者は `reportApiFailure(err, c, status)` で Sentry �
     メモリ上の印でも抑える
   - KV の読み書きに失敗しても通知は送る（KV は重複抑止のためだけ）
 - `DISCORD_WEBHOOK_URL`（Workers Secret）が未設定なら何もしない
+
+### cron ジョブの失敗通知（issue #233）
+
+`scheduled` ハンドラの各ジョブ（`mal_id_search` / `image_fallback`）は
+`runCronJob`（`src/observability.ts`）で実行し、失敗をジョブごとに catch して
+`Sentry.captureException` に送る（片方の失敗でもう片方は止まらない）。
+Discord への通知は `notifyCronFailure`（`src/lib/discordAlert.ts`）が行うが、
+一過性の単発失敗では送らず、**連続 2 回（`CRON_FAILURE_THRESHOLD`）の失敗**で送る。
+
+- 連続失敗回数は `ALERT_STATE` の `cron_fail_count:<job>` に保持し、
+  ジョブが成功したら `clearCronFailures` で消す（成功は通知しない）。
+  KV 未バインド・読み書き失敗時は isolate 内メモリで数える
+- 通知の重複は API 障害と同じ印方式（キーは `cron:<job>`、30 分 TTL）で抑止し、
+  カウントは閾値到達後も進み続ける（本文に連続回数を載せる）
+- 本文に入れるのは `cron:<job>` と連続回数だけ。例外メッセージは送らない
 
 セットアップ（初回のみ）:
 

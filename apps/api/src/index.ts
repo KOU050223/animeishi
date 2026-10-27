@@ -11,6 +11,7 @@ import { resolveMissingMalIds } from "./lib/annict/kitsuTitleSearch";
 import {
   buildSentryOptions,
   handleError,
+  runCronJob,
   type ObservabilityBindings,
 } from "./observability";
 import { analysis } from "./features/analysis";
@@ -118,26 +119,18 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
   // 先に MAL ID を持たない作品を Kitsu のタイトル検索で補い
   // （issue #223 / #227。AniList は Workers から 403 で拒否されるため
   // Kitsu を使う）、見つかった作品を同じ実行の画像フォールバック解決に
-  // 乗せる。片方の失敗でもう片方が巻き込まれないよう個別に握る。
+  // 乗せる。runCronJob がジョブごとに例外を握り、失敗を Sentry と
+  // （連続失敗時は）Discord に送る（issue #233）。
   scheduled(_controller, env, ctx) {
     const db = createDb(env.DB as D1Database);
-    const logFailure = (event: string) => (err: unknown) => {
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event,
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      );
-    };
     ctx.waitUntil(
       (async () => {
-        await resolveMissingMalIds(db).catch(
-          logFailure("mal_id_search_cron_failed"),
+        await runCronJob(env, "mal_id_search", () => resolveMissingMalIds(db));
+        await runCronJob(env, "image_fallback", () =>
+          resolvePendingImageFallbacks(db, undefined, {
+            malClientId: env.MAL_CLIENT_ID,
+          }),
         );
-        await resolvePendingImageFallbacks(db, undefined, {
-          malClientId: env.MAL_CLIENT_ID,
-        }).catch(logFailure("image_fallback_cron_failed"));
       })(),
     );
   },
