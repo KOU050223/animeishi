@@ -49,6 +49,8 @@ function fakeKv() {
   };
 }
 
+type ScheduledEnv = Parameters<NonNullable<typeof handler.scheduled>>[1];
+
 // scheduled は waitUntil に非同期処理を積むだけなので、積まれた promise が
 // すべて終わるのを待ってから検証する。
 function runScheduled(env: object): Promise<unknown[]> {
@@ -60,8 +62,8 @@ function runScheduled(env: object): Promise<unknown[]> {
     passThroughOnException: () => {},
   } as unknown as ExecutionContext;
   handler.scheduled!(
-    { cron: "*/10 * * * *", scheduledTime: Date.now() },
-    env,
+    { cron: "*/10 * * * *", scheduledTime: Date.now(), noRetry: vi.fn() },
+    env as ScheduledEnv,
     ctx,
   );
   return Promise.all(pending);
