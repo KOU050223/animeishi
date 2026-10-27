@@ -1,5 +1,6 @@
-// 重大な API 障害の Discord 通知。Sentry の無料（Developer）プランでは Discord を
-// 通知先にしたアラートルールが作れないため、Worker から Webhook へ直接送る。
+// 重大な API 障害・cron 失敗・ユーザー通報の Discord 通知。
+// Sentry の無料（Developer）プランでは Discord を通知先にしたアラートルールが
+// 作れないため、Worker から Webhook へ直接送る。
 // DISCORD_WEBHOOK_URL（Workers Secret）が未設定なら何もしない。
 //
 // 本文に入れるのはルートパターン・メソッド・ステータス・件数だけ。
@@ -128,6 +129,56 @@ export async function clearCronFailures(
   }
 }
 
+// ユーザー通報の通知（issue #232）。通報者・被通報者の ID や通報理由は
+// 本文に入れず、「通報あり」と直近の件数だけを送る。詳細は
+// pnpm task reports:list で確認する運用。
+// 通報は 1 件ずつ気づきたいので抑止間隔は障害通知（SUPPRESS_SECONDS）より短い
+// REPORT_SUPPRESS_SECONDS。抑止中に届いた通報は送らず件数だけ
+// `user_report_pending` に積み、次の通知に「直近 N 件」として載せる。
+// 件数は ALERT_STATE を正とし、KV 未バインド・読み書き失敗時は
+// isolate 内メモリで数える（cron の連続失敗カウントと同じ考え方）。
+export const REPORT_SUPPRESS_SECONDS = 5 * 60;
+
+const REPORT_ALERT_KEY = "user_report";
+const REPORT_PENDING_KEY = "user_report_pending";
+
+// 積んだ件数の保持期限。抑止窓（5 分）より十分長くして次の通知まで残す。
+// 通知が来ないまま残った残骸は期限切れに任せる。
+const REPORT_PENDING_TTL_SECONDS = 24 * 60 * 60;
+
+export async function notifyUserReport(
+  env: AlertBindings,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const now = Date.now();
+  // await より前に同期でメモリの印を確認・設定し、同時に走った通知同士の重複を防ぐ。
+  if ((localSuppressedUntil.get(REPORT_ALERT_KEY) ?? 0) <= now) {
+    localSuppressedUntil.set(
+      REPORT_ALERT_KEY,
+      now + REPORT_SUPPRESS_SECONDS * 1000,
+    );
+    if (!(await isSuppressed(env, REPORT_ALERT_KEY))) {
+      // 送信前に印を付ける。送信に失敗して次の通報で再送されるより、
+      // 連投しない方を優先する（API 障害と同じ考え方）。
+      await markSent(env, REPORT_ALERT_KEY, REPORT_SUPPRESS_SECONDS);
+      const pending = await drainPendingReports(env);
+      return postAlert(
+        env.DISCORD_WEBHOOK_URL,
+        [
+          `🔔 **[animeishi-api${envLabel(env.ENVIRONMENT)}] ユーザー通報**`,
+          `新しい通報がありました${pending > 0 ? `（直近 ${pending + 1} 件）` : ""}。`,
+          `詳細は \`pnpm task reports:list\` で確認。同じ通知は${REPORT_SUPPRESS_SECONDS / 60}分止めます。`,
+        ].join("\n"),
+        fetchImpl,
+      );
+    }
+  }
+  // 抑止中に届いた分は件数だけ積み、次の通知に載せる。
+  await recordPendingReport(env);
+  return false;
+}
+
 // isolate 内の印（キー → 抑止の期限 ms）。KV の結果整合を補うだけのもの。
 const localSuppressedUntil = new Map<string, number>();
 
@@ -135,10 +186,15 @@ const localSuppressedUntil = new Map<string, number>();
 // ALERT_STATE 未バインド・KV 読み書き失敗時の退避先。
 const localCronFailures = new Map<string, number>();
 
-// テスト間で isolate 内の印と連続失敗カウントを消す。
+// isolate 内の、KV に書けなかった通報の積算件数。ALERT_STATE 未バインド・
+// KV 読み書き失敗時の退避先（KV に書けた分は KV だけが持つ）。
+let localPendingReports = 0;
+
+// テスト間で isolate 内の印と各カウントを消す。
 export function resetLocalSuppression(): void {
   localSuppressedUntil.clear();
   localCronFailures.clear();
+  localPendingReports = 0;
 }
 
 function cronFailCountKey(job: string): string {
@@ -175,6 +231,61 @@ async function recordCronFailure(
   const count = (localCronFailures.get(key) ?? 0) + 1;
   localCronFailures.set(key, count);
   return count;
+}
+
+// 抑止中に届いた通報を 1 件積む。カウントは ALERT_STATE を正とし、
+// isolate 内メモリには KV に書けなかった分（未バインド・読み書き失敗）
+// だけを積む —— KV に書けた分までメモリに残すと、別 isolate が
+// ドレインした後に古い件数を二重計上してしまうため。
+async function recordPendingReport(env: AlertBindings): Promise<void> {
+  if (env.ALERT_STATE) {
+    try {
+      const stored =
+        Number((await env.ALERT_STATE.get(REPORT_PENDING_KEY)) ?? 0) || 0;
+      try {
+        await env.ALERT_STATE.put(REPORT_PENDING_KEY, String(stored + 1), {
+          expirationTtl: REPORT_PENDING_TTL_SECONDS,
+        });
+        return;
+      } catch (err) {
+        logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");
+      }
+    } catch (err) {
+      logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
+    }
+  }
+  localPendingReports += 1;
+}
+
+// 通知に載せる積算件数を取り出してリセットする。
+// KV の件数と、KV に書けずメモリに退避した分を合算して返す。
+async function drainPendingReports(env: AlertBindings): Promise<number> {
+  const local = localPendingReports;
+  localPendingReports = 0;
+  if (env.ALERT_STATE) {
+    try {
+      const stored =
+        Number((await env.ALERT_STATE.get(REPORT_PENDING_KEY)) ?? 0) || 0;
+      if (stored > 0) {
+        try {
+          await env.ALERT_STATE.delete(REPORT_PENDING_KEY);
+        } catch (err) {
+          // delete だけ失敗すると次の通知で同じ件数を再計上する。
+          // 通知 1 回分の誤差に留まるため許容し、自然失効（TTL）に任せる。
+          logAlertFailure(
+            "kv_delete",
+            err instanceof Error ? err.name : "Error",
+          );
+        }
+      }
+      return stored + local;
+    } catch (err) {
+      // get 失敗時は KV の件数が分からない。消しにいかず残しておけば
+      // 次の通知で数え直せるため、今回はメモリ分だけ返す。
+      logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
+    }
+  }
+  return local;
 }
 
 // Webhook への POST 本体。失敗は warn ログだけで false を返す。
@@ -242,11 +353,15 @@ async function isSuppressed(env: AlertBindings, key: string): Promise<boolean> {
   }
 }
 
-async function markSent(env: AlertBindings, key: string): Promise<void> {
+async function markSent(
+  env: AlertBindings,
+  key: string,
+  ttlSeconds: number = SUPPRESS_SECONDS,
+): Promise<void> {
   if (!env.ALERT_STATE) return;
   try {
     await env.ALERT_STATE.put(key, String(Date.now()), {
-      expirationTtl: SUPPRESS_SECONDS,
+      expirationTtl: ttlSeconds,
     });
   } catch (err) {
     logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");

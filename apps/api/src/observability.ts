@@ -15,6 +15,7 @@ import {
   clearCronFailures,
   notifyApiFailures,
   notifyCronFailure,
+  notifyUserReport as sendUserReportAlert,
   type AlertBindings,
 } from "@/lib/discordAlert";
 
@@ -111,13 +112,15 @@ export function captureApiError(err: unknown, c: Context): void {
   });
 }
 
-// ユーザー通報を運営通知として Sentry に送る。
-// アプリ側に Discord Webhook を持たない方針（docs/08_observability-design.md）
-// のため、Sentry Alert 経由の Discord 通知に乗せる。
+// ユーザー通報を運営に通知する。通知本体は lib/discordAlert の
+// Discord Webhook 経由（issue #232。Sentry org が無料プランで
+// Sentry Alert → Discord を作れないため）。応答は待たせず waitUntil で送り、
+// 連投抑止・件数積算は discordAlert 側に任せる。
+// Sentry にも captureMessage を残す: Webhook の本文には ID・理由を
+// 載せない方針なので、詳細の確認導線として Sentry の context に残す。
 // captureMessage のタイトルは固定なので、fingerprint で通報対象ユーザーごとに
-// Issue を分ける（「新規 Issue」トリガーの Discord アラートが初回通報で
-// しか飛ばないのを防ぐ）。report.reported_user_id タグで検索もできる。
-// SENTRY_DSN 未設定の環境では SDK が no-op になり通知は送られない。
+// Issue を分け、report.reported_user_id タグで検索できるようにする。
+// SENTRY_DSN 未設定の環境では SDK が no-op になる。
 export function notifyUserReport(
   c: Context,
   input: { reporterId: string; reportedUserId: string; reason: string },
@@ -132,6 +135,13 @@ export function notifyUserReport(
     scope.setContext("user_report", input);
     Sentry.captureMessage("user_report_received", "warning");
   });
+  const task = sendUserReportAlert(c.env ?? {});
+  try {
+    c.executionCtx.waitUntil(task);
+  } catch {
+    // ExecutionContext の無い環境（テストの app.request 等）。
+    // sendUserReportAlert は reject しないのでそのまま流す。
+  }
 }
 
 // サーバー側の障害を Sentry に送り、Discord にも知らせる。応答に変換して onError を
