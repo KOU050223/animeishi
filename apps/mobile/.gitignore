@@ -12,3 +12,6 @@ android/
 # Expo web export / Cloudflare Workers deploy
 dist/
 .wrangler/
+
+# e2e-ios.sh の実行状態（ロック・起動した API の PID ファイル。issue #275）
+.e2e-ios/

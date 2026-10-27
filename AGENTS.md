@@ -256,7 +256,9 @@ vp run @animeishi/mobile#e2e:ios
 1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
    （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
    他作業者のシミュレーターと衝突しない）
-2. `ios/` が無ければ `expo prebuild -p ios`
+2. `ios/Animeishi.xcworkspace` が無ければ `expo prebuild -p ios`。
+   `ios/` が残っていると prebuild が CocoaPods をスキップするため、
+   それでも xcworkspace が無いときは続けて `pod install` を実行する（issue #275）
 3. `xcodebuild -configuration Release -sdk iphonesimulator` で Release 相当ビルド
    （成果物: `ios/build/e2e-dd/Build/Products/Release-iphonesimulator/Animeishi.app`）
    - 署名は `CODE_SIGN_IDENTITY="-"`（ad-hoc）にする。
@@ -265,6 +267,29 @@ vp run @animeishi/mobile#e2e:ios
      `SecError -34018` で失敗し、`signUp.create` が `status:null` の
      空リソースを返してサインアップが進まなくなる
 4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行
+
+実行中の状態は `apps/mobile/.e2e-ios/`（gitignore 済み）に置く（issue #275）:
+
+- `lock/` … mkdir で取るロックディレクトリ（中の `owner` にスクリプトの
+  PID と起動時刻）。同じワークツリーでの多重起動は `ios/build/e2e-dd`
+  のビルド DB を取り合って失敗するため、所有者が e2e-ios.sh として
+  生きている（PID + 起動時刻が一致）ならエラーで止める。
+  前回実行が SIGKILL 等で落ちて残った残骸は `reclaim` ロックで回収を
+  直列化してから取り除く（複数起動が同時に消し合わないようにするため）
+- `api.pid` … スクリプトが起動した wrangler dev の PID と起動時刻。
+  スクリプトが SIGKILL で落ちて API が残った場合、次回起動時に
+  PID + 起動時刻が一致したプロセス（= 自分が起動したと確認できるもの）
+  だけをプロセスグループごと停止してから立て直す。
+  PID ファイルで確認できない起動済み API は従来どおり再利用する
+  （別用途で立てた `wrangler dev` 等の無関係なプロセスは止めない）
+
+API のポートは全ワークツリー共通なので、別ワークツリーの E2E が同じ
+API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` に
+自分の PID + 起動時刻を登録し、終了時に消す。自分が起動した API を
+止めるとき（正常終了・残骸回収のどちらでも）、レジストリに生きた
+他実行が残っていれば止めずに残す（api.pid も残し、最後に使い終わった
+後の実行が回収する）。他実行の登録が残ったまま死んでいる残骸は、
+登録の照合時に掃除する。
 
 ### 前提
 
