@@ -13,7 +13,11 @@ import { WorkAddSheet } from "./WorkAddSheet";
 import { useTierListStyles } from "./tierListStyles";
 import { trackEvent } from "@/lib/events";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
-import { unassignedItems, itemsInTier } from "@/lib/tierList/board";
+import {
+  unassignedItems,
+  itemsInTier,
+  dropInsertAnchor,
+} from "@/lib/tierList/board";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
@@ -21,8 +25,16 @@ export type TierBoardProps = {
   tiers: TierRow[];
   items: TierItem[];
   assignment: TierAssignment;
-  /** ドロップ確定時。tierKey が null なら未分類トレイへ戻す。 */
-  onAssign: (itemId: number, tierKey: string | null) => void;
+  /**
+   * ドロップ確定時。tierKey が null なら未分類トレイへ戻す。
+   * beforeItemId は行内の挿入位置（このアイテムの直前に置く）。
+   * 省略時はその行の末尾に追加する（issue #218）。
+   */
+  onAssign: (
+    itemId: number,
+    tierKey: string | null,
+    beforeItemId?: number,
+  ) => void;
   /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
   onRenameTier: (tierKey: string, label: string) => void;
   /**
@@ -129,6 +141,12 @@ export function TierBoard({
       draggingIdRef.current = null;
       dragOwnerId.value = -1;
       const hit = registry.hitTest(x, y);
+      // 行内の挿入位置判定用に、指の下のカードも同じ座標で引いておく
+      // （ドラッグ中のカード自身は指に追従して矩形がずれ得るため除外する）。
+      const hitCard =
+        typeof hit === "string"
+          ? registry.hitTestCard(x, y, itemId)
+          : undefined;
       setHoverKey(undefined);
       setDraggingId(null);
       autoScroll.onDragEnd();
@@ -136,9 +154,45 @@ export function TierBoard({
       registry.remeasureAll();
       // どの行にも当たらなかった（盤面の外で離した）なら配置は変えない。
       if (hit === undefined) return;
-      onAssign(itemId, hit);
+      // 未分類トレイは順序を持たないため、そのまま未配置へ戻す。
+      if (hit === null) {
+        onAssign(itemId, null);
+        return;
+      }
+      // 指の下のカードの前半ならそのカードの前、後半なら次のカードの前に
+      // 挿入する（issue #218）。
+      if (hitCard === undefined) {
+        // カード以外（カードの隙間・行末の余白・掴んでいたカードの元の位置）に
+        // 落とした。同じ行なら位置は変えず（元の場所に戻しただけで末尾に
+        // 飛ばさない）、別の行なら従来通り末尾へ追加する。
+        if (assignment.get(itemId) !== hit) onAssign(itemId, hit);
+        return;
+      }
+      const tierIds = itemsInTier(items, assignment, hit).map(
+        (item) => item.id,
+      );
+      const beforeItemId = dropInsertAnchor(
+        tierIds,
+        hitCard.itemId,
+        x < hitCard.rect.x + hitCard.rect.width / 2,
+      );
+      // 挿入位置が今の位置かその直後（直後のカードの前半・自分が末尾での
+      // 末尾追加など）なら順序は変わらない。配置が同じでも onAssign まで
+      // 通すと呼び出し側で未保存フラグだけが立つため、ここで捌く。
+      const fromIndex = tierIds.indexOf(itemId);
+      const insertIndex =
+        beforeItemId === undefined
+          ? tierIds.length
+          : tierIds.indexOf(beforeItemId);
+      if (
+        fromIndex >= 0 &&
+        (insertIndex === fromIndex || insertIndex === fromIndex + 1)
+      ) {
+        return;
+      }
+      onAssign(itemId, hit, beforeItemId);
     },
-    [autoScroll, dragOwnerId, onAssign, registry],
+    [autoScroll, assignment, dragOwnerId, items, onAssign, registry],
   );
 
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
@@ -201,6 +255,9 @@ export function TierBoard({
       onMove={(tierKey) => onAssign(item.id, tierKey)}
       scrollCompensation={dragScrollCompensation}
       scrollCompensationOwner={dragOwnerId}
+      // 行内の挿入位置判定に使う矩形を登録するのは tier 行のカードだけ。
+      // トレイのカードは順序を持たないため計測しない。
+      registry={currentTierKey === null ? undefined : registry}
     />
   );
 

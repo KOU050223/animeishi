@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assignItem,
+  dropInsertAnchor,
   mergeBoardItems,
   parseTiersJson,
   pruneAssignment,
@@ -56,6 +57,109 @@ describe("assignItem", () => {
     const original = new Map([[1, "s"]]);
     assignItem(original, 2, "a");
     expect(original.size).toBe(1);
+  });
+
+  it("beforeItemId を渡すとそのアイテムの直前に挿入する（行内の並べ替え）", () => {
+    // issue #218: 同じ tier 内でカードを別カードの前に落としたとき、
+    // 末尾ではなくその位置に挿入されること。
+    const next = assignItem(
+      new Map([
+        [1, "s"],
+        [2, "s"],
+        [3, "s"],
+      ]),
+      1,
+      "s",
+      3,
+    );
+    expect([...next.keys()]).toEqual([2, 1, 3]);
+  });
+
+  it("beforeItemId が先頭のアイテムなら行の先頭に挿入される", () => {
+    const next = assignItem(
+      new Map([
+        [1, "s"],
+        [2, "s"],
+        [3, "s"],
+      ]),
+      3,
+      "s",
+      1,
+    );
+    expect([...next.keys()]).toEqual([3, 1, 2]);
+  });
+
+  it("beforeItemId 付きで別 tier へ移すと、その行の指定位置に挿入される", () => {
+    const next = assignItem(
+      new Map([
+        [1, "s"],
+        [2, "a"],
+        [3, "a"],
+      ]),
+      1,
+      "a",
+      3,
+    );
+    expect(next.get(1)).toBe("a");
+    // 既に tier "a" にいた 2 の後ろ・3 の前に挿入される
+    expect(itemsInTier(ITEMS, next, "a").map((w) => w.id)).toEqual([2, 1, 3]);
+  });
+
+  it("beforeItemId が見つからない（他 tier・未配置・消滅）ときは末尾追加に倒す", () => {
+    const base = new Map([
+      [1, "s"],
+      [2, "s"],
+    ]);
+    // アンカーが別 tier にいる
+    expect([
+      ...assignItem(new Map([...base, [3, "a"]]), 1, "s", 3).keys(),
+    ]).toEqual([2, 3, 1]);
+    // アンカー自体が名簿に無い
+    expect([...assignItem(base, 1, "s", 999).keys()]).toEqual([2, 1]);
+  });
+
+  it("beforeItemId が自分自身なら位置不変（同じ場所に落とした）", () => {
+    const base = new Map([
+      [1, "s"],
+      [2, "s"],
+    ]);
+    const next = assignItem(base, 1, "s", 1);
+    expect(next).toBe(base);
+    expect([...next.keys()]).toEqual([1, 2]);
+  });
+
+  it("beforeItemId が自分自身でも別 tier への移動なら移動する", () => {
+    // 移動先が今の tier と違うのにアンカーが自分を指すのは変な引数だが、
+    // 移動自体を抑止する理由にはならない（アンカー不在として末尾に置く）。
+    const next = assignItem(
+      new Map([
+        [1, "s"],
+        [2, "a"],
+      ]),
+      1,
+      "a",
+      1,
+    );
+    expect(next.get(1)).toBe("a");
+    expect([...next.keys()]).toEqual([2, 1]);
+  });
+});
+
+describe("dropInsertAnchor", () => {
+  it("ヒットしたカードの前半に指があるとき、そのカード自体がアンカーになる", () => {
+    expect(dropInsertAnchor([1, 2, 3], 2, true)).toBe(2);
+  });
+
+  it("ヒットしたカードの後半に指があるとき、次のカードがアンカーになる", () => {
+    expect(dropInsertAnchor([1, 2, 3], 2, false)).toBe(3);
+  });
+
+  it("末尾カードの後半に指があるとき、アンカーなし（末尾挿入）を返す", () => {
+    expect(dropInsertAnchor([1, 2, 3], 3, false)).toBeUndefined();
+  });
+
+  it("ヒットしたカードが行内に無いときは undefined（末尾挿入）", () => {
+    expect(dropInsertAnchor([1, 2, 3], 9, true)).toBeUndefined();
   });
 });
 
