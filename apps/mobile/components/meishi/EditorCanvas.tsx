@@ -99,6 +99,10 @@ export function EditorCanvas({
                   if (!el) return null;
                   return (
                     <SelectionOverlay
+                      // SharedValue を effect で同期しているため、選択切替時に
+                      // 前要素の値が残る窓を key で閉じる（ElementBox と同じく
+                      // 要素ごとに新しいインスタンスを作る）。
+                      key={el.id}
                       element={el}
                       canvasSize={size}
                       canvasOrigin={canvasOrigin}
