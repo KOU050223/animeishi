@@ -18,6 +18,28 @@ export type DropZoneRegistry = {
   /** ウィンドウ座標の点を含む行のキーを返す。どの行にも当たらなければ undefined。 */
   hitTest: (x: number, y: number) => string | null | undefined;
   /**
+   * カード（tier 行の中のアイテム）の矩形を登録・更新する。
+   * 行内のどのカードの上に指があるかで挿入位置（どのカードの前後に
+   * 落とすか）を決めるために使う（issue #218）。未分類トレイのカードは
+   * 順序を持たないため登録しない。
+   */
+  registerCard: (itemId: number, rect: Rect) => void;
+  /**
+   * ウィンドウ座標の点を含むカードを返す。どのカードにも当たらなければ
+   * undefined。excludeItemId にドラッグ中のカードを渡すとそれを除いて判定する
+   * （ドラッグ中のカードは指に追従して矩形がずれ得るため、当たり判定から外す）。
+   */
+  hitTestCard: (
+    x: number,
+    y: number,
+    excludeItemId?: number,
+  ) => { itemId: number; rect: Rect } | undefined;
+  /**
+   * カードが「自分を測り直す関数」を登録する。戻り値は登録解除関数。
+   * 行と同じく、スクロールでずれる矩形をドラッグ開始時に測り直すために要る。
+   */
+  registerCardMeasurer: (itemId: number, measure: () => void) => () => void;
+  /**
    * 各 DropZone が「自分を測り直す関数」を登録する。戻り値は登録解除関数。
    * onLayout はレイアウトが変わったときしか発火しないため、スクロールで
    * 位置がずれても呼ばれない。ドラッグ開始時に remeasureAll() を通して
@@ -47,11 +69,34 @@ export function useDropZoneRegistry(): DropZoneRegistry {
   // 持つ TierRow ができたときにトレイの矩形を上書きしてしまうため。
   const zonesRef = useRef(new Map<string | null, Rect>());
   const measurersRef = useRef(new Map<string | null, () => void>());
+  // tier 行内のカード矩形（キーは itemId）。行内の挿入位置を決める
+  // ヒットテスト専用で、行の矩形とは別に持つ。
+  const cardRectsRef = useRef(new Map<number, Rect>());
+  const cardMeasurersRef = useRef(new Map<number, () => void>());
   const epochRef = useRef(0);
 
   const register = useCallback((key: string | null, rect: Rect) => {
     zonesRef.current.set(key, rect);
   }, []);
+
+  const registerCard = useCallback((itemId: number, rect: Rect) => {
+    cardRectsRef.current.set(itemId, rect);
+  }, []);
+
+  const registerCardMeasurer = useCallback(
+    (itemId: number, measure: () => void) => {
+      cardMeasurersRef.current.set(itemId, measure);
+      return () => {
+        // 同じキーが別の measure で上書きされている場合は消さない
+        // （registerMeasurer と同じ理由）。
+        if (cardMeasurersRef.current.get(itemId) === measure) {
+          cardMeasurersRef.current.delete(itemId);
+          cardRectsRef.current.delete(itemId);
+        }
+      };
+    },
+    [],
+  );
 
   const registerMeasurer = useCallback(
     (key: string | null, measure: () => void) => {
@@ -72,12 +117,16 @@ export function useDropZoneRegistry(): DropZoneRegistry {
 
   const remeasureAll = useCallback(() => {
     for (const measure of measurersRef.current.values()) measure();
+    for (const measure of cardMeasurersRef.current.values()) measure();
   }, []);
 
   const shiftAll = useCallback((dy: number) => {
     epochRef.current += 1;
     for (const [key, rect] of zonesRef.current) {
       zonesRef.current.set(key, { ...rect, y: rect.y + dy });
+    }
+    for (const [id, rect] of cardRectsRef.current) {
+      cardRectsRef.current.set(id, { ...rect, y: rect.y + dy });
     }
   }, []);
 
@@ -97,6 +146,24 @@ export function useDropZoneRegistry(): DropZoneRegistry {
     return undefined;
   }, []);
 
+  const hitTestCard = useCallback(
+    (x: number, y: number, excludeItemId?: number) => {
+      for (const [itemId, rect] of cardRectsRef.current) {
+        if (itemId === excludeItemId) continue;
+        if (
+          x >= rect.x &&
+          x <= rect.x + rect.width &&
+          y >= rect.y &&
+          y <= rect.y + rect.height
+        ) {
+          return { itemId, rect };
+        }
+      }
+      return undefined;
+    },
+    [],
+  );
+
   // 返り値はメモ化しておかないと、呼び出し側（DropZone）の effect が
   // 親の再レンダリングのたびに cleanup → 再登録を繰り返し、
   // cleanup で矩形まで消えてドロップ判定が一切当たらなくなる。
@@ -104,11 +171,24 @@ export function useDropZoneRegistry(): DropZoneRegistry {
     () => ({
       register,
       hitTest,
+      registerCard,
+      hitTestCard,
+      registerCardMeasurer,
       registerMeasurer,
       remeasureAll,
       shiftAll,
       epoch,
     }),
-    [register, hitTest, registerMeasurer, remeasureAll, shiftAll, epoch],
+    [
+      register,
+      hitTest,
+      registerCard,
+      hitTestCard,
+      registerCardMeasurer,
+      registerMeasurer,
+      remeasureAll,
+      shiftAll,
+      epoch,
+    ],
   );
 }

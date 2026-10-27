@@ -144,3 +144,77 @@ describe("useDropZoneRegistry", () => {
     expect(oldMeasure).not.toHaveBeenCalled();
   });
 });
+
+describe("カード矩形（行内挿入位置のヒットテスト。issue #218）", () => {
+  // 行 "s" の中に横並びで置いたカード 2 枚（60px 幅、4px 隙間）。
+  function setupCards(registry: ReturnType<typeof useDropZoneRegistry>) {
+    registry.registerCard(1, { x: 0, y: 0, width: 60, height: 116 });
+    registry.registerCard(2, { x: 64, y: 0, width: 60, height: 116 });
+  }
+
+  it("カードの内側の点はそのカードの itemId と矩形を返す", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupCards(result.current));
+
+    expect(result.current.hitTestCard(30, 50)).toEqual({
+      itemId: 1,
+      rect: { x: 0, y: 0, width: 60, height: 116 },
+    });
+    expect(result.current.hitTestCard(100, 50)?.itemId).toBe(2);
+  });
+
+  it("どのカードにも当たらない点は undefined を返す", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupCards(result.current));
+
+    expect(result.current.hitTestCard(62, 50)).toBeUndefined();
+    expect(result.current.hitTestCard(30, 200)).toBeUndefined();
+  });
+
+  it("excludeItemId に渡したカードは当たり判定から外れる", () => {
+    // ドラッグ中のカードは指に追従して矩形がずれ得るため、自分自身には
+    // 当たらないよう除外する（自分の上で離した判定を別カード扱いしない）。
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupCards(result.current));
+
+    expect(result.current.hitTestCard(30, 50, 1)).toBeUndefined();
+    expect(result.current.hitTestCard(30, 50, 2)?.itemId).toBe(1);
+  });
+
+  it("shiftAll でカード矩形も行と一緒にずれる", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupCards(result.current));
+    act(() => result.current.shiftAll(-50));
+
+    // y:0-116 → -50-66 にずれる。ずらした後の位置では当たり、
+    // ずらし後の範囲外（y=100）では当たらない。
+    expect(result.current.hitTestCard(30, -25)?.itemId).toBe(1);
+    expect(result.current.hitTestCard(30, 100)).toBeUndefined();
+  });
+
+  it("remeasureAll はカードの measurer も呼ぶ", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    const measureCard = jest.fn();
+
+    act(() => {
+      result.current.registerCardMeasurer(1, measureCard);
+    });
+    act(() => result.current.remeasureAll());
+
+    expect(measureCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("registerCardMeasurer の解除関数を呼ぶと矩形も消える", () => {
+    const { result } = renderHook(() => useDropZoneRegistry());
+    act(() => setupCards(result.current));
+
+    let unregister: (() => void) | undefined;
+    act(() => {
+      unregister = result.current.registerCardMeasurer(1, jest.fn());
+    });
+    act(() => unregister?.());
+
+    expect(result.current.hitTestCard(30, 50)).toBeUndefined();
+    expect(result.current.hitTestCard(100, 50)?.itemId).toBe(2);
+  });
+});

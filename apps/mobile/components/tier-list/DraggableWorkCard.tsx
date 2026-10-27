@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Text, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -10,6 +10,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import type { TierItem } from "@/lib/tierList/types";
+import type { DropZoneRegistry } from "./dropZones";
 import { useTierListStyles } from "./tierListStyles";
 
 /** 長押しでドラッグを開始するまでの時間（ms）。 */
@@ -58,6 +59,12 @@ export type DraggableWorkCardProps = {
    * isDragging だけで判定する。
    */
   scrollCompensationOwner?: SharedValue<number>;
+  /**
+   * 渡すと自分の矩形をカード単位で登録し、ドロップ時の行内挿入位置
+   * （どのカードの前後に落とすか）のヒットテストに使わせる（issue #218）。
+   * 順序を持たない未分類トレイのカードには渡さない。
+   */
+  registry?: DropZoneRegistry;
 };
 
 /**
@@ -77,6 +84,7 @@ export function DraggableWorkCard({
   onMove,
   scrollCompensation,
   scrollCompensationOwner,
+  registry,
 }: DraggableWorkCardProps) {
   const styles = useTierListStyles();
   const translateX = useSharedValue(0);
@@ -195,9 +203,40 @@ export function DraggableWorkCard({
     [moveDestinations, onMove],
   );
 
+  // 行内の挿入位置判定用に自分の矩形をレジストリへ登録する。
+  // 計測は DropZone と同じ仕組み（measureInWindow + ずらし世代で遅れ応答を
+  // 弾く）。ドラッグ中の自分の矩形は transform 分ずれ得るため、ヒットテスト
+  // 側ではドラッグ中カードを除外して使う前提。
+  const cardRef = useRef<View>(null);
+  const aliveRef = useRef(false);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+  const measureCard = useCallback(() => {
+    if (!registry) return;
+    const requestedEpoch = registry.epoch();
+    cardRef.current?.measureInWindow((x, y, width, height) => {
+      if (!aliveRef.current) return;
+      if (registry.epoch() !== requestedEpoch) {
+        measureCard();
+        return;
+      }
+      registry.registerCard(item.id, { x, y, width, height });
+    });
+  }, [registry, item.id]);
+  useEffect(() => {
+    if (!registry) return;
+    return registry.registerCardMeasurer(item.id, measureCard);
+  }, [registry, item.id, measureCard]);
+
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
+        ref={cardRef}
+        onLayout={registry ? measureCard : undefined}
         style={[styles.card, animatedStyle]}
         accessibilityLabel={`${item.title}（長押しでドラッグ）`}
         accessibilityActions={accessibilityActions}

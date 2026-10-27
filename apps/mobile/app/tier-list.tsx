@@ -164,12 +164,12 @@ export default function TierListScreen() {
   );
 
   const handleAssign = useCallback(
-    (itemId: number, tierKey: string | null) => {
+    (itemId: number, tierKey: string | null, beforeItemId?: number) => {
       // 共有・保存は「盤面を保存 → 応答を反映」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 処理中に行った編集が消えるため、リクエスト中のドロップは受け付けない。
       if (isSharing || save.isPending) return;
-      setAssignment((prev) => assignItem(prev, itemId, tierKey));
+      setAssignment((prev) => assignItem(prev, itemId, tierKey, beforeItemId));
       setIsDirty(true);
     },
     [isSharing, save.isPending],

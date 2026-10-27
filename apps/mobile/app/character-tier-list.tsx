@@ -152,14 +152,14 @@ export default function CharacterTierListScreen() {
   }, [workTitle, saved]);
 
   const handleAssign = useCallback(
-    (itemId: number, tierKey: string | null) => {
+    (itemId: number, tierKey: string | null, beforeItemId?: number) => {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
       // その最中に編集が入ると、保存応答後の isDirty 解除や saved の再反映で
       // 共有中に行った編集が消えるため、共有中のドロップは受け付けない。
       // 保存中の編集は isDirty が立ったまま残る（handleSave 側で送信盤面と
       // 現在盤面を比較して一致したときだけ解除するため）。
       if (isSharing) return;
-      setAssignment((prev) => assignItem(prev, itemId, tierKey));
+      setAssignment((prev) => assignItem(prev, itemId, tierKey, beforeItemId));
       setIsDirty(true);
     },
     [isSharing],

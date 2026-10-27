@@ -13,21 +13,58 @@ import type { TierAssignment, TierRow, TierItem } from "./types";
 /**
  * アイテムを指定 tier に配置する。既に別の tier にいた場合は移動になる。
  * tierKey に null を渡すと未分類（トレイ）へ戻す。
+ *
+ * beforeItemId を渡すと、そのアイテムの直前に挿入する（行内の任意位置への
+ * ドロップ。issue #218）。省略時は従来通りその tier の末尾に追加する。
+ * beforeItemId が見つからない・自分自身を指す場合も末尾・位置不変で捌く。
  */
 export function assignItem(
   assignment: TierAssignment,
   itemId: number,
   tierKey: string | null,
+  beforeItemId?: number,
 ): TierAssignment {
+  // 「自分の直前に挿入」は位置が変わらない（＝同じ場所に落とした）ので無操作。
+  if (beforeItemId === itemId) return assignment;
   const next = new Map(assignment);
   // Map.set は既存キーの挿入位置を保つため、いったん消してから追加し直す。
   // そうしないと「別 tier に移して戻す」で元の位置に残り、
   // 新規配置は末尾追加という約束と表示順・保存順がずれる。
   next.delete(itemId);
-  if (tierKey !== null) {
+  if (tierKey === null) return next;
+  if (beforeItemId === undefined) {
     next.set(itemId, tierKey);
+    return next;
   }
-  return next;
+  // Map は途中挿入できないため、アンカーの手前に差し込むよう組み立て直す。
+  // アンカーは対象 tier のカードのはずだが、別 tier や消滅した id を指して
+  // いる場合は末尾追加に倒す（中途半端な位置より予測しやすい末尾を選ぶ）。
+  const reordered = new Map<number, string>();
+  let inserted = false;
+  for (const [id, key] of next) {
+    if (!inserted && id === beforeItemId && key === tierKey) {
+      reordered.set(itemId, tierKey);
+      inserted = true;
+    }
+    reordered.set(id, key);
+  }
+  if (!inserted) reordered.set(itemId, tierKey);
+  return reordered;
+}
+
+/**
+ * 行内へのドロップ位置から、挿入先の直後に来るアイテム（挿入アンカー）を返す。
+ * 指がヒットしたカードの前半にあればそのカード自体、後半なら行内で次の
+ * カードがアンカーになる。末尾への挿入（＝アンカーなし）は undefined を返す。
+ */
+export function dropInsertAnchor(
+  tierItemIds: number[],
+  hitItemId: number,
+  hitsFirstHalf: boolean,
+): number | undefined {
+  const index = tierItemIds.indexOf(hitItemId);
+  if (index < 0) return undefined;
+  return hitsFirstHalf ? hitItemId : tierItemIds[index + 1];
 }
 
 /**
@@ -35,7 +72,7 @@ export function assignItem(
  * 新規配置は末尾追加）で返す。
  *
  * Map は挿入順を保つため、この順序がそのまま表示順になる。
- * ドロップは常に末尾追加なので、行内の任意位置への挿入は v1 では扱わない。
+ * 行内の任意位置への挿入は assignItem の beforeItemId を通してここに反映される。
  */
 export function itemsInTier(
   items: TierItem[],

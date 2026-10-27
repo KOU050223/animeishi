@@ -32,6 +32,11 @@ const setScheme = (colorScheme: "light" | "dark") =>
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
 // ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に
 // 写像したスタブに差し替える。
+// longPress で報告する指位置はテストごとに変えられるよう mockDropPoint 経由にし、
+// 行内カードにだけ渡される矩形レジストリは mockCardRegistry に退避して、
+// 実機では measureInWindow が行う矩形登録をテスト側から直接行えるようにする。
+let mockDropPoint = { x: 0, y: 0 };
+let mockCardRegistry: import("./dropZones").DropZoneRegistry | undefined;
 jest.mock("./DraggableWorkCard", () => {
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
@@ -41,21 +46,26 @@ jest.mock("./DraggableWorkCard", () => {
       onDragStart,
       onDragEnd,
       onDragCancel,
+      registry,
     }: {
       item: TierItem;
       onDragStart: () => void;
       onDragEnd: (x: number, y: number) => void;
       onDragCancel: () => void;
-    }) => (
-      <Pressable
-        testID={`tier-card-${item.id}`}
-        onPress={onDragStart}
-        onLongPress={() => onDragEnd(0, 0)}
-        onTouchCancel={onDragCancel}
-      >
-        <Text>{item.title}</Text>
-      </Pressable>
-    ),
+      registry?: import("./dropZones").DropZoneRegistry;
+    }) => {
+      if (registry) mockCardRegistry = registry;
+      return (
+        <Pressable
+          testID={`tier-card-${item.id}`}
+          onPress={onDragStart}
+          onLongPress={() => onDragEnd(mockDropPoint.x, mockDropPoint.y)}
+          onTouchCancel={onDragCancel}
+        >
+          <Text>{item.title}</Text>
+        </Pressable>
+      );
+    },
   };
 });
 
@@ -109,6 +119,7 @@ const ASSIGNMENT: TierAssignment = new Map([
 const boardElement = (
   props: {
     labelsEditable?: boolean;
+    onAssign?: jest.Mock;
     onRenameTier?: jest.Mock;
     onAddItem?: jest.Mock;
     items?: TierItem[];
@@ -119,7 +130,7 @@ const boardElement = (
     tiers={TIERS}
     items={props.items ?? []}
     assignment={props.assignment ?? new Map()}
-    onAssign={jest.fn()}
+    onAssign={props.onAssign ?? jest.fn()}
     onRenameTier={props.onRenameTier ?? jest.fn()}
     onAddItem={props.onAddItem ?? jest.fn()}
     labelsEditable={props.labelsEditable ?? true}
@@ -240,6 +251,155 @@ describe("TierBoard の作品手動追加", () => {
 
     rerender(boardElement({ labelsEditable: false }));
     expect(queryByTestId("work-add-sheet")).toBeNull();
+  });
+});
+
+describe("行内の並べ替え（issue #218）", () => {
+  // 行 "0" にカード 1,2,3（幅 60px、隙間 4px で横並び）、行 "1" は空、
+  // 作品4 は未分類トレイ。実機では onLayout / measureInWindow が登録する
+  // 行・カードの矩形を、テストでは直接レジストリへ登録する。
+  const ROW_ASSIGNMENT: TierAssignment = new Map([
+    [1, "0"],
+    [2, "0"],
+    [3, "0"],
+  ]);
+  const BOARD_ITEMS: TierItem[] = [...ITEMS, { id: 4, title: "作品4" }];
+
+  function setupDropGeometry() {
+    const registry = mockCardRegistry;
+    if (!registry) throw new Error("registry がカードから渡されていません");
+    registry.register("0", { x: 0, y: 0, width: 300, height: 130 });
+    registry.register("1", { x: 0, y: 130, width: 300, height: 130 });
+    registry.register(null, { x: 0, y: 260, width: 300, height: 130 });
+    registry.registerCard(1, { x: 0, y: 4, width: 60, height: 116 });
+    registry.registerCard(2, { x: 64, y: 4, width: 60, height: 116 });
+    registry.registerCard(3, { x: 128, y: 4, width: 60, height: 116 });
+  }
+
+  function renderDropBoard(onAssign = jest.fn()) {
+    const utils = render(
+      boardElement({
+        items: BOARD_ITEMS,
+        assignment: ROW_ASSIGNMENT,
+        onAssign,
+      }),
+    );
+    return { ...utils, onAssign };
+  }
+
+  const dropAt = (x: number, y: number) => {
+    mockDropPoint = { x, y };
+  };
+
+  it("同じ行の別カードの前半に落とすと、そのカードの直前に挿入される", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    // カード2（x 64-124、中央 94）の前半に落とす
+    dropAt(80, 50);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(1, "0", 2);
+  });
+
+  it("カードの後半に落とすと、次のカードの直前に挿入される", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    // カード2 の後半 → 次はカード3
+    dropAt(110, 50);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(1, "0", 3);
+  });
+
+  it("末尾カードの後半に落とすと行の末尾に追加される", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    // カード3（x 128-188）の後半
+    dropAt(170, 50);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(1, "0", undefined);
+  });
+
+  it("自分の元の位置に落としても配置は変わらない", () => {
+    // ドラッグ中のカードはヒットテストから外れるため、元の枡目に落とした
+    // 場合は「行内・カード非ヒット」扱いになり、同じ行なら位置を維持する。
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    dropAt(30, 50); // カード1 の矩形内
+    fireEvent(card, "longPress");
+
+    expect(onAssign).not.toHaveBeenCalled();
+  });
+
+  it("行内の余白（カード無し）に落としても、同じ行なら配置は変わらない", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    dropAt(250, 50); // 行 "0" 内だがどのカードにも当たらない
+    fireEvent(card, "longPress");
+
+    expect(onAssign).not.toHaveBeenCalled();
+  });
+
+  it("別の行のカードの上に落とすと、その位置に挿入される", () => {
+    const assignment: TierAssignment = new Map([
+      [1, "0"],
+      [2, "0"],
+      [3, "0"],
+      [4, "1"],
+    ]);
+    const onAssign = jest.fn();
+    const { getByTestId } = render(
+      boardElement({ items: BOARD_ITEMS, assignment, onAssign }),
+    );
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    mockCardRegistry!.registerCard(4, {
+      x: 0,
+      y: 134,
+      width: 60,
+      height: 116,
+    });
+
+    // 行 "1" のカード4 の前半に落とす
+    dropAt(20, 180);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(1, "1", 4);
+  });
+
+  it("別の行のカード以外の場所に落とすと従来通り末尾に追加される", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-1");
+    fireEvent.press(card);
+    setupDropGeometry();
+    dropAt(250, 180); // 行 "1"（空）の中
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(1, "1");
+  });
+
+  it("トレイのカードを行内のカードの前に落とすと、その位置に挿入される", () => {
+    const { getByTestId, onAssign } = renderDropBoard();
+    const card = getByTestId("tier-card-4");
+    fireEvent.press(card);
+    setupDropGeometry();
+    // 行 "0" のカード2 の前半に落とす
+    dropAt(80, 50);
+    fireEvent(card, "longPress");
+
+    expect(onAssign).toHaveBeenCalledWith(4, "0", 2);
   });
 });
 
