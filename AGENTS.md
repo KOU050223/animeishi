@@ -263,7 +263,13 @@ vp run @animeishi/mobile#e2e:ios
 
 1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
    （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
-   他作業者のシミュレーターと衝突しない）
+   他作業者のシミュレーターと衝突しない）。
+   既定のランタイムは**インストール済みの iOS 18.x のうち最新**（issue #298。
+   iOS 26.5 では Maestro のドライバ接続が不安定で、ドライバ起動タイムアウトや
+   途中切断で E2E が頻繁に失敗するため）。18.x が無ければ最新のランタイムに
+   フォールバックし、その旨を表示する。既存の同名シミュレーターが別ランタイムで
+   作られていた場合は作り直す。`E2E_SIM_NAME` を指定したときはこの選択を行わず、
+   従来どおり最新のランタイムで作り・既存シミュレーターも再利用する
 2. `ios/Animeishi.xcworkspace` が無ければ `expo prebuild -p ios`。
    `ios/` が残っていると prebuild が CocoaPods をスキップするため、
    それでも xcworkspace が無いときは続けて `pod install` を実行する（issue #275）
@@ -306,6 +312,8 @@ API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` �
 PID・起動時刻・ワークツリー名・プロセスグループ ID を書く。
 ビルド開始の直前に取得して
 Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
+シミュレーターの検索・作り直し・作成もロックの中で行う（別ワークツリーの
+実行が同名シミュレーターを使用中に消されないようにするため。issue #298）。
 別ワークツリーが実行中のときはエラーにせず、所有者の
 ワークツリー名・PID を表示しながら 30 秒おきに再確認して終了を待つ。
 待ち時間の上限は `E2E_HOST_LOCK_TIMEOUT`（秒、既定 3600）で、
@@ -320,7 +328,8 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 
 ### 前提
 
-- maestro CLI: `brew install mobile-dev-inc/tap/maestro`（JDK も必要）
+- maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
+  （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
 - Xcode + iOS シミュレーターランタイム
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
   GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
@@ -344,7 +353,10 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 便利な環境変数:
 
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
-- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`）
+- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`。
+  指定したときは iOS 18.x 優先のランタイム選択を行わず、最新ランタイムで作成・
+  同名の既存シミュレーターはランタイムを見ずに再利用する。特定の iOS 版で
+  試したいときに使う）
 - `E2E_HOST_LOCK_TIMEOUT` … ホストロックの待ち時間の上限（秒、既定 3600。
   超えるとエラーで終了）
 
