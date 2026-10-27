@@ -11,6 +11,7 @@ import { buildAnnictAuthHeader } from "@/lib/annict";
 import {
   normalizeTitle,
   toMatchWorks,
+  type DanimeAnnictWork,
   type DanimeExtractedLists,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
@@ -60,17 +61,18 @@ const BULK_CHUNK_SIZE = 50;
 const MATCH_CHUNK_SIZE = 100;
 
 // issue #219: 照合を 100 件単位で分割送信しているため、正規化タイトルが同じ
-// dアニメ作品が別チャンクに分かれた場合、API 側は各リクエスト内の候補プール
-// しか見られず「同名だが別作品かもしれない」曖昧さを検出できない。
-// 同一リクエスト内なら API が行う判定（同名複数 exact → candidates）を、
-// 結合後にクライアント側でやり直し誤確定を防ぐ。
+// Annict 作品が別チャンクの結果として別々に exact 確定した場合、API 側は
+// 各リクエスト内の候補プールしか見られず「同名だが別作品かもしれない」
+// 曖昧さを検出できない。同一リクエスト内なら API が行う判定
+// （同名の複数 exact 候補 → candidates）を、結合後にクライアント側で
+// やり直し誤確定を防ぐ。
 export function demoteAmbiguousExactAcrossChunks(
   items: DanimeMatchItem[],
 ): DanimeMatchItem[] {
   const groups = new Map<string, DanimeMatchItem[]>();
   for (const item of items) {
     if (item.status !== "exact" || !item.work) continue;
-    const key = normalizeTitle(item.title);
+    const key = normalizeTitle(item.work.title);
     if (!key) continue;
     const group = groups.get(key);
     if (group) {
@@ -81,17 +83,21 @@ export function demoteAmbiguousExactAcrossChunks(
   }
   return items.map((item) => {
     if (item.status !== "exact" || !item.work) return item;
-    const group = groups.get(normalizeTitle(item.title));
-    const ambiguous =
-      group !== undefined &&
-      group.length > 1 &&
-      new Set(group.map((g) => g.work?.annictWorkId)).size > 1;
-    if (!ambiguous) return item;
+    const group = groups.get(normalizeTitle(item.work.title));
+    if (!group || new Set(group.map((g) => g.work?.annictWorkId)).size <= 1) {
+      return item;
+    }
+    // 同名グループの Annict 作品をすべて candidates に入れて選択肢にする。
+    const groupWorks = new Map<number, DanimeAnnictWork>();
+    for (const g of group) {
+      if (g.work) groupWorks.set(g.work.annictWorkId, g.work);
+    }
+    const rest = item.candidates.filter((c) => !groupWorks.has(c.annictWorkId));
     return {
       ...item,
       status: "candidates",
       work: null,
-      candidates: [item.work, ...item.candidates],
+      candidates: [...groupWorks.values(), ...rest],
     };
   });
 }
