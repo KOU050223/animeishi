@@ -405,7 +405,7 @@ export default function TierListScreen() {
         setIsSharing(false);
       }
     },
-    [saveTierListData],
+    [],
   );
 
   const handleShareImage = useCallback(async () => {

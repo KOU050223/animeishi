@@ -267,7 +267,7 @@ export function useAnnictConnect(): UseAnnictConnect {
         queryKey: ANNICT_CONNECTION_QUERY_KEY,
       });
     }
-  }, [getToken, queryClient]);
+  }, []);
 
   return { connect, disconnect, isConnecting };
 }

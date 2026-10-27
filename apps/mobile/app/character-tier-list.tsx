@@ -206,17 +206,6 @@ export default function CharacterTierListScreen() {
     goBack();
   }, [isDirty, router]);
 
-  // ボード層の汎用 itemId をキャラクター用フィールド名（annictCharacterId）に
-  // 写す。作品版は annictWorkId に写すため、ここで分岐する。
-  const buildSaveItems = useCallback(
-    () =>
-      toSaveItems(assignment, tiers).map((i) => ({
-        annictCharacterId: i.itemId,
-        tierKey: i.tierKey,
-      })),
-    [assignment, tiers],
-  );
-
   const handleSave = useCallback(() => {
     // 送信した盤面をスナップショットとして取る。保存中に編集が進むと
     // 応答は送信時点の内容しか含まないため、現在の盤面と一致するとき
@@ -253,15 +242,21 @@ export default function CharacterTierListScreen() {
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
   const saveTierListData = useCallback(async () => {
+    // 共有フローは isSharing で編集を止めるが、開始直前までの編集も
+    // 反映できるよう実行時点の最新値から組み立てる。
+    const cur = boardStateRef.current;
     const savedData = await save.mutateAsync({
       annictWorkId,
-      title,
-      tiers,
-      items: buildSaveItems(),
+      title: cur.title,
+      tiers: cur.tiers,
+      items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
+        annictCharacterId: i.itemId,
+        tierKey: i.tierKey,
+      })),
     });
     setIsDirty(false);
     return savedData;
-  }, [annictWorkId, buildSaveItems, save, tiers, title]);
+  }, [annictWorkId, save]);
 
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
@@ -325,7 +320,7 @@ export default function CharacterTierListScreen() {
         setIsSharing(false);
       }
     },
-    [saveTierListData],
+    [],
   );
 
   const handleShareImage = useCallback(async () => {

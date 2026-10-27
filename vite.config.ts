@@ -69,6 +69,20 @@ export default defineConfig({
           curly: "off",
           "no-void": "off",
           "typescript/array-type": "off",
+          // React Compiler 系のルール（issue #300）。purity / globals /
+          // preserve-manual-memoization / incompatible-library（と #267 で直した
+          // immutability / refs / set-state-in-effect）は correctness カテゴリで
+          // 既に有効だが、コンパイラ向けルール一式として明示する。
+          // hooks / exhaustive-effect-dependencies / memo-dependencies /
+          // no-deriving-state-in-effects はカテゴリ外なのでここで有効にする。
+          "react/purity": "error",
+          "react/globals": "error",
+          "react/hooks": "error",
+          "react/exhaustive-effect-dependencies": "error",
+          "react/memo-dependencies": "error",
+          "react/preserve-manual-memoization": "error",
+          "react/incompatible-library": "error",
+          "react/no-deriving-state-in-effects": "error",
         },
       },
       // apps/api の旧 .oxlintrc.json。db.insert / update / delete の直叩きを
