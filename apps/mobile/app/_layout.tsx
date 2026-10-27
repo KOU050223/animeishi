@@ -60,7 +60,7 @@ function AuthGuard() {
     } else if (isSignedIn && inAuthGroup) {
       router.replace("/(tabs)");
     }
-  }, [isLoaded, isSignedIn, segments]);
+  }, [isLoaded, isSignedIn, segments, router]);
 
   return (
     // 画面遷移中に見えるスタックの下地もスキームに合わせる。
