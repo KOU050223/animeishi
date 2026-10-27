@@ -13,6 +13,8 @@
 # 他ワーカーと衝突しないよう、E2E 専用シミュレーター（E2E_SIM_NAME、
 # 既定 "animeishi-e2e-<ワークツリー名>"）を simctl create で作って使う。
 # 同じワークツリーでの多重起動は .e2e-ios/lock で弾く（issue #275）。
+# ビルドと Maestro の実行は ${TMPDIR}/animeishi-e2e-host.lock で
+# PC 全体で同時 1 本に絞り、別ワークツリーの実行中は終わるまで待つ（issue #291）。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -25,6 +27,15 @@ STATE_DIR="$PWD/.e2e-ios"
 LOCK_DIR="$STATE_DIR/lock"
 LOCK_OWNER_FILE="$LOCK_DIR/owner"
 API_PID_FILE="$STATE_DIR/api.pid"
+# PC 全体で共有するホストロック（issue #291）。ビルドと Maestro の実行は
+# PC に大きな負荷をかけるため、全ワークツリーで共通の場所にロックを取って
+# 同時実行を 1 本に絞る。取得はビルド開始の直前（後述）に行い、
+# Maestro が終わるまで持つ。E2E_SKIP_BUILD=1 でも Maestro は重いので取る。
+HOST_LOCK_DIR="${TMPDIR:-/tmp}/animeishi-e2e-host.lock"
+HOST_LOCK_OWNER_FILE="$HOST_LOCK_DIR/owner"
+HOST_LOCK_RECLAIM_DIR="${TMPDIR:-/tmp}/animeishi-e2e-host.reclaim"
+# ホストロックを取得済みかの印。cleanup で自分が持つロックだけを外す。
+HOST_LOCK_HELD=""
 mkdir -p "$STATE_DIR"
 
 # ps -o lstart= の出力は前後に空白が付くので両端を削って返す。
@@ -33,12 +44,12 @@ lstart() {
   ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//; s/ *$//'
 }
 
-# ロック所有者がこのワークツリーで実行中の e2e-ios.sh なら真。
+# ロック所有者が実行中の e2e-ios.sh なら真。$1 = owner ファイルのパス。
 # 記録した PID と起動時刻が現在のプロセスと一致するときだけ有効とみなし、
 # 前回実行が SIGKILL 等で残した残骸は偽（→ 取り直し）と判定する。
 lock_owner_alive() {
   local pid started
-  { read -r pid && read -r started; } <"$LOCK_OWNER_FILE" 2>/dev/null || return 1
+  { read -r pid && read -r started; } <"$1" 2>/dev/null || return 1
   [ -n "$pid" ] && [ -n "$started" ] || return 1
   kill -0 "$pid" 2>/dev/null || return 1
   ps -o command= -p "$pid" 2>/dev/null | grep -q e2e-ios.sh || return 1
@@ -46,13 +57,14 @@ lock_owner_alive() {
 }
 
 # 既存ロックの状態を live / acquiring / stale で返す。
+# $1 = ロックディレクトリ、$2 = owner ファイルのパス。
 # live: 実行中 / acquiring: mkdir 直後で所有者情報の公開前 / stale: 残骸。
 # 所有者情報が無いロックは「取得中」か「書き込み前に殺された残骸」なので、
 # できてからの経過時間（stat -f %B）で見分ける。
 lock_state() {
-  if [ -s "$LOCK_OWNER_FILE" ]; then
-    lock_owner_alive && echo live || echo stale
-  elif [ $(( $(date +%s) - $(stat -f %B "$LOCK_DIR" 2>/dev/null || echo 0) )) -lt 60 ]; then
+  if [ -s "$2" ]; then
+    lock_owner_alive "$2" && echo live || echo stale
+  elif [ $(( $(date +%s) - $(stat -f %B "$1" 2>/dev/null || echo 0) )) -lt 60 ]; then
     echo acquiring
   else
     echo stale
@@ -70,7 +82,7 @@ while :; do
     mv "$STATE_DIR/owner.$$" "$LOCK_OWNER_FILE"
     break
   fi
-  case "$(lock_state)" in
+  case "$(lock_state "$LOCK_DIR" "$LOCK_OWNER_FILE")" in
     live)
       echo "このワークツリーで既に e2e:ios が実行中です (PID $(sed -n '1p' "$LOCK_OWNER_FILE"))。終わるまで待ってから再実行してください" >&2
       exit 1
@@ -83,7 +95,7 @@ while :; do
   # stale → 残骸ロックの回収。reclaim も mkdir の排他ロックで、
   # 取れた者だけが lock を消して取り直せる
   if mkdir "$STATE_DIR/reclaim" 2>/dev/null; then
-    if [ "$(lock_state)" != stale ]; then
+    if [ "$(lock_state "$LOCK_DIR" "$LOCK_OWNER_FILE")" != stale ]; then
       # 回収の隙間に別の実行がロックを取り直していた
       rm -rf "$STATE_DIR/reclaim"
       echo "このワークツリーで e2e:ios が実行中です。終わるまで待ってから再実行してください" >&2
@@ -140,6 +152,9 @@ cleanup() {
     fi
   fi
   rm -rf "$LOCK_DIR" "$STATE_DIR/owner.$$"
+  if [ -n "$HOST_LOCK_HELD" ]; then
+    rm -rf "$HOST_LOCK_DIR"
+  fi
 }
 trap cleanup EXIT
 
@@ -268,6 +283,57 @@ else
   # ローカル D1 にマイグレーションを適用（適用済みならスキップされる）
   (cd ../../apps/api && pnpm db:migrate:local >/dev/null)
 fi
+
+# --- ホストロック取得（issue #291）--------------------------------------------
+# ここから先のビルド・シミュレーター操作・Maestro は PC に大きな負荷をかける
+# （xcodebuild が clang を並列で多数走らせる）ため、ホストロックを取って
+# PC 全体で同時に 1 本に絞る。ワークツリー内の lock とは違い、別ワークツリーが
+# 実行中のときはエラーにせず、所有者のワークツリー名と PID を表示しながら
+# 30 秒おきに再確認して終了を待つ。待ち時間の上限は E2E_HOST_LOCK_TIMEOUT
+# （秒、既定 3600）で、超えたらエラーで終える。
+HOST_LOCK_TIMEOUT="${E2E_HOST_LOCK_TIMEOUT:-3600}"
+case "$HOST_LOCK_TIMEOUT" in
+  '' | *[!0-9]*) HOST_LOCK_TIMEOUT=3600 ;;
+esac
+host_lock_deadline=$(( $(date +%s) + HOST_LOCK_TIMEOUT ))
+while :; do
+  if mkdir "$HOST_LOCK_DIR" 2>/dev/null; then
+    HOST_LOCK_HELD=1
+    # 所有者情報（PID・起動時刻・ワークツリー名）を一時ファイル経由で一度に公開する
+    printf '%s\n%s\n%s\n' "$$" "$(lstart $$)" "$WORKTREE_NAME" >"$HOST_LOCK_DIR/owner.$$"
+    mv "$HOST_LOCK_DIR/owner.$$" "$HOST_LOCK_OWNER_FILE"
+    echo "ホストロックを取得しました (PID $$)。ビルドと Maestro を開始します"
+    break
+  fi
+  if [ "$(lock_state "$HOST_LOCK_DIR" "$HOST_LOCK_OWNER_FILE")" = stale ]; then
+    # 所有者が死んだ残骸 → ワークツリー内の lock と同じく reclaim ロックで
+    # 回収を直列化してから取り除き、取り直す
+    if mkdir "$HOST_LOCK_RECLAIM_DIR" 2>/dev/null; then
+      if [ "$(lock_state "$HOST_LOCK_DIR" "$HOST_LOCK_OWNER_FILE")" = stale ]; then
+        echo "終了した e2e:ios の残骸ホストロックを回収します"
+        rm -rf "$HOST_LOCK_DIR"
+      fi
+      rm -rf "$HOST_LOCK_RECLAIM_DIR"
+      continue
+    elif [ $(( $(date +%s) - $(stat -f %B "$HOST_LOCK_RECLAIM_DIR" 2>/dev/null || echo 0) )) -gt 120 ]; then
+      rm -rf "$HOST_LOCK_RECLAIM_DIR" # 回収処理自体が殺された残骸
+      continue
+    fi
+    # 別の実行が残骸を回収中 → 下の待機に回る
+  fi
+  if [ "$(date +%s)" -ge "$host_lock_deadline" ]; then
+    echo "e2e:ios のホストロックが ${HOST_LOCK_TIMEOUT} 秒（E2E_HOST_LOCK_TIMEOUT）待っても取れませんでした。実行中の e2e:ios を確認してください" >&2
+    exit 1
+  fi
+  host_lock_owner_pid="$(sed -n '1p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
+  host_lock_owner_worktree="$(sed -n '3p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
+  if [ -n "$host_lock_owner_pid" ]; then
+    echo "別ワークツリーの e2e:ios (${host_lock_owner_worktree:-不明}, PID $host_lock_owner_pid) が終わるのを待っています ..."
+  else
+    echo "別ワークツリーの e2e:ios が起動処理中です。ホストロックを待っています ..."
+  fi
+  sleep 30
+done
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------
 if [ ! -d ios/Animeishi.xcworkspace ]; then
