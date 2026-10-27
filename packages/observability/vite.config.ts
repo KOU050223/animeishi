@@ -6,17 +6,25 @@ export default defineConfig({
   run: {
     tasks: {
       test: {
-        command: "vitest run",
+        // vp test は vitest のキャッシュパス（node_modules/.vite-temp・.vite 内の
+        // ファイル）を Vite Task に報告するため、中身の除外は要らない（issue #273）。
+        command: "vp test",
         cache: {
-          // vitest が実行のたびに書き換える設定バンドルの一時ファイルと結果キャッシュを
-          // 入力から外す（含めると毎回「入力が変わった」扱いになりキャッシュされない）。
-          // 成果物ファイルは無いので出力の復元もしない。
-          // ワークスペース直下の node_modules/.vitest-cache（vitest のモジュール変換キャッシュ）も外す。
-          // CI ではこのディレクトリが空の状態から始まり「入力が消えた」扱いでミスになる（issue #253）。
+          // ディレクトリの一覧としての入力は vp test の報告の対象外なので手動で外す。
+          // - hoisted な node-linker ではこのパッケージの node_modules は vitest が
+          //   .vite を作ったときだけ存在し、ヒットした回は「'node_modules' removed」でミスになる
+          // - vitest のモジュール変換キャッシュ（fsModuleCache）はワークスペース直下の
+          //   node_modules/.vitest-cache にあり、CI では復元されず毎回空から始まる（issue #253）
+          // "!node_modules" はこのディレクトリ自体（一覧）だけに一致し、配下の
+          // ファイルの読み込み（依存の変更）は引き続き入力として追跡される。
           input: [
             { auto: true },
-            "!node_modules/.vite-temp/**",
+            "!node_modules",
+            "!node_modules/.vite",
             "!node_modules/.vite/**",
+            "!node_modules/.vite-temp",
+            "!node_modules/.vite-temp/**",
+            { pattern: "!node_modules/.vitest-cache", base: "workspace" },
             { pattern: "!node_modules/.vitest-cache/**", base: "workspace" },
           ],
           output: [],
