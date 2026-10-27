@@ -14,7 +14,13 @@ describe("GET /health", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as {
+      status: string;
+      timestamp: string;
+      environment: string | null;
+      commitSha: string | null;
+      versionId: string | null;
+    };
     expect(body.status).toBe("ok");
     expect(typeof body.timestamp).toBe("string");
     expect(body.environment).toBe("preview");
@@ -26,7 +32,12 @@ describe("GET /health", () => {
     const res = await health.request("/", {}, {});
 
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as {
+      status: string;
+      environment: string | null;
+      commitSha: string | null;
+      versionId: string | null;
+    };
     expect(body.status).toBe("ok");
     expect(body.environment).toBeNull();
     expect(body.commitSha).toBeNull();

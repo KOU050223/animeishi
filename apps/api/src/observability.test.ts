@@ -232,7 +232,7 @@ describe("handleError の Discord 通知", () => {
     expect(await res.json()).toEqual({ error: "unavailable" });
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
+    expect(fetchSpy.mock.calls[0]![1]?.body as string).toContain(
       "GET /unavailable` → 503",
     );
   });
@@ -254,7 +254,7 @@ describe("handleError の Discord 通知", () => {
     expect(res.status).toBe(500);
     expect(waitUntil).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const body = fetchSpy.mock.calls[0][1]?.body as string;
+    const body = fetchSpy.mock.calls[0]![1]?.body as string;
     expect(body).toContain("GET /users/:uid/boom");
     expect(body).toContain("500");
     expect(body).not.toContain("user_secret123");
@@ -271,7 +271,7 @@ describe("handleError の Discord 通知", () => {
     await app.request("/annict-0", {}, { DISCORD_WEBHOOK_URL: WEBHOOK }, ctx);
     await settle();
 
-    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
+    expect(fetchSpy.mock.calls[0]![1]?.body as string).toContain(
       "GET /annict-0` → 502（annict）",
     );
   });

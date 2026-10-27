@@ -145,7 +145,7 @@ describe("フレンド API", () => {
       );
       const bodyA = (await resA.json()) as { friendId: string }[];
       expect(bodyA).toHaveLength(1);
-      expect(bodyA[0].friendId).toBe(USER_B);
+      expect(bodyA[0]?.friendId).toBe(USER_B);
 
       // B 視点でもフレンドに A がいる
       signInAs(USER_B);
@@ -156,7 +156,7 @@ describe("フレンド API", () => {
       );
       const bodyB = (await resB.json()) as { friendId: string }[];
       expect(bodyB).toHaveLength(1);
-      expect(bodyB[0].friendId).toBe(USER_A);
+      expect(bodyB[0]?.friendId).toBe(USER_A);
     });
 
     it("GET /me/friends: 相手のプロフィール情報が含まれる", async () => {
@@ -177,7 +177,7 @@ describe("フレンド API", () => {
         TEST_BINDINGS,
       );
       const body = (await res.json()) as { username: string }[];
-      expect(body[0].username).toBe("ユーザーB");
+      expect(body[0]?.username).toBe("ユーザーB");
     });
 
     it("POST /me/friends: 重複追加しても成功する（冪等）", async () => {

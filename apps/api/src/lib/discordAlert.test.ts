@@ -54,7 +54,7 @@ function okFetch() {
 }
 
 function sentBody(fetchImpl: ReturnType<typeof okFetch>, call = 0) {
-  const init = fetchImpl.mock.calls[call][1];
+  const init = fetchImpl.mock.calls[call]![1];
   return JSON.parse(init?.body as string) as {
     content: string;
     allowed_mentions: { parse: string[] };
@@ -94,7 +94,7 @@ describe("notifyApiFailures", () => {
 
     expect(sent).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0][0]).toBe(WEBHOOK);
+    expect(fetchImpl.mock.calls[0]![0]).toBe(WEBHOOK);
     expect(ttls.get("api:annict:502")).toBe(SUPPRESS_SECONDS);
     expect(SUPPRESS_SECONDS).toBe(1800);
   });
@@ -488,7 +488,7 @@ describe("notifyUserReport", () => {
 
     expect(sent).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0][0]).toBe(WEBHOOK);
+    expect(fetchImpl.mock.calls[0]![0]).toBe(WEBHOOK);
     expect(ttls.get("user_report")).toBe(REPORT_SUPPRESS_SECONDS);
     expect(REPORT_SUPPRESS_SECONDS).toBe(300);
   });

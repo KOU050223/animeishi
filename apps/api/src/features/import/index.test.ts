@@ -109,7 +109,9 @@ describe("dアニメインポート API", () => {
         TEST_BINDINGS,
       );
       expect(res.status).toBe(401);
-      expect((await res.json()).code).toBe("annict_token_required");
+      expect(await res.json()).toMatchObject({
+        code: "annict_token_required",
+      });
     });
 
     it("タイトルを Annict 作品へ照合して exact/candidates/none を返す", async () => {
@@ -171,11 +173,11 @@ describe("dアニメインポート API", () => {
         };
       };
       expect(body.results).toHaveLength(3);
-      expect(body.results[0].status).toBe("exact");
-      expect(body.results[0].work?.annictWorkId).toBe(1);
-      expect(body.results[1].status).toBe("candidates");
-      expect(body.results[1].candidates).toHaveLength(2);
-      expect(body.results[2].status).toBe("none");
+      expect(body.results[0]?.status).toBe("exact");
+      expect(body.results[0]?.work?.annictWorkId).toBe(1);
+      expect(body.results[1]?.status).toBe("candidates");
+      expect(body.results[1]?.candidates).toHaveLength(2);
+      expect(body.results[2]?.status).toBe("none");
       // 所要時間の可視化: 検索回数・リトライ・経過時間を返す。
       expect(body.stats.firstPassSearches).toBe(1);
       expect(body.stats.secondPassSearches).toBeGreaterThan(0);
@@ -258,7 +260,9 @@ describe("dアニメインポート API", () => {
         TEST_BINDINGS,
       );
       expect(res.status).toBe(401);
-      expect((await res.json()).code).toBe("annict_token_invalid");
+      expect(await res.json()).toMatchObject({
+        code: "annict_token_invalid",
+      });
     });
 
     it("works が空配列なら 400", async () => {
