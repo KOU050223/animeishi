@@ -277,5 +277,23 @@ describe("dアニメインポート API", () => {
       );
       expect(res.status).toBe(400);
     });
+
+    it("works が上限（500）を超えると 400", async () => {
+      const works = Array.from({ length: 501 }, (_, i) => ({
+        danimeWorkId: `w${i}`,
+        title: `作品${i}`,
+        targetState: "WATCHED",
+      }));
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ works }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(400);
+    });
   });
 });

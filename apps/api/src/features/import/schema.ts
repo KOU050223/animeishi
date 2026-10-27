@@ -12,6 +12,11 @@ export const danimeMatchWorkSchema = z.object({
 });
 
 export const danimeMatchRequestSchema = z.object({
+  // 上限は異常なペイロードを弾くための頭打ち。issue #219 で発覚した
+  // 500 件照合の CPU 爆発はスコアリングの前計算化（danime-core）で解決済み
+  // なので、旧クライアント互換のため上限は従来の 500 を維持する。
+  // 新しいクライアントは余裕を持って 100 件ずつ分割送信する
+  // （mobile useDanimeImport）。
   works: z
     .array(danimeMatchWorkSchema)
     .min(1)

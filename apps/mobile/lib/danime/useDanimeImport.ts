@@ -9,7 +9,9 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
 import {
+  normalizeTitle,
   toMatchWorks,
+  type DanimeAnnictWork,
   type DanimeExtractedLists,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
@@ -53,8 +55,52 @@ export type DanimeMatchOutput = {
 /** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
 const BULK_CHUNK_SIZE = 50;
 
-/** match API の works 上限（API 側スキーマの上限と揃える）。 */
-const MATCH_CHUNK_SIZE = 500;
+// 1 リクエストあたりの照合件数。API 側は 500 件まで受け付けるが、
+// issue #219（Workers の CPU 時間超過による 503）の再発に余裕を持たせるため
+// 小さく分割して逐次送信する。
+const MATCH_CHUNK_SIZE = 100;
+
+// issue #219: 照合を 100 件単位で分割送信しているため、正規化タイトルが同じ
+// Annict 作品が別チャンクの結果として別々に exact 確定した場合、API 側は
+// 各リクエスト内の候補プールしか見られず「同名だが別作品かもしれない」
+// 曖昧さを検出できない。同一リクエスト内なら API が行う判定
+// （同名の複数 exact 候補 → candidates）を、結合後にクライアント側で
+// やり直し誤確定を防ぐ。
+export function demoteAmbiguousExactAcrossChunks(
+  items: DanimeMatchItem[],
+): DanimeMatchItem[] {
+  const groups = new Map<string, DanimeMatchItem[]>();
+  for (const item of items) {
+    if (item.status !== "exact" || !item.work) continue;
+    const key = normalizeTitle(item.work.title);
+    if (!key) continue;
+    const group = groups.get(key);
+    if (group) {
+      group.push(item);
+    } else {
+      groups.set(key, [item]);
+    }
+  }
+  return items.map((item) => {
+    if (item.status !== "exact" || !item.work) return item;
+    const group = groups.get(normalizeTitle(item.work.title));
+    if (!group || new Set(group.map((g) => g.work?.annictWorkId)).size <= 1) {
+      return item;
+    }
+    // 同名グループの Annict 作品をすべて candidates に入れて選択肢にする。
+    const groupWorks = new Map<number, DanimeAnnictWork>();
+    for (const g of group) {
+      if (g.work) groupWorks.set(g.work.annictWorkId, g.work);
+    }
+    const rest = item.candidates.filter((c) => !groupWorks.has(c.annictWorkId));
+    return {
+      ...item,
+      status: "candidates",
+      work: null,
+      candidates: [...groupWorks.values(), ...rest],
+    };
+  });
+}
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -83,7 +129,7 @@ export function useDanimeMatch() {
         throw new Error("照合対象の作品がありません");
       }
 
-      // API の works 上限（500）を超える履歴にも対応するためチャンク分割する。
+      // API の works 上限を超える履歴にも対応するためチャンク分割する。
       // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
       // 期限切れにならないようチャンクごとに取得し直す。
       const startedAt = Date.now();
@@ -124,7 +170,7 @@ export function useDanimeMatch() {
         results.push(...body.results);
       }
       return {
-        items: results,
+        items: demoteAmbiguousExactAcrossChunks(results),
         elapsedMs: Date.now() - startedAt,
         stats,
       } satisfies DanimeMatchOutput;
