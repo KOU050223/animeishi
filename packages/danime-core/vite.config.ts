@@ -1,8 +1,11 @@
 import { defineConfig } from "vite-plus";
 
-// vp run 用のタスク定義（issue #246）。vitest は vitest.config.ts を優先して読むため、
-// このファイルはテスト設定には使われない。
+// vp run 用のタスク定義（issue #246）と vitest の設定（issue #281）。
 export default defineConfig({
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
   run: {
     tasks: {
       test: {

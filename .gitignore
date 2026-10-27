@@ -18,6 +18,7 @@ web-build/
 
 # Cloudflare
 .wrangler/
+.dev.vars
 
 # 廃止した Nix / direnv・turbo（issue #246）が既存の作業ツリーに残すもの
 .direnv/

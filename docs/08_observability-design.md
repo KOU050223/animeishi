@@ -166,8 +166,8 @@ enabled = true
 - `SENTRY_DSN` は `wrangler secret put SENTRY_DSN --env production` と
   `--env preview` で登録。同一 Sentry プロジェクトを使い、`environment`
   タグで分離する。ローカルは `.dev.vars` に書かず未設定のままにする
-- `worker-configuration.d.ts` は `wrangler types` で再生成し、
-  `SENTRY_DSN` / `ENVIRONMENT` / `CF_VERSION_METADATA` を型付けする
+- `SENTRY_DSN` / `ENVIRONMENT` / `CF_VERSION_METADATA` の型は
+  `apps/api/src/observability.ts` の `ObservabilityBindings` で付ける
 - `observability` キーの階層と優先度（トップレベルの `enabled` と
   `observability.logs.enabled` の関係）は実装時に wrangler の現行仕様で確認する
 

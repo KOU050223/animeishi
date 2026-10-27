@@ -55,8 +55,8 @@ export default defineConfig({
   },
   // `vp lint`（vite-plus 同梱の oxlint 1.89）の設定（issue #267）。旧来は各パッケージが
   // 独自の oxlint 設定ファイル（mobile: oxlint.config.ts、api: .oxlintrc.json）を持っていたが、
-  // Vite+ モードではネストした設定が効かないため、この lint ブロックと overrides に集約した。
-  // 設定ファイルの整理自体は #281 で行う。
+  // Vite+ モードではネストした設定が効かないため、この lint ブロックと overrides に集約した
+  // （旧設定ファイルは issue #281 で削除済み）。
   lint: {
     plugins: ["typescript", "unicorn", "oxc"],
     // type-aware ルール（tsgolint。issue #277）を有効にする。型情報は各ファイルの

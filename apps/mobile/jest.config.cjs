@@ -12,7 +12,7 @@ module.exports = {
   watchman: false,
   haste: { ...expoPreset.haste, forceNodeFilesystemAPI: true },
   // RN / Expo に依存しない純ロジックのテスト（*.unit.test.ts）は vitest で回す
-  // （issue #249、vitest.config.ts）。二重実行しないよう jest の対象から外す。
+  // （issue #249、vite.config.ts の test ブロック）。二重実行しないよう jest の対象から外す。
   testPathIgnorePatterns: ["/node_modules/", "\\.unit\\.test\\.[jt]sx?$"],
   // jest は既定でコア数 - 1 のワーカーを立てる。並列 worktree 運用では各 worktree の
   // jest がそれぞれ同数立ててホストの CPU・メモリを圧迫するため、コア数の半分に絞る
