@@ -15,6 +15,7 @@ import { Input } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
+import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
@@ -415,6 +416,7 @@ export default function ProfileScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          <MalAttribution />
         </View>
 
         <DeleteAccountSection

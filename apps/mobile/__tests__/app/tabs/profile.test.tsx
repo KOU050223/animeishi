@@ -195,4 +195,12 @@ describe("ProfileScreen の法務情報セクション", () => {
     expect(screen.getByLabelText("利用規約を開く")).toBeTruthy();
     expect(screen.getByLabelText("サポートを開く")).toBeTruthy();
   });
+
+  it("MyAnimeList の帰属表示を表示する", () => {
+    render(<ProfileScreen />);
+
+    expect(
+      screen.getByText("作品画像の一部は MyAnimeList から取得しています"),
+    ).toBeTruthy();
+  });
 });
