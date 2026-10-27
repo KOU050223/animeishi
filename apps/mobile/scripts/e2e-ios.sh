@@ -234,20 +234,53 @@ esac
 EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-http://localhost:8787}"
 
 # --- 専用シミュレーター -------------------------------------------------------
-UDID="$(xcrun simctl list devices -j \
-  | SIM_NAME="$SIM_NAME" /usr/bin/python3 -c 'import json,os,sys
-name = os.environ["SIM_NAME"]
-for devs in json.load(sys.stdin)["devices"].values():
-    for dev in devs:
-        if dev["name"] == name and dev.get("isAvailable", True):
-            print(dev["udid"])
-            sys.exit()' | head -1)"
-if [ -z "$UDID" ]; then
+# 既定ではインストール済みの iOS 18.x のうち最新のランタイムを使う
+# （iOS 26.5 では Maestro のドライバ接続が不安定で E2E が頻繁に失敗する。
+# issue #298）。18.x が無ければ従来どおり最新のランタイムにフォールバックし、
+# その旨を表示する。E2E_SIM_NAME を指定したときはこの選択を行わず、
+# 従来どおり最新のランタイムで作る。
+RUNTIME_ID=""
+if [ -z "${E2E_SIM_NAME:-}" ]; then
   RUNTIME_ID="$(xcrun simctl list runtimes -j \
     | /usr/bin/python3 -c 'import json,sys
 rs = [r for r in json.load(sys.stdin)["runtimes"] if r.get("platform") == "iOS" and r.get("isAvailable", True)]
 rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")], reverse=True)
+r18 = [r for r in rs if r["version"].split(".")[0] == "18"]
+picked = r18[0] if r18 else rs[0]
+print(picked["identifier"])
+if not r18:
+    print("iOS 18.x のランタイムが見つかりません。最新の iOS %s を使います" % picked["version"], file=sys.stderr)')"
+fi
+
+# 同名のシミュレーターがあればその UDID とランタイムの identifier を返す
+EXISTING_SIM="$(xcrun simctl list devices -j \
+  | SIM_NAME="$SIM_NAME" /usr/bin/python3 -c 'import json,os,sys
+name = os.environ["SIM_NAME"]
+for rt, devs in json.load(sys.stdin)["devices"].items():
+    for dev in devs:
+        if dev["name"] == name and dev.get("isAvailable", True):
+            print(dev["udid"])
+            print(rt)
+            sys.exit()')"
+UDID="$(printf '%s\n' "$EXISTING_SIM" | sed -n '1p')"
+EXISTING_RUNTIME_ID="$(printf '%s\n' "$EXISTING_SIM" | sed -n '2p')"
+if [ -n "$UDID" ] && [ -n "$RUNTIME_ID" ] && [ "$EXISTING_RUNTIME_ID" != "$RUNTIME_ID" ]; then
+  # 既定のランタイムと違うランタイムの同名シミュレーターが残っている
+  # （ランタイム変更前に作られたもの等）→ 作り直す
+  echo "シミュレーター $SIM_NAME は $EXISTING_RUNTIME_ID で作成済みのため、$RUNTIME_ID で作り直します ..."
+  xcrun simctl shutdown "$UDID" 2>/dev/null || true
+  xcrun simctl delete "$UDID"
+  UDID=""
+fi
+if [ -z "$UDID" ]; then
+  if [ -z "$RUNTIME_ID" ]; then
+    # E2E_SIM_NAME 指定時: 従来どおり最新のランタイムを使う
+    RUNTIME_ID="$(xcrun simctl list runtimes -j \
+      | /usr/bin/python3 -c 'import json,sys
+rs = [r for r in json.load(sys.stdin)["runtimes"] if r.get("platform") == "iOS" and r.get("isAvailable", True)]
+rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")], reverse=True)
 print(rs[0]["identifier"])')"
+  fi
   DEVICE_TYPE="$(xcrun simctl list devicetypes -j \
     | /usr/bin/python3 -c 'import json,sys
 ts = [t for t in json.load(sys.stdin)["devicetypes"] if t["identifier"].split(".")[-1].startswith("iPhone-1")]
