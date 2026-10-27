@@ -24,7 +24,7 @@ const share = new Hono<ShareBindings>()
     zValidator("param", shareTokenParamSchema),
     async (c) => {
       const { token } = c.req.valid("param");
-      const db = createDb(c.env.DB as D1Database);
+      const db = createDb(c.env.DB);
       const list = await getSharedTierList(db, token);
       const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
 
@@ -65,7 +65,7 @@ const share = new Hono<ShareBindings>()
     zValidator("param", shareTokenParamSchema),
     async (c) => {
       const { token } = c.req.valid("param");
-      const db = createDb(c.env.DB as D1Database);
+      const db = createDb(c.env.DB);
       const list = await getSharedCharacterTierList(db, token);
       const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
 
@@ -98,7 +98,7 @@ const share = new Hono<ShareBindings>()
     zValidator("query", z.object({ url: z.string().min(1).max(2048) })),
     async (c) => {
       const { url } = c.req.valid("query");
-      const db = createDb(c.env.DB as D1Database);
+      const db = createDb(c.env.DB);
       return proxyImage(c, db, url);
     },
   );

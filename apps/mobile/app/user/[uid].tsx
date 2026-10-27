@@ -158,7 +158,7 @@ export default function PublicProfilePage() {
 
   if (error || !data) {
     const message =
-      (error as Error | null)?.message === "not_found"
+      error?.message === "not_found"
         ? "このプロフィールは存在しないか、非公開です。"
         : "プロフィールの取得に失敗しました。";
     return (

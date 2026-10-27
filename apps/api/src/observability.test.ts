@@ -193,14 +193,15 @@ describe("handleError の Discord 通知", () => {
 
   function fakeCtx() {
     const pending: Promise<unknown>[] = [];
+    const waitUntil = vi.fn((p: Promise<unknown>) => {
+      pending.push(p);
+    });
     const ctx = {
-      waitUntil: vi.fn((p: Promise<unknown>) => {
-        pending.push(p);
-      }),
+      waitUntil,
       passThroughOnException: () => {},
       props: {},
     } as unknown as ExecutionContext;
-    return { ctx, settle: () => Promise.all(pending) };
+    return { ctx, waitUntil, settle: () => Promise.all(pending) };
   }
 
   beforeEach(() => {
@@ -231,7 +232,7 @@ describe("handleError の Discord 通知", () => {
     expect(await res.json()).toEqual({ error: "unavailable" });
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain(
+    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
       "GET /unavailable` → 503",
     );
   });
@@ -240,7 +241,7 @@ describe("handleError の Discord 通知", () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(null, { status: 204 }));
-    const { ctx, settle } = fakeCtx();
+    const { ctx, waitUntil, settle } = fakeCtx();
 
     const res = await app.request(
       "/users/user_secret123/boom?token=abc",
@@ -251,9 +252,9 @@ describe("handleError の Discord 通知", () => {
     await settle();
 
     expect(res.status).toBe(500);
-    expect(ctx.waitUntil).toHaveBeenCalledTimes(1);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const body = String(fetchSpy.mock.calls[0][1]?.body);
+    const body = fetchSpy.mock.calls[0][1]?.body as string;
     expect(body).toContain("GET /users/:uid/boom");
     expect(body).toContain("500");
     expect(body).not.toContain("user_secret123");
@@ -270,21 +271,21 @@ describe("handleError の Discord 通知", () => {
     await app.request("/annict-0", {}, { DISCORD_WEBHOOK_URL: WEBHOOK }, ctx);
     await settle();
 
-    expect(String(fetchSpy.mock.calls[0][1]?.body)).toContain(
+    expect(fetchSpy.mock.calls[0][1]?.body as string).toContain(
       "GET /annict-0` → 502（annict）",
     );
   });
 
   it("Sentry に送らないユーザー要因のエラーは通知しない", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const { ctx } = fakeCtx();
+    const { ctx, waitUntil } = fakeCtx();
     const env = { DISCORD_WEBHOOK_URL: WEBHOOK };
 
     await app.request("/annict-401", {}, env, ctx);
     await app.request("/http-400", {}, env, ctx);
     await app.request("/deleted-user", {}, env, ctx);
 
-    expect(ctx.waitUntil).not.toHaveBeenCalled();
+    expect(waitUntil).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

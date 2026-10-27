@@ -271,7 +271,7 @@ describe("フレンド API", () => {
         { method: "GET" },
         TEST_BINDINGS,
       );
-      expect((await resA.json()) as unknown[]).toHaveLength(0);
+      expect(await resA.json()).toHaveLength(0);
 
       // B 視点でも空（双方向削除）
       signInAs(USER_B);
@@ -280,7 +280,7 @@ describe("フレンド API", () => {
         { method: "GET" },
         TEST_BINDINGS,
       );
-      expect((await resB.json()) as unknown[]).toHaveLength(0);
+      expect(await resB.json()).toHaveLength(0);
     });
   });
 });

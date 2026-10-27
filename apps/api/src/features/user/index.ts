@@ -30,7 +30,7 @@ const user = new Hono<UserRouteEnv>()
   .use("*", optionalAuth)
   .get("/:uid", async (c) => {
     const uid = c.req.param("uid");
-    const db = createDb(c.env.DB as D1Database);
+    const db = createDb(c.env.DB);
     const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
     // Accept で HTML / JSON を出し分けるため、すべての応答に Vary を付ける。
     c.header("Vary", "Accept");

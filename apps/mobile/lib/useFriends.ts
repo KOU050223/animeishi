@@ -79,7 +79,7 @@ export function useAddFriend() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
       });
     },
@@ -104,7 +104,7 @@ export function useRemoveFriend() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
       });
     },

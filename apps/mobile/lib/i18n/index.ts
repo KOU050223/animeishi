@@ -38,7 +38,7 @@ function detectLanguage(): SupportedLanguage {
     : FALLBACK_LANGUAGE;
 }
 
-i18n.use(initReactI18next).init({
+void i18n.use(initReactI18next).init({
   resources,
   lng: detectLanguage(),
   // ja はリソースを持たないため、フォールバックしてもキー（=日本語文言）が返る。

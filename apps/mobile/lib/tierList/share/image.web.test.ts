@@ -217,13 +217,15 @@ describe("shareTierListImage (web)", () => {
 
 describe("captureTierListImageFile (web)", () => {
   const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, "click");
+  const shareMock = jest.fn();
 
   beforeEach(() => {
     document.body.innerHTML = "";
     mockToPng.mockReset().mockResolvedValue(PNG_DATA_URL);
     clickSpy.mockReset();
+    shareMock.mockReset();
     Object.defineProperty(navigator, "share", {
-      value: jest.fn(),
+      value: shareMock,
       configurable: true,
     });
   });
@@ -238,7 +240,7 @@ describe("captureTierListImageFile (web)", () => {
     expect(file.type).toBe("image/png");
     expect(file.size).toBeGreaterThan(0);
     // 受け渡しは呼び出し側（モーダル内の別ボタン）が行う
-    expect(navigator.share).not.toHaveBeenCalled();
+    expect(shareMock).not.toHaveBeenCalled();
     expect(clickSpy).not.toHaveBeenCalled();
   });
 

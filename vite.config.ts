@@ -36,6 +36,11 @@ const nativeLintBase = flattenLintExtends(nativePreset);
 // 担当するので除外する。ルートは printWidth 既定値（100）で整形する。
 const ROOT_FMT_TARGETS = ". '!apps/**' '!packages/**'";
 
+// lint 側の同趣旨の除外。oxlint の positional 引数は `!` による否定を解さないため
+// （ROOT_FMT_TARGETS をそのまま渡すと apps/ packages/ も対象になってしまう）、
+// --ignore-pattern で除外する（issue #277 で発覚した #269 からの不具合）。
+const ROOT_LINT_IGNORES = "--ignore-pattern 'apps/**' --ignore-pattern 'packages/**'";
+
 export default defineConfig({
   // `vp fmt`（vite-plus 同梱の oxfmt）の設定。Vite+ モードでは nested config
   // （.oxfmtrc.json）が効かないため、パッケージ別の printWidth は overrides で表す
@@ -54,10 +59,23 @@ export default defineConfig({
   // 設定ファイルの整理自体は #281 で行う。
   lint: {
     plugins: ["typescript", "unicorn", "oxc"],
+    // type-aware ルール（tsgolint。issue #277）を有効にする。型情報は各ファイルの
+    // tsconfig から自動解決される（baseUrl を使う tsconfig があると無効になる）。
+    options: { typeAware: true },
     // 旧設定では api / mobile が correctness=error、それ以外は oxlint 既定（warn）だった。
     // lint は常に --deny-warnings で実行するため、全体を error に揃えても落ちる条件は変わらない。
     categories: { correctness: "error" },
     env: { builtin: true },
+    rules: {
+      "typescript/no-floating-promises": "error",
+      // checksVoidReturn は RN の onPress={asyncFn} やモック実装のように
+      // void 戻り値の位置へ Promise を返す関数を渡す定石を誤検知するため外す
+      // （oxlint-config-universe の typescript-analysis と同じ設定）。
+      "typescript/no-misused-promises": ["error", { checksVoidReturn: false }],
+      "typescript/await-thenable": "error",
+      "typescript/no-unnecessary-type-assertion": "error",
+      "typescript/restrict-template-expressions": "error",
+    },
     overrides: [
       // apps/mobile の旧 oxlint.config.ts。universe/native プリセットに
       // 3 つのルール上書きを載せたもの。
@@ -121,15 +139,15 @@ export default defineConfig({
         "vp run --cache -r lint",
         // ルート直下とパッケージ外のファイル（vite.config.ts 等）はどのパッケージの lint にも
         // 入らないため、ルートの `vp lint`（vite-plus 同梱の oxlint 1.89。issue #267）で
-        // 検査する（issue #269）。対象は fmt と同じ ROOT_FMT_TARGETS。--ignore-path で
-        // .agents/ 等のエージェント状態（.oxfmtignore）を除外する。
-        `vp lint --deny-warnings --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+        // 検査する（issue #269）。--ignore-path で .agents/ 等のエージェント状態
+        // （.oxfmtignore）を除外し、パッケージ配下は --ignore-pattern で外す。
+        `vp lint --deny-warnings --ignore-path .oxfmtignore ${ROOT_LINT_IGNORES} .`,
       ],
       // ファイルを書き換えるタスクはキャッシュしない
       "lint:fix": {
         command: [
           "vp run -r lint:fix",
-          `vp lint --fix --deny-warnings --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+          `vp lint --fix --deny-warnings --ignore-path .oxfmtignore ${ROOT_LINT_IGNORES} .`,
         ],
         cache: false,
       },

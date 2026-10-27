@@ -251,7 +251,9 @@ describe("POST /me/watch-histories/bulk", () => {
         .map((c) => JSON.parse((c[1] as RequestInit).body as string))
         .filter((b) => (b.query as string).includes("updateStatus"))
         .map((b) => b.variables.workId);
-      expect(updateVars.sort()).toEqual(["Work-1", "Work-2"]);
+      expect(
+        updateVars.sort((a: string, b: string) => a.localeCompare(b)),
+      ).toEqual(["Work-1", "Work-2"]);
     });
 
     it("1 件だけ失敗しても他は登録され、D1 には成功分だけ残る", async () => {
@@ -365,7 +367,7 @@ describe("POST /me/watch-histories/bulk", () => {
       const updateWorkIds = calls
         .filter((b) => (b.query as string).includes("updateStatus"))
         .map((b) => b.variables.workId)
-        .sort();
+        .sort((a: string, b: string) => a.localeCompare(b));
       // 5 はキャッシュの nodeId、6 は searchWorks で解決した Node ID が使われる。
       expect(updateWorkIds).toEqual(["Work-6", "Work-cached"]);
       // キャッシュ済みの 5 には searchWorks を投げない。

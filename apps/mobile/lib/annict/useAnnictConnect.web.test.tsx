@@ -57,10 +57,9 @@ describe("useAnnictConnect (web)", () => {
     if (typeof globalThis.crypto?.randomUUID !== "function") {
       Object.defineProperty(globalThis, "crypto", {
         configurable: true,
-        value: {
-          ...globalThis.crypto,
+        value: Object.assign({}, globalThis.crypto, {
           randomUUID: () => "test-state-uuid",
-        },
+        }),
       });
     }
     // jsdom の location は読み取り専用のため、href の getter/setter を差し替えて

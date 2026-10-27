@@ -34,7 +34,7 @@ describe("useAddToAppleWallet (iOS)", () => {
       status: 501,
       ok: false,
       json: async () => ({ message: "証明書未設定です" }),
-    }) as unknown as typeof fetch;
+    });
 
     const { result } = renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
@@ -49,7 +49,7 @@ describe("useAddToAppleWallet (iOS)", () => {
       status: 200,
       ok: true,
     });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
 
     const { result } = renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
@@ -76,7 +76,7 @@ describe("useAddToAppleWallet (iOS)", () => {
     global.fetch = jest.fn().mockResolvedValue({
       status: 500,
       ok: false,
-    }) as unknown as typeof fetch;
+    });
 
     const { result } = renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
@@ -89,9 +89,7 @@ describe("useAddToAppleWallet (iOS)", () => {
   it("fetch が reject(abort 等)しても request-failed を返し isPending を解除する", async () => {
     global.fetch = jest
       .fn()
-      .mockRejectedValue(
-        new DOMException("Aborted", "AbortError"),
-      ) as unknown as typeof fetch;
+      .mockRejectedValue(new DOMException("Aborted", "AbortError"));
 
     const { result } = renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;

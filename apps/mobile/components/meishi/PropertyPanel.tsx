@@ -10,19 +10,9 @@ import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 import type {
-  CollageSort,
   CollageStateFilter,
-  CountMetric,
-  FontFamily,
-  FontStyle,
-  FontWeight,
-  ImageObjectFit,
-  ImageShape,
   MeishiRenderContext,
   MeishiElement,
-  QrSource,
-  ShapeKind,
-  TextAlign,
   TextSource,
 } from "@/lib/meishi/types";
 
@@ -119,9 +109,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
             <SegmentedControl
               options={SOURCES}
               value={element.source}
-              onChange={(v) =>
-                onChange({ source: v as TextSource } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ source: v })}
             />
           </Row>
           <Row label="フォント">
@@ -133,8 +121,8 @@ function renderEditor(props: Props, colors: ThemeColors) {
               value={element.fontFamily}
               onChange={(v) =>
                 onChange({
-                  fontFamily: v as FontFamily,
-                } as Partial<MeishiElement>)
+                  fontFamily: v,
+                })
               }
             />
           </Row>
@@ -144,7 +132,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
               onChange={(v) =>
                 onChange({
                   fontSize: Math.max(8, Math.min(200, v)),
-                } as Partial<MeishiElement>)
+                })
               }
               step={2}
             />
@@ -159,8 +147,8 @@ function renderEditor(props: Props, colors: ThemeColors) {
               value={element.fontWeight}
               onChange={(v) =>
                 onChange({
-                  fontWeight: v as FontWeight,
-                } as Partial<MeishiElement>)
+                  fontWeight: v,
+                })
               }
             />
           </Row>
@@ -173,8 +161,8 @@ function renderEditor(props: Props, colors: ThemeColors) {
               value={element.fontStyle}
               onChange={(v) =>
                 onChange({
-                  fontStyle: v as FontStyle,
-                } as Partial<MeishiElement>)
+                  fontStyle: v,
+                })
               }
             />
           </Row>
@@ -186,15 +174,13 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "right", label: "右" },
               ]}
               value={element.align}
-              onChange={(v) =>
-                onChange({ align: v as TextAlign } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ align: v })}
             />
           </Row>
           <Row label="色">
             <ColorGrid
               value={element.color}
-              onChange={(v) => onChange({ color: v } as Partial<MeishiElement>)}
+              onChange={(v) => onChange({ color: v })}
             />
           </Row>
         </>
@@ -211,9 +197,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "circle", label: "円" },
               ]}
               value={element.shape}
-              onChange={(v) =>
-                onChange({ shape: v as ImageShape } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ shape: v })}
             />
           </Row>
           <Row label="フィット">
@@ -225,8 +209,8 @@ function renderEditor(props: Props, colors: ThemeColors) {
               value={element.objectFit}
               onChange={(v) =>
                 onChange({
-                  objectFit: v as ImageObjectFit,
-                } as Partial<MeishiElement>)
+                  objectFit: v,
+                })
               }
             />
           </Row>
@@ -266,23 +250,19 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "circle", label: "円" },
               ]}
               value={element.shape}
-              onChange={(v) =>
-                onChange({ shape: v as ShapeKind } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ shape: v })}
             />
           </Row>
           <Row label="塗り">
             <ColorGrid
               value={element.fill}
-              onChange={(v) => onChange({ fill: v } as Partial<MeishiElement>)}
+              onChange={(v) => onChange({ fill: v })}
             />
           </Row>
           <Row label="枠色">
             <ColorGrid
               value={element.stroke}
-              onChange={(v) =>
-                onChange({ stroke: v } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ stroke: v })}
             />
           </Row>
           <Row label="枠幅">
@@ -291,7 +271,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
               onChange={(v) =>
                 onChange({
                   strokeWidth: Math.max(0, Math.min(20, v)),
-                } as Partial<MeishiElement>)
+                })
               }
               step={1}
             />
@@ -303,7 +283,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 onChange={(v) =>
                   onChange({
                     cornerRadius: Math.max(0, Math.min(60, v)),
-                  } as Partial<MeishiElement>)
+                  })
                 }
                 step={2}
               />
@@ -322,9 +302,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "custom", label: "自由入力" },
               ]}
               value={element.source}
-              onChange={(v) =>
-                onChange({ source: v as QrSource } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ source: v })}
             />
           </Row>
           {element.source === "custom" ? (
@@ -349,17 +327,13 @@ function renderEditor(props: Props, colors: ThemeColors) {
           <Row label="色">
             <ColorGrid
               value={element.fgColor}
-              onChange={(v) =>
-                onChange({ fgColor: v } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ fgColor: v })}
             />
           </Row>
           <Row label="背景">
             <ColorGrid
               value={element.bgColor}
-              onChange={(v) =>
-                onChange({ bgColor: v } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ bgColor: v })}
             />
           </Row>
         </>
@@ -374,7 +348,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
               onChange={(v) =>
                 onChange({
                   cols: Math.max(1, Math.min(6, v)),
-                } as Partial<MeishiElement>)
+                })
               }
               step={1}
             />
@@ -385,7 +359,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
               onChange={(v) =>
                 onChange({
                   rows: Math.max(1, Math.min(6, v)),
-                } as Partial<MeishiElement>)
+                })
               }
               step={1}
             />
@@ -397,9 +371,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "popular", label: "人気順" },
               ]}
               value={element.sortBy}
-              onChange={(v) =>
-                onChange({ sortBy: v as CollageSort } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ sortBy: v })}
             />
           </Row>
           <Row label="リスト">
@@ -430,7 +402,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 onChange={(v) =>
                   onChange({
                     state: v === "all" ? undefined : v,
-                  } as Partial<MeishiElement>)
+                  })
                 }
               />
             </Row>
@@ -448,9 +420,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 { value: "favorites", label: "お気に入り" },
               ]}
               value={element.metric}
-              onChange={(v) =>
-                onChange({ metric: v as CountMetric } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ metric: v })}
             />
           </Row>
           <Row label="サイズ">
@@ -459,7 +429,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
               onChange={(v) =>
                 onChange({
                   fontSize: Math.max(8, Math.min(80, v)),
-                } as Partial<MeishiElement>)
+                })
               }
               step={2}
             />
@@ -467,15 +437,13 @@ function renderEditor(props: Props, colors: ThemeColors) {
           <Row label="文字色">
             <ColorGrid
               value={element.color}
-              onChange={(v) => onChange({ color: v } as Partial<MeishiElement>)}
+              onChange={(v) => onChange({ color: v })}
             />
           </Row>
           <Row label="背景色">
             <ColorGrid
               value={element.bgColor}
-              onChange={(v) =>
-                onChange({ bgColor: v } as Partial<MeishiElement>)
-              }
+              onChange={(v) => onChange({ bgColor: v })}
             />
           </Row>
         </>

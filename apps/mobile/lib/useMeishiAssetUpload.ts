@@ -28,7 +28,7 @@ export async function pickMeishiImage(): Promise<ImagePicker.ImagePickerAsset | 
   if (result.canceled || result.assets.length === 0) {
     return null;
   }
-  return result.assets[0]!;
+  return result.assets[0];
 }
 
 /**

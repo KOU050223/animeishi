@@ -212,7 +212,7 @@ describe("ユーザー通報・ブロック API", () => {
 
       expect(res.status).toBe(201);
       expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as {
+      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string) as {
         content: string;
       };
       expect(body.content).toContain("ユーザー通報");
@@ -465,7 +465,7 @@ describe("ユーザー通報・ブロック API", () => {
         { method: "GET" },
         TEST_BINDINGS,
       );
-      expect((await listRes.json()) as unknown[]).toHaveLength(1);
+      expect(await listRes.json()).toHaveLength(1);
     });
 
     it("自分自身はブロックできない（400）", async () => {
@@ -512,7 +512,7 @@ describe("ユーザー通報・ブロック API", () => {
         { method: "GET" },
         TEST_BINDINGS,
       );
-      expect((await listRes.json()) as unknown[]).toHaveLength(0);
+      expect(await listRes.json()).toHaveLength(0);
     });
 
     it("ブロックしていなくても 200（冪等）", async () => {
