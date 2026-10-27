@@ -6,18 +6,28 @@ import { defineConfig } from "vite-plus";
 // `--cache` を付けてキャッシュを効かせる（入力ファイルは自動追跡）。
 // キャッシュは node_modules/.vite/task-cache。CI では ci.yml が GitHub Actions cache で持ち越す。
 
-// oxlint / oxfmt の設定（oxlint.config.ts・.oxfmtrc.json 等）はパッケージごとに
-// 異なるため、staged の検査はファイルが属するパッケージをカレントにして実行する。
+// staged の検査はファイルが属するパッケージをカレントにして実行する。
+// oxlint はパッケージごとに設定（oxlint.config.ts）が異なるため。
 const PACKAGES = ["apps/mobile", "apps/api", "packages/danime-core", "packages/observability"];
 
 // ルート直下のファイル（vite.config.ts・.github/workflows・Taskfile.yml 等）は
-// どのパッケージの fmt にも入らないため、ルートの oxfmt（各パッケージと同じ 0.57 系）で
-// 別に整形する（issue #254）。パッケージ配下は各パッケージの fmt が担当するので除外する。
-// ルートは oxfmt の既定値で整形し、ルートに .oxfmtrc.json は置かない。置くと設定ファイルを
-// 持たないパッケージ（packages/observability）にも上位探索で効いてしまうため。
+// どのパッケージの fmt にも入らないため、ルートの `vp fmt`（vite-plus 同梱の oxfmt。
+// issue #268）で別に整形する（issue #254）。パッケージ配下は各パッケージの fmt が
+// 担当するので除外する。ルートは printWidth 既定値（100）で整形する。
 const ROOT_FMT_TARGETS = ". '!apps/**' '!packages/**'";
 
 export default defineConfig({
+  // `vp fmt`（vite-plus 同梱の oxfmt）の設定。Vite+ モードでは nested config
+  // （.oxfmtrc.json）が効かないため、パッケージ別の printWidth は overrides で表す
+  // （issue #268）。mobile / api / danime-core は 80、observability とルートは既定の 100。
+  fmt: {
+    overrides: [
+      {
+        files: ["apps/mobile/**", "apps/api/**", "packages/danime-core/**"],
+        options: { printWidth: 80 },
+      },
+    ],
+  },
   run: {
     tasks: {
       // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit。TypeScript 7、issue #248）。
@@ -41,12 +51,12 @@ export default defineConfig({
         cache: false,
       },
       fmt: {
-        command: ["vp run -r fmt", `oxfmt --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`],
+        command: ["vp run -r fmt", `vp fmt --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`],
         cache: false,
       },
       "fmt:check": [
         "vp run --cache -r fmt:check",
-        `oxfmt --check --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
+        `vp fmt --check --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
       ],
       test: "vp run --cache -r test",
       dev: { command: "vp run -r --parallel dev", cache: false },
@@ -64,27 +74,27 @@ export default defineConfig({
           `${dir}/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
           [
             `vp -C ${dir} exec oxlint --deny-warnings`,
-            `vp -C ${dir} exec oxfmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
+            `vp -C ${dir} fmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
           ],
         ],
         [
           `${dir}/**/*.{json,yml,yaml}`,
-          `vp -C ${dir} exec oxfmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
+          `vp -C ${dir} fmt --no-error-on-unmatched-pattern --ignore-path ../../.oxfmtignore`,
         ],
       ]),
     ),
     // ルート直下と、パッケージ以外のディレクトリ（.github 等）のファイル。パターンに "/" を
     // 含めているので lint-staged の matchBase は効かず、パッケージ配下のファイルには当たらない。
     // pnpm-lock.yaml などの整形対象外（.oxfmtignore）だけがステージされたときに
-    // oxfmt・oxlint が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
+    // fmt・oxlint が「対象ファイルなし」で失敗しないよう --no-error-on-unmatched-pattern を付ける。
     // JS / TS は Oxlint もかける（issue #269）。.oxfmtignore のエージェント・エディタ状態
     // （.agents/ 等）は oxlint が明示指定されたファイルに --ignore-path を効かせないため
     // glob 側で外す（`vp run lint` の対象と揃える）。
     "{*,!(apps|packages|.agents|.claude|.devin|.direnv|.vscode)/**/*}.{ts,mts,cts,js,mjs,cjs}": [
       "vp exec oxlint --deny-warnings --no-error-on-unmatched-pattern",
-      "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
+      "vp fmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
     ],
     "{*,!(apps|packages)/**/*}.{json,jsonc,yml,yaml}":
-      "vp exec oxfmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
+      "vp fmt --no-error-on-unmatched-pattern --ignore-path .oxfmtignore",
   },
 });
