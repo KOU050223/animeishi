@@ -100,13 +100,27 @@ export async function notifyCronFailure(
 }
 
 // ジョブの成功で連続失敗カウントを消す。成功自体は通知しない。
+// カウントが残っているときだけ KV を消す — 成功ごとに無条件 delete すると
+// cron 間隔（10 分 × 2 ジョブ）で KV の書き込み無料枠を食い潰すため。
+// この isolate が失敗を記録していれば残っていると分かるので get を省き、
+// それ以外は get で確認する（get の無料枠は書き込みより大きい）。
+// KV は結果整合なので、別 isolate が直前に書いた/消したカウントを
+// 読み飛ばすことはある（cron 間隔に対して伝播遅延は十分小さく厳密さは不要）。
 export async function clearCronFailures(
   env: AlertBindings,
   job: string,
 ): Promise<void> {
   const key = cronFailCountKey(job);
-  localCronFailures.delete(key);
+  const hadLocal = localCronFailures.delete(key);
   if (!env.ALERT_STATE) return;
+  if (!hadLocal) {
+    try {
+      if ((await env.ALERT_STATE.get(key)) === null) return;
+    } catch (err) {
+      logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
+      return;
+    }
+  }
   try {
     await env.ALERT_STATE.delete(key);
   } catch (err) {

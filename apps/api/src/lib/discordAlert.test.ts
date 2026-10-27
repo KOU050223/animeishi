@@ -325,8 +325,11 @@ describe("notifyCronFailure / clearCronFailures", () => {
     const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
 
     await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    raw.get.mockClear();
     await clearCronFailures(env, "mal_id_search");
 
+    // この isolate が失敗を記録しているので get せずに消す。
+    expect(raw.get).not.toHaveBeenCalled();
     expect(raw.delete).toHaveBeenCalledWith("cron_fail_count:mal_id_search");
     expect(store.has("cron_fail_count:mal_id_search")).toBe(false);
 
@@ -334,6 +337,25 @@ describe("notifyCronFailure / clearCronFailures", () => {
 
     expect(sent).toBe(false);
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("カウントが無い成功では KV を消しにいかない（成功ごとの delete を省く）", async () => {
+    const { kv, raw } = fakeKv();
+
+    await clearCronFailures({ ALERT_STATE: kv }, "image_fallback");
+
+    expect(raw.get).toHaveBeenCalledWith("cron_fail_count:image_fallback");
+    expect(raw.delete).not.toHaveBeenCalled();
+  });
+
+  it("別 isolate が記録したカウント（ローカル無し）は get で見つけて消す", async () => {
+    const { kv, raw, store } = fakeKv();
+    store.set("cron_fail_count:mal_id_search", "2");
+
+    await clearCronFailures({ ALERT_STATE: kv }, "mal_id_search");
+
+    expect(raw.delete).toHaveBeenCalledWith("cron_fail_count:mal_id_search");
+    expect(store.has("cron_fail_count:mal_id_search")).toBe(false);
   });
 
   it("閾値到達後の通知は 30 分の印で抑止されるが、カウントは進む", async () => {
