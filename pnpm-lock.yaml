@@ -241,6 +241,9 @@ importers:
       jest-expo:
         specifier: ~54.0.18
         version: 54.0.18(@babel/core@7.29.0)(bufferutil@4.1.0)(expo@54.0.37)(jest@29.7.0(@types/node@20.19.39)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@20.19.39)(@typescript/typescript6@6.0.2)))(react-native@0.81.5(@babel/core@7.29.0)(@react-native/metro-config@0.85.1(@babel/core@7.29.0)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.1.17)(bufferutil@4.1.0)(react@19.1.0)(utf-8-validate@6.0.6))(react@19.1.0)(utf-8-validate@6.0.6)
+      jsdom:
+        specifier: ^20.0.3
+        version: 20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       oxfmt:
         specifier: ^0.57.0
         version: 0.57.0(vite-plus@1.4.0(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@typescript/typescript6@6.0.2)(@vitest/ui@5.0.5)(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@1.21.7)(jsdom@20.0.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.1)(tsx@4.21.0)(utf-8-validate@6.0.6)(yaml@2.9.1))

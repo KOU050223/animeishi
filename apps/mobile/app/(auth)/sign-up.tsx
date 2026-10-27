@@ -111,7 +111,7 @@ export default function SignUpScreen() {
         }
         return;
       }
-      setError(toAuthErrorMessage(err, "サインアップに失敗しました"));
+      setError(toAuthErrorMessage(err, t, "サインアップに失敗しました"));
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export default function SignUpScreen() {
         router.replace("/(tabs)");
       }
     } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, "認証コードの検証に失敗しました"));
+      setError(toAuthErrorMessage(err, t, "認証コードの検証に失敗しました"));
     } finally {
       setLoading(false);
     }

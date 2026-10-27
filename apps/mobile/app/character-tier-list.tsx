@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
@@ -273,7 +274,7 @@ export default function CharacterTierListScreen() {
     try {
       await saveTierListData();
       const { shareToken } = await share.mutateAsync(annictWorkId);
-      const url = buildCharacterTierListShareUrl(shareToken);
+      const url = buildCharacterTierListShareUrl(shareToken, apiUrl);
       // native は OS 共有シート。web は urlShareElement のモーダルを開き、
       // コピー / X 共有はモーダル内のボタン操作で行う。
       await presentShareUrl(url);

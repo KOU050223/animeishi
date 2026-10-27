@@ -7,6 +7,8 @@ import { defineConfig } from "vitest/config";
 // エイリアスは jest.config.cjs の moduleNameMapper と揃える。RN 系モジュールの
 // スタブ（@sentry/react-native・@clerk/clerk-expo）は、それらを読むテストを
 // jest に残しているため持たない。
+// window が必要なテストはファイル先頭の `// @vitest-environment jsdom` で
+// ファイル単位に jsdom へ切り替える（issue #276。jsdom は mobile の devDependency）。
 export default defineConfig({
   resolve: {
     alias: [
@@ -33,6 +35,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // ワーカー再利用で起動コストを省く（issue #276）。process.env を書き換えるのは
+    // lib/annict/oauth.unit.test.ts だけで、afterEach で元の値に復元する
+    // （未設定だった場合は delete に戻す）。window.location を差し替える
+    // lib/profileUrl/profileUrl.web.unit.test.ts も afterAll で復元する。
+    isolate: false,
     include: ["**/*.unit.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

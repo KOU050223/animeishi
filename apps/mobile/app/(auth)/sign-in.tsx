@@ -106,7 +106,7 @@ export default function SignInScreen() {
         }
         return;
       }
-      setError(toAuthErrorMessage(err, "サインインに失敗しました"));
+      setError(toAuthErrorMessage(err, t, "サインインに失敗しました"));
     } finally {
       setLoading(false);
     }
