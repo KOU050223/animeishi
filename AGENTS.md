@@ -166,6 +166,20 @@ vp -C apps/mobile exec vitest related --run lib/foo.ts                        # 
 vp -C apps/mobile exec vitest run --changed main                              # main からの変更に関係する vitest テスト
 ```
 
+### api のテスト（Workers プール）
+
+api の vitest（`apps/api/vitest.config.ts`）は `@cloudflare/vitest-plugin` の
+Workers プールで、`isolated`（既定の isolate: true。ファイルごとに workerd を
+起動）と `shared`（isolate: false。workerd を共有して起動回数を削減。issue #299）
+の 2 プロジェクトに分かれている。`shared` 側はモジュールグラフと
+ストレージ（D1 / R2）をファイル間で共有するため、**`vi.mock` でモジュールを
+差し替えるファイルは shared に置けない**（モック実体のずれで失敗する）。
+新しいテストファイルは `features/*/index.test.ts` などのルート系なら isolated、
+`repository.test.ts`・`lib/**` の純ロジック系なら shared の include に自動で入る。
+`vp -C apps/api exec vitest run --project isolated` / `--project shared` で
+片方だけ実行できる。
+Node プール（`vitest.node.config.ts`）の対象は従来どおり除外されている。
+
 ### Git フック
 
 `vp install` 時の `prepare`（`vp config --no-agent`）が `.vite-hooks/_` にフックの
