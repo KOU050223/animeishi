@@ -59,13 +59,123 @@ export async function notifyApiFailures(
     ),
     `詳細は Sentry を確認。同じ障害の通知は${SUPPRESS_SECONDS / 60}分止めます。`,
   ];
+  return postAlert(env.DISCORD_WEBHOOK_URL, lines.join("\n"), fetchImpl);
+}
+
+// cron ジョブの失敗通知（issue #233）。一過性の単発失敗では送らず、
+// 連続 CRON_FAILURE_THRESHOLD 回失敗したときだけ送る。
+// 連続回数は ALERT_STATE の `cron_fail_count:<job>` に保持し、
+// ジョブが成功したら clearCronFailures で消す（成功は通知しない）。
+// 通知の重複は API 障害と同じ印方式で抑える（キーは `cron:<job>`）。
+export const CRON_FAILURE_THRESHOLD = 2;
+
+// 連続失敗カウントの保持期限。失敗のたびに TTL が延びるため、障害中に
+// 切れることはない。成功・ジョブ廃止で消えない残骸だけ期限切れに任せる。
+const CRON_FAIL_COUNT_TTL_SECONDS = 24 * 60 * 60;
+
+export async function notifyCronFailure(
+  env: AlertBindings,
+  job: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const consecutive = await recordCronFailure(env, job);
+  if (consecutive < CRON_FAILURE_THRESHOLD) return false;
+  const key = `cron:${job}`;
+  const now = Date.now();
+  if ((localSuppressedUntil.get(key) ?? 0) > now) return false;
+  localSuppressedUntil.set(key, now + SUPPRESS_SECONDS * 1000);
+  if (await isSuppressed(env, key)) return false;
+  // 送信前に印を付ける（API 障害と同じく連投しない方を優先する）。
+  await markSent(env, key);
+  return postAlert(
+    env.DISCORD_WEBHOOK_URL,
+    [
+      `🔴 **[animeishi-api${envLabel(env.ENVIRONMENT)}] cron 障害**`,
+      `\`cron:${job}\` が ${consecutive} 回連続で失敗`,
+      `詳細は Sentry を確認。同じ障害の通知は${SUPPRESS_SECONDS / 60}分止めます。`,
+    ].join("\n"),
+    fetchImpl,
+  );
+}
+
+// ジョブの成功で連続失敗カウントを消す。成功自体は通知しない。
+export async function clearCronFailures(
+  env: AlertBindings,
+  job: string,
+): Promise<void> {
+  const key = cronFailCountKey(job);
+  localCronFailures.delete(key);
+  if (!env.ALERT_STATE) return;
   try {
-    const res = await fetchImpl(env.DISCORD_WEBHOOK_URL, {
+    await env.ALERT_STATE.delete(key);
+  } catch (err) {
+    logAlertFailure("kv_delete", err instanceof Error ? err.name : "Error");
+  }
+}
+
+// isolate 内の印（キー → 抑止の期限 ms）。KV の結果整合を補うだけのもの。
+const localSuppressedUntil = new Map<string, number>();
+
+// isolate 内の連続失敗カウント（カウントキー → 回数）。
+// ALERT_STATE 未バインド・KV 読み書き失敗時の退避先でもある。
+const localCronFailures = new Map<string, number>();
+
+// テスト間で isolate 内の印と連続失敗カウントを消す。
+export function resetLocalSuppression(): void {
+  localSuppressedUntil.clear();
+  localCronFailures.clear();
+}
+
+function cronFailCountKey(job: string): string {
+  return `cron_fail_count:${job}`;
+}
+
+// 連続失敗回数を 1 増やして返す。KV の値が isolate 内より進んでいれば
+// そちらを採用する（結果整合の遅れと別 isolate での加算の両方を吸収する）。
+async function recordCronFailure(
+  env: AlertBindings,
+  job: string,
+): Promise<number> {
+  const key = cronFailCountKey(job);
+  let count = localCronFailures.get(key) ?? 0;
+  if (env.ALERT_STATE) {
+    try {
+      const stored = await env.ALERT_STATE.get(key);
+      if (stored !== null) {
+        count = Math.max(count, Number(stored) || 0);
+      }
+    } catch (err) {
+      logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
+    }
+  }
+  count += 1;
+  localCronFailures.set(key, count);
+  if (env.ALERT_STATE) {
+    try {
+      await env.ALERT_STATE.put(key, String(count), {
+        expirationTtl: CRON_FAIL_COUNT_TTL_SECONDS,
+      });
+    } catch (err) {
+      logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");
+    }
+  }
+  return count;
+}
+
+// Webhook への POST 本体。失敗は warn ログだけで false を返す。
+async function postAlert(
+  webhookUrl: string,
+  content: string,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
+  try {
+    const res = await fetchImpl(webhookUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       // メンションを解釈させない（@everyone 等が混ざっても通知を飛ばさない）。
       body: JSON.stringify({
-        content: lines.join("\n"),
+        content,
         allowed_mentions: { parse: [] },
       }),
     });
@@ -75,14 +185,6 @@ export async function notifyApiFailures(
     logAlertFailure("webhook", err instanceof Error ? err.name : "Error");
     return false;
   }
-}
-
-// isolate 内の印（キー → 抑止の期限 ms）。KV の結果整合を補うだけのもの。
-const localSuppressedUntil = new Map<string, number>();
-
-// テスト間で isolate 内の印を消す。
-export function resetLocalSuppression(): void {
-  localSuppressedUntil.clear();
 }
 
 // 外部 API・D1・認証基盤の障害は全ルートに広がるため、種別×ステータスで 1 件にまとめる。
