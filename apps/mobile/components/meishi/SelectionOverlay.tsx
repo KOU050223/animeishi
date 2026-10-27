@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { View } from "react-native";
 import type { ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useSharedValue, type SharedValue } from "react-native-reanimated";
 import type { MeishiElement, Transform } from "@/lib/meishi/types";
 
 type CanvasOrigin = { x: number; y: number };
@@ -17,14 +18,14 @@ const MIN_H = 0.02;
 export function SelectionOverlay({
   element,
   canvasSize,
-  canvasOriginRef,
+  canvasOrigin,
   onTransform,
   onCommit,
 }: {
   element: MeishiElement;
   canvasSize: Size;
   /** キャンバスの画面上絶対原点（measureInWindow 結果）。回転を絶対座標基準で扱うのに使う。 */
-  canvasOriginRef?: MutableRefObject<CanvasOrigin>;
+  canvasOrigin?: SharedValue<CanvasOrigin>;
   onTransform: (t: Transform) => void;
   onCommit?: () => void;
 }) {
@@ -34,28 +35,31 @@ export function SelectionOverlay({
   const x = t.x * canvasSize.width;
   const y = t.y * canvasSize.height;
 
-  // 最新値を ref で参照することで、ジェスチャ中に element.transform が変わっても
-  // Gesture インスタンスが再生成されず、ジェスチャが中断されない。
-  const start = useRef<Transform>(t);
-  const latestTransformRef = useRef<Transform>(t);
-  latestTransformRef.current = t;
-
-  const canvasWRef = useRef<number>(canvasSize.width);
-  const canvasHRef = useRef<number>(canvasSize.height);
-  canvasWRef.current = canvasSize.width;
-  canvasHRef.current = canvasSize.height;
+  // 最新値を SharedValue で参照することで、ジェスチャ中に element.transform が
+  // 変わっても Gesture インスタンスが再生成されず、ジェスチャが中断されない。
+  // ref ではなく SharedValue にするのは、ジェスチャコールバックから ref を
+  // 触ると React Compiler 系 lint（react/refs）に引っかかるため。
+  const start = useSharedValue<Transform>(t);
+  const latestTransform = useSharedValue<Transform>(t);
+  const canvasW = useSharedValue<number>(canvasSize.width);
+  const canvasH = useSharedValue<number>(canvasSize.height);
+  useEffect(() => {
+    latestTransform.set(t);
+    canvasW.set(canvasSize.width);
+    canvasH.set(canvasSize.height);
+  });
 
   // Gesture インスタンス生成用のファクトリ。fresh な useMemo で1度だけ作る。
   const buildResize = useCallback(
     (corner: Corner) =>
       Gesture.Pan()
         .onStart(() => {
-          start.current = latestTransformRef.current;
+          start.set(latestTransform.value);
         })
         .onUpdate((e) => {
-          const dxN = e.translationX / canvasWRef.current;
-          const dyN = e.translationY / canvasHRef.current;
-          const s = start.current;
+          const dxN = e.translationX / canvasW.value;
+          const dyN = e.translationY / canvasH.value;
+          const s = start.value;
           let nx = s.x;
           let ny = s.y;
           let nw = s.width;
@@ -97,18 +101,18 @@ export function SelectionOverlay({
     () =>
       Gesture.Pan()
         .onStart(() => {
-          start.current = latestTransformRef.current;
+          start.set(latestTransform.value);
         })
         .onUpdate((e) => {
-          const s = start.current;
+          const s = start.value;
           // 中心（キャンバスローカル px）
-          const cx = (s.x + s.width / 2) * canvasWRef.current;
-          const cy = (s.y + s.height / 2) * canvasHRef.current;
+          const cx = (s.x + s.width / 2) * canvasW.value;
+          const cy = (s.y + s.height / 2) * canvasH.value;
           // キャンバスの画面絶対原点を差し引くことで、ポインタの absoluteX/Y を
-          // キャンバスローカル px に変換する。canvasOriginRef が渡っていない場合は
+          // キャンバスローカル px に変換する。canvasOrigin が渡っていない場合は
           // 原点(0,0)としてフォールバック（回転済み要素だとズレる可能性はある）。
-          const originX = canvasOriginRef?.current.x ?? 0;
-          const originY = canvasOriginRef?.current.y ?? 0;
+          const originX = canvasOrigin?.value.x ?? 0;
+          const originY = canvasOrigin?.value.y ?? 0;
           const nowPx = e.absoluteX - originX;
           const nowPy = e.absoluteY - originY;
           const startPx = nowPx - e.translationX;
@@ -120,7 +124,7 @@ export function SelectionOverlay({
           onTransform({ ...s, rotation: nextRotation });
         })
         .onEnd(() => onCommit?.()),
-    [canvasOriginRef, onTransform, onCommit],
+    [canvasOrigin, onTransform, onCommit],
   );
 
   // 移動ジェスチャ（選択枠の中央部分をドラッグ）
@@ -128,12 +132,12 @@ export function SelectionOverlay({
     () =>
       Gesture.Pan()
         .onStart(() => {
-          start.current = latestTransformRef.current;
+          start.set(latestTransform.value);
         })
         .onUpdate((e) => {
-          const s = start.current;
-          const nx = clamp01(s.x + e.translationX / canvasWRef.current);
-          const ny = clamp01(s.y + e.translationY / canvasHRef.current);
+          const s = start.value;
+          const nx = clamp01(s.x + e.translationX / canvasW.value);
+          const ny = clamp01(s.y + e.translationY / canvasH.value);
           onTransform({ ...s, x: nx, y: ny });
         })
         .onEnd(() => onCommit?.()),

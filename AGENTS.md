@@ -55,8 +55,14 @@ vp run dev         # 全アプリの開発サーバを並列起動
 > `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
 > （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの
 > `vp fmt` で整形・確認する（issue #254）。
-> `lint` / `lint:fix` も同様に、ルート直下とパッケージ外の TS / JS をルートの oxlint
-> （各パッケージと同じ 1.72 系、設定は既定値）で検査する（issue #269）。
+> lint も fmt と同様に vite-plus 同梱の oxlint を `vp lint` 経由で実行し、
+> 各パッケージ・ルートで個別の oxlint は入れない（issue #267。版は vite-plus に従う）。
+> Vite+ モードではネストした oxlint 設定（`oxlint.config.ts` / `.oxlintrc.json`）が
+> 効かないため、設定はルート `vite.config.ts` の `lint` ブロックに集約する。
+> パッケージ別のルール（mobile の universe/native プリセット、api の
+> `no-restricted-properties` 等）は `lint.overrides` で表す。
+> `lint` / `lint:fix` は各パッケージの script に加えて、ルート直下とパッケージ外の
+> TS / JS もルートの `vp lint` で検査する（issue #269）。
 > 整形・検査の対象外はルートの `.oxfmtignore` で指定し、fmt・lint のどちらの
 > 呼び出しにも `--ignore-path` で渡す（`.agents/` 等のエージェント状態は対象外）。
 > `.oxfmtignore` は自動では読まれないため、flag を付けない裸の `vp fmt` には効かない。

@@ -99,14 +99,16 @@ export function DraggableWorkCard({
       Gesture.Pan()
         // スクロールとの競合を避けるため、長押ししてから初めてドラッグに入る。
         .activateAfterLongPress(DRAG_ACTIVATE_MS)
+        // SharedValue の書き込みは .set() を使う（.value への代入は
+        // React Compiler 系 lint の react/immutability に引っかかる）。
         .onStart(() => {
-          compensationFolded.value = false;
-          isDragging.value = true;
+          compensationFolded.set(false);
+          isDragging.set(true);
           scheduleOnRN(onDragStart);
         })
         .onUpdate((e) => {
-          translateX.value = e.translationX;
-          translateY.value = e.translationY;
+          translateX.set(e.translationX);
+          translateY.set(e.translationY);
           scheduleOnRN(onDragMove, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
@@ -122,12 +124,12 @@ export function DraggableWorkCard({
             (scrollCompensationOwner === undefined ||
               scrollCompensationOwner.value === item.id)
           ) {
-            translateY.value += scrollCompensation.value;
-            compensationFolded.value = true;
+            translateY.set(translateY.value + scrollCompensation.value);
+            compensationFolded.set(true);
           }
-          translateX.value = withSpring(0);
-          translateY.value = withSpring(0);
-          isDragging.value = false;
+          translateX.set(withSpring(0));
+          translateY.set(withSpring(0));
+          isDragging.set(false);
         })
         .onFinalize(() => {
           // キャンセル（別ジェスチャに奪われた等）でもカードが浮いたままにならないよう戻す。
@@ -135,7 +137,7 @@ export function DraggableWorkCard({
           // ここで true が残っている場合だけが「未確定のキャンセル」。
           // 親側のドラッグ中フラグ（スクロール停止・zIndex 制御）も戻す。
           if (isDragging.value) {
-            isDragging.value = false;
+            isDragging.set(false);
             scheduleOnRN(onDragCancel);
           }
           // onEnd を通らなかったキャンセル経路でも同じく補正を畳み込む。
@@ -145,11 +147,11 @@ export function DraggableWorkCard({
             (scrollCompensationOwner === undefined ||
               scrollCompensationOwner.value === item.id)
           ) {
-            translateY.value += scrollCompensation.value;
-            compensationFolded.value = true;
+            translateY.set(translateY.value + scrollCompensation.value);
+            compensationFolded.set(true);
           }
-          translateX.value = withSpring(0);
-          translateY.value = withSpring(0);
+          translateX.set(withSpring(0));
+          translateY.set(withSpring(0));
         }),
     [
       compensationFolded,
@@ -215,18 +217,22 @@ export function DraggableWorkCard({
       aliveRef.current = false;
     };
   }, []);
-  const measureCard = useCallback(() => {
-    if (!registry) return;
-    const requestedEpoch = registry.epoch();
-    cardRef.current?.measureInWindow((x, y, width, height) => {
-      if (!aliveRef.current) return;
-      if (registry.epoch() !== requestedEpoch) {
-        measureCard();
-        return;
-      }
-      registry.registerCard(item.id, { x, y, width, height });
-    });
-  }, [registry, item.id]);
+  // 再帰するため関数名式にしている（DropZone の measure と同じ経緯）。
+  const measureCard = useCallback(
+    function measureCard() {
+      if (!registry) return;
+      const requestedEpoch = registry.epoch();
+      cardRef.current?.measureInWindow((x, y, width, height) => {
+        if (!aliveRef.current) return;
+        if (registry.epoch() !== requestedEpoch) {
+          measureCard();
+          return;
+        }
+        registry.registerCard(item.id, { x, y, width, height });
+      });
+    },
+    [registry, item.id],
+  );
   useEffect(() => {
     if (!registry) return;
     return registry.registerCardMeasurer(item.id, measureCard);

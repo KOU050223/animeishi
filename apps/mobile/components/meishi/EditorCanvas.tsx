@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useSharedValue } from "react-native-reanimated";
 import { useThemeColors } from "@/lib/theme";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { ElementRenderer } from "./elements/ElementRenderer";
@@ -40,11 +41,13 @@ export function EditorCanvas({
   const [size, setSize] = useState<Size | null>(null);
   const canvasRef = useRef<View>(null);
   // キャンバスの画面上の絶対原点（px）。回転ジェスチャで absoluteX/Y をキャンバスローカルに変換するのに使う。
-  const canvasOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // ジェスチャコールバックから参照するため ref ではなく SharedValue にする
+  // （ref だと React Compiler 系 lint の react/refs に引っかかる）。
+  const canvasOrigin = useSharedValue({ x: 0, y: 0 });
 
   const measureCanvas = () => {
     canvasRef.current?.measureInWindow((x, y) => {
-      canvasOriginRef.current = { x, y };
+      canvasOrigin.set({ x, y });
     });
   };
 
@@ -96,9 +99,13 @@ export function EditorCanvas({
                   if (!el) return null;
                   return (
                     <SelectionOverlay
+                      // SharedValue を effect で同期しているため、選択切替時に
+                      // 前要素の値が残る窓を key で閉じる（ElementBox と同じく
+                      // 要素ごとに新しいインスタンスを作る）。
+                      key={el.id}
                       element={el}
                       canvasSize={size}
-                      canvasOriginRef={canvasOriginRef}
+                      canvasOrigin={canvasOrigin}
                       onTransform={(t) => onTransform(el.id, t)}
                       onCommit={onCommit}
                     />
@@ -135,12 +142,16 @@ function ElementBox({
   const y = el.transform.y * canvasSize.height;
   const renderScale = canvasSize.width / MEISHI_DESIGN_WIDTH;
 
-  const start = useRef<Transform>(el.transform);
-  // 最新の transform を ref 経由で参照することで、pan の useMemo 依存から外す。
+  const start = useSharedValue<Transform>(el.transform);
+  // 最新の transform を SharedValue 経由で参照することで、pan の useMemo 依存から外す。
   // これにより setElementTransformLive でドラッグ中に el.transform が変わっても、
   // Gesture.Pan インスタンスが再生成されず、ジェスチャが中断されない。
-  const latestTransformRef = useRef<Transform>(el.transform);
-  latestTransformRef.current = el.transform;
+  // ref ではなく SharedValue にするのは、ジェスチャコールバックから ref を
+  // 触ると React Compiler 系 lint（react/refs）に引っかかるため。
+  const latestTransform = useSharedValue<Transform>(el.transform);
+  useEffect(() => {
+    latestTransform.set(el.transform);
+  });
 
   const tap = useMemo(() => Gesture.Tap().onEnd(() => onSelect()), [onSelect]);
 
@@ -149,16 +160,14 @@ function ElementBox({
       Gesture.Pan()
         .enabled(isSelected)
         .onStart(() => {
-          start.current = latestTransformRef.current;
+          start.set(latestTransform.value);
         })
         .onUpdate((e) => {
-          const nx = clamp01(
-            start.current.x + e.translationX / canvasSize.width,
-          );
+          const nx = clamp01(start.value.x + e.translationX / canvasSize.width);
           const ny = clamp01(
-            start.current.y + e.translationY / canvasSize.height,
+            start.value.y + e.translationY / canvasSize.height,
           );
-          onTransform({ ...start.current, x: nx, y: ny });
+          onTransform({ ...start.value, x: nx, y: ny });
         })
         .onEnd(() => {
           onCommit?.();

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { parseUserIdFromQr } from "@/lib/qrParser";
 
@@ -43,8 +43,11 @@ export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
   const [scanned, setScanned] = useState(false);
 
   // ref で保持することで handleBarcodeScanned の参照同一性を保ちつつ最新値を参照できる。
+  // render 中に ref は書けないため、コミット後の effect で同期する。
   const onScannedRef = useRef(onScanned);
-  onScannedRef.current = onScanned;
+  useEffect(() => {
+    onScannedRef.current = onScanned;
+  });
   const scannedRef = useRef(false);
 
   const handleBarcodeScanned = useCallback((result: BarcodeScanningResult) => {

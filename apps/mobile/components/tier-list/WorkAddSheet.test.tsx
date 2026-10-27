@@ -126,6 +126,18 @@ describe("WorkAddSheet", () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+  // 検索語のリセットはレンダー中の状態調整で行う（#267）
+  it("閉じて開き直すと検索語がクリアされる", () => {
+    const { getByTestId, rerender } = render(sheetElement());
+    fireEvent.changeText(getByTestId("work-add-input"), "テスト");
+    expect(getByTestId("work-add-input").props.value).toBe("テスト");
+
+    rerender(sheetElement({ visible: false }));
+    rerender(sheetElement({ visible: true }));
+
+    expect(getByTestId("work-add-input").props.value).toBe("");
+  });
+
   it("visible=false のとき検索 UI を描画せず、検索も無効化する", () => {
     const { queryByTestId } = render(sheetElement({ visible: false }));
     expect(queryByTestId("work-add-input")).toBeNull();

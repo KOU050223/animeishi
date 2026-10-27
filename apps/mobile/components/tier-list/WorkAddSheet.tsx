@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -39,9 +39,13 @@ export function WorkAddSheet({
   const colors = useThemeColors();
   const [query, setQuery] = useState("");
   // 開くたびに新しい検索として始める（前回の語・結果を引きずらない）。
-  useEffect(() => {
+  // effect での同期 setState を避けるため、前回値との比較で
+  // レンダー中にリセットする。
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (prevVisible !== visible) {
+    setPrevVisible(visible);
     if (visible) setQuery("");
-  }, [visible]);
+  }
 
   // シートは Modal 内で常時マウントされるため、閉じている間は enabled で
   // 検索を無効化する（デバウンス済みの旧語で再フェッチが走らないように）。

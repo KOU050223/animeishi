@@ -88,8 +88,13 @@ export type UseEdgeAutoScrollOptions = {
    * ドラッグ中カードを指に追従させるためのスクロール補正量。
    * 実体は reanimated の SharedValue でなければならない
    * （カード側のスタイル worklet が UI スレッドで読むため）。
+   * 書き込みは value 代入ではなく set を使う（value への代入は
+   * React Compiler 系 lint の react/immutability に引っかかる）。
    */
-  scrollCompensation: { value: number };
+  scrollCompensation: {
+    value: number;
+    set: (value: number | ((value: number) => number)) => void;
+  };
   /**
    * 自動スクロールが実際に進んだあと、指位置つきで呼ばれる。
    * 指が止まっていてもコンテンツが指の下を通過して乗っている行が変わるため、
@@ -180,7 +185,7 @@ export function useEdgeAutoScroll({
     // ヒットテストが追従するよう登録済み矩形を同じだけずらす。
     registry.shiftAll(-delta);
     // 掴んでいるカードは行と一緒に流されないよう、逆向きに補正して指に追従させる。
-    scrollCompensation.value += delta;
+    scrollCompensation.set(scrollCompensation.value + delta);
     onScrolledRef.current?.(finger.x, finger.y);
   }, [registry, scrollRef, scrollCompensation]);
 
@@ -192,7 +197,7 @@ export function useEdgeAutoScroll({
     // 掴んだ瞬間のビューポートに合わせる。レイアウト後に高さが変わっている
     // ことがあるため onLayout の値だけには頼らない。
     measureViewport();
-    scrollCompensation.value = 0;
+    scrollCompensation.set(0);
     directionRef.current = 0;
     fingerRef.current = null;
     if (timerRef.current === null) {
@@ -210,7 +215,7 @@ export function useEdgeAutoScroll({
     directionRef.current = 0;
     fingerRef.current = null;
     stopTimer();
-    scrollCompensation.value = 0;
+    scrollCompensation.set(0);
   }, [scrollCompensation, stopTimer]);
 
   const onScroll = useCallback(
