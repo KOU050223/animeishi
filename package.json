@@ -6,6 +6,7 @@
   },
   "devDependencies": {
     "@go-task/cli": "3.52.0",
+    "@typescript/native": "catalog:",
     "oxfmt": "^0.57.0",
     "oxlint": "~1.72.0",
     "vite-plus": "catalog:"

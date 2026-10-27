@@ -20,8 +20,10 @@ const ROOT_FMT_TARGETS = ". '!apps/**' '!packages/**'";
 export default defineConfig({
   run: {
     tasks: {
-      // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit。TypeScript 7、issue #248）
-      typecheck: "vp run --cache -r typecheck",
+      // CI の "TypeScript check" 相当（各パッケージの tsc --noEmit。TypeScript 7、issue #248）。
+      // 2 つ目のコマンドはルートの tsconfig.json（include はこの vite.config.ts のみ）を
+      // チェックする。ルートはワークスペースのパッケージではないため -r では回らない（issue #271）。
+      typecheck: ["vp run --cache -r typecheck", "tsc --noEmit --checkers 1"],
       lint: [
         "vp run --cache -r lint",
         // ルート直下とパッケージ外のファイル（vite.config.ts 等）はどのパッケージの lint にも
