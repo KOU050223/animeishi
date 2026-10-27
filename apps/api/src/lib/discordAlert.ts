@@ -186,8 +186,8 @@ const localSuppressedUntil = new Map<string, number>();
 // ALERT_STATE 未バインド・KV 読み書き失敗時の退避先。
 const localCronFailures = new Map<string, number>();
 
-// isolate 内の抑止中に積んだ通報件数。ALERT_STATE 未バインド・
-// KV 読み書き失敗時の退避先（ALERT_STATE が正）。
+// isolate 内の、KV に書けなかった通報の積算件数。ALERT_STATE 未バインド・
+// KV 読み書き失敗時の退避先（KV に書けた分は KV だけが持つ）。
 let localPendingReports = 0;
 
 // テスト間で isolate 内の印と各カウントを消す。
@@ -233,24 +233,23 @@ async function recordCronFailure(
   return count;
 }
 
-// 抑止中に届いた通報を 1 件積む。カウントは ALERT_STATE を正とする
-// （isolate 内メモリを正にすると、別 isolate が積んだ分を古い値で
-// 上書きしてしまう）。未バインド・get 失敗時だけメモリで数える。
+// 抑止中に届いた通報を 1 件積む。カウントは ALERT_STATE を正とし、
+// isolate 内メモリには KV に書けなかった分（未バインド・読み書き失敗）
+// だけを積む —— KV に書けた分までメモリに残すと、別 isolate が
+// ドレインした後に古い件数を二重計上してしまうため。
 async function recordPendingReport(env: AlertBindings): Promise<void> {
   if (env.ALERT_STATE) {
     try {
       const stored =
         Number((await env.ALERT_STATE.get(REPORT_PENDING_KEY)) ?? 0) || 0;
-      const count = stored + 1;
-      localPendingReports = count;
       try {
-        await env.ALERT_STATE.put(REPORT_PENDING_KEY, String(count), {
+        await env.ALERT_STATE.put(REPORT_PENDING_KEY, String(stored + 1), {
           expirationTtl: REPORT_PENDING_TTL_SECONDS,
         });
+        return;
       } catch (err) {
         logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");
       }
-      return;
     } catch (err) {
       logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
     }
@@ -259,6 +258,7 @@ async function recordPendingReport(env: AlertBindings): Promise<void> {
 }
 
 // 通知に載せる積算件数を取り出してリセットする。
+// KV の件数と、KV に書けずメモリに退避した分を合算して返す。
 async function drainPendingReports(env: AlertBindings): Promise<number> {
   const local = localPendingReports;
   localPendingReports = 0;
@@ -270,16 +270,18 @@ async function drainPendingReports(env: AlertBindings): Promise<number> {
         try {
           await env.ALERT_STATE.delete(REPORT_PENDING_KEY);
         } catch (err) {
+          // delete だけ失敗すると次の通知で同じ件数を再計上する。
+          // 通知 1 回分の誤差に留まるため許容し、自然失効（TTL）に任せる。
           logAlertFailure(
             "kv_delete",
             err instanceof Error ? err.name : "Error",
           );
         }
       }
-      // KV を正とするが、put/delete に失敗して KV に残らなかった分は
-      // メモリ側だけが持つことがあるため、取りこぼさないよう大きい方を取る。
-      return Math.max(stored, local);
+      return stored + local;
     } catch (err) {
+      // get 失敗時は KV の件数が分からない。消しにいかず残しておけば
+      // 次の通知で数え直せるため、今回はメモリ分だけ返す。
       logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
     }
   }

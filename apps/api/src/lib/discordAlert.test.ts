@@ -547,6 +547,64 @@ describe("notifyUserReport", () => {
     expect(sentBody(fetchImpl, 1).content).toContain("直近 3 件");
   });
 
+  it("別 isolate が積算をドレインしても古い件数を再計上しない", async () => {
+    vi.useFakeTimers();
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyUserReport(env, fetchImpl);
+    await notifyUserReport(env, fetchImpl);
+    // 別 isolate が通知して KV の積算をドレインした状態を模す。
+    await raw.delete("user_report_pending");
+    vi.setSystemTime(Date.now() + REPORT_SUPPRESS_SECONDS * 1000 + 1000);
+    await raw.delete("user_report");
+
+    const sent = await notifyUserReport(env, fetchImpl);
+
+    expect(sent).toBe(true);
+    expect(sentBody(fetchImpl, 1).content).toContain(
+      "新しい通報がありました。",
+    );
+    expect(sentBody(fetchImpl, 1).content).not.toContain("直近");
+  });
+
+  it("KV への書き込みに失敗した分はメモリに退避し、次の通知で合算する", async () => {
+    vi.useFakeTimers();
+    const store = new Map<string, string>();
+    let failPut = false;
+    const kv = {
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+      put: vi.fn(async (key: string, value: string) => {
+        if (failPut) throw new Error("kv down");
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+    } as unknown as KVNamespace;
+    const fetchImpl = okFetch();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyUserReport(env, fetchImpl);
+    failPut = true;
+    // 抑止中・put 失敗: KV に残らないためメモリに退避する。
+    await notifyUserReport(env, fetchImpl);
+    failPut = false;
+    // 抑止中・put 成功: KV に 1 件積まれる。
+    await notifyUserReport(env, fetchImpl);
+    vi.setSystemTime(Date.now() + REPORT_SUPPRESS_SECONDS * 1000 + 1000);
+    store.delete("user_report");
+
+    const sent = await notifyUserReport(env, fetchImpl);
+
+    expect(sent).toBe(true);
+    // KV の 1 件 + メモリの 1 件 + 今回の 1 件。
+    expect(sentBody(fetchImpl, 1).content).toContain("直近 3 件");
+    warn.mockRestore();
+  });
+
   it("本文に ID・理由は入れず、件数と reports:list の案内だけにする", async () => {
     const fetchImpl = okFetch();
 
