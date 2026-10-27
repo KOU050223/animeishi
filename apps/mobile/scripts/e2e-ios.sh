@@ -281,11 +281,17 @@ rs = [r for r in json.load(sys.stdin)["runtimes"] if r.get("platform") == "iOS" 
 rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")], reverse=True)
 print(rs[0]["identifier"])')"
   fi
-  DEVICE_TYPE="$(xcrun simctl list devicetypes -j \
-    | /usr/bin/python3 -c 'import json,sys
-ts = [t for t in json.load(sys.stdin)["devicetypes"] if t["identifier"].split(".")[-1].startswith("iPhone-1")]
-ts.sort(key=lambda t: t["identifier"])
-print(ts[-1]["identifier"])')"
+  # デバイスタイプはランタイムの supportedDeviceTypes から選ぶ
+  # （最新機種は新しい iOS でしか動かない。iPhone-17e は iOS 18.x では
+  # "Incompatible device" で失敗する。issue #298）
+  DEVICE_TYPE="$(xcrun simctl list runtimes -j \
+    | RUNTIME_ID="$RUNTIME_ID" /usr/bin/python3 -c 'import json,os,sys
+want = os.environ["RUNTIME_ID"]
+rt = next(r for r in json.load(sys.stdin)["runtimes"] if r["identifier"] == want)
+ts = [t["identifier"] for t in rt.get("supportedDeviceTypes", [])
+      if t["identifier"].split(".")[-1].startswith("iPhone-1")]
+ts.sort()
+print(ts[-1])')"
   echo "E2E 用シミュレーターを作成: $SIM_NAME ($DEVICE_TYPE / $RUNTIME_ID)"
   UDID="$(xcrun simctl create "$SIM_NAME" "$DEVICE_TYPE" "$RUNTIME_ID")"
 fi
