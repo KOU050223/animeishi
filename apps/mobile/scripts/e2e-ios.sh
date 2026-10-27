@@ -12,9 +12,46 @@
 #
 # 他ワーカーと衝突しないよう、E2E 専用シミュレーター（E2E_SIM_NAME、
 # 既定 "animeishi-e2e-<ワークツリー名>"）を simctl create で作って使う。
+# 同じワークツリーでの多重起動は .e2e-ios/lock で弾く（issue #275）。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+# --- 多重起動の排除（issue #275）--------------------------------------------
+# 実行状態（ロック・起動した API の PID）を置く gitignore 済みディレクトリ。
+# 同じワークツリーで二重起動すると ios/build/e2e-dd のビルド DB を取り合って
+# xcodebuild が "database is locked" で失敗するため、ロックで弾く。
+STATE_DIR="$PWD/.e2e-ios"
+LOCK_FILE="$STATE_DIR/lock"
+API_PID_FILE="$STATE_DIR/api.pid"
+mkdir -p "$STATE_DIR"
+
+# set -o noclobber + リダイレクトで「作成と PID 書き込み」を1操作で行う。
+if ! (set -o noclobber; echo $$ >"$LOCK_FILE") 2>/dev/null; then
+  LOCK_PID="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null \
+    && ps -o command= -p "$LOCK_PID" 2>/dev/null | grep -q e2e-ios.sh; then
+    echo "このワークツリーで既に e2e:ios が実行中です (PID $LOCK_PID)。終わるまで待ってから再実行してください" >&2
+    exit 1
+  fi
+  # 前回実行が SIGKILL 等で落ちた残骸 → 除去して取り直す
+  rm -f "$LOCK_FILE"
+  if ! (set -o noclobber; echo $$ >"$LOCK_FILE") 2>/dev/null; then
+    echo "このワークツリーで既に e2e:ios が実行中です。終わるまで待ってから再実行してください" >&2
+    exit 1
+  fi
+fi
+
+# 起動した API（wrangler dev）のサブシェル PID。空なら既存 API を再利用中。
+API_PID=""
+cleanup() {
+  if [ -n "$API_PID" ]; then
+    kill -- -"$API_PID" 2>/dev/null || kill "$API_PID" 2>/dev/null
+    wait "$API_PID" 2>/dev/null || true
+  fi
+  rm -f "$API_PID_FILE" "$LOCK_FILE"
+}
+trap cleanup EXIT
 
 # ワークツリー単位で一意にして、同一ホスト上の並列実行同士が
 # 同じシミュレーターを共有しないようにする。
@@ -76,6 +113,27 @@ echo "使用シミュレーター: $SIM_NAME ($UDID)"
 api_up() {
   curl -fsS "${EXPO_PUBLIC_API_URL}/health" 2>/dev/null | grep -q '"status":"ok"'
 }
+# API_PID_FILE に記録した API がまだ生きているか。スクリプトが SIGKILL で
+# 落ちると EXIT trap が動かず wrangler dev が残るため、次回起動時に
+# ここで回収する。PID の再利用で無関係なプロセスを止めないよう、
+# 起動時刻 (lstart) が記録と一致したときだけ「自分が起動した」と判定する。
+api_pid_running() {
+  [ -f "$API_PID_FILE" ] || return 1
+  local pid started
+  { read -r pid && read -r started; } <"$API_PID_FILE" 2>/dev/null || return 1
+  [ -n "$pid" ] && [ -n "$started" ] || return 1
+  [ "$(ps -o lstart= -p "$pid" 2>/dev/null | sed 's/^ *//; s/ *$//')" = "$started" ]
+}
+if api_pid_running; then
+  OLD_API_PID="$(sed -n '1p' "$API_PID_FILE")"
+  echo "前回起動した API (PID $OLD_API_PID) が残っているため停止します ..."
+  kill -- -"$OLD_API_PID" 2>/dev/null || kill "$OLD_API_PID" 2>/dev/null
+  for _ in $(seq 1 10); do
+    kill -0 "$OLD_API_PID" 2>/dev/null || break
+    sleep 1
+  done
+fi
+rm -f "$API_PID_FILE"
 # 指定 URL のポートを wrangler dev に引き継ぐ（既定 8787 以外も可）。
 API_PORT=""
 case "$EXPO_PUBLIC_API_URL" in
@@ -84,7 +142,6 @@ case "$EXPO_PUBLIC_API_URL" in
     API_PORT="${API_PORT%%/*}"
     ;;
 esac
-API_PID=""
 if api_up; then
   echo "API は起動済み ($EXPO_PUBLIC_API_URL)"
 else
@@ -98,7 +155,12 @@ else
   (cd ../../apps/api && pnpm dev ${DEV_ARGS[@]+"${DEV_ARGS[@]}"} >"$API_LOG" 2>&1) &
   API_PID=$!
   set +m
-  trap '[ -n "$API_PID" ] && { kill -- -"$API_PID" 2>/dev/null || kill "$API_PID" 2>/dev/null; wait "$API_PID" 2>/dev/null; } || true' EXIT
+  # SIGKILL 等でこのスクリプトが落ちても次回起動時に回収できるよう、
+  # PID と起動時刻を記録しておく。
+  {
+    echo "$API_PID"
+    ps -o lstart= -p "$API_PID" | sed 's/^ *//; s/ *$//'
+  } >"$API_PID_FILE"
   for _ in $(seq 1 60); do
     api_up && break
     sleep 1
@@ -110,8 +172,14 @@ fi
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------
 if [ ! -d ios/Animeishi.xcworkspace ]; then
-  echo "ios/ がないため expo prebuild を実行します ..."
+  echo "ios/Animeishi.xcworkspace がないため expo prebuild を実行します ..."
   pnpm expo prebuild -p ios
+  # ios/ が残っていると prebuild が CocoaPods をスキップし、xcworkspace が
+  # 作られないまま xcodebuild が失敗するため明示的に pod install する（issue #275）
+  if [ ! -d ios/Animeishi.xcworkspace ]; then
+    echo "xcworkspace がまだないため pod install を実行します ..."
+    (cd ios && pod install)
+  fi
 fi
 
 if [ "$SKIP_BUILD" != "1" ]; then
