@@ -306,6 +306,8 @@ API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` �
 PID・起動時刻・ワークツリー名・プロセスグループ ID を書く。
 ビルド開始の直前に取得して
 Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
+シミュレーターの検索・作り直し・作成もロックの中で行う（別ワークツリーの
+実行が同名シミュレーターを使用中に消されないようにするため。issue #298）。
 別ワークツリーが実行中のときはエラーにせず、所有者の
 ワークツリー名・PID を表示しながら 30 秒おきに再確認して終了を待つ。
 待ち時間の上限は `E2E_HOST_LOCK_TIMEOUT`（秒、既定 3600）で、
@@ -320,7 +322,8 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 
 ### 前提
 
-- maestro CLI: `brew install mobile-dev-inc/tap/maestro`（JDK も必要）
+- maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
+  （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
 - Xcode + iOS シミュレーターランタイム
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
   GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
