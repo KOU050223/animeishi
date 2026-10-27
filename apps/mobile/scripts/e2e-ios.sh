@@ -13,7 +13,7 @@
 # 他ワーカーと衝突しないよう、E2E 専用シミュレーター（E2E_SIM_NAME、
 # 既定 "animeishi-e2e-<ワークツリー名>"）を simctl create で作って使う。
 # 同じワークツリーでの多重起動は .e2e-ios/lock で弾く（issue #275）。
-# ビルドと Maestro の実行は ${TMPDIR}/animeishi-e2e-host.lock で
+# ビルドと Maestro の実行はユーザー固有の一時領域の animeishi-e2e-host.lock で
 # PC 全体で同時 1 本に絞り、別ワークツリーの実行中は終わるまで待つ（issue #291）。
 set -euo pipefail
 
@@ -31,9 +31,12 @@ API_PID_FILE="$STATE_DIR/api.pid"
 # PC に大きな負荷をかけるため、全ワークツリーで共通の場所にロックを取って
 # 同時実行を 1 本に絞る。取得はビルド開始の直前（後述）に行い、
 # Maestro が終わるまで持つ。E2E_SKIP_BUILD=1 でも Maestro は重いので取る。
-HOST_LOCK_DIR="${TMPDIR:-/tmp}/animeishi-e2e-host.lock"
+# TMPDIR は実行環境で差がありうるので、環境変数に依らないユーザー固有の
+# 一時領域（macOS の DARWIN_USER_TEMP_DIR、それ以外は TMPDIR か /tmp）を使う。
+HOST_LOCK_BASE="$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo "${TMPDIR:-/tmp}")"
+HOST_LOCK_DIR="$HOST_LOCK_BASE/animeishi-e2e-host.lock"
 HOST_LOCK_OWNER_FILE="$HOST_LOCK_DIR/owner"
-HOST_LOCK_RECLAIM_DIR="${TMPDIR:-/tmp}/animeishi-e2e-host.reclaim"
+HOST_LOCK_RECLAIM_DIR="$HOST_LOCK_BASE/animeishi-e2e-host.reclaim"
 # ホストロックを取得済みかの印。cleanup で自分が持つロックだけを外す。
 HOST_LOCK_HELD=""
 mkdir -p "$STATE_DIR"
@@ -42,6 +45,43 @@ mkdir -p "$STATE_DIR"
 # PID + 起動時刻の照合で、PID が再利用された無関係プロセスを見分ける。
 lstart() {
   ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//; s/ *$//'
+}
+
+# プロセスグループ ID を返す。ホストロックの残骸回収で、SIGKILL された
+# 実行が残した子プロセス（xcodebuild 等）を止めるのに使う。
+pgid() {
+  ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '
+}
+
+# 指定したプロセスグループの生存メンバーの PID を列挙する。
+# API サーバ系（wrangler / workerd / node / esbuild）は別の実行と
+# 共有しうるため除外する。
+host_lock_group_pids() {
+  local pid g comm
+  ps -eo pid=,pgid=,comm= | while read -r pid g comm; do
+    [ "$g" = "$1" ] || continue
+    case "${comm##*/}" in
+      node | workerd | wrangler | esbuild) continue ;;
+    esac
+    echo "$pid"
+  done
+}
+
+# 残骸ホストロックの所有者（死んだ e2e-ios.sh）が残した子プロセスを止める。
+# $1 = 所有者に記録されていた PGID。親が SIGKILL されても xcodebuild や
+# Maestro は生き残るので、ロックだけ回収すると孤児ビルドが残り、結局
+# 並列ビルドになる。PGID はメンバーが生きている間は再利用されないため、
+# 見つかったメンバーはすべて死んだ実行の残りと判断できる。
+reap_host_lock_orphans() {
+  local lock_pgid="$1" pids
+  { [ -n "$lock_pgid" ] && [ "$lock_pgid" != "$(pgid $$)" ]; } || return 0
+  pids="$(host_lock_group_pids "$lock_pgid")"
+  [ -n "$pids" ] || return 0
+  echo "終了した e2e:ios の子プロセスを停止します: $(echo "$pids" | tr '\n' ' ')"
+  printf '%s\n' "$pids" | xargs kill 2>/dev/null || true
+  sleep 5
+  pids="$(host_lock_group_pids "$lock_pgid")"
+  [ -z "$pids" ] || printf '%s\n' "$pids" | xargs kill -9 2>/dev/null || true
 }
 
 # ロック所有者が実行中の e2e-ios.sh なら真。$1 = owner ファイルのパス。
@@ -299,8 +339,9 @@ host_lock_deadline=$(( $(date +%s) + HOST_LOCK_TIMEOUT ))
 while :; do
   if mkdir "$HOST_LOCK_DIR" 2>/dev/null; then
     HOST_LOCK_HELD=1
-    # 所有者情報（PID・起動時刻・ワークツリー名）を一時ファイル経由で一度に公開する
-    printf '%s\n%s\n%s\n' "$$" "$(lstart $$)" "$WORKTREE_NAME" >"$HOST_LOCK_DIR/owner.$$"
+    # 所有者情報（PID・起動時刻・ワークツリー名・PGID）を一時ファイル経由で
+    # 一度に公開する。PGID は残骸回収時に孤児のビルドプロセスを止めるために使う
+    printf '%s\n%s\n%s\n%s\n' "$$" "$(lstart $$)" "$WORKTREE_NAME" "$(pgid $$)" >"$HOST_LOCK_DIR/owner.$$"
     mv "$HOST_LOCK_DIR/owner.$$" "$HOST_LOCK_OWNER_FILE"
     echo "ホストロックを取得しました (PID $$)。ビルドと Maestro を開始します"
     break
@@ -310,8 +351,10 @@ while :; do
     # 回収を直列化してから取り除き、取り直す
     if mkdir "$HOST_LOCK_RECLAIM_DIR" 2>/dev/null; then
       if [ "$(lock_state "$HOST_LOCK_DIR" "$HOST_LOCK_OWNER_FILE")" = stale ]; then
+        host_lock_stale_pgid="$(sed -n '4p' "$HOST_LOCK_OWNER_FILE" 2>/dev/null || true)"
         echo "終了した e2e:ios の残骸ホストロックを回収します"
         rm -rf "$HOST_LOCK_DIR"
+        reap_host_lock_orphans "$host_lock_stale_pgid"
       fi
       rm -rf "$HOST_LOCK_RECLAIM_DIR"
       continue
@@ -321,7 +364,8 @@ while :; do
     fi
     # 別の実行が残骸を回収中 → 下の待機に回る
   fi
-  if [ "$(date +%s)" -ge "$host_lock_deadline" ]; then
+  host_lock_now="$(date +%s)"
+  if [ "$host_lock_now" -ge "$host_lock_deadline" ]; then
     echo "e2e:ios のホストロックが ${HOST_LOCK_TIMEOUT} 秒（E2E_HOST_LOCK_TIMEOUT）待っても取れませんでした。実行中の e2e:ios を確認してください" >&2
     exit 1
   fi
@@ -332,7 +376,10 @@ while :; do
   else
     echo "別ワークツリーの e2e:ios が起動処理中です。ホストロックを待っています ..."
   fi
-  sleep 30
+  # 上限を超えて眠らないよう、残り秒数と 30 の小さい方だけ待つ
+  host_lock_sleep=$(( host_lock_deadline - host_lock_now ))
+  [ "$host_lock_sleep" -gt 30 ] && host_lock_sleep=30
+  sleep "$host_lock_sleep"
 done
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------

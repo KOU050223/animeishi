@@ -292,16 +292,21 @@ API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` �
 登録の照合時に掃除する。
 
 ビルドと Maestro の実行は PC への負荷が大きいため、ホスト単位で同時に
-1 本に限るロックを取る（issue #291）。ロックは
-`${TMPDIR:-/tmp}/animeishi-e2e-host.lock` に mkdir で取り、`owner` に
-PID・起動時刻・ワークツリー名を書く。ビルド開始の直前に取得して
+1 本に限るロックを取る（issue #291）。ロックはユーザー固有の一時領域
+（`getconf DARWIN_USER_TEMP_DIR`、通常は `$TMPDIR`）の
+`animeishi-e2e-host.lock` に mkdir で取り、`owner` に
+PID・起動時刻・ワークツリー名・プロセスグループ ID を書く。
+ビルド開始の直前に取得して
 Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 別ワークツリーが実行中のときはエラーにせず、所有者の
 ワークツリー名・PID を表示しながら 30 秒おきに再確認して終了を待つ。
 待ち時間の上限は `E2E_HOST_LOCK_TIMEOUT`（秒、既定 3600）で、
 超えるとエラーで終える。所有者が SIGKILL 等で落ちた残骸ロックは
 ワークツリー内の `lock/` と同じく PID + 起動時刻で判定し、
-`${TMPDIR}/animeishi-e2e-host.reclaim` で回収を直列化してから取り除く。
+同じ一時領域の `animeishi-e2e-host.reclaim` で回収を直列化してから
+取り除く。回収時には所有者のプロセスグループに残った子プロセス
+（孤児の xcodebuild 等）も停止する。API サーバ系（wrangler 等）は
+別実行と共有しうるので止めない。
 
 ### 前提
 
