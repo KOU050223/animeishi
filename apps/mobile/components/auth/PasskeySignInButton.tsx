@@ -74,7 +74,9 @@ export function PasskeySignInButton({ onError }: Props) {
         }
         return;
       }
-      onError(toAuthErrorMessage(err, "パスキーでのサインインに失敗しました"));
+      onError(
+        toAuthErrorMessage(err, t, "パスキーでのサインインに失敗しました"),
+      );
     } finally {
       setLoading(false);
     }

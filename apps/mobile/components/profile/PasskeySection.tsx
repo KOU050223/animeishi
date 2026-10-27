@@ -36,7 +36,7 @@ export function PasskeySection({ onSuccess, onError }: Props) {
       if (err instanceof Error && err.name === "NotAllowedError") {
         return;
       }
-      onError(toAuthErrorMessage(err, "パスキーの登録に失敗しました"));
+      onError(toAuthErrorMessage(err, t, "パスキーの登録に失敗しました"));
     } finally {
       setLoading(false);
     }

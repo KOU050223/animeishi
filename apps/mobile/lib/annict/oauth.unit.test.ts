@@ -87,7 +87,13 @@ describe("resolveAnnictRelayTarget", () => {
   });
 
   afterEach(() => {
-    process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
+    // process.env への undefined 代入は文字列 "undefined" を書き込むため、
+    // 元々未設定なら削除に戻す（isolate: false では他ファイルと env を共有する）。
+    if (ORIGINAL_WEB_REDIRECT === undefined) {
+      delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
+    } else {
+      process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
+    }
   });
 
   function callbackOn(origin: string, state: string, extra = ""): string {

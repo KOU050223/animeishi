@@ -139,9 +139,11 @@ vp run --concurrency-limit 2 typecheck
 mobile のテストは jest と vitest に分かれている（issue #249）。
 `vp run @animeishi/mobile#test` は `test:vitest`（vitest）を先に回してから jest を回す。
 
-- **vitest**（`apps/mobile/vitest.config.ts`）: RN / Expo / jest-expo のモックや
-  jsdom に依存しない純ロジックのテスト。ファイル名を `*.unit.test.ts` にし、
-  `describe` / `it` / `expect` / `vi` は `vitest` から import する
+- **vitest**（`apps/mobile/vitest.config.ts`）: RN / Expo / jest-expo のモックに
+  依存しない純ロジックのテスト。ファイル名を `*.unit.test.ts` にし、
+  `describe` / `it` / `expect` / `vi` は `vitest` から import する。
+  `window` が必要なテストは先頭に `// @vitest-environment jsdom` を付ける
+  （jsdom は mobile の devDependency。issue #276）
 - **jest**（`apps/mobile/jest.config.cjs`）: 上記以外（コンポーネントテスト、
   `jest.mock` でモジュールを差し替えるテスト、jest.setup.js の初期化に依存するテスト）。
   `*.unit.test.ts` は `testPathIgnorePatterns` で対象から外している

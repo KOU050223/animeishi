@@ -6,9 +6,10 @@
  * そのまま表示すると利用者に意味が伝わらない。
  * エラー文言は変わり得るので、安定している `code` を基準に i18n キーへマッピングする。
  *
- * コンポーネント外（フックを使えない場所）でも呼べるよう、`i18n.t` を直接利用する。
+ * 翻訳関数 `t` は呼び出し側から注入する（useTranslation の t や i18n.t を渡す）。
+ * i18n の初期化（expo-localization など）をこのモジュールから切り離し、
+ * 純関数としてテストできるようにするため。
  */
-import i18n from "@/lib/i18n";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 /** Clerk のエラーコード → 翻訳キー（= 日本語文言）のマッピング */
@@ -67,13 +68,15 @@ export function getClerkErrorCode(err: unknown): string | undefined {
  * 認証エラーをローカライズ済みメッセージへ変換する。
  *
  * @param err          catch で受け取ったエラー
+ * @param t            翻訳関数（useTranslation の t や i18n.t）
  * @param fallbackKey  マッピングに該当しない場合に使う翻訳キー
  */
 export function toAuthErrorMessage(
   err: unknown,
+  t: (key: TranslationKey) => string,
   fallbackKey: TranslationKey = "処理に失敗しました。もう一度お試しください",
 ): string {
   const code = getClerkErrorCode(err);
   const mapped = code ? CLERK_ERROR_KEYS[code] : undefined;
-  return i18n.t(mapped ?? fallbackKey);
+  return t(mapped ?? fallbackKey);
 }

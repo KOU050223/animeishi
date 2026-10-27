@@ -1,4 +1,5 @@
-import { resolveApiUrl } from "@/lib/apiUrl";
+import { describe, expect, test } from "vitest";
+import { resolveApiUrl } from "@/lib/resolveApiUrl";
 
 describe("resolveApiUrl", () => {
   test("keeps configured localhost on web", () => {

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { buildProfileUrl } from "@/lib/profileUrl/profileUrl.web";
 
 describe("buildProfileUrl (web)", () => {

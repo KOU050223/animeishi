@@ -75,7 +75,9 @@ export function GoogleAuthButton({ onError }: Props) {
         }
         return;
       }
-      onError(toAuthErrorMessage(err, "Google でのサインインに失敗しました"));
+      onError(
+        toAuthErrorMessage(err, t, "Google でのサインインに失敗しました"),
+      );
     } finally {
       setLoading(false);
     }
