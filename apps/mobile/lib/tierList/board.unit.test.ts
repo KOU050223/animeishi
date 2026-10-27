@@ -127,6 +127,22 @@ describe("assignItem", () => {
     expect(next).toBe(base);
     expect([...next.keys()]).toEqual([1, 2]);
   });
+
+  it("beforeItemId が自分自身でも別 tier への移動なら移動する", () => {
+    // 移動先が今の tier と違うのにアンカーが自分を指すのは変な引数だが、
+    // 移動自体を抑止する理由にはならない（アンカー不在として末尾に置く）。
+    const next = assignItem(
+      new Map([
+        [1, "s"],
+        [2, "a"],
+      ]),
+      1,
+      "a",
+      1,
+    );
+    expect(next.get(1)).toBe("a");
+    expect([...next.keys()]).toEqual([2, 1]);
+  });
 });
 
 describe("dropInsertAnchor", () => {

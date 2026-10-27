@@ -25,7 +25,11 @@ export function assignItem(
   beforeItemId?: number,
 ): TierAssignment {
   // 「自分の直前に挿入」は位置が変わらない（＝同じ場所に落とした）ので無操作。
-  if (beforeItemId === itemId) return assignment;
+  // ただしそれが成り立つのは移動先が今いる tier のときだけ。別 tier への
+  // 移動でアンカーが自分を指す（変な引数）場合は、移動自体を止めない。
+  if (beforeItemId === itemId && assignment.get(itemId) === tierKey) {
+    return assignment;
+  }
   const next = new Map(assignment);
   // Map.set は既存キーの挿入位置を保つため、いったん消してから追加し直す。
   // そうしないと「別 tier に移して戻す」で元の位置に残り、
