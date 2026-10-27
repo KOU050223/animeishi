@@ -270,7 +270,10 @@ echo "使用シミュレーター: $SIM_NAME ($UDID)"
 # 誰も止めずに wrangler dev が孤児化する。
 HOST_LOCK_TIMEOUT="${E2E_HOST_LOCK_TIMEOUT:-3600}"
 case "$HOST_LOCK_TIMEOUT" in
-  '' | *[!0-9]*) HOST_LOCK_TIMEOUT=3600 ;;
+  # 非数値と、オーバーフローしうる 10 桁以上の値は既定値に戻す
+  '' | *[!0-9]* | ??????????*) HOST_LOCK_TIMEOUT=3600 ;;
+  # 先頭ゼロは $(( )) で 8 進数と解釈され 08/09 がエラーになるため 10 進数に正規化
+  *) HOST_LOCK_TIMEOUT=$((10#$HOST_LOCK_TIMEOUT)) ;;
 esac
 host_lock_deadline=$(( $(date +%s) + HOST_LOCK_TIMEOUT ))
 while :; do
