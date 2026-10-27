@@ -118,7 +118,7 @@ export async function clearCronFailures(
 const localSuppressedUntil = new Map<string, number>();
 
 // isolate 内の連続失敗カウント（カウントキー → 回数）。
-// ALERT_STATE 未バインド・KV 読み書き失敗時の退避先でもある。
+// ALERT_STATE 未バインド・KV 読み書き失敗時の退避先。
 const localCronFailures = new Map<string, number>();
 
 // テスト間で isolate 内の印と連続失敗カウントを消す。
@@ -131,35 +131,35 @@ function cronFailCountKey(job: string): string {
   return `cron_fail_count:${job}`;
 }
 
-// 連続失敗回数を 1 増やして返す。KV の値が isolate 内より進んでいれば
-// そちらを採用する（結果整合の遅れと別 isolate での加算の両方を吸収する）。
+// 連続失敗回数を 1 増やして返す。カウントは ALERT_STATE を正とする
+// （isolate 内メモリを正にすると、別 isolate の成功によるリセットを
+// 古い値で上書きしてしまう）。未バインド・get 失敗時だけメモリで数える。
+// 結果整合で直前の成功（delete）を読み飛ばす余地は残るが、cron 間隔
+// （10 分）に対して KV の伝播遅延は十分小さい。
 async function recordCronFailure(
   env: AlertBindings,
   job: string,
 ): Promise<number> {
   const key = cronFailCountKey(job);
-  let count = localCronFailures.get(key) ?? 0;
   if (env.ALERT_STATE) {
     try {
-      const stored = await env.ALERT_STATE.get(key);
-      if (stored !== null) {
-        count = Math.max(count, Number(stored) || 0);
+      const stored = Number((await env.ALERT_STATE.get(key)) ?? 0) || 0;
+      const count = stored + 1;
+      localCronFailures.set(key, count);
+      try {
+        await env.ALERT_STATE.put(key, String(count), {
+          expirationTtl: CRON_FAIL_COUNT_TTL_SECONDS,
+        });
+      } catch (err) {
+        logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");
       }
+      return count;
     } catch (err) {
       logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
     }
   }
-  count += 1;
+  const count = (localCronFailures.get(key) ?? 0) + 1;
   localCronFailures.set(key, count);
-  if (env.ALERT_STATE) {
-    try {
-      await env.ALERT_STATE.put(key, String(count), {
-        expirationTtl: CRON_FAIL_COUNT_TTL_SECONDS,
-      });
-    } catch (err) {
-      logAlertFailure("kv_put", err instanceof Error ? err.name : "Error");
-    }
-  }
   return count;
 }
 

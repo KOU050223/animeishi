@@ -365,6 +365,22 @@ describe("notifyCronFailure / clearCronFailures", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("別 isolate での成功（KV のカウントだけ消える）後は 1 回目として扱う", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyCronFailure(env, "mal_id_search", fetchImpl);
+    // 別 isolate での成功を模す: KV のカウントだけ消え、
+    // この isolate のローカルカウントは残る。
+    await raw.delete("cron_fail_count:mal_id_search");
+
+    const sent = await notifyCronFailure(env, "mal_id_search", fetchImpl);
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("DISCORD_WEBHOOK_URL 未設定なら送らずカウントも進めない", async () => {
     const { kv, raw } = fakeKv();
     const fetchImpl = okFetch();
