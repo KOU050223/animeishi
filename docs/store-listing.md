@@ -149,6 +149,7 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 
 ## TODO（ストア提出前に要解決）
 
+- リリース時に MAL へ通知する（MAL API License Agreement 4(b)。#245）
 - 連絡先メールアドレスの確定（#133。/support・/privacy・/terms の `{{CONTACT_EMAIL}}` / `{{OPERATOR_NAME}}` プレースホルダを差し替え）
 - App Review 用連絡先（氏名・メール・電話番号）と審査用デモアカウントの準備（`store.config.json` の `review` に追記）
 - 著作権表記 `2026 Kohei Uozumi` が法人/個人名として適切か確認

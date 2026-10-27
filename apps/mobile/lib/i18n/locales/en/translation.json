@@ -100,5 +100,7 @@
   "{{count}} 件の視聴履歴を分析": "Analyzed from {{count}} watch entries",
   "分析日時: {{date}}": "Analyzed at: {{date}}",
   "視聴履歴が変わると次回の実行で結果が更新されます（1 日あたりの実行回数に上限があります）": "Results update on the next run when your watch history changes (daily run limit applies)",
-  "分析に失敗しました。時間をおいて再度お試しください": "Analysis failed. Please try again later"
+  "分析に失敗しました。時間をおいて再度お試しください": "Analysis failed. Please try again later",
+  "作品画像の一部は MyAnimeList から取得しています": "Some work images are provided by MyAnimeList",
+  "MyAnimeList を開く": "Open MyAnimeList"
 }
