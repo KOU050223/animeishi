@@ -72,7 +72,13 @@ describe("useEdgeAutoScroll", () => {
 
   function setup(options: { viewport?: ViewportRect | null } = {}) {
     const scrollTo = jest.fn();
-    const scrollCompensation = { value: 0 };
+    // SharedValue の最小スタブ（本実装は .value 代入ではなく .set で書く）。
+    const scrollCompensation = {
+      value: 0,
+      set(this: { value: number }, next: number | ((v: number) => number)) {
+        this.value = typeof next === "function" ? next(this.value) : next;
+      },
+    };
     const onScrolled = jest.fn();
     const viewport =
       options.viewport === undefined ? VIEWPORT : options.viewport;

@@ -9,14 +9,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit --checkers 1",
-    "lint": "oxlint . --deny-warnings",
-    "lint:fix": "oxlint . --fix --deny-warnings",
+    "lint": "vp lint . --deny-warnings",
+    "lint:fix": "vp lint . --fix --deny-warnings",
     "fmt": "vp fmt --ignore-path ../../.oxfmtignore .",
     "fmt:check": "vp fmt --check --ignore-path ../../.oxfmtignore ."
   },
   "devDependencies": {
     "@typescript/native": "catalog:",
-    "oxlint": "~1.72.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -85,7 +85,9 @@ export default function WatchHistoryScreen() {
   // 1件にまとめるため、ダイアログが積み上がらず取りこぼしもない。
   const failureQueueRef = useRef<FailureNotice[]>([]);
   const failureAlertOpenRef = useRef(false);
-  const flushFailures = useCallback(() => {
+  // onClose から再帰するため関数名式にしている（const 名を本体から参照すると
+  // 初期化中の変数アクセスとして React Compiler 系 lint に引っかかる）。
+  const flushFailures = useCallback(function flushFailures() {
     if (failureAlertOpenRef.current) return;
     const first = failureQueueRef.current.shift();
     if (!first) return;

@@ -27,13 +27,22 @@ export function useMeishiDocument() {
   const [doc, setDoc] = useState<MeishiDocument | null>(null);
   const [loaded, setLoaded] = useState(false);
   const historyRef = useRef<History>(emptyHistory());
-  const [historyVersion, setHistoryVersion] = useState(0);
+  // canUndo / canRedo はレンダー中に historyRef.current を読めないため、
+  // 履歴を変えるたびに呼ばれる bumpHistoryVersion で state へ同期する。
+  const [historyFlags, setHistoryFlags] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
 
   // ジェスチャ開始時に呼ばれ、次の変更前に「その時点」を履歴に積むためのフラグ
   const pendingHistorySnapshotRef = useRef<MeishiDocument | null>(null);
 
   const bumpHistoryVersion = useCallback(
-    () => setHistoryVersion((v) => v + 1),
+    () =>
+      setHistoryFlags({
+        canUndo: historyRef.current.past.length > 0,
+        canRedo: historyRef.current.future.length > 0,
+      }),
     [],
   );
 
@@ -260,7 +269,7 @@ export function useMeishiDocument() {
     undo,
     redo,
     clear,
-    canUndo: historyVersion >= 0 && historyRef.current.past.length > 0,
-    canRedo: historyVersion >= 0 && historyRef.current.future.length > 0,
+    canUndo: historyFlags.canUndo,
+    canRedo: historyFlags.canRedo,
   };
 }

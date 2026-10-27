@@ -52,30 +52,32 @@ export function MeishiCard({
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
+  // 書き込みは .set() で行う（.value への代入は hook 戻り値の変更として
+  // React Compiler 系 lint の react/immutability に引っかかる）。
   const pinch = Gesture.Pinch()
     .onUpdate((e) => {
-      scale.value = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+      scale.set(clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE));
     })
     .onEnd(() => {
-      savedScale.value = scale.value;
+      savedScale.set(scale.value);
       if (scale.value <= MIN_SCALE) {
-        scale.value = withTiming(MIN_SCALE);
-        translateX.value = withTiming(0);
-        translateY.value = withTiming(0);
-        savedTranslateX.value = 0;
-        savedTranslateY.value = 0;
+        scale.set(withTiming(MIN_SCALE));
+        translateX.set(withTiming(0));
+        translateY.set(withTiming(0));
+        savedTranslateX.set(0);
+        savedTranslateY.set(0);
       }
     });
 
   const pan = Gesture.Pan()
     .onUpdate((e) => {
       if (scale.value <= MIN_SCALE) return;
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
+      translateX.set(savedTranslateX.value + e.translationX);
+      translateY.set(savedTranslateY.value + e.translationY);
     })
     .onEnd(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+      savedTranslateX.set(translateX.value);
+      savedTranslateY.set(translateY.value);
     });
 
   const composed = Gesture.Simultaneous(pinch, pan);

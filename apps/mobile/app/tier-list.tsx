@@ -121,11 +121,10 @@ export default function TierListScreen() {
   // ただし編集中（isDirty）は上書きしない。保存後のキャッシュ更新や
   // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを
   // 消さないため。シーズン自体が変わったときは常に反映する。
-  const hydratedSeasonRef = useRef(season);
-  useEffect(() => {
-    if (isSavedLoading) return;
-    if (hydratedSeasonRef.current === season && isDirty) return;
-    hydratedSeasonRef.current = season;
+  // effect での同期 setState を避けるためレンダー中に調整する。
+  const [hydratedSeason, setHydratedSeason] = useState(season);
+  if (!isSavedLoading && !(hydratedSeason === season && isDirty)) {
+    setHydratedSeason(season);
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
       setAssignment(
@@ -143,7 +142,7 @@ export default function TierListScreen() {
       setTitle(defaultTierListTitle(season));
     }
     setIsDirty(false);
-  }, [saved, isSavedLoading, season, isDirty]);
+  }
 
   // 盤面に並べる作品集合。シーズン候補（works）を本体に、2 種類を補完する:
   // - 保存済み items のうちシーズン外の作品。過去に手動追加→配置→保存した

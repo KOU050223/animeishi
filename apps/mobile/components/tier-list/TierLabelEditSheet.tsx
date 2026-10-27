@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -30,9 +30,14 @@ export function TierLabelEditSheet({
 }) {
   const colors = useThemeColors();
   const [value, setValue] = useState(initialValue);
-  useEffect(() => {
+  // シートが開くたび（あるいは開いたまま初期値が変わったとき）入力値を
+  // 最新の initialValue に戻す。effect での同期 setState を避けるため、
+  // 前回値との比較でレンダー中にリセットする。
+  const [prevSync, setPrevSync] = useState({ visible, initialValue });
+  if (prevSync.visible !== visible || prevSync.initialValue !== initialValue) {
+    setPrevSync({ visible, initialValue });
     if (visible) setValue(initialValue);
-  }, [visible, initialValue]);
+  }
 
   const error = tierLabelError(value);
 

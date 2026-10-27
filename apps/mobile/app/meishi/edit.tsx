@@ -81,12 +81,12 @@ export default function MeishiEditScreen() {
   const [saveFeedbackVisible, setSaveFeedbackVisible] = useState(false);
   const saveFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (loaded && !doc && !initialTemplateShown) {
-      setInitialTemplateShown(true);
-      setTemplatePicker(true);
-    }
-  }, [loaded, doc, initialTemplateShown]);
+  // ドキュメントの読み込み完了後、空ならテンプレ選択を 1 回だけ開く。
+  // effect での同期 setState を避けるためレンダー中に調整する。
+  if (loaded && !doc && !initialTemplateShown) {
+    setInitialTemplateShown(true);
+    setTemplatePicker(true);
+  }
 
   useEffect(() => {
     return () => {

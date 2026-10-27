@@ -119,11 +119,10 @@ export default function CharacterTierListScreen() {
   // バックグラウンド refetch で saved が変わっても、未保存の並べ替えを消さないため。
   // 取得に失敗したときは hydrate しない — 空の盤面を確定させてしまうと、
   // 続く保存・共有が既存の配置を空で上書きするため。
-  const hydratedRef = useRef(false);
-  useEffect(() => {
-    if (isSavedLoading || isSavedError || hydratedRef.current) return;
-    if (saved && isDirty) return;
-    hydratedRef.current = true;
+  // effect での同期 setState を避けるためレンダー中に調整する。
+  const [hydrated, setHydrated] = useState(false);
+  if (!isSavedLoading && !isSavedError && !hydrated && !(saved && isDirty)) {
+    setHydrated(true);
     if (saved) {
       setTiers(parseTiersJson(saved.tiersJson) ?? DEFAULT_TIERS);
       setAssignment(
@@ -137,20 +136,23 @@ export default function CharacterTierListScreen() {
       setTitle(saved.title);
     }
     setIsDirty(false);
-  }, [saved, isSavedLoading, isSavedError, isDirty]);
+  }
 
   // 作品タイトルが遅れて届いた場合、既定タイトルだけを差し替える
   // （保存済みタイトルやユーザーが付けた名前は上書きしない）。
   // 保存済み表が無い作品では hydrate 済みでも既定タイトルのままなので、
   // ディープリンク等で workTitle が後から届いても反映できるようにする。
-  useEffect(() => {
-    if (!workTitle || saved) return;
-    setTitle((prev) =>
-      prev === defaultCharacterTierListTitle(null)
-        ? defaultCharacterTierListTitle(workTitle)
-        : prev,
-    );
-  }, [workTitle, saved]);
+  const [titleSyncKey, setTitleSyncKey] = useState({ workTitle, saved });
+  if (titleSyncKey.workTitle !== workTitle || titleSyncKey.saved !== saved) {
+    setTitleSyncKey({ workTitle, saved });
+    if (workTitle && !saved) {
+      setTitle((prev) =>
+        prev === defaultCharacterTierListTitle(null)
+          ? defaultCharacterTierListTitle(workTitle)
+          : prev,
+      );
+    }
+  }
 
   const handleAssign = useCallback(
     (itemId: number, tierKey: string | null, beforeItemId?: number) => {

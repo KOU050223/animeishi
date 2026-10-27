@@ -77,7 +77,7 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 ## ルール
 
 - `db.insert` / `db.update` / `db.delete` は `features/*/repository.ts` と
-  テスト・test-utils 以外では禁止（`.oxlintrc.json` の
+  テスト・test-utils 以外では禁止（ルート `vite.config.ts` の `lint` 設定の
   `no-restricted-properties` で強制）
 - feature 間の参照は他 feature の `repository.ts` / `service.ts` を
   import する。schema の共有は最小限にとどめ、必要なら

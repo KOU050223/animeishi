@@ -71,10 +71,16 @@ function formatSec(ms: number): string {
 // active の間だけ経過秒数を 0.5 秒刻みで返す（照合中・登録中の表示用）。
 function useElapsedSeconds(active: boolean): number {
   const [seconds, setSeconds] = useState(0);
+  // active が立ち上がったら計測を 0 に戻す。effect での同期 setState を
+  // 避けるため、前回値との比較でレンダー中にリセットする。
+  const [prevActive, setPrevActive] = useState(active);
+  if (prevActive !== active) {
+    setPrevActive(active);
+    setSeconds(0);
+  }
   useEffect(() => {
     if (!active) return;
     const start = Date.now();
-    setSeconds(0);
     const id = setInterval(
       () => setSeconds(Math.floor((Date.now() - start) / 1000)),
       500,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import { useEdgeAutoScroll } from "./autoScroll";
@@ -113,12 +113,16 @@ export function TierBoard({
 
   // 編集不可（共有処理中など）になったら開いているシートも閉じる。
   // 開きっぱなしにすると、確定しても捨てられる入力を残してしまう。
-  useEffect(() => {
+  // effect での同期 setState を避けるため、前回値との比較で
+  // レンダー中に閉じる。
+  const [prevLabelsEditable, setPrevLabelsEditable] = useState(labelsEditable);
+  if (prevLabelsEditable !== labelsEditable) {
+    setPrevLabelsEditable(labelsEditable);
     if (!labelsEditable) {
       setEditingTier(null);
       setAddSheetOpen(false);
     }
-  }, [labelsEditable]);
+  }
 
   const handleDragMove = useCallback(
     (workId: number, x: number, y: number) => {
@@ -139,7 +143,7 @@ export function TierBoard({
       // 壊さないよう無視する。
       if (itemId !== draggingIdRef.current) return;
       draggingIdRef.current = null;
-      dragOwnerId.value = -1;
+      dragOwnerId.set(-1);
       const hit = registry.hitTest(x, y);
       // 行内の挿入位置判定用に、指の下のカードも同じ座標で引いておく
       // （ドラッグ中のカード自身は指に追従して矩形がずれ得るため除外する）。
@@ -201,7 +205,7 @@ export function TierBoard({
     (workId: number) => {
       if (workId !== draggingIdRef.current) return;
       draggingIdRef.current = null;
-      dragOwnerId.value = -1;
+      dragOwnerId.set(-1);
       setHoverKey(undefined);
       setDraggingId(null);
       autoScroll.onDragEnd();
@@ -217,7 +221,7 @@ export function TierBoard({
       // 受け付けると補正量やタイマーがリセットされ、進行中のカードが跳ぶ。
       if (draggingIdRef.current !== null) return;
       draggingIdRef.current = itemId;
-      dragOwnerId.value = itemId;
+      dragOwnerId.set(itemId);
       setDraggingId(itemId);
       // スクロールしていると onLayout 時に測った矩形が実際の位置とズレる
       // （onLayout はスクロールでは発火しない）。掴んだ瞬間に測り直して、
