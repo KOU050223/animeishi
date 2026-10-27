@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   alertKey,
   clearCronFailures,
   CRON_FAILURE_THRESHOLD,
   notifyApiFailures,
   notifyCronFailure,
+  notifyUserReport,
+  REPORT_SUPPRESS_SECONDS,
   resetLocalSuppression,
   SUPPRESS_SECONDS,
   type ApiFailure,
@@ -451,5 +453,113 @@ describe("notifyCronFailure / clearCronFailures", () => {
     expect(second).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+});
+
+describe("notifyUserReport", () => {
+  beforeEach(() => {
+    resetLocalSuppression();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("DISCORD_WEBHOOK_URL 未設定なら送らず件数も積まない", async () => {
+    const { kv, raw } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyUserReport({ ALERT_STATE: kv }, fetchImpl);
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(raw.get).not.toHaveBeenCalled();
+    expect(raw.put).not.toHaveBeenCalled();
+  });
+
+  it("1 件目は送り、user_report の印を 5 分の TTL で付ける", async () => {
+    const { kv, ttls } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyUserReport(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv },
+      fetchImpl,
+    );
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0][0]).toBe(WEBHOOK);
+    expect(ttls.get("user_report")).toBe(REPORT_SUPPRESS_SECONDS);
+    expect(REPORT_SUPPRESS_SECONDS).toBe(300);
+  });
+
+  it("抑止中は送らず件数だけ積む", async () => {
+    const { kv, store } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyUserReport(env, fetchImpl);
+    const second = await notifyUserReport(env, fetchImpl);
+    const third = await notifyUserReport(env, fetchImpl);
+
+    expect(second).toBe(false);
+    expect(third).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(store.get("user_report_pending")).toBe("2");
+  });
+
+  it("抑止明けの通知は積んだ件数を直近件数として載せてリセットする", async () => {
+    vi.useFakeTimers();
+    const { kv, raw, store } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyUserReport(env, fetchImpl);
+    await notifyUserReport(env, fetchImpl);
+    await notifyUserReport(env, fetchImpl);
+    // 抑止印の TTL 失効を模す（isolate 内の印は時計を進め、KV の印は消す）。
+    vi.setSystemTime(Date.now() + REPORT_SUPPRESS_SECONDS * 1000 + 1000);
+    await raw.delete("user_report");
+
+    const sent = await notifyUserReport(env, fetchImpl);
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // 抑止中の 2 件 + 今回の 1 件。
+    expect(sentBody(fetchImpl, 1).content).toContain("直近 3 件");
+    expect(store.get("user_report_pending")).toBeUndefined();
+  });
+
+  it("ALERT_STATE 未バインドでも isolate 内メモリで件数を数える", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK };
+
+    await notifyUserReport(env, fetchImpl);
+    await notifyUserReport(env, fetchImpl);
+    await notifyUserReport(env, fetchImpl);
+    vi.setSystemTime(Date.now() + REPORT_SUPPRESS_SECONDS * 1000 + 1000);
+
+    const sent = await notifyUserReport(env, fetchImpl);
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sentBody(fetchImpl, 1).content).toContain("直近 3 件");
+  });
+
+  it("本文に ID・理由は入れず、件数と reports:list の案内だけにする", async () => {
+    const fetchImpl = okFetch();
+
+    await notifyUserReport({ DISCORD_WEBHOOK_URL: WEBHOOK }, fetchImpl);
+
+    const body = sentBody(fetchImpl);
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+    expect(body.content).toBe(
+      [
+        "🔔 **[animeishi-api] ユーザー通報**",
+        "新しい通報がありました。",
+        "詳細は `pnpm task reports:list` で確認。同じ通知は5分止めます。",
+      ].join("\n"),
+    );
   });
 });

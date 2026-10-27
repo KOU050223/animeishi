@@ -7,14 +7,15 @@ Issue: https://github.com/KOU050223/animeishi/issues/79
 本番の API / アプリでエラーが起きたときに早く気づけるようにする。
 Sentry を一次収集先に据える。Discord への通知は当初 Sentry Alert 経由だったが、
 Sentry org が無料（Developer）プランになり Discord を通知先にしたアラートルールを
-新規作成できなくなったため、API Workers の重大な障害だけ Worker から Discord
-Webhook へ直接送る（「Discord 通知」節）。モバイルアプリには Webhook を持たせない。
+新規作成できなくなったため、API Workers の重大な障害とユーザー通報を
+Worker から Discord Webhook へ直接送る（「Discord 通知」節）。
+モバイルアプリには Webhook を持たせない。
 
 ## 全体構成
 
 ```
 [API Workers]  ──例外──→  Sentry (project: animeishi-api)  ──メール通知
-      └──5xx/上流障害・cron 連続失敗──→  Discord Webhook (#bot-log)  ※重複抑止付き
+      └──5xx/上流障害・cron 連続失敗・ユーザー通報──→  Discord Webhook (#bot-log)  ※重複抑止付き
 [Expo mobile]  ──例外──→  Sentry (project: animeishi-mobile) ──メール通知
 ```
 
@@ -248,34 +249,34 @@ Sentry 上に残っている。新規作成・編集はできないため、上�
 
 ### ユーザー通報の通知（UGC モデレーション）
 
-`POST /users/:id/report` は `notifyUserReport` で
-`captureMessage("user_report_received", "warning")` を送る。
-fingerprint を `["user_report", <reported_user_id>]` に固定しているため、
-Sentry 上では**通報されたユーザーごとに Issue が分かれる**
-（タイトル固定のままでは全通報が 1 Issue に集約され、
-「新規 Issue」トリガーのアラートが初回しか飛ばないため）。
-`report.reported_user_id` タグで検索もできる
-（例: `report.reported_user_id:user_xxx`）。
+`POST /users/:id/report` は `notifyUserReport` で 2 系統に送る。
 
-アラートルールの設定:
-
-1. animeishi-api プロジェクトで Issue alert を作成
-   （既存の「新規 Issue → Discord」ルールに通報も乗るが、
-   エラーと混ぜず通報専用チャンネルに流す場合は別ルールにする）
-2. When: `a new issue is created`
-3. If: `environment equals production` AND
-   `The event's message value contains user_report_received`
-   （または tag `report.reported_user_id` exists）
-4. Then: 通報受付用の Discord チャンネルへ通知
-
-同一ユーザーへの複数通報は同一 Issue のイベントとして集約される。
-新規通報のたびに通知が必要な場合は When を
-`a new event occurs`（イベント発生ごと）に変更する。
+- **Discord Webhook**（`src/lib/discordAlert.ts` の `notifyUserReport`、
+  issue #232）: Sentry の Developer プランでは Discord を通知先にした
+  アラートルールを作れないため、障害通知と同じ Webhook へ
+  `ctx.waitUntil` で直接送る。本文は「通報あり」と直近の件数だけで、
+  通報者・被通報者の ID や通報理由は載せない
+  （詳細は `pnpm task reports:list` で確認する運用）。
+  - 連投は `REPORT_SUPPRESS_SECONDS`（5 分）で抑止する。
+    障害通知の 30 分より短くしているのは、通報は 1 件ずつ気づきたいため。
+    変えるときはこの定数 1 か所を直す。
+  - 抑止中に届いた通報は送らず、件数だけ `ALERT_STATE` の
+    `user_report_pending` に積み、次の通知に「直近 N 件」として載せる
+    （N は抑止中の分と今回の 1 件の合計）。
+    KV 未バインド・読み書き失敗時は isolate 内メモリで数える
+    （cron の連続失敗カウントと同じ考え方）。
+- **Sentry**: 引き続き `captureMessage("user_report_received", "warning")`
+  を送る。Webhook 本文に詳細を載せないため、通報者・被通報者 ID と
+  理由は Sentry の context に残す。fingerprint を
+  `["user_report", <reported_user_id>]` に固定しているため、
+  Sentry 上では**通報されたユーザーごとに Issue が分かれ**、
+  `report.reported_user_id` タグで検索もできる
+  （例: `report.reported_user_id:user_xxx`）。
 
 対応状況の管理は D1 の `reports` テーブルで行う（issue #186）。
 各通報は `status`（`open` / `resolved` / `dismissed`）・
 `resolution_note`（対応メモ）・`resolved_at`（対応日時）を持ち、
-棚卸し・状態更新は `services/api/scripts/reports.sh`（wrangler d1
+棚卸し・状態更新は `apps/api/scripts/reports.sh`（wrangler d1
 execute ベース）から行う。Taskfile 経由では
 `pnpm task reports:list`（未対応一覧・`--by-user` で被通報ユーザー別集計）、
 `pnpm task reports:resolve|dismiss NOTE='対応メモ' -- <id>`、

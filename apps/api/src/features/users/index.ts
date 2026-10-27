@@ -44,7 +44,8 @@ const usersRoute = app
       throw e;
     }
 
-    // 運営がモデレーションできるよう Sentry Alert → Discord に通知する。
+    // 運営がモデレーションできるよう Discord Webhook に通知する
+    // （詳細は Sentry の context にも残す。observability.ts を参照）。
     notifyUserReport(c, {
       reporterId: c.var.clerkUserId,
       reportedUserId: targetId,

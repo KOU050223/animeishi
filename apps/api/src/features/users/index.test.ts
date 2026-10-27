@@ -9,6 +9,7 @@ import { avatar, me } from "@/features/me";
 import { user } from "@/features/user";
 import { usersRoute } from "@/features/users";
 import { friends as friendsTable, reports, users } from "@/db/schema";
+import { resetLocalSuppression } from "@/lib/discordAlert";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -44,6 +45,7 @@ type TestEnv = {
     AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
+    DISCORD_WEBHOOK_URL?: string;
   };
   Variables: {
     clerkUserId?: string;
@@ -89,6 +91,7 @@ describe("ユーザー通報・ブロック API", () => {
     sentryScope.setTag.mockClear();
     sentryScope.setContext.mockClear();
     sentryScope.setFingerprint.mockClear();
+    resetLocalSuppression();
 
     const now = new Date();
     await db.insert(users).values([
@@ -176,6 +179,47 @@ describe("ユーザー通報・ブロック API", () => {
         "report.reported_user_id",
         USER_B,
       );
+    });
+
+    it("運営通知は Discord Webhook にも送り、本文に ID・理由は載せない", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response(null, { status: 204 }));
+      const pending: Promise<unknown>[] = [];
+      const ctx = {
+        waitUntil: (p: Promise<unknown>) => {
+          pending.push(p);
+        },
+      } as unknown as ExecutionContext;
+      signInAs(USER_A);
+      const app = buildApp();
+
+      const res = await app.request(
+        `/users/${USER_B}/report`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "不適切なコンテンツ" }),
+        },
+        {
+          ...TEST_BINDINGS,
+          DISCORD_WEBHOOK_URL:
+            "https://discord.com/api/webhooks/1/secret-token",
+        },
+        ctx,
+      );
+      await Promise.all(pending);
+
+      expect(res.status).toBe(201);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as {
+        content: string;
+      };
+      expect(body.content).toContain("ユーザー通報");
+      expect(body.content).not.toContain(USER_A);
+      expect(body.content).not.toContain(USER_B);
+      expect(body.content).not.toContain("不適切なコンテンツ");
+      fetchSpy.mockRestore();
     });
 
     it("自分自身は通報できない（400）", async () => {
