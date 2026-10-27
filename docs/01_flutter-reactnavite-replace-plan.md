@@ -67,36 +67,38 @@ Explore 調査に基づく試算。現状設計をそのまま移植すると **
 
 **新規リポジトリ**を切り、既存 Animeishi ツリーは移行スクリプトと Flutter 資産のみ残す。
 
-新規リポジトリ（仮称 `animeishi-next`）:
+新規リポジトリ（現行の `animeishi` リポジトリ）:
 ```
-animeishi-next/
+animeishi/
 ├── apps/
-│   └── mobile/                 # Expo (iOS/Android/Web)
-│       ├── app/                # Expo Router
-│       ├── components/
-│       ├── lib/
-│       ├── __tests__/          # RTL + Jest
-│       └── package.json
-├── services/
+│   ├── mobile/                 # Expo (iOS/Android/Web)
+│   │   ├── app/                # Expo Router
+│   │   ├── components/
+│   │   ├── lib/
+│   │   └── package.json
 │   └── api/                    # Hono on Cloudflare Workers
 │       ├── src/
-│       │   ├── routes/
+│       │   ├── features/       # 機能ごとのルート・Zod スキーマ・リポジトリ
 │       │   ├── db/             # D1 schema, Drizzle
-│       │   ├── cron/           # scheduled handlers
-│       │   └── index.ts
-│       ├── test/               # Vitest + Miniflare
+│       │   └── index.ts        # AppType エクスポート
+│       ├── acceptance/         # 受け入れ基準（pr*-acceptance-criteria.md）
 │       ├── wrangler.toml
 │       └── package.json
 ├── packages/
-│   ├── schema/                 # Zod スキーマ（mobile/api 共有）
-│   └── contracts/              # HonoRPC の AppType エクスポート（mobile が hc<AppType> で型安全に呼ぶ）
+│   ├── danime-core/            # dアニメ視聴履歴インポートのコアロジック（mobile/api 共有）
+│   └── observability/          # Sentry / イベント命名などの共有ルール（mobile/api 共通）
 ├── .github/workflows/
-│   ├── ci.yml                  # lint + test (apps/mobile, services/api)
-│   ├── eas-preview.yml
-│   └── workers-deploy.yml
-├── pnpm-workspace.yaml
-└── turbo.json
+│   ├── ci.yml                  # lint + typecheck + test（vp run）
+│   ├── deploy-api.yml / deploy-web.yml
+│   └── preview-api.yml / preview-web.yml
+└── pnpm-workspace.yaml
 ```
+
+> 当初計画では API を `services/api`、Zod スキーマを `packages/schema`、
+> AppType 再エクスポート用に `packages/contracts` を置く構成だった。現状は API が
+> `apps/api` にあり、Zod スキーマは `apps/api/src/features/*/schema.ts` に機能ごとに置き、
+> `AppType` は `@animeishi/api` から mobile が直接 `import type` するため、
+> `packages/schema` / `packages/contracts` は作っていない。
 
 既存 `/Users/uozumikouhei/workspace/Animeishi/Animeishi/` は触らず残し、**移行専用スクリプト** のみ:
 ```
@@ -114,7 +116,7 @@ Flutter Web は RN Web リリース時点で `firebase.json` の deploy 対象�
 ## D1 スキーマ（SQLite / Drizzle）
 
 ```typescript
-// services/api/src/db/schema.ts
+// apps/api/src/db/schema.ts
 export const profiles = sqliteTable('profiles', {
   id: text('id').primaryKey(),                // Clerk user id
   legacyFirebaseUid: text('legacy_firebase_uid').unique(),
@@ -162,40 +164,37 @@ export const friendships = sqliteTable('friendships', {
 ### 画像最適化（R2 補完）
 R2 は Egress 無料だが、自動画像変換はない（Cloudflare Images は別課金）。**クライアント側で `expo-image-manipulator` により WebP / 512px / q70 にリサイズしてから R2 に PUT** する工程を必ず挟む。目標: 1 枚 50KB 以下。Web では `react-native-web` 側で同 API が動くので共通化可能。旧 Flutter 相当（プロフィール 1024×q80 / 名刺 800×q90）より積極的に圧縮する。
 
-### Drizzle スキーマは共有 Zod の源泉にする
-`drizzle-zod` で D1 スキーマから Zod を自動生成し、`packages/schema` から mobile / api 両方に配る。mobile のフォームバリデーションは `react-hook-form` + 同じ Zod を使う。これで型パズルを最小化し、DB スキーマ変更が自動で全層に伝搬する。
+### Zod スキーマは API の feature ごとに置く
+Zod スキーマは `apps/api/src/features/*/schema.ts` に機能ごとに置く（`packages/schema` は作らない）。mobile との型共有は HonoRPC の `AppType` 経由で行い、DB スキーマ変更が API の型を通じて mobile まで伝搬する。
 
 ### クライアント-サーバー間は HonoRPC で型安全に繋ぐ
 `fetch` + 手書き型ではなく **HonoRPC**（`hono/client`）を採用する。
 
 ```typescript
-// services/api/src/index.ts — ルートの型をエクスポート
+// apps/api/src/index.ts — ルートの型をエクスポート
 const routes = app
-  .get('/titles', ...)
-  .post('/me/favorites', ...)
+  .route('/titles', titles)
+  .route('/me', me)
   // ...
 export type AppType = typeof routes
 
-// packages/contracts/src/index.ts — mobile へ再エクスポート
-export type { AppType } from '@animeishi/api'
-
-// apps/mobile — 型安全な呼び出し
+// apps/mobile — @animeishi/api から型だけ直接 import（contracts パッケージは作らない）
 import { hc } from 'hono/client'
-import type { AppType } from '@animeishi/contracts'
-const client = hc<AppType>(process.env.EXPO_PUBLIC_API_URL!)
+import type { AppType } from '@animeishi/api'
+const client = hc<AppType>(apiUrl)
 const res = await client.titles.$get()           // 引数・レスポンスともに型推論
 const data = await res.json()                    // data の型が自動で確定
 ```
 
 **メリット:**
 - ルートを追加・変更するだけで mobile 側の型エラーが即座に検出される
-- `packages/contracts` に手書きの型定義を置く必要がなくなる
+- contracts 層を挟まず `@animeishi/api` から型を直接 import するため、再エクスポート用のパッケージや手書きの型定義が要らない
 - Hono 本体に同梱（`hono/client`）なので追加依存ゼロ
 - Expo (React Native) は fetch ベースなので互換性の問題なし
 
 **注意点:**
-- `AppType` を export する都合上、`services/api/src/index.ts` では **ルートをチェーンで繋いだ変数**として定義する（`app.get(...).post(...)` の戻り値を `routes` に束縛し `export type AppType = typeof routes` する）
-- `packages/contracts` は型のみ再エクスポートするため、ランタイム依存は持たない
+- `AppType` を export する都合上、`apps/api/src/index.ts` では **ルートをチェーンで繋いだ変数**として定義する（`app.route(...)` の戻り値を `routes` に束縛し `export type AppType = typeof routes` する）
+- mobile 側は `import type` で `AppType` だけを引くため、ランタイムに api のコードは入らない
 
 ### リポジトリ層でユーザー ID を強制
 `authorizedDb(userId)` だけでなく、Drizzle で **高階関数ベースのリポジトリ** を作る（例: `profileRepo(userId).update(...)` は内部で `where(eq(profiles.id, userId))` を必ず付ける）。生 `db.update(profiles)` を呼ぶコードは CI で禁止（ESLint `no-restricted-syntax` + grep）。
@@ -218,7 +217,7 @@ const data = await res.json()                    // data の型が自動で確�
 
 ## API 設計（HonoRPC on Cloudflare Workers）
 
-クライアントとバックエンドの通信は **HonoRPC**（`hono/client`）で型安全に行う。ルート定義は `services/api/src/index.ts` から `AppType` として export し、`packages/contracts` 経由で `apps/mobile` が `hc<AppType>()` で利用する（詳細は「横断的な実装方針 → HonoRPC」参照）。
+クライアントとバックエンドの通信は **HonoRPC**（`hono/client`）で型安全に行う。ルート定義は `apps/api/src/index.ts` から `AppType` として export し、`apps/mobile` が `@animeishi/api` から直接 `import type` して `hc<AppType>()` で利用する（詳細は「横断的な実装方針 → HonoRPC」参照）。
 
 ### エンドポイント一覧
 
@@ -251,7 +250,7 @@ Cron Triggers (wrangler.toml):
 ## TDD 的実装戦略
 
 ### 0. 受け入れ基準マスタを作る
-`packages/schema/acceptance/*.md` に以下カテゴリで **入力 → 期待結果** の列を書き出す。これをテスト 1:1 対応させる。調査で既に洗い出し済み（合計 ~90 件）:
+`apps/api/acceptance/*.md` に以下カテゴリで **入力 → 期待結果** の列を書き出す。これをテスト 1:1 対応させる。調査で既に洗い出し済み（合計 ~90 件）:
 
 - 認証（サインアップ/サインイン/リセット/削除/バリデーション）: 18 件
 - アニメ一覧 / 検索 / ソート: 12 件
@@ -267,7 +266,7 @@ Cron Triggers (wrangler.toml):
 
 ### 1. 既存テストの流用判定
 `/Users/uozumikouhei/workspace/Animeishi/Animeishi/test/` のうち:
-- `validators_test.dart` — Zod に移植（`packages/schema`）
+- `validators_test.dart` — Zod に移植（`apps/api/src/features/*/schema.ts`）
 - `error_handler_test.dart` — エラーマッピング辞書として再利用
 - `firestore_rules_test.js` / `storage_rules_test.dart` — **Workers 認可テスト**（Vitest + Miniflare）の allow/deny ケースにそのまま対応付け
 - `qr_image_service_test.dart` — `react-native-qrcode-svg` のプロパティテストとして受け入れ基準を流用
@@ -281,8 +280,8 @@ Cron Triggers (wrangler.toml):
 4. CI で回るまで次に行かない
 
 ### 3. テスト層
-- **schema テスト** (`packages/schema/__tests__`): Zod による入力バリデーション
-- **API 単体** (`services/api/test`): Vitest + Miniflare で D1 in-memory、Hono ルート単位
+- **schema テスト** (`apps/api/src/features/*/schema.test.ts`): Zod による入力バリデーション
+- **API 単体** (`apps/api/src` 内の `*.test.ts`): Vitest + Miniflare で D1 in-memory、Hono ルート単位
 - **API 認可テスト**: 旧 firestore.rules テストと同等の allow/deny
 - **mobile 単体** (`apps/mobile/__tests__`): Jest + React Native Testing Library
 - **E2E** (最終フェーズ): **Playwright for Web のみ**。Detox は採用しない（CI 安定化コスト過大）
@@ -302,14 +301,14 @@ Cron Triggers (wrangler.toml):
 
 ### Phase 0: 準備・スキーマ定義
 **PR 1 [1/14]: モノレポ基盤とスキーマ定義**
-- 内容: `animeishi-next` リポジトリ作成、pnpm workspace + turbo セットアップ、`packages/schema` を作成
-- 実装: 受け入れ基準 ~90 件を `packages/schema/acceptance/*.md` に起票、`validators.dart` から Zod へ移植、`drizzle-zod` 連携の雛形
+- 内容: リポジトリ作成、pnpm workspace セットアップ（現在のタスクランナーは vite+ / `vp run`）
+- 実装: 受け入れ基準 ~90 件を `apps/api/acceptance/*.md` に起票、`validators.dart` から Zod へ移植
 - テスト: Vitest で Zod 入力バリデーションテスト
-- 完了条件: `pnpm test` が `packages/schema` で緑、CI が動く
+- 完了条件: Zod スキーマのテストが緑、CI が動く
 
 ### Phase 1: API 基盤と認証
 **PR 2 [2/14]: Hono API 基盤と D1/Drizzle セットアップ**
-- 内容: `services/api` 初期化、Wrangler + Miniflare ローカル D1 起動
+- 内容: `apps/api` 初期化、Wrangler + Miniflare ローカル D1 起動
 - 実装: Drizzle で `profiles` / `titles` / `watch_histories` / `favorites` / `friendships` 定義、`authorizedDb(userId)` + リポジトリ層、生 `db.update(...)` を禁止する ESLint ルール
 - テスト: Vitest + Miniflare で D1 アクセス単体テスト、リポジトリ層経由でのみ書き込めることを assertion
 - 完了条件: ローカルで migration が走り、リポジトリ経由のみ通る
@@ -419,27 +418,27 @@ PR ではなく運用作業として実施:
 - `/Users/uozumikouhei/workspace/Animeishi/Animeishi/test/validators_test.dart`, `error_handler_test.dart` — 先行移植テスト
 
 ### 新規（作成）
-- `animeishi-next/packages/schema/src/*.ts` — Zod
-- `animeishi-next/services/api/src/index.ts` — Hono 起点
-- `animeishi-next/services/api/src/db/schema.ts` — Drizzle
-- `animeishi-next/services/api/wrangler.toml` — D1 binding + Cron Triggers
-- `animeishi-next/apps/mobile/app/_layout.tsx` — ClerkProvider + QueryClient
-- `animeishi-next/apps/mobile/app/(tabs)/_layout.tsx` — BottomNav / Sidebar 分岐
-- `animeishi-next/apps/mobile/lib/api.ts` — TanStack Query hooks
+- `apps/api/src/features/*/schema.ts` — Zod
+- `apps/api/src/index.ts` — Hono 起点（`AppType` エクスポート）
+- `apps/api/src/db/schema.ts` — Drizzle
+- `apps/api/wrangler.toml` — D1 binding + Cron Triggers
+- `apps/mobile/app/_layout.tsx` — ClerkProvider + QueryClient
+- `apps/mobile/app/(tabs)/_layout.tsx` — BottomNav / Sidebar 分岐
+- `apps/mobile/lib/api.ts` — TanStack Query hooks（`hc<AppType>` クライアント）
 
 ---
 
 ## 検証方法（E2E）
 
 ### ローカル開発
-- `pnpm --filter api dev` で Wrangler + Miniflare + D1 ローカル
-- `pnpm --filter mobile start` で Expo 起動、iOS/Android/Web 同時
-- `pnpm test` でリポジトリ全体のテスト
+- `vp run @animeishi/api#dev` で Wrangler + Miniflare + D1 ローカル
+- `vp run @animeishi/mobile#dev` で Expo 起動、iOS/Android/Web 同時
+- `vp run test` でリポジトリ全体のテスト
 
 ### CI
-- `ci.yml`: schema / api / mobile のテストを並列実行、`wrangler deploy --dry-run`
-- `eas-preview.yml`: PR で preview ビルド
-- `workers-deploy.yml`: main マージで `wrangler deploy`
+- `ci.yml`: lint / typecheck / test を `vp run` で実行
+- `preview-api.yml` / `preview-web.yml`: PR でプレビューデプロイ
+- `deploy-api.yml` / `deploy-web.yml`: main マージで `wrangler deploy` 等
 
 ### 本番シナリオ（Phase 5 終了時）
 - 2 台実機で QR 交換 → 双方の friendships に行
