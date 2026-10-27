@@ -125,6 +125,15 @@ VP_RUN_CONCURRENCY_LIMIT=1 vp run test
 vp run --concurrency-limit 2 typecheck
 ```
 
+> `VP_RUN_CONCURRENCY_LIMIT` が絞るのは `vp run` のタスク並列数だけで、
+> タスク内のプロセス並列数（jest のワーカー等）には効かない。mobile の jest は
+> `apps/mobile/jest.config.cjs` の `maxWorkers: "50%"` でワーカー数をコア数の
+> 半分に絞ってある（issue #293）。
+>
+> 目安: 同時に動かすエージェントは 2〜3 までとし、各エージェントは
+> `VP_RUN_CONCURRENCY_LIMIT=2` で `vp run` を実行する。それでも重いときは
+> `VP_RUN_CONCURRENCY_LIMIT=1` に下げる。
+
 ### mobile のテスト（jest / vitest）
 
 mobile のテストは jest と vitest に分かれている（issue #249）。
