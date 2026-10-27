@@ -167,7 +167,7 @@ vp run --concurrency-limit 2 typecheck
 mobile のテストは jest と vitest に分かれている（issue #249）。
 `vp run @animeishi/mobile#test` は `test:vitest`（vitest）を先に回してから jest を回す。
 
-- **vitest**（`apps/mobile/vitest.config.ts`）: RN / Expo / jest-expo のモックに
+- **vitest**（`apps/mobile/vite.config.ts` の `test` ブロック）: RN / Expo / jest-expo のモックに
   依存しない純ロジックのテスト。ファイル名を `*.unit.test.ts` にし、
   `describe` / `it` / `expect` / `vi` は `vitest` から import する。
   `window` が必要なテストは先頭に `// @vitest-environment jsdom` を付ける
@@ -190,19 +190,22 @@ vp -C apps/mobile exec vitest run --changed main                              # 
 
 ### api のテスト（Workers プール）
 
-api の vitest（`apps/api/vitest.config.ts`）は `@cloudflare/vitest-plugin` の
-Workers プールで、`isolated`（既定の isolate: true。ファイルごとに workerd を
-起動）と `shared`（isolate: false。workerd を共有して起動回数を削減。issue #299）
-の 2 プロジェクトに分かれている。`shared` 側はモジュールグラフと
+api の vitest（`apps/api/vite.config.ts` の `test` ブロック。issue #281）は
+`@cloudflare/vitest-plugin` の Workers プールで、`isolated`（既定の
+isolate: true。ファイルごとに workerd を起動）と `shared`（isolate: false。
+workerd を共有して起動回数を削減。issue #299）に分かれている。
+Workers バインディングに依存しないテストは `node` プロジェクト（Node.js
+プール）で実行する。`node` は `extends: false` で宣言元の設定を継承せず、
+cloudflareTest プラグインが pool を Workers プールに書き換えるのを回避している。
+`shared` 側はモジュールグラフと
 ストレージ（D1 / R2）をファイル間で共有するため、**`vi.mock` でモジュールを
 差し替えるファイルは shared に置けない**（モック実体のずれで失敗する）。
 新しいテストファイルは既定で isolated に入る（`src/**/*.test.ts` の catch-all）。
 `repository.test.ts`・`lib/**` など shared の include に合うファイルだけが
 shared に入るので、shared に足すのは共有状態でも正しく動くと確認できた
 ものに限る。
-`vp -C apps/api exec vitest run --project isolated` / `--project shared` で
-片方だけ実行できる。
-Node プール（`vitest.node.config.ts`）の対象は従来どおり除外されている。
+`vp -C apps/api exec vitest run --project isolated` / `--project shared` /
+`--project node` で片方だけ実行できる。
 
 ### Git フック
 
