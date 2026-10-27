@@ -228,6 +228,11 @@ if api_pid_running; then
       kill -0 "$OLD_API_PID" 2>/dev/null || break
       sleep 1
     done
+    if kill -0 "$OLD_API_PID" 2>/dev/null; then
+      # 消せなかった API を api.pid も消して見失わないよう、記録を残して終了
+      echo "残骸 API (PID $OLD_API_PID) が停止しません。手動で止めてから再実行してください" >&2
+      exit 1
+    fi
     rm -f "$API_PID_FILE"
   fi
 fi
