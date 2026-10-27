@@ -54,7 +54,11 @@ jest.mock("@/components/meishi/PropertyPanel", () => ({
 }));
 
 jest.mock("@/components/meishi/TemplatePicker", () => ({
-  TemplatePicker: () => null,
+  TemplatePicker: ({ visible }: { visible: boolean }) => {
+    if (!visible) return null;
+    const { Text } = require("react-native");
+    return <Text>テンプレート選択</Text>;
+  },
 }));
 
 jest.mock("@/components/meishi/TextEditSheet", () => ({
@@ -86,18 +90,22 @@ jest.mock("@/lib/profileUrl", () => ({
     userId ? `http://localhost:8081/user/${userId}` : null,
 }));
 
+const defaultDoc = {
+  version: 1,
+  canvas: {
+    width: 360,
+    height: 216,
+    background: { type: "solid", color: "#ffffff" },
+  },
+  elements: [],
+};
+let mockDoc: typeof defaultDoc | null = defaultDoc;
+let mockDocLoaded = true;
+
 jest.mock("@/lib/meishi/useMeishiDocument", () => ({
   useMeishiDocument: () => ({
-    doc: {
-      version: 1,
-      canvas: {
-        width: 360,
-        height: 216,
-        background: { type: "solid", color: "#ffffff" },
-      },
-      elements: [],
-    },
-    loaded: true,
+    doc: mockDoc,
+    loaded: mockDocLoaded,
     setDocFromTemplate: jest.fn(),
     commit: jest.fn(),
     beginGesture: jest.fn(),
@@ -120,6 +128,8 @@ jest.mock("@/lib/meishi/useMeishiDocument", () => ({
 }));
 
 beforeEach(() => {
+  mockDoc = defaultDoc;
+  mockDocLoaded = true;
   mockBack.mockClear();
   mockReplace.mockClear();
   mockCanGoBack.mockReset();
@@ -148,6 +158,33 @@ describe("MeishiEditScreen の保存フィードバック", () => {
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
+  });
+});
+
+describe("MeishiEditScreen の初回テンプレート選択", () => {
+  // 起動時の自動オープンはレンダー中の状態調整で行う（#267）
+  it("ドキュメント読み込み完了時に空ならテンプレート選択を一度だけ開く", () => {
+    mockDoc = null;
+    mockDocLoaded = true;
+    const { rerender } = render(<MeishiEditScreen />);
+
+    expect(screen.getByText("テンプレート選択")).toBeTruthy();
+
+    // 再レンダーを繰り返しても開いたまま（再レンダー上限にならない）
+    rerender(<MeishiEditScreen />);
+    expect(screen.getByText("テンプレート選択")).toBeTruthy();
+  });
+
+  it("ドキュメントが既にあるときはテンプレート選択を開かない", () => {
+    render(<MeishiEditScreen />);
+    expect(screen.queryByText("テンプレート選択")).toBeNull();
+  });
+
+  it("読み込み中（loaded=false）の間はテンプレート選択を開かない", () => {
+    mockDoc = null;
+    mockDocLoaded = false;
+    render(<MeishiEditScreen />);
+    expect(screen.queryByText("テンプレート選択")).toBeNull();
   });
 });
 
