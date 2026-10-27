@@ -174,8 +174,10 @@ Workers プールで、`isolated`（既定の isolate: true。ファイルごと
 の 2 プロジェクトに分かれている。`shared` 側はモジュールグラフと
 ストレージ（D1 / R2）をファイル間で共有するため、**`vi.mock` でモジュールを
 差し替えるファイルは shared に置けない**（モック実体のずれで失敗する）。
-新しいテストファイルは `features/*/index.test.ts` などのルート系なら isolated、
-`repository.test.ts`・`lib/**` の純ロジック系なら shared の include に自動で入る。
+新しいテストファイルは既定で isolated に入る（`src/**/*.test.ts` の catch-all）。
+`repository.test.ts`・`lib/**` など shared の include に合うファイルだけが
+shared に入るので、shared に足すのは共有状態でも正しく動くと確認できた
+ものに限る。
 `vp -C apps/api exec vitest run --project isolated` / `--project shared` で
 片方だけ実行できる。
 Node プール（`vitest.node.config.ts`）の対象は従来どおり除外されている。

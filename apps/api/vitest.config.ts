@@ -9,27 +9,16 @@ import { resolve } from "node:path";
 // workerd を共有し、起動回数を減らしている。
 //
 // テストファイルの置き場所ルール:
-// - vi.mock を使うファイルは isolated に置く。shared（isolate: false）では
+// - 新しいファイルは既定で isolated（`src/**/*.test.ts` の catch-all）に入る。
+//   shared の include に追加するのは、共有状態でも正しく動くと確認できた
+//   ファイルだけにする。
+// - vi.mock を使うファイルは shared に置けない。shared（isolate: false）では
 //   モジュールグラフがファイル間で共有されるため、vi.mock のファクトリが
 //   ファイルごとに作るモック実体と、先に評価されたモジュールにバインド済みの
 //   実体とがずれて失敗する（認証モックや Sentry モックで実際に発生）。
 // - shared 側はストレージ（D1 / R2）とモジュールの状態も共有される。
 //   入れるファイルは beforeEach でデータをリセットする（setupTestDb や
 //   R2 の list + delete）など、ファイル間の共有状態に依存しないものに限る。
-const ISOLATED_INCLUDE = [
-  "src/index.test.ts",
-  "src/observability.test.ts",
-  "src/middleware/auth.test.ts",
-  "src/features/*/index.test.ts",
-  "src/features/watch-history/bulk.test.ts",
-];
-
-// ISOLATED_INCLUDE のパターンに合うが shared に置くファイル。
-const ISOLATED_EXCLUDE = [
-  "src/features/health/index.test.ts",
-  "src/features/images/index.test.ts",
-];
-
 const SHARED_INCLUDE = [
   "src/features/*/repository.test.ts",
   "src/features/health/index.test.ts",
@@ -79,8 +68,10 @@ export default defineConfig({
           // @opentelemetry/api の ESM ビルドの拡張子なし import が
           // モジュールフォールバックで解決できずファイルが丸ごと失敗する。
           server: { deps: { inline: true } },
-          include: ISOLATED_INCLUDE,
-          exclude: ISOLATED_EXCLUDE,
+          include: ["src/**/*.test.ts"],
+          // shared / Node プールに振り分けたファイルを除く。
+          // 新しいテストファイルは既定でこちらに入る（安全側の既定）
+          exclude: [...SHARED_INCLUDE, ...NODE_POOL_TESTS],
         },
       },
       {
