@@ -14,6 +14,11 @@ module.exports = {
   // RN / Expo に依存しない純ロジックのテスト（*.unit.test.ts）は vitest で回す
   // （issue #249、vitest.config.ts）。二重実行しないよう jest の対象から外す。
   testPathIgnorePatterns: ["/node_modules/", "\\.unit\\.test\\.[jt]sx?$"],
+  // jest は既定でコア数 - 1 のワーカーを立てる。並列 worktree 運用では各 worktree の
+  // jest がそれぞれ同数立ててホストの CPU・メモリを圧迫するため、コア数の半分に絞る
+  // （issue #293）。VP_RUN_CONCURRENCY_LIMIT は vp run のタスク並列数を絞るだけで
+  // jest のワーカー数には効かない。CI（ubuntu-latest = 4 コア）では 2 ワーカーになる。
+  maxWorkers: "50%",
   // テストファイルの実行後にワーカーのヒープがこの値を超えていたらワーカーを
   // 作り直し、並列 worktree 運用時のメモリ膨張を抑える（issue #249）。
   workerIdleMemoryLimit: "512MB",
