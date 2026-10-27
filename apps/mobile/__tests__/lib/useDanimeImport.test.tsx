@@ -1,7 +1,7 @@
 // useDanimeMatch のチャンク分割テスト。
-// issue #219: works 上限を超える入力は API 側の CPU/サブリクエスト上限に
-// 達して 503 になるため、クライアントは上限単位で分割して逐次送信する。
-// このテストは分割サイズが API スキーマの上限（100）を超えないことを保証する。
+// issue #219: 大量の works を 1 リクエストで照合すると API 側の CPU 時間上限に
+// 達して 503 になるため、クライアントは 100 件単位で分割して逐次送信する。
+// このテストは分割・逐次送信・結果の結合が正しく行われることを保証する。
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 describe("useDanimeMatch", () => {
-  it("works を API 上限（100）ごとに分割して逐次送信し、結果を結合する", async () => {
+  it("works を 100 件ごとに分割して逐次送信し、結果を結合する", async () => {
     mockMatchPost.mockImplementation(async ({ json }) =>
       okResponse(json.works),
     );
@@ -97,7 +97,7 @@ describe("useDanimeMatch", () => {
       ([arg]) => (arg as { json: { works: unknown[] } }).json.works.length,
     );
     expect(sentSizes).toEqual([100, 100, 50]);
-    // どのリクエストも API スキーマの上限を超えない
+    // どのリクエストも分割サイズ（100）を超えない
     for (const size of sentSizes) {
       expect(size).toBeLessThanOrEqual(100);
     }

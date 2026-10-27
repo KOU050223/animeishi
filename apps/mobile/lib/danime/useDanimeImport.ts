@@ -53,8 +53,8 @@ export type DanimeMatchOutput = {
 /** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
 const BULK_CHUNK_SIZE = 50;
 
-// match API の works 上限（API 側スキーマの上限と揃える）。
-// issue #219: 500 件の一括照合は API の CPU 時間上限を超えて 503 になるため、
+// 1 リクエストあたりの照合件数。API 側は 500 件まで受け付けるが、
+// issue #219（Workers の CPU 時間超過による 503）の再発に余裕を持たせるため
 // 小さく分割して逐次送信する。
 const MATCH_CHUNK_SIZE = 100;
 

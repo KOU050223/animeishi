@@ -278,10 +278,8 @@ describe("dアニメインポート API", () => {
       expect(res.status).toBe(400);
     });
 
-    it("works が上限（100）を超えると 400（issue #219）", async () => {
-      // 1 リクエストあたりの件数を頭打ちにして、照合の CPU 時間と
-      // Annict への往復数が Workers のリソース上限に達しないようにする。
-      const works = Array.from({ length: 101 }, (_, i) => ({
+    it("works が上限（500）を超えると 400", async () => {
+      const works = Array.from({ length: 501 }, (_, i) => ({
         danimeWorkId: `w${i}`,
         title: `作品${i}`,
         targetState: "WATCHED",
