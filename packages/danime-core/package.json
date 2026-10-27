@@ -12,13 +12,12 @@
     "typecheck": "tsc --noEmit --checkers 1",
     "lint": "oxlint . --deny-warnings",
     "lint:fix": "oxlint . --fix --deny-warnings",
-    "fmt": "oxfmt --ignore-path ../../.oxfmtignore .",
-    "fmt:check": "oxfmt --check --ignore-path ../../.oxfmtignore ."
+    "fmt": "vp fmt --ignore-path ../../.oxfmtignore .",
+    "fmt:check": "vp fmt --check --ignore-path ../../.oxfmtignore ."
   },
   "devDependencies": {
     "@typescript/native": "catalog:",
     "jsdom": "^20.0.3",
-    "oxfmt": "^0.57.0",
     "oxlint": "~1.72.0",
     "typescript": "catalog:",
     "vite": "catalog:",

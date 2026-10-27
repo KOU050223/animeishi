@@ -41,19 +41,25 @@ vp install                            # 依存インストール + Git フック
 vp run typecheck   # 型チェック (TypeScript 7 の tsc --noEmit)。CI の "TypeScript check" 相当
 vp run lint        # Oxlint
 vp run lint:fix    # Oxlint の自動修正
-vp run fmt         # Oxfmt で整形
+vp run fmt         # Oxfmt で整形（vite-plus 同梱版を `vp fmt` 経由で実行）
 vp run fmt:check   # 整形済みかの確認。CI の "Oxfmt check" 相当
 vp run test        # テスト（mobile は jest + vitest、それ以外は vitest）
 vp run dev         # 全アプリの開発サーバを並列起動
 ```
 
+> 整形は vite-plus 同梱の oxfmt を `vp fmt` 経由で実行し、各パッケージ・ルートで
+> 個別の oxfmt は入れない（issue #268）。設定はルート `vite.config.ts` の `fmt`
+> ブロックに集約する。Vite+ モードでは nested config（`.oxfmtrc.json`）が効かないため、
+> パッケージ別の `printWidth`（mobile / api / danime-core は 80、observability と
+> ルートは既定の 100）は `fmt.overrides` で表す。
 > `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
-> （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの oxfmt
-> （各パッケージと同じ 0.57 系、設定は既定値）で整形・確認する（issue #254）。
+> （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの
+> `vp fmt` で整形・確認する（issue #254）。
 > `lint` / `lint:fix` も同様に、ルート直下とパッケージ外の TS / JS をルートの oxlint
 > （各パッケージと同じ 1.72 系、設定は既定値）で検査する（issue #269）。
-> ルート向けの整形・検査はどちらも `.oxfmtignore` を共用し、
-> `.agents/` 等のエージェント状態は対象外。
+> 整形・検査の対象外はルートの `.oxfmtignore` で指定し、fmt・lint のどちらの
+> 呼び出しにも `--ignore-path` で渡す（`.agents/` 等のエージェント状態は対象外）。
+> `.oxfmtignore` は自動では読まれないため、flag を付けない裸の `vp fmt` には効かない。
 
 パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
 （`vp run --filter <パッケージ名> <script>` も同じ）。
@@ -165,8 +171,8 @@ vp -C apps/mobile exec vitest run --changed main                              # 
 `vp install` 時の `prepare`（`vp config --no-agent`）が `.vite-hooks/_` にフックの
 ディスパッチャを置き、`core.hooksPath` を設定する。フック本体は `.vite-hooks/` にある。
 
-- pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt にかけ、
-  整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）。
+- pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt（`vp fmt`）に
+  かけ、整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）。
   ルート直下とパッケージ外のファイルも、TS / JS は Oxlint と Oxfmt、
   それ以外（json / yml 等）は Oxfmt だけをかける
 - pre-push: `vp run typecheck` と `vp run test`

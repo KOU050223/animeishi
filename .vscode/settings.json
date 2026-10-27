@@ -3,4 +3,7 @@
   // tsserver.js を持たないため、実体の TypeScript 6 を指す（issue #248、pnpm-workspace.yaml の catalog を参照）
   "js/ts.tsdk.path": "node_modules/@typescript/old/lib",
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  // 整形はルート vite.config.ts の fmt ブロック（issue #268）だけを使い、
+  // ファイル単位の nested config（.oxfmtrc.json）をエディタ側でも効かせない
+  "oxc.fmt.disableNestedConfig": true,
 }
