@@ -477,14 +477,14 @@ ensure_native_project() {
 }
 
 # ネイティブ成果物（.app）に効く入力からキャッシュキーを作る（issue #292）。
-# ヒットしたときは prebuild も xcodebuild も飛ばすため、キーは prebuild 前に
-# 計算できる値だけから作る。ios/Podfile.lock のような prebuild 生成物を入れると
-# ios/ がある worktree と無い worktree でキーが変わり worktree 間共有が壊れる
-# ため含めない（生成物の中身は上流の入力で一意に決まる）。
 # 誤ヒットの方が害が大きい（古いネイティブのまま E2E が静かに通る）ので、
 # ネイティブに効きうるものは広めに拾う。逆に JS バンドルにだけ効く入力
 # （index.js・app/・metro.config.ts・.env の EXPO_PUBLIC_* など）は、
 # ヒット時に毎回 export:embed で差し替えるのでキーに入れない。
+# ios/Podfile.lock のような prebuild 生成物はここには入れず、別途
+# native_ios_fingerprint でキャッシュエントリの leaf 名に反映する
+# （ios/ がある worktree と無い worktree で同じキーを引けるようにしつつ、
+# 手直しされた ios/ は別バリアントとして扱うため。後述）。
 native_cache_key() {
   local files=(
     ../../package.json
@@ -508,6 +508,39 @@ native_cache_key() {
     xcodebuild -version
     pod --version 2>/dev/null || true
   } | shasum -a 256 | cut -d' ' -f1
+}
+
+# ios/ が存在するときだけ、その中身のフィンガープリントを返す（無ければ空）。
+# ios/ は prebuild + pod install の生成物で、中身は上流入力から一意に決まる
+# ため、同じ入力なら worktree 間で同じ値になる。ローカルで ios/ を手直しした
+# worktree では別の値になり、手直しが E2E に反映されない誤ヒットを防げる。
+# Pods/ と build/ は除外する（Pods のサポートファイルは worktree の絶対
+# パスを含み一致しない。Pods の実体は Podfile.lock で代表させる）。
+native_ios_fingerprint() {
+  [ -d ios ] || return 0
+  find ios -type f ! -path '*/Pods/*' ! -path '*/build/*' ! -path '*/xcuserdata/*' \
+    | LC_ALL=C sort \
+    | xargs shasum -a 256 \
+    | shasum -a 256 | cut -d' ' -f1
+}
+
+# 使えるキャッシュエントリの leaf 名（<key>-<ios_fingerprint>）を返す。
+# ios/ がある worktree は自分の ios/ と同じフィンガープリントのエントリだけを
+# 使う。ios/ が無い worktree は、生成される ios/ が上流入力から一意に決まる
+# はずなので leaf が 1 つだけのときに限り使う（複数バリアントがあると
+# 生成結果がどれと一致するか分からず誤ヒットしうるためミス扱いにする）。
+native_cache_lookup() {
+  local fp
+  if [ -d ios ]; then
+    fp="$(native_ios_fingerprint)"
+    [ -d "$NATIVE_CACHE_ROOT/$NATIVE_KEY-$fp/Animeishi.app" ] \
+      && echo "$NATIVE_KEY-$fp"
+  else
+    local matches=("$NATIVE_CACHE_ROOT/$NATIVE_KEY"-*/Animeishi.app)
+    if [ -e "${matches[0]}" ] && [ "${#matches[@]}" -eq 1 ]; then
+      basename "$(dirname "${matches[0]}")"
+    fi
+  fi
 }
 
 # ビルド済み .app をキャッシュに保存する。一時ディレクトリにコピーしてから
@@ -542,8 +575,11 @@ prune_native_cache() {
 # （export:embed --bytecode 単発だと -O が付かない）。EXPO_PUBLIC_* はバンドルに
 # 埋め込まれるため xcodebuild と同じ値を渡す。
 rebundle_app() {
-  local app="$1" tmp hermesc
-  tmp="$(mktemp -d -t animeishi-e2e-bundle.XXXXXX)"
+  local app="$1" hermesc
+  # 失敗時に残っても gitignore 済みの STATE_DIR 内に留まるよう、
+  # 共有の一時領域ではなく STATE_DIR 配下を使う（次回実行時に消える）
+  local tmp="$STATE_DIR/rebundle-tmp"
+  rm -rf "$tmp" && mkdir -p "$tmp"
   # 消えたアセットが残らないよう、既存のアセットを消してから書き出す
   rm -rf "$app/assets"
   # --entry-file は Metro の serverRoot（モノレポのワークスペースルート）基準で
@@ -570,42 +606,51 @@ rebundle_app() {
 }
 
 APP_PATH="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Animeishi.app"
-CACHED_APP=""
+NATIVE_KEY=""
+CACHE_LEAF=""
 if [ "$SKIP_BUILD" != "1" ] && [ "$NATIVE_CACHE" != "0" ]; then
   NATIVE_KEY="$(native_cache_key)"
-  CACHED_APP="$NATIVE_CACHE_ROOT/$NATIVE_KEY/Animeishi.app"
+  CACHE_LEAF="$(native_cache_lookup)"
 fi
 
-if [ -n "$CACHED_APP" ] && [ -d "$CACHED_APP" ]; then
-  echo "ネイティブキャッシュにヒット (key: ${NATIVE_KEY:0:12}...)。JS バンドルを差し替えます"
+if [ -z "$CACHE_LEAF" ]; then
+  ensure_native_project
+  if [ -n "$NATIVE_KEY" ]; then
+    # ios/ が今回生成された worktree でも、生成後ならフィンガープリントで
+    # 確実に leaf を引けるため再評価する（leaf が複数あって引けなかった
+    # 場合も、生成結果と一致する leaf があればここで拾える）
+    CACHE_LEAF="$(native_cache_lookup)"
+  fi
+fi
+
+if [ -n "$CACHE_LEAF" ]; then
+  echo "ネイティブキャッシュにヒット (key: ${CACHE_LEAF:0:20}...)。JS バンドルを差し替えます"
   rm -rf "$STATE_DIR/app"
   mkdir -p "$STATE_DIR/app"
-  cp -R "$CACHED_APP" "$STATE_DIR/app/Animeishi.app"
+  cp -R "$NATIVE_CACHE_ROOT/$CACHE_LEAF/Animeishi.app" "$STATE_DIR/app/Animeishi.app"
   rebundle_app "$STATE_DIR/app/Animeishi.app"
-  touch "$NATIVE_CACHE_ROOT/$NATIVE_KEY"
+  touch "$NATIVE_CACHE_ROOT/$CACHE_LEAF"
   APP_PATH="$STATE_DIR/app/Animeishi.app"
-else
-  ensure_native_project
-  if [ "$SKIP_BUILD" != "1" ]; then
-    echo "Release 相当ビルド中 (iphonesimulator) ..."
-    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
-      EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" \
-      SENTRY_DISABLE_AUTO_UPLOAD=true \
-      xcodebuild \
-        -workspace ios/Animeishi.xcworkspace \
-        -scheme Animeishi \
-        -configuration Release \
-        -sdk iphonesimulator \
-        -destination "id=$UDID" \
-        -derivedDataPath "$DERIVED_DATA" \
-        CODE_SIGN_IDENTITY="-" \
-        ONLY_ACTIVE_ARCH=YES
-    if [ -n "$CACHED_APP" ]; then
-      echo "ビルド済み .app をネイティブキャッシュに保存します (key: ${NATIVE_KEY:0:12}...)"
-      mkdir -p "$NATIVE_CACHE_ROOT"
-      save_to_native_cache "$APP_PATH" "$NATIVE_KEY"
-      prune_native_cache
-    fi
+elif [ "$SKIP_BUILD" != "1" ]; then
+  echo "Release 相当ビルド中 (iphonesimulator) ..."
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+    EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" \
+    SENTRY_DISABLE_AUTO_UPLOAD=true \
+    xcodebuild \
+      -workspace ios/Animeishi.xcworkspace \
+      -scheme Animeishi \
+      -configuration Release \
+      -sdk iphonesimulator \
+      -destination "id=$UDID" \
+      -derivedDataPath "$DERIVED_DATA" \
+      CODE_SIGN_IDENTITY="-" \
+      ONLY_ACTIVE_ARCH=YES
+  if [ -n "$NATIVE_KEY" ]; then
+    leaf="$NATIVE_KEY-$(native_ios_fingerprint)"
+    echo "ビルド済み .app をネイティブキャッシュに保存します (key: ${leaf:0:20}...)"
+    mkdir -p "$NATIVE_CACHE_ROOT"
+    save_to_native_cache "$APP_PATH" "$leaf"
+    prune_native_cache
   fi
 fi
 

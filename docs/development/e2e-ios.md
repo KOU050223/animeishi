@@ -83,18 +83,23 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
 ## ネイティブキャッシュ（issue #292）
 
 フルビルドは 30 分〜1 時間かかるため、ビルド済みの Release `.app` を
-`~/Library/Caches/animeishi-e2e/<キー>/Animeishi.app` に保存し、worktree を
-またいで使い回す。
+`~/Library/Caches/animeishi-e2e/<上流キー>-<ios フィンガープリント>/Animeishi.app`
+に保存し、worktree をまたいで使い回す。
 
-- **キー**: ネイティブ成果物に効く入力だけから作る。`package.json`・
+- **上流キー**: ネイティブ成果物に効く入力だけから作る。`package.json`・
   `app.json`/`app.config.*`・`pnpm-lock.yaml`・`pnpm-workspace.yaml`・
   `patches/`（あれば）・`assets/`（アイコン・スプラッシュ等）のハッシュと、
   Xcode / CocoaPods の版を連結してハッシュ化する。
-  ヒットしたときは prebuild も xcodebuild も飛ばすため、
-  `ios/Podfile.lock` のような prebuild して初めて分かる値は入れず、
-  その上流の入力だけを見る。誤ヒットの方が害が大きいので広めに取る。
   JS バンドルにだけ効く入力（`index.js`・`app/`・`metro.config.ts`・
   `.env` の `EXPO_PUBLIC_*` など）は入れない（ヒット時に毎回差し替えるため）。
+- **ios フィンガープリント**: `ios/`（`Pods/`・`build/`・`xcuserdata/` を除く）
+  の中身のハッシュ。`ios/Podfile` や `Podfile.lock`、Xcode 設定を含む。
+  `ios/` は生成物だが、ローカルで手直しした場合はフィンガープリントが
+  変わるため別バリアントのエントリとして扱われ、手直し前の `.app` に
+  誤ヒットしない。`ios/` が無い worktree は、生成される `ios/` が
+  上流入力から一意に決まるはずなので、同じ上流キーの leaf が 1 つだけの
+  ときに限りヒットする（複数バリアントがあるとどれと一致するか分からず
+  誤ヒットしうるためミス扱い。prebuild 後にフィンガープリントで再評価する）。
 - **ヒット時**: キャッシュの `.app` を `.e2e-ios/app/` にコピーし、
   Xcode の "Bundle React Native code and images" フェーズと同じ手順
   （`expo export:embed` で平文 JS + アセットを出力 → `hermesc -O` で
