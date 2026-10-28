@@ -32,7 +32,12 @@ export const images = new Hono<{
   const cached = await cache?.match(cacheKey).catch(() => undefined);
   // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
   // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。
-  if (cached) return new Response(cached.body, cached);
+  if (cached) {
+    const hit = new Response(cached.body, cached);
+    // Cache-Tag は Purge 用に保存エントリへ付けたもので、クライアントには出さない。
+    hit.headers.delete("cache-tag");
+    return hit;
+  }
 
   const res = await serveWorkImage(
     createDb(c.env.DB),

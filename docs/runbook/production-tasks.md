@@ -67,11 +67,16 @@ MAL 由来の画像（`image_source='mal'`）を **24 時間以内**に消す必
 ### 実行
 
 1. 作品 ID を `--` 以降に並べる（例: `pnpm task images:takedown -- 123 456`）か、
-   `pnpm task images:takedown -- --all-mal` で MAL 由来の全件を対象にする
+   `pnpm task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
+   `--all-mal` は `image_source='blocked'` の作品も対象に含めるので、
+   前回の実行で消し残した分（R2 削除・Purge の失敗、環境変数の未設定）を
+   同じコマンドでやり直せる
 2. 件数と一覧を表示してから確認プロンプトが出る。承認すると、対象を `image_source='blocked'`・
    `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にし、
    最後にプロキシ前段のキャッシュを Purge する
-3. R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する
+3. R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する。
+   Purge だけやり直したいときも同じ作品 ID で再実行すればよい
+   （R2 削除済みの分は何も起きず、Purge だけ再走る）
 
 `'blocked'` の作品は cron・画像プロキシ・検索のどこからも補完し直さない
 （Annict の元の画像は MAL 由来ではないので、プロキシは引き続き配信する）。

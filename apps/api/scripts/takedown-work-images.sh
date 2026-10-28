@@ -13,7 +13,9 @@
 #   scripts/takedown-work-images.sh [--env production|preview | --local] [--yes] (--all-mal | <作品ID>...)
 #
 #   <作品ID>...   削除する作品の annict_work_id（空白区切りで複数可）
-#   --all-mal     image_source='mal' の全作品を対象にする
+#   --all-mal     image_source='mal'/'blocked' の全作品を対象にする
+#                 （'blocked' 済みの作品は、失敗した R2 削除・キャッシュ
+#                 Purge のやり直しのため再度対象に含む）
 #   --yes         確認プロンプトを出さずに実行する（ローカルの動作確認用）
 #
 # 環境変数（3. の Purge 用。未設定でも 1・2 は完了し、消せなかった URL を表示する）:
@@ -114,7 +116,9 @@ rows_as_tsv() {
 }
 
 if [ "$ALL_MAL" = 1 ]; then
-  WHERE="image_source = 'mal'"
+  # 'blocked'（削除済みの作品）も対象に含める。前回の実行で Purge や R2 削除
+  # だけ失敗して残った分を、同じ --all-mal でやり直せるようにするため。
+  WHERE="image_source IN ('mal', 'blocked')"
 else
   WHERE="annict_work_id IN ($(IFS=,; echo "${IDS[*]}"))"
 fi

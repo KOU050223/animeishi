@@ -98,9 +98,15 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     await res.arrayBuffer();
 
     // 2 回目のリクエストで cache.put 完了を確実にしてから中身を見る
-    await (
-      await app.request("/images/works/42", { method: "GET" }, TEST_BINDINGS)
-    ).arrayBuffer();
+    const second = await app.request(
+      "/images/works/42",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(second.status).toBe(200);
+    // キャッシュ HIT の応答にもタグは出さない
+    expect(second.headers.get("cache-tag")).toBeNull();
+    await second.arrayBuffer();
     const cached = await caches.default.match(
       "http://localhost/images/works/42",
     );
