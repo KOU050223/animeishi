@@ -22,10 +22,8 @@ module.exports = {
   // テストファイルの実行後にワーカーのヒープがこの値を超えていたらワーカーを
   // 作り直し、並列 worktree 運用時のメモリ膨張を抑える（issue #249）。
   workerIdleMemoryLimit: "512MB",
-  setupFilesAfterEnv: [
-    "@testing-library/react-native/extend-expect",
-    "<rootDir>/jest.setup.js",
-  ],
+  // RNTL 14 では matcher は import 時に自動登録される（extend-expect サブパスは廃止）。
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   transformIgnorePatterns: [
     "node_modules/\\.pnpm/(?!.*node_modules/((jest-)?react-native|@react-native(-community)?|@react-native/js-polyfills|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|nativewind|@clerk/clerk-expo|hono|@tanstack|zustand))",
   ],

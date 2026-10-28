@@ -66,7 +66,7 @@ function mockProfileFetch(body: unknown = PROFILE, status = 200) {
   })) as unknown as typeof fetch;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   mockProfileFetch();
@@ -75,7 +75,7 @@ beforeEach(() => {
 describe("PublicProfilePage", () => {
   it("他人の名刺に通報・ブロックの導線が表示される", async () => {
     loggedInUser({ userId: "user_me" });
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
 
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
     expect(screen.getByTestId("report-user-button")).toBeTruthy();
@@ -84,11 +84,13 @@ describe("PublicProfilePage", () => {
 
   it("通報ボタンで理由シートが開き、理由選択で通報が送信される", async () => {
     loggedInUser({ userId: "user_me" });
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
 
-    fireEvent.press(screen.getByTestId("report-user-button"));
-    fireEvent.press(screen.getByTestId("report-reason-不適切なコンテンツ"));
+    await fireEvent.press(screen.getByTestId("report-user-button"));
+    await fireEvent.press(
+      screen.getByTestId("report-reason-不適切なコンテンツ"),
+    );
 
     expect(mockReportMutate).toHaveBeenCalledWith(
       { userId: "user_target", reason: "不適切なコンテンツ" },
@@ -102,11 +104,13 @@ describe("PublicProfilePage", () => {
       (_vars: unknown, options?: { onSuccess?: () => void }) =>
         options?.onSuccess?.(),
     );
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
 
-    fireEvent.press(screen.getByTestId("report-user-button"));
-    fireEvent.press(screen.getByTestId("report-reason-不適切なコンテンツ"));
+    await fireEvent.press(screen.getByTestId("report-user-button"));
+    await fireEvent.press(
+      screen.getByTestId("report-reason-不適切なコンテンツ"),
+    );
 
     expect(mockConfirm).toHaveBeenCalledWith(
       "通報を受け付けました",
@@ -123,10 +127,10 @@ describe("PublicProfilePage", () => {
 
   it("ブロックボタンで確認ダイアログ経由のブロックが実行される", async () => {
     loggedInUser({ userId: "user_me" });
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
 
-    fireEvent.press(screen.getByTestId("block-user-button"));
+    await fireEvent.press(screen.getByTestId("block-user-button"));
 
     expect(mockConfirm).toHaveBeenCalledWith(
       "このユーザーをブロック",
@@ -142,7 +146,7 @@ describe("PublicProfilePage", () => {
 
   it("未サインインでは通報・ブロックを表示しない", async () => {
     signedOutUser();
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
@@ -151,7 +155,7 @@ describe("PublicProfilePage", () => {
 
   it("自分自身の名刺では通報・ブロックを表示しない", async () => {
     loggedInUser({ userId: "user_target" });
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
     await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
@@ -161,7 +165,7 @@ describe("PublicProfilePage", () => {
   it("404 のときは見つからない旨を表示する", async () => {
     loggedInUser({ userId: "user_me" });
     mockProfileFetch({ error: "User not found" }, 404);
-    render(<PublicProfilePage />, { wrapper });
+    await render(<PublicProfilePage />, { wrapper });
 
     await waitFor(() =>
       expect(

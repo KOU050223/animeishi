@@ -28,14 +28,14 @@ jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   capturedOnError = undefined;
 });
 
 describe("AnimeListScreen", () => {
-  it("お気に入りトグルの失敗をダイアログで通知する", () => {
-    render(<AnimeListScreen />);
+  it("お気に入りトグルの失敗をダイアログで通知する", async () => {
+    await render(<AnimeListScreen />);
 
     capturedOnError?.(
       new ApiRequestError(500, "お気に入りの追加に失敗しました"),
@@ -48,8 +48,8 @@ describe("AnimeListScreen", () => {
     );
   });
 
-  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", () => {
-    render(<AnimeListScreen />);
+  it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
+    await render(<AnimeListScreen />);
 
     capturedOnError?.(new Error("Network request failed"));
 

@@ -109,7 +109,7 @@ function exactResponse(
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   loggedInUser({ userId: "user_me" });
@@ -121,7 +121,7 @@ describe("useDanimeMatch", () => {
     mockMatchPost.mockImplementation(async ({ json }) =>
       okResponse(json.works),
     );
-    const { result } = renderHook(() => useDanimeMatch(), { wrapper });
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
     await act(async () => {
       result.current.mutate({ lists: listsOf(250) });
     });
@@ -163,7 +163,7 @@ describe("useDanimeMatch", () => {
             : annictWork(Number(id.slice(1))),
       ),
     );
-    const { result } = renderHook(() => useDanimeMatch(), { wrapper });
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
     await act(async () => {
       result.current.mutate({ lists });
     });
@@ -191,7 +191,7 @@ describe("useDanimeMatch", () => {
     mockMatchPost.mockImplementation(async ({ json }) =>
       exactResponse(json.works, () => annictWork(999)),
     );
-    const { result } = renderHook(() => useDanimeMatch(), { wrapper });
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
     await act(async () => {
       result.current.mutate({ lists });
     });

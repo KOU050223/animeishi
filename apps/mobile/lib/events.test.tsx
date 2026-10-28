@@ -28,7 +28,7 @@ jest.mock("expo-router", () => ({
 
 const infoMock = () => jest.mocked(Sentry.logger.info);
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockSegments.mockReturnValue(["(tabs)", "qr"]);
   resetAuth();
@@ -190,7 +190,7 @@ describe("trackEvent", () => {
 describe("useEventTrackingContext", () => {
   it("画面パスと userId を計測コンテキストへ同期する", async () => {
     loggedInUser({ userId: "user_hook_raw" });
-    renderHook(() => useEventTrackingContext());
+    await renderHook(() => useEventTrackingContext());
 
     trackEvent("qr_exchange_start");
 
@@ -204,7 +204,7 @@ describe("useEventTrackingContext", () => {
 
   it("動的セグメントはルートパターン（[uid]）のまま載せ、実値は送らない", async () => {
     mockSegments.mockReturnValue(["user", "[uid]"]);
-    renderHook(() => useEventTrackingContext());
+    await renderHook(() => useEventTrackingContext());
 
     trackEvent("qr_exchange_start");
 

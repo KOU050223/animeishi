@@ -22,7 +22,7 @@ const baseAppInfo: AppInfo = {
   environment: "production",
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockGetAppInfo.mockReturnValue(baseAppInfo);
   mockUseApiVersion.mockReturnValue({
@@ -37,8 +37,8 @@ beforeEach(() => {
 });
 
 describe("AppVersionFooter", () => {
-  it("アプリバージョン・環境・更新 ID・コミット・API バージョンを表示する", () => {
-    render(<AppVersionFooter />);
+  it("アプリバージョン・環境・更新 ID・コミット・API バージョンを表示する", async () => {
+    await render(<AppVersionFooter />);
 
     expect(screen.getByText("アプリバージョン: 1.0.0 (42)")).toBeTruthy();
     expect(screen.getByText("環境: production")).toBeTruthy();
@@ -48,11 +48,11 @@ describe("AppVersionFooter", () => {
     expect(screen.getByText("API: def5678 (production)")).toBeTruthy();
   });
 
-  it("取得できない項目は行ごと表示しない", () => {
+  it("取得できない項目は行ごと表示しない", async () => {
     mockGetAppInfo.mockReturnValue({ appVersion: "1.0.0" });
     mockUseApiVersion.mockReturnValue({ data: undefined });
 
-    render(<AppVersionFooter />);
+    await render(<AppVersionFooter />);
 
     expect(screen.getByText("アプリバージョン: 1.0.0")).toBeTruthy();
     expect(screen.queryByText(/^環境:/)).toBeNull();
@@ -61,7 +61,7 @@ describe("AppVersionFooter", () => {
     expect(screen.queryByText(/^API:/)).toBeNull();
   });
 
-  it("API がコミット SHA を持たない場合は versionId に倒す", () => {
+  it("API がコミット SHA を持たない場合は versionId に倒す", async () => {
     mockUseApiVersion.mockReturnValue({
       data: {
         status: "ok",
@@ -72,12 +72,12 @@ describe("AppVersionFooter", () => {
       },
     });
 
-    render(<AppVersionFooter />);
+    await render(<AppVersionFooter />);
 
     expect(screen.getByText("API: 0123456")).toBeTruthy();
   });
 
-  it("コミット SHA と versionId が共にない場合は API 行を出さない", () => {
+  it("コミット SHA と versionId が共にない場合は API 行を出さない", async () => {
     mockUseApiVersion.mockReturnValue({
       data: {
         status: "ok",
@@ -88,12 +88,12 @@ describe("AppVersionFooter", () => {
       },
     });
 
-    render(<AppVersionFooter />);
+    await render(<AppVersionFooter />);
 
     expect(screen.queryByText(/^API:/)).toBeNull();
   });
 
-  it("取得失敗時は成功済みデータより「取得失敗」を優先して表示する", () => {
+  it("取得失敗時は成功済みデータより「取得失敗」を優先して表示する", async () => {
     // React Query はリフェッチ失敗時に直前の data を保持する。
     // isError のときはその古い値ではなく失敗表示に切り替える。
     mockUseApiVersion.mockReturnValue({
@@ -107,7 +107,7 @@ describe("AppVersionFooter", () => {
       },
     });
 
-    render(<AppVersionFooter />);
+    await render(<AppVersionFooter />);
 
     expect(screen.getByText("API: 取得失敗")).toBeTruthy();
     expect(screen.queryByText(/def5678/)).toBeNull();

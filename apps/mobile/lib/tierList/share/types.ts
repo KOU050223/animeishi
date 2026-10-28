@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 
 /**
  * tier 表の共有に関するプラットフォーム差異吸収の共通インターフェース。
@@ -77,7 +77,7 @@ export type UseTierUrlShare = (input?: {
  * （native では無視される）。
  */
 export type ShareTierListImage = (
-  target: RefObject<View | null>,
+  target: RefObject<ViewInstance | null>,
   options: { dialogTitle: string; backgroundColor: string },
 ) => Promise<void>;
 
@@ -88,6 +88,6 @@ export type ShareTierListImage = (
  * native では使われない（native は shareTierListImage が直接共有する）。
  */
 export type CaptureTierListImageFile = (
-  target: RefObject<View | null>,
+  target: RefObject<ViewInstance | null>,
   options: { title: string; backgroundColor: string },
 ) => Promise<File>;

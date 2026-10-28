@@ -15,15 +15,15 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   mockCanGoBack = true;
 });
 
 describe("ChangelogScreen", () => {
-  it("タイトルと 3 つのセクションを表示する", () => {
-    render(<ChangelogScreen />);
+  it("タイトルと 3 つのセクションを表示する", async () => {
+    await render(<ChangelogScreen />);
 
     expect(screen.getByText("機能一覧・更新情報")).toBeTruthy();
     expect(screen.getByText("このアプリでできること")).toBeTruthy();
@@ -31,8 +31,8 @@ describe("ChangelogScreen", () => {
     expect(screen.getByText("今後追加したい機能")).toBeTruthy();
   });
 
-  it("静的データ（機能・更新・予定）の各項目を表示する", () => {
-    render(<ChangelogScreen />);
+  it("静的データ（機能・更新・予定）の各項目を表示する", async () => {
+    await render(<ChangelogScreen />);
 
     expect(screen.getByText("アニメ名刺の作成")).toBeTruthy();
     expect(screen.getByText("シーズン Tier 表")).toBeTruthy();
@@ -42,30 +42,30 @@ describe("ChangelogScreen", () => {
     expect(screen.getByText("ダークモード対応")).toBeTruthy();
   });
 
-  it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", () => {
-    render(<ChangelogScreen />);
+  it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
+    await render(<ChangelogScreen />);
 
-    fireEvent.press(screen.getByTestId("changelog-back-button"));
+    await fireEvent.press(screen.getByTestId("changelog-back-button"));
 
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it("遷移履歴が無い場合、戻るボタンでホームへ戻る", () => {
+  it("遷移履歴が無い場合、戻るボタンでホームへ戻る", async () => {
     mockCanGoBack = false;
-    render(<ChangelogScreen />);
+    await render(<ChangelogScreen />);
 
-    fireEvent.press(screen.getByTestId("changelog-back-button"));
+    await fireEvent.press(screen.getByTestId("changelog-back-button"));
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
-  it("予定機能のチップをタップすると対応する GitHub issue を開く", () => {
+  it("予定機能のチップをタップすると対応する GitHub issue を開く", async () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
-    render(<ChangelogScreen />);
+    await render(<ChangelogScreen />);
 
-    fireEvent.press(screen.getByTestId("planned-feature-171"));
+    await fireEvent.press(screen.getByTestId("planned-feature-171"));
 
     expect(openURL).toHaveBeenCalledWith(
       "https://github.com/KOU050223/animeishi/issues/171",

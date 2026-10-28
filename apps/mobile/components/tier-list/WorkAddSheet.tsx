@@ -203,7 +203,7 @@ export function WorkAddSheet({
                       >
                         上位の結果のみを表示しています。タイトルを絞り込んでください
                       </Text>
-                    ) : null
+                    ) : undefined
                   }
                   renderItem={({ item }) => {
                     const added = existingWorkIds.has(item.annictWorkId);

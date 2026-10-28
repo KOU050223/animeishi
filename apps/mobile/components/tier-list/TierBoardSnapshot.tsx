@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
@@ -42,87 +42,87 @@ const CARD_SIZE = 64;
  * 配色は撮影時点のカラースキームに追従する（ユーザーが見ている盤面と
  * 同じ見た目の画像になる）。
  */
-export const TierBoardSnapshot = forwardRef<View, TierBoardSnapshotProps>(
-  function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
-    const colors = useThemeColors();
-    const styles = useMemo(() => createStyles(colors), [colors]);
-    // 読み込み待ち対象は「実際に描画される画像」だけ。
-    // tiers に無い tierKey のアイテムは描画されず onLoadEnd も来ないため、
-    // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
-    const imageCount = useMemo(() => {
-      const tierKeys = new Set(tiers.map((t) => t.key));
-      return items.filter(
-        (item) => tierKeys.has(item.tierKey) && !!item.imageUrl,
-      ).length;
-    }, [items, tiers]);
-    const settledRef = useRef(0);
-    const firedRef = useRef(false);
+export const TierBoardSnapshot = forwardRef<
+  ViewInstance,
+  TierBoardSnapshotProps
+>(function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  // 読み込み待ち対象は「実際に描画される画像」だけ。
+  // tiers に無い tierKey のアイテムは描画されず onLoadEnd も来ないため、
+  // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
+  const imageCount = useMemo(() => {
+    const tierKeys = new Set(tiers.map((t) => t.key));
+    return items.filter((item) => tierKeys.has(item.tierKey) && !!item.imageUrl)
+      .length;
+  }, [items, tiers]);
+  const settledRef = useRef(0);
+  const firedRef = useRef(false);
 
-    const markImageSettled = useCallback(() => {
-      settledRef.current += 1;
-      if (!firedRef.current && settledRef.current >= imageCount) {
-        firedRef.current = true;
-        onReady?.();
-      }
-    }, [imageCount, onReady]);
+  const markImageSettled = useCallback(() => {
+    settledRef.current += 1;
+    if (!firedRef.current && settledRef.current >= imageCount) {
+      firedRef.current = true;
+      onReady?.();
+    }
+  }, [imageCount, onReady]);
 
-    // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
-    useEffect(() => {
-      if (imageCount === 0 && !firedRef.current) {
-        firedRef.current = true;
-        onReady?.();
-      }
-    }, [imageCount, onReady]);
+  // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
+  useEffect(() => {
+    if (imageCount === 0 && !firedRef.current) {
+      firedRef.current = true;
+      onReady?.();
+    }
+  }, [imageCount, onReady]);
 
-    return (
-      // Android で view-shot が失敗しないよう collapsable={false} は必須
-      <View ref={ref} collapsable={false} style={styles.root}>
-        <Text style={styles.title}>{title}</Text>
-        {tiers.map((tier) => {
-          const rowItems = items.filter((item) => item.tierKey === tier.key);
-          return (
-            <View key={tier.key} style={styles.row}>
-              <View style={[styles.labelCell, { backgroundColor: tier.color }]}>
-                <Text
-                  style={[
-                    styles.labelText,
-                    {
-                      fontSize: tierLabelFontSize(tier.label, 16),
-                      color: tierLabelTextColor(tier.color),
-                    },
-                  ]}
-                  numberOfLines={3}
-                >
-                  {tier.label}
-                </Text>
-              </View>
-              <View style={styles.works}>
-                {rowItems.map((item) => (
-                  <View key={item.id} style={styles.card}>
-                    <WorkImage
-                      uri={item.imageUrl}
-                      style={styles.cardImage}
-                      placeholder=<View style={styles.cardImageFallback} />
-                      // 読み込み完了直後に撮るため、フェードイン途中の
-                      // 半透明な画像が写らないよう transition は付けない。
-                      transition={0}
-                      // onLoadEnd は成功・失敗どちらでも来る。
-                      // 失敗した画像は placeholder のまま共有する（再試行より確実性優先）。
-                      onLoadEnd={markImageSettled}
-                    />
-                    <Text style={styles.cardTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+  return (
+    // Android で view-shot が失敗しないよう collapsable={false} は必須
+    <View ref={ref} collapsable={false} style={styles.root}>
+      <Text style={styles.title}>{title}</Text>
+      {tiers.map((tier) => {
+        const rowItems = items.filter((item) => item.tierKey === tier.key);
+        return (
+          <View key={tier.key} style={styles.row}>
+            <View style={[styles.labelCell, { backgroundColor: tier.color }]}>
+              <Text
+                style={[
+                  styles.labelText,
+                  {
+                    fontSize: tierLabelFontSize(tier.label, 16),
+                    color: tierLabelTextColor(tier.color),
+                  },
+                ]}
+                numberOfLines={3}
+              >
+                {tier.label}
+              </Text>
             </View>
-          );
-        })}
-      </View>
-    );
-  },
-);
+            <View style={styles.works}>
+              {rowItems.map((item) => (
+                <View key={item.id} style={styles.card}>
+                  <WorkImage
+                    uri={item.imageUrl}
+                    style={styles.cardImage}
+                    placeholder=<View style={styles.cardImageFallback} />
+                    // 読み込み完了直後に撮るため、フェードイン途中の
+                    // 半透明な画像が写らないよう transition は付けない。
+                    transition={0}
+                    // onLoadEnd は成功・失敗どちらでも来る。
+                    // 失敗した画像は placeholder のまま共有する（再試行より確実性優先）。
+                    onLoadEnd={markImageSettled}
+                  />
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+});
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({

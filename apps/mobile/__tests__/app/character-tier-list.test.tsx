@@ -115,7 +115,7 @@ function savedList(
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockParams = { workId: "100", workTitle: "テスト作品" };
   mockSaved = null;
@@ -127,8 +127,8 @@ beforeEach(() => {
 });
 
 describe("CharacterTierListScreen の盤面 hydrate（レンダー中の状態調整）", () => {
-  it("保存済みデータがなければ作品タイトル由来の既定タイトルと空の盤面を出す", () => {
-    render(<CharacterTierListScreen />);
+  it("保存済みデータがなければ作品タイトル由来の既定タイトルと空の盤面を出す", async () => {
+    await render(<CharacterTierListScreen />);
 
     expect(
       screen.getByText(defaultCharacterTierListTitle("テスト作品")),
@@ -136,66 +136,66 @@ describe("CharacterTierListScreen の盤面 hydrate（レンダー中の状態�
     expect(mockBoardProps?.assignment.size).toBe(0);
   });
 
-  it("保存済みデータがあればタイトルと配置を反映する", () => {
+  it("保存済みデータがあればタイトルと配置を反映する", async () => {
     mockSaved = savedList("保存済みキャラ盤面", [
       { annictCharacterId: 42, tierKey: "0" },
     ]);
 
-    render(<CharacterTierListScreen />);
+    await render(<CharacterTierListScreen />);
 
     expect(screen.getByText("保存済みキャラ盤面")).toBeTruthy();
     expect(mockBoardProps?.assignment.get(42)).toBe("0");
   });
 
-  it("hydrate は一度だけ行い、同じ入力の再レンダーで再適用しない", () => {
+  it("hydrate は一度だけ行い、同じ入力の再レンダーで再適用しない", async () => {
     mockSaved = savedList("保存済みキャラ盤面", [
       { annictCharacterId: 42, tierKey: "0" },
     ]);
-    const { rerender } = render(<CharacterTierListScreen />);
+    const { rerender } = await render(<CharacterTierListScreen />);
     const first = mockBoardProps?.assignment;
 
-    rerender(<CharacterTierListScreen />);
-    rerender(<CharacterTierListScreen />);
+    await rerender(<CharacterTierListScreen />);
+    await rerender(<CharacterTierListScreen />);
 
     expect(mockBoardProps?.assignment).toBe(first);
   });
 
-  it("hydrate 済みの盤面は編集後に saved が更新されても上書きしない", () => {
+  it("hydrate 済みの盤面は編集後に saved が更新されても上書きしない", async () => {
     mockSaved = savedList("v1", [{ annictCharacterId: 42, tierKey: "0" }]);
-    const { rerender } = render(<CharacterTierListScreen />);
-    act(() => mockBoardProps?.onAssign(7, "1"));
+    const { rerender } = await render(<CharacterTierListScreen />);
+    await act(() => mockBoardProps?.onAssign(7, "1"));
 
     // バックグラウンド refetch で別内容の saved が届く
     mockSaved = savedList("v2", [{ annictCharacterId: 9, tierKey: "0" }]);
-    rerender(<CharacterTierListScreen />);
+    await rerender(<CharacterTierListScreen />);
 
     expect(mockBoardProps?.assignment.get(7)).toBe("1");
     expect(mockBoardProps?.assignment.get(9)).toBeUndefined();
     expect(screen.getByText("v1")).toBeTruthy();
   });
 
-  it("保存済みデータが無いまま作品タイトルが後から届いたら既定タイトルを差し替える", () => {
+  it("保存済みデータが無いまま作品タイトルが後から届いたら既定タイトルを差し替える", async () => {
     mockParams = { workId: "100" };
     mockFetchedWorkTitle = null;
-    const { rerender } = render(<CharacterTierListScreen />);
+    const { rerender } = await render(<CharacterTierListScreen />);
     expect(screen.getByText(defaultCharacterTierListTitle(null))).toBeTruthy();
 
     mockFetchedWorkTitle = "遅れて届いた作品";
-    rerender(<CharacterTierListScreen />);
+    await rerender(<CharacterTierListScreen />);
 
     expect(
       screen.getByText(defaultCharacterTierListTitle("遅れて届いた作品")),
     ).toBeTruthy();
   });
 
-  it("保存済みタイトルがある場合は遅れて届く作品タイトルで上書きしない", () => {
+  it("保存済みタイトルがある場合は遅れて届く作品タイトルで上書きしない", async () => {
     mockParams = { workId: "100" };
     mockFetchedWorkTitle = null;
     mockSaved = savedList("保存済みキャラ盤面", []);
-    const { rerender } = render(<CharacterTierListScreen />);
+    const { rerender } = await render(<CharacterTierListScreen />);
 
     mockFetchedWorkTitle = "遅れて届いた作品";
-    rerender(<CharacterTierListScreen />);
+    await rerender(<CharacterTierListScreen />);
 
     expect(screen.getByText("保存済みキャラ盤面")).toBeTruthy();
   });

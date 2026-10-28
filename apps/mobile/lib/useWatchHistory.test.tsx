@@ -35,7 +35,7 @@ jest.mock("@/lib/annict", () => ({
 }));
 
 describe("WATCH_STATUS_LABELS", () => {
-  it("全ステータスに日本語ラベルが定義されている", () => {
+  it("全ステータスに日本語ラベルが定義されている", async () => {
     expect(WATCH_STATUS_LABELS.WATCHING).toBe("視聴中");
     expect(WATCH_STATUS_LABELS.WATCHED).toBe("視聴済");
     expect(WATCH_STATUS_LABELS.ON_HOLD).toBe("一時停止");
@@ -74,7 +74,7 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
   // （queryCache 側は query.destroy() する非対称）ため、各 Mutation を
   // destroy() してから client.clear() する。
   let client: QueryClient;
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAuth();
     jest.clearAllMocks();
     loggedInUser({ userId });
@@ -82,8 +82,8 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     client = new QueryClient();
   });
 
-  afterEach(() => {
-    cleanup();
+  afterEach(async () => {
+    await cleanup();
     client
       .getMutationCache()
       .getAll()
@@ -102,11 +102,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
         }),
     );
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
-    act(() => {
+    await act(() => {
       result.current.mutate({
         annictWorkId: 1,
         data: { state: "WATCHED" },
@@ -129,11 +129,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     client.setQueryData(queryKey, seedHistory());
     mockPut.mockResolvedValue({ ok: false, status: 500 });
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
-    act(() => {
+    await act(() => {
       result.current.mutate({
         annictWorkId: 1,
         data: { state: "WATCHED" },
@@ -156,12 +156,12 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
         }),
     );
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
     // 作品A・作品B の更新を両方 API 応答保留中に発行する。
-    act(() => {
+    await act(() => {
       result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
       result.current.mutate({ annictWorkId: 2, data: { state: "WATCHED" } });
     });
@@ -194,12 +194,12 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
         }),
     );
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
     // 同一作品へ WATCHED → ON_HOLD と続けて発行し、1 回目だけ失敗させる。
-    act(() => {
+    await act(() => {
       result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
       result.current.mutate({ annictWorkId: 1, data: { state: "ON_HOLD" } });
     });
@@ -228,11 +228,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
         }),
     );
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
-    act(() => {
+    await act(() => {
       result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
       result.current.mutate({ annictWorkId: 1, data: { state: "ON_HOLD" } });
     });
@@ -257,11 +257,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
         }),
     );
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
-    act(() => {
+    await act(() => {
       result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
       result.current.mutate({ annictWorkId: 2, data: { state: "WATCHED" } });
     });
@@ -289,11 +289,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     client.setQueryData(queryKey, seedHistory());
     mockPut.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-    const { result } = renderHook(() => useUpsertWatchHistory(), {
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
     });
 
-    act(() => {
+    await act(() => {
       result.current.mutate({
         annictWorkId: 999,
         data: { state: "WATCHED" },

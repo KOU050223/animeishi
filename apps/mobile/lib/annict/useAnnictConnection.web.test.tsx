@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment <rootDir>/jest.jsdom-env.cjs
  */
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
@@ -42,7 +42,7 @@ function makeWrapper() {
 }
 
 describe("useAnnictConnection (web)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     mockAuth = {
       isLoaded: true,
@@ -57,7 +57,7 @@ describe("useAnnictConnection (web)", () => {
   });
 
   it("サインイン済みで connected が返れば isConnected=true になる", async () => {
-    const { result } = renderHook(() => useAnnictConnection(), {
+    const { result } = await renderHook(() => useAnnictConnection(), {
       wrapper: makeWrapper(),
     });
 
@@ -66,11 +66,11 @@ describe("useAnnictConnection (web)", () => {
     expect(mockAnnictGet).toHaveBeenCalledTimes(1);
   });
 
-  it("Clerk のセッション復元中（isLoaded=false）は未確定として isLoading=true を返す", () => {
+  it("Clerk のセッション復元中（isLoaded=false）は未確定として isLoading=true を返す", async () => {
     // enabled=false のため query.isLoading は立たず、クエリは発行されない。
     // この区間で「未連携」とみなすと連携済みユーザーに連携カード等が一瞬出る。
     mockAuth = { ...mockAuth, isLoaded: false, isSignedIn: false };
-    const { result } = renderHook(() => useAnnictConnection(), {
+    const { result } = await renderHook(() => useAnnictConnection(), {
       wrapper: makeWrapper(),
     });
 
@@ -79,9 +79,9 @@ describe("useAnnictConnection (web)", () => {
     expect(mockAnnictGet).not.toHaveBeenCalled();
   });
 
-  it("未サインインでは問い合わせず isConnected=false / isLoading=false", () => {
+  it("未サインインでは問い合わせず isConnected=false / isLoading=false", async () => {
     mockAuth = { ...mockAuth, isSignedIn: false, userId: null };
-    const { result } = renderHook(() => useAnnictConnection(), {
+    const { result } = await renderHook(() => useAnnictConnection(), {
       wrapper: makeWrapper(),
     });
 
@@ -95,7 +95,7 @@ describe("useAnnictConnection (web)", () => {
       ok: true,
       json: async () => ({ connected: false }),
     });
-    const { result } = renderHook(() => useAnnictConnection(), {
+    const { result } = await renderHook(() => useAnnictConnection(), {
       wrapper: makeWrapper(),
     });
 

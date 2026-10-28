@@ -34,6 +34,16 @@ jest.mock("react-native", () => {
   return ReactNative;
 });
 
+// Reanimated 4 / Worklets はネイティブランタイム（worklet 実行器）を要求する。
+// jest では公式が提供する JS モックに差し替える（reanimated/mock は
+// useSharedValue 等の JS 実装を提供する）。
+jest.mock("react-native-worklets", () =>
+  require("react-native-worklets/src/mock"),
+);
+jest.mock("react-native-reanimated", () =>
+  require("react-native-reanimated/mock"),
+);
+
 // @expo/vector-icons は初回レンダリング時にフォント読み込み状態を setState する。
 // アイコンそのものを検証しないテストでは非同期更新だけがノイズになるため、
 // 軽量な no-op コンポーネントに差し替える。
@@ -94,9 +104,13 @@ require("@/lib/i18n");
 // ローカル実測でウォームアップ前の初回 render は約 3.5〜4 秒）。
 // setup ファイルはテストのタイムアウト計測に含まれないため、ここで一度
 // 描画して初期化コストを各テストの計測時間から外す。
-{
+// Jest 30 では setupFilesAfterEnv の CJS モジュールが async 関数を export すると
+// Jest がその完了を待つ（jestjs/jest#10962）。ウォームアップの描画が最初の
+// テストと重ならないよう、export した関数内で await する。
+module.exports = async () => {
   const { render } = require("@testing-library/react-native");
   const { createElement } = require("react");
   const { View } = require("react-native");
-  render(createElement(View)).unmount();
-}
+  const result = await render(createElement(View));
+  await result.unmount();
+};

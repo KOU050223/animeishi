@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  type StyleProp,
+  type ViewInstance,
+  type ViewStyle,
+} from "react-native";
 import type { DropZoneRegistry } from "./dropZones";
 
 export type DropZoneProps = {
@@ -27,7 +32,7 @@ export function DropZone({
   children,
   testID,
 }: DropZoneProps) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   // measureInWindow の結果は非同期で返る。アンマウント後にコールバックが
   // 来ると、cleanup で消した古い矩形を登録し直してしまうため旗で弾く。
   const aliveRef = useRef(false);

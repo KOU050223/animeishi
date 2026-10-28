@@ -19,14 +19,14 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
 });
 
 describe("SignInScreen", () => {
-  it("フォームが正しくレンダリングされる", () => {
-    render(<SignInScreen />);
+  it("フォームが正しくレンダリングされる", async () => {
+    await render(<SignInScreen />);
     expect(screen.getByTestId("email-input")).toBeTruthy();
     expect(screen.getByTestId("password-input")).toBeTruthy();
     expect(screen.getByTestId("sign-in-button")).toBeTruthy();
@@ -34,8 +34,8 @@ describe("SignInScreen", () => {
 
   it("空の入力でバリデーションエラーが表示される", async () => {
     const auth = getAuthMock();
-    render(<SignInScreen />);
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
@@ -44,10 +44,16 @@ describe("SignInScreen", () => {
 
   it("不正なメールアドレスでバリデーションエラーが表示される", async () => {
     const auth = getAuthMock();
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "invalid-email");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "invalid-email",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
@@ -61,10 +67,16 @@ describe("SignInScreen", () => {
       createdSessionId: "session_123",
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signIn.create).toHaveBeenCalledWith({
@@ -82,10 +94,16 @@ describe("SignInScreen", () => {
       new Error("Network request failed"),
     );
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -105,10 +123,16 @@ describe("SignInScreen", () => {
       ],
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(
@@ -129,10 +153,16 @@ describe("SignInScreen", () => {
       ],
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(screen.getByText("サインインに失敗しました")).toBeTruthy();
@@ -147,10 +177,16 @@ describe("SignInScreen", () => {
       status: "needs_second_factor",
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -169,10 +205,16 @@ describe("SignInScreen", () => {
       errors: [{ code: "session_exists", message: "You're already signed in" }],
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({
@@ -192,10 +234,16 @@ describe("SignInScreen", () => {
       errors: [{ code: "session_exists", message: "You're already signed in" }],
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
@@ -213,13 +261,16 @@ describe("SignInScreen", () => {
       createdSessionId: "session_456",
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
       screen.getByTestId("email-input"),
       "other@example.com",
     );
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
@@ -245,10 +296,16 @@ describe("SignInScreen", () => {
       createdSessionId: "session_789",
     });
 
-    render(<SignInScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signIn.create).toHaveBeenCalled();
@@ -264,8 +321,8 @@ describe("SignInScreen", () => {
         authSessionResult: { type: "success" },
       });
 
-      render(<SignInScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignInScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(auth.startSSOFlow).toHaveBeenCalledWith(
@@ -285,8 +342,8 @@ describe("SignInScreen", () => {
         authSessionResult: { type: "cancel" },
       });
 
-      render(<SignInScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignInScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(auth.startSSOFlow).toHaveBeenCalled();
@@ -305,8 +362,8 @@ describe("SignInScreen", () => {
         ],
       });
 
-      render(<SignInScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignInScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(auth.setActive).toHaveBeenCalledWith({
@@ -323,8 +380,8 @@ describe("SignInScreen", () => {
         authSessionResult: { type: "success" },
       });
 
-      render(<SignInScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignInScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(auth.signOut).toHaveBeenCalledTimes(1);
@@ -339,8 +396,8 @@ describe("SignInScreen", () => {
       const auth = getAuthMock();
       auth.startSSOFlow.mockRejectedValueOnce(new Error("network error"));
 
-      render(<SignInScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignInScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(
@@ -352,10 +409,10 @@ describe("SignInScreen", () => {
   });
 
   describe("パスキーサインイン（issue #181）", () => {
-    it("ネイティブではパスキーボタンを表示しない（#107 待ちのためフラグで無効）", () => {
+    it("ネイティブではパスキーボタンを表示しない（#107 待ちのためフラグで無効）", async () => {
       // jest-expo は iOS で解決するため featureFlags.passkey は
       // passkey.native.ts（常に false）になる。
-      render(<SignInScreen />);
+      await render(<SignInScreen />);
       expect(screen.queryByTestId("passkey-sign-in-button")).toBeNull();
     });
   });

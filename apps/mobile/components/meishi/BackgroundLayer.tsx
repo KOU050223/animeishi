@@ -29,7 +29,7 @@ export function BackgroundLayer({
     return (
       <View
         style={[
-          StyleSheet.absoluteFillObject,
+          StyleSheet.absoluteFill,
           { backgroundColor: style.color, borderRadius },
         ]}
       />
@@ -38,10 +38,7 @@ export function BackgroundLayer({
 
   return (
     <View
-      style={[
-        StyleSheet.absoluteFillObject,
-        { borderRadius, overflow: "hidden" },
-      ]}
+      style={[StyleSheet.absoluteFill, { borderRadius, overflow: "hidden" }]}
     >
       <Svg
         width="100%"

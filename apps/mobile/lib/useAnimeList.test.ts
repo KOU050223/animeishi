@@ -24,8 +24,11 @@ let mockIsConnected = true;
 let mockIsConnectionLoading = false;
 jest.mock("@/lib/annict", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
+  // 実装では読み込み中は connected が未確定（isConnected=false）になる。
+  // useAnimeList は isConnected でフェッチを gate するため、
+  // モックでも同じ契約（loading 中は isConnected=false）に揃える。
   useAnnictConnection: () => ({
-    isConnected: mockIsConnected,
+    isConnected: mockIsConnectionLoading ? false : mockIsConnected,
     isLoading: mockIsConnectionLoading,
   }),
 }));
@@ -91,48 +94,48 @@ const MOCK_WORKS = [
 
 describe("useSortedAnimeList", () => {
   describe("ソート", () => {
-    it("タイトル昇順でソートする", () => {
-      const { result } = renderHook(() =>
+    it("タイトル昇順でソートする", async () => {
+      const { result } = await renderHook(() =>
         useSortedAnimeList(MOCK_WORKS, "title", "asc"),
       );
       const titles = result.current.map((a) => a.title);
       expect(titles).toEqual(["HUNTER×HUNTER", "鬼滅の刃", "進撃の巨人"]);
     });
 
-    it("タイトル降順でソートする", () => {
-      const { result } = renderHook(() =>
+    it("タイトル降順でソートする", async () => {
+      const { result } = await renderHook(() =>
         useSortedAnimeList(MOCK_WORKS, "title", "desc"),
       );
       const titles = result.current.map((a) => a.title);
       expect(titles).toEqual(["進撃の巨人", "鬼滅の刃", "HUNTER×HUNTER"]);
     });
 
-    it("年度昇順でソートする", () => {
-      const { result } = renderHook(() =>
+    it("年度昇順でソートする", async () => {
+      const { result } = await renderHook(() =>
         useSortedAnimeList(MOCK_WORKS, "year", "asc"),
       );
       const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2011, 2013, 2019]);
     });
 
-    it("年度降順でソートする", () => {
-      const { result } = renderHook(() =>
+    it("年度降順でソートする", async () => {
+      const { result } = await renderHook(() =>
         useSortedAnimeList(MOCK_WORKS, "year", "desc"),
       );
       const years = result.current.map((a) => a.seasonYear);
       expect(years).toEqual([2019, 2013, 2011]);
     });
 
-    it("元の配列を破壊しない", () => {
+    it("元の配列を破壊しない", async () => {
       const original = [...MOCK_WORKS];
-      renderHook(() => useSortedAnimeList(MOCK_WORKS, "title", "asc"));
+      await renderHook(() => useSortedAnimeList(MOCK_WORKS, "title", "asc"));
       expect(MOCK_WORKS).toEqual(original);
     });
   });
 
   describe("エッジケース", () => {
-    it("data が undefined のとき空配列を返す", () => {
-      const { result } = renderHook(() =>
+    it("data が undefined のとき空配列を返す", async () => {
+      const { result } = await renderHook(() =>
         useSortedAnimeList(undefined, "title", "asc"),
       );
       expect(result.current).toHaveLength(0);
@@ -141,7 +144,7 @@ describe("useSortedAnimeList", () => {
 });
 
 describe("useAnimeList", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
@@ -165,7 +168,7 @@ describe("useAnimeList", () => {
       }),
     );
 
-    const { result } = renderHook(() => useAnimeList(""), {
+    const { result } = await renderHook(() => useAnimeList(""), {
       wrapper: makeWrapper(),
     });
 
@@ -177,27 +180,27 @@ describe("useAnimeList", () => {
     expect(arg.query.title).toBeUndefined();
   });
 
-  it("未連携のうちはフェッチせず isConnected=false を返す", () => {
+  it("未連携のうちはフェッチせず isConnected=false を返す", async () => {
     mockIsConnected = false;
-    const { result } = renderHook(() => useAnimeList("進撃"), {
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
     expect(mockSearchGet).not.toHaveBeenCalled();
     expect(result.current.isConnected).toBe(false);
   });
 
-  it("連携状態の読み込み中は isConnectionLoading=true を返しフェッチしない", () => {
+  it("連携状態の読み込み中は isConnectionLoading=true を返しフェッチしない", async () => {
     mockIsConnectionLoading = true;
-    const { result } = renderHook(() => useAnimeList("進撃"), {
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
     expect(mockSearchGet).not.toHaveBeenCalled();
     expect(result.current.isConnectionLoading).toBe(true);
   });
 
-  it("サインアウト中はフェッチしない", () => {
+  it("サインアウト中はフェッチしない", async () => {
     signedOutUser();
-    renderHook(() => useAnimeList("進撃"), { wrapper: makeWrapper() });
+    await renderHook(() => useAnimeList("進撃"), { wrapper: makeWrapper() });
     expect(mockSearchGet).not.toHaveBeenCalled();
   });
 
@@ -212,7 +215,7 @@ describe("useAnimeList", () => {
       }),
     );
 
-    const { result } = renderHook(() => useAnimeList("進撃"), {
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
 
@@ -254,7 +257,7 @@ describe("useAnimeList", () => {
         }),
       );
 
-    const { result } = renderHook(() => useAnimeList("", "2026-spring"), {
+    const { result } = await renderHook(() => useAnimeList("", "2026-spring"), {
       wrapper: makeWrapper(),
     });
 
@@ -286,7 +289,7 @@ describe("useAnimeList", () => {
       }),
     );
 
-    const { result } = renderHook(() => useAnimeList("進撃"), {
+    const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
 
@@ -300,7 +303,7 @@ describe("useAnimeList", () => {
 });
 
 describe("usePrefetchSeasonWorks", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
@@ -318,7 +321,7 @@ describe("usePrefetchSeasonWorks", () => {
       okSearchResponse({ works: [], hasNextPage: false, endCursor: null }),
     );
 
-    renderHook(
+    await renderHook(
       () => usePrefetchSeasonWorks(["2026-summer", "2027-winter"], true),
       { wrapper: makeWrapper() },
     );
@@ -336,7 +339,7 @@ describe("usePrefetchSeasonWorks", () => {
   });
 
   it("enabled=false ならプリフェッチしない", async () => {
-    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], false), {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], false), {
       wrapper: makeWrapper(),
     });
     await new Promise((r) => setTimeout(r, 50));
@@ -345,7 +348,7 @@ describe("usePrefetchSeasonWorks", () => {
 
   it("Annict 未連携ならプリフェッチしない", async () => {
     mockIsConnected = false;
-    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
       wrapper: makeWrapper(),
     });
     await new Promise((r) => setTimeout(r, 50));
@@ -354,7 +357,7 @@ describe("usePrefetchSeasonWorks", () => {
 
   it("サインアウト中はプリフェッチしない", async () => {
     signedOutUser();
-    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
       wrapper: makeWrapper(),
     });
     await new Promise((r) => setTimeout(r, 50));
@@ -362,7 +365,7 @@ describe("usePrefetchSeasonWorks", () => {
   });
 
   it("seasons が空なら何もしない", async () => {
-    renderHook(() => usePrefetchSeasonWorks([], true), {
+    await renderHook(() => usePrefetchSeasonWorks([], true), {
       wrapper: makeWrapper(),
     });
     await new Promise((r) => setTimeout(r, 50));
@@ -378,7 +381,7 @@ describe("usePrefetchSeasonWorks", () => {
     });
     mockSearchGet.mockRejectedValue(new Error("network error"));
 
-    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
       wrapper: makeWrapper(client),
     });
 
@@ -402,7 +405,7 @@ describe("usePrefetchSeasonWorks", () => {
     client.setQueryData(key, cached);
     mockSearchGet.mockRejectedValue(new Error("network error"));
 
-    renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
+    await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
       wrapper: makeWrapper(client),
     });
 

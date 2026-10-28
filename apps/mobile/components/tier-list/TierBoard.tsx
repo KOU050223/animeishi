@@ -1,5 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  type ScrollViewInstance,
+  type ViewInstance,
+} from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import { useEdgeAutoScroll } from "./autoScroll";
 import {
@@ -88,8 +95,8 @@ export function TierBoard({
   // 作品追加の検索シートが開いているか。
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
-  const scrollRef = useRef<ScrollView>(null);
-  const viewportRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const viewportRef = useRef<ViewInstance>(null);
   // ドラッグ中の自動スクロール累積量。動いた分だけ掴んでいるカードを
   // 指に追従させるため、全カードへ渡してドラッグ中のものだけが加算する。
   const dragScrollCompensation = useSharedValue(0);

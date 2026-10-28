@@ -39,13 +39,13 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
 });
 
 describe("DanimeImportReviewScreen（ネイティブ・フラグ無効）", () => {
-  it("/(tabs)/watch-history へリダイレクトする", () => {
-    render(<DanimeImportReviewScreen />);
+  it("/(tabs)/watch-history へリダイレクトする", async () => {
+    await render(<DanimeImportReviewScreen />);
 
     expect(mockRedirect).toHaveBeenCalledWith("/(tabs)/watch-history");
   });
@@ -54,40 +54,40 @@ describe("DanimeImportReviewScreen（ネイティブ・フラグ無効）", () =
 // active の立ち上がりでの秒数リセットは effect ではなく
 // レンダー中の状態調整で行う（#267）
 describe("useElapsedSeconds", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
   });
-  afterEach(() => {
+  afterEach(async () => {
     jest.useRealTimers();
   });
 
-  it("active の間だけ 0.5 秒刻みで経過秒数を返し、非活性化で止まる", () => {
-    const { result, rerender } = renderHook(
+  it("active の間だけ 0.5 秒刻みで経過秒数を返し、非活性化で止まる", async () => {
+    const { result, rerender } = await renderHook(
       ({ active }: { active: boolean }) => useElapsedSeconds(active),
       { initialProps: { active: false } },
     );
     expect(result.current).toBe(0);
 
-    rerender({ active: true });
-    act(() => jest.advanceTimersByTime(1600));
+    await rerender({ active: true });
+    await act(() => jest.advanceTimersByTime(1600));
     expect(result.current).toBe(1);
 
-    rerender({ active: false });
+    await rerender({ active: false });
     const stopped = result.current;
-    act(() => jest.advanceTimersByTime(3000));
+    await act(() => jest.advanceTimersByTime(3000));
     expect(result.current).toBe(stopped);
   });
 
-  it("active の再立ち上がりで秒数を 0 に戻す", () => {
-    const { result, rerender } = renderHook(
+  it("active の再立ち上がりで秒数を 0 に戻す", async () => {
+    const { result, rerender } = await renderHook(
       ({ active }: { active: boolean }) => useElapsedSeconds(active),
       { initialProps: { active: true } },
     );
-    act(() => jest.advanceTimersByTime(2100));
+    await act(() => jest.advanceTimersByTime(2100));
     expect(result.current).toBe(2);
 
-    rerender({ active: false });
-    rerender({ active: true });
+    await rerender({ active: false });
+    await rerender({ active: true });
 
     expect(result.current).toBe(0);
   });

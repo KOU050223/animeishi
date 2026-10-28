@@ -15,21 +15,21 @@ import { useDropZoneRegistry } from "./dropZones";
 const VIEWPORT: ViewportRect = { y: 100, height: 600 };
 
 describe("autoScrollDirection", () => {
-  it("上端の近くでは上方向（-1）を返す", () => {
+  it("上端の近くでは上方向（-1）を返す", async () => {
     expect(autoScrollDirection(VIEWPORT.y + 10, VIEWPORT)).toBe(-1);
   });
 
-  it("下端の近くでは下方向（1）を返す", () => {
+  it("下端の近くでは下方向（1）を返す", async () => {
     expect(
       autoScrollDirection(VIEWPORT.y + VIEWPORT.height - 10, VIEWPORT),
     ).toBe(1);
   });
 
-  it("中央では 0 を返す", () => {
+  it("中央では 0 を返す", async () => {
     expect(autoScrollDirection(VIEWPORT.y + 300, VIEWPORT)).toBe(0);
   });
 
-  it("ビューポートの外に出ても端方向を維持する", () => {
+  it("ビューポートの外に出ても端方向を維持する", async () => {
     // 盤面より上のヘッダ領域に指が入っても上へスクロールし続ける。
     expect(autoScrollDirection(VIEWPORT.y - 20, VIEWPORT)).toBe(-1);
     expect(
@@ -39,38 +39,38 @@ describe("autoScrollDirection", () => {
 });
 
 describe("nextScrollOffset", () => {
-  it("下方向はオフセットを増やし、上方向は減らす", () => {
+  it("下方向はオフセットを増やし、上方向は減らす", async () => {
     expect(nextScrollOffset(0, 1, 695, VIEWPORT, 1000)).toBeGreaterThan(0);
     expect(nextScrollOffset(500, -1, 105, VIEWPORT, 1000)).toBeLessThan(500);
   });
 
-  it("端に近いほど速く進む", () => {
+  it("端に近いほど速く進む", async () => {
     const nearEdge = nextScrollOffset(0, 1, 699, VIEWPORT, 1000);
     const farFromEdge = nextScrollOffset(0, 1, 650, VIEWPORT, 1000);
     expect(nearEdge).toBeGreaterThan(farFromEdge);
   });
 
-  it("コンテンツの上下端で clamp する", () => {
+  it("コンテンツの上下端で clamp する", async () => {
     expect(nextScrollOffset(995, 1, 699, VIEWPORT, 1000)).toBe(1000);
     expect(nextScrollOffset(2, -1, 101, VIEWPORT, 1000)).toBe(0);
     // コンテンツがビューポートより小さい（maxOffset=0）なら動かない
     expect(nextScrollOffset(0, 1, 699, VIEWPORT, 0)).toBe(0);
   });
 
-  it("方向が 0 なら動かない", () => {
+  it("方向が 0 なら動かない", async () => {
     expect(nextScrollOffset(100, 0, 400, VIEWPORT, 1000)).toBe(100);
   });
 });
 
 describe("useEdgeAutoScroll", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
   });
-  afterEach(() => {
+  afterEach(async () => {
     jest.useRealTimers();
   });
 
-  function setup(options: { viewport?: ViewportRect | null } = {}) {
+  async function setup(options: { viewport?: ViewportRect | null } = {}) {
     const scrollTo = jest.fn();
     // SharedValue の最小スタブ（本実装は .value 代入ではなく .set で書く）。
     const scrollCompensation = {
@@ -92,7 +92,7 @@ describe("useEdgeAutoScroll", () => {
         : null,
     };
     const scrollRef = { current: { scrollTo } };
-    const hook = renderHook(() => {
+    const hook = await renderHook(() => {
       const registry = useDropZoneRegistry();
       const autoScroll = useEdgeAutoScroll({
         scrollRef,
@@ -106,13 +106,15 @@ describe("useEdgeAutoScroll", () => {
     return { hook, scrollTo, scrollCompensation, onScrolled };
   }
 
-  it("指が下端にいる間、tick ごとに下へスクロールする", () => {
-    const { hook, scrollTo, onScrolled } = setup();
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
+  it("指が下端にいる間、tick ごとに下へスクロールする", async () => {
+    const { hook, scrollTo, onScrolled } = await setup();
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
     // 下端帯（644-700）に指を置く
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
-    act(() => {
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => {
       jest.advanceTimersByTime(50);
     });
 
@@ -124,36 +126,38 @@ describe("useEdgeAutoScroll", () => {
     expect(onScrolled).toHaveBeenCalledWith(50, 695);
   });
 
-  it("ドラッグ開始時に現在位置へ scrollTo を叩き、残った慣性を止める", () => {
-    const { hook, scrollTo } = setup();
-    act(() =>
+  it("ドラッグ開始時に現在位置へ scrollTo を叩き、残った慣性を止める", async () => {
+    const { hook, scrollTo } = await setup();
+    await act(() =>
       hook.result.current.autoScroll.onScroll({
         nativeEvent: { contentOffset: { y: 42 } },
       } as NativeSyntheticEvent<NativeScrollEvent>),
     );
 
-    act(() => hook.result.current.autoScroll.onDragStart());
+    await act(() => hook.result.current.autoScroll.onDragStart());
 
     expect(scrollTo).toHaveBeenCalledWith({ y: 42, animated: false });
   });
 
-  it("指が中央にあるときはスクロールしない", () => {
-    const { hook, scrollTo } = setup();
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
+  it("指が中央にあるときはスクロールしない", async () => {
+    const { hook, scrollTo } = await setup();
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
     // onDragStart の慣性止め（現在位置への scrollTo）を数えないようクリアする。
     scrollTo.mockClear();
-    act(() => hook.result.current.autoScroll.onDragMove(50, 400));
-    act(() => {
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 400));
+    await act(() => {
       jest.advanceTimersByTime(100);
     });
 
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("スクロールした分だけ登録済み矩形がずれ、ヒットテストが追従する", () => {
-    const { hook, scrollTo, scrollCompensation } = setup();
-    act(() =>
+  it("スクロールした分だけ登録済み矩形がずれ、ヒットテストが追従する", async () => {
+    const { hook, scrollTo, scrollCompensation } = await setup();
+    await act(() =>
       hook.result.current.registry.register("s", {
         x: 0,
         y: 0,
@@ -161,10 +165,12 @@ describe("useEdgeAutoScroll", () => {
         height: 100,
       }),
     );
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
-    act(() => {
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => {
       jest.advanceTimersByTime(50);
     });
 
@@ -177,18 +183,18 @@ describe("useEdgeAutoScroll", () => {
     expect(hook.result.current.registry.hitTest(50, -scrolled + 50)).toBe("s");
   });
 
-  it("コンテンツの下端に達するとそれ以上進まない", () => {
-    const { hook, scrollTo } = setup();
+  it("コンテンツの下端に達するとそれ以上進まない", async () => {
+    const { hook, scrollTo } = await setup();
     // コンテンツ高 700 = ビューポート 600 + 100px 分しかスクロールできない
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 700));
-    act(() =>
+    await act(() => hook.result.current.autoScroll.onContentSizeChange(0, 700));
+    await act(() =>
       hook.result.current.autoScroll.onScroll({
         nativeEvent: { contentOffset: { y: 90 } },
       } as NativeSyntheticEvent<NativeScrollEvent>),
     );
-    act(() => hook.result.current.autoScroll.onDragStart());
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
-    act(() => {
+    await act(() => hook.result.current.autoScroll.onDragStart());
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => {
       jest.advanceTimersByTime(200);
     });
 
@@ -199,67 +205,75 @@ describe("useEdgeAutoScroll", () => {
     expect(scrollTo.mock.calls.at(-1)?.[0].y).toBe(100);
   });
 
-  it("ドラッグ終了でタイマーが止まり、補正量がリセットされる", () => {
-    const { hook, scrollTo, scrollCompensation } = setup();
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
-    act(() => {
+  it("ドラッグ終了でタイマーが止まり、補正量がリセットされる", async () => {
+    const { hook, scrollTo, scrollCompensation } = await setup();
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => {
       jest.advanceTimersByTime(50);
     });
     const callsAtEnd = scrollTo.mock.calls.length;
     expect(callsAtEnd).toBeGreaterThan(0);
     expect(scrollCompensation.value).toBeGreaterThan(0);
 
-    act(() => hook.result.current.autoScroll.onDragEnd());
+    await act(() => hook.result.current.autoScroll.onDragEnd());
     expect(scrollCompensation.value).toBe(0);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(200);
     });
     expect(scrollTo.mock.calls.length).toBe(callsAtEnd);
   });
 
-  it("ビューポートが未計測ならスクロールしない", () => {
-    const { hook, scrollTo } = setup({ viewport: null });
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
+  it("ビューポートが未計測ならスクロールしない", async () => {
+    const { hook, scrollTo } = await setup({ viewport: null });
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
     scrollTo.mockClear();
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
-    act(() => {
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => {
       jest.advanceTimersByTime(100);
     });
 
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("アンマウント後はタイマーが止まっている", () => {
-    const { hook, scrollTo } = setup();
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
+  it("アンマウント後はタイマーが止まっている", async () => {
+    const { hook, scrollTo } = await setup();
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
     scrollTo.mockClear();
-    act(() => hook.result.current.autoScroll.onDragMove(50, 695));
+    await act(() => hook.result.current.autoScroll.onDragMove(50, 695));
 
-    hook.unmount();
-    act(() => {
+    await hook.unmount();
+    await act(() => {
       jest.advanceTimersByTime(200);
     });
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("AUTO_SCROLL_EDGE_PX の端境界ちょうど外側では動かない", () => {
-    const { hook, scrollTo } = setup();
-    act(() => hook.result.current.autoScroll.onContentSizeChange(0, 2000));
-    act(() => hook.result.current.autoScroll.onDragStart());
+  it("AUTO_SCROLL_EDGE_PX の端境界ちょうど外側では動かない", async () => {
+    const { hook, scrollTo } = await setup();
+    await act(() =>
+      hook.result.current.autoScroll.onContentSizeChange(0, 2000),
+    );
+    await act(() => hook.result.current.autoScroll.onDragStart());
     scrollTo.mockClear();
     // 下端帯の 1px 外側（644 ちょうどは帯の内側ではない）
-    act(() =>
+    await act(() =>
       hook.result.current.autoScroll.onDragMove(
         50,
         VIEWPORT.y + VIEWPORT.height - AUTO_SCROLL_EDGE_PX,
       ),
     );
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(50);
     });
 

@@ -57,7 +57,7 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockRemoveMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
@@ -65,9 +65,11 @@ beforeEach(() => {
 });
 
 describe("FavoritesScreen", () => {
-  it("解除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", () => {
-    render(<FavoritesScreen />);
-    fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
+  it("解除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
+    await render(<FavoritesScreen />);
+    await fireEvent.press(
+      screen.getByLabelText("テスト作品 をお気に入りから解除"),
+    );
 
     expect(mockRemoveMutateAsync).toHaveBeenCalledWith(1);
   });
@@ -76,8 +78,10 @@ describe("FavoritesScreen", () => {
     mockRemoveMutateAsync.mockRejectedValue(
       new ApiRequestError(500, "お気に入りの削除に失敗しました"),
     );
-    render(<FavoritesScreen />);
-    fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
+    await render(<FavoritesScreen />);
+    await fireEvent.press(
+      screen.getByLabelText("テスト作品 をお気に入りから解除"),
+    );
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
@@ -92,8 +96,10 @@ describe("FavoritesScreen", () => {
     mockRemoveMutateAsync.mockRejectedValue(
       new Error("Network request failed"),
     );
-    render(<FavoritesScreen />);
-    fireEvent.press(screen.getByLabelText("テスト作品 をお気に入りから解除"));
+    await render(<FavoritesScreen />);
+    await fireEvent.press(
+      screen.getByLabelText("テスト作品 をお気に入りから解除"),
+    );
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
