@@ -244,8 +244,13 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 
 サインアップ後にドライバが切れた場合、再実行のフローは新しいメールで
 別アカウントを作るため、前の試行のテストアカウントが Clerk の dev
-インスタンスに残ることがある。削除失敗時と同じく dev ダッシュボード
-から手動削除する。
+インスタンスに残る。そのためスクリプトはドライバ切断を検出した試行の
+`~/.maestro/tests/<run>/maestro.log` から使ったメールを拾い、
+`apps/api/.dev.vars` の `CLERK_SECRET_KEY`（sk_test のときだけ使う）
+で Clerk API の `email_address` 完全一致検索 → `DELETE /users/{id}` を
+呼んで自動削除する。鍵が無い・削除に失敗した場合は残ったメールをログに
+出すので、dev ダッシュボードから手動削除する（Users で該当メールを
+検索して Delete）。
 
 それでもダメなときは、別の `maestro test` 実行中の残骸ドライバや
 シミュレーターの不調を疑い、`xcrun simctl shutdown <UDID>` で
