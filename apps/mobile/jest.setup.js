@@ -104,11 +104,13 @@ require("@/lib/i18n");
 // ローカル実測でウォームアップ前の初回 render は約 3.5〜4 秒）。
 // setup ファイルはテストのタイムアウト計測に含まれないため、ここで一度
 // 描画して初期化コストを各テストの計測時間から外す。
-{
+// Jest 30 では setupFilesAfterEnv の CJS モジュールが async 関数を export すると
+// Jest がその完了を待つ（jestjs/jest#10962）。ウォームアップの描画が最初の
+// テストと重ならないよう、export した関数内で await する。
+module.exports = async () => {
   const { render } = require("@testing-library/react-native");
   const { createElement } = require("react");
   const { View } = require("react-native");
-  // RNTL 14 で render は Promise を返す。ウォームアップの描画はマイクロタスクで
-  // 実行され、setup 完了前に解決するため await 不要（CommonJS のため待てない）。
-  void render(createElement(View)).then((r) => r.unmount());
-}
+  const result = await render(createElement(View));
+  await result.unmount();
+};

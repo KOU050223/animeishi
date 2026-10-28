@@ -277,6 +277,13 @@ pnpm exec eas update --channel production --environment production
 pnpm exec sentry-expo-upload-sourcemaps dist  # SENTRY_AUTH_TOKEN を環境変数で渡す
 ```
 
+`eas update --environment production` は `eas.json` の build profile `env` ではなく
+EAS の `production` 環境に登録された変数を使う。OTA に必要な `EXPO_PUBLIC_*`
+（`EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` /
+`EXPO_PUBLIC_ANNICT_CLIENT_ID` / `EXPO_PUBLIC_ENVIRONMENT` / `EXPO_PUBLIC_SENTRY_DSN`）
+を EAS の `production` 環境にも登録する。公開前に
+`pnpm exec eas env:list --environment production` で登録状況を確認する。
+
 Web（`expo export -p web`）の source map アップロードは未整備。
 metro.config.ts で Debug ID は埋め込まれているため、必要になったら
 deploy-web.yml にアップロードステップを追加する。

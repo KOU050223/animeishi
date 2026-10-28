@@ -167,10 +167,12 @@ describe("TierBoardSnapshot", () => {
       await render(
         <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS_WITH_IMAGES} />,
       );
-      for (const image of screen.container.queryAll(
+      const images = screen.container.queryAll(
         (node) =>
           typeof node.type === "string" && node.type.endsWith("ExpoImage"),
-      )) {
+      );
+      expect(images).toHaveLength(2);
+      for (const image of images) {
         // expo-image 3.x は transition={0} を { duration: 0 } に正規化して
         // ネイティブビューへ渡す。
         expect(image.props.transition).toEqual({ duration: 0 });
