@@ -66,9 +66,12 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
    フォールバックし、その旨を表示する。既存の同名シミュレーターが別ランタイムで
    作られていた場合は作り直す。`E2E_SIM_NAME` を指定したときはこの選択を行わず、
    従来どおり最新のランタイムで作り・既存シミュレーターも再利用する
-2. `ios/Animeishi.xcworkspace` が無ければ `expo prebuild -p ios`。
-   `ios/` が残っていると prebuild が CocoaPods をスキップするため、
-   それでも xcworkspace が無いときは続けて `pod install` を実行する（issue #275）
+2. `ios/Animeishi.xcworkspace` が無い、または `ios/` が現在のネイティブ入力
+   から生成されたものでない（下記の `ios/.e2e-native-key` と不一致・未記録）
+   ときは `expo prebuild -p ios --clean` で作り直し、使った上流キーを
+   `ios/.e2e-native-key` に記録する。`ios/` が残っていると prebuild が
+   CocoaPods をスキップするため、それでも xcworkspace が無いときは続けて
+   `pod install` を実行する（issue #275）
 3. `xcodebuild -configuration Release -sdk iphonesimulator` で Release 相当ビルド
    （成果物: `ios/build/e2e-dd/Build/Products/Release-iphonesimulator/Animeishi.app`）
    - 署名は `CODE_SIGN_IDENTITY="-"`（ad-hoc）にする。
@@ -92,14 +95,23 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
   Xcode / CocoaPods の版を連結してハッシュ化する。
   JS バンドルにだけ効く入力（`index.js`・`app/`・`metro.config.ts`・
   `.env` の `EXPO_PUBLIC_*` など）は入れない（ヒット時に毎回差し替えるため）。
-- **ios フィンガープリント**: `ios/`（`Pods/`・`build/`・`xcuserdata/` を除く）
-  の中身のハッシュ。`ios/Podfile` や `Podfile.lock`、Xcode 設定を含む。
-  `ios/` は生成物だが、ローカルで手直しした場合はフィンガープリントが
-  変わるため別バリアントのエントリとして扱われ、手直し前の `.app` に
-  誤ヒットしない。`ios/` が無い worktree は、生成される `ios/` が
-  上流入力から一意に決まるはずなので、同じ上流キーの leaf が 1 つだけの
-  ときに限りヒットする（複数バリアントがあるとどれと一致するか分からず
-  誤ヒットしうるためミス扱い。prebuild 後にフィンガープリントで再評価する）。
+- **ios フィンガープリント**: `ios/`（`Pods/`・`build/`・`xcuserdata/`・
+  `.e2e-native-key` を除く）の中身のハッシュ。`ios/Podfile` や
+  `Podfile.lock`、Xcode 設定を含む。`ios/` は生成物だが、ローカルで
+  手直しした場合はフィンガープリントが変わるため別バリアントのエントリ
+  として扱われ、手直し前の `.app` に誤ヒットしない。`ios/` が無い
+  worktree は、生成される `ios/` が上流入力から一意に決まるはずなので、
+  同じ上流キーの leaf が 1 つだけのときに限りヒットする（複数バリアント
+  があるとどれと一致するか分からず誤ヒットしうるためミス扱い。
+  prebuild 後にフィンガープリントで再評価する）。
+- **ios/ の鮮度（`ios/.e2e-native-key`）**: prebuild に使った上流キーを
+  `ios/` 内に記録する。`ios/` がある worktree は記録が今の上流キーと
+  一致しない（または無い）とフィンガープリントで lookup せず、
+  `expo prebuild --clean` で作り直してから再評価する。これがないと
+  古い入力で生成した `ios/` から作った `.app` が新しい上流キーで
+  キャッシュに入り、他 worktree が古いネイティブを拾ってしまう
+  （キャッシュ汚染）。`E2E_SKIP_BUILD=1` のときは `ios/build/e2e-dd`
+  の成果物を使うため、このチェックとキー計算は行わない。
 - **ヒット時**: キャッシュの `.app` を `.e2e-ios/app/` にコピーし、
   Xcode の "Bundle React Native code and images" フェーズと同じ手順
   （`expo export:embed` で平文 JS + アセットを出力 → `hermesc -O` で
@@ -109,6 +121,11 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
   xcodebuild と同じ値を export に渡す。hermesc は `node_modules` 同梱のものを
   使うため `ios/` が無い worktree でも動く（`export:embed --bytecode` 単発は
   `-O` が付かないので使わない）。
+  `EXUpdates.bundle/app.manifest`（expo-updates の埋め込みアップデートの
+  アセット目録）も Xcode のビルドフェーズと同じ
+  `expo-updates/utils/build/createUpdatesResources.js` で作り直す。
+  作り直さないと JS で追加した画像アセットが目録に載らず、起動した
+  アプリで解決されず表示されない。
 - **ミス時**: 従来どおり prebuild（必要なら）と xcodebuild を実行し、
   できた `.app` を一時ディレクトリにコピーしてから rename でキャッシュに
   入れる（読み手が書き込み途中を掴まないようアトミックにする）。

@@ -463,16 +463,37 @@ else
 fi
 
 # --- ネイティブプロジェクト / ビルド -----------------------------------------
+# prebuild したときの上流キーを ios/.e2e-native-key に記録し、今のキーと
+# 違う（または記録が無い）ios/ は expo prebuild --clean で作り直す。
+# これがないと、古い入力で生成した ios/ が残った worktree でのフルビルドが
+# 「新しい上流キー・古い中身」の .app をキャッシュに入れ、ios/ の無い別
+# worktree がそれを拾って古いネイティブのまま E2E が通ってしまう（issue #292）。
+# ios/ は CNG の生成物で gitignore 済みなので消してよい。記録の無い ios/
+# （スクリプト外の expo prebuild や expo run:ios で作ったもの）も上流入力との
+# 対応が保証できないため同じく作り直す。prebuild 後に ios/ を手直しした
+# 分離はフィンガープリント（native_ios_fingerprint）側が担う。
 ensure_native_project() {
-  if [ ! -d ios/Animeishi.xcworkspace ]; then
-    echo "ios/Animeishi.xcworkspace がないため expo prebuild を実行します ..."
-    pnpm expo prebuild -p ios
-    # ios/ が残っていると prebuild が CocoaPods をスキップし、xcworkspace が
-    # 作られないまま xcodebuild が失敗するため明示的に pod install する（issue #275）
-    if [ ! -d ios/Animeishi.xcworkspace ]; then
-      echo "xcworkspace がまだないため pod install を実行します ..."
-      (cd ios && pod install)
+  local recorded=""
+  [ -f ios/.e2e-native-key ] && recorded="$(cat ios/.e2e-native-key)"
+  if [ -d ios/Animeishi.xcworkspace ]; then
+    # NATIVE_KEY が空（E2E_SKIP_BUILD=1）のときは従来どおり存在確認だけにする。
+    # スキップ時は ios/build/e2e-dd の成果物をそのまま使うため ios/ を消せない
+    if [ -z "$NATIVE_KEY" ] || [ "$recorded" = "$NATIVE_KEY" ]; then
+      return 0
     fi
+    echo "ios/ が現在のネイティブ入力から生成されたものではないため、expo prebuild --clean で作り直します ..."
+  else
+    echo "ios/Animeishi.xcworkspace がないため expo prebuild を実行します ..."
+  fi
+  pnpm expo prebuild -p ios --clean
+  # ios/ が残っていると prebuild が CocoaPods をスキップし、xcworkspace が
+  # 作られないまま xcodebuild が失敗するため明示的に pod install する（issue #275）
+  if [ ! -d ios/Animeishi.xcworkspace ]; then
+    echo "xcworkspace がまだないため pod install を実行します ..."
+    (cd ios && pod install)
+  fi
+  if [ -n "$NATIVE_KEY" ]; then
+    printf '%s\n' "$NATIVE_KEY" >ios/.e2e-native-key
   fi
 }
 
@@ -516,25 +537,46 @@ native_cache_key() {
 # worktree では別の値になり、手直しが E2E に反映されない誤ヒットを防げる。
 # Pods/ と build/ は除外する（Pods のサポートファイルは worktree の絶対
 # パスを含み一致しない。Pods の実体は Podfile.lock で代表させる）。
+# .e2e-native-key はこのスクリプトの管理ファイルで ios/ の中身ではないため除外。
+# pbxproj 内の 24 桁 UUID（Pods の xcconfig 参照等）は pod install ごとに
+# ランダム生成され意味を持たないので、ハッシュ前に定数へ正規化する。
+# 正規化しないと prebuild のたびにフィンガープリントが変わり、同じ入力の
+# ios/ が別 leaf になり worktree 間共有が成立しない。
 native_ios_fingerprint() {
   [ -d ios ] || return 0
   find ios -type f ! -path '*/Pods/*' ! -path '*/build/*' ! -path '*/xcuserdata/*' \
+    ! -name '.e2e-native-key' \
     | LC_ALL=C sort \
-    | xargs shasum -a 256 \
+    | while IFS= read -r f; do
+        case "$f" in
+          *.pbxproj) sed -E 's/[0-9A-F]{24}/000000000000000000000000/g' "$f" ;;
+          *) cat "$f" ;;
+        esac
+        echo "$f"
+      done \
     | shasum -a 256 | cut -d' ' -f1
 }
 
 # 使えるキャッシュエントリの leaf 名（<key>-<ios_fingerprint>）を返す。
 # ios/ がある worktree は自分の ios/ と同じフィンガープリントのエントリだけを
-# 使う。ios/ が無い worktree は、生成される ios/ が上流入力から一意に決まる
+# 使う（かつ ios/.e2e-native-key が今の上流キーと一致するときに限る）。
+# ios/ が無い worktree は、生成される ios/ が上流入力から一意に決まる
 # はずなので leaf が 1 つだけのときに限り使う（複数バリアントがあると
 # 生成結果がどれと一致するか分からず誤ヒットしうるためミス扱いにする）。
 native_cache_lookup() {
   local fp
   if [ -d ios ]; then
+    # ios/ が現在の上流キーから生成されたものでないと、そのフィンガープリントは
+    # 古い ios/ 由来の leaf 名になる。記録が無い・違う ios/ のときは leaf が
+    # 存在しても使わず（修正前に汚染保存されたエントリに誤ヒットするのを防ぐ）、
+    # ensure_native_project の作り直し後に再評価する
+    [ -n "$NATIVE_KEY" ] || return 0
+    [ -f ios/.e2e-native-key ] || return 0
+    [ "$(cat ios/.e2e-native-key)" = "$NATIVE_KEY" ] || return 0
     fp="$(native_ios_fingerprint)"
-    [ -d "$NATIVE_CACHE_ROOT/$NATIVE_KEY-$fp/Animeishi.app" ] \
-      && echo "$NATIVE_KEY-$fp"
+    if [ -d "$NATIVE_CACHE_ROOT/$NATIVE_KEY-$fp/Animeishi.app" ]; then
+      echo "$NATIVE_KEY-$fp"
+    fi
   else
     local matches=("$NATIVE_CACHE_ROOT/$NATIVE_KEY"-*/Animeishi.app)
     if [ -e "${matches[0]}" ] && [ "${#matches[@]}" -eq 1 ]; then
@@ -600,6 +642,18 @@ rebundle_app() {
   "$hermesc" -emit-binary -max-diagnostic-width=80 -O \
     -out "$app/main.jsbundle" "$tmp/main.jsbundle"
   rm -rf "$tmp"
+  # EXUpdates.bundle/app.manifest は expo-updates が起動時に埋め込み
+  # アップデートのアセットを解決するための目録。放っておくと古いアセット
+  # 一覧のまま残り、JS で追加した画像が起動したアプリに表示されないため、
+  # Xcode の expo-updates ビルドフェーズ（create-updates-resources-ios.sh）
+  # と同じ createUpdatesResources.js で作り直す。launch asset は目録に無く
+  # 固定名の main.jsbundle を指すため、差し替え済みのものがそのまま使われる
+  if [ -d "$app/EXUpdates.bundle" ]; then
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+    EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" \
+      node ../../node_modules/expo-updates/utils/build/createUpdatesResources.js \
+        ios "$PWD" "$app/EXUpdates.bundle" all "$PWD/index.js"
+  fi
   # --preserve-metadata=entitlements で Keychain 等の entitlements を保つ
   # （落とすと SecError -34018 で expo-secure-store 経由のサインアップが失敗する）
   codesign --force --sign - --preserve-metadata=entitlements "$app"
@@ -608,17 +662,20 @@ rebundle_app() {
 APP_PATH="$DERIVED_DATA/Build/Products/Release-iphonesimulator/Animeishi.app"
 NATIVE_KEY=""
 CACHE_LEAF=""
-if [ "$SKIP_BUILD" != "1" ] && [ "$NATIVE_CACHE" != "0" ]; then
+if [ "$SKIP_BUILD" != "1" ]; then
+  # キャッシュ無効（E2E_NATIVE_CACHE=0）でも、ビルドに使う ios/ の鮮度判定と
+  # ios/.e2e-native-key の記録に使うためキーは常に計算する
   NATIVE_KEY="$(native_cache_key)"
-  CACHE_LEAF="$(native_cache_lookup)"
+  [ "$NATIVE_CACHE" != "0" ] && CACHE_LEAF="$(native_cache_lookup)"
 fi
 
 if [ -z "$CACHE_LEAF" ]; then
   ensure_native_project
-  if [ -n "$NATIVE_KEY" ]; then
-    # ios/ が今回生成された worktree でも、生成後ならフィンガープリントで
-    # 確実に leaf を引けるため再評価する（leaf が複数あって引けなかった
-    # 場合も、生成結果と一致する leaf があればここで拾える）
+  if [ "$NATIVE_CACHE" != "0" ] && [ -n "$NATIVE_KEY" ]; then
+    # ios/ が今回生成・作り直しされた worktree でも、生成後なら
+    # フィンガープリントで確実に leaf を引けるため再評価する（leaf が
+    # 複数あって引けなかった場合も、生成結果と一致する leaf があれば
+    # ここで拾える）
     CACHE_LEAF="$(native_cache_lookup)"
   fi
 fi
@@ -645,7 +702,7 @@ elif [ "$SKIP_BUILD" != "1" ]; then
       -derivedDataPath "$DERIVED_DATA" \
       CODE_SIGN_IDENTITY="-" \
       ONLY_ACTIVE_ARCH=YES
-  if [ -n "$NATIVE_KEY" ]; then
+  if [ "$NATIVE_CACHE" != "0" ] && [ -n "$NATIVE_KEY" ]; then
     leaf="$NATIVE_KEY-$(native_ios_fingerprint)"
     echo "ビルド済み .app をネイティブキャッシュに保存します (key: ${leaf:0:20}...)"
     mkdir -p "$NATIVE_CACHE_ROOT"
