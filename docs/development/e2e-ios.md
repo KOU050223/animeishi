@@ -96,22 +96,35 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
   JS バンドルにだけ効く入力（`index.js`・`app/`・`metro.config.ts`・
   `.env` の `EXPO_PUBLIC_*` など）は入れない（ヒット時に毎回差し替えるため）。
 - **ios フィンガープリント**: `ios/`（`Pods/`・`build/`・`xcuserdata/`・
-  `.e2e-native-key` を除く）の中身のハッシュ。`ios/Podfile` や
-  `Podfile.lock`、Xcode 設定を含む。`ios/` は生成物だが、ローカルで
-  手直しした場合はフィンガープリントが変わるため別バリアントのエントリ
-  として扱われ、手直し前の `.app` に誤ヒットしない。`ios/` が無い
-  worktree は、生成される `ios/` が上流入力から一意に決まるはずなので、
-  同じ上流キーの leaf が 1 つだけのときに限りヒットする（複数バリアント
-  があるとどれと一致するか分からず誤ヒットしうるためミス扱い。
-  prebuild 後にフィンガープリントで再評価する）。
-- **ios/ の鮮度（`ios/.e2e-native-key`）**: prebuild に使った上流キーを
-  `ios/` 内に記録する。`ios/` がある worktree は記録が今の上流キーと
-  一致しない（または無い）とフィンガープリントで lookup せず、
+  `.e2e-native-key`・`.e2e-native-fp` を除く）の中身のハッシュ。
+  `ios/Podfile` や `Podfile.lock`、Xcode 設定を含む。ファイルごとの
+  digest とパスの行一覧をハッシュする。`project.pbxproj` の 24 桁 UUID
+  は pod install ごとにランダム生成され意味を持たないため、ハッシュ前に
+  定数へ正規化する（正規化しないと同じ入力の `ios/` が prebuild ごとに
+  別 leaf になり worktree 間共有が成立しない）。`ios/` は生成物だが、
+  ローカルで手直しした場合はフィンガープリントが変わるため別バリアント
+  のエントリとして扱われ、手直し前の `.app` に誤ヒットしない。
+  `ios/` が無い worktree は、leaf 内の印 `.e2e-clean`（後述）が付いた
+  エントリだけを使い、それが 1 つだけのときに限りヒットする。
+- **ios/ の鮮度（`ios/.e2e-native-key` / `ios/.e2e-native-fp`）**:
+  prebuild に使った上流キーと、生成直後の `ios/` フィンガープリントを
+  `ios/` 内に記録する。`ios/` がある worktree はキーの記録が今の
+  上流キーと一致しない（または無い）とフィンガープリントで lookup せず、
   `expo prebuild --clean` で作り直してから再評価する。これがないと
   古い入力で生成した `ios/` から作った `.app` が新しい上流キーで
   キャッシュに入り、他 worktree が古いネイティブを拾ってしまう
   （キャッシュ汚染）。`E2E_SKIP_BUILD=1` のときは `ios/build/e2e-dd`
   の成果物を使うため、このチェックとキー計算は行わない。
+- **クリーン印（`.e2e-clean`）**: ビルドした `.app` を保存するとき、
+  保存元の `ios/` が生成直後のまま（`ios/.e2e-native-fp` の記録と現在の
+  フィンガープリントが一致）だった leaf にだけ leaf 内へ印を付ける。
+  手直し `ios/` 由来の leaf も、同じフィンガープリントを持つ
+  worktree（手直しした本人）なら再利用できるため保存自体は行うが、
+  印は付かない。`ios/` が無い worktree は生成される `ios/` の
+  フィンガープリントを知らないため、印のある leaf（= 上流キーから
+  一意に決まる `ios/` で作られたもの）だけを拾う。これがないと、
+  手直し `ios/` で作られた leaf が唯一の leaf だったときに ios/ 無し
+  worktree がそれを拾い、手直し入りのネイティブで E2E が通ってしまう。
 - **ヒット時**: キャッシュの `.app` を `.e2e-ios/app/` にコピーし、
   Xcode の "Bundle React Native code and images" フェーズと同じ手順
   （`expo export:embed` で平文 JS + アセットを出力 → `hermesc -O` で

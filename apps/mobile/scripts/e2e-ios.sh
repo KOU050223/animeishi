@@ -494,6 +494,13 @@ ensure_native_project() {
   fi
   if [ -n "$NATIVE_KEY" ]; then
     printf '%s\n' "$NATIVE_KEY" >ios/.e2e-native-key
+    # 生成直後（手直し前）のフィンガープリントも記録する。あとで現在の
+    # フィンガープリントと比べることで「この ios/ が上流入力から一意に決まる
+    # 内容のままか」を判定し、手直し ios/ 由来のビルドを ios/ の無い
+    # worktree が拾わないようにする。キーが合っていてもフィンガープリントの
+    # 記録が無い ios/（この機能より前に生成したもの等）は手直しの有無を
+    # 判別できないので、ここ以外では埋め直さない
+    native_ios_fingerprint >ios/.e2e-native-fp
   fi
 }
 
@@ -544,15 +551,17 @@ native_cache_key() {
 # ios/ が別 leaf になり worktree 間共有が成立しない。
 native_ios_fingerprint() {
   [ -d ios ] || return 0
+  # 内容とパスを直結すると境界がずれて衝突しうるため、ファイルごとの
+  # digest とパスの行一覧をハッシュする
   find ios -type f ! -path '*/Pods/*' ! -path '*/build/*' ! -path '*/xcuserdata/*' \
-    ! -name '.e2e-native-key' \
+    ! -name '.e2e-native-key' ! -name '.e2e-native-fp' \
     | LC_ALL=C sort \
     | while IFS= read -r f; do
         case "$f" in
-          *.pbxproj) sed -E 's/[0-9A-F]{24}/000000000000000000000000/g' "$f" ;;
-          *) cat "$f" ;;
+          *.pbxproj) h="$(sed -E 's/[0-9A-F]{24}/000000000000000000000000/g' "$f" | shasum -a 256 | cut -d' ' -f1)" ;;
+          *) h="$(shasum -a 256 <"$f" | cut -d' ' -f1)" ;;
         esac
-        echo "$f"
+        printf '%s  %s\n' "$h" "$f"
       done \
     | shasum -a 256 | cut -d' ' -f1
 }
@@ -560,9 +569,12 @@ native_ios_fingerprint() {
 # 使えるキャッシュエントリの leaf 名（<key>-<ios_fingerprint>）を返す。
 # ios/ がある worktree は自分の ios/ と同じフィンガープリントのエントリだけを
 # 使う（かつ ios/.e2e-native-key が今の上流キーと一致するときに限る）。
-# ios/ が無い worktree は、生成される ios/ が上流入力から一意に決まる
-# はずなので leaf が 1 つだけのときに限り使う（複数バリアントがあると
-# 生成結果がどれと一致するか分からず誤ヒットしうるためミス扱いにする）。
+# ios/ が無い worktree は「保存時の ios/ が生成直後のまま（手直しなし）だった」
+# ことを示す印 .e2e-clean の付いた leaf だけを使い、それが 1 つだけのときに
+# 限り使う。印が無い leaf は手直し ios/ 由来か印の仕組みより前に保存された
+# もので、生成される ios/ と一致する保証がないため拾わない
+# （.e2e-clean は prebuild 後の ios/ から一意に決まる leaf にしか付かないので、
+# 同じ上流キーに複数の印付き leaf はありえない）。
 native_cache_lookup() {
   local fp
   if [ -d ios ]; then
@@ -578,8 +590,9 @@ native_cache_lookup() {
       echo "$NATIVE_KEY-$fp"
     fi
   else
-    local matches=("$NATIVE_CACHE_ROOT/$NATIVE_KEY"-*/Animeishi.app)
-    if [ -e "${matches[0]}" ] && [ "${#matches[@]}" -eq 1 ]; then
+    local matches=("$NATIVE_CACHE_ROOT/$NATIVE_KEY"-*/.e2e-clean)
+    if [ -e "${matches[0]}" ] && [ "${#matches[@]}" -eq 1 ] \
+      && [ -d "$(dirname "${matches[0]}")/Animeishi.app" ]; then
       basename "$(dirname "${matches[0]}")"
     fi
   fi
@@ -707,6 +720,14 @@ elif [ "$SKIP_BUILD" != "1" ]; then
     echo "ビルド済み .app をネイティブキャッシュに保存します (key: ${leaf:0:20}...)"
     mkdir -p "$NATIVE_CACHE_ROOT"
     save_to_native_cache "$APP_PATH" "$leaf"
+    # 手直し ios/ 由来の leaf も同じフィンガープリントを持つ worktree では
+    # 再利用したいので保存自体は止めない。代わりに、ビルド時の ios/ が
+    # 生成直後のまま（= 上流入力から一意に決まる内容）だった leaf にだけ
+    # 印を付け、ios/ の無い worktree は印のある leaf だけを使う
+    if [ -f ios/.e2e-native-fp ] \
+      && [ "$(cat ios/.e2e-native-fp)" = "$(native_ios_fingerprint)" ]; then
+      touch "$NATIVE_CACHE_ROOT/$leaf/.e2e-clean"
+    fi
     prune_native_cache
   fi
 fi
