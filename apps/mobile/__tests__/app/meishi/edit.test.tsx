@@ -127,7 +127,7 @@ jest.mock("@/lib/meishi/useMeishiDocument", () => ({
   }),
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   mockDoc = defaultDoc;
   mockDocLoaded = true;
   mockBack.mockClear();
@@ -140,9 +140,9 @@ beforeEach(() => {
 
 describe("MeishiEditScreen の保存フィードバック", () => {
   it("保存ボタン押下時にドキュメントを保存して上位レイヤーへ成功表示を出す", async () => {
-    render(<MeishiEditScreen />);
+    await render(<MeishiEditScreen />);
 
-    fireEvent.press(screen.getByLabelText("保存"));
+    await fireEvent.press(screen.getByLabelText("保存"));
 
     await waitFor(() => {
       expect(mockSaveDocument).toHaveBeenCalledTimes(1);
@@ -163,48 +163,48 @@ describe("MeishiEditScreen の保存フィードバック", () => {
 
 describe("MeishiEditScreen の初回テンプレート選択", () => {
   // 起動時の自動オープンはレンダー中の状態調整で行う（#267）
-  it("ドキュメント読み込み完了時に空ならテンプレート選択を一度だけ開く", () => {
+  it("ドキュメント読み込み完了時に空ならテンプレート選択を一度だけ開く", async () => {
     mockDoc = null;
     mockDocLoaded = true;
-    const { rerender } = render(<MeishiEditScreen />);
+    const { rerender } = await render(<MeishiEditScreen />);
 
     expect(screen.getByText("テンプレート選択")).toBeTruthy();
 
     // 再レンダーを繰り返しても開いたまま（再レンダー上限にならない）
-    rerender(<MeishiEditScreen />);
+    await rerender(<MeishiEditScreen />);
     expect(screen.getByText("テンプレート選択")).toBeTruthy();
   });
 
-  it("ドキュメントが既にあるときはテンプレート選択を開かない", () => {
-    render(<MeishiEditScreen />);
+  it("ドキュメントが既にあるときはテンプレート選択を開かない", async () => {
+    await render(<MeishiEditScreen />);
     expect(screen.queryByText("テンプレート選択")).toBeNull();
   });
 
-  it("読み込み中（loaded=false）の間はテンプレート選択を開かない", () => {
+  it("読み込み中（loaded=false）の間はテンプレート選択を開かない", async () => {
     mockDoc = null;
     mockDocLoaded = false;
-    render(<MeishiEditScreen />);
+    await render(<MeishiEditScreen />);
     expect(screen.queryByText("テンプレート選択")).toBeNull();
   });
 });
 
 describe("MeishiEditScreen の戻るボタン", () => {
-  it("戻り先がある場合は履歴を戻る", () => {
+  it("戻り先がある場合は履歴を戻る", async () => {
     mockCanGoBack.mockReturnValue(true);
-    render(<MeishiEditScreen />);
+    await render(<MeishiEditScreen />);
 
-    fireEvent.press(screen.getByLabelText("戻る"));
+    await fireEvent.press(screen.getByLabelText("戻る"));
 
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockSaveDocument).not.toHaveBeenCalled();
   });
 
-  it("戻り先がない場合はプロフィールへ移動する", () => {
+  it("戻り先がない場合はプロフィールへ移動する", async () => {
     mockCanGoBack.mockReturnValue(false);
-    render(<MeishiEditScreen />);
+    await render(<MeishiEditScreen />);
 
-    fireEvent.press(screen.getByLabelText("戻る"));
+    await fireEvent.press(screen.getByLabelText("戻る"));
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");

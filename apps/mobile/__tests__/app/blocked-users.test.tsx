@@ -40,7 +40,7 @@ jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   loggedInUser();
@@ -63,15 +63,15 @@ beforeEach(() => {
 });
 
 describe("BlockedUsersScreen", () => {
-  it("ブロック中のユーザーが一覧表示される", () => {
-    render(<BlockedUsersScreen />);
+  it("ブロック中のユーザーが一覧表示される", async () => {
+    await render(<BlockedUsersScreen />);
     expect(screen.getByText("ブロック済みユーザー")).toBeTruthy();
     expect(screen.getByText("1 人")).toBeTruthy();
   });
 
-  it("解除ボタンを押すと確認ダイアログ経由で unblock が呼ばれる", () => {
-    render(<BlockedUsersScreen />);
-    fireEvent.press(
+  it("解除ボタンを押すと確認ダイアログ経由で unblock が呼ばれる", async () => {
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(
       screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
     );
 
@@ -88,8 +88,8 @@ describe("BlockedUsersScreen", () => {
     mockUnblockMutateAsync.mockRejectedValue(
       new ApiRequestError(500, "ブロック解除に失敗しました"),
     );
-    render(<BlockedUsersScreen />);
-    fireEvent.press(
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(
       screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
     );
 
@@ -106,8 +106,8 @@ describe("BlockedUsersScreen", () => {
     mockUnblockMutateAsync.mockRejectedValue(
       new Error("Network request failed"),
     );
-    render(<BlockedUsersScreen />);
-    fireEvent.press(
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(
       screen.getByLabelText("ブロック済みユーザーのブロックを解除"),
     );
 
@@ -120,14 +120,14 @@ describe("BlockedUsersScreen", () => {
     );
   });
 
-  it("ブロック中のユーザーがいなければ空表示になる", () => {
+  it("ブロック中のユーザーがいなければ空表示になる", async () => {
     mockUseBlockedUsers.mockReturnValue({
       data: [],
       isLoading: false,
       isError: false,
       refetch: jest.fn(),
     });
-    render(<BlockedUsersScreen />);
+    await render(<BlockedUsersScreen />);
     expect(screen.getByText("ブロックしているユーザーはいません")).toBeTruthy();
   });
 });

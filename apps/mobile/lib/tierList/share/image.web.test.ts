@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment <rootDir>/jest.jsdom-env.cjs
  */
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import {
   canShareImageFile,
   captureTierListImageFile,
@@ -20,11 +20,11 @@ jest.mock("html-to-image", () => ({
 
 const PNG_DATA_URL = "data:image/png;base64,ZmFrZS1wbmc=";
 
-function buildTarget(html: string): RefObject<View | null> {
+function buildTarget(html: string): RefObject<ViewInstance | null> {
   const div = document.createElement("div");
   div.innerHTML = html;
   document.body.appendChild(div);
-  return { current: div } as unknown as RefObject<View | null>;
+  return { current: div } as unknown as RefObject<ViewInstance | null>;
 }
 
 /** 差し替え後の src の読み込みを全て完了させる（load か error を発火する）。 */
@@ -205,7 +205,7 @@ describe("shareTierListImage (web)", () => {
   });
 
   it("ref が DOM 要素でなければエラーになる", async () => {
-    const target = { current: {} } as unknown as RefObject<View | null>;
+    const target = { current: {} } as unknown as RefObject<ViewInstance | null>;
     await expect(
       shareTierListImage(target, {
         dialogTitle: "t",

@@ -1,6 +1,5 @@
-import { render } from "@testing-library/react-native";
+import { render, screen } from "@testing-library/react-native";
 import { useColorScheme } from "nativewind";
-import { Image } from "expo-image";
 import {
   StyleSheet,
   type StyleProp,
@@ -30,7 +29,7 @@ const setScheme = (colorScheme: "light" | "dark") =>
   });
 
 // スキームを切り替えたテストが後続へ漏れないよう、各テストの前に light へ戻す。
-beforeEach(() => {
+beforeEach(async () => {
   setScheme("light");
 });
 
@@ -61,8 +60,8 @@ const ITEMS_WITH_IMAGES = [
 ];
 
 describe("TierBoardSnapshot", () => {
-  it("タイトルと各 tier のラベル・作品を表示する", () => {
-    const { getByText } = render(
+  it("タイトルと各 tier のラベル・作品を表示する", async () => {
+    const { getByText } = await render(
       <TierBoardSnapshot title="2026春のTier表" tiers={TIERS} items={ITEMS} />,
     );
 
@@ -74,8 +73,8 @@ describe("TierBoardSnapshot", () => {
     expect(getByText("作品C")).toBeTruthy();
   });
 
-  it("未分類の作品は描画しない", () => {
-    const { queryByText } = render(
+  it("未分類の作品は描画しない", async () => {
+    const { queryByText } = await render(
       <TierBoardSnapshot
         title="t"
         tiers={TIERS}
@@ -92,27 +91,25 @@ describe("TierBoardSnapshot", () => {
       StyleSheet.flatten(root.props.style as StyleProp<ViewStyle>)
         ?.backgroundColor;
 
-    it("light スキームでは白系の背景で描く", () => {
-      const { UNSAFE_root } = render(
-        <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />,
-      );
-      // ルート View だけが collapsable={false} を持つ（view-shot 用）
-      const board = UNSAFE_root.findByProps({ collapsable: false });
-      expect(rootBackgroundOf(board)).toBe(colors.light.background);
+    // ルート View だけが collapsable={false} を持つ（view-shot 用）。
+    // RNTL 14 では UNSAFE_root/findByProps が無いため queryAll で絞る。
+    const boardView = () =>
+      screen.container.queryAll((node) => node.props.collapsable === false)[0];
+
+    it("light スキームでは白系の背景で描く", async () => {
+      await render(<TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />);
+      expect(rootBackgroundOf(boardView())).toBe(colors.light.background);
     });
 
-    it("dark スキームでは暗色の背景で描く", () => {
+    it("dark スキームでは暗色の背景で描く", async () => {
       setScheme("dark");
-      const { UNSAFE_root } = render(
-        <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />,
-      );
-      const board = UNSAFE_root.findByProps({ collapsable: false });
-      expect(rootBackgroundOf(board)).toBe(colors.dark.background);
+      await render(<TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />);
+      expect(rootBackgroundOf(boardView())).toBe(colors.dark.background);
     });
 
-    it("tier ラベルの文字色は行の背景色とのコントラストで決まる", () => {
+    it("tier ラベルの文字色は行の背景色とのコントラストで決まる", async () => {
       // TIERS の s は #ff7f7f。明るい側なので濃色文字が返る。
-      const { getByText } = render(
+      const { getByText } = await render(
         <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />,
       );
       const style = StyleSheet.flatten(
@@ -123,9 +120,9 @@ describe("TierBoardSnapshot", () => {
   });
 
   describe("onReady", () => {
-    it("画像が無い表はマウント直後に onReady を呼ぶ", () => {
+    it("画像が無い表はマウント直後に onReady を呼ぶ", async () => {
       const onReady = jest.fn();
-      render(
+      await render(
         <TierBoardSnapshot
           title="t"
           tiers={TIERS}
@@ -136,9 +133,9 @@ describe("TierBoardSnapshot", () => {
       expect(onReady).toHaveBeenCalledTimes(1);
     });
 
-    it("全画像の読み込み（onLoadEnd）が終わるまで onReady を呼ばない", () => {
+    it("全画像の読み込み（onLoadEnd）が終わるまで onReady を呼ばない", async () => {
       const onReady = jest.fn();
-      const { UNSAFE_getAllByType } = render(
+      await render(
         <TierBoardSnapshot
           title="t"
           tiers={TIERS}
@@ -149,7 +146,12 @@ describe("TierBoardSnapshot", () => {
 
       expect(onReady).not.toHaveBeenCalled();
 
-      const images = UNSAFE_getAllByType(Image);
+      // RN 0.88 ではレガシー ViewManager が ViewManagerAdapter_ 接頭辞付きの
+      // ホスト名でマウントされるため、ExpoImage で終わる型名で絞る。
+      const images = screen.container.queryAll(
+        (node) =>
+          typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+      );
       expect(images).toHaveLength(2);
 
       // 1 枚目の完了ではまだ呼ばれない
@@ -161,20 +163,25 @@ describe("TierBoardSnapshot", () => {
       expect(onReady).toHaveBeenCalledTimes(1);
     });
 
-    it("撮影時にフェードイン途中の画像が写らないよう transition を付けない", () => {
-      const { UNSAFE_getAllByType } = render(
+    it("撮影時にフェードイン途中の画像が写らないよう transition を付けない", async () => {
+      await render(
         <TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS_WITH_IMAGES} />,
       );
-      for (const image of UNSAFE_getAllByType(Image)) {
-        expect(image.props.transition).toBe(0);
+      for (const image of screen.container.queryAll(
+        (node) =>
+          typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+      )) {
+        // expo-image 3.x は transition={0} を { duration: 0 } に正規化して
+        // ネイティブビューへ渡す。
+        expect(image.props.transition).toEqual({ duration: 0 });
       }
     });
 
-    it("tiers に無い tierKey の画像付き作品は読み込み待ちに含めない", () => {
+    it("tiers に無い tierKey の画像付き作品は読み込み待ちに含めない", async () => {
       // 描画されない画像は onLoadEnd が来ない。読み込み待ち対象に数えると
       // onReady が永久に発火せずキャプチャがタイムアウト待ちになる。
       const onReady = jest.fn();
-      render(
+      await render(
         <TierBoardSnapshot
           title="t"
           tiers={TIERS}

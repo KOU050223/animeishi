@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "animeishi",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
     "web": {
       "bundler": "metro",

@@ -24,14 +24,14 @@ jest.mock("expo-router", () => ({
   },
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockCanGoBack = true;
 });
 
 describe("SupportScreen", () => {
-  it("タイトルと FAQ セクションを表示する", () => {
-    render(<SupportScreen />);
+  it("タイトルと FAQ セクションを表示する", async () => {
+    await render(<SupportScreen />);
 
     expect(screen.getByText("サポート")).toBeTruthy();
     expect(screen.getByText("Q. 視聴履歴や作品検索が使えません")).toBeTruthy();
@@ -41,19 +41,19 @@ describe("SupportScreen", () => {
     ).toBeTruthy();
   });
 
-  it("問い合わせ先のプレースホルダと法務ページへのリンクを表示する", () => {
-    render(<SupportScreen />);
+  it("問い合わせ先のプレースホルダと法務ページへのリンクを表示する", async () => {
+    await render(<SupportScreen />);
 
     expect(screen.getByText(/{{CONTACT_EMAIL}}/)).toBeTruthy();
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();
   });
 
-  it("遷移履歴が無い場合、戻るボタンでホームへ戻る", () => {
+  it("遷移履歴が無い場合、戻るボタンでホームへ戻る", async () => {
     mockCanGoBack = false;
-    render(<SupportScreen />);
+    await render(<SupportScreen />);
 
-    fireEvent.press(screen.getByTestId("legal-back-button"));
+    await fireEvent.press(screen.getByTestId("legal-back-button"));
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/");

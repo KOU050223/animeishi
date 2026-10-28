@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Text, View, type AccessibilityActionEvent } from "react-native";
+import {
+  Text,
+  View,
+  type AccessibilityActionEvent,
+  type ViewInstance,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -209,7 +214,7 @@ export function DraggableWorkCard({
   // 計測は DropZone と同じ仕組み（measureInWindow + ずらし世代で遅れ応答を
   // 弾く）。ドラッグ中の自分の矩形は transform 分ずれ得るため、ヒットテスト
   // 側ではドラッグ中カードを除外して使う前提。
-  const cardRef = useRef<View>(null);
+  const cardRef = useRef<ViewInstance>(null);
   const aliveRef = useRef(false);
   useEffect(() => {
     aliveRef.current = true;

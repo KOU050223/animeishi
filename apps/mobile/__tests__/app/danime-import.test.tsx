@@ -18,13 +18,13 @@ jest.mock("react-native-webview", () => ({
   WebView: () => null,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
 });
 
 describe("DanimeImportScreen（ネイティブ・フラグ無効）", () => {
-  it("Web 版への案内を表示し、取り込み UI は出さない", () => {
-    render(<DanimeImportScreen />);
+  it("Web 版への案内を表示し、取り込み UI は出さない", async () => {
+    await render(<DanimeImportScreen />);
 
     expect(
       screen.getByText("この機能は現在 Web 版でのみ利用できます。"),
@@ -33,23 +33,23 @@ describe("DanimeImportScreen（ネイティブ・フラグ無効）", () => {
     expect(screen.queryByTestId("danime-extract-button")).toBeNull();
   });
 
-  it("「Web 版を開く」で Web 版の取り込み画面を外部ブラウザで開く", () => {
+  it("「Web 版を開く」で Web 版の取り込み画面を外部ブラウザで開く", async () => {
     const openURL = jest
       .spyOn(Linking, "openURL")
-      .mockImplementation(() => Promise.resolve(true));
-    render(<DanimeImportScreen />);
+      .mockImplementation(() => Promise.resolve());
+    await render(<DanimeImportScreen />);
 
-    fireEvent.press(screen.getByTestId("danime-open-web-button"));
+    await fireEvent.press(screen.getByTestId("danime-open-web-button"));
 
     expect(openURL).toHaveBeenCalledWith(
       expect.stringMatching(/\/danime-import$/),
     );
   });
 
-  it("「戻る」で前の画面へ戻る", () => {
-    render(<DanimeImportScreen />);
+  it("「戻る」で前の画面へ戻る", async () => {
+    await render(<DanimeImportScreen />);
 
-    fireEvent.press(screen.getByText("戻る"));
+    await fireEvent.press(screen.getByText("戻る"));
 
     expect(mockBack).toHaveBeenCalledTimes(1);
   });

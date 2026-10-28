@@ -272,7 +272,8 @@ pnpm exec eas env:create --scope project --name SENTRY_AUTH_TOKEN \
 EAS Update で OTA を配信した場合の source map は別途アップロードが必要:
 
 ```bash
-pnpm exec eas update --channel production
+# --environment は SDK 55 以降必須。EAS 環境の変数だけが update に使われる
+pnpm exec eas update --channel production --environment production
 pnpm exec sentry-expo-upload-sourcemaps dist  # SENTRY_AUTH_TOKEN を環境変数で渡す
 ```
 

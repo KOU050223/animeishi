@@ -39,7 +39,7 @@ export default function TabsLayout() {
         options={{
           title: "ホーム",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -48,7 +48,7 @@ export default function TabsLayout() {
         options={{
           title: "アニメ",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
+            <Ionicons name="list-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -58,7 +58,11 @@ export default function TabsLayout() {
           title: "QR",
           tabBarAccessibilityLabel: "QRコードタブ",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="qr-code-outline" size={size} color={color} />
+            <Ionicons
+              name="qr-code-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -68,7 +72,7 @@ export default function TabsLayout() {
           title: "視聴履歴",
           tabBarAccessibilityLabel: "視聴履歴タブ",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
+            <Ionicons name="time-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -79,7 +83,11 @@ export default function TabsLayout() {
           title: "推し",
           tabBarAccessibilityLabel: "お気に入りタブ",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
+            <Ionicons
+              name="heart-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -89,7 +97,11 @@ export default function TabsLayout() {
           title: "フレンド",
           tabBarAccessibilityLabel: "フレンドタブ",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+            <Ionicons
+              name="people-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />
@@ -100,7 +112,11 @@ export default function TabsLayout() {
           tabBarAccessibilityLabel: "プロフィールタブ",
           tabBarButtonTestID: "profile-tab-button",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons
+              name="person-outline"
+              size={size}
+              color={color as string}
+            />
           ),
         }}
       />

@@ -65,7 +65,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
 
   // useWatchHistory.test.tsx と同じ理由で、Mutation の GC タイマーを
   // 確実に止めてから Jest を抜ける。
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAuth();
     jest.clearAllMocks();
     loggedInUser({ userId });
@@ -83,8 +83,8 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     });
   });
 
-  afterEach(() => {
-    cleanup();
+  afterEach(async () => {
+    await cleanup();
     client
       .getMutationCache()
       .getAll()
@@ -95,7 +95,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   it("useAnalysis: 保存済みの分析結果を返す", async () => {
     mockGet.mockResolvedValue({ ok: true, json: async () => ANALYSIS_BODY });
 
-    const { result } = renderHook(() => useAnalysis(), {
+    const { result } = await renderHook(() => useAnalysis(), {
       wrapper: createWrapper(client),
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -109,7 +109,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   it("useAnalysis: 未サインインではクエリを実行しない", async () => {
     signedOutUser();
 
-    const { result } = renderHook(() => useAnalysis(), {
+    const { result } = await renderHook(() => useAnalysis(), {
       wrapper: createWrapper(client),
     });
     // enabled=false のまま pending（fetch されない）。
@@ -120,7 +120,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   it("useAnalysis: API エラーは ApiRequestError になる", async () => {
     mockGet.mockResolvedValue({ ok: false, status: 500 });
 
-    const { result } = renderHook(() => useAnalysis(), {
+    const { result } = await renderHook(() => useAnalysis(), {
       wrapper: createWrapper(client),
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
@@ -135,7 +135,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
       json: async () => ({ ...ANALYSIS_BODY, cached: false }),
     });
 
-    const { result } = renderHook(() => useGenerateAnalysis(), {
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
     });
 
@@ -157,7 +157,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
       }),
     });
 
-    const { result } = renderHook(() => useGenerateAnalysis(), {
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
     });
 
@@ -178,7 +178,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
       json: async () => ({ ...ANALYSIS_BODY, cached: false }),
     });
 
-    const { result } = renderHook(() => useGenerateAnalysis(), {
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
     });
 
@@ -212,7 +212,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
       json: async () => ({ ...ANALYSIS_BODY, cached: false }),
     });
 
-    const { result } = renderHook(() => useGenerateAnalysis(), {
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
     });
 
@@ -227,7 +227,7 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   it("useGenerateAnalysis: 履歴同期に失敗したら生成せずエラーになる", async () => {
     mockWatchHistoryGet.mockResolvedValue({ ok: false, status: 502 });
 
-    const { result } = renderHook(() => useGenerateAnalysis(), {
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
     });
 

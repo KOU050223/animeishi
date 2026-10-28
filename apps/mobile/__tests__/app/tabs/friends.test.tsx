@@ -51,7 +51,7 @@ jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockRemoveMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
@@ -59,9 +59,9 @@ beforeEach(() => {
 });
 
 describe("FriendsScreen", () => {
-  it("削除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", () => {
-    render(<FriendsScreen />);
-    fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
+  it("削除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
+    await render(<FriendsScreen />);
+    await fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
 
     expect(mockRemoveMutateAsync).toHaveBeenCalledWith("friend_1");
   });
@@ -70,8 +70,8 @@ describe("FriendsScreen", () => {
     mockRemoveMutateAsync.mockRejectedValue(
       new ApiRequestError(500, "フレンド削除に失敗しました"),
     );
-    render(<FriendsScreen />);
-    fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
+    await render(<FriendsScreen />);
+    await fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
@@ -86,8 +86,8 @@ describe("FriendsScreen", () => {
     mockRemoveMutateAsync.mockRejectedValue(
       new Error("Network request failed"),
     );
-    render(<FriendsScreen />);
-    fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
+    await render(<FriendsScreen />);
+    await fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(

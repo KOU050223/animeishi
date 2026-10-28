@@ -25,8 +25,8 @@ const context: MeishiRenderContext = {
 };
 
 describe("PropertyPanel", () => {
-  it("既存データ連携のテキスト要素でも文字列欄に要素の文字列を表示する", () => {
-    render(
+  it("既存データ連携のテキスト要素でも文字列欄に要素の文字列を表示する", async () => {
+    await render(
       <PropertyPanel
         element={baseTextElement}
         onChange={jest.fn()}
@@ -41,8 +41,8 @@ describe("PropertyPanel", () => {
     expect(screen.getByText("It's My Go!!!!!")).toBeTruthy();
   });
 
-  it("名前連携のテキスト要素は文字列欄にプロフィールの名前を表示する", () => {
-    render(
+  it("名前連携のテキスト要素は文字列欄にプロフィールの名前を表示する", async () => {
+    await render(
       <PropertyPanel
         element={{ ...baseTextElement, source: "username", text: "名前" }}
         context={context}
@@ -58,8 +58,8 @@ describe("PropertyPanel", () => {
     expect(screen.getByText("kou050223")).toBeTruthy();
   });
 
-  it("好きなセリフ連携のテキスト要素は文字列欄にプロフィールの好きなセリフを表示する", () => {
-    render(
+  it("好きなセリフ連携のテキスト要素は文字列欄にプロフィールの好きなセリフを表示する", async () => {
+    await render(
       <PropertyPanel
         element={{
           ...baseTextElement,

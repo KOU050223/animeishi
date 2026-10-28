@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { TextInput } from "react-native";
-import type { TextInputProps } from "react-native";
+import type { TextInputInstance, TextInputProps } from "react-native";
 import { useThemeColors } from "@/lib/theme";
 
 export type InputProps = TextInputProps;
@@ -13,7 +13,7 @@ export type InputProps = TextInputProps;
  * スキーム判定は nativewind の useColorScheme を使うため、ダークモード (#171) で
  * `dark:` バリアントが有効になるのと同じ条件で dark トークンへ切り替わる。
  */
-export const Input = forwardRef<TextInput, InputProps>(function Input(
+export const Input = forwardRef<TextInputInstance, InputProps>(function Input(
   { placeholderTextColor, ...props },
   ref,
 ) {

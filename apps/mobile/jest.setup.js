@@ -34,6 +34,16 @@ jest.mock("react-native", () => {
   return ReactNative;
 });
 
+// Reanimated 4 / Worklets はネイティブランタイム（worklet 実行器）を要求する。
+// jest では公式が提供する JS モックに差し替える（reanimated/mock は
+// useSharedValue 等の JS 実装を提供する）。
+jest.mock("react-native-worklets", () =>
+  require("react-native-worklets/src/mock"),
+);
+jest.mock("react-native-reanimated", () =>
+  require("react-native-reanimated/mock"),
+);
+
 // @expo/vector-icons は初回レンダリング時にフォント読み込み状態を setState する。
 // アイコンそのものを検証しないテストでは非同期更新だけがノイズになるため、
 // 軽量な no-op コンポーネントに差し替える。
@@ -98,5 +108,7 @@ require("@/lib/i18n");
   const { render } = require("@testing-library/react-native");
   const { createElement } = require("react");
   const { View } = require("react-native");
-  render(createElement(View)).unmount();
+  // RNTL 14 で render は Promise を返す。ウォームアップの描画はマイクロタスクで
+  // 実行され、setup 完了前に解決するため await 不要（CommonJS のため待てない）。
+  void render(createElement(View)).then((r) => r.unmount());
 }

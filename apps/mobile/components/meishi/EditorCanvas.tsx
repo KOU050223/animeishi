@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, type LayoutChangeEvent } from "react-native";
+import { View, type LayoutChangeEvent, type ViewInstance } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue } from "react-native-reanimated";
 import { useThemeColors } from "@/lib/theme";
@@ -39,7 +39,7 @@ export function EditorCanvas({
 }: EditorCanvasProps) {
   const colors = useThemeColors();
   const [size, setSize] = useState<Size | null>(null);
-  const canvasRef = useRef<View>(null);
+  const canvasRef = useRef<ViewInstance>(null);
   // キャンバスの画面上の絶対原点（px）。回転ジェスチャで absoluteX/Y をキャンバスローカルに変換するのに使う。
   // ジェスチャコールバックから参照するため ref ではなく SharedValue にする
   // （ref だと React Compiler 系 lint の react/refs に引っかかる）。

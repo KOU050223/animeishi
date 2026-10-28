@@ -20,7 +20,7 @@ jest.mock("expo-crypto", () => ({
 
 const infoMock = () => jest.mocked(Sentry.logger.info);
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   // 汎用経路（lib/events.ts）のレート制限・ハッシュキャッシュ・
@@ -125,7 +125,7 @@ describe("trackAnnictFunnel", () => {
 describe("useAnnictFunnel", () => {
   it("surface を束縛し、サインイン済みなら user_key を付ける", async () => {
     loggedInUser({ userId: "user_signed_in" });
-    const { result } = renderHook(() => useAnnictFunnel("profile_card"));
+    const { result } = await renderHook(() => useAnnictFunnel("profile_card"));
 
     result.current("cta_tap");
 

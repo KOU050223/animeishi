@@ -18,7 +18,7 @@ jest.mock("expo-router", () => ({
 
 const onError = jest.fn();
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
 });
@@ -31,8 +31,8 @@ describe("PasskeySignInButton", () => {
       createdSessionId: "session_passkey",
     });
 
-    render(<PasskeySignInButton onError={onError} />);
-    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+    await render(<PasskeySignInButton onError={onError} />);
+    await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalledWith({
@@ -51,8 +51,8 @@ describe("PasskeySignInButton", () => {
     cancelError.name = "NotAllowedError";
     auth.signIn.authenticateWithPasskey.mockRejectedValueOnce(cancelError);
 
-    render(<PasskeySignInButton onError={onError} />);
-    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+    await render(<PasskeySignInButton onError={onError} />);
+    await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalled();
@@ -72,8 +72,8 @@ describe("PasskeySignInButton", () => {
       new Error("network error"),
     );
 
-    render(<PasskeySignInButton onError={onError} />);
-    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+    await render(<PasskeySignInButton onError={onError} />);
+    await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
       expect(onError).toHaveBeenCalledWith(
@@ -90,8 +90,8 @@ describe("PasskeySignInButton", () => {
       createdSessionId: "session_passkey",
     });
 
-    render(<PasskeySignInButton onError={onError} />);
-    fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
+    await render(<PasskeySignInButton onError={onError} />);
+    await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);

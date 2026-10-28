@@ -50,12 +50,12 @@ const connectedResult = {
   isFetchingNextPage: false,
 };
 
-function renderPicker(
+async function renderPicker(
   overrides: Partial<Parameters<typeof AnimeImagePicker>[0]> = {},
 ) {
   const onPick = jest.fn();
   const onClose = jest.fn();
-  render(
+  await render(
     <AnimeImagePicker
       visible
       onClose={onClose}
@@ -66,44 +66,44 @@ function renderPicker(
   return { onPick, onClose };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   mockUseAnimeList.mockReset();
   mockUseAnimeList.mockReturnValue(connectedResult);
   mockAnnictConnected = true;
 });
 
 describe("AnimeImagePicker", () => {
-  it("検索タブ: 作品を押すと解決済み画像 URL で onPick が呼ばれる", () => {
-    const { onPick } = renderPicker();
+  it("検索タブ: 作品を押すと解決済み画像 URL で onPick が呼ばれる", async () => {
+    const { onPick } = await renderPicker();
 
-    fireEvent.press(screen.getByLabelText("検索ヒット作品の画像を追加"));
+    await fireEvent.press(screen.getByLabelText("検索ヒット作品の画像を追加"));
 
     expect(onPick).toHaveBeenCalledWith("https://img.example/search-1.jpg");
   });
 
-  it("画像 URL を解決できない作品は選択できない", () => {
+  it("画像 URL を解決できない作品は選択できない", async () => {
     mockUseAnimeList.mockReturnValue({
       ...connectedResult,
       data: [{ annictWorkId: 9, title: "画像なし作品", hostedImageUrl: null }],
     });
-    const { onPick } = renderPicker();
+    const { onPick } = await renderPicker();
 
-    fireEvent.press(screen.getByLabelText("画像なし作品の画像を追加"));
+    await fireEvent.press(screen.getByLabelText("画像なし作品の画像を追加"));
     expect(onPick).not.toHaveBeenCalled();
   });
 
-  it("Annict 未連携では検索タブにソフトゲートを出す", () => {
+  it("Annict 未連携では検索タブにソフトゲートを出す", async () => {
     mockUseAnimeList.mockReturnValue({
       ...connectedResult,
       isConnected: false,
     });
-    renderPicker();
+    await renderPicker();
 
     expect(screen.getByTestId("anime-image-picker-soft-gate")).toBeTruthy();
   });
 
-  it("マイリストタブ: お気に入りの作品を選べる", () => {
-    const { onPick } = renderPicker({
+  it("マイリストタブ: お気に入りの作品を選べる", async () => {
+    const { onPick } = await renderPicker({
       favorites: [
         {
           annictWorkId: 2,
@@ -113,14 +113,14 @@ describe("AnimeImagePicker", () => {
       ],
     });
 
-    fireEvent.press(screen.getByLabelText("マイリスト"));
-    fireEvent.press(screen.getByLabelText("お気に入り作品の画像を追加"));
+    await fireEvent.press(screen.getByLabelText("マイリスト"));
+    await fireEvent.press(screen.getByLabelText("お気に入り作品の画像を追加"));
 
     expect(onPick).toHaveBeenCalledWith("https://img.example/fav-1.jpg");
   });
 
-  it("マイリストタブ: ステータスチップで視聴履歴を絞り込める", () => {
-    const { onPick } = renderPicker({
+  it("マイリストタブ: ステータスチップで視聴履歴を絞り込める", async () => {
+    const { onPick } = await renderPicker({
       watchHistory: [
         {
           annictWorkId: 3,
@@ -137,25 +137,25 @@ describe("AnimeImagePicker", () => {
       ],
     });
 
-    fireEvent.press(screen.getByLabelText("マイリスト"));
+    await fireEvent.press(screen.getByLabelText("マイリスト"));
     // 既定はお気に入りなので視聴履歴の作品は出ない
     expect(screen.queryByLabelText("視聴中作品の画像を追加")).toBeNull();
 
-    fireEvent.press(screen.getByLabelText("視聴中"));
-    fireEvent.press(screen.getByLabelText("視聴中作品の画像を追加"));
+    await fireEvent.press(screen.getByLabelText("視聴中"));
+    await fireEvent.press(screen.getByLabelText("視聴中作品の画像を追加"));
 
     expect(onPick).toHaveBeenCalledWith("https://img.example/watching-1.jpg");
     // 別ステータスの作品は絞り込みで出ない
     expect(screen.queryByLabelText("視聴済作品の画像を追加")).toBeNull();
   });
 
-  it("マイリストタブ: Annict 未連携ではソフトゲートを出す", () => {
+  it("マイリストタブ: Annict 未連携ではソフトゲートを出す", async () => {
     mockAnnictConnected = false;
-    renderPicker({
+    await renderPicker({
       favorites: [{ annictWorkId: 2, title: "お気に入り作品" }],
     });
 
-    fireEvent.press(screen.getByLabelText("マイリスト"));
+    await fireEvent.press(screen.getByLabelText("マイリスト"));
 
     expect(
       screen.getByTestId("anime-image-picker-library-soft-gate"),

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewInstance,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
@@ -100,7 +106,7 @@ export default function CharacterTierListScreen() {
   const [snapshotItems, setSnapshotItems] = useState<SnapshotItem[] | null>(
     null,
   );
-  const snapshotRef = useRef<View>(null);
+  const snapshotRef = useRef<ViewInstance>(null);
   // 画像共有時に TierBoardSnapshot が全画像の読み込み（成功・失敗問わず）を
   // 終えた合図を受け取る。resolve はレンダー内の onReady から呼ぶので
   // ref 経由で promise に逃がす。

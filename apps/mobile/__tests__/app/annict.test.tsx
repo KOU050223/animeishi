@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment <rootDir>/jest.jsdom-env.cjs
  */
 import { waitFor } from "@testing-library/react-native";
 import * as Sentry from "@sentry/react-native";
@@ -35,7 +35,7 @@ describe("exchangeAnnictWebCallback", () => {
   const CALLBACK = `https://animeishi.uomi.dev/annict?code=auth_code&state=${STATE}`;
   const ORIGINAL_WEB_REDIRECT = process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockExchangePost.mockReset();
     jest.mocked(Sentry.logger.info).mockClear();
     window.sessionStorage.clear();
@@ -43,7 +43,7 @@ describe("exchangeAnnictWebCallback", () => {
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI = ORIGINAL_WEB_REDIRECT;
   });
 

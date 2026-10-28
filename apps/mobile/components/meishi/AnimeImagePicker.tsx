@@ -293,7 +293,7 @@ function SearchList({
       ListFooterComponent={
         isFetchingNextPage ? (
           <ActivityIndicator style={{ marginVertical: 12 }} />
-        ) : null
+        ) : undefined
       }
     />
   );

@@ -23,68 +23,70 @@ function scan(data: string): BarcodeScanningResult {
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";
 
 describe("useQrScanner", () => {
-  it("有効な QR をスキャンすると onScanned が userId 付きで呼ばれる", () => {
+  it("有効な QR をスキャンすると onScanned が userId 付きで呼ばれる", async () => {
     const onScanned = jest.fn();
-    const { result } = renderHook(() => useQrScanner({ onScanned }));
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
 
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
 
     expect(onScanned).toHaveBeenCalledTimes(1);
     expect(onScanned).toHaveBeenCalledWith({ userId: CLERK_ID, raw: CLERK_ID });
     expect(result.current.scanned).toBe(true);
   });
 
-  it("旧 URL 形式の QR からも userId を抽出する", () => {
+  it("旧 URL 形式の QR からも userId を抽出する", async () => {
     const onScanned = jest.fn();
-    const { result } = renderHook(() => useQrScanner({ onScanned }));
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
 
     const raw = `https://animeishi-viewer.web.app/user/${CLERK_ID}`;
-    act(() => result.current.handleBarcodeScanned(scan(raw)));
+    await act(() => result.current.handleBarcodeScanned(scan(raw)));
 
     expect(onScanned).toHaveBeenCalledWith({ userId: CLERK_ID, raw });
   });
 
-  it("スキャン成功後は多重発火しない", () => {
+  it("スキャン成功後は多重発火しない", async () => {
     const onScanned = jest.fn();
-    const { result } = renderHook(() => useQrScanner({ onScanned }));
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
 
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
 
     expect(onScanned).toHaveBeenCalledTimes(1);
   });
 
-  it("不正な QR では onScanned を呼ばず再スキャンを許可する", () => {
+  it("不正な QR では onScanned を呼ばず再スキャンを許可する", async () => {
     const onScanned = jest.fn();
-    const { result } = renderHook(() => useQrScanner({ onScanned }));
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
 
-    act(() => result.current.handleBarcodeScanned(scan("not a valid qr")));
+    await act(() =>
+      result.current.handleBarcodeScanned(scan("not a valid qr")),
+    );
 
     expect(onScanned).not.toHaveBeenCalled();
     expect(result.current.scanned).toBe(false);
 
     // その後に有効な QR を読めば成功する。
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
     expect(onScanned).toHaveBeenCalledTimes(1);
   });
 
-  it("reset でスキャン状態が解除され再スキャンできる", () => {
+  it("reset でスキャン状態が解除され再スキャンできる", async () => {
     const onScanned = jest.fn();
-    const { result } = renderHook(() => useQrScanner({ onScanned }));
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
 
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
     expect(result.current.scanned).toBe(true);
 
-    act(() => result.current.reset());
+    await act(() => result.current.reset());
     expect(result.current.scanned).toBe(false);
 
-    act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
+    await act(() => result.current.handleBarcodeScanned(scan(CLERK_ID)));
     expect(onScanned).toHaveBeenCalledTimes(2);
   });
 
-  it("カメラ権限が granted として公開される", () => {
-    const { result } = renderHook(() => useQrScanner());
+  it("カメラ権限が granted として公開される", async () => {
+    const { result } = await renderHook(() => useQrScanner());
     expect(result.current.permission?.granted).toBe(true);
   });
 });
