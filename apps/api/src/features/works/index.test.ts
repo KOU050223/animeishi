@@ -220,7 +220,7 @@ describe("作品検索 API", () => {
 
       expect(res.status).toBe(200);
       const body = (await res.json()) as { works: { annictWorkId: number }[] };
-      expect(body.works[0].annictWorkId).toBe(99);
+      expect(body.works[0]?.annictWorkId).toBe(99);
     });
 
     it("GET /works/search: season を明示すると指定シーズンで検索する", async () => {
@@ -284,7 +284,7 @@ describe("作品検索 API", () => {
       expect(body.hasNextPage).toBe(false);
       expect(fetchMock).toHaveBeenCalledTimes(2);
       const secondBody = JSON.parse(
-        (fetchMock.mock.calls[1][1] as RequestInit).body as string,
+        (fetchMock.mock.calls[1]![1] as RequestInit).body as string,
       );
       expect(secondBody.variables.after).toBe("c1");
     });
@@ -405,8 +405,8 @@ describe("作品検索 API", () => {
         endCursor: string | null;
       };
       expect(body.works).toHaveLength(2);
-      expect(body.works[0].annictWorkId).toBe(1);
-      expect(body.works[0].nodeId).toBe("node-1");
+      expect(body.works[0]?.annictWorkId).toBe(1);
+      expect(body.works[0]?.nodeId).toBe("node-1");
       expect(body.hasNextPage).toBe(true);
       expect(body.endCursor).toBe("cursor1");
     });
@@ -434,7 +434,7 @@ describe("作品検索 API", () => {
       );
 
       const body = JSON.parse(
-        (fetchMock.mock.calls[0][1] as RequestInit).body as string,
+        (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
       );
       expect(body.variables.titles).toEqual(["鬼滅"]);
       expect(body.variables.after).toBe("cursorX");
@@ -485,7 +485,7 @@ describe("作品検索 API", () => {
         works: { annictWorkId: number; resolvedImageUrl: string | null }[];
       };
       // 初回レスポンスで解決済み URL が返る（非同期解決待ちにならない）
-      expect(body.works[0].resolvedImageUrl).toBe(
+      expect(body.works[0]?.resolvedImageUrl).toBe(
         "https://s4.anilist.co/1234.jpg",
       );
       // D1 のキャッシュにも保存される
@@ -647,7 +647,7 @@ describe("作品検索 API", () => {
         works: { hostedImageUrl: string | null }[];
       };
       // リクエスト先オリジン（テストでは http://localhost）上のプロキシ URL
-      expect(body.works[0].hostedImageUrl).toBe(
+      expect(body.works[0]?.hostedImageUrl).toBe(
         "http://localhost/images/works/950",
       );
     });
@@ -782,7 +782,7 @@ describe("作品検索 API", () => {
         works: { resolvedImageUrl: string | null }[];
       };
       // 永続化は失敗するが、解決できた URL はレスポンスには載せる
-      expect(body.works[0].resolvedImageUrl).toBe(
+      expect(body.works[0]?.resolvedImageUrl).toBe(
         "https://s4.anilist.co/1235.jpg",
       );
       // 作品行自体が無いので cron の解決対象にもならない（次回検索時に再試行）
@@ -991,10 +991,10 @@ describe("キャラクター一覧 API", () => {
       3001, 3002,
     ]);
     // 名寄せできたキャラは画像 URL、できなかったキャラは null
-    expect(body.characters[0].imageUrl).toBe(
+    expect(body.characters[0]?.imageUrl).toBe(
       "https://media.kitsu.app/char-a.png",
     );
-    expect(body.characters[1].imageUrl).toBeNull();
+    expect(body.characters[1]?.imageUrl).toBeNull();
 
     // キャラクターが annict_characters にキャッシュされる
     // （tier 表保存の FK 参照先になるため）
@@ -1082,10 +1082,10 @@ describe("キャラクター一覧 API", () => {
     const body = (await res.json()) as {
       characters: { imageUrl: string | null }[];
     };
-    expect(body.characters[0].imageUrl).toBeNull();
+    expect(body.characters[0]?.imageUrl).toBeNull();
     // MAL ID が無ければ名寄せできないため Kitsu には問い合わせない
     expect(
-      fetchMock.mock.calls.some((call) => {
+      fetchMock.mock.calls.some((call: Parameters<typeof fetch>) => {
         const url =
           typeof call[0] === "string" ? call[0] : (call[0] as Request).url;
         return url.startsWith("https://kitsu.io");
@@ -1149,8 +1149,8 @@ describe("キャラクター一覧 API", () => {
     const body = (await res.json()) as {
       characters: { annictCharacterId: number; imageUrl: string | null }[];
     };
-    expect(body.characters[0].annictCharacterId).toBe(3001);
-    expect(body.characters[0].imageUrl).toBeNull();
+    expect(body.characters[0]?.annictCharacterId).toBe(3001);
+    expect(body.characters[0]?.imageUrl).toBeNull();
   });
 
   it("GET /works/:id/characters: キャッシュ済みの画像は Kitsu 再解決を待たずに返す", async () => {
@@ -1184,7 +1184,7 @@ describe("キャラクター一覧 API", () => {
     const body = (await res.json()) as {
       characters: { imageUrl: string | null }[];
     };
-    expect(body.characters[0].imageUrl).toBe(
+    expect(body.characters[0]?.imageUrl).toBe(
       "https://media.kitsu.app/cached.png",
     );
     // キャッシュの画像が upsert で消えていないこと
@@ -1233,7 +1233,7 @@ describe("キャラクター一覧 API", () => {
     const body = (await res.json()) as {
       characters: { imageUrl: string | null }[];
     };
-    expect(body.characters[0].imageUrl).toBe(
+    expect(body.characters[0]?.imageUrl).toBe(
       "https://media.kitsu.app/fresh.png",
     );
     // 再解決できた値でキャッシュも置き換わる
@@ -1273,7 +1273,9 @@ describe("キャラクター一覧 API", () => {
     const body = (await res.json()) as {
       characters: { imageUrl: string | null }[];
     };
-    expect(body.characters[0].imageUrl).toBe("https://s4.anilist.co/stale.png");
+    expect(body.characters[0]?.imageUrl).toBe(
+      "https://s4.anilist.co/stale.png",
+    );
     const row = await db.query.annictCharacters.findFirst({
       where: (t, { eq }) => eq(t.annictCharacterId, 3001),
     });

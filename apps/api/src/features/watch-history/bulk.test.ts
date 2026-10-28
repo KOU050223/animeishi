@@ -238,8 +238,10 @@ describe("POST /me/watch-histories/bulk", () => {
       const histories = await db.query.watchHistory.findMany({
         where: (t, { eq }) => eq(t.userId, USER_ID),
       });
-      expect(histories.map((h) => h.annictWorkId).sort()).toEqual([1, 2]);
-      expect(histories[0].state).toBe("WATCHED");
+      expect(
+        histories.map((h) => h.annictWorkId).sort((a, b) => a - b),
+      ).toEqual([1, 2]);
+      expect(histories[0]?.state).toBe("WATCHED");
 
       const cached = await db.query.annictWorks.findFirst({
         where: (t, { eq }) => eq(t.annictWorkId, 1),
@@ -269,19 +271,21 @@ describe("POST /me/watch-histories/bulk", () => {
       );
       expect(res.status).toBe(200);
       const body = (await res.json()) as BulkBody;
-      expect(body.results[0].ok).toBe(true);
+      expect(body.results[0]?.ok).toBe(true);
       expect(body.results[1]).toEqual({
         annictWorkId: 2,
         ok: false,
         error: "annict_upstream",
       });
-      expect(body.results[2].ok).toBe(true);
+      expect(body.results[2]?.ok).toBe(true);
 
       const histories = await db.query.watchHistory.findMany({
         where: (t, { eq }) => eq(t.userId, USER_ID),
       });
       // Annict 更新に失敗した作品は D1 にも書かれない（Annict が正）。
-      expect(histories.map((h) => h.annictWorkId).sort()).toEqual([1, 3]);
+      expect(
+        histories.map((h) => h.annictWorkId).sort((a, b) => a - b),
+      ).toEqual([1, 3]);
     });
 
     it("Annict 401 で打ち切り、未着手の残りは aborted として返す", async () => {

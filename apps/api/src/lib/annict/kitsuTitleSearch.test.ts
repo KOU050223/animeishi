@@ -388,6 +388,7 @@ describe("resolveMissingMalIds", () => {
       .select()
       .from(annictWorks)
       .where(eq(annictWorks.annictWorkId, annictWorkId));
+    if (!r) throw new Error(`annict_works row not found: ${annictWorkId}`);
     return r;
   }
 

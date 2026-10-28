@@ -154,7 +154,7 @@ describe("fetchKitsuCharacters", () => {
     ]);
     // mappings → /anime/k1234/characters の順で呼ばれる
     const urls = fetchMock.mock.calls.map((c) => requestUrl(c[0]));
-    expect(isKitsuMappingsUrl(urls[0])).toBe(true);
+    expect(isKitsuMappingsUrl(urls[0]!)).toBe(true);
     expect(urls[1]).toContain("/anime/k1234/characters");
   });
 
@@ -221,7 +221,7 @@ describe("fetchKitsuCharacters", () => {
     });
     const result = await fetchKitsuCharacters(1234, fetchMock);
     expect(result).toHaveLength(1);
-    expect(result[0].names).toContain("キャラA");
+    expect(result[0]?.names).toContain("キャラA");
   });
 
   it("mappings で見つからない MAL ID は空配列を返す（characters は叩かない）", async () => {

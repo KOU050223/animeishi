@@ -346,7 +346,7 @@ describe("視聴傾向分析 API", () => {
         /<watch_history>\n([\s\S]*?)\n<\/watch_history>/,
       );
       expect(match).not.toBeNull();
-      const data = JSON.parse(match![1]) as {
+      const data = JSON.parse(match![1]!) as {
         totalCount: number;
         works: { title: string; state: string }[];
       };

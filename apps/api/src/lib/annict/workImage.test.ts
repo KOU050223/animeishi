@@ -54,6 +54,7 @@ async function getWork(db: Db, annictWorkId = 1) {
     .select()
     .from(annictWorks)
     .where(eq(annictWorks.annictWorkId, annictWorkId));
+  if (!row) throw new Error(`annict_works row not found: ${annictWorkId}`);
   return row;
 }
 
@@ -63,7 +64,7 @@ async function getWork(db: Db, annictWorkId = 1) {
 const KITSU = "kitsu";
 const KITSU_ANIME = "kitsuAnime";
 function routeFetch(routes: Record<string, () => Response>) {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = requestUrl(input);
     const route = isKitsuMappingsUrl(url)
       ? routes[KITSU]
