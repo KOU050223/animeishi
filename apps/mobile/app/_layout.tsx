@@ -73,6 +73,9 @@ function AuthGuard() {
     >
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      {/* サインアップ直後のパスキー登録促進（issue #326）。サインイン済みで
+          表示する画面のため (auth) ではなくルート直下に置く。 */}
+      <Stack.Screen name="passkey-register" />
       <Stack.Screen name="user/[uid]" />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
       <Stack.Screen name="annict" />

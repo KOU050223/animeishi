@@ -41,6 +41,12 @@ export default function SignUpScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // サインアップ完了後の遷移先。パスキーが使える環境では登録を促す画面を
+  // 挟む（issue #326）。登録済みかどうかの判定は画面側が行う。
+  function navigateAfterSignUp() {
+    router.replace(featureFlags.passkey ? "/passkey-register" : "/(tabs)");
+  }
+
   async function handleSignUp() {
     if (!isLoaded) return;
 
@@ -71,7 +77,7 @@ export default function SignUpScreen() {
       // その場合は認証コード入力を挟まず、そのままセッションを有効化して完了する。
       if (result.status === "complete" && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        navigateAfterSignUp();
         return;
       }
 
@@ -131,7 +137,7 @@ export default function SignUpScreen() {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === "complete" && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        navigateAfterSignUp();
       }
     } catch (err: unknown) {
       setError(toAuthErrorMessage(err, t, "認証コードの検証に失敗しました"));

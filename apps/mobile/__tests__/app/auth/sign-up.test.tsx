@@ -18,9 +18,23 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// パスキー登録促進（issue #326）の分岐を試せるよう、フラグは
+// テストごとに切り替え可能な getter で遅延評価する。既定は無効
+// （jest-expo は iOS で解決し passkey.native.ts も false で挙動は同じ）。
+let mockPasskey = false;
+jest.mock("@/lib/featureFlags", () => ({
+  get featureFlags() {
+    return {
+      googleSignIn: true,
+      passkey: mockPasskey,
+    };
+  },
+}));
+
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
+  mockPasskey = false;
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
@@ -325,6 +339,95 @@ describe("SignUpScreen", () => {
     });
     expect(auth.setActive).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  describe("パスキー登録促進（issue #326）", () => {
+    async function fillAndSubmit() {
+      await fireEvent.changeText(
+        screen.getByTestId("email-input"),
+        "test@example.com",
+      );
+      await fireEvent.changeText(
+        screen.getByTestId("username-input"),
+        "testuser",
+      );
+      await fireEvent.changeText(
+        screen.getByTestId("password-input"),
+        "StrongPass1",
+      );
+      await fireEvent.changeText(
+        screen.getByTestId("password-confirmation-input"),
+        "StrongPass1",
+      );
+      await fireEvent.press(screen.getByTestId("sign-up-button"));
+    }
+
+    it("フラグ有効ではサインアップ完了後にパスキー登録画面へ遷移する", async () => {
+      mockPasskey = true;
+      const auth = getAuthMock();
+      auth.signUp.create.mockResolvedValueOnce({
+        status: "complete",
+        createdSessionId: "session_new",
+      });
+
+      await render(<SignUpScreen />);
+      await fillAndSubmit();
+
+      await waitFor(() => {
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_new",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/passkey-register");
+      });
+    });
+
+    it("フラグ有効ではメール認証の完了後にもパスキー登録画面へ遷移する", async () => {
+      mockPasskey = true;
+      const auth = getAuthMock();
+      auth.signUp.create.mockResolvedValueOnce({
+        status: "missing_requirements",
+        unverifiedFields: ["email_address"],
+        missingFields: [],
+      });
+      auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
+      auth.signUp.attemptEmailAddressVerification.mockResolvedValueOnce({
+        status: "complete",
+        createdSessionId: "session_456",
+      });
+
+      await render(<SignUpScreen />);
+      await fillAndSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("verification-code-input")).toBeTruthy();
+      });
+
+      await fireEvent.changeText(
+        screen.getByTestId("verification-code-input"),
+        "123456",
+      );
+      await fireEvent.press(screen.getByTestId("verify-button"));
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith("/passkey-register");
+      });
+    });
+
+    it("フラグ無効ではこれまでどおりホームへ遷移する", async () => {
+      const auth = getAuthMock();
+      auth.signUp.create.mockResolvedValueOnce({
+        status: "complete",
+        createdSessionId: "session_new",
+      });
+
+      await render(<SignUpScreen />);
+      await fillAndSubmit();
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+      expect(mockReplace).not.toHaveBeenCalledWith("/passkey-register");
+    });
   });
 
   describe("Google サインアップ（issue #89）", () => {
