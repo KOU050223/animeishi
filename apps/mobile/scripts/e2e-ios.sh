@@ -788,10 +788,12 @@ maestro_driver_failure() {
 # かかるため）。失敗種別の判定は試行ごとのログで行う
 MAESTRO_ATTEMPTS="${E2E_MAESTRO_ATTEMPTS:-3}"
 case "$MAESTRO_ATTEMPTS" in
-  # 非数値と 0 は既定値に戻す。先頭ゼロは 8 進数と解釈されるため 10 進数に正規化
-  '' | *[!0-9]* | 0) MAESTRO_ATTEMPTS=3 ;;
+  # 非数値と、オーバーフローしうる 10 桁以上の値は既定値に戻す
+  '' | *[!0-9]* | ??????????*) MAESTRO_ATTEMPTS=3 ;;
+  # 先頭ゼロは $(( )) で 8 進数と解釈され 08/09 がエラーになるため 10 進数に正規化
   *) MAESTRO_ATTEMPTS=$((10#$MAESTRO_ATTEMPTS)) ;;
 esac
+[ "$MAESTRO_ATTEMPTS" -lt 1 ] && MAESTRO_ATTEMPTS=3
 maestro_attempt=1
 while :; do
   MAESTRO_LOG="$STATE_DIR/maestro-attempt-$maestro_attempt.log"
