@@ -25,7 +25,7 @@ const loggedFunnelCalls = () =>
     attributes: attributes as Record<string, string>,
   }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockUseAnnictConnect.mockReturnValue({
     connect: mockConnect,
@@ -35,8 +35,8 @@ beforeEach(() => {
 });
 
 describe("AnnictSoftGate", () => {
-  it("タイトル・説明・連携 CTA をレンダリングする", () => {
-    render(
+  it("タイトル・説明・連携 CTA をレンダリングする", async () => {
+    await render(
       <AnnictSoftGate
         description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。"
         surface="watch_history"
@@ -52,8 +52,8 @@ describe("AnnictSoftGate", () => {
     expect(screen.getByText("連携する")).toBeTruthy();
   });
 
-  it("description で画面ごとの文言を切り替えられる", () => {
-    render(
+  it("description で画面ごとの文言を切り替えられる", async () => {
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"
@@ -68,7 +68,7 @@ describe("AnnictSoftGate", () => {
   });
 
   it("表示時に prompt_view イベントを surface 属性付きで送る", async () => {
-    render(
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"
@@ -90,14 +90,14 @@ describe("AnnictSoftGate", () => {
 
   it("CTA タップで cta_tap を送り、surface 付きで連携フローを開始する", async () => {
     mockConnect.mockResolvedValueOnce({ status: "success" });
-    render(
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"
       />,
     );
 
-    fireEvent.press(screen.getByText("連携する"));
+    await fireEvent.press(screen.getByText("連携する"));
 
     await waitFor(() => {
       expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -116,14 +116,14 @@ describe("AnnictSoftGate", () => {
 
   it("連携キャンセル時にキャンセルメッセージを表示する", async () => {
     mockConnect.mockResolvedValueOnce({ status: "cancelled" });
-    render(
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"
       />,
     );
 
-    fireEvent.press(screen.getByText("連携する"));
+    await fireEvent.press(screen.getByText("連携する"));
 
     await waitFor(() => {
       expect(screen.getByTestId("annict-soft-gate-error")).toBeTruthy();
@@ -136,14 +136,14 @@ describe("AnnictSoftGate", () => {
       status: "error",
       reason: "exchange_failed",
     });
-    render(
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"
       />,
     );
 
-    fireEvent.press(screen.getByText("連携する"));
+    await fireEvent.press(screen.getByText("連携する"));
 
     await waitFor(() => {
       expect(screen.getByTestId("annict-soft-gate-error")).toBeTruthy();
@@ -153,13 +153,13 @@ describe("AnnictSoftGate", () => {
     ).toBeTruthy();
   });
 
-  it("接続中は CTA を無効化しスピナーを出す", () => {
+  it("接続中は CTA を無効化しスピナーを出す", async () => {
     mockUseAnnictConnect.mockReturnValue({
       connect: mockConnect,
       disconnect: jest.fn(),
       isConnecting: true,
     });
-    render(
+    await render(
       <AnnictSoftGate
         description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
         surface="anime_list"

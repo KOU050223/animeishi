@@ -24,7 +24,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   loggedInUser({ userId: "user_me" });
@@ -33,7 +33,7 @@ beforeEach(() => {
 
 describe("useReportUser", () => {
   async function runReport() {
-    const { result } = renderHook(() => useReportUser(), { wrapper });
+    const { result } = await renderHook(() => useReportUser(), { wrapper });
     await act(async () => {
       result.current.mutate({ userId: "user_target", reason: "スパム・宣伝" });
     });
@@ -50,7 +50,7 @@ describe("useReportUser", () => {
       status: 201,
       json: async () => ({ success: true }),
     });
-    const { result } = renderHook(() => useReportUser(), { wrapper });
+    const { result } = await renderHook(() => useReportUser(), { wrapper });
     await act(async () => {
       result.current.mutate({ userId: "user_target", reason: "スパム・宣伝" });
     });

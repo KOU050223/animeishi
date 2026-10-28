@@ -62,16 +62,16 @@ const sheetElement = (
 );
 
 describe("WorkAddSheet", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockUseWorkSearch.mockReset();
     mockUseWorkSearch.mockReturnValue(searching({ works: [RESULT_WORK] }));
   });
 
-  it("検索結果の作品をタップすると onAdd に TierItem で渡る", () => {
+  it("検索結果の作品をタップすると onAdd に TierItem で渡る", async () => {
     const onAdd = jest.fn();
-    const { getByTestId } = render(sheetElement({ onAdd }));
+    const { getByTestId } = await render(sheetElement({ onAdd }));
 
-    fireEvent.press(getByTestId("work-add-item-42"));
+    await fireEvent.press(getByTestId("work-add-item-42"));
 
     expect(onAdd).toHaveBeenCalledWith<[TierItem]>({
       id: 42,
@@ -81,65 +81,65 @@ describe("WorkAddSheet", () => {
     });
   });
 
-  it("盤面に既にある作品は「追加済み」になりタップしても onAdd されない", () => {
+  it("盤面に既にある作品は「追加済み」になりタップしても onAdd されない", async () => {
     const onAdd = jest.fn();
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText } = await render(
       sheetElement({ onAdd, existingWorkIds: new Set([42]) }),
     );
 
     expect(getByText("追加済み")).toBeTruthy();
-    fireEvent.press(getByTestId("work-add-item-42"));
+    await fireEvent.press(getByTestId("work-add-item-42"));
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it("前の語の結果を仮表示している間（resultsStale）は追加ボタンが無効", () => {
+  it("前の語の結果を仮表示している間（resultsStale）は追加ボタンが無効", async () => {
     const onAdd = jest.fn();
     mockUseWorkSearch.mockReturnValue(
       searching({ works: [RESULT_WORK], resultsStale: true }),
     );
-    const { getByTestId } = render(sheetElement({ onAdd }));
+    const { getByTestId } = await render(sheetElement({ onAdd }));
 
     const item = getByTestId("work-add-item-42");
     expect(item.props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(item);
+    await fireEvent.press(item);
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it("検索語が空のときは結果ではなく入力案内を出す", () => {
+  it("検索語が空のときは結果ではなく入力案内を出す", async () => {
     mockUseWorkSearch.mockReturnValue(searching({ hasQuery: false }));
-    const { getByText } = render(sheetElement());
+    const { getByText } = await render(sheetElement());
     expect(getByText("追加する作品のタイトルを入力してください")).toBeTruthy();
   });
 
-  it("結果が 0 件なら「見つかりませんでした」を出す", () => {
+  it("結果が 0 件なら「見つかりませんでした」を出す", async () => {
     mockUseWorkSearch.mockReturnValue(searching({ works: [] }));
-    const { getByText } = render(sheetElement());
+    const { getByText } = await render(sheetElement());
     expect(getByText("見つかりませんでした")).toBeTruthy();
   });
 
-  it("エラー時はメッセージと再試行ボタンを出し、再試行で refetch を呼ぶ", () => {
+  it("エラー時はメッセージと再試行ボタンを出し、再試行で refetch を呼ぶ", async () => {
     const refetch = jest.fn();
     mockUseWorkSearch.mockReturnValue(searching({ isError: true, refetch }));
-    const { getByTestId, getByText } = render(sheetElement());
+    const { getByTestId, getByText } = await render(sheetElement());
     expect(getByText("検索に失敗しました")).toBeTruthy();
-    fireEvent.press(getByTestId("work-add-retry"));
+    await fireEvent.press(getByTestId("work-add-retry"));
     expect(refetch).toHaveBeenCalled();
   });
 
   // 検索語のリセットはレンダー中の状態調整で行う（#267）
-  it("閉じて開き直すと検索語がクリアされる", () => {
-    const { getByTestId, rerender } = render(sheetElement());
-    fireEvent.changeText(getByTestId("work-add-input"), "テスト");
+  it("閉じて開き直すと検索語がクリアされる", async () => {
+    const { getByTestId, rerender } = await render(sheetElement());
+    await fireEvent.changeText(getByTestId("work-add-input"), "テスト");
     expect(getByTestId("work-add-input").props.value).toBe("テスト");
 
-    rerender(sheetElement({ visible: false }));
-    rerender(sheetElement({ visible: true }));
+    await rerender(sheetElement({ visible: false }));
+    await rerender(sheetElement({ visible: true }));
 
     expect(getByTestId("work-add-input").props.value).toBe("");
   });
 
-  it("visible=false のとき検索 UI を描画せず、検索も無効化する", () => {
-    const { queryByTestId } = render(sheetElement({ visible: false }));
+  it("visible=false のとき検索 UI を描画せず、検索も無効化する", async () => {
+    const { queryByTestId } = await render(sheetElement({ visible: false }));
     expect(queryByTestId("work-add-input")).toBeNull();
     // 閉じている間はフック側へ enabled=false として渡す
     expect(mockUseWorkSearch).toHaveBeenLastCalledWith("", false);

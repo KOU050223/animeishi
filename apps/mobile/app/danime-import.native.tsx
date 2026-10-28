@@ -5,7 +5,7 @@
 // 全ページの履歴を取得 → postMessage で受け取ってレビュー画面へ遷移する。
 // dアカウントの認証情報・セッション Cookie は WebView 内に留まり、
 // アプリ側にも Animeishi API にも送信されない。
-import { useRef, useState } from "react";
+import { Component, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -16,7 +16,8 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import type { WebViewMessageEvent } from "react-native-webview";
+import type { WebViewMessageEvent, WebViewProps } from "react-native-webview";
+
 import {
   DANIME_EXTRACT_ERR,
   DANIME_EXTRACT_OK,
@@ -28,6 +29,17 @@ import {
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
+
+// react-native-webview の WebView は型パラメータ既定値が `P = undefined` で、
+// `WebViewProps & P` が `WebViewProps & undefined` に潰れて JSX の props が
+// never 判定される（RN 0.88 の厳格型下で全属性がエラーになる）。
+// props を明示したコンストラクタ型へキャストして回避する。
+interface DanimeWebViewInstance extends Component<WebViewProps> {
+  injectJavaScript: (script: string) => void;
+}
+const DanimeWebView = WebView as unknown as new (
+  props: WebViewProps,
+) => DanimeWebViewInstance;
 
 // Web 版の取り込み画面への導線（フラグ無効時の案内用）。
 // EXPO_PUBLIC_WEB_URL は EAS プロファイルで本番 URL が設定済み。
@@ -54,7 +66,7 @@ function errorMessage(code: string): string {
 export default function DanimeImportScreen() {
   const router = useRouter();
   const colors = useThemeColors();
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<DanimeWebViewInstance>(null);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setLists = useDanimeImportStore((s) => s.setLists);
@@ -144,7 +156,7 @@ export default function DanimeImportScreen() {
       </View>
 
       <View className="flex-1">
-        <WebView
+        <DanimeWebView
           ref={webViewRef}
           source={{ uri: DANIME_HISTORY_URL }}
           onMessage={onMessage}

@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment <rootDir>/jest.jsdom-env.cjs
  */
 import { createElement } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react-native";
@@ -45,7 +45,7 @@ describe("useAnnictConnect (web)", () => {
   let hrefValue = "";
   const originalLocation = window.location;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.EXPO_PUBLIC_ANNICT_CLIENT_ID = "test_client_id";
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
     mockDisconnectPost.mockReset().mockResolvedValue({ ok: true });
@@ -78,7 +78,7 @@ describe("useAnnictConnect (web)", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     Object.defineProperty(window, "location", {
       configurable: true,
       value: originalLocation,
@@ -88,7 +88,7 @@ describe("useAnnictConnect (web)", () => {
   });
 
   it("connect: state を sessionStorage に保存し authorize へ遷移する", async () => {
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 
@@ -111,7 +111,7 @@ describe("useAnnictConnect (web)", () => {
   });
 
   it("connect: state に戻り先オリジンを埋め込む（正規側での中継用）", async () => {
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 
@@ -138,7 +138,7 @@ describe("useAnnictConnect (web)", () => {
   it("connect: EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI があればそれを redirect_uri に使う", async () => {
     process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI =
       "https://animeishi-web-production.uozumi05.workers.dev/annict";
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 
@@ -159,7 +159,7 @@ describe("useAnnictConnect (web)", () => {
   });
 
   it("connect: surface を sessionStorage に退避し、遷移時点では oauth_result を送らない", async () => {
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 
@@ -189,7 +189,7 @@ describe("useAnnictConnect (web)", () => {
       .mockImplementationOnce(() => {
         throw new Error("denied");
       });
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 
@@ -215,7 +215,7 @@ describe("useAnnictConnect (web)", () => {
   });
 
   it("disconnect: サーバーの disconnect を Clerk JWT 付きで呼ぶ", async () => {
-    const { result } = renderHook(() => useAnnictConnect(), {
+    const { result } = await renderHook(() => useAnnictConnect(), {
       wrapper: makeWrapper(),
     });
 

@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   render,
   screen,
   fireEvent,
@@ -25,12 +26,12 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-function fillCredentials(email: string, password: string) {
-  fireEvent.changeText(screen.getByTestId("email-input"), email);
-  fireEvent.changeText(screen.getByTestId("password-input"), password);
+async function fillCredentials(email: string, password: string) {
+  await fireEvent.changeText(screen.getByTestId("email-input"), email);
+  await fireEvent.changeText(screen.getByTestId("password-input"), password);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
 });
@@ -45,9 +46,9 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
       createdSessionId: "session_first",
     });
 
-    const { rerender } = render(<SignInScreen />);
-    fillCredentials("first@example.com", "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    const { rerender } = await render(<SignInScreen />);
+    await fillCredentials("first@example.com", "StrongPass1");
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_first" });
@@ -64,9 +65,9 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
       status: "complete",
       createdSessionId: "session_second",
     });
-    rerender(<SignInScreen />);
-    fillCredentials("second@example.com", "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await rerender(<SignInScreen />);
+    await fillCredentials("second@example.com", "StrongPass1");
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signIn.create).toHaveBeenLastCalledWith({
@@ -88,9 +89,9 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
       createdSessionId: "session_relogin",
     });
 
-    render(<SignInScreen />);
-    fillCredentials("again@example.com", "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fillCredentials("again@example.com", "StrongPass1");
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
@@ -115,9 +116,9 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
       errors: [{ code: "form_password_incorrect", message: "wrong" }],
     });
 
-    render(<SignInScreen />);
-    fillCredentials("user@example.com", "WrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fillCredentials("user@example.com", "WrongPass1");
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -129,8 +130,11 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
       status: "complete",
       createdSessionId: "session_recover",
     });
-    fireEvent.changeText(screen.getByTestId("password-input"), "CorrectPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "CorrectPass1",
+    );
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({
@@ -152,14 +156,20 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
       }),
     );
 
-    render(<SignInScreen />);
-    fillCredentials("user@example.com", "StrongPass1");
+    await render(<SignInScreen />);
+    await fillCredentials("user@example.com", "StrongPass1");
 
     const button = screen.getByTestId("sign-in-button");
-    fireEvent.press(button);
+    // RNTL 14 の fireEvent はハンドラの返す Promise まで act で待つ。
+    // onPress が未解決の create を await するため、press を act に委ねると
+    // 永遠に返らない。Pressable の onClick を act 内で同期起動だけして
+    // loading=true をコミットさせ、戻り値の Promise は act に渡さない。
+    await act(() => {
+      button.props.onClick?.({});
+    });
     // ローディング中に追加で押下しても2回目は発火しない
-    fireEvent.press(button);
-    fireEvent.press(button);
+    await fireEvent.press(button);
+    await fireEvent.press(button);
 
     expect(auth.signIn.create).toHaveBeenCalledTimes(1);
 
@@ -173,11 +183,11 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
   it("空入力で連打してもバリデーションで弾かれ、API は一度も呼ばれない", async () => {
     const auth = getAuthMock();
 
-    render(<SignInScreen />);
+    await render(<SignInScreen />);
     const button = screen.getByTestId("sign-in-button");
-    fireEvent.press(button);
-    fireEvent.press(button);
-    fireEvent.press(button);
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+    await fireEvent.press(button);
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -191,9 +201,9 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
     const auth = getAuthMock();
     auth.signIn.create.mockResolvedValueOnce({ status: "needs_second_factor" });
 
-    render(<SignInScreen />);
-    fillCredentials("2fa@example.com", "StrongPass1");
-    fireEvent.press(screen.getByTestId("sign-in-button"));
+    await render(<SignInScreen />);
+    await fillCredentials("2fa@example.com", "StrongPass1");
+    await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();

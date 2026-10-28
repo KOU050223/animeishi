@@ -1,8 +1,18 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
+import type { ComponentProps } from "react";
+import { Platform, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
+
+// tabBarIcon の color は型上 ColorValue（null | number | NativeColorValue を
+// 含みうる）だが、タブバーが実際に渡すのは tint の文字列のみ。Ionicons は
+// string | OpaqueColorValue しか受けないため、型のずれはここ 1 か所に閉じ込める。
+const tabIcon =
+  (name: ComponentProps<typeof Ionicons>["name"]) =>
+  ({ color, size }: { color: ColorValue; size: number }) => (
+    <Ionicons name={name} size={size} color={color as string} />
+  );
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -38,18 +48,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "ホーム",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("home-outline"),
         }}
       />
       <Tabs.Screen
         name="anime-list"
         options={{
           title: "アニメ",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("list-outline"),
         }}
       />
       <Tabs.Screen
@@ -57,9 +63,7 @@ export default function TabsLayout() {
         options={{
           title: "QR",
           tabBarAccessibilityLabel: "QRコードタブ",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="qr-code-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("qr-code-outline"),
         }}
       />
       <Tabs.Screen
@@ -67,9 +71,7 @@ export default function TabsLayout() {
         options={{
           title: "視聴履歴",
           tabBarAccessibilityLabel: "視聴履歴タブ",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("time-outline"),
         }}
       />
       <Tabs.Screen
@@ -78,9 +80,7 @@ export default function TabsLayout() {
           // 7 タブでは 4 文字を超えるラベルが切れるため短い表記にする（#156）。
           title: "推し",
           tabBarAccessibilityLabel: "お気に入りタブ",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("heart-outline"),
         }}
       />
       <Tabs.Screen
@@ -88,9 +88,7 @@ export default function TabsLayout() {
         options={{
           title: "フレンド",
           tabBarAccessibilityLabel: "フレンドタブ",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("people-outline"),
         }}
       />
       <Tabs.Screen
@@ -99,9 +97,7 @@ export default function TabsLayout() {
           title: "プロフ",
           tabBarAccessibilityLabel: "プロフィールタブ",
           tabBarButtonTestID: "profile-tab-button",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon("person-outline"),
         }}
       />
     </Tabs>

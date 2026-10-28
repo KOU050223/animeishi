@@ -42,7 +42,7 @@ const funnelCalls = () =>
     .mock.calls.filter(([message]) => message === ANNICT_FUNNEL_EVENT)
     .map(([, attributes]) => attributes as Record<string, string>);
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   // connect 内で Clerk JWT を取得する経路（exchange 呼び出し）を通すため、
@@ -67,10 +67,10 @@ describe("useAnnictConnect の in-flight ガード", () => {
         }),
     );
 
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     let firstPromise!: Promise<{ status: string }>;
-    act(() => {
+    await act(() => {
       firstPromise = result.current.connect();
       firstPromise.catch(() => {});
     });
@@ -106,10 +106,10 @@ describe("useAnnictConnect の in-flight ガード", () => {
         }),
     );
 
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     let p!: Promise<{ status: string }>;
-    act(() => {
+    await act(() => {
       p = result.current.connect();
     });
     await waitFor(() => expect(result.current.isConnecting).toBe(true));
@@ -125,7 +125,7 @@ describe("useAnnictConnect の in-flight ガード", () => {
 describe("ファネル計測（oauth_result）", () => {
   it("ブラウザでキャンセルされたら cancelled を送る", async () => {
     mockOpenAuthSession.mockResolvedValueOnce({ type: "cancel" });
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     await act(async () => {
       await result.current.connect({ surface: "watch_history" });
@@ -145,7 +145,7 @@ describe("ファネル計測（oauth_result）", () => {
       url: "animeishi://annict?code=abc&state=test-state",
     });
     apiClient.me.annict.exchange.$post.mockResolvedValueOnce({ ok: false });
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     await act(async () => {
       await result.current.connect({ surface: "anime_list" });
@@ -169,7 +169,7 @@ describe("ファネル計測（oauth_result）", () => {
       ok: true,
       json: async () => ({ accessToken: "annict_token" }),
     });
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     let res: unknown;
     await act(async () => {
@@ -196,10 +196,10 @@ describe("ファネル計測（oauth_result）", () => {
           resolveAuth = resolve;
         }),
     );
-    const { result } = renderHook(() => useAnnictConnect(), { wrapper });
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     let first!: Promise<unknown>;
-    act(() => {
+    await act(() => {
       first = result.current.connect({ surface: "anime_list" });
     });
     await act(async () => {

@@ -21,36 +21,36 @@ const setScheme = (colorScheme: "light" | "dark") =>
   });
 
 describe("Input", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     setScheme("light");
   });
 
-  it("プレースホルダー色に light トークンを適用する", () => {
-    render(<Input placeholder="名前" testID="input" />);
+  it("プレースホルダー色に light トークンを適用する", async () => {
+    await render(<Input placeholder="名前" testID="input" />);
     expect(screen.getByTestId("input").props.placeholderTextColor).toBe(
       colors.light.placeholder,
     );
   });
 
-  it("ダークスキームでは dark トークンを適用する", () => {
+  it("ダークスキームでは dark トークンを適用する", async () => {
     setScheme("dark");
-    render(<Input placeholder="名前" testID="input" />);
+    await render(<Input placeholder="名前" testID="input" />);
     expect(screen.getByTestId("input").props.placeholderTextColor).toBe(
       colors.dark.placeholder,
     );
   });
 
-  it("明示した placeholderTextColor を優先する", () => {
-    render(<Input testID="input" placeholderTextColor="#123456" />);
+  it("明示した placeholderTextColor を優先する", async () => {
+    await render(<Input testID="input" placeholderTextColor="#123456" />);
     expect(screen.getByTestId("input").props.placeholderTextColor).toBe(
       "#123456",
     );
   });
 
-  it("value / onChangeText などの props をそのまま TextInput に渡す", () => {
+  it("value / onChangeText などの props をそのまま TextInput に渡す", async () => {
     const onChangeText = jest.fn();
-    render(
+    await render(
       <Input
         testID="input"
         value="abc"

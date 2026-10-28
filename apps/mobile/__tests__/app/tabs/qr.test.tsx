@@ -24,8 +24,7 @@ jest.mock("expo-camera", () => ({
   ],
 }));
 
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router", () => ({
   useIsFocused: () => true,
 }));
 
@@ -48,15 +47,15 @@ jest.mock("@/lib/profileUrl", () => ({
 
 const USER_ID = "user_2abcDEF1234567890ghijKLMN";
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
 });
 
 describe("マイQR（QR コード生成）", () => {
-  it("OS 標準カメラでも開けるよう Web 版プロフィール URL を QR に埋め込む", () => {
+  it("OS 標準カメラでも開けるよう Web 版プロフィール URL を QR に埋め込む", async () => {
     loggedInUser({ userId: USER_ID });
-    render(<QrScreen />);
+    await render(<QrScreen />);
 
     expect(mockQRCodeProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -65,18 +64,18 @@ describe("マイQR（QR コード生成）", () => {
     );
   });
 
-  it("生の userId ではなく /user/<id> 形式の URL になる", () => {
+  it("生の userId ではなく /user/<id> 形式の URL になる", async () => {
     loggedInUser({ userId: USER_ID });
-    render(<QrScreen />);
+    await render(<QrScreen />);
 
     const qr = screen.getByTestId("qr-code");
     expect(qr.props.children).toContain(`/user/${USER_ID}`);
     expect(qr.props.children).not.toBe(USER_ID);
   });
 
-  it("未サインインなら QR を表示しない", () => {
+  it("未サインインなら QR を表示しない", async () => {
     signedOutUser();
-    render(<QrScreen />);
+    await render(<QrScreen />);
 
     expect(mockQRCodeProps).not.toHaveBeenCalled();
     expect(
@@ -86,11 +85,11 @@ describe("マイQR（QR コード生成）", () => {
 });
 
 describe("スキャン", () => {
-  it("スキャンタブに切り替えられる", () => {
+  it("スキャンタブに切り替えられる", async () => {
     loggedInUser({ userId: USER_ID });
-    render(<QrScreen />);
+    await render(<QrScreen />);
 
-    fireEvent.press(screen.getByLabelText("スキャン"));
+    await fireEvent.press(screen.getByLabelText("スキャン"));
 
     expect(screen.getByText("QR コードを枠内に収めてください")).toBeTruthy();
   });

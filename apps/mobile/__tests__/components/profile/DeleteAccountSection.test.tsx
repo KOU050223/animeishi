@@ -33,7 +33,7 @@ jest.mock("@/lib/annict/storage", () => ({
   },
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   mockDeleteAccount.mockResolvedValue(null);
@@ -41,9 +41,9 @@ beforeEach(() => {
 
 describe("DeleteAccountSection", () => {
   it("削除ボタン押下で二段階確認が出て、承諾すると削除→後片付け→サインアウトされる", async () => {
-    render(<DeleteAccountSection onError={mockOnError} />);
+    await render(<DeleteAccountSection onError={mockOnError} />);
 
-    fireEvent.press(screen.getByLabelText("アカウントを削除"));
+    await fireEvent.press(screen.getByLabelText("アカウントを削除"));
 
     // 1 段目の確認で承諾すると 2 段目（最終確認）が出る
     expect(mockConfirm).toHaveBeenCalledTimes(1);
@@ -64,10 +64,10 @@ describe("DeleteAccountSection", () => {
     expect(mockOnError).not.toHaveBeenCalled();
   });
 
-  it("1 段目でキャンセル（confirm 未承諾）なら削除は実行されない", () => {
-    render(<DeleteAccountSection onError={mockOnError} />);
+  it("1 段目でキャンセル（confirm 未承諾）なら削除は実行されない", async () => {
+    await render(<DeleteAccountSection onError={mockOnError} />);
 
-    fireEvent.press(screen.getByLabelText("アカウントを削除"));
+    await fireEvent.press(screen.getByLabelText("アカウントを削除"));
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(mockDeleteAccount).not.toHaveBeenCalled();
@@ -78,9 +78,9 @@ describe("DeleteAccountSection", () => {
     mockDeleteAccount.mockRejectedValueOnce(
       new Error("アカウントの削除に失敗しました"),
     );
-    render(<DeleteAccountSection onError={mockOnError} />);
+    await render(<DeleteAccountSection onError={mockOnError} />);
 
-    fireEvent.press(screen.getByLabelText("アカウントを削除"));
+    await fireEvent.press(screen.getByLabelText("アカウントを削除"));
     (mockConfirm.mock.calls[0][2] as () => void)();
     (mockConfirm.mock.calls[1][2] as () => void)();
 

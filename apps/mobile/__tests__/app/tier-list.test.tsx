@@ -123,7 +123,7 @@ function savedList(
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockSavedBySeason = {};
   mockSavedLoading = false;
@@ -133,68 +133,68 @@ beforeEach(() => {
 });
 
 describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）", () => {
-  it("保存済みデータがなければ既定タイトルと空の盤面を出す", () => {
-    render(<TierListScreen />);
+  it("保存済みデータがなければ既定タイトルと空の盤面を出す", async () => {
+    await render(<TierListScreen />);
 
     expect(screen.getByText(defaultTierListTitle(initialSeason))).toBeTruthy();
     expect(mockBoardProps?.assignment.size).toBe(0);
   });
 
-  it("保存済みデータがあればタイトルと配置を反映する", () => {
+  it("保存済みデータがあればタイトルと配置を反映する", async () => {
     mockSavedBySeason[initialSeason] = savedList("保存済みの盤面", [
       { annictWorkId: 42, tierKey: "0" },
     ]);
 
-    render(<TierListScreen />);
+    await render(<TierListScreen />);
 
     expect(screen.getByText("保存済みの盤面")).toBeTruthy();
     expect(mockBoardProps?.assignment.get(42)).toBe("0");
   });
 
-  it("同じ saved で再レンダーしても盤面を再適用しない", () => {
+  it("同じ saved で再レンダーしても盤面を再適用しない", async () => {
     mockSavedBySeason[initialSeason] = savedList("保存済みの盤面", [
       { annictWorkId: 42, tierKey: "0" },
     ]);
-    const { rerender } = render(<TierListScreen />);
+    const { rerender } = await render(<TierListScreen />);
     const first = mockBoardProps?.assignment;
 
-    rerender(<TierListScreen />);
-    rerender(<TierListScreen />);
+    await rerender(<TierListScreen />);
+    await rerender(<TierListScreen />);
 
     // 再適用されると新しい Map が作られる。同じインスタンスなら
     // 再適用（＝再レンダー上限ループ）は起きていない。
     expect(mockBoardProps?.assignment).toBe(first);
   });
 
-  it("シーズンを切り替えると新しいシーズンの保存データに差し替わる", () => {
+  it("シーズンを切り替えると新しいシーズンの保存データに差し替わる", async () => {
     mockSavedBySeason[initialSeason] = savedList("元シーズン", []);
     mockSavedBySeason["1999-summer"] = savedList("夏 1999", [
       { annictWorkId: 7, tierKey: "2" },
     ]);
-    render(<TierListScreen />);
+    await render(<TierListScreen />);
     expect(screen.getByText("元シーズン")).toBeTruthy();
 
-    act(() => mockOnSeasonChange?.(1999, "summer"));
+    await act(() => mockOnSeasonChange?.(1999, "summer"));
 
     expect(mockSavedSeasons).toContain("1999-summer");
     expect(screen.getByText("夏 1999")).toBeTruthy();
     expect(mockBoardProps?.assignment.get(7)).toBe("2");
   });
 
-  it("未保存の編集中に saved が更新されても盤面を上書きしない", () => {
+  it("未保存の編集中に saved が更新されても盤面を上書きしない", async () => {
     mockSavedBySeason[initialSeason] = savedList("v1", [
       { annictWorkId: 42, tierKey: "0" },
     ]);
-    const { rerender } = render(<TierListScreen />);
+    const { rerender } = await render(<TierListScreen />);
 
     // ユーザーの並べ替え（isDirty 化）
-    act(() => mockBoardProps?.onAssign(7, "1"));
+    await act(() => mockBoardProps?.onAssign(7, "1"));
 
     // バックグラウンド refetch で別内容の saved が届く
     mockSavedBySeason[initialSeason] = savedList("v2", [
       { annictWorkId: 9, tierKey: "0" },
     ]);
-    rerender(<TierListScreen />);
+    await rerender(<TierListScreen />);
 
     // 編集は残り、新しい saved の配置・タイトルは反映されない
     expect(mockBoardProps?.assignment.get(7)).toBe("1");
@@ -210,21 +210,21 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
       },
     );
     mockSavedBySeason[initialSeason] = savedList("v1", []);
-    const { rerender } = render(<TierListScreen />);
+    const { rerender } = await render(<TierListScreen />);
 
     // 編集して dirty にし、その間に refetch で saved が v2 になる
-    act(() => mockBoardProps?.onAssign(7, "1"));
+    await act(() => mockBoardProps?.onAssign(7, "1"));
     mockSavedBySeason[initialSeason] = savedList("v2", [
       { annictWorkId: 9, tierKey: "0" },
     ]);
-    rerender(<TierListScreen />);
+    await rerender(<TierListScreen />);
     expect(mockBoardProps?.assignment.get(9)).toBeUndefined();
 
     // 保存 → onSuccess で isDirty 解除 → 最新の saved が反映される
-    fireEvent.press(screen.getByTestId("tier-list-save"));
+    await fireEvent.press(screen.getByTestId("tier-list-save"));
     expect(mockSaveMutate).toHaveBeenCalled();
-    act(() => onSuccessRef.current?.());
-    rerender(<TierListScreen />);
+    await act(() => onSuccessRef.current?.());
+    await rerender(<TierListScreen />);
 
     expect(mockBoardProps?.assignment.get(9)).toBe("0");
     expect(screen.getByText("v2")).toBeTruthy();

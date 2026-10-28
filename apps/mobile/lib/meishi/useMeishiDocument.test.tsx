@@ -29,28 +29,28 @@ const updatedDoc: MeishiDocument = {
   },
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.useRealTimers();
   jest.clearAllMocks();
   mockLoadMeishiDocument.mockResolvedValue(null);
   mockSaveMeishiDocument.mockResolvedValue(undefined);
 });
 
-afterEach(() => {
+afterEach(async () => {
   jest.useRealTimers();
 });
 
 describe("useMeishiDocument の永続化", () => {
   it("ドキュメント変更だけでは自動保存しない", async () => {
-    const { result } = renderHook(() => useMeishiDocument());
+    const { result } = await renderHook(() => useMeishiDocument());
 
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
     jest.useFakeTimers();
-    act(() => {
+    await act(() => {
       result.current.setDocFromTemplate(sampleDoc);
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(1000);
     });
 
@@ -58,11 +58,11 @@ describe("useMeishiDocument の永続化", () => {
   });
 
   it("saveDocument を呼んだ時だけ現在のドキュメントを保存する", async () => {
-    const { result } = renderHook(() => useMeishiDocument());
+    const { result } = await renderHook(() => useMeishiDocument());
 
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
-    act(() => {
+    await act(() => {
       result.current.setDocFromTemplate(sampleDoc);
     });
     await waitFor(() => expect(result.current.doc).toEqual(sampleDoc));
@@ -76,7 +76,7 @@ describe("useMeishiDocument の永続化", () => {
   });
 
   it("reloadDocument で保存済みドキュメントを再読み込みする", async () => {
-    const { result } = renderHook(() => useMeishiDocument());
+    const { result } = await renderHook(() => useMeishiDocument());
 
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.doc).toBeNull();

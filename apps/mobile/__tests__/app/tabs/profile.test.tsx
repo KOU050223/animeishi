@@ -6,8 +6,12 @@ import ProfileScreen from "@/app/(tabs)/profile";
 const mockMutateProfile = jest.fn();
 const mockReloadDocument = jest.fn();
 
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
   useFocusEffect: (effect: () => void | (() => void)) => {
     const React = require("react");
     React.useEffect(effect, [effect]);
@@ -110,7 +114,7 @@ jest.mock("@/lib/profileUrl", () => ({
     userId ? `http://localhost:8081/user/${userId}` : null,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   mockProfile = {
     data: mockProfileData,
@@ -124,18 +128,18 @@ beforeEach(() => {
 });
 
 describe("ProfileScreen の名刺プレビュー", () => {
-  it("画面フォーカス時に名刺ドキュメントを再読み込みする", () => {
-    render(<ProfileScreen />);
+  it("画面フォーカス時に名刺ドキュメントを再読み込みする", async () => {
+    await render(<ProfileScreen />);
 
     expect(mockReloadDocument).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("ProfileScreen の保存トースト", () => {
-  it("保存成功時のトーストをスクロール内容とは別の上位レイヤーに表示する", () => {
-    render(<ProfileScreen />);
+  it("保存成功時のトーストをスクロール内容とは別の上位レイヤーに表示する", async () => {
+    await render(<ProfileScreen />);
 
-    fireEvent.press(screen.getByLabelText("プロフィールを保存"));
+    await fireEvent.press(screen.getByLabelText("プロフィールを保存"));
 
     expect(screen.getByText("プロフィールを保存しました")).toBeTruthy();
 
@@ -152,52 +156,52 @@ describe("ProfileScreen の保存トースト", () => {
 });
 
 describe("ProfileScreen の Annict 連携セクション", () => {
-  it("連携状態の確認・解除カードを表示する（ホームからここへ集約）", () => {
-    render(<ProfileScreen />);
+  it("連携状態の確認・解除カードを表示する（ホームからここへ集約）", async () => {
+    await render(<ProfileScreen />);
 
     expect(screen.getByText("Annict連携")).toBeTruthy();
   });
 
-  it("プロフィール取得エラー時も連携カードを表示する（解除導線を残す）", () => {
+  it("プロフィール取得エラー時も連携カードを表示する（解除導線を残す）", async () => {
     mockProfile = {
       data: undefined,
       isLoading: false,
       isError: true,
       refetch: jest.fn(),
     };
-    render(<ProfileScreen />);
+    await render(<ProfileScreen />);
 
     expect(screen.getByText("Annict連携")).toBeTruthy();
   });
 });
 
 describe("ProfileScreen のアカウント削除導線", () => {
-  it("アカウント削除セクションが表示される（本体の挙動は DeleteAccountSection のテストを参照）", () => {
-    render(<ProfileScreen />);
+  it("アカウント削除セクションが表示される（本体の挙動は DeleteAccountSection のテストを参照）", async () => {
+    await render(<ProfileScreen />);
 
     expect(screen.getByLabelText("アカウントを削除")).toBeTruthy();
   });
 });
 
 describe("ProfileScreen のアプリ情報セクション", () => {
-  it("機能一覧・更新情報への導線を表示する", () => {
-    render(<ProfileScreen />);
+  it("機能一覧・更新情報への導線を表示する", async () => {
+    await render(<ProfileScreen />);
 
     expect(screen.getByLabelText("機能一覧・更新情報を開く")).toBeTruthy();
   });
 });
 
 describe("ProfileScreen の法務情報セクション", () => {
-  it("プライバシーポリシー・利用規約・サポートへの導線を表示する", () => {
-    render(<ProfileScreen />);
+  it("プライバシーポリシー・利用規約・サポートへの導線を表示する", async () => {
+    await render(<ProfileScreen />);
 
     expect(screen.getByLabelText("プライバシーポリシーを開く")).toBeTruthy();
     expect(screen.getByLabelText("利用規約を開く")).toBeTruthy();
     expect(screen.getByLabelText("サポートを開く")).toBeTruthy();
   });
 
-  it("MyAnimeList の帰属表示を表示する", () => {
-    render(<ProfileScreen />);
+  it("MyAnimeList の帰属表示を表示する", async () => {
+    await render(<ProfileScreen />);
 
     expect(
       screen.getByText("作品画像の一部は MyAnimeList から取得しています"),

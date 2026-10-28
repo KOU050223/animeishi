@@ -21,8 +21,8 @@ jest.mock("expo-router", () => ({
 }));
 
 describe("TermsScreen", () => {
-  it("タイトルと主要なセクションを表示する", () => {
-    render(<TermsScreen />);
+  it("タイトルと主要なセクションを表示する", async () => {
+    await render(<TermsScreen />);
 
     // タイトルとフッターリンクの 2 箇所に出るため複数ヒットを許容する。
     expect(screen.getAllByText("利用規約").length).toBeGreaterThan(0);
@@ -33,8 +33,8 @@ describe("TermsScreen", () => {
     expect(screen.getByText("第10条（準拠法・管轄）")).toBeTruthy();
   });
 
-  it("プライバシーポリシーページへのリンクを表示する", () => {
-    render(<TermsScreen />);
+  it("プライバシーポリシーページへのリンクを表示する", async () => {
+    await render(<TermsScreen />);
 
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();

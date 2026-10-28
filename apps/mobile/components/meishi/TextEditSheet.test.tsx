@@ -20,38 +20,41 @@ const sheetElement = (props?: {
 );
 
 describe("TextEditSheet", () => {
-  it("初期値を入力欄に表示する", () => {
-    render(sheetElement({ initialValue: "こんにちは" }));
+  it("初期値を入力欄に表示する", async () => {
+    await render(sheetElement({ initialValue: "こんにちは" }));
     expect(screen.getByDisplayValue("こんにちは")).toBeTruthy();
   });
 
-  it("一度閉じて開き直すと入力値が初期値に戻る", () => {
-    const { rerender } = render(sheetElement({ initialValue: "before" }));
-    fireEvent.changeText(screen.getByDisplayValue("before"), "edited");
+  it("一度閉じて開き直すと入力値が初期値に戻る", async () => {
+    const { rerender } = await render(sheetElement({ initialValue: "before" }));
+    await fireEvent.changeText(screen.getByDisplayValue("before"), "edited");
     expect(screen.getByDisplayValue("edited")).toBeTruthy();
 
-    rerender(sheetElement({ visible: false, initialValue: "before" }));
-    rerender(sheetElement({ visible: true, initialValue: "after" }));
+    await rerender(sheetElement({ visible: false, initialValue: "before" }));
+    await rerender(sheetElement({ visible: true, initialValue: "after" }));
 
     expect(screen.getByDisplayValue("after")).toBeTruthy();
   });
 
-  it("開いたまま initialValue が変わると入力値が追従する", () => {
-    const { rerender } = render(sheetElement({ initialValue: "first" }));
-    fireEvent.changeText(screen.getByDisplayValue("first"), "edited");
+  it("開いたまま initialValue が変わると入力値が追従する", async () => {
+    const { rerender } = await render(sheetElement({ initialValue: "first" }));
+    await fireEvent.changeText(screen.getByDisplayValue("first"), "edited");
 
-    rerender(sheetElement({ initialValue: "second" }));
+    await rerender(sheetElement({ initialValue: "second" }));
 
     expect(screen.getByDisplayValue("second")).toBeTruthy();
   });
 
-  it("完了で入力値を onSubmit に渡して閉じる", () => {
+  it("完了で入力値を onSubmit に渡して閉じる", async () => {
     const onSubmit = jest.fn();
     const onClose = jest.fn();
-    render(sheetElement({ onSubmit, onClose }));
+    await render(sheetElement({ onSubmit, onClose }));
 
-    fireEvent.changeText(screen.getByDisplayValue("初期テキスト"), "新しい文");
-    fireEvent.press(screen.getByLabelText("完了"));
+    await fireEvent.changeText(
+      screen.getByDisplayValue("初期テキスト"),
+      "新しい文",
+    );
+    await fireEvent.press(screen.getByLabelText("完了"));
 
     expect(onSubmit).toHaveBeenCalledWith("新しい文");
     expect(onClose).toHaveBeenCalled();

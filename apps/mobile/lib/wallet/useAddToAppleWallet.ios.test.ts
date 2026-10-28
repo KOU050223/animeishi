@@ -18,14 +18,14 @@ jest.mock("@/lib/apiUrl", () => ({
 
 const originalFetch = global.fetch;
 
-afterEach(() => {
+afterEach(async () => {
   global.fetch = originalFetch;
   jest.clearAllMocks();
 });
 
 describe("useAddToAppleWallet (iOS)", () => {
-  it("canUse は true を返す", () => {
-    const { result } = renderHook(() => useAddToAppleWallet());
+  it("canUse は true を返す", async () => {
+    const { result } = await renderHook(() => useAddToAppleWallet());
     expect(result.current.canUse).toBe(true);
   });
 
@@ -36,7 +36,7 @@ describe("useAddToAppleWallet (iOS)", () => {
       json: async () => ({ message: "証明書未設定です" }),
     });
 
-    const { result } = renderHook(() => useAddToAppleWallet());
+    const { result } = await renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
     await act(async () => {
       res = await result.current.addToWallet();
@@ -51,7 +51,7 @@ describe("useAddToAppleWallet (iOS)", () => {
     });
     global.fetch = fetchMock;
 
-    const { result } = renderHook(() => useAddToAppleWallet());
+    const { result } = await renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
     await act(async () => {
       res = await result.current.addToWallet();
@@ -78,7 +78,7 @@ describe("useAddToAppleWallet (iOS)", () => {
       ok: false,
     });
 
-    const { result } = renderHook(() => useAddToAppleWallet());
+    const { result } = await renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
     await act(async () => {
       res = await result.current.addToWallet();
@@ -91,7 +91,7 @@ describe("useAddToAppleWallet (iOS)", () => {
       .fn()
       .mockRejectedValue(new DOMException("Aborted", "AbortError"));
 
-    const { result } = renderHook(() => useAddToAppleWallet());
+    const { result } = await renderHook(() => useAddToAppleWallet());
     let res: Awaited<ReturnType<typeof result.current.addToWallet>> | undefined;
     await act(async () => {
       res = await result.current.addToWallet();

@@ -18,15 +18,15 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
 describe("SignUpScreen", () => {
-  it("フォームが正しくレンダリングされる", () => {
-    render(<SignUpScreen />);
+  it("フォームが正しくレンダリングされる", async () => {
+    await render(<SignUpScreen />);
     expect(screen.getByTestId("email-input")).toBeTruthy();
     expect(screen.getByTestId("username-input")).toBeTruthy();
     expect(screen.getByTestId("password-input")).toBeTruthy();
@@ -34,8 +34,8 @@ describe("SignUpScreen", () => {
     expect(screen.getByTestId("sign-up-button")).toBeTruthy();
   });
 
-  it("利用規約・プライバシーポリシーへのリンクを表示する", () => {
-    render(<SignUpScreen />);
+  it("利用規約・プライバシーポリシーへのリンクを表示する", async () => {
+    await render(<SignUpScreen />);
 
     // このファイルの Link モックは testID を落とすため、リンク内ラベルで検証する。
     expect(screen.getByText("利用規約")).toBeTruthy();
@@ -47,25 +47,36 @@ describe("SignUpScreen", () => {
     ).toBeTruthy();
   });
 
-  it("WebではClerk CAPTCHAのマウント先をレンダリングする", () => {
+  it("WebではClerk CAPTCHAのマウント先をレンダリングする", async () => {
     Object.defineProperty(Platform, "OS", { value: "web" });
 
-    const { UNSAFE_getByProps } = render(<SignUpScreen />);
+    const { container } = await render(<SignUpScreen />);
 
-    expect(UNSAFE_getByProps({ id: "clerk-captcha" })).toBeTruthy();
+    expect(
+      container.queryAll((node) => node.props.id === "clerk-captcha")[0],
+    ).toBeTruthy();
   });
 
   it("パスワードが一致しない場合にバリデーションエラーが表示される", async () => {
     const auth = getAuthMock();
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "Different1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -84,15 +95,24 @@ describe("SignUpScreen", () => {
     });
     auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
 
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(auth.signUp.create).toHaveBeenCalledWith({
@@ -120,27 +140,36 @@ describe("SignUpScreen", () => {
       createdSessionId: "session_456",
     });
 
-    render(<SignUpScreen />);
+    await render(<SignUpScreen />);
     // フォームを送信してメール認証フローへ
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("verification-code-input")).toBeTruthy();
     });
 
     // 認証コードを入力して確認
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId("verification-code-input"),
       "123456",
     );
-    fireEvent.press(screen.getByTestId("verify-button"));
+    await fireEvent.press(screen.getByTestId("verify-button"));
 
     await waitFor(() => {
       expect(auth.signUp.attemptEmailAddressVerification).toHaveBeenCalledWith({
@@ -160,15 +189,24 @@ describe("SignUpScreen", () => {
       createdSessionId: "session_new",
     });
 
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_new" });
@@ -188,15 +226,24 @@ describe("SignUpScreen", () => {
       missingFields: ["phone_number"],
     });
 
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
@@ -216,15 +263,24 @@ describe("SignUpScreen", () => {
       errors: [{ code: "session_exists", message: "You're already signed in" }],
     });
 
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({
@@ -244,15 +300,24 @@ describe("SignUpScreen", () => {
       errors: [{ code: "session_exists", message: "You're already signed in" }],
     });
 
-    render(<SignUpScreen />);
-    fireEvent.changeText(screen.getByTestId("email-input"), "test@example.com");
-    fireEvent.changeText(screen.getByTestId("username-input"), "testuser");
-    fireEvent.changeText(screen.getByTestId("password-input"), "StrongPass1");
-    fireEvent.changeText(
+    await render(<SignUpScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("email-input"),
+      "test@example.com",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("username-input"),
+      "testuser",
+    );
+    await fireEvent.changeText(
+      screen.getByTestId("password-input"),
+      "StrongPass1",
+    );
+    await fireEvent.changeText(
       screen.getByTestId("password-confirmation-input"),
       "StrongPass1",
     );
-    fireEvent.press(screen.getByTestId("sign-up-button"));
+    await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
@@ -272,8 +337,8 @@ describe("SignUpScreen", () => {
         authSessionResult: { type: "success" },
       });
 
-      render(<SignUpScreen />);
-      fireEvent.press(screen.getByTestId("google-sign-in-button"));
+      await render(<SignUpScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
 
       await waitFor(() => {
         expect(auth.startSSOFlow).toHaveBeenCalledWith(

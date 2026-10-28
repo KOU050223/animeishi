@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { renderHook, waitFor } from "@testing-library/react-native";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useWorkSearch } from "./useWorkSearch";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
@@ -38,6 +38,12 @@ function okSearchResponse(body: unknown) {
   return { ok: true, json: async () => body };
 }
 
+// デバウンスの setTimeout が発火する間を act で包まないと
+// 「act で包まれていない state 更新」警告が出る。
+function sleep(ms: number) {
+  return act(() => new Promise((r) => setTimeout(r, ms)));
+}
+
 const SEARCH_RESULT = {
   works: [
     {
@@ -59,7 +65,7 @@ const SEARCH_RESULT = {
 };
 
 describe("useWorkSearch", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
@@ -73,24 +79,24 @@ describe("useWorkSearch", () => {
   });
 
   it("検索語が空の間はフェッチしない", async () => {
-    const { result } = renderHook(() => useWorkSearch(""), {
+    const { result } = await renderHook(() => useWorkSearch(""), {
       wrapper: makeWrapper(),
     });
     // 発火しないことを確認するため少し待つ
-    await new Promise((r) => setTimeout(r, 350));
+    await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
     expect(result.current.hasQuery).toBe(false);
     expect(result.current.works).toHaveLength(0);
   });
 
   it("空白だけの検索語でもフェッチしない", async () => {
-    renderHook(() => useWorkSearch("   "), { wrapper: makeWrapper() });
-    await new Promise((r) => setTimeout(r, 350));
+    await renderHook(() => useWorkSearch("   "), { wrapper: makeWrapper() });
+    await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
   });
 
   it("検索語ありで works/search を title で叩き、works を返す", async () => {
-    const { result } = renderHook(() => useWorkSearch("進撃"), {
+    const { result } = await renderHook(() => useWorkSearch("進撃"), {
       wrapper: makeWrapper(),
     });
 
@@ -108,12 +114,15 @@ describe("useWorkSearch", () => {
   it("入力中に語が変わるとデバウンスされ、最後の語でだけ検索する", async () => {
     // "" → "進" → "進撃" を同一 tick で書き換える。デバウンス後の値が
     // 空のまま保たれるため中間の語ではフェッチが走らない。
-    const { rerender } = renderHook(({ q }) => useWorkSearch(q), {
-      wrapper: makeWrapper(),
-      initialProps: { q: "" },
-    });
-    rerender({ q: "進" });
-    rerender({ q: "進撃" });
+    const { rerender } = await renderHook(
+      ({ q }: { q: string }) => useWorkSearch(q),
+      {
+        wrapper: makeWrapper(),
+        initialProps: { q: "" },
+      },
+    );
+    await rerender({ q: "進" });
+    await rerender({ q: "進撃" });
 
     await waitFor(() => expect(mockSearchGet).toHaveBeenCalled());
     expect(mockSearchGet).toHaveBeenCalledTimes(1);
@@ -122,11 +131,14 @@ describe("useWorkSearch", () => {
   });
 
   it("入力とデバウンス後の語がずれている間は resultsStale になる", async () => {
-    const { result, rerender } = renderHook(({ q }) => useWorkSearch(q), {
-      wrapper: makeWrapper(),
-      initialProps: { q: "" },
-    });
-    rerender({ q: "進撃" });
+    const { result, rerender } = await renderHook(
+      ({ q }: { q: string }) => useWorkSearch(q),
+      {
+        wrapper: makeWrapper(),
+        initialProps: { q: "" },
+      },
+    );
+    await rerender({ q: "進撃" });
     // デバウンス反映前は表示中の結果と入力がずれている
     expect(result.current.resultsStale).toBe(true);
 
@@ -136,10 +148,10 @@ describe("useWorkSearch", () => {
   });
 
   it("enabled=false の間は検索語があってもフェッチしない", async () => {
-    renderHook(() => useWorkSearch("進撃", false), {
+    await renderHook(() => useWorkSearch("進撃", false), {
       wrapper: makeWrapper(),
     });
-    await new Promise((r) => setTimeout(r, 350));
+    await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
   });
 
@@ -147,31 +159,34 @@ describe("useWorkSearch", () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
-    const { rerender } = renderHook(({ q }) => useWorkSearch(q), {
-      wrapper: makeWrapper(client),
-      initialProps: { q: "進撃" },
-    });
+    const { rerender } = await renderHook(
+      ({ q }: { q: string }) => useWorkSearch(q),
+      {
+        wrapper: makeWrapper(client),
+        initialProps: { q: "進撃" },
+      },
+    );
     await waitFor(() => expect(mockSearchGet).toHaveBeenCalledTimes(1));
 
     // シートを閉じた相当（空クエリ）。デバウンス済みの旧語が残る間も
     // そのクエリを無効化するので、invalidate でも再フェッチされない。
-    rerender({ q: "" });
+    await rerender({ q: "" });
     await client.invalidateQueries();
-    await new Promise((r) => setTimeout(r, 400));
+    await sleep(400);
     expect(mockSearchGet).toHaveBeenCalledTimes(1);
   });
 
   it("未連携のうちはフェッチしない", async () => {
     mockIsConnected = false;
-    renderHook(() => useWorkSearch("進撃"), { wrapper: makeWrapper() });
-    await new Promise((r) => setTimeout(r, 350));
+    await renderHook(() => useWorkSearch("進撃"), { wrapper: makeWrapper() });
+    await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
   });
 
   it("サインアウト中はフェッチしない", async () => {
     signedOutUser();
-    renderHook(() => useWorkSearch("進撃"), { wrapper: makeWrapper() });
-    await new Promise((r) => setTimeout(r, 350));
+    await renderHook(() => useWorkSearch("進撃"), { wrapper: makeWrapper() });
+    await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
   });
 });

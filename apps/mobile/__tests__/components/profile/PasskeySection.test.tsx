@@ -13,7 +13,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 const onSuccess = jest.fn();
 const onError = jest.fn();
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
 });
@@ -22,8 +22,8 @@ describe("PasskeySection", () => {
   it("登録ボタン押下で createPasskey を呼び、成功メッセージを返す", async () => {
     const auth = loggedInUser();
 
-    render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
-    fireEvent.press(screen.getByTestId("register-passkey-button"));
+    await render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
+    await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
@@ -32,11 +32,11 @@ describe("PasskeySection", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("登録済みパスキーがあるとき件数を表示する", () => {
+  it("登録済みパスキーがあるとき件数を表示する", async () => {
     const auth = loggedInUser();
     auth.user!.passkeys = [{ id: "pk_1" }, { id: "pk_2" }];
 
-    render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
+    await render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
 
     expect(screen.getByText("登録済みのパスキー: 2件")).toBeTruthy();
   });
@@ -45,8 +45,8 @@ describe("PasskeySection", () => {
     const auth = loggedInUser();
     auth.user?.createPasskey.mockRejectedValueOnce(new Error("failed"));
 
-    render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
-    fireEvent.press(screen.getByTestId("register-passkey-button"));
+    await render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
+    await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(onError).toHaveBeenCalledWith("パスキーの登録に失敗しました");
@@ -60,8 +60,8 @@ describe("PasskeySection", () => {
     cancelError.name = "NotAllowedError";
     auth.user?.createPasskey.mockRejectedValueOnce(cancelError);
 
-    render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
-    fireEvent.press(screen.getByTestId("register-passkey-button"));
+    await render(<PasskeySection onSuccess={onSuccess} onError={onError} />);
+    await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);

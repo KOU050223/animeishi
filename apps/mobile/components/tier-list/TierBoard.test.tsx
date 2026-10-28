@@ -145,33 +145,34 @@ const backgroundColorOf = (el: { props: { style?: unknown } }) =>
   StyleSheet.flatten(el.props.style as StyleProp<ViewStyle>)?.backgroundColor;
 
 // スキームを切り替えたテストが後続へ漏れないよう、各テストの前に light へ戻す。
-beforeEach(() => {
+beforeEach(async () => {
   setScheme("light");
 });
 
 describe("TierBoard の配色", () => {
-  it("light スキームでは未分類トレイを白系の面で描く", () => {
-    const { getByTestId } = render(boardElement());
+  it("light スキームでは未分類トレイを白系の面で描く", async () => {
+    const { getByTestId } = await render(boardElement());
     expect(backgroundColorOf(getByTestId("tier-tray"))).toBe(
       colors.light.tierDropArea,
     );
   });
 
-  it("dark スキームでは未分類トレイを暗色の面で描く", () => {
+  it("dark スキームでは未分類トレイを暗色の面で描く", async () => {
     setScheme("dark");
-    const { getByTestId } = render(boardElement());
+    const { getByTestId } = await render(boardElement());
     expect(backgroundColorOf(getByTestId("tier-tray"))).toBe(
       colors.dark.tierDropArea,
     );
   });
 
-  it("tier ラベルの文字色は行の背景色とのコントラストで決まる", () => {
+  it("tier ラベルの文字色は行の背景色とのコントラストで決まる", async () => {
     // TIERS の 0 番は #ff0000（白文字側）、1 番は #ff8000（濃色文字側）。
-    const { getByTestId } = render(boardElement());
+    const { getByTestId } = await render(boardElement());
     const labelTextColor = (testId: string) =>
       StyleSheet.flatten(
-        getByTestId(testId).findByProps({ numberOfLines: 3 }).props
-          .style as StyleProp<TextStyle>,
+        getByTestId(testId).queryAll(
+          (node) => node.props.numberOfLines === 3,
+        )[0].props.style as StyleProp<TextStyle>,
       )?.color;
     expect(labelTextColor("tier-label-0")).toBe("#ffffff");
     expect(labelTextColor("tier-label-1")).toBe("#1f2937");
@@ -179,56 +180,57 @@ describe("TierBoard の配色", () => {
 });
 
 describe("TierBoard の tier 名編集", () => {
-  it("ラベルをタップすると編集シートが開く", () => {
-    const { getByTestId } = render(boardElement());
-    fireEvent.press(getByTestId("tier-label-0"));
+  it("ラベルをタップすると編集シートが開く", async () => {
+    const { getByTestId } = await render(boardElement());
+    await fireEvent.press(getByTestId("tier-label-0"));
     expect(getByTestId("tier-label-input")).toBeTruthy();
   });
 
-  it("シートで確定すると onRenameTier が呼ばれる", () => {
+  it("シートで確定すると onRenameTier が呼ばれる", async () => {
     const onRenameTier = jest.fn();
-    const { getByTestId } = render(boardElement({ onRenameTier }));
+    const { getByTestId } = await render(boardElement({ onRenameTier }));
 
-    fireEvent.press(getByTestId("tier-label-1"));
-    fireEvent.changeText(getByTestId("tier-label-input"), "神");
-    fireEvent.press(getByTestId("tier-label-submit"));
+    await fireEvent.press(getByTestId("tier-label-1"));
+    await fireEvent.changeText(getByTestId("tier-label-input"), "神");
+    await fireEvent.press(getByTestId("tier-label-submit"));
 
     expect(onRenameTier).toHaveBeenCalledWith("1", "神");
   });
 
-  it("labelsEditable=false の間はラベルをタップしてもシートが開かない", () => {
-    const { getByTestId, queryByTestId } = render(
+  it("labelsEditable=false の間はラベルをタップしてもシートが開かない", async () => {
+    const { getByTestId, queryByTestId } = await render(
       boardElement({ labelsEditable: false }),
     );
-    fireEvent.press(getByTestId("tier-label-0"));
+    await fireEvent.press(getByTestId("tier-label-0"));
     expect(queryByTestId("tier-label-input")).toBeNull();
   });
 
-  it("編集中に labelsEditable が false になると開いているシートも閉じる", () => {
-    const { getByTestId, queryByTestId, rerender } = render(boardElement());
-    fireEvent.press(getByTestId("tier-label-0"));
+  it("編集中に labelsEditable が false になると開いているシートも閉じる", async () => {
+    const { getByTestId, queryByTestId, rerender } =
+      await render(boardElement());
+    await fireEvent.press(getByTestId("tier-label-0"));
     expect(getByTestId("tier-label-input")).toBeTruthy();
 
-    rerender(boardElement({ labelsEditable: false }));
+    await rerender(boardElement({ labelsEditable: false }));
     expect(queryByTestId("tier-label-input")).toBeNull();
   });
 });
 
 describe("TierBoard の作品手動追加", () => {
-  it("未分類の＋ボタンをタップすると検索シートが開く", () => {
-    const { getByTestId, queryByTestId } = render(boardElement());
+  it("未分類の＋ボタンをタップすると検索シートが開く", async () => {
+    const { getByTestId, queryByTestId } = await render(boardElement());
     expect(queryByTestId("work-add-sheet")).toBeNull();
 
-    fireEvent.press(getByTestId("tier-tray-add"));
+    await fireEvent.press(getByTestId("tier-tray-add"));
     expect(queryByTestId("work-add-sheet")).toBeTruthy();
   });
 
-  it("シートで作品が選ばれると onAddItem に渡る", () => {
+  it("シートで作品が選ばれると onAddItem に渡る", async () => {
     const onAddItem = jest.fn();
-    const { getByTestId } = render(boardElement({ onAddItem }));
+    const { getByTestId } = await render(boardElement({ onAddItem }));
 
-    fireEvent.press(getByTestId("tier-tray-add"));
-    fireEvent.press(getByTestId("work-add-sheet"));
+    await fireEvent.press(getByTestId("tier-tray-add"));
+    await fireEvent.press(getByTestId("work-add-sheet"));
 
     expect(onAddItem).toHaveBeenCalledWith({
       id: 99,
@@ -236,20 +238,21 @@ describe("TierBoard の作品手動追加", () => {
     });
   });
 
-  it("labelsEditable=false の間は＋ボタンが無効でシートが開かない", () => {
-    const { getByTestId, queryByTestId } = render(
+  it("labelsEditable=false の間は＋ボタンが無効でシートが開かない", async () => {
+    const { getByTestId, queryByTestId } = await render(
       boardElement({ labelsEditable: false }),
     );
-    fireEvent.press(getByTestId("tier-tray-add"));
+    await fireEvent.press(getByTestId("tier-tray-add"));
     expect(queryByTestId("work-add-sheet")).toBeNull();
   });
 
-  it("シート表示中に labelsEditable が false になるとシートが閉じる", () => {
-    const { getByTestId, queryByTestId, rerender } = render(boardElement());
-    fireEvent.press(getByTestId("tier-tray-add"));
+  it("シート表示中に labelsEditable が false になるとシートが閉じる", async () => {
+    const { getByTestId, queryByTestId, rerender } =
+      await render(boardElement());
+    await fireEvent.press(getByTestId("tier-tray-add"));
     expect(queryByTestId("work-add-sheet")).toBeTruthy();
 
-    rerender(boardElement({ labelsEditable: false }));
+    await rerender(boardElement({ labelsEditable: false }));
     expect(queryByTestId("work-add-sheet")).toBeNull();
   });
 });
@@ -276,8 +279,8 @@ describe("行内の並べ替え（issue #218）", () => {
     registry.registerCard(3, { x: 128, y: 4, width: 60, height: 116 });
   }
 
-  function renderDropBoard(onAssign = jest.fn()) {
-    const utils = render(
+  async function renderDropBoard(onAssign = jest.fn()) {
+    const utils = await render(
       boardElement({
         items: BOARD_ITEMS,
         assignment: ROW_ASSIGNMENT,
@@ -291,93 +294,93 @@ describe("行内の並べ替え（issue #218）", () => {
     mockDropPoint = { x, y };
   };
 
-  it("同じ行の別カードの前半に落とすと、そのカードの直前に挿入される", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("同じ行の別カードの前半に落とすと、そのカードの直前に挿入される", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-3");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     // カード1（x 0-60、中央 30）の前半に落とす
     dropAt(10, 50);
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(3, "0", 1);
   });
 
-  it("直後のカードの前半に落とすなど、順序が変わらないドロップでは onAssign を呼ばない", () => {
+  it("直後のカードの前半に落とすなど、順序が変わらないドロップでは onAssign を呼ばない", async () => {
     // 順序 [1,2,3] でカード1 をカード2 の前半に落としても [1,2,3] のまま。
     // onAssign まで通すと配置は変わらないのに未保存フラグだけが立つ。
-    const { getByTestId, onAssign } = renderDropBoard();
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     dropAt(80, 50); // カード2 の前半
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).not.toHaveBeenCalled();
   });
 
-  it("末尾のカードを直前のカードの後半に落としても配置は変わらない", () => {
+  it("末尾のカードを直前のカードの後半に落としても配置は変わらない", async () => {
     // 順序 [1,2,3] でカード3 をカード2 の後半に落とすと挿入アンカーは
     // カード3 自身（＝今と同じ位置）になる。
-    const { getByTestId, onAssign } = renderDropBoard();
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-3");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     dropAt(110, 50); // カード2 の後半
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).not.toHaveBeenCalled();
   });
 
-  it("カードの後半に落とすと、次のカードの直前に挿入される", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("カードの後半に落とすと、次のカードの直前に挿入される", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     // カード2 の後半 → 次はカード3
     dropAt(110, 50);
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(1, "0", 3);
   });
 
-  it("末尾カードの後半に落とすと行の末尾に追加される", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("末尾カードの後半に落とすと行の末尾に追加される", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     // カード3（x 128-188）の後半
     dropAt(170, 50);
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(1, "0", undefined);
   });
 
-  it("自分の元の位置に落としても配置は変わらない", () => {
+  it("自分の元の位置に落としても配置は変わらない", async () => {
     // ドラッグ中のカードはヒットテストから外れるため、元の枡目に落とした
     // 場合は「行内・カード非ヒット」扱いになり、同じ行なら位置を維持する。
-    const { getByTestId, onAssign } = renderDropBoard();
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     dropAt(30, 50); // カード1 の矩形内
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).not.toHaveBeenCalled();
   });
 
-  it("行内の余白（カード無し）に落としても、同じ行なら配置は変わらない", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("行内の余白（カード無し）に落としても、同じ行なら配置は変わらない", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     dropAt(250, 50); // 行 "0" 内だがどのカードにも当たらない
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).not.toHaveBeenCalled();
   });
 
-  it("別の行のカードの上に落とすと、その位置に挿入される", () => {
+  it("別の行のカードの上に落とすと、その位置に挿入される", async () => {
     const assignment: TierAssignment = new Map([
       [1, "0"],
       [2, "0"],
@@ -385,11 +388,11 @@ describe("行内の並べ替え（issue #218）", () => {
       [4, "1"],
     ]);
     const onAssign = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       boardElement({ items: BOARD_ITEMS, assignment, onAssign }),
     );
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     mockCardRegistry!.registerCard(4, {
       x: 0,
@@ -400,42 +403,42 @@ describe("行内の並べ替え（issue #218）", () => {
 
     // 行 "1" のカード4 の前半に落とす
     dropAt(20, 180);
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(1, "1", 4);
   });
 
-  it("別の行のカード以外の場所に落とすと従来通り末尾に追加される", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("別の行のカード以外の場所に落とすと従来通り末尾に追加される", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     dropAt(250, 180); // 行 "1"（空）の中
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(1, "1");
   });
 
-  it("トレイのカードを行内のカードの前に落とすと、その位置に挿入される", () => {
-    const { getByTestId, onAssign } = renderDropBoard();
+  it("トレイのカードを行内のカードの前に落とすと、その位置に挿入される", async () => {
+    const { getByTestId, onAssign } = await renderDropBoard();
     const card = getByTestId("tier-card-4");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     setupDropGeometry();
     // 行 "0" のカード2 の前半に落とす
     dropAt(80, 50);
-    fireEvent(card, "longPress");
+    await fireEvent(card, "longPress");
 
     expect(onAssign).toHaveBeenCalledWith(4, "0", 2);
   });
 });
 
 describe("ドラッグ中カードの重なり順", () => {
-  it("tier 内のカードをドラッグ中は、その行と盤面が最前面になる", () => {
-    const { getByTestId } = render(
+  it("tier 内のカードをドラッグ中は、その行と盤面が最前面になる", async () => {
+    const { getByTestId } = await render(
       boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
-    fireEvent.press(getByTestId("tier-card-1"));
+    await fireEvent.press(getByTestId("tier-card-1"));
 
     // 下段の行より手前に出すため、ドラッグ中カードを含む行自体を持ち上げる。
     // カード自身の zIndex だけでは、後に描画される別の行（特に Web は全 View が
@@ -447,38 +450,38 @@ describe("ドラッグ中カードの重なり順", () => {
     expect(zIndexOf(getByTestId("tier-board"))).toBeGreaterThan(0);
   });
 
-  it("未分類トレイのカードをドラッグ中は、トレイが最前面になる", () => {
-    const { getByTestId } = render(
+  it("未分類トレイのカードをドラッグ中は、トレイが最前面になる", async () => {
+    const { getByTestId } = await render(
       boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
-    fireEvent.press(getByTestId("tier-card-3"));
+    await fireEvent.press(getByTestId("tier-card-3"));
 
     expect(zIndexOf(getByTestId("tier-tray"))).toBeGreaterThan(0);
   });
 
-  it("ドラッグがキャンセルされても元の重なり順に戻る", () => {
-    const { getByTestId } = render(
+  it("ドラッグがキャンセルされても元の重なり順に戻る", async () => {
+    const { getByTestId } = await render(
       boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
+    await fireEvent.press(card);
     // onEnd を通らないキャンセル（別ジェスチャに奪われた等）を再現する
-    fireEvent(card, "touchCancel");
+    await fireEvent(card, "touchCancel");
 
     expect(zIndexOf(getByTestId("tier-row-0")) ?? 0).toBe(0);
     expect(zIndexOf(getByTestId("tier-board")) ?? 0).toBe(0);
   });
 
-  it("ドラッグ終了後は元の重なり順に戻る", () => {
-    const { getByTestId } = render(
+  it("ドラッグ終了後は元の重なり順に戻る", async () => {
+    const { getByTestId } = await render(
       boardElement({ items: ITEMS, assignment: ASSIGNMENT }),
     );
 
     const card = getByTestId("tier-card-1");
-    fireEvent.press(card);
-    fireEvent(card, "longPress");
+    await fireEvent.press(card);
+    await fireEvent(card, "longPress");
 
     expect(zIndexOf(getByTestId("tier-row-0")) ?? 0).toBe(0);
     expect(zIndexOf(getByTestId("tier-board")) ?? 0).toBe(0);

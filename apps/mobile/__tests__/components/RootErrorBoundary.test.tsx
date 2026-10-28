@@ -4,12 +4,12 @@ import * as Sentry from "@sentry/react-native";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
 describe("RootErrorBoundary", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
   });
 
-  it("エラーメッセージと再試行ボタンを表示する", () => {
-    render(
+  it("エラーメッセージと再試行ボタンを表示する", async () => {
+    await render(
       <RootErrorBoundary error={new Error("テストエラー")} retry={jest.fn()} />,
     );
 
@@ -17,18 +17,18 @@ describe("RootErrorBoundary", () => {
     expect(screen.getByLabelText("もう一度試す")).toBeTruthy();
   });
 
-  it("再試行ボタンで retry が呼ばれる", () => {
+  it("再試行ボタンで retry が呼ばれる", async () => {
     const retry = jest.fn();
-    render(<RootErrorBoundary error={new Error("boom")} retry={retry} />);
+    await render(<RootErrorBoundary error={new Error("boom")} retry={retry} />);
 
-    fireEvent.press(screen.getByLabelText("もう一度試す"));
+    await fireEvent.press(screen.getByLabelText("もう一度試す"));
 
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it("表示したエラーを Sentry に送信する", () => {
+  it("表示したエラーを Sentry に送信する", async () => {
     const error = new Error("boom");
-    render(<RootErrorBoundary error={error} retry={jest.fn()} />);
+    await render(<RootErrorBoundary error={error} retry={jest.fn()} />);
 
     expect(Sentry.captureException).toHaveBeenCalledWith(error);
   });

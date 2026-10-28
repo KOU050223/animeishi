@@ -9,8 +9,11 @@ import {
 } from "@/lib/dialog/dialog.web";
 
 describe("dialog.native", () => {
+  // Alert.alert を値として参照すると typescript(unbound-method) に引っかかるため
+  // spy を保持して検証に使う。
+  let alertSpy: ReturnType<typeof jest.spyOn>;
   beforeEach(() => {
-    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -23,7 +26,7 @@ describe("dialog.native", () => {
 
     // Android のバックキー/外側タップで onClose 無しに消えないよう
     // cancelable: false を必ず指定する。
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       "タイトル",
       "本文",
       [{ text: "閉じる", onPress: onClose }],
@@ -39,7 +42,7 @@ describe("dialog.native", () => {
       destructive: true,
     });
 
-    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    const buttons = alertSpy.mock.calls[0][2];
     expect(buttons[0]).toMatchObject({ text: "キャンセル", style: "cancel" });
     expect(buttons[1]).toMatchObject({ text: "削除", style: "destructive" });
 
@@ -54,7 +57,7 @@ describe("dialog.native", () => {
       cancelLabel: "やめる",
     });
 
-    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    const buttons = alertSpy.mock.calls[0][2];
     expect(buttons[0].text).toBe("やめる");
     expect(buttons[1].text).toBe("OK");
     // destructive 未指定なら通常スタイル。
