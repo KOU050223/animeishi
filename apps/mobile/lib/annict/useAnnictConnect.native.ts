@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { annictTokenStorage } from "./storage";

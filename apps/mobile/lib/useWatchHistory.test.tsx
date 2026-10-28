@@ -12,7 +12,7 @@ import {
   useUpsertWatchHistory,
 } from "@/lib/useWatchHistory";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 const mockPut = jest.fn();
 jest.mock("@/lib/api", () => ({

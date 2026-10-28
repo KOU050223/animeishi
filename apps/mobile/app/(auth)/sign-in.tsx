@@ -1,4 +1,8 @@
-import { useAuth, useClerk, useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useClerk } from "@clerk/expo";
+// Core 3 の useSignIn はシグナルベースの新 API（signIn.password()/finalize()）。
+// 既存フロー（signIn.create + setActive + session_exists 復旧）の挙動を
+// 維持するため、Core 2 互換 API を提供する legacy サブパスを使う。
+import { useSignIn } from "@clerk/expo/legacy";
 import { Link, useRouter } from "expo-router";
 import {
   View,

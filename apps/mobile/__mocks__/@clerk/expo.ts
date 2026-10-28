@@ -1,8 +1,8 @@
 /**
- * Clerk (@clerk/clerk-expo) のテスト用モック。
+ * Clerk (@clerk/expo) のテスト用モック。
  *
  * jest.config.cjs の moduleNameMapper でテスト中は常にこのファイルが
- * @clerk/clerk-expo の代わりに読み込まれる。各テストが個別に jest.mock を
+ * @clerk/expo の代わりに読み込まれる。各テストが個別に jest.mock を
  * 書かなくて済むよう、認証状態を可変ステートとして保持し、テスト側からは
  * test-utils/auth.ts の loggedInUser() / signedOutUser() で差し替える。
  *
@@ -106,7 +106,7 @@ export function resetMockClerkState(): void {
   state = createDefaultState();
 }
 
-// --- @clerk/clerk-expo が公開しているフック群（モック実装） ---
+// --- @clerk/expo が公開しているフック群（モック実装） ---
 
 export const useAuth = () => ({
   isLoaded: state.isLoaded,

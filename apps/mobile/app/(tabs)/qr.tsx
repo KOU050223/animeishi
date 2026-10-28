@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useIsFocused } from "expo-router";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";

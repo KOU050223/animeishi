@@ -16,7 +16,7 @@ import { loggedInUser, resetAuth, getAuthMock } from "@/test-utils/auth";
  * 「色々変な行動をするパターン」（連打・二重送信・エラー後リカバリ）を検証する。
  *
  * 認証状態は @/test-utils/auth の loggedInUser() 等で表現する。Clerk の
- * モックは __mocks__/@clerk/clerk-expo.ts に一本化されており、setActive で
+ * モックは __mocks__/@clerk/expo.ts に一本化されており、setActive で
  * サインイン済み・signOut で未サインインへ遷移する挙動を既定で備える。
  */
 

@@ -4,7 +4,7 @@
 // expo-router / Clerk のフックを使うため lib/events.ts とは分離している
 // （events.ts 側はフック非依存で、コンポーネント外からも trackEvent できる）。
 import { useEffect } from "react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useSegments } from "expo-router";
 import { setEventContext } from "./events";
 

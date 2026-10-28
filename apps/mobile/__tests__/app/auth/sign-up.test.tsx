@@ -9,7 +9,7 @@ import { Platform } from "react-native";
 import SignUpScreen from "@/app/(auth)/sign-up";
 import { resetAuth, getAuthMock } from "@/test-utils/auth";
 
-// Clerk のモックは __mocks__/@clerk/clerk-expo.ts に一本化されている。
+// Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // signUp 系の jest.fn は getAuthMock().signUp から取り出して設定する。
 
 const mockReplace = jest.fn();

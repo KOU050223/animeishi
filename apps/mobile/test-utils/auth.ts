@@ -1,8 +1,8 @@
 /**
  * テストで認証状態を「どこからでも一行で」表現するためのファクトリ。
  *
- * jest.config.cjs の moduleNameMapper により @clerk/clerk-expo は常に
- * __mocks__/@clerk/clerk-expo.ts に解決される。ここではそのモックステートを
+ * jest.config.cjs の moduleNameMapper により @clerk/expo は常に
+ * __mocks__/@clerk/expo.ts に解決される。ここではそのモックステートを
  * 意図が読める名前で差し替えるだけのシン・ラッパーを提供する。
  *
  * 使い方:
@@ -17,12 +17,12 @@
  */
 // 型・実装ともにモック本体を直接参照する。moduleNameMapper はランタイム解決
 // のみで型を伴わないため、ヘルパー API（getMockClerkState 等）は本物の
-// @clerk/clerk-expo の型には存在せず、相対 import が必要。
+// @clerk/expo の型には存在せず、相対 import が必要。
 import {
   getMockClerkState,
   resetMockClerkState,
   setMockClerkState,
-} from "../__mocks__/@clerk/clerk-expo";
+} from "../__mocks__/@clerk/expo";
 
 type LoggedInOptions = {
   userId?: string;

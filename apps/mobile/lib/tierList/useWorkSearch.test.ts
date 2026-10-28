@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useWorkSearch } from "./useWorkSearch";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "@/__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // Annict 連携（SecureStore トークン / 連携状態）と apiClient をモックし、
 // useWorkSearch のタイトル検索フロー（発火条件・クエリ・レスポンス整形）を検証する。

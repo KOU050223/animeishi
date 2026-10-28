@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useAnnictConnection } from "@/lib/annict";
 import { fetchWorksSearchPage, seasonWorksQueryKey } from "@/lib/useAnimeList";
 import type { TierItem } from "./types";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import {
   View,

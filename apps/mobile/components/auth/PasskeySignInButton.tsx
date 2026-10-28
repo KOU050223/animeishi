@@ -2,7 +2,11 @@ import { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuth, useClerk, useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useClerk } from "@clerk/expo";
+// Core 3 ではパスキーサインインは signIn.passkey()（新 API）。既存フロー
+// （signIn.authenticateWithPasskey + setActive）の挙動を維持するため、
+// Core 2 互換 API を提供する legacy サブパスを使う。
+import { useSignIn } from "@clerk/expo/legacy";
 import { useTranslation } from "react-i18next";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";

@@ -8,7 +8,7 @@
 // 送信済み分をバッファへ乗せてから Sentry.flush() する。
 import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import {
   ANNICT_FUNNEL_ATTRS,
   ANNICT_FUNNEL_EVENT,

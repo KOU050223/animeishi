@@ -8,7 +8,7 @@ import { defineConfig } from "vite-plus";
 // vitest で回す（issue #249）。コンポーネントテスト等の残りは jest（jest.config.cjs）。
 // 振り分けはファイル名で行い、jest 側は testPathIgnorePatterns で *.unit.test.ts を外す。
 // エイリアスは jest.config.cjs の moduleNameMapper と揃える。RN 系モジュールの
-// スタブ（@sentry/react-native・@clerk/clerk-expo）は、それらを読むテストを
+// スタブ（@sentry/react-native・@clerk/expo）は、それらを読むテストを
 // jest に残しているため持たない。
 // window が必要なテストはファイル先頭の `// @vitest-environment jsdom` で
 // ファイル単位に jsdom へ切り替える（issue #276。jsdom は mobile の devDependency）。

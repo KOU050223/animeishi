@@ -3,7 +3,7 @@ import "@/lib/i18n";
 import * as Sentry from "@sentry/react-native";
 import { initObservability } from "@/lib/observability";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@/lib/tokenCache";
 import {
   Stack,

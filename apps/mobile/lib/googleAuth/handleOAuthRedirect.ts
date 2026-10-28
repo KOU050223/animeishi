@@ -5,7 +5,7 @@
  * clerk-js に処理させてセッションを確定し、フロー開始時に指定した
  * redirectUrlComplete へ遷移する。
  * <AuthenticateWithRedirectCallback /> と同等の処理だが、こちらは
- * @clerk/clerk-expo の useClerk() が返す Clerk インスタンスだけで完結する
+ * @clerk/expo の useClerk() が返す Clerk インスタンスだけで完結する
  * （@clerk/clerk-react は直接依存に持たない）。
  *
  * テストしやすいよう画面遷移は navigate コールバックとして外部から渡す。

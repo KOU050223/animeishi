@@ -13,7 +13,7 @@ import type {
   DanimeMatchItem,
 } from "@animeishi/danime-core";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../../__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockMatchPost = jest.fn();
 jest.mock("@/lib/api", () => ({

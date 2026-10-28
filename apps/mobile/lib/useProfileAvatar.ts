@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import * as ImagePicker from "expo-image-picker";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";

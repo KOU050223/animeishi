@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useReportUser } from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "../../__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockReportPost = jest.fn();
 jest.mock("@/lib/api", () => ({
