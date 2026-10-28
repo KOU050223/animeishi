@@ -13,7 +13,7 @@ import {
 } from "@/lib/useAnalysis";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
-import { setMockClerkState } from "../__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { type UseAnnictConnection } from "./useAnnictConnection";

@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
-import { useSSO } from "@clerk/clerk-expo";
+import { useSSO } from "@clerk/expo";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 
 // アプリがバックグラウンド/終了していた間に認証セッションが完了していた場合に

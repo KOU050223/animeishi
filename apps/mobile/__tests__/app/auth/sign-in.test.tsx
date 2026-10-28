@@ -8,7 +8,7 @@ import {
 import SignInScreen from "@/app/(auth)/sign-in";
 import { loggedInUser, resetAuth, getAuthMock } from "@/test-utils/auth";
 
-// Clerk のモックは __mocks__/@clerk/clerk-expo.ts に一本化されている。
+// Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // 認証状態は @/test-utils/auth のファクトリで表現し、signIn.create 等の
 // jest.fn は getAuthMock()（= 現在のモックステート）から取り出して設定する。
 

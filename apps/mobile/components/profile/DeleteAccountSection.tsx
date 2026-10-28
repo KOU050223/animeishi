@@ -1,5 +1,5 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useDeleteAccount } from "@/lib/useProfile";
 import { confirm } from "@/lib/dialog";
 import { annictTokenStorage } from "@/lib/annict/storage";

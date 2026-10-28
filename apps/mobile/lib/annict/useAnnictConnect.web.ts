@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Sentry from "@sentry/react-native";
 import { apiClient } from "@/lib/api";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import {
   normalizeAnnictFunnelSurface,
   type AnnictFunnelSurface,

@@ -112,6 +112,12 @@
           "project": "animeishi-mobile",
           "organization": "kou050223"
         }
+      ],
+      [
+        "@clerk/expo",
+        {
+          "appleSignIn": false
+        }
       ]
     ],
     "experiments": {

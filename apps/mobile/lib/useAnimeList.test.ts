@@ -7,7 +7,7 @@ import {
   useSortedAnimeList,
 } from "@/lib/useAnimeList";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
-import { setMockClerkState } from "@/__mocks__/@clerk/clerk-expo";
+import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // Annict 連携（SecureStore トークン / 連携状態）と apiClient をモックし、
 // useAnimeList のサーバー検索フロー（クエリ駆動の取得・レスポンス整形）を検証する。

@@ -1,5 +1,8 @@
 import { useCallback } from "react";
-import { useSignIn } from "@clerk/clerk-expo";
+// Core 3 の useSignIn はシグナルベースの新 API。Web の OAuth リダイレクト
+// （signIn.authenticateWithRedirect）は Core 2 系のメソッドのため、
+// Core 2 互換 API を提供する legacy サブパスを使う。
+import { useSignIn } from "@clerk/expo/legacy";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 
 // Web の Google ログインはページリダイレクト方式（issue #89）。

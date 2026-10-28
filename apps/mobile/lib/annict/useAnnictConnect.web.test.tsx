@@ -25,7 +25,7 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: () => ({ getToken: async () => "clerk_jwt" }),
 }));
 

@@ -4,7 +4,7 @@
 //   - useBulkRegisterWatchHistory: 確定済みの作品を /me/watch-histories/bulk に
 //     50 件ずつチャンクして逐次送信する（進捗コールバック付き）
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { apiUrl } from "@/lib/apiUrl";
 import type { AddToWalletResult, UseAddToAppleWallet } from "./types";
 

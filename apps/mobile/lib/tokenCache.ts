@@ -1,1 +1,1 @@
-export { tokenCache } from "@clerk/clerk-expo/token-cache";
+export { tokenCache } from "@clerk/expo/token-cache";

@@ -29,7 +29,7 @@ let mockAuth: {
   userId: "user_1",
   getToken: async () => "clerk_jwt",
 };
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: () => mockAuth,
 }));
 

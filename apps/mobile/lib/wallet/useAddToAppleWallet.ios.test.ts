@@ -2,7 +2,7 @@ import { renderHook, act } from "@testing-library/react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useAddToAppleWallet } from "./useAddToAppleWallet.ios";
 
-jest.mock("@clerk/clerk-expo", () => ({
+jest.mock("@clerk/expo", () => ({
   useAuth: () => ({
     getToken: jest.fn().mockResolvedValue("test-token"),
   }),

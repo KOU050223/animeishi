@@ -25,7 +25,7 @@
     "@animeishi/api": "workspace:*",
     "@animeishi/danime-core": "workspace:*",
     "@animeishi/observability": "workspace:*",
-    "@clerk/clerk-expo": "^2.20.0",
+    "@clerk/expo": "^4.14.4",
     "@expo/metro-runtime": "~58.0.15",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
