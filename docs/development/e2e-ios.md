@@ -33,13 +33,16 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 
 ## 環境変数
 
-- `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
+- `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用。
+  ネイティブキャッシュも読まない）
 - `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`。
   指定したときは iOS 18.x 優先のランタイム選択を行わず、最新ランタイムで作成・
   同名の既存シミュレーターはランタイムを見ずに再利用する。特定の iOS 版で
   試したいときに使う）
 - `E2E_HOST_LOCK_TIMEOUT` … ホストロックの待ち時間の上限（秒、既定 3600。
   超えるとエラーで終了）
+- `E2E_NATIVE_CACHE=0` … ネイティブキャッシュを使わず必ずフルビルドする
+  （キャッシュの読み込み・保存の両方をやめる。既定は `1`）
 
 ## Clerk のテストモード
 
@@ -73,7 +76,45 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
      Keychain（expo-secure-store で Clerk のセッション保存に使用）が
      `SecError -34018` で失敗し、`signUp.create` が `status:null` の
      空リソースを返してサインアップが進まなくなる
+   - ビルド済み `.app` はネイティブキャッシュ（後述）に保存され、次回以降は
+     worktree をまたいで再利用される
 4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行
+
+## ネイティブキャッシュ（issue #292）
+
+フルビルドは 30 分〜1 時間かかるため、ビルド済みの Release `.app` を
+`~/Library/Caches/animeishi-e2e/<キー>/Animeishi.app` に保存し、worktree を
+またいで使い回す。
+
+- **キー**: ネイティブ成果物に効く入力だけから作る。`package.json`・
+  `app.json`/`app.config.*`・`pnpm-lock.yaml`・`pnpm-workspace.yaml`・
+  `patches/`（あれば）・`assets/`（アイコン・スプラッシュ等）のハッシュと、
+  Xcode / CocoaPods の版を連結してハッシュ化する。
+  ヒットしたときは prebuild も xcodebuild も飛ばすため、
+  `ios/Podfile.lock` のような prebuild して初めて分かる値は入れず、
+  その上流の入力だけを見る。誤ヒットの方が害が大きいので広めに取る。
+  JS バンドルにだけ効く入力（`index.js`・`app/`・`metro.config.ts`・
+  `.env` の `EXPO_PUBLIC_*` など）は入れない（ヒット時に毎回差し替えるため）。
+- **ヒット時**: キャッシュの `.app` を `.e2e-ios/app/` にコピーし、
+  Xcode の "Bundle React Native code and images" フェーズと同じ手順
+  （`expo export:embed` で平文 JS + アセットを出力 → `hermesc -O` で
+  バイトコード化）で `main.jsbundle` とアセットを作り直して差し替え、
+  `codesign --force --sign - --preserve-metadata=entitlements` で
+  ad-hoc 署名し直して使う。`EXPO_PUBLIC_*` はバンドルに埋め込まれるため
+  xcodebuild と同じ値を export に渡す。hermesc は `node_modules` 同梱のものを
+  使うため `ios/` が無い worktree でも動く（`export:embed --bytecode` 単発は
+  `-O` が付かないので使わない）。
+- **ミス時**: 従来どおり prebuild（必要なら）と xcodebuild を実行し、
+  できた `.app` を一時ディレクトリにコピーしてから rename でキャッシュに
+  入れる（読み手が書き込み途中を掴まないようアトミックにする）。
+  保存・掃除はホストロックの中で行う。
+- **掃除**: ヒット・保存のたびにキャッシュディレクトリを touch して LRU にし、
+  新しいものから 3 個だけ残す。
+- **`E2E_SKIP_BUILD=1`** はキャッシュより優先され、従来どおり
+  `ios/build/e2e-dd` の `.app` をそのまま使う（差し替えも署名し直しもしない）。
+- **`E2E_NATIVE_CACHE=0`** で読み書き両方をやめて必ずフルビルドする。
+  壊れたキャッシュを作り直したいときは `rm -rf ~/Library/Caches/animeishi-e2e`
+  してから通常実行する。
 
 ## 実行中の状態とロック
 
