@@ -43,6 +43,14 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
   超えるとエラーで終了）
 - `E2E_NATIVE_CACHE=0` … ネイティブキャッシュを使わず必ずフルビルドする
   （キャッシュの読み込み・保存の両方をやめる。既定は `1`）
+- `E2E_MAESTRO_ATTEMPTS` … ドライバ未接続系の失敗時に `maestro test` を
+  実行する最大回数（既定 3。リトライ判定の詳細は「失敗の調査」を参照）
+- `MAESTRO_DRIVER_STARTUP_TIMEOUT` … Maestro の iOS ドライバ
+  （XCTest runner）の起動待ち時間（ミリ秒）。この時間内に runner の
+  インストール・起動とドライバ HTTP サーバの listen まで終わる必要が
+  ある。Maestro 既定は 15 秒だが、シミュレーター起動直後・高負荷時には
+  不足する（高負荷時はドライバ起動だけで 3 分以上かかることを確認済み）
+  ため、未設定ならスクリプトが `300000` を設定する（issue #320）
 
 ## Clerk のテストモード
 
@@ -81,7 +89,10 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
      空リソースを返してサインアップが進まなくなる
    - ビルド済み `.app` はネイティブキャッシュ（後述）に保存され、次回以降は
      worktree をまたいで再利用される
-4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行
+4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行。
+   ドライバ未接続系の失敗（「失敗の調査」参照）のときだけ、ビルドは
+   やり直さず `maestro test` だけを最大 `E2E_MAESTRO_ATTEMPTS` 回
+   再実行する（issue #320）
 
 ## ネイティブキャッシュ（issue #292）
 
@@ -198,3 +209,51 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 （xcodebuild / maestro / XCTest ドライバ / simctl）のものだけを
 停止する。生存中の親シェルや vp・エージェントは ppid=1 ではないので
 誤って止めることはなく、API サーバ系（wrangler 等）も対象外。
+
+## 失敗の調査
+
+### Maestro の iOS ドライバ接続が切れる（issue #320）
+
+ログに次のいずれかが出る失敗は、テスト対象アプリではなく Maestro の
+ドライバ（XCTest runner）との接続が切れた flake。
+
+- `iOS driver not ready in time` … ドライバの起動待ち
+  （`MAESTRO_DRIVER_STARTUP_TIMEOUT`）がタイムアウト。この待ち時間には
+  runner 起動用の `xcodebuild test-without-building` の実行も含まれる
+  ため、シミュレーターの起動直後やホスト高負荷時に起きる
+  （loadavg 180 超の環境ではドライバ起動に約 4 分かかることを確認）。
+  Maestro 既定の 15 秒は短いため、スクリプトは未設定時に 300 秒へ
+  引き上げている
+- `Device became unreachable` / `Device unreachable while processing ...`
+  / `Unable to ... : Failed to connect to /127.0.0.1:<port>` … 実行の途中で
+  ドライバの HTTP サーバが落ち、以降のフローが全部失敗する。
+  status bar の AX 解決がレースすると `testHttpServer` が落ちる上流の
+  既知バグ（mobile-dev-inc/Maestro#3538）で、未修正。マシン負荷が高い
+  ほど起きやすく、iOS 26.x ではさらに頻発する（issue #298 も参照）。
+
+対処: e2e-ios.sh は試行ごとの maestro のログにこれらのパターンが
+あるときだけ `maestro test` を自動でやり直す（最大
+`E2E_MAESTRO_ATTEMPTS` 回、既定 3。ビルドはやり直さない）。
+やり直し前に、maestro が諦めても孤児として残る driver 起動用の
+`xcodebuild test-without-building`（コマンドラインの
+`-destination id=<UDID>` で自分のシミュレーター向けのものだけ選ぶ）を
+止め、シミュレーターを再起動して `bootstatus -b` で起動完了を待つ。
+アサーション失敗・要素が見つからない等のアプリ側の失敗はリトライ
+しない（本物の失敗を隠さないため）。リトライの各ログは
+`apps/mobile/.e2e-ios/maestro-attempt-<n>.log` に残る。
+
+サインアップ後にドライバが切れた場合、再実行のフローは新しいメールで
+別アカウントを作るため、前の試行のテストアカウントが Clerk の dev
+インスタンスに残る。そのためスクリプトはドライバ切断を検出した試行の
+`~/.maestro/tests/<run>/maestro.log` から使ったメールを拾い、
+`apps/api/.dev.vars` の `CLERK_SECRET_KEY`（sk_test のときだけ使う）
+で Clerk API の `email_address` 完全一致検索 → `DELETE /users/{id}` を
+呼んで自動削除する。鍵が無い・削除に失敗した場合は残ったメールをログに
+出すので、dev ダッシュボードから手動削除する（Users で該当メールを
+検索して Delete）。
+
+それでもダメなときは、別の `maestro test` 実行中の残骸ドライバや
+シミュレーターの不調を疑い、`xcrun simctl shutdown <UDID>` で
+シミュレーターを再起動してから `E2E_SKIP_BUILD=1` で試す。
+Maestro 側の修正は #3538 の解決待ち（2026-10 時点で 2.12.0 にも
+driver 接続の修正は入っていない）。

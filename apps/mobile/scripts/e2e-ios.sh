@@ -752,6 +752,10 @@ fi
 # --- インストール ------------------------------------------------------------
 xcrun simctl boot "$UDID" 2>/dev/null || true
 open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
+# 起動完了を待つ。boot 直後はシステムサービスがまだ立ち上がっておらず、
+# そのまま driver のインストール・起動に入ると応答待ちが長引いて
+# "iOS driver not ready in time" の flake になる（issue #320）
+xcrun simctl bootstatus "$UDID" -b
 # 認証状態を確実にリセットするため再インストールする
 xcrun simctl uninstall "$UDID" "$APP_BUNDLE_ID" 2>/dev/null || true
 xcrun simctl install "$UDID" "$APP_PATH"
@@ -759,4 +763,116 @@ xcrun simctl install "$UDID" "$APP_PATH"
 # --- Maestro -----------------------------------------------------------------
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
-maestro test --device "$UDID" .maestro
+
+# ドライバ（XCTest runner）の起動待ち。この時間内に xcodebuild による
+# runner のインストール・起動とドライバ HTTP サーバの listen まで
+# 終わる必要がある。Maestro 既定の 15 秒はシミュレーター起動直後や
+# ホスト高負荷時に短く、"iOS driver not ready in time" の flake になる
+# （issue #320。負荷が高い環境ではドライバ起動だけで 3 分以上かかることを
+# 確認済み）。呼び出し側の指定はそのまま使う
+export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-300000}"
+
+# $1 = maestro のログ。ドライバ（XCTest runner）との接続が切れた失敗なら真。
+# 上流の既知バグ（mobile-dev-inc/Maestro#3538）で、status bar の AX 解決が
+# レースするとドライバの HTTP サーバごと落ち、以降のフローがすべて
+# "Device became unreachable" / "Failed to connect to /127.0.0.1:port" で
+# 失敗する。アプリ側の失敗（アサーション・要素が見つからない等）は
+# 含めない。リトライしても同じ失敗を再現するだけなので隠れないが、
+# ドライバ起因でない失敗のやり直しは時間の無駄なため対象外とする
+maestro_driver_failure() {
+  grep -qiE 'iOS driver not ready|unreachable|Failed to connect to /|Connection refused' "$1"
+}
+
+# ドライバ切断で途中落ちした試行が残した Clerk テストユーザーの掃除用。
+# apps/api/.dev.vars は E2E 前提（DELETE /me）として置かれている開発
+# インスタンスの鍵なのでそこから借りる（新たな秘密情報は足さない）。
+# 誤って sk_live が置かれていた場合に本番ユーザーを消さないよう
+# sk_test だけを受け付ける
+CLERK_SECRET_KEY="$(sed -n 's/^CLERK_SECRET_KEY=//p' ../../apps/api/.dev.vars 2>/dev/null | head -n1 | tr -d "\"'")"
+case "$CLERK_SECRET_KEY" in
+  sk_test_*) ;;
+  *) CLERK_SECRET_KEY="" ;;
+esac
+
+# $1 = 削除対象のテストユーザーのメールアドレス。
+# GET /users?email_address=<完全一致> で id を引き DELETE する。
+# 検索は `email_address`（`email_address[]` ではない）を使う:
+# この API では [] 付きは無効パラメータ扱いでフィルタが黙って効かず
+# 全件返る。万一フィルタが効かなくても誤削除しないよう、返ってきた
+# ユーザーのメール一致を確認してから DELETE する
+delete_clerk_test_user() {
+  local uid
+  uid="$(curl -fsS -G "https://api.clerk.com/v1/users" \
+    -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+    --data-urlencode "email_address=$1" 2>/dev/null \
+    | WANT="$1" /usr/bin/python3 -c 'import json,os,sys
+want = os.environ["WANT"]
+for u in json.load(sys.stdin):
+    if any(e.get("email_address") == want for e in u.get("email_addresses", [])):
+        print(u["id"])
+        break' 2>/dev/null || true)"
+  [ -n "$uid" ] || return 1
+  curl -fsS -X DELETE "https://api.clerk.com/v1/users/$uid" \
+    -H "Authorization: Bearer $CLERK_SECRET_KEY" -o /dev/null
+}
+
+# ドライバ未接続系の失敗だけ maestro test をリトライする（issue #320）。
+# ビルドはやり直さない（flake のたびにフルビルドからやり直すと 1 時間近く
+# かかるため）。失敗種別の判定は試行ごとのログで行う
+MAESTRO_ATTEMPTS="${E2E_MAESTRO_ATTEMPTS:-3}"
+case "$MAESTRO_ATTEMPTS" in
+  # 非数値と、オーバーフローしうる 10 桁以上の値は既定値に戻す
+  '' | *[!0-9]* | ??????????*) MAESTRO_ATTEMPTS=3 ;;
+  # 先頭ゼロは $(( )) で 8 進数と解釈され 08/09 がエラーになるため 10 進数に正規化
+  *) MAESTRO_ATTEMPTS=$((10#$MAESTRO_ATTEMPTS)) ;;
+esac
+[ "$MAESTRO_ATTEMPTS" -lt 1 ] && MAESTRO_ATTEMPTS=3
+maestro_attempt=1
+while :; do
+  MAESTRO_LOG="$STATE_DIR/maestro-attempt-$maestro_attempt.log"
+  find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 2>/dev/null \
+    | sort >"$STATE_DIR/maestro-tests-before"
+  [ "$maestro_attempt" -gt 1 ] \
+    && echo "maestro test を再実行します ($maestro_attempt/$MAESTRO_ATTEMPTS)"
+  if maestro test --device "$UDID" .maestro 2>&1 | tee "$MAESTRO_LOG"; then
+    break
+  fi
+  if ! maestro_driver_failure "$MAESTRO_LOG"; then
+    exit 1
+  fi
+  # フローは途中落ちしてもテストユーザーを残すため、この試行が作った
+  # ユーザーを消してから次の試行（または終了）に進む。メールは新しく
+  # できた実行ディレクトリの maestro.log（inputText のログに出る）から
+  # 拾う。ドライバが起動前に死んだ試行ではユーザー未作成なので素通りになる
+  while IFS= read -r run_dir; do
+    [ -f "$run_dir/maestro.log" ] || continue
+    while IFS= read -r e2e_email; do
+      if [ -z "$CLERK_SECRET_KEY" ]; then
+        echo "前の試行のテストユーザーが残っています: $e2e_email（Clerk dev ダッシュボードから手動削除してください）" >&2
+      elif delete_clerk_test_user "$e2e_email"; then
+        echo "前の試行のテストユーザー $e2e_email を削除しました"
+      else
+        echo "テストユーザー $e2e_email の削除に失敗しました。Clerk dev ダッシュボードから手動削除してください" >&2
+      fi
+    done < <(grep -oE 'e2e[0-9]+\+clerk_test@example\.com' \
+      "$run_dir/maestro.log" | sort -u)
+  done < <(comm -13 "$STATE_DIR/maestro-tests-before" \
+    <(find "$HOME/.maestro/tests" -mindepth 1 -maxdepth 1 2>/dev/null | sort))
+  if [ "$maestro_attempt" -ge "$MAESTRO_ATTEMPTS" ]; then
+    exit 1
+  fi
+  maestro_attempt=$((maestro_attempt + 1))
+  echo "Maestro の iOS ドライバ接続が切れました。シミュレーターを再起動して maestro test をやり直します"
+  # maestro が諦めても driver 起動用の xcodebuild は孤児として残り、
+  # 次の試行と同じシミュレーターで driver を取り合いながら CPU を食い
+  # 続けるため先に止める。コマンドラインの -destination id=<UDID> で
+  # 自分のシミュレーター向けのものだけを選ぶので他の実行に触らない
+  pgrep -f "xcodebuild test-without-building.*$UDID" \
+    | xargs kill 2>/dev/null || true
+  # 死んだドライバは sim 内に runner プロセスだけが残るゾンビ状態になる
+  # （上流 issue #3254）ので、E2E 専用シミュレーターごと再起動して掃除する。
+  # 専用シミュレーターなので他の実行への影響はない
+  xcrun simctl shutdown "$UDID" 2>/dev/null || true
+  xcrun simctl boot "$UDID" 2>/dev/null || true
+  xcrun simctl bootstatus "$UDID" -b
+done
