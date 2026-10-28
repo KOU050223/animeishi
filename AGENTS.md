@@ -1,90 +1,38 @@
 # AGENTS.md
 
-## 開発環境
+作業のたびに必要になる手順とルールだけを書く。仕組みの詳細や経緯は下の docs を読む。
 
-JS ツールチェーンは [Vite+](https://viteplus.dev/guide/)（`vp`）で管理する（issue #246）。
-Node.js は package.json の `devEngines.runtime`、pnpm は `packageManager` で固定しており、
-`vp` がプロジェクトに入ると自動でそのバージョンに切り替わる（`vp env current` で確認）。
-バージョンを上げるときは `vp env pin --target dev-engines <版>` を使い、
-書き込まれた `onFail` を `"error"` に戻す（下記）。
-Nix devShell・turbo・lefthook は廃止した。
+| 読むとき | 文書 |
+| --- | --- |
+| ツールチェーン（vp・Oxlint/Oxfmt・TypeScript 7・キャッシュ・Git フック）の版上げ・設定変更 | `docs/development/toolchain.md` |
+| テスト設定の変更、テストがどの環境で動くかの確認 | `docs/development/testing.md` |
+| E2E の初回実行・失敗調査・スクリプト変更 | `docs/development/e2e-ios.md` |
+| 本番・プレビューの手動操作（マイグレーション・通報対応・画像削除） | `docs/runbook/production-tasks.md` |
+| 機能の設計 | `docs/NN_*.md` |
 
-> `devEngines.runtime` の `onFail` は `"error"` にしておく。`"download"` だと pnpm 10 も
-> Node を依存として扱い、pnpm-lock.yaml に Node 本体を追加してダウンロードする（vp と二重管理）。
-> `"error"` なら pnpm は版の検査だけを行い、Node の取得は vp に任せられる。
+## セットアップ
+
+JS ツールチェーンは [Vite+](https://viteplus.dev/guide/)（`vp`）で管理する。Node.js・pnpm の版は
+`vp` が package.json に合わせて自動で切り替える。
 
 ```bash
 curl -fsSL https://vite.plus | bash   # vp 本体（グローバル CLI）。初回のみ
-vp install                            # 依存インストール + Git フック設置（prepare の vp config）
+vp install                            # 依存インストール + Git フック設置。新しい worktree でも最初に実行する
 ```
 
-> vite-plus は root の devDependency で版を固定しており（issue #250）、グローバルの `vp` は
-> プロジェクト内の vite-plus に処理を委ねる（`vp --version` の "Local vite-plus" で確認）。
-> `vite.config.ts` は `vite-plus` の `defineConfig` で書く。
-> vite-plus・vite・vitest の版は `pnpm-workspace.yaml` の `catalog` で一元管理し、
-> 各 package.json からは `catalog:` で参照する。`overrides` でも vite / vitest を同じ版に
-> 揃えている（[local-cli](https://viteplus.dev/guide/local-cli)）。vite-plus を上げるときは
-> catalog の `vite-plus`、`vite` の別名（`@voidzero-dev/vite-plus-core@<版>`）、
-> `vp --version` が示す vitest の版の 3 つを揃えて更新する。
-> vitest を使うパッケージは `vite: "catalog:"` も devDependency に持たせる
-> （vitest の peer の vite を自動インストールに任せると overrides が効かず別版が入る）。
-> api の Workers テストは vitest 5 対応の `@cloudflare/vitest-plugin`
-> （旧 `@cloudflare/vitest-pool-workers`）で動かす。
-> CI の `voidzero-dev/setup-vp` は package.json の vite-plus から版を自動検出する。
-
-## コマンド実行
-
-開発ループのタスクはルートの `vite.config.ts`（`run.tasks`）に定義してあり、`vp run` で実行する。
-各タスクは全パッケージの package.json scripts（一部は各パッケージの `vite.config.ts` のタスク）を横断実行する。
+## コマンド
 
 ```
 vp run typecheck   # 型チェック (TypeScript 7 の tsc --noEmit)。CI の "TypeScript check" 相当
-vp run lint        # Oxlint（type-aware ルール = tsgolint 有効。issue #277）
+vp run lint        # Oxlint（type-aware ルール有効）
 vp run lint:fix    # Oxlint の自動修正
-vp run fmt         # Oxfmt で整形（vite-plus 同梱版を `vp fmt` 経由で実行）
+vp run fmt         # Oxfmt で整形
 vp run fmt:check   # 整形済みかの確認。CI の "Oxfmt check" 相当
 vp run test        # テスト（mobile は jest + vitest、それ以外は vitest）
 vp run dev         # 全アプリの開発サーバを並列起動
 ```
 
-> 整形は vite-plus 同梱の oxfmt を `vp fmt` 経由で実行し、各パッケージ・ルートで
-> 個別の oxfmt は入れない（issue #268）。設定はルート `vite.config.ts` の `fmt`
-> ブロックに集約する。Vite+ モードでは nested config（`.oxfmtrc.json`）が効かないため、
-> パッケージ別の `printWidth`（mobile / api / danime-core は 80、observability と
-> ルートは既定の 100）は `fmt.overrides` で表す。
-> `fmt` / `fmt:check` は各パッケージの script に加えて、ルート直下とパッケージ外のファイル
-> （ルートの `vite.config.ts`・`.github/workflows/*.yml`・`Taskfile.yml` 等）もルートの
-> `vp fmt` で整形・確認する（issue #254）。
-> lint も fmt と同様に vite-plus 同梱の oxlint を `vp lint` 経由で実行し、
-> 各パッケージ・ルートで個別の oxlint は入れない（issue #267。版は vite-plus に従う）。
-> Vite+ モードではネストした oxlint 設定（`oxlint.config.ts` / `.oxlintrc.json`）が
-> 効かないため、設定はルート `vite.config.ts` の `lint` ブロックに集約する。
-> パッケージ別のルール（mobile の universe/native プリセット、api の
-> `no-restricted-properties` 等）は `lint.overrides` で表す。
-> `lint` / `lint:fix` は各パッケージの script に加えて、ルート直下とパッケージ外の
-> TS / JS もルートの `vp lint` で検査する（issue #269）。
-> 整形・検査の対象外はルートの `.oxfmtignore` で指定し、fmt・lint のどちらの
-> 呼び出しにも `--ignore-path` で渡す（`.agents/` 等のエージェント状態は対象外）。
-> `.oxfmtignore` は自動では読まれないため、flag を付けない裸の `vp fmt` には効かない。
-> oxfmt では positional の `'!apps/**'` が否定パターンとして効くが、
-> oxlint の positional は `!` を解さない。ルートの `vp lint` でパッケージを
-> 外すときは `--ignore-pattern 'apps/**'` を使う（`vp run lint` の定義を参照）。
->
-> `lint.options.typeAware` で tsgolint による type-aware ルールを有効にしている
-> （issue #277）。型情報は各ファイルから最も近い tsconfig で自動解決される
-> （`baseUrl` を含む tsconfig があると type-aware がスキップされる）。
-> 有効化しているルール: `typescript/no-floating-promises`・`typescript/await-thenable`・
-> `typescript/no-unnecessary-type-assertion`・`typescript/restrict-template-expressions`・
-> `typescript/no-misused-promises`（`checksVoidReturn: false`。onPress={asyncFn} や
-> モック実装の誤検知を避けるため universe の typescript-analysis と同じ設定）。
-> correctness カテゴリの type-aware ルール（`no-base-to-string` 等）も
-> 型情報が取れるようになったことで有効に動くようになっている。
-> type-aware は tsgolint が TypeScript プログラムを読むため、パッケージ lint 1 回で
-> ピークメモリ ~1GB 程度になる（mobile 実測）。並列 worktree 運用時は
-> `VP_RUN_CONCURRENCY_LIMIT` で `vp run` の同時実行を絞ること。
-
-パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する
-（`vp run --filter <パッケージ名> <script>` も同じ）。
+パッケージ内のコマンドは `vp run <パッケージ名>#<script>` で実行する。
 
 ```
 vp run @animeishi/mobile#dev                   # Expo モバイルアプリを起動
@@ -99,346 +47,108 @@ vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレー�
 > `curl "http://localhost:8787/__scheduled?cron=0+*/6+*+*+*"` で画像フォールバックの
 > ウォームアップ Cron を手動トリガーできる。
 
-### 型チェック（TypeScript 7）
+- **push 前は必ず `vp run typecheck` を通す。** `vp run lint` は型エラーを拾わない
+  （pre-push フックでも typecheck と test が走る）
+- 整形・lint の設定はルートの `vite.config.ts` に集約している。パッケージに
+  `.oxfmtrc.json` や `.oxlintrc.json` を置いても効かない
+- `vp fmt` / `vp lint` を直接叩くときは `--ignore-path .oxfmtignore` を付ける
+  （付けないと除外指定が効かない）。Markdown は整形の対象外
+- キャッシュするタスクはクリーンな環境変数で実行される。タスクに環境変数を
+  渡す必要があれば `vite.config.ts` のタスクの `cache.env` か `cache.untrackedEnv` に足す
+- 一時的にフックを止めたいときは `VP_GIT_HOOKS=0 git commit ...`
 
-型チェックは TypeScript 7（Go 実装のネイティブ版）の `tsc` で行う（issue #248）。
-各パッケージは `pnpm-workspace.yaml` の `catalog` で次の 2 つを入れている。
+### 並列 worktree で作業するとき
 
-- `@typescript/native`（`typescript@7` の別名）: bin は `tsc`。typecheck script が使う
-- `typescript`（`@typescript/typescript6` の別名）: TypeScript 6 の API 互換パッケージ。bin は `tsc6`
+`vp run` は既定で 4 タスクを並列実行し、jest・tsc・tsgolint・workerd はそれぞれメモリを食う
+（type-aware lint はパッケージ 1 回で ~1GB）。同時に動かすエージェントは 2〜3 までとし、
+各エージェントは `VP_RUN_CONCURRENCY_LIMIT=2 vp run ...` で実行する。
+それでも重いときは `VP_RUN_CONCURRENCY_LIMIT=1` に下げる。
 
-TypeScript 7 には JS API が無い。Expo（`metro.config.ts` の読み込みや tsconfig の評価）は
-`require('typescript')` で TypeScript 6 の API を使うので、`typescript` の名前は 6 のままにしてある。
-VS Code の tsdk（`.vscode/settings.json`）は実体の TypeScript 6（`node_modules/@typescript/old/lib`）を指す。
+## テストの書き方
 
-> typecheck は `tsc --noEmit --checkers 1` で実行する。TypeScript 7 は既定で型チェッカーを
-> 4 並列で動かすため、mobile ではピークメモリが tsc 6 より大きくなる。`--checkers 1` なら
-> 時間・メモリともに tsc 6 を下回る（計測は issue #248 の PR を参照）。
-> TypeScript 6 の結果と比べたいときは `vp -C apps/mobile exec tsc6 --noEmit` のように `tsc6` を使う。
+### mobile
 
-各パッケージの tsconfig は `vite.config.ts`（`vp run` のタスク定義）も include に含めており、
-型チェックの対象になっている（issue #271）。ルートの `vite.config.ts` はどのパッケージにも
-属さないため、ルートの `tsconfig.json` が include し、`vp run typecheck` が各パッケージの
-typecheck に続いてルートでも `tsc --noEmit --checkers 1` を実行する。ルートの tsconfig は
-solution style ではなく、ルート直下の TS ファイルを直接チェックする通常の設定。
+- RN / Expo / jest-expo のモックに依存しない純ロジックのテストは vitest。
+  ファイル名を `*.unit.test.ts` にし、`describe` / `it` / `expect` / `vi` は `vitest` から import する。
+  `window` が必要なら先頭に `// @vitest-environment jsdom` を付ける
+- それ以外（コンポーネント、`jest.mock` を使うもの、jest.setup.js に依存するもの）は jest
+  （`*.test.ts(x)`）。判断に迷ったら jest 側に置く
 
-### キャッシュ
-
-typecheck / lint / fmt:check / test の結果は `vp run` がキャッシュし、入力ファイル
-（タスクが実際に読んだファイルを自動追跡）が変わらなければ出力を再生して実行を省く。
-キャッシュは `node_modules/.vite/task-cache` に置かれ、`vp cache clean` で消せる。
-CI（ci.yml）はこのディレクトリを GitHub Actions cache で実行間に持ち越す（issue #253。
-キーと共有範囲は ci.yml 冒頭のコメントを参照）。
-持ち越したキャッシュは、タスク定義の変更や vite-plus の更新で古いエントリが溜まっていくため、
-復元直後のサイズが `VITE_TASK_CACHE_LIMIT_KB`（ci.yml の `env`）を超えたら `vp cache clean` で
-捨てる（issue #272）。閾値に届く前に一掃したいときは、この値を一時的に下げる。
-mobile の jest と vitest（`test:vitest`）もキャッシュする（issue #251）。jest は Haste マップの
-クロールでテストファイルの追加・削除を検知できるよう、`apps/mobile/jest.config.cjs` で
-watchman と `find` を使わず Node の fs API でクロールさせている（外すと、テストファイルを
-足してもキャッシュヒットしてしまう）。
-
-> キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の
-> 共通の変数のみ引き継ぐ）。タスクが新たに環境変数を必要とする場合は、そのタスクの
-> `cache.env`（値が変わるとキャッシュを無効化）か `cache.untrackedEnv`（渡すだけ）に追加する。
-> キャッシュしない script（dev・e2e:ios 等）には環境変数がそのまま渡る。
-
-### 並列数（並列 worktree 運用時）
-
-`vp run` は既定で最大 4 タスクを同時に実行する。複数の worktree で同時に
-エージェントを走らせるとき（jest・tsc・workerd がそれぞれメモリを食う）は、
-`VP_RUN_CONCURRENCY_LIMIT` で並列数を絞る。`--concurrency-limit` を付けた場合はそちらが優先される。
+変更に関係するテストだけを回すときは `apps/mobile` で直接実行する。
 
 ```bash
-VP_RUN_CONCURRENCY_LIMIT=1 vp run test
-vp run --concurrency-limit 2 typecheck
+vp -C apps/mobile exec jest --findRelatedTests lib/foo.ts components/Bar.tsx
+vp -C apps/mobile exec jest --changedSince=main
+vp -C apps/mobile exec vitest related --run lib/foo.ts
+vp -C apps/mobile exec vitest run --changed main
 ```
 
-> `VP_RUN_CONCURRENCY_LIMIT` が絞るのは `vp run` のタスク並列数だけで、
-> タスク内のプロセス並列数（jest のワーカー等）には効かない。mobile の jest は
-> `apps/mobile/jest.config.cjs` の `maxWorkers: "50%"` でワーカー数をコア数の
-> 半分に絞ってある（issue #293）。
->
-> 目安: 同時に動かすエージェントは 2〜3 までとし、各エージェントは
-> `VP_RUN_CONCURRENCY_LIMIT=2` で `vp run` を実行する。それでも重いときは
-> `VP_RUN_CONCURRENCY_LIMIT=1` に下げる。
+### api
 
-### mobile のテスト（jest / vitest）
+- 新しいテストファイルは既定で `isolated` プロジェクト（ファイルごとに workerd を起動）に入る
+- **`vi.mock` を使うファイルは `shared` プロジェクトの include に合わせない**
+  （`shared` はモジュールとストレージをファイル間で共有するので、モックがずれて失敗する）。
+  `shared` に足すのは共有状態でも正しく動くと確認できたものだけ
+- `vp -C apps/api exec vitest run --project isolated`（`shared` / `node` も同様）で片方だけ実行できる
 
-mobile のテストは jest と vitest に分かれている（issue #249）。
-`vp run @animeishi/mobile#test` は `test:vitest`（vitest）を先に回してから jest を回す。
+### E2E
 
-- **vitest**（`apps/mobile/vite.config.ts` の `test` ブロック）: RN / Expo / jest-expo のモックに
-  依存しない純ロジックのテスト。ファイル名を `*.unit.test.ts` にし、
-  `describe` / `it` / `expect` / `vi` は `vitest` から import する。
-  `window` が必要なテストは先頭に `// @vitest-environment jsdom` を付ける
-  （jsdom は mobile の devDependency。issue #276）
-- **jest**（`apps/mobile/jest.config.cjs`）: 上記以外（コンポーネントテスト、
-  `jest.mock` でモジュールを差し替えるテスト、jest.setup.js の初期化に依存するテスト）。
-  `*.unit.test.ts` は `testPathIgnorePatterns` で対象から外している
+E2E は CI では回さない。**`apps/mobile` の認証・ナビゲーション・ホーム周りなど
+E2E フローが通る画面を触る PR は、マージ前にローカルで `vp run @animeishi/mobile#e2e:ios` を通し、
+結果（PASS / 失敗時の原因）を PR にコメントで残す。** 前提と仕組みは `docs/development/e2e-ios.md`。
 
-新しく書くテストが純ロジックだけなら `*.unit.test.ts`、判断に迷うなら jest 側
-（`*.test.ts(x)`）に置く。`@/` と `@animeishi/*` の解決は両設定で揃えている。
+## 本番運用
 
-変更したファイルに関係するテストだけを回すときは、`apps/mobile` で直接実行する。
-
-```bash
-vp -C apps/mobile exec jest --findRelatedTests lib/foo.ts components/Bar.tsx  # 指定ファイルに依存する jest テスト
-vp -C apps/mobile exec jest --changedSince=main                               # main からの変更に関係する jest テスト
-vp -C apps/mobile exec vitest related --run lib/foo.ts                        # 指定ファイルに依存する vitest テスト
-vp -C apps/mobile exec vitest run --changed main                              # main からの変更に関係する vitest テスト
-```
-
-### api のテスト（Workers プール）
-
-api の vitest（`apps/api/vite.config.ts` の `test` ブロック。issue #281）は
-`@cloudflare/vitest-plugin` の Workers プールで、`isolated`（既定の
-isolate: true。ファイルごとに workerd を起動）と `shared`（isolate: false。
-workerd を共有して起動回数を削減。issue #299）に分かれている。
-Workers バインディングに依存しないテストは `node` プロジェクト（Node.js
-プール）で実行する。`node` は `extends: false` で宣言元の設定を継承せず、
-cloudflareTest プラグインが pool を Workers プールに書き換えるのを回避している。
-`shared` 側はモジュールグラフと
-ストレージ（D1 / R2）をファイル間で共有するため、**`vi.mock` でモジュールを
-差し替えるファイルは shared に置けない**（モック実体のずれで失敗する）。
-新しいテストファイルは既定で isolated に入る（`src/**/*.test.ts` の catch-all）。
-`repository.test.ts`・`lib/**` など shared の include に合うファイルだけが
-shared に入るので、shared に足すのは共有状態でも正しく動くと確認できた
-ものに限る。
-`vp -C apps/api exec vitest run --project isolated` / `--project shared` /
-`--project node` で片方だけ実行できる。
-
-### Git フック
-
-`vp install` 時の `prepare`（`vp config --no-agent`）が `.vite-hooks/_` にフックの
-ディスパッチャを置き、`core.hooksPath` を設定する。フック本体は `.vite-hooks/` にある。
-
-- pre-commit: `vp staged`。**ステージ済みのファイルだけ**を Oxlint と Oxfmt（`vp fmt`）に
-  かけ、整形した差分はステージし直す（ルール本体は `vite.config.ts` の `staged`）。
-  ルート直下とパッケージ外のファイルも、TS / JS は Oxlint と Oxfmt、
-  それ以外（json / yml 等）は Oxfmt だけをかける
-- pre-push: `vp run typecheck` と `vp run test`
-
-> CI の "Lint & Type Check" ジョブは **Oxlint と型チェック (TypeScript 7 の tsc --noEmit) の 2 段**で構成される。
-> `vp run lint` は Oxlint だけで型エラーは拾えない。push 前は必ず `vp run typecheck`
-> （または `vp run test` と併せて）を実行して CI 落ちを未然に防ぐこと。pre-push フックでも自動実行される。
-
-> `core.hooksPath` は main チェックアウトと全 worktree で共有される `.git/config` に書かれる。
-> フックのディスパッチャ（`.vite-hooks/_`、gitignore 済み）は worktree ごとに `vp install`
-> で生成されるので、新しい worktree では最初に `vp install` を実行する。
-> 一時的にフックを止めたいときは `VP_GIT_HOOKS=0 git commit ...` とする。
-
-## 本番運用タスク（Taskfile）
-
-本番・プレビュー環境の運用操作は、確認プロンプト（`prompt:`）やメモの安全な受け渡しが
-go-task に依存しているため Taskfile.yml に残している。go-task はルートの devDependency
-（`@go-task/cli`）で入るので、`pnpm task <タスク名>` で実行する（一覧は `pnpm task --list`）。
-
-```
-* db:migrate:prod:list:   本番 D1 の未適用マイグレーションを確認（非破壊）
-* db:migrate:prod:        本番 D1 にマイグレーション適用（破壊的操作あり・確認プロンプト付き）
-* db:migrate:preview:list: プレビュー D1 の未適用マイグレーションを確認（非破壊）
-* db:migrate:preview:     プレビュー D1 にマイグレーション適用
-* reports:list:           本番 D1 の通報一覧を表示（既定: 未対応のみ。issue #186）
-* reports:resolve:        本番の通報を対応済みにする（確認プロンプト付き）
-* reports:dismiss:        本番の通報を却下する（確認プロンプト付き）
-* reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
-* reports:list:local:     ローカル D1 の通報一覧を表示
-* reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
-* images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
-* images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。確認プロンプト付き）
-```
-
-> 本番 D1 へのマイグレーション適用は deploy-api.yml がデプロイ前に自動で行うため、
-> main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない。
-> 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
-
-> 通報モデレーション（reports.*）は `apps/api/scripts/reports.sh` の
-> Taskfile ラッパー。使い方は `bash apps/api/scripts/reports.sh --help`。
-> `pnpm task reports:list -- --status all`、`pnpm task reports:list -- --by-user` のように
-> `--` 以降でオプションを渡せる。更新系は id を `--` 以降、対応メモを
-> `NOTE='メモ'` で渡す（例: `pnpm task reports:resolve NOTE='対応済み' -- 5`）。
-> メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
-> そのまま含めてよい。プレビュー D1 を見る場合は
-> `bash apps/api/scripts/reports.sh --env preview list` を直接叩く。
-
-> 作品画像の削除（images:takedown）は `apps/api/scripts/takedown-work-images.sh` の
-> Taskfile ラッパー（issue #241）。MAL API の規約により、MAL から削除依頼が来たら
-> MAL 由来の画像（`image_source='mal'`）を 24 時間以内に消す必要がある。
-> 作品 ID を `--` 以降に並べる（例: `pnpm task images:takedown -- 123 456`）か、
-> `pnpm task images:takedown -- --all-mal` で MAL 由来の全件を対象にする。
-> 件数と一覧を表示してから確認プロンプトを出し、対象を `image_source='blocked'`・
-> `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にする。
-> R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する。
-> `'blocked'` の作品は cron・画像プロキシ・検索のどこからも補完し直さない
-> （Annict の元の画像は MAL 由来ではないので、プロキシは引き続き配信する）。
-> プロキシ前段のキャッシュは消せないが、MAL 由来の画像は Cache-Control を
-> 合計 12 時間以下にしてあるので、実行後 12 時間以内に切れる。
-> ただし短縮前（issue #241 のデプロイ前）に入ったキャッシュは 1 日 +
-> `stale-while-revalidate` 7 日のままなので、デプロイから 8 日間は 24 時間以内に
-> 切れる保証がない。その間に削除依頼が来たら、Cloudflare ダッシュボードの
-> Purge Cache（Custom Purge の URL 指定）で `https://<API ドメイン>/images/works/<id>` も消す。
-> 使い方は `bash apps/api/scripts/takedown-work-images.sh --help`。プレビューは
-> `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
-
-> wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
-> ルートから叩くときは `dir: apps/api` 付きの task 経由にする。デプロイ・本番 D1 操作は
-> 上記 `db:migrate:prod*` のように Taskfile に集約し、wrangler の場所を意識せず実行できるようにする。
-
-## E2E テスト（Maestro / iOS シミュレーター）
-
-Maestro による E2E を `apps/mobile/.maestro/` に置く。
-第 1 弾の対象は認証ライフサイクル（サインアップ→ホーム→サインアウト→
-サインイン→アカウント削除）で、`flows/auth-lifecycle.yaml` がエントリポイント。
-`subflows/` は `runFlow` から呼ばれる部品なので直接実行しない。
-
-```bash
-vp run @animeishi/mobile#e2e:ios
-```
-
-> **運用ルール（#180）**: E2E は CI では回さない（macOS ランナーのコストのため）。
-> 代わりに、`apps/mobile` に影響する PR（認証・ナビゲーション・ホーム周りなど
-> E2E フローが通る画面を触るもの）は、**マージ前にローカルで `vp run @animeishi/mobile#e2e:ios` を
-> 通す**。結果（PASS / 失敗時の原因）は PR にコメントで残す。
-
-`e2e:ios`（`apps/mobile/scripts/e2e-ios.sh`）が行うこと:
-
-1. E2E 専用シミュレーター `animeishi-e2e-<ワークツリー名>` を `simctl create` で作成
-   （既にあれば再利用。ワークツリー単位で一意なため、同一ホストで並列実行しても
-   他作業者のシミュレーターと衝突しない）。
-   既定のランタイムは**インストール済みの iOS 18.x のうち最新**（issue #298。
-   iOS 26.5 では Maestro のドライバ接続が不安定で、ドライバ起動タイムアウトや
-   途中切断で E2E が頻繁に失敗するため）。18.x が無ければ最新のランタイムに
-   フォールバックし、その旨を表示する。既存の同名シミュレーターが別ランタイムで
-   作られていた場合は作り直す。`E2E_SIM_NAME` を指定したときはこの選択を行わず、
-   従来どおり最新のランタイムで作り・既存シミュレーターも再利用する
-2. `ios/Animeishi.xcworkspace` が無ければ `expo prebuild -p ios`。
-   `ios/` が残っていると prebuild が CocoaPods をスキップするため、
-   それでも xcworkspace が無いときは続けて `pod install` を実行する（issue #275）
-3. `xcodebuild -configuration Release -sdk iphonesimulator` で Release 相当ビルド
-   （成果物: `ios/build/e2e-dd/Build/Products/Release-iphonesimulator/Animeishi.app`）
-   - 署名は `CODE_SIGN_IDENTITY="-"`（ad-hoc）にする。
-     `CODE_SIGNING_ALLOWED=NO` にすると entitlements がバイナリに埋め込まれず
-     Keychain（expo-secure-store で Clerk のセッション保存に使用）が
-     `SecError -34018` で失敗し、`signUp.create` が `status:null` の
-     空リソースを返してサインアップが進まなくなる
-4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行
-
-実行中の状態は `apps/mobile/.e2e-ios/`（gitignore 済み）に置く（issue #275）:
-
-- `lock/` … mkdir で取るロックディレクトリ（中の `owner` にスクリプトの
-  PID と起動時刻）。同じワークツリーでの多重起動は `ios/build/e2e-dd`
-  のビルド DB を取り合って失敗するため、所有者が e2e-ios.sh として
-  生きている（PID + 起動時刻が一致）ならエラーで止める。
-  前回実行が SIGKILL 等で落ちて残った残骸は `reclaim` ロックで回収を
-  直列化してから取り除く（複数起動が同時に消し合わないようにするため）
-- `api.pid` … スクリプトが起動した wrangler dev の PID と起動時刻。
-  スクリプトが SIGKILL で落ちて API が残った場合、次回起動時に
-  PID + 起動時刻が一致したプロセス（= 自分が起動したと確認できるもの）
-  だけをプロセスグループごと停止してから立て直す。
-  PID ファイルで確認できない起動済み API は従来どおり再利用する
-  （別用途で立てた `wrangler dev` 等の無関係なプロセスは止めない）
-
-API のポートは全ワークツリー共通なので、別ワークツリーの E2E が同じ
-API を再利用しうる。各実行は `${TMPDIR}/animeishi-e2e-api-users/` に
-自分の PID + 起動時刻を登録し、終了時に消す。自分が起動した API を
-止めるとき（正常終了・残骸回収のどちらでも）、レジストリに生きた
-他実行が残っていれば止めずに残す（api.pid も残し、最後に使い終わった
-後の実行が回収する）。他実行の登録が残ったまま死んでいる残骸は、
-登録の照合時に掃除する。
-
-ビルドと Maestro の実行は PC への負荷が大きいため、ホスト単位で同時に
-1 本に限るロックを取る（issue #291）。ロックはユーザー固有の一時領域
-（`getconf DARWIN_USER_TEMP_DIR`、通常は `$TMPDIR`）の
-`animeishi-e2e-host.lock` に mkdir で取り、`owner` に
-PID・起動時刻・ワークツリー名・プロセスグループ ID を書く。
-ビルド開始の直前に取得して
-Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
-シミュレーターの検索・作り直し・作成もロックの中で行う（別ワークツリーの
-実行が同名シミュレーターを使用中に消されないようにするため。issue #298）。
-別ワークツリーが実行中のときはエラーにせず、所有者の
-ワークツリー名・PID を表示しながら 30 秒おきに再確認して終了を待つ。
-待ち時間の上限は `E2E_HOST_LOCK_TIMEOUT`（秒、既定 3600）で、
-超えるとエラーで終える。所有者が SIGKILL 等で落ちた残骸ロックは
-ワークツリー内の `lock/` と同じく PID + 起動時刻で判定し、
-同じ一時領域の `animeishi-e2e-host.reclaim` で回収を直列化してから
-取り除く。回収時には、所有者のプロセスグループの中で親が launchd に
-付け替わった孤児（ppid=1）かつコマンドラインがビルド・テスト系
-（xcodebuild / maestro / XCTest ドライバ / simctl）のものだけを
-停止する。生存中の親シェルや vp・エージェントは ppid=1 ではないので
-誤って止めることはなく、API サーバ系（wrangler 等）も対象外。
-
-### 前提
-
-- maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
-  （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
-- Xcode + iOS シミュレーターランタイム
-- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
-  GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
-  未設定なら `apps/mobile/.env` を読む。pk_live はスクリプトが拒否する
-- `EXPO_PUBLIC_API_URL`: 既定 `http://localhost:8787`。
-  API（wrangler dev）が未起動ならスクリプトが起動し、終了時に停止する。
-  アカウント削除は `DELETE /me` を叩くため API が必須（`apps/api/.dev.vars`
-  に開発インスタンスの `CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY` が要る）
-- ローカル D1 マイグレーション済みであること（`vp run @animeishi/api#db:migrate:local`。
-  スクリプトが API 起動時に適用するが、API 常駐派は事前に回しておく）
-
-Clerk 認証は dev インスタンスのテストモードを使う。毎回ユニークな
-`e2e<ts>+clerk_test@example.com` でサインアップする。メール認証が求められた
-場合は固定コード `424242` で通すが、test_mode の `+clerk_test` では認証が
-自動スキップされ `status=complete` でホーム直行することもあるため、
-`subflows/sign-up.yaml` は `verification-code-input` が出た時だけ
-`subflows/verify-email.yaml` でコード入力する分岐になっている。
-最後にアカウント削除まで行うため Clerk 側にゴミは残らない
-（削除失敗時のみ dev ダッシュボードから手動削除する）。
-
-便利な環境変数:
-
-- `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用）
-- `E2E_SIM_NAME` … 専用シミュレーター名を変更（既定 `animeishi-e2e-<ワークツリー名>`。
-  指定したときは iOS 18.x 優先のランタイム選択を行わず、最新ランタイムで作成・
-  同名の既存シミュレーターはランタイムを見ずに再利用する。特定の iOS 版で
-  試したいときに使う）
-- `E2E_HOST_LOCK_TIMEOUT` … ホストロックの待ち時間の上限（秒、既定 3600。
-  超えるとエラーで終了）
-
-> e2e-ios.sh は通常のシェル（vp が入れた node / pnpm が PATH にある状態）から
-> そのまま xcodebuild 等を実行する。`CC` `SDKROOT` `DEVELOPER_DIR` などの
-> toolchain 変数を export したシェルから叩くと xcodebuild のネイティブビルドが
-> 壊れるので、その場合は変数を外してから実行する（旧 Nix devShell で起きた問題。
-> スクリプト側の回避策は #252 で外した）。
+本番・プレビューの操作は `pnpm task <タスク名>` で行う（一覧は `pnpm task --list`、手順は
+`docs/runbook/production-tasks.md`）。デプロイ・本番 D1 の操作は Taskfile に集約している。
+本番 D1 のマイグレーションは main へのマージ後に deploy-api.yml が自動で適用する。
 
 ## プラットフォーム差異の吸収（Web / iOS / Android）
 
 カメラ・通知・ダイアログ等でプラットフォーム固有の実装が必要なときは、
 コード中で `Platform.OS === "web"` を分岐させず、ファイル拡張子による自動解決
-（Expo 標準）でモジュールを切り替える。
+（Expo 標準）でモジュールを切り替える。リファレンス実装は `apps/mobile/lib/dialog/`。
 
 ```text
 foo.web.ts      ← Web 用実装
 foo.native.ts   ← iOS/Android 共通実装
 foo.ts          ← フォールバック兼・型定義（実装は解決されないので throw でよい）
 types.ts        ← 共通インターフェース（型定義）の置き場所
-index.ts        ← バレル（呼び出し側はここを import する）
+index.ts        ← バレル（呼び出し側はここを拡張子なしで import する）
 ```
 
-呼び出し側は常に拡張子なしで import するだけでよく、バンドラー
-（Metro / webpack）がプラットフォームに応じて `.web` / `.native` を自動選択する。
+- 表示文言（ボタンラベル等）は基盤側に既定値を持たせず、必ず呼び出し側が渡す
+  （i18n の `t()` への依存を低レベルな基盤に持ち込まないため）
+- `KeyboardAvoidingView` の `behavior` のような 1 行のレイアウト微調整は、
+  拡張子分割せず `Platform.OS` の三項演算で済ませてよい
 
-```ts
-import { confirm } from "@/lib/dialog"; // 実装は自動で切り替わる
-```
+## 書く内容と置き場所
 
-### リファレンス実装
+情報の置き場所は「誰が・いつ・何のために読むか」で決め、それぞれの場所には
+その読み手が必要とする問いへの答えだけを書く。1 か所に 5W1H を全部書かない。
+同じ内容を複数の場所に重複させず、詳しい理由は issue 番号・PR・docs のパスで参照する
+（重複させると片方が必ず古くなる）。
 
-ダイアログ（alert / confirm）の差異吸収を `apps/mobile/lib/dialog/` に実装している。
-新規にカメラ・通知・位置情報等を実装する際はこのパターンに倣う。
+| 置き場所 | 書くこと | 具体的には |
+| --- | --- | --- |
+| コード | How | 命名と構造で処理が読めるようにする |
+| コードコメント | Why not | 素直な書き方を採らなかった理由。消すと誰かが「改善」して壊すものだけを書き、処理の言い換えは書かない |
+| テスト | What | テスト名で振る舞い・仕様を表す |
+| CI/CD 設定（`.github/workflows/`） | When + How | どの条件で走り、何をするか |
+| コミットメッセージ | Why | その変更が必要になった理由。差分を見れば分かる What は並べない |
+| PR 本文 | What + Why | 何を変えたか、なぜか |
+| 設計文書（`docs/NN_*.md`） | Why + What if | 検討した選択肢、採らなかった案、前提が変わったときどうするか |
+| 判断の記録（ADR 相当。issue に残す） | Why + When | 何をなぜ決めたか、いつ・どの前提で決めたか |
+| 開発者向け解説（`docs/development/`） | What + How | 仕組みと設定の詳細。設定を変える人・原因を調べる人が読む |
+| 運用手順（`docs/runbook/`、scripts の `--help`） | When + How | どの状況で、何をどの順で実行するか |
+| API ドキュメント・仕様 | What + When | 何を返すか、どの条件で呼ぶか・失敗するか |
+| README | What + How to start | 何のためのものか、最初に何をすれば動くか |
+| ユーザー向けガイド | How + What for | どう使うか、それで何ができるか |
+| 作業メモ・中断時の引き継ぎ | What next | 次に何をするか |
+| 本書（AGENTS.md / CLAUDE.md） | When + How | 作業のたびに必要な手順とルールだけ。一部の作業でしか読まない詳細は docs に置いて上の表から参照する |
 
-> 表示文言（ボタンラベル等）は基盤側に既定値を持たせず、必ず呼び出し側が渡す。
-> i18n の `t()` への依存を低レベルな抽象化基盤に持ち込まないため。
->
-> 補足: `KeyboardAvoidingView` の `behavior` のような 1 行のレイアウト微調整は、
-> 拡張子分割せず `Platform.OS` の三項演算で済ませてよい。
-> モジュール単位で実装が分かれる差異だけを拡張子分割の対象とする。
+> 運用手順だけは重複を許す。障害対応中の読み手はリンクを辿る余裕がないため、
+> 手順は参照先を読まなくても実行できるように書く。
 
 ## タスク管理
 
