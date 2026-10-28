@@ -49,10 +49,15 @@ tasks:
 
   # MAL API 規約 3(e) の削除依頼対応（issue #241）。件数を表示してから
   # スクリプト自身が確認プロンプトを出すため、Taskfile 側の prompt: は付けない。
+  # キャッシュ Purge 用の CLOUDFLARE_ZONE_ID / CLOUDFLARE_PURGE_API_TOKEN は
+  # apps/api/.env（gitignore 済み）か実行シェルの環境変数で渡す（issue #244。
+  # 手順は docs/runbook/production-tasks.md）。
   images:takedown:
     desc: "本番の作品画像を削除し、以後の補完を止める（task images:takedown -- <作品ID>... / -- --all-mal）"
     dir: apps/api
     interactive: true
+    # dotenv は task の dir（apps/api）からの相対パス。
+    dotenv: [".env"]
     cmds:
       - bash scripts/takedown-work-images.sh --env production {{.CLI_ARGS}}
 
