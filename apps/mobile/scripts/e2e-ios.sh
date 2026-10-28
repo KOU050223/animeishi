@@ -649,9 +649,22 @@ rebundle_app() {
       --reset-cache \
       --bundle-output "$tmp/main.jsbundle" \
       --assets-dest "$app"
-  # hermesc は Pods ではなく node_modules 同梱のものを使い、ios/ が無い
-  # worktree でも動くようにする
-  hermesc="$(cd ../../node_modules/react-native/sdks/hermesc/osx-bin && pwd)/hermesc"
+  # hermesc は Xcode フェーズ（react-native-xcode.sh）が使うものと揃える。
+  # SDK 58 / RN 0.88（Hermes V1）では react-native/sdks/hermesc 同梱の
+  # バイナリは無く、hermes-engine podspec が hermes-compiler npm パッケージを
+  # HERMES_CLI_PATH として xcconfig に注入する。コンパイラと VM の train が
+  # 違うと "Wrong bytecode version" で起動直後に落ちるため、podspec と同じ
+  # require.resolve で react-native の依存グラフ経由に解決する
+  # （ios/ が無い worktree でも node_modules だけあれば動く）
+  hermesc="$(RN_DIR="$(node --print "require('path').dirname(require.resolve('react-native/package.json'))")" \
+    node --print "require('path').join(require('path').dirname(require.resolve('hermes-compiler/package.json', {paths: [process.env.RN_DIR]})), 'hermesc', 'osx-bin', 'hermesc')")"
+  [ -x "$hermesc" ] || hermesc=""
+  if [ -z "$hermesc" ]; then
+    # ローカル prebuilt tarball 利用時は pod が VM と対の hermesc を
+    # destroot に置く（npm パッケージは train が違いうる）
+    hermesc="ios/Pods/hermes-engine/destroot/bin/hermesc"
+  fi
+  [ -x "$hermesc" ] || { echo "hermesc が見つかりません" >&2; exit 1; }
   "$hermesc" -emit-binary -max-diagnostic-width=80 -O \
     -out "$app/main.jsbundle" "$tmp/main.jsbundle"
   rm -rf "$tmp"
@@ -662,10 +675,12 @@ rebundle_app() {
   # と同じ createUpdatesResources.js で作り直す。launch asset は目録に無く
   # 固定名の main.jsbundle を指すため、差し替え済みのものがそのまま使われる
   if [ -d "$app/EXUpdates.bundle" ]; then
+    # 末尾の production は Xcode 側の CONFIG_MODE（Release = production）。
+    # .env.production 系の読み込みを Xcode フェーズと揃えるため渡す
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" \
     EXPO_PUBLIC_API_URL="$EXPO_PUBLIC_API_URL" \
       node ../../node_modules/expo-updates/utils/build/createUpdatesResources.js \
-        ios "$PWD" "$app/EXUpdates.bundle" all "$PWD/index.js"
+        ios "$PWD" "$app/EXUpdates.bundle" all "$PWD/index.js" production
   fi
   # --preserve-metadata=entitlements で Keychain 等の entitlements を保つ
   # （落とすと SecError -34018 で expo-secure-store 経由のサインアップが失敗する）

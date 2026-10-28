@@ -131,9 +131,11 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
   バイトコード化）で `main.jsbundle` とアセットを作り直して差し替え、
   `codesign --force --sign - --preserve-metadata=entitlements` で
   ad-hoc 署名し直して使う。`EXPO_PUBLIC_*` はバンドルに埋め込まれるため
-  xcodebuild と同じ値を export に渡す。hermesc は `node_modules` 同梱のものを
-  使うため `ios/` が無い worktree でも動く（`export:embed --bytecode` 単発は
-  `-O` が付かないので使わない）。
+  xcodebuild と同じ値を export に渡す。hermesc は Xcode フェーズと同じ
+  `hermes-compiler` npm パッケージのバイナリ（react-native の依存グラフ
+  経由で解決。SDK 58 / RN 0.88 では react-native 同梱の
+  `sdks/hermesc` は無い）を使うため `ios/` が無い worktree でも動く
+  （`export:embed --bytecode` 単発は `-O` が付かないので使わない）。
   `EXUpdates.bundle/app.manifest`（expo-updates の埋め込みアップデートの
   アセット目録）も Xcode のビルドフェーズと同じ
   `expo-updates/utils/build/createUpdatesResources.js` で作り直す。
