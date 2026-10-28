@@ -33,6 +33,7 @@ const NODE_POOL_TESTS = [
   "src/cors.test.ts",
   "src/lib/annict/client.test.ts",
   "src/features/*/schema.test.ts",
+  "scripts/**/*.test.ts",
 ];
 
 export default defineConfig({

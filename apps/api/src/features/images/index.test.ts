@@ -81,6 +81,32 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     expect(new Uint8Array(await second.arrayBuffer())).toEqual(PNG_BYTES);
   });
 
+  // issue #244。削除スクリプトがタグ指定の Purge Cache でこのエントリを消せる
+  // ようにするため、保存する側にだけ付ける（クライアントには出さない）。
+  it("キャッシュに保存したレスポンスにだけ Cache-Tag が付く", async () => {
+    await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    const app = buildApp();
+    const res = await app.request(
+      "/images/works/42",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-tag")).toBeNull();
+    await res.arrayBuffer();
+
+    // 2 回目のリクエストで cache.put 完了を確実にしてから中身を見る
+    await (
+      await app.request("/images/works/42", { method: "GET" }, TEST_BINDINGS)
+    ).arrayBuffer();
+    const cached = await caches.default.match(
+      "http://localhost/images/works/42",
+    );
+    expect(cached?.headers.get("cache-tag")).toBe("work-image-42");
+  });
+
   it("存在しない作品は 404", async () => {
     const res = await buildApp().request(
       "/images/works/999",

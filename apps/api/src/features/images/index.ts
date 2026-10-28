@@ -41,7 +41,15 @@ export const images = new Hono<{
     { malClientId: c.env.MAL_CLIENT_ID },
   );
   if (cache && (res.status === 200 || res.status === 404)) {
-    const put = cache.put(cacheKey, res.clone()).catch(() => {});
+    // ゾーンの Purge Cache（タグ指定）でこのエントリを消せるよう、保存する
+    // エントリにだけ Cache-Tag を付ける（MISS 時の直接レスポンスには付けない）。
+    // Cache API のエントリは caches.default.delete() だと実行した DC しか
+    // 消えない。グローバルに消す手段として公式に挙げられているのは
+    // Purge Everything とタグ指定で、削除スクリプトは work-image-<id> の
+    // タグで消す（issue #244）。
+    const stored = new Response(res.clone().body, res);
+    stored.headers.set("cache-tag", `work-image-${annictWorkId}`);
+    const put = cache.put(cacheKey, stored).catch(() => {});
     // テスト等で executionCtx が無い環境では投げるので、その場合は待つ。
     try {
       c.executionCtx.waitUntil(put);

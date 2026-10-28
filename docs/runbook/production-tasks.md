@@ -18,7 +18,7 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
-* images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。確認プロンプト付き）
+* images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。プロキシのキャッシュも Purge。確認プロンプト付き）
 ```
 
 > wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
@@ -47,21 +47,57 @@ main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する�
 MAL API の規約により、MAL から削除依頼が来たら
 MAL 由来の画像（`image_source='mal'`）を **24 時間以内**に消す必要がある。
 
+### 準備（キャッシュ Purge 用。初回のみ）
+
+削除の最後に、画像プロキシ前段の Workers Cache をゾーンの Purge Cache API で
+消す（issue #244）。API トークンとゾーン ID が必要:
+
+1. Cloudflare ダッシュボード → My Profile → API Tokens → Create Token で、
+   **Zone → Cache Purge → Purge** 権限を `uomi.dev` ゾーンに限定して発行する
+   （Workers デプロイ用の `CLOUDFLARE_API_TOKEN` とは権限が別なので別トークン）。
+2. ゾーン ID は `uomi.dev` → Overview → 右カラムの API 欄「Zone ID」。
+3. `apps/api/.env`（gitignore 済み。`pnpm task` が自動で読む）に書くか、
+   実行シェルで export する:
+
+   ```sh
+   CLOUDFLARE_ZONE_ID=<ゾーン ID>
+   CLOUDFLARE_PURGE_API_TOKEN=<発行したトークン>
+   ```
+
+### 実行
+
 1. 作品 ID を `--` 以降に並べる（例: `pnpm task images:takedown -- 123 456`）か、
    `pnpm task images:takedown -- --all-mal` で MAL 由来の全件を対象にする
 2. 件数と一覧を表示してから確認プロンプトが出る。承認すると、対象を `image_source='blocked'`・
-   `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にする
+   `resolved_image_url` NULL にしてから、R2 のオブジェクトを消して `image_r2_key` を NULL にし、
+   最後にプロキシ前段のキャッシュを Purge する
 3. R2 から消せなかったキーは DB に残るので、表示された作品 ID で再実行する
 
 `'blocked'` の作品は cron・画像プロキシ・検索のどこからも補完し直さない
 （Annict の元の画像は MAL 由来ではないので、プロキシは引き続き配信する）。
 
-プロキシ前段のキャッシュは消せないが、MAL 由来の画像は Cache-Control を
-合計 12 時間以下にしてあるので、実行後 12 時間以内に切れる。
-ただし短縮前（issue #241 のデプロイ前）に入ったキャッシュは 1 日 +
-`stale-while-revalidate` 7 日のままなので、デプロイから 8 日間は 24 時間以内に
-切れる保証がない。その間に削除依頼が来たら、Cloudflare ダッシュボードの
-Purge Cache（Custom Purge の URL 指定）で `https://<API ドメイン>/images/works/<id>` も消す。
+### Purge の仕組みと消せなかったとき
+
+プロキシ前段のキャッシュは Workers Cache API（`caches.default`）にあり、
+Worker 内の `cache.delete()` では実行したデータセンターしか消えない。
+スクリプトは代わりにゾーンの Purge Cache API
+（`POST /zones/:zone_id/purge_cache`）を**タグ指定と URL 指定の両方**で呼ぶ。
+タグ指定（`Cache-Tag: work-image-<id>`。Cloudflare 公式が Cache API の
+エントリに効くと明記しているのはタグ指定と Purge Everything）で消せるのは
+この変更のデプロイ以降に保存されたエントリ。それ以前のエントリは
+URL 指定がベストエフォートでカバーし、どうしても残るものは最長 8 日の
+旧 TTL で自然に切れる（`stale-while-revalidate` 込み。2026-11-03 頃まで）。
+
+環境変数が未設定・API が失敗した場合も、D1/R2 の削除は完了したうえで
+消せなかった URL の一覧が出る。そのときはダッシュボードから手動で消す:
+
+1. `uomi.dev` → Caching → Configuration → Purge Cache → Custom Purge
+2. 「Purge by: URL」を選び、表示された URL
+   （`https://animeishi-api.uomi.dev/images/works/<id>`）を貼って Purge
+
+`--local` と preview（`--env preview`）では Purge しない。
+preview の API は `pr-<N>-animeishi-api-preview.*.workers.dev` で、
+ゾーンの Purge API はそのゾーンに属するホスト名しか消せないため。
 
 使い方は `bash apps/api/scripts/takedown-work-images.sh --help`。プレビューは
 `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
