@@ -612,27 +612,105 @@ describe("キャラクター tier 表 API", () => {
       expect(token2).not.toBe(token1);
     });
 
-    it("GET /share/image-proxy: annict_characters の画像 URL も中継できる", async () => {
-      // isKnownImageUrl は annict_works だけでなく annict_characters の
-      // image_url も許可リストに含める（キャラクター画像は AniList 由来の
-      // 外部 URL で、Web 版の画像エクスポートがプロキシを必要とするため）。
-      const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(imageBytes, {
-          status: 200,
-          headers: { "content-type": "image/png" },
-        }),
-      );
+    describe("活動フィードへの記録", () => {
+      beforeEach(() => {
+        vi.mocked(getAuth).mockReturnValue({
+          userId: USER_ID,
+        } as ReturnType<typeof getAuth>);
+      });
 
-      const app = buildApp();
-      const res = await app.request(
-        `/share/image-proxy?url=${encodeURIComponent(CHAR_IMAGE_URL)}`,
-        {},
-        TEST_BINDINGS,
-      );
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("image/png");
-      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+      it("PUT: 新規作成時に活動（tier_list_created / kind=character）を記録する", async () => {
+        const db = createDb(env.DB);
+        const app = buildApp();
+        await seedCharacterTierList(app);
+
+        const rows = await db.query.activities.findMany();
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.userId).toBe(USER_ID);
+        expect(rows[0]?.type).toBe("tier_list_created");
+        expect(rows[0]?.annictWorkId).toBe(WORK_ID);
+        expect(rows[0]?.meta).toBe(
+          JSON.stringify({ kind: "character", title: "キャラクターTier表" }),
+        );
+      });
+
+      it("PUT: 既存キャラクター tier 表の更新では活動を重複記録しない", async () => {
+        const db = createDb(env.DB);
+        const app = buildApp();
+        await seedCharacterTierList(app);
+        await seedCharacterTierList(app);
+
+        const rows = await db.query.activities.findMany();
+        expect(rows).toHaveLength(1);
+      });
+
+      it("POST /:annictWorkId/share: 共有発行時に活動（tier_list_shared）を記録する", async () => {
+        const db = createDb(env.DB);
+        const app = buildApp();
+        await seedCharacterTierList(app);
+
+        const res = await app.request(
+          `/me/character-tier-lists/${WORK_ID}/share`,
+          { method: "POST" },
+          TEST_BINDINGS,
+        );
+        expect(res.status).toBe(200);
+
+        const rows = await db.query.activities.findMany();
+        const shared = rows.filter((r) => r.type === "tier_list_shared");
+        expect(shared).toHaveLength(1);
+        expect(shared[0]?.annictWorkId).toBe(WORK_ID);
+        expect(shared[0]?.meta).toBe(
+          JSON.stringify({ kind: "character", title: "キャラクターTier表" }),
+        );
+      });
+
+      it("POST /:annictWorkId/share: 既に発行済みなら活動を重複記録しない", async () => {
+        const db = createDb(env.DB);
+        const app = buildApp();
+        await seedCharacterTierList(app);
+
+        await app.request(
+          `/me/character-tier-lists/${WORK_ID}/share`,
+          { method: "POST" },
+          TEST_BINDINGS,
+        );
+        await app.request(
+          `/me/character-tier-lists/${WORK_ID}/share`,
+          { method: "POST" },
+          TEST_BINDINGS,
+        );
+
+        const rows = await db.query.activities.findMany();
+        expect(rows.filter((r) => r.type === "tier_list_shared")).toHaveLength(
+          1,
+        );
+      });
+    });
+
+    describe("GET /share/image-proxy", () => {
+      it("GET /share/image-proxy: annict_characters の画像 URL も中継できる", async () => {
+        // isKnownImageUrl は annict_works だけでなく annict_characters の
+        // image_url も許可リストに含める（キャラクター画像は AniList 由来の
+        // 外部 URL で、Web 版の画像エクスポートがプロキシを必要とするため）。
+        const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(
+          new Response(imageBytes, {
+            status: 200,
+            headers: { "content-type": "image/png" },
+          }),
+        );
+
+        const app = buildApp();
+        const res = await app.request(
+          `/share/image-proxy?url=${encodeURIComponent(CHAR_IMAGE_URL)}`,
+          {},
+          TEST_BINDINGS,
+        );
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toBe("image/png");
+        expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+      });
     });
   });
 });

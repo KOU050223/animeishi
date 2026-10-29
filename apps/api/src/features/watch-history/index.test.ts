@@ -652,4 +652,93 @@ describe("視聴履歴 API", () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe("活動フィードへの記録", () => {
+    beforeEach(() => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: USER_ID,
+      } as ReturnType<typeof getAuth>);
+    });
+
+    it("PUT: 新しいステータスの設定時に活動（watch_status）を記録する", async () => {
+      mockAnnictUpdate({ nodeId: "Work-12345" });
+      const app = buildApp();
+
+      const res = await app.request(
+        `/me/watch-histories/${ANNICT_WORK_ID}`,
+        {
+          method: "PUT",
+          headers: PUT_HEADER,
+          body: JSON.stringify({ state: "WATCHING" }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.userId).toBe(USER_ID);
+      expect(rows[0]?.type).toBe("watch_status");
+      expect(rows[0]?.annictWorkId).toBe(ANNICT_WORK_ID);
+      expect(rows[0]?.meta).toBe(JSON.stringify({ state: "WATCHING" }));
+    });
+
+    it("PUT: 同じステータスへの再設定では活動を重複記録しない", async () => {
+      mockAnnictUpdate({ nodeId: "Work-12345" });
+      const app = buildApp();
+      const put = () =>
+        app.request(
+          `/me/watch-histories/${ANNICT_WORK_ID}`,
+          {
+            method: "PUT",
+            headers: PUT_HEADER,
+            body: JSON.stringify({ state: "WATCHING" }),
+          },
+          TEST_BINDINGS,
+        );
+      await put();
+      await put();
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+    });
+
+    it("PUT: ステータス変更は新しい活動として記録される", async () => {
+      mockAnnictUpdate({ nodeId: "Work-12345" });
+      const app = buildApp();
+      const put = (state: string) =>
+        app.request(
+          `/me/watch-histories/${ANNICT_WORK_ID}`,
+          {
+            method: "PUT",
+            headers: PUT_HEADER,
+            body: JSON.stringify({ state }),
+          },
+          TEST_BINDINGS,
+        );
+      await put("WATCHING");
+      await put("WATCHED");
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(2);
+      expect(rows.map((r) => r.meta)).toEqual([
+        JSON.stringify({ state: "WATCHING" }),
+        JSON.stringify({ state: "WATCHED" }),
+      ]);
+    });
+
+    it("GET /me/watch-histories: read-through 同期では活動を記録しない", async () => {
+      mockAnnictLibrary([{ annictId: ANNICT_WORK_ID, state: "WATCHED" }]);
+      const app = buildApp();
+      const res = await app.request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(0);
+    });
+  });
 });

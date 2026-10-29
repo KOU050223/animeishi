@@ -190,6 +190,18 @@ const DDL_STATEMENTS = [
     user_id TEXT PRIMARY KEY NOT NULL,
     deleted_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    annict_work_id INTEGER,
+    meta TEXT,
+    created_at INTEGER NOT NULL,
+    CONSTRAINT activities_type_check CHECK (type IN ('watch_status', 'favorite_added', 'tier_list_created', 'tier_list_shared')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS activities_user_idx ON activities (user_id)`,
 ];
 
 /**
@@ -213,6 +225,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM character_tier_lists").run();
   await d1.prepare("DELETE FROM tier_list_items").run();
   await d1.prepare("DELETE FROM tier_lists").run();
+  await d1.prepare("DELETE FROM activities").run();
   await d1.prepare("DELETE FROM user_genres").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
@@ -224,7 +237,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'reports', 'blocks')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'reports', 'blocks', 'activities')",
     )
     .run();
   return db;

@@ -79,6 +79,16 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       return { ...list, items };
     },
 
+    /** 指定シーズンの tier 表が存在するか。活動記録が「新規作成か」を判定するために使う。 */
+    async hasMyTierList(season: string): Promise<boolean> {
+      const row = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
+        columns: { id: true },
+      });
+      return row !== undefined;
+    },
+
     /** 自分の tier 表を新しい順に一覧する（配置内容は含めない）。 */
     async getMyTierLists(): Promise<TierList[]> {
       return db
@@ -161,20 +171,32 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
      * 指定シーズンの tier 表の共有トークンを発行する。
      * 既に発行済みなら同じトークンを返す（共有リンクは一度配ったら変えない方が
      * 受け取り側でリンク切れにならないため）。表が未作成なら undefined。
+     * issuedNow はこの呼び出しで新たに発行したときだけ true（活動記録が
+     * 「共有した」を 1 回だけ記録するための判定）。
      */
-    async shareMyTierList(season: string): Promise<string | undefined> {
+    async shareMyTierList(
+      season: string,
+    ): Promise<
+      { shareToken: string; issuedNow: boolean; title: string } | undefined
+    > {
       const list = await db.query.tierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
           and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
       });
       if (!list) return undefined;
-      if (list.shareToken) return list.shareToken;
+      if (list.shareToken) {
+        return {
+          shareToken: list.shareToken,
+          issuedNow: false,
+          title: list.title,
+        };
+      }
 
       // 発行は share_token がまだ null の場合だけに絞る。
       // 同一表への並行リクエストで両方が null を読んでも、後から UPDATE した
       // 側が先のトークンを上書きしてリンク切れにする競合を防ぐため、
       // 条件付き UPDATE にしてから DB の値を読み直して返す。
-      await db
+      const issued = await db
         .update(tierLists)
         .set({ shareToken: crypto.randomUUID() })
         .where(and(eq(tierLists.id, list.id), isNull(tierLists.shareToken)));
@@ -182,7 +204,12 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
         where: eq(tierLists.id, list.id),
         columns: { shareToken: true },
       });
-      return updated?.shareToken ?? undefined;
+      if (!updated?.shareToken) return undefined;
+      return {
+        shareToken: updated.shareToken,
+        issuedNow: issued.meta.changes === 1,
+        title: list.title,
+      };
     },
 
     /**

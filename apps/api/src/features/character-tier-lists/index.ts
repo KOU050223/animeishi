@@ -6,6 +6,7 @@ import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { characterTierListSaveSchema } from "./schema";
 import { annictWorkIdParamSchema } from "../works/schema";
 import { characterTierListsRepository } from "./repository";
+import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 
@@ -92,12 +93,21 @@ const characterTierLists = new Hono<AuthVariables>()
       };
     });
 
+    const existed = await repo.hasMyCharacterTierList(input.annictWorkId);
     const saved = await repo.saveMyCharacterTierList({
       annictWorkId: input.annictWorkId,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
       items,
     });
+    // 新規作成のときだけ活動フィードに記録する（作品版と同じ理由）
+    if (!existed) {
+      await feedRepository(db, c.var.clerkUserId).recordActivity({
+        type: "tier_list_created",
+        annictWorkId: input.annictWorkId,
+        meta: { kind: "character", title: input.title },
+      });
+    }
     return c.json(saved, 200);
   })
   .delete(
@@ -119,11 +129,18 @@ const characterTierLists = new Hono<AuthVariables>()
       const { annictWorkId } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
       const repo = characterTierListsRepository(db, c.var.clerkUserId);
-      const shareToken = await repo.shareMyCharacterTierList(annictWorkId);
-      if (!shareToken) {
+      const result = await repo.shareMyCharacterTierList(annictWorkId);
+      if (!result) {
         return c.json({ error: "Character tier list not found" }, 404);
       }
-      return c.json({ shareToken }, 200);
+      if (result.issuedNow) {
+        await feedRepository(db, c.var.clerkUserId).recordActivity({
+          type: "tier_list_shared",
+          annictWorkId,
+          meta: { kind: "character", title: result.title },
+        });
+      }
+      return c.json({ shareToken: result.shareToken }, 200);
     },
   )
   .delete(

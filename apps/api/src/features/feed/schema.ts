@@ -1,0 +1,67 @@
+import { createRoute, z } from "@hono/zod-openapi";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
+import { ACTIVITY_TYPES } from "@/db/schema";
+
+// GET /me/feed のクエリ。cursor は前ページ最後尾の活動 id、limit は 1 ページ
+// 件数の指定（サーバー側で上限を設ける）。いずれも省略可。
+const feedQuerySchema = z.object({
+  cursor: z
+    .string()
+    .regex(/^\d+$/, "cursor の形式が正しくありません")
+    .optional(),
+  limit: z.string().regex(/^\d+$/, "limit の形式が正しくありません").optional(),
+});
+
+// フィード 1 件の actor（活動したフレンド）。
+const actorSchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  profileImageUrl: z.string().nullable(),
+});
+
+// 活動の対象作品。work を持たない活動（tier 表など）では null。
+const workSchema = z.object({
+  annictWorkId: z.number().int(),
+  title: z.string(),
+  titleEn: z.string().nullable(),
+  hostedImageUrl: z.string().nullable(),
+});
+
+// 活動の 1 件。meta は type ごとの補足情報（watch_status: {state}、
+// tier_list_*: {kind, season?, title}）。
+const feedItemSchema = z.object({
+  id: z.number().int(),
+  type: z.enum(ACTIVITY_TYPES),
+  createdAt: z.string(),
+  actor: actorSchema,
+  work: workSchema.nullable(),
+  meta: z.record(z.string(), z.unknown()).nullable(),
+});
+
+// GET /me/feed の応答。nextCursor は次ページがあるとき最後尾の活動 id。
+const feedResponseSchema = z.object({
+  items: z.array(feedItemSchema),
+  nextCursor: z.number().int().nullable(),
+});
+
+const jsonError = (description: string) => ({
+  content: { "application/json": { schema: errorResponseSchema } },
+  description,
+});
+
+export const getFeedRoute = createRoute({
+  method: "get",
+  path: "/",
+  tags: ["feed"],
+  summary: "フレンドの活動フィードを新しい順に取得する",
+  security: bearerAuth,
+  request: { query: feedQuerySchema },
+  responses: {
+    200: {
+      content: { "application/json": { schema: feedResponseSchema } },
+      description: "フレンドの活動（id 降順のカーソルページング）",
+    },
+    400: jsonError("クエリが不正"),
+    401: jsonError("未認証"),
+  },
+});

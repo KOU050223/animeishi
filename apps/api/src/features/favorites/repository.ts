@@ -39,6 +39,16 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
         .orderBy(desc(favorites.createdAt));
     },
 
+    /** 指定作品が既にお気に入りか。活動記録が「新規追加か」を判定するために使う。 */
+    async isFavorite(annictWorkId: number): Promise<boolean> {
+      const row = await db.query.favorites.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        columns: { id: true },
+      });
+      return row !== undefined;
+    },
+
     async addFavorite(annictWorkId: number): Promise<Favorite> {
       const now = new Date();
       await db

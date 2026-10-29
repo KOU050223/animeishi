@@ -90,6 +90,16 @@ export function characterTierListsRepository(
       return { ...list, items };
     },
 
+    /** 指定作品のキャラクター tier 表が存在するか。活動記録が「新規作成か」を判定するために使う。 */
+    async hasMyCharacterTierList(annictWorkId: number): Promise<boolean> {
+      const row = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        columns: { id: true },
+      });
+      return row !== undefined;
+    },
+
     /** 自分のキャラクター tier 表を新しい順に一覧する（配置内容は含めない）。 */
     async getMyCharacterTierLists(): Promise<CharacterTierList[]> {
       return db
@@ -169,18 +179,28 @@ export function characterTierListsRepository(
     /**
      * 指定作品のキャラクター tier 表の共有トークンを発行する。
      * 既に発行済みなら同じトークンを返す。表が未作成なら undefined。
+     * issuedNow はこの呼び出しで新たに発行したときだけ true（活動記録が
+     * 「共有した」を 1 回だけ記録するための判定）。
      */
     async shareMyCharacterTierList(
       annictWorkId: number,
-    ): Promise<string | undefined> {
+    ): Promise<
+      { shareToken: string; issuedNow: boolean; title: string } | undefined
+    > {
       const list = await db.query.characterTierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
           and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       if (!list) return undefined;
-      if (list.shareToken) return list.shareToken;
+      if (list.shareToken) {
+        return {
+          shareToken: list.shareToken,
+          issuedNow: false,
+          title: list.title,
+        };
+      }
 
-      await db
+      const issued = await db
         .update(characterTierLists)
         .set({ shareToken: crypto.randomUUID() })
         .where(
@@ -193,7 +213,12 @@ export function characterTierListsRepository(
         where: eq(characterTierLists.id, list.id),
         columns: { shareToken: true },
       });
-      return updated?.shareToken ?? undefined;
+      if (!updated?.shareToken) return undefined;
+      return {
+        shareToken: updated.shareToken,
+        issuedNow: issued.meta.changes === 1,
+        title: list.title,
+      };
     },
 
     /** 共有トークンを破棄する。表が未作成なら false。 */

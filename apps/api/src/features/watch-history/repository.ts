@@ -182,6 +182,21 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
       return listMyWatchHistory();
     },
 
+    /**
+     * 指定作品の現在の視聴ステータス（未登録なら undefined）。
+     * 活動記録が「状態が変わったか」を判定するために使う。
+     */
+    async getMyWatchState(
+      annictWorkId: number,
+    ): Promise<NewWatchHistory["state"] | undefined> {
+      const row = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        columns: { state: true },
+      });
+      return row?.state;
+    },
+
     async upsertWatchHistory(
       annictWorkId: number,
       data: Pick<NewWatchHistory, "state">,
