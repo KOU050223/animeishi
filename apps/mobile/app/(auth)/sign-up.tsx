@@ -22,6 +22,8 @@ import { signUpSchema } from "@/lib/validators";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
 import { featureFlags } from "@/lib/featureFlags";
+import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
 
 export default function SignUpScreen() {
@@ -37,9 +39,38 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [pendingVerification, setPendingVerification] = useState(false);
+  const [pendingPasskeyPrompt, setPendingPasskeyPrompt] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // サインアップ完了後の進行先（issue #326）。パスキーが使える環境では
+  // ホームへ遷移する前に登録促進ステップをこの画面内で挟む。
+  // 促進ステップも (auth) 内の表示のため、setActive で isSignedIn が立つと
+  // AuthGuard の「サインイン済みは (auth) からホームへ」に追い出される。
+  // 追い出し抑止のフラグはガードの effect が走りうるすべてのタイミングに
+  // 間に合わせる必要があるので、setActive より先に立てる。
+  async function activateSessionAndContinue(sessionId: string) {
+    if (!setActive) return;
+    const showPasskeyPrompt = featureFlags.passkey;
+    if (showPasskeyPrompt) passkeyPromptPending.current = true;
+    try {
+      await setActive({ session: sessionId });
+    } catch (err) {
+      passkeyPromptPending.current = false;
+      throw err;
+    }
+    if (showPasskeyPrompt) {
+      setPendingPasskeyPrompt(true);
+      return;
+    }
+    router.replace("/(tabs)");
+  }
+
+  function handlePasskeyPromptDone() {
+    passkeyPromptPending.current = false;
+    router.replace("/(tabs)");
+  }
 
   async function handleSignUp() {
     if (!isLoaded) return;
@@ -70,8 +101,7 @@ export default function SignUpScreen() {
       // メール認証が必須でない Clerk 設定では create の時点で complete になる。
       // その場合は認証コード入力を挟まず、そのままセッションを有効化して完了する。
       if (result.status === "complete" && result.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        await activateSessionAndContinue(result.createdSessionId);
         return;
       }
 
@@ -130,14 +160,26 @@ export default function SignUpScreen() {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === "complete" && result.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(tabs)");
+        await activateSessionAndContinue(result.createdSessionId);
       }
     } catch (err: unknown) {
       setError(toAuthErrorMessage(err, t, "認証コードの検証に失敗しました"));
     } finally {
       setLoading(false);
     }
+  }
+
+  if (pendingPasskeyPrompt) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top", "bottom"]}
+      >
+        <View className="flex-1 justify-center px-6 py-10">
+          <PasskeyRegisterPrompt onDone={handlePasskeyPromptDone} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (pendingVerification) {
