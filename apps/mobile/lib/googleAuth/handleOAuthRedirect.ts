@@ -15,10 +15,19 @@ export async function handleOAuthRedirect(params: {
     callbackParams: {
       signInFallbackRedirectUrl: string;
       signUpFallbackRedirectUrl: string;
+      signUpForceRedirectUrl?: string;
     },
     navigate?: (to: string) => Promise<unknown>,
   ) => Promise<unknown>;
   navigate: (to: string) => Promise<unknown>;
+  /**
+   * OAuth の結果サインアップが完了したときの遷移先（issue #332）。
+   * clerk-js は完了したリソースが signIn か signUp かで使う URL を
+   * 分けるため、ここに促進ルートを指定すると新規登録時だけ別画面へ
+   * 遷移できる（transfer で sign-up が作られた場合も signUp 側が選ばれる）。
+   * 省略時は signUpFallbackRedirectUrl（= "/"）が使われる。
+   */
+  signUpForceRedirectUrl?: string;
 }): Promise<void> {
   await params.handleRedirectCallback(
     {
@@ -26,6 +35,7 @@ export async function handleOAuthRedirect(params: {
       // 認証画面へ飛ばさずホームへ戻す。
       signInFallbackRedirectUrl: "/",
       signUpFallbackRedirectUrl: "/",
+      signUpForceRedirectUrl: params.signUpForceRedirectUrl,
     },
     params.navigate,
   );

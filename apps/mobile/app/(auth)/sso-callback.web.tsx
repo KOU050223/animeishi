@@ -5,6 +5,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { handleOAuthRedirect } from "@/lib/googleAuth";
+import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 
 /**
@@ -46,6 +47,14 @@ export default function SsoCallbackScreen() {
       handleRedirectCallback: (params, customNavigate) =>
         clerk.handleRedirectCallback(params, customNavigate),
       navigate,
+      // issue #332: Google 経由の新規登録完了だけをパスキー登録促進
+      // ルートへ。clerk-js は完了したリソース（signIn / signUp）で
+      // 遷移先 URL を分けるため、signUpForceRedirectUrl を指定すれば
+      // 新規登録のみ /passkey-prompt へ、既存ユーザーのサインインは
+      // これまでどおりホームへ遷移する。
+      signUpForceRedirectUrl: featureFlags.passkey
+        ? new URL("/passkey-prompt", window.location.origin).toString()
+        : undefined,
     }).catch(() => setFailed(true));
   }, [clerk, router]);
 
