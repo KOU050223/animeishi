@@ -2,18 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# pnpm 10 はビルドスクリプトをデフォルトでブロックする。
-# テスト/実行に必要なネイティブビルドのみ許可する。
-onlyBuiltDependencies:
-  - better-sqlite3
-  - workerd
-  - esbuild
-  - sharp
-  # devDependency の go-task（Taskfile 用）。postinstall でバイナリを取得する
-  - "@go-task/cli"
-  # Sentry の source map / デバッグシンボルアップロードに使う CLI バイナリの取得
-  - "@sentry/cli"
-
 # vite-plus と、それに揃える vite / vitest の版（issue #250）。
 # https://viteplus.dev/guide/local-cli の手順どおり、vite は vite-plus-core の別名に、
 # vitest は `vp --version` が示す版に固定する。vite-plus を上げるときは 3 つを揃えて更新する。
@@ -32,6 +20,23 @@ catalog:
   vite-plus: 1.4.0
   vitest: 5.0.5
 
+# pnpm 10 はビルドスクリプトをデフォルトでブロックする。
+# テスト/実行に必要なネイティブビルドのみ許可する。
+onlyBuiltDependencies:
+  - better-sqlite3
+  - workerd
+  - esbuild
+  - sharp
+  # devDependency の go-task（Taskfile 用）。postinstall でバイナリを取得する
+  - "@go-task/cli"
+  # Sentry の source map / デバッグシンボルアップロードに使う CLI バイナリの取得
+  - "@sentry/cli"
+
 overrides:
   vite@*: "catalog:"
   vitest@*: "catalog:"
+# react-native-css の globalClassNamePolyfill が react-native の再エクスポート一覧から
+# AssetRegistry を欠落させており、expo-asset 経由のフォント読み込み（Ionicons）が壊れる。
+# 上流修正（nativewind/react-native-css#506）までの暫定パッチ。
+patchedDependencies:
+  react-native-css@3.1.0-rc.0: patches/react-native-css@3.1.0-rc.0.patch
