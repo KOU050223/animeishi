@@ -475,6 +475,28 @@ describe("SignUpScreen", () => {
       expect(passkeyPromptPending.current).toBe(false);
       expect(screen.queryByTestId("register-passkey-button")).toBeNull();
     });
+
+    it("finalize が { error } ではなく例外で失敗しても促進フラグは解除される", async () => {
+      mockPasskey = true;
+      const auth = loggedInUser();
+      auth.signUp.outcome = {
+        status: "complete",
+        createdSessionId: "session_new",
+      };
+      // ネットワーク障害等で finalize() が reject するケース。
+      // フラグが残ると AuthGuard が (auth) からの遷移を抑制し続ける。
+      auth.signUp.finalize.mockRejectedValueOnce(new Error("network error"));
+
+      await render(<SignUpScreen />);
+      await fillAndSubmit();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-message")).toBeTruthy();
+      });
+      expect(passkeyPromptPending.current).toBe(false);
+      expect(screen.queryByTestId("register-passkey-button")).toBeNull();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 
   describe("Google サインアップ（issue #89）", () => {
