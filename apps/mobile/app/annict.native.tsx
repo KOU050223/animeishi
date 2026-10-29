@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 
 // 連携完了後に戻す画面（Web と揃える）。
-const RETURN_PATH = "/anime-list";
+const RETURN_PATH = "/(tabs)/library?section=anime";
 
 /**
  * Annict OAuth コールバックルート（ネイティブ）。

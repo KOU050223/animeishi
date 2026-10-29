@@ -2,5 +2,5 @@
 import { Redirect } from "expo-router";
 
 export default function DanimeImportFallback() {
-  return <Redirect href="/(tabs)/watch-history" />;
+  return <Redirect href="/(tabs)/library?section=history" />;
 }

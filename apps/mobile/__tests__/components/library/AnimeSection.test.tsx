@@ -1,9 +1,9 @@
-// アニメ一覧画面のテスト。この画面の責務はフックの配線だけなので、
+// アニメセクション（ライブラリタブ内）のテスト。この画面の責務はフックの配線だけなので、
 // AnimeListContent はスタブ化し「useToggleFavorite に渡す onError が
 // ダイアログ通知する」ことだけを確認する。
 import React from "react";
 import { render } from "@testing-library/react-native";
-import AnimeListScreen from "@/app/(tabs)/anime-list";
+import { AnimeSection } from "@/components/library/AnimeSection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockAlert = jest.fn();
@@ -33,9 +33,9 @@ beforeEach(async () => {
   capturedOnError = undefined;
 });
 
-describe("AnimeListScreen", () => {
+describe("AnimeSection", () => {
   it("お気に入りトグルの失敗をダイアログで通知する", async () => {
-    await render(<AnimeListScreen />);
+    await render(<AnimeSection />);
 
     capturedOnError?.(
       new ApiRequestError(500, "お気に入りの追加に失敗しました"),
@@ -49,7 +49,7 @@ describe("AnimeListScreen", () => {
   });
 
   it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
-    await render(<AnimeListScreen />);
+    await render(<AnimeSection />);
 
     capturedOnError?.(new Error("Network request failed"));
 

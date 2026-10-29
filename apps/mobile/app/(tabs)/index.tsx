@@ -85,7 +85,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             className="items-center rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 py-3"
-            onPress={() => router.push("/qr")}
+            onPress={() => router.push("/(tabs)/social?section=qr")}
             accessibilityRole="button"
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"

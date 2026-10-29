@@ -13,7 +13,6 @@ import {
   matchesFavoriteQuery,
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
@@ -22,7 +21,10 @@ import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
 
-export default function FavoritesScreen() {
+// ライブラリタブの「推し」セクション（旧お気に入りタブ）。
+// 画面上部の safe area とセクション切り替えはライブラリ画面側が持つため、
+// ここではセクション名の見出しを出さず件数と検索欄だけを表示する。
+export function FavoritesSection() {
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
@@ -105,19 +107,16 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
-      <View className="px-4 pt-3 pb-3">
-        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
-          お気に入り
-        </Text>
-        <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+    <View className="flex-1 bg-white dark:bg-slate-900">
+      <View className="px-4 pt-1 pb-3">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {enriched.length} 件
         </Text>
         <Input
           value={query}
           onChangeText={setQuery}
           placeholder="作品名で検索"
-          className="mt-3 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-gray-900 dark:text-slate-100"
+          className="mt-2 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-gray-900 dark:text-slate-100"
           accessibilityLabel="お気に入りを検索"
           clearButtonMode="while-editing"
         />
@@ -151,7 +150,7 @@ export default function FavoritesScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

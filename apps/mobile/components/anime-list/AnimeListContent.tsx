@@ -225,7 +225,8 @@ export function AnimeListContent({
           {
             alignItems: isWide ? "center" : "flex-start",
             paddingHorizontal: isWide ? 0 : 18,
-            paddingTop: insets.top + (isWide ? 26 : 12),
+            // 上端の safe area はライブラリタブ側の SafeAreaView が取る（issue #170）。
+            paddingTop: isWide ? 26 : 12,
             paddingBottom: insets.bottom + 28,
           },
         ]}
@@ -239,98 +240,75 @@ export function AnimeListContent({
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={[styles.header, { width: contentWidth }]}>
-            <View style={[styles.hero, isWide && styles.heroWide]}>
-              <View style={styles.heroAccent} />
-              <View style={[styles.heroTop, isWide && styles.heroTopWide]}>
-                <View style={styles.heroCopy}>
-                  <Text style={styles.eyebrow}>ANIMEISHI LIBRARY</Text>
-                  <Text style={[styles.title, isWide && styles.titleWide]}>
-                    アニメを探す
-                  </Text>
-                  <Text
-                    style={[styles.subtitle, isWide && styles.subtitleWide]}
-                  >
-                    好きな作品をすばやく見つけて、名刺に残す。
-                  </Text>
-                  <TouchableOpacity
-                    className="mt-3 items-center rounded-xl bg-indigo-50 py-3 dark:bg-indigo-950"
-                    onPress={() => router.push("/tier-list")}
-                    accessibilityRole="button"
-                    accessibilityLabel="シーズンの Tier 表を作る"
-                    testID="open-tier-list"
-                  >
-                    <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                      🏆 シーズンの Tier 表を作る
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.heroControls}>
-                  <View style={styles.searchBar}>
-                    <Ionicons
-                      name="search"
-                      size={20}
-                      color={palette.searchIcon}
-                    />
-                    <Input
-                      style={styles.searchInput}
-                      placeholder="タイトル・よみがな・英語名で検索"
-                      value={query}
-                      onChangeText={setQuery}
-                      testID="search-input"
-                      accessibilityLabel="アニメ検索"
-                    />
-                    {query ? (
-                      <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={() => setQuery("")}
-                        accessibilityRole="button"
-                        accessibilityLabel="検索語をクリア"
-                      >
-                        <Ionicons
-                          name="close"
-                          size={17}
-                          color={palette.clearIcon}
-                        />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.statsRow}>
-                    {/* ローディング中は data が前シーズン/前検索の結果を指すため
-                        旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
-                    <StatPill
-                      label="作品"
-                      value={showLoading ? "-" : `${stats.total}`}
-                      tone="ink"
-                    />
-                    <StatPill
-                      label="年代"
-                      value={showLoading ? "-" : stats.yearRange}
-                      tone="gold"
-                    />
-                    <StatPill
-                      label="ジャンル"
-                      value={`${stats.genreCount}`}
-                      tone="mint"
-                    />
-                  </View>
-                </View>
-              </View>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={20} color={palette.searchIcon} />
+              <Input
+                style={styles.searchInput}
+                placeholder="タイトル・よみがな・英語名で検索"
+                value={query}
+                onChangeText={setQuery}
+                testID="search-input"
+                accessibilityLabel="アニメ検索"
+              />
+              {query ? (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => setQuery("")}
+                  accessibilityRole="button"
+                  accessibilityLabel="検索語をクリア"
+                >
+                  <Ionicons name="close" size={17} color={palette.clearIcon} />
+                </TouchableOpacity>
+              ) : null}
             </View>
 
-            <View style={[styles.toolbar, isWide && styles.toolbarWide]}>
-              <View>
-                <Text style={styles.sectionLabel}>
-                  {hasQuery ? "コレクション" : "シーズンで探す"}
-                </Text>
-                <Text style={styles.resultText}>
-                  {hasQuery
-                    ? showLoading
-                      ? `「${query.trim()}」を検索しています`
-                      : `「${query.trim()}」の検索結果・${sorted.length}件`
-                    : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${sorted.length}件`}`}
-                </Text>
+            <View style={styles.statsRow}>
+              {/* ローディング中は data が前シーズン/前検索の結果を指すため
+                  旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
+              <StatPill
+                label="作品"
+                value={showLoading ? "-" : `${stats.total}`}
+                tone="ink"
+              />
+              <StatPill
+                label="年代"
+                value={showLoading ? "-" : stats.yearRange}
+                tone="gold"
+              />
+              <StatPill
+                label="ジャンル"
+                value={`${stats.genreCount}`}
+                tone="mint"
+              />
+            </View>
+
+            <View style={styles.toolbar}>
+              <View style={styles.toolbarTop}>
+                <View style={styles.toolbarCopy}>
+                  <Text style={styles.sectionLabel}>
+                    {hasQuery ? "コレクション" : "シーズンで探す"}
+                  </Text>
+                  <Text style={styles.resultText}>
+                    {hasQuery
+                      ? showLoading
+                        ? `「${query.trim()}」を検索しています`
+                        : `「${query.trim()}」の検索結果・${sorted.length}件`
+                      : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${sorted.length}件`}`}
+                  </Text>
+                </View>
+                {/* シーズン Tier 表への入口（issue #169）。ヒーロー内の大きな
+                    ボタンをやめ、ツールバー行のコンパクトなボタンにする（issue #170）。 */}
+                <TouchableOpacity
+                  className="items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-950"
+                  onPress={() => router.push("/tier-list")}
+                  accessibilityRole="button"
+                  accessibilityLabel="シーズンの Tier 表を作る"
+                  testID="open-tier-list"
+                >
+                  <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    🏆 Tier 表
+                  </Text>
+                </TouchableOpacity>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
                 <SortButton

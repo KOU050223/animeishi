@@ -14,12 +14,7 @@ import { GRID_GAP } from "./animeListUtils";
 export type AnimeListPalette = {
   /** 画面のベース背景。 */
   screen: string;
-  /** ヒーローカードの面と枠。 */
-  heroBg: string;
-  heroBorder: string;
-  /** ヒーロー上端のアクセントバー（両スキーム共通の金色）。 */
-  heroAccent: string;
-  /** オレンジ系のセクションラベル（eyebrow / フィルタ行ラベル）。 */
+  /** オレンジ系のセクションラベル（フィルタ行ラベル）。 */
   accent: string;
   /** 見出し・強調テキスト。 */
   title: string;
@@ -98,9 +93,6 @@ export type AnimeListPalette = {
 
 const lightPalette: AnimeListPalette = {
   screen: "#f6f3ee",
-  heroBg: "#fffaf2",
-  heroBorder: "#efe4d4",
-  heroAccent: "#eab308",
   accent: "#7c2d12",
   title: "#111827",
   subtitle: "#64748b",
@@ -160,9 +152,6 @@ const lightPalette: AnimeListPalette = {
 
 const darkPalette: AnimeListPalette = {
   screen: "#0c0a09",
-  heroBg: "#1c1917",
-  heroBorder: "#44403c",
-  heroAccent: "#eab308",
   accent: "#fdba74",
   title: "#f5f5f4",
   subtitle: "#a8a29e",
@@ -252,80 +241,8 @@ function createStyles(p: AnimeListPalette) {
       marginBottom: GRID_GAP,
     },
     header: {
-      gap: 16,
+      gap: 12,
       marginBottom: 2,
-    },
-    hero: {
-      overflow: "hidden",
-      borderRadius: 8,
-      backgroundColor: p.heroBg,
-      borderWidth: 1,
-      borderColor: p.heroBorder,
-      padding: 18,
-      shadowColor: p.cardShadow,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      elevation: 3,
-    },
-    heroWide: {
-      padding: 28,
-    },
-    heroAccent: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 5,
-      backgroundColor: p.heroAccent,
-    },
-    heroTop: {
-      gap: 18,
-    },
-    heroTopWide: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 32,
-    },
-    heroCopy: {
-      flex: 1,
-      minWidth: 0,
-    },
-    heroControls: {
-      flex: 1,
-      minWidth: 0,
-      width: "100%",
-    },
-    eyebrow: {
-      color: p.accent,
-      fontSize: 11,
-      fontWeight: "800",
-      letterSpacing: 0,
-    },
-    title: {
-      marginTop: 5,
-      color: p.title,
-      fontSize: 28,
-      lineHeight: 34,
-      fontWeight: "900",
-      letterSpacing: 0,
-    },
-    titleWide: {
-      fontSize: 38,
-      lineHeight: 44,
-    },
-    subtitle: {
-      marginTop: 7,
-      color: p.subtitle,
-      fontSize: 13,
-      lineHeight: 19,
-      fontWeight: "500",
-    },
-    subtitleWide: {
-      maxWidth: 520,
-      fontSize: 15,
-      lineHeight: 22,
     },
     searchBar: {
       minHeight: 50,
@@ -355,7 +272,6 @@ function createStyles(p: AnimeListPalette) {
       backgroundColor: p.clearButtonBg,
     },
     statsRow: {
-      marginTop: 13,
       flexDirection: "row",
       justifyContent: "space-between",
       width: "100%",
@@ -394,10 +310,15 @@ function createStyles(p: AnimeListPalette) {
     toolbar: {
       gap: 10,
     },
-    toolbarWide: {
+    toolbarTop: {
       flexDirection: "row",
       alignItems: "flex-end",
       justifyContent: "space-between",
+      gap: 12,
+    },
+    toolbarCopy: {
+      flex: 1,
+      minWidth: 0,
     },
     sectionLabel: {
       color: p.accent,
