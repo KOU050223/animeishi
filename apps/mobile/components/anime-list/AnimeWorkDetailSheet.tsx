@@ -49,6 +49,22 @@ function normalizeState(state: string | null | undefined): WatchState | null {
 }
 
 /**
+ * 詳細シートが必要とする作品メタ。一覧カードの検索結果（AnimeTitle）に
+ * 加えて AI おすすめ（RecommendedWork）のような別経路の作品でも開ける
+ * よう、シート内で使うフィールドだけを要求する。残りの詳細情報は
+ * useWorkDetail が annictWorkId で取り直す。
+ */
+export type WorkDetailSheetTarget = Pick<
+  AnimeTitle,
+  | "annictWorkId"
+  | "title"
+  | "titleEn"
+  | "seasonYear"
+  | "seasonName"
+  | "hostedImageUrl"
+>;
+
+/**
  * アニメ一覧カードを押したときに開く作品詳細シート（issue #347）。
  * 一覧から外した「キャラ Tier 表」導線・英語タイトルに加え、視聴ステータスの
  * 変更・推し登録・Annict の詳細情報をまとめて出す。
@@ -64,12 +80,12 @@ export function AnimeWorkDetailSheet({
   onOpenCharacterTierList,
 }: {
   /** 対象作品。null のときシートは閉じる。 */
-  work: AnimeTitle | null;
+  work: WorkDetailSheetTarget | null;
   onClose: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   isTogglingFavorite: boolean;
-  onOpenCharacterTierList: (work: AnimeTitle) => void;
+  onOpenCharacterTierList: (work: WorkDetailSheetTarget) => void;
 }) {
   const queryClient = useQueryClient();
   const { userId } = useAuth();
@@ -175,7 +191,13 @@ export function AnimeWorkDetailSheet({
 }
 
 /** ポスター・タイトル（日英）・シーズン・メディア種別のヘッダー部。 */
-function HeaderSection({ work, meta }: { work: AnimeTitle; meta: string }) {
+function HeaderSection({
+  work,
+  meta,
+}: {
+  work: WorkDetailSheetTarget;
+  meta: string;
+}) {
   return (
     <View className="flex-row gap-4">
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />

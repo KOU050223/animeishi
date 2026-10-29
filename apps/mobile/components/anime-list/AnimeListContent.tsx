@@ -21,6 +21,7 @@ import { Input } from "@/components/ui";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
 import { AnimePoster } from "./AnimePoster";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
@@ -141,7 +142,7 @@ export function AnimeListContent({
   // 画面側は作品のキャスト一覧を取得する。#347 でカード上のボタンから
   // 詳細シートのボタンに移した。
   const openCharacterTierList = useCallback(
-    (work: AnimeTitle) => {
+    (work: WorkDetailSheetTarget) => {
       // キャラクター tier 表を開く操作を計測する（issue #214）。
       trackEvent("character_tier_open");
       router.push({
