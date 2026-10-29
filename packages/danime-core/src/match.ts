@@ -45,12 +45,22 @@ export type DanimeMatchResult = DanimeMatchInput & {
   candidates: DanimeAnnictWork[];
 };
 
+/** searcher を呼ぶ検索段階。呼び出し側が失敗時のログに段階を残せるようにする。 */
+export type DanimeSearchPhase = "firstPass" | "secondPass";
+
+export interface DanimeSearchContext {
+  phase: DanimeSearchPhase;
+}
+
 /**
  * Annict 作品検索の抽象化。タイトル群（OR 部分一致）を受け取り、
  * ヒットした Annict 作品候補を返す。実装側でページング方針・認証・
  * 通信先（API プロキシ / Annict 直叩き）を持つ。
  */
-export type AnnictSearcher = (titles: string[]) => Promise<DanimeAnnictWork[]>;
+export type AnnictSearcher = (
+  titles: string[],
+  context?: DanimeSearchContext,
+) => Promise<DanimeAnnictWork[]>;
 
 // union 検索 1 クエリあたりのタイトル数。多すぎると first:50 の打ち切りで
 // 候補を取りこぼす。少なすぎると往復が増える。経験的な中間値。
@@ -282,7 +292,7 @@ export async function matchDanimeWorks(
   const pool = (
     await mapWithConcurrency(chunks, SEARCH_CONCURRENCY, async (chunk) => {
       stats.firstPassSearches++;
-      return searcher(chunk);
+      return searcher(chunk, { phase: "firstPass" });
     })
   ).flat();
   // 候補プールは入力ごとに再利用するため、dedupe とシグネチャ計算を
@@ -347,7 +357,7 @@ export async function matchDanimeWorks(
         for (const q of queries) {
           if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
           secondPassSearches++;
-          const found = await searcher([q]);
+          const found = await searcher([q], { phase: "secondPass" });
           if (found.length === 0) continue;
           // ヒットした候補は basePool に無い分だけシグネチャを計算して足す
           // （他タスクの再検索結果は従来どおり混ぜず、basePool + 自タスクの

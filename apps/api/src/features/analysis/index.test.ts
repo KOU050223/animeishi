@@ -577,6 +577,7 @@ describe("computeInputHash", () => {
     resolvedImageUrl: null,
     imageSource: null,
     imageR2Key: null,
+    watchersCount: null,
   });
 
   it("プロンプトに載る作品の並び順が変わるとハッシュが変わる", async () => {

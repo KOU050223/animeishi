@@ -4,7 +4,10 @@ import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 
 // ライブラリタブの「アニメ」セクション（旧アニメ一覧タブ）。
-export function AnimeSection() {
+// initialQuery は検索遷移（issue #335 のおすすめカードからの導線）で
+// 検索語を入れた状態で開くための初期値。変わるたびに検索欄を
+// リセットするため AnimeListContent の key に使う。
+export function AnimeSection({ initialQuery }: { initialQuery?: string }) {
   const favoriteIds = useFavoriteIds();
   const { toggle, isPending: isToggling } = useToggleFavorite(favoriteIds, {
     // トグル失敗は画面に変化が残らないため、OK を押すまで消えない
@@ -23,6 +26,8 @@ export function AnimeSection() {
 
   return (
     <AnimeListContent
+      key={initialQuery ?? ""}
+      initialQuery={initialQuery}
       favoriteIds={favoriteIds}
       toggleFavorite={toggle}
       isToggling={isToggling}

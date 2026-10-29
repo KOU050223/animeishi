@@ -34,6 +34,12 @@ export type SavedAnalysis = {
   recommendedGenres: string[];
   generatedAt: Date;
   workCount: number;
+  /**
+   * この分析を生成したときの入力ハッシュ。おすすめ生成（issue #335）が
+   * 「分析は現在の履歴から作られたものか」を判定するのに使う
+   * （古い入力の分析文を新しい履歴と混ぜないため）。
+   */
+  inputHash: string | null;
 };
 
 // claim 直後のプレースホルダ（結果カラムが NULL）は「未生成」として undefined。
@@ -54,6 +60,7 @@ function toSavedAnalysis(row: Analysis): SavedAnalysis | undefined {
     recommendedGenres,
     generatedAt: row.generatedAt,
     workCount: row.workCount,
+    inputHash: row.inputHash,
   };
 }
 

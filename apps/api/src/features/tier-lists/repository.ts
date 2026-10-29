@@ -45,6 +45,7 @@ export async function fetchTierListItems(
       resolvedImageUrl: annictWorks.resolvedImageUrl,
       imageSource: annictWorks.imageSource,
       imageR2Key: annictWorks.imageR2Key,
+      watchersCount: annictWorks.watchersCount,
     })
     .from(tierListItems)
     .innerJoin(

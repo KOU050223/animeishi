@@ -70,6 +70,7 @@ const watchHistory = new Hono<AuthVariables>()
         seasonName: e.seasonName,
         seasonYear: e.seasonYear,
         imageUrl: e.imageUrl,
+        watchersCount: e.watchersCount ?? null,
         updatedAt: now,
       });
       if (isPersistableState(e.state)) {
@@ -144,6 +145,7 @@ const watchHistory = new Hono<AuthVariables>()
           seasonName: resolved.seasonName,
           seasonYear: resolved.seasonYear,
           imageUrl: resolved.imageUrl,
+          watchersCount: resolved.watchersCount ?? null,
           updatedAt: new Date(),
         };
       }
@@ -260,6 +262,7 @@ const watchHistory = new Hono<AuthVariables>()
                 seasonName: resolved.seasonName,
                 seasonYear: resolved.seasonYear,
                 imageUrl: resolved.imageUrl,
+                watchersCount: resolved.watchersCount ?? null,
                 updatedAt: now,
               };
             }
