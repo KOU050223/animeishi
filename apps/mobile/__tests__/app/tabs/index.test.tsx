@@ -50,6 +50,14 @@ jest.mock("@/components/ActivityFeedSection", () => ({
   },
 }));
 
+// ストーリーリング本体の振る舞いは FriendStoryRail.test.tsx 側で検証する。
+jest.mock("@/components/FriendStoryRail", () => ({
+  FriendStoryRail: () => {
+    const { Text } = require("react-native");
+    return <Text testID="friend-story-rail">ストーリーリング</Text>;
+  },
+}));
+
 // 連携状態をテストごとに切り替えられるよう、変数経由で返す。
 // バレル（@/lib/annict）ごと潰すと useAnimeList が使う buildAnnictAuthHeader 等が
 // undefined になるため、解決先のプラットフォーム実装モジュールを直接モックする。
@@ -103,6 +111,7 @@ describe("HomeScreen", () => {
     expect(screen.getByTestId("home-open-qr")).toBeTruthy();
     expect(screen.getByText("Annict連携")).toBeTruthy();
     expect(screen.getByTestId("activity-feed-section")).toBeTruthy();
+    expect(screen.getByTestId("friend-story-rail")).toBeTruthy();
   });
 
   it("名刺デザイン導線で名刺エディタへ遷移する", async () => {
