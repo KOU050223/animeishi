@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/expo";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -22,13 +24,26 @@ import { FriendStoryViewer } from "@/components/FriendStoryViewer";
 // （issue #266）。タップで全画面ビューアを開く。既読かどうかは枠の色で
 // 区別し、既読状態は端末ローカル（AsyncStorage）に持つ。
 export function FriendStoryRail() {
-  const { data } = useFriendWatchStories();
+  const { userId } = useAuth();
+  const { data, refetch } = useFriendWatchStories();
   const [seenMap, setSeenMap] = useState<StorySeenMap>({});
   const [viewing, setViewing] = useState<FriendWatchStory | null>(null);
+  // 初回フォーカスは useQuery の初回取得と重複するため再取得を飛ばす
+  const hasFocused = useRef(false);
+
+  // タブ切替では画面のマウントが維持され stale のまま残るため、
+  // ホームへ戻ったタイミングで再取得して新着を拾う
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocused.current) void refetch();
+      hasFocused.current = true;
+    }, [refetch]),
+  );
 
   useEffect(() => {
-    void loadStorySeenMap().then(setSeenMap);
-  }, []);
+    if (!userId) return;
+    void loadStorySeenMap(userId).then(setSeenMap);
+  }, [userId]);
 
   const friends = data?.friends ?? [];
   if (friends.length === 0) return null;
@@ -36,8 +51,9 @@ export function FriendStoryRail() {
   const openFriend = (friend: FriendWatchStory) => {
     setViewing(friend);
     // ビューアを開いた時点で、そのフレンドの最新活動までを既読にする
+    if (!userId) return;
     const latestId = Math.max(...friend.items.map((item) => item.id));
-    void markStorySeen(friend.actor.userId, latestId).then(setSeenMap);
+    void markStorySeen(userId, friend.actor.userId, latestId).then(setSeenMap);
   };
 
   return (

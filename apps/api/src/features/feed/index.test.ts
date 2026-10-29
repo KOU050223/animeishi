@@ -586,4 +586,34 @@ describe("視聴ストーリー API", () => {
 
     expect(body.friends.map((f) => f.actor.userId)).toEqual([USER_C, USER_B]);
   });
+
+  it("GET /me/feed/stories: 1 フレンドが上限を超える活動をしても他フレンドの分は返る", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await makeFriends(db, USER_A, USER_C);
+    // USER_B は 1 フレンドあたりの上限（20）を超える 25 件、USER_C は 1 件
+    for (let i = 0; i < 25; i++) {
+      await addActivity(db, {
+        userId: USER_B,
+        type: "watch_status",
+        annictWorkId: WORK_ID,
+        meta: { seq: i },
+      });
+    }
+    await addActivity(db, {
+      userId: USER_C,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { seq: 0 },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+
+    const friendB = body.friends.find((f) => f.actor.userId === USER_B);
+    const friendC = body.friends.find((f) => f.actor.userId === USER_C);
+    // B は新しい 20 件に絞られる
+    expect(friendB?.items).toHaveLength(20);
+    // B の活動が取得枠を埋めても、C の活動は取りこぼさない
+    expect(friendC?.items).toHaveLength(1);
+  });
 });

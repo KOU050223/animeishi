@@ -8,6 +8,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
+import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // API・認証の振る舞いは lib/useFriendWatchStories の結合部なので、
 // ここではフックの戻り値を差し替えてリングの UI 分岐を検証する。
@@ -15,13 +16,24 @@ let mockStories: {
   data?: { friends: FriendWatchStory[] };
   isLoading: boolean;
   isError: boolean;
+  refetch: jest.Mock;
 };
 
 jest.mock("@/lib/useFriendWatchStories", () => ({
   useFriendWatchStories: () => mockStories,
 }));
 
-const SEEN_STORAGE_KEY = "friend-watch-stories:seen:v1";
+// フォーカス時の再取得。テストでは即時実行に差し替える。
+jest.mock("expo-router", () => ({
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const React = require("react");
+    React.useEffect(effect, [effect]);
+  },
+}));
+
+// 既読ストレージは閲覧者 ID で名前空間化する（loggedInUser の userId を使う）
+const VIEWER_ID = "viewer";
+const SEEN_STORAGE_KEY = `friend-watch-stories:seen:v1:${VIEWER_ID}`;
 
 function storyItem(id: number, overrides: Record<string, unknown> = {}) {
   return {
@@ -55,10 +67,13 @@ function loadedStories(friends: FriendWatchStory[]) {
     data: { friends },
     isLoading: false,
     isError: false,
+    refetch: jest.fn(),
   } as typeof mockStories;
 }
 
 beforeEach(async () => {
+  resetAuth();
+  loggedInUser({ userId: VIEWER_ID });
   mockStories = loadedStories([]);
   await AsyncStorage.clear();
 });
@@ -110,5 +125,18 @@ describe("FriendStoryRail", () => {
     });
     const raw = await AsyncStorage.getItem(SEEN_STORAGE_KEY);
     expect(JSON.parse(raw ?? "{}")).toEqual({ u1: 2 });
+  });
+
+  it("別アカウントが既読にしたストーリーはこのアカウントでは未読のまま", async () => {
+    // 別ユーザー（user_bob）のストレージキーでは既読になっている
+    await AsyncStorage.setItem(
+      "friend-watch-stories:seen:v1:user_bob",
+      JSON.stringify({ u1: 2 }),
+    );
+    mockStories = loadedStories([friend("u1", [2])]);
+    await render(<FriendStoryRail />);
+
+    // 現在の閲覧者（VIEWER_ID）の既読位置とは分離されるため未読のまま
+    expect(screen.getByTestId("story-ring-unread-u1")).toBeTruthy();
   });
 });

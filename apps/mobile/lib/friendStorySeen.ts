@@ -3,14 +3,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // ストーリーの既読状態（issue #266）。端末ローカルで持つ。
 // 「そのフレンドのどの活動まで見たか」を最新の活動 id で記録し、
 // それより新しい活動があるフレンドを未読としてリングの色を変える。
-const STORAGE_KEY = "friend-watch-stories:seen:v1";
+// キーは閲覧者（ログインユーザー）ごとに分離する。同じ端末でアカウントを
+// 切り替えても既読位置が共有されないようにするため。
+const storageKey = (viewerUserId: string) =>
+  `friend-watch-stories:seen:v1:${viewerUserId}`;
 
 /** friendUserId → 既読にした最新の活動 id。 */
 export type StorySeenMap = Record<string, number>;
 
-export async function loadStorySeenMap(): Promise<StorySeenMap> {
+export async function loadStorySeenMap(
+  viewerUserId: string,
+): Promise<StorySeenMap> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(storageKey(viewerUserId));
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
@@ -30,14 +35,15 @@ export async function loadStorySeenMap(): Promise<StorySeenMap> {
 // 最新の既読状態を返す。AsyncStorage への書き込みに失敗しても
 // 呼び出し側の表示は新しい状態に進める（失敗時は次回読み込みで未読に戻るだけ）。
 export async function markStorySeen(
+  viewerUserId: string,
   friendUserId: string,
   latestActivityId: number,
 ): Promise<StorySeenMap> {
-  const map = await loadStorySeenMap();
+  const map = await loadStorySeenMap(viewerUserId);
   if ((map[friendUserId] ?? 0) >= latestActivityId) return map;
   const next = { ...map, [friendUserId]: latestActivityId };
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    await AsyncStorage.setItem(storageKey(viewerUserId), JSON.stringify(next));
   } catch {}
   return next;
 }

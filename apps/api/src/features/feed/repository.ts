@@ -5,6 +5,7 @@ import {
   gte,
   inArray,
   lt,
+  lte,
   notExists,
   or,
   sql,
@@ -228,20 +229,28 @@ export function feedRepository(db: DrizzleDb, currentUserId: string) {
       if (activeFriends.length === 0) return [];
       const friendIdList = activeFriends.map((row) => row.userId);
 
-      // 公開設定・ブロックは上のクエリでフレンドを確定した時点で除外済み。
-      // limit は全フレンドの上限数ぶん。降順で取るため溢れた場合は
-      // 古い活動から落ち、各フレンドの新しい活動は残る。
-      const rows = await db
+      // 公開設定・ブロックはフレンド選出と同じ条件をここでも掛ける。
+      // 2 クエリは独立に実行されるため、選出の合間にブロック・非公開化が
+      // 起きても活動を返さない。
+      // 1 フレンドあたりの上限は全体件数の limit ではなく row_number() で
+      // 絞る。全体 limit だと 1 人の大量活動が他フレンドの新しい活動を
+      // 押し出し、活動があるのにリングが出ないフレンドが生まれる。
+      const ranked = db
         .select({
           id: activities.id,
           meta: activities.meta,
           createdAt: activities.createdAt,
-          actorUserId: users.id,
+          // 副問い合わせでは列名で参照されるため、activities.id と衝突する
+          // users.id には明示的な別名を付ける
+          actorUserId: sql<string>`${users.id}`.as("actor_user_id"),
           actorUsername: users.username,
           actorProfileImageUrl: users.profileImageUrl,
           workAnnictWorkId: annictWorks.annictWorkId,
           workTitle: annictWorks.title,
           workTitleEn: annictWorks.titleEn,
+          rn: sql<number>`row_number() over (partition by ${activities.userId} order by ${activities.id} desc)`.as(
+            "rn",
+          ),
         })
         .from(activities)
         .innerJoin(users, eq(activities.userId, users.id))
@@ -252,12 +261,19 @@ export function feedRepository(db: DrizzleDb, currentUserId: string) {
         .where(
           and(
             inArray(activities.userId, friendIdList),
+            eq(users.isPublic, true),
+            notBlocked,
             eq(activities.type, "watch_status"),
             gte(activities.createdAt, opts.since),
           ),
         )
-        .orderBy(desc(activities.id))
-        .limit(friendIdList.length * STORY_MAX_ITEMS_PER_FRIEND);
+        .as("ranked");
+
+      const rows = await db
+        .select()
+        .from(ranked)
+        .where(lte(ranked.rn, STORY_MAX_ITEMS_PER_FRIEND))
+        .orderBy(desc(ranked.id));
 
       const grouped = new Map<string, WatchStoryFriendRow>();
       for (const row of rows) {
@@ -273,7 +289,6 @@ export function feedRepository(db: DrizzleDb, currentUserId: string) {
           };
           grouped.set(row.actorUserId, entry);
         }
-        if (entry.items.length >= STORY_MAX_ITEMS_PER_FRIEND) continue;
         entry.items.push({
           id: row.id,
           meta: row.meta,
