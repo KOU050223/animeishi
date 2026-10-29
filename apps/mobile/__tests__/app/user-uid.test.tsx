@@ -194,6 +194,23 @@ describe("PublicProfilePage", () => {
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
+  it("404 画面でも戻るボタンが動く", async () => {
+    mockCanGoBack = false;
+    loggedInUser({ userId: "user_me" });
+    mockProfileFetch({ error: "User not found" }, 404);
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(
+        screen.getByText("このプロフィールは存在しないか、非公開です。"),
+      ).toBeTruthy(),
+    );
+
+    await fireEvent.press(screen.getByTestId("public-profile-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/");
+  });
+
   it("404 のときは見つからない旨を表示する", async () => {
     loggedInUser({ userId: "user_me" });
     mockProfileFetch({ error: "User not found" }, 404);

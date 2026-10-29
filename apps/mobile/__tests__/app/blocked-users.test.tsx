@@ -149,6 +149,21 @@ describe("BlockedUsersScreen", () => {
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
   });
 
+  it("取得エラー画面でも戻るボタンが動く", async () => {
+    mockCanGoBack = false;
+    mockUseBlockedUsers.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+    });
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(screen.getByTestId("blocked-users-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
+  });
+
   it("ブロック中のユーザーがいなければ空表示になる", async () => {
     mockUseBlockedUsers.mockReturnValue({
       data: [],
