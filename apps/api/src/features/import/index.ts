@@ -40,16 +40,23 @@ const importRoute = new Hono<AuthVariables>()
             { onRetry: () => retries++ },
           );
         } catch (err) {
-          // 第 2 パスの検索語は入力タイトルのバリアント（単純化・全半角変換等）
-          // で、第 1 パスで弾かれたタイトル由来の GraphQL エラーが起き得る。
-          // その検索語だけを諦めて次の語へ進める。第 1 パス側は全滅時に
-          // エラーになるので、ここで握っても上流障害を未マッチに見せない。
-          if (context?.phase === "secondPass" && isAnnictGraphQLError(err)) {
+          // 入力由来の GraphQL エラーは、その検索語だけを諦めて次へ進める:
+          // - 第 2 パスは 1 検索語ずつ投げるため、第 1 パスで弾かれたタイトルの
+          //   バリアント由来のエラーが残り得る。
+          // - 第 1 パスも 10 件単位の分割で端数が 1 件になるチャンクがあり、
+          //   複数作品の取り込みではその 1 件だけを未マッチにする。
+          // 作品 1 件だけの取り込みや、複数検索語の検索が全滅した場合は
+          // 上流障害として握らずに投げる（上流障害を「未マッチ」に見せない）。
+          if (
+            isAnnictGraphQLError(err) &&
+            (context?.phase === "secondPass" ||
+              (titles.length === 1 && works.length > 1))
+          ) {
             console.warn(
               JSON.stringify({
                 level: "warn",
                 event: "danime_title_search_failed",
-                phase: "secondPass",
+                phase: context?.phase ?? "unknown",
                 titleCount: titles.length,
                 titleSample: titles
                   .slice(0, 3)
