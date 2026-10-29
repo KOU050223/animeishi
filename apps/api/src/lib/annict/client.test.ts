@@ -16,6 +16,7 @@ import {
   isPersistableState,
   ANNICT_ALL_STATUS_STATES,
 } from "@/lib/annict/statusState";
+import { searchAnnictWorksByTitles } from "@/lib/annict/client";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -498,6 +499,185 @@ describe("searchAnnictWorksByTitle", () => {
     );
 
     expect(result.works[0]?.imageUrl).toBe("https://img/5-twitter.jpg");
+  });
+});
+
+describe("searchAnnictWorksByTitles", () => {
+  function searchPage(nodes: unknown[]): Response {
+    return jsonResponse({
+      data: {
+        searchWorks: {
+          pageInfo: { hasNextPage: false, endCursor: null },
+          nodes,
+        },
+      },
+    });
+  }
+
+  function graphqlErrors(message: string): Response {
+    return jsonResponse({ errors: [{ message }] });
+  }
+
+  function workNode(annictId: number, overrides: Record<string, unknown> = {}) {
+    return {
+      id: `node-${annictId}`,
+      annictId,
+      title: `作品${annictId}`,
+      titleKana: null,
+      titleEn: null,
+      seasonName: null,
+      seasonYear: null,
+      image: null,
+      ...overrides,
+    };
+  }
+
+  function titlesOf(fetchMock: ReturnType<typeof vi.fn>, call: number) {
+    const body = JSON.parse(fetchMock.mock.calls[call]![1].body as string) as {
+      variables: { titles: string[] };
+    };
+    return body.variables.titles;
+  }
+
+  it("複数タイトルを 1 クエリの titles 変数でまとめて検索する", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(searchPage([workNode(1)]));
+
+    const works = await searchAnnictWorksByTitles(
+      "tok",
+      ["作品1", "作品2"],
+      fetchMock,
+    );
+
+    expect(works.map((w) => w.annictWorkId)).toEqual([1]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(titlesOf(fetchMock, 0)).toEqual(["作品1", "作品2"]);
+  });
+
+  // issue #219: Annict の title_cont は DB の LIKE 部分一致なので、
+  // 制御文字（\u0000 等）は Postgres が「invalid byte sequence」で弾き、
+  // HTTP 200 の GraphQL errors として返る。そのまま送ると 502 化する。
+  it("LIKE が解釈できない制御文字を取り除いて検索する", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(searchPage([workNode(1)]));
+
+    await searchAnnictWorksByTitles(
+      "tok",
+      ["作品\u0000名", "\u0007作品2\u009f"],
+      fetchMock,
+    );
+
+    expect(titlesOf(fetchMock, 0)).toEqual(["作品名", "作品2"]);
+  });
+
+  it("サニタイズで空になったタイトルは Annict に送らない", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(searchPage([workNode(1)]));
+
+    await searchAnnictWorksByTitles("tok", ["作品1", "\u0000"], fetchMock);
+
+    expect(titlesOf(fetchMock, 0)).toEqual(["作品1"]);
+  });
+
+  it("全タイトルがサニタイズで空なら Annict を呼ばず空配列を返す", async () => {
+    const fetchMock = vi.fn();
+
+    const works = await searchAnnictWorksByTitles("tok", ["\u0000"], fetchMock);
+
+    expect(works).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // issue #219: union クエリが落ちても、悪いタイトルだけを未マッチにして
+  // 残りの作品は照合できるようにする（チャンク全体の 502 を防ぐ）。
+  it("union クエリが GraphQL エラーで落ちたらタイトルごとに検索し直し、失敗したタイトルだけを落とす", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (_input, init) => {
+      const body = JSON.parse((init?.body as string) ?? "{}") as {
+        variables: { titles: string[] };
+      };
+      const titles = body.variables.titles;
+      // union（2 件以上）と「壊れた作品」の単発だけ GraphQL エラーにする
+      if (titles.length > 1 || titles.includes("壊れた作品")) {
+        return graphqlErrors("syntax error at or near");
+      }
+      return searchPage([workNode(10)]);
+    });
+
+    const works = await searchAnnictWorksByTitles(
+      "tok",
+      ["作品1", "壊れた作品", "作品3"],
+      fetchMock,
+    );
+
+    // union 1 回 + タイトルごとの再検索 3 回
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(titlesOf(fetchMock, 1)).toEqual(["作品1"]);
+    expect(titlesOf(fetchMock, 2)).toEqual(["壊れた作品"]);
+    expect(titlesOf(fetchMock, 3)).toEqual(["作品3"]);
+    expect(works.map((w) => w.annictWorkId)).toEqual([10, 10]);
+  });
+
+  it("タイトルごとの再検索も全滅したら上流障害としてエラーを投げる", async () => {
+    // Response の body は一度しか読めないため呼び出しごとに作り直す。
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => graphqlErrors("internal error"));
+
+    await expect(
+      searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError" });
+    // union + 2 件の再検索まで試す
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  // 単一検索語の失敗はフォールバック先が無い = 全滅と同じ。
+  // 空配列にすると上流障害を「未マッチ」に見せてしまうため投げる。
+  it("単一タイトルのクエリが GraphQL エラーなら全滅としてエラーを投げる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(graphqlErrors("LIKE pattern must not end"));
+
+    await expect(
+      searchAnnictWorksByTitles("tok", ["壊れた作品"], fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 200 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // HTTP 200 でも JSON が壊れている応答は GraphQL errors ではなく応答異常。
+  // タイトル由来の失敗と誤認してフォールバックしない。
+  it("HTTP 200 の不正 JSON 応答はフォールバックせずそのまま投げる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("<html>maintenance</html>", { status: 200 }),
+      );
+
+    await expect(
+      searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 200 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("リトライ対象のエラー（5xx・429・通信失敗）はフォールバックせずそのまま投げる", async () => {
+    for (const status of [500, 429]) {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("error", { status }));
+
+      await expect(
+        searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
+      ).rejects.toMatchObject({ status });
+      // union の 1 回だけでフォールバックしない
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("401 はフォールバックせずそのまま投げる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("unauthorized", { status: 401 }));
+
+    await expect(
+      searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

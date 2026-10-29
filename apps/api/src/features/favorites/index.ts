@@ -73,6 +73,7 @@ const favorites = app
         seasonName: resolved.seasonName,
         seasonYear: resolved.seasonYear,
         imageUrl: resolved.imageUrl,
+        watchersCount: resolved.watchersCount ?? null,
         updatedAt: new Date(),
       });
     }

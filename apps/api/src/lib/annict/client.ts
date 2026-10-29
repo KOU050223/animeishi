@@ -159,6 +159,7 @@ query MyLibrary($after: String) {
           titleEn
           seasonName
           seasonYear
+          watchersCount
           image { ${WORK_IMAGE_FIELDS} }
         }
       }
@@ -179,6 +180,7 @@ type LibraryEntryNode = {
     titleEn: string | null;
     seasonName: string | null;
     seasonYear: number | null;
+    watchersCount: number | null;
     image: AnnictWorkImage | null;
   } | null;
 };
@@ -205,6 +207,9 @@ export type AnnictLibraryEntry = {
   imageUrl: string | null;
   // Annict Work.malAnimeId は文字列。数値変換に失敗する値は捨てて null にする。
   malAnimeId: number | null;
+  // Annict Work.watchersCount（作品の人気指標）。取得しないクエリ経路では
+  // undefined のまま（その場合はキャッシュの既存値を消さない）。
+  watchersCount?: number | null;
 };
 
 // Annict の malAnimeId は文字列だが空文字や非数値が混ざる可能性があるため
@@ -264,6 +269,7 @@ export async function fetchAnnictLibraryEntries(
         seasonYear: work.seasonYear,
         imageUrl: resolveWorkImageUrl(work.image),
         malAnimeId: parseMalAnimeId(work.malAnimeId),
+        watchersCount: work.watchersCount,
       });
     }
 
@@ -338,6 +344,7 @@ query SearchWorkNodeId($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
+      watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
   }
@@ -354,6 +361,7 @@ type SearchWorksResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
+      watchersCount: number | null;
       image: AnnictWorkImage | null;
     }[];
   } | null;
@@ -389,6 +397,7 @@ export async function fetchAnnictWorkByAnnictId(
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
+    watchersCount: work.watchersCount,
   };
 }
 
@@ -492,26 +501,113 @@ export async function searchAnnictWorksByTitle(
   return mapSearchWorksConnection(data.searchWorks);
 }
 
+// Annict の titles は ransack の title_or_title_kana_cont_any → Postgres の
+// ILIKE 部分一致になる。制御文字（NUL 等）は DB 側が invalid byte sequence で
+// 弾き、HTTP 200 の GraphQL errors として返るため、送る前に取り除く
+// （issue #219: 1 件混入でチャンク全体が 502 になった）。
+const SEARCH_TITLE_CONTROL_CHARS = /\p{Cc}/gu;
+
+function sanitizeSearchTitle(title: string): string {
+  return title.replace(SEARCH_TITLE_CONTROL_CHARS, "").trim();
+}
+
+// ログに残すタイトルは「どの入力が原因か」の切り分けに必要な分だけ。
+// 件数と先頭数件・各 80 文字までに絞る（個人情報を含めない）。
+const LOG_TITLE_SAMPLE = 5;
+const LOG_TITLE_MAX_LEN = 80;
+
+function logTitleSearchFailed(
+  scope: "union" | "single",
+  titles: string[],
+  err: AnnictApiError,
+): void {
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      event: "danime_title_search_failed",
+      scope,
+      titleCount: titles.length,
+      titleSample: titles
+        .slice(0, LOG_TITLE_SAMPLE)
+        .map((t) =>
+          t.length > LOG_TITLE_MAX_LEN
+            ? `${t.slice(0, LOG_TITLE_MAX_LEN)}…`
+            : t,
+        ),
+      annictStatus: err.status,
+      error: err.message,
+    }),
+  );
+}
+
+// HTTP 200 でも errors が返るケース = 入力（クエリ内容）由来の失敗。
+// リトライ不能かつタイトル単位で切り分けられるため、フォールバックの
+// 対象はこれだけに絞る（0/429/5xx/4xx はそのまま投げる）。
+// detail が errors 配列であることで、HTTP 200 の応答異常（不正 JSON は
+// detail=Error、data 欠落は detail=undefined）と区別する。
+export function isAnnictGraphQLError(err: unknown): err is AnnictApiError {
+  return (
+    err instanceof AnnictApiError &&
+    err.status === 200 &&
+    Array.isArray(err.detail)
+  );
+}
+
 /**
  * 複数タイトルをまとめて検索する（Annict 側は title_or_title_kana の OR 部分一致）。
  * dアニメインポートのような一括マッチングで、タイトルごとに 1 クエリ投げると
  * 件数分の往復になるため、まとめて union を取り、各タイトルへの帰属は
  * 呼び出し側のスコアリングで行う。ページングは取り切らず 1 ページ（50 件）まで。
+ *
+ * union クエリが GraphQL エラー（末尾の `\` 等 LIKE パターンとして解釈
+ * できない入力）で落ちた場合はタイトルごとに検索し直し、失敗したタイトル
+ * だけを結果から落とす（issue #219）。全タイトルが落ちた場合（検索語が
+ * 1 件の場合を含む）は上流障害として元のエラーを投げる。
  */
 export async function searchAnnictWorksByTitles(
   accessToken: string,
   titles: string[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<AnnictLibraryEntry[]> {
-  if (titles.length === 0) return [];
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
-    accessToken,
-    SEARCH_WORKS_BY_TITLE_QUERY,
-    { titles },
-    fetchImpl,
+  const sanitized = [...new Set(titles.map(sanitizeSearchTitle))].filter(
+    (t) => t.length > 0,
   );
+  if (sanitized.length === 0) return [];
 
-  return mapSearchWorksConnection(data.searchWorks).works;
+  const run = async (ts: string[]) => {
+    const data = await annictGraphQL<SearchWorksByTitleResponse>(
+      accessToken,
+      SEARCH_WORKS_BY_TITLE_QUERY,
+      { titles: ts },
+      fetchImpl,
+    );
+    return mapSearchWorksConnection(data.searchWorks).works;
+  };
+
+  try {
+    return await run(sanitized);
+  } catch (err) {
+    if (!isAnnictGraphQLError(err)) throw err;
+    logTitleSearchFailed("union", sanitized, err);
+    // 検索語が 1 件ならフォールバック先が無い = 全滅と同じ。
+    // 握って空結果にすると上流障害を「未マッチ」に見せてしまうため投げる
+    // （第 2 パスの検索語単位の諦めは呼び出し側の責務）。
+    if (sanitized.length === 1) throw err;
+
+    const works: AnnictLibraryEntry[] = [];
+    let failed = 0;
+    for (const title of sanitized) {
+      try {
+        works.push(...(await run([title])));
+      } catch (perTitle) {
+        if (!isAnnictGraphQLError(perTitle)) throw perTitle;
+        failed++;
+        logTitleSearchFailed("single", [title], perTitle);
+      }
+    }
+    if (failed === sanitized.length) throw err;
+    return works;
+  }
 }
 
 // --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---

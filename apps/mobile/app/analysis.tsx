@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,11 +10,20 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAnalysis, useGenerateAnalysis } from "@/lib/useAnalysis";
+import {
+  useGenerateRecommendations,
+  useRecommendations,
+  type RecommendedWork,
+} from "@/lib/useRecommendations";
+import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
 import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";
 import { BackButton } from "@/components/ui";
+import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { formatYearSeason } from "@/components/anime-list/animeListUtils";
+import { alert } from "@/lib/dialog";
 
 // generatedAt（ISO 8601）の表示用。Hermes の Intl 実装差を避けるため
 // toLocaleString ではなく手動で整形する。
@@ -189,6 +199,8 @@ export default function AnalysisScreen() {
                 )}
               </Text>
             </View>
+
+            <RecommendationsSection />
           </View>
         )}
 
@@ -204,6 +216,253 @@ export default function AnalysisScreen() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// AI おすすめ（issue #335）。分析結果の下に置き、「おすすめを出す」を
+// 押したときだけ生成する。再表示は API の保存済み結果を返すだけなので
+// AI・Annict への再問い合わせは起きない。
+// 作品詳細シート（issue #347）ができるまで、各作品の詳細導線は
+// ライブラリのアニメ検索（library?q=）への簡易遷移とする。
+function RecommendationsSection() {
+  const colors = useThemeColors();
+  const { t } = useTranslation();
+  const router = useRouter();
+  const {
+    data,
+    isLoading: isLoadingRecommendations,
+    isError: isRecommendationsError,
+    refetch: refetchRecommendations,
+  } = useRecommendations();
+  const generate = useGenerateRecommendations();
+  const upsertHistory = useUpsertWatchHistory();
+  const { data: watchHistory } = useWatchHistory();
+  // 「見たい」登録が成功した作品。履歴クエリの反映を待たずにボタンを
+  // 登録済み表示へ切り替える。
+  const [registeredIds, setRegisteredIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+
+  const recommendations = data?.recommendations ?? null;
+
+  // 生成後に履歴へ追加された作品（WANNA_WATCH 以外の状態も含む）は
+  // 既に登録済みとして扱う。履歴クエリは Annict 未連携では無効化される
+  // ため、未取得のときは生成時点の除外結果に委ねる。
+  const historyIds = new Set((watchHistory ?? []).map((h) => h.annictWorkId));
+  const isRegistered = (annictWorkId: number) =>
+    registeredIds.has(annictWorkId) || historyIds.has(annictWorkId);
+
+  const onGenerate = (runType: "initial" | "regenerate") => {
+    trackEvent("recommendation_generate", {
+      [TRACK_EVENT_KEYS.runType]: runType,
+    });
+    generate.mutate();
+  };
+
+  const onWannaWatch = (work: RecommendedWork) => {
+    upsertHistory.mutate(
+      { annictWorkId: work.annictWorkId, data: { state: "WANNA_WATCH" } },
+      {
+        onSuccess: () => {
+          setRegisteredIds((prev) => new Set(prev).add(work.annictWorkId));
+        },
+        onError: (error) => {
+          alert(
+            t("「見たい」の登録に失敗しました"),
+            error instanceof ApiRequestError
+              ? error.message
+              : t("視聴履歴の更新に失敗しました"),
+            { okLabel: "OK" },
+          );
+        },
+      },
+    );
+  };
+
+  const errorMessage =
+    generate.error instanceof ApiRequestError
+      ? generate.error.message
+      : generate.isError
+        ? t("おすすめの生成に失敗しました。時間をおいて再度お試しください")
+        : null;
+
+  // 保存済み結果の取得に失敗したときは「未生成」と区別してエラーと
+  // 再試行を出す（Devin Review 指摘。GET が落ちても生成済み作品を
+  // 隠さない）。data が残っている場合は表示を優先する。
+  if (isRecommendationsError && data === undefined) {
+    return (
+      <View className="mt-6">
+        <Text className="mb-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
+          {t("おすすめ作品")}
+        </Text>
+        <View className="items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+          <Text className="mb-3 text-center text-sm text-red-500 dark:text-red-400">
+            {t("おすすめの取得に失敗しました")}
+          </Text>
+          <TouchableOpacity
+            className="rounded-lg bg-indigo-600 px-4 py-2"
+            onPress={() => refetchRecommendations()}
+            accessibilityRole="button"
+            accessibilityLabel={t("おすすめを再取得")}
+            testID="recommendations-retry-button"
+          >
+            <Text className="text-sm font-semibold text-white">
+              {t("もう一度試す")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View className="mt-6">
+      <Text className="mb-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
+        {t("おすすめ作品")}
+      </Text>
+
+      {isLoadingRecommendations ? (
+        <ActivityIndicator className="my-4 self-start" color={colors.primary} />
+      ) : null}
+
+      {recommendations && recommendations.works.length > 0 ? (
+        <View className="gap-3">
+          {recommendations.works.map((work) => (
+            <RecommendationCard
+              key={work.annictWorkId}
+              work={work}
+              registered={isRegistered(work.annictWorkId)}
+              registerPending={upsertHistory.isPending}
+              onWannaWatch={() => onWannaWatch(work)}
+              onSearch={() =>
+                router.push({
+                  pathname: "/(tabs)/library",
+                  params: { section: "anime", q: work.title },
+                })
+              }
+            />
+          ))}
+        </View>
+      ) : null}
+      {recommendations && recommendations.works.length === 0 ? (
+        <Text className="mb-3 text-sm text-gray-400 dark:text-slate-500">
+          {t("条件に合うおすすめが見つかりませんでした")}
+        </Text>
+      ) : null}
+
+      <View className={recommendations ? "mt-4" : undefined}>
+        <GenerateButton
+          label={t("おすすめを出す")}
+          pendingLabel={t("おすすめを生成中...")}
+          isPending={generate.isPending}
+          onPress={() => onGenerate(recommendations ? "regenerate" : "initial")}
+          colors={colors}
+        />
+        <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+          {t(
+            "視聴履歴に無い作品から今期・過去作を提案します（1 日あたりの実行回数に上限があります）",
+          )}
+        </Text>
+      </View>
+
+      {errorMessage ? (
+        <View className="mt-4 rounded-lg bg-red-50 dark:bg-red-950 px-4 py-3">
+          <Text
+            className="text-sm text-red-600 dark:text-red-400"
+            accessibilityRole="alert"
+          >
+            {errorMessage}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function RecommendationCard({
+  work,
+  registered,
+  registerPending,
+  onWannaWatch,
+  onSearch,
+}: {
+  work: RecommendedWork;
+  registered: boolean;
+  registerPending: boolean;
+  onWannaWatch: () => void;
+  onSearch: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View
+      className="flex-row rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3"
+      testID={`recommendation-item-${work.annictWorkId}`}
+    >
+      <WorkThumbnail uri={work.hostedImageUrl} />
+      <View className="ml-3 flex-1">
+        <Text
+          className="text-sm font-semibold text-gray-900 dark:text-slate-100"
+          numberOfLines={2}
+        >
+          {work.title}
+        </Text>
+        {work.seasonYear ? (
+          <Text className="mt-0.5 text-xs text-gray-400 dark:text-slate-500">
+            {formatYearSeason(
+              work.seasonYear,
+              work.seasonName?.includes("-")
+                ? work.seasonName.split("-")[1]
+                : work.seasonName,
+            )}
+          </Text>
+        ) : null}
+        {work.reason ? (
+          <Text
+            className="mt-1 text-xs text-gray-500 dark:text-slate-400"
+            numberOfLines={2}
+          >
+            {work.reason}
+          </Text>
+        ) : null}
+        <View className="mt-2 flex-row gap-2">
+          <TouchableOpacity
+            className={
+              registered
+                ? "rounded-lg bg-gray-300 dark:bg-slate-600 px-3 py-1.5"
+                : "rounded-lg bg-indigo-600 px-3 py-1.5"
+            }
+            onPress={onWannaWatch}
+            disabled={registered || registerPending}
+            accessibilityRole="button"
+            accessibilityLabel={t("{{title}} を見たいに登録", {
+              title: work.title,
+            })}
+            testID={`recommendation-wanna-watch-${work.annictWorkId}`}
+          >
+            <Text
+              className={
+                registered
+                  ? "text-xs font-semibold text-gray-600 dark:text-slate-300"
+                  : "text-xs font-semibold text-white"
+              }
+            >
+              {registered ? t("登録済み") : t("見たい")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-1.5"
+            onPress={onSearch}
+            accessibilityRole="button"
+            accessibilityLabel={t("{{title}} を検索", { title: work.title })}
+            testID={`recommendation-search-${work.annictWorkId}`}
+          >
+            <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
+              {t("検索する")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 }
 

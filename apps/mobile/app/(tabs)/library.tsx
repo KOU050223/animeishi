@@ -25,12 +25,19 @@ export default function LibraryScreen() {
   const colors = useThemeColors();
   const animePalette = useAnimeListPalette();
   const router = useRouter();
-  const params = useLocalSearchParams<{ section?: string }>();
+  const params = useLocalSearchParams<{ section?: string; q?: string }>();
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
   // 参照元にする。ローカル状態で持つと、同じ section への再遷移
   // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
   const section = isSection(params.section) ? params.section : "anime";
   const setSection = (next: Section) => router.setParams({ section: next });
+
+  // おすすめ画面（issue #335）等からの検索遷移で初期クエリを受け取る。
+  // q も URL を参照元にし、変わったときは AnimeListContent が key で
+  // リマウントして検索語を入れ直す。検索欄の編集は q を書き戻さない
+  // （section 同様「最後に深リンクで指定された検索語」として残る）。
+  const initialQuery =
+    typeof params.q === "string" && params.q ? params.q : undefined;
 
   // セクションごとの画面背景色に切り替え行の下地を揃える
   // （アニメは暖色系の独自パレット、他は共通の白/slate-900）。
@@ -65,7 +72,7 @@ export default function LibraryScreen() {
       />
       <View className="flex-1">
         {section === "anime" ? (
-          <AnimeSection />
+          <AnimeSection initialQuery={initialQuery} />
         ) : section === "history" ? (
           <WatchHistorySection />
         ) : (
