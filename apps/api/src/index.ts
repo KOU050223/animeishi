@@ -17,6 +17,7 @@ import {
 import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
+import { customTierLists } from "./features/custom-tier-lists";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
 import { friends } from "./features/friends";
@@ -99,6 +100,7 @@ const routes = app
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
   .route("/me/character-tier-lists", characterTierLists)
+  .route("/me/custom-tier-lists", customTierLists)
   .route("/user", user)
   .route("/users", usersRoute);
 

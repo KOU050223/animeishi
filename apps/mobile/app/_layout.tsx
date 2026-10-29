@@ -94,10 +94,14 @@ function AuthGuard() {
       <Stack.Screen name="support" />
       {/* 名刺エディタ */}
       <Stack.Screen name="meishi/edit" />
+      {/* tier 表の作成導線と自由作成一覧（issue #348） */}
+      <Stack.Screen name="tier-lists" />
       {/* シーズンごとのアニメ tier 表 */}
       <Stack.Screen name="tier-list" />
       {/* 作品ごとのキャラクター tier 表（issue #169） */}
       <Stack.Screen name="character-tier-list" />
+      {/* テーマを決めて自由に作る tier 表（issue #348） */}
+      <Stack.Screen name="custom-tier-list" />
       {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット） */}
       <Stack.Screen name="danime-import" />
       <Stack.Screen name="danime-import-review" />

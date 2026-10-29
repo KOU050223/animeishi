@@ -10,6 +10,7 @@ import { workImageUrl } from "@/lib/annict/workImage";
 import { isKnownImageUrl } from "./repository";
 import type {
   SharedCharacterTierList,
+  SharedCustomTierList,
   SharedTierList,
   SharedWatchHistory,
 } from "./repository";
@@ -228,24 +229,60 @@ export function buildSharedTierListHtml(
   list: SharedTierList,
   requestUrl: string,
 ): string {
-  const tiers = parseTiersJson(list.tiersJson);
+  return buildWorkTierListHtml({
+    list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
+    ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）`,
+    ownerUsername: list.ownerUsername,
+    requestUrl,
+  });
+}
+
+/**
+ * 自由作成 tier 表の共有ページ。シーズン版と同じ盤面だがシーズンを持たない
+ * ため、所有者行は「の Tier 表」だけにする（issue #348）。
+ */
+export function buildSharedCustomTierListHtml(
+  list: SharedCustomTierList,
+  requestUrl: string,
+): string {
+  return buildWorkTierListHtml({
+    list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
+    ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表`,
+    ownerUsername: list.ownerUsername,
+    requestUrl,
+  });
+}
+
+// 作品 tier 表（シーズン版・自由作成版）で共通の共有ページ組み立て。
+// 違いは所有者行の表記（シーズン併記の有無）だけなので、そこだけ引数化する。
+function buildWorkTierListHtml(input: {
+  list: {
+    title: string;
+    tiersJson: string;
+    items: SharedTierList["items"];
+  };
+  ownerLine: string;
+  ownerUsername: string;
+  requestUrl: string;
+}): string {
+  const tiers = parseTiersJson(input.list.tiersJson);
   const itemsByTier = new Map<string, SharedTierList["items"]>();
-  for (const item of list.items) {
+  for (const item of input.list.items) {
     const arr = itemsByTier.get(item.tierKey) ?? [];
     arr.push(item);
     itemsByTier.set(item.tierKey, arr);
   }
 
-  const title = `${escapeHtml(list.title)} - Animeishi`;
-  const description = `${escapeHtml(list.ownerUsername)} のアニメ Tier 表`;
+  const title = `${escapeHtml(input.list.title)} - Animeishi`;
+  const description = `${escapeHtml(input.ownerUsername)} のアニメ Tier 表`;
 
   // og:image には先頭の作品画像を使う。クローラは直接取得できるため
   // プロキシ経由は不要。https を優先し、無ければ最初の安全な URL。
   // resolvedImageUrl が不安全なら imageUrl 側も候補にする
   // （ページ上のポスター表示 workImageHtml と同じ選び方）。
-  const ogImageCandidates = list.items
+  const ogImageCandidates = input.list.items
     .flatMap((item) => [
-      workImageUrl(requestUrl, item.annictWorkId),
+      workImageUrl(input.requestUrl, item.annictWorkId),
       item.resolvedImageUrl,
       item.imageUrl,
     ])
@@ -260,7 +297,7 @@ export function buildSharedTierListHtml(
       const worksHtml = works
         .map(
           (item) => `<div class="work">
-      ${workImageHtml(item, requestUrl)}
+      ${workImageHtml(item, input.requestUrl)}
       <span class="work-title">${escapeHtml(item.title)}</span>
     </div>`,
         )
@@ -309,8 +346,8 @@ export function buildSharedTierListHtml(
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(list.title)}</h1>
-  <p class="owner">${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）</p>
+  <h1>${escapeHtml(input.list.title)}</h1>
+  <p class="owner">${input.ownerLine}</p>
   ${rowsHtml}
 </body>
 </html>`;

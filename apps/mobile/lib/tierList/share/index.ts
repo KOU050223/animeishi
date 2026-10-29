@@ -1,6 +1,7 @@
 export {
   buildTierListShareUrl,
   buildCharacterTierListShareUrl,
+  buildCustomTierListShareUrl,
 } from "./shareUrl";
 export { presentTierShareOptions } from "./options";
 export { shareTierListUrl, copyTierListUrl } from "./sheet";
