@@ -517,6 +517,21 @@ describe("matchDanimeWorks", () => {
     expect(elapsedMs).toBeLessThan(15_000);
   }, 30_000);
 
+  // 呼び出し側（API）が失敗時の構造化ログに検索段階を載せられるよう、
+  // searcher の第 2 引数に phase を渡す。
+  it("searcher には検索段階（firstPass/secondPass）を渡す", async () => {
+    const searcher = mockSearcher(() => []);
+    await matchDanimeWorks(searcher, [
+      { danimeWorkId: "1", title: "ない作品", targetState: "WATCHED" },
+    ]);
+    expect(searcher.mock.calls[0]?.[1]).toEqual({ phase: "firstPass" });
+    const secondPassCalls = searcher.mock.calls.filter(
+      (c) => c[1]?.phase === "secondPass",
+    );
+    expect(secondPassCalls.length).toBeGreaterThan(0);
+    expect(secondPassCalls.every((c) => c[0].length === 1)).toBe(true);
+  });
+
   it("検索回数・経過時間を stats で返す", async () => {
     const searcher = mockSearcher((titles) =>
       titles.flatMap((t) =>

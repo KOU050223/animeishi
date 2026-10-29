@@ -66,9 +66,10 @@ describe("notifyApiFailures", () => {
     resetLocalSuppression();
   });
 
-  it("DISCORD_WEBHOOK_URL 未設定なら何もしない", async () => {
+  it("DISCORD_WEBHOOK_URL 未設定なら送らず、理由だけ warn に残す", async () => {
     const { kv, raw } = fakeKv();
     const fetchImpl = okFetch();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const sent = await notifyApiFailures(
       { ALERT_STATE: kv },
@@ -80,6 +81,70 @@ describe("notifyApiFailures", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(raw.get).not.toHaveBeenCalled();
     expect(raw.put).not.toHaveBeenCalled();
+    const logs = warn.mock.calls.map((c) => JSON.parse(String(c[0])));
+    expect(logs.find((l) => l.event === "discord_alert_failed")).toMatchObject({
+      reason: "not_configured",
+    });
+    warn.mockRestore();
+  });
+
+  it("Webhook URL が URL として解釈できなければ fetch せず理由を残す", async () => {
+    const fetchImpl = okFetch();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const sent = await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: "not a url" },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const logs = warn.mock.calls.map((c) => JSON.parse(String(c[0])));
+    expect(logs.find((l) => l.event === "discord_alert_failed")).toMatchObject({
+      reason: "invalid_url",
+    });
+    warn.mockRestore();
+  });
+
+  it("Webhook 送信の失敗理由にはエラー名とメッセージを含める", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const sent = await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK },
+      [annict502],
+      fetchImpl,
+    );
+
+    expect(sent).toBe(false);
+    const logs = warn.mock.calls.map((c) => JSON.parse(String(c[0])));
+    const failed = logs.find((l) => l.event === "discord_alert_failed");
+    expect(failed.op).toBe("webhook");
+    expect(String(failed.reason)).toContain("TypeError");
+    expect(String(failed.reason)).toContain("fetch failed");
+    warn.mockRestore();
+  });
+
+  it("失敗理由に Webhook URL（シークレット）は残さない", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error(`POST ${WEBHOOK} failed`);
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK },
+      [annict502],
+      fetchImpl,
+    );
+
+    const logs = warn.mock.calls.map((c) => JSON.parse(String(c[0])));
+    const failed = logs.find((l) => l.event === "discord_alert_failed");
+    expect(String(failed.reason)).not.toContain(WEBHOOK);
+    expect(String(failed.reason)).toContain("[webhook_url]");
+    warn.mockRestore();
   });
 
   it("初回は Webhook に送り、種別:ステータスの印を 30 分の TTL で付ける", async () => {
@@ -408,6 +473,7 @@ describe("notifyCronFailure / clearCronFailures", () => {
   it("DISCORD_WEBHOOK_URL 未設定なら送らずカウントも進めない", async () => {
     const { kv, raw } = fakeKv();
     const fetchImpl = okFetch();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const sent = await notifyCronFailure(
       { ALERT_STATE: kv },
@@ -419,6 +485,7 @@ describe("notifyCronFailure / clearCronFailures", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(raw.get).not.toHaveBeenCalled();
     expect(raw.put).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("ALERT_STATE 未バインドでも isolate 内メモリで連続回数を数える", async () => {
@@ -468,6 +535,7 @@ describe("notifyUserReport", () => {
   it("DISCORD_WEBHOOK_URL 未設定なら送らず件数も積まない", async () => {
     const { kv, raw } = fakeKv();
     const fetchImpl = okFetch();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const sent = await notifyUserReport({ ALERT_STATE: kv }, fetchImpl);
 
@@ -475,6 +543,7 @@ describe("notifyUserReport", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(raw.get).not.toHaveBeenCalled();
     expect(raw.put).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("1 件目は送り、user_report の印を 5 分の TTL で付ける", async () => {

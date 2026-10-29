@@ -147,12 +147,24 @@ export function useDanimeMatch() {
           { headers: { ...headers, ...annictHeader } },
         );
         if (!res.ok) {
-          // zValidator 等のエラー詳細を拾って原因を切り分けやすくする。
+          // エラー JSON（{error, code}）の code を画面の文言切替に使う。
+          // 本文は内部向けの詳細を含むためメッセージには載せず、
+          // デバッグ用にコンソールへだけ残す（issue #219）。
           const detail = await res.text().catch(() => "");
+          let code: string | undefined;
+          try {
+            const parsed = JSON.parse(detail) as { code?: unknown };
+            if (typeof parsed.code === "string") code = parsed.code;
+          } catch {
+            // エラー応答が JSON でない場合（WAF の HTML 等）は code なし。
+          }
+          console.error(
+            `danime match request failed (HTTP ${res.status}): ${detail.slice(0, 500)}`,
+          );
           throw new ApiRequestError(
             res.status,
-            `Annict とのマッチングに失敗しました（HTTP ${res.status}）` +
-              (detail ? `: ${detail.slice(0, 200)}` : ""),
+            `Annict とのマッチングに失敗しました（HTTP ${res.status}）`,
+            code,
           );
         }
         const body = await res.json();

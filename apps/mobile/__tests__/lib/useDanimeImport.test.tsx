@@ -6,6 +6,7 @@ import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useDanimeMatch } from "@/lib/danime/useDanimeImport";
+import { ApiRequestError } from "@/lib/apiError";
 import { DANIME_EXTRACT_SCHEMA_VERSION } from "@animeishi/danime-core";
 import type {
   DanimeAnnictWork,
@@ -183,6 +184,31 @@ describe("useDanimeMatch", () => {
     expect(second?.candidates.map((c) => c.annictWorkId)).toEqual([0, 100]);
     // タイトルが一意な他作品は exact のまま
     expect(out?.items[1]?.status).toBe("exact");
+  });
+
+  // issue #219: 画面には code ごとのユーザー文言を出すため、API の
+  // エラー JSON（{error, code}）の code だけ ApiRequestError に残す。
+  it("API エラー JSON の code を ApiRequestError に載せ、本文はメッセージに含めない", async () => {
+    mockMatchPost.mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () =>
+        JSON.stringify({
+          error: "Annict との通信に失敗しました",
+          code: "annict_upstream",
+        }),
+    });
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists: listsOf(1) });
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    const error = result.current.error;
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(502);
+    expect((error as ApiRequestError).code).toBe("annict_upstream");
+    expect(error?.message).not.toContain("annict_upstream");
   });
 
   it("チャンク越しで同じ annictWorkId に確定した場合は exact のまま", async () => {

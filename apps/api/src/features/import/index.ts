@@ -6,9 +6,10 @@ import { danimeMatchRequestSchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
-import { searchAnnictWorksByTitles } from "@/lib/annict/client";
+import { AnnictApiError, searchAnnictWorksByTitles } from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { matchDanimeWorks } from "@animeishi/danime-core";
+import type { AnnictSearcher } from "@animeishi/danime-core";
 
 // dアニメストア インポート用ルート。
 // 抽出はクライアント側（ネイティブ WebView 注入 / Web ブックマークレット）が担い、
@@ -27,12 +28,36 @@ const importRoute = new Hono<AuthVariables>()
       // （core は通信を持たない）。並列化した検索で 429 / 一時障害に
       // 当たる可能性が上がるためリトライを噛ませ、回数を stats に載せる。
       let retries = 0;
-      const { results, stats } = await matchDanimeWorks(
-        (titles) =>
-          withAnnictRetry(
+      const searcher: AnnictSearcher = async (titles, context) => {
+        const retriesBefore = retries;
+        try {
+          return await withAnnictRetry(
             () => searchAnnictWorksByTitles(c.var.annictToken, titles, fetch),
             { onRetry: () => retries++ },
-          ),
+          );
+        } catch (err) {
+          // 502（annict_upstream）に化ける前に原因を追える構造化ログを残す
+          // （issue #219: 失敗時にログが無く本番の原因を特定できなかった）。
+          // タイトルは切り分け用に先頭数件だけ。トークン・ユーザー情報は含めない。
+          console.error(
+            JSON.stringify({
+              level: "error",
+              event: "danime_match_failed",
+              phase: context?.phase ?? "unknown",
+              titleCount: titles.length,
+              titleSample: titles
+                .slice(0, 3)
+                .map((t) => (t.length > 80 ? `${t.slice(0, 80)}…` : t)),
+              retries: retries - retriesBefore,
+              annictStatus: err instanceof AnnictApiError ? err.status : null,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+          throw err;
+        }
+      };
+      const { results, stats } = await matchDanimeWorks(
+        searcher,
         works,
         registeredWorkIds,
       );

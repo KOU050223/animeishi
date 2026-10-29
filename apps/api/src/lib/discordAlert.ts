@@ -35,7 +35,8 @@ export async function notifyApiFailures(
   failures: ApiFailure[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
-  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const webhookUrl = resolveWebhookUrl(env);
+  if (!webhookUrl) return false;
   // await より前に同期でメモリの印を確認・設定し、同時に走った通知同士の重複を防ぐ。
   const now = Date.now();
   const candidates = groupFailures(failures).filter((group) => {
@@ -60,7 +61,7 @@ export async function notifyApiFailures(
     ),
     `詳細は Sentry を確認。同じ障害の通知は${SUPPRESS_SECONDS / 60}分止めます。`,
   ];
-  return postAlert(env.DISCORD_WEBHOOK_URL, lines.join("\n"), fetchImpl);
+  return postAlert(webhookUrl, lines.join("\n"), fetchImpl);
 }
 
 // cron ジョブの失敗通知（issue #233）。一過性の単発失敗では送らず、
@@ -79,7 +80,8 @@ export async function notifyCronFailure(
   job: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
-  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const webhookUrl = resolveWebhookUrl(env);
+  if (!webhookUrl) return false;
   const consecutive = await recordCronFailure(env, job);
   if (consecutive < CRON_FAILURE_THRESHOLD) return false;
   const key = `cron:${job}`;
@@ -90,7 +92,7 @@ export async function notifyCronFailure(
   // 送信前に印を付ける（API 障害と同じく連投しない方を優先する）。
   await markSent(env, key);
   return postAlert(
-    env.DISCORD_WEBHOOK_URL,
+    webhookUrl,
     [
       `🔴 **[animeishi-api${envLabel(env.ENVIRONMENT)}] cron 障害**`,
       `\`cron:${job}\` が ${consecutive} 回連続で失敗`,
@@ -150,7 +152,8 @@ export async function notifyUserReport(
   env: AlertBindings,
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
-  if (!env.DISCORD_WEBHOOK_URL) return false;
+  const webhookUrl = resolveWebhookUrl(env);
+  if (!webhookUrl) return false;
   const now = Date.now();
   // await より前に同期でメモリの印を確認・設定し、同時に走った通知同士の重複を防ぐ。
   if ((localSuppressedUntil.get(REPORT_ALERT_KEY) ?? 0) <= now) {
@@ -164,7 +167,7 @@ export async function notifyUserReport(
       await markSent(env, REPORT_ALERT_KEY, REPORT_SUPPRESS_SECONDS);
       const pending = await drainPendingReports(env);
       return postAlert(
-        env.DISCORD_WEBHOOK_URL,
+        webhookUrl,
         [
           `🔔 **[animeishi-api${envLabel(env.ENVIRONMENT)}] ユーザー通報**`,
           `新しい通報がありました${pending > 0 ? `（直近 ${pending + 1} 件）` : ""}。`,
@@ -288,6 +291,25 @@ async function drainPendingReports(env: AlertBindings): Promise<number> {
   return local;
 }
 
+// DISCORD_WEBHOOK_URL（シークレット）を取り出す。未設定・URL として
+// 解釈不能な設定値は通知を諦めるが、「なぜ送られなかったか」が追えるよう
+// 理由だけはログに残す。値そのものはシークレットなので出さない
+// （issue #219: 通知失敗時に reason: Error だけで原因を追えなかった）。
+function resolveWebhookUrl(env: AlertBindings): string | null {
+  const url = env.DISCORD_WEBHOOK_URL;
+  if (!url) {
+    logAlertFailure("webhook_config", "not_configured");
+    return null;
+  }
+  try {
+    new URL(url);
+  } catch {
+    logAlertFailure("webhook_config", "invalid_url");
+    return null;
+  }
+  return url;
+}
+
 // Webhook への POST 本体。失敗は warn ログだけで false を返す。
 async function postAlert(
   webhookUrl: string,
@@ -307,9 +329,17 @@ async function postAlert(
     if (!res.ok) logAlertFailure("webhook", String(res.status));
     return res.ok;
   } catch (err) {
-    logAlertFailure("webhook", err instanceof Error ? err.name : "Error");
+    logAlertFailure("webhook", webhookErrorReason(err, webhookUrl));
     return false;
   }
+}
+
+// 送信失敗の理由を "ErrorName: message" 形で返す。例外メッセージに
+// Webhook URL（シークレット）が埋め込まれた場合に備えて伏せる。
+function webhookErrorReason(err: unknown, webhookUrl: string): string {
+  if (!(err instanceof Error)) return "Error";
+  const message = err.message.split(webhookUrl).join("[webhook_url]");
+  return `${err.name}: ${message}`;
 }
 
 // 外部 API・D1・認証基盤の障害は全ルートに広がるため、種別×ステータスで 1 件にまとめる。
