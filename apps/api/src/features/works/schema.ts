@@ -27,3 +27,20 @@ export type WorksSearchQueryInput = z.infer<typeof worksSearchQuerySchema>;
 export const annictWorkIdParamSchema = z.object({
   annictWorkId: z.coerce.number().int().positive(),
 });
+
+// 作品 ID まとめ解決（GET /works/lookup）のクエリパラメータ。
+// 自由作成 tier 表（issue #348）の作成画面が、#349（作品リスト）から引き継いだ
+// 初期作品 ID のメタを解決するために使う。1 リクエスト 50 件まで
+// （Annict searchWorks の 1 ページ上限に合わせる）。
+export const worksLookupQuerySchema = z.object({
+  ids: z
+    .string()
+    .min(1)
+    .transform((raw) => raw.split(",").map(Number))
+    .pipe(
+      z
+        .array(z.number().int().positive())
+        .min(1)
+        .max(50, "ids は 50 件までです"),
+    ),
+});

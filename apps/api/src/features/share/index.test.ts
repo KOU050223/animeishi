@@ -7,6 +7,7 @@ import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { requestUrl } from "../../test-utils/fetch";
 import { tierLists } from "@/features/tier-lists";
+import { customTierLists } from "@/features/custom-tier-lists";
 import { watchHistory } from "@/features/watch-history";
 import { share } from "@/features/share";
 import {
@@ -57,6 +58,7 @@ function buildApp() {
   const app = applyApiErrorHandling(new Hono<TestEnv>());
   app.route("/share", share);
   app.route("/me/tier-lists", tierLists);
+  app.route("/me/custom-tier-lists", customTierLists);
   return app;
 }
 
@@ -439,6 +441,163 @@ describe("tier 表の共有", () => {
       'property="og:image" content="https://cdn.example.com/poster.png"',
     );
     expect(html).not.toContain("javascript:");
+  });
+});
+
+describe("自由作成 tier 表の共有（issue #348）", () => {
+  beforeEach(async () => {
+    const db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+
+    const now = new Date();
+    await db.insert(users).values({
+      id: USER_ID,
+      username: "テストユーザー",
+      isPublic: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: WORK_A,
+        title: "アニメA",
+        resolvedImageUrl: "https://example.com/a.png",
+        updatedAt: now,
+      },
+      { annictWorkId: WORK_B, title: "アニメB", updatedAt: now },
+    ]);
+  });
+
+  async function seedCustomTierList(app: ReturnType<typeof buildApp>) {
+    const res = await app.request(
+      "/me/custom-tier-lists",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "歴代で好きなアニメ",
+          tiers: TIERS,
+          items: [
+            { annictWorkId: WORK_A, tierKey: "s" },
+            { annictWorkId: WORK_B, tierKey: "a" },
+          ],
+        }),
+      },
+      TEST_BINDINGS,
+    );
+    const { id } = (await res.json()) as { id: number };
+    return id;
+  }
+
+  async function issueShareToken(app: ReturnType<typeof buildApp>, id: number) {
+    const res = await app.request(
+      `/me/custom-tier-lists/${id}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await res.json()) as { shareToken: string };
+    return shareToken;
+  }
+
+  it("GET /share/custom-tier-lists/:token: 認証なしで作品メタ付きの表を JSON 取得できる", async () => {
+    const app = buildApp();
+    const id = await seedCustomTierList(app);
+    const shareToken = await issueShareToken(app, id);
+
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const res = await app.request(
+      `/share/custom-tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "application/json" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      title: string;
+      tiers: { key: string; label: string; color: string }[];
+      owner: { username: string };
+      items: {
+        annictWorkId: number;
+        tierKey: string;
+        title: string;
+        hostedImageUrl: string | null;
+      }[];
+    };
+    expect(body.title).toBe("歴代で好きなアニメ");
+    expect(body.tiers).toEqual(TIERS);
+    expect(body.owner.username).toBe("テストユーザー");
+    expect(body.items).toEqual([
+      expect.objectContaining({ annictWorkId: WORK_A, tierKey: "s" }),
+      expect.objectContaining({ annictWorkId: WORK_B, tierKey: "a" }),
+    ]);
+    // 作品画像プロキシの URL が載る
+    expect(body.items[0]?.hostedImageUrl).toBe(
+      `http://localhost/images/works/${WORK_A}`,
+    );
+    // シーズン版と違い season キーは出さない
+    expect("season" in body).toBe(false);
+  });
+
+  it("GET /share/custom-tier-lists/:token: 不明なトークンは 404 を返す", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      "/share/custom-tier-lists/no-such-token",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /share/custom-tier-lists/:token: Accept: text/html で OGP 付きの共有ページを返す", async () => {
+    const app = buildApp();
+    const id = await seedCustomTierList(app);
+    const shareToken = await issueShareToken(app, id);
+
+    const res = await app.request(
+      `/share/custom-tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("<title>歴代で好きなアニメ");
+    expect(html).toContain('property="og:title"');
+    expect(html).toContain(
+      'property="og:image" content="https://example.com/a.png"',
+    );
+    expect(html).toContain("アニメA");
+    expect(html).toContain("アニメB");
+    expect(html).toContain("テストユーザー");
+    // 閲覧者のシステムスキームに追従する
+    expect(html).toContain("prefers-color-scheme");
+    // 共有解除後にキャッシュへ残らないよう、HTML は保存しない
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("DELETE /:id/share: 解除すると公開取得が 404 になる", async () => {
+    const app = buildApp();
+    const id = await seedCustomTierList(app);
+    const shareToken = await issueShareToken(app, id);
+
+    const delRes = await app.request(
+      `/me/custom-tier-lists/${id}/share`,
+      { method: "DELETE" },
+      TEST_BINDINGS,
+    );
+    expect(delRes.status).toBe(200);
+
+    const publicRes = await app.request(
+      `/share/custom-tier-lists/${shareToken}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(publicRes.status).toBe(404);
   });
 });
 

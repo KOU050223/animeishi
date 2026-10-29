@@ -19,3 +19,11 @@ export function buildCharacterTierListShareUrl(
 ): string {
   return `${apiBaseUrl.replace(/\/+$/, "")}/share/character-tier-lists/${encodeURIComponent(shareToken)}`;
 }
+
+/** 自由作成 tier 表の共有 URL（issue #348）。エンドポイントだけが違う。 */
+export function buildCustomTierListShareUrl(
+  shareToken: string,
+  apiBaseUrl: string,
+): string {
+  return `${apiBaseUrl.replace(/\/+$/, "")}/share/custom-tier-lists/${encodeURIComponent(shareToken)}`;
+}

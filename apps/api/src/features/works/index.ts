@@ -3,22 +3,32 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { annictWorkIdParamSchema, worksSearchQuerySchema } from "./schema";
+import {
+  annictWorkIdParamSchema,
+  worksLookupQuerySchema,
+  worksSearchQuerySchema,
+} from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import {
   currentAnnictSeason,
   fetchAnnictWorkCasts,
+  searchAnnictWorksByIds,
   searchAnnictWorksByTitle,
 } from "@/lib/annict/client";
 import { requireAnnictToken } from "@/lib/annict/middleware";
+import { workImageUrl } from "@/lib/annict/workImage";
 import {
   fetchKitsuCharacters,
   isAnilistImageUrl,
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
 import { worksRepository } from "./repository";
-import { attachResolvedImages, searchSeasonWorks } from "./service";
+import {
+  attachResolvedImages,
+  searchSeasonWorks,
+  type SearchWorkWithResolved,
+} from "./service";
 import { createDb } from "@/db/client";
 
 function getBindings(c: Context): AuthEnv["Bindings"] & {
@@ -77,6 +87,68 @@ const works = new Hono<AuthVariables>()
       );
 
       return c.json({ ...result, works: enriched }, 200);
+    },
+  )
+  // 作品 ID のまとめ解決（issue #348）。自由作成 tier 表の作成画面が
+  // #349（作品リスト）からルートパラメータで引き継いだ初期作品 ID の
+  // メタを解決するためのもの。検索（/works/search）では ID では引けない
+  // ため別エンドポイントにしてある。キャッシュ（annict_works）を優先し、
+  // 無い作品だけ Annict に問い合わせる。
+  .get(
+    "/lookup",
+    requireAnnictToken,
+    zValidator("query", worksLookupQuerySchema),
+    async (c) => {
+      const { ids } = c.req.valid("query");
+      const db = createDb(getBindings(c).DB);
+      const repo = worksRepository(db);
+
+      const cached = await repo.getAnnictWorksByIds(ids);
+      const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
+      const missingIds = ids.filter((id) => !cachedById.has(id));
+
+      // キャッシュに無いものだけ Annict へ。attachResolvedImages が
+      // annict_works に upsert するので、tier 表保存の FK 前提も満たされる。
+      const fetched = missingIds.length
+        ? await attachResolvedImages(
+            repo,
+            await searchAnnictWorksByIds(c.var.annictToken, missingIds),
+            c.req.url,
+          )
+        : [];
+      const fetchedById = new Map(fetched.map((w) => [w.annictWorkId, w]));
+
+      // 引き継ぎ元リストの並びを保つため、リクエストの ID 順で返す。
+      // Annict にも存在しない ID は落とす（参照不能な作品で一覧を壊さない）。
+      // キャッシュ由来の行は Annict 検索応答と違い nodeId/state が無い・
+      // nullable なので、広い方の要素型を明示して両分岐を統一する。
+      type LookupWork = Omit<SearchWorkWithResolved, "nodeId" | "state"> & {
+        nodeId: string | null;
+        state: string | null;
+      };
+      const result = ids.flatMap((id): LookupWork[] => {
+        const fetchedWork = fetchedById.get(id);
+        if (fetchedWork) return [fetchedWork];
+        const cachedWork = cachedById.get(id);
+        if (!cachedWork) return [];
+        return [
+          {
+            annictWorkId: cachedWork.annictWorkId,
+            nodeId: cachedWork.nodeId,
+            state: null,
+            title: cachedWork.title,
+            titleKana: cachedWork.titleKana,
+            titleEn: cachedWork.titleEn,
+            seasonName: cachedWork.seasonName,
+            seasonYear: cachedWork.seasonYear,
+            imageUrl: cachedWork.imageUrl,
+            malAnimeId: cachedWork.malAnimeId,
+            resolvedImageUrl: cachedWork.resolvedImageUrl,
+            hostedImageUrl: workImageUrl(c.req.url, id),
+          },
+        ];
+      });
+      return c.json({ works: result }, 200);
     },
   )
   // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。

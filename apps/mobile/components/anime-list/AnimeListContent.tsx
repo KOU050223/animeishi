@@ -296,13 +296,14 @@ export function AnimeListContent({
                       : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${sorted.length}件`}`}
                   </Text>
                 </View>
-                {/* シーズン Tier 表への入口（issue #169）。ヒーロー内の大きな
-                    ボタンをやめ、ツールバー行のコンパクトなボタンにする（issue #170）。 */}
+                {/* Tier 表の作成導線（issue #169/#348）。ヒーロー内の大きな
+                    ボタンをやめ、ツールバー行のコンパクトなボタンにする（issue #170）。
+                    シーズン版・自由作成版の選択はハブ画面（/tier-lists）で行う。 */}
                 <TouchableOpacity
                   className="items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-950"
-                  onPress={() => router.push("/tier-list")}
+                  onPress={() => router.push("/tier-lists")}
                   accessibilityRole="button"
-                  accessibilityLabel="シーズンの Tier 表を作る"
+                  accessibilityLabel="Tier 表を作る"
                   testID="open-tier-list"
                 >
                   <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">

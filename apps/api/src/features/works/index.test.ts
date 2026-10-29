@@ -921,6 +921,133 @@ function mockWorkCasts(
   });
 }
 
+describe("GET /works/lookup（作品 ID のメタ解決。issue #348）", () => {
+  beforeEach(async () => {
+    await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.restoreAllMocks();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  it("キャッシュ済みの作品は Annict を叩かずメタを返す", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const db = createDb(env.DB);
+    const now = new Date();
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: 101,
+        nodeId: "node-101",
+        title: "キャッシュ作品A",
+        resolvedImageUrl: "https://example.com/101.png",
+        updatedAt: now,
+      },
+      { annictWorkId: 102, title: "キャッシュ作品B", updatedAt: now },
+    ]);
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/lookup?ids=101,102",
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: {
+        annictWorkId: number;
+        title: string;
+        resolvedImageUrl: string | null;
+        hostedImageUrl: string | null;
+      }[];
+    };
+    expect(body.works).toEqual([
+      expect.objectContaining({
+        annictWorkId: 101,
+        title: "キャッシュ作品A",
+        resolvedImageUrl: "https://example.com/101.png",
+        hostedImageUrl: "http://localhost/images/works/101",
+      }),
+      expect.objectContaining({ annictWorkId: 102, title: "キャッシュ作品B" }),
+    ]);
+    // キャッシュで全件解決できたので Annict は呼ばれない
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("キャッシュに無い作品は Annict から引いてキャッシュする", async () => {
+    const fetchMock = mockSearchWorks([{ annictId: 202, title: "外部作品" }]);
+    const db = createDb(env.DB);
+    await db.insert(annictWorks).values({
+      annictWorkId: 201,
+      title: "キャッシュ作品",
+      updatedAt: new Date(),
+    });
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/lookup?ids=201,202",
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number; title: string }[];
+    };
+    // リクエストの ID 順で返す（引き継ぎ元リストの並びを保つため）
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([201, 202]);
+    expect(body.works[1]?.title).toBe("外部作品");
+
+    // Annict には不足分の ID だけを投げる
+    const body_ = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    );
+    expect(body_.variables.annictIds).toEqual([202]);
+
+    // 引いた作品は annict_works にキャッシュされる（tier 表保存の FK 前提）
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 202),
+    });
+    expect(row?.title).toBe("外部作品");
+  });
+
+  it("Annict にも無い作品は結果から落とす", async () => {
+    mockSearchWorks([]);
+    const app = buildApp();
+    const res = await app.request(
+      "/works/lookup?ids=999",
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { works: unknown[] };
+    expect(body.works).toHaveLength(0);
+  });
+
+  it("X-Annict-Token が無ければ 401", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      "/works/lookup?ids=101",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("ids 未指定・数値でない要素を含む指定は 400", async () => {
+    const app = buildApp();
+    for (const path of ["/works/lookup", "/works/lookup?ids=abc,1"]) {
+      const res = await app.request(
+        path,
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+});
+
 describe("キャラクター一覧 API", () => {
   beforeEach(async () => {
     await setupTestDb(env.DB);
