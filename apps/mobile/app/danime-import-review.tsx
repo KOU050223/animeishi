@@ -26,6 +26,7 @@ import {
   useBulkRegisterWatchHistory,
   useDanimeMatch,
 } from "@/lib/danime/useDanimeImport";
+import { danimeMatchErrorMessage } from "@/lib/danime/matchErrorMessage";
 import type {
   BulkRegisterEntry,
   DanimeMatchStats,
@@ -395,40 +396,49 @@ export default function DanimeImportReviewScreen() {
     );
   }
 
-  // ---- マッチング中 / 失敗 ----
-  if (rows === null) {
+  // ---- マッチング中 ----
+  if (rows === null && (match.isPending || isHistoriesLoading)) {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
-        {match.isPending || isHistoriesLoading ? (
-          <>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text className="text-sm text-gray-500 dark:text-slate-400 mt-4">
-              Annict の作品と照合しています…
-            </Text>
-            <Text className="text-[11px] text-gray-400 dark:text-slate-500 mt-2">
-              {workCount} 件 / {matchElapsedSec} 秒経過
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text className="text-sm text-red-500 dark:text-red-400 text-center">
-              {match.error?.message ?? "マッチングに失敗しました"}
-            </Text>
-            <TouchableOpacity
-              className="mt-4 bg-indigo-600 rounded-xl px-8 py-3"
-              onPress={retryMatch}
-              accessibilityRole="button"
-              accessibilityLabel="再試行"
-            >
-              <Text className="text-white font-semibold">再試行</Text>
-            </TouchableOpacity>
-            <BackButton
-              className="mt-2"
-              onPress={() => router.back()}
-              accessibilityLabel="戻る"
-            />
-          </>
-        )}
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text className="text-sm text-gray-500 dark:text-slate-400 mt-4">
+          Annict の作品と照合しています…
+        </Text>
+        <Text className="text-[11px] text-gray-400 dark:text-slate-500 mt-2">
+          {workCount} 件 / {matchElapsedSec} 秒経過
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  // ---- 照合失敗 ----
+  // エラー文言は code ごとのユーザー向け案内に変換する（API のエラー JSON を
+  // そのまま出さない。詳細は useDanimeMatch がコンソールに残す）。
+  // BackButton は他の画面と同じく左上のヘッダー位置（issue #219）。
+  if (rows === null) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top", "bottom"]}
+      >
+        <BackButton
+          className="ml-2 self-start"
+          onPress={() => router.back()}
+          accessibilityLabel="戻る"
+        />
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-sm text-red-500 dark:text-red-400 text-center">
+            {danimeMatchErrorMessage(match.error)}
+          </Text>
+          <TouchableOpacity
+            className="mt-4 bg-indigo-600 rounded-xl px-8 py-3"
+            onPress={retryMatch}
+            accessibilityRole="button"
+            accessibilityLabel="再試行"
+          >
+            <Text className="text-white font-semibold">再試行</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -439,7 +449,12 @@ export default function DanimeImportReviewScreen() {
       className="flex-1 bg-white dark:bg-slate-900"
       edges={["top", "bottom"]}
     >
-      <View className="px-4 pt-2 pb-3 border-b border-gray-100 dark:border-slate-800">
+      <View className="px-4 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <BackButton
+          className="-ml-2 self-start"
+          onPress={() => router.back()}
+          accessibilityLabel="戻る"
+        />
         <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
           インポート内容の確認
         </Text>
@@ -492,11 +507,6 @@ export default function DanimeImportReviewScreen() {
             </Text>
           )}
         </TouchableOpacity>
-        <BackButton
-          className="mt-2 self-center"
-          onPress={() => router.back()}
-          accessibilityLabel="戻る"
-        />
       </View>
     </SafeAreaView>
   );

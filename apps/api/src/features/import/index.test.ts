@@ -242,6 +242,290 @@ describe("dアニメインポート API", () => {
       expect(body.stats.retries).toBe(1);
     });
 
+    // issue #219: Annict の LIKE 部分一致が解釈できないタイトル
+    // （末尾の \ ・制御文字等）は HTTP 200 の GraphQL errors として返り、
+    // リトライ不能な AnnictApiError(status=200) になる。1 件混入で
+    // チャンク全体が 502 にならないことを保証する。
+    it("GraphQL エラーになるタイトルが混ざっていても残りは照合して 200 を返す", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        const titles: string[] = body.variables?.titles ?? [];
+        // union（複数件）と「壊れた作品」系のクエリだけ GraphQL エラー
+        if (titles.length > 1 || titles.some((t) => t.includes("壊れた作品"))) {
+          return new Response(
+            JSON.stringify({
+              errors: [{ message: "LIKE pattern must not end with escape" }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: titles.includes("鬼滅の刃")
+                  ? [
+                      {
+                        id: "Work-1",
+                        annictId: 1,
+                        malAnimeId: null,
+                        title: "鬼滅の刃",
+                        titleKana: null,
+                        titleEn: null,
+                        seasonName: null,
+                        seasonYear: null,
+                        image: { recommendedImageUrl: null },
+                      },
+                    ]
+                  : [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+              {
+                danimeWorkId: "2",
+                title: "壊れた作品",
+                targetState: "WATCHED",
+              },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { danimeWorkId: string; status: string }[];
+      };
+      expect(body.results.find((r) => r.danimeWorkId === "1")?.status).toBe(
+        "exact",
+      );
+      // エラーになるタイトルは未マッチ扱いで残る
+      expect(body.results.find((r) => r.danimeWorkId === "2")?.status).toBe(
+        "none",
+      );
+      // 落としたタイトルは切り分けのため warn ログに残す
+      const warns = warnSpy.mock.calls.map((c) => JSON.parse(String(c[0])));
+      const dropped = warns.find(
+        (l) => l.event === "danime_title_search_failed",
+      );
+      expect(dropped).toMatchObject({ level: "warn", annictStatus: 200 });
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    // issue #219: 第 2 パスは 1 検索語ずつ投げるため、不正な検索語の
+    // GraphQL エラーが残るとリクエスト全体が 502 になる。その検索語だけを
+    // 諦めて他の作品の照合は続行できることを保証する。
+    it("第 2 パスの検索語だけが GraphQL エラーでも他の作品は照合して 200 を返す", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        const titles: string[] = body.variables?.titles ?? [];
+        // 第 2 パス（1 語ずつ）のクエリはすべて GraphQL エラーにする
+        if (titles.length === 1) {
+          return new Response(
+            JSON.stringify({ errors: [{ message: "syntax error" }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: titles.includes("鬼滅の刃")
+                  ? [
+                      {
+                        id: "Work-1",
+                        annictId: 1,
+                        malAnimeId: null,
+                        title: "鬼滅の刃",
+                        titleKana: null,
+                        titleEn: null,
+                        seasonName: null,
+                        seasonYear: null,
+                        image: { recommendedImageUrl: null },
+                      },
+                    ]
+                  : [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+              {
+                danimeWorkId: "2",
+                title: "見つからない作品",
+                targetState: "WATCHED",
+              },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { danimeWorkId: string; status: string }[];
+      };
+      expect(body.results.find((r) => r.danimeWorkId === "1")?.status).toBe(
+        "exact",
+      );
+      expect(body.results.find((r) => r.danimeWorkId === "2")?.status).toBe(
+        "none",
+      );
+      const warns = warnSpy.mock.calls.map((c) => JSON.parse(String(c[0])));
+      const dropped = warns.find(
+        (l) =>
+          l.event === "danime_title_search_failed" && l.phase === "secondPass",
+      );
+      expect(dropped).toMatchObject({ level: "warn", annictStatus: 200 });
+      warnSpy.mockRestore();
+    });
+
+    // issue #219: 10 件単位の分割で端数が 1 件になるチャンク（11 作品目等）も
+    // 単一検索語になる。複数作品の取り込みでその 1 件が GraphQL エラーでも
+    // 全体を 502 にせず、そのタイトルだけ未マッチにする。
+    it("1 件残りの第 1 パスチャンクが GraphQL エラーでも残りは照合して 200 を返す", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        const titles: string[] = body.variables?.titles ?? [];
+        if (titles.some((t) => t.includes("壊れた作品"))) {
+          return new Response(
+            JSON.stringify({
+              errors: [{ message: "LIKE pattern must not end with escape" }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: titles.map((t, i) => ({
+                  id: `Work-${i}`,
+                  annictId: i + 1,
+                  malAnimeId: null,
+                  title: t,
+                  titleKana: null,
+                  titleEn: null,
+                  seasonName: null,
+                  seasonYear: null,
+                  image: { recommendedImageUrl: null },
+                })),
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+
+      // 10 件の正常タイトル + 末尾 1 件の不正タイトルで
+      // 第 1 パスの端数チャンクが検索語 1 件になる。
+      const works = [
+        ...Array.from({ length: 10 }, (_, i) => ({
+          danimeWorkId: `w${i}`,
+          title: `作品${i}`,
+          targetState: "WATCHED" as const,
+        })),
+        {
+          danimeWorkId: "bad",
+          title: "壊れた作品",
+          targetState: "WATCHED" as const,
+        },
+      ];
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ works }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { danimeWorkId: string; status: string }[];
+      };
+      expect(body.results.find((r) => r.danimeWorkId === "bad")?.status).toBe(
+        "none",
+      );
+      expect(body.results.filter((r) => r.status === "exact")).toHaveLength(10);
+      warnSpy.mockRestore();
+    });
+
+    it("Annict 検索が全滅したときは 502 で失敗の構造化ログを出す", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      // Response の body は一度しか読めないため呼び出しごとに作り直す。
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({
+              errors: [{ message: "LIKE pattern must not end with escape" }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      );
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "作品A", targetState: "WATCHED" },
+              { danimeWorkId: "2", title: "作品B", targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+      expect(await res.json()).toMatchObject({ code: "annict_upstream" });
+      // 原因を追えるよう、段階・件数・タイトル冒頭・Annict 側ステータス・
+      // GraphQL エラーメッセージを構造化ログに残す
+      const logs = errorSpy.mock.calls.map((c) => JSON.parse(String(c[0])));
+      const failed = logs.find((l) => l.event === "danime_match_failed");
+      expect(failed).toMatchObject({
+        level: "error",
+        phase: "firstPass",
+        titleCount: 2,
+        annictStatus: 200,
+      });
+      expect(String(failed.error)).toContain("LIKE pattern");
+      errorSpy.mockRestore();
+    });
+
     it("Annict が 401 ならトークン無効として 401", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         new Response("unauthorized", { status: 401 }),

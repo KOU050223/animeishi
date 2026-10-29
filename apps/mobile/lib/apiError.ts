@@ -6,10 +6,13 @@
  */
 export class ApiRequestError extends Error {
   readonly status: number;
+  /** エラーレスポンス JSON の code（annict_upstream 等）。無ければ undefined。 */
+  readonly code: string | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
+    this.code = code;
   }
 }
