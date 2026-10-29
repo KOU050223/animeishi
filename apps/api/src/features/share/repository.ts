@@ -6,6 +6,7 @@ import {
   annictCharacters,
   tierLists,
   characterTierLists,
+  customTierLists,
   watchHistory,
 } from "@/db/schema";
 import {
@@ -16,6 +17,10 @@ import {
   fetchCharacterTierListItems,
   type CharacterTierListItemWithMeta,
 } from "../character-tier-lists/repository";
+import {
+  fetchCustomTierListItems,
+  type CustomTierListItemWithWork,
+} from "../custom-tier-lists/repository";
 
 /**
  * 共有リンク（/share/tier-lists/:token 等）経由の公開参照。
@@ -129,6 +134,45 @@ export async function getSharedCharacterTierList(
   return {
     annictWorkId: list.annictWorkId,
     workTitle: list.workTitle,
+    title: list.title,
+    tiersJson: list.tiersJson,
+    ownerUsername: list.ownerUsername,
+    items,
+  };
+}
+
+export type SharedCustomTierList = {
+  title: string;
+  tiersJson: string;
+  ownerUsername: string;
+  items: CustomTierListItemWithWork[];
+};
+
+/**
+ * 共有トークンから公開用の自由作成 tier 表を引く。未共有・破棄済みなら
+ * undefined。シーズン版と同じくトークンを知っている人なら誰でも読める。
+ * season を持たない（スコープキーが無い）のがシーズン版との違い。
+ */
+export async function getSharedCustomTierList(
+  db: DrizzleDb,
+  token: string,
+): Promise<SharedCustomTierList | undefined> {
+  const rows = await db
+    .select({
+      id: customTierLists.id,
+      title: customTierLists.title,
+      tiersJson: customTierLists.tiersJson,
+      ownerUsername: users.username,
+    })
+    .from(customTierLists)
+    .innerJoin(users, eq(customTierLists.userId, users.id))
+    .where(eq(customTierLists.shareToken, token));
+
+  const list = rows[0];
+  if (!list) return undefined;
+
+  const items = await fetchCustomTierListItems(db, list.id);
+  return {
     title: list.title,
     tiersJson: list.tiersJson,
     ownerUsername: list.ownerUsername,

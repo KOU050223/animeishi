@@ -609,6 +609,47 @@ export async function searchAnnictWorksByTitles(
   }
 }
 
+// annictId のまとめ解決用クエリ（/works/lookup。issue #348）。
+// 1 リクエスト 50 件まで（呼び出し側のスキーマで制限）。
+const SEARCH_WORKS_BY_ANNICT_IDS_QUERY = `
+query SearchWorksByAnnictIds($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 50) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      annictId
+      malAnimeId
+      title
+      titleKana
+      titleEn
+      seasonName
+      seasonYear
+      image { ${WORK_IMAGE_FIELDS} }
+    }
+  }
+}`;
+
+/**
+ * 複数の annictWorkId をまとめて解決し、整形した作品メタの配列を返す。
+ * Annict に存在しない ID は結果に含まれない。50 件を超える ID セットは
+ * 呼び出し側で分割すること。
+ */
+export async function searchAnnictWorksByIds(
+  accessToken: string,
+  annictWorkIds: number[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictLibraryEntry[]> {
+  if (annictWorkIds.length === 0) return [];
+  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    accessToken,
+    SEARCH_WORKS_BY_ANNICT_IDS_QUERY,
+    { annictIds: annictWorkIds },
+    fetchImpl,
+  );
+
+  return mapSearchWorksConnection(data.searchWorks).works;
+}
+
 // --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---
 
 // Annict のシーズン区分（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。

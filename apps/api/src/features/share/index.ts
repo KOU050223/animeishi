@@ -5,12 +5,14 @@ import { createDb } from "@/db/client";
 import type { Env } from "@/db/client";
 import {
   getSharedCharacterTierList,
+  getSharedCustomTierList,
   getSharedTierList,
   getSharedWatchHistory,
 } from "./repository";
 import { shareTokenParamSchema } from "./schema";
 import {
   buildSharedCharacterTierListHtml,
+  buildSharedCustomTierListHtml,
   buildSharedTierListHtml,
   buildSharedWatchHistoryHtml,
   buildSharedWatchHistoryMarkdown,
@@ -95,6 +97,43 @@ const share = new Hono<ShareBindings>()
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
           items: list.items,
+        },
+        200,
+      );
+    },
+  )
+  // 自由作成 tier 表の共有リンク（issue #348）。シーズン版と同じく
+  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
+  // スコープキー（season）を持たないので JSON には season を含めない。
+  .get(
+    "/custom-tier-lists/:token",
+    zValidator("param", shareTokenParamSchema),
+    async (c) => {
+      const { token } = c.req.valid("param");
+      const db = createDb(c.env.DB);
+      const list = await getSharedCustomTierList(db, token);
+      const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
+
+      if (!list) {
+        if (wantsHtml) return c.html(notFoundHtml(), 404);
+        return c.json({ error: "Shared tier list not found" }, 404);
+      }
+
+      if (wantsHtml) {
+        return c.html(buildSharedCustomTierListHtml(list, c.req.url), 200, {
+          "Cache-Control": "no-store",
+        });
+      }
+
+      return c.json(
+        {
+          title: list.title,
+          tiers: parseTiersJson(list.tiersJson),
+          owner: { username: list.ownerUsername },
+          items: list.items.map((item) => ({
+            ...item,
+            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
+          })),
         },
         200,
       );
