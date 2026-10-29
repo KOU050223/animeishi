@@ -45,12 +45,9 @@ function createStyles(colors: ThemeColors) {
       gap: 8,
     },
     headerTop: { flexDirection: "row", alignItems: "center" },
-    backButton: { paddingVertical: 6, paddingRight: 12 },
-    backButtonText: {
-      color: colors.primaryText,
-      fontSize: 16,
-      fontWeight: "600",
-    },
+    // BackButton は 44px 幅の押下領域の中でアイコンを中央寄せするため、
+    // アイコンの見た目上の左端をヘッダーのパディング端に合わせる。
+    backButton: { marginLeft: -8 },
     headerTitle: { color: colors.text, fontSize: 20, fontWeight: "700" },
     headerHint: { color: colors.textMuted, fontSize: 12 },
     headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },

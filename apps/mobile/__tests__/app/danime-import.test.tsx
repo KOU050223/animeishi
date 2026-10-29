@@ -49,7 +49,7 @@ describe("DanimeImportScreen（ネイティブ・フラグ無効）", () => {
   it("「戻る」で前の画面へ戻る", async () => {
     await render(<DanimeImportScreen />);
 
-    await fireEvent.press(screen.getByText("戻る"));
+    await fireEvent.press(screen.getByLabelText("戻る"));
 
     expect(mockBack).toHaveBeenCalledTimes(1);
   });

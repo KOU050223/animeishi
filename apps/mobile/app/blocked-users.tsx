@@ -7,6 +7,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
@@ -15,8 +17,19 @@ import { useThemeColors } from "@/lib/theme";
 
 export default function BlockedUsersScreen() {
   const colors = useThemeColors();
+  const router = useRouter();
   const { data: blocked, isLoading, isError, refetch } = useBlockedUsers();
   const unblock = useUnblockUser();
+
+  // meishi/edit と同じ規約。遷移元はプロフィールタブの設定項目なので、
+  // 直リンクで履歴が無い場合もプロフィールタブへ戻す。
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/profile");
+  };
 
   function confirmUnblock(item: BlockedUserItem) {
     confirm(
@@ -53,19 +66,30 @@ export default function BlockedUsersScreen() {
 
   if (isError) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
-        <Text className="mb-4 text-center text-red-500 dark:text-red-400">
-          ブロック一覧の取得に失敗しました
-        </Text>
-        <TouchableOpacity
-          className="rounded-lg bg-indigo-600 px-6 py-3"
-          onPress={() => refetch()}
-          accessibilityRole="button"
-          accessibilityLabel="ブロック一覧を再取得"
-        >
-          <Text className="font-semibold text-white">再試行</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top", "bottom"]}
+      >
+        <BackButton
+          onPress={handleBack}
+          className="ml-2 self-start"
+          accessibilityLabel="戻る"
+          testID="blocked-users-back-button"
+        />
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+            ブロック一覧の取得に失敗しました
+          </Text>
+          <TouchableOpacity
+            className="rounded-lg bg-indigo-600 px-6 py-3"
+            onPress={() => refetch()}
+            accessibilityRole="button"
+            accessibilityLabel="ブロック一覧を再取得"
+          >
+            <Text className="font-semibold text-white">再試行</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -77,6 +101,12 @@ export default function BlockedUsersScreen() {
       edges={["top", "bottom"]}
     >
       <View className="px-4 pb-3 pt-3">
+        <BackButton
+          onPress={handleBack}
+          className="-ml-2 mb-1 self-start"
+          accessibilityLabel="戻る"
+          testID="blocked-users-back-button"
+        />
         <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
           ブロック中のユーザー
         </Text>

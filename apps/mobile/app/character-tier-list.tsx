@@ -12,6 +12,7 @@ import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { BackButton } from "@/components/ui";
 import { TierBoard } from "@/components/tier-list/TierBoard";
 import {
   TierBoardSnapshot,
@@ -401,15 +402,12 @@ export default function CharacterTierListScreen() {
   // （どの状態でも画面に閉じ込められないようにするため）。
   const backBar = (
     <View style={styles.headerTop}>
-      <TouchableOpacity
+      <BackButton
         onPress={handleBack}
         style={styles.backButton}
-        accessibilityRole="button"
         accessibilityLabel="戻る"
         testID="character-tier-list-back"
-      >
-        <Text style={styles.backButtonText}>‹ 戻る</Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 

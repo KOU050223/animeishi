@@ -1,6 +1,7 @@
 import { Link, useRouter } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { BackButton } from "@/components/ui";
 
 /** 法務ページ（プライバシーポリシー / 利用規約）の 1 セクション。 */
 export type LegalSection = {
@@ -45,17 +46,12 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
     >
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <Pressable
+          <BackButton
             onPress={handleBack}
-            className="mb-4 self-start"
-            accessibilityRole="button"
+            className="-ml-2 mb-4 self-start"
             accessibilityLabel="戻る"
             testID="legal-back-button"
-          >
-            <Text className="text-base text-indigo-600 dark:text-indigo-400">
-              ‹ 戻る
-            </Text>
-          </Pressable>
+          />
 
           <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
             {title}

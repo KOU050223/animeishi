@@ -1,6 +1,7 @@
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useRouter } from "expo-router";
+import { BackButton } from "@/components/ui";
 import {
   FEATURES,
   PLANNED_FEATURES,
@@ -33,17 +34,12 @@ export default function ChangelogScreen() {
     >
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <Pressable
+          <BackButton
             onPress={handleBack}
-            className="mb-4 self-start"
-            accessibilityRole="button"
+            className="-ml-2 mb-4 self-start"
             accessibilityLabel="戻る"
             testID="changelog-back-button"
-          >
-            <Text className="text-base text-indigo-600 dark:text-indigo-400">
-              ‹ 戻る
-            </Text>
-          </Pressable>
+          />
 
           <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
             機能一覧・更新情報

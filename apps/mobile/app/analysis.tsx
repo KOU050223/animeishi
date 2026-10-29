@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";
+import { BackButton } from "@/components/ui";
 
 // generatedAt（ISO 8601）の表示用。Hermes の Intl 実装差を避けるため
 // toLocaleString ではなく手動で整形する。
@@ -74,17 +74,12 @@ export default function AnalysisScreen() {
         className="flex-1 bg-white dark:bg-slate-900"
         edges={["top", "bottom"]}
       >
-        <Pressable
+        <BackButton
           onPress={handleBack}
-          className="self-start px-4 py-3"
-          accessibilityRole="button"
+          className="ml-2 self-start"
           accessibilityLabel={t("戻る")}
           testID="analysis-back-button"
-        >
-          <Text className="text-base text-indigo-600 dark:text-indigo-400">
-            ‹ {t("戻る")}
-          </Text>
-        </Pressable>
+        />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-red-500 dark:text-red-400">
             {t("分析結果の取得に失敗しました")}
@@ -110,17 +105,12 @@ export default function AnalysisScreen() {
       edges={["top", "bottom"]}
     >
       <ScrollView contentContainerClassName="px-4 pb-12">
-        <Pressable
+        <BackButton
           onPress={handleBack}
-          className="self-start py-3"
-          accessibilityRole="button"
+          className="-ml-2 self-start"
           accessibilityLabel={t("戻る")}
           testID="analysis-back-button"
-        >
-          <Text className="text-base text-indigo-600 dark:text-indigo-400">
-            ‹ {t("戻る")}
-          </Text>
-        </Pressable>
+        />
         <View className="pb-3">
           <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
             {t("AI 視聴傾向分析")}
