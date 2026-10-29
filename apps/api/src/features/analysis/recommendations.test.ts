@@ -6,6 +6,11 @@ import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { analysis } from "@/features/analysis";
 import {
+  buildAnalysisInput,
+  computeInputHash,
+} from "@/features/analysis/service";
+import { watchHistoryRepository } from "@/features/watch-history/repository";
+import {
   analyses,
   annictWorks,
   recommendations,
@@ -292,30 +297,78 @@ describe("AI おすすめ生成 API", () => {
       expect(cachedWork?.nodeId).toBe("node-9001");
     });
 
-    it("POST: 保存済みの分析結果があるとプロンプトに傾向を含める", async () => {
-      await seedHistory([101]);
-      stubAnnictFetch([]);
-      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
-      await db.insert(analyses).values({
+    // ハンドラが計算する入力ハッシュと同じものをテスト側で再現する
+    // （分析が現在の履歴から生成されたかの判定に使う）。
+    async function currentInputHash() {
+      const history = await watchHistoryRepository(
+        db,
+        USER_ID,
+      ).getMyWatchHistory();
+      return computeInputHash(buildAnalysisInput(history, []));
+    }
+
+    function insertAnalysis(inputHash: string | null) {
+      return db.insert(analyses).values({
         userId: USER_ID,
         summary: "SF 中心の視聴傾向",
         genresJson: JSON.stringify(["SF"]),
+        inputHash,
         generatedAt: new Date(),
         workCount: 1,
         windowStartedAt: new Date(),
         generationCount: 1,
       });
+    }
 
-      const res = await postRecommendations();
-      expect(res.status).toBe(200);
-      const [, inputs] = aiRun.mock.calls[0] as unknown as [
+    function lastUserPrompt() {
+      const [, inputs] = aiRun.mock.calls.at(-1) as unknown as [
         string,
         { messages: { role: string; content: string }[] },
       ];
-      const user = inputs.messages.find((m) => m.role === "user");
-      expect(user?.content).toContain("SF 中心の視聴傾向");
-      expect(user?.content).toContain("現在のシーズン");
-      expect(user?.content.endsWith("\n/no_think")).toBe(true);
+      return inputs.messages.find((m) => m.role === "user")?.content ?? "";
+    }
+
+    it("POST: 保存済みの分析結果があるとプロンプトに傾向を含める", async () => {
+      await seedHistory([101]);
+      stubAnnictFetch([]);
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+      await insertAnalysis(await currentInputHash());
+
+      const res = await postRecommendations();
+      expect(res.status).toBe(200);
+      const user = lastUserPrompt();
+      expect(user).toContain("SF 中心の視聴傾向");
+      expect(user).toContain("現在のシーズン");
+      expect(user.endsWith("\n/no_think")).toBe(true);
+    });
+
+    it("POST: 古い入力から生成された分析はプロンプトに載せない", async () => {
+      await seedHistory([101]);
+      stubAnnictFetch([]);
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+      // 現在の履歴とは違う入力で生成された分析（input_hash 不一致）。
+      await insertAnalysis("stale-input-hash");
+
+      const res = await postRecommendations();
+      expect(res.status).toBe(200);
+      expect(lastUserPrompt()).not.toContain("SF 中心の視聴傾向");
+    });
+
+    it("POST: 後から分析が生成されるとキャッシュを無効化して再生成する", async () => {
+      await seedHistory([101]);
+      stubAnnictFetch([workNode(9001)]);
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      await postRecommendations();
+      // おすすめ生成の後に、同じ履歴から分析が作られた状況。
+      await insertAnalysis(await currentInputHash());
+
+      const res = await postRecommendations();
+      const body = (await res.json()) as { cached: boolean };
+      expect(body.cached).toBe(false);
+      expect(aiRun).toHaveBeenCalledTimes(2);
+      // 再生成は新しい分析文をプロンプトに含める。
+      expect(lastUserPrompt()).toContain("SF 中心の視聴傾向");
     });
 
     it("POST: 同じ履歴なら 24h 以内はキャッシュを返し AI・Annict を呼ばない", async () => {
@@ -562,22 +615,75 @@ describe("matchCandidateWorks", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("複数候補が同じ作品に寄ったときは先に出た候補だけ残す", async () => {
+  it("union で部分一致しか取れなかった候補は単発検索で正式タイトルを照合し直す", async () => {
     const { matchCandidateWorks } =
       await import("@/features/analysis/recommendationService");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
+    // union 検索は先頭 50 件打ち切りのため、正式作品が圏外にあると
+    // 同シリーズの別作品へ包含スコアで確定し得る。単発検索の結果に
+    // 正式タイトルがあればそちらへ差し替える。
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             data: {
               searchWorks: {
                 pageInfo: { hasNextPage: false, endCursor: null },
-                nodes: [workNode(1, { title: "鬼滅の刃" })],
+                nodes: [workNode(1, { title: "名探偵コナン" })],
               },
             },
           }),
           { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [
+                  workNode(2, { title: "劇場版 名探偵コナン 黒鉄の魚影" }),
+                ],
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const matched = await matchCandidateWorks(
+      "tok",
+      [{ title: "劇場版 名探偵コナン 黒鉄の魚影", reason: "A" }],
+      new Set(),
+    );
+
+    expect(matched.map((m) => m.work.annictWorkId)).toEqual([2]);
+    // union 1 回 + 部分一致の再照合 1 回。
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("複数候補が同じ作品に寄ったときは先に出た候補だけ残す", async () => {
+    const { matchCandidateWorks } =
+      await import("@/features/analysis/recommendationService");
+    vi.stubGlobal(
+      "fetch",
+      // 「鬼滅の刃 無限列車編」は union では包含一致止まりのため単発検索も
+      // 走る。Response の body は 1 回しか読めないので毎回生成する。
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                searchWorks: {
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                  nodes: [workNode(1, { title: "鬼滅の刃" })],
+                },
+              },
+            }),
+            { status: 200 },
+          ),
         ),
       ),
     );

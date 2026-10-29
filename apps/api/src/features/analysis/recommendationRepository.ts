@@ -7,8 +7,9 @@ import type { Recommendation } from "@/db/schema";
 // ---- キャッシュ・レート制限のポリシー（issue #335。analyses と同じ考え方）----
 // Workers AI の呼び出しコストを抑えるため、結果を 24h キャッシュし、
 // 生成実行はユーザーごとに固定窓で回数制限する。
-// - キャッシュ: generated_at から TTL 内かつ input_hash が現在の履歴と
-//   一致する場合だけ再利用する（履歴の変更＝ハッシュ不一致で自然に無効化）。
+// - キャッシュ: generated_at から TTL 内かつ input_hash が現在の生成条件
+//   （履歴・ジャンル・シーズン・分析の版の複合キー）と一致する場合だけ
+//   再利用する（条件の変更＝ハッシュ不一致で自然に無効化）。
 // - レート制限: window_started_at から 24h あたり generation_count 回まで。
 //   窓が切れたら次の claim でカウンタを 1 にリセットする。
 export const RECOMMENDATION_CACHE_TTL_SEC = 24 * 60 * 60;

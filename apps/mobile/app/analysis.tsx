@@ -228,7 +228,12 @@ function RecommendationsSection() {
   const colors = useThemeColors();
   const { t } = useTranslation();
   const router = useRouter();
-  const { data } = useRecommendations();
+  const {
+    data,
+    isLoading: isLoadingRecommendations,
+    isError: isRecommendationsError,
+    refetch: refetchRecommendations,
+  } = useRecommendations();
   const generate = useGenerateRecommendations();
   const upsertHistory = useUpsertWatchHistory();
   const { data: watchHistory } = useWatchHistory();
@@ -281,11 +286,44 @@ function RecommendationsSection() {
         ? t("おすすめの生成に失敗しました。時間をおいて再度お試しください")
         : null;
 
+  // 保存済み結果の取得に失敗したときは「未生成」と区別してエラーと
+  // 再試行を出す（Devin Review 指摘。GET が落ちても生成済み作品を
+  // 隠さない）。data が残っている場合は表示を優先する。
+  if (isRecommendationsError && data === undefined) {
+    return (
+      <View className="mt-6">
+        <Text className="mb-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
+          {t("おすすめ作品")}
+        </Text>
+        <View className="items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+          <Text className="mb-3 text-center text-sm text-red-500 dark:text-red-400">
+            {t("おすすめの取得に失敗しました")}
+          </Text>
+          <TouchableOpacity
+            className="rounded-lg bg-indigo-600 px-4 py-2"
+            onPress={() => refetchRecommendations()}
+            accessibilityRole="button"
+            accessibilityLabel={t("おすすめを再取得")}
+            testID="recommendations-retry-button"
+          >
+            <Text className="text-sm font-semibold text-white">
+              {t("もう一度試す")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View className="mt-6">
       <Text className="mb-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
         {t("おすすめ作品")}
       </Text>
+
+      {isLoadingRecommendations ? (
+        <ActivityIndicator className="my-4 self-start" color={colors.primary} />
+      ) : null}
 
       {recommendations && recommendations.works.length > 0 ? (
         <View className="gap-3">

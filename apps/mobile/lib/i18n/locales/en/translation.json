@@ -112,6 +112,7 @@
   "視聴履歴に無い作品から今期・過去作を提案します（1 日あたりの実行回数に上限があります）": "Suggests current-season and past titles not in your watch history (daily generation limit applies)",
   "おすすめの生成に失敗しました。時間をおいて再度お試しください": "Failed to generate recommendations. Please try again later",
   "おすすめの取得に失敗しました": "Failed to load recommendations",
+  "おすすめを再取得": "Reload recommendations",
   "見たい": "Want to watch",
   "登録済み": "Registered",
   "検索する": "Search",

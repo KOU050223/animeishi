@@ -18,6 +18,7 @@ import {
   STATE_LABELS,
   extractFinishReason,
   extractMessageContent,
+  sha256Hex,
 } from "./service";
 import type { AnalysisInput } from "./service";
 import type { SavedAnalysis } from "./repository";
@@ -46,6 +47,30 @@ const MATCH_THRESHOLD = 0.6;
 // Annict への往復数を抑えるため、候補数と同じくらいに絞る。
 const MAX_SECOND_PASS_SEARCHES = 15;
 const SECOND_PASS_CONCURRENCY = 4;
+
+/**
+ * おすすめ生成のキャッシュキー。履歴＋ジャンルのハッシュ（computeInputHash）
+ * に、プロンプトへ実際に載せる条件（現在シーズン・有効な分析結果の版）を
+ * 加えてハッシュ化する。これらが変わっても同じキーだと、古い条件で作った
+ * おすすめを返し続けてしまうため（Devin Review 指摘）。
+ * analysis は「現在の入力から生成されたもの」だけを渡すこと
+ * （呼び出し側で input_hash の一致を確認する）。
+ */
+export async function computeRecommendationInputHash(
+  inputHash: string,
+  extras: {
+    currentSeason: string;
+    analysis: SavedAnalysis | undefined;
+  },
+): Promise<string> {
+  return sha256Hex(
+    JSON.stringify({
+      inputHash,
+      currentSeason: extras.currentSeason,
+      analysisGeneratedAt: extras.analysis?.generatedAt.toISOString() ?? null,
+    }),
+  );
+}
 
 /**
  * Workers AI の呼び出し・応答の解釈に失敗したときに投げるエラー。
@@ -263,7 +288,7 @@ function prepareWork(work: AnnictLibraryEntry): PreparedWork {
 function bestMatch(
   inputSig: TitleSignature,
   pool: readonly PreparedWork[],
-): AnnictLibraryEntry | null {
+): { work: AnnictLibraryEntry; score: number } | null {
   let best: AnnictLibraryEntry | null = null;
   let bestScore = MATCH_THRESHOLD;
   for (const candidate of pool) {
@@ -276,7 +301,7 @@ function bestMatch(
       bestScore = score;
     }
   }
-  return best;
+  return best === null ? null : { work: best, score: bestScore };
 }
 
 /**
@@ -309,34 +334,45 @@ export async function matchCandidateWorks(
   const pool = pooled.map(prepareWork);
 
   const inputSigs = candidates.map((c) => prepareTitle(c.title));
-  const matched = Array.from<AnnictLibraryEntry | null>({
+  const matched = Array.from<{
+    work: AnnictLibraryEntry;
+    score: number;
+  } | null>({
     length: candidates.length,
   }).fill(null);
   for (let i = 0; i < candidates.length; i++) {
     matched[i] = bestMatch(inputSigs[i]!, pool);
   }
 
-  // 第 2 パス: union で拾えなかった候補を単発検索で救う。
+  // 第 2 パス: union で拾えなかった候補に加え、包含スコア止まり
+  // （完全一致未満）の候補も単発検索で照合し直す。union 検索は先頭 50 件
+  // 打ち切りのため、正式タイトルが圏外にあると同シリーズの別作品へ
+  // 部分一致で確定してしまう（Devin Review 指摘）。単発検索はその
+  // タイトル専用の結果なので、同スコアならそちらを優先する。
   // 候補間は独立なので同時実行数を絞って並列に投げる。
-  const unmatchedIndexes = candidates
+  const secondPassIndexes = candidates
     .map((_, i) => i)
-    .filter((i) => matched[i] === null)
+    .filter((i) => matched[i] === null || matched[i]!.score < 1)
     .slice(0, MAX_SECOND_PASS_SEARCHES);
   await mapWithConcurrency(
-    unmatchedIndexes,
+    secondPassIndexes,
     SECOND_PASS_CONCURRENCY,
     async (i) => {
       const { works } = await withAnnictRetry(() =>
         searchAnnictWorksByTitle(accessToken, candidates[i]!.title),
       );
-      matched[i] = bestMatch(inputSigs[i]!, works.map(prepareWork));
+      const retry = bestMatch(inputSigs[i]!, works.map(prepareWork));
+      const prev = matched[i]!;
+      if (retry !== null && (prev === null || retry.score >= prev.score)) {
+        matched[i] = retry;
+      }
     },
   );
 
   const seen = new Set<number>();
   const results: { work: AnnictLibraryEntry; reason: string }[] = [];
   for (let i = 0; i < candidates.length; i++) {
-    const work = matched[i];
+    const work = matched[i]?.work;
     if (!work) continue;
     if (seen.has(work.annictWorkId)) continue;
     if (excludeWorkIds.has(work.annictWorkId)) continue;

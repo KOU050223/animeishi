@@ -421,8 +421,8 @@ export const analyses = sqliteTable("analyses", {
 // analyses と同じく、user_id 1 行に「最新のおすすめ結果」と「生成回数カウンタ」を
 // 同居させる。works_json / input_hash / generated_at は生成が完了するまで NULL
 // （レート制限の claim が行だけ先行作成するため）。
-// input_hash は分析と同じ入力（履歴＋選択ジャンル）のハッシュで、視聴履歴が
-// 変わったことを検出してキャッシュを無効化するのに使う。
+// input_hash は生成条件（履歴＋選択ジャンル＋現在シーズン＋有効な分析結果の
+// 版）の複合ハッシュで、条件が変わったことを検出してキャッシュを無効化する。
 export const recommendations = sqliteTable("recommendations", {
   userId: text("user_id")
     .primaryKey()

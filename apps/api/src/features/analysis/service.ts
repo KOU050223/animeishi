@@ -138,9 +138,14 @@ export async function computeInputHash(input: AnalysisInput): Promise<string> {
     ),
     selectedGenres: [...input.selectedGenres].sort(),
   };
+  return sha256Hex(JSON.stringify(canonical));
+}
+
+/** 文字列の SHA-256 hex。おすすめ生成の複合キャッシュキーでも使う。 */
+export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(JSON.stringify(canonical)),
+    new TextEncoder().encode(text),
   );
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))

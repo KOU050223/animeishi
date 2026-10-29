@@ -18,6 +18,7 @@ import {
   type SavedRecommendation,
 } from "./recommendationRepository";
 import {
+  computeRecommendationInputHash,
   matchCandidateWorks,
   runRecommendationCandidates,
   toRecommendedWork,
@@ -150,6 +151,7 @@ const analysis = app
       ...output,
       generatedAt: new Date(),
       workCount: input.totalCount,
+      inputHash,
     };
     // claim 後に別入力の生成が先行した場合は保存を破棄する（古い結果が
     // 新しい結果を上書きしないよう compare-and-swap）。
@@ -204,12 +206,28 @@ const analysis = app
     const selectedGenres = await usersRepository(db, userId).getMyGenres();
     const input = buildAnalysisInput(history, selectedGenres);
     const inputHash = await computeInputHash(input);
+    const currentSeason = currentAnnictSeason();
+
+    // 分析文をプロンプトに載せるのは、それが現在の履歴・ジャンルから
+    // 生成されたものだけ。input_hash 不一致＝古い入力の分析なので、
+    // 新しい履歴と混ぜてモデルに渡さない。
+    const savedAnalysis = await analysisRepository(db, userId).getMyAnalysis();
+    const usableAnalysis =
+      savedAnalysis?.inputHash === inputHash ? savedAnalysis : undefined;
+
+    // プロンプトに載せる条件（履歴・ジャンル・シーズン・分析の版）を
+    // すべて含んだ複合キーをキャッシュ判定に使う。分析の新規生成・更新や
+    // シーズン切り替わりでも古いおすすめを返さないため。
+    const cacheKey = await computeRecommendationInputHash(inputHash, {
+      currentSeason,
+      analysis: usableAnalysis,
+    });
 
     const repo = recommendationRepository(db, userId);
     const nowSec = Math.floor(Date.now() / 1000);
 
     // キャッシュヒット時は Annict も AI も呼ばず保存済みを返す。
-    const cached = await repo.findFreshCache(inputHash, nowSec);
+    const cached = await repo.findFreshCache(cacheKey, nowSec);
     if (cached) {
       return c.json(
         {
@@ -231,8 +249,9 @@ const analysis = app
     }
 
     // 生成回数制限。claim の意味づけは分析と同じ（失敗も 1 回消費）。
+    // 比較・保存のトークンには複合キャッシュキーを使う。
     try {
-      await repo.claimGeneration(nowSec, inputHash);
+      await repo.claimGeneration(nowSec, cacheKey);
     } catch (e) {
       if (e instanceof RecommendationRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -244,14 +263,11 @@ const analysis = app
       throw e;
     }
 
-    // 保存済みの分析結果があれば傾向としてプロンプトに載せる。
-    const savedAnalysis = await analysisRepository(db, userId).getMyAnalysis();
-
     let candidates: RecommendationCandidate[];
     try {
       candidates = await runRecommendationCandidates(env.AI, input, {
-        currentSeason: currentAnnictSeason(),
-        analysis: savedAnalysis,
+        currentSeason,
+        analysis: usableAnalysis,
       });
     } catch (e) {
       reportApiFailure(e, c, 502);
@@ -288,7 +304,7 @@ const analysis = app
     const generatedAt = new Date();
     const persisted = await repo.saveMyRecommendations({
       works,
-      inputHash,
+      inputHash: cacheKey,
       generatedAt,
     });
     if (!persisted) {
