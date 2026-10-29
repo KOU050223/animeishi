@@ -142,7 +142,7 @@ export type SharedWatchHistoryEntry = {
   seasonName: string | null;
   seasonYear: number | null;
   state: string;
-  /** 履歴行の最終更新時刻。共有表の「視聴日」列に使う。 */
+  /** 履歴行の最終更新時刻。共有表の「最終更新日」列に使う。 */
   updatedAt: Date;
 };
 

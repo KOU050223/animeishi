@@ -3,7 +3,12 @@ import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
-const watchHistoryShareQueryKey = ["watch-history-share"] as const;
+// userId でスコープする。ユーザー非依存のキーだと、AsyncStorage に永続化
+// されたクエリキャッシュがサインアウトをまたいで残り、同一端末で別の
+// 利用者がログインしたとき前の利用者の共有 URL が見える（他のユーザー
+// 単位クエリと同じ理由。useWatchHistory のキー設計に揃える）。
+const watchHistoryShareQueryKey = (userId: string) =>
+  ["watch-history-share", userId] as const;
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -28,11 +33,13 @@ export function buildWatchHistoryShareUrl(
 
 /** 発行中の共有トークンを取得する。未発行なら shareToken は null。 */
 export function useWatchHistoryShareStatus() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: watchHistoryShareQueryKey,
-    enabled: !!isSignedIn,
+    queryKey: userId
+      ? watchHistoryShareQueryKey(userId)
+      : ["watch-history-share"],
+    enabled: !!isSignedIn && !!userId,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["watch-histories"].share.$get(
@@ -52,7 +59,7 @@ export function useWatchHistoryShareStatus() {
  * （既に発行済みなら同じトークンが返る）。
  */
 export function useShareWatchHistory() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -68,7 +75,8 @@ export function useShareWatchHistory() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(watchHistoryShareQueryKey, {
+      if (!userId) return;
+      queryClient.setQueryData(watchHistoryShareQueryKey(userId), {
         shareToken: data.shareToken,
       });
     },
@@ -77,7 +85,7 @@ export function useShareWatchHistory() {
 
 /** 共有トークンを破棄する。破棄後は共有 URL が 404 を返す。 */
 export function useUnshareWatchHistory() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -93,7 +101,8 @@ export function useUnshareWatchHistory() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.setQueryData(watchHistoryShareQueryKey, {
+      if (!userId) return;
+      queryClient.setQueryData(watchHistoryShareQueryKey(userId), {
         shareToken: null,
       });
     },

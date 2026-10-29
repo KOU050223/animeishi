@@ -454,7 +454,10 @@ export function sharedWatchSeasonLabel(entry: {
 }
 
 /**
- * 「視聴日」列の日付。watch_history.updated_at を JST の YYYY-MM-DD にする。
+ * 「最終更新日」列の日付。watch_history.updated_at を JST の YYYY-MM-DD にする。
+ * 実際の視聴日時は watch_history に保持していない（Annict 側の記録日時は
+ * 同期してこない）ため、ステータスの最終更新日時を出す。初回同期は
+ * 全件に同期時刻が入るので「視聴日」とは名乗らない。
  * ユーザーに見せる日付なので UTC ではなく JST 基準で丸める（+9:00 固定。
  * 日本には DST が無いため単純な時差加算でよい）。
  */
@@ -475,7 +478,7 @@ export function buildSharedWatchHistoryMarkdown(
   const lines = [
     `# ${history.ownerUsername} の視聴履歴`,
     "",
-    "| 作品名 | シーズン | 視聴状態 | 視聴日 |",
+    "| 作品名 | シーズン | 視聴状態 | 最終更新日 |",
     "| --- | --- | --- | --- |",
     ...history.items.map(
       (item) =>
@@ -536,7 +539,7 @@ export function buildSharedWatchHistoryHtml(
   <p class="owner">Animeishi で共有された視聴履歴</p>
   <table>
     <thead>
-      <tr><th>作品名</th><th>シーズン</th><th>視聴状態</th><th>視聴日</th></tr>
+      <tr><th>作品名</th><th>シーズン</th><th>視聴状態</th><th>最終更新日</th></tr>
     </thead>
     <tbody>
     ${rowsHtml}

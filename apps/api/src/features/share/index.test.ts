@@ -842,8 +842,8 @@ describe("視聴履歴の共有", () => {
 
     const md = await res.text();
     expect(md).toContain("# 履歴テストユーザー の視聴履歴");
-    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 視聴日 |");
-    // シーズンは「2026年春」、状態は日本語、視聴日は JST の日付（+9h で
+    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 最終更新日 |");
+    // シーズンは「2026年春」、状態は日本語、最終更新日は JST の日付（+9h で
     // 2026-04-21 に丸まる行が先 = updated_at 降順）
     expect(md).toContain("| 見たアニメB | 2025年秋 | 視聴中 | 2026-04-21 |");
     expect(md).toContain("| 見たアニメA | 2026年春 | 視聴済 | 2026-04-11 |");
@@ -970,7 +970,7 @@ describe("視聴履歴の共有", () => {
     );
     expect(res.status).toBe(200);
     const md = await res.text();
-    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 視聴日 |");
+    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 最終更新日 |");
     expect(md).toContain("視聴履歴はありません");
   });
 
