@@ -105,25 +105,32 @@ SDK のサポート期間は約1年。SDK 54（2025-09 リリース）は 2026 �
 にすると iOS 26+ の Liquid Glass・スクロール連動の縮小・safe area 自動処理・
 iPhone Duo の縦レール配置が乗る。**ただし Android は最大5タブ**で、
 このアプリは7タブ（ホーム/アニメ/QR/履歴/推し/フレンド/プロフ）あるため
-そのまま移行不可。タブ構成の見直しか Android だけ JS Tabs 残留かの
-設計判断が先に要る。Web は `_layout.web.tsx` 分離で現行維持。
+そのままでは移行できない。Android だけ JS Tabs に残す案は実装が 2 系統に
+なるので採らず、タブを 4 つ（ホーム/ライブラリ/QR・フレンド/プロフ）に
+集約してから iOS・Android とも NativeTabs にする（#170 → #312）。
+Web は `_layout.web.tsx` 分離で現行維持。タブを 6 つ以上に増やす必要が
+出たら、Android だけ JS Tabs に戻す案を再検討する。
 
 ### `@expo/ui` 試用
 
 SwiftUI/Compose の実物を React から描く。universal 層は SDK 56+ 前提。
 NativeWind ベースの独自デザインなので全面採用ではなく、設定フォーム・
-ピッカー・ボトムシートなど純正 UI が向く箇所への部分導入が現実的。
-universal 層の Web 側はまだ experimental。
+ピッカー・ボトムシートの 3 種類に部分導入する（#313）。universal 層の
+Web 側はまだ experimental なので、Web は既存 UI を拡張子分割で残す。
+Web 側が stable になったら Web も寄せるか判断し直す。
 
 ### その他の拾いどころ
 
 - **EAS Update バイトコード差分**: SDK 56 以降は自動で有効。追加作業なし
 - **EAS Observe（GA 済み）**: 起動・遷移パフォーマンスと JS エラー・
-  ネイティブクラッシュの本番計測。Sentry と併用するか要検討
+  ネイティブクラッシュの本番計測。エラー収集は Sentry に残し、Observe は
+  性能計測だけに使う（#314）。無料枠を超えるなら入れない
 - **NativeWind v5 + Tailwind v4**: 現行は v4 + Tailwind v3。
-  スタイル基盤の移行は SDK とは独立した判断
+  スタイル基盤の移行は SDK とは独立した判断。利用者がいない今のうちに
+  v5 の stable を待たず移行する（#315）
 - **expo-sharing の受信共有**（SDK 55〜、experimental）: 他アプリからの
-  共有インテントを受けられる。名刺交換まわりで将来的に使える可能性
+  共有インテントを受けられる。名刺 URL と名刺 QR の画像を受けて
+  相手の名刺画面を開く用途で、experimental のうちに入れる（#316）
 - **expo-app-intents**（SDK 58、alpha）: Siri/Shortcuts 連携。優先度は低い
 
 ## 前提が変わったら
