@@ -5,6 +5,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { tierListSaveSchema, tierListSeasonParamSchema } from "./schema";
 import { tierListsRepository } from "./repository";
+import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/annict/workImage";
@@ -92,12 +93,20 @@ const tierLists = new Hono<AuthVariables>()
       };
     });
 
-    const saved = await repo.saveMyTierList({
+    const { tierList: saved, created } = await repo.saveMyTierList({
       season: input.season,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
       items,
     });
+    // 新規作成のときだけ活動フィードに記録する（更新のたびに流すと
+    // ドラッグ操作の保存がフィードを埋め尽くすため）
+    if (created) {
+      await feedRepository(db, c.var.clerkUserId).recordActivity({
+        type: "tier_list_created",
+        meta: { kind: "season", season: input.season, title: input.title },
+      });
+    }
     return c.json(
       {
         ...saved,
@@ -129,9 +138,15 @@ const tierLists = new Hono<AuthVariables>()
       const { season } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
       const repo = tierListsRepository(db, c.var.clerkUserId);
-      const shareToken = await repo.shareMyTierList(season);
-      if (!shareToken) return c.json({ error: "Tier list not found" }, 404);
-      return c.json({ shareToken }, 200);
+      const result = await repo.shareMyTierList(season);
+      if (!result) return c.json({ error: "Tier list not found" }, 404);
+      if (result.issuedNow) {
+        await feedRepository(db, c.var.clerkUserId).recordActivity({
+          type: "tier_list_shared",
+          meta: { kind: "season", season, title: result.title },
+        });
+      }
+      return c.json({ shareToken: result.shareToken }, 200);
     },
   )
   .delete(

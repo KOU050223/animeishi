@@ -4,6 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { watchHistoryRepository } from "./repository";
+import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
 import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
@@ -162,11 +163,22 @@ const watchHistory = new Hono<AuthVariables>()
         return c.json({ error: "Work not found" }, 404);
       }
 
-      const result = await repo.upsertWatchHistory(annictWorkId, {
+      const { entry, changed } = await repo.upsertWatchHistory(annictWorkId, {
         state: data.state,
       });
 
-      return c.json(result, 200);
+      // ステータスが変わった（または新規登録）ときだけ活動フィードに記録する。
+      // bulk 登録や GET の read-through 同期は「取り込み」であり活動ではないため、
+      // ユーザーが明示的に状態を変えたこの経路だけを記録対象にする。
+      if (changed) {
+        await feedRepository(db, c.var.clerkUserId).recordActivity({
+          type: "watch_status",
+          annictWorkId,
+          meta: { state: data.state },
+        });
+      }
+
+      return c.json(entry, 200);
     },
   )
   // dアニメインポート等の一括登録。各作品ごとに PUT と同じ不変条件

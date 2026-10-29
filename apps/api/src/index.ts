@@ -18,6 +18,7 @@ import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
 import { favorites } from "./features/favorites";
+import { feed } from "./features/feed";
 import { friends } from "./features/friends";
 import { health } from "./features/health";
 import { images } from "./features/images";
@@ -94,6 +95,7 @@ const routes = app
   .route("/works", works)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
+  .route("/me/feed", feed)
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
   .route("/me/character-tier-lists", characterTierLists)

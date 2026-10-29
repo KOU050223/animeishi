@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { watchHistory, annictWorks } from "@/db/schema";
@@ -182,29 +182,52 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
       return listMyWatchHistory();
     },
 
+    /**
+     * 視聴ステータスの upsert。changed はこの呼び出しで状態が実際に変わった
+     * （新規登録または別状態への更新）ときだけ true。
+     *
+     * 「変わったか」を事前 SELECT ではなく書き込み件数から判定する。upsert 1 本に
+     * せず「同じ state なら 0 件になる条件付き UPDATE → INSERT-or-ignore」の
+     * 2 段にしているのは、SQLite の upsert では insert / update のどちらが
+     * 走ったか・行が変わったかが meta.changes から分からず、事前 SELECT だと
+     * 並行リクエストで両方が「変化した」と誤判定するため。
+     */
     async upsertWatchHistory(
       annictWorkId: number,
       data: Pick<NewWatchHistory, "state">,
-    ): Promise<WatchHistory> {
+    ): Promise<{ entry: WatchHistory; changed: boolean }> {
       const now = new Date();
-      await db
-        .insert(watchHistory)
-        .values({
-          userId: currentUserId,
-          annictWorkId,
-          ...data,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [watchHistory.userId, watchHistory.annictWorkId],
-          set: { ...data, updatedAt: now },
-        });
-      const updated = await db.query.watchHistory.findFirst({
+      const updated = await db
+        .update(watchHistory)
+        .set({ ...data, updatedAt: now })
+        .where(
+          and(
+            eq(watchHistory.userId, currentUserId),
+            eq(watchHistory.annictWorkId, annictWorkId),
+            ne(watchHistory.state, data.state),
+          ),
+        );
+      let changed = updated.meta.changes === 1;
+      if (!changed) {
+        // 0 件は「行が無い」か「既に同じ state」。未登録なら INSERT し、
+        // 並行リクエストが先に同じ状態で登録済みなら onConflictDoNothing で無視される。
+        const inserted = await db
+          .insert(watchHistory)
+          .values({
+            userId: currentUserId,
+            annictWorkId,
+            ...data,
+            updatedAt: now,
+          })
+          .onConflictDoNothing();
+        changed = inserted.meta.changes === 1;
+      }
+      const entry = await db.query.watchHistory.findFirst({
         where: (t, { and, eq: eq_ }) =>
           and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
-      if (!updated) throw new Error("視聴履歴の更新に失敗しました");
-      return updated;
+      if (!entry) throw new Error("視聴履歴の更新に失敗しました");
+      return { entry, changed };
     },
 
     /**

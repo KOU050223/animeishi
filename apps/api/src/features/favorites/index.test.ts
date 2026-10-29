@@ -284,6 +284,61 @@ describe("お気に入り API", () => {
       expect(res.status).toBe(400);
     });
 
+    it("POST /me/favorites/:annictWorkId: 新規追加時に活動（favorite_added）を記録する", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(201);
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.userId).toBe(USER_ID);
+      expect(rows[0]?.type).toBe("favorite_added");
+      expect(rows[0]?.annictWorkId).toBe(ANNICT_WORK_ID);
+    });
+
+    it("POST /me/favorites/:annictWorkId: 冪等な再追加では活動を重複記録しない", async () => {
+      const app = buildApp();
+      await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+      await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+    });
+
+    it("POST /me/favorites/:annictWorkId: 解除してから追加し直すと新しい活動として記録される", async () => {
+      const app = buildApp();
+      await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+      await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      await app.request(
+        `/me/favorites/${ANNICT_WORK_ID}`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(2);
+    });
+
     it("POST /me/favorites/:annictWorkId: users 未登録ユーザーでも自動プロビジョニングされ追加できる", async () => {
       // 事前に users へ登録していない別ユーザーで認証する。
       // requireAuth の ensureUserExists により外部キー制約を満たすため、

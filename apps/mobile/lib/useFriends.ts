@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { ACTIVITY_FEED_QUERY_KEY } from "./useActivityFeed";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
@@ -15,6 +16,18 @@ export const FRIENDS_QUERY_KEY = ["friends"] as const;
 
 const friendsQueryKey = (userId: string) =>
   [...FRIENDS_QUERY_KEY, userId] as const;
+
+// フレンド関係が変わると一覧と活動フィードの内容が変わるため、両方を無効化する
+// （フィードのキャッシュは userId サフィックス付きなので prefix で無効化する）。
+function invalidateFriendRelatedQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  userId: string | null | undefined,
+) {
+  void queryClient.invalidateQueries({
+    queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
+  });
+  void queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY });
+}
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -79,9 +92,7 @@ export function useAddFriend() {
       return res.json();
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
-      });
+      invalidateFriendRelatedQueries(queryClient, userId);
     },
   });
 }
@@ -104,9 +115,7 @@ export function useRemoveFriend() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
-      });
+      invalidateFriendRelatedQueries(queryClient, userId);
     },
   });
 }
