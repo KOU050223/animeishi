@@ -8,6 +8,14 @@
  *
  * 直接このファイルの setMockClerkState を呼んでもよいが、可読性のため
  * 通常はファクトリ（loggedInUser 等）経由での利用を推奨する。
+ *
+ * Core 3 のシグナル API（useSignIn / useSignUp）に合わせた形:
+ * 各メソッドは例外ではなく `{ error }` を返し、成否は戻り値ではなく
+ * リソース（signIn / signUp オブジェクト）の status 等に反映される。
+ * テストで結果を設定するには、呼び出し前にリソースの `outcome` フィールドへ
+ * 反映したい値を入れる（次のメソッド呼び出しでリソースへ適用され、
+ * `{ error }` の値にもなる）。単発の戻り値を差し替えたいだけなら
+ * 通常どおり mockResolvedValueOnce({ error: ... }) も使える。
  */
 
 type MockUser = {
@@ -15,6 +23,41 @@ type MockUser = {
   username: string | null;
   passkeys: Array<{ id: string }>;
   createPasskey: jest.Mock;
+};
+
+/** シグナル API のリソースへ次の呼び出し時に反映する結果。 */
+type MockOutcome = {
+  error?: unknown;
+} & Record<string, unknown>;
+
+type MockSignIn = {
+  id: string | null;
+  status: string | null;
+  createdSessionId: string | null;
+  existingSession?: { sessionId: string };
+  /** 次のメソッド呼び出し時にリソースへ反映する結果（適用後は null に戻る）。 */
+  outcome: MockOutcome | null;
+  password: jest.Mock;
+  passkey: jest.Mock;
+  sso: jest.Mock;
+  finalize: jest.Mock;
+};
+
+type MockSignUp = {
+  id: string | null;
+  status: string | null;
+  createdSessionId: string | null;
+  unverifiedFields: string[];
+  missingFields: string[];
+  existingSession?: { sessionId: string };
+  outcome: MockOutcome | null;
+  password: jest.Mock;
+  sso: jest.Mock;
+  verifications: {
+    sendEmailCode: jest.Mock;
+    verifyEmailCode: jest.Mock;
+  };
+  finalize: jest.Mock;
 };
 
 type MockClerkState = {
@@ -25,16 +68,8 @@ type MockClerkState = {
   getToken: () => Promise<string | null>;
   signOut: jest.Mock;
   setActive: jest.Mock;
-  signIn: {
-    create: jest.Mock;
-    authenticateWithPasskey: jest.Mock;
-    authenticateWithRedirect: jest.Mock;
-  };
-  signUp: {
-    create: jest.Mock;
-    prepareEmailAddressVerification: jest.Mock;
-    attemptEmailAddressVerification: jest.Mock;
-  };
+  signIn: MockSignIn;
+  signUp: MockSignUp;
   startSSOFlow: jest.Mock;
   handleRedirectCallback: jest.Mock;
   client: {
@@ -44,7 +79,56 @@ type MockClerkState = {
   };
 };
 
+/** outcome をリソースへ適用し `{ error }` を返す、シグナル API メソッドの既定挙動。 */
+function applyOutcome(resource: { outcome: MockOutcome | null }): {
+  error: unknown;
+} {
+  const outcome = resource.outcome;
+  resource.outcome = null;
+  if (!outcome) return { error: null };
+  const { error, ...fields } = outcome;
+  Object.assign(resource, fields);
+  return { error: error ?? null };
+}
+
+/** finalize() の既定挙動。本物同様、作成済みセッションを setActive で活性化する。 */
+async function finalizeResource(resource: {
+  outcome: MockOutcome | null;
+  createdSessionId: string | null;
+}): Promise<{ error: unknown }> {
+  const { error } = applyOutcome(resource);
+  if (error) return { error };
+  await state.setActive({ session: resource.createdSessionId });
+  return { error: null };
+}
+
 function createDefaultState(): MockClerkState {
+  const signIn: MockSignIn = {
+    id: null,
+    status: null,
+    createdSessionId: null,
+    outcome: null,
+    password: jest.fn(async () => applyOutcome(signIn)),
+    // Web パスキーサインイン（#181）と Web OAuth リダイレクト（#89）のモック。
+    passkey: jest.fn(async () => applyOutcome(signIn)),
+    sso: jest.fn(async () => applyOutcome(signIn)),
+    finalize: jest.fn(async () => finalizeResource(signIn)),
+  };
+  const signUp: MockSignUp = {
+    id: null,
+    status: null,
+    createdSessionId: null,
+    unverifiedFields: [],
+    missingFields: [],
+    outcome: null,
+    password: jest.fn(async () => applyOutcome(signUp)),
+    sso: jest.fn(async () => applyOutcome(signUp)),
+    verifications: {
+      sendEmailCode: jest.fn(async () => applyOutcome(signUp)),
+      verifyEmailCode: jest.fn(async () => applyOutcome(signUp)),
+    },
+    finalize: jest.fn(async () => finalizeResource(signUp)),
+  };
   return {
     isLoaded: true,
     isSignedIn: false,
@@ -61,17 +145,8 @@ function createDefaultState(): MockClerkState {
       // 既定では setActive でサインイン済みへ遷移させる。
       state.isSignedIn = true;
     }),
-    signIn: {
-      create: jest.fn(),
-      // Web パスキーサインイン（#181）と Web OAuth リダイレクト（#89）のモック。
-      authenticateWithPasskey: jest.fn(),
-      authenticateWithRedirect: jest.fn(),
-    },
-    signUp: {
-      create: jest.fn(),
-      prepareEmailAddressVerification: jest.fn(),
-      attemptEmailAddressVerification: jest.fn(),
-    },
+    signIn,
+    signUp,
     // ネイティブ Google SSO（useSSO）と Web コールバック完了処理のモック。
     startSSOFlow: jest.fn(),
     handleRedirectCallback: jest.fn(),
@@ -100,7 +175,7 @@ export function setMockClerkState(patch: Partial<MockClerkState>): void {
 /**
  * モックステートを初期状態（未サインイン・新しい jest.fn 群）へ戻す。
  * beforeEach から呼ぶ。jest.clearAllMocks() では参照を作り直さないため、
- * テスト間で create.mockResolvedValueOnce のキューが残らないよう再生成する。
+ * テスト間で mockResolvedValueOnce のキューが残らないよう再生成する。
  */
 export function resetMockClerkState(): void {
   state = createDefaultState();
@@ -121,24 +196,48 @@ export const useUser = () => ({
   isLoaded: state.isLoaded,
 });
 
+const emptySignInErrors = {
+  fields: { identifier: null, password: null, code: null },
+  raw: null,
+  global: null,
+};
+
+const emptySignUpErrors = {
+  fields: {
+    firstName: null,
+    lastName: null,
+    emailAddress: null,
+    phoneNumber: null,
+    password: null,
+    username: null,
+    code: null,
+    captcha: null,
+    legalAccepted: null,
+  },
+  raw: null,
+  global: null,
+};
+
 export const useSignIn = () => ({
-  signIn: state.signIn,
-  setActive: state.setActive,
-  isLoaded: state.isLoaded,
+  signIn: state.isLoaded ? state.signIn : null,
+  errors: emptySignInErrors,
+  fetchStatus: "idle" as const,
 });
 
 export const useSignUp = () => ({
-  signUp: state.signUp,
-  setActive: state.setActive,
-  isLoaded: state.isLoaded,
+  signUp: state.isLoaded ? state.signUp : null,
+  errors: emptySignUpErrors,
+  fetchStatus: "idle" as const,
 });
 
 export const useClerk = () => ({
   client: state.client,
+  setActive: state.setActive,
   handleRedirectCallback: state.handleRedirectCallback,
 });
 
-// useSSO は Google 等の SSO フロー用フック（clerk-expo 2.x の OAuth 推奨 API）。
+// useSSO は Google 等の SSO フロー用フック（ネイティブでは
+// expo-web-browser の認証セッション方式）。
 export const useSSO = () => ({
   startSSOFlow: state.startSSOFlow,
 });

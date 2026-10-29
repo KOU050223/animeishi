@@ -10,6 +10,8 @@ import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
 
 // issue #181: Web のパスキーサインイン。コンポーネント自体はフラグを持たず
 // （表示制御は画面側の featureFlags.passkey が担う）、押下時の処理だけを検証する。
+// シグナル API では成功結果は signIn.outcome でリソースに反映し、
+// 失敗は { error } の返り値で表す。
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -26,16 +28,16 @@ beforeEach(async () => {
 describe("PasskeySignInButton", () => {
   it("パスキー認証が成功するとセッションを活性化してホームへ遷移する", async () => {
     const auth = getAuthMock();
-    auth.signIn.authenticateWithPasskey.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_passkey",
-    });
+    };
 
     await render(<PasskeySignInButton onError={onError} />);
     await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
-      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalledWith({
+      expect(auth.signIn.passkey).toHaveBeenCalledWith({
         flow: "discoverable",
       });
       expect(auth.setActive).toHaveBeenCalledWith({
@@ -49,13 +51,13 @@ describe("PasskeySignInButton", () => {
     const auth = getAuthMock();
     const cancelError = new Error("cancelled");
     cancelError.name = "NotAllowedError";
-    auth.signIn.authenticateWithPasskey.mockRejectedValueOnce(cancelError);
+    auth.signIn.passkey.mockResolvedValueOnce({ error: cancelError });
 
     await render(<PasskeySignInButton onError={onError} />);
     await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
-      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalled();
+      expect(auth.signIn.passkey).toHaveBeenCalled();
     });
     // ローディングが解除されるまで待ってから検証する
     await waitFor(() => {
@@ -68,9 +70,9 @@ describe("PasskeySignInButton", () => {
 
   it("認証失敗時はエラーメッセージを呼び出し側へ返す", async () => {
     const auth = getAuthMock();
-    auth.signIn.authenticateWithPasskey.mockRejectedValueOnce(
-      new Error("network error"),
-    );
+    auth.signIn.passkey.mockResolvedValueOnce({
+      error: new Error("network error"),
+    });
 
     await render(<PasskeySignInButton onError={onError} />);
     await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
@@ -85,20 +87,20 @@ describe("PasskeySignInButton", () => {
 
   it("既にサインイン済みの場合は先にサインアウトする", async () => {
     const auth = loggedInUser();
-    auth.signIn.authenticateWithPasskey.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_passkey",
-    });
+    };
 
     await render(<PasskeySignInButton onError={onError} />);
     await fireEvent.press(screen.getByTestId("passkey-sign-in-button"));
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
-      expect(auth.signIn.authenticateWithPasskey).toHaveBeenCalled();
+      expect(auth.signIn.passkey).toHaveBeenCalled();
     });
     expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.authenticateWithPasskey.mock.invocationCallOrder[0],
+      auth.signIn.passkey.mock.invocationCallOrder[0],
     );
   });
 });

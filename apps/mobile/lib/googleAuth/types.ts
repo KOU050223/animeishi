@@ -3,7 +3,7 @@
  *
  * 実装は拡張子分割で切り替わる:
  * - useGoogleAuth.native.ts ... useSSO + startSSOFlow（expo-web-browser）
- * - useGoogleAuth.web.ts    ... signIn.authenticateWithRedirect（ページリダイレクト）
+ * - useGoogleAuth.web.ts    ... signIn.sso（ページリダイレクト）
  *
  * 呼び出し側は常に `@/lib/googleAuth` から import する。
  */

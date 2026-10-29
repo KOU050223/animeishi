@@ -1,8 +1,4 @@
-import { useAuth, useClerk } from "@clerk/expo";
-// Core 3 の useSignIn はシグナルベースの新 API（signIn.password()/finalize()）。
-// 既存フロー（signIn.create + setActive + session_exists 復旧）の挙動を
-// 維持するため、Core 2 互換 API を提供する legacy サブパスを使う。
-import { useSignIn } from "@clerk/expo/legacy";
+import { useAuth, useClerk, useSignIn } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
 import {
   View,
@@ -44,9 +40,9 @@ function getIncompleteSignInMessage(status: string | null, t: TFunction) {
 
 export default function SignInScreen() {
   const { t } = useTranslation();
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { isSignedIn, signOut } = useAuth();
-  const { client } = useClerk();
+  const { signIn } = useSignIn();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
 
@@ -56,7 +52,7 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleSignIn() {
-    if (!isLoaded) return;
+    if (!isLoaded || !signIn) return;
 
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
@@ -76,16 +72,23 @@ export default function SignInScreen() {
         await signOut();
       }
 
-      const result = await signIn.create({
+      // Core 3 のシグナル API は例外ではなく { error } を返す。
+      // 下の catch ベースの処理（session_exists 復旧・エラー文言変換）を
+      // そのまま使うため、error があればここで投げ直す。
+      // 結果は戻り値ではなく signIn リソースの status / createdSessionId に反映される。
+      const { error: signInError } = await signIn.password({
         identifier: parsed.data.email,
         password: parsed.data.password,
       });
+      if (signInError) throw signInError;
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+      if (signIn.status === "complete") {
+        // finalize() は作成済みセッションの setActive を内部で行う。
+        const { error: finalizeError } = await signIn.finalize();
+        if (finalizeError) throw finalizeError;
         router.replace("/(tabs)");
       } else {
-        setError(getIncompleteSignInMessage(result.status, t));
+        setError(getIncompleteSignInMessage(signIn.status, t));
       }
     } catch (err: unknown) {
       // session_exists は有効なセッションが既に残っている状態

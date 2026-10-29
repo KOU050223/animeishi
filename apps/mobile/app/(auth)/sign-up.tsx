@@ -1,8 +1,4 @@
-import { useAuth, useClerk } from "@clerk/expo";
-// Core 3 の useSignUp はシグナルベースの新 API（signUp.password()/finalize()）。
-// 既存フロー（signUp.create + メール認証 + setActive）の挙動を維持するため、
-// Core 2 互換 API を提供する legacy サブパスを使う。
-import { useSignUp } from "@clerk/expo/legacy";
+import { useAuth, useClerk, useSignUp } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
 import {
   View,
@@ -28,9 +24,9 @@ import { useThemeColors } from "@/lib/theme";
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
-  const { signUp, setActive, isLoaded } = useSignUp();
-  const { signOut } = useAuth();
-  const { client } = useClerk();
+  const { signUp } = useSignUp();
+  const { isLoaded, signOut } = useAuth();
+  const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
 
@@ -46,19 +42,19 @@ export default function SignUpScreen() {
 
   // サインアップ完了後の進行先（issue #326）。パスキーが使える環境では
   // ホームへ遷移する前に登録促進ステップをこの画面内で挟む。
-  // 促進ステップも (auth) 内の表示のため、setActive で isSignedIn が立つと
-  // AuthGuard の「サインイン済みは (auth) からホームへ」に追い出される。
+  // 促進ステップも (auth) 内の表示のため、finalize（内部で setActive）で
+  // isSignedIn が立つと AuthGuard の「サインイン済みは (auth) からホームへ」
+  // に追い出される。
   // 追い出し抑止のフラグはガードの effect が走りうるすべてのタイミングに
-  // 間に合わせる必要があるので、setActive より先に立てる。
-  async function activateSessionAndContinue(sessionId: string) {
-    if (!setActive) return;
+  // 間に合わせる必要があるので、finalize より先に立てる。
+  async function activateSessionAndContinue() {
+    if (!signUp) return;
     const showPasskeyPrompt = featureFlags.passkey;
     if (showPasskeyPrompt) passkeyPromptPending.current = true;
-    try {
-      await setActive({ session: sessionId });
-    } catch (err) {
+    const { error } = await signUp.finalize();
+    if (error) {
       passkeyPromptPending.current = false;
-      throw err;
+      throw error;
     }
     if (showPasskeyPrompt) {
       setPendingPasskeyPrompt(true);
@@ -73,7 +69,7 @@ export default function SignUpScreen() {
   }
 
   async function handleSignUp() {
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) return;
 
     const parsed = signUpSchema.safeParse({
       email,
@@ -92,29 +88,33 @@ export default function SignUpScreen() {
     setError(null);
 
     try {
-      const result = await signUp.create({
+      // Core 3 のシグナル API は例外ではなく { error } を返す。
+      // 下の catch ベースの処理（session_exists 復旧・エラー文言変換）を
+      // そのまま使うため、error があればここで投げ直す。
+      // 結果は戻り値ではなく signUp リソースの status 等に反映される。
+      const { error: signUpError } = await signUp.password({
         emailAddress: parsed.data.email,
         password: parsed.data.password,
         username: parsed.data.username,
       });
+      if (signUpError) throw signUpError;
 
-      // メール認証が必須でない Clerk 設定では create の時点で complete になる。
+      // メール認証が必須でない Clerk 設定では password() の時点で complete になる。
       // その場合は認証コード入力を挟まず、そのままセッションを有効化して完了する。
-      if (result.status === "complete" && result.createdSessionId) {
-        await activateSessionAndContinue(result.createdSessionId);
+      if (signUp.status === "complete" && signUp.createdSessionId) {
+        await activateSessionAndContinue();
         return;
       }
 
       // メール認証が求められているときだけ認証コード画面へ進む。
-      // 認証不要なインスタンスで無条件に prepareEmailAddressVerification すると
+      // 認証不要なインスタンスで無条件に sendEmailCode すると
       // 400 になるため、unverified/missing に email_address があるかで分岐する。
       const emailNeedsVerification =
-        result.unverifiedFields?.includes("email_address") ||
-        result.missingFields?.includes("email_address");
+        signUp.unverifiedFields?.includes("email_address") ||
+        signUp.missingFields?.includes("email_address");
       if (emailNeedsVerification) {
-        await signUp.prepareEmailAddressVerification({
-          strategy: "email_code",
-        });
+        const { error: sendError } = await signUp.verifications.sendEmailCode();
+        if (sendError) throw sendError;
         setPendingVerification(true);
         return;
       }
@@ -152,15 +152,16 @@ export default function SignUpScreen() {
   }
 
   async function handleVerify() {
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === "complete" && result.createdSessionId) {
-        await activateSessionAndContinue(result.createdSessionId);
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error) throw error;
+      if (signUp.status === "complete" && signUp.createdSessionId) {
+        await activateSessionAndContinue();
       }
     } catch (err: unknown) {
       setError(toAuthErrorMessage(err, t, "認証コードの検証に失敗しました"));

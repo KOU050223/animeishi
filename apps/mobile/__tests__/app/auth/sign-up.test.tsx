@@ -12,6 +12,8 @@ import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 
 // Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // signUp 系の jest.fn は getAuthMock().signUp から取り出して設定する。
+// シグナル API の結果は signUp.outcome に入れておくと次のメソッド呼び出しで
+// リソース（status / unverifiedFields 等）へ反映され、{ error } の返り値にもなる。
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -98,19 +100,18 @@ describe("SignUpScreen", () => {
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(auth.signUp.create).not.toHaveBeenCalled();
+    expect(auth.signUp.password).not.toHaveBeenCalled();
   });
 
   it("正しい入力でメール認証フローへ進む（メール認証必須の設定）", async () => {
     const auth = getAuthMock();
-    // メール認証必須のインスタンス: create 後も missing_requirements で、
+    // メール認証必須のインスタンス: password() 後も missing_requirements で、
     // unverifiedFields に email_address が残る。
-    auth.signUp.create.mockResolvedValueOnce({
+    auth.signUp.outcome = {
       status: "missing_requirements",
       unverifiedFields: ["email_address"],
       missingFields: [],
-    });
-    auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
+    };
 
     await render(<SignUpScreen />);
     await fireEvent.changeText(
@@ -132,30 +133,23 @@ describe("SignUpScreen", () => {
     await fireEvent.press(screen.getByTestId("sign-up-button"));
 
     await waitFor(() => {
-      expect(auth.signUp.create).toHaveBeenCalledWith({
+      expect(auth.signUp.password).toHaveBeenCalledWith({
         emailAddress: "test@example.com",
         password: "StrongPass1",
         username: "testuser",
       });
-      expect(auth.signUp.prepareEmailAddressVerification).toHaveBeenCalledWith({
-        strategy: "email_code",
-      });
+      expect(auth.signUp.verifications.sendEmailCode).toHaveBeenCalled();
       expect(screen.getByTestId("verification-code-input")).toBeTruthy();
     });
   });
 
   it("認証コードを送信するとサインアップが完了しホームへ遷移する", async () => {
     const auth = getAuthMock();
-    auth.signUp.create.mockResolvedValueOnce({
+    auth.signUp.outcome = {
       status: "missing_requirements",
       unverifiedFields: ["email_address"],
       missingFields: [],
-    });
-    auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
-    auth.signUp.attemptEmailAddressVerification.mockResolvedValueOnce({
-      status: "complete",
-      createdSessionId: "session_456",
-    });
+    };
 
     await render(<SignUpScreen />);
     // フォームを送信してメール認証フローへ
@@ -181,7 +175,11 @@ describe("SignUpScreen", () => {
       expect(screen.getByTestId("verification-code-input")).toBeTruthy();
     });
 
-    // 認証コードを入力して確認
+    // 認証コードを入力して確認。検証成功時はリソースが complete になる。
+    auth.signUp.outcome = {
+      status: "complete",
+      createdSessionId: "session_456",
+    };
     await fireEvent.changeText(
       screen.getByTestId("verification-code-input"),
       "123456",
@@ -189,7 +187,7 @@ describe("SignUpScreen", () => {
     await fireEvent.press(screen.getByTestId("verify-button"));
 
     await waitFor(() => {
-      expect(auth.signUp.attemptEmailAddressVerification).toHaveBeenCalledWith({
+      expect(auth.signUp.verifications.verifyEmailCode).toHaveBeenCalledWith({
         code: "123456",
       });
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_456" });
@@ -197,14 +195,14 @@ describe("SignUpScreen", () => {
     });
   });
 
-  it("メール認証不要の設定では create 直後にセッションを有効化してホームへ遷移する", async () => {
+  it("メール認証不要の設定では password() 直後にセッションを有効化してホームへ遷移する", async () => {
     const auth = getAuthMock();
-    // メール認証不要のインスタンス: create の時点で status: complete になる。
-    // この場合に prepareEmailAddressVerification すると 400 になるため呼ばないこと。
-    auth.signUp.create.mockResolvedValueOnce({
+    // メール認証不要のインスタンス: password() の時点で status: complete になる。
+    // この場合に sendEmailCode すると 400 になるため呼ばないこと。
+    auth.signUp.outcome = {
       status: "complete",
       createdSessionId: "session_new",
-    });
+    };
 
     await render(<SignUpScreen />);
     await fireEvent.changeText(
@@ -229,7 +227,7 @@ describe("SignUpScreen", () => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_new" });
       expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
     });
-    expect(auth.signUp.prepareEmailAddressVerification).not.toHaveBeenCalled();
+    expect(auth.signUp.verifications.sendEmailCode).not.toHaveBeenCalled();
     // 認証コード画面には遷移しない
     expect(screen.queryByTestId("verification-code-input")).toBeNull();
   });
@@ -237,11 +235,11 @@ describe("SignUpScreen", () => {
   it("complete でもメール認証待ちでもない場合はエラーを表示して止まる", async () => {
     const auth = getAuthMock();
     // 他の必須項目（例: 電話番号）が不足していてメール認証は要求されていない状態。
-    auth.signUp.create.mockResolvedValueOnce({
+    auth.signUp.outcome = {
       status: "missing_requirements",
       unverifiedFields: [],
       missingFields: ["phone_number"],
-    });
+    };
 
     await render(<SignUpScreen />);
     await fireEvent.changeText(
@@ -265,7 +263,7 @@ describe("SignUpScreen", () => {
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(auth.signUp.prepareEmailAddressVerification).not.toHaveBeenCalled();
+    expect(auth.signUp.verifications.sendEmailCode).not.toHaveBeenCalled();
     expect(auth.setActive).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
@@ -276,8 +274,12 @@ describe("SignUpScreen", () => {
     // サインアップを試行した場合。遷移だけでは AuthGuard に戻されて
     // ループするため、既存セッションの活性化が必要。
     auth.client.signedInSessions = [{ id: "sess_existing" }];
-    auth.signUp.create.mockRejectedValueOnce({
-      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    auth.signUp.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          { code: "session_exists", message: "You're already signed in" },
+        ],
+      },
     });
 
     await render(<SignUpScreen />);
@@ -313,8 +315,12 @@ describe("SignUpScreen", () => {
     const auth = getAuthMock();
     // client にセッションが無い（復元不能）ケース。
     // 既定のモック状態（sessions が空）のまま試行する。
-    auth.signUp.create.mockRejectedValueOnce({
-      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    auth.signUp.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          { code: "session_exists", message: "You're already signed in" },
+        ],
+      },
     });
 
     await render(<SignUpScreen />);
@@ -369,10 +375,10 @@ describe("SignUpScreen", () => {
       mockPasskey = true;
       // 促進ステップは setActive 後（＝サインイン済み）の表示なので user が必要
       const auth = loggedInUser();
-      auth.signUp.create.mockResolvedValueOnce({
+      auth.signUp.outcome = {
         status: "complete",
         createdSessionId: "session_new",
-      });
+      };
 
       await render(<SignUpScreen />);
       await fillAndSubmit();
@@ -398,10 +404,10 @@ describe("SignUpScreen", () => {
     it("フラグ有効では登録成功でもホームへ進む", async () => {
       mockPasskey = true;
       const auth = loggedInUser();
-      auth.signUp.create.mockResolvedValueOnce({
+      auth.signUp.outcome = {
         status: "complete",
         createdSessionId: "session_new",
-      });
+      };
 
       await render(<SignUpScreen />);
       await fillAndSubmit();
@@ -421,16 +427,11 @@ describe("SignUpScreen", () => {
     it("フラグ有効ではメール認証の完了後にも促進ステップを表示する", async () => {
       mockPasskey = true;
       const auth = loggedInUser();
-      auth.signUp.create.mockResolvedValueOnce({
+      auth.signUp.outcome = {
         status: "missing_requirements",
         unverifiedFields: ["email_address"],
         missingFields: [],
-      });
-      auth.signUp.prepareEmailAddressVerification.mockResolvedValueOnce({});
-      auth.signUp.attemptEmailAddressVerification.mockResolvedValueOnce({
-        status: "complete",
-        createdSessionId: "session_456",
-      });
+      };
 
       await render(<SignUpScreen />);
       await fillAndSubmit();
@@ -438,6 +439,12 @@ describe("SignUpScreen", () => {
       await waitFor(() => {
         expect(screen.getByTestId("verification-code-input")).toBeTruthy();
       });
+
+      // メール認証の完了でリソースが complete になる
+      auth.signUp.outcome = {
+        status: "complete",
+        createdSessionId: "session_456",
+      };
 
       await fireEvent.changeText(
         screen.getByTestId("verification-code-input"),
@@ -454,10 +461,10 @@ describe("SignUpScreen", () => {
 
     it("フラグ無効ではこれまでどおりホームへ遷移する", async () => {
       const auth = getAuthMock();
-      auth.signUp.create.mockResolvedValueOnce({
+      auth.signUp.outcome = {
         status: "complete",
         createdSessionId: "session_new",
-      });
+      };
 
       await render(<SignUpScreen />);
       await fillAndSubmit();

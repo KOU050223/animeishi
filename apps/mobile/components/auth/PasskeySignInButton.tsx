@@ -2,11 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuth, useClerk } from "@clerk/expo";
-// Core 3 ではパスキーサインインは signIn.passkey()（新 API）。既存フロー
-// （signIn.authenticateWithPasskey + setActive）の挙動を維持するため、
-// Core 2 互換 API を提供する legacy サブパスを使う。
-import { useSignIn } from "@clerk/expo/legacy";
+import { useAuth, useClerk, useSignIn } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
@@ -27,9 +23,9 @@ type Props = {
  */
 export function PasskeySignInButton({ onError }: Props) {
   const { t } = useTranslation();
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { isSignedIn, signOut } = useAuth();
-  const { client } = useClerk();
+  const { signIn } = useSignIn();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
 
@@ -45,12 +41,15 @@ export function PasskeySignInButton({ onError }: Props) {
         await signOut();
       }
 
-      const attempt = await signIn.authenticateWithPasskey({
-        flow: "discoverable",
-      });
+      // Core 3 のシグナル API は例外ではなく { error } を返す。
+      // 下の catch ベースの処理をそのまま使うため error があれば投げ直す。
+      const { error } = await signIn.passkey({ flow: "discoverable" });
+      if (error) throw error;
 
-      if (attempt.status === "complete" && attempt.createdSessionId) {
-        await setActive({ session: attempt.createdSessionId });
+      if (signIn.status === "complete" && signIn.createdSessionId) {
+        // finalize() は作成済みセッションの setActive を内部で行う。
+        const { error: finalizeError } = await signIn.finalize();
+        if (finalizeError) throw finalizeError;
         router.replace("/(tabs)");
       } else {
         onError(t("パスキーでのサインインを完了できませんでした"));
