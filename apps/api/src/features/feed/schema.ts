@@ -53,6 +53,26 @@ const jsonError = (description: string) => ({
   description,
 });
 
+// ストーリーの 1 スライド（issue #266）。type は watch_status に限られるため
+// 含めない。meta には視聴状態 {state} が入る（話数は活動データが持たない）。
+const storyItemSchema = z.object({
+  id: z.number().int(),
+  createdAt: z.string(),
+  work: workSchema.nullable(),
+  meta: z.record(z.string(), z.unknown()).nullable(),
+});
+
+// ストーリー表示対象のフレンド。items は再生順（古い活動が先頭）。
+const storyFriendSchema = z.object({
+  actor: actorSchema,
+  items: z.array(storyItemSchema),
+});
+
+// GET /me/feed/stories の応答。friends は最終活動が新しい順。
+const watchStoriesResponseSchema = z.object({
+  friends: z.array(storyFriendSchema),
+});
+
 export const getFeedRoute = createRoute({
   method: "get",
   path: "/",
@@ -66,6 +86,22 @@ export const getFeedRoute = createRoute({
       description: "フレンドの活動（id 降順のカーソルページング）",
     },
     400: jsonError("クエリが不正"),
+    401: jsonError("未認証"),
+  },
+});
+
+export const getWatchStoriesRoute = createRoute({
+  method: "get",
+  path: "/stories",
+  tags: ["feed"],
+  summary: "直近24時間に視聴記録をつけたフレンドとその活動を取得する",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: { "application/json": { schema: watchStoriesResponseSchema } },
+      description:
+        "フレンドごとの watch_status 活動（ストーリー表示用。ページングなし）",
+    },
     401: jsonError("未認証"),
   },
 });

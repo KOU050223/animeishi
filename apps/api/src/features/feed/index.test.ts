@@ -111,6 +111,34 @@ async function getFeed(query = ""): Promise<FeedBody> {
   return (await res.json()) as FeedBody;
 }
 
+type StoriesBody = {
+  friends: {
+    actor: {
+      userId: string;
+      username: string;
+      profileImageUrl: string | null;
+    };
+    items: {
+      id: number;
+      createdAt: string;
+      work: {
+        annictWorkId: number;
+        title: string;
+        titleEn: string | null;
+        hostedImageUrl: string | null;
+      } | null;
+      meta: Record<string, unknown> | null;
+    }[];
+  }[];
+};
+
+async function getStories(): Promise<StoriesBody> {
+  const app = buildApp();
+  const res = await app.request("/me/feed/stories", {}, TEST_BINDINGS);
+  expect(res.status).toBe(200);
+  return (await res.json()) as StoriesBody;
+}
+
 describe("活動フィード API", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
 
@@ -339,5 +367,253 @@ describe("活動フィード API", () => {
       season: "2026-spring",
       title: "春アニメ Tier",
     });
+  });
+});
+
+describe("視聴ストーリー API", () => {
+  let db: Awaited<ReturnType<typeof setupTestDb>>;
+
+  beforeEach(async () => {
+    db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+
+    const now = new Date();
+    await db.insert(users).values([
+      {
+        id: USER_A,
+        username: "ユーザーA",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: USER_B,
+        username: "ユーザーB",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: USER_C,
+        username: "ユーザーC",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(annictWorks).values({
+      annictWorkId: WORK_ID,
+      title: "テストアニメ",
+      titleEn: "Test Anime",
+      updatedAt: now,
+    });
+  });
+
+  it("GET /me/feed/stories: 未認証は 401 を返す", async () => {
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const app = buildApp();
+    const res = await app.request("/me/feed/stories", {}, TEST_BINDINGS);
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /me/feed/stories: フレンドがいない場合は空の friends を返す", async () => {
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: 直近24時間の watch_status 活動をフレンド単位で返す", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHING" },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+
+    expect(body.friends).toHaveLength(1);
+    expect(body.friends[0]?.actor.userId).toBe(USER_B);
+    expect(body.friends[0]?.items).toHaveLength(1);
+    expect(body.friends[0]?.items[0]?.work?.title).toBe("テストアニメ");
+    expect(body.friends[0]?.items[0]?.work?.hostedImageUrl).toContain(
+      `/images/works/${WORK_ID}`,
+    );
+    expect(body.friends[0]?.items[0]?.meta).toEqual({ state: "WATCHING" });
+  });
+
+  it("GET /me/feed/stories: 1 フレンドの活動は再生順（古い順）に並ぶ", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { seq: 0 },
+    });
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { seq: 1 },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+
+    expect(body.friends[0]?.items[0]?.meta).toEqual({ seq: 0 });
+    expect(body.friends[0]?.items[1]?.meta).toEqual({ seq: 1 });
+  });
+
+  it("GET /me/feed/stories: 24時間より古い活動は返さない", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: watch_status 以外の活動は返さない", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await addActivity(db, {
+      userId: USER_B,
+      type: "favorite_added",
+      annictWorkId: WORK_ID,
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: フレンドでないユーザーの活動は返さない", async () => {
+    await addActivity(db, {
+      userId: USER_C,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHED" },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: 非公開（is_public=false）のフレンドは返さない", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await db.update(users).set({ isPublic: false }).where(eq(users.id, USER_B));
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHED" },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: 自分がブロックした相手は返さない", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await db.insert(blocks).values({
+      blockerId: USER_A,
+      blockedId: USER_B,
+      createdAt: new Date(),
+    });
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHED" },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: 相手からブロックされている場合も返さない", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await db.insert(blocks).values({
+      blockerId: USER_B,
+      blockedId: USER_A,
+      createdAt: new Date(),
+    });
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHED" },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+    expect(body.friends).toEqual([]);
+  });
+
+  it("GET /me/feed/stories: フレンドは最終活動が新しい順に並ぶ", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await makeFriends(db, USER_A, USER_C);
+    const base = Date.now();
+    await addActivity(db, {
+      userId: USER_B,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHED" },
+      createdAt: new Date(base - 60 * 60 * 1000),
+    });
+    await addActivity(db, {
+      userId: USER_C,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { state: "WATCHING" },
+      createdAt: new Date(base),
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+
+    expect(body.friends.map((f) => f.actor.userId)).toEqual([USER_C, USER_B]);
+  });
+
+  it("GET /me/feed/stories: 1 フレンドが上限を超える活動をしても他フレンドの分は返る", async () => {
+    await makeFriends(db, USER_A, USER_B);
+    await makeFriends(db, USER_A, USER_C);
+    // USER_B は 1 フレンドあたりの上限（20）を超える 25 件、USER_C は 1 件
+    for (let i = 0; i < 25; i++) {
+      await addActivity(db, {
+        userId: USER_B,
+        type: "watch_status",
+        annictWorkId: WORK_ID,
+        meta: { seq: i },
+      });
+    }
+    await addActivity(db, {
+      userId: USER_C,
+      type: "watch_status",
+      annictWorkId: WORK_ID,
+      meta: { seq: 0 },
+    });
+
+    signInAs(USER_A);
+    const body = await getStories();
+
+    const friendB = body.friends.find((f) => f.actor.userId === USER_B);
+    const friendC = body.friends.find((f) => f.actor.userId === USER_C);
+    // B は新しい 20 件に絞られる
+    expect(friendB?.items).toHaveLength(20);
+    // B の活動が取得枠を埋めても、C の活動は取りこぼさない
+    expect(friendC?.items).toHaveLength(1);
   });
 });
