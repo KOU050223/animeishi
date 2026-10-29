@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
-import { watchHistory, annictWorks } from "@/db/schema";
+import { watchHistory, annictWorks, users } from "@/db/schema";
 import type {
   AnnictWork,
   WatchHistory,
@@ -312,6 +312,67 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
             eq(watchHistory.annictWorkId, annictWorkId),
           ),
         );
+    },
+
+    /**
+     * 発行中の視聴履歴共有トークンを返す。未発行なら null。
+     * トークンはユーザーごとに 1 つ（users.watch_history_share_token）で、
+     * 視聴履歴全体の共有 URL（/share/watch-history/:token）に対応する。
+     */
+    async getMyWatchHistoryShareToken(): Promise<string | null> {
+      const row = await db.query.users.findFirst({
+        where: eq(users.id, currentUserId),
+        columns: { watchHistoryShareToken: true },
+      });
+      return row?.watchHistoryShareToken ?? null;
+    },
+
+    /**
+     * 視聴履歴の共有トークンを発行する。
+     * 既に発行済みなら同じトークンを返す（共有リンクは一度配ったら変えない方が
+     * 受け取り側でリンク切れにならないため）。users 行が無ければ undefined。
+     */
+    async shareMyWatchHistory(): Promise<string | undefined> {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, currentUserId),
+        columns: { id: true, watchHistoryShareToken: true },
+      });
+      if (!user) return undefined;
+      if (user.watchHistoryShareToken) return user.watchHistoryShareToken;
+
+      // 発行は share_token がまだ null の場合だけに絞る。
+      // 並行リクエストで両方が null を読んでも、後から UPDATE した側が
+      // 先のトークンを上書きしてリンク切れにする競合を防ぐため、
+      // 条件付き UPDATE にしてから DB の値を読み直して返す
+      // （tierListsRepository.shareMyTierList と同じ方式）。
+      await db
+        .update(users)
+        .set({ watchHistoryShareToken: crypto.randomUUID() })
+        .where(
+          and(eq(users.id, user.id), isNull(users.watchHistoryShareToken)),
+        );
+      const updated = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: { watchHistoryShareToken: true },
+      });
+      return updated?.watchHistoryShareToken ?? undefined;
+    },
+
+    /**
+     * 視聴履歴の共有トークンを破棄する。破棄後は公開エンドポイントが
+     * 404 を返す。users 行が無ければ false。
+     */
+    async unshareMyWatchHistory(): Promise<boolean> {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, currentUserId),
+        columns: { id: true },
+      });
+      if (!user) return false;
+      await db
+        .update(users)
+        .set({ watchHistoryShareToken: null })
+        .where(eq(users.id, user.id));
+      return true;
     },
   };
 }

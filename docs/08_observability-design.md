@@ -362,6 +362,71 @@ sanitize は API と同じく `event.request.headers` に sanitizeHeaders を
 無料プランでは新規作成・編集ができない。モバイルのエラーは Sentry のメール通知で受ける
 （Webhook をアプリに持たせない理由は「運用（Discord 通知）」節を参照）。
 
+## パフォーマンス計測（EAS Observe、issue #314）
+
+起動・画面遷移の性能計測に `expo-observe`（EAS Observe）を使う。
+**性能は Observe、エラーは Sentry** の役割分担とし、JS エラー・
+ネイティブクラッシュの収集・通知はこれまで通り Sentry に任せる。
+
+### 役割分担
+
+| 対象 | 収集先 |
+|------|--------|
+| 起動時間（TTR / TTI / bundle load / launch） | EAS Observe |
+| 画面遷移時間（ルート単位の cold_ttr / warm_ttr / tti） | EAS Observe |
+| JS エラー（未処理・ErrorBoundary 捕捉） | Sentry |
+| ネイティブクラッシュ | Sentry |
+| UI イベント・ファネル計測 | Sentry Logs（上記の各節） |
+
+二重収集を防ぐため、`Observe.configure` に `errorHandlingEnabled: false`
+を渡し、Observe 側の JS 未処理エラー記録を切っている。`ObserveErrorBoundary`
+や `Observe.reportError` は使わない。ネイティブクラッシュの収集には
+無効化する設定項目が無く Observe 側にも記録されるが、Errors
+ダッシュボード自体が有料プランの機能のため参照経路は Sentry のまま。
+
+### 導入箇所
+
+```text
+apps/mobile/
+  lib/observe.ts        # expo-observe の読み込みと設定・フックの窓口
+  app/_layout.tsx       # configureObserve() + wrapWithObserveRoot(...)
+  app/(tabs)/index.tsx  # ホーム: useMarkScreenInteractive()
+  app/(tabs)/library.tsx# ライブラリ: useMarkScreenInteractive()
+```
+
+`lib/observe.ts` が `expo-observe` を try/catch 付きの `require` で読むのは
+Expo Go 対策。Expo Go には ExpoObserve ネイティブモジュールが無く、
+パッケージのトップレベルで `requireNativeModule` が例外を投げるため、
+静的 import すると起動できなくなる。モジュールが無い環境（Expo Go・
+古い development build）では全関数が no-op になる。
+
+`Observe.configure` の設定値:
+
+- `environment`: Sentry と同じ `resolveEnvironment` 正規化値
+  （preview の計測を production に混ぜない）
+- `integrations["expo-router"].filteredParams`:
+  `["code", "state", "uid"]`。`/annict` の OAuth コールバッククエリと
+  `/user/[uid]` のユーザー ID を計測パラメータから除外する
+- `errorHandlingEnabled: false`: 上記の役割分担のため
+- `dispatchInDebug` / `networkTraces` / `sampleRate` は既定のまま
+  （debug ビルドは送信しない、ネットワーク span は記録しない、全台数送信）
+
+画面側は `useMarkScreenInteractive()` を呼ぶだけ。expo-router 連携が
+有効な環境ではルート単位の TTI になり、セッション内の最初の
+呼び出しがアプリ全体の TTI にも使われる。
+
+### 料金
+
+EAS Observe は Free プランでも月 100K events まで使える
+（<https://expo.dev/pricing> の Observe 表）。起動メトリクスは
+Free でも確認できるが、**Navigation events dashboard（ルート単位の
+遷移時間の表示）は Starter 以上**の機能。`eas observe:routes` も
+プランが対象外ならアップグレード案内で失敗する
+（<https://docs.expo.dev/eas/observe/eas-cli/>）。ルート単位の
+メトリクスは SDK 側で収集・送信されるため、実際に参照するには
+Starter 以上が必要になる可能性が高い。利用者が増えてイベント数が
+無料枠を超えたら ingest を止めるか `sampleRate` を下げる。
+
 ## ファネル計測（Annict 連携コンバージョン、issue #64）
 
 未連携ユーザーへの連携誘導がどれだけ連携完了に繋がるかを計測する。

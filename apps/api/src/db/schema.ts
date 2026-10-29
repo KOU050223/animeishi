@@ -24,16 +24,31 @@ export const REPORT_STATUSES = ["open", "resolved", "dismissed"] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
 // ---- users ----
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey(), // Clerk user ID (user_xxxxx)
-  username: text("username").notNull(),
-  bio: text("bio"),
-  favoriteQuote: text("favorite_quote"),
-  isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
-  profileImageUrl: text("profile_image_url"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(), // Clerk user ID (user_xxxxx)
+    username: text("username").notNull(),
+    bio: text("bio"),
+    favoriteQuote: text("favorite_quote"),
+    isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
+    profileImageUrl: text("profile_image_url"),
+    // 視聴履歴の共有 URL（/share/watch-history/:token）のトークン。null は未共有。
+    // 発行は POST /me/watch-histories/share、破棄は DELETE で行う。
+    // is_public（プロフィール公開）とは独立した、トークンを知る人だけが
+    // 読める共有（issue #236）。
+    watchHistoryShareToken: text("watch_history_share_token"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    // 共有リンクからの引き当てキー。SQLite では NULL は互いに異なる値として
+    // 扱われるため、未共有行が複数あってもユニーク制約に抵触しない。
+    unique("users_watch_history_share_token_unique").on(
+      t.watchHistoryShareToken,
+    ),
+  ],
+);
 
 // ---- annict_works (Annict 作品キャッシュ) ----
 export const annictWorks = sqliteTable("annict_works", {

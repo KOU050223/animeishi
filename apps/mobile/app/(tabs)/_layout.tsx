@@ -1,83 +1,53 @@
-import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
-import { Platform, type ColorValue } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
 
-// tabBarIcon の color は型上 ColorValue（null | number | NativeColorValue を
-// 含みうる）だが、タブバーが実際に渡すのは tint の文字列のみ。Ionicons は
-// string | OpaqueColorValue しか受けないため、型のずれはここ 1 か所に閉じ込める。
-const tabIcon =
-  (name: ComponentProps<typeof Ionicons>["name"]) =>
-  ({ color, size }: { color: ColorValue; size: number }) => (
-    <Ionicons name={name} size={size} color={color as string} />
-  );
+// SF Symbols / Material Icons ではなく Ionicons のままにし、NativeTabs 化で
+// アイコンの見た目が変わらないようにする。
+const tabIcon = (name: ComponentProps<typeof Ionicons>["name"]) => (
+  <NativeTabs.Trigger.Icon
+    src=<NativeTabs.Trigger.VectorIcon family={Ionicons} name={name} />
+  />
+);
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  // 下端（ホームインジケータ等）との干渉を避けるため、safe area 分を上乗せしてタブバーを縦に広げる。
-  const bottomInset = insets.bottom;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        // 選択中のタブはアイコン・ラベルともに暗背景でも読める強調色にする
-        // （dark で primary の塗り色のままだと slate-900 背景上のコントラストが足りない）。
-        tabBarActiveTintColor: colors.primaryText,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          height: 64 + bottomInset,
-          paddingTop: 8,
-          paddingBottom: bottomInset + 8,
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          marginTop: 2,
-        },
-        tabBarItemStyle: {
-          paddingVertical: Platform.OS === "web" ? 4 : 0,
-        },
-      }}
+    <NativeTabs
+      // tintColor は選択中タブのアイコン・ラベル色（旧 tabBarActiveTintColor）、
+      // iconColor / labelStyle は未選択時の色（旧 tabBarInactiveTintColor）に相当する。
+      tintColor={colors.primaryText}
+      iconColor={colors.textMuted}
+      labelStyle={{ color: colors.textMuted }}
+      // iOS 26+ ではタブバー背景をシステムが描画するため効かないが、Android と
+      // iOS 26 未満のために旧 tabBarStyle の backgroundColor / borderTopColor を引き継ぐ。
+      backgroundColor={colors.background}
+      shadowColor={colors.border}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "ホーム",
-          tabBarIcon: tabIcon("home-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="library"
-        options={{
-          // アニメ一覧・視聴履歴・推しを束ねるタブ（issue #170）。
-          title: "ライブラリ",
-          tabBarAccessibilityLabel: "ライブラリタブ",
-          tabBarIcon: tabIcon("library-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="social"
-        options={{
-          // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。
-          title: "QR・フレンド",
-          tabBarAccessibilityLabel: "QR・フレンドタブ",
-          tabBarIcon: tabIcon("people-outline"),
-        }}
-      />
-      <Tabs.Screen
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>ホーム</NativeTabs.Trigger.Label>
+        {tabIcon("home-outline")}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="library" accessibilityLabel="ライブラリタブ">
+        {/* アニメ一覧・視聴履歴・推しを束ねるタブ（issue #170）。 */}
+        <NativeTabs.Trigger.Label>ライブラリ</NativeTabs.Trigger.Label>
+        {tabIcon("library-outline")}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="social" accessibilityLabel="QR・フレンドタブ">
+        {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
+        <NativeTabs.Trigger.Label>QR・フレンド</NativeTabs.Trigger.Label>
+        {tabIcon("people-outline")}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger
         name="profile"
-        options={{
-          title: "プロフ",
-          tabBarAccessibilityLabel: "プロフィールタブ",
-          tabBarButtonTestID: "profile-tab-button",
-          tabBarIcon: tabIcon("person-outline"),
-        }}
-      />
-    </Tabs>
+        accessibilityLabel="プロフィールタブ"
+        testID="profile-tab-button"
+      >
+        <NativeTabs.Trigger.Label>プロフ</NativeTabs.Trigger.Label>
+        {tabIcon("person-outline")}
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
