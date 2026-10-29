@@ -27,6 +27,7 @@ import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
 import { useColorScheme } from "nativewind";
@@ -242,6 +243,9 @@ export default function WatchHistoryScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* 共有 URL 導線（#236）。#170 のタブ再編に備えて独立コンポーネントに分離。 */}
+      <WatchHistoryShareSection />
 
       <FlatList
         data={enriched}

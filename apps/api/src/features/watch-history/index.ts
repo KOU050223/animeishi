@@ -339,6 +339,30 @@ const watchHistory = new Hono<AuthVariables>()
       return c.json({ results, aborted, elapsedMs }, 200);
     },
   )
+  // 視聴履歴全体の共有トークン（/share/watch-history/:token）の発行・確認・
+  // 解除（issue #236）。tier 表と同じくトークンは冪等で、再発行しても
+  // 変わらない。トークン自体は Annict と無関係のため requireAnnictToken は
+  // 掛けない。static な /share を /:annictWorkId より先に登録する。
+  .get("/share", async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const shareToken = await repo.getMyWatchHistoryShareToken();
+    return c.json({ shareToken }, 200);
+  })
+  .post("/share", async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const shareToken = await repo.shareMyWatchHistory();
+    if (!shareToken) return c.json({ error: "User not found" }, 404);
+    return c.json({ shareToken }, 200);
+  })
+  .delete("/share", async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const found = await repo.unshareMyWatchHistory();
+    if (!found) return c.json({ error: "User not found" }, 404);
+    return c.json({ success: true }, 200);
+  })
   .delete("/:annictWorkId", async (c) => {
     const annictWorkId = Number(c.req.param("annictWorkId"));
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {

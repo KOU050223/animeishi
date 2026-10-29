@@ -57,6 +57,19 @@ jest.mock("@/lib/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 
+// 共有 URL 導線（WatchHistoryShareSection）のフック。画面のテストでは
+// 共有状態を未発行に固定し、発行・解除は実際には呼ばれないスタブにする。
+jest.mock("@/lib/useWatchHistoryShare", () => ({
+  useWatchHistoryShareStatus: () => ({
+    data: { shareToken: null },
+    isLoading: false,
+  }),
+  useShareWatchHistory: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useUnshareWatchHistory: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  buildWatchHistoryShareUrl: (token: string, base: string) =>
+    `${base}/share/watch-history/${token}`,
+}));
+
 // 更新失敗通知は lib/dialog の alert に載せ替えた（トースト廃止）。
 // mock では onClose を呼ばないため、alert 呼び出し後は「ダイアログが
 // 開いたまま」の状態として扱える。

@@ -1,12 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { requestUrl } from "../../test-utils/fetch";
 import { tierLists } from "@/features/tier-lists";
+import { watchHistory } from "@/features/watch-history";
 import { share } from "@/features/share";
-import { users, annictWorks } from "@/db/schema";
+import {
+  users,
+  annictWorks,
+  watchHistory as watchHistoryTable,
+} from "@/db/schema";
+import * as schema from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -712,5 +720,293 @@ describe("GET /share/image-proxy", () => {
       TEST_BINDINGS,
     );
     expect(res.status).toBe(502);
+  });
+});
+
+describe("視聴履歴の共有", () => {
+  const WH_USER_ID = "user_whshare001";
+  const WH_WORK_A = 2001;
+  const WH_WORK_B = 2002;
+
+  function buildWatchHistoryApp() {
+    const app = applyApiErrorHandling(new Hono<TestEnv>());
+    app.route("/share", share);
+    app.route("/me/watch-histories", watchHistory);
+    return app;
+  }
+
+  beforeEach(async () => {
+    const db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: WH_USER_ID,
+    } as ReturnType<typeof getAuth>);
+
+    const now = new Date();
+    await db.insert(users).values({
+      id: WH_USER_ID,
+      username: "履歴テストユーザー",
+      isPublic: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: WH_WORK_A,
+        title: "見たアニメA",
+        seasonName: "2026-spring",
+        seasonYear: 2026,
+        updatedAt: now,
+      },
+      {
+        annictWorkId: WH_WORK_B,
+        title: "見たアニメB",
+        seasonName: "2025-autumn",
+        seasonYear: 2025,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(watchHistoryTable).values([
+      {
+        userId: WH_USER_ID,
+        annictWorkId: WH_WORK_A,
+        state: "WATCHED",
+        updatedAt: new Date("2026-04-10T15:00:00Z"),
+      },
+      {
+        userId: WH_USER_ID,
+        annictWorkId: WH_WORK_B,
+        state: "WATCHING",
+        updatedAt: new Date("2026-04-20T15:00:00Z"),
+      },
+    ]);
+  });
+
+  async function issueToken(app: ReturnType<typeof buildWatchHistoryApp>) {
+    const res = await app.request(
+      "/me/watch-histories/share",
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    const { shareToken } = (await res.json()) as { shareToken: string };
+    return shareToken;
+  }
+
+  it("POST /me/watch-histories/share: トークンを発行し、再発行は同じトークンを返す", async () => {
+    const app = buildWatchHistoryApp();
+    const token1 = await issueToken(app);
+    expect(token1).toBeTruthy();
+
+    const token2 = await issueToken(app);
+    expect(token2).toBe(token1);
+  });
+
+  it("GET /me/watch-histories/share: 発行前は null、発行後はトークンを返す", async () => {
+    const app = buildWatchHistoryApp();
+
+    const before = await app.request(
+      "/me/watch-histories/share",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(await before.json()).toEqual({ shareToken: null });
+
+    const token = await issueToken(app);
+    const after = await app.request(
+      "/me/watch-histories/share",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(await after.json()).toEqual({ shareToken: token });
+  });
+
+  it("GET /share/watch-history/:token: Accept: text/markdown で視聴履歴の Markdown 表を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    // getAuth を null にして認証なしを再現する
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/markdown" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/markdown");
+    // 共有解除後にキャッシュへ残さない
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+
+    const md = await res.text();
+    expect(md).toContain("# 履歴テストユーザー の視聴履歴");
+    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 視聴日 |");
+    // シーズンは「2026年春」、状態は日本語、視聴日は JST の日付（+9h で
+    // 2026-04-21 に丸まる行が先 = updated_at 降順）
+    expect(md).toContain("| 見たアニメB | 2025年秋 | 視聴中 | 2026-04-21 |");
+    expect(md).toContain("| 見たアニメA | 2026年春 | 視聴済 | 2026-04-11 |");
+    expect(md.indexOf("見たアニメB")).toBeLessThan(md.indexOf("見たアニメA"));
+  });
+
+  it("GET /share/watch-history/:token: Accept: text/plain でも Markdown を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/plain" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/plain");
+    expect(await res.text()).toContain("| 見たアニメA |");
+  });
+
+  it("GET /share/watch-history/:token: Accept を指定しなくても Markdown を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/markdown");
+  });
+
+  it("GET /share/watch-history/:token: Accept: text/html では JS なしの HTML 表を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/html");
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+
+    const html = await res.text();
+    expect(html).toContain("<title>履歴テストユーザー の視聴履歴");
+    expect(html).toContain("<th>作品名</th>");
+    expect(html).toContain("<td>見たアニメA</td>");
+    expect(html).toContain("<td>2026年春</td>");
+    expect(html).toContain("<td>視聴済</td>");
+    expect(html).toContain("<td>2026-04-11</td>");
+    expect(html).not.toContain("<script");
+  });
+
+  it("GET /share/watch-history/:token: 不明なトークンは 404 を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const res = await app.request(
+      "/share/watch-history/no-such-token",
+      { method: "GET", headers: { Accept: "text/markdown" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(404);
+
+    const htmlRes = await app.request(
+      "/share/watch-history/no-such-token",
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    expect(htmlRes.status).toBe(404);
+    expect((await htmlRes.text()).includes("見つかりません")).toBe(true);
+  });
+
+  it("DELETE /me/watch-histories/share: 解除すると公開取得が 404 になり、再発行で別トークンになる", async () => {
+    const app = buildWatchHistoryApp();
+    const token1 = await issueToken(app);
+
+    const delRes = await app.request(
+      "/me/watch-histories/share",
+      { method: "DELETE" },
+      TEST_BINDINGS,
+    );
+    expect(delRes.status).toBe(200);
+
+    const publicRes = await app.request(
+      `/share/watch-history/${token1}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(publicRes.status).toBe(404);
+
+    const token2 = await issueToken(app);
+    expect(token2).not.toBe(token1);
+  });
+
+  it("is_public=false のユーザーでも発行・公開取得できる（is_public とは独立）", async () => {
+    const app = buildWatchHistoryApp();
+    const db = drizzle(env.DB, { schema });
+    await db
+      .update(users)
+      .set({ isPublic: false })
+      .where(eq(users.id, WH_USER_ID));
+
+    const token = await issueToken(app);
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("GET /share/watch-history/:token: 履歴 0 件でも表と「視聴履歴はありません」を返す", async () => {
+    const app = buildWatchHistoryApp();
+    const db = drizzle(env.DB, { schema });
+    await db.delete(watchHistoryTable);
+
+    const token = await issueToken(app);
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/markdown" } },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    const md = await res.text();
+    expect(md).toContain("| 作品名 | シーズン | 視聴状態 | 視聴日 |");
+    expect(md).toContain("視聴履歴はありません");
+  });
+
+  it("GET /share/watch-history/:token: パイプや <> を含む作品名も表を壊さずエスケープする", async () => {
+    const app = buildWatchHistoryApp();
+    const db = drizzle(env.DB, { schema });
+    await db.insert(annictWorks).values({
+      annictWorkId: 2999,
+      title: "危険|な<title>",
+      seasonName: "2026-spring",
+      updatedAt: new Date(),
+    });
+    await db.insert(watchHistoryTable).values({
+      userId: WH_USER_ID,
+      annictWorkId: 2999,
+      state: "WATCHED",
+      updatedAt: new Date(),
+    });
+
+    const token = await issueToken(app);
+
+    const mdRes = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/markdown" } },
+      TEST_BINDINGS,
+    );
+    const md = await mdRes.text();
+    expect(md).toContain("危険\\|な<title>");
+
+    const htmlRes = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await htmlRes.text();
+    expect(html).toContain("危険|な&lt;title&gt;");
+    expect(html).not.toContain("危険|な<title>");
   });
 });

@@ -9,9 +9,11 @@ const DDL_STATEMENTS = [
     favorite_quote TEXT,
     is_public INTEGER DEFAULT 1 NOT NULL,
     profile_image_url TEXT,
+    watch_history_share_token TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_watch_history_share_token_unique ON users (watch_history_share_token)`,
   `CREATE TABLE IF NOT EXISTS annict_works (
     annict_work_id INTEGER PRIMARY KEY NOT NULL,
     node_id TEXT,

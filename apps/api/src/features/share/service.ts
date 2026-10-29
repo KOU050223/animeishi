@@ -8,7 +8,11 @@ import {
 } from "@/lib/http";
 import { workImageUrl } from "@/lib/annict/workImage";
 import { isKnownImageUrl } from "./repository";
-import type { SharedCharacterTierList, SharedTierList } from "./repository";
+import type {
+  SharedCharacterTierList,
+  SharedTierList,
+  SharedWatchHistory,
+} from "./repository";
 
 export type TierRow = { key: string; label: string; color: string };
 
@@ -410,6 +414,148 @@ export function notFoundHtml(): string {
 </head>
 <body>
   <h1>Tier 表が見つかりません</h1>
+  <p>この共有リンクは無効になったか、存在しません。</p>
+</body>
+</html>`;
+}
+
+// ---- 視聴履歴の共有（issue #236） ----
+// AI が URL だけで読めるよう、Markdown / 素の HTML の表で返す。
+
+/** 視聴状態の日本語ラベル。アプリ側 lib/useWatchHistory の WATCH_STATUS_LABELS と同じ値。 */
+const WATCH_STATE_LABELS: Record<string, string> = {
+  WATCHING: "視聴中",
+  WATCHED: "視聴済",
+  ON_HOLD: "一時停止",
+  STOP_WATCHING: "断念",
+  WANNA_WATCH: "視聴予定",
+};
+
+const SEASON_JA: Record<string, string> = {
+  winter: "冬",
+  spring: "春",
+  summer: "夏",
+  autumn: "秋",
+};
+
+/**
+ * annict_works.season_name（"2026-spring" 形式）を「2026年春」にする。
+ * パースできない値はそのまま返し、どちらも無い作品は season_year に倒す。
+ */
+export function sharedWatchSeasonLabel(entry: {
+  seasonName: string | null;
+  seasonYear: number | null;
+}): string {
+  const match = /^(\d{4})-(\w+)$/.exec(entry.seasonName ?? "");
+  const ja = match?.[2] ? SEASON_JA[match[2]] : undefined;
+  if (match && ja) return `${match[1]}年${ja}`;
+  if (entry.seasonName) return entry.seasonName;
+  return entry.seasonYear !== null ? String(entry.seasonYear) : "-";
+}
+
+/**
+ * 「視聴日」列の日付。watch_history.updated_at を JST の YYYY-MM-DD にする。
+ * ユーザーに見せる日付なので UTC ではなく JST 基準で丸める（+9:00 固定。
+ * 日本には DST が無いため単純な時差加算でよい）。
+ */
+export function sharedWatchDateLabel(updatedAt: Date): string {
+  return new Date(updatedAt.getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Markdown 表のセル用エスケープ。パイプは表を壊すため \| に、改行は潰す。 */
+function escapeMarkdownCell(text: string): string {
+  return text.replaceAll("|", "\\|").replaceAll("\n", " ");
+}
+
+export function buildSharedWatchHistoryMarkdown(
+  history: SharedWatchHistory,
+): string {
+  const lines = [
+    `# ${history.ownerUsername} の視聴履歴`,
+    "",
+    "| 作品名 | シーズン | 視聴状態 | 視聴日 |",
+    "| --- | --- | --- | --- |",
+    ...history.items.map(
+      (item) =>
+        `| ${escapeMarkdownCell(item.title)} | ${escapeMarkdownCell(sharedWatchSeasonLabel(item))} | ${WATCH_STATE_LABELS[item.state] ?? item.state} | ${sharedWatchDateLabel(item.updatedAt)} |`,
+    ),
+  ];
+  if (history.items.length === 0) {
+    lines.push("| | | | |", "", "視聴履歴はありません。");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function buildSharedWatchHistoryHtml(
+  history: SharedWatchHistory,
+): string {
+  const title = `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`;
+  const rowsHtml = history.items
+    .map(
+      (item) => `<tr>
+      <td>${escapeHtml(item.title)}</td>
+      <td>${escapeHtml(sharedWatchSeasonLabel(item))}</td>
+      <td>${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</td>
+      <td>${sharedWatchDateLabel(item.updatedAt)}</td>
+    </tr>`,
+    )
+    .join("\n    ");
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
+  <title>${title}</title>
+  <meta name="description" content="${escapeHtml(history.ownerUsername)} のアニメ視聴履歴" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${escapeHtml(history.ownerUsername)} のアニメ視聴履歴" />
+  <meta property="og:type" content="website" />
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    .owner { color: #555; margin: 4px 0 24px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 0.9rem; }
+    th { background: #f5f5f5; }
+    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      th { background: #1e293b; }
+      th, td { border-color: #334155; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(history.ownerUsername)} の視聴履歴</h1>
+  <p class="owner">Animeishi で共有された視聴履歴</p>
+  <table>
+    <thead>
+      <tr><th>作品名</th><th>シーズン</th><th>視聴状態</th><th>視聴日</th></tr>
+    </thead>
+    <tbody>
+    ${rowsHtml}
+    </tbody>
+  </table>
+  ${history.items.length === 0 ? "<p>視聴履歴はありません。</p>" : ""}
+</body>
+</html>`;
+}
+
+export function watchHistoryNotFoundHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>視聴履歴が見つかりません - Animeishi</title>
+</head>
+<body>
+  <h1>視聴履歴が見つかりません</h1>
   <p>この共有リンクは無効になったか、存在しません。</p>
 </body>
 </html>`;

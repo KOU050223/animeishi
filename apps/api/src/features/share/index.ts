@@ -3,14 +3,21 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import type { Env } from "@/db/client";
-import { getSharedCharacterTierList, getSharedTierList } from "./repository";
+import {
+  getSharedCharacterTierList,
+  getSharedTierList,
+  getSharedWatchHistory,
+} from "./repository";
 import { shareTokenParamSchema } from "./schema";
 import {
   buildSharedCharacterTierListHtml,
   buildSharedTierListHtml,
+  buildSharedWatchHistoryHtml,
+  buildSharedWatchHistoryMarkdown,
   notFoundHtml,
   parseTiersJson,
   proxyImage,
+  watchHistoryNotFoundHtml,
 } from "./service";
 import { workImageUrl } from "@/lib/annict/workImage";
 
@@ -91,6 +98,43 @@ const share = new Hono<ShareBindings>()
         },
         200,
       );
+    },
+  )
+  // 視聴履歴の共有リンク（issue #236）。AI が URL だけで読めるよう、
+  // Accept: text/markdown / text/plain には Markdown の表を、ブラウザには
+  // JS なしの素の HTML を返す。どちらにも当てはまらない Accept（*/* 等）も
+  // AI 用途を優先して Markdown に倒す。
+  .get(
+    "/watch-history/:token",
+    zValidator("param", shareTokenParamSchema),
+    async (c) => {
+      const { token } = c.req.valid("param");
+      const db = createDb(c.env.DB);
+      const history = await getSharedWatchHistory(db, token);
+      const accept = c.req.header("Accept") ?? "";
+      const wantsHtml =
+        !accept.includes("text/markdown") &&
+        !accept.includes("text/plain") &&
+        accept.includes("text/html");
+
+      if (!history) {
+        if (wantsHtml) return c.html(watchHistoryNotFoundHtml(), 404);
+        return c.json({ error: "Shared watch history not found" }, 404);
+      }
+
+      // 共有解除で無効化されるコンテンツなのでキャッシュさせない
+      // （/share/tier-lists と同じ方針）。
+      const headers = { "Cache-Control": "no-store" };
+      if (wantsHtml) {
+        return c.html(buildSharedWatchHistoryHtml(history), 200, headers);
+      }
+      const contentType = accept.includes("text/plain")
+        ? "text/plain; charset=utf-8"
+        : "text/markdown; charset=utf-8";
+      return c.body(buildSharedWatchHistoryMarkdown(history), 200, {
+        ...headers,
+        "Content-Type": contentType,
+      });
     },
   )
   .get(
