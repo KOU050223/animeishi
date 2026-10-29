@@ -16,6 +16,7 @@ import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
 import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
+import { BackButton } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
@@ -206,14 +207,7 @@ export default function MeishiEditScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <Pressable
-          onPress={handleBack}
-          style={styles.headerBtn}
-          accessibilityRole="button"
-          accessibilityLabel="戻る"
-        >
-          <Text style={styles.headerBtnText}>‹ 戻る</Text>
-        </Pressable>
+        <BackButton onPress={handleBack} accessibilityLabel="戻る" />
         <Text style={styles.headerTitle}>名刺エディタ</Text>
         <View style={{ flexDirection: "row", gap: 4 }}>
           <Pressable

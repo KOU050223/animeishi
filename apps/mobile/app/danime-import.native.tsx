@@ -27,6 +27,7 @@ import {
   type DanimeExtractMessage,
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
+import { BackButton } from "@/components/ui";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 
@@ -94,14 +95,11 @@ export default function DanimeImportScreen() {
         >
           <Text className="text-white font-semibold">Web 版を開く</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          className="mt-4 py-2"
+        <BackButton
+          className="mt-4"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel="戻る"
-        >
-          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
-        </TouchableOpacity>
+        />
       </SafeAreaView>
     );
   }
@@ -189,14 +187,11 @@ export default function DanimeImportScreen() {
             <Text className="text-white font-semibold">読み取り開始</Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity
-          className="mt-2 py-2 items-center"
+        <BackButton
+          className="mt-2 self-center"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel="戻る"
-        >
-          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
-        </TouchableOpacity>
+        />
       </View>
 
       {/* extracting 中は読み取り結果を待っている旨を薄く被せる */}
