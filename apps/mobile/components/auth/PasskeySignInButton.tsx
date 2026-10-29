@@ -4,7 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth, useClerk, useSignIn } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
-import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
+import {
+  getClerkErrorCode,
+  throwIfAuthError,
+  toAuthErrorMessage,
+} from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
 import { useThemeColors } from "@/lib/theme";
 
@@ -42,14 +46,14 @@ export function PasskeySignInButton({ onError }: Props) {
       }
 
       // Core 3 のシグナル API は例外ではなく { error } を返す。
-      // 下の catch ベースの処理をそのまま使うため error があれば投げ直す。
+      // 下の catch ベースの処理をそのまま使うため例外へ戻す。
       const { error } = await signIn.passkey({ flow: "discoverable" });
-      if (error) throw error;
+      throwIfAuthError(error);
 
       if (signIn.status === "complete" && signIn.createdSessionId) {
         // finalize() は作成済みセッションの setActive を内部で行う。
         const { error: finalizeError } = await signIn.finalize();
-        if (finalizeError) throw finalizeError;
+        throwIfAuthError(finalizeError);
         router.replace("/(tabs)");
       } else {
         onError(t("パスキーでのサインインを完了できませんでした"));

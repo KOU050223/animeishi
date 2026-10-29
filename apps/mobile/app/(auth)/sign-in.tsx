@@ -17,7 +17,11 @@ import { Input } from "@/components/ui";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
 import { signInSchema } from "@/lib/validators";
-import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
+import {
+  getClerkErrorCode,
+  throwIfAuthError,
+  toAuthErrorMessage,
+} from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
@@ -74,18 +78,18 @@ export default function SignInScreen() {
 
       // Core 3 のシグナル API は例外ではなく { error } を返す。
       // 下の catch ベースの処理（session_exists 復旧・エラー文言変換）を
-      // そのまま使うため、error があればここで投げ直す。
+      // そのまま使うため、throwIfAuthError で例外へ戻す。
       // 結果は戻り値ではなく signIn リソースの status / createdSessionId に反映される。
       const { error: signInError } = await signIn.password({
         identifier: parsed.data.email,
         password: parsed.data.password,
       });
-      if (signInError) throw signInError;
+      throwIfAuthError(signInError);
 
       if (signIn.status === "complete") {
         // finalize() は作成済みセッションの setActive を内部で行う。
         const { error: finalizeError } = await signIn.finalize();
-        if (finalizeError) throw finalizeError;
+        throwIfAuthError(finalizeError);
         router.replace("/(tabs)");
       } else {
         setError(getIncompleteSignInMessage(signIn.status, t));

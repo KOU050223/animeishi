@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useSignIn } from "@clerk/expo";
+import { throwIfAuthError } from "@/lib/authErrors";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 
 // Web の Google ログインはページリダイレクト方式（issue #89）。
@@ -21,7 +22,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
       redirectUrl: `${origin}/`,
       redirectCallbackUrl: `${origin}/sso-callback`,
     });
-    if (error) throw error;
+    throwIfAuthError(error);
     // 通常ここには到達しない（ページが Google へ遷移する）。
     // 戻った場合も遷移済み扱いにしてローディングだけ解除する。
     return { status: "redirected" };

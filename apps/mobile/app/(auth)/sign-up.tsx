@@ -15,7 +15,11 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { signUpSchema } from "@/lib/validators";
-import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
+import {
+  getClerkErrorCode,
+  throwIfAuthError,
+  toAuthErrorMessage,
+} from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
 import { featureFlags } from "@/lib/featureFlags";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
@@ -47,20 +51,26 @@ export default function SignUpScreen() {
   // に追い出される。
   // 追い出し抑止のフラグはガードの effect が走りうるすべてのタイミングに
   // 間に合わせる必要があるので、finalize より先に立てる。
-  async function activateSessionAndContinue() {
-    if (!signUp) return;
+  // 失敗時はエラー値を返して呼び出し側の catch へ伝え、成功時は null。
+  async function activateSessionAndContinue(): Promise<unknown> {
+    if (!signUp) return null;
     const showPasskeyPrompt = featureFlags.passkey;
     if (showPasskeyPrompt) passkeyPromptPending.current = true;
-    const { error } = await signUp.finalize();
+    // finalize() は { error } を返すが、ネットワーク障害等では例外も
+    // あり得る。どちらで失敗しても促進フラグが残らないよう例外も捕捉する。
+    const { error } = await signUp
+      .finalize()
+      .catch((err: unknown) => ({ error: err }));
     if (error) {
       passkeyPromptPending.current = false;
-      throw error;
+      return error;
     }
     if (showPasskeyPrompt) {
       setPendingPasskeyPrompt(true);
-      return;
+      return null;
     }
     router.replace("/(tabs)");
+    return null;
   }
 
   function handlePasskeyPromptDone() {
@@ -90,19 +100,19 @@ export default function SignUpScreen() {
     try {
       // Core 3 のシグナル API は例外ではなく { error } を返す。
       // 下の catch ベースの処理（session_exists 復旧・エラー文言変換）を
-      // そのまま使うため、error があればここで投げ直す。
+      // そのまま使うため、throwIfAuthError で例外へ戻す。
       // 結果は戻り値ではなく signUp リソースの status 等に反映される。
       const { error: signUpError } = await signUp.password({
         emailAddress: parsed.data.email,
         password: parsed.data.password,
         username: parsed.data.username,
       });
-      if (signUpError) throw signUpError;
+      throwIfAuthError(signUpError);
 
       // メール認証が必須でない Clerk 設定では password() の時点で complete になる。
       // その場合は認証コード入力を挟まず、そのままセッションを有効化して完了する。
       if (signUp.status === "complete" && signUp.createdSessionId) {
-        await activateSessionAndContinue();
+        throwIfAuthError(await activateSessionAndContinue());
         return;
       }
 
@@ -114,7 +124,7 @@ export default function SignUpScreen() {
         signUp.missingFields?.includes("email_address");
       if (emailNeedsVerification) {
         const { error: sendError } = await signUp.verifications.sendEmailCode();
-        if (sendError) throw sendError;
+        throwIfAuthError(sendError);
         setPendingVerification(true);
         return;
       }
@@ -159,9 +169,9 @@ export default function SignUpScreen() {
 
     try {
       const { error } = await signUp.verifications.verifyEmailCode({ code });
-      if (error) throw error;
+      throwIfAuthError(error);
       if (signUp.status === "complete" && signUp.createdSessionId) {
-        await activateSessionAndContinue();
+        throwIfAuthError(await activateSessionAndContinue());
       }
     } catch (err: unknown) {
       setError(toAuthErrorMessage(err, t, "認証コードの検証に失敗しました"));
