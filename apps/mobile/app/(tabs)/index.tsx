@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { ActivityFeedSection } from "@/components/ActivityFeedSection";
+import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { useAnnictConnection } from "@/lib/annict";
 import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
@@ -57,7 +58,9 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
+        <FriendStoryRail />
+
+        <Text className="mb-2 mt-4 text-sm font-medium text-gray-700 dark:text-slate-200">
           あなたの名刺
         </Text>
         <View style={styles.meishiPreviewFrame} testID="home-meishi-preview">
