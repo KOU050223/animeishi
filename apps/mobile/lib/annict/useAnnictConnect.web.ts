@@ -269,7 +269,11 @@ export function useAnnictConnect(): UseAnnictConnect {
       }
     } finally {
       // 視聴履歴キャッシュを破棄し、連携状態を再取得させる。
+      // 作品詳細（viewerStatusState 由来の視聴状態を含む。issue #347）も
+      // 同様に破棄する。キーは useWorkDetail の WORK_DETAIL_QUERY_KEY と
+      // 一致させる（import すると循環参照になる）。
       queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      queryClient.removeQueries({ queryKey: ["works", "detail"] });
       await queryClient.invalidateQueries({
         queryKey: ANNICT_CONNECTION_QUERY_KEY,
       });

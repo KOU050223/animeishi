@@ -155,6 +155,10 @@ export function useAnnictConnect() {
     // 既存キャッシュが画面に残るため、キャッシュ自体を破棄する。
     // useWatchHistory への import は循環参照になるためキー（プレフィックス）を直書きする。
     queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+    // 作品詳細（viewerStatusState 由来の視聴状態を含む。issue #347）も
+    // Annict 連携が前提のため同様に破棄する。キーは useWorkDetail の
+    // WORK_DETAIL_QUERY_KEY と一致させる（import すると循環参照になる）。
+    queryClient.removeQueries({ queryKey: ["works", "detail"] });
     await queryClient.invalidateQueries({
       queryKey: ANNICT_CONNECTION_QUERY_KEY,
     });

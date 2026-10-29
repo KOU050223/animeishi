@@ -34,9 +34,11 @@ jest.mock("@/lib/useWorkDetail", () => ({
     isError: false,
     refetch: jest.fn(),
   }),
-  workDetailQueryKey: (annictWorkId: number) => [
+  WORK_DETAIL_QUERY_KEY: ["works", "detail"],
+  workDetailQueryKey: (userId: string, annictWorkId: number) => [
     "works",
     "detail",
+    userId,
     annictWorkId,
   ],
 }));
@@ -57,7 +59,9 @@ jest.mock("@/lib/useWatchHistory", () => ({
 
 jest.mock("@tanstack/react-query", () => ({
   ...jest.requireActual("@tanstack/react-query"),
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({
+    invalidateQueries: jest.fn(() => Promise.resolve()),
+  }),
 }));
 
 jest.mock("@/lib/events", () => ({
@@ -128,5 +132,7 @@ describe("AnimeListContent", () => {
       pathname: "/character-tier-list",
       params: { workId: "42", workTitle: "テストアニメ" },
     });
+    // Tier 表から戻ったとき一覧の上にシートが残らないよう、遷移前に閉じる。
+    expect(screen.queryByTestId("anime-work-detail-sheet")).toBeNull();
   });
 });

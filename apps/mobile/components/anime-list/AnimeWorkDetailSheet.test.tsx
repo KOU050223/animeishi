@@ -13,9 +13,11 @@ const mockInvalidateQueries = jest.fn();
 
 jest.mock("@/lib/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
-  workDetailQueryKey: (annictWorkId: number) => [
+  WORK_DETAIL_QUERY_KEY: ["works", "detail"],
+  workDetailQueryKey: (userId: string, annictWorkId: number) => [
     "works",
     "detail",
+    userId,
     annictWorkId,
   ],
 }));
@@ -114,6 +116,8 @@ describe("AnimeWorkDetailSheet", () => {
     jest.clearAllMocks();
     mockUseWorkDetail.mockReturnValue(detailState());
     mockMutateAsync.mockResolvedValue({});
+    // finally 内で invalidateQueries(...).then() を呼ぶため Promise を返す。
+    mockInvalidateQueries.mockResolvedValue(undefined);
   });
 
   it("work が null のときシートを表示しない", async () => {
@@ -172,7 +176,7 @@ describe("AnimeWorkDetailSheet", () => {
     expect(chip.props.accessibilityState?.selected).toBe(true);
   });
 
-  it("視聴ステータスのチップを押すと upsert が呼ばれ選択状態になる", async () => {
+  it("視聴ステータスのチップを押すと upsert が呼ばれる", async () => {
     await render(sheetElement());
 
     await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
@@ -185,7 +189,17 @@ describe("AnimeWorkDetailSheet", () => {
       annictWorkId: 42,
       data: { state: "WATCHED" },
     });
-    const chip = screen.getByTestId("work-detail-status-WATCHED");
+  });
+
+  it("更新成功後は楽観値を下ろし、再取得したサーバー値の選択に戻る", async () => {
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
+
+    // 対象作品の詳細クエリを取り直し、サーバー値（WATCHING）の選択に戻る。
+    // 楽観値を残すと開き直しで古い選択が新しい値を覆ってしまうため。
+    expect(mockInvalidateQueries).toHaveBeenCalled();
+    const chip = screen.getByTestId("work-detail-status-WATCHING");
     expect(chip.props.accessibilityState?.selected).toBe(true);
   });
 
@@ -224,14 +238,17 @@ describe("AnimeWorkDetailSheet", () => {
     expect(onToggleFavorite).toHaveBeenCalled();
   });
 
-  it("「キャラ Tier 表を作る」を押すと対象作品が onOpenCharacterTierList に渡る", async () => {
+  it("「キャラ Tier 表を作る」を押すとシートを閉じて対象作品を onOpenCharacterTierList に渡す", async () => {
     const onOpenCharacterTierList = jest.fn();
-    await render(sheetElement({ onOpenCharacterTierList }));
+    const onClose = jest.fn();
+    await render(sheetElement({ onOpenCharacterTierList, onClose }));
 
     await fireEvent.press(
       screen.getByTestId("work-detail-character-tier-list"),
     );
 
+    // Tier 表から戻ったとき一覧の上にシートが残らないよう先に閉じる。
+    expect(onClose).toHaveBeenCalled();
     expect(onOpenCharacterTierList).toHaveBeenCalledWith(WORK);
   });
 });

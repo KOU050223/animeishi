@@ -8,11 +8,16 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useThemeColors } from "@/lib/theme";
-import { useWorkDetail, workDetailQueryKey } from "@/lib/useWorkDetail";
+import {
+  useWorkDetail,
+  WORK_DETAIL_QUERY_KEY,
+  workDetailQueryKey,
+} from "@/lib/useWorkDetail";
 import {
   useUpsertWatchHistory,
   WATCH_STATUS_LABELS,
@@ -66,9 +71,8 @@ export function AnimeWorkDetailSheet({
   isTogglingFavorite: boolean;
   onOpenCharacterTierList: (work: AnimeTitle) => void;
 }) {
-  const colors = useThemeColors();
-  const palette = useAnimeListPalette();
   const queryClient = useQueryClient();
+  const { userId } = useAuth();
   const { height } = useWindowDimensions();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
@@ -85,6 +89,11 @@ export function AnimeWorkDetailSheet({
     work && optimistic?.workId === work.annictWorkId
       ? optimistic.state
       : serverState;
+
+  const detailQueryKey =
+    userId && work
+      ? workDetailQueryKey(userId, work.annictWorkId)
+      : WORK_DETAIL_QUERY_KEY;
 
   function selectStatus(state: WatchState) {
     if (!work || state === currentState) return;
@@ -109,11 +118,21 @@ export function AnimeWorkDetailSheet({
         );
       })
       .finally(() => {
-        // viewerStatusState 由来の state を新しい値に取り直す
-        void queryClient.invalidateQueries({
-          queryKey: workDetailQueryKey(work.annictWorkId),
-        });
+        // viewerStatusState 由来の state を取り直してから楽観値を下ろす。
+        // 成功後も残したままだと、シートを開き直したとき古い選択値が
+        // 新しいサーバー値を覆ってしまう（issue #347 レビュー指摘）。
+        void queryClient
+          .invalidateQueries({ queryKey: detailQueryKey })
+          .then(() => setOptimistic(null));
       });
+  }
+
+  function openCharacterTierList() {
+    if (!work) return;
+    // 先に閉じないと Tier 表から戻ったとき一覧の上にシートが残る
+    // （issue #347 レビュー指摘）。
+    onClose();
+    onOpenCharacterTierList(work);
   }
 
   const detailWork = detail.data?.work;
@@ -134,138 +153,194 @@ export function AnimeWorkDetailSheet({
       {work ? (
         <ScrollView style={{ maxHeight: height * 0.8 }}>
           <View className="px-6 pt-6 pb-10 gap-5">
-            {/* ポスター・タイトル（日英）・シーズン・メディア種別 */}
-            <View className="flex-row gap-4">
-              <AnimePoster uri={work.hostedImageUrl} title={work.title} />
-              <View className="flex-1 min-w-0 justify-center">
-                <Text
-                  className="text-lg font-bold text-gray-900 dark:text-slate-100"
-                  numberOfLines={3}
-                >
-                  {work.title}
-                </Text>
-                {work.titleEn ? (
-                  <Text
-                    className="mt-1 text-xs text-gray-500 dark:text-slate-400"
-                    numberOfLines={2}
-                  >
-                    {work.titleEn}
-                  </Text>
-                ) : null}
-                {meta ? (
-                  <Text className="mt-2 text-xs text-gray-500 dark:text-slate-400">
-                    {meta}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-
-            {/* 視聴ステータスの変更（タップで即反映） */}
-            <View>
-              <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
-                視聴ステータス
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-2">
-                  {WATCH_STATUSES.map((s) => (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => selectStatus(s)}
-                      disabled={upsert.isPending}
-                      className={`px-3 py-2 rounded-full border ${
-                        currentState === s
-                          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-                          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
-                      }`}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: currentState === s }}
-                      accessibilityLabel={`視聴ステータスを${WATCH_STATUS_LABELS[s]}にする`}
-                      testID={`work-detail-status-${s}`}
-                    >
-                      <Text
-                        className={`text-xs font-medium ${
-                          currentState === s
-                            ? "text-indigo-600 dark:text-indigo-300"
-                            : "text-gray-500 dark:text-slate-400"
-                        }`}
-                      >
-                        {WATCH_STATUS_LABELS[s]}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-
-            {/* 推し登録とキャラ Tier 表への導線 */}
-            <View className="flex-row items-center gap-3">
-              <TouchableOpacity
-                className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-2.5 dark:border-slate-600 dark:bg-slate-800"
-                onPress={onToggleFavorite}
-                disabled={isTogglingFavorite}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isFavorite
-                    ? `${work.title}を推しから解除`
-                    : `${work.title}を推しに登録`
-                }
-                testID="work-detail-favorite"
-              >
-                <Ionicons
-                  name={isFavorite ? "heart" : "heart-outline"}
-                  size={16}
-                  color={
-                    isFavorite
-                      ? palette.favoriteIconActive
-                      : palette.favoriteIcon
-                  }
-                />
-                <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
-                  {isFavorite ? "推し登録を解除" : "推しに登録"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
-                onPress={() => onOpenCharacterTierList(work)}
-                accessibilityRole="button"
-                accessibilityLabel={`${work.title} のキャラクター Tier 表を作る`}
-                testID="work-detail-character-tier-list"
-              >
-                <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                  キャラ Tier 表を作る
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Annict の詳細情報。読み込み中・失敗はカードの情報だけ表示する */}
-            {detail.isLoading ? (
-              <View className="items-center py-4">
-                <ActivityIndicator size="small" color={colors.textFaint} />
-              </View>
-            ) : detail.isError ? (
-              <View className="items-center py-2 gap-2">
-                <Text className="text-xs text-gray-400 dark:text-slate-500">
-                  詳細情報を取得できませんでした
-                </Text>
-                <TouchableOpacity
-                  onPress={() => detail.refetch()}
-                  accessibilityRole="button"
-                  accessibilityLabel="詳細情報を再取得"
-                  testID="work-detail-retry"
-                >
-                  <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                    再試行
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : detailWork ? (
-              <WorkDetailSection work={detailWork} />
-            ) : null}
+            <HeaderSection work={work} meta={meta} />
+            <StatusSection
+              currentState={currentState}
+              disabled={upsert.isPending}
+              onSelect={selectStatus}
+            />
+            <ActionRow
+              title={work.title}
+              isFavorite={isFavorite}
+              isTogglingFavorite={isTogglingFavorite}
+              onToggleFavorite={onToggleFavorite}
+              onOpenCharacterTierList={openCharacterTierList}
+            />
+            <DetailFetchSection detail={detail} />
           </View>
         </ScrollView>
       ) : null}
     </BottomSheet>
   );
+}
+
+/** ポスター・タイトル（日英）・シーズン・メディア種別のヘッダー部。 */
+function HeaderSection({ work, meta }: { work: AnimeTitle; meta: string }) {
+  return (
+    <View className="flex-row gap-4">
+      <AnimePoster uri={work.hostedImageUrl} title={work.title} />
+      <View className="flex-1 min-w-0 justify-center">
+        <Text
+          className="text-lg font-bold text-gray-900 dark:text-slate-100"
+          numberOfLines={3}
+        >
+          {work.title}
+        </Text>
+        {work.titleEn ? (
+          <Text
+            className="mt-1 text-xs text-gray-500 dark:text-slate-400"
+            numberOfLines={2}
+          >
+            {work.titleEn}
+          </Text>
+        ) : null}
+        {meta ? (
+          <Text className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** 視聴ステータス変更チップ（タップで即反映）。 */
+function StatusSection({
+  currentState,
+  disabled,
+  onSelect,
+}: {
+  currentState: WatchState | null;
+  disabled: boolean;
+  onSelect: (state: WatchState) => void;
+}) {
+  return (
+    <View>
+      <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+        視聴ステータス
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="flex-row gap-2">
+          {WATCH_STATUSES.map((s) => (
+            <TouchableOpacity
+              key={s}
+              onPress={() => onSelect(s)}
+              disabled={disabled}
+              className={`px-3 py-2 rounded-full border ${
+                currentState === s
+                  ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+                  : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+              }`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: currentState === s }}
+              accessibilityLabel={`視聴ステータスを${WATCH_STATUS_LABELS[s]}にする`}
+              testID={`work-detail-status-${s}`}
+            >
+              <Text
+                className={`text-xs font-medium ${
+                  currentState === s
+                    ? "text-indigo-600 dark:text-indigo-300"
+                    : "text-gray-500 dark:text-slate-400"
+                }`}
+              >
+                {WATCH_STATUS_LABELS[s]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+/** 推し登録とキャラ Tier 表への導線。 */
+function ActionRow({
+  title,
+  isFavorite,
+  isTogglingFavorite,
+  onToggleFavorite,
+  onOpenCharacterTierList,
+}: {
+  title: string;
+  isFavorite: boolean;
+  isTogglingFavorite: boolean;
+  onToggleFavorite: () => void;
+  onOpenCharacterTierList: () => void;
+}) {
+  const palette = useAnimeListPalette();
+
+  return (
+    <View className="flex-row items-center gap-3">
+      <TouchableOpacity
+        className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-2.5 dark:border-slate-600 dark:bg-slate-800"
+        onPress={onToggleFavorite}
+        disabled={isTogglingFavorite}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isFavorite ? `${title}を推しから解除` : `${title}を推しに登録`
+        }
+        testID="work-detail-favorite"
+      >
+        <Ionicons
+          name={isFavorite ? "heart" : "heart-outline"}
+          size={16}
+          color={isFavorite ? palette.favoriteIconActive : palette.favoriteIcon}
+        />
+        <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
+          {isFavorite ? "推し登録を解除" : "推しに登録"}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
+        onPress={onOpenCharacterTierList}
+        accessibilityRole="button"
+        accessibilityLabel={`${title} のキャラクター Tier 表を作る`}
+        testID="work-detail-character-tier-list"
+      >
+        <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+          キャラ Tier 表を作る
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/** Annict の詳細情報。読み込み中・失敗はカードの情報だけ表示する。 */
+function DetailFetchSection({
+  detail,
+}: {
+  detail: ReturnType<typeof useWorkDetail>;
+}) {
+  const colors = useThemeColors();
+
+  if (detail.isLoading) {
+    return (
+      <View className="items-center py-4">
+        <ActivityIndicator size="small" color={colors.textFaint} />
+      </View>
+    );
+  }
+  if (detail.isError) {
+    return (
+      <View className="items-center py-2 gap-2">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
+          詳細情報を取得できませんでした
+        </Text>
+        <TouchableOpacity
+          onPress={() => detail.refetch()}
+          accessibilityRole="button"
+          accessibilityLabel="詳細情報を再取得"
+          testID="work-detail-retry"
+        >
+          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            再試行
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  if (!detail.data?.work) return null;
+  return <WorkDetailSection work={detail.data.work} />;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

@@ -11,9 +11,12 @@ type WorkDetailResponse = InferResponseType<
 >;
 export type WorkDetail = WorkDetailResponse["work"];
 
-// 詳細シートの作品単位クエリキー。視聴ステータス変更後の再取得でも使う。
-export const workDetailQueryKey = (annictWorkId: number) =>
-  ["works", "detail", annictWorkId] as const;
+// 詳細シートのクエリキー。state（viewerStatusState）は閲覧ユーザー固有の
+// 値なので、視聴履歴と同じく userId でスコープする。共有端末でユーザーが
+// 切り替わっても前ユーザーの視聴状態を再利用しないため。
+export const WORK_DETAIL_QUERY_KEY = ["works", "detail"] as const;
+export const workDetailQueryKey = (userId: string, annictWorkId: number) =>
+  [...WORK_DETAIL_QUERY_KEY, userId, annictWorkId] as const;
 
 /**
  * 作品詳細シートに出す 1 作品分のメタ（GET /works/:annictWorkId。issue #347）。
@@ -22,12 +25,14 @@ export const workDetailQueryKey = (annictWorkId: number) =>
  * （state）を持つ。一覧と同じく Annict 連携済みのときだけ有効化する。
  */
 export function useWorkDetail(annictWorkId: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
   const { isConnected } = useAnnictConnection();
 
   return useQuery({
-    queryKey: workDetailQueryKey(annictWorkId ?? 0),
-    enabled: !!isSignedIn && isConnected && annictWorkId != null,
+    queryKey: userId
+      ? workDetailQueryKey(userId, annictWorkId ?? 0)
+      : WORK_DETAIL_QUERY_KEY,
+    enabled: !!isSignedIn && !!userId && isConnected && annictWorkId != null,
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
