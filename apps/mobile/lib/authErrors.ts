@@ -43,6 +43,16 @@ const CLERK_ERROR_KEYS: Record<string, TranslationKey> = {
   too_many_requests: "リクエストが多すぎます。しばらくしてからお試しください",
 };
 
+/**
+ * シグナル API（Core 3）のメソッド結果 `{ error }` を例外へ変換する。
+ * 呼び出し側はこれで catch ベースの処理（session_exists 復旧・文言変換）を
+ * 再利用できる。React Compiler は ThrowStatement を含む関数を最適化対象外に
+ * するため、throw は画面コードではなくこのモジュール関数に隔離する。
+ */
+export function throwIfAuthError(error: unknown): void {
+  if (error) throw error;
+}
+
 /** Clerk のエラーオブジェクトから先頭エラーの code を取り出す */
 export function getClerkErrorCode(err: unknown): string | undefined {
   if (

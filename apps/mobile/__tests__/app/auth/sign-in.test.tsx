@@ -9,8 +9,10 @@ import SignInScreen from "@/app/(auth)/sign-in";
 import { loggedInUser, resetAuth, getAuthMock } from "@/test-utils/auth";
 
 // Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
-// 認証状態は @/test-utils/auth のファクトリで表現し、signIn.create 等の
+// 認証状態は @/test-utils/auth のファクトリで表現し、signIn.password 等の
 // jest.fn は getAuthMock()（= 現在のモックステート）から取り出して設定する。
+// シグナル API の結果は signIn.outcome に入れておくと次のメソッド呼び出しで
+// リソース（status 等）へ反映され、{ error } の返り値にもなる。
 
 // expo-router のフックをモック
 const mockReplace = jest.fn();
@@ -39,7 +41,7 @@ describe("SignInScreen", () => {
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(auth.signIn.create).not.toHaveBeenCalled();
+    expect(auth.signIn.password).not.toHaveBeenCalled();
   });
 
   it("不正なメールアドレスでバリデーションエラーが表示される", async () => {
@@ -57,15 +59,15 @@ describe("SignInScreen", () => {
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(auth.signIn.create).not.toHaveBeenCalled();
+    expect(auth.signIn.password).not.toHaveBeenCalled();
   });
 
   it("正しい入力でサインインが成功しホームへ遷移する", async () => {
     const auth = getAuthMock();
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_123",
-    });
+    };
 
     await render(<SignInScreen />);
     await fireEvent.changeText(
@@ -79,7 +81,7 @@ describe("SignInScreen", () => {
     await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
-      expect(auth.signIn.create).toHaveBeenCalledWith({
+      expect(auth.signIn.password).toHaveBeenCalledWith({
         identifier: "test@example.com",
         password: "StrongPass1",
       });
@@ -90,9 +92,9 @@ describe("SignInScreen", () => {
 
   it("Clerk 以外の予期しないエラー時はフォールバックメッセージを表示する", async () => {
     const auth = getAuthMock();
-    auth.signIn.create.mockRejectedValueOnce(
-      new Error("Network request failed"),
-    );
+    auth.signIn.password.mockResolvedValueOnce({
+      error: new Error("Network request failed"),
+    });
 
     await render(<SignInScreen />);
     await fireEvent.changeText(
@@ -114,13 +116,15 @@ describe("SignInScreen", () => {
   it("Clerk のエラーコードを日本語メッセージに変換して表示する", async () => {
     const auth = getAuthMock();
     // Clerk は英語の message と code を返す。code を基準に日本語化する。
-    auth.signIn.create.mockRejectedValueOnce({
-      errors: [
-        {
-          code: "form_password_incorrect",
-          message: "Password is incorrect. Try again.",
-        },
-      ],
+    auth.signIn.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          {
+            code: "form_password_incorrect",
+            message: "Password is incorrect. Try again.",
+          },
+        ],
+      },
     });
 
     await render(<SignInScreen />);
@@ -143,14 +147,16 @@ describe("SignInScreen", () => {
 
   it("未知の Clerk エラーは英語をそのまま出さずフォールバックを表示する", async () => {
     const auth = getAuthMock();
-    auth.signIn.create.mockRejectedValueOnce({
-      errors: [
-        {
-          code: "unknown_internal_error",
-          message:
-            "We were unable to complete a GET request for this Client. No sign up attempt was found. Please try again.",
-        },
-      ],
+    auth.signIn.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          {
+            code: "unknown_internal_error",
+            message:
+              "We were unable to complete a GET request for this Client. No sign up attempt was found. Please try again.",
+          },
+        ],
+      },
     });
 
     await render(<SignInScreen />);
@@ -173,9 +179,7 @@ describe("SignInScreen", () => {
 
   it("サインインが完了しないステータスの場合に理由を表示する", async () => {
     const auth = getAuthMock();
-    auth.signIn.create.mockResolvedValueOnce({
-      status: "needs_second_factor",
-    });
+    auth.signIn.outcome = { status: "needs_second_factor" };
 
     await render(<SignInScreen />);
     await fireEvent.changeText(
@@ -201,8 +205,12 @@ describe("SignInScreen", () => {
     // client 上にセッションが残っているのに isSignedIn=false だと
     // 遷移だけでは AuthGuard に戻されてループする。活性化が必要。
     auth.client.sessions = [{ id: "sess_existing" }];
-    auth.signIn.create.mockRejectedValueOnce({
-      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    auth.signIn.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          { code: "session_exists", message: "You're already signed in" },
+        ],
+      },
     });
 
     await render(<SignInScreen />);
@@ -230,8 +238,12 @@ describe("SignInScreen", () => {
     const auth = getAuthMock();
     // client にセッションが無い（復元不能）ケース。
     // 既定のモック状態（sessions が空）のまま試行する。
-    auth.signIn.create.mockRejectedValueOnce({
-      errors: [{ code: "session_exists", message: "You're already signed in" }],
+    auth.signIn.password.mockResolvedValueOnce({
+      error: {
+        errors: [
+          { code: "session_exists", message: "You're already signed in" },
+        ],
+      },
     });
 
     await render(<SignInScreen />);
@@ -256,10 +268,10 @@ describe("SignInScreen", () => {
   it("既にサインイン済みの場合は先にサインアウトしてからサインインする", async () => {
     // ログイン済みユーザーを表現
     const auth = loggedInUser();
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_456",
-    });
+    };
 
     await render(<SignInScreen />);
     await fireEvent.changeText(
@@ -274,7 +286,7 @@ describe("SignInScreen", () => {
 
     await waitFor(() => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
-      expect(auth.signIn.create).toHaveBeenCalledWith({
+      expect(auth.signIn.password).toHaveBeenCalledWith({
         identifier: "other@example.com",
         password: "StrongPass1",
       });
@@ -284,17 +296,17 @@ describe("SignInScreen", () => {
 
     // 既存セッションの破棄はサインイン作成より前に行われる
     expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.create.mock.invocationCallOrder[0],
+      auth.signIn.password.mock.invocationCallOrder[0],
     );
   });
 
   it("サインイン済みでない場合はサインアウトを呼ばない", async () => {
     // 既定（resetAuth 後）は未サインイン状態
     const auth = getAuthMock();
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_789",
-    });
+    };
 
     await render(<SignInScreen />);
     await fireEvent.changeText(
@@ -308,7 +320,7 @@ describe("SignInScreen", () => {
     await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
-      expect(auth.signIn.create).toHaveBeenCalled();
+      expect(auth.signIn.password).toHaveBeenCalled();
     });
     expect(auth.signOut).not.toHaveBeenCalled();
   });

@@ -44,7 +44,7 @@ module.exports = {
     "^@sentry/react-native$": "<rootDir>/__mocks__/@sentry/react-native.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@clerk/expo$": "<rootDir>/__mocks__/@clerk/expo.ts",
-    // legacy サブパス（Core 2 互換の useSignIn/useSignUp）も同じモックに揃える
+    // 万が一残っていた legacy サブパス import も本物ではなくモックへ解決する
     "^@clerk/expo/legacy$": "<rootDir>/__mocks__/@clerk/expo.ts",
   },
 };

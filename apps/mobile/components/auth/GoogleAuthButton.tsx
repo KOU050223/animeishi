@@ -3,10 +3,6 @@ import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuth, useClerk } from "@clerk/expo";
-// Core 3 の useSignIn はシグナルベースの新 API。既存フロー（OAuth 結果の
-// createdSessionId を setActive で活性化）の挙動を維持するため、
-// Core 2 互換 API を提供する legacy サブパスを使う。
-import { useSignIn } from "@clerk/expo/legacy";
 import { useTranslation } from "react-i18next";
 import { useGoogleAuth } from "@/lib/googleAuth";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
@@ -26,9 +22,8 @@ type Props = {
 export function GoogleAuthButton({ onError }: Props) {
   const { t } = useTranslation();
   const { startGoogleAuth } = useGoogleAuth();
-  const { setActive, isLoaded } = useSignIn();
-  const { isSignedIn, signOut } = useAuth();
-  const { client } = useClerk();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
 

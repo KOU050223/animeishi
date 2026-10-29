@@ -41,10 +41,10 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
     const auth = getAuthMock();
 
     // 1) 最初のアカウントでサインイン
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_first",
-    });
+    };
 
     const { rerender } = await render(<SignInScreen />);
     await fillCredentials("first@example.com", "StrongPass1");
@@ -61,16 +61,16 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
     expect(auth.isSignedIn).toBe(false);
 
     // 3) 別アカウントで再サインイン。画面を作り直して入力をリセットする。
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_second",
-    });
+    };
     await rerender(<SignInScreen />);
     await fillCredentials("second@example.com", "StrongPass1");
     await fireEvent.press(screen.getByTestId("sign-in-button"));
 
     await waitFor(() => {
-      expect(auth.signIn.create).toHaveBeenLastCalledWith({
+      expect(auth.signIn.password).toHaveBeenLastCalledWith({
         identifier: "second@example.com",
         password: "StrongPass1",
       });
@@ -84,10 +84,10 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
   it("サインイン済みのまま再度サインインすると、先にサインアウトしてから新セッションを張る", async () => {
     // 既にサインイン済みの状態からスタート
     const auth = loggedInUser();
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_relogin",
-    });
+    };
 
     await render(<SignInScreen />);
     await fillCredentials("again@example.com", "StrongPass1");
@@ -102,7 +102,7 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
 
     // 既存セッションの破棄 → 新規サインイン作成の順序を保証する
     expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.create.mock.invocationCallOrder[0],
+      auth.signIn.password.mock.invocationCallOrder[0],
     );
   });
 });
@@ -112,8 +112,10 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
     const auth = getAuthMock();
 
     // 1回目は認証情報エラー
-    auth.signIn.create.mockRejectedValueOnce({
-      errors: [{ code: "form_password_incorrect", message: "wrong" }],
+    auth.signIn.password.mockResolvedValueOnce({
+      error: {
+        errors: [{ code: "form_password_incorrect", message: "wrong" }],
+      },
     });
 
     await render(<SignInScreen />);
@@ -126,10 +128,10 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
     expect(auth.setActive).not.toHaveBeenCalled();
 
     // パスワードを直して再試行 → 成功し、エラーメッセージが消える
-    auth.signIn.create.mockResolvedValueOnce({
+    auth.signIn.outcome = {
       status: "complete",
       createdSessionId: "session_recover",
-    });
+    };
     await fireEvent.changeText(
       screen.getByTestId("password-input"),
       "CorrectPass1",
@@ -148,11 +150,17 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
   it("ローディング中はボタンが無効化され、二重送信されない", async () => {
     const auth = getAuthMock();
 
-    // create を未解決の Promise にして、ローディング状態を保持させる
-    let resolveCreate!: (value: unknown) => void;
-    auth.signIn.create.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveCreate = resolve;
+    // password を未解決の Promise にして、ローディング状態を保持させる。
+    // 解決時にはリソースの status も更新する（シグナル API は結果を
+    // 返り値ではなく signIn リソースに反映するため）。
+    let resolvePassword!: (value: { error: unknown }) => void;
+    auth.signIn.password.mockImplementationOnce(() =>
+      new Promise<{ error: unknown }>((resolve) => {
+        resolvePassword = resolve;
+      }).then((r) => {
+        auth.signIn.status = "complete";
+        auth.signIn.createdSessionId = "session_x";
+        return r;
       }),
     );
 
@@ -171,10 +179,10 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
     await fireEvent.press(button);
     await fireEvent.press(button);
 
-    expect(auth.signIn.create).toHaveBeenCalledTimes(1);
+    expect(auth.signIn.password).toHaveBeenCalledTimes(1);
 
-    // 後始末: Promise を解決して状態更新の警告を防ぐ
-    resolveCreate({ status: "complete", createdSessionId: "session_x" });
+    // 後始末: Promise を解決して状態更新の警告を防ぐ。
+    resolvePassword({ error: null });
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalled();
     });
@@ -192,14 +200,14 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(auth.signIn.create).not.toHaveBeenCalled();
+    expect(auth.signIn.password).not.toHaveBeenCalled();
     expect(auth.setActive).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("2要素認証が必要なステータスではホームへ遷移せず理由を表示する", async () => {
     const auth = getAuthMock();
-    auth.signIn.create.mockResolvedValueOnce({ status: "needs_second_factor" });
+    auth.signIn.outcome = { status: "needs_second_factor" };
 
     await render(<SignInScreen />);
     await fillCredentials("2fa@example.com", "StrongPass1");
