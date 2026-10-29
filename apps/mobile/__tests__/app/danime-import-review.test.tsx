@@ -44,10 +44,12 @@ beforeEach(async () => {
 });
 
 describe("DanimeImportReviewScreen（ネイティブ・フラグ無効）", () => {
-  it("/(tabs)/watch-history へリダイレクトする", async () => {
+  it("/(tabs)/library?section=history へリダイレクトする", async () => {
     await render(<DanimeImportReviewScreen />);
 
-    expect(mockRedirect).toHaveBeenCalledWith("/(tabs)/watch-history");
+    expect(mockRedirect).toHaveBeenCalledWith(
+      "/(tabs)/library?section=history",
+    );
   });
 });
 

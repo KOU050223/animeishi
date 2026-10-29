@@ -4,6 +4,7 @@ import type { DrizzleDb } from "@/db/client";
 import {
   users,
   deletedUsers,
+  activities,
   watchHistory,
   favorites,
   friends,
@@ -536,6 +537,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
 
       const queries: BatchItem<"sqlite">[] = [
         db.delete(analyses).where(eq(analyses.userId, currentUserId)),
+        db.delete(activities).where(eq(activities.userId, currentUserId)),
         db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),
         db.delete(watchHistory).where(eq(watchHistory.userId, currentUserId)),
         db.delete(favorites).where(eq(favorites.userId, currentUserId)),

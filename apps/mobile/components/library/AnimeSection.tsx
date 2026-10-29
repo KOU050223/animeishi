@@ -3,7 +3,8 @@ import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 
-export default function AnimeListScreen() {
+// ライブラリタブの「アニメ」セクション（旧アニメ一覧タブ）。
+export function AnimeSection() {
   const favoriteIds = useFavoriteIds();
   const { toggle, isPending: isToggling } = useToggleFavorite(favoriteIds, {
     // トグル失敗は画面に変化が残らないため、OK を押すまで消えない

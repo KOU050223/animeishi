@@ -1,4 +1,4 @@
-// 視聴履歴画面のテスト。
+// 視聴履歴セクション（ライブラリタブ内）のテスト。
 // dアニメ取り込み導線は featureFlags.danimeImport で制御する（#158）:
 // 無効（ネイティブ既定）ではボタンを出さず、有効（Web 版）では従来通り出す。
 import React from "react";
@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import WatchHistoryScreen from "@/app/(tabs)/watch-history";
+import { WatchHistorySection } from "@/components/library/WatchHistorySection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockPush = jest.fn();
@@ -120,17 +120,17 @@ beforeEach(async () => {
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
-describe("WatchHistoryScreen", () => {
+describe("WatchHistorySection", () => {
   it("フラグ無効（ネイティブ）では dアニメ取り込み導線を表示しない", async () => {
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
-    expect(screen.getByText("視聴履歴")).toBeTruthy();
+    expect(screen.getByTestId("watch-history-item-1")).toBeTruthy();
     expect(screen.queryByTestId("danime-import-button")).toBeNull();
   });
 
   it("フラグ有効（Web 版）では導線を表示し取り込み画面へ遷移する", async () => {
     mockDanimeImport = true;
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByTestId("danime-import-button"));
 
@@ -140,7 +140,7 @@ describe("WatchHistoryScreen", () => {
   it("保存を押すと API 応答を待たずモーダルが閉じて mutateAsync が呼ばれる", async () => {
     // API 応答が帰らない状態を再現するため pending のままにする。
     mockUpsertMutateAsync.mockReturnValue(new Promise(() => {}));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("視聴中"));
@@ -158,7 +158,7 @@ describe("WatchHistoryScreen", () => {
     // 楽観更新は連続編集を許容する設計のため、pending 中の保存を無効化
     // しない（item 単位ロールバック＋スコープ直列化で整合性を保つ）。
     mockUpsertMutateAsync.mockReturnValue(new Promise(() => {}));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("保存"));
@@ -171,7 +171,7 @@ describe("WatchHistoryScreen", () => {
 
   it("更新に失敗したらロールバックを知らせるダイアログを出す", async () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("保存"));
@@ -190,7 +190,7 @@ describe("WatchHistoryScreen", () => {
     mockUpsertMutateAsync.mockRejectedValue(
       new Error("Network request failed"),
     );
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("保存"));
@@ -201,7 +201,7 @@ describe("WatchHistoryScreen", () => {
 
   it("表示中に起きた同種の失敗は閉じたあと件数でまとめて通知する", async () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     // 1回目の失敗でダイアログが出る（mock は onClose を呼ばないので開いたまま）。
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
@@ -229,7 +229,7 @@ describe("WatchHistoryScreen", () => {
 
   it("ダイアログを閉じた後の失敗では再度通知する", async () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("保存"));
@@ -249,7 +249,7 @@ describe("WatchHistoryScreen", () => {
     mockRemoveMutateAsync.mockRejectedValue(
       new ApiRequestError(500, "視聴履歴の削除に失敗しました"),
     );
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     // 更新失敗のダイアログが開く（mock は onClose を呼ばないので開いたまま）。
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
@@ -273,7 +273,7 @@ describe("WatchHistoryScreen", () => {
     // 後続の楽観値が残る失敗は onError がロールバックをスキップするため
     // rolledBack は付かない。その場合に「戻した」と誤表示しない。
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(false));
-    await render(<WatchHistoryScreen />);
+    await render(<WatchHistorySection />);
 
     await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
     await fireEvent.press(screen.getByLabelText("保存"));

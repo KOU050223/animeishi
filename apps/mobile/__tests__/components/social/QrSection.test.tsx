@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import QrScreen from "@/app/(tabs)/qr";
+import { QrSection } from "@/components/social/QrSection";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 // react-native-qrcode-svg の描画結果ではなく、QR に埋め込む値を検証するため
@@ -55,7 +55,7 @@ beforeEach(async () => {
 describe("マイQR（QR コード生成）", () => {
   it("OS 標準カメラでも開けるよう Web 版プロフィール URL を QR に埋め込む", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrScreen />);
+    await render(<QrSection />);
 
     expect(mockQRCodeProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -66,7 +66,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("生の userId ではなく /user/<id> 形式の URL になる", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrScreen />);
+    await render(<QrSection />);
 
     const qr = screen.getByTestId("qr-code");
     expect(qr.props.children).toContain(`/user/${USER_ID}`);
@@ -75,7 +75,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("未サインインなら QR を表示しない", async () => {
     signedOutUser();
-    await render(<QrScreen />);
+    await render(<QrSection />);
 
     expect(mockQRCodeProps).not.toHaveBeenCalled();
     expect(
@@ -87,7 +87,7 @@ describe("マイQR（QR コード生成）", () => {
 describe("スキャン", () => {
   it("スキャンタブに切り替えられる", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrScreen />);
+    await render(<QrSection />);
 
     await fireEvent.press(screen.getByLabelText("スキャン"));
 

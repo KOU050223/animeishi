@@ -100,9 +100,12 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       title: string;
       tiersJson: string;
       items: TierListItemInput[];
-    }): Promise<TierListWithItems> {
+    }): Promise<{ tierList: TierListWithItems; created: boolean }> {
       const now = new Date();
-      await db
+      // 「新規作成か」は書き込み件数で判定する。upsert 1 本だと insert / update の
+      // どちらが走ったかが分からず、事前 SELECT だと並行リクエストで両方が
+      // 「未作成」と誤判定して活動記録が重複する。createdAt は初回のみ。
+      const inserted = await db
         .insert(tierLists)
         .values({
           userId: currentUserId,
@@ -112,15 +115,23 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
           createdAt: now,
           updatedAt: now,
         })
-        .onConflictDoUpdate({
-          target: [tierLists.userId, tierLists.season],
-          // createdAt は初回のみ。更新では触らない。
-          set: {
+        .onConflictDoNothing();
+      const created = inserted.meta.changes === 1;
+      if (!created) {
+        await db
+          .update(tierLists)
+          .set({
             title: input.title,
             tiersJson: input.tiersJson,
             updatedAt: now,
-          },
-        });
+          })
+          .where(
+            and(
+              eq(tierLists.userId, currentUserId),
+              eq(tierLists.season, input.season),
+            ),
+          );
+      }
 
       const saved = await db.query.tierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
@@ -154,27 +165,39 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
 
       const result = await this.getMyTierList(input.season);
       if (!result) throw new Error("tier 表の保存に失敗しました");
-      return result;
+      return { tierList: result, created };
     },
 
     /**
      * 指定シーズンの tier 表の共有トークンを発行する。
      * 既に発行済みなら同じトークンを返す（共有リンクは一度配ったら変えない方が
      * 受け取り側でリンク切れにならないため）。表が未作成なら undefined。
+     * issuedNow はこの呼び出しで新たに発行したときだけ true（活動記録が
+     * 「共有した」を 1 回だけ記録するための判定）。
      */
-    async shareMyTierList(season: string): Promise<string | undefined> {
+    async shareMyTierList(
+      season: string,
+    ): Promise<
+      { shareToken: string; issuedNow: boolean; title: string } | undefined
+    > {
       const list = await db.query.tierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
           and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
       });
       if (!list) return undefined;
-      if (list.shareToken) return list.shareToken;
+      if (list.shareToken) {
+        return {
+          shareToken: list.shareToken,
+          issuedNow: false,
+          title: list.title,
+        };
+      }
 
       // 発行は share_token がまだ null の場合だけに絞る。
       // 同一表への並行リクエストで両方が null を読んでも、後から UPDATE した
       // 側が先のトークンを上書きしてリンク切れにする競合を防ぐため、
       // 条件付き UPDATE にしてから DB の値を読み直して返す。
-      await db
+      const issued = await db
         .update(tierLists)
         .set({ shareToken: crypto.randomUUID() })
         .where(and(eq(tierLists.id, list.id), isNull(tierLists.shareToken)));
@@ -182,7 +205,12 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
         where: eq(tierLists.id, list.id),
         columns: { shareToken: true },
       });
-      return updated?.shareToken ?? undefined;
+      if (!updated?.shareToken) return undefined;
+      return {
+        shareToken: updated.shareToken,
+        issuedNow: issued.meta.changes === 1,
+        title: list.title,
+      };
     },
 
     /**

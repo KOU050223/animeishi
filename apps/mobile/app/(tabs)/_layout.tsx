@@ -52,42 +52,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="anime-list"
+        name="library"
         options={{
-          title: "アニメ",
-          tabBarIcon: tabIcon("list-outline"),
+          // アニメ一覧・視聴履歴・推しを束ねるタブ（issue #170）。
+          title: "ライブラリ",
+          tabBarAccessibilityLabel: "ライブラリタブ",
+          tabBarIcon: tabIcon("library-outline"),
         }}
       />
       <Tabs.Screen
-        name="qr"
+        name="social"
         options={{
-          title: "QR",
-          tabBarAccessibilityLabel: "QRコードタブ",
-          tabBarIcon: tabIcon("qr-code-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="watch-history"
-        options={{
-          title: "視聴履歴",
-          tabBarAccessibilityLabel: "視聴履歴タブ",
-          tabBarIcon: tabIcon("time-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          // 7 タブでは 4 文字を超えるラベルが切れるため短い表記にする（#156）。
-          title: "推し",
-          tabBarAccessibilityLabel: "お気に入りタブ",
-          tabBarIcon: tabIcon("heart-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="friends"
-        options={{
-          title: "フレンド",
-          tabBarAccessibilityLabel: "フレンドタブ",
+          // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。
+          title: "QR・フレンド",
+          tabBarAccessibilityLabel: "QR・フレンドタブ",
           tabBarIcon: tabIcon("people-outline"),
         }}
       />

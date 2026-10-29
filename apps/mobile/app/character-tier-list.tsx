@@ -191,7 +191,7 @@ export default function CharacterTierListScreen() {
         router.back();
         return;
       }
-      router.replace("/(tabs)/anime-list");
+      router.replace("/(tabs)/library?section=anime");
     };
 
     // 保存はドロップごとではなく明示操作なので、未保存のまま離れると

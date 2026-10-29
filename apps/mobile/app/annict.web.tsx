@@ -12,7 +12,7 @@ import {
 import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。
-const RETURN_PATH = "/anime-list";
+const RETURN_PATH = "/(tabs)/library?section=anime";
 
 type Phase =
   | { kind: "processing" }

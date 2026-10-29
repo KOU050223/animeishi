@@ -8,7 +8,6 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   useWatchHistory,
@@ -73,7 +72,10 @@ const STATUS_COLORS: Record<"light" | "dark", Record<WatchStatus, string>> = {
   },
 };
 
-export default function WatchHistoryScreen() {
+// ライブラリタブの「視聴履歴」セクション（旧視聴履歴タブ）。
+// 画面上部の safe area とセクション切り替えはライブラリ画面側が持つため、
+// ここではセクション名の見出しを出さず件数と操作だけを表示する。
+export function WatchHistorySection() {
   const router = useRouter();
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
@@ -172,21 +174,13 @@ export default function WatchHistoryScreen() {
   // 未連携: 履歴クエリは無効化されているため、連携誘導を最優先で表示する。
   if (!isConnected) {
     return (
-      <SafeAreaView
-        className="flex-1 bg-white dark:bg-slate-900"
-        edges={["top"]}
-      >
-        <View className="px-4 pt-3 pb-3">
-          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
-            視聴履歴
-          </Text>
-        </View>
+      <View className="flex-1 bg-white dark:bg-slate-900">
         <AnnictSoftGate
           description="視聴履歴を表示するには Annict との連携が必要です。連携すると、Annict の視聴記録がアニメ名刺に反映されます。"
           surface="watch_history"
           testID="watch-history-soft-gate"
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -217,16 +211,11 @@ export default function WatchHistoryScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
-      <View className="px-4 pt-3 pb-3 flex-row items-start justify-between">
-        <View>
-          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
-            視聴履歴
-          </Text>
-          <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
-            {enriched.length} 件
-          </Text>
-        </View>
+    <View className="flex-1 bg-white dark:bg-slate-900">
+      <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
+          {enriched.length} 件
+        </Text>
         {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
             フラグが無効な間は導線を出さない。 */}
         {featureFlags.danimeImport && (
@@ -316,7 +305,7 @@ export default function WatchHistoryScreen() {
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

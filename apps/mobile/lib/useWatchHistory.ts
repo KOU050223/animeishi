@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 
 type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],
@@ -36,13 +37,7 @@ export interface UpsertWatchHistoryError extends Error {
   rolledBack?: boolean;
 }
 
-export const WATCH_STATUS_LABELS: Record<WatchHistoryItem["state"], string> = {
-  WATCHING: "視聴中",
-  WATCHED: "視聴済",
-  ON_HOLD: "一時停止",
-  STOP_WATCHING: "断念",
-  WANNA_WATCH: "視聴予定",
-};
+export { WATCH_STATUS_LABELS };
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,

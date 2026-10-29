@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { ActivityFeedSection } from "@/components/ActivityFeedSection";
 import { useAnnictConnection } from "@/lib/annict";
 import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
@@ -84,7 +85,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             className="items-center rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 py-3"
-            onPress={() => router.push("/qr")}
+            onPress={() => router.push("/(tabs)/social?section=qr")}
             accessibilityRole="button"
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"
@@ -103,6 +104,8 @@ export default function HomeScreen() {
             <AnnictConnectionCard surface="home_card" />
           </View>
         )}
+
+        <ActivityFeedSection />
 
         <TouchableOpacity
           className="mt-8 items-center rounded-lg bg-gray-200 dark:bg-slate-800 px-6 py-3"

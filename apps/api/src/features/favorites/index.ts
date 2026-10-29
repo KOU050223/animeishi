@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { favoritesRepository } from "./repository";
+import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import {
   addFavoriteRoute,
@@ -76,8 +77,15 @@ const favorites = app
       });
     }
 
-    const result = await repo.addFavorite(annictWorkId);
-    return c.json(result, 201);
+    const { favorite, inserted } = await repo.addFavorite(annictWorkId);
+    // 新規追加のときだけ活動フィードに記録する（冪等な再追加は記録しない）
+    if (inserted) {
+      await feedRepository(db, c.var.clerkUserId).recordActivity({
+        type: "favorite_added",
+        annictWorkId,
+      });
+    }
+    return c.json(favorite, 201);
   })
   .openapi(removeFavoriteRoute, async (c) => {
     const { annictWorkId: rawId } = c.req.valid("param");

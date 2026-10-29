@@ -344,4 +344,106 @@ describe("tier 表 API", () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe("活動フィードへの記録", () => {
+    beforeEach(() => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: USER_ID,
+      } as ReturnType<typeof getAuth>);
+    });
+
+    it("PUT: 新規作成時に活動（tier_list_created / kind=season）を記録する", async () => {
+      const app = buildApp();
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "自分の表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      );
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.userId).toBe(USER_ID);
+      expect(rows[0]?.type).toBe("tier_list_created");
+      expect(rows[0]?.meta).toBe(
+        JSON.stringify({ kind: "season", season: SEASON, title: "自分の表" }),
+      );
+    });
+
+    it("PUT: 既存 tier 表の更新では活動を重複記録しない", async () => {
+      const app = buildApp();
+      const body = () =>
+        putBody({
+          season: SEASON,
+          title: "自分の表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        });
+      await app.request("/me/tier-lists", body(), TEST_BINDINGS);
+      await app.request("/me/tier-lists", body(), TEST_BINDINGS);
+
+      const rows = await db.query.activities.findMany();
+      expect(rows).toHaveLength(1);
+    });
+
+    it("POST /:season/share: 共有発行時に活動（tier_list_shared）を記録する", async () => {
+      const app = buildApp();
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "自分の表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      );
+
+      const res = await app.request(
+        `/me/tier-lists/${SEASON}/share`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+
+      const rows = await db.query.activities.findMany();
+      const shared = rows.filter((r) => r.type === "tier_list_shared");
+      expect(shared).toHaveLength(1);
+      expect(shared[0]?.meta).toBe(
+        JSON.stringify({ kind: "season", season: SEASON, title: "自分の表" }),
+      );
+    });
+
+    it("POST /:season/share: 既に発行済みなら活動を重複記録しない", async () => {
+      const app = buildApp();
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "自分の表",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        }),
+        TEST_BINDINGS,
+      );
+
+      await app.request(
+        `/me/tier-lists/${SEASON}/share`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+      await app.request(
+        `/me/tier-lists/${SEASON}/share`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      const rows = await db.query.activities.findMany();
+      expect(rows.filter((r) => r.type === "tier_list_shared")).toHaveLength(1);
+    });
+  });
 });

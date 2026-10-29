@@ -8,14 +8,16 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
-export default function FriendsScreen() {
+// QR・フレンドタブの「フレンド」セクション（旧フレンドタブ）。
+// 画面上部の safe area とセクション切り替えはタブ画面側が持つため、
+// ここではセクション名の見出しを出さず人数だけを表示する。
+export function FriendsSection() {
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -82,12 +84,9 @@ export default function FriendsScreen() {
   const list = friends ?? [];
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
-      <View className="px-4 pt-3 pb-3">
-        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
-          フレンド
-        </Text>
-        <Text className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+    <View className="flex-1 bg-white dark:bg-slate-900">
+      <View className="px-4 pt-1 pb-3">
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
           {list.length} 人
         </Text>
       </View>
@@ -119,7 +118,7 @@ export default function FriendsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
