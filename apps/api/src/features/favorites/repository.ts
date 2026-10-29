@@ -39,28 +39,22 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
         .orderBy(desc(favorites.createdAt));
     },
 
-    /** 指定作品が既にお気に入りか。活動記録が「新規追加か」を判定するために使う。 */
-    async isFavorite(annictWorkId: number): Promise<boolean> {
-      const row = await db.query.favorites.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
-        columns: { id: true },
-      });
-      return row !== undefined;
-    },
-
-    async addFavorite(annictWorkId: number): Promise<Favorite> {
+    async addFavorite(
+      annictWorkId: number,
+    ): Promise<{ favorite: Favorite; inserted: boolean }> {
       const now = new Date();
-      await db
+      const res = await db
         .insert(favorites)
         .values({ userId: currentUserId, annictWorkId, createdAt: now })
         .onConflictDoNothing();
-      const created = await db.query.favorites.findFirst({
+      const favorite = await db.query.favorites.findFirst({
         where: (t, { and, eq: eq_ }) =>
           and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
-      if (!created) throw new Error("お気に入りの追加に失敗しました");
-      return created;
+      if (!favorite) throw new Error("お気に入りの追加に失敗しました");
+      // 「新規追加か」は書き込み件数で判定する。事前 SELECT だと並行リクエストが
+      // 両方とも未登録を読み、片方の insert が無視されても活動記録が重複する。
+      return { favorite, inserted: res.meta.changes === 1 };
     },
 
     async removeFavorite(annictWorkId: number): Promise<void> {

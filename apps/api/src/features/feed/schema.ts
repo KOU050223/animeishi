@@ -4,12 +4,16 @@ import { ACTIVITY_TYPES } from "@/db/schema";
 
 // GET /me/feed のクエリ。cursor は前ページ最後尾の活動 id、limit は 1 ページ
 // 件数の指定（サーバー側で上限を設ける）。いずれも省略可。
+// limit は正の整数に限定する（0 だと空ページで次ページへ進めなくなる）。
 const feedQuerySchema = z.object({
   cursor: z
     .string()
     .regex(/^\d+$/, "cursor の形式が正しくありません")
     .optional(),
-  limit: z.string().regex(/^\d+$/, "limit の形式が正しくありません").optional(),
+  limit: z
+    .string()
+    .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
+    .optional(),
 });
 
 // フィード 1 件の actor（活動したフレンド）。

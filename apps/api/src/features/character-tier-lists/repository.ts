@@ -90,16 +90,6 @@ export function characterTierListsRepository(
       return { ...list, items };
     },
 
-    /** 指定作品のキャラクター tier 表が存在するか。活動記録が「新規作成か」を判定するために使う。 */
-    async hasMyCharacterTierList(annictWorkId: number): Promise<boolean> {
-      const row = await db.query.characterTierLists.findFirst({
-        where: (t, { and: and_, eq: eq_ }) =>
-          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
-        columns: { id: true },
-      });
-      return row !== undefined;
-    },
-
     /** 自分のキャラクター tier 表を新しい順に一覧する（配置内容は含めない）。 */
     async getMyCharacterTierLists(): Promise<CharacterTierList[]> {
       return db
@@ -118,9 +108,13 @@ export function characterTierListsRepository(
       title: string;
       tiersJson: string;
       items: CharacterTierListItemInput[];
-    }): Promise<CharacterTierListWithItems> {
+    }): Promise<{
+      tierList: CharacterTierListWithItems;
+      created: boolean;
+    }> {
       const now = new Date();
-      await db
+      // 「新規作成か」は書き込み件数で判定する（作品版と同じ理由）。createdAt は初回のみ。
+      const inserted = await db
         .insert(characterTierLists)
         .values({
           userId: currentUserId,
@@ -130,14 +124,23 @@ export function characterTierListsRepository(
           createdAt: now,
           updatedAt: now,
         })
-        .onConflictDoUpdate({
-          target: [characterTierLists.userId, characterTierLists.annictWorkId],
-          set: {
+        .onConflictDoNothing();
+      const created = inserted.meta.changes === 1;
+      if (!created) {
+        await db
+          .update(characterTierLists)
+          .set({
             title: input.title,
             tiersJson: input.tiersJson,
             updatedAt: now,
-          },
-        });
+          })
+          .where(
+            and(
+              eq(characterTierLists.userId, currentUserId),
+              eq(characterTierLists.annictWorkId, input.annictWorkId),
+            ),
+          );
+      }
 
       const saved = await db.query.characterTierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
@@ -173,7 +176,7 @@ export function characterTierListsRepository(
 
       const result = await this.getMyCharacterTierList(input.annictWorkId);
       if (!result) throw new Error("キャラクター tier 表の保存に失敗しました");
-      return result;
+      return { tierList: result, created };
     },
 
     /**

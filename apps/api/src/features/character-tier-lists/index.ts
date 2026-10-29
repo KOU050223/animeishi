@@ -93,15 +93,14 @@ const characterTierLists = new Hono<AuthVariables>()
       };
     });
 
-    const existed = await repo.hasMyCharacterTierList(input.annictWorkId);
-    const saved = await repo.saveMyCharacterTierList({
+    const { tierList: saved, created } = await repo.saveMyCharacterTierList({
       annictWorkId: input.annictWorkId,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
       items,
     });
     // 新規作成のときだけ活動フィードに記録する（作品版と同じ理由）
-    if (!existed) {
+    if (created) {
       await feedRepository(db, c.var.clerkUserId).recordActivity({
         type: "tier_list_created",
         annictWorkId: input.annictWorkId,

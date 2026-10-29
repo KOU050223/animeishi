@@ -79,16 +79,6 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       return { ...list, items };
     },
 
-    /** 指定シーズンの tier 表が存在するか。活動記録が「新規作成か」を判定するために使う。 */
-    async hasMyTierList(season: string): Promise<boolean> {
-      const row = await db.query.tierLists.findFirst({
-        where: (t, { and: and_, eq: eq_ }) =>
-          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
-        columns: { id: true },
-      });
-      return row !== undefined;
-    },
-
     /** 自分の tier 表を新しい順に一覧する（配置内容は含めない）。 */
     async getMyTierLists(): Promise<TierList[]> {
       return db
@@ -110,9 +100,12 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       title: string;
       tiersJson: string;
       items: TierListItemInput[];
-    }): Promise<TierListWithItems> {
+    }): Promise<{ tierList: TierListWithItems; created: boolean }> {
       const now = new Date();
-      await db
+      // 「新規作成か」は書き込み件数で判定する。upsert 1 本だと insert / update の
+      // どちらが走ったかが分からず、事前 SELECT だと並行リクエストで両方が
+      // 「未作成」と誤判定して活動記録が重複する。createdAt は初回のみ。
+      const inserted = await db
         .insert(tierLists)
         .values({
           userId: currentUserId,
@@ -122,15 +115,23 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
           createdAt: now,
           updatedAt: now,
         })
-        .onConflictDoUpdate({
-          target: [tierLists.userId, tierLists.season],
-          // createdAt は初回のみ。更新では触らない。
-          set: {
+        .onConflictDoNothing();
+      const created = inserted.meta.changes === 1;
+      if (!created) {
+        await db
+          .update(tierLists)
+          .set({
             title: input.title,
             tiersJson: input.tiersJson,
             updatedAt: now,
-          },
-        });
+          })
+          .where(
+            and(
+              eq(tierLists.userId, currentUserId),
+              eq(tierLists.season, input.season),
+            ),
+          );
+      }
 
       const saved = await db.query.tierLists.findFirst({
         where: (t, { and: and_, eq: eq_ }) =>
@@ -164,7 +165,7 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
 
       const result = await this.getMyTierList(input.season);
       if (!result) throw new Error("tier 表の保存に失敗しました");
-      return result;
+      return { tierList: result, created };
     },
 
     /**

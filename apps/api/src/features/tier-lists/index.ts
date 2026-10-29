@@ -93,8 +93,7 @@ const tierLists = new Hono<AuthVariables>()
       };
     });
 
-    const existed = await repo.hasMyTierList(input.season);
-    const saved = await repo.saveMyTierList({
+    const { tierList: saved, created } = await repo.saveMyTierList({
       season: input.season,
       title: input.title,
       tiersJson: JSON.stringify(input.tiers),
@@ -102,7 +101,7 @@ const tierLists = new Hono<AuthVariables>()
     });
     // 新規作成のときだけ活動フィードに記録する（更新のたびに流すと
     // ドラッグ操作の保存がフィードを埋め尽くすため）
-    if (!existed) {
+    if (created) {
       await feedRepository(db, c.var.clerkUserId).recordActivity({
         type: "tier_list_created",
         meta: { kind: "season", season: input.season, title: input.title },

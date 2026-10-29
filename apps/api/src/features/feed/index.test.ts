@@ -315,6 +315,13 @@ describe("活動フィード API", () => {
     expect(page2.nextCursor).toBeNull();
   });
 
+  it("GET /me/feed: limit=0 は 400 を返す（空ページで次に進めなくなるため）", async () => {
+    signInAs(USER_A);
+    const app = buildApp();
+    const res = await app.request("/me/feed?limit=0", {}, TEST_BINDINGS);
+    expect(res.status).toBe(400);
+  });
+
   it("GET /me/feed: tier_list_created の活動は meta に kind・season・title を持つ", async () => {
     await makeFriends(db, USER_A, USER_B);
     await addActivity(db, {
