@@ -3,9 +3,8 @@
 #   専用シミュレーター作成 → Release 相当ビルド → インストール → maestro test
 #
 # 前提:
-#   - maestro CLI 1.39.2 以降（brew install mobile-dev-inc/tap/maestro。
-#     subflows の optional: true が必要。scrollUntilVisible の timeout は
-#     1.39.0/1.39.1 の上流バグで 1000 倍解釈されるため 1.39.2 以降に限定）
+#   - maestro CLI 1.39.0 以降（brew install mobile-dev-inc/tap/maestro。
+#     subflows の optional: true が必要）
 #   - Xcode + iOS シミュレーターランタイム
 #   - pnpm install 済み（ios/ が無ければ expo prebuild を実行する）
 #   - EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY に pk_test（開発インスタンス）。

@@ -17,15 +17,11 @@ appId: com.animeishi.app
       text: ユーザー名入力
     timeout: 30000
 # 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
-# ボタンはスクロール末尾にありこれ以上動かせない位置で止まるため、完了には
-# 「位置が変わらない」ポーリングが数回連続する必要がある。既定の 20 秒だと
-# ホスト高負荷時に 1 ポーリングあたり数秒かかり打ち切られるため明示する。
 - scrollUntilVisible:
     element:
       text: アカウントを削除
     direction: DOWN
     centerElement: true
-    timeout: 60000
 - tapOn:
     text: アカウントを削除
     retryTapIfNoChange: false
