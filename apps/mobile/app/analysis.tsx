@@ -16,13 +16,18 @@ import {
   type RecommendedWork,
 } from "@/lib/useRecommendations";
 import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
+import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";
 import { BackButton } from "@/components/ui";
+import {
+  AnimeWorkDetailSheet,
+  type WorkDetailSheetTarget,
+} from "@/components/anime-list";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
-import { formatYearSeason } from "@/components/anime-list/animeListUtils";
+import { formatWorkSeason } from "@/components/anime-list/animeListUtils";
 import { alert } from "@/lib/dialog";
 
 // generatedAt（ISO 8601）の表示用。Hermes の Intl 実装差を避けるため
@@ -222,8 +227,7 @@ export default function AnalysisScreen() {
 // AI おすすめ（issue #335）。分析結果の下に置き、「おすすめを出す」を
 // 押したときだけ生成する。再表示は API の保存済み結果を返すだけなので
 // AI・Annict への再問い合わせは起きない。
-// 作品詳細シート（issue #347）ができるまで、各作品の詳細導線は
-// ライブラリのアニメ検索（library?q=）への簡易遷移とする。
+// 各作品の詳細は作品詳細シート（issue #347）で開く。
 function RecommendationsSection() {
   const colors = useThemeColors();
   const { t } = useTranslation();
@@ -237,6 +241,22 @@ function RecommendationsSection() {
   const generate = useGenerateRecommendations();
   const upsertHistory = useUpsertWatchHistory();
   const { data: watchHistory } = useWatchHistory();
+  // 詳細シート（issue #347）の対象作品と、シート内の推し登録に使う状態。
+  const [selectedWork, setSelectedWork] = useState<RecommendedWork | null>(
+    null,
+  );
+  const favoriteIds = useFavoriteIds();
+  const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
+    useToggleFavorite(favoriteIds, {
+      onError: (e) =>
+        alert(
+          t("お気に入りを更新できませんでした"),
+          e instanceof ApiRequestError
+            ? e.message
+            : t("お気に入りの更新に失敗しました"),
+          { okLabel: "OK" },
+        ),
+    });
   // 「見たい」登録が成功した作品。履歴クエリの反映を待たずにボタンを
   // 登録済み表示へ切り替える。
   const [registeredIds, setRegisteredIds] = useState<Set<number>>(
@@ -277,6 +297,15 @@ function RecommendationsSection() {
         },
       },
     );
+  };
+
+  // 詳細シートからのキャラクター tier 表導線（一覧と同じ遷移。issue #169）。
+  const openCharacterTierList = (work: WorkDetailSheetTarget) => {
+    trackEvent("character_tier_open");
+    router.push({
+      pathname: "/character-tier-list",
+      params: { workId: String(work.annictWorkId), workTitle: work.title },
+    });
   };
 
   const errorMessage =
@@ -334,12 +363,7 @@ function RecommendationsSection() {
               registered={isRegistered(work.annictWorkId)}
               registerPending={upsertHistory.isPending}
               onWannaWatch={() => onWannaWatch(work)}
-              onSearch={() =>
-                router.push({
-                  pathname: "/(tabs)/library",
-                  params: { section: "anime", q: work.title },
-                })
-              }
+              onOpenDetail={() => setSelectedWork(work)}
             />
           ))}
         </View>
@@ -375,6 +399,19 @@ function RecommendationsSection() {
           </Text>
         </View>
       ) : null}
+
+      <AnimeWorkDetailSheet
+        work={selectedWork}
+        onClose={() => setSelectedWork(null)}
+        isFavorite={
+          selectedWork != null && favoriteIds.has(selectedWork.annictWorkId)
+        }
+        isTogglingFavorite={isTogglingFavorite}
+        onToggleFavorite={() => {
+          if (selectedWork) toggleFavorite(selectedWork.annictWorkId);
+        }}
+        onOpenCharacterTierList={openCharacterTierList}
+      />
     </View>
   );
 }
@@ -384,13 +421,13 @@ function RecommendationCard({
   registered,
   registerPending,
   onWannaWatch,
-  onSearch,
+  onOpenDetail,
 }: {
   work: RecommendedWork;
   registered: boolean;
   registerPending: boolean;
   onWannaWatch: () => void;
-  onSearch: () => void;
+  onOpenDetail: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -408,12 +445,7 @@ function RecommendationCard({
         </Text>
         {work.seasonYear ? (
           <Text className="mt-0.5 text-xs text-gray-400 dark:text-slate-500">
-            {formatYearSeason(
-              work.seasonYear,
-              work.seasonName?.includes("-")
-                ? work.seasonName.split("-")[1]
-                : work.seasonName,
-            )}
+            {formatWorkSeason(work)}
           </Text>
         ) : null}
         {work.reason ? (
@@ -451,13 +483,15 @@ function RecommendationCard({
           </TouchableOpacity>
           <TouchableOpacity
             className="rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-1.5"
-            onPress={onSearch}
+            onPress={onOpenDetail}
             accessibilityRole="button"
-            accessibilityLabel={t("{{title}} を検索", { title: work.title })}
-            testID={`recommendation-search-${work.annictWorkId}`}
+            accessibilityLabel={t("{{title}} の詳細を開く", {
+              title: work.title,
+            })}
+            testID={`recommendation-detail-${work.annictWorkId}`}
           >
             <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
-              {t("検索する")}
+              {t("詳細")}
             </Text>
           </TouchableOpacity>
         </View>

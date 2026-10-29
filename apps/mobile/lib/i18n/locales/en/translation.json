@@ -121,6 +121,10 @@
   "{{title}} を検索": "Search {{title}}",
   "「見たい」の登録に失敗しました": "Failed to register as Want to watch",
   "視聴履歴の更新に失敗しました": "Failed to update watch history",
+  "詳細": "Details",
+  "{{title}} の詳細を開く": "Open details for {{title}}",
+  "お気に入りを更新できませんでした": "Couldn't update favorites",
+  "お気に入りの更新に失敗しました": "Failed to update favorites",
   "作品画像の一部は MyAnimeList から取得しています": "Some work images are provided by MyAnimeList",
   "MyAnimeList を開く": "Open MyAnimeList"
 }

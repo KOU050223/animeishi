@@ -1409,3 +1409,193 @@ describe("キャラクター一覧 API", () => {
     expect(row?.imageUrl).toBe("https://s4.anilist.co/stale.png");
   });
 });
+
+// --- GET /works/:annictWorkId（issue #347） ---
+
+const DETAIL_WORK_ID = 3001;
+
+// Annict searchWorks（詳細クエリ）のモック。詳細シート用のフィールドを持つ
+// 作品ノードを返す。empty: true で「該当作品なし」応答になる。
+// recommendedImageUrl を有効な URL にして画像の同期補完（Kitsu 往復）が
+// 走らないようにする。
+function mockWorkDetail(
+  options: {
+    viewerStatusState?: string | null;
+    empty?: boolean;
+  } = {},
+): ReturnType<typeof vi.spyOn> {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    return new Response(
+      JSON.stringify({
+        data: {
+          searchWorks: {
+            nodes: options.empty
+              ? []
+              : [
+                  {
+                    id: `node-${DETAIL_WORK_ID}`,
+                    annictId: DETAIL_WORK_ID,
+                    malAnimeId: "1234",
+                    title: "詳細アニメ",
+                    titleKana: "ショウサイアニメ",
+                    titleEn: "Detail Anime",
+                    titleRo: "Shousai Anime",
+                    seasonName: "2026-spring",
+                    seasonYear: 2026,
+                    media: "TV",
+                    episodesCount: 12,
+                    noEpisodes: false,
+                    watchersCount: 5432,
+                    reviewsCount: 10,
+                    satisfactionRate: 87.5,
+                    officialSiteUrl: "https://example.com/official",
+                    officialSiteUrlEn: null,
+                    wikipediaUrl: "https://ja.wikipedia.org/wiki/example",
+                    wikipediaUrlEn: null,
+                    twitterUsername: "detail_anime",
+                    twitterHashtag: "detail_anime",
+                    viewerStatusState:
+                      "viewerStatusState" in options
+                        ? options.viewerStatusState
+                        : "WATCHING",
+                    image: {
+                      internalUrl: null,
+                      recommendedImageUrl: "https://annict.example/detail.jpg",
+                      facebookOgImageUrl: null,
+                      twitterBiggerAvatarUrl: null,
+                      twitterAvatarUrl: null,
+                      twitterNormalAvatarUrl: null,
+                      twitterMiniAvatarUrl: null,
+                    },
+                  },
+                ],
+          },
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  });
+}
+
+describe("作品詳細 API", () => {
+  beforeEach(async () => {
+    await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.restoreAllMocks();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  it("GET /works/:id: X-Annict-Token が無ければ 401", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      {},
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /works/:id: Annict の詳細フィールドと視聴ステータスを返す", async () => {
+    mockWorkDetail();
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      work: {
+        annictWorkId: number;
+        title: string;
+        titleEn: string | null;
+        state: string | null;
+        media: string;
+        episodesCount: number;
+        watchersCount: number;
+        satisfactionRate: number | null;
+        officialSiteUrl: string | null;
+        wikipediaUrl: string | null;
+        twitterUsername: string | null;
+        twitterHashtag: string | null;
+        hostedImageUrl: string | null;
+      };
+    };
+    expect(body.work).toMatchObject({
+      annictWorkId: DETAIL_WORK_ID,
+      title: "詳細アニメ",
+      titleEn: "Detail Anime",
+      // viewerStatusState が state に入る
+      state: "WATCHING",
+      media: "TV",
+      episodesCount: 12,
+      watchersCount: 5432,
+      satisfactionRate: 87.5,
+      officialSiteUrl: "https://example.com/official",
+      wikipediaUrl: "https://ja.wikipedia.org/wiki/example",
+      twitterUsername: "detail_anime",
+      twitterHashtag: "detail_anime",
+    });
+    // 検索と同じく表示画像はプロキシ経由の URL に載せる
+    expect(body.work.hostedImageUrl).toMatch(/\/images\/works\/3001$/);
+  });
+
+  it("GET /works/:id: viewerStatusState が NO_STATE なら state は null", async () => {
+    mockWorkDetail({ viewerStatusState: "NO_STATE" });
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { work: { state: string | null } };
+    expect(body.work.state).toBeNull();
+  });
+
+  it("GET /works/:id: 作品が見つからなければ 404", async () => {
+    mockWorkDetail({ empty: true });
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /works/:id: 数値でないパスパラメータは 400", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      "/works/abc",
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /works/search: /:annictWorkId ルートに取り込まれず検索として動く", async () => {
+    mockSearchWorks([{ annictId: 99, title: "検索アニメ" }]);
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/search?title=検索",
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { works: { annictWorkId: number }[] };
+    expect(body.works[0]?.annictWorkId).toBe(99);
+  });
+});

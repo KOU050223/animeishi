@@ -13,6 +13,7 @@ import {
 import {
   currentAnnictSeason,
   fetchAnnictWorkCasts,
+  fetchAnnictWorkDetail,
   searchAnnictWorksByIds,
   searchAnnictWorksByTitle,
 } from "@/lib/annict/client";
@@ -149,6 +150,31 @@ const works = new Hono<AuthVariables>()
         ];
       });
       return c.json({ works: result }, 200);
+    },
+  )
+  // 作品詳細シートに出す単一作品のメタ（issue #347）。search で返さない
+  // 詳細フィールド（話数・メディア種別・公式サイト等）と、viewerStatusState
+  // 由来の視聴ステータス（state）を返す。画像は検索と同じく
+  // attachResolvedImages で hostedImageUrl に載せる（annict_works の
+  // キャッシュ upsert もこの経路で行う）。
+  // /lookup より後に登録する（先に置くと "lookup" が :annictWorkId に
+  // マッチして 400 になる）。
+  .get(
+    "/:annictWorkId",
+    requireAnnictToken,
+    zValidator("param", annictWorkIdParamSchema),
+    async (c) => {
+      const { annictWorkId } = c.req.valid("param");
+      const detail = await fetchAnnictWorkDetail(
+        c.var.annictToken,
+        annictWorkId,
+      );
+      if (!detail) return c.json({ error: "Work not found" }, 404);
+
+      const db = createDb(getBindings(c).DB);
+      const repo = worksRepository(db);
+      const [enriched] = await attachResolvedImages(repo, [detail], c.req.url);
+      return c.json({ work: enriched }, 200);
     },
   )
   // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。
