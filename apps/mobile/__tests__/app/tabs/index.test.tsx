@@ -107,7 +107,7 @@ describe("HomeScreen", () => {
     loggedInUser();
     await render(<HomeScreen />);
     await fireEvent.press(screen.getByTestId("home-open-qr"));
-    expect(mockPush).toHaveBeenCalledWith("/qr");
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/social?section=qr");
   });
 
   it("Annict 連携済みなら連携カードを表示しない（確認・解除はプロフィールに集約）", async () => {

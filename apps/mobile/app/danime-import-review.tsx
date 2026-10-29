@@ -264,7 +264,7 @@ export default function DanimeImportReviewScreen() {
 
   // v1.0 ではネイティブで無効化（#158）。直接遷移されてもホームへ戻す。
   if (!featureFlags.danimeImport) {
-    return <Redirect href="/(tabs)/watch-history" />;
+    return <Redirect href="/(tabs)/library?section=history" />;
   }
 
   if (!lists) {
@@ -317,7 +317,7 @@ export default function DanimeImportReviewScreen() {
 
   function close() {
     setLists(null);
-    router.replace("/(tabs)/watch-history");
+    router.replace("/(tabs)/library?section=history");
   }
 
   function retryMatch() {

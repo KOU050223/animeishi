@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/expo";
 import { useIsFocused } from "expo-router";
 import { CameraView } from "expo-camera";
@@ -10,10 +9,14 @@ import { useAddFriend } from "@/lib/useFriends";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
+import { SegmentedControl } from "@/components/ui";
 
 type Mode = "generate" | "scan";
 
-export default function QrScreen() {
+// QR・フレンドタブの「QR」セクション（旧 QR タブ）。
+// セクション自体が非表示の間はアンマウントされるため、
+// 計測・カメラはこのコンポーネントのマウント状態に追従する。
+export function QrSection() {
   const [mode, setMode] = useState<Mode>("generate");
   const isFocused = useIsFocused();
 
@@ -23,7 +26,7 @@ export default function QrScreen() {
   // screen は発火側で明示する（issue #214 の screen は所属画面を指す）。
   useEffect(() => {
     if (isFocused) {
-      trackEvent("qr_exchange_start", undefined, { screen: "qr" });
+      trackEvent("qr_exchange_start", undefined, { screen: "social" });
     }
   }, [isFocused]);
 
@@ -33,43 +36,43 @@ export default function QrScreen() {
   // generate への遷移では送らない。
   useEffect(() => {
     if (isFocused && mode === "scan") {
-      trackEvent("qr_scan_start", undefined, { screen: "qr" });
+      trackEvent("qr_scan_start", undefined, { screen: "social" });
     }
   }, [isFocused, mode]);
 
   return (
-    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
-      {/* モード切替タブ */}
-      <View className="flex-row px-4 pt-2 pb-2 gap-2">
-        <ModeButton
-          label="マイQR"
-          active={mode === "generate"}
-          onPress={() => setMode("generate")}
-        />
-        <ModeButton
-          label="スキャン"
-          active={mode === "scan"}
-          onPress={() => setMode("scan")}
-        />
-      </View>
+    <View className="flex-1 bg-white dark:bg-slate-900">
+      <SegmentedControl
+        items={[
+          {
+            label: "マイQR",
+            active: mode === "generate",
+            onPress: () => setMode("generate"),
+          },
+          {
+            label: "スキャン",
+            active: mode === "scan",
+            onPress: () => setMode("scan"),
+          },
+        ]}
+      />
 
       {mode === "generate" ? <GenerateView /> : <ScanView />}
-    </SafeAreaView>
+    </View>
   );
 }
 
 function GenerateView() {
   const { userId, isSignedIn } = useAuth();
-  // タブは再訪してもマウントを維持するため、表示のたびに発火させるには
-  // フォーカスも見る（userId が変わらない再訪でも効く）。
+  // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
+  // 発火させるためフォーカスも見る。
   const isFocused = useIsFocused();
 
   // マイ QR の表示 = 名刺の共有面。サインイン済みで QR が実際に出た時だけ
   // 計測する（issue #214）。
   useEffect(() => {
     if (isFocused && isSignedIn && userId) {
-      trackEvent("meishi_share", undefined, { screen: "qr" });
+      trackEvent("meishi_share", undefined, { screen: "social" });
     }
   }, [isFocused, isSignedIn, userId]);
 
@@ -205,33 +208,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-function ModeButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      className={`flex-1 items-center px-3 py-2 rounded-full border ${
-        active
-          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
-      }`}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-    >
-      <Text
-        className={`text-sm font-medium ${active ? "text-indigo-600 dark:text-indigo-300" : "text-gray-500 dark:text-slate-400"}`}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
