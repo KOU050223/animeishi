@@ -461,13 +461,6 @@ function createStyles(p: AnimeListPalette) {
       fontWeight: "900",
       letterSpacing: 0,
     },
-    englishTitle: {
-      marginTop: 4,
-      color: p.cardSubtitle,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: "600",
-    },
     metaRow: {
       marginTop: 10,
       flexDirection: "row",

@@ -6,6 +6,7 @@
 // - PR2 ではクライアントの土台と OAuth 交換のみ。libraryEntries / updateStatus を
 //   叩く高レベル関数は PR3 / PR4 で足す。
 import { withAnnictRetry } from "./retry";
+import { isPersistableState } from "./statusState";
 
 export const ANNICT_GRAPHQL_ENDPOINT = "https://api.annict.com/graphql";
 export const ANNICT_TOKEN_ENDPOINT = "https://api.annict.com/oauth/token";
@@ -630,6 +631,144 @@ export async function searchAnnictWorksBySeason(
     works: [...worksById.values()],
     hasNextPage: true,
     endCursor: lastEndCursor,
+  };
+}
+
+// --- work detail（作品詳細シート向けの単一作品メタ） ---
+//
+// 詳細シートに出す作品メタを 1 クエリで取る。search の返却フィールドに加えて
+// 話数・メディア種別・視聴者数・公式サイト等の詳細情報と、トークン所有者
+// 自身の視聴ステータス（viewerStatusState）を取る。
+// なお Annict GraphQL の Work 型にはあらすじに相当するフィールドが無いため
+// 説明文は返さない（developers.annict.com の Work リファレンス参照）。
+const WORK_DETAIL_QUERY = `
+query WorkDetail($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 1) {
+    nodes {
+      id
+      annictId
+      malAnimeId
+      title
+      titleKana
+      titleEn
+      titleRo
+      seasonName
+      seasonYear
+      media
+      episodesCount
+      noEpisodes
+      watchersCount
+      reviewsCount
+      satisfactionRate
+      officialSiteUrl
+      officialSiteUrlEn
+      wikipediaUrl
+      wikipediaUrlEn
+      twitterUsername
+      twitterHashtag
+      viewerStatusState
+      image { ${WORK_IMAGE_FIELDS} }
+    }
+  }
+}`;
+
+type WorkDetailResponse = {
+  searchWorks: {
+    nodes: {
+      id: string;
+      annictId: number;
+      malAnimeId: string | null;
+      title: string;
+      titleKana: string | null;
+      titleEn: string | null;
+      titleRo: string | null;
+      seasonName: string | null;
+      seasonYear: number | null;
+      media: string;
+      episodesCount: number;
+      noEpisodes: boolean;
+      watchersCount: number;
+      reviewsCount: number;
+      satisfactionRate: number | null;
+      officialSiteUrl: string | null;
+      officialSiteUrlEn: string | null;
+      wikipediaUrl: string | null;
+      wikipediaUrlEn: string | null;
+      twitterUsername: string | null;
+      twitterHashtag: string | null;
+      viewerStatusState: string | null;
+      image: AnnictWorkImage | null;
+    }[];
+  } | null;
+};
+
+/**
+ * 作品詳細シート向けの 1 作品分のメタ。検索の作品メタ（AnnictLibraryEntry）
+ * に Annict の詳細フィールドを加えた形。state には検索結果と違って
+ * viewerStatusState を入れる（NO_STATE・未知値は null に正規化する）。
+ */
+export type AnnictWorkDetail = AnnictLibraryEntry & {
+  titleRo: string | null;
+  media: string;
+  episodesCount: number;
+  noEpisodes: boolean;
+  watchersCount: number;
+  reviewsCount: number;
+  satisfactionRate: number | null;
+  officialSiteUrl: string | null;
+  officialSiteUrlEn: string | null;
+  wikipediaUrl: string | null;
+  wikipediaUrlEn: string | null;
+  twitterUsername: string | null;
+  twitterHashtag: string | null;
+};
+
+/**
+ * annictId(Int) から作品の詳細メタを 1 件取得する。該当作品が無ければ null。
+ */
+export async function fetchAnnictWorkDetail(
+  accessToken: string,
+  annictWorkId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictWorkDetail | null> {
+  const data = await withAnnictRetry(() =>
+    annictGraphQL<WorkDetailResponse>(
+      accessToken,
+      WORK_DETAIL_QUERY,
+      { annictIds: [annictWorkId] },
+      fetchImpl,
+    ),
+  );
+
+  const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
+  if (!work) return null;
+
+  return {
+    annictWorkId: work.annictId,
+    nodeId: work.id,
+    state: isPersistableState(work.viewerStatusState)
+      ? work.viewerStatusState
+      : null,
+    title: work.title,
+    titleKana: work.titleKana,
+    titleEn: work.titleEn,
+    seasonName: work.seasonName,
+    seasonYear: work.seasonYear,
+    imageUrl: resolveWorkImageUrl(work.image),
+    malAnimeId: parseMalAnimeId(work.malAnimeId),
+    titleRo: work.titleRo,
+    media: work.media,
+    episodesCount: work.episodesCount,
+    noEpisodes: work.noEpisodes,
+    watchersCount: work.watchersCount,
+    reviewsCount: work.reviewsCount,
+    satisfactionRate: work.satisfactionRate,
+    officialSiteUrl: work.officialSiteUrl,
+    officialSiteUrlEn: work.officialSiteUrlEn,
+    wikipediaUrl: work.wikipediaUrl,
+    wikipediaUrlEn: work.wikipediaUrlEn,
+    twitterUsername: work.twitterUsername,
+    twitterHashtag: work.twitterHashtag,
   };
 }
 

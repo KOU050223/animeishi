@@ -176,6 +176,21 @@ export function formatYearSeason(
   return `${year}年${season ? (SEASONS[season] ?? "") : ""}`;
 }
 
+/**
+ * 作品の放送シーズン表示（例: "2026年 春"）。seasonName は "2026-spring"
+ * 形式なので季節キーだけを取り出して formatYearSeason に渡す。
+ */
+export function formatWorkSeason(
+  work: Pick<AnimeTitle, "seasonYear" | "seasonName">,
+) {
+  return formatYearSeason(
+    work.seasonYear,
+    work.seasonName?.includes("-")
+      ? work.seasonName.split("-")[1]
+      : work.seasonName,
+  );
+}
+
 export function getPosterInitial(title: string) {
   return Array.from(title.trim())[0] ?? "A";
 }

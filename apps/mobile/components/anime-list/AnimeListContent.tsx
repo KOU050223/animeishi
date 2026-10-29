@@ -20,6 +20,7 @@ import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
 import { AnimePoster } from "./AnimePoster";
+import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
@@ -30,7 +31,7 @@ import {
   adjacentSeasonParams,
   currentSeason,
   formatSeasonLabel,
-  formatYearSeason,
+  formatWorkSeason,
   getAnimeListLayout,
   toSeasonParam,
   useAnimeStats,
@@ -88,6 +89,8 @@ export function AnimeListContent({
   );
 
   const [refreshing, setRefreshing] = useState(false);
+  // カード押下で開く作品詳細シートの対象（issue #347）。
+  const [selectedWork, setSelectedWork] = useState<AnimeTitle | null>(null);
   const sorted = useSortedAnimeList(data, sortKey, sortOrder);
   const stats = useAnimeStats(data);
 
@@ -131,7 +134,8 @@ export function AnimeListContent({
   const hideForError = isError && sorted.length === 0;
 
   // キャラクター tier 表への入口（issue #169）。対象作品をパラメータで渡し、
-  // 画面側は作品のキャスト一覧を取得する。
+  // 画面側は作品のキャスト一覧を取得する。#347 でカード上のボタンから
+  // 詳細シートのボタンに移した。
   const openCharacterTierList = useCallback(
     (work: AnimeTitle) => {
       // キャラクター tier 表を開く操作を計測する（issue #214）。
@@ -147,9 +151,12 @@ export function AnimeListContent({
   // renderItem を安定化して行ごとのコールバック生成を減らす。
   const renderItem = useCallback(
     ({ item }: { item: AnimeTitle }) => (
-      <View
+      <TouchableOpacity
         style={[styles.card, { width: cardWidth }]}
         testID={`anime-item-${item.annictWorkId}`}
+        onPress={() => setSelectedWork(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}の詳細を開く`}
       >
         <AnimePoster uri={item.hostedImageUrl} title={item.title} />
         <View style={styles.cardBody}>
@@ -164,11 +171,6 @@ export function AnimeListContent({
               title={item.title}
             />
           </View>
-          {item.titleEn ? (
-            <Text style={styles.englishTitle} numberOfLines={1}>
-              {item.titleEn}
-            </Text>
-          ) : null}
           <View style={styles.metaRow}>
             {item.seasonYear ? (
               <View style={styles.seasonChip}>
@@ -177,40 +179,14 @@ export function AnimeListContent({
                   size={12}
                   color={palette.seasonChipText}
                 />
-                <Text style={styles.seasonText}>
-                  {formatYearSeason(
-                    item.seasonYear,
-                    item.seasonName?.includes("-")
-                      ? item.seasonName.split("-")[1]
-                      : item.seasonName,
-                  )}
-                </Text>
+                <Text style={styles.seasonText}>{formatWorkSeason(item)}</Text>
               </View>
             ) : null}
           </View>
-          <TouchableOpacity
-            className="mt-1.5 items-center rounded-lg bg-indigo-50 dark:bg-indigo-950 py-1.5"
-            onPress={() => openCharacterTierList(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title} のキャラクター Tier 表を作る`}
-            testID={`open-character-tier-list-${item.annictWorkId}`}
-          >
-            <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-              キャラ Tier 表
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     ),
-    [
-      cardWidth,
-      favoriteIds,
-      isToggling,
-      openCharacterTierList,
-      palette,
-      styles,
-      toggleFavorite,
-    ],
+    [cardWidth, favoriteIds, isToggling, palette, styles, toggleFavorite],
   );
 
   return (
@@ -431,6 +407,18 @@ export function AnimeListContent({
             </View>
           )
         }
+      />
+      <AnimeWorkDetailSheet
+        work={selectedWork}
+        onClose={() => setSelectedWork(null)}
+        isFavorite={
+          selectedWork != null && favoriteIds.has(selectedWork.annictWorkId)
+        }
+        isTogglingFavorite={isToggling}
+        onToggleFavorite={() => {
+          if (selectedWork) toggleFavorite(selectedWork.annictWorkId);
+        }}
+        onOpenCharacterTierList={openCharacterTierList}
       />
     </View>
   );

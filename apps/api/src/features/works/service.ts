@@ -51,6 +51,16 @@ export type SearchWorkWithResolved = AnnictLibraryEntry & {
 };
 
 /**
+ * 作品メタに画像プロキシ用フィールドを付与した型。
+ * 詳細エンドポイント（AnnictWorkDetail 等、entry を拡張した型）でも
+ * 追加フィールドを失わないようジェネリックにする（issue #347）。
+ */
+export type WithResolvedImages<T extends AnnictLibraryEntry> = T & {
+  resolvedImageUrl: string | null;
+  hostedImageUrl: string | null;
+};
+
+/**
  * 検索結果の各作品に、キャッシュ済み resolvedImageUrl を「追加フィールド」として付与する。
  * imageUrl 自体は上書きしない。表示に使う候補の選択は画像プロキシが行う
  * （クライアントは hostedImageUrl だけを表示する。issue #224）。
@@ -60,11 +70,11 @@ export type SearchWorkWithResolved = AnnictLibraryEntry & {
  * 取れなかった分は annict_works に upsert 済みの行として残り、cron が
  * pending 行を拾って解決する（issue #127: Queue 廃止）。
  */
-export async function attachResolvedImages(
+export async function attachResolvedImages<T extends AnnictLibraryEntry>(
   repo: WorksRepository,
-  works: AnnictLibraryEntry[],
+  works: T[],
   requestUrl: string,
-): Promise<SearchWorkWithResolved[]> {
+): Promise<WithResolvedImages<T>[]> {
   if (works.length === 0) return [];
 
   // getAnnictWorksByIds は inArray（= id 1 個につきバインド変数 1 個）なので、
@@ -85,7 +95,7 @@ export async function attachResolvedImages(
     malAnimeId: number | null;
     kitsuAnimeId: number | null;
   }[] = [];
-  const enriched: SearchWorkWithResolved[] = works.map((w) => {
+  const enriched: WithResolvedImages<T>[] = works.map((w) => {
     const c0 = cachedById.get(w.annictWorkId);
     // 未解決 + Annict 画像が placeholder + malAnimeId か Kitsu ID 有
     // → 同期解決の対象にする（kitsuAnimeId はタイトル検索で採った行。
