@@ -1,5 +1,6 @@
-import { Modal, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { MeishiElementType } from "@/lib/meishi/types";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useThemeColors } from "@/lib/theme";
 
 type Item = {
@@ -33,73 +34,56 @@ export function AddElementSheet({
 }) {
   const colors = useThemeColors();
   return (
-    <Modal
-      transparent
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      scrimAccessibilityLabel="要素の追加をやめる"
     >
-      <Pressable
-        onPress={onClose}
+      <View
         style={{
-          flex: 1,
-          backgroundColor: colors.scrim,
-          justifyContent: "flex-end",
-          alignItems: "center",
+          padding: 16,
+          paddingBottom: 32,
         }}
       >
-        <Pressable
-          onPress={() => {}}
+        <Text
           style={{
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            padding: 16,
-            paddingBottom: 32,
-            width: "100%",
-            maxWidth: 560,
+            fontSize: 16,
+            fontWeight: "bold",
+            marginBottom: 12,
+            color: colors.text,
           }}
         >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-              marginBottom: 12,
-              color: colors.text,
-            }}
-          >
-            要素を追加
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            {onPickAvatarImage ? (
-              <PickButton
-                emoji="👤"
-                label="アバター"
-                sub="プロフィール画像"
-                onPress={onPickAvatarImage}
-              />
-            ) : null}
-            {onPickAnimeImage ? (
-              <PickButton
-                emoji="🎞️"
-                label="アニメ画像"
-                sub="Annict 検索/リスト"
-                onPress={onPickAnimeImage}
-              />
-            ) : null}
-            {ITEMS.map((it) => (
-              <PickButton
-                key={it.type}
-                emoji={it.emoji}
-                label={it.label}
-                sub={it.sub}
-                onPress={() => onPick(it.type)}
-              />
-            ))}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+          要素を追加
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+          {onPickAvatarImage ? (
+            <PickButton
+              emoji="👤"
+              label="アバター"
+              sub="プロフィール画像"
+              onPress={onPickAvatarImage}
+            />
+          ) : null}
+          {onPickAnimeImage ? (
+            <PickButton
+              emoji="🎞️"
+              label="アニメ画像"
+              sub="Annict 検索/リスト"
+              onPress={onPickAnimeImage}
+            />
+          ) : null}
+          {ITEMS.map((it) => (
+            <PickButton
+              key={it.type}
+              emoji={it.emoji}
+              label={it.label}
+              sub={it.sub}
+              onPress={() => onPick(it.type)}
+            />
+          ))}
+        </View>
+      </View>
+    </BottomSheet>
   );
 }
 

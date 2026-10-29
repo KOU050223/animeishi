@@ -35,7 +35,7 @@ export type AnimeListPalette = {
   statGoldBorder: string;
   statMintBg: string;
   statMintBorder: string;
-  /** 白いチップ系ボタン（ソート・シーズン・年ピッカー）。 */
+  /** 白いチップ系ボタン（ソート・シーズン）。 */
   chipBg: string;
   chipBorder: string;
   /** 選択中チップは反転した塗りにする。 */
@@ -46,11 +46,6 @@ export type AnimeListPalette = {
   chipDisabledBg: string;
   chipDisabledBorder: string;
   chipTextDisabled: string;
-  /** 年ピッカーのボトムシート。 */
-  sheetBg: string;
-  sheetItemActiveBg: string;
-  sheetItemText: string;
-  sheetItemTextActive: string;
   /** 作品カード。 */
   cardBg: string;
   cardBorder: string;
@@ -87,8 +82,6 @@ export type AnimeListPalette = {
   /** 画面の主ボタン（再試行）。反転した塗りにする。 */
   primaryButtonBg: string;
   primaryButtonText: string;
-  /** 年ピッカー背面のスクリム。 */
-  scrim: string;
 };
 
 const lightPalette: AnimeListPalette = {
@@ -117,10 +110,6 @@ const lightPalette: AnimeListPalette = {
   chipDisabledBg: "#f1f5f9",
   chipDisabledBorder: "#e2e8f0",
   chipTextDisabled: "#cbd5e1",
-  sheetBg: "#ffffff",
-  sheetItemActiveBg: "#f1f5f9",
-  sheetItemText: "#334155",
-  sheetItemTextActive: "#111827",
   cardBg: "#ffffff",
   cardBorder: "#e5e7eb",
   cardShadow: "#111827",
@@ -147,7 +136,6 @@ const lightPalette: AnimeListPalette = {
   spinner: "#111827",
   primaryButtonBg: "#111827",
   primaryButtonText: "#ffffff",
-  scrim: "rgba(0,0,0,0.4)",
 };
 
 const darkPalette: AnimeListPalette = {
@@ -176,10 +164,6 @@ const darkPalette: AnimeListPalette = {
   chipDisabledBg: "#1c1917",
   chipDisabledBorder: "#44403c",
   chipTextDisabled: "#57534e",
-  sheetBg: "#1c1917",
-  sheetItemActiveBg: "#292524",
-  sheetItemText: "#d6d3d1",
-  sheetItemTextActive: "#fafaf9",
   cardBg: "#1c1917",
   cardBorder: "#44403c",
   cardShadow: "#000000",
@@ -206,7 +190,6 @@ const darkPalette: AnimeListPalette = {
   spinner: "#e7e5e4",
   primaryButtonBg: "#e7e5e4",
   primaryButtonText: "#1c1917",
-  scrim: "rgba(0,0,0,0.6)",
 };
 
 export const animeListPalettes = {
@@ -413,61 +396,6 @@ function createStyles(p: AnimeListPalette) {
     },
     filterChipTextDisabled: {
       color: p.chipTextDisabled,
-    },
-    yearPickerButton: {
-      minHeight: 32,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: p.chipBorder,
-      backgroundColor: p.chipBg,
-      paddingHorizontal: 12,
-    },
-    yearPickerButtonText: {
-      color: p.title,
-      fontSize: 12,
-      fontWeight: "800",
-    },
-    yearPickerBackdrop: {
-      flex: 1,
-      backgroundColor: p.scrim,
-      justifyContent: "flex-end",
-      alignItems: "center",
-    },
-    yearPickerSheet: {
-      width: "100%",
-      maxWidth: 560,
-      maxHeight: "60%",
-      backgroundColor: p.sheetBg,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      paddingTop: 16,
-    },
-    yearPickerTitle: {
-      marginBottom: 8,
-      color: p.title,
-      fontSize: 16,
-      fontWeight: "800",
-      paddingHorizontal: 16,
-    },
-    yearPickerItem: {
-      height: 44,
-      justifyContent: "center",
-      paddingHorizontal: 16,
-    },
-    yearPickerItemActive: {
-      backgroundColor: p.sheetItemActiveBg,
-    },
-    yearPickerItemText: {
-      color: p.sheetItemText,
-      fontSize: 15,
-      fontWeight: "600",
-    },
-    yearPickerItemTextActive: {
-      color: p.sheetItemTextActive,
-      fontWeight: "900",
     },
     card: {
       flexDirection: "row",

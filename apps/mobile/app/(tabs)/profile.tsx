@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Input } from "@/components/ui";
+import { GroupedList } from "@/components/ui/grouped-list";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
@@ -323,98 +324,73 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View className="mt-8 px-4">
-          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-            分析
-          </Text>
-          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/analysis")}
-              accessibilityRole="button"
-              accessibilityLabel="AI 視聴傾向分析を開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                AI 視聴傾向分析
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View className="mt-8 px-4">
-          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-            プライバシーと安全
-          </Text>
-          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/blocked-users")}
-              accessibilityRole="button"
-              accessibilityLabel="ブロック中のユーザーを開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                ブロック中のユーザー
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View className="mt-8 px-4">
-          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-            このアプリについて
-          </Text>
-          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/changelog")}
-              accessibilityRole="button"
-              accessibilityLabel="機能一覧・更新情報を開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                機能一覧・更新情報
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View className="mt-8 px-4">
-          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-            法務情報
-          </Text>
-          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/privacy")}
-              accessibilityRole="button"
-              accessibilityLabel="プライバシーポリシーを開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                プライバシーポリシー
-              </Text>
-            </TouchableOpacity>
-            <View className="h-px bg-gray-100 dark:bg-slate-800" />
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/terms")}
-              accessibilityRole="button"
-              accessibilityLabel="利用規約を開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                利用規約
-              </Text>
-            </TouchableOpacity>
-            <View className="h-px bg-gray-100 dark:bg-slate-800" />
-            <TouchableOpacity
-              className="px-4 py-3"
-              onPress={() => router.push("/support")}
-              accessibilityRole="button"
-              accessibilityLabel="サポートを開く"
-            >
-              <Text className="text-gray-900 dark:text-slate-100">
-                サポート
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* 設定項目のセクション一覧。ネイティブでは純正のグループ化リスト
+            （@expo/ui）、Web では従来のカード行に切り替わる（issue #313）。 */}
+        <GroupedList
+          sections={[
+            {
+              key: "analysis",
+              title: "分析",
+              rows: [
+                {
+                  key: "analysis",
+                  label: "AI 視聴傾向分析",
+                  onPress: () => router.push("/analysis"),
+                  accessibilityLabel: "AI 視聴傾向分析を開く",
+                },
+              ],
+            },
+            {
+              key: "privacy-safety",
+              title: "プライバシーと安全",
+              rows: [
+                {
+                  key: "blocked-users",
+                  label: "ブロック中のユーザー",
+                  onPress: () => router.push("/blocked-users"),
+                  accessibilityLabel: "ブロック中のユーザーを開く",
+                },
+              ],
+            },
+            {
+              key: "about",
+              title: "このアプリについて",
+              rows: [
+                {
+                  key: "changelog",
+                  label: "機能一覧・更新情報",
+                  onPress: () => router.push("/changelog"),
+                  accessibilityLabel: "機能一覧・更新情報を開く",
+                },
+              ],
+            },
+            {
+              key: "legal",
+              title: "法務情報",
+              rows: [
+                {
+                  key: "privacy",
+                  label: "プライバシーポリシー",
+                  onPress: () => router.push("/privacy"),
+                  accessibilityLabel: "プライバシーポリシーを開く",
+                },
+                {
+                  key: "terms",
+                  label: "利用規約",
+                  onPress: () => router.push("/terms"),
+                  accessibilityLabel: "利用規約を開く",
+                },
+                {
+                  key: "support",
+                  label: "サポート",
+                  onPress: () => router.push("/support"),
+                  accessibilityLabel: "サポートを開く",
+                },
+              ],
+            },
+          ]}
+        />
+        <View className="px-4">
           <MalAttribution />
         </View>
 

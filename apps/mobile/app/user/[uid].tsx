@@ -9,11 +9,10 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  Modal,
-  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiUrl } from "@/lib/apiUrl";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import {
@@ -261,57 +260,47 @@ export default function PublicProfilePage() {
           ) : null}
         </View>
 
-        <Modal
+        <BottomSheet
           visible={reportSheetVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setReportSheetVisible(false)}
+          onClose={() => setReportSheetVisible(false)}
+          scrimAccessibilityLabel="通報をやめる"
         >
-          <Pressable
-            className="flex-1 justify-end bg-black/50 dark:bg-black/70"
-            onPress={() => setReportSheetVisible(false)}
-            accessibilityLabel="通報をやめる"
-          >
-            <Pressable
-              className="rounded-t-2xl bg-white dark:bg-slate-800 px-4 pb-8 pt-4"
-              onPress={(e) => e.stopPropagation()}
+          <View className="px-4 pb-8 pt-4">
+            <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
+              このユーザーを通報
+            </Text>
+            <Text className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+              理由を選択してください。運営が内容を確認します。
+            </Text>
+            <View className="mt-4 gap-2">
+              {REPORT_REASONS.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  className="rounded-lg border border-gray-200 dark:border-slate-600 px-4 py-3"
+                  onPress={() => onSubmitReport(reason)}
+                  disabled={reportUser.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${reason}で通報`}
+                  testID={`report-reason-${reason}`}
+                >
+                  <Text className="text-gray-900 dark:text-slate-100">
+                    {reason}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              className="mt-4 items-center py-2"
+              onPress={() => setReportSheetVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="キャンセル"
             >
-              <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
-                このユーザーを通報
+              <Text className="text-gray-500 dark:text-slate-400">
+                キャンセル
               </Text>
-              <Text className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                理由を選択してください。運営が内容を確認します。
-              </Text>
-              <View className="mt-4 gap-2">
-                {REPORT_REASONS.map((reason) => (
-                  <TouchableOpacity
-                    key={reason}
-                    className="rounded-lg border border-gray-200 dark:border-slate-600 px-4 py-3"
-                    onPress={() => onSubmitReport(reason)}
-                    disabled={reportUser.isPending}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${reason}で通報`}
-                    testID={`report-reason-${reason}`}
-                  >
-                    <Text className="text-gray-900 dark:text-slate-100">
-                      {reason}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                className="mt-4 items-center py-2"
-                onPress={() => setReportSheetVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel="キャンセル"
-              >
-                <Text className="text-gray-500 dark:text-slate-400">
-                  キャンセル
-                </Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
-        </Modal>
+            </TouchableOpacity>
+          </View>
+        </BottomSheet>
       </ScrollView>
     </SafeAreaView>
   );
