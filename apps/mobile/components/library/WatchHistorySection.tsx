@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,20 @@ import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistor
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
+import {
+  NO_WATCH_HISTORY_FILTERS,
+  WATCH_HISTORY_SORT_KEYS,
+  WATCH_HISTORY_SORT_LABELS,
+  collectWatchHistoryDecades,
+  filterWatchHistory,
+  isWatchHistoryFilterActive,
+  sortWatchHistory,
+} from "@/lib/watchHistorySortFilter";
+import type {
+  WatchHistoryDecade,
+  WatchHistoryFilters,
+  WatchHistorySortKey,
+} from "@/lib/watchHistorySortFilter";
 
 const WATCH_STATUSES = [
   "WATCHING",
@@ -80,6 +94,11 @@ export function WatchHistorySection() {
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<WatchHistoryItem | null>(null);
+  const [sortKey, setSortKey] = useState<WatchHistorySortKey>("updatedAt");
+  const [filters, setFilters] = useState<WatchHistoryFilters>(
+    NO_WATCH_HISTORY_FILTERS,
+  );
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   // ステータス更新は楽観的更新のため、失敗時（ロールバック）は必ず
   // ユーザーに伝える。短時間で消えるトーストだと見落とすため、OK を
@@ -128,7 +147,20 @@ export function WatchHistorySection() {
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
 
-  const enriched = histories ?? [];
+  // histories が undefined の間も参照を安定させ、下の useMemo（年代選択肢・
+  // 絞り込み＋ソート）が毎レンダー走り直さないようにする。
+  const enriched = useMemo(() => histories ?? [], [histories]);
+
+  // 年代フィルタの選択肢は一覧に出る作品から作る（存在しない年代を出さない）。
+  const decades = useMemo(
+    () => collectWatchHistoryDecades(enriched),
+    [enriched],
+  );
+  const filterActive = isWatchHistoryFilterActive(filters);
+  const visible = useMemo(
+    () => sortWatchHistory(filterWatchHistory(enriched, filters), sortKey),
+    [enriched, filters, sortKey],
+  );
 
   async function onRefresh() {
     setRefreshing(true);
@@ -214,7 +246,10 @@ export function WatchHistorySection() {
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
         <Text className="text-xs text-gray-400 dark:text-slate-500">
-          {enriched.length} 件
+          {filterActive
+            ? `${visible.length} / ${enriched.length}`
+            : enriched.length}{" "}
+          件
         </Text>
         {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
             フラグが無効な間は導線を出さない。 */}
@@ -236,8 +271,35 @@ export function WatchHistorySection() {
       {/* 共有 URL 導線（#236）。#170 のタブ再編に備えて独立コンポーネントに分離。 */}
       <WatchHistoryShareSection />
 
+      {/* ソート切り替えチップ + 絞り込み導線（issue #345）。
+          絞り込みの選択自体は下のボトムシートで行う。 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="px-4 pb-2"
+        contentContainerStyle={{ gap: 8 }}
+      >
+        {WATCH_HISTORY_SORT_KEYS.map((key) => (
+          <SelectChip
+            key={key}
+            label={WATCH_HISTORY_SORT_LABELS[key]}
+            selected={sortKey === key}
+            onPress={() => setSortKey(key)}
+            accessibilityLabel={`${WATCH_HISTORY_SORT_LABELS[key]}で並べ替え`}
+            testID={`watch-history-sort-${key}`}
+          />
+        ))}
+        <SelectChip
+          label="絞り込み"
+          selected={filterActive}
+          onPress={() => setFilterSheetOpen(true)}
+          accessibilityLabel="視聴履歴を絞り込む"
+          testID="watch-history-filter-button"
+        />
+      </ScrollView>
+
       <FlatList
-        data={enriched}
+        data={visible}
         keyExtractor={(item) => String(item.annictWorkId)}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
         refreshing={refreshing}
@@ -305,7 +367,157 @@ export function WatchHistorySection() {
           }}
         />
       )}
+
+      {filterSheetOpen && (
+        <FilterSheet
+          decades={decades}
+          filters={filters}
+          onChange={setFilters}
+          onClose={() => setFilterSheetOpen(false)}
+        />
+      )}
     </View>
+  );
+}
+
+// ソート・絞り込みの選択チップ。編集シートのステータスチップと同じ見た目。
+function SelectChip({
+  label,
+  selected,
+  onPress,
+  accessibilityLabel,
+  testID,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  testID?: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`px-3 py-1.5 rounded-full border ${
+        selected
+          ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+      }`}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={accessibilityLabel ?? label}
+      testID={testID}
+    >
+      <Text
+        className={`text-xs font-medium ${
+          selected
+            ? "text-indigo-600 dark:text-indigo-300"
+            : "text-gray-500 dark:text-slate-400"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// 放送年代・視聴状態の絞り込みシート（issue #345）。
+// 選択は即時に一覧へ反映し、「閉じる」またはスワイプで閉じる。
+function FilterSheet({
+  decades,
+  filters,
+  onChange,
+  onClose,
+}: {
+  decades: WatchHistoryDecade[];
+  filters: WatchHistoryFilters;
+  onChange: (next: WatchHistoryFilters) => void;
+  onClose: () => void;
+}) {
+  const toggleState = (state: WatchStatus) =>
+    onChange({
+      ...filters,
+      states: filters.states.includes(state)
+        ? filters.states.filter((s) => s !== state)
+        : [...filters.states, state],
+    });
+
+  return (
+    <BottomSheet
+      visible
+      onClose={onClose}
+      scrimAccessibilityLabel="絞り込みを閉じる"
+      testID="watch-history-filter-sheet"
+    >
+      <View className="px-6 pt-6 pb-10">
+        <Text className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-5">
+          絞り込み
+        </Text>
+
+        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+          放送年代
+        </Text>
+        <View className="flex-row flex-wrap gap-2 mb-5">
+          <SelectChip
+            label="すべて"
+            selected={filters.decade === null}
+            onPress={() => onChange({ ...filters, decade: null })}
+            accessibilityLabel="すべての放送年代"
+          />
+          {decades.map((decade) => (
+            <SelectChip
+              key={String(decade)}
+              label={decade === "unknown" ? "年不明" : `${decade}年代`}
+              selected={filters.decade === decade}
+              onPress={() => onChange({ ...filters, decade })}
+              accessibilityLabel={
+                decade === "unknown"
+                  ? "放送年が未設定の作品"
+                  : `${decade}年代で絞り込む`
+              }
+            />
+          ))}
+        </View>
+
+        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+          視聴状態
+        </Text>
+        <View className="flex-row flex-wrap gap-2 mb-6">
+          {WATCH_STATUSES.map((s) => (
+            <SelectChip
+              key={s}
+              label={WATCH_STATUS_LABELS[s]}
+              selected={filters.states.includes(s)}
+              onPress={() => toggleState(s)}
+              accessibilityLabel={`${WATCH_STATUS_LABELS[s]}で絞り込む`}
+            />
+          ))}
+        </View>
+        <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
+          視聴状態を未選択にするとすべての状態を表示します
+        </Text>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
+            onPress={() => onChange(NO_WATCH_HISTORY_FILTERS)}
+            accessibilityRole="button"
+            accessibilityLabel="絞り込みをリセット"
+          >
+            <Text className="text-gray-600 dark:text-slate-300 font-medium">
+              リセット
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="絞り込みを適用して閉じる"
+          >
+            <Text className="text-white font-semibold">閉じる</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -322,6 +534,17 @@ function WatchHistoryRow({
   const palette = STATUS_COLORS[colorScheme === "dark" ? "dark" : "light"];
   const color = palette[history.state] ?? palette.WANNA_WATCH;
   const label = WATCH_STATUS_LABELS[history.state];
+
+  // 放送年・視聴者数はソートの判断材料になるため補足として並べる
+  // （issue #345）。どちらも未取得の作品は該当部分を出さない。
+  const meta = [
+    history.seasonYear != null ? `${history.seasonYear}年` : null,
+    history.watchersCount != null
+      ? `視聴者 ${history.watchersCount.toLocaleString("ja-JP")}人`
+      : null,
+  ]
+    .filter((part): part is string => part != null)
+    .join(" ・ ");
 
   return (
     <View
@@ -344,6 +567,11 @@ function WatchHistoryRow({
           >
             {label}
           </Text>
+          {meta ? (
+            <Text className="text-xs text-gray-400 dark:text-slate-500">
+              {meta}
+            </Text>
+          ) : null}
         </View>
       </View>
 

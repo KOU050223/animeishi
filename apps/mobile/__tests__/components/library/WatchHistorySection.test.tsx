@@ -31,9 +31,14 @@ jest.mock("@/lib/featureFlags", () => ({
 // mutateAsync の振る舞いをテストごとに差し替えられるよう遅延参照する。
 const mockUpsertMutateAsync = jest.fn();
 const mockRemoveMutateAsync = jest.fn();
+// 履歴の中身もテストごとに差し替えられるよう遅延参照する。
+// 既定は従来テストと同じ 1 件構成。
+let mockHistories: unknown[] = [
+  { annictWorkId: 1, title: "テスト作品", state: "WATCHED" },
+];
 jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({
-    data: [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }],
+    data: mockHistories,
     isLoading: false,
     isError: false,
     refetch: jest.fn(),
@@ -113,6 +118,7 @@ function rejectedUpsertError(rolledBack: boolean) {
 beforeEach(async () => {
   jest.clearAllMocks();
   mockDanimeImport = false;
+  mockHistories = [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }];
   mockUpsertMutateAsync.mockReset();
   mockRemoveMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
@@ -285,5 +291,82 @@ describe("WatchHistorySection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  describe("ソート・絞り込み（issue #345）", () => {
+    beforeEach(() => {
+      mockHistories = [
+        {
+          annictWorkId: 1,
+          title: "旧作",
+          state: "WATCHED",
+          seasonYear: 1998,
+          watchersCount: 10,
+        },
+        {
+          annictWorkId: 2,
+          title: "人気作",
+          state: "WATCHING",
+          seasonYear: 2024,
+          watchersCount: 5000,
+        },
+        {
+          annictWorkId: 3,
+          title: "新作",
+          state: "WANNA_WATCH",
+          seasonYear: 2025,
+          watchersCount: 100,
+        },
+      ];
+    });
+
+    // FlatList の行の出現順を annictWorkId の並びとして取り出す。
+    const renderedOrder = () =>
+      screen
+        .getAllByTestId(/^watch-history-item-\d+$/)
+        .map((node) => node.props.testID.replace("watch-history-item-", ""));
+
+    it("ソートチップで放送年順・視聴者数順に並べ替わる", async () => {
+      await render(<WatchHistorySection />);
+
+      // 既定は更新日順（API 応答の並びそのまま）。
+      expect(renderedOrder()).toEqual(["1", "2", "3"]);
+
+      await fireEvent.press(
+        screen.getByTestId("watch-history-sort-seasonYear"),
+      );
+      expect(renderedOrder()).toEqual(["3", "2", "1"]);
+
+      await fireEvent.press(
+        screen.getByTestId("watch-history-sort-watchersCount"),
+      );
+      expect(renderedOrder()).toEqual(["2", "3", "1"]);
+    });
+
+    it("絞り込みシートで視聴状態を選ぶと該当作品だけになる", async () => {
+      await render(<WatchHistorySection />);
+
+      await fireEvent.press(screen.getByTestId("watch-history-filter-button"));
+      expect(screen.getByTestId("watch-history-filter-sheet")).toBeTruthy();
+
+      await fireEvent.press(screen.getByLabelText("視聴中で絞り込む"));
+      expect(renderedOrder()).toEqual(["2"]);
+
+      // 絞り込み中は 絞り込み後 / 全件 の件数を出す。
+      expect(screen.getByText("1 / 3 件")).toBeTruthy();
+
+      // リセットで全件に戻る。
+      await fireEvent.press(screen.getByLabelText("絞り込みをリセット"));
+      expect(renderedOrder()).toEqual(["1", "2", "3"]);
+    });
+
+    it("絞り込みシートで放送年代を選ぶと該当年代だけになる", async () => {
+      await render(<WatchHistorySection />);
+
+      await fireEvent.press(screen.getByTestId("watch-history-filter-button"));
+      await fireEvent.press(screen.getByLabelText("2020年代で絞り込む"));
+
+      expect(renderedOrder()).toEqual(["2", "3"]);
+    });
   });
 });

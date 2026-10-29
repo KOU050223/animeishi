@@ -32,6 +32,7 @@ function mockAnnictLibrary(
     title?: string;
     malAnimeId?: string | null;
     recommendedImageUrl?: string | null;
+    watchersCount?: number | null;
   }[],
 ): void {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -50,6 +51,7 @@ function mockAnnictLibrary(
                   titleEn: null,
                   seasonName: null,
                   seasonYear: null,
+                  watchersCount: n.watchersCount ?? null,
                   malAnimeId: n.malAnimeId ?? null,
                   image: {
                     internalUrl: null,
@@ -276,6 +278,34 @@ describe("視聴履歴 API", () => {
       expect(body.find((h) => h.annictWorkId === NEW_WORK)?.state).toBe(
         "WANNA_WATCH",
       );
+    });
+
+    it("GET /me/watch-histories: watchersCount をキャッシュして応答に載せる", async () => {
+      // 視聴者数ソート（issue #345）の元データ。read-through で Annict の
+      // watchersCount を annict_works に保存し、JOIN で応答へ載せる。
+      mockAnnictLibrary([
+        { annictId: ANNICT_WORK_ID, state: "WATCHED", watchersCount: 1234 },
+      ]);
+
+      const app = buildApp();
+      const res = await app.request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        annictWorkId: number;
+        watchersCount: number | null;
+      }[];
+      expect(body).toHaveLength(1);
+      expect(body[0]?.watchersCount).toBe(1234);
+
+      const row = await db.query.annictWorks.findFirst({
+        where: (t, { eq }) => eq(t.annictWorkId, ANNICT_WORK_ID),
+      });
+      expect(row?.watchersCount).toBe(1234);
     });
 
     it("GET /me/watch-histories: NO_STATE の作品は履歴に含めない", async () => {

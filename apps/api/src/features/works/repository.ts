@@ -37,6 +37,8 @@ export type AnnictWorkMeta = {
   // R2 に取り込み済みの作品画像キー。配信 URL は作品 ID から組み立てる
   // （GET /images/works/<id>）ので、ルート層では使わない。運用調査用。
   imageR2Key: string | null;
+  // Annict Work.watchersCount（作品の人気指標）。null は未取得。
+  watchersCount: number | null;
 };
 
 // annict_works upsert（単発・バルク・ライブラリ同期）で共有する
@@ -99,6 +101,10 @@ function annictWorkConflictSet() {
     seasonName: sql`excluded.season_name`,
     seasonYear: sql`excluded.season_year`,
     imageUrl: sql`excluded.image_url`,
+    // watchersCount は libraryEntries / Node ID 解決の経路でだけ取得する。
+    // 取らない経路（検索・キャスト一覧）の upsert が null を投げてきても
+    // 既存値を消さないよう温存する。
+    watchersCount: sql`coalesce(excluded.watchers_count, ${annictWorks.watchersCount})`,
     updatedAt: sql`excluded.updated_at`,
   };
 }
@@ -121,6 +127,7 @@ export function isUnchangedCachedWork(
     | "seasonName"
     | "seasonYear"
     | "imageUrl"
+    | "watchersCount"
   >,
   cached: AnnictWork | undefined,
 ): boolean {
@@ -133,7 +140,8 @@ export function isUnchangedCachedWork(
     row.titleEn === cached.titleEn &&
     row.seasonName === cached.seasonName &&
     row.seasonYear === cached.seasonYear &&
-    row.imageUrl === cached.imageUrl
+    row.imageUrl === cached.imageUrl &&
+    (row.watchersCount == null || row.watchersCount === cached.watchersCount)
   );
 }
 
@@ -147,8 +155,8 @@ function notBlockedImageSource() {
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 18 カラム（kitsu_anime_id 追加後）なので
-// 5 行 × 18 = 90 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+// annict_works は 19 カラム（watchers_count 追加後）なので
+// 5 行 × 19 = 95 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
 const ANNICT_WORK_UPSERT_CHUNK = 5;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の

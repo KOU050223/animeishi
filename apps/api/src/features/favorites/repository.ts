@@ -29,6 +29,7 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
           resolvedImageUrl: annictWorks.resolvedImageUrl,
           imageSource: annictWorks.imageSource,
           imageR2Key: annictWorks.imageR2Key,
+          watchersCount: annictWorks.watchersCount,
         })
         .from(favorites)
         .innerJoin(
