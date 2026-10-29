@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BackButton } from "@/components/ui";
 import { apiUrl } from "@/lib/apiUrl";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ApiRequestError } from "@/lib/apiError";
@@ -59,6 +60,7 @@ async function fetchPublicProfile(
 
 export default function PublicProfilePage() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
+  const router = useRouter();
   const { getToken, isSignedIn, userId } = useAuth();
   const colors = useThemeColors();
   const reportUser = useReportUser();
@@ -75,6 +77,16 @@ export default function PublicProfilePage() {
   // 他人の名刺にだけ通報・ブロックを出す。未サインイン時も出さない
   // （両方とも認証必須の API のため）。
   const canModerate = !!data && !!isSignedIn && userId !== uid;
+
+  // 共有 URL / QR のディープリンクで開く公開ページのため遷移履歴が無いことが
+  // 多い。その場合はホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/");
+  };
 
   function runBlock() {
     if (!uid) return;
@@ -161,11 +173,22 @@ export default function PublicProfilePage() {
         ? "このプロフィールは存在しないか、非公開です。"
         : "プロフィールの取得に失敗しました。";
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-6">
-        <Text className="text-gray-500 dark:text-slate-400 text-center">
-          {message}
-        </Text>
-      </View>
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["top", "bottom"]}
+      >
+        <BackButton
+          onPress={handleBack}
+          className="ml-2 self-start"
+          accessibilityLabel="戻る"
+          testID="public-profile-back-button"
+        />
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-gray-500 dark:text-slate-400 text-center">
+            {message}
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -175,7 +198,13 @@ export default function PublicProfilePage() {
       edges={["top", "bottom"]}
     >
       <ScrollView className="flex-1">
-        <View className="items-center pt-6 pb-6 px-6">
+        <BackButton
+          onPress={handleBack}
+          className="ml-2 mt-2 self-start"
+          accessibilityLabel="戻る"
+          testID="public-profile-back-button"
+        />
+        <View className="items-center pt-2 pb-6 px-6">
           {data.profileImageUrl ? (
             <Image
               source={{ uri: data.profileImageUrl }}

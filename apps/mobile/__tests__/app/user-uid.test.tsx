@@ -20,6 +20,9 @@ const PROFILE = {
 
 const mockReportMutate = jest.fn();
 const mockBlockMutate = jest.fn();
+const mockBack = jest.fn();
+const mockReplace = jest.fn();
+let mockCanGoBack = true;
 const mockConfirm = jest.fn(
   (
     _title: string,
@@ -31,6 +34,11 @@ const mockConfirm = jest.fn(
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ uid: "user_target" }),
+  useRouter: () => ({
+    canGoBack: () => mockCanGoBack,
+    back: mockBack,
+    replace: mockReplace,
+  }),
 }));
 
 jest.mock("@/lib/useModeration", () => ({
@@ -70,6 +78,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   mockProfileFetch();
+  mockCanGoBack = true;
 });
 
 describe("PublicProfilePage", () => {
@@ -160,6 +169,29 @@ describe("PublicProfilePage", () => {
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
     expect(screen.queryByTestId("block-user-button")).toBeNull();
+  });
+
+  it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId("public-profile-back-button"));
+
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("遷移履歴が無い場合（ディープリンク直開き）、戻るボタンでホームへ戻る", async () => {
+    mockCanGoBack = false;
+    loggedInUser({ userId: "user_me" });
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId("public-profile-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
   it("404 のときは見つからない旨を表示する", async () => {
