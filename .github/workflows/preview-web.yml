@@ -68,7 +68,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" 2>&1)"
+          # 失敗時も wrangler の出力を残す。set -e のままだとコマンド置換の
+          # 非ゼロ終了で即死し、deploy_output が表示されず原因が追えない。
+          if ! deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" 2>&1)"; then
+            printf '%s\n' "$deploy_output"
+            exit 1
+          fi
           printf '%s\n' "$deploy_output"
 
           preview_url="$(printf '%s\n' "$deploy_output" | sed -nE "s#.*(https://[a-z0-9-]+-${WORKER_NAME}\.[a-z0-9-]+\.workers\.dev).*#\1#p" | tail -n 1)"
