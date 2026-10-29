@@ -14,8 +14,8 @@ export const ANALYSIS_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8" as const;
 // 使い切ると content が空のまま打ち切られる（本番で「AI 応答が空です」→ 502）。
 // ユーザーメッセージ末尾の /no_think（Qwen3 公式のソフトスイッチ）で無効化する。
 // chat_template_kwargs.enable_thinking=false は Workers AI では content が空に
-// なったため使わない（2026-10-17 実測）。
-const DISABLE_THINKING_SUFFIX = "\n/no_think";
+// なったため使わない（2026-10-17 実測）。おすすめ生成でも同じ対策が要るため export。
+export const DISABLE_THINKING_SUFFIX = "\n/no_think";
 
 // 応答の最大トークン数。思考を無効化しても長い要約で打ち切られないよう余裕を持たせる。
 const ANALYSIS_MAX_TOKENS = 2048;
@@ -35,7 +35,8 @@ const MAX_TITLE_CHARS = 80;
 
 // watch_history.state をプロンプト用の日本語ラベルに変換する。
 // モバイル側の WATCH_STATUS_LABELS（lib/useWatchHistory.ts）と同じ対応。
-const STATE_LABELS: Record<(typeof WATCH_STATES)[number], string> = {
+// おすすめ生成のプロンプトでも同じラベルを使うため export。
+export const STATE_LABELS: Record<(typeof WATCH_STATES)[number], string> = {
   WATCHING: "視聴中",
   WATCHED: "視聴済",
   ON_HOLD: "一時停止",
@@ -220,7 +221,7 @@ const aiOutputSchema = z.object({
 });
 
 // 空応答時の診断用に finish_reason を取り出す（"length" なら打ち切り）。
-function extractFinishReason(result: unknown): string | null {
+export function extractFinishReason(result: unknown): string | null {
   if (!result || typeof result !== "object") return null;
   const choices = (result as { choices?: unknown }).choices;
   if (!Array.isArray(choices)) return null;
@@ -229,7 +230,7 @@ function extractFinishReason(result: unknown): string | null {
   return typeof reason === "string" ? reason : null;
 }
 
-function extractMessageContent(result: unknown): string | null {
+export function extractMessageContent(result: unknown): string | null {
   // モデルによっては応答が素の文字列で返るケースがある。
   if (typeof result === "string") return result;
   if (!result || typeof result !== "object") return null;

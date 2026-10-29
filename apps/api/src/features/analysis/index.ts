@@ -11,8 +11,30 @@ import {
   AnalysisRateLimitError,
   type SavedAnalysis,
 } from "./repository";
+import {
+  recommendationRepository,
+  RecommendationRateLimitError,
+  type RecommendedWork,
+  type SavedRecommendation,
+} from "./recommendationRepository";
+import {
+  matchCandidateWorks,
+  runRecommendationCandidates,
+  toRecommendedWork,
+} from "./recommendationService";
+import type { RecommendationCandidate } from "./recommendationService";
 import { buildAnalysisInput, computeInputHash, runAnalysis } from "./service";
-import { generateAnalysisRoute, getAnalysisRoute } from "./schema";
+import {
+  generateAnalysisRoute,
+  generateRecommendationsRoute,
+  getAnalysisRoute,
+  getRecommendationsRoute,
+} from "./schema";
+import { resolveAnnictToken } from "@/lib/annict/middleware";
+import { currentAnnictSeason } from "@/lib/annict/client";
+import { workImageUrl } from "@/lib/annict/workImage";
+import { worksRepository } from "../works/repository";
+import { attachResolvedImages } from "../works/service";
 
 // POST /me/analysis が必要とするバインディング。AI は wrangler.toml の
 // [ai] binding = "AI"（preview / production 双方に定義済み）。
@@ -26,6 +48,22 @@ function toResponse(saved: SavedAnalysis) {
     recommendedGenres: saved.recommendedGenres,
     generatedAt: saved.generatedAt.toISOString(),
     workCount: saved.workCount,
+  };
+}
+
+// 保存済みおすすめの応答形へ変換する。hostedImageUrl は保存せず毎回
+// 画像プロキシ URL から組み立てる（ドメイン依存値のため DB に入れない。
+// /works/search の検索応答と同じ考え方）。
+function toRecommendationResponse(
+  requestUrl: string,
+  saved: SavedRecommendation,
+) {
+  return {
+    works: saved.works.map((w) => ({
+      ...w,
+      hostedImageUrl: workImageUrl(requestUrl, w.annictWorkId),
+    })),
+    generatedAt: saved.generatedAt.toISOString(),
   };
 }
 
@@ -125,6 +163,159 @@ const analysis = app
       // 応答としては返す（次回 POST で正規の結果が保存される）。
     }
     return c.json({ analysis: toResponse(saved), cached: false }, 200);
+  })
+  .openapi(getRecommendationsRoute, async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const saved = await recommendationRepository(
+      db,
+      c.var.clerkUserId,
+    ).getMyRecommendations();
+    return c.json(
+      {
+        recommendations: saved
+          ? toRecommendationResponse(c.req.url, saved)
+          : null,
+      },
+      200,
+    );
+  })
+  // AI おすすめ生成（issue #335）。分析と同じ入力（履歴＋選択ジャンル）で
+  // キャッシュ・レート制限を行い、AI の候補を Annict searchWorks で照合し、
+  // 本人の履歴に無い作品だけを返す。
+  .openapi(generateRecommendationsRoute, async (c) => {
+    const env = getBindings(c);
+    const db = createDb(env.DB);
+    const userId = c.var.clerkUserId;
+
+    const history = await watchHistoryRepository(
+      db,
+      userId,
+    ).getMyWatchHistory();
+    if (history.length === 0) {
+      return c.json(
+        {
+          error:
+            "おすすめには視聴履歴が必要です。まず Annict と連携して作品を記録してください",
+        },
+        400,
+      );
+    }
+
+    const selectedGenres = await usersRepository(db, userId).getMyGenres();
+    const input = buildAnalysisInput(history, selectedGenres);
+    const inputHash = await computeInputHash(input);
+
+    const repo = recommendationRepository(db, userId);
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // キャッシュヒット時は Annict も AI も呼ばず保存済みを返す。
+    const cached = await repo.findFreshCache(inputHash, nowSec);
+    if (cached) {
+      return c.json(
+        {
+          recommendations: toRecommendationResponse(c.req.url, cached),
+          cached: true,
+        },
+        200,
+      );
+    }
+
+    // Annict searchWorks で照合するためトークンが必要。
+    // 未連携は claim 前に 401 で弾く（生成枠を消費させない）。
+    const annictToken = await resolveAnnictToken(c);
+    if (!annictToken) {
+      return c.json(
+        { error: "Annict 連携が必要です", code: "annict_token_required" },
+        401,
+      );
+    }
+
+    // 生成回数制限。claim の意味づけは分析と同じ（失敗も 1 回消費）。
+    try {
+      await repo.claimGeneration(nowSec, inputHash);
+    } catch (e) {
+      if (e instanceof RecommendationRateLimitError) {
+        c.header("Retry-After", String(e.retryAfterSeconds));
+        return c.json(
+          { error: e.message, code: "generation_limit" as const },
+          429,
+        );
+      }
+      throw e;
+    }
+
+    // 保存済みの分析結果があれば傾向としてプロンプトに載せる。
+    const savedAnalysis = await analysisRepository(db, userId).getMyAnalysis();
+
+    let candidates: RecommendationCandidate[];
+    try {
+      candidates = await runRecommendationCandidates(env.AI, input, {
+        currentSeason: currentAnnictSeason(),
+        analysis: savedAnalysis,
+      });
+    } catch (e) {
+      reportApiFailure(e, c, 502);
+      return c.json(
+        {
+          error: "おすすめの生成に失敗しました。時間をおいて再度お試しください",
+        },
+        502,
+      );
+    }
+
+    // AnnictApiError（トークン失効・上流障害）はそのまま throw し、
+    // app.onError の handleError が 401/502 に変換する。
+    const matched = await matchCandidateWorks(
+      annictToken,
+      candidates,
+      new Set(history.map((h) => h.annictWorkId)),
+    );
+    const works: RecommendedWork[] = matched.map((m) =>
+      toRecommendedWork(m.work, m.reason),
+    );
+
+    // 検索応答と同じく、見せる作品は annict_works にキャッシュして画像
+    // プロキシ URL を載せる（WANNA_WATCH 登録時の nodeId 解決にも使う）。
+    const enriched = await attachResolvedImages(
+      worksRepository(db),
+      matched.map((m) => m.work),
+      c.req.url,
+    );
+    const hostedImageById = new Map(
+      enriched.map((w) => [w.annictWorkId, w.hostedImageUrl]),
+    );
+
+    const generatedAt = new Date();
+    const persisted = await repo.saveMyRecommendations({
+      works,
+      inputHash,
+      generatedAt,
+    });
+    if (!persisted) {
+      const current = await repo.getMyRecommendations();
+      if (current) {
+        return c.json(
+          {
+            recommendations: toRecommendationResponse(c.req.url, current),
+            cached: true,
+          },
+          200,
+        );
+      }
+    }
+    return c.json(
+      {
+        recommendations: {
+          works: works.map((w) => ({
+            ...w,
+            hostedImageUrl: hostedImageById.get(w.annictWorkId) ?? null,
+          })),
+          generatedAt: generatedAt.toISOString(),
+        },
+        cached: false,
+      },
+      200,
+    );
   });
 
 export { analysis };
