@@ -21,8 +21,10 @@ import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 import { useProfile } from "@/lib/useProfile";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { useMarkScreenInteractive } from "@/lib/observe";
 
 export default function HomeScreen() {
+  useMarkScreenInteractive();
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
