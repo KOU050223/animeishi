@@ -158,6 +158,7 @@ query MyLibrary($after: String) {
           titleEn
           seasonName
           seasonYear
+          watchersCount
           image { ${WORK_IMAGE_FIELDS} }
         }
       }
@@ -178,6 +179,7 @@ type LibraryEntryNode = {
     titleEn: string | null;
     seasonName: string | null;
     seasonYear: number | null;
+    watchersCount: number | null;
     image: AnnictWorkImage | null;
   } | null;
 };
@@ -204,6 +206,9 @@ export type AnnictLibraryEntry = {
   imageUrl: string | null;
   // Annict Work.malAnimeId は文字列。数値変換に失敗する値は捨てて null にする。
   malAnimeId: number | null;
+  // Annict Work.watchersCount（作品の人気指標）。取得しないクエリ経路では
+  // undefined のまま（その場合はキャッシュの既存値を消さない）。
+  watchersCount?: number | null;
 };
 
 // Annict の malAnimeId は文字列だが空文字や非数値が混ざる可能性があるため
@@ -263,6 +268,7 @@ export async function fetchAnnictLibraryEntries(
         seasonYear: work.seasonYear,
         imageUrl: resolveWorkImageUrl(work.image),
         malAnimeId: parseMalAnimeId(work.malAnimeId),
+        watchersCount: work.watchersCount,
       });
     }
 
@@ -337,6 +343,7 @@ query SearchWorkNodeId($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
+      watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
   }
@@ -353,6 +360,7 @@ type SearchWorksResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
+      watchersCount: number | null;
       image: AnnictWorkImage | null;
     }[];
   } | null;
@@ -388,6 +396,7 @@ export async function fetchAnnictWorkByAnnictId(
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
+    watchersCount: work.watchersCount,
   };
 }
 

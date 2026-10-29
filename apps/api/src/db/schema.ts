@@ -102,6 +102,10 @@ export const annictWorks = sqliteTable("annict_works", {
   // 書き戻せないため、画像プロキシがこの ID から Kitsu のポスターを引く
   // 代わりのキーにする。
   kitsuAnimeId: integer("kitsu_anime_id"),
+  // Annict Work.watchersCount（作品の人気指標）。ライブラリ read-through で
+  // 同期する。視聴履歴の「視聴者数順」ソートに使う（issue #345）。
+  // null は未取得（read-through 経路以外でキャッシュされた作品）。
+  watchersCount: integer("watchers_count"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
