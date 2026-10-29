@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { desc, eq, or } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
@@ -6,6 +6,7 @@ import {
   annictCharacters,
   tierLists,
   characterTierLists,
+  watchHistory,
 } from "@/db/schema";
 import {
   fetchTierListItems,
@@ -133,4 +134,56 @@ export async function getSharedCharacterTierList(
     ownerUsername: list.ownerUsername,
     items,
   };
+}
+
+export type SharedWatchHistoryEntry = {
+  annictWorkId: number;
+  title: string;
+  seasonName: string | null;
+  seasonYear: number | null;
+  state: string;
+  /** 履歴行の最終更新時刻。共有表の「最終更新日」列に使う。 */
+  updatedAt: Date;
+};
+
+export type SharedWatchHistory = {
+  ownerUsername: string;
+  items: SharedWatchHistoryEntry[];
+};
+
+/**
+ * 共有トークンから公開用の視聴履歴を引く。未共有・破棄済みなら undefined。
+ * tier 表と同じくトークンを知っている人なら誰でも読める。
+ * トークンは users.watch_history_share_token に載る。
+ */
+export async function getSharedWatchHistory(
+  db: DrizzleDb,
+  token: string,
+): Promise<SharedWatchHistory | undefined> {
+  // 先にトークンの持ち主を引く。履歴 0 件（JOIN で行が出ない）と
+  // 「トークンが無効」を区別するため、履歴の取得とは分ける。
+  const owner = await db.query.users.findFirst({
+    where: eq(users.watchHistoryShareToken, token),
+    columns: { id: true, username: true },
+  });
+  if (!owner) return undefined;
+
+  const items = await db
+    .select({
+      annictWorkId: watchHistory.annictWorkId,
+      title: annictWorks.title,
+      seasonName: annictWorks.seasonName,
+      seasonYear: annictWorks.seasonYear,
+      state: watchHistory.state,
+      updatedAt: watchHistory.updatedAt,
+    })
+    .from(watchHistory)
+    .innerJoin(
+      annictWorks,
+      eq(watchHistory.annictWorkId, annictWorks.annictWorkId),
+    )
+    .where(eq(watchHistory.userId, owner.id))
+    .orderBy(desc(watchHistory.updatedAt));
+
+  return { ownerUsername: owner.username, items };
 }
