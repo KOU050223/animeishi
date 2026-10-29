@@ -5,68 +5,52 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import PasskeyRegisterScreen from "@/app/passkey-register";
+import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
+import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
-// issue #326: サインアップ直後のパスキー登録促進画面。
-// featureFlags.passkey が有効な環境（Web のみ）で sign-up から遷移してくる。
+// issue #326: サインアップ直後のパスキー登録促進ステップ。
+// 遷移先の決定（onDone 呼び出し）までをこのコンポーネントの責務として検証する。
 
-const mockReplace = jest.fn();
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-// フラグをテストごとに切り替えられるよう getter で遅延評価する。
-let mockPasskey = true;
-jest.mock("@/lib/featureFlags", () => ({
-  get featureFlags() {
-    return {
-      debugPanel: false,
-      wallet: false,
-      danimeImport: false,
-      googleSignIn: false,
-      passkey: mockPasskey,
-    };
-  },
-}));
+const onDone = jest.fn();
 
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
-  mockPasskey = true;
+  passkeyPromptPending.current = true;
 });
 
-describe("PasskeyRegisterScreen", () => {
-  it("登録ボタン押下で createPasskey を呼び、成功したらホームへ遷移する", async () => {
+describe("PasskeyRegisterPrompt", () => {
+  it("登録ボタン押下で createPasskey を呼び、成功したら onDone を呼ぶ", async () => {
     const auth = loggedInUser();
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
     await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(onDone).toHaveBeenCalledTimes(1);
     });
   });
 
   it("プロフィール画面でも登録できる旨を表示する", async () => {
     loggedInUser();
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
 
     expect(
       screen.getByText("あとからプロフィール画面でも登録できます"),
     ).toBeTruthy();
   });
 
-  it("「あとで」は createPasskey を呼ばずにホームへ遷移する", async () => {
+  it("「あとで」は createPasskey を呼ばずに onDone を呼ぶ", async () => {
     const auth = loggedInUser();
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
     await fireEvent.press(screen.getByTestId("skip-passkey-button"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(onDone).toHaveBeenCalledTimes(1);
     });
     expect(auth.user?.createPasskey).not.toHaveBeenCalled();
   });
@@ -77,13 +61,13 @@ describe("PasskeyRegisterScreen", () => {
     cancelError.name = "NotAllowedError";
     auth.user?.createPasskey.mockRejectedValueOnce(cancelError);
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
     await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
     });
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
     expect(screen.queryByTestId("error-message")).toBeNull();
   });
 
@@ -91,42 +75,41 @@ describe("PasskeyRegisterScreen", () => {
     const auth = loggedInUser();
     auth.user?.createPasskey.mockRejectedValueOnce(new Error("failed"));
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
     await fireEvent.press(screen.getByTestId("register-passkey-button"));
 
     await waitFor(() => {
       expect(screen.getByTestId("error-message")).toBeTruthy();
     });
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
 
-    // 失敗しても「あとで」でホームへ抜けられる
+    // 失敗しても「あとで」で抜けられる
     await fireEvent.press(screen.getByTestId("skip-passkey-button"));
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(onDone).toHaveBeenCalledTimes(1);
     });
   });
 
-  it("フラグが無効なら促進せずホームへ遷移する", async () => {
-    mockPasskey = false;
-    loggedInUser();
-
-    await render(<PasskeyRegisterScreen />);
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
-    });
-    expect(screen.queryByTestId("register-passkey-button")).toBeNull();
-  });
-
-  it("既にパスキーを持っているユーザーは促進せずホームへ遷移する", async () => {
+  it("既にパスキーを持っているユーザーは促さず onDone を呼ぶ", async () => {
     const auth = loggedInUser();
     auth.user!.passkeys = [{ id: "pk_1" }];
 
-    await render(<PasskeyRegisterScreen />);
+    await render(<PasskeyRegisterPrompt onDone={onDone} />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(onDone).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByTestId("register-passkey-button")).toBeNull();
+  });
+
+  it("アンマウントで AuthGuard 抑止フラグを false に戻す", async () => {
+    loggedInUser();
+
+    const { unmount } = await render(<PasskeyRegisterPrompt onDone={onDone} />);
+    await unmount();
+
+    await waitFor(() => {
+      expect(passkeyPromptPending.current).toBe(false);
+    });
   });
 });

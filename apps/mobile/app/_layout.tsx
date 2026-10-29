@@ -17,6 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
+import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { useThemeColors } from "@/lib/theme";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 
@@ -57,7 +58,13 @@ function AuthGuard() {
 
     if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
-    } else if (isSignedIn && inAuthGroup) {
+    } else if (
+      isSignedIn &&
+      inAuthGroup &&
+      // サインアップ直後のパスキー登録促進ステップ表示中は (auth) に残す
+      // （issue #326。setActive 前に立つので effect の発火順には依らない）
+      !passkeyPromptPending.current
+    ) {
       router.replace("/(tabs)");
     }
   }, [isLoaded, isSignedIn, segments, router]);
@@ -73,9 +80,6 @@ function AuthGuard() {
     >
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      {/* サインアップ直後のパスキー登録促進（issue #326）。サインイン済みで
-          表示する画面のため (auth) ではなくルート直下に置く。 */}
-      <Stack.Screen name="passkey-register" />
       <Stack.Screen name="user/[uid]" />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
       <Stack.Screen name="annict" />

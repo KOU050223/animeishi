@@ -7,7 +7,8 @@ import {
 } from "@testing-library/react-native";
 import { Platform } from "react-native";
 import SignUpScreen from "@/app/(auth)/sign-up";
-import { resetAuth, getAuthMock } from "@/test-utils/auth";
+import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
+import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 
 // Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // signUp 系の jest.fn は getAuthMock().signUp から取り出して設定する。
@@ -31,10 +32,12 @@ jest.mock("@/lib/featureFlags", () => ({
   },
 }));
 
+// AuthGuard 抑止フラグはモジュールステートのため、漏れがないよう毎回戻す。
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   mockPasskey = false;
+  passkeyPromptPending.current = false;
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
@@ -362,9 +365,39 @@ describe("SignUpScreen", () => {
       await fireEvent.press(screen.getByTestId("sign-up-button"));
     }
 
-    it("フラグ有効ではサインアップ完了後にパスキー登録画面へ遷移する", async () => {
+    it("フラグ有効ではサインアップ完了後にパスキー促進ステップを表示し、「あとで」でホームへ", async () => {
       mockPasskey = true;
-      const auth = getAuthMock();
+      // 促進ステップは setActive 後（＝サインイン済み）の表示なので user が必要
+      const auth = loggedInUser();
+      auth.signUp.create.mockResolvedValueOnce({
+        status: "complete",
+        createdSessionId: "session_new",
+      });
+
+      await render(<SignUpScreen />);
+      await fillAndSubmit();
+
+      // 促進中は画面遷移せず AuthGuard 抑止フラグが立つ
+      await waitFor(() => {
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_new",
+        });
+        expect(screen.getByTestId("register-passkey-button")).toBeTruthy();
+      });
+      expect(passkeyPromptPending.current).toBe(true);
+      expect(mockReplace).not.toHaveBeenCalled();
+
+      // 「あとで」でフラグを戻してホームへ
+      await fireEvent.press(screen.getByTestId("skip-passkey-button"));
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+      expect(passkeyPromptPending.current).toBe(false);
+    });
+
+    it("フラグ有効では登録成功でもホームへ進む", async () => {
+      mockPasskey = true;
+      const auth = loggedInUser();
       auth.signUp.create.mockResolvedValueOnce({
         status: "complete",
         createdSessionId: "session_new",
@@ -374,16 +407,20 @@ describe("SignUpScreen", () => {
       await fillAndSubmit();
 
       await waitFor(() => {
-        expect(auth.setActive).toHaveBeenCalledWith({
-          session: "session_new",
-        });
-        expect(mockReplace).toHaveBeenCalledWith("/passkey-register");
+        expect(screen.getByTestId("register-passkey-button")).toBeTruthy();
       });
+
+      await fireEvent.press(screen.getByTestId("register-passkey-button"));
+      await waitFor(() => {
+        expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
+        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      });
+      expect(passkeyPromptPending.current).toBe(false);
     });
 
-    it("フラグ有効ではメール認証の完了後にもパスキー登録画面へ遷移する", async () => {
+    it("フラグ有効ではメール認証の完了後にも促進ステップを表示する", async () => {
       mockPasskey = true;
-      const auth = getAuthMock();
+      const auth = loggedInUser();
       auth.signUp.create.mockResolvedValueOnce({
         status: "missing_requirements",
         unverifiedFields: ["email_address"],
@@ -409,8 +446,10 @@ describe("SignUpScreen", () => {
       await fireEvent.press(screen.getByTestId("verify-button"));
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith("/passkey-register");
+        expect(screen.getByTestId("register-passkey-button")).toBeTruthy();
       });
+      expect(passkeyPromptPending.current).toBe(true);
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it("フラグ無効ではこれまでどおりホームへ遷移する", async () => {
@@ -426,7 +465,8 @@ describe("SignUpScreen", () => {
       await waitFor(() => {
         expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
       });
-      expect(mockReplace).not.toHaveBeenCalledWith("/passkey-register");
+      expect(passkeyPromptPending.current).toBe(false);
+      expect(screen.queryByTestId("register-passkey-button")).toBeNull();
     });
   });
 
