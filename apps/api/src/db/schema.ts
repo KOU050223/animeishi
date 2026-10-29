@@ -421,6 +421,25 @@ export const analyses = sqliteTable("analyses", {
   generationCount: integer("generation_count").notNull(),
 });
 
+// ---- recommendations (AI おすすめ生成のキャッシュ＋生成回数制限, issue #335) ----
+// analyses と同じく、user_id 1 行に「最新のおすすめ結果」と「生成回数カウンタ」を
+// 同居させる。works_json / input_hash / generated_at は生成が完了するまで NULL
+// （レート制限の claim が行だけ先行作成するため）。
+// input_hash は生成条件（履歴＋選択ジャンル＋現在シーズン＋有効な分析結果の
+// 版）の複合ハッシュで、条件が変わったことを検出してキャッシュを無効化する。
+export const recommendations = sqliteTable("recommendations", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  worksJson: text("works_json"),
+  inputHash: text("input_hash"),
+  generatedAt: integer("generated_at", { mode: "timestamp" }),
+  windowStartedAt: integer("window_started_at", {
+    mode: "timestamp",
+  }).notNull(),
+  generationCount: integer("generation_count").notNull(),
+});
+
 // ---- deleted_users (アカウント削除の tombstone) ----
 // DELETE /me で users 行を削除した記録。削除済みユーザーの残存 JWT が
 // ensureUserExists / upsertMyProfile 経由で users 行を再作成し、
@@ -516,6 +535,8 @@ export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
 export type Analysis = typeof analyses.$inferSelect;
 export type NewAnalysis = typeof analyses.$inferInsert;
+export type Recommendation = typeof recommendations.$inferSelect;
+export type NewRecommendation = typeof recommendations.$inferInsert;
 export type Report = typeof reports.$inferSelect;
 export type NewReport = typeof reports.$inferInsert;
 export type Block = typeof blocks.$inferSelect;

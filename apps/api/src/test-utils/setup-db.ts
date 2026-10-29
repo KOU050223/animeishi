@@ -189,6 +189,15 @@ const DDL_STATEMENTS = [
     generation_count INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS recommendations (
+    user_id TEXT PRIMARY KEY NOT NULL,
+    works_json TEXT,
+    input_hash TEXT,
+    generated_at INTEGER,
+    window_started_at INTEGER NOT NULL,
+    generation_count INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
   `CREATE TABLE IF NOT EXISTS deleted_users (
     user_id TEXT PRIMARY KEY NOT NULL,
     deleted_at INTEGER NOT NULL
@@ -221,6 +230,7 @@ export async function setupTestDb(d1: D1Database) {
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
   await d1.prepare("DELETE FROM deleted_users").run();
   await d1.prepare("DELETE FROM analyses").run();
+  await d1.prepare("DELETE FROM recommendations").run();
   await d1.prepare("DELETE FROM reports").run();
   await d1.prepare("DELETE FROM blocks").run();
   await d1.prepare("DELETE FROM annict_tokens").run();

@@ -23,6 +23,7 @@ export const TRACKED_EVENTS = [
   "character_tier_open",
   // AI 分析
   "analysis_generate",
+  "recommendation_generate",
   // 視聴ステータス
   "watch_status_change",
   // お気に入り

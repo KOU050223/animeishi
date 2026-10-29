@@ -41,10 +41,14 @@ export function AnimeListContent({
   favoriteIds,
   toggleFavorite,
   isToggling,
+  initialQuery,
 }: {
   favoriteIds: Set<number>;
   toggleFavorite: (annictWorkId: number) => void;
   isToggling: boolean;
+  // 検索遷移（library?q=）で検索語を入れた状態で開くための初期値。
+  // 途中変更は key によるリマウントで反映する（呼び出し側が key を変える）。
+  initialQuery?: string;
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -53,7 +57,7 @@ export function AnimeListContent({
   const { width } = useWindowDimensions();
   const { contentWidth, cardWidth, numColumns, isWide } =
     getAnimeListLayout(width);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   // シーズン絞り込みの選択状態（初期は JST の今年・今期。API の「今期」判定に揃える）。
