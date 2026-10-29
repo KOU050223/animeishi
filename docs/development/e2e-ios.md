@@ -12,8 +12,10 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 
 ## 前提
 
-- maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
-  （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
+- maestro CLI 1.39.2 以降: `brew install mobile-dev-inc/tap/maestro`
+  （JDK も必要。subflows の `optional: true` と `scrollUntilVisible` の
+  `timeout` を使う。1.39.0/1.39.1 では timeout が 1000 倍で解釈される
+  上流バグがあるため 1.39.2 以降）
 - Xcode + iOS シミュレーターランタイム
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
   GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
