@@ -1,33 +1,21 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import {
   StyleSheet,
+  useColorScheme,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { useColorScheme } from "nativewind";
 import { TierBoard } from "./TierBoard";
 import { colors } from "@/lib/theme";
 import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
-// jest.setup.js のグローバルモックと同じ形で、スキームを個別に切り替えられるよう
-// このファイル内では再モックする。
-jest.mock("nativewind", () => ({
-  useColorScheme: jest.fn(() => ({
-    colorScheme: "light",
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  })),
-}));
-
+// @react-native/jest-preset が useColorScheme を jest.fn(() => "light")
+// でモック済みのため、mockReturnValue でスキームを切り替える。
 const mockUseColorScheme = jest.mocked(useColorScheme);
 
 const setScheme = (colorScheme: "light" | "dark") =>
-  mockUseColorScheme.mockReturnValue({
-    colorScheme,
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  });
+  mockUseColorScheme.mockReturnValue(colorScheme);
 
 // DraggableWorkCard のジェスチャ（RNGH / Reanimated）はテストで再現できないため、
 // ドラッグ開始を press、ドラッグ終了を longPress、キャンセルを touchCancel に

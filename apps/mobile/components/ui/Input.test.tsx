@@ -1,24 +1,14 @@
 import { render, screen } from "@testing-library/react-native";
-import { useColorScheme } from "nativewind";
+import { useColorScheme } from "react-native";
 import { Input } from "./Input";
 import { colors } from "@/lib/theme";
 
-jest.mock("nativewind", () => ({
-  useColorScheme: jest.fn(() => ({
-    colorScheme: "light",
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  })),
-}));
-
+// @react-native/jest-preset が useColorScheme を jest.fn(() => "light")
+// でモック済みのため、mockReturnValue でスキームを切り替える。
 const mockUseColorScheme = jest.mocked(useColorScheme);
 
 const setScheme = (colorScheme: "light" | "dark") =>
-  mockUseColorScheme.mockReturnValue({
-    colorScheme,
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  });
+  mockUseColorScheme.mockReturnValue(colorScheme);
 
 describe("Input", () => {
   beforeEach(async () => {

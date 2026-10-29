@@ -35,3 +35,8 @@ catalog:
 overrides:
   vite@*: "catalog:"
   vitest@*: "catalog:"
+# react-native-css の globalClassNamePolyfill が react-native の再エクスポート一覧から
+# AssetRegistry を欠落させており、expo-asset 経由のフォント読み込み（Ionicons）が壊れる。
+# 上流修正（nativewind/react-native-css#506）までの暫定パッチ。
+patchedDependencies:
+  react-native-css@3.1.0-rc.0: patches/react-native-css@3.1.0-rc.0.patch

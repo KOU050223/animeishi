@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
 import { AddElementSheet } from "@/components/meishi/AddElementSheet";

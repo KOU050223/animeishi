@@ -2,7 +2,7 @@ import { useClerk } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { handleOAuthRedirect } from "@/lib/googleAuth";
 import { featureFlags } from "@/lib/featureFlags";

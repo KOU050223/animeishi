@@ -6,7 +6,7 @@ import {
   View,
   type ViewInstance,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";

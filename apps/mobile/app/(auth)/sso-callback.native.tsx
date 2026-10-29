@@ -1,7 +1,7 @@
 import { Link } from "expo-router";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useThemeColors } from "@/lib/theme";
 
 /**

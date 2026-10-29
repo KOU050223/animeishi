@@ -9,7 +9,7 @@ import {
   Animated,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { formatRelativeTime } from "@/lib/activityText";
@@ -91,13 +91,15 @@ export function FriendStoryViewer({
                   <View className="h-full w-full bg-white" />
                 ) : i === index ? (
                   <Animated.View
-                    className="h-full bg-white"
-                    style={{
-                      width: progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0%", "100%"],
-                      }),
-                    }}
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ["0%", "100%"],
+                        }),
+                      },
+                    ]}
                   />
                 ) : null}
               </View>
@@ -194,6 +196,13 @@ export function FriendStoryViewer({
 }
 
 const styles = StyleSheet.create({
+  // react-native-css の styled() は style prop のオブジェクトを深く再帰
+  // コピーするため、Animated の補間値を含む style とは併用できない。
+  // このビューは className ではなく StyleSheet で固定部分を定義する。
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#fff",
+  },
   headerAvatar: {
     width: 32,
     height: 32,

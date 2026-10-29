@@ -1,6 +1,6 @@
 import { Link, useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 
 /** 法務ページ（プライバシーポリシー / 利用規約）の 1 セクション。 */

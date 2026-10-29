@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
-import { useColorScheme } from "nativewind";
 import {
   StyleSheet,
+  useColorScheme,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -9,24 +9,12 @@ import {
 import { TierBoardSnapshot } from "./TierBoardSnapshot";
 import { colors } from "@/lib/theme";
 
-// jest.setup.js のグローバルモックと同じ形で、スキームを個別に切り替えられるよう
-// このファイル内では再モックする。
-jest.mock("nativewind", () => ({
-  useColorScheme: jest.fn(() => ({
-    colorScheme: "light",
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  })),
-}));
-
+// @react-native/jest-preset が useColorScheme を jest.fn(() => "light")
+// でモック済みのため、mockReturnValue でスキームを切り替える。
 const mockUseColorScheme = jest.mocked(useColorScheme);
 
 const setScheme = (colorScheme: "light" | "dark") =>
-  mockUseColorScheme.mockReturnValue({
-    colorScheme,
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  });
+  mockUseColorScheme.mockReturnValue(colorScheme);
 
 // スキームを切り替えたテストが後続へ漏れないよう、各テストの前に light へ戻す。
 beforeEach(async () => {

@@ -1,5 +1,5 @@
 import { Host, Picker } from "@expo/ui";
-import { useColorScheme } from "nativewind";
+import { useColorScheme } from "react-native";
 import type { MenuPickerProps } from "./types";
 
 /**
@@ -15,7 +15,7 @@ export function MenuPicker<T extends string | number>({
   options,
   onValueChange,
 }: MenuPickerProps<T>) {
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme() ?? undefined;
   return (
     <Host
       matchContents

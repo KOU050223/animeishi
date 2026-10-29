@@ -76,17 +76,6 @@ jest.mock("expo-localization", () => ({
   getLocales: () => [{ languageCode: "ja" }],
 }));
 
-// NativeWind の useColorScheme。テストでは CSS ランタイムが起動しないため
-// 常に light を返す既定値にする（個別テストは jest.mock の再定義や
-// mockReturnValue で上書きする。例: components/ui/Input.test.tsx）。
-jest.mock("nativewind", () => ({
-  useColorScheme: jest.fn(() => ({
-    colorScheme: "light",
-    setColorScheme: jest.fn(),
-    toggleColorScheme: jest.fn(),
-  })),
-}));
-
 // jsdom 環境では navigator.languages が ["en"] を返すため ja に固定する。
 // Web 向け言語検出（navigator.languages）より expo-localization モックの値が
 // 優先されるよう、テスト環境では navigator.languages を上書きする。

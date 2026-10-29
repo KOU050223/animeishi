@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet } from "react-native";
-import { useColorScheme } from "nativewind";
+import { StyleSheet, useColorScheme } from "react-native";
 import { GRID_GAP } from "./animeListUtils";
 
 /**
@@ -9,7 +8,7 @@ import { GRID_GAP } from "./animeListUtils";
  *
  * 直接参照するのではなく `useAnimeListStyles()` / `useAnimeListPalette()` 経由で
  * 現在スキームに対応する値を取る（判定元は dark: バリアントと同じ
- * nativewind の useColorScheme）。
+ * RN の useColorScheme）。
  */
 export type AnimeListPalette = {
   /** 画面のベース背景。 */
@@ -199,7 +198,7 @@ export const animeListPalettes = {
 
 /** 現在スキームのアニメ一覧パレット。アイコン等、style 外で色が要る箇所向け。 */
 export function useAnimeListPalette(): AnimeListPalette {
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme();
   return animeListPalettes[colorScheme === "dark" ? "dark" : "light"];
 }
 
