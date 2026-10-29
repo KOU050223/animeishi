@@ -27,7 +27,7 @@ import {
   DANIME_POSTBACK_DATA,
   parseDanimeExtractedLists,
 } from "@animeishi/danime-core";
-import { Input } from "@/components/ui";
+import { BackButton, Input } from "@/components/ui";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { useColorScheme } from "nativewind";
 import { useThemeColors } from "@/lib/theme";
@@ -268,14 +268,11 @@ export default function DanimeImportWebScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          className="mt-4 py-2 items-center"
+        <BackButton
+          className="mt-4 self-center"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel="戻る"
-        >
-          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
-        </TouchableOpacity>
+        />
       </ScrollView>
     </SafeAreaView>
   );

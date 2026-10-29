@@ -37,6 +37,7 @@ import {
 } from "@animeishi/danime-core";
 import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { BackButton } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
 
 type Row = {
@@ -421,14 +422,11 @@ export default function DanimeImportReviewScreen() {
             >
               <Text className="text-white font-semibold">再試行</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              className="mt-2 py-2"
+            <BackButton
+              className="mt-2"
               onPress={() => router.back()}
-              accessibilityRole="button"
               accessibilityLabel="戻る"
-            >
-              <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
-            </TouchableOpacity>
+            />
           </>
         )}
       </SafeAreaView>
@@ -494,14 +492,11 @@ export default function DanimeImportReviewScreen() {
             </Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity
-          className="mt-2 py-2 items-center"
+        <BackButton
+          className="mt-2 self-center"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel="戻る"
-        >
-          <Text className="text-gray-500 dark:text-slate-400">戻る</Text>
-        </TouchableOpacity>
+        />
       </View>
     </SafeAreaView>
   );
