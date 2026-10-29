@@ -21,6 +21,11 @@ describe("WorkThumbnail", () => {
     expect(image.props.cachePolicy).toBe("memory-disk");
   });
 
+  it("web でブラウザのネイティブドラッグがジェスチャを奪わないよう draggable=false にする（issue #327）", async () => {
+    await render(<WorkThumbnail uri={HOSTED} />);
+    expect(findImages()[0].props.draggable).toBe(false);
+  });
+
   it("読み込み中は画像の下にプレースホルダーを敷く", async () => {
     const { getByText } = await render(<WorkThumbnail uri={HOSTED} />);
     expect(findImages()).toHaveLength(1);

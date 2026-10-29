@@ -51,6 +51,11 @@ export function WorkImage({
       <Image
         source={{ uri }}
         style={StyleSheet.absoluteFill}
+        // web での既定値 draggable=true のままだと、画像を含むカードの
+        // ドラッグ操作にブラウザのネイティブドラッグが割り込み pointercancel で
+        // ジェスチャが死ぬ（issue #327）。RN の Image（draggable=false 既定）と
+        // 同じ扱いにするため明示的に無効化する。
+        draggable={false}
         contentFit="cover"
         cachePolicy="memory-disk"
         transition={transition}
