@@ -139,6 +139,11 @@ export function useShareCustomTierList() {
         (prev: { shareToken?: string | null } | undefined) =>
           prev ? { ...prev, shareToken: data.shareToken } : prev,
       );
+      // 一覧（tier-lists 画面）の行も shareToken を見ているため、
+      // ハブに戻ったとき「共有中」が出るよう無効化する。
+      void queryClient.invalidateQueries({
+        queryKey: customTierListsQueryKey,
+      });
     },
   });
 }

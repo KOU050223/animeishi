@@ -244,7 +244,21 @@ export default function CustomTierListScreen() {
     goBack();
   }, [isDirty, router]);
 
+  // 詳細取得の完了前に保存すると空の盤面で全置換し、既存の配置が消える。
+  // 404（削除済み）の表も PUT が失敗するだけなので、id 指定では saved が
+  // 確定するまで保存・共有を開始させない。
+  const savedMissing = listId !== null && !isSavedLoading && !saved;
+  const saveDisabled =
+    !isDirty ||
+    save.isPending ||
+    isSavedLoading ||
+    savedMissing ||
+    title.trim().length === 0;
+
   const handleSave = useCallback(() => {
+    // ボタン無効化とは別に中側でも弾く（読み込み完了を待たずに
+    // 空の盤面で全置換されるのを防ぐ）。
+    if (saveDisabled) return;
     const doSave = () => {
       const cur = saveSourceRef.current;
       save.mutate(
@@ -269,20 +283,22 @@ export default function CustomTierListScreen() {
         },
       );
     };
-    // 未配置の追加分は保存されない。「保存したのに消えた」を防ぐため
-    // 一度だけ確認する（シーズン版と同じ）。
-    const hasUnassignedManual = manualWorks.some((w) => !assignment.has(w.id));
-    if (hasUnassignedManual) {
+    // 未配置の追加・引き継ぎ作品は保存されない。「保存したのに消えた」を
+    // 防ぐため一度だけ確認する（シーズン版と同じ）。
+    const hasUnassigned = [...manualWorks, ...lookupWorks].some(
+      (w) => !assignment.has(w.id),
+    );
+    if (hasUnassigned) {
       confirm(
-        "未配置の追加作品があります",
-        "未分類に残っている追加分は保存されず、このままだと消えます。",
+        "未配置の作品があります",
+        "未分類に残っている作品は保存されず、このままだと消えます。",
         doSave,
         { confirmLabel: "このまま保存", cancelLabel: "編集を続ける" },
       );
       return;
     }
     doSave();
-  }, [assignment, manualWorks, save]);
+  }, [assignment, manualWorks, lookupWorks, save, saveDisabled]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -393,7 +409,11 @@ export default function CustomTierListScreen() {
   // タイトル未入力のまま実行すると不完全な内容を保存・共有してしまうため、
   // データが確定するまで共有を開始させない。
   const shareDisabled =
-    isSharing || save.isPending || isSavedLoading || title.trim().length === 0;
+    isSharing ||
+    save.isPending ||
+    isSavedLoading ||
+    savedMissing ||
+    title.trim().length === 0;
 
   const handleShare = useCallback(() => {
     if (shareDisabled) return;
@@ -498,16 +518,13 @@ export default function CustomTierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending || title.trim().length === 0) &&
-                styles.saveButtonDisabled,
+              saveDisabled && styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending || title.trim().length === 0}
+            disabled={saveDisabled}
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
-            accessibilityState={{
-              disabled: !isDirty || save.isPending || title.trim().length === 0,
-            }}
+            accessibilityState={{ disabled: saveDisabled }}
             testID="custom-tier-list-save"
           >
             {save.isPending ? (

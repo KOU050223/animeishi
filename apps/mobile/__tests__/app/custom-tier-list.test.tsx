@@ -6,6 +6,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import CustomTierListScreen from "@/app/custom-tier-list";
+import { confirm } from "@/lib/dialog";
 import { DEFAULT_TIERS } from "@/lib/tierList/defaults";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 
@@ -217,6 +218,67 @@ describe("CustomTierListScreen", () => {
 
     expect(mockSaveMutate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7, title: "変更後のタイトル" }),
+      expect.anything(),
+    );
+  });
+
+  it("詳細取得の完了前はタイトルを入力しても保存できない", async () => {
+    // 読み込み中に保存すると空の盤面で全置換し、既存の配置が消えるため。
+    mockParams = { id: "7" };
+    mockSavedLoading = true;
+
+    await render(<CustomTierListScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("custom-tier-list-title"),
+      "新しいタイトル",
+    );
+
+    const saveButton = screen.getByTestId("custom-tier-list-save");
+    expect(saveButton.props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(saveButton);
+    expect(mockSaveMutate).not.toHaveBeenCalled();
+  });
+
+  it("存在しない表（404）でも保存できない", async () => {
+    // 取得済みで null（404）= 削除済み。PUT が失敗するだけなので止める。
+    mockParams = { id: "7" };
+    mockSaved = null;
+    mockSavedLoading = false;
+
+    await render(<CustomTierListScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("custom-tier-list-title"),
+      "新しいタイトル",
+    );
+
+    const saveButton = screen.getByTestId("custom-tier-list-save");
+    expect(saveButton.props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(saveButton);
+    expect(mockSaveMutate).not.toHaveBeenCalled();
+  });
+
+  it("未配置の引き継ぎ作品があると保存前に確認する", async () => {
+    mockParams = { workIds: "10" };
+    mockLookupWorks = [{ annictWorkId: 10, title: "作品10" }];
+    const mockConfirm = jest.mocked(confirm);
+    mockConfirm.mockImplementation((_t, _m, onConfirm) => onConfirm());
+
+    await render(<CustomTierListScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("custom-tier-list-title"),
+      "歴代で好きなアニメ",
+    );
+    await fireEvent.press(screen.getByTestId("custom-tier-list-save"));
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      "未配置の作品があります",
+      expect.any(String),
+      expect.any(Function),
+      expect.anything(),
+    );
+    // 承認後は配置済み作品だけで保存される
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "歴代で好きなアニメ", items: [] }),
       expect.anything(),
     );
   });
