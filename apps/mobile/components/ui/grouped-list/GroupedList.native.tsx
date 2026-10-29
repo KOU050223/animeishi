@@ -54,10 +54,17 @@ export function GroupedList({ sections }: GroupedListProps) {
                 onPress={row.onPress}
                 testID={row.testID}
                 // accessibilityLabel をネイティブ側の行へ適用する。
+                // iOS は accessibilityLabel、Android は semantics の
+                // contentDescription で同じ読み上げ文言にする
+                // （各 OS は未知の $type の modifier を無視する）。
                 modifiers={[
                   {
                     $type: "accessibilityLabel",
                     label: row.accessibilityLabel,
+                  },
+                  {
+                    $type: "semantics",
+                    contentDescription: row.accessibilityLabel,
                   },
                 ]}
               >
