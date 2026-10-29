@@ -9,9 +9,9 @@ import type { GroupedListProps } from "./types";
 // 見積もりが実際より大きい分にはリスト末尾に透過の余白が出るだけだが、
 // 小さいと Form が内部スクロールを始めて外側 ScrollView と二重になるため
 // やや大きめに取り、Dynamic Type の拡大分は fontScale で織り込む。
-const ROW_HEIGHT = 48;
-const SECTION_HEIGHT = 80;
-const LIST_VERTICAL_MARGIN = 32;
+const ROW_HEIGHT = 46;
+const SECTION_HEIGHT = 76;
+const LIST_VERTICAL_MARGIN = 24;
 
 /**
  * iOS/Android: @expo/ui の FieldGroup（iOS は SwiftUI Form、
