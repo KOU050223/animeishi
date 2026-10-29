@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -27,6 +26,7 @@ import { featureFlags } from "@/lib/featureFlags";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
 import { useColorScheme } from "nativewind";
@@ -383,80 +383,79 @@ function EditModal({
   const [state, setState] = useState<WatchStatus>(history.state);
 
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View
-        className="flex-1 justify-end bg-black/50 dark:bg-black/70"
-        accessibilityViewIsModal
-      >
-        <View className="bg-white dark:bg-slate-800 rounded-t-2xl px-6 pt-6 pb-10">
-          <Text
-            className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1"
-            numberOfLines={2}
-          >
-            {history.title}
-          </Text>
-          <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
-            視聴ステータスを編集
-          </Text>
+    <BottomSheet
+      visible
+      onClose={onClose}
+      scrimAccessibilityLabel="視聴ステータスの編集を閉じる"
+    >
+      <View className="px-6 pt-6 pb-10">
+        <Text
+          className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1"
+          numberOfLines={2}
+        >
+          {history.title}
+        </Text>
+        <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
+          視聴ステータスを編集
+        </Text>
 
-          <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
-            ステータス
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-5"
-          >
-            <View className="flex-row gap-2">
-              {WATCH_STATUSES.map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  onPress={() => setState(s)}
-                  className={`px-3 py-2 rounded-full border ${
+        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+          ステータス
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-5"
+        >
+          <View className="flex-row gap-2">
+            {WATCH_STATUSES.map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => setState(s)}
+                className={`px-3 py-2 rounded-full border ${
+                  state === s
+                    ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+                    : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+                }`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: state === s }}
+                accessibilityLabel={WATCH_STATUS_LABELS[s]}
+              >
+                <Text
+                  className={`text-xs font-medium ${
                     state === s
-                      ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-                      : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+                      ? "text-indigo-600 dark:text-indigo-300"
+                      : "text-gray-500 dark:text-slate-400"
                   }`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: state === s }}
-                  accessibilityLabel={WATCH_STATUS_LABELS[s]}
                 >
-                  <Text
-                    className={`text-xs font-medium ${
-                      state === s
-                        ? "text-indigo-600 dark:text-indigo-300"
-                        : "text-gray-500 dark:text-slate-400"
-                    }`}
-                  >
-                    {WATCH_STATUS_LABELS[s]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <View className="flex-row gap-3">
-            <TouchableOpacity
-              className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="キャンセル"
-            >
-              <Text className="text-gray-600 dark:text-slate-300 font-medium">
-                キャンセル
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
-              onPress={() => onSave({ state })}
-              accessibilityRole="button"
-              accessibilityLabel="保存"
-            >
-              <Text className="text-white font-semibold">保存</Text>
-            </TouchableOpacity>
+                  {WATCH_STATUS_LABELS[s]}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+        </ScrollView>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="キャンセル"
+          >
+            <Text className="text-gray-600 dark:text-slate-300 font-medium">
+              キャンセル
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
+            onPress={() => onSave({ state })}
+            accessibilityRole="button"
+            accessibilityLabel="保存"
+          >
+            <Text className="text-white font-semibold">保存</Text>
+          </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }

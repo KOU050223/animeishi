@@ -42,6 +42,9 @@ module.exports = {
       "<rootDir>/../../packages/observability/src/index.ts",
     // @sentry/react-native はネイティブモジュールを要求するためスタブに差し替える
     "^@sentry/react-native$": "<rootDir>/__mocks__/@sentry/react-native.ts",
+    // @expo/ui の universal 層はネイティブビュー（SwiftUI / Compose）を要求するため
+    // 同じ構成を RN ビューで再現したモックに差し替える
+    "^@expo/ui$": "<rootDir>/__mocks__/@expo/ui.tsx",
     "^(\\.{1,2}/.*)\\.js$": "$1",
     "^@clerk/expo$": "<rootDir>/__mocks__/@clerk/expo.ts",
     // 万が一残っていた legacy サブパス import も本物ではなくモックへ解決する

@@ -27,6 +27,7 @@
     "@animeishi/observability": "workspace:*",
     "@clerk/expo": "^4.14.4",
     "@expo/metro-runtime": "~58.0.15",
+    "@expo/ui": "~58.0.25",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@sentry/react-native": "~8.28.0",
