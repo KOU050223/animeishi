@@ -368,5 +368,21 @@ describe("WatchHistorySection", () => {
 
       expect(renderedOrder()).toEqual(["2", "3"]);
     });
+
+    it("絞り込み結果が 0 件のときは条件不一致のメッセージを出し、履歴なし案内は出さない", async () => {
+      await render(<WatchHistorySection />);
+
+      await fireEvent.press(screen.getByTestId("watch-history-filter-button"));
+      // フィクスチャに存在しない状態「断念」で 0 件にする。
+      await fireEvent.press(screen.getByLabelText("断念で絞り込む"));
+
+      expect(screen.queryAllByTestId(/^watch-history-item-\d+$/)).toHaveLength(
+        0,
+      );
+      expect(
+        screen.getByText("絞り込み条件に一致する履歴がありません。"),
+      ).toBeTruthy();
+      expect(screen.queryByText(/アニメ一覧から追加してください/)).toBeNull();
+    });
   });
 });

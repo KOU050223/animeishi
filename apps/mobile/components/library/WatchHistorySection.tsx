@@ -320,7 +320,9 @@ export function WatchHistorySection() {
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
             <Text className="text-gray-400 dark:text-slate-500 text-center">
-              視聴履歴がありません。{"\n"}アニメ一覧から追加してください。
+              {enriched.length > 0 && filterActive
+                ? "絞り込み条件に一致する履歴がありません。"
+                : "視聴履歴がありません。\nアニメ一覧から追加してください。"}
             </Text>
           </View>
         }

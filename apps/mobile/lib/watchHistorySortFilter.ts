@@ -74,8 +74,9 @@ export function filterWatchHistory<T extends WatchHistoryEntry>(
   items: T[],
   filters: WatchHistoryFilters,
 ): T[] {
+  const states = filters.states.length > 0 ? new Set(filters.states) : null;
   return items.filter((item) => {
-    if (filters.states.length > 0 && !filters.states.includes(item.state)) {
+    if (states && !states.has(item.state)) {
       return false;
     }
     if (filters.decade === "unknown") return item.seasonYear == null;
