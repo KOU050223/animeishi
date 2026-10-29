@@ -47,6 +47,7 @@ export async function fetchCustomTierListItems(
       resolvedImageUrl: annictWorks.resolvedImageUrl,
       imageSource: annictWorks.imageSource,
       imageR2Key: annictWorks.imageR2Key,
+      watchersCount: annictWorks.watchersCount,
     })
     .from(customTierListItems)
     .innerJoin(
