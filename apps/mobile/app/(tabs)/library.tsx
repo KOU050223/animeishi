@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { SegmentedControl } from "@/components/ui";
 import { AnimeSection } from "@/components/library/AnimeSection";
 import { WatchHistorySection } from "@/components/library/WatchHistorySection";
@@ -23,23 +22,13 @@ function isSection(value: unknown): value is Section {
 export default function LibraryScreen() {
   const colors = useThemeColors();
   const animePalette = useAnimeListPalette();
+  const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
-  // セグメント操作はローカルに保持し、section パラメータが変わった
-  // タイミング（リダイレクト・ディープリンク）ではパラメータ側を優先する。
-  // effect で同期すると再描画が 1 回多くなるため、パラメータ値をキーにして
-  // 描画中に導出する。
-  const [override, setOverride] = useState<{
-    key: string | undefined;
-    value: Section;
-  } | null>(null);
-  const section =
-    override && override.key === params.section
-      ? override.value
-      : isSection(params.section)
-        ? params.section
-        : "anime";
-  const setSection = (next: Section) =>
-    setOverride({ key: params.section, value: next });
+  // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
+  // 参照元にする。ローカル状態で持つと、同じ section への再遷移
+  // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
+  const section = isSection(params.section) ? params.section : "anime";
+  const setSection = (next: Section) => router.setParams({ section: next });
 
   // セクションごとの画面背景色に切り替え行の下地を揃える
   // （アニメは暖色系の独自パレット、他は共通の白/slate-900）。

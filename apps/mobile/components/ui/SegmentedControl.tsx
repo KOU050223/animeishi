@@ -4,16 +4,10 @@ export type SegmentItem = {
   label: string;
   active: boolean;
   onPress: () => void;
-  /** ラベルと読み上げを分けたいときだけ指定する（既定は label）。 */
   accessibilityLabel?: string;
   testID?: string;
 };
 
-/**
- * 画面上部でコンテンツを切り替えるピル型セグメント。
- * タブ内のサブ画面切り替え（ライブラリ / QR・フレンドの各セクション、
- * QR のマイQR/スキャン）で使う。表示文言は必ず呼び出し側が渡す。
- */
 export function SegmentedControl({ items }: { items: SegmentItem[] }) {
   return (
     <View className="flex-row px-4 pt-2 pb-2 gap-2">

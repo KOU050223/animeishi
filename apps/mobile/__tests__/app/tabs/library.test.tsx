@@ -6,9 +6,15 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import LibraryScreen from "@/app/(tabs)/library";
 
 // useLocalSearchParams の値はテストごとに差し替える。
+// setParams は実際はナビゲーション状態を更新して再描画するため、
+// モックでは params の差し替えまで行い、再描画は rerender で再現する。
 let mockParams: { section?: string } = {};
+const mockSetParams = jest.fn((p: Record<string, string>) => {
+  mockParams = { ...mockParams, ...p };
+});
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ setParams: mockSetParams }),
 }));
 
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
@@ -36,6 +42,7 @@ jest.mock("@/components/library/FavoritesSection", () => ({
 
 beforeEach(() => {
   mockParams = {};
+  mockSetParams.mockClear();
 });
 
 describe("LibraryScreen", () => {
@@ -47,14 +54,18 @@ describe("LibraryScreen", () => {
     expect(screen.queryByTestId("section-favorites")).toBeNull();
   });
 
-  it("セグメントで視聴履歴・推しへ切り替わる", async () => {
-    await render(<LibraryScreen />);
+  it("セグメント操作は URL の section を更新して切り替わる", async () => {
+    const { rerender } = await render(<LibraryScreen />);
 
     await fireEvent.press(screen.getByTestId("library-section-history"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "history" });
+    await rerender(<LibraryScreen />);
     expect(screen.getByTestId("section-history")).toBeTruthy();
     expect(screen.queryByTestId("section-anime")).toBeNull();
 
     await fireEvent.press(screen.getByTestId("library-section-favorites"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "favorites" });
+    await rerender(<LibraryScreen />);
     expect(screen.getByTestId("section-favorites")).toBeTruthy();
     expect(screen.queryByTestId("section-history")).toBeNull();
   });

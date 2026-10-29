@@ -6,9 +6,15 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import SocialScreen from "@/app/(tabs)/social";
 
 // useLocalSearchParams の値はテストごとに差し替える。
+// setParams は実際はナビゲーション状態を更新して再描画するため、
+// モックでは params の差し替えまで行い、再描画は rerender で再現する。
 let mockParams: { section?: string } = {};
+const mockSetParams = jest.fn((p: Record<string, string>) => {
+  mockParams = { ...mockParams, ...p };
+});
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ setParams: mockSetParams }),
 }));
 
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
@@ -29,6 +35,7 @@ jest.mock("@/components/social/FriendsSection", () => ({
 
 beforeEach(() => {
   mockParams = {};
+  mockSetParams.mockClear();
 });
 
 describe("SocialScreen", () => {
@@ -39,10 +46,12 @@ describe("SocialScreen", () => {
     expect(screen.queryByTestId("section-friends")).toBeNull();
   });
 
-  it("セグメントでフレンドへ切り替わる", async () => {
-    await render(<SocialScreen />);
+  it("セグメント操作は URL の section を更新してフレンドへ切り替わる", async () => {
+    const { rerender } = await render(<SocialScreen />);
 
     await fireEvent.press(screen.getByTestId("social-section-friends"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "friends" });
+    await rerender(<SocialScreen />);
 
     expect(screen.getByTestId("section-friends")).toBeTruthy();
     expect(screen.queryByTestId("section-qr")).toBeNull();
