@@ -147,6 +147,26 @@ describe("notifyApiFailures", () => {
     warn.mockRestore();
   });
 
+  it("失敗理由に Webhook のトークン断片だけが含まれても伏せる", async () => {
+    const fetchImpl = vi.fn(async () => {
+      // URL 全体ではなくトークン部分だけがメッセージに混ざるケース
+      throw new Error("secret-token rejected");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await notifyApiFailures(
+      { DISCORD_WEBHOOK_URL: WEBHOOK },
+      [annict502],
+      fetchImpl,
+    );
+
+    const logs = warn.mock.calls.map((c) => JSON.parse(String(c[0])));
+    const failed = logs.find((l) => l.event === "discord_alert_failed");
+    expect(String(failed.reason)).not.toContain("secret-token");
+    expect(String(failed.reason)).toContain("[webhook_url]");
+    warn.mockRestore();
+  });
+
   it("初回は Webhook に送り、種別:ステータスの印を 30 分の TTL で付ける", async () => {
     const { kv, ttls } = fakeKv();
     const fetchImpl = okFetch();

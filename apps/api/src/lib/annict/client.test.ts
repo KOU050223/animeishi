@@ -615,9 +615,10 @@ describe("searchAnnictWorksByTitles", () => {
   });
 
   it("タイトルごとの再検索も全滅したら上流障害としてエラーを投げる", async () => {
+    // Response の body は一度しか読めないため呼び出しごとに作り直す。
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(graphqlErrors("internal error"));
+      .mockImplementation(async () => graphqlErrors("internal error"));
 
     await expect(
       searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
@@ -626,18 +627,31 @@ describe("searchAnnictWorksByTitles", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("単一タイトルのクエリが GraphQL エラーならその検索語だけ未マッチとして空配列を返す", async () => {
+  // 単一検索語の失敗はフォールバック先が無い = 全滅と同じ。
+  // 空配列にすると上流障害を「未マッチ」に見せてしまうため投げる。
+  it("単一タイトルのクエリが GraphQL エラーなら全滅としてエラーを投げる", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(graphqlErrors("LIKE pattern must not end"));
 
-    const works = await searchAnnictWorksByTitles(
-      "tok",
-      ["壊れた作品"],
-      fetchMock,
-    );
+    await expect(
+      searchAnnictWorksByTitles("tok", ["壊れた作品"], fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 200 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 
-    expect(works).toEqual([]);
+  // HTTP 200 でも JSON が壊れている応答は GraphQL errors ではなく応答異常。
+  // タイトル由来の失敗と誤認してフォールバックしない。
+  it("HTTP 200 の不正 JSON 応答はフォールバックせずそのまま投げる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("<html>maintenance</html>", { status: 200 }),
+      );
+
+    await expect(
+      searchAnnictWorksByTitles("tok", ["作品1", "作品2"], fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 200 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

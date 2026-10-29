@@ -330,13 +330,15 @@ describe("dアニメインポート API", () => {
 
     it("Annict 検索が全滅したときは 502 で失敗の構造化ログを出す", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            errors: [{ message: "LIKE pattern must not end with escape" }],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+      // Response の body は一度しか読めないため呼び出しごとに作り直す。
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({
+              errors: [{ message: "LIKE pattern must not end with escape" }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
       );
 
       const res = await buildApp().request(

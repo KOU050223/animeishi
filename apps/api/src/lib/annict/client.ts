@@ -533,8 +533,14 @@ function logTitleSearchFailed(
 // HTTP 200 でも errors が返るケース = 入力（クエリ内容）由来の失敗。
 // リトライ不能かつタイトル単位で切り分けられるため、フォールバックの
 // 対象はこれだけに絞る（0/429/5xx/4xx はそのまま投げる）。
-function isGraphQLError(err: unknown): err is AnnictApiError {
-  return err instanceof AnnictApiError && err.status === 200;
+// detail が errors 配列であることで、HTTP 200 の応答異常（不正 JSON は
+// detail=Error、data 欠落は detail=undefined）と区別する。
+export function isAnnictGraphQLError(err: unknown): err is AnnictApiError {
+  return (
+    err instanceof AnnictApiError &&
+    err.status === 200 &&
+    Array.isArray(err.detail)
+  );
 }
 
 /**
@@ -545,8 +551,8 @@ function isGraphQLError(err: unknown): err is AnnictApiError {
  *
  * union クエリが GraphQL エラー（末尾の `\` 等 LIKE パターンとして解釈
  * できない入力）で落ちた場合はタイトルごとに検索し直し、失敗したタイトル
- * だけを結果から落とす（issue #219）。全タイトルが落ちた場合はタイトル
- * 由来ではなく上流障害として元のエラーを投げる。
+ * だけを結果から落とす（issue #219）。全タイトルが落ちた場合（検索語が
+ * 1 件の場合を含む）は上流障害として元のエラーを投げる。
  */
 export async function searchAnnictWorksByTitles(
   accessToken: string,
@@ -571,9 +577,12 @@ export async function searchAnnictWorksByTitles(
   try {
     return await run(sanitized);
   } catch (err) {
-    if (!isGraphQLError(err)) throw err;
+    if (!isAnnictGraphQLError(err)) throw err;
     logTitleSearchFailed("union", sanitized, err);
-    if (sanitized.length === 1) return [];
+    // 検索語が 1 件ならフォールバック先が無い = 全滅と同じ。
+    // 握って空結果にすると上流障害を「未マッチ」に見せてしまうため投げる
+    // （第 2 パスの検索語単位の諦めは呼び出し側の責務）。
+    if (sanitized.length === 1) throw err;
 
     const works: AnnictLibraryEntry[] = [];
     let failed = 0;
@@ -581,7 +590,7 @@ export async function searchAnnictWorksByTitles(
       try {
         works.push(...(await run([title])));
       } catch (perTitle) {
-        if (!isGraphQLError(perTitle)) throw perTitle;
+        if (!isAnnictGraphQLError(perTitle)) throw perTitle;
         failed++;
         logTitleSearchFailed("single", [title], perTitle);
       }

@@ -336,9 +336,15 @@ async function postAlert(
 
 // 送信失敗の理由を "ErrorName: message" 形で返す。例外メッセージに
 // Webhook URL（シークレット）が埋め込まれた場合に備えて伏せる。
+// URL 全体だけでなく、id / トークン等のパス断片が単体で混ざった
+// 場合も部分的なシークレットとして伏せる。
 function webhookErrorReason(err: unknown, webhookUrl: string): string {
   if (!(err instanceof Error)) return "Error";
-  const message = err.message.split(webhookUrl).join("[webhook_url]");
+  const fragments = webhookUrl.split("/").filter((s) => s.length >= 8);
+  let message = err.message;
+  for (const fragment of [webhookUrl, ...fragments]) {
+    message = message.split(fragment).join("[webhook_url]");
+  }
   return `${err.name}: ${message}`;
 }
 

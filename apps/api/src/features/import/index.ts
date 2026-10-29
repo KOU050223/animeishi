@@ -6,7 +6,11 @@ import { danimeMatchRequestSchema } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
-import { AnnictApiError, searchAnnictWorksByTitles } from "@/lib/annict/client";
+import {
+  AnnictApiError,
+  isAnnictGraphQLError,
+  searchAnnictWorksByTitles,
+} from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { matchDanimeWorks } from "@animeishi/danime-core";
 import type { AnnictSearcher } from "@animeishi/danime-core";
@@ -36,6 +40,26 @@ const importRoute = new Hono<AuthVariables>()
             { onRetry: () => retries++ },
           );
         } catch (err) {
+          // 第 2 パスの検索語は入力タイトルのバリアント（単純化・全半角変換等）
+          // で、第 1 パスで弾かれたタイトル由来の GraphQL エラーが起き得る。
+          // その検索語だけを諦めて次の語へ進める。第 1 パス側は全滅時に
+          // エラーになるので、ここで握っても上流障害を未マッチに見せない。
+          if (context?.phase === "secondPass" && isAnnictGraphQLError(err)) {
+            console.warn(
+              JSON.stringify({
+                level: "warn",
+                event: "danime_title_search_failed",
+                phase: "secondPass",
+                titleCount: titles.length,
+                titleSample: titles
+                  .slice(0, 3)
+                  .map((t) => (t.length > 80 ? `${t.slice(0, 80)}…` : t)),
+                annictStatus: err.status,
+                error: err.message,
+              }),
+            );
+            return [];
+          }
           // 502（annict_upstream）に化ける前に原因を追える構造化ログを残す
           // （issue #219: 失敗時にログが無く本番の原因を特定できなかった）。
           // タイトルは切り分け用に先頭数件だけ。トークン・ユーザー情報は含めない。
