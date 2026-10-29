@@ -12,6 +12,17 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 const mockUnblockMutateAsync = jest.fn();
 const mockUseBlockedUsers = jest.fn();
 const mockAlert = jest.fn();
+const mockBack = jest.fn();
+const mockReplace = jest.fn();
+let mockCanGoBack = true;
+
+jest.mock("expo-router", () => ({
+  useRouter: () => ({
+    canGoBack: () => mockCanGoBack,
+    back: mockBack,
+    replace: mockReplace,
+  }),
+}));
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
   (
@@ -44,6 +55,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   loggedInUser();
+  mockCanGoBack = true;
   mockUnblockMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockUnblockMutateAsync.mockResolvedValue(null);
@@ -118,6 +130,38 @@ describe("BlockedUsersScreen", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(screen.getByTestId("blocked-users-back-button"));
+
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("遷移履歴が無い場合、戻るボタンでプロフィールタブへ戻る", async () => {
+    mockCanGoBack = false;
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(screen.getByTestId("blocked-users-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
+  });
+
+  it("取得エラー画面でも戻るボタンが動く", async () => {
+    mockCanGoBack = false;
+    mockUseBlockedUsers.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+    });
+    await render(<BlockedUsersScreen />);
+    await fireEvent.press(screen.getByTestId("blocked-users-back-button"));
+
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
   });
 
   it("ブロック中のユーザーがいなければ空表示になる", async () => {
