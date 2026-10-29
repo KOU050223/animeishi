@@ -14,7 +14,7 @@
       "nativewind-env.d.ts",
       "metro.config.ts",
       "babel.config.js",
-      "tailwind.config.ts"
+      "postcss.config.mjs"
     ]
   }
   // React Native 向けエスケープハッチ:

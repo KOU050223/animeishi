@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  useColorScheme,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -29,7 +30,6 @@ import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistor
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
-import { useColorScheme } from "nativewind";
 
 const WATCH_STATUSES = [
   "WATCHING",
@@ -318,7 +318,7 @@ function WatchHistoryRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme();
   const palette = STATUS_COLORS[colorScheme === "dark" ? "dark" : "light"];
   const color = palette[history.state] ?? palette.WANNA_WATCH;
   const label = WATCH_STATUS_LABELS[history.state];

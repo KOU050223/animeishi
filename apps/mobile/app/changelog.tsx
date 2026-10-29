@@ -1,5 +1,5 @@
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useRouter } from "expo-router";
 import {
   FEATURES,

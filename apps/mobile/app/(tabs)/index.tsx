@@ -11,7 +11,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { ActivityFeedSection } from "@/components/ActivityFeedSection";

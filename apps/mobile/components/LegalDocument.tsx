@@ -1,6 +1,6 @@
 import { Link, useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 
 /** 法務ページ（プライバシーポリシー / 利用規約）の 1 セクション。 */
 export type LegalSection = {

@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import type { ListRenderItem } from "react-native";
 import { Redirect, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { featureFlags } from "@/lib/featureFlags";
 import {

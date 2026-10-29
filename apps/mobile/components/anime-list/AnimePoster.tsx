@@ -1,5 +1,4 @@
-import { Text, View } from "react-native";
-import { useColorScheme } from "nativewind";
+import { Text, View, useColorScheme } from "react-native";
 import { useAnimeListStyles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
 import { WorkImage } from "./WorkImage";
@@ -13,7 +12,7 @@ export function AnimePoster({
   title: string;
 }) {
   const styles = useAnimeListStyles();
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme();
   const palette = getPosterPalette(
     title,
     colorScheme === "dark" ? "dark" : "light",

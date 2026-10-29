@@ -16,9 +16,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import {
   buildDanimeBookmarklet,
   DANIME_HISTORY_URL,
@@ -29,13 +30,12 @@ import {
 } from "@animeishi/danime-core";
 import { Input } from "@/components/ui";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
-import { useColorScheme } from "nativewind";
 import { useThemeColors } from "@/lib/theme";
 
 export default function DanimeImportWebScreen() {
   const router = useRouter();
   const colors = useThemeColors();
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme();
   const { recv } = useLocalSearchParams<{ recv?: string }>();
   const [pasted, setPasted] = useState("");
   const [error, setError] = useState<string | null>(null);

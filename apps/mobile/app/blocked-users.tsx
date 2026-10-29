@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";

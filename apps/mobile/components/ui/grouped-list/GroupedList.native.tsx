@@ -1,6 +1,5 @@
 import { FieldGroup, Host, ListItem } from "@expo/ui";
-import { useColorScheme } from "nativewind";
-import { useWindowDimensions } from "react-native";
+import { useColorScheme, useWindowDimensions } from "react-native";
 import type { GroupedListProps } from "./types";
 
 // 行高さの見積もり（iOS grouped Form の行は最小 44pt、
@@ -26,7 +25,7 @@ const LIST_VERTICAL_MARGIN = 24;
  * 内容量から見積もった高さを Host に与える。
  */
 export function GroupedList({ sections }: GroupedListProps) {
-  const { colorScheme } = useColorScheme();
+  const colorScheme = useColorScheme() ?? undefined;
   const { fontScale } = useWindowDimensions();
   const rowCount = sections.reduce((sum, s) => sum + s.rows.length, 0);
   const height = Math.ceil(

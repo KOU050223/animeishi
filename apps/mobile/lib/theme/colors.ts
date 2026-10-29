@@ -4,7 +4,7 @@
  * カラースキーム（light / dark）ごとに同名のセマンティックトークンを定義する。
  * NativeWind クラスで書ける箇所は `dark:` バリアントを使い、style prop や
  * アイコン・ActivityIndicator の color のように JS 値が必要な箇所は
- * `useThemeColors()`（nativewind の useColorScheme ベース）から引く。
+ * `useThemeColors()`（react-native の useColorScheme ベース）から引く。
  * どちらも同じ Appearance 判定を見るため、両方式で描画が食い違わない。
  *
  * dark 側の値は className で使う `dark:bg-slate-*` / `dark:text-slate-*` の

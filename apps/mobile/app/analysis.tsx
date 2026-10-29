@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAnalysis, useGenerateAnalysis } from "@/lib/useAnalysis";

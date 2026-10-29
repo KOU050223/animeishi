@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";

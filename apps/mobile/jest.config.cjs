@@ -25,7 +25,7 @@ module.exports = {
   // RNTL 14 では matcher は import 時に自動登録される（extend-expect サブパスは廃止）。
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   transformIgnorePatterns: [
-    "node_modules/\\.pnpm/(?!.*node_modules/((jest-)?react-native|@react-native(-community)?|@react-native/js-polyfills|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|nativewind|@clerk/expo|hono|@tanstack|zustand))",
+    "node_modules/\\.pnpm/(?!.*node_modules/((jest-)?react-native|react-native-css|@react-native(-community)?|@react-native/js-polyfills|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|nativewind|@clerk/expo|hono|@tanstack|zustand))",
   ],
   // pnpm レイアウトでは依存パッケージの node_modules シンボリックリンク経由で
   // 同一パッケージが別パスとして解決され、react-native/jest/setup.js が登録する

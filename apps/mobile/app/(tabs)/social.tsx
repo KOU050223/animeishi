@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";

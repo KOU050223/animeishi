@@ -10,7 +10,7 @@ export type InputProps = TextInputProps;
  * `placeholderTextColor` の既定値だけをカラートークン (#161 / #171) に固定する。
  * 個別画面でプレースホルダー色を指定しないこと。
  *
- * スキーム判定は nativewind の useColorScheme を使うため、ダークモード (#171) で
+ * スキーム判定は RN の useColorScheme を使うため、ダークモード (#171) で
  * `dark:` バリアントが有効になるのと同じ条件で dark トークンへ切り替わる。
  */
 export const Input = forwardRef<TextInputInstance, InputProps>(function Input(
