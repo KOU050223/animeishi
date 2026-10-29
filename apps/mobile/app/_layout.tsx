@@ -2,6 +2,7 @@ import "../global.css";
 import "@/lib/i18n";
 import * as Sentry from "@sentry/react-native";
 import { initObservability } from "@/lib/observability";
+import { configureObserve, wrapWithObserveRoot } from "@/lib/observe";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@/lib/tokenCache";
@@ -24,6 +25,9 @@ import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
 initObservability();
+// EAS Observe の設定も画面マウント前に済ませる（integrations の変更は
+// マウント後だと例外になる）。Expo Go 等では no-op（lib/observe.ts 参照）。
+configureObserve();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -113,23 +117,29 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
 }
 
 // Sentry.wrap で ErrorBoundary を付与し、レンダリング中の例外も捕捉する。
-export default Sentry.wrap(function RootLayout() {
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* ステータスバーは OS の外観設定に追従させる（userInterfaceStyle: "automatic"）。
+// さらに外側を ObserveRoot で包んで TTR（初回描画までの時間）を計測する。
+export default wrapWithObserveRoot(
+  Sentry.wrap(function RootLayout() {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {/* ステータスバーは OS の外観設定に追従させる（userInterfaceStyle: "automatic"）。
           dark ではアイコン/時計が白、light では黒になる。 */}
-      <StatusBar style="auto" />
-      {/* 各画面の SafeAreaView / useSafeAreaInsets の供給元。ルートで 1 度だけ包む。 */}
-      <SafeAreaProvider>
-        <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-          <PersistQueryClientProvider
-            client={queryClient}
-            persistOptions={{ persister: asyncStoragePersister }}
+        <StatusBar style="auto" />
+        {/* 各画面の SafeAreaView / useSafeAreaInsets の供給元。ルートで 1 度だけ包む。 */}
+        <SafeAreaProvider>
+          <ClerkProvider
+            tokenCache={tokenCache}
+            publishableKey={publishableKey}
           >
-            <AuthGuard />
-          </PersistQueryClientProvider>
-        </ClerkProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  );
-});
+            <PersistQueryClientProvider
+              client={queryClient}
+              persistOptions={{ persister: asyncStoragePersister }}
+            >
+              <AuthGuard />
+            </PersistQueryClientProvider>
+          </ClerkProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }),
+);

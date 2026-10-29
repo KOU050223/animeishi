@@ -184,6 +184,9 @@ importers:
       expo-localization:
         specifier: ~58.0.5
         version: 58.0.5(expo@58.0.21)(react@19.3.0)
+      expo-observe:
+        specifier: ~58.0.16
+        version: 58.0.16(153ab0aaba4d558a078ea6ef127e9ab2)
       expo-router:
         specifier: ~58.0.28
         version: 58.0.28(f88de7efa6c6ec5099c1c5eca189c465)
@@ -5698,6 +5701,13 @@ packages:
     resolution: {integrity: sha512-0LNuMvs8/5mRYhnCR4k+lGV7fqPMs6Bnksda4S3zsCUmdxBpAn4zU4NNzXdq1pMKe/H4W5t/zVIDSJ/H3e0vDA==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
 
+  expo-app-metrics@58.0.14:
+    resolution: {integrity: sha512-Bj/Bx3s5woOKThUcqucmDOdOAxmyHr232KbnOBD8SoA/iUo7E4RBWvRT8DwZOmLJ7H1wFK2ckFTiNoDFB+Ag+Q==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+
   expo-application@58.1.2:
     resolution: {integrity: sha512-WYFdNHGaxe/j69oYREhK0cKsKYszuIuz399WXYCP+M1grfO+FCWB/RbuMgaXJsLWlzqhNjA/zLgfJ+33FwrQvw==}
     peerDependencies:
@@ -5871,6 +5881,23 @@ packages:
 
   expo-modules-macros@0.27.1:
     resolution: {integrity: sha512-xWNI+LpK4Pdmj52ygNYlxefZDhw4mpe6s5yVCLXpqtOyU3PPrFGJJJnDyBpOsOv+mXiYLeaszEEJEpDKBObZ7A==}
+
+  expo-observe@58.0.16:
+    resolution: {integrity: sha512-STG1qp5VKA3f0jFQuf+waoO8QNIG6fpog8Hqi2UnklA08ec8a+w+hJm0wL4DgyO8dy5oDdiTVUnpqaloeUC2lQ==}
+    peerDependencies:
+      '@react-navigation/native': ^7.0.0
+      expo: '*'
+      expo-router: '*'
+      react: '*'
+      react-native: '*'
+      react-native-reanimated: '>=4.7.0'
+    peerDependenciesMeta:
+      '@react-navigation/native':
+        optional: true
+      expo-router:
+        optional: true
+      react-native-reanimated:
+        optional: true
 
   expo-router@58.0.28:
     resolution: {integrity: sha512-figS9IpRn1h3iYUii1PY7ka/6XSIQ0EBKR5HqKcDl8gadN4hGfS90WFU9gjpquIdM72lS3Dxm6CT2vGQmsiQSg==}
@@ -14699,6 +14726,13 @@ snapshots:
       jest-mock: 30.5.2
       jest-util: 30.5.1
 
+  expo-app-metrics@58.0.14(expo@58.0.21)(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0):
+    dependencies:
+      expo: 58.0.21(af569c85172fb359d17e49ba290dec82)
+      expo-updates-interface: 58.0.1(expo@58.0.21)
+      react: 19.3.0
+      react-native: 0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6)
+
   expo-application@58.1.2(expo@58.0.21):
     dependencies:
       expo: 58.0.21(af569c85172fb359d17e49ba290dec82)
@@ -14898,6 +14932,18 @@ snapshots:
       '@expo/modules-macros-linux-x64': 0.27.1
       '@expo/modules-macros-win32-arm64': 0.27.1
       '@expo/modules-macros-win32-x64': 0.27.1
+
+  expo-observe@58.0.16(153ab0aaba4d558a078ea6ef127e9ab2):
+    dependencies:
+      expo: 58.0.21(af569c85172fb359d17e49ba290dec82)
+      expo-app-metrics: 58.0.14(expo@58.0.21)(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
+      expo-eas-client: 58.0.2
+      react: 19.3.0
+      react-native: 0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6)
+    optionalDependencies:
+      '@react-navigation/native': 7.2.2(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
+      expo-router: 58.0.28(f88de7efa6c6ec5099c1c5eca189c465)
+      react-native-reanimated: 4.7.1(react-native-worklets@0.13.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
 
   expo-router@58.0.28(f88de7efa6c6ec5099c1c5eca189c465):
     dependencies:

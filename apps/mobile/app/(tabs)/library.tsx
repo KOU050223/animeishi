@@ -6,6 +6,7 @@ import { AnimeSection } from "@/components/library/AnimeSection";
 import { WatchHistorySection } from "@/components/library/WatchHistorySection";
 import { FavoritesSection } from "@/components/library/FavoritesSection";
 import { useThemeColors } from "@/lib/theme";
+import { useMarkScreenInteractive } from "@/lib/observe";
 import { useAnimeListPalette } from "@/components/anime-list/animeListStyles";
 
 const SECTIONS = ["anime", "history", "favorites"] as const;
@@ -20,6 +21,7 @@ function isSection(value: unknown): value is Section {
 // 旧タブのパス（/watch-history 等）は app/ 直下のリダイレクトから
 // /library?section=... でここへ着地する。
 export default function LibraryScreen() {
+  useMarkScreenInteractive();
   const colors = useThemeColors();
   const animePalette = useAnimeListPalette();
   const router = useRouter();
