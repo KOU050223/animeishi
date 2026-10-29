@@ -788,7 +788,10 @@ maestro_driver_failure() {
 # インスタンスの鍵なのでそこから借りる（新たな秘密情報は足さない）。
 # 誤って sk_live が置かれていた場合に本番ユーザーを消さないよう
 # sk_test だけを受け付ける
-CLERK_SECRET_KEY="$(sed -n 's/^CLERK_SECRET_KEY=//p' ../../apps/api/.dev.vars 2>/dev/null | head -n1 | tr -d "\"'")"
+# .dev.vars が無い・読めない環境（新しい worktree 等）でも続行できるよう
+# パイプラインの失敗は || true で潰す。set -e では代入文の終了ステータスが
+# コマンド置換内の失敗を引き継いでスクリプトごと終了するため（issue #329）
+CLERK_SECRET_KEY="$(sed -n 's/^CLERK_SECRET_KEY=//p' ../../apps/api/.dev.vars 2>/dev/null | head -n1 | tr -d "\"'" || true)"
 case "$CLERK_SECRET_KEY" in
   sk_test_*) ;;
   *) CLERK_SECRET_KEY="" ;;
