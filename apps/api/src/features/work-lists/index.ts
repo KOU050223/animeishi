@@ -3,7 +3,12 @@ import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { workListSaveSchema, workListIdParamSchema } from "./schema";
+import {
+  workListSaveSchema,
+  workListIdParamSchema,
+  workListsQuerySchema,
+  workListItemAddSchema,
+} from "./schema";
 import { workListsRepository, type WorkListWithItems } from "./repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
@@ -26,10 +31,13 @@ function getBindings(
 const workListsRoute = new Hono<AuthVariables>()
   .use("*", requireAuth)
   // 自分の作品リストの一覧（内容は含めず、登録作品数のみ）。
-  .get("/", async (c) => {
+  // ?contains=<annictWorkId> を付けると各行に、その作品が入っているかの
+  // containsWork フラグが載る（issue #377 の「リストに追加」シート用）。
+  .get("/", zValidator("query", workListsQuerySchema), async (c) => {
+    const { contains } = c.req.valid("query");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
-    const data = await repo.getMyWorkLists();
+    const data = await repo.getMyWorkLists(contains);
     return c.json(data, 200);
   })
   // 新規作成。複数作れるので冪等な PUT ではなく POST 作成。
@@ -90,6 +98,30 @@ const workListsRoute = new Hono<AuthVariables>()
         description: input.description?.trim() ? input.description : null,
         items: withPositions(input.items),
       });
+      if (!result) return c.json({ error: "Work list not found" }, 404);
+      return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
+    },
+  )
+  // 作品 1 件を末尾に追加（issue #377）。アニメ一覧の「リストに追加」からの
+  // 1 件操作を全置換 PUT で表現すると、先の内容取得と編集画面との
+  // 書き込み競合が要になるため、サーバ側の末尾追加として切り出す。
+  // 既に入っている作品は no-op（冪等）で現在のリストを返す。
+  .post(
+    "/:id/items",
+    zValidator("param", workListIdParamSchema),
+    zValidator("json", workListItemAddSchema),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { annictWorkId } = c.req.valid("json");
+      const db = createDb(getBindings(c).DB);
+
+      const missing = await unknownWorkIds(db, [annictWorkId]);
+      if (missing.length > 0) {
+        return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+      }
+
+      const repo = workListsRepository(db, c.var.clerkUserId);
+      const result = await repo.addMyWorkListItem(id, annictWorkId);
       if (!result) return c.json({ error: "Work list not found" }, 404);
       return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
     },

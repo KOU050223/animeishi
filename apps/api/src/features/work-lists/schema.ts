@@ -32,3 +32,15 @@ export type WorkListSaveInput = z.infer<typeof workListSaveSchema>;
 export const workListIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
+
+// GET /me/work-lists のクエリ。contains を指定すると各行に、その作品が
+// リストに入っているかのフラグ（containsWork）を付ける（issue #377 の
+// 「リストに追加」シートが追加済み表示に使う）。
+export const workListsQuerySchema = z.object({
+  contains: z.coerce.number().int().positive().optional(),
+});
+
+// POST /me/work-lists/:id/items の入力。末尾への 1 件追加。
+export const workListItemAddSchema = z.object({
+  annictWorkId: z.number().int().positive(),
+});

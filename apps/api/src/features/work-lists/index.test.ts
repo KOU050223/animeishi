@@ -289,6 +289,113 @@ describe("作品リスト API", () => {
       expect(byTitle["空のリスト"]).toBe(0);
     });
 
+    it("GET /?contains=: 対象作品が入っているリストにだけ containsWork が立つ", async () => {
+      const app = buildApp();
+      await createList(app, {
+        title: "Aが入っている",
+        items: [{ annictWorkId: WORK_A }],
+      });
+      await createList(app, {
+        title: "Bだけ",
+        items: [{ annictWorkId: WORK_B }],
+      });
+
+      const res = await app.request(
+        `/me/work-lists?contains=${WORK_A}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        title: string;
+        containsWork: boolean;
+      }[];
+      const byTitle = Object.fromEntries(
+        body.map((row) => [row.title, row.containsWork]),
+      );
+      expect(byTitle["Aが入っている"]).toBe(true);
+      expect(byTitle["Bだけ"]).toBe(false);
+    });
+
+    it("GET /: contains を付けない一覧は containsWork が false", async () => {
+      const app = buildApp();
+      await createList(app, { items: [{ annictWorkId: WORK_A }] });
+
+      const res = await app.request(
+        "/me/work-lists",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+
+      const body = (await res.json()) as { containsWork: boolean }[];
+      expect(body[0]?.containsWork).toBe(false);
+    });
+
+    it("POST /:id/items: 作品を末尾に追加して更新後のリストを返す", async () => {
+      const app = buildApp();
+      const created = await createList(app, {
+        items: [{ annictWorkId: WORK_A }],
+      });
+      const { id } = (await created.json()) as { id: number };
+
+      const res = await app.request(
+        `/me/work-lists/${id}/items`,
+        jsonBody("POST", { annictWorkId: WORK_B }),
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        items: { annictWorkId: number; position: number }[];
+      };
+      expect(body.items).toEqual([
+        expect.objectContaining({ annictWorkId: WORK_A, position: 0 }),
+        expect.objectContaining({ annictWorkId: WORK_B, position: 1 }),
+      ]);
+    });
+
+    it("POST /:id/items: 既に入っている作品は二重追加しない（冪等）", async () => {
+      const app = buildApp();
+      const created = await createList(app, {
+        items: [{ annictWorkId: WORK_A }],
+      });
+      const { id } = (await created.json()) as { id: number };
+
+      const res = await app.request(
+        `/me/work-lists/${id}/items`,
+        jsonBody("POST", { annictWorkId: WORK_A }),
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: unknown[] };
+      expect(body.items).toHaveLength(1);
+    });
+
+    it("POST /:id/items: annict_works に無い作品は 400、他人のリストは 404", async () => {
+      const app = buildApp();
+      const created = await createList(app);
+      const { id } = (await created.json()) as { id: number };
+
+      const unknown = await app.request(
+        `/me/work-lists/${id}/items`,
+        jsonBody("POST", { annictWorkId: 999999 }),
+        TEST_BINDINGS,
+      );
+      expect(unknown.status).toBe(400);
+
+      vi.mocked(getAuth).mockReturnValue({
+        userId: OTHER_USER_ID,
+      } as ReturnType<typeof getAuth>);
+      const res = await app.request(
+        `/me/work-lists/${id}/items`,
+        jsonBody("POST", { annictWorkId: WORK_B }),
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(404);
+    });
+
     it("PUT /:id: リストを全置換で更新し、並び順と古い内容は残らない", async () => {
       const app = buildApp();
       const created = await createList(app, {
