@@ -12,7 +12,12 @@ import type { AnnictWorkMeta } from "../works/repository";
 import { isUnchangedCachedWork, worksRepository } from "../works/repository";
 
 /** 視聴履歴の 1 件（作品メタを含む）。 */
-export type WatchHistoryWithWork = WatchHistory & AnnictWorkMeta;
+export type WatchHistoryWithWork = WatchHistory &
+  AnnictWorkMeta & {
+    // annict_works.genres（ジャンル・タグ名。issue #346 で cron が取り込む）。
+    // null は未取得。AI 視聴傾向分析のレポート集計（issue #375）で使う。
+    genres: string[] | null;
+  };
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
 // watch_history の insert は 4 カラム。
@@ -55,6 +60,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
         imageSource: annictWorks.imageSource,
         imageR2Key: annictWorks.imageR2Key,
         watchersCount: annictWorks.watchersCount,
+        genres: annictWorks.genres,
       })
       .from(watchHistory)
       .innerJoin(
