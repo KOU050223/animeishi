@@ -136,5 +136,6 @@
   "Annict で「{{state}}」登録済み": "Already registered as {{state}} on Annict",
   "Annict で「{{state}}」のため変更しません": "Left unchanged — marked {{state}} on Annict",
   "Annict の現在ステータスを取得できなかったため保留": "On hold — couldn't fetch the current Annict status",
-  "同じ作品が視聴済みでも登録予定のため除外": "Excluded — the same work will also be registered as watched"
+  "同じ作品が視聴済みでも登録予定のため除外": "Excluded — the same work will also be registered as watched",
+  "Annict で見る": "View on Annict"
 }

@@ -343,6 +343,16 @@ describe("WatchHistorySection", () => {
       expect(renderedOrder()).toEqual(["2", "3", "1"]);
     });
 
+    it("ソートチップ行は Web で高さが潰れないよう flex の伸縮を無効にする", async () => {
+      // react-native-web の ScrollView 既定の flexGrow/flexShrink: 1 だと
+      // 兄弟の FlatList に押されてチップ行が潰れる（#371）。
+      await render(<WatchHistorySection />);
+      expect(screen.getByTestId("watch-history-sort-row")).toHaveStyle({
+        flexGrow: 0,
+        flexShrink: 0,
+      });
+    });
+
     it("絞り込みシートで視聴状態を選ぶと該当作品だけになる", async () => {
       await render(<WatchHistorySection />);
 
