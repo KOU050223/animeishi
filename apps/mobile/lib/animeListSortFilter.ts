@@ -16,6 +16,11 @@ export const ANIME_LIST_SORT_DEFAULT_ORDER: Record<
   watchersCount: "desc",
 };
 
+// 一覧を開いたときの既定ソート（issue #376: 人気順 = 視聴者数の多い順）。
+export const ANIME_LIST_DEFAULT_SORT_KEY: AnimeListSortKey = "watchersCount";
+export const ANIME_LIST_DEFAULT_SORT_ORDER: AnimeListSortOrder =
+  ANIME_LIST_SORT_DEFAULT_ORDER[ANIME_LIST_DEFAULT_SORT_KEY];
+
 // Annict Work.media の値（メディア種別）。API の searchWorks が返す。
 export const ANIME_LIST_MEDIA_KEYS = [
   "TV",

@@ -40,6 +40,8 @@ import {
   type SeasonFilterKey,
 } from "./animeListUtils";
 import {
+  ANIME_LIST_DEFAULT_SORT_KEY,
+  ANIME_LIST_DEFAULT_SORT_ORDER,
   ANIME_LIST_SORT_DEFAULT_ORDER,
   NO_ANIME_LIST_FILTERS,
   animeListFilterCount,
@@ -70,8 +72,10 @@ export function AnimeListContent({
   const { contentWidth, cardWidth, numColumns, isWide } =
     getAnimeListLayout(width);
   const [query, setQuery] = useState(initialQuery ?? "");
-  const [sortKey, setSortKey] = useState<SortKey>("title");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>(ANIME_LIST_DEFAULT_SORT_KEY);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(
+    ANIME_LIST_DEFAULT_SORT_ORDER,
+  );
   // メディア種別・ジャンル/タグの絞り込み（issue #346）。
   // シーズン絞り込みとは独立に、検索結果・シーズン一覧のどちらにも効く。
   const [filters, setFilters] = useState<AnimeListFilters>(
