@@ -41,7 +41,10 @@ export type DanimeMatchItem = {
   danimeWorkId: string;
   title: string;
   targetState: "WATCHED" | "WATCHING";
-  status: "exact" | "candidates" | "none";
+  // pending: サブリクエスト予算や検索回数の上限で検索計画を完走できず、
+  // 次回リクエストに回す保留（issue #219）。クライアントは pending 分だけを
+  // 再送し、進捗が無くなった時点で未マッチ扱いにする。
+  status: "exact" | "candidates" | "none" | "pending";
   work: DanimeAnnictWork | null;
   candidates: DanimeAnnictWork[];
 };
@@ -53,7 +56,10 @@ export type DanimeMatchItem = {
  */
 export type DanimeAnnictWork = {
   annictWorkId: number;
-  nodeId: string;
+  // Annict GraphQL の Work Node ID。D1 キャッシュ（annict_works）経由の
+  // 候補では未取得（null）のことがある。照合・表示には使わず、登録側が
+  // 必要になった時点で annictWorkId から解決する。
+  nodeId: string | null;
   title: string;
   titleKana: string | null;
   titleEn: string | null;

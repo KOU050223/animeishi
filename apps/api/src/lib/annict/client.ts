@@ -25,6 +25,20 @@ export class AnnictApiError extends Error {
   }
 }
 
+/**
+ * リクエストごとのサブリクエスト予算を使い切ったとき、予算付き fetch が
+ * 投げるエラー（issue #219）。Workers のサブリクエスト上限（Free プラン
+ * 50/req）は D1・KV・外部 fetch の全てを数えるため、Annict への往復を
+ * 自前の予算で打ち切る。このエラーが呼び出し側に届いたら「検索しなかった」
+ * （pending）として扱う。上流障害（AnnictApiError の 0/5xx）とは別系統。
+ */
+export class AnnictBudgetExhaustedError extends AnnictApiError {
+  constructor() {
+    super("Subrequest budget exhausted", 0);
+    this.name = "AnnictBudgetExhaustedError";
+  }
+}
+
 export type GraphQLResponse<T> = {
   data?: T;
   errors?: { message: string }[];
@@ -75,6 +89,10 @@ async function annictFetch(
   try {
     return await fetchImpl(input, init);
   } catch (err) {
+    // AnnictApiError 系はそのまま透過する。予算付き fetch が投げる
+    // AnnictBudgetExhaustedError を status 0 の通信失敗に包み替えると、
+    // リトライ対象・上流障害と区別できなくなるため（issue #219）。
+    if (err instanceof AnnictApiError) throw err;
     // status 0 は「HTTP 応答に到達しなかった（接続失敗）」を表す。
     throw new AnnictApiError(`Annict ${context} request failed`, 0, err);
   }

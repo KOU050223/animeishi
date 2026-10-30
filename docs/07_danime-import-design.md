@@ -97,6 +97,33 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 - Annict 検索は core の `AnnictSearcher` として注入する
   （API 側は `searchAnnictWorksByTitles` を包んで渡す。将来のスタンドアロン版は
   Annict 直叩き実装に差し替えられる）。
+- D1 優先の照合（issue #219）: Annict に問い合わせる前に、D1 の
+  `annict_works` キャッシュを `title` / `title_kana` / `title_en` の
+  LIKE 部分一致（Annict の `title_or_title_kana_cont_any` と同じ方向）で
+  検索し、core のスコアリングで `exact` に確定したタイトルは Annict に
+  送らない（`createLocalWorkSearcher` → core の `localSearch` 注入。
+  30 件/クエリ = D1 バインド変数上限 100 を `×3 フィールド` で割った値）。
+  ローカルで確定しないタイトルだけが Annict 検索へ回り、ローカルの
+  候補は Annict 側の候補プールにも合流する。
+- サブリクエスト予算（issue #219）: Workers の 1 リクエストあたり
+  サブリクエスト上限（Free プラン 50/req）は外部 fetch だけでなく
+  D1・KV のバインディング呼び出しも数える。照合フェーズは
+  `createSubrequestBudget(40)` で自前に頭打ちにし、D1 キャッシュ検索・
+  Annict の union/単発検索・リトライを同じ予算から消費する
+  （Annict fetch は `budgetedFetch` で包んで実呼び出しを数える）。
+  残り ~10 は認証・Annict トークン解決の D1・障害通知（KV + Discord
+  Webhook）・Sentry・Clerk の JWKS 用に残す。予算切れで検索を
+  スキップしたときは `AnnictBudgetExhaustedError`（リトライ除外・
+  `annictFetch` は `AnnictApiError` を透過）を searcher が null に
+  変換し、core が未検索分を `pending` で返す。
+  - `pending` = 検索計画を完走できなかった保留（union 検索の
+    スキップ、第 2 パス上限 `MAX_SECOND_PASS_SEARCHES` 到達、
+    予算切れ）。未検索のまま `none` にすると「Annict に存在しない」と
+    いう誤った確定を返すため、呼び出し側が再送できる状態として返す。
+- pending の再送（issue #219）: クライアント（`useDanimeMatch`）は
+  pending 分だけを次のリクエストで送り直し、全件確定するまで繰り返す。
+  1 ラウンドで 1 件も確定しなければ進捗なしとみなして打ち切り、
+  残りは `pending` のままレビューに出す（無限ループ防止）。
 - Annict `searchWorks` は `titles: [String!]` が OR 部分一致なので、
   タイトルを 10 件チャンクで union 検索し（`searchAnnictWorksByTitles`）、
   各入力への帰属はローカルのスコアリングで行う。`exact` 以外は単発再検索する
@@ -130,7 +157,11 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
   入力が期数を明示していて「登録済みかつ別シーズンと判明している」候補は
   候補から除外する（候補側の期数が不明なときは残す）。
 - 出力: `{ results: [{ danimeWorkId, title, targetState, status, work, candidates }], stats }`
-  - `stats`: `{ firstPassSearches, secondPassSearches, retries, elapsedMs }` —
+  - `status` は `exact | candidates | none | pending`（pending は
+    issue #219 で追加。検索計画を完走できなかった保留。旧クライアントは
+    未知の status として `selected` なしの行として表示されるだけで
+    破壊的にならない）。
+  - `stats`: `{ localPassSearches, firstPassSearches, secondPassSearches, pending, retries, elapsedMs }` —
     検索回数・リトライ回数・経過時間の観測情報。構造化ログ
     （`event: "danime_match"`）にも同内容を出す。
 
@@ -164,6 +195,8 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 - `exact` → 既定チェック ON
 - `candidates` → 候補タップで選択
 - `none` → スキップ表示
+- `pending` → スキップ表示（「照合を完了できませんでした」。取り込みを
+  やり直すと再試行される）
 - Annict 現在ステータスとの突き合わせ:
   - 同一ステータス登録済み → 既定で除外
   - `WATCHED` → `WATCHING` のダウングレード → 既定で除外

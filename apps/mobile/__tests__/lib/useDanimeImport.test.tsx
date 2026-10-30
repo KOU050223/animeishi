@@ -226,4 +226,88 @@ describe("useDanimeMatch", () => {
     expect(result.current.data?.items[0]?.status).toBe("exact");
     expect(result.current.data?.items[100]?.status).toBe("exact");
   });
+
+  // issue #219: API がサブリクエスト予算で検索を打ち切った作品は pending
+  // （= 次回に回す）で返る。クライアントは pending 分だけを再送して
+  // 全件の照合を完了させる。
+  it("pending として返された作品は次のリクエストで再送し、全件確定する", async () => {
+    let firstRound = true;
+    mockMatchPost.mockImplementation(async ({ json }) => {
+      const isFirst = firstRound;
+      firstRound = false;
+      return {
+        ok: true,
+        json: async () => ({
+          results: (
+            json.works as { danimeWorkId: string; title: string }[]
+          ).map((w) =>
+            isFirst && w.danimeWorkId === "w1"
+              ? {
+                  danimeWorkId: w.danimeWorkId,
+                  title: w.title,
+                  targetState: "WATCHING",
+                  status: "pending",
+                  work: null,
+                  candidates: [],
+                }
+              : {
+                  danimeWorkId: w.danimeWorkId,
+                  title: w.title,
+                  targetState: "WATCHING",
+                  status: "exact",
+                  work: annictWork(Number(w.danimeWorkId.slice(1))),
+                  candidates: [],
+                },
+          ),
+        }),
+      };
+    });
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists: listsOf(2) });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 初回 + pending 再送の 2 リクエスト
+    expect(mockMatchPost).toHaveBeenCalledTimes(2);
+    // 再送には pending 分だけが含まれる
+    const resent = mockMatchPost.mock.calls[1]?.[0] as {
+      json: { works: { danimeWorkId: string }[] };
+    };
+    expect(resent.json.works.map((w) => w.danimeWorkId)).toEqual(["w1"]);
+    // 最終結果は全件確定
+    expect(result.current.data?.items.every((i) => i.status === "exact")).toBe(
+      true,
+    );
+  });
+
+  it("1 ラウンドで 1 件も確定しない場合は再送を打ち切り pending のまま返す", async () => {
+    // 予算切れが続く等で pending しか返らない場合に無限ループしない。
+    mockMatchPost.mockImplementation(async ({ json }) => ({
+      ok: true,
+      json: async () => ({
+        results: (json.works as { danimeWorkId: string; title: string }[]).map(
+          (w) => ({
+            danimeWorkId: w.danimeWorkId,
+            title: w.title,
+            targetState: "WATCHING",
+            status: "pending",
+            work: null,
+            candidates: [],
+          }),
+        ),
+      }),
+    }));
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists: listsOf(3) });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 初回の 1 リクエストだけ（進捗なしで打ち切り）
+    expect(mockMatchPost).toHaveBeenCalledTimes(1);
+    expect(
+      result.current.data?.items.every((i) => i.status === "pending"),
+    ).toBe(true);
+  });
 });
