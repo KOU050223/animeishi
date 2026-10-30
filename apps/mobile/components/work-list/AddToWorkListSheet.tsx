@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -33,6 +33,219 @@ export type AddToWorkListTarget = {
 
 // API のタイトル上限（workListSaveSchema.max(50)）と揃える。
 const TITLE_MAX_LENGTH = 50;
+
+/** 追加先リストの 1 行。追加済みは選択不可にして表示で分かるようにする。 */
+function WorkListRow({
+  item,
+  added,
+  pending,
+  disabled,
+  onAdd,
+}: {
+  item: { id: number; title: string; itemCount: number };
+  added: boolean;
+  pending: boolean;
+  disabled: boolean;
+  onAdd: () => void;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  return (
+    <TouchableOpacity
+      onPress={onAdd}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={
+        added
+          ? t("{{title}}は追加済み", { title: item.title })
+          : t("{{title}}に追加", { title: item.title })
+      }
+      accessibilityState={{ disabled }}
+      testID={`add-to-work-list-row-${item.id}`}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.borderMuted,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, color: colors.text }} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+          {t("{{count}} 作品", { count: item.itemCount })}
+        </Text>
+      </View>
+      {pending ? (
+        <ActivityIndicator size="small" color={colors.primaryText} />
+      ) : added ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="checkmark" size={14} color={colors.success} />
+          <Text
+            style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted }}
+          >
+            {t("追加済み")}
+          </Text>
+        </View>
+      ) : (
+        <Text
+          style={{ fontSize: 13, fontWeight: "600", color: colors.primaryText }}
+        >
+          {t("追加")}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+/** シート下部の「新しいリストを作る」。押すとタイトル入力フォームに切り替わる。 */
+function CreateListFooter({
+  creating,
+  newTitle,
+  onChangeTitle,
+  submitting,
+  onStart,
+  onSubmit,
+}: {
+  creating: boolean;
+  newTitle: string;
+  onChangeTitle: (value: string) => void;
+  submitting: boolean;
+  onStart: () => void;
+  onSubmit: () => void;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  const canSubmit = newTitle.trim().length > 0 && !submitting;
+  if (!creating) {
+    return (
+      <TouchableOpacity
+        onPress={onStart}
+        accessibilityRole="button"
+        accessibilityLabel={t("新しいリストを作る")}
+        testID="add-to-work-list-create"
+        style={{
+          marginTop: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          paddingVertical: 10,
+        }}
+      >
+        <Ionicons name="add" size={16} color={colors.primaryText} />
+        <Text
+          style={{ fontSize: 13, fontWeight: "600", color: colors.primaryText }}
+        >
+          {t("新しいリストを作る")}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View
+      style={{
+        marginTop: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <Input
+        value={newTitle}
+        onChangeText={onChangeTitle}
+        autoFocus
+        placeholder={t("新しいリストの名前")}
+        maxLength={TITLE_MAX_LENGTH}
+        testID="add-to-work-list-new-title"
+        style={{
+          flex: 1,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          padding: 10,
+          fontSize: 14,
+          color: colors.text,
+        }}
+      />
+      <TouchableOpacity
+        onPress={onSubmit}
+        disabled={!canSubmit}
+        accessibilityRole="button"
+        accessibilityLabel={t("作成して追加")}
+        accessibilityState={{ disabled: !canSubmit }}
+        testID="add-to-work-list-create-submit"
+        style={{
+          backgroundColor: canSubmit ? colors.primary : colors.surfaceMuted,
+          borderRadius: 8,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+        }}
+      >
+        {submitting ? (
+          <ActivityIndicator size="small" color={colors.onPrimary} />
+        ) : (
+          <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
+            {t("作成して追加")}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/** 一覧の読み込み中・取得失敗時の表示。 */
+function SheetStatus({
+  kind,
+  onRetry,
+}: {
+  kind: "loading" | "error";
+  onRetry?: () => void;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  return (
+    <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
+      {kind === "loading" ? (
+        <>
+          <ActivityIndicator color={colors.textFaint} />
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+            {t("読み込んでいます")}
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={{ color: colors.danger, fontSize: 13 }}>
+            {t("リストを取得できませんでした")}
+          </Text>
+          <TouchableOpacity
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel={t("リストの取得を再試行")}
+            testID="add-to-work-list-retry"
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 8,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
+              {t("再試行")}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
+}
 
 /**
  * 作品を自分の作品リストに入れるシート。
@@ -75,24 +288,40 @@ export function AddToWorkListSheet({
   const add = useAddWorkToWorkList();
   const create = useSaveWorkList();
 
+  // シートは同じインスタンスで対象作品が入れ替わる。前の作品の追加が
+  // 非同期で解決するのは閉じた後・別作品を開いた後になり得るので、
+  // 結果を現在の作品の状態にだけ反映するよう世代を確認する。
+  const activeWorkIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    activeWorkIdRef.current = work?.annictWorkId ?? null;
+  }, [work?.annictWorkId]);
+
   function handleAdd(listId: number) {
     if (!work || pendingListId !== null || addedIds.has(listId)) return;
+    const requestWorkId = work.annictWorkId;
+    const isCurrent = () => activeWorkIdRef.current === requestWorkId;
     setPendingListId(listId);
     add.mutate(
-      { listId, annictWorkId: work.annictWorkId },
+      { listId, annictWorkId: requestWorkId },
       {
         onSuccess: () => {
+          if (!isCurrent()) return;
           // containsWork は一覧の再取得完了まで古いままなので、
           // このシート内で追加したリストは自分で追加済みとして覚える。
           setAddedIds((prev) => new Set(prev).add(listId));
         },
-        onError: () =>
+        onError: () => {
+          if (!isCurrent()) return;
           alert(
             t("追加に失敗しました"),
             t("時間をおいて再度お試しください。"),
             { okLabel: t("OK") },
-          ),
-        onSettled: () => setPendingListId(null),
+          );
+        },
+        onSettled: () => {
+          if (!isCurrent()) return;
+          setPendingListId(null);
+        },
       },
     );
   }
@@ -102,20 +331,25 @@ export function AddToWorkListSheet({
   function handleCreate() {
     const title = newTitle.trim();
     if (!work || title.length === 0 || create.isPending) return;
+    const requestWorkId = work.annictWorkId;
+    const isCurrent = () => activeWorkIdRef.current === requestWorkId;
     create.mutate(
-      { title, items: [{ annictWorkId: work.annictWorkId }] },
+      { title, items: [{ annictWorkId: requestWorkId }] },
       {
         onSuccess: (data) => {
+          if (!isCurrent()) return;
           setAddedIds((prev) => new Set(prev).add(data.id));
           setCreating(false);
           setNewTitle("");
         },
-        onError: () =>
+        onError: () => {
+          if (!isCurrent()) return;
           alert(
             t("作成に失敗しました"),
             t("時間をおいて再度お試しください。"),
             { okLabel: t("OK") },
-          ),
+          );
+        },
       },
     );
   }
@@ -181,38 +415,11 @@ export function AddToWorkListSheet({
 
             <View style={{ flex: 1 }}>
               {lists.isLoading ? (
-                <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
-                  <ActivityIndicator color={colors.textFaint} />
-                  <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-                    {t("読み込んでいます")}
-                  </Text>
-                </View>
+                <SheetStatus kind="loading" />
               ) : lists.isError && lists.data === undefined ? (
                 // 一度でも一覧が取れているなら、バックグラウンド再取得の失敗で
                 // 内容を消さない（古い一覧でも追加操作はできる）。
-                <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
-                  <Text style={{ color: colors.danger, fontSize: 13 }}>
-                    {t("リストを取得できませんでした")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => lists.refetch()}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("リストの取得を再試行")}
-                    testID="add-to-work-list-retry"
-                    style={{
-                      backgroundColor: colors.primary,
-                      borderRadius: 8,
-                      paddingHorizontal: 16,
-                      paddingVertical: 8,
-                    }}
-                  >
-                    <Text
-                      style={{ color: colors.onPrimary, fontWeight: "600" }}
-                    >
-                      {t("再試行")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <SheetStatus kind="error" onRetry={() => lists.refetch()} />
               ) : (
                 <FlatList
                   data={lists.data ?? []}
@@ -234,177 +441,28 @@ export function AddToWorkListSheet({
                   }
                   renderItem={({ item }) => {
                     const added = item.containsWork || addedIds.has(item.id);
-                    const disabled = added || pendingListId !== null;
                     return (
-                      <TouchableOpacity
-                        onPress={() => handleAdd(item.id)}
-                        disabled={disabled}
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                          added
-                            ? t("{{title}}は追加済み", { title: item.title })
-                            : t("{{title}}に追加", { title: item.title })
-                        }
-                        accessibilityState={{ disabled }}
-                        testID={`add-to-work-list-row-${item.id}`}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 10,
-                          paddingVertical: 12,
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.borderMuted,
-                          opacity: disabled ? 0.5 : 1,
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{ fontSize: 14, color: colors.text }}
-                            numberOfLines={1}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              color: colors.textMuted,
-                            }}
-                          >
-                            {t("{{count}} 作品", { count: item.itemCount })}
-                          </Text>
-                        </View>
-                        {pendingListId === item.id ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.primaryText}
-                          />
-                        ) : added ? (
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 4,
-                            }}
-                          >
-                            <Ionicons
-                              name="checkmark"
-                              size={14}
-                              color={colors.success}
-                            />
-                            <Text
-                              style={{
-                                fontSize: 13,
-                                fontWeight: "600",
-                                color: colors.textMuted,
-                              }}
-                            >
-                              {t("追加済み")}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text
-                            style={{
-                              fontSize: 13,
-                              fontWeight: "600",
-                              color: colors.primaryText,
-                            }}
-                          >
-                            {t("追加")}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
+                      <WorkListRow
+                        item={item}
+                        added={added}
+                        pending={pendingListId === item.id}
+                        disabled={added || pendingListId !== null}
+                        onAdd={() => handleAdd(item.id)}
+                      />
                     );
                   }}
                 />
               )}
             </View>
 
-            {creating ? (
-              <View
-                style={{
-                  marginTop: 8,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <Input
-                  value={newTitle}
-                  onChangeText={setNewTitle}
-                  autoFocus
-                  placeholder={t("新しいリストの名前")}
-                  maxLength={TITLE_MAX_LENGTH}
-                  testID="add-to-work-list-new-title"
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    padding: 10,
-                    fontSize: 14,
-                    color: colors.text,
-                  }}
-                />
-                <TouchableOpacity
-                  onPress={handleCreate}
-                  disabled={newTitle.trim().length === 0 || create.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("作成して追加")}
-                  accessibilityState={{
-                    disabled: newTitle.trim().length === 0 || create.isPending,
-                  }}
-                  testID="add-to-work-list-create-submit"
-                  style={{
-                    backgroundColor:
-                      newTitle.trim().length === 0 || create.isPending
-                        ? colors.surfaceMuted
-                        : colors.primary,
-                    borderRadius: 8,
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                  }}
-                >
-                  {create.isPending ? (
-                    <ActivityIndicator size="small" color={colors.onPrimary} />
-                  ) : (
-                    <Text
-                      style={{ color: colors.onPrimary, fontWeight: "600" }}
-                    >
-                      {t("作成して追加")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={() => setCreating(true)}
-                accessibilityRole="button"
-                accessibilityLabel={t("新しいリストを作る")}
-                testID="add-to-work-list-create"
-                style={{
-                  marginTop: 8,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 8,
-                  paddingVertical: 10,
-                }}
-              >
-                <Ionicons name="add" size={16} color={colors.primaryText} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: "600",
-                    color: colors.primaryText,
-                  }}
-                >
-                  {t("新しいリストを作る")}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <CreateListFooter
+              creating={creating}
+              newTitle={newTitle}
+              onChangeTitle={setNewTitle}
+              submitting={create.isPending}
+              onStart={() => setCreating(true)}
+              onSubmit={handleCreate}
+            />
 
             <Pressable
               onPress={onClose}

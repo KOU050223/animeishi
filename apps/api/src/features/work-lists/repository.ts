@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { annictWorks, workLists, workListItems } from "@/db/schema";
@@ -231,18 +231,21 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
       });
 
       if (!existing) {
-        const [last] = await db
-          .select({ position: workListItems.position })
-          .from(workListItems)
-          .where(eq(workListItems.workListId, id))
-          .orderBy(desc(workListItems.position))
-          .limit(1);
         await db.batch([
-          db.insert(workListItems).values({
-            workListId: id,
-            annictWorkId,
-            position: (last?.position ?? -1) + 1,
-          }),
+          db
+            .insert(workListItems)
+            .values({
+              workListId: id,
+              annictWorkId,
+              // 末尾 position は INSERT 内の副問合せで採番する。batch 前に
+              // SELECT で取ると、別作品への同時追加が同じ最大値を読んで
+              // 同じ position の行を作り、末尾順の契約が壊れる。
+              position: sql<number>`(select coalesce(max(${workListItems.position}), -1) + 1 from ${workListItems} where ${workListItems.workListId} = ${id})`,
+            })
+            // 同一作品への同時追加は上の存在確認をすり抜けて
+            // (workListId, annictWorkId) unique 違反になり 500 になるので、
+            // no-op 契約どおり現在のリストを返せるよう握り潰す。
+            .onConflictDoNothing(),
           // updatedAt を進めて getMyWorkLists の新しい順の先頭に来る
           // ようにする（最後に触ったリストが上に来る保存と同じ扱い）。
           db
