@@ -25,6 +25,7 @@ import {
 } from "./recommendationService";
 import type { RecommendationCandidate } from "./recommendationService";
 import { buildAnalysisInput, computeInputHash, runAnalysis } from "./service";
+import { buildSectionDrafts } from "./report";
 import {
   generateAnalysisRoute,
   generateRecommendationsRoute,
@@ -47,6 +48,7 @@ function toResponse(saved: SavedAnalysis) {
   return {
     summary: saved.summary,
     recommendedGenres: saved.recommendedGenres,
+    sections: saved.sections,
     generatedAt: saved.generatedAt.toISOString(),
     workCount: saved.workCount,
   };
@@ -132,9 +134,12 @@ const analysis = app
       throw e;
     }
 
+    // レポート項目はサーバー側で確定させ、AI には解釈文だけを書かせる
+    // （件数・割合の捏造防止。issue #375）。
+    const drafts = buildSectionDrafts(history);
     let output: Awaited<ReturnType<typeof runAnalysis>>;
     try {
-      output = await runAnalysis(env.AI, input);
+      output = await runAnalysis(env.AI, input, drafts);
     } catch (e) {
       // Workers AI の障害・応答解釈失敗。上流起因のため 502 にし、
       // Sentry・Discord へは明示的に送る。

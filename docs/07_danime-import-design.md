@@ -176,11 +176,14 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 
 ### `POST /me/watch-histories/bulk`
 
-- 入力: `{ entries: [{ annictWorkId, state }] }`（1 リクエスト最大 50）
+- 入力: `{ entries: [{ annictWorkId, state }] }`（1 リクエスト最大 3。
+  Workers のサブリクエスト上限 50/req に対し、最悪ケース〔全件未キャッシュ・
+  全呼び出しがリトライ上限まで〕でも収める件数。内訳は
+  `apps/api/src/features/watch-history/schema.ts` のコメント参照）
 - **nodeId・作品メタはクライアントから受け付けない**（共有キャッシュ
   `annict_works` の汚染と別作品への誤登録を防ぐため）。サーバー側で
   D1 キャッシュ → `searchWorks` の順に正規解決する（既存 PUT と同じ経路）。
-- 各作品は同時実行数 4 で並列処理し、Annict 呼び出しは `withAnnictRetry` で
+- 各作品は同時実行数 2 で並列処理し、Annict 呼び出しは `withAnnictRetry` で
   429 / 5xx / 通信失敗をリトライする（updateStatus は冪等）。同一
   `annictWorkId` の重複エントリは並列化の前に「入力順最後の状態」へ
   集約する（並列だと Annict 反映順と D1 保存順が逆転し得るため、
@@ -206,10 +209,12 @@ mobile・API が同じ実装を共有する。2 経路で共用する:
 - `none` → スキップ表示
 - `pending` → スキップ表示（「照合を完了できませんでした」。取り込みを
   やり直すと再試行される）
-- Annict 現在ステータスとの突き合わせ:
+- Annict 現在ステータスとの突き合わせ（判定は danime-core の
+  `decideDanimeImport` に集約し、API の bulk 登録でも同じ判定で弾く）:
   - 同一ステータス登録済み → 既定で除外
-  - `WATCHED` → `WATCHING` のダウングレード → 既定で除外
-- 確定分を 50 件ずつ bulk POST。進捗 `done/total` と失敗件数を表示。
+  - 視聴済・一時停止・断念 → 取り込みで変更しない（選択不可 + 理由表示。
+    issue #374。ユーザーが明示的に付けた最終状態を上書きしない）
+- 確定分を API 上限（3 件）ずつ bulk POST。進捗 `done/total` と失敗件数を表示。
 - 所要時間の可視化: 抽出スクリプトが payload に載せる `extractElapsedMs`、
   照合のクライアント計測時間 + API `stats`、登録の経過時間を
   「抽出 / 照合 / 登録」のサマリとしてレビュー・結果画面に表示し、

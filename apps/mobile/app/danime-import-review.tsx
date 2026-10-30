@@ -3,12 +3,15 @@
 //   - exact（高確度一致）: 既定でチェック ON
 //   - candidates（曖昧）: ユーザーが候補から選ぶまで未チェック
 //   - none（未マッチ）: スキップ表示
-// さらに Annict 上の現在ステータスと突き合わせ、
+// さらに Annict 上の現在ステータスと突き合わせ（decideDanimeImport）、
 //   - 同じステータスが既に登録済み → 既定で除外（再登録しても意味がない）
-//   - WATCHED 済みの作品へ WATCHING を登録しようとする → ダウングレードなので既定で除外
+//   - 視聴済・一時停止・断念の作品 → 選択自体を無効化して理由を表示する
+//     （issue #374。取り込みでユーザーの明示的なステータスを戻さない）
 //   - 履歴が未取得のまま照合が終わっても安全に扱うため、照合は履歴クエリの
 //     完了を待ってから実行し、取得失敗時は WATCHING 対象を既定で保留にする
-// 確定後は 50 件ずつ /me/watch-histories/bulk に送り、進捗と失敗を表示する。
+// 確定後は API 上限件数ずつ /me/watch-histories/bulk に送り、
+// 進捗と失敗を表示する。
+// API 側も同じ判定で保護対象を弾くため、ここでの制御は案内が主目的。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,22 +35,33 @@ import type {
   DanimeMatchStats,
 } from "@/lib/danime/useDanimeImport";
 import {
+  decideDanimeImport,
   toMatchWorks,
   type DanimeAnnictWork,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
 import { useWatchHistory, WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { BackButton } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
+
+// 行に出す「登録しない理由」。表示文言（i18n）への変換は描画側で行う。
+type RowNote =
+  | { kind: "same_state" | "protected_state"; state: string }
+  | { kind: "current_state_unknown" | "watched_duplicate" };
 
 type Row = {
   item: DanimeMatchItem;
   /** 登録対象として選ばれている Annict 作品。null なら登録不可。 */
   selected: DanimeAnnictWork | null;
   checked: boolean;
+  /** true なら取り込みで変更しない作品（保護対象）。チェック不可。 */
+  locked: boolean;
   /** 「登録済みのため除外」などの注記。 */
-  note: string | null;
+  note: RowNote | null;
 };
 
 type DoneResult = {
@@ -92,33 +106,66 @@ export function useElapsedSeconds(active: boolean): number {
   return seconds;
 }
 
-// Annict の現在ステータスと突き合わせて既定の checked / note を決める。
-// historyUnknown=true（履歴クエリ失敗・未取得）のときは WATCHING 登録を
+// Annict の現在ステータスと突き合わせて既定の checked / locked / note を決める。
+// 判定自体は API 側とも共有する danime-core の decideDanimeImport に集約する。
+// currentState が undefined（履歴クエリ失敗・未取得）のときは WATCHING 登録を
 // 降格させ得るため既定で保留にする。WATCHED 登録は降格になり得ないので許可する。
-function defaultChecked(
+function initialRowState(
   item: DanimeMatchItem,
   selected: DanimeAnnictWork | null,
-  currentState: string | undefined,
-  historyUnknown: boolean,
-): { checked: boolean; note: string | null } {
-  if (!selected) return { checked: false, note: null };
-  if (historyUnknown && item.targetState === "WATCHING") {
-    return {
-      checked: false,
-      note: "Annict の現在ステータスを取得できなかったため保留",
-    };
+  currentState: string | null | undefined,
+): Pick<Row, "checked" | "locked" | "note"> {
+  if (!selected) return { checked: false, locked: false, note: null };
+  switch (decideDanimeImport(item.targetState, currentState)) {
+    case "current_state_unknown":
+      return {
+        checked: false,
+        locked: false,
+        note: { kind: "current_state_unknown" },
+      };
+    case "same_state":
+      return {
+        checked: false,
+        locked: false,
+        note: { kind: "same_state", state: item.targetState },
+      };
+    case "protected_state":
+      // ユーザーが明示的に付けた最終状態なので、取り込みでは
+      // チェック自体を付けられない（issue #374）。
+      return {
+        checked: false,
+        locked: true,
+        // protected_state が返るのは currentState が保護対象の値のときだけ。
+        note: { kind: "protected_state", state: currentState! },
+      };
+    default:
+      return { checked: true, locked: false, note: null };
   }
-  if (currentState === item.targetState) {
-    return {
-      checked: false,
-      note: `Annict で「${WATCH_STATUS_LABELS[item.targetState]}」登録済み`,
-    };
+}
+
+// Annict ステータス値 → i18n キー経由の表示名。未知の値はそのまま出す。
+function statusLabel(state: string, t: TFunction): string {
+  const key = WATCH_STATUS_LABELS[state as keyof typeof WATCH_STATUS_LABELS] as
+    | TranslationKey
+    | undefined;
+  return key ? t(key) : state;
+}
+
+function noteText(note: RowNote, t: TFunction): string {
+  switch (note.kind) {
+    case "same_state":
+      return t("Annict で「{{state}}」登録済み", {
+        state: statusLabel(note.state, t),
+      });
+    case "protected_state":
+      return t("Annict で「{{state}}」のため変更しません", {
+        state: statusLabel(note.state, t),
+      });
+    case "current_state_unknown":
+      return t("Annict の現在ステータスを取得できなかったため保留");
+    case "watched_duplicate":
+      return t("同じ作品が視聴済みでも登録予定のため除外");
   }
-  if (currentState === "WATCHED" && item.targetState === "WATCHING") {
-    // 視聴済みを視聴中へ下げるのは意図しない操作になりやすいので既定で除外。
-    return { checked: false, note: "Annict で視聴済みのため除外" };
-  }
-  return { checked: true, note: null };
 }
 
 export default function DanimeImportReviewScreen() {
@@ -172,13 +219,16 @@ export default function DanimeImportReviewScreen() {
     (results: DanimeMatchItem[]): Row[] => {
       const built = results.map((item) => {
         const selected = item.status === "exact" ? item.work : null;
-        const { checked, note } = defaultChecked(
+        const state = initialRowState(
           item,
           selected,
-          selected ? currentStates.get(selected.annictWorkId) : undefined,
-          historyUnknown,
+          selected
+            ? historyUnknown
+              ? undefined
+              : (currentStates.get(selected.annictWorkId) ?? null)
+            : undefined,
         );
-        return { item, selected, checked, note };
+        return { item, selected, ...state };
       });
       // 異なる dアニメ workId の行が同じ Annict 作品にマッチした場合、
       // WATCHED と WATCHING の両方を送ると後勝ちで降格する。
@@ -195,7 +245,7 @@ export default function DanimeImportReviewScreen() {
           ? {
               ...r,
               checked: false,
-              note: "同じ作品が視聴済みでも登録予定のため除外",
+              note: { kind: "watched_duplicate" as const },
             }
           : r,
       );
@@ -225,7 +275,9 @@ export default function DanimeImportReviewScreen() {
     setRows(
       (prev) =>
         prev?.map((r, i) =>
-          i === index && r.selected ? { ...r, checked: !r.checked } : r,
+          i === index && r.selected && !r.locked
+            ? { ...r, checked: !r.checked }
+            : r,
         ) ?? null,
     );
   }, []);
@@ -236,15 +288,17 @@ export default function DanimeImportReviewScreen() {
         (prev) =>
           prev?.map((r, i) => {
             if (i !== rowIndex) return r;
-            const { note } = defaultChecked(
+            const { note, locked } = initialRowState(
               r.item,
               work,
-              currentStates.get(work.annictWorkId),
-              historyUnknown,
+              historyUnknown
+                ? undefined
+                : (currentStates.get(work.annictWorkId) ?? null),
             );
             // 候補選択は「登録したい」意思表示なのでチェック ON にする。
-            // ダウングレード等の注意は note として残す。
-            return { ...r, selected: work, checked: true, note };
+            // ダウングレード等の注意は note として残す。ただし保護対象
+            // （視聴済・一時停止・断念）は登録に回せないのでチェックしない。
+            return { ...r, selected: work, checked: !locked, locked, note };
           }) ?? null,
       );
     },
@@ -527,7 +581,7 @@ function ReviewRow({
   onToggle: (index: number) => void;
   onSelectCandidate: (index: number, work: DanimeAnnictWork) => void;
 }) {
-  const { item, selected, checked, note } = row;
+  const { item, selected, checked, locked, note } = row;
   const colors = useThemeColors();
   const stateLabel = item.targetState === "WATCHED" ? "視聴済" : "視聴中";
   const stateColor =
@@ -538,14 +592,17 @@ function ReviewRow({
       <View className="flex-row items-center gap-3">
         <TouchableOpacity
           onPress={() => onToggle(index)}
-          disabled={!selected}
+          disabled={!selected || locked}
           className={`w-6 h-6 rounded-md border items-center justify-center ${
             checked && selected
               ? "bg-indigo-600 border-indigo-600"
               : "border-gray-300 dark:border-slate-600"
           }`}
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: checked && !!selected }}
+          accessibilityState={{
+            checked: checked && !!selected,
+            disabled: !selected || locked,
+          }}
           accessibilityLabel={`${item.title} を登録対象にする`}
         >
           {checked && selected !== null && (
@@ -599,8 +656,9 @@ function RowBadges({
   targetColor: string;
   status: DanimeMatchItem["status"];
   selected: DanimeAnnictWork | null;
-  note: string | null;
+  note: RowNote | null;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="flex-row items-center gap-2 mt-1 flex-wrap">
       <Text
@@ -626,7 +684,7 @@ function RowBadges({
       )}
       {note !== null && (
         <Text className="text-xs text-amber-600 dark:text-amber-400">
-          {note}
+          {noteText(note, t)}
         </Text>
       )}
     </View>

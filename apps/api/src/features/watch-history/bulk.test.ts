@@ -85,6 +85,8 @@ function mockAnnictUpdate(
     authFailNodeIds?: string[];
     delayMs?: number;
     inflight?: { current: number; max: number };
+    // annictWorkId → viewerStatusState（bulk の上書き保護が読む現在状態）。
+    viewerStates?: Record<number, string>;
   } = {},
 ) {
   return vi
@@ -111,6 +113,7 @@ function mockAnnictUpdateResponse(
     failNodeIds?: string[];
     authFailAll?: boolean;
     authFailNodeIds?: string[];
+    viewerStates?: Record<number, string>;
   },
 ) {
   const body = JSON.parse((init?.body as string) ?? "{}");
@@ -133,24 +136,23 @@ function mockAnnictUpdateResponse(
     );
   }
   if (query.includes("searchWorks")) {
-    const annictId: number = body.variables?.annictIds?.[0];
+    const annictIds: number[] = body.variables?.annictIds ?? [];
     return new Response(
       JSON.stringify({
         data: {
           searchWorks: {
-            nodes: [
-              {
-                id: `Work-${annictId}`,
-                annictId,
-                malAnimeId: null,
-                title: `作品${annictId}`,
-                titleKana: null,
-                titleEn: null,
-                seasonName: null,
-                seasonYear: null,
-                image: { recommendedImageUrl: null },
-              },
-            ],
+            nodes: annictIds.map((annictId) => ({
+              id: `Work-${annictId}`,
+              annictId,
+              malAnimeId: null,
+              title: `作品${annictId}`,
+              titleKana: null,
+              titleEn: null,
+              seasonName: null,
+              seasonYear: null,
+              viewerStatusState: opts.viewerStates?.[annictId] ?? null,
+              image: { recommendedImageUrl: null },
+            })),
           },
         },
       }),
@@ -291,6 +293,8 @@ describe("POST /me/watch-histories/bulk", () => {
     it("Annict 401 で打ち切り、未着手の残りは aborted として返す", async () => {
       // 並列処理中に 401 を検知したら、まだ開始していない作品は
       // 「aborted」で返す。全件 401 にして順序に依存しない失敗にする。
+      // 同時実行数 2 に対して 3 件送るため、3 件目は 401 検知後まで
+      // 開始されず aborted になる（件数上限 WATCH_HISTORY_BULK_MAX_ENTRIES）。
       mockAnnictUpdate({ authFailAll: true });
       const res = await buildApp().request(
         "/me/watch-histories/bulk",
@@ -298,7 +302,7 @@ describe("POST /me/watch-histories/bulk", () => {
           method: "POST",
           headers: JSON_HEADERS,
           body: JSON.stringify({
-            entries: [1, 2, 3, 4, 5, 6, 7, 8].map(entry),
+            entries: [1, 2, 3].map(entry),
           }),
         },
         TEST_BINDINGS,
@@ -319,9 +323,7 @@ describe("POST /me/watch-histories/bulk", () => {
         true,
       );
       // 結果の順序は入力順を維持する。
-      expect(body.results.map((r) => r.annictWorkId)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8,
-      ]);
+      expect(body.results.map((r) => r.annictWorkId)).toEqual([1, 2, 3]);
     });
 
     it("entries は同時実行数を制限して並列に処理する", async () => {
@@ -332,7 +334,7 @@ describe("POST /me/watch-histories/bulk", () => {
         {
           method: "POST",
           headers: JSON_HEADERS,
-          body: JSON.stringify({ entries: [1, 2, 3, 4, 5, 6].map(entry) }),
+          body: JSON.stringify({ entries: [1, 2, 3].map(entry) }),
         },
         TEST_BINDINGS,
       );
@@ -374,9 +376,10 @@ describe("POST /me/watch-histories/bulk", () => {
         .sort((a: string, b: string) => a.localeCompare(b));
       // 5 はキャッシュの nodeId、6 は searchWorks で解決した Node ID が使われる。
       expect(updateWorkIds).toEqual(["Work-6", "Work-cached"]);
-      // キャッシュ済みの 5 には searchWorks を投げない。
+      // キャッシュ済みの 5 には nodeId 解決の searchWorks を投げない。
+      // （viewerStatusState の一括取得は nodeId 解決とは別クエリで全件分を引く）
       const searchedIds = calls
-        .filter((b) => (b.query as string).includes("searchWorks"))
+        .filter((b) => (b.query as string).includes("SearchWorkNodeId"))
         .flatMap((b) => b.variables.annictIds as number[]);
       expect(searchedIds).toEqual([6]);
     });
@@ -492,6 +495,108 @@ describe("POST /me/watch-histories/bulk", () => {
       ]);
     });
 
+    it("Annict が視聴済・一時停止・断念の作品は updateStatus せず state_protected を返す", async () => {
+      // 取り込みでユーザーの明示的なステータスを戻さないための
+      // サーバー側の最終防衛線（issue #374）。クライアントの除外に
+      // 頼らず、Annict の現在ステータスで弾く。
+      const fetchMock = mockAnnictUpdate({
+        viewerStates: { 1: "WATCHED", 2: "ON_HOLD", 3: "STOP_WATCHING" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              { annictWorkId: 1, state: "WATCHING" },
+              { annictWorkId: 2, state: "WATCHED" },
+              { annictWorkId: 3, state: "WATCHING" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: false, error: "state_protected" },
+        { annictWorkId: 2, ok: false, error: "state_protected" },
+        { annictWorkId: 3, ok: false, error: "state_protected" },
+      ]);
+
+      // 保護対象には updateStatus を投げず、D1 の履歴も書かれない。
+      const updateCalls = fetchMock.mock.calls.filter((c) =>
+        (
+          JSON.parse((c[1] as RequestInit).body as string).query as string
+        ).includes("updateStatus"),
+      );
+      expect(updateCalls).toEqual([]);
+      const histories = await db.query.watchHistory.findMany({
+        where: (t, { eq }) => eq(t.userId, USER_ID),
+      });
+      expect(histories).toEqual([]);
+    });
+
+    it("視聴中→視聴済（前進）と視聴予定は従来どおり登録できる", async () => {
+      mockAnnictUpdate({
+        viewerStates: { 1: "WATCHING", 2: "WANNA_WATCH" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              { annictWorkId: 1, state: "WATCHED" },
+              { annictWorkId: 2, state: "WATCHING" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: true },
+        { annictWorkId: 2, ok: true },
+      ]);
+      const histories = await db.query.watchHistory.findMany({
+        where: (t, { eq }) => eq(t.userId, USER_ID),
+      });
+      expect(
+        histories
+          .map((h) => `${h.annictWorkId}:${h.state}`)
+          .sort((a, b) => a.localeCompare(b)),
+      ).toEqual(["1:WATCHED", "2:WATCHING"]);
+    });
+
+    it("Annict で既に同じステータスなら updateStatus を投げず ok を返す", async () => {
+      const fetchMock = mockAnnictUpdate({
+        viewerStates: { 1: "WATCHED" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ entries: [entry(1)] }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([{ annictWorkId: 1, ok: true }]);
+
+      const updateCalls = fetchMock.mock.calls.filter((c) =>
+        (
+          JSON.parse((c[1] as RequestInit).body as string).query as string
+        ).includes("updateStatus"),
+      );
+      expect(updateCalls).toEqual([]);
+    });
+
     it("entries が空配列なら 400", async () => {
       const res = await buildApp().request(
         "/me/watch-histories/bulk",
@@ -499,6 +604,22 @@ describe("POST /me/watch-histories/bulk", () => {
           method: "POST",
           headers: JSON_HEADERS,
           body: JSON.stringify({ entries: [] }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("上限（サブリクエスト予算から算出した 3 件）を超える entries は 400", async () => {
+      // Workers の 1 リクエストあたりのサブリクエスト上限に最悪ケースでも
+      // 収まる件数として API スキーマが 3 件までに制限している
+      // （schema.ts の計算コメント参照）。超過分はクライアントが分割送信する。
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ entries: [1, 2, 3, 4].map(entry) }),
         },
         TEST_BINDINGS,
       );
