@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import { Linking } from "react-native";
 import { ApiRequestError } from "@/lib/apiError";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 
@@ -236,6 +237,29 @@ describe("AnimeWorkDetailSheet", () => {
     await fireEvent.press(screen.getByTestId("work-detail-favorite"));
 
     expect(onToggleFavorite).toHaveBeenCalled();
+  });
+
+  it("「Annict で見る」を押すと Annict の作品ページを開く", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByLabelText("Annict で見る"));
+
+    expect(openURL).toHaveBeenCalledWith("https://annict.com/works/42");
+  });
+
+  it("詳細取得中や失敗時も Annict リンクを表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: undefined, isLoading: true }),
+    );
+    await render(sheetElement());
+    expect(screen.getByText("Annict で見る")).toBeTruthy();
+  });
+
+  it("annictWorkId が無い作品では Annict リンクを表示しない", async () => {
+    await render(sheetElement({ work: { ...WORK, annictWorkId: 0 } }));
+
+    expect(screen.queryByText("Annict で見る")).toBeNull();
   });
 
   it("「キャラ Tier 表を作る」を押すとシートを閉じて対象作品を onOpenCharacterTierList に渡す", async () => {
