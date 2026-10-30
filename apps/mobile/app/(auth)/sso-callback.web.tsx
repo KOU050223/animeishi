@@ -36,12 +36,12 @@ export default function SsoCallbackScreen() {
         const url = new URL(to, window.location.origin);
         if (url.origin === window.location.origin) {
           // 同一オリジンと確認済みなのでパス文字列は必ず内部ルート。
-          // ローカルでは生成済み typed routes が string を union に入れない一方、
-          // CI の未生成環境では Href が string を含み as Href が余計な断言になるため、
-          // どちらでも通るよう unknown 経由で窄める。
-          router.replace(
-            (url.pathname + url.search + url.hash) as unknown as Href,
-          );
+          // 生成済み typed routes（ローカル）では string を union に入れられない
+          // ため Href への窄めが必要。一方 CI は routes 未生成で Href が
+          // string を含み、string への直接断言は「余計な断言」で lint 落ちする。
+          // unknown の変数に退避してから窄めれば両環境で断言が有効になる。
+          const href: unknown = url.pathname + url.search + url.hash;
+          router.replace(href as Href);
           return;
         }
       } catch {
