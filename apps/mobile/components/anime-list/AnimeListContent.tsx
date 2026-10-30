@@ -18,6 +18,7 @@ import {
 import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
+import { CardPressable } from "@/components/ui/card-pressable";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
 import { AnimeListFilterSheet } from "./AnimeListFilterSheet";
 import { AnimePoster } from "./AnimePoster";
@@ -201,11 +202,11 @@ export function AnimeListContent({
   // renderItem を安定化して行ごとのコールバック生成を減らす。
   const renderItem = useCallback(
     ({ item }: { item: AnimeTitle }) => (
-      <TouchableOpacity
+      <CardPressable
         style={[styles.card, { width: cardWidth }]}
+        contentStyle={styles.cardInner}
         testID={`anime-item-${item.annictWorkId}`}
         onPress={() => setSelectedWork(item)}
-        accessibilityRole="button"
         accessibilityLabel={`${item.title}の詳細を開く`}
       >
         <AnimePoster uri={item.hostedImageUrl} title={item.title} />
@@ -214,17 +215,22 @@ export function AnimeListContent({
             <Text style={styles.cardTitle} numberOfLines={2}>
               {item.title}
             </Text>
-            <AddToWorkListButton
-              onPress={() => setListTarget(item)}
-              title={item.title}
-              testID={`anime-item-add-to-list-${item.annictWorkId}`}
-            />
-            <FavoriteButton
-              isFavorite={favoriteIds.has(item.annictWorkId)}
-              disabled={isToggling}
-              onPress={() => toggleFavorite(item.annictWorkId)}
-              title={item.title}
-            />
+            {/* Web ではコンテンツ全体が pointer-events:none のラッパー内に
+                あるため、この View でボタンのイベントを復活させる
+                （CardPressable.web.tsx 参照） */}
+            <View style={styles.cardActions} pointerEvents="auto">
+              <AddToWorkListButton
+                onPress={() => setListTarget(item)}
+                title={item.title}
+                testID={`anime-item-add-to-list-${item.annictWorkId}`}
+              />
+              <FavoriteButton
+                isFavorite={favoriteIds.has(item.annictWorkId)}
+                disabled={isToggling}
+                onPress={() => toggleFavorite(item.annictWorkId)}
+                title={item.title}
+              />
+            </View>
           </View>
           <View style={styles.metaRow}>
             {item.seasonYear ? (
@@ -239,7 +245,7 @@ export function AnimeListContent({
             ) : null}
           </View>
         </View>
-      </TouchableOpacity>
+      </CardPressable>
     ),
     [cardWidth, favoriteIds, isToggling, palette, styles, toggleFavorite],
   );
