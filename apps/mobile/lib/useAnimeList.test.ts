@@ -61,6 +61,7 @@ const MOCK_WORKS = [
     malAnimeId: null,
     resolvedImageUrl: null,
     hostedImageUrl: null,
+    genres: null,
   },
   {
     annictWorkId: 2,
@@ -75,6 +76,7 @@ const MOCK_WORKS = [
     malAnimeId: null,
     resolvedImageUrl: null,
     hostedImageUrl: null,
+    genres: null,
   },
   {
     annictWorkId: 3,
@@ -89,6 +91,7 @@ const MOCK_WORKS = [
     malAnimeId: null,
     resolvedImageUrl: null,
     hostedImageUrl: null,
+    genres: null,
   },
 ];
 

@@ -9,6 +9,11 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { sortAnimeList } from "./animeListSortFilter";
+import type {
+  AnimeListSortKey,
+  AnimeListSortOrder,
+} from "./animeListSortFilter";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 const SEARCH_DEBOUNCE_MS = 300;
@@ -19,8 +24,12 @@ type WorksSearchResponse = InferResponseType<
 >;
 export type AnimeTitle = WorksSearchResponse["works"][number];
 
-export type SortKey = "title" | "year";
-export type SortOrder = "asc" | "desc";
+// ソートキー・順序の実体は lib/animeListSortFilter.ts（純関数）。呼び出し側の
+// 互換のためここからも再 export する（issue #346 で watchersCount を追加）。
+export type {
+  AnimeListSortKey as SortKey,
+  AnimeListSortOrder as SortOrder,
+} from "./animeListSortFilter";
 
 // 検索クエリごとにキャッシュを分けるためのクエリキー。
 // query を含めることで、語を変えるたびに別エントリとしてキャッシュされる。
@@ -230,24 +239,15 @@ export function usePrefetchSeasonWorks(
 
 /**
  * 検索結果をクライアント側でソートする。
- * searchWorks 自体は並び順を制御できないため、表示順はここで決める。
+ * 比較ロジックは lib/animeListSortFilter.ts の純関数（sortAnimeList）に委譲する。
  */
 export function useSortedAnimeList(
   data: AnimeTitle[] | undefined,
-  sortKey: SortKey,
-  sortOrder: SortOrder,
+  sortKey: AnimeListSortKey,
+  sortOrder: AnimeListSortOrder,
 ) {
-  return useMemo(() => {
-    if (!data) return [];
-
-    return [...data].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "title") {
-        cmp = a.title.localeCompare(b.title, "ja");
-      } else {
-        cmp = (a.seasonYear ?? 0) - (b.seasonYear ?? 0);
-      }
-      return sortOrder === "asc" ? cmp : -cmp;
-    });
-  }, [data, sortKey, sortOrder]);
+  return useMemo(
+    () => (data ? sortAnimeList(data, sortKey, sortOrder) : []),
+    [data, sortKey, sortOrder],
+  );
 }

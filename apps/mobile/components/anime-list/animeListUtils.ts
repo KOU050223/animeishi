@@ -16,6 +16,11 @@ export const GRID_GAP = 14;
 export const SEASON_KEYS = ["winter", "spring", "summer", "autumn"] as const;
 export type SeasonKey = (typeof SEASON_KEYS)[number];
 
+// シーズン絞り込みで選べる期。"all" はその年の 4 クール全部（通年指定で、
+// API には年だけの season 文字列 "2026" を送る。issue #346）。
+export const SEASON_FILTER_ALL = "all";
+export type SeasonFilterKey = SeasonKey | typeof SEASON_FILTER_ALL;
+
 /**
  * JST（UTC+9）基準の現在の年と Annict シーズンキー
  * （1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。
@@ -33,14 +38,20 @@ export function currentSeason(now: Date = new Date()): {
   };
 }
 
-/** API に渡す season 文字列（例: "2026-spring"）を組み立てる。 */
-export function toSeasonParam(year: number, key: SeasonKey): string {
-  return `${year}-${key}`;
+/**
+ * API に渡す season 文字列を組み立てる（例: "2026-spring"）。
+ * 通年指定（"all"）は年だけの文字列（例: "2026"）。API 側でその年の
+ * 4 クール分の seasons に展開される（issue #346）。
+ */
+export function toSeasonParam(year: number, key: SeasonFilterKey): string {
+  return key === SEASON_FILTER_ALL ? `${year}` : `${year}-${key}`;
 }
 
-/** シーズン選択チップの表示ラベル（例: "2026年 春"）。 */
-export function formatSeasonLabel(year: number, key: SeasonKey): string {
-  return `${year}年 ${SEASONS[key] ?? ""}`;
+/** シーズン選択チップの表示ラベル（例: "2026年 春"、通年は "2026年"）。 */
+export function formatSeasonLabel(year: number, key: SeasonFilterKey): string {
+  return key === SEASON_FILTER_ALL
+    ? `${year}年`
+    : `${year}年 ${SEASONS[key] ?? ""}`;
 }
 
 /**
@@ -113,9 +124,16 @@ export function selectableSeasonKeys(
  */
 export function adjacentSeasonParams(
   year: number,
-  key: SeasonKey,
+  key: SeasonFilterKey,
   now: Date = new Date(),
 ): string[] {
+  // 通年指定は年単位の前後をプリフェッチする（各シーズンではなく年クエリ）。
+  if (key === SEASON_FILTER_ALL) {
+    const params: string[] = [];
+    if (year - 1 >= SEASON_PICKER_MIN_YEAR) params.push(`${year - 1}`);
+    if (year + 1 <= maxSelectableSeason(now).year) params.push(`${year + 1}`);
+    return params;
+  }
   const prev = shiftSeason(year, key, -1);
   const next = shiftSeason(year, key, 1);
   const params: string[] = [];
@@ -163,7 +181,9 @@ export function useAnimeStats(data: AnimeTitle[] | undefined) {
             ? `${minYear}`
             : `${minYear}-${maxYear}`
           : "-",
-      genreCount: 0,
+      // 取り込み済みのジャンル・タグの種類数（issue #346）。
+      // genres=null（未取得）の作品は数えない。
+      genreCount: new Set(list.flatMap((item) => item.genres ?? [])).size,
     };
   }, [data]);
 }

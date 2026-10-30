@@ -1,14 +1,37 @@
 import { describe, expect, it } from "vitest";
 import {
+  SEASON_FILTER_ALL,
   SEASON_KEYS,
   SEASON_PICKER_MIN_YEAR,
   adjacentSeasonParams,
   currentSeason,
+  formatSeasonLabel,
   maxSelectableSeason,
   seasonPickerYears,
   selectableSeasonKeys,
   shiftSeason,
+  toSeasonParam,
 } from "./animeListUtils";
+
+describe("toSeasonParam", () => {
+  it("季節キーは <年>-<季節> の season 文字列になる", () => {
+    expect(toSeasonParam(2026, "spring")).toBe("2026-spring");
+  });
+
+  it("通年は年だけの season 文字列になる（API 側で 4 クールに展開される）", () => {
+    expect(toSeasonParam(2026, SEASON_FILTER_ALL)).toBe("2026");
+  });
+});
+
+describe("formatSeasonLabel", () => {
+  it("季節キーは「<年>年 <季節名>」のラベルになる", () => {
+    expect(formatSeasonLabel(2026, "spring")).toBe("2026年 春");
+  });
+
+  it("通年は「<年>年」だけのラベルになる", () => {
+    expect(formatSeasonLabel(2026, SEASON_FILTER_ALL)).toBe("2026年");
+  });
+});
 
 describe("shiftSeason", () => {
   it("+1 で秋→冬は年をまたぐ", () => {
@@ -135,5 +158,26 @@ describe("adjacentSeasonParams", () => {
   it("アーカイブ下限年の冬では前シーズンを含めない", () => {
     // 1890 冬の前 = 1889 秋は SEASON_PICKER_MIN_YEAR を下回るため次のみ。
     expect(adjacentSeasonParams(1890, "winter", now)).toEqual(["1890-spring"]);
+  });
+
+  it("通年選択では前後の年クエリを返す（issue #346）", () => {
+    expect(adjacentSeasonParams(2026, SEASON_FILTER_ALL, now)).toEqual([
+      "2025",
+      "2027",
+    ]);
+  });
+
+  it("通年で上限年のときは次年を含めない", () => {
+    // 選択上限は 2027 春。年クエリでは上限年 2027 まで選べるため、
+    // 2027 の次年（2028）はプリフェッチしない。
+    expect(adjacentSeasonParams(2027, SEASON_FILTER_ALL, now)).toEqual([
+      "2026",
+    ]);
+  });
+
+  it("通年でアーカイブ下限年のときは前年を含めない", () => {
+    expect(
+      adjacentSeasonParams(SEASON_PICKER_MIN_YEAR, SEASON_FILTER_ALL, now),
+    ).toEqual([`${SEASON_PICKER_MIN_YEAR + 1}`]);
   });
 });
