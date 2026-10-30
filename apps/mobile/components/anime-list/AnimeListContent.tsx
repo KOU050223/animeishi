@@ -85,9 +85,13 @@ export function AnimeListContent({
     () => currentSeason().key,
   );
   const seasonParam = toSeasonParam(filterYear, filterSeason);
+  const filterActive = isAnimeListFilterActive(filters);
 
   // 検索語があれば title 検索、無ければ選択中のシーズンで一覧を取得する（クライアント側に
   // 作品マスタは持たず Annict searchWorks をプロキシ経由で叩く）。
+  // メディア/ジャンルの絞り込みは取得済みの配列に掛けるため、絞り込み中は
+  // 先頭 50 件で打ち止めにならないようタイトル検索でも全ページを追い読みする
+  // （issue #346: 後続ページにだけある一致作品を見落とさないため）。
   const {
     data,
     isLoading,
@@ -98,7 +102,7 @@ export function AnimeListContent({
     isConnected,
     isConnectionLoading,
     isSeason,
-  } = useAnimeList(query, seasonParam);
+  } = useAnimeList(query, seasonParam, { fetchAllPages: filterActive });
   const hasQuery = query.trim().length > 0;
 
   // 前後シーズンを先読みして切り替え直後の待ちを消す（issue #173）。
@@ -121,7 +125,6 @@ export function AnimeListContent({
   );
   const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
   const stats = useAnimeStats(data);
-  const filterActive = isAnimeListFilterActive(filters);
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
   const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);

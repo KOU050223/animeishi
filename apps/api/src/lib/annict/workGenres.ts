@@ -35,7 +35,7 @@ const KITSU_BATCH_SIZE = 20;
 
 /**
  * 取得に失敗した（= genres が null のままの）作品を試し直すまでの間隔。
- * genres_fetched_at を起点にする。ジャンル自体は作品にほぼ固定なので、
+ * genres_attempted_at を起点にする。ジャンル自体は作品にほぼ固定なので、
  * 失敗理由が恒久的（供給元に無い・名寄せ不能）な作品の叩き直しは
  * 長めの間隔で十分。
  */
@@ -65,7 +65,7 @@ export type WorkGenreInput = {
  * genres 未取得・stale の作品を少量ずつ Kitsu（無ければ MAL API）で
  * 解決・永続化する。cron ハンドラから定期実行される。戻り値は書き込んだ件数。
  *
- * 試行前に genres_fetched_at を立ててクールダウンを適用する（取得成功時は
+ * 試行前に genres_attempted_at を立ててクールダウンを適用する（取得成功時は
  * genres が立つため pending から自然に外れる）。
  */
 export async function resolvePendingWorkGenres(

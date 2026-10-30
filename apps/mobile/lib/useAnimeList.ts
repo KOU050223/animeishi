@@ -120,8 +120,16 @@ export async function fetchWorksSearchPage(
  *
  * @param query  検索語（空ならシーズン一覧）。
  * @param season 絞り込むシーズン文字列（例: "2025-summer"）。未指定なら今期。
+ * @param options.fetchAllPages タイトル検索でも全ページを追い読みする。
+ *        メディア・ジャンルのクライアント側絞り込みが有効なときに渡す
+ *        （先頭 50 件だけに絞り込みが効いて後続ページの一致作品を
+ *        見落とさないため。issue #346）。
  */
-export function useAnimeList(query: string, season?: string) {
+export function useAnimeList(
+  query: string,
+  season?: string,
+  options: { fetchAllPages?: boolean } = {},
+) {
   const { getToken, isSignedIn } = useAuth();
   // 検索は API 側で X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
   // isConnectionLoading は SecureStore 読み込み中の判定。連携済みでも読み込み中は
@@ -156,13 +164,22 @@ export function useAnimeList(query: string, season?: string) {
   // シーズン検索はサーバー側のページ上限に達したときだけ hasNextPage が立つため、
   // 残りを自動で追い読みする（issue #163 でサーバー側全件取得にした後の受け口）。
   // タイトル検索は先頭ページ（上位50件）だけでよく、広い語で全件走査すると
-  // 際限がないため追い読みしない。エラー時の再発火ループを防ぐため isError 中は止める。
+  // 際限がないため追い読みしない。ただしクライアント側絞り込みが有効なとき
+  // （fetchAllPages）は先頭ページだけでは一致作品を見落とすため、絞り込み
+  // 対象の全件になるまで追い読みする。
+  // エラー時の再発火ループを防ぐため isError 中は止める。
+  const fetchAllPages = isSeason || options.fetchAllPages === true;
   useEffect(() => {
-    if (isSeason && hasNextPage && !isFetchingNextPage && !result.isError) {
+    if (
+      fetchAllPages &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !result.isError
+    ) {
       void fetchNextPage();
     }
   }, [
-    isSeason,
+    fetchAllPages,
     hasNextPage,
     isFetchingNextPage,
     result.isError,

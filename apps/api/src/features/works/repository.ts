@@ -105,6 +105,33 @@ function annictWorkConflictSet() {
     // 取らない経路（検索・キャスト一覧）の upsert が null を投げてきても
     // 既存値を消さないよう温存する。
     watchersCount: sql`coalesce(excluded.watchers_count, ${annictWorks.watchersCount})`,
+    // ジャンル・タグは名寄せキー（mal_anime_id / kitsu_anime_id）由来の値なので、
+    // キーが変わった行は破棄して genre_fetch cron に取り直させる
+    // （旧キーのジャンルで絞り込まれ続けないようにする）。
+    genres: sql`case
+      when (excluded.mal_anime_id is not null
+        and excluded.mal_anime_id is not ${annictWorks.malAnimeId})
+        or (excluded.kitsu_anime_id is not null
+        and excluded.kitsu_anime_id is not ${annictWorks.kitsuAnimeId})
+      then null
+      else ${annictWorks.genres}
+    end`,
+    genresFetchedAt: sql`case
+      when (excluded.mal_anime_id is not null
+        and excluded.mal_anime_id is not ${annictWorks.malAnimeId})
+        or (excluded.kitsu_anime_id is not null
+        and excluded.kitsu_anime_id is not ${annictWorks.kitsuAnimeId})
+      then null
+      else ${annictWorks.genresFetchedAt}
+    end`,
+    genresAttemptedAt: sql`case
+      when (excluded.mal_anime_id is not null
+        and excluded.mal_anime_id is not ${annictWorks.malAnimeId})
+        or (excluded.kitsu_anime_id is not null
+        and excluded.kitsu_anime_id is not ${annictWorks.kitsuAnimeId})
+      then null
+      else ${annictWorks.genresAttemptedAt}
+    end`,
     updatedAt: sql`excluded.updated_at`,
   };
 }
@@ -155,8 +182,9 @@ function notBlockedImageSource() {
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 21 カラム（genres / genres_fetched_at 追加後）なので
-// 4 行 × 21 = 84 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+// annict_works は 22 カラム（genres / genres_fetched_at / genres_attempted_at
+// 追加後）なので 4 行 × 22 = 88 変数 < 100。これ以上カラムが増える場合は
+// チャンクを絞ること。
 const ANNICT_WORK_UPSERT_CHUNK = 4;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
@@ -591,6 +619,8 @@ export function worksRepository(db: DrizzleDb) {
      * クールダウンもクリアし、新しい MAL ID ですぐに補完を試せるようにする。
      * 検索中に Annict 側から MAL ID が入った行は上書きしない（mal_anime_id is null 条件）。
      * 一致した Kitsu 作品の ID もあわせて保持する（Kitsu 側の名寄せ結果の記録）。
+     * ジャンル・タグは名寄せキー由来の値なので、キーが入り直した行は破棄して
+     * genre_fetch cron に取り直させる。
      */
     async updateMalAnimeIdFromSearch(
       annictWorkId: number,
@@ -606,6 +636,9 @@ export function worksRepository(db: DrizzleDb) {
           malSearchAttemptedAt: at,
           imageFallbackAttemptedAt: null,
           imageR2AttemptedAt: null,
+          genres: null,
+          genresFetchedAt: null,
+          genresAttemptedAt: null,
         })
         .where(
           and(
@@ -635,6 +668,11 @@ export function worksRepository(db: DrizzleDb) {
           malSearchAttemptedAt: at,
           imageFallbackAttemptedAt: null,
           imageR2AttemptedAt: null,
+          // ジャンル・タグは名寄せキー由来の値なので、キーが入り直した行は
+          // 破棄して genre_fetch cron に取り直させる。
+          genres: null,
+          genresFetchedAt: null,
+          genresAttemptedAt: null,
         })
         .where(
           and(
@@ -667,10 +705,12 @@ export function worksRepository(db: DrizzleDb) {
      * 引けないため対象外（キーが後から埋まったときに拾われる）。
      *
      * 対象は「未取得（genres is null）でクールダウン切れ」の作品に加えて、
-     * 「空配列（取得済みだが供給元にも無い）だが genres_fetched_at が
+     * 「空配列（取得済みだが供給元にも無い）で genres_fetched_at が
      * emptyGenresStaleBefore より古い」作品。後から Kitsu にカテゴリが
      * 登録される作品を救うための TTL 再取得（image fallback の 'none' と
-     * 同じ発想）。
+     * 同じ発想）。クールダウンは genres_attempted_at で判定する
+     * （fetched は「最後の成功」、attempted は「最後の試行」なので、
+     * TTL 再取得の失敗が再試行を TTL 分先送りしない）。
      */
     async getPendingGenreWorks(
       limit: number,
@@ -703,12 +743,16 @@ export function worksRepository(db: DrizzleDb) {
               and(
                 isNull(annictWorks.genres),
                 or(
-                  isNull(annictWorks.genresFetchedAt),
-                  lt(annictWorks.genresFetchedAt, attemptedStaleBefore),
+                  isNull(annictWorks.genresAttemptedAt),
+                  lt(annictWorks.genresAttemptedAt, attemptedStaleBefore),
                 ),
               ),
               and(
                 sql`${annictWorks.genres} = '[]'`,
+                or(
+                  isNull(annictWorks.genresAttemptedAt),
+                  lt(annictWorks.genresAttemptedAt, attemptedStaleBefore),
+                ),
                 or(
                   isNull(annictWorks.genresFetchedAt),
                   lt(annictWorks.genresFetchedAt, emptyGenresStaleBefore),
@@ -722,7 +766,7 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     /**
-     * 取り込んだジャンル・タグを書き込む。取得試行時刻も立てる。
+     * 取り込んだジャンル・タグを書き込む。取得成功時刻も立てる。
      * 解決した行だけを呼び出し側が渡す（失敗行は markGenreFetchAttempted）。
      */
     async updateWorkGenres(
@@ -744,7 +788,7 @@ export function worksRepository(db: DrizzleDb) {
       for (let i = 0; i < annictWorkIds.length; i += 90) {
         await db
           .update(annictWorks)
-          .set({ genresFetchedAt: at })
+          .set({ genresAttemptedAt: at })
           .where(
             inArray(annictWorks.annictWorkId, annictWorkIds.slice(i, i + 90)),
           );

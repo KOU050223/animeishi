@@ -55,6 +55,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
   const styles = useAnimeListStyles();
   const years = seasonPickerYears();
   const selectable = selectableSeasonKeys(year);
+  const selectableSet = new Set(selectable);
   const seasonChips: readonly SeasonFilterKey[] = props.allowAllYear
     ? SEASON_CHIP_KEYS
     : SEASON_KEYS;
@@ -115,7 +116,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
             const disabled =
               key === SEASON_FILTER_ALL
                 ? selectable.length === 0
-                : !selectable.includes(key);
+                : !selectableSet.has(key);
             return (
               <TouchableOpacity
                 key={key}

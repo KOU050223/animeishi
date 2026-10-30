@@ -26,10 +26,11 @@ export function AnimeListFilterSheet({
   onChange: (next: AnimeListFilters) => void;
   onClose: () => void;
 }) {
+  const selectedGenres = new Set(filters.genres);
   const toggleGenre = (genre: string) =>
     onChange({
       ...filters,
-      genres: filters.genres.includes(genre)
+      genres: selectedGenres.has(genre)
         ? filters.genres.filter((g) => g !== genre)
         : [...filters.genres, genre],
     });
@@ -86,7 +87,7 @@ export function AnimeListFilterSheet({
                 <SelectChip
                   key={genre}
                   label={genreLabel(genre)}
-                  selected={filters.genres.includes(genre)}
+                  selected={selectedGenres.has(genre)}
                   onPress={() => toggleGenre(genre)}
                   accessibilityLabel={`${genreLabel(genre)}で絞り込む`}
                   testID={`anime-filter-genre-${genre}`}

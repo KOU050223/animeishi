@@ -5,6 +5,7 @@ import { requestUrl } from "@/test-utils/fetch";
 import { isKitsuAnimeListUrl, isKitsuMappingsUrl } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { worksRepository } from "@/features/works/repository";
 import {
   GENRE_EMPTY_REFETCH_AFTER_MS,
   GENRE_FETCH_ATTEMPT_COOLDOWN_MS,
@@ -370,7 +371,7 @@ describe("resolvePendingWorkGenres", () => {
       annictWorkId: 202,
       malAnimeId: 22,
       genres: null,
-      genresFetchedAt: new Date(), // 試行したばかり
+      genresAttemptedAt: new Date(), // 試行したばかり
     });
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
@@ -395,7 +396,7 @@ describe("resolvePendingWorkGenres", () => {
     const row = await genresOf(db, 300);
     // 「無い」に確定させず（genres=null のまま）、試行時刻だけ立てる
     expect(row?.genres).toBeNull();
-    expect(row?.genresFetchedAt).not.toBeNull();
+    expect(row?.genresAttemptedAt).not.toBeNull();
 
     // クールダウン中は pending 対象外 → fetch しない
     fetchMock.mockClear();
@@ -409,7 +410,7 @@ describe("resolvePendingWorkGenres", () => {
       annictWorkId: 400,
       malAnimeId: 21,
       genres: null,
-      genresFetchedAt: stale,
+      genresAttemptedAt: stale,
     });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -466,6 +467,119 @@ describe("resolvePendingWorkGenres", () => {
     const row = await genresOf(db, 500);
     // 後から Kitsu 側にカテゴリが登録された作品を拾い直す
     expect(row?.genres).toEqual(["Mecha"]);
+  });
+
+  it("genres='[]' の TTL 再取得が失敗しても、TTL ではなく失敗クールダウンで再試行される", async () => {
+    // 30 日 TTL 切れの空配列。再取得が失敗した場合、クールダウン（24h）を
+    // 待てば再試行され、成功時刻（30 日）のリセットで再試行が消えないこと。
+    await insertWork(db, {
+      annictWorkId: 700,
+      malAnimeId: 21,
+      genres: [],
+      genresFetchedAt: new Date(
+        Date.now() - GENRE_EMPTY_REFETCH_AFTER_MS - 1000,
+      ),
+      genresAttemptedAt: new Date(
+        Date.now() - GENRE_FETCH_ATTEMPT_COOLDOWN_MS - 1000,
+      ),
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response("boom", { status: 503 }));
+
+    // 再取得に失敗: genres は [] のまま、試行時刻だけ更新される
+    expect(await resolvePendingWorkGenres(db)).toBe(0);
+    const failed = await genresOf(db, 700);
+    expect(failed?.genres).toEqual([]);
+    expect(failed?.genresAttemptedAt).not.toBeNull();
+
+    // 直後はクールダウン中で対象外（genres_fetched_at は古いままだが、
+    // 試行時刻が再試行を抑止する）
+    fetchMock.mockClear();
+    expect(await resolvePendingWorkGenres(db)).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // 失敗クールダウン（24h）が切れれば再試行される（30 日待たない）
+    await db
+      .update(annictWorks)
+      .set({
+        genresAttemptedAt: new Date(
+          Date.now() - GENRE_FETCH_ATTEMPT_COOLDOWN_MS - 1000,
+        ),
+      })
+      .where(eq(annictWorks.annictWorkId, 700));
+    fetchMock.mockImplementation(async (input) => {
+      const url = requestUrl(input);
+      if (isKitsuMappingsUrl(url)) {
+        return makeKitsuMappingsResponse({ 21: 100 });
+      }
+      return makeKitsuAnimeCategoriesResponse({
+        "100": [{ id: "c1", title: { en: "Isekai" } }],
+      });
+    });
+
+    expect(await resolvePendingWorkGenres(db)).toBe(1);
+    expect((await genresOf(db, 700))?.genres).toEqual(["Isekai"]);
+  });
+
+  it("名寄せキー（mal_anime_id）が変わった upsert は genres を破棄する", async () => {
+    await insertWork(db, {
+      annictWorkId: 800,
+      malAnimeId: 21,
+      genres: ["Action"],
+      genresFetchedAt: new Date(),
+      genresAttemptedAt: new Date(),
+    });
+    const repo = worksRepository(db);
+    await repo.upsertAnnictWork({
+      annictWorkId: 800,
+      title: "作品",
+      malAnimeId: 22, // 名寄せ先が訂正された
+      updatedAt: new Date(),
+    });
+
+    const row = await genresOf(db, 800);
+    expect(row?.malAnimeId).toBe(22);
+    // 旧 ID 由来のジャンルは破棄され、cron の再取得対象に戻る
+    expect(row?.genres).toBeNull();
+    expect(row?.genresFetchedAt).toBeNull();
+    expect(row?.genresAttemptedAt).toBeNull();
+  });
+
+  it("名寄せキーが変わらない upsert は genres を温存する", async () => {
+    await insertWork(db, {
+      annictWorkId: 801,
+      malAnimeId: 21,
+      genres: ["Action"],
+      genresFetchedAt: new Date(),
+    });
+    const repo = worksRepository(db);
+    await repo.upsertAnnictWork({
+      annictWorkId: 801,
+      title: "作品",
+      malAnimeId: 21, // 同じキー
+      updatedAt: new Date(),
+    });
+
+    expect((await genresOf(db, 801))?.genres).toEqual(["Action"]);
+  });
+
+  it("タイトル検索で名寄せキーが入り直した行は genres を破棄する", async () => {
+    await insertWork(db, {
+      annictWorkId: 802,
+      kitsuAnimeId: 100, // 旧キーで genres を解決済み
+      genres: ["Action"],
+      genresFetchedAt: new Date(),
+      genresAttemptedAt: new Date(),
+    });
+    const repo = worksRepository(db);
+    // Kitsu タイトル検索で別のキーに名寄せ直した
+    await repo.updateMalAnimeIdFromSearch(802, 21, 300, new Date());
+
+    const row = await genresOf(db, 802);
+    expect(row?.malAnimeId).toBe(21);
+    expect(row?.kitsuAnimeId).toBe(300);
+    expect(row?.genres).toBeNull();
   });
 
   it("Kitsu に無く MAL Client ID も無い作品は空配列に確定し、取得済みとして外れる", async () => {

@@ -303,6 +303,45 @@ describe("useAnimeList", () => {
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.endCursor).toBe("cur1");
   });
+
+  it("fetchAllPages を渡したタイトル検索は全ページを自動追い読みする", async () => {
+    // メディア/ジャンルのクライアント側絞り込みが有効なときは、先頭ページに
+    // 無い一致作品を見落とさないため絞り込み対象の全件を取得する（issue #346）。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = await renderHook(
+      () => useAnimeList("作品", undefined, { fetchAllPages: true }),
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(result.current.data?.map((w) => w.title)).toEqual([
+      "作品A",
+      "作品B",
+    ]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
+    const [second] = mockSearchGet.mock.calls[1];
+    expect(second.query.after).toBe("cur1");
+  });
 });
 
 describe("usePrefetchSeasonWorks", () => {

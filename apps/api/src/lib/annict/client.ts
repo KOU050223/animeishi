@@ -409,13 +409,8 @@ export async function fetchAnnictWorkByAnnictId(
 
 // --- searchWorks（タイトル検索・作品マスタの代替） ---
 
-// タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
-// 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
-// 並びはシーズン検索と同じく WATCHERS_COUNT 降順（人気順）で、
-// 有名どころが先に来るようにする（issue #346）。
-const SEARCH_WORKS_BY_TITLE_QUERY = `
-query SearchWorksByTitle($titles: [String!], $after: String) {
-  searchWorks(titles: $titles, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {
+// タイトル検索の 2 クエリで共有する返りフィールド。
+const SEARCH_WORKS_BY_TITLE_FIELDS = `
     pageInfo { hasNextPage endCursor }
     nodes {
       id
@@ -429,7 +424,25 @@ query SearchWorksByTitle($titles: [String!], $after: String) {
       media
       watchersCount
       image { ${WORK_IMAGE_FIELDS} }
-    }
+    }`;
+
+// タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
+// 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
+// 並びはシーズン検索と同じく WATCHERS_COUNT 降順（人気順）で、
+// 有名どころが先に来るようにする（issue #346）。
+const SEARCH_WORKS_BY_TITLE_QUERY = `
+query SearchWorksByTitle($titles: [String!], $after: String) {
+  searchWorks(titles: $titles, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {${SEARCH_WORKS_BY_TITLE_FIELDS}
+  }
+}`;
+
+// 作品照合（dアニメインポート・おすすめのタイトル再検索）用のタイトル検索。
+// 「タイトルが一番近い作品」を上位 50 件の候補に入れたいので Annict 既定の
+// 関連度順を使う。人気順にすると、同名・類似タイトルだが無名な作品が
+// 候補圏外に押し出されて照合を外しうるため、UI 検索とはクエリを分ける。
+const SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY = `
+query SearchWorksByTitleRelevance($titles: [String!], $after: String) {
+  searchWorks(titles: $titles, first: 50, after: $after) {${SEARCH_WORKS_BY_TITLE_FIELDS}
   }
 }`;
 
@@ -494,12 +507,17 @@ function mapSearchWorksConnection(
  * タイトル文字列で Annict 作品を検索し、整形した作品メタの配列を返す。
  * 検索結果は作品マスタの代替であり、視聴ステータス（state）は持たない。
  * `after` でカーソルページングできる。
+ *
+ * `orderByWatchersCount` は検索 UI 向けの人気順ソート。作品照合
+ * （インポート・おすすめの再検索）では使わない — 関連度順の方が
+ * 「タイトルが近い作品」を候補に残せるため。
  */
 export async function searchAnnictWorksByTitle(
   accessToken: string,
   title: string,
   after: string | null = null,
   fetchImpl: typeof fetch = fetch,
+  options: { orderByWatchersCount?: boolean } = {},
 ): Promise<{
   works: AnnictLibraryEntry[];
   hasNextPage: boolean;
@@ -507,7 +525,9 @@ export async function searchAnnictWorksByTitle(
 }> {
   const data = await annictGraphQL<SearchWorksByTitleResponse>(
     accessToken,
-    SEARCH_WORKS_BY_TITLE_QUERY,
+    options.orderByWatchersCount
+      ? SEARCH_WORKS_BY_TITLE_QUERY
+      : SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
     { titles: [title], after },
     fetchImpl,
   );
@@ -591,7 +611,7 @@ export async function searchAnnictWorksByTitles(
   const run = async (ts: string[]) => {
     const data = await annictGraphQL<SearchWorksByTitleResponse>(
       accessToken,
-      SEARCH_WORKS_BY_TITLE_QUERY,
+      SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
       { titles: ts },
       fetchImpl,
     );

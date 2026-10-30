@@ -35,6 +35,7 @@ const DDL_STATEMENTS = [
     watchers_count INTEGER,
     genres TEXT,
     genres_fetched_at INTEGER,
+    genres_attempted_at INTEGER,
     updated_at INTEGER NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS watch_history (

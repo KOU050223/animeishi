@@ -475,6 +475,35 @@ describe("searchAnnictWorksByTitle", () => {
     expect(result.endCursor).toBeNull();
   });
 
+  it("検索 UI 指定（orderByWatchersCount）は watchersCount 降順で問い合わせる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksByTitle("tok", "進撃", null, fetchMock, {
+      orderByWatchersCount: true,
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.query).toContain("field: WATCHERS_COUNT");
+    expect(body.query).toContain("direction: DESC");
+  });
+
+  it("既定（照合用途）は orderBy を付けず関連度順で問い合わせる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksByTitle("tok", "進撃", null, fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.query).not.toContain("orderBy");
+  });
+
   it("検索結果でも画像 URL をフォールバックする", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       searchPage(
@@ -554,6 +583,17 @@ describe("searchAnnictWorksByTitles", () => {
     expect(works.map((w) => w.annictWorkId)).toEqual([1]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(titlesOf(fetchMock, 0)).toEqual(["作品1", "作品2"]);
+  });
+
+  it("照合用のまとめ検索は orderBy を付けず関連度順で問い合わせる", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(searchPage([workNode(1)]));
+
+    await searchAnnictWorksByTitles("tok", ["作品1"], fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    // 人気順にするとタイトルが近い無名作品が候補圏外に押し出されるため、
+    // 照合は Annict 既定の関連度順にする（issue #346 レビュー）。
+    expect(body.query).not.toContain("orderBy");
   });
 
   // issue #219: Annict の title_cont は DB の LIKE 部分一致なので、
