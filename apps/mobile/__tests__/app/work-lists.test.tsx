@@ -28,18 +28,19 @@ let mockLists:
     }[]
   | undefined;
 let mockListsLoading = false;
-const mockRemoveMutate = jest.fn();
+const mockRemoveMutateAsync = jest.fn();
 jest.mock("@/lib/workList/useWorkLists", () => ({
   useWorkLists: () => ({
     data: mockLists,
     isLoading: mockListsLoading,
     isError: false,
   }),
-  useDeleteWorkList: () => ({ mutate: mockRemoveMutate }),
+  useDeleteWorkList: () => ({ mutateAsync: mockRemoveMutateAsync }),
 }));
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  mockRemoveMutateAsync.mockResolvedValue({ ok: true });
   mockLists = undefined;
   mockListsLoading = false;
 });
@@ -92,7 +93,7 @@ describe("WorkListsScreen", () => {
       expect.any(Function),
       expect.objectContaining({ destructive: true }),
     );
-    expect(mockRemoveMutate).toHaveBeenCalledWith(3, expect.anything());
+    expect(mockRemoveMutateAsync).toHaveBeenCalledWith(3);
   });
 
   it("リストが無ければ空の案内を出す", async () => {

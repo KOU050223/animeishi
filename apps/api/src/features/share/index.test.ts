@@ -695,6 +695,8 @@ describe("作品リストの共有（issue #349）", () => {
     expect(body.items[0]?.hostedImageUrl).toBe(
       `http://localhost/images/works/${WORK_B}`,
     );
+    // 共有解除後にキャッシュへ残らないよう、JSON も保存しない
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("GET /share/work-lists/:token: 不明なトークンは 404 を返す", async () => {

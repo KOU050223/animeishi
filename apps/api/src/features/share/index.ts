@@ -175,6 +175,9 @@ const share = new Hono<ShareBindings>()
           })),
         },
         200,
+        // 共有解除後に中間キャッシュへ残さないため、HTML と同じく
+        // JSON にも保存を許さない（tier 表の共有と同じ考え方）。
+        { "Cache-Control": "no-store" },
       );
     },
   )

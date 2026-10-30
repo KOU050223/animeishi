@@ -38,12 +38,14 @@ export default function WorkListsScreen() {
       "この作品リストを削除しますか？",
       `「${title}」を削除します。共有リンクも無効になり、この操作は取り消せません。`,
       () => {
-        remove.mutate(id, {
-          onError: () =>
-            alert("削除に失敗しました", "時間をおいて再度お試しください。", {
-              okLabel: "OK",
-            }),
-        });
+        // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
+        // ため、mutateAsync の promise で失敗を個別に拾う
+        // （FavoritesSection と同じ方式）。
+        void remove.mutateAsync(id).catch(() =>
+          alert("削除に失敗しました", "時間をおいて再度お試しください。", {
+            okLabel: "OK",
+          }),
+        );
       },
       {
         confirmLabel: "削除する",
