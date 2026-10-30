@@ -13,6 +13,7 @@ import type {
   SharedCustomTierList,
   SharedTierList,
   SharedWatchHistory,
+  SharedWorkList,
 } from "./repository";
 
 export type TierRow = { key: string; label: string; color: string };
@@ -199,7 +200,11 @@ const WORK_IMAGE_ONERROR =
   "var a=[];try{a=JSON.parse(this.dataset.fallback||'[]')}catch(e){}var u=a.shift();if(u){this.dataset.fallback=JSON.stringify(a);this.src=u}else{this.remove()}";
 
 export function workImageHtml(
-  item: SharedTierList["items"][number],
+  item: {
+    annictWorkId: number;
+    resolvedImageUrl: string | null;
+    imageUrl: string | null;
+  },
   requestUrl: string,
 ): string {
   // 自前の画像プロキシ URL を最優先（外部候補の取得・R2 保存はプロキシが担う）。
@@ -349,6 +354,100 @@ function buildWorkTierListHtml(input: {
   <h1>${escapeHtml(input.list.title)}</h1>
   <p class="owner">${input.ownerLine}</p>
   ${rowsHtml}
+</body>
+</html>`;
+}
+
+/**
+ * オリジナル作品リストの共有ページ（issue #349）。tier 行のない順位付き
+ * 一覧で、説明文があれば所有者行の下に出す。作品画像・OGP・ダーク追従の
+ * 組み立ては tier 表の共有ページ（buildWorkTierListHtml）と同じ方式。
+ */
+export function buildSharedWorkListHtml(
+  list: SharedWorkList,
+  requestUrl: string,
+): string {
+  const title = `${escapeHtml(list.title)} - Animeishi`;
+  const description = `${escapeHtml(list.ownerUsername)} の作品リスト`;
+
+  // og:image には先頭の作品画像を使う（tier 表の共有ページと同じ選び方）。
+  const ogImageCandidates = list.items
+    .flatMap((item) => [
+      workImageUrl(requestUrl, item.annictWorkId),
+      item.resolvedImageUrl,
+      item.imageUrl,
+    ])
+    .filter((u): u is string => !!u && isSafeImageUrl(u));
+  const ogImage =
+    ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
+    ogImageCandidates[0];
+
+  const itemsHtml = list.items
+    .map(
+      (item) => `<li class="work">
+      <span class="rank">${item.position + 1}</span>
+      ${workImageHtml(item, requestUrl)}
+      <span class="work-title">${escapeHtml(item.title)}</span>
+    </li>`,
+    )
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:type" content="website" />
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    .owner { color: #555; margin: 4px 0 4px; }
+    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
+    .works { list-style: none; padding: 0; margin: 24px 0 0; }
+    .work { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .rank { min-width: 2em; text-align: right; font-weight: bold; color: #777; }
+    .work-image { width: 48px; height: 64px; object-fit: cover; border-radius: 4px; background: #ddd; }
+    .work-title { overflow-wrap: anywhere; }
+    /* アプリと同じく、閲覧者のシステムスキームに追従して
+       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .owner { color: #94a3b8; }
+      .description { color: #cbd5e1; }
+      .work { border-bottom-color: #334155; }
+      .rank { color: #94a3b8; }
+      .work-image { background: #334155; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(list.title)}</h1>
+  <p class="owner">${escapeHtml(list.ownerUsername)} の作品リスト</p>
+  ${list.description ? `<p class="description">${escapeHtml(list.description)}</p>` : ""}
+  ${list.items.length > 0 ? `<ol class="works">\n${itemsHtml}\n  </ol>` : "<p>作品はまだありません。</p>"}
+</body>
+</html>`;
+}
+
+export function workListNotFoundHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>作品リストが見つかりません - Animeishi</title>
+</head>
+<body>
+  <h1>作品リストが見つかりません</h1>
+  <p>この共有リンクは無効になったか、存在しません。</p>
 </body>
 </html>`;
 }

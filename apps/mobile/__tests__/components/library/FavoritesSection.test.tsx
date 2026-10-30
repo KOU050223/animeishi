@@ -10,6 +10,11 @@ import {
 import { FavoritesSection } from "@/components/library/FavoritesSection";
 import { ApiRequestError } from "@/lib/apiError";
 
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 const mockRemoveMutateAsync = jest.fn();
 const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
@@ -65,6 +70,13 @@ beforeEach(async () => {
 });
 
 describe("FavoritesSection", () => {
+  it("作品リストの入口から作品リスト一覧へ遷移する（issue #349）", async () => {
+    await render(<FavoritesSection />);
+    await fireEvent.press(screen.getByTestId("favorites-open-work-lists"));
+
+    expect(mockPush).toHaveBeenCalledWith("/work-lists");
+  });
+
   it("解除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
     await render(<FavoritesSection />);
     await fireEvent.press(

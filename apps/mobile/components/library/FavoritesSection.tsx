@@ -17,6 +17,7 @@ import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
+import { useRouter } from "expo-router";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
@@ -26,6 +27,7 @@ import { useThemeColors } from "@/lib/theme";
 // ここではセクション名の見出しを出さず件数と検索欄だけを表示する。
 export function FavoritesSection() {
   const colors = useThemeColors();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -109,6 +111,23 @@ export function FavoritesSection() {
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
+        {/* 作品リスト（issue #349）への入口。推しとは別機能だが、
+            「好きな作品をまとめる」用途が近いためこのセクションに置く。
+            恒久的な置き場所は #352 で検討中。 */}
+        <TouchableOpacity
+          className="mb-3 flex-row items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-800 dark:bg-indigo-950"
+          onPress={() => router.push("/work-lists")}
+          accessibilityRole="button"
+          accessibilityLabel="作品リストを開く"
+          testID="favorites-open-work-lists"
+        >
+          <Text className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+            📋 作品リスト
+          </Text>
+          <Text className="text-xs text-indigo-500 dark:text-indigo-400">
+            テーマ別のリストを作って共有
+          </Text>
+        </TouchableOpacity>
         <Text className="text-xs text-gray-400 dark:text-slate-500">
           {enriched.length} 件
         </Text>

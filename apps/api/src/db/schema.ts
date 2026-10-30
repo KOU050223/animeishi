@@ -401,6 +401,51 @@ export const customTierListItems = sqliteTable(
   ],
 );
 
+// ---- work_lists (タイトル・説明付きのオリジナル作品リスト) ----
+// favorites（推し）とは別機能で、1 人 1 一覧の favorites と違い
+// テーマ別に複数作れるためスコープキーを持たず id で識別する
+// （custom_tier_lists と同じ判断）。
+export const workLists = sqliteTable(
+  "work_lists",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    // リストの説明文。null は未設定。
+    description: text("description"),
+    // 共有 URL（/share/work-lists/:token）のトークン。null は未共有。
+    shareToken: text("share_token"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    index("work_lists_user_idx").on(t.userId),
+    unique("work_lists_share_token_unique").on(t.shareToken),
+  ],
+);
+
+// ---- work_list_items (作品リスト内の作品) ----
+// tier 配置は持たず、並び順は position だけを持つ。
+export const workListItems = sqliteTable(
+  "work_list_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    workListId: integer("work_list_id")
+      .notNull()
+      .references(() => workLists.id, { onDelete: "cascade" }),
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+  },
+  (t) => [
+    unique("work_list_items_list_work_unique").on(t.workListId, t.annictWorkId),
+    index("work_list_items_list_idx").on(t.workListId),
+  ],
+);
+
 // ---- reports (ユーザー通報) ----
 // App Store Guideline 1.2 (UGC) 対応。運営がモデレーションするための通報を記録する。
 // reporter / reported のどちらのアカウントが削除されても cascade で消える。
@@ -594,6 +639,10 @@ export type CustomTierList = typeof customTierLists.$inferSelect;
 export type NewCustomTierList = typeof customTierLists.$inferInsert;
 export type CustomTierListItem = typeof customTierListItems.$inferSelect;
 export type NewCustomTierListItem = typeof customTierListItems.$inferInsert;
+export type WorkList = typeof workLists.$inferSelect;
+export type NewWorkList = typeof workLists.$inferInsert;
+export type WorkListItem = typeof workListItems.$inferSelect;
+export type NewWorkListItem = typeof workListItems.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
 export type Analysis = typeof analyses.$inferSelect;
