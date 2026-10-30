@@ -382,6 +382,12 @@ export async function matchDanimeWorks(
         basePool,
         { registeredWorkIds: registered },
       );
+      // ローカルキャッシュで 1 件に確定したら Annict へは送らない
+      // （issue #219 のサブリクエスト削減が目的）。キャッシュは Annict
+      // 全件ではないため、同名の別作品が Annict にだけ存在すると誤確定
+      // し得る残リスクはある。全件を Annict で再検証すると往復数が
+      // 削減できず本末転倒になるため、レビュー画面でのユーザー確認を
+      // 安全網としてこのトレードオフを取る。
       if (classified.status === "exact") {
         results.set(input.danimeWorkId, {
           ...classified,
@@ -534,15 +540,15 @@ export async function matchDanimeWorks(
   }
 
   stats.secondPassSearches = secondPassSearches;
-  // スキップされた入力は pending にする（exact 確定済みならそのまま）。
-  // 未検索のまま none にすると「Annict に存在しない」という誤った
-  // 確定を返すことになるため、保留として呼び出し側の再送に回す。
+  // スキップ（未検索）された入力は pending にする。他チャンクの候補が
+  // 共有プール経由で一致していても、そのタイトル自体を検索していない
+  // 以上 Annict 側に別候補が無いことを保証できず、exact / none の
+  // 確定値は誤確定になり得るため、保留として呼び出し側の再送に回す。
   const finalResults = items.map((i) => {
-    const r = results.get(i.danimeWorkId)!;
-    if (skipped.has(i.danimeWorkId) && r.status !== "exact") {
+    if (skipped.has(i.danimeWorkId)) {
       return { ...i, status: "pending" as const, work: null, candidates: [] };
     }
-    return r;
+    return results.get(i.danimeWorkId)!;
   });
   stats.pending = finalResults.filter((r) => r.status === "pending").length;
   stats.elapsedMs = Date.now() - startedAt;

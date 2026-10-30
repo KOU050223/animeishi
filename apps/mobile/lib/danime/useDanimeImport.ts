@@ -170,6 +170,9 @@ export function useDanimeMatch() {
         }
         const body = await res.json();
         // チャンク分割・pending 再送時は各リクエストの統計を合算する。
+        // 検索回数・リトライ・経過時間は累積でよいが、pending 件数は
+        // 「その応答時点の未検索数」なので合算すると結果一覧とずれる。
+        // 最終的な items が決まってから数え直す。
         if (body.stats) {
           stats = {
             localPassSearches:
@@ -180,7 +183,6 @@ export function useDanimeMatch() {
             secondPassSearches:
               (stats?.secondPassSearches ?? 0) + body.stats.secondPassSearches,
             retries: (stats?.retries ?? 0) + body.stats.retries,
-            pending: (stats?.pending ?? 0) + (body.stats.pending ?? 0),
             elapsedMs: (stats?.elapsedMs ?? 0) + body.stats.elapsedMs,
           };
         }
@@ -223,6 +225,9 @@ export function useDanimeMatch() {
             candidates: [],
           },
       );
+      if (stats) {
+        stats.pending = items.filter((i) => i.status === "pending").length;
+      }
       return {
         items: demoteAmbiguousExactAcrossChunks(items),
         elapsedMs: Date.now() - startedAt,

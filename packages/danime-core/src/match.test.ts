@@ -593,6 +593,33 @@ describe("matchDanimeWorks: pending とローカル検索（issue #219）", () =
     expect(stats.pending).toBe(10);
   });
 
+  it("スキップされた入力は他チャンクの候補と一致しても exact にしない", async () => {
+    // 未検索の入力が共有プールの候補で確定すると、Annict 側に別候補が
+    // あるかを確認しないまま誤確定するため pending にする。
+    const searcher = vi.fn(async (titles: string[]) =>
+      titles.some((t) => t.includes("保留"))
+        ? null
+        : [
+            ...titles.map((t, i) => work({ annictId: i + 1, title: t })),
+            work({ annictId: 99, title: "保留作品" }),
+          ],
+    );
+    const items = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        danimeWorkId: String(i),
+        title: `確定作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+      {
+        danimeWorkId: "10",
+        title: "保留作品",
+        targetState: "WATCHED" as const,
+      },
+    ];
+    const { results } = await matchDanimeWorks(searcher, items);
+    expect(results[10]?.status).toBe("pending");
+  });
+
   it("再検索回数の上限に達して残った未解決入力は pending になる", async () => {
     const searcher = mockSearcher(() => []);
     // 未解決 60 件。第 2 パス上限（50 往復）では全件の再検索を

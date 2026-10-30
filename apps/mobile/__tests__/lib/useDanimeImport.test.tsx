@@ -259,6 +259,13 @@ describe("useDanimeMatch", () => {
                   candidates: [],
                 },
           ),
+          stats: {
+            firstPassSearches: 1,
+            secondPassSearches: 0,
+            retries: 0,
+            pending: isFirst ? 1 : 0,
+            elapsedMs: 10,
+          },
         }),
       };
     });
@@ -279,6 +286,9 @@ describe("useDanimeMatch", () => {
     expect(result.current.data?.items.every((i) => i.status === "exact")).toBe(
       true,
     );
+    // stats.pending は応答の件数を合算せず、最終結果から数え直す
+    // （初回の pending 1 は再送で確定済みなので 0）。
+    expect(result.current.data?.stats?.pending).toBe(0);
   });
 
   it("1 ラウンドで 1 件も確定しない場合は再送を打ち切り pending のまま返す", async () => {
