@@ -144,8 +144,10 @@ const works = new Hono<AuthVariables>()
             seasonYear: cachedWork.seasonYear,
             imageUrl: cachedWork.imageUrl,
             malAnimeId: cachedWork.malAnimeId,
+            watchersCount: cachedWork.watchersCount,
             resolvedImageUrl: cachedWork.resolvedImageUrl,
             hostedImageUrl: workImageUrl(c.req.url, id),
+            genres: cachedWork.genres,
           },
         ];
       });

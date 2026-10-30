@@ -144,6 +144,7 @@ describe("作品検索 API", () => {
       currentAnnictSeason(),
       "2025-summer",
       "2030-winter",
+      "2030",
     ]) {
       await caches.default.delete(seasonWorksCacheUrl(season));
     }
@@ -238,6 +239,30 @@ describe("作品検索 API", () => {
         (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
       );
       expect(body.variables.seasons).toEqual(["2025-summer"]);
+    });
+
+    it("GET /works/search: season に年だけを指定するとその年の 4 クールを検索する（issue #346）", async () => {
+      const fetchMock = mockSearchWorks([]);
+
+      const app = buildApp();
+      const res = await app.request(
+        "/works/search?season=2030",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = JSON.parse(
+        (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+      );
+      // searchWorks に seasonYears 引数は無いため、年は 4 クール分の
+      // seasons 文字列で表現する
+      expect(body.variables.seasons).toEqual([
+        "2030-winter",
+        "2030-spring",
+        "2030-summer",
+        "2030-autumn",
+      ]);
     });
 
     it("GET /works/search: シーズン検索は複数ページを辿って全件返す", async () => {

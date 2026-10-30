@@ -16,7 +16,10 @@ import {
   isPersistableState,
   ANNICT_ALL_STATUS_STATES,
 } from "@/lib/annict/statusState";
-import { searchAnnictWorksByTitles } from "@/lib/annict/client";
+import {
+  expandSeasonQuery,
+  searchAnnictWorksByTitles,
+} from "@/lib/annict/client";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -833,6 +836,67 @@ describe("searchAnnictWorksBySeason", () => {
 
     expect(result.works).toHaveLength(0);
     expect(result.hasNextPage).toBe(false);
+  });
+
+  it("年のみの指定はその年の 4 クール分の seasons に展開する（issue #346）", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksBySeason("tok", "2026", null, fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.seasons).toEqual([
+      "2026-winter",
+      "2026-spring",
+      "2026-summer",
+      "2026-autumn",
+    ]);
+  });
+
+  it("季節指定はそのまま 1 要素の seasons にする", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksBySeason("tok", "2026-autumn", null, fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.seasons).toEqual(["2026-autumn"]);
+  });
+
+  it("シーズン検索は watchersCount（人気）降順で問い合わせる", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        searchPage([workNode(1)], { hasNextPage: false, endCursor: null }),
+      );
+
+    await searchAnnictWorksBySeason("tok", "2026-spring", null, fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.query).toContain("field: WATCHERS_COUNT");
+    expect(body.query).toContain("direction: DESC");
+  });
+});
+
+describe("expandSeasonQuery", () => {
+  it("4 桁の年は冬・春・夏・秋の 4 要素に展開する", () => {
+    expect(expandSeasonQuery("2026")).toEqual([
+      "2026-winter",
+      "2026-spring",
+      "2026-summer",
+      "2026-autumn",
+    ]);
+  });
+
+  it("季節付きの文字列はそのまま 1 要素で返す", () => {
+    expect(expandSeasonQuery("2026-spring")).toEqual(["2026-spring"]);
+    expect(expandSeasonQuery("1999-autumn")).toEqual(["1999-autumn"]);
   });
 });
 

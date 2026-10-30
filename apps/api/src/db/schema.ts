@@ -106,6 +106,15 @@ export const annictWorks = sqliteTable("annict_works", {
   // 同期する。視聴履歴の「視聴者数順」ソートに使う（issue #345）。
   // null は未取得（read-through 経路以外でキャッシュされた作品）。
   watchersCount: integer("watchers_count"),
+  // ジャンル・タグ名の配列（issue #346）。Annict にジャンルは無いため、
+  // cron が mal_anime_id / kitsu_anime_id 経由で Kitsu categories
+  // （無ければ MAL genres+themes）を取り込んで保持する。
+  // null は未取得（絞り込みでは「不明」扱い）。空配列は「取得済みだが
+  // 供給元にも無い」確定値で、長めの TTL で再取得される。
+  genres: text("genres", { mode: "json" }).$type<string[]>(),
+  // ジャンル取得を最後に試行した時刻。cron が未取得作品を回す際の
+  // クールダウンに使い、取得失敗の作品の叩き直し頻度を抑える。
+  genresFetchedAt: integer("genres_fetched_at", { mode: "timestamp" }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 

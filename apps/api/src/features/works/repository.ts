@@ -155,9 +155,9 @@ function notBlockedImageSource() {
 }
 
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
-// annict_works は 19 カラム（watchers_count 追加後）なので
-// 5 行 × 19 = 95 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
-const ANNICT_WORK_UPSERT_CHUNK = 5;
+// annict_works は 21 カラム（genres / genres_fetched_at 追加後）なので
+// 4 行 × 21 = 84 変数 < 100。これ以上カラムが増える場合はチャンクを絞ること。
+const ANNICT_WORK_UPSERT_CHUNK = 4;
 
 // updateResolvedImages の 1 batch あたりの statement 数。更新は行単位の
 // statement になるため、往復回数と batch サイズのバランスで区切る。
@@ -653,6 +653,98 @@ export function worksRepository(db: DrizzleDb) {
         await db
           .update(annictWorks)
           .set({ malSearchAttemptedAt: at })
+          .where(
+            inArray(annictWorks.annictWorkId, annictWorkIds.slice(i, i + 90)),
+          );
+      }
+    },
+
+    // ---- ジャンル・タグの取り込み（issue #346） ----
+    /**
+     * cron でジャンル取得を試行する作品を少量取得する。
+     * 最近書き込まれた（＝検索・表示された）作品を優先するため updated_at 降順。
+     * 名寄せキー（mal_anime_id か kitsu_anime_id）の無い作品はそもそも
+     * 引けないため対象外（キーが後から埋まったときに拾われる）。
+     *
+     * 対象は「未取得（genres is null）でクールダウン切れ」の作品に加えて、
+     * 「空配列（取得済みだが供給元にも無い）だが genres_fetched_at が
+     * emptyGenresStaleBefore より古い」作品。後から Kitsu にカテゴリが
+     * 登録される作品を救うための TTL 再取得（image fallback の 'none' と
+     * 同じ発想）。
+     */
+    async getPendingGenreWorks(
+      limit: number,
+      attemptedStaleBefore: Date,
+      emptyGenresStaleBefore: Date,
+    ): Promise<
+      {
+        annictWorkId: number;
+        malAnimeId: number | null;
+        kitsuAnimeId: number | null;
+      }[]
+    > {
+      const safeLimit = Math.max(0, Math.min(Math.trunc(limit), 100));
+      if (safeLimit === 0) return [];
+
+      return db
+        .select({
+          annictWorkId: annictWorks.annictWorkId,
+          malAnimeId: annictWorks.malAnimeId,
+          kitsuAnimeId: annictWorks.kitsuAnimeId,
+        })
+        .from(annictWorks)
+        .where(
+          and(
+            or(
+              sql`${annictWorks.malAnimeId} is not null`,
+              sql`${annictWorks.kitsuAnimeId} is not null`,
+            ),
+            or(
+              and(
+                isNull(annictWorks.genres),
+                or(
+                  isNull(annictWorks.genresFetchedAt),
+                  lt(annictWorks.genresFetchedAt, attemptedStaleBefore),
+                ),
+              ),
+              and(
+                sql`${annictWorks.genres} = '[]'`,
+                or(
+                  isNull(annictWorks.genresFetchedAt),
+                  lt(annictWorks.genresFetchedAt, emptyGenresStaleBefore),
+                ),
+              ),
+            ),
+          ),
+        )
+        .orderBy(desc(annictWorks.updatedAt))
+        .limit(safeLimit);
+    },
+
+    /**
+     * 取り込んだジャンル・タグを書き込む。取得試行時刻も立てる。
+     * 解決した行だけを呼び出し側が渡す（失敗行は markGenreFetchAttempted）。
+     */
+    async updateWorkGenres(
+      annictWorkId: number,
+      genres: string[],
+      at: Date,
+    ): Promise<void> {
+      await db
+        .update(annictWorks)
+        .set({ genres, genresFetchedAt: at })
+        .where(eq(annictWorks.annictWorkId, annictWorkId));
+    },
+
+    /** ジャンル取得に失敗した作品に試行時刻を立てる（90 件ずつ分割）。 */
+    async markGenreFetchAttempted(
+      annictWorkIds: number[],
+      at: Date,
+    ): Promise<void> {
+      for (let i = 0; i < annictWorkIds.length; i += 90) {
+        await db
+          .update(annictWorks)
+          .set({ genresFetchedAt: at })
           .where(
             inArray(annictWorks.annictWorkId, annictWorkIds.slice(i, i + 90)),
           );

@@ -207,6 +207,9 @@ export type AnnictLibraryEntry = {
   imageUrl: string | null;
   // Annict Work.malAnimeId は文字列。数値変換に失敗する値は捨てて null にする。
   malAnimeId: number | null;
+  // Annict Work.media（"TV" | "MOVIE" | "OVA" | "WEB" | "OTHER"）。
+  // 取得しないクエリ経路では undefined のまま。メディア種別絞り込み用（issue #346）。
+  media?: string | null;
   // Annict Work.watchersCount（作品の人気指標）。取得しないクエリ経路では
   // undefined のまま（その場合はキャッシュの既存値を消さない）。
   watchersCount?: number | null;
@@ -344,6 +347,7 @@ query SearchWorkNodeId($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
+      media
       watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
@@ -361,6 +365,7 @@ type SearchWorksResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
+      media: string | null;
       watchersCount: number | null;
       image: AnnictWorkImage | null;
     }[];
@@ -397,6 +402,7 @@ export async function fetchAnnictWorkByAnnictId(
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
+    media: work.media,
     watchersCount: work.watchersCount,
   };
 }
@@ -405,9 +411,11 @@ export async function fetchAnnictWorkByAnnictId(
 
 // タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
 // 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
+// 並びはシーズン検索と同じく WATCHERS_COUNT 降順（人気順）で、
+// 有名どころが先に来るようにする（issue #346）。
 const SEARCH_WORKS_BY_TITLE_QUERY = `
 query SearchWorksByTitle($titles: [String!], $after: String) {
-  searchWorks(titles: $titles, first: 50, after: $after) {
+  searchWorks(titles: $titles, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       id
@@ -418,6 +426,8 @@ query SearchWorksByTitle($titles: [String!], $after: String) {
       titleEn
       seasonName
       seasonYear
+      media
+      watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
   }
@@ -435,6 +445,8 @@ type SearchWorksByTitleResponse = {
       titleEn: string | null;
       seasonName: string | null;
       seasonYear: number | null;
+      media: string | null;
+      watchersCount: number | null;
       image: AnnictWorkImage | null;
     }[];
   } | null;
@@ -467,6 +479,8 @@ function mapSearchWorksConnection(
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
+    media: work.media,
+    watchersCount: work.watchersCount,
   }));
 
   return {
@@ -625,6 +639,8 @@ query SearchWorksByAnnictIds($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
+      media
+      watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
   }
@@ -671,6 +687,19 @@ export function currentAnnictSeason(now: Date = new Date()): string {
   return `${year}-${season}`;
 }
 
+/**
+ * シーズン文字列（例: "2026-spring"）を searchWorks の seasons 引数に展開する。
+ * "2026-spring" はそのまま 1 要素で、年のみ（"2026"）はその年の 4 クール分に
+ * 展開する（放送年での絞り込み。searchWorks に seasonYears 引数は無いため
+ * seasons で表現する。issue #346）。
+ */
+export function expandSeasonQuery(season: string): string[] {
+  if (/^\d{4}$/.test(season)) {
+    return ANNICT_SEASON_NAMES.map((key) => `${season}-${key}`);
+  }
+  return [season];
+}
+
 // シーズン検索で 1 リクエスト内に辿る最大ページ数（50 件 × 12 = 600 作品）。
 // 1 シーズンの作品数（深夜アニメ・OVA 等を含む）を実用上カバーしつつ、
 // Workers のサブリクエスト上限と Annict のレート制限内に収めるための上限。
@@ -692,6 +721,8 @@ query SearchWorksBySeason($seasons: [String!], $after: String) {
       titleEn
       seasonName
       seasonYear
+      media
+      watchersCount
       image { ${WORK_IMAGE_FIELDS} }
     }
   }
@@ -733,7 +764,7 @@ export async function searchAnnictWorksBySeason(
       annictGraphQL<SearchWorksByTitleResponse>(
         accessToken,
         SEARCH_WORKS_BY_SEASON_QUERY,
-        { seasons: [season], after: cursor },
+        { seasons: expandSeasonQuery(season), after: cursor },
         fetchImpl,
       ),
     );
