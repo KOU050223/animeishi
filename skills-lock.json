@@ -7,6 +7,12 @@
       "skillPath": "plugins/expo/skills/add-app-clip/SKILL.md",
       "computedHash": "29ef48adaaa77de01e90380460991b8be1a63e3530e3e7cdafc792443439bf73"
     },
+    "appllama-app-design-skill": {
+      "source": "appllama/appllama-skills",
+      "sourceType": "github",
+      "skillPath": "skills/appllama-app-design-skill/SKILL.md",
+      "computedHash": "023b25559a5e9a4ab85ccffc9612d0d0f650608eb7f281dce8408a32649b2340"
+    },
     "building-native-ui": {
       "source": "expo/skills",
       "sourceType": "github",
