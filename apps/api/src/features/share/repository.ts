@@ -8,6 +8,7 @@ import {
   characterTierLists,
   customTierLists,
   watchHistory,
+  workLists,
 } from "@/db/schema";
 import {
   fetchTierListItems,
@@ -21,6 +22,10 @@ import {
   fetchCustomTierListItems,
   type CustomTierListItemWithWork,
 } from "../custom-tier-lists/repository";
+import {
+  fetchWorkListItems,
+  type WorkListItemWithWork,
+} from "../work-lists/repository";
 
 /**
  * 共有リンク（/share/tier-lists/:token 等）経由の公開参照。
@@ -175,6 +180,46 @@ export async function getSharedCustomTierList(
   return {
     title: list.title,
     tiersJson: list.tiersJson,
+    ownerUsername: list.ownerUsername,
+    items,
+  };
+}
+
+export type SharedWorkList = {
+  title: string;
+  /** リストの説明文。未設定なら null。 */
+  description: string | null;
+  ownerUsername: string;
+  items: WorkListItemWithWork[];
+};
+
+/**
+ * 共有トークンから公開用の作品リストを引く。未共有・破棄済みなら
+ * undefined。tier 表と同じくトークンを知っている人なら誰でも読める
+ * （issue #349）。
+ */
+export async function getSharedWorkList(
+  db: DrizzleDb,
+  token: string,
+): Promise<SharedWorkList | undefined> {
+  const rows = await db
+    .select({
+      id: workLists.id,
+      title: workLists.title,
+      description: workLists.description,
+      ownerUsername: users.username,
+    })
+    .from(workLists)
+    .innerJoin(users, eq(workLists.userId, users.id))
+    .where(eq(workLists.shareToken, token));
+
+  const list = rows[0];
+  if (!list) return undefined;
+
+  const items = await fetchWorkListItems(db, list.id);
+  return {
+    title: list.title,
+    description: list.description,
     ownerUsername: list.ownerUsername,
     items,
   };

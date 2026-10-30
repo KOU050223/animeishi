@@ -8,6 +8,7 @@ import {
   getSharedCustomTierList,
   getSharedTierList,
   getSharedWatchHistory,
+  getSharedWorkList,
 } from "./repository";
 import { shareTokenParamSchema } from "./schema";
 import {
@@ -16,10 +17,12 @@ import {
   buildSharedTierListHtml,
   buildSharedWatchHistoryHtml,
   buildSharedWatchHistoryMarkdown,
+  buildSharedWorkListHtml,
   notFoundHtml,
   parseTiersJson,
   proxyImage,
   watchHistoryNotFoundHtml,
+  workListNotFoundHtml,
 } from "./service";
 import { workImageUrl } from "@/lib/annict/workImage";
 
@@ -129,6 +132,42 @@ const share = new Hono<ShareBindings>()
         {
           title: list.title,
           tiers: parseTiersJson(list.tiersJson),
+          owner: { username: list.ownerUsername },
+          items: list.items.map((item) => ({
+            ...item,
+            hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
+          })),
+        },
+        200,
+      );
+    },
+  )
+  // オリジナル作品リストの共有リンク（issue #349）。tier 表と同じく
+  // ブラウザには OGP 付き HTML、JSON クライアントには構造化データを返す。
+  .get(
+    "/work-lists/:token",
+    zValidator("param", shareTokenParamSchema),
+    async (c) => {
+      const { token } = c.req.valid("param");
+      const db = createDb(c.env.DB);
+      const list = await getSharedWorkList(db, token);
+      const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
+
+      if (!list) {
+        if (wantsHtml) return c.html(workListNotFoundHtml(), 404);
+        return c.json({ error: "Shared work list not found" }, 404);
+      }
+
+      if (wantsHtml) {
+        return c.html(buildSharedWorkListHtml(list, c.req.url), 200, {
+          "Cache-Control": "no-store",
+        });
+      }
+
+      return c.json(
+        {
+          title: list.title,
+          description: list.description,
           owner: { username: list.ownerUsername },
           items: list.items.map((item) => ({
             ...item,

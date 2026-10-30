@@ -102,6 +102,9 @@ function AuthGuard() {
       <Stack.Screen name="character-tier-list" />
       {/* テーマを決めて自由に作る tier 表（issue #348） */}
       <Stack.Screen name="custom-tier-list" />
+      {/* オリジナル作品リストの一覧と編集（issue #349） */}
+      <Stack.Screen name="work-lists" />
+      <Stack.Screen name="work-list" />
       {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット） */}
       <Stack.Screen name="danime-import" />
       <Stack.Screen name="danime-import-review" />

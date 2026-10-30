@@ -9,7 +9,7 @@ function item(overrides: Partial<Item>): Item {
     resolvedImageUrl: null,
     imageUrl: null,
     ...overrides,
-  } as Item;
+  };
 }
 
 describe("workImageHtml", () => {

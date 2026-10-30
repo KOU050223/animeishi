@@ -31,6 +31,7 @@ import { tierLists } from "./features/tier-lists";
 import { user } from "./features/user";
 import { usersRoute } from "./features/users";
 import { watchHistory } from "./features/watch-history";
+import { workListsRoute } from "./features/work-lists";
 import { works } from "./features/works";
 
 type AppBindings = Env &
@@ -101,6 +102,7 @@ const routes = app
   .route("/me/tier-lists", tierLists)
   .route("/me/character-tier-lists", characterTierLists)
   .route("/me/custom-tier-lists", customTierLists)
+  .route("/me/work-lists", workListsRoute)
   .route("/user", user)
   .route("/users", usersRoute);
 
