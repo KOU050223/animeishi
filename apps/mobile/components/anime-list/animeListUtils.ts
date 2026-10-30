@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { AnimeTitle } from "@/lib/useAnimeList";
 
 export const SEASONS: Record<string, string> = {
@@ -163,30 +162,6 @@ const POSTER_PALETTES_DARK = [
   { bg: "#022c22", border: "#047857", accent: "#34d399", text: "#a7f3d0" },
   { bg: "#0f172a", border: "#334155", accent: "#94a3b8", text: "#e2e8f0" },
 ];
-
-export function useAnimeStats(data: AnimeTitle[] | undefined) {
-  return useMemo(() => {
-    const list = data ?? [];
-    const years = list
-      .map((item) => item.seasonYear)
-      .filter((year): year is number => typeof year === "number");
-    const minYear = years.length ? Math.min(...years) : null;
-    const maxYear = years.length ? Math.max(...years) : null;
-
-    return {
-      total: list.length,
-      yearRange:
-        minYear && maxYear
-          ? minYear === maxYear
-            ? `${minYear}`
-            : `${minYear}-${maxYear}`
-          : "-",
-      // 取り込み済みのジャンル・タグの種類数（issue #346）。
-      // genres=null（未取得）の作品は数えない。
-      genreCount: new Set(list.flatMap((item) => item.genres ?? [])).size,
-    };
-  }, [data]);
-}
 
 export function formatYearSeason(
   year: number | null | undefined,
