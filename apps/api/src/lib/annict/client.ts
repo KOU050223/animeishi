@@ -6,7 +6,9 @@
 // - PR2 ではクライアントの土台と OAuth 交換のみ。libraryEntries / updateStatus を
 //   叩く高レベル関数は PR3 / PR4 で足す。
 import { withAnnictRetry } from "./retry";
+import type { AnnictRetryOptions } from "./retry";
 import { isPersistableState } from "./statusState";
+import type { AnnictStatusState } from "./statusState";
 
 export const ANNICT_GRAPHQL_ENDPOINT = "https://api.annict.com/graphql";
 export const ANNICT_TOKEN_ENDPOINT = "https://api.annict.com/oauth/token";
@@ -423,6 +425,63 @@ export async function fetchAnnictWorkByAnnictId(
     media: work.media,
     watchersCount: work.watchersCount,
   };
+}
+
+// --- viewerStatusState の一括取得（bulk 登録の上書き保護用） ---
+
+// dアニメ取り込みの bulk 登録で、書き込み前に本人の現在ステータスを
+// Annict の正から確認するための一括クエリ（issue #374）。
+const WORKS_VIEWER_STATUS_QUERY = `
+query WorksViewerStatus($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 50) {
+    nodes {
+      annictId
+      viewerStatusState
+    }
+  }
+}`;
+
+type WorksViewerStatusResponse = {
+  searchWorks: {
+    nodes: {
+      annictId: number;
+      viewerStatusState: string | null;
+    }[];
+  } | null;
+};
+
+// 1 クエリで引ける viewerStatusState の件数上限（searchWorks の first）。
+const VIEWER_STATUS_CHUNK = 50;
+
+/**
+ * 指定した annictWorkId 群の本人ステータス（viewerStatusState）を返す。
+ * Annict に返らない作品・NO_STATE・未知の値は未登録としてマップに載せない。
+ */
+export async function fetchAnnictViewerStatusStates(
+  accessToken: string,
+  annictWorkIds: number[],
+  fetchImpl: typeof fetch = fetch,
+  retryOptions?: AnnictRetryOptions,
+): Promise<Map<number, AnnictStatusState>> {
+  const states = new Map<number, AnnictStatusState>();
+  for (let i = 0; i < annictWorkIds.length; i += VIEWER_STATUS_CHUNK) {
+    const data = await withAnnictRetry(
+      () =>
+        annictGraphQL<WorksViewerStatusResponse>(
+          accessToken,
+          WORKS_VIEWER_STATUS_QUERY,
+          { annictIds: annictWorkIds.slice(i, i + VIEWER_STATUS_CHUNK) },
+          fetchImpl,
+        ),
+      retryOptions,
+    );
+    for (const node of data.searchWorks?.nodes ?? []) {
+      if (isPersistableState(node.viewerStatusState)) {
+        states.set(node.annictId, node.viewerStatusState);
+      }
+    }
+  }
+  return states;
 }
 
 // --- searchWorks（タイトル検索・作品マスタの代替） ---
