@@ -87,6 +87,17 @@ export type AnalysisInput = {
    * タイトル・状態変更）も検出できるよう全件分を別途持つ。
    */
   workKeys: { annictWorkId: number; title: string; state: string }[];
+  /**
+   * ハッシュ用: レポート集計（report.ts）が参照する作品メタ。
+   * genres は cron（issue #346）が履歴とは別タイミングで後から埋めるため、
+   * タイトル・状態だけのハッシュでは更新を検出できず古い集計を返し続ける。
+   */
+  workMeta: {
+    annictWorkId: number;
+    genres: string[] | null;
+    seasonYear: number | null;
+    watchersCount: number | null;
+  }[];
   selectedGenres: string[];
 };
 
@@ -115,6 +126,13 @@ export function buildAnalysisInput(
       title: sanitizeTitle(row.title),
       state: row.state,
     })),
+    // genres は並び順が取得元依存なのでハッシュの正規化側でソートする。
+    workMeta: history.map((row) => ({
+      annictWorkId: row.annictWorkId,
+      genres: row.genres,
+      seasonYear: row.seasonYear,
+      watchersCount: row.watchersCount,
+    })),
     selectedGenres,
   };
 }
@@ -125,6 +143,8 @@ export function buildAnalysisInput(
  * 計算するため、直近 50 件の入れ替わりやタイトル変更でも無効化される。
  * workKeys は全履歴を ID でソートして持つため、プロンプトに載らない
  * 51 件目以降の変更（入替・タイトル・状態）も検出できる。
+ * workMeta はレポート集計の入力（genres・放送年・視聴者数）。履歴行の
+ * 変更と別に作品メタだけが更新されてもキャッシュを無効化する。
  */
 export async function computeInputHash(input: AnalysisInput): Promise<string> {
   const canonical = {
@@ -142,6 +162,9 @@ export async function computeInputHash(input: AnalysisInput): Promise<string> {
     workKeys: [...input.workKeys].sort(
       (a, b) => a.annictWorkId - b.annictWorkId,
     ),
+    workMeta: input.workMeta
+      .map((m) => ({ ...m, genres: m.genres ? [...m.genres].sort() : null }))
+      .sort((a, b) => a.annictWorkId - b.annictWorkId),
     selectedGenres: [...input.selectedGenres].sort(),
   };
   return sha256Hex(JSON.stringify(canonical));

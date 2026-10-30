@@ -783,6 +783,40 @@ describe("computeInputHash", () => {
     expect(await computeInputHash(titleChanged)).not.toBe(baseHash);
   });
 
+  it("作品メタ（ジャンル・放送年・視聴者数）だけが変わってもハッシュが変わる", async () => {
+    // レポート集計は履歴行ではなく作品メタに依存するため、cron 等で
+    // メタだけが後から埋まった場合も古い集計を返さないようにする。
+    const base = buildAnalysisInput([historyRow(1, "WATCHED")], []);
+    const genresFilled = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), genres: ["Action"] }],
+      [],
+    );
+    const yearChanged = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), seasonYear: 2020 }],
+      [],
+    );
+    const watchersChanged = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), watchersCount: 500 }],
+      [],
+    );
+    const baseHash = await computeInputHash(base);
+    expect(await computeInputHash(genresFilled)).not.toBe(baseHash);
+    expect(await computeInputHash(yearChanged)).not.toBe(baseHash);
+    expect(await computeInputHash(watchersChanged)).not.toBe(baseHash);
+  });
+
+  it("ジャンルの並び順だけが違ってもハッシュは変わらない", async () => {
+    const a = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), genres: ["Action", "Drama"] }],
+      [],
+    );
+    const b = buildAnalysisInput(
+      [{ ...historyRow(1, "WATCHED"), genres: ["Drama", "Action"] }],
+      [],
+    );
+    expect(await computeInputHash(a)).toBe(await computeInputHash(b));
+  });
+
   it("プロンプト上限（50 件）以降の作品変更でもハッシュが変わる", async () => {
     const base = buildAnalysisInput(
       Array.from({ length: 60 }, (_, i) => historyRow(i + 1, "WATCHED")),
@@ -824,6 +858,7 @@ describe("runAnalysis", () => {
           stateCounts: { WATCHED: 1 },
           works: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
           workKeys: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+          workMeta: [],
           selectedGenres: [],
         },
         [],
