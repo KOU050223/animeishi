@@ -27,7 +27,6 @@ import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { trackEvent } from "@/lib/events";
-import { StatPill } from "./StatPill";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,
@@ -36,7 +35,6 @@ import {
   formatWorkSeason,
   getAnimeListLayout,
   toSeasonParam,
-  useAnimeStats,
   type SeasonFilterKey,
 } from "./animeListUtils";
 import {
@@ -128,7 +126,6 @@ export function AnimeListContent({
     [data, filters],
   );
   const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
-  const stats = useAnimeStats(data);
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
   const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
@@ -283,26 +280,6 @@ export function AnimeListContent({
                   <Ionicons name="close" size={17} color={palette.clearIcon} />
                 </TouchableOpacity>
               ) : null}
-            </View>
-
-            <View style={styles.statsRow}>
-              {/* ローディング中は data が前シーズン/前検索の結果を指すため
-                  旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
-              <StatPill
-                label="作品"
-                value={showLoading ? "-" : `${stats.total}`}
-                tone="ink"
-              />
-              <StatPill
-                label="年代"
-                value={showLoading ? "-" : stats.yearRange}
-                tone="gold"
-              />
-              <StatPill
-                label="ジャンル"
-                value={`${stats.genreCount}`}
-                tone="mint"
-              />
             </View>
 
             <View style={styles.toolbar}>
