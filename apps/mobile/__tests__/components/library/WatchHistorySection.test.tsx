@@ -1,4 +1,6 @@
 // 視聴履歴セクション（ライブラリタブ内）のテスト。
+// ステータス変更は行のピッカーで即時保存し、「元に戻す」トーストで
+// 取り消せる（issue #379）。編集モーダルの「選択 → 保存」は廃止。
 // dアニメ取り込み導線は featureFlags.danimeImport で制御する（#158）:
 // 無効（ネイティブ既定）ではボタンを出さず、有効（Web 版）では従来通り出す。
 import React from "react";
@@ -58,6 +60,50 @@ jest.mock("@/lib/useWatchHistory", () => ({
   },
 }));
 
+// 推し（お気に入り）の状態・トグルをテストごとに差し替えられるようにする（#379）。
+let mockFavoriteIds = new Set<number>();
+const mockToggleFavorite = jest.fn();
+jest.mock("@/lib/useFavorites", () => ({
+  useFavoriteIds: () => mockFavoriteIds,
+  useToggleFavorite: () => ({
+    toggle: (annictWorkId: number) => mockToggleFavorite(annictWorkId),
+    isPending: false,
+  }),
+}));
+
+// 「リストに追加」シートは API 取得を伴うためスタブにする。対象作品を開いた
+// ことだけ検証する（シート自体の振る舞いは components/work-list のテスト側）。
+jest.mock("@/components/work-list", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  const { Pressable, Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    AddToWorkListButton: ({
+      onPress,
+      title,
+      testID,
+    }: {
+      onPress: () => void;
+      title: string;
+      testID?: string;
+    }) =>
+      React.createElement(Pressable, {
+        onPress,
+        testID,
+        accessibilityRole: "button",
+        accessibilityLabel: `${title}をリストに追加`,
+      }),
+    AddToWorkListSheet: ({ work }: { work: { title: string } | null }) =>
+      work
+        ? React.createElement(
+            Text,
+            { testID: "add-to-work-list-sheet" },
+            work.title,
+          )
+        : null,
+  };
+});
+
 jest.mock("@/lib/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
@@ -115,14 +161,43 @@ function rejectedUpsertError(rolledBack: boolean) {
   return e;
 }
 
+// 行のステータスピッカーを開いて指定ステータスを選ぶ。
+async function pickStatus(annictWorkId: number, state: string) {
+  await fireEvent.press(
+    screen.getByTestId(`watch-history-status-${annictWorkId}-button`),
+  );
+  await fireEvent.press(
+    screen.getByTestId(`watch-history-status-${annictWorkId}-option-${state}`),
+  );
+}
+
 beforeEach(async () => {
   jest.clearAllMocks();
   mockDanimeImport = false;
   mockHistories = [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }];
+  mockFavoriteIds = new Set();
   mockUpsertMutateAsync.mockReset();
   mockRemoveMutateAsync.mockReset();
+  mockToggleFavorite.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
-  mockUpsertMutateAsync.mockResolvedValue({});
+  // 実際のフックは楽観更新で選んだステータスが即座に一覧へ反映されるため、
+  // 既定実装でも state をモックデータへ書き戻して同じ見え方にする
+  // （「元に戻す」の直前状態判定がこれを参照する）。
+  mockUpsertMutateAsync.mockImplementation(
+    ({
+      annictWorkId,
+      data,
+    }: {
+      annictWorkId: number;
+      data: { state: string };
+    }) => {
+      const item = mockHistories.find(
+        (h) => (h as { annictWorkId: number }).annictWorkId === annictWorkId,
+      ) as { state?: string } | undefined;
+      if (item) item.state = data.state;
+      return Promise.resolve({});
+    },
+  );
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
@@ -143,44 +218,65 @@ describe("WatchHistorySection", () => {
     expect(mockPush).toHaveBeenCalledWith("/danime-import");
   });
 
-  it("保存を押すと API 応答を待たずモーダルが閉じて mutateAsync が呼ばれる", async () => {
+  it("ピッカーでステータスを選ぶとその時点で保存され「元に戻す」トーストが出る", async () => {
     // API 応答が帰らない状態を再現するため pending のままにする。
     mockUpsertMutateAsync.mockReturnValue(new Promise(() => {}));
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("視聴中"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
 
+    // 「選択 → 保存」の 2 段階は無く、選んだ時点で発行される。
     expect(mockUpsertMutateAsync).toHaveBeenCalledWith({
       annictWorkId: 1,
       data: { state: "WATCHING" },
     });
-    // 楽観更新前提のためモーダルは即座に閉じる。
-    expect(screen.queryByText("視聴ステータスを編集")).toBeNull();
+    expect(
+      screen.getByText("テスト作品を「視聴中」に変更しました"),
+    ).toBeTruthy();
+    expect(screen.getByTestId("watch-history-status-undo")).toBeTruthy();
   });
 
-  it("前回の更新が pending 中でも次の保存を発行できる", async () => {
-    // 楽観更新は連続編集を許容する設計のため、pending 中の保存を無効化
-    // しない（item 単位ロールバック＋スコープ直列化で整合性を保つ）。
-    mockUpsertMutateAsync.mockReturnValue(new Promise(() => {}));
+  it("「元に戻す」を押すと直前のステータスで保存し直してトーストが閉じる", async () => {
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
-    // 1 回目が pending のまま再編集して保存できる。
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
+    await fireEvent.press(screen.getByTestId("watch-history-status-undo"));
 
-    expect(mockUpsertMutateAsync).toHaveBeenCalledTimes(2);
+    expect(mockUpsertMutateAsync).toHaveBeenLastCalledWith({
+      annictWorkId: 1,
+      data: { state: "WATCHED" },
+    });
+    expect(screen.queryByTestId("watch-history-status-undo")).toBeNull();
   });
+
+  it("現在と同じステータスを選んでも保存せずトーストも出さない", async () => {
+    await render(<WatchHistorySection />);
+
+    await pickStatus(1, "WATCHED");
+
+    expect(mockUpsertMutateAsync).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("watch-history-status-undo")).toBeNull();
+  });
+
+  it("トーストは一定時間で自動で消える", async () => {
+    await render(<WatchHistorySection />);
+    await pickStatus(1, "WATCHING");
+    expect(screen.getByTestId("watch-history-status-undo")).toBeTruthy();
+
+    // 実タイマーで待つ（フェイクタイマーは RN の描画系と相性が悪く、
+    // 後続テストを汚染するため使わない）。
+    await waitFor(
+      () =>
+        expect(screen.queryByTestId("watch-history-status-undo")).toBeNull(),
+      { timeout: 6000 },
+    );
+  }, 10000);
 
   it("更新に失敗したらロールバックを知らせるダイアログを出す", async () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
 
     // OK を押すまで消えないダイアログで「元の状態に戻した」ことまで伝える。
     await waitFor(() =>
@@ -190,6 +286,23 @@ describe("WatchHistorySection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+    // 表示が巻き戻された失敗では成功を示すトーストが残ると矛盾するので消す。
+    await waitFor(() =>
+      expect(screen.queryByTestId("watch-history-status-undo")).toBeNull(),
+    );
+  });
+
+  it("前回の更新が pending 中でも次のステータス変更を発行できる", async () => {
+    // 楽観更新は連続編集を許容する設計のため、pending 中の変更を無効化
+    // しない（item 単位ロールバック＋スコープ直列化で整合性を保つ）。
+    mockUpsertMutateAsync.mockReturnValue(new Promise(() => {}));
+    await render(<WatchHistorySection />);
+
+    await pickStatus(1, "WATCHING");
+    // 1 回目が pending のまま次の選択を発行できる。
+    await pickStatus(1, "ON_HOLD");
+
+    expect(mockUpsertMutateAsync).toHaveBeenCalledTimes(2);
   });
 
   it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {
@@ -198,8 +311,7 @@ describe("WatchHistorySection", () => {
     );
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
 
     await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
     expect(mockAlert.mock.calls[0][1]).not.toContain("Network request failed");
@@ -210,15 +322,12 @@ describe("WatchHistorySection", () => {
     await render(<WatchHistorySection />);
 
     // 1回目の失敗でダイアログが出る（mock は onClose を呼ばないので開いたまま）。
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
     await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
 
     // 表示中に同じ種類の失敗が重なっても、都度ダイアログは出さずキューに積む。
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "ON_HOLD");
+    await pickStatus(1, "WANNA_WATCH");
     await waitFor(() => expect(mockUpsertMutateAsync).toHaveBeenCalledTimes(3));
     // catch のマイクロタスク完了を待ってから回数を確定させる。
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -237,16 +346,14 @@ describe("WatchHistorySection", () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(true));
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
     await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
 
     // ユーザーが OK で閉じる（onClose 発火）と次の失敗でまた出る。
     const options = mockAlert.mock.calls[0][2] as { onClose?: () => void };
     options.onClose?.();
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "ON_HOLD");
     await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(2));
   });
 
@@ -258,8 +365,7 @@ describe("WatchHistorySection", () => {
     await render(<WatchHistorySection />);
 
     // 更新失敗のダイアログが開く（mock は onClose を呼ばないので開いたまま）。
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
     await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
 
     // 表示中に削除が失敗しても捨てず、キューに積む。
@@ -281,8 +387,7 @@ describe("WatchHistorySection", () => {
     mockUpsertMutateAsync.mockRejectedValue(rejectedUpsertError(false));
     await render(<WatchHistorySection />);
 
-    await fireEvent.press(screen.getByLabelText("テスト作品 の視聴履歴を編集"));
-    await fireEvent.press(screen.getByLabelText("保存"));
+    await pickStatus(1, "WATCHING");
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
@@ -291,6 +396,38 @@ describe("WatchHistorySection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  describe("行の操作（issue #379）", () => {
+    it("各行に推し・リスト追加のボタンがある", async () => {
+      mockFavoriteIds = new Set([1]);
+      await render(<WatchHistorySection />);
+
+      // 登録済みなら解除導線のラベルになる。
+      expect(
+        screen.getByLabelText("テスト作品をお気に入りから解除"),
+      ).toBeTruthy();
+      expect(screen.getByTestId("watch-history-add-to-list-1")).toBeTruthy();
+    });
+
+    it("推しボタンを押すとその作品のトグルが呼ばれる", async () => {
+      await render(<WatchHistorySection />);
+
+      await fireEvent.press(
+        screen.getByLabelText("テスト作品をお気に入りに追加"),
+      );
+
+      expect(mockToggleFavorite).toHaveBeenCalledWith(1);
+    });
+
+    it("「リストに追加」ボタンでその作品を対象にしたシートが開く", async () => {
+      await render(<WatchHistorySection />);
+      expect(screen.queryByTestId("add-to-work-list-sheet")).toBeNull();
+
+      await fireEvent.press(screen.getByTestId("watch-history-add-to-list-1"));
+
+      expect(screen.getByTestId("add-to-work-list-sheet")).toBeTruthy();
+    });
   });
 
   describe("ソート・絞り込み（issue #345）", () => {

@@ -161,5 +161,11 @@
   "{{count}} 作品_one": "{{count}} work",
   "{{count}} 作品_other": "{{count}} works",
   "閉じる": "Close",
-  "OK": "OK"
+  "OK": "OK",
+  "{{title}}の視聴ステータスを変更": "Change watch status for {{title}}",
+  "視聴ステータスを変更": "Change watch status",
+  "視聴ステータスの選択を閉じる": "Close status selection",
+  "{{state}}に変更": "Change to {{state}}",
+  "{{title}}を「{{state}}」に変更しました": "Changed {{title}} to {{state}}",
+  "元に戻す": "Undo"
 }
