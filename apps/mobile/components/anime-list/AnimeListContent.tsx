@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,6 +19,7 @@ import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
+import { AnimeListFilterSheet } from "./AnimeListFilterSheet";
 import { AnimePoster } from "./AnimePoster";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
@@ -36,8 +37,17 @@ import {
   getAnimeListLayout,
   toSeasonParam,
   useAnimeStats,
-  type SeasonKey,
+  type SeasonFilterKey,
 } from "./animeListUtils";
+import {
+  ANIME_LIST_SORT_DEFAULT_ORDER,
+  NO_ANIME_LIST_FILTERS,
+  animeListFilterCount,
+  collectAnimeGenres,
+  filterAnimeList,
+  isAnimeListFilterActive,
+  type AnimeListFilters,
+} from "@/lib/animeListSortFilter";
 
 export function AnimeListContent({
   favoriteIds,
@@ -62,16 +72,26 @@ export function AnimeListContent({
   const [query, setQuery] = useState(initialQuery ?? "");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  // メディア種別・ジャンル/タグの絞り込み（issue #346）。
+  // シーズン絞り込みとは独立に、検索結果・シーズン一覧のどちらにも効く。
+  const [filters, setFilters] = useState<AnimeListFilters>(
+    NO_ANIME_LIST_FILTERS,
+  );
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   // シーズン絞り込みの選択状態（初期は JST の今年・今期。API の「今期」判定に揃える）。
-  // 検索語が空のときだけ効く。
+  // 検索語が空のときだけ効く。通年指定（"all"）はその年の 4 クール全部。
   const [filterYear, setFilterYear] = useState(() => currentSeason().year);
-  const [filterSeason, setFilterSeason] = useState<SeasonKey>(
+  const [filterSeason, setFilterSeason] = useState<SeasonFilterKey>(
     () => currentSeason().key,
   );
   const seasonParam = toSeasonParam(filterYear, filterSeason);
+  const filterActive = isAnimeListFilterActive(filters);
 
   // 検索語があれば title 検索、無ければ選択中のシーズンで一覧を取得する（クライアント側に
   // 作品マスタは持たず Annict searchWorks をプロキシ経由で叩く）。
+  // メディア/ジャンルの絞り込みは取得済みの配列に掛けるため、絞り込み中は
+  // 先頭 50 件で打ち止めにならないようタイトル検索でも全ページを追い読みする
+  // （issue #346: 後続ページにだけある一致作品を見落とさないため）。
   const {
     data,
     isLoading,
@@ -82,7 +102,7 @@ export function AnimeListContent({
     isConnected,
     isConnectionLoading,
     isSeason,
-  } = useAnimeList(query, seasonParam);
+  } = useAnimeList(query, seasonParam, { fetchAllPages: filterActive });
   const hasQuery = query.trim().length > 0;
 
   // 前後シーズンを先読みして切り替え直後の待ちを消す（issue #173）。
@@ -96,8 +116,18 @@ export function AnimeListContent({
   const [refreshing, setRefreshing] = useState(false);
   // カード押下で開く作品詳細シートの対象（issue #347）。
   const [selectedWork, setSelectedWork] = useState<AnimeTitle | null>(null);
-  const sorted = useSortedAnimeList(data, sortKey, sortOrder);
+  // 取得済みの一覧にメディア/ジャンルの絞り込みを掛けてからソートする
+  // （Annict searchWorks には media・ジャンルの絞り込み引数が無いため
+  // クライアント側で掛ける。issue #346）。
+  const filtered = useMemo(
+    () => filterAnimeList(data ?? [], filters),
+    [data, filters],
+  );
+  const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
   const stats = useAnimeStats(data);
+  const filterCount = animeListFilterCount(filters);
+  // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
+  const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
 
   async function onRefresh() {
     // refetch は react-query の enabled を無視して手動実行されるため、未連携で
@@ -117,7 +147,8 @@ export function AnimeListContent({
       setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortOrder("asc");
+      // 人気順は「多い順」が期待値なのでキーごとに既定の向きを持つ。
+      setSortOrder(ANIME_LIST_SORT_DEFAULT_ORDER[key]);
     }
   }
 
@@ -137,6 +168,13 @@ export function AnimeListContent({
   // （キャッシュ共有）ため、その失敗もここに現れうる。作品が無い初回失敗だけ
   // 空配列にして ListEmptyComponent のエラー表示へ繋げる。
   const hideForError = isError && sorted.length === 0;
+
+  // 絞り込み中は「絞り込み後 / 絞り込み前」の件数を出す（視聴履歴と同じ表記）。
+  const resultCountText = filterActive
+    ? `${sorted.length}/${data?.length ?? 0}件`
+    : `${sorted.length}件`;
+  // サーバーの結果はあったが絞り込みで全件落ちた状態（空状態の案内を分ける）。
+  const filteredOutAll = filterActive && (data?.length ?? 0) > 0;
 
   // キャラクター tier 表への入口（issue #169）。対象作品をパラメータで渡し、
   // 画面側は作品のキャスト一覧を取得する。#347 でカード上のボタンから
@@ -273,8 +311,8 @@ export function AnimeListContent({
                     {hasQuery
                       ? showLoading
                         ? `「${query.trim()}」を検索しています`
-                        : `「${query.trim()}」の検索結果・${sorted.length}件`
-                      : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${sorted.length}件`}`}
+                        : `「${query.trim()}」の検索結果・${resultCountText}`
+                      : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${resultCountText}`}`}
                   </Text>
                 </View>
                 {/* Tier 表の作成導線（issue #169/#348）。ヒーロー内の大きな
@@ -307,6 +345,37 @@ export function AnimeListContent({
                   order={sortKey === "year" ? sortOrder : null}
                   onPress={() => toggleSort("year")}
                 />
+                <SortButton
+                  label="人気"
+                  icon="flame-outline"
+                  active={sortKey === "watchersCount"}
+                  order={sortKey === "watchersCount" ? sortOrder : null}
+                  onPress={() => toggleSort("watchersCount")}
+                />
+              </View>
+              {/* メディア種別・ジャンル/タグの絞り込み導線（issue #346）。
+                  選択自体は AnimeListFilterSheet（ボトムシート）で行う。 */}
+              <View style={styles.filterRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    filterActive && styles.filterChipActive,
+                  ]}
+                  onPress={() => setFilterSheetOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: filterActive }}
+                  accessibilityLabel="メディア・ジャンルで絞り込む"
+                  testID="anime-filter-button"
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filterActive && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {filterActive ? `絞り込み(${filterCount})` : "絞り込み"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -315,6 +384,7 @@ export function AnimeListContent({
               <SeasonFilter
                 year={filterYear}
                 season={filterSeason}
+                allowAllYear
                 onChange={(nextYear, nextSeason) => {
                   setFilterYear(nextYear);
                   setFilterSeason(nextSeason);
@@ -381,7 +451,7 @@ export function AnimeListContent({
             </View>
           ) : !hasQuery ? (
             // 検索語が空のときは選択シーズンの作品を取得しているが、結果が 0 件のケース。
-            // 放送前で未登録のシーズンなどで起こりうる。別シーズンや検索を案内する。
+            // 放送前で未登録のシーズンや、絞り込みで全件落ちた場合に起こりうる。
             <View style={styles.emptyState}>
               <View style={styles.stateIcon}>
                 <Ionicons
@@ -391,10 +461,14 @@ export function AnimeListContent({
                 />
               </View>
               <Text style={styles.emptyTitle}>
-                {`${formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません`}
+                {filteredOutAll
+                  ? "絞り込み条件に一致する作品がありません"
+                  : `${formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません`}
               </Text>
               <Text style={styles.emptyCopy}>
-                別の年・シーズンを選ぶか、タイトルで検索してみてください。
+                {filteredOutAll
+                  ? "絞り込みを変えるか、リセットしてみてください。"
+                  : "別の年・シーズンを選ぶか、タイトルで検索してみてください。"}
               </Text>
             </View>
           ) : (
@@ -406,9 +480,15 @@ export function AnimeListContent({
                   color={palette.stateIcon}
                 />
               </View>
-              <Text style={styles.emptyTitle}>見つかりませんでした</Text>
+              <Text style={styles.emptyTitle}>
+                {filteredOutAll
+                  ? "絞り込み条件に一致する作品がありません"
+                  : "見つかりませんでした"}
+              </Text>
               <Text style={styles.emptyCopy}>
-                タイトル、よみがな、英語名を少し変えて探してみてください。
+                {filteredOutAll
+                  ? "絞り込みを変えるか、リセットしてみてください。"
+                  : "タイトル、よみがな、英語名を少し変えて探してみてください。"}
               </Text>
             </View>
           )
@@ -426,6 +506,14 @@ export function AnimeListContent({
         }}
         onOpenCharacterTierList={openCharacterTierList}
       />
+      {filterSheetOpen ? (
+        <AnimeListFilterSheet
+          genreOptions={genreOptions}
+          filters={filters}
+          onChange={setFilters}
+          onClose={() => setFilterSheetOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }

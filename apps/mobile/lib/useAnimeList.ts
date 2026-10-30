@@ -9,6 +9,11 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { sortAnimeList } from "./animeListSortFilter";
+import type {
+  AnimeListSortKey,
+  AnimeListSortOrder,
+} from "./animeListSortFilter";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 const SEARCH_DEBOUNCE_MS = 300;
@@ -19,8 +24,12 @@ type WorksSearchResponse = InferResponseType<
 >;
 export type AnimeTitle = WorksSearchResponse["works"][number];
 
-export type SortKey = "title" | "year";
-export type SortOrder = "asc" | "desc";
+// ソートキー・順序の実体は lib/animeListSortFilter.ts（純関数）。呼び出し側の
+// 互換のためここからも再 export する（issue #346 で watchersCount を追加）。
+export type {
+  AnimeListSortKey as SortKey,
+  AnimeListSortOrder as SortOrder,
+} from "./animeListSortFilter";
 
 // 検索クエリごとにキャッシュを分けるためのクエリキー。
 // query を含めることで、語を変えるたびに別エントリとしてキャッシュされる。
@@ -111,8 +120,16 @@ export async function fetchWorksSearchPage(
  *
  * @param query  検索語（空ならシーズン一覧）。
  * @param season 絞り込むシーズン文字列（例: "2025-summer"）。未指定なら今期。
+ * @param options.fetchAllPages タイトル検索でも全ページを追い読みする。
+ *        メディア・ジャンルのクライアント側絞り込みが有効なときに渡す
+ *        （先頭 50 件だけに絞り込みが効いて後続ページの一致作品を
+ *        見落とさないため。issue #346）。
  */
-export function useAnimeList(query: string, season?: string) {
+export function useAnimeList(
+  query: string,
+  season?: string,
+  options: { fetchAllPages?: boolean } = {},
+) {
   const { getToken, isSignedIn } = useAuth();
   // 検索は API 側で X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
   // isConnectionLoading は SecureStore 読み込み中の判定。連携済みでも読み込み中は
@@ -147,13 +164,22 @@ export function useAnimeList(query: string, season?: string) {
   // シーズン検索はサーバー側のページ上限に達したときだけ hasNextPage が立つため、
   // 残りを自動で追い読みする（issue #163 でサーバー側全件取得にした後の受け口）。
   // タイトル検索は先頭ページ（上位50件）だけでよく、広い語で全件走査すると
-  // 際限がないため追い読みしない。エラー時の再発火ループを防ぐため isError 中は止める。
+  // 際限がないため追い読みしない。ただしクライアント側絞り込みが有効なとき
+  // （fetchAllPages）は先頭ページだけでは一致作品を見落とすため、絞り込み
+  // 対象の全件になるまで追い読みする。
+  // エラー時の再発火ループを防ぐため isError 中は止める。
+  const fetchAllPages = isSeason || options.fetchAllPages === true;
   useEffect(() => {
-    if (isSeason && hasNextPage && !isFetchingNextPage && !result.isError) {
+    if (
+      fetchAllPages &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !result.isError
+    ) {
       void fetchNextPage();
     }
   }, [
-    isSeason,
+    fetchAllPages,
     hasNextPage,
     isFetchingNextPage,
     result.isError,
@@ -230,24 +256,15 @@ export function usePrefetchSeasonWorks(
 
 /**
  * 検索結果をクライアント側でソートする。
- * searchWorks 自体は並び順を制御できないため、表示順はここで決める。
+ * 比較ロジックは lib/animeListSortFilter.ts の純関数（sortAnimeList）に委譲する。
  */
 export function useSortedAnimeList(
   data: AnimeTitle[] | undefined,
-  sortKey: SortKey,
-  sortOrder: SortOrder,
+  sortKey: AnimeListSortKey,
+  sortOrder: AnimeListSortOrder,
 ) {
-  return useMemo(() => {
-    if (!data) return [];
-
-    return [...data].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "title") {
-        cmp = a.title.localeCompare(b.title, "ja");
-      } else {
-        cmp = (a.seasonYear ?? 0) - (b.seasonYear ?? 0);
-      }
-      return sortOrder === "asc" ? cmp : -cmp;
-    });
-  }, [data, sortKey, sortOrder]);
+  return useMemo(
+    () => (data ? sortAnimeList(data, sortKey, sortOrder) : []),
+    [data, sortKey, sortOrder],
+  );
 }

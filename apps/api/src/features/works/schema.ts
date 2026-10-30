@@ -10,11 +10,13 @@ export const worksSearchQuerySchema = z.object({
   // 空文字を 400 にせず今期シーズン検索に流すため。
   title: z.string().trim().optional(),
   // 例: "2026-spring"。<年4桁>-<winter|spring|summer|autumn>。
+  // 年のみ（"2026"）も可。その場合はその年の 4 クール分に展開して引く
+  // （放送年での絞り込み。issue #346）。
   season: z
     .string()
     .trim()
     .regex(
-      /^\d{4}-(winter|spring|summer|autumn)$/,
+      /^\d{4}(-(winter|spring|summer|autumn))?$/,
       "シーズンの形式が正しくありません",
     )
     .optional(),

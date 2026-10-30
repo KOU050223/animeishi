@@ -43,21 +43,26 @@ export async function searchSeasonWorks(
 
 /**
  * 検索応答の 1 件（Annict の作品メタ + キャッシュ済み resolvedImageUrl ＋
- * 自前の画像プロキシ URL hostedImageUrl）。
+ * 自前の画像プロキシ URL hostedImageUrl ＋ キャッシュ済み genres）。
  */
 export type SearchWorkWithResolved = AnnictLibraryEntry & {
   resolvedImageUrl: string | null;
   hostedImageUrl: string | null;
+  genres: string[] | null;
 };
 
 /**
- * 作品メタに画像プロキシ用フィールドを付与した型。
+ * 作品メタに画像プロキシ用フィールドとジャンルを付与した型。
  * 詳細エンドポイント（AnnictWorkDetail 等、entry を拡張した型）でも
  * 追加フィールドを失わないようジェネリックにする（issue #347）。
  */
 export type WithResolvedImages<T extends AnnictLibraryEntry> = T & {
   resolvedImageUrl: string | null;
   hostedImageUrl: string | null;
+  // annict_works.genres（ジャンル・タグ。issue #346）。null は未取得
+  // （絞り込みでは「不明」扱い）。cron が裏で取り込んでいるため、
+  // キャッシュにまだ行が無い作品・未取り込みの作品は null になる。
+  genres: string[] | null;
 };
 
 /**
@@ -115,6 +120,9 @@ export async function attachResolvedImages<T extends AnnictLibraryEntry>(
     return {
       ...w,
       resolvedImageUrl: c0?.resolvedImageUrl ?? null,
+      // ジャンル・タグは cron が annict_works に取り込んでいるキャッシュを
+      // そのまま返す（issue #346。未取得・未キャッシュの作品は null=「不明」）。
+      genres: c0?.genres ?? null,
       // 自前の画像プロキシ（GET /images/works/:id）。クライアントはこれだけを
       // 表示する。annict_works への upsert に失敗した作品は
       // プロキシが行を引けず必ず 404 になるため、upsert 後に外す（下記）。
@@ -159,6 +167,9 @@ export async function attachResolvedImages<T extends AnnictLibraryEntry>(
         seasonName: w.seasonName,
         seasonYear: w.seasonYear,
         imageUrl: w.imageUrl,
+        // searchWorks で取れた人気指標もキャッシュする。取らない経路では
+        // undefined → null になり、upsert 側の coalesce で既存値を温存する。
+        watchersCount: w.watchersCount ?? null,
         updatedAt: now,
       },
     ];

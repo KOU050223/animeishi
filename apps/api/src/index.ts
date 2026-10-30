@@ -8,6 +8,7 @@ import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
 import { resolveMissingMalIds } from "./lib/annict/kitsuTitleSearch";
+import { resolvePendingWorkGenres } from "./lib/annict/workGenres";
 import {
   buildSentryOptions,
   handleError,
@@ -134,6 +135,14 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
         await runCronJob(env, "mal_id_search", () => resolveMissingMalIds(db));
         await runCronJob(env, "image_fallback", () =>
           resolvePendingImageFallbacks(db, undefined, {
+            malClientId: env.MAL_CLIENT_ID,
+          }),
+        );
+        // ジャンル・タグの取り込み（issue #346）。mal_id_search が
+        // kitsu_anime_id / mal_anime_id を埋めた作品を同じ実行で拾えるよう
+        // 後続に置く。
+        await runCronJob(env, "genre_fetch", () =>
+          resolvePendingWorkGenres(db, undefined, {
             malClientId: env.MAL_CLIENT_ID,
           }),
         );

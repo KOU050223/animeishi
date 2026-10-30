@@ -321,10 +321,10 @@ function createStyles(p: AnimeListPalette) {
       width: "100%",
     },
     sortGroupWide: {
-      width: 360,
+      width: 540,
     },
     sortButton: {
-      width: "49%",
+      width: "31.5%",
       minHeight: 36,
       flexDirection: "row",
       alignItems: "center",

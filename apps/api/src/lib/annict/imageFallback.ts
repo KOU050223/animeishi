@@ -522,12 +522,30 @@ export async function fetchKitsuAnimeIds(
   malIds: number[],
   fetchImpl: typeof fetch = fetch,
 ): Promise<Map<number, string>> {
-  const { entries } = await fetchKitsuMappingEntries(
+  const { ids } = await resolveKitsuAnimeIds(malIds, fetchImpl);
+  return ids;
+}
+
+/**
+ * fetchKitsuAnimeIds と同じ解決を行うが、バッチ自体の成否も返す版。
+ * complete=false のとき、マップに無い MAL ID は「Kitsu に対応が無い」ではなく
+ * 「不明」（リクエスト失敗・ページ数上限）なので、呼び出し側はネガキャッシュ
+ * （'none'・空配列の確定値）にしてはいけない。ジャンル取り込み（issue #346）の
+ * ように確定/不明を分けたい経路向け。
+ */
+export async function resolveKitsuAnimeIds(
+  malIds: number[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ids: Map<number, string>; complete: boolean }> {
+  const { entries, complete } = await fetchKitsuMappingEntries(
     malIds,
     fetchImpl,
     () => true,
   );
-  return new Map([...entries].map(([malId, entry]) => [malId, entry.animeId]));
+  return {
+    ids: new Map([...entries].map(([malId, entry]) => [malId, entry.animeId])),
+    complete,
+  };
 }
 
 /** mappings の 1 行から拾う解決結果。 */

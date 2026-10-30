@@ -62,10 +62,14 @@ const works = new Hono<AuthVariables>()
       const trimmedTitle = title?.trim();
 
       const result = trimmedTitle
-        ? await searchAnnictWorksByTitle(
+        ? // 検索 UI は人気順（watchersCount 降順）で返す（issue #346）。
+          // 照合用途（インポート・おすすめ再検索）は関連度順のまま。
+          await searchAnnictWorksByTitle(
             c.var.annictToken,
             trimmedTitle,
             after ?? null,
+            fetch,
+            { orderByWatchersCount: true },
           )
         : await searchSeasonWorks(
             c.var.annictToken,
@@ -144,8 +148,10 @@ const works = new Hono<AuthVariables>()
             seasonYear: cachedWork.seasonYear,
             imageUrl: cachedWork.imageUrl,
             malAnimeId: cachedWork.malAnimeId,
+            watchersCount: cachedWork.watchersCount,
             resolvedImageUrl: cachedWork.resolvedImageUrl,
             hostedImageUrl: workImageUrl(c.req.url, id),
+            genres: cachedWork.genres,
           },
         ];
       });

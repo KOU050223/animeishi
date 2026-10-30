@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Sentry from "@sentry/cloudflare";
 import { resetLocalSuppression } from "@/lib/discordAlert";
 
-// cron ハンドラが呼ぶ 2 ジョブだけ差し替える。D1・外部 API には出ない。
+// cron ハンドラが呼ぶ 3 ジョブだけ差し替える。D1・外部 API には出ない。
 const jobs = vi.hoisted(() => ({
   resolveMissingMalIds: vi.fn<(db: unknown) => Promise<number>>(),
   resolvePendingImageFallbacks:
     vi.fn<(...args: unknown[]) => Promise<number>>(),
+  resolvePendingWorkGenres: vi.fn<(...args: unknown[]) => Promise<number>>(),
 }));
 
 vi.mock("@sentry/cloudflare", async (importOriginal) => {
@@ -29,6 +30,11 @@ vi.mock("@/lib/annict/imageFallbackPending", async (importOriginal) => ({
     typeof import("@/lib/annict/imageFallbackPending")
   >()),
   resolvePendingImageFallbacks: jobs.resolvePendingImageFallbacks,
+}));
+
+vi.mock("@/lib/annict/workGenres", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/annict/workGenres")>()),
+  resolvePendingWorkGenres: jobs.resolvePendingWorkGenres,
 }));
 
 import handler from "@/index";
@@ -87,16 +93,18 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
     resetLocalSuppression();
     jobs.resolveMissingMalIds.mockResolvedValue(0);
     jobs.resolvePendingImageFallbacks.mockResolvedValue(0);
+    jobs.resolvePendingWorkGenres.mockResolvedValue(0);
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it("両ジョブが成功したら Sentry にも Discord にも送らない", async () => {
+  it("全ジョブが成功したら Sentry にも Discord にも送らない", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     await runScheduled(cronEnv(fakeKv()));
 
     expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(1);
     expect(jobs.resolvePendingImageFallbacks).toHaveBeenCalledTimes(1);
+    expect(jobs.resolvePendingWorkGenres).toHaveBeenCalledTimes(1);
     expect(captureException).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });

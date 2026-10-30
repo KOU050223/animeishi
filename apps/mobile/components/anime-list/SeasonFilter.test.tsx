@@ -75,4 +75,45 @@ describe("SeasonFilter", () => {
     await fireEvent.press(getByTestId("season-filter-season-winter"));
     expect(onChange).toHaveBeenCalledWith(2026, "winter");
   });
+
+  describe("allowAllYear（通年チップ。issue #346）", () => {
+    const renderAllYear = async (
+      season: "all" | SeasonKey,
+      onChange = jest.fn(),
+    ) => {
+      const utils = await render(
+        <SeasonFilter
+          year={2026}
+          season={season}
+          allowAllYear
+          onChange={onChange}
+        />,
+      );
+      return { onChange, ...utils };
+    };
+
+    it("allowAllYear 無しでは通年チップを出さない", async () => {
+      const { queryByTestId } = await renderFilter();
+      expect(queryByTestId("season-filter-season-all")).toBeNull();
+    });
+
+    it("allowAllYear では先頭に通年チップを出す", async () => {
+      const { getByTestId } = await renderAllYear("autumn");
+      expect(getByTestId("season-filter-season-all")).toBeTruthy();
+    });
+
+    it("通年チップを押すと onChange が (年, all) で呼ばれる", async () => {
+      const { getByTestId, onChange } = await renderAllYear("autumn");
+      await fireEvent.press(getByTestId("season-filter-season-all"));
+      expect(onChange).toHaveBeenCalledWith(2026, "all");
+    });
+
+    it("通年選択中に年を変えると期をクランプせず (次年, all) を返す", async () => {
+      const { getByTestId, onChange } = await renderAllYear("all");
+      await fireEvent.press(getByTestId("season-filter-year-button"));
+      await fireEvent.press(getByTestId("season-filter-year-option-2027"));
+      // 2027 年は冬・春しか選べないが、通年はどの年でも選べるためそのまま
+      expect(onChange).toHaveBeenCalledWith(2027, "all");
+    });
+  });
 });
