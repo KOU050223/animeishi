@@ -23,6 +23,10 @@ import { AnimeListFilterSheet } from "./AnimeListFilterSheet";
 import { AnimePoster } from "./AnimePoster";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
+import {
+  AddToWorkListButton,
+  AddToWorkListSheet,
+} from "@/components/work-list";
 import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
@@ -118,6 +122,8 @@ export function AnimeListContent({
   const [refreshing, setRefreshing] = useState(false);
   // カード押下で開く作品詳細シートの対象（issue #347）。
   const [selectedWork, setSelectedWork] = useState<AnimeTitle | null>(null);
+  // 「リストに追加」シートの対象（issue #377）。
+  const [listTarget, setListTarget] = useState<AnimeTitle | null>(null);
   // 取得済みの一覧にメディア/ジャンルの絞り込みを掛けてからソートする
   // （Annict searchWorks には media・ジャンルの絞り込み引数が無いため
   // クライアント側で掛ける。issue #346）。
@@ -208,6 +214,11 @@ export function AnimeListContent({
             <Text style={styles.cardTitle} numberOfLines={2}>
               {item.title}
             </Text>
+            <AddToWorkListButton
+              onPress={() => setListTarget(item)}
+              title={item.title}
+              testID={`anime-item-add-to-list-${item.annictWorkId}`}
+            />
             <FavoriteButton
               isFavorite={favoriteIds.has(item.annictWorkId)}
               disabled={isToggling}
@@ -486,6 +497,17 @@ export function AnimeListContent({
           if (selectedWork) toggleFavorite(selectedWork.annictWorkId);
         }}
         onOpenCharacterTierList={openCharacterTierList}
+      />
+      <AddToWorkListSheet
+        work={
+          listTarget
+            ? {
+                annictWorkId: listTarget.annictWorkId,
+                title: listTarget.title,
+              }
+            : null
+        }
+        onClose={() => setListTarget(null)}
       />
       {filterSheetOpen ? (
         <AnimeListFilterSheet

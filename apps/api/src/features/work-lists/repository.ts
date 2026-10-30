@@ -19,6 +19,11 @@ export type WorkListWithItems = WorkList & {
 /** 一覧行。内容は含めず、代わりに登録作品数を持つ。 */
 export type WorkListSummary = WorkList & {
   itemCount: number;
+  /**
+   * getMyWorkLists に containsWorkId を渡したとき、その作品が
+   * リストに入っているか。未指定時は常に false。
+   */
+  containsWork: boolean;
 };
 
 /** 作品リストを保存するときの 1 項目。position は配列順から採番するので受け取らない。 */
@@ -91,8 +96,10 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
     /**
      * 自分の作品リストを新しい順に一覧する（内容は含めず、
      * 一覧表示用に登録作品数だけを付ける）。
+     * containsWorkId を渡すと、その作品が各リストに入っているかの
+     * フラグを付ける（「リストに追加」シートの追加済み表示用。issue #377）。
      */
-    async getMyWorkLists(): Promise<WorkListSummary[]> {
+    async getMyWorkLists(containsWorkId?: number): Promise<WorkListSummary[]> {
       const rows = await db
         .select({ list: workLists, itemCount: count(workListItems.id) })
         .from(workLists)
@@ -100,7 +107,27 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
         .where(eq(workLists.userId, currentUserId))
         .groupBy(workLists.id)
         .orderBy(desc(workLists.updatedAt));
-      return rows.map((row) => ({ ...row.list, itemCount: row.itemCount }));
+
+      let containingIds = new Set<number>();
+      if (containsWorkId !== undefined) {
+        const containing = await db
+          .select({ workListId: workListItems.workListId })
+          .from(workListItems)
+          .innerJoin(workLists, eq(workListItems.workListId, workLists.id))
+          .where(
+            and(
+              eq(workLists.userId, currentUserId),
+              eq(workListItems.annictWorkId, containsWorkId),
+            ),
+          );
+        containingIds = new Set(containing.map((row) => row.workListId));
+      }
+
+      return rows.map((row) => ({
+        ...row.list,
+        itemCount: row.itemCount,
+        containsWork: containingIds.has(row.list.id),
+      }));
     },
 
     /**
@@ -178,6 +205,56 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
       const result = await this.getMyWorkList(savedId);
       if (!result) throw new Error("作品リストの保存に失敗しました");
       return { workList: result, created };
+    },
+
+    /**
+     * 作品 1 件をリストの末尾に追加する（issue #377）。
+     * アニメ一覧からの「リストに追加」は 1 件ずつの操作なので、全置換
+     * （saveMyWorkList）を要求すると先に内容の取得が必要になり、編集画面
+     * と並行して保存されたとき最後の書き込みで相手の変更が消える。
+     * 末尾追加をサーバ側で行い、その競合を避ける。
+     *
+     * 既に入っている作品は no-op で現在のリストを返す（added: false）。
+     * work_list_items の (workListId, annictWorkId) unique がDB側でも
+     * 二重追加を防ぐ。自分のリストでなければ undefined。
+     */
+    async addMyWorkListItem(
+      id: number,
+      annictWorkId: number,
+    ): Promise<{ workList: WorkListWithItems; added: boolean } | undefined> {
+      const list = await findMyList(id);
+      if (!list) return undefined;
+
+      const existing = await db.query.workListItems.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.workListId, id), eq_(t.annictWorkId, annictWorkId)),
+      });
+
+      if (!existing) {
+        const [last] = await db
+          .select({ position: workListItems.position })
+          .from(workListItems)
+          .where(eq(workListItems.workListId, id))
+          .orderBy(desc(workListItems.position))
+          .limit(1);
+        await db.batch([
+          db.insert(workListItems).values({
+            workListId: id,
+            annictWorkId,
+            position: (last?.position ?? -1) + 1,
+          }),
+          // updatedAt を進めて getMyWorkLists の新しい順の先頭に来る
+          // ようにする（最後に触ったリストが上に来る保存と同じ扱い）。
+          db
+            .update(workLists)
+            .set({ updatedAt: new Date() })
+            .where(eq(workLists.id, id)),
+        ]);
+      }
+
+      const workList = await this.getMyWorkList(id);
+      if (!workList) throw new Error("作品リストの取得に失敗しました");
+      return { workList, added: !existing };
     },
 
     /**

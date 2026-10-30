@@ -74,6 +74,19 @@ jest.mock("@/lib/events", () => ({
   trackEvent: jest.fn(),
 }));
 
+// 「リストに追加」シートのフックは実物だと QueryClient が要るため、
+// 一覧側のテストではスタブにする（シート自体は AddToWorkListSheet.test.tsx）。
+jest.mock("@/lib/workList/useWorkLists", () => ({
+  useWorkListsContaining: () => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  useAddWorkToWorkList: () => ({ mutate: jest.fn(), isPending: false }),
+  useSaveWorkList: () => ({ mutate: jest.fn(), isPending: false }),
+}));
+
 const WORK = {
   annictWorkId: 42,
   nodeId: "n42",
@@ -176,5 +189,17 @@ describe("AnimeListContent", () => {
     });
     // Tier 表から戻ったとき一覧の上にシートが残らないよう、遷移前に閉じる。
     expect(screen.queryByTestId("anime-work-detail-sheet")).toBeNull();
+  });
+
+  it("カードのリスト追加ボタンで「リストに追加」シートが開く", async () => {
+    await render(contentElement());
+
+    await fireEvent.press(screen.getByTestId("anime-item-add-to-list-42"));
+
+    // 対象作品がシートの見出しに出る（シート自体の振る舞いは
+    // AddToWorkListSheet.test.tsx で検証する）。
+    expect(screen.getByText("リストに追加")).toBeTruthy();
+    // カードのタイトルとシートのサブ見出しで 2 件見える。
+    expect(screen.getAllByText("テストアニメ")).toHaveLength(2);
   });
 });

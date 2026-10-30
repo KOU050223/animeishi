@@ -26,7 +26,10 @@ export function useWorkLists() {
     enabled: !!isSignedIn,
     queryFn: async () => {
       const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["work-lists"].$get({}, { headers });
+      const res = await apiClient.me["work-lists"].$get(
+        { query: {} },
+        { headers },
+      );
       if (!res.ok) {
         throw new ApiRequestError(
           res.status,
@@ -34,6 +37,77 @@ export function useWorkLists() {
         );
       }
       return res.json();
+    },
+  });
+}
+
+/**
+ * 自分の作品リストの一覧を、対象作品が入っているか（containsWork）の
+ * フラグ付きで返す。「リストに追加」シート（issue #377）の追加済み表示用。
+ * annictWorkId が null の間はフェッチしない（シートが閉じている間）。
+ */
+export function useWorkListsContaining(annictWorkId: number | null) {
+  const { getToken, isSignedIn } = useAuth();
+  const enabled =
+    !!isSignedIn &&
+    annictWorkId !== null &&
+    Number.isFinite(annictWorkId) &&
+    annictWorkId > 0;
+
+  return useQuery({
+    queryKey: [...workListsQueryKey, "contains", annictWorkId ?? 0],
+    enabled,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["work-lists"].$get(
+        { query: { contains: String(annictWorkId) } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "作品リストの一覧取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
+}
+
+/**
+ * 作品 1 件を既存リストの末尾に追加する（issue #377）。
+ * 全置換ではなく部分追加のため、追加前にリスト内容を取り直す必要がない。
+ * 既に入っている作品はサーバ側で no-op になり、現在のリストが返る。
+ */
+export function useAddWorkToWorkList() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { listId: number; annictWorkId: number }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["work-lists"][":id"].items.$post(
+        {
+          param: { id: String(input.listId) },
+          json: { annictWorkId: input.annictWorkId },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "作品リストへの追加に失敗しました",
+        );
+      }
+      return res.json();
+    },
+    onSuccess: (data, input) => {
+      // レスポンスは GET /:id と同じ形なので detail キャッシュに直接反映する
+      //（useSaveWorkList と同じ方針）。
+      queryClient.setQueryData(workListQueryKey(input.listId), data);
+      // 一覧（containsWork・itemCount）が古くなるため破棄する。contains 付きの
+      // 派生キーも ["work-list", "list"] プレフィックスでまとめて無効化される。
+      void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
     },
   });
 }

@@ -3,6 +3,8 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useWorkLists,
+  useWorkListsContaining,
+  useAddWorkToWorkList,
   useSavedWorkList,
   useSaveWorkList,
   useShareWorkList,
@@ -18,6 +20,7 @@ const mockListGet = jest.fn();
 const mockDetailGet = jest.fn();
 const mockPost = jest.fn();
 const mockPut = jest.fn();
+const mockItemsPost = jest.fn();
 const mockSharePost = jest.fn();
 const mockShareDelete = jest.fn();
 const mockDelete = jest.fn();
@@ -31,6 +34,9 @@ jest.mock("@/lib/api", () => ({
           $get: (...args: unknown[]) => mockDetailGet(...args),
           $put: (...args: unknown[]) => mockPut(...args),
           $delete: (...args: unknown[]) => mockDelete(...args),
+          items: {
+            $post: (...args: unknown[]) => mockItemsPost(...args),
+          },
           share: {
             $post: (...args: unknown[]) => mockSharePost(...args),
             $delete: (...args: unknown[]) => mockShareDelete(...args),
@@ -98,7 +104,7 @@ describe("useWorkLists", () => {
 
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     expect(mockListGet).toHaveBeenCalledWith(
-      {},
+      { query: {} },
       { headers: { Authorization: "Bearer clerk_jwt" } },
     );
   });
@@ -108,6 +114,69 @@ describe("useWorkLists", () => {
     const { wrapper } = makeWrapper();
     await renderHook(() => useWorkLists(), { wrapper });
     expect(mockListGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("useWorkListsContaining", () => {
+  it("contains クエリ付きで一覧を返す", async () => {
+    mockListGet.mockResolvedValue(
+      okResponse([
+        { id: 7, title: "必修アニメリスト", itemCount: 2, containsWork: true },
+      ]),
+    );
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useWorkListsContaining(42), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data?.[0]?.containsWork).toBe(true);
+    expect(mockListGet).toHaveBeenCalledWith(
+      { query: { contains: "42" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+  });
+
+  it("annictWorkId が null の間はフェッチしない", async () => {
+    const { wrapper } = makeWrapper();
+    await renderHook(() => useWorkListsContaining(null), { wrapper });
+    expect(mockListGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAddWorkToWorkList", () => {
+  it("items エンドポイントに POST し、レスポンスを detail キャッシュに書き込む", async () => {
+    mockItemsPost.mockResolvedValue(okResponse(SAVED));
+    const { client, wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useAddWorkToWorkList(), {
+      wrapper,
+    });
+
+    result.current.mutate({ listId: 7, annictWorkId: 2 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockItemsPost).toHaveBeenCalledWith(
+      { param: { id: "7" }, json: { annictWorkId: 2 } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+    expect(client.getQueryData(["work-list", "saved", 7])).toEqual(SAVED);
+  });
+
+  it("追加後に一覧（contains 付き含む）を無効化する", async () => {
+    mockItemsPost.mockResolvedValue(okResponse(SAVED));
+    const { client, wrapper } = makeWrapper();
+    const invalidateSpy = jest.spyOn(client, "invalidateQueries");
+    const { result } = await renderHook(() => useAddWorkToWorkList(), {
+      wrapper,
+    });
+
+    result.current.mutate({ listId: 7, annictWorkId: 2 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // ["work-list", "list"] プレフィックスで contains 派生キーも無効化される
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-list", "list"],
+    });
   });
 });
 
