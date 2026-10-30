@@ -18,6 +18,7 @@ import {
 import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { Input } from "@/components/ui";
+import { CardPressable } from "@/components/ui/card-pressable";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
 import { AnimeListFilterSheet } from "./AnimeListFilterSheet";
 import { AnimePoster } from "./AnimePoster";
@@ -201,11 +202,10 @@ export function AnimeListContent({
   // renderItem を安定化して行ごとのコールバック生成を減らす。
   const renderItem = useCallback(
     ({ item }: { item: AnimeTitle }) => (
-      <TouchableOpacity
+      <CardPressable
         style={[styles.card, { width: cardWidth }]}
         testID={`anime-item-${item.annictWorkId}`}
         onPress={() => setSelectedWork(item)}
-        accessibilityRole="button"
         accessibilityLabel={`${item.title}の詳細を開く`}
       >
         <AnimePoster uri={item.hostedImageUrl} title={item.title} />
@@ -239,7 +239,7 @@ export function AnimeListContent({
             ) : null}
           </View>
         </View>
-      </TouchableOpacity>
+      </CardPressable>
     ),
     [cardWidth, favoriteIds, isToggling, palette, styles, toggleFavorite],
   );
