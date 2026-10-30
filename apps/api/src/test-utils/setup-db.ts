@@ -165,6 +165,28 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS custom_tier_list_items_list_work_unique ON custom_tier_list_items (custom_tier_list_id, annict_work_id)`,
   `CREATE INDEX IF NOT EXISTS custom_tier_list_items_list_idx ON custom_tier_list_items (custom_tier_list_id)`,
+  `CREATE TABLE IF NOT EXISTS work_lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    share_token TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS work_lists_user_idx ON work_lists (user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS work_lists_share_token_unique ON work_lists (share_token)`,
+  `CREATE TABLE IF NOT EXISTS work_list_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    work_list_id INTEGER NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    FOREIGN KEY (work_list_id) REFERENCES work_lists(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS work_list_items_list_work_unique ON work_list_items (work_list_id, annict_work_id)`,
+  `CREATE INDEX IF NOT EXISTS work_list_items_list_idx ON work_list_items (work_list_id)`,
   `CREATE TABLE IF NOT EXISTS annict_tokens (
     user_id TEXT PRIMARY KEY NOT NULL,
     encrypted_token TEXT NOT NULL,
@@ -259,6 +281,8 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM annict_tokens").run();
   await d1.prepare("DELETE FROM character_tier_list_items").run();
   await d1.prepare("DELETE FROM character_tier_lists").run();
+  await d1.prepare("DELETE FROM work_list_items").run();
+  await d1.prepare("DELETE FROM work_lists").run();
   await d1.prepare("DELETE FROM custom_tier_list_items").run();
   await d1.prepare("DELETE FROM custom_tier_lists").run();
   await d1.prepare("DELETE FROM tier_list_items").run();
@@ -275,7 +299,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'reports', 'blocks', 'activities')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities')",
     )
     .run();
   return db;

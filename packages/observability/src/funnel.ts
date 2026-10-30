@@ -27,6 +27,7 @@ export const ANNICT_FUNNEL_SURFACES = [
   "tier_list",
   "character_tier_list",
   "custom_tier_list",
+  "work_list",
   "meishi_image_library",
   "meishi_image_search",
   "home_card",

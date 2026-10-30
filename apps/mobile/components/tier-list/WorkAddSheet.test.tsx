@@ -58,6 +58,8 @@ const sheetElement = (
     onClose={jest.fn()}
     onAdd={props.onAdd ?? jest.fn()}
     existingWorkIds={props.existingWorkIds ?? new Set()}
+    heading="作品を追加"
+    description="説明文"
   />
 );
 

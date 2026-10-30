@@ -4,6 +4,11 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 
+// GET /works/lookup の ids 上限（worksLookupQuerySchema.max(50)）と揃える。
+// 作品リスト（issue #349）は 500 作品まで持てるため、全 ID を 1 リクエストで
+// 送ると 400 になる。50 件ずつに分けて引く。
+const LOOKUP_ID_CHUNK = 50;
+
 /**
  * 作品 ID のまとめ解決（GET /works/lookup）。
  *
@@ -28,16 +33,30 @@ export function useWorksLookup(ids: number[]) {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
       const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.works.lookup.$get(
-        { query: { ids: key } },
-        {
-          headers: { Authorization: `Bearer ${token}`, ...annictHeader },
-        },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "作品の取得に失敗しました");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        ...annictHeader,
+      };
+
+      const fetchBatch = async (chunk: number[]) => {
+        const res = await apiClient.works.lookup.$get(
+          { query: { ids: chunk.join(",") } },
+          { headers },
+        );
+        if (!res.ok) {
+          throw new ApiRequestError(res.status, "作品の取得に失敗しました");
+        }
+        return (await res.json()).works;
+      };
+
+      // API がキャッシュ未命中の分を Annict へ問い合わせるため、バッチは
+      // 直列にして同時リクエストを増やさない。返却は各バッチとも
+      // リクエスト ID 順なので、取った順に連結すれば元の並びが保たれる。
+      const works: Awaited<ReturnType<typeof fetchBatch>> = [];
+      for (let i = 0; i < ids.length; i += LOOKUP_ID_CHUNK) {
+        works.push(...(await fetchBatch(ids.slice(i, i + LOOKUP_ID_CHUNK))));
       }
-      return res.json();
+      return { works };
     },
   });
 }
