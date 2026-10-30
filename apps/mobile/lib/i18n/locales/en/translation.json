@@ -105,6 +105,7 @@
   "おすすめジャンル": "Recommended genres",
   "{{count}} 件の視聴履歴を分析": "Analyzed from {{count}} watch entries",
   "分析日時: {{date}}": "Analyzed at: {{date}}",
+  "根拠となった作品": "Supporting titles",
   "視聴履歴が変わると次回の実行で結果が更新されます（1 日あたりの実行回数に上限があります）": "Results update on the next run when your watch history changes (daily run limit applies)",
   "分析に失敗しました。時間をおいて再度お試しください": "Analysis failed. Please try again later",
   "おすすめ作品": "Recommended anime",

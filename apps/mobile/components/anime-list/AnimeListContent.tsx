@@ -27,7 +27,6 @@ import { FavoriteButton } from "./FavoriteButton";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { trackEvent } from "@/lib/events";
-import { StatPill } from "./StatPill";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,
@@ -36,10 +35,11 @@ import {
   formatWorkSeason,
   getAnimeListLayout,
   toSeasonParam,
-  useAnimeStats,
   type SeasonFilterKey,
 } from "./animeListUtils";
 import {
+  ANIME_LIST_DEFAULT_SORT_KEY,
+  ANIME_LIST_DEFAULT_SORT_ORDER,
   ANIME_LIST_SORT_DEFAULT_ORDER,
   NO_ANIME_LIST_FILTERS,
   animeListFilterCount,
@@ -70,8 +70,10 @@ export function AnimeListContent({
   const { contentWidth, cardWidth, numColumns, isWide } =
     getAnimeListLayout(width);
   const [query, setQuery] = useState(initialQuery ?? "");
-  const [sortKey, setSortKey] = useState<SortKey>("title");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>(ANIME_LIST_DEFAULT_SORT_KEY);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(
+    ANIME_LIST_DEFAULT_SORT_ORDER,
+  );
   // メディア種別・ジャンル/タグの絞り込み（issue #346）。
   // シーズン絞り込みとは独立に、検索結果・シーズン一覧のどちらにも効く。
   const [filters, setFilters] = useState<AnimeListFilters>(
@@ -124,7 +126,6 @@ export function AnimeListContent({
     [data, filters],
   );
   const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
-  const stats = useAnimeStats(data);
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
   const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
@@ -279,26 +280,6 @@ export function AnimeListContent({
                   <Ionicons name="close" size={17} color={palette.clearIcon} />
                 </TouchableOpacity>
               ) : null}
-            </View>
-
-            <View style={styles.statsRow}>
-              {/* ローディング中は data が前シーズン/前検索の結果を指すため
-                  旧統計を出さない（読み込み中と件数が併記されるのを防ぐ）。 */}
-              <StatPill
-                label="作品"
-                value={showLoading ? "-" : `${stats.total}`}
-                tone="ink"
-              />
-              <StatPill
-                label="年代"
-                value={showLoading ? "-" : stats.yearRange}
-                tone="gold"
-              />
-              <StatPill
-                label="ジャンル"
-                value={`${stats.genreCount}`}
-                tone="mint"
-              />
             </View>
 
             <View style={styles.toolbar}>

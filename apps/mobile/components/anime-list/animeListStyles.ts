@@ -27,13 +27,6 @@ export type AnimeListPalette = {
   searchIcon: string;
   clearButtonBg: string;
   clearIcon: string;
-  /** 統計ピル（ink / gold / mint の 3 トーン）。 */
-  statInkBg: string;
-  statInkBorder: string;
-  statGoldBg: string;
-  statGoldBorder: string;
-  statMintBg: string;
-  statMintBorder: string;
   /** 白いチップ系ボタン（ソート・シーズン）。 */
   chipBg: string;
   chipBorder: string;
@@ -94,12 +87,6 @@ const lightPalette: AnimeListPalette = {
   searchIcon: "#64748b",
   clearButtonBg: "#f1f5f9",
   clearIcon: "#475569",
-  statInkBg: "#f8fafc",
-  statInkBorder: "#e2e8f0",
-  statGoldBg: "#fffbeb",
-  statGoldBorder: "#fde68a",
-  statMintBg: "#ecfdf5",
-  statMintBorder: "#bbf7d0",
   chipBg: "#ffffff",
   chipBorder: "#dbe4ee",
   chipActiveBg: "#111827",
@@ -148,12 +135,6 @@ const darkPalette: AnimeListPalette = {
   searchIcon: "#a8a29e",
   clearButtonBg: "#44403c",
   clearIcon: "#d6d3d1",
-  statInkBg: "#292524",
-  statInkBorder: "#57534e",
-  statGoldBg: "#451a03",
-  statGoldBorder: "#92400e",
-  statMintBg: "#022c22",
-  statMintBorder: "#065f46",
   chipBg: "#292524",
   chipBorder: "#57534e",
   chipActiveBg: "#e7e5e4",
@@ -252,42 +233,6 @@ function createStyles(p: AnimeListPalette) {
       justifyContent: "center",
       borderRadius: 15,
       backgroundColor: p.clearButtonBg,
-    },
-    statsRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      width: "100%",
-    },
-    statPill: {
-      width: "31.5%",
-      minWidth: 0,
-      borderRadius: 8,
-      borderWidth: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 9,
-    },
-    statPill_ink: {
-      backgroundColor: p.statInkBg,
-      borderColor: p.statInkBorder,
-    },
-    statPill_gold: {
-      backgroundColor: p.statGoldBg,
-      borderColor: p.statGoldBorder,
-    },
-    statPill_mint: {
-      backgroundColor: p.statMintBg,
-      borderColor: p.statMintBorder,
-    },
-    statValue: {
-      color: p.title,
-      fontSize: 14,
-      fontWeight: "900",
-    },
-    statLabel: {
-      marginTop: 1,
-      color: p.subtitle,
-      fontSize: 10,
-      fontWeight: "700",
     },
     toolbar: {
       gap: 10,

@@ -16,6 +16,12 @@ export const ANIME_LIST_SORT_DEFAULT_ORDER: Record<
   watchersCount: "desc",
 };
 
+// 一覧を開いたときの既定ソート。タイトル順にしないのは、タイトル順で
+// 探す用途がほぼ無く先に人気作が見えた方が一覧として使いやすいため（issue #376）。
+export const ANIME_LIST_DEFAULT_SORT_KEY: AnimeListSortKey = "watchersCount";
+export const ANIME_LIST_DEFAULT_SORT_ORDER: AnimeListSortOrder =
+  ANIME_LIST_SORT_DEFAULT_ORDER[ANIME_LIST_DEFAULT_SORT_KEY];
+
 // Annict Work.media の値（メディア種別）。API の searchWorks が返す。
 export const ANIME_LIST_MEDIA_KEYS = [
   "TV",

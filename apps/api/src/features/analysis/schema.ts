@@ -1,5 +1,28 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
+import { WATCH_STATES } from "@/db/schema";
+
+// レポートの 1 項目（issue #375）。facts・evidenceWorks はサーバー側で
+// 集計した確定値（AI の出力ではない）。insight は AI の解釈文で、
+// 生成できなかった場合はサーバー側の事実文が入る。
+const analysisSectionSchema = z.object({
+  // 項目の識別子（"genres" | "seasons" | "completion" | "popularity"）。
+  key: z.string(),
+  // 項目名（日本語）。
+  title: z.string(),
+  // 項目への解釈文（日本語）。
+  insight: z.string(),
+  // 傾向の根拠となった集計値（"12 件（30%）" などの表示用整形済み文字列）。
+  facts: z.array(z.object({ label: z.string(), value: z.string() })),
+  // 傾向の根拠となったライブラリ内の作品（最大 3 件）。
+  evidenceWorks: z.array(
+    z.object({
+      annictWorkId: z.number().int(),
+      title: z.string(),
+      state: z.enum(WATCH_STATES),
+    }),
+  ),
+});
 
 // 分析結果の応答形（GET /me/analysis・POST /me/analysis 共通）。
 const analysisResultSchema = z.object({
@@ -7,6 +30,8 @@ const analysisResultSchema = z.object({
   summary: z.string(),
   // VALID_GENRES から選ばれたおすすめジャンル（最大 5 件）。
   recommendedGenres: z.array(z.string()),
+  // レポート項目（issue #375）。レポート形式になる前の結果では空配列。
+  sections: z.array(analysisSectionSchema),
   // 生成完了時刻（ISO 8601）。
   generatedAt: z.string(),
   // 分析入力に含めた視聴履歴の件数。
@@ -73,7 +98,8 @@ export const generateAnalysisRoute = createRoute({
   tags: ["analysis"],
   summary: "視聴履歴を Workers AI で分析する",
   description:
-    "視聴履歴を集計して Workers AI に投げ、傾向テキストとおすすめジャンルを返す。" +
+    "視聴履歴をサーバー側で集計して Workers AI に投げ、傾向テキストと" +
+    "おすすめジャンルに加え、根拠データ付きのレポート項目（sections）を返す。" +
     "入力が変わらない間は 24h キャッシュを返し（cached=true）、生成実行は" +
     "ユーザーごとに 24h あたり 5 回まで（超過時は 429 + Retry-After）。",
   security: bearerAuth,
