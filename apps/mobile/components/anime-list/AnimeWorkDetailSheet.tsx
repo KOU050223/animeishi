@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -182,6 +183,9 @@ export function AnimeWorkDetailSheet({
               onToggleFavorite={onToggleFavorite}
               onOpenCharacterTierList={openCharacterTierList}
             />
+            {work.annictWorkId ? (
+              <AnnictWorkLink annictWorkId={work.annictWorkId} />
+            ) : null}
             <DetailFetchSection detail={detail} />
           </View>
         </ScrollView>
@@ -397,6 +401,24 @@ function DetailLink({
         {label}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Annict の作品ページを開くリンク（issue #372）。links 一覧に入れず
+ * 独立して出すのは、詳細取得の失敗・読み込み中でも一覧カードの
+ * annictWorkId から URL を組み立てられるため。
+ */
+function AnnictWorkLink({ annictWorkId }: { annictWorkId: number }) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+
+  return (
+    <DetailLink
+      label={t("Annict で見る")}
+      url={`https://annict.com/works/${annictWorkId}`}
+      color={colors.primaryText}
+    />
   );
 }
 
