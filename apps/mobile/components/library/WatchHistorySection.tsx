@@ -272,12 +272,17 @@ export function WatchHistorySection() {
       <WatchHistoryShareSection />
 
       {/* ソート切り替えチップ + 絞り込み導線（issue #345）。
-          絞り込みの選択自体は下のボトムシートで行う。 */}
+          絞り込みの選択自体は下のボトムシートで行う。
+          react-native-web の ScrollView は flexGrow/flexShrink が 1 既定で、
+          同じ列の FlatList（コンテンツ全高ぶんの flex-basis を持つ）に押されて
+          Web では高さが潰れる。ネイティブで不要に見える flex 指定だが消せない（#371）。 */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, flexShrink: 0 }}
         className="px-4 pb-2"
         contentContainerStyle={{ gap: 8 }}
+        testID="watch-history-sort-row"
       >
         {WATCH_HISTORY_SORT_KEYS.map((key) => (
           <SelectChip
