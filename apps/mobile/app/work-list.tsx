@@ -271,9 +271,10 @@ export default function WorkListScreen() {
       alert("共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
       });
-    } finally {
-      setIsSharing(false);
     }
+    // React Compiler は finally 句を持つ try を最適化対象にできないため、
+    // catch 側で必ず握りつぶす形にして finally を避ける（react-doctor）。
+    setIsSharing(false);
   }, [shareDisabled, saveWorkListData, share]);
 
   const handleCopyUrl = useCallback(async (url: string) => {

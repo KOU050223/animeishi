@@ -28,8 +28,8 @@ export function WorkAddSheet({
   onClose,
   onAdd,
   existingWorkIds,
-  heading = "作品を追加",
-  description = "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です",
+  heading,
+  description,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -37,10 +37,10 @@ export function WorkAddSheet({
   onAdd: (work: TierItem) => void;
   /** 既に盤面にある作品 id。検索結果で「追加済み」表示にして二重追加を防ぐ。 */
   existingWorkIds: ReadonlySet<number>;
-  /** シートの見出し。作品リスト（issue #349）など tier 表以外から使うときに差し替える。 */
-  heading?: string;
+  /** シートの見出し。表示文言は基盤側に既定値を持たせず呼び出し側が渡す。 */
+  heading: string;
   /** 見出しの下の説明文。追加先の振る舞い（未分類 / 末尾）を呼び出し側が説明する。 */
-  description?: string;
+  description: string;
 }) {
   const colors = useThemeColors();
   const [query, setQuery] = useState("");
