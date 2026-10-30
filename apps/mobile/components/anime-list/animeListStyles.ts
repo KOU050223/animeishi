@@ -355,6 +355,13 @@ function createStyles(p: AnimeListPalette) {
       shadowRadius: 18,
       elevation: 2,
     },
+    // Web 実装の CardPressable はカード内にコンテンツ用のラッパー View を
+    // 挟むため、card と同じ並びをここにも定義する（card と一緒に直す）。
+    cardInner: {
+      flex: 1,
+      flexDirection: "row",
+      gap: 13,
+    },
     poster: {
       width: 68,
       height: 92,
@@ -405,6 +412,13 @@ function createStyles(p: AnimeListPalette) {
       lineHeight: 21,
       fontWeight: "900",
       letterSpacing: 0,
+    },
+    // cardTitleRow 内のアクションボタン群。Web ではカード全体を覆う
+    // オーバーレイボタンの下にコンテンツが pointer-events:none で置かれるため、
+    // この View に pointerEvents="auto" を指定してボタンのイベントを復活させる。
+    cardActions: {
+      flexDirection: "row",
+      gap: 8,
     },
     metaRow: {
       marginTop: 10,

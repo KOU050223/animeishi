@@ -204,6 +204,7 @@ export function AnimeListContent({
     ({ item }: { item: AnimeTitle }) => (
       <CardPressable
         style={[styles.card, { width: cardWidth }]}
+        contentStyle={styles.cardInner}
         testID={`anime-item-${item.annictWorkId}`}
         onPress={() => setSelectedWork(item)}
         accessibilityLabel={`${item.title}の詳細を開く`}
@@ -214,17 +215,22 @@ export function AnimeListContent({
             <Text style={styles.cardTitle} numberOfLines={2}>
               {item.title}
             </Text>
-            <AddToWorkListButton
-              onPress={() => setListTarget(item)}
-              title={item.title}
-              testID={`anime-item-add-to-list-${item.annictWorkId}`}
-            />
-            <FavoriteButton
-              isFavorite={favoriteIds.has(item.annictWorkId)}
-              disabled={isToggling}
-              onPress={() => toggleFavorite(item.annictWorkId)}
-              title={item.title}
-            />
+            {/* Web ではコンテンツ全体が pointer-events:none のラッパー内に
+                あるため、この View でボタンのイベントを復活させる
+                （CardPressable.web.tsx 参照） */}
+            <View style={styles.cardActions} pointerEvents="auto">
+              <AddToWorkListButton
+                onPress={() => setListTarget(item)}
+                title={item.title}
+                testID={`anime-item-add-to-list-${item.annictWorkId}`}
+              />
+              <FavoriteButton
+                isFavorite={favoriteIds.has(item.annictWorkId)}
+                disabled={isToggling}
+                onPress={() => toggleFavorite(item.annictWorkId)}
+                title={item.title}
+              />
+            </View>
           </View>
           <View style={styles.metaRow}>
             {item.seasonYear ? (
