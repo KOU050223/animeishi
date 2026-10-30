@@ -257,7 +257,17 @@ export function WatchHistorySection() {
     });
     void upsert
       .mutateAsync({ annictWorkId: item.annictWorkId, data: { state: next } })
-      .catch(notifyUpdateFailure);
+      .catch((e) => {
+        // 表示が巻き戻された失敗では成功を示すトーストが残ると矛盾するので消す。
+        // 後続の楽観値が残る失敗（rolledBack=false）では別の変更分のトーストを
+        // 消さないよう、対象作品のトーストだけを消す。
+        if ((e as UpsertWatchHistoryError).rolledBack === true) {
+          setStatusToast((cur) =>
+            cur?.annictWorkId === item.annictWorkId ? null : cur,
+          );
+        }
+        notifyUpdateFailure(e);
+      });
     showStatusToast({
       annictWorkId: item.annictWorkId,
       title: item.title,
@@ -486,7 +496,6 @@ export function WatchHistorySection() {
           right: 0,
           bottom: 0,
           zIndex: 20,
-          elevation: 20,
         }}
       >
         {statusToast ? (

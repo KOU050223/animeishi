@@ -286,6 +286,10 @@ describe("WatchHistorySection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+    // 表示が巻き戻された失敗では成功を示すトーストが残ると矛盾するので消す。
+    await waitFor(() =>
+      expect(screen.queryByTestId("watch-history-status-undo")).toBeNull(),
+    );
   });
 
   it("前回の更新が pending 中でも次のステータス変更を発行できる", async () => {
