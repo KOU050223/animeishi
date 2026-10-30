@@ -619,6 +619,11 @@ function RowBadges({
           Annict に一致する作品が見つかりません（スキップ）
         </Text>
       )}
+      {status === "pending" && (
+        <Text className="text-xs text-gray-400 dark:text-slate-500">
+          照合を完了できませんでした（スキップ）
+        </Text>
+      )}
       {note !== null && (
         <Text className="text-xs text-amber-600 dark:text-amber-400">
           {note}

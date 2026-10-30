@@ -1,6 +1,9 @@
 // dアニメ抽出タイトル → Annict 作品へのマッチング。
 //
 // 方針:
+// - Annict 検索の前にローカルキャッシュ（API 側は D1 の annict_works）で
+//   照合し、exact に確定したタイトルは Annict に送らない
+//   （issue #219: Workers のサブリクエスト上限 50 に収めるため往復を減らす）。
 // - Annict searchWorks は「Annict 側タイトル/かな が入力を含む」OR 部分一致なので、
 //   入力タイトルをチャンクでまとめて union 検索し、各入力への帰属はローカルで
 //   スコアリングする（往復数を作品数に比例させない）。
@@ -8,6 +11,8 @@
 //   （単純化タイトルも試す）。
 // - 正確さより安全側: 正規化完全一致の単一候補だけを "exact" とし、それ以外は
 //   レビュー（"candidates"）か未マッチ（"none"）に落とす。
+// - 検索計画を完走できなかった（searcher のスキップ・再検索回数上限）入力は
+//   "pending" として返し、呼び出し側が別リクエストで再送する。
 // - Annict へのアクセスは AnnictSearcher として注入する。animeishi API は
 //   Workers 側の GraphQL クライアントを包んで渡し、将来のスタンドアロン版
 //   （ブラウザ拡張等）はクライアントから Annict を直叩きする実装を差し替えられる。
@@ -35,7 +40,12 @@ export type DanimeMatchInput = {
   targetState: "WATCHED" | "WATCHING";
 };
 
-export type DanimeMatchStatus = "exact" | "candidates" | "none";
+// pending: 検索計画（union 検索・単発再検索）を完走できなかった保留。
+// 呼び出し側が検索をスキップした（AnnictSearcher が null を返した）か、
+// 呼び出し全体の再検索回数上限に達した入力に付ける。呼び出し側は
+// pending 分だけを別リクエストで再送する想定（issue #219:
+// Workers のサブリクエスト上限で照合が打ち切られないようにする）。
+export type DanimeMatchStatus = "exact" | "candidates" | "none" | "pending";
 
 export type DanimeMatchResult = DanimeMatchInput & {
   status: DanimeMatchStatus;
@@ -46,7 +56,7 @@ export type DanimeMatchResult = DanimeMatchInput & {
 };
 
 /** searcher を呼ぶ検索段階。呼び出し側が失敗時のログに段階を残せるようにする。 */
-export type DanimeSearchPhase = "firstPass" | "secondPass";
+export type DanimeSearchPhase = "localPass" | "firstPass" | "secondPass";
 
 export interface DanimeSearchContext {
   phase: DanimeSearchPhase;
@@ -55,16 +65,25 @@ export interface DanimeSearchContext {
 /**
  * Annict 作品検索の抽象化。タイトル群（OR 部分一致）を受け取り、
  * ヒットした Annict 作品候補を返す。実装側でページング方針・認証・
- * 通信先（API プロキシ / Annict 直叩き）を持つ。
+ * 通信先（API プロキシ / Annict 直叩き / D1 キャッシュ）を持つ。
+ *
+ * 検索自体を行えなかった（サブリクエスト予算切れ等）場合は null を返す。
+ * null を返した入力は pending 扱いになり、未検索のまま none に
+ * 確定しない（issue #219）。
  */
 export type AnnictSearcher = (
   titles: string[],
   context?: DanimeSearchContext,
-) => Promise<DanimeAnnictWork[]>;
+) => Promise<DanimeAnnictWork[] | null>;
 
 // union 検索 1 クエリあたりのタイトル数。多すぎると first:50 の打ち切りで
 // 候補を取りこぼす。少なすぎると往復が増える。経験的な中間値。
 const SEARCH_CHUNK_SIZE = 10;
+
+// ローカル照合（D1 キャッシュ）の 1 クエリあたりのタイトル数。
+// API 側の実装は title/title_kana/title_en の 3 フィールドで LIKE するため、
+// D1 のバインド変数上限（100）に対し 30 タイトル × 3 = 90 変数に収める。
+const LOCAL_SEARCH_CHUNK_SIZE = 30;
 
 // candidates に載せる最低スコア。包含係（0.6〜）に入らない bigram 類似は
 // 0.5 が上限なので、それ以下はノイズとして捨てる。
@@ -89,10 +108,14 @@ const SEARCH_CONCURRENCY = 6;
 // searcher 内部で起きたリトライ回数はここでは分からないため、API 側が
 // 自分で集計してレスポンスに載せる。
 export type DanimeMatchStats = {
+  /** ローカル照合（localSearch 注入時）の検索リクエスト数。 */
+  localPassSearches: number;
   /** 第 1 パス（union 検索）の Annict リクエスト数。 */
   firstPassSearches: number;
   /** 第 2 パス（単発再検索）の Annict リクエスト数。 */
   secondPassSearches: number;
+  /** 検索計画を完走できず pending になった件数。 */
+  pending: number;
   /** マッチング全体の経過時間（ms）。 */
   elapsedMs: number;
 };
@@ -249,16 +272,25 @@ function secondPassQueries(title: string): string[] {
 /**
  * dアニメ抽出作品群を Annict 作品へマッチングする。
  * 返す配列は入力順を維持する。
+ *
+ * options.localSearch を渡すと、Annict 検索の前にローカルキャッシュ
+ * （API 側は D1 の annict_works）で照合する。exact に確定したタイトルは
+ * searcher に送らないため、リクエストあたりの Annict 往復が減る
+ * （issue #219: Workers のサブリクエスト上限 50 への対策）。
+ * ローカルの候補は Annict 側の候補プールにも合流させる。
  */
 export async function matchDanimeWorks(
   searcher: AnnictSearcher,
   items: DanimeMatchInput[],
   registeredWorkIds?: Iterable<number>,
+  options: { localSearch?: AnnictSearcher } = {},
 ): Promise<DanimeMatchOutput> {
   const startedAt = Date.now();
   const stats: DanimeMatchStats = {
+    localPassSearches: 0,
     firstPassSearches: 0,
     secondPassSearches: 0,
+    pending: 0,
     elapsedMs: 0,
   };
 
@@ -278,40 +310,116 @@ export async function matchDanimeWorks(
     title: unwrapDanimeTitle(i.title) || i.title,
   }));
 
-  // 第 1 パス: タイトルをチャンクでまとめて union 検索。
-  // チャンク間に依存はないため、レート制限を意識した同時実行数で並列に投げる。
-  const chunks: string[][] = [];
-  for (let i = 0; i < matchInputs.length; i += SEARCH_CHUNK_SIZE) {
-    const chunk = matchInputs
-      .slice(i, i + SEARCH_CHUNK_SIZE)
-      .map((w) => w.title.trim())
-      // 退化クエリ（「TVアニメ」だけ等）はノイズしか返さないので送らない。
-      .filter((t) => t && !isGenericSearchTitle(t));
-    if (chunk.length > 0) chunks.push(chunk);
-  }
-  const pool = (
-    await mapWithConcurrency(chunks, SEARCH_CONCURRENCY, async (chunk) => {
-      stats.firstPassSearches++;
-      return searcher(chunk, { phase: "firstPass" });
-    })
-  ).flat();
-  // 候補プールは入力ごとに再利用するため、dedupe とシグネチャ計算を
-  // ここで一度だけ行う（issue #219: 全ペアでの正規化やり直しを防ぐ）。
-  const basePool: PreparedCandidate[] = [];
-  const basePoolIds = new Set<number>();
-  for (const w of pool) {
-    if (basePoolIds.has(w.annictWorkId)) continue;
-    basePoolIds.add(w.annictWorkId);
-    basePool.push(prepareCandidate(w));
-  }
-
   const results = new Map<string, DanimeMatchResult>();
   const originalTitle = new Map(inputs.map((i) => [i.danimeWorkId, i.title]));
   // 入力側のシグネチャも作品 1 件につき 1 回だけ計算する。
   const inputSigs = new Map(
     matchInputs.map((i) => [i.danimeWorkId, prepareTitle(i.title)]),
   );
-  for (const input of matchInputs) {
+  // 検索をスキップされた（searcher が null）入力の danimeWorkId。
+  // 最終結果で pending に書き換える判定に使う。
+  const skipped = new Set<string>();
+
+  const chunkInputs = (
+    targets: DanimeMatchInput[],
+    size: number,
+  ): DanimeMatchInput[][] => {
+    const chunks: DanimeMatchInput[][] = [];
+    for (let i = 0; i < targets.length; i += size) {
+      const chunk = targets
+        .slice(i, i + size)
+        // 退化クエリ（「TVアニメ」だけ等）はノイズしか返さないので送らない。
+        .filter((w) => {
+          const t = w.title.trim();
+          return t && !isGenericSearchTitle(t);
+        });
+      if (chunk.length > 0) chunks.push(chunk);
+    }
+    return chunks;
+  };
+  const titlesOf = (chunk: DanimeMatchInput[]) =>
+    chunk.map((w) => w.title.trim());
+
+  // 候補プールは入力ごとに再利用するため、dedupe とシグネチャ計算を
+  // 一度だけ行う（issue #219: 全ペアでの正規化やり直しを防ぐ）。
+  const basePool: PreparedCandidate[] = [];
+  const basePoolIds = new Set<number>();
+  const addToPool = (works: DanimeAnnictWork[]) => {
+    for (const w of works) {
+      if (basePoolIds.has(w.annictWorkId)) continue;
+      basePoolIds.add(w.annictWorkId);
+      basePool.push(prepareCandidate(w));
+    }
+  };
+
+  // 第 0 パス: ローカルキャッシュ（D1）で照合。exact になったタイトルは
+  // Annict への検索対象から外す。ローカル検索のスキップ（null）は
+  // 「キャッシュ無し」と同じ扱いで Annict 側に回す（pending にはしない:
+  // Annict 側で完走できる可能性が残るため）。
+  let unresolved = matchInputs;
+  if (options.localSearch) {
+    const localSearch = options.localSearch;
+    const found = (
+      await mapWithConcurrency(
+        chunkInputs(matchInputs, LOCAL_SEARCH_CHUNK_SIZE),
+        SEARCH_CONCURRENCY,
+        async (chunk) => {
+          const res = await localSearch(titlesOf(chunk), {
+            phase: "localPass",
+          });
+          if (res === null) return [];
+          stats.localPassSearches++;
+          return res;
+        },
+      )
+    ).flat();
+    addToPool(found);
+    unresolved = [];
+    for (const input of matchInputs) {
+      const classified = classifyPreparedWork(
+        input,
+        inputSigs.get(input.danimeWorkId)!,
+        basePool,
+        { registeredWorkIds: registered },
+      );
+      // ローカルキャッシュで 1 件に確定したら Annict へは送らない
+      // （issue #219 のサブリクエスト削減が目的）。キャッシュは Annict
+      // 全件ではないため、同名の別作品が Annict にだけ存在すると誤確定
+      // し得る残リスクはある。全件を Annict で再検証すると往復数が
+      // 削減できず本末転倒になるため、レビュー画面でのユーザー確認を
+      // 安全網としてこのトレードオフを取る。
+      if (classified.status === "exact") {
+        results.set(input.danimeWorkId, {
+          ...classified,
+          title: originalTitle.get(input.danimeWorkId)!,
+        });
+      } else {
+        unresolved.push(input);
+      }
+    }
+  }
+
+  // 第 1 パス: ローカルで確定しなかったタイトルをチャンクでまとめて
+  // union 検索。チャンク間に依存はないため、レート制限を意識した
+  // 同時実行数で並列に投げる。
+  const firstPassPool = (
+    await mapWithConcurrency(
+      chunkInputs(unresolved, SEARCH_CHUNK_SIZE),
+      SEARCH_CONCURRENCY,
+      async (chunk) => {
+        const res = await searcher(titlesOf(chunk), { phase: "firstPass" });
+        if (res === null) {
+          for (const input of chunk) skipped.add(input.danimeWorkId);
+          return [];
+        }
+        stats.firstPassSearches++;
+        return res;
+      },
+    )
+  ).flat();
+  addToPool(firstPassPool);
+
+  for (const input of unresolved) {
     const classified = classifyPreparedWork(
       input,
       inputSigs.get(input.danimeWorkId)!,
@@ -330,10 +438,28 @@ export async function matchDanimeWorks(
   // （同じ union 検索語を共有する無印作品が先に候補へ入ると、数字の
   // 全半角違いしかない本来の作品を取りこぼすため）。
   // Annict への往復を全体で MAX_SECOND_PASS_SEARCHES 回までに制限する。
-  const unresolved = matchInputs.filter(
-    (i) => results.get(i.danimeWorkId)?.status !== "exact",
+  // 上限到達・予算切れ（searcher の null）で検索計画を完走できなかった
+  // 入力は pending にして呼び出し側の再送に回す。
+  // 第 1 パスでスキップされた入力は第 2 パスへ回さない。スキップは
+  // 呼び出し側の予算切れを意味し、予算は単調に減るので再検索も
+  // 必ずスキップされるため（そのまま pending にする）。
+  const retryTargets = unresolved.filter(
+    (i) =>
+      results.get(i.danimeWorkId)?.status !== "exact" &&
+      !skipped.has(i.danimeWorkId),
   );
   let secondPassSearches = 0;
+  // searcher が一度でもスキップ（null）を返したら以降の検索は全て
+  // 同じくスキップされる（予算は単調に減るため）。残りの検索を打ち切る
+  // 判定に使う。
+  let searchSkipped = false;
+  const markPendingRest = (fromIndex: number) => {
+    for (const rest of retryTargets.slice(fromIndex)) {
+      if (results.get(rest.danimeWorkId)?.status !== "exact") {
+        skipped.add(rest.danimeWorkId);
+      }
+    }
+  };
   // 未解決タイトル間は独立なので並列で再検索する。1 タイトル内の検索語は
   // 「最初にヒットした語を採用する」順序依存があるため逐次のままにする。
   // 呼び出し全体の往復上限（secondPassSearches）は各タスクが共有する。
@@ -343,10 +469,13 @@ export async function matchDanimeWorks(
   // 1 ウェーブの最大クエリ数（同時実行数 × 1 タイトルの検索語数）は
   // 上限 50 を下回るため、ウェーブ内のタスク同士で枠を奪い合うことはなく、
   // 後続ウェーブも先のウェーブ完了を待つので逐次版と同じ優先順位になる。
-  for (let i = 0; i < unresolved.length; i += SEARCH_CONCURRENCY) {
-    if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
+  for (let i = 0; i < retryTargets.length; i += SEARCH_CONCURRENCY) {
+    if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES || searchSkipped) {
+      markPendingRest(i);
+      break;
+    }
     await mapWithConcurrency(
-      unresolved.slice(i, i + SEARCH_CONCURRENCY),
+      retryTargets.slice(i, i + SEARCH_CONCURRENCY),
       SEARCH_CONCURRENCY,
       async (input) => {
         const status = results.get(input.danimeWorkId)?.status;
@@ -355,9 +484,21 @@ export async function matchDanimeWorks(
             ? alnumVariantQueries(input.title)
             : secondPassQueries(input.title);
         for (const q of queries) {
-          if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES) break;
+          if (secondPassSearches >= MAX_SECOND_PASS_SEARCHES || searchSkipped) {
+            skipped.add(input.danimeWorkId);
+            break;
+          }
+          // 上限の確認と消費を同じ同期区間で行う。呼び出し後に数えると
+          // 並列タスクが同じ残り枠を重複して使い上限を超える。
           secondPassSearches++;
           const found = await searcher([q], { phase: "secondPass" });
+          if (found === null) {
+            // スキップ（未検索）は往復していないので枠を返す。
+            secondPassSearches--;
+            searchSkipped = true;
+            skipped.add(input.danimeWorkId);
+            break;
+          }
           if (found.length === 0) continue;
           // ヒットした候補は basePool に無い分だけシグネチャを計算して足す
           // （他タスクの再検索結果は従来どおり混ぜず、basePool + 自タスクの
@@ -399,10 +540,18 @@ export async function matchDanimeWorks(
   }
 
   stats.secondPassSearches = secondPassSearches;
+  // スキップ（未検索）された入力は pending にする。他チャンクの候補が
+  // 共有プール経由で一致していても、そのタイトル自体を検索していない
+  // 以上 Annict 側に別候補が無いことを保証できず、exact / none の
+  // 確定値は誤確定になり得るため、保留として呼び出し側の再送に回す。
+  const finalResults = items.map((i) => {
+    if (skipped.has(i.danimeWorkId)) {
+      return { ...i, status: "pending" as const, work: null, candidates: [] };
+    }
+    return results.get(i.danimeWorkId)!;
+  });
+  stats.pending = finalResults.filter((r) => r.status === "pending").length;
   stats.elapsedMs = Date.now() - startedAt;
   // 入力順を維持して返す（dedupe で潰した重複 danimeWorkId は同じ結果を指す）。
-  return {
-    results: items.map((i) => results.get(i.danimeWorkId)!),
-    stats,
-  };
+  return { results: finalResults, stats };
 }

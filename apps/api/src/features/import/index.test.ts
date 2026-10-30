@@ -549,6 +549,178 @@ describe("dアニメインポート API", () => {
       });
     });
 
+    // issue #219: D1 の annict_works キャッシュで照合できたタイトルは
+    // Annict の検索（= 外部 fetch のサブリクエスト）を消費しない。
+    it("D1 キャッシュで確定できるタイトルは Annict を呼ばない", async () => {
+      await env.DB.prepare(
+        `INSERT INTO annict_works
+         (annict_work_id, node_id, title, title_kana, title_en,
+          season_name, season_year, image_url, mal_anime_id, updated_at)
+         VALUES (?, NULL, ?, ?, ?, NULL, NULL, NULL, NULL, ?)`,
+      )
+        .bind(1, "鬼滅の刃", "きめつのやいば", null, Date.now())
+        .run();
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: {
+          status: string;
+          work: { annictWorkId: number; nodeId: string | null } | null;
+        }[];
+        stats: { localPassSearches: number };
+      };
+      expect(body.results[0]?.status).toBe("exact");
+      expect(body.results[0]?.work?.annictWorkId).toBe(1);
+      // D1 由来の候補は node_id 未取得（null）でも照合できる
+      expect(body.results[0]?.work?.nodeId).toBeNull();
+      // Annict（外部 fetch）は一度も呼ばれない
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(body.stats.localPassSearches).toBeGreaterThan(0);
+    });
+
+    it("D1 の LIKE パターン上限（50 バイト）を超える長いタイトルもローカル照合できる", async () => {
+      // D1 の LIKE/GLOB パターンは 50 バイト上限があり、日本語 17 文字
+      // 程度で超過する。instr による部分一致に切り替えてあるため、
+      // 長いタイトルでもクエリが失敗しない。
+      const longTitle =
+        "とある科学の超電磁砲 フルシーズン総集編ディレクターズカット";
+      await env.DB.prepare(
+        `INSERT INTO annict_works
+         (annict_work_id, node_id, title, title_kana, title_en,
+          season_name, season_year, image_url, mal_anime_id, updated_at)
+         VALUES (?, NULL, ?, ?, ?, NULL, NULL, NULL, NULL, ?)`,
+      )
+        .bind(1, longTitle, null, null, Date.now())
+        .run();
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: longTitle, targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { status: string }[];
+      };
+      expect(body.results[0]?.status).toBe("exact");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("D1 に無いタイトルだけを Annict に検索する", async () => {
+      await env.DB.prepare(
+        `INSERT INTO annict_works
+         (annict_work_id, node_id, title, title_kana, title_en,
+          season_name, season_year, image_url, mal_anime_id, updated_at)
+         VALUES (?, NULL, ?, ?, ?, NULL, NULL, NULL, NULL, ?)`,
+      )
+        .bind(1, "鬼滅の刃", null, null, Date.now())
+        .run();
+      const fetchSpy = mockAnnictSearch((titles) =>
+        titles.flatMap((t) =>
+          t === "呪術廻戦" ? [{ annictId: 2, title: "呪術廻戦" }] : [],
+        ),
+      );
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+              { danimeWorkId: "2", title: "呪術廻戦", targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { danimeWorkId: string; status: string }[];
+      };
+      expect(body.results.find((r) => r.danimeWorkId === "1")?.status).toBe(
+        "exact",
+      );
+      expect(body.results.find((r) => r.danimeWorkId === "2")?.status).toBe(
+        "exact",
+      );
+      // D1 で確定したタイトルは Annict の検索語に含まれない
+      const sentTitles = fetchSpy.mock.calls.flatMap(([, init]) => {
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        return (body.variables?.titles ?? []) as string[];
+      });
+      expect(sentTitles).not.toContain("鬼滅の刃");
+      expect(sentTitles).toContain("呪術廻戦");
+    });
+
+    // issue #219: Workers のサブリクエスト上限（Free プラン 50/req）を超える
+    // 検索量になっても 502 にせず、未検索分を pending（= 次回に回す）で返す。
+    it("予算を超える検索は打ち切られ、未検索分は pending で返る（502 にしない）", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const fetchSpy = mockAnnictSearch(() => []);
+      // 未解決が 100 件残る入力。D1 ローカル検索（4 クエリ）+ 第 1 パス
+      // union（10 クエリ）+ 第 2 パスの単発再検索で予算（40）を使い切る。
+      const works = Array.from({ length: 100 }, (_, i) => ({
+        danimeWorkId: `w${i}`,
+        title: `存在しない作品その${i}`,
+        targetState: "WATCHED" as const,
+      }));
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ works }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { status: string }[];
+        stats: { pending: number; retries: number };
+      };
+      const pending = body.results.filter((r) => r.status === "pending");
+      expect(pending.length).toBeGreaterThan(0);
+      expect(body.stats.pending).toBe(pending.length);
+      // 外部 fetch の総数が予算（40）を超えない。
+      // （Workers の上限 50 には認証・通知用のサブリクエストを残す）
+      expect(fetchSpy.mock.calls.length).toBeLessThanOrEqual(40);
+      // 予算切れは warn で 1 回だけ記録する（502 の失敗ログにはしない）
+      const warns = warnSpy.mock.calls.map((c) => JSON.parse(String(c[0])));
+      expect(
+        warns.filter((l) => l.event === "danime_search_budget_exhausted"),
+      ).toHaveLength(1);
+      warnSpy.mockRestore();
+    });
+
     it("works が空配列なら 400", async () => {
       const res = await buildApp().request(
         "/me/import/danime/match",

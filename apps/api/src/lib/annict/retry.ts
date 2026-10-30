@@ -2,7 +2,7 @@
 // 一時的な上流障害（5xx）・通信失敗（status 0）を拾い、決め打ちの回数だけ
 // バックオフして再試行する。401（トークン失効・スコープ不足）や 4xx は
 // 再試行しても結果が変わらないため即座に投げる。
-import { AnnictApiError } from "./client";
+import { AnnictApiError, AnnictBudgetExhaustedError } from "./client";
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_BASE_DELAY_MS = 300;
@@ -10,6 +10,9 @@ const DEFAULT_BASE_DELAY_MS = 300;
 function isRetriable(err: unknown): err is AnnictApiError {
   return (
     err instanceof AnnictApiError &&
+    // 予算切れは再試行しても回復しない（issue #219）。status 0 に
+    // 見えるため明示的に除外する。
+    !(err instanceof AnnictBudgetExhaustedError) &&
     (err.status === 0 || err.status === 429 || err.status >= 500)
   );
 }

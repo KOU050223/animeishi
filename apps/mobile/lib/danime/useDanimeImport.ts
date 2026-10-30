@@ -38,9 +38,13 @@ export type BulkRegisterResult = {
 
 // POST /me/import/danime/match の stats 要素と対応するクライアント側の型。
 export type DanimeMatchStats = {
+  /** D1 キャッシュ照合（issue #219 で追加。旧 API では返らないため任意）。 */
+  localPassSearches?: number;
   firstPassSearches: number;
   secondPassSearches: number;
   retries: number;
+  /** 検索計画を完走できず pending になった件数（旧 API では返らない）。 */
+  pending?: number;
   elapsedMs: number;
 };
 
@@ -56,8 +60,8 @@ export type DanimeMatchOutput = {
 const BULK_CHUNK_SIZE = 50;
 
 // 1 リクエストあたりの照合件数。API 側は 500 件まで受け付けるが、
-// issue #219（Workers の CPU 時間超過による 503）の再発に余裕を持たせるため
-// 小さく分割して逐次送信する。
+// Workers のサブリクエスト上限（issue #219）に収まるよう
+// 小さく分割して逐次送信する。pending の再送もこの単位で行う。
 const MATCH_CHUNK_SIZE = 100;
 
 // issue #219: 照合を 100 件単位で分割送信しているため、正規化タイトルが同じ
@@ -133,16 +137,13 @@ export function useDanimeMatch() {
       // Clerk トークンは短命なので、長時間かかる連続リクエストの途中で
       // 期限切れにならないようチャンクごとに取得し直す。
       const startedAt = Date.now();
-      const results: DanimeMatchItem[] = [];
       let stats: DanimeMatchStats | undefined;
-      for (let i = 0; i < works.length; i += MATCH_CHUNK_SIZE) {
+
+      const postMatch = async (chunk: typeof works) => {
         const headers = await getAuthHeaders(getToken);
         const res = await apiClient.me["import"].danime.match.$post(
           {
-            json: {
-              works: works.slice(i, i + MATCH_CHUNK_SIZE),
-              registeredWorkIds,
-            },
+            json: { works: chunk, registeredWorkIds },
           },
           { headers: { ...headers, ...annictHeader } },
         );
@@ -168,9 +169,15 @@ export function useDanimeMatch() {
           );
         }
         const body = await res.json();
-        // チャンク分割時は各チャンクの統計を合算する。
+        // チャンク分割・pending 再送時は各リクエストの統計を合算する。
+        // 検索回数・リトライ・経過時間は累積でよいが、pending 件数は
+        // 「その応答時点の未検索数」なので合算すると結果一覧とずれる。
+        // 最終的な items が決まってから数え直す。
         if (body.stats) {
           stats = {
+            localPassSearches:
+              (stats?.localPassSearches ?? 0) +
+              (body.stats.localPassSearches ?? 0),
             firstPassSearches:
               (stats?.firstPassSearches ?? 0) + body.stats.firstPassSearches,
             secondPassSearches:
@@ -179,10 +186,50 @@ export function useDanimeMatch() {
             elapsedMs: (stats?.elapsedMs ?? 0) + body.stats.elapsedMs,
           };
         }
-        results.push(...body.results);
+        return body.results;
+      };
+
+      // API が返した最新の照合結果（danimeWorkId 単位）。pending は
+      // 「予算切れ等で未検索」なので、次のリクエストへ送り直す（issue #219）。
+      // 1 ラウンドで 1 件も確定しなければ進捗なしとみなして打ち切り、
+      // 残りは pending のまま画面に返す（無限ループ防止）。
+      const resultById = new Map<string, DanimeMatchItem>();
+      const workById = new Map(works.map((w) => [w.danimeWorkId, w]));
+      let remaining = [...workById.values()];
+      while (remaining.length > 0) {
+        const pending: typeof works = [];
+        let resolved = 0;
+        for (let i = 0; i < remaining.length; i += MATCH_CHUNK_SIZE) {
+          const chunk = remaining.slice(i, i + MATCH_CHUNK_SIZE);
+          for (const r of await postMatch(chunk)) {
+            if (r.status === "pending") {
+              const work = workById.get(r.danimeWorkId);
+              if (work) pending.push(work);
+            } else {
+              resultById.set(r.danimeWorkId, r);
+              resolved++;
+            }
+          }
+        }
+        if (resolved === 0) break;
+        remaining = pending;
+      }
+      // 入力順を維持して返す。残った pending はそのまま返し、
+      // レビュー画面で「保留」として表示する。
+      const items = works.map(
+        (w) =>
+          resultById.get(w.danimeWorkId) ?? {
+            ...w,
+            status: "pending" as const,
+            work: null,
+            candidates: [],
+          },
+      );
+      if (stats) {
+        stats.pending = items.filter((i) => i.status === "pending").length;
       }
       return {
-        items: demoteAmbiguousExactAcrossChunks(results),
+        items: demoteAmbiguousExactAcrossChunks(items),
         elapsedMs: Date.now() - startedAt,
         stats,
       } satisfies DanimeMatchOutput;

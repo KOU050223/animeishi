@@ -548,3 +548,178 @@ describe("matchDanimeWorks", () => {
     expect(stats.elapsedMs).toBeGreaterThanOrEqual(0);
   });
 });
+
+// issue #219: Workers のサブリクエスト上限に触れないよう、呼び出し側
+// （API の予算付き searcher / D1 キャッシュ検索）が「検索しなかった」を
+// null で返し、core が未検索分を pending として呼び出し側の再送に回す
+// 契約を検証する。
+describe("matchDanimeWorks: pending とローカル検索（issue #219）", () => {
+  it("searcher が検索をスキップ（null）したチャンクの入力は pending になる", async () => {
+    // 未検索のまま none にすると「Annict に存在しない」という誤った
+    // 確定を返すため、pending として呼び出し側の再送に回す。
+    const searcher = vi.fn(async () => null);
+    const { results, stats } = await matchDanimeWorks(searcher, [
+      { danimeWorkId: "1", title: "作品A", targetState: "WATCHED" },
+      { danimeWorkId: "2", title: "作品B", targetState: "WATCHED" },
+    ]);
+    expect(results.map((r) => r.status)).toEqual(["pending", "pending"]);
+    expect(stats.pending).toBe(2);
+    // 一度スキップされたら残りの検索計画も打ち切る（予算は戻らない）
+    expect(searcher.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  it("スキップされなかったチャンクは通常どおり照合し、スキップ分だけ pending にする", async () => {
+    // 10 件ずつの 2 チャンク。後半チャンクだけ searcher がスキップする。
+    const searcher = vi.fn(async (titles: string[]) =>
+      titles.some((t) => t.includes("保留"))
+        ? null
+        : titles.map((t, i) => work({ annictId: i + 1, title: t })),
+    );
+    const items = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        danimeWorkId: String(i),
+        title: `確定作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+      ...Array.from({ length: 10 }, (_, i) => ({
+        danimeWorkId: String(i + 10),
+        title: `保留作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+    ];
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    expect(results.slice(0, 10).every((r) => r.status === "exact")).toBe(true);
+    expect(results.slice(10).every((r) => r.status === "pending")).toBe(true);
+    expect(stats.pending).toBe(10);
+  });
+
+  it("スキップされた入力は他チャンクの候補と一致しても exact にしない", async () => {
+    // 未検索の入力が共有プールの候補で確定すると、Annict 側に別候補が
+    // あるかを確認しないまま誤確定するため pending にする。
+    const searcher = vi.fn(async (titles: string[]) =>
+      titles.some((t) => t.includes("保留"))
+        ? null
+        : [
+            ...titles.map((t, i) => work({ annictId: i + 1, title: t })),
+            work({ annictId: 99, title: "保留作品" }),
+          ],
+    );
+    const items = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        danimeWorkId: String(i),
+        title: `確定作品${i}`,
+        targetState: "WATCHED" as const,
+      })),
+      {
+        danimeWorkId: "10",
+        title: "保留作品",
+        targetState: "WATCHED" as const,
+      },
+    ];
+    const { results } = await matchDanimeWorks(searcher, items);
+    expect(results[10]?.status).toBe("pending");
+  });
+
+  it("再検索回数の上限に達して残った未解決入力は pending になる", async () => {
+    const searcher = mockSearcher(() => []);
+    // 未解決 60 件。第 2 パス上限（50 往復）では全件の再検索を
+    // 完走できないため、途中から pending になる。
+    const items = Array.from({ length: 60 }, (_, i) => ({
+      danimeWorkId: String(i),
+      title: `ない作品${i}`,
+      targetState: "WATCHED" as const,
+    }));
+    const { results, stats } = await matchDanimeWorks(searcher, items);
+    expect(stats.secondPassSearches).toBe(50);
+    expect(results.some((r) => r.status === "pending")).toBe(true);
+    expect(stats.pending).toBe(
+      results.filter((r) => r.status === "pending").length,
+    );
+  });
+
+  it("localSearch で exact に確定したタイトルは Annict searcher に送らない", async () => {
+    const localSearch = vi.fn(async (titles: string[]) =>
+      titles.flatMap((t) =>
+        t === "鬼滅の刃" ? [work({ annictId: 1, title: "鬼滅の刃" })] : [],
+      ),
+    );
+    const searcher = mockSearcher((titles) =>
+      titles.flatMap((t) =>
+        t === "呪術廻戦" ? [work({ annictId: 2, title: "呪術廻戦" })] : [],
+      ),
+    );
+    const { results, stats } = await matchDanimeWorks(
+      searcher,
+      [
+        { danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" },
+        { danimeWorkId: "2", title: "呪術廻戦", targetState: "WATCHED" },
+      ],
+      undefined,
+      { localSearch },
+    );
+    expect(results[0]?.status).toBe("exact");
+    expect(results[0]?.work?.annictWorkId).toBe(1);
+    expect(results[1]?.status).toBe("exact");
+    // D1 側で確定したタイトルは Annict の検索語に含まれない
+    const sentToAnnict = searcher.mock.calls.flatMap((c) => c[0]);
+    expect(sentToAnnict).not.toContain("鬼滅の刃");
+    expect(stats.localPassSearches).toBe(1);
+  });
+
+  it("localSearch の候補は Annict 側の候補プールに合流する", async () => {
+    // ローカルで部分一致しかないタイトルは Annict に検索され、
+    // ローカルの候補も最終の候補プールに残る。
+    const localSearch = vi.fn(async (titles: string[]) =>
+      titles.flatMap((t) =>
+        t === "無職転生" ? [work({ annictId: 3, title: "無職転生Ⅱ" })] : [],
+      ),
+    );
+    const searcher = mockSearcher((titles) =>
+      titles.flatMap((t) =>
+        t === "無職転生"
+          ? [
+              work({ annictId: 4, title: "無職転生" }),
+              // 正規化一致がもう 1 件ある（同名の別作品）→ 確定できず
+              // candidates になる。
+              work({ annictId: 5, title: "無職転生　" }),
+            ]
+          : [],
+      ),
+    );
+    const { results } = await matchDanimeWorks(
+      searcher,
+      [{ danimeWorkId: "1", title: "無職転生", targetState: "WATCHED" }],
+      undefined,
+      { localSearch },
+    );
+    expect(results[0]?.status).toBe("candidates");
+    expect(results[0]?.work).toBeNull();
+    // Annict 側の 2 件に加え、ローカルの部分一致候補（id=3）も残る
+    expect(results[0]?.candidates.map((c) => c.annictWorkId)).toEqual(
+      expect.arrayContaining([3, 4, 5]),
+    );
+    // ローカルで確定できなかったタイトルは Annict に検索される
+    const sentToAnnict = searcher.mock.calls.flatMap((c) => c[0]);
+    expect(sentToAnnict).toContain("無職転生");
+  });
+
+  it("localSearch がスキップ（null）しても Annict 側で照合を続ける", async () => {
+    // D1 クエリ自体が予算切れになり得るが、Annict 側に予算が残っていれば
+    // そちらで完走できるため、ローカルのスキップは pending にしない。
+    const localSearch = vi.fn(async () => null);
+    const searcher = mockSearcher((titles) =>
+      titles.flatMap((t) =>
+        t === "鬼滅の刃" ? [work({ annictId: 1, title: "鬼滅の刃" })] : [],
+      ),
+    );
+    const { results, stats } = await matchDanimeWorks(
+      searcher,
+      [{ danimeWorkId: "1", title: "鬼滅の刃", targetState: "WATCHED" }],
+      undefined,
+      { localSearch },
+    );
+    expect(results[0]?.status).toBe("exact");
+    expect(stats.localPassSearches).toBe(0);
+    expect(stats.pending).toBe(0);
+  });
+});

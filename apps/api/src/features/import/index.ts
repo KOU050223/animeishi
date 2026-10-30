@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { createDb } from "@/db/client";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { danimeMatchRequestSchema } from "./schema";
@@ -8,12 +9,18 @@ import { danimeMatchRequestSchema } from "./schema";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
   AnnictApiError,
+  AnnictBudgetExhaustedError,
   isAnnictGraphQLError,
   searchAnnictWorksByTitles,
 } from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { matchDanimeWorks } from "@animeishi/danime-core";
 import type { AnnictSearcher } from "@animeishi/danime-core";
+import { createLocalWorkSearcher } from "./localSearch";
+import {
+  MATCH_SUBREQUEST_BUDGET,
+  createSubrequestBudget,
+} from "./subrequestBudget";
 
 // dアニメストア インポート用ルート。
 // 抽出はクライアント側（ネイティブ WebView 注入 / Web ブックマークレット）が担い、
@@ -32,14 +39,57 @@ const importRoute = new Hono<AuthVariables>()
       // （core は通信を持たない）。並列化した検索で 429 / 一時障害に
       // 当たる可能性が上がるためリトライを噛ませ、回数を stats に載せる。
       let retries = 0;
+      // 照合フェーズ（D1 キャッシュ検索＋ Annict 往復＋リトライ）が共有する
+      // サブリクエスト予算（issue #219）。Workers の上限 50 までは認証・
+      // 障害通知（KV/Discord）・Sentry のサブリクエストも残す必要があるため、
+      // 照合側は上限より小さい自前の予算で打ち切る。
+      const budget = createSubrequestBudget(MATCH_SUBREQUEST_BUDGET);
+      // Annict クライアントが実際に投げる fetch を数える。
+      // union → 単発フォールバックやリトライも全てこの fetch を通る。
+      const budgetedFetch: typeof fetch = (input, init) => {
+        if (!budget.tryConsume()) {
+          return Promise.reject(new AnnictBudgetExhaustedError());
+        }
+        return fetch(input, init);
+      };
+      // D1 の annict_works キャッシュで先に照合し、確定したタイトルは
+      // Annict に送らない。D1 クエリ自体もサブリクエストに数えられるので
+      // 同じ予算から消費する。
+      const db = createDb(c.env.DB as D1Database);
+      const localSearch = createLocalWorkSearcher(db, () =>
+        budget.tryConsume(),
+      );
+      let budgetExhaustedWarned = false;
       const searcher: AnnictSearcher = async (titles, context) => {
         const retriesBefore = retries;
         try {
           return await withAnnictRetry(
-            () => searchAnnictWorksByTitles(c.var.annictToken, titles, fetch),
+            () =>
+              searchAnnictWorksByTitles(
+                c.var.annictToken,
+                titles,
+                budgetedFetch,
+              ),
             { onRetry: () => retries++ },
           );
         } catch (err) {
+          // サブリクエスト予算切れは「候補が無かった」に潰さず検索スキップ
+          // （null）として返し、core 側で pending にする（issue #219）。
+          // 上流障害（502 応答）とは分けてログを残す。
+          if (err instanceof AnnictBudgetExhaustedError) {
+            if (!budgetExhaustedWarned) {
+              budgetExhaustedWarned = true;
+              console.warn(
+                JSON.stringify({
+                  level: "warn",
+                  event: "danime_search_budget_exhausted",
+                  phase: context?.phase ?? "unknown",
+                  budget: MATCH_SUBREQUEST_BUDGET,
+                }),
+              );
+            }
+            return null;
+          }
           // 入力由来の GraphQL エラーは、その検索語だけを諦めて次へ進める:
           // - 第 2 パスは 1 検索語ずつ投げるため、第 1 パスで弾かれたタイトルの
           //   バリアント由来のエラーが残り得る。
@@ -91,6 +141,7 @@ const importRoute = new Hono<AuthVariables>()
         searcher,
         works,
         registeredWorkIds,
+        { localSearch },
       );
       const statsWithRetries = { ...stats, retries };
       // 検索回数・リトライ・経過時間を構造化ログに残す
