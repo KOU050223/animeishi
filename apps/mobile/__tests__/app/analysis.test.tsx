@@ -27,6 +27,21 @@ jest.mock("@/lib/useAnalysis", () => ({
       analysis: {
         summary: "アクションものをよく見ています",
         recommendedGenres: ["アクション"],
+        sections: [
+          {
+            key: "genres",
+            title: "よく見るジャンル",
+            insight: "アクション中心の傾向です",
+            facts: [
+              { label: "集計対象", value: "ジャンル情報のある 10 / 11 件" },
+              { label: "Action", value: "6 件（60%）" },
+            ],
+            evidenceWorks: [
+              { annictWorkId: 7, title: "根拠アニメ", state: "WATCHED" },
+              { annictWorkId: 8, title: "断念アニメ", state: "STOP_WATCHING" },
+            ],
+          },
+        ],
         workCount: 12,
         generatedAt: "2026-01-01T00:00:00Z",
       },
@@ -111,6 +126,30 @@ jest.mock("@/lib/events", () => ({
 jest.mock("@/lib/dialog", () => ({
   alert: jest.fn(),
 }));
+
+describe("AnalysisScreen のレポート項目", () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    mockUseRecommendations.mockReturnValue({
+      data: { recommendations: null },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+  });
+
+  it("セクションの項目名・解釈文・集計値・根拠作品を表示する", async () => {
+    await render(<AnalysisScreen />);
+
+    expect(screen.getByText("よく見るジャンル")).toBeTruthy();
+    expect(screen.getByText("アクション中心の傾向です")).toBeTruthy();
+    expect(screen.getByText("Action")).toBeTruthy();
+    expect(screen.getByText("6 件（60%）")).toBeTruthy();
+    // 根拠作品はタイトルと視聴ステータスのラベル付きで出る。
+    expect(screen.getByText("・根拠アニメ（視聴済）")).toBeTruthy();
+    expect(screen.getByText("・断念アニメ（断念）")).toBeTruthy();
+  });
+});
 
 describe("AnalysisScreen のおすすめカード", () => {
   beforeEach(async () => {

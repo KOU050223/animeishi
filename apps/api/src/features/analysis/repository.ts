@@ -3,6 +3,7 @@ import type { DrizzleDb } from "@/db/client";
 import { analyses } from "@/db/schema";
 import type { Analysis } from "@/db/schema";
 import { VALID_GENRES } from "../me/schema";
+import type { AnalysisSection } from "./report";
 
 // ---- キャッシュ・レート制限のポリシー（issue #22）----
 // Workers AI の呼び出しコストを抑えるため、結果を 24h キャッシュし、
@@ -32,6 +33,8 @@ export class AnalysisRateLimitError extends Error {
 export type SavedAnalysis = {
   summary: string;
   recommendedGenres: string[];
+  // レポート項目（issue #375）。旧形式（レポート前の結果）では空配列。
+  sections: AnalysisSection[];
   generatedAt: Date;
   workCount: number;
   /**
@@ -42,22 +45,98 @@ export type SavedAnalysis = {
   inputHash: string | null;
 };
 
+// genres_json の保存形式。レポート（issue #375）でセクションを持つように
+// なったがマイグレーションは避けるため、v2 では既存の JSON カラムに
+// { v: 2, genres, sections } のオブジェクトを入れる。v1（レポート前）は
+// ジャンル名の配列そのまま。新しいテーブルは要らず、旧行も読める。
+const ANALYSIS_PAYLOAD_VERSION = 2;
+
+// DB に保存したセクションを復元する。自分で書いた値だが形式変更の余地を
+// 残すため、形の合わない要素は読み飛ばす。
+function parseStoredSections(raw: unknown): AnalysisSection[] {
+  if (!Array.isArray(raw)) return [];
+  const sections: AnalysisSection[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const s = item as Record<string, unknown>;
+    if (
+      typeof s.key !== "string" ||
+      typeof s.title !== "string" ||
+      typeof s.insight !== "string"
+    ) {
+      continue;
+    }
+    const facts = (Array.isArray(s.facts) ? s.facts : []).flatMap((f) => {
+      if (!f || typeof f !== "object") return [];
+      const fact = f as Record<string, unknown>;
+      if (typeof fact.label !== "string" || typeof fact.value !== "string") {
+        return [];
+      }
+      return [{ label: fact.label, value: fact.value }];
+    });
+    const evidenceWorks = (
+      Array.isArray(s.evidenceWorks) ? s.evidenceWorks : []
+    ).flatMap((w) => {
+      if (!w || typeof w !== "object") return [];
+      const work = w as Record<string, unknown>;
+      if (
+        typeof work.annictWorkId !== "number" ||
+        typeof work.title !== "string" ||
+        typeof work.state !== "string"
+      ) {
+        return [];
+      }
+      return [
+        {
+          annictWorkId: work.annictWorkId,
+          title: work.title,
+          state:
+            work.state as AnalysisSection["evidenceWorks"][number]["state"],
+        },
+      ];
+    });
+    sections.push({
+      key: s.key,
+      title: s.title,
+      insight: s.insight,
+      facts,
+      evidenceWorks,
+    });
+  }
+  return sections;
+}
+
 // claim 直後のプレースホルダ（結果カラムが NULL）は「未生成」として undefined。
 function toSavedAnalysis(row: Analysis): SavedAnalysis | undefined {
   if (row.summary === null || row.genresJson === null) return undefined;
   if (row.generatedAt === null || row.workCount === null) return undefined;
-  let genres: unknown;
+  let payload: unknown;
   try {
-    genres = JSON.parse(row.genresJson);
+    payload = JSON.parse(row.genresJson);
   } catch {
-    genres = [];
+    payload = null;
   }
-  const recommendedGenres = (Array.isArray(genres) ? genres : []).filter(
-    (g): g is string => (VALID_GENRES as readonly string[]).includes(g),
+  // v1 はジャンル名の配列、v2 は { v: 2, genres, sections } のオブジェクト。
+  const v2 =
+    payload !== null &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    (payload as { v?: unknown }).v === ANALYSIS_PAYLOAD_VERSION
+      ? (payload as { genres?: unknown; sections?: unknown })
+      : null;
+  const genres = Array.isArray(payload)
+    ? payload
+    : Array.isArray(v2?.genres)
+      ? v2.genres
+      : [];
+  const sections = parseStoredSections(v2?.sections);
+  const recommendedGenres = genres.filter((g): g is string =>
+    (VALID_GENRES as readonly string[]).includes(g),
   );
   return {
     summary: row.summary,
     recommendedGenres,
+    sections,
     generatedAt: row.generatedAt,
     workCount: row.workCount,
     inputHash: row.inputHash,
@@ -182,6 +261,7 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
     async saveMyAnalysis(data: {
       summary: string;
       recommendedGenres: string[];
+      sections: AnalysisSection[];
       inputHash: string;
       workCount: number;
       generatedAt: Date;
@@ -189,7 +269,11 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
       const result = await db.run(sql`
         UPDATE ${analyses}
         SET summary = ${data.summary},
-          genres_json = ${JSON.stringify(data.recommendedGenres)},
+          genres_json = ${JSON.stringify({
+            v: ANALYSIS_PAYLOAD_VERSION,
+            genres: data.recommendedGenres,
+            sections: data.sections,
+          })},
           work_count = ${data.workCount},
           generated_at = ${Math.floor(data.generatedAt.getTime() / 1000)}
         WHERE user_id = ${currentUserId}

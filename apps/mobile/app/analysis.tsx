@@ -9,13 +9,18 @@ import {
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useAnalysis, useGenerateAnalysis } from "@/lib/useAnalysis";
+import {
+  useAnalysis,
+  useGenerateAnalysis,
+  type AnalysisResult,
+} from "@/lib/useAnalysis";
 import {
   useGenerateRecommendations,
   useRecommendations,
   type RecommendedWork,
 } from "@/lib/useRecommendations";
 import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
+import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
@@ -181,6 +186,10 @@ export default function AnalysisScreen() {
               ) : null}
             </View>
 
+            {analysis.sections.map((section) => (
+              <AnalysisSectionCard key={section.key} section={section} />
+            ))}
+
             <Text className="mt-3 text-xs text-gray-400 dark:text-slate-500">
               {t("{{count}} 件の視聴履歴を分析", { count: analysis.workCount })}
             </Text>
@@ -221,6 +230,57 @@ export default function AnalysisScreen() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// レポートの 1 項目（issue #375）。API が返す確定値（facts・根拠作品）と
+// 解釈文（insight）をそのまま表示する。根拠作品はサーバー側がライブラリ
+// から選んだ実在作品だけなので、存在しない作品は表示されない。
+function AnalysisSectionCard({
+  section,
+}: {
+  section: AnalysisResult["sections"][number];
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="mt-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+      <Text className="mb-1 text-sm font-semibold text-gray-700 dark:text-slate-200">
+        {section.title}
+      </Text>
+      <Text className="text-sm leading-6 text-gray-900 dark:text-slate-100">
+        {section.insight}
+      </Text>
+      <View className="mt-3 gap-1">
+        {section.facts.map((fact) => (
+          <View
+            key={fact.label}
+            className="flex-row items-baseline justify-between"
+          >
+            <Text className="text-xs text-gray-500 dark:text-slate-400">
+              {fact.label}
+            </Text>
+            <Text className="text-xs font-medium text-gray-700 dark:text-slate-300">
+              {fact.value}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {section.evidenceWorks.length > 0 ? (
+        <View className="mt-3 border-t border-gray-100 pt-2 dark:border-slate-700">
+          <Text className="mb-1 text-xs text-gray-400 dark:text-slate-500">
+            {t("根拠となった作品")}
+          </Text>
+          {section.evidenceWorks.map((work) => (
+            <Text
+              key={work.annictWorkId}
+              className="text-xs leading-5 text-gray-600 dark:text-slate-300"
+            >
+              {`・${work.title}（${WATCH_STATUS_LABELS[work.state] ?? work.state}）`}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 

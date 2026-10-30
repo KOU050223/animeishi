@@ -106,26 +106,44 @@ describe("視聴傾向分析 API", () => {
   });
 
   async function seedHistory(
-    workIds: number[],
+    works: (
+      | number
+      | {
+          id: number;
+          state?:
+            | "WATCHED"
+            | "WATCHING"
+            | "ON_HOLD"
+            | "STOP_WATCHING"
+            | "WANNA_WATCH";
+          genres?: string[] | null;
+          seasonYear?: number | null;
+          watchersCount?: number | null;
+        }
+    )[],
     state: "WATCHED" | "WATCHING" = "WATCHED",
     userId = USER_ID,
   ) {
     const now = new Date();
-    for (const id of workIds) {
+    const entries = works.map((w) => (typeof w === "number" ? { id: w } : w));
+    for (const entry of entries) {
       await db
         .insert(annictWorks)
         .values({
-          annictWorkId: id,
-          title: `テスト作品${id}`,
+          annictWorkId: entry.id,
+          title: `テスト作品${entry.id}`,
+          genres: entry.genres ?? null,
+          seasonYear: entry.seasonYear ?? null,
+          watchersCount: entry.watchersCount ?? null,
           updatedAt: now,
         })
         .onConflictDoNothing();
     }
     await db.insert(watchHistory).values(
-      workIds.map((id, i) => ({
+      entries.map((entry, i) => ({
         userId,
-        annictWorkId: id,
-        state,
+        annictWorkId: entry.id,
+        state: entry.state ?? state,
         updatedAt: new Date(now.getTime() + i * 1000),
       })),
     );
@@ -247,6 +265,162 @@ describe("視聴傾向分析 API", () => {
         analysis: { recommendedGenres: string[] };
       };
       expect(body.analysis.recommendedGenres).toEqual(["SF"]);
+    });
+
+    it("POST /me/analysis: 集計したレポート項目と根拠作品を返す（issue #375）", async () => {
+      await seedHistory([
+        { id: 101, genres: ["Action"], seasonYear: 2024, watchersCount: 1500 },
+        {
+          id: 102,
+          genres: ["Action", "Drama"],
+          seasonYear: 2024,
+          watchersCount: 20,
+        },
+        {
+          id: 103,
+          genres: ["Comedy"],
+          seasonYear: 2020,
+          watchersCount: 500,
+          state: "STOP_WATCHING",
+        },
+        { id: 104, state: "WANNA_WATCH" },
+      ]);
+      aiRun.mockResolvedValue(
+        aiChatCompletion({
+          ...AI_PAYLOAD,
+          insights: {
+            genres: "アクション中心の傾向です",
+            seasons: "近年の作品が多めです",
+            completion: "よく完走しています",
+            popularity: "人気作とニッチ作の両方を見ています",
+          },
+        }),
+      );
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        analysis: {
+          sections: {
+            key: string;
+            title: string;
+            insight: string;
+            facts: { label: string; value: string }[];
+            evidenceWorks: {
+              annictWorkId: number;
+              title: string;
+              state: string;
+            }[];
+          }[];
+        };
+      };
+      expect(body.analysis.sections.map((s) => s.key)).toEqual(
+        expect.arrayContaining([
+          "genres",
+          "seasons",
+          "completion",
+          "popularity",
+        ]),
+      );
+
+      const genres = body.analysis.sections.find((s) => s.key === "genres")!;
+      expect(genres.title).toBe("よく見るジャンル");
+      expect(genres.insight).toBe("アクション中心の傾向です");
+      // 件数・割合はサーバー側の集計値（Action は視聴開始済み 3 件中 2 件。
+      // 104 は WANNA_WATCH なので対象外）。
+      expect(genres.facts.find((f) => f.label === "Action")?.value).toBe(
+        "2 件（67%）",
+      );
+      // 根拠作品はライブラリに実在するものだけ（履歴は更新日時の新しい順）。
+      expect(genres.evidenceWorks.map((w) => w.annictWorkId)).toEqual([
+        102, 101,
+      ]);
+
+      const completion = body.analysis.sections.find(
+        (s) => s.key === "completion",
+      )!;
+      expect(completion.insight).toBe("よく完走しています");
+      // 断念した作品を根拠に出す。
+      expect(completion.evidenceWorks.map((w) => w.annictWorkId)).toEqual([
+        103,
+      ]);
+    });
+
+    it("POST /me/analysis: プロンプトにはサーバー集計の <statistics> を渡す", async () => {
+      await seedHistory([{ id: 101, genres: ["Action"], seasonYear: 2024 }]);
+      aiRun.mockResolvedValue(
+        aiChatCompletion({ ...AI_PAYLOAD, insights: {} }),
+      );
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+
+      const [, inputs] = aiRun.mock.calls[0] as unknown as [
+        string,
+        { messages: { role: string; content: string }[] },
+      ];
+      const user = inputs.messages.find((m) => m.role === "user")!;
+      const match = user.content.match(
+        /<statistics>\n([\s\S]*?)\n<\/statistics>/,
+      );
+      expect(match).not.toBeNull();
+      const stats = JSON.parse(match![1]!) as {
+        sections: {
+          key: string;
+          facts: { label: string; value: string }[];
+        }[];
+      };
+      const genres = stats.sections.find((s) => s.key === "genres")!;
+      expect(genres.facts.find((f) => f.label === "Action")?.value).toBe(
+        "1 件（100%）",
+      );
+    });
+
+    it("POST /me/analysis: AI が解釈文を返さない項目は集計値の事実文にフォールバックする", async () => {
+      await seedHistory([{ id: 101, genres: ["Action"] }]);
+      // insights を返さない応答（モデルの部分欠落を想定）。
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        analysis: { sections: { key: string; insight: string }[] };
+      };
+      const genres = body.analysis.sections.find((s) => s.key === "genres")!;
+      // フォールバックは集計値から組み立てた事実文（数字は捏造されない）。
+      expect(genres.insight).toContain("Action");
+      expect(genres.insight).toContain("1 件");
+    });
+
+    it("POST /me/analysis: 保存したレポート項目は GET でそのまま返る", async () => {
+      await seedHistory([{ id: 101, genres: ["Action"] }]);
+      aiRun.mockResolvedValue(
+        aiChatCompletion({
+          ...AI_PAYLOAD,
+          insights: { genres: "アクション中心の傾向です" },
+        }),
+      );
+      await postAnalysis();
+
+      const getRes = await buildApp().request(
+        "/me/analysis",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await getRes.json()) as {
+        analysis: {
+          sections: {
+            key: string;
+            insight: string;
+            facts: unknown[];
+            evidenceWorks: unknown[];
+          }[];
+        } | null;
+      };
+      const genres = body.analysis?.sections.find((s) => s.key === "genres");
+      expect(genres?.insight).toBe("アクション中心の傾向です");
+      expect(genres?.facts.length).toBeGreaterThan(0);
+      expect(genres?.evidenceWorks.length).toBe(1);
     });
 
     it("POST /me/analysis: 同じ履歴なら 24h 以内はキャッシュを返し AI を呼ばない", async () => {
@@ -578,6 +752,7 @@ describe("computeInputHash", () => {
     imageSource: null,
     imageR2Key: null,
     watchersCount: null,
+    genres: null,
   });
 
   it("プロンプトに載る作品の並び順が変わるとハッシュが変わる", async () => {
@@ -642,13 +817,17 @@ describe("runAnalysis", () => {
       }),
     } as unknown as Ai;
     await expect(
-      runAnalysis(ai, {
-        totalCount: 1,
-        stateCounts: { WATCHED: 1 },
-        works: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
-        workKeys: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
-        selectedGenres: [],
-      }),
+      runAnalysis(
+        ai,
+        {
+          totalCount: 1,
+          stateCounts: { WATCHED: 1 },
+          works: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+          workKeys: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+          selectedGenres: [],
+        },
+        [],
+      ),
     ).rejects.toThrow(/finish_reason: length/);
   });
 });
