@@ -1,5 +1,6 @@
 import { useClerk } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
+import type { Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -34,7 +35,9 @@ export default function SsoCallbackScreen() {
       try {
         const url = new URL(to, window.location.origin);
         if (url.origin === window.location.origin) {
-          router.replace(url.pathname + url.search + url.hash);
+          // 同一オリジンと確認済みなのでパス文字列は必ず内部ルート。
+          // typed routes の union には動的に連結した string が入らないため Href に窄める。
+          router.replace((url.pathname + url.search + url.hash) as Href);
           return;
         }
       } catch {
@@ -82,7 +85,7 @@ export default function SsoCallbackScreen() {
       ) : (
         <View className="items-center">
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text className="mt-4 text-gray-600 dark:text-slate-300">
+          <Text className="mt-4 text-slate-600 dark:text-slate-300">
             {t("サインインを完了しています…")}
           </Text>
         </View>

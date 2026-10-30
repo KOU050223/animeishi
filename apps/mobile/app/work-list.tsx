@@ -433,7 +433,7 @@ export default function WorkListScreen() {
           placeholder="リスト名（例: 必修アニメリスト）"
           maxLength={TITLE_MAX_LENGTH}
           testID="work-list-title"
-          className="rounded-lg border border-gray-300 p-3 text-base text-gray-900 dark:border-slate-600 dark:text-slate-100"
+          className="rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
         />
         <Input
           value={description}
@@ -443,13 +443,13 @@ export default function WorkListScreen() {
           multiline
           numberOfLines={2}
           testID="work-list-description"
-          className="mt-2 rounded-lg border border-gray-300 p-3 text-base text-gray-900 dark:border-slate-600 dark:text-slate-100"
+          className="mt-2 rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
         />
 
         {isSavedLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={colors.textMuted} />
-            <Text className="mt-2 text-sm text-gray-500 dark:text-slate-400">
+            <Text className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               作品リストを読み込んでいます
             </Text>
           </View>
@@ -459,21 +459,21 @@ export default function WorkListScreen() {
             data={works}
             keyExtractor={(item) => String(item.id)}
             ListEmptyComponent={
-              <Text className="mt-8 text-center text-sm text-gray-500 dark:text-slate-400">
+              <Text className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
                 作品がありません。下の「作品を追加」から検索して追加できます
               </Text>
             }
             renderItem={({ item, index }) => (
               <View
-                className="flex-row items-center gap-3 border-b border-gray-100 py-2 dark:border-slate-800"
+                className="flex-row items-center gap-3 border-b border-slate-100 py-2 dark:border-slate-800"
                 testID={`work-list-item-${item.id}`}
               >
-                <Text className="w-6 text-right text-sm font-semibold text-gray-400 dark:text-slate-500">
+                <Text className="w-6 text-right text-sm font-semibold text-slate-400 dark:text-slate-500">
                   {index + 1}
                 </Text>
                 <WorkThumbnail uri={item.imageUrl} width={36} height={50} />
                 <Text
-                  className="flex-1 text-sm text-gray-900 dark:text-slate-100"
+                  className="flex-1 text-sm text-slate-900 dark:text-slate-100"
                   numberOfLines={2}
                 >
                   {item.title}
@@ -532,14 +532,14 @@ export default function WorkListScreen() {
         )}
 
         <TouchableOpacity
-          className="mt-3 items-center rounded-lg border border-gray-300 py-3 dark:border-slate-600"
+          className="mt-3 items-center rounded-lg border border-slate-300 py-3 dark:border-slate-600"
           onPress={() => setAddSheetOpen(true)}
           disabled={editingDisabled}
           accessibilityRole="button"
           accessibilityLabel="作品を追加"
           testID="work-list-add"
         >
-          <Text className="text-sm font-semibold text-gray-700 dark:text-slate-200">
+          <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             ＋ 作品を追加
           </Text>
         </TouchableOpacity>
@@ -564,12 +564,12 @@ export default function WorkListScreen() {
 
         {/* 共有 URL（発行済みのときだけ表示。視聴履歴の共有と同じ方式） */}
         {shareUrl ? (
-          <View className="mt-3 rounded-lg border border-gray-200 p-3 dark:border-slate-700">
-            <Text className="mb-1 text-xs text-gray-500 dark:text-slate-400">
+          <View className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+            <Text className="mb-1 text-xs text-slate-500 dark:text-slate-400">
               共有 URL（知っている人は誰でもリストを見られます）
             </Text>
             <Text
-              className="mb-2 text-xs text-gray-900 dark:text-slate-100"
+              className="mb-2 text-xs text-slate-900 dark:text-slate-100"
               numberOfLines={1}
               testID="work-list-share-url"
             >

@@ -70,11 +70,11 @@ export default function TierListsScreen() {
           testID="tier-lists-back"
         />
 
-        <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+        <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
           Tier 表
         </Text>
 
-        <Text className="mt-8 text-base font-semibold text-gray-900 dark:text-slate-100">
+        <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">
           新しく作る
         </Text>
         <View className="mt-3 gap-3">
@@ -108,7 +108,7 @@ export default function TierListsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
+        <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
           テーマ別の Tier 表
         </Text>
         {lists.isLoading ? (
@@ -116,7 +116,7 @@ export default function TierListsScreen() {
             <ActivityIndicator color={colors.textMuted} />
           </View>
         ) : lists.isError ? (
-          <Text className="mt-3 text-sm text-gray-500 dark:text-slate-400">
+          <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
             一覧を取得できませんでした
           </Text>
         ) : (
@@ -125,7 +125,7 @@ export default function TierListsScreen() {
             data={lists.data ?? []}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
-              <View className="mb-2 flex-row items-center rounded-lg border border-gray-200 px-4 py-3 dark:border-slate-700">
+              <View className="mb-2 flex-row items-center rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
                 <TouchableOpacity
                   className="flex-1"
                   onPress={() =>
@@ -139,13 +139,13 @@ export default function TierListsScreen() {
                   testID={`tier-lists-item-${item.id}`}
                 >
                   <Text
-                    className="text-base font-medium text-gray-900 dark:text-slate-100"
+                    className="text-base font-medium text-slate-900 dark:text-slate-100"
                     numberOfLines={1}
                   >
                     {item.title}
                   </Text>
                   {item.shareToken ? (
-                    <Text className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+                    <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       共有中
                     </Text>
                   ) : null}
@@ -164,7 +164,7 @@ export default function TierListsScreen() {
               </View>
             )}
             ListEmptyComponent={
-              <Text className="mt-3 text-sm text-gray-500 dark:text-slate-400">
+              <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
                 まだありません。「テーマを決めて自由に作る」から作れます
               </Text>
             }

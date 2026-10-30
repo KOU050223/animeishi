@@ -91,7 +91,7 @@ export function PasskeySignInButton({ onError }: Props) {
 
   return (
     <TouchableOpacity
-      className="border border-gray-300 dark:border-slate-600 rounded-lg py-4 items-center mb-4 flex-row justify-center"
+      className="border border-slate-300 dark:border-slate-600 rounded-lg py-4 items-center mb-4 flex-row justify-center"
       onPress={handlePress}
       disabled={loading}
       testID="passkey-sign-in-button"
@@ -101,7 +101,7 @@ export function PasskeySignInButton({ onError }: Props) {
       ) : (
         <>
           <Ionicons name="key-outline" size={18} color={colors.primaryText} />
-          <Text className="text-gray-800 dark:text-slate-100 font-semibold text-base ml-2">
+          <Text className="text-slate-800 dark:text-slate-100 font-semibold text-base ml-2">
             {t("パスキーでサインイン")}
           </Text>
         </>

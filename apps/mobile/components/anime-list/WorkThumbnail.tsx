@@ -34,9 +34,9 @@ export function WorkThumbnail({
       placeholder={
         <View
           style={containerStyle}
-          className="bg-gray-200 items-center justify-center dark:bg-slate-700"
+          className="bg-slate-200 items-center justify-center dark:bg-slate-700"
         >
-          <Text className="text-gray-400 text-xs dark:text-slate-400">
+          <Text className="text-slate-400 text-xs dark:text-slate-400">
             No img
           </Text>
         </View>

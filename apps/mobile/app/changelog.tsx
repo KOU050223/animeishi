@@ -41,44 +41,44 @@ export default function ChangelogScreen() {
             testID="changelog-back-button"
           />
 
-          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+          <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             機能一覧・更新情報
           </Text>
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
-          <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+          <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             最終更新: {UPDATES[0].date}
           </Text>
 
-          <Text className="mt-8 text-base font-semibold text-gray-900 dark:text-slate-100">
+          <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">
             このアプリでできること
           </Text>
           <View className="mt-3 gap-4">
             {FEATURES.map((feature) => (
               <View key={feature.title}>
-                <Text className="text-sm font-medium text-gray-900 dark:text-slate-100">
+                <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
                   {feature.title}
                 </Text>
-                <Text className="mt-1 text-sm leading-6 text-gray-700 dark:text-slate-300">
+                <Text className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
                   {feature.description}
                 </Text>
               </View>
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
+          <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
             更新情報
           </Text>
           <View className="mt-3 gap-5">
             {UPDATES.map((entry) => (
               <View key={`${entry.date}-${entry.title}`}>
-                <Text className="text-xs text-gray-400 dark:text-slate-500">
+                <Text className="text-xs text-slate-400 dark:text-slate-500">
                   {entry.date}
                 </Text>
-                <Text className="mt-1 text-sm font-medium text-gray-900 dark:text-slate-100">
+                <Text className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
                   {entry.title}
                 </Text>
                 {entry.description ? (
-                  <Text className="mt-1 text-sm leading-6 text-gray-700 dark:text-slate-300">
+                  <Text className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
                     {entry.description}
                   </Text>
                 ) : null}
@@ -86,10 +86,10 @@ export default function ChangelogScreen() {
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
+          <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
             今後追加したい機能
           </Text>
-          <Text className="mt-1 text-xs text-gray-400 dark:text-slate-500">
+          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             タップすると対応する GitHub issue を開きます。
           </Text>
           <View className="mt-3 flex-row flex-wrap gap-2">

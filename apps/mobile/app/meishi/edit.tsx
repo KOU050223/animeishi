@@ -490,11 +490,7 @@ function createStyles(colors: ThemeColors) {
       maxWidth: 560,
       alignSelf: "center",
       borderRadius: 12,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.15,
-      shadowRadius: 16,
-      elevation: 6,
+      boxShadow: "0px 6px 16px rgba(0, 0, 0, 0.15)",
     },
     header: {
       flexDirection: "row",
@@ -561,7 +557,6 @@ function createStyles(colors: ThemeColors) {
       left: 0,
       right: 0,
       zIndex: 20,
-      elevation: 20,
       alignItems: "center",
     },
     saveFeedback: {
@@ -571,11 +566,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 12,
       borderRadius: 8,
       backgroundColor: colors.successSoft,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.12,
-      shadowRadius: 10,
-      elevation: 4,
+      boxShadow: "0px 3px 10px rgba(0, 0, 0, 0.12)",
     },
     saveFeedbackText: {
       color: colors.successText,

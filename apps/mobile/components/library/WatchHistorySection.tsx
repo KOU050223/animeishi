@@ -370,7 +370,7 @@ export function WatchHistorySection() {
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
-        <Text className="text-xs text-gray-400 dark:text-slate-500">
+        <Text className="text-xs text-slate-400 dark:text-slate-500">
           {filterActive
             ? `${visible.length} / ${enriched.length}`
             : enriched.length}{" "}
@@ -437,7 +437,7 @@ export function WatchHistorySection() {
         ItemSeparatorComponent={() => (
           <View
             style={{ height: 1 }}
-            className="bg-gray-100 dark:bg-slate-800"
+            className="bg-slate-100 dark:bg-slate-800"
           />
         )}
         renderItem={({ item }) => (
@@ -453,7 +453,7 @@ export function WatchHistorySection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 dark:text-slate-500 text-center">
+            <Text className="text-slate-400 dark:text-slate-500 text-center">
               {enriched.length > 0 && filterActive
                 ? "絞り込み条件に一致する履歴がありません。"
                 : "視聴履歴がありません。\nアニメ一覧から追加してください。"}
@@ -548,7 +548,7 @@ function SelectChip({
       className={`px-3 py-1.5 rounded-full border ${
         selected
           ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+          : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
       }`}
       accessibilityRole="button"
       accessibilityState={{ selected }}
@@ -559,7 +559,7 @@ function SelectChip({
         className={`text-xs font-medium ${
           selected
             ? "text-indigo-600 dark:text-indigo-300"
-            : "text-gray-500 dark:text-slate-400"
+            : "text-slate-500 dark:text-slate-400"
         }`}
       >
         {label}
@@ -597,11 +597,11 @@ function FilterSheet({
       testID="watch-history-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
-        <Text className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-5">
+        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
           絞り込み
         </Text>
 
-        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
           放送年代
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
@@ -626,7 +626,7 @@ function FilterSheet({
           ))}
         </View>
 
-        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
           視聴状態
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-6">
@@ -640,18 +640,18 @@ function FilterSheet({
             />
           ))}
         </View>
-        <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
+        <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
           視聴状態を未選択にするとすべての状態を表示します
         </Text>
 
         <View className="flex-row gap-3">
           <TouchableOpacity
-            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
+            className="flex-1 border border-slate-200 dark:border-slate-600 rounded-xl py-3 items-center"
             onPress={() => onChange(NO_WATCH_HISTORY_FILTERS)}
             accessibilityRole="button"
             accessibilityLabel="絞り込みをリセット"
           >
-            <Text className="text-gray-600 dark:text-slate-300 font-medium">
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">
               リセット
             </Text>
           </TouchableOpacity>
@@ -711,7 +711,7 @@ function WatchHistoryRow({
 
       <View className="flex-1">
         <Text
-          className="text-gray-900 dark:text-slate-100 font-medium"
+          className="text-slate-900 dark:text-slate-100 font-medium"
           numberOfLines={2}
         >
           {history.title}
@@ -735,7 +735,7 @@ function WatchHistoryRow({
             onValueChange={onStatusChange}
           />
           {meta ? (
-            <Text className="text-xs text-gray-400 dark:text-slate-500">
+            <Text className="text-xs text-slate-400 dark:text-slate-500">
               {meta}
             </Text>
           ) : null}

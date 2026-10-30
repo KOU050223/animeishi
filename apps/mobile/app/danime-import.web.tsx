@@ -106,10 +106,10 @@ export default function DanimeImportWebScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text className="text-sm text-gray-600 dark:text-slate-300 mt-4 text-center">
+        <Text className="text-sm text-slate-600 dark:text-slate-300 mt-4 text-center">
           dアニメのタブから抽出結果を受け取っています…
         </Text>
-        <Text className="text-xs text-gray-400 dark:text-slate-500 mt-2 text-center">
+        <Text className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
           しばらく待っても進まない場合は、dアニメのタブにコピーされた JSON
           をインポート画面の貼り付け欄に貼ってください。
         </Text>
@@ -124,7 +124,7 @@ export default function DanimeImportWebScreen() {
           accessibilityRole="button"
           accessibilityLabel="インポート画面へ戻る"
         >
-          <Text className="text-gray-500 dark:text-slate-400">
+          <Text className="text-slate-500 dark:text-slate-400">
             インポート画面へ戻る
           </Text>
         </TouchableOpacity>
@@ -136,18 +136,18 @@ export default function DanimeImportWebScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
       <ScrollView contentContainerClassName="px-4 py-6">
-        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
           dアニメからインポート
         </Text>
-        <Text className="text-xs text-gray-500 dark:text-slate-400 mt-2 leading-5">
+        <Text className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-5">
           Web 版ではブラウザのブックマークレットで履歴を抽出します。
         </Text>
 
-        <View className="mt-5 bg-gray-50 dark:bg-slate-800 rounded-xl p-4">
-          <Text className="text-sm font-semibold text-gray-800 dark:text-slate-100">
+        <View className="mt-5 bg-slate-50 dark:bg-slate-800 rounded-xl p-4">
+          <Text className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             手順
           </Text>
-          <Text className="text-xs text-gray-600 dark:text-slate-300 mt-2 leading-5">
+          <Text className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-5">
             1. 下のリンクをブックマークバーへドラッグして登録（初回のみ）{"\n"}
             2. 「dアニメの履歴ページを開く」で dアニメストアを開いてログイン
             {"\n"}
@@ -200,7 +200,7 @@ export default function DanimeImportWebScreen() {
               },
               "dアニメ履歴を取得（ドラッグでブックマーク登録）",
             )}
-            <Text className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+            <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
               ドラッグできない場合は右クリック → 「リンクをブックマーク」。
               それも難しい場合は下のボタンで URL をコピーし、新規ブックマークの
               URL 欄に貼り付けてください。
@@ -231,16 +231,16 @@ export default function DanimeImportWebScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4">
-          <Text className="text-xs font-semibold text-gray-500 dark:text-slate-400">
+        <View className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
+          <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             うまくいかない場合（手動貼り付け）
           </Text>
-          <Text className="text-[11px] text-gray-400 dark:text-slate-500 mt-1 leading-4">
+          <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-4">
             ブックマークレットの転送に失敗した場合、結果がクリップボードに
             コピーされます。以下に貼り付けて進んでください。
           </Text>
           <Input
-            className="mt-3 border border-gray-300 dark:border-slate-600 rounded-xl p-3 text-xs text-gray-800 dark:text-slate-100 bg-white dark:bg-slate-800"
+            className="mt-3 border border-slate-300 dark:border-slate-600 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800"
             style={{ minHeight: 120, textAlignVertical: "top" }}
             multiline
             placeholder="抽出結果の JSON をここに貼り付け"
@@ -256,7 +256,7 @@ export default function DanimeImportWebScreen() {
 
           <TouchableOpacity
             className={`mt-4 rounded-xl py-3 items-center ${
-              pasted.trim() ? "bg-indigo-600" : "bg-gray-300 dark:bg-slate-700"
+              pasted.trim() ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
             }`}
             onPress={proceed}
             disabled={!pasted.trim()}

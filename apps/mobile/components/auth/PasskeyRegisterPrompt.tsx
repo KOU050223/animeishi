@@ -67,16 +67,16 @@ export function PasskeyRegisterPrompt({ onDone }: Props) {
   }
 
   return (
-    <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:dark:border-slate-700 md:p-8">
-      <Text className="text-xl font-semibold mb-2 text-gray-800 dark:text-slate-100">
+    <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
+      <Text className="text-xl font-semibold mb-2 text-slate-800 dark:text-slate-100">
         {t("パスキーを登録しますか？")}
       </Text>
-      <Text className="text-gray-500 dark:text-slate-400 mb-2">
+      <Text className="text-slate-500 dark:text-slate-400 mb-2">
         {t(
           "パスキーを登録すると、次回から Touch ID などで簡単にサインインできます",
         )}
       </Text>
-      <Text className="text-sm text-gray-500 dark:text-slate-400 mb-6">
+      <Text className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         {t("あとからプロフィール画面でも登録できます")}
       </Text>
 
@@ -114,7 +114,7 @@ export function PasskeyRegisterPrompt({ onDone }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("あとで")}
       >
-        <Text className="text-gray-500 dark:text-slate-400 font-semibold">
+        <Text className="text-slate-500 dark:text-slate-400 font-semibold">
           {t("あとで")}
         </Text>
       </TouchableOpacity>

@@ -129,12 +129,12 @@ function ImageRender({
           width: boxWidth,
           height: boxHeight,
           borderRadius,
-          backgroundColor: "#e5e7eb",
+          backgroundColor: "#e2e8f0",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Text style={{ color: "#9ca3af", fontSize: 10 }}>画像</Text>
+        <Text style={{ color: "#94a3b8", fontSize: 10 }}>画像</Text>
       </View>
     );
   }
@@ -234,7 +234,7 @@ function QrRender({
           backgroundColor={el.bgColor}
         />
       ) : (
-        <Text style={{ color: "#9ca3af", fontSize: 10 }}>QR</Text>
+        <Text style={{ color: "#94a3b8", fontSize: 10 }}>QR</Text>
       )}
     </View>
   );
@@ -296,7 +296,7 @@ function AnimeCollageRender({
             style={{
               width: cellW,
               height: cellH,
-              backgroundColor: "#e5e7eb",
+              backgroundColor: "#e2e8f0",
               overflow: "hidden",
               borderRadius: 4 * renderScale,
             }}

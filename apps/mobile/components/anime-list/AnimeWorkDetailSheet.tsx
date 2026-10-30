@@ -207,21 +207,21 @@ function HeaderSection({
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />
       <View className="flex-1 min-w-0 justify-center">
         <Text
-          className="text-lg font-bold text-gray-900 dark:text-slate-100"
+          className="text-lg font-bold text-slate-900 dark:text-slate-100"
           numberOfLines={3}
         >
           {work.title}
         </Text>
         {work.titleEn ? (
           <Text
-            className="mt-1 text-xs text-gray-500 dark:text-slate-400"
+            className="mt-1 text-xs text-slate-500 dark:text-slate-400"
             numberOfLines={2}
           >
             {work.titleEn}
           </Text>
         ) : null}
         {meta ? (
-          <Text className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+          <Text className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {meta}
           </Text>
         ) : null}
@@ -242,7 +242,7 @@ function StatusSection({
 }) {
   return (
     <View>
-      <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
         視聴ステータス
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -255,7 +255,7 @@ function StatusSection({
               className={`px-3 py-2 rounded-full border ${
                 currentState === s
                   ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-                  : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+                  : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
               }`}
               accessibilityRole="button"
               accessibilityState={{ selected: currentState === s }}
@@ -266,7 +266,7 @@ function StatusSection({
                 className={`text-xs font-medium ${
                   currentState === s
                     ? "text-indigo-600 dark:text-indigo-300"
-                    : "text-gray-500 dark:text-slate-400"
+                    : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 {WATCH_STATUS_LABELS[s]}
@@ -298,7 +298,7 @@ function ActionRow({
   return (
     <View className="flex-row items-center gap-3">
       <TouchableOpacity
-        className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-2.5 dark:border-slate-600 dark:bg-slate-800"
+        className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2.5 dark:border-slate-600 dark:bg-slate-800"
         onPress={onToggleFavorite}
         disabled={isTogglingFavorite}
         accessibilityRole="button"
@@ -312,7 +312,7 @@ function ActionRow({
           size={16}
           color={isFavorite ? palette.favoriteIconActive : palette.favoriteIcon}
         />
-        <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
+        <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
           {isFavorite ? "推し登録を解除" : "推しに登録"}
         </Text>
       </TouchableOpacity>
@@ -349,7 +349,7 @@ function DetailFetchSection({
   if (detail.isError) {
     return (
       <View className="items-center py-2 gap-2">
-        <Text className="text-xs text-gray-400 dark:text-slate-500">
+        <Text className="text-xs text-slate-400 dark:text-slate-500">
           詳細情報を取得できませんでした
         </Text>
         <TouchableOpacity
@@ -372,8 +372,10 @@ function DetailFetchSection({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row justify-between gap-4">
-      <Text className="text-xs text-gray-400 dark:text-slate-500">{label}</Text>
-      <Text className="text-xs font-semibold text-gray-700 dark:text-slate-200">
+      <Text className="text-xs text-slate-400 dark:text-slate-500">
+        {label}
+      </Text>
+      <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
         {value}
       </Text>
     </View>

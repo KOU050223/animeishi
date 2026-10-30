@@ -128,14 +128,14 @@ export function FavoritesSection() {
             テーマ別のリストを作って共有
           </Text>
         </TouchableOpacity>
-        <Text className="text-xs text-gray-400 dark:text-slate-500">
+        <Text className="text-xs text-slate-400 dark:text-slate-500">
           {enriched.length} 件
         </Text>
         <Input
           value={query}
           onChangeText={setQuery}
           placeholder="作品名で検索"
-          className="mt-2 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-gray-900 dark:text-slate-100"
+          className="mt-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
           accessibilityLabel="お気に入りを検索"
           clearButtonMode="while-editing"
         />
@@ -150,7 +150,7 @@ export function FavoritesSection() {
         ItemSeparatorComponent={() => (
           <View
             style={styles.separator}
-            className="bg-gray-100 dark:bg-slate-800"
+            className="bg-slate-100 dark:bg-slate-800"
           />
         )}
         renderItem={({ item }) => (
@@ -161,7 +161,7 @@ export function FavoritesSection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 dark:text-slate-500 text-center">
+            <Text className="text-slate-400 dark:text-slate-500 text-center">
               {query.trim()
                 ? "該当するお気に入りが見つかりません。"
                 : "お気に入りがありません。\nアニメ一覧から追加してください。"}
@@ -189,7 +189,7 @@ function FavoriteRow({
 
       <View className="flex-1">
         <Text
-          className="text-gray-900 dark:text-slate-100 font-medium"
+          className="text-slate-900 dark:text-slate-100 font-medium"
           numberOfLines={2}
         >
           {favorite.title}

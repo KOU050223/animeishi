@@ -50,19 +50,19 @@ export default function HomeScreen() {
   return (
     // 上端だけ safe area を取る。下端はタブバー側で吸収する。
     <SafeAreaView
-      className="flex-1 bg-gray-50 dark:bg-slate-950"
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
       edges={["top"]}
     >
       <ScrollView contentContainerClassName="px-4 pb-12">
         <View className="pb-3 pt-3">
-          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+          <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
             ホーム
           </Text>
         </View>
 
         <FriendStoryRail />
 
-        <Text className="mb-2 mt-4 text-sm font-medium text-gray-700 dark:text-slate-200">
+        <Text className="mb-2 mt-4 text-sm font-medium text-slate-700 dark:text-slate-200">
           あなたの名刺
         </Text>
         <View style={styles.meishiPreviewFrame} testID="home-meishi-preview">
@@ -113,13 +113,13 @@ export default function HomeScreen() {
         <ActivityFeedSection />
 
         <TouchableOpacity
-          className="mt-8 items-center rounded-lg bg-gray-200 dark:bg-slate-800 px-6 py-3"
+          className="mt-8 items-center rounded-lg bg-slate-200 dark:bg-slate-800 px-6 py-3"
           onPress={() => signOut()}
           testID="sign-out-button"
           accessibilityRole="button"
           accessibilityLabel="サインアウト"
         >
-          <Text className="text-gray-700 dark:text-slate-200 font-semibold">
+          <Text className="text-slate-700 dark:text-slate-200 font-semibold">
             サインアウト
           </Text>
         </TouchableOpacity>

@@ -131,11 +131,7 @@ export function MeishiCard({
           width: "100%",
           borderRadius: 16,
           overflow: "hidden",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 4,
+          boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.15)",
         },
       ]}
     >

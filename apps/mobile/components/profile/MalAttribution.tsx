@@ -10,7 +10,7 @@ export function MalAttribution() {
 
   return (
     <View className="mt-2">
-      <Text className="text-xs text-gray-400 dark:text-slate-500">
+      <Text className="text-xs text-slate-400 dark:text-slate-500">
         {t("作品画像の一部は MyAnimeList から取得しています")}
       </Text>
       <TouchableOpacity

@@ -41,6 +41,7 @@ export type AnimeListPalette = {
   /** 作品カード。 */
   cardBg: string;
   cardBorder: string;
+  /** boxShadow 値全体を持つ（オフセット・ぼかし・色を含む）。 */
   cardShadow: string;
   cardTitle: string;
   cardSubtitle: string;
@@ -79,27 +80,27 @@ export type AnimeListPalette = {
 const lightPalette: AnimeListPalette = {
   screen: "#f6f3ee",
   accent: "#7c2d12",
-  title: "#111827",
+  title: "#0f172a",
   subtitle: "#64748b",
   searchBg: "#ffffff",
   searchBorder: "#e2e8f0",
-  searchText: "#111827",
+  searchText: "#0f172a",
   searchIcon: "#64748b",
   clearButtonBg: "#f1f5f9",
   clearIcon: "#475569",
   chipBg: "#ffffff",
   chipBorder: "#dbe4ee",
-  chipActiveBg: "#111827",
-  chipActiveBorder: "#111827",
+  chipActiveBg: "#0f172a",
+  chipActiveBorder: "#0f172a",
   chipText: "#64748b",
   chipTextActive: "#ffffff",
   chipDisabledBg: "#f1f5f9",
   chipDisabledBorder: "#e2e8f0",
   chipTextDisabled: "#cbd5e1",
   cardBg: "#ffffff",
-  cardBorder: "#e5e7eb",
-  cardShadow: "#111827",
-  cardTitle: "#111827",
+  cardBorder: "#e2e8f0",
+  cardShadow: "0px 8px 18px rgba(15, 23, 42, 0.05)",
+  cardTitle: "#0f172a",
   cardSubtitle: "#64748b",
   skeleton: "#e2e8f0",
   skeletonMuted: "#f1f5f9",
@@ -114,13 +115,13 @@ const lightPalette: AnimeListPalette = {
   favoriteIcon: "#64748b",
   favoriteIconActive: "#e11d48",
   iconBoxBg: "#ffffff",
-  iconBoxBorder: "#e5e7eb",
+  iconBoxBorder: "#e2e8f0",
   errorBoxBg: "#fff1f2",
   errorBoxBorder: "#fecdd3",
   errorIcon: "#b42318",
   stateIcon: "#475569",
-  spinner: "#111827",
-  primaryButtonBg: "#111827",
+  spinner: "#0f172a",
+  primaryButtonBg: "#0f172a",
   primaryButtonText: "#ffffff",
 };
 
@@ -146,7 +147,7 @@ const darkPalette: AnimeListPalette = {
   chipTextDisabled: "#57534e",
   cardBg: "#1c1917",
   cardBorder: "#44403c",
-  cardShadow: "#000000",
+  cardShadow: "0px 8px 18px rgba(0, 0, 0, 0.05)",
   cardTitle: "#f5f5f4",
   cardSubtitle: "#a8a29e",
   skeleton: "#44403c",
@@ -349,11 +350,7 @@ function createStyles(p: AnimeListPalette) {
       borderWidth: 1,
       borderColor: p.cardBorder,
       padding: 10,
-      shadowColor: p.cardShadow,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.05,
-      shadowRadius: 18,
-      elevation: 2,
+      boxShadow: p.cardShadow,
     },
     // Web 実装の CardPressable はカード内にコンテンツ用のラッパー View を
     // 挟むため、card と同じ並びをここにも定義する（card と一緒に直す）。

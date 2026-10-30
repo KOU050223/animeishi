@@ -65,7 +65,7 @@ export function DeleteAccountSection({ onError }: Props) {
   }
 
   return (
-    <View className="mt-10 border-t border-gray-200 dark:border-slate-700 px-4 pt-6">
+    <View className="mt-10 border-t border-slate-200 dark:border-slate-700 px-4 pt-6">
       <TouchableOpacity
         className="items-center rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 py-3"
         onPress={onPressDelete}
@@ -81,7 +81,7 @@ export function DeleteAccountSection({ onError }: Props) {
           </Text>
         )}
       </TouchableOpacity>
-      <Text className="mt-2 text-center text-xs text-gray-400 dark:text-slate-500">
+      <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
         削除するとすべてのデータが失われ、元に戻せません
       </Text>
     </View>
