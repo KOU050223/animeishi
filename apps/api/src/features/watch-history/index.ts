@@ -16,6 +16,7 @@ import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
 import {
   AnnictApiError,
   fetchAnnictLibraryEntries,
+  fetchAnnictViewerStatusStates,
   fetchAnnictWorkByAnnictId,
   updateAnnictStatus,
 } from "@/lib/annict/client";
@@ -23,7 +24,7 @@ import { isPersistableState } from "@/lib/annict/statusState";
 import { workImageUrl } from "@/lib/annict/workImage";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
-import { mapWithConcurrency } from "@animeishi/danime-core";
+import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";
 import { reportApiFailure } from "../../observability";
 import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
@@ -217,6 +218,19 @@ const watchHistory = new Hono<AuthVariables>()
       let retries = 0;
       const retried = { onRetry: () => retries++ };
 
+      // 取り込みは既存の「視聴済・一時停止・断念」を上書きしない（issue #374）。
+      // クライアントのレビュー画面も同じ判定で既定除外するが、レビュー後に
+      // Annict 上で状態が変わった作品や画面を通さない呼び出しが降格を
+      // 起こさないよう、サーバー側でも Annict の現在ステータスと
+      // 突き合わせて最終的に弾く。取得自体が失敗した場合は登録可否を
+      // 判定できないため、リクエスト全体を失敗させる（onError で 401/502）。
+      const currentStates = await fetchAnnictViewerStatusStates(
+        token,
+        [...deduped.keys()],
+        undefined,
+        retried,
+      );
+
       const workResults = await mapWithConcurrency(
         [...deduped.values()],
         BULK_ENTRY_CONCURRENCY,
@@ -230,6 +244,23 @@ const watchHistory = new Hono<AuthVariables>()
           }
 
           try {
+            const action = decideDanimeImport(
+              entry.state,
+              currentStates.get(entry.annictWorkId) ?? null,
+            );
+            if (action === "protected_state") {
+              return {
+                annictWorkId: entry.annictWorkId,
+                ok: false,
+                error: "state_protected",
+              };
+            }
+            // 既に同じステータスなら Annict への書き込み自体が不要
+            // （D1 は read-through で追従する）。
+            if (action === "same_state") {
+              return { annictWorkId: entry.annictWorkId, ok: true };
+            }
+
             // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
             // 使い、無ければ searchWorks で Annict の正データを取る
             // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。

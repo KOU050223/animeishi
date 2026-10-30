@@ -127,5 +127,14 @@
   "お気に入りを更新できませんでした": "Couldn't update favorites",
   "お気に入りの更新に失敗しました": "Failed to update favorites",
   "作品画像の一部は MyAnimeList から取得しています": "Some work images are provided by MyAnimeList",
-  "MyAnimeList を開く": "Open MyAnimeList"
+  "MyAnimeList を開く": "Open MyAnimeList",
+  "視聴中": "Watching",
+  "視聴済": "Watched",
+  "一時停止": "On hold",
+  "断念": "Dropped",
+  "視聴予定": "Plan to watch",
+  "Annict で「{{state}}」登録済み": "Already registered as {{state}} on Annict",
+  "Annict で「{{state}}」のため変更しません": "Left unchanged — marked {{state}} on Annict",
+  "Annict の現在ステータスを取得できなかったため保留": "On hold — couldn't fetch the current Annict status",
+  "同じ作品が視聴済みでも登録予定のため除外": "Excluded — the same work will also be registered as watched"
 }

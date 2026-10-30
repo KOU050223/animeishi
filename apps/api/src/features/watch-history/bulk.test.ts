@@ -85,6 +85,8 @@ function mockAnnictUpdate(
     authFailNodeIds?: string[];
     delayMs?: number;
     inflight?: { current: number; max: number };
+    // annictWorkId → viewerStatusState（bulk の上書き保護が読む現在状態）。
+    viewerStates?: Record<number, string>;
   } = {},
 ) {
   return vi
@@ -111,6 +113,7 @@ function mockAnnictUpdateResponse(
     failNodeIds?: string[];
     authFailAll?: boolean;
     authFailNodeIds?: string[];
+    viewerStates?: Record<number, string>;
   },
 ) {
   const body = JSON.parse((init?.body as string) ?? "{}");
@@ -133,24 +136,23 @@ function mockAnnictUpdateResponse(
     );
   }
   if (query.includes("searchWorks")) {
-    const annictId: number = body.variables?.annictIds?.[0];
+    const annictIds: number[] = body.variables?.annictIds ?? [];
     return new Response(
       JSON.stringify({
         data: {
           searchWorks: {
-            nodes: [
-              {
-                id: `Work-${annictId}`,
-                annictId,
-                malAnimeId: null,
-                title: `作品${annictId}`,
-                titleKana: null,
-                titleEn: null,
-                seasonName: null,
-                seasonYear: null,
-                image: { recommendedImageUrl: null },
-              },
-            ],
+            nodes: annictIds.map((annictId) => ({
+              id: `Work-${annictId}`,
+              annictId,
+              malAnimeId: null,
+              title: `作品${annictId}`,
+              titleKana: null,
+              titleEn: null,
+              seasonName: null,
+              seasonYear: null,
+              viewerStatusState: opts.viewerStates?.[annictId] ?? null,
+              image: { recommendedImageUrl: null },
+            })),
           },
         },
       }),
@@ -374,9 +376,10 @@ describe("POST /me/watch-histories/bulk", () => {
         .sort((a: string, b: string) => a.localeCompare(b));
       // 5 はキャッシュの nodeId、6 は searchWorks で解決した Node ID が使われる。
       expect(updateWorkIds).toEqual(["Work-6", "Work-cached"]);
-      // キャッシュ済みの 5 には searchWorks を投げない。
+      // キャッシュ済みの 5 には nodeId 解決の searchWorks を投げない。
+      // （viewerStatusState の一括取得は nodeId 解決とは別クエリで全件分を引く）
       const searchedIds = calls
-        .filter((b) => (b.query as string).includes("searchWorks"))
+        .filter((b) => (b.query as string).includes("SearchWorkNodeId"))
         .flatMap((b) => b.variables.annictIds as number[]);
       expect(searchedIds).toEqual([6]);
     });
@@ -490,6 +493,108 @@ describe("POST /me/watch-histories/bulk", () => {
         { annictWorkId: 2, ok: false, error: "internal_error" },
         { annictWorkId: 3, ok: true },
       ]);
+    });
+
+    it("Annict が視聴済・一時停止・断念の作品は updateStatus せず state_protected を返す", async () => {
+      // 取り込みでユーザーの明示的なステータスを戻さないための
+      // サーバー側の最終防衛線（issue #374）。クライアントの除外に
+      // 頼らず、Annict の現在ステータスで弾く。
+      const fetchMock = mockAnnictUpdate({
+        viewerStates: { 1: "WATCHED", 2: "ON_HOLD", 3: "STOP_WATCHING" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              { annictWorkId: 1, state: "WATCHING" },
+              { annictWorkId: 2, state: "WATCHED" },
+              { annictWorkId: 3, state: "WATCHING" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: false, error: "state_protected" },
+        { annictWorkId: 2, ok: false, error: "state_protected" },
+        { annictWorkId: 3, ok: false, error: "state_protected" },
+      ]);
+
+      // 保護対象には updateStatus を投げず、D1 の履歴も書かれない。
+      const updateCalls = fetchMock.mock.calls.filter((c) =>
+        (
+          JSON.parse((c[1] as RequestInit).body as string).query as string
+        ).includes("updateStatus"),
+      );
+      expect(updateCalls).toEqual([]);
+      const histories = await db.query.watchHistory.findMany({
+        where: (t, { eq }) => eq(t.userId, USER_ID),
+      });
+      expect(histories).toEqual([]);
+    });
+
+    it("視聴中→視聴済（前進）と視聴予定は従来どおり登録できる", async () => {
+      mockAnnictUpdate({
+        viewerStates: { 1: "WATCHING", 2: "WANNA_WATCH" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            entries: [
+              { annictWorkId: 1, state: "WATCHED" },
+              { annictWorkId: 2, state: "WATCHING" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([
+        { annictWorkId: 1, ok: true },
+        { annictWorkId: 2, ok: true },
+      ]);
+      const histories = await db.query.watchHistory.findMany({
+        where: (t, { eq }) => eq(t.userId, USER_ID),
+      });
+      expect(
+        histories
+          .map((h) => `${h.annictWorkId}:${h.state}`)
+          .sort((a, b) => a.localeCompare(b)),
+      ).toEqual(["1:WATCHED", "2:WATCHING"]);
+    });
+
+    it("Annict で既に同じステータスなら updateStatus を投げず ok を返す", async () => {
+      const fetchMock = mockAnnictUpdate({
+        viewerStates: { 1: "WATCHED" },
+      });
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ entries: [entry(1)] }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as BulkBody;
+      expect(body.results).toEqual([{ annictWorkId: 1, ok: true }]);
+
+      const updateCalls = fetchMock.mock.calls.filter((c) =>
+        (
+          JSON.parse((c[1] as RequestInit).body as string).query as string
+        ).includes("updateStatus"),
+      );
+      expect(updateCalls).toEqual([]);
     });
 
     it("entries が空配列なら 400", async () => {
