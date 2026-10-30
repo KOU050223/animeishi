@@ -293,6 +293,8 @@ describe("POST /me/watch-histories/bulk", () => {
     it("Annict 401 で打ち切り、未着手の残りは aborted として返す", async () => {
       // 並列処理中に 401 を検知したら、まだ開始していない作品は
       // 「aborted」で返す。全件 401 にして順序に依存しない失敗にする。
+      // 同時実行数 2 に対して 3 件送るため、3 件目は 401 検知後まで
+      // 開始されず aborted になる（件数上限 WATCH_HISTORY_BULK_MAX_ENTRIES）。
       mockAnnictUpdate({ authFailAll: true });
       const res = await buildApp().request(
         "/me/watch-histories/bulk",
@@ -300,7 +302,7 @@ describe("POST /me/watch-histories/bulk", () => {
           method: "POST",
           headers: JSON_HEADERS,
           body: JSON.stringify({
-            entries: [1, 2, 3, 4, 5, 6, 7, 8].map(entry),
+            entries: [1, 2, 3].map(entry),
           }),
         },
         TEST_BINDINGS,
@@ -321,9 +323,7 @@ describe("POST /me/watch-histories/bulk", () => {
         true,
       );
       // 結果の順序は入力順を維持する。
-      expect(body.results.map((r) => r.annictWorkId)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8,
-      ]);
+      expect(body.results.map((r) => r.annictWorkId)).toEqual([1, 2, 3]);
     });
 
     it("entries は同時実行数を制限して並列に処理する", async () => {
@@ -334,7 +334,7 @@ describe("POST /me/watch-histories/bulk", () => {
         {
           method: "POST",
           headers: JSON_HEADERS,
-          body: JSON.stringify({ entries: [1, 2, 3, 4, 5, 6].map(entry) }),
+          body: JSON.stringify({ entries: [1, 2, 3].map(entry) }),
         },
         TEST_BINDINGS,
       );
@@ -604,6 +604,22 @@ describe("POST /me/watch-histories/bulk", () => {
           method: "POST",
           headers: JSON_HEADERS,
           body: JSON.stringify({ entries: [] }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("上限（サブリクエスト予算から算出した 3 件）を超える entries は 400", async () => {
+      // Workers の 1 リクエストあたりのサブリクエスト上限に最悪ケースでも
+      // 収まる件数として API スキーマが 3 件までに制限している
+      // （schema.ts の計算コメント参照）。超過分はクライアントが分割送信する。
+      const res = await buildApp().request(
+        "/me/watch-histories/bulk",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ entries: [1, 2, 3, 4].map(entry) }),
         },
         TEST_BINDINGS,
       );

@@ -9,7 +9,8 @@
 //     （issue #374。取り込みでユーザーの明示的なステータスを戻さない）
 //   - 履歴が未取得のまま照合が終わっても安全に扱うため、照合は履歴クエリの
 //     完了を待ってから実行し、取得失敗時は WATCHING 対象を既定で保留にする
-// 確定後は 50 件ずつ /me/watch-histories/bulk に送り、進捗と失敗を表示する。
+// 確定後は API 上限件数ずつ /me/watch-histories/bulk に送り、
+// 進捗と失敗を表示する。
 // API 側も同じ判定で保護対象を弾くため、ここでの制御は案内が主目的。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

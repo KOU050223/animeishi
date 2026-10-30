@@ -39,7 +39,10 @@ function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
 // bulk 登録で 1 作品を処理する同時実行数。作品あたり searchWorks +
 // updateStatus の往復が直列だと遅いため、Annict レート制限を意識した
 // 同時実行数で並列化する（issue #115）。
-const BULK_ENTRY_CONCURRENCY = 4;
+// 1 リクエストの件数上限（WATCH_HISTORY_BULK_MAX_ENTRIES = 3）より小さく
+// してある: 上限以上だと全件が同時に始まり、Annict 401 での打ち切り
+// （未着手分を aborted として返す分岐）が発動し得なくなるため。
+const BULK_ENTRY_CONCURRENCY = 2;
 
 const watchHistory = new Hono<AuthVariables>()
   .use("*", requireAuth)

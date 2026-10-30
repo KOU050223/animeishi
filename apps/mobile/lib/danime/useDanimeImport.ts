@@ -2,7 +2,7 @@
 //   - useDanimeMatch: 抽出結果を作品単位に集約して /me/import/danime/match に投げる
 //     （読み取り専用の照合なのでキャッシュ無効化は不要）
 //   - useBulkRegisterWatchHistory: 確定済みの作品を /me/watch-histories/bulk に
-//     50 件ずつチャンクして逐次送信する（進捗コールバック付き）
+//     上限件数ずつチャンクして逐次送信する（進捗コールバック付き）
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
@@ -56,8 +56,12 @@ export type DanimeMatchOutput = {
   stats?: DanimeMatchStats;
 };
 
-/** 1 リクエストあたりの上限（API 側スキーマの上限と揃える）。 */
-const BULK_CHUNK_SIZE = 50;
+// 1 リクエストあたりの上限（API 側スキーマ WATCH_HISTORY_BULK_MAX_ENTRIES と
+// 揃える）。Workers のサブリクエスト上限 50/req に対し、bulk 1 件あたり
+// 最悪 11 サブリクエスト（Annict 2 呼び出し × 最大 3 試行 + D1 5）と
+// ステータス一括取得 3 を数えると 3 件までしか収まらない。計算の内訳は
+// apps/api/src/features/watch-history/schema.ts のコメント参照。
+const BULK_CHUNK_SIZE = 3;
 
 // 1 リクエストあたりの照合件数。API 側は 500 件まで受け付けるが、
 // Workers のサブリクエスト上限（issue #219）に収まるよう
