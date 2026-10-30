@@ -21,10 +21,10 @@ export function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
   return (
     <View className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
-      <Text className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">
+      <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
         {t("予期しないエラーが発生しました")}
       </Text>
-      <Text className="text-sm text-gray-500 dark:text-slate-400 text-center mb-6">
+      <Text className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
         {error.message}
       </Text>
       <TouchableOpacity

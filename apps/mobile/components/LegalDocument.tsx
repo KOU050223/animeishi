@@ -53,22 +53,22 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
             testID="legal-back-button"
           />
 
-          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+          <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {title}
           </Text>
-          <Text className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+          <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {effectiveDate}
           </Text>
 
           {sections.map((section) => (
             <View key={section.heading} className="mt-8">
-              <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
+              <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 {section.heading}
               </Text>
               {section.paragraphs?.map((paragraph) => (
                 <Text
                   key={paragraph}
-                  className="mt-2 text-sm leading-6 text-gray-700 dark:text-slate-300"
+                  className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300"
                 >
                   {paragraph}
                 </Text>
@@ -78,7 +78,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
                   {section.bullets.map((bullet) => (
                     <Text
                       key={bullet}
-                      className="text-sm leading-6 text-gray-700 dark:text-slate-300"
+                      className="text-sm leading-6 text-slate-700 dark:text-slate-300"
                     >
                       ・{bullet}
                     </Text>
@@ -88,7 +88,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
             </View>
           ))}
 
-          <View className="mt-12 flex-row justify-center gap-6 border-t border-gray-100 dark:border-slate-800 pt-6">
+          <View className="mt-12 flex-row justify-center gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
             <Link href="/privacy" testID="legal-privacy-link">
               <Text className="text-sm text-indigo-600 dark:text-indigo-400">
                 プライバシーポリシー

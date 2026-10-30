@@ -86,7 +86,7 @@ export function FriendsSection() {
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
-        <Text className="text-xs text-gray-400 dark:text-slate-500">
+        <Text className="text-xs text-slate-400 dark:text-slate-500">
           {list.length} 人
         </Text>
       </View>
@@ -100,7 +100,7 @@ export function FriendsSection() {
         ItemSeparatorComponent={() => (
           <View
             style={styles.separator}
-            className="bg-gray-100 dark:bg-slate-800"
+            className="bg-slate-100 dark:bg-slate-800"
           />
         )}
         renderItem={({ item }) => (
@@ -111,7 +111,7 @@ export function FriendsSection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-gray-400 dark:text-slate-500 text-center">
+            <Text className="text-slate-400 dark:text-slate-500 text-center">
               フレンドがいません。{"\n"}QR
               コードをスキャンして追加してください。
             </Text>
@@ -139,7 +139,7 @@ function FriendRow({
           source={{ uri: friend.profileImageUrl }}
           style={styles.avatar}
           // 画像読み込み中の下地。dark では slate-700 系に揃える。
-          className="bg-gray-200 dark:bg-slate-700"
+          className="bg-slate-200 dark:bg-slate-700"
           resizeMode="cover"
         />
       ) : (
@@ -155,14 +155,14 @@ function FriendRow({
 
       <View className="flex-1">
         <Text
-          className="text-gray-900 dark:text-slate-100 font-medium"
+          className="text-slate-900 dark:text-slate-100 font-medium"
           numberOfLines={1}
         >
           {friend.username}
         </Text>
         {friend.favoriteQuote ? (
           <Text
-            className="text-xs text-gray-400 dark:text-slate-500 mt-0.5"
+            className="text-xs text-slate-400 dark:text-slate-500 mt-0.5"
             numberOfLines={1}
           >
             {friend.favoriteQuote}

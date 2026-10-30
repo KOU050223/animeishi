@@ -21,7 +21,7 @@ export default function SsoCallbackScreen() {
     >
       <View className="items-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text className="mt-4 text-gray-600 dark:text-slate-300">
+        <Text className="mt-4 text-slate-600 dark:text-slate-300">
           {t("サインインを完了しています…")}
         </Text>
         {/* 万が一ブラウザセッション外で着地した場合の退避導線 */}

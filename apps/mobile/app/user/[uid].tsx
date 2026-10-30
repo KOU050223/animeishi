@@ -184,7 +184,7 @@ export default function PublicProfilePage() {
           testID="public-profile-back-button"
         />
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-gray-500 dark:text-slate-400 text-center">
+          <Text className="text-slate-500 dark:text-slate-400 text-center">
             {message}
           </Text>
         </View>
@@ -208,33 +208,33 @@ export default function PublicProfilePage() {
           {data.profileImageUrl ? (
             <Image
               source={{ uri: data.profileImageUrl }}
-              className="w-24 h-24 rounded-full bg-gray-200 dark:bg-slate-700"
+              className="w-24 h-24 rounded-full bg-slate-200 dark:bg-slate-700"
               accessibilityLabel={`${data.username}のアイコン`}
             />
           ) : (
             <View
-              className="w-24 h-24 rounded-full bg-gray-200 dark:bg-slate-700 items-center justify-center"
+              className="w-24 h-24 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center"
               accessibilityLabel={`${data.username}のアイコン`}
             >
-              <Text className="text-3xl text-gray-400 dark:text-slate-500">
+              <Text className="text-3xl text-slate-400 dark:text-slate-500">
                 {data.username.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
 
-          <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100 mt-4">
+          <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-4">
             {data.username}
           </Text>
 
           {data.bio ? (
-            <Text className="text-gray-600 dark:text-slate-300 text-center mt-2">
+            <Text className="text-slate-600 dark:text-slate-300 text-center mt-2">
               {data.bio}
             </Text>
           ) : null}
 
           {data.favoriteQuote ? (
             <View className="mt-4 border-l-4 border-purple-400 pl-3 self-start">
-              <Text className="text-gray-500 dark:text-slate-400 italic">
+              <Text className="text-slate-500 dark:text-slate-400 italic">
                 {data.favoriteQuote}
               </Text>
             </View>
@@ -242,7 +242,7 @@ export default function PublicProfilePage() {
 
           {data.genres.length > 0 ? (
             <View className="mt-6 self-start w-full">
-              <Text className="text-sm font-semibold text-gray-700 dark:text-slate-200 mb-2">
+              <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
                 好きなジャンル
               </Text>
               <View className="flex-row flex-wrap gap-2">
@@ -261,7 +261,7 @@ export default function PublicProfilePage() {
           ) : null}
 
           {canModerate ? (
-            <View className="mt-10 w-full border-t border-gray-100 dark:border-slate-800 pt-4">
+            <View className="mt-10 w-full border-t border-slate-100 dark:border-slate-800 pt-4">
               <TouchableOpacity
                 className="items-center py-2"
                 onPress={() => setReportSheetVisible(true)}
@@ -269,7 +269,7 @@ export default function PublicProfilePage() {
                 accessibilityLabel="このユーザーを通報"
                 testID="report-user-button"
               >
-                <Text className="text-sm text-gray-500 dark:text-slate-400">
+                <Text className="text-sm text-slate-500 dark:text-slate-400">
                   このユーザーを通報
                 </Text>
               </TouchableOpacity>
@@ -295,24 +295,24 @@ export default function PublicProfilePage() {
           scrimAccessibilityLabel="通報をやめる"
         >
           <View className="px-4 pb-8 pt-4">
-            <Text className="text-base font-semibold text-gray-900 dark:text-slate-100">
+            <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
               このユーザーを通報
             </Text>
-            <Text className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+            <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               理由を選択してください。運営が内容を確認します。
             </Text>
             <View className="mt-4 gap-2">
               {REPORT_REASONS.map((reason) => (
                 <TouchableOpacity
                   key={reason}
-                  className="rounded-lg border border-gray-200 dark:border-slate-600 px-4 py-3"
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3"
                   onPress={() => onSubmitReport(reason)}
                   disabled={reportUser.isPending}
                   accessibilityRole="button"
                   accessibilityLabel={`${reason}で通報`}
                   testID={`report-reason-${reason}`}
                 >
-                  <Text className="text-gray-900 dark:text-slate-100">
+                  <Text className="text-slate-900 dark:text-slate-100">
                     {reason}
                   </Text>
                 </TouchableOpacity>
@@ -324,7 +324,7 @@ export default function PublicProfilePage() {
               accessibilityRole="button"
               accessibilityLabel="キャンセル"
             >
-              <Text className="text-gray-500 dark:text-slate-400">
+              <Text className="text-slate-500 dark:text-slate-400">
                 キャンセル
               </Text>
             </TouchableOpacity>

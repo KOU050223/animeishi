@@ -137,17 +137,17 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
-          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:dark:border-slate-700 md:p-8">
-            <Text className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-slate-100">
+          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
+            <Text className="text-3xl font-bold text-center mb-8 text-slate-900 dark:text-slate-100">
               {t("アニ名刺")}
             </Text>
 
-            <Text className="text-xl font-semibold mb-6 text-gray-800 dark:text-slate-100">
+            <Text className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">
               {t("サインイン")}
             </Text>
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("メールアドレス")}
               value={email}
               onChangeText={setEmail}
@@ -158,7 +158,7 @@ export default function SignInScreen() {
             />
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("パスワード")}
               value={password}
               onChangeText={setPassword}
@@ -194,11 +194,11 @@ export default function SignInScreen() {
             {/* 外部プロバイダでのサインイン。本番で未設定のものはフラグで隠す */}
             {(featureFlags.googleSignIn || featureFlags.passkey) && (
               <View className="flex-row items-center mb-4">
-                <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
-                <Text className="mx-3 text-sm text-gray-400 dark:text-slate-500">
+                <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                <Text className="mx-3 text-sm text-slate-400 dark:text-slate-500">
                   {t("または")}
                 </Text>
-                <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
               </View>
             )}
             {featureFlags.googleSignIn && (
@@ -207,7 +207,7 @@ export default function SignInScreen() {
             {featureFlags.passkey && <PasskeySignInButton onError={setError} />}
 
             <View className="flex-row justify-center">
-              <Text className="text-gray-600 dark:text-slate-300">
+              <Text className="text-slate-600 dark:text-slate-300">
                 {t("アカウントをお持ちでない方は ")}
               </Text>
               <Link href="/(auth)/sign-up" testID="sign-up-link">

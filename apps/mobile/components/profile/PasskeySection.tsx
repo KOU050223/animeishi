@@ -43,7 +43,7 @@ export function PasskeySection({ onSuccess, onError }: Props) {
   }
 
   return (
-    <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
+    <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
       <TouchableOpacity
         className="py-2"
         onPress={handleRegister}
@@ -62,7 +62,7 @@ export function PasskeySection({ onSuccess, onError }: Props) {
       </TouchableOpacity>
       {registeredCount > 0 && (
         <Text
-          className="text-xs text-gray-500 dark:text-slate-400 pb-1"
+          className="text-xs text-slate-500 dark:text-slate-400 pb-1"
           testID="passkey-registered-count"
         >
           {t("登録済みのパスキー: {{count}}件", { count: registeredCount })}

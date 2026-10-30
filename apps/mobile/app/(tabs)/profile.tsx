@@ -163,20 +163,20 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-gray-50 dark:bg-slate-950">
+    <View className="flex-1 bg-slate-50 dark:bg-slate-950">
       <ScrollView className="flex-1" contentContainerClassName="pb-12">
         {/* 見出しがステータスバーに食い込まないよう safe area 上端を加味する */}
         <View className="px-4 pb-3" style={{ paddingTop: insets.top + 12 }}>
-          <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+          <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
             プロフィール
           </Text>
         </View>
 
         <View className="px-4">
-          <Text className="mb-0.5 text-sm font-medium text-gray-700 dark:text-slate-200">
+          <Text className="mb-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
             名刺プレビュー
           </Text>
-          <Text className="mb-2 text-xs text-gray-400 dark:text-slate-500">
+          <Text className="mb-2 text-xs text-slate-400 dark:text-slate-500">
             2本指を広げると拡大できます
           </Text>
           <View style={styles.meishiPreviewFrame}>
@@ -249,21 +249,21 @@ export default function ProfileScreen() {
 
         <View className="mt-6 gap-4 px-4">
           <View>
-            <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-slate-200">
+            <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
               ユーザー名
             </Text>
             <Input
               value={username}
               onChangeText={setUsername}
               placeholder="ユーザー名"
-              className="rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-gray-900 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
               maxLength={20}
               accessibilityLabel="ユーザー名入力"
             />
           </View>
 
           <View>
-            <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-slate-200">
+            <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
               自己紹介
             </Text>
             <Input
@@ -272,21 +272,21 @@ export default function ProfileScreen() {
               placeholder="自己紹介"
               multiline
               numberOfLines={3}
-              className="rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-gray-900 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
               maxLength={500}
               accessibilityLabel="自己紹介入力"
             />
           </View>
 
           <View>
-            <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-slate-200">
+            <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
               好きなセリフ
             </Text>
             <Input
               value={favoriteQuote}
               onChangeText={setFavoriteQuote}
               placeholder="好きなセリフ"
-              className="rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-gray-900 dark:text-slate-100"
+              className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
               maxLength={500}
               accessibilityLabel="好きなセリフ入力"
             />
@@ -314,7 +314,7 @@ export default function ProfileScreen() {
         {/* パスキー登録（#181）。Web のみ。フラグ未対応環境ではセクション自体を出さない */}
         {featureFlags.passkey && (
           <View className="mt-8 px-4">
-            <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
+            <Text className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
               セキュリティ
             </Text>
             <PasskeySection
@@ -444,6 +444,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    elevation: 20,
   },
 });

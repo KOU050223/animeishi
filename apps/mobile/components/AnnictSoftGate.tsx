@@ -66,10 +66,10 @@ export function AnnictSoftGate({
         <Ionicons name="link-outline" size={28} color={colors.primaryText} />
       </View>
 
-      <Text className="mb-2 text-center text-lg font-bold text-gray-900 dark:text-slate-100">
+      <Text className="mb-2 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
         {t("Annict 連携が必要です")}
       </Text>
-      <Text className="mb-6 text-center text-sm leading-5 text-gray-500 dark:text-slate-400">
+      <Text className="mb-6 text-center text-sm leading-5 text-slate-500 dark:text-slate-400">
         {t(description)}
       </Text>
 

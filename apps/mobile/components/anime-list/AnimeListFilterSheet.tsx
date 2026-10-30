@@ -49,11 +49,11 @@ export function AnimeListFilterSheet({
       testID="anime-list-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
-        <Text className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-5">
+        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
           絞り込み
         </Text>
 
-        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
           メディア種別
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
@@ -76,7 +76,7 @@ export function AnimeListFilterSheet({
           ))}
         </View>
 
-        <Text className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
           ジャンル・タグ
         </Text>
         {genreOptions.length > 0 ? (
@@ -96,24 +96,24 @@ export function AnimeListFilterSheet({
             </View>
           </ScrollView>
         ) : (
-          <Text className="text-xs text-gray-400 dark:text-slate-500 mb-2">
+          <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
             表示中の作品にジャンル情報がありません（順次取り込み中です）。
           </Text>
         )}
-        <Text className="text-xs text-gray-400 dark:text-slate-500 mb-5">
+        <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
           ジャンルを複数選ぶといずれかに一致する作品を表示します。「不明」は
           ジャンルが未取得の作品だけを表示します。
         </Text>
 
         <View className="flex-row gap-3">
           <TouchableOpacity
-            className="flex-1 border border-gray-200 dark:border-slate-600 rounded-xl py-3 items-center"
+            className="flex-1 border border-slate-200 dark:border-slate-600 rounded-xl py-3 items-center"
             onPress={() => onChange(NO_ANIME_LIST_FILTERS)}
             accessibilityRole="button"
             accessibilityLabel="絞り込みをリセット"
             testID="anime-filter-reset"
           >
-            <Text className="text-gray-600 dark:text-slate-300 font-medium">
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">
               リセット
             </Text>
           </TouchableOpacity>
@@ -152,7 +152,7 @@ function SelectChip({
       className={`px-3 py-1.5 rounded-full border ${
         selected
           ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-          : "border-gray-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+          : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
       }`}
       accessibilityRole="button"
       accessibilityState={{ selected }}
@@ -163,7 +163,7 @@ function SelectChip({
         className={`text-xs font-medium ${
           selected
             ? "text-indigo-600 dark:text-indigo-300"
-            : "text-gray-500 dark:text-slate-400"
+            : "text-slate-500 dark:text-slate-400"
         }`}
       >
         {label}

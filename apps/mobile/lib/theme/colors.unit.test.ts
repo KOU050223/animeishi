@@ -37,8 +37,8 @@ describe("colors.light.placeholder のコントラスト (WCAG AA)", () => {
   // 新しい背景色の入力欄を追加したらここにも列挙する。
   it.each([
     ["白背景 (サインイン/サインアップ/検索バー/シート等)", "#ffffff"],
-    ["gray-50 背景 (プロフィール画面)", "#f9fafb"],
-    ["gray-100 背景 (お気に入り検索欄)", "#f3f4f6"],
+    ["slate-50 背景 (プロフィール画面)", "#f8fafc"],
+    ["slate-100 背景 (お気に入り検索欄)", "#f1f5f9"],
   ])("%s 上で 4.5:1 以上", (_label, background) => {
     expect(
       contrastRatio(colors.light.placeholder, background),

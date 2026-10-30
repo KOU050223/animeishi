@@ -207,18 +207,18 @@ export default function SignUpScreen() {
             contentContainerClassName="flex-grow justify-center px-6 py-10"
             keyboardShouldPersistTaps="handled"
           >
-            <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:dark:border-slate-700 md:p-8">
-              <Text className="text-xl font-semibold mb-2 text-gray-800 dark:text-slate-100">
+            <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
+              <Text className="text-xl font-semibold mb-2 text-slate-800 dark:text-slate-100">
                 {t("メールを確認してください")}
               </Text>
-              <Text className="text-gray-500 dark:text-slate-400 mb-6">
+              <Text className="text-slate-500 dark:text-slate-400 mb-6">
                 {t("{{email}} に送信された認証コードを入力してください", {
                   email,
                 })}
               </Text>
 
               <Input
-                className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center dark:text-slate-100"
+                className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center dark:text-slate-100"
                 placeholder={t("認証コード")}
                 value={code}
                 onChangeText={setCode}
@@ -270,17 +270,17 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
-          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-gray-200 md:dark:border-slate-700 md:p-8">
-            <Text className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-slate-100">
+          <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
+            <Text className="text-3xl font-bold text-center mb-8 text-slate-900 dark:text-slate-100">
               {t("アニ名刺")}
             </Text>
 
-            <Text className="text-xl font-semibold mb-6 text-gray-800 dark:text-slate-100">
+            <Text className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">
               {t("アカウント作成")}
             </Text>
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("メールアドレス")}
               value={email}
               onChangeText={setEmail}
@@ -291,7 +291,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("ユーザー名")}
               value={username}
               onChangeText={setUsername}
@@ -300,7 +300,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("パスワード（英字+数字、8文字以上）")}
               value={password}
               onChangeText={setPassword}
@@ -310,7 +310,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
               placeholder={t("パスワード（確認）")}
               value={passwordConfirmation}
               onChangeText={setPasswordConfirmation}
@@ -354,17 +354,17 @@ export default function SignUpScreen() {
             {featureFlags.googleSignIn && (
               <>
                 <View className="flex-row items-center mb-4">
-                  <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
-                  <Text className="mx-3 text-sm text-gray-400 dark:text-slate-500">
+                  <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <Text className="mx-3 text-sm text-slate-400 dark:text-slate-500">
                     {t("または")}
                   </Text>
-                  <View className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                  <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                 </View>
                 <GoogleAuthButton onError={setError} />
               </>
             )}
 
-            <Text className="text-center text-xs text-gray-500 dark:text-slate-400 mb-2">
+            <Text className="text-center text-xs text-slate-500 dark:text-slate-400 mb-2">
               {t("アカウントを作成することで、以下に同意したものとみなします")}
             </Text>
             <View className="flex-row justify-center gap-4 mb-4">
@@ -381,7 +381,7 @@ export default function SignUpScreen() {
             </View>
 
             <View className="flex-row justify-center">
-              <Text className="text-gray-600 dark:text-slate-300">
+              <Text className="text-slate-600 dark:text-slate-300">
                 {t("すでにアカウントをお持ちの方は ")}
               </Text>
               <Link href="/(auth)/sign-in" testID="sign-in-link">

@@ -1,5 +1,6 @@
 import { useClerk } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
+import type { Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -34,7 +35,13 @@ export default function SsoCallbackScreen() {
       try {
         const url = new URL(to, window.location.origin);
         if (url.origin === window.location.origin) {
-          router.replace(url.pathname + url.search + url.hash);
+          // 同一オリジンと確認済みなのでパス文字列は必ず内部ルート。
+          // 生成済み typed routes（ローカル）では string を union に入れられない
+          // ため Href への窄めが必要。一方 CI は routes 未生成で Href が
+          // string を含み、string への直接断言は「余計な断言」で lint 落ちする。
+          // unknown の変数に退避してから窄めれば両環境で断言が有効になる。
+          const href: unknown = url.pathname + url.search + url.hash;
+          router.replace(href as Href);
           return;
         }
       } catch {
@@ -82,7 +89,7 @@ export default function SsoCallbackScreen() {
       ) : (
         <View className="items-center">
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text className="mt-4 text-gray-600 dark:text-slate-300">
+          <Text className="mt-4 text-slate-600 dark:text-slate-300">
             {t("サインインを完了しています…")}
           </Text>
         </View>

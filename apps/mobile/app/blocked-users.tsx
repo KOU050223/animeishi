@@ -107,10 +107,10 @@ export default function BlockedUsersScreen() {
           accessibilityLabel="戻る"
           testID="blocked-users-back-button"
         />
-        <Text className="text-xl font-bold text-gray-900 dark:text-slate-100">
+        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
           ブロック中のユーザー
         </Text>
-        <Text className="mt-0.5 text-xs text-gray-400 dark:text-slate-500">
+        <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
           {list.length} 人
         </Text>
       </View>
@@ -120,7 +120,7 @@ export default function BlockedUsersScreen() {
         keyExtractor={(item) => item.blockedId}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
         ItemSeparatorComponent={() => (
-          <View className="h-px bg-gray-100 dark:bg-slate-800" />
+          <View className="h-px bg-slate-100 dark:bg-slate-800" />
         )}
         renderItem={({ item }) => (
           <View
@@ -131,7 +131,7 @@ export default function BlockedUsersScreen() {
               <Image
                 source={{ uri: item.profileImageUrl }}
                 style={{ width: 48, height: 48, borderRadius: 24 }}
-                className="bg-gray-200 dark:bg-slate-700"
+                className="bg-slate-200 dark:bg-slate-700"
                 resizeMode="cover"
               />
             ) : (
@@ -147,7 +147,7 @@ export default function BlockedUsersScreen() {
 
             <View className="flex-1">
               <Text
-                className="font-medium text-gray-900 dark:text-slate-100"
+                className="font-medium text-slate-900 dark:text-slate-100"
                 numberOfLines={1}
               >
                 {item.username}
@@ -157,11 +157,11 @@ export default function BlockedUsersScreen() {
             <TouchableOpacity
               onPress={() => confirmUnblock(item)}
               disabled={unblock.isPending}
-              className="rounded-lg bg-gray-100 dark:bg-slate-800 px-3 py-1.5"
+              className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5"
               accessibilityRole="button"
               accessibilityLabel={`${item.username}のブロックを解除`}
             >
-              <Text className="text-xs text-gray-700 dark:text-slate-200">
+              <Text className="text-xs text-slate-700 dark:text-slate-200">
                 解除
               </Text>
             </TouchableOpacity>
@@ -169,7 +169,7 @@ export default function BlockedUsersScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-center text-gray-400 dark:text-slate-500">
+            <Text className="text-center text-slate-400 dark:text-slate-500">
               ブロックしているユーザーはいません
             </Text>
           </View>

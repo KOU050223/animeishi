@@ -79,7 +79,7 @@ function GenerateView() {
   if (!isSignedIn || !userId) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-400 dark:text-slate-500 text-center">
+        <Text className="text-slate-400 dark:text-slate-500 text-center">
           QR コードを表示するにはサインインしてください
         </Text>
       </View>
@@ -91,7 +91,7 @@ function GenerateView() {
       {/* QR コードは読み取り精度のため常に白いカードに描画する
           （周囲の quiet zone も白が前提）。dark でも白のままにする。 */}
       <View
-        className="p-6 bg-white rounded-2xl border border-gray-100"
+        className="p-6 bg-white rounded-2xl border border-slate-100"
         style={styles.qrCard}
         testID="qr-code-container"
       >
@@ -100,7 +100,7 @@ function GenerateView() {
             （qrParser の後方互換）。 */}
         <QRCode value={buildProfileUrl(userId) ?? userId} size={240} />
       </View>
-      <Text className="text-gray-500 dark:text-slate-400 text-sm mt-6 text-center">
+      <Text className="text-slate-500 dark:text-slate-400 text-sm mt-6 text-center">
         この QR コードを相手に読み取ってもらうと{"\n"}名刺を交換できます
       </Text>
     </View>
@@ -142,7 +142,7 @@ function ScanView() {
   if (!permission) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-400 dark:text-slate-500">
+        <Text className="text-slate-400 dark:text-slate-500">
           カメラを準備しています...
         </Text>
       </View>
@@ -153,7 +153,7 @@ function ScanView() {
   if (!permission.granted) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-gray-600 dark:text-slate-300 text-center mb-4">
+        <Text className="text-slate-600 dark:text-slate-300 text-center mb-4">
           QR コードをスキャンするにはカメラの許可が必要です
         </Text>
         <TouchableOpacity
@@ -198,11 +198,7 @@ function ScanView() {
 
 const styles = StyleSheet.create({
   qrCard: {
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.08)",
   },
   camera: {
     flex: 1,

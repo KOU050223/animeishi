@@ -107,7 +107,7 @@ function StoryRing({
           <Image
             source={{ uri: friend.actor.profileImageUrl }}
             style={styles.avatar}
-            className="bg-gray-200 dark:bg-slate-700"
+            className="bg-slate-200 dark:bg-slate-700"
             resizeMode="cover"
           />
         ) : (
@@ -122,7 +122,7 @@ function StoryRing({
         )}
       </View>
       <Text
-        className="mt-1 text-xs text-gray-600 dark:text-slate-400"
+        className="mt-1 text-xs text-slate-600 dark:text-slate-400"
         numberOfLines={1}
       >
         {friend.actor.username}

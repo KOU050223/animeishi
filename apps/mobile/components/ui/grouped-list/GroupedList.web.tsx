@@ -10,14 +10,14 @@ export function GroupedList({ sections }: GroupedListProps) {
     <View>
       {sections.map((section) => (
         <View key={section.key} className="mt-8 px-4">
-          <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-200">
+          <Text className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
             {section.title}
           </Text>
-          <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             {section.rows.map((row, index) => (
               <View key={row.key}>
                 {index > 0 ? (
-                  <View className="h-px bg-gray-100 dark:bg-slate-800" />
+                  <View className="h-px bg-slate-100 dark:bg-slate-800" />
                 ) : null}
                 <TouchableOpacity
                   className="px-4 py-3"
@@ -26,7 +26,7 @@ export function GroupedList({ sections }: GroupedListProps) {
                   accessibilityLabel={row.accessibilityLabel}
                   testID={row.testID}
                 >
-                  <Text className="text-gray-900 dark:text-slate-100">
+                  <Text className="text-slate-900 dark:text-slate-100">
                     {row.label}
                   </Text>
                 </TouchableOpacity>

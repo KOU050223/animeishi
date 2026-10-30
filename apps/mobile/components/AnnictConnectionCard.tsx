@@ -82,15 +82,15 @@ export function AnnictConnectionCard({
   }, [disconnect, t]);
 
   return (
-    <View className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+    <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <View className="mb-2 flex-row items-center">
         <Ionicons name="link-outline" size={18} color={colors.primaryText} />
-        <Text className="ml-2 font-semibold text-gray-900 dark:text-slate-100">
+        <Text className="ml-2 font-semibold text-slate-900 dark:text-slate-100">
           {t("Annict 連携")}
         </Text>
       </View>
 
-      <Text className="mb-3 text-xs leading-5 text-gray-500 dark:text-slate-400">
+      <Text className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
         {t(
           "Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。",
         )}
@@ -106,7 +106,7 @@ export function AnnictConnectionCard({
           className={`ml-2 text-sm ${
             isConnected
               ? "text-green-700 dark:text-green-300"
-              : "text-gray-500 dark:text-slate-400"
+              : "text-slate-500 dark:text-slate-400"
           }`}
         >
           {isConnected ? t("Annict と連携済み") : t("未連携")}

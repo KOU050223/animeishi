@@ -101,18 +101,18 @@ function TierUrlShareModal({
           className="w-full max-w-sm gap-3 rounded-2xl bg-white dark:bg-slate-800 p-5"
           accessibilityViewIsModal
         >
-          <Text className="text-base font-bold text-gray-900 dark:text-slate-100">
+          <Text className="text-base font-bold text-slate-900 dark:text-slate-100">
             Tier 表を共有
           </Text>
           <Text
             selectable
-            className="rounded bg-gray-100 dark:bg-slate-700 p-2 text-xs text-gray-700 dark:text-slate-200"
+            className="rounded bg-slate-100 dark:bg-slate-700 p-2 text-xs text-slate-700 dark:text-slate-200"
           >
             {url}
           </Text>
           <Pressable
             onPress={handleShareX}
-            className="items-center rounded-lg bg-gray-900 dark:bg-slate-100 px-4 py-2.5"
+            className="items-center rounded-lg bg-slate-900 dark:bg-slate-100 px-4 py-2.5"
             accessibilityRole="button"
           >
             <Text className="text-sm font-semibold text-white dark:text-slate-900">
@@ -121,10 +121,10 @@ function TierUrlShareModal({
           </Pressable>
           <Pressable
             onPress={() => void handleCopy()}
-            className="items-center rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2.5"
+            className="items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5"
             accessibilityRole="button"
           >
-            <Text className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+            <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               {copied ? "コピーしました" : "URLをコピー"}
             </Text>
           </Pressable>
@@ -136,7 +136,7 @@ function TierUrlShareModal({
           {generateImageFile &&
             (imagePhase === "ready" && imageFile ? (
               <>
-                <Text className="text-xs text-gray-500 dark:text-slate-400">
+                <Text className="text-xs text-slate-500 dark:text-slate-400">
                   画像を生成しました。
                   {shareable
                     ? "共有またはダウンロードで保存できます。"
@@ -145,7 +145,7 @@ function TierUrlShareModal({
                 {shareable && (
                   <Pressable
                     onPress={() => void handleShareImage()}
-                    className="items-center rounded-lg bg-gray-900 dark:bg-slate-100 px-4 py-2.5"
+                    className="items-center rounded-lg bg-slate-900 dark:bg-slate-100 px-4 py-2.5"
                     accessibilityRole="button"
                   >
                     <Text className="text-sm font-semibold text-white dark:text-slate-900">
@@ -155,10 +155,10 @@ function TierUrlShareModal({
                 )}
                 <Pressable
                   onPress={handleDownloadImage}
-                  className="items-center rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2.5"
+                  className="items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5"
                   accessibilityRole="button"
                 >
-                  <Text className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                  <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     画像をダウンロード
                   </Text>
                 </Pressable>
@@ -167,10 +167,10 @@ function TierUrlShareModal({
               <Pressable
                 onPress={() => void handleGenerateImage()}
                 disabled={imagePhase === "generating"}
-                className={`items-center rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2.5${imagePhase === "generating" ? " opacity-50" : ""}`}
+                className={`items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5${imagePhase === "generating" ? " opacity-50" : ""}`}
                 accessibilityRole="button"
               >
-                <Text className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   {imagePhase === "generating" ? "画像を生成中…" : "画像を生成"}
                 </Text>
               </Pressable>
@@ -185,7 +185,7 @@ function TierUrlShareModal({
             className="items-center px-4 py-2"
             accessibilityRole="button"
           >
-            <Text className="text-sm text-gray-500 dark:text-slate-400">
+            <Text className="text-sm text-slate-500 dark:text-slate-400">
               閉じる
             </Text>
           </Pressable>

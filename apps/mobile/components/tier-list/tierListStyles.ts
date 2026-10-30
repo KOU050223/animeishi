@@ -137,7 +137,7 @@ function createStyles(colors: ThemeColors) {
     },
     trayActive: { backgroundColor: colors.tierDropAreaActive },
     // 薄灰のトレイ面上でも WCAG AA を満たすよう一段濃い補助文字色を使う
-    // （textMuted の #6b7280/#f3f4f6 では約 4.4:1 と僅かに届かない）。
+    // （textMuted の #64748b/#f1f5f9 では約 4.4:1 と僅かに届かない）。
     trayEmpty: { color: colors.textSecondary, fontSize: 12, padding: 8 },
 
     // カードは「ポスター部 + タイトル部」の縦積み。画像が無い作品でも

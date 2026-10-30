@@ -69,7 +69,7 @@ export default function WorkListsScreen() {
           testID="work-lists-back"
         />
 
-        <Text className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+        <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
           作品リスト
         </Text>
 
@@ -90,7 +90,7 @@ export default function WorkListsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text className="mt-10 text-base font-semibold text-gray-900 dark:text-slate-100">
+        <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
           作ったリスト
         </Text>
         {lists.isLoading ? (
@@ -98,7 +98,7 @@ export default function WorkListsScreen() {
             <ActivityIndicator color={colors.textMuted} />
           </View>
         ) : lists.isError ? (
-          <Text className="mt-3 text-sm text-gray-500 dark:text-slate-400">
+          <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
             一覧を取得できませんでした
           </Text>
         ) : (
@@ -107,7 +107,7 @@ export default function WorkListsScreen() {
             data={lists.data ?? []}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
-              <View className="mb-2 flex-row items-center rounded-lg border border-gray-200 px-4 py-3 dark:border-slate-700">
+              <View className="mb-2 flex-row items-center rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700">
                 <TouchableOpacity
                   className="flex-1"
                   onPress={() =>
@@ -121,12 +121,12 @@ export default function WorkListsScreen() {
                   testID={`work-lists-item-${item.id}`}
                 >
                   <Text
-                    className="text-base font-medium text-gray-900 dark:text-slate-100"
+                    className="text-base font-medium text-slate-900 dark:text-slate-100"
                     numberOfLines={1}
                   >
                     {item.title}
                   </Text>
-                  <Text className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+                  <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                     {item.itemCount} 作品
                     {item.shareToken ? " ・ 共有中" : ""}
                   </Text>
@@ -145,7 +145,7 @@ export default function WorkListsScreen() {
               </View>
             )}
             ListEmptyComponent={
-              <Text className="mt-3 text-sm text-gray-500 dark:text-slate-400">
+              <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
                 まだありません。「新しいリストを作る」から作れます
               </Text>
             }
