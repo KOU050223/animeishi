@@ -6,6 +6,11 @@ import { AnimeListContent } from "./AnimeListContent";
 // 配線だけを見るため、フックは固定値のモックにする。
 const mockPush = jest.fn();
 const mockMutateAsync = jest.fn();
+// ソート状態（useState の初期値・toggleSort）が useSortedAnimeList の引数に
+// 現れるため、引数を捕捉して「何で並べようとしたか」を検証する。
+const mockUseSortedAnimeList = jest.fn(
+  (data: unknown, _sortKey: unknown, _sortOrder: unknown) => data ?? [],
+);
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
@@ -24,7 +29,8 @@ jest.mock("@/lib/useAnimeList", () => ({
     isSeason: true,
   }),
   usePrefetchSeasonWorks: jest.fn(),
-  useSortedAnimeList: (data: unknown) => data ?? [],
+  useSortedAnimeList: (data: unknown, sortKey: unknown, sortOrder: unknown) =>
+    mockUseSortedAnimeList(data, sortKey, sortOrder),
 }));
 
 jest.mock("@/lib/useWorkDetail", () => ({
@@ -88,19 +94,55 @@ const contentElement = (
   props: {
     favoriteIds?: Set<number>;
     toggleFavorite?: jest.Mock;
+    initialQuery?: string;
   } = {},
 ) => (
   <AnimeListContent
     favoriteIds={props.favoriteIds ?? new Set()}
     toggleFavorite={props.toggleFavorite ?? jest.fn()}
     isToggling={false}
+    initialQuery={props.initialQuery}
   />
 );
+
+// useSortedAnimeList に最後に渡されたソート条件。
+const lastSort = () => {
+  const call = mockUseSortedAnimeList.mock.calls.at(-1);
+  return { sortKey: call?.[1], sortOrder: call?.[2] };
+};
 
 describe("AnimeListContent", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockMutateAsync.mockResolvedValue({});
+  });
+
+  it("初期表示は人気順（watchersCount 降順）で並べる（issue #376）", async () => {
+    await render(contentElement());
+
+    expect(lastSort()).toEqual({ sortKey: "watchersCount", sortOrder: "desc" });
+    const popularButton = screen.getByLabelText("人気 降順");
+    expect(popularButton.props.accessibilityState?.selected).toBe(true);
+  });
+
+  it("検索遷移（?q= → initialQuery）で開いても既定ソートは人気順のまま", async () => {
+    // 検索語入りで開く経路（おすすめカード等のディープリンク）でも
+    // ソートの初期値は変わらない。
+    await render(contentElement({ initialQuery: "進撃" }));
+
+    expect(lastSort()).toEqual({ sortKey: "watchersCount", sortOrder: "desc" });
+  });
+
+  it("ソートボタンで選んだキーは既定値に戻されず切り替わる", async () => {
+    await render(contentElement());
+
+    // 既定の人気（降順）を再押下すると昇順へトグルする。
+    await fireEvent.press(screen.getByLabelText("人気 降順"));
+    expect(lastSort()).toEqual({ sortKey: "watchersCount", sortOrder: "asc" });
+
+    // 別キーを選ぶとそのキーの既定の向き（タイトルは昇順）で切り替わる。
+    await fireEvent.press(screen.getByLabelText("タイトル"));
+    expect(lastSort()).toEqual({ sortKey: "title", sortOrder: "asc" });
   });
 
   it("カードには日本語タイトルとシーズンだけを出し、英語タイトルは出さない", async () => {

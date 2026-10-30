@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ANIME_LIST_DEFAULT_SORT_KEY,
+  ANIME_LIST_DEFAULT_SORT_ORDER,
   ANIME_LIST_SORT_DEFAULT_ORDER,
   NO_ANIME_LIST_FILTERS,
   UNKNOWN_GENRE_KEY,
@@ -36,6 +38,18 @@ describe("ANIME_LIST_SORT_DEFAULT_ORDER", () => {
     expect(ANIME_LIST_SORT_DEFAULT_ORDER.watchersCount).toBe("desc");
     expect(ANIME_LIST_SORT_DEFAULT_ORDER.title).toBe("asc");
     expect(ANIME_LIST_SORT_DEFAULT_ORDER.year).toBe("asc");
+  });
+});
+
+describe("ANIME_LIST_DEFAULT_SORT_KEY / ANIME_LIST_DEFAULT_SORT_ORDER", () => {
+  it("一覧の既定ソートは人気順（watchersCount 降順）", () => {
+    expect(ANIME_LIST_DEFAULT_SORT_KEY).toBe("watchersCount");
+    expect(ANIME_LIST_DEFAULT_SORT_ORDER).toBe("desc");
+    // 既定キーを変えたとき向きがキーの既定から外れないよう、
+    // DEFAULT_ORDER から導出されていることも確認する
+    expect(ANIME_LIST_DEFAULT_SORT_ORDER).toBe(
+      ANIME_LIST_SORT_DEFAULT_ORDER[ANIME_LIST_DEFAULT_SORT_KEY],
+    );
   });
 });
 
