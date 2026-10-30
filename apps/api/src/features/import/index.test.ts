@@ -593,6 +593,44 @@ describe("dアニメインポート API", () => {
       expect(body.stats.localPassSearches).toBeGreaterThan(0);
     });
 
+    it("D1 の LIKE パターン上限（50 バイト）を超える長いタイトルもローカル照合できる", async () => {
+      // D1 の LIKE/GLOB パターンは 50 バイト上限があり、日本語 17 文字
+      // 程度で超過する。instr による部分一致に切り替えてあるため、
+      // 長いタイトルでもクエリが失敗しない。
+      const longTitle =
+        "とある科学の超電磁砲 フルシーズン総集編ディレクターズカット";
+      await env.DB.prepare(
+        `INSERT INTO annict_works
+         (annict_work_id, node_id, title, title_kana, title_en,
+          season_name, season_year, image_url, mal_anime_id, updated_at)
+         VALUES (?, NULL, ?, ?, ?, NULL, NULL, NULL, NULL, ?)`,
+      )
+        .bind(1, longTitle, null, null, Date.now())
+        .run();
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const res = await buildApp().request(
+        "/me/import/danime/match",
+        {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            works: [
+              { danimeWorkId: "1", title: longTitle, targetState: "WATCHED" },
+            ],
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        results: { status: string }[];
+      };
+      expect(body.results[0]?.status).toBe("exact");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
     it("D1 に無いタイトルだけを Annict に検索する", async () => {
       await env.DB.prepare(
         `INSERT INTO annict_works
