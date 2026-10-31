@@ -347,7 +347,10 @@ export default function WorkListScreen() {
 
   if (isConnectionLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["bottom"]}
+      >
         {screenOptions}
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.textMuted} />
@@ -360,7 +363,10 @@ export default function WorkListScreen() {
     // 作品の検索・追加は Annict トークン必須。未連携では作品を集められない
     // ため、連携誘導を最優先で出す（custom-tier-list と同じ）。
     return (
-      <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
+      <SafeAreaView
+        className="flex-1 bg-white dark:bg-slate-900"
+        edges={["bottom"]}
+      >
         {screenOptions}
         <AnnictSoftGate
           description="作品リストには Annict との連携が必要です。連携すると作品を検索して追加できます。"
@@ -372,7 +378,10 @@ export default function WorkListScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["bottom"]}
+    >
       {screenOptions}
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
         <View className="mb-3 flex-row items-center justify-end">
