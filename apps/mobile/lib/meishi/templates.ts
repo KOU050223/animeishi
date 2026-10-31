@@ -1,10 +1,13 @@
+import type { ComponentProps } from "react";
+import type { Ionicons } from "@expo/vector-icons";
 import { MEISHI_ASPECT_RATIO, newId } from "./defaults";
 import type { MeishiDocument, MeishiElement, TextElement } from "./types";
 
 export type MeishiTemplate = {
   id: string;
   name: string;
-  emoji: string;
+  /** テンプレピッカーで名前の前に出す Ionicons 名。 */
+  icon: ComponentProps<typeof Ionicons>["name"];
   build: () => MeishiDocument;
 };
 
@@ -114,13 +117,13 @@ export const MEISHI_TEMPLATES: MeishiTemplate[] = [
   {
     id: "blank",
     name: "白紙",
-    emoji: "📄",
+    icon: "document-outline",
     build: () => ({ ...baseDoc(), elements: [] }),
   },
   {
     id: "classic",
     name: "クラシック",
-    emoji: "🎴",
+    icon: "id-card-outline",
     build: () => ({
       ...baseDoc(),
       elements: [
@@ -135,7 +138,7 @@ export const MEISHI_TEMPLATES: MeishiTemplate[] = [
   {
     id: "sunset",
     name: "サンセット",
-    emoji: "🌅",
+    icon: "sunny-outline",
     build: () => {
       const base = baseDoc();
       return {
@@ -162,7 +165,7 @@ export const MEISHI_TEMPLATES: MeishiTemplate[] = [
   {
     id: "midnight",
     name: "ミッドナイト",
-    emoji: "🌙",
+    icon: "moon-outline",
     build: () => {
       const base = baseDoc();
       return {
@@ -189,7 +192,7 @@ export const MEISHI_TEMPLATES: MeishiTemplate[] = [
   {
     id: "sakura",
     name: "さくら",
-    emoji: "🌸",
+    icon: "flower-outline",
     build: () => {
       const base = baseDoc();
       return {

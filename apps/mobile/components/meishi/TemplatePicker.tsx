@@ -1,4 +1,5 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
 import { MeishiRenderer } from "./MeishiRenderer";
@@ -80,15 +81,28 @@ export function TemplatePicker({
                   accessibilityRole="button"
                   accessibilityLabel={`${tpl.name}テンプレートを選ぶ`}
                 >
-                  <Text
+                  <View
                     style={{
-                      fontSize: 14,
-                      fontWeight: "600",
-                      color: colors.text,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
-                    {tpl.emoji} {tpl.name}
-                  </Text>
+                    <Ionicons
+                      name={tpl.icon}
+                      size={16}
+                      color={colors.textMuted}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: colors.text,
+                      }}
+                    >
+                      {tpl.name}
+                    </Text>
+                  </View>
                   <MeishiRenderer
                     document={doc}
                     context={{

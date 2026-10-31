@@ -7,6 +7,8 @@ import {
   type ViewStyle,
 } from "react-native";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
+import { Ionicons } from "@expo/vector-icons";
+import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 import type {
@@ -102,7 +104,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
                 {resolveTextValue(element, props.context) ||
                   `【${sourceLabel(element.source)}】`}
               </Text>
-              <Text>✏️</Text>
+              <Ionicons name="pencil" size={14} color={colors.textMuted} />
             </Pressable>
           </Row>
           <Row label="内容">
@@ -551,7 +553,10 @@ function SegmentedControl<T extends string>({
         return (
           <Pressable
             key={opt.value}
-            onPress={() => onChange(opt.value)}
+            onPress={() => {
+              if (!active) haptics.selection();
+              onChange(opt.value);
+            }}
             style={{
               paddingVertical: 6,
               paddingHorizontal: 10,

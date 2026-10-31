@@ -46,6 +46,7 @@ import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { BackButton } from "@/components/ui";
+import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 
 // 行に出す「登録しない理由」。表示文言（i18n）への変換は描画側で行う。
@@ -606,7 +607,7 @@ function ReviewRow({
           accessibilityLabel={`${item.title} を登録対象にする`}
         >
           {checked && selected !== null && (
-            <Text className="text-white text-xs font-bold">✓</Text>
+            <Ionicons name="checkmark" size={14} color="#ffffff" />
           )}
         </TouchableOpacity>
 

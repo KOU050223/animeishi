@@ -19,6 +19,7 @@ import { TierLabelEditSheet } from "./TierLabelEditSheet";
 import { WorkAddSheet } from "./WorkAddSheet";
 import { useTierListStyles } from "./tierListStyles";
 import { trackEvent } from "@/lib/events";
+import { haptics } from "@/lib/haptics";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import {
   unassignedItems,
@@ -167,6 +168,7 @@ export function TierBoard({
       if (hit === undefined) return;
       // 未分類トレイは順序を持たないため、そのまま未配置へ戻す。
       if (hit === null) {
+        haptics.impactLight();
         onAssign(itemId, null);
         return;
       }
@@ -176,7 +178,10 @@ export function TierBoard({
         // カード以外（カードの隙間・行末の余白・掴んでいたカードの元の位置）に
         // 落とした。同じ行なら位置は変えず（元の場所に戻しただけで末尾に
         // 飛ばさない）、別の行なら従来通り末尾へ追加する。
-        if (assignment.get(itemId) !== hit) onAssign(itemId, hit);
+        if (assignment.get(itemId) !== hit) {
+          haptics.impactLight();
+          onAssign(itemId, hit);
+        }
         return;
       }
       const tierIds = itemsInTier(items, assignment, hit).map(
@@ -201,6 +206,7 @@ export function TierBoard({
       ) {
         return;
       }
+      haptics.impactLight();
       onAssign(itemId, hit, beforeItemId);
     },
     [autoScroll, assignment, dragOwnerId, items, onAssign, registry],

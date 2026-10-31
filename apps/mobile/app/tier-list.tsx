@@ -11,6 +11,7 @@ import { Stack, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
+import { haptics } from "@/lib/haptics";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton } from "@/components/ui";
 import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
@@ -304,6 +305,7 @@ export default function TierListScreen() {
         },
         {
           onSuccess: () => {
+            haptics.success();
             setIsDirty(false);
             // 保存対象外だった未配置の追加分は盤面からも取り除く。
             // 残しておくと「保存済み」表示と矛盾し、再表示で消える。

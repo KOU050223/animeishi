@@ -1,5 +1,6 @@
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { MenuPicker } from "@/components/ui/menu-picker";
+import { haptics } from "@/lib/haptics";
 import { useAnimeListStyles } from "./animeListStyles";
 import {
   SEASON_FILTER_ALL,
@@ -61,6 +62,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
     : SEASON_KEYS;
 
   const selectYear = (nextYear: number) => {
+    if (nextYear !== year) haptics.selection();
     // 通年はどの年でも選べるためそのまま引き継ぐ（allowAllYear 時のみ来る）。
     if (season === SEASON_FILTER_ALL) {
       if (props.allowAllYear) props.onChange(nextYear, SEASON_FILTER_ALL);
@@ -76,6 +78,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
   };
 
   const selectSeason = (key: SeasonFilterKey) => {
+    if (key !== season) haptics.selection();
     if (key === SEASON_FILTER_ALL) {
       if (props.allowAllYear) props.onChange(year, key);
       return;

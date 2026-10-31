@@ -323,9 +323,16 @@ export function AnimeListContent({
                   accessibilityLabel="Tier 表を作る"
                   testID="open-tier-list"
                 >
-                  <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                    🏆 Tier 表
-                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <Ionicons
+                      name="trophy-outline"
+                      size={13}
+                      color={palette.seasonChipText}
+                    />
+                    <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                      Tier 表
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>

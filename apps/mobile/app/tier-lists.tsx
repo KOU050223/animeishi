@@ -9,6 +9,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
 import { alert, confirm } from "@/lib/dialog";
+import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import {
   useCustomTierLists,
@@ -41,6 +42,7 @@ export default function TierListsScreen() {
       "この Tier 表を削除しますか？",
       `「${title}」を削除します。共有リンクも無効になり、この操作は取り消せません。`,
       () => {
+        haptics.warning();
         remove.mutate(id, {
           onError: () =>
             alert("削除に失敗しました", "時間をおいて再度お試しください。", {

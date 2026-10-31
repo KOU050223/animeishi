@@ -20,6 +20,7 @@ import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useRouter } from "expo-router";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 
 // ライブラリタブの「推し」セクション（旧お気に入りタブ）。
@@ -121,9 +122,16 @@ export function FavoritesSection() {
           accessibilityLabel="作品リストを開く"
           testID="favorites-open-work-lists"
         >
-          <Text className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-            📋 作品リスト
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons
+              name="list-outline"
+              size={16}
+              color={colors.primaryText}
+            />
+            <Text className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+              作品リスト
+            </Text>
+          </View>
           <Text className="text-xs text-indigo-500 dark:text-indigo-400">
             テーマ別のリストを作って共有
           </Text>

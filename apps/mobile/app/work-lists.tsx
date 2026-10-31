@@ -9,6 +9,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
 import { alert, confirm } from "@/lib/dialog";
+import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import { useWorkLists, useDeleteWorkList } from "@/lib/workList/useWorkLists";
 
@@ -38,6 +39,7 @@ export default function WorkListsScreen() {
       "この作品リストを削除しますか？",
       `「${title}」を削除します。共有リンクも無効になり、この操作は取り消せません。`,
       () => {
+        haptics.warning();
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
         // ため、mutateAsync の promise で失敗を個別に拾う
         // （FavoritesSection と同じ方式）。
