@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -11,8 +10,8 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { Button } from "@/components/ui/Button";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { ActivityFeedSection } from "@/components/ActivityFeedSection";
@@ -24,14 +23,11 @@ import { useProfile } from "@/lib/useProfile";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMarkScreenInteractive } from "@/lib/observe";
-import { useThemeColors } from "@/lib/theme";
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
-  const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const colors = useThemeColors();
   const { data: profile } = useProfile();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const { isConnected: isAnnictConnected, isLoading: isAnnictLoading } =
@@ -70,43 +66,22 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View className="mt-4 gap-2">
-          <TouchableOpacity
-            className="items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
+        <View className="mt-4 gap-2.5">
+          <Button
+            label="名刺をデザインする"
+            icon="color-palette-outline"
             onPress={() => router.push("/meishi/edit")}
-            accessibilityRole="button"
             accessibilityLabel="名刺をデザインする"
             testID="home-open-meishi-edit"
-          >
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons
-                name="color-palette-outline"
-                size={16}
-                color={colors.primaryText}
-              />
-              <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                名刺をデザインする
-              </Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="items-center rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 py-3"
+          />
+          <Button
+            label="QR で名刺を交換"
+            icon="qr-code-outline"
+            variant="secondary"
             onPress={() => router.push("/(tabs)/social?section=qr")}
-            accessibilityRole="button"
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"
-          >
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons
-                name="qr-code-outline"
-                size={16}
-                color={colors.primaryText}
-              />
-              <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                QR で名刺を交換
-              </Text>
-            </View>
-          </TouchableOpacity>
+          />
         </View>
 
         {/* 連携済みユーザーには出さない（#165）。連携状態の確認・解除は
@@ -119,18 +94,6 @@ export default function HomeScreen() {
         )}
 
         <ActivityFeedSection />
-
-        <TouchableOpacity
-          className="mt-8 items-center rounded-lg bg-slate-200 dark:bg-slate-800 px-6 py-3"
-          onPress={() => signOut()}
-          testID="sign-out-button"
-          accessibilityRole="button"
-          accessibilityLabel="サインアウト"
-        >
-          <Text className="text-slate-700 dark:text-slate-200 font-semibold">
-            サインアウト
-          </Text>
-        </TouchableOpacity>
 
         {featureFlags.debugPanel && (
           <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">

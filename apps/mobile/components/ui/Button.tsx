@@ -1,5 +1,7 @@
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { PressableProps } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
 
 export type ButtonVariant = "primary" | "secondary" | "destructive";
@@ -8,6 +10,8 @@ export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
   /** ボタンに表示するラベル。文言は基盤側に既定値を持たせず呼び出し側が渡す。 */
   label: string;
   variant?: ButtonVariant;
+  /** ラベルの左に置くアイコン。 */
+  icon?: ComponentProps<typeof Ionicons>["name"];
   /** true の間はラベルの代わりにインジケータを出し、タップも無効化する。 */
   loading?: boolean;
 };
@@ -40,12 +44,19 @@ const VARIANT_CLASSES: Record<
 export function Button({
   label,
   variant = "primary",
+  icon,
   loading = false,
   disabled,
   ...props
 }: ButtonProps) {
   const colors = useThemeColors();
   const spinnerColor =
+    variant === "primary"
+      ? colors.onPrimary
+      : variant === "destructive"
+        ? colors.danger
+        : colors.text;
+  const labelColor =
     variant === "primary"
       ? colors.onPrimary
       : variant === "destructive"
@@ -65,11 +76,14 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={spinnerColor} />
       ) : (
-        <Text
-          className={`font-semibold text-base ${VARIANT_CLASSES[variant].label}`}
-        >
-          {label}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          {icon ? <Ionicons name={icon} size={17} color={labelColor} /> : null}
+          <Text
+            className={`font-semibold text-base ${VARIANT_CLASSES[variant].label}`}
+          >
+            {label}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
