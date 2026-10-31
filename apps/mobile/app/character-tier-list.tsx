@@ -11,6 +11,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
+import { haptics } from "@/lib/haptics";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton } from "@/components/ui";
 import { TierBoard } from "@/components/tier-list/TierBoard";
@@ -234,6 +235,7 @@ export default function CharacterTierListScreen() {
       },
       {
         onSuccess: () => {
+          haptics.success();
           const current = boardStateRef.current;
           const unchanged = sameBoard(sentSnapshot, {
             title: current.title,

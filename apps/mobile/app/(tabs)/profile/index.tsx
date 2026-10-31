@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
+import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
 import { GroupedList } from "@/components/ui/grouped-list";
 import { MeishiCard } from "@/components/MeishiCard";
@@ -25,6 +26,7 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
 import type { AddToWalletResult } from "@/lib/wallet";
 import { featureFlags } from "@/lib/featureFlags";
+import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 
 type Toast = { type: "success" | "error"; message: string };
@@ -103,8 +105,10 @@ export default function ProfileScreen() {
         favoriteQuote: favoriteQuote.trim() || undefined,
       },
       {
-        onSuccess: () =>
-          showToast({ type: "success", message: "プロフィールを保存しました" }),
+        onSuccess: () => {
+          haptics.success();
+          showToast({ type: "success", message: "プロフィールを保存しました" });
+        },
         onError: (e) =>
           showToast({
             type: "error",
@@ -118,6 +122,7 @@ export default function ProfileScreen() {
     uploadAvatar.mutate(undefined, {
       onSuccess: (data) => {
         if (data) {
+          haptics.success();
           showToast({ type: "success", message: "画像を更新しました" });
         }
       },
@@ -194,9 +199,16 @@ export default function ProfileScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="名刺エディタを開く"
               >
-                <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                  🎨 名刺をデザインする
-                </Text>
+                <View className="flex-row items-center gap-1.5">
+                  <Ionicons
+                    name="color-palette-outline"
+                    size={16}
+                    color={colors.primaryText}
+                  />
+                  <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
+                    名刺をデザインする
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               {showWalletButton ? (
@@ -219,9 +231,16 @@ export default function ProfileScreen() {
                   {isWalletPending ? (
                     <ActivityIndicator color={colors.onPrimary} />
                   ) : (
-                    <Text className="font-semibold text-white">
-                      🍎 Apple Wallet に追加
-                    </Text>
+                    <View className="flex-row items-center gap-1.5">
+                      <Ionicons
+                        name="wallet-outline"
+                        size={16}
+                        color={colors.onPrimary}
+                      />
+                      <Text className="font-semibold text-white">
+                        Apple Wallet に追加
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               ) : null}

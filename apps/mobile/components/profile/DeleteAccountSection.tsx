@@ -2,6 +2,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { useDeleteAccount } from "@/lib/useProfile";
 import { confirm } from "@/lib/dialog";
+import { haptics } from "@/lib/haptics";
 import { annictTokenStorage } from "@/lib/annict/storage";
 import { queryClient } from "@/lib/queryClient";
 import { useThemeColors } from "@/lib/theme";
@@ -33,6 +34,7 @@ export function DeleteAccountSection({ onError }: Props) {
           "最終確認",
           "本当にアカウントを削除しますか？削除したデータは復元できません。",
           () => {
+            haptics.warning();
             void runDelete();
           },
           {

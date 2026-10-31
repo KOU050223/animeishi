@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
+import { haptics } from "@/lib/haptics";
 
 export type SegmentItem = {
   label: string;
@@ -19,7 +20,11 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
               ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
               : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
           }`}
-          onPress={item.onPress}
+          onPress={() => {
+            // 選択が変わるときだけ発火（選択中の再タップでは鳴らさない）。
+            if (!item.active) haptics.selection();
+            item.onPress();
+          }}
           accessibilityRole="button"
           accessibilityLabel={item.accessibilityLabel ?? item.label}
           accessibilityState={{ selected: item.active }}

@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
@@ -23,12 +24,14 @@ import { useProfile } from "@/lib/useProfile";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMarkScreenInteractive } from "@/lib/observe";
+import { useThemeColors } from "@/lib/theme";
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const colors = useThemeColors();
   const { data: profile } = useProfile();
   const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
   const { isConnected: isAnnictConnected, isLoading: isAnnictLoading } =
@@ -75,9 +78,16 @@ export default function HomeScreen() {
             accessibilityLabel="名刺をデザインする"
             testID="home-open-meishi-edit"
           >
-            <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-              🎨 名刺をデザインする
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons
+                name="color-palette-outline"
+                size={16}
+                color={colors.primaryText}
+              />
+              <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
+                名刺をデザインする
+              </Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             className="items-center rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 py-3"
@@ -86,9 +96,16 @@ export default function HomeScreen() {
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"
           >
-            <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-              📷 QR で名刺を交換
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons
+                name="qr-code-outline"
+                size={16}
+                color={colors.primaryText}
+              />
+              <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
+                QR で名刺を交換
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 

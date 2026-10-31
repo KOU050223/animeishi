@@ -12,6 +12,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
+import { haptics } from "@/lib/haptics";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
@@ -252,6 +253,7 @@ export default function WorkListScreen() {
       },
       {
         onSuccess: (data) => {
+          haptics.success();
           setListId(data.id);
           setIsDirty(false);
         },

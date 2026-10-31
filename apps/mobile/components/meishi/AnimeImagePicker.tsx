@@ -20,6 +20,7 @@ import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
+import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 
 // ピッカー行として必要な最小フィールド。FavoriteItem / WatchHistoryItem /
@@ -372,7 +373,7 @@ export function AnimeImagePicker({
               accessibilityLabel="閉じる"
               style={{ padding: 6 }}
             >
-              <Text style={{ fontSize: 16, color: colors.textMuted }}>✕</Text>
+              <Ionicons name="close" size={18} color={colors.textMuted} />
             </Pressable>
           </View>
 

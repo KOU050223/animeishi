@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Input } from "@/components/ui";
+import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
@@ -266,7 +267,11 @@ export function WorkAddSheet({
                                 justifyContent: "center",
                               }}
                             >
-                              <Text style={{ fontSize: 14 }}>🎬</Text>
+                              <Ionicons
+                                name="film-outline"
+                                size={14}
+                                color={colors.textMuted}
+                              />
                             </View>
                           }
                         />

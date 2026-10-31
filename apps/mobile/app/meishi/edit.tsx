@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
@@ -18,6 +19,7 @@ import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
 import { BackButton } from "@/components/ui";
 import { alert } from "@/lib/dialog";
+import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
@@ -182,6 +184,7 @@ export default function MeishiEditScreen() {
     // 名刺エディタの保存ボタン押下を計測する（issue #214）。
     trackEvent("meishi_save");
     await saveDocument();
+    haptics.success();
     const message = "名刺を保存しました";
     setSaveFeedbackVisible(true);
     AccessibilityInfo.announceForAccessibility(message);
@@ -248,7 +251,10 @@ export default function MeishiEditScreen() {
           accessibilityRole="button"
           accessibilityLabel="テンプレートを選ぶ"
         >
-          <Text style={styles.subBtnText}>🎴 テンプレ</Text>
+          <View style={styles.subBtnContent}>
+            <Ionicons name="albums-outline" size={13} color={colors.text} />
+            <Text style={styles.subBtnText}>テンプレ</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -523,6 +529,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 6,
       backgroundColor: colors.surfaceMuted,
     },
+    subBtnContent: { flexDirection: "row", alignItems: "center", gap: 4 },
     subBtnText: { fontSize: 12, fontWeight: "600", color: colors.text },
     bottomBar: {
       padding: 12,

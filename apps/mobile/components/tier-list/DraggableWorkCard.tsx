@@ -13,7 +13,9 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { Ionicons } from "@expo/vector-icons";
 import { WorkImage } from "@/components/anime-list/WorkImage";
+import { useThemeColors } from "@/lib/theme";
 import type { TierItem } from "@/lib/tierList/types";
 import type { DropZoneRegistry } from "./dropZones";
 import { useTierListStyles } from "./tierListStyles";
@@ -92,6 +94,7 @@ export function DraggableWorkCard({
   registry,
 }: DraggableWorkCardProps) {
   const styles = useTierListStyles();
+  const colors = useThemeColors();
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -259,7 +262,11 @@ export function DraggableWorkCard({
           style={styles.cardImage}
           placeholder={
             <View style={styles.cardImageFallback}>
-              <Text style={styles.cardImageFallbackText}>🎬</Text>
+              <Ionicons
+                name="film-outline"
+                size={20}
+                color={colors.textMuted}
+              />
             </View>
           }
           accessibilityLabel={`${item.title}のサムネイル`}

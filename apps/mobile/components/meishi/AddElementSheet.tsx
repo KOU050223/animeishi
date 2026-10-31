@@ -1,22 +1,31 @@
 import { Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import type { MeishiElementType } from "@/lib/meishi/types";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useThemeColors } from "@/lib/theme";
 
+type IconName = ComponentProps<typeof Ionicons>["name"];
+
 type Item = {
   type: MeishiElementType;
   label: string;
-  emoji: string;
+  icon: IconName;
   sub?: string;
 };
 
 const ITEMS: Item[] = [
-  { type: "text", label: "テキスト", emoji: "🔤" },
-  { type: "image", label: "画像", emoji: "🖼️", sub: "端末からアップロード" },
-  { type: "shape", label: "図形", emoji: "⬛", sub: "矩形・円" },
-  { type: "qr", label: "QR", emoji: "🔳" },
-  { type: "animeCollage", label: "視聴コラージュ", emoji: "🎬" },
-  { type: "animeCountBadge", label: "視聴数バッジ", emoji: "🏷️" },
+  { type: "text", label: "テキスト", icon: "text-outline" },
+  {
+    type: "image",
+    label: "画像",
+    icon: "image-outline",
+    sub: "端末からアップロード",
+  },
+  { type: "shape", label: "図形", icon: "square-outline", sub: "矩形・円" },
+  { type: "qr", label: "QR", icon: "qr-code-outline" },
+  { type: "animeCollage", label: "視聴コラージュ", icon: "film-outline" },
+  { type: "animeCountBadge", label: "視聴数バッジ", icon: "pricetag-outline" },
 ];
 
 export function AddElementSheet({
@@ -58,7 +67,7 @@ export function AddElementSheet({
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
           {onPickAvatarImage ? (
             <PickButton
-              emoji="👤"
+              icon="person-outline"
               label="アバター"
               sub="プロフィール画像"
               onPress={onPickAvatarImage}
@@ -66,7 +75,7 @@ export function AddElementSheet({
           ) : null}
           {onPickAnimeImage ? (
             <PickButton
-              emoji="🎞️"
+              icon="images-outline"
               label="アニメ画像"
               sub="Annict 検索/リスト"
               onPress={onPickAnimeImage}
@@ -75,7 +84,7 @@ export function AddElementSheet({
           {ITEMS.map((it) => (
             <PickButton
               key={it.type}
-              emoji={it.emoji}
+              icon={it.icon}
               label={it.label}
               sub={it.sub}
               onPress={() => onPick(it.type)}
@@ -88,12 +97,12 @@ export function AddElementSheet({
 }
 
 function PickButton({
-  emoji,
+  icon,
   label,
   sub,
   onPress,
 }: {
-  emoji: string;
+  icon: IconName;
   label: string;
   sub?: string;
   onPress: () => void;
@@ -115,7 +124,7 @@ function PickButton({
       accessibilityRole="button"
       accessibilityLabel={`${label}を追加`}
     >
-      <Text style={{ fontSize: 26 }}>{emoji}</Text>
+      <Ionicons name={icon} size={26} color={colors.text} />
       <Text
         style={{
           fontSize: 12,

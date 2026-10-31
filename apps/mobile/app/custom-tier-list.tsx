@@ -11,6 +11,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { apiUrl } from "@/lib/apiUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
+import { haptics } from "@/lib/haptics";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
@@ -273,6 +274,7 @@ export default function CustomTierListScreen() {
         },
         {
           onSuccess: (data) => {
+            haptics.success();
             setListId(data.id);
             setIsDirty(false);
             // 保存対象外だった未配置の追加分は盤面からも取り除く。
