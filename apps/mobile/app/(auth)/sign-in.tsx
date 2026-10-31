@@ -90,7 +90,7 @@ export default function SignInScreen() {
         // finalize() は作成済みセッションの setActive を内部で行う。
         const { error: finalizeError } = await signIn.finalize();
         throwIfAuthError(finalizeError);
-        router.replace("/(tabs)");
+        router.replace("/");
       } else {
         setError(getIncompleteSignInMessage(signIn.status, t));
       }
@@ -107,7 +107,7 @@ export default function SignInScreen() {
           signOut,
         });
         if (recovered === "activated") {
-          router.replace("/(tabs)");
+          router.replace("/");
         } else {
           setError(
             t(

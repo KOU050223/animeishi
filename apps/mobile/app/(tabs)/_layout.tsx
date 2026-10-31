@@ -26,7 +26,7 @@ export default function TabsLayout() {
       backgroundColor={colors.background}
       shadowColor={colors.border}
     >
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>ホーム</NativeTabs.Trigger.Label>
         {tabIcon("home-outline")}
       </NativeTabs.Trigger>

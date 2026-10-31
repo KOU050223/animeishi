@@ -54,7 +54,7 @@ export function PasskeySignInButton({ onError }: Props) {
         // finalize() は作成済みセッションの setActive を内部で行う。
         const { error: finalizeError } = await signIn.finalize();
         throwIfAuthError(finalizeError);
-        router.replace("/(tabs)");
+        router.replace("/");
       } else {
         onError(t("パスキーでのサインインを完了できませんでした"));
       }
@@ -71,7 +71,7 @@ export function PasskeySignInButton({ onError }: Props) {
           signOut,
         });
         if (recovered === "activated") {
-          router.replace("/(tabs)");
+          router.replace("/");
         } else {
           onError(
             t(

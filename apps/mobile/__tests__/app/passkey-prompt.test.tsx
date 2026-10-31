@@ -63,7 +63,7 @@ describe("PasskeyPromptScreen（Web、issue #332）", () => {
     await fireEvent.press(screen.getByTestId("skip-passkey-button"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 
@@ -75,7 +75,7 @@ describe("PasskeyPromptScreen（Web、issue #332）", () => {
     await render(<PasskeyPromptScreen />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(screen.queryByTestId("register-passkey-button")).toBeNull();
   });

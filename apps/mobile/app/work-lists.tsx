@@ -58,22 +58,26 @@ export default function WorkListsScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
-      <Stack.Screen options={{ headerShown: false }} />
+      {/* 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。
+          headerLeft を自前で出すのは、直リンク時にライブラリタブへ戻す規約と
+          E2E が参照する testID を維持するため。 */}
+      <Stack.Screen
+        options={{
+          title: "作品リスト",
+          headerBackVisible: false,
+          headerLeft: () => (
+            <BackButton
+              onPress={handleBack}
+              accessibilityLabel="戻る"
+              testID="work-lists-back"
+            />
+          ),
+        }}
+      />
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
-        <BackButton
-          onPress={handleBack}
-          className="-ml-2 mb-4 self-start"
-          accessibilityLabel="戻る"
-          testID="work-lists-back"
-        />
-
-        <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          作品リスト
-        </Text>
-
-        <View className="mt-6">
+        <View className="mt-2">
           <TouchableOpacity
             className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950"
             onPress={() => router.push("/work-list")}

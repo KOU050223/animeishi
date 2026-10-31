@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
@@ -17,6 +18,9 @@ function isSection(value: unknown): value is Section {
 // 旧タブのパス（/qr, /friends）は app/ 直下のリダイレクトから
 // /social?section=... でここへ着地する。
 export default function SocialScreen() {
+  // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは
+  // ヘッダー高さ分だけ下げる（large title が畳まれると値も変わる）。
+  const headerHeight = useHeaderHeight();
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
@@ -26,8 +30,12 @@ export default function SocialScreen() {
   const setSection = (next: Section) => router.setParams({ section: next });
 
   return (
-    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
+    // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={[]}
+      style={{ paddingTop: headerHeight }}
+    >
       <SegmentedControl
         items={[
           {

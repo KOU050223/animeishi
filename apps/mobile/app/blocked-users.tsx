@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
@@ -30,6 +30,25 @@ export default function BlockedUsersScreen() {
     }
     router.replace("/(tabs)/profile");
   };
+
+  // 戻るボタンはネイティブヘッダー側に移した（issue #395 Phase 2）。
+  // headerLeft を自前で出すのは、直リンク時にプロフィールタブへ戻す規約と
+  // E2E が参照する testID を維持するため。
+  const screenOptions = (
+    <Stack.Screen
+      options={{
+        title: "ブロック中のユーザー",
+        headerBackVisible: false,
+        headerLeft: () => (
+          <BackButton
+            onPress={handleBack}
+            accessibilityLabel="戻る"
+            testID="blocked-users-back-button"
+          />
+        ),
+      }}
+    />
+  );
 
   function confirmUnblock(item: BlockedUserItem) {
     confirm(
@@ -68,14 +87,9 @@ export default function BlockedUsersScreen() {
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
-        edges={["top", "bottom"]}
+        edges={["bottom"]}
       >
-        <BackButton
-          onPress={handleBack}
-          className="ml-2 self-start"
-          accessibilityLabel="戻る"
-          testID="blocked-users-back-button"
-        />
+        {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-red-500 dark:text-red-400">
             ブロック一覧の取得に失敗しました
@@ -98,18 +112,10 @@ export default function BlockedUsersScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
+      {screenOptions}
       <View className="px-4 pb-3 pt-3">
-        <BackButton
-          onPress={handleBack}
-          className="-ml-2 mb-1 self-start"
-          accessibilityLabel="戻る"
-          testID="blocked-users-back-button"
-        />
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-          ブロック中のユーザー
-        </Text>
         <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
           {list.length} 人
         </Text>

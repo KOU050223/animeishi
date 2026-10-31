@@ -33,6 +33,19 @@ const mockConfirm = jest.fn(
 );
 
 jest.mock("expo-router", () => ({
+  // Stack.Screen の options を描画する。画面が headerLeft / title として
+  // 渡したもの（戻るボタンの testID・画面タイトル）をテストできるようにする。
+  Stack: {
+    Screen: ({ options }: any) => {
+      const { Text } = require("react-native");
+      return (
+        <>
+          {options?.headerLeft ? options.headerLeft({}) : null}
+          {options?.title ? <Text>{options.title}</Text> : null}
+        </>
+      );
+    },
+  },
   useLocalSearchParams: () => ({ uid: "user_target" }),
   useRouter: () => ({
     canGoBack: () => mockCanGoBack,
@@ -86,7 +99,9 @@ describe("PublicProfilePage", () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
     expect(screen.getByTestId("report-user-button")).toBeTruthy();
     expect(screen.getByTestId("block-user-button")).toBeTruthy();
   });
@@ -94,7 +109,9 @@ describe("PublicProfilePage", () => {
   it("通報ボタンで理由シートが開き、理由選択で通報が送信される", async () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     await fireEvent.press(screen.getByTestId("report-user-button"));
     await fireEvent.press(
@@ -114,7 +131,9 @@ describe("PublicProfilePage", () => {
         options?.onSuccess?.(),
     );
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     await fireEvent.press(screen.getByTestId("report-user-button"));
     await fireEvent.press(
@@ -137,7 +156,9 @@ describe("PublicProfilePage", () => {
   it("ブロックボタンで確認ダイアログ経由のブロックが実行される", async () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     await fireEvent.press(screen.getByTestId("block-user-button"));
 
@@ -156,7 +177,9 @@ describe("PublicProfilePage", () => {
   it("未サインインでは通報・ブロックを表示しない", async () => {
     signedOutUser();
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
     expect(screen.queryByTestId("block-user-button")).toBeNull();
@@ -165,7 +188,9 @@ describe("PublicProfilePage", () => {
   it("自分自身の名刺では通報・ブロックを表示しない", async () => {
     loggedInUser({ userId: "user_target" });
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
     expect(screen.queryByTestId("block-user-button")).toBeNull();
@@ -174,7 +199,9 @@ describe("PublicProfilePage", () => {
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     await fireEvent.press(screen.getByTestId("public-profile-back-button"));
 
@@ -186,7 +213,9 @@ describe("PublicProfilePage", () => {
     mockCanGoBack = false;
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
-    await waitFor(() => expect(screen.getByText("対象ユーザー")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
 
     await fireEvent.press(screen.getByTestId("public-profile-back-button"));
 

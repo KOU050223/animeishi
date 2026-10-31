@@ -45,7 +45,7 @@ export function GoogleAuthButton({ onError }: Props) {
 
       if (result.status === "session-created") {
         await setActive({ session: result.sessionId });
-        router.replace("/(tabs)");
+        router.replace("/");
       } else if (result.status === "incomplete") {
         onError(
           t(
@@ -64,7 +64,7 @@ export function GoogleAuthButton({ onError }: Props) {
           signOut,
         });
         if (recovered === "activated") {
-          router.replace("/(tabs)");
+          router.replace("/");
         } else {
           onError(
             t(

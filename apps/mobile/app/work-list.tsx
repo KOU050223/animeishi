@@ -326,22 +326,29 @@ export default function WorkListScreen() {
     : null;
   const existingWorkIds = new Set(works.map((w) => w.id));
 
-  const backBar = (
-    <View className="mb-2 flex-row items-center">
-      <BackButton
-        onPress={handleBack}
-        className="-ml-2 self-start"
-        accessibilityLabel="戻る"
-        testID="work-list-back"
-      />
-    </View>
+  // 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。headerLeft を
+  // 自前で出すのは、未保存時の確認ダイアログ付き handleBack と
+  // E2E が参照する testID を維持するため。
+  const screenOptions = (
+    <Stack.Screen
+      options={{
+        title: "作品リスト",
+        headerBackVisible: false,
+        headerLeft: () => (
+          <BackButton
+            onPress={handleBack}
+            accessibilityLabel="戻る"
+            testID="work-list-back"
+          />
+        ),
+      }}
+    />
   );
 
   if (isConnectionLoading) {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
-        <Stack.Screen options={{ headerShown: false }} />
-        <View className="px-6 pt-4">{backBar}</View>
+        {screenOptions}
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.textMuted} />
         </View>
@@ -354,8 +361,7 @@ export default function WorkListScreen() {
     // ため、連携誘導を最優先で出す（custom-tier-list と同じ）。
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
-        <Stack.Screen options={{ headerShown: false }} />
-        <View className="px-6 pt-4">{backBar}</View>
+        {screenOptions}
         <AnnictSoftGate
           description="作品リストには Annict との連携が必要です。連携すると作品を検索して追加できます。"
           surface="work_list"
@@ -367,15 +373,9 @@ export default function WorkListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
-      <Stack.Screen options={{ headerShown: false }} />
+      {screenOptions}
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
-        <View className="mb-3 flex-row items-center justify-between">
-          <BackButton
-            onPress={handleBack}
-            className="-ml-2"
-            accessibilityLabel="戻る"
-            testID="work-list-back"
-          />
+        <View className="mb-3 flex-row items-center justify-end">
           <View className="flex-row items-center gap-2">
             <TouchableOpacity
               className={`rounded-lg px-4 py-2 ${

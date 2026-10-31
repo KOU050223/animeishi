@@ -1,6 +1,6 @@
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
 import {
   FEATURES,
@@ -30,20 +30,26 @@ export default function ChangelogScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
+      {/* 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。
+          headerLeft を自前で出すのは、直リンク時にホームへ戻す規約と
+          E2E が参照する testID を維持するため。 */}
+      <Stack.Screen
+        options={{
+          title: "機能一覧・更新情報",
+          headerBackVisible: false,
+          headerLeft: () => (
+            <BackButton
+              onPress={handleBack}
+              accessibilityLabel="戻る"
+              testID="changelog-back-button"
+            />
+          ),
+        }}
+      />
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <BackButton
-            onPress={handleBack}
-            className="-ml-2 mb-4 self-start"
-            accessibilityLabel="戻る"
-            testID="changelog-back-button"
-          />
-
-          <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            機能一覧・更新情報
-          </Text>
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
           <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             最終更新: {UPDATES[0].date}

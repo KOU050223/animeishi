@@ -48,18 +48,9 @@ export default function HomeScreen() {
   }
 
   return (
-    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView
-      className="flex-1 bg-slate-50 dark:bg-slate-950"
-      edges={["top"]}
-    >
+    // 上端はネイティブヘッダー（large title）が面倒を見る。下端はタブバー側で吸収する。
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={[]}>
       <ScrollView contentContainerClassName="px-4 pb-12">
-        <View className="pb-3 pt-3">
-          <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            ホーム
-          </Text>
-        </View>
-
         <FriendStoryRail />
 
         <Text className="mb-2 mt-4 text-sm font-medium text-slate-700 dark:text-slate-200">

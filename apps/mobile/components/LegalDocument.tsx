@@ -1,4 +1,4 @@
-import { Link, useRouter } from "expo-router";
+import { Link, Stack, useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
@@ -38,24 +38,28 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
   };
 
   return (
-    // 上部の safe area を確保しないと「戻る」ボタンがステータスバー / Dynamic Island
-    // の下に潜ってタップ不能になる（iOS 実機検証 #156）。
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
+      {/* 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。headerLeft を
+          自前で出すのは、直リンク時にホームへ戻す規約と
+          E2E が参照する testID を維持するため。 */}
+      <Stack.Screen
+        options={{
+          title,
+          headerBackVisible: false,
+          headerLeft: () => (
+            <BackButton
+              onPress={handleBack}
+              accessibilityLabel="戻る"
+              testID="legal-back-button"
+            />
+          ),
+        }}
+      />
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <BackButton
-            onPress={handleBack}
-            className="-ml-2 mb-4 self-start"
-            accessibilityLabel="戻る"
-            testID="legal-back-button"
-          />
-
-          <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {title}
-          </Text>
           <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {effectiveDate}
           </Text>
