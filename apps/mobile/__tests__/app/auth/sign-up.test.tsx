@@ -191,7 +191,7 @@ describe("SignUpScreen", () => {
         code: "123456",
       });
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_456" });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 
@@ -225,7 +225,7 @@ describe("SignUpScreen", () => {
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_new" });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(auth.signUp.verifications.sendEmailCode).not.toHaveBeenCalled();
     // 認証コード画面には遷移しない
@@ -305,7 +305,7 @@ describe("SignUpScreen", () => {
       expect(auth.setActive).toHaveBeenCalledWith({
         session: "sess_existing",
       });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(screen.queryByTestId("error-message")).toBeNull();
     expect(auth.signOut).not.toHaveBeenCalled();
@@ -396,7 +396,7 @@ describe("SignUpScreen", () => {
       // 「あとで」でフラグを戻してホームへ
       await fireEvent.press(screen.getByTestId("skip-passkey-button"));
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
       expect(passkeyPromptPending.current).toBe(false);
     });
@@ -419,7 +419,7 @@ describe("SignUpScreen", () => {
       await fireEvent.press(screen.getByTestId("register-passkey-button"));
       await waitFor(() => {
         expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
       expect(passkeyPromptPending.current).toBe(false);
     });
@@ -470,7 +470,7 @@ describe("SignUpScreen", () => {
       await fillAndSubmit();
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
       expect(passkeyPromptPending.current).toBe(false);
       expect(screen.queryByTestId("register-passkey-button")).toBeNull();
@@ -519,7 +519,7 @@ describe("SignUpScreen", () => {
         expect(auth.setActive).toHaveBeenCalledWith({
           session: "session_google",
         });
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
     });
   });

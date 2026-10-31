@@ -86,7 +86,7 @@ describe("SignInScreen", () => {
         password: "StrongPass1",
       });
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_123" });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 
@@ -228,7 +228,7 @@ describe("SignInScreen", () => {
       expect(auth.setActive).toHaveBeenCalledWith({
         session: "sess_existing",
       });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(screen.queryByTestId("error-message")).toBeNull();
     expect(auth.signOut).not.toHaveBeenCalled();
@@ -291,7 +291,7 @@ describe("SignInScreen", () => {
         password: "StrongPass1",
       });
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_456" });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
 
     // 既存セッションの破棄はサインイン作成より前に行われる
@@ -343,7 +343,7 @@ describe("SignInScreen", () => {
         expect(auth.setActive).toHaveBeenCalledWith({
           session: "session_google",
         });
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
     });
 
@@ -381,7 +381,7 @@ describe("SignInScreen", () => {
         expect(auth.setActive).toHaveBeenCalledWith({
           session: "sess_existing",
         });
-        expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+        expect(mockReplace).toHaveBeenCalledWith("/");
       });
     });
 

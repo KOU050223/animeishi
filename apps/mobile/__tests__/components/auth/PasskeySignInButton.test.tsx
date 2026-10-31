@@ -43,7 +43,7 @@ describe("PasskeySignInButton", () => {
       expect(auth.setActive).toHaveBeenCalledWith({
         session: "session_passkey",
       });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 

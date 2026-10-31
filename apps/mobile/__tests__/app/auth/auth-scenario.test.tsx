@@ -52,7 +52,7 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_first" });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(auth.isSignedIn).toBe(true);
 
@@ -142,7 +142,7 @@ describe("認証シナリオ: 色々変な行動をするパターン", () => {
       expect(auth.setActive).toHaveBeenCalledWith({
         session: "session_recover",
       });
-      expect(mockReplace).toHaveBeenCalledWith("/(tabs)");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
     expect(screen.queryByTestId("error-message")).toBeNull();
   });

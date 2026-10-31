@@ -5,7 +5,7 @@ import {
   fireEvent,
   waitFor,
 } from "@testing-library/react-native";
-import HomeScreen from "@/app/(tabs)/index";
+import HomeScreen from "@/app/(tabs)/(home)/index";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // react-query の useQueryClient はキャッシュクリア用。本テストでは未使用。

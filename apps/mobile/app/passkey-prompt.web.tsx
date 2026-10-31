@@ -29,7 +29,7 @@ export default function PasskeyPromptScreen() {
       edges={["top", "bottom"]}
     >
       <View className="flex-1 justify-center px-6 py-10">
-        <PasskeyRegisterPrompt onDone={() => router.replace("/(tabs)")} />
+        <PasskeyRegisterPrompt onDone={() => router.replace("/")} />
       </View>
     </SafeAreaView>
   );

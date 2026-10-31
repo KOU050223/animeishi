@@ -20,6 +20,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { useThemeColors } from "@/lib/theme";
+import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
@@ -42,6 +43,7 @@ function AuthGuard() {
   const segments = useSegments();
   const router = useRouter();
   const colors = useThemeColors();
+  const headerOptions = useStackHeaderOptions();
   // UI イベント計測に現在画面・サインイン中ユーザーを同期する（issue #214）。
   useEventTrackingContext();
 
@@ -69,45 +71,63 @@ function AuthGuard() {
       // （issue #326。setActive 前に立つので effect の発火順には依らない）
       !passkeyPromptPending.current
     ) {
-      router.replace("/(tabs)");
+      router.replace("/");
     }
   }, [isLoaded, isSignedIn, segments, router]);
 
   return (
     // 画面遷移中に見えるスタックの下地もスキームに合わせる。
     // 個別画面の背景は各スクリーン側が持つ。
+    // ヘッダーは既定で表示（issue #395 Phase 2）。没入型ツール画面と
+    // 認証系だけ headerShown: false でカスタムクロムを維持する。
     <Stack
       screenOptions={{
-        headerShown: false,
+        ...headerOptions,
+        // ルート Stack は小タイトル画面のみ。headerStyle を省くとバーの
+        // 背景がナビゲーションテーマの解決に依存し、ダークでも白い不透明
+        // バーになるケースがあるため画面背景に揃える
+        // （ネスト Stack の large title はブラーを活かすため headerStyle なし）。
+        headerStyle: { backgroundColor: colors.background },
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="user/[uid]" />
-      {/* Annict OAuth の Web コールバック着地ルート（/annict）。 */}
-      <Stack.Screen name="annict" />
+      {/* Annict OAuth の Web コールバック着地ルート（/annict）。処理中画面
+          のため戻るボタンは出さない。 */}
+      <Stack.Screen name="annict" options={{ headerShown: false }} />
       {/* 公開法務ページ（/privacy /terms）。ストア審査で未ログイン閲覧が必要。 */}
       <Stack.Screen name="privacy" />
       <Stack.Screen name="terms" />
       {/* 公開サポートページ（/support）。ストア掲載のサポート URL。 */}
       <Stack.Screen name="support" />
-      {/* 名刺エディタ */}
-      <Stack.Screen name="meishi/edit" />
+      {/* サインアップ直後のパスキー登録促進（Web）。戻る先が無い画面のため
+          ヘッダーは出さない。 */}
+      <Stack.Screen name="passkey-prompt" options={{ headerShown: false }} />
+      {/* 名刺エディタ（没入型ツール画面。カスタムクロム維持） */}
+      <Stack.Screen name="meishi/edit" options={{ headerShown: false }} />
       {/* tier 表の作成導線と自由作成一覧（issue #348） */}
       <Stack.Screen name="tier-lists" />
-      {/* シーズンごとのアニメ tier 表 */}
-      <Stack.Screen name="tier-list" />
+      {/* シーズンごとのアニメ tier 表（没入型。以下 2 画面も同様） */}
+      <Stack.Screen name="tier-list" options={{ headerShown: false }} />
       {/* 作品ごとのキャラクター tier 表（issue #169） */}
-      <Stack.Screen name="character-tier-list" />
+      <Stack.Screen
+        name="character-tier-list"
+        options={{ headerShown: false }}
+      />
       {/* テーマを決めて自由に作る tier 表（issue #348） */}
-      <Stack.Screen name="custom-tier-list" />
+      <Stack.Screen name="custom-tier-list" options={{ headerShown: false }} />
       {/* オリジナル作品リストの一覧と編集（issue #349） */}
       <Stack.Screen name="work-lists" />
       <Stack.Screen name="work-list" />
-      {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット） */}
-      <Stack.Screen name="danime-import" />
-      <Stack.Screen name="danime-import-review" />
+      {/* dアニメストアからの視聴履歴インポート（native: WebView / web: ブックマークレット）。
+          WebView 主体のツール画面のためカスタムクロム維持 */}
+      <Stack.Screen name="danime-import" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="danime-import-review"
+        options={{ headerShown: false }}
+      />
       {/* 機能一覧・更新情報（issue #98）。プロフィール画面から遷移する。 */}
       <Stack.Screen name="changelog" />
       {/* AI 視聴傾向分析（issue #22）。プロフィール画面から遷移する。 */}

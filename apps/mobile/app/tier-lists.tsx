@@ -33,7 +33,7 @@ export default function TierListsScreen() {
       router.back();
       return;
     }
-    router.replace("/(tabs)");
+    router.replace("/");
   };
 
   const handleDelete = (id: number, title: string) => {
@@ -59,22 +59,26 @@ export default function TierListsScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
-      <Stack.Screen options={{ headerShown: false }} />
+      {/* 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。
+          headerLeft を自前で出すのは、直リンク時にホームへ戻す規約と
+          E2E が参照する testID を維持するため。 */}
+      <Stack.Screen
+        options={{
+          title: "Tier 表",
+          headerBackVisible: false,
+          headerLeft: () => (
+            <BackButton
+              onPress={handleBack}
+              accessibilityLabel="戻る"
+              testID="tier-lists-back"
+            />
+          ),
+        }}
+      />
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
-        <BackButton
-          onPress={handleBack}
-          className="-ml-2 mb-4 self-start"
-          accessibilityLabel="戻る"
-          testID="tier-lists-back"
-        />
-
-        <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Tier 表
-        </Text>
-
-        <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">
           新しく作る
         </Text>
         <View className="mt-3 gap-3">

@@ -42,7 +42,9 @@ describe("(tabs) layout", () => {
         ),
       ].map((m) => m[1]);
 
-      expect(names).toEqual(["index", "library", "social", "profile"]);
+      // ホームタブはネスト Stack 化のためルートグループ (home) に入っている。
+      // URL はグループ名を含まず引き続き /（issue #395 Phase 2）。
+      expect(names).toEqual(["(home)", "library", "social", "profile"]);
     },
   );
 

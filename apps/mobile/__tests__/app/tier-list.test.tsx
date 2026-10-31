@@ -21,7 +21,19 @@ let mockSavedLoading = false;
 const mockSavedSeasons: string[] = [];
 
 jest.mock("expo-router", () => ({
-  Stack: { Screen: () => null },
+  // Stack.Screen の options を描画する。画面が headerLeft / title として
+  // 渡したもの（戻るボタンの testID・画面タイトル）をテストできるようにする。
+  Stack: {
+    Screen: ({ options }: any) => {
+      const { Text } = require("react-native");
+      return (
+        <>
+          {options?.headerLeft ? options.headerLeft({}) : null}
+          {options?.title ? <Text>{options.title}</Text> : null}
+        </>
+      );
+    },
+  },
   useRouter: () => ({
     back: jest.fn(),
     replace: jest.fn(),

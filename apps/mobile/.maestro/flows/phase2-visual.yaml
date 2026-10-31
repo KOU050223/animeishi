@@ -1,0 +1,66 @@
+# Phase 2 ネイティブヘッダー化の目視確認用フロー（一時検証用）。
+# サインアップ → 4タブ + analysis のスクリーンショットを撮る。
+# 実行前に `xcrun simctl ui <UDID> appearance light|dark` でテーマを切り替え、
+# `maestro test -e THEME=light` のようにテーマ名を渡す。
+appId: com.animeishi.app
+---
+- evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
+- evalScript: ${output.username = 'e2e' + Date.now()}
+- evalScript: ${output.password = 'E2e' + Date.now() + 'x'}
+
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000
+
+- runFlow:
+    file: ../subflows/sign-up.yaml
+    env:
+      EMAIL: ${output.email}
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+
+- extendedWaitUntil:
+    visible:
+      id: home-open-qr
+    timeout: 30000
+- takeScreenshot: phase2-home-${THEME}
+
+- tapOn: ライブラリタブ
+- extendedWaitUntil:
+    visible:
+      id: library-section-anime
+    timeout: 15000
+- takeScreenshot: phase2-library-${THEME}
+
+- tapOn: QR・フレンドタブ
+- extendedWaitUntil:
+    visible:
+      id: social-section-qr
+    timeout: 15000
+- takeScreenshot: phase2-social-${THEME}
+
+- tapOn:
+    id: profile-tab-button
+- extendedWaitUntil:
+    visible: 名刺プレビュー
+    timeout: 15000
+- takeScreenshot: phase2-profile-${THEME}
+
+- scrollUntilVisible:
+    element:
+      text: AI 視聴傾向分析を開く
+    direction: DOWN
+    speed: 40
+    visibilityPercentage: 100
+    timeout: 20000
+- tapOn: AI 視聴傾向分析を開く
+- extendedWaitUntil:
+    visible:
+      id: analysis-back-button
+    timeout: 15000
+- takeScreenshot: phase2-analysis-${THEME}

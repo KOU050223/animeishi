@@ -3,7 +3,7 @@
 // 旧パスからのリダイレクト（?section=...）でも対応セクションを開く。
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import SocialScreen from "@/app/(tabs)/social";
+import SocialScreen from "@/app/(tabs)/social/index";
 
 // useLocalSearchParams の値はテストごとに差し替える。
 // setParams は実際はナビゲーション状態を更新して再描画するため、
@@ -12,6 +12,9 @@ let mockParams: { section?: string } = {};
 const mockSetParams = jest.fn((p: Record<string, string>) => {
   mockParams = { ...mockParams, ...p };
 });
+jest.mock("expo-router/react-navigation", () => ({
+  useHeaderHeight: () => 0,
+}));
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
   useRouter: () => ({ setParams: mockSetParams }),

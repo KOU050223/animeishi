@@ -1,10 +1,14 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import ProfileScreen from "@/app/(tabs)/profile";
+import ProfileScreen from "@/app/(tabs)/profile/index";
 
 const mockMutateProfile = jest.fn();
 const mockReloadDocument = jest.fn();
+
+jest.mock("expo-router/react-navigation", () => ({
+  useHeaderHeight: () => 0,
+}));
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({

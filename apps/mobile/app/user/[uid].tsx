@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -88,6 +88,25 @@ export default function PublicProfilePage() {
     router.replace("/");
   };
 
+  // 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。headerLeft を
+  // 自前で出すのは、ディープリンク時にホームへ戻す規約と
+  // E2E が参照する testID を維持するため。タイトルは取得したユーザー名。
+  const screenOptions = (
+    <Stack.Screen
+      options={{
+        title: data?.username ?? "",
+        headerBackVisible: false,
+        headerLeft: () => (
+          <BackButton
+            onPress={handleBack}
+            accessibilityLabel="戻る"
+            testID="public-profile-back-button"
+          />
+        ),
+      }}
+    />
+  );
+
   function runBlock() {
     if (!uid) return;
     blockUser.mutate(uid, {
@@ -158,6 +177,7 @@ export default function PublicProfilePage() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
+        {screenOptions}
         <ActivityIndicator
           size="large"
           color={colors.primary}
@@ -175,14 +195,9 @@ export default function PublicProfilePage() {
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
-        edges={["top", "bottom"]}
+        edges={["bottom"]}
       >
-        <BackButton
-          onPress={handleBack}
-          className="ml-2 self-start"
-          accessibilityLabel="戻る"
-          testID="public-profile-back-button"
-        />
+        {screenOptions}
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-slate-500 dark:text-slate-400 text-center">
             {message}
@@ -195,16 +210,11 @@ export default function PublicProfilePage() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
+      {screenOptions}
       <ScrollView className="flex-1">
-        <BackButton
-          onPress={handleBack}
-          className="ml-2 mt-2 self-start"
-          accessibilityLabel="戻る"
-          testID="public-profile-back-button"
-        />
-        <View className="items-center pt-2 pb-6 px-6">
+        <View className="items-center pt-4 pb-6 px-6">
           {data.profileImageUrl ? (
             <Image
               source={{ uri: data.profileImageUrl }}

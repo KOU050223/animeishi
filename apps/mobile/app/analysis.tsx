@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   useAnalysis,
@@ -66,6 +66,25 @@ export default function AnalysisScreen() {
     router.replace("/");
   };
 
+  // 戻るボタンはネイティブヘッダー側に移した（issue #395 Phase 2）。
+  // headerLeft を自前で出すのは、直リンク時にホームへ戻す規約と
+  // E2E が参照する testID を維持するため。
+  const screenOptions = (
+    <Stack.Screen
+      options={{
+        title: t("AI 視聴傾向分析"),
+        headerBackVisible: false,
+        headerLeft: () => (
+          <BackButton
+            onPress={handleBack}
+            accessibilityLabel={t("戻る")}
+            testID="analysis-back-button"
+          />
+        ),
+      }}
+    />
+  );
+
   // 「分析する / 再分析する」の押下を計測する（issue #214）。
   // 結果があるかで初回・再実行を分ける。
   const onGenerate = (runType: "initial" | "regenerate") => {
@@ -92,14 +111,9 @@ export default function AnalysisScreen() {
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
-        edges={["top", "bottom"]}
+        edges={["bottom"]}
       >
-        <BackButton
-          onPress={handleBack}
-          className="ml-2 self-start"
-          accessibilityLabel={t("戻る")}
-          testID="analysis-back-button"
-        />
+        {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-red-500 dark:text-red-400">
             {t("分析結果の取得に失敗しました")}
@@ -122,19 +136,11 @@ export default function AnalysisScreen() {
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
-      edges={["top", "bottom"]}
+      edges={["bottom"]}
     >
+      {screenOptions}
       <ScrollView contentContainerClassName="px-4 pb-12">
-        <BackButton
-          onPress={handleBack}
-          className="-ml-2 self-start"
-          accessibilityLabel={t("戻る")}
-          testID="analysis-back-button"
-        />
         <View className="pb-3">
-          <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            {t("AI 視聴傾向分析")}
-          </Text>
           <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             {t(
               "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します",

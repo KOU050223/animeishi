@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
 import { AnimeSection } from "@/components/library/AnimeSection";
 import { WatchHistorySection } from "@/components/library/WatchHistorySection";
@@ -22,6 +23,9 @@ function isSection(value: unknown): value is Section {
 // /library?section=... でここへ着地する。
 export default function LibraryScreen() {
   useMarkScreenInteractive();
+  // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは
+  // ヘッダー高さ分だけ下げる（large title が畳まれると値も変わる）。
+  const headerHeight = useHeaderHeight();
   const colors = useThemeColors();
   const animePalette = useAnimeListPalette();
   const router = useRouter();
@@ -45,8 +49,11 @@ export default function LibraryScreen() {
     section === "anime" ? animePalette.screen : colors.background;
 
   return (
-    // 上端だけ safe area を取る。下端はタブバー側で吸収する。
-    <SafeAreaView style={{ flex: 1, backgroundColor }} edges={["top"]}>
+    // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor, paddingTop: headerHeight }}
+      edges={[]}
+    >
       <SegmentedControl
         items={[
           {

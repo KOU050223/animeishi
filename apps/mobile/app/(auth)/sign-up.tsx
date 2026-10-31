@@ -69,13 +69,13 @@ export default function SignUpScreen() {
       setPendingPasskeyPrompt(true);
       return null;
     }
-    router.replace("/(tabs)");
+    router.replace("/");
     return null;
   }
 
   function handlePasskeyPromptDone() {
     passkeyPromptPending.current = false;
-    router.replace("/(tabs)");
+    router.replace("/");
   }
 
   async function handleSignUp() {
@@ -145,7 +145,7 @@ export default function SignUpScreen() {
           signOut,
         });
         if (recovered === "activated") {
-          router.replace("/(tabs)");
+          router.replace("/");
         } else {
           setError(
             t(
