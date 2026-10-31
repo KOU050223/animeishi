@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
 import { GroupedList } from "@/components/ui/grouped-list";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
@@ -51,6 +53,7 @@ function walletErrorMessage(result: AddToWalletResult): string | null {
 export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const colors = useThemeColors();
+  const { signOut } = useAuth();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
@@ -309,19 +312,14 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              <TouchableOpacity
-                className="mt-2 items-center rounded-lg bg-indigo-600 py-3"
-                onPress={onSave}
-                disabled={updateProfile.isPending}
-                accessibilityRole="button"
-                accessibilityLabel="プロフィールを保存"
-              >
-                {updateProfile.isPending ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <Text className="font-semibold text-white">保存</Text>
-                )}
-              </TouchableOpacity>
+              <View className="mt-2">
+                <Button
+                  label="保存"
+                  onPress={onSave}
+                  loading={updateProfile.isPending}
+                  accessibilityLabel="プロフィールを保存"
+                />
+              </View>
             </View>
 
             <View className="mt-6 px-4">
@@ -411,6 +409,19 @@ export default function ProfileScreen() {
             />
             <View className="px-4">
               <MalAttribution />
+            </View>
+
+            {/* サインアウトはアカウント操作なのでホームではなく設定群の末尾に
+                置く（issue #395 Phase 4）。 */}
+            <View className="mt-8 px-4">
+              <Button
+                label="サインアウト"
+                icon="log-out-outline"
+                variant="secondary"
+                onPress={() => signOut()}
+                accessibilityLabel="サインアウト"
+                testID="sign-out-button"
+              />
             </View>
 
             <DeleteAccountSection

@@ -1,6 +1,20 @@
-# ホーム → サインアウト → サインイン画面、までの部品。
+# ホーム → プロフィールタブ → サインアウト → サインイン画面、までの部品。
+# サインアウトは issue #395 Phase 4 でプロフィールの設定群末尾へ移動した。
 appId: com.animeishi.app
 ---
+# サインイン直後に iOS の「パスワードを保存しますか？」シートが
+# 被さっているとタブをタップできないため、残っていれば閉じる。
+- tapOn:
+    text: 今はしない
+    optional: true
+    retryTapIfNoChange: false
+- tapOn:
+    id: profile-tab-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      text: ユーザー名入力
+    timeout: 30000
 # 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
 # ただしボタンが最初から画面に収まっている（全体が収まり中央へ寄せられない）と
 # スクロール自体が失敗するため optional にし、その場合は警告で終えてそのまま

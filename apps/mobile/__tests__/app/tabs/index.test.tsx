@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-} from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import HomeScreen from "@/app/(tabs)/(home)/index";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
@@ -142,35 +137,9 @@ describe("HomeScreen", () => {
     expect(screen.queryByText("Annict連携")).toBeNull();
   });
 
-  it("サインアウトボタンが表示される", async () => {
+  it("サインアウトはホームに出さない（プロフィールの設定群に集約）", async () => {
     loggedInUser();
     await render(<HomeScreen />);
-    expect(screen.getByTestId("sign-out-button")).toBeTruthy();
-  });
-
-  it("サインアウトボタンを押すと signOut が呼ばれる", async () => {
-    const auth = loggedInUser();
-
-    await render(<HomeScreen />);
-    await fireEvent.press(screen.getByTestId("sign-out-button"));
-
-    await waitFor(() => {
-      expect(auth.signOut).toHaveBeenCalledTimes(1);
-    });
-    expect(auth.isSignedIn).toBe(false);
-  });
-
-  it("サインアウトボタンを連打しても signOut が押下回数ぶん呼ばれる（多重呼び出しで破綻しない）", async () => {
-    const auth = loggedInUser();
-
-    await render(<HomeScreen />);
-    const button = screen.getByTestId("sign-out-button");
-    await fireEvent.press(button);
-    await fireEvent.press(button);
-    await fireEvent.press(button);
-
-    await waitFor(() => {
-      expect(auth.signOut).toHaveBeenCalledTimes(3);
-    });
+    expect(screen.queryByTestId("sign-out-button")).toBeNull();
   });
 });

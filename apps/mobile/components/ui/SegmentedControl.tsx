@@ -9,16 +9,17 @@ export type SegmentItem = {
   testID?: string;
 };
 
+// iOS 純正のセグメントに揃える: 敷き詰めチップではなく、単一のトラック上に
+// 等分セルを並べ、選択中セルだけ白面+薄影で浮き上がらせる
+// （@expo/ui に segmented picker が無い間の代替。issue #395）。
 export function SegmentedControl({ items }: { items: SegmentItem[] }) {
   return (
-    <View className="flex-row px-4 pt-2 pb-2 gap-2">
+    <View className="mx-4 my-2 flex-row rounded-xl bg-slate-200 p-0.5 dark:bg-slate-700">
       {items.map((item) => (
         <TouchableOpacity
           key={item.label}
-          className={`flex-1 items-center px-3 py-2 rounded-full border ${
-            item.active
-              ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
-              : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+          className={`flex-1 items-center rounded-[10px] px-3 py-1.5 ${
+            item.active ? "bg-white shadow-sm dark:bg-slate-900" : ""
           }`}
           onPress={() => {
             // 選択が変わるときだけ発火（選択中の再タップでは鳴らさない）。
@@ -31,7 +32,7 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
           testID={item.testID}
         >
           <Text
-            className={`text-sm font-medium ${item.active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-500 dark:text-slate-400"}`}
+            className={`text-[13px] ${item.active ? "font-semibold text-slate-900 dark:text-slate-100" : "font-medium text-slate-500 dark:text-slate-400"}`}
           >
             {item.label}
           </Text>

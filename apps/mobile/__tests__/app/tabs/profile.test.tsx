@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile/index";
+import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockMutateProfile = jest.fn();
 const mockReloadDocument = jest.fn();
@@ -120,6 +121,7 @@ jest.mock("@/lib/profileUrl", () => ({
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  resetAuth();
   mockProfile = {
     data: mockProfileData,
     isLoading: false,
@@ -176,6 +178,18 @@ describe("ProfileScreen の Annict 連携セクション", () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByText("Annict連携")).toBeTruthy();
+  });
+});
+
+describe("ProfileScreen のサインアウト導線", () => {
+  it("サインアウトボタンを押すと signOut が呼ばれる（ホームからここへ集約）", async () => {
+    const auth = loggedInUser();
+
+    await render(<ProfileScreen />);
+    await fireEvent.press(screen.getByTestId("sign-out-button"));
+
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.isSignedIn).toBe(false);
   });
 });
 
