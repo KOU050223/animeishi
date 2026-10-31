@@ -168,7 +168,8 @@ export function TierBoard({
       if (hit === undefined) return;
       // 未分類トレイは順序を持たないため、そのまま未配置へ戻す。
       if (hit === null) {
-        haptics.impactLight();
+        // すでに未配置のカードをトレイに戻すだけでは配置が変わらないため鳴らさない。
+        if (assignment.has(itemId)) haptics.impactLight();
         onAssign(itemId, null);
         return;
       }
