@@ -85,8 +85,9 @@ GitHub Issue #<番号> を実装してください。Issue 本文: <URL>
   structured output の summary に書く
 - 仕様の解釈が分かれる点があれば、推測で進めずに status=needs_user で止まる
 - CodeRabbit の pending は待たない（CI の結果だけ確認する）
-- （macOS のとき）PR 作成後に vp run @animeishi/mobile#e2e:ios を実行し、
-  結果（PASS / 失敗の原因）を PR にコメントする。詳細は docs/development/e2e-ios.md
+- （macOS のとき）PR 作成後に knowledge の e2e の手順（apps/api/.dev.vars を書き出してから
+  vp run @animeishi/mobile#e2e:ios）で E2E を実行し、結果（PASS / 失敗の原因）を
+  PR にコメントする。.dev.vars はコミットしない。詳細は docs/development/e2e-ios.md
 - （マイグレーションを足すとき）apps/api/migrations の最新番号の次を使う
 - 終わったら structured output を報告して待機する
 ```

@@ -37,8 +37,9 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 クラウドセッション（Xcode・iOS シミュレーター入り）で
 `vp run @animeishi/mobile#e2e:ios` を実行させる。環境は
 `.devin/blueprint.yaml` の `runs-on: macos` のブロックで定義している
-（vp・CocoaPods・Maestro の導入、`vp install`、`.env` / `.dev.vars` の生成、
-ローカル D1 のマイグレーション）。
+（vp・CocoaPods・Maestro の導入、`vp install`、`apps/mobile/.env` の生成、
+ローカル D1 のマイグレーション）。`apps/api/.dev.vars` は秘密鍵がスナップショットに
+残らないよう、blueprint の knowledge（`e2e`）の手順でセッション内で書き出す。
 
 - 初回だけ: Devin の Settings > Environment > Blueprints でこのリポジトリの
   blueprint を同期し、Secrets タブに `E2E_CLERK_PUBLISHABLE_KEY`（pk_test）と
