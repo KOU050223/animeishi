@@ -7,12 +7,16 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@/lib/tokenCache";
 import {
+  DarkTheme,
+  DefaultTheme,
   Stack,
+  ThemeProvider,
   useRouter,
   useSegments,
   type ErrorBoundaryProps,
 } from "expo-router";
 import { useEffect } from "react";
+import { useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
@@ -83,10 +87,9 @@ function AuthGuard() {
     <Stack
       screenOptions={{
         ...headerOptions,
-        // ルート Stack は小タイトル画面のみ。headerStyle を省くとバーの
-        // 背景がナビゲーションテーマの解決に依存し、ダークでも白い不透明
-        // バーになるケースがあるため画面背景に揃える
-        // （ネスト Stack の large title はブラーを活かすため headerStyle なし）。
+        // ルート Stack は小タイトル画面のみ。バーの背景を画面背景に揃える
+        // （ネスト Stack の large title は ThemeProvider のスキームに
+        // 追従する純正ブラーを活かすため headerStyle なし）。
         headerStyle: { backgroundColor: colors.background },
         contentStyle: { backgroundColor: colors.background },
       }}
@@ -147,6 +150,10 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
 // さらに外側を ObserveRoot で包んで TTR（初回描画までの時間）を計測する。
 export default wrapWithObserveRoot(
   Sentry.wrap(function RootLayout() {
+    // expo-router の NavigationContainer は theme 未指定だと DefaultTheme
+    // （light）で固定される。渡さないとネイティブヘッダーがダーク時も
+    // 白いままになるため、スキームに応じて ThemeProvider を被せる。
+    const colorScheme = useColorScheme();
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* ステータスバーは OS の外観設定に追従させる（userInterfaceStyle: "automatic"）。
@@ -162,7 +169,11 @@ export default wrapWithObserveRoot(
               client={queryClient}
               persistOptions={{ persister: asyncStoragePersister }}
             >
-              <AuthGuard />
+              <ThemeProvider
+                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+              >
+                <AuthGuard />
+              </ThemeProvider>
             </PersistQueryClientProvider>
           </ClerkProvider>
         </SafeAreaProvider>

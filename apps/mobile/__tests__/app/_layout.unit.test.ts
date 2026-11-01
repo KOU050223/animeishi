@@ -51,6 +51,23 @@ describe("root router layout", () => {
     expect(source).toContain('<Stack.Screen name="changelog" />');
   });
 
+  test("follows the OS appearance with a navigation ThemeProvider", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // expo-router の NavigationContainer はテーマ未指定だと DefaultTheme
+    // （light）で固定され、ネイティブヘッダーがダークに追従しない。
+    // スキームに応じて ThemeProvider で DarkTheme/DefaultTheme を渡す。
+    expect(source).toContain("ThemeProvider");
+    expect(source).toContain("DarkTheme");
+    expect(source).toContain("useColorScheme");
+    expect(source).toContain(
+      'colorScheme === "dark" ? DarkTheme : DefaultTheme',
+    );
+  });
+
   test("exports a route ErrorBoundary so crashes get a retry UI", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),

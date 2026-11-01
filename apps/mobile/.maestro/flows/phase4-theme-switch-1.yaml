@@ -1,0 +1,30 @@
+# Phase 4 テーマ動的切替の検証用（一時）。パート1:
+# light でサインアップ → ホームまで進む。アプリは起動したままにする。
+# 続けて `xcrun simctl ui <UDID> appearance dark` を実行し、
+# phase4-theme-switch-2.yaml で再起動せずにスクショを撮る。
+appId: com.animeishi.app
+---
+- evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
+- evalScript: ${output.username = 'e2e' + Date.now()}
+- evalScript: ${output.password = 'E2e' + Date.now() + 'x'}
+
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+- extendedWaitUntil:
+    visible:
+      id: sign-in-button
+    timeout: 30000
+
+- runFlow:
+    file: ../subflows/sign-up.yaml
+    env:
+      EMAIL: ${output.email}
+      USERNAME: ${output.username}
+      PASSWORD: ${output.password}
+
+- extendedWaitUntil:
+    visible:
+      id: home-open-qr
+    timeout: 30000
