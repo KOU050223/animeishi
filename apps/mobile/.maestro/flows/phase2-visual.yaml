@@ -2,6 +2,12 @@
 # サインアップ → 4タブ + analysis のスクリーンショットを撮る。
 # 実行前に `xcrun simctl ui <UDID> appearance light|dark` でテーマを切り替え、
 # `maestro test -e THEME=light` のようにテーマ名を渡す。
+#
+# 前提:
+#   - E2E 専用の使い捨てシミュレーター（animeishi-e2e-*）で実行すること。
+#     clearKeychain はシミュレーター全体の Keychain を消すため
+#     （docs/development/e2e-ios.md）。
+#   - localhost:8787 で API が起動していること（末尾のアカウント削除で必要）。
 appId: com.animeishi.app
 ---
 - evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
@@ -64,3 +70,12 @@ appId: com.animeishi.app
       id: analysis-back-button
     timeout: 15000
 - takeScreenshot: phase2-analysis-${THEME}
+
+# ルート Stack の analysis からタブへ戻り、サインアップした
+# テストユーザーを削除して後片付けする（Maestro の back は
+# iOS のネイティブナビゲーションを戻れないためボタンをタップする）。
+- tapOn:
+    id: analysis-back-button
+    retryTapIfNoChange: false
+- runFlow:
+    file: ../subflows/delete-account.yaml
