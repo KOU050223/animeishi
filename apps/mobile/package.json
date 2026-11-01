@@ -9,6 +9,7 @@
     "dev": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:device:release": "bash scripts/ios-device-release.sh",
     "typecheck": "tsc --noEmit --checkers 1",
     "build:web": "expo export -p web",
     "deploy:web": "wrangler deploy --env production",

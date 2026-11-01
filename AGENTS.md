@@ -38,6 +38,7 @@ vp run dev         # 全アプリの開発サーバを並列起動
 vp run @animeishi/mobile#dev                   # Expo モバイルアプリを起動
 vp run @animeishi/mobile#annict-redirect-uri   # Expo Go 実機用の Annict redirect_uri を表示
 vp run @animeishi/mobile#e2e:ios               # iOS シミュレーターで Maestro E2E を実行
+vp run @animeishi/mobile#ios:device:release    # 実機に Release ビルドを入れる（Metro 不要・本番 API 向き）
 vp run @animeishi/api#dev                      # Cloudflare Workers API を起動 (wrangler dev)
 vp run @animeishi/api#dev:scheduled            # Cron を手動トリガーできる状態で API を起動
 vp run @animeishi/api#db:migrate:local         # D1 ローカルマイグレーション適用
