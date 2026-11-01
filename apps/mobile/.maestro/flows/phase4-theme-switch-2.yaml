@@ -1,0 +1,6 @@
+# Phase 4 テーマ動的切替の検証用（一時）。パート2:
+# 起動中のアプリに接続し、simctl で切り替えた後のホームを撮る。
+# launchApp しないためセッションは phase4-theme-switch-1.yaml から継続。
+appId: com.animeishi.app
+---
+- takeScreenshot: phase4-home-after-theme-switch

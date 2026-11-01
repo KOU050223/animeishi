@@ -14,6 +14,7 @@ type StackScreenOptions = Exclude<
  * ヘッダーオプション。tint・タイトル色をテーマトークンに揃え、
  * ヘッダー下の影は切る（画面背景との境界は不要なため）。
  * headerStyle を指定すると iOS 純正のブラーが消えるため設定しない。
+ * ブラーの light/dark はルートの ThemeProvider（app/_layout.tsx）に追従する。
  */
 export function useStackHeaderOptions(): StackScreenOptions {
   const colors = useThemeColors();
