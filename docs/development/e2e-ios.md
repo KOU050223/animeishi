@@ -31,6 +31,28 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 > 壊れるので、その場合は変数を外してから実行する（旧 Nix devShell で起きた問題。
 > スクリプト側の回避策は #252 で外した）。
 
+## Devin のクラウドセッションで回す（issue #393）
+
+ローカルのメモリ・CPU を使わずに E2E を回したいときは、Devin の macOS
+クラウドセッション（Xcode・iOS シミュレーター入り）で
+`vp run @animeishi/mobile#e2e:ios` を実行させる。環境は
+`.devin/blueprint.yaml` の `runs-on: macos` のブロックで定義している
+（vp・CocoaPods・Maestro の導入、`vp install`、`apps/mobile/.env` の生成、
+ローカル D1 のマイグレーション）。`apps/api/.dev.vars` は秘密鍵がスナップショットに
+残らないよう、blueprint の knowledge（`e2e`）の手順でセッション内で書き出す。
+
+- 初回だけ: Devin の Settings > Environment > Blueprints でこのリポジトリの
+  blueprint を同期し、Secrets タブに `E2E_CLERK_PUBLISHABLE_KEY`（pk_test）と
+  `E2E_CLERK_SECRET_KEY`（sk_test）を登録してビルドする。
+  `.devin/blueprint.yaml` を変えたときも同期し直す
+- セッションは macOS を指定して起動する（API なら `platform: "macos"`、
+  Slack なら `!mac`）
+- イメージに入っているランタイムは iOS 26 / 27 だけなので、スクリプトは
+  iOS 18.x を選べず最新のランタイムにフォールバックする。ローカルより
+  ドライバ切断（下の「失敗の調査」）が起きやすい
+- ネイティブキャッシュはセッションをまたいで残らないため、セッションごとの
+  初回はフルビルドになる
+
 ## 環境変数
 
 - `E2E_SKIP_BUILD=1` … ビルドをスキップ（既存の `ios/build/e2e-dd` を再利用。

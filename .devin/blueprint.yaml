@@ -1,0 +1,94 @@
+# Devin クラウドセッションの環境定義（issue #393）。
+# 書式: https://docs.devin.ai/onboard-devin/environment/blueprint-reference
+# 変更をマージしたら Devin の Settings > Environment > Blueprints で同期してビルドする。
+#
+# Secrets（Devin の blueprint エディタの Secrets タブに登録する。どちらも Clerk 開発インスタンスの値）:
+#   E2E_CLERK_PUBLISHABLE_KEY … pk_test_...
+#   E2E_CLERK_SECRET_KEY      … sk_test_...
+#
+# $ENVRC はビルドごとに作り直され、差分ビルドは maintenance しか走らないため、
+# PATH の追加は maintenance 側に置く。
+
+# Linux: 通常の実装・型チェック・lint・テスト用
+runs-on: default
+initialize:
+  - name: Install Vite+ (vp)
+    run: curl -fsSL https://vite.plus | bash
+    env:
+      VP_HOME: /home/ubuntu/.vite-plus
+      VP_NODE_MANAGER: "yes"
+maintenance:
+  - name: Add vp to PATH
+    run: echo 'export PATH="$HOME/.vite-plus/bin:$PATH"' >> "$ENVRC"
+  - name: Install dependencies
+    run: export PATH="$HOME/.vite-plus/bin:$PATH" && vp install
+  - name: Apply local D1 migrations
+    run: export PATH="$HOME/.vite-plus/bin:$PATH" && vp run @animeishi/api#db:migrate:local
+knowledge:
+  - name: lint
+    contents: |
+      vp run lint
+      vp run fmt:check
+  - name: test
+    contents: |
+      vp run typecheck
+      vp run test
+  - name: build
+    contents: |
+      vp run typecheck
+  - name: e2e
+    contents: |
+      iOS の E2E（vp run @animeishi/mobile#e2e:ios）は Linux では動かない。
+      macOS のセッションで実行する。
+
+---
+# macOS: iOS シミュレーターで Maestro の E2E を回す用
+runs-on: macos
+initialize:
+  - name: Install Vite+ (vp)
+    run: curl -fsSL https://vite.plus | bash
+    env:
+      VP_HOME: /Users/devin/.vite-plus
+      VP_NODE_MANAGER: "yes"
+  - name: Install CocoaPods and Maestro
+    run: |
+      brew install cocoapods
+      brew install mobile-dev-inc/tap/maestro
+maintenance:
+  - name: Add vp to PATH
+    run: echo 'export PATH="$HOME/.vite-plus/bin:$PATH"' >> "$ENVRC"
+  - name: Install dependencies
+    run: export PATH="$HOME/.vite-plus/bin:$PATH" && vp install
+  - name: Write apps/mobile/.env for E2E
+    # 秘密鍵を書く apps/api/.dev.vars はスナップショットに残るためここでは作らない（knowledge の e2e を参照）
+    run: |
+      case "$E2E_CLERK_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "E2E_CLERK_PUBLISHABLE_KEY must be pk_test_..." >&2; exit 1 ;; esac
+      cat > apps/mobile/.env <<EOF
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$E2E_CLERK_PUBLISHABLE_KEY
+      EXPO_PUBLIC_API_URL=http://localhost:8787
+      EOF
+  - name: Apply local D1 migrations
+    run: export PATH="$HOME/.vite-plus/bin:$PATH" && vp run @animeishi/api#db:migrate:local
+knowledge:
+  - name: lint
+    contents: |
+      vp run lint
+      vp run fmt:check
+  - name: test
+    contents: |
+      vp run typecheck
+      vp run test
+  - name: build
+    contents: |
+      vp run typecheck
+  - name: e2e
+    contents: |
+      # API の Clerk 鍵はセッションの環境変数から実行直前に書き出す（スナップショットに残さないため）
+      case "$E2E_CLERK_SECRET_KEY" in sk_test_*) ;; *) echo "E2E_CLERK_SECRET_KEY must be sk_test_..." >&2; exit 1 ;; esac
+      printf 'CLERK_SECRET_KEY=%s\nCLERK_PUBLISHABLE_KEY=%s\n' "$E2E_CLERK_SECRET_KEY" "$E2E_CLERK_PUBLISHABLE_KEY" > apps/api/.dev.vars
+      vp run @animeishi/mobile#e2e:ios
+      初回はネイティブのフルビルドで 30 分〜1 時間かかる。セッション内で 2 回目以降は
+      ~/Library/Caches/animeishi-e2e のキャッシュが効く。
+      iOS 18.x のランタイムが無いので最新ランタイムにフォールバックする。
+      Maestro のドライバ切断（iOS driver not ready / Device unreachable）はスクリプトが自動で
+      リトライする。詳細と失敗時の調べ方は docs/development/e2e-ios.md。
