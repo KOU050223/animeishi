@@ -2,6 +2,14 @@
 # light でサインアップ → ホームまで進む。アプリは起動したままにする。
 # 続けて `xcrun simctl ui <UDID> appearance dark` を実行し、
 # phase4-theme-switch-2.yaml で再起動せずにスクショを撮る。
+#
+# 前提:
+#   - E2E 専用の使い捨てシミュレーター（animeishi-e2e-*）で実行すること。
+#     clearKeychain はシミュレーター全体の Keychain を消すため、
+#     他用途と共有するシミュレーターでは実行しない（docs/development/e2e-ios.md）。
+#   - localhost:8787 で API が起動していること（パート2の削除処理で必要）。
+#   - 別テーマでも撮る場合は外観を戻してパート1からやり直す
+#     （パート2の末尾でテストユーザーを削除するため）。
 appId: com.animeishi.app
 ---
 - evalScript: ${output.email = 'e2e' + Date.now() + '+clerk_test@example.com'}
