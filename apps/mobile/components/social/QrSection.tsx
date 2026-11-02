@@ -14,6 +14,7 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend } from "@/lib/useFriends";
+import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
@@ -236,6 +237,8 @@ function ScanView() {
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
   const addFriend = useAddFriend();
+  // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
+  const [exchangeUid, setExchangeUid] = useState<string | null>(null);
   const {
     permission,
     requestPermission,
@@ -247,10 +250,7 @@ function ScanView() {
       // スキャンした相手をフレンドに追加する。
       addFriend.mutate(userId, {
         onSuccess: () => {
-          alert("フレンドに追加しました", "相手をフレンドに登録しました", {
-            okLabel: "OK",
-            onClose: reset,
-          });
+          setExchangeUid(userId);
         },
         onError: (e) => {
           alert(
@@ -262,6 +262,11 @@ function ScanView() {
       });
     },
   });
+
+  const closeExchangeOverlay = () => {
+    setExchangeUid(null);
+    reset();
+  };
 
   // 権限未確認
   if (!permission) {
@@ -317,6 +322,12 @@ function ScanView() {
               : "QR コードを枠内に収めてください"}
         </Text>
       </View>
+      {exchangeUid ? (
+        <ExchangeSuccessOverlay
+          uid={exchangeUid}
+          onClose={closeExchangeOverlay}
+        />
+      ) : null}
     </View>
   );
 }

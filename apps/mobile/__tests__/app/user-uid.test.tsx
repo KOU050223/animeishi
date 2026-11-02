@@ -32,6 +32,7 @@ const mockConfirm = jest.fn(
     _options?: unknown,
   ) => onConfirm(),
 );
+const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
   // Stack.Screen の options を描画する。画面が headerLeft / title として
@@ -52,7 +53,17 @@ jest.mock("expo-router", () => ({
     canGoBack: () => mockCanGoBack,
     back: mockBack,
     replace: mockReplace,
+    push: mockPush,
   }),
+}));
+
+jest.mock("@/lib/haptics", () => ({
+  haptics: {
+    success: jest.fn(),
+    warning: jest.fn(),
+    selection: jest.fn(),
+    impactLight: jest.fn(),
+  },
 }));
 
 jest.mock("@/lib/useModeration", () => ({
@@ -272,7 +283,7 @@ describe("PublicProfilePage", () => {
     expect(mockFriendsRefetch).toHaveBeenCalled();
   });
 
-  it("追加ボタンを押すと uid で mutate が呼ばれ、成功時に完了アラートが出る", async () => {
+  it("追加ボタンを押すと uid で mutate が呼ばれ、成功時に名刺交換成立の演出が出る", async () => {
     loggedInUser({ userId: "user_me" });
     mockAddFriendMutate.mockImplementation(
       (_vars: unknown, options?: { onSuccess?: () => void }) =>
@@ -289,11 +300,19 @@ describe("PublicProfilePage", () => {
       "user_target",
       expect.any(Object),
     );
-    expect(alert).toHaveBeenCalledWith(
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
+    // 従来の「フレンドに追加しました」アラートは出さない
+    expect(alert).not.toHaveBeenCalledWith(
       "フレンドに追加しました",
-      "相手をフレンドに登録しました",
-      { okLabel: "OK" },
+      expect.anything(),
+      expect.anything(),
     );
+    // すでに user/[uid] にいるため「プロフィールを見る」は出さない（issue #414）
+    expect(screen.queryByTestId("exchange-success-profile-link")).toBeNull();
+
+    // 「閉じる」で演出が閉じる
+    await fireEvent.press(screen.getByTestId("exchange-success-close"));
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
   });
 
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {

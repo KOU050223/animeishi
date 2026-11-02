@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
-import { apiUrl } from "@/lib/apiUrl";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
+import { fetchPublicProfile } from "@/lib/publicProfile";
+import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import {
   REPORT_REASONS,
   useBlockUser,
@@ -25,40 +25,6 @@ import {
 import type { ReportReason } from "@/lib/useModeration";
 import { useAddFriend, useFriends } from "@/lib/useFriends";
 import { useThemeColors } from "@/lib/theme";
-
-type PublicProfile = {
-  id: string;
-  username: string;
-  bio: string | null;
-  favoriteQuote: string | null;
-  profileImageUrl: string | null;
-  genres: string[];
-};
-
-async function fetchPublicProfile(
-  uid: string,
-  token: string | null,
-): Promise<PublicProfile> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  let res: Response;
-  try {
-    res = await fetch(`${apiUrl}/user/${uid}`, {
-      headers: {
-        Accept: "application/json",
-        // ブロック関係にある相手の名刺を隠すため、サインイン済みなら
-        // 閲覧者をサーバーに伝える（公開URLでもブロックを効かせる）。
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-  if (res.status === 404) throw new ApiRequestError(404, "not_found");
-  if (!res.ok) throw new ApiRequestError(res.status, "fetch_error");
-  return res.json() as Promise<PublicProfile>;
-}
 
 export default function PublicProfilePage() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
@@ -76,6 +42,8 @@ export default function PublicProfilePage() {
     refetch: refetchFriends,
   } = useFriends();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  // 名刺交換の成立演出（issue #414）を出す相手。この画面では uid 固定。
+  const [exchangeUid, setExchangeUid] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-profile", uid],
@@ -129,9 +97,7 @@ export default function PublicProfilePage() {
     // QR スキャン時と同じ即時成立の API で追加する（承認フローは #417）。
     addFriend.mutate(uid, {
       onSuccess: () => {
-        alert(t("フレンドに追加しました"), t("相手をフレンドに登録しました"), {
-          okLabel: "OK",
-        });
+        setExchangeUid(uid);
       },
       onError: (e) => {
         alert(
@@ -249,6 +215,14 @@ export default function PublicProfilePage() {
       edges={["bottom"]}
     >
       {screenOptions}
+      {exchangeUid ? (
+        // すでにこの画面（user/[uid]）にいるため「プロフィールを見る」は出さない。
+        <ExchangeSuccessOverlay
+          uid={exchangeUid}
+          showProfileLink={false}
+          onClose={() => setExchangeUid(null)}
+        />
+      ) : null}
       <ScrollView className="flex-1">
         <View className="items-center pt-4 pb-6 px-6">
           {data.profileImageUrl ? (
