@@ -175,5 +175,22 @@
   "名刺を画像で共有": "Share card as image",
   "名刺を保存しました": "Card saved",
   "画像で共有": "Share as image",
-  "画像の共有に失敗しました": "Couldn't share the image"
+  "画像の共有に失敗しました": "Couldn't share the image",
+  "マイ QR": "My QR",
+  "リンクを共有": "Share link",
+  "リンクをコピー": "Copy link",
+  "画像で保存": "Save image",
+  "保存中...": "Saving...",
+  "コピーしました": "Copied",
+  "共有できませんでした": "Couldn't share",
+  "コピーできませんでした": "Couldn't copy",
+  "画像の保存に失敗しました": "Couldn't save the image",
+  "フレンドに追加": "Add friend",
+  "フレンド登録済み": "Already friends",
+  "フレンド登録中...": "Adding...",
+  "フレンドに追加しました": "Friend added",
+  "相手をフレンドに登録しました": "They have been added to your friends",
+  "追加できませんでした": "Couldn't add friend",
+  "フレンド追加に失敗しました": "Failed to add friend",
+  "フレンド一覧を取得できませんでした": "Couldn't load your friends"
 }
