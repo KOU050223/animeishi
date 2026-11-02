@@ -5,10 +5,12 @@
 //   （Annict API の 401 を annictErrorResponse が 401 に変換したもの）
 // どちらも「連携し直せば直る」ため、汎用エラーではなく連携導線を出す。
 import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AnnictFunnelSurface } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { annictErrorKey } from "./errorMessages";
 import { useAnnictFunnel } from "./funnel";
 import { useAnnictConnect } from "./useAnnictConnect";
@@ -37,6 +39,7 @@ export function useAnnictTokenErrorPrompt(surface: AnnictFunnelSurface) {
   const { t } = useTranslation();
   const { connect } = useAnnictConnect();
   const track = useAnnictFunnel(surface);
+  const queryClient = useQueryClient();
 
   return useCallback(
     (error: unknown): boolean => {
@@ -56,6 +59,21 @@ export function useAnnictTokenErrorPrompt(surface: AnnictFunnelSurface) {
                 t(annictErrorKey(result.reason)),
                 { okLabel: "OK" },
               );
+              return;
+            }
+            if (result.status === "success") {
+              // 再連携で別アカウントに切り替わると、旧トークンで取った
+              // viewerStatusState が新アカウントの実状態とずれるため、
+              // 作品詳細と視聴履歴を新トークンで再取得させる。
+              // useWorkDetail を import すると循環参照になるため、
+              // WORK_DETAIL_QUERY_KEY（["works", "detail"]）はリテラルで書く
+              // （useAnnictConnect の disconnect と同じ扱い）。
+              void queryClient.invalidateQueries({
+                queryKey: ["works", "detail"],
+              });
+              void queryClient.invalidateQueries({
+                queryKey: WATCH_HISTORY_QUERY_KEY,
+              });
             }
           });
         },
@@ -63,6 +81,6 @@ export function useAnnictTokenErrorPrompt(surface: AnnictFunnelSurface) {
       );
       return true;
     },
-    [connect, surface, track, t],
+    [connect, queryClient, surface, track, t],
   );
 }
