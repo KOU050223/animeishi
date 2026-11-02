@@ -1,10 +1,12 @@
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { QrSection } from "@/components/social/QrSection";
 import { alert } from "@/lib/dialog";
@@ -31,12 +33,52 @@ jest.mock("expo-camera", () => ({
   ],
 }));
 
+const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useIsFocused: () => true,
+  useRouter: () => ({ push: mockPush }),
 }));
 
+const mockAddFriendMutate = jest.fn();
 jest.mock("@/lib/useFriends", () => ({
-  useAddFriend: () => ({ mutate: jest.fn(), isPending: false }),
+  useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
+}));
+
+// 成立演出の見た目は ExchangeSuccessOverlay 側のテストで担保する。
+// ここでは「演出が出る・遷移する・スキャン状態が戻る」の結線だけを見る。
+const mockScannerReset = jest.fn();
+let capturedOnScanned:
+  | ((result: { userId: string; raw: string }) => void)
+  | undefined;
+jest.mock("@/lib/useQrScanner", () => ({
+  useQrScanner: (options: {
+    onScanned?: (result: { userId: string; raw: string }) => void;
+  }) => {
+    capturedOnScanned = options.onScanned;
+    return {
+      permission: { granted: true },
+      requestPermission: jest.fn(),
+      scanned: false,
+      handleBarcodeScanned: jest.fn(),
+      reset: mockScannerReset,
+    };
+  },
+}));
+
+jest.mock("@/lib/haptics", () => ({
+  haptics: {
+    success: jest.fn(),
+    warning: jest.fn(),
+    selection: jest.fn(),
+    impactLight: jest.fn(),
+  },
+}));
+
+jest.mock("@/components/MeishiCard", () => ({
+  MeishiCard: () => {
+    const { Text } = require("react-native");
+    return <Text testID="meishi-card">名刺カード</Text>;
+  },
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -69,9 +111,32 @@ jest.mock("@/lib/profileUrl", () => ({
 
 const USER_ID = "user_2abcDEF1234567890ghijKLMN";
 
+const PARTNER_PROFILE = {
+  id: "user_partner",
+  username: "交換相手",
+  bio: "よろしく",
+  favoriteQuote: null,
+  profileImageUrl: null,
+  genres: [],
+};
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
+  capturedOnScanned = undefined;
+  // 成立演出が取りに行く公開プロフィール。
+  global.fetch = jest.fn(async () => ({
+    status: 200,
+    ok: true,
+    json: async () => PARTNER_PROFILE,
+  })) as unknown as typeof fetch;
 });
 
 describe("マイQR（QR コード生成）", () => {
@@ -178,5 +243,85 @@ describe("スキャン", () => {
     await fireEvent.press(screen.getByLabelText("スキャン"));
 
     expect(screen.getByText("QR コードを枠内に収めてください")).toBeTruthy();
+  });
+
+  it("フレンド追加が成立したら名刺交換成立の演出を出し、「プロフィールを見る」で遷移する", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        raw: "animeishi://user_partner",
+      }),
+    );
+
+    expect(mockAddFriendMutate).toHaveBeenCalledWith(
+      "user_partner",
+      expect.any(Object),
+    );
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
+    expect(alert).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId("exchange-success-profile-link"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "user_partner" },
+    });
+    // 演出を閉じるとスキャン状態がリセットされる（alert の onClose 相当）。
+    expect(mockScannerReset).toHaveBeenCalled();
+  });
+
+  it("成立演出を「閉じる」で閉じるとスキャン状態がリセットされる", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        raw: "animeishi://user_partner",
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId("exchange-success-close"));
+
+    expect(mockScannerReset).toHaveBeenCalled();
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  });
+
+  it("フレンド追加に失敗したら従来どおりエラーの alert を出す", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>
+        options?.onError?.(new Error("すでにフレンドです")),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        raw: "animeishi://user_partner",
+      }),
+    );
+
+    expect(alert).toHaveBeenCalledWith(
+      "追加できませんでした",
+      "すでにフレンドです",
+      { okLabel: "OK", onClose: expect.any(Function) },
+    );
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
   });
 });
