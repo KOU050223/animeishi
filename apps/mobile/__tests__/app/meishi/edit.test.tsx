@@ -92,7 +92,7 @@ jest.mock("@/lib/profileUrl", () => ({
 }));
 
 // 画像共有のスナップショット描画・撮像は本テストの対象外。
-jest.mock("@/lib/meishi/useMeishiImageShare", () => ({
+jest.mock("@/lib/meishi/imageShare", () => ({
   useMeishiImageShare: () => ({
     shareImage: mockShareMeishiImage,
     isSharing: false,

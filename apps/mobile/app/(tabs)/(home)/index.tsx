@@ -22,7 +22,7 @@ import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 import { useProfile } from "@/lib/useProfile";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import { useMeishiImageShare } from "@/lib/meishi/useMeishiImageShare";
+import { useMeishiImageShare } from "@/lib/meishi/imageShare";
 import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMarkScreenInteractive } from "@/lib/observe";

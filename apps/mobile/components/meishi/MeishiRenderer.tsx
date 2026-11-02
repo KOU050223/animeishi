@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { BackgroundLayer } from "./BackgroundLayer";
-import {
-  ElementRenderer,
-  type OnImageLoadEnd,
-} from "./elements/ElementRenderer";
+import { ElementRenderer } from "./elements/ElementRenderer";
+import type { OnImageLoadEnd } from "@/lib/meishi/renderableImages";
 import { MEISHI_DESIGN_WIDTH } from "@/lib/meishi/defaults";
 import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 

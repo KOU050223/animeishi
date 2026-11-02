@@ -27,7 +27,7 @@ import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import { useMeishiImageShare } from "@/lib/meishi/useMeishiImageShare";
+import { useMeishiImageShare } from "@/lib/meishi/imageShare";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useFavorites } from "@/lib/useFavorites";
 import {

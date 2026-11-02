@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MeishiRenderer } from "./MeishiRenderer";
-import { countRenderableImages } from "./elements/ElementRenderer";
+import { countRenderableImages } from "@/lib/meishi/renderableImages";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 

@@ -95,7 +95,7 @@ jest.mock("@/lib/profileUrl", () => ({
 jest.mock("@/lib/meishi/useMeishiRenderContext", () => ({
   useMeishiRenderContext: () => ({ profile: {} }),
 }));
-jest.mock("@/lib/meishi/useMeishiImageShare", () => ({
+jest.mock("@/lib/meishi/imageShare", () => ({
   useMeishiImageShare: () => ({
     shareImage: jest.fn(),
     isSharing: false,
