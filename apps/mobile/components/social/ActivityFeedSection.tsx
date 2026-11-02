@@ -13,9 +13,6 @@ import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 import { activityText, formatRelativeTime } from "@/lib/activityText";
 import { useThemeColors } from "@/lib/theme";
 
-// フレンドの活動フィード（issue #265）。issue #407 でホームから social タブの
-// 「アクティビティ」セクションへ移し、セクション単体でスクロールできる
-// FlatList + onEndReached の無限スクロールにした（「もっと見る」は廃止）。
 // 画面上部の safe area とセクション切り替えはタブ画面側が持つため、
 // ここではセクション名の見出しを出さない。
 export function ActivityFeedSection() {
@@ -34,8 +31,11 @@ export function ActivityFeedSection() {
 
   async function onRefresh() {
     setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function onEndReached() {
