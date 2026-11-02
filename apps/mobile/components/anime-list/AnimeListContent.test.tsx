@@ -77,6 +77,22 @@ jest.mock("@/lib/events", () => ({
   trackEvent: jest.fn(),
 }));
 
+// 詳細シートの Annict 連携系はネイティブ依存を持つためスタブにする。
+// 既定は連携済み・エラーはトークン起因でない扱い。
+const mockPromptAnnictTokenError = jest.fn();
+jest.mock("@/lib/annict", () => ({
+  useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
+  useAnnictConnect: () => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    isConnecting: false,
+  }),
+  useAnnictFunnel: () => jest.fn(),
+  useAnnictTokenErrorPrompt: () => mockPromptAnnictTokenError,
+  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+    .annictErrorKey,
+}));
+
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、
 // 一覧側のテストではスタブにする（シート自体は AddToWorkListSheet.test.tsx）。
 jest.mock("@/lib/workList/useWorkLists", () => ({
@@ -132,6 +148,7 @@ describe("AnimeListContent", () => {
     jest.clearAllMocks();
     mockMutateAsync.mockResolvedValue({});
     mockWatchHistory = undefined;
+    mockPromptAnnictTokenError.mockReturnValue(false);
   });
 
   it("視聴済みの作品のカードには「済」スタンプを押し、読み上げにも状態を含める（issue #421）", async () => {
