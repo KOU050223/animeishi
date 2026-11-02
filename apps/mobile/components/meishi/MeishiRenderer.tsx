@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { BackgroundLayer } from "./BackgroundLayer";
-import { ElementRenderer } from "./elements/ElementRenderer";
+import {
+  ElementRenderer,
+  type OnImageLoadEnd,
+} from "./elements/ElementRenderer";
 import { MEISHI_DESIGN_WIDTH } from "@/lib/meishi/defaults";
 import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 
@@ -9,6 +12,8 @@ export type MeishiRendererProps = {
   document: MeishiDocument;
   context: MeishiRenderContext;
   borderRadius?: number;
+  /** 共有画像スナップショットのキャプチャ待ち用。通常描画では未指定でよい。 */
+  onImageLoadEnd?: OnImageLoadEnd;
 };
 
 /**
@@ -19,6 +24,7 @@ export function MeishiRenderer({
   document,
   context,
   borderRadius = 16,
+  onImageLoadEnd,
 }: MeishiRendererProps) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(
     null,
@@ -70,6 +76,7 @@ export function MeishiRenderer({
                   boxWidth={w}
                   boxHeight={h}
                   renderScale={renderScale}
+                  onImageLoadEnd={onImageLoadEnd}
                 />
               </View>
             );

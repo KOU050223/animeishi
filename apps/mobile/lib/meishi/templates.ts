@@ -225,3 +225,17 @@ export function getTemplate(id: string): MeishiTemplate | undefined {
 export function buildBlankDocument(): MeishiDocument {
   return MEISHI_TEMPLATES[0].build();
 }
+
+/**
+ * 表示用ドキュメントの解決。未作成（null）なら classic テンプレを
+ * フォールバックとして返す（プレビュー・共有画像で共通の扱い）。
+ */
+export function resolveMeishiDocument(
+  document: MeishiDocument | null | undefined,
+): MeishiDocument {
+  return (
+    document ??
+    MEISHI_TEMPLATES.find((t) => t.id === "classic")?.build() ??
+    buildBlankDocument()
+  );
+}

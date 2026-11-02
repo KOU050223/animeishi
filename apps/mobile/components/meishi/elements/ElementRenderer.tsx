@@ -5,12 +5,39 @@ import type {
   AnimeCollageElement,
   AnimeCountBadgeElement,
   ImageElement,
+  MeishiDocument,
   MeishiElement,
   MeishiRenderContext,
   QrElement,
   ShapeElement,
   TextElement,
 } from "@/lib/meishi/types";
+
+/** 画像読み込み（成功・失敗問わず onLoadEnd 到達）を要素ごとに通知するコールバック。 */
+export type OnImageLoadEnd = () => void;
+
+/**
+ * ドキュメント内で実際に <Image> として描画される画像の総数。
+ * 共有画像スナップショット（MeishiShareSnapshot）がキャプチャ開始を
+ * 判断するために使う。ImageRender / AnimeCollageRender の描画条件と
+ * 一致させること（ずれると onReady が発火せずタイムアウト待ちになる）。
+ */
+export function countRenderableImages(
+  document: MeishiDocument,
+  ctx: MeishiRenderContext,
+): number {
+  let count = 0;
+  for (const el of document.elements) {
+    if (el.type === "image") {
+      if (resolveImageUri(el, ctx)) count += 1;
+    } else if (el.type === "animeCollage") {
+      count += resolveCollageImages(el, ctx)
+        .slice(0, el.cols * el.rows)
+        .filter((uri) => !!uri).length;
+    }
+  }
+  return count;
+}
 
 function resolveFontFamily(
   family: TextElement["fontFamily"],
@@ -107,12 +134,14 @@ function ImageRender({
   boxWidth,
   boxHeight,
   renderScale,
+  onImageLoadEnd,
 }: {
   el: ImageElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   const uri = resolveImageUri(el, ctx);
   const borderRadius =
@@ -152,6 +181,9 @@ function ImageRender({
         source={{ uri }}
         style={{ width: "100%", height: "100%" }}
         resizeMode={el.objectFit}
+        // 読み込み完了直後に撮るため共有画像は transition を付けない。
+        // onLoadEnd は成功・失敗どちらでも来る。
+        onLoadEnd={onImageLoadEnd}
       />
     </View>
   );
@@ -266,12 +298,14 @@ function AnimeCollageRender({
   boxWidth,
   boxHeight,
   renderScale,
+  onImageLoadEnd,
 }: {
   el: AnimeCollageElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   const images = resolveCollageImages(el, ctx).slice(0, el.cols * el.rows);
   const gapPx = el.gap * boxWidth;
@@ -306,6 +340,7 @@ function AnimeCollageRender({
                 source={{ uri }}
                 style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"
+                onLoadEnd={onImageLoadEnd}
               />
             ) : null}
           </View>
@@ -365,12 +400,18 @@ export function ElementRenderer({
   boxWidth,
   boxHeight,
   renderScale = 1,
+  onImageLoadEnd,
 }: {
   element: MeishiElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale?: number;
+  /**
+   * 各画像の読み込み終了を通知する。共有画像スナップショットの
+   * キャプチャ待ち（onReady）にだけ使い、通常描画では未指定でよい。
+   */
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   switch (element.type) {
     case "text":
@@ -391,6 +432,7 @@ export function ElementRenderer({
           boxWidth={boxWidth}
           boxHeight={boxHeight}
           renderScale={renderScale}
+          onImageLoadEnd={onImageLoadEnd}
         />
       );
     case "shape":
@@ -420,6 +462,7 @@ export function ElementRenderer({
           boxWidth={boxWidth}
           boxHeight={boxHeight}
           renderScale={renderScale}
+          onImageLoadEnd={onImageLoadEnd}
         />
       );
     case "animeCountBadge":

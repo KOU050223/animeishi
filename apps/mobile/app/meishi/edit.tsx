@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -18,7 +19,7 @@ import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
 import { BackButton } from "@/components/ui";
-import { alert } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
@@ -26,6 +27,7 @@ import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { useMeishiImageShare } from "@/lib/meishi/useMeishiImageShare";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useFavorites } from "@/lib/useFavorites";
 import {
@@ -43,6 +45,7 @@ import type {
 } from "@/lib/meishi/types";
 
 export default function MeishiEditScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -110,6 +113,12 @@ export default function MeishiEditScreen() {
     }),
     [favorites, profile, watchHistory],
   );
+
+  // 名刺の画像共有（issue #425）。保存後の確認ダイアログから起動する。
+  const {
+    shareImage: shareMeishiImage,
+    snapshotElement: meishiSnapshotElement,
+  } = useMeishiImageShare({ document: doc, context });
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
   const inspectorHeight = Math.min(
@@ -185,13 +194,20 @@ export default function MeishiEditScreen() {
     trackEvent("meishi_save");
     await saveDocument();
     haptics.success();
-    const message = "名刺を保存しました";
+    const message = t("名刺を保存しました");
     setSaveFeedbackVisible(true);
     AccessibilityInfo.announceForAccessibility(message);
     if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current);
     saveFeedbackTimer.current = setTimeout(
       () => setSaveFeedbackVisible(false),
       2500,
+    );
+    // 保存後の共有導線（issue #425）。保存できた時点の名刺を画像で出せる。
+    confirm(
+      t("名刺を保存しました"),
+      t("画像にして共有しますか？"),
+      () => void shareMeishiImage(),
+      { confirmLabel: t("画像で共有"), cancelLabel: t("閉じる") },
     );
   };
 
@@ -397,6 +413,9 @@ export default function MeishiEditScreen() {
           </View>
         ) : null}
       </View>
+
+      {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
+      {meishiSnapshotElement}
     </SafeAreaView>
   );
 }
