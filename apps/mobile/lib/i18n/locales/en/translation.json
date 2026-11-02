@@ -170,5 +170,10 @@
   "視聴ステータスの選択を閉じる": "Close status selection",
   "{{state}}に変更": "Change to {{state}}",
   "{{title}}を「{{state}}」に変更しました": "Changed {{title}} to {{state}}",
-  "元に戻す": "Undo"
+  "元に戻す": "Undo",
+  "名刺": "Card",
+  "名刺を画像で共有": "Share card as image",
+  "名刺を保存しました": "Card saved",
+  "画像で共有": "Share as image",
+  "画像の共有に失敗しました": "Couldn't share the image"
 }
