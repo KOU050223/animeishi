@@ -29,13 +29,9 @@ export function ActivityFeedSection() {
   } = useActivityFeed();
   const items = data?.pages.flatMap((page) => page.items) ?? [];
 
-  async function onRefresh() {
+  function onRefresh() {
     setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    void refetch().finally(() => setRefreshing(false));
   }
 
   function onEndReached() {
