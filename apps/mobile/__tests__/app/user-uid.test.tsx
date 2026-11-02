@@ -66,13 +66,6 @@ jest.mock("@/lib/haptics", () => ({
   },
 }));
 
-jest.mock("@/components/MeishiCard", () => ({
-  MeishiCard: () => {
-    const { Text } = require("react-native");
-    return <Text testID="meishi-card">名刺カード</Text>;
-  },
-}));
-
 jest.mock("@/lib/useModeration", () => ({
   REPORT_REASONS: ["不適切なコンテンツ", "スパム・宣伝"],
   useReportUser: () => ({ mutate: mockReportMutate, isPending: false }),

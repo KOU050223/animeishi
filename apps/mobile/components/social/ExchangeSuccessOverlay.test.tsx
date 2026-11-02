@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
+import { useFavorites } from "@/lib/useFavorites";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const PROFILE = {
@@ -36,13 +37,10 @@ jest.mock("@/lib/haptics", () => ({
   },
 }));
 
-// 名刺カードの描画自体は MeishiCard 側の責務。ここでは公開プロフィールが
-// props として渡ることだけを見る。
-jest.mock("@/components/MeishiCard", () => ({
-  MeishiCard: (props: { username?: string | null }) => {
-    const { Text } = require("react-native");
-    return <Text testID="meishi-card">{props.username}</Text>;
-  },
+// 成立カードは相手の公開プロフィールだけで組む。閲覧者自身の
+// favorites / watch history を参照しないことをモックでガードする。
+jest.mock("@/lib/useFavorites", () => ({
+  useFavorites: jest.fn(() => ({ data: undefined })),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -67,7 +65,7 @@ beforeEach(async () => {
 });
 
 describe("ExchangeSuccessOverlay", () => {
-  it("成立すると「名刺交換成立」と相手の名刺カードを出し、成功ハプティクスを鳴らす", async () => {
+  it("成立すると「名刺交換成立」と相手のユーザー名・自己紹介を出し、成功ハプティクスを鳴らす", async () => {
     loggedInUser({ userId: "user_me" });
     await render(
       <ExchangeSuccessOverlay uid="user_partner" onClose={mockOnClose} />,
@@ -76,9 +74,12 @@ describe("ExchangeSuccessOverlay", () => {
 
     expect(screen.getByText("名刺交換成立")).toBeTruthy();
     expect(haptics.success).toHaveBeenCalledTimes(1);
-    await waitFor(() =>
-      expect(screen.getByTestId("meishi-card")).toHaveTextContent("交換相手"),
-    );
+    await waitFor(() => {
+      expect(screen.getByText("交換相手")).toBeTruthy();
+      expect(screen.getByText("よろしく")).toBeTruthy();
+    });
+    // 相手のカードに閲覧者自身の favorites / watch history が混入しない。
+    expect(useFavorites).not.toHaveBeenCalled();
   });
 
   it("「プロフィールを見る」で相手の user/[uid] へ遷移し、オーバーレイを閉じる", async () => {

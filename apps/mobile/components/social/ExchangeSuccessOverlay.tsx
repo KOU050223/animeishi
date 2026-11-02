@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   Text,
@@ -12,10 +13,8 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { MeishiCard } from "@/components/MeishiCard";
 import { haptics } from "@/lib/haptics";
-import { buildProfileUrl } from "@/lib/profileUrl";
-import { fetchPublicProfile } from "@/lib/publicProfile";
+import { fetchPublicProfile, type PublicProfile } from "@/lib/publicProfile";
 import { useThemeColors } from "@/lib/theme";
 
 export type ExchangeSuccessOverlayProps = {
@@ -36,9 +35,47 @@ const cardEntering = ZoomIn.withInitialValues({
   transform: [{ scale: 0.92 }],
 }).duration(240);
 
+// 相手の名刺ドキュメントを返す公開 API は無いため、MeishiCard は使わず
+// 公開プロフィールの項目だけで組む軽量カードにする（MeishiCard の
+// classic テンプレートは閲覧者自身の favorites / watch history を
+// 参照してしまう）。見た目は app/user/[uid].tsx のヘッダーに揃える。
+function ExchangeCard({ profile }: { profile: PublicProfile }) {
+  return (
+    <View
+      className="w-full rounded-2xl bg-white dark:bg-slate-800 px-6 py-6 items-center"
+      testID="exchange-success-card"
+    >
+      {profile.profileImageUrl ? (
+        <Image
+          source={{ uri: profile.profileImageUrl }}
+          className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700"
+          accessibilityLabel={`${profile.username}のアイコン`}
+        />
+      ) : (
+        <View
+          className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center"
+          accessibilityLabel={`${profile.username}のアイコン`}
+        >
+          <Text className="text-2xl text-slate-400 dark:text-slate-500">
+            {profile.username.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-3">
+        {profile.username}
+      </Text>
+      {profile.bio ? (
+        <Text className="text-sm text-slate-500 dark:text-slate-400 mt-1 text-center">
+          {profile.bio}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 /**
  * 名刺交換（フレンド追加）が成立した瞬間の演出（issue #414）。
- * 相手の名刺カードを全画面モーダルで見せ、開くたびに 1 回だけ
+ * 相手のカードを全画面モーダルで見せ、開くたびに 1 回だけ
  * ハプティクス（notification success）を鳴らす。
  *
  * 相手の公開名刺データは app/user/[uid].tsx と同じ取得方法
@@ -107,13 +144,7 @@ export function ExchangeSuccessOverlay({
           </Text>
           <View className="w-full max-w-sm mt-6" style={{ minHeight: 140 }}>
             {profile ? (
-              <MeishiCard
-                username={profile.username}
-                bio={profile.bio}
-                favoriteQuote={profile.favoriteQuote}
-                profileImageUrl={profile.profileImageUrl}
-                profileUrl={buildProfileUrl(uid)}
-              />
+              <ExchangeCard profile={profile} />
             ) : isLoading ? (
               <ActivityIndicator
                 color="#ffffff"

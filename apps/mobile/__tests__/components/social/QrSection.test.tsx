@@ -74,13 +74,6 @@ jest.mock("@/lib/haptics", () => ({
   },
 }));
 
-jest.mock("@/components/MeishiCard", () => ({
-  MeishiCard: () => {
-    const { Text } = require("react-native");
-    return <Text testID="meishi-card">名刺カード</Text>;
-  },
-}));
-
 jest.mock("@/lib/dialog", () => ({
   alert: jest.fn(),
   confirm: jest.fn(),
