@@ -14,7 +14,6 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Button } from "@/components/ui/Button";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
-import { ActivityFeedSection } from "@/components/ActivityFeedSection";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { useAnnictConnection } from "@/lib/annict";
 import { featureFlags } from "@/lib/featureFlags";
@@ -92,8 +91,6 @@ export default function HomeScreen() {
             <AnnictConnectionCard surface="home_card" />
           </View>
         )}
-
-        <ActivityFeedSection />
 
         {featureFlags.debugPanel && (
           <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">

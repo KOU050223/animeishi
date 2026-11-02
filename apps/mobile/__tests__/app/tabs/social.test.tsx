@@ -1,5 +1,5 @@
-// QR・フレンドタブのテスト（issue #170）。
-// QR / フレンド を上部セグメントで切り替え、
+// QR・フレンドタブのテスト（issue #170、#407）。
+// QR / アクティビティ / フレンド を上部セグメントで切り替え、
 // 旧パスからのリダイレクト（?section=...）でも対応セクションを開く。
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
@@ -35,6 +35,13 @@ jest.mock("@/components/social/FriendsSection", () => ({
     return React.createElement(Text, { testID: "section-friends" });
   },
 }));
+jest.mock("@/components/social/ActivityFeedSection", () => ({
+  ActivityFeedSection: () => {
+    const React = require("react");
+    const { Text } = require("react-native");
+    return React.createElement(Text, { testID: "section-activity" });
+  },
+}));
 
 beforeEach(() => {
   mockParams = {};
@@ -42,10 +49,11 @@ beforeEach(() => {
 });
 
 describe("SocialScreen", () => {
-  it("初期表示は QR セクション", async () => {
+  it("初期表示はアクティビティセクション", async () => {
     await render(<SocialScreen />);
 
-    expect(screen.getByTestId("section-qr")).toBeTruthy();
+    expect(screen.getByTestId("section-activity")).toBeTruthy();
+    expect(screen.queryByTestId("section-qr")).toBeNull();
     expect(screen.queryByTestId("section-friends")).toBeNull();
   });
 
@@ -57,7 +65,25 @@ describe("SocialScreen", () => {
     await rerender(<SocialScreen />);
 
     expect(screen.getByTestId("section-friends")).toBeTruthy();
-    expect(screen.queryByTestId("section-qr")).toBeNull();
+    expect(screen.queryByTestId("section-activity")).toBeNull();
+  });
+
+  it("セグメント操作は URL の section を更新して QR へ切り替わる", async () => {
+    const { rerender } = await render(<SocialScreen />);
+
+    await fireEvent.press(screen.getByTestId("social-section-qr"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "qr" });
+    await rerender(<SocialScreen />);
+
+    expect(screen.getByTestId("section-qr")).toBeTruthy();
+    expect(screen.queryByTestId("section-activity")).toBeNull();
+  });
+
+  it("?section=qr で QR セクションを開く", async () => {
+    mockParams = { section: "qr" };
+    await render(<SocialScreen />);
+
+    expect(screen.getByTestId("section-qr")).toBeTruthy();
   });
 
   it("?section=friends でフレンドセクションを開く", async () => {
@@ -67,10 +93,10 @@ describe("SocialScreen", () => {
     expect(screen.getByTestId("section-friends")).toBeTruthy();
   });
 
-  it("未知の section 値は無視して QR セクションを開く", async () => {
+  it("未知の section 値は無視してアクティビティセクションを開く", async () => {
     mockParams = { section: "unknown" };
     await render(<SocialScreen />);
 
-    expect(screen.getByTestId("section-qr")).toBeTruthy();
+    expect(screen.getByTestId("section-activity")).toBeTruthy();
   });
 });

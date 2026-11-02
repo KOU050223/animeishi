@@ -37,14 +37,6 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
   },
 }));
 
-// フィード本体の振る舞いは ActivityFeedSection.test.tsx 側で検証する。
-jest.mock("@/components/ActivityFeedSection", () => ({
-  ActivityFeedSection: () => {
-    const { Text } = require("react-native");
-    return <Text testID="activity-feed-section">活動フィード</Text>;
-  },
-}));
-
 // ストーリーリング本体の振る舞いは FriendStoryRail.test.tsx 側で検証する。
 jest.mock("@/components/FriendStoryRail", () => ({
   FriendStoryRail: () => {
@@ -105,7 +97,6 @@ describe("HomeScreen", () => {
     expect(screen.getByTestId("home-open-meishi-edit")).toBeTruthy();
     expect(screen.getByTestId("home-open-qr")).toBeTruthy();
     expect(screen.getByText("Annict連携")).toBeTruthy();
-    expect(screen.getByTestId("activity-feed-section")).toBeTruthy();
     expect(screen.getByTestId("friend-story-rail")).toBeTruthy();
   });
 
@@ -135,6 +126,12 @@ describe("HomeScreen", () => {
     loggedInUser();
     await render(<HomeScreen />);
     expect(screen.queryByText("Annict連携")).toBeNull();
+  });
+
+  it("活動フィードはホームに出さない（social タブのアクティビティに集約）", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId("activity-feed-section")).toBeNull();
   });
 
   it("サインアウトはホームに出さない（プロフィールの設定群に集約）", async () => {
