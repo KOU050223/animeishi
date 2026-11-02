@@ -19,7 +19,7 @@ import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import { TemplatePicker } from "@/components/meishi/TemplatePicker";
 import { TextEditSheet } from "@/components/meishi/TextEditSheet";
 import { BackButton } from "@/components/ui";
-import { alert, confirm } from "@/lib/dialog";
+import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
@@ -114,7 +114,7 @@ export default function MeishiEditScreen() {
     [favorites, profile, watchHistory],
   );
 
-  // 名刺の画像共有（issue #425）。保存後の確認ダイアログから起動する。
+  // 名刺の画像共有（issue #425）。保存トースト内のボタンから起動する。
   const {
     shareImage: shareMeishiImage,
     snapshotElement: meishiSnapshotElement,
@@ -198,16 +198,10 @@ export default function MeishiEditScreen() {
     setSaveFeedbackVisible(true);
     AccessibilityInfo.announceForAccessibility(message);
     if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current);
+    // トースト内の「画像で共有」ボタンを押せるよう、少し長めに出す（issue #425）
     saveFeedbackTimer.current = setTimeout(
       () => setSaveFeedbackVisible(false),
-      2500,
-    );
-    // 保存後の共有導線（issue #425）。保存できた時点の名刺を画像で出せる。
-    confirm(
-      t("名刺を保存しました"),
-      t("画像にして共有しますか？"),
-      () => void shareMeishiImage(),
-      { confirmLabel: t("画像で共有"), cancelLabel: t("閉じる") },
+      4000,
     );
   };
 
@@ -410,6 +404,16 @@ export default function MeishiEditScreen() {
             accessibilityLiveRegion="polite"
           >
             <Text style={styles.saveFeedbackText}>名刺を保存しました</Text>
+            <Pressable
+              onPress={() => void shareMeishiImage()}
+              style={styles.saveFeedbackShareBtn}
+              accessibilityLabel={t("画像で共有")}
+              testID="meishi-save-share-image"
+            >
+              <Text style={styles.saveFeedbackShareText}>
+                {t("画像で共有")}
+              </Text>
+            </Pressable>
           </View>
         ) : null}
       </View>
@@ -586,6 +590,10 @@ function createStyles(colors: ThemeColors) {
       alignItems: "center",
     },
     saveFeedback: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
       marginTop: 52,
       marginHorizontal: 16,
       paddingHorizontal: 16,
@@ -597,6 +605,18 @@ function createStyles(colors: ThemeColors) {
     saveFeedbackText: {
       color: colors.successText,
       fontSize: 14,
+      fontWeight: "600",
+    },
+    saveFeedbackShareBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.successText,
+    },
+    saveFeedbackShareText: {
+      color: colors.successText,
+      fontSize: 13,
       fontWeight: "600",
     },
   });
