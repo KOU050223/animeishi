@@ -69,7 +69,12 @@ export default function PublicProfilePage() {
   const reportUser = useReportUser();
   const blockUser = useBlockUser();
   const addFriend = useAddFriend();
-  const { data: friends, isLoading: isFriendsLoading } = useFriends();
+  const {
+    data: friends,
+    isLoading: isFriendsLoading,
+    isError: isFriendsError,
+    refetch: refetchFriends,
+  } = useFriends();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
 
   const { data, isLoading, error } = useQuery({
@@ -269,7 +274,29 @@ export default function PublicProfilePage() {
 
           {showFriendAction ? (
             <View className="mt-4 w-full">
-              {isFriendsLoading ? null : isFriend ? (
+              {isFriendsLoading ? null : isFriendsError ? (
+                // 一覧取得失敗を未登録と誤認して追加ボタンを出さない
+                // （追加 API は冪等なので押せてしまい、登録済みでも
+                // 「追加しました」と通知してしまう）。
+                <View
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
+                  testID="friends-load-error"
+                >
+                  <Text className="text-sm text-slate-500 dark:text-slate-400">
+                    {t("フレンド一覧を取得できませんでした")}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => refetchFriends()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("再試行")}
+                    testID="friends-retry-button"
+                  >
+                    <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      {t("再試行")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : isFriend ? (
                 <View
                   className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
                   testID="already-friends-badge"

@@ -64,10 +64,17 @@ jest.mock("@/lib/useModeration", () => ({
 }));
 
 const mockAddFriendMutate = jest.fn();
+const mockFriendsRefetch = jest.fn();
 let mockFriendsData: { friendId: string }[] = [];
+let mockFriendsError = false;
 jest.mock("@/lib/useFriends", () => ({
   useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
-  useFriends: () => ({ data: mockFriendsData, isLoading: false }),
+  useFriends: () => ({
+    data: mockFriendsData,
+    isLoading: false,
+    isError: mockFriendsError,
+    refetch: mockFriendsRefetch,
+  }),
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -101,6 +108,7 @@ beforeEach(async () => {
   mockProfileFetch();
   mockCanGoBack = true;
   mockFriendsData = [];
+  mockFriendsError = false;
 });
 
 describe("PublicProfilePage", () => {
@@ -247,6 +255,21 @@ describe("PublicProfilePage", () => {
 
     expect(screen.getByTestId("already-friends-badge")).toBeTruthy();
     expect(screen.queryByTestId("add-friend-button")).toBeNull();
+  });
+
+  it("フレンド一覧の取得に失敗したら追加ボタンではなく再試行導線を出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockFriendsError = true;
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("already-friends-badge")).toBeNull();
+    const retry = screen.getByTestId("friends-retry-button");
+    await fireEvent.press(retry);
+    expect(mockFriendsRefetch).toHaveBeenCalled();
   });
 
   it("追加ボタンを押すと uid で mutate が呼ばれ、成功時に完了アラートが出る", async () => {
