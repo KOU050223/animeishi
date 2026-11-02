@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
+import { alert } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 const PROFILE = {
@@ -62,6 +63,13 @@ jest.mock("@/lib/useModeration", () => ({
   useBlockedUsers: () => ({ data: [], isLoading: false }),
 }));
 
+const mockAddFriendMutate = jest.fn();
+let mockFriendsData: { friendId: string }[] = [];
+jest.mock("@/lib/useFriends", () => ({
+  useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
+  useFriends: () => ({ data: mockFriendsData, isLoading: false }),
+}));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -92,6 +100,7 @@ beforeEach(async () => {
   resetAuth();
   mockProfileFetch();
   mockCanGoBack = true;
+  mockFriendsData = [];
 });
 
 describe("PublicProfilePage", () => {
@@ -194,6 +203,74 @@ describe("PublicProfilePage", () => {
 
     expect(screen.queryByTestId("report-user-button")).toBeNull();
     expect(screen.queryByTestId("block-user-button")).toBeNull();
+  });
+
+  it("他人の名刺には「フレンドに追加」ボタンが表示される", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.getByTestId("add-friend-button")).toBeTruthy();
+  });
+
+  it("未サインインでは「フレンドに追加」を表示しない", async () => {
+    signedOutUser();
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("already-friends-badge")).toBeNull();
+  });
+
+  it("自分自身の名刺では「フレンドに追加」を表示しない", async () => {
+    loggedInUser({ userId: "user_target" });
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("already-friends-badge")).toBeNull();
+  });
+
+  it("すでにフレンドなら登録済みバッジを表示し、追加ボタンは出さない", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockFriendsData = [{ friendId: "user_target" }];
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.getByTestId("already-friends-badge")).toBeTruthy();
+    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+  });
+
+  it("追加ボタンを押すと uid で mutate が呼ばれ、成功時に完了アラートが出る", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("add-friend-button"));
+
+    expect(mockAddFriendMutate).toHaveBeenCalledWith(
+      "user_target",
+      expect.any(Object),
+    );
+    expect(alert).toHaveBeenCalledWith(
+      "フレンドに追加しました",
+      "相手をフレンドに登録しました",
+      { okLabel: "OK" },
+    );
   });
 
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
