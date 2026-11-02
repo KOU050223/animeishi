@@ -25,3 +25,7 @@ export {
   useAnnictConnection,
 } from "./useAnnictConnection";
 export { annictErrorKey } from "./errorMessages";
+export {
+  isAnnictTokenError,
+  useAnnictTokenErrorPrompt,
+} from "./tokenErrorPrompt";
