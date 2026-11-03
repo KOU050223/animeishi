@@ -112,9 +112,8 @@ export function FavoritesSection() {
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
-        {/* 作品リスト（issue #349）への入口。推しとは別機能だが、
-            「好きな作品をまとめる」用途が近いためこのセクションに置く。
-            恒久的な置き場所は #352 で検討中。 */}
+        {/* 作品リスト（issue #349）への入口。#352 で恒久的な置き場所は
+            ひろばタブに決まったが、既存導線は残す決定のためこのボタンも残す。 */}
         <TouchableOpacity
           className="mb-3 flex-row items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-800 dark:bg-indigo-950"
           onPress={() => router.push("/work-lists")}

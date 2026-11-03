@@ -35,6 +35,11 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>ライブラリ</NativeTabs.Trigger.Label>
         {tabIcon("library-outline")}
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="hiroba" accessibilityLabel="ひろばタブ">
+        {/* Tier 表・作品リスト・アニメ分析を束ねるタブ（issue #352）。 */}
+        <NativeTabs.Trigger.Label>ひろば</NativeTabs.Trigger.Label>
+        {tabIcon("compass-outline")}
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="social" accessibilityLabel="QR・フレンドタブ">
         {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
         <NativeTabs.Trigger.Label>QR・フレンド</NativeTabs.Trigger.Label>

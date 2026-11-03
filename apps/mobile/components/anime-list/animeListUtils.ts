@@ -46,6 +46,20 @@ export function toSeasonParam(year: number, key: SeasonFilterKey): string {
   return key === SEASON_FILTER_ALL ? `${year}` : `${year}-${key}`;
 }
 
+/**
+ * toSeasonParam の逆変換（"2026-spring" → { year: 2026, key: "spring" }）。
+ * シーズン tier 表を保存済みのシーズン指定で開く遷移パラメータの検証に使う
+ * （issue #352）。通年指定（"2026"）や不正な形式は null に倒す。
+ */
+export function parseSeasonParam(
+  season: string | undefined,
+): { year: number; key: SeasonKey } | null {
+  if (!season) return null;
+  const match = /^(\d{4})-(winter|spring|summer|autumn)$/.exec(season);
+  if (!match) return null;
+  return { year: Number(match[1]), key: match[2] as SeasonKey };
+}
+
 /** シーズン選択チップの表示ラベル（例: "2026年 春"、通年は "2026年"）。 */
 export function formatSeasonLabel(year: number, key: SeasonFilterKey): string {
   return key === SEASON_FILTER_ALL

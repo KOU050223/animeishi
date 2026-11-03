@@ -1,5 +1,5 @@
 # Phase 2 ネイティブヘッダー化の目視確認用フロー（一時検証用）。
-# サインアップ → 4タブ + analysis のスクリーンショットを撮る。
+# サインアップ → 5タブ + analysis のスクリーンショットを撮る。
 # 実行前に `xcrun simctl ui <UDID> appearance light|dark` でテーマを切り替え、
 # `maestro test -e THEME=light` のようにテーマ名を渡す。
 #
@@ -42,6 +42,13 @@ appId: com.animeishi.app
       id: library-section-anime
     timeout: 15000
 - takeScreenshot: phase2-library-${THEME}
+
+- tapOn: ひろばタブ
+- extendedWaitUntil:
+    visible:
+      id: hiroba-section-create
+    timeout: 15000
+- takeScreenshot: phase2-hiroba-${THEME}
 
 - tapOn: QR・フレンドタブ
 - extendedWaitUntil:

@@ -31,10 +31,11 @@ describe("(tabs) layout", () => {
     );
   });
 
-  // 4 タブ化（issue #170）。ホーム / ライブラリ / QR・フレンド / プロフの
-  // 4 つだけをタブに出す。旧タブのパスは app/ 直下のリダイレクトが引き継ぐ。
+  // 5 タブ構成（#170 の 4 タブ + #352 のひろば）。ホーム / ライブラリ /
+  // ひろば / QR・フレンド / プロフ の 5 つだけをタブに出す。
+  // 旧タブのパスは app/ 直下のリダイレクトが引き継ぐ。
   test.each(["_layout.tsx", "_layout.web.tsx"] as const)(
-    "%s のタブは ホーム / ライブラリ / QR・フレンド / プロフ の 4 つだけ",
+    "%s のタブは ホーム / ライブラリ / ひろば / QR・フレンド / プロフ の 5 つだけ",
     (file) => {
       const names = [
         ...layoutSource(file).matchAll(
@@ -44,7 +45,13 @@ describe("(tabs) layout", () => {
 
       // ホームタブはネスト Stack 化のためルートグループ (home) に入っている。
       // URL はグループ名を含まず引き続き /（issue #395 Phase 2）。
-      expect(names).toEqual(["(home)", "library", "social", "profile"]);
+      expect(names).toEqual([
+        "(home)",
+        "library",
+        "hiroba",
+        "social",
+        "profile",
+      ]);
     },
   );
 
@@ -52,6 +59,7 @@ describe("(tabs) layout", () => {
   // Web 側は tabBarAccessibilityLabel に対応する。
   test.each([
     "ライブラリタブ",
+    "ひろばタブ",
     "QR・フレンドタブ",
     "プロフィールタブ",
   ] as const)("%s のアクセシビリティラベルが両レイアウトにある", (label) => {

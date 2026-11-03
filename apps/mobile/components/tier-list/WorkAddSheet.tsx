@@ -31,6 +31,7 @@ export function WorkAddSheet({
   existingWorkIds,
   heading,
   description,
+  actionLabel = "追加",
 }: {
   visible: boolean;
   onClose: () => void;
@@ -42,6 +43,9 @@ export function WorkAddSheet({
   heading: string;
   /** 見出しの下の説明文。追加先の振る舞い（未分類 / 末尾）を呼び出し側が説明する。 */
   description: string;
+  /** 行末のアクション文言。作品を「追加」する用途以外（ピッカー等）のとき
+      呼び出し側が変える（issue #352）。追加済み表示は常に「追加済み」。 */
+  actionLabel?: string;
 }) {
   const colors = useThemeColors();
   const [query, setQuery] = useState("");
@@ -302,7 +306,7 @@ export function WorkAddSheet({
                               : colors.primaryText,
                           }}
                         >
-                          {added ? "追加済み" : "追加"}
+                          {added ? "追加済み" : actionLabel}
                         </Text>
                       </TouchableOpacity>
                     );

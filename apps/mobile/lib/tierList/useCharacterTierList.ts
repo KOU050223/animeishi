@@ -8,6 +8,7 @@ import type { TierRow } from "./types";
 // 別にして、作品 tier 表のキャッシュと混ざらないようにする。
 const characterTierListQueryKey = (annictWorkId: number) =>
   ["character-tier-list", "saved", annictWorkId] as const;
+const characterTierListsQueryKey = ["character-tier-list", "list"] as const;
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -15,6 +16,30 @@ async function getAuthHeaders(
   const token = await getToken();
   if (!token) throw new Error("認証トークンが取得できませんでした");
   return { Authorization: `Bearer ${token}` };
+}
+
+/** 自分のキャラクター tier 表の一覧（ひろばの横スクロールとハブ画面で使う）。 */
+export function useCharacterTierLists() {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: characterTierListsQueryKey,
+    enabled: !!isSignedIn,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["character-tier-lists"].$get(
+        {},
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "キャラクター tier 表の一覧取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
 }
 
 /**
@@ -82,6 +107,11 @@ export function useSaveCharacterTierList() {
         characterTierListQueryKey(variables.annictWorkId),
         data,
       );
+      // 新規作成・タイトル変更で一覧が古くなるため破棄する
+      // （自由作成版と同じ方針）。
+      void queryClient.invalidateQueries({
+        queryKey: characterTierListsQueryKey,
+      });
     },
   });
 }
@@ -116,6 +146,40 @@ export function useShareCharacterTierList() {
         (prev: { shareToken?: string | null } | undefined) =>
           prev ? { ...prev, shareToken: data.shareToken } : prev,
       );
+      // 一覧の「共有中」表示も shareToken を見ているため無効化する。
+      void queryClient.invalidateQueries({
+        queryKey: characterTierListsQueryKey,
+      });
+    },
+  });
+}
+
+/** キャラクター tier 表を削除する（items もカスケードで消える）。 */
+export function useDeleteCharacterTierList() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (annictWorkId: number) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["character-tier-lists"][
+        ":annictWorkId"
+      ].$delete({ param: { annictWorkId: String(annictWorkId) } }, { headers });
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "キャラクター tier 表の削除に失敗しました",
+        );
+      }
+      return res.json();
+    },
+    onSuccess: (_data, annictWorkId) => {
+      queryClient.removeQueries({
+        queryKey: characterTierListQueryKey(annictWorkId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: characterTierListsQueryKey,
+      });
     },
   });
 }
