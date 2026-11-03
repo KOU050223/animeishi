@@ -132,7 +132,11 @@ describe("extractUserIdFromSharedText", () => {
           extractUserIdFromSharedText(`${WEB_BASE}/user/${CLERK_ID}`),
         ).toBe(CLERK_ID);
       } finally {
-        process.env.EXPO_PUBLIC_WEB_URL = saved;
+        if (saved === undefined) {
+          delete process.env.EXPO_PUBLIC_WEB_URL;
+        } else {
+          process.env.EXPO_PUBLIC_WEB_URL = saved;
+        }
       }
     });
   });
