@@ -455,9 +455,7 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <DeleteAccountSection
-              onError={(message) => showToast({ type: "error", message })}
-            />
+            <DeleteAccountSection />
 
             <AppVersionFooter />
           </>

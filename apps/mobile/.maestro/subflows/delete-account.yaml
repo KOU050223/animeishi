@@ -1,6 +1,7 @@
-# ホーム → プロフィールタブ → アカウント削除（二段階確認）までの部品。
+# ホーム → プロフィールタブ → アカウント削除（段階フロー）までの部品。
 # 削除ボタンは画面下部のため scrollUntilVisible で出す。
-# Alert の「削除する」はシステムダイアログ上のボタンをテキストでタップする。
+# フローは /delete-account 画面の 3 ステップ（理由 → 消えるデータ → 最終確認）。
+# 理由は任意入力なので E2E では「スキップ」で通過する。
 appId: com.animeishi.app
 ---
 # サインイン直後に iOS の「パスワードを保存しますか？」シートが
@@ -36,15 +37,23 @@ appId: com.animeishi.app
 - tapOn:
     text: アカウントを削除
     retryTapIfNoChange: false
-# 1 段目「アカウントを削除しますか？」
+# ステップ 1「退会理由」が出るまで待ってからスキップで通過する
 - extendedWaitUntil:
     visible:
-      text: 削除する
+      text: スキップ
     timeout: 10000
 - tapOn:
-    text: 削除する
+    text: スキップ
     retryTapIfNoChange: false
-# 2 段目「最終確認」が出るまで待ってから「削除する」をタップする
+# ステップ 2「削除されるデータ」が出るまで待ってから次へ進む
+- extendedWaitUntil:
+    visible:
+      text: 削除されるデータ
+    timeout: 10000
+- tapOn:
+    text: 次へ
+    retryTapIfNoChange: false
+# ステップ 3「最終確認」が出るまで待ってから「削除する」をタップする
 - extendedWaitUntil:
     visible:
       text: 最終確認

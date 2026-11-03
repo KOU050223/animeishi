@@ -3,7 +3,9 @@ import type { Context } from "hono";
 import {
   deleteMeRoute,
   getBlocksRoute,
+  getDeletionSummaryRoute,
   getProfileRoute,
+  postDeletionFeedbackRoute,
   updateProfileRoute,
   uploadAvatarRoute,
   uploadMeishiAssetRoute,
@@ -206,6 +208,24 @@ const me = app
     url.search = "";
 
     return c.json({ url: url.toString() }, 201);
+  })
+  // 退会フロー（issue #426）の確認画面が表示する、削除で消えるデータの件数。
+  .openapi(getDeletionSummaryRoute, async (c) => {
+    const db = createDb(getBindings(c).DB);
+    const summary = await usersRepository(
+      db,
+      c.var.clerkUserId,
+    ).getMyDeletionSummary();
+    return c.json(summary, 200);
+  })
+  // 退会理由の記録。user_id と紐付けず集計だけに使うため、認証した
+  // clerkUserId はここでは保存先に渡さない。DELETE /me と別エンドポイント
+  // にしているのは、理由の保存失敗で退会本体をブロックしないため。
+  .openapi(postDeletionFeedbackRoute, async (c) => {
+    const data = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    await usersRepository(db, c.var.clerkUserId).recordDeletionFeedback(data);
+    return c.body(null, 201);
   })
   // アカウント削除。App Store / Google Play の審査要件（アプリ内でアカウントを
   // 作成できる場合はアプリ内からの削除導線が必須）に対応する。

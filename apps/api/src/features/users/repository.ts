@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
   deletedUsers,
+  deletionFeedbacks,
   activities,
   watchHistory,
   favorites,
@@ -14,6 +15,8 @@ import {
   tierListItems,
   characterTierLists,
   characterTierListItems,
+  customTierLists,
+  workLists,
   reports,
   blocks,
   analyses,
@@ -101,12 +104,20 @@ async function buildReportRateLimitError(
   reporterId: string,
   targetUserId: string,
   nowMs: number,
+  workListId?: number,
 ): Promise<ReportRateLimitError> {
   const lastSameTarget = await db.query.reports.findFirst({
-    where: (t, { and: and_, eq: eq_, gt: gt_ }) =>
+    where: (t, { and: and_, eq: eq_, gt: gt_, isNull: isNull_ }) =>
       and_(
         eq_(t.reporterId, reporterId),
-        eq_(t.reportedUserId, targetUserId),
+        // 重複判定の対象は INSERT 側と同じく通報種別で分ける
+        // （ユーザー通報とリスト通報を混ぜない）。
+        workListId !== undefined
+          ? eq_(t.reportedWorkListId, workListId)
+          : and_(
+              eq_(t.reportedUserId, targetUserId),
+              isNull_(t.reportedWorkListId),
+            ),
         gt_(t.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
       ),
     orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
@@ -346,10 +357,23 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
      * 他ユーザーを通報する。対象が存在しなければ UserNotFoundError。
      * 同一対象への再通報（24h）・短時間の大量通報（1h に REPORT_HOURLY_LIMIT 件）
      * は ReportRateLimitError で拒否する（issue #148）。
+     *
+     * workListId を渡すと作品リスト通報になる（issue #422）。
+     * reported_user_id にはリストの所有者を入れ、reported_work_list_id に
+     * リスト id を記録する。24h の重複判定は種別ごとに分け、ユーザー通報と
+     * リスト通報を互いにカウントしない。
      */
-    async createReport(targetUserId: string, reason: string): Promise<Report> {
+    async createReport(
+      targetUserId: string,
+      reason: string,
+      workListId?: number,
+    ): Promise<Report> {
       if (targetUserId === currentUserId) {
-        throw new Error("自分自身を通報することはできません");
+        throw new Error(
+          workListId !== undefined
+            ? "自分の作品リストを通報することはできません"
+            : "自分自身を通報することはできません",
+        );
       }
       const target = await db.query.users.findFirst({
         where: eq(users.id, targetUserId),
@@ -377,13 +401,21 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         (nowMs - REPORT_HOURLY_WINDOW_MS) / 1000,
       );
 
+      // 重複判定の対象は通報種別で分ける。ユーザー通報は
+      // reported_work_list_id IS NULL（リスト通報行を混ぜない）、
+      // リスト通報はリスト id で絞る。
+      const dedupCondition =
+        workListId !== undefined
+          ? sql`reported_work_list_id = ${workListId}`
+          : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL`;
+
       const inserted = await db.run(sql`
-        INSERT INTO ${reports} (reporter_id, reported_user_id, reason, created_at)
-        SELECT ${currentUserId}, ${targetUserId}, ${reason}, ${nowSec}
+        INSERT INTO ${reports} (reporter_id, reported_user_id, reported_work_list_id, reason, created_at)
+        SELECT ${currentUserId}, ${targetUserId}, ${workListId ?? null}, ${reason}, ${nowSec}
         WHERE NOT EXISTS (
           SELECT 1 FROM ${reports}
           WHERE reporter_id = ${currentUserId}
-            AND reported_user_id = ${targetUserId}
+            AND ${dedupCondition}
             AND created_at > ${sameTargetSinceSec}
         )
         AND (
@@ -399,12 +431,14 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           currentUserId,
           targetUserId,
           nowMs,
+          workListId,
         );
       }
       return {
         id: inserted.meta.last_row_id,
         reporterId: currentUserId,
         reportedUserId: targetUserId,
+        reportedWorkListId: workListId ?? null,
         reason,
         status: "open",
         resolutionNote: null,
@@ -609,6 +643,72 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       await db.batch(
         queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
       );
+    },
+
+    /**
+     * DELETE /me で消えるデータの件数（退会フローの確認画面用, issue #426）。
+     * tierLists はシーズン・キャラクター・自由作成の 3 種の合計。
+     * 名刺（端末内 AsyncStorage）はサーバーが持たないため含まない。
+     */
+    async getMyDeletionSummary(): Promise<{
+      watchHistories: number;
+      favorites: number;
+      friends: number;
+      tierLists: number;
+      workLists: number;
+    }> {
+      const [wh, fav, fr, tl, ctl, xtl, wl] = await db.batch([
+        db
+          .select({ c: count() })
+          .from(watchHistory)
+          .where(eq(watchHistory.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(favorites)
+          .where(eq(favorites.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(friends)
+          .where(eq(friends.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(tierLists)
+          .where(eq(tierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(characterTierLists)
+          .where(eq(characterTierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(customTierLists)
+          .where(eq(customTierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(workLists)
+          .where(eq(workLists.userId, currentUserId)),
+      ]);
+      return {
+        watchHistories: wh[0]?.c ?? 0,
+        favorites: fav[0]?.c ?? 0,
+        friends: fr[0]?.c ?? 0,
+        tierLists: (tl[0]?.c ?? 0) + (ctl[0]?.c ?? 0) + (xtl[0]?.c ?? 0),
+        workLists: wl[0]?.c ?? 0,
+      };
+    },
+
+    /**
+     * 退会理由の記録（issue #426）。集計専用で、個人を特定できる値は
+     * 受け取らず保存もしない（user_id はリクエスト認証にのみ使う）。
+     */
+    async recordDeletionFeedback(input: {
+      reasons: string[];
+      freeText?: string | undefined;
+    }): Promise<void> {
+      await db.insert(deletionFeedbacks).values({
+        reasons: JSON.stringify(input.reasons),
+        freeText: input.freeText ?? null,
+        createdAt: new Date(),
+      });
     },
   };
 }

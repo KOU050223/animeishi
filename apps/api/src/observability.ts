@@ -123,15 +123,28 @@ export function captureApiError(err: unknown, c: Context): void {
 // SENTRY_DSN 未設定の環境では SDK が no-op になる。
 export function notifyUserReport(
   c: Context,
-  input: { reporterId: string; reportedUserId: string; reason: string },
+  input: {
+    reporterId: string;
+    reportedUserId: string;
+    reason: string;
+    // 作品リスト通報のとき対象リストの id（issue #422）。
+    workListId?: number;
+  },
 ): void {
   Sentry.withScope((scope) => {
     const requestId = c.get("requestId");
     if (requestId) {
       scope.setTag(TAG_KEYS.requestId, requestId);
     }
-    scope.setFingerprint(["user_report", input.reportedUserId]);
+    scope.setFingerprint([
+      "user_report",
+      input.reportedUserId,
+      input.workListId !== undefined ? `work_list:${input.workListId}` : "user",
+    ]);
     scope.setTag("report.reported_user_id", input.reportedUserId);
+    if (input.workListId !== undefined) {
+      scope.setTag("report.work_list_id", String(input.workListId));
+    }
     scope.setContext("user_report", input);
     Sentry.captureMessage("user_report_received", "warning");
   });

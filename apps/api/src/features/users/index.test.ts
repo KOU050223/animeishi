@@ -174,6 +174,7 @@ describe("ユーザー通報・ブロック API", () => {
       expect(sentryScope.setFingerprint).toHaveBeenCalledWith([
         "user_report",
         USER_B,
+        "user",
       ]);
       expect(sentryScope.setTag).toHaveBeenCalledWith(
         "report.reported_user_id",
