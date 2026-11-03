@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { apiUrl } from "@/lib/apiUrl";
+import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import {
   buildWatchHistoryShareUrl,
@@ -35,7 +35,7 @@ export function WatchHistoryShareSection() {
 
   const shareToken = data?.shareToken ?? null;
   const shareUrl = shareToken
-    ? buildWatchHistoryShareUrl(shareToken, apiUrl)
+    ? buildWatchHistoryShareUrl(shareToken, webUrl)
     : null;
   const busy = share.isPending || unshare.isPending;
 

@@ -105,9 +105,10 @@ binding = "CF_VERSION_METADATA"
 [env.preview.vars]
 ENVIRONMENT = "preview"
 ANNICT_CLIENT_ID = "-W-RsOBNzzbMB6R2ldaOl8J9M6t3rBRLLQdsqV-PBxo"
-# プレビュー web（<alias>-animeishi-web-production.*.workers.dev）からの
+# プレビュー web（<alias>-animeishi-web-preview.*.workers.dev、issue #408 以前は
+# animeishi-web-production 側のエイリアスだったため両方残す）からの
 # クロスオリジンを許可する。
-ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,http://localhost:8081"
+ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-animeishi-web-production.uozumi05.workers.dev,https://animeishi-web-preview.uozumi05.workers.dev,*-animeishi-web-preview.uozumi05.workers.dev,http://localhost:8081"
 
 # プレビューでは定期バッチ（image fallback 解決・作品画像の R2 取り込み）を回さない。
 [env.preview.triggers]

@@ -1,36 +1,61 @@
 # Web フロント（Expo Router の web エクスポート）を Cloudflare Workers の
 # 静的アセットとして配信する設定。`expo export -p web` が dist/ に SPA を出力する。
+# /share/* だけは worker/index.ts が API Worker へ転送し、
+# API が返す OGP 付き共有ページをこのドメインで配信する（issue #408）。
 name = "animeishi-web"
+main = "worker/index.ts"
 compatibility_date = "2025-04-01"
 account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 preview_urls = true
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 # SPA のためクライアントサイドルーティングへ未知のパスをフォールバックする
 not_found_handling = "single-page-application"
+run_worker_first = ["/share/*"]
 
+[vars]
+# /share/* の転送時にリクエスト URL のオリジンを書き換える API の公開オリジン
+# （worker/index.ts 参照）。転送先の Service Binding（env.API）が無い環境では
+# このオリジンへの通常 fetch で転送する。
+API_ORIGIN = "https://animeishi-api.uomi.dev"
+
+# [assets]・[vars] は各 env に継承される。env 側では転送先（サービス名・
+# API_ORIGIN）と ENVIRONMENT だけを上書きする。
 [env.production]
 preview_urls = true
 
-[env.production.assets]
-directory = "./dist"
-not_found_handling = "single-page-application"
+# 本番は Service Binding 経由で API Worker へ転送する。remote = true は
+# `wrangler dev --env production` でローカル実行せずデプロイ済みの
+# 本番 API を叩くための指定。
+[[env.production.services]]
+binding = "API"
+service = "animeishi-api-production"
+remote = true
 
 [env.production.vars]
 ENVIRONMENT = "production"
+API_ORIGIN = "https://animeishi-api.uomi.dev"
+
+# PR プレビュー環境（animeishi-web-preview）。preview-web.yml が
+# `wrangler versions upload --env preview --preview-alias pr-<N>` で
+# PR ごとのプレビュー URL を発行する。ライブデプロイは行わない
+# （preview URL のみ）。
+#
+# /share/* の転送先も本番ではなくその PR の API プレビュー
+# （pr-<N>-animeishi-api-preview）にしたいが、Service Binding は
+# デプロイ済み Worker にしか届かず versions upload のプレビュー
+# バージョンは対象にできない。そのため preview ではバインドせず、
+# worker/index.ts が API_ORIGIN への通常 fetch で転送する。
+# preview-web.yml が --var で PR の API alias を API_ORIGIN に注入する。
+# この toml の値は `wrangler dev --env preview` 等のフォールバック。
+[env.preview]
+preview_urls = true
+
+[env.preview.vars]
+ENVIRONMENT = "preview"
+API_ORIGIN = "https://animeishi-api-preview.uozumi05.workers.dev"
 
 [observability]
 enabled = false
-head_sampling_rate = 1
-
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-persist = true
-invocation_logs = true
-
-[observability.traces]
-enabled = false
-persist = true
-head_sampling_rate = 1

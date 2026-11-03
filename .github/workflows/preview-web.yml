@@ -58,17 +58,22 @@ jobs:
           EXPO_PUBLIC_COMMIT_SHA: ${{ github.sha }}
           EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ env.ANNICT_WEB_REDIRECT_URI }}
 
+      # preview 環境（animeishi-web-preview）へ version upload する。
+      # /share/* の転送先はこの PR の API プレビュー。Service Binding は
+      # デプロイ済み Worker にしか届かず versions upload のバージョンは
+      # 対象にできないため、API_ORIGIN を --var で alias URL に差し替えて
+      # 公開 fetch で転送する（issue #408、worker/index.ts 参照）。
       - name: Upload preview version
         id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
-          WORKER_NAME: animeishi-web-production
+          WORKER_NAME: animeishi-web-preview
           WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05' }}
         run: |
           set -euo pipefail
 
-          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" 2>&1)"
+          deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env preview --preview-alias "$PREVIEW_ALIAS" --var "API_ORIGIN:${API_PREVIEW_URL}" 2>&1)"
           printf '%s\n' "$deploy_output"
 
           preview_url="$(printf '%s\n' "$deploy_output" | sed -nE "s#.*(https://[a-z0-9-]+-${WORKER_NAME}\.[a-z0-9-]+\.workers\.dev).*#\1#p" | tail -n 1)"

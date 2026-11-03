@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { apiUrl } from "@/lib/apiUrl";
+import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
@@ -336,7 +336,7 @@ export default function CustomTierListScreen() {
     try {
       const savedData = await saveTierListData();
       const { shareToken } = await share.mutateAsync(savedData.id);
-      const url = buildCustomTierListShareUrl(shareToken, apiUrl);
+      const url = buildCustomTierListShareUrl(shareToken, webUrl);
       await presentShareUrl(url);
     } catch {
       alert("共有に失敗しました", "時間をおいて再度お試しください。", {

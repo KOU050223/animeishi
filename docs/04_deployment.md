@@ -12,7 +12,28 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | --- | --- | --- | --- |
 | API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 バインディング） | [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) の `[env.production]` |
 | API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 を持つ | 同上の `[env.preview]` |
-| Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) |
+| Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット）＋ `/share/*` を API へ転送する小さな Worker（issue #408） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) の `[env.production]` |
+| Web（プレビュー） | `animeishi-web-preview` | 同上。`/share/*` の転送先は preview API | 同上の `[env.preview]` |
+
+### 共有ページ URL（`/share/*`）の経路
+
+ユーザー向けの共有 URL（tier 表・作品リスト・視聴履歴など）はすべて
+`https://animeishi.uomi.dev/share/...` で組み立てられる（アプリ側は
+`EXPO_PUBLIC_WEB_URL` 由来の `lib/webUrl` をベースにする）。Web Worker は
+`assets.run_worker_first = ["/share/*"]` で `/share/*` だけを
+[`worker/index.ts`](../apps/mobile/worker/index.ts) に渡し、そこから
+Service Binding（`env.API`）経由で API Worker へ転送する。それ以外のパスは
+静的アセット（SPA）がそのまま応答する。API 側が返す共有 HTML の
+`og:url` / `canonical` は `PUBLIC_WEB_URL` 基準で Web ドメインを指すため、
+API ドメインの旧 URL（`animeishi-api.uomi.dev/share/...`）でアクセスしても
+正規 URL は Web 側に揃う（旧 URL 自体も引き続きそのまま動く）。
+
+転送時、Worker はリクエスト URL のオリジンを `API_ORIGIN`（vars）へ
+書き換えてから API へ渡す。API は共有 HTML 内の画像プロキシ URL を
+リクエストオリジンから組み立てるため、そのまま転送すると
+`<web オリジン>/images/works/:id`（→ 静的アセット行き）になって画像が
+壊れるのを防ぐため。`env.API` の Service Binding が無い環境（preview・
+ローカル dev）では `API_ORIGIN` への通常 fetch で転送する。
 
 ## 環境変数の種類と登録先
 
@@ -23,6 +44,7 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値（publishable） |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` | PR プレビュー Web の**ビルド時**。Clerk **開発インスタンス**の `pk_test_`（本番インスタンス `clerk.animeishi.uomi.dev` は `animeishi.uomi.dev` 以外のオリジンを受け付けないため） | GitHub Actions **Variables** | 公開値（publishable） |
 | `EXPO_PUBLIC_API_URL` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
+| `EXPO_PUBLIC_WEB_URL` | Web の**ビルド時**にバンドルへ焼き込み（本番のみ）。共有 URL（`/share/*`）のベース。未設定なら実行中のオリジンにフォールバック（`deploy-web.yml` は未登録時 `https://animeishi.uomi.dev` を使う） | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_PREVIEW_API_URL` | Web プレビューの**ビルド時**にバンドルへ焼き込み。未設定なら PR 番号から組み立てる `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
 | `EXPO_PUBLIC_ANNICT_CLIENT_ID` | Web の**ビルド時**にバンドルへ焼き込み | GitHub Actions **Variables** | 公開値 |
 | `EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI` | Web の**ビルド時**にバンドルへ焼き込み（本番・プレビュー両方）。Annict 登録済みの正規 redirect_uri。未設定なら `https://animeishi-web-production.<subdomain>.workers.dev/annict` を使用 | GitHub Actions **Variables**（任意・上書き用） | 公開値 |
@@ -32,14 +54,14 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | `CLERK_PUBLISHABLE_KEY` | API の**ランタイム** | Cloudflare Workers **secret**（または vars） | 公開値 |
 | `ALLOWED_ORIGINS` | API の**ランタイム**（CORS 判定） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `CLERK_AUTHORIZED_PARTIES` | API の**ランタイム**（Clerk azp 検証）。azp クレーム付きトークンが許可オリジン発行か照合する。azp なし（ネイティブアプリ）は常に通過 | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
-| `PUBLIC_WEB_URL` | API の**ランタイム**（`GET /user/:uid` の OGP HTML「Web で見る」導線） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
+| `PUBLIC_WEB_URL` | API の**ランタイム**（`GET /user/:uid` の OGP HTML「Web で見る」導線、`/share/*` の OGP HTML の `og:url` / `canonical`） | `wrangler.toml` の `vars`（本番） / `.dev.vars`（ローカル） | 公開値 |
 | `SENTRY_DSN` | API の**ランタイム**（Sentry 初期化）。未設定なら SDK は no-op | Cloudflare Workers **secret** | 秘密 |
 | `DISCORD_WEBHOOK_URL` | API の**ランタイム**（重大な障害の Discord `#bot-log` 通知）。未設定なら通知しない。本番のみ。モバイルには絶対に持たせない | Cloudflare Workers **secret** | 秘密 |
 | `EXPO_PUBLIC_SENTRY_DSN` | Expo アプリの**ビルド時**にバンドルへ焼き込み（mobile の Sentry 初期化）。未設定なら SDK は no-op | GitHub Actions **Variables**（Web ビルド）/ `eas.json` の `env`（ネイティブビルド） | 公開値（DSN は公開前提の値） |
 | `EXPO_PUBLIC_ENVIRONMENT` | Expo アプリの**ビルド時**にバンドルへ焼き込み（Sentry の environment タグ） | workflow / `eas.json` の `env` に固定値 | 公開値 |
 | `SENTRY_AUTH_TOKEN` | ネイティブビルド時の source map アップロード | EAS の**環境変数（sensitive）** | 秘密 |
 
-> `EXPO_PUBLIC_*` は Expo の仕様でクライアント JS に平文で埋め込まれる。秘匿性は成立しないため Secrets ではなく Variables を使う。Cloudflare 側の vars に入れても Web のビルドからは読めない点に注意（Web は assets-only でワーカーコードを持たないため）。
+> `EXPO_PUBLIC_*` は Expo の仕様でクライアント JS に平文で埋め込まれる。秘匿性は成立しないため Secrets ではなく Variables を使う。Cloudflare 側の vars に入れても Web のビルドからは読めない点に注意（Web 側の vars は `/share/*` 転送 Worker の実行時設定であって、静的アセットのビルド内容には反映されない）。
 
 ## 1. GitHub Actions の変数登録
 
@@ -82,10 +104,12 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 
 | 対象 | workflow | デプロイ先 env | preview URL |
 | --- | --- | --- | --- |
-| Web | `preview-web.yml` | `animeishi-web` の `production` | `https://pr-<N>-animeishi-web-production.<subdomain>.workers.dev` |
+| Web | `preview-web.yml` | `animeishi-web` の `preview` | `https://pr-<N>-animeishi-web-preview.<subdomain>.workers.dev` |
 | API | `preview-api.yml` | `animeishi-api` の `preview` | `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` |
 
 Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の PR 用 API URL が埋め込まれる（`EXPO_PUBLIC_PREVIEW_API_URL` が設定されている場合はそちらが優先される）。これにより、API に新エンドポイントを追加する PR でも、マージ前にプレビュー web 上で動作確認できる。
+
+Web プレビューは本番とは別の `animeishi-web-preview` Worker に載る（issue #408 までは `animeishi-web-production` のエイリアスとして発行していた）。`/share/*` の転送先もその PR の API プレビューにしたいが、Service Binding はデプロイ済み Worker にしか届かず `versions upload` のプレビューバージョンは対象にできない。そこで preview ではバインドせず、`preview-web.yml` が `--var` で `API_ORIGIN` に PR の API エイリアスを注入し、公開 fetch で転送する（`worker/index.ts`）。`EXPO_PUBLIC_WEB_URL` は未設定なのでプレビュー web 上の共有 URL はそのプレビュー自身のオリジンで組み立てられ、API 側の `PUBLIC_WEB_URL` も `preview-api.yml` が `--var` で PR ごとの Web プレビュー URL を注入するため、共有 HTML の `og:url` / `canonical` もプレビュー web の URL を指す。
 
 ### プレビューでの Annict 連携
 
