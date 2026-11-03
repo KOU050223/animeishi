@@ -9,18 +9,21 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_STATUS_LABELS,
+  useDeleteWatchHistory,
   useUpsertWatchHistory,
 } from "@/lib/useWatchHistory";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 const mockPut = jest.fn();
+const mockDelete = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
       "watch-histories": {
         ":annictWorkId": {
           $put: (...args: unknown[]) => mockPut(...args),
+          $delete: (...args: unknown[]) => mockDelete(...args),
         },
       },
     },
@@ -302,5 +305,149 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(getStates(client)).toEqual(seedHistory());
+  });
+});
+
+describe("useDeleteWatchHistory の楽観的更新", () => {
+  const userId = "user_test";
+  const queryKey = [...WATCH_HISTORY_QUERY_KEY, userId];
+
+  const seedHistory = () => [
+    { annictWorkId: 1, title: "作品A", state: "WATCHING" },
+    { annictWorkId: 2, title: "作品B", state: "ON_HOLD" },
+  ];
+
+  function createWrapper(client: QueryClient) {
+    return function wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      );
+    };
+  }
+
+  function getStates(client: QueryClient) {
+    return client.getQueryData<Array<{ annictWorkId: number; state: string }>>(
+      queryKey,
+    );
+  }
+
+  let client: QueryClient;
+  beforeEach(async () => {
+    resetAuth();
+    jest.clearAllMocks();
+    loggedInUser({ userId });
+    setMockClerkState({ getToken: async () => "test-token" });
+    client = new QueryClient();
+  });
+
+  afterEach(async () => {
+    await cleanup();
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((m) => m.destroy());
+    client.clear();
+  });
+
+  it("API 応答を待たずキャッシュから行を先に消す", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    let resolveDelete: (v: unknown) => void = () => {};
+    mockDelete.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+
+    const { result } = await renderHook(() => useDeleteWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(() => {
+      result.current.mutate(1);
+    });
+
+    await waitFor(() =>
+      expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([2]),
+    );
+
+    await act(async () => {
+      resolveDelete({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ success: true }),
+      });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
+  });
+
+  it("削除が失敗したら消した行を元の位置に戻す", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    mockDelete.mockResolvedValue({ ok: false, status: 500 });
+
+    const { result } = await renderHook(() => useDeleteWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(() => {
+      result.current.mutate(1);
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([1, 2]);
+    expect(getStates(client)?.[0].state).toBe("WATCHING");
+    // 巻き戻したことがエラーに記録される（「元の状態に戻しました」の判定用）。
+    const error = result.current.error as { rolledBack?: boolean } | null;
+    expect(error?.rolledBack).toBe(true);
+    expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
+  });
+
+  it("upsert と同じスコープで直列化される（解除 → 再設定の順序を保つ）", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockDelete.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const { result } = await renderHook(
+      () => ({
+        remove: useDeleteWatchHistory(),
+        upsert: useUpsertWatchHistory(),
+      }),
+      { wrapper: createWrapper(client) },
+    );
+
+    // 解除の直後に別ステータスを設定しても、DELETE が settle するまで
+    // PUT は始まらない（順序が入れ替わると最終状態が意図と逆になる）。
+    await act(() => {
+      result.current.remove.mutate(1);
+      result.current.upsert.mutate({
+        annictWorkId: 1,
+        data: { state: "WATCHED" },
+      });
+    });
+    await waitFor(() => expect(resolvers).toHaveLength(1));
+
+    await act(async () => {
+      resolvers[0]({
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ success: true }),
+      });
+    });
+    await waitFor(() => expect(resolvers).toHaveLength(2));
+    await act(async () => {
+      resolvers[1]({ ok: true, json: async () => ({}) });
+    });
   });
 });

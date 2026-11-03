@@ -24,14 +24,15 @@ export { WATCH_HISTORY_QUERY_KEY };
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;
 
-// upsert ミューテーションのスコープ。同じスコープの mutation は
-// MutationCache が直列実行する（先の PUT が settle してから次が走る）。
-const WATCH_HISTORY_UPSERT_SCOPE = "watch-history-upsert";
+// 視聴履歴の書き込みミューテーション（upsert・解除）のスコープ。
+// 同じスコープの mutation は MutationCache が直列実行する
+// （先のリクエストが settle してから次が走る）。
+const WATCH_HISTORY_WRITE_SCOPE = "watch-history-write";
 
 /**
- * useUpsertWatchHistory の mutateAsync が reject するエラーに付与される
- * 追加情報。onError がロールバックを実施したかを呼び出し側が判定し、
- * 通知文言（「元の状態に戻しました」と言ってよいか）を分けるために使う。
+ * useUpsertWatchHistory / useDeleteWatchHistory の mutateAsync が reject する
+ * エラーに付与される追加情報。onError がロールバックを実施したかを呼び出し側が
+ * 判定し、通知文言（「元の状態に戻しました」と言ってよいか）を分けるために使う。
  */
 export interface UpsertWatchHistoryError extends Error {
   /** 表示が元の状態へ巻き戻された場合 true。後続の楽観値を残した等で巻き戻さなかった場合は false/未設定。 */
@@ -84,7 +85,7 @@ export function useUpsertWatchHistory() {
     // 連続保存してもサーバーには操作順で適用される（応答順の入れ替わりで
     // 古い選択が最終状態になるのを防ぐ）。スコープ待ちの間も onMutate は
     // 先に走るため、楽観反映は即時のまま保たれる。
-    scope: { id: WATCH_HISTORY_UPSERT_SCOPE },
+    scope: { id: WATCH_HISTORY_WRITE_SCOPE },
     mutationFn: async ({
       annictWorkId,
       data,
@@ -159,7 +160,7 @@ export function useUpsertWatchHistory() {
       // 以下なら「自分が最後」として invalidate する。
       const pendingUpserts = queryClient.isMutating({
         predicate: (mutation) =>
-          mutation.options.scope?.id === WATCH_HISTORY_UPSERT_SCOPE,
+          mutation.options.scope?.id === WATCH_HISTORY_WRITE_SCOPE,
       });
       if (pendingUpserts <= 1) {
         void queryClient.invalidateQueries({ queryKey });
@@ -179,31 +180,83 @@ export function useUpsertWatchHistory() {
 export function useDeleteWatchHistory() {
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
+  const queryKey = userId
+    ? watchHistoryQueryKey(userId)
+    : WATCH_HISTORY_QUERY_KEY;
 
   return useMutation({
+    // 解除（未設定に戻す）も upsert と同じスコープで直列化する。
+    // 解除の直後に別ステータスを選んだとき DELETE が PUT を追い越すと、
+    // サーバーの最終状態が操作の意図と逆になる（issue #436）。
+    scope: { id: WATCH_HISTORY_WRITE_SCOPE },
     mutationFn: async (annictWorkId: number) => {
       const headers = await getAuthHeaders(getToken);
+      // 解除は API 側で Annict updateStatus(NO_STATE) を叩くため
+      // Annict トークンが要る（upsert と同じ解決経路）。
+      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["watch-histories"][
         ":annictWorkId"
-      ].$delete({ param: { annictWorkId: String(annictWorkId) } }, { headers });
+      ].$delete(
+        { param: { annictWorkId: String(annictWorkId) } },
+        { headers: { ...headers, ...annictHeader } },
+      );
       if (!res.ok) {
         throw new ApiRequestError(res.status, "視聴履歴の削除に失敗しました");
       }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },
-    onSuccess: (_data, annictWorkId) => {
-      void queryClient.invalidateQueries({
-        queryKey: userId
-          ? watchHistoryQueryKey(userId)
-          : WATCH_HISTORY_QUERY_KEY,
-      });
-      // 削除で viewerStatusState が NO_STATE に戻るため、詳細シート側の
-      // 対象作品クエリも無効化する（issue #347）。
-      if (userId) {
-        void queryClient.invalidateQueries({
-          queryKey: workDetailQueryKey(userId, annictWorkId),
+    // upsert と同じく、応答を待たずに行を消す楽観更新。失敗時は元の位置へ戻す。
+    onMutate: async (annictWorkId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const old = queryClient.getQueryData<WatchHistoriesResponse>(queryKey);
+      const index =
+        old?.findIndex((item) => item.annictWorkId === annictWorkId) ?? -1;
+      const previousItem = index >= 0 ? old?.[index] : undefined;
+      if (!previousItem) return undefined;
+      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (cur) =>
+        cur?.filter((item) => item.annictWorkId !== annictWorkId),
+      );
+      return { previousItem, index };
+    },
+    onError: (error, annictWorkId, context) => {
+      if (!context?.previousItem) return;
+      // 自分が消したまま残っている時だけ復元する。同じ作品へ後続の
+      // 更新・再登録が乗っている場合はそちらに委ねる（upsert と同じ考え方）。
+      const stillMissing = !queryClient
+        .getQueryData<WatchHistoriesResponse>(queryKey)
+        ?.some((item) => item.annictWorkId === annictWorkId);
+      if (stillMissing) {
+        queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) => {
+          if (!old) return old;
+          const next = [...old];
+          next.splice(
+            Math.min(context.index, next.length),
+            0,
+            context.previousItem,
+          );
+          return next;
         });
+      }
+      if (error instanceof Error) {
+        (error as UpsertWatchHistoryError).rolledBack = stillMissing;
+      }
+    },
+    onSettled: (_data, _error, annictWorkId) => {
+      // 他の書き込みが残っている間は再取得しない（upsert の onSettled と同じ）。
+      const pendingWrites = queryClient.isMutating({
+        predicate: (mutation) =>
+          mutation.options.scope?.id === WATCH_HISTORY_WRITE_SCOPE,
+      });
+      if (pendingWrites <= 1) {
+        void queryClient.invalidateQueries({ queryKey });
+        // 解除で viewerStatusState が NO_STATE に戻るため、詳細シート側の
+        // 対象作品クエリも無効化する（issue #347 / #436）。
+        if (userId) {
+          void queryClient.invalidateQueries({
+            queryKey: workDetailQueryKey(userId, annictWorkId),
+          });
+        }
       }
     },
   });

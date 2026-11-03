@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { ApiRequestError } from "@/lib/apiError";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
@@ -8,6 +8,7 @@ import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 // 差し替えられるモックにする。
 const mockUseWorkDetail = jest.fn();
 const mockMutateAsync = jest.fn();
+const mockDeleteAsync = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockAlert = jest.fn();
 const mockInvalidateQueries = jest.fn();
@@ -26,6 +27,10 @@ jest.mock("@/lib/useWorkDetail", () => ({
 jest.mock("@/lib/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
+    isPending: false,
+  }),
+  useDeleteWatchHistory: () => ({
+    mutateAsync: mockDeleteAsync,
     isPending: false,
   }),
   WATCH_STATUS_LABELS: {
@@ -117,6 +122,7 @@ describe("AnimeWorkDetailSheet", () => {
     jest.clearAllMocks();
     mockUseWorkDetail.mockReturnValue(detailState());
     mockMutateAsync.mockResolvedValue({});
+    mockDeleteAsync.mockResolvedValue({});
     // finally 内で invalidateQueries(...).then() を呼ぶため Promise を返す。
     mockInvalidateQueries.mockResolvedValue(undefined);
   });
@@ -204,12 +210,55 @@ describe("AnimeWorkDetailSheet", () => {
     expect(chip.props.accessibilityState?.selected).toBe(true);
   });
 
-  it("現在のステータスと同じチップを押しても upsert を呼ばない", async () => {
+  it("選択中のチップを再タップするとステータスを解除する", async () => {
     await render(sheetElement());
 
     await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
 
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      "watch_status_change",
+      expect.objectContaining({ from: "WATCHING", to: "NO_STATE" }),
+    );
+    expect(mockDeleteAsync).toHaveBeenCalledWith(42);
     expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("解除中は選択チップが外れた表示になる（楽観表示）", async () => {
+    let resolveDelete: (v: unknown) => void = () => {};
+    mockDeleteAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+
+    const chip = screen.getByTestId("work-detail-status-WATCHING");
+    expect(chip.props.accessibilityState?.selected).toBe(false);
+
+    await act(async () => {
+      resolveDelete({ success: true });
+    });
+  });
+
+  it("解除に失敗したらダイアログで通知し選択を元に戻す", async () => {
+    mockDeleteAsync.mockRejectedValue(
+      new ApiRequestError(500, "視聴履歴の削除に失敗しました"),
+    );
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    // 楽観値は下ろされ、サーバー値（WATCHING）の表示に戻る
+    const chip = screen.getByTestId("work-detail-status-WATCHING");
+    expect(chip.props.accessibilityState?.selected).toBe(true);
   });
 
   it("ステータス更新に失敗したらダイアログで通知し選択を元に戻す", async () => {

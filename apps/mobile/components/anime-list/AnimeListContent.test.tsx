@@ -54,6 +54,10 @@ jest.mock("@/lib/useWatchHistory", () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
   }),
+  useDeleteWatchHistory: () => ({
+    mutateAsync: jest.fn(() => Promise.resolve({})),
+    isPending: false,
+  }),
   WATCH_STATUS_LABELS: {
     WATCHING: "視聴中",
     WATCHED: "視聴済",

@@ -20,6 +20,7 @@ import {
   workDetailQueryKey,
 } from "@/lib/useWorkDetail";
 import {
+  useDeleteWatchHistory,
   useUpsertWatchHistory,
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
@@ -93,13 +94,14 @@ export function AnimeWorkDetailSheet({
   const { height } = useWindowDimensions();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
+  const remove = useDeleteWatchHistory();
 
   // ステータス変更はサーバー応答（viewerStatusState の取り直し）が遅いため、
   // 選択値を楽観表示する。開く作品が変わったら前の楽観値は下ろす
   // （レンダー中の派生 state リセットパターン。effect 同期は避ける）。
   const [optimistic, setOptimistic] = useState<{
     workId: number;
-    state: WatchState;
+    state: WatchState | null;
   } | null>(null);
   const serverState = normalizeState(detail.data?.work.state);
   const currentState =
@@ -113,14 +115,23 @@ export function AnimeWorkDetailSheet({
       : WORK_DETAIL_QUERY_KEY;
 
   function selectStatus(state: WatchState) {
-    if (!work || state === currentState) return;
+    if (!work) return;
+    // 選択中のチップの再タップは未設定に戻す（issue #436）。
+    // 解除は DELETE /:annictWorkId（Annict に NO_STATE を送り履歴行を消す）。
+    const next: WatchState | null = state === currentState ? null : state;
     trackEvent("watch_status_change", {
       [TRACK_EVENT_KEYS.from]: currentState ?? "NO_STATE",
-      [TRACK_EVENT_KEYS.to]: state,
+      [TRACK_EVENT_KEYS.to]: next ?? "NO_STATE",
     });
-    setOptimistic({ workId: work.annictWorkId, state });
-    void upsert
-      .mutateAsync({ annictWorkId: work.annictWorkId, data: { state } })
+    setOptimistic({ workId: work.annictWorkId, state: next });
+    const request =
+      next === null
+        ? remove.mutateAsync(work.annictWorkId)
+        : upsert.mutateAsync({
+            annictWorkId: work.annictWorkId,
+            data: { state: next },
+          });
+    void request
       .catch((e: unknown) => {
         // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
         // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
@@ -173,7 +184,7 @@ export function AnimeWorkDetailSheet({
             <HeaderSection work={work} meta={meta} />
             <StatusSection
               currentState={currentState}
-              disabled={upsert.isPending}
+              disabled={upsert.isPending || remove.isPending}
               onSelect={selectStatus}
             />
             <ActionRow
@@ -230,7 +241,7 @@ function HeaderSection({
   );
 }
 
-/** 視聴ステータス変更チップ（タップで即反映）。 */
+/** 視聴ステータス変更チップ（タップで即反映、選択中の再タップで解除）。 */
 function StatusSection({
   currentState,
   disabled,
