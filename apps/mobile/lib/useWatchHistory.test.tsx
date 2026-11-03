@@ -489,4 +489,26 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
       resolvers[1]({ ok: true, json: async () => ({}) });
     });
   });
+
+  it("キャッシュに対象行が無くても失敗時は rolledBack=true が付く", async () => {
+    // 一覧未取得のまま作品詳細シートから解除したケース。
+    // 消した行が無いので巻き戻す必要がなく、表示は元のまま＝rolledBack=true。
+    mockDelete.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+
+    const { result } = await renderHook(() => useDeleteWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(() => {
+      result.current.mutate(1);
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    const error = result.current.error as { rolledBack?: boolean } | null;
+    expect(error?.rolledBack).toBe(true);
+  });
 });

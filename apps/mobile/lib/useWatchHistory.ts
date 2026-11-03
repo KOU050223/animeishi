@@ -225,28 +225,28 @@ export function useDeleteWatchHistory() {
       const index =
         old?.findIndex((item) => item.annictWorkId === annictWorkId) ?? -1;
       const previousItem = index >= 0 ? old?.[index] : undefined;
-      if (!previousItem) return undefined;
-      queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (cur) =>
-        cur?.filter((item) => item.annictWorkId !== annictWorkId),
-      );
+      // 消す行がキャッシュに無くても（一覧未取得のまま詳細シートから
+      // 解除した等）context は返す。onError の rolledBack 判定で
+      // 「巻き戻すものが無い＝表示は元のまま」を正しく伝えるため。
+      if (previousItem) {
+        queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (cur) =>
+          cur?.filter((item) => item.annictWorkId !== annictWorkId),
+        );
+      }
       return { previousItem, index };
     },
     onError: (error, annictWorkId, context) => {
-      if (!context?.previousItem) return;
       // 自分が消したまま残っている時だけ復元する。同じ作品へ後続の
       // 更新・再登録が乗っている場合はそちらに委ねる（upsert と同じ考え方）。
       const stillMissing = !queryClient
         .getQueryData<WatchHistoriesResponse>(queryKey)
         ?.some((item) => item.annictWorkId === annictWorkId);
-      if (stillMissing) {
+      const previousItem = context?.previousItem;
+      if (previousItem && stillMissing) {
         queryClient.setQueryData<WatchHistoriesResponse>(queryKey, (old) => {
           if (!old) return old;
           const next = [...old];
-          next.splice(
-            Math.min(context.index, next.length),
-            0,
-            context.previousItem,
-          );
+          next.splice(Math.min(context.index, next.length), 0, previousItem);
           return next;
         });
       }
