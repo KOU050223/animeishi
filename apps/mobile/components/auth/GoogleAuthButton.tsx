@@ -51,12 +51,18 @@ export function GoogleAuthButton({ onError }: Props) {
         // メール/パスワード登録と同じく setActive より先に pending を立てる。
         // setActive が失敗したときはフラグを戻す（ガード抑止が残ると
         // サインイン後も (auth) から追い出されなくなる）。
+        // try/catch 内に throw を置くと React Compiler が最適化を
+        // 諦めるため、エラーを外に運んでから再送出する。
         if (result.isNewUser) onboardingPending.current = true;
+        let activationError: unknown;
         try {
           await setActive({ session: result.sessionId });
         } catch (err) {
+          activationError = err;
+        }
+        if (activationError !== undefined) {
           onboardingPending.current = false;
-          throw err;
+          throw activationError;
         }
         router.replace(result.isNewUser ? "/onboarding" : "/");
       } else if (result.status === "incomplete") {

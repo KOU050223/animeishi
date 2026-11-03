@@ -124,21 +124,26 @@ export default function OnboardingScreen() {
     const doc = buildOnboardingDocument(template);
     setSaving(true);
     setSaveError(null);
+    // ストレージへの書き込み失敗は storage 層で握りつぶされるため、
+    // 読み直して保存が確定したか確認する。失敗時はエラーを出して
+    // この画面に留まり、再試行を許す（完成記録も書かない）。
+    // try/catch 内に throw を置くと React Compiler が最適化を諦めるため、
+    // 成否をフラグで返して分岐する。
+    let saved = false;
     try {
       const { result: card } = await updateMeishiLibrary((library) => {
         const added = addCard(library, doc);
         return { library: added.library, result: added.card };
       });
-      // ストレージへの書き込み失敗は storage 層で握りつぶされるため、
-      // 読み直して保存が確定したか確認する。失敗時はエラーを出して
-      // この画面に留まり、再試行を許す（完成記録も書かない）。
       const persisted = await loadMeishiLibrary();
-      if (!persisted || !findCard(persisted, card.id)) {
-        throw new Error("meishi card was not persisted");
-      }
+      saved = persisted !== null && findCard(persisted, card.id) !== null;
+    } catch {
+      saved = false;
+    }
+    if (saved) {
       setDocument(doc);
       setStepIndex(2);
-    } catch {
+    } else {
       setSaveError(t("名刺の保存に失敗しました。もう一度お試しください。"));
     }
     setSaving(false);
