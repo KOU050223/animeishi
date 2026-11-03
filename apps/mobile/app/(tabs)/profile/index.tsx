@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -32,6 +32,15 @@ import type { AddToWalletResult } from "@/lib/wallet";
 import { featureFlags } from "@/lib/featureFlags";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
+import { NowWatchingBubble } from "@/components/NowWatchingBubble";
+import { AnimeWorkDetailSheet } from "@/components/anime-list";
+import type { WorkDetailSheetTarget } from "@/components/anime-list";
+import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import { ApiRequestError } from "@/lib/apiError";
+import { alert } from "@/lib/dialog";
+import { trackEvent } from "@/lib/events";
+import { resolveMeishiDocument } from "@/lib/meishi/templates";
+import type { ImageElement } from "@/lib/meishi/types";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -86,11 +95,51 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [favoriteQuote, setFavoriteQuote] = useState("");
+  // 「いま見ている」吹き出し（issue #420）から開く作品詳細シートの対象。
+  const [selectedWork, setSelectedWork] =
+    useState<WorkDetailSheetTarget | null>(null);
+  const favoriteIds = useFavoriteIds();
+  const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
+    useToggleFavorite(favoriteIds, {
+      onError: (e) =>
+        alert(
+          "お気に入りを更新できませんでした",
+          e instanceof ApiRequestError
+            ? e.message
+            : "お気に入りの更新に失敗しました",
+          { okLabel: "OK" },
+        ),
+    });
+  // 吹き出しを名刺内のアバター画像の上に重ねるため、プレビュー枠の
+  // 実幅からアバター位置（document の transform はカード幅/高さに対する
+  // 比率）を換算する。アバターを持たない名刺（白紙テンプレート等）では
+  // カード中央上端に寄せる。
+  const [meishiPreviewWidth, setMeishiPreviewWidth] = useState(0);
+  const nowWatching = profile?.nowWatching ?? null;
+  const nowWatchingAnchor = useMemo(() => {
+    if (!nowWatching || meishiPreviewWidth <= 0) return null;
+    const doc = resolveMeishiDocument(meishiDoc);
+    const cardHeight = meishiPreviewWidth / doc.canvas.aspectRatio;
+    const avatar = doc.elements.find(
+      (el): el is ImageElement => el.type === "image" && el.source === "avatar",
+    );
+    if (!avatar) {
+      return { left: meishiPreviewWidth / 2, bottom: cardHeight + 4 };
+    }
+    return {
+      left:
+        (avatar.transform.x + avatar.transform.width / 2) * meishiPreviewWidth,
+      bottom: cardHeight - avatar.transform.y * cardHeight + 4,
+    };
+  }, [meishiDoc, meishiPreviewWidth, nowWatching]);
 
   useFocusEffect(
     useCallback(() => {
       void reloadMeishi();
-    }, [reloadMeishi]),
+      // 「いま見ている」は最新の話数記録に追従するため、フォーカスのたびに
+      // プロフィールを取り直す（issue #420）。
+      void refetch();
+    }, [reloadMeishi, refetch]),
   );
 
   const [toast, setToast] = useState<Toast | null>(null);
@@ -214,7 +263,13 @@ export default function ProfileScreen() {
               <Text className="mb-2 text-xs text-slate-400 dark:text-slate-500">
                 2本指を広げると拡大できます
               </Text>
-              <View style={styles.meishiPreviewFrame}>
+              <View
+                style={styles.meishiPreviewFrame}
+                testID="meishi-preview-frame"
+                onLayout={(e) =>
+                  setMeishiPreviewWidth(e.nativeEvent.layout.width)
+                }
+              >
                 <MeishiCard
                   username={username || profile?.username || "ユーザー"}
                   bio={bio}
@@ -224,6 +279,26 @@ export default function ProfileScreen() {
                   document={meishiDoc}
                   zoomable
                 />
+                {/* 「いま見ている」吹き出し（issue #420）。名刺内の
+                    アバター画像の上に重ね、タップで作品詳細シートを開く。 */}
+                {nowWatching && nowWatchingAnchor ? (
+                  <View
+                    pointerEvents="box-none"
+                    style={[
+                      styles.nowWatchingAnchor,
+                      {
+                        left: nowWatchingAnchor.left,
+                        bottom: nowWatchingAnchor.bottom,
+                      },
+                    ]}
+                  >
+                    <NowWatchingBubble
+                      nowWatching={nowWatching}
+                      onPress={() => setSelectedWork(nowWatching)}
+                      testID="now-watching-bubble"
+                    />
+                  </View>
+                ) : null}
               </View>
               <TouchableOpacity
                 className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
@@ -492,6 +567,28 @@ export default function ProfileScreen() {
           </View>
         ) : null}
       </View>
+
+      <AnimeWorkDetailSheet
+        work={selectedWork}
+        onClose={() => setSelectedWork(null)}
+        isFavorite={
+          selectedWork != null && favoriteIds.has(selectedWork.annictWorkId)
+        }
+        isTogglingFavorite={isTogglingFavorite}
+        onToggleFavorite={() => {
+          if (selectedWork) toggleFavorite(selectedWork.annictWorkId);
+        }}
+        onOpenCharacterTierList={(work) => {
+          trackEvent("character_tier_open");
+          router.push({
+            pathname: "/character-tier-list",
+            params: {
+              workId: String(work.annictWorkId),
+              workTitle: work.title,
+            },
+          });
+        }}
+      />
     </View>
   );
 }
@@ -501,6 +598,11 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 420,
     alignSelf: "center",
+  },
+  nowWatchingAnchor: {
+    position: "absolute",
+    transform: [{ translateX: "-50%" }],
+    alignItems: "center",
   },
   toastLayer: {
     position: "absolute",

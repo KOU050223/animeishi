@@ -10,6 +10,19 @@ import PublicProfilePage from "@/app/user/[uid]";
 import { alert } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
+const NOW_WATCHING = {
+  annictWorkId: 3002,
+  annictEpisodeId: 502,
+  title: "新作アニメ",
+  titleEn: null,
+  seasonName: "2026-autumn",
+  seasonYear: 2026,
+  hostedImageUrl: null,
+  // 吹き出しは記録から 24 時間で消えるため、常に期限内になるよう
+  // 固定日時ではなく実行時刻から生成する。
+  recordedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+};
+
 const PROFILE = {
   id: "user_target",
   username: "対象ユーザー",
@@ -17,6 +30,7 @@ const PROFILE = {
   favoriteQuote: null,
   profileImageUrl: null,
   genres: [],
+  nowWatching: null as typeof NOW_WATCHING | null,
 };
 
 const mockReportMutate = jest.fn();
@@ -88,6 +102,37 @@ jest.mock("@/lib/useFriends", () => ({
   }),
 }));
 
+// 吹き出しタップで開く作品詳細シート。シート本体の挙動は別テストに任せ、
+// ここでは「開いたか・対象作品が正しいか」だけを見る。
+jest.mock("@/components/anime-list", () => ({
+  AnimeWorkDetailSheet: ({ work }: { work: { title: string } | null }) => {
+    const { Text } = require("react-native");
+    return work ? <Text testID="work-detail-sheet">{work.title}</Text> : null;
+  },
+}));
+
+jest.mock("@/lib/useFavorites", () => ({
+  useFavoriteIds: () => new Set<number>(),
+  useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
+}));
+
+// 吹き出しの話数表示（「第N話」）が引く話一覧。テストごとに差し替える。
+let mockWorkEpisodesData:
+  | {
+      episodes: {
+        annictEpisodeId: number;
+        numberText: string | null;
+        number: number | null;
+        sortNumber: number;
+      }[];
+    }
+  | undefined;
+jest.mock("@/lib/useWorkEpisodes", () => ({
+  useWorkEpisodes: () => ({ data: mockWorkEpisodesData }),
+}));
+
+jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -120,6 +165,7 @@ beforeEach(async () => {
   mockCanGoBack = true;
   mockFriendsData = [];
   mockFriendsError = false;
+  mockWorkEpisodesData = undefined;
 });
 
 describe("PublicProfilePage", () => {
@@ -357,6 +403,93 @@ describe("PublicProfilePage", () => {
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/");
+  });
+
+  // issue #420: 直近 24h の話数記録をアイコン上の吹き出しに出す。
+  describe("いま見ている吹き出し", () => {
+    function mockProfileWithNowWatching(
+      nowWatching: typeof NOW_WATCHING | null,
+    ) {
+      mockProfileFetch({ ...PROFILE, nowWatching });
+    }
+
+    it("nowWatching があると吹き出しに作品タイトルを表示する", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching(NOW_WATCHING);
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getByTestId("now-watching-bubble")).toBeTruthy(),
+      );
+      expect(screen.getByText("新作アニメ")).toBeTruthy();
+    });
+
+    it("話一覧が引けると「タイトル 第N話」を表示する", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching(NOW_WATCHING);
+      mockWorkEpisodesData = {
+        episodes: [
+          {
+            annictEpisodeId: 502,
+            numberText: "第3話",
+            number: 3,
+            sortNumber: 3,
+          },
+        ],
+      };
+      await render(<PublicProfilePage />, { wrapper });
+
+      await waitFor(() =>
+        expect(screen.getByText("新作アニメ 第3話")).toBeTruthy(),
+      );
+    });
+
+    it("nowWatching が null なら吹き出しを出さない", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching(null);
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+      );
+
+      expect(screen.queryByTestId("now-watching-bubble")).toBeNull();
+    });
+
+    it("記録から 24 時間を過ぎていれば吹き出しを出さない", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching({
+        ...NOW_WATCHING,
+        recordedAt: new Date(
+          Date.now() - 24 * 60 * 60 * 1000 - 60 * 1000,
+        ).toISOString(),
+      });
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+      );
+
+      // 期限切れの判定はタイマーコールバックで行うため、非表示になるまで待つ
+      await waitFor(() =>
+        expect(screen.queryByTestId("now-watching-bubble")).toBeNull(),
+      );
+    });
+
+    it("吹き出しをタップすると作品詳細シートが開く", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching(NOW_WATCHING);
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getByTestId("now-watching-bubble")).toBeTruthy(),
+      );
+
+      await fireEvent.press(screen.getByTestId("now-watching-bubble"));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("work-detail-sheet")).toBeTruthy(),
+      );
+      expect(screen.getByTestId("work-detail-sheet")).toHaveTextContent(
+        "新作アニメ",
+      );
+    });
   });
 
   it("404 のときは見つからない旨を表示する", async () => {

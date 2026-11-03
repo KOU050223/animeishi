@@ -1,5 +1,28 @@
 import { escapeHtml } from "@/lib/html";
-import type { UserWatchSummary } from "./repository";
+import { workImageUrl } from "@/lib/annict/workImage";
+import type { NowWatching, UserWatchSummary } from "./repository";
+
+/**
+ * nowWatching（issue #420 の「いま見ている」吹き出し）の JSON 応答形。
+ * /user/:uid と /me/profile の両方で同じ形を返す。
+ * 作品画像は他の作品応答と同じく画像プロキシ（GET /images/works/:id）の
+ * URL に揃える（issue #224）。
+ */
+export function nowWatchingResponse(
+  nowWatching: NowWatching,
+  requestUrl: string,
+) {
+  return {
+    annictWorkId: nowWatching.annictWorkId,
+    annictEpisodeId: nowWatching.annictEpisodeId,
+    title: nowWatching.title,
+    titleEn: nowWatching.titleEn,
+    seasonName: nowWatching.seasonName,
+    seasonYear: nowWatching.seasonYear,
+    hostedImageUrl: workImageUrl(requestUrl, nowWatching.annictWorkId),
+    recordedAt: nowWatching.recordedAt.toISOString(),
+  };
+}
 
 /**
  * スナップショット時刻の表示用日付（YYYY/M/D）。

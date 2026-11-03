@@ -15,8 +15,14 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
-import { fetchPublicProfile } from "@/lib/publicProfile";
+import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { NowWatchingBubble } from "@/components/NowWatchingBubble";
+import { AnimeWorkDetailSheet } from "@/components/anime-list";
+import type { WorkDetailSheetTarget } from "@/components/anime-list";
+import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
+import { ApiRequestError } from "@/lib/apiError";
+import { trackEvent } from "@/lib/events";
 import {
   REPORT_REASONS,
   useBlockUser,
@@ -44,9 +50,24 @@ export default function PublicProfilePage() {
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   // 名刺交換の成立演出（issue #414）を出す相手。この画面では uid 固定。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // 「いま見ている」吹き出し（issue #420）から開く作品詳細シートの対象。
+  const [selectedWork, setSelectedWork] =
+    useState<WorkDetailSheetTarget | null>(null);
+  const favoriteIds = useFavoriteIds();
+  const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
+    useToggleFavorite(favoriteIds, {
+      onError: (e) =>
+        alert(
+          t("お気に入りを更新できませんでした"),
+          e instanceof ApiRequestError
+            ? e.message
+            : t("お気に入りの更新に失敗しました"),
+          { okLabel: "OK" },
+        ),
+    });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["public-profile", uid],
+    queryKey: publicProfileQueryKey(uid),
     queryFn: async () => fetchPublicProfile(uid, await getToken()),
     enabled: !!uid,
     retry: false,
@@ -225,6 +246,17 @@ export default function PublicProfilePage() {
       ) : null}
       <ScrollView className="flex-1">
         <View className="items-center pt-4 pb-6 px-6">
+          {/* 「いま見ている」吹き出し（issue #420）。直近 24h の話数記録が
+              あるときだけ API が返し、タップで作品詳細シートを開く。 */}
+          {data.nowWatching ? (
+            <View className="items-center" style={{ marginBottom: -2 }}>
+              <NowWatchingBubble
+                nowWatching={data.nowWatching}
+                onPress={() => setSelectedWork(data.nowWatching)}
+                testID="now-watching-bubble"
+              />
+            </View>
+          ) : null}
           {data.profileImageUrl ? (
             <Image
               source={{ uri: data.profileImageUrl }}
@@ -403,6 +435,28 @@ export default function PublicProfilePage() {
           </View>
         </BottomSheet>
       </ScrollView>
+
+      <AnimeWorkDetailSheet
+        work={selectedWork}
+        onClose={() => setSelectedWork(null)}
+        isFavorite={
+          selectedWork != null && favoriteIds.has(selectedWork.annictWorkId)
+        }
+        isTogglingFavorite={isTogglingFavorite}
+        onToggleFavorite={() => {
+          if (selectedWork) toggleFavorite(selectedWork.annictWorkId);
+        }}
+        onOpenCharacterTierList={(work) => {
+          trackEvent("character_tier_open");
+          router.push({
+            pathname: "/character-tier-list",
+            params: {
+              workId: String(work.annictWorkId),
+              workTitle: work.title,
+            },
+          });
+        }}
+      />
     </SafeAreaView>
   );
 }

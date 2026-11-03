@@ -13,6 +13,8 @@ import {
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { usersRepository, DeletedUserError } from "../users/repository";
+import { findNowWatching } from "../user/repository";
+import { nowWatchingResponse } from "../user/service";
 import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
@@ -50,7 +52,18 @@ const me = app
       return c.json({ error: "Profile not found" }, 404);
     }
 
-    return c.json(profile, 200);
+    // 「いま見ている」吹き出し用の直近話数記録（issue #420）。
+    const nowWatching = await findNowWatching(db, c.var.clerkUserId);
+
+    return c.json(
+      {
+        ...profile,
+        nowWatching: nowWatching
+          ? nowWatchingResponse(nowWatching, c.req.url)
+          : null,
+      },
+      200,
+    );
   })
   .openapi(updateProfileRoute, async (c) => {
     const data = c.req.valid("json");

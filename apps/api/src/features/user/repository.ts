@@ -1,6 +1,11 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { annictWorks, favorites, watchHistory } from "@/db/schema";
+import {
+  annictWorks,
+  episodeRecords,
+  favorites,
+  watchHistory,
+} from "@/db/schema";
 import type { WatchHistory } from "@/db/schema";
 
 /** 公開名刺（/user/:uid の OGP / JSON）に載せる視聴サマリ。 */
@@ -89,4 +94,60 @@ export async function findUserWatchSummary(
     favoriteTitles: favoriteTitleRows.map((r) => r.title),
     syncedAt: syncedAtSec > 0 ? new Date(syncedAtSec * 1000) : null,
   };
+}
+
+/** 「いま見ている」吹き出し（issue #420）に載せる直近の話数記録 1 件。 */
+export type NowWatching = {
+  annictWorkId: number;
+  annictEpisodeId: number;
+  title: string;
+  titleEn: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+  /** Annict 側の記録日時（episode_records.recorded_at）。 */
+  recordedAt: Date;
+};
+
+// 吹き出しに出す記録の鮮度。24 時間より古い記録しか無ければ出さない
+// （「一定時間で消える」の期限）。
+const NOW_WATCHING_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * ユーザーの直近 24 時間の話数記録（episode_records）から最新 1 件を返す
+ * （issue #420）。無ければ null。
+ *
+ * 公開制御（isPublic・ブロック判定）はルート側で済ませてから呼ぶ前提。
+ * 話の番号（"第3話" 等の numberText）は D1 に持たないため、話数表示は
+ * annictEpisodeId からクライアント側で話数マスタを引いて解決する。
+ */
+export async function findNowWatching(
+  db: DrizzleDb,
+  userId: string,
+): Promise<NowWatching | null> {
+  const since = new Date(Date.now() - NOW_WATCHING_WINDOW_MS);
+  const rows = await db
+    .select({
+      annictWorkId: episodeRecords.annictWorkId,
+      annictEpisodeId: episodeRecords.annictEpisodeId,
+      title: annictWorks.title,
+      titleEn: annictWorks.titleEn,
+      seasonName: annictWorks.seasonName,
+      seasonYear: annictWorks.seasonYear,
+      recordedAt: episodeRecords.recordedAt,
+    })
+    .from(episodeRecords)
+    .innerJoin(
+      annictWorks,
+      eq(episodeRecords.annictWorkId, annictWorks.annictWorkId),
+    )
+    .where(
+      and(
+        eq(episodeRecords.userId, userId),
+        gt(episodeRecords.recordedAt, since),
+      ),
+    )
+    // recorded_at は秒精度で同秒があり得るため、id で順序を決定的にする。
+    .orderBy(desc(episodeRecords.recordedAt), desc(episodeRecords.id))
+    .limit(1);
+  return rows[0] ?? null;
 }
