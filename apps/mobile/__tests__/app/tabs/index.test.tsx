@@ -45,8 +45,8 @@ jest.mock("@/components/FriendStoryRail", () => ({
   },
 }));
 
-jest.mock("@/components/AnnictConnectionCard", () => ({
-  AnnictConnectionCard: () => {
+jest.mock("@/components/CurrentSeasonConnectCard", () => ({
+  CurrentSeasonConnectCard: () => {
     const { Text } = require("react-native");
     return <Text>Annict連携</Text>;
   },
