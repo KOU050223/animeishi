@@ -43,6 +43,226 @@ const REASON_KEYS = [
 ] as const;
 type ReasonKey = (typeof REASON_KEYS)[number];
 
+type SummaryRow = { label: string; count: number };
+
+// ① 退会理由。任意入力なので「スキップ」も置く。
+function ReasonStep({
+  selectedReasons,
+  onToggleReason,
+  freeText,
+  onChangeFreeText,
+  onNext,
+}: {
+  selectedReasons: Set<ReasonKey>;
+  onToggleReason: (key: ReasonKey) => void;
+  freeText: string;
+  onChangeFreeText: (text: string) => void;
+  onNext: () => void;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  const reasonLabels: Record<ReasonKey, string> = {
+    missing_features: t("欲しい機能がない"),
+    hard_to_use: t("使い方が分からない"),
+    too_many_notifications: t("通知が多い"),
+    other_users: t("他のユーザーとのトラブル"),
+    privacy_concern: t("個人データを残したくない"),
+    not_using: t("あまり使っていない"),
+    other: t("その他"),
+  };
+
+  return (
+    <View className="gap-4">
+      <View>
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("よろしければ、退会の理由を教えてください")}
+        </Text>
+        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          {t("回答は任意です。今後の改善の参考にします（匿名で送信されます）")}
+        </Text>
+      </View>
+
+      <View className="gap-2">
+        {REASON_KEYS.map((key) => {
+          const selected = selectedReasons.has(key);
+          return (
+            <TouchableOpacity
+              key={key}
+              className={`flex-row items-center gap-3 rounded-xl border px-4 py-3 ${
+                selected
+                  ? "border-indigo-400 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950"
+                  : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+              }`}
+              onPress={() => onToggleReason(key)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={reasonLabels[key]}
+            >
+              <Ionicons
+                name={selected ? "checkbox" : "square-outline"}
+                size={22}
+                color={selected ? colors.primary : colors.placeholder}
+              />
+              <Text className="flex-1 text-slate-900 dark:text-slate-100">
+                {reasonLabels[key]}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Input
+        value={freeText}
+        onChangeText={onChangeFreeText}
+        placeholder={t("その他の理由（自由記述）")}
+        multiline
+        numberOfLines={3}
+        maxLength={500}
+        className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
+        accessibilityLabel={t("その他の理由を入力")}
+      />
+
+      <Button
+        label={t("次へ")}
+        onPress={onNext}
+        accessibilityLabel={t("次へ")}
+        testID="delete-account-next"
+      />
+      <TouchableOpacity
+        onPress={onNext}
+        accessibilityRole="button"
+        accessibilityLabel={t("スキップ")}
+        className="py-2"
+      >
+        <Text className="text-center text-sm text-slate-400 dark:text-slate-500">
+          {t("スキップ")}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ② 消えるデータの件数。読み込み中は「次へ」を無効にする。
+// 取得失敗時は再試行を出しつつ、審査要件（アプリ内で削除できること）を
+// 満たすため先へは進める。その場合は最終確認で件数未確認を明示する。
+function SummaryStep({
+  rows,
+  isLoading,
+  isError,
+  onRetry,
+  onNext,
+}: {
+  rows: SummaryRow[] | null;
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onNext: () => void;
+}) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+
+  return (
+    <View className="gap-4">
+      <View>
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("削除されるデータ")}
+        </Text>
+        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          {t("アカウントを削除すると、以下のデータがすべて失われます")}
+        </Text>
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator size="large" color={colors.primary} />
+      ) : isError || !rows ? (
+        <View className="items-center gap-3 py-4">
+          <Text className="text-center text-red-500 dark:text-red-400">
+            {t("削除対象データの取得に失敗しました")}
+          </Text>
+          <TouchableOpacity
+            className="rounded-lg bg-indigo-600 px-6 py-3"
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel={t("削除対象データを再取得")}
+          >
+            <Text className="font-semibold text-white">{t("再試行")}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4">
+          {rows.map((row, i) => (
+            <View
+              key={row.label}
+              className={`flex-row items-center justify-between py-3 ${
+                i > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""
+              }`}
+            >
+              <Text className="text-slate-900 dark:text-slate-100">
+                {row.label}
+              </Text>
+              <Text className="text-sm text-slate-500 dark:text-slate-400">
+                {t("{{count}} 件", { count: row.count })}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Text className="text-xs text-red-500 dark:text-red-400">
+        {t("削除したデータは復元できません")}
+      </Text>
+
+      <Button
+        label={t("次へ")}
+        onPress={onNext}
+        loading={isLoading}
+        accessibilityLabel={t("次へ")}
+        testID="delete-account-summary-next"
+      />
+    </View>
+  );
+}
+
+// ③ 最終確認。件数を確認できなかった場合はその旨も明示する。
+function ConfirmStep({
+  countsUnavailable,
+  deleting,
+  onDelete,
+}: {
+  countsUnavailable: boolean;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <View className="gap-4">
+      <View>
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("最終確認")}
+        </Text>
+        <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {t("本当にアカウントを削除しますか？この操作は取り消せません。")}
+        </Text>
+        {countsUnavailable && (
+          <Text className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            {t("消えるデータの件数を確認できませんでした")}
+          </Text>
+        )}
+      </View>
+
+      <Button
+        label={t("削除する")}
+        variant="destructive"
+        onPress={onDelete}
+        loading={deleting}
+        accessibilityLabel={t("削除する")}
+        testID="delete-account-confirm"
+      />
+    </View>
+  );
+}
+
 /**
  * アカウント削除の段階フロー（issue #426）。
  * ① 退会理由（複数選択＋自由記述・任意）→ ② 消えるデータの件数 →
@@ -51,7 +271,6 @@ type ReasonKey = (typeof REASON_KEYS)[number];
  */
 export default function DeleteAccountScreen() {
   const { t } = useTranslation();
-  const colors = useThemeColors();
   const router = useRouter();
   const { signOut, getToken } = useAuth();
   const [step, setStep] = useState<Step>("reason");
@@ -66,16 +285,6 @@ export default function DeleteAccountScreen() {
   useEffect(() => {
     void loadMeishiDocument().then((doc) => setHasMeishi(doc !== null));
   }, []);
-
-  const reasonLabels: Record<ReasonKey, string> = {
-    missing_features: t("欲しい機能がない"),
-    hard_to_use: t("使い方が分からない"),
-    too_many_notifications: t("通知が多い"),
-    other_users: t("他のユーザーとのトラブル"),
-    privacy_concern: t("個人データを残したくない"),
-    not_using: t("あまり使っていない"),
-    other: t("その他"),
-  };
 
   function toggleReason(key: ReasonKey) {
     setSelectedReasons((prev) => {
@@ -150,7 +359,7 @@ export default function DeleteAccountScreen() {
     await signOut();
   }
 
-  const summaryRows: { label: string; count: number }[] | null = summary.data
+  const summaryRows: SummaryRow[] | null = summary.data
     ? [
         { label: t("視聴履歴"), count: summary.data.watchHistories },
         { label: t("お気に入り"), count: summary.data.favorites },
@@ -185,172 +394,29 @@ export default function DeleteAccountScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {step === "reason" && (
-          <View className="gap-4">
-            <View>
-              <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {t("よろしければ、退会の理由を教えてください")}
-              </Text>
-              <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                {t(
-                  "回答は任意です。今後の改善の参考にします（匿名で送信されます）",
-                )}
-              </Text>
-            </View>
-
-            <View className="gap-2">
-              {REASON_KEYS.map((key) => {
-                const selected = selectedReasons.has(key);
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    className={`flex-row items-center gap-3 rounded-xl border px-4 py-3 ${
-                      selected
-                        ? "border-indigo-400 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950"
-                        : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-                    }`}
-                    onPress={() => toggleReason(key)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    accessibilityLabel={reasonLabels[key]}
-                  >
-                    <Ionicons
-                      name={selected ? "checkbox" : "square-outline"}
-                      size={22}
-                      color={selected ? colors.primary : colors.placeholder}
-                    />
-                    <Text className="flex-1 text-slate-900 dark:text-slate-100">
-                      {reasonLabels[key]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Input
-              value={freeText}
-              onChangeText={setFreeText}
-              placeholder={t("その他の理由（自由記述）")}
-              multiline
-              numberOfLines={3}
-              maxLength={500}
-              className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
-              accessibilityLabel={t("その他の理由を入力")}
-            />
-
-            <Button
-              label={t("次へ")}
-              onPress={() => setStep("summary")}
-              accessibilityLabel={t("次へ")}
-              testID="delete-account-next"
-            />
-            <TouchableOpacity
-              onPress={() => setStep("summary")}
-              accessibilityRole="button"
-              accessibilityLabel={t("スキップ")}
-              className="py-2"
-            >
-              <Text className="text-center text-sm text-slate-400 dark:text-slate-500">
-                {t("スキップ")}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <ReasonStep
+            selectedReasons={selectedReasons}
+            onToggleReason={toggleReason}
+            freeText={freeText}
+            onChangeFreeText={setFreeText}
+            onNext={() => setStep("summary")}
+          />
         )}
-
         {step === "summary" && (
-          <View className="gap-4">
-            <View>
-              <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {t("削除されるデータ")}
-              </Text>
-              <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                {t("アカウントを削除すると、以下のデータがすべて失われます")}
-              </Text>
-            </View>
-
-            {summary.isLoading ? (
-              <ActivityIndicator size="large" color={colors.primary} />
-            ) : summary.isError || !summaryRows ? (
-              <View className="items-center gap-3 py-4">
-                <Text className="text-center text-red-500 dark:text-red-400">
-                  {t("削除対象データの取得に失敗しました")}
-                </Text>
-                <TouchableOpacity
-                  className="rounded-lg bg-indigo-600 px-6 py-3"
-                  onPress={() => summary.refetch()}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("削除対象データを再取得")}
-                >
-                  <Text className="font-semibold text-white">
-                    {t("再試行")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4">
-                {summaryRows.map((row, i) => (
-                  <View
-                    key={row.label}
-                    className={`flex-row items-center justify-between py-3 ${
-                      i > 0
-                        ? "border-t border-slate-100 dark:border-slate-800"
-                        : ""
-                    }`}
-                  >
-                    <Text className="text-slate-900 dark:text-slate-100">
-                      {row.label}
-                    </Text>
-                    <Text className="text-sm text-slate-500 dark:text-slate-400">
-                      {t("{{count}} 件", { count: row.count })}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Text className="text-xs text-red-500 dark:text-red-400">
-              {t("削除したデータは復元できません")}
-            </Text>
-
-            {/* 件数の読み込み中は進めない。取得失敗時は再試行を出しつつ、
-                審査要件（アプリ内で削除できること）を満たすため先へは進める。
-                その場合は最終確認で件数未確認であることを明示する。 */}
-            <Button
-              label={t("次へ")}
-              onPress={() => setStep("confirm")}
-              loading={summary.isLoading}
-              accessibilityLabel={t("次へ")}
-              testID="delete-account-summary-next"
-            />
-          </View>
+          <SummaryStep
+            rows={summaryRows}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
+            onRetry={() => summary.refetch()}
+            onNext={() => setStep("confirm")}
+          />
         )}
-
         {step === "confirm" && (
-          <View className="gap-4">
-            <View>
-              <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {t("最終確認")}
-              </Text>
-              <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {t(
-                  "本当にアカウントを削除しますか？この操作は取り消せません。",
-                )}
-              </Text>
-              {!summary.data && (
-                <Text className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  {t("消えるデータの件数を確認できませんでした")}
-                </Text>
-              )}
-            </View>
-
-            <Button
-              label={t("削除する")}
-              variant="destructive"
-              onPress={() => void runDelete()}
-              loading={deleteAccount.isPending}
-              accessibilityLabel={t("削除する")}
-              testID="delete-account-confirm"
-            />
-          </View>
+          <ConfirmStep
+            countsUnavailable={!summary.data}
+            deleting={deleteAccount.isPending}
+            onDelete={() => void runDelete()}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
