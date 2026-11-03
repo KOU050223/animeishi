@@ -80,10 +80,12 @@ export default function IncomingShareScreen() {
 
     handledKeyRef.current = key;
     let cancelled = false;
+    let completed = false;
     void (async () => {
       try {
         const codes = await scanQrFromImage(imageUri);
         if (cancelled) return;
+        completed = true;
         const userId =
           codes
             .map((code) => extractUserIdFromSharedText(code))
@@ -96,12 +98,18 @@ export default function IncomingShareScreen() {
         }
       } catch {
         if (cancelled) return;
+        completed = true;
         clearSharedPayloads();
         setScanFailed(true);
       }
     })();
     return () => {
       cancelled = true;
+      // スキャン未完了でキャンセルされた場合は処理済み印を戻し、
+      // 解決完了後の再レンダーで同じ共有をスキャンし直せるようにする
+      // （実機では初回 isResolving=false で生 URI のスキャンが始まり、
+      // 直後の refresh でキャンセルされる）
+      if (!completed) handledKeyRef.current = null;
     };
   }, [
     sharedPayloads,

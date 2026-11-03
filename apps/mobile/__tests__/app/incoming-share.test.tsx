@@ -138,6 +138,57 @@ describe("IncomingShareScreen", () => {
     expect(screen.queryByText("名刺を開けませんでした")).toBeNull();
   });
 
+  it("実機の順序（初回 isResolving=false → refresh → 解決完了）でスキャンが完了し遷移する", async () => {
+    // expo-sharing は初回レンダーで sharedPayloads=getSharedPayloads()（非空）
+    // ・isResolving=false・resolvedSharedPayloads=[] を返し、その直後の
+    // refresh で sharedPayloads の新しい配列と isResolving=true を出す
+    const imagePayload = { shareType: "image", value: "file:///raw.png" };
+    const firstScan = new Promise<string[]>(() => {});
+    mockScan
+      .mockImplementationOnce(() => firstScan)
+      .mockResolvedValueOnce([WEB_CARD_URL]);
+
+    mockShare.sharedPayloads = [imagePayload];
+    const { rerender } = await render(<IncomingShareScreen />);
+
+    // 初回は生 value でスキャンが始まる（解決がまだ始まっていない）
+    await waitFor(() =>
+      expect(mockScan).toHaveBeenCalledWith("file:///raw.png"),
+    );
+
+    // refresh: sharedPayloads の参照が変わり isResolving=true になる。
+    // 未完了のスキャンはキャンセルされるが、処理済み印が残ると解決後に
+    // 再スキャンされずスピナーのまま止まる（実機で観測された不具合）
+    mockShare = {
+      ...mockShare,
+      sharedPayloads: [imagePayload],
+      isResolving: true,
+    };
+    await rerender(<IncomingShareScreen />);
+    expect(mockScan).toHaveBeenCalledTimes(1);
+
+    // 解決完了: isResolving=false + contentUri が届き、再スキャンして遷移する
+    mockShare = {
+      ...mockShare,
+      isResolving: false,
+      resolvedSharedPayloads: [
+        { contentType: "image", contentUri: "file:///resolved.png" },
+      ],
+    };
+    await rerender(<IncomingShareScreen />);
+
+    await waitFor(() =>
+      expect(mockScan).toHaveBeenCalledWith("file:///resolved.png"),
+    );
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: "/user/[uid]",
+        params: { uid: CLERK_ID },
+      }),
+    );
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+
   it("スキャン中に別の共有が届いたら、遅れて届いた結果で状態を更新しない", async () => {
     let resolveScan: (codes: string[]) => void = () => {};
     mockScan.mockImplementation(
