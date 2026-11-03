@@ -1,6 +1,19 @@
 import { apiUrl } from "@/lib/apiUrl";
 import { ApiRequestError } from "@/lib/apiError";
 
+// 「いま見ている」吹き出し（issue #420）に載せる直近の話数記録 1 件。
+// 直近 24 時間に記録が無ければ null。GET /me/profile の nowWatching と同形。
+export type NowWatching = {
+  annictWorkId: number;
+  annictEpisodeId: number;
+  title: string;
+  titleEn: string | null;
+  seasonName: string | null;
+  seasonYear: number | null;
+  hostedImageUrl: string | null;
+  recordedAt: string;
+};
+
 export type PublicProfile = {
   id: string;
   username: string;
@@ -8,6 +21,7 @@ export type PublicProfile = {
   favoriteQuote: string | null;
   profileImageUrl: string | null;
   genres: string[];
+  nowWatching: NowWatching | null;
 };
 
 /**

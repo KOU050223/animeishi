@@ -1,6 +1,11 @@
 import React from "react";
 import { StyleSheet } from "react-native";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile/index";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
@@ -51,6 +56,37 @@ jest.mock("@/components/AppVersionFooter", () => ({
   },
 }));
 
+// 吹き出しタップで開く作品詳細シート（issue #420）。シート本体の挙動は
+// 別テストに任せ、ここでは「開いたか・対象作品が正しいか」だけを見る。
+jest.mock("@/components/anime-list", () => ({
+  AnimeWorkDetailSheet: ({ work }: { work: { title: string } | null }) => {
+    const { Text } = require("react-native");
+    return work ? <Text testID="work-detail-sheet">{work.title}</Text> : null;
+  },
+}));
+
+jest.mock("@/lib/useFavorites", () => ({
+  useFavoriteIds: () => new Set<number>(),
+  useToggleFavorite: () => ({ toggle: jest.fn(), isPending: false }),
+}));
+
+jest.mock("@/lib/useWorkEpisodes", () => ({
+  useWorkEpisodes: () => ({ data: undefined }),
+}));
+
+jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
+
+const NOW_WATCHING = {
+  annictWorkId: 3002,
+  annictEpisodeId: 502,
+  title: "新作アニメ",
+  titleEn: null,
+  seasonName: "2026-autumn",
+  seasonYear: 2026,
+  hostedImageUrl: null,
+  recordedAt: "2026-11-03T10:00:00.000Z",
+};
+
 // 取得結果をテストごとに切り替えられるよう、変数経由で返す。
 const mockProfileData = {
   id: "user_1",
@@ -61,6 +97,7 @@ const mockProfileData = {
   isPublic: true,
   createdAt: "",
   updatedAt: "",
+  nowWatching: null as typeof NOW_WATCHING | null,
 };
 let mockProfile: {
   data: typeof mockProfileData | undefined;
@@ -134,6 +171,52 @@ describe("ProfileScreen の名刺プレビュー", () => {
     await render(<ProfileScreen />);
 
     expect(mockReloadDocument).toHaveBeenCalledTimes(1);
+  });
+});
+
+// issue #420: 直近 24h の話数記録を名刺内アバターの上に吹き出しで出す。
+describe("ProfileScreen の「いま見ている」吹き出し", () => {
+  function profileWithNowWatching(nowWatching: typeof NOW_WATCHING | null) {
+    mockProfile = {
+      data: { ...mockProfileData, nowWatching },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    };
+  }
+
+  it("nowWatching があると吹き出しを表示し、タップで作品詳細シートが開く", async () => {
+    loggedInUser({ userId: "user_1" });
+    profileWithNowWatching(NOW_WATCHING);
+    await render(<ProfileScreen />);
+
+    // 吹き出しのアンカーはプレビュー枠の実幅から計算するため、
+    // レイアウト確定を再現してから出る。
+    await fireEvent(screen.getByTestId("meishi-preview-frame"), "layout", {
+      nativeEvent: { layout: { width: 320, height: 200 } },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("now-watching-bubble")).toBeTruthy(),
+    );
+    expect(screen.getByText("新作アニメ")).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId("now-watching-bubble"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("work-detail-sheet")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("work-detail-sheet")).toHaveTextContent(
+      "新作アニメ",
+    );
+  });
+
+  it("nowWatching が null なら吹き出しを出さない", async () => {
+    loggedInUser({ userId: "user_1" });
+    profileWithNowWatching(null);
+    await render(<ProfileScreen />);
+
+    expect(screen.queryByTestId("now-watching-bubble")).toBeNull();
   });
 });
 

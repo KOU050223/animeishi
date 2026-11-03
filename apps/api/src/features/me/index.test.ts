@@ -14,6 +14,7 @@ import {
   customTierLists,
   deletedUsers,
   deletionFeedbacks,
+  episodeRecords,
   favorites,
   friends,
   reports,
@@ -207,6 +208,105 @@ describe("GET /me/profile & PUT /me/profile", () => {
       const body = (await res.json()) as { username: string; id: string };
       expect(body.id).toBe(USER_ID);
       expect(body.username).toBe("既存ユーザー");
+    });
+
+    // issue #420: 「いま見ている」吹き出し用の直近話数記録（episode_records）。
+    describe("GET /me/profile: nowWatching", () => {
+      async function insertEpisodeRecord(
+        userId: string,
+        record: {
+          annictWorkId: number;
+          annictEpisodeId: number;
+          recordedAt: Date;
+        },
+      ) {
+        await db.insert(episodeRecords).values({
+          userId,
+          annictWorkId: record.annictWorkId,
+          annictEpisodeId: record.annictEpisodeId,
+          source: "animeishi",
+          recordedAt: record.recordedAt,
+          createdAt: new Date(),
+        });
+      }
+
+      const bindings = () => ({
+        DB: env.DB,
+        CLERK_SECRET_KEY: "test_secret",
+        CLERK_PUBLISHABLE_KEY: "test_pub",
+      });
+
+      it("直近 24 時間以内の最新記録を返す", async () => {
+        const now = new Date();
+        await db.insert(users).values({
+          id: USER_ID,
+          username: "ユーザー",
+          isPublic: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await db.insert(annictWorks).values({
+          annictWorkId: 3101,
+          title: "いま見ている作品",
+          updatedAt: now,
+        });
+        // recorded_at は秒精度で保存されるため、比較用に切り下げる。
+        const recordedAt = new Date(
+          Math.floor(Date.now() / 1000) * 1000 - 60 * 1000,
+        );
+        await insertEpisodeRecord(USER_ID, {
+          annictWorkId: 3101,
+          annictEpisodeId: 601,
+          recordedAt,
+        });
+
+        const app = buildApp();
+        const res = await app.request("/me/profile", {}, bindings());
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          nowWatching: {
+            annictWorkId: number;
+            annictEpisodeId: number;
+            title: string;
+            hostedImageUrl: string | null;
+            recordedAt: string;
+          } | null;
+        };
+        expect(body.nowWatching?.annictWorkId).toBe(3101);
+        expect(body.nowWatching?.annictEpisodeId).toBe(601);
+        expect(body.nowWatching?.title).toBe("いま見ている作品");
+        expect(body.nowWatching?.hostedImageUrl).toBe(
+          "http://localhost/images/works/3101",
+        );
+        expect(body.nowWatching?.recordedAt).toBe(recordedAt.toISOString());
+      });
+
+      it("24 時間より古い記録しか無ければ null", async () => {
+        const now = new Date();
+        await db.insert(users).values({
+          id: USER_ID,
+          username: "ユーザー",
+          isPublic: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await db.insert(annictWorks).values({
+          annictWorkId: 3101,
+          title: "いま見ている作品",
+          updatedAt: now,
+        });
+        await insertEpisodeRecord(USER_ID, {
+          annictWorkId: 3101,
+          annictEpisodeId: 601,
+          recordedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+        });
+
+        const app = buildApp();
+        const res = await app.request("/me/profile", {}, bindings());
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { nowWatching: unknown };
+        expect(body.nowWatching).toBeNull();
+      });
     });
 
     it("PUT /me/profile: プロフィールを更新できる", async () => {

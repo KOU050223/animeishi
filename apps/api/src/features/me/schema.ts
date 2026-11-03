@@ -85,6 +85,19 @@ const userProfileSchema = z.object({
   updatedAt: z.string(),
 });
 
+// 「いま見ている」吹き出し（issue #420）に載せる直近の話数記録 1 件。
+// /user/:uid の JSON 応答と同じ形。直近 24 時間に記録が無ければ null。
+const nowWatchingSchema = z.object({
+  annictWorkId: z.number(),
+  annictEpisodeId: z.number(),
+  title: z.string(),
+  titleEn: z.string().nullable(),
+  seasonName: z.string().nullable(),
+  seasonYear: z.number().nullable(),
+  hostedImageUrl: z.string().nullable(),
+  recordedAt: z.string(),
+});
+
 // GET /me/blocks の 1 件（BlockedUser。相手プロフィールを含む）。
 const blockedUserSchema = z.object({
   blockedId: z.string(),
@@ -124,7 +137,13 @@ export const getProfileRoute = createRoute({
   security: bearerAuth,
   responses: {
     200: {
-      content: { "application/json": { schema: userProfileSchema } },
+      content: {
+        "application/json": {
+          schema: userProfileSchema.extend({
+            nowWatching: nowWatchingSchema.nullable(),
+          }),
+        },
+      },
       description: "プロフィール",
     },
     401: jsonError("未認証"),
