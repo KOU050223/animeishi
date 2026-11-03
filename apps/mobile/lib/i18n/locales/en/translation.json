@@ -216,6 +216,7 @@
   "アカウントを削除すると、以下のデータがすべて失われます": "Deleting your account removes all of the following data",
   "削除対象データの取得に失敗しました": "Couldn't load the data to be deleted",
   "削除対象データを再取得": "Reload data to be deleted",
+  "消えるデータの件数を確認できませんでした": "Couldn't check how much data will be deleted",
   "{{count}} 件": "{{count}} items",
   "削除したデータは復元できません": "Deleted data can't be restored",
   "最終確認": "Final confirmation",

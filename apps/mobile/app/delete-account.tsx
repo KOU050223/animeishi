@@ -19,12 +19,15 @@ import { clearMeishiDocument, loadMeishiDocument } from "@/lib/meishi/storage";
 import { queryClient } from "@/lib/queryClient";
 import { useThemeColors } from "@/lib/theme";
 import {
+  submitDeletionFeedback,
   useDeleteAccount,
   useDeletionSummary,
-  useSubmitDeletionFeedback,
 } from "@/lib/useProfile";
 
 type Step = "reason" | "summary" | "confirm";
+
+// 理由の POST の完了待ち上限。数秒で打ち切って削除は続行する。
+const FEEDBACK_TIMEOUT_MS = 3000;
 
 // POST /me/deletion-feedback に送る理由の識別子。集計のキーなので
 // 表示文言（label）とは分けて固定値を送る。API 側はキーの中身を
@@ -50,7 +53,7 @@ export default function DeleteAccountScreen() {
   const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const [step, setStep] = useState<Step>("reason");
   const [selectedReasons, setSelectedReasons] = useState<Set<ReasonKey>>(
     new Set(),
@@ -58,7 +61,6 @@ export default function DeleteAccountScreen() {
   const [freeText, setFreeText] = useState("");
   const [hasMeishi, setHasMeishi] = useState(false);
   const summary = useDeletionSummary();
-  const submitFeedback = useSubmitDeletionFeedback();
   const deleteAccount = useDeleteAccount();
 
   useEffect(() => {
@@ -87,19 +89,24 @@ export default function DeleteAccountScreen() {
     });
   }
 
-  function goToSummary() {
+  // 理由の POST は削除直前に送る。DELETE が先に完了すると tombstone で
+  // 後続の POST が 401 になり回答が失われるため、送信を遅らせて
+  // 削除前に完了を待つ。遅らせる分、戻って編集された最新の回答が
+  // 一度だけ送られる形になる。
+  async function submitFeedbackWithTimeout() {
     const reasons = [...selectedReasons];
     const text = freeText.trim();
-    if (reasons.length > 0 || text.length > 0) {
-      // 理由の保存失敗で退会をブロックしない。削除済みトークンでは 401 に
-      // なるため DELETE /me より先に送る必要があるが、画面遷移も待たせ
-      // ないので await せずエラーは握り潰す。
-      submitFeedback.mutate(
-        { reasons, ...(text.length > 0 ? { freeText: text } : {}) },
-        { onError: () => {} },
-      );
+    if (reasons.length === 0 && text.length === 0) {
+      return;
     }
-    setStep("summary");
+    const sent = submitDeletionFeedback(getToken, {
+      reasons,
+      ...(text.length > 0 ? { freeText: text } : {}),
+    }).catch(() => {});
+    await Promise.race([
+      sent,
+      new Promise((resolve) => setTimeout(resolve, FEEDBACK_TIMEOUT_MS)),
+    ]);
   }
 
   // 戻る導線はフロー内のステップを優先し、先頭では呼び出し元の
@@ -122,6 +129,8 @@ export default function DeleteAccountScreen() {
 
   async function runDelete() {
     haptics.warning();
+    // 理由の保存失敗・タイムアウトで退会をブロックしない（issue #426 の要件）。
+    await submitFeedbackWithTimeout();
     try {
       await deleteAccount.mutateAsync();
     } catch (e) {
@@ -230,7 +239,7 @@ export default function DeleteAccountScreen() {
 
             <Button
               label={t("次へ")}
-              onPress={goToSummary}
+              onPress={() => setStep("summary")}
               accessibilityLabel={t("次へ")}
               testID="delete-account-next"
             />
@@ -302,9 +311,13 @@ export default function DeleteAccountScreen() {
               {t("削除したデータは復元できません")}
             </Text>
 
+            {/* 件数の読み込み中は進めない。取得失敗時は再試行を出しつつ、
+                審査要件（アプリ内で削除できること）を満たすため先へは進める。
+                その場合は最終確認で件数未確認であることを明示する。 */}
             <Button
               label={t("次へ")}
               onPress={() => setStep("confirm")}
+              loading={summary.isLoading}
               accessibilityLabel={t("次へ")}
               testID="delete-account-summary-next"
             />
@@ -322,6 +335,11 @@ export default function DeleteAccountScreen() {
                   "本当にアカウントを削除しますか？この操作は取り消せません。",
                 )}
               </Text>
+              {!summary.data && (
+                <Text className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {t("消えるデータの件数を確認できませんでした")}
+                </Text>
+              )}
             </View>
 
             <Button

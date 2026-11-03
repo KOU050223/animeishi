@@ -74,23 +74,21 @@ export function useDeletionSummary() {
  * 退会理由の送信（POST /me/deletion-feedback）。
  * user_id と紐付けず集計専用で保存される。失敗しても退会をブロック
  * しない前提のため、呼び出し側はエラーを握り潰して進めてよい。
+ * 無効化するキャッシュを持たない書き込みなので useMutation ではなく
+ * 素の関数で呼び、完了待ち・タイムアウトは呼び出し側が制御する。
  */
-export function useSubmitDeletionFeedback() {
-  const { getToken } = useAuth();
-
-  return useMutation({
-    mutationFn: async (input: { reasons: string[]; freeText?: string }) => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["deletion-feedback"].$post(
-        { json: input },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "回答の送信に失敗しました");
-      }
-      return null;
-    },
-  });
+export async function submitDeletionFeedback(
+  getToken: () => Promise<string | null>,
+  input: { reasons: string[]; freeText?: string },
+): Promise<void> {
+  const headers = await getAuthHeaders(getToken);
+  const res = await apiClient.me["deletion-feedback"].$post(
+    { json: input },
+    { headers },
+  );
+  if (!res.ok) {
+    throw new ApiRequestError(res.status, "回答の送信に失敗しました");
+  }
 }
 
 /**
