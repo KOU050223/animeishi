@@ -1175,6 +1175,423 @@ export async function fetchAnnictWorkCasts(
   };
 }
 
+// --- work.episodes（話数マスタ＋本人の記録状況, issue #439） ---
+//
+// 話数のマスタは Annict の episodes を正とする（Animeishi は話数マスタを
+// 持たない）。viewerDidTrack / viewerRecordsCount はトークン所有者の
+// 記録状況で、詳細シートの話数チェック一覧に使う。
+const WORK_EPISODES_QUERY = `
+query WorkEpisodes($annictIds: [Int!], $after: String) {
+  searchWorks(annictIds: $annictIds, first: 1) {
+    nodes {
+      annictId
+      episodes(first: 50, after: $after, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          annictId
+          number
+          numberText
+          sortNumber
+          title
+          viewerDidTrack
+          viewerRecordsCount
+        }
+      }
+    }
+  }
+}`;
+
+type WorkEpisodesResponse = {
+  searchWorks: {
+    nodes: {
+      annictId: number;
+      episodes: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        nodes: {
+          id: string;
+          annictId: number;
+          number: number | null;
+          numberText: string | null;
+          sortNumber: number;
+          title: string | null;
+          viewerDidTrack: boolean;
+          viewerRecordsCount: number;
+        }[];
+      } | null;
+    }[];
+  } | null;
+};
+
+/** 話数チェック一覧に出す 1 話分。watched 判定は viewerDidTrack を使う。 */
+export type AnnictWorkEpisode = {
+  annictEpisodeId: number;
+  nodeId: string;
+  number: number | null;
+  numberText: string | null;
+  sortNumber: number;
+  title: string | null;
+  viewerDidTrack: boolean;
+  viewerRecordsCount: number;
+};
+
+// 話数一覧の取得上限（50 話 × 30 = 1500 話）。長期シリーズも現実的な範囲で
+// カバーしつつ、無限ループ（壊れた endCursor）とサブリクエスト上限を防ぐ。
+const MAX_EPISODE_PAGES = 30;
+
+/**
+ * 作品の話数一覧を SORT_NUMBER 順で全ページ取得する。作品が無ければ null。
+ * ページングを辿り切れない（壊れた endCursor・上限到達）場合は部分結果を
+ * 「全話」として返さないよう失敗にする（libraryEntries と同じ方針）。
+ */
+export async function fetchAnnictWorkEpisodes(
+  accessToken: string,
+  annictWorkId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictWorkEpisode[] | null> {
+  const episodes: AnnictWorkEpisode[] = [];
+  const seenCursors = new Set<string>();
+  let after: string | null = null;
+
+  for (let page = 0; page < MAX_EPISODE_PAGES; page++) {
+    const data = await withAnnictRetry(() =>
+      annictGraphQL<WorkEpisodesResponse>(
+        accessToken,
+        WORK_EPISODES_QUERY,
+        { annictIds: [annictWorkId], after },
+        fetchImpl,
+      ),
+    );
+
+    const work = data.searchWorks?.nodes.find(
+      (n) => n.annictId === annictWorkId,
+    );
+    if (!work) return null;
+
+    for (const node of work.episodes?.nodes ?? []) {
+      episodes.push({
+        annictEpisodeId: node.annictId,
+        nodeId: node.id,
+        number: node.number,
+        numberText: node.numberText,
+        sortNumber: node.sortNumber,
+        title: node.title,
+        viewerDidTrack: node.viewerDidTrack,
+        viewerRecordsCount: node.viewerRecordsCount,
+      });
+    }
+
+    const { hasNextPage, endCursor } = work.episodes?.pageInfo ?? {
+      hasNextPage: false,
+      endCursor: null,
+    };
+    if (!hasNextPage) return episodes;
+    // 次ページがあるのに継続カーソルが取れない/繰り返す/上限到達の場合、
+    // 部分結果を返すと「次の話」の判定やチェック一覧が欠損するため失敗にする。
+    if (
+      !endCursor ||
+      seenCursors.has(endCursor) ||
+      page === MAX_EPISODE_PAGES - 1
+    ) {
+      throw new AnnictApiError(
+        "Annict work episodes pagination did not complete",
+        502,
+        { annictWorkId, endCursor },
+      );
+    }
+    seenCursors.add(endCursor);
+    after = endCursor;
+  }
+
+  return episodes;
+}
+
+// --- viewer.records（本人のエピソード記録, issue #439） ---
+//
+// Annict 側の既存記録を D1 の episode_records ログに合わせる読み込み経路。
+// Record には viewer フィルタが無いため viewer.records を CREATED_AT 降順で
+// 辿り、呼び出し側の filter で対象（作品・話）を選ぶ。期待件数（対象話の
+// viewerRecordsCount 合計）が集まった時点で打ち切る。
+const VIEWER_RECORDS_QUERY = `
+query ViewerRecords($after: String) {
+  viewer {
+    annictId
+    records(first: 50, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        annictId
+        createdAt
+        episode { annictId }
+        work { annictId }
+      }
+    }
+  }
+}`;
+
+type ViewerRecordsResponse = {
+  viewer: {
+    // トークン所有者の Annict ユーザー ID。annict_tokens.annict_user_id
+    // （Web 連携時に保存した連携アカウント）との突き合わせに使う（issue #439）。
+    annictId: number | null;
+    records: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: {
+        id: string;
+        annictId: number;
+        createdAt: string;
+        episode: { annictId: number } | null;
+        work: { annictId: number } | null;
+      }[];
+    } | null;
+  } | null;
+};
+
+/** 本人のエピソード記録 1 件（D1 episode_records への書き込み単位）。 */
+export type AnnictViewerRecord = {
+  annictRecordId: number;
+  recordNodeId: string;
+  // Annict DateTime（ISO 8601 文字列）。D1 では Unix epoch に変換して持つ。
+  createdAt: string;
+  annictEpisodeId: number;
+  annictWorkId: number;
+};
+
+// viewer.records のページング上限（50 件 × 10 = 500 記録まで遡る）。
+// 対象作品の記録が古いほど深くなるが、サブリクエスト上限のため無制限には
+// 辿らない。打ち切った場合は complete=false で呼び出し側が「部分同期」と
+// 判断できるようにする（削除反映の reconcile を行わない）。
+const DEFAULT_MAX_RECORD_PAGES = 10;
+
+/**
+ * 本人の viewer.records を CREATED_AT 降順で辿り、filter に合う記録を返す。
+ * expectedCount 件集まる・コネクションを辿り切る・maxPages 到達のいずれかで止まる。
+ * complete は「対象の記録を全件拾えた」場合に true（= expectedCount 達成
+ * または connection 枯渇）。maxPages 打ち切りの部分取得では false。
+ */
+export async function fetchAnnictViewerRecords(
+  accessToken: string,
+  options: {
+    filter: (record: AnnictViewerRecord) => boolean;
+    expectedCount: number;
+    maxPages?: number;
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<{
+  records: AnnictViewerRecord[];
+  complete: boolean;
+  viewerAnnictId: number | null;
+}> {
+  const { filter, expectedCount } = options;
+  const maxPages = options.maxPages ?? DEFAULT_MAX_RECORD_PAGES;
+  const records: AnnictViewerRecord[] = [];
+  const seenCursors = new Set<string>();
+  let after: string | null = null;
+  let viewerAnnictId: number | null = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const data = await withAnnictRetry(() =>
+      annictGraphQL<ViewerRecordsResponse>(
+        accessToken,
+        VIEWER_RECORDS_QUERY,
+        { after },
+        fetchImpl,
+      ),
+    );
+    viewerAnnictId = data.viewer?.annictId ?? null;
+
+    const connection = data.viewer?.records;
+    for (const node of connection?.nodes ?? []) {
+      if (!node.episode || !node.work) continue;
+      const record: AnnictViewerRecord = {
+        annictRecordId: node.annictId,
+        recordNodeId: node.id,
+        createdAt: node.createdAt,
+        annictEpisodeId: node.episode.annictId,
+        annictWorkId: node.work.annictId,
+      };
+      if (filter(record)) records.push(record);
+    }
+    if (records.length >= expectedCount) {
+      return { records, complete: true, viewerAnnictId };
+    }
+
+    const { hasNextPage, endCursor } = connection?.pageInfo ?? {
+      hasNextPage: false,
+      endCursor: null,
+    };
+    if (!hasNextPage) {
+      // viewer.records を辿り切った = 対象の記録は全件拾えている。
+      return { records, complete: true, viewerAnnictId };
+    }
+    if (!endCursor || seenCursors.has(endCursor)) {
+      // 壊れたページングはエラーにせず、取れた分を「部分」として返す。
+      // 記録の読み込みはベストエフォート（D1 ログの同期）で、チェック一覧の
+      // 表示は viewerDidTrack が担保するため。
+      return { records, complete: false, viewerAnnictId };
+    }
+    seenCursors.add(endCursor);
+    after = endCursor;
+  }
+
+  return {
+    records,
+    complete: records.length >= expectedCount,
+    viewerAnnictId,
+  };
+}
+
+// --- createRecord / deleteRecord（話の記録・取消, issue #439） ---
+
+const CREATE_RECORD_MUTATION = `
+mutation CreateRecord($episodeId: ID!) {
+  createRecord(input: { episodeId: $episodeId }) {
+    record {
+      id
+      annictId
+      createdAt
+    }
+  }
+}`;
+
+type CreateRecordResponse = {
+  createRecord: {
+    record: { id: string; annictId: number; createdAt: string } | null;
+  } | null;
+};
+
+/**
+ * 話に記録を付ける（Annict createRecord。write スコープ必須）。
+ * episodeNodeId は Annict GraphQL の Episode Node ID。
+ * 成功時は作成された record の ID・作成日時を返す（D1 ログの入力）。
+ */
+export async function createAnnictRecord(
+  accessToken: string,
+  episodeNodeId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{
+  annictRecordId: number;
+  recordNodeId: string;
+  createdAt: string;
+}> {
+  const data = await annictGraphQL<CreateRecordResponse>(
+    accessToken,
+    CREATE_RECORD_MUTATION,
+    { episodeId: episodeNodeId },
+    fetchImpl,
+  );
+  const record = data.createRecord?.record;
+  if (!record) {
+    throw new AnnictApiError("Annict createRecord returned no record", 502);
+  }
+  return {
+    annictRecordId: record.annictId,
+    recordNodeId: record.id,
+    createdAt: record.createdAt,
+  };
+}
+
+const DELETE_RECORD_MUTATION = `
+mutation DeleteRecord($recordId: ID!) {
+  deleteRecord(input: { recordId: $recordId }) {
+    clientMutationId
+  }
+}`;
+
+type DeleteRecordResponse = {
+  deleteRecord: { clientMutationId: string | null } | null;
+};
+
+/**
+ * Annict の記録を削除する（deleteRecord。write スコープ必須）。
+ * recordNodeId は Annict GraphQL の Record Node ID。
+ */
+export async function deleteAnnictRecord(
+  accessToken: string,
+  recordNodeId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const data = await annictGraphQL<DeleteRecordResponse>(
+    accessToken,
+    DELETE_RECORD_MUTATION,
+    { recordId: recordNodeId },
+    fetchImpl,
+  );
+  // errors 無しで deleteRecord が null = 削除要求が受理されなかった。
+  // 成功扱いで返すと呼び出し側が D1 のログだけ消して実記録を残すため、
+  // ここで失敗にする。
+  if (!data.deleteRecord) {
+    throw new AnnictApiError("Annict deleteRecord returned no result", 502);
+  }
+}
+
+// --- searchEpisodes（annictEpisodeId → Node ID・所属作品の解決, issue #439） ---
+
+const SEARCH_EPISODE_BY_ANNICT_ID_QUERY = `
+query SearchEpisodeByAnnictId($annictIds: [Int!]) {
+  searchEpisodes(annictIds: $annictIds, first: 1) {
+    nodes {
+      id
+      annictId
+      viewerDidTrack
+      viewerRecordsCount
+      work { annictId }
+    }
+  }
+}`;
+
+type SearchEpisodesResponse = {
+  searchEpisodes: {
+    nodes: {
+      id: string;
+      annictId: number;
+      viewerDidTrack: boolean;
+      viewerRecordsCount: number;
+      work: { annictId: number } | null;
+    }[];
+  } | null;
+};
+
+export type AnnictEpisodeInfo = {
+  annictEpisodeId: number;
+  nodeId: string;
+  annictWorkId: number;
+  viewerDidTrack: boolean;
+  viewerRecordsCount: number;
+};
+
+/**
+ * annictEpisodeId(Int) から話の Node ID・所属作品・本人の記録状況を取得する。
+ * 記録（createRecord）・取消（deleteRecord）前の解決に使う。無ければ null。
+ */
+export async function fetchAnnictEpisodeByAnnictId(
+  accessToken: string,
+  annictEpisodeId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictEpisodeInfo | null> {
+  const data = await withAnnictRetry(() =>
+    annictGraphQL<SearchEpisodesResponse>(
+      accessToken,
+      SEARCH_EPISODE_BY_ANNICT_ID_QUERY,
+      { annictIds: [annictEpisodeId] },
+      fetchImpl,
+    ),
+  );
+
+  const episode = data.searchEpisodes?.nodes.find(
+    (n) => n.annictId === annictEpisodeId,
+  );
+  if (!episode?.work) return null;
+
+  return {
+    annictEpisodeId: episode.annictId,
+    nodeId: episode.id,
+    annictWorkId: episode.work.annictId,
+    viewerDidTrack: episode.viewerDidTrack,
+    viewerRecordsCount: episode.viewerRecordsCount,
+  };
+}
+
 export type AnnictTokenResponse = {
   access_token: string;
   token_type: string;
