@@ -211,6 +211,66 @@ export const uploadMeishiAssetRoute = createRoute({
   },
 });
 
+// DELETE /me で消えるデータの件数（退会フローの確認画面用, issue #426）。
+// tierLists はシーズン・キャラクター・自由作成の 3 種の合計。
+const deletionSummarySchema = z.object({
+  watchHistories: z.number(),
+  favorites: z.number(),
+  friends: z.number(),
+  tierLists: z.number(),
+  workLists: z.number(),
+});
+
+// POST /me/deletion-feedback のボディ。reasons のキーはクライアント側で
+// 管理するため、API 側は文字列の集合だけを検証する（選択肢を追加しても
+// サーバーのデプロイを要しないようにする）。
+export const deletionFeedbackSchema = z
+  .object({
+    reasons: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+    freeText: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine((v) => v.reasons.length > 0 || v.freeText !== undefined, {
+    message: "理由または自由記述のどちらかを入力してください",
+  });
+
+export type DeletionFeedbackInput = z.infer<typeof deletionFeedbackSchema>;
+
+export const getDeletionSummaryRoute = createRoute({
+  method: "get",
+  path: "/deletion-summary",
+  tags: ["me"],
+  summary: "アカウント削除で消えるデータの件数を取得する",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: { "application/json": { schema: deletionSummarySchema } },
+      description: "削除対象データの件数",
+    },
+    401: jsonError("未認証"),
+  },
+});
+
+export const postDeletionFeedbackRoute = createRoute({
+  method: "post",
+  path: "/deletion-feedback",
+  tags: ["me"],
+  summary: "退会理由を匿名で記録する",
+  description:
+    "退会フローで任意入力された理由を user_id と紐付けずに保存する（集計専用）。",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: deletionFeedbackSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    201: { description: "記録した" },
+    400: jsonError("入力エラー"),
+    401: jsonError("未認証"),
+  },
+});
+
 export const deleteMeRoute = createRoute({
   method: "delete",
   path: "/",
