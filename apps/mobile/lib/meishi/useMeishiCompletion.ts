@@ -13,6 +13,11 @@ export type MeishiCompletion = {
   isComplete: boolean;
   /** プロフィール・お気に入り・ドキュメントの読み込みが揃うまで true。 */
   isLoading: boolean;
+  /**
+   * プロフィール・お気に入り・ドキュメントのいずれかの取得に失敗したら
+   * true。欠けた値を未達と誤判定しないよう、表示側はこのとき出さない。
+   */
+  isError: boolean;
   /** 判定に使った名刺ドキュメント（プレビュー表示にも使える）。 */
   document: MeishiDocument | null;
   /**
@@ -31,28 +36,53 @@ export type MeishiCompletion = {
  * オンボーディングの「名刺完成」画面と、ホームの完成度カード（#419）で共用する。
  */
 export function useMeishiCompletion(): MeishiCompletion {
-  const { data: profile, isLoading: profileLoading } = useProfile();
-  const { data: favorites, isLoading: favoritesLoading } = useFavorites();
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useProfile();
+  const {
+    data: favorites,
+    isLoading: favoritesLoading,
+    isError: favoritesError,
+  } = useFavorites();
   const [document, setDocument] = useState<MeishiDocument | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
+  const [docError, setDocError] = useState(false);
+
+  // 読み込み失敗を「テンプレート未選択」の未達と誤判定しないよう
+  // 失敗フラグで表す。
+  const readLibrary = useCallback(async () => {
+    try {
+      const library = await loadMeishiLibrary();
+      return {
+        document: library ? (defaultCard(library)?.document ?? null) : null,
+        error: false,
+      };
+    } catch {
+      return { document: null, error: true };
+    }
+  }, []);
 
   const reload = useCallback(async () => {
-    const library = await loadMeishiLibrary();
-    setDocument(library ? (defaultCard(library)?.document ?? null) : null);
+    const result = await readLibrary();
+    setDocument(result.document);
+    setDocError(result.error);
     setDocLoaded(true);
-  }, []);
+  }, [readLibrary]);
 
   useEffect(() => {
     let cancelled = false;
-    void loadMeishiLibrary().then((library) => {
+    void readLibrary().then((result) => {
       if (cancelled) return;
-      setDocument(library ? (defaultCard(library)?.document ?? null) : null);
+      setDocument(result.document);
+      setDocError(result.error);
       setDocLoaded(true);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [readLibrary]);
 
   const input = {
     profileImageUrl: profile?.profileImageUrl,
@@ -66,6 +96,7 @@ export function useMeishiCompletion(): MeishiCompletion {
     missing,
     isComplete: isMeishiComplete(input),
     isLoading: profileLoading || favoritesLoading || !docLoaded,
+    isError: profileError || favoritesError || docError,
     document,
     reload,
   };

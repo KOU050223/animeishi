@@ -30,6 +30,7 @@ function completion(
     missing,
     isComplete: missing.length === 0,
     isLoading: false,
+    isError: false,
     document: null,
     reload: mockReload,
     ...overrides,
@@ -63,7 +64,7 @@ describe("MeishiCompletionCard", () => {
     await fireEvent.press(
       screen.getByTestId("meishi-completion-step-favorites"),
     );
-    expect(mockPush).toHaveBeenCalledWith("/(tabs)/library?section=favorites");
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/library?section=anime");
 
     await fireEvent.press(
       screen.getByTestId("meishi-completion-step-template"),
@@ -96,6 +97,14 @@ describe("MeishiCompletionCard", () => {
 
   it("判定データの読み込み中はカードを出さない", async () => {
     mockCompletion = completion(["avatar"], { isLoading: true });
+    await render(<MeishiCompletionCard />);
+    expect(screen.queryByTestId("meishi-completion-card")).toBeNull();
+  });
+
+  it("プロフィール・推しの取得失敗時は未達と誤判定せずカードを出さない", async () => {
+    mockCompletion = completion(["avatar", "displayName", "favorites"], {
+      isError: true,
+    });
     await render(<MeishiCompletionCard />);
     expect(screen.queryByTestId("meishi-completion-card")).toBeNull();
   });

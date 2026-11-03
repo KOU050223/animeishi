@@ -65,8 +65,6 @@ export default function HomeScreen() {
           <View>
             <FriendStoryRail />
             <CurrentSeasonWatchingRail />
-            {/* 名刺が未完成なら完成度カードを出す（issue #419）。
-                完成済み・読み込み中はコンポーネント側で null を返す。 */}
             <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (

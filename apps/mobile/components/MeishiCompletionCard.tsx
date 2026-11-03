@@ -14,12 +14,14 @@ import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
 
 // 未達項目のタップ先。アイコン・表示名はプロフィール編集（プロフタブ）、
-// 推しはライブラリタブの推しセクション、テンプレートは名刺エディタ
-// （ドキュメントが無い既定カードでは起動時にテンプレートピッカーが開く）。
+// 推しはライブラリタブのアニメセクション（作品カードのお気に入りボタンで
+// 追加できる。推しセクションは検索・解除のみで追加操作がない）、
+// テンプレートは名刺エディタ（ドキュメントが無い既定カードでは
+// 起動時にテンプレートピッカーが開く）。
 const STEP_DESTINATIONS: Record<MeishiCompletionStep, Href> = {
   avatar: "/(tabs)/profile",
   displayName: "/(tabs)/profile",
-  favorites: "/(tabs)/library?section=favorites",
+  favorites: "/(tabs)/library?section=anime",
   template: "/meishi/edit",
 };
 
@@ -40,7 +42,8 @@ export function MeishiCompletionCard() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
-  const { missing, isComplete, isLoading, reload } = useMeishiCompletion();
+  const { missing, isComplete, isLoading, isError, reload } =
+    useMeishiCompletion();
 
   // タブ切替では画面のマウントが維持されるため、名刺編集や推し登録から
   // 戻ったタイミングで AsyncStorage のドキュメントを読み直す
@@ -54,7 +57,7 @@ export function MeishiCompletionCard() {
     }, [reload]),
   );
 
-  if (isLoading || isComplete) return null;
+  if (isLoading || isComplete || isError) return null;
 
   return (
     <View

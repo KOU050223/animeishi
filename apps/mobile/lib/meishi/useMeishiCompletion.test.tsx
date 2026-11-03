@@ -26,22 +26,36 @@ async function seedLibrary(library: MeishiLibrary) {
   await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
 }
 
+let mockProfile: {
+  data: unknown;
+  isLoading: boolean;
+  isError: boolean;
+};
+let mockFavorites: {
+  data: unknown[] | undefined;
+  isLoading: boolean;
+  isError: boolean;
+};
+
 jest.mock("@/lib/useProfile", () => ({
-  useProfile: () => ({
+  useProfile: () => mockProfile,
+}));
+
+jest.mock("@/lib/useFavorites", () => ({
+  useFavorites: () => mockFavorites,
+}));
+
+beforeEach(async () => {
+  await AsyncStorage.clear();
+  mockProfile = {
     data: {
       username: "ユーザー",
       profileImageUrl: "https://example.com/a.png",
     },
     isLoading: false,
-  }),
-}));
-
-jest.mock("@/lib/useFavorites", () => ({
-  useFavorites: () => ({ data: [1, 2, 3], isLoading: false }),
-}));
-
-beforeEach(async () => {
-  await AsyncStorage.clear();
+    isError: false,
+  };
+  mockFavorites = { data: [1, 2, 3], isLoading: false, isError: false };
 });
 
 describe("useMeishiCompletion", () => {
@@ -74,5 +88,13 @@ describe("useMeishiCompletion", () => {
     expect(result.current.document).toEqual(sampleDoc);
     expect(result.current.missing).not.toContain("template");
     expect(result.current.isComplete).toBe(true);
+  });
+
+  it("プロフィール・推しの取得失敗は isError になる（未達の誤判定防止）", async () => {
+    mockProfile = { data: undefined, isLoading: false, isError: true };
+    const { result } = await renderHook(() => useMeishiCompletion());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // missing には未取得の値も未達として残るが、表示側は isError で出し分ける
+    expect(result.current.isError).toBe(true);
   });
 });
