@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./index";
 
-function makeEnv({ withApi = true }: { withApi?: boolean } = {}) {
+function makeEnv({
+  withApi = true,
+  forwardViaFetch,
+}: { withApi?: boolean; forwardViaFetch?: string } = {}) {
   const env = {
     API_ORIGIN: "https://api.example.com",
+    SHARE_FORWARD_VIA_FETCH: forwardViaFetch,
     ASSETS: {
       fetch: vi.fn(async () => new Response("assets")),
     },
@@ -89,7 +93,7 @@ describe("web 転送 Worker", () => {
     expect(forwarded?.headers.get("host")).toBeNull();
   });
 
-  it("Service Binding が無い環境（preview 等）は API_ORIGIN への fetch で転送する", async () => {
+  it("Service Binding が無い環境（ローカル dev 等）は API_ORIGIN への fetch で転送する", async () => {
     const publicFetch = vi.fn(
       async (input: RequestInfo | URL) =>
         new Response(
@@ -100,13 +104,9 @@ describe("web 転送 Worker", () => {
 
     const env = makeEnv({ withApi: false });
     const res = await worker.fetch(
-      req(
-        "https://pr-1-animeishi-web-preview.uozumi05.workers.dev/share/tier-lists/tok-3",
-      ),
+      req("https://animeishi.uomi.dev/share/tier-lists/tok-3"),
       env,
     );
-    // preview では Service Binding がデプロイ済みバージョンにしか届かない
-    // ため、バインドなしの構成では PR の API alias へ公開 fetch する
     expect(publicFetch).toHaveBeenCalledTimes(1);
     const forwarded = publicFetch.mock.calls[0]?.[0] as Request;
     expect(forwarded.url).toBe(
@@ -115,6 +115,24 @@ describe("web 転送 Worker", () => {
     expect(await res.text()).toBe(
       "public:https://api.example.com/share/tier-lists/tok-3",
     );
+  });
+
+  it("SHARE_FORWARD_VIA_FETCH=true なら Service Binding があっても fetch で転送する", async () => {
+    const publicFetch = vi.fn(async () => new Response("public"));
+    vi.stubGlobal("fetch", publicFetch);
+
+    // PR プレビューは animeishi-web-production のエイリアスとして載るため
+    // production の binding が継承されるが、転送先は PR の API プレビュー
+    // （binding では届かない）にしたいので var で fetch を強制する
+    const env = makeEnv({ forwardViaFetch: "true" });
+    await worker.fetch(
+      req(
+        "https://pr-1-animeishi-web-production.uozumi05.workers.dev/share/tier-lists/tok-5",
+      ),
+      env,
+    );
+    expect(publicFetch).toHaveBeenCalledTimes(1);
+    expect(env.API?.fetch).not.toHaveBeenCalled();
   });
 
   it("/share/* 以外は ASSETS へ渡す", async () => {

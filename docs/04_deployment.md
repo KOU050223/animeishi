@@ -13,7 +13,6 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | API | `animeishi-api-production` | Hono のサーバコード（D1 / R2 バインディング） | [`apps/api/wrangler.toml`](../apps/api/wrangler.toml) の `[env.production]` |
 | API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 を持つ | 同上の `[env.preview]` |
 | Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット）＋ `/share/*` を API へ転送する小さな Worker（issue #408） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) の `[env.production]` |
-| Web（プレビュー） | `animeishi-web-preview` | 同上。`/share/*` の転送先は preview API | 同上の `[env.preview]` |
 
 ### 共有ページ URL（`/share/*`）の経路
 
@@ -32,8 +31,9 @@ API ドメインの旧 URL（`animeishi-api.uomi.dev/share/...`）でアクセ�
 書き換えてから API へ渡す。API は共有 HTML 内の画像プロキシ URL を
 リクエストオリジンから組み立てるため、そのまま転送すると
 `<web オリジン>/images/works/:id`（→ 静的アセット行き）になって画像が
-壊れるのを防ぐため。`env.API` の Service Binding が無い環境（preview・
-ローカル dev）では `API_ORIGIN` への通常 fetch で転送する。
+壊れるのを防ぐため。`env.API` の Service Binding が無い環境（ローカル
+dev）や、`SHARE_FORWARD_VIA_FETCH` var が立つ環境（PR プレビュー）では
+`API_ORIGIN` への通常 fetch で転送する。
 
 ## 環境変数の種類と登録先
 
@@ -104,12 +104,12 @@ gh secret set CLOUDFLARE_API_TOKEN --body "xxxxx"
 
 | 対象 | workflow | デプロイ先 env | preview URL |
 | --- | --- | --- | --- |
-| Web | `preview-web.yml` | `animeishi-web` の `preview` | `https://pr-<N>-animeishi-web-preview.<subdomain>.workers.dev` |
+| Web | `preview-web.yml` | `animeishi-web` の `production` | `https://pr-<N>-animeishi-web-production.<subdomain>.workers.dev` |
 | API | `preview-api.yml` | `animeishi-api` の `preview` | `https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev` |
 
 Web プレビューのビルドには `EXPO_PUBLIC_API_URL` として上記の PR 用 API URL が埋め込まれる（`EXPO_PUBLIC_PREVIEW_API_URL` が設定されている場合はそちらが優先される）。これにより、API に新エンドポイントを追加する PR でも、マージ前にプレビュー web 上で動作確認できる。
 
-Web プレビューは本番とは別の `animeishi-web-preview` Worker に載る（issue #408 までは `animeishi-web-production` のエイリアスとして発行していた）。`/share/*` の転送先もその PR の API プレビューにしたいが、Service Binding はデプロイ済み Worker にしか届かず `versions upload` のプレビューバージョンは対象にできない。そこで preview ではバインドせず、`preview-web.yml` が `--var` で `API_ORIGIN` に PR の API エイリアスを注入し、公開 fetch で転送する（`worker/index.ts`）。`EXPO_PUBLIC_WEB_URL` は未設定なのでプレビュー web 上の共有 URL はそのプレビュー自身のオリジンで組み立てられ、API 側の `PUBLIC_WEB_URL` も `preview-api.yml` が `--var` で PR ごとの Web プレビュー URL を注入するため、共有 HTML の `og:url` / `canonical` もプレビュー web の URL を指す。
+`/share/*` の転送先もその PR の API プレビューにしたいが、Service Binding はデプロイ済み Worker にしか届かず `versions upload` のプレビューバージョンは対象にできない。そこで `preview-web.yml` が `--var` で `API_ORIGIN` に PR の API エイリアスを、`SHARE_FORWARD_VIA_FETCH` に `true` を注入し、production env の Service Binding（本番 API 向き）ではなく公開 fetch で転送する（`worker/index.ts`）。`EXPO_PUBLIC_WEB_URL` は未設定なのでプレビュー web 上の共有 URL はそのプレビュー自身のオリジンで組み立てられ、API 側の `PUBLIC_WEB_URL` も `preview-api.yml` が `--var` で PR ごとの Web プレビュー URL を注入するため、共有 HTML の `og:url` / `canonical` もプレビュー web の URL を指す。
 
 ### プレビューでの Annict 連携
 

@@ -64,6 +64,6 @@ jobs:
           # /share/* の OGP HTML の og:url / canonical のベース。Web プレビュー
           # Worker が転送時にオリジンを API 側へ書き換えるため、未設定だと
           # 正規 URL が API プレビューのホストを指してしまう（issue #408）。
-          PUBLIC_WEB_URL: https://pr-${{ github.event.pull_request.number }}-animeishi-web-preview.${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05' }}.workers.dev
+          PUBLIC_WEB_URL: https://pr-${{ github.event.pull_request.number }}-animeishi-web-production.${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05' }}.workers.dev
         # COMMIT_SHA は --var で注入し、/health が返すバージョン情報に使う
         run: pnpm --filter @animeishi/api exec wrangler versions upload --env preview --preview-alias "$PREVIEW_ALIAS" --var COMMIT_SHA:${{ github.sha }} --var "PUBLIC_WEB_URL:$PUBLIC_WEB_URL"

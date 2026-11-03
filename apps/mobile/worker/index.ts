@@ -23,13 +23,17 @@ type Env = {
   API_ORIGIN: string;
   /**
    * API Worker（animeishi-api-<env>）への Service Binding（本番のみ）。
-   * Service Binding はデプロイ済みの Worker にしか届かず、
-   * `wrangler versions upload` で作る PR ごとのプレビューバージョンは
-   * 対象にできない。preview ではバインドせず、API_ORIGIN
-   * （preview-web.yml が PR の API プレビュー alias を --var で注入する）
-   * への通常の fetch で転送する。
    */
   API?: Fetcher;
+  /**
+   * "true" なら env.API があっても Service Binding を使わず API_ORIGIN への
+   * 通常 fetch で転送する。PR プレビューは animeishi-web-production の
+   * エイリアスとして発行されるため production の binding が継承されるが、
+   * 転送先は PR の API プレビュー（binding はデプロイ済み Worker にしか
+   * 届かず versions upload のバージョンは対象にできない）にしたいので、
+   * preview-web.yml がこの var と API_ORIGIN を --var で注入する。
+   */
+  SHARE_FORWARD_VIA_FETCH?: string;
 };
 
 function isSharePath(pathname: string): boolean {
@@ -71,6 +75,9 @@ export default {
       headers,
       body: request.body,
     });
-    return env.API ? env.API.fetch(forwarded) : fetch(forwarded);
+    if (env.API && env.SHARE_FORWARD_VIA_FETCH !== "true") {
+      return env.API.fetch(forwarded);
+    }
+    return fetch(forwarded);
   },
 } satisfies ExportedHandler<Env>;

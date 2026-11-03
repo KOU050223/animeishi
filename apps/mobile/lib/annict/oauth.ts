@@ -39,13 +39,11 @@ export function buildAuthorizeUrl({
 // そこへ code/state をそのまま中継する（Supabase 等の OAuth プロキシと同じ方式）。
 
 // 中継先として許可するアプリ既知のホスト。各ホスト自身と、Cloudflare の
-// プレビューエイリアス形式 `<alias>-<host>`（例: pr-1-animeishi-web-preview.
+// プレビューエイリアス形式 `<alias>-<host>`（例: pr-1-animeishi-web-production.
 // uozumi05.workers.dev）を許可する。実行中のホストも常に許可対象に含まれる。
 // 中継先を絞らないと認可コードを任意サイトへ漏らす open redirect になるため必須。
 const KNOWN_APP_HOSTS = [
   "animeishi-web-production.uozumi05.workers.dev",
-  // PR プレビュー Web（issue #408 で preview 環境に分離）
-  "animeishi-web-preview.uozumi05.workers.dev",
   "animeishi.uomi.dev",
 ];
 
