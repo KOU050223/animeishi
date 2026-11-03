@@ -10,7 +10,7 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { apiUrl } from "@/lib/apiUrl";
+import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { useAnnictConnection } from "@/lib/annict";
@@ -324,7 +324,7 @@ export default function WorkListScreen() {
 
   const shareToken = saved?.shareToken ?? null;
   const shareUrl = shareToken
-    ? buildWorkListShareUrl(shareToken, apiUrl)
+    ? buildWorkListShareUrl(shareToken, webUrl)
     : null;
   const existingWorkIds = new Set(works.map((w) => w.id));
 

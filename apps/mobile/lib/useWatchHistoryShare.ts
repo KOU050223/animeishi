@@ -20,15 +20,17 @@ async function getAuthHeaders(
 
 /**
  * 共有トークンから視聴履歴の公開ページ URL を組み立てる。
- * API が Markdown / 素の HTML を返すエンドポイントを指すため、AI に
- * そのまま渡せる（issue #236）。apiBaseUrl には apiUrl（@/lib/apiUrl）を渡す。
+ * URL は Web ドメイン（animeishi.uomi.dev）を指し、Web Worker が
+ * /share/* を API へ転送して Markdown / 素の HTML を返すため、AI に
+ * そのまま渡せる（issue #236、#408）。
+ * webBaseUrl には webUrl（@/lib/webUrl）を渡す。
  * 引数にしているのは、expo-constants への依存をこの純関数から切り離すため。
  */
 export function buildWatchHistoryShareUrl(
   shareToken: string,
-  apiBaseUrl: string,
+  webBaseUrl: string,
 ): string {
-  return `${apiBaseUrl.replace(/\/+$/, "")}/share/watch-history/${encodeURIComponent(shareToken)}`;
+  return `${webBaseUrl.replace(/\/+$/, "")}/share/watch-history/${encodeURIComponent(shareToken)}`;
 }
 
 /** 発行中の共有トークンを取得する。未発行なら shareToken は null。 */

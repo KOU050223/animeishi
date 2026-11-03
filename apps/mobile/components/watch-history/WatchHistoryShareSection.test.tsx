@@ -14,9 +14,8 @@ jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(async () => {}),
 }));
 
-jest.mock("@/lib/apiUrl", () => ({
-  apiUrl: "https://api.test",
-  resolveApiUrl: () => "https://api.test",
+jest.mock("@/lib/webUrl", () => ({
+  webUrl: "https://web.test",
 }));
 
 const mockShareMutateAsync = jest.fn();
@@ -86,7 +85,7 @@ describe("WatchHistoryShareSection", () => {
     await render(<WatchHistoryShareSection />);
 
     expect(
-      screen.getByText("https://api.test/share/watch-history/tok_abc"),
+      screen.getByText("https://web.test/share/watch-history/tok_abc"),
     ).toBeTruthy();
     expect(screen.getByText("コピー")).toBeTruthy();
     expect(screen.getByText("解除")).toBeTruthy();
@@ -101,7 +100,7 @@ describe("WatchHistoryShareSection", () => {
 
     await waitFor(() =>
       expect(Clipboard.setStringAsync).toHaveBeenCalledWith(
-        "https://api.test/share/watch-history/tok_abc",
+        "https://web.test/share/watch-history/tok_abc",
       ),
     );
     expect(screen.getByText("コピーしました")).toBeTruthy();

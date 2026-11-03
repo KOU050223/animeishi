@@ -44,6 +44,9 @@ jobs:
           # EXPO_PUBLIC_* はビルド時にバンドルへ埋め込まれる（クライアント公開値）
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          # 共有 URL（/share/*）は Web ドメイン基準で組み立てる（issue #408）。
+          # workers.dev ホストから開かれても常にカスタムドメインの URL を出す。
+          EXPO_PUBLIC_WEB_URL: ${{ vars.EXPO_PUBLIC_WEB_URL || 'https://animeishi.uomi.dev' }}
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
           EXPO_PUBLIC_ENVIRONMENT: production
           EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}

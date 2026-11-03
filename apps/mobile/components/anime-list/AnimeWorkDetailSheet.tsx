@@ -20,6 +20,7 @@ import {
   workDetailQueryKey,
 } from "@/lib/useWorkDetail";
 import {
+  useDeleteWatchHistory,
   useUpsertWatchHistory,
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
@@ -96,6 +97,7 @@ export function AnimeWorkDetailSheet({
   const palette = useAnimeListPalette();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
+  const remove = useDeleteWatchHistory();
   // 未連携が確定しているときはステータス欄を連携導線に差し替える（issue #423）。
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   // 連携済み判定でもトークン失効なら API が annict_token_required /
@@ -107,7 +109,7 @@ export function AnimeWorkDetailSheet({
   // （レンダー中の派生 state リセットパターン。effect 同期は避ける）。
   const [optimistic, setOptimistic] = useState<{
     workId: number;
-    state: WatchState;
+    state: WatchState | null;
   } | null>(null);
   const serverState = normalizeState(detail.data?.work.state);
   const currentState =
@@ -121,14 +123,23 @@ export function AnimeWorkDetailSheet({
       : WORK_DETAIL_QUERY_KEY;
 
   function selectStatus(state: WatchState) {
-    if (!work || state === currentState) return;
+    if (!work) return;
+    // 選択中のチップの再タップは未設定に戻す（issue #436）。
+    // 解除は DELETE /:annictWorkId（Annict に NO_STATE を送り履歴行を消す）。
+    const next: WatchState | null = state === currentState ? null : state;
     trackEvent("watch_status_change", {
       [TRACK_EVENT_KEYS.from]: currentState ?? "NO_STATE",
-      [TRACK_EVENT_KEYS.to]: state,
+      [TRACK_EVENT_KEYS.to]: next ?? "NO_STATE",
     });
-    setOptimistic({ workId: work.annictWorkId, state });
-    void upsert
-      .mutateAsync({ annictWorkId: work.annictWorkId, data: { state } })
+    setOptimistic({ workId: work.annictWorkId, state: next });
+    const request =
+      next === null
+        ? remove.mutateAsync(work.annictWorkId)
+        : upsert.mutateAsync({
+            annictWorkId: work.annictWorkId,
+            data: { state: next },
+          });
+    void request
       .catch((e: unknown) => {
         // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
         // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
@@ -204,7 +215,7 @@ export function AnimeWorkDetailSheet({
             ) : (
               <StatusSection
                 currentState={currentState}
-                disabled={upsert.isPending}
+                disabled={upsert.isPending || remove.isPending}
                 onSelect={selectStatus}
               />
             )}
@@ -274,7 +285,7 @@ function StatusSectionFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** 視聴ステータス変更チップ（タップで即反映）。 */
+/** 視聴ステータス変更チップ（タップで即反映、選択中の再タップで解除）。 */
 function StatusSection({
   currentState,
   disabled,

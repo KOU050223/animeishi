@@ -44,6 +44,11 @@ jest.mock("@/lib/apiUrl", () => ({
   resolveApiUrl: jest.fn(),
 }));
 
+// 共有 URL は Web ドメイン（EXPO_PUBLIC_WEB_URL）基準に切り替わった（issue #408）
+jest.mock("@/lib/webUrl", () => ({
+  webUrl: "https://web.test",
+}));
+
 jest.mock("@/components/AnnictSoftGate", () => {
   const React = require("react");
   const { View } = require("react-native");
@@ -338,7 +343,7 @@ describe("WorkListScreen", () => {
     await render(<WorkListScreen />);
 
     expect(screen.getByTestId("work-list-share-url")).toHaveTextContent(
-      "https://api.test/share/work-lists/tok-abc",
+      "https://web.test/share/work-lists/tok-abc",
     );
     expect(screen.getByTestId("work-list-share-copy")).toBeTruthy();
     expect(screen.getByTestId("work-list-share-revoke")).toBeTruthy();
