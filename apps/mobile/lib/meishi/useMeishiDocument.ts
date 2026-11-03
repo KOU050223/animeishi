@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  clearMeishiDocument,
-  loadMeishiDocument,
-  saveMeishiDocument,
-} from "./storage";
+import { addCard, defaultCard, findCard, updateCardDocument } from "./library";
+import { loadMeishiLibrary, updateMeishiLibrary } from "./storage";
 import {
   emptyHistory,
   commit as commitHistory,
@@ -15,17 +12,37 @@ import type { MeishiDocument, MeishiElement } from "./types";
 
 export type UseMeishiDocument = ReturnType<typeof useMeishiDocument>;
 
+export type UseMeishiDocumentOptions = {
+  /**
+   * 編集対象カードの id。一覧画面（/meishi）から特定カードを開くときに渡す。
+   */
+  cardId?: string;
+  /**
+   * 新規作成フロー。既定カードがあっても doc は null で始まり、
+   * 最初の saveDocument で新しいカードが作られる（issue #427）。
+   */
+  fresh?: boolean;
+};
+
 /**
  * 名刺ドキュメントの状態管理。
  *
+ * マルチ名刺（issue #427）では 1 枚の MeishiCardData にバインドする。
+ * - cardId 指定 … そのカードを編集対象にする
+ * - fresh … 未バインドの新規名刺（saveDocument でカード作成）
+ * - 無指定 … 既定カード（無ければ新規名刺として振る舞う）
+ *
  * - update系 API はデフォルトで履歴を積んでコミットする。
  * - 永続化は saveDocument() を呼んだ時だけ行う。
- * - `pushHistoryBeforeNextChange()` を呼んでから setDocLive で複数回更新すれば、
+ * - `beginGesture()` を呼んでから setDocLive で複数回更新すれば、
  *   ジェスチャ中の高頻度更新でも1コミットにまとめられる。
  */
-export function useMeishiDocument() {
+export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
+  const { cardId, fresh = false } = options;
   const [doc, setDoc] = useState<MeishiDocument | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // 編集対象カード。fresh / 未作成なら null（保存時に新規カードになる）。
+  const [boundCardId, setBoundCardId] = useState<string | null>(null);
   const historyRef = useRef<History>(emptyHistory());
   // canUndo / canRedo はレンダー中に historyRef.current を読めないため、
   // 履歴を変えるたびに呼ばれる bumpHistoryVersion で state へ同期する。
@@ -47,24 +64,49 @@ export function useMeishiDocument() {
   );
 
   const reloadDocument = useCallback(async () => {
-    const persisted = await loadMeishiDocument();
-    setDoc(persisted);
+    const library = await loadMeishiLibrary();
+    // ライブラリを読み直した時点でのバインドを解決する。
+    // 削除済みカードは未バインド（doc null）に落ちる。
+    const card = fresh
+      ? null
+      : cardId
+        ? library
+          ? findCard(library, cardId)
+          : null
+        : library
+          ? defaultCard(library)
+          : null;
+    setDoc(card?.document ?? null);
+    setBoundCardId(card?.id ?? null);
     setLoaded(true);
     historyRef.current = emptyHistory();
     pendingHistorySnapshotRef.current = null;
     bumpHistoryVersion();
-  }, [bumpHistoryVersion]);
+  }, [bumpHistoryVersion, cardId, fresh]);
 
   useEffect(() => {
     let cancelled = false;
-    void loadMeishiDocument().then((persisted) => {
+    void loadMeishiLibrary().then((library) => {
       if (cancelled) return;
-      setDoc(persisted);
+      const card = fresh
+        ? null
+        : cardId
+          ? library
+            ? findCard(library, cardId)
+            : null
+          : library
+            ? defaultCard(library)
+            : null;
+      setDoc(card?.document ?? null);
+      setBoundCardId(card?.id ?? null);
       setLoaded(true);
     });
     return () => {
       cancelled = true;
     };
+    // ルートパラメータは画面の生存中変わらない前提（違うカードを開くときは
+    // 別画面として push される）。cardId/fresh の変化での再読み込みはしない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 履歴を積むコミット
@@ -139,17 +181,25 @@ export function useMeishiDocument() {
     });
   }, [bumpHistoryVersion]);
 
-  const clear = useCallback(async () => {
-    await clearMeishiDocument();
-    setDoc(null);
-    historyRef.current = emptyHistory();
-    bumpHistoryVersion();
-  }, [bumpHistoryVersion]);
-
+  // 保存は「ライブラリ全体の read-modify-write」で行う。
+  // updateMeishiLibrary のキューで一覧側の操作とも直列化されるので、
+  // 編集中に他画面でカード操作が入っても保存が別カードを巻き戻さない。
   const saveDocument = useCallback(async () => {
     if (!doc) return;
-    await saveMeishiDocument(doc);
-  }, [doc]);
+    const currentDoc = doc;
+    const { result: newCardId } = await updateMeishiLibrary((library) => {
+      if (boundCardId && findCard(library, boundCardId)) {
+        return {
+          library: updateCardDocument(library, boundCardId, currentDoc),
+          result: null,
+        };
+      }
+      // 未バインド（新規作成）or バインド先が消えていた場合は新規カードを作る。
+      const added = addCard(library, currentDoc);
+      return { library: added.library, result: added.card.id };
+    });
+    if (newCardId) setBoundCardId(newCardId);
+  }, [doc, boundCardId]);
 
   const updateElement = useCallback(
     (id: string, patch: Partial<MeishiElement>) => {
@@ -253,6 +303,7 @@ export function useMeishiDocument() {
   return {
     doc,
     loaded,
+    boundCardId,
     setDocFromTemplate: (next: MeishiDocument) => replaceWithoutHistory(next),
     reloadDocument,
     saveDocument,
@@ -268,7 +319,6 @@ export function useMeishiDocument() {
     setBackground,
     undo,
     redo,
-    clear,
     canUndo: historyFlags.canUndo,
     canRedo: historyFlags.canRedo,
   };

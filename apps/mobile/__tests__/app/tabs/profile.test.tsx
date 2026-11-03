@@ -96,28 +96,17 @@ jest.mock("@/lib/useProfileAvatar", () => ({
   }),
 }));
 
-jest.mock("@/lib/meishi/useMeishiDocument", () => ({
-  useMeishiDocument: () => ({
-    doc: null,
+jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+  useMeishiLibrary: () => ({
+    cards: [],
+    defaultCard: null,
     loaded: true,
-    setDocFromTemplate: jest.fn(),
-    commit: jest.fn(),
-    beginGesture: jest.fn(),
-    setElementTransformLive: jest.fn(),
-    updateElement: jest.fn(),
-    addElement: jest.fn(),
-    removeElement: jest.fn(),
-    duplicateElement: jest.fn(),
-    bringToFront: jest.fn(),
-    sendToBack: jest.fn(),
-    setBackground: jest.fn(),
-    undo: jest.fn(),
-    redo: jest.fn(),
-    clear: jest.fn(),
-    saveDocument: jest.fn(),
-    reloadDocument: mockReloadDocument,
-    canUndo: false,
-    canRedo: false,
+    addCard: jest.fn(),
+    duplicateCard: jest.fn(),
+    removeCard: jest.fn(),
+    setDefault: jest.fn(),
+    updateCardDocument: jest.fn(),
+    reload: mockReloadDocument,
   }),
 }));
 

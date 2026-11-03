@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import DeleteAccountScreen from "@/app/delete-account";
-import type { MeishiDocument } from "@/lib/meishi/types";
+import type { MeishiLibrary } from "@/lib/meishi/types";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockBack = jest.fn();
@@ -18,8 +18,8 @@ const mockSubmitFeedback = jest.fn(
 const mockDeleteAccount = jest.fn();
 const mockAlert = jest.fn();
 const mockAnnictTokenRemove = jest.fn(async () => {});
-const mockLoadMeishiDocument = jest.fn(
-  async (): Promise<MeishiDocument | null> => null,
+const mockLoadMeishiLibrary = jest.fn(
+  async (): Promise<MeishiLibrary | null> => null,
 );
 const mockClearMeishiDocument = jest.fn(async () => {});
 const mockRefetchSummary = jest.fn();
@@ -75,7 +75,7 @@ jest.mock("@/lib/annict/storage", () => ({
 }));
 
 jest.mock("@/lib/meishi/storage", () => ({
-  loadMeishiDocument: () => mockLoadMeishiDocument(),
+  loadMeishiLibrary: () => mockLoadMeishiLibrary(),
   clearMeishiDocument: () => mockClearMeishiDocument(),
 }));
 
@@ -226,10 +226,25 @@ describe("DeleteAccountScreen", () => {
       refetch: mockRefetchSummary,
     };
     // 件数に出るかだけを見るので、真偽が分かる最小形でよい
-    mockLoadMeishiDocument.mockResolvedValueOnce({
+    mockLoadMeishiLibrary.mockResolvedValueOnce({
       version: 1,
-      canvas: { aspectRatio: 1, background: { kind: "solid", color: "#fff" } },
-      elements: [],
+      defaultCardId: "card_1",
+      cards: [
+        {
+          id: "card_1",
+          name: "名刺",
+          createdAt: 1,
+          updatedAt: 1,
+          document: {
+            version: 1,
+            canvas: {
+              aspectRatio: 1,
+              background: { kind: "solid", color: "#fff" },
+            },
+            elements: [],
+          },
+        },
+      ],
     });
 
     await render(<DeleteAccountScreen />);
