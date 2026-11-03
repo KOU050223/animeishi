@@ -127,7 +127,8 @@ OpenAPI 化済み（/doc に掲載される）:
 
 未移行（素の Hono のまま。動作に影響なし、/doc には出ない）:
 - `share` / `images` / `user` / `annict` / `import` / `watch-histories` /
-  `works` / `pass` / `tier-lists` / `character-tier-lists` /
+  `works` / `episode-records` / `pass` / `tier-lists` /
+  `character-tier-lists` /
   `me` の画像配信サブ app（`avatar`・`meishiAssets`。`/*` のワイルドカード
   配信で OpenAPI 化の優先度が低い）
 

@@ -26,6 +26,8 @@ export const TRACKED_EVENTS = [
   "recommendation_generate",
   // 視聴ステータス
   "watch_status_change",
+  // 話数の視聴記録（issue #439）
+  "episode_record",
   // お気に入り
   "favorite_toggle",
 ] as const;

@@ -31,6 +31,24 @@ jest.mock("@/lib/useWorkDetail", () => ({
   ],
 }));
 
+// 話数一覧の取得と記録・解除はフックのテストで検証する。シート側は
+// 「チェック一覧の描画と操作の受け渡し」だけを見るため差し替える。
+const mockUseWorkEpisodes = jest.fn();
+const mockRecordEpisodeAsync = jest.fn();
+const mockUnrecordEpisodeAsync = jest.fn();
+
+jest.mock("@/lib/useWorkEpisodes", () => ({
+  useWorkEpisodes: (...args: unknown[]) => mockUseWorkEpisodes(...args),
+  useRecordEpisode: () => ({
+    mutateAsync: mockRecordEpisodeAsync,
+    isPending: false,
+  }),
+  useUnrecordEpisode: () => ({
+    mutateAsync: mockUnrecordEpisodeAsync,
+    isPending: false,
+  }),
+}));
+
 jest.mock("@/lib/useWatchHistory", () => ({
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
@@ -118,6 +136,50 @@ const detailState = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+// GET /works/:id/episodes の応答形。watched は Annict viewerDidTrack 由来。
+const EPISODES = {
+  episodes: [
+    {
+      annictEpisodeId: 101,
+      number: 1,
+      numberText: "第1話",
+      sortNumber: 1,
+      title: "はじまり",
+      watched: true,
+      recordsCount: 1,
+      lastRecordedAt: "2026-10-01T10:00:00.000Z",
+    },
+    {
+      annictEpisodeId: 102,
+      number: 2,
+      numberText: "第2話",
+      sortNumber: 2,
+      title: null,
+      watched: false,
+      recordsCount: 0,
+      lastRecordedAt: null,
+    },
+    {
+      annictEpisodeId: 103,
+      number: 3,
+      numberText: "第3話",
+      sortNumber: 3,
+      title: null,
+      watched: false,
+      recordsCount: 0,
+      lastRecordedAt: null,
+    },
+  ],
+};
+
+const episodesState = (overrides: Record<string, unknown> = {}) => ({
+  data: EPISODES,
+  isLoading: false,
+  isError: false,
+  refetch: jest.fn(),
+  ...overrides,
+});
+
 const sheetElement = (
   props: {
     work?: typeof WORK | null;
@@ -157,6 +219,9 @@ describe("AnimeWorkDetailSheet", () => {
     mockUseAnnictTokenErrorPrompt.mockReturnValue(mockPromptAnnictTokenError);
     // 既定は「Annict トークン起因でない」（汎用エラー処理に落ちる）。
     mockPromptAnnictTokenError.mockReturnValue(false);
+    mockUseWorkEpisodes.mockReturnValue(episodesState());
+    mockRecordEpisodeAsync.mockResolvedValue({});
+    mockUnrecordEpisodeAsync.mockResolvedValue({});
   });
 
   it("work が null のときシートを表示しない", async () => {
@@ -400,6 +465,122 @@ describe("AnimeWorkDetailSheet", () => {
     await render(sheetElement({ work: { ...WORK, annictWorkId: 0 } }));
 
     expect(screen.queryByText("Annict で見る")).toBeNull();
+  });
+
+  it("話数チェック一覧を表示し、視聴済みの話はチェック済みになる", async () => {
+    await render(sheetElement());
+
+    const watched = screen.getByTestId("episode-check-101");
+    const unwatched = screen.getByTestId("episode-check-102");
+    expect(watched.props.accessibilityState?.checked).toBe(true);
+    expect(unwatched.props.accessibilityState?.checked).toBe(false);
+    expect(screen.getByText("第1話")).toBeTruthy();
+    expect(screen.getByText("第3話")).toBeTruthy();
+  });
+
+  it("「次の話を記録」は未視聴の先頭の話を記録する", async () => {
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-record-next"));
+
+    // 第1話は視聴済みなので、未視聴の先頭 = 第2話(102) が記録対象。
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      "episode_record",
+      expect.objectContaining({ action: "record" }),
+    );
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(102);
+    expect(mockUnrecordEpisodeAsync).not.toHaveBeenCalled();
+  });
+
+  it("未チェックの話を押すと記録する", async () => {
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(103);
+  });
+
+  it("チェック済みの話を押すと記録を解除する", async () => {
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-101"));
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      "episode_record",
+      expect.objectContaining({ action: "unrecord" }),
+    );
+    expect(mockUnrecordEpisodeAsync).toHaveBeenCalledWith(101);
+    expect(mockRecordEpisodeAsync).not.toHaveBeenCalled();
+  });
+
+  it("全話視聴済みなら「全話記録済み」の無効ボタンを出す", async () => {
+    mockUseWorkEpisodes.mockReturnValue(
+      episodesState({
+        data: {
+          episodes: EPISODES.episodes.map((e) => ({ ...e, watched: true })),
+        },
+      }),
+    );
+
+    await render(sheetElement());
+
+    const button = screen.getByTestId("episode-record-next");
+    expect(screen.getByText("全話記録済み")).toBeTruthy();
+    expect(button.props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(button);
+    expect(mockRecordEpisodeAsync).not.toHaveBeenCalled();
+  });
+
+  it("話の記録に失敗したらダイアログで通知する", async () => {
+    mockRecordEpisodeAsync.mockRejectedValue(
+      new ApiRequestError(500, "話の記録に失敗しました"),
+    );
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("episode-record-next"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("話数取得に失敗したら再試行ボタンを出す", async () => {
+    const refetch = jest.fn();
+    mockUseWorkEpisodes.mockReturnValue(
+      episodesState({ data: undefined, isError: true, refetch }),
+    );
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("episode-list-retry"));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("話が 1 件も無い作品では話数セクションを出さない", async () => {
+    mockUseWorkEpisodes.mockReturnValue(
+      episodesState({ data: { episodes: [] } }),
+    );
+
+    await render(sheetElement());
+
+    expect(screen.queryByTestId("episode-record-next")).toBeNull();
+    expect(screen.queryByTestId("episode-check-101")).toBeNull();
+  });
+
+  it("Annict 未連携では話数セクションを出さない（連携導線のみ）", async () => {
+    mockUseAnnictConnection.mockReturnValue({
+      isConnected: false,
+      isLoading: false,
+    });
+
+    await render(sheetElement());
+
+    expect(screen.getByTestId("work-detail-status-gate")).toBeTruthy();
+    expect(screen.queryByTestId("episode-record-next")).toBeNull();
+    // 未連携のうちは話数一覧のクエリ自体を投げない
+    expect(mockUseWorkEpisodes).not.toHaveBeenCalled();
   });
 
   it("「キャラ Tier 表を作る」を押すとシートを閉じて対象作品を onOpenCharacterTierList に渡す", async () => {

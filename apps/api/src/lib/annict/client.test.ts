@@ -17,7 +17,12 @@ import {
   ANNICT_ALL_STATUS_STATES,
 } from "@/lib/annict/statusState";
 import {
+  createAnnictRecord,
+  deleteAnnictRecord,
   expandSeasonQuery,
+  fetchAnnictEpisodeByAnnictId,
+  fetchAnnictViewerRecords,
+  fetchAnnictWorkEpisodes,
   searchAnnictWorksByTitles,
 } from "@/lib/annict/client";
 
@@ -921,6 +926,351 @@ describe("searchAnnictWorksBySeason", () => {
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(body.query).toContain("field: WATCHERS_COUNT");
     expect(body.query).toContain("direction: DESC");
+  });
+});
+
+describe("fetchAnnictWorkEpisodes", () => {
+  function episodesPage(
+    episodes: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null },
+  ): Response {
+    return jsonResponse({
+      data: {
+        searchWorks: {
+          nodes: [
+            {
+              annictId: 100,
+              episodes: { pageInfo, nodes: episodes },
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  function episodeNode(
+    annictId: number,
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      id: `Episode-${annictId}`,
+      annictId,
+      number: annictId,
+      numberText: `第${annictId}話`,
+      sortNumber: annictId * 10,
+      title: `サブタイトル${annictId}`,
+      viewerDidTrack: false,
+      viewerRecordsCount: 0,
+      ...overrides,
+    };
+  }
+
+  it("話数一覧を整形して返す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        episodesPage(
+          [
+            episodeNode(1, { viewerDidTrack: true, viewerRecordsCount: 2 }),
+            episodeNode(2),
+          ],
+          { hasNextPage: false, endCursor: null },
+        ),
+      );
+
+    const result = await fetchAnnictWorkEpisodes("tok", 100, fetchMock);
+
+    expect(result).toEqual([
+      {
+        annictEpisodeId: 1,
+        nodeId: "Episode-1",
+        number: 1,
+        numberText: "第1話",
+        sortNumber: 10,
+        title: "サブタイトル1",
+        viewerDidTrack: true,
+        viewerRecordsCount: 2,
+      },
+      {
+        annictEpisodeId: 2,
+        nodeId: "Episode-2",
+        number: 2,
+        numberText: "第2話",
+        sortNumber: 20,
+        title: "サブタイトル2",
+        viewerDidTrack: false,
+        viewerRecordsCount: 0,
+      },
+    ]);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.annictIds).toEqual([100]);
+    expect(body.query).toContain("SORT_NUMBER");
+  });
+
+  it("episodes コネクションを after カーソルで全ページ辿る", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        episodesPage([episodeNode(1)], { hasNextPage: true, endCursor: "e1" }),
+      )
+      .mockResolvedValueOnce(
+        episodesPage([episodeNode(2)], { hasNextPage: false, endCursor: null }),
+      );
+
+    const result = await fetchAnnictWorkEpisodes("tok", 100, fetchMock);
+
+    expect(result?.map((e) => e.annictEpisodeId)).toEqual([1, 2]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const second = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(second.variables.after).toBe("e1");
+  });
+
+  it("作品が見つからなければ null", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { searchWorks: { nodes: [] } } }),
+      );
+
+    const result = await fetchAnnictWorkEpisodes("tok", 100, fetchMock);
+
+    expect(result).toBeNull();
+  });
+
+  it("壊れたページング（hasNextPage=true だが endCursor=null）は AnnictApiError(502)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        episodesPage([episodeNode(1)], { hasNextPage: true, endCursor: null }),
+      );
+
+    await expect(
+      fetchAnnictWorkEpisodes("tok", 100, fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
+  });
+});
+
+describe("fetchAnnictViewerRecords", () => {
+  function recordsPage(
+    records: unknown[],
+    pageInfo: { hasNextPage: boolean; endCursor: string | null },
+  ): Response {
+    return jsonResponse({
+      data: {
+        viewer: {
+          records: { pageInfo, nodes: records },
+        },
+      },
+    });
+  }
+
+  function recordNode(
+    annictRecordId: number,
+    annictEpisodeId: number,
+    annictWorkId = 100,
+  ) {
+    return {
+      id: `Record-${annictRecordId}`,
+      annictId: annictRecordId,
+      createdAt: `2026-10-0${annictRecordId}T10:00:00Z`,
+      episode: { annictId: annictEpisodeId },
+      work: { annictId: annictWorkId },
+    };
+  }
+
+  it("フィルタに合う record だけを集めて返す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        recordsPage(
+          [recordNode(1, 10), recordNode(2, 20, 999), recordNode(3, 11)],
+          { hasNextPage: false, endCursor: null },
+        ),
+      );
+
+    const result = await fetchAnnictViewerRecords(
+      "tok",
+      { filter: (r) => r.annictWorkId === 100, expectedCount: 2 },
+      fetchMock,
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.records).toEqual([
+      {
+        annictRecordId: 1,
+        recordNodeId: "Record-1",
+        createdAt: "2026-10-01T10:00:00Z",
+        annictEpisodeId: 10,
+        annictWorkId: 100,
+      },
+      {
+        annictRecordId: 3,
+        recordNodeId: "Record-3",
+        createdAt: "2026-10-03T10:00:00Z",
+        annictEpisodeId: 11,
+        annictWorkId: 100,
+      },
+    ]);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.query).toContain("CREATED_AT");
+  });
+
+  it("対象件数が集まった時点でページングを打ち切る", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      recordsPage([recordNode(1, 10), recordNode(2, 11)], {
+        hasNextPage: true,
+        endCursor: "c1",
+      }),
+    );
+
+    const result = await fetchAnnictViewerRecords(
+      "tok",
+      { filter: (r) => r.annictEpisodeId === 10, expectedCount: 1 },
+      fetchMock,
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.records.map((r) => r.annictRecordId)).toEqual([1]);
+    // 次ページがあるが、期待件数が集まったので辿らない
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ページ上限で打ち切ったら complete=false を返す", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      recordsPage([recordNode(99, 10, 999)], {
+        hasNextPage: true,
+        endCursor: `c${Math.random()}`,
+      }),
+    );
+
+    const result = await fetchAnnictViewerRecords(
+      "tok",
+      { filter: () => false, expectedCount: 1, maxPages: 3 },
+      fetchMock,
+    );
+
+    expect(result.complete).toBe(false);
+    expect(result.records).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("コネクションを辿り切ったら complete=true（未取得分が無い）", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      recordsPage([recordNode(1, 10)], {
+        hasNextPage: false,
+        endCursor: null,
+      }),
+    );
+
+    const result = await fetchAnnictViewerRecords(
+      "tok",
+      { filter: () => false, expectedCount: 1 },
+      fetchMock,
+    );
+
+    expect(result.complete).toBe(true);
+    expect(result.records).toEqual([]);
+  });
+});
+
+describe("createAnnictRecord / deleteAnnictRecord", () => {
+  it("createAnnictRecord は episodeId を input に載せて record の情報を返す", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          createRecord: {
+            record: {
+              id: "Record-7",
+              annictId: 7,
+              createdAt: "2026-11-01T12:00:00Z",
+            },
+          },
+        },
+      }),
+    );
+
+    const result = await createAnnictRecord("tok", "Episode-10", fetchMock);
+
+    expect(result).toEqual({
+      annictRecordId: 7,
+      recordNodeId: "Record-7",
+      createdAt: "2026-11-01T12:00:00Z",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.episodeId).toBe("Episode-10");
+    expect(body.query).toContain("createRecord");
+  });
+
+  it("createAnnictRecord は record が返らなければ AnnictApiError を投げる", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: { createRecord: { record: null } },
+      }),
+    );
+
+    await expect(
+      createAnnictRecord("tok", "Episode-10", fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError" });
+  });
+
+  it("deleteAnnictRecord は recordId を input に載せる", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: { deleteRecord: { clientMutationId: null } },
+      }),
+    );
+
+    await deleteAnnictRecord("tok", "Record-7", fetchMock);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.recordId).toBe("Record-7");
+    expect(body.query).toContain("deleteRecord");
+  });
+});
+
+describe("fetchAnnictEpisodeByAnnictId", () => {
+  it("annictId から話の Node ID・所属作品・記録状況を返す", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          searchEpisodes: {
+            nodes: [
+              {
+                id: "Episode-10",
+                annictId: 10,
+                viewerDidTrack: true,
+                viewerRecordsCount: 2,
+                work: { annictId: 100 },
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    const result = await fetchAnnictEpisodeByAnnictId("tok", 10, fetchMock);
+
+    expect(result).toEqual({
+      annictEpisodeId: 10,
+      nodeId: "Episode-10",
+      annictWorkId: 100,
+      viewerDidTrack: true,
+      viewerRecordsCount: 2,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    expect(body.variables.annictIds).toEqual([10]);
+  });
+
+  it("見つからなければ null", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { searchEpisodes: { nodes: [] } } }),
+      );
+
+    const result = await fetchAnnictEpisodeByAnnictId("tok", 10, fetchMock);
+
+    expect(result).toBeNull();
   });
 });
 
