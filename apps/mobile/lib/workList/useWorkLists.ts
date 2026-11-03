@@ -1,5 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
@@ -8,6 +14,19 @@ import { ApiRequestError } from "@/lib/apiError";
 // 別にして tier 表のキャッシュと混ざらないようにする。
 const workListQueryKey = (id: number) => ["work-list", "saved", id] as const;
 const workListsQueryKey = ["work-list", "list"] as const;
+// 公開一覧（ひろば「みつける」タブ, issue #422）。sort ごとにキャッシュを分ける。
+const publicWorkListsQueryKey = (sort: PublicWorkListSort) =>
+  ["work-list", "public", sort] as const;
+
+export type PublicWorkListSort = "likes" | "new";
+
+type PublicWorkListsResponse = InferResponseType<
+  (typeof apiClient)["work-lists"]["public"]["$get"],
+  200
+>;
+export type PublicWorkListItem = PublicWorkListsResponse["items"][number];
+
+const PUBLIC_LIST_PAGE_LIMIT = "20";
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -153,6 +172,7 @@ export function useSaveWorkList() {
       id?: number;
       title: string;
       description?: string | null;
+      isPublic?: boolean;
       items: { annictWorkId: number }[];
     }) => {
       const headers = await getAuthHeaders(getToken);
@@ -236,6 +256,130 @@ export function useUnshareWorkList() {
           prev ? { ...prev, shareToken: null } : prev,
       );
       void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
+    },
+  });
+}
+
+/**
+ * 公開作品リストの一覧（ひろば「みつける」, issue #422）。
+ * カーソルページングの API のため useInfiniteQuery で取り、
+ * nextCursor がある限り続きを読める（useActivityFeed と同じ構造）。
+ */
+export function usePublicWorkLists(sort: PublicWorkListSort) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: publicWorkListsQueryKey(sort),
+    enabled: !!isSignedIn,
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"].public.$get(
+        {
+          query: {
+            sort,
+            limit: PUBLIC_LIST_PAGE_LIMIT,
+            ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+          },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "公開作品リストの取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * 公開リストへのいいねの切り替え（issue #422）。
+ * PUT/DELETE とも冪等な API で、応答の likeCount・likedByMe を
+ * 両ソートのキャッシュにそのまま反映する。
+ */
+export function useToggleWorkListLike() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { id: number; like: boolean }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = input.like
+        ? await apiClient["work-lists"][":id"].like.$put(
+            { param: { id: String(input.id) } },
+            { headers },
+          )
+        : await apiClient["work-lists"][":id"].like.$delete(
+            { param: { id: String(input.id) } },
+            { headers },
+          );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "いいねの更新に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: (data, input) => {
+      for (const sort of ["likes", "new"] as const) {
+        queryClient.setQueryData(
+          publicWorkListsQueryKey(sort),
+          (prev: { pages: PublicWorkListsResponse[] } | undefined) =>
+            prev
+              ? {
+                  ...prev,
+                  pages: prev.pages.map((page) => ({
+                    ...page,
+                    items: page.items.map((item) =>
+                      item.id === input.id
+                        ? {
+                            ...item,
+                            likeCount: data.likeCount,
+                            likedByMe: data.likedByMe,
+                          }
+                        : item,
+                    ),
+                  })),
+                }
+              : prev,
+        );
+      }
+    },
+  });
+}
+
+/**
+ * 公開作品リストの通報（issue #422）。理由はユーザー通報と同じ
+ * プリセット/自由入力をそのまま送る。429 はサーバーの理由を見せる。
+ */
+export function useReportWorkList() {
+  const { getToken } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { id: number; reason: string }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"][":id"].report.$post(
+        {
+          param: { id: String(input.id) },
+          json: { reason: input.reason },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        if (res.status === 429) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new ApiRequestError(
+            res.status,
+            body?.error ?? "通報の送信回数が上限に達しました",
+          );
+        }
+        throw new ApiRequestError(res.status, "通報に失敗しました");
+      }
+      return res.json();
     },
   });
 }

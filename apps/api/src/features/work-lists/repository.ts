@@ -1,7 +1,25 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
-import { annictWorks, workLists, workListItems } from "@/db/schema";
+import {
+  annictWorks,
+  blocks,
+  users,
+  workLists,
+  workListItems,
+  workListLikes,
+} from "@/db/schema";
 import type { WorkList } from "@/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
@@ -31,6 +49,71 @@ export type WorkListItemInput = {
   annictWorkId: number;
   position: number;
 };
+
+/**
+ * 自分の公開リストへのいいね・通報など、所有者には許さない操作を
+ * 受けたときに投げるエラー（issue #422）。ルート層で 400 に変換する。
+ */
+export class OwnWorkListError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OwnWorkListError";
+  }
+}
+
+/** 公開一覧の 1 件。カード表示に必要なサマリ（内容の作品一覧は含まない）。 */
+export type PublicWorkListRow = {
+  id: number;
+  title: string;
+  description: string | null;
+  createdAt: Date;
+  owner: {
+    userId: string;
+    username: string;
+    profileImageUrl: string | null;
+  };
+  itemCount: number;
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+/** 公開一覧の並び順。「likes」= いいね数順、「new」= 新着順。 */
+export type PublicWorkListSort = "likes" | "new";
+
+// 公開一覧のカードに載せるサムネイルの最大枚数（position 昇順の先頭から）。
+export const PUBLIC_LIST_THUMBNAILS = 3;
+
+// 公開一覧で「見えるリスト」の条件（issue #422）。
+// - リストが公開（is_public）
+// - 所有者のプロフィールが公開（users.is_public）
+// - 閲覧者と所有者の間にブロック関係が無い（どちら方向でも）
+// 一覧・いいね・通報の対象解決で共通に使う。
+function publicListVisibility(
+  db: DrizzleDb,
+  currentUserId: string,
+): ReturnType<typeof and> {
+  return and(
+    eq(workLists.isPublic, true),
+    eq(users.isPublic, true),
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(blocks)
+        .where(
+          or(
+            and(
+              eq(blocks.blockerId, currentUserId),
+              eq(blocks.blockedId, workLists.userId),
+            ),
+            and(
+              eq(blocks.blockerId, workLists.userId),
+              eq(blocks.blockedId, currentUserId),
+            ),
+          ),
+        ),
+    ),
+  );
+}
 
 /**
  * 作品リスト 1 件分の内容を作品メタ付きで取得する（position 昇順）。
@@ -63,6 +146,40 @@ export async function fetchWorkListItems(
     )
     .where(eq(workListItems.workListId, workListId))
     .orderBy(workListItems.position);
+}
+
+/**
+ * 指定リスト群の先頭作品（position 昇順で各 perList 件）の annictWorkId を
+ * 返す。公開一覧カードのサムネイル用（issue #422）。
+ * ウィンドウ関数ではなく、ページ内の件数が少ない前提で全件引いて
+ * アプリ側で切る（ユーザー一覧と違い 1 ページ = 最大 50 リスト ×
+ * 数百作品までしか増えない）。
+ */
+export async function fetchWorkListTopWorkIds(
+  db: DrizzleDb,
+  workListIds: number[],
+  perList: number,
+): Promise<Map<number, number[]>> {
+  const result = new Map<number, number[]>();
+  if (workListIds.length === 0) return result;
+
+  const rows = await db
+    .select({
+      workListId: workListItems.workListId,
+      annictWorkId: workListItems.annictWorkId,
+    })
+    .from(workListItems)
+    .where(inArray(workListItems.workListId, workListIds))
+    .orderBy(workListItems.position);
+
+  for (const row of rows) {
+    const list = result.get(row.workListId) ?? [];
+    if (list.length < perList) {
+      list.push(row.annictWorkId);
+      result.set(row.workListId, list);
+    }
+  }
+  return result;
 }
 
 /**
@@ -143,6 +260,8 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
       id?: number;
       title: string;
       description: string | null;
+      // 公開設定（issue #422）。省略時は新規=非公開、更新=既存値を維持する。
+      isPublic?: boolean | undefined;
       items: WorkListItemInput[];
     }): Promise<{ workList: WorkListWithItems; created: boolean } | undefined> {
       const now = new Date();
@@ -156,6 +275,7 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
             userId: currentUserId,
             title: input.title,
             description: input.description,
+            isPublic: input.isPublic ?? false,
             createdAt: now,
             updatedAt: now,
           })
@@ -170,6 +290,11 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
           .set({
             title: input.title,
             description: input.description,
+            // isPublic 省略時は既存値を維持する（未対応クライアントの
+            // 全置換 PUT で公開設定が消えないようにする）。
+            ...(input.isPublic !== undefined
+              ? { isPublic: input.isPublic }
+              : {}),
             updatedAt: now,
           })
           .where(
@@ -314,6 +439,154 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
       if (!list) return false;
       await db.delete(workLists).where(eq(workLists.id, list.id));
       return true;
+    },
+
+    /**
+     * 公開設定（is_public）の作品リストを一覧する（issue #422）。
+     * 非公開ユーザー（users.is_public=false）のリストと、閲覧者とブロック
+     * 関係（どちら方向でも）にある所有者のリストは除く。
+     *
+     * ページングはキーセット方式で limit+1 件まで返す（+1 は次ページの
+     * 有無判定。feed と同じ考え方）。
+     * - sort="new": id 降順。cursor は前ページ最後尾のリスト id。
+     * - sort="likes": いいね数降順 → id 降順。いいね数は変動するため
+     *   カーソルは (いいね数, id) の複合キーが必要（id だけだと順位が
+     *   動いたとき重複・抜けが出る）。
+     */
+    async getPublicWorkLists(opts: {
+      sort: PublicWorkListSort;
+      cursor?: { id: number; likeCount?: number | undefined } | undefined;
+      limit: number;
+    }): Promise<PublicWorkListRow[]> {
+      // いいね数・自分のいいね済みか・登録作品数は相関副問い合わせで
+      // 求める（issue #422 の実装メモどおり都度 COUNT。重くなったら
+      // like_count の非正規化を検討する）。
+      const likeCountExpr = sql<number>`(select count(*) from ${workListLikes} where ${workListLikes.workListId} = ${workLists.id})`;
+      const cursorCondition =
+        opts.cursor === undefined
+          ? undefined
+          : opts.sort === "likes"
+            ? or(
+                lt(likeCountExpr, opts.cursor.likeCount ?? 0),
+                and(
+                  eq(likeCountExpr, opts.cursor.likeCount ?? 0),
+                  lt(workLists.id, opts.cursor.id),
+                ),
+              )
+            : lt(workLists.id, opts.cursor.id);
+
+      const rows = await db
+        .select({
+          id: workLists.id,
+          title: workLists.title,
+          description: workLists.description,
+          createdAt: workLists.createdAt,
+          ownerUserId: users.id,
+          ownerUsername: users.username,
+          ownerProfileImageUrl: users.profileImageUrl,
+          itemCount:
+            sql<number>`(select count(*) from ${workListItems} where ${workListItems.workListId} = ${workLists.id})`.as(
+              "item_count",
+            ),
+          likeCount: sql<number>`${likeCountExpr}`.as("like_count"),
+          likedByMe:
+            sql<number>`exists(select 1 from ${workListLikes} where ${workListLikes.workListId} = ${workLists.id} and ${workListLikes.userId} = ${currentUserId})`.as(
+              "liked_by_me",
+            ),
+        })
+        .from(workLists)
+        .innerJoin(users, eq(workLists.userId, users.id))
+        .where(and(publicListVisibility(db, currentUserId), cursorCondition))
+        .orderBy(
+          ...(opts.sort === "likes"
+            ? [desc(likeCountExpr), desc(workLists.id)]
+            : [desc(workLists.id)]),
+        )
+        .limit(opts.limit + 1);
+
+      return rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        createdAt: row.createdAt,
+        owner: {
+          userId: row.ownerUserId,
+          username: row.ownerUsername,
+          profileImageUrl: row.ownerProfileImageUrl,
+        },
+        itemCount: row.itemCount,
+        likeCount: row.likeCount,
+        likedByMe: row.likedByMe === 1,
+      }));
+    },
+
+    /**
+     * 公開一覧に見えるリスト 1 件を引く（いいね・通報の対象解決用）。
+     * 一覧と同じ可視条件（公開・所有者公開・非ブロック）を掛けるため、
+     * 一覧に出ないリストの存在を id 指定で確かめられない。
+     */
+    async findPublicWorkList(id: number): Promise<WorkList | undefined> {
+      // users.is_public の条件が要るため query API ではなく JOIN を掛ける。
+      const rows = await db
+        .select({ list: workLists })
+        .from(workLists)
+        .innerJoin(users, eq(workLists.userId, users.id))
+        .where(
+          and(eq(workLists.id, id), publicListVisibility(db, currentUserId)),
+        );
+      return rows[0]?.list;
+    },
+
+    /**
+     * 公開リストにいいねする（冪等。issue #422）。
+     * 見えないリスト（未公開・所有者非公開・ブロック関係）・未作成は
+     * undefined でルート側 404。自分のリストにはいいね不可
+     * （OwnWorkListError → 400）。
+     */
+    async likeWorkList(id: number): Promise<{ likeCount: number } | undefined> {
+      const list = await this.findPublicWorkList(id);
+      if (!list) return undefined;
+      if (list.userId === currentUserId) {
+        throw new OwnWorkListError("自分の作品リストにはいいねできません");
+      }
+
+      // (user_id, work_list_id) unique で二重いいねを防ぎ、
+      // 既にいいね済みでも no-op で同じ応答を返す（冪等）。
+      await db
+        .insert(workListLikes)
+        .values({
+          userId: currentUserId,
+          workListId: id,
+          createdAt: new Date(),
+        })
+        .onConflictDoNothing();
+      return { likeCount: await this.countWorkListLikes(id) };
+    },
+
+    /**
+     * いいねを取り消す（冪等。いいねしていなくても成功）。
+     * 非公開化されたリストでも取り消せるよう可視条件は掛けない
+     * （取り消せないと likedByMe が残り続ける）。
+     */
+    async unlikeWorkList(id: number): Promise<{ likeCount: number }> {
+      await db
+        .delete(workListLikes)
+        .where(
+          and(
+            eq(workListLikes.userId, currentUserId),
+            eq(workListLikes.workListId, id),
+          ),
+        );
+      return { likeCount: await this.countWorkListLikes(id) };
+    },
+
+    /** 指定リストのいいね数。 */
+    async countWorkListLikes(id: number): Promise<number> {
+      const rows = await db
+        .select({ likeCount: count() })
+        .from(workListLikes)
+        .where(eq(workListLikes.workListId, id));
+      return rows[0]?.likeCount ?? 0;
     },
   };
 }

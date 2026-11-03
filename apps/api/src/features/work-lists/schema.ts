@@ -19,6 +19,10 @@ export const workListSaveSchema = z
       .trim()
       .max(500, "説明は500文字以内で入力してください")
       .nullish(),
+    // ひろばの公開一覧に載るか（issue #422）。省略時は新規作成=非公開、
+    // 更新=既存値を維持する（isPublic 未対応のクライアントが全置換 PUT で
+    // 公開設定を潰さないようにするため）。
+    isPublic: z.boolean().optional(),
     items: z.array(workListItemSchema).max(500, "作品数が多すぎます"),
   })
   .refine(
@@ -43,4 +47,31 @@ export const workListsQuerySchema = z.object({
 // POST /me/work-lists/:id/items の入力。末尾への 1 件追加。
 export const workListItemAddSchema = z.object({
   annictWorkId: z.number().int().positive(),
+});
+
+// GET /work-lists/public のクエリ（issue #422）。
+// sort: "likes"（いいね数順）/ "new"（新着順）。省略時は likes。
+// cursor: 前ページ最後尾のキー。new ではリスト id、likes では
+// 「いいね数_id」の複合キー（いいね数は単調増加しないため
+// id だけだと順位が動いて重複・抜けが出る）。
+export const publicWorkListsQuerySchema = z.object({
+  sort: z.enum(["likes", "new"]).optional(),
+  cursor: z
+    .string()
+    .regex(/^\d+(_\d+)?$/, "cursor の形式が正しくありません")
+    .optional(),
+  limit: z
+    .string()
+    .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
+    .optional(),
+});
+
+// POST /work-lists/:id/report のボディ。ユーザー通報（features/users）と
+// 同じくプリセット理由ラベル or 自由入力をそのまま受ける。
+export const workListReportSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, "通報理由を入力してください")
+    .max(500, "通報理由は500文字以内で入力してください"),
 });

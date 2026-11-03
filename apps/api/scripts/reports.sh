@@ -154,7 +154,9 @@ case "$cmd" in
       # 被通報ユーザーごとの集計。累積通報の多いユーザーを上から見る。
       run_sql_file "SELECT r.reported_user_id, u.username, COUNT(*) AS report_count, MAX(datetime(r.created_at, 'unixepoch')) AS latest_reported_at FROM reports r LEFT JOIN users u ON u.id = r.reported_user_id WHERE $WHERE GROUP BY r.reported_user_id ORDER BY report_count DESC, latest_reported_at DESC;" | print_rows
     else
-      run_sql_file "SELECT r.id, r.status, tu.username AS reported_user, r.reported_user_id, ru.username AS reporter, r.reporter_id, r.reason, datetime(r.created_at, 'unixepoch') AS reported_at, datetime(r.resolved_at, 'unixepoch') AS resolved_at, r.resolution_note FROM reports r LEFT JOIN users ru ON ru.id = r.reporter_id LEFT JOIN users tu ON tu.id = r.reported_user_id WHERE $WHERE ORDER BY r.created_at ASC;" | print_rows
+      # 作品リスト通報（issue #422）は reported_work_list_id とリストの
+      # タイトルも出す（対象を辿れるようにするため。行は NULL で出る）。
+      run_sql_file "SELECT r.id, r.status, tu.username AS reported_user, r.reported_user_id, r.reported_work_list_id, wl.title AS reported_work_list, ru.username AS reporter, r.reporter_id, r.reason, datetime(r.created_at, 'unixepoch') AS reported_at, datetime(r.resolved_at, 'unixepoch') AS resolved_at, r.resolution_note FROM reports r LEFT JOIN users ru ON ru.id = r.reporter_id LEFT JOIN users tu ON tu.id = r.reported_user_id LEFT JOIN work_lists wl ON wl.id = r.reported_work_list_id WHERE $WHERE ORDER BY r.created_at ASC;" | print_rows
     fi
     ;;
 

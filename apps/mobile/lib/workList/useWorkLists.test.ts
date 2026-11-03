@@ -10,6 +10,9 @@ import {
   useShareWorkList,
   useUnshareWorkList,
   useDeleteWorkList,
+  usePublicWorkLists,
+  useToggleWorkListLike,
+  useReportWorkList,
 } from "./useWorkLists";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
@@ -24,8 +27,22 @@ const mockItemsPost = jest.fn();
 const mockSharePost = jest.fn();
 const mockShareDelete = jest.fn();
 const mockDelete = jest.fn();
+const mockPublicGet = jest.fn();
+const mockLikePut = jest.fn();
+const mockLikeDelete = jest.fn();
+const mockReportPost = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
+    "work-lists": {
+      public: { $get: (...args: unknown[]) => mockPublicGet(...args) },
+      ":id": {
+        like: {
+          $put: (...args: unknown[]) => mockLikePut(...args),
+          $delete: (...args: unknown[]) => mockLikeDelete(...args),
+        },
+        report: { $post: (...args: unknown[]) => mockReportPost(...args) },
+      },
+    },
     me: {
       "work-lists": {
         $get: (...args: unknown[]) => mockListGet(...args),
@@ -354,5 +371,163 @@ describe("useDeleteWorkList", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["work-list", "list"],
     });
+  });
+});
+
+const PUBLIC_ITEM = {
+  id: 3,
+  title: "みんなのおすすめ",
+  description: null,
+  createdAt: "2024-01-01T00:00:00.000Z",
+  owner: { userId: "other-user", username: "other", profileImageUrl: null },
+  itemCount: 5,
+  likeCount: 12,
+  likedByMe: false,
+  thumbnails: [],
+};
+
+describe("usePublicWorkLists", () => {
+  it("公開一覧を sort/limit 付きで取得する", async () => {
+    mockPublicGet.mockResolvedValue(
+      okResponse({ items: [PUBLIC_ITEM], nextCursor: "12_3" }),
+    );
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => usePublicWorkLists("likes"), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.data?.pages[0]?.items).toHaveLength(1),
+    );
+    expect(mockPublicGet).toHaveBeenCalledWith(
+      { query: { sort: "likes", limit: "20" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+  });
+
+  it("nextCursor がある限り続きのページを取れる", async () => {
+    mockPublicGet
+      .mockResolvedValueOnce(
+        okResponse({ items: [PUBLIC_ITEM], nextCursor: "12_3" }),
+      )
+      .mockResolvedValueOnce(
+        okResponse({
+          items: [{ ...PUBLIC_ITEM, id: 2 }],
+          nextCursor: null,
+        }),
+      );
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => usePublicWorkLists("likes"), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+    await result.current.fetchNextPage();
+
+    await waitFor(() =>
+      expect(result.current.data?.pages.flatMap((p) => p.items)).toHaveLength(
+        2,
+      ),
+    );
+    expect(mockPublicGet).toHaveBeenLastCalledWith(
+      { query: { sort: "likes", limit: "20", cursor: "12_3" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it("サインアウト中はフェッチしない", async () => {
+    signedOutUser();
+    const { wrapper } = makeWrapper();
+    await renderHook(() => usePublicWorkLists("new"), { wrapper });
+    expect(mockPublicGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("useToggleWorkListLike", () => {
+  it("いいねすると PUT を呼び、両ソートのキャッシュを応答で更新する", async () => {
+    mockLikePut.mockResolvedValue(
+      okResponse({ likeCount: 13, likedByMe: true }),
+    );
+    const { client, wrapper } = makeWrapper();
+    for (const sort of ["likes", "new"] as const) {
+      client.setQueryData(["work-list", "public", sort], {
+        pages: [{ items: [PUBLIC_ITEM], nextCursor: null }],
+      });
+    }
+
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: true });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLikePut).toHaveBeenCalledWith(
+      { param: { id: "3" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+    for (const sort of ["likes", "new"] as const) {
+      const cached = client.getQueryData<{
+        pages: { items: (typeof PUBLIC_ITEM)[] }[];
+      }>(["work-list", "public", sort]);
+      expect(cached?.pages[0]?.items[0]?.likeCount).toBe(13);
+      expect(cached?.pages[0]?.items[0]?.likedByMe).toBe(true);
+    }
+  });
+
+  it("いいねを取り消すと DELETE を呼ぶ", async () => {
+    mockLikeDelete.mockResolvedValue(
+      okResponse({ likeCount: 11, likedByMe: false }),
+    );
+    const { client, wrapper } = makeWrapper();
+    client.setQueryData(["work-list", "public", "likes"], {
+      pages: [
+        { items: [{ ...PUBLIC_ITEM, likedByMe: true }], nextCursor: null },
+      ],
+    });
+
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: false });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLikeDelete).toHaveBeenCalledWith(
+      { param: { id: "3" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+  });
+});
+
+describe("useReportWorkList", () => {
+  it("理由を POST する", async () => {
+    mockReportPost.mockResolvedValue(okResponse({ success: true }));
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useReportWorkList(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, reason: "不適切な内容" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockReportPost).toHaveBeenCalledWith(
+      { param: { id: "3" }, json: { reason: "不適切な内容" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+  });
+
+  it("429 はサーバーの理由メッセージを投げる", async () => {
+    mockReportPost.mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "通報は1時間に5回までです" }),
+    });
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useReportWorkList(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, reason: "スパム" });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe("通報は1時間に5回までです");
   });
 });
