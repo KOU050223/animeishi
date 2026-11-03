@@ -100,7 +100,7 @@ export function DiscoverSection() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.textMuted} />
         </View>
-      ) : list.isError ? (
+      ) : list.isError && items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
             公開作品リストを取得できませんでした

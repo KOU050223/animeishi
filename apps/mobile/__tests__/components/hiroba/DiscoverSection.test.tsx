@@ -174,11 +174,21 @@ describe("DiscoverSection", () => {
     expect(screen.queryByTestId("public-work-list-1")).toBeNull();
   });
 
-  it("エラー時は再読み込みボタンを出し、押すと refetch する", async () => {
+  it("初回取得のエラー時は再読み込みボタンを出し、押すと refetch する", async () => {
+    mockItems = [];
     mockError = true;
     await render(<DiscoverSection />);
     await fireEvent.press(screen.getByTestId("hiroba-discover-retry"));
     expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it("読み込み済みの一覧があるとき追加取得の失敗では一覧を残す", async () => {
+    // fetchNextPage/refetch の失敗でも isError になるが、保持済みデータを
+    // 捨てるとスクロール位置とページを失う（次の onEndReached で再試行される）。
+    mockError = true;
+    await render(<DiscoverSection />);
+    expect(screen.getByTestId("public-work-list-1")).toBeTruthy();
+    expect(screen.queryByTestId("hiroba-discover-retry")).toBeNull();
   });
 
   it("通報ボタンで理由選択シートを開き、選択で通報フローに渡す", async () => {
