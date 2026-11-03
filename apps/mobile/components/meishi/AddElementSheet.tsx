@@ -26,6 +26,12 @@ const ITEMS: Item[] = [
   { type: "qr", label: "QR", icon: "qr-code-outline" },
   { type: "animeCollage", label: "視聴コラージュ", icon: "film-outline" },
   { type: "animeCountBadge", label: "視聴数バッジ", icon: "pricetag-outline" },
+  {
+    type: "achievementBadge",
+    label: "実績バッジ",
+    icon: "medal-outline",
+    sub: "獲得した実績を表示",
+  },
 ];
 
 export function AddElementSheet({

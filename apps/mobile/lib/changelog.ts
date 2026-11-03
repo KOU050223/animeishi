@@ -73,6 +73,12 @@ export const FEATURES: FeatureItem[] = [
 // 内部的な変更（CI・リファクタ等）はユーザーに関係しないため含めない。
 export const UPDATES: ChangelogEntry[] = [
   {
+    date: "2026年11月4日",
+    title: "視聴実績バッジを追加しました",
+    description:
+      "視聴数・毎週の連続記録・今期の作品の全話記録でバッジが獲得できます。実績一覧はプロフィール画面から開け、獲得したバッジは名刺の要素として配置できます。",
+  },
+  {
     date: "2026年10月15日",
     title: "アニメ一覧のシーズン選択を強化しました",
     description:

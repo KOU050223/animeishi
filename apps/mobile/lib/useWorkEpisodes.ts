@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { publicProfileQueryKey } from "@/lib/publicProfile";
@@ -37,6 +38,7 @@ async function getAuthHeaders(
 export function useWorkEpisodes(annictWorkId: number | null) {
   const { getToken, isSignedIn, userId } = useAuth();
   const { isConnected } = useAnnictConnection();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: userId
@@ -57,6 +59,11 @@ export function useWorkEpisodes(annictWorkId: number | null) {
           await readApiErrorCode(res),
         );
       }
+      // この GET は API 側で Annict の既存記録を D1 の記録ログに同期する。
+      // 同期で判定入力が変わりうるため実績クエリを無効化する（issue #415）。
+      void queryClient.invalidateQueries({
+        queryKey: ACHIEVEMENTS_QUERY_KEY,
+      });
       return res.json();
     },
   });
@@ -150,6 +157,11 @@ function optimisticWatchedHandlers(
       });
       if (pendingWrites <= 1) {
         void queryClient.invalidateQueries({ queryKey });
+        // 話の記録は実績（連続記録・今期完走）の判定入力になるため
+        // 実績クエリも無効化して新規獲得を検出できるようにする（issue #415）。
+        void queryClient.invalidateQueries({
+          queryKey: ACHIEVEMENTS_QUERY_KEY,
+        });
         // 「いま見ている」（issue #420）は本人の episode_records の
         // 最新 1 件から作られるため、記録・解除のたびに本人の
         // プロフィール系クエリも取り直す。

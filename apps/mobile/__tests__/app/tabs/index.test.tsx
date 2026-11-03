@@ -47,6 +47,15 @@ jest.mock("@/components/FriendStoryRail", () => ({
   },
 }));
 
+// 完成度カードの挙動は MeishiCompletionCard.test.tsx 側で検証する。
+// 実物を描画すると useProfile 等のクエリが必要になるため、ここでは出ることだけ確認する。
+jest.mock("@/components/MeishiCompletionCard", () => ({
+  MeishiCompletionCard: () => {
+    const { View } = require("react-native");
+    return <View testID="meishi-completion-card" />;
+  },
+}));
+
 jest.mock("@/components/CurrentSeasonConnectCard", () => ({
   CurrentSeasonConnectCard: () => {
     const { Text } = require("react-native");
@@ -160,6 +169,12 @@ describe("HomeScreen", () => {
     expect(screen.getByText("今期視聴中")).toBeTruthy();
     expect(screen.getByText("フレンドの動き")).toBeTruthy();
     expect(screen.getByTestId("activity-feed-section")).toBeTruthy();
+  });
+
+  it("名刺完成度カードをヘッダーに含める（未完成かの分岐はカード側）", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.getByTestId("meishi-completion-card")).toBeTruthy();
   });
 
   it("名刺の見出し・プレビュー・画像共有ボタンは出さない", async () => {

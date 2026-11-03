@@ -1,4 +1,5 @@
 import { Image, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import Svg, { Circle, Rect } from "react-native-svg";
 import QRCode from "react-native-qrcode-svg";
 import {
@@ -6,7 +7,9 @@ import {
   resolveImageUri,
   type OnImageLoadEnd,
 } from "@/lib/meishi/renderableImages";
+import { achievementBadgeLabel } from "@/lib/achievements/definitions";
 import type {
+  AchievementBadgeElement,
   AnimeCollageElement,
   AnimeCountBadgeElement,
   ImageElement,
@@ -338,6 +341,48 @@ function AnimeCountBadgeRender({
   );
 }
 
+function AchievementBadgeRender({
+  el,
+  ctx,
+  boxWidth,
+  boxHeight,
+  renderScale,
+}: {
+  el: AchievementBadgeElement;
+  ctx: MeishiRenderContext;
+  boxWidth: number;
+  boxHeight: number;
+  renderScale: number;
+}) {
+  const { t } = useTranslation();
+  const label = achievementBadgeLabel(t, el.kind, ctx.achievements ?? []);
+  return (
+    <View
+      style={{
+        width: boxWidth,
+        height: boxHeight,
+        borderRadius: boxHeight / 2,
+        backgroundColor: el.bgColor,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 8 * renderScale,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: el.fontSize * renderScale,
+          fontWeight: fontWeightToRn(el.fontWeight),
+          fontFamily: resolveFontFamily(el.fontFamily),
+          color: el.color,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export function ElementRenderer({
   element,
   ctx,
@@ -419,5 +464,20 @@ export function ElementRenderer({
           renderScale={renderScale}
         />
       );
+    case "achievementBadge":
+      return (
+        <AchievementBadgeRender
+          el={element}
+          ctx={ctx}
+          boxWidth={boxWidth}
+          boxHeight={boxHeight}
+          renderScale={renderScale}
+        />
+      );
+    default:
+      // 新しいバージョンのアプリで追加された要素種別を含むドキュメントを
+      // 開いたとき、その要素だけ省略してカード全体は描画できるようにする
+      // （undefined を返すと React が描画エラーにするため null を返す）。
+      return null;
   }
 }

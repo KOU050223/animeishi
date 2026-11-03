@@ -3,10 +3,25 @@ import { StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { ElementRenderer } from "@/components/meishi/elements/ElementRenderer";
 import type {
+  AchievementBadgeElement,
   AnimeCollageElement,
+  MeishiElement,
   MeishiRenderContext,
   TextElement,
 } from "@/lib/meishi/types";
+
+// useTranslation の t() は ja のときキーがそのまま文言になる設計のため、
+// キー返し + {{name}} 補間だけの軽量モックで表示結果を再現する
+// （@/lib/i18n 実体を読み込むと初期化コストで既存テストが遅くなる）。
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) =>
+      Object.entries(opts ?? {}).reduce(
+        (s, [k, v]) => s.replaceAll(`{{${k}}}`, String(v)),
+        key,
+      ),
+  }),
+}));
 
 const ctx: MeishiRenderContext = {
   profile: {
@@ -154,5 +169,111 @@ describe("ElementRenderer", () => {
     expect(await renderedUris(el, legacyCtx)).toEqual([
       "https://img.example/auto-1.jpg",
     ]);
+  });
+
+  describe("実績バッジ（issue #415）", () => {
+    const badgeElement: AchievementBadgeElement = {
+      id: "badge-1",
+      type: "achievementBadge",
+      transform: { x: 0, y: 0, width: 0.4, height: 0.1, rotation: 0 },
+      kind: "watch_count",
+      fontSize: 16,
+      fontWeight: "bold",
+      fontFamily: "system",
+      color: "#ffffff",
+      bgColor: "#d97706",
+    };
+    const badgeCtx: MeishiRenderContext = {
+      profile: {},
+      achievements: [
+        {
+          id: "watch_count_10",
+          kind: "watch_count",
+          threshold: 10,
+          earned: true,
+        },
+        {
+          id: "watch_count_50",
+          kind: "watch_count",
+          threshold: 50,
+          earned: true,
+        },
+        {
+          id: "watch_count_100",
+          kind: "watch_count",
+          threshold: 100,
+          earned: false,
+        },
+      ],
+    };
+
+    async function renderedText(
+      element: AchievementBadgeElement,
+      renderCtx: MeishiRenderContext,
+    ) {
+      await render(
+        <ElementRenderer
+          element={element}
+          ctx={renderCtx}
+          boxWidth={200}
+          boxHeight={40}
+          renderScale={1}
+        />,
+      );
+      return screen.container
+        .queryAll((node) => node.type === "Text")
+        .map((n) => n.props.children)
+        .join("");
+    }
+
+    it("獲得済みの最高段の名前を表示する", async () => {
+      expect(await renderedText(badgeElement, badgeCtx)).toBe("視聴 50 作品");
+    });
+
+    it("未獲得なら（未獲得）付きで表示する", async () => {
+      const ctx: MeishiRenderContext = {
+        profile: {},
+        achievements: [
+          {
+            id: "watch_count_10",
+            kind: "watch_count",
+            threshold: 10,
+            earned: false,
+          },
+        ],
+      };
+      expect(await renderedText(badgeElement, ctx)).toBe(
+        "視聴 10 作品（未獲得）",
+      );
+    });
+
+    it("実績データが無いコンテキストでも描画できる", async () => {
+      expect(
+        await renderedText(
+          { ...badgeElement, kind: "season_completion" },
+          { profile: {} },
+        ),
+      ).toBe("今期完走（未獲得）");
+    });
+  });
+
+  it("未知の要素種別は描画を省略してもエラーにしない", async () => {
+    // 新しいバージョンで追加された要素を含むドキュメントを旧バージョンが
+    // 開いた場合に、その要素だけをスキップしてカード全体は描画する。
+    const unknown = {
+      id: "future-1",
+      type: "futureElement",
+      transform: { x: 0, y: 0, width: 0.4, height: 0.1, rotation: 0 },
+    } as unknown as MeishiElement;
+    const rendered = await render(
+      <ElementRenderer
+        element={unknown}
+        ctx={{ profile: {} }}
+        boxWidth={200}
+        boxHeight={40}
+        renderScale={1}
+      />,
+    );
+    expect(rendered.container.children).toHaveLength(0);
   });
 });

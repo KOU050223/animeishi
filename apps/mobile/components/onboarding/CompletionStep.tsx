@@ -4,20 +4,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
 import { useMeishiCompletion } from "@/lib/meishi/useMeishiCompletion";
-import type { MeishiCompletionStep } from "@/lib/meishi/completion";
-import type { TranslationKey } from "@/lib/i18n/keys";
+import {
+  MEISHI_COMPLETION_STEPS,
+  MEISHI_COMPLETION_STEP_LABELS,
+} from "@/lib/meishi/completion";
 import type { MeishiDocument } from "@/lib/meishi/types";
 import { useProfile } from "@/lib/useProfile";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
-
-const STEP_LABELS: Record<MeishiCompletionStep, TranslationKey> = {
-  avatar: "アイコン",
-  displayName: "表示名",
-  favorites: "推し作品 3 件",
-  template: "テンプレート",
-};
 
 /**
  * オンボーディング 3 問目（issue #412）: 完成した名刺のプレビュー。
@@ -43,12 +38,6 @@ export function CompletionStep({
   const { data: profile } = useProfile();
   const { missing, isComplete } = useMeishiCompletion();
 
-  const allSteps: MeishiCompletionStep[] = [
-    "avatar",
-    "displayName",
-    "favorites",
-    "template",
-  ];
   const footer = (
     <Button label={t("次へ")} onPress={onNext} testID="onboarding-done-next" />
   );
@@ -77,7 +66,7 @@ export function CompletionStep({
               ? t("名刺は完成しています")
               : t("名刺の完成まであと少し")}
           </Text>
-          {allSteps.map((step) => {
+          {MEISHI_COMPLETION_STEPS.map((step) => {
             const done = !missing.includes(step);
             return (
               <View key={step} className="flex-row items-center py-1">
@@ -87,7 +76,7 @@ export function CompletionStep({
                   color={done ? colors.success : colors.textFaint}
                 />
                 <Text className="ml-2 text-sm text-slate-700 dark:text-slate-300">
-                  {t(STEP_LABELS[step])}
+                  {t(MEISHI_COMPLETION_STEP_LABELS[step])}
                 </Text>
               </View>
             );
