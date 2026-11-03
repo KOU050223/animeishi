@@ -29,7 +29,14 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
             item.onPress();
           }}
           accessibilityRole="button"
-          accessibilityLabel={item.accessibilityLabel ?? item.label}
+          // バッジ件数を読み上げに含めて、バッジが視覚だけの情報にならない
+          // ようにする。明示ラベル指定時はそちらを優先する。
+          accessibilityLabel={
+            item.accessibilityLabel ??
+            (item.badgeCount
+              ? `${item.label}、${item.badgeCount}件の通知`
+              : item.label)
+          }
           accessibilityState={{ selected: item.active }}
           testID={item.testID}
         >

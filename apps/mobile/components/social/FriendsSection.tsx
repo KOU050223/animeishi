@@ -35,8 +35,12 @@ export function FriendsSection() {
 
   async function onRefresh() {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchRequests()]);
-    setRefreshing(false);
+    try {
+      await Promise.all([refetch(), refetchRequests()]);
+    } finally {
+      // refetch が失敗してもインジケータは必ず戻す（拒否で残り続けないよう）。
+      setRefreshing(false);
+    }
   }
 
   function confirmRemove(friendId: string, name: string) {

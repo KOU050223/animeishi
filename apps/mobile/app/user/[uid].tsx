@@ -30,6 +30,7 @@ import {
   useFriendRequests,
   useSendFriendRequest,
 } from "@/lib/useFriendRequests";
+import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
 
 export default function PublicProfilePage() {
@@ -84,7 +85,10 @@ export default function PublicProfilePage() {
   // アクションを出さず再試行導線を出す（申請ボタンは冪等だが押せてしまい、
   // 申請済みでも「申請しました」と通知してしまう）。
   const isRelationLoading = isFriendsLoading || isRequestsLoading;
-  const isRelationError = isFriendsError || isRequestsError;
+  // ポーリングの再取得が失敗しても取得済みデータを保持するため、
+  // データが無いときだけエラー表示にする（CodeRabbit 指摘）。
+  const isRelationError =
+    (isFriendsError && !friends) || (isRequestsError && !friendRequests);
   const refetchRelation = () => {
     void refetchFriends();
     void refetchRequests();
@@ -336,118 +340,22 @@ export default function PublicProfilePage() {
           </Text>
 
           {showFriendAction ? (
-            <View className="mt-4 w-full">
-              {isRelationLoading ? null : isRelationError ? (
-                // 一覧取得失敗を未登録・未申請と誤認してアクションを出さない
-                // （上の isRelationError コメント参照）。
-                <View
-                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
-                  testID="friends-load-error"
-                >
-                  <Text className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("フレンド情報を取得できませんでした")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={refetchRelation}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("再試行")}
-                    testID="friends-retry-button"
-                  >
-                    <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                      {t("再試行")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : isFriend ? (
-                <View
-                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
-                  testID="already-friends-badge"
-                >
-                  <Text className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("フレンド登録済み")}
-                  </Text>
-                </View>
-              ) : receivedRequest ? (
-                // 相手からの申請が届いている。承認・削除はプロフィール上で
-                // 選ぶ（issue #417）。
-                <View className="items-center gap-2">
-                  <Text
-                    className="text-sm text-slate-500 dark:text-slate-400"
-                    testID="friend-request-received-label"
-                  >
-                    {t("フレンド申請が届いています")}
-                  </Text>
-                  <View className="flex-row gap-2 w-full">
-                    <TouchableOpacity
-                      className="flex-1 bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
-                      onPress={onPressAcceptRequest}
-                      disabled={acceptFriendRequest.isPending}
-                      accessibilityRole="button"
-                      accessibilityLabel={t("申請を承認")}
-                      testID="accept-friend-request-button"
-                    >
-                      <Text className="text-white font-semibold">
-                        {acceptFriendRequest.isPending
-                          ? t("承認中...")
-                          : t("承認")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
-                      onPress={() =>
-                        onPressDeleteRequest(receivedRequest.id, data.username)
-                      }
-                      disabled={deleteFriendRequest.isPending}
-                      accessibilityRole="button"
-                      accessibilityLabel={t("申請を削除")}
-                      testID="delete-friend-request-button"
-                    >
-                      <Text className="text-slate-600 dark:text-slate-300 font-semibold">
-                        {t("削除")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : sentRequest ? (
-                <View className="items-center gap-2">
-                  <View
-                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center self-stretch"
-                    testID="friend-request-sent-badge"
-                  >
-                    <Text className="text-sm text-slate-500 dark:text-slate-400">
-                      {t("フレンド申請中")}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    className="items-center py-1"
-                    onPress={onPressCancelRequest}
-                    disabled={deleteFriendRequest.isPending}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("申請を取り消す")}
-                    testID="cancel-friend-request-button"
-                  >
-                    <Text className="text-xs text-slate-400 dark:text-slate-500">
-                      {t("申請を取り消す")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  className="bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
-                  onPress={onPressSendRequest}
-                  disabled={sendFriendRequest.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("フレンドを申請")}
-                  testID="send-friend-request-button"
-                >
-                  <Text className="text-white font-semibold">
-                    {sendFriendRequest.isPending
-                      ? t("申請を送信中...")
-                      : t("フレンドを申請")}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <FriendActionArea
+              username={data.username}
+              isLoading={isRelationLoading}
+              hasError={isRelationError}
+              onRetry={refetchRelation}
+              isFriend={isFriend}
+              receivedRequest={receivedRequest}
+              sentRequest={sentRequest}
+              isSending={sendFriendRequest.isPending}
+              isAccepting={acceptFriendRequest.isPending}
+              isDeleting={deleteFriendRequest.isPending}
+              onSend={onPressSendRequest}
+              onAccept={onPressAcceptRequest}
+              onDeleteReceived={onPressDeleteRequest}
+              onCancelSent={onPressCancelRequest}
+            />
           ) : null}
 
           {data.bio ? (
@@ -513,48 +421,225 @@ export default function PublicProfilePage() {
           ) : null}
         </View>
 
-        <BottomSheet
+        <ReportSheet
           visible={reportSheetVisible}
+          isSubmitting={reportUser.isPending}
           onClose={() => setReportSheetVisible(false)}
-          scrimAccessibilityLabel="通報をやめる"
-        >
-          <View className="px-4 pb-8 pt-4">
-            <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              このユーザーを通報
-            </Text>
-            <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              理由を選択してください。運営が内容を確認します。
-            </Text>
-            <View className="mt-4 gap-2">
-              {REPORT_REASONS.map((reason) => (
-                <TouchableOpacity
-                  key={reason}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3"
-                  onPress={() => onSubmitReport(reason)}
-                  disabled={reportUser.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${reason}で通報`}
-                  testID={`report-reason-${reason}`}
-                >
-                  <Text className="text-slate-900 dark:text-slate-100">
-                    {reason}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              className="mt-4 items-center py-2"
-              onPress={() => setReportSheetVisible(false)}
-              accessibilityRole="button"
-              accessibilityLabel="キャンセル"
-            >
-              <Text className="text-slate-500 dark:text-slate-400">
-                キャンセル
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </BottomSheet>
+          onSubmit={onSubmitReport}
+        />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// フレンド申請・承認・取り消しのアクション領域（issue #417）。
+// 状態分岐が多いためページ本体から切り出している。
+function FriendActionArea({
+  username,
+  isLoading,
+  hasError,
+  onRetry,
+  isFriend,
+  receivedRequest,
+  sentRequest,
+  isSending,
+  isAccepting,
+  isDeleting,
+  onSend,
+  onAccept,
+  onDeleteReceived,
+  onCancelSent,
+}: {
+  username: string;
+  isLoading: boolean;
+  hasError: boolean;
+  onRetry: () => void;
+  isFriend: boolean;
+  receivedRequest: FriendRequestItem | undefined;
+  sentRequest: FriendRequestItem | undefined;
+  isSending: boolean;
+  isAccepting: boolean;
+  isDeleting: boolean;
+  onSend: () => void;
+  onAccept: () => void;
+  onDeleteReceived: (requestId: number, name: string) => void;
+  onCancelSent: () => void;
+}) {
+  const { t } = useTranslation();
+
+  if (isLoading) return null;
+
+  if (hasError) {
+    // 一覧取得失敗を未登録・未申請と誤認してアクションを出さない。
+    return (
+      <View
+        className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
+        testID="friends-load-error"
+      >
+        <Text className="text-sm text-slate-500 dark:text-slate-400">
+          {t("フレンド情報を取得できませんでした")}
+        </Text>
+        <TouchableOpacity
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t("再試行")}
+          testID="friends-retry-button"
+        >
+          <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+            {t("再試行")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (isFriend) {
+    return (
+      <View
+        className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
+        testID="already-friends-badge"
+      >
+        <Text className="text-sm text-slate-500 dark:text-slate-400">
+          {t("フレンド登録済み")}
+        </Text>
+      </View>
+    );
+  }
+
+  if (receivedRequest) {
+    // 相手からの申請が届いている。承認・削除はプロフィール上で選ぶ。
+    return (
+      <View className="mt-4 w-full items-center gap-2">
+        <Text
+          className="text-sm text-slate-500 dark:text-slate-400"
+          testID="friend-request-received-label"
+        >
+          {t("フレンド申請が届いています")}
+        </Text>
+        <View className="flex-row gap-2 w-full">
+          <TouchableOpacity
+            className="flex-1 bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
+            onPress={onAccept}
+            disabled={isAccepting}
+            accessibilityRole="button"
+            accessibilityLabel={t("申請を承認")}
+            testID="accept-friend-request-button"
+          >
+            <Text className="text-white font-semibold">
+              {isAccepting ? t("承認中...") : t("承認")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
+            onPress={() => onDeleteReceived(receivedRequest.id, username)}
+            disabled={isDeleting}
+            accessibilityRole="button"
+            accessibilityLabel={t("申請を削除")}
+            testID="delete-friend-request-button"
+          >
+            <Text className="text-slate-600 dark:text-slate-300 font-semibold">
+              {t("削除")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (sentRequest) {
+    return (
+      <View className="mt-4 w-full items-center gap-2">
+        <View
+          className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center self-stretch"
+          testID="friend-request-sent-badge"
+        >
+          <Text className="text-sm text-slate-500 dark:text-slate-400">
+            {t("フレンド申請中")}
+          </Text>
+        </View>
+        <TouchableOpacity
+          className="items-center py-1"
+          onPress={onCancelSent}
+          disabled={isDeleting}
+          accessibilityRole="button"
+          accessibilityLabel={t("申請を取り消す")}
+          testID="cancel-friend-request-button"
+        >
+          <Text className="text-xs text-slate-400 dark:text-slate-500">
+            {t("申請を取り消す")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      className="mt-4 w-full bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
+      onPress={onSend}
+      disabled={isSending}
+      accessibilityRole="button"
+      accessibilityLabel={t("フレンドを申請")}
+      testID="send-friend-request-button"
+    >
+      <Text className="text-white font-semibold">
+        {isSending ? t("申請を送信中...") : t("フレンドを申請")}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// 通報理由の選択シート。ボトムシート内のレイアウトだけを持つ。
+function ReportSheet({
+  visible,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  visible: boolean;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (reason: ReportReason) => void;
+}) {
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      scrimAccessibilityLabel="通報をやめる"
+    >
+      <View className="px-4 pb-8 pt-4">
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          このユーザーを通報
+        </Text>
+        <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          理由を選択してください。運営が内容を確認します。
+        </Text>
+        <View className="mt-4 gap-2">
+          {REPORT_REASONS.map((reason) => (
+            <TouchableOpacity
+              key={reason}
+              className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3"
+              onPress={() => onSubmit(reason)}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={`${reason}で通報`}
+              testID={`report-reason-${reason}`}
+            >
+              <Text className="text-slate-900 dark:text-slate-100">
+                {reason}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          className="mt-4 items-center py-2"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="キャンセル"
+        >
+          <Text className="text-slate-500 dark:text-slate-400">キャンセル</Text>
+        </TouchableOpacity>
+      </View>
+    </BottomSheet>
   );
 }

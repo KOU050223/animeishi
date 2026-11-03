@@ -47,6 +47,34 @@ export function parseUserIdFromQr(
   return null;
 }
 
+/** 対面交換 QR のクエリパラメータ名（POST /me/friends の qrToken に渡す）。 */
+const QR_TOKEN_PARAM = "qt";
+
+export type QrPayload = {
+  userId: string;
+  /** 対面交換 QR にだけ載る短期トークン。共有 URL の QR には無い。 */
+  qrToken?: string;
+};
+
+/**
+ * QR から「ユーザー ID + 対面交換トークン」を取り出す（issue #417）。
+ * トークンは対面交換画面の QR にだけ `?qt=` で付く。名刺画像・共有
+ * リンクの QR には付かず、その場合は qrToken が undefined になる
+ * （＝共有 URL 扱いで申請フローに回す）。
+ */
+export function parseQrPayload(
+  raw: string | null | undefined,
+): QrPayload | null {
+  const userId = parseUserIdFromQr(raw);
+  if (!userId || !raw) return null;
+
+  // `?qt=` / `&qt=` を拾う。値は exp.base64urlsig 想定だが、形式の検証は
+  // サーバー側に任せてここでは素通しする。
+  const match = raw.match(new RegExp(`[?&]${QR_TOKEN_PARAM}=([^&#\\s]+)`));
+  const qrToken = match?.[1] ? decodeURIComponent(match[1]) : undefined;
+  return { userId, qrToken };
+}
+
 /**
  * URL もしくはカスタムスキーム文字列からユーザー ID 候補を取り出す。
  * `/user/{uid}` パターンを優先し、なければパス末尾セグメントを候補とする。

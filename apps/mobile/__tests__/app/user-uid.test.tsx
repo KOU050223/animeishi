@@ -74,7 +74,10 @@ jest.mock("@/lib/useModeration", () => ({
 }));
 
 const mockFriendsRefetch = jest.fn();
-let mockFriendsData: { friendId: string }[] = [];
+// 取得失敗でキャッシュが無い状態（data: undefined）を表現できるよう
+// undefined を許容する。エラー時も前回データを保持する設計のため
+// 「失敗かつデータ無し」だけがエラー表示になる（issue #417 レビュー対応）。
+let mockFriendsData: { friendId: string }[] | undefined = [];
 let mockFriendsError = false;
 jest.mock("@/lib/useFriends", () => ({
   useFriends: () => ({
@@ -295,9 +298,10 @@ describe("PublicProfilePage", () => {
     expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
   });
 
-  it("フレンド一覧の取得に失敗したら申請ボタンではなく再試行導線を出す", async () => {
+  it("フレンド一覧の取得に失敗し取得済みデータも無いなら申請ボタンではなく再試行導線を出す", async () => {
     loggedInUser({ userId: "user_me" });
     mockFriendsError = true;
+    mockFriendsData = undefined;
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),

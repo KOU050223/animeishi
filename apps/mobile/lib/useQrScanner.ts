@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
-import { parseUserIdFromQr } from "@/lib/qrParser";
+import { parseQrPayload } from "@/lib/qrParser";
 
 export type QrScanResult = {
   /** スキャンして抽出されたユーザー ID。 */
   userId: string;
+  /**
+   * 対面交換 QR にだけ載る短期トークン（issue #417）。
+   * 共有 URL 由来の QR には無く、その場合は undefined。
+   */
+  qrToken?: string;
   /** スキャンした生データ（デバッグ・表示用）。 */
   raw: string;
 };
@@ -34,7 +39,7 @@ export type UseQrScanner = {
  * - パース失敗時は再スキャンを許可（不正な QR で固まらない）
  * - カメラ権限の状態を呼び出し側に公開
  *
- * パース自体は {@link parseUserIdFromQr} の純粋関数に委譲しているため、
+ * パース自体は {@link parseQrPayload} の純粋関数に委譲しているため、
  * このフックのロジックもテストしやすい構造になっている。
  */
 export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
@@ -54,13 +59,13 @@ export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
     // 既にスキャン済みなら無視（同一フレームで複数回発火するため）。
     if (scannedRef.current) return;
 
-    const userId = parseUserIdFromQr(result.data);
+    const payload = parseQrPayload(result.data);
     // 不正な QR。状態を変えず再スキャンを許可する。
-    if (!userId) return;
+    if (!payload) return;
 
     scannedRef.current = true;
     setScanned(true);
-    onScannedRef.current?.({ userId, raw: result.data });
+    onScannedRef.current?.({ ...payload, raw: result.data });
   }, []);
 
   const reset = useCallback(() => {

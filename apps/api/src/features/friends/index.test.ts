@@ -4,6 +4,10 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { friends } from "@/features/friends";
+import {
+  issueQrExchangeToken,
+  QR_EXCHANGE_TOKEN_TTL_SEC,
+} from "@/features/friends/qrExchangeToken";
 import { users } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
@@ -45,6 +49,36 @@ function signInAs(userId: string) {
   vi.mocked(getAuth).mockReturnValue({
     userId,
   } as ReturnType<typeof getAuth>);
+}
+
+// POST /me/friends（対面 QR の即時成立）は qrToken が必須（issue #417）。
+// テストでは「相手が QR を表示した」状況を、同じ秘密で発行した正規
+// トークンで再現する。
+async function qrTokenFor(userId: string, skewSec = 0): Promise<string> {
+  const { token } = await issueQrExchangeToken(
+    "test_secret",
+    userId,
+    Math.floor(Date.now() / 1000) + skewSec,
+  );
+  return token;
+}
+
+async function postFriend(
+  app: ReturnType<typeof buildApp>,
+  friendId: string,
+  body: Record<string, unknown> = {},
+) {
+  const qrToken =
+    (body.qrToken as string | undefined) ?? (await qrTokenFor(friendId));
+  return app.request(
+    "/me/friends",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ friendId, qrToken, ...body }),
+    },
+    TEST_BINDINGS,
+  );
 }
 
 describe("フレンド API", () => {
@@ -110,15 +144,7 @@ describe("フレンド API", () => {
 
     it("POST /me/friends: フレンドを追加できる", async () => {
       const app = buildApp();
-      const res = await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      const res = await postFriend(app, USER_B);
 
       expect(res.status).toBe(201);
       const body = (await res.json()) as { friendId: string };
@@ -127,15 +153,7 @@ describe("フレンド API", () => {
 
     it("POST /me/friends: 双方向で登録される（A→B 追加時に B→A も登録）", async () => {
       const app = buildApp();
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      await postFriend(app, USER_B);
 
       // A 視点でフレンドに B がいる
       const resA = await app.request(
@@ -161,15 +179,7 @@ describe("フレンド API", () => {
 
     it("GET /me/friends: 相手のプロフィール情報が含まれる", async () => {
       const app = buildApp();
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      await postFriend(app, USER_B);
 
       const res = await app.request(
         "/me/friends",
@@ -182,14 +192,8 @@ describe("フレンド API", () => {
 
     it("POST /me/friends: 重複追加しても成功する（冪等）", async () => {
       const app = buildApp();
-      const payload = {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ friendId: USER_B }),
-      };
-
-      await app.request("/me/friends", payload, TEST_BINDINGS);
-      const res = await app.request("/me/friends", payload, TEST_BINDINGS);
+      await postFriend(app, USER_B);
+      const res = await postFriend(app, USER_B);
       expect(res.status).toBe(201);
 
       const getRes = await app.request(
@@ -203,30 +207,16 @@ describe("フレンド API", () => {
 
     it("POST /me/friends: 自分自身を追加しようとすると 400", async () => {
       const app = buildApp();
-      const res = await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_A }),
-        },
-        TEST_BINDINGS,
-      );
+      const res = await postFriend(app, USER_A);
 
       expect(res.status).toBe(400);
     });
 
     it("POST /me/friends: 存在しないユーザーは 404", async () => {
       const app = buildApp();
-      const res = await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: "user_nonexistent" }),
-        },
-        TEST_BINDINGS,
-      );
+      const res = await postFriend(app, "user_nonexistent", {
+        qrToken: await qrTokenFor("user_nonexistent"),
+      });
 
       expect(res.status).toBe(404);
     });
@@ -248,15 +238,7 @@ describe("フレンド API", () => {
 
     it("DELETE /me/friends/:friendId: 双方向で削除できる", async () => {
       const app = buildApp();
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      await postFriend(app, USER_B);
 
       const delRes = await app.request(
         `/me/friends/${USER_B}`,
@@ -281,6 +263,88 @@ describe("フレンド API", () => {
         TEST_BINDINGS,
       );
       expect(await resB.json()).toHaveLength(0);
+    });
+  });
+
+  // 即時成立は対面 QR 交換に限る（issue #417 レビュー対応）。
+  // qrToken 無しで相手 ID だけ渡しても承認を迂回できないことを担保する。
+  describe("QR 交換トークン", () => {
+    beforeEach(() => {
+      signInAs(USER_A);
+    });
+
+    it("GET /me/friends/qr-token: 認証ユーザー紐づきのトークンを発行する", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends/qr-token",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        token: string;
+        expiresAt: number;
+      };
+      expect(body.token.split(".")).toHaveLength(2);
+      expect(body.expiresAt).toBeGreaterThan(Date.now() / 1000);
+
+      // 発行したトークンは即時成立に使える（USER_A が QR を出した想定で
+      // USER_B がスキャンしたケースを再現する）。
+      signInAs(USER_B);
+      const post = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ friendId: USER_A, qrToken: body.token }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(post.status).toBe(201);
+    });
+
+    it("POST /me/friends: qrToken 無しは 403（qr_exchange_required）", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ friendId: USER_B }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
+    });
+
+    it("POST /me/friends: 改ざん・他人宛のトークンは 403", async () => {
+      const app = buildApp();
+      // USER_A 宛に発行したトークンを USER_B 宛に使い回すケース
+      const othersToken = await qrTokenFor(USER_A);
+      const res = await postFriend(app, USER_B, {
+        qrToken: `${othersToken}x`,
+      });
+      expect(res.status).toBe(403);
+
+      const res2 = await postFriend(app, USER_B, {
+        qrToken: await qrTokenFor(USER_A),
+      });
+      expect(res2.status).toBe(403);
+    });
+
+    it("POST /me/friends: 期限切れトークンは 403", async () => {
+      const app = buildApp();
+      const res = await postFriend(app, USER_B, {
+        qrToken: await qrTokenFor(USER_B, -(QR_EXCHANGE_TOKEN_TTL_SEC + 60)),
+      });
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
     });
   });
 });

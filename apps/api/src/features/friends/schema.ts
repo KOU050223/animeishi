@@ -6,8 +6,13 @@ import {
 } from "@/lib/openapi";
 
 // POST /me/friends のボディ。friendId は相手の Clerk user ID。
+// qrToken は相手が画面に表示した対面交換 QR に埋め込まれた短期トークン
+// （GET /me/friends/qr-token で相手が発行したもの）。即時成立は QR を
+// 読み合った対面交換に限るため必須で、無い・無効・期限切れは 403。
+// リモートからの追加は /me/friend-requests の申請フローを使う（issue #417）。
 export const friendCreateSchema = z.object({
   friendId: z.string().min(1, "friendId を指定してください"),
+  qrToken: z.string().min(1).optional(),
 });
 
 export type FriendCreateInput = z.infer<typeof friendCreateSchema>;
@@ -54,11 +59,33 @@ export const getFriendsRoute = createRoute({
   },
 });
 
+// GET /me/friends/qr-token の応答。expiresAt は UNIX 秒。
+const qrTokenSchema = z.object({
+  token: z.string(),
+  expiresAt: z.number().int(),
+});
+
+export const getQrTokenRoute = createRoute({
+  method: "get",
+  path: "/qr-token",
+  tags: ["friends"],
+  summary:
+    "対面 QR 交換用の短期トークンを発行する（自分の QR に埋め込む。約 5 分有効）",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: { "application/json": { schema: qrTokenSchema } },
+      description: "発行したトークン",
+    },
+    401: jsonError("未認証"),
+  },
+});
+
 export const addFriendRoute = createRoute({
   method: "post",
   path: "/",
   tags: ["friends"],
-  summary: "フレンドを追加する（双方向・冪等）",
+  summary: "対面 QR 交換でフレンドを即時追加する（双方向・冪等。qrToken 必須）",
   security: bearerAuth,
   request: {
     body: {
@@ -73,7 +100,18 @@ export const addFriendRoute = createRoute({
     },
     400: jsonError("自分自身の追加・入力エラー"),
     401: jsonError("未認証"),
-    403: jsonError("ブロック関係にある相手"),
+    403: {
+      content: {
+        "application/json": {
+          // QR トークン不備のときだけ code=qr_exchange_required を返し、
+          // クライアントはこれを見て申請フローへフォールバックする。
+          schema: errorResponseSchema.extend({
+            code: z.string().optional(),
+          }),
+        },
+      },
+      description: "ブロック関係にある相手 / qrToken が無い・無効・期限切れ",
+    },
     404: jsonError("対象ユーザーが存在しない"),
   },
 });
