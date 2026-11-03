@@ -111,12 +111,14 @@ function savedList(
   title: string,
   items: { annictWorkId: number }[],
   shareToken: string | null = null,
+  isPublic = false,
 ) {
   return {
     id,
     title,
     description: "説明文",
     shareToken,
+    isPublic,
     items: items.map((i, position) => ({
       ...i,
       position,
@@ -237,6 +239,48 @@ describe("WorkListScreen", () => {
     expect(saveButton.props.accessibilityState?.disabled).toBe(true);
     await fireEvent.press(saveButton);
     expect(mockSaveMutate).not.toHaveBeenCalled();
+  });
+
+  it("公開トグルを切り替えると保存ボタンが有効になり、isPublic を送る", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "公開したい", [{ annictWorkId: 1 }]);
+
+    await render(<WorkListScreen />);
+
+    const toggle = screen.getByTestId("work-list-public-toggle");
+    expect(toggle.props.value).toBe(false);
+    expect(
+      screen.getByTestId("work-list-save").props.accessibilityState?.disabled,
+    ).toBe(true);
+
+    await fireEvent(toggle, "onValueChange", true);
+
+    expect(
+      screen.getByTestId("work-list-save").props.accessibilityState?.disabled,
+    ).toBe(false);
+    await fireEvent.press(screen.getByTestId("work-list-save"));
+
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 7, isPublic: true }),
+      expect.anything(),
+    );
+  });
+
+  it("公開済みのリストはトグルが ON で保存に false を送れる", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "公開中", [{ annictWorkId: 1 }], null, true);
+
+    await render(<WorkListScreen />);
+
+    const toggle = screen.getByTestId("work-list-public-toggle");
+    expect(toggle.props.value).toBe(true);
+    await fireEvent(toggle, "onValueChange", false);
+    await fireEvent.press(screen.getByTestId("work-list-save"));
+
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ isPublic: false }),
+      expect.anything(),
+    );
   });
 
   it("新規作成の保存は id 無しで呼ばれる", async () => {

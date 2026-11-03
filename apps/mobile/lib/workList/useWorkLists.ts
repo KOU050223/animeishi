@@ -1,5 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
@@ -8,6 +14,24 @@ import { ApiRequestError } from "@/lib/apiError";
 // 別にして tier 表のキャッシュと混ざらないようにする。
 const workListQueryKey = (id: number) => ["work-list", "saved", id] as const;
 const workListsQueryKey = ["work-list", "list"] as const;
+// 公開一覧（ひろば「みつける」タブ, issue #422）。sort ごとにキャッシュを分ける。
+// 先頭 2 要素が共通プレフィックスなので、これで一覧・詳細の両方を
+// invalidate できる（useModeration のブロック操作からも使う）。
+export const PUBLIC_WORK_LISTS_KEY = ["work-list", "public"] as const;
+const publicWorkListsQueryKey = (sort: PublicWorkListSort) =>
+  [...PUBLIC_WORK_LISTS_KEY, sort] as const;
+const publicWorkListQueryKey = (id: number) =>
+  [...PUBLIC_WORK_LISTS_KEY, "detail", id] as const;
+
+export type PublicWorkListSort = "likes" | "new";
+
+type PublicWorkListsResponse = InferResponseType<
+  (typeof apiClient)["work-lists"]["public"]["$get"],
+  200
+>;
+export type PublicWorkListItem = PublicWorkListsResponse["items"][number];
+
+const PUBLIC_LIST_PAGE_LIMIT = "20";
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -153,6 +177,7 @@ export function useSaveWorkList() {
       id?: number;
       title: string;
       description?: string | null;
+      isPublic?: boolean;
       items: { annictWorkId: number }[];
     }) => {
       const headers = await getAuthHeaders(getToken);
@@ -175,6 +200,8 @@ export function useSaveWorkList() {
       queryClient.setQueryData(workListQueryKey(data.id), data);
       // 新規作成・タイトル変更で一覧（work-lists 画面）が古くなるため破棄する。
       void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
+      // isPublic の切り替えで「みつける」の一覧・詳細の出入りが変わる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }
@@ -240,6 +267,176 @@ export function useUnshareWorkList() {
   });
 }
 
+/**
+ * 公開作品リストの一覧（ひろば「みつける」, issue #422）。
+ * カーソルページングの API のため useInfiniteQuery で取り、
+ * nextCursor がある限り続きを読める（useActivityFeed と同じ構造）。
+ */
+export function usePublicWorkLists(sort: PublicWorkListSort) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: publicWorkListsQueryKey(sort),
+    enabled: !!isSignedIn,
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"].public.$get(
+        {
+          query: {
+            sort,
+            limit: PUBLIC_LIST_PAGE_LIMIT,
+            ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+          },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "公開作品リストの取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * 公開リスト 1 件の詳細（登録作品つき。issue #422）。
+ * みつけるカードの遷移先画面が読む。一覧と同じ可視条件なので、
+ * 見えないリストは 404（data undefined・isError）になる。
+ */
+export function usePublicWorkList(id: number | null) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: publicWorkListQueryKey(id ?? 0),
+    enabled: !!isSignedIn && id !== null,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"][":id"].$get(
+        { param: { id: String(id) } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "公開作品リストの取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
+}
+
+/**
+ * 公開リストへのいいねの切り替え（issue #422）。
+ * PUT/DELETE とも冪等な API で、応答の likeCount・likedByMe を
+ * 両ソートのキャッシュにそのまま反映する。
+ */
+export function useToggleWorkListLike() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { id: number; like: boolean }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = input.like
+        ? await apiClient["work-lists"][":id"].like.$put(
+            { param: { id: String(input.id) } },
+            { headers },
+          )
+        : await apiClient["work-lists"][":id"].like.$delete(
+            { param: { id: String(input.id) } },
+            { headers },
+          );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "いいねの更新に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: (data, input) => {
+      for (const sort of ["likes", "new"] as const) {
+        queryClient.setQueryData(
+          publicWorkListsQueryKey(sort),
+          (prev: { pages: PublicWorkListsResponse[] } | undefined) =>
+            prev
+              ? {
+                  ...prev,
+                  pages: prev.pages.map((page) => ({
+                    ...page,
+                    items: page.items.map((item) =>
+                      item.id === input.id
+                        ? {
+                            ...item,
+                            likeCount: data.likeCount,
+                            likedByMe: data.likedByMe,
+                          }
+                        : item,
+                    ),
+                  })),
+                }
+              : prev,
+        );
+      }
+      // 詳細画面のキャッシュも同じ応答で更新する。
+      queryClient.setQueryData(
+        publicWorkListQueryKey(input.id),
+        (prev: { likeCount: number; likedByMe: boolean } | undefined) =>
+          prev
+            ? {
+                ...prev,
+                likeCount: data.likeCount,
+                likedByMe: data.likedByMe,
+              }
+            : prev,
+      );
+    },
+  });
+}
+
+/**
+ * 公開作品リストの通報（issue #422）。理由はユーザー通報と同じ
+ * プリセット/自由入力をそのまま送る。429 はサーバーの理由を見せる。
+ */
+export function useReportWorkList() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { id: number; reason: string }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"][":id"].report.$post(
+        {
+          param: { id: String(input.id) },
+          json: { reason: input.reason },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        if (res.status === 429) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new ApiRequestError(
+            res.status,
+            body?.error ?? "通報の送信回数が上限に達しました",
+          );
+        }
+        throw new ApiRequestError(res.status, "通報に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      // 通報の直後に所有者ブロックへ進む流れのため、ブロック成立前から
+      // 一覧を古いまま残さないよう再取得に倒す。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+    },
+  });
+}
+
 /** 作品リストを削除する（items もカスケードで消える）。 */
 export function useDeleteWorkList() {
   const { getToken } = useAuth();
@@ -260,6 +457,8 @@ export function useDeleteWorkList() {
     onSuccess: (_data, id) => {
       queryClient.removeQueries({ queryKey: workListQueryKey(id) });
       void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
+      // 公開中のリストを消したら「みつける」からも消える。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }
