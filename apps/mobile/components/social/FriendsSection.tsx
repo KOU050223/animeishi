@@ -35,12 +35,11 @@ export function FriendsSection() {
 
   async function onRefresh() {
     setRefreshing(true);
-    try {
-      await Promise.all([refetch(), refetchRequests()]);
-    } finally {
-      // refetch が失敗してもインジケータは必ず戻す（拒否で残り続けないよう）。
-      setRefreshing(false);
-    }
+    // refetch が失敗してもインジケータは必ず戻す。try/finally ではなく
+    // allSettled にするのは、catch 無しの try が React Compiler の
+    // 最適化対象外になるため（React Doctor 指摘）。
+    await Promise.allSettled([refetch(), refetchRequests()]);
+    setRefreshing(false);
   }
 
   function confirmRemove(friendId: string, name: string) {
