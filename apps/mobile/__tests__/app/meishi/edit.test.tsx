@@ -10,18 +10,23 @@ import MeishiEditScreen from "@/app/meishi/edit";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 const mockCanGoBack = jest.fn();
 const mockSaveDocument = jest.fn();
 const mockShareMeishiImage = jest.fn();
+let mockSearchParams: { id?: string; create?: string } = {};
 
 jest.mock("expo-router", () => ({
   Stack: {
     Screen: () => null,
   },
+  useLocalSearchParams: () => mockSearchParams,
   useRouter: () => ({
     back: mockBack,
     replace: mockReplace,
     canGoBack: mockCanGoBack,
+    push: jest.fn(),
+    dismissTo: mockDismissTo,
   }),
 }));
 
@@ -112,36 +117,44 @@ const defaultDoc = {
 let mockDoc: typeof defaultDoc | null = defaultDoc;
 let mockDocLoaded = true;
 
+const mockUseMeishiDocument = jest.fn();
 jest.mock("@/lib/meishi/useMeishiDocument", () => ({
-  useMeishiDocument: () => ({
-    doc: mockDoc,
-    loaded: mockDocLoaded,
-    setDocFromTemplate: jest.fn(),
-    commit: jest.fn(),
-    beginGesture: jest.fn(),
-    setElementTransformLive: jest.fn(),
-    updateElement: jest.fn(),
-    addElement: jest.fn(),
-    removeElement: jest.fn(),
-    duplicateElement: jest.fn(),
-    bringToFront: jest.fn(),
-    sendToBack: jest.fn(),
-    setBackground: jest.fn(),
-    undo: jest.fn(),
-    redo: jest.fn(),
-    clear: jest.fn(),
-    saveDocument: mockSaveDocument,
-    reloadDocument: jest.fn(),
-    canUndo: false,
-    canRedo: false,
-  }),
+  useMeishiDocument: (options?: unknown) => {
+    mockUseMeishiDocument(options);
+    return {
+      doc: mockDoc,
+      loaded: mockDocLoaded,
+      setDocFromTemplate: jest.fn(),
+      commit: jest.fn(),
+      beginGesture: jest.fn(),
+      setElementTransformLive: jest.fn(),
+      updateElement: jest.fn(),
+      addElement: jest.fn(),
+      removeElement: jest.fn(),
+      duplicateElement: jest.fn(),
+      bringToFront: jest.fn(),
+      sendToBack: jest.fn(),
+      setBackground: jest.fn(),
+      undo: jest.fn(),
+      redo: jest.fn(),
+      clear: jest.fn(),
+      saveDocument: mockSaveDocument,
+      reloadDocument: jest.fn(),
+      canUndo: false,
+      canRedo: false,
+      boundCardId: null,
+    };
+  },
 }));
 
 beforeEach(async () => {
   mockDoc = defaultDoc;
   mockDocLoaded = true;
+  mockSearchParams = {};
+  mockUseMeishiDocument.mockClear();
   mockBack.mockClear();
   mockReplace.mockClear();
+  mockDismissTo.mockClear();
   mockCanGoBack.mockReset();
   mockCanGoBack.mockReturnValue(true);
   mockSaveDocument.mockReset();
@@ -233,5 +246,39 @@ describe("MeishiEditScreen の戻るボタン", () => {
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
     expect(mockSaveDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeishiEditScreen の名刺一覧ボタン", () => {
+  it("直前の画面が一覧とは限らないため、履歴を戻らず一覧ルートへ遷移する", async () => {
+    mockSearchParams = { id: "card_a" };
+    await render(<MeishiEditScreen />);
+
+    await fireEvent.press(screen.getByLabelText("名刺一覧を開く"));
+
+    expect(mockDismissTo).toHaveBeenCalledWith("/meishi");
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeishiEditScreen のカード指定（issue #427）", () => {
+  it("id パラメータがあるときそのカードを編集対象にする", async () => {
+    mockSearchParams = { id: "card_a" };
+    await render(<MeishiEditScreen />);
+
+    expect(mockUseMeishiDocument).toHaveBeenCalledWith({ cardId: "card_a" });
+  });
+
+  it("create=1 のとき新規カードモードで開く", async () => {
+    mockSearchParams = { create: "1" };
+    await render(<MeishiEditScreen />);
+
+    expect(mockUseMeishiDocument).toHaveBeenCalledWith({ fresh: true });
+  });
+
+  it("パラメータ無しではオプション無し（既定カード）で開く", async () => {
+    await render(<MeishiEditScreen />);
+
+    expect(mockUseMeishiDocument).toHaveBeenCalledWith(undefined);
   });
 });

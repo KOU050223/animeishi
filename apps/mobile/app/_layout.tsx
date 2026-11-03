@@ -123,6 +123,9 @@ function AuthGuard() {
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       {/* 名刺エディタ（没入型ツール画面。カスタムクロム維持） */}
       <Stack.Screen name="meishi/edit" options={{ headerShown: false }} />
+      {/* 名刺のデッキ一覧と全画面表示（issue #427。カスタムクロム維持） */}
+      <Stack.Screen name="meishi/index" options={{ headerShown: false }} />
+      <Stack.Screen name="meishi/[id]" options={{ headerShown: false }} />
       {/* tier 表の作成導線と自由作成一覧（issue #348） */}
       <Stack.Screen name="tier-lists" />
       {/* シーズンごとのアニメ tier 表（没入型。以下 2 画面も同様） */}
