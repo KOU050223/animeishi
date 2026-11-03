@@ -75,11 +75,15 @@ export default function AnnictCallbackScreen() {
       // 連携後は Annict レビュー由来の初期評価（annictRating）を GET で
       // 拾えるため（issue #416 レビュー）。キーは useWorkRating の
       // WORK_RATING_QUERY_KEY と一致させる（import すると循環参照になる）。
+      // 実績クエリも捨てる — 今期完走は Annict トークンが無いと判定不可
+      // で返るため（issue #415）。キーは useAchievements の
+      // ACHIEVEMENTS_QUERY_KEY と一致。
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ANNICT_CONNECTION_QUERY_KEY,
         }),
         queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
+        queryClient.invalidateQueries({ queryKey: ["achievements"] }),
       ]);
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);

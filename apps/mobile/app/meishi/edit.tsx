@@ -29,6 +29,7 @@ import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { useMeishiImageShare } from "@/lib/meishi/imageShare";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { useAchievements } from "@/lib/achievements/useAchievements";
 import { useFavorites } from "@/lib/useFavorites";
 import {
   pickMeishiImage,
@@ -53,6 +54,7 @@ export default function MeishiEditScreen() {
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
   const { data: watchHistory } = useWatchHistory();
+  const { data: achievements } = useAchievements();
   // 一覧（/meishi）からの導線: id 指定でそのカードを、create=1 で新規カードを編集する。
   // パラメータ無し（旧来の /meishi/edit 直叩き・ホームのヘッダーアイコン）は既定カードを編集する。
   const params = useLocalSearchParams<{ id?: string; create?: string }>();
@@ -119,8 +121,9 @@ export default function MeishiEditScreen() {
         profileUrl: buildProfileUrl(profile?.id),
       },
       ...buildMeishiAnimeContext({ favorites, watchHistory }),
+      achievements: achievements?.achievements,
     }),
-    [favorites, profile, watchHistory],
+    [favorites, profile, watchHistory, achievements],
   );
 
   // 名刺の画像共有（issue #425）。保存トースト内のボタンから起動する。
