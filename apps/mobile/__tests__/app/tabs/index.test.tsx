@@ -6,9 +6,11 @@ import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
+// フォーカス復帰時の無効化対象を検証できるよう、スパイは使い回す。
+const mockInvalidateQueries = jest.fn();
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
-    invalidateQueries: jest.fn(),
+    invalidateQueries: mockInvalidateQueries,
     resetQueries: jest.fn(),
   }),
 }));
@@ -259,6 +261,21 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/article/[slug]",
       params: { slug: "autumn-2026" },
+    });
+  });
+
+  it("ホームへ戻ると特集記事一覧も再取得する", async () => {
+    loggedInUser();
+    const { rerender } = await render(<HomeScreen />);
+    // 初回フォーカスでは無効化しない（初回取得と重複するため）
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    // useFocusEffect のモックは再描画をフォーカス復帰として扱える
+    await rerender(<HomeScreen />);
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["articles"],
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["activity-feed"],
     });
   });
 

@@ -23,15 +23,18 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
 
   // タブ切替では画面のマウントが維持され stale のまま残る。活動フィードは
-  // staleTime（5 分）内だと再取得されずフレンドの新しい活動が見えないため、
-  // ホーム復帰のタイミングでだけ無効化する。初回フォーカスは初回取得と
-  // 重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
+  // staleTime（5 分）内だと再取得されず、特集記事もタブ復帰では再取得の
+  // 契機が無いため、ホーム復帰のタイミングでだけ無効化する。
+  // 初回フォーカスは初回取得と重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
   const hasFocused = useRef(false);
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) {
         void queryClient.invalidateQueries({
           queryKey: ACTIVITY_FEED_QUERY_KEY,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ARTICLES_QUERY_KEY,
         });
       }
       hasFocused.current = true;
