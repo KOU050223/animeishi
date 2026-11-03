@@ -277,13 +277,9 @@ export default function MeishiEditScreen() {
         </Pressable>
         <Pressable
           onPress={() => {
-            // 一覧から開いた（id / create 付き）ときは back で一覧に戻る。
-            // 直接開いた（ホームのヘッダーアイコン等）ときは一覧へ push する。
-            if ((params.id || params.create) && router.canGoBack()) {
-              router.back();
-            } else {
-              router.push("/meishi");
-            }
+            // 直前の画面が一覧とは限らない（全画面表示経由もある）ので、
+            // back せず一覧のルートへ明示的に遷移する。
+            router.dismissTo("/meishi");
           }}
           style={styles.subBtn}
           accessibilityRole="button"

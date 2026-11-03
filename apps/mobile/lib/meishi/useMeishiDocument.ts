@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  addCard,
-  defaultCard,
-  emptyLibrary,
-  findCard,
-  updateCardDocument,
-} from "./library";
-import { loadMeishiLibrary, saveMeishiLibrary } from "./storage";
+import { addCard, defaultCard, findCard, updateCardDocument } from "./library";
+import { loadMeishiLibrary, updateMeishiLibrary } from "./storage";
 import {
   emptyHistory,
   commit as commitHistory,
@@ -187,20 +181,24 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     });
   }, [bumpHistoryVersion]);
 
-  // 保存は「ライブラリ全体の read-modify-write」で行う。編集中に一覧側で
-  // カード操作が入っても、保存が別カードを巻き戻さないよう
-  // 保存直前にストレージから読み直す。
+  // 保存は「ライブラリ全体の read-modify-write」で行う。
+  // updateMeishiLibrary のキューで一覧側の操作とも直列化されるので、
+  // 編集中に他画面でカード操作が入っても保存が別カードを巻き戻さない。
   const saveDocument = useCallback(async () => {
     if (!doc) return;
-    const library = (await loadMeishiLibrary()) ?? emptyLibrary();
-    if (boundCardId && findCard(library, boundCardId)) {
-      await saveMeishiLibrary(updateCardDocument(library, boundCardId, doc));
-      return;
-    }
-    // 未バインド（新規作成）or バインド先が消えていた場合は新規カードを作る。
-    const result = addCard(library, doc);
-    setBoundCardId(result.card.id);
-    await saveMeishiLibrary(result.library);
+    const currentDoc = doc;
+    const { result: newCardId } = await updateMeishiLibrary((library) => {
+      if (boundCardId && findCard(library, boundCardId)) {
+        return {
+          library: updateCardDocument(library, boundCardId, currentDoc),
+          result: null,
+        };
+      }
+      // 未バインド（新規作成）or バインド先が消えていた場合は新規カードを作る。
+      const added = addCard(library, currentDoc);
+      return { library: added.library, result: added.card.id };
+    });
+    if (newCardId) setBoundCardId(newCardId);
   }, [doc, boundCardId]);
 
   const updateElement = useCallback(

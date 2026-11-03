@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -107,9 +107,13 @@ export default function MeishiDeckScreen() {
           </Pressable>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.grid}>
-          {cards.map((card) => (
-            <View key={card.id} style={styles.cell}>
+        <FlatList
+          data={cards}
+          numColumns={2}
+          keyExtractor={(card) => card.id}
+          contentContainerStyle={styles.grid}
+          renderItem={({ item: card }) => (
+            <View style={styles.cell}>
               <Pressable
                 onPress={() => openCard(card)}
                 accessibilityRole="button"
@@ -152,19 +156,21 @@ export default function MeishiDeckScreen() {
                 </Pressable>
               </View>
             </View>
-          ))}
-          <View style={styles.cell}>
-            <Pressable
-              onPress={createCard}
-              style={styles.newCardTile}
-              accessibilityRole="button"
-              accessibilityLabel={t("新しい名刺を作る")}
-            >
-              <Ionicons name="add" size={28} color={colors.textMuted} />
-              <Text style={styles.newCardText}>{t("新しい名刺")}</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
+          )}
+          ListFooterComponent={
+            <View style={styles.newCardCell}>
+              <Pressable
+                onPress={createCard}
+                style={styles.newCardTile}
+                accessibilityRole="button"
+                accessibilityLabel={t("新しい名刺を作る")}
+              >
+                <Ionicons name="add" size={28} color={colors.textMuted} />
+                <Text style={styles.newCardText}>{t("新しい名刺")}</Text>
+              </Pressable>
+            </View>
+          }
+        />
       )}
 
       <BottomSheet
@@ -273,15 +279,11 @@ function createStyles(colors: ThemeColors) {
     headerTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
     // BackButton と同じ幅のスペーサーでタイトルを中央に置く
     headerSpacer: { width: 40 },
-    grid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      padding: 8,
-    },
-    cell: {
-      width: "50%",
-      padding: 8,
-    },
+    grid: { padding: 8 },
+    // FlatList の numColumns=2 が列幅を分けるので、セルは列いっぱいに広げる
+    cell: { flex: 1, padding: 8 },
+    // ListFooterComponent は全幅になるため、1 セル分の見た目に合わせて半分に
+    newCardCell: { width: "50%", padding: 8 },
     cellFooter: {
       flexDirection: "row",
       alignItems: "center",

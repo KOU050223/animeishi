@@ -1,17 +1,13 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
-import { loadMeishiLibrary, saveMeishiLibrary } from "@/lib/meishi/storage";
+import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import type { MeishiDocument, MeishiLibrary } from "@/lib/meishi/types";
 
-jest.mock("@/lib/meishi/storage", () => ({
-  clearMeishiDocument: jest.fn(),
-  loadMeishiDocument: jest.fn(),
-  loadMeishiLibrary: jest.fn(),
-  saveMeishiLibrary: jest.fn(),
-}));
+// 実ストレージ（AsyncStorage は jest 環境でメモリ実装）を通して振る舞いを
+// 見る。操作の直列化はモックを挟むと検証できないため。
 
-const mockLoad = jest.mocked(loadMeishiLibrary);
-const mockSave = jest.mocked(saveMeishiLibrary);
+const LIBRARY_KEY = "meishi-library:v1";
 
 const sampleDoc: MeishiDocument = {
   version: 1,
@@ -45,15 +41,17 @@ function libraryWithTwoCards(): MeishiLibrary {
   };
 }
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockLoad.mockResolvedValue(null);
-  mockSave.mockResolvedValue(undefined);
+async function seedLibrary(library: MeishiLibrary) {
+  await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+}
+
+beforeEach(async () => {
+  await AsyncStorage.clear();
 });
 
 describe("useMeishiLibrary", () => {
   it("保存済みライブラリを読み込む", async () => {
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     const { result } = await renderHook(() => useMeishiLibrary());
 
     await waitFor(() => expect(result.current.loaded).toBe(true));
@@ -72,12 +70,13 @@ describe("useMeishiLibrary", () => {
 
     expect(result.current.cards).toHaveLength(1);
     expect(result.current.defaultCard?.id).toBe(createdId);
-    expect(mockSave).toHaveBeenCalledTimes(1);
-    expect(mockSave.mock.calls[0][0].cards).toHaveLength(1);
+    const stored = await loadMeishiLibrary();
+    expect(stored!.cards).toHaveLength(1);
+    expect(stored!.defaultCardId).toBe(createdId);
   });
 
   it("duplicateCard でカードを複製する", async () => {
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     const { result } = await renderHook(() => useMeishiLibrary());
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
@@ -91,7 +90,7 @@ describe("useMeishiLibrary", () => {
   });
 
   it("removeCard でカードを削除し、既定が消えたら最古を繰り上げる", async () => {
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     const { result } = await renderHook(() => useMeishiLibrary());
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
@@ -104,7 +103,7 @@ describe("useMeishiLibrary", () => {
   });
 
   it("setDefault で既定を切り替える", async () => {
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     const { result } = await renderHook(() => useMeishiLibrary());
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
@@ -113,11 +112,11 @@ describe("useMeishiLibrary", () => {
     });
 
     expect(result.current.defaultCard?.id).toBe("b");
-    expect(mockSave.mock.calls.at(-1)?.[0].defaultCardId).toBe("b");
+    expect((await loadMeishiLibrary())!.defaultCardId).toBe("b");
   });
 
   it("updateCardDocument で指定カードのドキュメントを更新する", async () => {
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     const { result } = await renderHook(() => useMeishiLibrary());
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
@@ -136,12 +135,35 @@ describe("useMeishiLibrary", () => {
     expect(result.current.cards[0].document).toEqual(sampleDoc);
   });
 
+  it("複製→削除を await せず連続実行しても、両方の結果が保存に残る", async () => {
+    await seedLibrary(libraryWithTwoCards());
+    const { result } = await renderHook(() => useMeishiLibrary());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // レビュー指摘: 連続操作で先の保存が後の状態を上書きする不具合。
+    // a の複製と a の削除を待たずに投げても、直列化により順に適用される。
+    await act(async () => {
+      const p1 = result.current.duplicateCard("a");
+      const p2 = result.current.removeCard("a");
+      await Promise.all([p1, p2]);
+    });
+
+    const ids = result.current.cards.map((c) => c.id);
+    expect(ids).not.toContain("a");
+    expect(result.current.cards.some((c) => c.name === "名刺 1 のコピー")).toBe(
+      true,
+    );
+    // 画面 state と保存済みが一致している（保存の巻き戻りがない）
+    const stored = await loadMeishiLibrary();
+    expect(stored!.cards.map((c) => c.id)).toEqual(ids);
+  });
+
   it("reload で保存先から読み直す", async () => {
     const { result } = await renderHook(() => useMeishiLibrary());
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.cards).toHaveLength(0);
 
-    mockLoad.mockResolvedValue(libraryWithTwoCards());
+    await seedLibrary(libraryWithTwoCards());
     await act(async () => {
       await result.current.reload();
     });

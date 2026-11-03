@@ -28,6 +28,10 @@ jest.mock("expo-router", () => ({
     replace: mockReplace,
     push: mockPush,
   }),
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const React = require("react");
+    React.useEffect(effect, [effect]);
+  },
 }));
 
 jest.mock("@/components/MeishiCard", () => ({

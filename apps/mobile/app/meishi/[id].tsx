@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -9,7 +9,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { MeishiCard } from "@/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { buildProfileUrl } from "@/lib/profileUrl";
@@ -28,8 +33,15 @@ export default function MeishiViewerScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cards, loaded } = useMeishiLibrary();
+  const { cards, loaded, reload } = useMeishiLibrary();
   const { data: profile } = useProfile();
+
+  // 編集画面から戻ってきたときに保存済みの最新デザインを反映する
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload]),
+  );
 
   const card = cards.find((c) => c.id === id) ?? null;
 

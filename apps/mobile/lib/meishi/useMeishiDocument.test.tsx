@@ -1,21 +1,17 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import { loadMeishiLibrary, saveMeishiLibrary } from "@/lib/meishi/storage";
+import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import type {
   MeishiCardData,
   MeishiDocument,
   MeishiLibrary,
 } from "@/lib/meishi/types";
 
-jest.mock("@/lib/meishi/storage", () => ({
-  clearMeishiDocument: jest.fn(),
-  loadMeishiDocument: jest.fn(),
-  loadMeishiLibrary: jest.fn(),
-  saveMeishiLibrary: jest.fn(),
-}));
+// 実ストレージ（AsyncStorage は jest 環境でメモリ実装）を通して振る舞いを
+// 見る。saveDocument の直列化はモックを挟むと検証できないため。
 
-const mockLoadLibrary = jest.mocked(loadMeishiLibrary);
-const mockSaveLibrary = jest.mocked(saveMeishiLibrary);
+const LIBRARY_KEY = "meishi-library:v1";
 
 const sampleDoc: MeishiDocument = {
   version: 1,
@@ -49,11 +45,13 @@ function libraryFixture(cards: MeishiCardData[]): MeishiLibrary {
   return { version: 1, cards, defaultCardId: cards[0]?.id ?? null };
 }
 
+async function seedLibrary(library: MeishiLibrary) {
+  await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+}
+
 beforeEach(async () => {
   jest.useRealTimers();
-  jest.clearAllMocks();
-  mockLoadLibrary.mockResolvedValue(null);
-  mockSaveLibrary.mockResolvedValue(undefined);
+  await AsyncStorage.clear();
 });
 
 afterEach(async () => {
@@ -62,7 +60,7 @@ afterEach(async () => {
 
 describe("useMeishiDocument のバインド", () => {
   it("cardId を渡すとそのカードのドキュメントを編集対象にする", async () => {
-    mockLoadLibrary.mockResolvedValue(
+    await seedLibrary(
       libraryFixture([cardFixture({ id: "x" }), cardFixture({ id: "y" })]),
     );
     const { result } = await renderHook(() =>
@@ -79,16 +77,14 @@ describe("useMeishiDocument のバインド", () => {
       cardFixture({ id: "b" }),
     ]);
     lib.defaultCardId = "b";
-    mockLoadLibrary.mockResolvedValue(lib);
+    await seedLibrary(lib);
     const { result } = await renderHook(() => useMeishiDocument());
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.boundCardId).toBe("b");
   });
 
   it("fresh モードでは既定カードがあっても doc は null（新規作成フロー）", async () => {
-    mockLoadLibrary.mockResolvedValue(
-      libraryFixture([cardFixture({ id: "a" })]),
-    );
+    await seedLibrary(libraryFixture([cardFixture({ id: "a" })]));
     const { result } = await renderHook(() =>
       useMeishiDocument({ fresh: true }),
     );
@@ -119,11 +115,11 @@ describe("useMeishiDocument の永続化", () => {
       jest.advanceTimersByTime(1000);
     });
 
-    expect(mockSaveLibrary).not.toHaveBeenCalled();
+    expect(await AsyncStorage.getItem(LIBRARY_KEY)).toBeNull();
   });
 
   it("バインド済みカードでは saveDocument がそのカードのドキュメントを更新する", async () => {
-    mockLoadLibrary.mockResolvedValue(
+    await seedLibrary(
       libraryFixture([cardFixture({ id: "a" }), cardFixture({ id: "b" })]),
     );
     const { result } = await renderHook(() =>
@@ -138,8 +134,7 @@ describe("useMeishiDocument の永続化", () => {
       await result.current.saveDocument();
     });
 
-    expect(mockSaveLibrary).toHaveBeenCalledTimes(1);
-    const saved = mockSaveLibrary.mock.calls[0][0];
+    const saved = (await loadMeishiLibrary())!;
     expect(saved.cards.find((c) => c.id === "b")?.document).toEqual(updatedDoc);
     expect(saved.cards.find((c) => c.id === "a")?.document).toEqual(sampleDoc);
   });
@@ -157,7 +152,7 @@ describe("useMeishiDocument の永続化", () => {
       await result.current.saveDocument();
     });
 
-    const saved = mockSaveLibrary.mock.calls[0][0];
+    const saved = (await loadMeishiLibrary())!;
     expect(saved.cards).toHaveLength(1);
     const createdId = saved.cards[0].id;
     // ライブラリは空でも作られたカードが唯一なので既定になる
@@ -165,29 +160,27 @@ describe("useMeishiDocument の永続化", () => {
     expect(result.current.boundCardId).toBe(createdId);
 
     // 2 回目の保存は新規作成ではなく同じカードの更新になる
-    mockLoadLibrary.mockResolvedValue(saved);
     await act(() => {
       result.current.setDocFromTemplate(updatedDoc);
     });
     await act(async () => {
       await result.current.saveDocument();
     });
-    const saved2 = mockSaveLibrary.mock.calls[1][0];
+    const saved2 = (await loadMeishiLibrary())!;
     expect(saved2.cards).toHaveLength(1);
+    expect(saved2.cards[0].id).toBe(createdId);
     expect(saved2.cards[0].document).toEqual(updatedDoc);
   });
 
   it("reloadDocument でバインド中カードの最新ドキュメントを読み直す", async () => {
-    mockLoadLibrary.mockResolvedValue(
-      libraryFixture([cardFixture({ id: "a" })]),
-    );
+    await seedLibrary(libraryFixture([cardFixture({ id: "a" })]));
     const { result } = await renderHook(() =>
       useMeishiDocument({ cardId: "a" }),
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.doc).toEqual(sampleDoc);
 
-    mockLoadLibrary.mockResolvedValue(
+    await seedLibrary(
       libraryFixture([cardFixture({ id: "a", document: updatedDoc })]),
     );
     await act(async () => {

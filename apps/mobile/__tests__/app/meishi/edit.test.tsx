@@ -10,6 +10,7 @@ import MeishiEditScreen from "@/app/meishi/edit";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 const mockCanGoBack = jest.fn();
 const mockSaveDocument = jest.fn();
 const mockShareMeishiImage = jest.fn();
@@ -25,6 +26,7 @@ jest.mock("expo-router", () => ({
     replace: mockReplace,
     canGoBack: mockCanGoBack,
     push: jest.fn(),
+    dismissTo: mockDismissTo,
   }),
 }));
 
@@ -152,6 +154,7 @@ beforeEach(async () => {
   mockUseMeishiDocument.mockClear();
   mockBack.mockClear();
   mockReplace.mockClear();
+  mockDismissTo.mockClear();
   mockCanGoBack.mockReset();
   mockCanGoBack.mockReturnValue(true);
   mockSaveDocument.mockReset();
@@ -243,6 +246,18 @@ describe("MeishiEditScreen の戻るボタン", () => {
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
     expect(mockSaveDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeishiEditScreen の名刺一覧ボタン", () => {
+  it("直前の画面が一覧とは限らないため、履歴を戻らず一覧ルートへ遷移する", async () => {
+    mockSearchParams = { id: "card_a" };
+    await render(<MeishiEditScreen />);
+
+    await fireEvent.press(screen.getByLabelText("名刺一覧を開く"));
+
+    expect(mockDismissTo).toHaveBeenCalledWith("/meishi");
+    expect(mockBack).not.toHaveBeenCalled();
   });
 });
 
