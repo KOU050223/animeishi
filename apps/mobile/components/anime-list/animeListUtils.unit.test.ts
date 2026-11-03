@@ -7,6 +7,7 @@ import {
   currentSeason,
   formatSeasonLabel,
   maxSelectableSeason,
+  parseSeasonParam,
   seasonPickerYears,
   selectableSeasonKeys,
   shiftSeason,
@@ -20,6 +21,28 @@ describe("toSeasonParam", () => {
 
   it("通年は年だけの season 文字列になる（API 側で 4 クールに展開される）", () => {
     expect(toSeasonParam(2026, SEASON_FILTER_ALL)).toBe("2026");
+  });
+});
+
+describe("parseSeasonParam", () => {
+  it("<年>-<季節> の season 文字列を (year, key) に戻す", () => {
+    expect(parseSeasonParam("2026-spring")).toEqual({
+      year: 2026,
+      key: "spring",
+    });
+  });
+
+  it("toSeasonParam のラウンドトリップになる", () => {
+    const parsed = parseSeasonParam(toSeasonParam(1999, "autumn"));
+    expect(parsed).toEqual({ year: 1999, key: "autumn" });
+  });
+
+  it("通年指定や不正な形式・未指定は null に倒す", () => {
+    expect(parseSeasonParam("2026")).toBeNull();
+    expect(parseSeasonParam("2026-fall")).toBeNull();
+    expect(parseSeasonParam("spring-2026")).toBeNull();
+    expect(parseSeasonParam("")).toBeNull();
+    expect(parseSeasonParam(undefined)).toBeNull();
   });
 });
 

@@ -7,7 +7,7 @@ import {
   type ViewInstance,
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
@@ -18,6 +18,7 @@ import { SeasonFilter } from "@/components/anime-list/SeasonFilter";
 import {
   adjacentSeasonParams,
   currentSeason,
+  parseSeasonParam,
   toSeasonParam,
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
@@ -70,10 +71,12 @@ export default function TierListScreen() {
   const router = useRouter();
   const styles = useTierListStyles();
   const colors = useThemeColors();
-  const [year, setYear] = useState(() => currentSeason().year);
-  const [seasonKey, setSeasonKey] = useState<SeasonKey>(
-    () => currentSeason().key,
-  );
+  const params = useLocalSearchParams<{ season?: string }>();
+  // ?season= で保存済みのシーズンを直接開ける（ひろば・ハブの一覧からの
+  // 遷移。issue #352）。無指定・不正値は従来どおり今期で始める。
+  const initialSeason = parseSeasonParam(params.season) ?? currentSeason();
+  const [year, setYear] = useState(initialSeason.year);
+  const [seasonKey, setSeasonKey] = useState<SeasonKey>(initialSeason.key);
   const season = toSeasonParam(year, seasonKey);
 
   const {

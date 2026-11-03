@@ -61,6 +61,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="hiroba"
+        options={{
+          // Tier 表・作品リスト・アニメ分析を束ねるタブ（issue #352）。
+          title: "ひろば",
+          tabBarAccessibilityLabel: "ひろばタブ",
+          tabBarIcon: tabIcon("compass-outline"),
+        }}
+      />
+      <Tabs.Screen
         name="social"
         options={{
           // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。

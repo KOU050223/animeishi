@@ -6,6 +6,7 @@ import type { TierRow } from "./types";
 
 const tierListQueryKey = (season: string) =>
   ["tier-list", "saved", season] as const;
+const tierListsQueryKey = ["tier-list", "list"] as const;
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -13,6 +14,27 @@ async function getAuthHeaders(
   const token = await getToken();
   if (!token) throw new Error("認証トークンが取得できませんでした");
   return { Authorization: `Bearer ${token}` };
+}
+
+/** 自分のシーズン tier 表の一覧（ひろばの横スクロールとハブ画面で使う）。 */
+export function useTierLists() {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: tierListsQueryKey,
+    enabled: !!isSignedIn,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["tier-lists"].$get({}, { headers });
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "tier 表の一覧取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
 }
 
 /**
@@ -72,6 +94,9 @@ export function useSaveTierList() {
       // 画面側の hydrate が上書きしてしまう。PUT のレスポンスは GET と同じ形
       // なので、そのままキャッシュに反映する。
       queryClient.setQueryData(tierListQueryKey(variables.season), data);
+      // 新規作成・タイトル変更で一覧が古くなるため破棄する
+      // （自由作成版と同じ方針）。
+      void queryClient.invalidateQueries({ queryKey: tierListsQueryKey });
     },
   });
 }
@@ -104,6 +129,32 @@ export function useShareTierList() {
         (prev: { shareToken?: string | null } | undefined) =>
           prev ? { ...prev, shareToken: data.shareToken } : prev,
       );
+      // 一覧の「共有中」表示も shareToken を見ているため無効化する。
+      void queryClient.invalidateQueries({ queryKey: tierListsQueryKey });
+    },
+  });
+}
+
+/** シーズン tier 表を削除する（items もカスケードで消える）。 */
+export function useDeleteTierList() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (season: string) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["tier-lists"][":season"].$delete(
+        { param: { season } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "tier 表の削除に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, season) => {
+      queryClient.removeQueries({ queryKey: tierListQueryKey(season) });
+      void queryClient.invalidateQueries({ queryKey: tierListsQueryKey });
     },
   });
 }

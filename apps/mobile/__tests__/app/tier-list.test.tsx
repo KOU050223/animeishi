@@ -19,6 +19,8 @@ const initialSeason = toSeasonParam(currentSeason().year, currentSeason().key);
 let mockSavedBySeason: Record<string, unknown> = {};
 let mockSavedLoading = false;
 const mockSavedSeasons: string[] = [];
+// 画面に渡される遷移パラメータ（?season=）。
+let mockParams: { season?: string } = {};
 
 jest.mock("expo-router", () => ({
   // Stack.Screen の options を描画する。画面が headerLeft / title として
@@ -34,6 +36,7 @@ jest.mock("expo-router", () => ({
       );
     },
   },
+  useLocalSearchParams: () => mockParams,
   useRouter: () => ({
     back: jest.fn(),
     replace: jest.fn(),
@@ -140,6 +143,7 @@ beforeEach(async () => {
   mockSavedBySeason = {};
   mockSavedLoading = false;
   mockSavedSeasons.length = 0;
+  mockParams = {};
   mockOnSeasonChange = undefined;
   mockBoardProps = null;
 });
@@ -150,6 +154,28 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
 
     expect(screen.getByText(defaultTierListTitle(initialSeason))).toBeTruthy();
     expect(mockBoardProps?.assignment.size).toBe(0);
+  });
+
+  it("?season= パラメータがあればそのシーズンで開く（issue #352）", async () => {
+    mockParams = { season: "1999-summer" };
+    mockSavedBySeason["1999-summer"] = savedList("夏 1999", [
+      { annictWorkId: 7, tierKey: "2" },
+    ]);
+
+    await render(<TierListScreen />);
+
+    expect(mockSavedSeasons).toContain("1999-summer");
+    expect(screen.getByText("夏 1999")).toBeTruthy();
+    expect(mockBoardProps?.assignment.get(7)).toBe("2");
+  });
+
+  it("?season= が不正な形式なら今期で始める", async () => {
+    mockParams = { season: "not-a-season" };
+
+    await render(<TierListScreen />);
+
+    expect(mockSavedSeasons).toContain(initialSeason);
+    expect(screen.getByText(defaultTierListTitle(initialSeason))).toBeTruthy();
   });
 
   it("保存済みデータがあればタイトルと配置を反映する", async () => {

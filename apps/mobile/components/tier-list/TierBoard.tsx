@@ -451,6 +451,7 @@ export function TierBoard({
             description={
               "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です"
             }
+            actionLabel="追加"
           />
         ) : null}
       </ScrollView>

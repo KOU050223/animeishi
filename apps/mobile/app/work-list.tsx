@@ -622,6 +622,7 @@ export default function WorkListScreen() {
         existingWorkIds={existingWorkIds}
         heading="作品を追加"
         description="タイトルで検索してリストの末尾に追加できます。並び順はあとから変更できます"
+        actionLabel="追加"
       />
     </SafeAreaView>
   );
