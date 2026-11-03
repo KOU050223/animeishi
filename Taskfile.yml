@@ -119,3 +119,26 @@ tasks:
       REPORT_NOTE: '{{.NOTE | default ""}}'
     cmds:
       - bash scripts/reports.sh --local {{.CLI_ARGS}}
+
+  # ---- 特集記事（issue #437）----
+  # frontmatter 付き Markdown を D1 に upsert する。形式は
+  # docs/runbook/production-tasks.md と scripts/publish-article.mjs 冒頭の
+  # コメントを参照。同じ slug は上書きされる（created_at は初回投入時のまま）。
+  articles:publish:
+    desc: "本番 D1 に記事を投入（task articles:publish -- <記事.md のパス>。同じ slug は上書き）"
+    dir: apps/api
+    prompt: 本番 D1 に記事を投入します（同じ slug の記事は上書きされます）。続行しますか？
+    cmds:
+      - node scripts/publish-article.mjs --env production {{.CLI_ARGS}}
+
+  articles:publish:preview:
+    desc: "プレビュー D1 に記事を投入（task articles:publish:preview -- <記事.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-article.mjs --env preview {{.CLI_ARGS}}
+
+  articles:publish:local:
+    desc: "ローカル D1 に記事を投入（task articles:publish:local -- <記事.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-article.mjs --local {{.CLI_ARGS}}

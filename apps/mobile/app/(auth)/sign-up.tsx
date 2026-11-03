@@ -23,6 +23,7 @@ import {
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
 import { featureFlags } from "@/lib/featureFlags";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { onboardingPending } from "@/lib/onboarding";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
 
@@ -69,13 +70,18 @@ export default function SignUpScreen() {
       setPendingPasskeyPrompt(true);
       return null;
     }
-    router.replace("/");
+    // 新規登録の完了直後だけ初回オンボーディングへ（issue #412）。
+    // ガードの「サインイン済みは (auth) からホームへ」に先んじて
+    // pending を立ててから遷移する（パスキー促進と同じ仕組み）。
+    onboardingPending.current = true;
+    router.replace("/onboarding");
     return null;
   }
 
   function handlePasskeyPromptDone() {
     passkeyPromptPending.current = false;
-    router.replace("/");
+    onboardingPending.current = true;
+    router.replace("/onboarding");
   }
 
   async function handleSignUp() {
