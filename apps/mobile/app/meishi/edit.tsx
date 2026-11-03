@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
 import { AddElementSheet } from "@/components/meishi/AddElementSheet";
 import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
@@ -53,6 +53,9 @@ export default function MeishiEditScreen() {
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
   const { data: watchHistory } = useWatchHistory();
+  // 一覧（/meishi）からの導線: id 指定でそのカードを、create=1 で新規カードを編集する。
+  // パラメータ無し（旧来の /meishi/edit 直叩き・ホームのヘッダーアイコン）は既定カードを編集する。
+  const params = useLocalSearchParams<{ id?: string; create?: string }>();
   const {
     doc,
     loaded,
@@ -70,7 +73,13 @@ export default function MeishiEditScreen() {
     canUndo,
     canRedo,
     saveDocument,
-  } = useMeishiDocument();
+  } = useMeishiDocument(
+    params.create === "1"
+      ? { fresh: true }
+      : params.id
+        ? { cardId: params.id }
+        : undefined,
+  );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addSheet, setAddSheet] = useState(false);
@@ -264,6 +273,25 @@ export default function MeishiEditScreen() {
           <View style={styles.subBtnContent}>
             <Ionicons name="albums-outline" size={13} color={colors.text} />
             <Text style={styles.subBtnText}>テンプレ</Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            // 一覧から開いた（id / create 付き）ときは back で一覧に戻る。
+            // 直接開いた（ホームのヘッダーアイコン等）ときは一覧へ push する。
+            if ((params.id || params.create) && router.canGoBack()) {
+              router.back();
+            } else {
+              router.push("/meishi");
+            }
+          }}
+          style={styles.subBtn}
+          accessibilityRole="button"
+          accessibilityLabel="名刺一覧を開く"
+        >
+          <View style={styles.subBtnContent}>
+            <Ionicons name="layers-outline" size={13} color={colors.text} />
+            <Text style={styles.subBtnText}>名刺一覧</Text>
           </View>
         </Pressable>
       </View>

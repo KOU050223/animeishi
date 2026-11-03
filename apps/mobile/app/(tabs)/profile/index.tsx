@@ -23,7 +23,7 @@ import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
-import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
 import type { AddToWalletResult } from "@/lib/wallet";
@@ -57,7 +57,10 @@ export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useProfileAvatarUpload();
-  const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
+  // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
+  const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
+    useMeishiLibrary();
+  const meishiDoc = meishiDefaultCard?.document ?? null;
   const router = useRouter();
   const {
     addToWallet,
@@ -73,8 +76,8 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void reloadDocument();
-    }, [reloadDocument]),
+      void reloadMeishi();
+    }, [reloadMeishi]),
   );
 
   const [toast, setToast] = useState<Toast | null>(null);
@@ -198,18 +201,18 @@ export default function ProfileScreen() {
               </View>
               <TouchableOpacity
                 className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
-                onPress={() => router.push("/meishi/edit")}
+                onPress={() => router.push("/meishi")}
                 accessibilityRole="button"
-                accessibilityLabel="名刺エディタを開く"
+                accessibilityLabel="名刺一覧を開く"
               >
                 <View className="flex-row items-center gap-1.5">
                   <Ionicons
-                    name="color-palette-outline"
+                    name="albums-outline"
                     size={16}
                     color={colors.primaryText}
                   />
                   <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                    名刺をデザインする
+                    名刺一覧を開く
                   </Text>
                 </View>
               </TouchableOpacity>
