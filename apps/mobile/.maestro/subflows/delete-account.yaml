@@ -17,11 +17,15 @@ appId: com.animeishi.app
       text: ユーザー名入力
     timeout: 30000
 # 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
+# 削除ボタンはリスト末尾にあり中央へ寄せきれないため、Maestro はスクロールの
+# リトライを繰り返す。ホスト高負荷時は各リトライが遅く既定の 20 秒を超えて
+# タイムアウトするため、余裕を持たせる（issue #444）。
 - scrollUntilVisible:
     element:
       text: アカウントを削除
     direction: DOWN
     centerElement: true
+    timeout: 90000
 - tapOn:
     text: アカウントを削除
     retryTapIfNoChange: false

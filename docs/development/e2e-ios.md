@@ -279,3 +279,14 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 シミュレーターを再起動してから `E2E_SKIP_BUILD=1` で試す。
 Maestro 側の修正は #3538 の解決待ち（2026-10 時点で 2.12.0 にも
 driver 接続の修正は入っていない）。
+
+### scrollUntilVisible がタイムアウトする（issue #444）
+
+要素自体は見えているのに `scrollUntilVisible` がタイムアウトする失敗は、
+ドライバ切断ではなく要素待ちの時間切れ。`centerElement: true` のとき、
+対象がリスト末尾にあって中央へ寄せきれないと Maestro はスクロールの
+リトライを繰り返す。ホストの負荷が高いと各リトライが遅くなり、
+既定の timeout（20 秒）を超えて失敗する（低負荷時は同じリトライの末に
+成功する）。フロー側の対処として、`subflows/delete-account.yaml` では
+`timeout: 90000` に引き上げている。`scrollUntilVisible` を新しく使う
+ステップも、既定値をそのまま使わず余裕のある timeout を指定する。
