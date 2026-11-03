@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -26,6 +27,7 @@ import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { useMeishiImageShare } from "@/lib/meishi/imageShare";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useFavorites } from "@/lib/useFavorites";
 import {
@@ -43,6 +45,7 @@ import type {
 } from "@/lib/meishi/types";
 
 export default function MeishiEditScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -110,6 +113,12 @@ export default function MeishiEditScreen() {
     }),
     [favorites, profile, watchHistory],
   );
+
+  // 名刺の画像共有（issue #425）。保存トースト内のボタンから起動する。
+  const {
+    shareImage: shareMeishiImage,
+    snapshotElement: meishiSnapshotElement,
+  } = useMeishiImageShare({ document: doc, context });
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
   const inspectorHeight = Math.min(
@@ -185,13 +194,14 @@ export default function MeishiEditScreen() {
     trackEvent("meishi_save");
     await saveDocument();
     haptics.success();
-    const message = "名刺を保存しました";
+    const message = t("名刺を保存しました");
     setSaveFeedbackVisible(true);
     AccessibilityInfo.announceForAccessibility(message);
     if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current);
+    // トースト内の「画像で共有」ボタンを押せるよう、少し長めに出す（issue #425）
     saveFeedbackTimer.current = setTimeout(
       () => setSaveFeedbackVisible(false),
-      2500,
+      4000,
     );
   };
 
@@ -394,9 +404,22 @@ export default function MeishiEditScreen() {
             accessibilityLiveRegion="polite"
           >
             <Text style={styles.saveFeedbackText}>名刺を保存しました</Text>
+            <Pressable
+              onPress={() => void shareMeishiImage()}
+              style={styles.saveFeedbackShareBtn}
+              accessibilityLabel={t("画像で共有")}
+              testID="meishi-save-share-image"
+            >
+              <Text style={styles.saveFeedbackShareText}>
+                {t("画像で共有")}
+              </Text>
+            </Pressable>
           </View>
         ) : null}
       </View>
+
+      {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
+      {meishiSnapshotElement}
     </SafeAreaView>
   );
 }
@@ -567,6 +590,10 @@ function createStyles(colors: ThemeColors) {
       alignItems: "center",
     },
     saveFeedback: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
       marginTop: 52,
       marginHorizontal: 16,
       paddingHorizontal: 16,
@@ -578,6 +605,18 @@ function createStyles(colors: ThemeColors) {
     saveFeedbackText: {
       color: colors.successText,
       fontSize: 14,
+      fontWeight: "600",
+    },
+    saveFeedbackShareBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.successText,
+    },
+    saveFeedbackShareText: {
+      color: colors.successText,
+      fontSize: 13,
       fontWeight: "600",
     },
   });

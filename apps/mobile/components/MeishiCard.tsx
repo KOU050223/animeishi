@@ -7,11 +7,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { MeishiRenderer } from "./meishi/MeishiRenderer";
-import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
-import { buildBlankDocument, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
-import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
-import { useFavorites } from "@/lib/useFavorites";
-import { useWatchHistory } from "@/lib/useWatchHistory";
+import { resolveMeishiDocument } from "@/lib/meishi/templates";
+import type { MeishiDocument } from "@/lib/meishi/types";
+import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 
 export type MeishiCardProps = {
   username?: string | null;
@@ -90,38 +88,13 @@ export function MeishiCard({
     ],
   }));
 
-  const { data: favorites } = useFavorites();
-  const { data: watchHistory } = useWatchHistory();
-
-  const context = useMemo<MeishiRenderContext>(
-    () => ({
-      profile: {
-        username,
-        bio,
-        favoriteQuote,
-        profileImageUrl,
-        profileUrl,
-      },
-      ...buildMeishiAnimeContext({ favorites, watchHistory }),
-    }),
-    [
-      username,
-      bio,
-      favoriteQuote,
-      profileImageUrl,
-      profileUrl,
-      favorites,
-      watchHistory,
-    ],
+  const profile = useMemo(
+    () => ({ username, bio, favoriteQuote, profileImageUrl, profileUrl }),
+    [username, bio, favoriteQuote, profileImageUrl, profileUrl],
   );
+  const context = useMeishiRenderContext(profile);
 
-  const doc = useMemo(
-    () =>
-      document ??
-      MEISHI_TEMPLATES.find((t) => t.id === "classic")?.build() ??
-      buildBlankDocument(),
-    [document],
-  );
+  const doc = useMemo(() => resolveMeishiDocument(document), [document]);
 
   const card = (
     <Animated.View

@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -14,18 +15,20 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Button } from "@/components/ui/Button";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
-import { ActivityFeedSection } from "@/components/ActivityFeedSection";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { useAnnictConnection } from "@/lib/annict";
 import { featureFlags } from "@/lib/featureFlags";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 import { useProfile } from "@/lib/useProfile";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
+import { useMeishiImageShare } from "@/lib/meishi/imageShare";
+import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMarkScreenInteractive } from "@/lib/observe";
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: profile } = useProfile();
@@ -39,6 +42,25 @@ export default function HomeScreen() {
       void reloadDocument();
     }, [reloadDocument]),
   );
+
+  // 名刺の画像共有（issue #425）。カードと同じコンテキストで
+  // スナップショットを描画して撮る。
+  const meishiProfile = useMemo(
+    () => ({
+      username: profile?.username || "ユーザー",
+      bio: profile?.bio,
+      favoriteQuote: profile?.favoriteQuote,
+      profileImageUrl: profile?.profileImageUrl,
+      profileUrl: buildProfileUrl(profile?.id),
+    }),
+    [profile],
+  );
+  const meishiContext = useMeishiRenderContext(meishiProfile);
+  const {
+    shareImage: shareMeishiImage,
+    isSharing: isMeishiSharing,
+    snapshotElement: meishiSnapshotElement,
+  } = useMeishiImageShare({ document: meishiDoc, context: meishiContext });
 
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
@@ -82,7 +104,19 @@ export default function HomeScreen() {
             accessibilityLabel="QR で名刺を交換"
             testID="home-open-qr"
           />
+          <Button
+            label={t("名刺を画像で共有")}
+            icon="share-social-outline"
+            variant="secondary"
+            onPress={() => void shareMeishiImage()}
+            loading={isMeishiSharing}
+            accessibilityLabel={t("名刺を画像で共有")}
+            testID="home-share-meishi-image"
+          />
         </View>
+
+        {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
+        {meishiSnapshotElement}
 
         {/* 連携済みユーザーには出さない（#165）。連携状態の確認・解除は
             プロフィール画面に集約する。ロード中は連携済みか未確定なため、
@@ -92,8 +126,6 @@ export default function HomeScreen() {
             <AnnictConnectionCard surface="home_card" />
           </View>
         )}
-
-        <ActivityFeedSection />
 
         {featureFlags.debugPanel && (
           <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">

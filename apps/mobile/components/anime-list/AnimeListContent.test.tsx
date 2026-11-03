@@ -49,7 +49,10 @@ jest.mock("@/lib/useWorkDetail", () => ({
   ],
 }));
 
+let mockWatchHistory: { annictWorkId: number; state: string }[] | undefined;
+
 jest.mock("@/lib/useWatchHistory", () => ({
+  useWatchHistory: () => ({ data: mockWatchHistory }),
   useUpsertWatchHistory: () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
@@ -72,6 +75,22 @@ jest.mock("@tanstack/react-query", () => ({
 
 jest.mock("@/lib/events", () => ({
   trackEvent: jest.fn(),
+}));
+
+// 詳細シートの Annict 連携系はネイティブ依存を持つためスタブにする。
+// 既定は連携済み・エラーはトークン起因でない扱い。
+const mockPromptAnnictTokenError = jest.fn();
+jest.mock("@/lib/annict", () => ({
+  useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
+  useAnnictConnect: () => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    isConnecting: false,
+  }),
+  useAnnictFunnel: () => jest.fn(),
+  useAnnictTokenErrorPrompt: () => mockPromptAnnictTokenError,
+  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+    .annictErrorKey,
 }));
 
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、
@@ -128,6 +147,35 @@ describe("AnimeListContent", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockMutateAsync.mockResolvedValue({});
+    mockWatchHistory = undefined;
+    mockPromptAnnictTokenError.mockReturnValue(false);
+  });
+
+  it("視聴済みの作品のカードには「済」スタンプを押し、読み上げにも状態を含める（issue #421）", async () => {
+    mockWatchHistory = [{ annictWorkId: 42, state: "WATCHED" }];
+    await render(contentElement());
+
+    expect(screen.getByTestId("anime-item-watched-stamp-42")).toBeTruthy();
+    expect(
+      screen.getByLabelText("テストアニメ（視聴済）の詳細を開く"),
+    ).toBeTruthy();
+  });
+
+  it.each(["WATCHING", "WANNA_WATCH", "ON_HOLD", "STOP_WATCHING"])(
+    "視聴済み以外（%s）のカードにはスタンプを出さない",
+    async (state) => {
+      mockWatchHistory = [{ annictWorkId: 42, state }];
+      await render(contentElement());
+
+      expect(screen.queryByTestId("anime-item-watched-stamp-42")).toBeNull();
+    },
+  );
+
+  it("視聴履歴が無い（Annict 未連携など）ときはスタンプを出さない", async () => {
+    await render(contentElement());
+
+    expect(screen.queryByTestId("anime-item-watched-stamp-42")).toBeNull();
+    expect(screen.getByLabelText("テストアニメの詳細を開く")).toBeTruthy();
   });
 
   it("初期表示は人気順（watchersCount 降順）で並べる（issue #376）", async () => {

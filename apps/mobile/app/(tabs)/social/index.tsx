@@ -5,16 +5,17 @@ import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
+import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 
-const SECTIONS = ["qr", "friends"] as const;
+const SECTIONS = ["qr", "activity", "friends"] as const;
 type Section = (typeof SECTIONS)[number];
 
 function isSection(value: unknown): value is Section {
   return SECTIONS.includes(value as Section);
 }
 
-// QR・フレンドタブ。QR（名刺交換）とフレンド一覧を上部のセグメント
-// 切り替えで行き来する（issue #170）。
+// QR・フレンドタブ。QR（名刺交換）・フレンドの活動・フレンド一覧を上部の
+// セグメント切り替えで行き来する（issue #170、#407）。
 // 旧タブのパス（/qr, /friends）は app/ 直下のリダイレクトから
 // /social?section=... でここへ着地する。
 export default function SocialScreen() {
@@ -26,7 +27,7 @@ export default function SocialScreen() {
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
   // 参照元にする。ローカル状態で持つと、同じ section への再遷移
   // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
-  const section = isSection(params.section) ? params.section : "qr";
+  const section = isSection(params.section) ? params.section : "activity";
   const setSection = (next: Section) => router.setParams({ section: next });
 
   return (
@@ -45,6 +46,12 @@ export default function SocialScreen() {
             testID: "social-section-qr",
           },
           {
+            label: "アクティビティ",
+            active: section === "activity",
+            onPress: () => setSection("activity"),
+            testID: "social-section-activity",
+          },
+          {
             label: "フレンド",
             active: section === "friends",
             onPress: () => setSection("friends"),
@@ -53,7 +60,13 @@ export default function SocialScreen() {
         ]}
       />
       <View className="flex-1">
-        {section === "qr" ? <QrSection /> : <FriendsSection />}
+        {section === "qr" ? (
+          <QrSection />
+        ) : section === "friends" ? (
+          <FriendsSection />
+        ) : (
+          <ActivityFeedSection />
+        )}
       </View>
     </SafeAreaView>
   );

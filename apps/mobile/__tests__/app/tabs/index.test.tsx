@@ -37,14 +37,6 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
   },
 }));
 
-// フィード本体の振る舞いは ActivityFeedSection.test.tsx 側で検証する。
-jest.mock("@/components/ActivityFeedSection", () => ({
-  ActivityFeedSection: () => {
-    const { Text } = require("react-native");
-    return <Text testID="activity-feed-section">活動フィード</Text>;
-  },
-}));
-
 // ストーリーリング本体の振る舞いは FriendStoryRail.test.tsx 側で検証する。
 jest.mock("@/components/FriendStoryRail", () => ({
   FriendStoryRail: () => {
@@ -91,6 +83,18 @@ jest.mock("@/lib/profileUrl", () => ({
   buildProfileUrl: () => "https://animeishi.uomi.dev/user/user_1",
 }));
 
+// 画像共有の描画・撮像は本テストの対象外（react-query の実体を要求しないよう潰す）。
+jest.mock("@/lib/meishi/useMeishiRenderContext", () => ({
+  useMeishiRenderContext: () => ({ profile: {} }),
+}));
+jest.mock("@/lib/meishi/imageShare", () => ({
+  useMeishiImageShare: () => ({
+    shareImage: jest.fn(),
+    isSharing: false,
+    snapshotElement: null,
+  }),
+}));
+
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
@@ -103,9 +107,9 @@ describe("HomeScreen", () => {
     await render(<HomeScreen />);
     expect(screen.getByTestId("home-meishi-preview")).toBeTruthy();
     expect(screen.getByTestId("home-open-meishi-edit")).toBeTruthy();
+    expect(screen.getByTestId("home-share-meishi-image")).toBeTruthy();
     expect(screen.getByTestId("home-open-qr")).toBeTruthy();
     expect(screen.getByText("Annict連携")).toBeTruthy();
-    expect(screen.getByTestId("activity-feed-section")).toBeTruthy();
     expect(screen.getByTestId("friend-story-rail")).toBeTruthy();
   });
 
@@ -135,6 +139,12 @@ describe("HomeScreen", () => {
     loggedInUser();
     await render(<HomeScreen />);
     expect(screen.queryByText("Annict連携")).toBeNull();
+  });
+
+  it("活動フィードはホームに出さない（social タブのアクティビティに集約）", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId("activity-feed-section")).toBeNull();
   });
 
   it("サインアウトはホームに出さない（プロフィールの設定群に集約）", async () => {

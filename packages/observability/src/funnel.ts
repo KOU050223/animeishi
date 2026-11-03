@@ -32,6 +32,8 @@ export const ANNICT_FUNNEL_SURFACES = [
   "meishi_image_search",
   "home_card",
   "profile_card",
+  "work_detail_sheet",
+  "analysis",
 ] as const;
 export type AnnictFunnelSurface = (typeof ANNICT_FUNNEL_SURFACES)[number];
 

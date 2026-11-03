@@ -16,3 +16,18 @@ export class ApiRequestError extends Error {
     this.code = code;
   }
 }
+
+/**
+ * エラーレスポンスの JSON 本文から `code` を取り出す。
+ * 本文が JSON でない（WAF の HTML 応答等）・`code` を含まない場合は undefined。
+ * hono client の ClientResponse は DOM の Response 型とは別物なので、
+ * 必要な `json()` だけを持つ構造型で受ける。
+ */
+export async function readApiErrorCode(res: {
+  json(): Promise<unknown>;
+}): Promise<string | undefined> {
+  const body = (await res.json().catch(() => null)) as {
+    code?: unknown;
+  } | null;
+  return typeof body?.code === "string" ? body.code : undefined;
+}

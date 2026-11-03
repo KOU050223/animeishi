@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import AnalysisScreen from "@/app/analysis";
+import { ApiRequestError } from "@/lib/apiError";
 
 // おすすめカードの詳細導線（issue #347）を検証する画面テスト。
 // 分析・おすすめの生成ロジックは各フックのテストに任せ、ここでは
@@ -11,6 +12,12 @@ const mockUseRecommendations = jest.fn();
 const mockMutateHistory = jest.fn();
 const mockToggleFavorite = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockAlert = jest.fn();
+const mockUseAnnictConnection = jest.fn();
+const mockUseAnnictConnect = jest.fn();
+const mockFunnelTrack = jest.fn();
+const mockUseAnnictTokenErrorPrompt = jest.fn();
+const mockPromptAnnictTokenError = jest.fn();
 
 jest.mock("expo-router", () => ({
   // Stack.Screen の options を描画する。画面が headerLeft / title として
@@ -137,12 +144,42 @@ jest.mock("@/lib/events", () => ({
 }));
 
 jest.mock("@/lib/dialog", () => ({
-  alert: jest.fn(),
+  alert: (...args: unknown[]) => mockAlert(...args),
+  confirm: jest.fn(),
 }));
+
+// 分析画面と詳細シートが使う Annict 連携系フックを差し替える。
+// 既定は連携済みで、失敗は「Annict トークン起因でない」とする。
+jest.mock("@/lib/annict", () => ({
+  useAnnictConnection: () => mockUseAnnictConnection(),
+  useAnnictConnect: () => mockUseAnnictConnect(),
+  useAnnictFunnel: () => mockFunnelTrack,
+  useAnnictTokenErrorPrompt: (...args: unknown[]) =>
+    mockUseAnnictTokenErrorPrompt(...args),
+  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+    .annictErrorKey,
+}));
+
+// 作品詳細シートは work が null でもマウントされてフックが走るため、
+// 両方の describe で連携済みの既定値を用意する。
+const stubAnnictDefaults = () => {
+  mockUseAnnictConnection.mockReturnValue({
+    isConnected: true,
+    isLoading: false,
+  });
+  mockUseAnnictConnect.mockReturnValue({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    isConnecting: false,
+  });
+  mockUseAnnictTokenErrorPrompt.mockReturnValue(mockPromptAnnictTokenError);
+  mockPromptAnnictTokenError.mockReturnValue(false);
+};
 
 describe("AnalysisScreen のレポート項目", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    stubAnnictDefaults();
     mockUseRecommendations.mockReturnValue({
       data: { recommendations: null },
       isLoading: false,
@@ -178,6 +215,7 @@ describe("AnalysisScreen のおすすめカード", () => {
       isError: false,
       refetch: jest.fn(),
     });
+    stubAnnictDefaults();
   });
 
   it("おすすめ作品のタイトル・理由・シーズンを表示する", async () => {
@@ -224,6 +262,42 @@ describe("AnalysisScreen のおすすめカード", () => {
         onSuccess: expect.any(Function),
         onError: expect.any(Function),
       }),
+    );
+  });
+
+  it("「見たい」登録が annict_token_required で失敗したとき再連携プロンプトに委譲し汎用アラートを出さない", async () => {
+    const tokenError = new ApiRequestError(
+      401,
+      "視聴履歴の更新に失敗しました",
+      "annict_token_required",
+    );
+    mockPromptAnnictTokenError.mockReturnValue(true);
+
+    await render(<AnalysisScreen />);
+    await fireEvent.press(screen.getByTestId("recommendation-wanna-watch-42"));
+
+    const [, options] = mockMutateHistory.mock.calls[0];
+    options.onError(tokenError);
+
+    expect(mockUseAnnictTokenErrorPrompt).toHaveBeenCalledWith("analysis");
+    expect(mockPromptAnnictTokenError).toHaveBeenCalledWith(tokenError);
+    expect(mockAlert).not.toHaveBeenCalled();
+  });
+
+  it("「見たい」登録がトークン起因でない失敗は従来どおり汎用アラートを出す", async () => {
+    const otherError = new ApiRequestError(500, "視聴履歴の更新に失敗しました");
+
+    await render(<AnalysisScreen />);
+    await fireEvent.press(screen.getByTestId("recommendation-wanna-watch-42"));
+
+    const [, options] = mockMutateHistory.mock.calls[0];
+    options.onError(otherError);
+
+    expect(mockPromptAnnictTokenError).toHaveBeenCalledWith(otherError);
+    expect(mockAlert).toHaveBeenCalledWith(
+      "「見たい」の登録に失敗しました",
+      "視聴履歴の更新に失敗しました",
+      { okLabel: "OK" },
     );
   });
 });
