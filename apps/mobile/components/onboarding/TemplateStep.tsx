@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui";
@@ -11,6 +11,7 @@ import { OnboardingScaffold } from "./OnboardingScaffold";
  * オンボーディング 2 問目（issue #412）: 名刺のテンプレートを選ぶ。
  * 名刺エディタと同じ MEISHI_TEMPLATES をそのまま使い、
  * エディタの TemplatePicker と同じプレビュー（サンプル値）で並べる。
+ * 確定（名刺ライブラリへのカード保存）は次へボタン側で行う。
  */
 export function TemplateStep({
   stepIndex,
@@ -18,24 +19,40 @@ export function TemplateStep({
   selectedTemplateId,
   onSelect,
   onNext,
+  saving,
+  error,
   onSkip,
 }: {
   stepIndex: number;
   totalSteps: number;
   selectedTemplateId: string | null;
   onSelect: (templateId: string) => void;
+  /** 「次へ」。テンプレート選択済みのときだけ有効。 */
   onNext: () => void;
+  saving: boolean;
+  error: string | null;
   onSkip: () => void;
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
   const footer = (
-    <Button
-      label={t("次へ")}
-      onPress={onNext}
-      disabled={!selectedTemplateId}
-      testID="onboarding-template-next"
-    />
+    <View>
+      {error ? (
+        <Text
+          className="mb-2 text-center text-sm text-red-500 dark:text-red-400"
+          testID="onboarding-template-error"
+        >
+          {error}
+        </Text>
+      ) : null}
+      <Button
+        label={t("次へ")}
+        onPress={onNext}
+        loading={saving}
+        disabled={!selectedTemplateId}
+        testID="onboarding-template-next"
+      />
+    </View>
   );
 
   return (
@@ -47,12 +64,14 @@ export function TemplateStep({
       onSkip={onSkip}
       footer={footer}
     >
-      <ScrollView contentContainerStyle={{ paddingBottom: 16, gap: 12 }}>
-        {MEISHI_TEMPLATES.map((tpl) => {
+      <FlatList
+        data={MEISHI_TEMPLATES}
+        keyExtractor={(tpl) => tpl.id}
+        contentContainerStyle={{ paddingBottom: 16, gap: 12 }}
+        renderItem={({ item: tpl }) => {
           const isSelected = tpl.id === selectedTemplateId;
           return (
             <Pressable
-              key={tpl.id}
               onPress={() => onSelect(tpl.id)}
               style={{
                 borderWidth: 2,
@@ -84,8 +103,8 @@ export function TemplateStep({
               />
             </Pressable>
           );
-        })}
-      </ScrollView>
+        }}
+      />
     </OnboardingScaffold>
   );
 }

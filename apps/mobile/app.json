@@ -104,7 +104,6 @@
         }
       ],
       "expo-localization",
-      "expo-notifications",
       [
         "expo-sharing",
         {

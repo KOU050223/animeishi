@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { isMeishiComplete, missingMeishiCompletionSteps } from "./completion";
 import type { MeishiCompletionStep } from "./completion";
-import { loadMeishiDocument } from "./storage";
+import { defaultCard } from "./library";
+import { loadMeishiLibrary } from "./storage";
 import type { MeishiDocument } from "./types";
 import { useFavorites } from "@/lib/useFavorites";
 import { useProfile } from "@/lib/useProfile";
@@ -17,8 +18,10 @@ export type MeishiCompletion = {
 };
 
 /**
- * 名刺の完成状態をプロフィール・お気に入り・保存済みドキュメントから
+ * 名刺の完成状態をプロフィール・お気に入り・既定カードのドキュメントから
  * 組み立てる。完成の定義は lib/meishi/completion.ts（issue #419 と共通）。
+ * 「テンプレート選択済み」は既定カード（issue #427 の名刺ライブラリ）に
+ * ドキュメントがあることで判定する。
  * オンボーディングの「名刺完成」画面と、ホームの完成度カード（#419）で共用する。
  */
 export function useMeishiCompletion(): MeishiCompletion {
@@ -29,9 +32,9 @@ export function useMeishiCompletion(): MeishiCompletion {
 
   useEffect(() => {
     let cancelled = false;
-    void loadMeishiDocument().then((doc) => {
+    void loadMeishiLibrary().then((library) => {
       if (cancelled) return;
-      setDocument(doc);
+      setDocument(library ? (defaultCard(library)?.document ?? null) : null);
       setDocLoaded(true);
     });
     return () => {

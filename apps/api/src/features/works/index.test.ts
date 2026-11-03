@@ -1164,6 +1164,47 @@ describe("GET /works/candidates（作品候補一覧。issue #412）", () => {
     expect(body.works.map((w) => w.annictWorkId)).toEqual([1]);
   });
 
+  it("ひらがな入力もカタカナの titleKana に一致する", async () => {
+    await seedCandidates();
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/candidates?title=${encodeURIComponent("にんきさくひん")}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number }[];
+    };
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([1]);
+  });
+
+  it("titleEn は大文字小文字を区別しない", async () => {
+    const db = createDb(env.DB);
+    await db.insert(annictWorks).values({
+      annictWorkId: 4,
+      title: "英語タイトル作品",
+      titleEn: "English Title Work",
+      watchersCount: 100,
+      updatedAt: new Date(),
+    });
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/candidates?title=${encodeURIComponent("english title")}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number }[];
+    };
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([4]);
+  });
+
   it("limit で件数を絞れる・上限を超える指定は 400", async () => {
     await seedCandidates();
 

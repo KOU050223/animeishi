@@ -41,6 +41,15 @@ export type AnnictWorkMeta = {
   watchersCount: number | null;
 };
 
+// ひらがな（U+3041〜U+3096）をカタカナへ +0x60 で変換する。
+// titleKana はカタカナ登録なので、ひらがな入力でも読みで絞り込める
+// ようにする（mobile の lib/textNormalize.ts hiraganaToKana と同じ変換）。
+function hiraganaToKatakana(value: string): string {
+  return value.replace(/[ぁ-ゖ]/g, (m) =>
+    String.fromCharCode(m.charCodeAt(0) + 0x60),
+  );
+}
+
 // annict_works upsert（単発・バルク・ライブラリ同期）で共有する
 // onConflictDoUpdate.set。nodeId / malAnimeId は取得できないパスがあるため、
 // 新しい値が null のときは既存値を温存する（過去に解決済みの値を消さない）。
@@ -220,6 +229,8 @@ export function worksRepository(db: DrizzleDb) {
      * title 指定時は title / titleKana / titleEn の部分一致で絞り込む
      * （部分一致は instr。D1 の LIKE パターン上限・ワイルドカード解釈を
      * 避けるため。features/import/localSearch.ts と同じ理由）。
+     * ひらがな入力はカタカナに正規化して titleKana と照合し、
+     * titleEn は lower() 同士で大文字小文字を区別しない。
      * 並びは watchersCount 降順（SQLite では DESC で NULL が末尾）。
      */
     async searchAnnictWorkCandidates(params: {
@@ -230,8 +241,8 @@ export function worksRepository(db: DrizzleDb) {
       const where = query
         ? or(
             sql`instr(${annictWorks.title}, ${query}) > 0`,
-            sql`instr(${annictWorks.titleKana}, ${query}) > 0`,
-            sql`instr(${annictWorks.titleEn}, ${query}) > 0`,
+            sql`instr(${annictWorks.titleKana}, ${hiraganaToKatakana(query)}) > 0`,
+            sql`instr(lower(${annictWorks.titleEn}), ${query.toLowerCase()}) > 0`,
           )
         : undefined;
       return db.query.annictWorks.findMany({

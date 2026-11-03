@@ -45,15 +45,20 @@ export function GoogleAuthButton({ onError }: Props) {
       const result = await startGoogleAuth();
 
       if (result.status === "session-created") {
-        await setActive({ session: result.sessionId });
         // Google 経由の新規登録だけ初回オンボーディングへ（issue #412）。
-        // メール/パスワード登録と同じく、ガードの追い出しより先に pending を立てる。
-        if (result.isNewUser) {
-          onboardingPending.current = true;
-          router.replace("/onboarding");
-        } else {
-          router.replace("/");
+        // setActive で isSignedIn が立つと AuthGuard の
+        // 「サインイン済みは (auth) からホームへ」が発火しうるため、
+        // メール/パスワード登録と同じく setActive より先に pending を立てる。
+        // setActive が失敗したときはフラグを戻す（ガード抑止が残ると
+        // サインイン後も (auth) から追い出されなくなる）。
+        if (result.isNewUser) onboardingPending.current = true;
+        try {
+          await setActive({ session: result.sessionId });
+        } catch (err) {
+          onboardingPending.current = false;
+          throw err;
         }
+        router.replace(result.isNewUser ? "/onboarding" : "/");
       } else if (result.status === "incomplete") {
         onError(
           t(

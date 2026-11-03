@@ -10,7 +10,8 @@ import {
   type OnboardingStatus,
 } from "@/lib/onboarding";
 import { getTemplate } from "@/lib/meishi/templates";
-import { saveMeishiDocument } from "@/lib/meishi/storage";
+import { addCard, findCard } from "@/lib/meishi/library";
+import { loadMeishiLibrary, updateMeishiLibrary } from "@/lib/meishi/storage";
 import type { MeishiDocument } from "@/lib/meishi/types";
 import { useAddFavorite } from "@/lib/useFavorites";
 import type { WorkCandidate } from "@/lib/useWorkCandidates";
@@ -22,11 +23,11 @@ import {
 import { TemplateStep } from "@/components/onboarding/TemplateStep";
 import { CompletionStep } from "@/components/onboarding/CompletionStep";
 import { AnnictStep } from "@/components/onboarding/AnnictStep";
-import { NotificationStep } from "@/components/onboarding/NotificationStep";
 
-// 「好きな作品 → テンプレート → 名刺完成 → Annict → 通知」の順。
+// 「好きな作品 → テンプレート → 名刺完成 → Annict」の順。
 // 1 画面 1 問・進捗バー付き（issue #412 決定）。
-const TOTAL_STEPS = 5;
+// 通知許可の質問は通知基盤（issue #410）の導入と一緒に追加する。
+const TOTAL_STEPS = 4;
 
 /**
  * 初回オンボーディング（issue #412）。
@@ -109,20 +110,39 @@ export default function OnboardingScreen() {
           ? t("推し作品の登録に失敗しました。もう一度お試しください。")
           : t("予期しないエラーが発生しました"),
       );
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   }, [saving, selectedWorks, addFavorite, t]);
 
-  // 2 問目 → 3 問目: テンプレート + 推しコラージュのドキュメントを保存する。
-  const handleTemplateNext = useCallback(() => {
+  // 2 問目 → 3 問目: テンプレート + 推しコラージュのドキュメントを
+  // 名刺ライブラリ（issue #427）へカードとして保存する。
+  // 最初の 1 枚だけ自動で既定カードになる（addCard の規則。既にカードが
+  // あれば既定は変えず追加だけ）。
+  const handleTemplateNext = useCallback(async () => {
     const template = templateId ? getTemplate(templateId) : undefined;
-    if (!template) return;
+    if (!template || saving) return;
     const doc = buildOnboardingDocument(template);
-    void saveMeishiDocument(doc);
-    setDocument(doc);
-    setStepIndex(2);
-  }, [templateId]);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { result: card } = await updateMeishiLibrary((library) => {
+        const added = addCard(library, doc);
+        return { library: added.library, result: added.card };
+      });
+      // ストレージへの書き込み失敗は storage 層で握りつぶされるため、
+      // 読み直して保存が確定したか確認する。失敗時はエラーを出して
+      // この画面に留まり、再試行を許す（完成記録も書かない）。
+      const persisted = await loadMeishiLibrary();
+      if (!persisted || !findCard(persisted, card.id)) {
+        throw new Error("meishi card was not persisted");
+      }
+      setDocument(doc);
+      setStepIndex(2);
+    } catch {
+      setSaveError(t("名刺の保存に失敗しました。もう一度お試しください。"));
+    }
+    setSaving(false);
+  }, [templateId, saving, t]);
 
   if (!allowed) {
     return <Redirect href="/" />;
@@ -151,7 +171,11 @@ export default function OnboardingScreen() {
           totalSteps={TOTAL_STEPS}
           selectedTemplateId={templateId}
           onSelect={setTemplateId}
-          onNext={handleTemplateNext}
+          onNext={() => {
+            void handleTemplateNext();
+          }}
+          saving={saving}
+          error={saveError}
           onSkip={handleSkip}
         />
       );
@@ -165,21 +189,12 @@ export default function OnboardingScreen() {
           onSkip={handleSkip}
         />
       ) : null;
-    case 3:
+    default:
       return (
         <AnnictStep
           stepIndex={3}
           totalSteps={TOTAL_STEPS}
-          onNext={() => setStepIndex(4)}
-          onSkip={handleSkip}
-        />
-      );
-    default:
-      return (
-        <NotificationStep
-          stepIndex={4}
-          totalSteps={TOTAL_STEPS}
-          onDone={() => {
+          onNext={() => {
             void finish("completed");
           }}
           onSkip={handleSkip}

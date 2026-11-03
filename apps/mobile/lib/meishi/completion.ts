@@ -25,7 +25,10 @@ export type MeishiCompletionInput = {
   username?: string | null;
   /** お気に入り（推し）の登録数。 */
   favoritesCount: number;
-  /** 保存済みの名刺ドキュメント。未作成（テンプレート未選択）は null。 */
+  /**
+   * 既定カード（issue #427 の名刺ライブラリ）のドキュメント。
+   * 未作成（テンプレート未選択）は null。
+   */
   document: MeishiDocument | null | undefined;
 };
 
