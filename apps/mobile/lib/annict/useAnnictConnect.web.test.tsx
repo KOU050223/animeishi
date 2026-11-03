@@ -227,4 +227,19 @@ describe("useAnnictConnect (web)", () => {
     const [, options] = mockDisconnectPost.mock.calls[0];
     expect(options.headers.Authorization).toBe("Bearer clerk_jwt");
   });
+
+  it("disconnect: 評価クエリのキャッシュを破棄する", async () => {
+    const removeSpy = jest.spyOn(QueryClient.prototype, "removeQueries");
+    const { result } = await renderHook(() => useAnnictConnect(), {
+      wrapper: makeWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.disconnect();
+    });
+
+    // annictRating（Annict レビュー由来の初期値候補）は連携前提のため
+    // （issue #416 レビュー）。
+    expect(removeSpy).toHaveBeenCalledWith({ queryKey: ["work-ratings"] });
+  });
 });

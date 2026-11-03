@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -31,6 +31,17 @@ import {
   useWorkEpisodes,
 } from "@/lib/useWorkEpisodes";
 import type { EpisodeRecordError, WorkEpisode } from "@/lib/useWorkEpisodes";
+import {
+  useDeleteWorkRating,
+  useUpsertWorkRating,
+  useWorkRating,
+  WORK_RATING_LABELS,
+} from "@/lib/useWorkRating";
+import type { WorkRating, WorkRatingError } from "@/lib/useWorkRating";
+import {
+  loadWorkRatingHintSeen,
+  markWorkRatingHintSeen,
+} from "@/lib/workRatingHint";
 import type { WorkDetail } from "@/lib/useWorkDetail";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { alert } from "@/lib/dialog";
@@ -44,6 +55,9 @@ import { formatWorkSeason } from "./animeListUtils";
 import { useAnimeListPalette } from "./animeListStyles";
 
 const WATCH_STATUSES = Object.keys(WATCH_STATUS_LABELS) as WatchState[];
+
+// 3 段階評価の選択肢（issue #416）。表示順はイマイチ→良い→最高。
+const WORK_RATINGS: WorkRating[] = ["bad", "good", "great"];
 
 // Annict Work.media（TV / OVA / MOVIE / WEB / OTHER）の表示ラベル。
 const MEDIA_LABELS: Record<string, string> = {
@@ -225,6 +239,18 @@ export function AnimeWorkDetailSheet({
                 onSelect={selectStatus}
               />
             )}
+            {
+              // 評価は作品への意見なので、視聴状態を戻しても D1 の評価は残す
+              // （issue #416）。そのため出し分けは「視聴済み、または既に評価が
+              // ある」作品: 視聴中に戻した作品でも評価を外せるようにする。
+              // API 側も視聴状態では拒否しない。
+              // 視聴済みかの判定が Annict 由来の state に依存するため、未連携
+              // では評価済み作品しかセクションは出ない。
+              <RatingSection
+                work={work}
+                isWatched={currentState === "WATCHED"}
+              />
+            }
             {isConnected ? (
               // 話数記録は Annict 連携必須（record の読み書きを API 経由で
               // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
@@ -342,6 +368,158 @@ function StatusSection({
         </View>
       </ScrollView>
     </StatusSectionFrame>
+  );
+}
+
+/**
+ * 視聴済み作品へのワンタップ 3 段階評価（issue #416）。
+ * 表示する選択値は「D1 の評価 → Annict レビュー初期値（annictRating）」の順。
+ * Annict 初期値は未保存の候補なので、選択中の再タップでは表示だけ下ろし、
+ * D1 に評価がある場合だけ DELETE を送る。
+ *
+ * 評価は作品への意見なので視聴状態を戻しても残る（API も視聴状態では
+ * 拒否しない）。そのためセクション自体は「視聴済み or 保存済み評価あり」
+ * で出し、視聴中へ戻した作品でも評価を外せるようにする。
+ */
+function RatingSection({
+  work,
+  isWatched,
+}: {
+  work: WorkDetailSheetTarget;
+  isWatched: boolean;
+}) {
+  const palette = useAnimeListPalette();
+  const ratingQuery = useWorkRating(work.annictWorkId);
+  const upsert = useUpsertWorkRating(work.annictWorkId);
+  const remove = useDeleteWorkRating(work.annictWorkId);
+  const isMutating = upsert.isPending || remove.isPending;
+
+  // 解除（未評価）は「Annict 初期値も選ばない」という端末側の状態でしか
+  // 表せない（再取得すると annictRating が再び候補として返るため）。
+  // ステータスと同じく、開いている作品が変わったら下ろす。
+  const [optimistic, setOptimistic] = useState<{
+    workId: number;
+    rating: WorkRating | null;
+  } | null>(null);
+  const storedRating = ratingQuery.data?.rating ?? null;
+  const visible = isWatched || storedRating != null;
+
+  // 「評価するとおすすめの精度が上がります」は初回だけ出す。
+  // 表示済みフラグは端末ローカルでよい（issue #416 の決定）。
+  // セクションが非表示の間は読み込まない（見えていないのに
+  // 既読扱いにしないため）。
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    if (!visible) return;
+    let mounted = true;
+    void loadWorkRatingHintSeen().then((seen) => {
+      if (seen) return;
+      if (mounted) setShowHint(true);
+      void markWorkRatingHintSeen();
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [visible]);
+  const displayedRating =
+    optimistic?.workId === work.annictWorkId
+      ? optimistic.rating
+      : (storedRating ?? ratingQuery.data?.annictRating ?? null);
+
+  function selectRating(rating: WorkRating) {
+    // 選択中の再タップは解除（ステータスチップと同じ操作感）。
+    const next: WorkRating | null = rating === displayedRating ? null : rating;
+    trackEvent("work_rating_change", {
+      [TRACK_EVENT_KEYS.from]: displayedRating ?? "none",
+      [TRACK_EVENT_KEYS.to]: next ?? "none",
+    });
+    setOptimistic({ workId: work.annictWorkId, rating: next });
+    // Annict 初期値の表示を下ろすだけなら、サーバーに消すものが無い。
+    if (next === null && storedRating == null) return;
+    const request =
+      next === null
+        ? remove.mutateAsync()
+        : upsert.mutateAsync({ rating: next });
+    void request.catch((e: unknown) => {
+      // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
+      setOptimistic(null);
+      const rolledBack = (e as WorkRatingError).rolledBack === true;
+      alert(
+        "更新できませんでした",
+        rolledBack
+          ? "評価を更新できませんでした。元の状態に戻しました。"
+          : "一部の更新に失敗しました。",
+        { okLabel: "OK" },
+      );
+    });
+  }
+
+  // 視聴済みでなく保存済み評価も無い作品はセクション自体を出さない
+  // （読み込み中・取得失敗も同様に畳む。Annict 初期値だけの候補は
+  // 「評価がある」には含めない）。
+  if (!visible) return null;
+
+  return (
+    <View>
+      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        この作品の評価
+      </Text>
+      {showHint ? (
+        <Text className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+          評価するとおすすめの精度が上がります
+        </Text>
+      ) : null}
+      {ratingQuery.isLoading ? (
+        <View className="items-center py-4">
+          <ActivityIndicator size="small" color={palette.spinner} />
+        </View>
+      ) : ratingQuery.isError ? (
+        <View className="items-center py-2 gap-2">
+          <Text className="text-xs text-slate-400 dark:text-slate-500">
+            評価を取得できませんでした
+          </Text>
+          <TouchableOpacity
+            onPress={() => ratingQuery.refetch()}
+            accessibilityRole="button"
+            accessibilityLabel="評価を再取得"
+            testID="work-rating-retry"
+          >
+            <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+              再試行
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View className="flex-row gap-2">
+          {WORK_RATINGS.map((r) => (
+            <TouchableOpacity
+              key={r}
+              onPress={() => selectRating(r)}
+              disabled={isMutating}
+              className={`flex-1 items-center px-3 py-2 rounded-full border ${
+                displayedRating === r
+                  ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950"
+                  : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
+              }`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: displayedRating === r }}
+              accessibilityLabel={`この作品を${WORK_RATING_LABELS[r]}と評価する`}
+              testID={`work-detail-rating-${r}`}
+            >
+              <Text
+                className={`text-xs font-medium ${
+                  displayedRating === r
+                    ? "text-indigo-600 dark:text-indigo-300"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                {WORK_RATING_LABELS[r]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 

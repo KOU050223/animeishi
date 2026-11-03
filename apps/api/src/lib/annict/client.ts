@@ -1508,6 +1508,83 @@ export async function fetchAnnictViewerRecords(
   };
 }
 
+// --- viewer の作品レビュー評価（評価の初期値取得, issue #416） ---
+
+// Annict には「viewer の特定作品へのレビュー」を直接引くフィールドがない
+// （User.reviews は存在せず、Work.reviews は全ユーザーのレビュー）。
+// 対象作品のレビューを新しい順に辿り、viewer.annictId と一致するものを探す。
+// サブリクエスト上限（Free プラン 50/req）のため無制限には辿らず、
+// 上限内で見つからなければ「初期値なし」の null を返す（ベストエフォート）。
+const MAX_WORK_REVIEW_PAGES = 4;
+
+const WORK_REVIEWS_QUERY = `
+query ViewerWorkReview($annictIds: [Int!], $after: String) {
+  viewer { annictId }
+  searchWorks(annictIds: $annictIds, first: 1) {
+    nodes {
+      reviews(first: 50, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ratingOverallState user { annictId } }
+      }
+    }
+  }
+}`;
+
+type WorkReviewsResponse = {
+  viewer: { annictId: number } | null;
+  searchWorks: {
+    nodes: {
+      reviews: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        nodes: {
+          ratingOverallState: string | null;
+          user: { annictId: number } | null;
+        }[];
+      } | null;
+    }[];
+  } | null;
+};
+
+/**
+ * viewer が対象作品に付けたレビューの総合評価（RatingState）を返す。
+ * レビュー自体が無い・上限ページ内に見つからない場合は null。
+ * 評価の読み取りのみで、Annict への書き込みは行わない。
+ */
+export async function fetchAnnictViewerWorkRating(
+  accessToken: string,
+  annictWorkId: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  let after: string | null = null;
+  const seenCursors = new Set<string>();
+  for (let page = 0; page < MAX_WORK_REVIEW_PAGES; page++) {
+    const data = await withAnnictRetry(() =>
+      annictGraphQL<WorkReviewsResponse>(
+        accessToken,
+        WORK_REVIEWS_QUERY,
+        { annictIds: [annictWorkId], after },
+        fetchImpl,
+      ),
+    );
+    const viewerId = data.viewer?.annictId;
+    const connection = data.searchWorks?.nodes?.[0]?.reviews;
+    // レビューはユーザー×作品で 1 件。見つけた時点で打ち止める
+    // （ratingOverallState が null なら「評価なし」の null を返す）。
+    if (viewerId != null) {
+      const own = connection?.nodes?.find((n) => n.user?.annictId === viewerId);
+      if (own) return own.ratingOverallState;
+    }
+    const { hasNextPage, endCursor } = connection?.pageInfo ?? {
+      hasNextPage: false,
+      endCursor: null,
+    };
+    if (!hasNextPage || !endCursor || seenCursors.has(endCursor)) return null;
+    seenCursors.add(endCursor);
+    after = endCursor;
+  }
+  return null;
+}
+
 // --- createRecord / deleteRecord（話の記録・取消, issue #439） ---
 
 const CREATE_RECORD_MUTATION = `

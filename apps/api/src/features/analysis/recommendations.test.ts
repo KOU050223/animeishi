@@ -10,12 +10,14 @@ import {
   computeInputHash,
 } from "@/features/analysis/service";
 import { watchHistoryRepository } from "@/features/watch-history/repository";
+import { workRatingsRepository } from "@/features/work-ratings/repository";
 import {
   analyses,
   annictWorks,
   recommendations,
   users,
   watchHistory,
+  workRatings,
 } from "@/db/schema";
 import { RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW } from "@/features/analysis/recommendationRepository";
 
@@ -304,7 +306,8 @@ describe("AI おすすめ生成 API", () => {
         db,
         USER_ID,
       ).getMyWatchHistory();
-      return computeInputHash(buildAnalysisInput(history, []));
+      const ratings = await workRatingsRepository(db, USER_ID).listMyRatings();
+      return computeInputHash(buildAnalysisInput(history, [], ratings));
     }
 
     function insertAnalysis(inputHash: string | null) {
@@ -327,6 +330,25 @@ describe("AI おすすめ生成 API", () => {
       ];
       return inputs.messages.find((m) => m.role === "user")?.content ?? "";
     }
+
+    it("POST: 作品の評価をプロンプトに含める（issue #416）", async () => {
+      await seedHistory([101]);
+      const now = new Date();
+      await db.insert(workRatings).values({
+        userId: USER_ID,
+        annictWorkId: 101,
+        rating: "great",
+        createdAt: now,
+        updatedAt: now,
+      });
+      stubAnnictFetch([workNode(9001)]);
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const res = await postRecommendations();
+      expect(res.status).toBe(200);
+      const user = lastUserPrompt();
+      expect(user).toContain('"rating": "最高"');
+    });
 
     it("POST: 保存済みの分析結果があるとプロンプトに傾向を含める", async () => {
       await seedHistory([101]);

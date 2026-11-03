@@ -21,6 +21,7 @@ import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
 import { customTierLists } from "./features/custom-tier-lists";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
+import { workRatings } from "./features/work-ratings";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
 import { friends } from "./features/friends";
@@ -99,6 +100,7 @@ const routes = app
   .route("/me/watch-histories", watchHistory)
   .route("/me/episode-records", episodeRecords)
   .route("/me/achievements", achievements)
+  .route("/me/work-ratings", workRatings)
   .route("/me/analysis", analysis)
   .route("/works", works)
   .route("/works", workEpisodes)
