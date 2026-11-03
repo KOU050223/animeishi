@@ -56,7 +56,8 @@ export function AchievementCelebrationHost() {
       // 先に保存するのは、閉じる前にアプリが落ちても同じお祝いが
       // 繰り返し出る方が「出なかった」より害が大きいため。
       await saveSeenAchievementKeys(userId, mergeSeenKeys(seen, keys));
-      if (!cancelled && fresh.length > 0) setQueue(fresh);
+      if (cancelled) return;
+      if (fresh.length > 0) setQueue(fresh);
     })();
     return () => {
       cancelled = true;
