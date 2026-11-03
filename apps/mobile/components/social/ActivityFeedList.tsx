@@ -47,13 +47,12 @@ export function ActivityFeedList({
       ? []
       : (data?.pages.flatMap((page) => page.items) ?? []);
 
-  async function handleRefresh() {
+  // try/finally（catch 無しの try）は React Compiler が未対応で最適化を
+  // 外れるため、Promise.finally で書く
+  function handleRefresh() {
     setRefreshing(true);
-    try {
-      await (onRefresh ? onRefresh() : refetch());
-    } finally {
-      setRefreshing(false);
-    }
+    const task = onRefresh ? onRefresh() : refetch();
+    void Promise.resolve(task).finally(() => setRefreshing(false));
   }
 
   function onEndReached() {
@@ -76,7 +75,7 @@ export function ActivityFeedList({
       )}
       contentContainerStyle={styles.listContent}
       refreshing={refreshing}
-      onRefresh={() => void handleRefresh()}
+      onRefresh={handleRefresh}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
       testID="activity-feed-list"

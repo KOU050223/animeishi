@@ -1,6 +1,7 @@
+import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -19,8 +20,24 @@ export default function HomeScreen() {
   useMarkScreenInteractive();
   const queryClient = useQueryClient();
 
-  // 画面に出ている 3 つのクエリ（活動フィード・視聴履歴・ストーリー）を
-  // pull-to-refresh でまとめて更新する
+  // タブ切替では画面のマウントが維持され stale のまま残る。活動フィードは
+  // staleTime（5 分）内だと再取得されずフレンドの新しい活動が見えないため、
+  // ホーム復帰のタイミングでだけ無効化する。初回フォーカスは初回取得と
+  // 重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
+  const hasFocused = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocused.current) {
+        void queryClient.invalidateQueries({
+          queryKey: ACTIVITY_FEED_QUERY_KEY,
+        });
+      }
+      hasFocused.current = true;
+    }, [queryClient]),
+  );
+
+  // ActivityFeedList 既定の更新はフィードの refetch だけなので、
+  // ヘッダーの各レールが使うクエリもまとめて無効化する
   async function refreshAll() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY }),

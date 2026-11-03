@@ -13,10 +13,8 @@ function normalizeSeasonName(seasonName: string): string {
   return seasonName.replace(/-fall$/, "-autumn");
 }
 
-/**
- * 視聴履歴から「今期視聴中」だけを取り出す（issue #353）。
- * 今期の判定は currentSeason と同じ JST 基準。入力の並び（更新日降順）は維持する。
- */
+// 今期の判定はアニメ一覧の currentSeason と同じ JST 基準に揃える（issue #353）。
+// API が更新日時降順で返すので、ここでは絞り込みだけして並び替えはしない。
 export function filterCurrentSeasonWatching<T extends WatchingWork>(
   items: readonly T[],
   now: Date = new Date(),

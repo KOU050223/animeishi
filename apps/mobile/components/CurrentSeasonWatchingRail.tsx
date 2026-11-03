@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
+  FlatList,
   Linking,
-  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -26,6 +26,14 @@ export function CurrentSeasonWatchingRail() {
   const { data, isLoading, isError, refetch } = useWatchHistory();
   // 初回フォーカスは useQuery の初回取得と重複するため再取得を飛ばす
   const hasFocused = useRef(false);
+  // 依存配列に isConnected を入れると、未連携→連携でコールバックが
+  // 作り直されて effect が再実行され、enabled 反転で始まったばかりの
+  // 初回取得を refetch がキャンセルして二重に投げる。最新値だけ欲しい
+  // ので ref 経由にする。
+  const isConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
 
   // タブ切替では画面のマウントが維持され stale のまま残るため、
   // ホームへ戻ったタイミングで再取得して最新の視聴状態を拾う
@@ -34,9 +42,9 @@ export function CurrentSeasonWatchingRail() {
   // 401 になるだけのリクエストを飛ばさないよう連携時だけに絞る。
   useFocusEffect(
     useCallback(() => {
-      if (hasFocused.current && isConnected) void refetch();
+      if (hasFocused.current && isConnectedRef.current) void refetch();
       hasFocused.current = true;
-    }, [refetch, isConnected]),
+    }, [refetch]),
   );
 
   const works = useMemo(() => filterCurrentSeasonWatching(data ?? []), [data]);
@@ -73,15 +81,12 @@ export function CurrentSeasonWatchingRail() {
           今期視聴中の作品はありません
         </Text>
       ) : (
-        <ScrollView
+        <FlatList
           horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerClassName="gap-3"
-          testID="home-current-season-rail"
-        >
-          {works.map((work) => (
+          data={works}
+          keyExtractor={(work) => String(work.annictWorkId)}
+          renderItem={({ item: work }) => (
             <TouchableOpacity
-              key={work.annictWorkId}
               className="w-24"
               onPress={() =>
                 void Linking.openURL(buildDanimeWorkSearchUrl(work.title))
@@ -103,8 +108,11 @@ export function CurrentSeasonWatchingRail() {
                 {work.title}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+          ItemSeparatorComponent={() => <View className="w-3" />}
+          showsHorizontalScrollIndicator={false}
+          testID="home-current-season-rail"
+        />
       )}
     </View>
   );
