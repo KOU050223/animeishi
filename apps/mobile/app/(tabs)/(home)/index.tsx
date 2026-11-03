@@ -1,66 +1,52 @@
-import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useRouter } from "expo-router";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-  StyleSheet,
-} from "react-native";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { Button } from "@/components/ui/Button";
-import { MeishiCard } from "@/components/MeishiCard";
-import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
-import { useAnnictConnection } from "@/lib/annict";
-import { featureFlags } from "@/lib/featureFlags";
+import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
+import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
+import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
+import { WATCH_HISTORY_QUERY_KEY } from "@/lib/useWatchHistory";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
-import { useProfile } from "@/lib/useProfile";
-import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
-import { useMeishiImageShare } from "@/lib/meishi/imageShare";
-import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
-import { buildProfileUrl } from "@/lib/profileUrl";
+import { featureFlags } from "@/lib/featureFlags";
+import { useThemeColors } from "@/lib/theme";
 import { useMarkScreenInteractive } from "@/lib/observe";
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const router = useRouter();
-  const { data: profile } = useProfile();
-  const { doc: meishiDoc, reloadDocument } = useMeishiDocument();
-  const { isConnected: isAnnictConnected, isLoading: isAnnictLoading } =
-    useAnnictConnection();
 
-  // 名刺エディタでの変更を戻ったときに反映するため、フォーカスごとに再読み込みする。
+  // タブ切替では画面のマウントが維持され stale のまま残る。活動フィードは
+  // staleTime（5 分）内だと再取得されずフレンドの新しい活動が見えないため、
+  // ホーム復帰のタイミングでだけ無効化する。初回フォーカスは初回取得と
+  // 重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
+  const hasFocused = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      void reloadDocument();
-    }, [reloadDocument]),
+      if (hasFocused.current) {
+        void queryClient.invalidateQueries({
+          queryKey: ACTIVITY_FEED_QUERY_KEY,
+        });
+      }
+      hasFocused.current = true;
+    }, [queryClient]),
   );
 
-  // 名刺の画像共有（issue #425）。カードと同じコンテキストで
-  // スナップショットを描画して撮る。
-  const meishiProfile = useMemo(
-    () => ({
-      username: profile?.username || "ユーザー",
-      bio: profile?.bio,
-      favoriteQuote: profile?.favoriteQuote,
-      profileImageUrl: profile?.profileImageUrl,
-      profileUrl: buildProfileUrl(profile?.id),
-    }),
-    [profile],
-  );
-  const meishiContext = useMeishiRenderContext(meishiProfile);
-  const {
-    shareImage: shareMeishiImage,
-    isSharing: isMeishiSharing,
-    snapshotElement: meishiSnapshotElement,
-  } = useMeishiImageShare({ document: meishiDoc, context: meishiContext });
+  // ActivityFeedList 既定の更新はフィードの refetch だけなので、
+  // ヘッダーの各レールが使うクエリもまとめて無効化する
+  async function refreshAll() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY }),
+      queryClient.invalidateQueries({
+        queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
+      }),
+    ]);
+  }
 
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
@@ -71,88 +57,67 @@ export default function HomeScreen() {
   return (
     // 上端はネイティブヘッダー（large title）が面倒を見る。下端はタブバー側で吸収する。
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={[]}>
-      <ScrollView contentContainerClassName="px-4 pb-12">
-        <FriendStoryRail />
+      <Stack.Screen options={{ headerRight: () => <HomeHeaderButtons /> }} />
+      <ActivityFeedSection
+        onRefresh={refreshAll}
+        ListHeaderComponent={
+          <View>
+            <FriendStoryRail />
+            <CurrentSeasonWatchingRail />
 
-        <Text className="mb-2 mt-4 text-sm font-medium text-slate-700 dark:text-slate-200">
-          あなたの名刺
-        </Text>
-        <View style={styles.meishiPreviewFrame} testID="home-meishi-preview">
-          <MeishiCard
-            username={profile?.username || "ユーザー"}
-            bio={profile?.bio}
-            favoriteQuote={profile?.favoriteQuote}
-            profileImageUrl={profile?.profileImageUrl}
-            profileUrl={buildProfileUrl(profile?.id)}
-            document={meishiDoc}
-          />
-        </View>
+            {featureFlags.debugPanel && (
+              <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">
+                <Text className="text-yellow-700 dark:text-yellow-300 font-bold mb-2">
+                  Debug Panel
+                </Text>
+                <TouchableOpacity
+                  className="bg-yellow-400 rounded-lg px-4 py-2"
+                  onPress={clearCache}
+                  accessibilityRole="button"
+                  accessibilityLabel="クエリキャッシュをクリア"
+                >
+                  <Text className="text-yellow-900 font-semibold">
+                    QueryCache クリア
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-        <View className="mt-4 gap-2.5">
-          <Button
-            label="名刺をデザインする"
-            icon="color-palette-outline"
-            onPress={() => router.push("/meishi/edit")}
-            accessibilityLabel="名刺をデザインする"
-            testID="home-open-meishi-edit"
-          />
-          <Button
-            label="QR で名刺を交換"
-            icon="qr-code-outline"
-            variant="secondary"
-            onPress={() => router.push("/(tabs)/social?section=qr")}
-            accessibilityLabel="QR で名刺を交換"
-            testID="home-open-qr"
-          />
-          <Button
-            label={t("名刺を画像で共有")}
-            icon="share-social-outline"
-            variant="secondary"
-            onPress={() => void shareMeishiImage()}
-            loading={isMeishiSharing}
-            accessibilityLabel={t("名刺を画像で共有")}
-            testID="home-share-meishi-image"
-          />
-        </View>
-
-        {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
-        {meishiSnapshotElement}
-
-        {/* 連携済みユーザーには出さない（#165）。連携状態の確認・解除は
-            プロフィール画面に集約する。ロード中は連携済みか未確定なため、
-            一瞬カードが出て消えるちらつきを避けて描画を遅らせる。 */}
-        {!isAnnictLoading && !isAnnictConnected && (
-          <View className="mt-4">
-            <AnnictConnectionCard surface="home_card" />
-          </View>
-        )}
-
-        {featureFlags.debugPanel && (
-          <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">
-            <Text className="text-yellow-700 dark:text-yellow-300 font-bold mb-2">
-              Debug Panel
+            <Text className="mb-1 mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
+              フレンドの動き
             </Text>
-            <TouchableOpacity
-              className="bg-yellow-400 rounded-lg px-4 py-2"
-              onPress={clearCache}
-              accessibilityRole="button"
-              accessibilityLabel="クエリキャッシュをクリア"
-            >
-              <Text className="text-yellow-900 font-semibold">
-                QueryCache クリア
-              </Text>
-            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        }
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  meishiPreviewFrame: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
-  },
-});
+// 自分の名刺・QR 交換の導線。画面上部の大きな導線は縮めて
+// ヘッダーアイコンに集約する（issue #353）。
+function HomeHeaderButtons() {
+  const router = useRouter();
+  const colors = useThemeColors();
+  return (
+    <View className="flex-row items-center">
+      <Pressable
+        onPress={() => router.push("/meishi/edit")}
+        className="h-11 w-11 items-center justify-center"
+        accessibilityRole="button"
+        accessibilityLabel="名刺をデザインする"
+        testID="home-open-meishi-edit"
+      >
+        <Ionicons name="id-card-outline" size={24} color={colors.primaryText} />
+      </Pressable>
+      <Pressable
+        onPress={() => router.push("/(tabs)/social?section=qr")}
+        className="h-11 w-11 items-center justify-center"
+        accessibilityRole="button"
+        accessibilityLabel="QR で名刺を交換"
+        testID="home-open-qr"
+      >
+        <Ionicons name="qr-code-outline" size={24} color={colors.primaryText} />
+      </Pressable>
+    </View>
+  );
+}
