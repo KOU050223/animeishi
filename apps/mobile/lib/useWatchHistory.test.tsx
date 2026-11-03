@@ -12,6 +12,7 @@ import {
   useDeleteWatchHistory,
   useUpsertWatchHistory,
 } from "@/lib/useWatchHistory";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
@@ -130,7 +131,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
   it("更新が失敗したら楽観値をロールバックする", async () => {
     client.setQueryData(queryKey, seedHistory());
-    mockPut.mockResolvedValue({ ok: false, status: 500 });
+    mockPut.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
 
     const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
@@ -175,7 +180,7 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
     // A 側だけ失敗させる → A だけロールバックし、B の楽観表示は維持される。
     await act(async () => {
-      resolvers[0]({ ok: false, status: 500 });
+      resolvers[0]({ ok: false, status: 500, json: async () => ({}) });
     });
     await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHING"));
     expect(getStates(client)?.[1].state).toBe("WATCHED");
@@ -209,7 +214,7 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
 
     await act(async () => {
-      resolvers[0]({ ok: false, status: 500 });
+      resolvers[0]({ ok: false, status: 500, json: async () => ({}) });
     });
     // 1 回目の失敗で 2 回目の楽観値（ユーザーの最新の意図）を巻き戻さない。
     expect(getStates(client)?.[0].state).toBe("ON_HOLD");
@@ -285,6 +290,36 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     });
     await waitFor(() =>
       expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true),
+    );
+  });
+
+  it("失敗応答の code を ApiRequestError に載せる", async () => {
+    client.setQueryData(queryKey, seedHistory());
+    // Annict トークン未登録の 401 応答（requireAnnictToken）を再現する。
+    mockPut.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: "Annict 連携が必要です",
+        code: "annict_token_required",
+      }),
+    });
+
+    const { result } = await renderHook(() => useUpsertWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(() => {
+      result.current.mutate({
+        annictWorkId: 1,
+        data: { state: "WATCHED" },
+      });
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeInstanceOf(ApiRequestError);
+    expect((result.current.error as ApiRequestError).code).toBe(
+      "annict_token_required",
     );
   });
 
@@ -384,7 +419,11 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
 
   it("削除が失敗したら消した行を元の位置に戻す", async () => {
     client.setQueryData(queryKey, seedHistory());
-    mockDelete.mockResolvedValue({ ok: false, status: 500 });
+    mockDelete.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
 
     const { result } = await renderHook(() => useDeleteWatchHistory(), {
       wrapper: createWrapper(client),

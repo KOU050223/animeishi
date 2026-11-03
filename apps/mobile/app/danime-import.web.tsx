@@ -18,7 +18,7 @@ import {
   View,
   useColorScheme,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import {
   buildDanimeBookmarklet,
@@ -133,13 +133,40 @@ export default function DanimeImportWebScreen() {
   }
 
   // ---- 通常モード ----
+  // ブックマークレットで開いた別タブから戻ってきた場合など、遷移履歴が無いと
+  // 「前の画面へ戻る」が効かないため、そのときはホームへ戻す（issue #392）。
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/");
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-slate-900" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-white dark:bg-slate-900"
+      edges={["bottom"]}
+    >
+      {/* native 版は WebView 主体のためカスタムクロムだが、Web 版は通常の
+          フォーム画面なのでネイティブヘッダーを出す（_layout.tsx の
+          headerShown: false をこの画面だけ上書きする）。 */}
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "dアニメからインポート",
+          headerBackVisible: false,
+          headerLeft: () => (
+            <BackButton
+              onPress={handleBack}
+              accessibilityLabel="戻る"
+              testID="danime-import-back-button"
+            />
+          ),
+        }}
+      />
       <ScrollView contentContainerClassName="px-4 py-6">
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-          dアニメからインポート
-        </Text>
-        <Text className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-5">
+        <Text className="text-xs text-slate-500 dark:text-slate-400 leading-5">
           Web 版ではブラウザのブックマークレットで履歴を抽出します。
         </Text>
 
@@ -267,12 +294,6 @@ export default function DanimeImportWebScreen() {
             <Text className="text-white font-semibold">レビューへ進む</Text>
           </TouchableOpacity>
         </View>
-
-        <BackButton
-          className="mt-4 self-center"
-          onPress={() => router.back()}
-          accessibilityLabel="戻る"
-        />
       </ScrollView>
     </SafeAreaView>
   );

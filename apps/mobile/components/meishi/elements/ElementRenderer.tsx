@@ -1,6 +1,11 @@
 import { Image, Text, View } from "react-native";
 import Svg, { Circle, Rect } from "react-native-svg";
 import QRCode from "react-native-qrcode-svg";
+import {
+  resolveCollageImages,
+  resolveImageUri,
+  type OnImageLoadEnd,
+} from "@/lib/meishi/renderableImages";
 import type {
   AnimeCollageElement,
   AnimeCountBadgeElement,
@@ -38,20 +43,6 @@ function resolveTextValue(el: TextElement, ctx: MeishiRenderContext): string {
     case "custom":
     default:
       return el.text;
-  }
-}
-
-function resolveImageUri(
-  el: ImageElement,
-  ctx: MeishiRenderContext,
-): string | null {
-  switch (el.source) {
-    case "avatar":
-      return ctx.profile.profileImageUrl ?? null;
-    case "anime":
-    case "upload":
-    default:
-      return el.uri || null;
   }
 }
 
@@ -107,12 +98,14 @@ function ImageRender({
   boxWidth,
   boxHeight,
   renderScale,
+  onImageLoadEnd,
 }: {
   el: ImageElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   const uri = resolveImageUri(el, ctx);
   const borderRadius =
@@ -152,6 +145,9 @@ function ImageRender({
         source={{ uri }}
         style={{ width: "100%", height: "100%" }}
         resizeMode={el.objectFit}
+        // 読み込み完了直後に撮るため共有画像は transition を付けない。
+        // onLoadEnd は成功・失敗どちらでも来る。
+        onLoadEnd={onImageLoadEnd}
       />
     </View>
   );
@@ -240,38 +236,20 @@ function QrRender({
   );
 }
 
-// コラージュに使う画像 URL を要素のリスト設定から解決する（issue #96）。
-// listSource 未設定（旧ドキュメント）は「自動」= 従来どおり
-// ctx.animeCollageImages（視聴履歴 → 空ならお気に入り）にフォールバックする。
-function resolveCollageImages(
-  el: AnimeCollageElement,
-  ctx: MeishiRenderContext,
-): string[] {
-  const lists = ctx.animeLists;
-  const legacy = ctx.animeCollageImages ?? [];
-  // animeLists を持たない古い呼び出し側では従来リストへフォールバックする。
-  // animeLists がある場合は選択したリストがそのまま結果になる（空リストは
-  // 空として返す。legacy へ逃がすと別ステータスの作品が混入するため）。
-  if (!lists) return legacy;
-  if (el.listSource === "favorites") return lists.favorites;
-  const state = el.state;
-  if (state && state !== "all") return lists.byState[state] ?? [];
-  if (el.listSource === "watchHistory") return lists.watchHistory;
-  return legacy;
-}
-
 function AnimeCollageRender({
   el,
   ctx,
   boxWidth,
   boxHeight,
   renderScale,
+  onImageLoadEnd,
 }: {
   el: AnimeCollageElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   const images = resolveCollageImages(el, ctx).slice(0, el.cols * el.rows);
   const gapPx = el.gap * boxWidth;
@@ -306,6 +284,7 @@ function AnimeCollageRender({
                 source={{ uri }}
                 style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"
+                onLoadEnd={onImageLoadEnd}
               />
             ) : null}
           </View>
@@ -365,12 +344,18 @@ export function ElementRenderer({
   boxWidth,
   boxHeight,
   renderScale = 1,
+  onImageLoadEnd,
 }: {
   element: MeishiElement;
   ctx: MeishiRenderContext;
   boxWidth: number;
   boxHeight: number;
   renderScale?: number;
+  /**
+   * 各画像の読み込み終了を通知する。共有画像スナップショットの
+   * キャプチャ待ち（onReady）にだけ使い、通常描画では未指定でよい。
+   */
+  onImageLoadEnd?: OnImageLoadEnd;
 }) {
   switch (element.type) {
     case "text":
@@ -391,6 +376,7 @@ export function ElementRenderer({
           boxWidth={boxWidth}
           boxHeight={boxHeight}
           renderScale={renderScale}
+          onImageLoadEnd={onImageLoadEnd}
         />
       );
     case "shape":
@@ -420,6 +406,7 @@ export function ElementRenderer({
           boxWidth={boxWidth}
           boxHeight={boxHeight}
           renderScale={renderScale}
+          onImageLoadEnd={onImageLoadEnd}
         />
       );
     case "animeCountBadge":

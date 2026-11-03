@@ -11,7 +11,14 @@ const mockMutateAsync = jest.fn();
 const mockDeleteAsync = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockAlert = jest.fn();
+const mockConfirm = jest.fn();
 const mockInvalidateQueries = jest.fn();
+const mockUseAnnictConnection = jest.fn();
+const mockUseAnnictConnect = jest.fn();
+const mockConnect = jest.fn();
+const mockFunnelTrack = jest.fn();
+const mockUseAnnictTokenErrorPrompt = jest.fn();
+const mockPromptAnnictTokenError = jest.fn();
 
 jest.mock("@/lib/useWorkDetail", () => ({
   useWorkDetail: (...args: unknown[]) => mockUseWorkDetail(...args),
@@ -53,6 +60,19 @@ jest.mock("@/lib/events", () => ({
 
 jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
+  confirm: (...args: unknown[]) => mockConfirm(...args),
+}));
+
+// Annict 連携系はネイティブ依存（SecureStore / expo-web-browser）を持つため
+// フックを差し替える。連携状態・再連携プロンプトの分岐だけをここで制御する。
+jest.mock("@/lib/annict", () => ({
+  useAnnictConnection: () => mockUseAnnictConnection(),
+  useAnnictConnect: () => mockUseAnnictConnect(),
+  useAnnictFunnel: () => mockFunnelTrack,
+  useAnnictTokenErrorPrompt: (...args: unknown[]) =>
+    mockUseAnnictTokenErrorPrompt(...args),
+  annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
+    .annictErrorKey,
 }));
 
 const WORK = {
@@ -125,6 +145,18 @@ describe("AnimeWorkDetailSheet", () => {
     mockDeleteAsync.mockResolvedValue({});
     // finally 内で invalidateQueries(...).then() を呼ぶため Promise を返す。
     mockInvalidateQueries.mockResolvedValue(undefined);
+    mockUseAnnictConnection.mockReturnValue({
+      isConnected: true,
+      isLoading: false,
+    });
+    mockUseAnnictConnect.mockReturnValue({
+      connect: mockConnect,
+      disconnect: jest.fn(),
+      isConnecting: false,
+    });
+    mockUseAnnictTokenErrorPrompt.mockReturnValue(mockPromptAnnictTokenError);
+    // 既定は「Annict トークン起因でない」（汎用エラー処理に落ちる）。
+    mockPromptAnnictTokenError.mockReturnValue(false);
   });
 
   it("work が null のときシートを表示しない", async () => {
@@ -259,6 +291,65 @@ describe("AnimeWorkDetailSheet", () => {
     // 楽観値は下ろされ、サーバー値（WATCHING）の表示に戻る
     const chip = screen.getByTestId("work-detail-status-WATCHING");
     expect(chip.props.accessibilityState?.selected).toBe(true);
+  });
+
+  it("Annict 未連携ではステータス欄が連携導線に変わりチップを出さない", async () => {
+    mockUseAnnictConnection.mockReturnValue({
+      isConnected: false,
+      isLoading: false,
+    });
+
+    await render(sheetElement());
+
+    expect(screen.getByTestId("work-detail-status-gate")).toBeTruthy();
+    expect(screen.queryByTestId("work-detail-status-WATCHED")).toBeNull();
+  });
+
+  it("未連携ゲートの「連携する」で surface 付きの連携フローを開始する", async () => {
+    mockUseAnnictConnection.mockReturnValue({
+      isConnected: false,
+      isLoading: false,
+    });
+    mockConnect.mockResolvedValueOnce({ status: "success" });
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByLabelText("連携する"));
+
+    expect(mockConnect).toHaveBeenCalledWith({
+      surface: "work_detail_sheet",
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("連携状態の確認中はチップもゲートも出さない", async () => {
+    mockUseAnnictConnection.mockReturnValue({
+      isConnected: false,
+      isLoading: true,
+    });
+
+    await render(sheetElement());
+
+    expect(screen.queryByTestId("work-detail-status-gate")).toBeNull();
+    expect(screen.queryByTestId("work-detail-status-WATCHED")).toBeNull();
+  });
+
+  it("annict_token_required の失敗は再連携プロンプトに委譲し汎用アラートを出さない", async () => {
+    const tokenError = new ApiRequestError(
+      401,
+      "視聴履歴の更新に失敗しました",
+      "annict_token_required",
+    );
+    mockMutateAsync.mockRejectedValue(tokenError);
+    mockPromptAnnictTokenError.mockReturnValue(true);
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
+
+    expect(mockUseAnnictTokenErrorPrompt).toHaveBeenCalledWith(
+      "work_detail_sheet",
+    );
+    expect(mockPromptAnnictTokenError).toHaveBeenCalledWith(tokenError);
+    expect(mockAlert).not.toHaveBeenCalled();
   });
 
   it("ステータス更新に失敗したらダイアログで通知し選択を元に戻す", async () => {

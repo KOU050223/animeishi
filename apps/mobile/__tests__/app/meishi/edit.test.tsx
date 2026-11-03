@@ -12,6 +12,7 @@ const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockCanGoBack = jest.fn();
 const mockSaveDocument = jest.fn();
+const mockShareMeishiImage = jest.fn();
 
 jest.mock("expo-router", () => ({
   Stack: {
@@ -90,6 +91,15 @@ jest.mock("@/lib/profileUrl", () => ({
     userId ? `http://localhost:8081/user/${userId}` : null,
 }));
 
+// 画像共有のスナップショット描画・撮像は本テストの対象外。
+jest.mock("@/lib/meishi/imageShare", () => ({
+  useMeishiImageShare: () => ({
+    shareImage: mockShareMeishiImage,
+    isSharing: false,
+    snapshotElement: null,
+  }),
+}));
+
 const defaultDoc = {
   version: 1,
   canvas: {
@@ -136,6 +146,7 @@ beforeEach(async () => {
   mockCanGoBack.mockReturnValue(true);
   mockSaveDocument.mockReset();
   mockSaveDocument.mockResolvedValue(undefined);
+  mockShareMeishiImage.mockReset();
 });
 
 describe("MeishiEditScreen の保存フィードバック", () => {
@@ -158,6 +169,19 @@ describe("MeishiEditScreen の保存フィードバック", () => {
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
+  });
+
+  it("保存トーストの「画像で共有」ボタンで名刺画像の共有を起動する", async () => {
+    await render(<MeishiEditScreen />);
+
+    await fireEvent.press(screen.getByLabelText("保存"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("meishi-save-share-image")).toBeTruthy();
+    });
+
+    await fireEvent.press(screen.getByTestId("meishi-save-share-image"));
+    expect(mockShareMeishiImage).toHaveBeenCalledTimes(1);
   });
 });
 

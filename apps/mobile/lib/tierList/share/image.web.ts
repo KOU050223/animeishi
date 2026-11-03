@@ -22,16 +22,26 @@ function buildImageProxyUrl(imageUrl: string): string {
 }
 
 /**
- * API 自身が配信する取り込み済み作品画像（/images/...）か。
+ * API 自身が配信し CORS 付きで返す画像のパス接頭辞。
+ * - /images/...: 取り込み済み作品画像（issue #174）
+ * - /me/profile/avatar/...: プロフィールのアバター（名刺の本人画像、issue #425）
+ * - /me/meishi-assets/...: 名刺エディタからアップロードした画像（issue #425）
  * これらは CORS 付きで配信されるためプロキシ不要。それどころか image-proxy の
- * known-URL 照合（image_url / resolved_image_url カラム照合）を通らず
- * 403 になるので、ここで弾いてそのまま使う（issue #174）。
+ * known-URL 照合（annict_works / annict_characters の画像カラム照合）を通らず
+ * 403 になるので、ここで弾いてそのまま使う。
  */
+const API_HOSTED_IMAGE_PATHS = [
+  "/images/",
+  "/me/profile/avatar/",
+  "/me/meishi-assets/",
+];
+
 function isApiHostedImageUrl(src: string): boolean {
   try {
+    const url = new URL(src);
     return (
-      new URL(src).origin === new URL(apiUrl).origin &&
-      new URL(src).pathname.startsWith("/images/")
+      url.origin === new URL(apiUrl).origin &&
+      API_HOSTED_IMAGE_PATHS.some((path) => url.pathname.startsWith(path))
     );
   } catch {
     return false;

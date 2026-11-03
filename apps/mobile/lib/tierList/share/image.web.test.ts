@@ -178,6 +178,25 @@ describe("shareTierListImage (web)", () => {
     expect(node.querySelector("img")!.src).toBe(hostedSrc);
   });
 
+  it("API 配信のアバター・名刺アセット画像（/me/...）はプロキシに差し替えない", async () => {
+    // 名刺のアバター（/me/profile/avatar/...）とエディタでアップした画像
+    // （/me/meishi-assets/...）は /images/ と同じく API が CORS 付きで配信する。
+    // プロキシに通すと known-URL 照合で弾かれ、共有画像から本人の写真が
+    // 消えるため差し替えない（issue #425）。
+    const avatarSrc = `${apiUrl}/me/profile/avatar/avatars/u1/1.png`;
+    const assetSrc = `${apiUrl}/me/meishi-assets/meishi-assets/u1/2.webp`;
+    const target = buildTarget(
+      `<img src="${avatarSrc}" /><img src="${assetSrc}" />`,
+    );
+    const node = target.current as unknown as HTMLElement;
+    await shareTierListImage(target, {
+      dialogTitle: "t",
+      backgroundColor: "#ffffff",
+    });
+    const srcs = Array.from(node.querySelectorAll("img")).map((i) => i.src);
+    expect(srcs).toEqual([avatarSrc, assetSrc]);
+  });
+
   it("共有シートをユーザーが閉じた（AbortError）場合は完了扱いにする", async () => {
     shareMock.mockRejectedValue(
       Object.assign(new Error("cancelled"), { name: "AbortError" }),

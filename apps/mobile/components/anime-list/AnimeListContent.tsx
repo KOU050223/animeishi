@@ -29,9 +29,12 @@ import {
   AddToWorkListSheet,
 } from "@/components/work-list";
 import { FavoriteButton } from "./FavoriteButton";
+import { WatchedStamp } from "./WatchedStamp";
 import { SeasonFilter } from "./SeasonFilter";
 import { SortButton } from "./SortButton";
 import { trackEvent } from "@/lib/events";
+import { useWatchHistory } from "@/lib/useWatchHistory";
+import { WATCH_STATUS_LABELS, type WatchState } from "@/lib/watchStatusLabels";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
 import {
   adjacentSeasonParams,
@@ -133,6 +136,16 @@ export function AnimeListContent({
     [data, filters],
   );
   const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
+  // 一覧 API は閲覧者の視聴状態を返さないため、自分の視聴履歴と突き合わせる（issue #421）。
+  // Annict 未連携のうちは useWatchHistory が無効なので空になり、スタンプは出ない。
+  const { data: watchHistory } = useWatchHistory();
+  const watchStateByWorkId = useMemo(
+    () =>
+      new Map<number, WatchState>(
+        (watchHistory ?? []).map((h) => [h.annictWorkId, h.state]),
+      ),
+    [watchHistory],
+  );
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
   const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
@@ -201,53 +214,76 @@ export function AnimeListContent({
 
   // renderItem を安定化して行ごとのコールバック生成を減らす。
   const renderItem = useCallback(
-    ({ item }: { item: AnimeTitle }) => (
-      <CardPressable
-        style={[styles.card, { width: cardWidth }]}
-        contentStyle={styles.cardInner}
-        testID={`anime-item-${item.annictWorkId}`}
-        onPress={() => setSelectedWork(item)}
-        accessibilityLabel={`${item.title}の詳細を開く`}
-      >
-        <AnimePoster uri={item.hostedImageUrl} title={item.title} />
-        <View style={styles.cardBody}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-            {/* Web ではコンテンツ全体が pointer-events:none のラッパー内に
+    ({ item }: { item: AnimeTitle }) => {
+      const watchState = watchStateByWorkId.get(item.annictWorkId);
+      const isWatched = watchState === "WATCHED";
+      return (
+        <CardPressable
+          style={[styles.card, { width: cardWidth }]}
+          contentStyle={styles.cardInner}
+          testID={`anime-item-${item.annictWorkId}`}
+          onPress={() => setSelectedWork(item)}
+          accessibilityLabel={
+            isWatched
+              ? `${item.title}（${WATCH_STATUS_LABELS.WATCHED}）の詳細を開く`
+              : `${item.title}の詳細を開く`
+          }
+        >
+          <AnimePoster uri={item.hostedImageUrl} title={item.title} />
+          <View style={styles.cardBody}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
+              {/* Web ではコンテンツ全体が pointer-events:none のラッパー内に
                 あるため、この View でボタンのイベントを復活させる
                 （CardPressable.web.tsx 参照） */}
-            <View style={styles.cardActions} pointerEvents="auto">
-              <AddToWorkListButton
-                onPress={() => setListTarget(item)}
-                title={item.title}
-                testID={`anime-item-add-to-list-${item.annictWorkId}`}
-              />
-              <FavoriteButton
-                isFavorite={favoriteIds.has(item.annictWorkId)}
-                disabled={isToggling}
-                onPress={() => toggleFavorite(item.annictWorkId)}
-                title={item.title}
-              />
+              <View style={styles.cardActions} pointerEvents="auto">
+                <AddToWorkListButton
+                  onPress={() => setListTarget(item)}
+                  title={item.title}
+                  testID={`anime-item-add-to-list-${item.annictWorkId}`}
+                />
+                <FavoriteButton
+                  isFavorite={favoriteIds.has(item.annictWorkId)}
+                  disabled={isToggling}
+                  onPress={() => toggleFavorite(item.annictWorkId)}
+                  title={item.title}
+                />
+              </View>
+            </View>
+            <View style={styles.metaRow}>
+              {item.seasonYear ? (
+                <View style={styles.seasonChip}>
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={12}
+                    color={palette.seasonChipText}
+                  />
+                  <Text style={styles.seasonText}>
+                    {formatWorkSeason(item)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
-          <View style={styles.metaRow}>
-            {item.seasonYear ? (
-              <View style={styles.seasonChip}>
-                <Ionicons
-                  name="sparkles-outline"
-                  size={12}
-                  color={palette.seasonChipText}
-                />
-                <Text style={styles.seasonText}>{formatWorkSeason(item)}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </CardPressable>
-    ),
-    [cardWidth, favoriteIds, isToggling, palette, styles, toggleFavorite],
+          {isWatched ? (
+            <WatchedStamp
+              testID={`anime-item-watched-stamp-${item.annictWorkId}`}
+            />
+          ) : null}
+        </CardPressable>
+      );
+    },
+    [
+      cardWidth,
+      favoriteIds,
+      isToggling,
+      palette,
+      styles,
+      toggleFavorite,
+      watchStateByWorkId,
+    ],
   );
 
   return (

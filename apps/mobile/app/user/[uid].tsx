@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -12,60 +13,37 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
-import { apiUrl } from "@/lib/apiUrl";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
+import { fetchPublicProfile } from "@/lib/publicProfile";
+import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import {
   REPORT_REASONS,
   useBlockUser,
   useReportUser,
 } from "@/lib/useModeration";
 import type { ReportReason } from "@/lib/useModeration";
+import { useAddFriend, useFriends } from "@/lib/useFriends";
 import { useThemeColors } from "@/lib/theme";
-
-type PublicProfile = {
-  id: string;
-  username: string;
-  bio: string | null;
-  favoriteQuote: string | null;
-  profileImageUrl: string | null;
-  genres: string[];
-};
-
-async function fetchPublicProfile(
-  uid: string,
-  token: string | null,
-): Promise<PublicProfile> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  let res: Response;
-  try {
-    res = await fetch(`${apiUrl}/user/${uid}`, {
-      headers: {
-        Accept: "application/json",
-        // ブロック関係にある相手の名刺を隠すため、サインイン済みなら
-        // 閲覧者をサーバーに伝える（公開URLでもブロックを効かせる）。
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-  if (res.status === 404) throw new ApiRequestError(404, "not_found");
-  if (!res.ok) throw new ApiRequestError(res.status, "fetch_error");
-  return res.json() as Promise<PublicProfile>;
-}
 
 export default function PublicProfilePage() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
   const router = useRouter();
   const { getToken, isSignedIn, userId } = useAuth();
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const reportUser = useReportUser();
   const blockUser = useBlockUser();
+  const addFriend = useAddFriend();
+  const {
+    data: friends,
+    isLoading: isFriendsLoading,
+    isError: isFriendsError,
+    refetch: refetchFriends,
+  } = useFriends();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  // 名刺交換の成立演出（issue #414）を出す相手。この画面では uid 固定。
+  const [exchangeUid, setExchangeUid] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-profile", uid],
@@ -77,6 +55,13 @@ export default function PublicProfilePage() {
   // 他人の名刺にだけ通報・ブロックを出す。未サインイン時も出さない
   // （両方とも認証必須の API のため）。
   const canModerate = !!data && !!isSignedIn && userId !== uid;
+
+  // 共有 URL から開いた人がそのままフレンド追加できる導線（issue #413）。
+  // フレンド追加 API は認証必須なので未サインインでは出さず、自分自身の
+  // 名刺でも出さない。ブロック関係の相手は公開プロフィール自体が 404 に
+  // なるため、この時点では考慮不要。
+  const showFriendAction = !!data && !!isSignedIn && !!userId && userId !== uid;
+  const isFriend = !!uid && !!friends?.some((f) => f.friendId === uid);
 
   // 共有 URL / QR のディープリンクで開く公開ページのため遷移履歴が無いことが
   // 多い。その場合はホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
@@ -106,6 +91,23 @@ export default function PublicProfilePage() {
       }}
     />
   );
+
+  function onPressAddFriend() {
+    if (!uid) return;
+    // QR スキャン時と同じ即時成立の API で追加する（承認フローは #417）。
+    addFriend.mutate(uid, {
+      onSuccess: () => {
+        setExchangeUid(uid);
+      },
+      onError: (e) => {
+        alert(
+          t("追加できませんでした"),
+          e instanceof Error ? e.message : t("フレンド追加に失敗しました"),
+          { okLabel: "OK" },
+        );
+      },
+    });
+  }
 
   function runBlock() {
     if (!uid) return;
@@ -213,6 +215,14 @@ export default function PublicProfilePage() {
       edges={["bottom"]}
     >
       {screenOptions}
+      {exchangeUid ? (
+        // すでにこの画面（user/[uid]）にいるため「プロフィールを見る」は出さない。
+        <ExchangeSuccessOverlay
+          uid={exchangeUid}
+          showProfileLink={false}
+          onClose={() => setExchangeUid(null)}
+        />
+      ) : null}
       <ScrollView className="flex-1">
         <View className="items-center pt-4 pb-6 px-6">
           {data.profileImageUrl ? (
@@ -235,6 +245,58 @@ export default function PublicProfilePage() {
           <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-4">
             {data.username}
           </Text>
+
+          {showFriendAction ? (
+            <View className="mt-4 w-full">
+              {isFriendsLoading ? null : isFriendsError ? (
+                // 一覧取得失敗を未登録と誤認して追加ボタンを出さない
+                // （追加 API は冪等なので押せてしまい、登録済みでも
+                // 「追加しました」と通知してしまう）。
+                <View
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
+                  testID="friends-load-error"
+                >
+                  <Text className="text-sm text-slate-500 dark:text-slate-400">
+                    {t("フレンド一覧を取得できませんでした")}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => refetchFriends()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("再試行")}
+                    testID="friends-retry-button"
+                  >
+                    <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      {t("再試行")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : isFriend ? (
+                <View
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
+                  testID="already-friends-badge"
+                >
+                  <Text className="text-sm text-slate-500 dark:text-slate-400">
+                    {t("フレンド登録済み")}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  className="bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
+                  onPress={onPressAddFriend}
+                  disabled={addFriend.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("フレンドに追加")}
+                  testID="add-friend-button"
+                >
+                  <Text className="text-white font-semibold">
+                    {addFriend.isPending
+                      ? t("フレンド登録中...")
+                      : t("フレンドに追加")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
 
           {data.bio ? (
             <Text className="text-slate-600 dark:text-slate-300 text-center mt-2">

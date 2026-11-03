@@ -23,6 +23,7 @@ import { useUpsertWatchHistory, useWatchHistory } from "@/lib/useWatchHistory";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
+import { useAnnictTokenErrorPrompt } from "@/lib/annict";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useThemeColors } from "@/lib/theme";
@@ -307,6 +308,9 @@ function RecommendationsSection() {
   const generate = useGenerateRecommendations();
   const upsertHistory = useUpsertWatchHistory();
   const { data: watchHistory } = useWatchHistory();
+  // Annict 未連携・トークン失効での「見たい」登録失敗は、その場で連携
+  // できるダイアログに変換する（issue #423）。
+  const promptAnnictTokenError = useAnnictTokenErrorPrompt("analysis");
   // 詳細シート（issue #347）の対象作品と、シート内の推し登録に使う状態。
   const [selectedWork, setSelectedWork] = useState<RecommendedWork | null>(
     null,
@@ -353,6 +357,9 @@ function RecommendationsSection() {
           setRegisteredIds((prev) => new Set(prev).add(work.annictWorkId));
         },
         onError: (error) => {
+          // Annict トークン起因は再連携ダイアログに変換するため、
+          // 汎用メッセージは出さない。それ以外の失敗は従来どおり。
+          if (promptAnnictTokenError(error)) return;
           alert(
             t("「見たい」の登録に失敗しました"),
             error instanceof ApiRequestError

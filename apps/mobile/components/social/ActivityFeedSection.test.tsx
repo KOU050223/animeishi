@@ -1,6 +1,14 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
-import { ActivityFeedSection } from "@/components/ActivityFeedSection";
+import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+
+// RNTL 14 では UNSAFE_getByType が無いため queryAll でホスト要素を探す
+// （ui/Button.test.tsx と同じ手法）。
+const findIndicators = () =>
+  screen.container.queryAll(
+    (node) =>
+      typeof node.type === "string" && node.type.includes("ActivityIndicator"),
+  );
 
 // API・認証の振る舞いは lib/useActivityFeed の結合部なので、
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する。
@@ -83,14 +91,13 @@ describe("ActivityFeedSection", () => {
       isLoading: true,
     };
     await render(<ActivityFeedSection />);
-    expect(screen.getByText("フレンドの活動")).toBeTruthy();
+    expect(findIndicators().length).toBeGreaterThan(0);
     expect(screen.queryByText("まだフレンドの活動はありません")).toBeNull();
   });
 
   it("活動があるとユーザー名つきで内容を表示する", async () => {
     mockFeed = loadedFeed([feedItem()]);
     await render(<ActivityFeedSection />);
-    expect(screen.getByText("フレンドの活動")).toBeTruthy();
     expect(screen.getByText(/たろう/)).toBeTruthy();
     expect(screen.getByText(/視聴中にしました/)).toBeTruthy();
     expect(screen.getByTestId("activity-item-1")).toBeTruthy();
@@ -140,17 +147,31 @@ describe("ActivityFeedSection", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("nextCursor があると「もっと見る」で次ページを読む", async () => {
+  it("末尾までスクロールすると次ページを読む（無限スクロール）", async () => {
     const fetchNextPage = jest.fn();
     mockFeed = { ...loadedFeed([feedItem()], 5), fetchNextPage };
     await render(<ActivityFeedSection />);
-    await fireEvent.press(screen.getByTestId("activity-feed-load-more"));
+    await fireEvent(screen.getByTestId("activity-feed-list"), "endReached");
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
   });
 
-  it("nextCursor が無ければ「もっと見る」を表示しない", async () => {
-    mockFeed = loadedFeed([feedItem()]);
+  it("nextCursor が無ければ末尾スクロールで次ページを読まない", async () => {
+    const fetchNextPage = jest.fn();
+    mockFeed = { ...loadedFeed([feedItem()]), fetchNextPage };
     await render(<ActivityFeedSection />);
-    expect(screen.queryByTestId("activity-feed-load-more")).toBeNull();
+    await fireEvent(screen.getByTestId("activity-feed-list"), "endReached");
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("次ページ取得中は末尾スクロールで重複リクエストしない", async () => {
+    const fetchNextPage = jest.fn();
+    mockFeed = {
+      ...loadedFeed([feedItem()], 5),
+      fetchNextPage,
+      isFetchingNextPage: true,
+    };
+    await render(<ActivityFeedSection />);
+    await fireEvent(screen.getByTestId("activity-feed-list"), "endReached");
+    expect(fetchNextPage).not.toHaveBeenCalled();
   });
 });

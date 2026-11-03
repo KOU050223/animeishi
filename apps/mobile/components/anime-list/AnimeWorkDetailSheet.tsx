@@ -28,6 +28,8 @@ import type { UpsertWatchHistoryError } from "@/lib/useWatchHistory";
 import type { WorkDetail } from "@/lib/useWorkDetail";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { alert } from "@/lib/dialog";
+import { useAnnictConnection, useAnnictTokenErrorPrompt } from "@/lib/annict";
+import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import type { AnimeTitle } from "@/lib/useAnimeList";
@@ -92,9 +94,15 @@ export function AnimeWorkDetailSheet({
   const queryClient = useQueryClient();
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
+  const palette = useAnimeListPalette();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
+  // 未連携が確定しているときはステータス欄を連携導線に差し替える（issue #423）。
+  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
+  // 連携済み判定でもトークン失効なら API が annict_token_required /
+  // annict_token_invalid を返す。その場合はその場で再連携できるダイアログを出す。
+  const promptAnnictTokenError = useAnnictTokenErrorPrompt("work_detail_sheet");
 
   // ステータス変更はサーバー応答（viewerStatusState の取り直し）が遅いため、
   // 選択値を楽観表示する。開く作品が変わったら前の楽観値は下ろす
@@ -136,6 +144,9 @@ export function AnimeWorkDetailSheet({
         // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
         // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
         setOptimistic(null);
+        // Annict トークン未登録・失効は再連携ダイアログに変換するため、
+        // 汎用の失敗通知は出さない（issue #423）。
+        if (promptAnnictTokenError(e)) return;
         const rolledBack = (e as UpsertWatchHistoryError).rolledBack === true;
         alert(
           "更新できませんでした",
@@ -182,11 +193,32 @@ export function AnimeWorkDetailSheet({
         <ScrollView style={{ maxHeight: height * 0.8 }}>
           <View className="px-6 pt-6 pb-10 gap-5">
             <HeaderSection work={work} meta={meta} />
-            <StatusSection
-              currentState={currentState}
-              disabled={upsert.isPending || remove.isPending}
-              onSelect={selectStatus}
-            />
+            {isConnectionLoading ? (
+              // 連携状態が確定するまでチップ/ゲートのどちらも出さない
+              // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
+              <StatusSectionFrame>
+                <View className="items-center py-4">
+                  <ActivityIndicator size="small" color={palette.spinner} />
+                </View>
+              </StatusSectionFrame>
+            ) : !isConnected ? (
+              // 未連携でステータスを選んでも API が必ず失敗するため、
+              // チップではなくその場で連携できる導線に差し替える。
+              <StatusSectionFrame>
+                <AnnictSoftGate
+                  variant="compact"
+                  description="視聴ステータスの変更には Annict との連携が必要です。連携すると視聴記録を残せます。"
+                  surface="work_detail_sheet"
+                  testID="work-detail-status-gate"
+                />
+              </StatusSectionFrame>
+            ) : (
+              <StatusSection
+                currentState={currentState}
+                disabled={upsert.isPending || remove.isPending}
+                onSelect={selectStatus}
+              />
+            )}
             <ActionRow
               title={work.title}
               isFavorite={isFavorite}
@@ -241,6 +273,18 @@ function HeaderSection({
   );
 }
 
+/** 「視聴ステータス」見出しの枠。チップ・ゲート・読み込みの各表示で共有する。 */
+function StatusSectionFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <View>
+      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        視聴ステータス
+      </Text>
+      {children}
+    </View>
+  );
+}
+
 /** 視聴ステータス変更チップ（タップで即反映、選択中の再タップで解除）。 */
 function StatusSection({
   currentState,
@@ -252,10 +296,7 @@ function StatusSection({
   onSelect: (state: WatchState) => void;
 }) {
   return (
-    <View>
-      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-        視聴ステータス
-      </Text>
+    <StatusSectionFrame>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-2">
           {WATCH_STATUSES.map((s) => (
@@ -286,7 +327,7 @@ function StatusSection({
           ))}
         </View>
       </ScrollView>
-    </View>
+    </StatusSectionFrame>
   );
 }
 
