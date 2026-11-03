@@ -52,3 +52,8 @@ appId: com.animeishi.app
     text: 今はしない
     optional: true
     retryTapIfNoChange: false
+
+# 新規登録直後は初回オンボーディング（issue #412）が出る。
+# スキップで通過してから呼び出し側のホーム待機へ戻る。
+- runFlow:
+    file: onboarding.yaml

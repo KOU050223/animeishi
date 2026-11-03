@@ -29,7 +29,12 @@ export default function PasskeyPromptScreen() {
       edges={["top", "bottom"]}
     >
       <View className="flex-1 justify-center px-6 py-10">
-        <PasskeyRegisterPrompt onDone={() => router.replace("/")} />
+        {/* 新規登録直後の促進が済んだら初回オンボーディングへ（issue #412）。
+            window.location 経由の着地でモジュール状態が戻るため、
+            onboardingPending ではなく fresh パラメータでエントリを判定する。 */}
+        <PasskeyRegisterPrompt
+          onDone={() => router.replace("/onboarding?fresh=1")}
+        />
       </View>
     </SafeAreaView>
   );

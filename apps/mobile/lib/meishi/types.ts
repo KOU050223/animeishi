@@ -165,6 +165,26 @@ export type MeishiDocument = {
   elements: MeishiElement[];
 };
 
+// 1 枚の名刺（issue #427 のマルチ名刺）。document が編集対象の実体で、
+// name は一覧での識別用（現状は自動命名のみ。リネーム UI は未実装）。
+export type MeishiCardData = {
+  id: string;
+  name: string;
+  document: MeishiDocument;
+  createdAt: number; // epoch ms
+  updatedAt: number; // epoch ms
+};
+
+// 端末内（AsyncStorage）に保持する名刺ライブラリ。
+// 外に出る「名刺」はすべて defaultCardId が指す 1 枚
+// （共有ページ・OGP・Wallet・フレンド表示・QR はプロフィール由来の
+// 公開面であり、ドキュメント自体は端末から出ない。issue #427 の決定）。
+export type MeishiLibrary = {
+  version: 1;
+  cards: MeishiCardData[];
+  defaultCardId: string | null;
+};
+
 // animeCollage が参照できるリスト別の画像 URL 集合（issue #96）。
 export type AnimeCollageLists = {
   watchHistory: string[];
