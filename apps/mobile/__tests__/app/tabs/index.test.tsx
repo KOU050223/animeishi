@@ -93,6 +93,22 @@ jest.mock("@/lib/useFriendWatchStories", () => ({
   FRIEND_WATCH_STORIES_QUERY_KEY: ["friend-watch-stories"],
 }));
 
+// 特集記事（issue #437）はクエリ結果をテストごとに差し替える。
+let mockArticles: {
+  data?: {
+    items: {
+      slug: string;
+      title: string;
+      coverImageUrl: string | null;
+      publishedAt: string;
+    }[];
+  };
+};
+jest.mock("@/lib/useArticles", () => ({
+  useLatestArticles: () => mockArticles,
+  ARTICLES_QUERY_KEY: ["articles"],
+}));
+
 // 今期（JST）の seasonName。テスト実行日に依らずレールの今期判定に合わせる。
 const { year, key } = currentSeason();
 const CURRENT_SEASON = `${year}-${key}`;
@@ -131,6 +147,7 @@ beforeEach(async () => {
     refetch: jest.fn(),
   };
   mockFeed = loadedFeed;
+  mockArticles = { data: undefined };
 });
 
 describe("HomeScreen", () => {
@@ -215,6 +232,34 @@ describe("HomeScreen", () => {
     loggedInUser();
     await render(<HomeScreen />);
     expect(screen.getByText("今期視聴中の作品はありません")).toBeTruthy();
+  });
+
+  it("公開中の記事がないとき特集枠は出さない", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId("article-rail")).toBeNull();
+  });
+
+  it("公開中の記事を特集枠に出し、タップで記事詳細へ遷移する", async () => {
+    mockArticles = {
+      data: {
+        items: [
+          {
+            slug: "autumn-2026",
+            title: "秋の特集",
+            coverImageUrl: null,
+            publishedAt: "2026-11-01T00:00:00Z",
+          },
+        ],
+      },
+    };
+    loggedInUser();
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByTestId("article-card-autumn-2026"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/article/[slug]",
+      params: { slug: "autumn-2026" },
+    });
   });
 
   it("サインアウトはホームに出さない（プロフィールの設定群に集約）", async () => {

@@ -19,6 +19,9 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
 * images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。プロキシのキャッシュも Purge。確認プロンプト付き）
+* articles:publish:       本番 D1 に記事を投入（確認プロンプト付き。issue #437）
+* articles:publish:preview: プレビュー D1 に記事を投入
+* articles:publish:local: ローカル D1 に記事を投入
 ```
 
 > wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
@@ -106,3 +109,45 @@ preview の API は `pr-<N>-animeishi-api-preview.*.workers.dev` で、
 
 使い方は `bash apps/api/scripts/takedown-work-images.sh --help`。プレビューは
 `--env preview`、ローカル（wrangler dev の D1・R2）は `--local` を直接付けて叩く。
+
+## 特集記事の投入（articles:publish）
+
+ホームの特集枠・記事詳細が読む `articles` テーブルに、frontmatter 付きの
+Markdown ファイルを投入する（issue #437）。実体は
+`apps/api/scripts/publish-article.mjs` で、frontmatter のパースと D1 への
+upsert は `apps/api/scripts/lib/frontmatter-content.mjs` に切り分けてある
+（#411 のイベント登録でも同じ仕組みを使うため）。
+
+### Markdown ファイルの形式
+
+記事ファイルはリポジトリに入れず、投入する人の手元で管理する
+（記事のたびにリリースが要らないようにする決定。issue #437）。
+
+```markdown
+---
+slug: autumn-2026                  # 必須。[a-z0-9][a-z0-9-]*。記事詳細の URL になる
+title: 今期の特集                   # 必須
+cover_image_url: https://...       # 省略可。特集枠のカードと詳細上部に出す画像
+published_at: 2026-11-10T09:00:00+09:00    # 必須。公開開始日時（ISO 8601）
+unpublished_at: 2026-12-01T00:00:00+09:00  # 省略可。公開終了日時。省略時は終了期限なし
+---
+
+本文 Markdown（# 見出し・箇条書き・リンクなど）
+```
+
+### 実行
+
+```sh
+pnpm task articles:publish -- /path/to/article.md          # 本番（確認プロンプト付き）
+pnpm task articles:publish:preview -- /path/to/article.md  # プレビュー
+pnpm task articles:publish:local -- /path/to/article.md    # ローカル D1
+```
+
+- 同じ slug で再投入すると上書きされる（`created_at` は初回投入時のまま）。
+  本文の修正・公開期間の変更は同じ slug で再投入する
+- 公開を止めたい記事は `unpublished_at` を過去日時にして再投入する
+  （行の削除手段はない。公開期間外の記事は API が一覧・詳細ともに返さない）
+- パスは `apps/api` からの相対か絶対パスで指定する。スペースを含むパスは
+  クオートする
+- ローカル D1 に投入する前に `vp run @animeishi/api#db:migrate:local` で
+  `articles` テーブルが作られていることを確認する
