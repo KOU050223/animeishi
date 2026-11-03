@@ -15,12 +15,189 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/theme";
 import {
   usePublicWorkList,
   useToggleWorkListLike,
 } from "@/lib/workList/useWorkLists";
 import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
 import type { ReportReason } from "@/lib/useModeration";
+
+type PublicWorkListDetail = NonNullable<
+  ReturnType<typeof usePublicWorkList>["data"]
+>;
+type PublicWorkListItem = PublicWorkListDetail["items"][number];
+
+function NotFound() {
+  return (
+    <View className="flex-1 items-center justify-center px-8">
+      <Text
+        className="text-center text-slate-500 dark:text-slate-400"
+        testID="public-work-list-not-found"
+      >
+        この作品リストは表示できません
+      </Text>
+    </View>
+  );
+}
+
+function Loading({ colors }: { colors: ThemeColors }) {
+  return (
+    <View className="flex-1 items-center justify-center">
+      <ActivityIndicator color={colors.textMuted} />
+    </View>
+  );
+}
+
+function LikeButton({
+  data,
+  isOwn,
+  pending,
+  colors,
+  onPress,
+}: {
+  data: PublicWorkListDetail;
+  isOwn: boolean;
+  pending: boolean;
+  colors: ThemeColors;
+  onPress: () => void;
+}) {
+  // 自分のリストにはいいね不可（API 側も 400 で弾く）。
+  const disabled = isOwn || pending;
+  return (
+    <TouchableOpacity
+      className="flex-row items-center gap-1.5 rounded-md px-1.5 py-1"
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={data.likedByMe ? "いいねを取り消す" : "いいねする"}
+      accessibilityState={{ disabled }}
+      testID="public-work-list-like"
+    >
+      <Ionicons
+        name={data.likedByMe ? "heart" : "heart-outline"}
+        size={22}
+        color={
+          isOwn
+            ? colors.textFaint
+            : data.likedByMe
+              ? colors.danger
+              : colors.textMuted
+        }
+      />
+      <Text
+        className={`text-base font-medium ${
+          data.likedByMe
+            ? "text-red-500 dark:text-red-400"
+            : "text-slate-600 dark:text-slate-300"
+        }`}
+      >
+        {data.likeCount}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function ReportButton({
+  colors,
+  onPress,
+}: {
+  colors: ThemeColors;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      className="flex-row items-center gap-1 rounded-md px-2 py-1.5"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="このリストを通報"
+      testID="public-work-list-report"
+    >
+      <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
+      <Text className="text-xs text-slate-500 dark:text-slate-400">通報</Text>
+    </TouchableOpacity>
+  );
+}
+
+function DetailHeader({
+  data,
+  isOwn,
+  likePending,
+  colors,
+  onPressOwner,
+  onPressLike,
+  onPressReport,
+}: {
+  data: PublicWorkListDetail;
+  isOwn: boolean;
+  likePending: boolean;
+  colors: ThemeColors;
+  onPressOwner: () => void;
+  onPressLike: () => void;
+  onPressReport: () => void;
+}) {
+  return (
+    <View className="pb-4 pt-4">
+      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        {data.title}
+      </Text>
+      {data.description ? (
+        <Text className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
+          {data.description}
+        </Text>
+      ) : null}
+      <TouchableOpacity
+        className="mt-2 flex-row items-center"
+        onPress={onPressOwner}
+        accessibilityRole="button"
+        accessibilityLabel={`${data.owner.username}のプロフィールを見る`}
+        testID="public-work-list-owner"
+      >
+        <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+          {data.owner.username}
+        </Text>
+      </TouchableOpacity>
+      <View className="mt-3 flex-row items-center justify-between">
+        <LikeButton
+          data={data}
+          isOwn={isOwn}
+          pending={likePending}
+          colors={colors}
+          onPress={onPressLike}
+        />
+        {isOwn ? null : (
+          <ReportButton colors={colors} onPress={onPressReport} />
+        )}
+      </View>
+    </View>
+  );
+}
+
+function WorkItemRow({
+  item,
+  index,
+}: {
+  item: PublicWorkListItem;
+  index: number;
+}) {
+  return (
+    <View
+      className="mb-2 flex-row items-center gap-3 rounded-lg border border-slate-200 p-2.5 dark:border-slate-700"
+      testID={`public-work-list-item-${item.annictWorkId}`}
+    >
+      <Text className="w-6 text-center text-xs text-slate-400 dark:text-slate-500">
+        {index + 1}
+      </Text>
+      <WorkThumbnail uri={item.hostedImageUrl} width={40} height={56} />
+      <Text
+        className="flex-1 text-sm font-medium text-slate-900 dark:text-slate-100"
+        numberOfLines={2}
+      >
+        {item.title}
+      </Text>
+    </View>
+  );
+}
 
 /**
  * 公開作品リストの閲覧画面（issue #422）。
@@ -96,123 +273,31 @@ export default function PublicWorkListScreen() {
         }}
       />
       {listId === null || detail.isError ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="public-work-list-not-found"
-          >
-            この作品リストは表示できません
-          </Text>
-        </View>
+        <NotFound />
       ) : detail.isLoading || !data ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={colors.textMuted} />
-        </View>
+        <Loading colors={colors} />
       ) : (
         <FlatList
           className="w-full max-w-2xl self-center px-6"
           data={data.items}
           keyExtractor={(item) => String(item.annictWorkId)}
           testID="public-work-list-items"
-          ListHeaderComponent={
-            <View className="pb-4 pt-4">
-              <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {data.title}
-              </Text>
-              {data.description ? (
-                <Text className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
-                  {data.description}
-                </Text>
-              ) : null}
-              <TouchableOpacity
-                className="mt-2 flex-row items-center"
-                onPress={() =>
-                  router.push({
-                    pathname: "/user/[uid]",
-                    params: { uid: data.owner.userId },
-                  })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`${data.owner.username}のプロフィールを見る`}
-                testID="public-work-list-owner"
-              >
-                <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-                  {data.owner.username}
-                </Text>
-              </TouchableOpacity>
-              <View className="mt-3 flex-row items-center justify-between">
-                <TouchableOpacity
-                  className="flex-row items-center gap-1.5 rounded-md px-1.5 py-1"
-                  onPress={onPressLike}
-                  // 自分のリストにはいいね不可（API 側も 400 で弾く）。
-                  disabled={isOwn || toggleLike.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    data.likedByMe ? "いいねを取り消す" : "いいねする"
-                  }
-                  accessibilityState={{
-                    disabled: isOwn || toggleLike.isPending,
-                  }}
-                  testID="public-work-list-like"
-                >
-                  <Ionicons
-                    name={data.likedByMe ? "heart" : "heart-outline"}
-                    size={22}
-                    color={
-                      isOwn
-                        ? colors.textFaint
-                        : data.likedByMe
-                          ? colors.danger
-                          : colors.textMuted
-                    }
-                  />
-                  <Text
-                    className={`text-base font-medium ${
-                      data.likedByMe
-                        ? "text-red-500 dark:text-red-400"
-                        : "text-slate-600 dark:text-slate-300"
-                    }`}
-                  >
-                    {data.likeCount}
-                  </Text>
-                </TouchableOpacity>
-                {!isOwn ? (
-                  <TouchableOpacity
-                    className="flex-row items-center gap-1 rounded-md px-2 py-1.5"
-                    onPress={() => setReportSheetOpen(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="このリストを通報"
-                    testID="public-work-list-report"
-                  >
-                    <Ionicons
-                      name="flag-outline"
-                      size={14}
-                      color={colors.textMuted}
-                    />
-                    <Text className="text-xs text-slate-500 dark:text-slate-400">
-                      通報
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </View>
-          }
+          ListHeaderComponent=<DetailHeader
+            data={data}
+            isOwn={isOwn}
+            likePending={toggleLike.isPending}
+            colors={colors}
+            onPressOwner={() =>
+              router.push({
+                pathname: "/user/[uid]",
+                params: { uid: data.owner.userId },
+              })
+            }
+            onPressLike={onPressLike}
+            onPressReport={() => setReportSheetOpen(true)}
+          />
           renderItem={({ item, index }) => (
-            <View
-              className="mb-2 flex-row items-center gap-3 rounded-lg border border-slate-200 p-2.5 dark:border-slate-700"
-              testID={`public-work-list-item-${item.annictWorkId}`}
-            >
-              <Text className="w-6 text-center text-xs text-slate-400 dark:text-slate-500">
-                {index + 1}
-              </Text>
-              <WorkThumbnail uri={item.hostedImageUrl} width={40} height={56} />
-              <Text
-                className="flex-1 text-sm font-medium text-slate-900 dark:text-slate-100"
-                numberOfLines={2}
-              >
-                {item.title}
-              </Text>
-            </View>
+            <WorkItemRow item={item} index={index} />
           )}
           ListEmptyComponent={
             <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
