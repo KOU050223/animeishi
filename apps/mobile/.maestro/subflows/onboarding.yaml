@@ -1,0 +1,14 @@
+# サインアップ直後の初回オンボーディング（issue #412）を通過する部品。
+# 各画面右上の「スキップ」で最速脱出し、完了/スキップ記録を残す。
+# オンボーディングが表示されていなければ何もしない
+# （sign-in 等の他経路から誤用されても無害にする）。
+appId: com.animeishi.app
+---
+- extendedWaitUntil:
+    visible:
+      id: onboarding-skip
+    timeout: 15000
+    optional: true
+- tapOn:
+    id: onboarding-skip
+    optional: true

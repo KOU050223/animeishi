@@ -85,13 +85,13 @@ describe("SsoCallbackScreen（Web）", () => {
     });
   });
 
-  it("フラグ無効では新規登録完了でもホームへ遷移する", async () => {
+  it("フラグ無効では新規登録完了はオンボーディングへ遷移する（issue #412）", async () => {
     simulateOAuthResult("signup");
 
     await render(<SsoCallbackScreen />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      expect(mockReplace).toHaveBeenCalledWith("/onboarding?fresh=1");
     });
   });
 

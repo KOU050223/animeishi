@@ -326,6 +326,17 @@ const DDL_STATEMENTS = [
     free_text TEXT,
     created_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS articles (
+    slug TEXT PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    cover_image_url TEXT,
+    published_at INTEGER NOT NULL,
+    unpublished_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS articles_published_idx ON articles (published_at)`,
 ];
 
 /**
@@ -364,6 +375,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
+  await d1.prepare("DELETE FROM articles").run();
   await d1.prepare("DELETE FROM users").run();
   await d1.prepare("DELETE FROM annict_work_casts").run();
   await d1.prepare("DELETE FROM annict_characters").run();

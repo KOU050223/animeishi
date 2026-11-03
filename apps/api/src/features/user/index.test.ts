@@ -6,6 +6,7 @@ import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { user } from "@/features/user";
 import {
   annictWorks,
+  episodeRecords,
   favorites,
   users,
   userGenres,
@@ -316,6 +317,140 @@ describe("GET /user/:uid", () => {
       // サマリの表示物が無いのに注記だけ出るのを防ぐ。
       expect(html).not.toContain('class="stats"');
       expect(html).not.toContain("スナップショット");
+    });
+  });
+
+  // issue #420: 「いま見ている」吹き出し用の直近話数記録（episode_records）。
+  describe("nowWatching", () => {
+    async function insertEpisodeRecord(
+      uid: string,
+      record: {
+        annictWorkId: number;
+        annictEpisodeId: number;
+        recordedAt: Date;
+      },
+    ) {
+      await db.insert(episodeRecords).values({
+        userId: uid,
+        annictWorkId: record.annictWorkId,
+        annictEpisodeId: record.annictEpisodeId,
+        source: "animeishi",
+        recordedAt: record.recordedAt,
+        createdAt: new Date(),
+      });
+    }
+
+    it("直近 24 時間以内の記録があれば最新 1 件を返す", async () => {
+      await insertPublicUser(db, "user_nw001");
+      const now = new Date();
+      await db.insert(annictWorks).values([
+        {
+          annictWorkId: 3001,
+          title: "旧作",
+          seasonName: "2025-autumn",
+          seasonYear: 2025,
+          updatedAt: now,
+        },
+        {
+          annictWorkId: 3002,
+          title: "新作",
+          titleEn: "New Anime",
+          seasonName: "2026-autumn",
+          seasonYear: 2026,
+          updatedAt: now,
+        },
+      ]);
+      // 2 件あるうち新しいほう（3002）だけが返る。
+      await insertEpisodeRecord("user_nw001", {
+        annictWorkId: 3001,
+        annictEpisodeId: 501,
+        recordedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      });
+      // recorded_at は秒精度で保存されるため、比較用に切り下げる。
+      const latestRecordedAt = new Date(
+        Math.floor(Date.now() / 1000) * 1000 - 60 * 1000,
+      );
+      await insertEpisodeRecord("user_nw001", {
+        annictWorkId: 3002,
+        annictEpisodeId: 502,
+        recordedAt: latestRecordedAt,
+      });
+      // 他人の記録は混ざらない。
+      await insertPublicUser(db, "user_other001");
+      await insertEpisodeRecord("user_other001", {
+        annictWorkId: 3001,
+        annictEpisodeId: 503,
+        recordedAt: new Date(),
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_nw001",
+        { method: "GET", headers: { Accept: "application/json" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        nowWatching: {
+          annictWorkId: number;
+          annictEpisodeId: number;
+          title: string;
+          titleEn: string | null;
+          seasonName: string | null;
+          seasonYear: number | null;
+          hostedImageUrl: string | null;
+          recordedAt: string;
+        } | null;
+      };
+      expect(body.nowWatching).not.toBeNull();
+      expect(body.nowWatching?.annictWorkId).toBe(3002);
+      expect(body.nowWatching?.annictEpisodeId).toBe(502);
+      expect(body.nowWatching?.title).toBe("新作");
+      expect(body.nowWatching?.titleEn).toBe("New Anime");
+      expect(body.nowWatching?.seasonName).toBe("2026-autumn");
+      expect(body.nowWatching?.seasonYear).toBe(2026);
+      expect(body.nowWatching?.hostedImageUrl).toBe(
+        "http://localhost/images/works/3002",
+      );
+      expect(body.nowWatching?.recordedAt).toBe(latestRecordedAt.toISOString());
+    });
+
+    it("24 時間より古い記録しか無ければ nowWatching は null", async () => {
+      await insertPublicUser(db, "user_nw002");
+      await db.insert(annictWorks).values({
+        annictWorkId: 3001,
+        title: "旧作",
+        updatedAt: new Date(),
+      });
+      await insertEpisodeRecord("user_nw002", {
+        annictWorkId: 3001,
+        annictEpisodeId: 501,
+        recordedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_nw002",
+        { method: "GET", headers: { Accept: "application/json" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { nowWatching: unknown };
+      expect(body.nowWatching).toBeNull();
+    });
+
+    it("記録が無ければ nowWatching は null", async () => {
+      await insertPublicUser(db, "user_nw003");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/user/user_nw003",
+        { method: "GET", headers: { Accept: "application/json" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { nowWatching: unknown };
+      expect(body.nowWatching).toBeNull();
     });
   });
 

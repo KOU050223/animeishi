@@ -23,6 +23,7 @@ import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
@@ -76,7 +77,10 @@ function AuthGuard() {
       inAuthGroup &&
       // サインアップ直後のパスキー登録促進ステップ表示中は (auth) に残す
       // （issue #326。setActive 前に立つので effect の発火順には依らない）
-      !passkeyPromptPending.current
+      !passkeyPromptPending.current &&
+      // サインアップ完了 → オンボーディングへの遷移中も同じく追い出さない
+      // （issue #412。パスキー促進と同じ仕組み）
+      !onboardingPending.current
     ) {
       router.replace("/");
     }
@@ -114,8 +118,14 @@ function AuthGuard() {
       {/* サインアップ直後のパスキー登録促進（Web）。戻る先が無い画面のため
           ヘッダーは出さない。 */}
       <Stack.Screen name="passkey-prompt" options={{ headerShown: false }} />
+      {/* サインアップ直後の初回オンボーディング（issue #412）。1 画面 1 問の
+          没入型フローで、戻る先が無いためヘッダーは出さない。 */}
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       {/* 名刺エディタ（没入型ツール画面。カスタムクロム維持） */}
       <Stack.Screen name="meishi/edit" options={{ headerShown: false }} />
+      {/* 名刺のデッキ一覧と全画面表示（issue #427。カスタムクロム維持） */}
+      <Stack.Screen name="meishi/index" options={{ headerShown: false }} />
+      <Stack.Screen name="meishi/[id]" options={{ headerShown: false }} />
       {/* tier 表の作成導線と自由作成一覧（issue #348） */}
       <Stack.Screen name="tier-lists" />
       {/* シーズンごとのアニメ tier 表（没入型。以下 2 画面も同様） */}

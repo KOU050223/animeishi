@@ -5,8 +5,13 @@ import {
   findUserGenres,
   usersRepository,
 } from "../users/repository";
-import { findUserWatchSummary } from "./repository";
-import { buildOgpHtml, buildWebProfileUrl, notFoundHtml } from "./service";
+import { findNowWatching, findUserWatchSummary } from "./repository";
+import {
+  buildOgpHtml,
+  buildWebProfileUrl,
+  notFoundHtml,
+  nowWatchingResponse,
+} from "./service";
 import { optionalAuth } from "@/middleware/auth";
 import type { Env } from "@/db/client";
 
@@ -81,6 +86,10 @@ const user = new Hono<UserRouteEnv>()
       });
     }
 
+    // 「いま見ている」吹き出し用の直近話数記録（issue #420）。JSON 応答に
+    // だけ載せ、OGP HTML（共有ページ）には出さない。
+    const nowWatching = await findNowWatching(db, uid);
+
     return c.json(
       {
         id: profile.id,
@@ -90,6 +99,9 @@ const user = new Hono<UserRouteEnv>()
         profileImageUrl: profile.profileImageUrl,
         genres: genreList,
         watchSummary,
+        nowWatching: nowWatching
+          ? nowWatchingResponse(nowWatching, c.req.url)
+          : null,
       },
       200,
     );

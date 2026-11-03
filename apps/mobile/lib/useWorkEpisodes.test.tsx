@@ -12,6 +12,8 @@ import {
   useUnrecordEpisode,
   useWorkEpisodes,
 } from "@/lib/useWorkEpisodes";
+import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { publicProfileQueryKey } from "@/lib/publicProfile";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
@@ -155,6 +157,59 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
+  });
+
+  // issue #420: 「いま見ている」吹き出しは本人の最新記録に追従するため、
+  // 記録・解除の settle 時に本人のプロフィール系クエリも無効化する。
+  it("記録が settle すると本人のプロフィール系クエリも無効化する", async () => {
+    client.setQueryData(queryKey, seedEpisodes());
+    const profileKey = [...PROFILE_QUERY_KEY, USER_ID];
+    const publicProfileKey = publicProfileQueryKey(USER_ID);
+    client.setQueryData(profileKey, {});
+    client.setQueryData(publicProfileKey, {});
+    mockPut.mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: true }),
+    });
+
+    const { result } = await renderHook(
+      () => useRecordEpisode(ANNICT_WORK_ID),
+      { wrapper: createWrapper(client) },
+    );
+
+    await act(() => {
+      result.current.mutate(101);
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryState(profileKey)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(publicProfileKey)?.isInvalidated).toBe(true);
+  });
+
+  it("解除が settle すると本人のプロフィール系クエリも無効化する", async () => {
+    client.setQueryData(queryKey, seedEpisodes());
+    const profileKey = [...PROFILE_QUERY_KEY, USER_ID];
+    const publicProfileKey = publicProfileQueryKey(USER_ID);
+    client.setQueryData(profileKey, {});
+    client.setQueryData(publicProfileKey, {});
+    mockDelete.mockResolvedValue({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({ success: true }),
+    });
+
+    const { result } = await renderHook(
+      () => useUnrecordEpisode(ANNICT_WORK_ID),
+      { wrapper: createWrapper(client) },
+    );
+
+    await act(() => {
+      result.current.mutate(102);
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryState(profileKey)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(publicProfileKey)?.isInvalidated).toBe(true);
   });
 
   it("記録が失敗したらチェックを元に戻し rolledBack を立てる", async () => {
