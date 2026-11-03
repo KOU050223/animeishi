@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -159,16 +160,16 @@ export function CreateSection() {
           まだありません。上のボタンから作れます
         </Text>
       ) : (
-        <ScrollView
+        <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-3"
           contentContainerClassName="gap-3"
           testID="hiroba-tier-rail"
-        >
-          {tierItems.map((item) => (
+          data={tierItems}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              key={item.key}
               className="w-40 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
               onPress={() => openTierItem(item)}
               accessibilityRole="button"
@@ -194,8 +195,8 @@ export function CreateSection() {
                 </Text>
               ) : null}
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        />
       )}
 
       <RailHeader
@@ -216,16 +217,16 @@ export function CreateSection() {
           まだありません。「作品リスト」から作れます
         </Text>
       ) : (
-        <ScrollView
+        <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-3"
           contentContainerClassName="gap-3"
           testID="hiroba-work-list-rail"
-        >
-          {(workLists.data ?? []).slice(0, RAIL_MAX_ITEMS).map((item) => (
+          data={(workLists.data ?? []).slice(0, RAIL_MAX_ITEMS)}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              key={item.id}
               className="w-40 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
               onPress={() =>
                 router.push({
@@ -247,8 +248,8 @@ export function CreateSection() {
                 {item.itemCount} 作品{item.shareToken ? " ・ 共有中" : ""}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        />
       )}
 
       <CharacterTierWorkPicker

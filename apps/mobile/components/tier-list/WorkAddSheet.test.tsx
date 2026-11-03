@@ -51,6 +51,7 @@ const sheetElement = (
     visible?: boolean;
     onAdd?: jest.Mock;
     existingWorkIds?: ReadonlySet<number>;
+    actionLabel?: string;
   } = {},
 ) => (
   <WorkAddSheet
@@ -60,6 +61,7 @@ const sheetElement = (
     existingWorkIds={props.existingWorkIds ?? new Set()}
     heading="作品を追加"
     description="説明文"
+    actionLabel={props.actionLabel ?? "追加"}
   />
 );
 
@@ -81,6 +83,17 @@ describe("WorkAddSheet", () => {
       // 盤面には作品画像プロキシの URL だけを渡す（issue #224）
       imageUrl: "https://api.example/images/works/42",
     });
+  });
+
+  it("actionLabel は行の表示文言と読み上げラベルの両方に反映される", async () => {
+    const { getByTestId, getByText } = await render(
+      sheetElement({ actionLabel: "選ぶ" }),
+    );
+
+    expect(getByText("選ぶ")).toBeTruthy();
+    expect(getByTestId("work-add-item-42").props.accessibilityLabel).toBe(
+      "劇場版テストを選ぶ",
+    );
   });
 
   it("盤面に既にある作品は「追加済み」になりタップしても onAdd されない", async () => {
