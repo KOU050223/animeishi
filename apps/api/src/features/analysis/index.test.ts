@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { analysis } from "@/features/analysis";
-import { analyses, annictWorks, users, watchHistory } from "@/db/schema";
+import {
+  analyses,
+  annictWorks,
+  users,
+  watchHistory,
+  workRatings,
+} from "@/db/schema";
 import {
   ANALYSIS_MODEL,
   buildAnalysisInput,
@@ -149,6 +155,21 @@ describe("視聴傾向分析 API", () => {
     );
   }
 
+  async function seedRating(
+    annictWorkId: number,
+    rating: "bad" | "good" | "great",
+    userId = USER_ID,
+  ) {
+    const now = new Date();
+    await db.insert(workRatings).values({
+      userId,
+      annictWorkId,
+      rating,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
   function postAnalysis() {
     return buildApp().request(
       "/me/analysis",
@@ -248,6 +269,46 @@ describe("視聴傾向分析 API", () => {
       });
       expect(row?.summary).toBe(AI_PAYLOAD.summary);
       expect(row?.generationCount).toBe(1);
+    });
+
+    it("POST /me/analysis: 作品の評価をプロンプトに含める（issue #416）", async () => {
+      await seedHistory([101, 102]);
+      await seedRating(101, "great");
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const res = await postAnalysis();
+      expect(res.status).toBe(200);
+      const [, inputs] = aiRun.mock.calls[0] as unknown as [
+        string,
+        { messages: { role: string; content: string }[] },
+      ];
+      const user = inputs.messages.find((m) => m.role === "user");
+      const promptText = user?.content ?? "";
+      // 評価付きの作品には rating ラベル（最高）が載り、
+      // 評価の無い作品には載らない。
+      const worksJson = promptText.match(/"works": \[([\s\S]*?)\]/)?.[1] ?? "";
+      expect(worksJson).toContain('"rating": "最高"');
+      expect(worksJson.match(/"rating":/g)).toHaveLength(1);
+    });
+
+    it("POST /me/analysis: 評価を変えると入力が変わり再生成される", async () => {
+      await seedHistory([101]);
+      await seedRating(101, "good");
+      aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
+
+      const first = await postAnalysis();
+      const firstBody = (await first.json()) as { cached: boolean };
+      expect(firstBody.cached).toBe(false);
+
+      // 評価の変更は入力ハッシュを変えるため、キャッシュではなく再生成になる。
+      await db
+        .update(workRatings)
+        .set({ rating: "bad" })
+        .where(eq(workRatings.userId, USER_ID));
+      const second = await postAnalysis();
+      const secondBody = (await second.json()) as { cached: boolean };
+      expect(secondBody.cached).toBe(false);
+      expect(aiRun).toHaveBeenCalledTimes(2);
     });
 
     it("POST /me/analysis: 応答に含まれないジャンル候補外の値は捨てる", async () => {
@@ -761,20 +822,27 @@ describe("computeInputHash", () => {
     const a = buildAnalysisInput(
       [historyRow(1, "WATCHED"), historyRow(2, "WATCHING")],
       [],
+      [],
     );
     const b = buildAnalysisInput(
       [historyRow(2, "WATCHING"), historyRow(1, "WATCHED")],
+      [],
       [],
     );
     expect(await computeInputHash(a)).not.toBe(await computeInputHash(b));
   });
 
   it("履歴・選択ジャンル・タイトルが変わるとハッシュが変わる", async () => {
-    const base = buildAnalysisInput([historyRow(1, "WATCHED")], []);
+    const base = buildAnalysisInput([historyRow(1, "WATCHED")], [], []);
     const genreChanged = { ...base, selectedGenres: ["SF"] };
-    const stateChanged = buildAnalysisInput([historyRow(1, "WATCHING")], []);
+    const stateChanged = buildAnalysisInput(
+      [historyRow(1, "WATCHING")],
+      [],
+      [],
+    );
     const titleChanged = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), title: "別タイトル" }],
+      [],
       [],
     );
     const baseHash = await computeInputHash(base);
@@ -786,17 +854,20 @@ describe("computeInputHash", () => {
   it("作品メタ（ジャンル・放送年・視聴者数）だけが変わってもハッシュが変わる", async () => {
     // レポート集計は履歴行ではなく作品メタに依存するため、cron 等で
     // メタだけが後から埋まった場合も古い集計を返さないようにする。
-    const base = buildAnalysisInput([historyRow(1, "WATCHED")], []);
+    const base = buildAnalysisInput([historyRow(1, "WATCHED")], [], []);
     const genresFilled = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), genres: ["Action"] }],
+      [],
       [],
     );
     const yearChanged = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), seasonYear: 2020 }],
       [],
+      [],
     );
     const watchersChanged = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), watchersCount: 500 }],
+      [],
       [],
     );
     const baseHash = await computeInputHash(base);
@@ -805,13 +876,50 @@ describe("computeInputHash", () => {
     expect(await computeInputHash(watchersChanged)).not.toBe(baseHash);
   });
 
+  it("評価が変わるとハッシュが変わる", async () => {
+    // 評価はプロンプト入力の一部なので、追加・変更・削除のいずれでも
+    // キャッシュを無効化する。
+    const history = [historyRow(1, "WATCHED")];
+    const rated = buildAnalysisInput(
+      history,
+      [],
+      [{ annictWorkId: 1, rating: "great" }],
+    );
+    const changed = buildAnalysisInput(
+      history,
+      [],
+      [{ annictWorkId: 1, rating: "bad" }],
+    );
+    const unrated = buildAnalysisInput(history, [], []);
+    const ratedHash = await computeInputHash(rated);
+    expect(await computeInputHash(changed)).not.toBe(ratedHash);
+    expect(await computeInputHash(unrated)).not.toBe(ratedHash);
+  });
+
+  it("プロンプト上限以降の作品の評価でもハッシュが変わる", async () => {
+    // works は 50 件に丸めるが、ハッシュ用の workKeys は全件持つため、
+    // プロンプトに載らない作品への評価でも無効化される。
+    const history = Array.from({ length: 60 }, (_, i) =>
+      historyRow(i + 1, "WATCHED"),
+    );
+    const a = buildAnalysisInput(history, [], []);
+    const b = buildAnalysisInput(
+      history,
+      [],
+      [{ annictWorkId: 55, rating: "good" }],
+    );
+    expect(await computeInputHash(a)).not.toBe(await computeInputHash(b));
+  });
+
   it("ジャンルの並び順だけが違ってもハッシュは変わらない", async () => {
     const a = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), genres: ["Action", "Drama"] }],
       [],
+      [],
     );
     const b = buildAnalysisInput(
       [{ ...historyRow(1, "WATCHED"), genres: ["Drama", "Action"] }],
+      [],
       [],
     );
     expect(await computeInputHash(a)).toBe(await computeInputHash(b));
@@ -821,6 +929,7 @@ describe("computeInputHash", () => {
     const base = buildAnalysisInput(
       Array.from({ length: 60 }, (_, i) => historyRow(i + 1, "WATCHED")),
       [],
+      [],
     );
     // 51 件目以降（プロンプトには載らない範囲）の状態だけ変更する。
     const tailChanged = buildAnalysisInput(
@@ -829,6 +938,7 @@ describe("computeInputHash", () => {
         historyRow(51, "WATCHING"),
         ...Array.from({ length: 9 }, (_, i) => historyRow(52 + i, "WATCHED")),
       ],
+      [],
       [],
     );
     expect(await computeInputHash(tailChanged)).not.toBe(
@@ -856,8 +966,12 @@ describe("runAnalysis", () => {
         {
           totalCount: 1,
           stateCounts: { WATCHED: 1 },
-          works: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
-          workKeys: [{ annictWorkId: 1, title: "作品", state: "WATCHED" }],
+          works: [
+            { annictWorkId: 1, title: "作品", state: "WATCHED", rating: null },
+          ],
+          workKeys: [
+            { annictWorkId: 1, title: "作品", state: "WATCHED", rating: null },
+          ],
           workMeta: [],
           selectedGenres: [],
         },

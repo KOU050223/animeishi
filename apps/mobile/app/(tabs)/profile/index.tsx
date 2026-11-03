@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type ScrollViewInstance,
 } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { GroupedList } from "@/components/ui/grouped-list";
 import { MeishiCard } from "@/components/MeishiCard";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { AnnictConnectionStatusRow } from "@/components/profile/AnnictConnectionStatusRow";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
 import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
@@ -69,6 +71,17 @@ export default function ProfileScreen() {
   } = useAddToAppleWallet();
   // pkpass 署名が未実装（#103）の間はフラグでボタン自体を出さない。
   const showWalletButton = featureFlags.wallet && canUseWallet;
+
+  // 画面上部の連携ステータス行（#424）をタップしたとき、詳細・解除を持つ
+  // 従来の連携カードの位置までスクロールするための参照。
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const annictCardY = useRef(0);
+  const scrollToAnnictCard = useCallback(() => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(annictCardY.current - 12, 0),
+      animated: true,
+    });
+  }, []);
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -150,6 +163,7 @@ export default function ProfileScreen() {
       style={{ paddingTop: headerHeight }}
     >
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerClassName={
           isLoading || isError
@@ -181,6 +195,18 @@ export default function ProfileScreen() {
           </>
         ) : (
           <>
+            {/* 連携状態をスクロールせずに見える位置に 1 行で出す（issue #424）。
+                詳細・解除は下の従来の連携カードに残す。 */}
+            <View className="mb-4 px-4 pt-2">
+              <AnnictConnectionStatusRow
+                connectedLabel="Annict と連携済み"
+                unconnectedLabel="Annict と連携していません"
+                connectLabel="連携する"
+                surface="profile_header"
+                onShowDetails={scrollToAnnictCard}
+              />
+            </View>
+
             <View className="px-4">
               <Text className="mb-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                 名刺プレビュー
@@ -325,7 +351,12 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <View className="mt-6 px-4">
+            <View
+              className="mt-6 px-4"
+              onLayout={(e) => {
+                annictCardY.current = e.nativeEvent.layout.y;
+              }}
+            >
               <AnnictConnectionCard surface="profile_card" />
             </View>
 

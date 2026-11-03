@@ -37,6 +37,13 @@ jest.mock("@/components/AnnictConnectionCard", () => ({
   },
 }));
 
+jest.mock("@/components/profile/AnnictConnectionStatusRow", () => ({
+  AnnictConnectionStatusRow: () => {
+    const { Text } = require("react-native");
+    return <Text>Annict連携ステータス</Text>;
+  },
+}));
+
 jest.mock("@/components/AppVersionFooter", () => ({
   AppVersionFooter: () => {
     const { Text } = require("react-native");
@@ -155,6 +162,12 @@ describe("ProfileScreen の Annict 連携セクション", () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByText("Annict連携")).toBeTruthy();
+  });
+
+  it("画面上部に連携状態の 1 行表示を出す（スクロール不要で状態が分かる）", async () => {
+    await render(<ProfileScreen />);
+
+    expect(screen.getByText("Annict連携ステータス")).toBeTruthy();
   });
 
   it("プロフィール取得エラー時も連携カードを表示する（解除導線を残す）", async () => {

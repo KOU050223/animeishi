@@ -88,6 +88,19 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS friends_user_friend_unique ON friends (user_id, friend_id)`,
   `CREATE INDEX IF NOT EXISTS friends_user_idx ON friends (user_id)`,
+  `CREATE TABLE IF NOT EXISTS work_ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    rating TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    CONSTRAINT work_ratings_rating_check CHECK (rating IN ('bad', 'good', 'great')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS work_ratings_user_work_unique ON work_ratings (user_id, annict_work_id)`,
+  `CREATE INDEX IF NOT EXISTS work_ratings_user_idx ON work_ratings (user_id)`,
   `CREATE TABLE IF NOT EXISTS user_genres (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -335,6 +348,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM user_genres").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
+  await d1.prepare("DELETE FROM work_ratings").run();
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
@@ -345,7 +359,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
     )
     .run();
   return db;

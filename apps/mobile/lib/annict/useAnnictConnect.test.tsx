@@ -215,3 +215,42 @@ describe("ファネル計測（oauth_result）", () => {
     expect(funnelCalls()[0]["annict.result"]).toBe("cancelled");
   });
 });
+
+describe("評価クエリのキャッシュ扱い（issue #416 レビュー）", () => {
+  it("連携成功で評価クエリを無効化し Annict 初期評価を取り直す", async () => {
+    mockOpenAuthSession.mockResolvedValueOnce({
+      type: "success",
+      url: "animeishi://annict?code=abc&state=test-state",
+    });
+    apiClient.me.annict.exchange.$post.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ accessToken: "annict_token" }),
+    });
+    const invalidateSpy = jest.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries",
+    );
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
+
+    await act(async () => {
+      await result.current.connect();
+    });
+
+    // 未連携時に取った annictRating: null のキャッシュを残さない。
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-ratings"],
+    });
+  });
+
+  it("解除で評価クエリのキャッシュを破棄する", async () => {
+    const removeSpy = jest.spyOn(QueryClient.prototype, "removeQueries");
+    const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
+
+    await act(async () => {
+      await result.current.disconnect();
+    });
+
+    // annictRating（Annict レビュー由来の初期値候補）は連携前提のため。
+    expect(removeSpy).toHaveBeenCalledWith({ queryKey: ["work-ratings"] });
+  });
+});
