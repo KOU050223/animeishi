@@ -474,5 +474,10 @@ export function ElementRenderer({
           renderScale={renderScale}
         />
       );
+    default:
+      // 新しいバージョンのアプリで追加された要素種別を含むドキュメントを
+      // 開いたとき、その要素だけ省略してカード全体は描画できるようにする
+      // （undefined を返すと React が描画エラーにするため null を返す）。
+      return null;
   }
 }

@@ -89,6 +89,19 @@ export function diffNewlyEarned(
 }
 
 /**
+ * 既見キーに今回の獲得キーを和集合で足して返す。
+ * 「今回獲得できたもの」で全置換しないのは、Annict 障害などで一時的に
+ * 判定できなかった実績が既見から消え、復旧後に同じ実績を再度
+ * お祝いしてしまうのを防ぐため。
+ */
+export function mergeSeenKeys(
+  seenKeys: ReadonlySet<string>,
+  earnedKeys: readonly string[],
+): Set<string> {
+  return new Set([...seenKeys, ...earnedKeys]);
+}
+
+/**
  * 名刺の実績バッジ要素に表示するラベル。
  * 獲得済みなら最高段の名前（例「視聴 100 作品」）、未獲得なら
  * 最初の段の名前に（未獲得）を付ける。データ未取得時も未獲得として出す。

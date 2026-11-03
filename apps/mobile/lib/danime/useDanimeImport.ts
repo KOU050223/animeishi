@@ -16,6 +16,7 @@ import {
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
 // （API 側がキャッシュ→Annict の順で正規解決する。クライアント提供値を
@@ -319,6 +320,11 @@ export function useBulkRegisterWatchHistory() {
     // onSuccess（= mutationFn が正常終了した場合）で必ず無効化する。
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      // 一括登録は視聴数バッジの判定入力（WATCHED 件数）を増やすため
+      // 実績クエリも無効化する（issue #415）。
+      void queryClient.invalidateQueries({
+        queryKey: ACHIEVEMENTS_QUERY_KEY,
+      });
     },
   });
 }

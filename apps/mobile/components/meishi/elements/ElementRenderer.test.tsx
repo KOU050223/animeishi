@@ -5,6 +5,7 @@ import { ElementRenderer } from "@/components/meishi/elements/ElementRenderer";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,
+  MeishiElement,
   MeishiRenderContext,
   TextElement,
 } from "@/lib/meishi/types";
@@ -254,5 +255,25 @@ describe("ElementRenderer", () => {
         ),
       ).toBe("今期完走（未獲得）");
     });
+  });
+
+  it("未知の要素種別は描画を省略してもエラーにしない", async () => {
+    // 新しいバージョンで追加された要素を含むドキュメントを旧バージョンが
+    // 開いた場合に、その要素だけをスキップしてカード全体は描画する。
+    const unknown = {
+      id: "future-1",
+      type: "futureElement",
+      transform: { x: 0, y: 0, width: 0.4, height: 0.1, rotation: 0 },
+    } as unknown as MeishiElement;
+    const rendered = await render(
+      <ElementRenderer
+        element={unknown}
+        ctx={{ profile: {} }}
+        boxWidth={200}
+        boxHeight={40}
+        renderScale={1}
+      />,
+    );
+    expect(rendered.container.children).toHaveLength(0);
   });
 });

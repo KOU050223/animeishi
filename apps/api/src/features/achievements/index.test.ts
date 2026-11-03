@@ -351,6 +351,67 @@ describe("実績 API", () => {
       expect(a?.work?.title).toBe("未完の作品");
     });
 
+    it("候補が 50 本を超えても全件を照合し、完走済みの短編を見落とさない", async () => {
+      const season = currentAnnictSeason();
+      const now = new Date();
+      const w = currentWeekIndex();
+      let recordId = 9000;
+      const masters: Record<number, number[]> = {};
+      // 未完の長編 50 本（各 10 話記録・全 12 話）。記録話数順では
+      // 完走した短編より先に並び、1 チャンク目を占める。
+      for (let i = 0; i < 50; i++) {
+        const workId = 9000 + i;
+        await db.insert(annictWorks).values({
+          annictWorkId: workId,
+          title: `未完${i}`,
+          seasonName: season,
+          updatedAt: now,
+        });
+        const recorded: number[] = [];
+        for (let ep = 0; ep < 10; ep++) {
+          const epId = i * 100 + ep;
+          recorded.push(epId);
+          await seedEpisodeRecord({
+            annictWorkId: workId,
+            annictEpisodeId: epId,
+            annictRecordId: recordId++,
+            recordedAt: weekDate(w),
+          });
+        }
+        masters[workId] = [...recorded, i * 100 + 10, i * 100 + 11];
+      }
+      // 完走した 1 話完結の短編。記録話数が最少のため末尾のチャンクに回る。
+      await db.insert(annictWorks).values({
+        annictWorkId: 9060,
+        title: "完走の短編",
+        seasonName: season,
+        updatedAt: now,
+      });
+      await seedEpisodeRecord({
+        annictWorkId: 9060,
+        annictEpisodeId: 999001,
+        annictRecordId: recordId++,
+        recordedAt: weekDate(w),
+      });
+      masters[9060] = [999001];
+
+      const fetchSpy = mockAnnictEpisodeIds(masters);
+
+      const res = await getAchievements(ANNICT_HEADER);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { achievements: AchievementBody[] };
+      const a = byId(body.achievements).get("season_completion");
+      expect(a?.earned).toBe(true);
+      expect(a?.work?.annictWorkId).toBe(9060);
+      // 50 件超の候補は上限 50 件ずつの 2 リクエストに分けて取得する。
+      const bulkCalls = fetchSpy.mock.calls.filter((c) =>
+        (JSON.parse((c[1]?.body as string) ?? "{}").query ?? "").includes(
+          "episodes(first: 100",
+        ),
+      );
+      expect(bulkCalls.length).toBe(2);
+    });
+
     it("Annict 障害時は今期完走だけ判定不可に倒し、他の実績は返す", async () => {
       const fetchMock: Mock<typeof fetch> = vi
         .spyOn(globalThis, "fetch")

@@ -31,11 +31,8 @@ function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   };
 }
 
-// 今期完走の判定対象に取る作品数の上限。今期 1 クールに記録を付ける
-// 作品数は実際は数十本までなので、記録話数の多い順に絞る
-// （Annict の searchWorks(annictIds:) が 1 リクエスト 50 件までという
-// 制約とも揃える）。
-const MAX_SEASON_CANDIDATES = 50;
+// fetchAnnictWorksEpisodeIds（searchWorks(annictIds:)）の 1 リクエスト上限。
+const SEASON_CANDIDATE_CHUNK = 50;
 
 function unavailableSeasonCompletion(): Achievement {
   return {
@@ -52,6 +49,10 @@ function unavailableSeasonCompletion(): Achievement {
  * 今期の記録対象作品について、Annict の話数マスタと突き合わせて
  * 今期完走を判定する。候補が無い（今期の記録が無い）場合は
  * Annict を呼ばずに未獲得として返す。
+ *
+ * 候補は件数で打ち切らない。記録話数だけでは完走かどうか分からず、
+ * 打ち切ると完走済みの短編が候補から漏れて獲得済みを未獲得と誤判定
+ * するため、50 作品ずつのチャンクで全件を照合する。
  */
 async function judgeSeasonCompletion(
   token: string,
@@ -61,38 +62,45 @@ async function judgeSeasonCompletion(
     return evaluateSeasonCompletion([], new Map(), true);
   }
 
-  const top = [...candidates]
-    .sort((a, b) => b.recordedEpisodeIds.size - a.recordedEpisodeIds.size)
-    .slice(0, MAX_SEASON_CANDIDATES);
+  // 記録話数の多い順に並べ、早いチャンクで完走を見つけやすくする
+  // （完走は 1 本でもあれば獲得なので、確定した時点で残りは取らない）。
+  const sorted = [...candidates].sort(
+    (a, b) => b.recordedEpisodeIds.size - a.recordedEpisodeIds.size,
+  );
 
   const masters = new Map<number, SeasonEpisodeMaster>();
-  const longRunners: number[] = [];
-  for (const w of await fetchAnnictWorksEpisodeIds(
-    token,
-    top.map((c) => c.annictWorkId),
-  )) {
-    if (w.hasMoreEpisodes) {
-      // 100 話超の長期作品は一括取得が打ち切られるため、作品ごとの
-      // 全話取得にフォールバックする（季節もので稀なケース）。
-      longRunners.push(w.annictWorkId);
-    } else {
-      masters.set(w.annictWorkId, {
-        annictWorkId: w.annictWorkId,
-        episodeIds: w.episodeIds,
-      });
+  let result = evaluateSeasonCompletion([], masters, true);
+  for (let i = 0; i < sorted.length; i += SEASON_CANDIDATE_CHUNK) {
+    const chunk = sorted.slice(i, i + SEASON_CANDIDATE_CHUNK);
+    for (const w of await fetchAnnictWorksEpisodeIds(
+      token,
+      chunk.map((c) => c.annictWorkId),
+    )) {
+      if (w.hasMoreEpisodes) {
+        // 100 話超の長期作品は一括取得が打ち切られるため、作品ごとの
+        // 全話取得にフォールバックする（季節もので稀なケース）。
+        const episodes = await fetchAnnictWorkEpisodes(token, w.annictWorkId);
+        if (episodes) {
+          masters.set(w.annictWorkId, {
+            annictWorkId: w.annictWorkId,
+            episodeIds: episodes.map((e) => e.annictEpisodeId),
+          });
+        }
+      } else {
+        masters.set(w.annictWorkId, {
+          annictWorkId: w.annictWorkId,
+          episodeIds: w.episodeIds,
+        });
+      }
     }
+    result = evaluateSeasonCompletion(
+      sorted.slice(0, i + chunk.length),
+      masters,
+      true,
+    );
+    if (result.earned) return result;
   }
-  for (const annictWorkId of longRunners) {
-    const episodes = await fetchAnnictWorkEpisodes(token, annictWorkId);
-    if (episodes) {
-      masters.set(annictWorkId, {
-        annictWorkId,
-        episodeIds: episodes.map((e) => e.annictEpisodeId),
-      });
-    }
-  }
-
-  return evaluateSeasonCompletion(top, masters, true);
+  return result;
 }
 
 /**

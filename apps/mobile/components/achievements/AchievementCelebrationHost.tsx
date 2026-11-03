@@ -9,6 +9,7 @@ import {
   achievementShareMessage,
   diffNewlyEarned,
   earnedAchievementKeys,
+  mergeSeenKeys,
 } from "@/lib/achievements/definitions";
 import {
   loadSeenAchievementKeys,
@@ -40,18 +41,26 @@ export function AchievementCelebrationHost() {
     const signature = `${userId}:${keys.join("|")}`;
     if (processedSignature.current === signature) return;
     processedSignature.current = signature;
+    let cancelled = false;
     void (async () => {
       const seen = await loadSeenAchievementKeys(userId);
+      if (cancelled) return;
       if (seen === null) {
         await saveSeenAchievementKeys(userId, keys);
         return;
       }
       const fresh = diffNewlyEarned(data, seen);
-      // 先に保存する。閉じる前にアプリが落ちても同じお祝いが
+      // 既見キーは今回獲得できたもので全置換せず、和集合で保持する。
+      // Annict 障害などで一時的に「判定不可」になった実績が既見から消え、
+      // 復旧後に同じ実績を再度お祝いしてしまうのを防ぐ。
+      // 先に保存するのは、閉じる前にアプリが落ちても同じお祝いが
       // 繰り返し出る方が「出なかった」より害が大きいため。
-      await saveSeenAchievementKeys(userId, keys);
-      if (fresh.length > 0) setQueue(fresh);
+      await saveSeenAchievementKeys(userId, mergeSeenKeys(seen, keys));
+      if (!cancelled && fresh.length > 0) setQueue(fresh);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [isSignedIn, userId, data]);
 
   const current = queue[0] ?? null;

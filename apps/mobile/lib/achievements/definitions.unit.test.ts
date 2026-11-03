@@ -6,6 +6,7 @@ import {
   achievementName,
   diffNewlyEarned,
   earnedAchievementKeys,
+  mergeSeenKeys,
 } from "./definitions";
 import type { Achievement } from "./types";
 
@@ -109,6 +110,29 @@ describe("diffNewlyEarned", () => {
       response.achievements[1],
       response.achievements[3],
     ]);
+  });
+});
+
+describe("mergeSeenKeys", () => {
+  it("既見キーに今回の獲得キーを和集合で足す", () => {
+    const merged = mergeSeenKeys(
+      new Set(["season_completion@2026-autumn", "watch_count_10"]),
+      ["watch_count_10", "watch_count_50"],
+    );
+    expect([...merged].sort()).toEqual([
+      "season_completion@2026-autumn",
+      "watch_count_10",
+      "watch_count_50",
+    ]);
+  });
+
+  it("今回の応答に無い既見キー（一時的に判定不可の実績）も残す", () => {
+    // Annict 障害で season_completion が available=false の回は
+    // earnedAchievementKeys に含まれないが、既見からは消さない
+    const merged = mergeSeenKeys(new Set(["season_completion@2026-autumn"]), [
+      "watch_count_10",
+    ]);
+    expect(merged.has("season_completion@2026-autumn")).toBe(true);
   });
 });
 

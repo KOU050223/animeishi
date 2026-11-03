@@ -55,6 +55,7 @@ export function useWatchHistory() {
   // 本人の視聴履歴は Annict libraryEntries を read-through する（API 側で X-Annict-Token 必須）。
   // 未連携のうちは取得しても 401 になるだけなので、連携済みになるまでクエリを無効化する。
   const { isConnected } = useAnnictConnection();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: userId ? watchHistoryQueryKey(userId) : WATCH_HISTORY_QUERY_KEY,
@@ -74,6 +75,11 @@ export function useWatchHistory() {
           await readApiErrorCode(res),
         );
       }
+      // read-through 同期で D1 の履歴（視聴数バッジの判定入力）が
+      // 変わりうるため、実績クエリも無効化する（issue #415）。
+      void queryClient.invalidateQueries({
+        queryKey: ACHIEVEMENTS_QUERY_KEY,
+      });
       return res.json();
     },
   });

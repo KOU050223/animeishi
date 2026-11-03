@@ -36,6 +36,7 @@ async function getAuthHeaders(
 export function useWorkEpisodes(annictWorkId: number | null) {
   const { getToken, isSignedIn, userId } = useAuth();
   const { isConnected } = useAnnictConnection();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: userId
@@ -56,6 +57,11 @@ export function useWorkEpisodes(annictWorkId: number | null) {
           await readApiErrorCode(res),
         );
       }
+      // この GET は API 側で Annict の既存記録を D1 の記録ログに同期する。
+      // 同期で判定入力が変わりうるため実績クエリを無効化する（issue #415）。
+      void queryClient.invalidateQueries({
+        queryKey: ACHIEVEMENTS_QUERY_KEY,
+      });
       return res.json();
     },
   });
