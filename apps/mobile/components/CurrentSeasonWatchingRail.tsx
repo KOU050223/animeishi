@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
+import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useAnnictConnection } from "@/lib/annict";
 import { filterCurrentSeasonWatching } from "@/lib/currentSeasonWatching";
@@ -18,8 +18,7 @@ import { useWatchHistory } from "@/lib/useWatchHistory";
 
 // ホームの「今期視聴中」レール（issue #353）。今期の視聴中作品を横スクロールで
 // 並べ、タップで dアニメストアのタイトル検索を開く。
-// 未連携時の枠は #424 の連携カードに差し替える前提なので、そこだけ
-// 切り離して置き換えやすい構造にしている。
+// 未連携時は #424 の連携カードを枠いっぱいに出す。
 export function CurrentSeasonWatchingRail() {
   const colors = useThemeColors();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
@@ -57,8 +56,13 @@ export function CurrentSeasonWatchingRail() {
       {isConnectionLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : !isConnected ? (
-        // #424 で専用の連携カードに差し替える枠。
-        <AnnictConnectionCard surface="home_card" />
+        // 未連携時は枠ごと連携カードにする（issue #424）。閉じるボタンは
+        // 付けず、連携すればこのカードは自然に消える。
+        <CurrentSeasonConnectCard
+          description="Annict と連携すると、ここに今期視聴中の作品が並びます"
+          connectLabel="Annict と連携する"
+          surface="home_current_season"
+        />
       ) : isLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : isError ? (

@@ -440,7 +440,8 @@ Explore で属性フィルタ・集計ができる。
   annict.step     prompt_view | cta_tap | oauth_result
   annict.surface  watch_history | anime_list | tier_list |
                   character_tier_list | meishi_image_library |
-                  meishi_image_search | home_card | profile_card
+                  meishi_image_search | home_card | profile_card |
+                  home_current_season | profile_header
   annict.result   success | cancelled | error   （oauth_result のみ）
   annict.reason   error の理由（state_mismatch / exchange_failed / ...）
   annict.user_key Clerk userId のソルト付き SHA-256 先頭16文字（PII 非送信）

@@ -32,6 +32,8 @@ export const ANNICT_FUNNEL_SURFACES = [
   "meishi_image_search",
   "home_card",
   "profile_card",
+  "home_current_season",
+  "profile_header",
   "work_detail_sheet",
   "analysis",
 ] as const;
