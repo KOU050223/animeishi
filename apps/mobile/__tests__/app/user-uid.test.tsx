@@ -18,7 +18,9 @@ const NOW_WATCHING = {
   seasonName: "2026-autumn",
   seasonYear: 2026,
   hostedImageUrl: null,
-  recordedAt: "2026-11-03T10:00:00.000Z",
+  // 吹き出しは記録から 24 時間で消えるため、常に期限内になるよう
+  // 固定日時ではなく実行時刻から生成する。
+  recordedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
 };
 
 const PROFILE = {
@@ -450,6 +452,25 @@ describe("PublicProfilePage", () => {
       );
 
       expect(screen.queryByTestId("now-watching-bubble")).toBeNull();
+    });
+
+    it("記録から 24 時間を過ぎていれば吹き出しを出さない", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithNowWatching({
+        ...NOW_WATCHING,
+        recordedAt: new Date(
+          Date.now() - 24 * 60 * 60 * 1000 - 60 * 1000,
+        ).toISOString(),
+      });
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+      );
+
+      // 期限切れの判定はタイマーコールバックで行うため、非表示になるまで待つ
+      await waitFor(() =>
+        expect(screen.queryByTestId("now-watching-bubble")).toBeNull(),
+      );
     });
 
     it("吹き出しをタップすると作品詳細シートが開く", async () => {

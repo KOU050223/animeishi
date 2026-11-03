@@ -4,6 +4,8 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { publicProfileQueryKey } from "@/lib/publicProfile";
 
 type WorkEpisodesResponse = InferResponseType<
   (typeof apiClient.works)[":annictWorkId"]["episodes"]["$get"],
@@ -81,10 +83,13 @@ type EpisodeMutationContext = {
 // 記録/解除で共有する楽観更新。話ごとの watched を対象値に書き換え、
 // 失敗時は「自分が書いた値のまま残っている時だけ」元に戻す（後続の
 // 別操作が乗っているならそちらに委ねる。useWatchHistory と同じ考え方）。
+// userId は「いま見ている」吹き出しを出す本人プロフィールのクエリ
+// （useProfile・自分の公開プロフィール）を無効化するために使う。
 function optimisticWatchedHandlers(
   queryClient: ReturnType<typeof useQueryClient>,
   queryKey: readonly unknown[],
   nextWatched: boolean,
+  userId: string | null | undefined,
 ) {
   return {
     onMutate: async (
@@ -145,6 +150,15 @@ function optimisticWatchedHandlers(
       });
       if (pendingWrites <= 1) {
         void queryClient.invalidateQueries({ queryKey });
+        // 「いま見ている」（issue #420）は本人の episode_records の
+        // 最新 1 件から作られるため、記録・解除のたびに本人の
+        // プロフィール系クエリも取り直す。
+        void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+        if (userId) {
+          void queryClient.invalidateQueries({
+            queryKey: publicProfileQueryKey(userId),
+          });
+        }
       }
     },
   };
@@ -183,7 +197,7 @@ export function useRecordEpisode(annictWorkId: number | null) {
       }
       return res.json();
     },
-    ...optimisticWatchedHandlers(queryClient, queryKey, true),
+    ...optimisticWatchedHandlers(queryClient, queryKey, true, userId),
   });
 }
 
@@ -220,6 +234,6 @@ export function useUnrecordEpisode(annictWorkId: number | null) {
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },
-    ...optimisticWatchedHandlers(queryClient, queryKey, false),
+    ...optimisticWatchedHandlers(queryClient, queryKey, false, userId),
   });
 }

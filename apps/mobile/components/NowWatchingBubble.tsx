@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { episodeLabel } from "@/lib/episodeLabel";
@@ -7,6 +8,9 @@ import { useWorkEpisodes } from "@/lib/useWorkEpisodes";
 
 const TAIL_WIDTH = 7;
 const TAIL_HEIGHT = 7;
+
+// 吹き出しの表示期限。API 側（findNowWatching）と同じく記録から 24 時間。
+export const NOW_WATCHING_TTL_MS = 24 * 60 * 60 * 1000;
 
 function triangle(borderTopColor: string) {
   return {
@@ -41,12 +45,36 @@ export function NowWatchingBubble({
 }) {
   const colors = useThemeColors();
   const { data } = useWorkEpisodes(nowWatching.annictWorkId);
+  // API は直近 24h の記録だけを返すが、画面を開いたまま期限を跨いでも
+  // 取り直さないため、表示側でも recordedAt + 24h を過ぎたら隠す
+  // （issue #420 の「一定時間で消える」）。期限到達時にタイマーで
+  // 切り替え、開きっぱなしでも残らないようにする。
+  const expiresAt = Date.parse(nowWatching.recordedAt) + NOW_WATCHING_TTL_MS;
+  const [expired, setExpired] = useState(false);
+  // 期限の違う別の記録に差し替わったときは表示に戻す
+  // （effect での同期 setState を避けるため render 中に前回値と比較する。
+  // danime-import-review の active リセットと同じ考え方）。
+  const [prevExpiresAt, setPrevExpiresAt] = useState(expiresAt);
+  if (!Object.is(prevExpiresAt, expiresAt)) {
+    setPrevExpiresAt(expiresAt);
+    setExpired(false);
+  }
+  useEffect(() => {
+    // Date.now() はタイマーコールバック内でだけ読む
+    const timer = setTimeout(
+      () => setExpired(true),
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
   const episode = data?.episodes.find(
     (e) => e.annictEpisodeId === nowWatching.annictEpisodeId,
   );
   const label = episode
     ? `${nowWatching.title} ${episodeLabel(episode)}`
     : nowWatching.title;
+
+  if (expired) return null;
 
   return (
     <TouchableOpacity

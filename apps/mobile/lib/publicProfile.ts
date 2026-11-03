@@ -24,6 +24,12 @@ export type PublicProfile = {
   nowWatching: NowWatching | null;
 };
 
+// 公開プロフィールのクエリキー。app/user/[uid].tsx の useQuery と、
+// 本人の話数記録変更時の無効化（useWorkEpisodes）で共有する。
+export const PUBLIC_PROFILE_QUERY_KEY = ["public-profile"] as const;
+export const publicProfileQueryKey = (uid: string) =>
+  [...PUBLIC_PROFILE_QUERY_KEY, uid] as const;
+
 /**
  * 公開プロフィール（GET /user/:uid）の取得。
  * app/user/[uid].tsx の公開ページと名刺交換成立の演出で同じデータを使う。

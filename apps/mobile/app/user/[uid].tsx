@@ -15,7 +15,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
-import { fetchPublicProfile } from "@/lib/publicProfile";
+import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
@@ -67,7 +67,7 @@ export default function PublicProfilePage() {
     });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["public-profile", uid],
+    queryKey: publicProfileQueryKey(uid),
     queryFn: async () => fetchPublicProfile(uid, await getToken()),
     enabled: !!uid,
     retry: false,

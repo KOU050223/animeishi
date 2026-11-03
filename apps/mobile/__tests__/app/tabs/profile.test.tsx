@@ -84,7 +84,9 @@ const NOW_WATCHING = {
   seasonName: "2026-autumn",
   seasonYear: 2026,
   hostedImageUrl: null,
-  recordedAt: "2026-11-03T10:00:00.000Z",
+  // 吹き出しは記録から 24 時間で消えるため、常に期限内になるよう
+  // 固定日時ではなく実行時刻から生成する。
+  recordedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
 };
 
 // 取得結果をテストごとに切り替えられるよう、変数経由で返す。
@@ -172,6 +174,12 @@ describe("ProfileScreen の名刺プレビュー", () => {
 
     expect(mockReloadDocument).toHaveBeenCalledTimes(1);
   });
+
+  it("画面フォーカス時にプロフィールを再取得する（いま見ているの追従）", async () => {
+    await render(<ProfileScreen />);
+
+    expect(mockProfile.refetch).toHaveBeenCalled();
+  });
 });
 
 // issue #420: 直近 24h の話数記録を名刺内アバターの上に吹き出しで出す。
@@ -217,6 +225,26 @@ describe("ProfileScreen の「いま見ている」吹き出し", () => {
     await render(<ProfileScreen />);
 
     expect(screen.queryByTestId("now-watching-bubble")).toBeNull();
+  });
+
+  it("記録から 24 時間を過ぎていれば吹き出しを出さない", async () => {
+    loggedInUser({ userId: "user_1" });
+    profileWithNowWatching({
+      ...NOW_WATCHING,
+      recordedAt: new Date(
+        Date.now() - 24 * 60 * 60 * 1000 - 60 * 1000,
+      ).toISOString(),
+    });
+    await render(<ProfileScreen />);
+
+    await fireEvent(screen.getByTestId("meishi-preview-frame"), "layout", {
+      nativeEvent: { layout: { width: 320, height: 200 } },
+    });
+
+    // 期限切れの判定はタイマーコールバックで行うため、非表示になるまで待つ
+    await waitFor(() =>
+      expect(screen.queryByTestId("now-watching-bubble")).toBeNull(),
+    );
   });
 });
 

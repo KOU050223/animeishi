@@ -136,7 +136,10 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       void reloadMeishi();
-    }, [reloadMeishi]),
+      // 「いま見ている」は最新の話数記録に追従するため、フォーカスのたびに
+      // プロフィールを取り直す（issue #420）。
+      void refetch();
+    }, [reloadMeishi, refetch]),
   );
 
   const [toast, setToast] = useState<Toast | null>(null);
