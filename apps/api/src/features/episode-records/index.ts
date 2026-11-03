@@ -12,6 +12,7 @@ import { annictWorkIdParamSchema } from "../works/schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import {
+  AnnictApiError,
   createAnnictRecord,
   deleteAnnictRecord,
   fetchAnnictEpisodeByAnnictId,
@@ -19,6 +20,7 @@ import {
   fetchAnnictWorkByAnnictId,
   fetchAnnictWorkEpisodes,
 } from "@/lib/annict/client";
+import { annictRepository } from "../annict/repository";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import type { NewAnnictWork } from "@/db/schema";
@@ -57,6 +59,17 @@ async function ensureAnnictWork(
     watchersCount: resolved.watchersCount ?? null,
     updatedAt: new Date(),
   };
+}
+
+// Annict が「既に存在しない record」への deleteRecord に返すエラーか。
+// RecordNotFound 系は GraphQL errors（HTTP 200 + errors 配列）として返る
+// ため、AnnictApiError のメッセージを見て判定する。判定できない失敗は
+// 「残っているかもしれない」側に倒して呼び出し側で失敗にする。
+function isAnnictRecordNotFoundError(err: unknown): boolean {
+  return (
+    err instanceof AnnictApiError &&
+    /couldn't find|not found/i.test(err.message)
+  );
 }
 
 // 話の記録（PUT: 記録 / DELETE: チェック解除）と話数一覧（GET）を束ねる
@@ -145,24 +158,43 @@ const episodeRecords = new Hono<AuthVariables>()
       );
       if (!episode) return c.json({ error: "Episode not found" }, 404);
 
-      // 消す record の Node ID を集める。D1 ログ（recordNodeId）を正としつつ、
-      // Annict 側で記録されて未同期のものも viewer.records から拾う。
-      const recordNodeIds = new Set<string>();
+      // 消す record の Node ID を viewer.records から解決する。
+      // 対象話の記録を辿り切れない部分取得では「見つからなかった分」が
+      // Annict に残り、D1 だけ消すと再取得でチェックが復活するずれが起きる。
+      // 消せた分だけ成功扱いにせず、この場合は失敗にしてクライアントに
+      // 再試行を委ねる。
+      let recordNodeIds: string[];
       if (episode.viewerRecordsCount > 0) {
-        const { records } = await fetchAnnictViewerRecords(token, {
+        const { records, complete } = await fetchAnnictViewerRecords(token, {
           filter: (r) => r.annictEpisodeId === annictEpisodeId,
           expectedCount: episode.viewerRecordsCount,
         });
-        for (const r of records) recordNodeIds.add(r.recordNodeId);
-      }
-      for (const row of await repo.listByEpisode(annictEpisodeId)) {
-        if (row.recordNodeId) recordNodeIds.add(row.recordNodeId);
+        if (!complete) {
+          return c.json(
+            { error: "Annict の記録一覧を取得しきれませんでした" },
+            502,
+          );
+        }
+        // 辿り切れた viewer.records が削除対象の正。D1 にだけ残る
+        // Node ID は Annict 側で既に削除済みなので、再削除を要求しない。
+        recordNodeIds = records.map((r) => r.recordNodeId);
+      } else {
+        // viewerRecordsCount=0 = Annict にこの話の記録は無い。D1 の
+        // Node ID は既に削除済みのものなので削除を要求せずログだけ消す。
+        recordNodeIds = [];
       }
 
       // 同一話に複数 record がある（再視聴）場合は全件消して
       // 「未視聴」状態に戻す。deleteRecord は 1 record ずつのみ。
       for (const recordNodeId of recordNodeIds) {
-        await withAnnictRetry(() => deleteAnnictRecord(token, recordNodeId));
+        try {
+          await withAnnictRetry(() => deleteAnnictRecord(token, recordNodeId));
+        } catch (err) {
+          // 取得と削除の間に Annict 側で消えた record への deleteRecord は
+          // 「既に無い」= 目的達成済みなのでスキップし、残りの削除を続ける。
+          if (isAnnictRecordNotFoundError(err)) continue;
+          throw err;
+        }
       }
 
       // Annict 側の削除が成功した後にだけ D1 ログを消す
@@ -188,6 +220,7 @@ const workEpisodes = new Hono<AuthVariables>()
       const token = c.var.annictToken;
       const db = createDb(getBindings(c).DB);
       const repo = episodeRecordsRepository(db, c.var.clerkUserId);
+      const worksRepo = worksRepository(db);
 
       const episodes = await fetchAnnictWorkEpisodes(token, annictWorkId);
       if (!episodes) return c.json({ error: "Work not found" }, 404);
@@ -199,28 +232,67 @@ const workEpisodes = new Hono<AuthVariables>()
         (sum, e) => sum + e.viewerRecordsCount,
         0,
       );
-      if (expectedCount > 0) {
+      // Annict 側の記録数が 0 でも、D1 にこの作品のログが残っていれば
+      // 「全件削除済み」を反映するため同期が要る（reconcile は viewer.records
+      // を対象分まで辿り切れた complete=true のときだけ削除反映される）。
+      const hasSyncedRows = (await repo.listByWork(annictWorkId)).some(
+        (r) => r.annictRecordId != null,
+      );
+      if (expectedCount > 0 || hasSyncedRows) {
         try {
-          const { records, complete } = await fetchAnnictViewerRecords(token, {
-            filter: (r) => r.annictWorkId === annictWorkId,
-            expectedCount,
-          });
-          const episodeNodeIds = new Map(
-            episodes.map((e) => [e.annictEpisodeId, e.nodeId]),
-          );
-          await repo.syncAnnictRecords(
-            annictWorkId,
-            records.map((r): AnnictRecordLogEntry => ({
-              annictRecordId: r.annictRecordId,
-              recordNodeId: r.recordNodeId,
-              annictEpisodeId: r.annictEpisodeId,
-              recordedAt: new Date(r.createdAt),
-            })),
-            episodeNodeIds,
-            // complete（対象分を辿り切れた）ときだけ削除反映を行う。
-            // 部分取得だと「取れなかった分」を削除と誤判定するため。
-            complete,
-          );
+          const { records, complete, viewerAnnictId } =
+            await fetchAnnictViewerRecords(token, {
+              filter: (r) => r.annictWorkId === annictWorkId,
+              expectedCount,
+            });
+
+          // Web 連携ユーザーは annict_tokens に連携時の Annict アカウント
+          // ID を持つ。トークンの viewer が連携アカウントと食い違うなら、
+          // 別アカウントの記録を本人のログに混ぜる（reconcile で元のログを
+          // 消す）ため同期しない。ネイティブのヘッダトークンは結び付けを
+          // 持たず判定できないので、その場合はそのまま同期する。
+          const boundAnnictUserId = (
+            await annictRepository(db, c.var.clerkUserId).getAnnictTokenRow()
+          )?.annictUserId;
+          const accountMismatch =
+            boundAnnictUserId != null &&
+            viewerAnnictId != null &&
+            boundAnnictUserId !== viewerAnnictId;
+
+          if (accountMismatch) {
+            console.error(
+              JSON.stringify({
+                level: "warn",
+                event: "episode_records_sync_skipped_account_mismatch",
+                annictWorkId,
+                boundAnnictUserId,
+                viewerAnnictId,
+              }),
+            );
+          } else {
+            // episode_records は annict_works への FK を持つ。未キャッシュの
+            // 作品はメタを upsert してから同期しないと insert が落ちる
+            // （PUT と同じ不変条件）。
+            const pendingWork = await ensureAnnictWork(
+              worksRepo,
+              token,
+              annictWorkId,
+            );
+            if (pendingWork) await worksRepo.upsertAnnictWork(pendingWork);
+            await repo.syncAnnictRecords(
+              annictWorkId,
+              records.map((r): AnnictRecordLogEntry => ({
+                annictRecordId: r.annictRecordId,
+                recordNodeId: r.recordNodeId,
+                annictEpisodeId: r.annictEpisodeId,
+                recordedAt: new Date(r.createdAt),
+              })),
+              new Map(episodes.map((e) => [e.annictEpisodeId, e.nodeId])),
+              // complete（対象分を辿り切れた）ときだけ削除反映を行う。
+              // 部分取得だと「取れなかった分」を削除と誤判定するため。
+              complete,
+            );
+          }
         } catch (err) {
           // 記録ログの同期は best-effort。話数一覧（viewerDidTrack）自体は
           // 正しいので応答は返し、同期は次回の取得で収束する。

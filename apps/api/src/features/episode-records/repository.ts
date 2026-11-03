@@ -31,17 +31,6 @@ export function episodeRecordsRepository(db: DrizzleDb, currentUserId: string) {
       });
     },
 
-    /** 本人の、ある話の記録ログを返す（DELETE 時の recordNodeId 解決用）。 */
-    async listByEpisode(annictEpisodeId: number): Promise<EpisodeRecord[]> {
-      return db.query.episodeRecords.findMany({
-        where: (t, { and, eq }) =>
-          and(
-            eq(t.userId, currentUserId),
-            eq(t.annictEpisodeId, annictEpisodeId),
-          ),
-      });
-    },
-
     /**
      * 記録イベントを 1 件書き込む（Animeishi 起点・source=animeishi）。
      * annictRecordId の unique 制約で、連打・リトライによる二重 insert を

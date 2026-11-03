@@ -1315,6 +1315,7 @@ export async function fetchAnnictWorkEpisodes(
 const VIEWER_RECORDS_QUERY = `
 query ViewerRecords($after: String) {
   viewer {
+    annictId
     records(first: 50, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
       pageInfo { hasNextPage endCursor }
       nodes {
@@ -1330,6 +1331,9 @@ query ViewerRecords($after: String) {
 
 type ViewerRecordsResponse = {
   viewer: {
+    // トークン所有者の Annict ユーザー ID。annict_tokens.annict_user_id
+    // （Web 連携時に保存した連携アカウント）との突き合わせに使う（issue #439）。
+    annictId: number | null;
     records: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
       nodes: {
@@ -1373,12 +1377,17 @@ export async function fetchAnnictViewerRecords(
     maxPages?: number;
   },
   fetchImpl: typeof fetch = fetch,
-): Promise<{ records: AnnictViewerRecord[]; complete: boolean }> {
+): Promise<{
+  records: AnnictViewerRecord[];
+  complete: boolean;
+  viewerAnnictId: number | null;
+}> {
   const { filter, expectedCount } = options;
   const maxPages = options.maxPages ?? DEFAULT_MAX_RECORD_PAGES;
   const records: AnnictViewerRecord[] = [];
   const seenCursors = new Set<string>();
   let after: string | null = null;
+  let viewerAnnictId: number | null = null;
 
   for (let page = 0; page < maxPages; page++) {
     const data = await withAnnictRetry(() =>
@@ -1389,6 +1398,7 @@ export async function fetchAnnictViewerRecords(
         fetchImpl,
       ),
     );
+    viewerAnnictId = data.viewer?.annictId ?? null;
 
     const connection = data.viewer?.records;
     for (const node of connection?.nodes ?? []) {
@@ -1403,7 +1413,7 @@ export async function fetchAnnictViewerRecords(
       if (filter(record)) records.push(record);
     }
     if (records.length >= expectedCount) {
-      return { records, complete: true };
+      return { records, complete: true, viewerAnnictId };
     }
 
     const { hasNextPage, endCursor } = connection?.pageInfo ?? {
@@ -1412,19 +1422,23 @@ export async function fetchAnnictViewerRecords(
     };
     if (!hasNextPage) {
       // viewer.records を辿り切った = 対象の記録は全件拾えている。
-      return { records, complete: true };
+      return { records, complete: true, viewerAnnictId };
     }
     if (!endCursor || seenCursors.has(endCursor)) {
       // 壊れたページングはエラーにせず、取れた分を「部分」として返す。
       // 記録の読み込みはベストエフォート（D1 ログの同期）で、チェック一覧の
       // 表示は viewerDidTrack が担保するため。
-      return { records, complete: false };
+      return { records, complete: false, viewerAnnictId };
     }
     seenCursors.add(endCursor);
     after = endCursor;
   }
 
-  return { records, complete: records.length >= expectedCount };
+  return {
+    records,
+    complete: records.length >= expectedCount,
+    viewerAnnictId,
+  };
 }
 
 // --- createRecord / deleteRecord（話の記録・取消, issue #439） ---
@@ -1497,12 +1511,18 @@ export async function deleteAnnictRecord(
   recordNodeId: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
-  await annictGraphQL<DeleteRecordResponse>(
+  const data = await annictGraphQL<DeleteRecordResponse>(
     accessToken,
     DELETE_RECORD_MUTATION,
     { recordId: recordNodeId },
     fetchImpl,
   );
+  // errors 無しで deleteRecord が null = 削除要求が受理されなかった。
+  // 成功扱いで返すと呼び出し側が D1 のログだけ消して実記録を残すため、
+  // ここで失敗にする。
+  if (!data.deleteRecord) {
+    throw new AnnictApiError("Annict deleteRecord returned no result", 502);
+  }
 }
 
 // --- searchEpisodes（annictEpisodeId → Node ID・所属作品の解決, issue #439） ---

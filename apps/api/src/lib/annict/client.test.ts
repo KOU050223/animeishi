@@ -1054,10 +1054,12 @@ describe("fetchAnnictViewerRecords", () => {
   function recordsPage(
     records: unknown[],
     pageInfo: { hasNextPage: boolean; endCursor: string | null },
+    viewerAnnictId: number | null = null,
   ): Response {
     return jsonResponse({
       data: {
         viewer: {
+          annictId: viewerAnnictId,
           records: { pageInfo, nodes: records },
         },
       },
@@ -1171,6 +1173,22 @@ describe("fetchAnnictViewerRecords", () => {
     expect(result.complete).toBe(true);
     expect(result.records).toEqual([]);
   });
+
+  it("トークン所有者の annictId を viewerAnnictId として返す", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        recordsPage([], { hasNextPage: false, endCursor: null }, 555),
+      );
+
+    const result = await fetchAnnictViewerRecords(
+      "tok",
+      { filter: () => false, expectedCount: 1 },
+      fetchMock,
+    );
+
+    expect(result.viewerAnnictId).toBe(555);
+  });
 });
 
 describe("createAnnictRecord / deleteAnnictRecord", () => {
@@ -1225,6 +1243,18 @@ describe("createAnnictRecord / deleteAnnictRecord", () => {
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(body.variables.recordId).toBe("Record-7");
     expect(body.query).toContain("deleteRecord");
+  });
+
+  it("deleteAnnictRecord は deleteRecord が null なら AnnictApiError を投げる", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: { deleteRecord: null },
+      }),
+    );
+
+    await expect(
+      deleteAnnictRecord("tok", "Record-7", fetchMock),
+    ).rejects.toMatchObject({ name: "AnnictApiError", status: 502 });
   });
 });
 
