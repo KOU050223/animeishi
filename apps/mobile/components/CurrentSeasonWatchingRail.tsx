@@ -18,7 +18,6 @@ import { useWatchHistory } from "@/lib/useWatchHistory";
 
 // ホームの「今期視聴中」レール（issue #353）。今期の視聴中作品を横スクロールで
 // 並べ、タップで dアニメストアのタイトル検索を開く。
-// 未連携時は #424 の連携カードを枠いっぱいに出す。
 export function CurrentSeasonWatchingRail() {
   const colors = useThemeColors();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
@@ -56,8 +55,7 @@ export function CurrentSeasonWatchingRail() {
       {isConnectionLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : !isConnected ? (
-        // 未連携時は枠ごと連携カードにする（issue #424）。閉じるボタンは
-        // 付けず、連携すればこのカードは自然に消える。
+        // 閉じるボタンを付けない: 連携すれば自然に消えるため（#424 の決定）
         <CurrentSeasonConnectCard
           description="Annict と連携すると、ここに今期視聴中の作品が並びます"
           connectLabel="Annict と連携する"
