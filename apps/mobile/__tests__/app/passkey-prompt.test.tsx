@@ -55,19 +55,20 @@ describe("PasskeyPromptScreen（Web、issue #332）", () => {
     expect(screen.getByTestId("skip-passkey-button")).toBeTruthy();
   });
 
-  it("「あとで」でホームへ遷移する", async () => {
+  it("「あとで」でオンボーディングへ遷移する", async () => {
     mockPasskey = true;
     loggedInUser();
 
     await render(<PasskeyPromptScreen />);
     await fireEvent.press(screen.getByTestId("skip-passkey-button"));
 
+    // 促進のあとは初回オンボーディングへ（issue #412）
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      expect(mockReplace).toHaveBeenCalledWith("/onboarding?fresh=1");
     });
   });
 
-  it("既にパスキーを持っているユーザーは促さずホームへ遷移する", async () => {
+  it("既にパスキーを持っているユーザーは促さずオンボーディングへ遷移する", async () => {
     mockPasskey = true;
     const auth = loggedInUser();
     auth.user!.passkeys = [{ id: "pk_1" }];
@@ -75,7 +76,7 @@ describe("PasskeyPromptScreen（Web、issue #332）", () => {
     await render(<PasskeyPromptScreen />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      expect(mockReplace).toHaveBeenCalledWith("/onboarding?fresh=1");
     });
     expect(screen.queryByTestId("register-passkey-button")).toBeNull();
   });

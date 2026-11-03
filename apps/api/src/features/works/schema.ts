@@ -46,3 +46,12 @@ export const worksLookupQuerySchema = z.object({
         .max(50, "ids は 50 件までです"),
     ),
 });
+
+// 作品候補一覧（GET /works/candidates）のクエリパラメータ。
+// オンボーディングの推し選択など Annict 未連携でも使う用途向けに
+// annict_works キャッシュだけを読む。title 省略時は人気順の既定リスト、
+// 指定時はキャッシュ内の部分一致検索。limit 省略時はルート側の既定値。
+export const worksCandidatesQuerySchema = z.object({
+  title: z.string().trim().max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});

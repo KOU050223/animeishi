@@ -9,6 +9,7 @@ import { Platform } from "react-native";
 import SignUpScreen from "@/app/(auth)/sign-up";
 import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
+import { onboardingPending } from "@/lib/onboarding";
 
 // Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // signUp 系の jest.fn は getAuthMock().signUp から取り出して設定する。
@@ -40,6 +41,7 @@ beforeEach(async () => {
   resetAuth();
   mockPasskey = false;
   passkeyPromptPending.current = false;
+  onboardingPending.current = false;
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
@@ -143,7 +145,7 @@ describe("SignUpScreen", () => {
     });
   });
 
-  it("認証コードを送信するとサインアップが完了しホームへ遷移する", async () => {
+  it("認証コードを送信するとサインアップが完了しオンボーディングへ遷移する", async () => {
     const auth = getAuthMock();
     auth.signUp.outcome = {
       status: "missing_requirements",
@@ -191,11 +193,12 @@ describe("SignUpScreen", () => {
         code: "123456",
       });
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_456" });
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      // 新規登録完了直後は初回オンボーディングへ（issue #412）
+      expect(mockReplace).toHaveBeenCalledWith("/onboarding");
     });
   });
 
-  it("メール認証不要の設定では password() 直後にセッションを有効化してホームへ遷移する", async () => {
+  it("メール認証不要の設定では password() 直後にセッションを有効化してオンボーディングへ遷移する", async () => {
     const auth = getAuthMock();
     // メール認証不要のインスタンス: password() の時点で status: complete になる。
     // この場合に sendEmailCode すると 400 になるため呼ばないこと。
@@ -225,7 +228,7 @@ describe("SignUpScreen", () => {
 
     await waitFor(() => {
       expect(auth.setActive).toHaveBeenCalledWith({ session: "session_new" });
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      expect(mockReplace).toHaveBeenCalledWith("/onboarding");
     });
     expect(auth.signUp.verifications.sendEmailCode).not.toHaveBeenCalled();
     // 認証コード画面には遷移しない
@@ -371,7 +374,7 @@ describe("SignUpScreen", () => {
       await fireEvent.press(screen.getByTestId("sign-up-button"));
     }
 
-    it("フラグ有効ではサインアップ完了後にパスキー促進ステップを表示し、「あとで」でホームへ", async () => {
+    it("フラグ有効ではサインアップ完了後にパスキー促進ステップを表示し、「あとで」でオンボーディングへ", async () => {
       mockPasskey = true;
       // 促進ステップは setActive 後（＝サインイン済み）の表示なので user が必要
       const auth = loggedInUser();
@@ -393,15 +396,17 @@ describe("SignUpScreen", () => {
       expect(passkeyPromptPending.current).toBe(true);
       expect(mockReplace).not.toHaveBeenCalled();
 
-      // 「あとで」でフラグを戻してホームへ
+      // 「あとで」でフラグを戻してオンボーディングへ（issue #412）
       await fireEvent.press(screen.getByTestId("skip-passkey-button"));
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith("/");
+        expect(mockReplace).toHaveBeenCalledWith("/onboarding");
       });
       expect(passkeyPromptPending.current).toBe(false);
+      expect(onboardingPending.current).toBe(true);
+      onboardingPending.current = false;
     });
 
-    it("フラグ有効では登録成功でもホームへ進む", async () => {
+    it("フラグ有効では登録成功でもオンボーディングへ進む", async () => {
       mockPasskey = true;
       const auth = loggedInUser();
       auth.signUp.outcome = {
@@ -419,9 +424,10 @@ describe("SignUpScreen", () => {
       await fireEvent.press(screen.getByTestId("register-passkey-button"));
       await waitFor(() => {
         expect(auth.user?.createPasskey).toHaveBeenCalledTimes(1);
-        expect(mockReplace).toHaveBeenCalledWith("/");
+        expect(mockReplace).toHaveBeenCalledWith("/onboarding");
       });
       expect(passkeyPromptPending.current).toBe(false);
+      onboardingPending.current = false;
     });
 
     it("フラグ有効ではメール認証の完了後にも促進ステップを表示する", async () => {
@@ -459,7 +465,7 @@ describe("SignUpScreen", () => {
       expect(mockReplace).not.toHaveBeenCalled();
     });
 
-    it("フラグ無効ではこれまでどおりホームへ遷移する", async () => {
+    it("フラグ無効では促進を出さずオンボーディングへ遷移する", async () => {
       const auth = getAuthMock();
       auth.signUp.outcome = {
         status: "complete",
@@ -470,10 +476,12 @@ describe("SignUpScreen", () => {
       await fillAndSubmit();
 
       await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith("/");
+        expect(mockReplace).toHaveBeenCalledWith("/onboarding");
       });
       expect(passkeyPromptPending.current).toBe(false);
+      expect(onboardingPending.current).toBe(true);
       expect(screen.queryByTestId("register-passkey-button")).toBeNull();
+      onboardingPending.current = false;
     });
 
     it("finalize が { error } ではなく例外で失敗しても促進フラグは解除される", async () => {
@@ -500,10 +508,10 @@ describe("SignUpScreen", () => {
   });
 
   describe("Google サインアップ（issue #89）", () => {
-    it("Google ボタンが表示され、SSO フローが成功するとホームへ遷移する", async () => {
+    it("既存ユーザーの SSO フロー成功はホームへ遷移する", async () => {
       const auth = getAuthMock();
-      // 新規ユーザーは startSSOFlow 内部で signUp.create({transfer:true}) に
-      // 振り分けられる。モックは最終結果だけを返す。
+      // 既存ユーザーのサインインでは signUp リソースが返らない
+      // （新規ユーザーは transfer で signUp.create されるがこのケースではない）。
       auth.startSSOFlow.mockResolvedValueOnce({
         createdSessionId: "session_google",
         authSessionResult: { type: "success" },
@@ -521,6 +529,29 @@ describe("SignUpScreen", () => {
         });
         expect(mockReplace).toHaveBeenCalledWith("/");
       });
+    });
+
+    it("新規ユーザーの SSO フロー成功はオンボーディングへ遷移する（issue #412）", async () => {
+      const auth = getAuthMock();
+      // 新規ユーザーは startSSOFlow 内部で signUp.create({transfer:true}) に
+      // 振り分けられ、完了した signUp リソースが返る。
+      auth.startSSOFlow.mockResolvedValueOnce({
+        createdSessionId: "session_google",
+        authSessionResult: { type: "success" },
+        signUp: { status: "complete" },
+      });
+
+      await render(<SignUpScreen />);
+      await fireEvent.press(screen.getByTestId("google-sign-in-button"));
+
+      await waitFor(() => {
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_google",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/onboarding");
+      });
+      expect(onboardingPending.current).toBe(true);
+      onboardingPending.current = false;
     });
   });
 });

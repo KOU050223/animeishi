@@ -17,7 +17,15 @@
  *                    戻ってきたときは /sso-callback が後処理を担う。
  */
 export type GoogleAuthResult =
-  | { status: "session-created"; sessionId: string }
+  | {
+      status: "session-created";
+      sessionId: string;
+      /**
+       * 新規ユーザー（transfer で signUp が作られた場合を含む）かどうか。
+       * 初回オンボーディング（issue #412）の振り分けに使う。
+       */
+      isNewUser: boolean;
+    }
   | { status: "cancelled" }
   | { status: "incomplete" }
   | { status: "redirected" };

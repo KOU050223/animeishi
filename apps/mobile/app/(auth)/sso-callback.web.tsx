@@ -57,11 +57,14 @@ export default function SsoCallbackScreen() {
       // issue #332: Google 経由の新規登録完了だけをパスキー登録促進
       // ルートへ。clerk-js は完了したリソース（signIn / signUp）で
       // 遷移先 URL を分けるため、signUpForceRedirectUrl を指定すれば
-      // 新規登録のみ /passkey-prompt へ、既存ユーザーのサインインは
+      // 新規登録のみ促進ルートへ、既存ユーザーのサインインは
       // これまでどおりホームへ遷移する。
+      // issue #412: 促進が無い（フラグ OFF）環境では初回オンボーディングへ
+      // 直行し、促進が有る環境でも促進の完了後は /onboarding へ進む
+      // （passkey-prompt.web.tsx 側の遷移先）。
       signUpForceRedirectUrl: featureFlags.passkey
         ? new URL("/passkey-prompt", window.location.origin).toString()
-        : undefined,
+        : new URL("/onboarding?fresh=1", window.location.origin).toString(),
     }).catch(() => setFailed(true));
   }, [clerk, router]);
 

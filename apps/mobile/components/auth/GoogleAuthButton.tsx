@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useGoogleAuth } from "@/lib/googleAuth";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {
@@ -34,27 +35,9 @@ export function GoogleAuthButton({ onError }: Props) {
     setLoading(true);
     onError(null);
 
-    try {
-      // メール/パスワードのサインインと同じく、別アカウントへの切替のため
-      // 既存セッションが残っていれば先にサインアウトする。
-      if (isSignedIn) {
-        await signOut();
-      }
-
-      const result = await startGoogleAuth();
-
-      if (result.status === "session-created") {
-        await setActive({ session: result.sessionId });
-        router.replace("/");
-      } else if (result.status === "incomplete") {
-        onError(
-          t(
-            "Google でのサインインを完了できませんでした。もう一度お試しください。",
-          ),
-        );
-      }
-      // cancelled（ユーザーが閉じた）/ redirected（Web 遷移中）は表示しない。
-    } catch (err: unknown) {
+    // session_exists 復旧とエラー表示は外側 catch と setActive 失敗の
+    // 2 箇所から呼ぶため閉じ込める。
+    const reportFailure = async (err: unknown) => {
       // session_exists は有効なセッションが既に残っている状態。
       // メール/パスワードと同じく既存セッションを活性化して遷移する。
       if (getClerkErrorCode(err) === "session_exists") {
@@ -77,6 +60,52 @@ export function GoogleAuthButton({ onError }: Props) {
       onError(
         toAuthErrorMessage(err, t, "Google でのサインインに失敗しました"),
       );
+    };
+
+    try {
+      // メール/パスワードのサインインと同じく、別アカウントへの切替のため
+      // 既存セッションが残っていれば先にサインアウトする。
+      if (isSignedIn) {
+        await signOut();
+      }
+
+      const result = await startGoogleAuth();
+
+      if (result.status === "session-created") {
+        // Google 経由の新規登録だけ初回オンボーディングへ（issue #412）。
+        // setActive で isSignedIn が立つと AuthGuard の
+        // 「サインイン済みは (auth) からホームへ」が発火しうるため、
+        // メール/パスワード登録と同じく setActive より先に pending を立てる。
+        // setActive が失敗したときはフラグを戻す（ガード抑止が残ると
+        // サインイン後も (auth) から追い出されなくなる）。
+        // 失敗を throw で外側の catch に乗せると React Compiler が
+        // try/catch 内の throw を扱えず最適化を諦めるため、
+        // ここで直接 reportFailure を呼ぶ。
+        if (result.isNewUser) onboardingPending.current = true;
+        let activationError: unknown;
+        let activationFailed = false;
+        try {
+          await setActive({ session: result.sessionId });
+        } catch (err) {
+          activationFailed = true;
+          activationError = err;
+        }
+        if (activationFailed) {
+          onboardingPending.current = false;
+          await reportFailure(activationError);
+          return;
+        }
+        router.replace(result.isNewUser ? "/onboarding" : "/");
+      } else if (result.status === "incomplete") {
+        onError(
+          t(
+            "Google でのサインインを完了できませんでした。もう一度お試しください。",
+          ),
+        );
+      }
+      // cancelled（ユーザーが閉じた）/ redirected（Web 遷移中）は表示しない。
+    } catch (err: unknown) {
+      await reportFailure(err);
     } finally {
       setLoading(false);
     }
