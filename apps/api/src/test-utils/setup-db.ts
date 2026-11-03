@@ -243,7 +243,7 @@ const DDL_STATEMENTS = [
     CONSTRAINT reports_status_check CHECK (status IN ('open', 'resolved', 'dismissed')),
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (reported_work_list_id) REFERENCES work_lists(id) ON DELETE CASCADE
+    FOREIGN KEY (reported_work_list_id) REFERENCES work_lists(id) ON DELETE SET NULL
   )`,
   `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,

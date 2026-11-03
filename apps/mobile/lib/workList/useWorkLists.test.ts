@@ -11,6 +11,7 @@ import {
   useUnshareWorkList,
   useDeleteWorkList,
   usePublicWorkLists,
+  usePublicWorkList,
   useToggleWorkListLike,
   useReportWorkList,
 } from "./useWorkLists";
@@ -28,6 +29,7 @@ const mockSharePost = jest.fn();
 const mockShareDelete = jest.fn();
 const mockDelete = jest.fn();
 const mockPublicGet = jest.fn();
+const mockPublicDetailGet = jest.fn();
 const mockLikePut = jest.fn();
 const mockLikeDelete = jest.fn();
 const mockReportPost = jest.fn();
@@ -36,6 +38,7 @@ jest.mock("@/lib/api", () => ({
     "work-lists": {
       public: { $get: (...args: unknown[]) => mockPublicGet(...args) },
       ":id": {
+        $get: (...args: unknown[]) => mockPublicDetailGet(...args),
         like: {
           $put: (...args: unknown[]) => mockLikePut(...args),
           $delete: (...args: unknown[]) => mockLikeDelete(...args),
@@ -529,5 +532,101 @@ describe("useReportWorkList", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe("通報は1時間に5回までです");
+  });
+});
+
+describe("usePublicWorkList", () => {
+  it("公開リストの詳細を id 指定で取得する", async () => {
+    mockPublicDetailGet.mockResolvedValue(
+      okResponse({ ...PUBLIC_ITEM, items: [] }),
+    );
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => usePublicWorkList(3), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.data?.id).toBe(3));
+    expect(mockPublicDetailGet).toHaveBeenCalledWith(
+      { param: { id: "3" } },
+      { headers: { Authorization: "Bearer clerk_jwt" } },
+    );
+  });
+
+  it("id が null ならフェッチしない", async () => {
+    const { wrapper } = makeWrapper();
+    await renderHook(() => usePublicWorkList(null), { wrapper });
+    expect(mockPublicDetailGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("公開一覧キャッシュの無効化", () => {
+  it("保存成功で公開一覧も invalidate される（isPublic 切り替え対応）", async () => {
+    mockPost.mockResolvedValue(okResponse(SAVED));
+    const { client, wrapper } = makeWrapper();
+    const invalidateSpy = jest.spyOn(client, "invalidateQueries");
+
+    const { result } = await renderHook(() => useSaveWorkList(), { wrapper });
+    result.current.mutate({ title: "公開したい", items: [] });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-list", "public"],
+    });
+  });
+
+  it("削除成功で公開一覧も invalidate される", async () => {
+    mockDelete.mockResolvedValue(okResponse({ ok: true }));
+    const { client, wrapper } = makeWrapper();
+    const invalidateSpy = jest.spyOn(client, "invalidateQueries");
+
+    const { result } = await renderHook(() => useDeleteWorkList(), {
+      wrapper,
+    });
+    result.current.mutate(7);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-list", "public"],
+    });
+  });
+
+  it("通報成功で公開一覧を invalidate する", async () => {
+    mockReportPost.mockResolvedValue(okResponse({ success: true }));
+    const { client, wrapper } = makeWrapper();
+    const invalidateSpy = jest.spyOn(client, "invalidateQueries");
+
+    const { result } = await renderHook(() => useReportWorkList(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, reason: "スパム・宣伝" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-list", "public"],
+    });
+  });
+
+  it("いいね成功で詳細キャッシュも応答の値に更新される", async () => {
+    mockLikePut.mockResolvedValue(
+      okResponse({ likeCount: 13, likedByMe: true }),
+    );
+    const { client, wrapper } = makeWrapper();
+    client.setQueryData(["work-list", "public", "detail", 3], {
+      ...PUBLIC_ITEM,
+      items: [],
+    });
+
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: true });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const cached = client.getQueryData<{
+      likeCount: number;
+      likedByMe: boolean;
+    }>(["work-list", "public", "detail", 3]);
+    expect(cached?.likeCount).toBe(13);
+    expect(cached?.likedByMe).toBe(true);
   });
 });

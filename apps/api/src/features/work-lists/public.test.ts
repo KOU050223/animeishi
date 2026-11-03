@@ -7,7 +7,13 @@ import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { workListsRoute } from "@/features/work-lists";
 import { publicWorkListsRoute } from "@/features/work-lists/public";
 import { usersRoute } from "@/features/users";
-import { users, annictWorks, workListLikes, blocks } from "@/db/schema";
+import {
+  users,
+  annictWorks,
+  workLists,
+  workListLikes,
+  blocks,
+} from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -299,6 +305,141 @@ describe("公開作品リスト API", () => {
     });
   });
 
+  describe("GET /work-lists/:id", () => {
+    beforeEach(() => asUser(USER_ID));
+
+    it("公開リストの詳細を作品一覧つきで返す", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const id = await createList(app, {
+        title: "詳細が見たいリスト",
+        items: [
+          { annictWorkId: WORK_B },
+          { annictWorkId: WORK_A },
+          { annictWorkId: WORK_C },
+        ],
+      });
+      asUser(THIRD_USER_ID);
+      await app.request(
+        `/work-lists/${id}/like`,
+        { method: "PUT" },
+        TEST_BINDINGS,
+      );
+      asUser(USER_ID);
+
+      const res = await app.request(
+        `/work-lists/${id}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        id: number;
+        title: string;
+        owner: { userId: string; username: string };
+        itemCount: number;
+        likeCount: number;
+        likedByMe: boolean;
+        items: { annictWorkId: number; title: string }[];
+      };
+      expect(body.id).toBe(id);
+      expect(body.title).toBe("詳細が見たいリスト");
+      expect(body.owner.userId).toBe(OTHER_USER_ID);
+      expect(body.owner.username).toBe("リスト所有者");
+      expect(body.itemCount).toBe(3);
+      expect(body.likeCount).toBe(1);
+      expect(body.likedByMe).toBe(false);
+      // position 昇順で作品メタつき。
+      expect(body.items.map((i) => i.annictWorkId)).toEqual([
+        WORK_B,
+        WORK_A,
+        WORK_C,
+      ]);
+      expect(body.items[0]?.title).toBe("アニメB");
+    });
+
+    it("いいね済みなら likedByMe: true で返す", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const id = await createList(app);
+      asUser(USER_ID);
+      await app.request(
+        `/work-lists/${id}/like`,
+        { method: "PUT" },
+        TEST_BINDINGS,
+      );
+
+      const res = await app.request(
+        `/work-lists/${id}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await res.json()) as { likedByMe: boolean };
+      expect(body.likedByMe).toBe(true);
+    });
+
+    it("未公開・所有者非公開・ブロック関係・未存在は 404", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const privateId = await createList(app, { isPublic: false });
+      const publicId = await createList(app);
+
+      asUser(USER_ID);
+      // 未公開
+      expect(
+        (
+          await app.request(
+            `/work-lists/${privateId}`,
+            { method: "GET" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
+      // 未存在
+      expect(
+        (
+          await app.request(
+            `/work-lists/99999`,
+            { method: "GET" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
+
+      // ブロック関係（自分→相手）
+      await db.insert(blocks).values({
+        blockerId: USER_ID,
+        blockedId: OTHER_USER_ID,
+        createdAt: new Date(),
+      });
+      expect(
+        (
+          await app.request(
+            `/work-lists/${publicId}`,
+            { method: "GET" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
+
+      // 所有者非公開
+      await db.delete(blocks);
+      await db
+        .update(users)
+        .set({ isPublic: false })
+        .where(eq(users.id, OTHER_USER_ID));
+      expect(
+        (
+          await app.request(
+            `/work-lists/${publicId}`,
+            { method: "GET" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
+    });
+  });
+
   describe("いいね", () => {
     beforeEach(() => asUser(USER_ID));
 
@@ -414,6 +555,45 @@ describe("公開作品リスト API", () => {
         TEST_BINDINGS,
       );
       expect(again.status).toBe(200);
+    });
+
+    it("DELETE /:id/like: 見えないリストは 404（いいね数を漏らさない）", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const id = await createList(app);
+      const privateId = await createList(app, { isPublic: false });
+      asUser(USER_ID);
+
+      // いいねしていなくても、対象が見えないリストは 404。
+      expect(
+        (
+          await app.request(
+            `/work-lists/${privateId}/like`,
+            { method: "DELETE" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
+
+      // 公開時にいいねしたあとで非公開化されても 404（反応数を返さない）。
+      await app.request(
+        `/work-lists/${id}/like`,
+        { method: "PUT" },
+        TEST_BINDINGS,
+      );
+      await db
+        .update(workLists)
+        .set({ isPublic: false })
+        .where(eq(workLists.id, id));
+      expect(
+        (
+          await app.request(
+            `/work-lists/${id}/like`,
+            { method: "DELETE" },
+            TEST_BINDINGS,
+          )
+        ).status,
+      ).toBe(404);
     });
   });
 
@@ -546,6 +726,38 @@ describe("公開作品リスト API", () => {
         TEST_BINDINGS,
       );
       expect(userReport.status).toBe(201);
+    });
+
+    it("対象リストが削除されても通報行は残り、reported_work_list_id は NULL に戻る", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const id = await createList(app);
+      asUser(USER_ID);
+
+      const report = await app.request(
+        `/work-lists/${id}/report`,
+        jsonBody("POST", { reason: "不適切なコンテンツ" }),
+        TEST_BINDINGS,
+      );
+      expect(report.status).toBe(201);
+
+      // 所有者が対象リストを削除する。
+      asUser(OTHER_USER_ID);
+      const del = await app.request(
+        `/me/work-lists/${id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(del.status).toBe(200);
+
+      // ON DELETE SET NULL: 通報自体は残り、所有者は reported_user_id で辿れる。
+      const stored = await db.query.reports.findFirst({
+        where: (t, { eq: eq_ }) => eq_(t.reporterId, USER_ID),
+      });
+      expect(stored).toBeTruthy();
+      expect(stored?.reportedUserId).toBe(OTHER_USER_ID);
+      expect(stored?.reportedWorkListId).toBeNull();
+      expect(stored?.status).toBe("open");
     });
   });
 });

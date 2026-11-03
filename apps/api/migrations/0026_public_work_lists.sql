@@ -11,6 +11,8 @@
 -- 参照列（issue #186 の拡張）。リスト通報では reported_user_id に
 -- リストの所有者、reported_work_list_id にリスト id を入れる。
 -- NULL 許可の列追加で既存行・CHECK 制約には触れない。
+-- 対象リストが削除されても通報記録は残す（ON DELETE SET NULL。
+-- 所有者は reported_user_id で辿れる）。
 
 ALTER TABLE `work_lists` ADD COLUMN `is_public` integer DEFAULT 0 NOT NULL;
 --> statement-breakpoint
@@ -31,6 +33,6 @@ CREATE UNIQUE INDEX `work_list_likes_user_list_unique` ON `work_list_likes` (`us
 CREATE INDEX `work_list_likes_list_idx` ON `work_list_likes` (`work_list_id`);
 --> statement-breakpoint
 
-ALTER TABLE `reports` ADD COLUMN `reported_work_list_id` integer REFERENCES `work_lists`(`id`) ON DELETE CASCADE;
+ALTER TABLE `reports` ADD COLUMN `reported_work_list_id` integer REFERENCES `work_lists`(`id`) ON DELETE SET NULL;
 --> statement-breakpoint
 CREATE INDEX `reports_reported_work_list_idx` ON `reports` (`reported_work_list_id`);

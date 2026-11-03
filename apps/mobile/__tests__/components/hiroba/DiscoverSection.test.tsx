@@ -1,13 +1,19 @@
 // ひろばタブ「みつける」セクションのテスト（issue #422）。
-// いいね順/新着順の切り替え・公開リストカードの表示・いいね操作・
-// 自分のリストではいいねボタンが無効になること・通報シートを確かめる。
+// いいね順/新着順の切り替え・公開リストカードの表示・詳細画面への
+// 遷移・いいね操作・自分のリストではいいねボタンが無効になること・
+// 通報シートを確かめる。
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { DiscoverSection } from "@/components/hiroba/DiscoverSection";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
-import { alert, confirm } from "@/lib/dialog";
+import { alert } from "@/lib/dialog";
 
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
+
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
@@ -64,8 +70,7 @@ let mockHasNextPage = false;
 const mockFetchNextPage = jest.fn();
 const mockRefetch = jest.fn(async () => ({}));
 const mockToggleMutate = jest.fn();
-const mockReportMutate = jest.fn();
-const mockBlockMutate = jest.fn();
+const mockReportSubmit = jest.fn();
 
 jest.mock("@/lib/workList/useWorkLists", () => ({
   usePublicWorkLists: () => ({
@@ -78,19 +83,14 @@ jest.mock("@/lib/workList/useWorkLists", () => ({
     refetch: mockRefetch,
   }),
   useToggleWorkListLike: () => ({ mutate: mockToggleMutate }),
-  useReportWorkList: () => ({
-    mutate: mockReportMutate,
+}));
+
+jest.mock("@/lib/workList/useReportWorkListFlow", () => ({
+  useReportWorkListFlow: () => ({
+    submit: mockReportSubmit,
     isPending: false,
   }),
 }));
-
-jest.mock("@/lib/useModeration", () => {
-  const actual = jest.requireActual("@/lib/useModeration");
-  return {
-    ...actual,
-    useBlockUser: () => ({ mutate: mockBlockMutate }),
-  };
-});
 
 beforeEach(() => {
   resetAuth();
@@ -117,6 +117,15 @@ describe("DiscoverSection", () => {
     expect(screen.getByText("公開リスト5")).toBeTruthy();
     expect(screen.getByText("other ・ 3 作品")).toBeTruthy();
     expect(screen.getByText("42")).toBeTruthy();
+  });
+
+  it("カードを押すと公開リストの詳細画面へ遷移する", async () => {
+    await render(<DiscoverSection />);
+    await fireEvent.press(screen.getByTestId("public-work-list-open-1"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/public-work-list",
+      params: { id: "1" },
+    });
   });
 
   it("いいねボタンで like ミューテーションを呼ぶ", async () => {
@@ -172,7 +181,7 @@ describe("DiscoverSection", () => {
     expect(mockRefetch).toHaveBeenCalled();
   });
 
-  it("通報ボタンで理由選択シートを開き、選択で通報する", async () => {
+  it("通報ボタンで理由選択シートを開き、選択で通報フローに渡す", async () => {
     await render(<DiscoverSection />);
     await fireEvent.press(screen.getByTestId("work-list-report-1"));
 
@@ -181,43 +190,26 @@ describe("DiscoverSection", () => {
       screen.getByTestId("work-list-report-reason-スパム・宣伝"),
     );
 
-    expect(mockReportMutate).toHaveBeenCalledWith(
-      { id: 1, reason: "スパム・宣伝" },
-      expect.anything(),
-    );
+    expect(mockReportSubmit).toHaveBeenCalledWith({
+      id: 1,
+      ownerUserId: "other-user",
+      ownerUsername: "other",
+      reason: "スパム・宣伝",
+    });
+    // シートは選択で閉じる
+    expect(screen.queryByText("この作品リストを通報")).toBeNull();
   });
 
-  it("通報成功後は所有者のブロックを提案する", async () => {
-    mockReportMutate.mockImplementation((input, options) => {
-      options?.onSuccess?.();
+  it("いいね失敗はアラートを出す", async () => {
+    mockToggleMutate.mockImplementation((input, options) => {
+      options?.onError?.(new Error("failed"));
     });
     await render(<DiscoverSection />);
-    await fireEvent.press(screen.getByTestId("work-list-report-1"));
-    await fireEvent.press(
-      screen.getByTestId("work-list-report-reason-スパム・宣伝"),
-    );
-
-    expect(confirm).toHaveBeenCalledWith(
-      "通報を受け付けました",
-      expect.stringContaining("other"),
-      expect.any(Function),
-      expect.objectContaining({ destructive: true }),
-    );
-  });
-
-  it("通報失敗は理由に関わらずエラーをアラートする", async () => {
-    mockReportMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("通報に失敗しました"));
-    });
-    await render(<DiscoverSection />);
-    await fireEvent.press(screen.getByTestId("work-list-report-1"));
-    await fireEvent.press(
-      screen.getByTestId("work-list-report-reason-スパム・宣伝"),
-    );
+    await fireEvent.press(screen.getByTestId("work-list-like-1"));
 
     expect(alert).toHaveBeenCalledWith(
-      "通報できませんでした",
-      "通報に失敗しました",
+      "いいねできませんでした",
+      "時間をおいて再度お試しください。",
       { okLabel: "OK" },
     );
   });

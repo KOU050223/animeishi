@@ -15,8 +15,13 @@ import { ApiRequestError } from "@/lib/apiError";
 const workListQueryKey = (id: number) => ["work-list", "saved", id] as const;
 const workListsQueryKey = ["work-list", "list"] as const;
 // 公開一覧（ひろば「みつける」タブ, issue #422）。sort ごとにキャッシュを分ける。
+// 先頭 2 要素が共通プレフィックスなので、これで一覧・詳細の両方を
+// invalidate できる（useModeration のブロック操作からも使う）。
+export const PUBLIC_WORK_LISTS_KEY = ["work-list", "public"] as const;
 const publicWorkListsQueryKey = (sort: PublicWorkListSort) =>
-  ["work-list", "public", sort] as const;
+  [...PUBLIC_WORK_LISTS_KEY, sort] as const;
+const publicWorkListQueryKey = (id: number) =>
+  [...PUBLIC_WORK_LISTS_KEY, "detail", id] as const;
 
 export type PublicWorkListSort = "likes" | "new";
 
@@ -195,6 +200,8 @@ export function useSaveWorkList() {
       queryClient.setQueryData(workListQueryKey(data.id), data);
       // 新規作成・タイトル変更で一覧（work-lists 画面）が古くなるため破棄する。
       void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
+      // isPublic の切り替えで「みつける」の一覧・詳細の出入りが変わる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }
@@ -297,6 +304,34 @@ export function usePublicWorkLists(sort: PublicWorkListSort) {
 }
 
 /**
+ * 公開リスト 1 件の詳細（登録作品つき。issue #422）。
+ * みつけるカードの遷移先画面が読む。一覧と同じ可視条件なので、
+ * 見えないリストは 404（data undefined・isError）になる。
+ */
+export function usePublicWorkList(id: number | null) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: publicWorkListQueryKey(id ?? 0),
+    enabled: !!isSignedIn && id !== null,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient["work-lists"][":id"].$get(
+        { param: { id: String(id) } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "公開作品リストの取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
+}
+
+/**
  * 公開リストへのいいねの切り替え（issue #422）。
  * PUT/DELETE とも冪等な API で、応答の likeCount・likedByMe を
  * 両ソートのキャッシュにそのまま反映する。
@@ -346,6 +381,18 @@ export function useToggleWorkListLike() {
               : prev,
         );
       }
+      // 詳細画面のキャッシュも同じ応答で更新する。
+      queryClient.setQueryData(
+        publicWorkListQueryKey(input.id),
+        (prev: { likeCount: number; likedByMe: boolean } | undefined) =>
+          prev
+            ? {
+                ...prev,
+                likeCount: data.likeCount,
+                likedByMe: data.likedByMe,
+              }
+            : prev,
+      );
     },
   });
 }
@@ -356,6 +403,7 @@ export function useToggleWorkListLike() {
  */
 export function useReportWorkList() {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: { id: number; reason: string }) => {
@@ -381,6 +429,11 @@ export function useReportWorkList() {
       }
       return res.json();
     },
+    onSuccess: () => {
+      // 通報の直後に所有者ブロックへ進む流れのため、ブロック成立前から
+      // 一覧を古いまま残さないよう再取得に倒す。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+    },
   });
 }
 
@@ -404,6 +457,8 @@ export function useDeleteWorkList() {
     onSuccess: (_data, id) => {
       queryClient.removeQueries({ queryKey: workListQueryKey(id) });
       void queryClient.invalidateQueries({ queryKey: workListsQueryKey });
+      // 公開中のリストを消したら「みつける」からも消える。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }

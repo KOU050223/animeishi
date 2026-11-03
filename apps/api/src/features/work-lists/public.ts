@@ -85,6 +85,27 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
       );
     },
   )
+  // 公開リスト 1 件の詳細（登録作品つき）。一覧カードの遷移先が読む。
+  // /public より後に定義する（Hono は静的セグメントを優先するが、
+  // 見通しのため一覧に続けて置く）。
+  .get("/:id", zValidator("param", workListIdParamSchema), async (c) => {
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const detail = await repo.getPublicWorkList(id);
+    if (!detail) return c.json({ error: "Work list not found" }, 404);
+    return c.json(
+      {
+        ...detail,
+        createdAt: detail.createdAt.toISOString(),
+        items: detail.items.map((item) => ({
+          ...item,
+          hostedImageUrl: workImageUrl(c.req.url, item.annictWorkId),
+        })),
+      },
+      200,
+    );
+  })
   // いいね（冪等）。自分のリストにはいいね不可。
   .put("/:id/like", zValidator("param", workListIdParamSchema), async (c) => {
     const { id } = c.req.valid("param");
@@ -102,6 +123,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
     }
   })
   // いいねの取り消し（冪等。いいねしていなくても成功）。
+  // 見えないリストには 404（閲覧できないリストの反応数を返さない）。
   .delete(
     "/:id/like",
     zValidator("param", workListIdParamSchema),
@@ -110,6 +132,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
       const db = createDb(getBindings(c).DB);
       const repo = workListsRepository(db, c.var.clerkUserId);
       const result = await repo.unlikeWorkList(id);
+      if (!result) return c.json({ error: "Work list not found" }, 404);
       return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
     },
   )

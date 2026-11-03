@@ -6,25 +6,22 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { SegmentedControl } from "@/components/ui";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
-import { alert, confirm } from "@/lib/dialog";
+import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
+import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 import {
   usePublicWorkLists,
   useToggleWorkListLike,
-  useReportWorkList,
   type PublicWorkListItem,
   type PublicWorkListSort,
 } from "@/lib/workList/useWorkLists";
-import {
-  REPORT_REASONS,
-  useBlockUser,
-  type ReportReason,
-} from "@/lib/useModeration";
+import { useReportWorkListFlow } from "@/lib/workList/useReportWorkListFlow";
+import type { ReportReason } from "@/lib/useModeration";
 
 // ひろばタブの「みつける」セクション（issue #422）。
 // is_public を立てた作品リストをフレンド以外も含めて一覧し、
@@ -32,6 +29,7 @@ import {
 // カーソルページングで末尾スクロールのたびに続きを読む。
 export function DiscoverSection() {
   const colors = useThemeColors();
+  const router = useRouter();
   const { userId } = useAuth();
   const [sort, setSort] = useState<PublicWorkListSort>("likes");
   const [refreshing, setRefreshing] = useState(false);
@@ -41,8 +39,7 @@ export function DiscoverSection() {
 
   const list = usePublicWorkLists(sort);
   const toggleLike = useToggleWorkListLike();
-  const reportWorkList = useReportWorkList();
-  const blockUser = useBlockUser();
+  const reportFlow = useReportWorkListFlow();
 
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
 
@@ -69,47 +66,16 @@ export function DiscoverSection() {
     );
   }
 
-  function onSubmitReport(reason: ReportReason) {
+  function onSelectReason(reason: ReportReason) {
     const target = reportTarget;
+    setReportTarget(null);
     if (!target) return;
-    reportWorkList.mutate(
-      { id: target.id, reason },
-      {
-        onSuccess: () => {
-          setReportTarget(null);
-          // ユーザー通報と同じく、続けて所有者のブロックを提案する
-          // （issue #148 と同じ流れ）。
-          if (target.owner.userId !== userId) {
-            confirm(
-              "通報を受け付けました",
-              `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${target.owner.username}」をブロックしますか？`,
-              () => {
-                blockUser.mutate(target.owner.userId);
-              },
-              {
-                confirmLabel: "ブロックする",
-                cancelLabel: "しない",
-                destructive: true,
-              },
-            );
-          } else {
-            alert(
-              "通報を受け付けました",
-              "ご報告ありがとうございます。運営が内容を確認します。",
-              { okLabel: "OK" },
-            );
-          }
-        },
-        onError: (e) => {
-          setReportTarget(null);
-          alert(
-            "通報できませんでした",
-            e instanceof Error ? e.message : "通報に失敗しました",
-            { okLabel: "OK" },
-          );
-        },
-      },
-    );
+    reportFlow.submit({
+      id: target.id,
+      ownerUserId: target.owner.userId,
+      ownerUsername: target.owner.username,
+      reason,
+    });
   }
 
   return (
@@ -164,6 +130,12 @@ export function DiscoverSection() {
               item={item}
               isOwn={item.owner.userId === userId}
               likePending={toggleLike.isPending}
+              onPress={() =>
+                router.push({
+                  pathname: "/public-work-list",
+                  params: { id: String(item.id) },
+                })
+              }
               onPressLike={() => onPressLike(item)}
               onPressReport={() => setReportTarget(item)}
             />
@@ -185,47 +157,12 @@ export function DiscoverSection() {
         />
       )}
 
-      <BottomSheet
+      <WorkListReportSheet
         visible={reportTarget !== null}
+        pending={reportFlow.isPending}
+        onSelect={onSelectReason}
         onClose={() => setReportTarget(null)}
-        scrimAccessibilityLabel="通報をやめる"
-      >
-        <View className="px-4 pb-8 pt-4">
-          <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-            この作品リストを通報
-          </Text>
-          <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            理由を選択してください。運営が内容を確認します。
-          </Text>
-          <View className="mt-4 gap-2">
-            {REPORT_REASONS.map((reason) => (
-              <TouchableOpacity
-                key={reason}
-                className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3"
-                onPress={() => onSubmitReport(reason)}
-                disabled={reportWorkList.isPending}
-                accessibilityRole="button"
-                accessibilityLabel={`${reason}で通報`}
-                testID={`work-list-report-reason-${reason}`}
-              >
-                <Text className="text-slate-900 dark:text-slate-100">
-                  {reason}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TouchableOpacity
-            className="mt-4 items-center py-2"
-            onPress={() => setReportTarget(null)}
-            accessibilityRole="button"
-            accessibilityLabel="キャンセル"
-          >
-            <Text className="text-slate-500 dark:text-slate-400">
-              キャンセル
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </BottomSheet>
+      />
     </View>
   );
 }
@@ -234,12 +171,14 @@ function PublicWorkListCard({
   item,
   isOwn,
   likePending,
+  onPress,
   onPressLike,
   onPressReport,
 }: {
   item: PublicWorkListItem;
   isOwn: boolean;
   likePending: boolean;
+  onPress: () => void;
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
@@ -249,27 +188,35 @@ function PublicWorkListCard({
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
       testID={`public-work-list-${item.id}`}
     >
-      {item.thumbnails.length > 0 ? (
-        <View className="mb-2 flex-row gap-1.5">
-          {item.thumbnails.map((thumb) => (
-            <WorkThumbnail
-              key={thumb.annictWorkId}
-              uri={thumb.hostedImageUrl}
-              width={40}
-              height={56}
-            />
-          ))}
-        </View>
-      ) : null}
-      <Text
-        className="text-sm font-medium text-slate-900 dark:text-slate-100"
-        numberOfLines={2}
+      {/* カード本体は詳細画面へ遷移。いいね・通報は内側の個別ボタン。 */}
+      <TouchableOpacity
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`「${item.title}」を開く`}
+        testID={`public-work-list-open-${item.id}`}
       >
-        {item.title}
-      </Text>
-      <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-        {item.owner.username} ・ {item.itemCount} 作品
-      </Text>
+        {item.thumbnails.length > 0 ? (
+          <View className="mb-2 flex-row gap-1.5">
+            {item.thumbnails.map((thumb) => (
+              <WorkThumbnail
+                key={thumb.annictWorkId}
+                uri={thumb.hostedImageUrl}
+                width={40}
+                height={56}
+              />
+            ))}
+          </View>
+        ) : null}
+        <Text
+          className="text-sm font-medium text-slate-900 dark:text-slate-100"
+          numberOfLines={2}
+        >
+          {item.title}
+        </Text>
+        <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          {item.owner.username} ・ {item.itemCount} 作品
+        </Text>
+      </TouchableOpacity>
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity
           className="flex-row items-center gap-1 rounded-md px-1.5 py-1"

@@ -539,10 +539,11 @@ export const reports = sqliteTable(
     reason: text("reason").notNull(),
     // 通報対象が作品リストのとき、そのリストの id（issue #422）。
     // このとき reported_user_id にはリストの所有者が入る。null は
-    // ユーザー通報。対象リストが削除されると通報行も cascade で消える。
+    // ユーザー通報。対象リストが削除されても通報行は残し、
+    // この列を NULL に戻す（所有者は reported_user_id で辿れる）。
     reportedWorkListId: integer("reported_work_list_id").references(
       () => workLists.id,
-      { onDelete: "cascade" },
+      { onDelete: "set null" },
     ),
     // モデレーション対応状況。更新は scripts/reports.sh（wrangler d1 execute）
     // から行い、API 経路では触らない（認可設計が未決のため）。

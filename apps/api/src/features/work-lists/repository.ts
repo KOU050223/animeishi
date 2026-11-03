@@ -80,6 +80,11 @@ export type PublicWorkListRow = {
 /** 公開一覧の並び順。「likes」= いいね数順、「new」= 新着順。 */
 export type PublicWorkListSort = "likes" | "new";
 
+/** 公開リストの詳細。一覧のサマリに加えて内容の作品一覧を含む。 */
+export type PublicWorkListDetail = PublicWorkListRow & {
+  items: WorkListItemWithWork[];
+};
+
 // 公開一覧のカードに載せるサムネイルの最大枚数（position 昇順の先頭から）。
 export const PUBLIC_LIST_THUMBNAILS = 3;
 
@@ -538,6 +543,52 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
     },
 
     /**
+     * 公開一覧に見えるリストの詳細（登録作品つき）を返す（issue #422）。
+     * 一覧カードの遷移先が読む画面用。可視条件は一覧・いいねと同じで、
+     * 見えないリスト・未作成は undefined（ルート側 404）。
+     */
+    async getPublicWorkList(
+      id: number,
+    ): Promise<PublicWorkListDetail | undefined> {
+      const list = await this.findPublicWorkList(id);
+      if (!list) return undefined;
+
+      // findPublicWorkList で users JOIN 済み（is_public 条件を含む）のため、
+      // ここで引けないユーザーが対象になることはない。
+      const owner = await db.query.users.findFirst({
+        where: eq(users.id, list.userId),
+        columns: { id: true, username: true, profileImageUrl: true },
+      });
+      if (!owner) return undefined;
+
+      const [items, likeCount, like] = await Promise.all([
+        fetchWorkListItems(db, id),
+        this.countWorkListLikes(id),
+        db.query.workListLikes.findFirst({
+          where: (t, { and: and_, eq: eq_ }) =>
+            and_(eq_(t.userId, currentUserId), eq_(t.workListId, id)),
+          columns: { id: true },
+        }),
+      ]);
+
+      return {
+        id: list.id,
+        title: list.title,
+        description: list.description,
+        createdAt: list.createdAt,
+        owner: {
+          userId: owner.id,
+          username: owner.username,
+          profileImageUrl: owner.profileImageUrl,
+        },
+        itemCount: items.length,
+        likeCount,
+        likedByMe: like !== undefined,
+        items,
+      };
+    },
+
+    /**
      * 公開リストにいいねする（冪等。issue #422）。
      * 見えないリスト（未公開・所有者非公開・ブロック関係）・未作成は
      * undefined でルート側 404。自分のリストにはいいね不可
@@ -565,10 +616,17 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * いいねを取り消す（冪等。いいねしていなくても成功）。
-     * 非公開化されたリストでも取り消せるよう可視条件は掛けない
-     * （取り消せないと likedByMe が残り続ける）。
+     * 対象は一覧と同じ可視条件で解決し、見えないリストは undefined
+     * （可視条件なしでいいね数を返すと、閲覧できないリストの反応数が
+     * 漏れる。非公開化後の取り消しは一覧から消える時点で
+     * likedByMe も見えなくなるため失ってよい）。
      */
-    async unlikeWorkList(id: number): Promise<{ likeCount: number }> {
+    async unlikeWorkList(
+      id: number,
+    ): Promise<{ likeCount: number } | undefined> {
+      const list = await this.findPublicWorkList(id);
+      if (!list) return undefined;
+
       await db
         .delete(workListLikes)
         .where(
