@@ -23,7 +23,13 @@ import {
   useReportUser,
 } from "@/lib/useModeration";
 import type { ReportReason } from "@/lib/useModeration";
-import { useAddFriend, useFriends } from "@/lib/useFriends";
+import { useFriends } from "@/lib/useFriends";
+import {
+  useAcceptFriendRequest,
+  useDeleteFriendRequest,
+  useFriendRequests,
+  useSendFriendRequest,
+} from "@/lib/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
 
 export default function PublicProfilePage() {
@@ -34,13 +40,21 @@ export default function PublicProfilePage() {
   const colors = useThemeColors();
   const reportUser = useReportUser();
   const blockUser = useBlockUser();
-  const addFriend = useAddFriend();
+  const sendFriendRequest = useSendFriendRequest();
+  const acceptFriendRequest = useAcceptFriendRequest();
+  const deleteFriendRequest = useDeleteFriendRequest();
   const {
     data: friends,
     isLoading: isFriendsLoading,
     isError: isFriendsError,
     refetch: refetchFriends,
   } = useFriends();
+  const {
+    data: friendRequests,
+    isLoading: isRequestsLoading,
+    isError: isRequestsError,
+    refetch: refetchRequests,
+  } = useFriendRequests();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
   // 名刺交換の成立演出（issue #414）を出す相手。この画面では uid 固定。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
@@ -56,12 +70,25 @@ export default function PublicProfilePage() {
   // （両方とも認証必須の API のため）。
   const canModerate = !!data && !!isSignedIn && userId !== uid;
 
-  // 共有 URL から開いた人がそのままフレンド追加できる導線（issue #413）。
-  // フレンド追加 API は認証必須なので未サインインでは出さず、自分自身の
-  // 名刺でも出さない。ブロック関係の相手は公開プロフィール自体が 404 に
-  // なるため、この時点では考慮不要。
+  // 共有 URL から開いた人がそのままフレンド申請できる導線（issue #413）。
+  // リモート経由の追加は申請→承認制（issue #417）。申請 API は認証必須なので
+  // 未サインインでは出さず、自分自身の名刺でも出さない。ブロック関係の相手は
+  // 公開プロフィール自体が 404 になるため、この時点では考慮不要。
   const showFriendAction = !!data && !!isSignedIn && !!userId && userId !== uid;
   const isFriend = !!uid && !!friends?.some((f) => f.friendId === uid);
+  const receivedRequest = friendRequests?.received.find(
+    (r) => r.userId === uid,
+  );
+  const sentRequest = friendRequests?.sent.find((r) => r.userId === uid);
+  // 一覧取得失敗を未登録・未申請と誤認しないよう、どちらかが失敗したら
+  // アクションを出さず再試行導線を出す（申請ボタンは冪等だが押せてしまい、
+  // 申請済みでも「申請しました」と通知してしまう）。
+  const isRelationLoading = isFriendsLoading || isRequestsLoading;
+  const isRelationError = isFriendsError || isRequestsError;
+  const refetchRelation = () => {
+    void refetchFriends();
+    void refetchRequests();
+  };
 
   // 共有 URL / QR のディープリンクで開く公開ページのため遷移履歴が無いことが
   // 多い。その場合はホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
@@ -92,21 +119,83 @@ export default function PublicProfilePage() {
     />
   );
 
-  function onPressAddFriend() {
+  function onPressSendRequest() {
     if (!uid) return;
-    // QR スキャン時と同じ即時成立の API で追加する（承認フローは #417）。
-    addFriend.mutate(uid, {
+    sendFriendRequest.mutate(uid, {
+      onSuccess: (result) => {
+        // 相手からも申請が届いていた場合は相互意思として即成立する
+        // （pending ならクエリ無効化で「申請中」表示に変わる）。
+        if (result.status === "accepted") {
+          setExchangeUid(uid);
+        }
+      },
+      onError: (e) => {
+        alert(
+          t("申請できませんでした"),
+          e instanceof Error ? e.message : t("フレンド申請に失敗しました"),
+          { okLabel: "OK" },
+        );
+      },
+    });
+  }
+
+  function onPressAcceptRequest() {
+    if (!uid || !receivedRequest) return;
+    acceptFriendRequest.mutate(receivedRequest.id, {
       onSuccess: () => {
         setExchangeUid(uid);
       },
       onError: (e) => {
         alert(
-          t("追加できませんでした"),
-          e instanceof Error ? e.message : t("フレンド追加に失敗しました"),
+          t("承認できませんでした"),
+          e instanceof Error ? e.message : t("申請の承認に失敗しました"),
           { okLabel: "OK" },
         );
       },
     });
+  }
+
+  function onPressDeleteRequest(requestId: number, name: string) {
+    confirm(
+      "フレンド申請を削除",
+      `「${name}」からのフレンド申請を削除しますか？`,
+      () => {
+        void deleteFriendRequest
+          .mutateAsync(requestId)
+          .catch((e: unknown) =>
+            alert(
+              "申請を削除できませんでした",
+              e instanceof Error ? e.message : "申請の削除に失敗しました",
+              { okLabel: "OK" },
+            ),
+          );
+      },
+      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+    );
+  }
+
+  function onPressCancelRequest() {
+    if (!data || !sentRequest) return;
+    confirm(
+      "申請を取り消す",
+      `「${data.username}」へのフレンド申請を取り消しますか？`,
+      () => {
+        void deleteFriendRequest
+          .mutateAsync(sentRequest.id)
+          .catch((e: unknown) =>
+            alert(
+              "申請を取り消せませんでした",
+              e instanceof Error ? e.message : "申請の取消に失敗しました",
+              { okLabel: "OK" },
+            ),
+          );
+      },
+      {
+        confirmLabel: "取り消す",
+        cancelLabel: "キャンセル",
+        destructive: true,
+      },
+    );
   }
 
   function runBlock() {
@@ -248,19 +337,18 @@ export default function PublicProfilePage() {
 
           {showFriendAction ? (
             <View className="mt-4 w-full">
-              {isFriendsLoading ? null : isFriendsError ? (
-                // 一覧取得失敗を未登録と誤認して追加ボタンを出さない
-                // （追加 API は冪等なので押せてしまい、登録済みでも
-                // 「追加しました」と通知してしまう）。
+              {isRelationLoading ? null : isRelationError ? (
+                // 一覧取得失敗を未登録・未申請と誤認してアクションを出さない
+                // （上の isRelationError コメント参照）。
                 <View
                   className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
                   testID="friends-load-error"
                 >
                   <Text className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("フレンド一覧を取得できませんでした")}
+                    {t("フレンド情報を取得できませんでした")}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => refetchFriends()}
+                    onPress={refetchRelation}
                     accessibilityRole="button"
                     accessibilityLabel={t("再試行")}
                     testID="friends-retry-button"
@@ -279,19 +367,83 @@ export default function PublicProfilePage() {
                     {t("フレンド登録済み")}
                   </Text>
                 </View>
+              ) : receivedRequest ? (
+                // 相手からの申請が届いている。承認・削除はプロフィール上で
+                // 選ぶ（issue #417）。
+                <View className="items-center gap-2">
+                  <Text
+                    className="text-sm text-slate-500 dark:text-slate-400"
+                    testID="friend-request-received-label"
+                  >
+                    {t("フレンド申請が届いています")}
+                  </Text>
+                  <View className="flex-row gap-2 w-full">
+                    <TouchableOpacity
+                      className="flex-1 bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
+                      onPress={onPressAcceptRequest}
+                      disabled={acceptFriendRequest.isPending}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("申請を承認")}
+                      testID="accept-friend-request-button"
+                    >
+                      <Text className="text-white font-semibold">
+                        {acceptFriendRequest.isPending
+                          ? t("承認中...")
+                          : t("承認")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      className="flex-1 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
+                      onPress={() =>
+                        onPressDeleteRequest(receivedRequest.id, data.username)
+                      }
+                      disabled={deleteFriendRequest.isPending}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("申請を削除")}
+                      testID="delete-friend-request-button"
+                    >
+                      <Text className="text-slate-600 dark:text-slate-300 font-semibold">
+                        {t("削除")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : sentRequest ? (
+                <View className="items-center gap-2">
+                  <View
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center self-stretch"
+                    testID="friend-request-sent-badge"
+                  >
+                    <Text className="text-sm text-slate-500 dark:text-slate-400">
+                      {t("フレンド申請中")}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    className="items-center py-1"
+                    onPress={onPressCancelRequest}
+                    disabled={deleteFriendRequest.isPending}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("申請を取り消す")}
+                    testID="cancel-friend-request-button"
+                  >
+                    <Text className="text-xs text-slate-400 dark:text-slate-500">
+                      {t("申請を取り消す")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <TouchableOpacity
                   className="bg-indigo-600 rounded-lg px-4 py-2.5 items-center"
-                  onPress={onPressAddFriend}
-                  disabled={addFriend.isPending}
+                  onPress={onPressSendRequest}
+                  disabled={sendFriendRequest.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel={t("フレンドに追加")}
-                  testID="add-friend-button"
+                  accessibilityLabel={t("フレンドを申請")}
+                  testID="send-friend-request-button"
                 >
                   <Text className="text-white font-semibold">
-                    {addFriend.isPending
-                      ? t("フレンド登録中...")
-                      : t("フレンドに追加")}
+                    {sendFriendRequest.isPending
+                      ? t("申請を送信中...")
+                      : t("フレンドを申請")}
                   </Text>
                 </TouchableOpacity>
               )}

@@ -11,6 +11,7 @@ import { FriendsSection } from "@/components/social/FriendsSection";
 import { ApiRequestError } from "@/lib/apiError";
 
 const mockRemoveMutateAsync = jest.fn();
+const mockPush = jest.fn();
 const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
@@ -21,6 +22,22 @@ const mockConfirm = jest.fn(
     _options?: unknown,
   ) => onConfirm(),
 );
+
+let mockRequestsData: {
+  received: {
+    id: number;
+    userId: string;
+    username: string;
+    bio: string | null;
+    favoriteQuote: string | null;
+    profileImageUrl: string | null;
+  }[];
+  sent: unknown[];
+} = { received: [], sent: [] };
+
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
+}));
 
 jest.mock("@/lib/useFriends", () => ({
   useFriends: () => ({
@@ -41,6 +58,13 @@ jest.mock("@/lib/useFriends", () => ({
   }),
 }));
 
+jest.mock("@/lib/useFriendRequests", () => ({
+  useFriendRequests: () => ({
+    data: mockRequestsData,
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -54,6 +78,7 @@ jest.mock("@/lib/dialog", () => ({
 beforeEach(async () => {
   jest.clearAllMocks();
   mockRemoveMutateAsync.mockReset();
+  mockRequestsData = { received: [], sent: [] };
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
@@ -80,6 +105,37 @@ describe("FriendsSection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  it("届いた申請があると一覧の先頭に出し、タップで相手のプロフィールへ進む", async () => {
+    mockRequestsData = {
+      received: [
+        {
+          id: 3,
+          userId: "requester_1",
+          username: "申請者B",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+      sent: [],
+    };
+    await render(<FriendsSection />);
+
+    const row = screen.getByTestId("friend-request-item-requester_1");
+    await fireEvent.press(row);
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "requester_1" },
+    });
+  });
+
+  it("申請が無ければ申請一覧は出さない", async () => {
+    await render(<FriendsSection />);
+
+    expect(screen.queryByText("届いたフレンド申請")).toBeNull();
   });
 
   it("API エラー以外の失敗では技術メッセージを出さず固定文言に寄せる", async () => {

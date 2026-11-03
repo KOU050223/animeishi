@@ -8,6 +8,7 @@ import {
   watchHistory,
   favorites,
   friends,
+  friendRequests,
   userGenres,
   annictTokens,
   tierLists,
@@ -455,6 +456,22 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               eq(friends.friendId, currentUserId),
             ),
           ),
+        // 保留中のフレンド申請（issue #417）も両方向で消す。
+        // 残すとブロック後も相手の申請一覧に自分が残り続ける。
+        db
+          .delete(friendRequests)
+          .where(
+            or(
+              and(
+                eq(friendRequests.requesterId, currentUserId),
+                eq(friendRequests.addresseeId, targetUserId),
+              ),
+              and(
+                eq(friendRequests.requesterId, targetUserId),
+                eq(friendRequests.addresseeId, currentUserId),
+              ),
+            ),
+          ),
       ]);
     },
 
@@ -550,6 +567,15 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
             ),
           ),
         db.delete(userGenres).where(eq(userGenres.userId, currentUserId)),
+        // friends と同様に両方向の行を対象にする
+        db
+          .delete(friendRequests)
+          .where(
+            or(
+              eq(friendRequests.requesterId, currentUserId),
+              eq(friendRequests.addresseeId, currentUserId),
+            ),
+          ),
         // friends と同様に両方向の行を対象にする
         db
           .delete(reports)

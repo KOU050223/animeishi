@@ -7,6 +7,8 @@ export type SegmentItem = {
   onPress: () => void;
   accessibilityLabel?: string;
   testID?: string;
+  /** セルに出す件数バッジ。0 や未指定なら出さない。 */
+  badgeCount?: number;
 };
 
 // iOS 純正のセグメントに揃える: 敷き詰めチップではなく、単一のトラック上に
@@ -31,11 +33,20 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
           accessibilityState={{ selected: item.active }}
           testID={item.testID}
         >
-          <Text
-            className={`text-[13px] ${item.active ? "font-semibold text-slate-900 dark:text-slate-100" : "font-medium text-slate-500 dark:text-slate-400"}`}
-          >
-            {item.label}
-          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text
+              className={`text-[13px] ${item.active ? "font-semibold text-slate-900 dark:text-slate-100" : "font-medium text-slate-500 dark:text-slate-400"}`}
+            >
+              {item.label}
+            </Text>
+            {item.badgeCount ? (
+              <View className="min-w-4 items-center rounded-full bg-red-500 px-1">
+                <Text className="text-[10px] font-semibold text-white">
+                  {item.badgeCount}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </TouchableOpacity>
       ))}
     </View>

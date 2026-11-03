@@ -88,6 +88,17 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS friends_user_friend_unique ON friends (user_id, friend_id)`,
   `CREATE INDEX IF NOT EXISTS friends_user_idx ON friends (user_id)`,
+  `CREATE TABLE IF NOT EXISTS friend_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    requester_id TEXT NOT NULL,
+    addressee_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (addressee_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS friend_requests_pair_unique ON friend_requests (requester_id, addressee_id)`,
+  `CREATE INDEX IF NOT EXISTS friend_requests_addressee_idx ON friend_requests (addressee_id)`,
+  `CREATE INDEX IF NOT EXISTS friend_requests_requester_idx ON friend_requests (requester_id)`,
   `CREATE TABLE IF NOT EXISTS user_genres (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -311,6 +322,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM tier_lists").run();
   await d1.prepare("DELETE FROM activities").run();
   await d1.prepare("DELETE FROM user_genres").run();
+  await d1.prepare("DELETE FROM friend_requests").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM watch_history").run();
@@ -322,7 +334,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities')",
     )
     .run();
   return db;

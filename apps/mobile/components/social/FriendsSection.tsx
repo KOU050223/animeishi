@@ -8,8 +8,11 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
+import { useFriendRequests } from "@/lib/useFriendRequests";
+import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -19,14 +22,20 @@ import { useThemeColors } from "@/lib/theme";
 // ここではセクション名の見出しを出さず人数だけを表示する。
 export function FriendsSection() {
   const colors = useThemeColors();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: friends, isLoading, isError, refetch } = useFriends();
+  // 届いたフレンド申請（issue #417）。承認・削除は相手のプロフィールで行うため、
+  // ここでは通知とプロフィールへの導線だけを出す。
+  const { data: friendRequests, refetch: refetchRequests } =
+    useFriendRequests();
+  const received = friendRequests?.received ?? [];
   const remove = useRemoveFriend();
 
   async function onRefresh() {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refetchRequests()]);
     setRefreshing(false);
   }
 
@@ -97,6 +106,34 @@ export function FriendsSection() {
         contentContainerStyle={styles.listContent}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        ListHeaderComponent={
+          received.length > 0 ? (
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                届いたフレンド申請
+              </Text>
+              {received.map((request, index) => (
+                <View key={request.id}>
+                  {index > 0 ? (
+                    <View
+                      style={styles.separator}
+                      className="bg-slate-100 dark:bg-slate-800"
+                    />
+                  ) : null}
+                  <FriendRequestRow
+                    request={request}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/user/[uid]",
+                        params: { uid: request.userId },
+                      })
+                    }
+                  />
+                </View>
+              ))}
+            </View>
+          ) : undefined
+        }
         ItemSeparatorComponent={() => (
           <View
             style={styles.separator}
@@ -179,6 +216,58 @@ function FriendRow({
         <Text className="text-xs text-red-500 dark:text-red-400">削除</Text>
       </TouchableOpacity>
     </View>
+  );
+}
+
+// 届いた申請の 1 行。タップで相手のプロフィールへ進み、承認・削除は
+// そこで行う（issue #417 の仕様）。
+function FriendRequestRow({
+  request,
+  onPress,
+}: {
+  request: FriendRequestItem;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      className="flex-row items-center py-3 gap-3"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${request.username}からのフレンド申請`}
+      testID={`friend-request-item-${request.userId}`}
+    >
+      {request.profileImageUrl ? (
+        <Image
+          source={{ uri: request.profileImageUrl }}
+          style={styles.avatar}
+          className="bg-slate-200 dark:bg-slate-700"
+          resizeMode="cover"
+        />
+      ) : (
+        <View
+          style={styles.avatarPlaceholder}
+          className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
+        >
+          <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
+            {request.username.charAt(0)}
+          </Text>
+        </View>
+      )}
+
+      <View className="flex-1">
+        <Text
+          className="text-slate-900 dark:text-slate-100 font-medium"
+          numberOfLines={1}
+        >
+          {request.username}
+        </Text>
+        <Text className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
+          フレンド申請が届いています
+        </Text>
+      </View>
+
+      <Text className="text-slate-300 dark:text-slate-600 text-lg">›</Text>
+    </TouchableOpacity>
   );
 }
 

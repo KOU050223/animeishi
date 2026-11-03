@@ -14,18 +14,28 @@ type FriendsResponse = InferResponseType<
 export type FriendItem = FriendsResponse[number];
 
 export const FRIENDS_QUERY_KEY = ["friends"] as const;
+export const FRIEND_REQUESTS_QUERY_KEY = ["friend-requests"] as const;
 
 const friendsQueryKey = (userId: string) =>
   [...FRIENDS_QUERY_KEY, userId] as const;
+const friendRequestsQueryKey = (userId: string) =>
+  [...FRIEND_REQUESTS_QUERY_KEY, userId] as const;
 
-// フレンド関係が変わると一覧と活動フィード・ストーリーの内容が変わるため、
-// すべて無効化する（各キャッシュは userId サフィックス付きなので prefix で無効化する）。
-function invalidateFriendRelatedQueries(
+// フレンド関係が変わると一覧・申請一覧・活動フィード・ストーリーの内容が
+// 変わるため、すべて無効化する（各キャッシュは userId サフィックス付きなので
+// prefix で無効化する）。QR の即時成立でも申請行が消えうるため申請一覧を含む
+// （issue #417）。
+export function invalidateFriendRelatedQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   userId: string | null | undefined,
 ) {
   void queryClient.invalidateQueries({
     queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
+  });
+  void queryClient.invalidateQueries({
+    queryKey: userId
+      ? friendRequestsQueryKey(userId)
+      : FRIEND_REQUESTS_QUERY_KEY,
   });
   void queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY });
   void queryClient.invalidateQueries({

@@ -64,6 +64,7 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 | Watch History（sync 含む） | `features/watch-history/repository.ts` |
 | Favorites | `features/favorites/repository.ts` |
 | Friends | `features/friends/repository.ts` |
+| Friend Requests | `features/friend-requests/repository.ts` |
 | Tier Lists | `features/tier-lists/repository.ts` |
 | Character Tier Lists | `features/character-tier-lists/repository.ts` |
 | annict_works / annict_characters（全ユーザー共有カタログ） | `features/works/repository.ts` |
@@ -123,6 +124,7 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 
 OpenAPI 化済み（/doc に掲載される）:
 - `health` / `users`（report・block）/ `favorites` / `friends` /
+  `friend-requests` /
   `me`（profile・blocks・avatar 投稿・meishi-assets 投稿・アカウント削除）
 
 未移行（素の Hono のまま。動作に影響なし、/doc には出ない）:
