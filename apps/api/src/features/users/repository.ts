@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
   deletedUsers,
+  deletionFeedbacks,
   activities,
   watchHistory,
   favorites,
@@ -15,6 +16,8 @@ import {
   tierListItems,
   characterTierLists,
   characterTierListItems,
+  customTierLists,
+  workLists,
   reports,
   blocks,
   analyses,
@@ -635,6 +638,72 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       await db.batch(
         queries as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
       );
+    },
+
+    /**
+     * DELETE /me で消えるデータの件数（退会フローの確認画面用, issue #426）。
+     * tierLists はシーズン・キャラクター・自由作成の 3 種の合計。
+     * 名刺（端末内 AsyncStorage）はサーバーが持たないため含まない。
+     */
+    async getMyDeletionSummary(): Promise<{
+      watchHistories: number;
+      favorites: number;
+      friends: number;
+      tierLists: number;
+      workLists: number;
+    }> {
+      const [wh, fav, fr, tl, ctl, xtl, wl] = await db.batch([
+        db
+          .select({ c: count() })
+          .from(watchHistory)
+          .where(eq(watchHistory.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(favorites)
+          .where(eq(favorites.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(friends)
+          .where(eq(friends.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(tierLists)
+          .where(eq(tierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(characterTierLists)
+          .where(eq(characterTierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(customTierLists)
+          .where(eq(customTierLists.userId, currentUserId)),
+        db
+          .select({ c: count() })
+          .from(workLists)
+          .where(eq(workLists.userId, currentUserId)),
+      ]);
+      return {
+        watchHistories: wh[0]?.c ?? 0,
+        favorites: fav[0]?.c ?? 0,
+        friends: fr[0]?.c ?? 0,
+        tierLists: (tl[0]?.c ?? 0) + (ctl[0]?.c ?? 0) + (xtl[0]?.c ?? 0),
+        workLists: wl[0]?.c ?? 0,
+      };
+    },
+
+    /**
+     * 退会理由の記録（issue #426）。集計専用で、個人を特定できる値は
+     * 受け取らず保存もしない（user_id はリクエスト認証にのみ使う）。
+     */
+    async recordDeletionFeedback(input: {
+      reasons: string[];
+      freeText?: string | undefined;
+    }): Promise<void> {
+      await db.insert(deletionFeedbacks).values({
+        reasons: JSON.stringify(input.reasons),
+        freeText: input.freeText ?? null,
+        createdAt: new Date(),
+      });
     },
   };
 }

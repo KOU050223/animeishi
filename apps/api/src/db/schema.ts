@@ -682,6 +682,18 @@ export const userGenres = sqliteTable(
   ],
 );
 
+// ---- deletion_feedbacks (退会理由の匿名記録, issue #426) ----
+// 退会フローで任意入力された理由を、退会後も集計できるよう user_id と
+// 紐付けずに保存する。個人を特定できる列（user_id・メール等）は持たない。
+// users への FK も持たせない（削除されたユーザーとの関連付けを残さないため）。
+export const deletionFeedbacks = sqliteTable("deletion_feedbacks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  // 選択理由キーの JSON 配列（キーはクライアント側で管理する）。
+  reasons: text("reasons").notNull(),
+  freeText: text("free_text"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 // ---- Type exports ----
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -730,5 +742,7 @@ export type NewReport = typeof reports.$inferInsert;
 export type Block = typeof blocks.$inferSelect;
 export type NewBlock = typeof blocks.$inferInsert;
 export type DeletedUser = typeof deletedUsers.$inferSelect;
+export type DeletionFeedback = typeof deletionFeedbacks.$inferSelect;
+export type NewDeletionFeedback = typeof deletionFeedbacks.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;
