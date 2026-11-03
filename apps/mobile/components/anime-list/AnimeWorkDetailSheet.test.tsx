@@ -649,14 +649,44 @@ describe("AnimeWorkDetailSheet", () => {
     expect(screen.getByText("最高")).toBeTruthy();
   });
 
-  it("視聴済みでない作品には評価セクションを出さない", async () => {
-    // 既定の詳細は WATCHING。
+  it("視聴済みでなく未評価の作品には評価セクションを出さない", async () => {
+    // 既定の詳細は WATCHING、既定の評価は null。
     await render(sheetElement());
 
+    expect(screen.queryByText("この作品の評価")).toBeNull();
     expect(screen.queryByTestId("work-detail-rating-bad")).toBeNull();
     expect(screen.queryByTestId("work-detail-rating-good")).toBeNull();
     expect(screen.queryByTestId("work-detail-rating-great")).toBeNull();
-    expect(mockUseWorkRating).not.toHaveBeenCalled();
+  });
+
+  it("視聴済みでなくても保存済み評価があれば評価セクションを出す", async () => {
+    // 評価は作品への意見なので、視聴済みから視聴中に戻しても残る。
+    // 残った評価を外せるよう、セクションは出し続ける（PR #452 レビュー）。
+    mockUseWorkDetail.mockReturnValue(detailState());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "good", annictRating: null } }),
+    );
+
+    await render(sheetElement());
+
+    expect(screen.getByText("この作品の評価")).toBeTruthy();
+    expect(
+      screen.getByTestId("work-detail-rating-good").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+  });
+
+  it("視聴中に戻した作品でも評価を外せる", async () => {
+    mockUseWorkDetail.mockReturnValue(detailState());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "good", annictRating: null } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+
+    expect(mockRatingDeleteAsync).toHaveBeenCalled();
+    expect(mockRatingUpsertAsync).not.toHaveBeenCalled();
   });
 
   it("保存済みの評価が選択済みチップとして表示される", async () => {

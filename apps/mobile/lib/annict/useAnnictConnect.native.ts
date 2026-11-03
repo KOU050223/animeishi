@@ -133,10 +133,17 @@ export function useAnnictConnect() {
         }
         await annictTokenStorage.set(data.accessToken);
 
-        // 連携状態を再取得させる。
-        await queryClient.invalidateQueries({
-          queryKey: ANNICT_CONNECTION_QUERY_KEY,
-        });
+        // 連携状態を再取得させる。評価クエリも捨てる — 連携後は Annict
+        // レビュー由来の初期評価（annictRating）を GET で拾えるため、
+        // 未連携時に取った null 応答を残さない（issue #416 レビュー）。
+        // キーは useWorkRating の WORK_RATING_QUERY_KEY と一致させる
+        // （import すると循環参照になる）。
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ANNICT_CONNECTION_QUERY_KEY,
+          }),
+          queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
+        ]);
 
         return finish({ status: "success" });
       } catch {
@@ -159,6 +166,9 @@ export function useAnnictConnect() {
     // Annict 連携が前提のため同様に破棄する。キーは useWorkDetail の
     // WORK_DETAIL_QUERY_KEY と一致させる（import すると循環参照になる）。
     queryClient.removeQueries({ queryKey: ["works", "detail"] });
+    // 評価の annictRating（Annict レビュー由来の初期値候補）も連携前提の
+    // ため破棄する。キーは useWorkRating の WORK_RATING_QUERY_KEY と一致。
+    queryClient.removeQueries({ queryKey: ["work-ratings"] });
     await queryClient.invalidateQueries({
       queryKey: ANNICT_CONNECTION_QUERY_KEY,
     });

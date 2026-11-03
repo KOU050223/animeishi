@@ -239,13 +239,18 @@ export function AnimeWorkDetailSheet({
                 onSelect={selectStatus}
               />
             )}
-            {currentState === "WATCHED" ? (
-              // 評価は視聴済み作品だけに出す（issue #416）。評価自体は
-              // Animeishi の D1 が正で Annict 連携は不要だが、視聴済みかの
-              // 判定が Annict 由来の state に依存するため、未連携では
-              // 視聴済み作品を特定できず結果として表示されない。
-              <RatingSection work={work} />
-            ) : null}
+            {
+              // 評価は作品への意見なので、視聴状態を戻しても D1 の評価は残す
+              // （issue #416）。そのため出し分けは「視聴済み、または既に評価が
+              // ある」作品: 視聴中に戻した作品でも評価を外せるようにする。
+              // API 側も視聴状態では拒否しない。
+              // 視聴済みかの判定が Annict 由来の state に依存するため、未連携
+              // では評価済み作品しかセクションは出ない。
+              <RatingSection
+                work={work}
+                isWatched={currentState === "WATCHED"}
+              />
+            }
             {isConnected ? (
               // 話数記録は Annict 連携必須（record の読み書きを API 経由で
               // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
@@ -371,28 +376,23 @@ function StatusSection({
  * 表示する選択値は「D1 の評価 → Annict レビュー初期値（annictRating）」の順。
  * Annict 初期値は未保存の候補なので、選択中の再タップでは表示だけ下ろし、
  * D1 に評価がある場合だけ DELETE を送る。
+ *
+ * 評価は作品への意見なので視聴状態を戻しても残る（API も視聴状態では
+ * 拒否しない）。そのためセクション自体は「視聴済み or 保存済み評価あり」
+ * で出し、視聴中へ戻した作品でも評価を外せるようにする。
  */
-function RatingSection({ work }: { work: WorkDetailSheetTarget }) {
+function RatingSection({
+  work,
+  isWatched,
+}: {
+  work: WorkDetailSheetTarget;
+  isWatched: boolean;
+}) {
   const palette = useAnimeListPalette();
   const ratingQuery = useWorkRating(work.annictWorkId);
   const upsert = useUpsertWorkRating(work.annictWorkId);
   const remove = useDeleteWorkRating(work.annictWorkId);
   const isMutating = upsert.isPending || remove.isPending;
-
-  // 「評価するとおすすめの精度が上がります」は初回だけ出す。
-  // 表示済みフラグは端末ローカルでよい（issue #416 の決定）。
-  const [showHint, setShowHint] = useState(false);
-  useEffect(() => {
-    let mounted = true;
-    void loadWorkRatingHintSeen().then((seen) => {
-      if (seen) return;
-      if (mounted) setShowHint(true);
-      void markWorkRatingHintSeen();
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // 解除（未評価）は「Annict 初期値も選ばない」という端末側の状態でしか
   // 表せない（再取得すると annictRating が再び候補として返るため）。
@@ -402,6 +402,25 @@ function RatingSection({ work }: { work: WorkDetailSheetTarget }) {
     rating: WorkRating | null;
   } | null>(null);
   const storedRating = ratingQuery.data?.rating ?? null;
+  const visible = isWatched || storedRating != null;
+
+  // 「評価するとおすすめの精度が上がります」は初回だけ出す。
+  // 表示済みフラグは端末ローカルでよい（issue #416 の決定）。
+  // セクションが非表示の間は読み込まない（見えていないのに
+  // 既読扱いにしないため）。
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    if (!visible) return;
+    let mounted = true;
+    void loadWorkRatingHintSeen().then((seen) => {
+      if (seen) return;
+      if (mounted) setShowHint(true);
+      void markWorkRatingHintSeen();
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [visible]);
   const displayedRating =
     optimistic?.workId === work.annictWorkId
       ? optimistic.rating
@@ -434,6 +453,11 @@ function RatingSection({ work }: { work: WorkDetailSheetTarget }) {
       );
     });
   }
+
+  // 視聴済みでなく保存済み評価も無い作品はセクション自体を出さない
+  // （読み込み中・取得失敗も同様に畳む。Annict 初期値だけの候補は
+  // 「評価がある」には含めない）。
+  if (!visible) return null;
 
   return (
     <View>
