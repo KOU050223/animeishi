@@ -10,6 +10,8 @@ describe("normalizeAnnictFunnelSurface", () => {
   it("既知の surface をそのまま返す", () => {
     expect(normalizeAnnictFunnelSurface("watch_history")).toBe("watch_history");
     expect(normalizeAnnictFunnelSurface("profile_card")).toBe("profile_card");
+    expect(normalizeAnnictFunnelSurface("home_current_season")).toBe("home_current_season");
+    expect(normalizeAnnictFunnelSurface("profile_header")).toBe("profile_header");
   });
 
   it("未知値・未設定は undefined に倒す", () => {
