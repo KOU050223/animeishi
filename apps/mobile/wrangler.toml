@@ -22,8 +22,9 @@ run_worker_first = ["/share/*"]
 # 通常 fetch で転送する。
 API_ORIGIN = "https://animeishi-api.uomi.dev"
 
-# [assets]・[vars] は各 env に継承される。env 側では転送先（サービス名・
-# API_ORIGIN）と ENVIRONMENT だけを上書きする。
+# [assets] は各 env に継承されるが、vars は継承されない。
+# そのため API_ORIGIN は env ごとに書く必要がある（重複ではない）。
+# env 側では転送先（サービス名・API_ORIGIN）と ENVIRONMENT だけを上書きする。
 [env.production]
 preview_urls = true
 
