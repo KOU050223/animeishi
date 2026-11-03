@@ -57,6 +57,7 @@ const workListsRoute = new Hono<AuthVariables>()
     const result = await repo.saveMyWorkList({
       title: input.title,
       description: input.description?.trim() ? input.description : null,
+      isPublic: input.isPublic,
       items: withPositions(input.items),
     });
     if (!result) throw new Error("作品リストの保存に失敗しました");
@@ -96,6 +97,7 @@ const workListsRoute = new Hono<AuthVariables>()
         id,
         title: input.title,
         description: input.description?.trim() ? input.description : null,
+        isPublic: input.isPublic,
         items: withPositions(input.items),
       });
       if (!result) return c.json({ error: "Work list not found" }, 404);
