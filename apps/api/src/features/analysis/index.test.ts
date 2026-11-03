@@ -297,7 +297,8 @@ describe("視聴傾向分析 API", () => {
       aiRun.mockResolvedValue(aiChatCompletion(AI_PAYLOAD));
 
       const first = await postAnalysis();
-      expect((await first.json()).cached).toBe(false);
+      const firstBody = (await first.json()) as { cached: boolean };
+      expect(firstBody.cached).toBe(false);
 
       // 評価の変更は入力ハッシュを変えるため、キャッシュではなく再生成になる。
       await db
@@ -305,7 +306,8 @@ describe("視聴傾向分析 API", () => {
         .set({ rating: "bad" })
         .where(eq(workRatings.userId, USER_ID));
       const second = await postAnalysis();
-      expect((await second.json()).cached).toBe(false);
+      const secondBody = (await second.json()) as { cached: boolean };
+      expect(secondBody.cached).toBe(false);
       expect(aiRun).toHaveBeenCalledTimes(2);
     });
 
