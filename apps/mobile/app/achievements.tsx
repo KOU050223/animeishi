@@ -127,15 +127,22 @@ function AchievementRow({
 }) {
   const { t } = useTranslation();
   const name = achievementName(t, achievement);
-  const dimmed = !achievement.earned;
 
   return (
     <View
       className={`flex-row items-center gap-3 px-4 py-3${
         isLast ? "" : " border-b border-slate-100 dark:border-slate-800"
       }`}
-      accessibilityLabel={name}
-      accessibilityState={{ disabled: dimmed }}
+      accessible
+      accessibilityLabel={[
+        name,
+        achievement.earned ? t("獲得済み") : t("未獲得"),
+        achievement.progress.target != null
+          ? `${achievement.progress.current}/${achievement.progress.target}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("、")}
     >
       <View
         className={`h-11 w-11 items-center justify-center rounded-full ${

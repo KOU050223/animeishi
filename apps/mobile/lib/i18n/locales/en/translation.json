@@ -249,5 +249,7 @@
   "実績を獲得しました！": "Achievement earned!",
   "実績をシェアする": "Share achievement",
   "シェアする": "Share",
-  "Annict と連携すると判定できます": "Connect Annict to check this achievement"
+  "Annict と連携すると判定できます": "Connect Annict to check this achievement",
+  "獲得済み": "Earned",
+  "未獲得": "Not earned"
 }
