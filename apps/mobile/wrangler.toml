@@ -1,24 +1,44 @@
 # Web フロント（Expo Router の web エクスポート）を Cloudflare Workers の
 # 静的アセットとして配信する設定。`expo export -p web` が dist/ に SPA を出力する。
+# /share/* だけは worker/index.ts が API Worker へ転送し、
+# API が返す OGP 付き共有ページをこのドメインで配信する（issue #408）。
 name = "animeishi-web"
+main = "worker/index.ts"
 compatibility_date = "2025-04-01"
 account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 preview_urls = true
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 # SPA のためクライアントサイドルーティングへ未知のパスをフォールバックする
 not_found_handling = "single-page-application"
+run_worker_first = ["/share/*"]
 
+[vars]
+# /share/* の転送時にリクエスト URL のオリジンを書き換える API の公開オリジン
+# （worker/index.ts 参照）。Service Binding（env.API）が無い環境、または
+# SHARE_FORWARD_VIA_FETCH が立つ環境（PR プレビュー）ではこのオリジンへの
+# 通常 fetch で転送する。
+API_ORIGIN = "https://animeishi-api.uomi.dev"
+
+# [assets] は各 env に継承されるが、vars は継承されない。
+# そのため API_ORIGIN は env ごとに書く必要がある（重複ではない）。
+# env 側では転送先（サービス名・API_ORIGIN）と ENVIRONMENT だけを上書きする。
 [env.production]
 preview_urls = true
 
-[env.production.assets]
-directory = "./dist"
-not_found_handling = "single-page-application"
+# 本番は Service Binding 経由で API Worker へ転送する。remote = true は
+# `wrangler dev --env production` でローカル実行せずデプロイ済みの
+# 本番 API を叩くための指定。
+[[env.production.services]]
+binding = "API"
+service = "animeishi-api-production"
+remote = true
 
 [env.production.vars]
 ENVIRONMENT = "production"
+API_ORIGIN = "https://animeishi-api.uomi.dev"
 
 [observability]
 enabled = false

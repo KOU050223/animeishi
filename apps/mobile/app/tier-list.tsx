@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
-import { apiUrl } from "@/lib/apiUrl";
+import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
@@ -373,7 +373,7 @@ export default function TierListScreen() {
     try {
       await saveTierListData();
       const { shareToken } = await share.mutateAsync(season);
-      const url = buildTierListShareUrl(shareToken, apiUrl);
+      const url = buildTierListShareUrl(shareToken, webUrl);
       // native は OS 共有シート。web は urlShareElement のモーダルを開き、
       // コピー / X 共有はモーダル内のボタン操作で行う。
       await presentShareUrl(url);

@@ -38,6 +38,7 @@ type TestEnv = {
     DB: D1Database;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
+    PUBLIC_WEB_URL?: string;
   };
   Variables: {
     clerkUserId: string;
@@ -1326,5 +1327,70 @@ describe("視聴履歴の共有", () => {
     const html = await htmlRes.text();
     expect(html).toContain("危険|な&lt;title&gt;");
     expect(html).not.toContain("危険|な<title>");
+  });
+});
+
+describe("共有ページの og:url / canonical（issue #408）", () => {
+  beforeEach(async () => {
+    const db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+
+    const now = new Date();
+    await db.insert(users).values({
+      id: USER_ID,
+      username: "テストユーザー",
+      isPublic: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(annictWorks).values([
+      { annictWorkId: WORK_A, title: "アニメA", updatedAt: now },
+      { annictWorkId: WORK_B, title: "アニメB", updatedAt: now },
+    ]);
+  });
+
+  async function issueTierListToken(app: ReturnType<typeof buildApp>) {
+    await seedTierList(app);
+    const shareRes = await app.request(
+      `/me/tier-lists/${SEASON}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await shareRes.json()) as { shareToken: string };
+    return shareToken;
+  }
+
+  it("PUBLIC_WEB_URL 設定時は og:url / canonical が Web ドメインを指す", async () => {
+    const app = buildApp();
+    const shareToken = await issueTierListToken(app);
+
+    // Web Worker 転送後も旧 API ドメイン直撃時も、正規 URL は Web 側に揃う
+    const res = await app.request(
+      `https://animeishi-api.uomi.dev/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      { ...TEST_BINDINGS, PUBLIC_WEB_URL: "https://animeishi.uomi.dev" },
+    );
+    const html = await res.text();
+    const expected = `https://animeishi.uomi.dev/share/tier-lists/${shareToken}`;
+    expect(html).toContain(`property="og:url" content="${expected}"`);
+    expect(html).toContain(`rel="canonical" href="${expected}"`);
+  });
+
+  it("PUBLIC_WEB_URL 未設定時はリクエスト URL 自身を正規 URL にする", async () => {
+    const app = buildApp();
+    const shareToken = await issueTierListToken(app);
+
+    const res = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    const expected = `http://localhost/share/tier-lists/${shareToken}`;
+    expect(html).toContain(`property="og:url" content="${expected}"`);
+    expect(html).toContain(`rel="canonical" href="${expected}"`);
   });
 });

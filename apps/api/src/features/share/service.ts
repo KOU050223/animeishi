@@ -52,6 +52,23 @@ const IMAGE_PROXY_MAX_REDIRECTS = 3;
 const IMAGE_CONTENT_TYPE_PATTERN = /^image\//i;
 
 /**
+ * 共有ページの正規 URL（og:url / canonical 用）。
+ * ユーザーに見せる共有 URL は Web ドメイン（animeishi.uomi.dev）に統一する
+ * ため、PUBLIC_WEB_URL が設定されていればリクエストのパス＋クエリをその
+ * オリジンへ載せ替える（issue #408）。API ドメインの旧 URL 直撃時にも
+ * canonical は Web 側を指す。未設定（preview 等）ならリクエスト URL 自身。
+ */
+export function buildCanonicalShareUrl(
+  publicWebUrl: string | undefined,
+  requestUrl: string,
+): string {
+  const request = new URL(requestUrl);
+  if (!publicWebUrl) return request.toString();
+  const base = new URL(`${publicWebUrl.replace(/\/+$/, "")}/`);
+  return new URL(request.pathname + request.search, base).toString();
+}
+
+/**
  * Web 版の画像エクスポート用プロキシ。Annict / AniList / MAL 等の外部 CDN は
  * CORS ヘッダを返さないため、html-to-image による DOM の画像インライン化が
  * 失敗する。同一 API 経由で取得し直すことで CORS 付きの画像として配信する。
@@ -233,12 +250,14 @@ export function workImageHtml(
 export function buildSharedTierListHtml(
   list: SharedTierList,
   requestUrl: string,
+  canonicalUrl: string,
 ): string {
   return buildWorkTierListHtml({
     list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
     ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）`,
     ownerUsername: list.ownerUsername,
     requestUrl,
+    canonicalUrl,
   });
 }
 
@@ -249,12 +268,14 @@ export function buildSharedTierListHtml(
 export function buildSharedCustomTierListHtml(
   list: SharedCustomTierList,
   requestUrl: string,
+  canonicalUrl: string,
 ): string {
   return buildWorkTierListHtml({
     list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
     ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表`,
     ownerUsername: list.ownerUsername,
     requestUrl,
+    canonicalUrl,
   });
 }
 
@@ -269,6 +290,7 @@ function buildWorkTierListHtml(input: {
   ownerLine: string;
   ownerUsername: string;
   requestUrl: string;
+  canonicalUrl: string;
 }): string {
   const tiers = parseTiersJson(input.list.tiersJson);
   const itemsByTier = new Map<string, SharedTierList["items"]>();
@@ -326,6 +348,8 @@ function buildWorkTierListHtml(input: {
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(input.canonicalUrl)}" />
+  <link rel="canonical" href="${escapeHtml(input.canonicalUrl)}" />
   ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />
@@ -366,6 +390,7 @@ function buildWorkTierListHtml(input: {
 export function buildSharedWorkListHtml(
   list: SharedWorkList,
   requestUrl: string,
+  canonicalUrl: string,
 ): string {
   const title = `${escapeHtml(list.title)} - Animeishi`;
   const description = `${escapeHtml(list.ownerUsername)} の作品リスト`;
@@ -404,6 +429,8 @@ export function buildSharedWorkListHtml(
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
   ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />
@@ -462,6 +489,7 @@ export function characterImageHtml(
 
 export function buildSharedCharacterTierListHtml(
   list: SharedCharacterTierList,
+  canonicalUrl: string,
 ): string {
   const tiers = parseTiersJson(list.tiersJson);
   const itemsByTier = new Map<string, SharedCharacterTierList["items"]>();
@@ -509,6 +537,8 @@ export function buildSharedCharacterTierListHtml(
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
   ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />
@@ -629,6 +659,7 @@ export function buildSharedWatchHistoryMarkdown(
 
 export function buildSharedWatchHistoryHtml(
   history: SharedWatchHistory,
+  canonicalUrl: string,
 ): string {
   const title = `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`;
   const rowsHtml = history.items
@@ -654,6 +685,8 @@ export function buildSharedWatchHistoryHtml(
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${escapeHtml(history.ownerUsername)} のアニメ視聴履歴" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }

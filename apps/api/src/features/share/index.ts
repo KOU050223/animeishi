@@ -12,6 +12,7 @@ import {
 } from "./repository";
 import { shareTokenParamSchema } from "./schema";
 import {
+  buildCanonicalShareUrl,
   buildSharedCharacterTierListHtml,
   buildSharedCustomTierListHtml,
   buildSharedTierListHtml,
@@ -27,7 +28,12 @@ import {
 import { workImageUrl } from "@/lib/annict/workImage";
 
 type ShareBindings = {
-  Bindings: Env & { DB: D1Database };
+  Bindings: Env & { DB: D1Database } & {
+    // 共有ページの og:url / canonical に使う Web 版のベース URL
+    // （例: https://animeishi.uomi.dev。issue #408）。未設定時は
+    // リクエスト URL 自身を正規 URL とする。
+    PUBLIC_WEB_URL?: string;
+  };
 };
 
 const share = new Hono<ShareBindings>()
@@ -49,9 +55,17 @@ const share = new Hono<ShareBindings>()
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
-        return c.html(buildSharedTierListHtml(list, c.req.url), 200, {
-          "Cache-Control": "no-store",
-        });
+        return c.html(
+          buildSharedTierListHtml(
+            list,
+            c.req.url,
+            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          ),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        );
       }
 
       return c.json(
@@ -87,9 +101,16 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
-        return c.html(buildSharedCharacterTierListHtml(list), 200, {
-          "Cache-Control": "no-store",
-        });
+        return c.html(
+          buildSharedCharacterTierListHtml(
+            list,
+            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          ),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        );
       }
 
       return c.json(
@@ -123,9 +144,17 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
-        return c.html(buildSharedCustomTierListHtml(list, c.req.url), 200, {
-          "Cache-Control": "no-store",
-        });
+        return c.html(
+          buildSharedCustomTierListHtml(
+            list,
+            c.req.url,
+            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          ),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        );
       }
 
       return c.json(
@@ -159,9 +188,17 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
-        return c.html(buildSharedWorkListHtml(list, c.req.url), 200, {
-          "Cache-Control": "no-store",
-        });
+        return c.html(
+          buildSharedWorkListHtml(
+            list,
+            c.req.url,
+            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          ),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        );
       }
 
       return c.json(
@@ -207,7 +244,14 @@ const share = new Hono<ShareBindings>()
       // （/share/tier-lists と同じ方針）。
       const headers = { "Cache-Control": "no-store" };
       if (wantsHtml) {
-        return c.html(buildSharedWatchHistoryHtml(history), 200, headers);
+        return c.html(
+          buildSharedWatchHistoryHtml(
+            history,
+            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+          ),
+          200,
+          headers,
+        );
       }
       const contentType = accept.includes("text/plain")
         ? "text/plain; charset=utf-8"
