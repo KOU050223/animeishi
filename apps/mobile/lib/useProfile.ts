@@ -48,6 +48,52 @@ export function useProfile() {
 }
 
 /**
+ * 退会フロー（issue #426）で消えるデータの件数（GET /me/deletion-summary）。
+ */
+export function useDeletionSummary() {
+  const { getToken, isSignedIn, userId } = useAuth();
+
+  return useQuery({
+    queryKey: ["deletion-summary", userId],
+    enabled: !!isSignedIn && !!userId,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["deletion-summary"].$get({}, { headers });
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          "削除対象データの取得に失敗しました",
+        );
+      }
+      return res.json();
+    },
+  });
+}
+
+/**
+ * 退会理由の送信（POST /me/deletion-feedback）。
+ * user_id と紐付けず集計専用で保存される。失敗しても退会をブロック
+ * しない前提のため、呼び出し側はエラーを握り潰して進めてよい。
+ */
+export function useSubmitDeletionFeedback() {
+  const { getToken } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { reasons: string[]; freeText?: string }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["deletion-feedback"].$post(
+        { json: input },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "回答の送信に失敗しました");
+      }
+      return null;
+    },
+  });
+}
+
+/**
  * アカウント削除（DELETE /me）。
  * サーバー側で D1 のユーザーデータ・R2 アバター・Clerk ユーザー本体が削除される。
  * 成功後は Clerk 上のユーザーが存在しないため、呼び出し側はローカル状態を

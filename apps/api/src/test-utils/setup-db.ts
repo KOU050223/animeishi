@@ -262,6 +262,12 @@ const DDL_STATEMENTS = [
     FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
   )`,
   `CREATE INDEX IF NOT EXISTS activities_user_idx ON activities (user_id)`,
+  `CREATE TABLE IF NOT EXISTS deletion_feedbacks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    reasons TEXT NOT NULL,
+    free_text TEXT,
+    created_at INTEGER NOT NULL
+  )`,
 ];
 
 /**
@@ -295,6 +301,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM watch_history").run();
+  await d1.prepare("DELETE FROM deletion_feedbacks").run();
   await d1.prepare("DELETE FROM users").run();
   await d1.prepare("DELETE FROM annict_work_casts").run();
   await d1.prepare("DELETE FROM annict_characters").run();
@@ -302,7 +309,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
     )
     .run();
   return db;

@@ -10,7 +10,10 @@ import {
   annictTokens,
   annictWorks,
   blocks,
+  characterTierLists,
+  customTierLists,
   deletedUsers,
+  deletionFeedbacks,
   favorites,
   friends,
   reports,
@@ -19,6 +22,7 @@ import {
   userGenres,
   users,
   watchHistory,
+  workLists,
 } from "@/db/schema";
 
 // requireAuth ミドルウェアは c.get("clerk") から Backend API クライアントを
@@ -1029,5 +1033,239 @@ describe("DELETE /me（アカウント削除）", () => {
     const app = buildApp();
     const res = await app.request("/me", { method: "DELETE" }, testBindings());
     expect(res.status).toBe(204);
+  });
+});
+
+describe("GET /me/deletion-summary（削除対象データの件数）", () => {
+  const OTHER_ID = "user_other001";
+  let db: Awaited<ReturnType<typeof setupTestDb>>;
+
+  beforeEach(async () => {
+    db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    clerkUsers.getUser.mockReset();
+    clerkUsers.getUser.mockResolvedValue({
+      username: null,
+      firstName: null,
+      lastName: null,
+    });
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  it("認証なしは 401", async () => {
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      "/me/deletion-summary",
+      { method: "GET" },
+      testBindings(),
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("データが無いユーザーは全項目 0", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      "/me/deletion-summary",
+      { method: "GET" },
+      testBindings(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      watchHistories: 0,
+      favorites: 0,
+      friends: 0,
+      tierLists: 0,
+      workLists: 0,
+    });
+  });
+
+  it("自分のデータだけが数えられ、tierLists は 3 種の合計になる", async () => {
+    const now = new Date();
+    await db.insert(users).values([
+      {
+        id: USER_ID,
+        username: "本人",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: OTHER_ID,
+        username: "他人",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await db
+      .insert(annictWorks)
+      .values({ annictWorkId: 100, title: "作品A", updatedAt: now });
+    await db.insert(watchHistory).values([
+      {
+        userId: USER_ID,
+        annictWorkId: 100,
+        state: "WATCHED",
+        updatedAt: now,
+      },
+      {
+        userId: OTHER_ID,
+        annictWorkId: 100,
+        state: "WATCHING",
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(favorites).values([
+      { userId: USER_ID, annictWorkId: 100, createdAt: now },
+      { userId: OTHER_ID, annictWorkId: 100, createdAt: now },
+    ]);
+    await db
+      .insert(friends)
+      .values([{ userId: USER_ID, friendId: OTHER_ID, createdAt: now }]);
+    await db.insert(tierLists).values([
+      {
+        userId: USER_ID,
+        season: "2026-spring",
+        title: "シーズン tier",
+        tiersJson: "[]",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        userId: OTHER_ID,
+        season: "2026-spring",
+        title: "他人の tier",
+        tiersJson: "[]",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(characterTierLists).values([
+      {
+        userId: USER_ID,
+        annictWorkId: 100,
+        title: "キャラ tier",
+        tiersJson: "[]",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(customTierLists).values([
+      {
+        userId: USER_ID,
+        title: "自由 tier",
+        tiersJson: "[]",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(workLists).values([
+      {
+        userId: USER_ID,
+        title: "自分のリスト",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        userId: OTHER_ID,
+        title: "他人のリスト",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const app = buildApp();
+    const res = await app.request(
+      "/me/deletion-summary",
+      { method: "GET" },
+      testBindings(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      watchHistories: 1,
+      favorites: 1,
+      friends: 1,
+      tierLists: 3,
+      workLists: 1,
+    });
+  });
+});
+
+describe("POST /me/deletion-feedback（退会理由の記録）", () => {
+  let db: Awaited<ReturnType<typeof setupTestDb>>;
+
+  beforeEach(async () => {
+    db = await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    clerkUsers.getUser.mockReset();
+    clerkUsers.getUser.mockResolvedValue({
+      username: null,
+      firstName: null,
+      lastName: null,
+    });
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  function postFeedback(body: unknown) {
+    const app = buildApp();
+    return app.request(
+      "/me/deletion-feedback",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      testBindings(),
+    );
+  }
+
+  it("認証なしは 401", async () => {
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const res = await postFeedback({ reasons: ["other"] });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("選択理由＋自由記述を user_id と紐付けずに保存する", async () => {
+    const res = await postFeedback({
+      reasons: ["hard_to_use", "other"],
+      freeText: "使い方が分かりませんでした",
+    });
+
+    expect(res.status).toBe(201);
+    const rows = await db.select().from(deletionFeedbacks);
+    expect(rows).toHaveLength(1);
+    const row = rows[0]!;
+    expect(row).toMatchObject({
+      reasons: '["hard_to_use","other"]',
+      freeText: "使い方が分かりませんでした",
+    });
+    // 個人を特定できる列はテーブル定義自体に無い（スキーマの検査）
+    expect("userId" in row).toBe(false);
+    expect("user_id" in row).toBe(false);
+  });
+
+  it("選択理由のみ・自由記述のみでも記録できる", async () => {
+    expect((await postFeedback({ reasons: ["not_using"] })).status).toBe(201);
+    expect((await postFeedback({ freeText: "特になし" })).status).toBe(201);
+    expect(await db.select().from(deletionFeedbacks)).toHaveLength(2);
+  });
+
+  it("理由も自由記述も無い body は 400", async () => {
+    expect((await postFeedback({})).status).toBe(400);
+    expect((await postFeedback({ reasons: [] })).status).toBe(400);
   });
 });
