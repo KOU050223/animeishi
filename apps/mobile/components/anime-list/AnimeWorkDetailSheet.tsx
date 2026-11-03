@@ -25,6 +25,12 @@ import {
   WATCH_STATUS_LABELS,
 } from "@/lib/useWatchHistory";
 import type { UpsertWatchHistoryError } from "@/lib/useWatchHistory";
+import {
+  useRecordEpisode,
+  useUnrecordEpisode,
+  useWorkEpisodes,
+} from "@/lib/useWorkEpisodes";
+import type { EpisodeRecordError, WorkEpisode } from "@/lib/useWorkEpisodes";
 import type { WorkDetail } from "@/lib/useWorkDetail";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { alert } from "@/lib/dialog";
@@ -219,6 +225,14 @@ export function AnimeWorkDetailSheet({
                 onSelect={selectStatus}
               />
             )}
+            {isConnected ? (
+              // 話数記録は Annict 連携必須（record の読み書きを API 経由で
+              // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
+              <EpisodeSection
+                work={work}
+                onTokenError={promptAnnictTokenError}
+              />
+            ) : null}
             <ActionRow
               title={work.title}
               isFavorite={isFavorite}
@@ -328,6 +342,173 @@ function StatusSection({
         </View>
       </ScrollView>
     </StatusSectionFrame>
+  );
+}
+
+// 話の表示名。「第3話」の numberText を優先し、無ければ話数・
+// sortNumber から組み立てる（番外編など numberText/number が無い話向け）。
+function episodeLabel(episode: WorkEpisode): string {
+  if (episode.numberText) return episode.numberText;
+  if (episode.number != null) return `第${episode.number}話`;
+  return `第${episode.sortNumber}話`;
+}
+
+/**
+ * 話数のチェック一覧と「次の話を記録」ボタン（issue #439）。
+ * チェックの正は Annict の record（watched = viewerDidTrack）で、
+ * 一覧の取得時に API が Annict 側の既存記録を D1 の記録ログと合わせる。
+ * 話が 1 件も無い作品（話数未定・マスタ未登録）はセクション自体を出さない。
+ */
+function EpisodeSection({
+  work,
+  onTokenError,
+}: {
+  work: WorkDetailSheetTarget;
+  onTokenError: (error: unknown) => boolean;
+}) {
+  const colors = useThemeColors();
+  const palette = useAnimeListPalette();
+  const episodesQuery = useWorkEpisodes(work.annictWorkId);
+  const record = useRecordEpisode(work.annictWorkId);
+  const unrecord = useUnrecordEpisode(work.annictWorkId);
+  const isMutating = record.isPending || unrecord.isPending;
+
+  function toggleEpisode(episode: WorkEpisode) {
+    trackEvent("episode_record", {
+      [TRACK_EVENT_KEYS.action]: episode.watched ? "unrecord" : "record",
+    });
+    const request = episode.watched
+      ? unrecord.mutateAsync(episode.annictEpisodeId)
+      : record.mutateAsync(episode.annictEpisodeId);
+    void request.catch((e: unknown) => {
+      // Annict トークン未登録・失効は再連携ダイアログに変換するため、
+      // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
+      if (onTokenError(e)) return;
+      const rolledBack = (e as EpisodeRecordError).rolledBack === true;
+      alert(
+        "更新できませんでした",
+        rolledBack
+          ? "話の記録を更新できませんでした。元の状態に戻しました。"
+          : "一部の更新に失敗しました。",
+        { okLabel: "OK" },
+      );
+    });
+  }
+
+  if (episodesQuery.isLoading) {
+    return (
+      <View className="items-center py-4">
+        <ActivityIndicator size="small" color={palette.spinner} />
+      </View>
+    );
+  }
+  if (episodesQuery.isError) {
+    return (
+      <View>
+        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+          話数
+        </Text>
+        <View className="items-center py-2 gap-2">
+          <Text className="text-xs text-slate-400 dark:text-slate-500">
+            話数情報を取得できませんでした
+          </Text>
+          <TouchableOpacity
+            onPress={() => episodesQuery.refetch()}
+            accessibilityRole="button"
+            accessibilityLabel="話数情報を再取得"
+            testID="episode-list-retry"
+          >
+            <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+              再試行
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
+    (a, b) => a.sortNumber - b.sortNumber,
+  );
+  if (episodes.length === 0) return null;
+
+  // 「次の話」= 未視聴の先頭の話。全話記録済みならボタンを無効表示にする。
+  const nextEpisode = episodes.find((e) => !e.watched);
+
+  return (
+    <View>
+      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        話数
+      </Text>
+      <TouchableOpacity
+        className={`mb-3 items-center rounded-lg py-2.5 ${
+          nextEpisode && !isMutating
+            ? "bg-indigo-600 dark:bg-indigo-500"
+            : "bg-slate-200 dark:bg-slate-700"
+        }`}
+        onPress={() => nextEpisode && toggleEpisode(nextEpisode)}
+        disabled={!nextEpisode || isMutating}
+        accessibilityRole="button"
+        accessibilityLabel={
+          nextEpisode
+            ? `${episodeLabel(nextEpisode)}を視聴済みにする`
+            : "全話記録済み"
+        }
+        testID="episode-record-next"
+      >
+        <Text
+          className={`text-xs font-semibold ${
+            nextEpisode && !isMutating
+              ? "text-white"
+              : "text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          {nextEpisode ? `${episodeLabel(nextEpisode)}を記録` : "全話記録済み"}
+        </Text>
+      </TouchableOpacity>
+      <View className="gap-1">
+        {episodes.map((episode) => (
+          <TouchableOpacity
+            key={episode.annictEpisodeId}
+            className="flex-row items-center gap-2.5 py-1.5"
+            onPress={() => toggleEpisode(episode)}
+            disabled={isMutating}
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: episode.watched,
+              disabled: isMutating,
+            }}
+            accessibilityLabel={`${episodeLabel(episode)}の視聴記録`}
+            testID={`episode-check-${episode.annictEpisodeId}`}
+          >
+            <Ionicons
+              name={episode.watched ? "checkbox" : "square-outline"}
+              size={18}
+              color={episode.watched ? colors.primaryText : colors.textFaint}
+            />
+            <View className="flex-1 min-w-0 flex-row items-baseline gap-2">
+              <Text
+                className={`text-xs font-medium ${
+                  episode.watched
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                {episodeLabel(episode)}
+              </Text>
+              {episode.title ? (
+                <Text
+                  className="flex-1 text-xs text-slate-400 dark:text-slate-500"
+                  numberOfLines={1}
+                >
+                  {episode.title}
+                </Text>
+              ) : null}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
   );
 }
 

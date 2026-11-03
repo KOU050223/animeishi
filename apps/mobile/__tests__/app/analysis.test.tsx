@@ -136,6 +136,19 @@ jest.mock("@/lib/useWorkDetail", () => ({
   ],
 }));
 
+// 詳細シート内の話数一覧・記録フックも実物だと QueryClient が要るため
+// スタブにする（話数セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
+jest.mock("@/lib/useWorkEpisodes", () => ({
+  useWorkEpisodes: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  useRecordEpisode: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useUnrecordEpisode: () => ({ mutateAsync: jest.fn(), isPending: false }),
+}));
+
 jest.mock("@tanstack/react-query", () => ({
   ...jest.requireActual("@tanstack/react-query"),
   useQueryClient: () => ({

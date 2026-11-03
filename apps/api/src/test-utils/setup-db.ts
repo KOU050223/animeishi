@@ -49,6 +49,25 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS watch_history_user_work_unique ON watch_history (user_id, annict_work_id)`,
   `CREATE INDEX IF NOT EXISTS watch_history_user_idx ON watch_history (user_id)`,
+  `CREATE TABLE IF NOT EXISTS episode_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    annict_episode_id INTEGER NOT NULL,
+    episode_node_id TEXT,
+    annict_record_id INTEGER,
+    record_node_id TEXT,
+    source TEXT NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    CONSTRAINT episode_records_source_check CHECK (source IN ('animeishi', 'annict')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS episode_records_annict_record_unique ON episode_records (annict_record_id)`,
+  `CREATE INDEX IF NOT EXISTS episode_records_user_idx ON episode_records (user_id)`,
+  `CREATE INDEX IF NOT EXISTS episode_records_user_work_idx ON episode_records (user_id, annict_work_id)`,
+  `CREATE INDEX IF NOT EXISTS episode_records_user_episode_idx ON episode_records (user_id, annict_episode_id)`,
   `CREATE TABLE IF NOT EXISTS favorites (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -301,6 +320,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM watch_history").run();
+  await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
   await d1.prepare("DELETE FROM users").run();
   await d1.prepare("DELETE FROM annict_work_casts").run();
@@ -309,7 +329,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'friends', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
     )
     .run();
   return db;
