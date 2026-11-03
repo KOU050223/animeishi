@@ -71,8 +71,14 @@ export function parseQrPayload(
   // `?qt=` / `&qt=` を拾う。値は exp.base64urlsig 想定だが、形式の検証は
   // サーバー側に任せてここでは素通しする。
   const match = raw.match(new RegExp(`[?&]${QR_TOKEN_PARAM}=([^&#\\s]+)`));
-  const qrToken = match?.[1] ? decodeURIComponent(match[1]) : undefined;
-  return { userId, qrToken };
+  if (!match?.[1]) return { userId, qrToken: undefined };
+  try {
+    return { userId, qrToken: decodeURIComponent(match[1]) };
+  } catch {
+    // 不正なパーセントエンコードは URIError を投げる。カメラコールバックで
+    // 例外を握らずクラッシュするのを防ぐため、QR ごと無効扱いにする。
+    return null;
+  }
 }
 
 /**

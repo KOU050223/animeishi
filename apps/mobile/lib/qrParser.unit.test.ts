@@ -138,4 +138,13 @@ describe("parseQrPayload", () => {
     expect(parseQrPayload("https://example.com/about?qt=x")).toBeNull();
     expect(parseQrPayload(null)).toBeNull();
   });
+
+  it("qt が不正なパーセントエンコードなら例外を投げず null を返す", () => {
+    // decodeURIComponent が URIError を投げる入力。カメラコールバックで
+    // クラッシュしないよう QR ごと無効扱いにする（CodeRabbit 指摘）。
+    expect(
+      parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}?qt=%E0%A4%A`),
+    ).toBeNull();
+    expect(parseQrPayload(`animeishi://user/${CLERK_ID}?qt=%`)).toBeNull();
+  });
 });
