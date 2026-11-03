@@ -86,6 +86,10 @@ jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));
 
+jest.mock("@/lib/achievements/useAchievements", () => ({
+  useAchievements: () => ({ data: undefined }),
+}));
+
 jest.mock("@/lib/profileUrl", () => ({
   buildProfileUrl: (userId: string | null | undefined) =>
     userId ? `http://localhost:8081/user/${userId}` : null,

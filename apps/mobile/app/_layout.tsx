@@ -20,6 +20,7 @@ import { useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+import { AchievementCelebrationHost } from "@/components/achievements/AchievementCelebrationHost";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
@@ -141,6 +142,8 @@ function AuthGuard() {
       <Stack.Screen name="changelog" />
       {/* AI 視聴傾向分析（issue #22）。プロフィール画面から遷移する。 */}
       <Stack.Screen name="analysis" />
+      {/* 実績（バッジ）一覧（issue #415）。プロフィール画面から遷移する。 */}
+      <Stack.Screen name="achievements" />
     </Stack>
   );
 }
@@ -179,6 +182,9 @@ export default wrapWithObserveRoot(
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
               >
                 <AuthGuard />
+                {/* 実績の新規獲得を検出してお祝いを出す（issue #415）。
+                    QueryClient・Clerk・Theme の内側でだけ動くためこの位置。 */}
+                <AchievementCelebrationHost />
               </ThemeProvider>
             </PersistQueryClientProvider>
           </ClerkProvider>

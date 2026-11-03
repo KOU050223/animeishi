@@ -1306,6 +1306,73 @@ export async function fetchAnnictWorkEpisodes(
   return episodes;
 }
 
+// --- 複数作品の話 ID 一括取得（実績判定用, issue #415） ---
+//
+// 今期完走判定では「記録対象作品の全話 ID」を作品ごとに突き合わせる。
+// fetchAnnictWorkEpisodes を作品数分呼ぶとサブリクエストが件数分増えるため、
+// searchWorks(annictIds:) でまとめて取る。1 作品 100 話を超える長期作品は
+// episodes のページングが必要になるため hasNextPage を返し、
+// 呼び出し側が fetchAnnictWorkEpisodes にフォールバックする。
+const WORKS_EPISODE_IDS_FIRST = 100;
+
+const WORKS_EPISODE_IDS_QUERY = `
+query WorksEpisodeIds($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 50) {
+    nodes {
+      annictId
+      episodes(first: ${WORKS_EPISODE_IDS_FIRST}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        pageInfo { hasNextPage }
+        nodes { annictId }
+      }
+    }
+  }
+}`;
+
+type WorksEpisodeIdsResponse = {
+  searchWorks: {
+    nodes: {
+      annictId: number;
+      episodes: {
+        pageInfo: { hasNextPage: boolean };
+        nodes: { annictId: number }[];
+      } | null;
+    }[];
+  } | null;
+};
+
+/** 1 作品分の話 ID 一覧。hasMoreEpisodes は 100 話超で打ち切られたとき true。 */
+export type AnnictWorkEpisodeIds = {
+  annictWorkId: number;
+  episodeIds: number[];
+  hasMoreEpisodes: boolean;
+};
+
+/**
+ * 複数作品の話 ID マスタを 1 クエリで取得する。
+ * annictWorkIds は 50 件まで（searchWorks の first と同じ上限）。
+ * 存在しない作品・100 話超の作品の扱いは呼び出し側に委ねる。
+ */
+export async function fetchAnnictWorksEpisodeIds(
+  accessToken: string,
+  annictWorkIds: number[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictWorkEpisodeIds[]> {
+  if (annictWorkIds.length === 0) return [];
+  const data = await withAnnictRetry(() =>
+    annictGraphQL<WorksEpisodeIdsResponse>(
+      accessToken,
+      WORKS_EPISODE_IDS_QUERY,
+      { annictIds: annictWorkIds },
+      fetchImpl,
+    ),
+  );
+  return (data.searchWorks?.nodes ?? []).map((work) => ({
+    annictWorkId: work.annictId,
+    episodeIds: (work.episodes?.nodes ?? []).map((e) => e.annictId),
+    hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+  }));
+}
+
 // --- viewer.records（本人のエピソード記録, issue #439） ---
 //
 // Annict 側の既存記録を D1 の episode_records ログに合わせる読み込み経路。

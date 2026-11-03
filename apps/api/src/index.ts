@@ -15,6 +15,7 @@ import {
   runCronJob,
   type ObservabilityBindings,
 } from "./observability";
+import { achievements } from "./features/achievements";
 import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
@@ -97,6 +98,7 @@ const routes = app
   .route("/me/import", importRoute)
   .route("/me/watch-histories", watchHistory)
   .route("/me/episode-records", episodeRecords)
+  .route("/me/achievements", achievements)
   .route("/me/analysis", analysis)
   .route("/works", works)
   .route("/works", workEpisodes)

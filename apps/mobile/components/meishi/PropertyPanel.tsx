@@ -450,6 +450,46 @@ function renderEditor(props: Props, colors: ThemeColors) {
           </Row>
         </>
       );
+
+    case "achievementBadge":
+      return (
+        <>
+          <Row label="実績">
+            <SegmentedControl
+              options={[
+                { value: "watch_count", label: "視聴数" },
+                { value: "record_streak", label: "連続記録" },
+                { value: "season_completion", label: "今期完走" },
+              ]}
+              value={element.kind}
+              onChange={(v) => onChange({ kind: v })}
+            />
+          </Row>
+          <Row label="サイズ">
+            <StepControl
+              value={element.fontSize}
+              onChange={(v) =>
+                onChange({
+                  fontSize: Math.max(8, Math.min(80, v)),
+                })
+              }
+              step={2}
+            />
+          </Row>
+          <Row label="文字色">
+            <ColorGrid
+              value={element.color}
+              onChange={(v) => onChange({ color: v })}
+            />
+          </Row>
+          <Row label="背景色">
+            <ColorGrid
+              value={element.bgColor}
+              onChange={(v) => onChange({ bgColor: v })}
+            />
+          </Row>
+        </>
+      );
   }
 }
 
@@ -507,6 +547,8 @@ function typeLabel(t: MeishiElement["type"]): string {
       return "視聴コラージュ";
     case "animeCountBadge":
       return "視聴数バッジ";
+    case "achievementBadge":
+      return "実績バッジ";
   }
 }
 

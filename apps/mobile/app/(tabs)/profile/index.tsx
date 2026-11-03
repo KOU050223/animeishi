@@ -358,6 +358,18 @@ export default function ProfileScreen() {
                   ],
                 },
                 {
+                  key: "achievements",
+                  title: "実績",
+                  rows: [
+                    {
+                      key: "achievements",
+                      label: "実績バッジ",
+                      onPress: () => router.push("/achievements"),
+                      accessibilityLabel: "実績バッジ一覧を開く",
+                    },
+                  ],
+                },
+                {
                   key: "privacy-safety",
                   title: "プライバシーと安全",
                   rows: [

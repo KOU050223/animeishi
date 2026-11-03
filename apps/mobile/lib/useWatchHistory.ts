@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType, InferRequestType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { workDetailQueryKey } from "@/lib/useWorkDetail";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
@@ -172,6 +173,11 @@ export function useUpsertWatchHistory() {
       });
       if (pendingUpserts <= 1) {
         void queryClient.invalidateQueries({ queryKey });
+        // 視聴済み数は実績（視聴数バッジ）の判定入力になるため
+        // 実績クエリも無効化する（issue #415）。
+        void queryClient.invalidateQueries({
+          queryKey: ACHIEVEMENTS_QUERY_KEY,
+        });
         // 作品詳細シートが表示する state（Annict viewerStatusState 由来）
         // もこの更新で古くなるため、対象作品の詳細クエリも無効化する
         // （issue #347）。履歴画面から変更してもシートに新しい値が出る。
@@ -262,6 +268,9 @@ export function useDeleteWatchHistory() {
       });
       if (pendingWrites <= 1) {
         void queryClient.invalidateQueries({ queryKey });
+        void queryClient.invalidateQueries({
+          queryKey: ACHIEVEMENTS_QUERY_KEY,
+        });
         // 解除で viewerStatusState が NO_STATE に戻るため、詳細シート側の
         // 対象作品クエリも無効化する（issue #347 / #436）。
         if (userId) {

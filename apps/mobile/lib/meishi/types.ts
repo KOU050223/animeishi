@@ -38,6 +38,13 @@ export type TextSource = "custom" | "username" | "bio" | "favoriteQuote";
 export type ImageSource = "avatar" | "upload" | "anime";
 export type QrSource = "profile" | "custom";
 export type CountMetric = "watched" | "favorites";
+// 実績バッジ要素（issue #415）が参照する実績カテゴリ。
+// API の AchievementKind と揃える（API 側に種類が増えても、ここに無い
+// 種類は名刺では選べないだけで従来どおり描画できる）。
+export type AchievementBadgeKind =
+  | "watch_count"
+  | "record_streak"
+  | "season_completion";
 export type CollageSort = "recent" | "popular";
 
 // コラージュの画像をどのリストから取るか。undefined は「自動」
@@ -125,13 +132,27 @@ export type AnimeCountBadgeElement = {
   bgColor: string;
 };
 
+export type AchievementBadgeElement = {
+  id: string;
+  type: "achievementBadge";
+  transform: Transform;
+  // 表示する実績カテゴリ。獲得済みの最高段の名前を表示する。
+  kind: AchievementBadgeKind;
+  fontSize: number;
+  fontWeight: FontWeight;
+  fontFamily: FontFamily;
+  color: string;
+  bgColor: string;
+};
+
 export type MeishiElement =
   | TextElement
   | ImageElement
   | ShapeElement
   | QrElement
   | AnimeCollageElement
-  | AnimeCountBadgeElement;
+  | AnimeCountBadgeElement
+  | AchievementBadgeElement;
 
 export type MeishiElementType = MeishiElement["type"];
 
@@ -151,6 +172,15 @@ export type AnimeCollageLists = {
   byState: Partial<Record<Exclude<CollageStateFilter, "all">, string[]>>;
 };
 
+// 実績バッジ要素が参照する獲得状況（issue #415）。
+// GET /me/achievements の実績項目と同じ形。未提供なら未獲得として描く。
+export type AchievementBadgeDatum = {
+  id: string;
+  kind: string;
+  threshold: number | null;
+  earned: boolean;
+};
+
 // レンダラー側で source バインドや実データを解決するためのコンテキスト
 export type MeishiRenderContext = {
   profile: {
@@ -165,4 +195,5 @@ export type MeishiRenderContext = {
   animeLists?: AnimeCollageLists;
   watchedCount?: number;
   favoritesCount?: number;
+  achievements?: AchievementBadgeDatum[];
 };

@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 
 type WorkEpisodesResponse = InferResponseType<
@@ -145,6 +146,11 @@ function optimisticWatchedHandlers(
       });
       if (pendingWrites <= 1) {
         void queryClient.invalidateQueries({ queryKey });
+        // 話の記録は実績（連続記録・今期完走）の判定入力になるため
+        // 実績クエリも無効化して新規獲得を検出できるようにする（issue #415）。
+        void queryClient.invalidateQueries({
+          queryKey: ACHIEVEMENTS_QUERY_KEY,
+        });
       }
     },
   };

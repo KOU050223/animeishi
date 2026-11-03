@@ -1,4 +1,5 @@
 import type {
+  AchievementBadgeElement,
   AnimeCollageElement,
   AnimeCountBadgeElement,
   ImageElement,
@@ -167,6 +168,20 @@ export function makeDefaultElement(type: MeishiElementType): MeishiElement {
         fontFamily: "system",
         color: "#ffffff",
         bgColor: "#4f46e5",
+      };
+      return el;
+    }
+    case "achievementBadge": {
+      const el: AchievementBadgeElement = {
+        id,
+        type: "achievementBadge",
+        transform: { x: 0.55, y: 0.1, width: 0.4, height: 0.1, rotation: 0 },
+        kind: "watch_count",
+        fontSize: 16,
+        fontWeight: "bold",
+        fontFamily: "system",
+        color: "#ffffff",
+        bgColor: "#d97706",
       };
       return el;
     }
