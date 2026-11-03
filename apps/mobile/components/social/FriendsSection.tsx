@@ -35,11 +35,16 @@ export function FriendsSection() {
 
   async function onRefresh() {
     setRefreshing(true);
-    // refetch が失敗してもインジケータは必ず戻す。try/finally ではなく
-    // allSettled にするのは、catch 無しの try が React Compiler の
-    // 最適化対象外になるため（React Doctor 指摘）。
-    await Promise.allSettled([refetch(), refetchRequests()]);
-    setRefreshing(false);
+    // refetch が失敗してもインジケータは必ず戻す。React Compiler が
+    // catch 無しの try を最適化できないため catch 節も必要（React Doctor 指摘）。
+    try {
+      await Promise.allSettled([refetch(), refetchRequests()]);
+    } catch {
+      // allSettled は個別の失敗を例外にしない。ここに来るのは refetch
+      // 呼び出し自体の同期例外だけなので、フラグを戻せばよい。
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function confirmRemove(friendId: string, name: string) {
