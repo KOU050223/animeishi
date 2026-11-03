@@ -21,7 +21,7 @@ const CLERK_ID_PATTERN = /^user_[0-9A-Za-z]+$/;
 const LEGACY_UID_PATTERN = /^[0-9A-Za-z]{28}$/;
 
 /** 抽出候補が有効なユーザー ID かどうかを判定する。 */
-function isValidUserId(value: string): boolean {
+export function isValidUserId(value: string): boolean {
   return CLERK_ID_PATTERN.test(value) || LEGACY_UID_PATTERN.test(value);
 }
 

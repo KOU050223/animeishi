@@ -167,5 +167,8 @@
   "視聴ステータスの選択を閉じる": "Close status selection",
   "{{state}}に変更": "Change to {{state}}",
   "{{title}}を「{{state}}」に変更しました": "Changed {{title}} to {{state}}",
-  "元に戻す": "Undo"
+  "元に戻す": "Undo",
+  "名刺を開いています…": "Opening the shared card…",
+  "名刺を開けませんでした": "Couldn't open the card",
+  "Animeishi の名刺 URL か、名刺 QR の画像を共有してください": "Share an Animeishi card URL or a card QR image."
 }

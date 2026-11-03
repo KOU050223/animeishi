@@ -40,6 +40,18 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "support"');
   });
 
+  test("declares the incoming share route", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // 共有受信の中継画面（issue #316）。遷移先の user/[uid] が公開のため、
+    // 未ログインでも共有フローを通せるよう公開グループに含める。
+    expect(source).toContain('<Stack.Screen name="incoming-share"');
+    expect(source).toContain('segments[0] === "incoming-share"');
+  });
+
   test("declares the changelog route", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),

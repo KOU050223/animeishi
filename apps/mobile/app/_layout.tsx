@@ -59,12 +59,15 @@ function AuthGuard() {
     // Clerk ロード待ちの間に URL の code/state を失うため、ガードの対象外にする）。
     // privacy / terms: ストア審査・未ログイン参照用の公開法務ページ。
     // support: ストア掲載のサポート URL。未ログインでも閲覧できる必要がある。
+    // incoming-share: 共有受信の中継画面。遷移先の user/[uid] が公開のため、
+    // 未ログインでも共有フローを通せるようガード対象外にする。
     const inPublicGroup =
       segments[0] === "user" ||
       segments[0] === "annict" ||
       segments[0] === "privacy" ||
       segments[0] === "terms" ||
-      segments[0] === "support";
+      segments[0] === "support" ||
+      segments[0] === "incoming-share";
 
     if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
@@ -97,6 +100,9 @@ function AuthGuard() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="user/[uid]" />
+      {/* 他アプリからの共有受信の中継画面（issue #316）。処理中 or エラー表示だけの
+          画面で、エラー時は自前の「閉じる」ボタンを持つためヘッダーは出さない。 */}
+      <Stack.Screen name="incoming-share" options={{ headerShown: false }} />
       {/* Annict OAuth の Web コールバック着地ルート（/annict）。処理中画面
           のため戻るボタンは出さない。 */}
       <Stack.Screen name="annict" options={{ headerShown: false }} />
