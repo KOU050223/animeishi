@@ -15,7 +15,7 @@ import { BackButton, Button, Input } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { annictTokenStorage } from "@/lib/annict/storage";
-import { clearMeishiDocument, loadMeishiDocument } from "@/lib/meishi/storage";
+import { clearMeishiDocument, loadMeishiLibrary } from "@/lib/meishi/storage";
 import { queryClient } from "@/lib/queryClient";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -278,12 +278,14 @@ export default function DeleteAccountScreen() {
     new Set(),
   );
   const [freeText, setFreeText] = useState("");
-  const [hasMeishi, setHasMeishi] = useState(false);
+  const [meishiCount, setMeishiCount] = useState(0);
   const summary = useDeletionSummary();
   const deleteAccount = useDeleteAccount();
 
   useEffect(() => {
-    void loadMeishiDocument().then((doc) => setHasMeishi(doc !== null));
+    void loadMeishiLibrary().then((library) =>
+      setMeishiCount(library?.cards.length ?? 0),
+    );
   }, []);
 
   function toggleReason(key: ReasonKey) {
@@ -366,7 +368,7 @@ export default function DeleteAccountScreen() {
         { label: t("フレンド"), count: summary.data.friends },
         { label: t("Tier 表"), count: summary.data.tierLists },
         { label: t("作品リスト"), count: summary.data.workLists },
-        { label: t("名刺"), count: hasMeishi ? 1 : 0 },
+        { label: t("名刺"), count: meishiCount },
       ]
     : null;
 
