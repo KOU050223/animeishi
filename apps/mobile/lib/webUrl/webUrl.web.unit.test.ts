@@ -19,6 +19,8 @@ describe("webUrl (web)", () => {
   });
 
   it("未設定なら実行中のオリジンを使う（PR プレビュー等）", async () => {
+    // 開発者のローカル環境変数に左右されないよう明示的に未設定にする
+    vi.stubEnv("EXPO_PUBLIC_WEB_URL", undefined);
     expect(await importWebUrl()).toBe(window.location.origin);
   });
 });
