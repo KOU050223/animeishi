@@ -19,11 +19,15 @@ appId: com.animeishi.app
 # ただしボタンが最初から画面に収まっている（全体が収まり中央へ寄せられない）と
 # スクロール自体が失敗するため optional にし、その場合は警告で終えてそのまま
 # タップへ進む（issue #298）。ボタンが無い等の本当の失敗は後続の tapOn が拾う。
+# ボタンはリスト末尾にあり中央へ寄せきれないため、Maestro はスクロールのリトライを
+# 繰り返す。ホスト高負荷時は各リトライが遅く既定の 20 秒を超えてタイムアウトする
+# ため、delete-account と同じく余裕を持たせる（issue #444）。
 - scrollUntilVisible:
     element:
       id: sign-out-button
     direction: DOWN
     centerElement: true
+    timeout: 90000
     optional: true
 - tapOn:
     id: sign-out-button
