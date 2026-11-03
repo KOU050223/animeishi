@@ -214,6 +214,33 @@ export function worksRepository(db: DrizzleDb) {
       });
     },
 
+    /**
+     * annict_works キャッシュから選べる作品候補を返す（issue #412 の
+     * オンボーディング作品選択）。Annict トークン不要の読み取り専用。
+     * title 指定時は title / titleKana / titleEn の部分一致で絞り込む
+     * （部分一致は instr。D1 の LIKE パターン上限・ワイルドカード解釈を
+     * 避けるため。features/import/localSearch.ts と同じ理由）。
+     * 並びは watchersCount 降順（SQLite では DESC で NULL が末尾）。
+     */
+    async searchAnnictWorkCandidates(params: {
+      title?: string | undefined;
+      limit: number;
+    }): Promise<AnnictWork[]> {
+      const query = params.title?.replace(/\p{Cc}/gu, "").trim();
+      const where = query
+        ? or(
+            sql`instr(${annictWorks.title}, ${query}) > 0`,
+            sql`instr(${annictWorks.titleKana}, ${query}) > 0`,
+            sql`instr(${annictWorks.titleEn}, ${query}) > 0`,
+          )
+        : undefined;
+      return db.query.annictWorks.findMany({
+        where,
+        orderBy: [desc(annictWorks.watchersCount), annictWorks.annictWorkId],
+        limit: params.limit,
+      });
+    },
+
     async upsertAnnictWork(data: NewAnnictWork): Promise<void> {
       await db.insert(annictWorks).values(data).onConflictDoUpdate({
         target: annictWorks.annictWorkId,

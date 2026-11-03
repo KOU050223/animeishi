@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useGoogleAuth } from "@/lib/googleAuth";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {
@@ -45,7 +46,14 @@ export function GoogleAuthButton({ onError }: Props) {
 
       if (result.status === "session-created") {
         await setActive({ session: result.sessionId });
-        router.replace("/");
+        // Google 経由の新規登録だけ初回オンボーディングへ（issue #412）。
+        // メール/パスワード登録と同じく、ガードの追い出しより先に pending を立てる。
+        if (result.isNewUser) {
+          onboardingPending.current = true;
+          router.replace("/onboarding");
+        } else {
+          router.replace("/");
+        }
       } else if (result.status === "incomplete") {
         onError(
           t(

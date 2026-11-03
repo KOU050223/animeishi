@@ -5,6 +5,7 @@ import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
   annictWorkIdParamSchema,
+  worksCandidatesQuerySchema,
   worksLookupQuerySchema,
   worksSearchQuerySchema,
 } from "./schema";
@@ -39,6 +40,10 @@ function getBindings(c: Context): AuthEnv["Bindings"] & {
     DB: D1Database;
   };
 }
+
+// /works/candidates の既定件数。オンボーディングの選択肢グリッドに
+// 並べる量として、上限（50 件）よりやや少なめに取る。
+const WORKS_CANDIDATES_DEFAULT_LIMIT = 30;
 
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
 // 検索のたびに Annict へ問い合わせる（docs/05 PR5）。視聴ステータスは含まない。
@@ -156,6 +161,47 @@ const works = new Hono<AuthVariables>()
         ];
       });
       return c.json({ works: result }, 200);
+    },
+  )
+  // 作品候補の一覧（issue #412 初回オンボーディングの推し選択）。
+  // Annict 未連携の新規ユーザーでも使えるよう annict_works キャッシュだけを
+  // 読み、トークンは要求しない（requireAnnictToken を付けない点に注意）。
+  // title 省略時は watchersCount 降順の人気作品、指定時はキャッシュ内の
+  // 部分一致検索。応答は /works/lookup のキャッシュ行と同じ形に揃える。
+  // /:annictWorkId より先に登録する（"candidates" がパスパラメータに
+  // マッチして 400 になるのを防ぐ）。
+  .get(
+    "/candidates",
+    zValidator("query", worksCandidatesQuerySchema),
+    async (c) => {
+      const { title, limit } = c.req.valid("query");
+      const db = createDb(getBindings(c).DB);
+      const repo = worksRepository(db);
+      const rows = await repo.searchAnnictWorkCandidates({
+        title,
+        limit: limit ?? WORKS_CANDIDATES_DEFAULT_LIMIT,
+      });
+      return c.json(
+        {
+          works: rows.map((w) => ({
+            annictWorkId: w.annictWorkId,
+            nodeId: w.nodeId,
+            state: null,
+            title: w.title,
+            titleKana: w.titleKana,
+            titleEn: w.titleEn,
+            seasonName: w.seasonName,
+            seasonYear: w.seasonYear,
+            imageUrl: w.imageUrl,
+            malAnimeId: w.malAnimeId,
+            watchersCount: w.watchersCount,
+            resolvedImageUrl: w.resolvedImageUrl,
+            hostedImageUrl: workImageUrl(c.req.url, w.annictWorkId),
+            genres: w.genres,
+          })),
+        },
+        200,
+      );
     },
   )
   // 作品詳細シートに出す単一作品のメタ（issue #347）。search で返さない

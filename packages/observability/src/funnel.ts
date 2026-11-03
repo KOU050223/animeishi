@@ -34,6 +34,7 @@ export const ANNICT_FUNNEL_SURFACES = [
   "profile_card",
   "work_detail_sheet",
   "analysis",
+  "onboarding",
 ] as const;
 export type AnnictFunnelSurface = (typeof ANNICT_FUNNEL_SURFACES)[number];
 

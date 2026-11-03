@@ -38,7 +38,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
   const { startSSOFlow } = useSSO();
 
   const startGoogleAuth = useCallback(async (): Promise<GoogleAuthResult> => {
-    const { createdSessionId, authSessionResult } = await startSSOFlow({
+    const { createdSessionId, authSessionResult, signUp } = await startSSOFlow({
       strategy: "oauth_google",
       // カスタムスキームのコールバック。ブラウザセッション側が捕捉するため
       // アプリ内に対応ルートが無くてもよい。makeRedirectUri は Expo Go では
@@ -50,7 +50,15 @@ export const useGoogleAuth: UseGoogleAuth = () => {
     });
 
     if (createdSessionId) {
-      return { status: "session-created", sessionId: createdSessionId };
+      // transferable（新規ユーザー振り分け）で signUp が完了していれば
+      // 初回オンボーディング対象。既存ユーザーのサインインでは signUp は
+      // 返らないか未完了のまま。
+      const isNewUser = signUp?.status === "complete";
+      return {
+        status: "session-created",
+        sessionId: createdSessionId,
+        isNewUser,
+      };
     }
     if (
       authSessionResult?.type === "cancel" ||

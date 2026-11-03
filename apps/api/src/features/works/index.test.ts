@@ -1073,6 +1073,133 @@ describe("GET /works/lookup（作品 ID のメタ解決。issue #348）", () => 
   });
 });
 
+describe("GET /works/candidates（作品候補一覧。issue #412）", () => {
+  beforeEach(async () => {
+    await setupTestDb(env.DB);
+    vi.mocked(getAuth).mockReset();
+    vi.restoreAllMocks();
+    vi.mocked(getAuth).mockReturnValue({
+      userId: USER_ID,
+    } as ReturnType<typeof getAuth>);
+  });
+
+  async function seedCandidates() {
+    const db = createDb(env.DB);
+    const now = new Date();
+    await db.insert(annictWorks).values([
+      {
+        annictWorkId: 1,
+        title: "人気作品A",
+        titleKana: "ニンキサクヒンエー",
+        watchersCount: 500,
+        updatedAt: now,
+      },
+      {
+        annictWorkId: 2,
+        title: "人気作品B",
+        watchersCount: 300,
+        updatedAt: now,
+      },
+      {
+        annictWorkId: 3,
+        title: "マイナー作品C",
+        watchersCount: null,
+        updatedAt: now,
+      },
+    ]);
+  }
+
+  it("X-Annict-Token が無くてもキャッシュ済み作品を人気順で返す", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    await seedCandidates();
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/candidates",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number; watchersCount: number | null }[];
+    };
+    // watchersCount 降順、null は末尾
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([1, 2, 3]);
+    // キャッシュ参照のみで Annict にはアクセスしない
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("title 指定時はキャッシュ内を部分一致検索する", async () => {
+    await seedCandidates();
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/candidates?title=${encodeURIComponent("人気")}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number; title: string }[];
+    };
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
+  });
+
+  it("title は titleKana にも一致する", async () => {
+    await seedCandidates();
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/candidates?title=${encodeURIComponent("ニンキサクヒン")}`,
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      works: { annictWorkId: number }[];
+    };
+    expect(body.works.map((w) => w.annictWorkId)).toEqual([1]);
+  });
+
+  it("limit で件数を絞れる・上限を超える指定は 400", async () => {
+    await seedCandidates();
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/candidates?limit=2",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { works: unknown[] };
+    expect(body.works).toHaveLength(2);
+
+    const bad = await app.request(
+      "/works/candidates?limit=51",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(bad.status).toBe(400);
+  });
+
+  it("未認証は 401", async () => {
+    vi.mocked(getAuth).mockReturnValue(
+      null as unknown as ReturnType<typeof getAuth>,
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      "/works/candidates",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("キャラクター一覧 API", () => {
   beforeEach(async () => {
     await setupTestDb(env.DB);
