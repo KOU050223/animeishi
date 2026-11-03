@@ -551,6 +551,7 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `method` | `tier_share` | `url` / `image` / `x` / `copy` |
 | `action` | `favorite_toggle` | `add` / `remove` |
 | `from` / `to` | `watch_status_change` | `WATCHING` / `WATCHED` / `ON_HOLD` / `STOP_WATCHING` / `WANNA_WATCH` |
+| `from` / `to` | `work_rating_change` | `bad` / `good` / `great` / `none`（未評価） |
 | `run_type` | `analysis_generate` | `initial` / `regenerate` |
 
 送信しないもの（PII 方針は Annict ファネルと同じ）:
@@ -576,6 +577,7 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `character_tier_open` | アニメ一覧のキャラクター tier 表ボタン |
 | `analysis_generate` | 「分析する / 再分析する」ボタン |
 | `watch_status_change` | 視聴履歴の編集モーダル保存（`from` / `to` 付き。値が変わらない保存は送らない） |
+| `work_rating_change` | 作品詳細シートの評価チップ（`from` / `to` 付き。解除は `to: none`） |
 | `favorite_toggle` | お気に入りトグル（`action` 付き。一覧画面・お気に入りタブの解除） |
 
 原則「ユーザーが操作した」時点で送る（成否の結果ではなく操作の意図を
