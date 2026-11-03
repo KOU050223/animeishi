@@ -18,6 +18,11 @@ export type ActivityFeedListProps = {
   /** リスト先頭に挿すコンテンツ。ホームではストーリーリング等を載せる。 */
   ListHeaderComponent?: ComponentType | ReactElement;
   /**
+   * フィード末尾に挿すコンテンツ。ホームでは特集記事のレールを載せる
+   * （issue #437）。次ページ読み込み中のスピナーより後ろに描画される。
+   */
+  ListFooterComponent?: ComponentType | ReactElement;
+  /**
    * pull-to-refresh の処理を上書きする。省略時はフィードの refetch だけを
    * 行う。ホームのように他のクエリもまとめて更新したい画面が渡す。
    */
@@ -29,6 +34,7 @@ export type ActivityFeedListProps = {
 // #353）でもロード中にヘッダーが消えない。
 export function ActivityFeedList({
   ListHeaderComponent,
+  ListFooterComponent,
   onRefresh,
 }: ActivityFeedListProps) {
   const colors = useThemeColors();
@@ -85,11 +91,20 @@ export function ActivityFeedList({
         onRetry={() => void refetch()}
       />
       ListFooterComponent={
-        isFetchingNextPage ? (
-          <View className="py-4">
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        ) : undefined
+        <>
+          {isFetchingNextPage ? (
+            <View className="py-4">
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null}
+          {/* ComponentType と ReactElement の両方を受ける
+              （FlatList の同名 prop と同じ型） */}
+          {typeof ListFooterComponent === "function" ? (
+            <ListFooterComponent />
+          ) : (
+            ListFooterComponent
+          )}
+        </>
       }
     />
   );

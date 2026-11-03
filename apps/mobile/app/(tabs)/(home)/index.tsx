@@ -9,7 +9,9 @@ import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
 import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { ArticleRail } from "@/components/ArticleRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
+import { ARTICLES_QUERY_KEY } from "@/lib/useArticles";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/useWatchHistory";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
@@ -22,15 +24,18 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
 
   // タブ切替では画面のマウントが維持され stale のまま残る。活動フィードは
-  // staleTime（5 分）内だと再取得されずフレンドの新しい活動が見えないため、
-  // ホーム復帰のタイミングでだけ無効化する。初回フォーカスは初回取得と
-  // 重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
+  // staleTime（5 分）内だと再取得されず、特集記事もタブ復帰では再取得の
+  // 契機が無いため、ホーム復帰のタイミングでだけ無効化する。
+  // 初回フォーカスは初回取得と重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
   const hasFocused = useRef(false);
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) {
         void queryClient.invalidateQueries({
           queryKey: ACTIVITY_FEED_QUERY_KEY,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ARTICLES_QUERY_KEY,
         });
       }
       hasFocused.current = true;
@@ -46,6 +51,7 @@ export default function HomeScreen() {
       queryClient.invalidateQueries({
         queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
       }),
+      queryClient.invalidateQueries({ queryKey: ARTICLES_QUERY_KEY }),
     ]);
   }
 
@@ -90,6 +96,8 @@ export default function HomeScreen() {
             </Text>
           </View>
         }
+        // 特集記事（issue #437）は「フレンドの動き」フィードの下に出す
+        ListFooterComponent=<ArticleRail />
       />
     </SafeAreaView>
   );
