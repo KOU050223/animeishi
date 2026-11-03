@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 
@@ -47,6 +48,25 @@ jest.mock("@/lib/useWorkEpisodes", () => ({
     mutateAsync: mockUnrecordEpisodeAsync,
     isPending: false,
   }),
+}));
+
+// 評価の取得・保存・解除はフックのテストで検証する。シート側は
+// 「チップの描画と操作の受け渡し・初回説明の出し分け」だけを見る。
+const mockUseWorkRating = jest.fn();
+const mockRatingUpsertAsync = jest.fn();
+const mockRatingDeleteAsync = jest.fn();
+
+jest.mock("@/lib/useWorkRating", () => ({
+  useWorkRating: (...args: unknown[]) => mockUseWorkRating(...args),
+  useUpsertWorkRating: () => ({
+    mutateAsync: mockRatingUpsertAsync,
+    isPending: false,
+  }),
+  useDeleteWorkRating: () => ({
+    mutateAsync: mockRatingDeleteAsync,
+    isPending: false,
+  }),
+  WORK_RATING_LABELS: { bad: "イマイチ", good: "良い", great: "最高" },
 }));
 
 jest.mock("@/lib/useWatchHistory", () => ({
@@ -180,6 +200,20 @@ const episodesState = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+// GET /me/work-ratings/:annictWorkId の応答形。rating は D1 の保存済み
+// 評価、annictRating は Annict レビュー由来の初期値候補（未保存）。
+const ratingState = (overrides: Record<string, unknown> = {}) => ({
+  data: { rating: null, annictRating: null },
+  isLoading: false,
+  isError: false,
+  refetch: jest.fn(),
+  ...overrides,
+});
+
+// 視聴済み（WATCHED）の詳細。評価セクションはこの状態のときだけ出る。
+const watchedDetail = () =>
+  detailState({ data: { work: { ...DETAIL.work, state: "WATCHED" } } });
+
 const sheetElement = (
   props: {
     work?: typeof WORK | null;
@@ -222,6 +256,11 @@ describe("AnimeWorkDetailSheet", () => {
     mockUseWorkEpisodes.mockReturnValue(episodesState());
     mockRecordEpisodeAsync.mockResolvedValue({});
     mockUnrecordEpisodeAsync.mockResolvedValue({});
+    mockUseWorkRating.mockReturnValue(ratingState());
+    mockRatingUpsertAsync.mockResolvedValue({});
+    mockRatingDeleteAsync.mockResolvedValue({});
+    // 初回説明フラグは端末ローカル。各テストは未表示状態から始める。
+    await AsyncStorage.clear();
   });
 
   it("work が null のときシートを表示しない", async () => {
@@ -595,5 +634,202 @@ describe("AnimeWorkDetailSheet", () => {
     // Tier 表から戻ったとき一覧の上にシートが残らないよう先に閉じる。
     expect(onClose).toHaveBeenCalled();
     expect(onOpenCharacterTierList).toHaveBeenCalledWith(WORK);
+  });
+
+  it("視聴済み作品に 3 段階の評価チップを表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+
+    await render(sheetElement());
+
+    expect(screen.getByTestId("work-detail-rating-bad")).toBeTruthy();
+    expect(screen.getByTestId("work-detail-rating-good")).toBeTruthy();
+    expect(screen.getByTestId("work-detail-rating-great")).toBeTruthy();
+    expect(screen.getByText("イマイチ")).toBeTruthy();
+    expect(screen.getByText("良い")).toBeTruthy();
+    expect(screen.getByText("最高")).toBeTruthy();
+  });
+
+  it("視聴済みでなく未評価の作品には評価セクションを出さない", async () => {
+    // 既定の詳細は WATCHING、既定の評価は null。
+    await render(sheetElement());
+
+    expect(screen.queryByText("この作品の評価")).toBeNull();
+    expect(screen.queryByTestId("work-detail-rating-bad")).toBeNull();
+    expect(screen.queryByTestId("work-detail-rating-good")).toBeNull();
+    expect(screen.queryByTestId("work-detail-rating-great")).toBeNull();
+  });
+
+  it("視聴済みでなくても保存済み評価があれば評価セクションを出す", async () => {
+    // 評価は作品への意見なので、視聴済みから視聴中に戻しても残る。
+    // 残った評価を外せるよう、セクションは出し続ける（PR #452 レビュー）。
+    mockUseWorkDetail.mockReturnValue(detailState());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "good", annictRating: null } }),
+    );
+
+    await render(sheetElement());
+
+    expect(screen.getByText("この作品の評価")).toBeTruthy();
+    expect(
+      screen.getByTestId("work-detail-rating-good").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+  });
+
+  it("視聴中に戻した作品でも評価を外せる", async () => {
+    mockUseWorkDetail.mockReturnValue(detailState());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "good", annictRating: null } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+
+    expect(mockRatingDeleteAsync).toHaveBeenCalled();
+    expect(mockRatingUpsertAsync).not.toHaveBeenCalled();
+  });
+
+  it("保存済みの評価が選択済みチップとして表示される", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "great", annictRating: null } }),
+    );
+
+    await render(sheetElement());
+
+    const chip = screen.getByTestId("work-detail-rating-great");
+    expect(chip.props.accessibilityState?.selected).toBe(true);
+  });
+
+  it("Annict の評価は未保存でも初期値として選択表示される", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: null, annictRating: "good" } }),
+    );
+
+    await render(sheetElement());
+
+    const chip = screen.getByTestId("work-detail-rating-good");
+    expect(chip.props.accessibilityState?.selected).toBe(true);
+  });
+
+  it("D1 の評価があれば Annict 初期値ではなく D1 を選択表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "bad", annictRating: "great" } }),
+    );
+
+    await render(sheetElement());
+
+    expect(
+      screen.getByTestId("work-detail-rating-bad").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+    expect(
+      screen.getByTestId("work-detail-rating-great").props.accessibilityState
+        ?.selected,
+    ).toBe(false);
+  });
+
+  it("評価チップを押すと保存される", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-great"));
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      "work_rating_change",
+      expect.objectContaining({ from: "none", to: "great" }),
+    );
+    expect(mockRatingUpsertAsync).toHaveBeenCalledWith({ rating: "great" });
+    expect(
+      screen.getByTestId("work-detail-rating-great").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+  });
+
+  it("選択中のチップを再タップすると評価を解除する", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: "good", annictRating: null } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+
+    expect(mockRatingDeleteAsync).toHaveBeenCalled();
+    expect(mockRatingUpsertAsync).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId("work-detail-rating-good").props.accessibilityState
+        ?.selected,
+    ).toBe(false);
+  });
+
+  it("Annict 初期値だけの選択を外しても削除 API は呼ばない", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: { rating: null, annictRating: "good" } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+
+    // Annict 初期値は未保存の候補なので、外すだけならサーバーに消すものが無い。
+    expect(mockRatingDeleteAsync).not.toHaveBeenCalled();
+    expect(mockRatingUpsertAsync).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId("work-detail-rating-good").props.accessibilityState
+        ?.selected,
+    ).toBe(false);
+  });
+
+  it("保存に失敗したらアラートを出して選択を元に戻す", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockRatingUpsertAsync.mockRejectedValue(
+      Object.assign(new Error("fail"), { rolledBack: true }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-great"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(
+      screen.getByTestId("work-detail-rating-great").props.accessibilityState
+        ?.selected,
+    ).toBe(false);
+  });
+
+  it("評価の取得に失敗したら再試行ボタンを出す", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    const refetch = jest.fn();
+    mockUseWorkRating.mockReturnValue(
+      ratingState({ data: undefined, isError: true, refetch }),
+    );
+
+    await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-rating-retry"));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("初回だけ「評価するとおすすめの精度が上がります」と説明を出す", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    const first = await render(sheetElement());
+
+    // 説明文はフラグ読み込み後に出るため findBy で待つ。
+    expect(
+      await screen.findByText("評価するとおすすめの精度が上がります"),
+    ).toBeTruthy();
+    await first.unmount();
+
+    // 表示済みフラグが端末に残ったため、開き直しても出ない。
+    await render(sheetElement());
+    expect(
+      screen.queryByText("評価するとおすすめの精度が上がります"),
+    ).toBeNull();
   });
 });

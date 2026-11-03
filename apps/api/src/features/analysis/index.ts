@@ -5,6 +5,7 @@ import { createDb } from "@/db/client";
 import { createOpenApiApp } from "@/lib/openapi";
 import { reportApiFailure } from "@/observability";
 import { watchHistoryRepository } from "../watch-history/repository";
+import { workRatingsRepository } from "../work-ratings/repository";
 import { usersRepository } from "../users/repository";
 import {
   analysisRepository,
@@ -105,7 +106,8 @@ const analysis = app
     }
 
     const selectedGenres = await usersRepository(db, userId).getMyGenres();
-    const input = buildAnalysisInput(history, selectedGenres);
+    const ratings = await workRatingsRepository(db, userId).listMyRatings();
+    const input = buildAnalysisInput(history, selectedGenres, ratings);
     const inputHash = await computeInputHash(input);
 
     const repo = analysisRepository(db, userId);
@@ -209,7 +211,8 @@ const analysis = app
     }
 
     const selectedGenres = await usersRepository(db, userId).getMyGenres();
-    const input = buildAnalysisInput(history, selectedGenres);
+    const ratings = await workRatingsRepository(db, userId).listMyRatings();
+    const input = buildAnalysisInput(history, selectedGenres, ratings);
     const inputHash = await computeInputHash(input);
     const currentSeason = currentAnnictSeason();
 

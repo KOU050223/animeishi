@@ -7,6 +7,7 @@ import {
   deletionFeedbacks,
   activities,
   watchHistory,
+  workRatings,
   favorites,
   friends,
   userGenres,
@@ -574,6 +575,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         db.delete(activities).where(eq(activities.userId, currentUserId)),
         db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),
         db.delete(watchHistory).where(eq(watchHistory.userId, currentUserId)),
+        db.delete(workRatings).where(eq(workRatings.userId, currentUserId)),
         db.delete(favorites).where(eq(favorites.userId, currentUserId)),
         db
           .delete(friends)

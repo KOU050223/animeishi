@@ -71,10 +71,16 @@ export default function AnnictCallbackScreen() {
         });
         return;
       }
-      // 連携状態を再取得させてから元画面へ戻す。
-      await queryClient.invalidateQueries({
-        queryKey: ANNICT_CONNECTION_QUERY_KEY,
-      });
+      // 連携状態を再取得させてから元画面へ戻す。評価クエリも捨てる —
+      // 連携後は Annict レビュー由来の初期評価（annictRating）を GET で
+      // 拾えるため（issue #416 レビュー）。キーは useWorkRating の
+      // WORK_RATING_QUERY_KEY と一致させる（import すると循環参照になる）。
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ANNICT_CONNECTION_QUERY_KEY,
+        }),
+        queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
+      ]);
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);
     })();

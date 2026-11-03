@@ -49,6 +49,21 @@ jest.mock("@/lib/useWorkDetail", () => ({
   ],
 }));
 
+// 詳細シートの評価フックも実物だと QueryClient が要るためスタブにする
+// （評価セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
+// 未評価を返すので視聴済み以外ではセクションは出ない。
+jest.mock("@/lib/useWorkRating", () => ({
+  useWorkRating: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  useUpsertWorkRating: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useDeleteWorkRating: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  WORK_RATING_LABELS: { bad: "イマイチ", good: "良い", great: "最高" },
+}));
+
 // 詳細シート内の話数一覧・記録フックも実物だと QueryClient が要るため
 // スタブにする（話数セクション自体は AnimeWorkDetailSheet.test.tsx で検証）。
 jest.mock("@/lib/useWorkEpisodes", () => ({

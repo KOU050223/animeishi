@@ -103,6 +103,9 @@ add "Tier 表の共有方式" --display table --query count \
 add "視聴ステータスの遷移" --display table --query count \
   --where "${BASE} event.name:watch_status_change" \
   --group-by from --group-by to --sort=-count --limit 20
+add "作品評価の遷移" --display table --query count \
+  --where "${BASE} event.name:work_rating_change" \
+  --group-by from --group-by to --sort=-count --limit 20
 add "お気に入り操作" --display table --query count \
   --where "${BASE} event.name:favorite_toggle" --group-by action
 add "AI 分析の種別" --display table --query count \
