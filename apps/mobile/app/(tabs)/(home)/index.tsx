@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
+import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 import { ArticleRail } from "@/components/ArticleRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
@@ -70,6 +71,7 @@ export default function HomeScreen() {
           <View>
             <FriendStoryRail />
             <CurrentSeasonWatchingRail />
+            <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (
               <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">

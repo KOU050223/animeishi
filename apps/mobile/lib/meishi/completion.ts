@@ -7,6 +7,7 @@
 // 取得側は useMeishiCompletion.ts に分離し、ここは vitest（node 環境）で
 // そのままテストできるようにする。
 
+import type { TranslationKey } from "@/lib/i18n/keys";
 import type { MeishiDocument } from "./types";
 
 // 「推し作品」の必要数。完成の定義の一部なので変更時は #419 の表示も変わる。
@@ -17,6 +18,25 @@ export type MeishiCompletionStep =
   | "displayName"
   | "favorites"
   | "template";
+
+// チェックリスト表示（オンボーディング #412・ホームの完成度カード #419）で
+// 共通に使うステップの表示順と表示名。
+export const MEISHI_COMPLETION_STEPS: readonly MeishiCompletionStep[] = [
+  "avatar",
+  "displayName",
+  "favorites",
+  "template",
+];
+
+export const MEISHI_COMPLETION_STEP_LABELS: Record<
+  MeishiCompletionStep,
+  TranslationKey
+> = {
+  avatar: "アイコン",
+  displayName: "表示名",
+  favorites: "推し作品 3 件",
+  template: "テンプレート",
+};
 
 export type MeishiCompletionInput = {
   /** users.profile_image_url（アバター未設定は null/空文字）。 */
