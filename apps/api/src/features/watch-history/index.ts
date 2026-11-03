@@ -26,13 +26,54 @@ import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";
 import { reportApiFailure } from "../../observability";
-import type { NewAnnictWork, NewWatchHistory } from "@/db/schema";
+import type { AnnictWork, NewAnnictWork, NewWatchHistory } from "@/db/schema";
 
 function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
   DB: D1Database;
 } {
   return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
     DB: D1Database;
+  };
+}
+
+// updateStatus(input.workId) は Annict の Work Node ID を要求する。
+// キャッシュに nodeId があればそれを使い、無ければ searchWorks で解決する
+// （read-through 前にこの作品へ初めて触れたケース）。該当作品が無ければ null。
+//
+// resolvedWork（searchWorks で新たに解決した作品メタ）は、呼び出し側が
+// 「Annict 更新成功後にのみキャッシュ同期」の不変条件を守るため、
+// updateAnnictStatus 成功後に upsert する。ここでは D1 へ書かない。
+async function resolveWorkNodeId(
+  worksRepo: ReturnType<typeof worksRepository>,
+  token: string,
+  annictWorkId: number,
+): Promise<{
+  nodeId: string;
+  work: AnnictWork | undefined;
+  resolvedWork: NewAnnictWork | null;
+} | null> {
+  const cached = await worksRepo.getAnnictWorkById(annictWorkId);
+  if (cached?.nodeId) {
+    return { nodeId: cached.nodeId, work: cached, resolvedWork: null };
+  }
+  const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+  if (!resolved) return null;
+  return {
+    nodeId: resolved.nodeId,
+    work: cached,
+    resolvedWork: {
+      annictWorkId: resolved.annictWorkId,
+      nodeId: resolved.nodeId,
+      malAnimeId: resolved.malAnimeId,
+      title: resolved.title,
+      titleKana: resolved.titleKana,
+      titleEn: resolved.titleEn,
+      seasonName: resolved.seasonName,
+      seasonYear: resolved.seasonYear,
+      imageUrl: resolved.imageUrl,
+      watchersCount: resolved.watchersCount ?? null,
+      updatedAt: new Date(),
+    },
   };
 }
 
@@ -122,37 +163,12 @@ const watchHistory = new Hono<AuthVariables>()
       const worksRepo = worksRepository(db);
       const token = c.var.annictToken;
 
-      // updateStatus(input.workId) は Annict の Work Node ID を要求する。
-      // キャッシュに nodeId があればそれを使い、無ければ searchWorks で解決する
-      // （read-through 前にこの作品へ初めて触れたケース）。
-      const cached = await worksRepo.getAnnictWorkById(annictWorkId);
-      let nodeId = cached?.nodeId ?? null;
-      let work = cached;
-      // searchWorks で解決した作品メタは、updateAnnictStatus が成功するまで
-      // D1 へ書かない（「Annict 更新成功後にのみキャッシュ同期」を守るため、
-      // 失敗時に annict_works のメタ/nodeId だけ書き換わるのを防ぐ）。
-      let resolvedWork: NewAnnictWork | null = null;
-
-      if (!nodeId) {
-        const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
-        if (!resolved) {
-          return c.json({ error: "Work not found" }, 404);
-        }
-        nodeId = resolved.nodeId;
-        resolvedWork = {
-          annictWorkId: resolved.annictWorkId,
-          nodeId: resolved.nodeId,
-          malAnimeId: resolved.malAnimeId,
-          title: resolved.title,
-          titleKana: resolved.titleKana,
-          titleEn: resolved.titleEn,
-          seasonName: resolved.seasonName,
-          seasonYear: resolved.seasonYear,
-          imageUrl: resolved.imageUrl,
-          watchersCount: resolved.watchersCount ?? null,
-          updatedAt: new Date(),
-        };
+      const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
+      if (!resolved) {
+        return c.json({ error: "Work not found" }, 404);
       }
+      const { nodeId, resolvedWork } = resolved;
+      let work = resolved.work;
 
       await updateAnnictStatus(token, nodeId, data.state);
 
@@ -412,7 +428,11 @@ const watchHistory = new Hono<AuthVariables>()
     if (!found) return c.json({ error: "User not found" }, 404);
     return c.json({ success: true }, 200);
   })
-  .delete("/:annictWorkId", async (c) => {
+  // ステータスの解除（未設定に戻す）。D1 の行だけ消しても Annict 側に
+  // ステータスが残ると、次回の read-through 同期で履歴行が復活してしまう
+  // ため、Annict に NO_STATE を送ってから D1 の行を削除する（issue #436）。
+  // PUT と同じく「Annict 更新が正・成功後にのみ D1 を追従」の不変条件を守る。
+  .delete("/:annictWorkId", requireAnnictToken, async (c) => {
     const annictWorkId = Number(c.req.param("annictWorkId"));
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
       return c.json({ error: "Invalid annictWorkId" }, 400);
@@ -420,6 +440,21 @@ const watchHistory = new Hono<AuthVariables>()
 
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const worksRepo = worksRepository(db);
+    const token = c.var.annictToken;
+
+    const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
+    if (!resolved) {
+      return c.json({ error: "Work not found" }, 404);
+    }
+
+    await updateAnnictStatus(token, resolved.nodeId, "NO_STATE");
+
+    // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する。
+    if (resolved.resolvedWork) {
+      await worksRepo.upsertAnnictWork(resolved.resolvedWork);
+    }
+
     await repo.deleteWatchHistory(annictWorkId);
     return c.json({ success: true }, 200);
   });

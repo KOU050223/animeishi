@@ -639,7 +639,21 @@ describe("視聴履歴 API", () => {
       expect(row).toBeUndefined();
     });
 
-    it("DELETE /me/watch-histories/:annictWorkId: 視聴履歴を削除できる", async () => {
+    it("DELETE /me/watch-histories/:annictWorkId: X-Annict-Token が無ければ 401", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        `/me/watch-histories/${ANNICT_WORK_ID}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { code: string };
+      expect(body.code).toBe("annict_token_required");
+    });
+
+    it("DELETE /me/watch-histories/:annictWorkId: Annict を NO_STATE に戻し D1 の行を削除する", async () => {
+      const fetchMock = mockAnnictUpdate({ nodeId: "Work-12345" });
       const app = buildApp();
       // 削除対象を直接キャッシュに用意する。
       await db.insert(watchHistoryTable).values({
@@ -651,20 +665,84 @@ describe("視聴履歴 API", () => {
 
       const deleteRes = await app.request(
         `/me/watch-histories/${ANNICT_WORK_ID}`,
-        { method: "DELETE" },
+        { method: "DELETE", headers: ANNICT_HEADER },
         TEST_BINDINGS,
       );
       expect(deleteRes.status).toBe(200);
 
-      // 削除後は Annict 側も空のため read-through GET が空配列を返す。
-      mockAnnictLibrary([]);
-      const getRes = await app.request(
-        "/me/watch-histories",
-        { method: "GET", headers: ANNICT_HEADER },
+      // Annict updateStatus が NO_STATE で呼ばれている。
+      const updateCall = fetchMock.mock.calls.find((call) => {
+        const init = call[1] as RequestInit;
+        return (JSON.parse(init.body as string).query ?? "").includes(
+          "updateStatus",
+        );
+      });
+      const vars = JSON.parse(
+        (updateCall![1] as RequestInit).body as string,
+      ).variables;
+      expect(vars.workId).toBe("Work-12345");
+      expect(vars.state).toBe("NO_STATE");
+
+      // D1 の行が削除されている（Annict 側も NO_STATE のため、
+      // 次回の read-through で復活しない）。
+      const row = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
+      });
+      expect(row).toBeUndefined();
+    });
+
+    it("DELETE /me/watch-histories/:annictWorkId: nodeId 未取得なら searchWorks で解決して解除する", async () => {
+      // read-through 前で nodeId 未取得の作品。
+      const UNCACHED = 67890;
+      await db.insert(annictWorks).values({
+        annictWorkId: UNCACHED,
+        nodeId: null,
+        title: "未キャッシュ作品",
+        updatedAt: new Date(),
+      });
+      const fetchMock = mockAnnictUpdate({ nodeId: "Work-67890" });
+      const app = buildApp();
+
+      const res = await app.request(
+        `/me/watch-histories/${UNCACHED}`,
+        { method: "DELETE", headers: ANNICT_HEADER },
         TEST_BINDINGS,
       );
-      const body = (await getRes.json()) as unknown[];
-      expect(body).toHaveLength(0);
+
+      expect(res.status).toBe(200);
+      const queries = fetchMock.mock.calls.map(
+        (call) =>
+          JSON.parse((call[1] as RequestInit).body as string).query as string,
+      );
+      expect(queries.some((q) => q.includes("searchWorks"))).toBe(true);
+      expect(queries.some((q) => q.includes("updateStatus"))).toBe(true);
+    });
+
+    it("DELETE /me/watch-histories/:annictWorkId: Annict 更新失敗時は D1 の行を残す", async () => {
+      await db.insert(watchHistoryTable).values({
+        userId: USER_ID,
+        annictWorkId: ANNICT_WORK_ID,
+        state: "WATCHING",
+        updatedAt: new Date(),
+      });
+      mockAnnictUpdate({ nodeId: "Work-12345", updateFails: true });
+      const app = buildApp();
+
+      const res = await app.request(
+        `/me/watch-histories/${ANNICT_WORK_ID}`,
+        { method: "DELETE", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(502);
+
+      // Annict 側が NO_STATE に戻っていないので D1 の行も残す
+      // （「Annict 更新成功後にのみキャッシュ同期」の不変条件）。
+      const row = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
+      });
+      expect(row?.state).toBe("WATCHING");
     });
 
     it("PUT /me/watch-histories/:annictWorkId: バリデーションエラー（不正なステータス）は 400", async () => {
