@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isMeishiComplete, missingMeishiCompletionSteps } from "./completion";
 import type { MeishiCompletionStep } from "./completion";
 import { defaultCard } from "./library";
@@ -15,6 +15,12 @@ export type MeishiCompletion = {
   isLoading: boolean;
   /** 判定に使った名刺ドキュメント（プレビュー表示にも使える）。 */
   document: MeishiDocument | null;
+  /**
+   * ドキュメントを AsyncStorage から読み直す。タブ画面はマウントが
+   * 維持されるため、名刺エディタ等から戻ったタイミングで呼ぶ
+   * （useMeishiLibrary の reload と同じ使い方）。
+   */
+  reload: () => Promise<void>;
 };
 
 /**
@@ -29,6 +35,12 @@ export function useMeishiCompletion(): MeishiCompletion {
   const { data: favorites, isLoading: favoritesLoading } = useFavorites();
   const [document, setDocument] = useState<MeishiDocument | null>(null);
   const [docLoaded, setDocLoaded] = useState(false);
+
+  const reload = useCallback(async () => {
+    const library = await loadMeishiLibrary();
+    setDocument(library ? (defaultCard(library)?.document ?? null) : null);
+    setDocLoaded(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,5 +67,6 @@ export function useMeishiCompletion(): MeishiCompletion {
     isComplete: isMeishiComplete(input),
     isLoading: profileLoading || favoritesLoading || !docLoaded,
     document,
+    reload,
   };
 }

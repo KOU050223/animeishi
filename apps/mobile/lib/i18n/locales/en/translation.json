@@ -267,5 +267,10 @@
   "アイコンや表示名はプロフィールからいつでも設定できます。": "You can set your avatar and display name anytime from your profile.",
   "Annict と連携しますか？": "Connect Annict?",
   "推し作品の登録に失敗しました。もう一度お試しください。": "Couldn't save your favorites. Please try again.",
-  "名刺の保存に失敗しました。もう一度お試しください。": "Couldn't save your card. Please try again."
+  "名刺の保存に失敗しました。もう一度お試しください。": "Couldn't save your card. Please try again.",
+  "名刺を完成させよう（残り {{count}} ステップ）": "Finish your card — {{count}} steps left",
+  "アイコンを設定する": "Set an avatar",
+  "表示名を設定する": "Set a display name",
+  "推し作品を登録する": "Register favorite works",
+  "テンプレートを選ぶ": "Choose a template"
 }

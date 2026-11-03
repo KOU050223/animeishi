@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
+import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
@@ -64,6 +65,9 @@ export default function HomeScreen() {
           <View>
             <FriendStoryRail />
             <CurrentSeasonWatchingRail />
+            {/* 名刺が未完成なら完成度カードを出す（issue #419）。
+                完成済み・読み込み中はコンポーネント側で null を返す。 */}
+            <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (
               <View className="mt-8 p-4 border border-yellow-400 dark:border-yellow-600 rounded-xl bg-yellow-50 dark:bg-yellow-950">
