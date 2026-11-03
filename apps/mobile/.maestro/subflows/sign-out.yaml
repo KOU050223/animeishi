@@ -15,20 +15,24 @@ appId: com.animeishi.app
     visible:
       text: ユーザー名入力
     timeout: 30000
-# 画面下端ギリギリで止まるとタップがタブバーに被るため centerElement で中央まで出す。
-# ただしボタンが最初から画面に収まっている（全体が収まり中央へ寄せられない）と
-# スクロール自体が失敗するため optional にし、その場合は警告で終えてそのまま
-# タップへ進む（issue #298）。ボタンが無い等の本当の失敗は後続の tapOn が拾う。
-# ボタンはリスト末尾にあり中央へ寄せきれないため、Maestro はスクロールのリトライを
-# 繰り返す。ホスト高負荷時は各リトライが遅く既定の 20 秒を超えてタイムアウトする
-# ため、delete-account と同じく余裕を持たせる（issue #444）。
-- scrollUntilVisible:
-    element:
+# scrollUntilVisible はここでは動かない: zoomable な名刺プレビューが画面中央で
+# RNGH の pan ジェスチャを掴むため、Maestro の "swipe from center" がそれに
+# 食われてリストが全くスクロールしない（要素がヒエラルキーに出ない）。
+# カードより下（画面高さの 65%）からの座標スワイプでスクロールしてから
+# ボタンを待つ。カードは画面の ~57% までなので 65% は安全にその下。
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 20%"
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 20%"
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 20%"
+- extendedWaitUntil:
+    visible:
       id: sign-out-button
-    direction: DOWN
-    centerElement: true
-    timeout: 90000
-    optional: true
+    timeout: 15000
 - tapOn:
     id: sign-out-button
     retryTapIfNoChange: false
