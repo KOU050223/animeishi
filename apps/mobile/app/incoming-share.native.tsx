@@ -63,6 +63,8 @@ export default function IncomingShareScreen() {
       .map((p) => `${p.shareType}|${p.value}`)
       .join("\n");
     if (handledKeyRef.current === key) return;
+    // 別の共有が届いたので、前の共有によるスキャン失敗表示を解除する
+    setScanFailed(false);
 
     if (textUserId) {
       handledKeyRef.current = key;
@@ -71,14 +73,17 @@ export default function IncomingShareScreen() {
       return;
     }
 
-    // 画像の URI がまだ確定していないなら、解決結果またはエラーの
-    // 再レンダーを待つ（失敗判定は描画側の導出が担う）
-    if (!imageUri) return;
+    // 画像 URI の解決が終わってからスキャンする。未解決の生 value は
+    // スキャンに失敗しやすいので isResolving 中は待ち、解決後の
+    // contentUri を優先する（失敗判定は描画側の導出が担う）
+    if (isResolving || !imageUri) return;
 
     handledKeyRef.current = key;
+    let cancelled = false;
     void (async () => {
       try {
         const codes = await scanQrFromImage(imageUri);
+        if (cancelled) return;
         const userId =
           codes
             .map((code) => extractUserIdFromSharedText(code))
@@ -90,11 +95,22 @@ export default function IncomingShareScreen() {
           setScanFailed(true);
         }
       } catch {
+        if (cancelled) return;
         clearSharedPayloads();
         setScanFailed(true);
       }
     })();
-  }, [sharedPayloads, imageUri, textUserId, clearSharedPayloads, router]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    sharedPayloads,
+    imageUri,
+    textUserId,
+    isResolving,
+    clearSharedPayloads,
+    router,
+  ]);
 
   const handleClose = () => {
     if (router.canGoBack()) {

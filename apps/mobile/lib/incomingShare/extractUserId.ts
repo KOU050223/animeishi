@@ -11,7 +11,12 @@ import { isValidUserId } from "@/lib/qrParser";
  *   - 生 UID（Clerk ID / 旧 Firebase 28 文字 UID）
  *   - animeishi://user/{uid} / animeishi://{uid}
  *   - {EXPO_PUBLIC_WEB_URL}/user/{uid}
+ *
+ * EXPO_PUBLIC_WEB_URL を持たないビルドでも受信側だけ名刺 URL を拒否
+ * しないよう、未設定時は webUrl.native.ts と同じ本番ホストを既定にする。
  */
+const PRODUCTION_WEB_BASE_URL = "https://animeishi.uomi.dev";
+
 export function extractUserIdFromSharedText(
   raw: string | null | undefined,
   webBaseUrl: string | null | undefined = process.env.EXPO_PUBLIC_WEB_URL,
@@ -20,10 +25,12 @@ export function extractUserIdFromSharedText(
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
+  const effectiveWebBaseUrl = webBaseUrl || PRODUCTION_WEB_BASE_URL;
+
   // 「この名刺: https://...」のように文に埋め込まれた URL も拾うため、
   // 空白区切りの各トークンを候補として試す。
   for (const token of trimmed.split(/\s+/)) {
-    const userId = extractFromCandidate(token, webBaseUrl);
+    const userId = extractFromCandidate(token, effectiveWebBaseUrl);
     if (userId) return userId;
   }
   return null;

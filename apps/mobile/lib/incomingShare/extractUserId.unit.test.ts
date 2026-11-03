@@ -105,14 +105,35 @@ describe("extractUserIdFromSharedText", () => {
   });
 
   describe("webBaseUrl 未設定（EXPO_PUBLIC_WEB_URL なしのビルド）", () => {
-    it("animeishi:// と生 UID は受理するが https URL は受理しない", () => {
+    it("未設定時は本番ホスト（animeishi.uomi.dev）の名刺 URL を受理する", () => {
+      expect(
+        extractUserIdFromSharedText(`${WEB_BASE}/user/${CLERK_ID}`, null),
+      ).toBe(CLERK_ID);
       expect(
         extractUserIdFromSharedText(`animeishi://user/${CLERK_ID}`, null),
       ).toBe(CLERK_ID);
       expect(extractUserIdFromSharedText(CLERK_ID, null)).toBe(CLERK_ID);
+    });
+
+    it("未設定でも任意ホストは受理しない", () => {
       expect(
-        extractUserIdFromSharedText(`${WEB_BASE}/user/${CLERK_ID}`, null),
+        extractUserIdFromSharedText(
+          `https://example.com/user/${CLERK_ID}`,
+          null,
+        ),
       ).toBeNull();
+    });
+
+    it("引数省略時は EXPO_PUBLIC_WEB_URL 未設定でも本番ホストを既定にする", () => {
+      const saved = process.env.EXPO_PUBLIC_WEB_URL;
+      delete process.env.EXPO_PUBLIC_WEB_URL;
+      try {
+        expect(
+          extractUserIdFromSharedText(`${WEB_BASE}/user/${CLERK_ID}`),
+        ).toBe(CLERK_ID);
+      } finally {
+        process.env.EXPO_PUBLIC_WEB_URL = saved;
+      }
     });
   });
 });
