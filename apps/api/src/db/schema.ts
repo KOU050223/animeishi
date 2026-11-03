@@ -489,11 +489,17 @@ export const workLists = sqliteTable(
     description: text("description"),
     // 共有 URL（/share/work-lists/:token）のトークン。null は未共有。
     shareToken: text("share_token"),
+    // ひろばの公開一覧（GET /work-lists/public, issue #422）に載るか。
+    // share_token とは独立（URL 共有はしたいが一覧には出したくない、を両立）。
+    isPublic: integer("is_public", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [
     index("work_lists_user_idx").on(t.userId),
+    index("work_lists_public_idx").on(t.isPublic),
     unique("work_lists_share_token_unique").on(t.shareToken),
   ],
 );
@@ -518,6 +524,27 @@ export const workListItems = sqliteTable(
   ],
 );
 
+// ---- work_list_likes (公開作品リストへのいいね, issue #422) ----
+// (user_id, work_list_id) で 1 件のため、いいね操作は冪等にできる。
+// リスト削除・ユーザー削除で cascade。
+export const workListLikes = sqliteTable(
+  "work_list_likes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workListId: integer("work_list_id")
+      .notNull()
+      .references(() => workLists.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    unique("work_list_likes_user_list_unique").on(t.userId, t.workListId),
+    index("work_list_likes_list_idx").on(t.workListId),
+  ],
+);
+
 // ---- reports (ユーザー通報) ----
 // App Store Guideline 1.2 (UGC) 対応。運営がモデレーションするための通報を記録する。
 // reporter / reported のどちらのアカウントが削除されても cascade で消える。
@@ -532,6 +559,14 @@ export const reports = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     reason: text("reason").notNull(),
+    // 通報対象が作品リストのとき、そのリストの id（issue #422）。
+    // このとき reported_user_id にはリストの所有者が入る。null は
+    // ユーザー通報。対象リストが削除されても通報行は残し、
+    // この列を NULL に戻す（所有者は reported_user_id で辿れる）。
+    reportedWorkListId: integer("reported_work_list_id").references(
+      () => workLists.id,
+      { onDelete: "set null" },
+    ),
     // モデレーション対応状況。更新は scripts/reports.sh（wrangler d1 execute）
     // から行い、API 経路では触らない（認可設計が未決のため）。
     status: text("status", { enum: REPORT_STATUSES }).notNull().default("open"),
@@ -542,6 +577,7 @@ export const reports = sqliteTable(
   (t) => [
     index("reports_reporter_idx").on(t.reporterId),
     index("reports_reported_user_idx").on(t.reportedUserId),
+    index("reports_reported_work_list_idx").on(t.reportedWorkListId),
     index("reports_status_idx").on(t.status),
     check(
       "reports_status_check",
@@ -666,6 +702,37 @@ export const activities = sqliteTable(
   ],
 );
 
+// ---- work_ratings (視聴済み作品へのワンタップ 3 段階評価, issue #416) ----
+// Animeishi 独自の評価。Annict のレビュー評価は GET で初期値として読むだけで、
+// D1 に評価がある作品は D1 を正とする（Annict への書き込みはしない）。
+// rating: bad=イマイチ / good=良い / great=最高。
+export const WORK_RATINGS = ["bad", "good", "great"] as const;
+export type WorkRatingValue = (typeof WORK_RATINGS)[number];
+
+export const workRatings = sqliteTable(
+  "work_ratings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    annictWorkId: integer("annict_work_id")
+      .notNull()
+      .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
+    rating: text("rating", { enum: WORK_RATINGS }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    unique("work_ratings_user_work_unique").on(t.userId, t.annictWorkId),
+    index("work_ratings_user_idx").on(t.userId),
+    check(
+      "work_ratings_rating_check",
+      sql`${t.rating} IN ('bad', 'good', 'great')`,
+    ),
+  ],
+);
+
 // ---- user_genres (選択ジャンル) ----
 export const userGenres = sqliteTable(
   "user_genres",
@@ -731,6 +798,8 @@ export type WorkList = typeof workLists.$inferSelect;
 export type NewWorkList = typeof workLists.$inferInsert;
 export type WorkListItem = typeof workListItems.$inferSelect;
 export type NewWorkListItem = typeof workListItems.$inferInsert;
+export type WorkListLike = typeof workListLikes.$inferSelect;
+export type NewWorkListLike = typeof workListLikes.$inferInsert;
 export type AnnictToken = typeof annictTokens.$inferSelect;
 export type NewAnnictToken = typeof annictTokens.$inferInsert;
 export type Analysis = typeof analyses.$inferSelect;
@@ -746,3 +815,5 @@ export type DeletionFeedback = typeof deletionFeedbacks.$inferSelect;
 export type NewDeletionFeedback = typeof deletionFeedbacks.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;
+export type WorkRating = typeof workRatings.$inferSelect;
+export type NewWorkRating = typeof workRatings.$inferInsert;

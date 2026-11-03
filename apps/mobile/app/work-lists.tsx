@@ -135,6 +135,7 @@ export default function WorkListsScreen() {
                   <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                     {item.itemCount} 作品
                     {item.shareToken ? " ・ 共有中" : ""}
+                    {item.isPublic ? " ・ 公開中" : ""}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity

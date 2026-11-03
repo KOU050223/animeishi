@@ -274,6 +274,9 @@ export function useAnnictConnect(): UseAnnictConnect {
       // 一致させる（import すると循環参照になる）。
       queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
       queryClient.removeQueries({ queryKey: ["works", "detail"] });
+      // 評価の annictRating（Annict レビュー由来の初期値候補）も連携前提の
+      // ため破棄する。キーは useWorkRating の WORK_RATING_QUERY_KEY と一致。
+      queryClient.removeQueries({ queryKey: ["work-ratings"] });
       await queryClient.invalidateQueries({
         queryKey: ANNICT_CONNECTION_QUERY_KEY,
       });

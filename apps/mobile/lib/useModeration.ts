@@ -4,6 +4,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
+import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 
 type BlocksResponse = InferResponseType<
   (typeof apiClient.me.blocks)["$get"],
@@ -93,6 +94,8 @@ export function useBlockUser() {
       void queryClient.invalidateQueries({
         queryKey: ["public-profile", targetUserId],
       });
+      // ブロックで相手の公開作品リストも見えなくなる（issue #422）。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }
@@ -121,6 +124,8 @@ export function useUnblockUser() {
       void queryClient.invalidateQueries({
         queryKey: ["public-profile", targetUserId],
       });
+      // ブロック解除で相手の公開作品リストが見えるようになる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
     },
   });
 }

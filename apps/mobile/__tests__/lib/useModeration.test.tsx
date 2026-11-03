@@ -1,21 +1,35 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useReportUser } from "@/lib/useModeration";
+import { useReportUser, useBlockUser } from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockReportPost = jest.fn();
+const mockBlockPost = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     users: {
       ":id": {
         report: { $post: (...args: unknown[]) => mockReportPost(...args) },
+        block: { $post: (...args: unknown[]) => mockBlockPost(...args) },
       },
     },
   },
 }));
+
+function makeWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return {
+    client,
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  };
+}
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
@@ -99,5 +113,27 @@ describe("useReportUser", () => {
     const err = result.current.error as ApiRequestError;
     expect(err.status).toBe(404);
     expect(err.message).toBe("通報に失敗しました");
+  });
+});
+
+describe("useBlockUser", () => {
+  it("ブロック成功で公開作品リストのクエリも invalidate される", async () => {
+    mockBlockPost.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    });
+    const { client, wrapper } = makeWrapper();
+    const invalidateSpy = jest.spyOn(client, "invalidateQueries");
+
+    const { result } = await renderHook(() => useBlockUser(), { wrapper });
+    await act(async () => {
+      result.current.mutate("user_target");
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["work-list", "public"],
+    });
   });
 });

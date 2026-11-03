@@ -20,6 +20,7 @@ import { annict } from "./features/annict";
 import { characterTierLists } from "./features/character-tier-lists";
 import { customTierLists } from "./features/custom-tier-lists";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
+import { workRatings } from "./features/work-ratings";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
 import { friendRequests } from "./features/friend-requests";
@@ -35,6 +36,7 @@ import { user } from "./features/user";
 import { usersRoute } from "./features/users";
 import { watchHistory } from "./features/watch-history";
 import { workListsRoute } from "./features/work-lists";
+import { publicWorkListsRoute } from "./features/work-lists/public";
 import { works } from "./features/works";
 
 type AppBindings = Env &
@@ -97,6 +99,7 @@ const routes = app
   .route("/me/import", importRoute)
   .route("/me/watch-histories", watchHistory)
   .route("/me/episode-records", episodeRecords)
+  .route("/me/work-ratings", workRatings)
   .route("/me/analysis", analysis)
   .route("/works", works)
   .route("/works", workEpisodes)
@@ -109,6 +112,7 @@ const routes = app
   .route("/me/character-tier-lists", characterTierLists)
   .route("/me/custom-tier-lists", customTierLists)
   .route("/me/work-lists", workListsRoute)
+  .route("/work-lists", publicWorkListsRoute)
   .route("/user", user)
   .route("/users", usersRoute);
 

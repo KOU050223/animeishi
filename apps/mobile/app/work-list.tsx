@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -72,15 +73,17 @@ export default function WorkListScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [works, setWorks] = useState<WorkListEntry[]>([]);
+  // ひろばの公開一覧に載せるか（issue #422）。共有 URL とは独立した設定。
+  const [isPublic, setIsPublic] = useState(false);
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveSourceRef = useRef({ listId, title, description, works });
+  const saveSourceRef = useRef({ listId, title, description, works, isPublic });
   useEffect(() => {
-    saveSourceRef.current = { listId, title, description, works };
+    saveSourceRef.current = { listId, title, description, works, isPublic };
   });
   useEffect(
     () => () => {
@@ -104,6 +107,7 @@ export default function WorkListScreen() {
     if (saved) {
       setTitle(saved.title);
       setDescription(saved.description ?? "");
+      setIsPublic(saved.isPublic);
       setWorks(
         saved.items.map((item) => ({
           id: item.annictWorkId,
@@ -115,6 +119,7 @@ export default function WorkListScreen() {
       setTitle("");
       setDescription("");
       setWorks([]);
+      setIsPublic(false);
     }
     setIsDirty(false);
   }
@@ -233,6 +238,7 @@ export default function WorkListScreen() {
       id: cur.listId ?? undefined,
       title: cur.title,
       description: cur.description,
+      isPublic: cur.isPublic,
       items: cur.works.map((w) => ({ annictWorkId: w.id })),
     });
     setListId(savedData.id);
@@ -249,6 +255,7 @@ export default function WorkListScreen() {
         id: listId ?? undefined,
         title,
         description,
+        isPublic,
         items: works.map((w) => ({ annictWorkId: w.id })),
       },
       {
@@ -259,7 +266,7 @@ export default function WorkListScreen() {
         },
       },
     );
-  }, [save, saveDisabled, listId, title, description, works]);
+  }, [save, saveDisabled, listId, title, description, isPublic, works]);
 
   // 共有は「保存された内容」を公開するため、未保存変更があっても
   // 先に保存してからトークンを発行する（custom-tier-list と同じ流れ）。
@@ -456,6 +463,35 @@ export default function WorkListScreen() {
           testID="work-list-description"
           className="mt-2 rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
         />
+
+        {/* 公開設定（issue #422）。ON にするとひろば「みつける」の
+            公開一覧に載り、誰でも見られていいね・通報できるようになる。
+            共有 URL（share_token）とは独立した設定で、URL だけ配りたい
+            場合は OFF のまま共有できる。切り替えは保存で確定する。 */}
+        <View className="mt-3 flex-row items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
+          <View className="mr-3 flex-1">
+            <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              ひろばに公開する
+            </Text>
+            <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {isPublic
+                ? "公開中。ひろばの一覧に表示されます"
+                : "非公開。共有 URL を知る人だけが見られます"}
+            </Text>
+          </View>
+          <Switch
+            value={isPublic}
+            onValueChange={(next) => {
+              if (editingDisabled) return;
+              setIsPublic(next);
+              markDirty();
+            }}
+            disabled={editingDisabled}
+            trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+            accessibilityLabel="ひろばに公開する"
+            testID="work-list-public-toggle"
+          />
+        </View>
 
         {isSavedLoading ? (
           <View className="flex-1 items-center justify-center">

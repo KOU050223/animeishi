@@ -99,6 +99,19 @@ const DDL_STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS friend_requests_pair_unique ON friend_requests (requester_id, addressee_id)`,
   `CREATE INDEX IF NOT EXISTS friend_requests_addressee_idx ON friend_requests (addressee_id)`,
   `CREATE INDEX IF NOT EXISTS friend_requests_requester_idx ON friend_requests (requester_id)`,
+  `CREATE TABLE IF NOT EXISTS work_ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    rating TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    CONSTRAINT work_ratings_rating_check CHECK (rating IN ('bad', 'good', 'great')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (annict_work_id) REFERENCES annict_works(annict_work_id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS work_ratings_user_work_unique ON work_ratings (user_id, annict_work_id)`,
+  `CREATE INDEX IF NOT EXISTS work_ratings_user_idx ON work_ratings (user_id)`,
   `CREATE TABLE IF NOT EXISTS user_genres (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -204,11 +217,13 @@ const DDL_STATEMENTS = [
     title TEXT NOT NULL,
     description TEXT,
     share_token TEXT,
+    is_public INTEGER DEFAULT 0 NOT NULL,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `CREATE INDEX IF NOT EXISTS work_lists_user_idx ON work_lists (user_id)`,
+  `CREATE INDEX IF NOT EXISTS work_lists_public_idx ON work_lists (is_public)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS work_lists_share_token_unique ON work_lists (share_token)`,
   `CREATE TABLE IF NOT EXISTS work_list_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -220,6 +235,16 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS work_list_items_list_work_unique ON work_list_items (work_list_id, annict_work_id)`,
   `CREATE INDEX IF NOT EXISTS work_list_items_list_idx ON work_list_items (work_list_id)`,
+  `CREATE TABLE IF NOT EXISTS work_list_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    work_list_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (work_list_id) REFERENCES work_lists(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS work_list_likes_user_list_unique ON work_list_likes (user_id, work_list_id)`,
+  `CREATE INDEX IF NOT EXISTS work_list_likes_list_idx ON work_list_likes (work_list_id)`,
   `CREATE TABLE IF NOT EXISTS annict_tokens (
     user_id TEXT PRIMARY KEY NOT NULL,
     encrypted_token TEXT NOT NULL,
@@ -234,16 +259,19 @@ const DDL_STATEMENTS = [
     reporter_id TEXT NOT NULL,
     reported_user_id TEXT NOT NULL,
     reason TEXT NOT NULL,
+    reported_work_list_id INTEGER,
     status TEXT DEFAULT 'open' NOT NULL,
     resolution_note TEXT,
     resolved_at INTEGER,
     created_at INTEGER NOT NULL,
     CONSTRAINT reports_status_check CHECK (status IN ('open', 'resolved', 'dismissed')),
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_work_list_id) REFERENCES work_lists(id) ON DELETE SET NULL
   )`,
   `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,
+  `CREATE INDEX IF NOT EXISTS reports_reported_work_list_idx ON reports (reported_work_list_id)`,
   `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status)`,
   `CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -321,6 +349,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM character_tier_list_items").run();
   await d1.prepare("DELETE FROM character_tier_lists").run();
   await d1.prepare("DELETE FROM work_list_items").run();
+  await d1.prepare("DELETE FROM work_list_likes").run();
   await d1.prepare("DELETE FROM work_lists").run();
   await d1.prepare("DELETE FROM custom_tier_list_items").run();
   await d1.prepare("DELETE FROM custom_tier_lists").run();
@@ -331,6 +360,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM friend_requests").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
+  await d1.prepare("DELETE FROM work_ratings").run();
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
@@ -341,7 +371,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
     )
     .run();
   return db;
