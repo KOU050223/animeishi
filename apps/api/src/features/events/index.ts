@@ -25,9 +25,16 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
 // 参加者一覧の既定・上限件数（issue #440）。参加者はイベントごとに
-// 集まりうるため一覧より緩い上限にする。超過分は participantTotal だけを返す。
+// 集まりうるため一覧より緩い上限にする。超過分は participantTotal +
+// offset で続きを取る。
 const PARTICIPANTS_DEFAULT_LIMIT = 100;
 const PARTICIPANTS_MAX_LIMIT = 500;
+
+// 「参加しているフレンド」欄の既定・上限件数（issue #440）。フレンド数は
+// 参加者数より小さいので上限を小さくする。超過分は friendsTotal +
+// friendsOffset で続きを取る。
+const FRIENDS_DEFAULT_LIMIT = 100;
+const FRIENDS_MAX_LIMIT = 100;
 
 // 運営が登録するイベント（issue #411 フェーズ 1）。投入は
 // scripts/publish-event.mjs（frontmatter 付き Markdown の upsert）
@@ -126,11 +133,22 @@ const events = app
   })
   .openapi(getParticipantsRoute, async (c) => {
     const { slug } = c.req.valid("param");
-    const { limit: rawLimit } = c.req.valid("query");
+    const {
+      limit: rawLimit,
+      offset: rawOffset,
+      friendsLimit: rawFriendsLimit,
+      friendsOffset: rawFriendsOffset,
+    } = c.req.valid("query");
     const limit = Math.min(
       Number(rawLimit ?? PARTICIPANTS_DEFAULT_LIMIT),
       PARTICIPANTS_MAX_LIMIT,
     );
+    const offset = Number(rawOffset ?? 0);
+    const friendsLimit = Math.min(
+      Number(rawFriendsLimit ?? FRIENDS_DEFAULT_LIMIT),
+      FRIENDS_MAX_LIMIT,
+    );
+    const friendsOffset = Number(rawFriendsOffset ?? 0);
     const db = createDb(getBindings(c).DB);
     const repo = eventsRepository(db, c.var.clerkUserId);
 
@@ -139,12 +157,21 @@ const events = app
       return c.json({ error: "Event not found" }, 404);
     }
 
-    const [participants, participantTotal, friends] = await Promise.all([
-      repo.listPublicParticipants({ eventSlug: slug, limit }),
-      repo.countPublicParticipants(slug),
-      repo.listParticipatingFriends(slug),
-    ]);
-    return c.json({ participants, participantTotal, friends }, 200);
+    const [participants, participantTotal, friends, friendsTotal] =
+      await Promise.all([
+        repo.listPublicParticipants({ eventSlug: slug, limit, offset }),
+        repo.countPublicParticipants(slug),
+        repo.listParticipatingFriends({
+          eventSlug: slug,
+          limit: friendsLimit,
+          offset: friendsOffset,
+        }),
+        repo.countParticipatingFriends(slug),
+      ]);
+    return c.json(
+      { participants, participantTotal, friends, friendsTotal },
+      200,
+    );
   })
   .openapi(cancelParticipationRoute, async (c) => {
     const { slug } = c.req.valid("param");

@@ -18,6 +18,7 @@ import { WorkImage } from "@/components/anime-list/WorkImage";
 import {
   useEvent,
   useEventParticipants,
+  useEventParticipatingFriends,
   useExchangedEventFriends,
   useSetEventParticipation,
   useUpdateEventParticipationVisibility,
@@ -320,70 +321,121 @@ function ParticipationVisibilityPicker({
 // 「参加しているフレンド」と「参加者一覧」（issue #440、connpass の
 // 右カラムに相当）。公開範囲・プロフィール公開・ブロックの絞り込みは
 // API 側で済んでいる。タップで相手の名刺（/user/:uid）へ遷移する。
+// 各欄は「もっと見る」で offset ページングして続きを取る。
 function EventAttendees({ slug }: { slug: string }) {
   const router = useRouter();
-  const attendees = useEventParticipants(slug);
+  const friendsQuery = useEventParticipatingFriends(slug);
+  const participantsQuery = useEventParticipants(slug);
   const openProfile = (userId: string) =>
     router.push({ pathname: "/user/[uid]", params: { uid: userId } });
 
-  const friends = attendees.data?.friends ?? [];
-  const participants = attendees.data?.participants ?? [];
-  const participantTotal = attendees.data?.participantTotal ?? 0;
+  const friends = friendsQuery.data?.pages.flatMap((p) => p.friends) ?? [];
+  const friendsTotal = friendsQuery.data?.pages[0]?.friendsTotal ?? 0;
+  const participants =
+    participantsQuery.data?.pages.flatMap((p) => p.participants) ?? [];
+  const participantTotal =
+    participantsQuery.data?.pages[0]?.participantTotal ?? 0;
 
   return (
     <View className="mt-6" testID="event-attendees">
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        参加しているフレンド
+        参加しているフレンド（{friendsTotal}）
       </Text>
-      {attendees.isError ? (
+      {friendsQuery.isError ? (
         <Text
           className="mt-2 text-sm text-slate-400 dark:text-slate-500"
           testID="event-attendees-error"
         >
           参加者を読み込めませんでした
         </Text>
-      ) : attendees.isLoading ? (
+      ) : friendsQuery.isLoading ? (
         <ActivityIndicator className="mt-4" />
+      ) : friends.length === 0 ? (
+        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          参加表明しているフレンドはまだいません
+        </Text>
       ) : (
-        <>
-          {friends.length === 0 ? (
-            <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-              参加表明しているフレンドはまだいません
-            </Text>
-          ) : (
-            <View className="mt-2">
-              {friends.map((item) => (
-                <AttendeeRow
-                  key={item.userId}
-                  item={item}
-                  onPress={() => openProfile(item.userId)}
-                  testID={`event-friend-${item.userId}`}
-                />
-              ))}
-            </View>
-          )}
-
-          <Text className="mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
-            参加者（{participantTotal}）
-          </Text>
-          {participants.length === 0 ? (
-            <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-              公開している参加者はまだいません
-            </Text>
-          ) : (
-            <View className="mt-2 flex-row flex-wrap gap-3">
-              {participants.map((item) => (
-                <ParticipantChip
-                  key={item.userId}
-                  item={item}
-                  onPress={() => openProfile(item.userId)}
-                />
-              ))}
-            </View>
-          )}
-        </>
+        <View className="mt-2">
+          {friends.map((item) => (
+            <AttendeeRow
+              key={item.userId}
+              item={item}
+              onPress={() => openProfile(item.userId)}
+              testID={`event-friend-${item.userId}`}
+            />
+          ))}
+        </View>
       )}
+      {friendsQuery.hasNextPage ? (
+        <LoadMoreButton
+          fetching={friendsQuery.isFetchingNextPage}
+          onPress={() => void friendsQuery.fetchNextPage()}
+          testID="event-friends-more"
+        />
+      ) : null}
+
+      <Text className="mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
+        参加者（{participantTotal}）
+      </Text>
+      {participantsQuery.isError ? (
+        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          参加者を読み込めませんでした
+        </Text>
+      ) : participantsQuery.isLoading ? (
+        <ActivityIndicator className="mt-4" />
+      ) : participants.length === 0 ? (
+        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          公開している参加者はまだいません
+        </Text>
+      ) : (
+        <View className="mt-2 flex-row flex-wrap gap-3">
+          {participants.map((item) => (
+            <ParticipantChip
+              key={item.userId}
+              item={item}
+              onPress={() => openProfile(item.userId)}
+            />
+          ))}
+        </View>
+      )}
+      {participantsQuery.hasNextPage ? (
+        <LoadMoreButton
+          fetching={participantsQuery.isFetchingNextPage}
+          onPress={() => void participantsQuery.fetchNextPage()}
+          testID="event-participants-more"
+        />
+      ) : null}
     </View>
+  );
+}
+
+// 一覧の続きを読むボタン（「参加しているフレンド」「参加者」共用）。
+function LoadMoreButton({
+  fetching,
+  onPress,
+  testID,
+}: {
+  fetching: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity
+      className="mt-2 self-start rounded-lg border border-slate-200 px-4 py-2 dark:border-slate-700"
+      onPress={onPress}
+      disabled={fetching}
+      accessibilityRole="button"
+      accessibilityLabel="もっと見る"
+      testID={testID}
+    >
+      {fetching ? (
+        <ActivityIndicator size="small" />
+      ) : (
+        <Text className="text-sm text-indigo-500 dark:text-indigo-300">
+          もっと見る
+        </Text>
+      )}
+    </TouchableOpacity>
   );
 }
 

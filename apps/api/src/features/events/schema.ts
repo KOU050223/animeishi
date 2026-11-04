@@ -20,6 +20,25 @@ const listQuerySchema = z.object({
     .optional(),
 });
 
+// GET /events/:slug/participants のクエリ（issue #440）。
+// participants と friends は別々に limit + offset でページングする。
+// 各欄の総数は応答の participantTotal / friendsTotal が持つ。
+const optionalInt = (name: string, min: number) =>
+  z
+    .string()
+    .regex(
+      min === 0 ? /^\d+$/ : /^[1-9]\d*$/,
+      `${name} は ${min} 以上の整数で指定してください`,
+    )
+    .optional();
+
+const participantsQuerySchema = z.object({
+  limit: optionalInt("limit", 1),
+  offset: optionalInt("offset", 0),
+  friendsLimit: optionalInt("friendsLimit", 1),
+  friendsOffset: optionalInt("friendsOffset", 0),
+});
+
 // 一覧の 1 件。body（説明文 Markdown）は詳細のみで返すため含めない。
 // participating は認証ユーザーが「参加する」を表明しているか（issue #411。
 // 表明は本人にしか見えないため、このフラグも本人の応答にだけ載る）。
@@ -80,13 +99,14 @@ const participantItemSchema = z.object({
 });
 
 // 参加者一覧（公開表明した人）と参加しているフレンド（公開・
-// フレンドのみ表明のフレンド）を 1 回で返す。participantTotal は
-// 公開参加者の総数（participants は limit で切り詰められるため
-// 欄の見出し用に別で返す）。
+// フレンドのみ表明のフレンド）を 1 回で返す。participantTotal /
+// friendsTotal は各欄の総数（両欄とも limit + offset でページングする
+// ため、欄の見出し用に別で返す）。
 const participantsResponseSchema = z.object({
   participants: z.array(participantItemSchema),
   participantTotal: z.number(),
   friends: z.array(participantItemSchema),
+  friendsTotal: z.number(),
 });
 
 // PATCH /events/:slug/participation のボディ（issue #440）。
@@ -214,12 +234,12 @@ export const getParticipantsRoute = createRoute({
   summary:
     "イベントの参加者一覧と参加しているフレンドを取得する（公開範囲・プロフィール公開・ブロックで絞る）",
   security: bearerAuth,
-  request: { params: slugParamSchema, query: listQuerySchema },
+  request: { params: slugParamSchema, query: participantsQuerySchema },
   responses: {
     200: {
       content: { "application/json": { schema: participantsResponseSchema } },
       description:
-        "公開表明した参加者（参加表明の早い順・limit 件まで）と総数、参加しているフレンド",
+        "公開表明した参加者（参加表明の早い順・limit+offset でページング）と参加しているフレンド（friendsLimit+friendsOffset でページング）、各欄の総数",
     },
     400: jsonError("slug の形式またはクエリが不正"),
     401: jsonError("未認証"),

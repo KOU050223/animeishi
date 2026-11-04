@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
@@ -170,24 +175,76 @@ export function useUpdateEventParticipationVisibility() {
   });
 }
 
-// 参加者一覧（公開表明した人）と参加しているフレンド（issue #440）。
-// connpass の右カラムに相当。公開情報なので参加表明は不要。
+// 参加者一覧・「参加しているフレンド」欄の 1 ページ件数（issue #440）。
+// 続きは「もっと見る」で offset ページングする。
+const ATTENDEES_PAGE_SIZE = "50";
+
+async function fetchAttendees(
+  getToken: () => Promise<string | null>,
+  slug: string | null,
+  query: {
+    limit?: string;
+    offset?: string;
+    friendsLimit?: string;
+    friendsOffset?: string;
+  },
+) {
+  const headers = await getAuthHeaders(getToken);
+  const res = await apiClient.events[":slug"].participants.$get(
+    { param: { slug: slug ?? "" }, query },
+    { headers },
+  );
+  if (!res.ok) {
+    throw new ApiRequestError(res.status, "参加者の取得に失敗しました");
+  }
+  return res.json();
+}
+
+// 参加者一覧（公開表明した人、issue #440）。connpass の右カラムに相当。
+// 公開情報なので参加表明は不要。同じエンドポイントが friends 欄も返す
+// ため、使わない欄は limit=1 に抑えて取得する。
 export function useEventParticipants(slug: string | null) {
   const { getToken, isSignedIn } = useAuth();
 
-  return useQuery({
-    queryKey: eventParticipantsQueryKey(slug ?? ""),
+  return useInfiniteQuery({
+    queryKey: [...eventParticipantsQueryKey(slug ?? ""), "participants"],
     enabled: !!isSignedIn && slug !== null && slug !== "",
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.events[":slug"].participants.$get(
-        { param: { slug: slug ?? "" }, query: {} },
-        { headers },
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      fetchAttendees(getToken, slug, {
+        limit: ATTENDEES_PAGE_SIZE,
+        offset: String(pageParam),
+        friendsLimit: "1",
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      const fetched = allPages.reduce(
+        (n, page) => n + page.participants.length,
+        0,
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "参加者の取得に失敗しました");
-      }
-      return res.json();
+      return fetched < lastPage.participantTotal ? fetched : undefined;
+    },
+  });
+}
+
+// 「参加しているフレンド」欄（issue #440）。公開・フレンドのみ表明した
+// フレンドだけが出る。useEventParticipants と同じエンドポイントを
+// friendsLimit / friendsOffset でページングする。
+export function useEventParticipatingFriends(slug: string | null) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: [...eventParticipantsQueryKey(slug ?? ""), "friends"],
+    enabled: !!isSignedIn && slug !== null && slug !== "",
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      fetchAttendees(getToken, slug, {
+        limit: "1",
+        friendsLimit: ATTENDEES_PAGE_SIZE,
+        friendsOffset: String(pageParam),
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      const fetched = allPages.reduce((n, page) => n + page.friends.length, 0);
+      return fetched < lastPage.friendsTotal ? fetched : undefined;
     },
   });
 }

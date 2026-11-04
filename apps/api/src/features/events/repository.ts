@@ -208,13 +208,16 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * 公開（visibility = 'public'）している参加者を、参加表明の早い順に
-     * limit 件返す（issue #440 の「参加者一覧」）。
+     * limit + offset で返す（issue #440 の「参加者一覧」）。
      * 名刺が見えない相手（プロフィール非公開 = users.is_public 偽、
      * ブロック関係）は遷移先の名刺が 404 になるため一覧から除く。
+     * created_at が同時刻のときも user_id で並びを一意にする
+     * （offset ページングで同じ人が 2 ページに出ないようにするため）。
      */
     async listPublicParticipants(opts: {
       eventSlug: string;
       limit: number;
+      offset: number;
     }): Promise<EventParticipant[]> {
       return db
         .select({
@@ -234,8 +237,12 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
             notBlockedWithMe(eventParticipations.userId),
           ),
         )
-        .orderBy(asc(eventParticipations.createdAt))
-        .limit(opts.limit);
+        .orderBy(
+          asc(eventParticipations.createdAt),
+          asc(eventParticipations.userId),
+        )
+        .limit(opts.limit)
+        .offset(opts.offset);
     },
 
     /**
@@ -259,15 +266,17 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
     },
 
     /**
-     * そのイベントに参加表明している認証ユーザーのフレンドを返す
-     * （issue #440 の「参加しているフレンド」欄）。
+     * そのイベントに参加表明している認証ユーザーのフレンドを
+     * limit + offset で返す（issue #440 の「参加しているフレンド」欄）。
      * 対象は参加の公開範囲が 'public' か 'friends' のフレンド
      * （'private' のフレンドには自分が参加していることも見せない）。
      * プロフィール非公開・ブロック関係の相手は一覧と同じく除く。
      */
-    async listParticipatingFriends(
-      eventSlug: string,
-    ): Promise<EventParticipant[]> {
+    async listParticipatingFriends(opts: {
+      eventSlug: string;
+      limit: number;
+      offset: number;
+    }): Promise<EventParticipant[]> {
       return db
         .select({
           userId: eventParticipations.userId,
@@ -287,13 +296,46 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
         )
         .where(
           and(
-            eq(eventParticipations.eventSlug, eventSlug),
+            eq(eventParticipations.eventSlug, opts.eventSlug),
             inArray(eventParticipations.visibility, ["public", "friends"]),
             eq(users.isPublic, true),
             notBlockedWithMe(eventParticipations.userId),
           ),
         )
-        .orderBy(asc(eventParticipations.createdAt));
+        .orderBy(
+          asc(eventParticipations.createdAt),
+          asc(eventParticipations.userId),
+        )
+        .limit(opts.limit)
+        .offset(opts.offset);
+    },
+
+    /**
+     * 「参加しているフレンド」の総数（listParticipatingFriends と
+     * 同じ絞り込み）。欄を friendsLimit で切り詰めても見出しに
+     * 実人数を出せるようにする。
+     */
+    async countParticipatingFriends(eventSlug: string): Promise<number> {
+      const rows = await db
+        .select({ total: count() })
+        .from(eventParticipations)
+        .innerJoin(users, eq(eventParticipations.userId, users.id))
+        .innerJoin(
+          friends,
+          and(
+            eq(friends.userId, currentUserId),
+            eq(friends.friendId, eventParticipations.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(eventParticipations.eventSlug, eventSlug),
+            inArray(eventParticipations.visibility, ["public", "friends"]),
+            eq(users.isPublic, true),
+            notBlockedWithMe(eventParticipations.userId),
+          ),
+        );
+      return rows[0]?.total ?? 0;
     },
 
     /**

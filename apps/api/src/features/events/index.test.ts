@@ -675,14 +675,130 @@ describe("イベント API", () => {
       expect(body.participantTotal).toBe(3);
     });
 
-    it("公開期間外のイベントは 404", async () => {
+    it("offset で続きのページを重複なく返す", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      // created_at を揃えても user_id のタイブレークで並びが一意になる
+      // ことを確認するため、全員同時刻で入れる。
+      const at = hoursAgo(1);
+      for (const id of ["user_c", "user_a", "user_b"]) {
+        await insertUser(db, id);
+        await insertParticipation(db, "joined", id, "public", at);
+      }
+
       const app = buildApp();
-      const res = await app.request(
-        "/events/none/participants",
+      const page1 = await app.request(
+        "/events/joined/participants?limit=2",
         {},
         TEST_BINDINGS,
       );
-      expect(res.status).toBe(404);
+      const page1Body = (await page1.json()) as {
+        participants: { userId: string }[];
+        participantTotal: number;
+      };
+      expect(page1Body.participantTotal).toBe(3);
+
+      const page2 = await app.request(
+        "/events/joined/participants?limit=2&offset=2",
+        {},
+        TEST_BINDINGS,
+      );
+      const page2Body = (await page2.json()) as {
+        participants: { userId: string }[];
+      };
+
+      const all = [
+        ...page1Body.participants.map((p) => p.userId),
+        ...page2Body.participants.map((p) => p.userId),
+      ];
+      expect(page1Body.participants).toHaveLength(2);
+      expect(page2Body.participants).toHaveLength(1);
+      expect([...all].sort()).toEqual(["user_a", "user_b", "user_c"]);
+    });
+
+    it("参加しているフレンドも friendsLimit + friendsOffset でページングし friendsTotal を返す", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertUser(db, "friend_1");
+      await insertUser(db, "friend_2");
+      await befriend("friend_1");
+      await befriend("friend_2");
+      await insertParticipation(
+        db,
+        "joined",
+        "friend_1",
+        "friends",
+        hoursAgo(2),
+      );
+      await insertParticipation(
+        db,
+        "joined",
+        "friend_2",
+        "friends",
+        hoursAgo(1),
+      );
+
+      const app = buildApp();
+      const page1 = await app.request(
+        "/events/joined/participants?friendsLimit=1",
+        {},
+        TEST_BINDINGS,
+      );
+      expect(page1.status).toBe(200);
+      const page1Body = (await page1.json()) as {
+        friends: { userId: string }[];
+        friendsTotal: number;
+      };
+      expect(page1Body.friends.map((p) => p.userId)).toEqual(["friend_1"]);
+      expect(page1Body.friendsTotal).toBe(2);
+
+      const page2 = await app.request(
+        "/events/joined/participants?friendsLimit=1&friendsOffset=1",
+        {},
+        TEST_BINDINGS,
+      );
+      const page2Body = (await page2.json()) as {
+        friends: { userId: string }[];
+      };
+      expect(page2Body.friends.map((p) => p.userId)).toEqual(["friend_2"]);
+    });
+
+    it("公開期間外のイベントは 404", async () => {
+      await insertEvent(db, {
+        slug: "future",
+        startsAt: hoursAhead(48),
+        endsAt: hoursAhead(72),
+        publishedAt: hoursAhead(1),
+      });
+      await insertEvent(db, {
+        slug: "ended",
+        startsAt: hoursAgo(96),
+        endsAt: hoursAgo(72),
+        publishedAt: hoursAgo(120),
+        unpublishedAt: hoursAgo(1),
+      });
+
+      const app = buildApp();
+      for (const slug of ["none", "future", "ended"]) {
+        const res = await app.request(
+          `/events/${slug}/participants`,
+          {},
+          TEST_BINDINGS,
+        );
+        expect(res.status).toBe(404);
+      }
+    });
+
+    it("不正な offset / friendsLimit は 400", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+
+      const app = buildApp();
+      for (const query of ["offset=-1", "friendsLimit=0"]) {
+        const res = await app.request(
+          `/events/joined/participants?${query}`,
+          {},
+          TEST_BINDINGS,
+        );
+        expect(res.status).toBe(400);
+      }
     });
   });
 
