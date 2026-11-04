@@ -1236,10 +1236,31 @@ describe("視聴履歴の共有", () => {
     // DB の外部 URL はプロキシ失敗時の onerror フォールバックに載る。
     expect(html).toContain("http://localhost/images/works/2001");
     expect(html).toContain("https://example.com/wh-a.png");
-    // og:image にも作品画像を使う（issue #461）。
-    expect(html).toContain('property="og:image"');
+    // og:image には先頭作品（画像なしの見たアニメB）ではなく、画像 URL を
+    // 持つ最初の作品の画像を使う。画像の有無に関わらず生成される
+    // プロキシ URL は 404 になりうるため og:image には使わない。
+    expect(html).toContain(
+      'property="og:image" content="https://example.com/wh-a.png"',
+    );
     // ライト/ダーク両スキームに追従する（issue #461）。
     expect(html).toContain("prefers-color-scheme: dark");
+  });
+
+  it("GET /share/watch-history/:token: どの作品にも画像が無ければ og:image を出さない", async () => {
+    const app = buildWatchHistoryApp();
+    const db = drizzle(env.DB, { schema });
+    await db
+      .update(annictWorks)
+      .set({ imageUrl: null, resolvedImageUrl: null });
+
+    const token = await issueToken(app);
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    expect(html).not.toContain('property="og:image"');
   });
 
   it("GET /share/watch-history/:token: 不明なトークンは 404 を返す", async () => {

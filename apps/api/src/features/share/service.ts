@@ -671,17 +671,15 @@ export function buildSharedWatchHistoryHtml(
   const title = `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`;
   const description = `${escapeHtml(history.ownerUsername)} のアニメ視聴履歴`;
 
-  // og:image には先頭の作品画像を使う（tier 表の共有ページと同じ選び方）。
-  const ogImageCandidates = history.items
-    .flatMap((item) => [
-      workImageUrl(requestUrl, item.annictWorkId),
-      item.resolvedImageUrl,
-      item.imageUrl,
-    ])
-    .filter((u): u is string => !!u && isSafeImageUrl(u));
-  const ogImage =
-    ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
-    ogImageCandidates[0];
+  // og:image にプロキシ URL を使わない。プロキシ URL は画像の有無に関わらず
+  // 生成されるため先頭作品の画像が 404 だと OGP 画像自体が欠落する。
+  // 代わりに DB の外部画像 URL を持つ最初の作品から選ぶ（候補の優先順は
+  // resolvedImageUrl → imageUrl。どれも無ければ og:image を出さない）。
+  const ogImage = history.items
+    .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
+    .find(
+      (u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u.trim()),
+    );
 
   const rowsHtml = history.items
     .map(
