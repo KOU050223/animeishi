@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseUserIdFromQr } from "@/lib/qrParser";
+import { parseQrPayload, parseUserIdFromQr } from "@/lib/qrParser";
 
 // Clerk ID は user_ + base58。旧 Firebase UID は 28 文字英数字。
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";
@@ -101,5 +101,50 @@ describe("parseUserIdFromQr", () => {
         parseUserIdFromQr("https://example.com/user/has space here"),
       ).toBeNull();
     });
+  });
+});
+
+describe("parseQrPayload", () => {
+  const TOKEN = "1730000000.AbCdEf-sig_nature";
+
+  it("対面交換 QR（?qt= 付き）から userId とトークンを取り出す", () => {
+    expect(
+      parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}?qt=${TOKEN}`),
+    ).toEqual({ userId: CLERK_ID, qrToken: TOKEN });
+  });
+
+  it("animeishi:// スキームの ?qt= も取り出す", () => {
+    expect(parseQrPayload(`animeishi://user/${CLERK_ID}?qt=${TOKEN}`)).toEqual({
+      userId: CLERK_ID,
+      qrToken: TOKEN,
+    });
+  });
+
+  it("トークンが無い共有 URL は qrToken が undefined になる", () => {
+    expect(
+      parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}`),
+    ).toEqual({ userId: CLERK_ID, qrToken: undefined });
+  });
+
+  it("他のクエリパラメータがあっても qt だけを拾う", () => {
+    expect(
+      parseQrPayload(
+        `https://animeishi.uomi.dev/user/${CLERK_ID}?ref=qr&qt=${TOKEN}#top`,
+      ),
+    ).toEqual({ userId: CLERK_ID, qrToken: TOKEN });
+  });
+
+  it("UID を抽出できない入力は null", () => {
+    expect(parseQrPayload("https://example.com/about?qt=x")).toBeNull();
+    expect(parseQrPayload(null)).toBeNull();
+  });
+
+  it("qt が不正なパーセントエンコードなら例外を投げず null を返す", () => {
+    // decodeURIComponent が URIError を投げる入力。カメラコールバックで
+    // クラッシュしないよう QR ごと無効扱いにする（CodeRabbit 指摘）。
+    expect(
+      parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}?qt=%E0%A4%A`),
+    ).toBeNull();
+    expect(parseQrPayload(`animeishi://user/${CLERK_ID}?qt=%`)).toBeNull();
   });
 });

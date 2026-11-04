@@ -25,6 +25,7 @@ import { episodeRecords, workEpisodes } from "./features/episode-records";
 import { workRatings } from "./features/work-ratings";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
+import { friendRequests } from "./features/friend-requests";
 import { friends } from "./features/friends";
 import { health } from "./features/health";
 import { images } from "./features/images";
@@ -107,6 +108,7 @@ const routes = app
   .route("/works", workEpisodes)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
+  .route("/me/friend-requests", friendRequests)
   .route("/me/feed", feed)
   .route("/articles", articles)
   .route("/me/pass", pass)

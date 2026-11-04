@@ -7,13 +7,14 @@ import {
   type ViewInstance,
 } from "react-native";
 import { useAuth } from "@clerk/expo";
-import { useIsFocused } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { useQrScanner } from "@/lib/useQrScanner";
-import { useAddFriend } from "@/lib/useFriends";
+import { useAddFriend, useQrExchangeToken } from "@/lib/useFriends";
+import { ApiRequestError } from "@/lib/apiError";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { shareTierListUrl } from "@/lib/tierList/share";
@@ -84,6 +85,10 @@ function GenerateView() {
   const { t } = useTranslation();
   // 画像で保存のキャプチャ対象（QR カード View）。
   const qrCardRef = useRef<ViewInstance>(null);
+  // 対面交換 QR に埋め込む短期トークン。トークン無しの QR を提示しても
+  // 読み取り側は即時成立できず申請画面に送られるだけなので、取得失敗時も
+  // トークン無しのまま表示してよい（issue #417）。
+  const qrToken = useQrExchangeToken();
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
@@ -123,6 +128,12 @@ function GenerateView() {
   }
 
   const shareUrl = buildProfileUrl(userId) ?? userId;
+  // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
+  // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
+  // 載せない shareUrl を使い回し、遠隔では申請フローに限定する。
+  const qrValue = qrToken.data?.token
+    ? `${shareUrl}?qt=${encodeURIComponent(qrToken.data.token)}`
+    : shareUrl;
 
   async function onShareLink() {
     try {
@@ -185,8 +196,8 @@ function GenerateView() {
       >
         {/* OS 標準カメラでも開けるよう、生の userId ではなく Web 版プロフィール
             URL を埋め込む。アプリ内スキャナは URL / 生 userId の両方を受理する
-            （qrParser の後方互換）。 */}
-        <QRCode value={shareUrl} size={240} />
+            （qrParser の後方互換）。対面交換トークンは ?qt= で付ける。 */}
+        <QRCode value={qrValue} size={240} />
       </View>
       <Text className="text-slate-500 dark:text-slate-400 text-sm mt-6 text-center">
         この QR コードを相手に読み取ってもらうと{"\n"}名刺を交換できます
@@ -236,9 +247,11 @@ function GenerateView() {
 function ScanView() {
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
+  const router = useRouter();
   const addFriend = useAddFriend();
   // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+
   const {
     permission,
     requestPermission,
@@ -246,22 +259,50 @@ function ScanView() {
     handleBarcodeScanned,
     reset,
   } = useQrScanner({
-    onScanned: ({ userId }) => {
-      // スキャンした相手をフレンドに追加する。
-      addFriend.mutate(userId, {
-        onSuccess: () => {
-          setExchangeUid(userId);
+    onScanned: ({ userId, qrToken }) => {
+      if (!qrToken) {
+        openProfile(userId);
+        return;
+      }
+      // 対面交換トークン付き = 相手が目の前で QR を提示した場合だけ即時成立。
+      addFriend.mutate(
+        { friendId: userId, qrToken },
+        {
+          onSuccess: () => {
+            setExchangeUid(userId);
+          },
+          onError: (e) => {
+            if (
+              e instanceof ApiRequestError &&
+              e.code === "qr_exchange_required"
+            ) {
+              // 期限切れ・無効なトークンは申請フローに誘導する。
+              alert(
+                "QR の有効期限が切れています",
+                "プロフィール画面からフレンド申請を送れます",
+                { okLabel: "OK", onClose: () => openProfile(userId) },
+              );
+              return;
+            }
+            alert(
+              "追加できませんでした",
+              e instanceof Error ? e.message : "フレンド追加に失敗しました",
+              { okLabel: "OK", onClose: reset },
+            );
+          },
         },
-        onError: (e) => {
-          alert(
-            "追加できませんでした",
-            e instanceof Error ? e.message : "フレンド追加に失敗しました",
-            { okLabel: "OK", onClose: reset },
-          );
-        },
-      });
+      );
     },
   });
+
+  // 共有 URL・名刺画像などトークンを持たない QR は「共有 URL」扱いで
+  // 申請フローに誘導する（issue #417）。プロフィール画面に申請ボタンがある。
+  // スキャン済みフラグを戻してから遷移し、戻ってきたとき再スキャンできる
+  // ようにする。
+  function openProfile(userId: string) {
+    reset();
+    router.push({ pathname: "/user/[uid]", params: { uid: userId } });
+  }
 
   const closeExchangeOverlay = () => {
     setExchangeUid(null);

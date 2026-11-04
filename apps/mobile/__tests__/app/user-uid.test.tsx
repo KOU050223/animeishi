@@ -7,7 +7,6 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
-import { alert } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 const NOW_WATCHING = {
@@ -88,17 +87,45 @@ jest.mock("@/lib/useModeration", () => ({
   useBlockedUsers: () => ({ data: [], isLoading: false }),
 }));
 
-const mockAddFriendMutate = jest.fn();
 const mockFriendsRefetch = jest.fn();
-let mockFriendsData: { friendId: string }[] = [];
+// 取得失敗でキャッシュが無い状態（data: undefined）を表現できるよう
+// undefined を許容する。エラー時も前回データを保持する設計のため
+// 「失敗かつデータ無し」だけがエラー表示になる（issue #417 レビュー対応）。
+let mockFriendsData: { friendId: string }[] | undefined = [];
 let mockFriendsError = false;
 jest.mock("@/lib/useFriends", () => ({
-  useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
   useFriends: () => ({
     data: mockFriendsData,
     isLoading: false,
     isError: mockFriendsError,
     refetch: mockFriendsRefetch,
+  }),
+}));
+
+const mockSendMutate = jest.fn();
+const mockAcceptMutate = jest.fn();
+const mockDeleteMutateAsync = jest.fn();
+const mockRequestsRefetch = jest.fn();
+let mockRequestsData: {
+  received: { id: number; userId: string; username: string }[];
+  sent: { id: number; userId: string; username: string }[];
+} = { received: [], sent: [] };
+let mockRequestsError = false;
+jest.mock("@/lib/useFriendRequests", () => ({
+  useSendFriendRequest: () => ({ mutate: mockSendMutate, isPending: false }),
+  useAcceptFriendRequest: () => ({
+    mutate: mockAcceptMutate,
+    isPending: false,
+  }),
+  useDeleteFriendRequest: () => ({
+    mutateAsync: (...args: unknown[]) => mockDeleteMutateAsync(...args),
+    isPending: false,
+  }),
+  useFriendRequests: () => ({
+    data: mockRequestsData,
+    isLoading: false,
+    isError: mockRequestsError,
+    refetch: mockRequestsRefetch,
   }),
 }));
 
@@ -165,6 +192,9 @@ beforeEach(async () => {
   mockCanGoBack = true;
   mockFriendsData = [];
   mockFriendsError = false;
+  mockRequestsData = { received: [], sent: [] };
+  mockRequestsError = false;
+  mockDeleteMutateAsync.mockResolvedValue(null);
   mockWorkEpisodesData = undefined;
 });
 
@@ -270,39 +300,39 @@ describe("PublicProfilePage", () => {
     expect(screen.queryByTestId("block-user-button")).toBeNull();
   });
 
-  it("他人の名刺には「フレンドに追加」ボタンが表示される", async () => {
+  it("他人の名刺には「フレンドを申請」ボタンが表示される", async () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
     );
 
-    expect(screen.getByTestId("add-friend-button")).toBeTruthy();
+    expect(screen.getByTestId("send-friend-request-button")).toBeTruthy();
   });
 
-  it("未サインインでは「フレンドに追加」を表示しない", async () => {
+  it("未サインインでは「フレンドを申請」を表示しない", async () => {
     signedOutUser();
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
     );
 
-    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
     expect(screen.queryByTestId("already-friends-badge")).toBeNull();
   });
 
-  it("自分自身の名刺では「フレンドに追加」を表示しない", async () => {
+  it("自分自身の名刺では「フレンドを申請」を表示しない", async () => {
     loggedInUser({ userId: "user_target" });
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
     );
 
-    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
     expect(screen.queryByTestId("already-friends-badge")).toBeNull();
   });
 
-  it("すでにフレンドなら登録済みバッジを表示し、追加ボタンは出さない", async () => {
+  it("すでにフレンドなら登録済みバッジを表示し、申請ボタンは出さない", async () => {
     loggedInUser({ userId: "user_me" });
     mockFriendsData = [{ friendId: "user_target" }];
     await render(<PublicProfilePage />, { wrapper });
@@ -311,27 +341,133 @@ describe("PublicProfilePage", () => {
     );
 
     expect(screen.getByTestId("already-friends-badge")).toBeTruthy();
-    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
   });
 
-  it("フレンド一覧の取得に失敗したら追加ボタンではなく再試行導線を出す", async () => {
+  it("フレンド一覧の取得に失敗し取得済みデータも無いなら申請ボタンではなく再試行導線を出す", async () => {
     loggedInUser({ userId: "user_me" });
     mockFriendsError = true;
+    mockFriendsData = undefined;
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
     );
 
-    expect(screen.queryByTestId("add-friend-button")).toBeNull();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
     expect(screen.queryByTestId("already-friends-badge")).toBeNull();
     const retry = screen.getByTestId("friends-retry-button");
     await fireEvent.press(retry);
     expect(mockFriendsRefetch).toHaveBeenCalled();
+    expect(mockRequestsRefetch).toHaveBeenCalled();
   });
 
-  it("追加ボタンを押すと uid で mutate が呼ばれ、成功時に名刺交換成立の演出が出る", async () => {
+  it("申請ボタンを押すと uid で申請が送られ、pending では演出を出さない", async () => {
     loggedInUser({ userId: "user_me" });
-    mockAddFriendMutate.mockImplementation(
+    mockSendMutate.mockImplementation(
+      (
+        _vars: unknown,
+        options?: { onSuccess?: (r: { status: string }) => void },
+      ) => options?.onSuccess?.({ status: "pending" }),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    expect(mockSendMutate).toHaveBeenCalledWith(
+      "user_target",
+      expect.any(Object),
+    );
+    // pending は「申請中」に遷移するだけなので、名刺交換成立の演出は出さない
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  });
+
+  it("相手からも申請済みなら申請送信で即成立し、名刺交換成立の演出が出る", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockSendMutate.mockImplementation(
+      (
+        _vars: unknown,
+        options?: { onSuccess?: (r: { status: string }) => void },
+      ) => options?.onSuccess?.({ status: "accepted" }),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
+    // すでに user/[uid] にいるため「プロフィールを見る」は出さない（issue #414）
+    expect(screen.queryByTestId("exchange-success-profile-link")).toBeNull();
+
+    // 「閉じる」で演出が閉じる
+    await fireEvent.press(screen.getByTestId("exchange-success-close"));
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  });
+
+  it("送った申請がある相手には「申請中」と取消導線を出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [],
+      sent: [{ id: 11, userId: "user_target", username: "対象ユーザー" }],
+    };
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.getByTestId("friend-request-sent-badge")).toBeTruthy();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
+  });
+
+  it("申請中の相手で「申請を取り消す」を押すと確認ダイアログ経由で申請を削除する", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [],
+      sent: [{ id: 11, userId: "user_target", username: "対象ユーザー" }],
+    };
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("cancel-friend-request-button"));
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      "申請を取り消す",
+      expect.stringContaining("対象ユーザー"),
+      expect.any(Function),
+      expect.objectContaining({ destructive: true }),
+    );
+    await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(11));
+  });
+
+  it("届いた申請がある相手には「承認」「削除」を出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.getByTestId("accept-friend-request-button")).toBeTruthy();
+    expect(screen.getByTestId("delete-friend-request-button")).toBeTruthy();
+    expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
+  });
+
+  it("「承認」を押すと申請 ID で承認が呼ばれ、成功時に名刺交換成立の演出が出る", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    mockAcceptMutate.mockImplementation(
       (_vars: unknown, options?: { onSuccess?: () => void }) =>
         options?.onSuccess?.(),
     );
@@ -340,25 +476,32 @@ describe("PublicProfilePage", () => {
       expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
     );
 
-    await fireEvent.press(screen.getByTestId("add-friend-button"));
+    await fireEvent.press(screen.getByTestId("accept-friend-request-button"));
 
-    expect(mockAddFriendMutate).toHaveBeenCalledWith(
-      "user_target",
-      expect.any(Object),
-    );
+    expect(mockAcceptMutate).toHaveBeenCalledWith(7, expect.any(Object));
     await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
-    // 従来の「フレンドに追加しました」アラートは出さない
-    expect(alert).not.toHaveBeenCalledWith(
-      "フレンドに追加しました",
-      expect.anything(),
-      expect.anything(),
-    );
-    // すでに user/[uid] にいるため「プロフィールを見る」は出さない（issue #414）
-    expect(screen.queryByTestId("exchange-success-profile-link")).toBeNull();
+  });
 
-    // 「閉じる」で演出が閉じる
-    await fireEvent.press(screen.getByTestId("exchange-success-close"));
-    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  it("「削除」を押すと確認ダイアログ経由で届いた申請を削除する", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("delete-friend-request-button"));
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      "フレンド申請を削除",
+      expect.stringContaining("対象ユーザー"),
+      expect.any(Function),
+      expect.objectContaining({ destructive: true }),
+    );
+    await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(7));
   });
 
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {

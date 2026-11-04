@@ -6,6 +6,7 @@ import { SegmentedControl } from "@/components/ui";
 import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
+import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 
 const SECTIONS = ["qr", "activity", "friends"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -29,6 +30,9 @@ export default function SocialScreen() {
   // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
   const section = isSection(params.section) ? params.section : "activity";
   const setSection = (next: Section) => router.setParams({ section: next });
+  // 届いたフレンド申請があることをフレンドセグメントのバッジで知らせる
+  // （issue #417。タブバーのバッジと対）。
+  const friendRequestCount = useReceivedFriendRequestCount();
 
   return (
     // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
@@ -56,6 +60,7 @@ export default function SocialScreen() {
             active: section === "friends",
             onPress: () => setSection("friends"),
             testID: "social-section-friends",
+            badgeCount: friendRequestCount,
           },
         ]}
       />

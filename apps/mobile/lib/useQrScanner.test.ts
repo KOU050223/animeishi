@@ -44,6 +44,20 @@ describe("useQrScanner", () => {
     expect(onScanned).toHaveBeenCalledWith({ userId: CLERK_ID, raw });
   });
 
+  it("対面交換 QR の ?qt= トークンを qrToken として渡す（issue #417）", async () => {
+    const onScanned = jest.fn();
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
+
+    const raw = `https://animeishi.uomi.dev/user/${CLERK_ID}?qt=1730000000.sig`;
+    await act(() => result.current.handleBarcodeScanned(scan(raw)));
+
+    expect(onScanned).toHaveBeenCalledWith({
+      userId: CLERK_ID,
+      qrToken: "1730000000.sig",
+      raw,
+    });
+  });
+
   it("スキャン成功後は多重発火しない", async () => {
     const onScanned = jest.fn();
     const { result } = await renderHook(() => useQrScanner({ onScanned }));

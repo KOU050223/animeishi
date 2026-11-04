@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
+import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 
 // SF Symbols / Material Icons ではなく Ionicons のままにし、NativeTabs 化で
 // アイコンの見た目が変わらないようにする。
@@ -13,6 +14,9 @@ const tabIcon = (name: ComponentProps<typeof Ionicons>["name"]) => (
 
 export default function TabsLayout() {
   const colors = useThemeColors();
+  // 届いたフレンド申請をタブバッジで知らせる（issue #417。
+  // プッシュ通知 #410 までの代用）。
+  const friendRequestCount = useReceivedFriendRequestCount();
 
   return (
     <NativeTabs
@@ -44,6 +48,9 @@ export default function TabsLayout() {
         {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
         <NativeTabs.Trigger.Label>QR・フレンド</NativeTabs.Trigger.Label>
         {tabIcon("people-outline")}
+        <NativeTabs.Trigger.Badge hidden={friendRequestCount === 0}>
+          {String(friendRequestCount)}
+        </NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="profile"

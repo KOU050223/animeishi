@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { Platform, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
+import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 
 // tabBarIcon の color は型上 ColorValue（null | number | NativeColorValue を
 // 含みうる）だが、タブバーが実際に渡すのは tint の文字列のみ。Ionicons は
@@ -19,6 +20,9 @@ export default function TabsLayout() {
   const colors = useThemeColors();
   // 下端（ホームインジケータ等）との干渉を避けるため、safe area 分を上乗せしてタブバーを縦に広げる。
   const bottomInset = insets.bottom;
+  // 届いたフレンド申請をタブバッジで知らせる（issue #417。
+  // プッシュ通知 #410 までの代用）。
+  const friendRequestCount = useReceivedFriendRequestCount();
 
   return (
     <Tabs
@@ -75,6 +79,7 @@ export default function TabsLayout() {
           // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。
           title: "QR・フレンド",
           tabBarAccessibilityLabel: "QR・フレンドタブ",
+          tabBarBadge: friendRequestCount > 0 ? friendRequestCount : undefined,
           tabBarIcon: tabIcon("people-outline"),
         }}
       />

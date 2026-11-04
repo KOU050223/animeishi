@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { friends } from "@/features/friends";
+import { issueQrExchangeToken } from "@/features/friends/qrExchangeToken";
 import { avatar, me } from "@/features/me";
 import { user } from "@/features/user";
 import { usersRoute } from "@/features/users";
@@ -73,6 +74,21 @@ function signInAs(userId: string) {
   vi.mocked(getAuth).mockReturnValue({
     userId,
   } as ReturnType<typeof getAuth>);
+}
+
+// POST /me/friends（対面 QR の即時成立）は qrToken 必須（issue #417）。
+// 同じ秘密で発行した正規トークンを付けて投げる。
+async function postFriend(app: ReturnType<typeof buildApp>, friendId: string) {
+  const { token } = await issueQrExchangeToken("test_secret", friendId);
+  return app.request(
+    "/me/friends",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ friendId, qrToken: token }),
+    },
+    TEST_BINDINGS,
+  );
 }
 
 function signOut() {
@@ -531,15 +547,7 @@ describe("ユーザー通報・ブロック API", () => {
   describe("ブロックの効果", () => {
     async function makeFriends(app: ReturnType<typeof buildApp>) {
       signInAs(USER_A);
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      await postFriend(app, USER_B);
     }
 
     it("ブロックすると既存のフレンド関係が双方向で解消される", async () => {
@@ -561,24 +569,8 @@ describe("ユーザー通報・ブロック API", () => {
       const app = buildApp();
       // A と C をフレンドにしておき、B はフレンドでない第三者として用意する
       signInAs(USER_A);
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
-      await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_C }),
-        },
-        TEST_BINDINGS,
-      );
+      await postFriend(app, USER_B);
+      await postFriend(app, USER_C);
 
       // A が B をブロックしても、B 側のフレンド一覧に A は残る
       // （ブロックでフレンド行は消える設計。逆方向を担保するため先に確認）
@@ -652,15 +644,7 @@ describe("ユーザー通報・ブロック API", () => {
         TEST_BINDINGS,
       );
 
-      const res = await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      const res = await postFriend(app, USER_B);
       expect(res.status).toBe(403);
     });
 
@@ -674,15 +658,7 @@ describe("ユーザー通報・ブロック API", () => {
       );
 
       signInAs(USER_A);
-      const res = await app.request(
-        "/me/friends",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ friendId: USER_B }),
-        },
-        TEST_BINDINGS,
-      );
+      const res = await postFriend(app, USER_B);
       expect(res.status).toBe(403);
     });
 

@@ -1,6 +1,6 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, friends, blocks } from "@/db/schema";
+import { users, friends, friendRequests, blocks } from "@/db/schema";
 import type { Friend } from "@/db/schema";
 import { UserBlockedError, usersRepository } from "../users/repository";
 
@@ -101,6 +101,22 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
           .insert(friends)
           .values({ userId: friendId, friendId: currentUserId, createdAt: now })
           .onConflictDoNothing(),
+        // 対面 QR 等の即時成立でも、間に保留中の申請（issue #417）があれば
+        // 成立済みとして両方向とも消す（残すと成立済みの相手宛に申請が残る）。
+        db
+          .delete(friendRequests)
+          .where(
+            or(
+              and(
+                eq(friendRequests.requesterId, currentUserId),
+                eq(friendRequests.addresseeId, friendId),
+              ),
+              and(
+                eq(friendRequests.requesterId, friendId),
+                eq(friendRequests.addresseeId, currentUserId),
+              ),
+            ),
+          ),
       ]);
       const created = await db.query.friends.findFirst({
         where: (t, { and, eq: eq_ }) =>

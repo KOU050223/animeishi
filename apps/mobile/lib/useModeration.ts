@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { FRIENDS_QUERY_KEY } from "@/lib/useFriends";
+import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 
 type BlocksResponse = InferResponseType<
@@ -82,11 +82,15 @@ export function useBlockUser() {
       return res.json();
     },
     onSuccess: (_data, targetUserId) => {
-      // フレンド一覧から消え、ブロック一覧に現れ、名刺は見えなくなる。
+      // フレンド一覧・フレンド申請から消え、ブロック一覧に現れ、名刺は
+      // 見えなくなる（ブロックで申請行もサーバー側で消える。issue #417）。
       void queryClient.invalidateQueries({
         queryKey: userId ? blocksQueryKey(userId) : BLOCKS_QUERY_KEY,
       });
       void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: FRIEND_REQUESTS_QUERY_KEY,
+      });
       void queryClient.invalidateQueries({
         queryKey: ["public-profile", targetUserId],
       });
