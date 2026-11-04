@@ -24,7 +24,7 @@ type ExchangedFriendsResponse = InferResponseType<
 >;
 export type ExchangedFriendItem = ExchangedFriendsResponse["items"][number];
 
-type EventParticipantsResponse = InferResponseType<
+export type EventParticipantsResponse = InferResponseType<
   (typeof apiClient.events)[":slug"]["participants"]["$get"],
   200
 >;

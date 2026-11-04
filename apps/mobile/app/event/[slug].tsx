@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,8 +26,13 @@ import {
 import type {
   EventDetail,
   EventParticipantItem,
+  EventParticipantsResponse,
   EventParticipationVisibility,
 } from "@/lib/useEvents";
+import type {
+  InfiniteData,
+  UseInfiniteQueryResult,
+} from "@tanstack/react-query";
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
@@ -324,85 +329,158 @@ function ParticipationVisibilityPicker({
 // 各欄は「もっと見る」で offset ページングして続きを取る。
 function EventAttendees({ slug }: { slug: string }) {
   const router = useRouter();
-  const friendsQuery = useEventParticipatingFriends(slug);
-  const participantsQuery = useEventParticipants(slug);
   const openProfile = (userId: string) =>
     router.push({ pathname: "/user/[uid]", params: { uid: userId } });
 
-  const friends = friendsQuery.data?.pages.flatMap((p) => p.friends) ?? [];
-  const friendsTotal = friendsQuery.data?.pages[0]?.friendsTotal ?? 0;
-  const participants =
-    participantsQuery.data?.pages.flatMap((p) => p.participants) ?? [];
-  const participantTotal =
-    participantsQuery.data?.pages[0]?.participantTotal ?? 0;
-
   return (
     <View className="mt-6" testID="event-attendees">
+      <ParticipatingFriendsSection slug={slug} onOpenProfile={openProfile} />
+      <PublicParticipantsSection slug={slug} onOpenProfile={openProfile} />
+    </View>
+  );
+}
+
+// 「参加しているフレンド」欄。公開・フレンドのみ表明したフレンドを
+// 行（アバター + 名前 + 名言）で並べる。
+function ParticipatingFriendsSection({
+  slug,
+  onOpenProfile,
+}: {
+  slug: string;
+  onOpenProfile: (userId: string) => void;
+}) {
+  const list = useAttendeeList(
+    useEventParticipatingFriends(slug),
+    (page) => page.friends,
+    (page) => page.friendsTotal,
+  );
+
+  return (
+    <AttendeeSection
+      title={`参加しているフレンド（${list.total}）`}
+      list={list}
+      emptyText="参加表明しているフレンドはまだいません"
+      errorTestID="event-attendees-error"
+      moreTestID="event-friends-more"
+    >
+      <View className="mt-2">
+        {list.items.map((item) => (
+          <AttendeeRow
+            key={item.userId}
+            item={item}
+            onPress={() => onOpenProfile(item.userId)}
+            testID={`event-friend-${item.userId}`}
+          />
+        ))}
+      </View>
+    </AttendeeSection>
+  );
+}
+
+// 「参加者」欄（公開表明した人）。人数が多くなりうるためアバターと
+// 名前のコンパクトなチップをグリッドで並べる。
+function PublicParticipantsSection({
+  slug,
+  onOpenProfile,
+}: {
+  slug: string;
+  onOpenProfile: (userId: string) => void;
+}) {
+  const list = useAttendeeList(
+    useEventParticipants(slug),
+    (page) => page.participants,
+    (page) => page.participantTotal,
+  );
+
+  return (
+    <AttendeeSection
+      className="mt-6"
+      title={`参加者（${list.total}）`}
+      list={list}
+      emptyText="公開している参加者はまだいません"
+      moreTestID="event-participants-more"
+    >
+      <View className="mt-2 flex-row flex-wrap gap-3">
+        {list.items.map((item) => (
+          <ParticipantChip
+            key={item.userId}
+            item={item}
+            onPress={() => onOpenProfile(item.userId)}
+          />
+        ))}
+      </View>
+    </AttendeeSection>
+  );
+}
+
+// useInfiniteQuery の pages をフラット化し、総数と「もっと見る」の
+// 状態をまとめて返す。各欄で同じページング処理を繰り返さないための
+// フック（両欄とも EventParticipantsResponse の一部を取り出す）。
+type AttendeesQuery = UseInfiniteQueryResult<
+  InfiniteData<EventParticipantsResponse>
+>;
+
+function useAttendeeList(
+  query: AttendeesQuery,
+  pickItems: (page: EventParticipantsResponse) => EventParticipantItem[],
+  pickTotal: (page: EventParticipantsResponse) => number,
+) {
+  return {
+    items: query.data?.pages.flatMap(pickItems) ?? [],
+    total: query.data?.pages[0] ? pickTotal(query.data.pages[0]) : 0,
+    isError: query.isError,
+    isLoading: query.isLoading,
+    hasNextPage: !!query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    fetchNextPage: () => void query.fetchNextPage(),
+  };
+}
+
+// 参加者系の欄の共通骨格。見出し・エラー/ローディング/空状態・
+// 「もっと見る」の分岐をまとめ、欄ごとの中身は children で受け取る。
+function AttendeeSection({
+  title,
+  list,
+  emptyText,
+  errorTestID,
+  moreTestID,
+  className,
+  children,
+}: {
+  title: string;
+  list: ReturnType<typeof useAttendeeList>;
+  emptyText: string;
+  errorTestID?: string;
+  moreTestID: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <View className={className}>
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        参加しているフレンド（{friendsTotal}）
+        {title}
       </Text>
-      {friendsQuery.isError ? (
+      {list.isError ? (
         <Text
           className="mt-2 text-sm text-slate-400 dark:text-slate-500"
-          testID="event-attendees-error"
+          testID={errorTestID}
         >
           参加者を読み込めませんでした
         </Text>
-      ) : friendsQuery.isLoading ? (
+      ) : list.isLoading ? (
         <ActivityIndicator className="mt-4" />
-      ) : friends.length === 0 ? (
+      ) : list.items.length === 0 ? (
         <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-          参加表明しているフレンドはまだいません
+          {emptyText}
         </Text>
       ) : (
-        <View className="mt-2">
-          {friends.map((item) => (
-            <AttendeeRow
-              key={item.userId}
-              item={item}
-              onPress={() => openProfile(item.userId)}
-              testID={`event-friend-${item.userId}`}
-            />
-          ))}
-        </View>
+        children
       )}
-      {friendsQuery.hasNextPage ? (
+      {list.hasNextPage ? (
         <LoadMoreButton
-          fetching={friendsQuery.isFetchingNextPage}
-          onPress={() => void friendsQuery.fetchNextPage()}
-          testID="event-friends-more"
-        />
-      ) : null}
-
-      <Text className="mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
-        参加者（{participantTotal}）
-      </Text>
-      {participantsQuery.isError ? (
-        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-          参加者を読み込めませんでした
-        </Text>
-      ) : participantsQuery.isLoading ? (
-        <ActivityIndicator className="mt-4" />
-      ) : participants.length === 0 ? (
-        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-          公開している参加者はまだいません
-        </Text>
-      ) : (
-        <View className="mt-2 flex-row flex-wrap gap-3">
-          {participants.map((item) => (
-            <ParticipantChip
-              key={item.userId}
-              item={item}
-              onPress={() => openProfile(item.userId)}
-            />
-          ))}
-        </View>
-      )}
-      {participantsQuery.hasNextPage ? (
-        <LoadMoreButton
-          fetching={participantsQuery.isFetchingNextPage}
-          onPress={() => void participantsQuery.fetchNextPage()}
-          testID="event-participants-more"
+          fetching={list.isFetchingNextPage}
+          onPress={list.fetchNextPage}
+          testID={moreTestID}
         />
       ) : null}
     </View>
