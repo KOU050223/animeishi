@@ -657,18 +657,39 @@ export function buildSharedWatchHistoryMarkdown(
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * 視聴履歴の共有ページ（issue #461）。作品ポスター・状態バッジ・ブランド色の
+ * ヘッダでアプリの盤面に寄せる。表データ（作品名・シーズン・視聴状態・
+ * 最終更新日）は AI の機械可読のため table のまま DOM に残し（issue #236）、
+ * 表示だけ CSS でカード風のリストにしている。thead も消さず視覚的にだけ隠す。
+ */
 export function buildSharedWatchHistoryHtml(
   history: SharedWatchHistory,
+  requestUrl: string,
   canonicalUrl: string,
 ): string {
   const title = `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`;
+  const description = `${escapeHtml(history.ownerUsername)} のアニメ視聴履歴`;
+
+  // og:image には先頭の作品画像を使う（tier 表の共有ページと同じ選び方）。
+  const ogImageCandidates = history.items
+    .flatMap((item) => [
+      workImageUrl(requestUrl, item.annictWorkId),
+      item.resolvedImageUrl,
+      item.imageUrl,
+    ])
+    .filter((u): u is string => !!u && isSafeImageUrl(u));
+  const ogImage =
+    ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
+    ogImageCandidates[0];
+
   const rowsHtml = history.items
     .map(
       (item) => `<tr>
-      <td>${escapeHtml(item.title)}</td>
-      <td>${escapeHtml(sharedWatchSeasonLabel(item))}</td>
-      <td>${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</td>
-      <td>${sharedWatchDateLabel(item.updatedAt)}</td>
+      <td class="cell-work">${workImageHtml(item, requestUrl)}<span class="work-title">${escapeHtml(item.title)}</span></td>
+      <td class="cell-meta">${escapeHtml(sharedWatchSeasonLabel(item))}</td>
+      <td><span class="state">${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</span></td>
+      <td class="cell-meta">${sharedWatchDateLabel(item.updatedAt)}</td>
     </tr>`,
     )
     .join("\n    ");
@@ -681,29 +702,46 @@ export function buildSharedWatchHistoryHtml(
   <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
   <meta name="color-scheme" content="light dark" />
   <title>${title}</title>
-  <meta name="description" content="${escapeHtml(history.ownerUsername)} のアニメ視聴履歴" />
+  <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${escapeHtml(history.ownerUsername)} のアニメ視聴履歴" />
+  <meta property="og:description" content="${description}" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
   <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    .brand { color: #4f46e5; font-weight: bold; font-size: 0.85rem; letter-spacing: 0.08em; margin: 0 0 4px; }
+    h1 { margin: 0; font-size: 1.5rem; }
     .owner { color: #555; margin: 4px 0 24px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 0.9rem; }
-    th { background: #f5f5f5; }
+    table { display: block; width: 100%; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+    tbody { display: block; }
+    tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 4px; padding: 8px 12px; margin-bottom: 8px; border-radius: 10px; background: #f5f5f5; }
+    td { padding: 0; }
+    .cell-work { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .work-image { width: 48px; height: 64px; object-fit: cover; border-radius: 4px; background: #ddd; flex-shrink: 0; }
+    .work-title { font-weight: 500; overflow-wrap: anywhere; }
+    .cell-meta { color: #555; font-size: 0.8rem; white-space: nowrap; }
+    .state { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #eef2ff; border: 1px solid #a5b4fc; color: #4f46e5; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
     /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
        ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
     @media (prefers-color-scheme: dark) {
       body { background: #0f172a; color: #f1f5f9; }
+      .brand { color: #818cf8; }
       .owner { color: #94a3b8; }
-      th { background: #1e293b; }
-      th, td { border-color: #334155; }
+      tr { background: #1e293b; }
+      .work-image { background: #334155; }
+      .cell-meta { color: #94a3b8; }
+      .state { background: #312e81; border-color: #4338ca; color: #a5b4fc; }
     }
   </style>
 </head>
 <body>
+  <p class="brand">Animeishi</p>
   <h1>${escapeHtml(history.ownerUsername)} の視聴履歴</h1>
   <p class="owner">Animeishi で共有された視聴履歴</p>
   <table>
@@ -724,11 +762,26 @@ export function watchHistoryNotFoundHtml(): string {
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
+  <meta name="color-scheme" content="light dark" />
   <title>視聴履歴が見つかりません - Animeishi</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    .brand { color: #4f46e5; font-weight: bold; font-size: 0.85rem; letter-spacing: 0.08em; margin: 0 0 4px; }
+    h1 { margin: 0; font-size: 1.5rem; }
+    .message { color: #555; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #f1f5f9; }
+      .brand { color: #818cf8; }
+      .message { color: #94a3b8; }
+    }
+  </style>
 </head>
 <body>
+  <p class="brand">Animeishi</p>
   <h1>視聴履歴が見つかりません</h1>
-  <p>この共有リンクは無効になったか、存在しません。</p>
+  <p class="message">この共有リンクは無効になったか、存在しません。</p>
 </body>
 </html>`;
 }

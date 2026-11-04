@@ -247,6 +247,7 @@ const share = new Hono<ShareBindings>()
         return c.html(
           buildSharedWatchHistoryHtml(
             history,
+            c.req.url,
             buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
           ),
           200,
