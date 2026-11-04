@@ -22,6 +22,7 @@ import { articles } from "./features/articles";
 import { characterTierLists } from "./features/character-tier-lists";
 import { customTierLists } from "./features/custom-tier-lists";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
+import { events } from "./features/events";
 import { workRatings } from "./features/work-ratings";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
@@ -111,6 +112,7 @@ const routes = app
   .route("/me/friend-requests", friendRequests)
   .route("/me/feed", feed)
   .route("/articles", articles)
+  .route("/events", events)
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
   .route("/me/character-tier-lists", characterTierLists)

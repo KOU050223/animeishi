@@ -8,7 +8,7 @@ import {
 } from "./frontmatter-content.mjs";
 
 // frontmatter 付き Markdown → D1 upsert の共有部品（issue #437）。
-// publish-article.mjs と将来のイベント投入（#411）が使うため、
+// publish-article.mjs とイベント投入（publish-event.mjs、#411）が使うため、
 // パース・SQL 生成の振る舞いをここで検証する。
 
 describe("parseFrontmatterDocument", () => {

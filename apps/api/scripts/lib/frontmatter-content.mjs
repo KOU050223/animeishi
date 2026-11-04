@@ -1,6 +1,6 @@
 // frontmatter 付き Markdown を D1 に投入するスクリプト群の共有部品
-// （issue #437）。記事（publish-article.mjs）と、将来のイベント登録
-// （#411）など他の運営投入コンテンツで使い回す。
+// （issue #437）。記事（publish-article.mjs）とイベント登録
+// （publish-event.mjs、issue #411）などの運営投入コンテンツで使い回す。
 //
 // 使い方の例は publish-article.mjs を参照。
 

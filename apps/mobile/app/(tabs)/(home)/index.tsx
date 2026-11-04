@@ -10,8 +10,10 @@ import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRai
 import { MeishiCompletionCard } from "@/components/MeishiCompletionCard";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 import { ArticleRail } from "@/components/ArticleRail";
+import { EventRail } from "@/components/EventRail";
 import { ACTIVITY_FEED_QUERY_KEY } from "@/lib/useActivityFeed";
 import { ARTICLES_QUERY_KEY } from "@/lib/useArticles";
+import { EVENTS_QUERY_KEY } from "@/lib/useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "@/lib/useFriendWatchStories";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/useWatchHistory";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
@@ -37,6 +39,9 @@ export default function HomeScreen() {
         void queryClient.invalidateQueries({
           queryKey: ARTICLES_QUERY_KEY,
         });
+        void queryClient.invalidateQueries({
+          queryKey: EVENTS_QUERY_KEY,
+        });
       }
       hasFocused.current = true;
     }, [queryClient]),
@@ -52,6 +57,7 @@ export default function HomeScreen() {
         queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
       }),
       queryClient.invalidateQueries({ queryKey: ARTICLES_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: EVENTS_QUERY_KEY }),
     ]);
   }
 
@@ -71,6 +77,9 @@ export default function HomeScreen() {
           <View>
             <FriendStoryRail />
             <CurrentSeasonWatchingRail />
+            {/* イベント枠（issue #411）。参加表明したいイベントを会期前に */}
+            {/* 目に留める位置のため、フィード上部のレール群に置く */}
+            <EventRail />
             <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (

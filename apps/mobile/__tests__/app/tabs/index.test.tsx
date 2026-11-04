@@ -120,6 +120,25 @@ jest.mock("@/lib/useArticles", () => ({
   ARTICLES_QUERY_KEY: ["articles"],
 }));
 
+// イベント（issue #411）はクエリ結果をテストごとに差し替える。
+let mockEvents: {
+  data?: {
+    items: {
+      slug: string;
+      title: string;
+      coverImageUrl: string | null;
+      location: string | null;
+      startsAt: string;
+      endsAt: string;
+      participating: boolean;
+    }[];
+  };
+};
+jest.mock("@/lib/useEvents", () => ({
+  useEvents: () => mockEvents,
+  EVENTS_QUERY_KEY: ["events"],
+}));
+
 // 今期（JST）の seasonName。テスト実行日に依らずレールの今期判定に合わせる。
 const { year, key } = currentSeason();
 const CURRENT_SEASON = `${year}-${key}`;
@@ -159,6 +178,7 @@ beforeEach(async () => {
   };
   mockFeed = loadedFeed;
   mockArticles = { data: undefined };
+  mockEvents = { data: undefined };
 });
 
 describe("HomeScreen", () => {
@@ -276,6 +296,31 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/article/[slug]",
       params: { slug: "autumn-2026" },
+    });
+  });
+
+  it("公開中のイベントをイベント枠に出し、タップでイベント詳細へ遷移する", async () => {
+    mockEvents = {
+      data: {
+        items: [
+          {
+            slug: "comiket-107",
+            title: "コミックマーケット107",
+            coverImageUrl: null,
+            location: "東京ビッグサイト",
+            startsAt: "2026-12-20T10:00:00+09:00",
+            endsAt: "2026-12-21T16:00:00+09:00",
+            participating: false,
+          },
+        ],
+      },
+    };
+    loggedInUser();
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByTestId("event-card-comiket-107"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/event/[slug]",
+      params: { slug: "comiket-107" },
     });
   });
 

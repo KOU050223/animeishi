@@ -142,3 +142,26 @@ tasks:
     dir: apps/api
     cmds:
       - node scripts/publish-article.mjs --local {{.CLI_ARGS}}
+
+  # ---- イベント（issue #411）----
+  # 特集記事と同じく frontmatter 付き Markdown を D1 に upsert する。形式は
+  # docs/runbook/production-tasks.md と scripts/publish-event.mjs 冒頭の
+  # コメントを参照。同じ slug は上書きされる（created_at は初回投入時のまま）。
+  events:publish:
+    desc: "本番 D1 にイベントを投入（task events:publish -- <イベント.md のパス>。同じ slug は上書き）"
+    dir: apps/api
+    prompt: 本番 D1 にイベントを投入します（同じ slug のイベントは上書きされます）。続行しますか？
+    cmds:
+      - node scripts/publish-event.mjs --env production {{.CLI_ARGS}}
+
+  events:publish:preview:
+    desc: "プレビュー D1 にイベントを投入（task events:publish:preview -- <イベント.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-event.mjs --env preview {{.CLI_ARGS}}
+
+  events:publish:local:
+    desc: "ローカル D1 にイベントを投入（task events:publish:local -- <イベント.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-event.mjs --local {{.CLI_ARGS}}
