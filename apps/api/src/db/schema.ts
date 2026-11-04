@@ -813,8 +813,17 @@ export const events = sqliteTable(
 );
 
 // ---- event_participations (「参加する」表明, issue #411) ----
-// 行が存在する = 参加表明中。フェーズ 1 では本人以外に公開しないため
-// 公開フラグは持たない（公開一覧はフェーズ 2 = #440 で検討する）。
+// 行が存在する = 参加表明中。visibility（issue #440）が表明の公開範囲:
+// 'public' は誰にでも参加者一覧へ出る、'friends' はフレンドのイベント
+// 詳細にだけ出る、'private' は本人のみ（既定。フェーズ 1 と同じ扱い）。
+export const EVENT_PARTICIPATION_VISIBILITIES = [
+  "public",
+  "friends",
+  "private",
+] as const;
+export type EventParticipationVisibility =
+  (typeof EVENT_PARTICIPATION_VISIBILITIES)[number];
+
 export const eventParticipations = sqliteTable(
   "event_participations",
   {
@@ -825,6 +834,11 @@ export const eventParticipations = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    visibility: text("visibility", {
+      enum: EVENT_PARTICIPATION_VISIBILITIES,
+    })
+      .notNull()
+      .default("private"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [

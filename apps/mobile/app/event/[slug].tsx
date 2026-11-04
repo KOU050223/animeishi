@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,17 +17,30 @@ import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import {
   useEvent,
+  useEventParticipants,
+  useEventParticipatingFriends,
   useExchangedEventFriends,
   useSetEventParticipation,
+  useUpdateEventParticipationVisibility,
 } from "@/lib/useEvents";
-import type { EventDetail, ExchangedFriendItem } from "@/lib/useEvents";
+import type {
+  EventDetail,
+  EventParticipantItem,
+  EventParticipantsResponse,
+  EventParticipationVisibility,
+} from "@/lib/useEvents";
+import type {
+  InfiniteData,
+  UseInfiniteQueryResult,
+} from "@tanstack/react-query";
+import { MenuPicker } from "@/components/ui/menu-picker";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 
-// イベント詳細（issue #411 フェーズ 1）。ホームのイベント枠（EventRail）
-// から遷移する。「参加する」の表明（本人にのみ見える）と、会期中に
-// フレンド成立した相手（= そのイベントで交換した名刺）を出す。
-// 参加者一覧など公開面のページはフェーズ 2（#440）で作る。
+// イベント詳細（issue #411 フェーズ 1 + #440）。ホームのイベント枠
+// （EventRail）から遷移する。「参加する」の表明とその公開範囲、
+// connpass の右カラムに相当する「参加しているフレンド」「参加者一覧」、
+// 会期中にフレンド成立した相手（= そのイベントで交換した名刺）を出す。
 export default function EventScreen() {
   const router = useRouter();
   const colors = useThemeColors();
@@ -87,6 +100,7 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
   const participation = useSetEventParticipation();
+  const visibilityMutation = useUpdateEventParticipationVisibility();
 
   const elements = useMarkdown(event.body ?? "", {
     colorScheme: colorScheme ?? "light",
@@ -114,6 +128,15 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
               ? "参加表明に失敗しました"
               : "参加の取り消しに失敗しました",
           ),
+      },
+    );
+  };
+
+  const updateVisibility = (visibility: EventParticipationVisibility) => {
+    visibilityMutation.mutate(
+      { slug, visibility },
+      {
+        onError: () => Alert.alert("エラー", "公開範囲の変更に失敗しました"),
       },
     );
   };
@@ -176,7 +199,17 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
           onCancel={() => toggleParticipation(false)}
         />
 
+        {event.participating ? (
+          <ParticipationVisibilityPicker
+            value={event.participationVisibility ?? "private"}
+            pending={visibilityMutation.isPending}
+            onChange={updateVisibility}
+          />
+        ) : null}
+
         {event.participating ? <ExchangedFriends slug={slug} /> : null}
+
+        <EventAttendees slug={slug} />
 
         {event.body ? (
           <View className="mt-6">
@@ -240,6 +273,250 @@ function ParticipationButton({
   );
 }
 
+// 「参加する」の公開範囲（issue #440）。参加表明中だけ出す。
+// public = 参加者一覧に出る / friends = フレンドの「参加している
+// フレンド」にだけ出る / private = 本人のみ（既定）。
+const VISIBILITY_OPTIONS = [
+  { label: "公開", value: "public" },
+  { label: "フレンドのみ", value: "friends" },
+  { label: "非公開", value: "private" },
+] as const;
+
+const VISIBILITY_DESCRIPTIONS: Record<EventParticipationVisibility, string> = {
+  public: "すべてのユーザーの参加者一覧に表示されます",
+  friends: "フレンドの「参加しているフレンド」に表示されます",
+  private: "自分以外には表示されません",
+};
+
+function ParticipationVisibilityPicker({
+  value,
+  pending,
+  onChange,
+}: {
+  value: EventParticipationVisibility;
+  pending: boolean;
+  onChange: (visibility: EventParticipationVisibility) => void;
+}) {
+  return (
+    <View className="mt-4" testID="event-visibility">
+      <View className="flex-row items-center gap-2">
+        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          参加の公開範囲
+        </Text>
+        {pending ? <ActivityIndicator size="small" /> : null}
+      </View>
+      <View className="mt-2 self-start">
+        <MenuPicker
+          testID="event-visibility-picker"
+          accessibilityLabel="参加の公開範囲を変更"
+          title="参加の公開範囲"
+          closeAccessibilityLabel="公開範囲の選択を閉じる"
+          selectedValue={value}
+          options={VISIBILITY_OPTIONS}
+          onValueChange={onChange}
+        />
+      </View>
+      <Text className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        {VISIBILITY_DESCRIPTIONS[value]}
+      </Text>
+    </View>
+  );
+}
+
+// 「参加しているフレンド」と「参加者一覧」（issue #440、connpass の
+// 右カラムに相当）。公開範囲・プロフィール公開・ブロックの絞り込みは
+// API 側で済んでいる。タップで相手の名刺（/user/:uid）へ遷移する。
+// 各欄は「もっと見る」で offset ページングして続きを取る。
+function EventAttendees({ slug }: { slug: string }) {
+  const router = useRouter();
+  const openProfile = (userId: string) =>
+    router.push({ pathname: "/user/[uid]", params: { uid: userId } });
+
+  return (
+    <View className="mt-6" testID="event-attendees">
+      <ParticipatingFriendsSection slug={slug} onOpenProfile={openProfile} />
+      <PublicParticipantsSection slug={slug} onOpenProfile={openProfile} />
+    </View>
+  );
+}
+
+// 「参加しているフレンド」欄。公開・フレンドのみ表明したフレンドを
+// 行（アバター + 名前 + 名言）で並べる。
+function ParticipatingFriendsSection({
+  slug,
+  onOpenProfile,
+}: {
+  slug: string;
+  onOpenProfile: (userId: string) => void;
+}) {
+  const list = useAttendeeList(
+    useEventParticipatingFriends(slug),
+    (page) => page.friends,
+    (page) => page.friendsTotal,
+  );
+
+  return (
+    <AttendeeSection
+      title={`参加しているフレンド（${list.total}）`}
+      list={list}
+      emptyText="参加表明しているフレンドはまだいません"
+      errorTestID="event-attendees-error"
+      moreTestID="event-friends-more"
+    >
+      <View className="mt-2">
+        {list.items.map((item) => (
+          <AttendeeRow
+            key={item.userId}
+            item={item}
+            onPress={() => onOpenProfile(item.userId)}
+            testID={`event-friend-${item.userId}`}
+          />
+        ))}
+      </View>
+    </AttendeeSection>
+  );
+}
+
+// 「参加者」欄（公開表明した人）。人数が多くなりうるためアバターと
+// 名前のコンパクトなチップをグリッドで並べる。
+function PublicParticipantsSection({
+  slug,
+  onOpenProfile,
+}: {
+  slug: string;
+  onOpenProfile: (userId: string) => void;
+}) {
+  const list = useAttendeeList(
+    useEventParticipants(slug),
+    (page) => page.participants,
+    (page) => page.participantTotal,
+  );
+
+  return (
+    <AttendeeSection
+      className="mt-6"
+      title={`参加者（${list.total}）`}
+      list={list}
+      emptyText="公開している参加者はまだいません"
+      moreTestID="event-participants-more"
+    >
+      <View className="mt-2 flex-row flex-wrap gap-3">
+        {list.items.map((item) => (
+          <ParticipantChip
+            key={item.userId}
+            item={item}
+            onPress={() => onOpenProfile(item.userId)}
+          />
+        ))}
+      </View>
+    </AttendeeSection>
+  );
+}
+
+// useInfiniteQuery の pages をフラット化し、総数と「もっと見る」の
+// 状態をまとめて返す。各欄で同じページング処理を繰り返さないための
+// フック（両欄とも EventParticipantsResponse の一部を取り出す）。
+type AttendeesQuery = UseInfiniteQueryResult<
+  InfiniteData<EventParticipantsResponse>
+>;
+
+function useAttendeeList(
+  query: AttendeesQuery,
+  pickItems: (page: EventParticipantsResponse) => EventParticipantItem[],
+  pickTotal: (page: EventParticipantsResponse) => number,
+) {
+  return {
+    items: query.data?.pages.flatMap(pickItems) ?? [],
+    total: query.data?.pages[0] ? pickTotal(query.data.pages[0]) : 0,
+    isError: query.isError,
+    isLoading: query.isLoading,
+    hasNextPage: !!query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    fetchNextPage: () => void query.fetchNextPage(),
+  };
+}
+
+// 参加者系の欄の共通骨格。見出し・エラー/ローディング/空状態・
+// 「もっと見る」の分岐をまとめ、欄ごとの中身は children で受け取る。
+function AttendeeSection({
+  title,
+  list,
+  emptyText,
+  errorTestID,
+  moreTestID,
+  className,
+  children,
+}: {
+  title: string;
+  list: ReturnType<typeof useAttendeeList>;
+  emptyText: string;
+  errorTestID?: string;
+  moreTestID: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <View className={className}>
+      <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        {title}
+      </Text>
+      {list.isError ? (
+        <Text
+          className="mt-2 text-sm text-slate-400 dark:text-slate-500"
+          testID={errorTestID}
+        >
+          参加者を読み込めませんでした
+        </Text>
+      ) : list.isLoading ? (
+        <ActivityIndicator className="mt-4" />
+      ) : list.items.length === 0 ? (
+        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+          {emptyText}
+        </Text>
+      ) : (
+        children
+      )}
+      {list.hasNextPage ? (
+        <LoadMoreButton
+          fetching={list.isFetchingNextPage}
+          onPress={list.fetchNextPage}
+          testID={moreTestID}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+// 一覧の続きを読むボタン（「参加しているフレンド」「参加者」共用）。
+function LoadMoreButton({
+  fetching,
+  onPress,
+  testID,
+}: {
+  fetching: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity
+      className="mt-2 self-start rounded-lg border border-slate-200 px-4 py-2 dark:border-slate-700"
+      onPress={onPress}
+      disabled={fetching}
+      accessibilityRole="button"
+      accessibilityLabel="もっと見る"
+      testID={testID}
+    >
+      {fetching ? (
+        <ActivityIndicator size="small" />
+      ) : (
+        <Text className="text-sm text-indigo-500 dark:text-indigo-300">
+          もっと見る
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 // 「このイベントで交換した名刺」（issue #411）。会期中にフレンド成立した
 // 相手を本人にだけ見せる。タップで相手のプロフィールへ。
 function ExchangedFriends({ slug }: { slug: string }) {
@@ -268,7 +545,7 @@ function ExchangedFriends({ slug }: { slug: string }) {
       ) : (
         <View className="mt-2">
           {items.map((item) => (
-            <ExchangedFriendRow
+            <AttendeeRow
               key={item.friendId}
               item={item}
               onPress={() =>
@@ -277,6 +554,7 @@ function ExchangedFriends({ slug }: { slug: string }) {
                   params: { uid: item.friendId },
                 })
               }
+              testID={`event-exchanged-${item.friendId}`}
             />
           ))}
         </View>
@@ -285,12 +563,51 @@ function ExchangedFriends({ slug }: { slug: string }) {
   );
 }
 
-function ExchangedFriendRow({
+// 名刺のアバター。画像が無ければ頭文字のプレースホルダー。
+function AttendeeAvatar({
+  username,
+  profileImageUrl,
+  size,
+}: {
+  username: string;
+  profileImageUrl: string | null;
+  size: number;
+}) {
+  if (profileImageUrl) {
+    return (
+      <Image
+        source={{ uri: profileImageUrl }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        className="bg-slate-200 dark:bg-slate-700"
+        resizeMode="cover"
+      />
+    );
+  }
+  return (
+    <View
+      style={{ width: size, height: size, borderRadius: size / 2 }}
+      className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
+    >
+      <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
+        {username.charAt(0)}
+      </Text>
+    </View>
+  );
+}
+
+// 名刺 1 行（アバター + 名前 + 名言）。「交換した名刺」と
+// 「参加しているフレンド」で共用する。
+function AttendeeRow({
   item,
   onPress,
+  testID,
 }: {
-  item: ExchangedFriendItem;
+  item: Pick<
+    EventParticipantItem,
+    "username" | "favoriteQuote" | "profileImageUrl"
+  >;
   onPress: () => void;
+  testID: string;
 }) {
   return (
     <TouchableOpacity
@@ -298,25 +615,13 @@ function ExchangedFriendRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${item.username}のプロフィールを見る`}
-      testID={`event-exchanged-${item.friendId}`}
+      testID={testID}
     >
-      {item.profileImageUrl ? (
-        <Image
-          source={{ uri: item.profileImageUrl }}
-          style={{ width: 40, height: 40, borderRadius: 20 }}
-          className="bg-slate-200 dark:bg-slate-700"
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={{ width: 40, height: 40, borderRadius: 20 }}
-          className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
-        >
-          <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
-            {item.username.charAt(0)}
-          </Text>
-        </View>
-      )}
+      <AttendeeAvatar
+        username={item.username}
+        profileImageUrl={item.profileImageUrl}
+        size={40}
+      />
       <View className="flex-1">
         <Text
           className="text-slate-900 dark:text-slate-100 font-medium"
@@ -333,6 +638,38 @@ function ExchangedFriendRow({
           </Text>
         ) : null}
       </View>
+    </TouchableOpacity>
+  );
+}
+
+// 参加者一覧の 1 人（アバター + 名前のコンパクトなチップ）。
+// 人数が多くなりうる一覧向けに行ではなくグリッドで並べる。
+function ParticipantChip({
+  item,
+  onPress,
+}: {
+  item: EventParticipantItem;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      className="w-16 items-center"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.username}のプロフィールを見る`}
+      testID={`event-participant-${item.userId}`}
+    >
+      <AttendeeAvatar
+        username={item.username}
+        profileImageUrl={item.profileImageUrl}
+        size={48}
+      />
+      <Text
+        className="mt-1 text-xs text-slate-600 dark:text-slate-300 text-center"
+        numberOfLines={1}
+      >
+        {item.username}
+      </Text>
     </TouchableOpacity>
   );
 }

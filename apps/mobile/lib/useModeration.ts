@@ -4,6 +4,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
+import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/lib/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 
 type BlocksResponse = InferResponseType<
@@ -96,6 +97,11 @@ export function useBlockUser() {
       });
       // ブロックで相手の公開作品リストも見えなくなる（issue #422）。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+      // イベントの参加者一覧・「参加しているフレンド」欄からも除く
+      // （issue #440）。
+      void queryClient.invalidateQueries({
+        queryKey: EVENT_PARTICIPANTS_QUERY_KEY,
+      });
     },
   });
 }
@@ -126,6 +132,9 @@ export function useUnblockUser() {
       });
       // ブロック解除で相手の公開作品リストが見えるようになる。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: EVENT_PARTICIPANTS_QUERY_KEY,
+      });
     },
   });
 }

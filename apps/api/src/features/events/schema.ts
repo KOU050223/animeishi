@@ -4,14 +4,39 @@ import {
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
+import { EVENT_PARTICIPATION_VISIBILITIES } from "@/db/schema";
 
-// GET /events のクエリ。limit は 1 ページ件数の指定（サーバー側で上限を
-// 設ける）。公開中のイベントだけを会期開始の早い順に返す。
+// 「参加する」の公開範囲（issue #440）。
+// public: 誰の参加者一覧にも出る / friends: フレンドにだけ出る /
+// private: 本人のみ（既定）。
+const participationVisibilitySchema = z.enum(EVENT_PARTICIPATION_VISIBILITIES);
+
+// 一覧系エンドポイントのクエリ。limit は 1 ページ件数の指定
+// （サーバー側で上限を設ける）。
 const listQuerySchema = z.object({
   limit: z
     .string()
     .regex(/^[1-9]\d*$/, "limit は 1 以上の整数で指定してください")
     .optional(),
+});
+
+// GET /events/:slug/participants のクエリ（issue #440）。
+// participants と friends は別々に limit + offset でページングする。
+// 各欄の総数は応答の participantTotal / friendsTotal が持つ。
+const optionalInt = (name: string, min: number) =>
+  z
+    .string()
+    .regex(
+      min === 0 ? /^\d+$/ : /^[1-9]\d*$/,
+      `${name} は ${min} 以上の整数で指定してください`,
+    )
+    .optional();
+
+const participantsQuerySchema = z.object({
+  limit: optionalInt("limit", 1),
+  offset: optionalInt("offset", 0),
+  friendsLimit: optionalInt("friendsLimit", 1),
+  friendsOffset: optionalInt("friendsOffset", 0),
 });
 
 // 一覧の 1 件。body（説明文 Markdown）は詳細のみで返すため含めない。
@@ -32,6 +57,8 @@ const listResponseSchema = z.object({
 });
 
 // GET /events/:slug の応答。body は説明文 Markdown（省略可なので nullable）。
+// participationVisibility は認証ユーザーの参加表明の公開範囲
+// （issue #440。未表明なら null）。
 const eventDetailSchema = z.object({
   slug: z.string(),
   title: z.string(),
@@ -42,6 +69,7 @@ const eventDetailSchema = z.object({
   startsAt: z.string(),
   endsAt: z.string(),
   participating: z.boolean(),
+  participationVisibility: participationVisibilitySchema.nullable(),
 });
 
 // GET /events/:slug/exchanged-friends の 1 件。
@@ -57,6 +85,34 @@ const exchangedFriendItemSchema = z.object({
 
 const exchangedFriendsResponseSchema = z.object({
   items: z.array(exchangedFriendItemSchema),
+});
+
+// GET /events/:slug/participants の 1 件（issue #440）。
+// 公開プロフィール（GET /user/:uid が返す情報）のうち名刺ページへの
+// 遷移と行の描画に必要な項目だけを返す。
+const participantItemSchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  bio: z.string().nullable(),
+  favoriteQuote: z.string().nullable(),
+  profileImageUrl: z.string().nullable(),
+});
+
+// 参加者一覧（公開表明した人）と参加しているフレンド（公開・
+// フレンドのみ表明のフレンド）を 1 回で返す。participantTotal /
+// friendsTotal は各欄の総数（両欄とも limit + offset でページングする
+// ため、欄の見出し用に別で返す）。
+const participantsResponseSchema = z.object({
+  participants: z.array(participantItemSchema),
+  participantTotal: z.number(),
+  friends: z.array(participantItemSchema),
+  friendsTotal: z.number(),
+});
+
+// PATCH /events/:slug/participation のボディ（issue #440）。
+// 参加表明の公開範囲を変更する。参加表明そのものは PUT で行う。
+const updateParticipationBodySchema = z.object({
+  visibility: participationVisibilitySchema,
 });
 
 const jsonError = (description: string) => ({
@@ -126,6 +182,34 @@ export const participateEventRoute = createRoute({
   },
 });
 
+export const updateParticipationRoute = createRoute({
+  method: "patch",
+  path: "/{slug}/participation",
+  tags: ["events"],
+  summary:
+    "参加表明の公開範囲を変更する（public / friends / private。参加表明が必要）",
+  security: bearerAuth,
+  request: {
+    params: slugParamSchema,
+    body: {
+      content: {
+        "application/json": { schema: updateParticipationBodySchema },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { "application/json": { schema: successResponseSchema } },
+      description: "公開範囲を更新した",
+    },
+    400: jsonError("slug の形式またはボディが不正"),
+    401: jsonError("未認証"),
+    403: jsonError("そのイベントに参加表明していない"),
+    404: jsonError("イベントが存在しないか公開期間外"),
+  },
+});
+
 export const cancelParticipationRoute = createRoute({
   method: "delete",
   path: "/{slug}/participation",
@@ -140,6 +224,26 @@ export const cancelParticipationRoute = createRoute({
     },
     400: jsonError("slug の形式が不正"),
     401: jsonError("未認証"),
+  },
+});
+
+export const getParticipantsRoute = createRoute({
+  method: "get",
+  path: "/{slug}/participants",
+  tags: ["events"],
+  summary:
+    "イベントの参加者一覧と参加しているフレンドを取得する（公開範囲・プロフィール公開・ブロックで絞る）",
+  security: bearerAuth,
+  request: { params: slugParamSchema, query: participantsQuerySchema },
+  responses: {
+    200: {
+      content: { "application/json": { schema: participantsResponseSchema } },
+      description:
+        "公開表明した参加者（参加表明の早い順・limit+offset でページング）と参加しているフレンド（friendsLimit+friendsOffset でページング）、各欄の総数",
+    },
+    400: jsonError("slug の形式またはクエリが不正"),
+    401: jsonError("未認証"),
+    404: jsonError("イベントが存在しないか公開期間外"),
   },
 });
 
