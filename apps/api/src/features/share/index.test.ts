@@ -1075,6 +1075,7 @@ describe("視聴履歴の共有", () => {
         title: "見たアニメA",
         seasonName: "2026-spring",
         seasonYear: 2026,
+        resolvedImageUrl: "https://example.com/wh-a.png",
         updatedAt: now,
       },
       {
@@ -1211,12 +1212,55 @@ describe("視聴履歴の共有", () => {
 
     const html = await res.text();
     expect(html).toContain("<title>履歴テストユーザー の視聴履歴");
+    // AI の機械可読のため、表データは table のまま DOM に残す（issue #236）。
+    // 見た目のカード風化は CSS 側だけで行う。
     expect(html).toContain("<th>作品名</th>");
-    expect(html).toContain("<td>見たアニメA</td>");
-    expect(html).toContain("<td>2026年春</td>");
-    expect(html).toContain("<td>視聴済</td>");
-    expect(html).toContain("<td>2026-04-11</td>");
+    expect(html).toContain('<span class="work-title">見たアニメA</span>');
+    expect(html).toContain('<td class="cell-meta">2026年春</td>');
+    expect(html).toContain('<span class="state">視聴済</span>');
+    expect(html).toContain('<td class="cell-meta">2026-04-11</td>');
     expect(html).not.toContain("<script");
+  });
+
+  it("GET /share/watch-history/:token: HTML には作品ポスターの画像 URL とダークスキーム用 CSS が含まれる", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    // ポスターは Tier 表の共有ページと同じく作品画像プロキシ経由で出す。
+    // DB の外部 URL はプロキシ失敗時の onerror フォールバックに載る。
+    expect(html).toContain("http://localhost/images/works/2001");
+    expect(html).toContain("https://example.com/wh-a.png");
+    // og:image には先頭作品（画像なしの見たアニメB）ではなく、画像 URL を
+    // 持つ最初の作品の画像を使う。画像の有無に関わらず生成される
+    // プロキシ URL は 404 になりうるため og:image には使わない。
+    expect(html).toContain(
+      'property="og:image" content="https://example.com/wh-a.png"',
+    );
+    // ライト/ダーク両スキームに追従する（issue #461）。
+    expect(html).toContain("prefers-color-scheme: dark");
+  });
+
+  it("GET /share/watch-history/:token: どの作品にも画像が無ければ og:image を出さない", async () => {
+    const app = buildWatchHistoryApp();
+    const db = drizzle(env.DB, { schema });
+    await db
+      .update(annictWorks)
+      .set({ imageUrl: null, resolvedImageUrl: null });
+
+    const token = await issueToken(app);
+    const res = await app.request(
+      `/share/watch-history/${token}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await res.text();
+    expect(html).not.toContain('property="og:image"');
   });
 
   it("GET /share/watch-history/:token: 不明なトークンは 404 を返す", async () => {

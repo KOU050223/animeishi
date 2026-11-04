@@ -233,6 +233,8 @@ export type SharedWatchHistoryEntry = {
   state: string;
   /** 履歴行の最終更新時刻。共有表の「最終更新日」列に使う。 */
   updatedAt: Date;
+  imageUrl: string | null;
+  resolvedImageUrl: string | null;
 };
 
 export type SharedWatchHistory = {
@@ -265,6 +267,8 @@ export async function getSharedWatchHistory(
       seasonYear: annictWorks.seasonYear,
       state: watchHistory.state,
       updatedAt: watchHistory.updatedAt,
+      imageUrl: annictWorks.imageUrl,
+      resolvedImageUrl: annictWorks.resolvedImageUrl,
     })
     .from(watchHistory)
     .innerJoin(
