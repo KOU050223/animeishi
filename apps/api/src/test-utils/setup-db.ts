@@ -82,6 +82,7 @@ const DDL_STATEMENTS = [
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
     friend_id TEXT NOT NULL,
+    source TEXT,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE

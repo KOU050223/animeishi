@@ -104,4 +104,29 @@ describe("buildEventRow", () => {
       buildEventRow({ ...validAttributes, location: 123 }, "本文"),
     ).toThrow(/location/);
   });
+
+  it("official_url・cover_image_url は https:// 以外を拒否する", () => {
+    // アプリから開く・画像として読む URL のため https のみ許可する。
+    for (const field of ["official_url", "cover_image_url"] as const) {
+      expect(() =>
+        buildEventRow(
+          { ...validAttributes, [field]: "http://example.com/" },
+          "本文",
+        ),
+      ).toThrow(new RegExp(field));
+      expect(() =>
+        buildEventRow(
+          { ...validAttributes, [field]: "javascript:alert(1)" },
+          "本文",
+        ),
+      ).toThrow(new RegExp(field));
+      // https は通る
+      expect(() =>
+        buildEventRow(
+          { ...validAttributes, [field]: "https://example.com/" },
+          "本文",
+        ),
+      ).not.toThrow();
+    }
+  });
 });

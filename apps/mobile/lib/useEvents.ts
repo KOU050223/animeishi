@@ -20,9 +20,15 @@ type ExchangedFriendsResponse = InferResponseType<
 export type ExchangedFriendItem = ExchangedFriendsResponse["items"][number];
 
 export const EVENTS_QUERY_KEY = ["events"] as const;
+// 「このイベントで交換した名刺」のクエリ prefix。フレンド成立（QR 交換）
+// で中身が変わるため、useFriends の無効化からも prefix 指定で無効化する。
+export const EVENT_EXCHANGED_FRIENDS_QUERY_KEY = [
+  "events",
+  "exchanged-friends",
+] as const;
 const eventQueryKey = (slug: string) => ["events", "detail", slug] as const;
 const exchangedFriendsQueryKey = (slug: string) =>
-  ["events", "exchanged-friends", slug] as const;
+  [...EVENT_EXCHANGED_FRIENDS_QUERY_KEY, slug] as const;
 
 // ホームのイベント枠に出す件数（issue #411）。公開中のイベントは
 // 運営が登録する大型イベントだけなので、小さな上限で十分。

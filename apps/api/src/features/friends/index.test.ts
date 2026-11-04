@@ -205,6 +205,17 @@ describe("フレンド API", () => {
       expect(body).toHaveLength(1);
     });
 
+    it("POST /me/friends: 対面 QR の即時成立は source に 'qr' を記録する", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      // イベントの「会期中に QR で交換した名刺」（issue #411）は
+      // 成立経路 source='qr' で絞るため、QR 経由の行は 'qr' を持つ。
+      const rows = await db.query.friends.findMany();
+      expect(rows).toHaveLength(2);
+      expect(rows.every((row) => row.source === "qr")).toBe(true);
+    });
+
     it("POST /me/friends: 自分自身を追加しようとすると 400", async () => {
       const app = buildApp();
       const res = await postFriend(app, USER_A);

@@ -47,10 +47,14 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
 
   return {
     /**
-     * 公開中のイベントを会期開始が早い順に limit 件返す。
-     * participating 列は認証ユーザーの表明の有無。
+     * 公開中のイベントを limit 件返す。participating 列は認証ユーザーの
+     * 表明の有無。並びは「未終了を先に、終了済みは後ろ」：
+     * 公開終了日なしの終了済みイベントが溜まると開催予定が一覧の
+     * limit から押し出されるため、未終了を優先する。未終了どうしは
+     * 会期開始が早い順、終了済みどうしは終了が新しい順。
      */
     async listPublished(opts: { now: Date; limit: number }) {
+      const nowUnix = Math.floor(opts.now.getTime() / 1000);
       const rows = await db
         .select({
           slug: events.slug,
@@ -64,7 +68,12 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
         .from(events)
         .leftJoin(eventParticipations, myParticipation())
         .where(publishedNow(opts.now))
-        .orderBy(asc(events.startsAt))
+        .orderBy(
+          asc(sql`${events.endsAt} < ${nowUnix}`),
+          asc(
+            sql`case when ${events.endsAt} < ${nowUnix} then -${events.endsAt} else ${events.startsAt} end`,
+          ),
+        )
         .limit(opts.limit);
       return rows.map(({ participationId, ...row }) => ({
         ...row,
@@ -125,10 +134,11 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
     },
 
     /**
-     * 会期（両端を含む）にフレンド成立した相手を、成立時刻の新しい順に返す
-     * （issue #411「そのイベントで交換した名刺をまとめて見る」）。
-     * 成立時刻は friends.created_at（対面 QR の即時成立も申請の承認も同じ
-     * 行を使う）。ブロック関係にある相手はフレンド一覧と同じく除外する。
+     * 会期（両端を含む）に対面 QR でフレンド成立した相手を、成立時刻の
+     * 新しい順に返す（issue #411「会期中に QR で交換した名刺をまとめて
+     * 見る」）。成立経路は friends.source の 'qr'（申請→承認の 'request' と
+     * 導入前の既存行 NULL は数えない）。ブロック関係にある相手は
+     * フレンド一覧と同じく除外する。
      */
     async listExchangedFriends(opts: {
       startsAt: Date;
@@ -148,6 +158,7 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
         .where(
           and(
             eq(friends.userId, currentUserId),
+            eq(friends.source, "qr"),
             gte(friends.createdAt, opts.startsAt),
             lte(friends.createdAt, opts.endsAt),
             notExists(

@@ -158,6 +158,45 @@ describe("イベント API", () => {
       expect(body.items[0]?.participating).toBe(false);
     });
 
+    it("終了済みのイベントは未終了の後ろに並ぶ（開催予定を押し出さない）", async () => {
+      // 公開終了日なしで終了済みのイベントが残り続けても、一覧の先頭は
+      // 開催予定・開催中が占める（会期開始順だけだと過去イベントが
+      // 上に来て開催予定が limit から押し出される）。
+      await insertEvent(db, {
+        slug: "ended-oldest",
+        startsAt: hoursAgo(96 * 24),
+        endsAt: hoursAgo(95 * 24),
+        publishedAt: hoursAgo(120 * 24),
+      });
+      await insertEvent(db, {
+        slug: "ended-recent",
+        startsAt: hoursAgo(72),
+        endsAt: hoursAgo(48),
+        publishedAt: hoursAgo(120),
+      });
+      await insertEvent(db, ongoingEvent("ongoing"));
+      await insertEvent(db, {
+        slug: "upcoming",
+        startsAt: hoursAhead(24),
+        endsAt: hoursAhead(48),
+        publishedAt: hoursAgo(1),
+      });
+
+      const app = buildApp();
+      const res = await app.request("/events", {}, TEST_BINDINGS);
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        items: { slug: string }[];
+      };
+      expect(body.items.map((item) => item.slug)).toEqual([
+        "ongoing",
+        "upcoming",
+        "ended-recent",
+        "ended-oldest",
+      ]);
+    });
+
     it("参加表明したイベントは participating: true で返す", async () => {
       await insertEvent(db, ongoingEvent("joined"));
       await insertEvent(db, ongoingEvent("other"));
@@ -387,10 +426,16 @@ describe("イベント API", () => {
     };
 
     // フレンド成立（双方向行）を created_at 指定で入れる。
-    const befriend = async (friendId: string, createdAt: Date) => {
+    // 成立経路 source は実際の書き込み経路に合わせ、既定を QR にする
+    // （省略時は「QR で交換した名刺」として数えられる側）。
+    const befriend = async (
+      friendId: string,
+      createdAt: Date,
+      source: "qr" | "request" | null = "qr",
+    ) => {
       await db.insert(friends).values([
-        { userId: USER_ID, friendId, createdAt },
-        { userId: friendId, friendId: USER_ID, createdAt },
+        { userId: USER_ID, friendId, source, createdAt },
+        { userId: friendId, friendId: USER_ID, source, createdAt },
       ]);
     };
 
@@ -430,6 +475,41 @@ describe("イベント API", () => {
         "user_in1",
       ]);
       expect(body.items[0]?.username).toBe("会期内2");
+    });
+
+    it("会期内でも申請→承認・source 未記録のフレンドは返さない", async () => {
+      const startsAt = new Date("2026-11-01T00:00:00Z");
+      const endsAt = new Date("2026-11-02T23:59:59Z");
+      await insertEvent(db, {
+        slug: "comiket",
+        startsAt,
+        endsAt,
+        publishedAt: hoursAgo(1),
+      });
+      await participate("comiket");
+
+      await insertUser(db, "user_qr", "QR交換");
+      await insertUser(db, "user_req", "申請承認");
+      await insertUser(db, "user_null", "経路不明");
+      const during = new Date("2026-11-01T12:00:00Z");
+      // 「会期中に QR で交換した名刺」（issue #411）だけを数える。
+      // 申請→承認（'request'）と source 導入前の既存行（NULL）は含めない。
+      await befriend("user_qr", during, "qr");
+      await befriend("user_req", during, "request");
+      await befriend("user_null", during, null);
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/comiket/exchanged-friends",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        items: { friendId: string }[];
+      };
+      expect(body.items.map((item) => item.friendId)).toEqual(["user_qr"]);
     });
 
     it("参加表明していないイベントは 403（code: not_participating）", async () => {

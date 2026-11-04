@@ -18,6 +18,17 @@ function frontmatterOptionalString(value, { field }) {
   return frontmatterRequiredString(value, { field });
 }
 
+// 省略可の URL frontmatter 値を取り出す。アプリから開く・画像として
+// 読む URL のため https:// だけを許可する（http:// の書き違えや
+// javascript: 等のスキームを登録しない）。
+function frontmatterOptionalHttpsUrl(value, { field }) {
+  const url = frontmatterOptionalString(value, { field });
+  if (url !== null && !url.startsWith("https://")) {
+    throw new Error(`${field} は https:// で始まる URL にしてください: ${url}`);
+  }
+  return url;
+}
+
 /**
  * 検証済み frontmatter と本文から events テーブルの行（created_at /
  * updated_at を除く）を組み立てる。不正な値は Error を投げる。
@@ -64,13 +75,13 @@ export function buildEventRow(attributes, body) {
     title,
     // 説明文は省略可（日程・会場だけの登録を許す）。空本文は NULL。
     body: body.trim() === "" ? null : body,
-    cover_image_url: frontmatterOptionalString(attributes.cover_image_url, {
+    cover_image_url: frontmatterOptionalHttpsUrl(attributes.cover_image_url, {
       field: "cover_image_url",
     }),
     location: frontmatterOptionalString(attributes.location, {
       field: "location",
     }),
-    official_url: frontmatterOptionalString(attributes.official_url, {
+    official_url: frontmatterOptionalHttpsUrl(attributes.official_url, {
       field: "official_url",
     }),
     starts_at: startsAt,

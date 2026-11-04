@@ -40,3 +40,9 @@ CREATE TABLE `event_participations` (
 CREATE UNIQUE INDEX `event_participations_event_user_unique` ON `event_participations` (`event_slug`, `user_id`);
 --> statement-breakpoint
 CREATE INDEX `event_participations_user_idx` ON `event_participations` (`user_id`);
+--> statement-breakpoint
+-- 「会期中に QR で交換した名刺」の判定は成立経路で絞る必要があるため、
+-- 成立経路を記録する列を追加する（対面 QR の即時成立 = 'qr'、
+-- 申請→承認 = 'request'）。追加のみ。既存行は NULL のまま更新しない
+-- （経路が分からないため、「QR で交換した」には数えない）。
+ALTER TABLE `friends` ADD `source` text;

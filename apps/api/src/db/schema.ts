@@ -240,6 +240,10 @@ export const friends = sqliteTable(
     friendId: text("friend_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // 成立経路（issue #411）。対面 QR の即時成立は 'qr'、申請→承認は
+    // 'request'。導入前の既存行は NULL のまま（経路不明として
+    // 「QR で交換した名刺」のまとめ対象にしない）。
+    source: text("source", { enum: ["qr", "request"] }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [

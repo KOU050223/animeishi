@@ -5,6 +5,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { ACTIVITY_FEED_QUERY_KEY } from "./useActivityFeed";
+import { EVENT_EXCHANGED_FRIENDS_QUERY_KEY } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
 
 type FriendsResponse = InferResponseType<
@@ -40,6 +41,11 @@ export function invalidateFriendRelatedQueries(
   void queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY });
   void queryClient.invalidateQueries({
     queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
+  });
+  // イベント詳細の「このイベントで交換した名刺」もフレンド成立で変わる
+  // （issue #411）。slug ごとのキーなので prefix で全イベント分を無効化する。
+  void queryClient.invalidateQueries({
+    queryKey: EVENT_EXCHANGED_FRIENDS_QUERY_KEY,
   });
 }
 

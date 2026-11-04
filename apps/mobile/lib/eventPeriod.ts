@@ -3,29 +3,45 @@
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
+// 開催日は日本での日付（Asia/Tokyo）で表示する。対象は国内イベント
+// （コミケ・AnimeJapan 等）で、端末が海外タイムゾーンだと現地日付で
+// ずれて見えるため。日本時間は常に UTC+9 でサマータイムが無いので、
+// 固定オフセットで計算する。
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const toJst = (d: Date) => new Date(d.getTime() + JST_OFFSET_MS);
 
-const formatDay = (d: Date, withYear: boolean) =>
-  `${withYear ? `${d.getFullYear()}年` : ""}${d.getMonth() + 1}月${d.getDate()}日(${WEEKDAYS[d.getDay()]})`;
+const isSameJstDay = (a: Date, b: Date) => {
+  const ja = toJst(a);
+  const jb = toJst(b);
+  return (
+    ja.getUTCFullYear() === jb.getUTCFullYear() &&
+    ja.getUTCMonth() === jb.getUTCMonth() &&
+    ja.getUTCDate() === jb.getUTCDate()
+  );
+};
+
+const formatJstDay = (d: Date, withYear: boolean) => {
+  const j = toJst(d);
+  return `${withYear ? `${j.getUTCFullYear()}年` : ""}${j.getUTCMonth() + 1}月${j.getUTCDate()}日(${WEEKDAYS[j.getUTCDay()]})`;
+};
 
 /**
  * 「2026年12月20日(日)〜12月21日(月)」のような会期表記にする。
  * 同日なら 1 日分だけ。年をまたぐときは終了側にも年を付ける。
- * 解釈できない日時は空文字を返す。
+ * 日付の区切りは日本時間（Asia/Tokyo）基準。解釈できない日時は空文字を返す。
  */
 export function formatEventPeriod(startsAt: string, endsAt: string): string {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
 
-  if (isSameDay(start, end)) return formatDay(start, true);
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${formatDay(start, true)}〜${formatDay(end, false)}`;
+  if (isSameJstDay(start, end)) return formatJstDay(start, true);
+  const js = toJst(start);
+  const je = toJst(end);
+  if (js.getUTCFullYear() === je.getUTCFullYear()) {
+    return `${formatJstDay(start, true)}〜${formatJstDay(end, false)}`;
   }
-  return `${formatDay(start, true)}〜${formatDay(end, true)}`;
+  return `${formatJstDay(start, true)}〜${formatJstDay(end, true)}`;
 }
 
 export type EventPhase = "before" | "ongoing" | "ended";

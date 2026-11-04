@@ -252,7 +252,14 @@ function ExchangedFriends({ slug }: { slug: string }) {
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
         このイベントで交換した名刺
       </Text>
-      {exchanged.isLoading ? (
+      {exchanged.isError ? (
+        <Text
+          className="mt-2 text-sm text-slate-400 dark:text-slate-500"
+          testID="event-exchanged-friends-error"
+        >
+          交換した名刺を読み込めませんでした
+        </Text>
+      ) : exchanged.isLoading ? (
         <ActivityIndicator className="mt-4" />
       ) : items.length === 0 ? (
         <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
