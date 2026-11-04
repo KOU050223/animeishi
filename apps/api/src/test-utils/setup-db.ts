@@ -357,6 +357,7 @@ const DDL_STATEMENTS = [
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     event_slug TEXT NOT NULL,
     user_id TEXT NOT NULL,
+    visibility TEXT DEFAULT 'private' NOT NULL,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (event_slug) REFERENCES events(slug) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

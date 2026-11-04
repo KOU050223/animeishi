@@ -90,14 +90,30 @@ async function insertUser(
   db: Awaited<ReturnType<typeof setupTestDb>>,
   id: string,
   username = id,
+  isPublic = true,
 ) {
   const now = new Date();
   await db.insert(users).values({
     id,
     username,
-    isPublic: true,
+    isPublic,
     createdAt: now,
     updatedAt: now,
+  });
+}
+
+async function insertParticipation(
+  db: Awaited<ReturnType<typeof setupTestDb>>,
+  eventSlug: string,
+  userId: string,
+  visibility: "public" | "friends" | "private" = "private",
+  createdAt = new Date(),
+) {
+  await db.insert(eventParticipations).values({
+    eventSlug,
+    userId,
+    visibility,
+    createdAt,
   });
 }
 
@@ -279,6 +295,25 @@ describe("イベント API", () => {
       });
     });
 
+    it("参加表明の公開範囲を participationVisibility で返す（未表明は null）", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertEvent(db, ongoingEvent("other"));
+      await insertParticipation(db, "joined", USER_ID, "friends");
+
+      const app = buildApp();
+      const joined = await app.request("/events/joined", {}, TEST_BINDINGS);
+      const joinedBody = (await joined.json()) as {
+        participationVisibility: string | null;
+      };
+      expect(joinedBody.participationVisibility).toBe("friends");
+
+      const other = await app.request("/events/other", {}, TEST_BINDINGS);
+      const otherBody = (await other.json()) as {
+        participationVisibility: string | null;
+      };
+      expect(otherBody.participationVisibility).toBeNull();
+    });
+
     it("存在しない slug・公開前・公開終了は 404", async () => {
       await insertEvent(db, {
         slug: "future",
@@ -413,6 +448,241 @@ describe("イベント API", () => {
         TEST_BINDINGS,
       );
       expect(again.status).toBe(200);
+    });
+  });
+
+  describe("PATCH /events/:slug/participation", () => {
+    const patchVisibility = (
+      app: ReturnType<typeof buildApp>,
+      slug: string,
+      visibility: string,
+    ) =>
+      app.request(
+        `/events/${slug}/participation`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibility }),
+        },
+        TEST_BINDINGS,
+      );
+
+    it("参加表明の公開範囲を更新する", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      // 参加表明の既定は非公開（issue #440）
+      await insertParticipation(db, "joined", USER_ID, "private");
+
+      const app = buildApp();
+      const res = await patchVisibility(app, "joined", "public");
+      expect(res.status).toBe(200);
+
+      const row = await db.query.eventParticipations.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.eventSlug, "joined"), eq(t.userId, USER_ID)),
+      });
+      expect(row?.visibility).toBe("public");
+
+      const detail = await app.request("/events/joined", {}, TEST_BINDINGS);
+      const body = (await detail.json()) as {
+        participationVisibility: string;
+      };
+      expect(body.participationVisibility).toBe("public");
+    });
+
+    it("参加表明していないイベントは 403（code: not_participating）で参加行も作らない", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+
+      const app = buildApp();
+      const res = await patchVisibility(app, "joined", "public");
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("not_participating");
+
+      const rows = await db.query.eventParticipations.findMany();
+      expect(rows).toHaveLength(0);
+    });
+
+    it("公開期間外のイベントは 404、不正な公開範囲は 400", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertParticipation(db, "joined", USER_ID, "private");
+
+      const app = buildApp();
+      expect((await patchVisibility(app, "none", "public")).status).toBe(404);
+      expect((await patchVisibility(app, "joined", "everyone")).status).toBe(
+        400,
+      );
+    });
+  });
+
+  describe("GET /events/:slug/participants", () => {
+    const befriend = async (friendId: string) => {
+      const now = new Date();
+      await db.insert(friends).values([
+        { userId: USER_ID, friendId, source: "request", createdAt: now },
+        {
+          userId: friendId,
+          friendId: USER_ID,
+          source: "request",
+          createdAt: now,
+        },
+      ]);
+    };
+
+    it("公開表明した参加者を参加表明の早い順に返し、総数も返す", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertUser(db, "user_pub1", "公開1");
+      await insertUser(db, "user_pub2", "公開2");
+      await insertUser(db, "user_friends", "フレンドのみ");
+      await insertUser(db, "user_private", "非公開");
+      await insertParticipation(
+        db,
+        "joined",
+        "user_pub2",
+        "public",
+        hoursAgo(2),
+      );
+      await insertParticipation(
+        db,
+        "joined",
+        "user_pub1",
+        "public",
+        hoursAgo(1),
+      );
+      await insertParticipation(db, "joined", "user_friends", "friends");
+      await insertParticipation(db, "joined", "user_private", "private");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/joined/participants",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        participants: { userId: string; username: string }[];
+        participantTotal: number;
+        friends: { userId: string }[];
+      };
+      // 「公開」の人だけ（フレンドのみ・非公開は出ない）
+      expect(body.participants.map((p) => p.userId)).toEqual([
+        "user_pub2",
+        "user_pub1",
+      ]);
+      expect(body.participants[0]?.username).toBe("公開2");
+      expect(body.participantTotal).toBe(2);
+      expect(body.friends).toHaveLength(0);
+    });
+
+    it("フレンドには「公開」と「フレンドのみ」の相手を返す（非公開・非フレンドは除く）", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertUser(db, "friend_pub", "フレンド公開");
+      await insertUser(db, "friend_only", "フレンド限定");
+      await insertUser(db, "friend_private", "フレンド非公開");
+      await insertUser(db, "stranger_friends", "他人フレンド限定");
+      await befriend("friend_pub");
+      await befriend("friend_only");
+      await befriend("friend_private");
+      await insertParticipation(db, "joined", "friend_pub", "public");
+      await insertParticipation(db, "joined", "friend_only", "friends");
+      await insertParticipation(db, "joined", "friend_private", "private");
+      await insertParticipation(db, "joined", "stranger_friends", "friends");
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/joined/participants",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        participants: { userId: string }[];
+        friends: { userId: string }[];
+      };
+      // 「フレンドのみ」表明はフレンド欄にだけ出る（公開一覧には出ない）
+      expect(body.participants.map((p) => p.userId)).toEqual(["friend_pub"]);
+      expect(body.friends.map((p) => p.userId).sort()).toEqual([
+        "friend_only",
+        "friend_pub",
+      ]);
+    });
+
+    it("プロフィール非公開の参加者・ブロック関係の相手は両方の欄から除く", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertUser(db, "user_hidden", "非公開", false);
+      await insertUser(db, "friend_hidden", "非公開フレンド", false);
+      await insertUser(db, "user_blocked", "ブロック相手");
+      await insertUser(db, "friend_blocked", "ブロックフレンド");
+      await befriend("friend_hidden");
+      await befriend("friend_blocked");
+      await insertParticipation(db, "joined", "user_hidden", "public");
+      await insertParticipation(db, "joined", "friend_hidden", "friends");
+      await insertParticipation(db, "joined", "user_blocked", "public");
+      await insertParticipation(db, "joined", "friend_blocked", "friends");
+      // 双方向どちらのブロックでも除外される
+      await db.insert(blocks).values([
+        {
+          blockerId: USER_ID,
+          blockedId: "user_blocked",
+          createdAt: new Date(),
+        },
+        {
+          blockerId: "friend_blocked",
+          blockedId: USER_ID,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/joined/participants",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        participants: { userId: string }[];
+        participantTotal: number;
+        friends: { userId: string }[];
+      };
+      expect(body.participants).toHaveLength(0);
+      expect(body.participantTotal).toBe(0);
+      expect(body.friends).toHaveLength(0);
+    });
+
+    it("limit 件まで返し、残りは participantTotal にだけ残る", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      for (let i = 0; i < 3; i++) {
+        await insertUser(db, `user_p${i}`);
+        await insertParticipation(db, "joined", `user_p${i}`, "public");
+      }
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/joined/participants?limit=2",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        participants: { userId: string }[];
+        participantTotal: number;
+      };
+      expect(body.participants).toHaveLength(2);
+      expect(body.participantTotal).toBe(3);
+    });
+
+    it("公開期間外のイベントは 404", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/events/none/participants",
+        {},
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(404);
     });
   });
 

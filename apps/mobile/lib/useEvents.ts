@@ -19,6 +19,19 @@ type ExchangedFriendsResponse = InferResponseType<
 >;
 export type ExchangedFriendItem = ExchangedFriendsResponse["items"][number];
 
+type EventParticipantsResponse = InferResponseType<
+  (typeof apiClient.events)[":slug"]["participants"]["$get"],
+  200
+>;
+export type EventParticipantItem =
+  EventParticipantsResponse["participants"][number];
+
+// 「参加する」の公開範囲（issue #440）。詳細応答の
+// participationVisibility と同じ enum（null は未表明なので除く）。
+export type EventParticipationVisibility = NonNullable<
+  EventDetail["participationVisibility"]
+>;
+
 export const EVENTS_QUERY_KEY = ["events"] as const;
 // 「このイベントで交換した名刺」のクエリ prefix。フレンド成立（QR 交換）
 // で中身が変わるため、useFriends の無効化からも prefix 指定で無効化する。
@@ -26,9 +39,14 @@ export const EVENT_EXCHANGED_FRIENDS_QUERY_KEY = [
   "events",
   "exchanged-friends",
 ] as const;
+// 「参加者一覧・参加しているフレンド」のクエリ prefix。フレンド関係の
+// 変化で「参加しているフレンド」欄が変わるため useFriends からも無効化する。
+export const EVENT_PARTICIPANTS_QUERY_KEY = ["events", "participants"] as const;
 const eventQueryKey = (slug: string) => ["events", "detail", slug] as const;
 const exchangedFriendsQueryKey = (slug: string) =>
   [...EVENT_EXCHANGED_FRIENDS_QUERY_KEY, slug] as const;
+const eventParticipantsQueryKey = (slug: string) =>
+  [...EVENT_PARTICIPANTS_QUERY_KEY, slug] as const;
 
 // ホームのイベント枠に出す件数（issue #411）。公開中のイベントは
 // 運営が登録する大型イベントだけなので、小さな上限で十分。
@@ -117,6 +135,59 @@ export function useSetEventParticipation() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: EVENTS_QUERY_KEY });
+    },
+  });
+}
+
+// 参加表明の公開範囲の変更（issue #440）。公開（public）は全員の
+// 参加者一覧へ、フレンドのみ（friends）はフレンドのイベント詳細へ
+// 出る。参加表明していないと API が 403 を返す。
+export function useUpdateEventParticipationVisibility() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      slug: string;
+      visibility: EventParticipationVisibility;
+    }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.events[":slug"].participation.$patch(
+        {
+          param: { slug: input.slug },
+          json: { visibility: input.visibility },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "公開範囲の変更に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: EVENTS_QUERY_KEY });
+    },
+  });
+}
+
+// 参加者一覧（公開表明した人）と参加しているフレンド（issue #440）。
+// connpass の右カラムに相当。公開情報なので参加表明は不要。
+export function useEventParticipants(slug: string | null) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: eventParticipantsQueryKey(slug ?? ""),
+    enabled: !!isSignedIn && slug !== null && slug !== "",
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.events[":slug"].participants.$get(
+        { param: { slug: slug ?? "" }, query: {} },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "参加者の取得に失敗しました");
+      }
+      return res.json();
     },
   });
 }
