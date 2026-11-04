@@ -92,14 +92,26 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
         throw new UserBlockedError(friendId);
       }
       const now = new Date();
+      // ここを通るのは対面 QR の即時成立（qrToken 必須）だけなので
+      // 成立経路 source は 'qr'（issue #411 の「QR で交換した名刺」に数える）。
       await db.batch([
         db
           .insert(friends)
-          .values({ userId: currentUserId, friendId, createdAt: now })
+          .values({
+            userId: currentUserId,
+            friendId,
+            source: "qr",
+            createdAt: now,
+          })
           .onConflictDoNothing(),
         db
           .insert(friends)
-          .values({ userId: friendId, friendId: currentUserId, createdAt: now })
+          .values({
+            userId: friendId,
+            friendId: currentUserId,
+            source: "qr",
+            createdAt: now,
+          })
           .onConflictDoNothing(),
         // 対面 QR 等の即時成立でも、間に保留中の申請（issue #417）があれば
         // 成立済みとして両方向とも消す（残すと成立済みの相手宛に申請が残る）。

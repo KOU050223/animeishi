@@ -96,12 +96,15 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
   /** 自分と相手の間に pending の申請行（両方向）を残さない前提でフレンドを双方向登録する。 */
   async function createFriendsAndClearRequests(otherUserId: string) {
     const now = new Date();
+    // 申請→承認（または相互申請の即成立）経由なので成立経路 source は
+    // 'request'（issue #411 の「QR で交換した名刺」には数えない）。
     await db.batch([
       db
         .insert(friends)
         .values({
           userId: currentUserId,
           friendId: otherUserId,
+          source: "request",
           createdAt: now,
         })
         .onConflictDoNothing(),
@@ -110,6 +113,7 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
         .values({
           userId: otherUserId,
           friendId: currentUserId,
+          source: "request",
           createdAt: now,
         })
         .onConflictDoNothing(),

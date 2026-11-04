@@ -22,6 +22,9 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * articles:publish:       本番 D1 に記事を投入（確認プロンプト付き。issue #437）
 * articles:publish:preview: プレビュー D1 に記事を投入
 * articles:publish:local: ローカル D1 に記事を投入
+* events:publish:         本番 D1 にイベントを投入（確認プロンプト付き。issue #411）
+* events:publish:preview: プレビュー D1 にイベントを投入
+* events:publish:local:   ローカル D1 にイベントを投入
 ```
 
 > wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
@@ -151,3 +154,48 @@ pnpm task articles:publish:local -- /path/to/article.md    # ローカル D1
   クオートする
 - ローカル D1 に投入する前に `vp run @animeishi/api#db:migrate:local` で
   `articles` テーブルが作られていることを確認する
+
+## イベントの投入（events:publish）
+
+アプリに出すイベント（AnimeJapan・コミケ等。issue #411）を `events`
+テーブルに投入する。実体は `apps/api/scripts/publish-event.mjs` で、
+特集記事（articles:publish）と同じ frontmatter 付き Markdown →
+slug upsert の仕組み。
+
+### Markdown ファイルの形式
+
+イベントファイルはリポジトリに入れず、投入する人の手元で管理する
+（記事と同じ決定。issue #437 / #411）。
+
+```markdown
+---
+slug: comiket-107                     # 必須。[a-z0-9][a-z0-9-]*。イベント詳細の URL になる
+title: コミックマーケット107            # 必須
+starts_at: 2026-12-20T10:00:00+09:00  # 必須。会期開始（ISO 8601）
+ends_at: 2026-12-21T16:00:00+09:00    # 必須。会期終了。starts_at より後
+location: 東京ビッグサイト              # 省略可。会場名
+official_url: https://www.comiket.co.jp/ # 省略可。公式サイト
+cover_image_url: https://...          # 省略可。一覧カードと詳細上部に出す画像
+published_at: 2026-11-10T09:00:00+09:00    # 必須。アプリへの公開開始日時
+unpublished_at: 2026-12-25T00:00:00+09:00  # 省略可。公開終了日時。省略時は終了期限なし
+---
+
+説明文 Markdown（省略可。参加案内や注意点など。空なら詳細に本文を出さない）
+```
+
+### 実行
+
+```sh
+pnpm task events:publish -- /path/to/event.md          # 本番（確認プロンプト付き）
+pnpm task events:publish:preview -- /path/to/event.md  # プレビュー
+pnpm task events:publish:local -- /path/to/event.md    # ローカル D1
+```
+
+- 同じ slug で再投入すると上書きされる（`created_at` は初回投入時のまま）。
+  内容の修正・公開期間の変更は同じ slug で再投入する
+- 公開を止めたいイベントは `unpublished_at` を過去日時にして再投入する
+  （行の削除手段はない。公開期間外のイベントは API が一覧・詳細ともに返さない）
+- `starts_at`〜`ends_at`（両端を含む）は「会期中に交換した名刺」の
+  まとめ対象期間になる。終了時刻まで含めたい場合は日付ではなく時刻まで書く
+- ローカル D1 に投入する前に `vp run @animeishi/api#db:migrate:local` で
+  `events` テーブルが作られていることを確認する

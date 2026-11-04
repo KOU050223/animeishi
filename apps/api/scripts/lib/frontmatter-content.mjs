@@ -1,6 +1,6 @@
 // frontmatter 付き Markdown を D1 に投入するスクリプト群の共有部品
-// （issue #437）。記事（publish-article.mjs）と、将来のイベント登録
-// （#411）など他の運営投入コンテンツで使い回す。
+// （issue #437）。記事（publish-article.mjs）とイベント登録
+// （publish-event.mjs、issue #411）などの運営投入コンテンツで使い回す。
 //
 // 使い方の例は publish-article.mjs を参照。
 
@@ -98,6 +98,23 @@ export function buildUpsertSql({
   );
 }
 
+// ISO 8601 文字列の日付部分（YYYY-MM-DD）が実在する暦日かを判定する。
+// Date.parse は 2026-02-30 のような存在しない日付を翌月に正規化して
+// しまうため、通すと書き違えた日時が黙って登録される。日付部分を持たない
+// 文字列（時刻だけの表記等）は対象外として true を返す。
+function isRealCalendarDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?=T|\s|$)/.exec(value);
+  if (!match) return true;
+  const [year, month, day] = match.slice(1).map(Number);
+  const probe = new Date(0);
+  probe.setUTCFullYear(year, month - 1, day);
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
 /**
  * frontmatter の日時値を unixepoch 秒に変換する。YAML の日付型で
  * Date が来る場合と文字列の場合の両方を受け付ける。空値は null。
@@ -111,6 +128,11 @@ export function frontmatterDateToUnix(value, { field, required = false }) {
       throw new Error(`frontmatter に ${field} がありません`);
     }
     return null;
+  }
+  if (typeof value === "string" && !isRealCalendarDate(value)) {
+    throw new Error(
+      `${field} の日付が存在しません: ${JSON.stringify(value)}（実在する暦日で書いてください）`,
+    );
   }
   const time =
     value instanceof Date

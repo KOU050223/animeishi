@@ -257,6 +257,9 @@ describe("フレンド申請 API", () => {
 
       const friendRows = await db.query.friends.findMany();
       expect(friendRows).toHaveLength(2);
+      // 申請→承認の成立は source='request'（issue #411 の
+      // 「QR で交換した名刺」には数えない側）。
+      expect(friendRows.every((row) => row.source === "request")).toBe(true);
       const after = await listRequests(app);
       expect(after.received).toHaveLength(0);
     });

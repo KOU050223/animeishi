@@ -8,7 +8,7 @@ import {
 } from "./frontmatter-content.mjs";
 
 // frontmatter 付き Markdown → D1 upsert の共有部品（issue #437）。
-// publish-article.mjs と将来のイベント投入（#411）が使うため、
+// publish-article.mjs とイベント投入（publish-event.mjs、#411）が使うため、
 // パース・SQL 生成の振る舞いをここで検証する。
 
 describe("parseFrontmatterDocument", () => {
@@ -119,6 +119,22 @@ describe("frontmatterDateToUnix", () => {
     expect(() =>
       frontmatterDateToUnix("not a date", { field: "published_at" }),
     ).toThrow(/published_at/);
+  });
+
+  it("存在しない暦日はエラー（Date.parse の翌月正規化を通さない）", () => {
+    // 2026-02-30 は Date.parse が 2026-03-02 に正規化してしまうため
+    // 別途拒否する。starts_at 等のイベント日時も同じ経路を通る。
+    expect(() =>
+      frontmatterDateToUnix("2026-02-30T10:00:00+09:00", {
+        field: "starts_at",
+      }),
+    ).toThrow(/starts_at/);
+    // 実在する日付（うるう年・月末）は通る
+    expect(() =>
+      frontmatterDateToUnix("2028-02-29T10:00:00+09:00", {
+        field: "starts_at",
+      }),
+    ).not.toThrow();
   });
 });
 

@@ -82,6 +82,7 @@ const DDL_STATEMENTS = [
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
     friend_id TEXT NOT NULL,
+    source TEXT,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE
@@ -337,6 +338,31 @@ const DDL_STATEMENTS = [
     updated_at INTEGER NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS articles_published_idx ON articles (published_at)`,
+  `CREATE TABLE IF NOT EXISTS events (
+    slug TEXT PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    cover_image_url TEXT,
+    location TEXT,
+    official_url TEXT,
+    starts_at INTEGER NOT NULL,
+    ends_at INTEGER NOT NULL,
+    published_at INTEGER NOT NULL,
+    unpublished_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS events_published_idx ON events (published_at)`,
+  `CREATE TABLE IF NOT EXISTS event_participations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    event_slug TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (event_slug) REFERENCES events(slug) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS event_participations_event_user_unique ON event_participations (event_slug, user_id)`,
+  `CREATE INDEX IF NOT EXISTS event_participations_user_idx ON event_participations (user_id)`,
 ];
 
 /**
@@ -375,6 +401,8 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
+  await d1.prepare("DELETE FROM event_participations").run();
+  await d1.prepare("DELETE FROM events").run();
   await d1.prepare("DELETE FROM articles").run();
   await d1.prepare("DELETE FROM users").run();
   await d1.prepare("DELETE FROM annict_work_casts").run();
@@ -383,7 +411,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'event_participations')",
     )
     .run();
   return db;
