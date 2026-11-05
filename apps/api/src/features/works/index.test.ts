@@ -1606,8 +1606,8 @@ describe("キャラクター一覧 API", () => {
     // 派生画像（large 等）はキャラによって中身が壊れて返るため（issue #474）、
     // キャッシュに派生 URL が残っているキャラは未解決扱いにして取り直す。
     const db = createDb(env.DB);
-    // 「修正適用前にキャッシュされた行」を表すため updatedAt は過去日付にする
-    // （派生 URL の取り直しは修正適用前の行だけが対象）
+    // 「取り直し期限（2026-11-15）より前にキャッシュされた行」を表すため
+    // updatedAt は期限より前の日付にする
     await db.insert(annictCharacters).values({
       annictCharacterId: 3001,
       name: "キャラA",
@@ -1662,14 +1662,14 @@ describe("キャラクター一覧 API", () => {
 
   it("GET /works/:id/characters: 取り直し済みの派生画像 URL は再取得しない", async () => {
     // original を持たないキャラは再解決しても同じ派生 URL に戻るため、
-    // 取り直し対象は修正適用前にキャッシュされた行に限る。
-    // 修正適用後に更新された行（updatedAt が新しい）は、Kitsu に
-    // original が無いと確定済みとして解決済み扱いにする。
+    // 取り直し対象は updatedAt が取り直し期限（2026-11-15）より古い行に限る。
+    // 期限後の行は Kitsu に original が無いと確定済みとして解決済み扱いにする。
     const db = createDb(env.DB);
     await db.insert(annictCharacters).values({
       annictCharacterId: 3001,
       name: "キャラA",
       imageUrl: "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+      // 取り直し期限後に更新された行をシードする
       updatedAt: new Date("2026-12-01T00:00:00Z"),
     });
     const fetchMock = mockWorkCasts(

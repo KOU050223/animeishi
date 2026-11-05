@@ -46,11 +46,13 @@ function getBindings(c: Context): AuthEnv["Bindings"] & {
 // 並べる量として、上限（50 件）よりやや少なめに取る。
 const WORKS_CANDIDATES_DEFAULT_LIMIT = 30;
 
-// Kitsu 派生画像 URL のキャッシュ取り直し対象となる updatedAt の上限
-// （issue #474。この修正を含むデプロイ以前に書かれた行だけを取り直す。
-// 取り直しで updatedAt がこの日時以降に更新された行は「派生 URL しか
-// 取れない」と確定済みとして以後は解決済み扱いにする）。
-const KITSU_DERIVATIVE_RERESOLVE_BEFORE_MS = Date.UTC(2026, 10, 15);
+// Kitsu 派生画像 URL のキャッシュ取り直し期限（issue #474）。
+// デプロイの遅れを見込んで、マージ日（2026-11-05）から約 10 日後に設定した。
+// updatedAt が期限より古い行だけを取り直す。期限までは original を持たない
+// キャラが名簿取得のたびに Kitsu へ再問い合わせするが（upsert が
+// updatedAt を更新するため取り直し済みと区別できない）、期限後の行は
+// 「派生 URL しか取れない」と確定済みとして解決済み扱いにする。
+const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
 // 検索のたびに Annict へ問い合わせる（docs/05 PR5）。視聴ステータスは含まない。
@@ -305,11 +307,9 @@ const works = new Hono<AuthVariables>()
       // 取れなかった場合は従来どおり既存値をフォールバックとして返す
       // （下の ?? 連鎖と upsert の coalesce で温存される）。
       //
-      // 派生 URL の取り直しは「この修正より前にキャッシュされた行」に限る。
-      // original を持たないキャラは再解決しても同じ派生 URL に戻るため、
-      // 取り直した回（updatedAt が更新される）以降は解決済みとして扱わないと
-      // リクエストごとに Kitsu へ問い合わせ続けることになる
-      // （upsertAnnictCharacters は名簿取得のたびに updatedAt を更新する）。
+      // 派生 URL の取り直しは updatedAt が取り直し期限より古い行に限る
+      // （上の KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS。期限後の行は
+      // 「派生 URL しか取れない」と確定済みとみなす）。
       const resolvedImages = new Map<number, string>();
       const hasUnresolved = characters.some((ch) => {
         const cached = cachedById.get(ch.annictCharacterId);
@@ -317,7 +317,7 @@ const works = new Hono<AuthVariables>()
         return (
           isAnilistImageUrl(cached.imageUrl) ||
           (isKitsuDerivativeImageUrl(cached.imageUrl) &&
-            cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_BEFORE_MS)
+            cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS)
         );
       });
       if (work.malAnimeId != null && hasUnresolved) {
