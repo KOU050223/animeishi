@@ -1601,6 +1601,62 @@ describe("キャラクター一覧 API", () => {
     });
     expect(row?.imageUrl).toBe("https://s4.anilist.co/stale.png");
   });
+
+  it("GET /works/:id/characters: Kitsu 派生画像のキャッシュ URL は original で取り直す", async () => {
+    // 派生画像（large 等）はキャラによって中身が壊れて返るため（issue #474）、
+    // キャッシュに派生 URL が残っているキャラは未解決扱いにして取り直す。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+      updatedAt: new Date(),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      {
+        kitsuCharacters: [
+          {
+            id: "c1",
+            names: { ja_jp: "キャラA" },
+            image: {
+              large:
+                "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+              original:
+                "https://media.kitsu.app/characters/images/1/original.jpg",
+            },
+          },
+        ],
+      },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0]?.imageUrl).toBe(
+      "https://media.kitsu.app/characters/images/1/original.jpg",
+    );
+    // 取り直した original でキャッシュも置き換わる
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe(
+      "https://media.kitsu.app/characters/images/1/original.jpg",
+    );
+  });
 });
 
 // --- GET /works/:annictWorkId（issue #347） ---

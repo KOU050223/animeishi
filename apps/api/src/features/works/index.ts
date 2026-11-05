@@ -23,6 +23,7 @@ import { workImageUrl } from "@/lib/annict/workImage";
 import {
   fetchKitsuCharacters,
   isAnilistImageUrl,
+  isKitsuDerivativeImageUrl,
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
 import { worksRepository } from "./repository";
@@ -294,14 +295,19 @@ const works = new Hono<AuthVariables>()
 
       // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
       // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
-      // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）が残っている
-      // キャラは未解決扱いにして Kitsu で取り直す。取れなかった場合は
-      // 従来どおり既存値をフォールバックとして返す（下の ?? 連鎖と
-      // upsert の coalesce で温存される）。
+      // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）と、Kitsu の
+      // 加工済み派生画像の URL（キャラによって中身が壊れている。issue #474）
+      // が残っているキャラは未解決扱いにして Kitsu で取り直す。
+      // 取れなかった場合は従来どおり既存値をフォールバックとして返す
+      // （下の ?? 連鎖と upsert の coalesce で温存される）。
       const resolvedImages = new Map<number, string>();
       const hasUnresolved = characters.some((ch) => {
         const cached = cachedImageById.get(ch.annictCharacterId);
-        return cached == null || isAnilistImageUrl(cached);
+        return (
+          cached == null ||
+          isAnilistImageUrl(cached) ||
+          isKitsuDerivativeImageUrl(cached)
+        );
       });
       if (work.malAnimeId != null && hasUnresolved) {
         try {
