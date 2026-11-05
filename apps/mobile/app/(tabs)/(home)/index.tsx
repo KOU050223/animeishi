@@ -21,9 +21,13 @@ import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
 import { useMarkScreenInteractive } from "@/lib/observe";
 
+// ホームでは直近の動きだけを見せ、続きは QR・フレンドタブのアクティビティで読む
+const HOME_FEED_MAX_ITEMS = 5;
+
 export default function HomeScreen() {
   useMarkScreenInteractive();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // タブ切替では画面のマウントが維持され stale のまま残る。活動フィードは
   // staleTime（5 分）内だと再取得されず、特集記事もタブ復帰では再取得の
@@ -80,6 +84,9 @@ export default function HomeScreen() {
             {/* イベント枠（issue #411）。参加表明したいイベントを会期前に */}
             {/* 目に留める位置のため、フィード上部のレール群に置く */}
             <EventRail />
+            {/* 特集記事（issue #437）。フィードの下に置くと、フレンドの動きが */}
+            {/* 多いときに辿り着けないため、イベントの下に置く */}
+            <ArticleRail />
             <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (
@@ -105,8 +112,8 @@ export default function HomeScreen() {
             </Text>
           </View>
         }
-        // 特集記事（issue #437）は「フレンドの動き」フィードの下に出す
-        ListFooterComponent=<ArticleRail />
+        maxItems={HOME_FEED_MAX_ITEMS}
+        onShowAll={() => router.push("/(tabs)/social?section=activity")}
       />
     </SafeAreaView>
   );
