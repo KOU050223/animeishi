@@ -1,3 +1,5 @@
+import { compareBroadcastSeason } from "./broadcastSeason";
+
 // アニメセクション（ライブラリタブ）のソート・絞り込み（issue #346）。
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。
 
@@ -69,6 +71,7 @@ type AnimeListFilterEntry = {
 type AnimeListSortEntry = {
   title: string;
   seasonYear: number | null;
+  seasonName?: string | null;
   watchersCount?: number | null;
 };
 
@@ -139,10 +142,10 @@ export function sortAnimeList<T extends AnimeListSortEntry>(
       if (bv == null) return -1;
       return sortOrder === "asc" ? av - bv : bv - av;
     }
-    const cmp =
-      sortKey === "title"
-        ? a.title.localeCompare(b.title, "ja")
-        : (a.seasonYear ?? 0) - (b.seasonYear ?? 0);
+    // year は同じ年の中を放送シーズン順に並べる
+    // （compareBroadcastSeason。issue #472）。
+    if (sortKey === "year") return compareBroadcastSeason(a, b, sortOrder);
+    const cmp = a.title.localeCompare(b.title, "ja");
     return sortOrder === "asc" ? cmp : -cmp;
   });
 }

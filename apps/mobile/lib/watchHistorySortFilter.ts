@@ -1,4 +1,5 @@
 import type { WatchState } from "./watchStatusLabels";
+import { compareBroadcastSeason } from "./broadcastSeason";
 
 // 視聴履歴セクションのソート・絞り込み（issue #345）。
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。
@@ -37,6 +38,7 @@ export const NO_WATCH_HISTORY_FILTERS: WatchHistoryFilters = {
 type WatchHistoryEntry = {
   state: WatchState;
   seasonYear: number | null;
+  seasonName?: string | null;
   watchersCount: number | null;
 };
 
@@ -95,17 +97,20 @@ export function filterWatchHistory<T extends WatchHistoryEntry>(
  * そのまま使うため並べ替えない。それ以外は値の降順で、値を持たない
  * （未取得の）作品は末尾に寄せる。同値の並びは入力順を維持する
  * （= 更新日降順がタイブレークになる）。
+ * seasonYear は同じ年の中を放送シーズン順に並べる
+ * （compareBroadcastSeason。issue #472）。
  */
 export function sortWatchHistory<T extends WatchHistoryEntry>(
   items: T[],
   sortKey: WatchHistorySortKey,
 ): T[] {
   if (sortKey === "updatedAt") return items;
-  const valueOf = (item: T) =>
-    sortKey === "seasonYear" ? item.seasonYear : item.watchersCount;
+  if (sortKey === "seasonYear") {
+    return [...items].sort((a, b) => compareBroadcastSeason(a, b, "desc"));
+  }
   return [...items].sort((a, b) => {
-    const av = valueOf(a);
-    const bv = valueOf(b);
+    const av = a.watchersCount;
+    const bv = b.watchersCount;
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;
