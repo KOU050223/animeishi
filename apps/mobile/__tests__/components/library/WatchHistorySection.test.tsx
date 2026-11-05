@@ -104,6 +104,42 @@ jest.mock("@/components/work-list", () => {
   };
 });
 
+// タイトル・サムネ押下で開く作品詳細シート（issue #471）。シート本体の
+// 挙動は AnimeWorkDetailSheet 側のテストに任せ、ここでは「開いたか・
+// 対象作品が正しいか」とキャラ Tier 表への遷移配線だけを見る。
+jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  const { Pressable, Text } =
+    jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    AnimeWorkDetailSheet: ({
+      work,
+      onOpenCharacterTierList,
+    }: {
+      work: { annictWorkId: number; title: string } | null;
+      onOpenCharacterTierList: (work: {
+        annictWorkId: number;
+        title: string;
+      }) => void;
+    }) =>
+      work
+        ? React.createElement(
+            React.Fragment,
+            null,
+            React.createElement(
+              Text,
+              { testID: "work-detail-sheet" },
+              work.title,
+            ),
+            React.createElement(Pressable, {
+              testID: "work-detail-open-tier",
+              onPress: () => onOpenCharacterTierList(work),
+            }),
+          )
+        : null,
+  };
+});
+
 jest.mock("@/lib/annict", () => ({
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
@@ -427,6 +463,41 @@ describe("WatchHistorySection", () => {
       await fireEvent.press(screen.getByTestId("watch-history-add-to-list-1"));
 
       expect(screen.getByTestId("add-to-work-list-sheet")).toBeTruthy();
+    });
+  });
+
+  describe("作品詳細シート（issue #471）", () => {
+    it("タイトルを押すと作品詳細シートが対象作品で開く", async () => {
+      await render(<WatchHistorySection />);
+      expect(screen.queryByTestId("work-detail-sheet")).toBeNull();
+
+      await fireEvent.press(screen.getByTestId("watch-history-detail-title-1"));
+
+      expect(screen.getByTestId("work-detail-sheet")).toHaveTextContent(
+        "テスト作品",
+      );
+    });
+
+    it("サムネイルを押しても作品詳細シートが開く", async () => {
+      await render(<WatchHistorySection />);
+
+      await fireEvent.press(screen.getByTestId("watch-history-detail-thumb-1"));
+
+      expect(screen.getByTestId("work-detail-sheet")).toHaveTextContent(
+        "テスト作品",
+      );
+    });
+
+    it("詳細シートのキャラ Tier 表導線はアニメ一覧と同じ画面へ遷移する", async () => {
+      await render(<WatchHistorySection />);
+      await fireEvent.press(screen.getByTestId("watch-history-detail-title-1"));
+
+      await fireEvent.press(screen.getByTestId("work-detail-open-tier"));
+
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/character-tier-list",
+        params: { workId: "1", workTitle: "テスト作品" },
+      });
     });
   });
 
