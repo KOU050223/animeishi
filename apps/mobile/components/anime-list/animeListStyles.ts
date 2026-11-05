@@ -13,7 +13,7 @@ import { GRID_GAP } from "./animeListUtils";
 export type AnimeListPalette = {
   /** 画面のベース背景。 */
   screen: string;
-  /** オレンジ系のセクションラベル（フィルタ行ラベル）。 */
+  /** オレンジ系のアクセント（セクションラベル・ポスター代替面）。 */
   accent: string;
   /** 見出し・強調テキスト。 */
   title: string;
@@ -301,12 +301,6 @@ function createStyles(p: AnimeListPalette) {
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-    },
-    filterRowLabel: {
-      width: 34,
-      color: p.accent,
-      fontSize: 11,
-      fontWeight: "800",
     },
     filterScroll: {
       flexDirection: "row",

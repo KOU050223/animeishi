@@ -89,7 +89,6 @@ export function SeasonFilter(props: SeasonFilterProps) {
   return (
     <View style={styles.filterBar}>
       <View style={styles.filterRow}>
-        <Text style={styles.filterRowLabel}>年</Text>
         <MenuPicker
           testID="season-filter-year"
           accessibilityLabel="年を選択"
@@ -106,7 +105,6 @@ export function SeasonFilter(props: SeasonFilterProps) {
       </View>
 
       <View style={styles.filterRow}>
-        <Text style={styles.filterRowLabel}>期</Text>
         {/* 5 択でも狭い画面・文字拡大でははみ出すため横スクロールを残す。 */}
         <ScrollView
           horizontal
