@@ -364,6 +364,47 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS event_participations_event_user_unique ON event_participations (event_slug, user_id)`,
   `CREATE INDEX IF NOT EXISTS event_participations_user_idx ON event_participations (user_id)`,
+  `CREATE TABLE IF NOT EXISTS elections (
+    slug TEXT PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    cover_image_url TEXT,
+    starts_at INTEGER NOT NULL,
+    ends_at INTEGER NOT NULL,
+    published_at INTEGER NOT NULL,
+    unpublished_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS elections_published_idx ON elections (published_at)`,
+  `CREATE TABLE IF NOT EXISTS election_candidates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    election_slug TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    annict_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    image_url TEXT,
+    position INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    CONSTRAINT election_candidates_kind_check CHECK (kind IN ('character', 'work')),
+    FOREIGN KEY (election_slug) REFERENCES elections(slug) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS election_candidates_election_kind_annict_unique ON election_candidates (election_slug, kind, annict_id)`,
+  `CREATE INDEX IF NOT EXISTS election_candidates_election_idx ON election_candidates (election_slug)`,
+  `CREATE TABLE IF NOT EXISTS election_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    election_slug TEXT NOT NULL,
+    candidate_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (election_slug) REFERENCES elections(slug) ON DELETE CASCADE,
+    FOREIGN KEY (candidate_id) REFERENCES election_candidates(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS election_votes_election_user_unique ON election_votes (election_slug, user_id)`,
+  `CREATE INDEX IF NOT EXISTS election_votes_candidate_idx ON election_votes (candidate_id)`,
 ];
 
 /**
@@ -402,6 +443,9 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
+  await d1.prepare("DELETE FROM election_votes").run();
+  await d1.prepare("DELETE FROM election_candidates").run();
+  await d1.prepare("DELETE FROM elections").run();
   await d1.prepare("DELETE FROM event_participations").run();
   await d1.prepare("DELETE FROM events").run();
   await d1.prepare("DELETE FROM articles").run();
@@ -412,7 +456,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'event_participations')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'event_participations', 'election_candidates', 'election_votes')",
     )
     .run();
   return db;

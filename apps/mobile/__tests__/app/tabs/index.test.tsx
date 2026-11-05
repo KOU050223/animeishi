@@ -139,6 +139,24 @@ jest.mock("@/lib/useEvents", () => ({
   EVENTS_QUERY_KEY: ["events"],
 }));
 
+// 総選挙（issue #438）はクエリ結果をテストごとに差し替える。
+let mockElections: {
+  data?: {
+    items: {
+      slug: string;
+      title: string;
+      coverImageUrl: string | null;
+      startsAt: string;
+      endsAt: string;
+      voted: boolean;
+    }[];
+  };
+};
+jest.mock("@/lib/useElections", () => ({
+  useElections: () => mockElections,
+  ELECTIONS_QUERY_KEY: ["elections"],
+}));
+
 // 今期（JST）の seasonName。テスト実行日に依らずレールの今期判定に合わせる。
 const { year, key } = currentSeason();
 const CURRENT_SEASON = `${year}-${key}`;
@@ -179,6 +197,7 @@ beforeEach(async () => {
   mockFeed = loadedFeed;
   mockArticles = { data: undefined };
   mockEvents = { data: undefined };
+  mockElections = { data: undefined };
 });
 
 describe("HomeScreen", () => {
@@ -321,6 +340,30 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/event/[slug]",
       params: { slug: "comiket-107" },
+    });
+  });
+
+  it("公開中の総選挙を総選挙枠に出し、タップで総選挙詳細へ遷移する", async () => {
+    mockElections = {
+      data: {
+        items: [
+          {
+            slug: "megane-2026",
+            title: "みんなが推す眼鏡キャラ総選挙",
+            coverImageUrl: null,
+            startsAt: "2026-11-10T10:00:00+09:00",
+            endsAt: "2026-11-20T18:00:00+09:00",
+            voted: false,
+          },
+        ],
+      },
+    };
+    loggedInUser();
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByTestId("election-card-megane-2026"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/election/[slug]",
+      params: { slug: "megane-2026" },
     });
   });
 
