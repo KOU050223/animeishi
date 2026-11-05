@@ -23,6 +23,7 @@ import { workImageUrl } from "@/lib/annict/workImage";
 import {
   fetchKitsuCharacters,
   isAnilistImageUrl,
+  isKitsuDerivativeImageUrl,
   matchCharacterImages,
 } from "@/lib/annict/characterImageFallback";
 import { worksRepository } from "./repository";
@@ -44,6 +45,14 @@ function getBindings(c: Context): AuthEnv["Bindings"] & {
 // /works/candidates の既定件数。オンボーディングの選択肢グリッドに
 // 並べる量として、上限（50 件）よりやや少なめに取る。
 const WORKS_CANDIDATES_DEFAULT_LIMIT = 30;
+
+// Kitsu 派生画像 URL のキャッシュ取り直し期限（issue #474）。
+// デプロイの遅れを見込んで、マージ日（2026-11-05）から約 10 日後に設定した。
+// updatedAt が期限より古い行だけを取り直す。期限までは original を持たない
+// キャラが名簿取得のたびに Kitsu へ再問い合わせするが（upsert が
+// updatedAt を更新するため取り直し済みと区別できない）、期限後の行は
+// 「派生 URL しか取れない」と確定済みとして解決済み扱いにする。
+const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
 // 検索のたびに Annict へ問い合わせる（docs/05 PR5）。視聴ステータスは含まない。
@@ -286,22 +295,30 @@ const works = new Hono<AuthVariables>()
       const cachedCharacters = await repo.getAnnictCharactersByIds(
         characters.map((ch) => ch.annictCharacterId),
       );
-      const cachedImageById = new Map(
-        cachedCharacters
-          .filter((ch) => ch.imageUrl)
-          .map((ch) => [ch.annictCharacterId, ch.imageUrl as string]),
+      const cachedById = new Map(
+        cachedCharacters.map((ch) => [ch.annictCharacterId, ch]),
       );
 
       // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
       // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
-      // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）が残っている
-      // キャラは未解決扱いにして Kitsu で取り直す。取れなかった場合は
-      // 従来どおり既存値をフォールバックとして返す（下の ?? 連鎖と
-      // upsert の coalesce で温存される）。
+      // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）と、Kitsu の
+      // 加工済み派生画像の URL（キャラによって中身が壊れている。issue #474）
+      // が残っているキャラは未解決扱いにして Kitsu で取り直す。
+      // 取れなかった場合は従来どおり既存値をフォールバックとして返す
+      // （下の ?? 連鎖と upsert の coalesce で温存される）。
+      //
+      // 派生 URL の取り直しは updatedAt が取り直し期限より古い行に限る
+      // （上の KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS。期限後の行は
+      // 「派生 URL しか取れない」と確定済みとみなす）。
       const resolvedImages = new Map<number, string>();
       const hasUnresolved = characters.some((ch) => {
-        const cached = cachedImageById.get(ch.annictCharacterId);
-        return cached == null || isAnilistImageUrl(cached);
+        const cached = cachedById.get(ch.annictCharacterId);
+        if (cached?.imageUrl == null) return true;
+        return (
+          isAnilistImageUrl(cached.imageUrl) ||
+          (isKitsuDerivativeImageUrl(cached.imageUrl) &&
+            cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS)
+        );
       });
       if (work.malAnimeId != null && hasUnresolved) {
         try {
@@ -367,7 +384,7 @@ const works = new Hono<AuthVariables>()
             ...ch,
             imageUrl:
               resolvedImages.get(ch.annictCharacterId) ??
-              cachedImageById.get(ch.annictCharacterId) ??
+              cachedById.get(ch.annictCharacterId)?.imageUrl ??
               null,
           })),
         },

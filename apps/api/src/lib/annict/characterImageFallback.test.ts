@@ -8,6 +8,7 @@ import {
 import { requestUrl } from "@/test-utils/fetch";
 import {
   fetchKitsuCharacters,
+  isKitsuDerivativeImageUrl,
   matchCharacterImages,
   normalizeCharacterName,
   type KitsuCharacter,
@@ -46,6 +47,40 @@ const annict = (
   nameKana: string | null = null,
   nameEn: string | null = null,
 ) => ({ annictCharacterId, name, nameKana, nameEn });
+
+describe("isKitsuDerivativeImageUrl", () => {
+  it("Kitsu CDN の加工済み派生画像（<variant>-<hash>）を検出する", () => {
+    for (const variant of ["tiny", "small", "medium", "large"]) {
+      expect(
+        isKitsuDerivativeImageUrl(
+          `https://media.kitsu.app/character/88093/image/${variant}-abcdef.jpeg`,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("original 形式の URL（サイズ名なし）は対象外", () => {
+    expect(
+      isKitsuDerivativeImageUrl(
+        "https://media.kitsu.app/characters/images/88093/original.jpg",
+      ),
+    ).toBe(false);
+    expect(
+      isKitsuDerivativeImageUrl(
+        "https://media.kitsu.app/character/105901/image/762b0293d9cd5de95289ea8a9b072b9e.jpg",
+      ),
+    ).toBe(false);
+  });
+
+  it("Kitsu CDN 以外のホストは対象外", () => {
+    expect(
+      isKitsuDerivativeImageUrl(
+        "https://example.com/character/1/image/large-abcdef.jpeg",
+      ),
+    ).toBe(false);
+    expect(isKitsuDerivativeImageUrl("not a url")).toBe(false);
+  });
+});
 
 describe("matchCharacterImages", () => {
   it("正規化名が一致するキャラクターに画像を名寄せする", () => {
@@ -158,27 +193,38 @@ describe("fetchKitsuCharacters", () => {
     expect(urls[1]).toContain("/anime/k1234/characters");
   });
 
-  it("large が無ければ original / medium / small にフォールバックする", async () => {
+  it("original を最優先にし、無ければ large / medium / small にフォールバックする", async () => {
+    // Kitsu の加工済み派生画像はキャラによって中身が壊れているため
+    // （issue #474）、原画像の original を優先する。
     const fetchMock = mockFetch([
       {
         id: "c1",
         canonicalName: "キャラA",
-        image: { large: null, original: "https://media.kitsu.app/o.png" },
+        image: {
+          large: "https://media.kitsu.app/l.png",
+          original: "https://media.kitsu.app/o.png",
+        },
       },
       {
         id: "c2",
         canonicalName: "キャラB",
-        image: { medium: "https://media.kitsu.app/m.png" },
+        image: { large: "https://media.kitsu.app/l.png" },
       },
       {
         id: "c3",
         canonicalName: "キャラC",
+        image: { medium: "https://media.kitsu.app/m.png" },
+      },
+      {
+        id: "c4",
+        canonicalName: "キャラD",
         image: { small: "https://media.kitsu.app/s.png" },
       },
     ]);
     const result = await fetchKitsuCharacters(1234, fetchMock);
     expect(result.map((c) => c.imageUrl)).toEqual([
       "https://media.kitsu.app/o.png",
+      "https://media.kitsu.app/l.png",
       "https://media.kitsu.app/m.png",
       "https://media.kitsu.app/s.png",
     ]);

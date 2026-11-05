@@ -9,6 +9,11 @@
 // （"You have been manually blocked"）で拒否するため、作品画像と同じく
 // Kitsu に切り替えた（issue #227。作品画像側は #226 で切り替え済み）。
 //
+// Kitsu の image には加工済み派生（tiny/small/medium/large）と original が
+// あるが、派生画像はキャラクターによって中身が壊れている（色の抜けた線画
+// のような画像が返る。issue #474）。URL からは良否が分からないため、
+// アップロード原画像である original を最優先にする。
+//
 // 設計方針:
 //   * 名寄せは「正規化した名前の一致」のみ。編集距離等のファジー一致は
 //     誤マッチで別キャラの顔が出る方が悪いため採用しない。
@@ -124,8 +129,10 @@ export async function fetchKitsuCharacters(
       const img = attr?.image;
       characterById.set(item.id, {
         names,
+        // 派生（large 等）は破損しているものが混ざるため original を優先する
+        // （issue #474）。original が無いキャラだけ派生画像にフォールバック。
         imageUrl:
-          img?.large ?? img?.original ?? img?.medium ?? img?.small ?? null,
+          img?.original ?? img?.large ?? img?.medium ?? img?.small ?? null,
       });
     }
     for (const row of json.data ?? []) {
@@ -171,6 +178,29 @@ const ANILIST_IMAGE_HOST_PATTERN = /(^|\.)(anilist\.co|anili\.st)$/i;
 export function isAnilistImageUrl(url: string): boolean {
   try {
     return ANILIST_IMAGE_HOST_PATTERN.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Kitsu の加工済み派生画像の URL パターン
+// （media.kitsu.app/character/<id>/image/<variant>-<hash>.<ext>。
+// original は characters/images/<id>/original.<ext> や
+// character/<id>/image/<hash>.<ext> で、サイズ名のプレフィックスを持たない）。
+// 派生画像はキャラクターによって中身が壊れて返るため（issue #474）、
+// キャッシュに残っているものは未解決扱いにして original で取り直す。
+const KITSU_DERIVATIVE_IMAGE_HOST_PATTERN = /(^|\.)kitsu\.(app|io)$/i;
+const KITSU_DERIVATIVE_IMAGE_PATH_PATTERN =
+  /^\/character\/\d+\/image\/(?:tiny|small|medium|large)-/i;
+
+/** Kitsu の加工済み派生画像（tiny/small/medium/large）の URL か。 */
+export function isKitsuDerivativeImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      KITSU_DERIVATIVE_IMAGE_HOST_PATTERN.test(parsed.hostname) &&
+      KITSU_DERIVATIVE_IMAGE_PATH_PATTERN.test(parsed.pathname)
+    );
   } catch {
     return false;
   }

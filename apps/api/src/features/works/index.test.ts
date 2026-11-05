@@ -1601,6 +1601,113 @@ describe("キャラクター一覧 API", () => {
     });
     expect(row?.imageUrl).toBe("https://s4.anilist.co/stale.png");
   });
+
+  it("GET /works/:id/characters: Kitsu 派生画像のキャッシュ URL は original で取り直す", async () => {
+    // 派生画像（large 等）はキャラによって中身が壊れて返るため（issue #474）、
+    // キャッシュに派生 URL が残っているキャラは未解決扱いにして取り直す。
+    const db = createDb(env.DB);
+    // 「取り直し期限（2026-11-15）より前にキャッシュされた行」を表すため
+    // updatedAt は期限より前の日付にする
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      {
+        kitsuCharacters: [
+          {
+            id: "c1",
+            names: { ja_jp: "キャラA" },
+            image: {
+              large:
+                "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+              original:
+                "https://media.kitsu.app/characters/images/1/original.jpg",
+            },
+          },
+        ],
+      },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    expect(body.characters[0]?.imageUrl).toBe(
+      "https://media.kitsu.app/characters/images/1/original.jpg",
+    );
+    // 取り直した original でキャッシュも置き換わる
+    const row = await db.query.annictCharacters.findFirst({
+      where: (t, { eq }) => eq(t.annictCharacterId, 3001),
+    });
+    expect(row?.imageUrl).toBe(
+      "https://media.kitsu.app/characters/images/1/original.jpg",
+    );
+  });
+
+  it("GET /works/:id/characters: 取り直し済みの派生画像 URL は再取得しない", async () => {
+    // original を持たないキャラは再解決しても同じ派生 URL に戻るため、
+    // 取り直し対象は updatedAt が取り直し期限（2026-11-15）より古い行に限る。
+    // 期限後の行は Kitsu に original が無いと確定済みとして解決済み扱いにする。
+    const db = createDb(env.DB);
+    await db.insert(annictCharacters).values({
+      annictCharacterId: 3001,
+      name: "キャラA",
+      imageUrl: "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+      // 取り直し期限後に更新された行をシードする
+      updatedAt: new Date("2026-12-01T00:00:00Z"),
+    });
+    const fetchMock = mockWorkCasts(
+      [
+        {
+          sortNumber: 1,
+          character: { annictId: 3001, name: "キャラA" },
+        },
+      ],
+      { kitsuCharacters: [] },
+    );
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${CHAR_WORK_ID}/characters`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      characters: { imageUrl: string | null }[];
+    };
+    // Kitsu に問い合わせず、キャッシュの派生 URL をそのまま返す
+    expect(body.characters[0]?.imageUrl).toBe(
+      "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
+    );
+    const kitsuCalls = fetchMock.mock.calls.filter((call: unknown[]) => {
+      const url =
+        typeof call[0] === "string"
+          ? call[0]
+          : call[0] instanceof URL
+            ? call[0].href
+            : (call[0] as Request).url;
+      return isKitsuMappingsUrl(url) || isKitsuCharactersUrl(url);
+    });
+    expect(kitsuCalls).toHaveLength(0);
+  });
 });
 
 // --- GET /works/:annictWorkId（issue #347） ---
