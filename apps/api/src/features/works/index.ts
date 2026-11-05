@@ -46,6 +46,12 @@ function getBindings(c: Context): AuthEnv["Bindings"] & {
 // 並べる量として、上限（50 件）よりやや少なめに取る。
 const WORKS_CANDIDATES_DEFAULT_LIMIT = 30;
 
+// Kitsu 派生画像 URL のキャッシュ取り直し対象となる updatedAt の上限
+// （issue #474。この修正を含むデプロイ以前に書かれた行だけを取り直す。
+// 取り直しで updatedAt がこの日時以降に更新された行は「派生 URL しか
+// 取れない」と確定済みとして以後は解決済み扱いにする）。
+const KITSU_DERIVATIVE_RERESOLVE_BEFORE_MS = Date.UTC(2026, 10, 15);
+
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
 // 検索のたびに Annict へ問い合わせる（docs/05 PR5）。視聴ステータスは含まない。
 //
@@ -287,10 +293,8 @@ const works = new Hono<AuthVariables>()
       const cachedCharacters = await repo.getAnnictCharactersByIds(
         characters.map((ch) => ch.annictCharacterId),
       );
-      const cachedImageById = new Map(
-        cachedCharacters
-          .filter((ch) => ch.imageUrl)
-          .map((ch) => [ch.annictCharacterId, ch.imageUrl as string]),
+      const cachedById = new Map(
+        cachedCharacters.map((ch) => [ch.annictCharacterId, ch]),
       );
 
       // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
@@ -300,13 +304,20 @@ const works = new Hono<AuthVariables>()
       // が残っているキャラは未解決扱いにして Kitsu で取り直す。
       // 取れなかった場合は従来どおり既存値をフォールバックとして返す
       // （下の ?? 連鎖と upsert の coalesce で温存される）。
+      //
+      // 派生 URL の取り直しは「この修正より前にキャッシュされた行」に限る。
+      // original を持たないキャラは再解決しても同じ派生 URL に戻るため、
+      // 取り直した回（updatedAt が更新される）以降は解決済みとして扱わないと
+      // リクエストごとに Kitsu へ問い合わせ続けることになる
+      // （upsertAnnictCharacters は名簿取得のたびに updatedAt を更新する）。
       const resolvedImages = new Map<number, string>();
       const hasUnresolved = characters.some((ch) => {
-        const cached = cachedImageById.get(ch.annictCharacterId);
+        const cached = cachedById.get(ch.annictCharacterId);
+        if (cached?.imageUrl == null) return true;
         return (
-          cached == null ||
-          isAnilistImageUrl(cached) ||
-          isKitsuDerivativeImageUrl(cached)
+          isAnilistImageUrl(cached.imageUrl) ||
+          (isKitsuDerivativeImageUrl(cached.imageUrl) &&
+            cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_BEFORE_MS)
         );
       });
       if (work.malAnimeId != null && hasUnresolved) {
@@ -373,7 +384,7 @@ const works = new Hono<AuthVariables>()
             ...ch,
             imageUrl:
               resolvedImages.get(ch.annictCharacterId) ??
-              cachedImageById.get(ch.annictCharacterId) ??
+              cachedById.get(ch.annictCharacterId)?.imageUrl ??
               null,
           })),
         },
