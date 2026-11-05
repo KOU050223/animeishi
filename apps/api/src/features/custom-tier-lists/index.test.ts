@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { customTierLists } from "@/features/custom-tier-lists";
-import { users, annictWorks } from "@/db/schema";
+import { users, annictWorks, tierListLikes } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -326,10 +326,41 @@ describe("自由作成 tier 表 API", () => {
       expect(res.status).toBe(404);
     });
 
-    it("DELETE /:id: 削除すると取得できなくなる", async () => {
+    it("DELETE /:id: 削除すると取得できなくなり、その表へのいいね行も消える", async () => {
       const app = buildApp();
       const created = await createList(app);
       const { id } = (await created.json()) as { id: number };
+
+      // いいね機能のルートはこのテスト app に無いため直接 insert する。
+      // 別種類で同じ list_id・同じ kind で別 list_id の行も仕込み、
+      // (list_kind, list_id) が一致する行だけが消えることを確認する。
+      const now = new Date();
+      await db.insert(tierListLikes).values([
+        {
+          userId: OTHER_USER_ID,
+          listKind: "custom",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "season",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "character",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "custom",
+          listId: id + 9999,
+          createdAt: now,
+        },
+      ]);
 
       const delRes = await app.request(
         `/me/custom-tier-lists/${id}`,
@@ -344,6 +375,16 @@ describe("自由作成 tier 表 API", () => {
         TEST_BINDINGS,
       );
       expect(getRes.status).toBe(404);
+
+      const likes = await db.query.tierListLikes.findMany();
+      expect(likes).toHaveLength(3);
+      expect(likes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ listKind: "season", listId: id }),
+          expect.objectContaining({ listKind: "character", listId: id }),
+          expect.objectContaining({ listKind: "custom", listId: id + 9999 }),
+        ]),
+      );
     });
 
     describe("説明文と公開設定（issue #476）", () => {

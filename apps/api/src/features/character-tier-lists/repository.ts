@@ -5,6 +5,7 @@ import {
   annictCharacters,
   characterTierLists,
   characterTierListItems,
+  tierListLikes,
 } from "@/db/schema";
 import type { CharacterTierList } from "@/db/schema";
 
@@ -249,16 +250,30 @@ export function characterTierListsRepository(
       return true;
     },
 
-    /** 指定作品のキャラクター tier 表を削除する。items は FK の CASCADE で消える。 */
+    /**
+     * 指定作品のキャラクター tier 表を削除する。items は FK の CASCADE で
+     * 消える。tier_list_likes は list_id 側に FK を張れない（kind で
+     * 参照先が変わる）ため、(list_kind, list_id) が一致する行を同じ
+     * batch で消す。
+     */
     async deleteMyCharacterTierList(annictWorkId: number): Promise<void> {
-      await db
-        .delete(characterTierLists)
-        .where(
-          and(
-            eq(characterTierLists.userId, currentUserId),
-            eq(characterTierLists.annictWorkId, annictWorkId),
+      const list = await db.query.characterTierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        columns: { id: true },
+      });
+      if (!list) return;
+      await db.batch([
+        db
+          .delete(tierListLikes)
+          .where(
+            and(
+              eq(tierListLikes.listKind, "character"),
+              eq(tierListLikes.listId, list.id),
+            ),
           ),
-        );
+        db.delete(characterTierLists).where(eq(characterTierLists.id, list.id)),
+      ]);
     },
   };
 }

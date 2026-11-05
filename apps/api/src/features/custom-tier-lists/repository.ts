@@ -1,7 +1,12 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
-import { annictWorks, customTierLists, customTierListItems } from "@/db/schema";
+import {
+  annictWorks,
+  customTierLists,
+  customTierListItems,
+  tierListLikes,
+} from "@/db/schema";
 import type { CustomTierList } from "@/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
@@ -251,13 +256,25 @@ export function customTierListsRepository(
     },
 
     /**
-     * 指定 id の自由作成 tier 表を削除する。items は FK の CASCADE で消える。
-     * 削除したか（＝自分の表だったか）を返す。
+     * 指定 id の自由作成 tier 表を削除する。items は FK の CASCADE で
+     * 消える。tier_list_likes は list_id 側に FK を張れない（kind で
+     * 参照先が変わる）ため、(list_kind, list_id) が一致する行を同じ
+     * batch で消す。削除したか（＝自分の表だったか）を返す。
      */
     async deleteMyCustomTierList(id: number): Promise<boolean> {
       const list = await findMyList(id);
       if (!list) return false;
-      await db.delete(customTierLists).where(eq(customTierLists.id, list.id));
+      await db.batch([
+        db
+          .delete(tierListLikes)
+          .where(
+            and(
+              eq(tierListLikes.listKind, "custom"),
+              eq(tierListLikes.listId, list.id),
+            ),
+          ),
+        db.delete(customTierLists).where(eq(customTierLists.id, list.id)),
+      ]);
       return true;
     },
   };

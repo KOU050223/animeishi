@@ -11,6 +11,7 @@ import {
   annictWorks,
   annictCharacters,
   annictWorkCasts,
+  tierListLikes,
 } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
@@ -379,9 +380,42 @@ describe("キャラクター tier 表 API", () => {
       ]);
     });
 
-    it("DELETE /:annictWorkId: 削除すると取得できなくなる", async () => {
+    it("DELETE /:annictWorkId: 削除すると取得できなくなり、その表へのいいね行も消える", async () => {
+      const db = createDb(env.DB);
       const app = buildApp();
-      await seedCharacterTierList(app);
+      const putRes = await seedCharacterTierList(app);
+      const { id } = (await putRes.json()) as { id: number };
+
+      // いいね機能のルートはこのテスト app に無いため直接 insert する。
+      // 別種類で同じ list_id・同じ kind で別 list_id の行も仕込み、
+      // (list_kind, list_id) が一致する行だけが消えることを確認する。
+      const now = new Date();
+      await db.insert(tierListLikes).values([
+        {
+          userId: OTHER_USER_ID,
+          listKind: "character",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "season",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "custom",
+          listId: id,
+          createdAt: now,
+        },
+        {
+          userId: OTHER_USER_ID,
+          listKind: "character",
+          listId: id + 9999,
+          createdAt: now,
+        },
+      ]);
 
       const delRes = await app.request(
         `/me/character-tier-lists/${WORK_ID}`,
@@ -396,6 +430,16 @@ describe("キャラクター tier 表 API", () => {
         TEST_BINDINGS,
       );
       expect(getRes.status).toBe(404);
+
+      const likes = await db.query.tierListLikes.findMany();
+      expect(likes).toHaveLength(3);
+      expect(likes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ listKind: "season", listId: id }),
+          expect.objectContaining({ listKind: "custom", listId: id }),
+          expect.objectContaining({ listKind: "character", listId: id + 9999 }),
+        ]),
+      );
     });
 
     it("他ユーザーのキャラクター tier 表は見えない", async () => {

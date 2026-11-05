@@ -581,8 +581,9 @@ export const workListLikes = sqliteTable(
 // 3 種類の tier 表（tier_lists / character_tier_lists / custom_tier_lists）は
 // 別テーブルに分かれるため、対象を (list_kind, list_id) で指す。
 // (user_id, list_kind, list_id) で 1 件のため、いいね操作は冪等にできる。
-// list_id 側の FK は張れない（参照先が kind で変わる）ため、リスト削除時の
-// like 行は残る。一覧は必ず実在するリストと JOIN するので表面には出ない。
+// list_id 側の FK は張れない（参照先が kind で変わる）ため、各 tier 表の
+// 削除関数が (list_kind, list_id) の一致する行を同じ batch で消す
+// （退会は deleteMyAccount が一括削除する）。
 export const tierListLikes = sqliteTable(
   "tier_list_likes",
   {
