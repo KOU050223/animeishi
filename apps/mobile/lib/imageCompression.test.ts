@@ -1,5 +1,6 @@
 import {
   AVATAR_MAX_DIMENSION,
+  MEISHI_IMAGE_MAX_BYTES,
   MEISHI_IMAGE_MAX_DIMENSION,
   calcResizedSize,
   compressAvatarImage,
@@ -16,12 +17,22 @@ const manipulate = jest.fn().mockReturnValue({ resize });
 
 jest.mock("expo-image-manipulator", () => ({
   ImageManipulator: { manipulate: jest.fn() },
-  SaveFormat: { WEBP: "webp" },
+  SaveFormat: { WEBP: "webp", JPEG: "jpeg" },
 }));
+
+// 保存後のファイルサイズ確認（fetch(uri).blob().size）を差し替える。
+const mockSavedSizes = (...sizes: number[]) => {
+  const fetchMock = jest.fn();
+  for (const size of sizes) {
+    fetchMock.mockResolvedValueOnce({ blob: async () => ({ size }) });
+  }
+  global.fetch = fetchMock;
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   (ImageManipulator.manipulate as jest.Mock).mockImplementation(manipulate);
+  mockSavedSizes(100 * 1024);
 });
 
 describe("calcResizedSize", () => {
@@ -80,18 +91,17 @@ describe("calcResizedSize", () => {
 });
 
 describe("compressAvatarImage", () => {
-  it("resize → renderAsync → saveAsync(WEBP) のチェーンを呼ぶ", async () => {
+  it("resize → renderAsync → saveAsync のチェーンを呼び、Content-Type 用の mimeType を返す（ネイティブは WebP）", async () => {
     const result = await compressAvatarImage("file:///in.jpg", {
       width: 1024,
       height: 512,
     });
 
-    // API 側は image/webp 前提で受けるため、WEBP 出力を固定する
     expect(manipulate).toHaveBeenCalledWith("file:///in.jpg");
     expect(resize).toHaveBeenCalledWith({ width: 512, height: 256 });
     expect(renderAsync).toHaveBeenCalled();
     expect(saveAsync).toHaveBeenCalledWith({ format: SaveFormat.WEBP });
-    expect(result).toEqual({ uri: "file:///out.webp" });
+    expect(result).toEqual({ uri: "file:///out.webp", mimeType: "image/webp" });
   });
 });
 
@@ -108,7 +118,7 @@ describe("compressMeishiImage", () => {
       format: SaveFormat.WEBP,
       compress: 0.8,
     });
-    expect(result).toEqual({ uri: "file:///out.webp" });
+    expect(result).toEqual({ uri: "file:///out.webp", mimeType: "image/webp" });
   });
 
   it("1024px 未満の画像は拡大しない", async () => {
@@ -118,6 +128,36 @@ describe("compressMeishiImage", () => {
     });
 
     expect(resize).toHaveBeenCalledWith({ width: 400, height: 300 });
+  });
+
+  it("上限を超えたら品質、次に寸法を下げて保存し直す", async () => {
+    mockSavedSizes(
+      MEISHI_IMAGE_MAX_BYTES + 1,
+      MEISHI_IMAGE_MAX_BYTES + 1,
+      MEISHI_IMAGE_MAX_BYTES,
+    );
+
+    await compressMeishiImage("file:///in.jpg", { width: 2048, height: 2048 });
+
+    expect(saveAsync.mock.calls.map(([opts]) => opts.compress)).toEqual([
+      0.8, 0.6, 0.6,
+    ]);
+    expect(resize.mock.calls.map(([size]) => size.width)).toEqual([
+      1024, 1024, 768,
+    ]);
+  });
+
+  it("最後まで上限に収まらなければ最後の結果を返す（エラーは API に任せる）", async () => {
+    mockSavedSizes(...Array(4).fill(MEISHI_IMAGE_MAX_BYTES + 1));
+
+    const result = await compressMeishiImage("file:///in.jpg", {
+      width: 2048,
+      height: 2048,
+    });
+
+    expect(saveAsync).toHaveBeenCalledTimes(4);
+    expect(resize).toHaveBeenLastCalledWith({ width: 512, height: 512 });
+    expect(result).toEqual({ uri: "file:///out.webp", mimeType: "image/webp" });
   });
 
   it("MEISHI_IMAGE_MAX_DIMENSION は 1024", () => {
