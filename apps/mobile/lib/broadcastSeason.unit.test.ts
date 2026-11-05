@@ -43,7 +43,6 @@ describe("compareBroadcastSeason", () => {
       entry(2, 2026, "2026-winter"),
       entry(3, 2025, "2025-autumn"),
     ];
-    // 未設定（id:1）は 2026 年組の末尾だが、年が古い id:3 よりは前
     expect(sortedIds(items, "desc")).toEqual([2, 1, 3]);
   });
 
@@ -103,7 +102,6 @@ describe("compareBroadcastSeason", () => {
       entry(2, 2026, "2026-winter"),
       entry(3, 2026, "all"),
     ];
-    // 未設定同士（id:1, 3）は入力順を維持する
     expect(sortedIds(items, "desc")).toEqual([2, 1, 3]);
   });
 });

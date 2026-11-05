@@ -97,8 +97,6 @@ export function filterWatchHistory<T extends WatchHistoryEntry>(
  * そのまま使うため並べ替えない。それ以外は値の降順で、値を持たない
  * （未取得の）作品は末尾に寄せる。同値の並びは入力順を維持する
  * （= 更新日降順がタイブレークになる）。
- * seasonYear は同じ年の中を放送シーズン順に並べる
- * （compareBroadcastSeason。issue #472）。
  */
 export function sortWatchHistory<T extends WatchHistoryEntry>(
   items: T[],

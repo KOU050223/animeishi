@@ -142,8 +142,6 @@ export function sortAnimeList<T extends AnimeListSortEntry>(
       if (bv == null) return -1;
       return sortOrder === "asc" ? av - bv : bv - av;
     }
-    // year は同じ年の中を放送シーズン順に並べる
-    // （compareBroadcastSeason。issue #472）。
     if (sortKey === "year") return compareBroadcastSeason(a, b, sortOrder);
     const cmp = a.title.localeCompare(b.title, "ja");
     return sortOrder === "asc" ? cmp : -cmp;

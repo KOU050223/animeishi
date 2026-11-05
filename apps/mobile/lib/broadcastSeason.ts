@@ -1,10 +1,8 @@
-// 放送シーズン（Annict Work.seasonName）を使った「年 → 年内クール」順の
-// 比較。視聴履歴の「放送年順」とアニメ一覧の「年度」ソートで共有する
-// （issue #472）。
+// 放送年 → 年内クール順の比較。視聴履歴の「放送年順」とアニメ一覧の
+// 「年度」ソートで共有する（issue #472）。
 
-// 年内の放送順。Annict のクールは 1-3月=winter / 4-6月=spring /
-// 7-9月=summer / 10-12月=autumn（animeListUtils の SEASON_KEYS と同じ順）。
-// "fall" は表記ゆれで秋として扱う（同じく animeListUtils.SEASONS に倣う）。
+// Annict のクールは 1-3月=winter / 4-6月=spring / 7-9月=summer /
+// 10-12月=autumn。"fall" は表記ゆれで秋として扱う（animeListUtils.SEASONS に倣う）。
 const SEASON_RANK: Record<string, number> = {
   winter: 0,
   spring: 1,
@@ -19,15 +17,12 @@ export type BroadcastSeasonEntry = {
   seasonName?: string | null;
 };
 
-/**
- * seasonName（"2026-spring" 形式）から年内の放送順位を取る。
- * ハイフンが無い値は全体をシーズン名として解釈する（表示用の
- * formatWorkSeason と同じパース）。未設定・未知のシーズン名は null。
- */
 function broadcastSeasonRank(
   seasonName: string | null | undefined,
 ): number | null {
   if (seasonName == null) return null;
+  // "2026-spring" 形式から季節部分だけを取る。ハイフンが無い値は
+  // 全体をシーズン名として解釈する（formatWorkSeason と同じパース）。
   const season = seasonName.includes("-")
     ? seasonName.split("-")[1]
     : seasonName;
@@ -35,14 +30,12 @@ function broadcastSeasonRank(
 }
 
 /**
- * 放送年 → 年内シーズン順の比較関数（Array#sort の comparator）。
- * 年が同じなら年内の放送順（asc: 冬→春→夏→秋 / desc: その逆）で比べる。
+ * Array#sort の comparator。
  *
- * シーズン未設定（seasonName 無し・Annict が返さない形式）は向きに
- * 関わらず同じ年の末尾に置く（昇順で未設定が先頭に来ないよう、
- * 順位の反転ではなく専用の後置きにする）。
- * 放送年そのものが未設定（seasonYear null）は最小年として扱い、
- * 降順で末尾・昇順で先頭に寄る従来の並びを維持する。
+ * シーズン未設定は向きに関わらず同じ年の末尾に置く（昇順で未設定が
+ * 先頭に来ないよう、順位の反転ではなく専用の後置きにする）。
+ * seasonYear null は最小年扱いで、降順で末尾・昇順で先頭に寄る
+ * 従来の並び（sortWatchHistory の末尾寄せ・sortAnimeList の `?? 0`）を維持する。
  */
 export function compareBroadcastSeason(
   a: BroadcastSeasonEntry,
