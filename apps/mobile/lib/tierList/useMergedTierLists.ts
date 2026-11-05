@@ -22,6 +22,8 @@ export type MergedTierListItem = {
   id: string;
   title: string;
   shared: boolean;
+  /** ひろばの公開一覧に載せる設定（issue #476）。一覧の「公開中」表示に使う。 */
+  isPublic: boolean;
   updatedAt: string;
 };
 
@@ -43,6 +45,7 @@ export function useMergedTierLists() {
         id: l.season,
         title: l.title,
         shared: l.shareToken != null,
+        isPublic: l.isPublic,
         // API の updatedAt は ISO 8601 文字列。文字列比較で新旧順になる。
         updatedAt: String(l.updatedAt),
       })),
@@ -52,6 +55,7 @@ export function useMergedTierLists() {
         id: String(l.annictWorkId),
         title: l.title,
         shared: l.shareToken != null,
+        isPublic: l.isPublic,
         updatedAt: String(l.updatedAt),
       })),
       ...(customLists.data ?? []).map((l) => ({
@@ -60,6 +64,7 @@ export function useMergedTierLists() {
         id: String(l.id),
         title: l.title,
         shared: l.shareToken != null,
+        isPublic: l.isPublic,
         updatedAt: String(l.updatedAt),
       })),
     ];

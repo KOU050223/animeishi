@@ -112,6 +112,7 @@ describe("CreateSection", () => {
         id: "2026-spring",
         title: "春の表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-05-01T00:00:00Z",
       },
       {
@@ -120,6 +121,7 @@ describe("CreateSection", () => {
         id: "42",
         title: "キャラの表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-04-01T00:00:00Z",
       },
       {
@@ -128,6 +130,7 @@ describe("CreateSection", () => {
         id: "5",
         title: "自由の表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-03-01T00:00:00Z",
       },
     ];

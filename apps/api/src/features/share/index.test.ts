@@ -236,6 +236,43 @@ describe("tier 表の共有", () => {
     ]);
   });
 
+  it("GET /share/tier-lists/:token: 説明文が JSON と HTML に出る（issue #476）", async () => {
+    const app = buildApp();
+    await app.request(
+      "/me/tier-lists",
+      putBody({
+        season: SEASON,
+        title: "2026春のTier表",
+        description: "このシーズンの推し",
+        tiers: TIERS,
+        items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+      }),
+      TEST_BINDINGS,
+    );
+    const shareRes = await app.request(
+      `/me/tier-lists/${SEASON}/share`,
+      { method: "POST" },
+      TEST_BINDINGS,
+    );
+    const { shareToken } = (await shareRes.json()) as { shareToken: string };
+
+    const res = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "application/json" } },
+      TEST_BINDINGS,
+    );
+    const body = (await res.json()) as { description: string | null };
+    expect(body.description).toBe("このシーズンの推し");
+
+    const htmlRes = await app.request(
+      `/share/tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await htmlRes.text();
+    expect(html).toContain("このシーズンの推し");
+  });
+
   it("GET /share/tier-lists/:token: 不明なトークンは 404 を返す", async () => {
     const app = buildApp();
     const res = await app.request(
@@ -544,6 +581,42 @@ describe("自由作成 tier 表の共有（issue #348）", () => {
     );
     // シーズン版と違い season キーは出さない
     expect("season" in body).toBe(false);
+  });
+
+  it("GET /share/custom-tier-lists/:token: 説明文が JSON と HTML に出る（issue #476）", async () => {
+    const app = buildApp();
+    const res = await app.request(
+      "/me/custom-tier-lists",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "歴代で好きなアニメ",
+          description: "このジャンルのベスト",
+          tiers: TIERS,
+          items: [{ annictWorkId: WORK_A, tierKey: "s" }],
+        }),
+      },
+      TEST_BINDINGS,
+    );
+    const { id } = (await res.json()) as { id: number };
+    const shareToken = await issueShareToken(app, id);
+
+    const jsonRes = await app.request(
+      `/share/custom-tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "application/json" } },
+      TEST_BINDINGS,
+    );
+    const body = (await jsonRes.json()) as { description: string | null };
+    expect(body.description).toBe("このジャンルのベスト");
+
+    const htmlRes = await app.request(
+      `/share/custom-tier-lists/${shareToken}`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const html = await htmlRes.text();
+    expect(html).toContain("このジャンルのベスト");
   });
 
   it("GET /share/custom-tier-lists/:token: 不明なトークンは 404 を返す", async () => {

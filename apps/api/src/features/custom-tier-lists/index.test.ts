@@ -60,6 +60,8 @@ async function createList(
   app: ReturnType<typeof buildApp>,
   body?: Partial<{
     title: string;
+    description: string | null;
+    isPublic: boolean;
     tiers: typeof TIERS;
     items: { annictWorkId: number; tierKey: string }[];
   }>,
@@ -342,6 +344,93 @@ describe("自由作成 tier 表 API", () => {
         TEST_BINDINGS,
       );
       expect(getRes.status).toBe(404);
+    });
+
+    describe("説明文と公開設定（issue #476）", () => {
+      it("POST: 省略時は非公開・説明なしで作成される", async () => {
+        const app = buildApp();
+        const res = await createList(app);
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBeNull();
+        expect(body.isPublic).toBe(false);
+      });
+
+      it("POST: 説明文と公開設定を保存し GET で取り出せる", async () => {
+        const app = buildApp();
+        const created = await createList(app, {
+          description: "このジャンルのベスト",
+          isPublic: true,
+        });
+        const { id } = (await created.json()) as { id: number };
+
+        const res = await app.request(
+          `/me/custom-tier-lists/${id}`,
+          { method: "GET" },
+          TEST_BINDINGS,
+        );
+        const body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBe("このジャンルのベスト");
+        expect(body.isPublic).toBe(true);
+      });
+
+      it("PUT /:id: 更新で省略した項目は既存値を維持し、空文字の説明文は消去される", async () => {
+        const app = buildApp();
+        const created = await createList(app, {
+          description: "説明あり",
+          isPublic: true,
+        });
+        const { id } = (await created.json()) as { id: number };
+
+        // description / isPublic を送らない更新
+        await app.request(
+          `/me/custom-tier-lists/${id}`,
+          jsonBody("PUT", { title: "更新", tiers: TIERS, items: [] }),
+          TEST_BINDINGS,
+        );
+        let res = await app.request(
+          `/me/custom-tier-lists/${id}`,
+          { method: "GET" },
+          TEST_BINDINGS,
+        );
+        let body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBe("説明あり");
+        expect(body.isPublic).toBe(true);
+
+        // 消去・非公開化は明示的に送る
+        await app.request(
+          `/me/custom-tier-lists/${id}`,
+          jsonBody("PUT", {
+            title: "更新2",
+            description: "",
+            isPublic: false,
+            tiers: TIERS,
+            items: [],
+          }),
+          TEST_BINDINGS,
+        );
+        res = await app.request(
+          `/me/custom-tier-lists/${id}`,
+          { method: "GET" },
+          TEST_BINDINGS,
+        );
+        body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBeNull();
+        expect(body.isPublic).toBe(false);
+      });
     });
   });
 

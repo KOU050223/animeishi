@@ -345,6 +345,156 @@ describe("tier 表 API", () => {
     });
   });
 
+  describe("説明文と公開設定（issue #476）", () => {
+    beforeEach(() => {
+      vi.mocked(getAuth).mockReturnValue({
+        userId: USER_ID,
+      } as ReturnType<typeof getAuth>);
+    });
+
+    it("PUT: 省略時は非公開・説明なしで作成される", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier",
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        description: string | null;
+        isPublic: boolean;
+      };
+      expect(body.description).toBeNull();
+      expect(body.isPublic).toBe(false);
+    });
+
+    it("PUT: 説明文と公開設定を保存し、GET と一覧で取り出せる", async () => {
+      const app = buildApp();
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier",
+          description: "  このシーズンの推し  ",
+          isPublic: true,
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+
+      const res = await app.request(
+        `/me/tier-lists/${SEASON}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await res.json()) as {
+        description: string | null;
+        isPublic: boolean;
+      };
+      // 前後の空白は保存時に削る
+      expect(body.description).toBe("このシーズンの推し");
+      expect(body.isPublic).toBe(true);
+
+      // 一覧にも isPublic が載る（ハブ画面の「公開中」表示に使う）
+      const listRes = await app.request(
+        "/me/tier-lists",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const list = (await listRes.json()) as { isPublic: boolean }[];
+      expect(list[0]?.isPublic).toBe(true);
+    });
+
+    it("PUT: 更新で省略した項目は既存値を維持し、空文字の説明文は消去される", async () => {
+      const app = buildApp();
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier",
+          description: "説明あり",
+          isPublic: true,
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+
+      // 盤面だけの再保存（description / isPublic なし）
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier2",
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+
+      let res = await app.request(
+        `/me/tier-lists/${SEASON}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      let body = (await res.json()) as {
+        description: string | null;
+        isPublic: boolean;
+      };
+      expect(body.description).toBe("説明あり");
+      expect(body.isPublic).toBe(true);
+
+      // 説明文の消去と非公開への戻しは明示的に送る
+      await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier3",
+          description: "",
+          isPublic: false,
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+      res = await app.request(
+        `/me/tier-lists/${SEASON}`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      body = (await res.json()) as {
+        description: string | null;
+        isPublic: boolean;
+      };
+      expect(body.description).toBeNull();
+      expect(body.isPublic).toBe(false);
+    });
+
+    it("PUT: 説明文が 500 文字を超えると 400 を返す", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/tier-lists",
+        putBody({
+          season: SEASON,
+          title: "tier",
+          description: "あ".repeat(501),
+          tiers: TIERS,
+          items: [],
+        }),
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("活動フィードへの記録", () => {
     beforeEach(() => {
       vi.mocked(getAuth).mockReturnValue({

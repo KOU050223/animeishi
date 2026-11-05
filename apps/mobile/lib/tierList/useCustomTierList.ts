@@ -81,6 +81,9 @@ export function useSaveCustomTierList() {
     mutationFn: async (input: {
       id?: number;
       title: string;
+      // 表の説明文と公開設定（issue #476）。省略時はサーバが既存値を維持する。
+      description?: string | null;
+      isPublic?: boolean;
       tiers: TierRow[];
       items: { annictWorkId: number; tierKey: string }[];
     }) => {

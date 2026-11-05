@@ -325,4 +325,15 @@ describe("sameBoard", () => {
     reordered.items = [reordered.items[1], reordered.items[0]];
     expect(sameBoard(snapshot(), reordered)).toBe(false);
   });
+
+  it("説明文・公開設定が違うだけでも false（issue #476）", () => {
+    // 盤面以外の変更だけでも未保存と判定しないと、保存応答の反映で
+    // 編集中の説明文や公開設定が黙って上書きされる。
+    expect(
+      sameBoard(snapshot(), { ...snapshot(), description: "説明文" }),
+    ).toBe(false);
+    expect(sameBoard(snapshot(), { ...snapshot(), isPublic: true })).toBe(
+      false,
+    );
+  });
 });

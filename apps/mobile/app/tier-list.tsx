@@ -27,6 +27,7 @@ import {
   TierBoardSnapshot,
   type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
+import { TierListMetaFields } from "@/components/tier-list/TierListMetaFields";
 import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -106,6 +107,10 @@ export default function TierListScreen() {
   // まとめてクリアする。
   const [manualWorks, setManualWorks] = useState<TierItem[]>([]);
   const [title, setTitle] = useState(() => defaultTierListTitle(season));
+  // 表の説明文と、ひろばの公開一覧に載せるか（issue #476）。
+  // 共有 URL（share_token）とは独立した設定。
+  const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -122,9 +127,23 @@ export default function TierListScreen() {
   // 保存データの組み立て元。保存は確認ダイアログや共有フローを挟むため、
   // ボタンを押した時点ではなく承認・実行の時点の盤面を送れるよう
   // 最新値を ref に逃がす（確認表示中の編集が古い配置で上書きされない）。
-  const saveSourceRef = useRef({ season, title, tiers, assignment });
+  const saveSourceRef = useRef({
+    season,
+    title,
+    description,
+    isPublic,
+    tiers,
+    assignment,
+  });
   useEffect(() => {
-    saveSourceRef.current = { season, title, tiers, assignment };
+    saveSourceRef.current = {
+      season,
+      title,
+      description,
+      isPublic,
+      tiers,
+      assignment,
+    };
   });
 
   // シーズンを切り替えたら、そのシーズンの保存済みデータ（あれば）で状態を差し替える。
@@ -155,10 +174,14 @@ export default function TierListScreen() {
         ),
       );
       setTitle(saved.title);
+      setDescription(saved.description ?? "");
+      setIsPublic(saved.isPublic);
     } else {
       setTiers(DEFAULT_TIERS);
       setAssignment(new Map());
       setTitle(defaultTierListTitle(season));
+      setDescription("");
+      setIsPublic(false);
     }
     setIsDirty(false);
   }
@@ -208,6 +231,27 @@ export default function TierListScreen() {
       setIsDirty(true);
     },
     [isSharing, save.isPending, boardWorks],
+  );
+
+  const handleChangeDescription = useCallback(
+    (next: string) => {
+      // ドロップと同じく、共有・保存中の編集は受け付けない。
+      // 読み込み中も不可（hydrate が編集を上書きする上、未保存扱いで
+      // 空の盤面を保存できてしまうため）。
+      if (isSharing || save.isPending || isSavedLoading) return;
+      setDescription(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedLoading, save.isPending],
+  );
+
+  const handleChangeIsPublic = useCallback(
+    (next: boolean) => {
+      if (isSharing || save.isPending || isSavedLoading) return;
+      setIsPublic(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedLoading, save.isPending],
   );
 
   const handleRenameTier = useCallback(
@@ -300,6 +344,8 @@ export default function TierListScreen() {
         {
           season: cur.season,
           title: cur.title,
+          description: cur.description,
+          isPublic: cur.isPublic,
           tiers: cur.tiers,
           items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
             annictWorkId: i.itemId,
@@ -343,6 +389,8 @@ export default function TierListScreen() {
     const savedData = await save.mutateAsync({
       season: cur.season,
       title: cur.title,
+      description: cur.description,
+      isPublic: cur.isPublic,
       tiers: cur.tiers,
       items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
         annictWorkId: i.itemId,
@@ -534,6 +582,14 @@ export default function TierListScreen() {
       <View style={styles.header}>
         {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
+        <TierListMetaFields
+          description={description}
+          onChangeDescription={handleChangeDescription}
+          isPublic={isPublic}
+          onChangeIsPublic={handleChangeIsPublic}
+          disabled={isSharing || save.isPending || isSavedLoading}
+          testIDPrefix="tier-list"
+        />
         <Text style={styles.headerHint}>
           作品を長押ししてドラッグすると tier を移動できます。tier
           名はタップで変更できます
@@ -560,13 +616,16 @@ export default function TierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending) && styles.saveButtonDisabled,
+              (!isDirty || save.isPending || isSavedLoading) &&
+                styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending}
+            disabled={!isDirty || save.isPending || isSavedLoading}
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
-            accessibilityState={{ disabled: !isDirty || save.isPending }}
+            accessibilityState={{
+              disabled: !isDirty || save.isPending || isSavedLoading,
+            }}
             testID="tier-list-save"
           >
             {save.isPending ? (

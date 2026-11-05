@@ -126,9 +126,12 @@ jest.mock("@/lib/tierList/share", () => ({
 function savedList(
   title: string,
   items: { annictWorkId: number; tierKey: string }[],
+  options?: { description?: string | null; isPublic?: boolean },
 ) {
   return {
     title,
+    description: options?.description ?? null,
+    isPublic: options?.isPublic ?? false,
     tiersJson: JSON.stringify(DEFAULT_TIERS),
     items: items.map((i) => ({
       ...i,
@@ -266,5 +269,60 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
 
     expect(mockBoardProps?.assignment.get(9)).toBe("0");
     expect(screen.getByText("v2")).toBeTruthy();
+  });
+});
+
+describe("TierListScreen の説明文と公開設定（issue #476）", () => {
+  it("保存済みデータの説明文と公開設定を反映する", async () => {
+    mockSavedBySeason[initialSeason] = savedList("説明つき", [], {
+      description: "このシーズンの推し",
+      isPublic: true,
+    });
+
+    await render(<TierListScreen />);
+
+    expect(screen.getByDisplayValue("このシーズンの推し")).toBeTruthy();
+    expect(screen.getByTestId("tier-list-public-toggle").props.value).toBe(
+      true,
+    );
+  });
+
+  it("説明文と公開設定の変更が保存リクエストに含まれる", async () => {
+    mockSavedBySeason[initialSeason] = savedList("v1", []);
+    await render(<TierListScreen />);
+
+    await fireEvent.changeText(
+      screen.getByTestId("tier-list-description"),
+      "このシーズンの推し",
+    );
+    await fireEvent(
+      screen.getByTestId("tier-list-public-toggle"),
+      "onValueChange",
+      true,
+    );
+    await fireEvent.press(screen.getByTestId("tier-list-save"));
+
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        season: initialSeason,
+        description: "このシーズンの推し",
+        isPublic: true,
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("保存済みデータの読み込み中はメタ入力と保存ボタンが無効", async () => {
+    // 読み込み中に公開設定を変えて保存すると、空の初期盤面で
+    // 既存の配置が上書きされてしまうため。
+    mockSavedLoading = true;
+    await render(<TierListScreen />);
+
+    expect(screen.getByTestId("tier-list-public-toggle").props.disabled).toBe(
+      true,
+    );
+    expect(
+      screen.getByTestId("tier-list-save").props.accessibilityState?.disabled,
+    ).toBe(true);
   });
 });

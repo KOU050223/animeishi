@@ -19,6 +19,7 @@ import {
   TierBoardSnapshot,
   type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
+import { TierListMetaFields } from "@/components/tier-list/TierListMetaFields";
 import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -100,6 +101,10 @@ export default function CharacterTierListScreen() {
   const [title, setTitle] = useState(() =>
     defaultCharacterTierListTitle(workTitle),
   );
+  // 表の説明文と、ひろばの公開一覧に載せるか（issue #476）。
+  // 共有 URL（share_token）とは独立した設定。
+  const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -117,9 +122,15 @@ export default function CharacterTierListScreen() {
   // 保存成功コールバックは送信時点の state を掴むため、現在の盤面は
   // ref 経由で読む（保存中の編集を「保存済み」に誤認しないための比較用）。
   // render 中に ref を書き換えられないため、コミット後の effect で同期する。
-  const boardStateRef = useRef({ title, tiers, assignment });
+  const boardStateRef = useRef({
+    title,
+    description,
+    isPublic,
+    tiers,
+    assignment,
+  });
   useEffect(() => {
-    boardStateRef.current = { title, tiers, assignment };
+    boardStateRef.current = { title, description, isPublic, tiers, assignment };
   });
 
   // 保存済み tier 表が届いたら盤面へ流し込む（この画面の作品は固定で一度だけ）。
@@ -142,6 +153,8 @@ export default function CharacterTierListScreen() {
         ),
       );
       setTitle(saved.title);
+      setDescription(saved.description ?? "");
+      setIsPublic(saved.isPublic);
     }
     setIsDirty(false);
   }
@@ -187,6 +200,27 @@ export default function CharacterTierListScreen() {
     [isSharing, tiers],
   );
 
+  const handleChangeDescription = useCallback(
+    (next: string) => {
+      // ドロップと同じく、共有中の編集は受け付けない。
+      // 読み込み中・取得失敗時も不可（isDirty が立つと hydrate が走らず、
+      // 空の盤面のまま既存配置を上書き保存できてしまうため）。
+      if (isSharing || isSavedLoading || isSavedError) return;
+      setDescription(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedError, isSavedLoading],
+  );
+
+  const handleChangeIsPublic = useCallback(
+    (next: boolean) => {
+      if (isSharing || isSavedLoading || isSavedError) return;
+      setIsPublic(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedError, isSavedLoading],
+  );
+
   const handleBack = useCallback(() => {
     const goBack = () => {
       if (router.canGoBack()) {
@@ -220,6 +254,8 @@ export default function CharacterTierListScreen() {
     // だけ「保存済み」（isDirty 解除）にする。
     const sentSnapshot = {
       title,
+      description,
+      isPublic,
       tiers,
       items: toSaveItems(assignment, tiers),
     };
@@ -227,6 +263,8 @@ export default function CharacterTierListScreen() {
       {
         annictWorkId,
         title,
+        description,
+        isPublic,
         tiers,
         items: sentSnapshot.items.map((i) => ({
           annictCharacterId: i.itemId,
@@ -239,6 +277,8 @@ export default function CharacterTierListScreen() {
           const current = boardStateRef.current;
           const unchanged = sameBoard(sentSnapshot, {
             title: current.title,
+            description: current.description,
+            isPublic: current.isPublic,
             tiers: current.tiers,
             items: toSaveItems(current.assignment, current.tiers),
           });
@@ -246,7 +286,7 @@ export default function CharacterTierListScreen() {
         },
       },
     );
-  }, [annictWorkId, assignment, save, tiers, title]);
+  }, [annictWorkId, assignment, description, isPublic, save, tiers, title]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -257,6 +297,8 @@ export default function CharacterTierListScreen() {
     const savedData = await save.mutateAsync({
       annictWorkId,
       title: cur.title,
+      description: cur.description,
+      isPublic: cur.isPublic,
       tiers: cur.tiers,
       items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
         annictCharacterId: i.itemId,
@@ -461,6 +503,16 @@ export default function CharacterTierListScreen() {
       <View style={styles.header}>
         {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
+        <TierListMetaFields
+          description={description}
+          onChangeDescription={handleChangeDescription}
+          isPublic={isPublic}
+          onChangeIsPublic={handleChangeIsPublic}
+          disabled={
+            isSharing || save.isPending || isSavedLoading || isSavedError
+          }
+          testIDPrefix="character-tier-list"
+        />
         <Text style={styles.headerHint}>
           キャラクターを長押ししてドラッグすると tier を移動できます。tier
           名はタップで変更できます
@@ -487,15 +539,18 @@ export default function CharacterTierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending || isSavedError) &&
+              (!isDirty || save.isPending || isSavedError || isSavedLoading) &&
                 styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending || isSavedError}
+            disabled={
+              !isDirty || save.isPending || isSavedError || isSavedLoading
+            }
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
             accessibilityState={{
-              disabled: !isDirty || save.isPending || isSavedError,
+              disabled:
+                !isDirty || save.isPending || isSavedError || isSavedLoading,
             }}
             testID="character-tier-list-save"
           >

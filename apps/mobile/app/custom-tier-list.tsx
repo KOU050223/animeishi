@@ -20,6 +20,7 @@ import {
   TierBoardSnapshot,
   type SnapshotItem,
 } from "@/components/tier-list/TierBoardSnapshot";
+import { TierListMetaFields } from "@/components/tier-list/TierListMetaFields";
 import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -119,6 +120,10 @@ export default function CustomTierListScreen() {
   // ＋ボタンの検索シートから手動追加した作品（issue #168 と同じ仕組み）。
   const [manualWorks, setManualWorks] = useState<TierItem[]>([]);
   const [title, setTitle] = useState("");
+  // 表の説明文と、ひろばの公開一覧に載せるか（issue #476）。
+  // 共有 URL（share_token）とは独立した設定。
+  const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   // 未保存の変更があるか。保存ボタンの活性と「保存済み」表示の出し分けに使う。
   const [isDirty, setIsDirty] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -127,9 +132,23 @@ export default function CustomTierListScreen() {
   );
   const snapshotRef = useRef<ViewInstance>(null);
   const snapshotReadyRef = useRef<(() => void) | null>(null);
-  const saveSourceRef = useRef({ listId, title, tiers, assignment });
+  const saveSourceRef = useRef({
+    listId,
+    title,
+    description,
+    isPublic,
+    tiers,
+    assignment,
+  });
   useEffect(() => {
-    saveSourceRef.current = { listId, title, tiers, assignment };
+    saveSourceRef.current = {
+      listId,
+      title,
+      description,
+      isPublic,
+      tiers,
+      assignment,
+    };
   });
 
   // 保存済みデータで状態を差し替える。編集中（isDirty）は上書きしない
@@ -155,9 +174,13 @@ export default function CustomTierListScreen() {
         ),
       );
       setTitle(saved.title);
+      setDescription(saved.description ?? "");
+      setIsPublic(saved.isPublic);
     } else {
       setTiers(DEFAULT_TIERS);
       setAssignment(new Map());
+      setDescription("");
+      setIsPublic(false);
     }
     setIsDirty(false);
   }
@@ -220,6 +243,26 @@ export default function CustomTierListScreen() {
     [isSharing, save.isPending],
   );
 
+  const handleChangeDescription = useCallback(
+    (next: string) => {
+      // 読み込み中は hydrate が入力を上書きするため受け付けない
+      // （保存ボタンと同じく詳細取得の完了を待つ）。
+      if (isSharing || save.isPending || isSavedLoading) return;
+      setDescription(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedLoading, save.isPending],
+  );
+
+  const handleChangeIsPublic = useCallback(
+    (next: boolean) => {
+      if (isSharing || save.isPending || isSavedLoading) return;
+      setIsPublic(next);
+      setIsDirty(true);
+    },
+    [isSharing, isSavedLoading, save.isPending],
+  );
+
   const handleBack = useCallback(() => {
     const goBack = () => {
       if (router.canGoBack()) {
@@ -266,6 +309,8 @@ export default function CustomTierListScreen() {
         {
           id: cur.listId ?? undefined,
           title: cur.title,
+          description: cur.description,
+          isPublic: cur.isPublic,
           tiers: cur.tiers,
           items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
             annictWorkId: i.itemId,
@@ -309,6 +354,8 @@ export default function CustomTierListScreen() {
     const savedData = await save.mutateAsync({
       id: cur.listId ?? undefined,
       title: cur.title,
+      description: cur.description,
+      isPublic: cur.isPublic,
       tiers: cur.tiers,
       items: toSaveItems(cur.assignment, cur.tiers).map((i) => ({
         annictWorkId: i.itemId,
@@ -493,6 +540,14 @@ export default function CustomTierListScreen() {
             fontSize: 16,
             color: colors.text,
           }}
+        />
+        <TierListMetaFields
+          description={description}
+          onChangeDescription={handleChangeDescription}
+          isPublic={isPublic}
+          onChangeIsPublic={handleChangeIsPublic}
+          disabled={isSharing || save.isPending || isSavedLoading}
+          testIDPrefix="custom-tier-list"
         />
         <Text style={styles.headerHint}>
           作品を検索して追加し、長押しドラッグで tier を移動できます。tier

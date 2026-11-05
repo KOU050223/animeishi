@@ -129,6 +129,7 @@ describe("TierListsScreen", () => {
         id: "2026-spring",
         title: "2026年春アニメ Tier",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-05-01T00:00:00Z",
       },
       {
@@ -137,6 +138,7 @@ describe("TierListsScreen", () => {
         id: "42",
         title: "テスト作品 キャラクターTier",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-04-01T00:00:00Z",
       },
       {
@@ -145,6 +147,7 @@ describe("TierListsScreen", () => {
         id: "5",
         title: "この作家の作品",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-03-01T00:00:00Z",
       },
     ];
@@ -183,11 +186,38 @@ describe("TierListsScreen", () => {
         id: "3",
         title: "表",
         shared: true,
+        isPublic: false,
         updatedAt: "2026-03-01T00:00:00Z",
       },
     ];
     await render(<TierListsScreen />);
     expect(screen.getByText("共有中")).toBeTruthy();
+  });
+
+  it("公開設定した表には「公開中」を出す", async () => {
+    mockItems = [
+      {
+        key: "custom-3",
+        kind: "custom",
+        id: "3",
+        title: "公開の表",
+        shared: false,
+        isPublic: true,
+        updatedAt: "2026-03-01T00:00:00Z",
+      },
+      {
+        key: "season-2026-spring",
+        kind: "season",
+        id: "2026-spring",
+        title: "共有も公開もしている表",
+        shared: true,
+        isPublic: true,
+        updatedAt: "2026-05-01T00:00:00Z",
+      },
+    ];
+    await render(<TierListsScreen />);
+    expect(screen.getByText("公開中")).toBeTruthy();
+    expect(screen.getByText("共有中 ・ 公開中")).toBeTruthy();
   });
 
   it("削除は確認ダイアログの承認後に、種類に応じた削除を実行する", async () => {
@@ -198,6 +228,7 @@ describe("TierListsScreen", () => {
         id: "3",
         title: "消す表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-03-01T00:00:00Z",
       },
       {
@@ -206,6 +237,7 @@ describe("TierListsScreen", () => {
         id: "2026-winter",
         title: "冬の表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-01-01T00:00:00Z",
       },
       {
@@ -214,6 +246,7 @@ describe("TierListsScreen", () => {
         id: "9",
         title: "キャラの表",
         shared: false,
+        isPublic: false,
         updatedAt: "2026-02-01T00:00:00Z",
       },
     ];

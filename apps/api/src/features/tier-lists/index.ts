@@ -96,7 +96,12 @@ const tierLists = new Hono<AuthVariables>()
     const { tierList: saved, created } = await repo.saveMyTierList({
       season: input.season,
       title: input.title,
+      // undefined は「送らなかった（= 既存値を維持）」。
+      // 明示的な null や空白は消去として null に寄せる（work-lists と同じ）。
+      description:
+        input.description === undefined ? undefined : input.description || null,
       tiersJson: JSON.stringify(input.tiers),
+      isPublic: input.isPublic,
       items,
     });
     // 新規作成のときだけ活動フィードに記録する（更新のたびに流すと
