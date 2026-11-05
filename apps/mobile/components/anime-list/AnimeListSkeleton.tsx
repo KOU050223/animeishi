@@ -42,7 +42,6 @@ export function AnimeListSkeleton({
           <View style={styles.skeletonBody}>
             <View style={styles.skeletonLine} />
             <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
-            <View style={styles.skeletonChip} />
           </View>
         </View>
       ))}

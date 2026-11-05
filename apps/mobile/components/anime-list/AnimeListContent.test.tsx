@@ -238,11 +238,11 @@ describe("AnimeListContent", () => {
     expect(lastSort()).toEqual({ sortKey: "title", sortOrder: "asc" });
   });
 
-  it("カードには日本語タイトルとシーズンだけを出し、英語タイトルは出さない", async () => {
+  it("カードには日本語タイトルだけを出し、放送年や英語タイトルは出さない", async () => {
     await render(contentElement());
 
     expect(screen.getByText("テストアニメ")).toBeTruthy();
-    expect(screen.getByText("2026年春")).toBeTruthy();
+    expect(screen.queryByText("2026年春")).toBeNull();
     expect(screen.queryByText("Hidden English Title")).toBeNull();
   });
 
