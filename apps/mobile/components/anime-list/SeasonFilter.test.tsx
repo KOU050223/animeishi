@@ -34,7 +34,6 @@ describe("SeasonFilter", () => {
     expect(getByText("1990年")).toBeTruthy();
   });
 
-  // 行ラベルは意図的に出さない（issue #473）。
   it("年・期の行ラベルは表示しない", async () => {
     const { queryByText } = await renderFilter();
     expect(queryByText("年")).toBeNull();
