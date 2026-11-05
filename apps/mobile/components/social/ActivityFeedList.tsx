@@ -18,8 +18,8 @@ export type ActivityFeedListProps = {
   /** リスト先頭に挿すコンテンツ。ホームではストーリーリング等を載せる。 */
   ListHeaderComponent?: ComponentType | ReactElement;
   /**
-   * フィード末尾に挿すコンテンツ。ホームでは特集記事のレールを載せる
-   * （issue #437）。次ページ読み込み中のスピナーより後ろに描画される。
+   * フィード末尾に挿すコンテンツ。次ページ読み込み中のスピナーと
+   * 「すべて見る」より後ろに描画される。
    */
   ListFooterComponent?: ComponentType | ReactElement;
   /**
@@ -27,6 +27,14 @@ export type ActivityFeedListProps = {
    * 行う。ホームのように他のクエリもまとめて更新したい画面が渡す。
    */
   onRefresh?: () => Promise<unknown> | void;
+  /**
+   * 表示する件数の上限。指定すると無限スクロールをやめ、上限を超える
+   * 活動があるときは onShowAll への導線を出す。ホームはヘッダーとフッターの
+   * レールに挟まれており、フィードが伸びるとフッターまで届かなくなるため使う。
+   */
+  maxItems?: number;
+  /** maxItems で切った残りを見るための遷移。maxItems と組で渡す。 */
+  onShowAll?: () => void;
 };
 
 // フレンドの活動フィード（issue #265 の一覧本体）。読み込み・エラー・空は
@@ -36,6 +44,8 @@ export function ActivityFeedList({
   ListHeaderComponent,
   ListFooterComponent,
   onRefresh,
+  maxItems,
+  onShowAll,
 }: ActivityFeedListProps) {
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
@@ -48,10 +58,13 @@ export function ActivityFeedList({
     fetchNextPage,
     isFetchingNextPage,
   } = useActivityFeed();
-  const items =
+  const allItems =
     isLoading || isError
       ? []
       : (data?.pages.flatMap((page) => page.items) ?? []);
+  const isLimited = maxItems !== undefined;
+  const items = isLimited ? allItems.slice(0, maxItems) : allItems;
+  const hasMore = isLimited && (allItems.length > maxItems || !!hasNextPage);
 
   // try/finally（catch 無しの try）は React Compiler が未対応で最適化を
   // 外れるため、Promise.finally で書く
@@ -62,7 +75,7 @@ export function ActivityFeedList({
   }
 
   function onEndReached() {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (!isLimited && hasNextPage && !isFetchingNextPage) {
       void fetchNextPage();
     }
   }
@@ -96,6 +109,19 @@ export function ActivityFeedList({
             <View className="py-4">
               <ActivityIndicator color={colors.primary} />
             </View>
+          ) : null}
+          {hasMore && onShowAll ? (
+            <TouchableOpacity
+              className="items-center py-3"
+              onPress={onShowAll}
+              accessibilityRole="button"
+              accessibilityLabel="フレンドの動きをすべて見る"
+              testID="activity-feed-show-all"
+            >
+              <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                すべて見る
+              </Text>
+            </TouchableOpacity>
           ) : null}
           {/* ComponentType と ReactElement の両方を受ける
               （FlatList の同名 prop と同じ型） */}

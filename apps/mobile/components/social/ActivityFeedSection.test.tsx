@@ -163,6 +163,40 @@ describe("ActivityFeedSection", () => {
     expect(fetchNextPage).not.toHaveBeenCalled();
   });
 
+  it("maxItems を超える活動は表示せず、すべて見るで onShowAll を呼ぶ", async () => {
+    const onShowAll = jest.fn();
+    mockFeed = loadedFeed([
+      feedItem({ id: 1 }),
+      feedItem({ id: 2 }),
+      feedItem({ id: 3 }),
+    ]);
+    await render(<ActivityFeedSection maxItems={2} onShowAll={onShowAll} />);
+    expect(screen.getByTestId("activity-item-2")).toBeTruthy();
+    expect(screen.queryByTestId("activity-item-3")).toBeNull();
+    await fireEvent.press(screen.getByTestId("activity-feed-show-all"));
+    expect(onShowAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("maxItems 以内でも次ページがあればすべて見るを出す", async () => {
+    mockFeed = loadedFeed([feedItem()], 5);
+    await render(<ActivityFeedSection maxItems={2} onShowAll={jest.fn()} />);
+    expect(screen.getByTestId("activity-feed-show-all")).toBeTruthy();
+  });
+
+  it("maxItems 以内で続きが無ければすべて見るを出さない", async () => {
+    mockFeed = loadedFeed([feedItem()]);
+    await render(<ActivityFeedSection maxItems={2} onShowAll={jest.fn()} />);
+    expect(screen.queryByTestId("activity-feed-show-all")).toBeNull();
+  });
+
+  it("maxItems 指定時は末尾スクロールで次ページを読まない", async () => {
+    const fetchNextPage = jest.fn();
+    mockFeed = { ...loadedFeed([feedItem()], 5), fetchNextPage };
+    await render(<ActivityFeedSection maxItems={2} onShowAll={jest.fn()} />);
+    await fireEvent(screen.getByTestId("activity-feed-list"), "endReached");
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
   it("次ページ取得中は末尾スクロールで重複リクエストしない", async () => {
     const fetchNextPage = jest.fn();
     mockFeed = {
