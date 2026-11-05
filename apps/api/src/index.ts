@@ -21,6 +21,7 @@ import { annict } from "./features/annict";
 import { articles } from "./features/articles";
 import { characterTierLists } from "./features/character-tier-lists";
 import { customTierLists } from "./features/custom-tier-lists";
+import { elections } from "./features/elections";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
 import { events } from "./features/events";
 import { workRatings } from "./features/work-ratings";
@@ -113,6 +114,7 @@ const routes = app
   .route("/me/feed", feed)
   .route("/articles", articles)
   .route("/events", events)
+  .route("/elections", elections)
   .route("/me/pass", pass)
   .route("/me/tier-lists", tierLists)
   .route("/me/character-tier-lists", characterTierLists)
