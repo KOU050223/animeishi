@@ -34,6 +34,12 @@ describe("SeasonFilter", () => {
     expect(getByText("1990年")).toBeTruthy();
   });
 
+  it("年・期の行ラベルは表示しない", async () => {
+    const { queryByText } = await renderFilter();
+    expect(queryByText("年")).toBeNull();
+    expect(queryByText("期")).toBeNull();
+  });
+
   it("年ボタンでピッカーが開き、年を選ぶと onChange が呼ばれて閉じる", async () => {
     const { getByTestId, queryByTestId, onChange } = await renderFilter();
     await fireEvent.press(getByTestId("season-filter-year-button"));

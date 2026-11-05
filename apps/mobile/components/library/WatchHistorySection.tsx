@@ -384,75 +384,81 @@ export function WatchHistorySection() {
 
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
-      <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
-          {filterActive
-            ? `${visible.length} / ${enriched.length}`
-            : enriched.length}{" "}
-          件
-        </Text>
-        {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
-            フラグが無効な間は導線を出さない。 */}
-        {featureFlags.danimeImport && (
-          <TouchableOpacity
-            className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
-            onPress={() => router.push("/danime-import")}
-            accessibilityRole="button"
-            accessibilityLabel="dアニメストアからインポート"
-            testID="danime-import-button"
-          >
-            <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
-              dアニメからインポート
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 共有 URL 導線（#236）。#170 のタブ再編に備えて独立コンポーネントに分離。 */}
-      <WatchHistoryShareSection />
-
-      {/* ソート切り替えチップ + 絞り込み導線（issue #345）。
-          絞り込みの選択自体は下のボトムシートで行う。
-          react-native-web の ScrollView は flexGrow/flexShrink が 1 既定で、
-          同じ列の FlatList（コンテンツ全高ぶんの flex-basis を持つ）に押されて
-          Web では高さが潰れる。ネイティブで不要に見える flex 指定だが消せない（#371）。 */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        className="px-4 pb-2"
-        contentContainerStyle={{ gap: 8 }}
-        testID="watch-history-sort-row"
-      >
-        {WATCH_HISTORY_SORT_KEYS.map((key) => (
-          <SelectChip
-            key={key}
-            label={WATCH_HISTORY_SORT_LABELS[key]}
-            selected={sortKey === key}
-            onPress={() => setSortKey(key)}
-            accessibilityLabel={`${WATCH_HISTORY_SORT_LABELS[key]}で並べ替え`}
-            testID={`watch-history-sort-${key}`}
-          />
-        ))}
-        <SelectChip
-          label="絞り込み"
-          selected={filterActive}
-          onPress={() => setFilterSheetOpen(true)}
-          accessibilityLabel="視聴履歴を絞り込む"
-          testID="watch-history-filter-button"
-        />
-      </ScrollView>
-
       <FlatList
+        testID="watch-history-list"
         data={visible}
         keyExtractor={(item) => String(item.annictWorkId)}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        // 件数・共有 URL・ソート/絞り込みはヘッダーとして一覧と一緒に流す
+        // （issue #470）。要素として渡し、コンポーネント関数の再生成による
+        // リマウント（スクロール位置リセット）を避ける。
+        ListHeaderComponent={
+          <View>
+            <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
+              <Text className="text-xs text-slate-400 dark:text-slate-500">
+                {filterActive
+                  ? `${visible.length} / ${enriched.length}`
+                  : enriched.length}{" "}
+                件
+              </Text>
+              {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
+                  フラグが無効な間は導線を出さない。 */}
+              {featureFlags.danimeImport && (
+                <TouchableOpacity
+                  className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
+                  onPress={() => router.push("/danime-import")}
+                  accessibilityRole="button"
+                  accessibilityLabel="dアニメストアからインポート"
+                  testID="danime-import-button"
+                >
+                  <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+                    dアニメからインポート
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* 共有 URL 導線（#236）。#170 のタブ再編に備えて独立コンポーネントに分離。 */}
+            <WatchHistoryShareSection />
+
+            {/* ソート切り替えチップ + 絞り込み導線（issue #345）。
+                絞り込みの選択自体は下のボトムシートで行う。
+                react-native-web の ScrollView は flexGrow/flexShrink が 1 既定で、
+                兄弟要素に押されて高さが潰れうるため明示的に無効化する（#371）。 */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0, flexShrink: 0 }}
+              className="px-4 pb-2"
+              contentContainerStyle={{ gap: 8 }}
+              testID="watch-history-sort-row"
+            >
+              {WATCH_HISTORY_SORT_KEYS.map((key) => (
+                <SelectChip
+                  key={key}
+                  label={WATCH_HISTORY_SORT_LABELS[key]}
+                  selected={sortKey === key}
+                  onPress={() => setSortKey(key)}
+                  accessibilityLabel={`${WATCH_HISTORY_SORT_LABELS[key]}で並べ替え`}
+                  testID={`watch-history-sort-${key}`}
+                />
+              ))}
+              <SelectChip
+                label="絞り込み"
+                selected={filterActive}
+                onPress={() => setFilterSheetOpen(true)}
+                accessibilityLabel="視聴履歴を絞り込む"
+                testID="watch-history-filter-button"
+              />
+            </ScrollView>
+          </View>
+        }
         ItemSeparatorComponent={() => (
           <View
             style={{ height: 1 }}
-            className="bg-slate-100 dark:bg-slate-800"
+            className="mx-4 bg-slate-100 dark:bg-slate-800"
           />
         )}
         renderItem={({ item }) => (
@@ -735,7 +741,7 @@ function WatchHistoryRow({
 
   return (
     <View
-      className="flex-row py-3 gap-3"
+      className="flex-row px-4 py-3 gap-3"
       testID={`watch-history-item-${history.annictWorkId}`}
     >
       {/* サムネ・タイトルは作品詳細シートを開く導線（issue #471）。

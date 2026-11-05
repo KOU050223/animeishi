@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -143,15 +143,8 @@ export function AnimeWorkDetailSheet({
       ? workDetailQueryKey(userId, work.annictWorkId)
       : WORK_DETAIL_QUERY_KEY;
 
-  function selectStatus(state: WatchState) {
+  function applyStatus(next: WatchState | null) {
     if (!work) return;
-    // 選択中のチップの再タップは未設定に戻す（issue #436）。
-    // 解除は DELETE /:annictWorkId（Annict に NO_STATE を送り履歴行を消す）。
-    const next: WatchState | null = state === currentState ? null : state;
-    trackEvent("watch_status_change", {
-      [TRACK_EVENT_KEYS.from]: currentState ?? "NO_STATE",
-      [TRACK_EVENT_KEYS.to]: next ?? "NO_STATE",
-    });
     setOptimistic({ workId: work.annictWorkId, state: next });
     const request =
       next === null
@@ -185,6 +178,55 @@ export function AnimeWorkDetailSheet({
           .invalidateQueries({ queryKey: detailQueryKey })
           .then(() => setOptimistic(null));
       });
+  }
+
+  function selectStatus(state: WatchState) {
+    // 選択中のチップの再タップは未設定に戻す（issue #436）。
+    // 解除は DELETE /:annictWorkId（Annict に NO_STATE を送り履歴行を消す）。
+    const next: WatchState | null = state === currentState ? null : state;
+    trackEvent("watch_status_change", {
+      [TRACK_EVENT_KEYS.from]: currentState ?? "NO_STATE",
+      [TRACK_EVENT_KEYS.to]: next ?? "NO_STATE",
+    });
+    applyStatus(next);
+  }
+
+  // 話数記録による自動ステータス更新（issue #467）で、判定に「発火時点」
+  // ではなく「記録が全部 settle した時点」の state を使うための経路。
+  // 記録の直列実行中にチップで別ステータスを付けられた場合も、最新値を
+  // 見て上書きしない判断ができる（ref の同期は effect で行う）。
+  const latestStatus = useRef<{
+    workId: number | null;
+    stateKnown: boolean;
+    state: WatchState | null;
+    apply: (next: WatchState | null) => void;
+  }>({ workId: null, stateKnown: false, state: null, apply: () => {} });
+  useEffect(() => {
+    latestStatus.current = {
+      workId: work?.annictWorkId ?? null,
+      // detail.data が無いときの null は「未設定」ではなく「未取得」を
+      // 意味し得るため、明示ステータスの誤上書きを防ぐ判定に分けて持つ。
+      stateKnown:
+        work != null &&
+        (optimistic?.workId === work.annictWorkId || detail.data != null),
+      state: currentState,
+      apply: applyStatus,
+    };
+  });
+
+  // 話数の記録が全部終わった時点で呼ばれる。未設定 → 視聴中、全話記録で
+  // → 視聴済み。ユーザーが明示的に付けたステータス（視聴予定・一時停止・
+  // 断念）は上書きしない（issue #467 の方針決定）。
+  function handleEpisodesRecorded(annictWorkId: number, allWatched: boolean) {
+    const { workId, stateKnown, state, apply } = latestStatus.current;
+    // 記録の直列実行中に別作品へ切り替わった・詳細未取得でステータスを
+    // 判定できないケースは自動更新しない。
+    if (workId !== annictWorkId || !stateKnown) return;
+    if (allWatched) {
+      if (state === null || state === "WATCHING") apply("WATCHED");
+    } else if (state === null) {
+      apply("WATCHING");
+    }
   }
 
   function openCharacterTierList() {
@@ -258,6 +300,7 @@ export function AnimeWorkDetailSheet({
               <EpisodeSection
                 work={work}
                 onTokenError={promptAnnictTokenError}
+                onEpisodesRecorded={handleEpisodesRecorded}
               />
             ) : null}
             <ActionRow
@@ -529,13 +572,21 @@ function RatingSection({
  * チェックの正は Annict の record（watched = viewerDidTrack）で、
  * 一覧の取得時に API が Annict 側の既存記録を D1 の記録ログと合わせる。
  * 話が 1 件も無い作品（話数未定・マスタ未登録）はセクション自体を出さない。
+ *
+ * N 話をチェックすると、それより前の未記録分もまとめて記録する（issue #466）。
+ * 解除はタップした 1 話だけを外す。記録が全部終わると onEpisodesRecorded で
+ * 「全話記録済みになったか」を親へ通知し、視聴ステータスの自動更新
+ * （issue #467）に使われる。直列実行中にシートが別作品へ切り替わり得るため、
+ * 通知には記録開始時の作品 ID を添える。
  */
 function EpisodeSection({
   work,
   onTokenError,
+  onEpisodesRecorded,
 }: {
   work: WorkDetailSheetTarget;
   onTokenError: (error: unknown) => boolean;
+  onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
 }) {
   const colors = useThemeColors();
   const palette = useAnimeListPalette();
@@ -543,27 +594,66 @@ function EpisodeSection({
   const record = useRecordEpisode(work.annictWorkId);
   const unrecord = useUnrecordEpisode(work.annictWorkId);
   const isMutating = record.isPending || unrecord.isPending;
+  const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
+    (a, b) => a.sortNumber - b.sortNumber,
+  );
+
+  function notifyRecordError(e: unknown) {
+    // Annict トークン未登録・失効は再連携ダイアログに変換するため、
+    // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
+    if (onTokenError(e)) return;
+    const rolledBack = (e as EpisodeRecordError).rolledBack === true;
+    alert(
+      "更新できませんでした",
+      rolledBack
+        ? "話の記録を更新できませんでした。元の状態に戻しました。"
+        : "一部の更新に失敗しました。",
+      { okLabel: "OK" },
+    );
+  }
+
+  // N 話のチェックは、それ以前の未記録分を含めて記録する。API に一括記録は
+  // 無いため、直列化済み（EPISODE_RECORD_WRITE_SCOPE）の既存 mutation を
+  // 対象話分だけ順に投げる。リクエストは 1 件ずつ処理されるため Annict の
+  // レート制限を突きにくく、話ごとの楽観更新・巻き戻しもそのまま効く。
+  async function recordThrough(episode: WorkEpisode) {
+    const targets = episodes.filter(
+      (e) => !e.watched && e.sortNumber <= episode.sortNumber,
+    );
+    const results = await Promise.allSettled(
+      targets.map((e) => record.mutateAsync(e.annictEpisodeId)),
+    );
+    const recorded = new Set(
+      targets
+        .filter((_, i) => results[i].status === "fulfilled")
+        .map((e) => e.annictEpisodeId),
+    );
+    // 1 話も記録できなかった場合はステータスを進めない。
+    if (recorded.size > 0) {
+      onEpisodesRecorded(
+        work.annictWorkId,
+        episodes.every((e) => e.watched || recorded.has(e.annictEpisodeId)),
+      );
+    }
+    // 複数話のうち失敗があっても通知は 1 件だけ出す。巻き戻し自体は
+    // 各 mutation の onError が話単位で済ませている。
+    const firstError = results.find(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    )?.reason;
+    if (firstError) notifyRecordError(firstError);
+  }
 
   function toggleEpisode(episode: WorkEpisode) {
     trackEvent("episode_record", {
       [TRACK_EVENT_KEYS.action]: episode.watched ? "unrecord" : "record",
     });
-    const request = episode.watched
-      ? unrecord.mutateAsync(episode.annictEpisodeId)
-      : record.mutateAsync(episode.annictEpisodeId);
-    void request.catch((e: unknown) => {
-      // Annict トークン未登録・失効は再連携ダイアログに変換するため、
-      // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
-      if (onTokenError(e)) return;
-      const rolledBack = (e as EpisodeRecordError).rolledBack === true;
-      alert(
-        "更新できませんでした",
-        rolledBack
-          ? "話の記録を更新できませんでした。元の状態に戻しました。"
-          : "一部の更新に失敗しました。",
-        { okLabel: "OK" },
-      );
-    });
+    if (episode.watched) {
+      void unrecord
+        .mutateAsync(episode.annictEpisodeId)
+        .catch(notifyRecordError);
+      return;
+    }
+    void recordThrough(episode);
   }
 
   if (episodesQuery.isLoading) {
@@ -598,9 +688,6 @@ function EpisodeSection({
     );
   }
 
-  const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
-    (a, b) => a.sortNumber - b.sortNumber,
-  );
   if (episodes.length === 0) return null;
 
   // 「次の話」= 未視聴の先頭の話。全話記録済みならボタンを無効表示にする。
