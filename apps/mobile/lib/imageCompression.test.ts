@@ -1,5 +1,6 @@
 import {
   AVATAR_MAX_DIMENSION,
+  MEISHI_IMAGE_MAX_BYTES,
   MEISHI_IMAGE_MAX_DIMENSION,
   calcResizedSize,
   compressAvatarImage,
@@ -19,9 +20,19 @@ jest.mock("expo-image-manipulator", () => ({
   SaveFormat: { WEBP: "webp", JPEG: "jpeg" },
 }));
 
+// 保存後のファイルサイズ確認（fetch(uri).blob().size）を差し替える。
+const mockSavedSizes = (...sizes: number[]) => {
+  const fetchMock = jest.fn();
+  for (const size of sizes) {
+    fetchMock.mockResolvedValueOnce({ blob: async () => ({ size }) });
+  }
+  global.fetch = fetchMock;
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   (ImageManipulator.manipulate as jest.Mock).mockImplementation(manipulate);
+  mockSavedSizes(100 * 1024);
 });
 
 describe("calcResizedSize", () => {
@@ -117,6 +128,36 @@ describe("compressMeishiImage", () => {
     });
 
     expect(resize).toHaveBeenCalledWith({ width: 400, height: 300 });
+  });
+
+  it("上限を超えたら品質、次に寸法を下げて保存し直す", async () => {
+    mockSavedSizes(
+      MEISHI_IMAGE_MAX_BYTES + 1,
+      MEISHI_IMAGE_MAX_BYTES + 1,
+      MEISHI_IMAGE_MAX_BYTES,
+    );
+
+    await compressMeishiImage("file:///in.jpg", { width: 2048, height: 2048 });
+
+    expect(saveAsync.mock.calls.map(([opts]) => opts.compress)).toEqual([
+      0.8, 0.6, 0.6,
+    ]);
+    expect(resize.mock.calls.map(([size]) => size.width)).toEqual([
+      1024, 1024, 768,
+    ]);
+  });
+
+  it("最後まで上限に収まらなければ最後の結果を返す（エラーは API に任せる）", async () => {
+    mockSavedSizes(...Array(4).fill(MEISHI_IMAGE_MAX_BYTES + 1));
+
+    const result = await compressMeishiImage("file:///in.jpg", {
+      width: 2048,
+      height: 2048,
+    });
+
+    expect(saveAsync).toHaveBeenCalledTimes(4);
+    expect(resize).toHaveBeenLastCalledWith({ width: 512, height: 512 });
+    expect(result).toEqual({ uri: "file:///out.webp", mimeType: "image/webp" });
   });
 
   it("MEISHI_IMAGE_MAX_DIMENSION は 1024", () => {

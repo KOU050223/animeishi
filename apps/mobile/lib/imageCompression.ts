@@ -58,20 +58,48 @@ export async function compressAvatarImage(
   return { ...saved, mimeType };
 }
 
+/** 名刺画像 API（POST /me/meishi-assets）が受け付ける最大バイト数。API の MEISHI_ASSET_MAX_BYTES と揃える。 */
+export const MEISHI_IMAGE_MAX_BYTES = 500 * 1024;
+
+// 上限を超えたときに順に試す（最大辺, 品質）。最初の 1 件がこれまでの既定値。
+// WebP 非対応ブラウザの JPEG は同じ品質でも WebP より大きくなりやすいため、
+// 1 回の保存で済ませず実サイズを見て段階的に落とす（issue #468）。
+const MEISHI_IMAGE_ATTEMPTS: readonly {
+  maxDimension: number;
+  compress: number;
+}[] = [
+  { maxDimension: MEISHI_IMAGE_MAX_DIMENSION, compress: 0.8 },
+  { maxDimension: MEISHI_IMAGE_MAX_DIMENSION, compress: 0.6 },
+  { maxDimension: 768, compress: 0.6 },
+  { maxDimension: 512, compress: 0.6 },
+];
+
+async function readByteLength(uri: string): Promise<number> {
+  const res = await fetch(uri);
+  const blob = await res.blob();
+  return blob.size;
+}
+
 /**
  * 名刺の任意画像を最大 1024px の WebP（非対応のブラウザでは JPEG）に圧縮する。
- * API（POST /me/meishi-assets）の上限 500KB に収めやすくするため
- * compress: 0.8 を指定する（アバターは 512px のため既定値で足りていた）。
+ * 保存結果が API の上限 {@link MEISHI_IMAGE_MAX_BYTES} を超えるときは、
+ * 品質・寸法を下げて保存し直す。最後まで収まらなければ最後の結果を返し、
+ * 上限超過のエラーはアップロード側（API の 400）に任せる。
  */
 export async function compressMeishiImage(
   uri: string,
   source: ImageSize,
 ): Promise<CompressedImage> {
-  const size = calcResizedSize(source, MEISHI_IMAGE_MAX_DIMENSION);
   const { format, mimeType } = resolveImageOutputFormat();
-  const image = await ImageManipulator.manipulate(uri)
-    .resize(size)
-    .renderAsync();
-  const saved = await image.saveAsync({ format, compress: 0.8 });
-  return { ...saved, mimeType };
+  let saved: ImageResult | null = null;
+  for (const attempt of MEISHI_IMAGE_ATTEMPTS) {
+    const size = calcResizedSize(source, attempt.maxDimension);
+    const image = await ImageManipulator.manipulate(uri)
+      .resize(size)
+      .renderAsync();
+    saved = await image.saveAsync({ format, compress: attempt.compress });
+    if ((await readByteLength(saved.uri)) <= MEISHI_IMAGE_MAX_BYTES) break;
+  }
+  // MEISHI_IMAGE_ATTEMPTS は空でないので saved は必ず埋まる。
+  return { ...(saved as ImageResult), mimeType };
 }
