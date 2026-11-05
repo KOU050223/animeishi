@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
@@ -8,7 +8,6 @@ import { WatchHistorySection } from "@/components/library/WatchHistorySection";
 import { FavoritesSection } from "@/components/library/FavoritesSection";
 import { useThemeColors } from "@/lib/theme";
 import { useMarkScreenInteractive } from "@/lib/observe";
-import { useAnimeListPalette } from "@/components/anime-list/animeListStyles";
 
 const SECTIONS = ["anime", "history", "favorites"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -23,11 +22,14 @@ function isSection(value: unknown): value is Section {
 // /library?section=... でここへ着地する。
 export default function LibraryScreen() {
   useMarkScreenInteractive();
-  // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは
-  // ヘッダー高さ分だけ下げる（large title が畳まれると値も変わる）。
+  // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
+  // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
+  // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
+  // 不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #469）。
   const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const colors = useThemeColors();
-  const animePalette = useAnimeListPalette();
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string; q?: string }>();
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
@@ -43,16 +45,16 @@ export default function LibraryScreen() {
   const initialQuery =
     typeof params.q === "string" && params.q ? params.q : undefined;
 
-  // セクションごとの画面背景色に切り替え行の下地を揃える
-  // （アニメは暖色系の独自パレット、他は共通の白/slate-900）。
-  const backgroundColor =
-    section === "anime" ? animePalette.screen : colors.background;
-
   return (
     // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
     <SafeAreaView
-      style={{ flex: 1, backgroundColor, paddingTop: headerHeight }}
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        paddingTop: contentTopPadding,
+      }}
       edges={[]}
+      testID="library-screen"
     >
       <SegmentedControl
         items={[

@@ -3,16 +3,16 @@ import { StyleSheet, useColorScheme } from "react-native";
 import { GRID_GAP } from "./animeListUtils";
 
 /**
- * アニメ一覧画面の配色。light は紙ライクな暖色系、dark はその印象を保ちつつ
- * 暗い暖灰（stone 系）へ落とす。カードやチップは背景より一段明るい面にする。
+ * アニメ一覧画面の配色。カード・チップ・ラベル等の部品色を持つ。
+ * 画面のベース背景は持たない: 暖色系の独自背景はネイティブヘッダー（白/
+ * slate-900）と色が食い違うため、画面背景は他タブと同じテーマ標準色を
+ * 呼び出し側が敷く（issue #469）。
  *
  * 直接参照するのではなく `useAnimeListStyles()` / `useAnimeListPalette()` 経由で
  * 現在スキームに対応する値を取る（判定元は dark: バリアントと同じ
  * RN の useColorScheme）。
  */
 export type AnimeListPalette = {
-  /** 画面のベース背景。 */
-  screen: string;
   /** オレンジ系のアクセント（セクションラベル・ポスター代替面）。 */
   accent: string;
   /** 見出し・強調テキスト。 */
@@ -75,7 +75,6 @@ export type AnimeListPalette = {
 };
 
 const lightPalette: AnimeListPalette = {
-  screen: "#f6f3ee",
   accent: "#7c2d12",
   title: "#0f172a",
   subtitle: "#64748b",
@@ -121,7 +120,6 @@ const lightPalette: AnimeListPalette = {
 };
 
 const darkPalette: AnimeListPalette = {
-  screen: "#0c0a09",
   accent: "#fdba74",
   title: "#f5f5f4",
   subtitle: "#a8a29e",
@@ -185,10 +183,6 @@ export function useAnimeListStyles() {
 
 function createStyles(p: AnimeListPalette) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: p.screen,
-    },
     listContent: {
       rowGap: 12,
     },
@@ -470,13 +464,6 @@ function createStyles(p: AnimeListPalette) {
       justifyContent: "center",
       paddingHorizontal: 30,
       paddingVertical: 54,
-    },
-    stateScreen: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: p.screen,
-      paddingHorizontal: 32,
     },
     loadingMark: {
       width: 56,
