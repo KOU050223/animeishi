@@ -32,6 +32,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { FavoriteButton } from "@/components/anime-list/FavoriteButton";
+import { AnimeWorkDetailSheet } from "@/components/anime-list/AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "@/components/anime-list/AnimeWorkDetailSheet";
 import {
   AddToWorkListButton,
   AddToWorkListSheet,
@@ -98,6 +100,7 @@ export function WatchHistorySection() {
   const [refreshing, setRefreshing] = useState(false);
   // 「リストに追加」シートの対象作品（issue #379）。
   const [listTarget, setListTarget] = useState<WatchHistoryItem | null>(null);
+  const [detailWork, setDetailWork] = useState<WatchHistoryItem | null>(null);
   // 直前のステータス変更を取り消せるトースト。新しい変更で差し替わる。
   const [statusToast, setStatusToast] = useState<StatusUndoToast | null>(null);
   const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -197,6 +200,18 @@ export function WatchHistorySection() {
     await refetch();
     setRefreshing(false);
   }
+
+  const openCharacterTierList = useCallback(
+    (work: WorkDetailSheetTarget) => {
+      // キャラクター tier 表を開く操作を計測する（issue #214）。
+      trackEvent("character_tier_open");
+      router.push({
+        pathname: "/character-tier-list",
+        params: { workId: String(work.annictWorkId), workTitle: work.title },
+      });
+    },
+    [router],
+  );
 
   function confirmDelete(annictWorkId: number) {
     confirm(
@@ -449,6 +464,7 @@ export function WatchHistorySection() {
             favoriteDisabled={isTogglingFavorite}
             onToggleFavorite={() => toggleFavorite(item.annictWorkId)}
             onAddToList={() => setListTarget(item)}
+            onOpenDetail={() => setDetailWork(item)}
           />
         )}
         ListEmptyComponent={
@@ -483,6 +499,19 @@ export function WatchHistorySection() {
             : null
         }
         onClose={() => setListTarget(null)}
+      />
+
+      <AnimeWorkDetailSheet
+        work={detailWork}
+        onClose={() => setDetailWork(null)}
+        isFavorite={
+          detailWork != null && favoriteIds.has(detailWork.annictWorkId)
+        }
+        isTogglingFavorite={isTogglingFavorite}
+        onToggleFavorite={() => {
+          if (detailWork) toggleFavorite(detailWork.annictWorkId);
+        }}
+        onOpenCharacterTierList={openCharacterTierList}
       />
 
       {/* ステータス変更の「元に戻す」トースト。一覧を操作し続けられるよう
@@ -680,6 +709,7 @@ function WatchHistoryRow({
   favoriteDisabled,
   onToggleFavorite,
   onAddToList,
+  onOpenDetail,
 }: {
   history: WatchHistoryItem;
   onStatusChange: (next: WatchStatus) => void;
@@ -688,6 +718,7 @@ function WatchHistoryRow({
   favoriteDisabled: boolean;
   onToggleFavorite: () => void;
   onAddToList: () => void;
+  onOpenDetail: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -707,15 +738,35 @@ function WatchHistoryRow({
       className="flex-row py-3 gap-3"
       testID={`watch-history-item-${history.annictWorkId}`}
     >
-      <WorkThumbnail uri={history.hostedImageUrl} />
+      {/* サムネ・タイトルは作品詳細シートを開く導線（issue #471）。
+          行内に他のボタンがあるため、押せるのはこの 2 要素だけに絞る。 */}
+      <TouchableOpacity
+        onPress={onOpenDetail}
+        accessibilityRole="button"
+        accessibilityLabel={t("{{title}} の詳細を開く", {
+          title: history.title,
+        })}
+        testID={`watch-history-detail-thumb-${history.annictWorkId}`}
+      >
+        <WorkThumbnail uri={history.hostedImageUrl} />
+      </TouchableOpacity>
 
       <View className="flex-1">
-        <Text
-          className="text-slate-900 dark:text-slate-100 font-medium"
-          numberOfLines={2}
+        <TouchableOpacity
+          onPress={onOpenDetail}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}} の詳細を開く", {
+            title: history.title,
+          })}
+          testID={`watch-history-detail-title-${history.annictWorkId}`}
         >
-          {history.title}
-        </Text>
+          <Text
+            className="text-slate-900 dark:text-slate-100 font-medium"
+            numberOfLines={2}
+          >
+            {history.title}
+          </Text>
+        </TouchableOpacity>
         <View className="flex-row items-center gap-2 mt-1 flex-wrap">
           <MenuPicker
             testID={`watch-history-status-${history.annictWorkId}`}
