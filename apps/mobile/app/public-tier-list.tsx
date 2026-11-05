@@ -13,6 +13,7 @@ import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 import {
@@ -265,6 +266,13 @@ export default function PublicTierListScreen() {
 
   const data = detail.data;
   const isOwn = !!data && data.owner.userId === userId;
+  // TanStack Query はバックグラウンド再取得の失敗でも data を保持したまま
+  // isError を立てる。一時的な再取得エラーで表示中の内容を消さないよう、
+  // データがない・または 404 のときだけ NotFound にする。
+  const isHidden =
+    detail.isError &&
+    (!data ||
+      (detail.error instanceof ApiRequestError && detail.error.status === 404));
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -317,7 +325,7 @@ export default function PublicTierListScreen() {
           ),
         }}
       />
-      {kind === null || listId === null || detail.isError ? (
+      {kind === null || listId === null || isHidden ? (
         <NotFound />
       ) : detail.isLoading || !data ? (
         <Loading colors={colors} />
