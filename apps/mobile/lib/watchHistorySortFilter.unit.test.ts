@@ -14,6 +14,7 @@ function entry(
   overrides: Partial<{
     state: WatchState;
     seasonYear: number | null;
+    seasonName: string | null;
     watchersCount: number | null;
   }> = {},
 ) {
@@ -21,6 +22,7 @@ function entry(
     annictWorkId,
     state: "WATCHED" as WatchState,
     seasonYear: 2024,
+    seasonName: null as string | null,
     watchersCount: 100,
     ...overrides,
   };
@@ -130,6 +132,30 @@ describe("sortWatchHistory", () => {
     expect(
       sortWatchHistory(items, "seasonYear").map((e) => e.annictWorkId),
     ).toEqual([3, 4, 1, 2]);
+  });
+
+  it("seasonYear は同年の中を秋→夏→春→冬の放送順に並べる", () => {
+    const items = [
+      entry(1, { seasonYear: 2026, seasonName: "2026-winter" }),
+      entry(2, { seasonYear: 2025, seasonName: "2025-autumn" }),
+      entry(3, { seasonYear: 2026, seasonName: "2026-summer" }),
+      entry(4, { seasonYear: 2026, seasonName: "2026-autumn" }),
+      entry(5, { seasonYear: 2026, seasonName: "2026-spring" }),
+    ];
+    expect(
+      sortWatchHistory(items, "seasonYear").map((e) => e.annictWorkId),
+    ).toEqual([4, 3, 5, 1, 2]);
+  });
+
+  it("seasonYear でシーズン未設定の作品は同じ年の末尾に寄せる", () => {
+    const items = [
+      entry(1, { seasonYear: 2026, seasonName: null }),
+      entry(2, { seasonYear: 2026, seasonName: "2026-winter" }),
+      entry(3, { seasonYear: 2025, seasonName: "2025-autumn" }),
+    ];
+    expect(
+      sortWatchHistory(items, "seasonYear").map((e) => e.annictWorkId),
+    ).toEqual([2, 1, 3]);
   });
 
   it("watchersCount は視聴者数の多い順で、未取得は末尾に寄せる", () => {

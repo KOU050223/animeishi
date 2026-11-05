@@ -17,6 +17,7 @@ function entry(
   overrides: Partial<{
     title: string;
     seasonYear: number | null;
+    seasonName: string | null;
     watchersCount: number | null;
     media: string | null;
     genres: string[] | null;
@@ -26,6 +27,7 @@ function entry(
     annictWorkId,
     title: `作品${annictWorkId}`,
     seasonYear: 2024,
+    seasonName: null as string | null,
     watchersCount: null,
     media: "TV",
     genres: null,
@@ -71,6 +73,31 @@ describe("sortAnimeList", () => {
     expect(
       sortAnimeList(list, "watchersCount", "asc").map((w) => w.annictWorkId),
     ).toEqual([1, 3, 2]);
+  });
+
+  it("year 降順は同年の中を秋→夏→春→冬の放送順に並べる", () => {
+    const items = [
+      entry(1, { seasonYear: 2026, seasonName: "2026-winter" }),
+      entry(2, { seasonYear: 2025, seasonName: "2025-autumn" }),
+      entry(3, { seasonYear: 2026, seasonName: "2026-summer" }),
+      entry(4, { seasonYear: 2026, seasonName: "2026-autumn" }),
+      entry(5, { seasonYear: 2026, seasonName: "2026-spring" }),
+    ];
+    expect(
+      sortAnimeList(items, "year", "desc").map((w) => w.annictWorkId),
+    ).toEqual([4, 3, 5, 1, 2]);
+  });
+
+  it("year 昇順は同年の中を冬→春→夏→秋に並べ、シーズン未設定は年の末尾のまま", () => {
+    const items = [
+      entry(1, { seasonYear: 2026, seasonName: null }),
+      entry(2, { seasonYear: 2026, seasonName: "2026-autumn" }),
+      entry(3, { seasonYear: 2025, seasonName: "2025-winter" }),
+      entry(4, { seasonYear: 2026, seasonName: "2026-winter" }),
+    ];
+    expect(
+      sortAnimeList(items, "year", "asc").map((w) => w.annictWorkId),
+    ).toEqual([3, 4, 2, 1]);
   });
 
   it("元の配列を破壊しない", () => {
