@@ -143,9 +143,6 @@ export function AnimeWorkDetailSheet({
       ? workDetailQueryKey(userId, work.annictWorkId)
       : WORK_DETAIL_QUERY_KEY;
 
-  // ステータス変更の共通経路。楽観値を立てて upsert/解除を投げ、
-  // 失敗時は下ろし、settle 時に詳細クエリを取り直す。
-  // チップ操作（selectStatus）と話数記録からの自動更新の両方が使う。
   function applyStatus(next: WatchState | null) {
     if (!work) return;
     setOptimistic({ workId: work.annictWorkId, state: next });
@@ -199,18 +196,32 @@ export function AnimeWorkDetailSheet({
   // 記録の直列実行中にチップで別ステータスを付けられた場合も、最新値を
   // 見て上書きしない判断ができる（ref の同期は effect で行う）。
   const latestStatus = useRef<{
+    workId: number | null;
+    stateKnown: boolean;
     state: WatchState | null;
     apply: (next: WatchState | null) => void;
-  }>({ state: null, apply: () => {} });
+  }>({ workId: null, stateKnown: false, state: null, apply: () => {} });
   useEffect(() => {
-    latestStatus.current = { state: currentState, apply: applyStatus };
+    latestStatus.current = {
+      workId: work?.annictWorkId ?? null,
+      // detail.data が無いときの null は「未設定」ではなく「未取得」を
+      // 意味し得るため、明示ステータスの誤上書きを防ぐ判定に分けて持つ。
+      stateKnown:
+        work != null &&
+        (optimistic?.workId === work.annictWorkId || detail.data != null),
+      state: currentState,
+      apply: applyStatus,
+    };
   });
 
   // 話数の記録が全部終わった時点で呼ばれる。未設定 → 視聴中、全話記録で
   // → 視聴済み。ユーザーが明示的に付けたステータス（視聴予定・一時停止・
   // 断念）は上書きしない（issue #467 の方針決定）。
-  function handleEpisodesRecorded(allWatched: boolean) {
-    const { state, apply } = latestStatus.current;
+  function handleEpisodesRecorded(annictWorkId: number, allWatched: boolean) {
+    const { workId, stateKnown, state, apply } = latestStatus.current;
+    // 記録の直列実行中に別作品へ切り替わった・詳細未取得でステータスを
+    // 判定できないケースは自動更新しない。
+    if (workId !== annictWorkId || !stateKnown) return;
     if (allWatched) {
       if (state === null || state === "WATCHING") apply("WATCHED");
     } else if (state === null) {
@@ -565,7 +576,8 @@ function RatingSection({
  * N 話をチェックすると、それより前の未記録分もまとめて記録する（issue #466）。
  * 解除はタップした 1 話だけを外す。記録が全部終わると onEpisodesRecorded で
  * 「全話記録済みになったか」を親へ通知し、視聴ステータスの自動更新
- * （issue #467）に使われる。
+ * （issue #467）に使われる。直列実行中にシートが別作品へ切り替わり得るため、
+ * 通知には記録開始時の作品 ID を添える。
  */
 function EpisodeSection({
   work,
@@ -574,7 +586,7 @@ function EpisodeSection({
 }: {
   work: WorkDetailSheetTarget;
   onTokenError: (error: unknown) => boolean;
-  onEpisodesRecorded: (allWatched: boolean) => void;
+  onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
 }) {
   const colors = useThemeColors();
   const palette = useAnimeListPalette();
@@ -619,6 +631,7 @@ function EpisodeSection({
     // 1 話も記録できなかった場合はステータスを進めない。
     if (recorded.size > 0) {
       onEpisodesRecorded(
+        work.annictWorkId,
         episodes.every((e) => e.watched || recorded.has(e.annictEpisodeId)),
       );
     }

@@ -783,6 +783,47 @@ describe("AnimeWorkDetailSheet", () => {
     });
   });
 
+  it("詳細の取得が終わる前に話を記録してもステータスは変えない", async () => {
+    // 話数一覧だけ先に届き detail.data がまだ無い状態。state=null は
+    // 「未設定」ではなく「未取得」を意味するため、明示ステータスを
+    // 「視聴中」で上書きしない。
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: undefined, isLoading: true }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-102"));
+    await act(async () => {});
+
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(102);
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("記録の完了前に別作品へ切り替わったらその作品のステータスを変えない", async () => {
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockRecordEpisodeAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    const { rerender } = await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    expect(mockRecordEpisodeAsync).toHaveBeenCalled();
+
+    // 記録の直列実行が残ったまま別作品へ切り替える。
+    await rerender(sheetElement({ work: { ...WORK, annictWorkId: 43 } }));
+
+    await act(async () => {
+      resolvers.forEach((resolve) => resolve({ recorded: true }));
+    });
+
+    // 完了通知は記録開始時の作品のものなので、今開いている作品へ
+    // ステータスは送らない。
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
   it("「キャラ Tier 表を作る」を押すとシートを閉じて対象作品を onOpenCharacterTierList に渡す", async () => {
     const onOpenCharacterTierList = jest.fn();
     const onClose = jest.fn();
