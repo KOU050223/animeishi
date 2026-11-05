@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
 import type { TierRow } from "./types";
 
 // 作品版（useTierList.ts）のキャラクター版。クエリキーの名前空間を
@@ -115,6 +116,8 @@ export function useSaveCharacterTierList() {
       void queryClient.invalidateQueries({
         queryKey: characterTierListsQueryKey,
       });
+      // isPublic の切り替えで「みつける」の一覧・詳細の出入りが変わる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }
@@ -183,6 +186,8 @@ export function useDeleteCharacterTierList() {
       void queryClient.invalidateQueries({
         queryKey: characterTierListsQueryKey,
       });
+      // 公開中のリストを消したら「みつける」からも消える。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }

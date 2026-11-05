@@ -160,7 +160,10 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
 
       const usersRepo = usersRepository(db, c.var.clerkUserId);
       try {
-        await usersRepo.createReport(list.userId, reason, id);
+        await usersRepo.createReport(list.userId, reason, {
+          kind: "work_list",
+          id,
+        });
       } catch (e) {
         if (e instanceof ReportRateLimitError) {
           c.header("Retry-After", String(e.retryAfterSeconds));

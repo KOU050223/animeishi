@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
 import type { TierRow } from "./types";
 
 // 作品版（useTierList.ts）の自由作成版（issue #348）。クエリキーの名前空間を
@@ -111,6 +112,8 @@ export function useSaveCustomTierList() {
       void queryClient.invalidateQueries({
         queryKey: customTierListsQueryKey,
       });
+      // isPublic の切り替えで「みつける」の一覧・詳細の出入りが変わる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }
@@ -173,6 +176,8 @@ export function useDeleteCustomTierList() {
       void queryClient.invalidateQueries({
         queryKey: customTierListsQueryKey,
       });
+      // 公開中のリストを消したら「みつける」からも消える。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }

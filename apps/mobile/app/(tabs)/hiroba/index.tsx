@@ -10,7 +10,7 @@ import { useMarkScreenInteractive } from "@/lib/observe";
 // ひろばタブ（issue #352）。Tier 表・作品リスト・アニメ分析など
 // 「作って遊ぶ」機能を束ねる。レイアウトはライブラリ・QR・フレンドと
 // 同じく、ラージタイトルの下にセグメント「つくる / みつける」を置く。
-// みつけるは公開作品リストの一覧（#422）。
+// みつけるは公開作品リスト（#422）・公開 tier 表・公開名刺（#418）の一覧。
 export default function HirobaScreen() {
   useMarkScreenInteractive();
   // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは

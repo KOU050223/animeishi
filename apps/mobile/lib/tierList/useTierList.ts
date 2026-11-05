@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
 import type { TierRow } from "./types";
 
 const tierListQueryKey = (season: string) =>
@@ -100,6 +101,8 @@ export function useSaveTierList() {
       // 新規作成・タイトル変更で一覧が古くなるため破棄する
       // （自由作成版と同じ方針）。
       void queryClient.invalidateQueries({ queryKey: tierListsQueryKey });
+      // isPublic の切り替えで「みつける」の一覧・詳細の出入りが変わる。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }
@@ -158,6 +161,8 @@ export function useDeleteTierList() {
     onSuccess: (_data, season) => {
       queryClient.removeQueries({ queryKey: tierListQueryKey(season) });
       void queryClient.invalidateQueries({ queryKey: tierListsQueryKey });
+      // 公開中のリストを消したら「みつける」からも消える。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
     },
   });
 }

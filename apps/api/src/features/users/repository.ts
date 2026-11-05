@@ -1,4 +1,16 @@
-import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
@@ -22,8 +34,10 @@ import {
   reports,
   blocks,
   analyses,
+  tierListLikes,
+  userLikes,
 } from "@/db/schema";
-import type { User, NewUser, Report } from "@/db/schema";
+import type { User, NewUser, Report, TierListKind } from "@/db/schema";
 
 /** 通報・ブロックの対象ユーザーが存在しないときに投げるエラー。ルート層で 404 に変換する。 */
 export class UserNotFoundError extends Error {
@@ -96,6 +110,93 @@ const REPORT_HOURLY_WINDOW_MS = 60 * 60 * 1000;
 const REPORT_HOURLY_LIMIT = 10;
 
 /**
+ * 通報対象（issue #418）。省略はユーザー通報、workListId は作品リスト
+ * 通報（issue #422）、tierList は tier 表通報（kind + id で 3 種類の
+ * テーブルを区別する）。
+ */
+type ReportTarget =
+  | { kind: "user" }
+  | { kind: "work_list"; id: number }
+  | { kind: "tier_list"; tierListKind: TierListKind; id: number };
+
+export type { ReportTarget };
+
+// ひろば「みつける」の名刺一覧ソート（issue #418）。
+export type PublicUsersSort = "likes" | "new";
+
+// GET /users/public の行。genres はカード表示用（findUserGenres と同じ
+// user_genres 由来）。
+export type PublicUserSummary = {
+  id: string;
+  username: string;
+  profileImageUrl: string | null;
+  bio: string | null;
+  genres: string[];
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: Date;
+};
+
+type PublicUserRow = Omit<PublicUserSummary, "genres">;
+
+// 一覧ページ分のジャンルを一括で取って行に付ける（N+1 回避）。
+async function withGenres(
+  db: DrizzleDb,
+  items: PublicUserRow[],
+): Promise<PublicUserSummary[]> {
+  if (items.length === 0) return [];
+  const genreRows = await db
+    .select({ userId: userGenres.userId, genre: userGenres.genre })
+    .from(userGenres)
+    .where(
+      inArray(
+        userGenres.userId,
+        items.map((item) => item.id),
+      ),
+    )
+    .orderBy(userGenres.genre);
+  const genresByUser = new Map<string, string[]>();
+  for (const row of genreRows) {
+    const list = genresByUser.get(row.userId);
+    if (list) list.push(row.genre);
+    else genresByUser.set(row.userId, [row.genre]);
+  }
+  return items.map((item) => ({
+    ...item,
+    genres: genresByUser.get(item.id) ?? [],
+  }));
+}
+
+// 通報種別ごとの 24h 重複判定条件（INSERT 側と同じ分け方。
+// ユーザー通報とリスト通報を混ぜない）。
+function reportDedupCondition(
+  reporterId: string,
+  targetUserId: string,
+  target: ReportTarget,
+) {
+  switch (target.kind) {
+    case "work_list":
+      return and(
+        eq(reports.reporterId, reporterId),
+        eq(reports.reportedWorkListId, target.id),
+      );
+    case "tier_list":
+      return and(
+        eq(reports.reporterId, reporterId),
+        eq(reports.reportedTierListKind, target.tierListKind),
+        eq(reports.reportedTierListId, target.id),
+      );
+    default:
+      return and(
+        eq(reports.reporterId, reporterId),
+        eq(reports.reportedUserId, targetUserId),
+        isNull(reports.reportedWorkListId),
+        isNull(reports.reportedTierListId),
+      );
+  }
+}
+
+/**
  * createReport のガード付き INSERT が拒否されたとき、どちらの制限に
  * 引っかかったかを調べて対応する ReportRateLimitError を組み立てる。
  * 同一対象の再通報を先に見るのは、24h クールダウンのほうが制約として
@@ -106,22 +207,13 @@ async function buildReportRateLimitError(
   reporterId: string,
   targetUserId: string,
   nowMs: number,
-  workListId?: number,
+  target: ReportTarget,
 ): Promise<ReportRateLimitError> {
   const lastSameTarget = await db.query.reports.findFirst({
-    where: (t, { and: and_, eq: eq_, gt: gt_, isNull: isNull_ }) =>
-      and_(
-        eq_(t.reporterId, reporterId),
-        // 重複判定の対象は INSERT 側と同じく通報種別で分ける
-        // （ユーザー通報とリスト通報を混ぜない）。
-        workListId !== undefined
-          ? eq_(t.reportedWorkListId, workListId)
-          : and_(
-              eq_(t.reportedUserId, targetUserId),
-              isNull_(t.reportedWorkListId),
-            ),
-        gt_(t.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
-      ),
+    where: and(
+      reportDedupCondition(reporterId, targetUserId, target),
+      gt(reports.createdAt, new Date(nowMs - REPORT_SAME_TARGET_WINDOW_MS)),
+    ),
     orderBy: (t, { desc: desc_ }) => desc_(t.createdAt),
     columns: { createdAt: true },
   });
@@ -360,28 +452,31 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
      * 同一対象への再通報（24h）・短時間の大量通報（1h に REPORT_HOURLY_LIMIT 件）
      * は ReportRateLimitError で拒否する（issue #148）。
      *
-     * workListId を渡すと作品リスト通報になる（issue #422）。
-     * reported_user_id にはリストの所有者を入れ、reported_work_list_id に
-     * リスト id を記録する。24h の重複判定は種別ごとに分け、ユーザー通報と
-     * リスト通報を互いにカウントしない。
+     * target で通報対象を分ける（既定はユーザー通報）。
+     * work_list は作品リスト通報（issue #422）、tier_list は tier 表通報
+     * （issue #418）。いずれも reported_user_id には対象の所有者を入れ、
+     * リスト側は参照列に種別と id を記録する。24h の重複判定は種別ごとに
+     * 分け、ユーザー通報とリスト通報を互いにカウントしない。
      */
     async createReport(
       targetUserId: string,
       reason: string,
-      workListId?: number,
+      target: ReportTarget = { kind: "user" },
     ): Promise<Report> {
       if (targetUserId === currentUserId) {
         throw new Error(
-          workListId !== undefined
+          target.kind === "work_list"
             ? "自分の作品リストを通報することはできません"
-            : "自分自身を通報することはできません",
+            : target.kind === "tier_list"
+              ? "自分の tier 表を通報することはできません"
+              : "自分自身を通報することはできません",
         );
       }
-      const target = await db.query.users.findFirst({
+      const targetUser = await db.query.users.findFirst({
         where: eq(users.id, targetUserId),
         columns: { id: true },
       });
-      if (!target) {
+      if (!targetUser) {
         throw new UserNotFoundError(targetUserId);
       }
 
@@ -404,16 +499,27 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
       );
 
       // 重複判定の対象は通報種別で分ける。ユーザー通報は
-      // reported_work_list_id IS NULL（リスト通報行を混ぜない）、
-      // リスト通報はリスト id で絞る。
+      // reported_work_list_id / reported_tier_list_id が NULL
+      // （リスト通報行を混ぜない）、リスト通報は参照列で絞る。
       const dedupCondition =
-        workListId !== undefined
-          ? sql`reported_work_list_id = ${workListId}`
-          : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL`;
+        target.kind === "work_list"
+          ? sql`reported_work_list_id = ${target.id}`
+          : target.kind === "tier_list"
+            ? sql`reported_tier_list_kind = ${target.tierListKind} AND reported_tier_list_id = ${target.id}`
+            : sql`reported_user_id = ${targetUserId} AND reported_work_list_id IS NULL AND reported_tier_list_id IS NULL`;
 
       const inserted = await db.run(sql`
-        INSERT INTO ${reports} (reporter_id, reported_user_id, reported_work_list_id, reason, created_at)
-        SELECT ${currentUserId}, ${targetUserId}, ${workListId ?? null}, ${reason}, ${nowSec}
+        INSERT INTO ${reports} (
+          reporter_id, reported_user_id, reported_work_list_id,
+          reported_tier_list_kind, reported_tier_list_id,
+          reason, created_at
+        )
+        SELECT
+          ${currentUserId}, ${targetUserId},
+          ${target.kind === "work_list" ? target.id : null},
+          ${target.kind === "tier_list" ? target.tierListKind : null},
+          ${target.kind === "tier_list" ? target.id : null},
+          ${reason}, ${nowSec}
         WHERE NOT EXISTS (
           SELECT 1 FROM ${reports}
           WHERE reporter_id = ${currentUserId}
@@ -433,14 +539,17 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           currentUserId,
           targetUserId,
           nowMs,
-          workListId,
+          target,
         );
       }
       return {
         id: inserted.meta.last_row_id,
         reporterId: currentUserId,
         reportedUserId: targetUserId,
-        reportedWorkListId: workListId ?? null,
+        reportedWorkListId: target.kind === "work_list" ? target.id : null,
+        reportedTierListKind:
+          target.kind === "tier_list" ? target.tierListKind : null,
+        reportedTierListId: target.kind === "tier_list" ? target.id : null,
         reason,
         status: "open",
         resolutionNote: null,
@@ -522,6 +631,167 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         );
     },
 
+    // ---- 公開名刺（ひろば「みつける」, issue #418）----
+
+    /**
+     * 公開名刺の一覧。公開条件はプロフィール公開設定
+     * （users.is_public = true）で、ブロック関係にあるユーザーは
+     * どちら側からでも除外する（公開作品リストと同じ可視条件）。
+     * いいね順・新着順を cursor でページングする。
+     * cursor は "<ソートキー>_<userId>"（likes はいいね数、new は
+     * created_at の unix 秒）。user_id 自体が "_" を含むので
+     * 先頭の "_" だけで区切る。
+     */
+    async getPublicUsers(input: {
+      sort: PublicUsersSort;
+      cursor?: string | undefined;
+      limit: number;
+    }): Promise<{ items: PublicUserSummary[]; hasMore: boolean }> {
+      const likeCountExpr = sql<number>`(
+        SELECT COUNT(*) FROM ${userLikes}
+        WHERE ${userLikes.likedUserId} = ${users.id}
+      )`;
+      const likedByMeExpr = sql<boolean>`EXISTS (
+        SELECT 1 FROM ${userLikes}
+        WHERE ${userLikes.userId} = ${currentUserId}
+          AND ${userLikes.likedUserId} = ${users.id}
+      )`;
+      // ブロック関係にあるユーザーはどちら側からでも除く。
+      const notBlockedCondition = notExists(
+        db
+          .select({ one: sql`1` })
+          .from(blocks)
+          .where(
+            or(
+              and(
+                eq(blocks.blockerId, currentUserId),
+                eq(blocks.blockedId, users.id),
+              ),
+              and(
+                eq(blocks.blockerId, users.id),
+                eq(blocks.blockedId, currentUserId),
+              ),
+            ),
+          ),
+      );
+
+      // user_id はテキストなので降順タイブレークは文字列比較になる。
+      let cursorCondition: SQL | undefined;
+      if (input.cursor !== undefined) {
+        const sep = input.cursor.indexOf("_");
+        const sortKey = Number(input.cursor.slice(0, sep));
+        const cursorUserId = input.cursor.slice(sep + 1);
+        const sortExpr =
+          input.sort === "likes" ? likeCountExpr : sql`${users.createdAt}`;
+        cursorCondition = sql`(
+          ${sortExpr} < ${sortKey}
+          OR (${sortExpr} = ${sortKey} AND ${users.id} < ${cursorUserId})
+        )`;
+      }
+
+      const orderExpr =
+        input.sort === "likes" ? likeCountExpr : sql`${users.createdAt}`;
+      const rows = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+          bio: users.bio,
+          createdAt: users.createdAt,
+          // 相関サブクエリを持つ sql フラグメントは .as() で包まないと
+          // SELECT 句側でカラム参照が非修飾名に潰れ、内側テーブルの
+          // 同名カラムと比較してしまう（work-lists/repository.ts と同じ対策）。
+          likeCount: sql<number>`${likeCountExpr}`.as("like_count"),
+          likedByMe: sql<number>`${likedByMeExpr}`.as("liked_by_me"),
+        })
+        .from(users)
+        .where(
+          and(eq(users.isPublic, true), notBlockedCondition, cursorCondition),
+        )
+        .orderBy(desc(orderExpr), desc(users.id))
+        .limit(input.limit + 1);
+
+      const items = rows
+        .slice(0, input.limit)
+        .map((row) => ({ ...row, likedByMe: row.likedByMe === 1 }));
+      return {
+        items: await withGenres(db, items),
+        hasMore: rows.length > input.limit,
+      };
+    },
+
+    /**
+     * 公開名刺として閲覧可能なユーザーの取得（いいねの対象解決に使う）。
+     * 非公開・ブロック関係は null（404）。
+     */
+    async findPublicUser(
+      userId: string,
+    ): Promise<{ id: string; username: string } | null> {
+      const row = await db.query.users.findFirst({
+        where: and(
+          eq(users.id, userId),
+          eq(users.isPublic, true),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(blocks)
+              .where(
+                or(
+                  and(
+                    eq(blocks.blockerId, currentUserId),
+                    eq(blocks.blockedId, users.id),
+                  ),
+                  and(
+                    eq(blocks.blockerId, users.id),
+                    eq(blocks.blockedId, currentUserId),
+                  ),
+                ),
+              ),
+          ),
+        ),
+        columns: { id: true, username: true },
+      });
+      return row ?? null;
+    },
+
+    /** 公開名刺へのいいね（冪等）。非公開・ブロック関係は UserNotFoundError。 */
+    async likeUser(userId: string): Promise<void> {
+      if (userId === currentUserId) {
+        throw new Error("自分の名刺にいいねはできません");
+      }
+      const target = await this.findPublicUser(userId);
+      if (!target) throw new UserNotFoundError(userId);
+      await db
+        .insert(userLikes)
+        .values({
+          userId: currentUserId,
+          likedUserId: userId,
+          createdAt: new Date(),
+        })
+        .onConflictDoNothing();
+    },
+
+    /** 公開名刺へのいいね解除（冪等）。 */
+    async unlikeUser(userId: string): Promise<void> {
+      await db
+        .delete(userLikes)
+        .where(
+          and(
+            eq(userLikes.userId, currentUserId),
+            eq(userLikes.likedUserId, userId),
+          ),
+        );
+    },
+
+    /** 名刺の現在のいいね数。いいね/いいね解除のレスポンス用。 */
+    async countUserLikes(userId: string): Promise<number> {
+      const [row] = await db
+        .select({ c: count() })
+        .from(userLikes)
+        .where(eq(userLikes.likedUserId, userId));
+      return row?.c ?? 0;
+    },
+
     /** 自分がブロックしているユーザーの一覧（相手プロフィール付き）。 */
     async getMyBlocks(): Promise<BlockedUser[]> {
       return db
@@ -586,8 +856,47 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           .from(characterTierLists)
           .where(eq(characterTierLists.userId, currentUserId))
       ).map((row) => row.id);
+      const myCustomTierListIds = (
+        await db
+          .select({ id: customTierLists.id })
+          .from(customTierLists)
+          .where(eq(customTierLists.userId, currentUserId))
+      ).map((row) => row.id);
+      // tier_list_likes は list_id 側に FK を張れない（kind で参照先が
+      // 変わるため）ので、自分のリストへの他人のいいねも含めて明示的に消す。
+      const myTierListLikeTargets = (
+        [
+          ["season", myTierListIds],
+          ["character", myCharacterTierListIds],
+          ["custom", myCustomTierListIds],
+        ] as [TierListKind, number[]][]
+      )
+        .filter(([, ids]) => ids.length > 0)
+        .map(([kind, ids]) =>
+          and(
+            eq(tierListLikes.listKind, kind),
+            inArray(tierListLikes.listId, ids),
+          ),
+        );
 
       const queries: BatchItem<"sqlite">[] = [
+        // friends と同様に「いいねした側／された側」の両方向を対象にする
+        db
+          .delete(userLikes)
+          .where(
+            or(
+              eq(userLikes.userId, currentUserId),
+              eq(userLikes.likedUserId, currentUserId),
+            ),
+          ),
+        db
+          .delete(tierListLikes)
+          .where(
+            or(
+              eq(tierListLikes.userId, currentUserId),
+              ...myTierListLikeTargets,
+            ),
+          ),
         db.delete(analyses).where(eq(analyses.userId, currentUserId)),
         db.delete(activities).where(eq(activities.userId, currentUserId)),
         db.delete(annictTokens).where(eq(annictTokens.userId, currentUserId)),

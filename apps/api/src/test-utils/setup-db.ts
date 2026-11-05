@@ -255,6 +255,27 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS work_list_likes_user_list_unique ON work_list_likes (user_id, work_list_id)`,
   `CREATE INDEX IF NOT EXISTS work_list_likes_list_idx ON work_list_likes (work_list_id)`,
+  `CREATE TABLE IF NOT EXISTS tier_list_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    list_kind TEXT NOT NULL,
+    list_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    CONSTRAINT tier_list_likes_list_kind_check CHECK (list_kind IN ('season', 'character', 'custom')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS tier_list_likes_user_list_unique ON tier_list_likes (user_id, list_kind, list_id)`,
+  `CREATE INDEX IF NOT EXISTS tier_list_likes_list_idx ON tier_list_likes (list_kind, list_id)`,
+  `CREATE TABLE IF NOT EXISTS user_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    liked_user_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (liked_user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS user_likes_user_target_unique ON user_likes (user_id, liked_user_id)`,
+  `CREATE INDEX IF NOT EXISTS user_likes_target_idx ON user_likes (liked_user_id)`,
   `CREATE TABLE IF NOT EXISTS annict_tokens (
     user_id TEXT PRIMARY KEY NOT NULL,
     encrypted_token TEXT NOT NULL,
@@ -270,6 +291,8 @@ const DDL_STATEMENTS = [
     reported_user_id TEXT NOT NULL,
     reason TEXT NOT NULL,
     reported_work_list_id INTEGER,
+    reported_tier_list_kind TEXT,
+    reported_tier_list_id INTEGER,
     status TEXT DEFAULT 'open' NOT NULL,
     resolution_note TEXT,
     resolved_at INTEGER,
@@ -282,6 +305,7 @@ const DDL_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS reports_reporter_idx ON reports (reporter_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_user_idx ON reports (reported_user_id)`,
   `CREATE INDEX IF NOT EXISTS reports_reported_work_list_idx ON reports (reported_work_list_id)`,
+  `CREATE INDEX IF NOT EXISTS reports_reported_tier_list_idx ON reports (reported_tier_list_kind, reported_tier_list_id)`,
   `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status)`,
   `CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -393,6 +417,8 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM reports").run();
   await d1.prepare("DELETE FROM blocks").run();
   await d1.prepare("DELETE FROM annict_tokens").run();
+  await d1.prepare("DELETE FROM tier_list_likes").run();
+  await d1.prepare("DELETE FROM user_likes").run();
   await d1.prepare("DELETE FROM character_tier_list_items").run();
   await d1.prepare("DELETE FROM character_tier_lists").run();
   await d1.prepare("DELETE FROM work_list_items").run();
