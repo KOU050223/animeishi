@@ -165,3 +165,46 @@ tasks:
     dir: apps/api
     cmds:
       - node scripts/publish-event.mjs --local {{.CLI_ARGS}}
+
+  # ---- 総選挙（issue #438）----
+  # 特集記事・イベントと同じく frontmatter 付き Markdown を D1 に upsert する。
+  # 形式は docs/runbook/production-tasks.md と scripts/publish-election.mjs
+  # 冒頭のコメントを参照。同じ slug は上書きされる（created_at は初回投入時
+  # のまま。frontmatter から消した候補は、その候補への票ごと削除される）。
+  elections:publish:
+    desc: "本番 D1 に総選挙を投入（task elections:publish -- <選挙.md のパス>。同じ slug は上書き）"
+    dir: apps/api
+    prompt: 本番 D1 に総選挙を投入します（同じ slug の総選挙は上書きされ、frontmatter から消した候補は票ごと削除されます）。続行しますか？
+    cmds:
+      - node scripts/publish-election.mjs --env production {{.CLI_ARGS}}
+
+  elections:publish:preview:
+    desc: "プレビュー D1 に総選挙を投入（task elections:publish:preview -- <選挙.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-election.mjs --env preview {{.CLI_ARGS}}
+
+  elections:publish:local:
+    desc: "ローカル D1 に総選挙を投入（task elections:publish:local -- <選挙.md のパス>）"
+    dir: apps/api
+    cmds:
+      - node scripts/publish-election.mjs --local {{.CLI_ARGS}}
+
+  # 結果の集計（読み取り専用）。途中経過はユーザーには出さない。
+  elections:results:
+    desc: "本番 D1 の総選挙結果を集計して表示（task elections:results -- <slug>）"
+    dir: apps/api
+    cmds:
+      - bash scripts/election-results.sh --env production {{.CLI_ARGS}}
+
+  elections:results:preview:
+    desc: "プレビュー D1 の総選挙結果を集計して表示（task elections:results:preview -- <slug>）"
+    dir: apps/api
+    cmds:
+      - bash scripts/election-results.sh --env preview {{.CLI_ARGS}}
+
+  elections:results:local:
+    desc: "ローカル D1 の総選挙結果を集計して表示（task elections:results:local -- <slug>）"
+    dir: apps/api
+    cmds:
+      - bash scripts/election-results.sh --local {{.CLI_ARGS}}

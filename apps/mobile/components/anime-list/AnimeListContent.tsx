@@ -271,7 +271,7 @@ export function AnimeListContent({
   );
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-white dark:bg-slate-900">
       <FlatList
         key={`anime-list-${numColumns}`}
         data={showLoading || hideForError ? [] : sorted}
