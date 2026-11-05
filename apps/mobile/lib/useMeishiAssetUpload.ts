@@ -63,7 +63,7 @@ export function useMeishiAssetUpload() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "image/webp",
+          "Content-Type": compressed.mimeType,
         },
         body: blob,
       });

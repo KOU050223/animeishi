@@ -64,7 +64,7 @@ export function useProfileAvatarUpload() {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "image/webp",
+          "Content-Type": compressed.mimeType,
         },
         body: blob,
       });
