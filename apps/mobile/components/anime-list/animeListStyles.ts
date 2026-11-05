@@ -47,10 +47,7 @@ export type AnimeListPalette = {
   cardSubtitle: string;
   /** ポスター・スケルトンの代替面。 */
   skeleton: string;
-  /** スケルトンのうち一段明るい部品（チップ型）。 */
-  skeletonMuted: string;
   /** シーズン・ジャンルの小チップ。 */
-  seasonChipBg: string;
   seasonChipText: string;
   genreChipBg: string;
   genreChipText: string;
@@ -103,8 +100,6 @@ const lightPalette: AnimeListPalette = {
   cardTitle: "#0f172a",
   cardSubtitle: "#64748b",
   skeleton: "#e2e8f0",
-  skeletonMuted: "#f1f5f9",
-  seasonChipBg: "#fef3c7",
   seasonChipText: "#92400e",
   genreChipBg: "#f1f5f9",
   genreChipText: "#475569",
@@ -151,8 +146,6 @@ const darkPalette: AnimeListPalette = {
   cardTitle: "#f5f5f4",
   cardSubtitle: "#a8a29e",
   skeleton: "#44403c",
-  skeletonMuted: "#57534e",
-  seasonChipBg: "#451a03",
   seasonChipText: "#fbbf24",
   genreChipBg: "#292524",
   genreChipText: "#d6d3d1",
@@ -417,27 +410,6 @@ function createStyles(p: AnimeListPalette) {
       flexDirection: "row",
       gap: 8,
     },
-    metaRow: {
-      marginTop: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 6,
-    },
-    seasonChip: {
-      minHeight: 25,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      borderRadius: 7,
-      backgroundColor: p.seasonChipBg,
-      paddingHorizontal: 8,
-    },
-    seasonText: {
-      color: p.seasonChipText,
-      fontSize: 11,
-      fontWeight: "900",
-    },
     genreChip: {
       maxWidth: 92,
       minHeight: 25,
@@ -498,13 +470,6 @@ function createStyles(p: AnimeListPalette) {
     },
     skeletonLineShort: {
       width: "55%",
-    },
-    skeletonChip: {
-      marginTop: 2,
-      width: 86,
-      height: 25,
-      borderRadius: 7,
-      backgroundColor: p.skeletonMuted,
     },
     emptyState: {
       alignItems: "center",

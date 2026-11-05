@@ -40,7 +40,6 @@ import {
   adjacentSeasonParams,
   currentSeason,
   formatSeasonLabel,
-  formatWorkSeason,
   getAnimeListLayout,
   toSeasonParam,
   type SeasonFilterKey,
@@ -252,20 +251,6 @@ export function AnimeListContent({
                 />
               </View>
             </View>
-            <View style={styles.metaRow}>
-              {item.seasonYear ? (
-                <View style={styles.seasonChip}>
-                  <Ionicons
-                    name="sparkles-outline"
-                    size={12}
-                    color={palette.seasonChipText}
-                  />
-                  <Text style={styles.seasonText}>
-                    {formatWorkSeason(item)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
           </View>
           {isWatched ? (
             <WatchedStamp
@@ -279,7 +264,6 @@ export function AnimeListContent({
       cardWidth,
       favoriteIds,
       isToggling,
-      palette,
       styles,
       toggleFavorite,
       watchStateByWorkId,
