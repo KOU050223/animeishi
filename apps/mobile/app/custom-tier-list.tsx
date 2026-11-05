@@ -245,20 +245,22 @@ export default function CustomTierListScreen() {
 
   const handleChangeDescription = useCallback(
     (next: string) => {
-      if (isSharing || save.isPending) return;
+      // 読み込み中は hydrate が入力を上書きするため受け付けない
+      // （保存ボタンと同じく詳細取得の完了を待つ）。
+      if (isSharing || save.isPending || isSavedLoading) return;
       setDescription(next);
       setIsDirty(true);
     },
-    [isSharing, save.isPending],
+    [isSharing, isSavedLoading, save.isPending],
   );
 
   const handleChangeIsPublic = useCallback(
     (next: boolean) => {
-      if (isSharing || save.isPending) return;
+      if (isSharing || save.isPending || isSavedLoading) return;
       setIsPublic(next);
       setIsDirty(true);
     },
-    [isSharing, save.isPending],
+    [isSharing, isSavedLoading, save.isPending],
   );
 
   const handleBack = useCallback(() => {
@@ -544,7 +546,7 @@ export default function CustomTierListScreen() {
           onChangeDescription={handleChangeDescription}
           isPublic={isPublic}
           onChangeIsPublic={handleChangeIsPublic}
-          disabled={isSharing || save.isPending}
+          disabled={isSharing || save.isPending || isSavedLoading}
           testIDPrefix="custom-tier-list"
         />
         <Text style={styles.headerHint}>

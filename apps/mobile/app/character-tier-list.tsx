@@ -203,20 +203,22 @@ export default function CharacterTierListScreen() {
   const handleChangeDescription = useCallback(
     (next: string) => {
       // ドロップと同じく、共有中の編集は受け付けない。
-      if (isSharing) return;
+      // 読み込み中・取得失敗時も不可（isDirty が立つと hydrate が走らず、
+      // 空の盤面のまま既存配置を上書き保存できてしまうため）。
+      if (isSharing || isSavedLoading || isSavedError) return;
       setDescription(next);
       setIsDirty(true);
     },
-    [isSharing],
+    [isSharing, isSavedError, isSavedLoading],
   );
 
   const handleChangeIsPublic = useCallback(
     (next: boolean) => {
-      if (isSharing) return;
+      if (isSharing || isSavedLoading || isSavedError) return;
       setIsPublic(next);
       setIsDirty(true);
     },
-    [isSharing],
+    [isSharing, isSavedError, isSavedLoading],
   );
 
   const handleBack = useCallback(() => {
@@ -506,7 +508,9 @@ export default function CharacterTierListScreen() {
           onChangeDescription={handleChangeDescription}
           isPublic={isPublic}
           onChangeIsPublic={handleChangeIsPublic}
-          disabled={isSharing || save.isPending}
+          disabled={
+            isSharing || save.isPending || isSavedLoading || isSavedError
+          }
           testIDPrefix="character-tier-list"
         />
         <Text style={styles.headerHint}>
@@ -535,15 +539,18 @@ export default function CharacterTierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending || isSavedError) &&
+              (!isDirty || save.isPending || isSavedError || isSavedLoading) &&
                 styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending || isSavedError}
+            disabled={
+              !isDirty || save.isPending || isSavedError || isSavedLoading
+            }
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
             accessibilityState={{
-              disabled: !isDirty || save.isPending || isSavedError,
+              disabled:
+                !isDirty || save.isPending || isSavedError || isSavedLoading,
             }}
             testID="character-tier-list-save"
           >

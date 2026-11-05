@@ -236,20 +236,22 @@ export default function TierListScreen() {
   const handleChangeDescription = useCallback(
     (next: string) => {
       // ドロップと同じく、共有・保存中の編集は受け付けない。
-      if (isSharing || save.isPending) return;
+      // 読み込み中も不可（hydrate が編集を上書きする上、未保存扱いで
+      // 空の盤面を保存できてしまうため）。
+      if (isSharing || save.isPending || isSavedLoading) return;
       setDescription(next);
       setIsDirty(true);
     },
-    [isSharing, save.isPending],
+    [isSharing, isSavedLoading, save.isPending],
   );
 
   const handleChangeIsPublic = useCallback(
     (next: boolean) => {
-      if (isSharing || save.isPending) return;
+      if (isSharing || save.isPending || isSavedLoading) return;
       setIsPublic(next);
       setIsDirty(true);
     },
-    [isSharing, save.isPending],
+    [isSharing, isSavedLoading, save.isPending],
   );
 
   const handleRenameTier = useCallback(
@@ -585,7 +587,7 @@ export default function TierListScreen() {
           onChangeDescription={handleChangeDescription}
           isPublic={isPublic}
           onChangeIsPublic={handleChangeIsPublic}
-          disabled={isSharing || save.isPending}
+          disabled={isSharing || save.isPending || isSavedLoading}
           testIDPrefix="tier-list"
         />
         <Text style={styles.headerHint}>
@@ -614,13 +616,16 @@ export default function TierListScreen() {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              (!isDirty || save.isPending) && styles.saveButtonDisabled,
+              (!isDirty || save.isPending || isSavedLoading) &&
+                styles.saveButtonDisabled,
             ]}
             onPress={handleSave}
-            disabled={!isDirty || save.isPending}
+            disabled={!isDirty || save.isPending || isSavedLoading}
             accessibilityRole="button"
             accessibilityLabel="tier 表を保存"
-            accessibilityState={{ disabled: !isDirty || save.isPending }}
+            accessibilityState={{
+              disabled: !isDirty || save.isPending || isSavedLoading,
+            }}
             testID="tier-list-save"
           >
             {save.isPending ? (

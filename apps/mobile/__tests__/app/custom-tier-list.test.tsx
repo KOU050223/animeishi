@@ -338,4 +338,14 @@ describe("CustomTierListScreen", () => {
       expect.anything(),
     );
   });
+
+  it("保存済みデータの読み込み中はメタ入力が無効", async () => {
+    mockParams = { id: "7" };
+    mockSavedLoading = true;
+    await render(<CustomTierListScreen />);
+
+    expect(
+      screen.getByTestId("custom-tier-list-public-toggle").props.disabled,
+    ).toBe(true);
+  });
 });

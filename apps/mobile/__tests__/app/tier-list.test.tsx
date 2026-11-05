@@ -311,4 +311,18 @@ describe("TierListScreen の説明文と公開設定（issue #476）", () => {
       expect.anything(),
     );
   });
+
+  it("保存済みデータの読み込み中はメタ入力と保存ボタンが無効", async () => {
+    // 読み込み中に公開設定を変えて保存すると、空の初期盤面で
+    // 既存の配置が上書きされてしまうため。
+    mockSavedLoading = true;
+    await render(<TierListScreen />);
+
+    expect(screen.getByTestId("tier-list-public-toggle").props.disabled).toBe(
+      true,
+    );
+    expect(
+      screen.getByTestId("tier-list-save").props.accessibilityState?.disabled,
+    ).toBe(true);
+  });
 });
