@@ -100,7 +100,6 @@ export function WatchHistorySection() {
   const [refreshing, setRefreshing] = useState(false);
   // 「リストに追加」シートの対象作品（issue #379）。
   const [listTarget, setListTarget] = useState<WatchHistoryItem | null>(null);
-  // タイトル・サムネ押下で開く作品詳細シートの対象作品（issue #471）。
   const [detailWork, setDetailWork] = useState<WatchHistoryItem | null>(null);
   // 直前のステータス変更を取り消せるトースト。新しい変更で差し替わる。
   const [statusToast, setStatusToast] = useState<StatusUndoToast | null>(null);
@@ -202,7 +201,6 @@ export function WatchHistorySection() {
     setRefreshing(false);
   }
 
-  // 詳細シートからキャラクター tier 表を開く導線（アニメ一覧と同じ遷移）。
   const openCharacterTierList = useCallback(
     (work: WorkDetailSheetTarget) => {
       // キャラクター tier 表を開く操作を計測する（issue #214）。
@@ -503,8 +501,6 @@ export function WatchHistorySection() {
         onClose={() => setListTarget(null)}
       />
 
-      {/* 行のタイトル・サムネ押下で開く作品詳細シート（issue #471）。
-          アニメ一覧と同じシートを履歴の作品メタで開く。 */}
       <AnimeWorkDetailSheet
         work={detailWork}
         onClose={() => setDetailWork(null)}
