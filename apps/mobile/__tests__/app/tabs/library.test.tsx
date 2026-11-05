@@ -2,6 +2,7 @@
 // アニメ / 視聴履歴 / 推し を上部セグメントで切り替え、
 // 旧パスからのリダイレクト（?section=...）でも対応セクションを開く。
 import React from "react";
+import { Platform } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import LibraryScreen from "@/app/(tabs)/library/index";
 import { colors } from "@/lib/theme/colors";
@@ -47,6 +48,7 @@ jest.mock("@/components/library/FavoritesSection", () => ({
 beforeEach(() => {
   mockParams = {};
   mockSetParams.mockClear();
+  Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
 describe("LibraryScreen", () => {
@@ -116,6 +118,17 @@ describe("LibraryScreen", () => {
 
     expect(screen.getByTestId("library-screen")).toHaveStyle({
       paddingTop: 96,
+    });
+  });
+
+  // Android はヘッダーが不透明でコンテンツがバー下から始まるため、
+  // iOS と同じ余白を取るとヘッダー下に空白ができる（issue #469）。
+  it("不透明ヘッダーの Android では上端余白を取らない", async () => {
+    Object.defineProperty(Platform, "OS", { value: "android" });
+    await render(<LibraryScreen />);
+
+    expect(screen.getByTestId("library-screen")).toHaveStyle({
+      paddingTop: 0,
     });
   });
 });
