@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
@@ -522,24 +528,28 @@ describe("AnimeWorkDetailSheet", () => {
 
     await fireEvent.press(screen.getByTestId("episode-record-next"));
 
-    // 第1話は視聴済みなので、未視聴の先頭 = 第2話(102) が記録対象。
+    // 第1話は視聴済みなので、未視聴の先頭 = 第2話(102) だけが記録対象。
     expect(mockTrackEvent).toHaveBeenCalledWith(
       "episode_record",
       expect.objectContaining({ action: "record" }),
     );
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledTimes(1);
     expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(102);
     expect(mockUnrecordEpisodeAsync).not.toHaveBeenCalled();
   });
 
-  it("未チェックの話を押すと記録する", async () => {
+  it("後ろの話をチェックするとそれ以前の未記録分もまとめて記録する", async () => {
     await render(sheetElement());
 
     await fireEvent.press(screen.getByTestId("episode-check-103"));
 
-    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(103);
+    // 第3話のチェックで、それより前の未記録分（102）も順に記録する。
+    // 記録済みの 101 は送らない（issue #466）。
+    expect(mockRecordEpisodeAsync.mock.calls).toEqual([[102], [103]]);
+    expect(mockUnrecordEpisodeAsync).not.toHaveBeenCalled();
   });
 
-  it("チェック済みの話を押すと記録を解除する", async () => {
+  it("チェック済みの話を押すとタップした 1 話だけ記録を解除する", async () => {
     await render(sheetElement());
 
     await fireEvent.press(screen.getByTestId("episode-check-101"));
@@ -548,6 +558,8 @@ describe("AnimeWorkDetailSheet", () => {
       "episode_record",
       expect.objectContaining({ action: "unrecord" }),
     );
+    // 解除はまとめて消えず、タップした話だけが対象（issue #466）。
+    expect(mockUnrecordEpisodeAsync).toHaveBeenCalledTimes(1);
     expect(mockUnrecordEpisodeAsync).toHaveBeenCalledWith(101);
     expect(mockRecordEpisodeAsync).not.toHaveBeenCalled();
   });
@@ -620,6 +632,196 @@ describe("AnimeWorkDetailSheet", () => {
     expect(screen.queryByTestId("episode-record-next")).toBeNull();
     // 未連携のうちは話数一覧のクエリ自体を投げない
     expect(mockUseWorkEpisodes).not.toHaveBeenCalled();
+  });
+
+  it("ステータス未設定で話を記録すると「視聴中」にする", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-102"));
+
+    // issue #467: 記録できた話があるのにステータス未設定なら視聴中にする。
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        annictWorkId: 42,
+        data: { state: "WATCHING" },
+      }),
+    );
+  });
+
+  it("全話が記録済みになると「視聴済み」にする", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        annictWorkId: 42,
+        data: { state: "WATCHED" },
+      }),
+    );
+  });
+
+  it("「視聴中」から全話記録済みになったら「視聴済み」にする", async () => {
+    // 既定の詳細 state は WATCHING。
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        annictWorkId: 42,
+        data: { state: "WATCHED" },
+      }),
+    );
+  });
+
+  it("「視聴中」のまま途中までの記録ではステータスを変えない", async () => {
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-102"));
+    await act(async () => {});
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("視聴予定など明示的なステータスは記録で上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: "WANNA_WATCH" } } }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await act(async () => {});
+
+    // 話の記録自体は走るが、ステータスの upsert は送らない
+    // （issue #467 の方針決定: 明示的に付けたステータスは上書きしない）。
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(103);
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("一部の話の記録に失敗しても、残りが記録できていれば未設定から「視聴中」にする", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    mockRecordEpisodeAsync
+      .mockRejectedValueOnce(new ApiRequestError(500, "話の記録に失敗しました"))
+      .mockResolvedValue({});
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+
+    // 102 は失敗・103 は記録できたため全話揃わず、未設定 → 視聴中 に進める。
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        annictWorkId: 42,
+        data: { state: "WATCHING" },
+      }),
+    );
+    // 失敗分の通知はまとめて 1 件出す。
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("記録が全滅したらステータスは変えない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    mockRecordEpisodeAsync.mockRejectedValue(
+      new ApiRequestError(500, "話の記録に失敗しました"),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-102"));
+    await act(async () => {});
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("記録の完了前に別ステータスを選んだ作品は自動更新で上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    // 記録を保留にして、完了前にチップで「視聴予定」を選ぶ。
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockRecordEpisodeAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    // チップ側の upsert も保留にして、楽観値の「視聴予定」を維持する。
+    mockMutateAsync.mockImplementation(() => new Promise(() => {}));
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await fireEvent.press(screen.getByTestId("work-detail-status-WANNA_WATCH"));
+
+    await act(async () => {
+      resolvers.forEach((resolve) => resolve({ recorded: true }));
+    });
+
+    // 送られるのはユーザーが選んだ「視聴予定」だけ。
+    // 判定は記録完了時点の最新 state なので自動の「視聴済み」は発火しない。
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      annictWorkId: 42,
+      data: { state: "WANNA_WATCH" },
+    });
+  });
+
+  it("詳細の取得が終わる前に話を記録してもステータスは変えない", async () => {
+    // 話数一覧だけ先に届き detail.data がまだ無い状態。state=null は
+    // 「未設定」ではなく「未取得」を意味するため、明示ステータスを
+    // 「視聴中」で上書きしない。
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: undefined, isLoading: true }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-102"));
+    await act(async () => {});
+
+    expect(mockRecordEpisodeAsync).toHaveBeenCalledWith(102);
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("記録の完了前に別作品へ切り替わったらその作品のステータスを変えない", async () => {
+    const resolvers: Array<(v: unknown) => void> = [];
+    mockRecordEpisodeAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    const { rerender } = await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    expect(mockRecordEpisodeAsync).toHaveBeenCalled();
+
+    // 記録の直列実行が残ったまま別作品へ切り替える。
+    await rerender(sheetElement({ work: { ...WORK, annictWorkId: 43 } }));
+
+    await act(async () => {
+      resolvers.forEach((resolve) => resolve({ recorded: true }));
+    });
+
+    // 完了通知は記録開始時の作品のものなので、今開いている作品へ
+    // ステータスは送らない。
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it("「キャラ Tier 表を作る」を押すとシートを閉じて対象作品を onOpenCharacterTierList に渡す", async () => {
