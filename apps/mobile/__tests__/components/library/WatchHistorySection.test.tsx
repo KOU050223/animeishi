@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react-native";
 import { WatchHistorySection } from "@/components/library/WatchHistorySection";
 import { ApiRequestError } from "@/lib/apiError";
@@ -498,6 +499,35 @@ describe("WatchHistorySection", () => {
         pathname: "/character-tier-list",
         params: { workId: "1", workTitle: "テスト作品" },
       });
+    });
+  });
+
+  describe("スクロール構成（issue #470）", () => {
+    it("件数・共有 URL 導線・ソート/絞り込み行は一覧のスクロール領域内にある", async () => {
+      await render(<WatchHistorySection />);
+
+      // 上部領域は FlatList の ListHeaderComponent に置き、一覧と一緒に
+      // スクロールで流れる（画面上部に固定しない）。
+      const list = within(screen.getByTestId("watch-history-list"));
+      expect(list.getByText("1 件")).toBeTruthy();
+      expect(list.getByTestId("watch-history-share-section")).toBeTruthy();
+      expect(list.getByTestId("watch-history-sort-row")).toBeTruthy();
+    });
+
+    it("ソートを切り替えても一覧は再マウントされない", async () => {
+      mockHistories = [
+        { annictWorkId: 1, title: "旧作", state: "WATCHED", seasonYear: 1998 },
+        { annictWorkId: 2, title: "新作", state: "WATCHED", seasonYear: 2025 },
+      ];
+      await render(<WatchHistorySection />);
+      const list = screen.getByTestId("watch-history-list");
+
+      await fireEvent.press(
+        screen.getByTestId("watch-history-sort-seasonYear"),
+      );
+
+      // 再マウントされるとスクロール位置が先頭に戻るため、同一インスタンスを確認する。
+      expect(screen.getByTestId("watch-history-list")).toBe(list);
     });
   });
 
