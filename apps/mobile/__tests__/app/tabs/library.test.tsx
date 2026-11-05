@@ -4,6 +4,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import LibraryScreen from "@/app/(tabs)/library/index";
+import { colors } from "@/lib/theme/colors";
 
 // useLocalSearchParams の値はテストごとに差し替える。
 // setParams は実際はナビゲーション状態を更新して再描画するため、
@@ -13,7 +14,7 @@ const mockSetParams = jest.fn((p: Record<string, string>) => {
   mockParams = { ...mockParams, ...p };
 });
 jest.mock("expo-router/react-navigation", () => ({
-  useHeaderHeight: () => 0,
+  useHeaderHeight: () => 96,
 }));
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
@@ -92,5 +93,29 @@ describe("LibraryScreen", () => {
     await render(<LibraryScreen />);
 
     expect(screen.getByTestId("section-anime")).toBeTruthy();
+  });
+
+  // ネイティブヘッダーと背景色が食い違わないよう、セクションによらず
+  // テーマの標準背景色を敷く（issue #469）。
+  it.each(["anime", "history", "favorites"] as const)(
+    "背景色はセクションによらずテーマの標準背景色（section=%s）",
+    async (section) => {
+      mockParams = { section };
+      await render(<LibraryScreen />);
+
+      expect(screen.getByTestId("library-screen")).toHaveStyle({
+        backgroundColor: colors.light.background,
+      });
+    },
+  );
+
+  // iOS の透過ネイティブヘッダーはコンテンツが下に潜り込むため、
+  // セグメント切り替えはヘッダー高さ分だけ下げる。
+  it("透過ヘッダー分の上端余白を取る（iOS）", async () => {
+    await render(<LibraryScreen />);
+
+    expect(screen.getByTestId("library-screen")).toHaveStyle({
+      paddingTop: 96,
+    });
   });
 });
