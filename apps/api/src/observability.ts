@@ -129,6 +129,8 @@ export function notifyUserReport(
     reason: string;
     // 作品リスト通報のとき対象リストの id（issue #422）。
     workListId?: number;
+    // Tier 表通報のとき対象リストの種別と id（issue #418）。
+    tierList?: { kind: string; id: number };
   },
 ): void {
   Sentry.withScope((scope) => {
@@ -139,11 +141,21 @@ export function notifyUserReport(
     scope.setFingerprint([
       "user_report",
       input.reportedUserId,
-      input.workListId !== undefined ? `work_list:${input.workListId}` : "user",
+      input.workListId !== undefined
+        ? `work_list:${input.workListId}`
+        : input.tierList !== undefined
+          ? `tier_list:${input.tierList.kind}:${input.tierList.id}`
+          : "user",
     ]);
     scope.setTag("report.reported_user_id", input.reportedUserId);
     if (input.workListId !== undefined) {
       scope.setTag("report.work_list_id", String(input.workListId));
+    }
+    if (input.tierList !== undefined) {
+      scope.setTag(
+        "report.tier_list",
+        `${input.tierList.kind}:${input.tierList.id}`,
+      );
     }
     scope.setContext("user_report", input);
     Sentry.captureMessage("user_report_received", "warning");

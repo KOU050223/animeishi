@@ -34,10 +34,12 @@ import { images } from "./features/images";
 import { importRoute } from "./features/import";
 import { avatar, me, meishiAssets } from "./features/me";
 import { pass } from "./features/pass";
+import { publicTierListsRoute } from "./features/public-tier-lists";
 import { share } from "./features/share";
 import { tierLists } from "./features/tier-lists";
 import { user } from "./features/user";
 import { usersRoute } from "./features/users";
+import { publicUsersRoute } from "./features/users/public";
 import { watchHistory } from "./features/watch-history";
 import { workListsRoute } from "./features/work-lists";
 import { publicWorkListsRoute } from "./features/work-lists/public";
@@ -121,8 +123,10 @@ const routes = app
   .route("/me/custom-tier-lists", customTierLists)
   .route("/me/work-lists", workListsRoute)
   .route("/work-lists", publicWorkListsRoute)
+  .route("/tier-lists", publicTierListsRoute)
   .route("/user", user)
-  .route("/users", usersRoute);
+  .route("/users", usersRoute)
+  .route("/users", publicUsersRoute);
 
 // OpenAPI ドキュメント（/doc）と Swagger UI（/ui）。OpenAPI 対応済み feature
 // のルートのみ掲載される。本番を含む全環境で公開する（issue #14）。

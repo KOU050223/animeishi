@@ -92,6 +92,36 @@ jest.mock("@/lib/workList/useReportWorkListFlow", () => ({
   }),
 }));
 
+// 対象切り替えで別フィードがマウントされるため、そちらのフックも
+// スタブ化する（フィード中身は各フィードのテストで担保する）。
+const inertList = () => ({
+  data: undefined,
+  isLoading: true,
+  isError: false,
+  hasNextPage: false,
+  isFetchingNextPage: false,
+  fetchNextPage: jest.fn(),
+  refetch: jest.fn(async () => ({})),
+});
+
+jest.mock("@/lib/tierList/usePublicTierLists", () => ({
+  usePublicTierLists: () => inertList(),
+  useToggleTierListLike: () => ({ mutate: jest.fn() }),
+}));
+
+jest.mock("@/lib/tierList/useReportTierListFlow", () => ({
+  useReportTierListFlow: () => ({ submit: jest.fn(), isPending: false }),
+}));
+
+jest.mock("@/lib/usePublicUsers", () => ({
+  usePublicUsers: () => inertList(),
+  useToggleUserLike: () => ({ mutate: jest.fn() }),
+}));
+
+jest.mock("@/lib/useReportUserFlow", () => ({
+  useReportUserFlow: () => ({ submit: jest.fn(), isPending: false }),
+}));
+
 beforeEach(() => {
   resetAuth();
   jest.clearAllMocks();
@@ -103,6 +133,32 @@ beforeEach(() => {
 });
 
 describe("DiscoverSection", () => {
+  it("対象切り替えの 3 つのセグメントを出す（issue #418）", async () => {
+    await render(<DiscoverSection />);
+    expect(
+      screen.getByTestId("hiroba-discover-target-work-lists"),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("hiroba-discover-target-tier-lists"),
+    ).toBeTruthy();
+    expect(screen.getByTestId("hiroba-discover-target-users")).toBeTruthy();
+  });
+
+  it("初期表示は作品リストフィードで、Tier 表・名刺セグメントで切り替わる", async () => {
+    await render(<DiscoverSection />);
+    expect(screen.getByTestId("hiroba-discover-work-lists")).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByTestId("hiroba-discover-target-tier-lists"),
+    );
+    expect(screen.getByTestId("hiroba-discover-tier-lists")).toBeTruthy();
+    expect(screen.queryByTestId("hiroba-discover-work-lists")).toBeNull();
+
+    await fireEvent.press(screen.getByTestId("hiroba-discover-target-users"));
+    expect(screen.getByTestId("hiroba-discover-users")).toBeTruthy();
+    expect(screen.queryByTestId("hiroba-discover-tier-lists")).toBeNull();
+  });
+
   it("ソート切り替えの 2 つのセグメントを出す", async () => {
     await render(<DiscoverSection />);
     expect(screen.getByTestId("hiroba-discover-sort-likes")).toBeTruthy();

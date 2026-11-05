@@ -1,7 +1,12 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
-import { annictWorks, tierLists, tierListItems } from "@/db/schema";
+import {
+  annictWorks,
+  tierLists,
+  tierListItems,
+  tierListLikes,
+} from "@/db/schema";
 import type { TierList } from "@/db/schema";
 import type { AnnictWorkMeta } from "../works/repository";
 
@@ -242,16 +247,29 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
       return true;
     },
 
-    /** 指定シーズンの tier 表を削除する。items は FK の CASCADE で消える。 */
+    /**
+     * 指定シーズンの tier 表を削除する。items は FK の CASCADE で消える。
+     * tier_list_likes は list_id 側に FK を張れない（kind で参照先が
+     * 変わる）ため、(list_kind, list_id) が一致する行を同じ batch で消す。
+     */
     async deleteMyTierList(season: string): Promise<void> {
-      await db
-        .delete(tierLists)
-        .where(
-          and(
-            eq(tierLists.userId, currentUserId),
-            eq(tierLists.season, season),
+      const list = await db.query.tierLists.findFirst({
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.season, season)),
+        columns: { id: true },
+      });
+      if (!list) return;
+      await db.batch([
+        db
+          .delete(tierListLikes)
+          .where(
+            and(
+              eq(tierListLikes.listKind, "season"),
+              eq(tierListLikes.listId, list.id),
+            ),
           ),
-        );
+        db.delete(tierLists).where(eq(tierLists.id, list.id)),
+      ]);
     },
   };
 }

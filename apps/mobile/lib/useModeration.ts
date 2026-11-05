@@ -6,6 +6,8 @@ import { ApiRequestError } from "@/lib/apiError";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
 import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/lib/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
+import { PUBLIC_TIER_LISTS_KEY } from "@/lib/tierList/usePublicTierLists";
+import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
 
 type BlocksResponse = InferResponseType<
   (typeof apiClient.me.blocks)["$get"],
@@ -97,6 +99,9 @@ export function useBlockUser() {
       });
       // ブロックで相手の公開作品リストも見えなくなる（issue #422）。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+      // 公開 tier 表・公開名刺も同じ可視条件（issue #418）。
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_USERS_KEY });
       // イベントの参加者一覧・「参加しているフレンド」欄からも除く
       // （issue #440）。
       void queryClient.invalidateQueries({
@@ -132,6 +137,8 @@ export function useUnblockUser() {
       });
       // ブロック解除で相手の公開作品リストが見えるようになる。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_TIER_LISTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: PUBLIC_USERS_KEY });
       void queryClient.invalidateQueries({
         queryKey: EVENT_PARTICIPANTS_QUERY_KEY,
       });
