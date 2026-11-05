@@ -202,14 +202,9 @@ function PublicTierListCard({
       >
         {item.thumbnails.length > 0 ? (
           <View className="mb-2 flex-row gap-1.5">
-            {item.thumbnails.map((url, index) => (
-              // 別キャラが同じ imageUrl を持つと URL だけでは key が重複する
-              <WorkThumbnail
-                key={`${index}-${url}`}
-                uri={url}
-                width={40}
-                height={56}
-              />
+            {/* 別キャラが同じ imageUrl を持つことがあるため重複を除く */}
+            {Array.from(new Set(item.thumbnails)).map((url) => (
+              <WorkThumbnail key={url} uri={url} width={40} height={56} />
             ))}
           </View>
         ) : null}

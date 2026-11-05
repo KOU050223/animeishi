@@ -243,6 +243,70 @@ function TierRowView({
   );
 }
 
+function ScreenContent({
+  kind,
+  listId,
+  isHidden,
+  isLoading,
+  data,
+  isOwn,
+  likePending,
+  colors,
+  onPressOwner,
+  onPressLike,
+  onPressReport,
+}: {
+  kind: TierListKind | null;
+  listId: number | null;
+  isHidden: boolean;
+  isLoading: boolean;
+  data: PublicTierListDetail | undefined;
+  isOwn: boolean;
+  likePending: boolean;
+  colors: ThemeColors;
+  onPressOwner: () => void;
+  onPressLike: () => void;
+  onPressReport: () => void;
+}) {
+  if (kind === null || listId === null || isHidden) {
+    return <NotFound />;
+  }
+  if (isLoading || !data) {
+    return <Loading colors={colors} />;
+  }
+  return (
+    <ScrollView
+      className="w-full max-w-2xl self-center px-6"
+      testID="public-tier-list-items"
+    >
+      <DetailHeader
+        data={data}
+        isOwn={isOwn}
+        likePending={likePending}
+        colors={colors}
+        onPressOwner={onPressOwner}
+        onPressLike={onPressLike}
+        onPressReport={onPressReport}
+      />
+      <View className="pb-8">
+        {data.tiers.map((tier) => (
+          <TierRowView
+            key={tier.key}
+            label={tier.label}
+            color={tier.color}
+            items={data.items.filter((item) => item.tierKey === tier.key)}
+          />
+        ))}
+        {data.items.length === 0 ? (
+          <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+            アイテムが登録されていません
+          </Text>
+        ) : null}
+      </View>
+    </ScrollView>
+  );
+}
+
 /**
  * 公開 tier 表の閲覧画面（issue #418）。
  * ひろば「みつける」のカードから遷移し、tier 行ごとの配置を
@@ -325,46 +389,25 @@ export default function PublicTierListScreen() {
           ),
         }}
       />
-      {kind === null || listId === null || isHidden ? (
-        <NotFound />
-      ) : detail.isLoading || !data ? (
-        <Loading colors={colors} />
-      ) : (
-        <ScrollView
-          className="w-full max-w-2xl self-center px-6"
-          testID="public-tier-list-items"
-        >
-          <DetailHeader
-            data={data}
-            isOwn={isOwn}
-            likePending={toggleLike.isPending}
-            colors={colors}
-            onPressOwner={() =>
-              router.push({
-                pathname: "/user/[uid]",
-                params: { uid: data.owner.userId },
-              })
-            }
-            onPressLike={onPressLike}
-            onPressReport={() => setReportSheetOpen(true)}
-          />
-          <View className="pb-8">
-            {data.tiers.map((tier) => (
-              <TierRowView
-                key={tier.key}
-                label={tier.label}
-                color={tier.color}
-                items={data.items.filter((item) => item.tierKey === tier.key)}
-              />
-            ))}
-            {data.items.length === 0 ? (
-              <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                アイテムが登録されていません
-              </Text>
-            ) : null}
-          </View>
-        </ScrollView>
-      )}
+      <ScreenContent
+        kind={kind}
+        listId={listId}
+        isHidden={isHidden}
+        isLoading={detail.isLoading}
+        data={data}
+        isOwn={isOwn}
+        likePending={toggleLike.isPending}
+        colors={colors}
+        onPressOwner={() => {
+          if (!data) return;
+          router.push({
+            pathname: "/user/[uid]",
+            params: { uid: data.owner.userId },
+          });
+        }}
+        onPressLike={onPressLike}
+        onPressReport={() => setReportSheetOpen(true)}
+      />
 
       <DiscoverReportSheet
         visible={reportSheetOpen}
