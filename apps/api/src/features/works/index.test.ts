@@ -1697,7 +1697,7 @@ describe("キャラクター一覧 API", () => {
     expect(body.characters[0]?.imageUrl).toBe(
       "https://media.kitsu.app/character/1/image/large-deadbeef.jpeg",
     );
-    const kitsuCalls = fetchMock.mock.calls.filter((call) => {
+    const kitsuCalls = fetchMock.mock.calls.filter((call: unknown[]) => {
       const url =
         typeof call[0] === "string"
           ? call[0]
