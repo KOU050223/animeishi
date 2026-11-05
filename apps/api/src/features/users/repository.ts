@@ -856,29 +856,6 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           .from(characterTierLists)
           .where(eq(characterTierLists.userId, currentUserId))
       ).map((row) => row.id);
-      const myCustomTierListIds = (
-        await db
-          .select({ id: customTierLists.id })
-          .from(customTierLists)
-          .where(eq(customTierLists.userId, currentUserId))
-      ).map((row) => row.id);
-      // tier_list_likes は list_id 側に FK を張れない（kind で参照先が
-      // 変わるため）ので、自分のリストへの他人のいいねも含めて明示的に消す。
-      const myTierListLikeTargets = (
-        [
-          ["season", myTierListIds],
-          ["character", myCharacterTierListIds],
-          ["custom", myCustomTierListIds],
-        ] as [TierListKind, number[]][]
-      )
-        .filter(([, ids]) => ids.length > 0)
-        .map(([kind, ids]) =>
-          and(
-            eq(tierListLikes.listKind, kind),
-            inArray(tierListLikes.listId, ids),
-          ),
-        );
-
       const queries: BatchItem<"sqlite">[] = [
         // friends と同様に「いいねした側／された側」の両方向を対象にする
         db
@@ -889,12 +866,45 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               eq(userLikes.likedUserId, currentUserId),
             ),
           ),
+        // tier_list_likes は list_id 側に FK を張れない（kind で参照先が
+        // 変わるため）ので、自分のリストへの他人のいいねも含めて明示的に消す。
+        // id を先に取得して inArray に渡すと、Tier 表を多く持つユーザーで
+        // D1 のバインド変数上限を超えるため、サブクエリで直接参照する。
         db
           .delete(tierListLikes)
           .where(
             or(
               eq(tierListLikes.userId, currentUserId),
-              ...myTierListLikeTargets,
+              and(
+                eq(tierListLikes.listKind, "season"),
+                inArray(
+                  tierListLikes.listId,
+                  db
+                    .select({ id: tierLists.id })
+                    .from(tierLists)
+                    .where(eq(tierLists.userId, currentUserId)),
+                ),
+              ),
+              and(
+                eq(tierListLikes.listKind, "character"),
+                inArray(
+                  tierListLikes.listId,
+                  db
+                    .select({ id: characterTierLists.id })
+                    .from(characterTierLists)
+                    .where(eq(characterTierLists.userId, currentUserId)),
+                ),
+              ),
+              and(
+                eq(tierListLikes.listKind, "custom"),
+                inArray(
+                  tierListLikes.listId,
+                  db
+                    .select({ id: customTierLists.id })
+                    .from(customTierLists)
+                    .where(eq(customTierLists.userId, currentUserId)),
+                ),
+              ),
             ),
           ),
         db.delete(analyses).where(eq(analyses.userId, currentUserId)),
