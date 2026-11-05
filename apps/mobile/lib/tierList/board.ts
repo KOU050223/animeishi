@@ -168,18 +168,25 @@ export function toSaveItems(
  */
 export type BoardSnapshot = {
   title: string;
+  // 説明文・公開設定も「送ったもの」と「今の編集」を比較する対象
+  // （issue #476）。未対応だった頃の呼び出しを壊さないよう optional。
+  description?: string | null;
+  isPublic?: boolean;
   tiers: TierRow[];
   items: { itemId: number; tierKey: string }[];
 };
 
 /**
- * 2 つの盤面スナップショットが一致するか（title・tiers・配置の順序まで比較）。
+ * 2 つの盤面スナップショットが一致するか（title・説明文・公開設定・
+ * tiers・配置の順序まで比較）。
  * 保存の成功コールバックは送信時点の state を掴むため、保存中に進んだ
  * 編集を「保存済み」に誤認しないよう、送信した盤面と現在の盤面が
  * 一致するときだけ isDirty を解除する判定に使う。
  */
 export function sameBoard(a: BoardSnapshot, b: BoardSnapshot): boolean {
   if (a.title !== b.title) return false;
+  if (a.description !== b.description) return false;
+  if (a.isPublic !== b.isPublic) return false;
   if (a.tiers.length !== b.tiers.length) return false;
   for (let i = 0; i < a.tiers.length; i += 1) {
     const x = a.tiers[i];

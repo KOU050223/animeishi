@@ -56,7 +56,12 @@ const customTierLists = new Hono<AuthVariables>()
     const repo = customTierListsRepository(db, c.var.clerkUserId);
     const result = await repo.saveMyCustomTierList({
       title: input.title,
+      // undefined は「送らなかった」。新規作成では既定値
+      // （null / 非公開）に落ちる（work-lists と同じ）。
+      description:
+        input.description === undefined ? undefined : input.description || null,
       tiersJson: JSON.stringify(input.tiers),
+      isPublic: input.isPublic,
       items: withPositions(input.items),
     });
     if (!result) throw new Error("tier 表の保存に失敗しました");
@@ -103,7 +108,13 @@ const customTierLists = new Hono<AuthVariables>()
       const result = await repo.saveMyCustomTierList({
         id,
         title: input.title,
+        // undefined は「送らなかった（= 既存値を維持）」。
+        description:
+          input.description === undefined
+            ? undefined
+            : input.description || null,
         tiersJson: JSON.stringify(input.tiers),
+        isPublic: input.isPublic,
         items: withPositions(input.items),
       });
       if (!result) return c.json({ error: "Tier list not found" }, 404);

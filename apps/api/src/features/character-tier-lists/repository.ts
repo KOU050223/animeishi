@@ -106,7 +106,11 @@ export function characterTierListsRepository(
     async saveMyCharacterTierList(input: {
       annictWorkId: number;
       title: string;
+      // description / isPublic は undefined なら触らない
+      // （作成=既定値、更新=既存値を維持）。issue #476。
+      description?: string | null | undefined;
       tiersJson: string;
+      isPublic?: boolean | undefined;
       items: CharacterTierListItemInput[];
     }): Promise<{
       tierList: CharacterTierListWithItems;
@@ -120,7 +124,9 @@ export function characterTierListsRepository(
           userId: currentUserId,
           annictWorkId: input.annictWorkId,
           title: input.title,
+          description: input.description ?? null,
           tiersJson: input.tiersJson,
+          isPublic: input.isPublic ?? false,
           createdAt: now,
           updatedAt: now,
         })
@@ -132,6 +138,10 @@ export function characterTierListsRepository(
           .set({
             title: input.title,
             tiersJson: input.tiersJson,
+            ...(input.description !== undefined && {
+              description: input.description,
+            }),
+            ...(input.isPublic !== undefined && { isPublic: input.isPublic }),
             updatedAt: now,
           })
           .where(

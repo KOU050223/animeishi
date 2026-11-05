@@ -113,10 +113,13 @@ function savedList(
   id: number,
   title: string,
   items: { annictWorkId: number; tierKey: string }[],
+  options?: { description?: string | null; isPublic?: boolean },
 ) {
   return {
     id,
     title,
+    description: options?.description ?? null,
+    isPublic: options?.isPublic ?? false,
     tiersJson: JSON.stringify(DEFAULT_TIERS),
     shareToken: null,
     items: items.map((i) => ({
@@ -291,6 +294,47 @@ describe("CustomTierListScreen", () => {
     // 承認後は配置済み作品だけで保存される
     expect(mockSaveMutate).toHaveBeenCalledWith(
       expect.objectContaining({ title: "歴代で好きなアニメ", items: [] }),
+      expect.anything(),
+    );
+  });
+
+  it("保存済みデータの説明文と公開設定を反映する", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "説明つき", [], {
+      description: "このジャンルのベスト",
+      isPublic: true,
+    });
+
+    await render(<CustomTierListScreen />);
+
+    expect(screen.getByDisplayValue("このジャンルのベスト")).toBeTruthy();
+    expect(
+      screen.getByTestId("custom-tier-list-public-toggle").props.value,
+    ).toBe(true);
+  });
+
+  it("説明文と公開設定の変更が保存リクエストに含まれる", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "保存済み", []);
+    await render(<CustomTierListScreen />);
+
+    await fireEvent.changeText(
+      screen.getByTestId("custom-tier-list-description"),
+      "このジャンルのベスト",
+    );
+    await fireEvent(
+      screen.getByTestId("custom-tier-list-public-toggle"),
+      "onValueChange",
+      true,
+    );
+    await fireEvent.press(screen.getByTestId("custom-tier-list-save"));
+
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 7,
+        description: "このジャンルのベスト",
+        isPublic: true,
+      }),
       expect.anything(),
     );
   });

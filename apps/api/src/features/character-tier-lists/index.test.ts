@@ -688,6 +688,135 @@ describe("キャラクター tier 表 API", () => {
       });
     });
 
+    describe("説明文と公開設定（issue #476）", () => {
+      it("PUT: 省略時は非公開・説明なしで作成される", async () => {
+        const app = buildApp();
+        const res = await app.request(
+          "/me/character-tier-lists",
+          putBody({
+            annictWorkId: WORK_ID,
+            title: "キャラTier",
+            tiers: TIERS,
+            items: [],
+          }),
+          TEST_BINDINGS,
+        );
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBeNull();
+        expect(body.isPublic).toBe(false);
+      });
+
+      it("PUT: 説明文と公開設定を保存し GET で取り出せる", async () => {
+        const app = buildApp();
+        await app.request(
+          "/me/character-tier-lists",
+          putBody({
+            annictWorkId: WORK_ID,
+            title: "キャラTier",
+            description: "この作品の推しキャラ",
+            isPublic: true,
+            tiers: TIERS,
+            items: [{ annictCharacterId: CHAR_A, tierKey: "s" }],
+          }),
+          TEST_BINDINGS,
+        );
+
+        const res = await app.request(
+          `/me/character-tier-lists/${WORK_ID}`,
+          { method: "GET" },
+          TEST_BINDINGS,
+        );
+        const body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBe("この作品の推しキャラ");
+        expect(body.isPublic).toBe(true);
+      });
+
+      it("PUT: 更新で省略した項目は既存値を維持する", async () => {
+        const app = buildApp();
+        await app.request(
+          "/me/character-tier-lists",
+          putBody({
+            annictWorkId: WORK_ID,
+            title: "キャラTier",
+            description: "説明あり",
+            isPublic: true,
+            tiers: TIERS,
+            items: [],
+          }),
+          TEST_BINDINGS,
+        );
+        await app.request(
+          "/me/character-tier-lists",
+          putBody({
+            annictWorkId: WORK_ID,
+            title: "更新後",
+            tiers: TIERS,
+            items: [],
+          }),
+          TEST_BINDINGS,
+        );
+
+        const res = await app.request(
+          `/me/character-tier-lists/${WORK_ID}`,
+          { method: "GET" },
+          TEST_BINDINGS,
+        );
+        const body = (await res.json()) as {
+          description: string | null;
+          isPublic: boolean;
+        };
+        expect(body.description).toBe("説明あり");
+        expect(body.isPublic).toBe(true);
+      });
+
+      it("GET /share/character-tier-lists/:token: JSON と HTML に説明文が出る", async () => {
+        const app = buildApp();
+        await app.request(
+          "/me/character-tier-lists",
+          putBody({
+            annictWorkId: WORK_ID,
+            title: "キャラTier",
+            description: "共有用の説明",
+            tiers: TIERS,
+            items: [{ annictCharacterId: CHAR_A, tierKey: "s" }],
+          }),
+          TEST_BINDINGS,
+        );
+        const shareRes = await app.request(
+          `/me/character-tier-lists/${WORK_ID}/share`,
+          { method: "POST" },
+          TEST_BINDINGS,
+        );
+        const { shareToken } = (await shareRes.json()) as {
+          shareToken: string;
+        };
+
+        const res = await app.request(
+          `/share/character-tier-lists/${shareToken}`,
+          { method: "GET", headers: { Accept: "application/json" } },
+          TEST_BINDINGS,
+        );
+        const body = (await res.json()) as { description: string | null };
+        expect(body.description).toBe("共有用の説明");
+
+        const htmlRes = await app.request(
+          `/share/character-tier-lists/${shareToken}`,
+          { method: "GET", headers: { Accept: "text/html" } },
+          TEST_BINDINGS,
+        );
+        const html = await htmlRes.text();
+        expect(html).toContain("共有用の説明");
+      });
+    });
+
     describe("GET /share/image-proxy", () => {
       it("GET /share/image-proxy: annict_characters の画像 URL も中継できる", async () => {
         // isKnownImageUrl は annict_works だけでなく annict_characters の

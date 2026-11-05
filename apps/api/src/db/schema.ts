@@ -289,11 +289,18 @@ export const tierLists = sqliteTable(
     // 対象シーズン。annict_works.seasonName と同じ "2026-spring" 形式。
     season: text("season").notNull(),
     title: text("title").notNull(),
+    // 表の説明文。null は未設定（issue #476）。
+    description: text("description"),
     // TierRow[] の JSON 文字列。{ key, label, color } を並び順に持つ。
     tiersJson: text("tiers_json").notNull(),
     // 共有 URL（/share/tier-lists/:token）のトークン。null は未共有。
     // 発行は POST /me/tier-lists/:season/share、破棄は DELETE で行う。
     shareToken: text("share_token"),
+    // ひろばの公開一覧に載るか（issue #476、発見画面は #418）。
+    // share_token とは独立（URL 共有はしたいが一覧には出したくない、を両立）。
+    isPublic: integer("is_public", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -301,6 +308,7 @@ export const tierLists = sqliteTable(
     // 1 ユーザー 1 シーズンにつき 1 表。作り直しは上書きで済ませる。
     unique("tier_lists_user_season_unique").on(t.userId, t.season),
     index("tier_lists_user_idx").on(t.userId),
+    index("tier_lists_public_idx").on(t.isPublic),
     // 共有リンクからの引き当てキー。SQLite では NULL は互いに異なる値として
     // 扱われるため、未共有行が複数あってもユニーク制約に抵触しない。
     unique("tier_lists_share_token_unique").on(t.shareToken),
@@ -386,8 +394,14 @@ export const characterTierLists = sqliteTable(
       .notNull()
       .references(() => annictWorks.annictWorkId, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    // 表の説明文。null は未設定（issue #476）。
+    description: text("description"),
     tiersJson: text("tiers_json").notNull(),
     shareToken: text("share_token"),
+    // ひろばの公開一覧に載るか（issue #476。tier_lists と同じ考え方）。
+    isPublic: integer("is_public", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -398,6 +412,7 @@ export const characterTierLists = sqliteTable(
       t.annictWorkId,
     ),
     index("character_tier_lists_user_idx").on(t.userId),
+    index("character_tier_lists_public_idx").on(t.isPublic),
     unique("character_tier_lists_share_token_unique").on(t.shareToken),
   ],
 );
@@ -440,14 +455,21 @@ export const customTierLists = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     // ユーザーが付けるテーマ名（「歴代で好きなアニメ」など）。
     title: text("title").notNull(),
+    // 表の説明文。null は未設定（issue #476）。
+    description: text("description"),
     tiersJson: text("tiers_json").notNull(),
     // 共有 URL（/share/custom-tier-lists/:token）のトークン。null は未共有。
     shareToken: text("share_token"),
+    // ひろばの公開一覧に載るか（issue #476。tier_lists と同じ考え方）。
+    isPublic: integer("is_public", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [
     index("custom_tier_lists_user_idx").on(t.userId),
+    index("custom_tier_lists_public_idx").on(t.isPublic),
     unique("custom_tier_lists_share_token_unique").on(t.shareToken),
   ],
 );

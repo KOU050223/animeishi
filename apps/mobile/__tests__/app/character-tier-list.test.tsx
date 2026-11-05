@@ -4,7 +4,7 @@
 // （再レンダー上限にならない）・未保存編集中の上書き保護・
 // 遅れて届く作品タイトルへの追従を描画で確かめる。
 import React from "react";
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import CharacterTierListScreen from "@/app/character-tier-list";
 import {
   DEFAULT_TIERS,
@@ -80,6 +80,7 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
   }),
 }));
 
+const mockSaveMutate = jest.fn();
 jest.mock("@/lib/tierList/useCharacterTierList", () => ({
   useSavedCharacterTierList: () => ({
     data: mockSaved,
@@ -87,7 +88,7 @@ jest.mock("@/lib/tierList/useCharacterTierList", () => ({
     isError: mockSavedError,
   }),
   useSaveCharacterTierList: () => ({
-    mutate: jest.fn(),
+    mutate: mockSaveMutate,
     mutateAsync: jest.fn(),
     isPending: false,
     isError: false,
@@ -115,9 +116,12 @@ const character = (id: number): TierItem => ({
 function savedList(
   title: string,
   items: { annictCharacterId: number; tierKey: string }[],
+  options?: { description?: string | null; isPublic?: boolean },
 ) {
   return {
     title,
+    description: options?.description ?? null,
+    isPublic: options?.isPublic ?? false,
     tiersJson: JSON.stringify(DEFAULT_TIERS),
     items: items.map((i) => ({
       ...i,
@@ -210,5 +214,46 @@ describe("CharacterTierListScreen の盤面 hydrate（レンダー中の状態�
     await rerender(<CharacterTierListScreen />);
 
     expect(screen.getByText("保存済みキャラ盤面")).toBeTruthy();
+  });
+});
+
+describe("CharacterTierListScreen の説明文と公開設定（issue #476）", () => {
+  it("保存済みデータの説明文と公開設定を反映する", async () => {
+    mockSaved = savedList("説明つき", [], {
+      description: "この作品の推しキャラ",
+      isPublic: true,
+    });
+
+    await render(<CharacterTierListScreen />);
+
+    expect(screen.getByDisplayValue("この作品の推しキャラ")).toBeTruthy();
+    expect(
+      screen.getByTestId("character-tier-list-public-toggle").props.value,
+    ).toBe(true);
+  });
+
+  it("説明文と公開設定の変更が保存リクエストに含まれる", async () => {
+    mockSaved = savedList("v1", []);
+    await render(<CharacterTierListScreen />);
+
+    await fireEvent.changeText(
+      screen.getByTestId("character-tier-list-description"),
+      "この作品の推しキャラ",
+    );
+    await fireEvent(
+      screen.getByTestId("character-tier-list-public-toggle"),
+      "onValueChange",
+      true,
+    );
+    await fireEvent.press(screen.getByTestId("character-tier-list-save"));
+
+    expect(mockSaveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        annictWorkId: 100,
+        description: "この作品の推しキャラ",
+        isPublic: true,
+      }),
+      expect.anything(),
+    );
   });
 });

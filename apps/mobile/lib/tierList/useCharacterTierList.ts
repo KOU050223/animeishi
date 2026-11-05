@@ -83,6 +83,9 @@ export function useSaveCharacterTierList() {
     mutationFn: async (input: {
       annictWorkId: number;
       title: string;
+      // 表の説明文と公開設定（issue #476）。省略時はサーバが既存値を維持する。
+      description?: string | null;
+      isPublic?: boolean;
       tiers: TierRow[];
       items: { annictCharacterId: number; tierKey: string }[];
     }) => {

@@ -62,6 +62,8 @@ export async function isKnownImageUrl(
 export type SharedTierList = {
   season: string;
   title: string;
+  /** 表の説明文。未設定なら null。 */
+  description: string | null;
   tiersJson: string;
   ownerUsername: string;
   items: TierListItemWithWork[];
@@ -77,6 +79,7 @@ export async function getSharedTierList(
       id: tierLists.id,
       season: tierLists.season,
       title: tierLists.title,
+      description: tierLists.description,
       tiersJson: tierLists.tiersJson,
       ownerUsername: users.username,
     })
@@ -91,6 +94,7 @@ export async function getSharedTierList(
   return {
     season: list.season,
     title: list.title,
+    description: list.description,
     tiersJson: list.tiersJson,
     ownerUsername: list.ownerUsername,
     items,
@@ -102,6 +106,8 @@ export type SharedCharacterTierList = {
   /** 表の対象作品のタイトル（共有ページの見出し・OGP 用）。 */
   workTitle: string;
   title: string;
+  /** 表の説明文。未設定なら null。 */
+  description: string | null;
   tiersJson: string;
   ownerUsername: string;
   items: CharacterTierListItemWithMeta[];
@@ -120,6 +126,7 @@ export async function getSharedCharacterTierList(
       id: characterTierLists.id,
       annictWorkId: characterTierLists.annictWorkId,
       title: characterTierLists.title,
+      description: characterTierLists.description,
       tiersJson: characterTierLists.tiersJson,
       ownerUsername: users.username,
       workTitle: annictWorks.title,
@@ -140,6 +147,7 @@ export async function getSharedCharacterTierList(
     annictWorkId: list.annictWorkId,
     workTitle: list.workTitle,
     title: list.title,
+    description: list.description,
     tiersJson: list.tiersJson,
     ownerUsername: list.ownerUsername,
     items,
@@ -148,6 +156,8 @@ export async function getSharedCharacterTierList(
 
 export type SharedCustomTierList = {
   title: string;
+  /** 表の説明文。未設定なら null。 */
+  description: string | null;
   tiersJson: string;
   ownerUsername: string;
   items: CustomTierListItemWithWork[];
@@ -166,6 +176,7 @@ export async function getSharedCustomTierList(
     .select({
       id: customTierLists.id,
       title: customTierLists.title,
+      description: customTierLists.description,
       tiersJson: customTierLists.tiersJson,
       ownerUsername: users.username,
     })
@@ -179,6 +190,7 @@ export async function getSharedCustomTierList(
   const items = await fetchCustomTierListItems(db, list.id);
   return {
     title: list.title,
+    description: list.description,
     tiersJson: list.tiersJson,
     ownerUsername: list.ownerUsername,
     items,

@@ -253,7 +253,12 @@ export function buildSharedTierListHtml(
   canonicalUrl: string,
 ): string {
   return buildWorkTierListHtml({
-    list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
+    list: {
+      title: list.title,
+      description: list.description,
+      tiersJson: list.tiersJson,
+      items: list.items,
+    },
     ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）`,
     ownerUsername: list.ownerUsername,
     requestUrl,
@@ -271,7 +276,12 @@ export function buildSharedCustomTierListHtml(
   canonicalUrl: string,
 ): string {
   return buildWorkTierListHtml({
-    list: { title: list.title, tiersJson: list.tiersJson, items: list.items },
+    list: {
+      title: list.title,
+      description: list.description,
+      tiersJson: list.tiersJson,
+      items: list.items,
+    },
     ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表`,
     ownerUsername: list.ownerUsername,
     requestUrl,
@@ -284,6 +294,9 @@ export function buildSharedCustomTierListHtml(
 function buildWorkTierListHtml(input: {
   list: {
     title: string;
+    // 表の説明文（issue #476）。あれば所有者行の下に出す
+    // （work-list の共有ページと同じ扱い）。
+    description?: string | null;
     tiersJson: string;
     items: SharedTierList["items"];
   };
@@ -357,6 +370,8 @@ function buildWorkTierListHtml(input: {
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
+    .owner.has-description { margin-bottom: 4px; }
+    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
     .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-works { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
@@ -368,6 +383,7 @@ function buildWorkTierListHtml(input: {
     @media (prefers-color-scheme: dark) {
       body { background: #0f172a; color: #f1f5f9; }
       .owner { color: #94a3b8; }
+      .description { color: #cbd5e1; }
       .tier-row { background: #1e293b; }
       .work-image { background: #334155; }
       .work-title { color: #cbd5e1; }
@@ -376,7 +392,8 @@ function buildWorkTierListHtml(input: {
 </head>
 <body>
   <h1>${escapeHtml(input.list.title)}</h1>
-  <p class="owner">${input.ownerLine}</p>
+  <p class="owner${input.list.description ? " has-description" : ""}">${input.ownerLine}</p>
+  ${input.list.description ? `<p class="description">${escapeHtml(input.list.description)}</p>` : ""}
   ${rowsHtml}
 </body>
 </html>`;
@@ -546,6 +563,8 @@ export function buildSharedCharacterTierListHtml(
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .owner { color: #555; margin: 4px 0 24px; }
+    .owner.has-description { margin-bottom: 4px; }
+    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
     .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
     .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
     .tier-characters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
@@ -557,6 +576,7 @@ export function buildSharedCharacterTierListHtml(
     @media (prefers-color-scheme: dark) {
       body { background: #0f172a; color: #f1f5f9; }
       .owner { color: #94a3b8; }
+      .description { color: #cbd5e1; }
       .tier-row { background: #1e293b; }
       .character-image { background: #334155; }
       .character-name { color: #cbd5e1; }
@@ -565,7 +585,8 @@ export function buildSharedCharacterTierListHtml(
 </head>
 <body>
   <h1>${escapeHtml(list.title)}</h1>
-  <p class="owner">${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表</p>
+  <p class="owner${list.description ? " has-description" : ""}">${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表</p>
+  ${list.description ? `<p class="description">${escapeHtml(list.description)}</p>` : ""}
   ${rowsHtml}
 </body>
 </html>`;

@@ -71,6 +71,7 @@ const share = new Hono<ShareBindings>()
       return c.json(
         {
           title: list.title,
+          description: list.description,
           season: list.season,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
@@ -116,6 +117,7 @@ const share = new Hono<ShareBindings>()
       return c.json(
         {
           title: list.title,
+          description: list.description,
           annictWorkId: list.annictWorkId,
           workTitle: list.workTitle,
           tiers: parseTiersJson(list.tiersJson),
@@ -160,6 +162,7 @@ const share = new Hono<ShareBindings>()
       return c.json(
         {
           title: list.title,
+          description: list.description,
           tiers: parseTiersJson(list.tiersJson),
           owner: { username: list.ownerUsername },
           items: list.items.map((item) => ({

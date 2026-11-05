@@ -217,9 +217,14 @@ export default function TierListsScreen() {
                       {item.title}
                     </Text>
                   </View>
-                  {item.shared ? (
+                  {item.shared || item.isPublic ? (
                     <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      共有中
+                      {[
+                        item.shared ? "共有中" : null,
+                        item.isPublic ? "公開中" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" ・ ")}
                     </Text>
                   ) : null}
                 </TouchableOpacity>

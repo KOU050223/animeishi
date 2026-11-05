@@ -15,6 +15,16 @@ export const customTierListSaveSchema = z
       .trim()
       .min(1, "タイトルを入力してください")
       .max(50, "タイトルは50文字以内で入力してください"),
+    // 表の説明文（issue #476）。上限は作品リストと同じ 500 文字。
+    description: z
+      .string()
+      .trim()
+      .max(500, "説明は500文字以内で入力してください")
+      .nullish(),
+    // ひろばの公開一覧に載るか（issue #476）。description / isPublic は
+    // どちらも省略時は新規作成=既定値、更新=既存値を維持する
+    // （未対応のクライアントが全置換 PUT で設定を潰さないようにするため）。
+    isPublic: z.boolean().optional(),
     tiers: z
       .array(tierRowSchema)
       .min(1, "tier を1つ以上設定してください")
