@@ -1,7 +1,7 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 
-// TODO(issue #133): 問い合わせ窓口のメールアドレスが確定したらプレースホルダを差し替える。
-const CONTACT_EMAIL = "{{CONTACT_EMAIL}}";
+// 問い合わせ窓口は GitHub リポジトリの Issue。
+const ISSUES_URL = "https://github.com/KOU050223/animeishi/issues";
 
 // ストア掲載のサポート URL（https://animeishi.uomi.dev/support）として公開するページ。
 // 回答は apps/mobile の実画面・実機能と照合して書くこと。未実装の案内は書かない。
@@ -33,8 +33,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "お問い合わせ",
     paragraphs: [
-      "上記で解決しない場合は、以下の連絡先までお問い合わせください。",
-      `連絡先: ${CONTACT_EMAIL}`,
+      `上記で解決しない場合は、GitHub リポジトリの Issue（${ISSUES_URL}）からお問い合わせください。不具合の報告や機能のご要望もこちらで受け付けています。`,
     ],
   },
 ];
@@ -43,7 +42,7 @@ export default function SupportScreen() {
   return (
     <LegalDocument
       title="サポート"
-      effectiveDate="最終更新: 2026年10月13日"
+      effectiveDate="最終更新: 2026年11月6日"
       sections={SECTIONS}
     />
   );
