@@ -54,12 +54,10 @@ describe("SupportScreen", () => {
     ).toBeTruthy();
   });
 
-  it("問い合わせ先（GitHub Issues）と法務ページへのリンクを表示する", async () => {
+  it("問い合わせ先のプレースホルダと法務ページへのリンクを表示する", async () => {
     await render(<SupportScreen />);
 
-    expect(
-      screen.getByText(/github\.com\/KOU050223\/animeishi\/issues/),
-    ).toBeTruthy();
+    expect(screen.getByText(/{{CONTACT_EMAIL}}/)).toBeTruthy();
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();
   });
