@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
@@ -20,9 +20,13 @@ function isSection(value: unknown): value is Section {
 // 旧タブのパス（/qr, /friends）は app/ 直下のリダイレクトから
 // /social?section=... でここへ着地する。
 export default function SocialScreen() {
-  // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは
-  // ヘッダー高さ分だけ下げる（large title が畳まれると値も変わる）。
+  // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
+  // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
+  // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
+  // 不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #491）。
   const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
@@ -39,7 +43,8 @@ export default function SocialScreen() {
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
       edges={[]}
-      style={{ paddingTop: headerHeight }}
+      style={{ paddingTop: contentTopPadding }}
+      testID="social-screen"
     >
       <SegmentedControl
         items={[
