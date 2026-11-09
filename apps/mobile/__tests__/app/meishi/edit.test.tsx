@@ -361,4 +361,18 @@ describe("MeishiEditScreen の要素選択解除（issue #494）", () => {
       expect(screen.getByLabelText("要素を追加")).toBeTruthy();
     });
   });
+
+  it("選択中はスクリーンリーダー向けの解除ボタンでも選択解除できる", async () => {
+    mockDoc = docWithTextElement;
+    await renderScreen();
+
+    expect(screen.queryByLabelText("要素の選択を解除")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("名刺の要素を選択"));
+
+    await fireEvent.press(screen.getByLabelText("要素の選択を解除"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("要素を追加")).toBeTruthy();
+    });
+  });
 });

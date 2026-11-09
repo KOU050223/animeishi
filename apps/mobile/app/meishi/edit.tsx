@@ -314,6 +314,16 @@ export default function MeishiEditScreen() {
           <View
             style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
           >
+            {/* Tap ジェスチャはスクリーンリーダーから実行できないため、
+                選択中だけアクセシブルな解除導線を置く */}
+            {selectedId ? (
+              <Pressable
+                style={styles.visuallyHidden}
+                accessibilityLabel="要素の選択を解除"
+                accessibilityRole="button"
+                onPress={() => onSelect(null)}
+              />
+            ) : null}
             <View style={styles.canvasWrapper}>
               {doc ? (
                 <EditorCanvas
@@ -556,6 +566,14 @@ function createStyles(colors: ThemeColors) {
       justifyContent: "center",
       // 名刺本体（テンプレートのキャンバス）を浮かせるための背景。
       backgroundColor: colors.canvasBackdrop,
+    },
+    visuallyHidden: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: 1,
+      height: 1,
+      opacity: 0,
     },
     canvasWrapper: {
       width: "100%",
