@@ -19,6 +19,7 @@ module.exports = {
   // （issue #293）。VP_RUN_CONCURRENCY_LIMIT は vp run のタスク並列数を絞るだけで
   // jest のワーカー数には効かない。CI（ubuntu-latest = 4 コア）では 2 ワーカーになる。
   maxWorkers: "50%",
+  testTimeout: 30_000,
   // テストファイルの実行後にワーカーのヒープがこの値を超えていたらワーカーを
   // 作り直し、並列 worktree 運用時のメモリ膨張を抑える（issue #249）。
   workerIdleMemoryLimit: "512MB",

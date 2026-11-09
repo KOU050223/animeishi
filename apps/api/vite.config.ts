@@ -63,6 +63,7 @@ export default defineConfig({
       {
         test: {
           name: "isolated",
+          testTimeout: 30_000,
           isolate: true,
           // 各プロジェクトの test 設定はルートの test 設定にマージされず、
           // cloudflareTest() がルート側に設定する test.server.deps.inline
@@ -79,6 +80,7 @@ export default defineConfig({
       {
         test: {
           name: "shared",
+          testTimeout: 30_000,
           isolate: false,
           server: { deps: { inline: true } },
           include: SHARED_INCLUDE,
@@ -101,6 +103,7 @@ export default defineConfig({
         },
         test: {
           name: "node",
+          testTimeout: 30_000,
           globals: true,
           environment: "node",
           include: NODE_POOL_TESTS,

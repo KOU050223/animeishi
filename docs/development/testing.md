@@ -31,3 +31,11 @@ cloudflareTest プラグインが pool を Workers プールに書き換える�
 `vi.mock` でモジュールを差し替えるファイルを置くとモック実体のずれで失敗する。
 新しいテストファイルは既定で isolated に入る（`src/**/*.test.ts` の catch-all）。
 `repository.test.ts`・`lib/**` など shared の include に合うファイルだけが shared に入る。
+
+## 高負荷時のタイムアウト
+
+mobile の jest と api の各 vitest プロジェクトは、並列 worktree による
+CPU 競合を考慮してテスト単位の上限を 30 秒にしている。無限待ちの検出も
+上限内で行う。danime-core の性能テストは `process.cpuUsage()` の user + system
+を測り、他プロセスによる待機時間を上限に含めない。テスト自体の実時間上限は
+60 秒。pre-push と CI は従来どおり全テストを実行する。

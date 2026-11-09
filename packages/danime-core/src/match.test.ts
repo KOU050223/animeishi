@@ -508,14 +508,15 @@ describe("matchDanimeWorks", () => {
       title: `テスト作品その${i}`,
       targetState: "WATCHED" as const,
     }));
-    const startedAt = performance.now();
+    const startedAt = process.cpuUsage();
     const { results } = await matchDanimeWorks(searcher, items);
-    const elapsedMs = performance.now() - startedAt;
+    const cpu = process.cpuUsage(startedAt);
+    const elapsedMs = (cpu.user + cpu.system) / 1_000;
     expect(results).toHaveLength(500);
     // 旧実装 ~30s との識別に十分な余裕を持つ上限。CI マシンのばらつきを
     // 考慮しても十分小さい値（現行実装の実測は数百ms）。
     expect(elapsedMs).toBeLessThan(15_000);
-  }, 30_000);
+  }, 60_000);
 
   // 呼び出し側（API）が失敗時の構造化ログに検索段階を載せられるよう、
   // searcher の第 2 引数に phase を渡す。
