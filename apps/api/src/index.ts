@@ -77,7 +77,7 @@ app.use("*", (c, next) => {
 
   return cors({
     origin: (origin) => resolveAllowedOrigin(origin, allowlist),
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: [
       "Authorization",
       "Content-Type",
