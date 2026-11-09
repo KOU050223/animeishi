@@ -1,11 +1,17 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from "react-native-gesture-handler/jest-utils";
 import MeishiEditScreen from "@/app/meishi/edit";
 
 const mockBack = jest.fn();
@@ -35,10 +41,30 @@ jest.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: jest.fn(),
 }));
 
+// jest 環境には RNGH のネイティブモジュールが無いため、公式モックに差し替える。
+// GestureDetector を実際に描画して fireGestureHandler でタップを発火させる
+// テスト（灰色領域タップでの選択解除、issue #494）に必要。
+// jest では lib/module 側が解決されるが、ソース（Metro 側）経由の import も
+// あるため公式 jestSetup と同様に両方をモックする。
+jest.mock("react-native-gesture-handler/src/RNGestureHandlerModule", () =>
+  require("react-native-gesture-handler/src/mocks/module"),
+);
+jest.mock(
+  "react-native-gesture-handler/lib/module/RNGestureHandlerModule",
+  () => require("react-native-gesture-handler/lib/module/mocks/module"),
+);
+
 jest.mock("@/components/meishi/EditorCanvas", () => ({
-  EditorCanvas: () => {
-    const { Text } = require("react-native");
-    return <Text>名刺キャンバス</Text>;
+  EditorCanvas: ({ onSelect }: { onSelect: (id: string | null) => void }) => {
+    const { Pressable, Text } = require("react-native");
+    return (
+      <Pressable
+        accessibilityLabel="名刺の要素を選択"
+        onPress={() => onSelect("el_1")}
+      >
+        <Text>名刺キャンバス</Text>
+      </Pressable>
+    );
   },
 }));
 
@@ -118,7 +144,25 @@ const defaultDoc = {
   },
   elements: [],
 };
-let mockDoc: typeof defaultDoc | null = defaultDoc;
+const docWithTextElement = {
+  ...defaultDoc,
+  elements: [
+    {
+      id: "el_1",
+      type: "text",
+      transform: { x: 0.1, y: 0.1, width: 0.3, height: 0.1, rotation: 0 },
+      text: "テスト",
+      source: "custom",
+      fontSize: 16,
+      fontFamily: "system",
+      fontWeight: "normal",
+      fontStyle: "normal",
+      color: "#000000",
+      align: "left",
+    },
+  ],
+};
+let mockDoc: Record<string, unknown> | null = defaultDoc;
 let mockDocLoaded = true;
 
 const mockUseMeishiDocument = jest.fn();
@@ -151,6 +195,15 @@ jest.mock("@/lib/meishi/useMeishiDocument", () => ({
   },
 }));
 
+// 画面が GestureDetector（名刺外タップの選択解除）を描画するため、
+// GestureHandlerRootView の下に置かないと __DEV__ で例外になる。
+const renderScreen = () =>
+  render(
+    <GestureHandlerRootView>
+      <MeishiEditScreen />
+    </GestureHandlerRootView>,
+  );
+
 beforeEach(async () => {
   mockDoc = defaultDoc;
   mockDocLoaded = true;
@@ -168,7 +221,7 @@ beforeEach(async () => {
 
 describe("MeishiEditScreen の保存フィードバック", () => {
   it("保存ボタン押下時にドキュメントを保存して上位レイヤーへ成功表示を出す", async () => {
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     await fireEvent.press(screen.getByLabelText("保存"));
 
@@ -189,7 +242,7 @@ describe("MeishiEditScreen の保存フィードバック", () => {
   });
 
   it("保存トーストの「画像で共有」ボタンで名刺画像の共有を起動する", async () => {
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     await fireEvent.press(screen.getByLabelText("保存"));
 
@@ -207,24 +260,28 @@ describe("MeishiEditScreen の初回テンプレート選択", () => {
   it("ドキュメント読み込み完了時に空ならテンプレート選択を一度だけ開く", async () => {
     mockDoc = null;
     mockDocLoaded = true;
-    const { rerender } = await render(<MeishiEditScreen />);
+    const { rerender } = await renderScreen();
 
     expect(screen.getByText("テンプレート選択")).toBeTruthy();
 
     // 再レンダーを繰り返しても開いたまま（再レンダー上限にならない）
-    await rerender(<MeishiEditScreen />);
+    await rerender(
+      <GestureHandlerRootView>
+        <MeishiEditScreen />
+      </GestureHandlerRootView>,
+    );
     expect(screen.getByText("テンプレート選択")).toBeTruthy();
   });
 
   it("ドキュメントが既にあるときはテンプレート選択を開かない", async () => {
-    await render(<MeishiEditScreen />);
+    await renderScreen();
     expect(screen.queryByText("テンプレート選択")).toBeNull();
   });
 
   it("読み込み中（loaded=false）の間はテンプレート選択を開かない", async () => {
     mockDoc = null;
     mockDocLoaded = false;
-    await render(<MeishiEditScreen />);
+    await renderScreen();
     expect(screen.queryByText("テンプレート選択")).toBeNull();
   });
 });
@@ -232,7 +289,7 @@ describe("MeishiEditScreen の初回テンプレート選択", () => {
 describe("MeishiEditScreen の戻るボタン", () => {
   it("戻り先がある場合は履歴を戻る", async () => {
     mockCanGoBack.mockReturnValue(true);
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     await fireEvent.press(screen.getByLabelText("戻る"));
 
@@ -243,7 +300,7 @@ describe("MeishiEditScreen の戻るボタン", () => {
 
   it("戻り先がない場合はプロフィールへ移動する", async () => {
     mockCanGoBack.mockReturnValue(false);
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     await fireEvent.press(screen.getByLabelText("戻る"));
 
@@ -256,7 +313,7 @@ describe("MeishiEditScreen の戻るボタン", () => {
 describe("MeishiEditScreen の名刺一覧ボタン", () => {
   it("直前の画面が一覧とは限らないため、履歴を戻らず一覧ルートへ遷移する", async () => {
     mockSearchParams = { id: "card_a" };
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     await fireEvent.press(screen.getByLabelText("名刺一覧を開く"));
 
@@ -268,21 +325,40 @@ describe("MeishiEditScreen の名刺一覧ボタン", () => {
 describe("MeishiEditScreen のカード指定（issue #427）", () => {
   it("id パラメータがあるときそのカードを編集対象にする", async () => {
     mockSearchParams = { id: "card_a" };
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     expect(mockUseMeishiDocument).toHaveBeenCalledWith({ cardId: "card_a" });
   });
 
   it("create=1 のとき新規カードモードで開く", async () => {
     mockSearchParams = { create: "1" };
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     expect(mockUseMeishiDocument).toHaveBeenCalledWith({ fresh: true });
   });
 
   it("パラメータ無しではオプション無し（既定カード）で開く", async () => {
-    await render(<MeishiEditScreen />);
+    await renderScreen();
 
     expect(mockUseMeishiDocument).toHaveBeenCalledWith(undefined);
+  });
+});
+
+describe("MeishiEditScreen の要素選択解除（issue #494）", () => {
+  it("名刺の外側（灰色の領域）をタップすると選択が解除され「要素を追加」に戻る", async () => {
+    mockDoc = docWithTextElement;
+    await renderScreen();
+
+    // 名刺上の要素をタップして選択状態にする（編集パネル表示・追加ボタン非表示）
+    await fireEvent.press(screen.getByLabelText("名刺の要素を選択"));
+    expect(screen.queryByLabelText("要素を追加")).toBeNull();
+
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId("meishi-canvas-backdrop-tap"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("要素を追加")).toBeTruthy();
+    });
   });
 });
