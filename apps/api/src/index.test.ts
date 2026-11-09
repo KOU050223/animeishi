@@ -86,6 +86,47 @@ function cronEnv(kv: ReturnType<typeof fakeKv>) {
   };
 }
 
+describe("CORS プリフライト", () => {
+  const ctx = {
+    waitUntil: () => {},
+    passThroughOnException: () => {},
+  } as unknown as ExecutionContext;
+
+  function preflight(requestMethod: string) {
+    return handler.fetch(
+      new Request("https://api.example.test/events/test/participation", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://animeishi.uomi.dev",
+          "Access-Control-Request-Method": requestMethod,
+          "Access-Control-Request-Headers": "authorization,content-type",
+        },
+      }),
+      {
+        ALLOWED_ORIGINS: "https://animeishi.uomi.dev",
+      },
+      ctx,
+    );
+  }
+
+  it("PATCH を許可する", async () => {
+    const res = await preflight("PATCH");
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "https://animeishi.uomi.dev",
+    );
+    expect(res.headers.get("access-control-allow-methods")).toContain("PATCH");
+  });
+
+  it("既存メソッドは引き続き許可する", async () => {
+    const res = await preflight("PUT");
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-methods")).toContain("PUT");
+  });
+});
+
 describe("scheduled cron の失敗通知（issue #233）", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
