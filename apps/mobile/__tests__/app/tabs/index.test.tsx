@@ -1,5 +1,5 @@
 import React from "react";
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import HomeScreen from "@/app/(tabs)/(home)/index";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
@@ -21,6 +21,11 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 );
 
 const mockPush = jest.fn();
+// useHeaderHeight はナビゲーションコンテキスト外では値を返せないため固定値にする。
+jest.mock("expo-router/react-navigation", () => ({
+  useHeaderHeight: () => 96,
+}));
+
 // フォーカス時の再取得。テストでは即時実行に差し替える。
 // Stack.Screen はネイティブヘッダーの options をそのまま描画し、
 // ヘッダーアイコン（headerRight）の挙動をテストできるようにする。
@@ -187,6 +192,7 @@ const loadedFeed = {
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
+  Object.defineProperty(Platform, "OS", { value: "ios" });
   mockAnnictConnection = { isConnected: true, isLoading: false };
   mockWatchHistory = {
     data: [],
@@ -386,5 +392,26 @@ describe("HomeScreen", () => {
     loggedInUser();
     await render(<HomeScreen />);
     expect(screen.queryByTestId("sign-out-button")).toBeNull();
+  });
+
+  // iOS の透過ネイティブヘッダーはコンテンツが下に潜り込むため、
+  // ヘッダー高さ分の上端余白を取る（issue #496）。
+  it("透過ヘッダー分の上端余白を取る（iOS）", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.getByTestId("home-screen")).toHaveStyle({
+      paddingTop: 96,
+    });
+  });
+
+  // Android はヘッダーが不透明でコンテンツがバー下から始まるため、
+  // iOS と同じ余白を取るとヘッダー下に空白ができる（issue #469）。
+  it("不透明ヘッダーの Android では上端余白を取らない", async () => {
+    Object.defineProperty(Platform, "OS", { value: "android" });
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.getByTestId("home-screen")).toHaveStyle({
+      paddingTop: 0,
+    });
   });
 });
