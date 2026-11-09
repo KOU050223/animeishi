@@ -86,9 +86,6 @@ function cronEnv(kv: ReturnType<typeof fakeKv>) {
   };
 }
 
-// fetch ハンドラを通した CORS プリフライト。allowMethods に PATCH が
-// 無いと Web 版からの PATCH /events/:slug/participation がプリフライトで
-// 止まり、公開範囲が変更できない（issue #495）。
 describe("CORS プリフライト", () => {
   const ctx = {
     waitUntil: () => {},
