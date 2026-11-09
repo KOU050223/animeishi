@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
 import { AddElementSheet } from "@/components/meishi/AddElementSheet";
 import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
@@ -139,6 +140,19 @@ export default function MeishiEditScreen() {
   );
 
   const onSelect = useCallback((id: string | null) => setSelectedId(id), []);
+
+  // 名刺の外側（灰色の領域）のタップでも要素選択を解除する（issue #494）。
+  // Pressable ではなく Tap ジェスチャにする: 要素側は RNGH ジェスチャで
+  // RN のレスポンダを取らないため、Pressable だと要素タップでも発火して
+  // 選択が即座に解除されてしまう。Tap ジェスチャなら子側のジェスチャが
+  // 優先され、ドラッグ・リサイズ中は Tap が成立しないので誤解除しない。
+  const tapCanvasBackdrop = useMemo(
+    () =>
+      Gesture.Tap()
+        .withTestId("meishi-canvas-backdrop-tap")
+        .onEnd(() => onSelect(null)),
+    [onSelect],
+  );
 
   // ジェスチャ由来の変形通知はここでは直接ライブ更新に流す。
   // beginGesture はキャンバス側で「操作開始した時点」を検出できないため、
@@ -296,28 +310,40 @@ export default function MeishiEditScreen() {
       </View>
 
       <View style={styles.editorBody}>
-        <View
-          style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
-        >
-          <View style={styles.canvasWrapper}>
-            {doc ? (
-              <EditorCanvas
-                document={doc}
-                context={context}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                onTransform={onTransform}
-                onCommit={onCommit}
+        <GestureDetector gesture={tapCanvasBackdrop}>
+          <View
+            style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
+          >
+            {/* Tap ジェスチャはスクリーンリーダーから実行できないため、
+                選択中だけアクセシブルな解除導線を置く */}
+            {selectedId ? (
+              <Pressable
+                style={styles.visuallyHidden}
+                accessibilityLabel="要素の選択を解除"
+                accessibilityRole="button"
+                onPress={() => onSelect(null)}
               />
-            ) : (
-              <View style={{ alignItems: "center", padding: 24 }}>
-                <Text style={{ color: colors.textMuted }}>
-                  テンプレートを選んでください
-                </Text>
-              </View>
-            )}
+            ) : null}
+            <View style={styles.canvasWrapper}>
+              {doc ? (
+                <EditorCanvas
+                  document={doc}
+                  context={context}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                  onTransform={onTransform}
+                  onCommit={onCommit}
+                />
+              ) : (
+                <View style={{ alignItems: "center", padding: 24 }}>
+                  <Text style={{ color: colors.textMuted }}>
+                    テンプレートを選んでください
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
+        </GestureDetector>
 
         <View
           style={[
@@ -540,6 +566,14 @@ function createStyles(colors: ThemeColors) {
       justifyContent: "center",
       // 名刺本体（テンプレートのキャンバス）を浮かせるための背景。
       backgroundColor: colors.canvasBackdrop,
+    },
+    visuallyHidden: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: 1,
+      height: 1,
+      opacity: 0,
     },
     canvasWrapper: {
       width: "100%",
