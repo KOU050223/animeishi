@@ -2,7 +2,15 @@ import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { useHeaderHeight } from "expo-router/react-navigation";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
@@ -28,6 +36,14 @@ const HOME_FEED_MAX_ITEMS = 5;
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
+  // iOS のネイティブヘッダーは large title 指定で透過になり、FlatList が
+  // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
+  // 効かないケースがあるため、library / profile と同じくヘッダー高さ分だけ
+  // 全体を下げる（large title が畳まれると値も変わる）。Android/Web は
+  // ヘッダーが不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #469、#496）。
+  const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -79,7 +95,12 @@ export default function HomeScreen() {
 
   return (
     // 上端はネイティブヘッダー（large title）が面倒を見る。下端はタブバー側で吸収する。
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={[]}>
+    <SafeAreaView
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
+      edges={[]}
+      style={{ paddingTop: contentTopPadding }}
+      testID="home-screen"
+    >
       <Stack.Screen options={{ headerRight: () => <HomeHeaderButtons /> }} />
       <ActivityFeedSection
         onRefresh={refreshAll}
