@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
@@ -13,9 +13,13 @@ import { useMarkScreenInteractive } from "@/lib/observe";
 // みつけるは公開作品リスト（#422）・公開 tier 表・公開名刺（#418）の一覧。
 export default function HirobaScreen() {
   useMarkScreenInteractive();
-  // ネイティブヘッダーは透過のため、固定配置のセグメント切り替えは
-  // ヘッダー高さ分だけ下げる（large title が畳まれると値も変わる）。
+  // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
+  // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
+  // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
+  // 不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #491）。
   const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const [section, setSection] = useState<"create" | "discover">("create");
 
   return (
@@ -23,7 +27,8 @@ export default function HirobaScreen() {
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"
       edges={[]}
-      style={{ paddingTop: headerHeight }}
+      style={{ paddingTop: contentTopPadding }}
+      testID="hiroba-screen"
     >
       <SegmentedControl
         items={[
