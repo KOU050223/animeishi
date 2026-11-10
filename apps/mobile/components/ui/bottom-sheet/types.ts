@@ -20,6 +20,8 @@ export type BottomSheetProps = {
    * 背景・角丸・ドラッグハンドル等のシートの外観は基盤側が持つ。
    */
   children: ReactNode;
+  /** iOS シートの停止位置。省略時は内容に合わせる。 */
+  snapPoints?: ("half" | "full" | { fraction: number })[];
   /**
    * シートを閉じるスクリム（背面タップ）のアクセシビリティラベル。
    * ネイティブシートではスクリムは OS が管理するため Web 実装だけが使う。

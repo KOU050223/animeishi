@@ -251,6 +251,7 @@ export function AnimeWorkDetailSheet({
       onClose={onClose}
       scrimAccessibilityLabel="作品詳細を閉じる"
       testID="anime-work-detail-sheet"
+      snapPoints={[{ fraction: 0.8 }, "full"]}
     >
       {work ? (
         <ScrollView style={{ maxHeight: height * 0.8 }}>

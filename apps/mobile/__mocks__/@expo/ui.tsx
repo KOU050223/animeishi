@@ -168,6 +168,15 @@ export function Picker({
 }
 Picker.Item = () => null;
 
-export function BottomSheet({ isPresented, children, testID }: AnyProps) {
-  return isPresented ? <View testID={testID as string}>{children}</View> : null;
+export function BottomSheet({
+  isPresented,
+  children,
+  testID,
+  ...props
+}: AnyProps) {
+  return isPresented ? (
+    <View {...props} testID={testID as string}>
+      {children}
+    </View>
+  ) : null;
 }
