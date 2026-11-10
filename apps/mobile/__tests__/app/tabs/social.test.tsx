@@ -2,6 +2,7 @@
 // QR / アクティビティ / フレンド を上部セグメントで切り替え、
 // 旧パスからのリダイレクト（?section=...）でも対応セクションを開く。
 import React from "react";
+import { Platform } from "react-native";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import SocialScreen from "@/app/(tabs)/social/index";
 
@@ -12,8 +13,9 @@ let mockParams: { section?: string } = {};
 const mockSetParams = jest.fn((p: Record<string, string>) => {
   mockParams = { ...mockParams, ...p };
 });
+// useHeaderHeight はナビゲーションコンテキスト外では値を返せないため固定値にする。
 jest.mock("expo-router/react-navigation", () => ({
-  useHeaderHeight: () => 0,
+  useHeaderHeight: () => 96,
 }));
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
@@ -51,6 +53,7 @@ jest.mock("@/lib/useFriendRequests", () => ({
 beforeEach(() => {
   mockParams = {};
   mockSetParams.mockClear();
+  Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
 describe("SocialScreen", () => {
@@ -103,5 +106,26 @@ describe("SocialScreen", () => {
     await render(<SocialScreen />);
 
     expect(screen.getByTestId("section-activity")).toBeTruthy();
+  });
+
+  // iOS の透過ネイティブヘッダーはコンテンツが下に潜り込むため、
+  // セグメント切り替えはヘッダー高さ分だけ下げる。
+  it("透過ヘッダー分の上端余白を取る（iOS）", async () => {
+    await render(<SocialScreen />);
+
+    expect(screen.getByTestId("social-screen")).toHaveStyle({
+      paddingTop: 96,
+    });
+  });
+
+  // Android はヘッダーが不透明でコンテンツがバー下から始まるため、
+  // iOS と同じ余白を取るとヘッダー下に空白ができる（issue #491）。
+  it("不透明ヘッダーの Android では上端余白を取らない", async () => {
+    Object.defineProperty(Platform, "OS", { value: "android" });
+    await render(<SocialScreen />);
+
+    expect(screen.getByTestId("social-screen")).toHaveStyle({
+      paddingTop: 0,
+    });
   });
 });

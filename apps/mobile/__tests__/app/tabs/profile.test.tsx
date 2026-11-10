@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import {
   fireEvent,
   render,
@@ -12,8 +12,9 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 const mockMutateProfile = jest.fn();
 const mockReloadDocument = jest.fn();
 
+// useHeaderHeight はナビゲーションコンテキスト外では値を返せないため固定値にする。
 jest.mock("expo-router/react-navigation", () => ({
-  useHeaderHeight: () => 0,
+  useHeaderHeight: () => 96,
 }));
 
 jest.mock("expo-router", () => ({
@@ -157,6 +158,7 @@ jest.mock("@/lib/profileUrl", () => ({
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
+  Object.defineProperty(Platform, "OS", { value: "ios" });
   mockProfile = {
     data: mockProfileData,
     isLoading: false,
@@ -261,7 +263,8 @@ describe("ProfileScreen の保存トースト", () => {
 
     expect(toastLayer.props.pointerEvents).toBe("box-none");
     expect(layerStyle.position).toBe("absolute");
-    expect(layerStyle.top).toBe(0);
+    // iOS の透過ヘッダー下に潜り込まないよう、本文と同じ上端余白から出す
+    expect(layerStyle.top).toBe(96);
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
@@ -337,5 +340,28 @@ describe("ProfileScreen の法務情報セクション", () => {
     expect(
       screen.getByText("作品画像の一部は MyAnimeList から取得しています"),
     ).toBeTruthy();
+  });
+});
+
+describe("ProfileScreen のヘッダー下余白", () => {
+  // iOS の透過ネイティブヘッダーはコンテンツが下に潜り込むため、
+  // ヘッダー高さ分の上端余白を取る（issue #395 Phase 2）。
+  it("透過ヘッダー分の上端余白を取る（iOS）", async () => {
+    await render(<ProfileScreen />);
+
+    expect(screen.getByTestId("profile-screen")).toHaveStyle({
+      paddingTop: 96,
+    });
+  });
+
+  // Android はヘッダーが不透明でコンテンツがバー下から始まるため、
+  // iOS と同じ余白を取るとヘッダー下に空白ができる（issue #491）。
+  it("不透明ヘッダーの Android では上端余白を取らない", async () => {
+    Object.defineProperty(Platform, "OS", { value: "android" });
+    await render(<ProfileScreen />);
+
+    expect(screen.getByTestId("profile-screen")).toHaveStyle({
+      paddingTop: 0,
+    });
   });
 });

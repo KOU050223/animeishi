@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -72,18 +73,22 @@ export function MenuPicker<T extends string | number>({
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable
+        {/* 背景（タップで閉じる）とシートは兄弟にする。背景 Pressable の
+            中にシートを入れると Web で <button> の入れ子になる（issue #504）。 */}
+        <View
           style={{
             flex: 1,
-            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
-          onPress={() => setOpen(false)}
-          accessibilityRole="button"
-          accessibilityLabel={closeAccessibilityLabel}
         >
           <Pressable
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+            onPress={() => setOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel={closeAccessibilityLabel}
+          />
+          <View
             style={{
               width: "100%",
               maxWidth: 560,
@@ -93,7 +98,6 @@ export function MenuPicker<T extends string | number>({
               borderTopRightRadius: 16,
               paddingTop: 16,
             }}
-            onPress={() => {}}
           >
             <Text
               style={{
@@ -151,8 +155,8 @@ export function MenuPicker<T extends string | number>({
                 );
               })}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );

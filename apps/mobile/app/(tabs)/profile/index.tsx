@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,7 +63,14 @@ function walletErrorMessage(result: AddToWalletResult): string | null {
 }
 
 export default function ProfileScreen() {
+  // iOS のネイティブヘッダーは large title 指定で透過になり、ScrollView が
+  // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
+  // 効かないケースがあるため、library / social と同じくヘッダー高さ分だけ
+  // 全体を下げる（large title が畳まれると値も変わる）。Android/Web は
+  // ヘッダーが不透明でコンテンツがバー下から始まるため、同じ余白を取ると
+  // ヘッダー下に空白ができてしまう（issue #395 Phase 2、#491）。
   const headerHeight = useHeaderHeight();
+  const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const colors = useThemeColors();
   const { signOut } = useAuth();
   const { data: profile, isLoading, isError, refetch } = useProfile();
@@ -204,12 +212,11 @@ export default function ProfileScreen() {
   }
 
   return (
-    // トップに ScrollView がある画面でも large title の scroll inset が
-    // 効かないケースがあるため、library / social と同じく headerHeight 分の
-    // パディングでヘッダー下に潜り込むのを防ぐ（issue #395 Phase 2）。
+    // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
     <View
       className="flex-1 bg-slate-50 dark:bg-slate-950"
-      style={{ paddingTop: headerHeight }}
+      style={{ paddingTop: contentTopPadding }}
+      testID="profile-screen"
     >
       <ScrollView
         ref={scrollRef}
@@ -555,7 +562,7 @@ export default function ProfileScreen() {
       <View
         testID="profile-toast-layer"
         pointerEvents="box-none"
-        style={[styles.toastLayer, { top: headerHeight }]}
+        style={[styles.toastLayer, { top: contentTopPadding }]}
       >
         {toast ? (
           <View
