@@ -64,6 +64,10 @@ appId: com.animeishi.app
     timeout: 15000
 - takeScreenshot: phase2-profile-${THEME}
 
+# 名刺プレビューが中央からのスワイプを掴むため、先にカードの下から動かす。
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 20%"
 - scrollUntilVisible:
     element:
       text: AI 視聴傾向分析を開く
