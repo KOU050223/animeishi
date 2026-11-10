@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useThemeColors } from "@/lib/theme";
@@ -14,6 +15,13 @@ export default function HirobaLayout() {
     <Stack
       screenOptions={{
         ...headerOptions,
+        // Android のヘッダーは不透明で headerStyle 未指定だとテーマの
+        // card 色（ダークで #121212）になり、本文の colors.background と
+        // 食い違う。iOS ではブラーが消えるので指定しない（issue #491）。
+        headerStyle:
+          Platform.OS === "android"
+            ? { backgroundColor: colors.background }
+            : undefined,
         contentStyle: { backgroundColor: colors.background },
       }}
     >
