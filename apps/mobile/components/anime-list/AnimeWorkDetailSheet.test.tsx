@@ -240,12 +240,6 @@ const sheetElement = (
 );
 
 describe("AnimeWorkDetailSheet", () => {
-  it("作品詳細に中間の高さと全画面の停止位置を指定する", async () => {
-    await render(sheetElement());
-    expect(
-      screen.getByTestId("anime-work-detail-sheet").props.snapPoints,
-    ).toEqual([{ fraction: 0.8 }, "full"]);
-  });
   beforeEach(async () => {
     jest.clearAllMocks();
     mockUseWorkDetail.mockReturnValue(detailState());
@@ -273,6 +267,13 @@ describe("AnimeWorkDetailSheet", () => {
     mockRatingDeleteAsync.mockResolvedValue({});
     // 初回説明フラグは端末ローカル。各テストは未表示状態から始める。
     await AsyncStorage.clear();
+  });
+
+  it("作品詳細に中間の高さと全画面の停止位置を指定する", async () => {
+    await render(sheetElement());
+    expect(
+      screen.getByTestId("anime-work-detail-sheet").props.snapPoints,
+    ).toEqual([{ fraction: 0.8 }, "full"]);
   });
 
   it("work が null のときシートを表示しない", async () => {

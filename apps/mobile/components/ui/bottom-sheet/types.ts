@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
  * プラットフォーム差異を吸収するボトムシートの共通インターフェース。
  *
  * 実装は拡張子分割で切り替わる:
- * - BottomSheet.native.tsx ... iOS/Android（@expo/ui の BottomSheet = 純正シート）
+ * - BottomSheet.ios.tsx    ... iOS（@expo/ui の BottomSheet = SwiftUI の sheet）
+ * - BottomSheet.native.tsx ... Android（@expo/ui の BottomSheet = Compose の ModalBottomSheet）
  * - BottomSheet.web.tsx    ... Web（既存と同じ Modal + スクリム構成）
  *
  * 呼び出し側は常に `@/components/ui/bottom-sheet` から import する。

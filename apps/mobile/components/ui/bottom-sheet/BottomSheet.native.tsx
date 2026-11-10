@@ -3,8 +3,8 @@ import { useThemeColors } from "@/lib/theme";
 import type { BottomSheetProps } from "./types";
 
 /**
- * iOS/Android: @expo/ui の BottomSheet（iOS は SwiftUI の sheet、
- * Android は Compose の ModalBottomSheet）を使う。
+ * Android: @expo/ui の BottomSheet（Compose の ModalBottomSheet）を使う。
+ * iOS は BottomSheet.ios.tsx が優先して解決される。
  *
  * 内側の余白は children 側の RN ビューが持つため contentPadding は 0 に
  * 潰す（二重余白になるのを防ぐ）。children はネイティブツリー内で
