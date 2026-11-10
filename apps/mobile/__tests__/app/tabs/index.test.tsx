@@ -2,9 +2,13 @@ import React from "react";
 import { Linking, Platform } from "react-native";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import HomeScreen from "@/app/(tabs)/(home)/index";
+import { featureFlags } from "@/lib/featureFlags";
+
 import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+
+jest.mock("@/lib/dialog", () => require("@/lib/dialog/dialog.web"));
 
 // フォーカス復帰時の無効化対象を検証できるよう、スパイは使い回す。
 const mockInvalidateQueries = jest.fn();
@@ -207,6 +211,25 @@ beforeEach(async () => {
 });
 
 describe("HomeScreen", () => {
+  it("キャッシュクリア後に Web で完了を通知する", async () => {
+    const previous = featureFlags.debugPanel;
+    const originalAlert = window.alert;
+    const browserAlert = jest.fn();
+    Object.defineProperty(featureFlags, "debugPanel", { value: true });
+    window.alert = browserAlert;
+    try {
+      loggedInUser();
+      await render(<HomeScreen />);
+      await fireEvent.press(screen.getByLabelText("クエリキャッシュをクリア"));
+      expect(browserAlert).toHaveBeenCalledWith(
+        "キャッシュクリア完了\nキャッシュをクリアしました",
+      );
+    } finally {
+      Object.defineProperty(featureFlags, "debugPanel", { value: previous });
+      window.alert = originalAlert;
+    }
+  });
+
   it("今期視聴中とフレンドの動きが主役として表示される", async () => {
     loggedInUser();
     await render(<HomeScreen />);

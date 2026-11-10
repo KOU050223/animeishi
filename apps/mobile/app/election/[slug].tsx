@@ -1,7 +1,6 @@
 import { Fragment } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -21,6 +20,7 @@ import {
 import type { ElectionCandidate, ElectionDetail } from "@/lib/useElections";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
+import { alert } from "@/lib/dialog";
 
 // 総選挙の詳細（issue #438）。ホームの総選挙枠（ElectionRail）から遷移する。
 // 候補をタップして投票する。1 アカウント 1 票で、期間中は別の候補を
@@ -111,7 +111,7 @@ function ElectionBody({
     vote.mutate(
       { slug, candidateId },
       {
-        onError: () => Alert.alert("エラー", "投票に失敗しました"),
+        onError: () => alert("エラー", "投票に失敗しました", { okLabel: "OK" }),
       },
     );
   };
@@ -120,7 +120,8 @@ function ElectionBody({
     cancelVote.mutate(
       { slug },
       {
-        onError: () => Alert.alert("エラー", "投票の取り消しに失敗しました"),
+        onError: () =>
+          alert("エラー", "投票の取り消しに失敗しました", { okLabel: "OK" }),
       },
     );
   };
