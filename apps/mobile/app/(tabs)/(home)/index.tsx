@@ -4,7 +4,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import {
-  Alert,
   Platform,
   Pressable,
   Text,
@@ -29,6 +28,7 @@ import { WATCH_HISTORY_QUERY_KEY } from "@/lib/useWatchHistory";
 import { ANIME_LIST_QUERY_KEY } from "@/lib/useAnimeList";
 import { featureFlags } from "@/lib/featureFlags";
 import { useThemeColors } from "@/lib/theme";
+import { alert } from "@/lib/dialog";
 import { useMarkScreenInteractive } from "@/lib/observe";
 
 // ホームでは直近の動きだけを見せ、続きは QR・フレンドタブのアクティビティで読む
@@ -90,7 +90,9 @@ export default function HomeScreen() {
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
     await queryClient.resetQueries({ queryKey: ANIME_LIST_QUERY_KEY });
-    Alert.alert("キャッシュクリア完了", "キャッシュをクリアしました");
+    alert("キャッシュクリア完了", "キャッシュをクリアしました", {
+      okLabel: "OK",
+    });
   }
 
   return (

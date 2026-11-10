@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   ScrollView,
@@ -36,6 +35,7 @@ import type {
 import { MenuPicker } from "@/components/ui/menu-picker";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
+import { alert } from "@/lib/dialog";
 
 // イベント詳細（issue #411 フェーズ 1 + #440）。ホームのイベント枠
 // （EventRail）から遷移する。「参加する」の表明とその公開範囲、
@@ -122,11 +122,12 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
       { slug, participate },
       {
         onError: () =>
-          Alert.alert(
+          alert(
             "エラー",
             participate
               ? "参加表明に失敗しました"
               : "参加の取り消しに失敗しました",
+            { okLabel: "OK" },
           ),
       },
     );
@@ -136,7 +137,8 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
     visibilityMutation.mutate(
       { slug, visibility },
       {
-        onError: () => Alert.alert("エラー", "公開範囲の変更に失敗しました"),
+        onError: () =>
+          alert("エラー", "公開範囲の変更に失敗しました", { okLabel: "OK" }),
       },
     );
   };
