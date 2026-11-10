@@ -66,7 +66,12 @@ describe("ElectionRail", () => {
     mockElections = {
       data: {
         items: [
-          electionItem("megane", { voted: true }),
+          // 終了済みの総選挙。期間を固定の過去日にして現在日時への依存を避ける
+          electionItem("megane", {
+            voted: true,
+            startsAt: "2020-01-01T10:00:00+09:00",
+            endsAt: "2020-01-10T18:00:00+09:00",
+          }),
           // 投票受付中の総選挙
           electionItem("heroine", {
             startsAt: "2020-01-01T10:00:00+09:00",
