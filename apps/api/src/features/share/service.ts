@@ -293,8 +293,16 @@ const TIER_BOARD_CSS = `
     }
 `;
 
+// tier.color はユーザー入力。style 属性に入るため、エスケープだけでは
+// `red; position: fixed` のような宣言の追加を防げない。16 進カラー以外は既定色にする。
+const TIER_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const TIER_FALLBACK_COLOR = "#e2e8f0";
+
 function tierLabelHtml(tier: TierRow): string {
-  return `<div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>`;
+  const color = TIER_COLOR_PATTERN.test(tier.color.trim())
+    ? tier.color.trim()
+    : TIER_FALLBACK_COLOR;
+  return `<div class="tier-label" style="background-color: ${color}; color: ${tierLabelTextColor(color)}">${escapeHtml(tier.label)}</div>`;
 }
 
 export function buildSharedTierListHtml(
@@ -604,12 +612,24 @@ function escapeMarkdownCell(text: string): string {
   return text.replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
+/**
+ * 視聴履歴の Markdown 表。絞り込み時は、AI が部分集合を全件と取り違えない
+ * よう条件と件数を見出しの下に書く。
+ */
 export function buildSharedWatchHistoryMarkdown(
-  history: SharedWatchHistory,
+  fullHistory: SharedWatchHistory,
+  view: WatchHistoryView = { sort: "updated", state: null },
 ): string {
+  const history = applyWatchHistoryView(fullHistory, view);
   const lines = [
     `# ${history.ownerUsername} の視聴履歴`,
     "",
+    ...(view.state
+      ? [
+          `視聴状態「${WATCH_STATE_LABELS[view.state] ?? view.state}」で絞り込み（全 ${fullHistory.items.length} 件中 ${history.items.length} 件）`,
+          "",
+        ]
+      : []),
     "| 作品名 | シーズン | 視聴状態 | 最終更新日 |",
     "| --- | --- | --- | --- |",
     ...history.items.map(
@@ -618,7 +638,13 @@ export function buildSharedWatchHistoryMarkdown(
     ),
   ];
   if (history.items.length === 0) {
-    lines.push("| | | | |", "", "視聴履歴はありません。");
+    lines.push(
+      "| | | | |",
+      "",
+      fullHistory.items.length === 0
+        ? "視聴履歴はありません。"
+        : "条件に合う作品はありません。",
+    );
   }
   return `${lines.join("\n")}\n`;
 }
@@ -732,7 +758,7 @@ function chipHtml(
   current: boolean,
   count?: number,
 ) {
-  return `<a class="chip" href="${href}"${current ? ` aria-current="true"` : ""}>${escapeHtml(label)}${count !== undefined ? ` <span class="chip-count">${count}</span>` : ""}</a>`;
+  return `<a class="chip" href="${href}"${current ? ` aria-current="page"` : ""}>${escapeHtml(label)}${count !== undefined ? ` <span class="chip-count">${count}</span>` : ""}</a>`;
 }
 
 const STATE_CLASS: Record<string, string> = {

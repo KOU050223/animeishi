@@ -19,7 +19,6 @@ import {
   buildSharedWatchHistoryHtml,
   buildSharedWatchHistoryMarkdown,
   buildSharedWorkListHtml,
-  applyWatchHistoryView,
   notFoundHtml,
   parseTiersJson,
   parseWatchHistoryView,
@@ -273,9 +272,7 @@ const share = new Hono<ShareBindings>()
       const contentType = accept.includes("text/plain")
         ? "text/plain; charset=utf-8"
         : "text/markdown; charset=utf-8";
-      const markdown = buildSharedWatchHistoryMarkdown(
-        applyWatchHistoryView(history, view),
-      );
+      const markdown = buildSharedWatchHistoryMarkdown(history, view);
       return c.body(markdown, 200, {
         ...headers,
         "Content-Type": contentType,

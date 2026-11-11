@@ -1311,7 +1311,7 @@ describe("視聴履歴の共有", () => {
     );
     // 選択中のチップが分かり、件数は絞り込み前の全件で数える
     expect(filteredHtml).toContain(
-      '<a class="chip" href="?state=WATCHED" aria-current="true">視聴済 <span class="chip-count">1</span></a>',
+      '<a class="chip" href="?state=WATCHED" aria-current="page">視聴済 <span class="chip-count">1</span></a>',
     );
     expect(filteredHtml).toContain('すべて <span class="chip-count">2</span>');
     // canonical は条件を外した URL
@@ -1341,6 +1341,18 @@ describe("視聴履歴の共有", () => {
     ).text();
     expect(md).toContain("| 見たアニメB |");
     expect(md).not.toContain("| 見たアニメA |");
+    expect(md).toContain("視聴状態「視聴中」で絞り込み（全 2 件中 1 件）");
+
+    // 条件を併用しても、チップのリンクは他方の条件を保つ
+    const combined = await (
+      await app.request(
+        `/share/watch-history/${token}?state=WATCHED&sort=added_asc`,
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      )
+    ).text();
+    expect(combined).toContain('href="?state=WATCHING&amp;sort=added_asc"');
+    expect(combined).toContain('href="?state=WATCHED&amp;sort=year_desc"');
   });
 
   it("GET /share/watch-history/:token: HTML には作品ポスターの画像 URL とダークスキーム用 CSS が含まれる", async () => {

@@ -137,10 +137,10 @@ export function renderSharePage(input: SharePageInput): string {
 </html>`;
 }
 
-/** 件数などをヒーローに並べる。値はプレーンテキスト（ここでエスケープしない数値を想定）。 */
+/** 件数などをヒーローに並べる。label はプレーンテキスト（ここでエスケープする）。 */
 export function statsHtml(stats: { label: string; value: number }[]): string {
   if (stats.length === 0) return "";
   return `<ul class="stats">${stats
-    .map((s) => `<li><strong>${s.value}</strong> ${s.label}</li>`)
+    .map((s) => `<li><strong>${s.value}</strong> ${escapeHtml(s.label)}</li>`)
     .join("")}</ul>`;
 }
