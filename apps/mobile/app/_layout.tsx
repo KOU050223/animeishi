@@ -116,6 +116,8 @@ function AuthGuard() {
       <Stack.Screen name="terms" />
       {/* 公開サポートページ（/support）。ストア掲載のサポート URL。 */}
       <Stack.Screen name="support" />
+      {/* 不具合報告・ご意見の送信フォーム。ホームのヘッダーとサポートページから開く。 */}
+      <Stack.Screen name="feedback" />
       {/* サインアップ直後のパスキー登録促進（Web）。戻る先が無い画面のため
           ヘッダーは出さない。 */}
       <Stack.Screen name="passkey-prompt" options={{ headerShown: false }} />

@@ -15,6 +15,7 @@ import {
   clearCronFailures,
   notifyApiFailures,
   notifyCronFailure,
+  notifyFeedback as sendFeedbackAlert,
   notifyUserReport as sendUserReportAlert,
   type AlertBindings,
 } from "@/lib/discordAlert";
@@ -166,6 +167,17 @@ export function notifyUserReport(
   } catch {
     // ExecutionContext の無い環境（テストの app.request 等）。
     // sendUserReportAlert は reject しないのでそのまま流す。
+  }
+}
+
+// 不具合報告・ご意見の Discord 通知。本文は D1 にだけ残し、Sentry には送らない。
+export function notifyFeedback(c: Context): void {
+  const task = sendFeedbackAlert(c.env ?? {});
+  try {
+    c.executionCtx.waitUntil(task);
+  } catch {
+    // ExecutionContext の無い環境（テストの app.request 等）。
+    // sendFeedbackAlert は reject しないのでそのまま流す。
   }
 }
 

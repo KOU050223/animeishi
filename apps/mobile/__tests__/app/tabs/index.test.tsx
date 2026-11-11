@@ -267,6 +267,13 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/(tabs)/social?section=qr");
   });
 
+  it("ヘッダーの吹き出しアイコンで不具合報告・ご意見フォームを開く", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByTestId("home-open-feedback"));
+    expect(mockPush).toHaveBeenCalledWith("/feedback");
+  });
+
   it("今期視聴中の作品をタップすると dアニメストアのタイトル検索を開く", async () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
     mockWatchHistory = {

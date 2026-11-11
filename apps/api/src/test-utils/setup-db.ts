@@ -360,6 +360,16 @@ const DDL_STATEMENTS = [
     free_text TEXT,
     created_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS feedbacks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    body TEXT NOT NULL,
+    app_version TEXT,
+    platform TEXT,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS feedbacks_user_created_idx ON feedbacks (user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS articles (
     slug TEXT PRIMARY KEY NOT NULL,
     title TEXT NOT NULL,
@@ -478,6 +488,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM watch_history").run();
   await d1.prepare("DELETE FROM episode_records").run();
   await d1.prepare("DELETE FROM deletion_feedbacks").run();
+  await d1.prepare("DELETE FROM feedbacks").run();
   await d1.prepare("DELETE FROM election_votes").run();
   await d1.prepare("DELETE FROM election_candidates").run();
   await d1.prepare("DELETE FROM elections").run();
@@ -491,7 +502,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'event_participations', 'election_candidates', 'election_votes')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks','event_participations', 'election_candidates', 'election_votes')",
     )
     .run();
   return db;

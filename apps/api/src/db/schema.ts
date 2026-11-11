@@ -859,6 +859,27 @@ export const deletionFeedbacks = sqliteTable("deletion_feedbacks", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+// ---- feedbacks (アプリ内の不具合報告・ご意見) ----
+// category の許可値はクライアントの選択肢と揃える（features/feedback/schema.ts）。
+export const FEEDBACK_CATEGORIES = ["bug", "request", "other"] as const;
+export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
+
+export const feedbacks = sqliteTable(
+  "feedbacks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category", { enum: FEEDBACK_CATEGORIES }).notNull(),
+    body: text("body").notNull(),
+    appVersion: text("app_version"),
+    platform: text("platform"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [index("feedbacks_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 // ---- articles (運営が書く特集記事, issue #437) ----
 // 投入は scripts/publish-article.mjs（frontmatter 付き Markdown を slug で
 // upsert）が担い、API 経路では書き込まない。published_at 〜 unpublished_at
@@ -1080,6 +1101,7 @@ export type Block = typeof blocks.$inferSelect;
 export type NewBlock = typeof blocks.$inferInsert;
 export type DeletedUser = typeof deletedUsers.$inferSelect;
 export type DeletionFeedback = typeof deletionFeedbacks.$inferSelect;
+export type Feedback = typeof feedbacks.$inferSelect;
 export type NewDeletionFeedback = typeof deletionFeedbacks.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;

@@ -31,6 +31,17 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    heading: "不具合報告・ご意見",
+    paragraphs: [
+      "アプリの不具合やほしい機能・ご意見は、アプリ内のフォームから送信できます。サインイン後、ホーム画面右上の吹き出しアイコンからも開けます。",
+    ],
+    action: {
+      label: "不具合報告・ご意見を送る",
+      href: "/feedback",
+      testID: "support-open-feedback",
+    },
+  },
+  {
     heading: "お問い合わせ",
     paragraphs: [
       "上記で解決しない場合は、以下の連絡先までお問い合わせください。",
@@ -43,7 +54,7 @@ export default function SupportScreen() {
   return (
     <LegalDocument
       title="サポート"
-      effectiveDate="最終更新: 2026年10月13日"
+      effectiveDate="最終更新: 2026年11月11日"
       sections={SECTIONS}
     />
   );

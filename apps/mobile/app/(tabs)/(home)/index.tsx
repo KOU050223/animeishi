@@ -151,7 +151,7 @@ export default function HomeScreen() {
   );
 }
 
-// 自分の名刺・QR 交換の導線。画面上部の大きな導線は縮めて
+// 自分の名刺・QR 交換・不具合報告の導線。画面上部の大きな導線は縮めて
 // ヘッダーアイコンに集約する（issue #353）。
 function HomeHeaderButtons() {
   const router = useRouter();
@@ -175,6 +175,19 @@ function HomeHeaderButtons() {
         testID="home-open-qr"
       >
         <Ionicons name="qr-code-outline" size={24} color={colors.primaryText} />
+      </Pressable>
+      <Pressable
+        onPress={() => router.push("/feedback")}
+        className="h-11 w-11 items-center justify-center"
+        accessibilityRole="button"
+        accessibilityLabel="不具合報告・ご意見を送る"
+        testID="home-open-feedback"
+      >
+        <Ionicons
+          name="chatbubble-ellipses-outline"
+          size={24}
+          color={colors.primaryText}
+        />
       </Pressable>
     </View>
   );

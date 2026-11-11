@@ -1,7 +1,7 @@
-import { Link, Stack, useRouter } from "expo-router";
+import { type Href, Link, Stack, useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
-import { BackButton } from "@/components/ui";
+import { BackButton, Button } from "@/components/ui";
 
 /** 法務ページ（プライバシーポリシー / 利用規約）の 1 セクション。 */
 export type LegalSection = {
@@ -10,6 +10,8 @@ export type LegalSection = {
   paragraphs?: string[];
   /** 箇条書き項目。 */
   bullets?: string[];
+  /** 段落の下に置くアプリ内画面へのボタン。 */
+  action?: { label: string; href: Href; testID?: string };
 };
 
 type Props = {
@@ -87,6 +89,17 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
                       ・{bullet}
                     </Text>
                   ))}
+                </View>
+              ) : null}
+              {section.action ? (
+                <View className="mt-4">
+                  <Button
+                    label={section.action.label}
+                    variant="secondary"
+                    onPress={() => router.push(section.action!.href)}
+                    accessibilityLabel={section.action.label}
+                    testID={section.action.testID}
+                  />
                 </View>
               ) : null}
             </View>

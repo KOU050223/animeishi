@@ -17,6 +17,8 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
+* feedback:list:          本番 D1 の不具合報告・ご意見を新しい順に表示（既定 50 件）
+* feedback:list:local:    ローカル D1 の不具合報告・ご意見を表示
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
 * images:takedown:        本番の作品画像を削除し、以後の補完を止める（MAL の削除依頼対応。プロキシのキャッシュも Purge。確認プロンプト付き）
 * articles:publish:       本番 D1 に記事を投入（確認プロンプト付き。issue #437）
@@ -52,6 +54,14 @@ main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する�
 メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
 そのまま含めてよい。プレビュー D1 を見る場合は
 `bash apps/api/scripts/reports.sh --env preview list` を直接叩く。
+
+## 不具合報告・ご意見（feedback:list）
+
+アプリのホーム右上の吹き出しアイコン（またはサポートページ）から送られた投稿を読む。
+Discord（#bot-log）には「投稿あり」と件数だけが届くので、通知を見たら
+`pnpm task feedback:list` で内容を確認する。件数を変えるときは
+`pnpm task feedback:list -- --limit 200`。プレビュー D1 は
+`bash apps/api/scripts/feedback.sh --env preview list` を直接叩く。
 
 ## 作品画像の削除（images:takedown）
 
