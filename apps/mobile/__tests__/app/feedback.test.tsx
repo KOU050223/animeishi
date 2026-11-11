@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import FeedbackScreen from "@/app/feedback";
 import { ApiRequestError } from "@/lib/apiError";
 
@@ -42,6 +42,7 @@ jest.mock("@/lib/appInfo", () => ({
     appVersion: "1.2.0",
     buildVersion: "34",
     commitSha: "abcdef1234567890",
+    updateId: "0123456789abcdef",
   }),
 }));
 
@@ -50,6 +51,7 @@ jest.mock("@/lib/dialog", () => ({
 }));
 
 type MutateOptions = {
+  onSettled?: () => void;
   onSuccess: () => void;
   onError: (e: unknown) => void;
 };
@@ -82,6 +84,34 @@ describe("FeedbackScreen", () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
+  it("再描画を待たずに連打しても 1 回しか送らない", async () => {
+    await render(<FeedbackScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("feedback-body-input"),
+      "落ちます",
+    );
+
+    await fireEvent.press(screen.getByTestId("feedback-submit"));
+    await fireEvent.press(screen.getByTestId("feedback-submit"));
+
+    expect(mockMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("送信中に追記した本文は送信成功後も残す", async () => {
+    await render(<FeedbackScreen />);
+    const input = screen.getByTestId("feedback-body-input");
+    await fireEvent.changeText(input, "落ちます");
+    await fireEvent.press(screen.getByTestId("feedback-submit"));
+    await fireEvent.changeText(input, "落ちます。追記");
+
+    const options = mockMutate.mock.calls[0]![1] as MutateOptions;
+    await act(() => options.onSuccess());
+
+    expect(screen.getByTestId("feedback-body-input").props.value).toBe(
+      "落ちます。追記",
+    );
+  });
+
   it("選んだ種類と前後の空白を除いた本文を、アプリのバージョン付きで送る", async () => {
     await render(<FeedbackScreen />);
 
@@ -96,7 +126,7 @@ describe("FeedbackScreen", () => {
       expect.objectContaining({
         category: "request",
         body: "ダークモードがほしい",
-        appVersion: "1.2.0 (34)+abcdef1",
+        appVersion: "1.2.0 (34)+abcdef1 ota:01234567",
         platform: expect.any(String),
       }),
       expect.anything(),

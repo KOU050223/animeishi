@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Platform, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -37,11 +37,13 @@ const CATEGORIES: {
 function describeApp(): { appVersion: string; platform: string } {
   const info = getAppInfo();
   // Web は buildVersion を持たず、同じ version のまま何度もデプロイされるため、
-  // デプロイを特定できるコミットも添える。
+  // デプロイを特定できるコミットも添える。native は同じビルドに OTA 更新が
+  // 重なるため、適用中の更新 ID も添える。
   const build = info.buildVersion ? ` (${info.buildVersion})` : "";
   const commit = info.commitSha ? `+${info.commitSha.slice(0, 7)}` : "";
+  const update = info.updateId ? ` ota:${info.updateId.slice(0, 8)}` : "";
   return {
-    appVersion: `${info.appVersion}${build}${commit}`,
+    appVersion: `${info.appVersion}${build}${commit}${update}`,
     platform: [Platform.OS, Platform.Version].filter(Boolean).join(" "),
   };
 }
@@ -51,6 +53,8 @@ export default function FeedbackScreen() {
   const [category, setCategory] = useState<FeedbackCategory>("bug");
   const [body, setBody] = useState("");
   const sendFeedback = useSendFeedback();
+  // isPending は再描画まで反映されないため、連打を同期的に弾くフラグを別に持つ。
+  const submitting = useRef(false);
 
   const current = CATEGORIES.find((c) => c.value === category) ?? CATEGORIES[0];
   const canSubmit = body.trim().length > 0 && !sendFeedback.isPending;
@@ -65,11 +69,18 @@ export default function FeedbackScreen() {
   };
 
   const onSubmit = () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    const sentBody = body;
     sendFeedback.mutate(
-      { category, body: body.trim(), ...describeApp() },
+      { category, body: sentBody.trim(), ...describeApp() },
       {
+        onSettled: () => {
+          submitting.current = false;
+        },
         onSuccess: () => {
-          setBody("");
+          // 送信中に追記された本文は消さない。
+          setBody((current) => (current === sentBody ? "" : current));
           alert(
             "送信しました",
             "ご協力ありがとうございます。いただいた内容は開発の参考にさせていただきます。",

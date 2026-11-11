@@ -367,7 +367,8 @@ const DDL_STATEMENTS = [
     body TEXT NOT NULL,
     app_version TEXT,
     platform TEXT,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   `CREATE INDEX IF NOT EXISTS feedbacks_user_created_idx ON feedbacks (user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS articles (
