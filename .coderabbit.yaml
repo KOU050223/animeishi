@@ -24,6 +24,8 @@ reviews:
     - "!**/build/**"
     - "!**/*.lock"
     - "!**/package-lock.json"
+    # 外部リポジトリから取り込んだエージェントスキル。本文を直しても skills update で上書きされる
+    - "!.agents/skills/**"
 
   # パス別の指示
   # NOTE: apps/mobile と apps/api はディレクトリ追加後に有効になります
