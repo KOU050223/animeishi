@@ -48,6 +48,12 @@
       "skillPath": "plugins/expo/skills/eas-update-insights/SKILL.md",
       "computedHash": "49efd379d7b8d50ec545dfdd361aacf9007b0c936e9a77a0e1ffe5d545a9992e"
     },
+    "eas-workflows": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/eas-workflows/SKILL.md",
+      "computedHash": "ee718657f28c50ecfdb28efeb9f39c35b9fcda87d4d8003b8fe0b48d733d9136"
+    },
     "expo-api-routes": {
       "source": "expo/skills",
       "sourceType": "github",
