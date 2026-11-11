@@ -19,8 +19,10 @@ import {
   buildSharedWatchHistoryHtml,
   buildSharedWatchHistoryMarkdown,
   buildSharedWorkListHtml,
+  applyWatchHistoryView,
   notFoundHtml,
   parseTiersJson,
+  parseWatchHistoryView,
   proxyImage,
   watchHistoryNotFoundHtml,
   workListNotFoundHtml,
@@ -246,12 +248,23 @@ const share = new Hono<ShareBindings>()
       // 共有解除で無効化されるコンテンツなのでキャッシュさせない
       // （/share/tier-lists と同じ方針）。
       const headers = { "Cache-Control": "no-store" };
+      // 並び替え・絞り込み（issue #518）。canonical は条件を外した URL にする。
+      const view = parseWatchHistoryView({
+        sort: c.req.query("sort"),
+        state: c.req.query("state"),
+      });
       if (wantsHtml) {
+        const canonicalSource = new URL(c.req.url);
+        canonicalSource.search = "";
         return c.html(
           buildSharedWatchHistoryHtml(
             history,
             c.req.url,
-            buildCanonicalShareUrl(c.env.PUBLIC_WEB_URL, c.req.url),
+            buildCanonicalShareUrl(
+              c.env.PUBLIC_WEB_URL,
+              canonicalSource.toString(),
+            ),
+            view,
           ),
           200,
           headers,
@@ -260,7 +273,10 @@ const share = new Hono<ShareBindings>()
       const contentType = accept.includes("text/plain")
         ? "text/plain; charset=utf-8"
         : "text/markdown; charset=utf-8";
-      return c.body(buildSharedWatchHistoryMarkdown(history), 200, {
+      const markdown = buildSharedWatchHistoryMarkdown(
+        applyWatchHistoryView(history, view),
+      );
+      return c.body(markdown, 200, {
         ...headers,
         "Content-Type": contentType,
       });

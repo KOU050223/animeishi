@@ -1290,9 +1290,57 @@ describe("視聴履歴の共有", () => {
     expect(html).toContain("<th>作品名</th>");
     expect(html).toContain('<span class="work-title">見たアニメA</span>');
     expect(html).toContain('<td class="cell-meta">2026年春</td>');
-    expect(html).toContain('<span class="state">視聴済</span>');
+    expect(html).toContain('<span class="state state-watched">視聴済</span>');
     expect(html).toContain('<td class="cell-meta">2026-04-11</td>');
     expect(html).not.toContain("<script");
+  });
+
+  it("GET /share/watch-history/:token: ?state= で絞り込み、?sort= で並び替えられる（issue #518）", async () => {
+    const app = buildWatchHistoryApp();
+    const token = await issueToken(app);
+
+    const filtered = await app.request(
+      `/share/watch-history/${token}?state=WATCHED`,
+      { method: "GET", headers: { Accept: "text/html" } },
+      TEST_BINDINGS,
+    );
+    const filteredHtml = await filtered.text();
+    expect(filteredHtml).toContain("見たアニメA");
+    expect(filteredHtml).not.toContain(
+      '<span class="work-title">見たアニメB</span>',
+    );
+    // 選択中のチップが分かり、件数は絞り込み前の全件で数える
+    expect(filteredHtml).toContain(
+      '<a class="chip" href="?state=WATCHED" aria-current="true">視聴済 <span class="chip-count">1</span></a>',
+    );
+    expect(filteredHtml).toContain('すべて <span class="chip-count">2</span>');
+    // canonical は条件を外した URL
+    expect(filteredHtml).toContain(
+      `rel="canonical" href="http://localhost/share/watch-history/${token}"`,
+    );
+
+    // 既定（更新順）は B が先、放送年が古い順は 2025 年の B が先、新しい順は A が先
+    const yearDesc = await (
+      await app.request(
+        `/share/watch-history/${token}?sort=year_desc`,
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      )
+    ).text();
+    expect(yearDesc.indexOf("見たアニメA")).toBeLessThan(
+      yearDesc.indexOf("見たアニメB"),
+    );
+
+    // Markdown にも同じ条件を適用する
+    const md = await (
+      await app.request(
+        `/share/watch-history/${token}?state=WATCHING`,
+        { method: "GET", headers: { Accept: "text/markdown" } },
+        TEST_BINDINGS,
+      )
+    ).text();
+    expect(md).toContain("| 見たアニメB |");
+    expect(md).not.toContain("| 見たアニメA |");
   });
 
   it("GET /share/watch-history/:token: HTML には作品ポスターの画像 URL とダークスキーム用 CSS が含まれる", async () => {

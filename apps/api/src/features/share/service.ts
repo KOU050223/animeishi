@@ -7,6 +7,7 @@ import {
   readBodyWithLimit,
 } from "@/lib/http";
 import { workImageUrl } from "@/lib/annict/workImage";
+import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";
 import type {
   SharedCharacterTierList,
@@ -247,6 +248,55 @@ export function workImageHtml(
   return `<img class="work-image" src="${escapeHtml(src)}"${fallbackAttr} alt="" loading="lazy" />`;
 }
 
+/** 作品ポスター。画像が無い・読み込めないときも枠だけは残す。 */
+function posterHtml(
+  item: Parameters<typeof workImageHtml>[0],
+  requestUrl: string,
+): string {
+  return `<div class="poster">${workImageHtml(item, requestUrl)}</div>`;
+}
+
+/** og:image 用の作品画像 URL。https を優先し、無ければ最初の安全な URL。 */
+function pickWorkOgImage(
+  items: Parameters<typeof workImageHtml>[0][],
+  requestUrl: string,
+): string | undefined {
+  // resolvedImageUrl が不安全なら imageUrl 側も候補にする
+  // （ページ上のポスター表示 workImageHtml と同じ選び方）。
+  const candidates = items
+    .flatMap((item) => [
+      workImageUrl(requestUrl, item.annictWorkId),
+      item.resolvedImageUrl,
+      item.imageUrl,
+    ])
+    .filter((u): u is string => !!u && isSafeImageUrl(u));
+  return candidates.find((u) => /^https:/i.test(u.trim())) ?? candidates[0];
+}
+
+/** tier 表（作品・キャラクター共通）の盤面スタイル。 */
+const TIER_BOARD_CSS = `
+    .board { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+    .tier-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+    .tier-row:last-child { border-bottom: 0; }
+    .tier-label { display: flex; align-items: center; justify-content: center; width: 76px; flex-shrink: 0; padding: 8px;
+      font-weight: 800; font-size: 1.1rem; text-align: center; overflow-wrap: anywhere; }
+    .tier-items { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; padding: 10px; flex: 1; min-height: 88px; min-width: 0; }
+    .card { width: 84px; }
+    .poster { width: 100%; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; background: var(--poster-fallback); }
+    .poster img { width: 100%; height: 100%; object-fit: cover; }
+    .card-title { display: -webkit-box; margin-top: 4px; font-size: 0.72rem; line-height: 1.3; color: var(--text-secondary);
+      overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+    @media (max-width: 480px) {
+      .tier-label { width: 56px; font-size: 1rem; }
+      .tier-items { gap: 8px; padding: 8px; }
+      .card { width: 68px; }
+    }
+`;
+
+function tierLabelHtml(tier: TierRow): string {
+  return `<div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>`;
+}
+
 export function buildSharedTierListHtml(
   list: SharedTierList,
   requestUrl: string,
@@ -312,188 +362,113 @@ function buildWorkTierListHtml(input: {
     arr.push(item);
     itemsByTier.set(item.tierKey, arr);
   }
-
-  const title = `${escapeHtml(input.list.title)} - Animeishi`;
-  const description = `${escapeHtml(input.ownerUsername)} のアニメ Tier 表`;
-
-  // og:image には先頭の作品画像を使う。クローラは直接取得できるため
-  // プロキシ経由は不要。https を優先し、無ければ最初の安全な URL。
-  // resolvedImageUrl が不安全なら imageUrl 側も候補にする
-  // （ページ上のポスター表示 workImageHtml と同じ選び方）。
-  const ogImageCandidates = input.list.items
-    .flatMap((item) => [
-      workImageUrl(input.requestUrl, item.annictWorkId),
-      item.resolvedImageUrl,
-      item.imageUrl,
-    ])
-    .filter((u): u is string => !!u && isSafeImageUrl(u));
-  const ogImage =
-    ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
-    ogImageCandidates[0];
+  const placedCount = tiers.reduce(
+    (sum, tier) => sum + (itemsByTier.get(tier.key)?.length ?? 0),
+    0,
+  );
 
   const rowsHtml = tiers
     .map((tier) => {
-      const works = itemsByTier.get(tier.key) ?? [];
-      const worksHtml = works
+      const worksHtml = (itemsByTier.get(tier.key) ?? [])
         .map(
-          (item) => `<div class="work">
-      ${workImageHtml(item, input.requestUrl)}
-      <span class="work-title">${escapeHtml(item.title)}</span>
-    </div>`,
+          (item) => `<div class="card">
+        ${posterHtml(item, input.requestUrl)}
+        <span class="card-title">${escapeHtml(item.title)}</span>
+      </div>`,
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
-    <div class="tier-works">${worksHtml}</div>
-  </div>`;
+      ${tierLabelHtml(tier)}
+      <div class="tier-items">${worksHtml}</div>
+    </div>`;
     })
-    .join("\n");
+    .join("\n    ");
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
-  <meta name="color-scheme" content="light dark" />
-  <title>${title}</title>
-  <meta name="description" content="${description}" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${escapeHtml(input.canonicalUrl)}" />
-  <link rel="canonical" href="${escapeHtml(input.canonicalUrl)}" />
-  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
-    .owner { color: #555; margin: 4px 0 24px; }
-    .owner.has-description { margin-bottom: 4px; }
-    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
-    .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
-    .tier-works { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
-    .work { width: 80px; text-align: center; }
-    .work-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
-    .work-title { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
-       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
-    @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #f1f5f9; }
-      .owner { color: #94a3b8; }
-      .description { color: #cbd5e1; }
-      .tier-row { background: #1e293b; }
-      .work-image { background: #334155; }
-      .work-title { color: #cbd5e1; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(input.list.title)}</h1>
-  <p class="owner${input.list.description ? " has-description" : ""}">${input.ownerLine}</p>
-  ${input.list.description ? `<p class="description">${escapeHtml(input.list.description)}</p>` : ""}
-  ${rowsHtml}
-</body>
-</html>`;
+  return renderSharePage({
+    title: `${escapeHtml(input.list.title)} - Animeishi`,
+    metaDescription: `${escapeHtml(input.ownerUsername)} のアニメ Tier 表`,
+    canonicalUrl: input.canonicalUrl,
+    // og:image には先頭の作品画像を使う。クローラは直接取得できる。
+    ogImage: pickWorkOgImage(input.list.items, input.requestUrl),
+    kind: "Tier 表",
+    heading: escapeHtml(input.list.title),
+    ownerLine: input.ownerLine,
+    description: input.list.description,
+    statsHtml: statsHtml([{ label: "作品", value: placedCount }]),
+    bodyHtml:
+      tiers.length > 0
+        ? `<div class="board">
+    ${rowsHtml}
+  </div>`
+        : `<p class="empty">Tier 表はまだありません。</p>`,
+    pageCss: TIER_BOARD_CSS,
+    width: "wide",
+  });
 }
 
 /**
  * オリジナル作品リストの共有ページ（issue #349）。tier 行のない順位付き
- * 一覧で、説明文があれば所有者行の下に出す。作品画像・OGP・ダーク追従の
- * 組み立ては tier 表の共有ページ（buildWorkTierListHtml）と同じ方式。
+ * 一覧で、説明文があれば所有者行の下に出す。
  */
 export function buildSharedWorkListHtml(
   list: SharedWorkList,
   requestUrl: string,
   canonicalUrl: string,
 ): string {
-  const title = `${escapeHtml(list.title)} - Animeishi`;
-  const description = `${escapeHtml(list.ownerUsername)} の作品リスト`;
-
-  // og:image には先頭の作品画像を使う（tier 表の共有ページと同じ選び方）。
-  const ogImageCandidates = list.items
-    .flatMap((item) => [
-      workImageUrl(requestUrl, item.annictWorkId),
-      item.resolvedImageUrl,
-      item.imageUrl,
-    ])
-    .filter((u): u is string => !!u && isSafeImageUrl(u));
-  const ogImage =
-    ogImageCandidates.find((u) => /^https:/i.test(u.trim())) ??
-    ogImageCandidates[0];
-
   const itemsHtml = list.items
-    .map(
-      (item) => `<li class="work">
-      <span class="rank">${item.position + 1}</span>
-      ${workImageHtml(item, requestUrl)}
-      <span class="work-title">${escapeHtml(item.title)}</span>
-    </li>`,
-    )
-    .join("\n");
+    .map((item) => {
+      const rank = item.position + 1;
+      const season =
+        item.seasonName || item.seasonYear !== null
+          ? `<span class="work-meta">${escapeHtml(sharedWatchSeasonLabel(item))}</span>`
+          : "";
+      return `<li class="rank-item">
+      <span class="rank${rank <= 3 ? ` rank-${rank}` : ""}">${rank}</span>
+      ${posterHtml(item, requestUrl)}
+      <div class="rank-body">
+        <span class="work-title">${escapeHtml(item.title)}</span>
+        ${season}
+      </div>
+    </li>`;
+    })
+    .join("\n    ");
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
-  <meta name="color-scheme" content="light dark" />
-  <title>${title}</title>
-  <meta name="description" content="${description}" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
-    .owner { color: #555; margin: 4px 0 4px; }
-    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
-    .works { list-style: none; padding: 0; margin: 24px 0 0; }
-    .work { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .rank { min-width: 2em; text-align: right; font-weight: bold; color: #777; }
-    .work-image { width: 48px; height: 64px; object-fit: cover; border-radius: 4px; background: #ddd; }
-    .work-title { overflow-wrap: anywhere; }
-    /* アプリと同じく、閲覧者のシステムスキームに追従して
-       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
-    @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #f1f5f9; }
-      .owner { color: #94a3b8; }
-      .description { color: #cbd5e1; }
-      .work { border-bottom-color: #334155; }
-      .rank { color: #94a3b8; }
-      .work-image { background: #334155; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(list.title)}</h1>
-  <p class="owner">${escapeHtml(list.ownerUsername)} の作品リスト</p>
-  ${list.description ? `<p class="description">${escapeHtml(list.description)}</p>` : ""}
-  ${list.items.length > 0 ? `<ol class="works">\n${itemsHtml}\n  </ol>` : "<p>作品はまだありません。</p>"}
-</body>
-</html>`;
+  return renderSharePage({
+    title: `${escapeHtml(list.title)} - Animeishi`,
+    metaDescription: `${escapeHtml(list.ownerUsername)} の作品リスト`,
+    canonicalUrl,
+    ogImage: pickWorkOgImage(list.items, requestUrl),
+    kind: "作品リスト",
+    heading: escapeHtml(list.title),
+    ownerLine: `${escapeHtml(list.ownerUsername)} の作品リスト`,
+    description: list.description,
+    statsHtml: statsHtml([{ label: "作品", value: list.items.length }]),
+    bodyHtml:
+      list.items.length > 0
+        ? `<ol class="ranking">
+    ${itemsHtml}
+  </ol>`
+        : `<p class="empty">作品はまだありません。</p>`,
+    pageCss: `
+    .ranking { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+    .rank { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px;
+      border-radius: 999px; background: var(--surface-muted); color: var(--text-secondary); font-weight: 800; font-size: 0.9rem; }
+    .rank-1 { background: #f59e0b; color: #ffffff; }
+    .rank-2 { background: #94a3b8; color: #ffffff; }
+    .rank-3 { background: #b45309; color: #ffffff; }
+    .poster { flex-shrink: 0; width: 52px; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; background: var(--poster-fallback); }
+    .poster img { width: 100%; height: 100%; object-fit: cover; }
+    .rank-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .work-title { font-weight: 600; overflow-wrap: anywhere; }
+    .work-meta { color: var(--text-muted); font-size: 0.8rem; }
+`,
+  });
 }
 
 export function workListNotFoundHtml(): string {
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <title>作品リストが見つかりません - Animeishi</title>
-</head>
-<body>
-  <h1>作品リストが見つかりません</h1>
-  <p>この共有リンクは無効になったか、存在しません。</p>
-</body>
-</html>`;
+  return notFoundPage("作品リスト");
 }
 
 export function characterImageHtml(
@@ -501,7 +476,7 @@ export function characterImageHtml(
 ): string {
   const src = item.imageUrl;
   if (!src || !isSafeImageUrl(src)) return "";
-  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" />`;
+  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.remove()" />`;
 }
 
 export function buildSharedCharacterTierListHtml(
@@ -515,95 +490,65 @@ export function buildSharedCharacterTierListHtml(
     arr.push(item);
     itemsByTier.set(item.tierKey, arr);
   }
-
-  const title = `${escapeHtml(list.title)} - Animeishi`;
-  const description = `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`;
-
-  // og:image には先頭のキャラクター画像を使う。
-  const ogImage = list.items
-    .map((item) => item.imageUrl)
-    .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u));
+  const placedCount = tiers.reduce(
+    (sum, tier) => sum + (itemsByTier.get(tier.key)?.length ?? 0),
+    0,
+  );
 
   const rowsHtml = tiers
     .map((tier) => {
-      const characters = itemsByTier.get(tier.key) ?? [];
-      const charactersHtml = characters
+      const charactersHtml = (itemsByTier.get(tier.key) ?? [])
         .map(
-          (item) => `<div class="character">
-      ${characterImageHtml(item)}
-      <span class="character-name">${escapeHtml(item.name)}</span>
-    </div>`,
+          (item) => `<div class="card">
+        <div class="poster">${characterImageHtml(item)}</div>
+        <span class="card-title">${escapeHtml(item.name)}</span>
+      </div>`,
         )
         .join("");
       return `<div class="tier-row">
-    <div class="tier-label" style="background-color: ${escapeHtml(tier.color)}; color: ${tierLabelTextColor(tier.color)}">${escapeHtml(tier.label)}</div>
-    <div class="tier-characters">${charactersHtml}</div>
-  </div>`;
+      ${tierLabelHtml(tier)}
+      <div class="tier-items">${charactersHtml}</div>
+    </div>`;
     })
-    .join("\n");
+    .join("\n    ");
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
-  <meta name="color-scheme" content="light dark" />
-  <title>${title}</title>
-  <meta name="description" content="${description}" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
-    .owner { color: #555; margin: 4px 0 24px; }
-    .owner.has-description { margin-bottom: 4px; }
-    .description { color: #333; margin: 8px 0 24px; white-space: pre-wrap; }
-    .tier-row { display: flex; align-items: stretch; margin-bottom: 8px; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
-    .tier-label { display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 40%; padding: 8px; font-weight: bold; overflow-wrap: anywhere; }
-    .tier-characters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: 1; }
-    .character { width: 80px; text-align: center; }
-    .character-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; background: #ddd; }
-    .character-name { display: block; font-size: 0.75rem; color: #333; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
-       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
-    @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #f1f5f9; }
-      .owner { color: #94a3b8; }
-      .description { color: #cbd5e1; }
-      .tier-row { background: #1e293b; }
-      .character-image { background: #334155; }
-      .character-name { color: #cbd5e1; }
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(list.title)}</h1>
-  <p class="owner${list.description ? " has-description" : ""}">${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表</p>
-  ${list.description ? `<p class="description">${escapeHtml(list.description)}</p>` : ""}
-  ${rowsHtml}
-</body>
-</html>`;
+  return renderSharePage({
+    title: `${escapeHtml(list.title)} - Animeishi`,
+    metaDescription: `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`,
+    canonicalUrl,
+    // og:image には先頭のキャラクター画像を使う。
+    ogImage: list.items
+      .map((item) => item.imageUrl)
+      .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u)),
+    kind: "キャラクター Tier 表",
+    heading: escapeHtml(list.title),
+    ownerLine: `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`,
+    description: list.description,
+    statsHtml: statsHtml([{ label: "キャラクター", value: placedCount }]),
+    bodyHtml:
+      tiers.length > 0
+        ? `<div class="board">
+    ${rowsHtml}
+  </div>`
+        : `<p class="empty">Tier 表はまだありません。</p>`,
+    pageCss: TIER_BOARD_CSS,
+    width: "wide",
+  });
 }
 
 export function notFoundHtml(): string {
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <title>Tier 表が見つかりません - Animeishi</title>
-</head>
-<body>
-  <h1>Tier 表が見つかりません</h1>
-  <p>この共有リンクは無効になったか、存在しません。</p>
-</body>
-</html>`;
+  return notFoundPage("Tier 表");
+}
+
+/** 共有リンクが無効なときのページ。kind は「Tier 表」等のプレーンテキスト。 */
+function notFoundPage(kind: string): string {
+  const heading = `${escapeHtml(kind)}が見つかりません`;
+  return renderSharePage({
+    title: `${heading} - Animeishi`,
+    kind,
+    heading,
+    bodyHtml: `<p class="empty">この共有リンクは無効になったか、存在しません。</p>`,
+  });
 }
 
 // ---- 視聴履歴の共有（issue #236） ----
@@ -678,91 +623,214 @@ export function buildSharedWatchHistoryMarkdown(
   return `${lines.join("\n")}\n`;
 }
 
+// ---- 視聴履歴の並び替え・絞り込み（issue #518） ----
+// 共有ページは JS を使わないため、クエリパラメータ（?sort= / ?state=）で
+// 受け取ってサーバ側で並べ直す。Markdown 応答にも同じ条件を適用する。
+
+/** 絞り込みチップの並び（アプリの視聴ステータスと同じ集合）。 */
+const WATCH_STATE_ORDER = [
+  "WATCHING",
+  "WATCHED",
+  "WANNA_WATCH",
+  "ON_HOLD",
+  "STOP_WATCHING",
+] as const;
+type SharedWatchState = (typeof WATCH_STATE_ORDER)[number];
+
+const WATCH_HISTORY_SORTS = {
+  updated: "更新順",
+  added_desc: "追加が新しい順",
+  added_asc: "追加が古い順",
+  year_desc: "放送年が新しい順",
+  year_asc: "放送年が古い順",
+} as const;
+export type WatchHistorySort = keyof typeof WATCH_HISTORY_SORTS;
+
+export type WatchHistoryView = {
+  sort: WatchHistorySort;
+  /** null は「すべて」。 */
+  state: SharedWatchState | null;
+};
+
 /**
- * 視聴履歴の共有ページ（issue #461）。作品ポスター・状態バッジ・ブランド色の
- * ヘッダでアプリの盤面に寄せる。表データ（作品名・シーズン・視聴状態・
- * 最終更新日）は AI の機械可読のため table のまま DOM に残し（issue #236）、
- * 表示だけ CSS でカード風のリストにしている。thead も消さず視覚的にだけ隠す。
+ * クエリから並び替え・絞り込み条件を読む。公開ページなので不正な値は
+ * 400 にせず既定（更新順・すべて）に倒す。
+ */
+export function parseWatchHistoryView(query: {
+  sort?: string | undefined;
+  state?: string | undefined;
+}): WatchHistoryView {
+  const sort =
+    query.sort && Object.hasOwn(WATCH_HISTORY_SORTS, query.sort)
+      ? (query.sort as WatchHistorySort)
+      : "updated";
+  const state = WATCH_STATE_ORDER.find((s) => s === query.state) ?? null;
+  return { sort, state };
+}
+
+const SEASON_ORDER: Record<string, number> = {
+  winter: 0,
+  spring: 1,
+  summer: 2,
+  autumn: 3,
+};
+
+/**
+ * 年度順の並びキー。season_year が無くても season_name（"2026-spring"）から
+ * 年を補う。放送時期が分からない作品は null（昇順・降順とも末尾に置く）。
+ */
+function seasonSortKey(entry: {
+  seasonName: string | null;
+  seasonYear: number | null;
+}): number | null {
+  const match = /^(\d{4})-(\w+)$/.exec(entry.seasonName ?? "");
+  const year = entry.seasonYear ?? (match?.[1] ? Number(match[1]) : null);
+  if (year === null) return null;
+  const season = match?.[2] ? (SEASON_ORDER[match[2]] ?? 0) : 0;
+  return year * 4 + season;
+}
+
+/**
+ * 条件に合わせて絞り込み・並べ替えた履歴を返す。入力は更新日時の降順
+ * （repository の既定順）を前提とし、同順位はその順を保つ。
+ */
+export function applyWatchHistoryView(
+  history: SharedWatchHistory,
+  view: WatchHistoryView,
+): SharedWatchHistory {
+  const filtered = view.state
+    ? history.items.filter((item) => item.state === view.state)
+    : [...history.items];
+  if (view.sort === "added_desc" || view.sort === "added_asc") {
+    const direction = view.sort === "added_desc" ? -1 : 1;
+    filtered.sort((a, b) => (a.entryId - b.entryId) * direction);
+  } else if (view.sort === "year_desc" || view.sort === "year_asc") {
+    const direction = view.sort === "year_desc" ? -1 : 1;
+    filtered.sort((a, b) => {
+      const ka = seasonSortKey(a);
+      const kb = seasonSortKey(b);
+      if (ka === kb) return 0;
+      if (ka === null) return 1;
+      if (kb === null) return -1;
+      return (ka - kb) * direction;
+    });
+  }
+  return { ...history, items: filtered };
+}
+
+/** 条件を反映した相対リンク。既定値のパラメータは省く。 */
+function watchHistoryViewHref(view: WatchHistoryView): string {
+  const params = new URLSearchParams();
+  if (view.state) params.set("state", view.state);
+  if (view.sort !== "updated") params.set("sort", view.sort);
+  return escapeHtml(`?${params.toString()}`);
+}
+
+function chipHtml(
+  label: string,
+  href: string,
+  current: boolean,
+  count?: number,
+) {
+  return `<a class="chip" href="${href}"${current ? ` aria-current="true"` : ""}>${escapeHtml(label)}${count !== undefined ? ` <span class="chip-count">${count}</span>` : ""}</a>`;
+}
+
+const STATE_CLASS: Record<string, string> = {
+  WATCHING: "state-watching",
+  WATCHED: "state-watched",
+  WANNA_WATCH: "state-wanna",
+  ON_HOLD: "state-hold",
+  STOP_WATCHING: "state-stop",
+};
+
+/**
+ * 視聴履歴の共有ページ（issue #461 / #518）。表データ（作品名・シーズン・
+ * 視聴状態・最終更新日）は AI の機械可読のため table のまま DOM に残し
+ * （issue #236）、表示だけ CSS でカード風のリストにしている。thead も消さず
+ * 視覚的にだけ隠す。history は絞り込み前の全件を渡す（チップの件数に使う）。
  */
 export function buildSharedWatchHistoryHtml(
   history: SharedWatchHistory,
   requestUrl: string,
   canonicalUrl: string,
+  view: WatchHistoryView = { sort: "updated", state: null },
 ): string {
-  const title = `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`;
-  const description = `${escapeHtml(history.ownerUsername)} のアニメ視聴履歴`;
+  const visible = applyWatchHistoryView(history, view).items;
 
-  // og:image にプロキシ URL を使わない。プロキシ URL は画像の有無に関わらず
-  // 生成されるため先頭作品の画像が 404 だと OGP 画像自体が欠落する。
-  // 代わりに DB の外部画像 URL を持つ最初の作品から選ぶ（候補の優先順は
-  // resolvedImageUrl → imageUrl。どれも無ければ og:image を出さない）。
-  const ogImage = history.items
-    .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
-    .find(
-      (u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u.trim()),
-    );
+  const counts = new Map<string, number>();
+  for (const item of history.items) {
+    counts.set(item.state, (counts.get(item.state) ?? 0) + 1);
+  }
 
-  const rowsHtml = history.items
+  const stateChips = [
+    chipHtml(
+      "すべて",
+      watchHistoryViewHref({ ...view, state: null }),
+      view.state === null,
+      history.items.length,
+    ),
+    ...WATCH_STATE_ORDER.map((state) =>
+      chipHtml(
+        WATCH_STATE_LABELS[state] ?? state,
+        watchHistoryViewHref({ ...view, state }),
+        view.state === state,
+        counts.get(state) ?? 0,
+      ),
+    ),
+  ].join("");
+  const sortChips = (Object.keys(WATCH_HISTORY_SORTS) as WatchHistorySort[])
+    .map((sort) =>
+      chipHtml(
+        WATCH_HISTORY_SORTS[sort],
+        watchHistoryViewHref({ ...view, sort }),
+        view.sort === sort,
+      ),
+    )
+    .join("");
+
+  const rowsHtml = visible
     .map(
       (item) => `<tr>
-      <td class="cell-work">${workImageHtml(item, requestUrl)}<span class="work-title">${escapeHtml(item.title)}</span></td>
+      <td class="cell-work">${posterHtml(item, requestUrl)}<span class="work-title">${escapeHtml(item.title)}</span></td>
       <td class="cell-meta">${escapeHtml(sharedWatchSeasonLabel(item))}</td>
-      <td><span class="state">${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</span></td>
+      <td><span class="state ${STATE_CLASS[item.state] ?? ""}">${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</span></td>
       <td class="cell-meta">${sharedWatchDateLabel(item.updatedAt)}</td>
     </tr>`,
     )
     .join("\n    ");
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
-  <meta name="color-scheme" content="light dark" />
-  <title>${title}</title>
-  <meta name="description" content="${description}" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
-  <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ""}
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
-    .brand { color: #4f46e5; font-weight: bold; font-size: 0.85rem; letter-spacing: 0.08em; margin: 0 0 4px; }
-    h1 { margin: 0; font-size: 1.5rem; }
-    .owner { color: #555; margin: 4px 0 24px; }
-    table { display: block; width: 100%; }
-    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
-    tbody { display: block; }
-    tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 4px; padding: 8px 12px; margin-bottom: 8px; border-radius: 10px; background: #f5f5f5; }
-    td { padding: 0; }
-    .cell-work { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .work-image { width: 48px; height: 64px; object-fit: cover; border-radius: 4px; background: #ddd; flex-shrink: 0; }
-    .work-title { font-weight: 500; overflow-wrap: anywhere; }
-    .cell-meta { color: #555; font-size: 0.8rem; white-space: nowrap; }
-    .state { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #eef2ff; border: 1px solid #a5b4fc; color: #4f46e5; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
-    /* アプリの盤面と同じく、閲覧者のシステムスキームに追従して
-       ダーク配色へ切り替える（アプリの dark トークンと同じ slate 系）。 */
-    @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #f1f5f9; }
-      .brand { color: #818cf8; }
-      .owner { color: #94a3b8; }
-      tr { background: #1e293b; }
-      .work-image { background: #334155; }
-      .cell-meta { color: #94a3b8; }
-      .state { background: #312e81; border-color: #4338ca; color: #a5b4fc; }
-    }
-  </style>
-</head>
-<body>
-  <p class="brand">Animeishi</p>
-  <h1>${escapeHtml(history.ownerUsername)} の視聴履歴</h1>
-  <p class="owner">Animeishi で共有された視聴履歴</p>
+  const emptyMessage =
+    history.items.length === 0
+      ? "視聴履歴はありません。"
+      : "条件に合う作品はありません。";
+
+  return renderSharePage({
+    title: `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`,
+    metaDescription: `${escapeHtml(history.ownerUsername)} のアニメ視聴履歴`,
+    canonicalUrl,
+    // og:image にプロキシ URL を使わない。プロキシ URL は画像の有無に関わらず
+    // 生成されるため先頭作品の画像が 404 だと OGP 画像自体が欠落する。
+    // 代わりに DB の外部画像 URL を持つ最初の作品から選ぶ（候補の優先順は
+    // resolvedImageUrl → imageUrl。どれも無ければ og:image を出さない）。
+    ogImage: history.items
+      .flatMap((item) => [item.resolvedImageUrl, item.imageUrl])
+      .find(
+        (u): u is string =>
+          !!u && isSafeImageUrl(u) && /^https:/i.test(u.trim()),
+      ),
+    kind: "視聴履歴",
+    heading: `${escapeHtml(history.ownerUsername)} の視聴履歴`,
+    ownerLine: "Animeishi で共有された視聴履歴",
+    statsHtml: statsHtml([
+      { label: "作品", value: history.items.length },
+      { label: "視聴済", value: counts.get("WATCHED") ?? 0 },
+      { label: "視聴中", value: counts.get("WATCHING") ?? 0 },
+    ]),
+    bodyHtml: `<nav class="controls" aria-label="絞り込みと並び替え">
+    <div class="control-group"><span class="control-label">ステータス</span><div class="chips">${stateChips}</div></div>
+    <div class="control-group"><span class="control-label">並び順</span><div class="chips">${sortChips}</div></div>
+  </nav>
+  <p class="result-count">${visible.length} 件</p>
   <table>
     <thead>
       <tr><th>作品名</th><th>シーズン</th><th>視聴状態</th><th>最終更新日</th></tr>
@@ -771,36 +839,50 @@ export function buildSharedWatchHistoryHtml(
     ${rowsHtml}
     </tbody>
   </table>
-  ${history.items.length === 0 ? "<p>視聴履歴はありません。</p>" : ""}
-</body>
-</html>`;
+  ${visible.length === 0 ? `<p class="empty">${emptyMessage}</p>` : ""}`,
+    pageCss: `
+    .controls { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+    .control-group { display: flex; align-items: baseline; gap: 10px; }
+    .control-label { flex-shrink: 0; width: 5.5em; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface-muted); color: var(--text-secondary);
+      font-size: 0.8rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+    .chip:hover { border-color: var(--primary-border); }
+    .chip[aria-current] { background: var(--primary); border-color: var(--primary); color: #ffffff; }
+    .chip-count { font-weight: 500; opacity: 0.75; font-size: 0.72rem; }
+    .result-count { margin: 16px 2px 8px; color: var(--text-muted); font-size: 0.8rem; }
+    @media (max-width: 480px) {
+      .control-group { flex-direction: column; gap: 6px; }
+    }
+    table { display: block; width: 100%; border-collapse: collapse; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+    tbody { display: flex; flex-direction: column; gap: 8px; }
+    tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 6px; padding: 10px 14px 10px 10px;
+      border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    td { padding: 0; }
+    .cell-work { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .poster { flex-shrink: 0; width: 48px; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; background: var(--poster-fallback); }
+    .poster img { width: 100%; height: 100%; object-fit: cover; }
+    .work-title { font-weight: 600; overflow-wrap: anywhere; }
+    .cell-meta { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+    .state { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+      background: var(--primary-soft); color: var(--primary-text); }
+    .state-watching { background: #dbeafe; color: #1d4ed8; }
+    .state-watched { background: #dcfce7; color: #15803d; }
+    .state-hold { background: #fef3c7; color: #b45309; }
+    .state-stop { background: #f1f5f9; color: #475569; }
+    @media (prefers-color-scheme: dark) {
+      .state-watching { background: #1e3a8a; color: #bfdbfe; }
+      .state-watched { background: #14532d; color: #bbf7d0; }
+      .state-hold { background: #78350f; color: #fde68a; }
+      .state-stop { background: #334155; color: #cbd5e1; }
+    }
+`,
+  });
 }
 
 export function watchHistoryNotFoundHtml(): string {
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
-  <meta name="color-scheme" content="light dark" />
-  <title>視聴履歴が見つかりません - Animeishi</title>
-  <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
-    .brand { color: #4f46e5; font-weight: bold; font-size: 0.85rem; letter-spacing: 0.08em; margin: 0 0 4px; }
-    h1 { margin: 0; font-size: 1.5rem; }
-    .message { color: #555; }
-    @media (prefers-color-scheme: dark) {
-      body { background: #0f172a; color: #f1f5f9; }
-      .brand { color: #818cf8; }
-      .message { color: #94a3b8; }
-    }
-  </style>
-</head>
-<body>
-  <p class="brand">Animeishi</p>
-  <h1>視聴履歴が見つかりません</h1>
-  <p class="message">この共有リンクは無効になったか、存在しません。</p>
-</body>
-</html>`;
+  return notFoundPage("視聴履歴");
 }

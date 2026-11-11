@@ -238,6 +238,8 @@ export async function getSharedWorkList(
 }
 
 export type SharedWatchHistoryEntry = {
+  /** 履歴行の ID。同期は差分挿入なので、追加順の並び替えキーに使う。 */
+  entryId: number;
   annictWorkId: number;
   title: string;
   seasonName: string | null;
@@ -273,6 +275,7 @@ export async function getSharedWatchHistory(
 
   const items = await db
     .select({
+      entryId: watchHistory.id,
       annictWorkId: watchHistory.annictWorkId,
       title: annictWorks.title,
       seasonName: annictWorks.seasonName,
