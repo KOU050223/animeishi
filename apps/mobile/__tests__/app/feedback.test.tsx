@@ -38,7 +38,11 @@ jest.mock("@/lib/useSendFeedback", () => ({
 }));
 
 jest.mock("@/lib/appInfo", () => ({
-  getAppInfo: () => ({ appVersion: "1.2.0", buildVersion: "34" }),
+  getAppInfo: () => ({
+    appVersion: "1.2.0",
+    buildVersion: "34",
+    commitSha: "abcdef1234567890",
+  }),
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -65,6 +69,19 @@ describe("FeedbackScreen", () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
+  it("送信中は二重に送らない", async () => {
+    mockIsPending = true;
+    await render(<FeedbackScreen />);
+    await fireEvent.changeText(
+      screen.getByTestId("feedback-body-input"),
+      "落ちます",
+    );
+
+    await fireEvent.press(screen.getByTestId("feedback-submit"));
+
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
   it("選んだ種類と前後の空白を除いた本文を、アプリのバージョン付きで送る", async () => {
     await render(<FeedbackScreen />);
 
@@ -79,7 +96,7 @@ describe("FeedbackScreen", () => {
       expect.objectContaining({
         category: "request",
         body: "ダークモードがほしい",
-        appVersion: "1.2.0 (34)",
+        appVersion: "1.2.0 (34)+abcdef1",
         platform: expect.any(String),
       }),
       expect.anything(),

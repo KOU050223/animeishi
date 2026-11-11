@@ -66,7 +66,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
             {effectiveDate}
           </Text>
 
-          {sections.map((section) => (
+          {sections.map(({ action, ...section }) => (
             <View key={section.heading} className="mt-8">
               <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
                 {section.heading}
@@ -91,14 +91,14 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
                   ))}
                 </View>
               ) : null}
-              {section.action ? (
+              {action ? (
                 <View className="mt-4">
                   <Button
-                    label={section.action.label}
+                    label={action.label}
                     variant="secondary"
-                    onPress={() => router.push(section.action!.href)}
-                    accessibilityLabel={section.action.label}
-                    testID={section.action.testID}
+                    onPress={() => router.push(action.href)}
+                    accessibilityLabel={action.label}
+                    testID={action.testID}
                   />
                 </View>
               ) : null}

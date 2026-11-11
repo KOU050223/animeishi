@@ -159,7 +159,13 @@ describe("POST /feedback", () => {
     const res = await postFeedback(app, { category: "other", body: "over" });
 
     expect(res.status).toBe(429);
-    expect(Number(res.headers.get("Retry-After"))).toBeGreaterThan(0);
+    const retryAfter = Number(res.headers.get("Retry-After"));
+    expect(retryAfter).toBeGreaterThan(59 * 60);
+    expect(retryAfter).toBeLessThanOrEqual(60 * 60);
+    expect(await res.json()).toEqual({
+      error:
+        "短時間に送信できる回数の上限に達しました。約60分後にお試しください",
+    });
     const rows = await db.select().from(feedbacks);
     expect(rows).toHaveLength(FEEDBACK_HOURLY_LIMIT);
   });

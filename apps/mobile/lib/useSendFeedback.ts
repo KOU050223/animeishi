@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
+// API 側（db/schema.ts の FEEDBACK_CATEGORIES、features/feedback/schema.ts）と揃える。
 export type FeedbackCategory = "bug" | "request" | "other";
 
 export const FEEDBACK_BODY_MAX_LENGTH = 2000;

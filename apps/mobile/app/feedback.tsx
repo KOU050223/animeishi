@@ -36,10 +36,12 @@ const CATEGORIES: {
 
 function describeApp(): { appVersion: string; platform: string } {
   const info = getAppInfo();
+  // Web は buildVersion を持たず、同じ version のまま何度もデプロイされるため、
+  // デプロイを特定できるコミットも添える。
+  const build = info.buildVersion ? ` (${info.buildVersion})` : "";
+  const commit = info.commitSha ? `+${info.commitSha.slice(0, 7)}` : "";
   return {
-    appVersion: info.buildVersion
-      ? `${info.appVersion} (${info.buildVersion})`
-      : info.appVersion,
+    appVersion: `${info.appVersion}${build}${commit}`,
     platform: [Platform.OS, Platform.Version].filter(Boolean).join(" "),
   };
 }
@@ -50,7 +52,7 @@ export default function FeedbackScreen() {
   const [body, setBody] = useState("");
   const sendFeedback = useSendFeedback();
 
-  const current = CATEGORIES.find((c) => c.value === category)!;
+  const current = CATEGORIES.find((c) => c.value === category) ?? CATEGORIES[0];
   const canSubmit = body.trim().length > 0 && !sendFeedback.isPending;
 
   // 直リンク（Web の URL 直打ち等）では履歴が無いため、ホームへ戻す。

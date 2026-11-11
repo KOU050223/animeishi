@@ -9,7 +9,7 @@ const FEEDBACK_HOURLY_WINDOW_MS = 60 * 60 * 1000;
 export class FeedbackRateLimitError extends Error {
   constructor(readonly retryAfterSeconds: number) {
     super(
-      "短時間に送信できる回数の上限に達しました。しばらくしてからお試しください",
+      `短時間に送信できる回数の上限に達しました。約${Math.ceil(retryAfterSeconds / 60)}分後にお試しください`,
     );
     this.name = "FeedbackRateLimitError";
   }
@@ -30,7 +30,7 @@ export function feedbackRepository(db: DrizzleDb, currentUserId: string) {
         )
         SELECT
           ${currentUserId}, ${input.category}, ${input.body},
-          ${input.appVersion ?? null}, ${input.platform ?? null}, ${nowSec}
+          ${input.appVersion || null}, ${input.platform || null}, ${nowSec}
         WHERE (
           SELECT COUNT(*) FROM ${feedbacks}
           WHERE user_id = ${currentUserId} AND created_at > ${sinceSec}
