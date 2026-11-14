@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  ScrollView,
   StyleSheet,
   type ViewInstance,
 } from "react-native";
@@ -182,7 +183,15 @@ function GenerateView() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center px-8">
+    // カード＋共有ボタンはコンテナをはみ出すことがある（低いウィンドウや
+    // ブラウザズーム時）。justify-center のままだと上下両方向に溢れて
+    // セグメント切り替えに被さるため、収まるときは中央・収まらないときは
+    // スクロールする ScrollView にする（issue #527）。
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="flex-grow items-center justify-center px-8 py-4"
+      testID="qr-generate-scroll"
+    >
       {/* QR コードは読み取り精度のため常に白いカードに描画する
           （周囲の quiet zone も白が前提）。dark でも白のままにする。 */}
       {/* collapsable={false} は Android の captureRef 対策（View が
@@ -240,7 +249,7 @@ function GenerateView() {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

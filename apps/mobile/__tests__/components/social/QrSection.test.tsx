@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -146,6 +147,17 @@ beforeEach(async () => {
 });
 
 describe("マイQR（QR コード生成）", () => {
+  it("カードが画面高さに収まらないときセグメントに被さらないよう、カードと共有ボタンはスクロール可能なコンテナ内にある", async () => {
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    const scroll = screen.getByTestId("qr-generate-scroll");
+    expect(within(scroll).getByTestId("qr-code-container")).toBeTruthy();
+    expect(within(scroll).getByTestId("qr-share-link")).toBeTruthy();
+    expect(within(scroll).getByTestId("qr-copy-link")).toBeTruthy();
+    expect(within(scroll).getByTestId("qr-save-image")).toBeTruthy();
+  });
+
   it("Web 版プロフィール URL に対面交換トークンを付けて QR に埋め込む", async () => {
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />);
