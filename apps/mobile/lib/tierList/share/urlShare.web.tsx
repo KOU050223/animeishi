@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import type { ShareTierListUrl, UseTierUrlShare } from "./types";
 import { copyTierListUrl } from "./sheet";
 import { canShareImageFile, downloadImageFile, shareImageFile } from "./image";
@@ -199,7 +199,12 @@ export const useTierUrlShare: UseTierUrlShare = ({
   tweetText,
   generateImageFile,
 } = {}) => {
-  const [modalUrl, setModalUrl] = useState<string | null>(null);
+  const [modalUrl, setModalUrl] = useState<string | null | undefined>(
+    undefined,
+  );
+
+  const beginShare = useCallback(() => setModalUrl(null), []);
+  const cancelShare = useCallback(() => setModalUrl(undefined), []);
 
   const shareUrl = useCallback<ShareTierListUrl>(async (url) => {
     setModalUrl(url);
@@ -207,14 +212,27 @@ export const useTierUrlShare: UseTierUrlShare = ({
   }, []);
 
   return {
+    beginShare,
+    cancelShare,
     shareUrl,
     urlShareElement:
-      modalUrl == null ? null : (
+      modalUrl === undefined ? null : modalUrl === null ? (
+        <Modal visible transparent animationType="fade">
+          <View className="flex-1 items-center justify-center bg-black/50 dark:bg-black/70 px-6">
+            <View className="w-full max-w-sm items-center gap-3 rounded-2xl bg-white dark:bg-slate-800 p-5">
+              <ActivityIndicator />
+              <Text className="text-sm text-slate-900 dark:text-slate-100">
+                共有リンクを準備中…
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      ) : (
         <TierUrlShareModal
           url={modalUrl}
           tweetText={tweetText}
           generateImageFile={generateImageFile}
-          onClose={() => setModalUrl(null)}
+          onClose={cancelShare}
         />
       ),
   };

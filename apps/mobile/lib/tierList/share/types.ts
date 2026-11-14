@@ -58,6 +58,8 @@ export type UseTierUrlShare = (input?: {
    */
   generateImageFile?: () => Promise<File>;
 }) => {
+  beginShare: () => void;
+  cancelShare: () => void;
   /** URL をユーザーへ届ける。戻り値の意味は ShareTierListUrl と同じ。 */
   shareUrl: ShareTierListUrl;
   /**
