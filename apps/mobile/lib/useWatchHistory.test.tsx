@@ -11,21 +11,31 @@ import {
   WATCH_STATUS_LABELS,
   useDeleteWatchHistory,
   useUpsertWatchHistory,
+  useWatchHistory,
 } from "@/lib/useWatchHistory";
+import { WORK_DETAIL_QUERY_KEY, useWorkDetail } from "@/lib/useWorkDetail";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 const mockPut = jest.fn();
 const mockDelete = jest.fn();
+const mockGetHistories = jest.fn();
+const mockGetWork = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
       "watch-histories": {
+        $get: (...args: unknown[]) => mockGetHistories(...args),
         ":annictWorkId": {
           $put: (...args: unknown[]) => mockPut(...args),
           $delete: (...args: unknown[]) => mockDelete(...args),
         },
+      },
+    },
+    works: {
+      ":annictWorkId": {
+        $get: (...args: unknown[]) => mockGetWork(...args),
       },
     },
   },
@@ -510,5 +520,177 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     const error = result.current.error as { rolledBack?: boolean } | null;
     expect(error?.rolledBack).toBe(true);
+  });
+});
+
+describe("useWatchHistory 取得時の作品詳細キャッシュ整合", () => {
+  const userId = "user_test";
+  const detailKey = (annictWorkId: number) => [
+    ...WORK_DETAIL_QUERY_KEY,
+    userId,
+    annictWorkId,
+  ];
+
+  function createWrapper(client: QueryClient) {
+    return function wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      );
+    };
+  }
+
+  let client: QueryClient;
+  beforeEach(async () => {
+    resetAuth();
+    jest.clearAllMocks();
+    loggedInUser({ userId });
+    setMockClerkState({ getToken: async () => "test-token" });
+    client = new QueryClient();
+  });
+
+  afterEach(async () => {
+    await cleanup();
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((m) => m.destroy());
+    client.clear();
+  });
+
+  it("同期後の履歴と state が食い違う詳細キャッシュだけを無効化する", async () => {
+    client.setQueryData(detailKey(1), {
+      work: { annictWorkId: 1, state: "WATCHED" },
+    });
+    client.setQueryData(detailKey(2), {
+      work: { annictWorkId: 2, state: "WATCHED" },
+    });
+    mockGetHistories.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { annictWorkId: 1, title: "作品A", state: "WATCHING" },
+        { annictWorkId: 2, title: "作品B", state: "WATCHED" },
+      ],
+    });
+
+    const { result } = await renderHook(() => useWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 履歴が WATCHING に同期されたのに WATCHED のままの詳細だけ無効化。
+    expect(client.getQueryState(detailKey(1))?.isInvalidated).toBe(true);
+    // 一致している詳細キャッシュは触らない（表示中のシートを再取得させない）。
+    expect(client.getQueryState(detailKey(2))?.isInvalidated ?? false).toBe(
+      false,
+    );
+  });
+
+  it("履歴から消えた（ステータス解除された）作品の詳細キャッシュも無効化する", async () => {
+    client.setQueryData(detailKey(9), {
+      work: { annictWorkId: 9, state: "WATCHING" },
+    });
+    mockGetHistories.mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    const { result } = await renderHook(() => useWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(client.getQueryState(detailKey(9))?.isInvalidated).toBe(true);
+  });
+});
+
+describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
+  const userId = "user_test";
+  const queryKey = [...WATCH_HISTORY_QUERY_KEY, userId];
+
+  function createWrapper(client: QueryClient) {
+    return function wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      );
+    };
+  }
+
+  function getStates(client: QueryClient) {
+    return client.getQueryData<Array<{ annictWorkId: number; state: string }>>(
+      queryKey,
+    );
+  }
+
+  let client: QueryClient;
+  beforeEach(async () => {
+    resetAuth();
+    jest.clearAllMocks();
+    loggedInUser({ userId });
+    setMockClerkState({ getToken: async () => "test-token" });
+    client = new QueryClient();
+  });
+
+  afterEach(async () => {
+    await cleanup();
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((m) => m.destroy());
+    client.clear();
+  });
+
+  it("詳細の方が新しい state なら履歴キャッシュの該当行を書き換える", async () => {
+    client.setQueryData(queryKey, [
+      { annictWorkId: 1, title: "作品A", state: "WATCHED" },
+      { annictWorkId: 2, title: "作品B", state: "ON_HOLD" },
+    ]);
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 詳細シートと一覧が同じステータスを出すように履歴側へ追従させる。
+    expect(getStates(client)?.[0].state).toBe("WATCHING");
+    expect(getStates(client)?.[1].state).toBe("ON_HOLD");
+  });
+
+  it("詳細の state が null（解除済み）なら履歴キャッシュから行を除く", async () => {
+    client.setQueryData(queryKey, [
+      { annictWorkId: 1, title: "作品A", state: "WATCHED" },
+      { annictWorkId: 2, title: "作品B", state: "WATCHING" },
+    ]);
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: null } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([2]);
+  });
+
+  it("履歴キャッシュに無い作品は行を捏造しない", async () => {
+    client.setQueryData(queryKey, [
+      { annictWorkId: 2, title: "作品B", state: "WATCHING" },
+    ]);
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([2]);
   });
 });

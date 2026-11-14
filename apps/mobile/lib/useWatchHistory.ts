@@ -5,8 +5,15 @@ import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
-import { workDetailQueryKey } from "@/lib/useWorkDetail";
-import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import {
+  WORK_DETAIL_QUERY_KEY,
+  workDetailQueryKey,
+  type WorkDetailResponse,
+} from "@/lib/useWorkDetail";
+import {
+  WATCH_HISTORY_QUERY_KEY,
+  WATCH_HISTORY_WRITE_SCOPE,
+} from "@/lib/watchHistoryKey";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 
 type WatchHistoriesResponse = InferResponseType<
@@ -25,10 +32,7 @@ export { WATCH_HISTORY_QUERY_KEY };
 const watchHistoryQueryKey = (userId: string) =>
   [...WATCH_HISTORY_QUERY_KEY, userId] as const;
 
-// 視聴履歴の書き込みミューテーション（upsert・解除）のスコープ。
-// 同じスコープの mutation は MutationCache が直列実行する
-// （先のリクエストが settle してから次が走る）。
-const WATCH_HISTORY_WRITE_SCOPE = "watch-history-write";
+// 書き込みスコープは @/lib/watchHistoryKey に集約（useWorkDetail も参照するため）。
 
 /**
  * useUpsertWatchHistory / useDeleteWatchHistory の mutateAsync が reject する
@@ -75,12 +79,35 @@ export function useWatchHistory() {
           await readApiErrorCode(res),
         );
       }
+      const items = await res.json();
       // read-through 同期で D1 の履歴（視聴数バッジの判定入力）が
       // 変わりうるため、実績クエリも無効化する（issue #415）。
       void queryClient.invalidateQueries({
         queryKey: ACHIEVEMENTS_QUERY_KEY,
       });
-      return res.json();
+      // 詳細シートの state は別経路（viewerStatusState 直取り）で
+      // キャッシュされ、同期後の履歴と食い違ったまま staleTime いっぱい
+      // 残りうる。食い違うキャッシュだけ無効化して、画面間で
+      // ステータス表示を揃える（issue #520）。一致するものは触らない
+      // （開いている詳細シートを不要に再取得させないため）。
+      const syncedState = new Map(
+        items.map((item) => [item.annictWorkId, item.state]),
+      );
+      for (const [
+        key,
+        detail,
+      ] of queryClient.getQueriesData<WorkDetailResponse>({
+        queryKey: WORK_DETAIL_QUERY_KEY,
+      })) {
+        if (!detail) continue;
+        if (
+          (syncedState.get(detail.work.annictWorkId) ?? null) ===
+          detail.work.state
+        )
+          continue;
+        void queryClient.invalidateQueries({ queryKey: key, exact: true });
+      }
+      return items;
     },
   });
 }
