@@ -564,6 +564,10 @@ describe("useWatchHistory 取得時の作品詳細キャッシュ整合", () => 
     client.setQueryData(detailKey(2), {
       work: { annictWorkId: 2, state: "WATCHED" },
     });
+    // 別ユーザーの詳細キャッシュは本人の履歴と突き合わせない。
+    client.setQueryData([...WORK_DETAIL_QUERY_KEY, "other_user", 1], {
+      work: { annictWorkId: 1, state: "WATCHED" },
+    });
     mockGetHistories.mockResolvedValue({
       ok: true,
       json: async () => [
@@ -583,6 +587,10 @@ describe("useWatchHistory 取得時の作品詳細キャッシュ整合", () => 
     expect(client.getQueryState(detailKey(2))?.isInvalidated ?? false).toBe(
       false,
     );
+    expect(
+      client.getQueryState([...WORK_DETAIL_QUERY_KEY, "other_user", 1])
+        ?.isInvalidated ?? false,
+    ).toBe(false);
   });
 
   it("履歴から消えた（ステータス解除された）作品の詳細キャッシュも無効化する", async () => {
@@ -692,5 +700,46 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([2]);
+  });
+
+  it("履歴の書き込みミューテーション中は履歴キャッシュを上書きしない", async () => {
+    client.setQueryData(queryKey, [
+      { annictWorkId: 1, title: "作品A", state: "WATCHED" },
+    ]);
+    // PUT を保留して「書き込み中」を作る。この間に詳細が返っても
+    // 楽観値（ON_HOLD）を viewerStatusState（WATCHING）で上書きしない。
+    let resolvePut: (v: unknown) => void = () => {};
+    mockPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePut = resolve;
+        }),
+    );
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(
+      () => ({
+        upsert: useUpsertWatchHistory(),
+        detail: useWorkDetail(1),
+      }),
+      { wrapper: createWrapper(client) },
+    );
+
+    await act(() => {
+      result.current.upsert.mutate({
+        annictWorkId: 1,
+        data: { state: "ON_HOLD" },
+      });
+    });
+    await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
+    await waitFor(() => expect(result.current.detail.isSuccess).toBe(true));
+
+    expect(getStates(client)?.[0].state).toBe("ON_HOLD");
+    await act(async () => {
+      resolvePut({ ok: true, json: async () => ({}) });
+    });
   });
 });

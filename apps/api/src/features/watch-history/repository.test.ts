@@ -217,6 +217,50 @@ describe("watchHistoryRepository", () => {
       );
     });
 
+    it("syncMyLibraryFromAnnict: 部分取得（complete=false）では欠けた既存行を残しつつ、取得できた追加分は反映する", async () => {
+      const repo = watchHistoryRepository(db, USER_ID);
+      await repo.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await repo.upsertWatchHistory(WORK_ID_2, { state: "WATCHED" });
+
+      const now = new Date();
+      const MISSING_WORK_ID = 2999; // 今回の応答で work が欠けたとする作品
+      await worksRepository(db).upsertAnnictWork({
+        annictWorkId: MISSING_WORK_ID,
+        title: "取得不能な作品",
+        updatedAt: now,
+      });
+      await repo.upsertWatchHistory(MISSING_WORK_ID, { state: "WATCHING" });
+
+      // entries に WORK_ID_2 が無い = ステータス解除として消えるのではなく、
+      // 部分取得なので既存のまま残るべき行。WORK_ID_1 は state 変更が反映される。
+      const result = await repo.syncMyLibraryFromAnnict(
+        [
+          {
+            annictWorkId: WORK_ID_1,
+            title: "進撃の巨人",
+            seasonName: "2013-spring",
+            seasonYear: 2013,
+            updatedAt: now,
+          },
+        ],
+        [{ annictWorkId: WORK_ID_1, state: "WATCHED" }],
+        false,
+      );
+
+      expect(result).toHaveLength(3);
+      const history = await repo.getMyWatchHistory();
+      expect(history.find((h) => h.annictWorkId === WORK_ID_1)?.state).toBe(
+        "WATCHED",
+      );
+      // 応答に無かった行は削除されず残る（部分応答を全件と誤認して消さない）。
+      expect(history.find((h) => h.annictWorkId === WORK_ID_2)?.state).toBe(
+        "WATCHED",
+      );
+      expect(
+        history.find((h) => h.annictWorkId === MISSING_WORK_ID)?.state,
+      ).toBe("WATCHING");
+    });
+
     it("syncMyLibraryFromAnnict: 変化が無い同期では watch_history / annict_works を書き直さない", async () => {
       const repo = watchHistoryRepository(db, USER_ID);
       const worksRepo = worksRepository(db);
