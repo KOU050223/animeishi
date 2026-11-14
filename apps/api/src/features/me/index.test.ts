@@ -14,6 +14,7 @@ import {
   customTierLists,
   deletedUsers,
   deletionFeedbacks,
+  feedbacks,
   episodeRecords,
   favorites,
   friends,
@@ -793,6 +794,10 @@ describe("DELETE /me（アカウント削除）", () => {
       { blockerId: USER_ID, blockedId: OTHER_ID, createdAt: now },
       { blockerId: OTHER_ID, blockedId: USER_ID, createdAt: now },
     ]);
+    await db.insert(feedbacks).values([
+      { userId: USER_ID, category: "bug", body: "落ちる", createdAt: now },
+      { userId: OTHER_ID, category: "request", body: "要望", createdAt: now },
+    ]);
     await db.insert(tierLists).values([
       {
         userId: USER_ID,
@@ -932,6 +937,9 @@ describe("DELETE /me（アカウント削除）", () => {
         ),
     ).toHaveLength(0);
     expect(
+      await db.select().from(feedbacks).where(eq(feedbacks.userId, USER_ID)),
+    ).toHaveLength(0);
+    expect(
       await db.select().from(tierLists).where(eq(tierLists.userId, USER_ID)),
     ).toHaveLength(0);
     expect(
@@ -970,6 +978,9 @@ describe("DELETE /me（アカウント削除）", () => {
     ).toHaveLength(1);
     expect(
       await db.select().from(userGenres).where(eq(userGenres.userId, OTHER_ID)),
+    ).toHaveLength(1);
+    expect(
+      await db.select().from(feedbacks).where(eq(feedbacks.userId, OTHER_ID)),
     ).toHaveLength(1);
     expect(
       await db.select().from(tierLists).where(eq(tierLists.userId, OTHER_ID)),

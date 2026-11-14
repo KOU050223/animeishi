@@ -61,6 +61,20 @@ tasks:
     cmds:
       - bash scripts/takedown-work-images.sh --env production {{.CLI_ARGS}}
 
+  # ---- 不具合報告・ご意見（アプリ内フォーム）----
+  # Discord には件数だけ通知するので、内容はここで読む。
+  feedback:list:
+    desc: "本番 D1 の不具合報告・ご意見を新しい順に表示（既定 50 件。--limit N）"
+    dir: apps/api
+    cmds:
+      - bash scripts/feedback.sh --env production list {{.CLI_ARGS}}
+
+  feedback:list:local:
+    desc: "ローカル D1 の不具合報告・ご意見を表示"
+    dir: apps/api
+    cmds:
+      - bash scripts/feedback.sh --local list {{.CLI_ARGS}}
+
   # ---- 通報モデレーション（issue #186）----
   # 管理画面・管理者 API は認可設計が未決のため、運営の操作手段は
   # scripts/reports.sh（wrangler d1 execute ベース）に集約する。

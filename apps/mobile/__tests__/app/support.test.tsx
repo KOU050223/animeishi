@@ -4,6 +4,7 @@ import SupportScreen from "@/app/support";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 let mockCanGoBack = true;
 
 jest.mock("expo-router", () => ({
@@ -24,6 +25,7 @@ jest.mock("expo-router", () => ({
     canGoBack: () => mockCanGoBack,
     back: mockBack,
     replace: mockReplace,
+    push: mockPush,
   }),
   Link: ({
     children,
@@ -60,6 +62,14 @@ describe("SupportScreen", () => {
     expect(screen.getByText(/{{CONTACT_EMAIL}}/)).toBeTruthy();
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();
+  });
+
+  it("不具合報告・ご意見のボタンからフォームを開く", async () => {
+    await render(<SupportScreen />);
+
+    await fireEvent.press(screen.getByTestId("support-open-feedback"));
+
+    expect(mockPush).toHaveBeenCalledWith("/feedback");
   });
 
   it("遷移履歴が無い場合、戻るボタンでホームへ戻る", async () => {

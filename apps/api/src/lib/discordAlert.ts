@@ -152,33 +152,76 @@ export async function notifyUserReport(
   env: AlertBindings,
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
+  return notifyBatched(
+    env,
+    {
+      alertKey: REPORT_ALERT_KEY,
+      pendingKey: REPORT_PENDING_KEY,
+      lines: (pending) => [
+        `🔔 **[animeishi-api${envLabel(env.ENVIRONMENT)}] ユーザー通報**`,
+        `新しい通報がありました${pending > 0 ? `（直近 ${pending + 1} 件）` : ""}。`,
+        `詳細は \`pnpm task reports:list\` で確認。同じ通知は${REPORT_SUPPRESS_SECONDS / 60}分止めます。`,
+      ],
+    },
+    fetchImpl,
+  );
+}
+
+// アプリ内の不具合報告・ご意見の通知。通報と同じく本文・送信者は載せず、
+// 件数だけを送って詳細は pnpm task feedback:list で読む。
+const FEEDBACK_ALERT_KEY = "feedback";
+const FEEDBACK_PENDING_KEY = "feedback_pending";
+
+export async function notifyFeedback(
+  env: AlertBindings,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  return notifyBatched(
+    env,
+    {
+      alertKey: FEEDBACK_ALERT_KEY,
+      pendingKey: FEEDBACK_PENDING_KEY,
+      lines: (pending) => [
+        `💬 **[animeishi-api${envLabel(env.ENVIRONMENT)}] 不具合報告・ご意見**`,
+        `新しい投稿がありました${pending > 0 ? `（直近 ${pending + 1} 件）` : ""}。`,
+        `詳細は \`pnpm task feedback:list\` で確認。同じ通知は${REPORT_SUPPRESS_SECONDS / 60}分止めます。`,
+      ],
+    },
+    fetchImpl,
+  );
+}
+
+type BatchedAlert = {
+  alertKey: string;
+  pendingKey: string;
+  // 抑止中に積まれていた件数を受け取り、通知本文の行を返す。
+  lines: (pending: number) => string[];
+};
+
+async function notifyBatched(
+  env: AlertBindings,
+  alert: BatchedAlert,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
   const webhookUrl = resolveWebhookUrl(env);
   if (!webhookUrl) return false;
   const now = Date.now();
   // await より前に同期でメモリの印を確認・設定し、同時に走った通知同士の重複を防ぐ。
-  if ((localSuppressedUntil.get(REPORT_ALERT_KEY) ?? 0) <= now) {
+  if ((localSuppressedUntil.get(alert.alertKey) ?? 0) <= now) {
     localSuppressedUntil.set(
-      REPORT_ALERT_KEY,
+      alert.alertKey,
       now + REPORT_SUPPRESS_SECONDS * 1000,
     );
-    if (!(await isSuppressed(env, REPORT_ALERT_KEY))) {
+    if (!(await isSuppressed(env, alert.alertKey))) {
       // 送信前に印を付ける。送信に失敗して次の通報で再送されるより、
       // 連投しない方を優先する（API 障害と同じ考え方）。
-      await markSent(env, REPORT_ALERT_KEY, REPORT_SUPPRESS_SECONDS);
-      const pending = await drainPendingReports(env);
-      return postAlert(
-        webhookUrl,
-        [
-          `🔔 **[animeishi-api${envLabel(env.ENVIRONMENT)}] ユーザー通報**`,
-          `新しい通報がありました${pending > 0 ? `（直近 ${pending + 1} 件）` : ""}。`,
-          `詳細は \`pnpm task reports:list\` で確認。同じ通知は${REPORT_SUPPRESS_SECONDS / 60}分止めます。`,
-        ].join("\n"),
-        fetchImpl,
-      );
+      await markSent(env, alert.alertKey, REPORT_SUPPRESS_SECONDS);
+      const pending = await drainPending(env, alert.pendingKey);
+      return postAlert(webhookUrl, alert.lines(pending).join("\n"), fetchImpl);
     }
   }
   // 抑止中に届いた分は件数だけ積み、次の通知に載せる。
-  await recordPendingReport(env);
+  await recordPending(env, alert.pendingKey);
   return false;
 }
 
@@ -189,15 +232,15 @@ const localSuppressedUntil = new Map<string, number>();
 // ALERT_STATE 未バインド・KV 読み書き失敗時の退避先。
 const localCronFailures = new Map<string, number>();
 
-// isolate 内の、KV に書けなかった通報の積算件数。ALERT_STATE 未バインド・
-// KV 読み書き失敗時の退避先（KV に書けた分は KV だけが持つ）。
-let localPendingReports = 0;
+// isolate 内の、KV に書けなかった積算件数（pending キー → 件数）。
+// ALERT_STATE 未バインド・KV 読み書き失敗時の退避先（KV に書けた分は KV だけが持つ）。
+const localPending = new Map<string, number>();
 
 // テスト間で isolate 内の印と各カウントを消す。
 export function resetLocalSuppression(): void {
   localSuppressedUntil.clear();
   localCronFailures.clear();
-  localPendingReports = 0;
+  localPending.clear();
 }
 
 function cronFailCountKey(job: string): string {
@@ -236,17 +279,19 @@ async function recordCronFailure(
   return count;
 }
 
-// 抑止中に届いた通報を 1 件積む。カウントは ALERT_STATE を正とし、
+// 抑止中に届いた通報・投稿を 1 件積む。カウントは ALERT_STATE を正とし、
 // isolate 内メモリには KV に書けなかった分（未バインド・読み書き失敗）
 // だけを積む —— KV に書けた分までメモリに残すと、別 isolate が
 // ドレインした後に古い件数を二重計上してしまうため。
-async function recordPendingReport(env: AlertBindings): Promise<void> {
+async function recordPending(
+  env: AlertBindings,
+  pendingKey: string,
+): Promise<void> {
   if (env.ALERT_STATE) {
     try {
-      const stored =
-        Number((await env.ALERT_STATE.get(REPORT_PENDING_KEY)) ?? 0) || 0;
+      const stored = Number((await env.ALERT_STATE.get(pendingKey)) ?? 0) || 0;
       try {
-        await env.ALERT_STATE.put(REPORT_PENDING_KEY, String(stored + 1), {
+        await env.ALERT_STATE.put(pendingKey, String(stored + 1), {
           expirationTtl: REPORT_PENDING_TTL_SECONDS,
         });
         return;
@@ -257,21 +302,23 @@ async function recordPendingReport(env: AlertBindings): Promise<void> {
       logAlertFailure("kv_get", err instanceof Error ? err.name : "Error");
     }
   }
-  localPendingReports += 1;
+  localPending.set(pendingKey, (localPending.get(pendingKey) ?? 0) + 1);
 }
 
 // 通知に載せる積算件数を取り出してリセットする。
 // KV の件数と、KV に書けずメモリに退避した分を合算して返す。
-async function drainPendingReports(env: AlertBindings): Promise<number> {
-  const local = localPendingReports;
-  localPendingReports = 0;
+async function drainPending(
+  env: AlertBindings,
+  pendingKey: string,
+): Promise<number> {
+  const local = localPending.get(pendingKey) ?? 0;
+  localPending.delete(pendingKey);
   if (env.ALERT_STATE) {
     try {
-      const stored =
-        Number((await env.ALERT_STATE.get(REPORT_PENDING_KEY)) ?? 0) || 0;
+      const stored = Number((await env.ALERT_STATE.get(pendingKey)) ?? 0) || 0;
       if (stored > 0) {
         try {
-          await env.ALERT_STATE.delete(REPORT_PENDING_KEY);
+          await env.ALERT_STATE.delete(pendingKey);
         } catch (err) {
           // delete だけ失敗すると次の通知で同じ件数を再計上する。
           // 通知 1 回分の誤差に留まるため許容し、自然失効（TTL）に任せる。

@@ -5,6 +5,7 @@ import {
   CRON_FAILURE_THRESHOLD,
   notifyApiFailures,
   notifyCronFailure,
+  notifyFeedback,
   notifyUserReport,
   REPORT_SUPPRESS_SECONDS,
   resetLocalSuppression,
@@ -708,5 +709,56 @@ describe("notifyUserReport", () => {
         "詳細は `pnpm task reports:list` で確認。同じ通知は5分止めます。",
       ].join("\n"),
     );
+  });
+});
+
+describe("notifyFeedback", () => {
+  beforeEach(() => {
+    resetLocalSuppression();
+  });
+
+  it("本文や送信者を載せず、feedback:list への案内だけを送る", async () => {
+    const { kv, ttls } = fakeKv();
+    const fetchImpl = okFetch();
+
+    const sent = await notifyFeedback(
+      { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv },
+      fetchImpl,
+    );
+
+    expect(sent).toBe(true);
+    expect(sentBody(fetchImpl).content).toContain("不具合報告・ご意見");
+    expect(sentBody(fetchImpl).content).toContain("pnpm task feedback:list");
+    expect(ttls.get("feedback")).toBe(REPORT_SUPPRESS_SECONDS);
+  });
+
+  it("抑止中は件数を積み、抑止明けの通知に直近件数として載せる", async () => {
+    const { kv, store } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyFeedback(env, fetchImpl);
+    await notifyFeedback(env, fetchImpl);
+    expect(store.get("feedback_pending")).toBe("1");
+
+    store.delete("feedback");
+    resetLocalSuppression();
+    await notifyFeedback(env, fetchImpl);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sentBody(fetchImpl, 1).content).toContain("直近 2 件");
+    expect(store.has("feedback_pending")).toBe(false);
+  });
+
+  it("通報の抑止中でも別に通知する", async () => {
+    const { kv } = fakeKv();
+    const fetchImpl = okFetch();
+    const env = { DISCORD_WEBHOOK_URL: WEBHOOK, ALERT_STATE: kv };
+
+    await notifyUserReport(env, fetchImpl);
+    const sent = await notifyFeedback(env, fetchImpl);
+
+    expect(sent).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

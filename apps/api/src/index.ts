@@ -39,6 +39,7 @@ import { share } from "./features/share";
 import { tierLists } from "./features/tier-lists";
 import { user } from "./features/user";
 import { usersRoute } from "./features/users";
+import { feedbackRoute } from "./features/feedback";
 import { publicUsersRoute } from "./features/users/public";
 import { watchHistory } from "./features/watch-history";
 import { workListsRoute } from "./features/work-lists";
@@ -126,7 +127,8 @@ const routes = app
   .route("/tier-lists", publicTierListsRoute)
   .route("/user", user)
   .route("/users", usersRoute)
-  .route("/users", publicUsersRoute);
+  .route("/users", publicUsersRoute)
+  .route("/feedback", feedbackRoute);
 
 // OpenAPI ドキュメント（/doc）と Swagger UI（/ui）。OpenAPI 対応済み feature
 // のルートのみ掲載される。本番を含む全環境で公開する（issue #14）。

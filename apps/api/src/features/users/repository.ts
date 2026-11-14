@@ -33,6 +33,7 @@ import {
   workLists,
   reports,
   blocks,
+  feedbacks,
   analyses,
   tierListLikes,
   userLikes,
@@ -948,6 +949,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               eq(blocks.blockedId, currentUserId),
             ),
           ),
+        db.delete(feedbacks).where(eq(feedbacks.userId, currentUserId)),
       ];
       if (myTierListIds.length > 0) {
         queries.push(
