@@ -274,6 +274,22 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/feedback");
   });
 
+  // Web ではアイコンフォントの読み込みに失敗した環境で @expo/vector-icons が
+  // 空の <Text> を描画し、ボタンが DOM に残ったまま不可視になる（issue #519）。
+  // フォントに依存しない SVG で描画することを保証する。
+  it.each(["home-open-meishi-edit", "home-open-qr", "home-open-feedback"])(
+    "ヘッダーアイコン（%s）は SVG で描画される",
+    async (testID) => {
+      loggedInUser();
+      await render(<HomeScreen />);
+      const button = screen.getByTestId(testID);
+      const types = button.children.map((child) =>
+        typeof child === "object" ? child.type : child,
+      );
+      expect(types).toContain("RNSVGSvgView");
+    },
+  );
+
   it("今期視聴中の作品をタップすると dアニメストアのタイトル検索を開く", async () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
     mockWatchHistory = {
