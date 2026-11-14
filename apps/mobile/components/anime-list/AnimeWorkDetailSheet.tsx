@@ -123,6 +123,7 @@ export function AnimeWorkDetailSheet({
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
   const palette = useAnimeListPalette();
+  const { t } = useTranslation();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
@@ -139,6 +140,21 @@ export function AnimeWorkDetailSheet({
     workId: number;
     state: WatchState | null;
   } | null>(null);
+  const [statusFeedback, setStatusFeedback] = useState<{
+    workId: number;
+    session: number;
+    state: "saving" | "saved" | "error";
+  } | null>(null);
+  const [statusSession, setStatusSession] = useState({
+    workId: work?.annictWorkId ?? null,
+    revision: 0,
+  });
+  if (statusSession.workId !== (work?.annictWorkId ?? null)) {
+    setStatusSession({
+      workId: work?.annictWorkId ?? null,
+      revision: statusSession.revision + 1,
+    });
+  }
   const serverState = normalizeState(detail.data?.work.state);
   const currentState =
     work && optimistic?.workId === work.annictWorkId
@@ -152,6 +168,9 @@ export function AnimeWorkDetailSheet({
 
   function applyStatus(next: WatchState | null) {
     if (!work) return;
+    const workId = work.annictWorkId;
+    const session = statusSession.revision;
+    setStatusFeedback({ workId, session, state: "saving" });
     setOptimistic({ workId: work.annictWorkId, state: next });
     const request =
       next === null
@@ -161,7 +180,9 @@ export function AnimeWorkDetailSheet({
             data: { state: next },
           });
     void request
+      .then(() => setStatusFeedback({ workId, session, state: "saved" }))
       .catch((e: unknown) => {
+        setStatusFeedback({ workId, session, state: "error" });
         // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
         // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
         setOptimistic(null);
@@ -170,11 +191,11 @@ export function AnimeWorkDetailSheet({
         if (promptAnnictTokenError(e)) return;
         const rolledBack = (e as UpsertWatchHistoryError).rolledBack === true;
         alert(
-          "更新できませんでした",
+          t("更新できませんでした"),
           rolledBack
-            ? "視聴ステータスを更新できませんでした。元の状態に戻しました。"
-            : "一部の更新に失敗しました。",
-          { okLabel: "OK" },
+            ? t("視聴ステータスを更新できませんでした。元の状態に戻しました。")
+            : t("一部の更新に失敗しました。"),
+          { okLabel: t("OK") },
         );
       })
       .finally(() => {
@@ -309,6 +330,12 @@ export function AnimeWorkDetailSheet({
                 currentState={currentState}
                 disabled={upsert.isPending || remove.isPending}
                 onSelect={selectStatus}
+                feedback={
+                  statusFeedback?.workId === work.annictWorkId &&
+                  statusFeedback.session === statusSession.revision
+                    ? statusFeedback.state
+                    : null
+                }
               />
             )}
             {
@@ -328,6 +355,7 @@ export function AnimeWorkDetailSheet({
               // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
               <EpisodeSection
                 work={work}
+                isWatched={currentState === "WATCHED"}
                 onTokenError={promptAnnictTokenError}
                 onEpisodesRecorded={handleEpisodesRecorded}
               />
@@ -456,11 +484,14 @@ function StatusSection({
   currentState,
   disabled,
   onSelect,
+  feedback,
 }: {
   currentState: WatchState | null;
   disabled: boolean;
   onSelect: (state: WatchState) => void;
+  feedback: "saving" | "saved" | "error" | null;
 }) {
+  const { t } = useTranslation();
   return (
     <StatusSectionFrame>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -493,6 +524,21 @@ function StatusSection({
           ))}
         </View>
       </ScrollView>
+      {feedback ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          testID="status-save-feedback"
+          className="mt-2 text-xs text-slate-500 dark:text-slate-400"
+        >
+          {t(
+            feedback === "saving"
+              ? "保存中…"
+              : feedback === "saved"
+                ? "保存しました"
+                : "保存できませんでした",
+          )}
+        </Text>
+      ) : null}
     </StatusSectionFrame>
   );
 }
@@ -515,10 +561,15 @@ function RatingSection({
   isWatched: boolean;
 }) {
   const palette = useAnimeListPalette();
+  const { t } = useTranslation();
   const ratingQuery = useWorkRating(work.annictWorkId);
   const upsert = useUpsertWorkRating(work.annictWorkId);
   const remove = useDeleteWorkRating(work.annictWorkId);
   const isMutating = upsert.isPending || remove.isPending;
+  const [feedback, setFeedback] = useState<{
+    workId: number;
+    state: "saving" | "saved" | "error";
+  } | null>(null);
 
   // 解除（未評価）は「Annict 初期値も選ばない」という端末側の状態でしか
   // 表せない（再取得すると annictRating が再び候補として返るため）。
@@ -562,22 +613,27 @@ function RatingSection({
     setOptimistic({ workId: work.annictWorkId, rating: next });
     // Annict 初期値の表示を下ろすだけなら、サーバーに消すものが無い。
     if (next === null && storedRating == null) return;
+    const workId = work.annictWorkId;
+    setFeedback({ workId, state: "saving" });
     const request =
       next === null
         ? remove.mutateAsync()
         : upsert.mutateAsync({ rating: next });
-    void request.catch((e: unknown) => {
-      // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
-      setOptimistic(null);
-      const rolledBack = (e as WorkRatingError).rolledBack === true;
-      alert(
-        "更新できませんでした",
-        rolledBack
-          ? "評価を更新できませんでした。元の状態に戻しました。"
-          : "一部の更新に失敗しました。",
-        { okLabel: "OK" },
-      );
-    });
+    void request
+      .then(() => setFeedback({ workId, state: "saved" }))
+      .catch((e: unknown) => {
+        setFeedback({ workId, state: "error" });
+        // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
+        setOptimistic(null);
+        const rolledBack = (e as WorkRatingError).rolledBack === true;
+        alert(
+          t("更新できませんでした"),
+          rolledBack
+            ? t("評価を更新できませんでした。元の状態に戻しました。")
+            : t("一部の更新に失敗しました。"),
+          { okLabel: t("OK") },
+        );
+      });
   }
 
   // 視聴済みでなく保存済み評価も無い作品はセクション自体を出さない
@@ -590,6 +646,21 @@ function RatingSection({
       <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
         この作品の評価
       </Text>
+      {feedback?.workId === work.annictWorkId ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          testID="work-rating-save-feedback"
+          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+        >
+          {t(
+            feedback.state === "saving"
+              ? "保存中…"
+              : feedback.state === "saved"
+                ? "保存しました"
+                : "保存できませんでした",
+          )}
+        </Text>
+      ) : null}
       {showHint ? (
         <Text className="text-xs text-slate-500 dark:text-slate-400 mb-2">
           評価するとおすすめの精度が上がります
@@ -663,15 +734,22 @@ function RatingSection({
  */
 function EpisodeSection({
   work,
+  isWatched,
   onTokenError,
   onEpisodesRecorded,
 }: {
   work: WorkDetailSheetTarget;
+  isWatched: boolean;
   onTokenError: (error: unknown) => boolean;
   onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
 }) {
   const colors = useThemeColors();
   const palette = useAnimeListPalette();
+  const { t } = useTranslation();
+  const [feedback, setFeedback] = useState<{
+    workId: number;
+    state: "saving" | "saved" | "error";
+  } | null>(null);
   const episodesQuery = useWorkEpisodes(work.annictWorkId);
   const record = useRecordEpisode(work.annictWorkId);
   const unrecord = useUnrecordEpisode(work.annictWorkId);
@@ -681,16 +759,17 @@ function EpisodeSection({
   );
 
   function notifyRecordError(e: unknown) {
+    setFeedback({ workId: work.annictWorkId, state: "error" });
     // Annict トークン未登録・失効は再連携ダイアログに変換するため、
     // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
     if (onTokenError(e)) return;
     const rolledBack = (e as EpisodeRecordError).rolledBack === true;
     alert(
-      "更新できませんでした",
+      t("更新できませんでした"),
       rolledBack
-        ? "話の記録を更新できませんでした。元の状態に戻しました。"
-        : "一部の更新に失敗しました。",
-      { okLabel: "OK" },
+        ? t("話の記録を更新できませんでした。元の状態に戻しました。")
+        : t("一部の更新に失敗しました。"),
+      { okLabel: t("OK") },
     );
   }
 
@@ -723,15 +802,18 @@ function EpisodeSection({
       (r): r is PromiseRejectedResult => r.status === "rejected",
     )?.reason;
     if (firstError) notifyRecordError(firstError);
+    else setFeedback({ workId: work.annictWorkId, state: "saved" });
   }
 
   function toggleEpisode(episode: WorkEpisode) {
+    setFeedback({ workId: work.annictWorkId, state: "saving" });
     trackEvent("episode_record", {
       [TRACK_EVENT_KEYS.action]: episode.watched ? "unrecord" : "record",
     });
     if (episode.watched) {
       void unrecord
         .mutateAsync(episode.annictEpisodeId)
+        .then(() => setFeedback({ workId: work.annictWorkId, state: "saved" }))
         .catch(notifyRecordError);
       return;
     }
@@ -780,6 +862,26 @@ function EpisodeSection({
       <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
         話数
       </Text>
+      {isWatched && episodes.some((episode) => !episode.watched) ? (
+        <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+          {t("視聴ステータスと話数の記録は別です。未記録の話を記録できます。")}
+        </Text>
+      ) : null}
+      {feedback?.workId === work.annictWorkId ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          testID="episode-save-feedback"
+          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+        >
+          {t(
+            feedback.state === "saving"
+              ? "保存中…"
+              : feedback.state === "saved"
+                ? "保存しました"
+                : "保存できませんでした",
+          )}
+        </Text>
+      ) : null}
       <TouchableOpacity
         className={`mb-3 items-center rounded-lg py-2.5 ${
           nextEpisode && !isMutating
@@ -803,7 +905,13 @@ function EpisodeSection({
               : "text-slate-500 dark:text-slate-400"
           }`}
         >
-          {nextEpisode ? `${episodeLabel(nextEpisode)}を記録` : "全話記録済み"}
+          {nextEpisode
+            ? isWatched
+              ? t("{{episode}}の視聴を記録", {
+                  episode: episodeLabel(nextEpisode),
+                })
+              : `${episodeLabel(nextEpisode)}を記録`
+            : "全話記録済み"}
         </Text>
       </TouchableOpacity>
       <View className="gap-1">
