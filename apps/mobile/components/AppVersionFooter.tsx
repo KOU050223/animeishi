@@ -1,16 +1,19 @@
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { resolveEnvironment } from "@animeishi/observability";
 import { getAppInfo } from "@/lib/appInfo";
 import { useApiVersion } from "@/lib/useApiVersion";
 
 const SHORT_SHA_LENGTH = 7;
 
-// 画面下部に置くアプリ・API のバージョン表示。デプロイ済みバージョンの
-// 切り分け用で、取得できない項目は行ごと出さない。
+// 画面下部に置くバージョン表示。一般ユーザー向けにはアプリバージョンだけを
+// 出し、環境・コミット・API バージョンなどの開発向け情報は production
+// 以外の環境でのみ表示する（issue #526）。
 export function AppVersionFooter() {
   const { t } = useTranslation();
   const appInfo = getAppInfo();
-  const apiHealth = useApiVersion();
+  const showDevInfo = resolveEnvironment(appInfo.environment) !== "production";
+  const apiHealth = useApiVersion(showDevInfo);
 
   const version = appInfo.buildVersion
     ? `${appInfo.appVersion} (${appInfo.buildVersion})`
@@ -26,30 +29,30 @@ export function AppVersionFooter() {
       <Text className="text-xs text-slate-400 dark:text-slate-500">
         {t("アプリバージョン: {{version}}", { version })}
       </Text>
-      {appInfo.environment ? (
+      {showDevInfo && appInfo.environment ? (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("環境: {{environment}}", { environment: appInfo.environment })}
         </Text>
       ) : null}
-      {appInfo.updateId ? (
+      {showDevInfo && appInfo.updateId ? (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("更新 ID: {{updateId}}", { updateId: appInfo.updateId })}
         </Text>
       ) : null}
-      {appInfo.commitSha ? (
+      {showDevInfo && appInfo.commitSha ? (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("コミット: {{commitSha}}", {
             commitSha: appInfo.commitSha.slice(0, SHORT_SHA_LENGTH),
           })}
         </Text>
       ) : null}
-      {apiHealth.isError ? (
+      {showDevInfo && apiHealth.isError ? (
         // 永続化キャッシュの古い値を現行バージョンとして出さないよう、
         // 直近の取得失敗は成功済み data より優先して表示する。
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("API: 取得失敗")}
         </Text>
-      ) : apiVersion ? (
+      ) : showDevInfo && apiVersion ? (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("API: {{apiVersion}}", {
             apiVersion: health?.environment
