@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -52,7 +53,12 @@ import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import type { AnimeTitle } from "@/lib/useAnimeList";
 import { AnimePoster } from "./AnimePoster";
-import { formatWorkSeason } from "./animeListUtils";
+import {
+  formatSeasonLabel,
+  SEASON_FILTER_ALL,
+  toSeasonParam,
+  workBroadcastSeason,
+} from "./animeListUtils";
 import { useAnimeListPalette } from "./animeListStyles";
 
 const WATCH_STATUSES = Object.keys(WATCH_STATUS_LABELS) as WatchState[];
@@ -113,6 +119,7 @@ export function AnimeWorkDetailSheet({
   onOpenCharacterTierList: (work: WorkDetailSheetTarget) => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
   const palette = useAnimeListPalette();
@@ -237,13 +244,29 @@ export function AnimeWorkDetailSheet({
     onOpenCharacterTierList(work);
   }
 
+  // 放送シーズンのチップから、そのシーズン / 年通年の作品一覧
+  // （ライブラリタブのアニメ一覧の絞り込み）へ移る（issue #535）。
+  // どの画面のシートからでも同じ導線にするため遷移はシート側が持つ。
+  function openSeasonList(seasonParam: string) {
+    // 先に閉じないと一覧へ移ったあともシートが残る（上の Tier 表と同じ理由）。
+    onClose();
+    router.push({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: seasonParam,
+        // 同じ season への再遷移でも一覧をリマウントさせるマーカー。
+        // URL が変わらないと key が変わらず、手で変えた検索語・絞り込みが
+        // 残ったままになる（issue #535 の完了条件）。
+        nav: String(Date.now()),
+      },
+    });
+  }
+
   const detailWork = detail.data?.work;
-  const meta = [
-    work ? formatWorkSeason(work) : "",
-    detailWork ? (MEDIA_LABELS[detailWork.media] ?? detailWork.media) : null,
-  ]
-    .filter(Boolean)
-    .join("・");
+  const mediaLabel = detailWork
+    ? (MEDIA_LABELS[detailWork.media] ?? detailWork.media)
+    : null;
 
   return (
     <BottomSheet
@@ -257,7 +280,11 @@ export function AnimeWorkDetailSheet({
       {work ? (
         <ScrollView style={{ maxHeight: height * 0.8 }}>
           <View className="px-6 pt-6 pb-10 gap-5">
-            <HeaderSection work={work} meta={meta} />
+            <HeaderSection
+              work={work}
+              mediaLabel={mediaLabel}
+              onOpenSeasonList={openSeasonList}
+            />
             {isConnectionLoading ? (
               // 連携状態が確定するまでチップ/ゲートのどちらも出さない
               // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
@@ -326,11 +353,17 @@ export function AnimeWorkDetailSheet({
 /** ポスター・タイトル（日英）・シーズン・メディア種別のヘッダー部。 */
 function HeaderSection({
   work,
-  meta,
+  mediaLabel,
+  onOpenSeasonList,
 }: {
   work: WorkDetailSheetTarget;
-  meta: string;
+  mediaLabel: string | null;
+  onOpenSeasonList: (seasonParam: string) => void;
 }) {
+  // 放送シーズンのチップ（issue #535）。押すとそのシーズン / 年通年の
+  // 作品一覧へ移る。seasonYear / seasonName が無い作品（または Annict が
+  // 返さない形式）はチップを出さない。年だけ取れた作品は年チップのみ出す。
+  const season = workBroadcastSeason(work);
   return (
     <View className="flex-row gap-4">
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />
@@ -350,13 +383,59 @@ function HeaderSection({
             {work.titleEn}
           </Text>
         ) : null}
-        {meta ? (
-          <Text className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            {meta}
-          </Text>
+        {work.seasonYear || mediaLabel ? (
+          <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+            {season ? (
+              <SeasonLinkChip
+                label={formatSeasonLabel(season.year, season.key)}
+                onPress={() =>
+                  onOpenSeasonList(toSeasonParam(season.year, season.key))
+                }
+                testID="work-detail-season-chip"
+              />
+            ) : null}
+            {work.seasonYear ? (
+              <SeasonLinkChip
+                label={formatSeasonLabel(work.seasonYear, SEASON_FILTER_ALL)}
+                onPress={() => onOpenSeasonList(`${work.seasonYear}`)}
+                testID="work-detail-year-chip"
+              />
+            ) : null}
+            {mediaLabel ? (
+              <Text className="text-xs text-slate-500 dark:text-slate-400">
+                {mediaLabel}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
+  );
+}
+
+/** 放送シーズンから同時期の作品一覧へ移るチップ（issue #535）。 */
+function SeasonLinkChip({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      hitSlop={8}
+      className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 dark:border-indigo-800 dark:bg-indigo-950"
+      accessibilityRole="button"
+      accessibilityLabel={`${label}の作品一覧を見る`}
+      testID={testID}
+    >
+      <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 

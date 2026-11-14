@@ -7,11 +7,13 @@ import {
   currentSeason,
   formatSeasonLabel,
   maxSelectableSeason,
+  parseSeasonFilterParam,
   parseSeasonParam,
   seasonPickerYears,
   selectableSeasonKeys,
   shiftSeason,
   toSeasonParam,
+  workBroadcastSeason,
 } from "./animeListUtils";
 
 describe("toSeasonParam", () => {
@@ -43,6 +45,58 @@ describe("parseSeasonParam", () => {
     expect(parseSeasonParam("spring-2026")).toBeNull();
     expect(parseSeasonParam("")).toBeNull();
     expect(parseSeasonParam(undefined)).toBeNull();
+  });
+});
+
+describe("parseSeasonFilterParam", () => {
+  it("<年>-<季節> の season 文字列を (year, key) に戻す", () => {
+    expect(parseSeasonFilterParam("2025-winter")).toEqual({
+      year: 2025,
+      key: "winter",
+    });
+  });
+
+  it("年だけの文字列は通年指定として key に all を返す（issue #535）", () => {
+    expect(parseSeasonFilterParam("2025")).toEqual({
+      year: 2025,
+      key: SEASON_FILTER_ALL,
+    });
+  });
+
+  it("不正な形式・未指定は null に倒す", () => {
+    expect(parseSeasonFilterParam("2026-fall")).toBeNull();
+    expect(parseSeasonFilterParam("spring-2026")).toBeNull();
+    expect(parseSeasonFilterParam("")).toBeNull();
+    expect(parseSeasonFilterParam(undefined)).toBeNull();
+  });
+});
+
+describe("workBroadcastSeason", () => {
+  it("seasonName の季節部分と seasonYear を (year, key) に変換する", () => {
+    expect(
+      workBroadcastSeason({ seasonYear: 2025, seasonName: "2025-winter" }),
+    ).toEqual({ year: 2025, key: "winter" });
+  });
+
+  it("表記ゆれの fall は秋に寄せる", () => {
+    expect(
+      workBroadcastSeason({ seasonYear: 2025, seasonName: "2025-fall" }),
+    ).toEqual({ year: 2025, key: "autumn" });
+  });
+
+  it("seasonYear / seasonName が無い作品は null に倒す（チップを出さない）", () => {
+    expect(
+      workBroadcastSeason({ seasonYear: null, seasonName: "2025-winter" }),
+    ).toBeNull();
+    expect(
+      workBroadcastSeason({ seasonYear: 2025, seasonName: null }),
+    ).toBeNull();
+  });
+
+  it("Annict が返さない形式の seasonName は null に倒す", () => {
+    expect(
+      workBroadcastSeason({ seasonYear: 2025, seasonName: "unknown" }),
+    ).toBeNull();
   });
 });
 
