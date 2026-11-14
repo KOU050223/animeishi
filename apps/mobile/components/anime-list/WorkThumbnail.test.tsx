@@ -1,8 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { WorkThumbnail } from "./WorkThumbnail";
 
-const HOSTED = "https://api.example.com/images/works/1";
-const OTHER = "https://api.example.com/images/works/2";
+// リトライのキャッシュバスターは自前の画像プロキシ（apiUrl 起点 /images/）
+// にだけ付く。jest では EXPO_PUBLIC_API_URL 未設定なので既定の
+// http://localhost:8787 を使う。
+const HOSTED = "http://localhost:8787/images/works/1";
+const OTHER = "http://localhost:8787/images/works/2";
+const EXTERNAL = "https://cdn.example.com/poster.jpg?sig=abc";
 const TITLE = "銀河鉄道の夜";
 
 // expo-image は requireNativeView("ExpoImage") のネイティブビュー。
@@ -119,6 +123,16 @@ describe("WorkThumbnail", () => {
       });
       // 古い HOSTED への再試行は発火せず、新しい URL の初回表示のまま
       expect(findImages()[0].props.source).toEqual([{ uri: OTHER }]);
+    });
+
+    it("外部 URL の再試行はクエリを足さず同じ URL でやり直す", async () => {
+      await render(<WorkThumbnail uri={EXTERNAL} title={TITLE} />);
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      // 署名付きクエリを持つ外部 URL に r= を足すと署名が壊れるため
+      expect(findImages()[0].props.source).toEqual([{ uri: EXTERNAL }]);
     });
   });
 });

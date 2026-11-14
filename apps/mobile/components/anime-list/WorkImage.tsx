@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Image } from "expo-image";
+import { apiUrl } from "@/lib/apiUrl";
 
 // 作品画像の表示に共通で使う expo-image のラッパー（issue #222 / #224）。
 // RN 標準の <Image> はディスクキャッシュが弱く、一覧を行き来するたびに
@@ -30,9 +31,11 @@ const RETRY_DELAYS_MS = [1500, 4000];
  * 失敗レスポンスが HTTP キャッシュ（ブラウザ / expo-image / CF edge）に
  * 残っていると、同じ URL の再試行はキャッシュされた失敗を即座に返す。
  * 試行ごとにキーを変えて必ずオリジンへ行かせる。
+ * 外部 URL は署名付きクエリを持ち得る（余計なクエリ追加で署名が壊れて
+ * 再試行が必ず失敗する）ため、バスターは自前の画像プロキシに限定する。
  */
 function retryUri(uri: string, attempt: number): string {
-  if (attempt === 0) return uri;
+  if (attempt === 0 || !uri.startsWith(`${apiUrl}/images/`)) return uri;
   const sep = uri.includes("?") ? "&" : "?";
   return `${uri}${sep}r=${attempt}`;
 }
