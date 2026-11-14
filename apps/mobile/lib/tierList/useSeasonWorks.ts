@@ -2,7 +2,11 @@ import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useAnnictConnection } from "@/lib/annict";
-import { fetchWorksSearchPage, seasonWorksQueryKey } from "@/lib/useAnimeList";
+import {
+  dedupeWorksById,
+  fetchWorksSearchPage,
+  seasonWorksQueryKey,
+} from "@/lib/useAnimeList";
 import type { TierItem } from "./types";
 
 /**
@@ -44,20 +48,19 @@ export function useSeasonWorks(season: string) {
     }
   }, [hasNextPage, isFetchingNextPage, query.isError, fetchNextPage]);
 
-  const works = useMemo<TierItem[]>(
-    () =>
-      (query.data?.pages ?? []).flatMap((page) =>
-        page.works.map((w) => ({
-          id: w.annictWorkId,
-          title: w.title,
-          // 画像は作品画像プロキシの URL だけを使う（issue #224）。
-          // プロキシは作品単位で URL が変わらず、未取り込みの画像も
-          // 表示時に取り込むので、補完待ちの再取得は要らない。
-          imageUrl: w.hostedImageUrl,
-        })),
-      ),
-    [query.data],
-  );
+  const works = useMemo<TierItem[]>(() => {
+    const flat = (query.data?.pages ?? []).flatMap((page) => page.works);
+    // 追い読みしたページ境界で同じ作品が再出現し得るため、盤面へ流す前に
+    // id で潰す（issue #521。未分類欄に同じ作品が複数並ぶ原因）。
+    return dedupeWorksById(flat).map((w) => ({
+      id: w.annictWorkId,
+      title: w.title,
+      // 画像は作品画像プロキシの URL だけを使う（issue #224）。
+      // プロキシは作品単位で URL が変わらず、未取り込みの画像も
+      // 表示時に取り込むので、補完待ちの再取得は要らない。
+      imageUrl: w.hostedImageUrl,
+    }));
+  }, [query.data]);
 
   const isLoading =
     !query.isError &&

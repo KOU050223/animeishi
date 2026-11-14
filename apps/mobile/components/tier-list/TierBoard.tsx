@@ -22,6 +22,7 @@ import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import {
+  mergeBoardItems,
   unassignedItems,
   itemsInTier,
   dropInsertAnchor,
@@ -95,6 +96,12 @@ export function TierBoard({
   const [editingTier, setEditingTier] = useState<TierRow | null>(null);
   // 作品追加の検索シートが開いているか。
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+
+  // 同じ id のアイテムが複数入ってきても盤面には 1 件だけ出す。
+  // シーズン版・自由作成版は呼び出し側で既に mergeBoardItems 済みだが、
+  // キャラクター版のように未マージの入力を渡す画面もあるため、
+  // 表示の境界であるここでも潰す（issue #521）。
+  const boardItems = useMemo(() => mergeBoardItems(items), [items]);
 
   const scrollRef = useRef<ScrollViewInstance>(null);
   const viewportRef = useRef<ViewInstance>(null);
@@ -185,7 +192,7 @@ export function TierBoard({
         }
         return;
       }
-      const tierIds = itemsInTier(items, assignment, hit).map(
+      const tierIds = itemsInTier(boardItems, assignment, hit).map(
         (item) => item.id,
       );
       const beforeItemId = dropInsertAnchor(
@@ -210,7 +217,7 @@ export function TierBoard({
       haptics.impactLight();
       onAssign(itemId, hit, beforeItemId);
     },
-    [autoScroll, assignment, dragOwnerId, items, onAssign, registry],
+    [autoScroll, assignment, boardItems, dragOwnerId, onAssign, registry],
   );
 
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
@@ -279,11 +286,11 @@ export function TierBoard({
     />
   );
 
-  const tray = unassignedItems(items, assignment);
+  const tray = unassignedItems(boardItems, assignment);
   // 追加シートの「追加済み」判定用。盤面に載っているアイテムは再追加させない。
   const existingItemIds = useMemo(
-    () => new Set(items.map((item) => item.id)),
-    [items],
+    () => new Set(boardItems.map((item) => item.id)),
+    [boardItems],
   );
 
   // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
@@ -334,7 +341,7 @@ export function TierBoard({
           testID="tier-board"
         >
           {tiers.map((tier) => {
-            const rowItems = itemsInTier(items, assignment, tier.key);
+            const rowItems = itemsInTier(boardItems, assignment, tier.key);
             const isDraggingRow = rowItems.some(
               (item) => item.id === draggingId,
             );
@@ -424,7 +431,7 @@ export function TierBoard({
         >
           {tray.length === 0 ? (
             <Text style={styles.trayEmpty}>
-              {items.length === 0 && onAddItem
+              {boardItems.length === 0 && onAddItem
                 ? "シーズンの候補がありません。＋から作品を追加できます"
                 : trayEmptyLabel}
             </Text>

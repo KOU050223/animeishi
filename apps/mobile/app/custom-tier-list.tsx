@@ -215,6 +215,7 @@ export default function CustomTierListScreen() {
   const handleAddWork = useCallback(
     (work: TierItem) => {
       if (isSharing || save.isPending) return;
+      // 既に盤面にある作品は無視する。
       if (boardWorks.some((w) => w.id === work.id)) return;
       trackEvent("tier_work_add");
       setManualWorks((prev) => [...prev, work]);

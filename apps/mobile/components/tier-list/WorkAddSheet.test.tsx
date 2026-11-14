@@ -96,6 +96,20 @@ describe("WorkAddSheet", () => {
     );
   });
 
+  it("同じ annictWorkId が検索結果に重複しても 1 件だけ表示する（issue #521）", async () => {
+    mockUseWorkSearch.mockReturnValue(
+      searching({
+        works: [
+          RESULT_WORK,
+          { ...RESULT_WORK, title: "劇場版テスト（重複行）" },
+        ],
+      }),
+    );
+    const { queryAllByTestId } = await render(sheetElement());
+
+    expect(queryAllByTestId("work-add-item-42")).toHaveLength(1);
+  });
+
   it("盤面に既にある作品は「追加済み」になりタップしても onAdd されない", async () => {
     const onAdd = jest.fn();
     const { getByTestId, getByText } = await render(

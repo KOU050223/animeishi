@@ -41,6 +41,9 @@ export function useWorkCharacters(annictWorkId: number | null) {
     },
   });
 
+  // サーバーはキャラクター名簿を annictCharacterId で dedupe 済みだが、
+  // 同じ id が複数届いた場合でも盤面に 1 件しか出ないよう、
+  // 表示の境界（TierBoard）で潰す（issue #521）。
   const characters = useMemo<TierItem[]>(
     () =>
       (query.data?.characters ?? []).map((c) => ({

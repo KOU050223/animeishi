@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  dedupeWorksById,
   useAnimeList,
   usePrefetchSeasonWorks,
   useSortedAnimeList,
@@ -94,6 +95,21 @@ const MOCK_WORKS = [
     genres: null,
   },
 ];
+
+describe("dedupeWorksById", () => {
+  it("同じ annictWorkId を先出の 1 件に畳み、並び順を保持する（issue #521）", () => {
+    const [w1, w2, w3] = MOCK_WORKS;
+    expect(
+      dedupeWorksById([w1, w2, w1, w3, w2]).map((w) => w.annictWorkId),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it("同じタイトルでも id が違えば別の作品として残す", () => {
+    const [w1] = MOCK_WORKS;
+    const sameTitle = { ...w1, annictWorkId: 999 };
+    expect(dedupeWorksById([w1, sameTitle])).toHaveLength(2);
+  });
+});
 
 describe("useSortedAnimeList", () => {
   describe("ソート", () => {
@@ -278,6 +294,43 @@ describe("useAnimeList", () => {
     expect(first.query.after).toBeUndefined();
     expect(second.query.season).toBe("2026-spring");
     expect(second.query.after).toBe("cur1");
+  });
+
+  it("追い読みしたページに同じ作品が再出現しても data では 1 件に畳む（issue #521）", async () => {
+    // Annict の順位変動・継続カーソル境界で、後続ページに先のページの
+    // 作品が重なって返ることがある。未分類欄に同じ作品が複数並ぶ
+    // 原因になるため、ページ結合時に id で潰す。
+    mockSearchGet
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            { annictWorkId: 1, nodeId: "n1", state: null, title: "作品A" },
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+          ],
+          hasNextPage: true,
+          endCursor: "cur1",
+        }),
+      )
+      .mockResolvedValueOnce(
+        okSearchResponse({
+          works: [
+            // 前ページの末尾作品が次ページ先頭に再出現するケース。
+            { annictWorkId: 2, nodeId: "n2", state: null, title: "作品B" },
+            { annictWorkId: 3, nodeId: "n3", state: null, title: "作品C" },
+          ],
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      );
+
+    const { result } = await renderHook(() => useAnimeList("", "2026-spring"), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    expect(result.current.data?.map((w) => w.annictWorkId)).toEqual([1, 2, 3]);
+    expect(result.current.hasNextPage).toBe(false);
+    expect(mockSearchGet).toHaveBeenCalledTimes(2);
   });
 
   it("タイトル検索では hasNextPage があっても自動追い読みしない", async () => {

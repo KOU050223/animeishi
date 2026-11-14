@@ -298,6 +298,46 @@ describe("CustomTierListScreen", () => {
     );
   });
 
+  it("引き継ぎ作品に同じ id が重複しても盤面には 1 件だけ並べる（issue #521）", async () => {
+    // lookup 応答で同じ annictWorkId が重なった場合でも、盤面は 1 件に畳む。
+    mockParams = { workIds: "10,20" };
+    mockLookupWorks = [
+      { annictWorkId: 10, title: "氷の城壁 第2期" },
+      { annictWorkId: 10, title: "氷の城壁 第2期" },
+      { annictWorkId: 20, title: "怪物さん" },
+    ];
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10, 20]);
+  });
+
+  it("同じタイトルでも id が違う作品は別作品として両方並べる", async () => {
+    // 同名の別作品を誤って畳まないよう、畳み込みは id でのみ行う。
+    mockParams = { workIds: "10,11" };
+    mockLookupWorks = [
+      { annictWorkId: 10, title: "氷の城壁" },
+      { annictWorkId: 11, title: "氷の城壁" },
+    ];
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10, 11]);
+  });
+
+  it("追加シートで盤面済みと同じ id を選んでも増えない", async () => {
+    mockParams = { workIds: "10" };
+    mockLookupWorks = [{ annictWorkId: 10, title: "氷の城壁 第2期" }];
+    const { rerender } = await render(<CustomTierListScreen />);
+
+    await act(() =>
+      mockBoardProps?.onAddItem({ id: 10, title: "氷の城壁 第2期" }),
+    );
+    await rerender(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10]);
+  });
+
   it("保存済みデータの説明文と公開設定を反映する", async () => {
     mockParams = { id: "7" };
     mockSaved = savedList(7, "説明つき", [], {

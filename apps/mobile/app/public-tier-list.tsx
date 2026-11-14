@@ -274,6 +274,15 @@ function ScreenContent({
   if (isLoading || !data) {
     return <Loading colors={colors} />;
   }
+  // 保存 API は item id の重複を弾くが、旧データに重複行が残っていた
+  // 場合でも同一作品は 1 件だけ出す（issue #521）。
+  const seenItemKeys = new Set<string>();
+  const displayItems = data.items.filter((item) => {
+    const key = itemKey(item);
+    if (seenItemKeys.has(key)) return false;
+    seenItemKeys.add(key);
+    return true;
+  });
   return (
     <ScrollView
       className="w-full max-w-2xl self-center px-6"
@@ -294,7 +303,7 @@ function ScreenContent({
             key={tier.key}
             label={tier.label}
             color={tier.color}
-            items={data.items.filter((item) => item.tierKey === tier.key)}
+            items={displayItems.filter((item) => item.tierKey === tier.key)}
           />
         ))}
         {data.items.length === 0 ? (
