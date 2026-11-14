@@ -155,6 +155,10 @@ export function AnimeWorkDetailSheet({
       revision: statusSession.revision + 1,
     });
   }
+  // 保存が連続して始まりうる（チップ連打・記録完了による自動更新）。
+  // 先行する操作の完了・失敗が後続の操作の「保存中」表示を上書きしないよう、
+  // 結果表示を更新してよいのは最後に開始した操作だけという判定に使う。
+  const statusSaveSeq = useRef(0);
   const serverState = normalizeState(detail.data?.work.state);
   const currentState =
     work && optimistic?.workId === work.annictWorkId
@@ -170,6 +174,7 @@ export function AnimeWorkDetailSheet({
     if (!work) return;
     const workId = work.annictWorkId;
     const session = statusSession.revision;
+    const op = ++statusSaveSeq.current;
     setStatusFeedback({ workId, session, state: "saving" });
     setOptimistic({ workId: work.annictWorkId, state: next });
     const request =
@@ -180,12 +185,18 @@ export function AnimeWorkDetailSheet({
             data: { state: next },
           });
     void request
-      .then(() => setStatusFeedback({ workId, session, state: "saved" }))
+      .then(() => {
+        if (statusSaveSeq.current === op) {
+          setStatusFeedback({ workId, session, state: "saved" });
+        }
+      })
       .catch((e: unknown) => {
-        setStatusFeedback({ workId, session, state: "error" });
-        // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
-        // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
-        setOptimistic(null);
+        if (statusSaveSeq.current === op) {
+          setStatusFeedback({ workId, session, state: "error" });
+          // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
+          // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
+          setOptimistic(null);
+        }
         // Annict トークン未登録・失効は再連携ダイアログに変換するため、
         // 汎用の失敗通知は出さない（issue #423）。
         if (promptAnnictTokenError(e)) return;
@@ -202,9 +213,12 @@ export function AnimeWorkDetailSheet({
         // viewerStatusState 由来の state を取り直してから楽観値を下ろす。
         // 成功後も残したままだと、シートを開き直したとき古い選択値が
         // 新しいサーバー値を覆ってしまう（issue #347 レビュー指摘）。
+        // 後続の操作が始まっている場合、その楽観値までは下ろさない。
         void queryClient
           .invalidateQueries({ queryKey: detailQueryKey })
-          .then(() => setOptimistic(null));
+          .then(() => {
+            if (statusSaveSeq.current === op) setOptimistic(null);
+          });
       });
   }
 
@@ -570,6 +584,13 @@ function RatingSection({
     workId: number;
     state: "saving" | "saved" | "error";
   } | null>(null);
+  // 結果表示を更新してよいのは最後の保存操作だけ（親の statusSaveSeq と同じ判定）。
+  const ratingSaveSeq = useRef(0);
+  // 別作品に切り替わったら前の作品の保存結果は破棄する。A→B→A と戻った
+  // ときも再表示させない（親の statusSession と同じ派生 state リセット）。
+  if (feedback != null && feedback.workId !== work.annictWorkId) {
+    setFeedback(null);
+  }
 
   // 解除（未評価）は「Annict 初期値も選ばない」という端末側の状態でしか
   // 表せない（再取得すると annictRating が再び候補として返るため）。
@@ -614,17 +635,23 @@ function RatingSection({
     // Annict 初期値の表示を下ろすだけなら、サーバーに消すものが無い。
     if (next === null && storedRating == null) return;
     const workId = work.annictWorkId;
+    const op = ++ratingSaveSeq.current;
     setFeedback({ workId, state: "saving" });
     const request =
       next === null
         ? remove.mutateAsync()
         : upsert.mutateAsync({ rating: next });
     void request
-      .then(() => setFeedback({ workId, state: "saved" }))
+      .then(() => {
+        if (ratingSaveSeq.current === op)
+          setFeedback({ workId, state: "saved" });
+      })
       .catch((e: unknown) => {
-        setFeedback({ workId, state: "error" });
-        // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
-        setOptimistic(null);
+        if (ratingSaveSeq.current === op) {
+          setFeedback({ workId, state: "error" });
+          // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
+          setOptimistic(null);
+        }
         const rolledBack = (e as WorkRatingError).rolledBack === true;
         alert(
           t("更新できませんでした"),
@@ -750,6 +777,12 @@ function EpisodeSection({
     workId: number;
     state: "saving" | "saved" | "error";
   } | null>(null);
+  // 結果表示を更新してよいのは最後の保存操作だけ（親の statusSaveSeq と同じ判定）。
+  const episodeSaveSeq = useRef(0);
+  // 別作品に切り替わったら前の作品の保存結果は破棄する（評価セクションと同じ）。
+  if (feedback != null && feedback.workId !== work.annictWorkId) {
+    setFeedback(null);
+  }
   const episodesQuery = useWorkEpisodes(work.annictWorkId);
   const record = useRecordEpisode(work.annictWorkId);
   const unrecord = useUnrecordEpisode(work.annictWorkId);
@@ -758,8 +791,10 @@ function EpisodeSection({
     (a, b) => a.sortNumber - b.sortNumber,
   );
 
-  function notifyRecordError(e: unknown) {
-    setFeedback({ workId: work.annictWorkId, state: "error" });
+  function notifyRecordError(op: number, e: unknown) {
+    if (episodeSaveSeq.current === op) {
+      setFeedback({ workId: work.annictWorkId, state: "error" });
+    }
     // Annict トークン未登録・失効は再連携ダイアログに変換するため、
     // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
     if (onTokenError(e)) return;
@@ -777,7 +812,7 @@ function EpisodeSection({
   // 無いため、直列化済み（EPISODE_RECORD_WRITE_SCOPE）の既存 mutation を
   // 対象話分だけ順に投げる。リクエストは 1 件ずつ処理されるため Annict の
   // レート制限を突きにくく、話ごとの楽観更新・巻き戻しもそのまま効く。
-  async function recordThrough(episode: WorkEpisode) {
+  async function recordThrough(op: number, episode: WorkEpisode) {
     const targets = episodes.filter(
       (e) => !e.watched && e.sortNumber <= episode.sortNumber,
     );
@@ -801,11 +836,14 @@ function EpisodeSection({
     const firstError = results.find(
       (r): r is PromiseRejectedResult => r.status === "rejected",
     )?.reason;
-    if (firstError) notifyRecordError(firstError);
-    else setFeedback({ workId: work.annictWorkId, state: "saved" });
+    if (firstError) notifyRecordError(op, firstError);
+    else if (episodeSaveSeq.current === op) {
+      setFeedback({ workId: work.annictWorkId, state: "saved" });
+    }
   }
 
   function toggleEpisode(episode: WorkEpisode) {
+    const op = ++episodeSaveSeq.current;
     setFeedback({ workId: work.annictWorkId, state: "saving" });
     trackEvent("episode_record", {
       [TRACK_EVENT_KEYS.action]: episode.watched ? "unrecord" : "record",
@@ -813,11 +851,15 @@ function EpisodeSection({
     if (episode.watched) {
       void unrecord
         .mutateAsync(episode.annictEpisodeId)
-        .then(() => setFeedback({ workId: work.annictWorkId, state: "saved" }))
-        .catch(notifyRecordError);
+        .then(() => {
+          if (episodeSaveSeq.current === op) {
+            setFeedback({ workId: work.annictWorkId, state: "saved" });
+          }
+        })
+        .catch((e: unknown) => notifyRecordError(op, e));
       return;
     }
-    void recordThrough(episode);
+    void recordThrough(op, episode);
   }
 
   if (episodesQuery.isLoading) {

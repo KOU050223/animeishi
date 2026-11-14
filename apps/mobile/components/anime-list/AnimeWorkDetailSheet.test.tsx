@@ -389,6 +389,96 @@ describe("AnimeWorkDetailSheet", () => {
     expect(screen.queryByTestId("status-save-feedback")).toBeNull();
     expect(screen.queryByTestId("work-rating-save-feedback")).toBeNull();
     expect(screen.queryByTestId("episode-save-feedback")).toBeNull();
+
+    // A→B→A と戻ったときも再表示しない。セクションは同じ位置に残るため、
+    // 作品ごとに state を破棄しないと A の「保存しました」が残ったまま
+    // React に再利用される。
+    await rerender(sheetElement());
+    expect(screen.queryByTestId("status-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("work-rating-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("episode-save-feedback")).toBeNull();
+  });
+
+  it("先行する保存の完了が後続操作の保存中表示を上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    const resolvers: Array<(value: unknown) => void> = [];
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    await render(sheetElement());
+
+    // 未設定の作品で「視聴中」の保存が残ったまま最終話の記録が終わると、
+    // 自動更新（issue #467）が後続で「視聴済み」の保存を開始する。
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    // 先行する「視聴中」の保存が完了しても、後続の保存中は完了表示にしない。
+    await act(async () => {
+      resolvers[0]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    // 後続の保存が完了して初めて完了表示に変わる。
+    await act(async () => {
+      resolvers[1]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+  });
+
+  it("先行する保存の失敗が後続操作の保存中表示を上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    const resolvers: Array<(value: unknown) => void> = [];
+    const rejecters: Array<(reason: unknown) => void> = [];
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          resolvers.push(resolve);
+          rejecters.push(reject);
+        }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+
+    // 先行する「視聴中」の保存が失敗しても、後続の保存中は失敗表示にしない。
+    // 失敗自体の通知（ダイアログ）は従来どおり出す。
+    await act(async () => {
+      rejecters[0](new ApiRequestError(500, "視聴履歴の更新に失敗しました"));
+    });
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    await act(async () => {
+      resolvers[1]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存しました",
+    );
   });
 
   it("同じ作品を開き直したら前回の保存結果を表示しない", async () => {
