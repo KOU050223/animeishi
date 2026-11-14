@@ -63,6 +63,20 @@ describe("root router layout", () => {
     expect(source).toContain('<Stack.Screen name="changelog" />');
   });
 
+  test("sets a default header title so route names never leak into the header", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    // Web の画面モジュールは遅延読み込みで、解決前は画面側の
+    // <Stack.Screen options> が効かない。title 未指定の画面は
+    // React Navigation が route.name（"event/[slug]" 等）をヘッダーに
+    // 出すため、ルート Stack の screenOptions に既定タイトルを置く
+    // （issue #525）。
+    expect(source).toContain('title: t("読み込み中...")');
+  });
+
   test("follows the OS appearance with a navigation ThemeProvider", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),
