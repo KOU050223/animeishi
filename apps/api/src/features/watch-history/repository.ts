@@ -280,6 +280,10 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
      *
      * @param works 触れた作品のメタ（annict_works へ upsert するキャッシュ）
      * @param entries 一致させる本人の視聴履歴（works に含まれる作品のみ）
+     * @param complete Annict 側の全件一覧が取れたか。false のとき応答に無い
+     *   既存行は「消えた」と断定できないため消さない
+     * @param clearedIds 応答で work が解決できたうえステータスが空だった
+     *   作品。complete=false でも解除が確定しているので既存行を消す
      * @returns 同期後の本人の視聴履歴（updatedAt 降順）
      */
     async syncMyLibraryFromAnnict(
