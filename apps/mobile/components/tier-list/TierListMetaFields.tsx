@@ -14,6 +14,7 @@ export function TierListMetaFields({
   description,
   onChangeDescription,
   isPublic,
+  shareToken,
   onChangeIsPublic,
   disabled,
   testIDPrefix,
@@ -21,6 +22,7 @@ export function TierListMetaFields({
   description: string;
   onChangeDescription: (next: string) => void;
   isPublic: boolean;
+  shareToken: string | null;
   onChangeIsPublic: (next: boolean) => void;
   disabled: boolean;
   testIDPrefix: string;
@@ -47,7 +49,9 @@ export function TierListMetaFields({
           <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {isPublic
               ? "公開中。ひろばの一覧に表示されます"
-              : "非公開。共有 URL を知る人だけが見られます"}
+              : shareToken
+                ? "ひろばには表示されません。共有リンクからは閲覧できます"
+                : "ひろばには表示されません"}
           </Text>
         </View>
         <Switch
@@ -59,6 +63,11 @@ export function TierListMetaFields({
           testID={`${testIDPrefix}-public-toggle`}
         />
       </View>
+      {shareToken ? (
+        <Text className="text-xs text-slate-500 dark:text-slate-400">
+          リンク共有中
+        </Text>
+      ) : null}
     </>
   );
 }

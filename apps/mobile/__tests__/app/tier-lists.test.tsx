@@ -178,7 +178,7 @@ describe("TierListsScreen", () => {
     });
   });
 
-  it("共有トークンがある表には「共有中」を出す", async () => {
+  it("共有トークンがある表には「リンク共有中」を出す", async () => {
     mockItems = [
       {
         key: "custom-3",
@@ -191,7 +191,7 @@ describe("TierListsScreen", () => {
       },
     ];
     await render(<TierListsScreen />);
-    expect(screen.getByText("共有中")).toBeTruthy();
+    expect(screen.getByText("リンク共有中")).toBeTruthy();
   });
 
   it("公開設定した表には「公開中」を出す", async () => {
@@ -216,8 +216,8 @@ describe("TierListsScreen", () => {
       },
     ];
     await render(<TierListsScreen />);
-    expect(screen.getByText("公開中")).toBeTruthy();
-    expect(screen.getByText("共有中 ・ 公開中")).toBeTruthy();
+    expect(screen.getByText("ひろばに公開中")).toBeTruthy();
+    expect(screen.getByText("リンク共有中 ・ ひろばに公開中")).toBeTruthy();
   });
 
   it("削除は確認ダイアログの承認後に、種類に応じた削除を実行する", async () => {

@@ -170,4 +170,40 @@ describe("CreateSection", () => {
       params: { id: "7" },
     });
   });
+
+  it("3 種の Tier 表でリンク共有とひろば公開を別々に表示する", async () => {
+    mockTierItems = [
+      {
+        key: "season-2026-fall",
+        kind: "season",
+        id: "2026-fall",
+        title: "作品",
+        shared: true,
+        isPublic: false,
+        updatedAt: "2026-11-01",
+      },
+      {
+        key: "character-42",
+        kind: "character",
+        id: "42",
+        title: "キャラ",
+        shared: false,
+        isPublic: true,
+        updatedAt: "2026-11-02",
+      },
+      {
+        key: "custom-5",
+        kind: "custom",
+        id: "5",
+        title: "自由",
+        shared: true,
+        isPublic: true,
+        updatedAt: "2026-11-03",
+      },
+    ];
+    await render(<CreateSection />);
+    expect(screen.getByText("リンク共有中")).toBeTruthy();
+    expect(screen.getByText("ひろばに公開中")).toBeTruthy();
+    expect(screen.getByText("リンク共有中 ・ ひろばに公開中")).toBeTruthy();
+  });
 });

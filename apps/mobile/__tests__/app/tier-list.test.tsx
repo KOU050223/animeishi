@@ -5,6 +5,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import TierListScreen from "@/app/tier-list";
+import { alert } from "@/lib/dialog";
 import {
   currentSeason,
   toSeasonParam,
@@ -83,11 +84,12 @@ jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
 }));
 
 let mockWorks: TierItem[] = [];
+let mockWorksError = false;
 jest.mock("@/lib/tierList/useSeasonWorks", () => ({
   useSeasonWorks: () => ({
     works: mockWorks,
     isLoading: false,
-    isError: false,
+    isError: mockWorksError,
     isConnected: true,
     isConnectionLoading: false,
   }),
@@ -98,6 +100,13 @@ jest.mock("@/lib/useAnimeList", () => ({
 }));
 
 const mockSaveMutate = jest.fn();
+const mockSaveMutateAsync = jest.fn();
+const mockShareMutateAsync = jest.fn();
+const mockBeginShare = jest.fn();
+const mockCancelShare = jest.fn();
+const mockPresentShareUrl = jest.fn();
+const mockPresentOptions = jest.fn();
+let mockUseRealWebShare = false;
 jest.mock("@/lib/tierList/useTierList", () => ({
   useSavedTierList: (season: string) => {
     mockSavedSeasons.push(season);
@@ -108,23 +117,41 @@ jest.mock("@/lib/tierList/useTierList", () => ({
   },
   useSaveTierList: () => ({
     mutate: mockSaveMutate,
-    mutateAsync: jest.fn(),
+    mutateAsync: mockSaveMutateAsync,
     isPending: false,
     isError: false,
   }),
-  useShareTierList: () => ({ mutateAsync: jest.fn() }),
+  useShareTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
-jest.mock("@/lib/tierList/share", () => ({
-  buildTierListShareUrl: jest.fn(),
-  captureTierListImageFile: jest.fn(),
-  presentTierShareOptions: jest.fn(),
-  shareTierListImage: jest.fn(),
-  useTierUrlShare: () => ({
-    shareUrl: jest.fn(),
-    urlShareElement: null,
-  }),
-}));
+jest.mock("@/lib/tierList/share", () => {
+  const { useTierUrlShare } = jest.requireActual(
+    "@/lib/tierList/share/urlShare.web",
+  );
+  const { presentTierShareOptions } = jest.requireActual(
+    "@/lib/tierList/share/options.web",
+  );
+  return {
+    buildTierListShareUrl: () => "https://example.com/share/tier-lists/token",
+    captureTierListImageFile: jest.fn(),
+    presentTierShareOptions: (options: unknown) =>
+      mockUseRealWebShare
+        ? presentTierShareOptions(options)
+        : mockPresentOptions(options),
+    shareTierListImage: jest.fn(),
+    useTierUrlShare: (options: unknown) => {
+      const realShare = useTierUrlShare(options);
+      return mockUseRealWebShare
+        ? realShare
+        : {
+            beginShare: mockBeginShare,
+            cancelShare: mockCancelShare,
+            shareUrl: mockPresentShareUrl,
+            urlShareElement: null,
+          };
+    },
+  };
+});
 
 function savedList(
   title: string,
@@ -153,6 +180,112 @@ beforeEach(async () => {
   mockOnSeasonChange = undefined;
   mockBoardProps = null;
   mockWorks = [];
+  mockWorksError = false;
+  mockUseRealWebShare = false;
+  mockPresentOptions.mockImplementation((options: { onShareUrl: () => void }) =>
+    options.onShareUrl(),
+  );
+});
+
+describe("TierListScreen の Web 共有", () => {
+  it("ボタン押下で保存 API の応答を待つ間もモーダルを表示する", async () => {
+    mockUseRealWebShare = true;
+    let finishSave!: (value: unknown) => void;
+    mockSaveMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    mockShareMutateAsync.mockResolvedValue({ shareToken: "token" });
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    expect(screen.getByText("共有リンクを準備中…")).toBeTruthy();
+    await act(async () => finishSave(savedList("共有する表", [])));
+    expect(
+      await screen.findByText("https://example.com/share/tier-lists/token"),
+    ).toBeTruthy();
+  });
+
+  it("Web で API が失敗したら準備中モーダルを閉じて通知する", async () => {
+    mockUseRealWebShare = true;
+    let failSave!: (error: Error) => void;
+    mockSaveMutateAsync.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          failSave = reject;
+        }),
+    );
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    expect(screen.getByText("共有リンクを準備中…")).toBeTruthy();
+    await act(async () => failSave(new Error("save failed")));
+    expect(screen.queryByText("共有リンクを準備中…")).toBeNull();
+    expect(alert).toHaveBeenCalledWith(
+      "共有に失敗しました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+  it("押下直後に準備表示を始め、保存とトークン発行後に URL モーダルへ進む", async () => {
+    let finishSave!: (value: unknown) => void;
+    mockSaveMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    mockShareMutateAsync.mockResolvedValue({ shareToken: "token" });
+    mockPresentShareUrl.mockResolvedValue("shared");
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    expect(mockBeginShare).toHaveBeenCalledTimes(1);
+    expect(mockShareMutateAsync).not.toHaveBeenCalled();
+
+    await act(async () => finishSave(savedList("共有する表", [])));
+    expect(mockPresentShareUrl).toHaveBeenCalledWith(
+      "https://example.com/share/tier-lists/token",
+    );
+  });
+
+  it("保存 API が失敗したら準備表示を閉じて通知する", async () => {
+    mockSaveMutateAsync.mockRejectedValue(new Error("save failed"));
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    await act(async () => {});
+    expect(mockCancelShare).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(
+      "共有に失敗しました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("共有トークン発行 API が失敗したら準備表示を閉じて通知する", async () => {
+    mockSaveMutateAsync.mockResolvedValue(savedList("共有する表", []));
+    mockShareMutateAsync.mockRejectedValue(new Error("share failed"));
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    await act(async () => {});
+    expect(mockCancelShare).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(
+      "共有に失敗しました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("作品取得エラー時も共有ボタンから失敗理由を通知する", async () => {
+    mockWorksError = true;
+    await render(<TierListScreen />);
+    await fireEvent.press(screen.getByTestId("tier-list-share"));
+    expect(alert).toHaveBeenCalledWith(
+      "共有できません",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(mockSaveMutateAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）", () => {
