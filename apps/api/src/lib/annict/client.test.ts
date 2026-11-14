@@ -209,7 +209,7 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(secondBody.variables.after).toBe("cursor1");
   });
 
-  it("work が null のノードはスキップする", async () => {
+  it("work が null のノードがあれば部分結果を返さない", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       libraryPage(
         [node(1, "WATCHING"), { status: { state: "WATCHED" }, work: null }],
@@ -220,10 +220,12 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
-
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.annictWorkId).toBe(1);
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
   });
 
   it("status が null のノードは state=null で返す（呼び出し側で保存可否を判定）", async () => {
@@ -290,7 +292,7 @@ describe("fetchAnnictLibraryEntries", () => {
     );
   });
 
-  it("hasNextPage が true でも endCursor が null なら止まる（無限ループ防止）", async () => {
+  it("hasNextPage が true で endCursor が null なら部分結果を返さない", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       libraryPage([node(1, "WATCHING")], {
         hasNextPage: true,
@@ -298,9 +300,12 @@ describe("fetchAnnictLibraryEntries", () => {
       }),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
-
-    expect(entries).toHaveLength(1);
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -323,14 +328,17 @@ describe("fetchAnnictLibraryEntries", () => {
     });
   });
 
-  it("viewer が null（未認証相当）なら空配列", async () => {
+  it("viewer が null なら空のライブラリとみなさない", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ data: { viewer: null } }));
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
-
-    expect(entries).toEqual([]);
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
   });
 });
 

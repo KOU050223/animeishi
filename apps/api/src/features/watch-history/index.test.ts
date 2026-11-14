@@ -280,6 +280,34 @@ describe("視聴履歴 API", () => {
       );
     });
 
+    it("GET /me/watch-histories: Annict の viewer が欠けても既存履歴を消さない", async () => {
+      await db.insert(watchHistoryTable).values({
+        userId: USER_ID,
+        annictWorkId: ANNICT_WORK_ID,
+        state: "WATCHING",
+        updatedAt: new Date(),
+      });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ data: { viewer: null } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+      const stored = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
+      });
+      expect(stored?.state).toBe("WATCHING");
+    });
+
     it("GET /me/watch-histories: watchersCount をキャッシュして応答に載せる", async () => {
       // 視聴者数ソート（issue #345）の元データ。read-through で Annict の
       // watchersCount を annict_works に保存し、JOIN で応答へ載せる。
