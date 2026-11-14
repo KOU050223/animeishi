@@ -107,6 +107,25 @@ jest.mock("@/lib/dialog", () => ({
   confirm: (...args: unknown[]) => mockConfirm(...args),
 }));
 
+// BottomSheet は拡張子解決でプラットフォーム実装に分かれ、呼び出し側が
+// 渡した props（closeButtonAccessibilityLabel 等）は実装側で取り除かれて
+// ホスト要素に残らない。ここでは props をそのまま描画するモックに
+// 差し替え、シート側の受け渡しを検証できるようにする。
+jest.mock("@/components/ui/bottom-sheet", () => {
+  const { View } = jest.requireActual("react-native");
+  const { createElement } = jest.requireActual("react");
+  return {
+    BottomSheet: ({
+      visible,
+      children,
+      ...props
+    }: {
+      visible?: boolean;
+      children?: React.ReactNode;
+    }) => (visible ? createElement(View, props, children) : null),
+  };
+});
+
 // Annict 連携系はネイティブ依存（SecureStore / expo-web-browser）を持つため
 // フックを差し替える。連携状態・再連携プロンプトの分岐だけをここで制御する。
 jest.mock("@/lib/annict", () => ({
@@ -274,6 +293,17 @@ describe("AnimeWorkDetailSheet", () => {
     expect(
       screen.getByTestId("anime-work-detail-sheet").props.snapPoints,
     ).toEqual([{ fraction: 0.8 }, "full"]);
+  });
+
+  it("Web シート右上の閉じるボタン用のラベルを BottomSheet へ渡す", async () => {
+    // Web にはスワイプで閉じる手段が無いため、カード右上に実体の
+    // 閉じるボタンを出す（issue #529）。ボタン自体の描画とクリックは
+    // BottomSheet.web.test.tsx で検証する。
+    await render(sheetElement());
+    expect(
+      screen.getByTestId("anime-work-detail-sheet").props
+        .closeButtonAccessibilityLabel,
+    ).toBe("作品詳細を閉じる");
   });
 
   it("work が null のときシートを表示しない", async () => {

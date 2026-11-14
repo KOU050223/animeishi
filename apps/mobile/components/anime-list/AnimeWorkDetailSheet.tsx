@@ -249,7 +249,8 @@ export function AnimeWorkDetailSheet({
     <BottomSheet
       visible={work != null}
       onClose={onClose}
-      scrimAccessibilityLabel="作品詳細を閉じる"
+      scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
+      closeButtonAccessibilityLabel="作品詳細を閉じる"
       testID="anime-work-detail-sheet"
       snapPoints={[{ fraction: 0.8 }, "full"]}
     >
@@ -333,7 +334,8 @@ function HeaderSection({
   return (
     <View className="flex-row gap-4">
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />
-      <View className="flex-1 min-w-0 justify-center">
+      {/* pr-6 は Web シート右上の閉じるボタンと長いタイトルの重なりを避ける余白 */}
+      <View className="flex-1 min-w-0 justify-center pr-6">
         <Text
           className="text-lg font-bold text-slate-900 dark:text-slate-100"
           numberOfLines={3}

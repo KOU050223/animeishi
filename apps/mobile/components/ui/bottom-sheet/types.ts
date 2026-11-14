@@ -28,5 +28,11 @@ export type BottomSheetProps = {
    * ネイティブシートではスクリムは OS が管理するため Web 実装だけが使う。
    */
   scrimAccessibilityLabel?: string;
+  /**
+   * カード右上に出す ✕ 閉じるボタンのアクセシビリティラベル。
+   * 指定したときだけボタンを描画する。ネイティブシートはスワイプで
+   * 閉じられるため Web 実装だけが使う。
+   */
+  closeButtonAccessibilityLabel?: string;
   testID?: string;
 };
