@@ -346,6 +346,55 @@ describe("視聴履歴 API", () => {
       expect(body).toHaveLength(2);
     });
 
+    it("GET /me/watch-histories: 部分応答でも work が解決できたステータス解除は反映する", async () => {
+      const MISSING_WORK_ID = 67890;
+      await db.insert(annictWorks).values({
+        annictWorkId: MISSING_WORK_ID,
+        title: "取得不能な作品",
+        updatedAt: new Date(),
+      });
+      await db.insert(watchHistoryTable).values([
+        {
+          userId: USER_ID,
+          annictWorkId: ANNICT_WORK_ID,
+          state: "WATCHING",
+          updatedAt: new Date(),
+        },
+        {
+          userId: USER_ID,
+          annictWorkId: MISSING_WORK_ID,
+          state: "WATCHED",
+          updatedAt: new Date(),
+        },
+      ]);
+
+      // ANNICT_WORK_ID は work が取れたうえ status が空（解除確定）。
+      // MISSING_WORK_ID は work 自体が取得不能。部分応答なので削除を
+      // 止めると解除が永久に反映されないため、確定した解除だけは消す。
+      mockAnnictLibrary([
+        { annictId: ANNICT_WORK_ID, state: null },
+        { annictId: MISSING_WORK_ID, state: "WATCHED", workMissing: true },
+      ]);
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        annictWorkId: number;
+        state: string;
+      }[];
+      expect(body).toEqual([
+        expect.objectContaining({
+          annictWorkId: MISSING_WORK_ID,
+          state: "WATCHED",
+        }),
+      ]);
+    });
+
     it("GET /me/watch-histories: watchersCount をキャッシュして応答に載せる", async () => {
       // 視聴者数ソート（issue #345）の元データ。read-through で Annict の
       // watchersCount を annict_works に保存し、JOIN で応答へ載せる。

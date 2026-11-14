@@ -105,6 +105,10 @@ const watchHistory = new Hono<AuthVariables>()
     const works = new Map<number, NewAnnictWork>();
     const historyEntries: Pick<NewWatchHistory, "annictWorkId" | "state">[] =
       [];
+    // work は解決できたのに保存可能な status が無い作品 = Annict 側で
+    // ステータスが解除されたと確定できるもの。部分取得（complete=false）
+    // でも既存行を消してよいので別途渡す（応答に作品自体が無い行と区別）。
+    const clearedWorkIds: number[] = [];
 
     for (const e of entries) {
       works.set(e.annictWorkId, {
@@ -122,6 +126,8 @@ const watchHistory = new Hono<AuthVariables>()
       });
       if (isPersistableState(e.state)) {
         historyEntries.push({ annictWorkId: e.annictWorkId, state: e.state });
+      } else {
+        clearedWorkIds.push(e.annictWorkId);
       }
     }
 
@@ -129,6 +135,7 @@ const watchHistory = new Hono<AuthVariables>()
       [...works.values()],
       historyEntries,
       complete,
+      clearedWorkIds,
     );
 
     // Annict の画像が空 / SNS placeholder / http: に落ちている作品は、

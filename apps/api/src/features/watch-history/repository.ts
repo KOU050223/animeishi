@@ -86,10 +86,15 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
    * 前提とする。取得不能な work がある場合は false にし、既存行を残す。
    * ページングを完走できない場合は呼び出し側が例外を投げる。
    * insert する作品は事前に annict_works に存在していること（FK 制約）。
+   *
+   * deleteMissing=false でも、応答で work が解決できたうえ status が
+   * 空（NO_STATE / 解除済み）と確認できた作品は「消えた」のではなく
+   * 「解除された」と断定できるため、clearedIds として渡して削除する。
    */
   const applyWatchHistoryDiff = async (
     entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
     deleteMissing = true,
+    clearedIds: number[] = [],
   ): Promise<void> => {
     const now = new Date();
 
@@ -119,6 +124,14 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
     if (deleteMissing) {
       for (const annictWorkId of existingState.keys()) {
         if (!nextState.has(annictWorkId)) toDeleteIds.push(annictWorkId);
+      }
+    } else {
+      // 部分取得でも「応答で解除が確認できた」作品だけは消す
+      // （消さないと、取得不能な別作品がある限り解除が永久に反映されない）。
+      for (const annictWorkId of clearedIds) {
+        if (existingState.has(annictWorkId) && !nextState.has(annictWorkId)) {
+          toDeleteIds.push(annictWorkId);
+        }
       }
     }
 
@@ -273,6 +286,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
       works: NewAnnictWork[],
       entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
       complete = true,
+      clearedIds: number[] = [],
     ): Promise<WatchHistoryWithWork[]> {
       const worksRepo = worksRepository(db);
 
@@ -307,7 +321,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
         ),
       );
 
-      await applyWatchHistoryDiff(entries, complete);
+      await applyWatchHistoryDiff(entries, complete, clearedIds);
 
       // 作品メタ（title 等）を含めて返すため annict_works と JOIN する。
       return listMyWatchHistory();

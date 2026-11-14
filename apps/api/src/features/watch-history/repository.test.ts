@@ -261,6 +261,41 @@ describe("watchHistoryRepository", () => {
       ).toBe("WATCHING");
     });
 
+    it("syncMyLibraryFromAnnict: 部分取得（complete=false）でも解除が確定した作品の行は消す", async () => {
+      const repo = watchHistoryRepository(db, USER_ID);
+      await repo.upsertWatchHistory(WORK_ID_1, { state: "WATCHING" });
+      await repo.upsertWatchHistory(WORK_ID_2, { state: "WATCHING" });
+
+      const now = new Date();
+      // Annict 応答で WORK_ID_1 の work は解決できたが status が空
+      // （解除済み）、別作品（MISSING_WORK_ID 相当）は work 自体が
+      // 取得不能だった想定。WORK_ID_2 は応答に無い未取得行。
+      // clearedIds の作品だけ消え、それ以外の既存行は残る。
+      const result = await repo.syncMyLibraryFromAnnict(
+        [
+          {
+            annictWorkId: WORK_ID_1,
+            title: "進撃の巨人",
+            seasonName: "2013-spring",
+            seasonYear: 2013,
+            updatedAt: now,
+          },
+        ],
+        [],
+        false,
+        [WORK_ID_1],
+      );
+
+      expect(result).toHaveLength(1);
+      const history = await repo.getMyWatchHistory();
+      // 解除が確定した作品は消える
+      expect(history.find((h) => h.annictWorkId === WORK_ID_1)).toBeUndefined();
+      // 応答に無かった（取得不能な）作品の行は残る
+      expect(history.find((h) => h.annictWorkId === WORK_ID_2)?.state).toBe(
+        "WATCHING",
+      );
+    });
+
     it("syncMyLibraryFromAnnict: 変化が無い同期では watch_history / annict_works を書き直さない", async () => {
       const repo = watchHistoryRepository(db, USER_ID);
       const worksRepo = worksRepository(db);
