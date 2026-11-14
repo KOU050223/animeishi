@@ -587,6 +587,29 @@ describe("serveWorkImage", () => {
     );
   });
 
+  it("'none' 確定後にタイトル検索で新しい ID が見つかった既存行はすぐ画像を取得する", async () => {
+    const cover = "https://media.kitsu.app/anime/poster_images/1/large.jpg";
+    await insertWork(db, {
+      imageUrl: null,
+      malAnimeId: 5114,
+      imageSource: "none",
+      resolvedAt: new Date(Date.now() - 60_000),
+      malSearchAttemptedAt: new Date(),
+    });
+    const fetchImpl = routeFetch({
+      [KITSU]: () =>
+        makeKitsuResponse({ m5114: { coverImage: { extraLarge: cover } } }),
+      [cover]: () => makeImageResponse("image/jpeg"),
+    });
+
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(res.status).toBe(200);
+    expect((await getWork(db)).imageSource).toBe("kitsu");
+  });
+
   it("imageSource='none' が TTL 切れなら Kitsu を引き直して取り込む", async () => {
     // 'none' 確定後に Annict の URL が「見た目は正常だが実体は 404」に
     // 更新されると cron の pending 対象外（非 placeholder URL は対象外）

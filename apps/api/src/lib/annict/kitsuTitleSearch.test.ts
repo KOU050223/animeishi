@@ -400,6 +400,8 @@ describe("resolveMissingMalIds", () => {
         seasonYear: 2026,
         imageFallbackAttemptedAt: now,
         imageR2AttemptedAt: now,
+        imageSource: "none",
+        resolvedAt: now,
         updatedAt: now,
       },
       { annictWorkId: 2, title: "どこにも無い作品", updatedAt: now },
@@ -439,6 +441,8 @@ describe("resolveMissingMalIds", () => {
     expect(hit.kitsuAnimeId).toBe(999);
     expect(hit.imageFallbackAttemptedAt).toBeNull();
     expect(hit.imageR2AttemptedAt).toBeNull();
+    expect(hit.imageSource).toBeNull();
+    expect(hit.resolvedAt).toBeNull();
     // 見つからなかった作品は試行時刻だけ立つ
     const miss = await row(2);
     expect(miss.malAnimeId).toBeNull();
@@ -453,6 +457,8 @@ describe("resolveMissingMalIds", () => {
       seasonYear: 2026,
       imageFallbackAttemptedAt: now,
       imageR2AttemptedAt: now,
+      imageSource: "none",
+      resolvedAt: now,
       updatedAt: now,
     });
     const fetchImpl = vi.fn(async () =>
@@ -482,6 +488,8 @@ describe("resolveMissingMalIds", () => {
     expect(hit.malSearchAttemptedAt?.getTime()).toBe(now.getTime());
     expect(hit.imageFallbackAttemptedAt).toBeNull();
     expect(hit.imageR2AttemptedAt).toBeNull();
+    expect(hit.imageSource).toBeNull();
+    expect(hit.resolvedAt).toBeNull();
   });
 
   it("クールダウン中・MAL ID 持ちの作品は対象にしない", async () => {

@@ -99,6 +99,7 @@ export function CurrentSeasonWatchingRail() {
             >
               <WorkThumbnail
                 uri={work.hostedImageUrl}
+                title={work.title}
                 width={96}
                 height={136}
                 radius={8}
