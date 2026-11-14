@@ -309,7 +309,7 @@ export default function MeishiEditScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.editorBody}>
+      <View style={styles.editorBody} testID="meishi-editor-body">
         <GestureDetector gesture={tapCanvasBackdrop}>
           <View
             style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
