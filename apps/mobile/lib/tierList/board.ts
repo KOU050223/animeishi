@@ -122,61 +122,6 @@ export function mergeBoardItems(
   return [...byId.values()];
 }
 
-// カタログ側のデータに混入したことがある開発向けの重複マーカー
-// （表示名末尾の `dup=N/M`）。アプリ側にこの表記を生成する経路はなく
-// データ由来の混入なので、表示層で取り除いてユーザーに見せない（issue #521）。
-const INTERNAL_DUP_MARKER = /[\s　]*[（([【]?dup=\d+\s*\/\s*\d+[）)\]】]?\s*$/i;
-
-/**
- * 表示名の末尾に付いた内部マーカー（`dup=N/M`）を取り除く。
- * マーカーを除くと空になるタイトルは判別不能になるため原文を返す。
- */
-export function stripInternalMarker(title: string): string {
-  const stripped = title.replace(INTERNAL_DUP_MARKER, "").trimEnd();
-  return stripped.length > 0 ? stripped : title;
-}
-
-/** 「同じ表示名」判定用のキー。マーカー除去後に NFKC・大小文字・空白の揺れを潰す。 */
-export function boardItemTitleKey(title: string): string {
-  return stripInternalMarker(title)
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/\s+/g, "");
-}
-
-/**
- * 表示名が同じアイテムを 1 件にまとめる。
- * Annict カタログには同じタイトルの別レコード（重複登録や調査用データ）が
- * 残ることがあり、ID が違うため mergeBoardItems の id 単位の dedupe では
- * 潰せず未分類トレイに同じ作品が複数並ぶ（issue #521）。
- * 残すアイテムの title はマーカー除去後の表示名に差し替える。
- * preferred は同名グループの中で残すアイテムを選ぶ判定。盤面では
- * 「配置を持つレコード」を渡す — 過去に重複レコード側の id へ配置を
- * 保存したデータで、消えた id の配置が孤児化して「保存したはずの
- * 作品が未分類に戻る」のを防ぐため。
- */
-export function dedupeBoardItemsByTitle<T extends { title: string }>(
-  items: readonly T[],
-  preferred?: (item: T) => boolean,
-): T[] {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = boardItemTitleKey(item.title);
-    const group = groups.get(key);
-    if (group) {
-      group.push(item);
-    } else {
-      groups.set(key, [item]);
-    }
-  }
-  const result: T[] = [];
-  for (const group of groups.values()) {
-    const chosen = (preferred ? group.find(preferred) : undefined) ?? group[0];
-    result.push({ ...chosen, title: stripInternalMarker(chosen.title) });
-  }
-  return result;
-}
-
 /**
  * tiers の定義から消えた tier に取り残された配置を落とす。
  * 行を削除したときに「どこにも描画されない幽霊配置」が残ると、

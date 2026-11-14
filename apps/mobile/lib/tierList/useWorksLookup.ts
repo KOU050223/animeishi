@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { dedupeWorksById } from "@/lib/useAnimeList";
 
 // GET /works/lookup の ids 上限（worksLookupQuerySchema.max(50)）と揃える。
 // 作品リスト（issue #349）は 500 作品まで持てるため、全 ID を 1 リクエストで
@@ -56,7 +57,9 @@ export function useWorksLookup(ids: number[]) {
       for (let i = 0; i < ids.length; i += LOOKUP_ID_CHUNK) {
         works.push(...(await fetchBatch(ids.slice(i, i + LOOKUP_ID_CHUNK))));
       }
-      return { works };
+      // 入力 ids に重複がある・応答が id を複数返す経路でも
+      // 同じ作品を 1 件に畳む（issue #521）。
+      return { works: dedupeWorksById(works) };
     },
   });
 }

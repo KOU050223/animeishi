@@ -51,7 +51,6 @@ const sheetElement = (
     visible?: boolean;
     onAdd?: jest.Mock;
     existingWorkIds?: ReadonlySet<number>;
-    existingTitleKeys?: ReadonlySet<string>;
     actionLabel?: string;
   } = {},
 ) => (
@@ -60,7 +59,6 @@ const sheetElement = (
     onClose={jest.fn()}
     onAdd={props.onAdd ?? jest.fn()}
     existingWorkIds={props.existingWorkIds ?? new Set()}
-    existingTitleKeys={props.existingTitleKeys}
     heading="作品を追加"
     description="説明文"
     actionLabel={props.actionLabel ?? "追加"}
@@ -98,56 +96,18 @@ describe("WorkAddSheet", () => {
     );
   });
 
-  it("同タイトルの別 id が検索結果に混ざっても 1 件だけ表示する（issue #521）", async () => {
+  it("同じ annictWorkId が検索結果に重複しても 1 件だけ表示する（issue #521）", async () => {
     mockUseWorkSearch.mockReturnValue(
       searching({
         works: [
           RESULT_WORK,
-          { ...RESULT_WORK, annictWorkId: 43, title: "劇場版テスト dup=2/9" },
-          { ...RESULT_WORK, annictWorkId: 44, title: "劇場版テスト dup=3/9" },
+          { ...RESULT_WORK, title: "劇場版テスト（重複行）" },
         ],
       }),
     );
-    const { getByTestId, queryByTestId } = await render(sheetElement());
+    const { queryAllByTestId } = await render(sheetElement());
 
-    expect(getByTestId("work-add-item-42")).toBeTruthy();
-    expect(queryByTestId("work-add-item-43")).toBeNull();
-    expect(queryByTestId("work-add-item-44")).toBeNull();
-  });
-
-  it("内部マーカー付きのタイトルはマーカーを除いて表示・onAdd する", async () => {
-    const onAdd = jest.fn();
-    mockUseWorkSearch.mockReturnValue(
-      searching({
-        works: [{ ...RESULT_WORK, title: "劇場版テスト dup=1/9" }],
-      }),
-    );
-    const { getByTestId, getByText } = await render(sheetElement({ onAdd }));
-
-    expect(getByText("劇場版テスト")).toBeTruthy();
-    await fireEvent.press(getByTestId("work-add-item-42"));
-    expect(onAdd).toHaveBeenCalledWith<[TierItem]>(
-      expect.objectContaining({ title: "劇場版テスト" }),
-    );
-  });
-
-  it("盤面の表示名と同じ別 id の結果は「追加済み」になる", async () => {
-    const onAdd = jest.fn();
-    mockUseWorkSearch.mockReturnValue(
-      searching({
-        works: [{ ...RESULT_WORK, annictWorkId: 43, title: "劇場版テスト" }],
-      }),
-    );
-    const { getByTestId, getByText } = await render(
-      sheetElement({
-        onAdd,
-        existingTitleKeys: new Set(["劇場版テスト"]),
-      }),
-    );
-
-    expect(getByText("追加済み")).toBeTruthy();
-    await fireEvent.press(getByTestId("work-add-item-43"));
-    expect(onAdd).not.toHaveBeenCalled();
+    expect(queryAllByTestId("work-add-item-42")).toHaveLength(1);
   });
 
   it("盤面に既にある作品は「追加済み」になりタップしても onAdd されない", async () => {

@@ -277,51 +277,39 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
 });
 
 describe("TierListScreen の重複作品の畳み込み（issue #521）", () => {
-  it("シーズン候補に同タイトルの別 id が混ざっても盤面には 1 件だけ渡す", async () => {
+  it("シーズン候補に同じ id が重複しても盤面には 1 件だけ渡す", async () => {
+    // ページ結合などで同じ annictWorkId の作品が複数入った場合でも、
+    // 盤面には 1 件だけ載せる。
     mockWorks = [
       { id: 1, title: "氷の城壁 第2期" },
-      { id: 2, title: "氷の城壁 第2期 dup=2/9" },
-      { id: 3, title: "氷の城壁 第2期 dup=3/9" },
+      { id: 1, title: "氷の城壁 第2期" },
       { id: 4, title: "怪物さん" },
     ];
 
     await render(<TierListScreen />);
 
     expect(mockBoardProps?.items.map((i) => i.id)).toEqual([1, 4]);
-    expect(mockBoardProps?.items[0].title).toBe("氷の城壁 第2期");
   });
 
-  it("保存済み items のタイトルに内部マーカーが残っていても盤面には除いた名で渡す", async () => {
-    const saved = savedList("v1", [{ annictWorkId: 7, tierKey: "0" }]);
-    saved.items[0].title = "作品7 dup=2/9";
-    mockSavedBySeason[initialSeason] = saved;
+  it("同じタイトルでも id が違う作品は別作品として両方渡す", async () => {
+    // 同名の別作品（続編・リメイク等）を誤って畳まないよう、
+    // 畳み込みは id でのみ行う。
+    mockWorks = [
+      { id: 1, title: "氷の城壁" },
+      { id: 2, title: "氷の城壁" },
+    ];
 
     await render(<TierListScreen />);
 
-    expect(mockBoardProps?.items.find((i) => i.id === 7)?.title).toBe("作品7");
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([1, 2]);
   });
 
-  it("同名アイテムのうち配置を持つレコードを優先して残す", async () => {
-    // 過去に重複レコード側の id で配置を保存したデータでは、畳み込みで
-    // 配置が孤児化しないよう配置を持つ方を残す。
-    mockWorks = [{ id: 1, title: "氷の城壁 第2期" }];
-    // 保存済み側のタイトルも同じ作品名に揃える（dup レコード想定）
-    const saved = savedList("v1", [{ annictWorkId: 9, tierKey: "0" }]);
-    saved.items[0].title = "氷の城壁 第2期 dup=2/9";
-    mockSavedBySeason[initialSeason] = saved;
-
-    await render(<TierListScreen />);
-
-    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([9]);
-    expect(mockBoardProps?.assignment.get(9)).toBe("0");
-  });
-
-  it("追加シートで同タイトルの別 id を選んでも盤面には増えない", async () => {
+  it("追加シートで盤面済みと同じ id を選んでも増えない", async () => {
     mockWorks = [{ id: 1, title: "氷の城壁 第2期" }];
     const { rerender } = await render(<TierListScreen />);
 
     await act(() =>
-      mockBoardProps?.onAddItem?.({ id: 9, title: "氷の城壁 第2期 dup=5/9" }),
+      mockBoardProps?.onAddItem?.({ id: 1, title: "氷の城壁 第2期" }),
     );
     await rerender(<TierListScreen />);
 

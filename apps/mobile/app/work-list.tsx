@@ -21,7 +21,6 @@ import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useThemeColors } from "@/lib/theme";
 import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
-import { boardItemTitleKey } from "@/lib/tierList/board";
 import type { TierItem } from "@/lib/tierList/types";
 import type { WorkListEntry } from "@/lib/workList/types";
 import {
@@ -335,11 +334,6 @@ export default function WorkListScreen() {
     ? buildWorkListShareUrl(shareToken, webUrl)
     : null;
   const existingWorkIds = new Set(works.map((w) => w.id));
-  // 同タイトルの別レコード（カタログ側の重複登録）も「追加済み」にする
-  // （issue #521 と同じ判定）。
-  const existingTitleKeys = new Set(
-    works.map((w) => boardItemTitleKey(w.title)),
-  );
 
   // 戻るボタンはネイティブヘッダー側（issue #395 Phase 2）。headerLeft を
   // 自前で出すのは、未保存時の確認ダイアログ付き handleBack と
@@ -662,7 +656,6 @@ export default function WorkListScreen() {
         onClose={() => setAddSheetOpen(false)}
         onAdd={handleAddWork}
         existingWorkIds={existingWorkIds}
-        existingTitleKeys={existingTitleKeys}
         heading="作品を追加"
         description="タイトルで検索してリストの末尾に追加できます。並び順はあとから変更できます"
         actionLabel="追加"

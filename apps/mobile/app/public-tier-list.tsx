@@ -26,7 +26,6 @@ import {
   type TierListKind,
 } from "@/lib/tierList/useMergedTierLists";
 import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
-import { boardItemTitleKey, stripInternalMarker } from "@/lib/tierList/board";
 import { DiscoverReportSheet } from "@/components/hiroba/DiscoverReportSheet";
 import type { ReportReason } from "@/lib/useModeration";
 
@@ -165,9 +164,7 @@ function DetailHeader({
 }
 
 function itemTitle(item: PublicTierListItem): string {
-  // 保存済みの表示名に内部マーカーが残っていても公開面には出さない
-  // （issue #521）。
-  return stripInternalMarker(item.kind === "work" ? item.title : item.name);
+  return item.kind === "work" ? item.title : item.name;
 }
 
 function itemImageUrl(item: PublicTierListItem): string | null {
@@ -277,13 +274,13 @@ function ScreenContent({
   if (isLoading || !data) {
     return <Loading colors={colors} />;
   }
-  // 保存データに同タイトルの別 id レコードが残っていても
-  // 編集画面と同じく 1 件に畳む（issue #521）。
-  const seenTitleKeys = new Set<string>();
+  // 保存 API は item id の重複を弾くが、旧データに重複行が残っていた
+  // 場合でも同一作品は 1 件だけ出す（issue #521）。
+  const seenItemKeys = new Set<string>();
   const displayItems = data.items.filter((item) => {
-    const key = boardItemTitleKey(itemTitle(item));
-    if (seenTitleKeys.has(key)) return false;
-    seenTitleKeys.add(key);
+    const key = itemKey(item);
+    if (seenItemKeys.has(key)) return false;
+    seenItemKeys.add(key);
     return true;
   });
   return (

@@ -245,49 +245,56 @@ describe("TierBoard の作品手動追加", () => {
   });
 });
 
-describe("同タイトルの重複アイテム（issue #521）", () => {
-  it("未分類トレイで同じ表示名のアイテムは先出の 1 件だけを描く", async () => {
-    const { getByTestId, queryByTestId, getByText } = await render(
+describe("同じ id の重複アイテム（issue #521）", () => {
+  it("同じ id が複数並んで入力されても未分類トレイに 1 件だけを描く", async () => {
+    // ページ結合や保存済み items のレガシーデータで同じ id のレコードが
+    // 重複して渡った場合でも、表示は 1 件に畳む。
+    const { getByTestId, queryAllByTestId, getByText } = await render(
       boardElement({
         items: [
           { id: 1, title: "作品A" },
-          { id: 2, title: "作品A dup=2/9" },
-          { id: 3, title: "作品A dup=3/9" },
+          { id: 2, title: "作品B" },
+          { id: 1, title: "作品A" },
+          { id: 1, title: "作品A" },
+        ],
+      }),
+    );
+
+    expect(queryAllByTestId("tier-card-1")).toHaveLength(1);
+    expect(getByTestId("tier-card-2")).toBeTruthy();
+    // ヘッダの件数も畳み込み後の数にする
+    expect(getByText("未分類（2）")).toBeTruthy();
+  });
+
+  it("重複レコードの id に配置があるときは、1 件に畳んで行内に描く", async () => {
+    const { queryAllByTestId } = await render(
+      boardElement({
+        items: [
+          { id: 1, title: "作品A" },
+          { id: 1, title: "作品A" },
+        ],
+        assignment: new Map([[1, "0"]]),
+      }),
+    );
+
+    expect(queryAllByTestId("tier-card-1")).toHaveLength(1);
+  });
+
+  it("id が違えば同じタイトルでも別作品として両方を描く", async () => {
+    // 同名の別作品（続編・リメイク等）を誤って畳まないよう、
+    // 畳み込みは id でのみ行う。
+    const { getByTestId, getByText } = await render(
+      boardElement({
+        items: [
+          { id: 1, title: "作品A" },
+          { id: 2, title: "作品A" },
         ],
       }),
     );
 
     expect(getByTestId("tier-card-1")).toBeTruthy();
-    expect(queryByTestId("tier-card-2")).toBeNull();
-    expect(queryByTestId("tier-card-3")).toBeNull();
-    // ヘッダの件数も畳み込み後の数にする
-    expect(getByText("未分類（1）")).toBeTruthy();
-  });
-
-  it("内部マーカー付きのタイトルはマーカーを除いて表示する", async () => {
-    const { getByText } = await render(
-      boardElement({ items: [{ id: 1, title: "作品A dup=1/9" }] }),
-    );
-
-    expect(getByText("作品A")).toBeTruthy();
-  });
-
-  it("同名アイテムのうち配置を持つレコードを優先して残す", async () => {
-    const { getByTestId, queryByTestId } = await render(
-      boardElement({
-        items: [
-          { id: 1, title: "作品A" },
-          { id: 2, title: "作品A dup=2/9" },
-        ],
-        // 重複レコード側の id に配置を保存したデータでは、その配置を
-        // 失わせないよう配置を持つ方を残す。
-        assignment: new Map([[2, "0"]]),
-      }),
-    );
-
-    // id 2 が tier "0" に描かれ、id 1 は畳まれて未分類にも出ない
-    expect(queryByTestId("tier-card-1")).toBeNull();
     expect(getByTestId("tier-card-2")).toBeTruthy();
+    expect(getByText("未分類（2）")).toBeTruthy();
   });
 });
 

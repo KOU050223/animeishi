@@ -22,8 +22,7 @@ import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
 import { UNASSIGNED_LABEL } from "@/lib/tierList/defaults";
 import {
-  boardItemTitleKey,
-  dedupeBoardItemsByTitle,
+  mergeBoardItems,
   unassignedItems,
   itemsInTier,
   dropInsertAnchor,
@@ -98,15 +97,11 @@ export function TierBoard({
   // 作品追加の検索シートが開いているか。
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
-  // 呼び出し側を問わず、盤面に出すアイテムは表示名で畳む。
-  // カタログ側の重複レコード（同タイトルの別 id）が入力に混ざっても
-  // 未分類トレイ・行のどちらにも同じ表示名が並ばないようにする（issue #521）。
-  // 残すのは配置を持つレコード — 重複レコード側の id へ配置を保存した
-  // データで「保存したはずの作品が未分類に戻る」のを防ぐ。
-  const boardItems = useMemo(
-    () => dedupeBoardItemsByTitle(items, (item) => assignment.has(item.id)),
-    [items, assignment],
-  );
+  // 同じ id のアイテムが複数入ってきても盤面には 1 件だけ出す。
+  // シーズン版・自由作成版は呼び出し側で既に mergeBoardItems 済みだが、
+  // キャラクター版のように未マージの入力を渡す画面もあるため、
+  // 表示の境界であるここでも潰す（issue #521）。
+  const boardItems = useMemo(() => mergeBoardItems(items), [items]);
 
   const scrollRef = useRef<ScrollViewInstance>(null);
   const viewportRef = useRef<ViewInstance>(null);
@@ -297,10 +292,6 @@ export function TierBoard({
     () => new Set(boardItems.map((item) => item.id)),
     [boardItems],
   );
-  const existingTitleKeys = useMemo(
-    () => new Set(boardItems.map((item) => boardItemTitleKey(item.title))),
-    [boardItems],
-  );
 
   // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
   // カード自身が付ける zIndex は同じ DropZone 内の兄弟にしか効かず、
@@ -463,7 +454,6 @@ export function TierBoard({
             onClose={() => setAddSheetOpen(false)}
             onAdd={onAddItem}
             existingWorkIds={existingItemIds}
-            existingTitleKeys={existingTitleKeys}
             heading="作品を追加"
             description={
               "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です"

@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   assignItem,
-  boardItemTitleKey,
-  dedupeBoardItemsByTitle,
   dropInsertAnchor,
   mergeBoardItems,
   parseTiersJson,
   pruneAssignment,
   sameBoard,
-  stripInternalMarker,
   toAssignment,
   toSaveItems,
   unassignedItems,
@@ -214,97 +211,6 @@ describe("mergeBoardItems", () => {
   it("空・undefined の供給元を含めても動く", () => {
     expect(mergeBoardItems(ITEMS, undefined, [])).toEqual(ITEMS);
     expect(mergeBoardItems()).toEqual([]);
-  });
-});
-
-describe("stripInternalMarker", () => {
-  it("末尾の dup=N/M マーカーを取り除く（issue #521）", () => {
-    expect(stripInternalMarker("氷の城壁 第2期 dup=2/9")).toBe(
-      "氷の城壁 第2期",
-    );
-    expect(stripInternalMarker("怪物さん（dup=3/9）")).toBe("怪物さん");
-    expect(stripInternalMarker("作品 (dup=1/2)")).toBe("作品");
-    expect(stripInternalMarker("作品【dup=4/9】")).toBe("作品");
-  });
-
-  it("マーカーが無いタイトルはそのまま返す", () => {
-    expect(stripInternalMarker("氷の城壁")).toBe("氷の城壁");
-  });
-
-  it("末尾以外に現れる dup= は作品名の一部として残す", () => {
-    expect(stripInternalMarker("dup=1/2 の物語")).toBe("dup=1/2 の物語");
-  });
-
-  it("マーカーを除くと空になるタイトルは原文を返す（判別不能にしない）", () => {
-    expect(stripInternalMarker("dup=1/9")).toBe("dup=1/9");
-  });
-});
-
-describe("boardItemTitleKey", () => {
-  it("内部マーカーの有無に関わらず同じキーになる", () => {
-    expect(boardItemTitleKey("氷の城壁 dup=2/9")).toBe(
-      boardItemTitleKey("氷の城壁"),
-    );
-  });
-
-  it("全角・半角と大小文字の揺れを同じキーに揃える", () => {
-    expect(boardItemTitleKey("ＡＢＣ")).toBe(boardItemTitleKey("abc"));
-  });
-
-  it("空白の有無も同じキーに揃える", () => {
-    expect(boardItemTitleKey("氷の城壁 第2期")).toBe(
-      boardItemTitleKey("氷の城壁第2期"),
-    );
-  });
-});
-
-describe("dedupeBoardItemsByTitle", () => {
-  it("表示名が同じ別 id のアイテムを先出の 1 件にまとめる（issue #521）", () => {
-    const items: TierItem[] = [
-      { id: 1, title: "氷の城壁 第2期" },
-      { id: 2, title: "氷の城壁 第2期 dup=2/9" },
-      { id: 3, title: "氷の城壁 第2期 dup=3/9" },
-      { id: 4, title: "怪物さん" },
-    ];
-    const deduped = dedupeBoardItemsByTitle(items);
-    expect(deduped.map((item) => item.id)).toEqual([1, 4]);
-  });
-
-  it("残したアイテムの title から内部マーカーを除く", () => {
-    const deduped = dedupeBoardItemsByTitle([
-      { id: 1, title: "氷の城壁 第2期 dup=2/9" },
-    ]);
-    expect(deduped[0].title).toBe("氷の城壁 第2期");
-  });
-
-  it("タイトルが違うアイテムはそのまま残し、並び順を保持する", () => {
-    const deduped = dedupeBoardItemsByTitle(ITEMS);
-    expect(deduped.map((item) => item.id)).toEqual([1, 2, 3]);
-  });
-
-  it("title 以外のフィールドは残したアイテムのものを保つ", () => {
-    const deduped = dedupeBoardItemsByTitle<{
-      id: number;
-      title: string;
-      extra: string;
-    }>([
-      { id: 1, title: "作品 dup=1/2", extra: "a" },
-      { id: 2, title: "作品", extra: "b" },
-    ]);
-    expect(deduped).toEqual([{ id: 1, title: "作品", extra: "a" }]);
-  });
-
-  it("preferred を渡すと同名グループ内でその条件のアイテムを残す", () => {
-    const assignment = new Map([[2, "s"]]);
-    const deduped = dedupeBoardItemsByTitle(
-      [
-        { id: 1, title: "作品A" },
-        { id: 2, title: "作品A dup=2/9" },
-      ],
-      (item) => assignment.has(item.id),
-    );
-    expect(deduped.map((item) => item.id)).toEqual([2]);
-    expect(deduped[0].title).toBe("作品A");
   });
 });
 
