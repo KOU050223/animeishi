@@ -88,7 +88,7 @@
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/expo-examples/SKILL.md",
-      "computedHash": "62b06e441fc687d30eaf2a532eef5ffb410b1d13df8bbc978d19594bc4c8a43f"
+      "computedHash": "2b30836990fd3045d3602a9264932e2853c9c56fe9222f13628a153036ad9b54"
     },
     "expo-module": {
       "source": "expo/skills",
@@ -106,7 +106,7 @@
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": ".claude/skills/expo-skill-eval/SKILL.md",
-      "computedHash": "a9137b4be6e0d07fabcce5d08b3b77b09ac1b8d9dff3637b34d090c973a972ba"
+      "computedHash": "640c580a7cbf133477b5cb44cecd81bfc73dade6fe2eb34dd083f5de857ea18a"
     },
     "expo-tailwind-setup": {
       "source": "expo/skills",
