@@ -12,11 +12,6 @@ import {
 } from "@testing-library/react-native";
 import { useTierUrlShare } from "./urlShare.web";
 
-const mockAlert = jest.fn();
-jest.mock("@/lib/dialog", () => ({
-  alert: (...args: unknown[]) => mockAlert(...args),
-}));
-
 const mockCopy = jest.fn();
 // jest のモジュール解決は .web を選ばないため "./sheet" はフォールバック
 // （throw スタブ）になる。web 実装の copyTierListUrl を差し込む。
@@ -45,7 +40,7 @@ const SHARE_URL = "https://api.example/share/tier-lists/tok1";
 const mockGenerateFile = jest.fn();
 
 function Harness() {
-  const { shareUrl, urlShareElement } = useTierUrlShare({
+  const { beginShare, shareUrl, urlShareElement } = useTierUrlShare({
     tweetText: "テストTier表",
     generateImageFile: () => mockGenerateFile(),
   });
@@ -57,6 +52,7 @@ function Harness() {
         testID="share"
         onPress={() => void shareUrl(SHARE_URL).then(setResult)}
       />
+      <Button title="begin" testID="begin" onPress={beginShare} />
       <Button title="result" testID="result" />
       {result !== "" && <View testID={`result-${result}`} />}
       {urlShareElement}
@@ -78,7 +74,6 @@ describe("useTierUrlShare (web)", () => {
     mockShareFile.mockReset().mockResolvedValue(undefined);
     mockDownload.mockReset();
     mockCopy.mockReset().mockResolvedValue(undefined);
-    mockAlert.mockReset();
     Object.defineProperty(window, "open", { value: openSpy, writable: true });
   });
 
@@ -88,6 +83,15 @@ describe("useTierUrlShare (web)", () => {
 
     expect(await screen.findByTestId("result-shared")).toBeTruthy();
     expect(screen.getByText(SHARE_URL)).toBeTruthy();
+  });
+
+  it("URL 発行を待つ間も共有準備中のモーダルを表示する", async () => {
+    await render(<Harness />);
+    await fireEvent.press(screen.getByTestId("begin"));
+    expect(screen.getByText("共有リンクを準備中…")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("share"));
+    expect(await screen.findByText(SHARE_URL)).toBeTruthy();
+    expect(screen.queryByText("共有リンクを準備中…")).toBeNull();
   });
 
   it("「Xで共有」は intent/tweet を新規タブで開き URL と投稿文を載せる", async () => {
@@ -112,11 +116,6 @@ describe("useTierUrlShare (web)", () => {
 
     expect(mockCopy).toHaveBeenCalledWith(SHARE_URL);
     expect(await screen.findByText("コピーしました")).toBeTruthy();
-    expect(mockAlert).toHaveBeenCalledWith(
-      "リンクをコピーしました",
-      expect.any(String),
-      expect.objectContaining({ okLabel: "OK" }),
-    );
   });
 
   it("「閉じる」でモーダルを閉じる", async () => {

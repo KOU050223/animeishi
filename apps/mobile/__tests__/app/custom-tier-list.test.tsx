@@ -6,7 +6,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import CustomTierListScreen from "@/app/custom-tier-list";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { DEFAULT_TIERS } from "@/lib/tierList/defaults";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 
@@ -69,6 +69,11 @@ let mockSaved: unknown = null;
 let mockSavedLoading = false;
 const mockSaveMutate = jest.fn();
 const mockSaveMutateAsync = jest.fn();
+const mockShareMutateAsync = jest.fn();
+const mockBeginShare = jest.fn();
+const mockCancelShare = jest.fn();
+const mockPresentShareUrl = jest.fn();
+const mockPresentOptions = jest.fn();
 jest.mock("@/lib/tierList/useCustomTierList", () => ({
   useSavedCustomTierList: () => ({
     data: mockSaved,
@@ -80,7 +85,7 @@ jest.mock("@/lib/tierList/useCustomTierList", () => ({
     isPending: false,
     isError: false,
   }),
-  useShareCustomTierList: () => ({ mutateAsync: jest.fn() }),
+  useShareCustomTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
 let mockLookupWorks: { annictWorkId: number; title: string }[] = [];
@@ -99,12 +104,15 @@ jest.mock("@/lib/tierList/useWorksLookup", () => ({
 }));
 
 jest.mock("@/lib/tierList/share", () => ({
-  buildCustomTierListShareUrl: jest.fn(),
+  buildCustomTierListShareUrl: () =>
+    "https://example.com/share/custom-tier-lists/token",
   captureTierListImageFile: jest.fn(),
-  presentTierShareOptions: jest.fn(),
+  presentTierShareOptions: (options: unknown) => mockPresentOptions(options),
   shareTierListImage: jest.fn(),
   useTierUrlShare: () => ({
-    shareUrl: jest.fn(),
+    beginShare: mockBeginShare,
+    cancelShare: mockCancelShare,
+    shareUrl: mockPresentShareUrl,
     urlShareElement: null,
   }),
 }));
@@ -138,6 +146,54 @@ beforeEach(async () => {
   mockBoardProps = null;
   mockLookupWorks = [];
   mockLookupIds.length = 0;
+  mockPresentOptions.mockImplementation((options: { onShareUrl: () => void }) =>
+    options.onShareUrl(),
+  );
+});
+
+describe("CustomTierListScreen の Web 共有", () => {
+  it("押下直後に準備表示を始め、保存とトークン発行後に URL モーダルへ進む", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "自由表", []);
+    mockSaveMutateAsync.mockResolvedValue(savedList(7, "自由表", []));
+    mockShareMutateAsync.mockResolvedValue({ shareToken: "token" });
+    mockPresentShareUrl.mockResolvedValue("shared");
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    expect(mockBeginShare).toHaveBeenCalledTimes(1);
+    await act(async () => {});
+    expect(mockPresentShareUrl).toHaveBeenCalledWith(
+      "https://example.com/share/custom-tier-lists/token",
+    );
+  });
+
+  it("共有トークンの発行に失敗したら準備表示を閉じて通知する", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "自由表", []);
+    mockSaveMutateAsync.mockResolvedValue(savedList(7, "自由表", []));
+    mockShareMutateAsync.mockRejectedValue(new Error("share failed"));
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    await act(async () => {});
+    expect(mockCancelShare).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(
+      "共有に失敗しました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("存在しない Tier 表は共有ボタンから失敗理由を通知する", async () => {
+    mockParams = { id: "7" };
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    expect(alert).toHaveBeenCalledWith(
+      "共有できません",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(mockSaveMutateAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe("CustomTierListScreen", () => {

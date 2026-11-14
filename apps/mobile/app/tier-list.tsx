@@ -414,12 +414,18 @@ export default function TierListScreen() {
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
   // generateImageFile は宣言より後でしか呼ばれないため、ここで参照してよい。
-  const { shareUrl: presentShareUrl, urlShareElement } = useTierUrlShare({
+  const {
+    beginShare,
+    cancelShare,
+    shareUrl: presentShareUrl,
+    urlShareElement,
+  } = useTierUrlShare({
     tweetText: title,
     generateImageFile: () => generateImageFile(),
   });
 
   const handleShareUrl = useCallback(async () => {
+    beginShare();
     setIsSharing(true);
     try {
       await saveTierListData();
@@ -429,13 +435,21 @@ export default function TierListScreen() {
       // コピー / X 共有はモーダル内のボタン操作で行う。
       await presentShareUrl(url);
     } catch {
+      cancelShare();
       alert("共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
       });
     } finally {
       setIsSharing(false);
     }
-  }, [presentShareUrl, saveTierListData, share, season]);
+  }, [
+    beginShare,
+    cancelShare,
+    presentShareUrl,
+    saveTierListData,
+    share,
+    season,
+  ]);
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
   // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
@@ -510,14 +524,20 @@ export default function TierListScreen() {
   // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を
   // 上書き保存してしまうため、データが確定するまで共有を開始させない。
   const shareDisabled =
-    isSharing ||
-    save.isPending ||
-    isSavedLoading ||
-    isWorksLoading ||
-    isWorksError;
+    isSharing || save.isPending || isSavedLoading || isWorksLoading;
 
   const handleShare = useCallback(() => {
     if (shareDisabled) return;
+    if (isWorksError) {
+      alert(
+        "共有できません",
+        "作品を取得できませんでした。時間をおいて再度お試しください。",
+        {
+          okLabel: "OK",
+        },
+      );
+      return;
+    }
     // 共有ボタンの押下と、続く選択肢の方式（issue #214）を計測する。
     trackEvent("tier_share_open");
     presentTierShareOptions({
@@ -533,7 +553,7 @@ export default function TierListScreen() {
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage, shareDisabled]);
+  }, [handleShareUrl, handleShareImage, isWorksError, shareDisabled]);
 
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。

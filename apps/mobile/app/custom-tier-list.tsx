@@ -374,12 +374,18 @@ export default function CustomTierListScreen() {
     saveTierListDataRef.current = saveTierListData;
   });
 
-  const { shareUrl: presentShareUrl, urlShareElement } = useTierUrlShare({
+  const {
+    beginShare,
+    cancelShare,
+    shareUrl: presentShareUrl,
+    urlShareElement,
+  } = useTierUrlShare({
     tweetText: title,
     generateImageFile: () => generateImageFile(),
   });
 
   const handleShareUrl = useCallback(async () => {
+    beginShare();
     setIsSharing(true);
     try {
       const savedData = await saveTierListData();
@@ -387,13 +393,14 @@ export default function CustomTierListScreen() {
       const url = buildCustomTierListShareUrl(shareToken, webUrl);
       await presentShareUrl(url);
     } catch {
+      cancelShare();
       alert("共有に失敗しました", "時間をおいて再度お試しください。", {
         okLabel: "OK",
       });
     } finally {
       setIsSharing(false);
     }
-  }, [presentShareUrl, saveTierListData, share]);
+  }, [beginShare, cancelShare, presentShareUrl, saveTierListData, share]);
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
   // 共通処理（シーズン版と同じ流れ）。
@@ -462,11 +469,20 @@ export default function CustomTierListScreen() {
     isSharing ||
     save.isPending ||
     isSavedLoading ||
-    savedMissing ||
-    title.trim().length === 0;
+    (title.trim().length === 0 && !savedMissing);
 
   const handleShare = useCallback(() => {
     if (shareDisabled) return;
+    if (savedMissing) {
+      alert(
+        "共有できません",
+        "Tier 表を取得できませんでした。時間をおいて再度お試しください。",
+        {
+          okLabel: "OK",
+        },
+      );
+      return;
+    }
     trackEvent("tier_share_open");
     presentTierShareOptions({
       dialogTitle: "Tier 表を共有",
@@ -478,7 +494,7 @@ export default function CustomTierListScreen() {
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage, shareDisabled]);
+  }, [handleShareUrl, handleShareImage, savedMissing, shareDisabled]);
 
   const backBar = (
     <View style={styles.headerTop}>
