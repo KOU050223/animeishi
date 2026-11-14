@@ -249,7 +249,7 @@ export function AnimeWorkDetailSheet({
     <BottomSheet
       visible={work != null}
       onClose={onClose}
-      scrimAccessibilityLabel="作品詳細を閉じる"
+      scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
       closeButtonAccessibilityLabel="作品詳細を閉じる"
       testID="anime-work-detail-sheet"
       snapPoints={[{ fraction: 0.8 }, "full"]}
