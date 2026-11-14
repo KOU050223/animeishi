@@ -291,7 +291,7 @@ function AnalysisSectionCard({
             <Text className="text-xs text-slate-500 dark:text-slate-400">
               {fact.label}
             </Text>
-            <Text className="text-xs font-medium text-slate-700 dark:text-slate-300">
+            <Text className="ml-2 flex-1 text-right text-xs font-medium text-slate-700 dark:text-slate-300">
               {fact.value}
             </Text>
           </View>
