@@ -11,7 +11,7 @@ jest.mock("@/lib/appInfo", () => ({
 }));
 
 jest.mock("@/lib/useApiVersion", () => ({
-  useApiVersion: (enabled?: boolean) => mockUseApiVersion(enabled),
+  useApiVersion: () => mockUseApiVersion(),
 }));
 
 const baseAppInfo: AppInfo = {
@@ -46,7 +46,6 @@ describe("AppVersionFooter", () => {
     // コミット SHA は短縮表示
     expect(screen.getByText("コミット: abc1234")).toBeTruthy();
     expect(screen.getByText("API: def5678 (production)")).toBeTruthy();
-    expect(mockUseApiVersion).toHaveBeenCalledWith(true);
   });
 
   it("production ではアプリバージョンのみを表示する", async () => {
@@ -62,8 +61,8 @@ describe("AppVersionFooter", () => {
     expect(screen.queryByText(/^更新 ID:/)).toBeNull();
     expect(screen.queryByText(/^コミット:/)).toBeNull();
     expect(screen.queryByText(/^API:/)).toBeNull();
-    // production では API バージョンの取得自体も行わない
-    expect(mockUseApiVersion).toHaveBeenCalledWith(false);
+    // production では開発向け行をマウントせず、API バージョンの取得も行わない
+    expect(mockUseApiVersion).not.toHaveBeenCalled();
   });
 
   it("取得できない項目は行ごと表示しない", async () => {
