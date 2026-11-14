@@ -376,7 +376,9 @@ export async function serveWorkImage(
     row.imageSource === "none" &&
     (row.resolvedAt == null ||
       now.getTime() - row.resolvedAt.getTime() >=
-        IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS);
+        IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS ||
+      (row.malSearchAttemptedAt != null &&
+        row.malSearchAttemptedAt.getTime() > row.resolvedAt.getTime()));
   let resolvedSource = row.imageSource;
   if (
     !hit &&

@@ -29,7 +29,13 @@ export const images = new Hono<{
   // クエリ文字列でキャッシュを分けられないよう、パスだけでキーを作る。
   const cacheKey = new Request(new URL(c.req.path, c.req.url).toString());
   const cache = defaultCache();
-  const cached = await cache?.match(cacheKey).catch(() => undefined);
+  // ?r=N はクライアント（WorkImage）のリトライ合図。取り込み完了直前の 404 が
+  // edge に残っていると画像が用意できてもキャッシュが返り続けるため、この要求
+  // だけは参照を飛ばしてオリジンで再評価する。取り込みが済んでいれば後段の
+  // cache.put で正規キーのエントリも更新される。
+  const cached = c.req.query("r")
+    ? undefined
+    : await cache?.match(cacheKey).catch(() => undefined);
   // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
   // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。
   if (cached) {

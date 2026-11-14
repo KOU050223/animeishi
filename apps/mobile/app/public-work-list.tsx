@@ -188,7 +188,12 @@ function WorkItemRow({
       <Text className="w-6 text-center text-xs text-slate-400 dark:text-slate-500">
         {index + 1}
       </Text>
-      <WorkThumbnail uri={item.hostedImageUrl} width={40} height={56} />
+      <WorkThumbnail
+        uri={item.hostedImageUrl}
+        title={item.title}
+        width={40}
+        height={56}
+      />
       <Text
         className="flex-1 text-sm font-medium text-slate-900 dark:text-slate-100"
         numberOfLines={2}

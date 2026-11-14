@@ -508,7 +508,7 @@ function RecommendationCard({
       className="flex-row rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3"
       testID={`recommendation-item-${work.annictWorkId}`}
     >
-      <WorkThumbnail uri={work.hostedImageUrl} />
+      <WorkThumbnail uri={work.hostedImageUrl} title={work.title} />
       <View className="ml-3 flex-1">
         <Text
           className="text-sm font-semibold text-slate-900 dark:text-slate-100"
