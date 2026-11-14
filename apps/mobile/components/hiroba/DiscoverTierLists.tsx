@@ -203,9 +203,17 @@ function PublicTierListCard({
         {item.thumbnails.length > 0 ? (
           <View className="mb-2 flex-row gap-1.5">
             {/* 別キャラが同じ imageUrl を持つことがあるため重複を除く */}
-            {Array.from(new Set(item.thumbnails)).map((url) => (
-              <WorkThumbnail key={url} uri={url} width={40} height={56} />
-            ))}
+            {[...new Map(item.thumbnails.map((t) => [t.url, t])).values()].map(
+              (t) => (
+                <WorkThumbnail
+                  key={t.url}
+                  uri={t.url}
+                  title={t.label}
+                  width={40}
+                  height={56}
+                />
+              ),
+            )}
           </View>
         ) : null}
         <Text

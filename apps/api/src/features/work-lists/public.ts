@@ -10,7 +10,7 @@ import {
 } from "./schema";
 import {
   workListsRepository,
-  fetchWorkListTopWorkIds,
+  fetchWorkListTopWorks,
   OwnWorkListError,
   PUBLIC_LIST_THUMBNAILS,
 } from "./repository";
@@ -62,7 +62,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
 
       const hasMore = rows.length > limit;
       const items = rows.slice(0, limit);
-      const thumbs = await fetchWorkListTopWorkIds(
+      const thumbs = await fetchWorkListTopWorks(
         db,
         items.map((row) => row.id),
         PUBLIC_LIST_THUMBNAILS,
@@ -74,9 +74,10 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
           items: items.map((row) => ({
             ...row,
             createdAt: row.createdAt.toISOString(),
-            thumbnails: (thumbs.get(row.id) ?? []).map((annictWorkId) => ({
-              annictWorkId,
-              hostedImageUrl: workImageUrl(c.req.url, annictWorkId),
+            thumbnails: (thumbs.get(row.id) ?? []).map((thumb) => ({
+              annictWorkId: thumb.annictWorkId,
+              title: thumb.title,
+              hostedImageUrl: workImageUrl(c.req.url, thumb.annictWorkId),
             })),
           })),
           nextCursor: hasMore && last ? encodeCursor(last, sort) : null,

@@ -204,7 +204,7 @@ type PublicListItem = {
   likedByMe: boolean;
   itemCount: number;
   owner: { userId: string; username: string };
-  thumbnails: string[];
+  thumbnails: { url: string; label: string }[];
 };
 
 describe("公開 Tier 表 API", () => {
@@ -301,7 +301,7 @@ describe("公開 Tier 表 API", () => {
       expect(character?.workTitle).toBe("アニメA");
     });
 
-    it("サムネイルは作品はプロキシ URL、キャラは imageUrl で返る", async () => {
+    it("サムネイルは作品はプロキシ URL・キャラは imageUrl で返り、代替表示用の label を持つ", async () => {
       const app = buildApp();
       await insertSeasonList(db, {
         userId: OTHER_USER_ID,
@@ -324,12 +324,17 @@ describe("公開 Tier 表 API", () => {
       const body = (await res.json()) as { items: PublicListItem[] };
       const season = body.items.find((i) => i.kind === "season");
       expect(season?.thumbnails).toEqual([
-        expect.stringContaining(`/images/works/${WORK_A}`),
+        expect.objectContaining({
+          url: expect.stringContaining(`/images/works/${WORK_A}`),
+          label: "アニメA",
+        }),
       ]);
       const character = body.items.find(
         (i) => i.kind === "character" && i.title === "キャラ表",
       );
-      expect(character?.thumbnails).toEqual(["https://example.com/char-a.png"]);
+      expect(character?.thumbnails).toEqual([
+        { url: "https://example.com/char-a.png", label: "キャラA" },
+      ]);
       const noImage = body.items.find((i) => i.title === "画像なしキャラ表");
       expect(noImage?.thumbnails).toEqual([]);
     });

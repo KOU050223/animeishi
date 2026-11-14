@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { WorkThumbnail } from "./WorkThumbnail";
 
 const HOSTED = "https://api.example.com/images/works/1";
@@ -35,15 +35,6 @@ describe("WorkThumbnail", () => {
     expect(getByText(TITLE)).toBeTruthy();
   });
 
-  it("読み込みに失敗したら外部 URL を試さずプレースホルダーだけにする", async () => {
-    const { getByText } = await render(
-      <WorkThumbnail uri={HOSTED} title={TITLE} />,
-    );
-    await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
-    expect(findImages()).toHaveLength(0);
-    expect(getByText(TITLE)).toBeTruthy();
-  });
-
   it("失敗後に URL が変わると読み込みをやり直す", async () => {
     const { rerender } = await render(
       <WorkThumbnail uri={HOSTED} title={TITLE} />,
@@ -70,5 +61,64 @@ describe("WorkThumbnail", () => {
     expect(findImages()).toHaveLength(0);
     expect(getByText(TITLE)).toBeTruthy();
     expect(queryByText("No img")).toBeNull();
+  });
+
+  describe("読み込み失敗時の再試行（issue #522）", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("失敗したらプレースホルダーだけにし、間を置いてキャッシュ迂回の URL で読み込み直す", async () => {
+      const { getByText } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+
+      // 再試行を待つ間はプレースホルダーだけにする
+      expect(findImages()).toHaveLength(0);
+      expect(getByText(TITLE)).toBeTruthy();
+
+      // 再試行は同じパスのままだと失敗レスポンスが HTTP キャッシュから
+      // 返って即座にまた失敗するので、クエリでキーを変える
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(findImages()[0].props.source).toEqual([{ uri: `${HOSTED}?r=1` }]);
+    });
+
+    it("再試行を尽くしたら外部 URL を試さずプレースホルダーだけにする", async () => {
+      const { getByText } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(4000);
+      });
+      expect(findImages()[0].props.source).toEqual([{ uri: `${HOSTED}?r=2` }]);
+
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      expect(findImages()).toHaveLength(0);
+      expect(getByText(TITLE)).toBeTruthy();
+    });
+
+    it("再試行待ちの間に URL が変わったら古い URL の再試行は捨てる", async () => {
+      const { rerender } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await rerender(<WorkThumbnail uri={OTHER} title={TITLE} />);
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+      });
+      // 古い HOSTED への再試行は発火せず、新しい URL の初回表示のまま
+      expect(findImages()[0].props.source).toEqual([{ uri: OTHER }]);
+    });
   });
 });

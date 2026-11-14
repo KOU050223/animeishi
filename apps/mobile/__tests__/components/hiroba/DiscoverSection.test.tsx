@@ -42,7 +42,11 @@ type Item = {
   itemCount: number;
   likeCount: number;
   likedByMe: boolean;
-  thumbnails: { annictWorkId: number; hostedImageUrl: string }[];
+  thumbnails: {
+    annictWorkId: number;
+    title: string;
+    hostedImageUrl: string;
+  }[];
 };
 
 function publicItem(id: number, over: Partial<Item> = {}): Item {
@@ -56,8 +60,16 @@ function publicItem(id: number, over: Partial<Item> = {}): Item {
     likeCount: id * 10,
     likedByMe: false,
     thumbnails: [
-      { annictWorkId: 1, hostedImageUrl: "https://example.com/1.png" },
-      { annictWorkId: 2, hostedImageUrl: "https://example.com/2.png" },
+      {
+        annictWorkId: 1,
+        title: "作品1",
+        hostedImageUrl: "https://example.com/1.png",
+      },
+      {
+        annictWorkId: 2,
+        title: "作品2",
+        hostedImageUrl: "https://example.com/2.png",
+      },
     ],
     ...over,
   };
