@@ -20,8 +20,16 @@ jest.mock("@/lib/useFavorites", () => ({
   },
 }));
 
+// key リマウントの検証用にマウント回数を数える（issue #535）。
+let mountCount = 0;
 jest.mock("@/components/anime-list", () => ({
-  AnimeListContent: () => null,
+  AnimeListContent: () => {
+    const React = require("react");
+    React.useEffect(() => {
+      mountCount += 1;
+    }, []);
+    return null;
+  },
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -31,6 +39,7 @@ jest.mock("@/lib/dialog", () => ({
 beforeEach(async () => {
   jest.clearAllMocks();
   capturedOnError = undefined;
+  mountCount = 0;
 });
 
 describe("AnimeSection", () => {
@@ -58,5 +67,21 @@ describe("AnimeSection", () => {
       "お気に入りの更新に失敗しました",
       expect.objectContaining({ okLabel: "OK" }),
     );
+  });
+
+  it("navNonce が変わると AnimeListContent をリマウントする（issue #535）", async () => {
+    // 同じシーズンのチップを再度押した遷移でも一覧の検索語・絞り込みを
+    // リセットするため、リマウントで新しい一覧インスタンスにする。
+    const { rerender } = await render(
+      <AnimeSection initialSeason="2025-winter" navNonce="1" />,
+    );
+    expect(mountCount).toBe(1);
+
+    await rerender(<AnimeSection initialSeason="2025-winter" navNonce="2" />);
+    expect(mountCount).toBe(2);
+
+    // params が変わらない限りは再マウントしない。
+    await rerender(<AnimeSection initialSeason="2025-winter" navNonce="2" />);
+    expect(mountCount).toBe(2);
   });
 });

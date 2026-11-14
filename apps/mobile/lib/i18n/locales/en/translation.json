@@ -310,5 +310,15 @@
   "アイコンを設定する": "Set an avatar",
   "表示名を設定する": "Set a display name",
   "推し作品を登録する": "Register favorite works",
-  "テンプレートを選ぶ": "Choose a template"
+  "テンプレートを選ぶ": "Choose a template",
+  "保存中…": "Saving…",
+  "保存しました": "Saved",
+  "保存できませんでした": "Couldn't save",
+  "更新できませんでした": "Couldn't update",
+  "視聴ステータスを更新できませんでした。元の状態に戻しました。": "Couldn't update the watch status. The previous status was restored.",
+  "評価を更新できませんでした。元の状態に戻しました。": "Couldn't update the rating. The previous rating was restored.",
+  "話の記録を更新できませんでした。元の状態に戻しました。": "Couldn't update the episode record. The previous record was restored.",
+  "一部の更新に失敗しました。": "Some updates failed.",
+  "視聴ステータスと話数の記録は別です。未記録の話を記録できます。": "Watch status and episode records are separate. You can record episodes you watched.",
+  "{{episode}}の視聴を記録": "Record watching {{episode}}"
 }
