@@ -220,8 +220,8 @@ export default function TierListsScreen() {
                   {item.shared || item.isPublic ? (
                     <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       {[
-                        item.shared ? "共有中" : null,
-                        item.isPublic ? "公開中" : null,
+                        item.shared ? "リンク共有中" : null,
+                        item.isPublic ? "ひろばに公開中" : null,
                       ]
                         .filter(Boolean)
                         .join(" ・ ")}

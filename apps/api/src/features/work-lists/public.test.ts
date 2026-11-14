@@ -108,7 +108,7 @@ type PublicListItem = {
   likedByMe: boolean;
   itemCount: number;
   owner: { userId: string; username: string };
-  thumbnails: { annictWorkId: number; hostedImageUrl: string }[];
+  thumbnails: { annictWorkId: number; title: string; hostedImageUrl: string }[];
 };
 
 describe("公開作品リスト API", () => {
@@ -177,7 +177,7 @@ describe("公開作品リスト API", () => {
       expect(body.items[0]?.likedByMe).toBe(false);
       expect(body.items[0]?.itemCount).toBe(1);
       expect(body.items[0]?.thumbnails).toEqual([
-        expect.objectContaining({ annictWorkId: WORK_A }),
+        expect.objectContaining({ annictWorkId: WORK_A, title: "アニメA" }),
       ]);
     });
 

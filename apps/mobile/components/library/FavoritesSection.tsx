@@ -192,7 +192,7 @@ function FavoriteRow({
       className="flex-row items-center py-3 gap-3"
       testID={`favorite-item-${favorite.annictWorkId}`}
     >
-      <WorkThumbnail uri={favorite.hostedImageUrl} />
+      <WorkThumbnail uri={favorite.hostedImageUrl} title={favorite.title} />
 
       <View className="flex-1">
         <Text

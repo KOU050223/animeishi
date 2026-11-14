@@ -19,7 +19,7 @@ const baseAppInfo: AppInfo = {
   buildVersion: "42",
   updateId: "update-id-1",
   commitSha: "abc1234deadbeef",
-  environment: "production",
+  environment: "development",
 };
 
 beforeEach(async () => {
@@ -37,15 +37,32 @@ beforeEach(async () => {
 });
 
 describe("AppVersionFooter", () => {
-  it("アプリバージョン・環境・更新 ID・コミット・API バージョンを表示する", async () => {
+  it("開発環境ではアプリバージョン・環境・更新 ID・コミット・API バージョンを表示する", async () => {
     await render(<AppVersionFooter />);
 
     expect(screen.getByText("アプリバージョン: 1.0.0 (42)")).toBeTruthy();
-    expect(screen.getByText("環境: production")).toBeTruthy();
+    expect(screen.getByText("環境: development")).toBeTruthy();
     expect(screen.getByText("更新 ID: update-id-1")).toBeTruthy();
     // コミット SHA は短縮表示
     expect(screen.getByText("コミット: abc1234")).toBeTruthy();
     expect(screen.getByText("API: def5678 (production)")).toBeTruthy();
+  });
+
+  it("production ではアプリバージョンのみを表示する", async () => {
+    mockGetAppInfo.mockReturnValue({
+      ...baseAppInfo,
+      environment: "production",
+    });
+
+    await render(<AppVersionFooter />);
+
+    expect(screen.getByText("アプリバージョン: 1.0.0 (42)")).toBeTruthy();
+    expect(screen.queryByText(/^環境:/)).toBeNull();
+    expect(screen.queryByText(/^更新 ID:/)).toBeNull();
+    expect(screen.queryByText(/^コミット:/)).toBeNull();
+    expect(screen.queryByText(/^API:/)).toBeNull();
+    // production では開発向け行をマウントせず、API バージョンの取得も行わない
+    expect(mockUseApiVersion).not.toHaveBeenCalled();
   });
 
   it("取得できない項目は行ごと表示しない", async () => {

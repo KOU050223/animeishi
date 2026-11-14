@@ -5,6 +5,7 @@ import { initObservability } from "@/lib/observability";
 import { configureObserve, wrapWithObserveRoot } from "@/lib/observe";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { tokenCache } from "@/lib/tokenCache";
 import {
   DarkTheme,
@@ -46,6 +47,7 @@ if (!publishableKey) {
 
 function AuthGuard() {
   const { isLoaded, isSignedIn } = useAuth();
+  const { t } = useTranslation();
   const segments = useSegments();
   const router = useRouter();
   const colors = useThemeColors();
@@ -95,6 +97,12 @@ function AuthGuard() {
     <Stack
       screenOptions={{
         ...headerOptions,
+        // Web の画面モジュールは遅延読み込みされ、解決前は画面側の
+        // <Stack.Screen options> がまだ効かない。title 未指定だと
+        // React Navigation が route.name（"event/[slug]" 等）を
+        // ヘッダーに出してしまうため、既定のタイトルを持たせる
+        // （issue #525）。各画面の options が読み込み後に上書きする。
+        title: t("読み込み中..."),
         // ルート Stack は小タイトル画面のみ。バーの背景を画面背景に揃える
         // （ネスト Stack の large title は ThemeProvider のスキームに
         // 追従する純正ブラーを活かすため headerStyle なし）。

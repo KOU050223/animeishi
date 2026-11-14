@@ -80,12 +80,17 @@ const publicTierListsRoute = new Hono<AuthVariables>()
           items: items.map((item) => ({
             ...listItemResponse(item),
             thumbnails: (thumbnails.get(`${item.kind}:${item.id}`) ?? [])
-              .map((t) =>
-                t.kind === "work"
-                  ? workImageUrl(requestUrl, t.annictWorkId)
-                  : t.imageUrl,
-              )
-              .filter((url): url is string => url != null),
+              .map((t) => {
+                const url =
+                  t.kind === "work"
+                    ? workImageUrl(requestUrl, t.annictWorkId)
+                    : t.imageUrl;
+                // label は画像が取れないときの代替表示に使う（issue #522）。
+                return url == null
+                  ? null
+                  : { url, label: t.kind === "work" ? t.title : t.name };
+              })
+              .filter((t): t is { url: string; label: string } => t != null),
           })),
           nextCursor,
         },

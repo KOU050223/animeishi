@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
+import { drizzle } from "drizzle-orm/d1";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { setupTestDb } from "../../test-utils/setup-db";
-import { annictWorks } from "../../db/schema";
+import * as schema from "../../db/schema";
 import { images } from "./index";
 
 // /images/* は公開ルート（認証不要）。作品画像の読み通しプロキシを担う。
@@ -27,7 +28,7 @@ function buildApp() {
 describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => {
   beforeEach(async () => {
     const db = await setupTestDb(env.DB);
-    await db.insert(annictWorks).values({
+    await db.insert(schema.annictWorks).values({
       annictWorkId: 42,
       title: "作品",
       imageR2Key: "works/42/deadbeef.png",
@@ -79,6 +80,58 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     );
     expect(second.status).toBe(200);
     expect(new Uint8Array(await second.arrayBuffer())).toEqual(PNG_BYTES);
+  });
+
+  // issue #522。クライアント（WorkImage）のリトライは ?r=N を付ける。
+  // 取り込み直前に踏んだ 404 が edge に残っていても、この要求だけは
+  // キャッシュを迂回してオリジンで再評価させる。
+  it("?r= 付きの要求は edge の 404 を迂回してオリジンを引き直す", async () => {
+    const app = buildApp();
+    const miss = await app.request(
+      "/images/works/999",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(miss.status).toBe(404);
+    await miss.arrayBuffer();
+
+    // 取り込みが完了した状態（行 + R2 オブジェクト）にする
+    const db = drizzle(env.DB, { schema });
+    await db.insert(schema.annictWorks).values({
+      annictWorkId: 999,
+      title: "遅れて取り込まれた作品",
+      imageR2Key: "works/999/deadbeef.png",
+      updatedAt: new Date(),
+    });
+    await env.AVATARS.put("works/999/deadbeef.png", PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+
+    // ?r= なしでは edge の 404 が返り続ける
+    const stillCached = await app.request(
+      "/images/works/999",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(stillCached.status).toBe(404);
+    await stillCached.arrayBuffer();
+
+    // ?r= 付きはオリジンへ行き、正規キーのキャッシュも更新される
+    const retried = await app.request(
+      "/images/works/999?r=1",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(retried.status).toBe(200);
+    expect(new Uint8Array(await retried.arrayBuffer())).toEqual(PNG_BYTES);
+
+    const after = await app.request(
+      "/images/works/999",
+      { method: "GET" },
+      TEST_BINDINGS,
+    );
+    expect(after.status).toBe(200);
+    await after.arrayBuffer();
   });
 
   // issue #244。削除スクリプトがタグ指定の Purge Cache でこのエントリを消せる

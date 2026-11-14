@@ -31,7 +31,12 @@ export default function LibraryScreen() {
   const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const colors = useThemeColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{ section?: string; q?: string }>();
+  const params = useLocalSearchParams<{
+    section?: string;
+    q?: string;
+    season?: string;
+    nav?: string;
+  }>();
   // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
   // 参照元にする。ローカル状態で持つと、同じ section への再遷移
   // （ホームの QR ボタン等）を新しいナビゲーションと区別できない。
@@ -44,6 +49,17 @@ export default function LibraryScreen() {
   // （section 同様「最後に深リンクで指定された検索語」として残る）。
   const initialQuery =
     typeof params.q === "string" && params.q ? params.q : undefined;
+
+  // 詳細シートのシーズンチップ（issue #535）からの遷移で初期シーズンを
+  // 受け取る。q と同じく URL を参照元にし、key のリマウントで反映する。
+  const initialSeason =
+    typeof params.season === "string" && params.season
+      ? params.season
+      : undefined;
+  // 同じ初期値への再遷移でもリマウントさせるため、遷移側が毎回変える
+  // マーカー（一覧を手で操作したあと同じシーズンのチップを押しても
+  // 初期状態へ戻せるよう、URL の値自体を変える）。
+  const navNonce = typeof params.nav === "string" ? params.nav : undefined;
 
   return (
     // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。
@@ -81,7 +97,11 @@ export default function LibraryScreen() {
       />
       <View className="flex-1">
         {section === "anime" ? (
-          <AnimeSection initialQuery={initialQuery} />
+          <AnimeSection
+            initialQuery={initialQuery}
+            initialSeason={initialSeason}
+            navNonce={navNonce}
+          />
         ) : section === "history" ? (
           <WatchHistorySection />
         ) : (

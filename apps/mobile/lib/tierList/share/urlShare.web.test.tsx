@@ -40,7 +40,7 @@ const SHARE_URL = "https://api.example/share/tier-lists/tok1";
 const mockGenerateFile = jest.fn();
 
 function Harness() {
-  const { shareUrl, urlShareElement } = useTierUrlShare({
+  const { beginShare, shareUrl, urlShareElement } = useTierUrlShare({
     tweetText: "テストTier表",
     generateImageFile: () => mockGenerateFile(),
   });
@@ -52,6 +52,7 @@ function Harness() {
         testID="share"
         onPress={() => void shareUrl(SHARE_URL).then(setResult)}
       />
+      <Button title="begin" testID="begin" onPress={beginShare} />
       <Button title="result" testID="result" />
       {result !== "" && <View testID={`result-${result}`} />}
       {urlShareElement}
@@ -82,6 +83,15 @@ describe("useTierUrlShare (web)", () => {
 
     expect(await screen.findByTestId("result-shared")).toBeTruthy();
     expect(screen.getByText(SHARE_URL)).toBeTruthy();
+  });
+
+  it("URL 発行を待つ間も共有準備中のモーダルを表示する", async () => {
+    await render(<Harness />);
+    await fireEvent.press(screen.getByTestId("begin"));
+    expect(screen.getByText("共有リンクを準備中…")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("share"));
+    expect(await screen.findByText(SHARE_URL)).toBeTruthy();
+    expect(screen.queryByText("共有リンクを準備中…")).toBeNull();
   });
 
   it("「Xで共有」は intent/tweet を新規タブで開き URL と投稿文を載せる", async () => {

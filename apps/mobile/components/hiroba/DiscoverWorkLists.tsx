@@ -201,6 +201,7 @@ function PublicWorkListCard({
               <WorkThumbnail
                 key={thumb.annictWorkId}
                 uri={thumb.hostedImageUrl}
+                title={thumb.title}
                 width={40}
                 height={56}
               />
