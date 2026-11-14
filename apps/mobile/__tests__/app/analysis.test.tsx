@@ -54,7 +54,11 @@ jest.mock("@/lib/useAnalysis", () => ({
             title: "よく見るジャンル",
             insight: "アクション中心の傾向です",
             facts: [
-              { label: "集計対象", value: "ジャンル情報のある 10 / 11 件" },
+              {
+                label: "集計対象",
+                value:
+                  "視聴を始めた 11 件のうち、ジャンル情報のある 10 件（全履歴 12 件）",
+              },
               { label: "Action", value: "6 件（60%）" },
             ],
             evidenceWorks: [
@@ -232,6 +236,8 @@ describe("AnalysisScreen のレポート項目", () => {
     expect(
       screen.getByText("視聴予定を除き、ジャンル情報のある作品を集計"),
     ).toBeTruthy();
+    // 集計時点と現在の履歴件数が同じときは再分析の注記は出ない。
+    expect(screen.queryByText(/現在の視聴履歴:/)).toBeNull();
     // 根拠作品はタイトルと視聴ステータスのラベル付きで出る。
     expect(screen.getByText("・根拠アニメ（視聴済）")).toBeTruthy();
     expect(screen.getByText("・断念アニメ（断念）")).toBeTruthy();
@@ -253,6 +259,7 @@ describe("AnalysisScreen のレポート項目", () => {
 describe("AnalysisScreen のおすすめカード", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockWatchHistoryCount = 12;
     mockUseRecommendations.mockReturnValue({
       data: {
         recommendations: {
