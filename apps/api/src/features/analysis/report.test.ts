@@ -43,8 +43,8 @@ describe("buildSectionDrafts", () => {
     // Action は視聴開始済みの 3 件中 2 件（id 5 は WANNA_WATCH で除外）。
     const actionFact = genres!.facts.find((f) => f.label === "Action");
     expect(actionFact?.value).toBe("2 件（67%）");
-    expect(genres!.facts.find((f) => f.label === "集計対象")?.value).toContain(
-      "3 / 4",
+    expect(genres!.facts.find((f) => f.label === "集計対象")?.value).toBe(
+      "視聴を始めた 4 件のうち、ジャンル情報のある 3 件（全履歴 5 件）",
     );
     // 根拠作品はトップジャンルを持つ実在作品だけ。
     expect(genres!.evidenceWorks.map((w) => w.annictWorkId)).toEqual([1, 2]);
@@ -64,6 +64,9 @@ describe("buildSectionDrafts", () => {
     expect(yearFact?.value).toBe("2 件（67%）");
     expect(seasons!.evidenceWorks.map((w) => w.annictWorkId)).toEqual([1, 2]);
     expect(seasons!.fallbackInsight).toContain("2024");
+    expect(seasons!.facts.find((f) => f.label === "集計対象")?.value).toBe(
+      "視聴を始めた 4 件のうち、放送年が分かる 3 件（全履歴 4 件）",
+    );
   });
 
   it("完走・断念: 開始した作品を母数に視聴済・断念の割合を出す", () => {
@@ -115,6 +118,9 @@ describe("buildSectionDrafts", () => {
     expect(
       popularity.facts.find((f) => f.label === "視聴者 100 人未満")?.value,
     ).toBe("1 件");
+    expect(popularity.facts.find((f) => f.label === "集計対象")?.value).toBe(
+      "視聴を始めた 4 件のうち、視聴者数の情報がある 3 件（全履歴 4 件）",
+    );
     // ニッチ側（視聴者が少ない順）を根拠に出す。
     expect(popularity.evidenceWorks[0]?.annictWorkId).toBe(3);
   });

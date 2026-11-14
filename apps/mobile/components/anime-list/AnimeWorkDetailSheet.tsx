@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -52,10 +53,18 @@ import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import type { AnimeTitle } from "@/lib/useAnimeList";
 import { AnimePoster } from "./AnimePoster";
-import { formatWorkSeason } from "./animeListUtils";
+import {
+  formatSeasonLabel,
+  SEASON_FILTER_ALL,
+  toSeasonParam,
+  workBroadcastSeason,
+} from "./animeListUtils";
 import { useAnimeListPalette } from "./animeListStyles";
 
 const WATCH_STATUSES = Object.keys(WATCH_STATUS_LABELS) as WatchState[];
+
+/** 保存操作の結果表示に使う状態。 */
+type SaveFeedbackState = "saving" | "saved" | "error";
 
 // 3 段階評価の選択肢（issue #416）。表示順はイマイチ→良い→最高。
 const WORK_RATINGS: WorkRating[] = ["bad", "good", "great"];
@@ -113,9 +122,11 @@ export function AnimeWorkDetailSheet({
   onOpenCharacterTierList: (work: WorkDetailSheetTarget) => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
   const palette = useAnimeListPalette();
+  const { t } = useTranslation();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
@@ -132,6 +143,25 @@ export function AnimeWorkDetailSheet({
     workId: number;
     state: WatchState | null;
   } | null>(null);
+  const [statusFeedback, setStatusFeedback] = useState<{
+    workId: number;
+    session: number;
+    state: SaveFeedbackState;
+  } | null>(null);
+  const [statusSession, setStatusSession] = useState({
+    workId: work?.annictWorkId ?? null,
+    revision: 0,
+  });
+  if (statusSession.workId !== (work?.annictWorkId ?? null)) {
+    setStatusSession({
+      workId: work?.annictWorkId ?? null,
+      revision: statusSession.revision + 1,
+    });
+  }
+  // 保存が連続して始まりうる（チップ連打・記録完了による自動更新）。
+  // 先行する操作の完了・失敗が後続の操作の「保存中」表示を上書きしないよう、
+  // 結果表示を更新してよいのは最後に開始した操作だけという判定に使う。
+  const statusSaveSeq = useRef(0);
   const serverState = normalizeState(detail.data?.work.state);
   const currentState =
     work && optimistic?.workId === work.annictWorkId
@@ -145,6 +175,10 @@ export function AnimeWorkDetailSheet({
 
   function applyStatus(next: WatchState | null) {
     if (!work) return;
+    const workId = work.annictWorkId;
+    const session = statusSession.revision;
+    const op = ++statusSaveSeq.current;
+    setStatusFeedback({ workId, session, state: "saving" });
     setOptimistic({ workId: work.annictWorkId, state: next });
     const request =
       next === null
@@ -154,29 +188,40 @@ export function AnimeWorkDetailSheet({
             data: { state: next },
           });
     void request
+      .then(() => {
+        if (statusSaveSeq.current === op) {
+          setStatusFeedback({ workId, session, state: "saved" });
+        }
+      })
       .catch((e: unknown) => {
-        // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
-        // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
-        setOptimistic(null);
+        if (statusSaveSeq.current === op) {
+          setStatusFeedback({ workId, session, state: "error" });
+          // 楽観値を下ろしてサーバー値に戻す。ロールバックできたかで
+          // 「元の状態に戻しました」と言えるかが変わる（視聴履歴と同じ扱い）。
+          setOptimistic(null);
+        }
         // Annict トークン未登録・失効は再連携ダイアログに変換するため、
         // 汎用の失敗通知は出さない（issue #423）。
         if (promptAnnictTokenError(e)) return;
         const rolledBack = (e as UpsertWatchHistoryError).rolledBack === true;
         alert(
-          "更新できませんでした",
+          t("更新できませんでした"),
           rolledBack
-            ? "視聴ステータスを更新できませんでした。元の状態に戻しました。"
-            : "一部の更新に失敗しました。",
-          { okLabel: "OK" },
+            ? t("視聴ステータスを更新できませんでした。元の状態に戻しました。")
+            : t("一部の更新に失敗しました。"),
+          { okLabel: t("OK") },
         );
       })
       .finally(() => {
         // viewerStatusState 由来の state を取り直してから楽観値を下ろす。
         // 成功後も残したままだと、シートを開き直したとき古い選択値が
         // 新しいサーバー値を覆ってしまう（issue #347 レビュー指摘）。
+        // 後続の操作が始まっている場合、その楽観値までは下ろさない。
         void queryClient
           .invalidateQueries({ queryKey: detailQueryKey })
-          .then(() => setOptimistic(null));
+          .then(() => {
+            if (statusSaveSeq.current === op) setOptimistic(null);
+          });
       });
   }
 
@@ -237,26 +282,47 @@ export function AnimeWorkDetailSheet({
     onOpenCharacterTierList(work);
   }
 
+  // 放送シーズンのチップから、そのシーズン / 年通年の作品一覧
+  // （ライブラリタブのアニメ一覧の絞り込み）へ移る（issue #535）。
+  // どの画面のシートからでも同じ導線にするため遷移はシート側が持つ。
+  function openSeasonList(seasonParam: string) {
+    // 先に閉じないと一覧へ移ったあともシートが残る（上の Tier 表と同じ理由）。
+    onClose();
+    router.push({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: seasonParam,
+        // 同じ season への再遷移でも一覧をリマウントさせるマーカー。
+        // URL が変わらないと key が変わらず、手で変えた検索語・絞り込みが
+        // 残ったままになる（issue #535 の完了条件）。
+        nav: String(Date.now()),
+      },
+    });
+  }
+
   const detailWork = detail.data?.work;
-  const meta = [
-    work ? formatWorkSeason(work) : "",
-    detailWork ? (MEDIA_LABELS[detailWork.media] ?? detailWork.media) : null,
-  ]
-    .filter(Boolean)
-    .join("・");
+  const mediaLabel = detailWork
+    ? (MEDIA_LABELS[detailWork.media] ?? detailWork.media)
+    : null;
 
   return (
     <BottomSheet
       visible={work != null}
       onClose={onClose}
-      scrimAccessibilityLabel="作品詳細を閉じる"
+      scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
+      closeButtonAccessibilityLabel="作品詳細を閉じる"
       testID="anime-work-detail-sheet"
       snapPoints={[{ fraction: 0.8 }, "full"]}
     >
       {work ? (
         <ScrollView style={{ maxHeight: height * 0.8 }}>
           <View className="px-6 pt-6 pb-10 gap-5">
-            <HeaderSection work={work} meta={meta} />
+            <HeaderSection
+              work={work}
+              mediaLabel={mediaLabel}
+              onOpenSeasonList={openSeasonList}
+            />
             {isConnectionLoading ? (
               // 連携状態が確定するまでチップ/ゲートのどちらも出さない
               // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
@@ -281,6 +347,12 @@ export function AnimeWorkDetailSheet({
                 currentState={currentState}
                 disabled={upsert.isPending || remove.isPending}
                 onSelect={selectStatus}
+                feedback={
+                  statusFeedback?.workId === work.annictWorkId &&
+                  statusFeedback.session === statusSession.revision
+                    ? statusFeedback.state
+                    : null
+                }
               />
             )}
             {
@@ -300,6 +372,7 @@ export function AnimeWorkDetailSheet({
               // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
               <EpisodeSection
                 work={work}
+                isWatched={currentState === "WATCHED"}
                 onTokenError={promptAnnictTokenError}
                 onEpisodesRecorded={handleEpisodesRecorded}
               />
@@ -325,15 +398,22 @@ export function AnimeWorkDetailSheet({
 /** ポスター・タイトル（日英）・シーズン・メディア種別のヘッダー部。 */
 function HeaderSection({
   work,
-  meta,
+  mediaLabel,
+  onOpenSeasonList,
 }: {
   work: WorkDetailSheetTarget;
-  meta: string;
+  mediaLabel: string | null;
+  onOpenSeasonList: (seasonParam: string) => void;
 }) {
+  // 放送シーズンのチップ（issue #535）。押すとそのシーズン / 年通年の
+  // 作品一覧へ移る。seasonYear / seasonName が無い作品（または Annict が
+  // 返さない形式）はチップを出さない。年だけ取れた作品は年チップのみ出す。
+  const season = workBroadcastSeason(work);
   return (
     <View className="flex-row gap-4">
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />
-      <View className="flex-1 min-w-0 justify-center">
+      {/* pr-6 は Web シート右上の閉じるボタンと長いタイトルの重なりを避ける余白 */}
+      <View className="flex-1 min-w-0 justify-center pr-6">
         <Text
           className="text-lg font-bold text-slate-900 dark:text-slate-100"
           numberOfLines={3}
@@ -348,13 +428,96 @@ function HeaderSection({
             {work.titleEn}
           </Text>
         ) : null}
-        {meta ? (
-          <Text className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            {meta}
-          </Text>
+        {work.seasonYear || mediaLabel ? (
+          <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+            {season ? (
+              <SeasonLinkChip
+                label={formatSeasonLabel(season.year, season.key)}
+                onPress={() =>
+                  onOpenSeasonList(toSeasonParam(season.year, season.key))
+                }
+                testID="work-detail-season-chip"
+              />
+            ) : null}
+            {work.seasonYear ? (
+              <SeasonLinkChip
+                label={formatSeasonLabel(work.seasonYear, SEASON_FILTER_ALL)}
+                onPress={() => onOpenSeasonList(`${work.seasonYear}`)}
+                testID="work-detail-year-chip"
+              />
+            ) : null}
+            {mediaLabel ? (
+              <Text className="text-xs text-slate-500 dark:text-slate-400">
+                {mediaLabel}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
+  );
+}
+
+/** 放送シーズンから同時期の作品一覧へ移るチップ（issue #535）。 */
+function SeasonLinkChip({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      hitSlop={8}
+      className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 dark:border-indigo-800 dark:bg-indigo-950"
+      accessibilityRole="button"
+      accessibilityLabel={`${label}の作品一覧を見る`}
+      testID={testID}
+    >
+      <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+/** セクションの見出し（視聴ステータス・評価・話数で共有）。 */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+      {children}
+    </Text>
+  );
+}
+
+/** 保存操作の進捗・結果の表示。3 つの操作欄で共有する。 */
+function SaveFeedbackText({
+  state,
+  testID,
+  className,
+}: {
+  state: SaveFeedbackState;
+  testID: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Text
+      accessibilityLiveRegion="polite"
+      testID={testID}
+      className={className}
+    >
+      {t(
+        state === "saving"
+          ? "保存中…"
+          : state === "saved"
+            ? "保存しました"
+            : "保存できませんでした",
+      )}
+    </Text>
   );
 }
 
@@ -362,9 +525,7 @@ function HeaderSection({
 function StatusSectionFrame({ children }: { children: React.ReactNode }) {
   return (
     <View>
-      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-        視聴ステータス
-      </Text>
+      <SectionTitle>視聴ステータス</SectionTitle>
       {children}
     </View>
   );
@@ -375,10 +536,12 @@ function StatusSection({
   currentState,
   disabled,
   onSelect,
+  feedback,
 }: {
   currentState: WatchState | null;
   disabled: boolean;
   onSelect: (state: WatchState) => void;
+  feedback: SaveFeedbackState | null;
 }) {
   return (
     <StatusSectionFrame>
@@ -412,6 +575,13 @@ function StatusSection({
           ))}
         </View>
       </ScrollView>
+      {feedback ? (
+        <SaveFeedbackText
+          state={feedback}
+          testID="status-save-feedback"
+          className="mt-2 text-xs text-slate-500 dark:text-slate-400"
+        />
+      ) : null}
     </StatusSectionFrame>
   );
 }
@@ -434,10 +604,22 @@ function RatingSection({
   isWatched: boolean;
 }) {
   const palette = useAnimeListPalette();
+  const { t } = useTranslation();
   const ratingQuery = useWorkRating(work.annictWorkId);
   const upsert = useUpsertWorkRating(work.annictWorkId);
   const remove = useDeleteWorkRating(work.annictWorkId);
   const isMutating = upsert.isPending || remove.isPending;
+  const [feedback, setFeedback] = useState<{
+    workId: number;
+    state: SaveFeedbackState;
+  } | null>(null);
+  // 結果表示を更新してよいのは最後の保存操作だけ（親の statusSaveSeq と同じ判定）。
+  const ratingSaveSeq = useRef(0);
+  // 別作品に切り替わったら前の作品の保存結果は破棄する。A→B→A と戻った
+  // ときも再表示させない（親の statusSession と同じ派生 state リセット）。
+  if (feedback != null && feedback.workId !== work.annictWorkId) {
+    setFeedback(null);
+  }
 
   // 解除（未評価）は「Annict 初期値も選ばない」という端末側の状態でしか
   // 表せない（再取得すると annictRating が再び候補として返るため）。
@@ -481,22 +663,33 @@ function RatingSection({
     setOptimistic({ workId: work.annictWorkId, rating: next });
     // Annict 初期値の表示を下ろすだけなら、サーバーに消すものが無い。
     if (next === null && storedRating == null) return;
+    const workId = work.annictWorkId;
+    const op = ++ratingSaveSeq.current;
+    setFeedback({ workId, state: "saving" });
     const request =
       next === null
         ? remove.mutateAsync()
         : upsert.mutateAsync({ rating: next });
-    void request.catch((e: unknown) => {
-      // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
-      setOptimistic(null);
-      const rolledBack = (e as WorkRatingError).rolledBack === true;
-      alert(
-        "更新できませんでした",
-        rolledBack
-          ? "評価を更新できませんでした。元の状態に戻しました。"
-          : "一部の更新に失敗しました。",
-        { okLabel: "OK" },
-      );
-    });
+    void request
+      .then(() => {
+        if (ratingSaveSeq.current === op)
+          setFeedback({ workId, state: "saved" });
+      })
+      .catch((e: unknown) => {
+        if (ratingSaveSeq.current === op) {
+          setFeedback({ workId, state: "error" });
+          // 楽観値を下ろしてサーバー値に戻す（ステータス変更と同じ扱い）。
+          setOptimistic(null);
+        }
+        const rolledBack = (e as WorkRatingError).rolledBack === true;
+        alert(
+          t("更新できませんでした"),
+          rolledBack
+            ? t("評価を更新できませんでした。元の状態に戻しました。")
+            : t("一部の更新に失敗しました。"),
+          { okLabel: t("OK") },
+        );
+      });
   }
 
   // 視聴済みでなく保存済み評価も無い作品はセクション自体を出さない
@@ -506,9 +699,14 @@ function RatingSection({
 
   return (
     <View>
-      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-        この作品の評価
-      </Text>
+      <SectionTitle>この作品の評価</SectionTitle>
+      {feedback?.workId === work.annictWorkId ? (
+        <SaveFeedbackText
+          state={feedback.state}
+          testID="work-rating-save-feedback"
+          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+        />
+      ) : null}
       {showHint ? (
         <Text className="text-xs text-slate-500 dark:text-slate-400 mb-2">
           評価するとおすすめの精度が上がります
@@ -569,47 +767,49 @@ function RatingSection({
 }
 
 /**
- * 話数のチェック一覧と「次の話を記録」ボタン（issue #439）。
- * チェックの正は Annict の record（watched = viewerDidTrack）で、
- * 一覧の取得時に API が Annict 側の既存記録を D1 の記録ログと合わせる。
- * 話が 1 件も無い作品（話数未定・マスタ未登録）はセクション自体を出さない。
- *
- * N 話をチェックすると、それより前の未記録分もまとめて記録する（issue #466）。
- * 解除はタップした 1 話だけを外す。記録が全部終わると onEpisodesRecorded で
- * 「全話記録済みになったか」を親へ通知し、視聴ステータスの自動更新
- * （issue #467）に使われる。直列実行中にシートが別作品へ切り替わり得るため、
- * 通知には記録開始時の作品 ID を添える。
+ * 話数の記録・解除の保存処理と結果表示。記録の直列実行中にシートが別作品へ
+ * 切り替わり得るため、完了通知には記録開始時の作品 ID を添える
+ * （issue #467 の自動更新は親側で作品が一致するときだけ反映する）。
  */
-function EpisodeSection({
-  work,
+function useEpisodeRecording({
+  workId,
+  episodes,
   onTokenError,
   onEpisodesRecorded,
 }: {
-  work: WorkDetailSheetTarget;
+  workId: number;
+  episodes: WorkEpisode[];
   onTokenError: (error: unknown) => boolean;
   onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
 }) {
-  const colors = useThemeColors();
-  const palette = useAnimeListPalette();
-  const episodesQuery = useWorkEpisodes(work.annictWorkId);
-  const record = useRecordEpisode(work.annictWorkId);
-  const unrecord = useUnrecordEpisode(work.annictWorkId);
-  const isMutating = record.isPending || unrecord.isPending;
-  const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
-    (a, b) => a.sortNumber - b.sortNumber,
-  );
+  const { t } = useTranslation();
+  const record = useRecordEpisode(workId);
+  const unrecord = useUnrecordEpisode(workId);
+  const [feedback, setFeedback] = useState<{
+    workId: number;
+    state: SaveFeedbackState;
+  } | null>(null);
+  // 結果表示を更新してよいのは最後の保存操作だけ（親の statusSaveSeq と同じ判定）。
+  const saveSeq = useRef(0);
+  // 別作品に切り替わったら前の作品の保存結果は破棄する（評価セクションと同じ）。
+  if (feedback != null && feedback.workId !== workId) {
+    setFeedback(null);
+  }
 
-  function notifyRecordError(e: unknown) {
+  function notifyRecordError(op: number, e: unknown) {
+    if (saveSeq.current === op) {
+      setFeedback({ workId, state: "error" });
+    }
     // Annict トークン未登録・失効は再連携ダイアログに変換するため、
     // 汎用の失敗通知は出さない（ステータス変更と同じ扱い）。
     if (onTokenError(e)) return;
     const rolledBack = (e as EpisodeRecordError).rolledBack === true;
     alert(
-      "更新できませんでした",
+      t("更新できませんでした"),
       rolledBack
-        ? "話の記録を更新できませんでした。元の状態に戻しました。"
-        : "一部の更新に失敗しました。",
-      { okLabel: "OK" },
+        ? t("話の記録を更新できませんでした。元の状態に戻しました。")
+        : t("一部の更新に失敗しました。"),
+      { okLabel: t("OK") },
     );
   }
 
@@ -617,7 +817,7 @@ function EpisodeSection({
   // 無いため、直列化済み（EPISODE_RECORD_WRITE_SCOPE）の既存 mutation を
   // 対象話分だけ順に投げる。リクエストは 1 件ずつ処理されるため Annict の
   // レート制限を突きにくく、話ごとの楽観更新・巻き戻しもそのまま効く。
-  async function recordThrough(episode: WorkEpisode) {
+  async function recordThrough(op: number, episode: WorkEpisode) {
     const targets = episodes.filter(
       (e) => !e.watched && e.sortNumber <= episode.sortNumber,
     );
@@ -632,7 +832,7 @@ function EpisodeSection({
     // 1 話も記録できなかった場合はステータスを進めない。
     if (recorded.size > 0) {
       onEpisodesRecorded(
-        work.annictWorkId,
+        workId,
         episodes.every((e) => e.watched || recorded.has(e.annictEpisodeId)),
       );
     }
@@ -641,21 +841,73 @@ function EpisodeSection({
     const firstError = results.find(
       (r): r is PromiseRejectedResult => r.status === "rejected",
     )?.reason;
-    if (firstError) notifyRecordError(firstError);
+    if (firstError) notifyRecordError(op, firstError);
+    else if (saveSeq.current === op) {
+      setFeedback({ workId, state: "saved" });
+    }
   }
 
   function toggleEpisode(episode: WorkEpisode) {
+    const op = ++saveSeq.current;
+    setFeedback({ workId, state: "saving" });
     trackEvent("episode_record", {
       [TRACK_EVENT_KEYS.action]: episode.watched ? "unrecord" : "record",
     });
     if (episode.watched) {
       void unrecord
         .mutateAsync(episode.annictEpisodeId)
-        .catch(notifyRecordError);
+        .then(() => {
+          if (saveSeq.current === op) {
+            setFeedback({ workId, state: "saved" });
+          }
+        })
+        .catch((e: unknown) => notifyRecordError(op, e));
       return;
     }
-    void recordThrough(episode);
+    void recordThrough(op, episode);
   }
+
+  return {
+    feedback,
+    isMutating: record.isPending || unrecord.isPending,
+    toggleEpisode,
+  };
+}
+
+/**
+ * 話数のチェック一覧と「次の話を記録」ボタン（issue #439）。
+ * チェックの正は Annict の record（watched = viewerDidTrack）で、
+ * 一覧の取得時に API が Annict 側の既存記録を D1 の記録ログと合わせる。
+ * 話が 1 件も無い作品（話数未定・マスタ未登録）はセクション自体を出さない。
+ *
+ * N 話をチェックすると、それより前の未記録分もまとめて記録する（issue #466）。
+ * 解除はタップした 1 話だけを外す。記録が全部終わると onEpisodesRecorded で
+ * 「全話記録済みになったか」を親へ通知し、視聴ステータスの自動更新
+ * （issue #467）に使われる。
+ */
+function EpisodeSection({
+  work,
+  isWatched,
+  onTokenError,
+  onEpisodesRecorded,
+}: {
+  work: WorkDetailSheetTarget;
+  isWatched: boolean;
+  onTokenError: (error: unknown) => boolean;
+  onEpisodesRecorded: (annictWorkId: number, allWatched: boolean) => void;
+}) {
+  const palette = useAnimeListPalette();
+  const { t } = useTranslation();
+  const episodesQuery = useWorkEpisodes(work.annictWorkId);
+  const episodes = [...(episodesQuery.data?.episodes ?? [])].sort(
+    (a, b) => a.sortNumber - b.sortNumber,
+  );
+  const { feedback, isMutating, toggleEpisode } = useEpisodeRecording({
+    workId: work.annictWorkId,
+    episodes,
+    onTokenError,
+    onEpisodesRecorded,
+  });
 
   if (episodesQuery.isLoading) {
     return (
@@ -665,30 +917,8 @@ function EpisodeSection({
     );
   }
   if (episodesQuery.isError) {
-    return (
-      <View>
-        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-          話数
-        </Text>
-        <View className="items-center py-2 gap-2">
-          <Text className="text-xs text-slate-400 dark:text-slate-500">
-            話数情報を取得できませんでした
-          </Text>
-          <TouchableOpacity
-            onPress={() => episodesQuery.refetch()}
-            accessibilityRole="button"
-            accessibilityLabel="話数情報を再取得"
-            testID="episode-list-retry"
-          >
-            <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-              再試行
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return <EpisodeSectionError onRetry={() => episodesQuery.refetch()} />;
   }
-
   if (episodes.length === 0) return null;
 
   // 「次の話」= 未視聴の先頭の話。全話記録済みならボタンを無効表示にする。
@@ -696,78 +926,157 @@ function EpisodeSection({
 
   return (
     <View>
-      <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-        話数
-      </Text>
-      <TouchableOpacity
-        className={`mb-3 items-center rounded-lg py-2.5 ${
-          nextEpisode && !isMutating
-            ? "bg-indigo-600 dark:bg-indigo-500"
-            : "bg-slate-200 dark:bg-slate-700"
-        }`}
-        onPress={() => nextEpisode && toggleEpisode(nextEpisode)}
-        disabled={!nextEpisode || isMutating}
-        accessibilityRole="button"
-        accessibilityLabel={
-          nextEpisode
-            ? `${episodeLabel(nextEpisode)}を視聴済みにする`
-            : "全話記録済み"
-        }
-        testID="episode-record-next"
-      >
-        <Text
-          className={`text-xs font-semibold ${
-            nextEpisode && !isMutating
-              ? "text-white"
-              : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          {nextEpisode ? `${episodeLabel(nextEpisode)}を記録` : "全話記録済み"}
+      <SectionTitle>話数</SectionTitle>
+      {isWatched && nextEpisode != null ? (
+        <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+          {t("視聴ステータスと話数の記録は別です。未記録の話を記録できます。")}
         </Text>
-      </TouchableOpacity>
+      ) : null}
+      {feedback?.workId === work.annictWorkId ? (
+        <SaveFeedbackText
+          state={feedback.state}
+          testID="episode-save-feedback"
+          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+        />
+      ) : null}
+      <EpisodeNextRecordButton
+        nextEpisode={nextEpisode}
+        isMutating={isMutating}
+        isWatched={isWatched}
+        onRecord={toggleEpisode}
+      />
       <View className="gap-1">
         {episodes.map((episode) => (
-          <TouchableOpacity
+          <EpisodeCheckRow
             key={episode.annictEpisodeId}
-            className="flex-row items-center gap-2.5 py-1.5"
-            onPress={() => toggleEpisode(episode)}
+            episode={episode}
             disabled={isMutating}
-            accessibilityRole="checkbox"
-            accessibilityState={{
-              checked: episode.watched,
-              disabled: isMutating,
-            }}
-            accessibilityLabel={`${episodeLabel(episode)}の視聴記録`}
-            testID={`episode-check-${episode.annictEpisodeId}`}
-          >
-            <Ionicons
-              name={episode.watched ? "checkbox" : "square-outline"}
-              size={18}
-              color={episode.watched ? colors.primaryText : colors.textFaint}
-            />
-            <View className="flex-1 min-w-0 flex-row items-baseline gap-2">
-              <Text
-                className={`text-xs font-medium ${
-                  episode.watched
-                    ? "text-slate-700 dark:text-slate-200"
-                    : "text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                {episodeLabel(episode)}
-              </Text>
-              {episode.title ? (
-                <Text
-                  className="flex-1 text-xs text-slate-400 dark:text-slate-500"
-                  numberOfLines={1}
-                >
-                  {episode.title}
-                </Text>
-              ) : null}
-            </View>
-          </TouchableOpacity>
+            onToggle={toggleEpisode}
+          />
         ))}
       </View>
     </View>
+  );
+}
+
+/** 話数一覧の取得失敗表示。 */
+function EpisodeSectionError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View>
+      <SectionTitle>話数</SectionTitle>
+      <View className="items-center py-2 gap-2">
+        <Text className="text-xs text-slate-400 dark:text-slate-500">
+          話数情報を取得できませんでした
+        </Text>
+        <TouchableOpacity
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel="話数情報を再取得"
+          testID="episode-list-retry"
+        >
+          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            再試行
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+/** 「次の話を記録」ボタン。全話記録済みなら無効表示にする。 */
+function EpisodeNextRecordButton({
+  nextEpisode,
+  isMutating,
+  isWatched,
+  onRecord,
+}: {
+  nextEpisode: WorkEpisode | undefined;
+  isMutating: boolean;
+  isWatched: boolean;
+  onRecord: (episode: WorkEpisode) => void;
+}) {
+  const { t } = useTranslation();
+  const active = nextEpisode != null && !isMutating;
+  return (
+    <TouchableOpacity
+      className={`mb-3 items-center rounded-lg py-2.5 ${
+        active
+          ? "bg-indigo-600 dark:bg-indigo-500"
+          : "bg-slate-200 dark:bg-slate-700"
+      }`}
+      onPress={() => nextEpisode && onRecord(nextEpisode)}
+      disabled={!active}
+      accessibilityRole="button"
+      accessibilityLabel={
+        nextEpisode
+          ? `${episodeLabel(nextEpisode)}を視聴済みにする`
+          : "全話記録済み"
+      }
+      testID="episode-record-next"
+    >
+      <Text
+        className={`text-xs font-semibold ${
+          active ? "text-white" : "text-slate-500 dark:text-slate-400"
+        }`}
+      >
+        {nextEpisode
+          ? isWatched
+            ? t("{{episode}}の視聴を記録", {
+                episode: episodeLabel(nextEpisode),
+              })
+            : `${episodeLabel(nextEpisode)}を記録`
+          : "全話記録済み"}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+/** 話ごとの視聴記録チェック行。タップした話だけ記録・解除する。 */
+function EpisodeCheckRow({
+  episode,
+  disabled,
+  onToggle,
+}: {
+  episode: WorkEpisode;
+  disabled: boolean;
+  onToggle: (episode: WorkEpisode) => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <TouchableOpacity
+      className="flex-row items-center gap-2.5 py-1.5"
+      onPress={() => onToggle(episode)}
+      disabled={disabled}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: episode.watched, disabled }}
+      accessibilityLabel={`${episodeLabel(episode)}の視聴記録`}
+      testID={`episode-check-${episode.annictEpisodeId}`}
+    >
+      <Ionicons
+        name={episode.watched ? "checkbox" : "square-outline"}
+        size={18}
+        color={episode.watched ? colors.primaryText : colors.textFaint}
+      />
+      <View className="flex-1 min-w-0 flex-row items-baseline gap-2">
+        <Text
+          className={`text-xs font-medium ${
+            episode.watched
+              ? "text-slate-700 dark:text-slate-200"
+              : "text-slate-500 dark:text-slate-400"
+          }`}
+        >
+          {episodeLabel(episode)}
+        </Text>
+        {episode.title ? (
+          <Text
+            className="flex-1 text-xs text-slate-400 dark:text-slate-500"
+            numberOfLines={1}
+          >
+            {episode.title}
+          </Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
   );
 }
 

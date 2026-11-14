@@ -9,6 +9,7 @@ import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 
 // 詳細取得（API / Annict 連携）とステータス更新はフックのテストで検証する。
 // シート側は「描画と操作の受け渡し」だけを見るため、フックは状態ごとに
@@ -16,6 +17,7 @@ import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 const mockUseWorkDetail = jest.fn();
 const mockMutateAsync = jest.fn();
 const mockDeleteAsync = jest.fn();
+const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockAlert = jest.fn();
 const mockConfirm = jest.fn();
@@ -102,10 +104,34 @@ jest.mock("@/lib/events", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }));
 
+// シーズンチップ（issue #535）のライブラリタブへの遷移を捕捉する。
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock("@/lib/dialog", () => ({
   alert: (...args: unknown[]) => mockAlert(...args),
   confirm: (...args: unknown[]) => mockConfirm(...args),
 }));
+
+// BottomSheet は拡張子解決でプラットフォーム実装に分かれ、呼び出し側が
+// 渡した props（closeButtonAccessibilityLabel 等）は実装側で取り除かれて
+// ホスト要素に残らない。ここでは props をそのまま描画するモックに
+// 差し替え、シート側の受け渡しを検証できるようにする。
+jest.mock("@/components/ui/bottom-sheet", () => {
+  const { View } = jest.requireActual("react-native");
+  const { createElement } = jest.requireActual("react");
+  return {
+    BottomSheet: ({
+      visible,
+      children,
+      ...props
+    }: {
+      visible?: boolean;
+      children?: React.ReactNode;
+    }) => (visible ? createElement(View, props, children) : null),
+  };
+});
 
 // Annict 連携系はネイティブ依存（SecureStore / expo-web-browser）を持つため
 // フックを差し替える。連携状態・再連携プロンプトの分岐だけをここで制御する。
@@ -222,7 +248,7 @@ const watchedDetail = () =>
 
 const sheetElement = (
   props: {
-    work?: typeof WORK | null;
+    work?: WorkDetailSheetTarget | null;
     isFavorite?: boolean;
     onToggleFavorite?: jest.Mock;
     onOpenCharacterTierList?: jest.Mock;
@@ -269,11 +295,239 @@ describe("AnimeWorkDetailSheet", () => {
     await AsyncStorage.clear();
   });
 
+  it("ステータスの保存中と完了を操作欄に表示する", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
+    expect(screen.getByText("保存中…")).toBeTruthy();
+
+    await act(async () => {
+      finish({});
+    });
+    expect(screen.getByText("保存しました")).toBeTruthy();
+  });
+
+  it("評価と話数の保存中と完了をそれぞれの操作欄に表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    let finishRating: (value: unknown) => void = () => {};
+    let finishEpisode: (value: unknown) => void = () => {};
+    mockRatingUpsertAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRating = resolve;
+        }),
+    );
+    mockRecordEpisodeAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishEpisode = resolve;
+        }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+    expect(screen.getByTestId("work-rating-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+    await act(async () => {
+      finishRating({});
+    });
+    expect(screen.getByTestId("work-rating-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+
+    await fireEvent.press(screen.getByTestId("episode-record-next"));
+    expect(screen.getByTestId("episode-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+    await act(async () => {
+      finishEpisode({});
+    });
+    expect(screen.getByTestId("episode-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+  });
+
+  it("視聴済みでも話数の視聴記録が別に必要なことを示す", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    mockUseWorkEpisodes.mockReturnValue(
+      episodesState({
+        data: {
+          episodes: EPISODES.episodes.map((episode) => ({
+            ...episode,
+            watched: false,
+          })),
+        },
+      }),
+    );
+    await render(sheetElement());
+
+    expect(
+      screen.getByText(
+        "視聴ステータスと話数の記録は別です。未記録の話を記録できます。",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("第1話の視聴を記録")).toBeTruthy();
+  });
+
+  it("別作品へ切り替えたら前の作品の保存結果を表示しない", async () => {
+    mockUseWorkDetail.mockReturnValue(watchedDetail());
+    const { rerender } = await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-detail-status-WANNA_WATCH"));
+    await fireEvent.press(screen.getByTestId("work-detail-rating-good"));
+    await fireEvent.press(screen.getByTestId("episode-record-next"));
+    await act(async () => {});
+
+    await rerender(sheetElement({ work: { ...WORK, annictWorkId: 43 } }));
+    expect(screen.queryByTestId("status-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("work-rating-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("episode-save-feedback")).toBeNull();
+
+    // A→B→A と戻ったときも再表示しない。セクションは同じ位置に残るため、
+    // 作品ごとに state を破棄しないと A の「保存しました」が残ったまま
+    // React に再利用される。
+    await rerender(sheetElement());
+    expect(screen.queryByTestId("status-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("work-rating-save-feedback")).toBeNull();
+    expect(screen.queryByTestId("episode-save-feedback")).toBeNull();
+  });
+
+  it("先行する保存の完了が後続操作の保存中表示を上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    const resolvers: Array<(value: unknown) => void> = [];
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    await render(sheetElement());
+
+    // 未設定の作品で「視聴中」の保存が残ったまま最終話の記録が終わると、
+    // 自動更新（issue #467）が後続で「視聴済み」の保存を開始する。
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    // 先行する「視聴中」の保存が完了しても、後続の保存中は完了表示にしない。
+    await act(async () => {
+      resolvers[0]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    // 後続の保存が完了して初めて完了表示に変わる。
+    await act(async () => {
+      resolvers[1]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+  });
+
+  it("先行する保存の失敗が後続操作の保存中表示を上書きしない", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({ data: { work: { ...DETAIL.work, state: null } } }),
+    );
+    const resolvers: Array<(value: unknown) => void> = [];
+    const rejecters: Array<(reason: unknown) => void> = [];
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          resolvers.push(resolve);
+          rejecters.push(reject);
+        }),
+    );
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHING"));
+    await fireEvent.press(screen.getByTestId("episode-check-103"));
+    await act(async () => {});
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+
+    // 先行する「視聴中」の保存が失敗しても、後続の保存中は失敗表示にしない。
+    // 失敗自体の通知（ダイアログ）は従来どおり出す。
+    await act(async () => {
+      rejecters[0](new ApiRequestError(500, "視聴履歴の更新に失敗しました"));
+    });
+    expect(mockAlert).toHaveBeenCalledWith(
+      "更新できませんでした",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存中…",
+    );
+
+    await act(async () => {
+      resolvers[1]({});
+    });
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+  });
+
+  it("同じ作品を開き直したら前回の保存結果を表示しない", async () => {
+    const view = await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存しました",
+    );
+
+    await view.rerender(sheetElement({ work: null }));
+    await view.rerender(sheetElement());
+    expect(screen.queryByTestId("status-save-feedback")).toBeNull();
+  });
+
+  it("閉じる前の保存が後から完了しても開き直した作品に結果を表示しない", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mockMutateAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = await render(sheetElement());
+    await fireEvent.press(screen.getByTestId("work-detail-status-WATCHED"));
+
+    await view.rerender(sheetElement({ work: null }));
+    await view.rerender(sheetElement());
+    await act(async () => {
+      finish({});
+    });
+    expect(screen.queryByTestId("status-save-feedback")).toBeNull();
+  });
+
   it("作品詳細に中間の高さと全画面の停止位置を指定する", async () => {
     await render(sheetElement());
     expect(
       screen.getByTestId("anime-work-detail-sheet").props.snapPoints,
     ).toEqual([{ fraction: 0.8 }, "full"]);
+  });
+
+  it("Web シート右上の閉じるボタン用のラベルを BottomSheet へ渡す", async () => {
+    // Web にはスワイプで閉じる手段が無いため、カード右上に実体の
+    // 閉じるボタンを出す（issue #529）。ボタン自体の描画とクリックは
+    // BottomSheet.web.test.tsx で検証する。
+    await render(sheetElement());
+    expect(
+      screen.getByTestId("anime-work-detail-sheet").props
+        .closeButtonAccessibilityLabel,
+    ).toBe("作品詳細を閉じる");
   });
 
   it("work が null のときシートを表示しない", async () => {
@@ -287,8 +541,65 @@ describe("AnimeWorkDetailSheet", () => {
 
     expect(screen.getByText("テストアニメ")).toBeTruthy();
     expect(screen.getByText("Test Anime")).toBeTruthy();
-    expect(screen.getByText(/2026年春・TV/)).toBeTruthy();
+    // シーズンは同時期の作品一覧へ移るチップ（issue #535）として出す。
+    expect(screen.getByTestId("work-detail-season-chip")).toBeTruthy();
+    expect(screen.getByText("2026年 春")).toBeTruthy();
+    expect(screen.getByTestId("work-detail-year-chip")).toBeTruthy();
+    expect(screen.getByText("TV")).toBeTruthy();
     expect(screen.getByLabelText("テストアニメのサムネイル")).toBeTruthy();
+  });
+
+  it("シーズンチップを押すとシートを閉じて同じシーズンの一覧へ移る（issue #535）", async () => {
+    const onClose = jest.fn();
+    await render(sheetElement({ onClose }));
+
+    await fireEvent.press(screen.getByTestId("work-detail-season-chip"));
+
+    // 一覧へ移ったあともシートが残らないよう先に閉じる。
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: "2026-spring",
+        nav: expect.any(String),
+      },
+    });
+  });
+
+  it("年チップを押すとその年の通年の一覧へ移る（issue #535）", async () => {
+    const onClose = jest.fn();
+    await render(sheetElement({ onClose }));
+
+    await fireEvent.press(screen.getByTestId("work-detail-year-chip"));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: "2026",
+        nav: expect.any(String),
+      },
+    });
+  });
+
+  it("seasonYear のみの作品は年チップだけを出す", async () => {
+    await render(sheetElement({ work: { ...WORK, seasonName: null } }));
+
+    expect(screen.queryByTestId("work-detail-season-chip")).toBeNull();
+    expect(screen.getByTestId("work-detail-year-chip")).toBeTruthy();
+  });
+
+  it("seasonYear / seasonName が無い作品ではチップを出さない", async () => {
+    await render(
+      sheetElement({ work: { ...WORK, seasonYear: null, seasonName: null } }),
+    );
+
+    expect(screen.queryByTestId("work-detail-season-chip")).toBeNull();
+    expect(screen.queryByTestId("work-detail-year-chip")).toBeNull();
+    // メディア種別の表示はシーズンとは独立に残る。
+    expect(screen.getByText("TV")).toBeTruthy();
   });
 
   it("Annict の詳細情報（話数・視聴者数・満足度・リンク）を表示する", async () => {
@@ -482,6 +793,9 @@ describe("AnimeWorkDetailSheet", () => {
       expect.any(String),
       expect.objectContaining({ okLabel: "OK" }),
     );
+    expect(screen.getByTestId("status-save-feedback").props.children).toBe(
+      "保存できませんでした",
+    );
     // 楽観値は下ろされ、サーバー値（WATCHING）の表示に戻る
     const chip = screen.getByTestId("work-detail-status-WATCHING");
     expect(chip.props.accessibilityState?.selected).toBe(true);
@@ -601,6 +915,9 @@ describe("AnimeWorkDetailSheet", () => {
       "更新できませんでした",
       expect.any(String),
       expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(screen.getByTestId("episode-save-feedback").props.children).toBe(
+      "保存できませんでした",
     );
   });
 
@@ -1005,6 +1322,9 @@ describe("AnimeWorkDetailSheet", () => {
       "更新できませんでした",
       expect.any(String),
       expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(screen.getByTestId("work-rating-save-feedback").props.children).toBe(
+      "保存できませんでした",
     );
     expect(
       screen.getByTestId("work-detail-rating-great").props.accessibilityState

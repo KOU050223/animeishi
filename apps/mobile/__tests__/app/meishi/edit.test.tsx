@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -68,8 +69,14 @@ jest.mock("@/components/meishi/EditorCanvas", () => ({
   },
 }));
 
+// Web 版は editorBody 内オーバーレイとして描画される（issue #528）。
+// 画面テストで配置を確かめるため、visible のときだけ目印を出す。
 jest.mock("@/components/meishi/AddElementSheet", () => ({
-  AddElementSheet: () => null,
+  AddElementSheet: ({ visible }: { visible: boolean }) => {
+    if (!visible) return null;
+    const { View } = require("react-native");
+    return <View testID="add-element-sheet" />;
+  },
 }));
 
 jest.mock("@/components/meishi/AnimeImagePicker", () => ({
@@ -307,6 +314,25 @@ describe("MeishiEditScreen の戻るボタン", () => {
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/(tabs)/profile");
     expect(mockSaveDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe("MeishiEditScreen の要素追加パネル（issue #528）", () => {
+  // Web 版は editorBody 内オーバーレイとして描画される。パネルが editorBody
+  // の中に・戻るボタンが外にある構造を固定しておけば、Web でパネルが
+  // ヘッダーを覆う不具合の再発を検出できる。
+  it("パネル表示中も戻るボタンはパネルの外（ヘッダー）にあり押せる", async () => {
+    mockCanGoBack.mockReturnValue(true);
+    await renderScreen();
+
+    await fireEvent.press(screen.getByLabelText("要素を追加"));
+
+    const editorBody = screen.getByTestId("meishi-editor-body");
+    expect(within(editorBody).getByTestId("add-element-sheet")).toBeTruthy();
+    expect(within(editorBody).queryByLabelText("戻る")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("戻る"));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
 

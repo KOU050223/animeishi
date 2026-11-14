@@ -212,9 +212,10 @@ function sortKeyOf(sort: PublicTierListsSort, row: PublicTierListRow): number {
 /** 一覧カードのサムネイル。先頭 tier の先頭アイテムから最大 3 個。 */
 const THUMB_COUNT = 3;
 
+// title / name は画像が取れないときの代替表示に使う（issue #522）。
 export type PublicTierListThumb =
-  | { kind: "work"; annictWorkId: number }
-  | { kind: "character"; imageUrl: string | null };
+  | { kind: "work"; annictWorkId: number; title: string }
+  | { kind: "character"; imageUrl: string | null; name: string };
 
 export function publicTierListsRepository(
   db: DrizzleDb,
@@ -762,8 +763,13 @@ export function publicTierListsRepository(
                 workId: tierListItems.annictWorkId,
                 tierKey: tierListItems.tierKey,
                 position: tierListItems.position,
+                title: annictWorks.title,
               })
               .from(tierListItems)
+              .innerJoin(
+                annictWorks,
+                eq(tierListItems.annictWorkId, annictWorks.annictWorkId),
+              )
               .where(inArray(tierListItems.tierListId, seasonIds)),
         characterIds.length === 0
           ? Promise.resolve([])
@@ -774,6 +780,7 @@ export function publicTierListsRepository(
                 tierKey: characterTierListItems.tierKey,
                 position: characterTierListItems.position,
                 imageUrl: annictCharacters.imageUrl,
+                name: annictCharacters.name,
               })
               .from(characterTierListItems)
               .innerJoin(
@@ -797,8 +804,13 @@ export function publicTierListsRepository(
                 workId: customTierListItems.annictWorkId,
                 tierKey: customTierListItems.tierKey,
                 position: customTierListItems.position,
+                title: annictWorks.title,
               })
               .from(customTierListItems)
+              .innerJoin(
+                annictWorks,
+                eq(customTierListItems.annictWorkId, annictWorks.annictWorkId),
+              )
               .where(inArray(customTierListItems.customTierListId, customIds)),
       ]);
 
@@ -837,11 +849,13 @@ export function publicTierListsRepository(
             thumbs.push({
               kind: "character",
               imageUrl: "imageUrl" in item ? item.imageUrl : null,
+              name: "name" in item ? item.name : "",
             });
           } else {
             thumbs.push({
               kind: "work",
               annictWorkId: "workId" in item ? item.workId : 0,
+              title: "title" in item ? item.title : "",
             });
           }
         }

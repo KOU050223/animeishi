@@ -41,6 +41,7 @@ import {
   currentSeason,
   formatSeasonLabel,
   getAnimeListLayout,
+  parseSeasonFilterParam,
   toSeasonParam,
   type SeasonFilterKey,
 } from "./animeListUtils";
@@ -61,6 +62,7 @@ export function AnimeListContent({
   toggleFavorite,
   isToggling,
   initialQuery,
+  initialSeason,
 }: {
   favoriteIds: Set<number>;
   toggleFavorite: (annictWorkId: number) => void;
@@ -68,6 +70,10 @@ export function AnimeListContent({
   // 検索遷移（library?q=）で検索語を入れた状態で開くための初期値。
   // 途中変更は key によるリマウントで反映する（呼び出し側が key を変える）。
   initialQuery?: string;
+  // シーズン一覧遷移（library?season=、issue #535）で指定シーズンを
+  // 絞り込んだ状態で開くための初期値（"2026-spring" / 通年 "2026"）。
+  // 途中変更は initialQuery と同じく key のリマウントで反映する。
+  initialSeason?: string;
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -89,9 +95,13 @@ export function AnimeListContent({
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   // シーズン絞り込みの選択状態（初期は JST の今年・今期。API の「今期」判定に揃える）。
   // 検索語が空のときだけ効く。通年指定（"all"）はその年の 4 クール全部。
-  const [filterYear, setFilterYear] = useState(() => currentSeason().year);
+  // initialSeason（詳細シートのシーズンチップ等、issue #535）があればそこから始める。
+  const initialFilter = parseSeasonFilterParam(initialSeason);
+  const [filterYear, setFilterYear] = useState(
+    () => initialFilter?.year ?? currentSeason().year,
+  );
   const [filterSeason, setFilterSeason] = useState<SeasonFilterKey>(
-    () => currentSeason().key,
+    () => initialFilter?.key ?? currentSeason().key,
   );
   const seasonParam = toSeasonParam(filterYear, filterSeason);
   const filterActive = isAnimeListFilterActive(filters);

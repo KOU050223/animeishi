@@ -34,7 +34,7 @@ SDK のサポート期間は約1年。SDK 54（2025-09 リリース）は 2026 �
 - **Expo Go は実質サブ経路に**: App Store 審査遅延とログイン必須化で、
   dev client がデフォルトの開発経路。本プロジェクトは既に dev client
 - **エージェント向けツール**: Expo MCP（Free plan 可）、`@expo/agent-cli`、
-  公式 `expo/skills` リポジトリ（このリポジトリにも upgrading-expo 等の
+  公式 `expo/skills` リポジトリ（このリポジトリにも expo-upgrade 等の
   スキルが入っている）
 
 ## 方針: SDK 58 へ直行
@@ -55,7 +55,7 @@ SDK のサポート期間は約1年。SDK 54（2025-09 リリース）は 2026 �
 手順は Expo 公式と同じ: `npx expo install expo@^58.0.0 --fix` →
 `npx expo-doctor@latest` → SDK 57→58 ルーター移行ガイド
 （https://docs.expo.dev/router/migrate/sdk-57-to-58/）の確認。
-作業時はリポジトリの `upgrading-expo` スキルを使う。
+作業時はリポジトリの `expo-upgrade` スキルを使う。
 
 ## アップグレード時の確認事項（このコードベース固有）— 実施結果
 

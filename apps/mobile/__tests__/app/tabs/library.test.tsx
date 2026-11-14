@@ -10,7 +10,12 @@ import { colors } from "@/lib/theme/colors";
 // useLocalSearchParams の値はテストごとに差し替える。
 // setParams は実際はナビゲーション状態を更新して再描画するため、
 // モックでは params の差し替えまで行い、再描画は rerender で再現する。
-let mockParams: { section?: string } = {};
+let mockParams: {
+  section?: string;
+  q?: string;
+  season?: string;
+  nav?: string;
+} = {};
 const mockSetParams = jest.fn((p: Record<string, string>) => {
   mockParams = { ...mockParams, ...p };
 });
@@ -23,8 +28,19 @@ jest.mock("expo-router", () => ({
 }));
 
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
+// issue #535: ?q=&season=&nav= が AnimeSection に渡るかだけはここで見る。
+const mockAnimeSectionCalls: {
+  initialQuery?: string;
+  initialSeason?: string;
+  navNonce?: string;
+}[] = [];
 jest.mock("@/components/library/AnimeSection", () => ({
-  AnimeSection: () => {
+  AnimeSection: (props: {
+    initialQuery?: string;
+    initialSeason?: string;
+    navNonce?: string;
+  }) => {
+    mockAnimeSectionCalls.push(props);
     const React = require("react");
     const { Text } = require("react-native");
     return React.createElement(Text, { testID: "section-anime" });
@@ -47,6 +63,7 @@ jest.mock("@/components/library/FavoritesSection", () => ({
 
 beforeEach(() => {
   mockParams = {};
+  mockAnimeSectionCalls.length = 0;
   mockSetParams.mockClear();
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
@@ -95,6 +112,18 @@ describe("LibraryScreen", () => {
     await render(<LibraryScreen />);
 
     expect(screen.getByTestId("section-anime")).toBeTruthy();
+  });
+
+  it("?season=&nav= で開くと AnimeSection にシーズンと再マウント用の nonce を渡す（issue #535）", async () => {
+    mockParams = { section: "anime", season: "2025-winter", nav: "123" };
+    await render(<LibraryScreen />);
+
+    expect(screen.getByTestId("section-anime")).toBeTruthy();
+    expect(mockAnimeSectionCalls.at(-1)).toEqual({
+      initialQuery: undefined,
+      initialSeason: "2025-winter",
+      navNonce: "123",
+    });
   });
 
   // ネイティブヘッダーと背景色が食い違わないよう、セクションによらず

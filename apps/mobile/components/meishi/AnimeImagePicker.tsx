@@ -84,7 +84,7 @@ function AnimePickRow({
       accessibilityRole="button"
       accessibilityLabel={`${item.title}の画像を追加`}
     >
-      <WorkThumbnail uri={uri} width={44} height={58} />
+      <WorkThumbnail uri={uri} title={item.title} width={44} height={58} />
       <View style={{ flex: 1 }}>
         <Text
           style={{ fontSize: 14, fontWeight: "600", color: colors.text }}

@@ -6,6 +6,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import CharacterTierListScreen from "@/app/character-tier-list";
+import { alert } from "@/lib/dialog";
 import {
   DEFAULT_TIERS,
   defaultCharacterTierListTitle,
@@ -20,6 +21,7 @@ let mockSaved: unknown = null;
 let mockSavedLoading = false;
 let mockSavedError = false;
 let mockCharacters: TierItem[] = [];
+let mockCharactersError = false;
 let mockFetchedWorkTitle: string | null = null;
 
 jest.mock("expo-router", () => ({
@@ -74,13 +76,19 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
     characters: mockCharacters,
     workTitle: mockFetchedWorkTitle,
     isLoading: false,
-    isError: false,
+    isError: mockCharactersError,
     isConnected: true,
     isConnectionLoading: false,
   }),
 }));
 
 const mockSaveMutate = jest.fn();
+const mockSaveMutateAsync = jest.fn();
+const mockShareMutateAsync = jest.fn();
+const mockBeginShare = jest.fn();
+const mockCancelShare = jest.fn();
+const mockPresentShareUrl = jest.fn();
+const mockPresentOptions = jest.fn();
 jest.mock("@/lib/tierList/useCharacterTierList", () => ({
   useSavedCharacterTierList: () => ({
     data: mockSaved,
@@ -89,20 +97,23 @@ jest.mock("@/lib/tierList/useCharacterTierList", () => ({
   }),
   useSaveCharacterTierList: () => ({
     mutate: mockSaveMutate,
-    mutateAsync: jest.fn(),
+    mutateAsync: mockSaveMutateAsync,
     isPending: false,
     isError: false,
   }),
-  useShareCharacterTierList: () => ({ mutateAsync: jest.fn() }),
+  useShareCharacterTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
 jest.mock("@/lib/tierList/share", () => ({
-  buildCharacterTierListShareUrl: jest.fn(),
+  buildCharacterTierListShareUrl: () =>
+    "https://example.com/share/character-tier-lists/token",
   captureTierListImageFile: jest.fn(),
-  presentTierShareOptions: jest.fn(),
+  presentTierShareOptions: (options: unknown) => mockPresentOptions(options),
   shareTierListImage: jest.fn(),
   useTierUrlShare: () => ({
-    shareUrl: jest.fn(),
+    beginShare: mockBeginShare,
+    cancelShare: mockCancelShare,
+    shareUrl: mockPresentShareUrl,
     urlShareElement: null,
   }),
 }));
@@ -138,8 +149,39 @@ beforeEach(async () => {
   mockSavedLoading = false;
   mockSavedError = false;
   mockCharacters = [character(1)];
+  mockCharactersError = false;
   mockFetchedWorkTitle = "テスト作品";
   mockBoardProps = null;
+  mockPresentOptions.mockImplementation((options: { onShareUrl: () => void }) =>
+    options.onShareUrl(),
+  );
+});
+
+describe("CharacterTierListScreen の Web 共有", () => {
+  it("押下直後に準備表示を始め、トークン発行後に URL モーダルへ進む", async () => {
+    mockSaveMutateAsync.mockResolvedValue(savedList("キャラ表", []));
+    mockShareMutateAsync.mockResolvedValue({ shareToken: "token" });
+    mockPresentShareUrl.mockResolvedValue("shared");
+    await render(<CharacterTierListScreen />);
+    await fireEvent.press(screen.getByTestId("character-tier-list-share"));
+    expect(mockBeginShare).toHaveBeenCalledTimes(1);
+    await act(async () => {});
+    expect(mockPresentShareUrl).toHaveBeenCalledWith(
+      "https://example.com/share/character-tier-lists/token",
+    );
+  });
+
+  it("キャラクター取得エラー時も共有ボタンから失敗理由を通知する", async () => {
+    mockCharactersError = true;
+    await render(<CharacterTierListScreen />);
+    await fireEvent.press(screen.getByTestId("character-tier-list-share"));
+    expect(alert).toHaveBeenCalledWith(
+      "共有できません",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(mockSaveMutateAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe("CharacterTierListScreen の盤面 hydrate（レンダー中の状態調整）", () => {

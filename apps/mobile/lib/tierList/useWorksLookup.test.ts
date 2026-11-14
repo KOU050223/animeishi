@@ -97,6 +97,17 @@ describe("useWorksLookup", () => {
     expect(result.current.data?.works.map((w) => w.annictWorkId)).toEqual(ids);
   });
 
+  it("入力 ids や応答に同じ id が重複しても works は 1 件に畳む（issue #521）", async () => {
+    const { result } = await renderHook(() => useWorksLookup([1, 2, 1]), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data?.works).toHaveLength(2));
+    expect(result.current.data?.works.map((w) => w.annictWorkId)).toEqual([
+      1, 2,
+    ]);
+  });
+
   it("途中のバッチが失敗したらエラーになる", async () => {
     const ids = Array.from({ length: 60 }, (_, i) => i + 1);
     mockLookupGet

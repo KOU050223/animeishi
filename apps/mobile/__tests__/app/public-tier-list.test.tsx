@@ -238,6 +238,34 @@ describe("PublicTierListScreen", () => {
     });
   });
 
+  it("旧データに同じ作品の重複行が残っていても 1 件だけ出す（issue #521）", async () => {
+    // 保存 API は item id の重複を弾くが、重複行が残った旧データでも
+    // 同じ作品が行内に複数並ばないようにする。
+    mockData = detail({
+      items: [
+        {
+          kind: "work",
+          annictWorkId: 10,
+          tierKey: "s",
+          position: 0,
+          title: "作品甲",
+          hostedImageUrl: "",
+        },
+        {
+          kind: "work",
+          annictWorkId: 10,
+          tierKey: "s",
+          position: 1,
+          title: "作品甲",
+          hostedImageUrl: "",
+        },
+      ],
+    });
+    await render(<PublicTierListScreen />);
+
+    expect(screen.getAllByText("作品甲")).toHaveLength(1);
+  });
+
   it("見えないリストは「表示できません」を出す", async () => {
     mockData = undefined;
     mockError = true;

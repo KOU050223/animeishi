@@ -309,7 +309,7 @@ export default function MeishiEditScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.editorBody}>
+      <View style={styles.editorBody} testID="meishi-editor-body">
         <GestureDetector gesture={tapCanvasBackdrop}>
           <View
             style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
@@ -391,18 +391,20 @@ export default function MeishiEditScreen() {
             </View>
           )}
         </View>
-      </View>
 
-      <AddElementSheet
-        visible={addSheet}
-        onClose={() => setAddSheet(false)}
-        onPick={handleAddElement}
-        onPickAvatarImage={handleAddAvatar}
-        onPickAnimeImage={() => {
-          setAddSheet(false);
-          setAnimePickerTarget("new");
-        }}
-      />
+        {/* Web 版は editorBody 内オーバーレイとして描画される。ヘッダーの
+            戻るボタンを覆わないよう editorBody の中に置く（issue #528） */}
+        <AddElementSheet
+          visible={addSheet}
+          onClose={() => setAddSheet(false)}
+          onPick={handleAddElement}
+          onPickAvatarImage={handleAddAvatar}
+          onPickAnimeImage={() => {
+            setAddSheet(false);
+            setAnimePickerTarget("new");
+          }}
+        />
+      </View>
 
       {animePickerTarget !== null ? (
         <AnimeImagePicker

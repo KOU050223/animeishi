@@ -674,6 +674,8 @@ export function worksRepository(db: DrizzleDb) {
           malSearchAttemptedAt: at,
           imageFallbackAttemptedAt: null,
           imageR2AttemptedAt: null,
+          imageSource: sql`case when ${annictWorks.imageSource} = 'none' then null else ${annictWorks.imageSource} end`,
+          resolvedAt: sql`case when ${annictWorks.imageSource} = 'none' then null else ${annictWorks.resolvedAt} end`,
           genres: null,
           genresFetchedAt: null,
           genresAttemptedAt: null,
@@ -706,6 +708,8 @@ export function worksRepository(db: DrizzleDb) {
           malSearchAttemptedAt: at,
           imageFallbackAttemptedAt: null,
           imageR2AttemptedAt: null,
+          imageSource: sql`case when ${annictWorks.imageSource} = 'none' then null else ${annictWorks.imageSource} end`,
+          resolvedAt: sql`case when ${annictWorks.imageSource} = 'none' then null else ${annictWorks.resolvedAt} end`,
           // ジャンル・タグは名寄せキー由来の値なので、キーが入り直した行は
           // 破棄して genre_fetch cron に取り直させる。
           genres: null,

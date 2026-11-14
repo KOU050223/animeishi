@@ -14,6 +14,7 @@ import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import { WorkImage } from "@/components/anime-list/WorkImage";
+import { dedupeWorksById } from "@/lib/useAnimeList";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
 import type { TierItem } from "@/lib/tierList/types";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
@@ -69,6 +70,9 @@ export function WorkAddSheet({
     resultsStale,
     refetch,
   } = useWorkSearch(query, visible);
+
+  // 検索応答内に同じ作品が複数載る場合に備えて id で潰しておく（issue #521）。
+  const displayWorks = dedupeWorksById(works);
 
   return (
     <Modal
@@ -196,7 +200,7 @@ export function WorkAddSheet({
                 </Text>
               ) : (
                 <FlatList
-                  data={works}
+                  data={displayWorks}
                   keyExtractor={(item) => String(item.annictWorkId)}
                   keyboardShouldPersistTaps="handled"
                   ListFooterComponent={
