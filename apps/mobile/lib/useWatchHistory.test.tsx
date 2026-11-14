@@ -702,6 +702,69 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
     expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([2]);
   });
 
+  it("部分追従しても履歴クエリの取得時刻は維持される（全件同期の鮮度を上げない）", async () => {
+    // stale な履歴を古い dataUpdatedAt で再現する。部分書き換えで取得時刻が
+    // 更新されると、ライブラリ側が fresh と誤認して全件同期を省いてしまう。
+    const past = Date.now() - 10 * 60 * 1000;
+    client.setQueryData(
+      queryKey,
+      [{ annictWorkId: 1, title: "作品A", state: "WATCHED" }],
+      { updatedAt: past },
+    );
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(getStates(client)?.[0].state).toBe("WATCHING");
+    expect(client.getQueryState(queryKey)?.dataUpdatedAt).toBe(past);
+  });
+
+  it("詳細と一致する履歴では取得時刻もデータも変えない", async () => {
+    const past = Date.now() - 10 * 60 * 1000;
+    client.setQueryData(
+      queryKey,
+      [{ annictWorkId: 1, title: "作品A", state: "WATCHING" }],
+      { updatedAt: past },
+    );
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(client.getQueryState(queryKey)?.dataUpdatedAt).toBe(past);
+  });
+
+  it("履歴キャッシュに無い作品の詳細でも取得時刻は変わらない", async () => {
+    const past = Date.now() - 10 * 60 * 1000;
+    client.setQueryData(
+      queryKey,
+      [{ annictWorkId: 2, title: "作品B", state: "WATCHING" }],
+      { updatedAt: past },
+    );
+    mockGetWork.mockResolvedValue({
+      ok: true,
+      json: async () => ({ work: { annictWorkId: 1, state: "WATCHING" } }),
+    });
+
+    const { result } = await renderHook(() => useWorkDetail(1), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(client.getQueryState(queryKey)?.dataUpdatedAt).toBe(past);
+  });
+
   it("履歴の書き込みミューテーション中は履歴キャッシュを上書きしない", async () => {
     client.setQueryData(queryKey, [
       { annictWorkId: 1, title: "作品A", state: "WATCHED" },

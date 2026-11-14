@@ -67,14 +67,22 @@ export function useWorkDetail(annictWorkId: number | null) {
           predicate: (m) => m.options.scope?.id === WATCH_HISTORY_WRITE_SCOPE,
         }) > 0;
       if (!writesPending && userId) {
+        const historyKey = [...WATCH_HISTORY_QUERY_KEY, userId] as const;
+        // 1 作品分の部分書き換えで履歴全体の dataUpdatedAt が今にならないよう、
+        // 元の取得時刻を維持する（維持しないと stale な履歴が fresh 扱いになり、
+        // ライブラリを開いても全件同期が走らない）。
+        const updatedAt = queryClient.getQueryState(historyKey)?.dataUpdatedAt;
         queryClient.setQueryData<WatchHistoryCacheItem[]>(
-          [...WATCH_HISTORY_QUERY_KEY, userId],
+          historyKey,
           (old) => {
-            if (!old) return old;
+            if (!old) return undefined;
             const index = old.findIndex(
               (item) => item.annictWorkId === annictWorkId,
             );
-            if (index < 0 || old[index].state === json.work.state) return old;
+            // 変化が無いときは undefined を返して書き込み自体を行わない
+            // （setQueryData は同じ配列を返しても dataUpdatedAt を更新する）。
+            if (index < 0 || old[index].state === json.work.state)
+              return undefined;
             // state=null（NO_STATE / ステータス解除）は履歴応答に行が
             // 無い形と一致させるため、キャッシュからも除く。
             const state = json.work.state;
@@ -85,6 +93,7 @@ export function useWorkDetail(annictWorkId: number | null) {
               i === index ? { ...item, state } : item,
             );
           },
+          updatedAt == null ? undefined : { updatedAt },
         );
       }
       return json;
