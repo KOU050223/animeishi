@@ -5,6 +5,7 @@ import { copyTierListUrl } from "./sheet";
 import { canShareImageFile, downloadImageFile, shareImageFile } from "./image";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
+import { alert } from "@/lib/dialog";
 
 function buildXIntentUrl(url: string, text?: string): string {
   const params = new URLSearchParams({ url });
@@ -55,6 +56,13 @@ function TierUrlShareModal({
     try {
       await copyTierListUrl(url);
       setCopied(true);
+      alert(
+        "リンクをコピーしました",
+        "共有リンクをクリップボードにコピーしました。",
+        {
+          okLabel: "OK",
+        },
+      );
     } catch {
       setCopyFailed(true);
     }

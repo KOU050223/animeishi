@@ -586,6 +586,7 @@ export default function TierListScreen() {
           description={description}
           onChangeDescription={handleChangeDescription}
           isPublic={isPublic}
+          shareToken={saved?.shareToken ?? null}
           onChangeIsPublic={handleChangeIsPublic}
           disabled={isSharing || save.isPending || isSavedLoading}
           testIDPrefix="tier-list"

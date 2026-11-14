@@ -546,6 +546,7 @@ export default function CustomTierListScreen() {
           description={description}
           onChangeDescription={handleChangeDescription}
           isPublic={isPublic}
+          shareToken={saved?.shareToken ?? null}
           onChangeIsPublic={handleChangeIsPublic}
           disabled={isSharing || save.isPending || isSavedLoading}
           testIDPrefix="custom-tier-list"

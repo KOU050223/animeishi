@@ -189,9 +189,14 @@ export function CreateSection() {
               >
                 {item.title}
               </Text>
-              {item.shared ? (
+              {item.shared || item.isPublic ? (
                 <Text className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  共有中
+                  {[
+                    item.shared ? "リンク共有中" : null,
+                    item.isPublic ? "ひろばに公開中" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ・ ")}
                 </Text>
               ) : null}
             </TouchableOpacity>

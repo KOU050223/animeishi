@@ -12,6 +12,11 @@ import {
 } from "@testing-library/react-native";
 import { useTierUrlShare } from "./urlShare.web";
 
+const mockAlert = jest.fn();
+jest.mock("@/lib/dialog", () => ({
+  alert: (...args: unknown[]) => mockAlert(...args),
+}));
+
 const mockCopy = jest.fn();
 // jest のモジュール解決は .web を選ばないため "./sheet" はフォールバック
 // （throw スタブ）になる。web 実装の copyTierListUrl を差し込む。
@@ -73,6 +78,7 @@ describe("useTierUrlShare (web)", () => {
     mockShareFile.mockReset().mockResolvedValue(undefined);
     mockDownload.mockReset();
     mockCopy.mockReset().mockResolvedValue(undefined);
+    mockAlert.mockReset();
     Object.defineProperty(window, "open", { value: openSpy, writable: true });
   });
 
@@ -106,6 +112,11 @@ describe("useTierUrlShare (web)", () => {
 
     expect(mockCopy).toHaveBeenCalledWith(SHARE_URL);
     expect(await screen.findByText("コピーしました")).toBeTruthy();
+    expect(mockAlert).toHaveBeenCalledWith(
+      "リンクをコピーしました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
   });
 
   it("「閉じる」でモーダルを閉じる", async () => {
