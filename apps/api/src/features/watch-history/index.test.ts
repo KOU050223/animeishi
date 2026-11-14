@@ -33,6 +33,7 @@ function mockAnnictLibrary(
     malAnimeId?: string | null;
     recommendedImageUrl?: string | null;
     watchersCount?: number | null;
+    workMissing?: boolean;
   }[],
 ): void {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -44,25 +45,27 @@ function mockAnnictLibrary(
               pageInfo: { hasNextPage: false, endCursor: null },
               nodes: nodes.map((n) => ({
                 status: n.state === null ? null : { state: n.state },
-                work: {
-                  annictId: n.annictId,
-                  title: n.title ?? `作品${n.annictId}`,
-                  titleKana: null,
-                  titleEn: null,
-                  seasonName: null,
-                  seasonYear: null,
-                  watchersCount: n.watchersCount ?? null,
-                  malAnimeId: n.malAnimeId ?? null,
-                  image: {
-                    internalUrl: null,
-                    recommendedImageUrl: n.recommendedImageUrl ?? null,
-                    facebookOgImageUrl: null,
-                    twitterBiggerAvatarUrl: null,
-                    twitterAvatarUrl: null,
-                    twitterNormalAvatarUrl: null,
-                    twitterMiniAvatarUrl: null,
-                  },
-                },
+                work: n.workMissing
+                  ? null
+                  : {
+                      annictId: n.annictId,
+                      title: n.title ?? `作品${n.annictId}`,
+                      titleKana: null,
+                      titleEn: null,
+                      seasonName: null,
+                      seasonYear: null,
+                      watchersCount: n.watchersCount ?? null,
+                      malAnimeId: n.malAnimeId ?? null,
+                      image: {
+                        internalUrl: null,
+                        recommendedImageUrl: n.recommendedImageUrl ?? null,
+                        facebookOgImageUrl: null,
+                        twitterBiggerAvatarUrl: null,
+                        twitterAvatarUrl: null,
+                        twitterNormalAvatarUrl: null,
+                        twitterMiniAvatarUrl: null,
+                      },
+                    },
               })),
             },
           },
@@ -278,6 +281,118 @@ describe("視聴履歴 API", () => {
       expect(body.find((h) => h.annictWorkId === NEW_WORK)?.state).toBe(
         "WANNA_WATCH",
       );
+    });
+
+    it("GET /me/watch-histories: Annict の viewer が欠けても既存履歴を消さない", async () => {
+      await db.insert(watchHistoryTable).values({
+        userId: USER_ID,
+        annictWorkId: ANNICT_WORK_ID,
+        state: "WATCHING",
+        updatedAt: new Date(),
+      });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ data: { viewer: null } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(502);
+      const stored = await db.query.watchHistory.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
+      });
+      expect(stored?.state).toBe("WATCHING");
+    });
+
+    it("GET /me/watch-histories: 取得不能な作品を残して正常な作品を同期する", async () => {
+      await db.insert(watchHistoryTable).values({
+        userId: USER_ID,
+        annictWorkId: ANNICT_WORK_ID,
+        state: "WATCHED",
+        updatedAt: new Date(),
+      });
+      mockAnnictLibrary([
+        { annictId: ANNICT_WORK_ID, state: "WATCHED", workMissing: true },
+        { annictId: 67890, state: "WATCHING" },
+      ]);
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        annictWorkId: number;
+        state: string;
+      }[];
+      expect(body).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            annictWorkId: ANNICT_WORK_ID,
+            state: "WATCHED",
+          }),
+          expect.objectContaining({ annictWorkId: 67890, state: "WATCHING" }),
+        ]),
+      );
+      expect(body).toHaveLength(2);
+    });
+
+    it("GET /me/watch-histories: 部分応答でも work が解決できたステータス解除は反映する", async () => {
+      const MISSING_WORK_ID = 67890;
+      await db.insert(annictWorks).values({
+        annictWorkId: MISSING_WORK_ID,
+        title: "取得不能な作品",
+        updatedAt: new Date(),
+      });
+      await db.insert(watchHistoryTable).values([
+        {
+          userId: USER_ID,
+          annictWorkId: ANNICT_WORK_ID,
+          state: "WATCHING",
+          updatedAt: new Date(),
+        },
+        {
+          userId: USER_ID,
+          annictWorkId: MISSING_WORK_ID,
+          state: "WATCHED",
+          updatedAt: new Date(),
+        },
+      ]);
+
+      // ANNICT_WORK_ID は work が取れたうえ status が空（解除確定）。
+      // MISSING_WORK_ID は work 自体が取得不能。部分応答なので削除を
+      // 止めると解除が永久に反映されないため、確定した解除だけは消す。
+      mockAnnictLibrary([
+        { annictId: ANNICT_WORK_ID, state: null },
+        { annictId: MISSING_WORK_ID, state: "WATCHED", workMissing: true },
+      ]);
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        annictWorkId: number;
+        state: string;
+      }[];
+      expect(body).toEqual([
+        expect.objectContaining({
+          annictWorkId: MISSING_WORK_ID,
+          state: "WATCHED",
+        }),
+      ]);
     });
 
     it("GET /me/watch-histories: watchersCount をキャッシュして応答に載せる", async () => {

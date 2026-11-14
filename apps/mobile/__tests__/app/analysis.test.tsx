@@ -253,7 +253,8 @@ describe("AnalysisScreen のおすすめカード", () => {
   it("おすすめ作品のタイトル・理由・シーズンを表示する", async () => {
     await render(<AnalysisScreen />);
 
-    expect(screen.getByText("おすすめアニメ")).toBeTruthy();
+    // 画像未取得時はサムネイルの代替表示にもタイトルが出るため複数ヒットする
+    expect(screen.getAllByText("おすすめアニメ").length).toBeGreaterThan(0);
     expect(screen.getByText("好みに合いそう")).toBeTruthy();
     expect(screen.getByText("2026年春")).toBeTruthy();
   });

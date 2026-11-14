@@ -187,8 +187,7 @@ query MyLibrary($after: String) {
   }
 }`;
 
-// libraryEntries が 1 ノードでも欠けると全体が落ちるのを避けるため、
-// work / status は nullable として受け、後段で検証・スキップする。
+// libraryEntries の nullable なフィールドを後段で検証する。
 type LibraryEntryNode = {
   status: { state: string | null } | null;
   work: {
@@ -254,14 +253,15 @@ const MAX_LIBRARY_PAGES = 40;
  * 本人の viewer.libraryEntries を全状態・全ページ取得し、平坦化して返す。
  * read-through 全置換（watch_history / annict_works キャッシュ更新）の入力に使う。
  *
- * work が null のノード（取得不能な作品）はスキップする。state の検証
- * （NO_STATE / 保存可否）は呼び出し側で行う。
+ * 取得不能な work があれば complete=false とし、既存履歴の削除を防ぐ。
+ * state の検証（NO_STATE / 保存可否）は呼び出し側で行う。
  */
 export async function fetchAnnictLibraryEntries(
   accessToken: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<AnnictLibraryEntry[]> {
+): Promise<{ entries: AnnictLibraryEntry[]; complete: boolean }> {
   const entries: AnnictLibraryEntry[] = [];
+  let complete = true;
   let after: string | null = null;
   // 同一 endCursor の再出現（壊れたページング）を検出して無限ループを防ぐ。
   const seenCursors = new Set<string>();
@@ -276,11 +276,16 @@ export async function fetchAnnictLibraryEntries(
       );
 
     const connection = data.viewer?.libraryEntries;
-    if (!connection) break;
+    if (!connection) {
+      throw new AnnictApiError("Annict libraryEntries missing", 502);
+    }
 
     for (const node of connection.nodes) {
       const work = node.work;
-      if (!work) continue;
+      if (!work) {
+        complete = false;
+        continue;
+      }
       entries.push({
         annictWorkId: work.annictId,
         nodeId: work.id,
@@ -297,8 +302,12 @@ export async function fetchAnnictLibraryEntries(
     }
 
     const { hasNextPage, endCursor } = connection.pageInfo;
-    if (!hasNextPage || !endCursor) {
-      break;
+    if (!hasNextPage) break;
+    if (!endCursor) {
+      throw new AnnictApiError(
+        "Annict libraryEntries pagination did not complete",
+        502,
+      );
     }
     // 次ページがあるのに上限到達、または cursor が一巡した場合、ここで break すると
     // 部分データを「全件」として返してしまい、呼び出し側の全置換で残りの履歴が
@@ -314,7 +323,7 @@ export async function fetchAnnictLibraryEntries(
     after = endCursor;
   }
 
-  return entries;
+  return { entries, complete };
 }
 
 // --- updateStatus（視聴ステータス更新） ---

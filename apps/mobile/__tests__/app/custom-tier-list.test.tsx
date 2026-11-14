@@ -6,7 +6,7 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import CustomTierListScreen from "@/app/custom-tier-list";
-import { confirm } from "@/lib/dialog";
+import { alert, confirm } from "@/lib/dialog";
 import { DEFAULT_TIERS } from "@/lib/tierList/defaults";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 
@@ -69,6 +69,11 @@ let mockSaved: unknown = null;
 let mockSavedLoading = false;
 const mockSaveMutate = jest.fn();
 const mockSaveMutateAsync = jest.fn();
+const mockShareMutateAsync = jest.fn();
+const mockBeginShare = jest.fn();
+const mockCancelShare = jest.fn();
+const mockPresentShareUrl = jest.fn();
+const mockPresentOptions = jest.fn();
 jest.mock("@/lib/tierList/useCustomTierList", () => ({
   useSavedCustomTierList: () => ({
     data: mockSaved,
@@ -80,7 +85,7 @@ jest.mock("@/lib/tierList/useCustomTierList", () => ({
     isPending: false,
     isError: false,
   }),
-  useShareCustomTierList: () => ({ mutateAsync: jest.fn() }),
+  useShareCustomTierList: () => ({ mutateAsync: mockShareMutateAsync }),
 }));
 
 let mockLookupWorks: { annictWorkId: number; title: string }[] = [];
@@ -99,12 +104,15 @@ jest.mock("@/lib/tierList/useWorksLookup", () => ({
 }));
 
 jest.mock("@/lib/tierList/share", () => ({
-  buildCustomTierListShareUrl: jest.fn(),
+  buildCustomTierListShareUrl: () =>
+    "https://example.com/share/custom-tier-lists/token",
   captureTierListImageFile: jest.fn(),
-  presentTierShareOptions: jest.fn(),
+  presentTierShareOptions: (options: unknown) => mockPresentOptions(options),
   shareTierListImage: jest.fn(),
   useTierUrlShare: () => ({
-    shareUrl: jest.fn(),
+    beginShare: mockBeginShare,
+    cancelShare: mockCancelShare,
+    shareUrl: mockPresentShareUrl,
     urlShareElement: null,
   }),
 }));
@@ -138,6 +146,54 @@ beforeEach(async () => {
   mockBoardProps = null;
   mockLookupWorks = [];
   mockLookupIds.length = 0;
+  mockPresentOptions.mockImplementation((options: { onShareUrl: () => void }) =>
+    options.onShareUrl(),
+  );
+});
+
+describe("CustomTierListScreen の Web 共有", () => {
+  it("押下直後に準備表示を始め、保存とトークン発行後に URL モーダルへ進む", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "自由表", []);
+    mockSaveMutateAsync.mockResolvedValue(savedList(7, "自由表", []));
+    mockShareMutateAsync.mockResolvedValue({ shareToken: "token" });
+    mockPresentShareUrl.mockResolvedValue("shared");
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    expect(mockBeginShare).toHaveBeenCalledTimes(1);
+    await act(async () => {});
+    expect(mockPresentShareUrl).toHaveBeenCalledWith(
+      "https://example.com/share/custom-tier-lists/token",
+    );
+  });
+
+  it("共有トークンの発行に失敗したら準備表示を閉じて通知する", async () => {
+    mockParams = { id: "7" };
+    mockSaved = savedList(7, "自由表", []);
+    mockSaveMutateAsync.mockResolvedValue(savedList(7, "自由表", []));
+    mockShareMutateAsync.mockRejectedValue(new Error("share failed"));
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    await act(async () => {});
+    expect(mockCancelShare).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(
+      "共有に失敗しました",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+  });
+
+  it("存在しない Tier 表は共有ボタンから失敗理由を通知する", async () => {
+    mockParams = { id: "7" };
+    await render(<CustomTierListScreen />);
+    await fireEvent.press(screen.getByTestId("custom-tier-list-share"));
+    expect(alert).toHaveBeenCalledWith(
+      "共有できません",
+      expect.any(String),
+      expect.objectContaining({ okLabel: "OK" }),
+    );
+    expect(mockSaveMutateAsync).not.toHaveBeenCalled();
+  });
 });
 
 describe("CustomTierListScreen", () => {
@@ -296,6 +352,46 @@ describe("CustomTierListScreen", () => {
       expect.objectContaining({ title: "歴代で好きなアニメ", items: [] }),
       expect.anything(),
     );
+  });
+
+  it("引き継ぎ作品に同じ id が重複しても盤面には 1 件だけ並べる（issue #521）", async () => {
+    // lookup 応答で同じ annictWorkId が重なった場合でも、盤面は 1 件に畳む。
+    mockParams = { workIds: "10,20" };
+    mockLookupWorks = [
+      { annictWorkId: 10, title: "氷の城壁 第2期" },
+      { annictWorkId: 10, title: "氷の城壁 第2期" },
+      { annictWorkId: 20, title: "怪物さん" },
+    ];
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10, 20]);
+  });
+
+  it("同じタイトルでも id が違う作品は別作品として両方並べる", async () => {
+    // 同名の別作品を誤って畳まないよう、畳み込みは id でのみ行う。
+    mockParams = { workIds: "10,11" };
+    mockLookupWorks = [
+      { annictWorkId: 10, title: "氷の城壁" },
+      { annictWorkId: 11, title: "氷の城壁" },
+    ];
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10, 11]);
+  });
+
+  it("追加シートで盤面済みと同じ id を選んでも増えない", async () => {
+    mockParams = { workIds: "10" };
+    mockLookupWorks = [{ annictWorkId: 10, title: "氷の城壁 第2期" }];
+    const { rerender } = await render(<CustomTierListScreen />);
+
+    await act(() =>
+      mockBoardProps?.onAddItem({ id: 10, title: "氷の城壁 第2期" }),
+    );
+    await rerender(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10]);
   });
 
   it("保存済みデータの説明文と公開設定を反映する", async () => {

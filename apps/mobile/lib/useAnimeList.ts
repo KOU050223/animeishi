@@ -31,6 +31,23 @@ export type {
   AnimeListSortOrder as SortOrder,
 } from "./animeListSortFilter";
 
+/**
+ * 検索応答の作品配列を annictWorkId で dedupe する（先勝ち、順序保持）。
+ * ページング結合・バッチ連結のように「1 応答内では一意でも跨ぐと重複し得る」
+ * 境界で使う（issue #521）。Annict の順位変動や継続カーソル境界で
+ * 同じ作品が後続ページに再出現し得る。
+ */
+export function dedupeWorksById<T extends { annictWorkId: number }>(
+  works: readonly T[],
+): T[] {
+  const seen = new Set<number>();
+  return works.filter((w) => {
+    if (seen.has(w.annictWorkId)) return false;
+    seen.add(w.annictWorkId);
+    return true;
+  });
+}
+
 // 検索クエリごとにキャッシュを分けるためのクエリキー。
 // query を含めることで、語を変えるたびに別エントリとしてキャッシュされる。
 // 検索語が空のときは season（明示された絞り込み、または今期の既定）でキャッシュを分ける。
@@ -186,10 +203,12 @@ export function useAnimeList(
     fetchNextPage,
   ]);
 
-  const works = useMemo(
-    () => result.data?.pages.flatMap((page) => page.works),
-    [result.data],
-  );
+  const works = useMemo(() => {
+    const flat = result.data?.pages.flatMap((page) => page.works);
+    // ページを跨ぐと同じ作品が再出現し得る（順位変動・継続カーソル境界の
+    // 取りこぼし）。重複がそのまま一覧・tier 表へ流れないようここで潰す。
+    return flat ? dedupeWorksById(flat) : undefined;
+  }, [result.data]);
   const lastPage = result.data?.pages.at(-1);
 
   return {

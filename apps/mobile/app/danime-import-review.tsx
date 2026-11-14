@@ -708,7 +708,12 @@ function SelectedWork({
     <View className="flex-row items-center gap-2 mt-2">
       {/* 照合候補は Annict から直接引いた作品で画像プロキシの URL を持たないため、
           Annict の画像をそのまま出す。 */}
-      <WorkThumbnail uri={work.imageUrl} width={32} height={42} />
+      <WorkThumbnail
+        uri={work.imageUrl}
+        title={work.title}
+        width={32}
+        height={42}
+      />
       <View className="flex-1">
         <Text
           className="text-xs text-slate-600 dark:text-slate-300"
@@ -753,7 +758,12 @@ function CandidatePicker({
             accessibilityRole="button"
             accessibilityLabel={`候補: ${c.title}`}
           >
-            <WorkThumbnail uri={c.imageUrl} width={24} height={32} />
+            <WorkThumbnail
+              uri={c.imageUrl}
+              title={c.title}
+              width={24}
+              height={32}
+            />
             <Text
               className="flex-1 text-xs text-slate-700 dark:text-slate-200"
               numberOfLines={2}
