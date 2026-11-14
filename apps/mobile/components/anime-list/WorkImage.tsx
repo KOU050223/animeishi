@@ -84,6 +84,18 @@ export function WorkImage({
     [],
   );
 
+  // 共有画像の撮影（TierBoardSnapshot / MeishiShareSnapshot）は onLoadEnd の
+  // 到達回数を「確定した画像の枚数」として数える。リトライでも試行ごとに
+  // 発火すると枚数を上回って撮影が早まり他の画像が欠落するため、
+  // 1 URI につき最初の確定で 1 回だけ通知する（リトライの結果は撮影を
+  // 待たない。従来どおり再試行より確実性優先）。
+  const notifiedFor = useRef<string | null | undefined>(undefined);
+  const onImageLoadEnd = () => {
+    if (notifiedFor.current === uri) return;
+    notifiedFor.current = uri;
+    onLoadEnd?.();
+  };
+
   if (!uri || current.failed) return <>{placeholder}</>;
 
   const onError = () => {
@@ -131,7 +143,7 @@ export function WorkImage({
           cachePolicy="memory-disk"
           transition={transition}
           onError={onError}
-          onLoadEnd={onLoadEnd}
+          onLoadEnd={onImageLoadEnd}
           accessibilityLabel={accessibilityLabel}
         />
       )}

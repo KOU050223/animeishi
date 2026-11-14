@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { WorkThumbnail } from "./WorkThumbnail";
+import { WorkImage } from "./WorkImage";
 
 // リトライのキャッシュバスターは自前の画像プロキシ（apiUrl 起点 /images/）
 // にだけ付く。jest では EXPO_PUBLIC_API_URL 未設定なので既定の
@@ -133,6 +134,44 @@ describe("WorkThumbnail", () => {
       });
       // 署名付きクエリを持つ外部 URL に r= を足すと署名が壊れるため
       expect(findImages()[0].props.source).toEqual([{ uri: EXTERNAL }]);
+    });
+
+    // TierBoardSnapshot / MeishiShareSnapshot は onLoadEnd の到達回数を
+    // 確定した画像の枚数として数えるので、リトライの発火で重複計上させない。
+    it("onLoadEnd はリトライをまたいでも 1 URI につき 1 回だけ呼ばれる", async () => {
+      const onLoadEnd = jest.fn();
+      const { rerender } = await render(
+        <WorkImage
+          uri={HOSTED}
+          style={{ width: 48, height: 64 }}
+          placeholder={null}
+          onLoadEnd={onLoadEnd}
+        />,
+      );
+      // onError で画像要素は退くため、切り離される前に確定イベントを済ませる
+      const first = findImages()[0];
+      await fireEvent(first, "onLoadEnd", { nativeEvent: {} });
+      await fireEvent(first, "onError", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(1);
+
+      // 再試行が終わっても（成功・失敗どちらでも）再通知しない
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      await fireEvent(findImages()[0], "onLoadEnd", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(1);
+
+      // URI が変われば新しい読み込みとして 1 回通知する
+      await rerender(
+        <WorkImage
+          uri={OTHER}
+          style={{ width: 48, height: 64 }}
+          placeholder={null}
+          onLoadEnd={onLoadEnd}
+        />,
+      );
+      await fireEvent(findImages()[0], "onLoadEnd", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(2);
     });
   });
 });
