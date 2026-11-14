@@ -46,7 +46,7 @@ type Item = {
   itemCount: number;
   likeCount: number;
   likedByMe: boolean;
-  thumbnails: string[];
+  thumbnails: { url: string; label: string }[];
 };
 
 function publicItem(id: number, over: Partial<Item> = {}): Item {
@@ -63,7 +63,7 @@ function publicItem(id: number, over: Partial<Item> = {}): Item {
     itemCount: 5,
     likeCount: id * 10,
     likedByMe: false,
-    thumbnails: ["https://example.com/1.png"],
+    thumbnails: [{ url: "https://example.com/1.png", label: "作品1" }],
     ...over,
   };
 }

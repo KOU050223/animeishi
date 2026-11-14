@@ -518,7 +518,12 @@ export default function WorkListScreen() {
                 <Text className="w-6 text-right text-sm font-semibold text-slate-400 dark:text-slate-500">
                   {index + 1}
                 </Text>
-                <WorkThumbnail uri={item.imageUrl} width={36} height={50} />
+                <WorkThumbnail
+                  uri={item.imageUrl}
+                  title={item.title}
+                  width={36}
+                  height={50}
+                />
                 <Text
                   className="flex-1 text-sm text-slate-900 dark:text-slate-100"
                   numberOfLines={2}

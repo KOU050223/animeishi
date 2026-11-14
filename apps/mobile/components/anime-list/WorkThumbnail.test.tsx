@@ -1,8 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { WorkThumbnail } from "./WorkThumbnail";
+import { WorkImage } from "./WorkImage";
 
-const HOSTED = "https://api.example.com/images/works/1";
-const OTHER = "https://api.example.com/images/works/2";
+// リトライのキャッシュバスターは自前の画像プロキシ（apiUrl 起点 /images/）
+// にだけ付く。jest では EXPO_PUBLIC_API_URL 未設定なので既定の
+// http://localhost:8787 を使う。
+const HOSTED = "http://localhost:8787/images/works/1";
+const OTHER = "http://localhost:8787/images/works/2";
+const EXTERNAL = "https://cdn.example.com/poster.jpg?sig=abc";
+const TITLE = "銀河鉄道の夜";
 
 // expo-image は requireNativeView("ExpoImage") のネイティブビュー。
 // RN 0.88 ではレガシー ViewManager が ViewManagerAdapter_ 接頭辞付きの
@@ -15,48 +21,157 @@ const findImages = () =>
 
 describe("WorkThumbnail", () => {
   it("作品画像プロキシの URL を expo-image でディスクキャッシュ付きで表示する", async () => {
-    await render(<WorkThumbnail uri={HOSTED} />);
+    await render(<WorkThumbnail uri={HOSTED} title={TITLE} />);
     const image = findImages()[0];
     expect(image.props.source).toEqual([{ uri: HOSTED }]);
     expect(image.props.cachePolicy).toBe("memory-disk");
   });
 
   it("web でブラウザのネイティブドラッグがジェスチャを奪わないよう draggable=false にする（issue #327）", async () => {
-    await render(<WorkThumbnail uri={HOSTED} />);
+    await render(<WorkThumbnail uri={HOSTED} title={TITLE} />);
     expect(findImages()[0].props.draggable).toBe(false);
   });
 
   it("読み込み中は画像の下にプレースホルダーを敷く", async () => {
-    const { getByText } = await render(<WorkThumbnail uri={HOSTED} />);
+    const { getByText } = await render(
+      <WorkThumbnail uri={HOSTED} title={TITLE} />,
+    );
     expect(findImages()).toHaveLength(1);
-    expect(getByText("No img")).toBeTruthy();
-  });
-
-  it("読み込みに失敗したら外部 URL を試さずプレースホルダーだけにする", async () => {
-    const { getByText } = await render(<WorkThumbnail uri={HOSTED} />);
-    await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
-    expect(findImages()).toHaveLength(0);
-    expect(getByText("No img")).toBeTruthy();
+    expect(getByText(TITLE)).toBeTruthy();
   });
 
   it("失敗後に URL が変わると読み込みをやり直す", async () => {
-    const { rerender } = await render(<WorkThumbnail uri={HOSTED} />);
+    const { rerender } = await render(
+      <WorkThumbnail uri={HOSTED} title={TITLE} />,
+    );
     await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
-    await rerender(<WorkThumbnail uri={OTHER} />);
+    await rerender(<WorkThumbnail uri={OTHER} title={TITLE} />);
     expect(findImages()[0].props.source).toEqual([{ uri: OTHER }]);
   });
 
   it("失敗した URL から別の URL を経て戻ったときも読み込み直す", async () => {
-    const { rerender } = await render(<WorkThumbnail uri={HOSTED} />);
+    const { rerender } = await render(
+      <WorkThumbnail uri={HOSTED} title={TITLE} />,
+    );
     await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
-    await rerender(<WorkThumbnail uri={OTHER} />);
-    await rerender(<WorkThumbnail uri={HOSTED} />);
+    await rerender(<WorkThumbnail uri={OTHER} title={TITLE} />);
+    await rerender(<WorkThumbnail uri={HOSTED} title={TITLE} />);
     expect(findImages()[0].props.source).toEqual([{ uri: HOSTED }]);
   });
 
   it("画像 URL が無ければ最初からプレースホルダー", async () => {
-    const { getByText } = await render(<WorkThumbnail uri={null} />);
+    const { getByText, queryByText } = await render(
+      <WorkThumbnail uri={null} title={TITLE} />,
+    );
     expect(findImages()).toHaveLength(0);
-    expect(getByText("No img")).toBeTruthy();
+    expect(getByText(TITLE)).toBeTruthy();
+    expect(queryByText("No img")).toBeNull();
+  });
+
+  describe("読み込み失敗時の再試行（issue #522）", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("失敗したらプレースホルダーだけにし、間を置いてキャッシュ迂回の URL で読み込み直す", async () => {
+      const { getByText } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+
+      // 再試行を待つ間はプレースホルダーだけにする
+      expect(findImages()).toHaveLength(0);
+      expect(getByText(TITLE)).toBeTruthy();
+
+      // 再試行は同じパスのままだと失敗レスポンスが HTTP キャッシュから
+      // 返って即座にまた失敗するので、クエリでキーを変える
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(findImages()[0].props.source).toEqual([{ uri: `${HOSTED}?r=1` }]);
+    });
+
+    it("再試行を尽くしたら外部 URL を試さずプレースホルダーだけにする", async () => {
+      const { getByText } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(4000);
+      });
+      expect(findImages()[0].props.source).toEqual([{ uri: `${HOSTED}?r=2` }]);
+
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      expect(findImages()).toHaveLength(0);
+      expect(getByText(TITLE)).toBeTruthy();
+    });
+
+    it("再試行待ちの間に URL が変わったら古い URL の再試行は捨てる", async () => {
+      const { rerender } = await render(
+        <WorkThumbnail uri={HOSTED} title={TITLE} />,
+      );
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await rerender(<WorkThumbnail uri={OTHER} title={TITLE} />);
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+      });
+      // 古い HOSTED への再試行は発火せず、新しい URL の初回表示のまま
+      expect(findImages()[0].props.source).toEqual([{ uri: OTHER }]);
+    });
+
+    it("外部 URL の再試行はクエリを足さず同じ URL でやり直す", async () => {
+      await render(<WorkThumbnail uri={EXTERNAL} title={TITLE} />);
+      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      // 署名付きクエリを持つ外部 URL に r= を足すと署名が壊れるため
+      expect(findImages()[0].props.source).toEqual([{ uri: EXTERNAL }]);
+    });
+
+    // TierBoardSnapshot / MeishiShareSnapshot は onLoadEnd の到達回数を
+    // 確定した画像の枚数として数えるので、リトライの発火で重複計上させない。
+    it("onLoadEnd はリトライをまたいでも 1 URI につき 1 回だけ呼ばれる", async () => {
+      const onLoadEnd = jest.fn();
+      const { rerender } = await render(
+        <WorkImage
+          uri={HOSTED}
+          style={{ width: 48, height: 64 }}
+          placeholder={null}
+          onLoadEnd={onLoadEnd}
+        />,
+      );
+      // onError で画像要素は退くため、切り離される前に確定イベントを済ませる
+      const first = findImages()[0];
+      await fireEvent(first, "onLoadEnd", { nativeEvent: {} });
+      await fireEvent(first, "onError", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(1);
+
+      // 再試行が終わっても（成功・失敗どちらでも）再通知しない
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      await fireEvent(findImages()[0], "onLoadEnd", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(1);
+
+      // URI が変われば新しい読み込みとして 1 回通知する
+      await rerender(
+        <WorkImage
+          uri={OTHER}
+          style={{ width: 48, height: 64 }}
+          placeholder={null}
+          onLoadEnd={onLoadEnd}
+        />,
+      );
+      await fireEvent(findImages()[0], "onLoadEnd", { nativeEvent: {} });
+      expect(onLoadEnd).toHaveBeenCalledTimes(2);
+    });
   });
 });

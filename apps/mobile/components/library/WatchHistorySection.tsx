@@ -754,7 +754,7 @@ function WatchHistoryRow({
         })}
         testID={`watch-history-detail-thumb-${history.annictWorkId}`}
       >
-        <WorkThumbnail uri={history.hostedImageUrl} />
+        <WorkThumbnail uri={history.hostedImageUrl} title={history.title} />
       </TouchableOpacity>
 
       <View className="flex-1">

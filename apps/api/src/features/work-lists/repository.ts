@@ -154,33 +154,39 @@ export async function fetchWorkListItems(
 }
 
 /**
- * 指定リスト群の先頭作品（position 昇順で各 perList 件）の annictWorkId を
- * 返す。公開一覧カードのサムネイル用（issue #422）。
+ * 指定リスト群の先頭作品（position 昇順で各 perList 件）の作品メタを
+ * 返す。公開一覧カードのサムネイル用（issue #422）。title は画像が
+ * 無い作品の代替表示に使う（issue #522）。
  * ウィンドウ関数ではなく、ページ内の件数が少ない前提で全件引いて
  * アプリ側で切る（ユーザー一覧と違い 1 ページ = 最大 50 リスト ×
  * 数百作品までしか増えない）。
  */
-export async function fetchWorkListTopWorkIds(
+export async function fetchWorkListTopWorks(
   db: DrizzleDb,
   workListIds: number[],
   perList: number,
-): Promise<Map<number, number[]>> {
-  const result = new Map<number, number[]>();
+): Promise<Map<number, { annictWorkId: number; title: string }[]>> {
+  const result = new Map<number, { annictWorkId: number; title: string }[]>();
   if (workListIds.length === 0) return result;
 
   const rows = await db
     .select({
       workListId: workListItems.workListId,
       annictWorkId: workListItems.annictWorkId,
+      title: annictWorks.title,
     })
     .from(workListItems)
+    .innerJoin(
+      annictWorks,
+      eq(workListItems.annictWorkId, annictWorks.annictWorkId),
+    )
     .where(inArray(workListItems.workListId, workListIds))
     .orderBy(workListItems.position);
 
   for (const row of rows) {
     const list = result.get(row.workListId) ?? [];
     if (list.length < perList) {
-      list.push(row.annictWorkId);
+      list.push({ annictWorkId: row.annictWorkId, title: row.title });
       result.set(row.workListId, list);
     }
   }

@@ -118,7 +118,7 @@ export function FavoriteWorksStep({
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >
-                <WorkThumbnail uri={item.hostedImageUrl} />
+                <WorkThumbnail uri={item.hostedImageUrl} title={item.title} />
                 <View className="ml-3 flex-1">
                   <Text
                     className="text-base font-medium text-slate-900 dark:text-slate-100"
