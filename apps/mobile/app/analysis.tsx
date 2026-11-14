@@ -54,6 +54,7 @@ export default function AnalysisScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useAnalysis();
+  const { data: currentWatchHistory } = useWatchHistory();
   const generate = useGenerateAnalysis();
 
   const analysis = data?.analysis ?? null;
@@ -198,13 +199,24 @@ export default function AnalysisScreen() {
             ))}
 
             <Text className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-              {t("{{count}} 件の視聴履歴を分析", { count: analysis.workCount })}
+              {t("集計時点の視聴履歴: {{count}} 件", {
+                count: analysis.workCount,
+              })}
             </Text>
             <Text className="text-xs text-slate-400 dark:text-slate-500">
-              {t("分析日時: {{date}}", {
+              {t("集計日時: {{date}}", {
                 date: formatGeneratedAt(analysis.generatedAt),
               })}
             </Text>
+            {currentWatchHistory &&
+            currentWatchHistory.length !== analysis.workCount ? (
+              <Text className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                {t(
+                  "現在の視聴履歴: {{count}} 件。再分析すると現在の履歴で更新されます",
+                  { count: currentWatchHistory.length },
+                )}
+              </Text>
+            ) : null}
 
             <View className="mt-4">
               <GenerateButton
@@ -249,11 +261,24 @@ function AnalysisSectionCard({
   section: AnalysisResult["sections"][number];
 }) {
   const { t } = useTranslation();
+  const scope =
+    section.key === "genres"
+      ? t("視聴予定を除き、ジャンル情報のある作品を集計")
+      : section.key === "seasons"
+        ? t("視聴予定を除き、放送年が分かる作品を集計")
+        : section.key === "popularity"
+          ? t("視聴予定を除き、視聴者数の情報がある作品を集計")
+          : null;
   return (
     <View className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
       <Text className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
         {section.title}
       </Text>
+      {scope ? (
+        <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+          {scope}
+        </Text>
+      ) : null}
       <Text className="text-sm leading-6 text-slate-900 dark:text-slate-100">
         {section.insight}
       </Text>

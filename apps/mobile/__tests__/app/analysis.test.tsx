@@ -18,6 +18,7 @@ const mockUseAnnictConnect = jest.fn();
 const mockFunnelTrack = jest.fn();
 const mockUseAnnictTokenErrorPrompt = jest.fn();
 const mockPromptAnnictTokenError = jest.fn();
+let mockWatchHistoryCount = 12;
 
 jest.mock("expo-router", () => ({
   // Stack.Screen の options を描画する。画面が headerLeft / title として
@@ -102,7 +103,7 @@ jest.mock("@/lib/useWatchHistory", () => ({
     mutateAsync: jest.fn(() => Promise.resolve({})),
     isPending: false,
   }),
-  useWatchHistory: () => ({ data: [] }),
+  useWatchHistory: () => ({ data: Array(mockWatchHistoryCount).fill({}) }),
   WATCH_STATUS_LABELS: {
     WATCHING: "視聴中",
     WATCHED: "視聴済",
@@ -211,6 +212,7 @@ const stubAnnictDefaults = () => {
 describe("AnalysisScreen のレポート項目", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockWatchHistoryCount = 12;
     stubAnnictDefaults();
     mockUseRecommendations.mockReturnValue({
       data: { recommendations: null },
@@ -227,9 +229,24 @@ describe("AnalysisScreen のレポート項目", () => {
     expect(screen.getByText("アクション中心の傾向です")).toBeTruthy();
     expect(screen.getByText("Action")).toBeTruthy();
     expect(screen.getByText("6 件（60%）")).toBeTruthy();
+    expect(
+      screen.getByText("視聴予定を除き、ジャンル情報のある作品を集計"),
+    ).toBeTruthy();
     // 根拠作品はタイトルと視聴ステータスのラベル付きで出る。
     expect(screen.getByText("・根拠アニメ（視聴済）")).toBeTruthy();
     expect(screen.getByText("・断念アニメ（断念）")).toBeTruthy();
+  });
+
+  it("分析件数と集計時点を示し、現在の履歴件数が異なると再分析を促す", async () => {
+    mockWatchHistoryCount = 13;
+    await render(<AnalysisScreen />);
+
+    expect(screen.getByText("集計時点の視聴履歴: 12 件")).toBeTruthy();
+    expect(screen.getByText(/集計日時:/)).toBeTruthy();
+    expect(screen.getByText(/現在の視聴履歴: 13 件/)).toBeTruthy();
+    expect(
+      screen.getByText(/再分析すると現在の履歴で更新されます/),
+    ).toBeTruthy();
   });
 });
 

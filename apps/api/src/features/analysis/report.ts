@@ -72,10 +72,10 @@ export function buildSectionDrafts(
 ): AnalysisSectionDraft[] {
   const started = history.filter((w) => w.state !== "WANNA_WATCH");
   const drafts = [
-    buildGenreSection(started),
-    buildSeasonSection(started),
+    buildGenreSection(started, history.length),
+    buildSeasonSection(started, history.length),
     buildCompletionSection(history),
-    buildPopularitySection(started),
+    buildPopularitySection(started, history.length),
   ];
   return drafts.filter((d): d is AnalysisSectionDraft => d !== null);
 }
@@ -101,6 +101,7 @@ export function attachInsights(
 
 function buildGenreSection(
   started: WatchHistoryWithWork[],
+  totalCount: number,
 ): AnalysisSectionDraft | null {
   const covered = started.filter((w) => w.genres != null);
   const counts = new Map<string, number>();
@@ -124,7 +125,7 @@ function buildGenreSection(
     facts: [
       {
         label: "集計対象",
-        value: `ジャンル情報のある ${covered.length} / ${started.length} 件`,
+        value: `視聴を始めた ${started.length} 件のうち、ジャンル情報のある ${covered.length} 件（全履歴 ${totalCount} 件）`,
       },
       ...top.map(([name, count]) => ({
         label: name,
@@ -141,6 +142,7 @@ function buildGenreSection(
 
 function buildSeasonSection(
   started: WatchHistoryWithWork[],
+  totalCount: number,
 ): AnalysisSectionDraft | null {
   const covered = started.filter((w) => w.seasonYear != null);
   const counts = new Map<number, number>();
@@ -164,7 +166,7 @@ function buildSeasonSection(
     facts: [
       {
         label: "集計対象",
-        value: `放送年が分かる ${covered.length} / ${started.length} 件`,
+        value: `視聴を始めた ${started.length} 件のうち、放送年が分かる ${covered.length} 件（全履歴 ${totalCount} 件）`,
       },
       ...top.map(([year, count]) => ({
         label: `${year} 年`,
@@ -227,6 +229,7 @@ function buildCompletionSection(
 
 function buildPopularitySection(
   started: WatchHistoryWithWork[],
+  totalCount: number,
 ): AnalysisSectionDraft | null {
   const covered = started.filter((w) => w.watchersCount != null);
   if (covered.length === 0) return null;
@@ -256,7 +259,7 @@ function buildPopularitySection(
     facts: [
       {
         label: "集計対象",
-        value: `視聴者数の情報がある ${covered.length} / ${started.length} 件`,
+        value: `視聴を始めた ${started.length} 件のうち、視聴者数の情報がある ${covered.length} 件（全履歴 ${totalCount} 件）`,
       },
       { label: "視聴者数の中央値", value: `約 ${median} 人` },
       {
