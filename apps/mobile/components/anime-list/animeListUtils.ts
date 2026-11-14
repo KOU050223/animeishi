@@ -60,6 +60,42 @@ export function parseSeasonParam(
   return { year: Number(match[1]), key: match[2] as SeasonKey };
 }
 
+/**
+ * 一覧のシーズン絞り込み用 season パラメータの逆変換。
+ * parseSeasonParam と違い通年指定（"2026"）も受け付け、その場合は
+ * key に "all" を返す（issue #535）。不正な形式は null に倒す。
+ */
+export function parseSeasonFilterParam(
+  season: string | undefined,
+): { year: number; key: SeasonFilterKey } | null {
+  const quarter = parseSeasonParam(season);
+  if (quarter) return quarter;
+  if (season && /^\d{4}$/.test(season)) {
+    return { year: Number(season), key: SEASON_FILTER_ALL };
+  }
+  return null;
+}
+
+/**
+ * 作品の放送シーズンを絞り込みの (year, key) に変換する。
+ * 詳細シートのシーズンチップから一覧の season 文字列を組み立てる用
+ * （issue #535）。seasonYear / seasonName が無い作品や、Annict が返さない
+ * 形式の seasonName では null に倒す（チップを出さない）。
+ */
+export function workBroadcastSeason(
+  work: Pick<AnimeTitle, "seasonYear" | "seasonName">,
+): { year: number; key: SeasonKey } | null {
+  if (!work.seasonYear || !work.seasonName) return null;
+  // "2026-spring" 形式から季節部分だけを取る（formatWorkSeason と同じパース）。
+  const name = work.seasonName.includes("-")
+    ? work.seasonName.split("-")[1]
+    : work.seasonName;
+  // 表記ゆれの fall は秋として扱う（SEASONS のラベル付けと同じ変換）。
+  const key = name === "fall" ? "autumn" : name;
+  if (!SEASON_KEYS.includes(key as SeasonKey)) return null;
+  return { year: work.seasonYear, key: key as SeasonKey };
+}
+
 /** シーズン選択チップの表示ラベル（例: "2026年 春"、通年は "2026年"）。 */
 export function formatSeasonLabel(year: number, key: SeasonFilterKey): string {
   return key === SEASON_FILTER_ALL

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeListContent } from "./AnimeListContent";
+import { currentSeason } from "./animeListUtils";
 
 // 一覧のデータ取得（Annict プロキシ検索・接続状態）は useAnimeList の
 // テストで検証する。ここでは「カードの描画・押下で詳細シートが開く」
@@ -11,13 +12,10 @@ const mockMutateAsync = jest.fn();
 const mockUseSortedAnimeList = jest.fn(
   (data: unknown, _sortKey: unknown, _sortOrder: unknown) => data ?? [],
 );
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
-
-jest.mock("@/lib/useAnimeList", () => ({
-  useAnimeList: () => ({
+// 検索語・シーズン絞り込みの選択状態が useAnimeList の引数に現れるため、
+// 引数を捕捉して「何を取りに行こうとしたか」を検証する。
+const mockUseAnimeList = jest.fn(
+  (_query: unknown, _season: unknown, _options: unknown) => ({
     data: [WORK],
     isLoading: false,
     isError: false,
@@ -28,6 +26,15 @@ jest.mock("@/lib/useAnimeList", () => ({
     isConnectionLoading: false,
     isSeason: true,
   }),
+);
+
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+jest.mock("@/lib/useAnimeList", () => ({
+  useAnimeList: (query: unknown, season: unknown, options: unknown) =>
+    mockUseAnimeList(query, season, options),
   usePrefetchSeasonWorks: jest.fn(),
   useSortedAnimeList: (data: unknown, sortKey: unknown, sortOrder: unknown) =>
     mockUseSortedAnimeList(data, sortKey, sortOrder),
@@ -159,6 +166,7 @@ const contentElement = (
     favoriteIds?: Set<number>;
     toggleFavorite?: jest.Mock;
     initialQuery?: string;
+    initialSeason?: string;
   } = {},
 ) => (
   <AnimeListContent
@@ -166,6 +174,7 @@ const contentElement = (
     toggleFavorite={props.toggleFavorite ?? jest.fn()}
     isToggling={false}
     initialQuery={props.initialQuery}
+    initialSeason={props.initialSeason}
   />
 );
 
@@ -224,6 +233,53 @@ describe("AnimeListContent", () => {
     await render(contentElement({ initialQuery: "進撃" }));
 
     expect(lastSort()).toEqual({ sortKey: "watchersCount", sortOrder: "desc" });
+  });
+
+  it("シーズン一覧遷移（?season= → initialSeason）で指定シーズンに絞って開く（issue #535）", async () => {
+    await render(contentElement({ initialSeason: "2025-winter" }));
+
+    expect(mockUseAnimeList).toHaveBeenCalledWith("", "2025-winter", {
+      fetchAllPages: false,
+    });
+    expect(
+      screen.getByTestId("season-filter-season-winter").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+    expect(screen.getByText(/2025年 冬・/)).toBeTruthy();
+  });
+
+  it("initialSeason が年だけならその年の通年に絞って開く（issue #535）", async () => {
+    await render(contentElement({ initialSeason: "2025" }));
+
+    expect(mockUseAnimeList).toHaveBeenCalledWith("", "2025", {
+      fetchAllPages: false,
+    });
+    expect(
+      screen.getByTestId("season-filter-season-all").props.accessibilityState
+        ?.selected,
+    ).toBe(true);
+    expect(screen.getByText(/2025年・/)).toBeTruthy();
+  });
+
+  it("initialSeason で開いたあともシーズン絞り込みを通常どおり変更できる", async () => {
+    await render(contentElement({ initialSeason: "2025-winter" }));
+
+    await fireEvent.press(screen.getByTestId("season-filter-season-summer"));
+
+    expect(mockUseAnimeList).toHaveBeenCalledWith("", "2025-summer", {
+      fetchAllPages: false,
+    });
+  });
+
+  it("initialSeason が不正な形式なら今期に倒す", async () => {
+    const { key: currentKey } = currentSeason();
+    await render(contentElement({ initialSeason: "spring-2025" }));
+
+    // 不正値は無視して今期のシーズンチップが選ばれた状態で開く。
+    expect(
+      screen.getByTestId(`season-filter-season-${currentKey}`).props
+        .accessibilityState?.selected,
+    ).toBe(true);
   });
 
   it("ソートボタンで選んだキーは既定値に戻されず切り替わる", async () => {

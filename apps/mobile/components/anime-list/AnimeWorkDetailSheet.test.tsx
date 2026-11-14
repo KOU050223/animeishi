@@ -9,6 +9,7 @@ import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
+import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 
 // 詳細取得（API / Annict 連携）とステータス更新はフックのテストで検証する。
 // シート側は「描画と操作の受け渡し」だけを見るため、フックは状態ごとに
@@ -16,6 +17,7 @@ import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 const mockUseWorkDetail = jest.fn();
 const mockMutateAsync = jest.fn();
 const mockDeleteAsync = jest.fn();
+const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockAlert = jest.fn();
 const mockConfirm = jest.fn();
@@ -100,6 +102,11 @@ jest.mock("@tanstack/react-query", () => ({
 
 jest.mock("@/lib/events", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}));
+
+// シーズンチップ（issue #535）のライブラリタブへの遷移を捕捉する。
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
 }));
 
 jest.mock("@/lib/dialog", () => ({
@@ -241,7 +248,7 @@ const watchedDetail = () =>
 
 const sheetElement = (
   props: {
-    work?: typeof WORK | null;
+    work?: WorkDetailSheetTarget | null;
     isFavorite?: boolean;
     onToggleFavorite?: jest.Mock;
     onOpenCharacterTierList?: jest.Mock;
@@ -317,8 +324,65 @@ describe("AnimeWorkDetailSheet", () => {
 
     expect(screen.getByText("テストアニメ")).toBeTruthy();
     expect(screen.getByText("Test Anime")).toBeTruthy();
-    expect(screen.getByText(/2026年春・TV/)).toBeTruthy();
+    // シーズンは同時期の作品一覧へ移るチップ（issue #535）として出す。
+    expect(screen.getByTestId("work-detail-season-chip")).toBeTruthy();
+    expect(screen.getByText("2026年 春")).toBeTruthy();
+    expect(screen.getByTestId("work-detail-year-chip")).toBeTruthy();
+    expect(screen.getByText("TV")).toBeTruthy();
     expect(screen.getByLabelText("テストアニメのサムネイル")).toBeTruthy();
+  });
+
+  it("シーズンチップを押すとシートを閉じて同じシーズンの一覧へ移る（issue #535）", async () => {
+    const onClose = jest.fn();
+    await render(sheetElement({ onClose }));
+
+    await fireEvent.press(screen.getByTestId("work-detail-season-chip"));
+
+    // 一覧へ移ったあともシートが残らないよう先に閉じる。
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: "2026-spring",
+        nav: expect.any(String),
+      },
+    });
+  });
+
+  it("年チップを押すとその年の通年の一覧へ移る（issue #535）", async () => {
+    const onClose = jest.fn();
+    await render(sheetElement({ onClose }));
+
+    await fireEvent.press(screen.getByTestId("work-detail-year-chip"));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/library",
+      params: {
+        section: "anime",
+        season: "2026",
+        nav: expect.any(String),
+      },
+    });
+  });
+
+  it("seasonYear のみの作品は年チップだけを出す", async () => {
+    await render(sheetElement({ work: { ...WORK, seasonName: null } }));
+
+    expect(screen.queryByTestId("work-detail-season-chip")).toBeNull();
+    expect(screen.getByTestId("work-detail-year-chip")).toBeTruthy();
+  });
+
+  it("seasonYear / seasonName が無い作品ではチップを出さない", async () => {
+    await render(
+      sheetElement({ work: { ...WORK, seasonYear: null, seasonName: null } }),
+    );
+
+    expect(screen.queryByTestId("work-detail-season-chip")).toBeNull();
+    expect(screen.queryByTestId("work-detail-year-chip")).toBeNull();
+    // メディア種別の表示はシーズンとは独立に残る。
+    expect(screen.getByText("TV")).toBeTruthy();
   });
 
   it("Annict の詳細情報（話数・視聴者数・満足度・リンク）を表示する", async () => {
