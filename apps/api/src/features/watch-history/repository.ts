@@ -82,14 +82,14 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
    * 書き込まれ D1 の書き込み上限（Free 10 万行/日）の最大要因になっていた
    * （issue #221）。
    *
-   * entries は「全件取得できた Annict 側の最新一覧」を前提とする。
-   * 部分取得の入力を流すと、取れなかった分が「Annict から消えた」と
-   * 誤判定されて履歴が消える（呼び出し側の fetchAnnictLibraryEntries は
-   * ページングを完走できない場合に例外を投げ、部分データを返さない）。
+   * deleteMissing=true の entries は「全件取得できた Annict 側の最新一覧」を
+   * 前提とする。取得不能な work がある場合は false にし、既存行を残す。
+   * ページングを完走できない場合は呼び出し側が例外を投げる。
    * insert する作品は事前に annict_works に存在していること（FK 制約）。
    */
   const applyWatchHistoryDiff = async (
     entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+    deleteMissing = true,
   ): Promise<void> => {
     const now = new Date();
 
@@ -116,8 +116,10 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
       if (prev === undefined) toInsert.push({ annictWorkId, state });
       else if (prev !== state) toUpdate.push({ annictWorkId, state });
     }
-    for (const annictWorkId of existingState.keys()) {
-      if (!nextState.has(annictWorkId)) toDeleteIds.push(annictWorkId);
+    if (deleteMissing) {
+      for (const annictWorkId of existingState.keys()) {
+        if (!nextState.has(annictWorkId)) toDeleteIds.push(annictWorkId);
+      }
     }
 
     const queries: BatchItem<"sqlite">[] = [];
@@ -270,6 +272,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
     async syncMyLibraryFromAnnict(
       works: NewAnnictWork[],
       entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+      complete = true,
     ): Promise<WatchHistoryWithWork[]> {
       const worksRepo = worksRepository(db);
 
@@ -304,7 +307,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
         ),
       );
 
-      await applyWatchHistoryDiff(entries);
+      await applyWatchHistoryDiff(entries, complete);
 
       // 作品メタ（title 等）を含めて返すため annict_works と JOIN する。
       return listMyWatchHistory();

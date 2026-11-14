@@ -33,6 +33,7 @@ function mockAnnictLibrary(
     malAnimeId?: string | null;
     recommendedImageUrl?: string | null;
     watchersCount?: number | null;
+    workMissing?: boolean;
   }[],
 ): void {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -44,25 +45,27 @@ function mockAnnictLibrary(
               pageInfo: { hasNextPage: false, endCursor: null },
               nodes: nodes.map((n) => ({
                 status: n.state === null ? null : { state: n.state },
-                work: {
-                  annictId: n.annictId,
-                  title: n.title ?? `作品${n.annictId}`,
-                  titleKana: null,
-                  titleEn: null,
-                  seasonName: null,
-                  seasonYear: null,
-                  watchersCount: n.watchersCount ?? null,
-                  malAnimeId: n.malAnimeId ?? null,
-                  image: {
-                    internalUrl: null,
-                    recommendedImageUrl: n.recommendedImageUrl ?? null,
-                    facebookOgImageUrl: null,
-                    twitterBiggerAvatarUrl: null,
-                    twitterAvatarUrl: null,
-                    twitterNormalAvatarUrl: null,
-                    twitterMiniAvatarUrl: null,
-                  },
-                },
+                work: n.workMissing
+                  ? null
+                  : {
+                      annictId: n.annictId,
+                      title: n.title ?? `作品${n.annictId}`,
+                      titleKana: null,
+                      titleEn: null,
+                      seasonName: null,
+                      seasonYear: null,
+                      watchersCount: n.watchersCount ?? null,
+                      malAnimeId: n.malAnimeId ?? null,
+                      image: {
+                        internalUrl: null,
+                        recommendedImageUrl: n.recommendedImageUrl ?? null,
+                        facebookOgImageUrl: null,
+                        twitterBiggerAvatarUrl: null,
+                        twitterAvatarUrl: null,
+                        twitterNormalAvatarUrl: null,
+                        twitterMiniAvatarUrl: null,
+                      },
+                    },
               })),
             },
           },
@@ -306,6 +309,41 @@ describe("視聴履歴 API", () => {
           and(eq(t.userId, USER_ID), eq(t.annictWorkId, ANNICT_WORK_ID)),
       });
       expect(stored?.state).toBe("WATCHING");
+    });
+
+    it("GET /me/watch-histories: 取得不能な作品を残して正常な作品を同期する", async () => {
+      await db.insert(watchHistoryTable).values({
+        userId: USER_ID,
+        annictWorkId: ANNICT_WORK_ID,
+        state: "WATCHED",
+        updatedAt: new Date(),
+      });
+      mockAnnictLibrary([
+        { annictId: ANNICT_WORK_ID, state: "WATCHED", workMissing: true },
+        { annictId: 67890, state: "WATCHING" },
+      ]);
+
+      const res = await buildApp().request(
+        "/me/watch-histories",
+        { method: "GET", headers: ANNICT_HEADER },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        annictWorkId: number;
+        state: string;
+      }[];
+      expect(body).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            annictWorkId: ANNICT_WORK_ID,
+            state: "WATCHED",
+          }),
+          expect.objectContaining({ annictWorkId: 67890, state: "WATCHING" }),
+        ]),
+      );
+      expect(body).toHaveLength(2);
     });
 
     it("GET /me/watch-histories: watchersCount をキャッシュして応答に載せる", async () => {

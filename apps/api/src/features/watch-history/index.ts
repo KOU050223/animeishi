@@ -95,7 +95,9 @@ const watchHistory = new Hono<AuthVariables>()
 
     // Annict viewer.libraryEntries を全状態・全ページ取得する。
     // Annict 由来のエラーは app.onError で 401/502 に変換される。
-    const entries = await fetchAnnictLibraryEntries(c.var.annictToken);
+    const { entries, complete } = await fetchAnnictLibraryEntries(
+      c.var.annictToken,
+    );
 
     // 作品メタ（annict_works キャッシュ）と視聴履歴に整形する。
     // NO_STATE / 未知の state は D1 に保存しないが、作品メタは触れた証跡として残す。
@@ -126,6 +128,7 @@ const watchHistory = new Hono<AuthVariables>()
     const data = await repo.syncMyLibraryFromAnnict(
       [...works.values()],
       historyEntries,
+      complete,
     );
 
     // Annict の画像が空 / SNS placeholder / http: に落ちている作品は、

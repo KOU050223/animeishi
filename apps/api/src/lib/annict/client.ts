@@ -253,13 +253,15 @@ const MAX_LIBRARY_PAGES = 40;
  * 本人の viewer.libraryEntries を全状態・全ページ取得し、平坦化して返す。
  * read-through 全置換（watch_history / annict_works キャッシュ更新）の入力に使う。
  *
+ * 取得不能な work があれば complete=false とし、既存履歴の削除を防ぐ。
  * state の検証（NO_STATE / 保存可否）は呼び出し側で行う。
  */
 export async function fetchAnnictLibraryEntries(
   accessToken: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<AnnictLibraryEntry[]> {
+): Promise<{ entries: AnnictLibraryEntry[]; complete: boolean }> {
   const entries: AnnictLibraryEntry[] = [];
+  let complete = true;
   let after: string | null = null;
   // 同一 endCursor の再出現（壊れたページング）を検出して無限ループを防ぐ。
   const seenCursors = new Set<string>();
@@ -281,7 +283,8 @@ export async function fetchAnnictLibraryEntries(
     for (const node of connection.nodes) {
       const work = node.work;
       if (!work) {
-        throw new AnnictApiError("Annict libraryEntry work missing", 502);
+        complete = false;
+        continue;
       }
       entries.push({
         annictWorkId: work.annictId,
@@ -320,7 +323,7 @@ export async function fetchAnnictLibraryEntries(
     after = endCursor;
   }
 
-  return entries;
+  return { entries, complete };
 }
 
 // --- updateStatus（視聴ステータス更新） ---
