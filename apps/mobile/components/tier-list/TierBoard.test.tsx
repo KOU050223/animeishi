@@ -245,6 +245,52 @@ describe("TierBoard の作品手動追加", () => {
   });
 });
 
+describe("同タイトルの重複アイテム（issue #521）", () => {
+  it("未分類トレイで同じ表示名のアイテムは先出の 1 件だけを描く", async () => {
+    const { getByTestId, queryByTestId, getByText } = await render(
+      boardElement({
+        items: [
+          { id: 1, title: "作品A" },
+          { id: 2, title: "作品A dup=2/9" },
+          { id: 3, title: "作品A dup=3/9" },
+        ],
+      }),
+    );
+
+    expect(getByTestId("tier-card-1")).toBeTruthy();
+    expect(queryByTestId("tier-card-2")).toBeNull();
+    expect(queryByTestId("tier-card-3")).toBeNull();
+    // ヘッダの件数も畳み込み後の数にする
+    expect(getByText("未分類（1）")).toBeTruthy();
+  });
+
+  it("内部マーカー付きのタイトルはマーカーを除いて表示する", async () => {
+    const { getByText } = await render(
+      boardElement({ items: [{ id: 1, title: "作品A dup=1/9" }] }),
+    );
+
+    expect(getByText("作品A")).toBeTruthy();
+  });
+
+  it("同名アイテムのうち配置を持つレコードを優先して残す", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      boardElement({
+        items: [
+          { id: 1, title: "作品A" },
+          { id: 2, title: "作品A dup=2/9" },
+        ],
+        // 重複レコード側の id に配置を保存したデータでは、その配置を
+        // 失わせないよう配置を持つ方を残す。
+        assignment: new Map([[2, "0"]]),
+      }),
+    );
+
+    // id 2 が tier "0" に描かれ、id 1 は畳まれて未分類にも出ない
+    expect(queryByTestId("tier-card-1")).toBeNull();
+    expect(getByTestId("tier-card-2")).toBeTruthy();
+  });
+});
+
 describe("行内の並べ替え（issue #218）", () => {
   // 行 "0" にカード 1,2,3（幅 60px、隙間 4px で横並び）、行 "1" は空、
   // 作品4 は未分類トレイ。実機では onLayout / measureInWindow が登録する

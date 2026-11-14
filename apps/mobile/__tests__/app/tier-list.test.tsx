@@ -11,7 +11,7 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { DEFAULT_TIERS, defaultTierListTitle } from "@/lib/tierList/defaults";
-import type { TierAssignment, TierRow } from "@/lib/tierList/types";
+import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
 
 const initialSeason = toSeasonParam(currentSeason().year, currentSeason().key);
 
@@ -66,8 +66,10 @@ jest.mock("@/components/anime-list/SeasonFilter", () => ({
 // そのまま検査するため TierBoard はスタブ化する。
 let mockBoardProps: {
   tiers: TierRow[];
+  items: TierItem[];
   assignment: TierAssignment;
   onAssign: (itemId: number, tierKey: string | null) => void;
+  onAddItem?: (item: TierItem) => void;
 } | null = null;
 jest.mock("@/components/tier-list/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
@@ -80,9 +82,10 @@ jest.mock("@/components/tier-list/TierBoardSnapshot", () => ({
   TierBoardSnapshot: () => null,
 }));
 
+let mockWorks: TierItem[] = [];
 jest.mock("@/lib/tierList/useSeasonWorks", () => ({
   useSeasonWorks: () => ({
-    works: [],
+    works: mockWorks,
     isLoading: false,
     isError: false,
     isConnected: true,
@@ -149,6 +152,7 @@ beforeEach(async () => {
   mockParams = {};
   mockOnSeasonChange = undefined;
   mockBoardProps = null;
+  mockWorks = [];
 });
 
 describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）", () => {
@@ -269,6 +273,59 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
 
     expect(mockBoardProps?.assignment.get(9)).toBe("0");
     expect(screen.getByText("v2")).toBeTruthy();
+  });
+});
+
+describe("TierListScreen の重複作品の畳み込み（issue #521）", () => {
+  it("シーズン候補に同タイトルの別 id が混ざっても盤面には 1 件だけ渡す", async () => {
+    mockWorks = [
+      { id: 1, title: "氷の城壁 第2期" },
+      { id: 2, title: "氷の城壁 第2期 dup=2/9" },
+      { id: 3, title: "氷の城壁 第2期 dup=3/9" },
+      { id: 4, title: "怪物さん" },
+    ];
+
+    await render(<TierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([1, 4]);
+    expect(mockBoardProps?.items[0].title).toBe("氷の城壁 第2期");
+  });
+
+  it("保存済み items のタイトルに内部マーカーが残っていても盤面には除いた名で渡す", async () => {
+    const saved = savedList("v1", [{ annictWorkId: 7, tierKey: "0" }]);
+    saved.items[0].title = "作品7 dup=2/9";
+    mockSavedBySeason[initialSeason] = saved;
+
+    await render(<TierListScreen />);
+
+    expect(mockBoardProps?.items.find((i) => i.id === 7)?.title).toBe("作品7");
+  });
+
+  it("同名アイテムのうち配置を持つレコードを優先して残す", async () => {
+    // 過去に重複レコード側の id で配置を保存したデータでは、畳み込みで
+    // 配置が孤児化しないよう配置を持つ方を残す。
+    mockWorks = [{ id: 1, title: "氷の城壁 第2期" }];
+    // 保存済み側のタイトルも同じ作品名に揃える（dup レコード想定）
+    const saved = savedList("v1", [{ annictWorkId: 9, tierKey: "0" }]);
+    saved.items[0].title = "氷の城壁 第2期 dup=2/9";
+    mockSavedBySeason[initialSeason] = saved;
+
+    await render(<TierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([9]);
+    expect(mockBoardProps?.assignment.get(9)).toBe("0");
+  });
+
+  it("追加シートで同タイトルの別 id を選んでも盤面には増えない", async () => {
+    mockWorks = [{ id: 1, title: "氷の城壁 第2期" }];
+    const { rerender } = await render(<TierListScreen />);
+
+    await act(() =>
+      mockBoardProps?.onAddItem?.({ id: 9, title: "氷の城壁 第2期 dup=5/9" }),
+    );
+    await rerender(<TierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([1]);
   });
 });
 

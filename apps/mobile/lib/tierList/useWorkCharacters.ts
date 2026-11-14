@@ -41,6 +41,9 @@ export function useWorkCharacters(annictWorkId: number | null) {
     },
   });
 
+  // 同名の別レコード（カタログ側の重複登録）の畳み込みはここでは行わない。
+  // 保存済み配置がどの id を指すかは画面側の情報なので、配置を優先して
+  // 残せる TierBoard の共通境界で畳む（issue #521）。
   const characters = useMemo<TierItem[]>(
     () =>
       (query.data?.characters ?? []).map((c) => ({

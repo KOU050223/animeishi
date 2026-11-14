@@ -25,6 +25,8 @@ import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
   assignItem,
+  boardItemTitleKey,
+  dedupeBoardItemsByTitle,
   mergeBoardItems,
   parseTiersJson,
   toAssignment,
@@ -189,16 +191,21 @@ export default function CustomTierListScreen() {
   // （lookupWorks）と手動追加分（manualWorks）を補完する。
   const boardWorks = useMemo<TierItem[]>(
     () =>
-      mergeBoardItems(
-        (saved?.items ?? []).map((item) => ({
-          id: item.annictWorkId,
-          title: item.title,
-          imageUrl: item.hostedImageUrl,
-        })),
-        lookupWorks,
-        manualWorks,
+      dedupeBoardItemsByTitle(
+        mergeBoardItems(
+          (saved?.items ?? []).map((item) => ({
+            id: item.annictWorkId,
+            title: item.title,
+            imageUrl: item.hostedImageUrl,
+          })),
+          lookupWorks,
+          manualWorks,
+        ),
+        // シーズン版と同じく、配置を持つ重複レコードを優先して残す
+        // （issue #521）。
+        (item) => assignment.has(item.id),
       ),
-    [saved, lookupWorks, manualWorks],
+    [saved, lookupWorks, manualWorks, assignment],
   );
 
   const handleAssign = useCallback(
@@ -215,7 +222,13 @@ export default function CustomTierListScreen() {
   const handleAddWork = useCallback(
     (work: TierItem) => {
       if (isSharing || save.isPending) return;
-      if (boardWorks.some((w) => w.id === work.id)) return;
+      // シーズン版と同じく、表示名が同じ作品は盤面に 1 件しか載せない
+      // （issue #521。カタログ側の別レコードは id が違うため id 比較だけでは
+      // 弾けない）。
+      const titleKey = boardItemTitleKey(work.title);
+      if (boardWorks.some((w) => boardItemTitleKey(w.title) === titleKey)) {
+        return;
+      }
       trackEvent("tier_work_add");
       setManualWorks((prev) => [...prev, work]);
       setIsDirty(true);
@@ -405,12 +418,16 @@ export default function CustomTierListScreen() {
           snapshotReadyRef.current = resolve;
         });
         setSnapshotItems(
-          savedData.items.map((i) => ({
-            id: i.annictWorkId,
-            tierKey: i.tierKey,
-            title: i.title,
-            imageUrl: i.hostedImageUrl,
-          })),
+          // シーズン版と同じく、保存応答に残り得る内部マーカーと同タイトルの
+          // 重複を共有画像からも除く（issue #521）。
+          dedupeBoardItemsByTitle(
+            savedData.items.map((i) => ({
+              id: i.annictWorkId,
+              tierKey: i.tierKey,
+              title: i.title,
+              imageUrl: i.hostedImageUrl,
+            })),
+          ),
         );
         await Promise.race([
           snapshotReady,

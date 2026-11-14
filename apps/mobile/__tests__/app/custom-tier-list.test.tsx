@@ -298,6 +298,48 @@ describe("CustomTierListScreen", () => {
     );
   });
 
+  it("引き継ぎ作品に同タイトルの別 id が混ざっても盤面には 1 件だけ並べる（issue #521）", async () => {
+    mockParams = { workIds: "10,11,20" };
+    mockLookupWorks = [
+      { annictWorkId: 10, title: "氷の城壁 第2期" },
+      { annictWorkId: 11, title: "氷の城壁 第2期 dup=2/9" },
+      { annictWorkId: 20, title: "怪物さん" },
+    ];
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10, 20]);
+    expect(mockBoardProps?.items[0].title).toBe("氷の城壁 第2期");
+  });
+
+  it("保存済み items のタイトルに内部マーカーが残っていても盤面には除いた名で渡す", async () => {
+    mockParams = { id: "7" };
+    const saved = savedList(7, "保存済み", [
+      { annictWorkId: 42, tierKey: "0" },
+    ]);
+    saved.items[0].title = "作品42 dup=2/9";
+    mockSaved = saved;
+
+    await render(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.find((i) => i.id === 42)?.title).toBe(
+      "作品42",
+    );
+  });
+
+  it("追加シートで同タイトルの別 id を選んでも盤面には増えない", async () => {
+    mockParams = { workIds: "10" };
+    mockLookupWorks = [{ annictWorkId: 10, title: "氷の城壁 第2期" }];
+    const { rerender } = await render(<CustomTierListScreen />);
+
+    await act(() =>
+      mockBoardProps?.onAddItem({ id: 9, title: "氷の城壁 第2期 dup=5/9" }),
+    );
+    await rerender(<CustomTierListScreen />);
+
+    expect(mockBoardProps?.items.map((i) => i.id)).toEqual([10]);
+  });
+
   it("保存済みデータの説明文と公開設定を反映する", async () => {
     mockParams = { id: "7" };
     mockSaved = savedList(7, "説明つき", [], {

@@ -32,6 +32,8 @@ import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
   assignItem,
+  boardItemTitleKey,
+  dedupeBoardItemsByTitle,
   mergeBoardItems,
   parseTiersJson,
   toAssignment,
@@ -193,16 +195,22 @@ export default function TierListScreen() {
   // - manualWorks（今回手動追加した作品。未配置のものも含む）。
   const boardWorks = useMemo<TierItem[]>(
     () =>
-      mergeBoardItems(
-        works,
-        (saved?.items ?? []).map((item) => ({
-          id: item.annictWorkId,
-          title: item.title,
-          imageUrl: item.hostedImageUrl,
-        })),
-        manualWorks,
+      dedupeBoardItemsByTitle(
+        mergeBoardItems(
+          works,
+          (saved?.items ?? []).map((item) => ({
+            id: item.annictWorkId,
+            title: item.title,
+            imageUrl: item.hostedImageUrl,
+          })),
+          manualWorks,
+        ),
+        // 過去に重複レコード側の id で配置を保存したデータでも、
+        // 配置を持つ方を残して「保存したはずの作品が未分類に戻る」のを
+        // 防ぐ（issue #521）。
+        (item) => assignment.has(item.id),
       ),
-    [works, saved, manualWorks],
+    [works, saved, manualWorks, assignment],
   );
 
   const handleAssign = useCallback(
@@ -224,7 +232,13 @@ export default function TierListScreen() {
       // ドロップと同じく、共有・保存中の編集は受け付けない。
       if (isSharing || save.isPending) return;
       // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
-      if (boardWorks.some((w) => w.id === work.id)) return;
+      // id だけでなく表示名でも比べる — カタログ側に同タイトルの別レコードが
+      // あると id が違うため盤面へ追加され得るが、表示は 1 件に畳まれる
+      // （issue #521）。
+      const titleKey = boardItemTitleKey(work.title);
+      if (boardWorks.some((w) => boardItemTitleKey(w.title) === titleKey)) {
+        return;
+      }
       // 作品の追加（issue #214）。重複・共有中の早期 return より後で送る。
       trackEvent("tier_work_add");
       setManualWorks((prev) => [...prev, work]);
@@ -448,12 +462,17 @@ export default function TierListScreen() {
           snapshotReadyRef.current = resolve;
         });
         setSnapshotItems(
-          savedData.items.map((i) => ({
-            id: i.annictWorkId,
-            tierKey: i.tierKey,
-            title: i.title,
-            imageUrl: i.hostedImageUrl,
-          })),
+          // 保存応答の title は DB 由来なので内部マーカーや同タイトルの
+          // 重複レコードが残り得る。共有画像も盤面と同じ表示に揃える
+          // （issue #521）。
+          dedupeBoardItemsByTitle(
+            savedData.items.map((i) => ({
+              id: i.annictWorkId,
+              tierKey: i.tierKey,
+              title: i.title,
+              imageUrl: i.hostedImageUrl,
+            })),
+          ),
         );
         // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
         // 撮る。タイムアウトを超えたら読み込み途中のまま撮る

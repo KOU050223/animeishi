@@ -24,6 +24,7 @@ import { useTierListStyles } from "@/components/tier-list/tierListStyles";
 import { useThemeColors } from "@/lib/theme";
 import {
   assignItem,
+  dedupeBoardItemsByTitle,
   parseTiersJson,
   sameBoard,
   toAssignment,
@@ -354,12 +355,16 @@ export default function CharacterTierListScreen() {
           snapshotReadyRef.current = resolve;
         });
         setSnapshotItems(
-          savedData.items.map((i) => ({
-            id: i.annictCharacterId,
-            tierKey: i.tierKey,
-            title: i.name,
-            imageUrl: i.imageUrl,
-          })),
+          // シーズン版と同じく、保存応答に残り得る内部マーカーと同名の
+          // 重複レコードを共有画像からも除く（issue #521）。
+          dedupeBoardItemsByTitle(
+            savedData.items.map((i) => ({
+              id: i.annictCharacterId,
+              tierKey: i.tierKey,
+              title: i.name,
+              imageUrl: i.imageUrl,
+            })),
+          ),
         );
         // スナップショットの描画とキャラクター画像の読み込み（onReady）を待って
         // から撮る。タイムアウトを超えたら読み込み途中のまま撮る

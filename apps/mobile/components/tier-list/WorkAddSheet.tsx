@@ -14,6 +14,10 @@ import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import { WorkImage } from "@/components/anime-list/WorkImage";
+import {
+  boardItemTitleKey,
+  dedupeBoardItemsByTitle,
+} from "@/lib/tierList/board";
 import { useWorkSearch } from "@/lib/tierList/useWorkSearch";
 import type { TierItem } from "@/lib/tierList/types";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
@@ -29,6 +33,7 @@ export function WorkAddSheet({
   onClose,
   onAdd,
   existingWorkIds,
+  existingTitleKeys,
   heading,
   description,
   actionLabel,
@@ -39,6 +44,12 @@ export function WorkAddSheet({
   onAdd: (work: TierItem) => void;
   /** 既に盤面にある作品 id。検索結果で「追加済み」表示にして二重追加を防ぐ。 */
   existingWorkIds: ReadonlySet<number>;
+  /**
+   * 既に盤面にある作品の表示名キー（boardItemTitleKey で作る）。
+   * カタログ側に同タイトルの別レコードがあると id が違うため、id 集合
+   * だけでは「追加済み」を出せない（issue #521）。
+   */
+  existingTitleKeys?: ReadonlySet<string>;
   /** シートの見出し。表示文言は基盤側に既定値を持たせず呼び出し側が渡す。 */
   heading: string;
   /** 見出しの下の説明文。追加先の振る舞い（未分類 / 末尾）を呼び出し側が説明する。 */
@@ -69,6 +80,9 @@ export function WorkAddSheet({
     resultsStale,
     refetch,
   } = useWorkSearch(query, visible);
+
+  // 検索結果にも同タイトルの別レコードが並び得るので盤面と同じく畳む。
+  const displayWorks = dedupeBoardItemsByTitle(works);
 
   return (
     <Modal
@@ -196,7 +210,7 @@ export function WorkAddSheet({
                 </Text>
               ) : (
                 <FlatList
-                  data={works}
+                  data={displayWorks}
                   keyExtractor={(item) => String(item.annictWorkId)}
                   keyboardShouldPersistTaps="handled"
                   ListFooterComponent={
@@ -216,7 +230,10 @@ export function WorkAddSheet({
                     ) : undefined
                   }
                   renderItem={({ item }) => {
-                    const added = existingWorkIds.has(item.annictWorkId);
+                    const added =
+                      existingWorkIds.has(item.annictWorkId) ||
+                      (existingTitleKeys?.has(boardItemTitleKey(item.title)) ??
+                        false);
                     // 検索語を変えた直後は前の語の結果を仮表示している
                     // （デバウンス待ち / keepPreviousData）。その一覧は
                     // 新しい語の結果ではないので、入れ替わるまで追加操作を
