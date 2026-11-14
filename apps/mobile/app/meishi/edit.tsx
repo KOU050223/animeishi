@@ -391,18 +391,20 @@ export default function MeishiEditScreen() {
             </View>
           )}
         </View>
-      </View>
 
-      <AddElementSheet
-        visible={addSheet}
-        onClose={() => setAddSheet(false)}
-        onPick={handleAddElement}
-        onPickAvatarImage={handleAddAvatar}
-        onPickAnimeImage={() => {
-          setAddSheet(false);
-          setAnimePickerTarget("new");
-        }}
-      />
+        {/* Web 版は editorBody 内オーバーレイとして描画される。ヘッダーの
+            戻るボタンを覆わないよう editorBody の中に置く（issue #528） */}
+        <AddElementSheet
+          visible={addSheet}
+          onClose={() => setAddSheet(false)}
+          onPick={handleAddElement}
+          onPickAvatarImage={handleAddAvatar}
+          onPickAnimeImage={() => {
+            setAddSheet(false);
+            setAnimePickerTarget("new");
+          }}
+        />
+      </View>
 
       {animePickerTarget !== null ? (
         <AnimeImagePicker
