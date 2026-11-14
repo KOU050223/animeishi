@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/ui";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
@@ -165,7 +165,7 @@ function HomeHeaderButtons() {
         accessibilityLabel="名刺をデザインする"
         testID="home-open-meishi-edit"
       >
-        <Ionicons name="id-card-outline" size={24} color={colors.primaryText} />
+        <Icon name="id-card-outline" size={24} color={colors.primaryText} />
       </Pressable>
       <Pressable
         onPress={() => router.push("/(tabs)/social?section=qr")}
@@ -174,7 +174,7 @@ function HomeHeaderButtons() {
         accessibilityLabel="QR で名刺を交換"
         testID="home-open-qr"
       >
-        <Ionicons name="qr-code-outline" size={24} color={colors.primaryText} />
+        <Icon name="qr-code-outline" size={24} color={colors.primaryText} />
       </Pressable>
       <Pressable
         onPress={() => router.push("/feedback")}
@@ -183,7 +183,7 @@ function HomeHeaderButtons() {
         accessibilityLabel="不具合報告・ご意見を送る"
         testID="home-open-feedback"
       >
-        <Ionicons
+        <Icon
           name="chatbubble-ellipses-outline"
           size={24}
           color={colors.primaryText}
