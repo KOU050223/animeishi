@@ -198,8 +198,12 @@ describe("fetchAnnictLibraryEntries", () => {
         }),
       );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
+    const { entries, complete } = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock,
+    );
 
+    expect(complete).toBe(true);
     expect(entries.map((e) => e.annictWorkId)).toEqual([1, 2]);
     expect(entries[0]?.state).toBe("WATCHING");
     expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
@@ -209,7 +213,7 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(secondBody.variables.after).toBe("cursor1");
   });
 
-  it("work が null のノードはスキップする", async () => {
+  it("work が null のノードがあれば取得済みの作品を部分結果として返す", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       libraryPage(
         [node(1, "WATCHING"), { status: { state: "WATCHED" }, work: null }],
@@ -220,10 +224,13 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
+    const { entries, complete } = await fetchAnnictLibraryEntries(
+      "tok",
+      fetchMock,
+    );
 
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.annictWorkId).toBe(1);
+    expect(complete).toBe(false);
+    expect(entries.map((e) => e.annictWorkId)).toEqual([1]);
   });
 
   it("status が null のノードは state=null で返す（呼び出し側で保存可否を判定）", async () => {
@@ -233,7 +240,7 @@ describe("fetchAnnictLibraryEntries", () => {
         libraryPage([node(3, null)], { hasNextPage: false, endCursor: null }),
       );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
+    const { entries } = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.state).toBeNull();
@@ -258,7 +265,7 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
+    const { entries } = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries[0]?.imageUrl).toBe("https://img/4-og.jpg");
   });
@@ -283,14 +290,14 @@ describe("fetchAnnictLibraryEntries", () => {
       ),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
+    const { entries } = await fetchAnnictLibraryEntries("tok", fetchMock);
 
     expect(entries[0]?.imageUrl).toBe(
       "https://imgproxy.annict.test/works/6.jpg",
     );
   });
 
-  it("hasNextPage が true でも endCursor が null なら止まる（無限ループ防止）", async () => {
+  it("hasNextPage が true で endCursor が null なら部分結果を返さない", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       libraryPage([node(1, "WATCHING")], {
         hasNextPage: true,
@@ -298,9 +305,12 @@ describe("fetchAnnictLibraryEntries", () => {
       }),
     );
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
-
-    expect(entries).toHaveLength(1);
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -323,14 +333,17 @@ describe("fetchAnnictLibraryEntries", () => {
     });
   });
 
-  it("viewer が null（未認証相当）なら空配列", async () => {
+  it("viewer が null なら空のライブラリとみなさない", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ data: { viewer: null } }));
 
-    const entries = await fetchAnnictLibraryEntries("tok", fetchMock);
-
-    expect(entries).toEqual([]);
+    await expect(
+      fetchAnnictLibraryEntries("tok", fetchMock),
+    ).rejects.toMatchObject({
+      name: "AnnictApiError",
+      status: 502,
+    });
   });
 });
 

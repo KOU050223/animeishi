@@ -82,14 +82,19 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
    * 書き込まれ D1 の書き込み上限（Free 10 万行/日）の最大要因になっていた
    * （issue #221）。
    *
-   * entries は「全件取得できた Annict 側の最新一覧」を前提とする。
-   * 部分取得の入力を流すと、取れなかった分が「Annict から消えた」と
-   * 誤判定されて履歴が消える（呼び出し側の fetchAnnictLibraryEntries は
-   * ページングを完走できない場合に例外を投げ、部分データを返さない）。
+   * deleteMissing=true の entries は「全件取得できた Annict 側の最新一覧」を
+   * 前提とする。取得不能な work がある場合は false にし、既存行を残す。
+   * ページングを完走できない場合は呼び出し側が例外を投げる。
    * insert する作品は事前に annict_works に存在していること（FK 制約）。
+   *
+   * deleteMissing=false でも、応答で work が解決できたうえ status が
+   * 空（NO_STATE / 解除済み）と確認できた作品は「消えた」のではなく
+   * 「解除された」と断定できるため、clearedIds として渡して削除する。
    */
   const applyWatchHistoryDiff = async (
     entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+    deleteMissing = true,
+    clearedIds: number[] = [],
   ): Promise<void> => {
     const now = new Date();
 
@@ -116,8 +121,18 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
       if (prev === undefined) toInsert.push({ annictWorkId, state });
       else if (prev !== state) toUpdate.push({ annictWorkId, state });
     }
-    for (const annictWorkId of existingState.keys()) {
-      if (!nextState.has(annictWorkId)) toDeleteIds.push(annictWorkId);
+    if (deleteMissing) {
+      for (const annictWorkId of existingState.keys()) {
+        if (!nextState.has(annictWorkId)) toDeleteIds.push(annictWorkId);
+      }
+    } else {
+      // 部分取得でも「応答で解除が確認できた」作品だけは消す
+      // （消さないと、取得不能な別作品がある限り解除が永久に反映されない）。
+      for (const annictWorkId of clearedIds) {
+        if (existingState.has(annictWorkId) && !nextState.has(annictWorkId)) {
+          toDeleteIds.push(annictWorkId);
+        }
+      }
     }
 
     const queries: BatchItem<"sqlite">[] = [];
@@ -265,11 +280,17 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
      *
      * @param works 触れた作品のメタ（annict_works へ upsert するキャッシュ）
      * @param entries 一致させる本人の視聴履歴（works に含まれる作品のみ）
+     * @param complete Annict 側の全件一覧が取れたか。false のとき応答に無い
+     *   既存行は「消えた」と断定できないため消さない
+     * @param clearedIds 応答で work が解決できたうえステータスが空だった
+     *   作品。complete=false でも解除が確定しているので既存行を消す
      * @returns 同期後の本人の視聴履歴（updatedAt 降順）
      */
     async syncMyLibraryFromAnnict(
       works: NewAnnictWork[],
       entries: Pick<NewWatchHistory, "annictWorkId" | "state">[],
+      complete = true,
+      clearedIds: number[] = [],
     ): Promise<WatchHistoryWithWork[]> {
       const worksRepo = worksRepository(db);
 
@@ -304,7 +325,7 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
         ),
       );
 
-      await applyWatchHistoryDiff(entries);
+      await applyWatchHistoryDiff(entries, complete, clearedIds);
 
       // 作品メタ（title 等）を含めて返すため annict_works と JOIN する。
       return listMyWatchHistory();
