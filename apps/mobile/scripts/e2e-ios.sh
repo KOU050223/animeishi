@@ -749,6 +749,19 @@ fi
 
 [ -d "$APP_PATH" ] || { echo "アプリが見つかりません: $APP_PATH" >&2; exit 1; }
 
+# --- シミュレーターの軽量化（simslim）---------------------------------------
+# E2E に不要な常駐デーモン（Siri・ウィジェット・iCloud 等）を止め、
+# シミュレーター 1 台のメモリを 3.5GB → 0.9GB 程度に減らす。
+# simslim はローカルの任意ツールなので、無ければ何もしない。
+# 無効化は専用シミュレーターの launchd 設定に永続化される（iOS 18.5 以降）ため、
+# 適用済みなら即座に返る。作り直したシミュレーターにはここで掛け直す。
+# 失敗しても E2E は通常のシミュレーターで続けられるので止めない。
+if [ "${E2E_SIMSLIM:-1}" != 0 ] && command -v simslim >/dev/null 2>&1; then
+  echo "simslim でシミュレーターを軽量化します ..."
+  simslim on "$UDID" \
+    || echo "simslim の適用に失敗しました。通常のシミュレーターで続行します" >&2
+fi
+
 # --- インストール ------------------------------------------------------------
 xcrun simctl boot "$UDID" 2>/dev/null || true
 open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
