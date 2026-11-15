@@ -177,8 +177,61 @@ const DETAIL = {
     wikipediaUrlEn: null,
     twitterUsername: "test_anime",
     twitterHashtag: null,
+    staffs: [],
+    casts: [],
   },
 };
+
+// クレジット（issue #536）を持つ詳細応答。主要役職・非主要役職（roleOther
+// 由来の自由記述）・団体（制作会社）と、キャラ付き/キャラ無しのキャストを
+// 混ぜて、出し分けとラベル・リンク先を検証する。
+const CREDITS = {
+  staffs: [
+    {
+      annictStaffId: 501,
+      name: "山田 監督",
+      role: "監督",
+      resource: { kind: "person", annictId: 101 },
+    },
+    {
+      annictStaffId: 502,
+      name: "テスト制作",
+      role: "アニメーション制作",
+      resource: { kind: "organization", annictId: 202 },
+    },
+    {
+      annictStaffId: 503,
+      name: "企画プロ",
+      role: "企画",
+      resource: { kind: "organization", annictId: 203 },
+    },
+    {
+      annictStaffId: 504,
+      name: "佐藤 演出",
+      role: "演出",
+      resource: { kind: "person", annictId: 103 },
+    },
+  ],
+  casts: [
+    {
+      annictCastId: 601,
+      annictPersonId: 301,
+      personName: "声優 一郎",
+      characterName: "主人公",
+      sortNumber: 1,
+    },
+    ...Array.from({ length: 11 }, (_, i) => ({
+      annictCastId: 602 + i,
+      annictPersonId: 302 + i,
+      personName: `声優 ${i + 2}郎`,
+      characterName: `キャラ${i + 2}`,
+      sortNumber: i + 2,
+    })),
+  ],
+};
+
+const creditsDetail = () =>
+  detailState({ data: { work: { ...DETAIL.work, ...CREDITS } } });
 
 const detailState = (overrides: Record<string, unknown> = {}) => ({
   data: DETAIL,
@@ -817,6 +870,110 @@ describe("AnimeWorkDetailSheet", () => {
     await fireEvent.press(screen.getByLabelText("Annict で見る"));
 
     expect(openURL).toHaveBeenCalledWith("https://annict.com/works/42");
+  });
+
+  it("主要役職のスタッフと先頭のキャストをチップで表示する（issue #536）", async () => {
+    mockUseWorkDetail.mockReturnValue(creditsDetail());
+    await render(sheetElement());
+
+    // スタッフは役職付き、キャストは演じたキャラクター名付きで出す。
+    expect(screen.getByText("監督：山田 監督")).toBeTruthy();
+    expect(screen.getByText("アニメーション制作：テスト制作")).toBeTruthy();
+    expect(screen.getByText("声優 一郎（主人公）")).toBeTruthy();
+    // 団体（制作会社）は役職ラベルが主要でなくても常時表示する。
+    expect(screen.getByText("企画：企画プロ")).toBeTruthy();
+    // 主要役職以外のスタッフ（人物）と INITIAL_CAST_COUNT 以降のキャストは
+    // 「もっと見る」で開くまでは出さない。
+    expect(screen.queryByText("演出：佐藤 演出")).toBeNull();
+    expect(screen.queryByText("声優 12郎（キャラ12）")).toBeNull();
+    expect(screen.getByTestId("work-detail-credits-toggle")).toBeTruthy();
+  });
+
+  it("キャラクター名が無いキャストは声優名だけで表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(
+      detailState({
+        data: {
+          work: {
+            ...DETAIL.work,
+            casts: [
+              {
+                annictCastId: 601,
+                annictPersonId: 301,
+                personName: "声優 一郎",
+                characterName: null,
+                sortNumber: 1,
+              },
+            ],
+          },
+        },
+      }),
+    );
+    await render(sheetElement());
+
+    expect(screen.getByText("声優 一郎")).toBeTruthy();
+    expect(screen.queryByText(/（/)).toBeNull();
+  });
+
+  it("「もっと見る」を押すと残りのスタッフ・キャストをすべて表示する", async () => {
+    mockUseWorkDetail.mockReturnValue(creditsDetail());
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByTestId("work-detail-credits-toggle"));
+
+    expect(screen.getByText("演出：佐藤 演出")).toBeTruthy();
+    expect(screen.getByText("声優 12郎（キャラ12）")).toBeTruthy();
+    // 展開後は折りたたみに切り替わる。
+    expect(screen.getByText("折りたたむ")).toBeTruthy();
+  });
+
+  it("スタッフチップを押すと Annict の人物・団体ページを開く", async () => {
+    mockUseWorkDetail.mockReturnValue(creditsDetail());
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByText("監督：山田 監督"));
+    expect(openURL).toHaveBeenCalledWith("https://annict.com/people/101");
+
+    await fireEvent.press(screen.getByText("アニメーション制作：テスト制作"));
+    expect(openURL).toHaveBeenCalledWith(
+      "https://annict.com/organizations/202",
+    );
+  });
+
+  it("キャストチップを押すと Annict の人物ページを開く", async () => {
+    mockUseWorkDetail.mockReturnValue(creditsDetail());
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+
+    await fireEvent.press(screen.getByText("声優 一郎（主人公）"));
+
+    expect(openURL).toHaveBeenCalledWith("https://annict.com/people/301");
+  });
+
+  it("スタッフ・キャストが無い作品ではクレジットのセクションを出さない", async () => {
+    await render(sheetElement());
+
+    expect(screen.queryByText("スタッフ・制作会社")).toBeNull();
+    expect(screen.queryByText("キャスト")).toBeNull();
+    expect(screen.queryByTestId("work-detail-credits-toggle")).toBeNull();
+  });
+
+  it("フィールド追加前のキャッシュ（staffs / casts 無し）でもシートが開ける", async () => {
+    // 詳細クエリは端末の永続キャッシュから復元されるため、staffs / casts
+    // 追加前の応答が新しい画面に渡りうる。undefined のまま渡されても
+    // 空配列に正規化して描画を続ける。
+    mockUseWorkDetail.mockReturnValue(
+      detailState({
+        data: {
+          work: { ...DETAIL.work, staffs: undefined, casts: undefined },
+        },
+      }),
+    );
+
+    await render(sheetElement());
+
+    expect(screen.getByText("テストアニメ")).toBeTruthy();
+    expect(screen.queryByTestId("work-detail-credits-toggle")).toBeNull();
   });
 
   it("詳細取得中や失敗時も Annict リンクを表示する", async () => {

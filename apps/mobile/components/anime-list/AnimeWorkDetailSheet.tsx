@@ -1225,6 +1225,151 @@ function AnnictWorkLink({ annictWorkId }: { annictWorkId: number }) {
   );
 }
 
+// Annict GraphQL の役職は enum ではなく日本語ラベル（staff.roleText か
+// 自由記述の roleOther）で返るため、常時表示する「主要な役職」
+// （issue #536）をラベルの一致で判定する。総監督は監督の上位役職なので
+// 主要側に含める。
+const MAJOR_STAFF_ROLES = new Set([
+  "原作",
+  "監督",
+  "総監督",
+  "シリーズ構成",
+  "キャラクターデザイン",
+  "音楽",
+  "アニメーション制作",
+]);
+
+// 常時表示するスタッフの判定。issue #536 は「制作会社」を主要役職とは
+// 別立てで列挙しているため、団体は役職ラベル（「制作協力」「企画」等）
+// に関わらず常時表示する。
+function isVisibleStaff(staff: WorkDetail["staffs"][number]): boolean {
+  return (
+    staff.resource.kind === "organization" || MAJOR_STAFF_ROLES.has(staff.role)
+  );
+}
+
+// 初期表示するキャスト数。Annict の casts は SORT_NUMBER 順（主要キャラが
+// 先頭）で返る。これ以降のキャストと主要役職以外のスタッフは
+// 「もっと見る」で展開する。
+const INITIAL_CAST_COUNT = 10;
+
+/**
+ * 制作会社・スタッフ・キャストのチップ一覧（issue #536 第 1 段階）。
+ * チップを押すと Annict の人物・団体ページを外部ブラウザで開く
+ * （アプリ内の逆引き一覧は第 2 段階・別 Issue）。スタッフは役職付き、
+ * キャストは演じたキャラクター名付きで出す。スタッフ・キャストとも
+ * 無い作品ではセクション自体を出さない。
+ */
+function CreditsSection({
+  staffs,
+  casts,
+}: {
+  staffs: WorkDetail["staffs"];
+  casts: WorkDetail["casts"];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleStaffs = expanded ? staffs : staffs.filter(isVisibleStaff);
+  const visibleCasts = expanded ? casts : casts.slice(0, INITIAL_CAST_COUNT);
+  const hiddenCount =
+    staffs.length - visibleStaffs.length + casts.length - visibleCasts.length;
+
+  if (staffs.length === 0 && casts.length === 0) return null;
+
+  return (
+    <View className="gap-3">
+      {visibleStaffs.length > 0 ? (
+        <View>
+          <SectionTitle>スタッフ・制作会社</SectionTitle>
+          <View className="flex-row flex-wrap gap-1.5">
+            {visibleStaffs.map((staff) => (
+              <CreditChip
+                key={staff.annictStaffId}
+                label={staff.role ? `${staff.role}：${staff.name}` : staff.name}
+                url={
+                  staff.resource.kind === "organization"
+                    ? `https://annict.com/organizations/${staff.resource.annictId}`
+                    : `https://annict.com/people/${staff.resource.annictId}`
+                }
+                accessibilityLabel={`${staff.name}（${staff.role}）の Annict ページを開く`}
+                testID={`work-detail-staff-${staff.annictStaffId}`}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+      {visibleCasts.length > 0 ? (
+        <View>
+          <SectionTitle>キャスト</SectionTitle>
+          <View className="flex-row flex-wrap gap-1.5">
+            {visibleCasts.map((cast) => {
+              // 読み上げでも兼役の担当キャラを区別できるよう、表示と
+              // 同じ条件でキャラクター名をラベルに含める。
+              const castName = cast.characterName
+                ? `${cast.personName}（${cast.characterName}）`
+                : cast.personName;
+              return (
+                <CreditChip
+                  key={cast.annictCastId}
+                  label={castName}
+                  url={`https://annict.com/people/${cast.annictPersonId}`}
+                  accessibilityLabel={`${castName}の Annict ページを開く`}
+                  testID={`work-detail-cast-${cast.annictCastId}`}
+                />
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+      {hiddenCount > 0 || expanded ? (
+        <TouchableOpacity
+          onPress={() => setExpanded((v) => !v)}
+          hitSlop={8}
+          className="self-start py-1"
+          accessibilityRole="button"
+          accessibilityLabel={
+            expanded
+              ? "スタッフ・キャストの表示を折りたたむ"
+              : `他${hiddenCount}件のスタッフ・キャストを表示`
+          }
+          testID="work-detail-credits-toggle"
+        >
+          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            {expanded ? "折りたたむ" : `もっと見る（他${hiddenCount}件）`}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+/** Annict の人物・団体ページを外部ブラウザで開くチップ。 */
+function CreditChip({
+  label,
+  url,
+  accessibilityLabel,
+  testID,
+}: {
+  label: string;
+  url: string;
+  accessibilityLabel: string;
+  testID: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={() => void Linking.openURL(url)}
+      hitSlop={8}
+      className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 dark:border-indigo-800 dark:bg-indigo-950"
+      accessibilityRole="link"
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+    >
+      <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 function WorkDetailSection({ work }: { work: WorkDetail }) {
   const colors = useThemeColors();
 
@@ -1286,6 +1431,14 @@ function WorkDetailSection({ work }: { work: WorkDetail }) {
           <DetailRow key={row.label} label={row.label} value={row.value} />
         ))}
       </View>
+      <CreditsSection
+        key={work.annictWorkId}
+        // 詳細クエリは端末の永続キャッシュから復元されるため、フィールド追加
+        // 前の応答には staffs / casts が無い。そのまま渡すとクラッシュする
+        // ため空配列に正規化する（再取得が終われば新しい応答に置き換わる）。
+        staffs={work.staffs ?? []}
+        casts={work.casts ?? []}
+      />
       {links.length > 0 ? (
         <View className="flex-row flex-wrap gap-x-4 gap-y-1">
           {links.map((link) => (
