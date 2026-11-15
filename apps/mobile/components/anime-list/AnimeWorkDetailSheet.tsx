@@ -1301,19 +1301,22 @@ function CreditsSection({
         <View>
           <SectionTitle>キャスト</SectionTitle>
           <View className="flex-row flex-wrap gap-1.5">
-            {visibleCasts.map((cast) => (
-              <CreditChip
-                key={cast.annictCastId}
-                label={
-                  cast.characterName
-                    ? `${cast.personName}（${cast.characterName}）`
-                    : cast.personName
-                }
-                url={`https://annict.com/people/${cast.annictPersonId}`}
-                accessibilityLabel={`${cast.personName}の Annict ページを開く`}
-                testID={`work-detail-cast-${cast.annictCastId}`}
-              />
-            ))}
+            {visibleCasts.map((cast) => {
+              // 読み上げでも兼役の担当キャラを区別できるよう、表示と
+              // 同じ条件でキャラクター名をラベルに含める。
+              const castName = cast.characterName
+                ? `${cast.personName}（${cast.characterName}）`
+                : cast.personName;
+              return (
+                <CreditChip
+                  key={cast.annictCastId}
+                  label={castName}
+                  url={`https://annict.com/people/${cast.annictPersonId}`}
+                  accessibilityLabel={`${castName}の Annict ページを開く`}
+                  testID={`work-detail-cast-${cast.annictCastId}`}
+                />
+              );
+            })}
           </View>
         </View>
       ) : null}
