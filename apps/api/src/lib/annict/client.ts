@@ -951,6 +951,7 @@ query WorkDetail($annictIds: [Int!]) {
       image { ${WORK_IMAGE_FIELDS} }
       staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
+          annictId
           name
           roleText
           roleOther
@@ -964,6 +965,7 @@ query WorkDetail($annictIds: [Int!]) {
       }
       casts(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
+          annictId
           sortNumber
           person { annictId name }
           character { annictId name }
@@ -1001,6 +1003,7 @@ type WorkDetailResponse = {
       image: AnnictWorkImage | null;
       staffs: {
         nodes: {
+          annictId: number;
           name: string;
           roleText: string;
           roleOther: string;
@@ -1013,6 +1016,7 @@ type WorkDetailResponse = {
       } | null;
       casts: {
         nodes: {
+          annictId: number;
           sortNumber: number;
           person: { annictId: number; name: string } | null;
           character: { annictId: number; name: string } | null;
@@ -1024,6 +1028,9 @@ type WorkDetailResponse = {
 
 /** 詳細シートに出すスタッフ・制作会社のクレジット 1 件（issue #536）。 */
 export type AnnictWorkStaff = {
+  // Annict の staff 行自体の ID。人物・団体の annictId ではない
+  // （同一人物の別役職は別行なので行 ID があると区別できる）。
+  annictStaffId: number;
   // Annict の staff.name（クレジット表記名）。
   name: string;
   // 役職の表示名。Annict は定型役職を roleText（「監督」等の日本語
@@ -1039,6 +1046,9 @@ export type AnnictWorkStaff = {
 
 /** 詳細シートに出すキャスト（声優 × キャラクター）1 件（issue #536）。 */
 export type AnnictWorkCast = {
+  // Annict の cast 行自体の ID。人物・キャラクターの annictId ではない
+  // （一人二役は別行なので行 ID があると区別できる）。
+  annictCastId: number;
   annictPersonId: number;
   personName: string;
   // キャスト行からキャラクターが取れない（未登録・削除）こともある。
@@ -1120,6 +1130,7 @@ export async function fetchAnnictWorkDetail(
       if (!resource) return [];
       return [
         {
+          annictStaffId: node.annictId,
           name: node.name,
           role: node.roleOther || node.roleText,
           resource: {
@@ -1136,6 +1147,7 @@ export async function fetchAnnictWorkDetail(
       if (!node.person) return [];
       return [
         {
+          annictCastId: node.annictId,
           annictPersonId: node.person.annictId,
           personName: node.person.name,
           characterName: node.character?.name ?? null,

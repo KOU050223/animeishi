@@ -1281,9 +1281,9 @@ function CreditsSection({
         <View>
           <SectionTitle>スタッフ・制作会社</SectionTitle>
           <View className="flex-row flex-wrap gap-1.5">
-            {visibleStaffs.map((staff, i) => (
+            {visibleStaffs.map((staff) => (
               <CreditChip
-                key={`staff-${i}`}
+                key={staff.annictStaffId}
                 label={staff.role ? `${staff.role}：${staff.name}` : staff.name}
                 url={
                   staff.resource.kind === "organization"
@@ -1291,7 +1291,7 @@ function CreditsSection({
                     : `https://annict.com/people/${staff.resource.annictId}`
                 }
                 accessibilityLabel={`${staff.name}（${staff.role}）の Annict ページを開く`}
-                testID={`work-detail-staff-${i}`}
+                testID={`work-detail-staff-${staff.annictStaffId}`}
               />
             ))}
           </View>
@@ -1301,9 +1301,9 @@ function CreditsSection({
         <View>
           <SectionTitle>キャスト</SectionTitle>
           <View className="flex-row flex-wrap gap-1.5">
-            {visibleCasts.map((cast, i) => (
+            {visibleCasts.map((cast) => (
               <CreditChip
-                key={`cast-${i}`}
+                key={cast.annictCastId}
                 label={
                   cast.characterName
                     ? `${cast.personName}（${cast.characterName}）`
@@ -1311,7 +1311,7 @@ function CreditsSection({
                 }
                 url={`https://annict.com/people/${cast.annictPersonId}`}
                 accessibilityLabel={`${cast.personName}の Annict ページを開く`}
-                testID={`work-detail-cast-${i}`}
+                testID={`work-detail-cast-${cast.annictCastId}`}
               />
             ))}
           </View>
@@ -1430,8 +1430,11 @@ function WorkDetailSection({ work }: { work: WorkDetail }) {
       </View>
       <CreditsSection
         key={work.annictWorkId}
-        staffs={work.staffs}
-        casts={work.casts}
+        // 詳細クエリは端末の永続キャッシュから復元されるため、フィールド追加
+        // 前の応答には staffs / casts が無い。そのまま渡すとクラッシュする
+        // ため空配列に正規化する（再取得が終われば新しい応答に置き換わる）。
+        staffs={work.staffs ?? []}
+        casts={work.casts ?? []}
       />
       {links.length > 0 ? (
         <View className="flex-row flex-wrap gap-x-4 gap-y-1">

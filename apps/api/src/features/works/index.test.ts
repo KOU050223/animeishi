@@ -1772,6 +1772,7 @@ function mockWorkDetail(
                       nodes: options.withCredits
                         ? [
                             {
+                              annictId: 501,
                               name: "山田 監督",
                               roleText: "監督",
                               roleOther: "",
@@ -1782,6 +1783,7 @@ function mockWorkDetail(
                               },
                             },
                             {
+                              annictId: 502,
                               name: "テスト制作",
                               roleText: "アニメーション制作",
                               roleOther: "",
@@ -1792,6 +1794,7 @@ function mockWorkDetail(
                               },
                             },
                             {
+                              annictId: 503,
                               name: "佐藤 演出",
                               roleText: "その他",
                               roleOther: "演出",
@@ -1808,6 +1811,7 @@ function mockWorkDetail(
                       nodes: options.withCredits
                         ? [
                             {
+                              annictId: 601,
                               sortNumber: 1,
                               person: { annictId: 301, name: "声優 一郎" },
                               character: {
@@ -1816,6 +1820,7 @@ function mockWorkDetail(
                               },
                             },
                             {
+                              annictId: 602,
                               sortNumber: 2,
                               person: { annictId: 302, name: "声優 二郎" },
                               character: null,
@@ -1915,11 +1920,13 @@ describe("作品詳細 API", () => {
     const body = (await res.json()) as {
       work: {
         staffs: {
+          annictStaffId: number;
           name: string;
           role: string;
           resource: { kind: string; annictId: number };
         }[];
         casts: {
+          annictCastId: number;
           annictPersonId: number;
           personName: string;
           characterName: string | null;
@@ -1929,17 +1936,20 @@ describe("作品詳細 API", () => {
     };
     expect(body.work.staffs).toEqual([
       {
+        annictStaffId: 501,
         name: "山田 監督",
         role: "監督",
         resource: { kind: "person", annictId: 101 },
       },
       {
+        annictStaffId: 502,
         name: "テスト制作",
         role: "アニメーション制作",
         resource: { kind: "organization", annictId: 202 },
       },
       // role=other の自由記述（roleOther）が役職名として優先される
       {
+        annictStaffId: 503,
         name: "佐藤 演出",
         role: "演出",
         resource: { kind: "person", annictId: 103 },
@@ -1947,6 +1957,7 @@ describe("作品詳細 API", () => {
     ]);
     expect(body.work.casts).toEqual([
       {
+        annictCastId: 601,
         annictPersonId: 301,
         personName: "声優 一郎",
         characterName: "主人公",
@@ -1954,6 +1965,7 @@ describe("作品詳細 API", () => {
       },
       // キャラクター未登録のキャストも person だけで返す
       {
+        annictCastId: 602,
         annictPersonId: 302,
         personName: "声優 二郎",
         characterName: null,

@@ -188,21 +188,25 @@ const DETAIL = {
 const CREDITS = {
   staffs: [
     {
+      annictStaffId: 501,
       name: "山田 監督",
       role: "監督",
       resource: { kind: "person", annictId: 101 },
     },
     {
+      annictStaffId: 502,
       name: "テスト制作",
       role: "アニメーション制作",
       resource: { kind: "organization", annictId: 202 },
     },
     {
+      annictStaffId: 503,
       name: "企画プロ",
       role: "企画",
       resource: { kind: "organization", annictId: 203 },
     },
     {
+      annictStaffId: 504,
       name: "佐藤 演出",
       role: "演出",
       resource: { kind: "person", annictId: 103 },
@@ -210,12 +214,14 @@ const CREDITS = {
   ],
   casts: [
     {
+      annictCastId: 601,
       annictPersonId: 301,
       personName: "声優 一郎",
       characterName: "主人公",
       sortNumber: 1,
     },
     ...Array.from({ length: 11 }, (_, i) => ({
+      annictCastId: 602 + i,
       annictPersonId: 302 + i,
       personName: `声優 ${i + 2}郎`,
       characterName: `キャラ${i + 2}`,
@@ -891,6 +897,7 @@ describe("AnimeWorkDetailSheet", () => {
             ...DETAIL.work,
             casts: [
               {
+                annictCastId: 601,
                 annictPersonId: 301,
                 personName: "声優 一郎",
                 characterName: null,
@@ -948,6 +955,24 @@ describe("AnimeWorkDetailSheet", () => {
 
     expect(screen.queryByText("スタッフ・制作会社")).toBeNull();
     expect(screen.queryByText("キャスト")).toBeNull();
+    expect(screen.queryByTestId("work-detail-credits-toggle")).toBeNull();
+  });
+
+  it("フィールド追加前のキャッシュ（staffs / casts 無し）でもシートが開ける", async () => {
+    // 詳細クエリは端末の永続キャッシュから復元されるため、staffs / casts
+    // 追加前の応答が新しい画面に渡りうる。undefined のまま渡されても
+    // 空配列に正規化して描画を続ける。
+    mockUseWorkDetail.mockReturnValue(
+      detailState({
+        data: {
+          work: { ...DETAIL.work, staffs: undefined, casts: undefined },
+        },
+      }),
+    );
+
+    await render(sheetElement());
+
+    expect(screen.getByText("テストアニメ")).toBeTruthy();
     expect(screen.queryByTestId("work-detail-credits-toggle")).toBeNull();
   });
 
