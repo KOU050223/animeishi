@@ -1722,6 +1722,7 @@ function mockWorkDetail(
   options: {
     viewerStatusState?: string | null;
     empty?: boolean;
+    withCredits?: boolean;
   } = {},
 ): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
@@ -1766,6 +1767,61 @@ function mockWorkDetail(
                       twitterAvatarUrl: null,
                       twitterNormalAvatarUrl: null,
                       twitterMiniAvatarUrl: null,
+                    },
+                    staffs: {
+                      nodes: options.withCredits
+                        ? [
+                            {
+                              name: "山田 監督",
+                              roleText: "監督",
+                              roleOther: "",
+                              sortNumber: 10,
+                              resource: {
+                                __typename: "Person",
+                                annictId: 101,
+                              },
+                            },
+                            {
+                              name: "テスト制作",
+                              roleText: "アニメーション制作",
+                              roleOther: "",
+                              sortNumber: 20,
+                              resource: {
+                                __typename: "Organization",
+                                annictId: 202,
+                              },
+                            },
+                            {
+                              name: "佐藤 演出",
+                              roleText: "その他",
+                              roleOther: "演出",
+                              sortNumber: 30,
+                              resource: {
+                                __typename: "Person",
+                                annictId: 103,
+                              },
+                            },
+                          ]
+                        : [],
+                    },
+                    casts: {
+                      nodes: options.withCredits
+                        ? [
+                            {
+                              sortNumber: 1,
+                              person: { annictId: 301, name: "声優 一郎" },
+                              character: {
+                                annictId: 401,
+                                name: "主人公",
+                              },
+                            },
+                            {
+                              sortNumber: 2,
+                              person: { annictId: 302, name: "声優 二郎" },
+                              character: null,
+                            },
+                          ]
+                        : [],
                     },
                   },
                 ],
@@ -1843,6 +1899,85 @@ describe("作品詳細 API", () => {
     });
     // 検索と同じく表示画像はプロキシ経由の URL に載せる
     expect(body.work.hostedImageUrl).toMatch(/\/images\/works\/3001$/);
+  });
+
+  it("GET /works/:id: スタッフ・キャストをリンク用の属性付きで返す（issue #536）", async () => {
+    mockWorkDetail({ withCredits: true });
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      work: {
+        staffs: {
+          name: string;
+          role: string;
+          resource: { kind: string; annictId: number };
+        }[];
+        casts: {
+          annictPersonId: number;
+          personName: string;
+          characterName: string | null;
+          sortNumber: number;
+        }[];
+      };
+    };
+    expect(body.work.staffs).toEqual([
+      {
+        name: "山田 監督",
+        role: "監督",
+        resource: { kind: "person", annictId: 101 },
+      },
+      {
+        name: "テスト制作",
+        role: "アニメーション制作",
+        resource: { kind: "organization", annictId: 202 },
+      },
+      // role=other の自由記述（roleOther）が役職名として優先される
+      {
+        name: "佐藤 演出",
+        role: "演出",
+        resource: { kind: "person", annictId: 103 },
+      },
+    ]);
+    expect(body.work.casts).toEqual([
+      {
+        annictPersonId: 301,
+        personName: "声優 一郎",
+        characterName: "主人公",
+        sortNumber: 1,
+      },
+      // キャラクター未登録のキャストも person だけで返す
+      {
+        annictPersonId: 302,
+        personName: "声優 二郎",
+        characterName: null,
+        sortNumber: 2,
+      },
+    ]);
+  });
+
+  it("GET /works/:id: スタッフ・キャストが無い作品では空配列を返す", async () => {
+    mockWorkDetail();
+
+    const app = buildApp();
+    const res = await app.request(
+      `/works/${DETAIL_WORK_ID}`,
+      { method: "GET", headers: ANNICT_HEADER },
+      TEST_BINDINGS,
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      work: { staffs: unknown[]; casts: unknown[] };
+    };
+    expect(body.work.staffs).toEqual([]);
+    expect(body.work.casts).toEqual([]);
   });
 
   it("GET /works/:id: viewerStatusState が NO_STATE なら state は null", async () => {

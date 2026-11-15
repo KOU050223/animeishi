@@ -912,9 +912,16 @@ export async function searchAnnictWorksBySeason(
 //
 // 詳細シートに出す作品メタを 1 クエリで取る。search の返却フィールドに加えて
 // 話数・メディア種別・視聴者数・公式サイト等の詳細情報と、トークン所有者
-// 自身の視聴ステータス（viewerStatusState）を取る。
+// 自身の視聴ステータス（viewerStatusState）、クレジット（staffs / casts、
+// issue #536）を取る。
 // なお Annict GraphQL の Work 型にはあらすじに相当するフィールドが無いため
 // 説明文は返さない（developers.annict.com の Work リファレンス参照）。
+//
+// 詳細クエリで取る staffs / casts の上限。SORT_NUMBER 順なので主要な
+// クレジットが先に来る。これを超える末尾の参加は表示しない
+// （詳細シートのチップ表示として十分な件数）。
+const WORK_DETAIL_CREDITS_LIMIT = 50;
+
 const WORK_DETAIL_QUERY = `
 query WorkDetail($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 1) {
@@ -942,6 +949,26 @@ query WorkDetail($annictIds: [Int!]) {
       twitterHashtag
       viewerStatusState
       image { ${WORK_IMAGE_FIELDS} }
+      staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        nodes {
+          name
+          roleText
+          roleOther
+          sortNumber
+          resource {
+            __typename
+            ... on Person { annictId }
+            ... on Organization { annictId }
+          }
+        }
+      }
+      casts(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        nodes {
+          sortNumber
+          person { annictId name }
+          character { annictId name }
+        }
+      }
     }
   }
 }`;
@@ -972,8 +999,51 @@ type WorkDetailResponse = {
       twitterHashtag: string | null;
       viewerStatusState: string | null;
       image: AnnictWorkImage | null;
+      staffs: {
+        nodes: {
+          name: string;
+          roleText: string;
+          roleOther: string;
+          sortNumber: number;
+          resource: {
+            __typename: string;
+            annictId: number;
+          } | null;
+        }[];
+      } | null;
+      casts: {
+        nodes: {
+          sortNumber: number;
+          person: { annictId: number; name: string } | null;
+          character: { annictId: number; name: string } | null;
+        }[];
+      } | null;
     }[];
   } | null;
+};
+
+/** 詳細シートに出すスタッフ・制作会社のクレジット 1 件（issue #536）。 */
+export type AnnictWorkStaff = {
+  // Annict の staff.name（クレジット表記名）。
+  name: string;
+  // 役職の表示名。Annict は定型役職を roleText（「監督」等の日本語
+  // ラベル）、role=other の自由記述を roleOther に入れるため、
+  // Annict 側の role_name と同じく roleOther を優先して採用する。
+  role: string;
+  // リンク先が Annict の人物・団体ページどちらかを分ける属性。
+  resource: {
+    kind: "person" | "organization";
+    annictId: number;
+  };
+};
+
+/** 詳細シートに出すキャスト（声優 × キャラクター）1 件（issue #536）。 */
+export type AnnictWorkCast = {
+  annictPersonId: number;
+  personName: string;
+  // キャスト行からキャラクターが取れない（未登録・削除）こともある。
+  characterName: string | null;
+  sortNumber: number;
 };
 
 /**
@@ -995,6 +1065,8 @@ export type AnnictWorkDetail = AnnictLibraryEntry & {
   wikipediaUrlEn: string | null;
   twitterUsername: string | null;
   twitterHashtag: string | null;
+  staffs: AnnictWorkStaff[];
+  casts: AnnictWorkCast[];
 };
 
 /**
@@ -1043,6 +1115,34 @@ export async function fetchAnnictWorkDetail(
     wikipediaUrlEn: work.wikipediaUrlEn,
     twitterUsername: work.twitterUsername,
     twitterHashtag: work.twitterHashtag,
+    staffs: (work.staffs?.nodes ?? []).flatMap((node) => {
+      const resource = node.resource;
+      if (!resource) return [];
+      return [
+        {
+          name: node.name,
+          role: node.roleOther || node.roleText,
+          resource: {
+            kind:
+              resource.__typename === "Organization"
+                ? ("organization" as const)
+                : ("person" as const),
+            annictId: resource.annictId,
+          },
+        },
+      ];
+    }),
+    casts: (work.casts?.nodes ?? []).flatMap((node) => {
+      if (!node.person) return [];
+      return [
+        {
+          annictPersonId: node.person.annictId,
+          personName: node.person.name,
+          characterName: node.character?.name ?? null,
+          sortNumber: node.sortNumber,
+        },
+      ];
+    }),
   };
 }
 
