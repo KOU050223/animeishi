@@ -139,7 +139,9 @@ Mac 本体と共有ランタイムには触れない。
   スクリプトは警告を出して通常のシミュレーターで続行する
 - 失われる機能: プッシュ通知・ユニバーサルリンク・StoreKit・Spotlight・
   写真/連絡先ピッカーの安定性など。現在の E2E フローはどれも使わない。
-  これらを使うフローを足すときは、`E2E_SIMSLIM=0` で通るか比べる。
+  これらを使うフローを足すときは、軽量化なしで通るか比べる。
+  無効化はシミュレーターに残るので、`E2E_SIMSLIM=0` だけでは元に戻らない。
+  比べる前に `simslim off <UDID>` で戻してから `E2E_SIMSLIM=0` で実行する。
   スクリプトは毎回既定のプロファイルで `simslim on <UDID>` を呼ぶため、
   一部のカテゴリだけ残して回すときは手動で適用してから自動適用を止める:
   `simslim off <UDID>` → `simslim on <UDID> --except <カテゴリ>` →
@@ -263,7 +265,7 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 同じ一時領域の `animeishi-e2e-host.reclaim` で回収を直列化してから
 取り除く。回収時には、所有者のプロセスグループの中で親が launchd に
 付け替わった孤児（ppid=1）かつコマンドラインがビルド・テスト系
-（xcodebuild / maestro / XCTest ドライバ / simctl）のものだけを
+（xcodebuild / maestro / XCTest ドライバ / simctl / simslim）のものだけを
 停止する。生存中の親シェルや vp・エージェントは ppid=1 ではないので
 誤って止めることはなく、API サーバ系（wrangler 等）も対象外。
 

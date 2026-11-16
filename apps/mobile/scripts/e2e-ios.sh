@@ -67,7 +67,7 @@ host_lock_orphan_pids() {
   ps -eo pid=,ppid=,pgid=,command= | while read -r pid ppid g comm; do
     [ "$g" = "$1" ] && [ "$ppid" = 1 ] || continue
     case "$comm" in
-      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl*) ;;
+      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl* | *simslim*) ;;
       *) continue ;;
     esac
     echo "$pid"
