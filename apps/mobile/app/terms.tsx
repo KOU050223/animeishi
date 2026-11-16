@@ -1,8 +1,5 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
-
-// TODO(issue #133): 運営者名・準拠法/管轄が確定したらプレースホルダを差し替える。
-const OPERATOR_NAME = "{{OPERATOR_NAME}}";
-const JURISDICTION_COURT = "{{JURISDICTION_COURT}}";
+import { OPERATOR_NAME } from "@/lib/legal/operator";
 
 const SECTIONS: LegalSection[] = [
   {
@@ -78,7 +75,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "第10条（準拠法・管轄）",
     paragraphs: [
-      `本規約は日本法に準拠します。本サービスに関して運営者と利用者との間で生じた紛争は、${JURISDICTION_COURT}を第一審の専属的合意管轄裁判所とします。`,
+      `本規約は日本法に準拠します。本サービスに関して運営者と利用者との間で生じた紛争は、運営者の住所地を管轄する地方裁判所を第一審の専属的合意管轄裁判所とします。`,
     ],
   },
 ];
