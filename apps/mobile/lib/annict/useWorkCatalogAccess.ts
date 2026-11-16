@@ -34,13 +34,17 @@ export function useWorkCatalogAccess(): WorkCatalogAccess {
     enabled: !!isSignedIn && !isConnectionLoading && !isConnected,
     queryFn: async () => {
       const token = await getToken();
-      if (!token) return { sharedCatalogAvailable: false };
+      if (!token) throw new Error("認証トークンが取得できませんでした");
       const res = await apiClient.works["catalog-status"].$get(
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      // 確認できないときは安全側（連携誘導を出す）に倒す。
-      if (!res.ok) return { sharedCatalogAvailable: false };
+      // 一時的な失敗を「共用トークン無し」として成功扱いでキャッシュしない
+      // （残っている間ずっと連携誘導が出るため）。失敗にしてリトライ・再取得させ、
+      // 確定するまでの表示は canBrowseWorks=false（連携誘導）側に倒す。
+      if (!res.ok) {
+        throw new Error(`catalog-status failed (${res.status})`);
+      }
       return res.json();
     },
   });

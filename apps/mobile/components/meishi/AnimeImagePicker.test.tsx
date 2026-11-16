@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
+import { ApiRequestError } from "@/lib/apiError";
 
 // 作品検索は API（Annict プロキシ）へ行くため、フックをモックして
 // 「連携済み/未連携」と検索結果だけを制御する。
@@ -96,6 +97,18 @@ describe("AnimeImagePicker", () => {
     mockUseAnimeList.mockReturnValue({
       ...connectedResult,
       canBrowseWorks: false,
+    });
+    await renderPicker();
+
+    expect(screen.getByTestId("anime-image-picker-soft-gate")).toBeTruthy();
+  });
+
+  it("共用トークンが使えなくなった（annict_shared_token_unavailable）ら検索タブにソフトゲートを出す", async () => {
+    mockUseAnimeList.mockReturnValue({
+      ...connectedResult,
+      data: undefined,
+      isError: true,
+      error: new ApiRequestError(503, "x", "annict_shared_token_unavailable"),
     });
     await renderPicker();
 

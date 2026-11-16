@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import type { ListRenderItem } from "react-native";
-import { useAnnictConnection } from "@/lib/annict";
+import { isAnnictTokenError, useAnnictConnection } from "@/lib/annict";
 import type { CollageStateFilter } from "@/lib/meishi/types";
 import { useAnimeList } from "@/lib/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
@@ -219,6 +219,7 @@ function SearchList({
     data: works,
     isLoading,
     isError,
+    error,
     refetch,
     canBrowseWorks,
     isAccessLoading,
@@ -231,8 +232,9 @@ function SearchList({
   if (isAccessLoading) {
     return <ActivityIndicator style={{ marginTop: 32 }} />;
   }
-  if (!canBrowseWorks) {
-    // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無いときだけ連携誘導。
+  // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無い・失効した
+  // （本人が連携すれば直る）ときだけ連携誘導を出す。
+  if (!canBrowseWorks || (isError && isAnnictTokenError(error))) {
     return (
       <AnnictSoftGate
         description="アニメ画像の検索には Annict との連携が必要です。連携すると作品を探して名刺に画像を追加できます。"

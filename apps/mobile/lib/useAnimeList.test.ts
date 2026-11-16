@@ -30,7 +30,9 @@ jest.mock("@/lib/annict", () => ({
   // モックでも同じ契約（loading 中は canBrowseWorks=false）に揃える。
   useWorkCatalogAccess: () => ({
     canBrowseWorks: mockIsAccessLoading ? false : mockCanBrowseWorks,
-    isConnected: mockIsAccessLoading ? false : mockCanBrowseWorks,
+    // 本人は未連携のまま（共用トークンで作品情報だけ使える状態）を既定にして、
+    // 取得条件が連携状態ではなく canBrowseWorks で決まることを確かめる（issue #561）。
+    isConnected: false,
     isLoading: mockIsAccessLoading,
   }),
 }));

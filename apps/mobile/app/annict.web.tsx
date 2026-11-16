@@ -10,6 +10,7 @@ import {
   resolveAnnictRelayTarget,
 } from "@/lib/annict";
 import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
+import { refetchWorksAfterAnnictConnect } from "@/lib/annict/afterConnect";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。
 const RETURN_PATH = "/(tabs)/library?section=anime";
@@ -84,9 +85,7 @@ export default function AnnictCallbackScreen() {
         }),
         queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
         queryClient.invalidateQueries({ queryKey: ["achievements"] }),
-        // 未連携のあいだ共用トークンで取った作品詳細は視聴ステータスを持たない
-        // （issue #561）ため、本人の状態で取り直させる。
-        queryClient.invalidateQueries({ queryKey: ["works", "detail"] }),
+        refetchWorksAfterAnnictConnect(queryClient),
       ]);
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);

@@ -9,6 +9,7 @@ import { annictTokenStorage } from "./storage";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { trackAnnictFunnel } from "./funnel";
+import { refetchWorksAfterAnnictConnect } from "./afterConnect";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type {
   AnnictConnectOptions,
@@ -147,10 +148,7 @@ export function useAnnictConnect() {
           }),
           queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
           queryClient.invalidateQueries({ queryKey: ["achievements"] }),
-          // 未連携のあいだ共用トークンで取った作品詳細は視聴ステータスを持たない
-          // （issue #561）。連携後に本人の状態で取り直させる。キーは useWorkDetail の
-          // WORK_DETAIL_QUERY_KEY と一致（import すると循環参照になる）。
-          queryClient.invalidateQueries({ queryKey: ["works", "detail"] }),
+          refetchWorksAfterAnnictConnect(queryClient),
         ]);
 
         return finish({ status: "success" });
