@@ -15,6 +15,8 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 - maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
   （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
 - Xcode + iOS シミュレーターランタイム
+- （任意・推奨）simslim: `brew install mobai-app/tap/simslim`。
+  入っていればスクリプトが E2E 専用シミュレーターを軽量化する（後述）
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **必ず pk_test**（Clerk 開発インスタンス、
   GitHub Variable `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW` と同じ値）。
   未設定なら `apps/mobile/.env` を読む。pk_live はスクリプトが拒否する
@@ -65,6 +67,9 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
   超えるとエラーで終了）
 - `E2E_NATIVE_CACHE=0` … ネイティブキャッシュを使わず必ずフルビルドする
   （キャッシュの読み込み・保存の両方をやめる。既定は `1`）
+- `E2E_SIMSLIM=0` … simslim が入っていても軽量化しない（既定 `1`）。
+  軽量化の影響を疑うときに使う。既に軽量化済みのシミュレーターを元に戻すには
+  `simslim off <UDID>` を実行する
 - `E2E_MAESTRO_ATTEMPTS` … ドライバ未接続系の失敗時に `maestro test` を
   実行する最大回数（既定 3。リトライ判定の詳細は「失敗の調査」を参照）
 - `MAESTRO_DRIVER_STARTUP_TIMEOUT` … Maestro の iOS ドライバ
@@ -111,10 +116,42 @@ Clerk 認証は dev インスタンスのテストモードを使う。毎回ユ
      空リソースを返してサインアップが進まなくなる
    - ビルド済み `.app` はネイティブキャッシュ（後述）に保存され、次回以降は
      worktree をまたいで再利用される
-4. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行。
+4. simslim が入っていれば `simslim on <UDID>` で専用シミュレーターを
+   軽量化する（下記「simslim による軽量化」）
+5. シミュレーターへアプリを再インストールして `maestro test .maestro` を実行。
    ドライバ未接続系の失敗（「失敗の調査」参照）のときだけ、ビルドは
    やり直さず `maestro test` だけを最大 `E2E_MAESTRO_ATTEMPTS` 回
    再実行する（issue #320）
+
+## simslim による軽量化
+
+[simslim](https://github.com/MobAI-App/simslim) は、シミュレーター内の
+E2E に不要な常駐デーモン（Siri・ウィジェット・iCloud・Spotlight・
+Apple Pay など 173 個）を、そのシミュレーターの launchd 設定で無効化する。
+Mac 本体と共有ランタイムには触れない。
+
+- 効果（iOS 18.5 の専用シミュレーターで計測）: プロセス 240 → 65、
+  メモリ 3.55GB → 0.85GB、起動 29 秒 → 10 秒。Flow の所要時間は変わらない。
+  ホストのメモリが空くので、他の作業と並行して E2E を回すときに効く
+- 無効化は iOS 18.5 以降なら再起動後も残る。スクリプトは毎回
+  `simslim on` を呼ぶが、適用済みなら即座に返る。シミュレーターを
+  作り直したときだけ約 10 秒かかる。iOS 18.5 未満では `on` が失敗するが、
+  スクリプトは警告を出して通常のシミュレーターで続行する
+- 失われる機能: プッシュ通知・ユニバーサルリンク・StoreKit・Spotlight・
+  写真/連絡先ピッカーの安定性など。現在の E2E フローはどれも使わない。
+  これらを使うフローを足すときは、軽量化なしで通るか比べる。
+  無効化はシミュレーターに残るので、`E2E_SIMSLIM=0` だけでは元に戻らない。
+  比べる前に `simslim off <UDID>` で戻してから `E2E_SIMSLIM=0` で実行する。
+  スクリプトは毎回既定のプロファイルで `simslim on <UDID>` を呼ぶため、
+  一部のカテゴリだけ残して回すときは手動で適用してから自動適用を止める:
+  `simslim off <UDID>` → `simslim on <UDID> --except <カテゴリ>` →
+  `E2E_SIMSLIM=0 vp run @animeishi/mobile#e2e:ios`
+  （カテゴリ一覧は `simslim profiles`。恒常的に必要になったらスクリプトの
+  `simslim on` に `--except` を足す）
+- 対象は名前が `animeishi-e2e-` で始まる E2E 専用シミュレーターだけで
+  （`E2E_SIM_NAME` で別名を指定したときは適用しない）、
+  普段使いのシミュレーターには影響しない。`simslim watch` は全シミュレーターを
+  書き換えるので使わない
 
 ## ネイティブキャッシュ（issue #292）
 
@@ -228,7 +265,7 @@ Maestro が終わるまで持ち、`E2E_SKIP_BUILD=1` のときも取る。
 同じ一時領域の `animeishi-e2e-host.reclaim` で回収を直列化してから
 取り除く。回収時には、所有者のプロセスグループの中で親が launchd に
 付け替わった孤児（ppid=1）かつコマンドラインがビルド・テスト系
-（xcodebuild / maestro / XCTest ドライバ / simctl）のものだけを
+（xcodebuild / maestro / XCTest ドライバ / simctl / simslim）のものだけを
 停止する。生存中の親シェルや vp・エージェントは ppid=1 ではないので
 誤って止めることはなく、API サーバ系（wrangler 等）も対象外。
 

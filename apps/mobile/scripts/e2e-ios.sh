@@ -67,7 +67,7 @@ host_lock_orphan_pids() {
   ps -eo pid=,ppid=,pgid=,command= | while read -r pid ppid g comm; do
     [ "$g" = "$1" ] && [ "$ppid" = 1 ] || continue
     case "$comm" in
-      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl*) ;;
+      *xcodebuild* | *maestro* | *UITests-Runner* | *simctl* | *simslim*) ;;
       *) continue ;;
     esac
     echo "$pid"
@@ -748,6 +748,24 @@ elif [ "$SKIP_BUILD" != "1" ]; then
 fi
 
 [ -d "$APP_PATH" ] || { echo "アプリが見つかりません: $APP_PATH" >&2; exit 1; }
+
+# --- シミュレーターの軽量化（simslim）---------------------------------------
+# 効果と失われる機能は docs/development/e2e-ios.md の「simslim による軽量化」。
+# 無効化は再起動後も残るため、E2E_SIM_NAME で普段使いのシミュレーターを
+# 指定されたときに書き換えないよう、animeishi-e2e- で始まる専用のものに限る。
+# simslim は任意ツールで、適用できなくても E2E 自体は通るので止めない。
+if [ "${E2E_SIMSLIM:-1}" != 0 ] && command -v simslim >/dev/null 2>&1; then
+  case "$SIM_NAME" in
+    animeishi-e2e-*)
+      echo "simslim でシミュレーターを軽量化します ..."
+      simslim on "$UDID" \
+        || echo "simslim の適用に失敗しました。一部だけ軽量化された状態の可能性があります（simslim verify $UDID で確認できます）。このシミュレーターで続行します" >&2
+      ;;
+    *)
+      echo "シミュレーター名が animeishi-e2e- で始まらないため simslim は適用しません: $SIM_NAME"
+      ;;
+  esac
+fi
 
 # --- インストール ------------------------------------------------------------
 xcrun simctl boot "$UDID" 2>/dev/null || true
