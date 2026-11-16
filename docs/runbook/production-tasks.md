@@ -63,15 +63,24 @@ preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_
 2. 原因ごとに直す
 
    - **ファイル名を変えた（番号の振り直し）**: 古い名前で記録が残り、新しい名前を当て直そうとして
-     `already exists` で落ちる。中身が同じことを確かめてから、新しい名前の記録だけを足す
+     `already exists` で落ちる。旧名は手順 1 の出力で分かる。中身が同じことを確かめ、
+     `diff` の出力が空のときだけ新しい名前の記録を足す（差分があれば下の「中身を書き換えた」として扱う）
 
      ```sh
+     # 名前を変えたコミットを探し、その直前の版の旧ファイルと新ファイルを比べる
+     git log --oneline --all --name-status --diff-filter=R -- 'apps/api/migrations/*.sql'
+     git show '<名前を変えたコミット>^:apps/api/migrations/<旧ファイル名>.sql' > /tmp/old-migration.sql
+     diff /tmp/old-migration.sql apps/api/migrations/<新ファイル名>.sql
+
      pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
        --command "INSERT INTO d1_migrations (name) VALUES ('<新しいファイル名>.sql');"
      ```
 
    - **当たった後でファイルの中身を書き換えた**: 書き換えた差分は当たらない。
-     差分の SQL（追加した列・インデックスなど）を手で流す
+     差分の SQL（追加した列・インデックスなど）を手で流す。
+     main にあるファイルを書き換えていたら（CI の Migration Check が落ちる）、リポジトリ側も
+     `git restore --source=origin/main -- apps/api/migrations/<ファイル名>` で戻し、
+     差分を新しい番号のマイグレーションとして追加する
 
      ```sh
      pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \

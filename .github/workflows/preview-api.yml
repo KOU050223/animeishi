@@ -29,6 +29,8 @@ jobs:
   # preview D1 に当たらないまま残る（issue #515）。
   # デプロイとジョブを分けているのは、preview D1 を手で直した後に再実行しても
   # 同じ差分で落ち続け、プレビューの発行まで止めてしまうため。
+  # 前回の commit が取れないときに成功扱いにしないのは、amend して force push した場合こそ
+  # 検出したい書き換えであり、fetch-depth: 0 でも到達不能な commit は取得されないため。
   migration-drift:
     name: Check migrations changed since last push
     if: github.event.action == 'synchronize'
@@ -43,8 +45,11 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo "::warning::前回の push の commit（$BEFORE）が取得できないため、マイグレーションの書き換え検出を飛ばしました。"
-            exit 0
+            git fetch --no-tags origin "$BEFORE" || true
+          fi
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "::error::前回の push の commit（$BEFORE）が取得できず、マイグレーションの書き換えを確認できません。preview D1 の状態を docs/runbook/production-tasks.md の「preview D1 のずれを直す」の手順 1 で確認してください。"
+            exit 1
           fi
           bash apps/api/scripts/check-migrations.sh "$BEFORE"
 
