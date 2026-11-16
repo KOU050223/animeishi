@@ -53,6 +53,9 @@
       "pnpm": "10.34.0",
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     }
   },
