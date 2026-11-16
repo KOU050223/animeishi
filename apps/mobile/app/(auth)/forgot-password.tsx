@@ -71,9 +71,8 @@ export default function ForgotPasswordScreen() {
           ? t("このメールアドレスで登録されたアカウントが見つかりません")
           : toAuthErrorMessage(err, t, "認証コードを送信できませんでした"),
       );
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   async function handleReset() {
@@ -127,9 +126,8 @@ export default function ForgotPasswordScreen() {
       setError(
         toAuthErrorMessage(err, t, "パスワードを再設定できませんでした"),
       );
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   return (
