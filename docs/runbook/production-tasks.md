@@ -33,6 +33,7 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * elections:results:      本番 D1 の総選挙結果を集計して表示（読み取り専用）
 * elections:results:preview: プレビュー D1 の総選挙結果を集計して表示
 * elections:results:local: ローカル D1 の総選挙結果を集計して表示
+* review-account:seed:    本番にゲストアカウント（審査デモ・Explore 用）を作成・更新（確認プロンプト付き）
 ```
 
 > wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
@@ -347,3 +348,62 @@ pnpm task elections:results:local -- megane-2026    # ローカル D1
 この結果を `articles:publish` の Markdown（結果まとめ記事＋シェア画像を
 `cover_image_url` に指定）に書き、`pnpm task articles:publish` で
 特集枠に出す。結果発表を自動生成する仕組みはない。
+
+## ゲストアカウント（review-account:seed）
+
+App Store 審査のデモアカウントと Expo Explore のログインに使う共用アカウントを、
+本番（Clerk 本番インスタンス + 本番 API）に用意する。パスワードを変えたとき・
+デモデータを戻したいときに実行する。何度実行しても同じ状態になる。
+
+作るもの:
+
+- ゲストアカウント（ログインに使う。`REVIEW_ACCOUNT_EMAIL` / `REVIEW_ACCOUNT_PASSWORD`）
+- フレンド役アカウント（ログインしない。パスワードは毎回ランダム）
+- 両者のプロフィール・お気に入り・評価・作品リスト・ティア表と、両者のフレンド関係
+
+名刺は端末内保存、視聴履歴は Annict 連携が前提なので入らない。
+
+### 準備（初回のみ）
+
+1. Clerk Dashboard（本番インスタンス）で、新しい端末からのパスワードサインインに
+   メールコードを求める設定（Client Trust など）が**無効**であることを確認する。
+   有効だと審査員の端末や Explore の新しいシミュレーターからログインできない
+2. `apps/api/.env`（gitignore 済み）に次を書く。値はパスワードマネージャーにも保管する
+
+   ```
+   CLERK_SECRET_KEY=sk_live_...        # Clerk Dashboard → API Keys（本番）
+   REVIEW_ACCOUNT_EMAIL=...            # ゲストアカウント
+   REVIEW_ACCOUNT_PASSWORD=...         # 審査・Explore に渡すパスワード。32 文字以上（openssl rand -base64 33）
+   REVIEW_FRIEND_EMAIL=...             # フレンド役（受信できるアドレスでなくてよい）
+   ```
+
+### 実行
+
+```bash
+pnpm task review-account:seed
+```
+
+最後に表示されるフレンド役のユーザー ID は、Explore の `parameters`（`/user/[uid]`）に使う。
+
+### パスワードを変えたとき
+
+`REVIEW_ACCOUNT_PASSWORD` を書き換えて再実行し、同じ値を次の 3 か所にも反映する。
+
+- App Store Connect → アプリ → App Review に関する情報 → サインイン情報
+- GitHub の repository secret `EXPLORE_TEST_PASSWORD`（`gh secret set EXPLORE_TEST_PASSWORD`）
+- ローカルで Explore を回す人の環境変数 `EXPLORE_TEST_PASSWORD`
+
+### 予行演習（Clerk 開発インスタンス + ローカル API）
+
+本番に触れずに試すときは、`apps/api/.dev.vars`（sk_test）を読み込み、
+`wrangler dev` で起動したローカル API に向ける。ローカル D1 の `annict_works` には
+スクリプト冒頭の `WORKS` の作品を本番から入れておく。
+
+```bash
+cd apps/api
+set -a; . ./.dev.vars; set +a
+REVIEW_ACCOUNT_EMAIL='review+clerk_test@example.com' REVIEW_ACCOUNT_PASSWORD=... \
+REVIEW_FRIEND_EMAIL='review-friend+clerk_test@example.com' \
+API_URL=http://localhost:8787 CLERK_PUBLISHABLE_KEY="$CLERK_PUBLISHABLE_KEY" \
+node scripts/review-account.mjs
+```
