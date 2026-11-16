@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import type { ListRenderItem } from "react-native";
-import { useAnnictConnection } from "@/lib/annict";
+import { isAnnictTokenError, useAnnictConnection } from "@/lib/annict";
 import type { CollageStateFilter } from "@/lib/meishi/types";
 import { useAnimeList } from "@/lib/useAnimeList";
 import { WATCH_STATUS_LABELS } from "@/lib/useWatchHistory";
@@ -136,20 +136,9 @@ function LibraryList({
       ? favorites
       : watchHistory.filter((item) => item.state === listKey);
 
-  if (isConnectionLoading) {
-    return <ActivityIndicator style={{ marginTop: 32 }} />;
-  }
-  if (!isConnected) {
-    // favorites/watchHistory のクエリは未連携時に無効化されるため、
-    // 空リストのまま出さず連携誘導を出す
-    return (
-      <AnnictSoftGate
-        description="マイリストの作品画像を使うには Annict との連携が必要です。連携するとお気に入りや視聴履歴の作品から画像を選べます。"
-        surface="meishi_image_library"
-        testID="anime-image-picker-library-soft-gate"
-      />
-    );
-  }
+  // お気に入りは Annict 連携が無くても持てる（issue #561）。視聴ステータス別の
+  // リストは視聴履歴（Annict 連携が前提）から作るため、未連携ならそこだけ連携誘導を出す。
+  const needsAnnictLink = listKey !== "favorites" && !isConnected;
   return (
     <>
       <ScrollView
@@ -183,26 +172,36 @@ function LibraryList({
           </Pressable>
         ))}
       </ScrollView>
-      <FlatList
-        data={libraryItems}
-        keyExtractor={(item) => `${listKey}-${item.annictWorkId}`}
-        renderItem={renderItem}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          <Text
-            style={{
-              color: colors.textMuted,
-              fontSize: 13,
-              textAlign: "center",
-              marginTop: 32,
-            }}
-          >
-            {listKey === "favorites"
-              ? "お気に入りに作品がありません"
-              : "このリストに作品がありません"}
-          </Text>
-        }
-      />
+      {isConnectionLoading && listKey !== "favorites" ? (
+        <ActivityIndicator style={{ marginTop: 32 }} />
+      ) : needsAnnictLink ? (
+        <AnnictSoftGate
+          description="視聴履歴の作品画像を使うには Annict との連携が必要です。連携すると視聴ステータス別のリストから画像を選べます。"
+          surface="meishi_image_library"
+          testID="anime-image-picker-library-soft-gate"
+        />
+      ) : (
+        <FlatList
+          data={libraryItems}
+          keyExtractor={(item) => `${listKey}-${item.annictWorkId}`}
+          renderItem={renderItem}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontSize: 13,
+                textAlign: "center",
+                marginTop: 32,
+              }}
+            >
+              {listKey === "favorites"
+                ? "お気に入りに作品がありません"
+                : "このリストに作品がありません"}
+            </Text>
+          }
+        />
+      )}
     </>
   );
 }
@@ -220,19 +219,22 @@ function SearchList({
     data: works,
     isLoading,
     isError,
+    error,
     refetch,
-    isConnected,
-    isConnectionLoading,
+    canBrowseWorks,
+    isAccessLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useAnimeList(query);
   const renderItem = useRenderRow(onPick);
 
-  if (isConnectionLoading) {
+  if (isAccessLoading) {
     return <ActivityIndicator style={{ marginTop: 32 }} />;
   }
-  if (!isConnected) {
+  // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無い・失効した
+  // （本人が連携すれば直る）ときだけ連携誘導を出す。
+  if (!canBrowseWorks || (isError && isAnnictTokenError(error))) {
     return (
       <AnnictSoftGate
         description="アニメ画像の検索には Annict との連携が必要です。連携すると作品を探して名刺に画像を追加できます。"
@@ -323,7 +325,8 @@ export function AnimeImagePicker({
   const { height } = useWindowDimensions();
   const [tab, setTab] = useState<"search" | "library">("search");
   const [query, setQuery] = useState("");
-  // 連携状態はソフトゲート判定専用。作品検索自体は SearchList 側で行う。
+  // 連携状態はマイリストの視聴履歴側のソフトゲート判定専用。作品検索自体は
+  // SearchList 側で行う（ゲートの判定も SearchList 側）。
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
 
   return (

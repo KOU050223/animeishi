@@ -77,8 +77,8 @@ jest.mock("@/lib/tierList/useWorkCharacters", () => ({
     workTitle: mockFetchedWorkTitle,
     isLoading: false,
     isError: mockCharactersError,
-    isConnected: true,
-    isConnectionLoading: false,
+    canBrowseWorks: true,
+    isAccessLoading: false,
   }),
 }));
 

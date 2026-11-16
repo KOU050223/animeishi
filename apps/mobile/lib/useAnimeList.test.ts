@@ -21,16 +21,19 @@ jest.mock("@/lib/api", () => ({
 }));
 
 const mockBuildAnnictAuthHeader = jest.fn();
-let mockIsConnected = true;
-let mockIsConnectionLoading = false;
+let mockCanBrowseWorks = true;
+let mockIsAccessLoading = false;
 jest.mock("@/lib/annict", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
-  // 実装では読み込み中は connected が未確定（isConnected=false）になる。
-  // useAnimeList は isConnected でフェッチを gate するため、
-  // モックでも同じ契約（loading 中は isConnected=false）に揃える。
-  useAnnictConnection: () => ({
-    isConnected: mockIsConnectionLoading ? false : mockIsConnected,
-    isLoading: mockIsConnectionLoading,
+  // 実装では確認中は canBrowseWorks が未確定（false）になる。
+  // useAnimeList は canBrowseWorks でフェッチを gate するため、
+  // モックでも同じ契約（loading 中は canBrowseWorks=false）に揃える。
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: mockIsAccessLoading ? false : mockCanBrowseWorks,
+    // 本人は未連携のまま（共用トークンで作品情報だけ使える状態）を既定にして、
+    // 取得条件が連携状態ではなく canBrowseWorks で決まることを確かめる（issue #561）。
+    isConnected: false,
+    isLoading: mockIsAccessLoading,
   }),
 }));
 
@@ -167,8 +170,8 @@ describe("useAnimeList", () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
-    mockIsConnected = true;
-    mockIsConnectionLoading = false;
+    mockCanBrowseWorks = true;
+    mockIsAccessLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
     mockBuildAnnictAuthHeader.mockResolvedValue({
@@ -199,22 +202,22 @@ describe("useAnimeList", () => {
     expect(arg.query.title).toBeUndefined();
   });
 
-  it("未連携のうちはフェッチせず isConnected=false を返す", async () => {
-    mockIsConnected = false;
+  it("作品情報を使えない（未連携かつ共用トークン無し）うちはフェッチせず canBrowseWorks=false を返す", async () => {
+    mockCanBrowseWorks = false;
     const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
     expect(mockSearchGet).not.toHaveBeenCalled();
-    expect(result.current.isConnected).toBe(false);
+    expect(result.current.canBrowseWorks).toBe(false);
   });
 
-  it("連携状態の読み込み中は isConnectionLoading=true を返しフェッチしない", async () => {
-    mockIsConnectionLoading = true;
+  it("連携状態・共用トークン有無の確認中は isAccessLoading=true を返しフェッチしない", async () => {
+    mockIsAccessLoading = true;
     const { result } = await renderHook(() => useAnimeList("進撃"), {
       wrapper: makeWrapper(),
     });
     expect(mockSearchGet).not.toHaveBeenCalled();
-    expect(result.current.isConnectionLoading).toBe(true);
+    expect(result.current.isAccessLoading).toBe(true);
   });
 
   it("サインアウト中はフェッチしない", async () => {
@@ -402,8 +405,8 @@ describe("usePrefetchSeasonWorks", () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
-    mockIsConnected = true;
-    mockIsConnectionLoading = false;
+    mockCanBrowseWorks = true;
+    mockIsAccessLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
     mockBuildAnnictAuthHeader.mockResolvedValue({
@@ -442,7 +445,7 @@ describe("usePrefetchSeasonWorks", () => {
   });
 
   it("Annict 未連携ならプリフェッチしない", async () => {
-    mockIsConnected = false;
+    mockCanBrowseWorks = false;
     await renderHook(() => usePrefetchSeasonWorks(["2026-summer"], true), {
       wrapper: makeWrapper(),
     });

@@ -210,6 +210,9 @@ pnpm exec wrangler secret put SENTRY_DSN --env preview
 pnpm exec wrangler secret put DISCORD_WEBHOOK_URL --env production
 ```
 
+未連携の利用者の作品検索に使う Annict 共用トークン（`ANNICT_SHARED_READ_TOKEN`。任意）の
+発行・登録・差し替えは `docs/runbook/production-tasks.md` の「Annict 共用トークン」を参照。
+
 実行するとプロンプトで値の入力を求められる。ローカル開発時は `apps/api/.dev.vars` に記述する（[`.dev.vars.example`](../apps/api/.dev.vars.example) 参照）。
 
 ## 4. CORS（`ALLOWED_ORIGINS`）の設定

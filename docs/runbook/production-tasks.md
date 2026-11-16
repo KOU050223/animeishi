@@ -101,6 +101,101 @@ preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_
    「Check migrations changed since last push」は前回の push との差分を見るため、
    再実行しても落ちたままになる。直したら無視してよく、次の push で消える
 
+## Annict 共用トークン（ANNICT_SHARED_READ_TOKEN）
+
+未連携の利用者の作品検索・Tier 表・お気に入り・名刺の作品画像は、運営者の Annict 個人用
+アクセストークン（`read` スコープ）を Workers の secret に置いて使う（issue #561）。
+secret が無いと未連携の利用者には従来どおり Annict 連携を求める。次のときにこの手順を使う。
+
+- 初めて設定するとき
+- Annict からトークンを失効させられた・漏えいの疑いがあるとき（差し替え）
+- Annict から指摘を受けて共用をやめるとき（停止）
+
+失効すると API は 503 `annict_shared_token_unavailable` を返す。Sentry には
+`AnnictSharedTokenRejectedError` として、Discord には種別 `annict`・status 503 として
+通知される。この通知が続いたら「差し替え」を行う。
+
+### 発行（オーナーの Annict アカウントで行う）
+
+1. オーナーの Annict アカウントでログインし、<https://annict.com/settings/apps> を開く。
+2. 「個人用アクセストークン」の「新規作成」を押す。
+3. 説明に `animeishi shared read token (prod)` のように用途と環境を書き、スコープは
+   **「読み込み専用」（read）** を選ぶ。「読み書き」は選ばない（利用規約 第 5 条の条件）。
+4. 表示されたトークンを控える（画面を閉じると再表示できない）。
+5. スコープを確かめる。`scopes` が `["read"]` だけであること。トークンはコマンド履歴や
+   プロセスの引数に残さないよう、`read -rs` で読み込んで標準入力から curl に渡す。
+
+   ```bash
+   read -rs ANNICT_TOKEN   # トークンを貼り付けて Enter（画面にも履歴にも出ない）
+   printf 'Authorization: Bearer %s\n' "$ANNICT_TOKEN" \
+     | curl -s -H @- https://api.annict.com/oauth/token/info
+   unset ANNICT_TOKEN
+   ```
+
+本番とプレビューで同じトークンを使ってよい（利用規約はトークン 1 つの共用を認めている）。
+
+### 登録
+
+`apps/api` で実行する。プロンプトにトークンを貼り付ける（コマンド引数や履歴に残さない）。
+
+```bash
+cd apps/api
+pnpm exec wrangler secret put ANNICT_SHARED_READ_TOKEN --env production
+pnpm exec wrangler secret put ANNICT_SHARED_READ_TOKEN --env preview
+```
+
+`wrangler secret put` は「最新 version がデプロイ済み」でないと失敗する。失敗したら代わりに
+次を実行する。`versions secret put` は secret を入れた新しい version を作るだけで反映しないので、
+続けてその version をデプロイする（しないと稼働中の Worker は古いトークンのまま）。
+
+```bash
+cd apps/api
+pnpm exec wrangler versions secret put ANNICT_SHARED_READ_TOKEN --env production
+pnpm exec wrangler versions list --env production   # 一番新しい version の ID を控える
+pnpm exec wrangler versions deploy <控えた version ID>@100% --env production -y
+```
+
+preview も `--env preview` で同じ手順を行う。
+
+登録できたかの確認。Clerk の JWT が要るので、Annict 未連携のアカウントで Web 版にサインインし、
+開発者ツールの Network タブで API へのリクエストの `Authorization` ヘッダの値（`Bearer` の後ろ）を拾う。
+
+```bash
+read -rs CLERK_JWT   # 拾った JWT を貼り付けて Enter
+API=https://<API のホスト>
+# 1. secret が設定されているか（トークンが Annict で有効かまでは見ない）
+printf 'Authorization: Bearer %s\n' "$CLERK_JWT" | curl -s -H @- "$API/works/catalog-status"
+# => {"sharedCatalogAvailable":true}
+# 2. トークンが Annict で有効か。今期一覧（30 分）やタイトル検索（10 分）は
+#    キャッシュから返ることがあるので、キャッシュに無い語（毎回変える）で検索する
+printf 'Authorization: Bearer %s\n' "$CLERK_JWT" \
+  | curl -s -o /dev/null -w '%{http_code}\n' -H @- "$API/works/search?title=check$(date +%s)"
+# => 200（503 なら Annict がトークンを拒否している）
+unset CLERK_JWT
+```
+
+アプリで確かめるときも、今期の作品一覧はキャッシュされているので確認に使わず、未連携の
+アカウントで普段検索しない語を検索して「見つからない」表示（エラーや連携誘導ではない）になるかを見る。
+
+### 差し替え
+
+1. 「発行」の手順で新しいトークンを作る。
+2. 「登録」の手順で同じ名前の secret を上書きする（再デプロイは要らない）。
+3. 「登録」の確認（2. の検索が 200 になること）が通ってから、<https://annict.com/settings/apps> で
+   古いトークンを削除する。
+
+### 停止（共用をやめる）
+
+```bash
+cd apps/api
+pnpm exec wrangler secret delete ANNICT_SHARED_READ_TOKEN --env production
+pnpm exec wrangler secret delete ANNICT_SHARED_READ_TOKEN --env preview
+```
+
+未連携の利用者には連携誘導が出るようになる（アプリの更新は要らない）。最後に Annict 側でも
+トークンを削除する。停止の判断基準は `docs/05_annict-integration-plan.md` の
+「追補: 未連携の利用者の作品情報」の「前提が変わったら」。
+
 ## 通報モデレーション（reports.\*）
 
 `apps/api/scripts/reports.sh` の Taskfile ラッパー。使い方は `bash apps/api/scripts/reports.sh --help`。

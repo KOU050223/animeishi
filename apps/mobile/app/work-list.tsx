@@ -14,7 +14,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
-import { useAnnictConnection } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
@@ -63,7 +63,7 @@ export default function WorkListScreen() {
       : null,
   );
 
-  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
+  const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
   const { data: saved, isLoading: isSavedLoading } = useSavedWorkList(listId);
 
   const save = useSaveWorkList();
@@ -354,7 +354,7 @@ export default function WorkListScreen() {
     />
   );
 
-  if (isConnectionLoading) {
+  if (isAccessLoading) {
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
@@ -368,9 +368,9 @@ export default function WorkListScreen() {
     );
   }
 
-  if (!isConnected) {
-    // 作品の検索・追加は Annict トークン必須。未連携では作品を集められない
-    // ため、連携誘導を最優先で出す（custom-tier-list と同じ）。
+  if (!canBrowseWorks) {
+    // 作品の検索・追加は本人の Annict トークンか共用トークンが要る（issue #561）。
+    // どちらも無いと作品を集められないため、連携誘導を最優先で出す（custom-tier-list と同じ）。
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"

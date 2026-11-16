@@ -46,6 +46,11 @@ jest.mock("@/lib/api", () => ({
 jest.mock("@/lib/annict", () => ({
   buildAnnictAuthHeader: async () => ({}),
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: true,
+    isConnected: true,
+    isLoading: false,
+  }),
 }));
 
 describe("WATCH_STATUS_LABELS", () => {

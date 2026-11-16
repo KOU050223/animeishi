@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 // useAnimeList と同じ値に揃える。
@@ -34,8 +34,9 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  */
 export function useWorkSearch(query: string, enabled = true) {
   const { getToken, isSignedIn } = useAuth();
-  // 検索は API 側で X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
-  const { isConnected } = useAnnictConnection();
+  // 検索は本人の Annict トークンか共用トークンが要る（issue #561）。
+  // どちらも無いうちは 401 になるだけなので無効化する。
+  const { canBrowseWorks } = useWorkCatalogAccess();
   const trimmed = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
   const result = useQuery({
@@ -46,7 +47,7 @@ export function useWorkSearch(query: string, enabled = true) {
     enabled:
       enabled &&
       !!isSignedIn &&
-      isConnected &&
+      canBrowseWorks &&
       trimmed.length > 0 &&
       query.trim() === trimmed,
     // 語を変えた直後の取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。

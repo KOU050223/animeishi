@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
 import type { TierItem } from "./types";
 
 /**
@@ -16,11 +16,11 @@ import type { TierItem } from "./types";
  */
 export function useWorkCharacters(annictWorkId: number | null) {
   const { getToken, isSignedIn } = useAuth();
-  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
+  const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
 
   const query = useQuery({
     queryKey: ["character-tier-list", "work-characters", annictWorkId] as const,
-    enabled: !!isSignedIn && isConnected && annictWorkId != null,
+    enabled: !!isSignedIn && canBrowseWorks && annictWorkId != null,
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
@@ -62,7 +62,7 @@ export function useWorkCharacters(annictWorkId: number | null) {
     // バックグラウンド再取得が失敗しても既存データがあるなら盤面を維持する
     // （isError をそのまま見ると、表示中の編集済み盤面がエラー表示に変わる）。
     isError: query.isError && characters.length === 0,
-    isConnected,
-    isConnectionLoading,
+    canBrowseWorks,
+    isAccessLoading,
   };
 }

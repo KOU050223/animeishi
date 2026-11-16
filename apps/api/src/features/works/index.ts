@@ -11,14 +11,11 @@ import {
 } from "./schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
+import { currentAnnictSeason } from "@/lib/annict/client";
 import {
-  currentAnnictSeason,
-  fetchAnnictWorkCasts,
-  fetchAnnictWorkDetail,
-  searchAnnictWorksByIds,
-  searchAnnictWorksByTitle,
-} from "@/lib/annict/client";
-import { requireAnnictToken } from "@/lib/annict/middleware";
+  requireAnnictWorkCatalog,
+  sharedAnnictReadToken,
+} from "@/lib/annict/middleware";
 import { workImageUrl } from "@/lib/annict/workImage";
 import {
   fetchKitsuCharacters,
@@ -29,7 +26,9 @@ import {
 import { worksRepository } from "./repository";
 import {
   attachResolvedImages,
+  fetchWorkDetail,
   searchSeasonWorks,
+  searchTitleWorks,
   type SearchWorkWithResolved,
 } from "./service";
 import { createDb } from "@/db/client";
@@ -54,6 +53,11 @@ const WORKS_CANDIDATES_DEFAULT_LIMIT = 30;
 // 「派生 URL しか取れない」と確定済みとして解決済み扱いにする。
 const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 
+// 作品情報を返すルート（search / lookup / :id / :id/characters）は
+// requireAnnictWorkCatalog で、本人のトークンが無ければ運営者の共用トークンで
+// Annict を引く（issue #561）。共用トークンで利用者情報を取らないよう、ルートには
+// トークン文字列を渡さず作品情報の取得関数（c.var.annictWorkCatalog）だけを渡す。
+//
 // 作品検索は Annict searchWorks をプロキシする。Animeishi は作品マスタを持たず、
 // 検索のたびに Annict へ問い合わせる（docs/05 PR5）。視聴ステータスは含まない。
 //
@@ -66,27 +70,28 @@ const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 // キャッシュし、直列の Annict 往復を繰り返さない（issue #173 の初回遅延も緩和）。
 const works = new Hono<AuthVariables>()
   .use("*", requireAuth)
+  // 未連携の利用者でも作品情報を引けるか（共用トークンが設定されているか）。
+  // mobile は連携済みかこれが true のとき検索・Tier 表等のゲートを外す。
+  // 共用トークンの値そのものは返さない。
+  .get("/catalog-status", (c) =>
+    c.json({ sharedCatalogAvailable: sharedAnnictReadToken(c) != null }, 200),
+  )
   .get(
     "/search",
-    requireAnnictToken,
+    requireAnnictWorkCatalog,
     zValidator("query", worksSearchQuerySchema),
     async (c) => {
       const { title, season, after } = c.req.valid("query");
       // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
       const trimmedTitle = title?.trim();
 
+      const catalog = c.var.annictWorkCatalog;
       const result = trimmedTitle
         ? // 検索 UI は人気順（watchersCount 降順）で返す（issue #346）。
           // 照合用途（インポート・おすすめ再検索）は関連度順のまま。
-          await searchAnnictWorksByTitle(
-            c.var.annictToken,
-            trimmedTitle,
-            after ?? null,
-            fetch,
-            { orderByWatchersCount: true },
-          )
+          await searchTitleWorks(catalog, trimmedTitle, after ?? null)
         : await searchSeasonWorks(
-            c.var.annictToken,
+            catalog,
             season ?? currentAnnictSeason(),
             after ?? null,
           );
@@ -115,7 +120,7 @@ const works = new Hono<AuthVariables>()
   // 無い作品だけ Annict に問い合わせる。
   .get(
     "/lookup",
-    requireAnnictToken,
+    requireAnnictWorkCatalog,
     zValidator("query", worksLookupQuerySchema),
     async (c) => {
       const { ids } = c.req.valid("query");
@@ -131,7 +136,7 @@ const works = new Hono<AuthVariables>()
       const fetched = missingIds.length
         ? await attachResolvedImages(
             repo,
-            await searchAnnictWorksByIds(c.var.annictToken, missingIds),
+            await c.var.annictWorkCatalog.searchByIds(missingIds),
             c.req.url,
           )
         : [];
@@ -174,7 +179,8 @@ const works = new Hono<AuthVariables>()
   )
   // 作品候補の一覧（issue #412 初回オンボーディングの推し選択）。
   // Annict 未連携の新規ユーザーでも使えるよう annict_works キャッシュだけを
-  // 読み、トークンは要求しない（requireAnnictToken を付けない点に注意）。
+  // 読み、トークンは要求しない（requireAnnictWorkCatalog を付けない点に注意。
+  // 共用トークンが無い環境でもオンボーディングを止めないため）。
   // title 省略時は watchersCount 降順の人気作品、指定時はキャッシュ内の
   // 部分一致検索。応答は /works/lookup のキャッシュ行と同じ形に揃える。
   // /:annictWorkId より先に登録する（"candidates" がパスパラメータに
@@ -215,19 +221,19 @@ const works = new Hono<AuthVariables>()
   )
   // 作品詳細シートに出す単一作品のメタ（issue #347）。search で返さない
   // 詳細フィールド（話数・メディア種別・公式サイト等）と、viewerStatusState
-  // 由来の視聴ステータス（state）を返す。画像は検索と同じく
+  // 由来の視聴ステータス（state）を返す。共用トークン経路では state は常に null。画像は検索と同じく
   // attachResolvedImages で hostedImageUrl に載せる（annict_works の
   // キャッシュ upsert もこの経路で行う）。
   // /lookup より後に登録する（先に置くと "lookup" が :annictWorkId に
   // マッチして 400 になる）。
   .get(
     "/:annictWorkId",
-    requireAnnictToken,
+    requireAnnictWorkCatalog,
     zValidator("param", annictWorkIdParamSchema),
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
-      const detail = await fetchAnnictWorkDetail(
-        c.var.annictToken,
+      const detail = await fetchWorkDetail(
+        c.var.annictWorkCatalog,
         annictWorkId,
       );
       if (!detail) return c.json({ error: "Work not found" }, 404);
@@ -246,14 +252,11 @@ const works = new Hono<AuthVariables>()
   // imageUrl: null で返す（best-effort で応答自体は壊さない）。
   .get(
     "/:annictWorkId/characters",
-    requireAnnictToken,
+    requireAnnictWorkCatalog,
     zValidator("param", annictWorkIdParamSchema),
     async (c) => {
       const { annictWorkId } = c.req.valid("param");
-      const result = await fetchAnnictWorkCasts(
-        c.var.annictToken,
-        annictWorkId,
-      );
+      const result = await c.var.annictWorkCatalog.fetchWorkCasts(annictWorkId);
       if (!result) return c.json({ error: "Work not found" }, 404);
       const { work, characters } = result;
 

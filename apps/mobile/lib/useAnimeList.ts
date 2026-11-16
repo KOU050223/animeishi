@@ -7,8 +7,8 @@ import {
 import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
 import { sortAnimeList } from "./animeListSortFilter";
 import type {
   AnimeListSortKey,
@@ -116,7 +116,12 @@ export async function fetchWorksSearchPage(
     { headers: { ...headers, ...annictHeader } },
   );
   if (!res.ok) {
-    throw new ApiRequestError(res.status, "作品の検索に失敗しました");
+    // code で連携誘導（共用トークンの失効等）・混雑を画面側が出し分ける（issue #561）。
+    throw new ApiRequestError(
+      res.status,
+      "作品の検索に失敗しました",
+      await readApiErrorCode(res),
+    );
   }
   return res.json();
 }
@@ -127,9 +132,10 @@ export async function fetchWorksSearchPage(
  *
  * 検索語が空のうちはシーズン検索になる。`season`（例: "2025-summer"）を渡すとその
  * シーズンで、渡さなければサーバーが今期を既定にして「今期アニメ」を返す。検索語が
- * あるときは title 検索が優先され、season は無視される。Annict 未連携のうちは無効化。
+ * あるときは title 検索が優先され、season は無視される。作品情報を使えない
+ * （未連携かつ共用トークン無し。issue #561）うちは無効化。
  *
- * 戻り値の `isConnected` は呼び出し側のソフトゲート（未連携時の連携誘導・手動更新の
+ * 戻り値の `canBrowseWorks` は呼び出し側のソフトゲート（連携誘導・手動更新の
  * ガード）に使う。`isSeason` は検索結果かシーズン一覧かの区別で、空状態の文言・件数
  * 表示の出し分けに使う。シーズン検索でサーバー側のページ上限に達した場合は
  * このフック内で次ページを自動追い読みする。`hasNextPage` / `endCursor` は
@@ -148,10 +154,10 @@ export function useAnimeList(
   options: { fetchAllPages?: boolean } = {},
 ) {
   const { getToken, isSignedIn } = useAuth();
-  // 検索は API 側で X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
-  // isConnectionLoading は SecureStore 読み込み中の判定。連携済みでも読み込み中は
-  // isConnected=false になるため、呼び出し側はこの間ソフトゲートを出さない。
-  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
+  // 検索は本人の Annict トークンか共用トークンが要る。どちらも無いうちは 401 に
+  // なるだけなので無効化する。isAccessLoading は連携状態・共用トークン有無の確認中。
+  // この間は canBrowseWorks=false になるため、呼び出し側はソフトゲートを出さない。
+  const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
   // 入力のたびに Annict を叩かないよう、検索語が落ち着いてから発火する。
   const trimmed = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
   // 検索語が空ならシーズン検索（title を送らず season を載せる。未指定ならサーバー既定の今期）。
@@ -159,8 +165,8 @@ export function useAnimeList(
 
   const result = useInfiniteQuery({
     queryKey: worksSearchQueryKey(trimmed, season),
-    // 検索語が空でもシーズン一覧を出すため、連携済みなら常に有効化する。
-    enabled: !!isSignedIn && isConnected,
+    // 検索語が空でもシーズン一覧を出すため、作品情報を使えるなら常に有効化する。
+    enabled: !!isSignedIn && canBrowseWorks,
     // 年/季節チップを切り替えると queryKey が変わり別クエリ扱いになるため、
     // 取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。
     placeholderData: keepPreviousData,
@@ -215,9 +221,9 @@ export function useAnimeList(
     ...result,
     // 一覧表示用に全ページの works を平坦化した配列（後方互換のため data 名で公開）。
     data: works,
-    // 連携状態と次ページ情報。呼び出し側のソフトゲート/追い読みに使う。
-    isConnected,
-    isConnectionLoading,
+    // 作品情報を使えるか。呼び出し側のソフトゲートに使う。
+    canBrowseWorks,
+    isAccessLoading,
     // 今期アニメ初期表示か検索結果かの区別（空状態の文言・件数表示の出し分け用）。
     isSeason,
     hasNextPage: lastPage?.hasNextPage ?? false,
@@ -242,9 +248,9 @@ export function usePrefetchSeasonWorks(
   enabled: boolean,
 ) {
   const { getToken, isSignedIn } = useAuth();
-  const { isConnected } = useAnnictConnection();
+  const { canBrowseWorks } = useWorkCatalogAccess();
   const queryClient = useQueryClient();
-  const canPrefetch = enabled && !!isSignedIn && isConnected;
+  const canPrefetch = enabled && !!isSignedIn && canBrowseWorks;
   // 配列の中身が変わったときだけ発火させるためプリミティブに潰す
   // （season 文字列に "," は含まれない）。
   const seasonsKey = seasons.join(",");

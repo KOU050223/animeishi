@@ -12,7 +12,7 @@ import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { haptics } from "@/lib/haptics";
-import { useAnnictConnection } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { TierBoard } from "@/components/tier-list/TierBoard";
@@ -91,7 +91,7 @@ export default function CustomTierListScreen() {
       : null,
   );
 
-  const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
+  const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
   const { data: saved, isLoading: isSavedLoading } =
     useSavedCustomTierList(listId);
 
@@ -507,7 +507,7 @@ export default function CustomTierListScreen() {
     </View>
   );
 
-  if (isConnectionLoading) {
+  if (isAccessLoading) {
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -519,9 +519,9 @@ export default function CustomTierListScreen() {
     );
   }
 
-  if (!isConnected) {
-    // 作品の検索・追加は Annict トークン必須。未連携では作品を集められない
-    // ため、連携誘導を最優先で出す（シーズン版と同じ）。
+  if (!canBrowseWorks) {
+    // 作品の検索・追加は本人の Annict トークンか共用トークンが要る（issue #561）。
+    // どちらも無いと作品を集められないため、連携誘導を最優先で出す（シーズン版と同じ）。
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />

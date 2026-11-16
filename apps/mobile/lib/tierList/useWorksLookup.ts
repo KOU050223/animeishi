@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
 import { dedupeWorksById } from "@/lib/useAnimeList";
 
 // GET /works/lookup の ids 上限（worksLookupQuerySchema.max(50)）と揃える。
@@ -22,14 +22,15 @@ const LOOKUP_ID_CHUNK = 50;
  */
 export function useWorksLookup(ids: number[]) {
   const { getToken, isSignedIn } = useAuth();
-  // API 側は X-Annict-Token 必須。未連携のうちは 401 になるだけなので無効化する。
-  const { isConnected } = useAnnictConnection();
+  // 本人の Annict トークンか共用トークンが要る（issue #561）。
+  // どちらも無いうちは 401 になるだけなので無効化する。
+  const { canBrowseWorks } = useWorkCatalogAccess();
   // ids の内容が変わったときだけクエリキーを変える（参照ではなく値で比較）。
   const key = ids.join(",");
 
   return useQuery({
     queryKey: ["works", "lookup", key] as const,
-    enabled: !!isSignedIn && isConnected && ids.length > 0,
+    enabled: !!isSignedIn && canBrowseWorks && ids.length > 0,
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");

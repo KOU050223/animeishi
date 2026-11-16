@@ -1,7 +1,7 @@
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
-import { useAnnictConnection } from "@/lib/annict";
+import { useWorkCatalogAccess } from "@/lib/annict";
 import { useThemeColors } from "@/lib/theme";
 import type { TierItem } from "@/lib/tierList/types";
 
@@ -14,8 +14,9 @@ const NO_EXISTING = new Set<number>();
  * WorkAddSheet（未分類トレイへの作品追加用）を「追加」ではなく「選択」
  * として使い、選んだ作品を onSelect で返す。選択後は呼び出し側で
  * シートを閉じて編集画面へ遷移する。
- * 作品検索は Annict トークン必須のため、未連携では検索 UI の代わりに
- * 連携誘導（compact）を出す（空の検索欄を見せても選べない）。
+ * 作品検索は本人の Annict トークンか共用トークンが要る（issue #561）。
+ * どちらも無いときは検索 UI の代わりに連携誘導（compact）を出す
+ * （空の検索欄を見せても選べない）。
  */
 export function CharacterTierWorkPicker({
   visible,
@@ -28,9 +29,9 @@ export function CharacterTierWorkPicker({
   onSelect: (work: TierItem) => void;
 }) {
   const colors = useThemeColors();
-  const { isConnected, isLoading } = useAnnictConnection();
+  const { canBrowseWorks, isLoading } = useWorkCatalogAccess();
 
-  if (isConnected) {
+  if (canBrowseWorks) {
     return (
       <WorkAddSheet
         visible={visible}
@@ -44,7 +45,7 @@ export function CharacterTierWorkPicker({
     );
   }
 
-  // 未連携・接続確認中のシート。WorkAddSheet と同じボトムシートの外枠に
+  // 作品情報を使えない・確認中のシート。WorkAddSheet と同じボトムシートの外枠に
   // 連携誘導を載せる。
   return (
     <Modal

@@ -9,6 +9,7 @@ import { annictTokenStorage } from "./storage";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { trackAnnictFunnel } from "./funnel";
+import { refetchWorksAfterAnnictConnect } from "./afterConnect";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import type {
   AnnictConnectOptions,
@@ -147,6 +148,7 @@ export function useAnnictConnect() {
           }),
           queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
           queryClient.invalidateQueries({ queryKey: ["achievements"] }),
+          refetchWorksAfterAnnictConnect(queryClient),
         ]);
 
         return finish({ status: "success" });
