@@ -26,8 +26,11 @@ const demoSignIn = app.openapi(demoSignInRoute, async (c) => {
   const { email, password } = c.req.valid("json");
   const env = getBindings(c);
 
-  // パスワード総当たりの対策。IP とアカウントの両方で数える
-  // （IP だけだと分散した試行を、アカウントだけだと審査員への妨害を防げない）。
+  // 試行回数を IP とアカウントの両方で数える。Workers Rate Limiting の
+  // カウンターは Cloudflare の拠点ごとに独立しており、拠点をまたいだ分散試行は
+  // 合算されない。総当たりへの耐性はデモアカウントのパスワード長で担保する
+  // （scripts/review-account.mjs が短いパスワードを拒否する）。拠点をまたいで
+  // 数える必要が出たら D1 か Durable Object に失敗回数を持たせる。
   const limiter = env.DEMO_SIGN_IN_RATE_LIMITER;
   if (!limiter) {
     throw new Error("DEMO_SIGN_IN_RATE_LIMITER binding is not configured");
