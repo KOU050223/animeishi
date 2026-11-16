@@ -7,6 +7,7 @@ import {
   readBodyWithLimit,
 } from "@/lib/http";
 import { workImageUrl } from "@/lib/annict/workImage";
+import type { GuestCtaSource } from "@animeishi/observability";
 import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";
 import type {
@@ -321,6 +322,7 @@ export function buildSharedTierListHtml(
     ownerUsername: list.ownerUsername,
     requestUrl,
     canonicalUrl,
+    ctaSource: "share_tier_list",
   });
 }
 
@@ -344,6 +346,7 @@ export function buildSharedCustomTierListHtml(
     ownerUsername: list.ownerUsername,
     requestUrl,
     canonicalUrl,
+    ctaSource: "share_custom_tier_list",
   });
 }
 
@@ -362,6 +365,7 @@ function buildWorkTierListHtml(input: {
   ownerUsername: string;
   requestUrl: string;
   canonicalUrl: string;
+  ctaSource: GuestCtaSource;
 }): string {
   const tiers = parseTiersJson(input.list.tiersJson);
   const itemsByTier = new Map<string, SharedTierList["items"]>();
@@ -411,8 +415,13 @@ function buildWorkTierListHtml(input: {
         : `<p class="empty">Tier 表はまだありません。</p>`,
     pageCss: TIER_BOARD_CSS,
     width: "wide",
+    guestCta: { source: input.ctaSource, label: TIER_LIST_CTA_LABEL },
   });
 }
+
+// 共有ページ下部の登録 CTA の文言（issue #217）。見ている物と同じものを
+// 自分でも作れることを伝える。
+const TIER_LIST_CTA_LABEL = "あなたも Tier 表を作る";
 
 /**
  * オリジナル作品リストの共有ページ（issue #349）。tier 行のない順位付き
@@ -447,6 +456,7 @@ export function buildSharedWorkListHtml(
     canonicalUrl,
     ogImage: pickWorkOgImage(list.items, requestUrl),
     kind: "作品リスト",
+    guestCta: { source: "share_work_list", label: "あなたも作品リストを作る" },
     heading: escapeHtml(list.title),
     ownerLine: `${escapeHtml(list.ownerUsername)} の作品リスト`,
     description: list.description,
@@ -529,6 +539,10 @@ export function buildSharedCharacterTierListHtml(
       .map((item) => item.imageUrl)
       .find((u): u is string => !!u && isSafeImageUrl(u) && /^https:/i.test(u)),
     kind: "キャラクター Tier 表",
+    guestCta: {
+      source: "share_character_tier_list",
+      label: TIER_LIST_CTA_LABEL,
+    },
     heading: escapeHtml(list.title),
     ownerLine: `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`,
     description: list.description,
@@ -845,6 +859,10 @@ export function buildSharedWatchHistoryHtml(
           !!u && isSafeImageUrl(u) && /^https:/i.test(u.trim()),
       ),
     kind: "視聴履歴",
+    guestCta: {
+      source: "share_watch_history",
+      label: "あなたも視聴履歴を記録する",
+    },
     heading: `${escapeHtml(history.ownerUsername)} の視聴履歴`,
     ownerLine: "Animeishi で共有された視聴履歴",
     statsHtml: statsHtml([

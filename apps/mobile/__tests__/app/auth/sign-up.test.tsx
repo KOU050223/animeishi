@@ -10,6 +10,7 @@ import SignUpScreen from "@/app/(auth)/sign-up";
 import { resetAuth, getAuthMock, loggedInUser } from "@/test-utils/auth";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
+import { trackEvent } from "@/lib/events";
 
 // Clerk のモックは __mocks__/@clerk/expo.ts に一本化されている。
 // signUp 系の jest.fn は getAuthMock().signUp から取り出して設定する。
@@ -17,8 +18,10 @@ import { onboardingPending } from "@/lib/onboarding";
 // リソース（status / unverifiedFields 等）へ反映され、{ error } の返り値にもなる。
 
 const mockReplace = jest.fn();
+let mockSearchParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  useLocalSearchParams: () => mockSearchParams,
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
@@ -35,9 +38,12 @@ jest.mock("@/lib/featureFlags", () => ({
   },
 }));
 
+jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
+
 // AuthGuard 抑止フラグはモジュールステートのため、漏れがないよう毎回戻す。
 beforeEach(async () => {
   jest.clearAllMocks();
+  mockSearchParams = {};
   resetAuth();
   mockPasskey = false;
   passkeyPromptPending.current = false;
@@ -46,6 +52,25 @@ beforeEach(async () => {
 });
 
 describe("SignUpScreen", () => {
+  it("共有ページの CTA から来たら入口付きで CTA タップを計測する", async () => {
+    mockSearchParams = { from: "share_tier_list" };
+    await render(<SignUpScreen />);
+
+    expect(trackEvent).toHaveBeenCalledWith(
+      "guest_cta_tap",
+      { source: "share_tier_list" },
+      { screen: "sign-up" },
+    );
+  });
+
+  it("入口が無い・未知なら CTA タップを計測しない", async () => {
+    await render(<SignUpScreen />);
+    mockSearchParams = { from: "unknown" };
+    await render(<SignUpScreen />);
+
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
   it("フォームが正しくレンダリングされる", async () => {
     await render(<SignUpScreen />);
     expect(screen.getByTestId("email-input")).toBeTruthy();

@@ -1,5 +1,5 @@
 import { useAuth, useClerk, useSignUp } from "@clerk/expo";
-import { Link, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  GUEST_CTA_SOURCE_PARAM,
+  normalizeGuestCtaSource,
+} from "@animeishi/observability";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
@@ -26,6 +30,7 @@ import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
+import { trackEvent } from "@/lib/events";
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -34,6 +39,7 @@ export default function SignUpScreen() {
   const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
+  useTrackSharePageCtaTap();
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -401,4 +407,16 @@ export default function SignUpScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+// 共有ページ（API の HTML）の登録 CTA は JS を持たない（issue #236）ため、
+// タップは遷移先のこの画面で入口パラメータを見て計測する（issue #217 / #562）。
+function useTrackSharePageCtaTap() {
+  const params = useLocalSearchParams<Record<string, string | undefined>>();
+  const source = normalizeGuestCtaSource(params[GUEST_CTA_SOURCE_PARAM]);
+
+  useEffect(() => {
+    if (!source) return;
+    trackEvent("guest_cta_tap", { source }, { screen: "sign-up" });
+  }, [source]);
 }

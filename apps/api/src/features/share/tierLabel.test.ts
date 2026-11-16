@@ -22,7 +22,11 @@ describe("共有ページの tier ラベル色", () => {
 
   it("16 進カラー以外は style に宣言を足せないよう既定色にする", () => {
     const html = render("red; position: fixed; inset: 0");
-    expect(html).not.toContain("position: fixed");
-    expect(html).toContain("background-color: #e2e8f0;");
+    // ページ共通の CSS（下部固定 CTA）にも position: fixed があるため、
+    // ラベルの style 属性だけを見る。
+    const labelStyle =
+      /<div class="tier-label" style="([^"]*)"/.exec(html)?.[1] ?? "";
+    expect(labelStyle).not.toContain("position: fixed");
+    expect(labelStyle).toContain("background-color: #e2e8f0;");
   });
 });

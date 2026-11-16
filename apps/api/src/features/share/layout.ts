@@ -1,3 +1,7 @@
+import {
+  GUEST_CTA_SOURCE_PARAM,
+  type GuestCtaSource,
+} from "@animeishi/observability";
 import { escapeHtml } from "@/lib/html";
 
 /**
@@ -51,6 +55,13 @@ const BASE_CSS = `
     .work-image { display: block; object-fit: cover; background: var(--poster-fallback); }
     .site-footer.container { padding-top: 24px; padding-bottom: 40px; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
     .site-footer strong { color: var(--primary-text); }
+    /* 下部固定の登録 CTA（issue #217）。本文末尾を隠さないよう body に高さ分の余白を取る。 */
+    body.has-cta { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+    .guest-cta { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow); }
+    .guest-cta a { display: block; max-width: 480px; margin: 0 auto; padding: 14px 16px; border-radius: 12px;
+      background: var(--primary); color: #ffffff; text-align: center; font-weight: 700; text-decoration: none; }
 `;
 
 export type SharePageInput = {
@@ -78,10 +89,32 @@ export type SharePageInput = {
   pageCss?: string | undefined;
   /** 本文の最大幅。tier 表のように横に広い盤面は wide にする。 */
   width?: "narrow" | "wide" | undefined;
+  /**
+   * 下部固定の登録 CTA（issue #217 / #562）。遷移先は canonicalUrl と同じ
+   * オリジン（= Web 版）の新規登録画面。canonicalUrl が無いページには出さない。
+   */
+  guestCta?: { source: GuestCtaSource; label: string } | undefined;
 };
+
+/**
+ * 共有ページの CTA の遷移先。App Store 公開（#107）までは Web 版の新規登録へ
+ * 送る。入口は遷移先の画面で計測する（このページは JS を持たないため）。
+ */
+export function guestCtaHref(
+  canonicalUrl: string,
+  source: GuestCtaSource,
+): string {
+  const url = new URL("/sign-up", canonicalUrl);
+  url.searchParams.set(GUEST_CTA_SOURCE_PARAM, source);
+  return url.toString();
+}
 
 export function renderSharePage(input: SharePageInput): string {
   const esc = escapeHtml;
+  const ctaHtml =
+    input.guestCta && input.canonicalUrl
+      ? `<div class="guest-cta"><a href="${esc(guestCtaHref(input.canonicalUrl, input.guestCta.source))}" data-source="${esc(input.guestCta.source)}">${esc(input.guestCta.label)}</a></div>`
+      : "";
   const meta = [
     input.metaDescription
       ? `<meta name="description" content="${input.metaDescription}" />
@@ -116,7 +149,7 @@ export function renderSharePage(input: SharePageInput): string {
   ${meta}
   <style>${BASE_CSS}${input.width === "wide" ? "    :root { --page-width: 960px; }\n" : ""}${input.pageCss ?? ""}  </style>
 </head>
-<body>
+<body${ctaHtml ? ' class="has-cta"' : ""}>
   <header class="hero">
     <div class="container">
       <p class="brand">ANIMEISHI</p>
@@ -133,6 +166,7 @@ export function renderSharePage(input: SharePageInput): string {
   <footer class="site-footer container">
     <p><strong>Animeishi</strong> で共有されたページです</p>
   </footer>
+  ${ctaHtml}
 </body>
 </html>`;
 }

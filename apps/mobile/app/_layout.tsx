@@ -29,6 +29,7 @@ import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
+import { useGuestCtaReturn } from "@/lib/guestCta";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -54,6 +55,9 @@ function AuthGuard() {
   const headerOptions = useStackHeaderOptions();
   // UI イベント計測に現在画面・サインイン中ユーザーを同期する（issue #214）。
   useEventTrackingContext();
+  // 公開プロフィールの登録 CTA から来た人を、登録後に元のプロフィールへ戻す
+  // （issue #562）。
+  useGuestCtaReturn();
 
   useEffect(() => {
     if (!isLoaded) return;

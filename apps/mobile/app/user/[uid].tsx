@@ -18,6 +18,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
@@ -194,6 +195,9 @@ export default function PublicProfilePage() {
           onSubmit={moderation.submitReport}
         />
       </ScrollView>
+
+      {/* 未サインインのときだけ出る登録導線（issue #562） */}
+      <GuestSignUpCta uid={uid} username={data.username} />
 
       <ProfileWorkDetailSheet
         work={selectedWork}

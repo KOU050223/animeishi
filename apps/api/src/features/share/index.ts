@@ -27,6 +27,16 @@ import {
   workListNotFoundHtml,
 } from "./service";
 import { workImageUrl } from "@/lib/annict/workImage";
+import type { GuestCtaSource } from "@animeishi/observability";
+
+// 共有ページの登録 CTA の表示を Workers Logs に残す（issue #217 / #562）。
+// ページ自体は JS を持たない（issue #236）ため、HTML を返した時点を表示とみなす。
+// タップは遷移先（Web 版の新規登録画面）が Sentry Logs の guest_cta_tap で送る。
+function logGuestCtaView(source: GuestCtaSource): void {
+  console.log(
+    JSON.stringify({ level: "info", event: "guest_cta_view", source }),
+  );
+}
 
 type ShareBindings = {
   Bindings: Env & { DB: D1Database } & {
@@ -53,6 +63,7 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
+        logGuestCtaView("share_tier_list");
         // 共有解除で無効化されるコンテンツなのでキャッシュさせない。
         // public キャッシュを許すと、解除後も CDN/ブラウザが古いページを
         // 返し続ける可能性がある。
@@ -103,6 +114,7 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
+        logGuestCtaView("share_character_tier_list");
         return c.html(
           buildSharedCharacterTierListHtml(
             list,
@@ -147,6 +159,7 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
+        logGuestCtaView("share_custom_tier_list");
         return c.html(
           buildSharedCustomTierListHtml(
             list,
@@ -192,6 +205,7 @@ const share = new Hono<ShareBindings>()
       }
 
       if (wantsHtml) {
+        logGuestCtaView("share_work_list");
         return c.html(
           buildSharedWorkListHtml(
             list,
@@ -253,6 +267,7 @@ const share = new Hono<ShareBindings>()
         state: c.req.query("state"),
       });
       if (wantsHtml) {
+        logGuestCtaView("share_watch_history");
         const canonicalSource = new URL(c.req.url);
         canonicalSource.search = "";
         return c.html(
