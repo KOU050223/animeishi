@@ -43,7 +43,11 @@ jest.mock("@/components/AnnictSoftGate", () => ({
 }));
 
 jest.mock("@/lib/annict", () => ({
-  useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: true,
+    isConnected: true,
+    isLoading: false,
+  }),
   buildAnnictAuthHeader: async () => ({}),
 }));
 

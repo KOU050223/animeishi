@@ -3,31 +3,19 @@
 // - annict_token_required: トークン未登録（requireAnnictToken で 401）
 // - annict_token_invalid : 登録済みトークンが Annict 側で失効・取り消し
 //   （Annict API の 401 を annictErrorResponse が 401 に変換したもの）
-// どちらも「連携し直せば直る」ため、汎用エラーではなく連携導線を出す。
+// - annict_shared_token_unavailable: 未連携の利用者向けの共用トークンが使えない
+//   （運営側で失効・未設定。issue #561）。本人が連携すれば使えるようになる
+// どれも「連携すれば直る」ため、汎用エラーではなく連携導線を出す。
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AnnictFunnelSurface } from "@animeishi/observability";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
+import { isAnnictTokenError } from "./apiErrorCodes";
 import { annictErrorKey } from "./errorMessages";
 import { useAnnictFunnel } from "./funnel";
 import { useAnnictConnect } from "./useAnnictConnect";
-
-const ANNICT_TOKEN_ERROR_CODES: ReadonlySet<string> = new Set([
-  "annict_token_required",
-  "annict_token_invalid",
-]);
-
-/** API エラーが Annict トークンの未登録・失効によるものか判定する。 */
-export function isAnnictTokenError(error: unknown): boolean {
-  return (
-    error instanceof ApiRequestError &&
-    error.code !== undefined &&
-    ANNICT_TOKEN_ERROR_CODES.has(error.code)
-  );
-}
 
 /**
  * 記録系 API が Annict トークン起因で失敗したときに「連携する / あとで」の

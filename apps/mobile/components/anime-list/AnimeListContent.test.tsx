@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeListContent } from "./AnimeListContent";
 import { currentSeason } from "./animeListUtils";
+import { ApiRequestError } from "@/lib/apiError";
 
 // 一覧のデータ取得（Annict プロキシ検索・接続状態）は useAnimeList の
 // テストで検証する。ここでは「カードの描画・押下で詳細シートが開く」
@@ -22,8 +23,9 @@ const mockUseAnimeList = jest.fn(
     isFetching: false,
     isPlaceholderData: false,
     refetch: jest.fn(),
-    isConnected: true,
-    isConnectionLoading: false,
+    error: null as unknown,
+    canBrowseWorks: true,
+    isAccessLoading: false,
     isSeason: true,
   }),
 );
@@ -130,6 +132,7 @@ jest.mock("@/lib/annict", () => ({
   useAnnictTokenErrorPrompt: () => mockPromptAnnictTokenError,
   annictErrorKey: jest.requireActual("@/lib/annict/errorMessages")
     .annictErrorKey,
+  ...jest.requireActual("@/lib/annict/apiErrorCodes"),
 }));
 
 // 「リストに追加」シートのフックは実物だと QueryClient が要るため、
@@ -337,5 +340,63 @@ describe("AnimeListContent", () => {
     expect(screen.getByText("リストに追加")).toBeTruthy();
     // カードのタイトルとシートのサブ見出しで 2 件見える。
     expect(screen.getAllByText("テストアニメ")).toHaveLength(2);
+  });
+
+  describe("作品情報を使えないとき（issue #561）", () => {
+    const emptyResult = (overrides: Record<string, unknown>) => ({
+      data: [],
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      refetch: jest.fn(),
+      error: null as unknown,
+      canBrowseWorks: true,
+      isAccessLoading: false,
+      isSeason: true,
+      ...overrides,
+    });
+
+    it("未連携かつ共用トークンが無ければ連携誘導を出す", async () => {
+      mockUseAnimeList.mockReturnValueOnce(
+        emptyResult({ canBrowseWorks: false }),
+      );
+      await render(contentElement());
+
+      expect(screen.getByTestId("anime-list-soft-gate")).toBeTruthy();
+    });
+
+    it("共用トークンが使えなくなった（annict_shared_token_unavailable）ら連携誘導に切り替える", async () => {
+      mockUseAnimeList.mockReturnValueOnce(
+        emptyResult({
+          isError: true,
+          error: new ApiRequestError(
+            503,
+            "x",
+            "annict_shared_token_unavailable",
+          ),
+        }),
+      );
+      await render(contentElement());
+
+      expect(screen.getByTestId("anime-list-soft-gate")).toBeTruthy();
+    });
+
+    it("Annict のレート制限では混雑の案内を出す", async () => {
+      mockUseAnimeList.mockReturnValueOnce(
+        emptyResult({
+          isError: true,
+          error: new ApiRequestError(429, "x", "annict_rate_limited"),
+        }),
+      );
+      await render(contentElement());
+
+      expect(screen.queryByTestId("anime-list-soft-gate")).toBeNull();
+      expect(
+        screen.getByText(
+          "作品情報の取得が混み合っています。しばらく待ってからお試しください。",
+        ),
+      ).toBeTruthy();
+    });
   });
 });

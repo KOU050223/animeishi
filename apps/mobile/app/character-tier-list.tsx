@@ -81,8 +81,8 @@ export default function CharacterTierListScreen() {
     workTitle: fetchedWorkTitle,
     isLoading: isCharactersLoading,
     isError: isCharactersError,
-    isConnected,
-    isConnectionLoading,
+    canBrowseWorks,
+    isAccessLoading,
   } = useWorkCharacters(validWorkId ? annictWorkId : null);
   const {
     data: saved,
@@ -494,7 +494,7 @@ export default function CharacterTierListScreen() {
     );
   }
 
-  if (isConnectionLoading) {
+  if (isAccessLoading) {
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -506,9 +506,9 @@ export default function CharacterTierListScreen() {
     );
   }
 
-  if (!isConnected) {
-    // キャラクター一覧の取得は Annict トークン必須。
-    // 未連携では盤面自体が空になるため、連携誘導を最優先で出す。
+  if (!canBrowseWorks) {
+    // キャラクター一覧の取得は本人の Annict トークンか共用トークンが要る（issue #561）。
+    // どちらも無いと盤面自体が空になるため、連携誘導を最優先で出す。
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />

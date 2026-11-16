@@ -90,8 +90,8 @@ jest.mock("@/lib/tierList/useSeasonWorks", () => ({
     works: mockWorks,
     isLoading: false,
     isError: mockWorksError,
-    isConnected: true,
-    isConnectionLoading: false,
+    canBrowseWorks: true,
+    isAccessLoading: false,
   }),
 }));
 

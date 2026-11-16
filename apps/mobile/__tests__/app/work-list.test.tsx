@@ -60,7 +60,8 @@ jest.mock("@/components/AnnictSoftGate", () => {
 
 let mockConnected = true;
 jest.mock("@/lib/annict", () => ({
-  useAnnictConnection: () => ({
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: mockConnected,
     isConnected: mockConnected,
     isLoading: false,
   }),
@@ -149,7 +150,7 @@ describe("WorkListScreen", () => {
     expect(screen.getByText(/作品がありません/)).toBeTruthy();
   });
 
-  it("Annict 未連携では連携誘導を出す", async () => {
+  it("作品情報を使えない（未連携かつ共用トークン無し）ときは連携誘導を出す", async () => {
     mockConnected = false;
     await render(<WorkListScreen />);
     expect(screen.getByTestId("work-list-soft-gate")).toBeTruthy();

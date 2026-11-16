@@ -16,11 +16,12 @@ jest.mock("@/lib/api", () => ({
 }));
 
 const mockBuildAnnictAuthHeader = jest.fn();
-let mockIsConnected = true;
+let mockCanBrowseWorks = true;
 jest.mock("@/lib/annict", () => ({
   buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
-  useAnnictConnection: () => ({
-    isConnected: mockIsConnected,
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: mockCanBrowseWorks,
+    isConnected: mockCanBrowseWorks,
     isLoading: false,
   }),
 }));
@@ -69,7 +70,7 @@ describe("useWorkSearch", () => {
     resetAuth();
     mockSearchGet.mockReset();
     mockBuildAnnictAuthHeader.mockReset();
-    mockIsConnected = true;
+    mockCanBrowseWorks = true;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
     mockBuildAnnictAuthHeader.mockResolvedValue({
@@ -176,8 +177,8 @@ describe("useWorkSearch", () => {
     expect(mockSearchGet).toHaveBeenCalledTimes(1);
   });
 
-  it("未連携のうちはフェッチしない", async () => {
-    mockIsConnected = false;
+  it("作品情報を使えない（未連携かつ共用トークン無し）うちはフェッチしない", async () => {
+    mockCanBrowseWorks = false;
     await renderHook(() => useWorkSearch("進撃"), { wrapper: makeWrapper() });
     await sleep(350);
     expect(mockSearchGet).not.toHaveBeenCalled();
