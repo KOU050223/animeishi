@@ -45,6 +45,46 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない。
 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
 
+### preview D1 のずれを直す
+
+preview-api.yml の「Apply D1 migrations (preview)」か「Check migrations changed since last push」が
+落ちたとき、またはプレビューで `no such table` / `no such column` の 500 が出たときに行う。
+preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_migrations` の
+**ファイル名**だけで適用済みかを判断する。
+
+1. 状態を見る（非破壊）
+
+   ```sh
+   pnpm task db:migrate:preview:list
+   pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+     --command "SELECT id, name, applied_at FROM d1_migrations ORDER BY id DESC LIMIT 15"
+   ```
+
+2. 原因ごとに直す
+
+   - **ファイル名を変えた（番号の振り直し）**: 古い名前で記録が残り、新しい名前を当て直そうとして
+     `already exists` で落ちる。中身が同じことを確かめてから、新しい名前の記録だけを足す
+
+     ```sh
+     pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+       --command "INSERT INTO d1_migrations (name) VALUES ('<新しいファイル名>.sql');"
+     ```
+
+   - **当たった後でファイルの中身を書き換えた**: 書き換えた差分は当たらない。
+     差分の SQL（追加した列・インデックスなど）を手で流す
+
+     ```sh
+     pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+       --command "ALTER TABLE <テーブル> ADD COLUMN <列> <型>;"
+     ```
+
+   - **別の PR と同じテーブル・列を触って衝突した**: 先にマージされた側に合わせて
+     自分の PR のマイグレーションを直し、上の 2 つのどちらかで preview D1 を合わせる
+
+3. PR の preview-api.yml を再実行し、「Apply D1 migrations (preview)」が通ることを確かめる。
+   「Check migrations changed since last push」は前回の push との差分を見るため、
+   再実行しても落ちたままになる。直したら無視してよく、次の push で消える
+
 ## 通報モデレーション（reports.\*）
 
 `apps/api/scripts/reports.sh` の Taskfile ラッパー。使い方は `bash apps/api/scripts/reports.sh --help`。
