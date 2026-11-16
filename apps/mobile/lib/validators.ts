@@ -62,3 +62,16 @@ export const signInSchema = z.object({
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;
+
+export const passwordResetEmailSchema = z.object({ email: emailSchema });
+
+export const passwordResetSchema = z
+  .object({
+    code: z.string().trim().min(1, "認証コードを入力してください"),
+    password: passwordSchema,
+    passwordConfirmation: z.string().min(1, "パスワードを再入力してください"),
+  })
+  .refine((d) => d.password === d.passwordConfirmation, {
+    message: "パスワードが一致しません",
+    path: ["passwordConfirmation"],
+  });

@@ -167,6 +167,19 @@ export default function SignInScreen() {
               testID="password-input"
             />
 
+            <Link
+              href={{
+                pathname: "/(auth)/forgot-password",
+                params: email ? { email } : {},
+              }}
+              className="self-end mb-4"
+              testID="forgot-password-link"
+            >
+              <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+                {t("パスワードを忘れた場合")}
+              </Text>
+            </Link>
+
             {error && (
               <Text
                 className="text-red-500 dark:text-red-400 text-sm mb-4"
