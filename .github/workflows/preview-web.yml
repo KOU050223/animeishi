@@ -55,6 +55,9 @@ jobs:
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
           EXPO_PUBLIC_ENVIRONMENT: preview
           EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/lib/reviewAccount.ts）。
+          # 秘密ではない。native は eas.json に同じ値を持つ
+          EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL: ${{ vars.EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL || 'animeishi-demodemo-account@uomi.dev' }}
           EXPO_PUBLIC_COMMIT_SHA: ${{ github.sha }}
           EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ env.ANNICT_WEB_REDIRECT_URI }}
 

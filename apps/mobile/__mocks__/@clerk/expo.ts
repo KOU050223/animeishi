@@ -46,6 +46,11 @@ type MockSignIn = {
     verifyCode: jest.Mock;
     submitPassword: jest.Mock;
   };
+  mfa: {
+    sendEmailCode: jest.Mock;
+    verifyEmailCode: jest.Mock;
+  };
+  ticket: jest.Mock;
   finalize: jest.Mock;
 };
 
@@ -122,6 +127,12 @@ function createDefaultState(): MockClerkState {
       verifyCode: jest.fn(async () => applyOutcome(signIn)),
       submitPassword: jest.fn(async () => applyOutcome(signIn)),
     },
+    // 新しい端末の確認コード（Device Trust）とデモアカウントの ticket サインインのモック。
+    mfa: {
+      sendEmailCode: jest.fn(async () => applyOutcome(signIn)),
+      verifyEmailCode: jest.fn(async () => applyOutcome(signIn)),
+    },
+    ticket: jest.fn(async () => applyOutcome(signIn)),
     // Web パスキーサインイン（#181）と Web OAuth リダイレクト（#89）のモック。
     passkey: jest.fn(async () => applyOutcome(signIn)),
     sso: jest.fn(async () => applyOutcome(signIn)),
