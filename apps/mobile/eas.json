@@ -35,7 +35,7 @@
         "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://animeishi-api.uomi.dev",
@@ -45,6 +45,17 @@
         "EXPO_PUBLIC_ENVIRONMENT": "production",
         "EXPO_PUBLIC_SENTRY_DSN": "https://9134f17aeefcd55e25c341e88cd88e63@o4512178938904576.ingest.us.sentry.io/4512182663839744",
         "EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL": "animeishi-demodemo-account@uomi.dev"
+      }
+    },
+    "explore": {
+      "extends": "preview",
+      "node": "24.22.1",
+      "pnpm": "10.34.0",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     }
   },

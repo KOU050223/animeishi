@@ -33,6 +33,7 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * elections:results:      本番 D1 の総選挙結果を集計して表示（読み取り専用）
 * elections:results:preview: プレビュー D1 の総選挙結果を集計して表示
 * elections:results:local: ローカル D1 の総選挙結果を集計して表示
+* review-account:seed:    本番にゲストアカウント（審査デモ・Explore 用）を作成・更新（確認プロンプト付き）
 ```
 
 > wrangler は `apps/api/node_modules` にのみ入っている（ルートには入れない方針）。
@@ -442,3 +443,93 @@ pnpm task elections:results:local -- megane-2026    # ローカル D1
 この結果を `articles:publish` の Markdown（結果まとめ記事＋シェア画像を
 `cover_image_url` に指定）に書き、`pnpm task articles:publish` で
 特集枠に出す。結果発表を自動生成する仕組みはない。
+
+## ゲストアカウント（review-account:seed）
+
+App Store 審査のデモアカウントと Expo Explore のログインに使う共用アカウントを、
+本番（Clerk 本番インスタンス + 本番 API）に用意する。パスワードを変えたとき・
+既定のデモデータが崩れたときに実行する。既定のデータ（プロフィール・同じタイトルの
+作品リストとティア表など）は何度実行しても同じ状態になるが、後から追加された
+お気に入りやリストは消さない。
+
+作るもの:
+
+- ゲストアカウント（ログインに使う。`REVIEW_ACCOUNT_EMAIL` / `REVIEW_ACCOUNT_PASSWORD`）
+- フレンド役アカウント（ログインしない。パスワードは毎回ランダム）
+- 両者のプロフィール・お気に入り・評価・作品リスト・ティア表と、両者のフレンド関係
+
+名刺は端末内保存、視聴履歴は Annict 連携が前提なので入らない。
+
+### 準備（初回のみ）
+
+> Clerk の Device Trust（新しい端末でのメールコード確認）は**無効にしない**。
+> ゲストアカウントだけは、アプリが API（`POST /auth/demo-sign-in`）で ticket を
+> 受け取ってサインインするので、有効のままでも審査員の端末や Explore の新しい
+> シミュレーターからログインできる。無効にすると一般ユーザーも新しい端末で
+> メールコードなしにログインできてしまう。
+
+1. ゲストアカウントのアドレスが、アプリのビルド設定の `EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL`
+   （`apps/mobile/eas.json` の preview / production と、Web の `deploy-web.yml` /
+   `preview-web.yml`）と一致していることを確認する。一致しないとゲストアカウントも
+   メールコードを求められる
+2. `apps/api/.env`（gitignore 済み）に次を書く。値はパスワードマネージャーにも保管する
+
+   ```
+   CLERK_SECRET_KEY=sk_live_...        # Clerk Dashboard → API Keys（本番）
+   REVIEW_ACCOUNT_EMAIL=...            # ゲストアカウント
+   REVIEW_ACCOUNT_PASSWORD=...         # 審査・Explore に渡すパスワード。32 文字以上（openssl rand -base64 33）
+   REVIEW_FRIEND_EMAIL=...             # フレンド役（受信できるアドレスでなくてよい）
+   ```
+
+### 実行
+
+```bash
+pnpm task review-account:seed
+```
+
+最後に表示されるフレンド役のユーザー ID と公開リストの ID は、Explore の
+`parameters`（`/user/[uid]`・`/public-work-list`・`/public-tier-list`）に使う。
+
+### パスワードを変えたとき
+
+`REVIEW_ACCOUNT_PASSWORD` を書き換えて再実行し、同じ値を次の 3 か所にも反映する。
+
+- App Store Connect → アプリ → App Review に関する情報 → サインイン情報
+- GitHub の repository secret `EXPLORE_TEST_PASSWORD`（`gh secret set EXPLORE_TEST_PASSWORD`）
+- ローカルで Explore を回す人の環境変数 `EXPLORE_TEST_PASSWORD`
+
+### 予行演習（Clerk 開発インスタンス + ローカル API）
+
+本番に触れずに試すときは、`apps/api/.dev.vars`（sk_test）を読み込み、
+`wrangler dev` で起動したローカル API に向ける。API は Annict トークン無しでは
+未キャッシュの作品を登録できないため、先にローカル D1 の `annict_works` へ
+スクリプト冒頭の `WORKS` の作品（8128, 9060, 9250, 1808, 4168, 4308, 5121, 1540）を
+本番からコピーする（本番 D1 は読むだけ）。
+
+```bash
+cd apps/api
+pnpm wrangler d1 migrations apply animeishi-db --local
+pnpm -s wrangler d1 execute animeishi-db --remote --env production --json --command \
+  "SELECT annict_work_id, node_id, title, title_kana, title_en, season_name, season_year, image_url, mal_anime_id, resolved_image_url FROM annict_works WHERE annict_work_id IN (8128,9060,9250,1808,4168,4308,5121,1540)" \
+  > /tmp/review-works.json
+node -e '
+const rows = JSON.parse(require("fs").readFileSync("/tmp/review-works.json", "utf8"))[0].results;
+const q = (v) => (v === null ? "NULL" : typeof v === "string" ? `'"'"'${v.replaceAll("'"'"'", "'"'"''"'"'")}'"'"'` : v);
+const cols = Object.keys(rows[0]);
+for (const r of rows)
+  console.log(`INSERT OR REPLACE INTO annict_works (${cols.join(",")},updated_at) VALUES (${cols.map((c) => q(r[c])).join(",")},unixepoch());`);
+' > /tmp/review-works.sql
+pnpm wrangler d1 execute animeishi-db --local --file=/tmp/review-works.sql
+pnpm wrangler dev   # 別の端末で起動しておく
+```
+
+起動した API に向けてスクリプトを実行する。
+
+```bash
+cd apps/api
+set -a; . ./.dev.vars; set +a
+REVIEW_ACCOUNT_EMAIL='review+clerk_test@example.com' REVIEW_ACCOUNT_PASSWORD=... \
+REVIEW_FRIEND_EMAIL='review-friend+clerk_test@example.com' \
+API_URL=http://localhost:8787 CLERK_PUBLISHABLE_KEY="$CLERK_PUBLISHABLE_KEY" \
+node scripts/review-account.mjs
+```

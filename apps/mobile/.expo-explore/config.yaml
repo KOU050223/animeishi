@@ -1,0 +1,66 @@
+mode: deterministic
+app:
+  name: Animeishi
+  platform: ios
+  bundleId: com.animeishi.app
+  easProfile: explore
+  scheme: animeishi
+navigation:
+  provider: expo-router
+device:
+  name: iPhone 17
+exploration:
+  scope: changes
+  exclude:
+    # 端末内（AsyncStorage）でランダムに採番される名刺 ID で、事前に値を決められない
+    - /meishi/[id]
+    # 本番に公開中の総選挙が無い（公開したら parameters に slug を足して外す）
+    - /election/[slug]
+    # OAuth の戻り先。スピナーが自動で遷移するだけで、撮るたびに差分が出る
+    - /sso-callback
+    # ネイティブではホームへ Redirect するだけの画面
+    - /passkey-prompt
+parameters:
+  # 本番 D1 に公開中の記事・イベント（入れ替わったら更新する）
+  /article/[slug]:
+    slug: anisama-fukuoka-2027
+  /event/[slug]:
+    slug: anisama-fukuoka-2027
+  # pnpm task review-account:seed が作るアカウントと公開リスト（seed の最後に表示される）
+  /user/[uid]:
+    uid: user_3MCeDgOXUCOsuLRHWfijsijlBRQ
+  /public-work-list:
+    id: "2"
+  /public-tier-list:
+    kind: season
+    id: "13"
+# サインアウト状態で撮る画面（サインアップ・サインイン）を先に撮り、
+# ゲストアカウント（docs/runbook/production-tasks.md の review-account:seed）で
+# サインインしてから残りの画面をリンクで開く。
+setup:
+  - action: open
+    url: animeishi://sign-up
+    ready: { identifier: username-input }
+  - action: open
+    url: animeishi://sign-in
+    ready: { identifier: email-input }
+  - action: fill
+    identifier: email-input
+    text: "{{secret:EXPLORE_TEST_EMAIL}}"
+  - action: tap
+    identifier: password-input
+  - action: type
+    text: "{{secret:EXPLORE_TEST_PASSWORD}}"
+  - action: tap
+    identifier: sign-in-button
+    ready: { identifier: home-screen }
+capture:
+  maxMinutes: 30
+  maxActions: 500
+  # ローカル実行（--simulator local）で 4 台同時に起動すると撮影前に落ちたため、
+  # head・base 1 台ずつ・ライトのみに絞っている
+  appearance: light
+  maxSessions: 2
+  launch: screenshot
+  reset: root-link
+  unattributed: publish

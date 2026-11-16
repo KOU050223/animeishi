@@ -222,3 +222,15 @@ tasks:
     dir: apps/api
     cmds:
       - bash scripts/election-results.sh --local {{.CLI_ARGS}}
+
+  # ---- ゲストアカウント（App Store 審査のデモアカウント兼 Expo Explore のログイン用）----
+  # Clerk 本番インスタンスにアカウントを作り、本番 API にデモデータを入れる（冪等）。
+  # sk_live とパスワードは apps/api/.env（gitignore 済み）か実行シェルの環境変数で渡す。
+  # 手順は docs/runbook/production-tasks.md。
+  review-account:seed:
+    desc: "本番にゲストアカウントを作成・更新してデモデータを入れる（冪等。確認プロンプト付き）"
+    dir: apps/api
+    dotenv: [".env"]
+    prompt: 本番の Clerk と API にゲストアカウントを作成・更新します（パスワードは REVIEW_ACCOUNT_PASSWORD に揃えます）。続行しますか？
+    cmds:
+      - node scripts/review-account.mjs
