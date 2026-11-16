@@ -2,13 +2,17 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trackEvent } from "@/lib/events";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
+import { serializePendingReturn } from "./pendingReturn";
 import { resetPendingReturnForTest, savePendingReturn } from "./storage";
 import { useGuestCtaReturn } from "./useGuestCtaReturn";
 
 const mockPush = jest.fn();
+// 実際のルーターと同じく、レンダーをまたいで同じオブジェクトを返す
+// （毎回新しいと router の変化で effect が再実行され、遷移検知の検証にならない）。
+const mockRouter = { push: mockPush };
 const mockSegments = jest.fn((): string[] => ["(tabs)", "(home)"]);
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => mockRouter,
   useSegments: () => mockSegments(),
 }));
 
@@ -94,6 +98,30 @@ describe("useGuestCtaReturn", () => {
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith("/user/user_target"),
     );
+  });
+
+  it("読み出し中にサインアウトしたら、計測も遷移もしない", async () => {
+    loggedInUser({ userId: "user_new" });
+    const saved = serializePendingReturn("/user/user_target", Date.now());
+    let resolveRead: () => void = () => {};
+    const getItem = jest.spyOn(AsyncStorage, "getItem").mockImplementationOnce(
+      () =>
+        new Promise<string | null>((resolve) => {
+          resolveRead = () => resolve(saved);
+        }),
+    );
+
+    const { rerender } = await renderHook(() => useGuestCtaReturn());
+    await waitFor(() => expect(getItem).toHaveBeenCalledTimes(1));
+    signedOutUser();
+    await rerender({});
+    resolveRead();
+
+    // 読み出しの完了まで待ってから、遷移していないことを見る。
+    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 
   it("記録が無ければ何もしない", async () => {

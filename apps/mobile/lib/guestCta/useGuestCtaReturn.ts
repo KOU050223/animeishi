@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useAuth } from "@clerk/expo";
 import { useRouter, useSegments } from "expo-router";
 import type { Href } from "expo-router";
@@ -28,14 +28,19 @@ export function useGuestCtaReturn(): void {
   const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const top = segments[0] ?? "";
+  // 同じ先頭セグメント内の遷移（タブ間など）でも、読み出しに失敗した記録を
+  // 再試行できるよう、ルート全体の変化で effect を走らせる。
+  const route = segments.join("/");
   // ストレージ読み出し中にサインアウトした場合、完了時に遷移させない。
+  // 読み出しの完了がサインアウトのコミット直後に来ても古い値を見ないよう、
+  // 通常の effect より先に走る layout effect で同期する。
   const signedInRef = useRef(isSignedIn);
-  useEffect(() => {
+  useLayoutEffect(() => {
     signedInRef.current = isSignedIn;
   }, [isSignedIn]);
 
   useEffect(() => {
+    const top = route.split("/")[0] ?? "";
     if (!isLoaded || !isSignedIn || IN_PROGRESS_SEGMENTS.has(top)) return;
     void consumePendingReturn().then((path) => {
       if (!path || !signedInRef.current) return;
@@ -45,5 +50,5 @@ export function useGuestCtaReturn(): void {
       const href: unknown = path;
       router.push(href as Href);
     });
-  }, [isLoaded, isSignedIn, top, router]);
+  }, [isLoaded, isSignedIn, route, router]);
 }
