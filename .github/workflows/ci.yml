@@ -139,3 +139,16 @@ jobs:
 
       - name: Oxfmt check
         run: vp run fmt:check
+
+  migrations:
+    name: Migration Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # main にあるマイグレーションの書き換え・改名と、番号の重複を検出する（issue #515）
+      - name: Check D1 migrations
+        run: bash apps/api/scripts/check-migrations.sh "$(git merge-base "origin/${{ github.base_ref }}" HEAD)"

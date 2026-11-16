@@ -24,6 +24,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 前回の push で preview D1 に当たったマイグレーションを書き換えていないかを見る。
+  # wrangler はファイル名でしか適用済みを判断しないため、書き換え・改名は
+  # preview D1 に当たらないまま残る（issue #515）。
+  # デプロイとジョブを分けているのは、preview D1 を手で直した後に再実行しても
+  # 同じ差分で落ち続け、プレビューの発行まで止めてしまうため。
+  # 前回の commit が取れないときに成功扱いにしないのは、amend して force push した場合こそ
+  # 検出したい書き換えであり、fetch-depth: 0 でも到達不能な commit は取得されないため。
+  migration-drift:
+    name: Check migrations changed since last push
+    if: github.event.action == 'synchronize'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check migrations
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "$BEFORE" || true
+          fi
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "::error::前回の push の commit（$BEFORE）が取得できず、マイグレーションの書き換えを確認できません。preview D1 の状態を docs/runbook/production-tasks.md の「preview D1 のずれを直す」の手順 1 で確認してください。"
+            exit 1
+          fi
+          bash apps/api/scripts/check-migrations.sh "$BEFORE"
+
   deploy-preview:
     name: Deploy Cloudflare Workers Preview
     # Dependabot の PR には Actions secrets（CLOUDFLARE_API_TOKEN）が渡らないためスキップする
@@ -39,20 +68,13 @@ jobs:
 
       # マイグレーションを version upload 前に適用する（本番デプロイと同じ順序）。
       # 適用先は本番とは別の preview 専用 D1（animeishi-db-preview）。
-      # preview D1 は全 PR で共有のため、同時期の PR 同士で同じテーブル/カラムを
-      # 触る移行は SQL レベルで衝突し得る。失敗しても version upload は続行し、
-      # 警告として可視化する（新スキーマ依存のエンドポイントのみ動かない状態）。
+      # 失敗はジョブの失敗にする。以前は同時期の PR 同士の衝突を見込んで警告で済ませていたが、
+      # 警告は誰も見ず、1 週間すべての PR で失敗し続けた（issue #515）。
+      # 衝突で落ちたときの直し方は docs/runbook/production-tasks.md の「preview D1 のずれを直す」。
       - name: Apply D1 migrations (preview)
-        id: migrate
-        continue-on-error: true
         run: pnpm --filter @animeishi/api exec wrangler d1 migrations apply animeishi-db-preview --env preview --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-      - name: Warn if migrations failed
-        if: steps.migrate.outcome == 'failure'
-        run: |
-          echo "::warning::preview D1 へのマイグレーション適用に失敗しました。別 PR のマイグレーションと衝突している可能性があります。新スキーマに依存するエンドポイントは API プレビュー上で動作しません。"
 
       # animeishi-api-preview のライブデプロイは更新せず、
       # https://pr-<N>-animeishi-api-preview.<subdomain>.workers.dev の

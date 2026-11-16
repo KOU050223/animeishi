@@ -45,6 +45,62 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 main へのマージ後に手動で `pnpm task db:migrate:prod` を実行する必要はない。
 手動タスクは手動デプロイ時や DB 再作成時のリカバリ用途で残してある。
 
+### preview D1 のずれを直す
+
+preview-api.yml の「Apply D1 migrations (preview)」か「Check migrations changed since last push」が
+落ちたとき、またはプレビューで `no such table` / `no such column` の 500 が出たときに行う。
+preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_migrations` の
+**ファイル名**だけで適用済みかを判断する。
+
+1. 状態を見る（非破壊）
+
+   ```sh
+   pnpm task db:migrate:preview:list
+   pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+     --command "SELECT id, name, applied_at FROM d1_migrations ORDER BY id DESC LIMIT 15"
+   ```
+
+2. 原因ごとに直す。まず、書き換えたファイルが main にあるか（CI の Migration Check が落ちているか）で分ける
+
+   - **main にあるファイルを書き換え・改名した**: リポジトリ側を main の内容に戻し、
+     変えたかった分は新しい番号のマイグレーションとして足す。preview D1 には手を入れない
+     （新しいファイルが次の「Apply D1 migrations (preview)」で当たる。手でも流すと二重に当たって落ちる）
+
+     ```sh
+     git restore --source=origin/main -- apps/api/migrations/<元のファイル名>.sql
+     git rm -- apps/api/migrations/<改名後のファイル名>.sql   # 改名した場合だけ
+     ```
+
+   - **PR で足したばかりのファイルを、preview に当たった後で改名した**: 古い名前で記録が残り、
+     新しい名前を当て直そうとして `already exists` で落ちる。旧名は手順 1 の出力で分かる。
+     preview に当たった後で中身も変えていないかを確かめ（下の `git log` に改名以外のコミットが
+     出ないこと）、変えていなければ新しい名前の記録だけを足す。中身も変えていたら、その差分は
+     次の項目と同じく手で流す
+
+     ```sh
+     # <適用済み commit> は、その PR で preview-api.yml が最後に成功した run の head SHA
+     git log --oneline <適用済み commit>..HEAD --follow -- apps/api/migrations/<新ファイル名>.sql
+
+     pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+       --command "INSERT INTO d1_migrations (name) VALUES ('<新しいファイル名>.sql');"
+     ```
+
+   - **PR で足したばかりのファイルの中身を、preview に当たった後で書き換えた**: 書き換えた差分は
+     preview D1 に当たらない。ファイルはそのままで、差分の SQL（追加した列・インデックスなど）を手で流す
+     （このファイルは main に入ったときに本番へ初めて当たるので、本番には書き換え後の内容が当たる）
+
+     ```sh
+     pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
+       --command "ALTER TABLE <テーブル> ADD COLUMN <列> <型>;"
+     ```
+
+   - **別の PR と同じテーブル・列を触って衝突した**: 先にマージされた側に合わせて
+     自分の PR のマイグレーションを直し、上のどれかで preview D1 を合わせる
+
+3. PR の preview-api.yml を再実行し、「Apply D1 migrations (preview)」が通ることを確かめる。
+   「Check migrations changed since last push」は前回の push との差分を見るため、
+   再実行しても落ちたままになる。直したら無視してよく、次の push で消える
+
 ## 通報モデレーション（reports.\*）
 
 `apps/api/scripts/reports.sh` の Taskfile ラッパー。使い方は `bash apps/api/scripts/reports.sh --help`。
