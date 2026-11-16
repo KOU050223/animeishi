@@ -20,17 +20,20 @@ exploration:
     - /sso-callback
     # ネイティブではホームへ Redirect するだけの画面
     - /passkey-prompt
-    # 本番で pnpm task review-account:seed を実行したら、表示されるフレンド役の
-    # ユーザー ID と公開リストの ID を parameters に入れてここから外す
-    - /user/[uid]
-    - /public-work-list
-    - /public-tier-list
 parameters:
   # 本番 D1 に公開中の記事・イベント（入れ替わったら更新する）
   /article/[slug]:
     slug: anisama-fukuoka-2027
   /event/[slug]:
     slug: anisama-fukuoka-2027
+  # pnpm task review-account:seed が作るアカウントと公開リスト（seed の最後に表示される）
+  /user/[uid]:
+    uid: user_3MCeDgOXUCOsuLRHWfijsijlBRQ
+  /public-work-list:
+    id: "2"
+  /public-tier-list:
+    kind: season
+    id: "13"
 # サインアウト状態で撮る画面（サインアップ・サインイン）を先に撮り、
 # ゲストアカウント（docs/runbook/production-tasks.md の review-account:seed）で
 # サインインしてから残りの画面をリンクで開く。
