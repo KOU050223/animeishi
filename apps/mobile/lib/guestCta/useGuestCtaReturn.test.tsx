@@ -55,6 +55,8 @@ describe("useGuestCtaReturn", () => {
     await rerender({});
     mockSegments.mockReturnValue(["passkey-prompt"]);
     await rerender({});
+    mockSegments.mockReturnValue(["annict"]);
+    await rerender({});
     expect(mockPush).not.toHaveBeenCalled();
 
     mockSegments.mockReturnValue(["(tabs)", "(home)"]);
@@ -74,6 +76,24 @@ describe("useGuestCtaReturn", () => {
     expect(
       await AsyncStorage.getItem("guestCta:pendingReturn:v1"),
     ).not.toBeNull();
+  });
+
+  it("ストレージの読み出しに失敗しても、次の遷移で再試行して戻す", async () => {
+    await savePendingReturn("/user/user_target");
+    loggedInUser({ userId: "user_new" });
+    jest
+      .spyOn(AsyncStorage, "getItem")
+      .mockRejectedValueOnce(new Error("storage unavailable"));
+
+    const { rerender } = await renderHook(() => useGuestCtaReturn());
+    await waitFor(() => expect(AsyncStorage.getItem).toHaveBeenCalledTimes(1));
+    expect(mockPush).not.toHaveBeenCalled();
+
+    mockSegments.mockReturnValue(["(tabs)", "library"]);
+    await rerender({});
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/user/user_target"),
+    );
   });
 
   it("記録が無ければ何もしない", async () => {

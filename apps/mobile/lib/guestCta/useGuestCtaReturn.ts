@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/expo";
 import { useRouter, useSegments } from "expo-router";
 import type { Href } from "expo-router";
@@ -8,10 +8,13 @@ import { consumePendingReturn } from "./storage";
 // 登録・サインインの途中にいる画面。ここを抜けてから戻す。
 // onboarding / passkey-prompt はサインアップ直後に挟まる画面で、
 // 終わるとホームへ遷移するため、その後に元のプロフィールを開く。
+// annict はオンボーディングの Annict 連携の戻り先。連携処理の完了後に
+// 作品一覧へ置き換わるため、ここで開くとその遷移に上書きされる。
 const IN_PROGRESS_SEGMENTS = new Set([
   "(auth)",
   "onboarding",
   "passkey-prompt",
+  "annict",
 ]);
 
 /**
@@ -26,11 +29,16 @@ export function useGuestCtaReturn(): void {
   const segments = useSegments();
   const router = useRouter();
   const top = segments[0] ?? "";
+  // ストレージ読み出し中にサインアウトした場合、完了時に遷移させない。
+  const signedInRef = useRef(isSignedIn);
+  useEffect(() => {
+    signedInRef.current = isSignedIn;
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || IN_PROGRESS_SEGMENTS.has(top)) return;
     void consumePendingReturn().then((path) => {
-      if (!path) return;
+      if (!path || !signedInRef.current) return;
       trackEvent("guest_cta_return", { source: "profile" });
       // push にして、プロフィールから戻るとホームに着くようにする。
       // isReturnablePath で /user/{id} だけに絞ってあるので内部ルート。

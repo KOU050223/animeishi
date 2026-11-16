@@ -30,11 +30,13 @@ export function consumePendingReturn(): Promise<string | null> {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw !== null) await AsyncStorage.removeItem(STORAGE_KEY);
+      // 記録が無い・消し終えたと確認できたときだけ以後の読み出しを省く。
+      // 読み書きの失敗時は記録が残っている可能性があるので次の遷移で再試行する。
+      mayHavePending = false;
       return parsePendingReturn(raw, Date.now());
     } catch {
       return null;
     } finally {
-      mayHavePending = false;
       consuming = null;
     }
   })();
