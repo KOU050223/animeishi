@@ -11,9 +11,8 @@ import {
 } from "./schema";
 import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は features/watch-history/index.ts 参照）。
-import { fetchAnnictWorkByAnnictId } from "@/lib/annict/client";
 import { workImageUrl } from "@/lib/annict/workImage";
-import { resolveAnnictToken } from "@/lib/annict/middleware";
+import { resolveAnnictWorkCatalog } from "@/lib/annict/middleware";
 import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
@@ -51,16 +50,16 @@ const favorites = app
 
     // お気に入りは annict_works への FK を満たす必要がある。read-through 済みなら
     // キャッシュにあるが、searchWorks の検索結果（未キャッシュ）を直接お気に入り
-    // する導線もあるため、無ければ Annict トークンがある場合に限り searchWorks で
-    // 解決してキャッシュへ補充する。トークンが無ければ従来どおり 404。
-    // トークンはヘッダ(ネイティブ)または D1(Web 連携)から解決する。
+    // する導線もあるため、無ければ searchWorks で解決してキャッシュへ補充する。
+    // 本人のトークン（ヘッダ or D1）が無ければ共用トークンで引く（issue #561）。
+    // どちらも無ければ従来どおり 404。
     const existing = await worksRepo.getAnnictWorkById(annictWorkId);
     if (!existing) {
-      const token = await resolveAnnictToken(c);
-      if (!token) {
+      const catalog = await resolveAnnictWorkCatalog(c);
+      if (!catalog) {
         return c.json({ error: "Work not found" }, 404);
       }
-      const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+      const resolved = await catalog.fetchWork(annictWorkId);
       if (!resolved) {
         return c.json({ error: "Work not found" }, 404);
       }

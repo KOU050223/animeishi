@@ -59,8 +59,10 @@ jest.mock("@/components/AnnictSoftGate", () => {
 });
 
 let mockConnected = true;
+let mockCanBrowseWorks = true;
 jest.mock("@/lib/annict", () => ({
-  useAnnictConnection: () => ({
+  useWorkCatalogAccess: () => ({
+    canBrowseWorks: mockCanBrowseWorks,
     isConnected: mockConnected,
     isLoading: false,
   }),
@@ -134,6 +136,7 @@ beforeEach(async () => {
   mockSaved = null;
   mockSavedLoading = false;
   mockConnected = true;
+  mockCanBrowseWorks = true;
   mockSheetProps = null;
   mockSaveMutateAsync.mockResolvedValue(savedList(11, "新しいリスト", []));
   mockUnshareMutateAsync.mockResolvedValue({ ok: true });
@@ -149,11 +152,21 @@ describe("WorkListScreen", () => {
     expect(screen.getByText(/作品がありません/)).toBeTruthy();
   });
 
-  it("Annict 未連携では連携誘導を出す", async () => {
+  it("作品情報を使えない（未連携かつ共用トークン無し）ときは連携誘導を出す", async () => {
     mockConnected = false;
+    mockCanBrowseWorks = false;
     await render(<WorkListScreen />);
     expect(screen.getByTestId("work-list-soft-gate")).toBeTruthy();
     expect(screen.queryByTestId("work-list-title")).toBeNull();
+  });
+
+  it("未連携でも共用トークンで作品情報を使えるなら連携誘導を出さない（issue #561）", async () => {
+    mockConnected = false;
+    mockCanBrowseWorks = true;
+    await render(<WorkListScreen />);
+    expect(screen.queryByTestId("work-list-soft-gate")).toBeNull();
+    expect(screen.getByTestId("work-list-title")).toBeTruthy();
+    expect(screen.getByTestId("work-list-add")).toBeTruthy();
   });
 
   it("id パラメータの保存済みデータを画面に反映する", async () => {

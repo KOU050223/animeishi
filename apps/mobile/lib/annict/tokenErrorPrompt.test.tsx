@@ -5,10 +5,7 @@ import * as Sentry from "@sentry/react-native";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
-import {
-  isAnnictTokenError,
-  useAnnictTokenErrorPrompt,
-} from "./tokenErrorPrompt";
+import { useAnnictTokenErrorPrompt } from "./tokenErrorPrompt";
 import type { AnnictConnectResult } from "@/lib/annict";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
@@ -56,28 +53,6 @@ beforeEach(async () => {
     connect: mockConnect,
     disconnect: jest.fn(),
     isConnecting: false,
-  });
-});
-
-describe("isAnnictTokenError", () => {
-  it("annict_token_required / annict_token_invalid を true と判定する", () => {
-    expect(
-      isAnnictTokenError(
-        new ApiRequestError(401, "x", "annict_token_required"),
-      ),
-    ).toBe(true);
-    expect(
-      isAnnictTokenError(new ApiRequestError(401, "x", "annict_token_invalid")),
-    ).toBe(true);
-  });
-
-  it("それ以外のエラーは false と判定する", () => {
-    expect(
-      isAnnictTokenError(new ApiRequestError(502, "x", "annict_upstream")),
-    ).toBe(false);
-    expect(isAnnictTokenError(new ApiRequestError(500, "x"))).toBe(false);
-    expect(isAnnictTokenError(new Error("network"))).toBe(false);
-    expect(isAnnictTokenError(undefined)).toBe(false);
   });
 });
 

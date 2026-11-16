@@ -10,6 +10,7 @@ import {
   resolveAnnictRelayTarget,
 } from "@/lib/annict";
 import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
+import { refetchWorksAfterAnnictConnect } from "@/lib/annict/afterConnect";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。
 const RETURN_PATH = "/(tabs)/library?section=anime";
@@ -84,6 +85,7 @@ export default function AnnictCallbackScreen() {
         }),
         queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
         queryClient.invalidateQueries({ queryKey: ["achievements"] }),
+        refetchWorksAfterAnnictConnect(queryClient),
       ]);
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);

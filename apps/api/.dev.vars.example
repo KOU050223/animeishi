@@ -26,6 +26,13 @@ ANNICT_CLIENT_SECRET=
 # 未設定だと Web 連携(mode:web)は 500 になり、ネイティブ(ヘッダ方式)のみ動作する。
 ANNICT_ENCRYPTION_KEY=
 
+# 未連携の利用者の作品検索・Tier 表等に使う、運営者の Annict 個人用アクセストークン
+# （issue #561）。read スコープだけで発行し、作品情報の取得にだけ使う。
+# 未設定なら未連携の利用者には従来どおり Annict 連携を求める。
+# 発行・本番登録・差し替えの手順は docs/runbook/production-tasks.md を参照。
+# 本番は `wrangler secret put ANNICT_SHARED_READ_TOKEN` で登録する（コミット禁止）。
+# ANNICT_SHARED_READ_TOKEN=
+
 # CORS で許可するオリジンのカンマ区切りリスト
 # 未設定の場合は全オリジンを許可する（開発用）。本番では web フロントのオリジンを指定する。
 # "*" 始まりのエントリはサフィックス一致（プレビューデプロイの <hash>-... を許可する用途）。

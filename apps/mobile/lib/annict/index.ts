@@ -24,8 +24,11 @@ export {
   buildAnnictAuthHeader,
   useAnnictConnection,
 } from "./useAnnictConnection";
-export { annictErrorKey } from "./errorMessages";
 export {
-  isAnnictTokenError,
-  useAnnictTokenErrorPrompt,
-} from "./tokenErrorPrompt";
+  useWorkCatalogAccess,
+  WORK_CATALOG_STATUS_QUERY_KEY,
+} from "./useWorkCatalogAccess";
+export type { WorkCatalogAccess } from "./useWorkCatalogAccess";
+export { annictErrorKey } from "./errorMessages";
+export { useAnnictTokenErrorPrompt } from "./tokenErrorPrompt";
+export { isAnnictRateLimitedError, isAnnictTokenError } from "./apiErrorCodes";

@@ -15,6 +15,7 @@ import { annictCharacters, annictWorks } from "@/db/schema";
 import { works } from "@/features/works";
 import { currentAnnictSeason } from "@/lib/annict/client";
 import { seasonWorksCacheUrl } from "@/lib/annict/seasonWorksCache";
+import { titleSearchCacheUrl } from "./service";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -147,6 +148,18 @@ describe("作品検索 API", () => {
       "2030",
     ]) {
       await caches.default.delete(seasonWorksCacheUrl(season));
+    }
+    // タイトル検索の結果も Cache API に載る（issue #561）ため、テストで使う語を掃除する。
+    for (const title of [
+      "http",
+      "作品",
+      "存在しない作品",
+      "検索",
+      "通常",
+      "進撃",
+      "鬼滅",
+    ]) {
+      await caches.default.delete(titleSearchCacheUrl(title, null));
     }
   });
 

@@ -84,8 +84,8 @@ export default function TierListScreen() {
     works,
     isLoading: isWorksLoading,
     isError: isWorksError,
-    isConnected,
-    isConnectionLoading,
+    canBrowseWorks,
+    isAccessLoading,
   } = useSeasonWorks(season);
   const { data: saved, isLoading: isSavedLoading } = useSavedTierList(season);
 
@@ -94,7 +94,7 @@ export default function TierListScreen() {
   // ここでのプリフェッチは一覧側にも効く（逆も同じ）。
   usePrefetchSeasonWorks(
     adjacentSeasonParams(year, seasonKey),
-    isConnected && !isWorksLoading,
+    canBrowseWorks && !isWorksLoading,
   );
   const save = useSaveTierList();
   const share = useShareTierList();
@@ -568,7 +568,7 @@ export default function TierListScreen() {
     </View>
   );
 
-  if (isConnectionLoading) {
+  if (isAccessLoading) {
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -580,9 +580,9 @@ export default function TierListScreen() {
     );
   }
 
-  if (!isConnected) {
-    // シーズン作品の取得は /works/search 経由で Annict トークン必須。
-    // 未連携では盤面自体が空になるため、連携誘導を最優先で出す。
+  if (!canBrowseWorks) {
+    // シーズン作品の取得は /works/search 経由で本人の Annict トークンか共用トークンが
+    // 要る（issue #561）。どちらも無いと盤面自体が空になるため、連携誘導を最優先で出す。
     return (
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />

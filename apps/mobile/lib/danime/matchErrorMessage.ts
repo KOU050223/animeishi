@@ -13,6 +13,8 @@ const MESSAGES_BY_CODE: Record<string, string> = {
     "Annict 連携が無効になっています。設定から連携し直してください。",
   annict_upstream:
     "Annict との通信に失敗しました。時間をおいて再度お試しください。",
+  annict_rate_limited:
+    "Annict が混み合っています。時間をおいて再度お試しください。",
   internal_error:
     "サーバーエラーが発生しました。時間をおいて再度お試しください。",
 };

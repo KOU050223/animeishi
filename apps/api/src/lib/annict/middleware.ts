@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { createDb } from "@/db/client";
 import { annictRepository } from "@/features/annict/repository";
 import { decryptToken, assertEncryptionKey } from "./crypto";
+import { createAnnictWorkCatalog, type AnnictWorkCatalog } from "./workCatalog";
 
 // Annict アクセストークンを解決するミドルウェア。
 // c.var.annictToken にトークンをセットする。
@@ -28,7 +29,26 @@ export type AnnictVariables = {
 type AnnictTokenBindings = {
   DB: D1Database;
   ANNICT_ENCRYPTION_KEY?: string;
+  // 未連携の利用者の作品情報取得に使う運営者の共用トークン（issue #561）。
+  // 未設定なら未連携の利用者は従来どおり連携が必要になる。
+  ANNICT_SHARED_READ_TOKEN?: string;
 };
+
+// 作品情報系ルート向けの Variables。トークン文字列は載せず、作品情報の取得関数
+// だけを持つ AnnictWorkCatalog を載せる（workCatalog.ts の冒頭コメント参照）。
+export type AnnictWorkCatalogVariables = {
+  Variables: {
+    clerkUserId: string;
+    annictWorkCatalog: AnnictWorkCatalog;
+  };
+};
+
+function annictTokenRequired(c: Context) {
+  return c.json(
+    { error: "Annict 連携が必要です", code: "annict_token_required" },
+    401,
+  );
+}
 
 /**
  * X-Annict-Token ヘッダ、または Web 連携で D1 に保存された暗号化トークンを解決する。
@@ -39,16 +59,44 @@ type AnnictTokenBindings = {
 export const requireAnnictToken = createMiddleware<AnnictVariables>(
   async (c, next) => {
     const token = await resolveAnnictToken(c);
-    if (!token) {
-      return c.json(
-        { error: "Annict 連携が必要です", code: "annict_token_required" },
-        401,
-      );
-    }
+    if (!token) return annictTokenRequired(c);
     c.set("annictToken", token);
     await next();
   },
 );
+
+/**
+ * 作品情報だけを返すルート向け。本人のトークンがあればそれを、無ければ共用トークンを
+ * 使う AnnictWorkCatalog を c.var.annictWorkCatalog にセットする。どちらも無ければ
+ * requireAnnictToken と同じ 401（annict_token_required）を返す。
+ */
+export const requireAnnictWorkCatalog =
+  createMiddleware<AnnictWorkCatalogVariables>(async (c, next) => {
+    const catalog = await resolveAnnictWorkCatalog(c);
+    if (!catalog) return annictTokenRequired(c);
+    c.set("annictWorkCatalog", catalog);
+    await next();
+  });
+
+/** 共用トークンが設定されていればその値を返す（前後の空白は除く）。 */
+export function sharedAnnictReadToken(c: Context): string | null {
+  const { ANNICT_SHARED_READ_TOKEN } = c.env as AnnictTokenBindings;
+  return ANNICT_SHARED_READ_TOKEN?.trim() || null;
+}
+
+/**
+ * 作品情報の取得窓口を解決する（本人のトークン → 共用トークンの順）。どちらも
+ * 無ければ null。requireAnnictWorkCatalog 以外（例: お気に入り追加時の作品補充）でも使う。
+ */
+export async function resolveAnnictWorkCatalog(
+  c: Context,
+): Promise<AnnictWorkCatalog | null> {
+  const userToken = await resolveAnnictToken(c);
+  if (userToken) return createAnnictWorkCatalog(userToken, "user");
+  const sharedToken = sharedAnnictReadToken(c);
+  if (sharedToken) return createAnnictWorkCatalog(sharedToken, "shared");
+  return null;
+}
 
 /**
  * Annict トークンを解決する（ヘッダ優先、無ければ D1 から復号）。見つからなければ null。

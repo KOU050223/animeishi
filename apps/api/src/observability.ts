@@ -10,6 +10,7 @@ import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AnnictApiError } from "@/lib/annict/client";
 import { annictErrorResponse } from "@/lib/annict/errors";
+import { AnnictSharedTokenRejectedError } from "@/lib/annict/workCatalog";
 import { DeletedUserError } from "@/features/users/repository";
 import {
   clearCronFailures,
@@ -256,11 +257,11 @@ export function handleError(err: Error, c: Context): Response {
   }
   if (err instanceof AnnictApiError) {
     const res = annictErrorResponse(c, err) ?? internalError(c);
-    // ユーザーが再連携で解決できる 401（トークン失効）だけ送らない。
+    // ユーザーが再連携で解決できる 401（本人のトークン失効）だけ送らない。
     // status には上流の HTTP ステータスがそのまま入るため、200 の
-    // GraphQL エラーや不正 JSON、429（レート制限）もクライアントには
-    // 502 として返る障害であり、ここで記録する。
-    if (err.status !== 401) {
+    // GraphQL エラーや不正 JSON、429（レート制限）も障害としてここで記録する。
+    // 共用トークンの 401 は運営者が差し替えるまで直らないため送る（issue #561）。
+    if (err.status !== 401 || err instanceof AnnictSharedTokenRejectedError) {
       captureApiError(err, c);
       alertApiFailure(err, c, res.status);
     }

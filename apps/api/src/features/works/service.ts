@@ -1,15 +1,26 @@
-import type { AnnictLibraryEntry } from "@/lib/annict/client";
-import { searchAnnictWorksBySeason } from "@/lib/annict/client";
+import type { AnnictLibraryEntry, AnnictWorkDetail } from "@/lib/annict/client";
+import type { AnnictWorkCatalog } from "@/lib/annict/workCatalog";
 import {
   readSeasonWorksCache,
   writeSeasonWorksCache,
 } from "@/lib/annict/seasonWorksCache";
+import {
+  readWorkCache,
+  workCacheUrl,
+  writeWorkCache,
+} from "@/lib/annict/workSearchCache";
 import {
   isPlaceholderImageUrl,
   resolveImagesViaKitsu,
 } from "@/lib/annict/imageFallback";
 import { workImageUrl } from "@/lib/annict/workImage";
 import { isUnchangedCachedWork, type WorksRepository } from "./repository";
+
+type WorksPage = {
+  works: AnnictLibraryEntry[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+};
 
 /**
  * シーズン検索の入口。1 ページ目（after 無し）はシーズン単位の Cache API
@@ -19,26 +30,88 @@ import { isUnchangedCachedWork, type WorksRepository } from "./repository";
  * 部分結果は「全件」として共有できないためキャッシュしない。
  */
 export async function searchSeasonWorks(
-  annictToken: string,
+  catalog: AnnictWorkCatalog,
   season: string,
   after: string | null,
-): Promise<{
-  works: AnnictLibraryEntry[];
-  hasNextPage: boolean;
-  endCursor: string | null;
-}> {
+): Promise<WorksPage> {
   if (after) {
-    return searchAnnictWorksBySeason(annictToken, season, after);
+    return catalog.searchBySeason(season, after);
   }
   const cached = await readSeasonWorksCache(season);
   if (cached) {
     return { works: cached, hasNextPage: false, endCursor: null };
   }
-  const result = await searchAnnictWorksBySeason(annictToken, season, null);
+  const result = await catalog.searchBySeason(season, null);
   if (!result.hasNextPage) {
     await writeSeasonWorksCache(season, result.works);
   }
   return result;
+}
+
+// タイトル検索のキャッシュ鮮度（issue #561）。共用トークンには未連携の利用者全員の
+// 検索が集まるため、同じ語の連続検索（インクリメンタル検索・別の利用者）を
+// まとめる。新作の登録や watchers 順位の変化を長く隠さないよう短めにする。
+export const TITLE_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+
+// Annict のタイトル検索は大文字小文字を区別しない部分一致（ILIKE）なので、
+// 小文字化しても結果は変わらない。キーの揺れだけを吸収する。
+export function titleSearchCacheUrl(
+  title: string,
+  after: string | null,
+): string {
+  const key = encodeURIComponent(title.trim().toLowerCase());
+  const cursor = after ? `?after=${encodeURIComponent(after)}` : "";
+  return workCacheUrl(`title-search/${key}${cursor}`);
+}
+
+/**
+ * 検索 UI のタイトル検索（人気順）。結果は利用者に依存しない作品情報だけなので、
+ * 本人のトークン・共用トークンのどちらで取った結果も共有キャッシュに載せる。
+ */
+export async function searchTitleWorks(
+  catalog: AnnictWorkCatalog,
+  title: string,
+  after: string | null,
+): Promise<WorksPage> {
+  const url = titleSearchCacheUrl(title, after);
+  const cached = await readWorkCache<WorksPage>(url, TITLE_SEARCH_CACHE_TTL_MS);
+  if (cached) return cached;
+  const result = await catalog.searchByTitle(title, after, {
+    orderByWatchersCount: true,
+  });
+  await writeWorkCache(url, result, TITLE_SEARCH_CACHE_TTL_MS);
+  return result;
+}
+
+// 共用トークン経路の作品詳細のキャッシュ鮮度（issue #561）。話数・クレジット等は
+// 変化が緩いので長めに取る。
+export const SHARED_WORK_DETAIL_CACHE_TTL_MS = 60 * 60 * 1000;
+
+export function sharedWorkDetailCacheUrl(annictWorkId: number): string {
+  return workCacheUrl(`work-detail/${annictWorkId}`);
+}
+
+/**
+ * 作品詳細を取る。本人のトークンの応答は視聴ステータス（state）を含み利用者ごとに
+ * 違うためキャッシュしない。共用トークンの応答は利用者情報を含まないので共有する。
+ */
+export async function fetchWorkDetail(
+  catalog: AnnictWorkCatalog,
+  annictWorkId: number,
+): Promise<AnnictWorkDetail | null> {
+  if (catalog.source === "user") return catalog.fetchWorkDetail(annictWorkId);
+
+  const url = sharedWorkDetailCacheUrl(annictWorkId);
+  const cached = await readWorkCache<AnnictWorkDetail>(
+    url,
+    SHARED_WORK_DETAIL_CACHE_TTL_MS,
+  );
+  if (cached) return cached;
+  const detail = await catalog.fetchWorkDetail(annictWorkId);
+  if (detail) {
+    await writeWorkCache(url, detail, SHARED_WORK_DETAIL_CACHE_TTL_MS);
+  }
+  return detail;
 }
 
 /**

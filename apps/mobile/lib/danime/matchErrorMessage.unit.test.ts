@@ -29,6 +29,19 @@ describe("danimeMatchErrorMessage", () => {
     );
   });
 
+  it("annict_rate_limited は混雑として時間をおいた再試行を促す", () => {
+    const message = danimeMatchErrorMessage(
+      new ApiRequestError(
+        429,
+        "Annict とのマッチングに失敗しました",
+        "annict_rate_limited",
+      ),
+    );
+    expect(message).toBe(
+      "Annict が混み合っています。時間をおいて再度お試しください。",
+    );
+  });
+
   it("internal_error はサーバーエラーの文言を返す", () => {
     const message = danimeMatchErrorMessage(
       new ApiRequestError(

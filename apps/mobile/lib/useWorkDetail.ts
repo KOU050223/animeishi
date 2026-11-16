@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,
@@ -31,18 +31,19 @@ type WatchHistoryCacheItem = { annictWorkId: number; state: string };
  * 作品詳細シートに出す 1 作品分のメタ（GET /works/:annictWorkId。issue #347）。
  * 一覧カードの検索結果（AnimeTitle）には無い詳細フィールド（話数・メディア
  * 種別・公式サイト等）と、Annict viewerStatusState 由来の視聴ステータス
- * （state）を持つ。一覧と同じく Annict 連携済みのときだけ有効化する。
+ * （state）を持つ。一覧と同じく作品情報を使えるとき（連携済み、または
+ * 共用トークンあり。issue #561）に有効化する。未連携のときは state が常に null。
  */
 export function useWorkDetail(annictWorkId: number | null) {
   const { getToken, isSignedIn, userId } = useAuth();
-  const { isConnected } = useAnnictConnection();
+  const { canBrowseWorks, isConnected } = useWorkCatalogAccess();
   const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: userId
       ? workDetailQueryKey(userId, annictWorkId ?? 0)
       : WORK_DETAIL_QUERY_KEY,
-    enabled: !!isSignedIn && !!userId && isConnected && annictWorkId != null,
+    enabled: !!isSignedIn && !!userId && canBrowseWorks && annictWorkId != null,
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error("認証トークンが取得できませんでした");
@@ -66,7 +67,9 @@ export function useWorkDetail(annictWorkId: number | null) {
         queryClient.isMutating({
           predicate: (m) => m.options.scope?.id === WATCH_HISTORY_WRITE_SCOPE,
         }) > 0;
-      if (!writesPending && userId) {
+      // 未連携（共用トークン）の応答は state が常に null で本人の状態ではないため、
+      // 履歴に反映しない。
+      if (!writesPending && userId && isConnected) {
         const historyKey = [...WATCH_HISTORY_QUERY_KEY, userId] as const;
         // 1 作品分の部分書き換えで履歴全体の dataUpdatedAt が今にならないよう、
         // 元の取得時刻を維持する（維持しないと stale な履歴が fresh 扱いになり、

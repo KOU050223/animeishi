@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/lib/useAnimeList";
 import type { AnimeTitle, SortKey, SortOrder } from "@/lib/useAnimeList";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
+import { isAnnictRateLimitedError, isAnnictTokenError } from "@/lib/annict";
 import { Input } from "@/components/ui";
 import { CardPressable } from "@/components/ui/card-pressable";
 import { AnimeListSkeleton } from "./AnimeListSkeleton";
@@ -75,6 +77,7 @@ export function AnimeListContent({
   // 途中変更は initialQuery と同じく key のリマウントで反映する。
   initialSeason?: string;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const styles = useAnimeListStyles();
@@ -118,8 +121,9 @@ export function AnimeListContent({
     isFetching,
     isPlaceholderData,
     refetch,
-    isConnected,
-    isConnectionLoading,
+    error,
+    canBrowseWorks,
+    isAccessLoading,
     isSeason,
   } = useAnimeList(query, seasonParam, { fetchAllPages: filterActive });
   const hasQuery = query.trim().length > 0;
@@ -160,10 +164,10 @@ export function AnimeListContent({
   const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
 
   async function onRefresh() {
-    // refetch は react-query の enabled を無視して手動実行されるため、未連携で
-    // pull-to-refresh すると 401 で無駄な失敗になる。enabled と同じ条件（連携済み）で
-    // のみ再取得する。検索語が空でも今期アニメを取りに行くので hasQuery は問わない。
-    if (!isConnected) return;
+    // refetch は react-query の enabled を無視して手動実行されるため、作品情報を
+    // 使えない状態で pull-to-refresh すると 401 で無駄な失敗になる。enabled と同じ
+    // 条件でのみ再取得する。検索語が空でも今期アニメを取りに行くので hasQuery は問わない。
+    if (!canBrowseWorks) return;
     setRefreshing(true);
     try {
       await refetch();
@@ -185,19 +189,22 @@ export function AnimeListContent({
   // 検索バーは ListHeaderComponent 内にあるため、状態ごとに早期 return すると
   // 入力欄ごと消えてしまう。未連携/ローディング/エラー/未入力は ListEmptyComponent 側で
   // 表現し、検索バーは常に画面に残す。
-  // 連携済みでフェッチ中のときだけローディング扱いにする（未連携時の pending を
-  // 「連携前」と区別する）。検索語が空でも今期アニメを取得するためローディングを出す。
+  // 作品情報を使える状態でフェッチ中のときだけローディング扱いにする（使えない
+  // ときの pending を「連携前」と区別する）。検索語が空でも今期アニメを取得するためローディングを出す。
   // シーズン/検索キー切り替えでキャッシュ未ヒットの間（placeholderData が前回
   // 結果を差し込んでいる間）もローディング扱いにする。前シーズンの一覧を
   // 残したまま新しいラベルを出すと切り替えが効いたか分かりにくいため（issue #173）。
   const showLoading =
-    isConnected && (isLoading || (isPlaceholderData && isFetching));
+    canBrowseWorks && (isLoading || (isPlaceholderData && isFetching));
 
   // 表示できる作品があるのにバックグラウンド再取得の失敗でエラー画面へ
   // 置き換えない。tier 表側の画像補完ポーリングが同じクエリキーを再取得する
   // （キャッシュ共有）ため、その失敗もここに現れうる。作品が無い初回失敗だけ
   // 空配列にして ListEmptyComponent のエラー表示へ繋げる。
   const hideForError = isError && sorted.length === 0;
+  // 共用トークンの失効など、本人が連携すれば直るエラーは連携誘導に切り替える（issue #561）。
+  const needsAnnictLink =
+    !canBrowseWorks || (hideForError && isAnnictTokenError(error));
 
   // 絞り込み中は「絞り込み後 / 絞り込み前」の件数を出す（視聴履歴と同じ表記）。
   const resultCountText = filterActive
@@ -430,8 +437,8 @@ export function AnimeListContent({
         }
         renderItem={renderItem}
         ListEmptyComponent={
-          isConnectionLoading ? (
-            // 連携状態（SecureStore）の読み込み中は isConnected=false になるため、
+          isAccessLoading ? (
+            // 連携状態（SecureStore）・共用トークン有無の確認中は canBrowseWorks=false になるため、
             // 連携済みユーザーに一瞬ソフトゲートを見せて誤って OAuth を再開させないよう、
             // 確定するまではローディング表示にとどめる（watch-history と挙動を揃える）。
             <View style={styles.emptyState}>
@@ -440,9 +447,9 @@ export function AnimeListContent({
               </View>
               <Text style={styles.emptyTitle}>読み込んでいます</Text>
             </View>
-          ) : !isConnected ? (
-            // 検索は Annict 連携が前提（API 側で X-Annict-Token 必須）。未連携では
-            // 検索結果ではなく連携誘導を最優先で出す。ソフトゲートからその場で連携できる。
+          ) : needsAnnictLink ? (
+            // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無い・
+            // 使えないときだけ、検索結果ではなく連携誘導を出す。ソフトゲートからその場で連携できる。
             <AnnictSoftGate
               description="作品検索には Annict との連携が必要です。連携すると作品を探して名刺に残せます。"
               surface="anime_list"
@@ -468,7 +475,11 @@ export function AnimeListContent({
               </View>
               <Text style={styles.emptyTitle}>検索に失敗しました</Text>
               <Text style={styles.emptyCopy}>
-                通信状態を確認して、もう一度お試しください。
+                {isAnnictRateLimitedError(error)
+                  ? t(
+                      "作品情報の取得が混み合っています。しばらく待ってからお試しください。",
+                    )
+                  : "通信状態を確認して、もう一度お試しください。"}
               </Text>
               <TouchableOpacity
                 style={styles.primaryButton}

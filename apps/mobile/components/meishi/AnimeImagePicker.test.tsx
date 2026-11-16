@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
+import { ApiRequestError } from "@/lib/apiError";
 
 // 作品検索は API（Annict プロキシ）へ行くため、フックをモックして
 // 「連携済み/未連携」と検索結果だけを制御する。
@@ -9,7 +10,7 @@ jest.mock("@/lib/useAnimeList", () => ({
   useAnimeList: (...args: unknown[]) => mockUseAnimeList(...args),
 }));
 
-// マイリストタブのソフトゲート判定は親の useAnnictConnection が担う。
+// マイリストタブ（視聴履歴側）のソフトゲート判定は親の useAnnictConnection が担う。
 // バレルごと潰すと buildAnnictAuthHeader 等が巻き添えになるため、
 // 解決先のプラットフォーム実装モジュールだけをモックする。
 let mockAnnictConnected = true;
@@ -43,8 +44,8 @@ const connectedResult = {
   isLoading: false,
   isError: false,
   refetch: jest.fn(),
-  isConnected: true,
-  isConnectionLoading: false,
+  canBrowseWorks: true,
+  isAccessLoading: false,
   fetchNextPage: jest.fn(),
   hasNextPage: false,
   isFetchingNextPage: false,
@@ -92,10 +93,22 @@ describe("AnimeImagePicker", () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
-  it("Annict 未連携では検索タブにソフトゲートを出す", async () => {
+  it("作品情報を使えない（未連携かつ共用トークン無し）ときは検索タブにソフトゲートを出す", async () => {
     mockUseAnimeList.mockReturnValue({
       ...connectedResult,
-      isConnected: false,
+      canBrowseWorks: false,
+    });
+    await renderPicker();
+
+    expect(screen.getByTestId("anime-image-picker-soft-gate")).toBeTruthy();
+  });
+
+  it("共用トークンが使えなくなった（annict_shared_token_unavailable）ら検索タブにソフトゲートを出す", async () => {
+    mockUseAnimeList.mockReturnValue({
+      ...connectedResult,
+      data: undefined,
+      isError: true,
+      error: new ApiRequestError(503, "x", "annict_shared_token_unavailable"),
     });
     await renderPicker();
 
@@ -149,13 +162,33 @@ describe("AnimeImagePicker", () => {
     expect(screen.queryByLabelText("視聴済作品の画像を追加")).toBeNull();
   });
 
-  it("マイリストタブ: Annict 未連携ではソフトゲートを出す", async () => {
+  it("マイリストタブ: Annict 未連携でもお気に入りからは選べる（issue #561）", async () => {
     mockAnnictConnected = false;
-    await renderPicker({
-      favorites: [{ annictWorkId: 2, title: "お気に入り作品" }],
+    const { onPick } = await renderPicker({
+      favorites: [
+        {
+          annictWorkId: 2,
+          title: "お気に入り作品",
+          hostedImageUrl: "https://img.example/fav-1.jpg",
+        },
+      ],
     });
 
     await fireEvent.press(screen.getByLabelText("マイリスト"));
+    expect(
+      screen.queryByTestId("anime-image-picker-library-soft-gate"),
+    ).toBeNull();
+    await fireEvent.press(screen.getByLabelText("お気に入り作品の画像を追加"));
+
+    expect(onPick).toHaveBeenCalledWith("https://img.example/fav-1.jpg");
+  });
+
+  it("マイリストタブ: Annict 未連携では視聴ステータス別のリストにソフトゲートを出す", async () => {
+    mockAnnictConnected = false;
+    await renderPicker();
+
+    await fireEvent.press(screen.getByLabelText("マイリスト"));
+    await fireEvent.press(screen.getByLabelText("視聴中"));
 
     expect(
       screen.getByTestId("anime-image-picker-library-soft-gate"),

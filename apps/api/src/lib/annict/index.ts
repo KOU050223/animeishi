@@ -30,9 +30,16 @@ export type {
 export {
   ANNICT_TOKEN_HEADER,
   requireAnnictToken,
+  requireAnnictWorkCatalog,
   resolveAnnictToken,
+  resolveAnnictWorkCatalog,
 } from "./middleware";
-export type { AnnictVariables } from "./middleware";
+export type { AnnictVariables, AnnictWorkCatalogVariables } from "./middleware";
+export {
+  AnnictSharedTokenRejectedError,
+  createAnnictWorkCatalog,
+} from "./workCatalog";
+export type { AnnictWorkCatalog, AnnictWorkCatalogSource } from "./workCatalog";
 export { encryptToken, decryptToken, assertEncryptionKey } from "./crypto";
 export { annictErrorResponse } from "./errors";
 export {
