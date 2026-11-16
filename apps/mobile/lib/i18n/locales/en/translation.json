@@ -339,5 +339,10 @@
   "認証コードを再送する": "Resend code",
   "サインインに戻る": "Back to sign in",
   "作品情報の取得が混み合っています。しばらく待ってからお試しください。": "Anime info is busy right now. Please wait a moment and try again.",
-  "視聴履歴の作品画像を使うには Annict との連携が必要です。連携すると視聴ステータス別のリストから画像を選べます。": "Connect Annict to use images from your watch history. Once connected, you can pick images from your lists by watch status."
+  "視聴履歴の作品画像を使うには Annict との連携が必要です。連携すると視聴ステータス別のリストから画像を選べます。": "Connect Annict to use images from your watch history. Once connected, you can pick images from your lists by watch status.",
+  "新しい端末からのサインインです。{{email}} に送信された認証コードを入力してください": "You're signing in from a new device. Enter the verification code sent to {{email}}.",
+  "確認してサインイン": "Verify and sign in",
+  "メールアドレスを入力し直す": "Use a different email",
+  "認証コードを確認できませんでした": "We couldn't verify the code",
+  "認証コードを入力してください": "Enter the verification code"
 }
