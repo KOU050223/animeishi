@@ -1,4 +1,5 @@
 import { useSignIn } from "@clerk/expo";
+import type { TFunction } from "i18next";
 import { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,41 @@ type Props = {
   /** メールアドレスの入力に戻る。 */
   onBack: () => void;
 };
+
+type SignInResource = NonNullable<ReturnType<typeof useSignIn>["signIn"]>;
+
+// try/catch はコンポーネントの外に置き、loading は Promise の finally で戻す
+// （React Compiler がコンポーネント内の try...finally を扱えないため）。
+// 戻り値はエラー文言で、成功なら null。
+async function verifyCodeAndFinalize(
+  signIn: SignInResource,
+  code: string,
+  t: TFunction,
+): Promise<string | null> {
+  try {
+    throwIfAuthError((await signIn.mfa.verifyEmailCode({ code })).error);
+    if (signIn.status !== "complete") {
+      return getIncompleteSignInMessage(signIn.status, t);
+    }
+    // finalize() は作成済みセッションの setActive を内部で行う。
+    throwIfAuthError((await signIn.finalize()).error);
+    return null;
+  } catch (err: unknown) {
+    return toAuthErrorMessage(err, t, "認証コードを確認できませんでした");
+  }
+}
+
+async function resendCode(
+  signIn: SignInResource,
+  t: TFunction,
+): Promise<string | null> {
+  try {
+    throwIfAuthError((await signIn.mfa.sendEmailCode()).error);
+    return null;
+  } catch (err: unknown) {
+    return toAuthErrorMessage(err, t, "認証コードを送信できませんでした");
+  }
+}
 
 /**
  * 新しい端末からのパスワードサインインで、Clerk の Device Trust が求める
@@ -40,35 +76,24 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
 
     setLoading(true);
     setError(null);
-    try {
-      throwIfAuthError(
-        (await signIn.mfa.verifyEmailCode({ code: trimmed })).error,
-      );
-      if (signIn.status !== "complete") {
-        setError(getIncompleteSignInMessage(signIn.status, t));
-        return;
-      }
-      // finalize() は作成済みセッションの setActive を内部で行う。
-      throwIfAuthError((await signIn.finalize()).error);
-      onSignedIn();
-    } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, t, "認証コードを確認できませんでした"));
-    } finally {
-      setLoading(false);
+    const message = await verifyCodeAndFinalize(signIn, trimmed, t).finally(
+      () => setLoading(false),
+    );
+    if (message) {
+      setError(message);
+      return;
     }
+    onSignedIn();
   }
 
   async function handleResend() {
     if (!signIn) return;
     setLoading(true);
     setError(null);
-    try {
-      throwIfAuthError((await signIn.mfa.sendEmailCode()).error);
-    } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, t, "認証コードを送信できませんでした"));
-    } finally {
-      setLoading(false);
-    }
+    const message = await resendCode(signIn, t).finally(() =>
+      setLoading(false),
+    );
+    setError(message);
   }
 
   return (
