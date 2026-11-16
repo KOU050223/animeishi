@@ -13,7 +13,7 @@
 | アプリ名 | アニ名刺（英語圏: Animeishi） |
 | プライバシーポリシー URL | https://animeishi.uomi.dev/privacy |
 | 利用規約 URL | https://animeishi.uomi.dev/terms（App Store は標準 EULA、Play Console の各所やフッター参照用） |
-| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `{{CONTACT_EMAIL}}` プレースホルダで、#133 で確定次第差し替え） |
+| サポート URL | https://animeishi.uomi.dev/support（`apps/mobile/app/support.tsx`。未ログイン閲覧可。連絡先メールは `support@uomi.dev`（`apps/mobile/lib/legal/operator.ts`）） |
 | カテゴリ | App Store: エンターテイメント（主）/ ソーシャルネットワーキング（副）。Play: エンターテイメント |
 
 > dアニメストアからの視聴履歴取り込みは v1.0 では **Web 版限定**（#158。審査 5.2.2 リスク回避のためネイティブで無効化）。
@@ -150,8 +150,6 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 ## TODO（ストア提出前に要解決）
 
 - リリース時に MAL へ通知する（MAL API License Agreement 4(b)。#245）
-- 連絡先メールアドレスの確定（#133。/support・/privacy・/terms の `{{CONTACT_EMAIL}}` / `{{OPERATOR_NAME}}` プレースホルダを差し替え）
 - App Review 用連絡先（氏名・メール・電話番号）と審査用デモアカウントの準備（`store.config.json` の `review` に追記）
-- 著作権表記 `2026 Kohei Uozumi` が法人/個人名として適切か確認
 - #135（通報・ブロック）未マージのまま審査に出す場合、UGC アプリの moderation 要件でリジェクトされる可能性を確認
 - Apple Wallet 追加（#81 / #103）が完成したら説明文への追記を検討（現状 pkpass 署名未設定のため未提供。審査ガイドライン 2.3 抵触回避のため掲載文言からは除外済み）

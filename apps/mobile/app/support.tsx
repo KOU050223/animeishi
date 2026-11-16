@@ -1,7 +1,5 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
-
-// TODO(issue #133): 問い合わせ窓口のメールアドレスが確定したらプレースホルダを差し替える。
-const CONTACT_EMAIL = "{{CONTACT_EMAIL}}";
+import { CONTACT_EMAIL } from "@/lib/legal/operator";
 
 // ストア掲載のサポート URL（https://animeishi.uomi.dev/support）として公開するページ。
 // 回答は apps/mobile の実画面・実機能と照合して書くこと。未実装の案内は書かない。

@@ -1,8 +1,5 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
-
-// TODO(issue #133): 運営者名・連絡先が確定したらプレースホルダを差し替える。
-const OPERATOR_NAME = "{{OPERATOR_NAME}}";
-const CONTACT_EMAIL = "{{CONTACT_EMAIL}}";
+import { CONTACT_EMAIL, OPERATOR_NAME } from "@/lib/legal/operator";
 
 // 収集データと外部送信先は apps/api・apps/mobile の実装を調査して記載している。
 // 変更時はコード（外部通信・永続化）と照合してこの文面も更新すること。
@@ -77,6 +74,8 @@ const SECTIONS: LegalSection[] = [
     paragraphs: [
       "本ポリシーに関するお問い合わせは、以下までお願いします。",
       `運営者: ${OPERATOR_NAME}　連絡先: ${CONTACT_EMAIL}`,
+      // 個人情報保護法 32 条: 運営者名を屋号にしているため、氏名・住所は求めに応じて回答する形で示す
+      "運営者の氏名・住所は、上記連絡先へのご請求に応じて遅滞なく回答します。",
     ],
   },
   {

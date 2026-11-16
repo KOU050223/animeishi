@@ -56,10 +56,10 @@ describe("SupportScreen", () => {
     ).toBeTruthy();
   });
 
-  it("問い合わせ先のプレースホルダと法務ページへのリンクを表示する", async () => {
+  it("問い合わせ先のメールアドレスと法務ページへのリンクを表示する", async () => {
     await render(<SupportScreen />);
 
-    expect(screen.getByText(/{{CONTACT_EMAIL}}/)).toBeTruthy();
+    expect(screen.getByText(/support@uomi\.dev/)).toBeTruthy();
     expect(screen.getByTestId("legal-privacy-link")).toBeTruthy();
     expect(screen.getByTestId("legal-terms-link")).toBeTruthy();
   });
