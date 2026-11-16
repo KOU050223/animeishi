@@ -70,6 +70,28 @@ describe("useGuestCtaReturn", () => {
     );
   });
 
+  it("Annict 連携のコールバック処理中は記録を残し、作品一覧に着いてから戻す", async () => {
+    // Web の OAuth はページ全体を遷移させるので、戻ってきた /annict で
+    // フックが初めてマウントされる。
+    await savePendingReturn("/user/user_target");
+    loggedInUser({ userId: "user_new" });
+    mockSegments.mockReturnValue(["annict"]);
+
+    const { rerender } = await renderHook(() => useGuestCtaReturn());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(
+      await AsyncStorage.getItem("guestCta:pendingReturn:v1"),
+    ).not.toBeNull();
+
+    mockSegments.mockReturnValue(["(tabs)", "library"]);
+    await rerender({});
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/user/user_target"),
+    );
+    expect(mockPush).toHaveBeenCalledTimes(1);
+  });
+
   it("未サインインの間は戻さない", async () => {
     await savePendingReturn("/user/user_target");
     signedOutUser();
