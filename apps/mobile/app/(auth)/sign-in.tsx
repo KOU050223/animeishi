@@ -12,8 +12,8 @@ import {
 import { useState } from "react";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Input } from "@/components/ui";
+import { DeviceTrustCodeForm } from "@/components/auth/DeviceTrustCodeForm";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
 import { signInSchema } from "@/lib/validators";
@@ -28,6 +28,7 @@ import {
   isReviewAccountEmail,
   requestDemoSignInTicket,
 } from "@/lib/reviewAccount";
+import { getIncompleteSignInMessage } from "@/lib/signInStatus";
 import { useThemeColors } from "@/lib/theme";
 
 const INPUT_CLASS =
@@ -36,22 +37,6 @@ const INPUT_CLASS =
 // credentials: メールアドレスとパスワード / device-code: 新しい端末の確認コード
 // （Clerk の Device Trust。https://clerk.com/docs/guides/secure/device-trust）
 type Step = "credentials" | "device-code";
-
-function getIncompleteSignInMessage(status: string | null, t: TFunction) {
-  if (!status) {
-    return t("サインインを完了できませんでした。もう一度お試しください。");
-  }
-
-  if (status === "needs_second_factor") {
-    return t("二要素認証が必要ですが、この画面ではまだ対応していません。");
-  }
-
-  if (status === "needs_identifier" || status === "needs_first_factor") {
-    return t("メールアドレスまたはパスワードを確認してください。");
-  }
-
-  return t("サインインを完了できませんでした。状態: {{status}}", { status });
-}
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -64,7 +49,6 @@ export default function SignInScreen() {
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -159,53 +143,7 @@ export default function SignInScreen() {
       return;
     }
     throwIfAuthError((await signIn.mfa.sendEmailCode()).error);
-    setCode("");
     setStep("device-code");
-  }
-
-  async function handleVerifyDeviceCode() {
-    if (!signIn) return;
-    const trimmed = code.trim();
-    if (!trimmed) {
-      setError(t("認証コードを入力してください"));
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      throwIfAuthError(
-        (await signIn.mfa.verifyEmailCode({ code: trimmed })).error,
-      );
-      if (signIn.status === "complete") {
-        await finishSignIn();
-      } else {
-        setError(getIncompleteSignInMessage(signIn.status, t));
-      }
-    } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, t, "認証コードを確認できませんでした"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleResendDeviceCode() {
-    if (!signIn) return;
-    setLoading(true);
-    setError(null);
-    try {
-      throwIfAuthError((await signIn.mfa.sendEmailCode()).error);
-    } catch (err: unknown) {
-      setError(toAuthErrorMessage(err, t, "認証コードを送信できませんでした"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function backToCredentials() {
-    setStep("credentials");
-    setCode("");
-    setError(null);
   }
 
   return (
@@ -232,23 +170,14 @@ export default function SignInScreen() {
             </Text>
 
             {step === "device-code" ? (
-              <>
-                <Text className="text-slate-500 dark:text-slate-400 mb-6">
-                  {t(
-                    "新しい端末からのサインインです。{{email}} に送信された認証コードを入力してください",
-                    { email },
-                  )}
-                </Text>
-                <Input
-                  className={`${INPUT_CLASS} tracking-widest text-center`}
-                  placeholder={t("認証コード")}
-                  value={code}
-                  onChangeText={setCode}
-                  keyboardType="number-pad"
-                  autoComplete="one-time-code"
-                  testID="device-code-input"
-                />
-              </>
+              <DeviceTrustCodeForm
+                email={email}
+                onSignedIn={() => router.replace("/")}
+                onBack={() => {
+                  setStep("credentials");
+                  setError(null);
+                }}
+              />
             ) : (
               <>
                 <Input
@@ -284,94 +213,60 @@ export default function SignInScreen() {
                     {t("パスワードを忘れた場合")}
                   </Text>
                 </Link>
-              </>
-            )}
 
-            {error && (
-              <Text
-                className="text-red-500 dark:text-red-400 text-sm mb-4"
-                testID="error-message"
-              >
-                {error}
-              </Text>
-            )}
+                {error && (
+                  <Text
+                    className="text-red-500 dark:text-red-400 text-sm mb-4"
+                    testID="error-message"
+                  >
+                    {error}
+                  </Text>
+                )}
 
-            <TouchableOpacity
-              className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
-              onPress={
-                step === "device-code" ? handleVerifyDeviceCode : handleSignIn
-              }
-              disabled={loading}
-              testID={
-                step === "device-code"
-                  ? "verify-device-code-button"
-                  : "sign-in-button"
-              }
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.onPrimary} />
-              ) : (
-                <Text className="text-white font-semibold text-base">
-                  {step === "device-code"
-                    ? t("確認してサインイン")
-                    : t("サインイン")}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {step === "device-code" && (
-              <>
                 <TouchableOpacity
-                  className="items-center mb-4"
-                  onPress={handleResendDeviceCode}
+                  className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
+                  onPress={handleSignIn}
                   disabled={loading}
-                  testID="resend-device-code-button"
+                  testID="sign-in-button"
                 >
-                  <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-                    {t("認証コードを再送する")}
-                  </Text>
+                  {loading ? (
+                    <ActivityIndicator color={colors.onPrimary} />
+                  ) : (
+                    <Text className="text-white font-semibold text-base">
+                      {t("サインイン")}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity
-                  className="items-center mb-4"
-                  onPress={backToCredentials}
-                  disabled={loading}
-                  testID="back-to-credentials-button"
-                >
-                  <Text className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("メールアドレスを入力し直す")}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
 
-            {/* 外部プロバイダでのサインイン。本番で未設定のものはフラグで隠す */}
-            {step === "credentials" &&
-              (featureFlags.googleSignIn || featureFlags.passkey) && (
-                <View className="flex-row items-center mb-4">
-                  <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                  <Text className="mx-3 text-sm text-slate-400 dark:text-slate-500">
-                    {t("または")}
+                {/* 外部プロバイダでのサインイン。本番で未設定のものはフラグで隠す */}
+                {(featureFlags.googleSignIn || featureFlags.passkey) && (
+                  <View className="flex-row items-center mb-4">
+                    <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                    <Text className="mx-3 text-sm text-slate-400 dark:text-slate-500">
+                      {t("または")}
+                    </Text>
+                    <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  </View>
+                )}
+                {featureFlags.googleSignIn && (
+                  <GoogleAuthButton onError={setError} />
+                )}
+                {featureFlags.passkey && (
+                  <PasskeySignInButton onError={setError} />
+                )}
+
+                <View className="flex-row justify-center">
+                  <Text className="text-slate-600 dark:text-slate-300">
+                    {t("アカウントをお持ちでない方は ")}
                   </Text>
-                  <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <Link href="/(auth)/sign-up" testID="sign-up-link">
+                    <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                      {t("サインアップ")}
+                    </Text>
+                  </Link>
                 </View>
-              )}
-            {step === "credentials" && featureFlags.googleSignIn && (
-              <GoogleAuthButton onError={setError} />
+              </>
             )}
-            {step === "credentials" && featureFlags.passkey && (
-              <PasskeySignInButton onError={setError} />
-            )}
-
-            <View className="flex-row justify-center">
-              <Text className="text-slate-600 dark:text-slate-300">
-                {t("アカウントをお持ちでない方は ")}
-              </Text>
-              <Link href="/(auth)/sign-up" testID="sign-up-link">
-                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
-                  {t("サインアップ")}
-                </Text>
-              </Link>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
