@@ -139,10 +139,15 @@ Mac 本体と共有ランタイムには触れない。
   スクリプトは警告を出して通常のシミュレーターで続行する
 - 失われる機能: プッシュ通知・ユニバーサルリンク・StoreKit・Spotlight・
   写真/連絡先ピッカーの安定性など。現在の E2E フローはどれも使わない。
-  これらを使うフローを足すときは、`E2E_SIMSLIM=0` で通るか比べ、
-  必要なら `simslim on --except <カテゴリ>` に切り替える
-  （カテゴリ一覧は `simslim profiles`）
-- 対象は E2E 専用シミュレーター（`animeishi-e2e-*`）だけで、
+  これらを使うフローを足すときは、`E2E_SIMSLIM=0` で通るか比べる。
+  スクリプトは毎回既定のプロファイルで `simslim on <UDID>` を呼ぶため、
+  一部のカテゴリだけ残して回すときは手動で適用してから自動適用を止める:
+  `simslim off <UDID>` → `simslim on <UDID> --except <カテゴリ>` →
+  `E2E_SIMSLIM=0 vp run @animeishi/mobile#e2e:ios`
+  （カテゴリ一覧は `simslim profiles`。恒常的に必要になったらスクリプトの
+  `simslim on` に `--except` を足す）
+- 対象は名前が `animeishi-e2e-` で始まる E2E 専用シミュレーターだけで
+  （`E2E_SIM_NAME` で別名を指定したときは適用しない）、
   普段使いのシミュレーターには影響しない。`simslim watch` は全シミュレーターを
   書き換えるので使わない
 
