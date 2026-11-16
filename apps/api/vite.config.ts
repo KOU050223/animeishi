@@ -24,6 +24,7 @@ const SHARED_INCLUDE = [
   "src/features/health/index.test.ts",
   "src/features/images/index.test.ts",
   "src/features/share/workImageHtml.test.ts",
+  "src/features/share/guestCta.test.ts",
   "src/lib/**/*.test.ts",
 ];
 

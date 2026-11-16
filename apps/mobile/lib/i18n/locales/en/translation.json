@@ -338,5 +338,7 @@
   "認証コードを送る": "Send code",
   "パスワードを変更してサインイン": "Change password and sign in",
   "認証コードを再送する": "Resend code",
-  "サインインに戻る": "Back to sign in"
+  "サインインに戻る": "Back to sign in",
+  "アニ名刺で自分の名刺を作る": "Make your own card on Animeishi",
+  "登録すると {{username}} さんにフレンド申請できます": "Sign up to send {{username}} a friend request"
 }

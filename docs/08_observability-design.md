@@ -556,6 +556,7 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `from` / `to` | `watch_status_change` | `WATCHING` / `WATCHED` / `ON_HOLD` / `STOP_WATCHING` / `WANNA_WATCH` |
 | `from` / `to` | `work_rating_change` | `bad` / `good` / `great` / `none`（未評価） |
 | `run_type` | `analysis_generate` | `initial` / `regenerate` |
+| `source` | `guest_cta_view` / `guest_cta_tap` / `guest_cta_return` | `GUEST_CTA_SOURCES`（`packages/observability/src/guestCta.ts`）。`profile` / `share_tier_list` / `share_character_tier_list` / `share_custom_tier_list` / `share_work_list` / `share_watch_history` |
 
 送信しないもの（PII 方針は Annict ファネルと同じ）:
 生の Clerk userId・プロフィール ID・共有 URL ・作品/キャラクター ID・
@@ -582,6 +583,13 @@ AI 分析・視聴ステータス・お気に入りなど主要ボタンの押�
 | `watch_status_change` | 視聴履歴の編集モーダル保存（`from` / `to` 付き。値が変わらない保存は送らない） |
 | `work_rating_change` | 作品詳細シートの評価チップ（`from` / `to` 付き。解除は `to: none`） |
 | `favorite_toggle` | お気に入りトグル（`action` 付き。一覧画面・お気に入りタブの解除） |
+| `guest_cta_view` | 未サインインで公開プロフィール（`user/[uid]`）を開き、下部の登録 CTA が出た時（`source: profile`） |
+| `guest_cta_tap` | 公開プロフィールの登録 CTA のタップ（`source: profile`）。共有ページ（API の HTML）の CTA は JS を持たないため、遷移先の新規登録画面が `?from=<source>` を見て送る（`screen: sign-up`） |
+| `guest_cta_return` | 登録（とオンボーディング）を終えて、CTA を押した公開プロフィールへ戻した時（`source: profile`） |
+
+共有ページの CTA の表示は Sentry ではなく API の Workers Logs に
+`{"event":"guest_cta_view","source":"share_*"}` として残す（HTML を返した
+時点を表示とみなす。OGP クローラの取得も含む）。
 
 原則「ユーザーが操作した」時点で送る（成否の結果ではなく操作の意図を
 計測する）。`tier_work_add` のように「押下しても何も起きない」ケースが

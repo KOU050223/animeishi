@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
+import { trackEvent } from "@/lib/events";
 
 const NOW_WATCHING = {
   annictWorkId: 3002,
@@ -159,6 +160,12 @@ jest.mock("@/lib/useWorkEpisodes", () => ({
 }));
 
 jest.mock("@/lib/events", () => ({ trackEvent: jest.fn() }));
+
+const mockSavePendingReturn = jest.fn(async (_path: string) => {});
+jest.mock("@/lib/guestCta", () => ({
+  ...jest.requireActual("@/lib/guestCta/pendingReturn"),
+  savePendingReturn: (path: string) => mockSavePendingReturn(path),
+}));
 
 jest.mock("@/lib/dialog", () => ({
   confirm: (
@@ -319,6 +326,53 @@ describe("PublicProfilePage", () => {
 
     expect(screen.queryByTestId("send-friend-request-button")).toBeNull();
     expect(screen.queryByTestId("already-friends-badge")).toBeNull();
+  });
+
+  it("未サインインでは下部に登録 CTA を出し、表示を計測する", async () => {
+    signedOutUser();
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() => expect(screen.getByTestId("guest-cta")).toBeTruthy());
+
+    expect(screen.getByText("アニ名刺で自分の名刺を作る")).toBeTruthy();
+    expect(
+      screen.getByText("登録すると 対象ユーザー さんにフレンド申請できます"),
+    ).toBeTruthy();
+    expect(trackEvent).toHaveBeenCalledWith(
+      "guest_cta_view",
+      { source: "profile" },
+      { screen: "user/[uid]" },
+    );
+  });
+
+  it("登録 CTA のタップで戻り先を記録して新規登録へ進み、タップを計測する", async () => {
+    signedOutUser();
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getByTestId("guest-cta-button")).toBeTruthy(),
+    );
+
+    await fireEvent.press(screen.getByTestId("guest-cta-button"));
+
+    expect(mockSavePendingReturn).toHaveBeenCalledWith("/user/user_target");
+    expect(mockPush).toHaveBeenCalledWith("/(auth)/sign-up");
+    expect(trackEvent).toHaveBeenCalledWith("guest_cta_tap", {
+      source: "profile",
+    });
+  });
+
+  it("サインイン済みなら登録 CTA を出さない", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    expect(screen.queryByTestId("guest-cta")).toBeNull();
+    expect(trackEvent).not.toHaveBeenCalledWith(
+      "guest_cta_view",
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it("自分自身の名刺では「フレンドを申請」を表示しない", async () => {

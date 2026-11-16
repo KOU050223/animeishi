@@ -110,5 +110,8 @@ add "お気に入り操作" --display table --query count \
   --where "${BASE} event.name:favorite_toggle" --group-by action
 add "AI 分析の種別" --display table --query count \
   --where "${BASE} event.name:analysis_generate" --group-by run_type
+add "登録 CTA の入口別" --display table --query count \
+  --where "${BASE} event.name:[guest_cta_view,guest_cta_tap,guest_cta_return]" \
+  --group-by event.name --group-by source --sort=-count --limit 30
 
 echo "完了: ${TITLE}"

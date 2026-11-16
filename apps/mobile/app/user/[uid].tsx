@@ -18,6 +18,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
@@ -39,11 +40,12 @@ import {
 } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
+import { profileReturnPath, savePendingReturn } from "@/lib/guestCta";
 
 export default function PublicProfilePage() {
   const { uid } = useLocalSearchParams<{ uid: string }>();
   const router = useRouter();
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const colors = useThemeColors();
 
   const { data, isLoading, error } = useQuery({
@@ -76,6 +78,19 @@ export default function PublicProfilePage() {
   // 未サインインでは出さず、自分自身の名刺でも出さない。ブロック関係の相手は
   // 公開プロフィール自体が 404 になるため、この時点では考慮不要。
   const showFriendAction = !!data && !!isSignedIn && !!userId && userId !== uid;
+
+  // 名刺 QR を読んだアプリ未導入の人が行き止まりにならないよう、未サインインには
+  // 登録への導線を出す（issue #562）。Clerk の読み込み前は判定できないので出さない。
+  const showGuestCta = !!data && isLoaded && !isSignedIn;
+
+  // App Store 公開（#107）までは Web 版の新規登録へ誘導する。登録・オンボーディング
+  // の後は useGuestCtaReturn（ルートレイアウト）がこのプロフィールへ戻す。
+  const handleGuestCta = () => {
+    trackEvent("guest_cta_tap", { source: "profile" });
+    const returnPath = uid ? profileReturnPath(uid) : null;
+    if (returnPath) void savePendingReturn(returnPath);
+    router.push("/(auth)/sign-up");
+  };
 
   // 共有 URL / QR のディープリンクで開く公開ページのため遷移履歴が無いことが
   // 多い。その場合はホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
@@ -194,6 +209,10 @@ export default function PublicProfilePage() {
           onSubmit={moderation.submitReport}
         />
       </ScrollView>
+
+      {showGuestCta ? (
+        <GuestSignUpCta username={data.username} onPress={handleGuestCta} />
+      ) : null}
 
       <ProfileWorkDetailSheet
         work={selectedWork}

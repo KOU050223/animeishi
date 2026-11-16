@@ -32,6 +32,10 @@ export const TRACKED_EVENTS = [
   "episode_record",
   // お気に入り
   "favorite_toggle",
+  // 未ログイン訪問者の登録 CTA（issue #562。source 属性で入口を分ける）
+  "guest_cta_view",
+  "guest_cta_tap",
+  "guest_cta_return",
 ] as const;
 export type TrackedEventName = (typeof TRACKED_EVENTS)[number];
 
@@ -58,4 +62,6 @@ export const TRACK_EVENT_KEYS = {
   to: "to",
   // analysis_generate の種別: initial | regenerate
   runType: "run_type",
+  // guest_cta_* の入口: GUEST_CTA_SOURCES（guestCta.ts）
+  source: "source",
 } as const;
