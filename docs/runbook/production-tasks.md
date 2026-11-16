@@ -60,27 +60,34 @@ preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_
      --command "SELECT id, name, applied_at FROM d1_migrations ORDER BY id DESC LIMIT 15"
    ```
 
-2. 原因ごとに直す
+2. 原因ごとに直す。まず、書き換えたファイルが main にあるか（CI の Migration Check が落ちているか）で分ける
 
-   - **ファイル名を変えた（番号の振り直し）**: 古い名前で記録が残り、新しい名前を当て直そうとして
-     `already exists` で落ちる。旧名は手順 1 の出力で分かる。中身が同じことを確かめ、
-     `diff` の出力が空のときだけ新しい名前の記録を足す（差分があれば下の「中身を書き換えた」として扱う）
+   - **main にあるファイルを書き換え・改名した**: リポジトリ側を main の内容に戻し、
+     変えたかった分は新しい番号のマイグレーションとして足す。preview D1 には手を入れない
+     （新しいファイルが次の「Apply D1 migrations (preview)」で当たる。手でも流すと二重に当たって落ちる）
 
      ```sh
-     # 名前を変えたコミットを探し、その直前の版の旧ファイルと新ファイルを比べる
-     git log --oneline --all --name-status --diff-filter=R -- 'apps/api/migrations/*.sql'
-     git show '<名前を変えたコミット>^:apps/api/migrations/<旧ファイル名>.sql' > /tmp/old-migration.sql
-     diff /tmp/old-migration.sql apps/api/migrations/<新ファイル名>.sql
+     git restore --source=origin/main -- apps/api/migrations/<元のファイル名>.sql
+     git rm -- apps/api/migrations/<改名後のファイル名>.sql   # 改名した場合だけ
+     ```
+
+   - **PR で足したばかりのファイルを、preview に当たった後で改名した**: 古い名前で記録が残り、
+     新しい名前を当て直そうとして `already exists` で落ちる。旧名は手順 1 の出力で分かる。
+     preview に当たった後で中身も変えていないかを確かめ（下の `git log` に改名以外のコミットが
+     出ないこと）、変えていなければ新しい名前の記録だけを足す。中身も変えていたら、その差分は
+     次の項目と同じく手で流す
+
+     ```sh
+     # <適用済み commit> は、その PR で preview-api.yml が最後に成功した run の head SHA
+     git log --oneline <適用済み commit>..HEAD --follow -- apps/api/migrations/<新ファイル名>.sql
 
      pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
        --command "INSERT INTO d1_migrations (name) VALUES ('<新しいファイル名>.sql');"
      ```
 
-   - **当たった後でファイルの中身を書き換えた**: 書き換えた差分は当たらない。
-     差分の SQL（追加した列・インデックスなど）を手で流す。
-     main にあるファイルを書き換えていたら（CI の Migration Check が落ちる）、リポジトリ側も
-     `git restore --source=origin/main -- apps/api/migrations/<ファイル名>` で戻し、
-     差分を新しい番号のマイグレーションとして追加する
+   - **PR で足したばかりのファイルの中身を、preview に当たった後で書き換えた**: 書き換えた差分は
+     preview D1 に当たらない。ファイルはそのままで、差分の SQL（追加した列・インデックスなど）を手で流す
+     （このファイルは main に入ったときに本番へ初めて当たるので、本番には書き換え後の内容が当たる）
 
      ```sh
      pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db-preview --env preview --remote \
@@ -88,7 +95,7 @@ preview D1（`animeishi-db-preview`）は全 PR で共有で、wrangler は `d1_
      ```
 
    - **別の PR と同じテーブル・列を触って衝突した**: 先にマージされた側に合わせて
-     自分の PR のマイグレーションを直し、上の 2 つのどちらかで preview D1 を合わせる
+     自分の PR のマイグレーションを直し、上のどれかで preview D1 を合わせる
 
 3. PR の preview-api.yml を再実行し、「Apply D1 migrations (preview)」が通ることを確かめる。
    「Check migrations changed since last push」は前回の push との差分を見るため、
