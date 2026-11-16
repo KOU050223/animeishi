@@ -353,7 +353,9 @@ pnpm task elections:results:local -- megane-2026    # ローカル D1
 
 App Store 審査のデモアカウントと Expo Explore のログインに使う共用アカウントを、
 本番（Clerk 本番インスタンス + 本番 API）に用意する。パスワードを変えたとき・
-デモデータを戻したいときに実行する。何度実行しても同じ状態になる。
+既定のデモデータが崩れたときに実行する。既定のデータ（プロフィール・同じタイトルの
+作品リストとティア表など）は何度実行しても同じ状態になるが、後から追加された
+お気に入りやリストは消さない。
 
 作るもの:
 
@@ -383,7 +385,8 @@ App Store 審査のデモアカウントと Expo Explore のログインに使�
 pnpm task review-account:seed
 ```
 
-最後に表示されるフレンド役のユーザー ID は、Explore の `parameters`（`/user/[uid]`）に使う。
+最後に表示されるフレンド役のユーザー ID と公開リストの ID は、Explore の
+`parameters`（`/user/[uid]`・`/public-work-list`・`/public-tier-list`）に使う。
 
 ### パスワードを変えたとき
 

@@ -253,7 +253,11 @@ function apiClient(apiUrl, getJwt) {
     );
 }
 
+// 既定のデモデータを追加・更新する。同じタイトルの作品リストとティア表は上書きするが、
+// 審査員などが後から追加したお気に入り・リストは消さない（完全な初期化ではない）。
+// 戻り値は Explore の parameters に使う公開リストの ID。
 async function seedAccount(api, spec) {
+  const ids = { publicWorkListId: null, tierListId: null };
   await api("PUT", "/me/profile", spec.profile);
   console.log("  プロフィール");
 
@@ -275,16 +279,22 @@ async function seedAccount(api, spec) {
         items: list.items.map((annictWorkId) => ({ annictWorkId })),
       };
       const same = lists.find((l) => l.title === list.title);
-      if (same) await api("PUT", `/me/work-lists/${same.id}`, body);
-      else await api("POST", "/me/work-lists", body);
+      const saved = same
+        ? await api("PUT", `/me/work-lists/${same.id}`, body)
+        : await api("POST", "/me/work-lists", body);
+      if (list.isPublic && ids.publicWorkListId === null) {
+        ids.publicWorkListId = saved?.id ?? same?.id ?? null;
+      }
     }
     console.log(`  作品リスト ${spec.workLists.length} 件`);
   }
 
   if (spec.tierList) {
-    await api("PUT", "/me/tier-lists", spec.tierList);
+    const saved = await api("PUT", "/me/tier-lists", spec.tierList);
+    ids.tierListId = saved?.id ?? null;
     console.log("  ティア表");
   }
+  return ids;
 }
 
 async function makeFriends(reviewApi, friendApi, reviewUserId) {
@@ -364,7 +374,7 @@ async function main() {
     apiUrl,
     await openSession(clerk, fapiHost, reviewUserId),
   );
-  await seedAccount(reviewApi, ACCOUNTS.review);
+  const reviewIds = await seedAccount(reviewApi, ACCOUNTS.review);
 
   console.log("フレンド役アカウント");
   const friendUserId = await ensureClerkUser(clerk, {
@@ -382,7 +392,12 @@ async function main() {
 
   console.log(`\n完了。ゲストアカウントのユーザー ID: ${reviewUserId}`);
   console.log(
-    `フレンド役のユーザー ID（Explore の /user/[uid] に使う）: ${friendUserId}`,
+    "\nExpo Explore の parameters（apps/mobile/.expo-explore/config.yaml）に使う値:",
+  );
+  console.log(`  /user/[uid]          uid: ${friendUserId}`);
+  console.log(`  /public-work-list    id: ${reviewIds.publicWorkListId}`);
+  console.log(
+    `  /public-tier-list    kind: season, id: ${reviewIds.tierListId}`,
   );
 }
 

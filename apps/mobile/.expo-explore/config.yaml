@@ -21,8 +21,10 @@ exploration:
     # ネイティブではホームへ Redirect するだけの画面
     - /passkey-prompt
     # 本番で pnpm task review-account:seed を実行したら、表示されるフレンド役の
-    # ユーザー ID を parameters（/user/[uid] の uid）に入れてここから外す
+    # ユーザー ID と公開リストの ID を parameters に入れてここから外す
     - /user/[uid]
+    - /public-work-list
+    - /public-tier-list
 parameters:
   # 本番 D1 に公開中の記事・イベント（入れ替わったら更新する）
   /article/[slug]:
