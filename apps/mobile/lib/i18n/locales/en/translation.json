@@ -338,5 +338,10 @@
   "認証コードを送る": "Send code",
   "パスワードを変更してサインイン": "Change password and sign in",
   "認証コードを再送する": "Resend code",
-  "サインインに戻る": "Back to sign in"
+  "サインインに戻る": "Back to sign in",
+  "新しい端末からのサインインです。{{email}} に送信された認証コードを入力してください": "You're signing in from a new device. Enter the verification code sent to {{email}}.",
+  "確認してサインイン": "Verify and sign in",
+  "メールアドレスを入力し直す": "Use a different email",
+  "認証コードを確認できませんでした": "We couldn't verify the code",
+  "認証コードを入力してください": "Enter the verification code"
 }

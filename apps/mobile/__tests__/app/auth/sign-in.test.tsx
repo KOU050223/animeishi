@@ -21,10 +21,32 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// デモアカウント判定と ticket 取得（API 呼び出し）はモックする。
+// 既定はデモアカウントではない一般ユーザー。
+const mockIsReviewAccountEmail = jest.fn((_email: string) => false);
+const mockRequestDemoSignInTicket = jest.fn(
+  async (_email: string, _password: string) => "ticket_demo",
+);
+jest.mock("@/lib/reviewAccount", () => ({
+  isReviewAccountEmail: (email: string) => mockIsReviewAccountEmail(email),
+  requestDemoSignInTicket: (email: string, password: string) =>
+    mockRequestDemoSignInTicket(email, password),
+}));
+
 beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
+  mockIsReviewAccountEmail.mockReturnValue(false);
 });
+
+async function submitCredentials(email = "test@example.com") {
+  await fireEvent.changeText(screen.getByTestId("email-input"), email);
+  await fireEvent.changeText(
+    screen.getByTestId("password-input"),
+    "StrongPass1",
+  );
+  await fireEvent.press(screen.getByTestId("sign-in-button"));
+}
 
 describe("SignInScreen", () => {
   it("フォームが正しくレンダリングされる", async () => {
@@ -426,6 +448,142 @@ describe("SignInScreen", () => {
       // passkey.native.ts（常に false）になる。
       await render(<SignInScreen />);
       expect(screen.queryByTestId("passkey-sign-in-button")).toBeNull();
+    });
+  });
+
+  describe("新しい端末からのサインイン（Device Trust）", () => {
+    it("確認コードを送り、コード入力に切り替える", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+
+      await render(<SignInScreen />);
+      await submitCredentials();
+
+      await waitFor(() => {
+        expect(auth.signIn.mfa.sendEmailCode).toHaveBeenCalled();
+        expect(screen.getByTestId("device-code-input")).toBeTruthy();
+      });
+      expect(screen.queryByTestId("password-input")).toBeNull();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it("確認コードが正しければサインインしてホームへ遷移する", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials();
+      await waitFor(() => screen.getByTestId("device-code-input"));
+
+      auth.signIn.outcome = {
+        status: "complete",
+        createdSessionId: "session_device",
+      };
+      await fireEvent.changeText(
+        screen.getByTestId("device-code-input"),
+        "123456",
+      );
+      await fireEvent.press(screen.getByTestId("verify-device-code-button"));
+
+      await waitFor(() => {
+        expect(auth.signIn.mfa.verifyEmailCode).toHaveBeenCalledWith({
+          code: "123456",
+        });
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_device",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/");
+      });
+    });
+
+    it("確認コードが空なら照合せずにエラーを表示する", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials();
+      await waitFor(() => screen.getByTestId("device-code-input"));
+
+      await fireEvent.press(screen.getByTestId("verify-device-code-button"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-message")).toBeTruthy();
+      });
+      expect(auth.signIn.mfa.verifyEmailCode).not.toHaveBeenCalled();
+    });
+
+    it("確認コードを再送できる", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials();
+      await waitFor(() => screen.getByTestId("device-code-input"));
+
+      await fireEvent.press(screen.getByTestId("resend-device-code-button"));
+
+      await waitFor(() => {
+        expect(auth.signIn.mfa.sendEmailCode).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("メールアドレスの入力に戻れる", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials();
+      await waitFor(() => screen.getByTestId("device-code-input"));
+
+      await fireEvent.press(screen.getByTestId("back-to-credentials-button"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("email-input")).toBeTruthy();
+      });
+      expect(screen.queryByTestId("device-code-input")).toBeNull();
+    });
+
+    it("デモアカウントは確認コードを送らず ticket でサインインする", async () => {
+      const auth = getAuthMock();
+      mockIsReviewAccountEmail.mockReturnValue(true);
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      auth.signIn.ticket.mockImplementationOnce(async () => {
+        Object.assign(auth.signIn, {
+          status: "complete",
+          createdSessionId: "session_demo",
+        });
+        return { error: null };
+      });
+
+      await render(<SignInScreen />);
+      await submitCredentials("review@example.com");
+
+      await waitFor(() => {
+        expect(mockRequestDemoSignInTicket).toHaveBeenCalledWith(
+          "review@example.com",
+          "StrongPass1",
+        );
+        expect(auth.signIn.ticket).toHaveBeenCalledWith({
+          ticket: "ticket_demo",
+        });
+        expect(auth.setActive).toHaveBeenCalledWith({
+          session: "session_demo",
+        });
+        expect(mockReplace).toHaveBeenCalledWith("/");
+      });
+      expect(auth.signIn.mfa.sendEmailCode).not.toHaveBeenCalled();
+    });
+
+    it("デモアカウントの ticket 取得に失敗したらエラーを表示する", async () => {
+      const auth = getAuthMock();
+      mockIsReviewAccountEmail.mockReturnValue(true);
+      mockRequestDemoSignInTicket.mockRejectedValueOnce(new Error("401"));
+      auth.signIn.outcome = { status: "needs_client_trust" };
+
+      await render(<SignInScreen />);
+      await submitCredentials("review@example.com");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-message")).toBeTruthy();
+      });
+      expect(auth.signIn.ticket).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
     });
   });
 });
