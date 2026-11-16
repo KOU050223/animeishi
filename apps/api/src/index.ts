@@ -39,6 +39,7 @@ import { share } from "./features/share";
 import { tierLists } from "./features/tier-lists";
 import { user } from "./features/user";
 import { usersRoute } from "./features/users";
+import { demoSignIn } from "./features/demo-sign-in";
 import { feedbackRoute } from "./features/feedback";
 import { publicUsersRoute } from "./features/users/public";
 import { watchHistory } from "./features/watch-history";
@@ -95,10 +96,11 @@ app.onError(handleError);
 
 const routes = app
   .route("/health", health)
-  // アバター配信・作品画像配信・共有リンクは認証不要のため
+  // アバター配信・作品画像配信・共有リンク・デモアカウントのサインインは認証不要のため
   // /me（requireAuth）より先にマウントする。
   .route("/share", share)
   .route("/images", images)
+  .route("/auth", demoSignIn)
   .route("/me", avatar)
   .route("/me", meishiAssets)
   .route("/me", me)

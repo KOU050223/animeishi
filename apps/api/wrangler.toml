@@ -43,6 +43,13 @@ bucket_name = "animeishi-avatars"
 [ai]
 binding = "AI"
 
+# デモアカウントのサインイン（src/features/demo-sign-in）のパスワード総当たり対策。
+# IP とアカウントごとに 1 分 5 回まで。namespace_id はアカウント内で一意な数値。
+[[ratelimits]]
+name = "DEMO_SIGN_IN_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
@@ -89,6 +96,13 @@ id = "fb229fd4fc634a53a2a0f30b912feb94"
 [env.production.ai]
 binding = "AI"
 
+# デモアカウントのサインイン（src/features/demo-sign-in）のパスワード総当たり対策。
+# IP とアカウントごとに 1 分 5 回まで。namespace_id はアカウント内で一意な数値。
+[[env.production.ratelimits]]
+name = "DEMO_SIGN_IN_RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 5, period = 60 }
+
 # PR プレビュー環境（animeishi-api-preview）。
 # 本番 D1 / R2 / Queue とは別リソースを持ち、PR コードからの書き込みが
 # 本番データに混入しないようにする。CI (preview-api.yml) は
@@ -124,6 +138,13 @@ bucket_name = "animeishi-avatars-preview"
 
 [env.preview.ai]
 binding = "AI"
+
+# デモアカウントのサインイン（src/features/demo-sign-in）のパスワード総当たり対策。
+# IP とアカウントごとに 1 分 5 回まで。namespace_id はアカウント内で一意な数値。
+[[env.preview.ratelimits]]
+name = "DEMO_SIGN_IN_RATE_LIMITER"
+namespace_id = "1003"
+simple = { limit = 5, period = 60 }
 
 [observability]
 enabled = false
