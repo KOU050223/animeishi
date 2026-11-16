@@ -4,6 +4,7 @@ import { requestId } from "hono/request-id";
 import { HTTPException } from "hono/http-exception";
 import * as Sentry from "@sentry/cloudflare";
 import { AnnictApiError } from "@/lib/annict/client";
+import { AnnictSharedTokenRejectedError } from "@/lib/annict/workCatalog";
 import { DeletedUserError } from "@/features/users/repository";
 import { buildSentryOptions, handleError } from "@/observability";
 import { resetLocalSuppression } from "@/lib/discordAlert";
@@ -35,6 +36,11 @@ app
   })
   .get("/annict-429", () => {
     throw new AnnictApiError("rate limited", 429);
+  })
+  .get("/annict-shared-401", () => {
+    throw new AnnictSharedTokenRejectedError(
+      new AnnictApiError("token revoked", 401),
+    );
   })
   .get("/annict-502", () => {
     throw new AnnictApiError("upstream error", 502);
@@ -107,10 +113,25 @@ describe("handleError", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
-  it("Annict 429（レート制限）は 502 を返し Sentry に送る", async () => {
+  it("Annict 429（レート制限）は 429 annict_rate_limited を返し Sentry に送る", async () => {
     const res = await app.request("/annict-429");
 
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({
+      error: "Annict が混み合っています",
+      code: "annict_rate_limited",
+    });
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("共用トークンの 401 は 503 annict_shared_token_unavailable を返し Sentry に送る", async () => {
+    const res = await app.request("/annict-shared-401");
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      error: "作品情報を取得できません",
+      code: "annict_shared_token_unavailable",
+    });
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 

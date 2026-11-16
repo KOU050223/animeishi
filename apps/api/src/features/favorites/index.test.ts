@@ -252,6 +252,47 @@ describe("お気に入り API", () => {
       fetchMock.mockRestore();
     });
 
+    it("POST /me/favorites/:annictWorkId: 未連携でも共用トークンがあれば未キャッシュ作品を解決して追加できる（issue #561）", async () => {
+      const UNCACHED = 67891;
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              searchWorks: {
+                nodes: [
+                  {
+                    id: "Work-67891",
+                    annictId: UNCACHED,
+                    title: "共用トークンで解決",
+                    titleKana: null,
+                    titleEn: null,
+                    seasonName: null,
+                    seasonYear: null,
+                    image: { recommendedImageUrl: null },
+                  },
+                ],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+      const app = buildApp();
+      const res = await app.request(
+        `/me/favorites/${UNCACHED}`,
+        { method: "POST" },
+        { ...TEST_BINDINGS, ANNICT_SHARED_READ_TOKEN: "tok_shared" },
+      );
+
+      expect(res.status).toBe(201);
+      const init = fetchMock.mock.calls[0]![1] as RequestInit;
+      expect(new Headers(init.headers).get("Authorization")).toBe(
+        "Bearer tok_shared",
+      );
+      fetchMock.mockRestore();
+    });
+
     it("POST /me/favorites/:annictWorkId: 未キャッシュ作品で searchWorks も空なら 404", async () => {
       const fetchMock = vi
         .spyOn(globalThis, "fetch")

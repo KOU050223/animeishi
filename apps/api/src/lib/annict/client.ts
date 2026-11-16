@@ -922,7 +922,11 @@ export async function searchAnnictWorksBySeason(
 // （詳細シートのチップ表示として十分な件数）。
 const WORK_DETAIL_CREDITS_LIMIT = 50;
 
-const WORK_DETAIL_QUERY = `
+// includeViewerStatus=false は共用トークン（issue #561）向け。共用トークンでは
+// 利用者情報を取らない（Annict API 利用規約 第 5 条）ため、トークン所有者の
+// viewerStatusState をクエリから外す。
+function workDetailQuery(includeViewerStatus: boolean): string {
+  return `
 query WorkDetail($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 1) {
     nodes {
@@ -947,7 +951,7 @@ query WorkDetail($annictIds: [Int!]) {
       wikipediaUrlEn
       twitterUsername
       twitterHashtag
-      viewerStatusState
+      ${includeViewerStatus ? "viewerStatusState" : ""}
       image { ${WORK_IMAGE_FIELDS} }
       staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
@@ -974,6 +978,7 @@ query WorkDetail($annictIds: [Int!]) {
     }
   }
 }`;
+}
 
 type WorkDetailResponse = {
   searchWorks: {
@@ -999,7 +1004,7 @@ type WorkDetailResponse = {
       wikipediaUrlEn: string | null;
       twitterUsername: string | null;
       twitterHashtag: string | null;
-      viewerStatusState: string | null;
+      viewerStatusState?: string | null;
       image: AnnictWorkImage | null;
       staffs: {
         nodes: {
@@ -1086,11 +1091,13 @@ export async function fetchAnnictWorkDetail(
   accessToken: string,
   annictWorkId: number,
   fetchImpl: typeof fetch = fetch,
+  options: { includeViewerStatus?: boolean } = {},
 ): Promise<AnnictWorkDetail | null> {
+  const includeViewerStatus = options.includeViewerStatus ?? true;
   const data = await withAnnictRetry(() =>
     annictGraphQL<WorkDetailResponse>(
       accessToken,
-      WORK_DETAIL_QUERY,
+      workDetailQuery(includeViewerStatus),
       { annictIds: [annictWorkId] },
       fetchImpl,
     ),
@@ -1102,9 +1109,11 @@ export async function fetchAnnictWorkDetail(
   return {
     annictWorkId: work.annictId,
     nodeId: work.id,
-    state: isPersistableState(work.viewerStatusState)
-      ? work.viewerStatusState
-      : null,
+    // 問い合わせていないときは応答に何が入っていても使わない。
+    state:
+      includeViewerStatus && isPersistableState(work.viewerStatusState)
+        ? work.viewerStatusState
+        : null,
     title: work.title,
     titleKana: work.titleKana,
     titleEn: work.titleEn,
