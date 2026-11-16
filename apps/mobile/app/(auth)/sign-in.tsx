@@ -48,6 +48,9 @@ export default function SignInScreen() {
 
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
+  // 確認コードの送信先。応答待ちの間に入力欄が書き換えられても、実際に送った
+  // アドレスを案内するため、入力値とは別に持つ。
+  const [codeSentTo, setCodeSentTo] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -143,6 +146,7 @@ export default function SignInScreen() {
       return;
     }
     throwIfAuthError((await signIn.mfa.sendEmailCode()).error);
+    setCodeSentTo(identifier);
     setStep("device-code");
   }
 
@@ -171,7 +175,7 @@ export default function SignInScreen() {
 
             {step === "device-code" ? (
               <DeviceTrustCodeForm
-                email={email}
+                email={codeSentTo}
                 onSignedIn={() => router.replace("/")}
                 onBack={() => {
                   setStep("credentials");

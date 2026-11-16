@@ -495,6 +495,40 @@ describe("SignInScreen", () => {
       });
     });
 
+    it("照合後もサインインが完了しなければエラーを表示し遷移しない", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials();
+      await waitFor(() => screen.getByTestId("device-code-input"));
+
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await fireEvent.changeText(
+        screen.getByTestId("device-code-input"),
+        "123456",
+      );
+      await fireEvent.press(screen.getByTestId("verify-device-code-button"));
+
+      await waitFor(() => {
+        expect(auth.signIn.mfa.verifyEmailCode).toHaveBeenCalled();
+        expect(screen.getByTestId("error-message")).toBeTruthy();
+      });
+      expect(auth.signIn.finalize).not.toHaveBeenCalled();
+      expect(auth.setActive).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it("確認コードの案内には送信時のメールアドレスを出す", async () => {
+      const auth = getAuthMock();
+      auth.signIn.outcome = { status: "needs_client_trust" };
+      await render(<SignInScreen />);
+      await submitCredentials("sent@example.com");
+
+      await waitFor(() => {
+        expect(screen.getByText(/sent@example\.com/)).toBeTruthy();
+      });
+    });
+
     it("確認コードが空なら照合せずにエラーを表示する", async () => {
       const auth = getAuthMock();
       auth.signIn.outcome = { status: "needs_client_trust" };
