@@ -178,20 +178,30 @@ function clerkBackend(secretKey) {
     );
 }
 
-// メールアドレスで Clerk ユーザーを探し、無ければ作る。あればパスワードを合わせる。
-async function ensureClerkUser(clerk, { email, password, username, role }) {
+async function findClerkUserId(clerk, email) {
   const found = await clerk(
     `/users?email_address=${encodeURIComponent(email)}`,
   );
+  return Array.isArray(found) && found.length > 0 ? found[0].id : null;
+}
+
+// メールアドレスで Clerk ユーザーを探し、無ければ作る。あればパスワードを合わせる。
+async function ensureClerkUser(clerk, { email, password, username, role }) {
   const metadata = { public_metadata: { demoAccount: role } };
-  if (Array.isArray(found) && found.length > 0) {
-    const user = found[0];
-    await clerk(`/users/${user.id}`, {
+  const existingId = await findClerkUserId(clerk, email);
+  if (existingId) {
+    await clerk(`/users/${existingId}`, {
       method: "PATCH",
-      body: { password, skip_password_checks: true, ...metadata },
+      body: { password, skip_password_checks: true },
+    });
+    // 新しい Clerk API バージョンは PATCH /users/{id} で metadata を受け付けないため、
+    // 専用のエンドポイントで更新する（同じリクエストに混ぜるとパスワード更新も失敗する）。
+    await clerk(`/users/${existingId}/metadata`, {
+      method: "PATCH",
+      body: metadata,
     });
     console.log(`  Clerk: 既存ユーザーを更新 (${role})`);
-    return user.id;
+    return existingId;
   }
   const user = await clerk("/users", {
     method: "POST",
@@ -297,34 +307,33 @@ async function seedAccount(api, spec) {
   return ids;
 }
 
-async function makeFriends(reviewApi, friendApi, reviewUserId) {
-  let sent;
+async function makeFriends(reviewApi, friendApi, reviewUserId, friendUserId) {
+  let sent = null;
   try {
     sent = await friendApi("POST", "/me/friend-requests", {
       userId: reviewUserId,
     });
   } catch (error) {
-    // 既にフレンドなら 409 が返る（2 回目以降の実行）。
-    if (error.status === 409) {
-      console.log("  フレンド: 成立済み");
-      return;
+    // 既にフレンドなら 409 が返る（2 回目以降の実行）。下で成立を確かめる。
+    if (error.status !== 409) throw error;
+  }
+  const requestId = sent?.status === "pending" ? sent?.request?.id : null;
+  if (requestId) {
+    // 自分が送った申請だけを承認する。ゲストアカウントは共用なので、
+    // 他人から届いた申請を代わりに承認しない。
+    const { received = [] } =
+      (await reviewApi("GET", "/me/friend-requests")) ?? {};
+    if (received.some((r) => r.id === requestId)) {
+      await reviewApi("POST", `/me/friend-requests/${requestId}/accept`);
     }
-    throw error;
   }
-  if (sent?.status === "accepted") {
-    console.log("  フレンド: 成立済み");
-    return;
+  const friends = (await reviewApi("GET", "/me/friends")) ?? [];
+  if (!friends.some((f) => f.friendId === friendUserId)) {
+    throw new Error(
+      "ゲストアカウントとフレンド役のフレンド関係を作れませんでした（申請が拒否された可能性があります）。もう一度実行してください",
+    );
   }
-  const { received = [] } =
-    (await reviewApi("GET", "/me/friend-requests")) ?? {};
-  const request =
-    received.find((r) => r.id === sent?.request?.id) ?? received[0];
-  if (!request) {
-    console.log("  フレンド: 申請が見つからないため成立済みとみなす");
-    return;
-  }
-  await reviewApi("POST", `/me/friend-requests/${request.id}/accept`);
-  console.log("  フレンド: 申請を承認");
+  console.log("  フレンド: 成立を確認");
 }
 
 async function main() {
@@ -360,6 +369,24 @@ async function main() {
   );
 
   const clerk = clerkBackend(secretKey);
+
+  // 同じ Clerk ユーザーに 2 つの役割を割り当てると、フレンド役の更新で
+  // ゲストのパスワードがランダム値に変わってしまう。副作用の前に止める。
+  if (reviewEmail.toLowerCase() === friendEmail.toLowerCase()) {
+    throw new Error(
+      "REVIEW_ACCOUNT_EMAIL と REVIEW_FRIEND_EMAIL は別のアドレスにしてください",
+    );
+  }
+  const [existingReviewId, existingFriendId] = await Promise.all([
+    findClerkUserId(clerk, reviewEmail),
+    findClerkUserId(clerk, friendEmail),
+  ]);
+  if (existingReviewId && existingReviewId === existingFriendId) {
+    throw new Error(
+      "REVIEW_ACCOUNT_EMAIL と REVIEW_FRIEND_EMAIL が同じ Clerk ユーザーに属しています。別のユーザーのアドレスにしてください",
+    );
+  }
+
   // フレンド役は人がログインしないので、毎回ランダムなパスワードにする。
   const friendPassword = randomBytes(24).toString("base64url");
 
@@ -388,7 +415,7 @@ async function main() {
     await openSession(clerk, fapiHost, friendUserId),
   );
   await seedAccount(friendApi, ACCOUNTS.friend);
-  await makeFriends(reviewApi, friendApi, reviewUserId);
+  await makeFriends(reviewApi, friendApi, reviewUserId, friendUserId);
 
   console.log(`\n完了。ゲストアカウントのユーザー ID: ${reviewUserId}`);
   console.log(

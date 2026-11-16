@@ -367,9 +367,16 @@ App Store 審査のデモアカウントと Expo Explore のログインに使�
 
 ### 準備（初回のみ）
 
-1. Clerk Dashboard（本番インスタンス）で、新しい端末からのパスワードサインインに
-   メールコードを求める設定（Client Trust など）が**無効**であることを確認する。
-   有効だと審査員の端末や Explore の新しいシミュレーターからログインできない
+> Clerk の Device Trust（新しい端末でのメールコード確認）は**無効にしない**。
+> ゲストアカウントだけは、アプリが API（`POST /auth/demo-sign-in`）で ticket を
+> 受け取ってサインインするので、有効のままでも審査員の端末や Explore の新しい
+> シミュレーターからログインできる。無効にすると一般ユーザーも新しい端末で
+> メールコードなしにログインできてしまう。
+
+1. ゲストアカウントのアドレスが、アプリのビルド設定の `EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL`
+   （`apps/mobile/eas.json` の preview / production と、Web の `deploy-web.yml` /
+   `preview-web.yml`）と一致していることを確認する。一致しないとゲストアカウントも
+   メールコードを求められる
 2. `apps/api/.env`（gitignore 済み）に次を書く。値はパスワードマネージャーにも保管する
 
    ```
@@ -399,8 +406,29 @@ pnpm task review-account:seed
 ### 予行演習（Clerk 開発インスタンス + ローカル API）
 
 本番に触れずに試すときは、`apps/api/.dev.vars`（sk_test）を読み込み、
-`wrangler dev` で起動したローカル API に向ける。ローカル D1 の `annict_works` には
-スクリプト冒頭の `WORKS` の作品を本番から入れておく。
+`wrangler dev` で起動したローカル API に向ける。API は Annict トークン無しでは
+未キャッシュの作品を登録できないため、先にローカル D1 の `annict_works` へ
+スクリプト冒頭の `WORKS` の作品（8128, 9060, 9250, 1808, 4168, 4308, 5121, 1540）を
+本番からコピーする（本番 D1 は読むだけ）。
+
+```bash
+cd apps/api
+pnpm wrangler d1 migrations apply animeishi-db --local
+pnpm -s wrangler d1 execute animeishi-db --remote --env production --json --command \
+  "SELECT annict_work_id, node_id, title, title_kana, title_en, season_name, season_year, image_url, mal_anime_id, resolved_image_url FROM annict_works WHERE annict_work_id IN (8128,9060,9250,1808,4168,4308,5121,1540)" \
+  > /tmp/review-works.json
+node -e '
+const rows = JSON.parse(require("fs").readFileSync("/tmp/review-works.json", "utf8"))[0].results;
+const q = (v) => (v === null ? "NULL" : typeof v === "string" ? `'"'"'${v.replaceAll("'"'"'", "'"'"''"'"'")}'"'"'` : v);
+const cols = Object.keys(rows[0]);
+for (const r of rows)
+  console.log(`INSERT OR REPLACE INTO annict_works (${cols.join(",")},updated_at) VALUES (${cols.map((c) => q(r[c])).join(",")},unixepoch());`);
+' > /tmp/review-works.sql
+pnpm wrangler d1 execute animeishi-db --local --file=/tmp/review-works.sql
+pnpm wrangler dev   # 別の端末で起動しておく
+```
+
+起動した API に向けてスクリプトを実行する。
 
 ```bash
 cd apps/api
