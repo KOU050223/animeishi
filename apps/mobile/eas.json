@@ -49,6 +49,8 @@
     },
     "explore": {
       "extends": "preview",
+      "node": "24.22.1",
+      "pnpm": "10.34.0",
       "ios": {
         "simulator": true
       }
