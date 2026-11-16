@@ -324,5 +324,19 @@
   "話の記録を更新できませんでした。元の状態に戻しました。": "Couldn't update the episode record. The previous record was restored.",
   "一部の更新に失敗しました。": "Some updates failed.",
   "視聴ステータスと話数の記録は別です。未記録の話を記録できます。": "Watch status and episode records are separate. You can record episodes you watched.",
-  "{{episode}}の視聴を記録": "Record watching {{episode}}"
+  "{{episode}}の視聴を記録": "Record watching {{episode}}",
+  "パスワードを忘れた場合": "Forgot your password?",
+  "このメールアドレスで登録されたアカウントが見つかりません": "No account is registered with this email address",
+  "認証コードを送信できませんでした": "Couldn't send the verification code",
+  "パスワードは変更されましたが、サインインを完了できませんでした。サインイン画面からお試しください。": "Your password was changed, but we couldn't finish signing you in. Please sign in from the sign-in screen.",
+  "パスワードを再設定できませんでした": "Couldn't reset your password",
+  "パスワードの再設定": "Reset password",
+  "登録したメールアドレスを入力してください。パスワード再設定用の認証コードを送ります。": "Enter the email address you signed up with. We'll send you a code to reset your password.",
+  "{{email}} に送信された認証コードと、新しいパスワードを入力してください": "Enter the code sent to {{email}} and your new password",
+  "新しいパスワード（英字+数字、8文字以上）": "New password (letters + numbers, 8+ characters)",
+  "新しいパスワード（確認）": "New password (confirm)",
+  "認証コードを送る": "Send code",
+  "パスワードを変更してサインイン": "Change password and sign in",
+  "認証コードを再送する": "Resend code",
+  "サインインに戻る": "Back to sign in"
 }

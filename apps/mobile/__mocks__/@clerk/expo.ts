@@ -37,9 +37,15 @@ type MockSignIn = {
   existingSession?: { sessionId: string };
   /** 次のメソッド呼び出し時にリソースへ反映する結果（適用後は null に戻る）。 */
   outcome: MockOutcome | null;
+  create: jest.Mock;
   password: jest.Mock;
   passkey: jest.Mock;
   sso: jest.Mock;
+  resetPasswordEmailCode: {
+    sendCode: jest.Mock;
+    verifyCode: jest.Mock;
+    submitPassword: jest.Mock;
+  };
   finalize: jest.Mock;
 };
 
@@ -108,7 +114,14 @@ function createDefaultState(): MockClerkState {
     status: null,
     createdSessionId: null,
     outcome: null,
+    create: jest.fn(async () => applyOutcome(signIn)),
     password: jest.fn(async () => applyOutcome(signIn)),
+    // パスワード再設定（issue #558）のモック。
+    resetPasswordEmailCode: {
+      sendCode: jest.fn(async () => applyOutcome(signIn)),
+      verifyCode: jest.fn(async () => applyOutcome(signIn)),
+      submitPassword: jest.fn(async () => applyOutcome(signIn)),
+    },
     // Web パスキーサインイン（#181）と Web OAuth リダイレクト（#89）のモック。
     passkey: jest.fn(async () => applyOutcome(signIn)),
     sso: jest.fn(async () => applyOutcome(signIn)),
