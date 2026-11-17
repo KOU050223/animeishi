@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -28,6 +29,7 @@ export function TierLabelEditSheet({
   onClose: () => void;
   onSubmit: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const [value, setValue] = useState(initialValue);
   // シートが開くたび（あるいは開いたまま初期値が変わったとき）入力値を
@@ -81,7 +83,7 @@ export function TierLabelEditSheet({
                 color: colors.text,
               }}
             >
-              tier 名を編集
+              {t("tier 名を編集")}
             </Text>
             <Input
               value={value}
@@ -110,7 +112,11 @@ export function TierLabelEditSheet({
                 testID="tier-label-error"
                 style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}
               >
-                {error}
+                {error === "tier 名を入力してください"
+                  ? t("tier 名を入力してください")
+                  : t("tier 名は{{count}}文字以内で入力してください", {
+                      count: TIER_LABEL_MAX_LENGTH,
+                    })}
               </Text>
             ) : (
               <Text
@@ -120,14 +126,16 @@ export function TierLabelEditSheet({
                   marginTop: 6,
                 }}
               >
-                {TIER_LABEL_MAX_LENGTH}文字以内で入力してください
+                {t("{{count}}文字以内で入力してください", {
+                  count: TIER_LABEL_MAX_LENGTH,
+                })}
               </Text>
             )}
             <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
-                accessibilityLabel="キャンセル"
+                accessibilityLabel={t("キャンセル")}
                 style={{
                   flex: 1,
                   paddingVertical: 12,
@@ -137,7 +145,7 @@ export function TierLabelEditSheet({
                 }}
               >
                 <Text style={{ fontWeight: "600", color: colors.text }}>
-                  キャンセル
+                  {t("キャンセル")}
                 </Text>
               </Pressable>
               <Pressable
@@ -147,7 +155,7 @@ export function TierLabelEditSheet({
                 }}
                 disabled={!!error}
                 accessibilityRole="button"
-                accessibilityLabel="完了"
+                accessibilityLabel={t("完了")}
                 accessibilityState={{ disabled: !!error }}
                 testID="tier-label-submit"
                 style={{
@@ -160,7 +168,7 @@ export function TierLabelEditSheet({
                 }}
               >
                 <Text style={{ fontWeight: "600", color: colors.onPrimary }}>
-                  完了
+                  {t("完了")}
                 </Text>
               </Pressable>
             </View>
