@@ -259,6 +259,11 @@ describe("AI おすすめ生成 API", () => {
 
       const res = await postRecommendations();
       expect(res.status).toBe(200);
+      const [, aiInputs] = aiRun.mock.calls[0] as unknown as [
+        string,
+        { max_tokens: number },
+      ];
+      expect(aiInputs.max_tokens).toBe(8192);
       const body = (await res.json()) as {
         recommendations: {
           works: {

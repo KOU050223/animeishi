@@ -30,8 +30,9 @@ const MAX_CANDIDATES = 15;
 // 保存・応答に載せるおすすめの上限。
 export const MAX_RECOMMENDATIONS = 10;
 
-// 応答の最大トークン数。候補 15 件＋理由の JSON が収まるよう分析と同じ値。
-const RECOMMENDATION_MAX_TOKENS = 2048;
+// Gemma 4 はおすすめ生成時に推論トークンも出力上限を消費し、2048 では
+// JSON 本文が空のまま finish_reason=length になるため余裕を持たせる（実測）。
+const RECOMMENDATION_MAX_TOKENS = 8192;
 
 // おすすめ理由の上限（生成モデルが長文化したときの切り詰め）。
 const MAX_REASON_CHARS = 120;
