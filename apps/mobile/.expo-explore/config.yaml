@@ -51,16 +51,24 @@ setup:
     identifier: password-input
   - action: type
     text: "{{secret:EXPLORE_TEST_PASSWORD}}"
+  # iOS の「パスワードを保存しますか?」が画面を覆う。Explore は英語の
+  # 「Save Password? / Not Now」しか自動で閉じず、日本語のシミュレーター
+  # （ローカルの --simulator local は Mac の言語を引き継ぐ）では残ってしまうため、
+  # ここで明示的に閉じる。英語の環境（EAS Simulator 等）では Explore が先に閉じるので
+  # この 2 手順目は失敗する。CI に入れるときは見直す（issue #556）。
   - action: tap
     identifier: sign-in-button
+    ready: { label: "今はしない" }
+  - action: tap
+    label: "今はしない"
     ready: { identifier: home-screen }
 capture:
   maxMinutes: 30
   maxActions: 500
-  # ローカル実行（--simulator local）で 4 台同時に起動すると撮影前に落ちたため、
-  # head・base 1 台ずつ・ライトのみに絞っている
+  # ローカル実行（--simulator local）でシミュレーターを複数台同時に起動すると、
+  # 撮影前や撮影中にコントローラがタイムアウトしたため、1 台ずつ・ライトのみに絞っている
   appearance: light
-  maxSessions: 2
+  maxSessions: 1
   launch: screenshot
   reset: root-link
   unattributed: publish
