@@ -251,17 +251,43 @@ describe("視聴傾向分析 API", () => {
       expect(aiRun).toHaveBeenCalledTimes(1);
       const [model, inputs] = aiRun.mock.calls[0] as unknown as [
         string,
-        { messages: { role: string; content: string }[]; max_tokens: number },
+        {
+          messages: { role: string; content: string }[];
+          max_tokens: number;
+          response_format: {
+            type: string;
+            json_schema: {
+              name: string;
+              strict: boolean;
+              schema: { properties: Record<string, unknown> };
+            };
+          };
+          chat_template_kwargs: { enable_thinking: boolean };
+        },
       ];
       expect(model).toBe(ANALYSIS_MODEL);
       expect(inputs.max_tokens).toBe(2048);
+      expect(inputs.chat_template_kwargs.enable_thinking).toBe(false);
+      expect(inputs.response_format).toMatchObject({
+        type: "json_schema",
+        json_schema: {
+          name: "analysis",
+          strict: true,
+          schema: {
+            properties: expect.objectContaining({
+              summary: { type: "string" },
+              recommendedGenres: { type: "array", items: { type: "string" } },
+              insights: expect.objectContaining({ type: "object" }),
+            }),
+          },
+        },
+      });
       const promptText = inputs.messages.map((m) => m.content).join("\n");
       expect(promptText).toContain("テスト作品101");
       expect(promptText).toContain("テスト作品102");
-      // Qwen3 の思考モードを無効化する（思考で max_tokens を使い切り content が
-      // 空になる本番障害の回帰防止）。
+      // Gemma 用のプロンプトに Qwen 専用の思考制御トークンを混ぜない。
       const userMessage = inputs.messages.find((m) => m.role === "user");
-      expect(userMessage?.content.endsWith("\n/no_think")).toBe(true);
+      expect(userMessage?.content).not.toContain("/no_think");
 
       // 生成結果が保存される。
       const row = await db.query.analyses.findFirst({

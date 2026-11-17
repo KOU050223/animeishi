@@ -8,20 +8,12 @@ import type { MyWorkRating } from "../work-ratings/repository";
 import { attachInsights } from "./report";
 import type { AnalysisSection, AnalysisSectionDraft } from "./report";
 
-// Workers AI で実行するモデル（issue #22）。日本語を含む多言語対応・
-// response_format の json_schema に対応する instruct 系の中で
-// 最安クラス（入力 $0.0509/M tokens）。変更時は Workers AI のモデル一覧で
-// availability と structured output 対応を確認すること。
-export const ANALYSIS_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8" as const;
+// Workers AI で実行するモデル（issue #571）。Gemma 4 は日本語を含む多言語に対応し、
+// JSON Schema 出力を利用できる。単価は入力 $0.10/M・出力 $0.30/M tokens。
+// /no_think は Qwen 専用の指示のため付けない。
+export const ANALYSIS_MODEL = "@cf/google/gemma-4-26b-a4b-it" as const;
 
-// Qwen3 は既定で思考モード（reasoning）を出力し、思考だけで max_tokens を
-// 使い切ると content が空のまま打ち切られる（本番で「AI 応答が空です」→ 502）。
-// ユーザーメッセージ末尾の /no_think（Qwen3 公式のソフトスイッチ）で無効化する。
-// chat_template_kwargs.enable_thinking=false は Workers AI では content が空に
-// なったため使わない（2026-10-17 実測）。おすすめ生成でも同じ対策が要るため export。
-export const DISABLE_THINKING_SUFFIX = "\n/no_think";
-
-// 応答の最大トークン数。思考を無効化しても長い要約で打ち切られないよう余裕を持たせる。
+// thinking を残して上限を増やすより、推論を無効化して JSON 本文に枠を使う（50 作品の実推論で確認）。
 const ANALYSIS_MAX_TOKENS = 2048;
 
 // プロンプトに載せる履歴の上限。超過分は更新日時の新しい順に絞る
@@ -400,13 +392,19 @@ export async function runAnalysis(
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: buildUserPrompt(input, drafts) + DISABLE_THINKING_SUFFIX,
+          content: buildUserPrompt(input, drafts),
         },
       ],
       response_format: {
         type: "json_schema",
-        json_schema: responseJsonSchema(drafts.map((d) => d.key)),
+        json_schema: {
+          name: "analysis",
+          schema: responseJsonSchema(drafts.map((d) => d.key)),
+          strict: true,
+        },
       },
+      // Gemma 4 は thinking 有効だと reasoning が本文の出力枠を消費するため false に固定する（実測）。
+      chat_template_kwargs: { enable_thinking: false },
       max_tokens: ANALYSIS_MAX_TOKENS,
       temperature: 0.7,
     });

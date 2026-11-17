@@ -14,7 +14,6 @@ import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import {
   ANALYSIS_MODEL,
-  DISABLE_THINKING_SUFFIX,
   RATING_LABELS,
   STATE_LABELS,
   extractFinishReason,
@@ -31,7 +30,7 @@ const MAX_CANDIDATES = 15;
 // 保存・応答に載せるおすすめの上限。
 export const MAX_RECOMMENDATIONS = 10;
 
-// 応答の最大トークン数。候補 15 件＋理由の JSON が収まるよう分析と同じ値。
+// thinking を有効のまま上限を増やすより、推論を無効化して候補 JSON に枠を使う（実推論で確認）。
 const RECOMMENDATION_MAX_TOKENS = 2048;
 
 // おすすめ理由の上限（生成モデルが長文化したときの切り詰め）。
@@ -248,13 +247,19 @@ export async function runRecommendationCandidates(
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: buildUserPrompt(input, options) + DISABLE_THINKING_SUFFIX,
+          content: buildUserPrompt(input, options),
         },
       ],
       response_format: {
         type: "json_schema",
-        json_schema: RESPONSE_JSON_SCHEMA,
+        json_schema: {
+          name: "recommendations",
+          schema: RESPONSE_JSON_SCHEMA,
+          strict: true,
+        },
       },
+      // Gemma 4 は thinking 有効だと reasoning が本文の出力枠を消費するため false に固定する（実測）。
+      chat_template_kwargs: { enable_thinking: false },
       max_tokens: RECOMMENDATION_MAX_TOKENS,
       temperature: 0.7,
     });
