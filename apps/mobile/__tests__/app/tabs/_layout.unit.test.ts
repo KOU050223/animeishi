@@ -64,10 +64,10 @@ describe("(tabs) layout", () => {
     "プロフィールタブ",
   ] as const)("%s のアクセシビリティラベルが両レイアウトにある", (label) => {
     expect(layoutSource("_layout.tsx")).toContain(
-      `accessibilityLabel="${label}"`,
+      `accessibilityLabel={t("${label}")}`,
     );
     expect(layoutSource("_layout.web.tsx")).toContain(
-      `tabBarAccessibilityLabel: "${label}"`,
+      `tabBarAccessibilityLabel: t("${label}")`,
     );
   });
 
