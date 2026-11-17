@@ -422,7 +422,7 @@ describe("スキャン", () => {
 
     expect(alert).toHaveBeenCalledWith(
       "追加できませんでした",
-      "すでにフレンドです",
+      "フレンド追加に失敗しました",
       { okLabel: "OK", onClose: expect.any(Function) },
     );
     expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();

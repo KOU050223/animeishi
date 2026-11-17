@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useActivityFeed } from "@/lib/useActivityFeed";
+import { useTranslation } from "react-i18next";
 import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 import { activityText, formatRelativeTime } from "@/lib/activityText";
 import { useThemeColors } from "@/lib/theme";
@@ -47,6 +48,7 @@ export function ActivityFeedList({
   maxItems,
   onShowAll,
 }: ActivityFeedListProps) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const {
@@ -115,11 +117,11 @@ export function ActivityFeedList({
               className="items-center py-3"
               onPress={onShowAll}
               accessibilityRole="button"
-              accessibilityLabel="フレンドの動きをすべて見る"
+              accessibilityLabel={t("フレンドの動きをすべて見る")}
               testID="activity-feed-show-all"
             >
               <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                すべて見る
+                {t("すべて見る")}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -145,6 +147,7 @@ function FeedStatus({
   isError: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   if (isLoading) {
     return (
@@ -157,15 +160,15 @@ function FeedStatus({
     return (
       <View className="flex-1 items-center justify-center px-8">
         <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
-          活動の取得に失敗しました
+          {t("活動の取得に失敗しました")}
         </Text>
         <TouchableOpacity
           className="rounded-lg bg-indigo-600 px-6 py-3"
           onPress={onRetry}
           accessibilityRole="button"
-          accessibilityLabel="再読み込み"
+          accessibilityLabel={t("再読み込み")}
         >
-          <Text className="font-semibold text-white">再読み込み</Text>
+          <Text className="font-semibold text-white">{t("再読み込み")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -173,13 +176,14 @@ function FeedStatus({
   return (
     <View className="items-center justify-center py-16">
       <Text className="text-center text-slate-400 dark:text-slate-500">
-        まだフレンドの活動はありません
+        {t("まだフレンドの活動はありません")}
       </Text>
     </View>
   );
 }
 
 function ActivityRow({ item }: { item: ActivityFeedItem }) {
+  const { t } = useTranslation();
   return (
     <View
       className="flex-row items-center gap-3 py-3"
@@ -205,12 +209,10 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
 
       <View className="flex-1">
         <Text className="text-sm text-slate-900 dark:text-slate-100">
-          <Text className="font-semibold">{item.actor.username}</Text>
-          {" が"}
-          {activityText(item)}
+          {activityText(item, t)}
         </Text>
         <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          {formatRelativeTime(item.createdAt)}
+          {formatRelativeTime(item.createdAt, t)}
         </Text>
       </View>
     </View>

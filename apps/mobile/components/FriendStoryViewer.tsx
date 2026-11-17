@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { useTranslation } from "react-i18next";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { formatRelativeTime } from "@/lib/activityText";
@@ -27,6 +28,7 @@ export function FriendStoryViewer({
   friend: FriendWatchStory;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const items = friend.items;
   const [index, setIndex] = useState(0);
   const [progress] = useState(() => new Animated.Value(0));
@@ -68,8 +70,8 @@ export function FriendStoryViewer({
   const state = item.meta?.state;
   const statusLabel =
     typeof state === "string" && state in WATCH_STATUS_LABELS
-      ? WATCH_STATUS_LABELS[state as keyof typeof WATCH_STATUS_LABELS]
-      : "視聴";
+      ? t(WATCH_STATUS_LABELS[state as keyof typeof WATCH_STATUS_LABELS])
+      : t("視聴");
 
   return (
     <Modal
@@ -129,13 +131,13 @@ export function FriendStoryViewer({
               {friend.actor.username}
               <Text className="font-normal text-white/60">
                 {"  "}
-                {formatRelativeTime(item.createdAt)}
+                {formatRelativeTime(item.createdAt, t)}
               </Text>
             </Text>
             <TouchableOpacity
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="閉じる"
+              accessibilityLabel={t("閉じる")}
               testID="story-close"
               className="px-2 py-1"
             >
@@ -163,10 +165,10 @@ export function FriendStoryViewer({
                 className="text-center text-xl font-bold text-white"
                 testID="story-work-title"
               >
-                {item.work?.title ?? "作品"}
+                {item.work?.title ?? t("作品")}
               </Text>
               <Text className="text-center text-base text-white/80">
-                {statusLabel}にしました
+                {t("{{status}}にしました", { status: statusLabel })}
               </Text>
             </View>
 
@@ -177,14 +179,14 @@ export function FriendStoryViewer({
                 style={styles.prevZone}
                 onPress={goPrev}
                 accessibilityRole="button"
-                accessibilityLabel="前のストーリー"
+                accessibilityLabel={t("前のストーリー")}
                 testID="story-prev"
               />
               <Pressable
                 className="h-full flex-1"
                 onPress={goNext}
                 accessibilityRole="button"
-                accessibilityLabel="次のストーリー"
+                accessibilityLabel={t("次のストーリー")}
                 testID="story-next"
               />
             </View>

@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { REPORT_REASONS, type ReportReason } from "@/lib/useModeration";
 
@@ -18,18 +19,19 @@ export function WorkListReportSheet({
   onSelect: (reason: ReportReason) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      scrimAccessibilityLabel="通報をやめる"
+      scrimAccessibilityLabel={t("通報をやめる")}
     >
       <View className="px-4 pb-8 pt-4">
         <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-          この作品リストを通報
+          {t("この作品リストを通報")}
         </Text>
         <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          理由を選択してください。運営が内容を確認します。
+          {t("理由を選択してください。運営が内容を確認します。")}
         </Text>
         <View className="mt-4 gap-2">
           {REPORT_REASONS.map((reason) => (
@@ -39,11 +41,11 @@ export function WorkListReportSheet({
               onPress={() => onSelect(reason)}
               disabled={pending}
               accessibilityRole="button"
-              accessibilityLabel={`${reason}で通報`}
+              accessibilityLabel={t("{{reason}}で通報", { reason: t(reason) })}
               testID={`work-list-report-reason-${reason}`}
             >
               <Text className="text-slate-900 dark:text-slate-100">
-                {reason}
+                {t(reason)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -52,9 +54,11 @@ export function WorkListReportSheet({
           className="mt-4 items-center py-2"
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="キャンセル"
+          accessibilityLabel={t("キャンセル")}
         >
-          <Text className="text-slate-500 dark:text-slate-400">キャンセル</Text>
+          <Text className="text-slate-500 dark:text-slate-400">
+            {t("キャンセル")}
+          </Text>
         </TouchableOpacity>
       </View>
     </BottomSheet>

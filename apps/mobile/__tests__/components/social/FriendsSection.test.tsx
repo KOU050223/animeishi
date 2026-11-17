@@ -101,7 +101,7 @@ describe("FriendsSection", () => {
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
         "フレンドを削除できませんでした",
-        "フレンド削除に失敗しました",
+        "フレンドの削除に失敗しました",
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );

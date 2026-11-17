@@ -121,7 +121,7 @@ describe("BlockedUsersScreen", () => {
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
         "ブロックを解除できませんでした",
-        "ブロック解除に失敗しました",
+        "ブロックの解除に失敗しました",
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );

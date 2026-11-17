@@ -99,7 +99,7 @@ describe("ActivityFeedSection", () => {
     mockFeed = loadedFeed([feedItem()]);
     await render(<ActivityFeedSection />);
     expect(screen.getByText(/たろう/)).toBeTruthy();
-    expect(screen.getByText(/視聴中にしました/)).toBeTruthy();
+    expect(screen.getByText(/視聴ステータスを/)).toBeTruthy();
     expect(screen.getByTestId("activity-item-1")).toBeTruthy();
   });
 

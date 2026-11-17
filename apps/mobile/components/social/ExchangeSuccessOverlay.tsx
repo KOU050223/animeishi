@@ -40,6 +40,7 @@ const cardEntering = ZoomIn.withInitialValues({
 // classic テンプレートは閲覧者自身の favorites / watch history を
 // 参照してしまう）。見た目は app/user/[uid].tsx のヘッダーに揃える。
 function ExchangeCard({ profile }: { profile: PublicProfile }) {
+  const { t } = useTranslation();
   return (
     <View
       className="w-full rounded-2xl bg-white dark:bg-slate-800 px-6 py-6 items-center"
@@ -49,12 +50,16 @@ function ExchangeCard({ profile }: { profile: PublicProfile }) {
         <Image
           source={{ uri: profile.profileImageUrl }}
           className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700"
-          accessibilityLabel={`${profile.username}のアイコン`}
+          accessibilityLabel={t("{{username}}のアイコン", {
+            username: profile.username,
+          })}
         />
       ) : (
         <View
           className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center"
-          accessibilityLabel={`${profile.username}のアイコン`}
+          accessibilityLabel={t("{{username}}のアイコン", {
+            username: profile.username,
+          })}
         >
           <Text className="text-2xl text-slate-400 dark:text-slate-500">
             {profile.username.charAt(0).toUpperCase()}
@@ -148,7 +153,7 @@ export function ExchangeSuccessOverlay({
             ) : isLoading ? (
               <ActivityIndicator
                 color="#ffffff"
-                accessibilityLabel="読み込み中"
+                accessibilityLabel={t("読み込み中")}
               />
             ) : null}
           </View>

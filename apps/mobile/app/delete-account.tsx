@@ -344,12 +344,10 @@ export default function DeleteAccountScreen() {
     await submitFeedbackWithTimeout();
     try {
       await deleteAccount.mutateAsync();
-    } catch (e) {
-      alert(
-        t("削除に失敗しました"),
-        e instanceof Error ? e.message : t("アカウントの削除に失敗しました"),
-        { okLabel: t("OK") },
-      );
+    } catch {
+      alert(t("削除に失敗しました"), t("アカウントの削除に失敗しました"), {
+        okLabel: t("OK"),
+      });
       return;
     }
     // 削除済みアカウントのデータを端末に残さない。名刺ドキュメントは

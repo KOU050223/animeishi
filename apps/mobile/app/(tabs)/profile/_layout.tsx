@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
 
 /**
  * プロフィールタブ内のネスト Stack（issue #395 Phase 2）。
@@ -9,6 +10,7 @@ import { useThemeColors } from "@/lib/theme";
  */
 export default function ProfileLayout() {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   const headerOptions = useStackHeaderOptions();
 
   return (
@@ -27,7 +29,7 @@ export default function ProfileLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "プロフィール", headerLargeTitle: true }}
+        options={{ title: t("プロフィール"), headerLargeTitle: true }}
       />
     </Stack>
   );

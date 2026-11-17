@@ -6,6 +6,15 @@ import { MeishiRenderer } from "@/components/meishi/MeishiRenderer";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
 import { OnboardingScaffold } from "./OnboardingScaffold";
+import type { TranslationKey } from "@/lib/i18n/keys";
+
+const templateNameKeys: Record<string, TranslationKey> = {
+  blank: "白紙",
+  classic: "クラシック",
+  sunset: "サンセット",
+  midnight: "ミッドナイト",
+  sakura: "さくら",
+};
 
 /**
  * オンボーディング 2 問目（issue #412）: 名刺のテンプレートを選ぶ。
@@ -87,16 +96,16 @@ export function TemplateStep({
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name={tpl.icon} size={16} color={colors.textMuted} />
                 <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {tpl.name}
+                  {t(templateNameKeys[tpl.id] ?? "テンプレート")}
                 </Text>
               </View>
               <MeishiRenderer
                 document={tpl.build()}
                 context={{
                   profile: {
-                    username: "サンプル",
-                    bio: "自己紹介テキスト",
-                    favoriteQuote: "「好きなセリフ」",
+                    username: t("サンプル"),
+                    bio: t("自己紹介テキスト"),
+                    favoriteQuote: t("「好きなセリフ」"),
                     profileUrl: "https://example.com",
                   },
                 }}
