@@ -122,6 +122,9 @@ export async function annictGraphQL<T>(
   query: string,
   variables: Record<string, unknown> = {},
   fetchImpl: typeof fetch = fetch,
+  // 部分的な失敗として受け入れるエラー。全エラーがこれに当てはまり data が
+  // あるときだけ、例外にせず data を返す（null になった箇所は呼び出し側で扱う）。
+  isToleratedError?: (error: { message: string }) => boolean,
 ): Promise<T> {
   const res = await annictFetch(
     fetchImpl,
@@ -146,7 +149,12 @@ export async function annictGraphQL<T>(
   }
 
   const json = await annictParseJson<GraphQLResponse<T>>(res, "GraphQL");
-  if (json.errors?.length) {
+  const tolerated =
+    isToleratedError !== undefined &&
+    json.data !== undefined &&
+    json.data !== null &&
+    (json.errors ?? []).every(isToleratedError);
+  if (json.errors?.length && !tolerated) {
     throw new AnnictApiError(
       json.errors.map((e) => e.message).join("; "),
       res.status,
@@ -958,7 +966,6 @@ query WorkDetail($annictIds: [Int!]) {
           annictId
           name
           roleText
-          roleOther
           sortNumber
           resource {
             __typename
@@ -966,6 +973,9 @@ query WorkDetail($annictIds: [Int!]) {
             ... on Organization { annictId }
           }
         }
+      }
+      staffRoleOthers: staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        nodes { annictId roleOther }
       }
       casts(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
@@ -1011,13 +1021,15 @@ type WorkDetailResponse = {
           annictId: number;
           name: string;
           roleText: string;
-          roleOther: string;
           sortNumber: number;
           resource: {
             __typename: string;
             annictId: number;
           } | null;
         }[];
+      } | null;
+      staffRoleOthers: {
+        nodes: ({ annictId: number; roleOther: string | null } | null)[];
       } | null;
       casts: {
         nodes: {
@@ -1084,6 +1096,17 @@ export type AnnictWorkDetail = AnnictLibraryEntry & {
   casts: AnnictWorkCast[];
 };
 
+// Annict のスキーマでは Staff.roleOther は non-null だが、古いデータでは
+// role が other 以外のスタッフで null が返り、そのスタッフ行ごと null になって
+// errors も返る（ANIMEISHI-API-C）。一覧の staffs では roleOther を取らず、
+// 別名の staffRoleOthers で取ってこのエラーだけを許容し、取れた行だけ使う。
+const STAFF_ROLE_OTHER_NULL_ERROR =
+  "Cannot return null for non-nullable field Staff.roleOther";
+
+function isStaffRoleOtherNullError(error: { message: string }): boolean {
+  return error.message === STAFF_ROLE_OTHER_NULL_ERROR;
+}
+
 /**
  * annictId(Int) から作品の詳細メタを 1 件取得する。該当作品が無ければ null。
  */
@@ -1100,11 +1123,17 @@ export async function fetchAnnictWorkDetail(
       workDetailQuery(includeViewerStatus),
       { annictIds: [annictWorkId] },
       fetchImpl,
+      isStaffRoleOtherNullError,
     ),
   );
 
   const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
   if (!work) return null;
+
+  const roleOtherByStaffId = new Map<number, string>();
+  for (const node of work.staffRoleOthers?.nodes ?? []) {
+    if (node?.roleOther) roleOtherByStaffId.set(node.annictId, node.roleOther);
+  }
 
   return {
     annictWorkId: work.annictId,
@@ -1141,7 +1170,7 @@ export async function fetchAnnictWorkDetail(
         {
           annictStaffId: node.annictId,
           name: node.name,
-          role: node.roleOther || node.roleText,
+          role: roleOtherByStaffId.get(node.annictId) || node.roleText,
           resource: {
             kind:
               resource.__typename === "Organization"
