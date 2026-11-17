@@ -29,6 +29,18 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "terms"');
   });
 
+  test("does not add a second route for the home URL", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+
+    expect(source).not.toContain('segments[0] === "index"');
+    expect(fs.existsSync(path.join(rootDir, "app/index.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(rootDir, "app/index.web.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(rootDir, "app/welcome.web.tsx"))).toBe(true);
+  });
+
   test("declares the public support route", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),

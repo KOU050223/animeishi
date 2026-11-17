@@ -30,6 +30,7 @@ import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useGuestCtaReturn } from "@/lib/guestCta";
+import { guestLandingPath } from "@/lib/guestLandingRoute";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -70,6 +71,7 @@ function AuthGuard() {
     // incoming-share: 共有受信の中継画面。遷移先の user/[uid] が公開のため、
     // 未ログインでも共有フローを通せるようガード対象外にする。
     const inPublicGroup =
+      segments[0] === "welcome" ||
       segments[0] === "user" ||
       segments[0] === "annict" ||
       segments[0] === "privacy" ||
@@ -77,7 +79,11 @@ function AuthGuard() {
       segments[0] === "support" ||
       segments[0] === "incoming-share";
 
-    if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
+    const guestLanding = guestLandingPath(segments);
+
+    if (!isSignedIn && guestLanding) {
+      router.replace(guestLanding);
+    } else if (!isSignedIn && !inAuthGroup && !inPublicGroup) {
       router.replace("/(auth)/sign-in");
     } else if (
       isSignedIn &&
