@@ -153,13 +153,13 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 
 > Sign-in details for the demo account are provided separately in App Store Connect under App Review Information. The account is pre-populated with a public profile, favorite titles, ratings, a public and a private work list, a tier list, and an existing friend. No password or other secret is included in these notes.
 >
-> QR card exchange normally requires a second device. To review the resulting friend experience on one device, sign in with the demo account and open the Profile tab; its seeded friend is already present. The seeded public profile and tier list can also be viewed from the demo account.
+> QR card exchange normally requires a second device. To review the resulting friend experience on one device, sign in with the demo account, open the tab labeled “QR・フレンド,” and select “フレンド.” The seeded friend is already listed there. Tab and section labels are currently shown in Japanese even when the app language is English.
 >
-> Connecting an Annict account is optional. The app can be explored without connecting Annict; Annict-dependent watch-record features are available only after the user chooses to connect. Importing viewing history from d Anime Store is also optional and is not available in the iOS app.
+> Connecting an Annict account is optional. To connect it, open the tab labeled “プロフ” and use the “Annict integration” card and its “Connect Annict” button. The app can be explored without connecting Annict; Annict-dependent watch-record features are available only after the user chooses to connect. d Anime Store history import is not available in the iOS app.
 >
-> Users can report a profile from that user's profile screen and report public user-generated lists from the Discover area in the Hiroba tab. They can block a user from the profile/report flow; blocked users can be reviewed under Profile → Privacy & Safety → Blocked Users. Reports are reviewed by the operator. New reports trigger an operations notification, and the operator reviews report details using the reports-list task and records moderation decisions in the production runbook workflow. There is no in-app direct messaging.
+> To report a user, open their profile and select “このユーザーを通報”; to block them, select “このユーザーをブロック.” Public content can also be reported from the “ひろば” tab: select “みつける,” choose “作品リスト,” “Tier 表,” or “名刺,” then select “通報” on an item. These tab and action labels are currently shown in Japanese in the app. Blocked users are listed under “プロフ” → “プライバシーと安全” → “ブロック中のユーザー.” Reports are reviewed by the operator. New reports trigger an operations notification; the operator checks report details with `pnpm task reports:list` and records moderation decisions following the production runbook. There is no in-app direct messaging.
 >
-> To delete the demo account, open Profile → Account deletion and follow the confirmation steps. Account deletion is available in the app without contacting support.
+> To delete the demo account, open the “プロフ” tab, scroll below “サインアウト,” select “アカウントを削除,” and follow the confirmation steps. This button is currently displayed in Japanese (the English translation resource contains “Delete account”). Account deletion is available in the app without contacting support.
 
 ## ガイドライン 4.8 のコード確認
 
