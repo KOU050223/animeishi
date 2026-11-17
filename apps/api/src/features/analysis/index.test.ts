@@ -258,10 +258,9 @@ describe("視聴傾向分析 API", () => {
       const promptText = inputs.messages.map((m) => m.content).join("\n");
       expect(promptText).toContain("テスト作品101");
       expect(promptText).toContain("テスト作品102");
-      // Qwen3 の思考モードを無効化する（思考で max_tokens を使い切り content が
-      // 空になる本番障害の回帰防止）。
+      // Gemma 用のプロンプトに Qwen 専用の思考制御トークンを混ぜない。
       const userMessage = inputs.messages.find((m) => m.role === "user");
-      expect(userMessage?.content.endsWith("\n/no_think")).toBe(true);
+      expect(userMessage?.content).not.toContain("/no_think");
 
       // 生成結果が保存される。
       const row = await db.query.analyses.findFirst({

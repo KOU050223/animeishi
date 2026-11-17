@@ -14,7 +14,6 @@ import type { AnnictLibraryEntry } from "@/lib/annict/client";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import {
   ANALYSIS_MODEL,
-  DISABLE_THINKING_SUFFIX,
   RATING_LABELS,
   STATE_LABELS,
   extractFinishReason,
@@ -248,7 +247,7 @@ export async function runRecommendationCandidates(
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: buildUserPrompt(input, options) + DISABLE_THINKING_SUFFIX,
+          content: buildUserPrompt(input, options),
         },
       ],
       response_format: {

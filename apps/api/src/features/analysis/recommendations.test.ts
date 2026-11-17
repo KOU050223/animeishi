@@ -361,7 +361,7 @@ describe("AI おすすめ生成 API", () => {
       const user = lastUserPrompt();
       expect(user).toContain("SF 中心の視聴傾向");
       expect(user).toContain("現在のシーズン");
-      expect(user.endsWith("\n/no_think")).toBe(true);
+      expect(user).not.toContain("/no_think");
     });
 
     it("POST: 古い入力から生成された分析はプロンプトに載せない", async () => {
