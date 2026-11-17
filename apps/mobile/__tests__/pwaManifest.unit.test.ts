@@ -23,8 +23,8 @@ function readPngSize(path: string): { width: number; height: number } {
 
 describe("PWA manifest", () => {
   it("ホーム画面追加に必要な基本フィールドを持つ", () => {
-    expect(manifest.name).toBe("Animeishi");
-    expect(manifest.short_name).toBe("Animeishi");
+    expect(manifest.name).toBe("アニ名刺");
+    expect(manifest.short_name).toBe("アニ名刺");
     expect(manifest.start_url).toBe("/");
     expect(manifest.scope).toBe("/");
     expect(manifest.display).toBe("standalone");
@@ -47,9 +47,11 @@ describe("PWA manifest", () => {
 describe("index.html テンプレート", () => {
   const html = readFileSync(join(publicDir, "index.html"), "utf8");
 
-  it("Expo のテンプレートプレースホルダを保持する", () => {
-    expect(html).toContain("%WEB_TITLE%");
+  it("日本語のアプリ名と説明用メタデータを持つ", () => {
+    expect(html).toContain("<title>アニ名刺</title>");
     expect(html).toContain("%LANG_ISO_CODE%");
+    expect(html).toContain('name="description"');
+    expect(html).toContain('property="og:description"');
   });
 
   it("manifest と apple-touch-icon を参照する", () => {
