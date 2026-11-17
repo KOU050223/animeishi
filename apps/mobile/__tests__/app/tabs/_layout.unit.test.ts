@@ -70,4 +70,12 @@ describe("(tabs) layout", () => {
       `tabBarAccessibilityLabel: "${label}"`,
     );
   });
+
+  // NativeTabs.Trigger.Badge は子要素に "0" などの文字列があると hidden を無視して
+  // 表示する。件数は tabBadgeText を通し、0 件では子要素を渡さない。
+  test("ネイティブの QR・フレンドタブのバッジは 0 件で子要素を渡さない", () => {
+    const source = layoutSource("_layout.tsx");
+    expect(source).toContain("{tabBadgeText(friendRequestCount)}");
+    expect(source).not.toContain("{String(friendRequestCount)}");
+  });
 });
