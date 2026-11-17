@@ -14,6 +14,16 @@ describe("formatEventPeriod", () => {
     ).toBe("2026年12月20日(日)");
   });
 
+  it("英語ロケールでは日本時間の日付を英語表記にする", () => {
+    expect(
+      formatEventPeriod(
+        "2026-12-20T10:00:00+09:00",
+        "2026-12-21T16:00:00+09:00",
+        "en-US",
+      ),
+    ).toBe("December 20, 2026 – December 21, 2026");
+  });
+
   it("同年の複数日は終了側の年を省略する", () => {
     expect(
       formatEventPeriod(

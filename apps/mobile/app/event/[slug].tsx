@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useMarkdown } from "react-native-marked";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
@@ -36,12 +37,14 @@ import { MenuPicker } from "@/components/ui/menu-picker";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 // イベント詳細（issue #411 フェーズ 1 + #440）。ホームのイベント枠
 // （EventRail）から遷移する。「参加する」の表明とその公開範囲、
 // connpass の右カラムに相当する「参加しているフレンド」「参加者一覧」、
 // 会期中にフレンド成立した相手（= そのイベントで交換した名刺）を出す。
 export default function EventScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ slug?: string }>();
@@ -65,12 +68,12 @@ export default function EventScreen() {
     >
       <Stack.Screen
         options={{
-          title: data?.title ?? "イベント",
+          title: data?.title ?? t("イベント"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="event-back"
             />
           ),
@@ -82,7 +85,7 @@ export default function EventScreen() {
             className="text-center text-slate-500 dark:text-slate-400"
             testID="event-not-found"
           >
-            このイベントは表示できません
+            {t("このイベントは表示できません")}
           </Text>
         </View>
       ) : detail.isLoading || !data ? (
@@ -97,6 +100,7 @@ export default function EventScreen() {
 }
 
 function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
+  const { t, i18n } = useTranslation();
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
   const participation = useSetEventParticipation();
@@ -123,10 +127,10 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
       {
         onError: () =>
           alert(
-            "エラー",
+            t("エラー"),
             participate
-              ? "参加表明に失敗しました"
-              : "参加の取り消しに失敗しました",
+              ? t("参加表明に失敗しました")
+              : t("参加の取り消しに失敗しました"),
             { okLabel: "OK" },
           ),
       },
@@ -138,7 +142,9 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
       { slug, visibility },
       {
         onError: () =>
-          alert("エラー", "公開範囲の変更に失敗しました", { okLabel: "OK" }),
+          alert(t("エラー"), t("公開範囲の変更に失敗しました"), {
+            okLabel: "OK",
+          }),
       },
     );
   };
@@ -163,7 +169,7 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
         <View className="mt-4 flex-row items-center gap-2">
           {ongoing ? (
             <Text className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              開催中
+              {t("開催中")}
             </Text>
           ) : null}
           <Text
@@ -174,7 +180,7 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
           </Text>
         </View>
         <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {formatEventPeriod(event.startsAt, event.endsAt)}
+          {formatEventPeriod(event.startsAt, event.endsAt, i18n.language)}
         </Text>
         {event.location ? (
           <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -185,11 +191,11 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
           <TouchableOpacity
             onPress={() => void Linking.openURL(event.officialUrl ?? "")}
             accessibilityRole="link"
-            accessibilityLabel="公式サイトを開く"
+            accessibilityLabel={t("公式サイトを開く")}
             testID="event-official-link"
           >
             <Text className="mt-1 text-sm text-indigo-500 dark:text-indigo-300">
-              公式サイト
+              {t("公式サイト")}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -238,6 +244,7 @@ function ParticipationButton({
   onParticipate: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   if (participating) {
     return (
       <View className="mt-4 flex-row items-center gap-3">
@@ -245,17 +252,17 @@ function ParticipationButton({
           className="rounded-lg bg-indigo-600 px-4 py-2 dark:bg-indigo-500"
           testID="event-participating-badge"
         >
-          <Text className="font-semibold text-white">参加予定</Text>
+          <Text className="font-semibold text-white">{t("参加予定")}</Text>
         </View>
         <TouchableOpacity
           onPress={onCancel}
           disabled={pending}
           accessibilityRole="button"
-          accessibilityLabel="参加を取りやめる"
+          accessibilityLabel={t("参加を取りやめる")}
           testID="event-cancel-participation"
         >
           <Text className="text-sm text-slate-400 dark:text-slate-500">
-            取りやめる
+            {t("取りやめる")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -267,10 +274,10 @@ function ParticipationButton({
       disabled={pending}
       className="mt-4 items-center rounded-lg bg-indigo-600 py-3 dark:bg-indigo-500"
       accessibilityRole="button"
-      accessibilityLabel="このイベントに参加する"
+      accessibilityLabel={t("このイベントに参加する")}
       testID="event-participate"
     >
-      <Text className="font-semibold text-white">参加する</Text>
+      <Text className="font-semibold text-white">{t("参加する")}</Text>
     </TouchableOpacity>
   );
 }
@@ -278,13 +285,19 @@ function ParticipationButton({
 // 「参加する」の公開範囲（issue #440）。参加表明中だけ出す。
 // public = 参加者一覧に出る / friends = フレンドの「参加している
 // フレンド」にだけ出る / private = 本人のみ（既定）。
-const VISIBILITY_OPTIONS = [
+const VISIBILITY_OPTIONS: {
+  label: TranslationKey;
+  value: EventParticipationVisibility;
+}[] = [
   { label: "公開", value: "public" },
   { label: "フレンドのみ", value: "friends" },
   { label: "非公開", value: "private" },
-] as const;
+];
 
-const VISIBILITY_DESCRIPTIONS: Record<EventParticipationVisibility, string> = {
+const VISIBILITY_DESCRIPTIONS: Record<
+  EventParticipationVisibility,
+  TranslationKey
+> = {
   public: "すべてのユーザーの参加者一覧に表示されます",
   friends: "フレンドの「参加しているフレンド」に表示されます",
   private: "自分以外には表示されません",
@@ -299,27 +312,31 @@ function ParticipationVisibilityPicker({
   pending: boolean;
   onChange: (visibility: EventParticipationVisibility) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-4" testID="event-visibility">
       <View className="flex-row items-center gap-2">
         <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-          参加の公開範囲
+          {t("参加の公開範囲")}
         </Text>
         {pending ? <ActivityIndicator size="small" /> : null}
       </View>
       <View className="mt-2 self-start">
         <MenuPicker
           testID="event-visibility-picker"
-          accessibilityLabel="参加の公開範囲を変更"
-          title="参加の公開範囲"
-          closeAccessibilityLabel="公開範囲の選択を閉じる"
+          accessibilityLabel={t("参加の公開範囲を変更")}
+          title={t("参加の公開範囲")}
+          closeAccessibilityLabel={t("公開範囲の選択を閉じる")}
           selectedValue={value}
-          options={VISIBILITY_OPTIONS}
+          options={VISIBILITY_OPTIONS.map((option) => ({
+            ...option,
+            label: t(option.label),
+          }))}
           onValueChange={onChange}
         />
       </View>
       <Text className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        {VISIBILITY_DESCRIPTIONS[value]}
+        {t(VISIBILITY_DESCRIPTIONS[value])}
       </Text>
     </View>
   );
@@ -351,6 +368,7 @@ function ParticipatingFriendsSection({
   slug: string;
   onOpenProfile: (userId: string) => void;
 }) {
+  const { t } = useTranslation();
   const list = useAttendeeList(
     useEventParticipatingFriends(slug),
     (page) => page.friends,
@@ -359,9 +377,9 @@ function ParticipatingFriendsSection({
 
   return (
     <AttendeeSection
-      title={`参加しているフレンド（${list.total}）`}
+      title={t("参加しているフレンド（{{count}}）", { count: list.total })}
       list={list}
-      emptyText="参加表明しているフレンドはまだいません"
+      emptyText={t("参加表明しているフレンドはまだいません")}
       errorTestID="event-attendees-error"
       moreTestID="event-friends-more"
     >
@@ -388,6 +406,7 @@ function PublicParticipantsSection({
   slug: string;
   onOpenProfile: (userId: string) => void;
 }) {
+  const { t } = useTranslation();
   const list = useAttendeeList(
     useEventParticipants(slug),
     (page) => page.participants,
@@ -397,9 +416,9 @@ function PublicParticipantsSection({
   return (
     <AttendeeSection
       className="mt-6"
-      title={`参加者（${list.total}）`}
+      title={t("参加者（{{count}}）", { count: list.total })}
       list={list}
-      emptyText="公開している参加者はまだいません"
+      emptyText={t("公開している参加者はまだいません")}
       moreTestID="event-participants-more"
     >
       <View className="mt-2 flex-row flex-wrap gap-3">
@@ -457,6 +476,7 @@ function AttendeeSection({
   className?: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <View className={className}>
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -467,7 +487,7 @@ function AttendeeSection({
           className="mt-2 text-sm text-slate-400 dark:text-slate-500"
           testID={errorTestID}
         >
-          参加者を読み込めませんでした
+          {t("参加者を読み込めませんでした")}
         </Text>
       ) : list.isLoading ? (
         <ActivityIndicator className="mt-4" />
@@ -499,20 +519,21 @@ function LoadMoreButton({
   onPress: () => void;
   testID: string;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       className="mt-2 self-start rounded-lg border border-slate-200 px-4 py-2 dark:border-slate-700"
       onPress={onPress}
       disabled={fetching}
       accessibilityRole="button"
-      accessibilityLabel="もっと見る"
+      accessibilityLabel={t("もっと見る")}
       testID={testID}
     >
       {fetching ? (
         <ActivityIndicator size="small" />
       ) : (
         <Text className="text-sm text-indigo-500 dark:text-indigo-300">
-          もっと見る
+          {t("もっと見る")}
         </Text>
       )}
     </TouchableOpacity>
@@ -522,6 +543,7 @@ function LoadMoreButton({
 // 「このイベントで交換した名刺」（issue #411）。会期中にフレンド成立した
 // 相手を本人にだけ見せる。タップで相手のプロフィールへ。
 function ExchangedFriends({ slug }: { slug: string }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const exchanged = useExchangedEventFriends(slug, true);
   const items = exchanged.data?.items ?? [];
@@ -529,20 +551,20 @@ function ExchangedFriends({ slug }: { slug: string }) {
   return (
     <View className="mt-6" testID="event-exchanged-friends">
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        このイベントで交換した名刺
+        {t("このイベントで交換した名刺")}
       </Text>
       {exchanged.isError ? (
         <Text
           className="mt-2 text-sm text-slate-400 dark:text-slate-500"
           testID="event-exchanged-friends-error"
         >
-          交換した名刺を読み込めませんでした
+          {t("交換した名刺を読み込めませんでした")}
         </Text>
       ) : exchanged.isLoading ? (
         <ActivityIndicator className="mt-4" />
       ) : items.length === 0 ? (
         <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-          会期中に QR で交換した名刺がここに表示されます
+          {t("会期中に QR で交換した名刺がここに表示されます")}
         </Text>
       ) : (
         <View className="mt-2">
@@ -611,12 +633,15 @@ function AttendeeRow({
   onPress: () => void;
   testID: string;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       className="flex-row items-center py-3 gap-3"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.username}のプロフィールを見る`}
+      accessibilityLabel={t("{{username}}のプロフィールを見る", {
+        username: item.username,
+      })}
       testID={testID}
     >
       <AttendeeAvatar
@@ -653,12 +678,15 @@ function ParticipantChip({
   item: EventParticipantItem;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       className="w-16 items-center"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.username}のプロフィールを見る`}
+      accessibilityLabel={t("{{username}}のプロフィールを見る", {
+        username: item.username,
+      })}
       testID={`event-participant-${item.userId}`}
     >
       <AttendeeAvatar
