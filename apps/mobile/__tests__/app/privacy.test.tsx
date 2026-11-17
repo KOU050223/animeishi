@@ -53,6 +53,7 @@ describe("PrivacyScreen", () => {
     expect(screen.getByText("第2条（取得する情報）")).toBeTruthy();
     expect(screen.getByText("第4条（外部サービスへの送信）")).toBeTruthy();
     expect(screen.getByText("第7条（アカウントの削除）")).toBeTruthy();
+    expect(screen.getByText("最終更新日: 2026年11月17日")).toBeTruthy();
   });
 
   it("実装で実際に利用している外部サービスを列挙する", async () => {
@@ -62,8 +63,12 @@ describe("PrivacyScreen", () => {
     expect(screen.getByText(/Clerk（認証）/)).toBeTruthy();
     expect(screen.getByText(/Annict（視聴記録連携）/)).toBeTruthy();
     expect(screen.getByText(/AniList・Jikan/)).toBeTruthy();
-    expect(screen.getByText(/Sentry（エラー監視）/)).toBeTruthy();
+    expect(screen.getByText(/Sentry（エラー監視・利用状況計測）/)).toBeTruthy();
     expect(screen.getByText(/Cloudflare（ホスティング）/)).toBeTruthy();
+    expect(screen.getByText(/ソルト付きハッシュの短縮キー/)).toBeTruthy();
+    expect(
+      screen.getByText(/リクエスト IP アドレス等が処理される場合があります/),
+    ).toBeTruthy();
   });
 
   it("アカウント削除の手順を案内する", async () => {

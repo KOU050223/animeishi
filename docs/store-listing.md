@@ -180,7 +180,7 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 | Diagnostics | クラッシュ・エラー診断情報を Sentry に送信。トレース/セッションリプレイ/プロファイリングは無効。既定 PII は無効化 | いいえ（設定上の方針。エラー本文等に利用者入力が含まれないか運用時の留意は残る） | いいえ |
 | Other Data | Annict 連携トークンは iOS では SecureStore に保存し、Annict API への連携時に送る。作品検索・記録要求も Annict に送信する。サーバーのアクセスログは Cloudflare が処理する | はい（連携利用者・リクエストに紐づく） | いいえ |
 
-ポリシー照合（`apps/mobile/app/privacy.tsx`）: メール/ユーザー名、プロフィール、視聴情報、画像、問い合わせ、Sentry、Annict の説明は概ね実装と一致する。iOS では Annict token は SecureStore に保存されるが、Annict 連携と連携先への送信自体は任意で利用者の操作による。d アニメ作品タイトルの送信は Web の任意機能であり iOS では利用不可。Wallet の記述も Wallet 機能が有効な場合に限る（現行ネイティブビルドでは無効）。ポリシーには「Sentry にユーザー情報や IP アドレス等を送らない」とある一方、UI 計測はハッシュ済み利用者キーを付け、Cloudflare のアクセスログはリクエスト IP 等を処理し得るため、表現には差がある。ポリシー変更はこの作業では行っていない。
+ポリシー照合（`apps/mobile/app/privacy.tsx`）: App Privacy 回答案に記載した利用状況イベント、仮名化 user key、Sentry のエラー診断設定、Cloudflare によるリクエスト IP 等の処理をポリシーへ反映済み。iOS では Annict token は SecureStore に保存されるが、Annict 連携と連携先への送信自体は任意で利用者の操作による。d アニメ作品タイトルの送信は Web の任意機能であり iOS では利用不可。Wallet の記述も Wallet 機能が有効な場合に限る（現行ネイティブビルドでは無効）。法務文書は日本語固定のため英訳は対象外。
 
 ## TODO（ストア提出前に要解決）
 
