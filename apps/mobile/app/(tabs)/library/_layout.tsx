@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
 
 /**
  * ライブラリタブ内のネスト Stack（issue #395 Phase 2）。
@@ -9,6 +10,7 @@ import { useThemeColors } from "@/lib/theme";
  */
 export default function LibraryLayout() {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   const headerOptions = useStackHeaderOptions();
 
   return (
@@ -27,7 +29,7 @@ export default function LibraryLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "ライブラリ", headerLargeTitle: true }}
+        options={{ title: t("ライブラリ"), headerLargeTitle: true }}
       />
     </Stack>
   );

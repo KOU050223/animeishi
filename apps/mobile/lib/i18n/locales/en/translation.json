@@ -346,5 +346,14 @@
   "確認してサインイン": "Verify and sign in",
   "メールアドレスを入力し直す": "Use a different email",
   "認証コードを確認できませんでした": "We couldn't verify the code",
-  "認証コードを入力してください": "Enter the verification code"
+  "認証コードを入力してください": "Enter the verification code",
+  "ホーム": "Home",
+  "ライブラリ": "Library",
+  "ライブラリタブ": "Library tab",
+  "ひろば": "Discover",
+  "ひろばタブ": "Discover tab",
+  "QR・フレンド": "QR & Friends",
+  "QR・フレンドタブ": "QR & Friends tab",
+  "プロフ": "Profile",
+  "プロフィールタブ": "Profile tab"
 }
