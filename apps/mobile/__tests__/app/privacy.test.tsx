@@ -51,6 +51,7 @@ describe("PrivacyScreen", () => {
       0,
     );
     expect(screen.getByText("第2条（取得する情報）")).toBeTruthy();
+    expect(screen.getByText(/利用状況の分析、機能・品質の改善/)).toBeTruthy();
     expect(screen.getByText("第4条（外部サービスへの送信）")).toBeTruthy();
     expect(screen.getByText("第7条（アカウントの削除）")).toBeTruthy();
     expect(screen.getByText("最終更新日: 2026年11月17日")).toBeTruthy();
