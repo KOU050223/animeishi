@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,6 +20,7 @@ import { useWatchHistory } from "@/lib/useWatchHistory";
 // ホームの「今期視聴中」レール（issue #353）。今期の視聴中作品を横スクロールで
 // 並べ、タップで dアニメストアのタイトル検索を開く。
 export function CurrentSeasonWatchingRail() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   const { data, isLoading, isError, refetch } = useWatchHistory();
@@ -50,15 +52,17 @@ export function CurrentSeasonWatchingRail() {
   return (
     <View className="mt-6" testID="home-current-season">
       <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
-        今期視聴中
+        {t("今期視聴中")}
       </Text>
       {isConnectionLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : !isConnected ? (
         // 閉じるボタンを付けない: 連携すれば自然に消えるため（#424 の決定）
         <CurrentSeasonConnectCard
-          description="Annict と連携すると、ここに今期視聴中の作品が並びます"
-          connectLabel="Annict と連携する"
+          description={t(
+            "Annict と連携すると、ここに今期視聴中の作品が並びます",
+          )}
+          connectLabel={t("Annict と連携する")}
           surface="home_current_season"
         />
       ) : isLoading ? (
@@ -66,21 +70,21 @@ export function CurrentSeasonWatchingRail() {
       ) : isError ? (
         <View className="flex-row items-center gap-3">
           <Text className="text-sm text-slate-500 dark:text-slate-400">
-            視聴履歴を取得できませんでした
+            {t("視聴履歴を取得できませんでした")}
           </Text>
           <TouchableOpacity
             onPress={() => void refetch()}
             accessibilityRole="button"
-            accessibilityLabel="視聴履歴を再取得"
+            accessibilityLabel={t("視聴履歴を再取得")}
           >
             <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-              再試行
+              {t("再試行")}
             </Text>
           </TouchableOpacity>
         </View>
       ) : works.length === 0 ? (
         <Text className="text-sm text-slate-400 dark:text-slate-500">
-          今期視聴中の作品はありません
+          {t("今期視聴中の作品はありません")}
         </Text>
       ) : (
         <FlatList
@@ -94,7 +98,9 @@ export function CurrentSeasonWatchingRail() {
                 void Linking.openURL(buildDanimeWorkSearchUrl(work.title))
               }
               accessibilityRole="link"
-              accessibilityLabel={`${work.title}をdアニメストアで検索`}
+              accessibilityLabel={t("{{title}}をdアニメストアで検索", {
+                title: work.title,
+              })}
               testID={`home-watching-work-${work.annictWorkId}`}
             >
               <WorkThumbnail
