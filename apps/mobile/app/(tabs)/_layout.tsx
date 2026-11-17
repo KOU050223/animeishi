@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
+import { tabBadgeText } from "@/lib/tabBadge";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 
 // SF Symbols / Material Icons ではなく Ionicons のままにし、NativeTabs 化で
@@ -49,7 +50,7 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>QR・フレンド</NativeTabs.Trigger.Label>
         {tabIcon("people-outline")}
         <NativeTabs.Trigger.Badge hidden={friendRequestCount === 0}>
-          {String(friendRequestCount)}
+          {tabBadgeText(friendRequestCount)}
         </NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
