@@ -29,27 +29,16 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "terms"');
   });
 
-  test("makes only the web root public for the landing page", () => {
+  test("does not add a second route for the home URL", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),
       "utf8",
     );
-    const webLanding = fs.readFileSync(
-      path.join(rootDir, "app/index.web.tsx"),
-      "utf8",
-    );
 
-    expect(source).toContain('segments[0] === "index"');
-    expect(webLanding).toContain(
-      'if (isSignedIn) return <Redirect href="/(tabs)/(home)" />',
-    );
-    const nativeLandingFallback = fs.readFileSync(
-      path.join(rootDir, "app/index.tsx"),
-      "utf8",
-    );
-    expect(nativeLandingFallback).toContain(
-      '<Redirect href="/(tabs)/(home)" />',
-    );
+    expect(source).not.toContain('segments[0] === "index"');
+    expect(fs.existsSync(path.join(rootDir, "app/index.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(rootDir, "app/index.web.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(rootDir, "app/welcome.web.tsx"))).toBe(true);
   });
 
   test("declares the public support route", () => {

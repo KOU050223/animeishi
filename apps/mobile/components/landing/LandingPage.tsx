@@ -1,6 +1,6 @@
-import { useAuth } from "@clerk/expo";
-import { Link, Redirect, Stack } from "expo-router";
+import { Link } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { useTranslation } from "react-i18next";
 import { MalAttribution } from "@/components/profile/MalAttribution";
 
@@ -11,12 +11,7 @@ const sampleWorks = [
 ] as const;
 
 export default function LandingPage() {
-  const { isLoaded, isSignedIn } = useAuth();
   const { t } = useTranslation();
-
-  if (!isLoaded)
-    return <View className="flex-1 bg-slate-50 dark:bg-slate-950" />;
-  if (isSignedIn) return <Redirect href="/(tabs)/(home)" />;
 
   return (
     <ScrollView
@@ -24,7 +19,6 @@ export default function LandingPage() {
       contentContainerClassName="items-center"
       testID="landing-page"
     >
-      <Stack.Screen options={{ title: t("アニ名刺"), headerShown: false }} />
       <View className="w-full max-w-6xl px-5 md:px-10">
         <View className="h-20 flex-row items-center justify-between">
           <Text className="text-xl font-extrabold text-indigo-700 dark:text-indigo-300">
@@ -67,9 +61,17 @@ export default function LandingPage() {
                 className="rounded-full bg-indigo-600 px-7 py-4"
                 testID="landing-sign-up-hero"
               >
-                <Text className="text-base font-bold text-white">
-                  {t("無料で名刺を作る")}　→
-                </Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-base font-bold text-white">
+                    {t("無料で名刺を作る")}
+                  </Text>
+                  <Text
+                    className="text-base font-bold text-white"
+                    accessibilityElementsHidden
+                  >
+                    →
+                  </Text>
+                </View>
               </Link>
               <Text className="text-sm text-slate-500 dark:text-slate-400">
                 {t("登録して、あなたの好きから始めよう")}
@@ -124,8 +126,11 @@ export default function LandingPage() {
                   animeishi.uomi.dev/m/minato
                 </Text>
               </View>
-              <View className="h-12 w-12 items-center justify-center rounded-lg border-2 border-slate-800 bg-white dark:border-white">
-                <Text className="text-2xl text-slate-900">▦</Text>
+              <View
+                className="items-center justify-center rounded-lg border-2 border-slate-800 bg-white p-1 dark:border-white"
+                testID="landing-sample-qr"
+              >
+                <QRCode value="https://animeishi.uomi.dev/m/minato" size={40} />
               </View>
             </View>
           </View>
@@ -147,8 +152,14 @@ export default function LandingPage() {
               )}
             >
               <View className="flex-row items-center gap-3 rounded-xl bg-white p-4 dark:bg-slate-800">
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950">
-                  <Text className="text-2xl">▦</Text>
+                <View
+                  className="rounded-xl bg-white p-1 dark:bg-slate-800"
+                  testID="landing-exchange-qr"
+                >
+                  <QRCode
+                    value="https://animeishi.uomi.dev/m/minato"
+                    size={40}
+                  />
                 </View>
                 <View className="flex-1">
                   <Text className="font-bold text-slate-900 dark:text-white">
@@ -165,7 +176,7 @@ export default function LandingPage() {
               number="02"
               title={t("推しのTier表を、SNSでシェア")}
               description={t(
-                "架空の作品を並べて、自分だけのランキングに。友だちの好みも気になってくる。",
+                "好きな作品を並べて、自分だけのランキングに。友だちの好みも気になってくる。",
               )}
             >
               <View className="gap-2">
@@ -245,9 +256,17 @@ export default function LandingPage() {
             className="mt-8 self-center rounded-full bg-white px-8 py-4"
             testID="landing-sign-up-bottom"
           >
-            <Text className="font-extrabold text-indigo-700">
-              {t("無料で始める")}　→
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="font-extrabold text-indigo-700">
+                {t("無料で始める")}
+              </Text>
+              <Text
+                className="font-extrabold text-indigo-700"
+                accessibilityElementsHidden
+              >
+                →
+              </Text>
+            </View>
           </Link>
           <Text className="mt-4 text-center text-sm text-indigo-100">
             {t("すでにアカウントをお持ちの方は ")}
