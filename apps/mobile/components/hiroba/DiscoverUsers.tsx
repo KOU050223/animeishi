@@ -59,9 +59,13 @@ export function DiscoverUsers() {
       { id: item.id, like: !item.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   }
@@ -82,13 +86,13 @@ export function DiscoverUsers() {
       <SegmentedControl
         items={[
           {
-            label: "いいね順",
+            label: t("いいね順"),
             active: sort === "likes",
             onPress: () => setSort("likes"),
             testID: "hiroba-user-sort-likes",
           },
           {
-            label: "新着順",
+            label: t("新着順"),
             active: sort === "new",
             onPress: () => setSort("new"),
             testID: "hiroba-user-sort-new",
@@ -111,7 +115,7 @@ export function DiscoverUsers() {
             accessibilityLabel={t("再読み込み")}
             testID="hiroba-user-retry"
           >
-            <Text className="font-semibold text-white">再読み込み</Text>
+            <Text className="font-semibold text-white">{t("再読み込み")}</Text>
           </TouchableOpacity>
         </View>
       ) : (

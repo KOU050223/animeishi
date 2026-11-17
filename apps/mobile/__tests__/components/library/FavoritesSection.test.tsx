@@ -98,7 +98,7 @@ describe("FavoritesSection", () => {
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
         "お気に入りを解除できませんでした",
-        "お気に入りの削除に失敗しました",
+        "お気に入りの解除に失敗しました",
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );

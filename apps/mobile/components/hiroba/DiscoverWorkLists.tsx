@@ -61,9 +61,13 @@ export function DiscoverWorkLists() {
       { id: item.id, like: !item.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   }
@@ -85,13 +89,13 @@ export function DiscoverWorkLists() {
       <SegmentedControl
         items={[
           {
-            label: "いいね順",
+            label: t("いいね順"),
             active: sort === "likes",
             onPress: () => setSort("likes"),
             testID: "hiroba-discover-sort-likes",
           },
           {
-            label: "新着順",
+            label: t("新着順"),
             active: sort === "new",
             onPress: () => setSort("new"),
             testID: "hiroba-discover-sort-new",
@@ -114,7 +118,7 @@ export function DiscoverWorkLists() {
             accessibilityLabel={t("再読み込み")}
             testID="hiroba-discover-retry"
           >
-            <Text className="font-semibold text-white">再読み込み</Text>
+            <Text className="font-semibold text-white">{t("再読み込み")}</Text>
           </TouchableOpacity>
         </View>
       ) : (

@@ -62,9 +62,13 @@ export function DiscoverTierLists() {
       { kind: item.kind, id: item.id, like: !item.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   }
@@ -87,13 +91,13 @@ export function DiscoverTierLists() {
       <SegmentedControl
         items={[
           {
-            label: "いいね順",
+            label: t("いいね順"),
             active: sort === "likes",
             onPress: () => setSort("likes"),
             testID: "hiroba-tier-sort-likes",
           },
           {
-            label: "新着順",
+            label: t("新着順"),
             active: sort === "new",
             onPress: () => setSort("new"),
             testID: "hiroba-tier-sort-new",
@@ -116,7 +120,7 @@ export function DiscoverTierLists() {
             accessibilityLabel={t("再読み込み")}
             testID="hiroba-tier-retry"
           >
-            <Text className="font-semibold text-white">再読み込み</Text>
+            <Text className="font-semibold text-white">{t("再読み込み")}</Text>
           </TouchableOpacity>
         </View>
       ) : (

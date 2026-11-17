@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { useTranslation } from "react-i18next";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import {
@@ -19,6 +20,7 @@ const COPIED_LABEL_MS = 2000;
  * 画面にはこのコンポーネントを置くだけにする。
  */
 export function WatchHistoryShareSection() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { data, isLoading } = useWatchHistoryShareStatus();
   const share = useShareWatchHistory();
@@ -43,7 +45,7 @@ export function WatchHistoryShareSection() {
     try {
       await share.mutateAsync();
     } catch {
-      alert("作成できませんでした", "時間をおいて再度お試しください。", {
+      alert(t("作成できませんでした"), t("時間をおいて再度お試しください。"), {
         okLabel: "OK",
       });
     }
@@ -60,24 +62,36 @@ export function WatchHistoryShareSection() {
         COPIED_LABEL_MS,
       );
     } catch {
-      alert("コピーできませんでした", "URL を長押しして選択してください。", {
-        okLabel: "OK",
-      });
+      alert(
+        t("コピーできませんでした"),
+        t("URL を長押しして選択してください。"),
+        {
+          okLabel: "OK",
+        },
+      );
     }
   }
 
   function onRevoke() {
     confirm(
-      "共有を解除",
-      "この URL では視聴履歴を読めなくなります。解除しますか？",
+      t("共有を解除"),
+      t("この URL では視聴履歴を読めなくなります。解除しますか？"),
       () => {
         void unshare.mutateAsync().catch(() =>
-          alert("解除できませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("解除できませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
         );
       },
-      { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("解除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
   }
 
@@ -91,21 +105,21 @@ export function WatchHistoryShareSection() {
           onPress={onCreate}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="AI に渡す URL を作る"
+          accessibilityLabel={t("AI に渡す URL を作る")}
           testID="watch-history-share-create"
         >
           {busy ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
-              AI に渡す URL を作る
+              {t("AI に渡す URL を作る")}
             </Text>
           )}
         </TouchableOpacity>
       ) : (
         <View className="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
           <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">
-            AI に渡す URL（知っている人は誰でも履歴を読めます）
+            {t("AI に渡す URL（知っている人は誰でも履歴を読めます）")}
           </Text>
           <Text
             className="text-xs text-slate-900 dark:text-slate-100 mb-2"
@@ -119,11 +133,11 @@ export function WatchHistoryShareSection() {
               className="flex-1 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg py-1.5 items-center"
               onPress={onCopy}
               accessibilityRole="button"
-              accessibilityLabel="共有 URL をコピー"
+              accessibilityLabel={t("共有 URL をコピー")}
               testID="watch-history-share-copy"
             >
               <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
-                {copied ? "コピーしました" : "コピー"}
+                {copied ? t("コピーしました") : t("コピー")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -131,11 +145,11 @@ export function WatchHistoryShareSection() {
               onPress={onRevoke}
               disabled={busy}
               accessibilityRole="button"
-              accessibilityLabel="共有 URL を解除"
+              accessibilityLabel={t("共有 URL を解除")}
               testID="watch-history-share-revoke"
             >
               <Text className="text-xs text-red-500 dark:text-red-400">
-                解除
+                {t("解除")}
               </Text>
             </TouchableOpacity>
           </View>
