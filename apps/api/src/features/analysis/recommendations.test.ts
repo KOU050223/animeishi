@@ -261,9 +261,33 @@ describe("AI おすすめ生成 API", () => {
       expect(res.status).toBe(200);
       const [, aiInputs] = aiRun.mock.calls[0] as unknown as [
         string,
-        { max_tokens: number },
+        {
+          max_tokens: number;
+          response_format: {
+            type: string;
+            json_schema: {
+              name: string;
+              strict: boolean;
+              schema: { properties: Record<string, unknown> };
+            };
+          };
+          chat_template_kwargs: { enable_thinking: boolean };
+        },
       ];
-      expect(aiInputs.max_tokens).toBe(8192);
+      expect(aiInputs.max_tokens).toBe(2048);
+      expect(aiInputs.chat_template_kwargs.enable_thinking).toBe(false);
+      expect(aiInputs.response_format).toMatchObject({
+        type: "json_schema",
+        json_schema: {
+          name: "recommendations",
+          strict: true,
+          schema: {
+            properties: expect.objectContaining({
+              recommendations: expect.objectContaining({ type: "array" }),
+            }),
+          },
+        },
+      });
       const body = (await res.json()) as {
         recommendations: {
           works: {

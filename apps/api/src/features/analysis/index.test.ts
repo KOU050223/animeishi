@@ -251,10 +251,37 @@ describe("視聴傾向分析 API", () => {
       expect(aiRun).toHaveBeenCalledTimes(1);
       const [model, inputs] = aiRun.mock.calls[0] as unknown as [
         string,
-        { messages: { role: string; content: string }[]; max_tokens: number },
+        {
+          messages: { role: string; content: string }[];
+          max_tokens: number;
+          response_format: {
+            type: string;
+            json_schema: {
+              name: string;
+              strict: boolean;
+              schema: { properties: Record<string, unknown> };
+            };
+          };
+          chat_template_kwargs: { enable_thinking: boolean };
+        },
       ];
       expect(model).toBe(ANALYSIS_MODEL);
       expect(inputs.max_tokens).toBe(2048);
+      expect(inputs.chat_template_kwargs.enable_thinking).toBe(false);
+      expect(inputs.response_format).toMatchObject({
+        type: "json_schema",
+        json_schema: {
+          name: "analysis",
+          strict: true,
+          schema: {
+            properties: expect.objectContaining({
+              summary: { type: "string" },
+              recommendedGenres: { type: "array", items: { type: "string" } },
+              insights: expect.objectContaining({ type: "object" }),
+            }),
+          },
+        },
+      });
       const promptText = inputs.messages.map((m) => m.content).join("\n");
       expect(promptText).toContain("テスト作品101");
       expect(promptText).toContain("テスト作品102");

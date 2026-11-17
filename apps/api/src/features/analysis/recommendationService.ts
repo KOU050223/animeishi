@@ -30,9 +30,8 @@ const MAX_CANDIDATES = 15;
 // 保存・応答に載せるおすすめの上限。
 export const MAX_RECOMMENDATIONS = 10;
 
-// Gemma 4 はおすすめ生成時に推論トークンも出力上限を消費し、2048 では
-// JSON 本文が空のまま finish_reason=length になるため余裕を持たせる（実測）。
-const RECOMMENDATION_MAX_TOKENS = 8192;
+// thinking を有効のまま上限を増やすより、推論を無効化して候補 JSON に枠を使う（実推論で確認）。
+const RECOMMENDATION_MAX_TOKENS = 2048;
 
 // おすすめ理由の上限（生成モデルが長文化したときの切り詰め）。
 const MAX_REASON_CHARS = 120;
@@ -253,8 +252,14 @@ export async function runRecommendationCandidates(
       ],
       response_format: {
         type: "json_schema",
-        json_schema: RESPONSE_JSON_SCHEMA,
+        json_schema: {
+          name: "recommendations",
+          schema: RESPONSE_JSON_SCHEMA,
+          strict: true,
+        },
       },
+      // Gemma 4 は thinking 有効だと reasoning が本文の出力枠を消費するため false に固定する（実測）。
+      chat_template_kwargs: { enable_thinking: false },
       max_tokens: RECOMMENDATION_MAX_TOKENS,
       temperature: 0.7,
     });

@@ -13,7 +13,7 @@ import type { AnalysisSection, AnalysisSectionDraft } from "./report";
 // /no_think は Qwen 専用の指示のため付けない。
 export const ANALYSIS_MODEL = "@cf/google/gemma-4-26b-a4b-it" as const;
 
-// 応答の最大トークン数。推論・長い要約が打ち切られないよう余裕を持たせる。
+// thinking を残して上限を増やすより、推論を無効化して JSON 本文に枠を使う（50 作品の実推論で確認）。
 const ANALYSIS_MAX_TOKENS = 2048;
 
 // プロンプトに載せる履歴の上限。超過分は更新日時の新しい順に絞る
@@ -397,8 +397,14 @@ export async function runAnalysis(
       ],
       response_format: {
         type: "json_schema",
-        json_schema: responseJsonSchema(drafts.map((d) => d.key)),
+        json_schema: {
+          name: "analysis",
+          schema: responseJsonSchema(drafts.map((d) => d.key)),
+          strict: true,
+        },
       },
+      // Gemma 4 は thinking 有効だと reasoning が本文の出力枠を消費するため false に固定する（実測）。
+      chat_template_kwargs: { enable_thinking: false },
       max_tokens: ANALYSIS_MAX_TOKENS,
       temperature: 0.7,
     });
