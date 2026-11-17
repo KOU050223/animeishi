@@ -9,6 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { alert } from "@/lib/dialog";
@@ -29,6 +30,7 @@ import { DiscoverReportSheet } from "./DiscoverReportSheet";
 // 「いいね順 / 新着順」の切り替え・いいね・通報ができる。
 // 構造は作品リストフィード（DiscoverWorkLists, issue #422）と同じ。
 export function DiscoverTierLists() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const { userId } = useAuth();
@@ -111,7 +113,7 @@ export function DiscoverTierLists() {
             className="rounded-lg bg-indigo-600 px-6 py-3"
             onPress={() => void list.refetch()}
             accessibilityRole="button"
-            accessibilityLabel="再読み込み"
+            accessibilityLabel={t("再読み込み")}
             testID="hiroba-tier-retry"
           >
             <Text className="font-semibold text-white">再読み込み</Text>
@@ -163,7 +165,7 @@ export function DiscoverTierLists() {
       <DiscoverReportSheet
         visible={reportTarget !== null}
         pending={reportFlow.isPending}
-        title="この Tier 表を通報"
+        title={t("この Tier 表を通報")}
         testIdPrefix="tier-list-report"
         onSelect={onSelectReason}
         onClose={() => setReportTarget(null)}
@@ -187,6 +189,7 @@ function PublicTierListCard({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <View
@@ -268,12 +271,12 @@ function PublicTierListCard({
             className="flex-row items-center gap-1 rounded-md px-1.5 py-1"
             onPress={onPressReport}
             accessibilityRole="button"
-            accessibilityLabel={`「${item.title}」を通報`}
+            accessibilityLabel={t("「{{name}}」を通報", { name: item.title })}
             testID={`tier-list-report-${item.kind}-${item.id}`}
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
             <Text className="text-xs text-slate-500 dark:text-slate-400">
-              通報
+              {t("通報")}
             </Text>
           </TouchableOpacity>
         ) : null}

@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -28,6 +29,7 @@ import { DiscoverReportSheet } from "./DiscoverReportSheet";
 // 一覧し、「いいね順 / 新着順」の切り替え・いいね・通報ができる。
 // 構造は作品リストフィード（DiscoverWorkLists, issue #422）と同じ。
 export function DiscoverUsers() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const { userId } = useAuth();
@@ -106,7 +108,7 @@ export function DiscoverUsers() {
             className="rounded-lg bg-indigo-600 px-6 py-3"
             onPress={() => void list.refetch()}
             accessibilityRole="button"
-            accessibilityLabel="再読み込み"
+            accessibilityLabel={t("再読み込み")}
             testID="hiroba-user-retry"
           >
             <Text className="font-semibold text-white">再読み込み</Text>
@@ -157,7 +159,7 @@ export function DiscoverUsers() {
       <DiscoverReportSheet
         visible={reportTarget !== null}
         pending={reportFlow.isPending}
-        title="このユーザーを通報"
+        title={t("このユーザーを通報")}
         testIdPrefix="discover-user-report"
         onSelect={onSelectReason}
         onClose={() => setReportTarget(null)}
@@ -181,6 +183,7 @@ function PublicUserCard({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <View
@@ -274,12 +277,14 @@ function PublicUserCard({
             className="flex-row items-center gap-1 rounded-md px-1.5 py-1"
             onPress={onPressReport}
             accessibilityRole="button"
-            accessibilityLabel={`「${item.username}」を通報`}
+            accessibilityLabel={t("「{{name}}」を通報", {
+              name: item.username,
+            })}
             testID={`public-user-report-${item.id}`}
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
             <Text className="text-xs text-slate-500 dark:text-slate-400">
-              通報
+              {t("通報")}
             </Text>
           </TouchableOpacity>
         ) : null}
