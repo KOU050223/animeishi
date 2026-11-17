@@ -1788,7 +1788,6 @@ function mockWorkDetail(
                               annictId: 501,
                               name: "山田 監督",
                               roleText: "監督",
-                              roleOther: "",
                               sortNumber: 10,
                               resource: {
                                 __typename: "Person",
@@ -1799,7 +1798,6 @@ function mockWorkDetail(
                               annictId: 502,
                               name: "テスト制作",
                               roleText: "アニメーション制作",
-                              roleOther: "",
                               sortNumber: 20,
                               resource: {
                                 __typename: "Organization",
@@ -1810,13 +1808,21 @@ function mockWorkDetail(
                               annictId: 503,
                               name: "佐藤 演出",
                               roleText: "その他",
-                              roleOther: "演出",
                               sortNumber: 30,
                               resource: {
                                 __typename: "Person",
                                 annictId: 103,
                               },
                             },
+                          ]
+                        : [],
+                    },
+                    staffRoleOthers: {
+                      nodes: options.withCredits
+                        ? [
+                            { annictId: 501, roleOther: "" },
+                            { annictId: 502, roleOther: "" },
+                            { annictId: 503, roleOther: "演出" },
                           ]
                         : [],
                     },

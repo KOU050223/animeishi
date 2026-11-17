@@ -22,6 +22,7 @@ import {
   expandSeasonQuery,
   fetchAnnictEpisodeByAnnictId,
   fetchAnnictViewerRecords,
+  fetchAnnictWorkDetail,
   fetchAnnictWorkEpisodes,
   searchAnnictWorksByTitles,
 } from "@/lib/annict/client";
@@ -1355,5 +1356,116 @@ describe("isPersistableState", () => {
 
   it("ANNICT_ALL_STATUS_STATES は NO_STATE を含む", () => {
     expect(ANNICT_ALL_STATUS_STATES).toContain("NO_STATE");
+  });
+});
+
+describe("fetchAnnictWorkDetail のスタッフ役職", () => {
+  const ROLE_OTHER_NULL = {
+    message: "Cannot return null for non-nullable field Staff.roleOther",
+  };
+
+  function workDetailBody(errors?: { message: string }[]) {
+    return {
+      data: {
+        searchWorks: {
+          nodes: [
+            {
+              id: "node-8632",
+              annictId: 8632,
+              malAnimeId: null,
+              title: "幼女戦記Ⅱ",
+              titleKana: null,
+              titleEn: null,
+              titleRo: null,
+              seasonName: null,
+              seasonYear: null,
+              media: "TV",
+              episodesCount: 12,
+              noEpisodes: false,
+              watchersCount: 1,
+              reviewsCount: 0,
+              satisfactionRate: null,
+              officialSiteUrl: null,
+              officialSiteUrlEn: null,
+              wikipediaUrl: null,
+              wikipediaUrlEn: null,
+              twitterUsername: null,
+              twitterHashtag: null,
+              image: null,
+              staffs: {
+                nodes: [
+                  {
+                    annictId: 1,
+                    name: "監督の人",
+                    roleText: "監督",
+                    sortNumber: 1,
+                    resource: { __typename: "Person", annictId: 11 },
+                  },
+                  {
+                    annictId: 2,
+                    name: "その他の人",
+                    roleText: "その他",
+                    sortNumber: 2,
+                    resource: { __typename: "Person", annictId: 12 },
+                  },
+                ],
+              },
+              // roleOther が null の行は Annict がエラーと一緒に null で返す
+              staffRoleOthers: {
+                nodes: [
+                  null,
+                  { annictId: 2, roleOther: "サブキャラクターデザイン" },
+                ],
+              },
+              casts: { nodes: [] },
+            },
+          ],
+        },
+      },
+      ...(errors ? { errors } : {}),
+    };
+  }
+
+  it("roleOther が null のスタッフがいても、作品詳細とスタッフ一覧を返す", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(workDetailBody([ROLE_OTHER_NULL])),
+    ) as unknown as typeof fetch;
+
+    const detail = await fetchAnnictWorkDetail("token", 8632, fetchImpl);
+
+    expect(detail?.title).toBe("幼女戦記Ⅱ");
+    expect(detail?.staffs.map((s) => [s.name, s.role])).toEqual([
+      ["監督の人", "監督"],
+      ["その他の人", "サブキャラクターデザイン"],
+    ]);
+  });
+
+  it("roleOther 以外のエラーは従来どおり例外にする", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(
+        workDetailBody([ROLE_OTHER_NULL, { message: "Something else" }]),
+      ),
+    ) as unknown as typeof fetch;
+
+    await expect(
+      fetchAnnictWorkDetail("token", 8632, fetchImpl),
+    ).rejects.toBeInstanceOf(AnnictApiError);
+  });
+
+  it("一覧の staffs には roleOther を問い合わせない", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(workDetailBody()),
+    ) as unknown as typeof fetch;
+
+    await fetchAnnictWorkDetail("token", 8632, fetchImpl);
+
+    const body = JSON.parse(
+      (vi.mocked(fetchImpl).mock.calls[0]![1] as RequestInit).body as string,
+    ) as { query: string };
+    const staffsBlock = body.query.match(
+      /\n\s*staffs\(.*?\)\s*\{([\s\S]*?)\n\s*staffRoleOthers/,
+    )?.[1];
+    expect(staffsBlock).toBeDefined();
+    expect(staffsBlock).not.toContain("roleOther");
   });
 });
