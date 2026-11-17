@@ -81,8 +81,8 @@ type MatchTiming = {
   stats?: DanimeMatchStats;
 };
 
-function formatSec(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}秒`;
+function formatSec(ms: number, t: TFunction): string {
+  return t("{{seconds}}秒", { seconds: (ms / 1000).toFixed(1) });
 }
 
 // active の間だけ経過秒数を 0.5 秒刻みで返す（照合中・登録中の表示用）。
@@ -170,6 +170,7 @@ function noteText(note: RowNote, t: TFunction): string {
 }
 
 export default function DanimeImportReviewScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const lists = useDanimeImportStore((s) => s.lists);
@@ -395,20 +396,30 @@ export default function DanimeImportReviewScreen() {
   const timingSummary = (() => {
     const parts: string[] = [];
     if (lists?.extractElapsedMs != null) {
-      parts.push(`抽出 ${formatSec(lists.extractElapsedMs)}`);
+      parts.push(
+        t("抽出: {{duration}}", {
+          duration: formatSec(lists.extractElapsedMs, t),
+        }),
+      );
     }
     if (matchTiming) {
       const s = matchTiming.stats;
       const searches = s ? s.firstPassSearches + s.secondPassSearches : 0;
       parts.push(
-        `照合 ${formatSec(matchTiming.elapsedMs)}` +
+        t("照合: {{duration}}", {
+          duration: formatSec(matchTiming.elapsedMs, t),
+        }) +
           (s
-            ? `（Annict 検索 ${searches} 回${s.retries > 0 ? `・リトライ ${s.retries} 回` : ""}）`
+            ? `（${t("Annict 検索 {{count}} 回", { count: searches })}${s.retries > 0 ? `・${t("リトライ {{count}} 回", { count: s.retries })}` : ""}）`
             : ""),
       );
     }
     if (doneResult) {
-      parts.push(`登録 ${formatSec(doneResult.elapsedMs)}`);
+      parts.push(
+        t("登録: {{duration}}", {
+          duration: formatSec(doneResult.elapsedMs, t),
+        }),
+      );
     }
     return parts.join(" / ");
   })();
@@ -418,10 +429,13 @@ export default function DanimeImportReviewScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <Text className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          登録結果
+          {t("登録結果")}
         </Text>
         <Text className="text-sm text-slate-600 dark:text-slate-300 mt-3 text-center">
-          成功: {doneResult.succeeded} 件 / 失敗・未処理: {doneResult.failed} 件
+          {t("成功: {{succeeded}} 件 / 失敗・未処理: {{failed}} 件", {
+            succeeded: doneResult.succeeded,
+            failed: doneResult.failed,
+          })}
         </Text>
         {timingSummary !== "" && (
           <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
@@ -430,8 +444,9 @@ export default function DanimeImportReviewScreen() {
         )}
         {doneResult.aborted && (
           <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
-            Annict
-            連携が切れたため途中で中断されました。連携を確認して再度お試しください。
+            {t(
+              "Annict 連携が切れたため途中で中断されました。連携を確認して再度お試しください。",
+            )}
           </Text>
         )}
         {doneResult.requestError && (
@@ -443,9 +458,11 @@ export default function DanimeImportReviewScreen() {
           className="mt-6 bg-indigo-600 rounded-xl px-8 py-3"
           onPress={close}
           accessibilityRole="button"
-          accessibilityLabel="視聴履歴へ戻る"
+          accessibilityLabel={t("視聴履歴へ戻る")}
         >
-          <Text className="text-white font-semibold">視聴履歴へ戻る</Text>
+          <Text className="text-white font-semibold">
+            {t("視聴履歴へ戻る")}
+          </Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -457,10 +474,13 @@ export default function DanimeImportReviewScreen() {
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-sm text-slate-500 dark:text-slate-400 mt-4">
-          Annict の作品と照合しています…
+          {t("Annict の作品と照合しています…")}
         </Text>
         <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
-          {workCount} 件 / {matchElapsedSec} 秒経過
+          {t("{{count}} 件 / {{seconds}} 秒経過", {
+            count: workCount,
+            seconds: matchElapsedSec,
+          })}
         </Text>
       </SafeAreaView>
     );
@@ -479,7 +499,7 @@ export default function DanimeImportReviewScreen() {
         <BackButton
           className="ml-2 self-start"
           onPress={() => router.back()}
-          accessibilityLabel="戻る"
+          accessibilityLabel={t("戻る")}
         />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-sm text-red-500 dark:text-red-400 text-center">
@@ -489,9 +509,9 @@ export default function DanimeImportReviewScreen() {
             className="mt-4 bg-indigo-600 rounded-xl px-8 py-3"
             onPress={retryMatch}
             accessibilityRole="button"
-            accessibilityLabel="再試行"
+            accessibilityLabel={t("再試行")}
           >
-            <Text className="text-white font-semibold">再試行</Text>
+            <Text className="text-white font-semibold">{t("再試行")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -508,13 +528,16 @@ export default function DanimeImportReviewScreen() {
         <BackButton
           className="-ml-2 self-start"
           onPress={() => router.back()}
-          accessibilityLabel="戻る"
+          accessibilityLabel={t("戻る")}
         />
         <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-          インポート内容の確認
+          {t("インポート内容の確認")}
         </Text>
         <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {rows.length} 件中 {checkedCount} 件を登録します
+          {t("{{total}} 件中 {{selected}} 件を登録します", {
+            selected: checkedCount,
+            total: rows.length,
+          })}
         </Text>
         {timingSummary !== "" && (
           <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
@@ -533,8 +556,11 @@ export default function DanimeImportReviewScreen() {
       <View className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
         {progress !== null && (
           <Text className="text-xs text-slate-500 dark:text-slate-400 text-center mb-2">
-            登録中… {progress.done} / {progress.total}（{registerElapsedSec}{" "}
-            秒経過）
+            {t("登録中… {{done}} / {{total}}（{{seconds}} 秒経過）", {
+              done: progress.done,
+              total: progress.total,
+              seconds: registerElapsedSec,
+            })}
           </Text>
         )}
         {bulk.isError && (
@@ -551,14 +577,14 @@ export default function DanimeImportReviewScreen() {
           onPress={register}
           disabled={checkedCount === 0 || bulk.isPending}
           accessibilityRole="button"
-          accessibilityLabel="Annict に登録"
+          accessibilityLabel={t("Annict に登録")}
           testID="danime-register-button"
         >
           {bulk.isPending ? (
             <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text className="text-white font-semibold">
-              {checkedCount} 件を Annict に登録
+              {t("{{count}} 件を Annict に登録", { count: checkedCount })}
             </Text>
           )}
         </TouchableOpacity>
@@ -582,9 +608,10 @@ function ReviewRow({
   onToggle: (index: number) => void;
   onSelectCandidate: (index: number, work: DanimeAnnictWork) => void;
 }) {
+  const { t } = useTranslation();
   const { item, selected, checked, locked, note } = row;
   const colors = useThemeColors();
-  const stateLabel = item.targetState === "WATCHED" ? "視聴済" : "視聴中";
+  const stateLabel = t(item.targetState === "WATCHED" ? "視聴済" : "視聴中");
   const stateColor =
     item.targetState === "WATCHED" ? colors.success : colors.primaryText;
 
@@ -604,7 +631,9 @@ function ReviewRow({
             checked: checked && !!selected,
             disabled: !selected || locked,
           }}
-          accessibilityLabel={`${item.title} を登録対象にする`}
+          accessibilityLabel={t("{{title}} を登録対象にする", {
+            title: item.title,
+          })}
         >
           {checked && selected !== null && (
             <Ionicons name="checkmark" size={14} color="#ffffff" />
@@ -666,21 +695,21 @@ function RowBadges({
         className="text-xs px-2 py-0.5 rounded-full font-medium"
         style={{ color: targetColor, backgroundColor: `${targetColor}20` }}
       >
-        {targetLabel}に登録
+        {t("{{status}}に登録", { status: targetLabel })}
       </Text>
       {status === "exact" && selected !== null && (
         <Text className="text-xs text-green-600 dark:text-green-400">
-          自動マッチ
+          {t("自動マッチ")}
         </Text>
       )}
       {status === "none" && (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          Annict に一致する作品が見つかりません（スキップ）
+          {t("Annict に一致する作品が見つかりません（スキップ）")}
         </Text>
       )}
       {status === "pending" && (
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          照合を完了できませんでした（スキップ）
+          {t("照合を完了できませんでした（スキップ）")}
         </Text>
       )}
       {note !== null && (
@@ -699,10 +728,8 @@ function SelectedWork({
   work: DanimeAnnictWork;
   currentState: string | undefined;
 }) {
-  const stateLabel = currentState
-    ? (WATCH_STATUS_LABELS[currentState as keyof typeof WATCH_STATUS_LABELS] ??
-      currentState)
-    : null;
+  const { t } = useTranslation();
+  const stateLabel = currentState ? statusLabel(currentState, t) : null;
 
   return (
     <View className="flex-row items-center gap-2 mt-2">
@@ -723,7 +750,7 @@ function SelectedWork({
         </Text>
         {stateLabel !== null && (
           <Text className="text-[10px] text-slate-400 dark:text-slate-500">
-            現在: {stateLabel}
+            {t("現在: {{status}}", { status: stateLabel })}
           </Text>
         )}
       </View>
@@ -742,6 +769,7 @@ function CandidatePicker({
   rowIndex: number;
   onSelect: (index: number, work: DanimeAnnictWork) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-2 ml-9 gap-1">
       {candidates.map((c) => {
@@ -756,7 +784,7 @@ function CandidatePicker({
                 : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800"
             }`}
             accessibilityRole="button"
-            accessibilityLabel={`候補: ${c.title}`}
+            accessibilityLabel={t("候補: {{title}}", { title: c.title })}
           >
             <WorkThumbnail
               uri={c.imageUrl}
@@ -769,11 +797,11 @@ function CandidatePicker({
               numberOfLines={2}
             >
               {c.title}
-              {c.seasonYear ? `（${c.seasonYear}年）` : ""}
+              {c.seasonYear ? ` (${c.seasonYear})` : ""}
             </Text>
             {isSelected && (
               <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-bold">
-                選択中
+                {t("選択中")}
               </Text>
             )}
           </TouchableOpacity>
