@@ -612,6 +612,8 @@
   "今期視聴中": "Watching this season",
   "視聴履歴を取得できませんでした": "Couldn't load your watch history.",
   "視聴履歴を再取得": "Reload watch history",
+  "お気に入りを再取得": "Reload favorites",
+  "解除できませんでした": "Couldn't revoke the link.",
   "今期視聴中の作品はありません": "You're not watching any shows this season.",
   "{{title}}をdアニメストアで検索": "Search d Anime Store for {{title}}",
   "tier 名を編集": "Edit tier name",

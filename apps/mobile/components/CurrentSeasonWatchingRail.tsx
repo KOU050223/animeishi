@@ -59,10 +59,8 @@ export function CurrentSeasonWatchingRail() {
       ) : !isConnected ? (
         // 閉じるボタンを付けない: 連携すれば自然に消えるため（#424 の決定）
         <CurrentSeasonConnectCard
-          description={t(
-            "Annict と連携すると、ここに今期視聴中の作品が並びます",
-          )}
-          connectLabel={t("Annict と連携する")}
+          description="Annict と連携すると、ここに今期視聴中の作品が並びます"
+          connectLabel="Annict と連携する"
           surface="home_current_season"
         />
       ) : isLoading ? (
