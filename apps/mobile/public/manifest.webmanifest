@@ -1,7 +1,7 @@
 {
-  "name": "Animeishi",
-  "short_name": "Animeishi",
-  "description": "アニメの視聴記録がそのまま名刺に。QRコードで名刺を交換して、アニメ好きとつながろう。",
+  "name": "アニ名刺",
+  "short_name": "アニ名刺",
+  "description": "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。",
   "lang": "ja",
   "dir": "ltr",
   "start_url": "/",

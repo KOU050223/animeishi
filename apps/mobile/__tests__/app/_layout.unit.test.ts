@@ -29,6 +29,29 @@ describe("root router layout", () => {
     expect(source).toContain('segments[0] === "terms"');
   });
 
+  test("makes only the web root public for the landing page", () => {
+    const source = fs.readFileSync(
+      path.join(rootDir, "app/_layout.tsx"),
+      "utf8",
+    );
+    const webLanding = fs.readFileSync(
+      path.join(rootDir, "app/index.web.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain('segments[0] === "index"');
+    expect(webLanding).toContain(
+      'if (isSignedIn) return <Redirect href="/(tabs)/(home)" />',
+    );
+    const nativeLandingFallback = fs.readFileSync(
+      path.join(rootDir, "app/index.tsx"),
+      "utf8",
+    );
+    expect(nativeLandingFallback).toContain(
+      '<Redirect href="/(tabs)/(home)" />',
+    );
+  });
+
   test("declares the public support route", () => {
     const source = fs.readFileSync(
       path.join(rootDir, "app/_layout.tsx"),

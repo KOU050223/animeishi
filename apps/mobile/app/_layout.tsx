@@ -70,6 +70,8 @@ function AuthGuard() {
     // incoming-share: 共有受信の中継画面。遷移先の user/[uid] が公開のため、
     // 未ログインでも共有フローを通せるようガード対象外にする。
     const inPublicGroup =
+      // Web のトップ LP。index.web.tsx だけが存在し、他のルートは従来どおり認証する。
+      segments[0] === "index" ||
       segments[0] === "user" ||
       segments[0] === "annict" ||
       segments[0] === "privacy" ||
