@@ -263,9 +263,9 @@ export default function ProfileScreen() {
                 詳細・解除は下の従来の連携カードに残す。 */}
             <View className="mb-4 px-4 pt-2">
               <AnnictConnectionStatusRow
-                connectedLabel={t("Annict と連携済み")}
-                unconnectedLabel={t("Annict と連携していません")}
-                connectLabel={t("連携する")}
+                connectedLabel="Annict と連携済み"
+                unconnectedLabel="Annict と連携していません"
+                connectLabel="連携する"
                 surface="profile_header"
                 onShowDetails={scrollToAnnictCard}
               />

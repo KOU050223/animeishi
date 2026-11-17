@@ -511,6 +511,7 @@ function ProfileHeader({
 
 // bio・名言・ジャンルのプロフィール詳細部。
 function ProfileDetails({ profile }: { profile: PublicProfile }) {
+  const { t } = useTranslation();
   return (
     <>
       {profile.bio ? (
