@@ -28,6 +28,22 @@ function item(
   };
 }
 
+function itemWithImage(
+  id: number,
+  title: string,
+): FriendWatchStory["items"][number] {
+  const base = item(id, title);
+  return {
+    ...base,
+    work: {
+      annictWorkId: id,
+      title,
+      titleEn: null,
+      hostedImageUrl: "https://example.com/poster.jpg",
+    },
+  };
+}
+
 describe("FriendStoryViewer", () => {
   it("最初のスライドとして作品名と視聴状態を表示する", async () => {
     await render(
@@ -81,6 +97,20 @@ describe("FriendStoryViewer", () => {
 
     await fireEvent.press(screen.getByTestId("story-close"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ポスター画像は cover で切り抜かず contain で全体を表示する", async () => {
+    await render(
+      <FriendStoryViewer
+        friend={friend([itemWithImage(1, "作品A")])}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("story-work-image")).toHaveProp(
+      "resizeMode",
+      "contain",
+    );
   });
 
   it("先頭のスライドで前へを押しても先頭のままになる", async () => {

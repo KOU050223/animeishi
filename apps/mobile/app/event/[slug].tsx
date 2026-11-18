@@ -231,8 +231,9 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
   );
 }
 
-// 「参加する」の表明ボタン（issue #411）。表明は本人にしか見えない。
-// 表明済みならラベルと取り消し導線に変わる。
+// 「参加する」の表明ボタン（issue #411）。表明の公開範囲は既定で
+// private（本人のみ）なので、押しても他人には見えないことを押下前に
+// 断っておく（issue #610）。表明済みならラベルと取り消し導線に変わる。
 function ParticipationButton({
   participating,
   pending,
@@ -269,16 +270,24 @@ function ParticipationButton({
     );
   }
   return (
-    <TouchableOpacity
-      onPress={onParticipate}
-      disabled={pending}
-      className="mt-4 items-center rounded-lg bg-indigo-600 py-3 dark:bg-indigo-500"
-      accessibilityRole="button"
-      accessibilityLabel={t("このイベントに参加する")}
-      testID="event-participate"
-    >
-      <Text className="font-semibold text-white">{t("参加する")}</Text>
-    </TouchableOpacity>
+    <View className="mt-4">
+      <Text
+        className="mb-1.5 text-xs text-slate-400 dark:text-slate-500"
+        testID="event-participate-visibility-note"
+      >
+        {t("参加表明は既定で「非公開」です。公開範囲は参加後に変更できます")}
+      </Text>
+      <TouchableOpacity
+        onPress={onParticipate}
+        disabled={pending}
+        className="items-center rounded-lg bg-indigo-600 py-3 dark:bg-indigo-500"
+        accessibilityRole="button"
+        accessibilityLabel={t("このイベントに参加する")}
+        testID="event-participate"
+      >
+        <Text className="font-semibold text-white">{t("参加する")}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -378,6 +387,9 @@ function ParticipatingFriendsSection({
   return (
     <AttendeeSection
       title={t("参加しているフレンド（{{count}}）", { count: list.total })}
+      description={t(
+        "フレンドのうち、参加を「公開」または「フレンドのみ」にしている人（プロフィール非公開の人は除く）",
+      )}
       list={list}
       emptyText={t("参加表明しているフレンドはまだいません")}
       errorTestID="event-attendees-error"
@@ -417,6 +429,9 @@ function PublicParticipantsSection({
     <AttendeeSection
       className="mt-6"
       title={t("参加者（{{count}}）", { count: list.total })}
+      description={t(
+        "フレンドかどうかに関わらず、参加を「公開」にしている人（プロフィール非公開の人は除く）",
+      )}
       list={list}
       emptyText={t("公開している参加者はまだいません")}
       moreTestID="event-participants-more"
@@ -461,6 +476,7 @@ function useAttendeeList(
 // 「もっと見る」の分岐をまとめ、欄ごとの中身は children で受け取る。
 function AttendeeSection({
   title,
+  description,
   list,
   emptyText,
   errorTestID,
@@ -469,6 +485,9 @@ function AttendeeSection({
   children,
 }: {
   title: string;
+  // 見出しの下に出す欄の説明（issue #610）。2 欄が並ぶと区別が
+  // 付かないため、それぞれ何を出す欄かを見出し付近に添える。
+  description?: string;
   list: ReturnType<typeof useAttendeeList>;
   emptyText: string;
   errorTestID?: string;
@@ -482,6 +501,11 @@ function AttendeeSection({
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
         {title}
       </Text>
+      {description ? (
+        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          {description}
+        </Text>
+      ) : null}
       {list.isError ? (
         <Text
           className="mt-2 text-sm text-slate-400 dark:text-slate-500"
