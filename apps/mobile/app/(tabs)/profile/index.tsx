@@ -18,7 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
 import { GroupedList } from "@/components/ui/grouped-list";
-import { MeishiCard } from "@/components/MeishiCard";
+import { ProfileMeishiPreview } from "@/components/profile/ProfileMeishiPreview";
+import { ProfileMeishiHint } from "@/components/profile/ProfileMeishiHint";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
 import { AnnictConnectionStatusRow } from "@/components/profile/AnnictConnectionStatusRow";
 import { DeleteAccountSection } from "@/components/profile/DeleteAccountSection";
@@ -281,9 +282,7 @@ export default function ProfileScreen() {
               <Text className="mb-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                 {t("名刺プレビュー")}
               </Text>
-              <Text className="mb-2 text-xs text-slate-400 dark:text-slate-500">
-                {t("2本指を広げると拡大できます")}
-              </Text>
+              <ProfileMeishiHint />
               <View
                 style={styles.meishiPreviewFrame}
                 testID="meishi-preview-frame"
@@ -291,14 +290,13 @@ export default function ProfileScreen() {
                   setMeishiPreviewWidth(e.nativeEvent.layout.width)
                 }
               >
-                <MeishiCard
+                <ProfileMeishiPreview
                   username={username || profile?.username || t("ユーザー")}
                   bio={bio}
                   favoriteQuote={favoriteQuote}
                   profileImageUrl={profile?.profileImageUrl}
                   profileUrl={buildProfileUrl(profile?.id)}
                   document={meishiDoc}
-                  zoomable
                 />
                 {/* 「いま見ている」吹き出し（issue #420）。名刺内の
                     アバター画像の上に重ね、タップで作品詳細シートを開く。 */}

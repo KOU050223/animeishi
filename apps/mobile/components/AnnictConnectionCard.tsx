@@ -129,15 +129,22 @@ export function AnnictConnectionCard({
       {isLoading ? (
         <ActivityIndicator color={colors.primaryText} />
       ) : isConnected ? (
-        <TouchableOpacity
-          onPress={onDisconnect}
-          className="items-center rounded-lg border border-red-300 dark:border-red-800 py-3"
-          accessibilityRole="button"
-        >
-          <Text className="font-semibold text-red-600 dark:text-red-400">
-            {t("連携を解除する")}
+        <View>
+          <Text className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            {t(
+              "連携を解除すると、アニ名刺で Annict の視聴履歴を表示できなくなります。Annict 側の記録は削除されません。",
+            )}
           </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onDisconnect}
+            className="items-center rounded-lg border border-red-300 dark:border-red-800 py-3"
+            accessibilityRole="button"
+          >
+            <Text className="font-semibold text-red-600 dark:text-red-400">
+              {t("連携を解除する")}
+            </Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <TouchableOpacity
           onPress={onConnect}
