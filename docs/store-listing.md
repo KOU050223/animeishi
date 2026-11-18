@@ -26,7 +26,7 @@ App Store の年齢レーティング質問票は `store.config.json` の `advis
 
 | 質問 | 回答 | 根拠 |
 | --- | --- | --- |
-| ユーザー生成コンテンツ（UGC） | **あり（Yes）** | ユーザー名・bio・名言・プロフィール画像・名刺が他ユーザーに公開される。通報・ブロック機能は [#135](https://github.com/KOU050223/animeishi/issues/135) で実装中（審査提出までにマージされていることが望ましい）。 |
+| ユーザー生成コンテンツ（UGC） | **あり（Yes）** | ユーザー名・bio・名言・プロフィール画像・名刺が他ユーザーに公開される。通報・ブロックは実装済み（導線は下の Review Notes 参照）。 |
 | メッセージ・チャット | なし | アプリ内にユーザー間メッセージ機能はない。 |
 | 制限なしの Web アクセス | なし | dアニメ取り込みは v1.0 では Web 版限定でネイティブ側の WebView は無効化済み（#158）。アプリ内に任意 URL を自由に閲覧するブラウザ機能はないため `unrestrictedWebAccess: false` とした。 |
 | 暴力（カートゥーン/ファンタジー）・成熟/示唆的・性的コンテンツ・ホラー | INFREQUENT_OR_MILD | Annict 作品カタログに全ジャンルの作品が含まれ、キービジュアル（サムネイル）を表示するため。実コンテンツは作品名・ポスター画像のみ。 |
@@ -97,9 +97,8 @@ docs/03 の ASO 方針に沿い、「得られる体験」を最初の 3 枚に�
 
 ### 必要なサイズ
 
-- App Store（`supportsTablet: true` のため iPad も必須）:
+- App Store: `app.json` の `ios.supportsTablet` は `false` なので iPhone 用のみでよい
   - iPhone 6.9 インチ: 1320×2868（または 6.5 インチ 1284×2778）
-  - iPad 13 インチ: 2064×2752
 - Google Play: 上記のスクリーンショット要件を満たす任意サイズ
 
 ### Web 版で撮る（手軽）
@@ -151,15 +150,50 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 
 ## App Review Notes (English draft)
 
-> Sign-in details for the demo account are provided separately in App Store Connect under App Review Information. The account is pre-populated with a public profile, favorite titles, ratings, a public and a private work list, a tier list, and an existing friend. No password or other secret is included in these notes.
->
-> QR card exchange normally requires a second device. To review the resulting friend experience on one device, sign in with the demo account, open the tab labeled “QR・フレンド,” and select “フレンド.” The seeded friend is already listed there. Tab and section labels are currently shown in Japanese even when the app language is English.
->
-> Connecting an Annict account is optional. To connect it, open the tab labeled “プロフ” and use the “Annict integration” card and its “Connect Annict” button. The app can be explored without connecting Annict; Annict-dependent watch-record features are available only after the user chooses to connect. d Anime Store history import is not available in the iOS app.
->
-> To report a user, open their profile and select “このユーザーを通報”; to block them, select “このユーザーをブロック.” Public content can also be reported from the “ひろば” tab: select “みつける,” choose “作品リスト,” “Tier 表,” or “名刺,” then select “通報” on an item. These tab and action labels are currently shown in Japanese in the app. Blocked users are listed under “プロフ” → “プライバシーと安全” → “ブロック中のユーザー.” Reports are reviewed by the operator. New reports trigger an operations notification; the operator checks report details with `pnpm task reports:list` and records moderation decisions following the production runbook. There is no in-app direct messaging.
->
-> To delete the demo account, open the “プロフ” tab, scroll below “サインアウト,” select “アカウントを削除,” and follow the confirmation steps. This button is currently displayed in Japanese (the English translation resource contains “Delete account”). Account deletion is available in the app without contacting support.
+App Review Information の notes 欄に貼る英語の下書き（上限 4,000 バイト）。画面ラベルは英語 UI での表記に、日本語のまま残っている部分だけ併記する（検証時点: タブ名・操作ボタンは英語化済み。「みつける」セグメントとその中の「作品リスト / Tier 表 / 名刺」チップ、QR セグメント名は日本語のまま）。
+
+```text
+Hello App Review,
+
+1. PURPOSE AND AUDIENCE
+Animeishi is a card-making and card-exchange app for anime fans. Users build a personal card from their anime watch records, exchange it with other fans by scanning a QR code, and create and share season tier lists and work lists.
+
+2. DEMO ACCOUNT AND SIGN-IN
+Permanent credentials are provided in the App Review Information sign-in fields. Enter the provided email address and password on the sign-in screen and tap "Sign in". The demo account signs in directly — no email verification code is sent or required. The account is pre-populated with a public profile, favorite titles, ratings, one public and one private work list, a public season tier list, and one existing friend, so the main screens are not empty. Note: the card layout is stored on-device (the demo profile card is generated from the seeded profile), and watch-history screens fill in only after the user chooses to connect an Annict account (see section 4).
+
+Most of the app is localized in English. A few in-screen segment labels still appear only in Japanese; those labels are quoted in Japanese below where they appear.
+
+3. QR CARD EXCHANGE (SECOND DEVICE NORMALLY REQUIRED)
+Card exchange happens between two signed-in users: one shows a QR code and the other scans it. To review the flow with a single device:
+1. Open the "QR & Friends" (QR・フレンド) tab.
+2. The "QR" segment shows the demo account's own QR code ("My QR code") and a "Scan" button, which asks for camera permission.
+3. To see the state after an exchange, open the "Friends" (フレンド) segment — a friend is already seeded. Tapping it opens that user's public profile, which is the screen reached after a successful exchange.
+If a second device is available, create a second account and scan the QR code shown on the first device to see the live exchange.
+
+4. OPTIONAL INTEGRATIONS
+- Annict (anime watch-record service): connecting is optional. To connect, open the "Profile" (プロフ) tab, scroll to the Annict card, tap "Connect to Annict" (Annict と連携する), and complete the OAuth flow on annict.com. The app works without it; only watch-record features (searching works, watch statuses, watch history) require a connection.
+- d Anime Store history import is not available in the iOS app (web version only).
+
+5. USER CONTENT AND MODERATION (GUIDELINE 1.2)
+User-generated content includes profile text and images, cards, tier lists, and work lists shown publicly.
+- Report a user: open a user's profile (for example from the "Discover" (ひろば) tab → "みつける" segment → "名刺" feed) and tap "Report this user" (このユーザーを通報).
+- Block a user: on the same profile, tap "Block this user" (このユーザーをブロック). Blocked users are managed under "Profile" → "Privacy & Safety" (プライバシーと安全) → "Blocked users" (ブロック中のユーザー).
+- Report public content: in the same "みつける" segment, choose the "作品リスト", "Tier 表", or "名刺" feed and tap "Report" (通報) on an item.
+Reports are reviewed by the operator. New reports trigger an operations notification, and the operator reviews the report details and resolves or dismisses each report following the documented moderation procedure. There is no in-app direct messaging between users.
+
+6. ACCOUNT DELETION
+The account can be deleted inside the app without contacting support: open the "Profile" tab, scroll below "Sign out" (サインアウト), tap "Delete account" (アカウントを削除), and follow the confirmation steps.
+
+7. OTHER
+- The app is free and has no in-app purchases or subscriptions.
+- Behavior is the same in all regions. The UI is available in Japanese and English.
+```
+
+補足（提出者向け、notes には含めない）:
+
+- デモアカウントの認証情報は App Store Connect の「App Review に関する情報 → サインイン情報」欄に入れる（メールアドレス + パスワード）。`pnpm task review-account:seed` で本番に作るゲストアカウントは、サインイン画面にそのままメール・パスワードを入れるだけで Device Trust のメールコードなしにログインできる（`POST /auth/demo-sign-in` の ticket 経由。`apps/mobile/lib/reviewAccount.ts`）。
+- デモアカウントに入るデータ: プロフィール（公開）・お気に入り 5 件・評価 5 件・作品リスト 2 件（公開 1 / 非公開 1）・公開 Tier 表 1 件・フレンド 1 名（`apps/api/scripts/review-account.mjs`）。名刺は端末内保存、視聴履歴は Annict 連携前提なのでシードしない。
+- モデレーション手順: 通報は Discord 通知（件数のみ）→ `pnpm task reports:list` で内容確認 → `pnpm task reports:resolve|dismiss|reopen` で対応（`docs/runbook/production-tasks.md`「通報モデレーション」）。
 
 ## ガイドライン 4.8 のコード確認
 
@@ -169,22 +203,57 @@ eas metadata:push   # store.config.json を App Store Connect に反映
 
 ## App Privacy 回答案（App Store Connect）
 
-以下は iOS アプリの実装に基づく申告案。目的はアプリ機能と品質改善で、広告・第三者トラッキングには使用しない。Apple の定義に照らした最終申告は提出時に確認する。
+以下は iOS アプリの実装に基づく申告案。App Store Connect の質問形式に合わせて整理してある。目的はアプリ機能提供（App Functionality）と品質改善（Analytics）のみで、広告・第三者トラッキングには使用しない。Apple の定義は改訂され得るため、最終申告は提出時の質問文に照らして確認する。
 
-| Apple のデータ種別 | 実際に収集・送信するデータ | ユーザーに紐づくか | トラッキング目的か |
-| --- | --- | --- | --- |
-| Contact Info | Clerk が管理するメールアドレス、ユーザー名 | はい（アカウント） | いいえ |
-| User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、任意のプロフィール画像、視聴履歴・お気に入り・評価・フレンド関係・Tier 表・作品リスト、ユーザー通報や問い合わせ内容。名刺画像は端末内に保存し、画像共有時にユーザーが選んだ共有先へ渡す | はい | いいえ |
-| Identifiers | Clerk のアカウント識別子はサービス内で利用。Sentry UI イベントには生 ID ではなくソルト付き SHA-256 の短縮 user key を付与する。アプリ・端末・リクエストの技術識別情報もサービス運用に伴い送信される | はい（UI イベントは仮名化キーで関連付け） | いいえ |
-| Usage Data | 画面・主要操作イベント（例: 視聴状態変更、分析生成、Annict 接続ファネル）。Sentry Logs に platform、アプリ版、screen、イベント属性と仮名化 user key を送る | はい（仮名化キー） | いいえ |
-| Diagnostics | クラッシュ・エラー診断情報を Sentry に送信。トレース/セッションリプレイ/プロファイリングは無効。既定 PII は無効化 | いいえ（設定上の方針。エラー本文等に利用者入力が含まれないか運用時の留意は残る） | いいえ |
-| Other Data | Annict 連携トークンは iOS では SecureStore に保存し、Annict API への連携時に送る。作品検索・記録要求も Annict に送信する。サーバーのアクセスログは Cloudflare が処理する | はい（連携利用者・リクエストに紐づく） | いいえ |
+### トラッキング（Data Used to Track You）
 
-ポリシー照合（`apps/mobile/app/privacy.tsx`）: App Privacy 回答案に記載した利用状況イベント、仮名化 user key、Sentry のエラー診断設定、Cloudflare によるリクエスト IP 等の処理をポリシーへ反映済み。iOS では Annict token は SecureStore に保存されるが、Annict 連携と連携先への送信自体は任意で利用者の操作による。d アニメ作品タイトルの送信は Web の任意機能であり iOS では利用不可。Wallet の記述も Wallet 機能が有効な場合に限る（現行ネイティブビルドでは無効）。法務文書は日本語固定のため英訳は対象外。
+**なし。** 広告 SDK・広告目的のデータ共有・IDFA 取得はなく、App Tracking Transparency の表示も不要（依存パッケージに広告・計測系は `@sentry/react-native` のみ）。
 
-## TODO（ストア提出前に要解決）
+### ユーザーに紐づくデータ（Data Linked to the User）
+
+| App Store Connect の項目 | 実装の根拠 | 目的 |
+| --- | --- | --- |
+| Contact Info → Email Address | サインアップ時に入力。Clerk が管理（`app/(auth)/sign-up.tsx`） | App Functionality |
+| Contact Info → Name | ユーザー名（サインアップ・プロフィールで入力） | App Functionality |
+| Identifiers → User ID | Clerk のアカウント ID。Sentry の UI イベントには生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を付与（`lib/events.ts`） | App Functionality / Analytics |
+| User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
+| User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
+| Usage Data → Product Interaction | 画面・主要操作イベントを Sentry Logs に送信（platform・アプリ版・screen・イベント属性 + 仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`） | Analytics |
+
+### ユーザーに紐づかないデータ（Data Not Linked to the User）
+
+| App Store Connect の項目 | 実装の根拠 | 目的 |
+| --- | --- | --- |
+| Diagnostics → Crash Data / Other Diagnostic Data | クラッシュ・エラーを Sentry に送信。`sendDefaultPii: false`、`tracesSampleRate: 0`、セッションリプレイ・プロファイリング無効、リクエストヘッダー整形・本文除外（`lib/observability.ts`） | App Functionality |
+
+### 申告外・補足
+
+- Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`lib/annict/storage.native.ts`）。
+- AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
+- Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
+- dアニメ取り込み（作品タイトル送信）・Apple Wallet 追加は iOS では無効のため申告対象外（Web 版のみ / フラグ無効）。
+
+### プライバシーポリシーとの照合結果（`apps/mobile/app/privacy.tsx`）
+
+上表の内容はポリシー第2条・第4条に記載があり概ね一致。以下は実装またはポリシーとずれているため、提出前にオーナー確認が必要:
+
+- **通報の記載がポリシーにない**: ユーザー通報（対象ユーザー・理由）をサーバーに保存するが、`privacy.tsx` 第2条に「通報」が列挙されていない（「不具合報告・ご意見」のみ）。取得情報への追記を検討。
+- **プライバシーマニフェストの記載が少ない可能性**: `app.json` の `ios.privacyManifests.NSPrivacyCollectedDataTypes` は Crash Data / Performance Data / Other Diagnostic Data のみで、上表の Contact Info・User Content・Identifiers・Usage Data が宣言されていない。マニフェストも「収集」対象をカバーする必要があるか、提出前に確認・更新を検討（コード変更が必要になるため本 PR のスコープ外）。
+
+## 掲載文言の機能照合（ガイドライン 2.3）
+
+`store.config.json` の説明文（ja / en-US）・キーワードと上のスクリーンショット計画を、提出ビルドで実際に使える機能と照合した結果:
+
+- 説明文にある機能はすべてネイティブで提供される: 名刺作成・QR 交換・Annict 連携・Tier 表・お気に入り・公開プロフィール URL・好きなセリフ。
+- **ネイティブにない機能は含まれていない**: Apple Wallet 追加（`featureFlags.wallet` は `EXPO_PUBLIC_FEATURE_WALLET` 未設定で無効、pkpass 署名未実装 #103）と dアニメ取り込み（ネイティブで無効 #158）は説明文にもスクリーンショット計画にも出ていない。
+- App Store 用スクリーンショットは提出する Release ビルドで撮ること（下の撮影手順の注意書きどおり）。Web 版で撮ると dアニメ取り込みなどネイティブにない機能が写り込み得るため、App Store には使わない。
+
+## TODO（ストア提出前に要解決・オーナー作業）
 
 - リリース時に MAL へ通知する（MAL API License Agreement 4(b)。#245）
-- App Review 用連絡先（氏名・メール・電話番号）と審査用デモアカウントの準備（`store.config.json` の `review` に追記）
-- #135（通報・ブロック）未マージのまま審査に出す場合、UGC アプリの moderation 要件でリジェクトされる可能性を確認
+- App Review 用連絡先（氏名・メール・電話番号）を決め、`store.config.json` の `apple.review` と App Store Connect に登録する
+- デモアカウントの認証情報を App Store Connect のサインイン情報に入力する（アカウント本体は `pnpm task review-account:seed` で作成済みのはず。パスワードを変えたら seed を再実行）
+- 著作権表記の確定: `store.config.json` の `apple.copyright` は現在 `2026 アニ名刺製作委員会`。issue #512 の方針（`2026 Kohei Uozumi` に揃えるか）を確定して更新する
+- `privacy.tsx` の「取得する情報」へのユーザー通報の追記検討（上の照合結果参照）
+- `app.json` のプライバシーマニフェストに栄養ラベルと同じ収集データ種別を宣言するか確認（上の照合結果参照）
 - Apple Wallet 追加（#81 / #103）が完成したら説明文への追記を検討（現状 pkpass 署名未設定のため未提供。審査ガイドライン 2.3 抵触回避のため掲載文言からは除外済み）
