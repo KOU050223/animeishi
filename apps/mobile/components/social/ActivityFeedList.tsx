@@ -150,7 +150,7 @@ function FeedStatus({
 }) {
   const { t } = useTranslation();
   if (isLoading) {
-    return <ListLoadingSkeleton />;
+    return <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />;
   }
   if (isError) {
     return (

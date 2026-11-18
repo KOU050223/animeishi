@@ -1,14 +1,15 @@
 import { View } from "react-native";
-import { useTranslation } from "react-i18next";
 
-export function ListLoadingSkeleton() {
-  const { t } = useTranslation();
-
+export function ListLoadingSkeleton({
+  accessibilityLabel,
+}: {
+  accessibilityLabel: string;
+}) {
   return (
     <View
       className="w-full px-4 py-4"
       accessible
-      accessibilityLabel={t("読み込み中")}
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ busy: true }}
       testID="list-loading-skeleton"
     >

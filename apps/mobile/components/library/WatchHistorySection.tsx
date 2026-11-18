@@ -336,7 +336,7 @@ export function WatchHistorySection() {
   if (isConnectionLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-slate-900">
-        <ListLoadingSkeleton />
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
@@ -357,7 +357,7 @@ export function WatchHistorySection() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-slate-900">
-        <ListLoadingSkeleton />
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }

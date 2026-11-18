@@ -243,7 +243,7 @@ export default function ProfileScreen() {
         }
       >
         {isLoading ? (
-          <ListLoadingSkeleton />
+          <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
         ) : isError && !profile ? (
           <>
             <Text className="mb-4 text-center text-red-500 dark:text-red-400">

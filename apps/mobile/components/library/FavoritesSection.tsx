@@ -89,7 +89,7 @@ export function FavoritesSection() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-slate-900">
-        <ListLoadingSkeleton />
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
