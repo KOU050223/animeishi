@@ -234,6 +234,9 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
             eq(eventParticipations.eventSlug, opts.eventSlug),
             eq(eventParticipations.visibility, "public"),
             eq(users.isPublic, true),
+            // 公開一覧からの除外（issue #580）。フレンド向けの一覧
+            // （listParticipatingFriends）には掛けない。
+            isNull(users.publicListExclusion),
             notBlockedWithMe(eventParticipations.userId),
           ),
         )
@@ -259,6 +262,8 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
             eq(eventParticipations.eventSlug, eventSlug),
             eq(eventParticipations.visibility, "public"),
             eq(users.isPublic, true),
+            // listPublicParticipants と同じ除外条件（issue #580）。
+            isNull(users.publicListExclusion),
             notBlockedWithMe(eventParticipations.userId),
           ),
         );

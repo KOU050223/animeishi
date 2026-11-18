@@ -140,6 +140,21 @@ describe("公開名刺 API", () => {
       expect(other?.likedByMe).toBe(false);
     });
 
+    it("公開一覧除外（public_list_exclusion）のユーザーは出ず、通常ユーザーは出る", async () => {
+      await db
+        .update(users)
+        .set({ publicListExclusion: "demo" })
+        .where(eq(users.id, OTHER_USER_ID));
+
+      const res = await getPublic(buildApp());
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: PublicUserItem[] };
+      const ids = body.items.map((i) => i.id);
+      expect(ids).not.toContain(OTHER_USER_ID);
+      expect(ids).toContain(THIRD_USER_ID);
+      expect(ids).toContain(USER_ID);
+    });
+
     it("ブロック関係（自分→相手 / 相手→自分）のユーザーは出ない", async () => {
       const now = new Date();
       await db.insert(blocks).values({

@@ -207,6 +207,42 @@ pnpm exec wrangler secret delete ANNICT_SHARED_READ_TOKEN --env preview
 そのまま含めてよい。プレビュー D1 を見る場合は
 `bash apps/api/scripts/reports.sh --env preview list` を直接叩く。
 
+## 公開リストからのユーザーの除外（users.public_list_exclusion）
+
+みつける（Discover）の名刺・作品リスト・Tier 表、イベントの公開参加者
+一覧に出さないユーザー（審査用デモアカウント、BAN したアカウント等）を
+`users.public_list_exclusion` で管理する（issue #580）。値は除外の理由で、
+`demo` / `banned` など任意の文字列。NULL に戻すと一覧に出るようになる。
+
+除外が効くのは公開一覧への露出だけ。名刺詳細（`GET /user/:uid`）・
+公開リスト詳細・共有リンク・フレンド一覧・フレンド欄は変わらない
+（デモアカウントの審査・Explore 導線を壊さないための仕様）。
+
+```bash
+# 除外する（<理由> は demo / banned 等）
+pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
+  --command "UPDATE users SET public_list_exclusion = '<理由>' WHERE id = '<ユーザーID>'"
+
+# 除外されているか確認する
+pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
+  --command "SELECT id, username, public_list_exclusion FROM users WHERE public_list_exclusion IS NOT NULL"
+
+# 除外を解除する
+pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
+  --command "UPDATE users SET public_list_exclusion = NULL WHERE id = '<ユーザーID>'"
+```
+
+preview D1 は `--env production` を `--env preview` に、DB 名を
+`animeishi-db-preview` に変えて同じコマンドを叩く。
+
+### デモアカウントの除外
+
+`pnpm task review-account:seed` はデモデータの投入後に、ゲストアカウントと
+フレンド役の両方へ `public_list_exclusion = 'demo'` を自動で立てる。
+過去に作ったデモアカウントへは、この機能を含む API が本番にデプロイ
+（`users.public_list_exclusion` を足すマイグレーションが適用）されたあとに
+`pnpm task review-account:seed` を再実行すればよい。
+
 ## 不具合報告・ご意見（feedback:list）
 
 アプリのホーム右上の吹き出しアイコン（またはサポートページ）から送られた投稿を読む。
@@ -457,6 +493,8 @@ App Store 審査のデモアカウントと Expo Explore のログインに使�
 - ゲストアカウント（ログインに使う。`REVIEW_ACCOUNT_EMAIL` / `REVIEW_ACCOUNT_PASSWORD`）
 - フレンド役アカウント（ログインしない。パスワードは毎回ランダム）
 - 両者のプロフィール・お気に入り・評価・作品リスト・ティア表と、両者のフレンド関係
+- 両者の `public_list_exclusion = 'demo'`（公開一覧からの除外。issue #580。
+  対象 D1 は API_URL から推測する）
 
 名刺は端末内保存、視聴履歴は Annict 連携が前提なので入らない。
 

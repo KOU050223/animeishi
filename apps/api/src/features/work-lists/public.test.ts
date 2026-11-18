@@ -196,6 +196,33 @@ describe("公開作品リスト API", () => {
       expect(body.items).toHaveLength(0);
     });
 
+    it("公開一覧除外（public_list_exclusion）の所有者のリストは一覧に出ないが、詳細は id 指定で読める", async () => {
+      const app = buildApp();
+      asUser(OTHER_USER_ID);
+      const listId = await createList(app, { title: "除外ユーザーのリスト" });
+      asUser(THIRD_USER_ID);
+      await createList(app, { title: "通常ユーザーのリスト" });
+      asUser(USER_ID);
+      await db
+        .update(users)
+        .set({ publicListExclusion: "demo" })
+        .where(eq(users.id, OTHER_USER_ID));
+
+      const res = await getPublic(app);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: PublicListItem[] };
+      expect(body.items.map((i) => i.title)).toEqual(["通常ユーザーのリスト"]);
+
+      // 除外は一覧への露出だけ（unlisted 扱い）。デモアカウントの
+      // Explore リンク等、id 指定の直接参照は残す（issue #580）。
+      const detail = await app.request(
+        `/work-lists/${listId}`,
+        {},
+        TEST_BINDINGS,
+      );
+      expect(detail.status).toBe(200);
+    });
+
     it("ブロック関係（自分→相手 / 相手→自分）のリストは出ない", async () => {
       const app = buildApp();
       asUser(OTHER_USER_ID);

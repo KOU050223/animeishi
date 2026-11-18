@@ -507,7 +507,17 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
         })
         .from(workLists)
         .innerJoin(users, eq(workLists.userId, users.id))
-        .where(and(publicListVisibility(db, currentUserId), cursorCondition))
+        // 公開一覧からの除外は一覧への露出だけに効かせる（issue #580）。
+        // 詳細・いいね・通報の対象解決（publicListVisibility 側）には
+        // 入れず、除外ユーザーのリストも id 指定の直接参照は残す
+        // （デモアカウントの Explore リンクを壊さないため）。
+        .where(
+          and(
+            publicListVisibility(db, currentUserId),
+            isNull(users.publicListExclusion),
+            cursorCondition,
+          ),
+        )
         .orderBy(
           ...(opts.sort === "likes"
             ? [desc(likeCountExpr), desc(workLists.id)]

@@ -8,6 +8,7 @@ const DDL_STATEMENTS = [
     bio TEXT,
     favorite_quote TEXT,
     is_public INTEGER DEFAULT 1 NOT NULL,
+    public_list_exclusion TEXT,
     profile_image_url TEXT,
     watch_history_share_token TEXT,
     created_at INTEGER NOT NULL,
