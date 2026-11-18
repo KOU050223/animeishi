@@ -253,6 +253,14 @@ describe("HomeScreen", () => {
     expect(screen.queryByTestId("home-share-meishi-image")).toBeNull();
   });
 
+  it("ヘッダーの各アイコンに行き先が分かるラベルを併記する", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.getByText("名刺を作る")).toBeTruthy();
+    expect(screen.getByText("QR 交換")).toBeTruthy();
+    expect(screen.getByText("不具合報告")).toBeTruthy();
+  });
+
   it("ヘッダーの名刺アイコンで名刺エディタへ遷移する", async () => {
     loggedInUser();
     await render(<HomeScreen />);
