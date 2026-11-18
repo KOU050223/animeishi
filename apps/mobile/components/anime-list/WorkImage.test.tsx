@@ -52,6 +52,24 @@ describe("WorkImage の loadingPlaceholder", () => {
     }
   });
 
+  it("読み込みに成功したら loadingPlaceholder を外して placeholder に戻す", async () => {
+    // 不透明な画像の下でスピナー等が動き続けないようにするため。
+    await render(
+      <WorkImage
+        uri={HOSTED}
+        style={{ width: 60, height: 90 }}
+        placeholder={missing}
+        loadingPlaceholder={loading}
+      />,
+    );
+    expect(screen.getByText("loading")).toBeTruthy();
+
+    await fireEvent(findImages()[0], "onLoad", { nativeEvent: {} });
+
+    expect(screen.getByText("missing")).toBeTruthy();
+    expect(screen.queryByText("loading")).toBeNull();
+  });
+
   it("URL が無いときは最初から placeholder", async () => {
     await render(
       <WorkImage

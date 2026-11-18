@@ -59,6 +59,8 @@ export function WorkImage({
    * 読み込み中（失敗後の再試行待ちを含む）に画像の下へ敷く要素。
    * 省略時は placeholder を使う。読み込み中と画像欠落を見分けたい
    * 一覧だけ指定する（issue #606）。
+   * 読み込みが完了すると placeholder に戻す（スピナー等の動的な
+   * 要素を載せても、不透明になった画像の下で動き続けない）。
    */
   loadingPlaceholder?: ReactNode;
   accessibilityLabel?: string;
@@ -75,14 +77,15 @@ export function WorkImage({
     attempt: 0,
     waiting: false,
     failed: false,
+    loaded: false,
   });
   if (state.uri !== uri) {
-    setState({ uri, attempt: 0, waiting: false, failed: false });
+    setState({ uri, attempt: 0, waiting: false, failed: false, loaded: false });
   }
   const current =
     state.uri === uri
       ? state
-      : { uri, attempt: 0, waiting: false, failed: false };
+      : { uri, attempt: 0, waiting: false, failed: false, loaded: false };
 
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -108,7 +111,13 @@ export function WorkImage({
 
   const onError = () => {
     if (current.attempt >= RETRY_DELAYS_MS.length) {
-      setState({ uri, attempt: current.attempt, waiting: false, failed: true });
+      setState({
+        uri,
+        attempt: current.attempt,
+        waiting: false,
+        failed: true,
+        loaded: false,
+      });
       return;
     }
     // 待機中は壊れた img 要素を画面に残さない（web で alt+破損アイコンが
@@ -123,6 +132,7 @@ export function WorkImage({
               attempt: s.attempt + 1,
               waiting: false,
               failed: false,
+              loaded: false,
             }
           : s,
       );
@@ -132,13 +142,14 @@ export function WorkImage({
       attempt: current.attempt,
       waiting: true,
       failed: false,
+      loaded: false,
     });
   };
 
   return (
     <View style={[style, styles.frame]}>
       <View style={StyleSheet.absoluteFill}>
-        {loadingPlaceholder ?? placeholder}
+        {current.loaded ? placeholder : (loadingPlaceholder ?? placeholder)}
       </View>
       {current.waiting ? null : (
         <Image
@@ -153,6 +164,9 @@ export function WorkImage({
           cachePolicy="memory-disk"
           transition={transition}
           onError={onError}
+          onLoad={() =>
+            setState((s) => (s.uri === uri ? { ...s, loaded: true } : s))
+          }
           onLoadEnd={onImageLoadEnd}
           accessibilityLabel={accessibilityLabel}
         />
