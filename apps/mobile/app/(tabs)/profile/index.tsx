@@ -26,6 +26,7 @@ import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
+import { ApiRequestError } from "@/lib/apiError";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { buildProfileUrl } from "@/lib/profileUrl";
@@ -194,10 +195,15 @@ export default function ProfileScreen() {
             message: t("プロフィールを保存しました"),
           });
         },
-        onError: () =>
+        // ApiRequestError には API のバリデーションメッセージが載るため
+        // それを優先して出し、通信断などの素のエラーだけ汎用文言にする。
+        onError: (error) =>
           showToast({
             type: "error",
-            message: t("保存に失敗しました"),
+            message:
+              error instanceof ApiRequestError
+                ? t(error.message, { defaultValue: error.message })
+                : t("保存に失敗しました"),
           }),
       },
     );

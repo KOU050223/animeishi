@@ -120,13 +120,19 @@ export function useUpdateProfile() {
     mutationFn: async (input: ProfileUpdateInput) => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.profile.$put({ json: input }, { headers });
-      if (res.status === 400) {
-        throw new ApiRequestError(400, "入力内容に誤りがあります");
-      }
       if (!res.ok) {
+        // 400 はバリデーションの具体的な理由（「ユーザー名に使用できない
+        // 文字が含まれています」等）が {error} に入るので、そのまま画面へ
+        // 渡せるようエラーメッセージに載せる。
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new ApiRequestError(
           res.status,
-          "プロフィールの更新に失敗しました",
+          body?.error ??
+            (res.status === 400
+              ? "入力内容に誤りがあります"
+              : "プロフィールの更新に失敗しました"),
         );
       }
       return res.json();

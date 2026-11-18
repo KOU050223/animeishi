@@ -348,6 +348,42 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(body.isPublic).toBe(false);
     });
 
+    // issue #581: 過去に「@」入りで登録されたユーザー名のまま保存しても
+    // バリデーションで弾かれないこと。
+    it("PUT /me/profile: 「@」を含むユーザー名で更新できる", async () => {
+      const now = new Date();
+      await db.insert(users).values({
+        id: USER_ID,
+        username: "kou050223@メイン垢",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "kou050223@メイン垢",
+            bio: "更新できた",
+          }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { username: string; bio: string };
+      expect(body.username).toBe("kou050223@メイン垢");
+      expect(body.bio).toBe("更新できた");
+    });
+
     it("PUT /me/profile: バリデーションエラー（username が空）は 400", async () => {
       const app = buildApp();
       const res = await app.request(
