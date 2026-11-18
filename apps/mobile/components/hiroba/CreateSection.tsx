@@ -8,11 +8,11 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import {
   useMergedTierLists,
-  TIER_KIND_LABELS,
   type MergedTierListItem,
 } from "@/lib/tierList/useMergedTierLists";
 import { useWorkLists } from "@/lib/workList/useWorkLists";
@@ -39,6 +39,7 @@ const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
  * 各カードは対応する編集画面へ、末尾の「すべて見る」は管理ハブ画面へ遷移する。
  */
 export function CreateSection() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -80,22 +81,22 @@ export function CreateSection() {
   return (
     <ScrollView className="flex-1" contentContainerClassName="px-4 pb-8 pt-1">
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        新しく作る
+        {t("新しく作る")}
       </Text>
       <View className="mt-3 flex-row gap-3">
         <CreateTile
           icon="trophy-outline"
           tint="indigo"
-          label="作品 Tier"
-          sub="シーズンの作品を振り分け"
+          label={t("作品 Tier")}
+          sub={t("シーズンの作品を振り分け")}
           onPress={() => router.push("/tier-list")}
           testID="hiroba-create-work-tier"
         />
         <CreateTile
           icon="people-outline"
           tint="rose"
-          label="キャラ Tier"
-          sub="作品のキャラを並べる"
+          label={t("キャラ Tier")}
+          sub={t("作品のキャラを並べる")}
           onPress={() => setPickerOpen(true)}
           testID="hiroba-create-character-tier"
         />
@@ -104,16 +105,16 @@ export function CreateSection() {
         <CreateTile
           icon="sparkles-outline"
           tint="emerald"
-          label="自由 Tier"
-          sub="好きなテーマで作る"
+          label={t("自由 Tier")}
+          sub={t("好きなテーマで作る")}
           onPress={() => router.push("/custom-tier-list")}
           testID="hiroba-create-custom-tier"
         />
         <CreateTile
           icon="list-outline"
           tint="amber"
-          label="作品リスト"
-          sub="テーマ別リストを作る"
+          label={t("作品リスト")}
+          sub={t("テーマ別リストを作る")}
           onPress={() => router.push("/work-list")}
           testID="hiroba-create-work-list"
         />
@@ -124,7 +125,7 @@ export function CreateSection() {
         className="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950"
         onPress={() => router.push("/analysis")}
         accessibilityRole="button"
-        accessibilityLabel="AI 視聴傾向分析を開く"
+        accessibilityLabel={t("AI 視聴傾向分析を開く")}
         testID="hiroba-analysis-card"
       >
         <View className="flex-row items-center gap-1.5">
@@ -134,16 +135,16 @@ export function CreateSection() {
             color={colors.primaryText}
           />
           <Text className="text-base font-semibold text-violet-700 dark:text-violet-300">
-            AI 視聴傾向分析
+            {t("AI 視聴傾向分析")}
           </Text>
         </View>
         <Text className="mt-1 text-sm text-violet-900/70 dark:text-violet-200/70">
-          視聴履歴をもとに、AI が傾向とおすすめを分析します
+          {t("視聴履歴をもとに、AI が傾向とおすすめを分析します")}
         </Text>
       </TouchableOpacity>
 
       <RailHeader
-        title="Tier 表"
+        title={t("Tier 表")}
         onSeeAll={() => router.push("/tier-lists")}
         seeAllTestID="hiroba-tier-rail-see-all"
       />
@@ -153,11 +154,11 @@ export function CreateSection() {
         </View>
       ) : mergedTierLists.isError ? (
         <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          一覧を取得できませんでした
+          {t("一覧を取得できませんでした")}
         </Text>
       ) : tierItems.length === 0 ? (
         <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          まだありません。上のボタンから作れます
+          {t("まだありません。上のボタンから作れます")}
         </Text>
       ) : (
         <FlatList
@@ -173,14 +174,29 @@ export function CreateSection() {
               className="w-40 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
               onPress={() => openTierItem(item)}
               accessibilityRole="button"
-              accessibilityLabel={`${TIER_KIND_LABELS[item.kind]}の Tier 表「${item.title}」を開く`}
+              accessibilityLabel={t("{{kind}}の Tier 表「{{title}}」を開く", {
+                kind: t(
+                  item.kind === "season"
+                    ? "シーズン"
+                    : item.kind === "character"
+                      ? "キャラ"
+                      : "自由",
+                ),
+                title: item.title,
+              })}
               testID={`hiroba-tier-item-${item.key}`}
             >
               <View className="self-start">
                 <Text
                   className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${KIND_BADGE_STYLES[item.kind]}`}
                 >
-                  {TIER_KIND_LABELS[item.kind]}
+                  {t(
+                    item.kind === "season"
+                      ? "シーズン"
+                      : item.kind === "character"
+                        ? "キャラ"
+                        : "自由",
+                  )}
                 </Text>
               </View>
               <Text
@@ -192,8 +208,8 @@ export function CreateSection() {
               {item.shared || item.isPublic ? (
                 <Text className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                   {[
-                    item.shared ? "リンク共有中" : null,
-                    item.isPublic ? "ひろばに公開中" : null,
+                    item.shared ? t("リンク共有中") : null,
+                    item.isPublic ? t("ひろばに公開中") : null,
                   ]
                     .filter(Boolean)
                     .join(" ・ ")}
@@ -205,7 +221,7 @@ export function CreateSection() {
       )}
 
       <RailHeader
-        title="作品リスト"
+        title={t("作品リスト")}
         onSeeAll={() => router.push("/work-lists")}
         seeAllTestID="hiroba-work-list-rail-see-all"
       />
@@ -215,11 +231,11 @@ export function CreateSection() {
         </View>
       ) : workLists.isError ? (
         <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          一覧を取得できませんでした
+          {t("一覧を取得できませんでした")}
         </Text>
       ) : (workLists.data ?? []).length === 0 ? (
         <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          まだありません。「作品リスト」から作れます
+          {t("まだありません。「作品リスト」から作れます")}
         </Text>
       ) : (
         <FlatList
@@ -240,7 +256,9 @@ export function CreateSection() {
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel={`作品リスト「${item.title}」を開く`}
+              accessibilityLabel={t("作品リスト「{{title}}」を開く", {
+                title: item.title,
+              })}
               testID={`hiroba-work-list-item-${item.id}`}
             >
               <Text
@@ -250,7 +268,10 @@ export function CreateSection() {
                 {item.title}
               </Text>
               <Text className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                {item.itemCount} 作品{item.shareToken ? " ・ 共有中" : ""}
+                {t("{{count}} 作品{{sharing}}", {
+                  count: item.itemCount,
+                  sharing: item.shareToken ? ` · ${t("共有中")}` : "",
+                })}
               </Text>
             </TouchableOpacity>
           )}
@@ -304,6 +325,7 @@ function CreateTile({
   onPress: () => void;
   testID: string;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const styles = TILE_TINTS[tint];
   return (
@@ -311,7 +333,7 @@ function CreateTile({
       className={`flex-1 rounded-xl border p-3.5 ${styles.tile}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}を作る`}
+      accessibilityLabel={t("{{label}}を作る", { label })}
       testID={testID}
     >
       <View className="flex-row items-center gap-1.5">
@@ -332,6 +354,7 @@ function RailHeader({
   onSeeAll: () => void;
   seeAllTestID: string;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-8 flex-row items-baseline justify-between">
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -340,11 +363,11 @@ function RailHeader({
       <TouchableOpacity
         onPress={onSeeAll}
         accessibilityRole="button"
-        accessibilityLabel={`${title}をすべて見る`}
+        accessibilityLabel={t("{{title}}をすべて見る", { title })}
         testID={seeAllTestID}
       >
         <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-          すべて見る
+          {t("すべて見る")}
         </Text>
       </TouchableOpacity>
     </View>
