@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 import { activityText, formatRelativeTime } from "@/lib/activityText";
 import { useThemeColors } from "@/lib/theme";
+import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 
 export type ActivityFeedListProps = {
   /** リスト先頭に挿すコンテンツ。ホームではストーリーリング等を載せる。 */
@@ -61,7 +62,7 @@ export function ActivityFeedList({
     isFetchingNextPage,
   } = useActivityFeed();
   const allItems =
-    isLoading || isError
+    isLoading || (isError && !data)
       ? []
       : (data?.pages.flatMap((page) => page.items) ?? []);
   const isLimited = maxItems !== undefined;
@@ -102,7 +103,7 @@ export function ActivityFeedList({
       testID="activity-feed-list"
       ListEmptyComponent=<FeedStatus
         isLoading={isLoading}
-        isError={isError}
+        isError={isError && !data}
         onRetry={() => void refetch()}
       />
       ListFooterComponent={
@@ -148,13 +149,8 @@ function FeedStatus({
   onRetry: () => void;
 }) {
   const { t } = useTranslation();
-  const colors = useThemeColors();
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <ListLoadingSkeleton />;
   }
   if (isError) {
     return (

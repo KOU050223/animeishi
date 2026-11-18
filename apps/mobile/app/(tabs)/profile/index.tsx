@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
+import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import { Button } from "@/components/ui/Button";
 import { GroupedList } from "@/components/ui/grouped-list";
 import { MeishiCard } from "@/components/MeishiCard";
@@ -236,14 +237,14 @@ export default function ProfileScreen() {
         ref={scrollRef}
         className="flex-1"
         contentContainerClassName={
-          isLoading || isError
+          isLoading || (isError && !profile)
             ? "flex-1 items-center justify-center px-8"
             : "pb-12"
         }
       >
         {isLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} />
-        ) : isError ? (
+          <ListLoadingSkeleton />
+        ) : isError && !profile ? (
           <>
             <Text className="mb-4 text-center text-red-500 dark:text-red-400">
               {t("プロフィールの取得に失敗しました")}

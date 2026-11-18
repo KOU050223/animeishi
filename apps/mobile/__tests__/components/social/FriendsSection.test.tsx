@@ -13,6 +13,8 @@ import { ApiRequestError } from "@/lib/apiError";
 const mockRemoveMutateAsync = jest.fn();
 const mockPush = jest.fn();
 const mockAlert = jest.fn();
+let mockFriendsLoading = false;
+let mockFriendsError = false;
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
   (
@@ -49,8 +51,8 @@ jest.mock("@/lib/useFriends", () => ({
         profileImageUrl: null,
       },
     ],
-    isLoading: false,
-    isError: false,
+    isLoading: mockFriendsLoading,
+    isError: mockFriendsError,
     refetch: jest.fn(),
   }),
   useRemoveFriend: () => ({
@@ -78,12 +80,27 @@ jest.mock("@/lib/dialog", () => ({
 beforeEach(async () => {
   jest.clearAllMocks();
   mockRemoveMutateAsync.mockReset();
+  mockFriendsLoading = false;
+  mockFriendsError = false;
   mockRequestsData = { received: [], sent: [] };
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
 describe("FriendsSection", () => {
+  it("初回取得中は一覧のスケルトンを表示する", async () => {
+    mockFriendsLoading = true;
+    await render(<FriendsSection />);
+
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+  });
+
+  it("再取得に失敗しても取得済みのフレンドを表示する", async () => {
+    mockFriendsError = true;
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("友達A")).toBeTruthy();
+  });
   it("削除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
     await render(<FriendsSection />);
     await fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));

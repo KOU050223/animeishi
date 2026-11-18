@@ -16,6 +16,8 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockRemoveMutateAsync = jest.fn();
+let mockFavoritesLoading = false;
+let mockFavoritesError = false;
 const mockAlert = jest.fn();
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
@@ -37,8 +39,8 @@ jest.mock("@/lib/useFavorites", () => ({
         titleEn: null,
       },
     ],
-    isLoading: false,
-    isError: false,
+    isLoading: mockFavoritesLoading,
+    isError: mockFavoritesError,
     refetch: jest.fn(),
   }),
   useRemoveFavorite: () => ({
@@ -64,12 +66,27 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  mockFavoritesLoading = false;
+  mockFavoritesError = false;
   mockRemoveMutateAsync.mockReset();
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
 describe("FavoritesSection", () => {
+  it("初回取得中は一覧のスケルトンを表示する", async () => {
+    mockFavoritesLoading = true;
+    await render(<FavoritesSection />);
+
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+  });
+
+  it("再取得に失敗しても取得済みのお気に入りを表示する", async () => {
+    mockFavoritesError = true;
+    await render(<FavoritesSection />);
+
+    expect(screen.getByTestId("favorite-item-1")).toBeTruthy();
+  });
   it("作品リストの入口から作品リスト一覧へ遷移する（issue #349）", async () => {
     await render(<FavoritesSection />);
     await fireEvent.press(screen.getByTestId("favorites-open-work-lists"));
