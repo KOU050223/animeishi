@@ -218,16 +218,22 @@ The account can be deleted inside the app without contacting support: open the "
 | Identifiers → User ID | Clerk のアカウント ID。Sentry の UI イベントには生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を付与（`lib/events.ts`） | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
 | User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
-| Usage Data → Product Interaction | 画面・主要操作イベントを Sentry Logs に送信（platform・アプリ版・screen・イベント属性 + 仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`） | Analytics |
+| Usage Data → Product Interaction | 画面・主要操作イベントを Sentry Logs に送信（platform・アプリ版・screen・イベント属性 + 仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キー経由で紐づく Sentry 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）
 
 | App Store Connect の項目 | 実装の根拠 | 目的 |
 | --- | --- | --- |
-| Diagnostics → Crash Data / Other Diagnostic Data | クラッシュ・エラーを Sentry に送信。`sendDefaultPii: false`、`tracesSampleRate: 0`、セッションリプレイ・プロファイリング無効、リクエストヘッダー整形・本文除外（`lib/observability.ts`） | App Functionality |
+| Diagnostics → Crash Data | クラッシュ・エラーを Sentry に送信（`sendDefaultPii: false`、`tracesSampleRate: 0`、セッションリプレイ・プロファイリング無効、リクエストヘッダー整形・本文除外。`lib/observability.ts`）。加えて EAS Observe は `errorHandlingEnabled: false`（JS エラー収集オフ）でもネイティブクラッシュを送信する（`lib/observe.ts`） | App Functionality |
+| Diagnostics → Performance Data | EAS Observe が起動・レンダリング・操作可能（TTR/TTI）・アップデートダウンロード時間を計測（`lib/observe.ts`。ObserveRoot + `markInteractive`） | App Functionality |
+| Diagnostics → Other Diagnostic Data | EAS Observe が全レコードに付けるデバイスモデル・OS 版・アプリ版・言語タグ・Expo Update チャネル等と、起動時のバッテリー・熱・ネットワーク状態 | App Functionality |
+| Identifiers → Device ID | EAS Observe / EAS Update が使う Expo Services client ID（インストールごとのランダム ID。アカウント・ハードウェア ID とは無関係で、Expo 側でも他データと突き合わせないため紐づけなし） | App Functionality / Analytics |
+| Usage Data → Product Interaction | EAS Observe の expo-router 連携がルート名と画面遷移タイミングを送信（`lib/observe.ts`）。`filteredParams` で `code` / `state` / `uid` は除外 | Analytics |
+| Location → Coarse Location | EAS Observe が送信時の IP アドレスから国を導出して保存（Expo の申告ガイドでは常時収集と記載。SDK のマニフェストには含まれないため ASC の回答で追加が必要） | Analytics |
 
 ### 申告外・補足
 
+- EAS Observe（`expo-observe`）は Expo のサービスプロバイダとしてデータを処理し、90 日で削除される。Expo は広告利用・データブローカーへの提供を行わない（[Expo の申告ガイド](https://docs.expo.dev/eas/observe/reference/store-privacy-declarations/)）。本アプリは `errorHandlingEnabled: false` で JS エラー収集を切り、ネットワークトレース・ユーザー定義イベントも使っていないため、ルート名・タイミング系とネイティブクラッシュのみが送信対象。ユーザー ID を載せる送信はない。
 - Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`lib/annict/storage.native.ts`）。
 - AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
 - Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
@@ -238,7 +244,8 @@ The account can be deleted inside the app without contacting support: open the "
 上表の内容はポリシー第2条・第4条に記載があり概ね一致。以下は実装またはポリシーとずれているため、提出前にオーナー確認が必要:
 
 - **通報の記載がポリシーにない**: ユーザー通報（対象ユーザー・理由）をサーバーに保存するが、`privacy.tsx` 第2条に「通報」が列挙されていない（「不具合報告・ご意見」のみ）。取得情報への追記を検討。
-- **プライバシーマニフェストの記載が少ない可能性**: `app.json` の `ios.privacyManifests.NSPrivacyCollectedDataTypes` は Crash Data / Performance Data / Other Diagnostic Data のみで、上表の Contact Info・User Content・Identifiers・Usage Data が宣言されていない。マニフェストも「収集」対象をカバーする必要があるか、提出前に確認・更新を検討（コード変更が必要になるため本 PR のスコープ外）。
+- **EAS Observe の記載がポリシーにない**: `privacy.tsx` 第4条には Expo / EAS Update（アプリ更新配信）の記載があるが、EAS Observe への計測データ送信（起動・画面タイミング・ネイティブクラッシュ・client ID・IP 由来の国）は記載がない。送信先一覧への追記を検討。
+- **プライバシーマニフェストの記載が少ない可能性**: `app.json` の `ios.privacyManifests.NSPrivacyCollectedDataTypes` は Crash Data / Performance Data / Other Diagnostic Data のみで、アプリ自身が収集する Contact Info・User Content・Identifiers・Usage Data が宣言されていない（`expo-observe` は SDK 同梱のマニフェストで Crash/Performance/OtherDiagnostic/DeviceID/ProductInteraction を宣言済みだが、アプリ側の宣言は別途必要な可能性あり）。提出前に確認・更新を検討（コード変更が必要になるため本 PR のスコープ外）。
 
 ## 掲載文言の機能照合（ガイドライン 2.3）
 
@@ -254,6 +261,6 @@ The account can be deleted inside the app without contacting support: open the "
 - App Review 用連絡先（氏名・メール・電話番号）を決め、`store.config.json` の `apple.review` と App Store Connect に登録する
 - デモアカウントの認証情報を App Store Connect のサインイン情報に入力する（アカウント本体は `pnpm task review-account:seed` で作成済みのはず。パスワードを変えたら seed を再実行）
 - 著作権表記の確定: `store.config.json` の `apple.copyright` は現在 `2026 アニ名刺製作委員会`。issue #512 の方針（`2026 Kohei Uozumi` に揃えるか）を確定して更新する
-- `privacy.tsx` の「取得する情報」へのユーザー通報の追記検討（上の照合結果参照）
+- `privacy.tsx` への追記検討: 「取得する情報」へのユーザー通報、「外部サービスへの送信」への EAS Observe（上の照合結果参照）
 - `app.json` のプライバシーマニフェストに栄養ラベルと同じ収集データ種別を宣言するか確認（上の照合結果参照）
 - Apple Wallet 追加（#81 / #103）が完成したら説明文への追記を検討（現状 pkpass 署名未設定のため未提供。審査ガイドライン 2.3 抵触回避のため掲載文言からは除外済み）
