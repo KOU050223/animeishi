@@ -123,6 +123,7 @@ describe("DiscoverUsers", () => {
         bio: "アニメ好きです",
         favoriteQuote: "好きなセリフ",
         profileUrl: "https://example.com/user/u-1",
+        profileOnly: true,
       }),
     );
     expect(screen.getByText("42")).toBeTruthy();

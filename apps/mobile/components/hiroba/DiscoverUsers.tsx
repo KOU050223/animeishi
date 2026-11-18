@@ -209,6 +209,7 @@ function PublicUserCard({
           favoriteQuote={item.favoriteQuote}
           profileImageUrl={item.profileImageUrl}
           profileUrl={buildProfileUrl(item.id)}
+          profileOnly
         />
       </TouchableOpacity>
       <View className="mt-2 flex-row items-center justify-between">

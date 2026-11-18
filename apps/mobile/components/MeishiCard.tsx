@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { MeishiRenderer } from "./meishi/MeishiRenderer";
 import { resolveMeishiDocument } from "@/lib/meishi/templates";
-import type { MeishiDocument } from "@/lib/meishi/types";
+import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 
 export type MeishiCardProps = {
@@ -20,6 +20,7 @@ export type MeishiCardProps = {
   document?: MeishiDocument | null;
   /** ピンチ&ズームを有効にするか。一覧のサムネイル等では false にする。 */
   zoomable?: boolean;
+  profileOnly?: boolean;
 };
 
 const MIN_SCALE = 1;
@@ -34,15 +35,58 @@ function clamp(value: number, min: number, max: number): number {
  * 名刺の表示用ラッパー。ピンチ&ズーム対応。
  * document が渡されればそれを、無ければ classic テンプレをフォールバックとしてレンダリングする。
  */
-export function MeishiCard({
-  username,
-  bio,
-  favoriteQuote,
-  profileImageUrl,
-  profileUrl,
+export function MeishiCard(props: MeishiCardProps) {
+  if (props.profileOnly) return <ProfileOnlyMeishiCard {...props} />;
+  return <FullMeishiCard {...props} />;
+}
+
+function ProfileOnlyMeishiCard(props: MeishiCardProps) {
+  const profile = useMemo(
+    () => ({
+      username: props.username,
+      bio: props.bio,
+      favoriteQuote: props.favoriteQuote,
+      profileImageUrl: props.profileImageUrl,
+      profileUrl: props.profileUrl,
+    }),
+    [
+      props.username,
+      props.bio,
+      props.favoriteQuote,
+      props.profileImageUrl,
+      props.profileUrl,
+    ],
+  );
+  const context = useMemo<MeishiRenderContext>(() => ({ profile }), [profile]);
+  return <MeishiCardView {...props} context={context} />;
+}
+
+function FullMeishiCard(props: MeishiCardProps) {
+  const profile = useMemo(
+    () => ({
+      username: props.username,
+      bio: props.bio,
+      favoriteQuote: props.favoriteQuote,
+      profileImageUrl: props.profileImageUrl,
+      profileUrl: props.profileUrl,
+    }),
+    [
+      props.username,
+      props.bio,
+      props.favoriteQuote,
+      props.profileImageUrl,
+      props.profileUrl,
+    ],
+  );
+  const context = useMeishiRenderContext(profile);
+  return <MeishiCardView {...props} context={context} />;
+}
+
+function MeishiCardView({
   document,
   zoomable = false,
-}: MeishiCardProps) {
+  context,
+}: MeishiCardProps & { context: MeishiRenderContext }) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -87,12 +131,6 @@ export function MeishiCard({
       { scale: scale.value },
     ],
   }));
-
-  const profile = useMemo(
-    () => ({ username, bio, favoriteQuote, profileImageUrl, profileUrl }),
-    [username, bio, favoriteQuote, profileImageUrl, profileUrl],
-  );
-  const context = useMeishiRenderContext(profile);
 
   const doc = useMemo(() => resolveMeishiDocument(document), [document]);
 
