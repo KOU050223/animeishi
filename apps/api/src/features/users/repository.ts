@@ -132,6 +132,7 @@ export type PublicUserSummary = {
   username: string;
   profileImageUrl: string | null;
   bio: string | null;
+  favoriteQuote: string | null;
   genres: string[];
   likeCount: number;
   likedByMe: boolean;
@@ -698,6 +699,7 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
           username: users.username,
           profileImageUrl: users.profileImageUrl,
           bio: users.bio,
+          favoriteQuote: users.favoriteQuote,
           createdAt: users.createdAt,
           // 相関サブクエリを持つ sql フラグメントは .as() で包まないと
           // SELECT 句側でカラム参照が非修飾名に潰れ、内側テーブルの

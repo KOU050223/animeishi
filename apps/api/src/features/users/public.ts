@@ -46,6 +46,7 @@ function listItemResponse(item: PublicUserSummary) {
     username: item.username,
     profileImageUrl: item.profileImageUrl,
     bio: item.bio,
+    favoriteQuote: item.favoriteQuote,
     genres: item.genres,
     likeCount: item.likeCount,
     likedByMe: item.likedByMe,

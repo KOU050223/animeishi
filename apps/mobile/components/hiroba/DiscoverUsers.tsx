@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Text,
   TouchableOpacity,
   View,
@@ -12,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
+import { MeishiCard } from "@/components/MeishiCard";
+import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -194,51 +195,21 @@ function PublicUserCard({
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
       testID={`public-user-${item.id}`}
     >
-      {/* カード本体は名刺（公開プロフィール）画面へ遷移。 */}
       <TouchableOpacity
-        className="flex-row items-center gap-3"
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`「${item.username}」の名刺を開く`}
+        accessibilityLabel={t("「{{name}}」の名刺を開く", {
+          name: item.username,
+        })}
         testID={`public-user-open-${item.id}`}
       >
-        {item.profileImageUrl ? (
-          <Image
-            source={{ uri: item.profileImageUrl }}
-            className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700"
-            resizeMode="cover"
-          />
-        ) : (
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900">
-            <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
-              {item.username.charAt(0)}
-            </Text>
-          </View>
-        )}
-        <View className="flex-1">
-          <Text
-            className="text-sm font-medium text-slate-900 dark:text-slate-100"
-            numberOfLines={1}
-          >
-            {item.username}
-          </Text>
-          {item.bio ? (
-            <Text
-              className="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
-              numberOfLines={2}
-            >
-              {item.bio}
-            </Text>
-          ) : null}
-          {item.genres.length > 0 ? (
-            <Text
-              className="mt-0.5 text-xs text-slate-400 dark:text-slate-500"
-              numberOfLines={1}
-            >
-              {item.genres.join("・")}
-            </Text>
-          ) : null}
-        </View>
+        <MeishiCard
+          username={item.username}
+          bio={item.bio}
+          favoriteQuote={item.favoriteQuote}
+          profileImageUrl={item.profileImageUrl}
+          profileUrl={buildProfileUrl(item.id)}
+        />
       </TouchableOpacity>
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity

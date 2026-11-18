@@ -8,6 +8,14 @@ import { DiscoverUsers } from "@/components/hiroba/DiscoverUsers";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
 
+const mockMeishiCard = jest.fn((_props: unknown) => null);
+jest.mock("@/components/MeishiCard", () => ({
+  MeishiCard: (props: unknown) => mockMeishiCard(props),
+}));
+jest.mock("@/lib/profileUrl", () => ({
+  buildProfileUrl: (id: string) => `https://example.com/user/${id}`,
+}));
+
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
 const mockPush = jest.fn();
@@ -30,6 +38,7 @@ type Item = {
   username: string;
   profileImageUrl: string | null;
   bio: string | null;
+  favoriteQuote: string | null;
   genres: string[];
   likeCount: number;
   likedByMe: boolean;
@@ -42,6 +51,7 @@ function publicItem(id: string, over: Partial<Item> = {}): Item {
     username: `user_${id}`,
     profileImageUrl: null,
     bio: "アニメ好きです",
+    favoriteQuote: null,
     genres: ["SF", "アクション"],
     likeCount: 10,
     likedByMe: false,
@@ -96,14 +106,25 @@ describe("DiscoverUsers", () => {
     expect(screen.getByTestId("hiroba-user-sort-new")).toBeTruthy();
   });
 
-  it("公開名刺のカードにユーザー名・bio・ジャンル・いいね数を出す", async () => {
-    mockItems = [publicItem("u-1", { username: "名刺の人", likeCount: 42 })];
+  it("公開プロフィールから classic 名刺を描き、いいね数を出す", async () => {
+    mockItems = [
+      publicItem("u-1", {
+        username: "名刺の人",
+        favoriteQuote: "好きなセリフ",
+        likeCount: 42,
+      }),
+    ];
     await render(<DiscoverUsers />);
 
     expect(screen.getByTestId("public-user-u-1")).toBeTruthy();
-    expect(screen.getByText("名刺の人")).toBeTruthy();
-    expect(screen.getByText("アニメ好きです")).toBeTruthy();
-    expect(screen.getByText("SF・アクション")).toBeTruthy();
+    expect(mockMeishiCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "名刺の人",
+        bio: "アニメ好きです",
+        favoriteQuote: "好きなセリフ",
+        profileUrl: "https://example.com/user/u-1",
+      }),
+    );
     expect(screen.getByText("42")).toBeTruthy();
   });
 
