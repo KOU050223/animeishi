@@ -246,15 +246,15 @@ export default function MeishiEditScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <BackButton onPress={handleBack} accessibilityLabel="戻る" />
-        <Text style={styles.headerTitle}>名刺エディタ</Text>
+        <BackButton onPress={handleBack} accessibilityLabel={t("戻る")} />
+        <Text style={styles.headerTitle}>{t("名刺エディタ")}</Text>
         <View style={{ flexDirection: "row", gap: 4 }}>
           <Pressable
             onPress={undo}
             disabled={!canUndo}
             style={[styles.headerBtn, !canUndo && { opacity: 0.3 }]}
             accessibilityRole="button"
-            accessibilityLabel="元に戻す"
+            accessibilityLabel={t("元に戻す")}
           >
             <Text style={styles.headerBtnText}>↶</Text>
           </Pressable>
@@ -263,7 +263,7 @@ export default function MeishiEditScreen() {
             disabled={!canRedo}
             style={[styles.headerBtn, !canRedo && { opacity: 0.3 }]}
             accessibilityRole="button"
-            accessibilityLabel="やり直し"
+            accessibilityLabel={t("やり直し")}
           >
             <Text style={styles.headerBtnText}>↷</Text>
           </Pressable>
@@ -271,10 +271,10 @@ export default function MeishiEditScreen() {
             onPress={onSave}
             style={[styles.headerBtn, styles.saveBtn]}
             accessibilityRole="button"
-            accessibilityLabel="保存"
+            accessibilityLabel={t("保存")}
           >
             <Text style={[styles.headerBtnText, { color: colors.onPrimary }]}>
-              保存
+              {t("保存")}
             </Text>
           </Pressable>
         </View>
@@ -285,11 +285,11 @@ export default function MeishiEditScreen() {
           onPress={() => setTemplatePicker(true)}
           style={styles.subBtn}
           accessibilityRole="button"
-          accessibilityLabel="テンプレートを選ぶ"
+          accessibilityLabel={t("テンプレートを選ぶ")}
         >
           <View style={styles.subBtnContent}>
             <Ionicons name="albums-outline" size={13} color={colors.text} />
-            <Text style={styles.subBtnText}>テンプレ</Text>
+            <Text style={styles.subBtnText}>{t("テンプレ")}</Text>
           </View>
         </Pressable>
         <Pressable
@@ -300,11 +300,11 @@ export default function MeishiEditScreen() {
           }}
           style={styles.subBtn}
           accessibilityRole="button"
-          accessibilityLabel="名刺一覧を開く"
+          accessibilityLabel={t("名刺一覧を開く")}
         >
           <View style={styles.subBtnContent}>
             <Ionicons name="layers-outline" size={13} color={colors.text} />
-            <Text style={styles.subBtnText}>名刺一覧</Text>
+            <Text style={styles.subBtnText}>{t("名刺一覧")}</Text>
           </View>
         </Pressable>
       </View>
@@ -319,7 +319,7 @@ export default function MeishiEditScreen() {
             {selectedId ? (
               <Pressable
                 style={styles.visuallyHidden}
-                accessibilityLabel="要素の選択を解除"
+                accessibilityLabel={t("要素の選択を解除")}
                 accessibilityRole="button"
                 onPress={() => onSelect(null)}
               />
@@ -337,7 +337,7 @@ export default function MeishiEditScreen() {
               ) : (
                 <View style={{ alignItems: "center", padding: 24 }}>
                   <Text style={{ color: colors.textMuted }}>
-                    テンプレートを選んでください
+                    {t("テンプレートを選んでください")}
                   </Text>
                 </View>
               )}
@@ -384,9 +384,9 @@ export default function MeishiEditScreen() {
                 onPress={() => setAddSheet(true)}
                 style={styles.addBtn}
                 accessibilityRole="button"
-                accessibilityLabel="要素を追加"
+                accessibilityLabel={t("要素を追加")}
               >
-                <Text style={styles.addBtnText}>＋ 要素を追加</Text>
+                <Text style={styles.addBtnText}>{t("＋ 要素を追加")}</Text>
               </Pressable>
             </View>
           )}
@@ -426,7 +426,7 @@ export default function MeishiEditScreen() {
           }
         }}
         onPick={handleTemplatePick}
-        warningMessage={doc ? "現在の編集内容は上書きされます" : undefined}
+        warningMessage={doc ? t("現在の編集内容は上書きされます") : undefined}
       />
 
       {selected &&
@@ -459,7 +459,9 @@ export default function MeishiEditScreen() {
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
           >
-            <Text style={styles.saveFeedbackText}>名刺を保存しました</Text>
+            <Text style={styles.saveFeedbackText}>
+              {t("名刺を保存しました")}
+            </Text>
             <Pressable
               onPress={() => void shareMeishiImage()}
               style={styles.saveFeedbackShareBtn}
