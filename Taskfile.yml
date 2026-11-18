@@ -17,7 +17,15 @@ tasks:
       - |
         bash -c '
         set -eu
-        source_root=$(git worktree list --porcelain | sed -n "1s/^worktree //p")
+        if ! worktree_list=$(git worktree list --porcelain); then
+          echo "エラー: git worktree list に失敗しました。" >&2
+          exit 1
+        fi
+        source_root=$(printf "%s\n" "$worktree_list" | sed -n "1s/^worktree //p")
+        if [ -z "$source_root" ]; then
+          echo "エラー: メイン checkout のパスを取得できませんでした。" >&2
+          exit 1
+        fi
         target_root=$(pwd -P)
         if [ "$source_root" = "$target_root" ]; then
           echo "メインのチェックアウトで実行されたため、コピーはありません。"
@@ -36,7 +44,17 @@ tasks:
             continue
           fi
           mkdir -p "$(dirname "$target_file")"
-          cp "$source_file" "$target_file"
+          temporary_file=$(mktemp "${target_file}.tmp.XXXXXX")
+          if ! cp "$source_file" "$temporary_file"; then
+            rm -f "$temporary_file"
+            echo "エラー: コピーに失敗しました: $relative_path" >&2
+            exit 1
+          fi
+          if ! mv "$temporary_file" "$target_file"; then
+            rm -f "$temporary_file"
+            echo "エラー: コピー先への配置に失敗しました: $relative_path" >&2
+            exit 1
+          fi
           echo "コピー: $relative_path"
         done
         '
