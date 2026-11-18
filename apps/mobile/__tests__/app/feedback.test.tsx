@@ -71,6 +71,25 @@ describe("FeedbackScreen", () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
+  it("本文が空のあいだは無効な理由を表示し、入力すると消える", async () => {
+    await render(<FeedbackScreen />);
+
+    expect(screen.getByText("内容を入力してください")).toBeTruthy();
+    expect(screen.getByTestId("feedback-submit").props.className).toContain(
+      "bg-slate-200",
+    );
+
+    await fireEvent.changeText(
+      screen.getByTestId("feedback-body-input"),
+      "落ちます",
+    );
+
+    expect(screen.queryByText("内容を入力してください")).toBeNull();
+    expect(screen.getByTestId("feedback-submit").props.className).toContain(
+      "bg-indigo-600",
+    );
+  });
+
   it("送信中は二重に送らない", async () => {
     mockIsPending = true;
     await render(<FeedbackScreen />);
