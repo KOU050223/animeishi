@@ -388,7 +388,7 @@ function ParticipatingFriendsSection({
     <AttendeeSection
       title={t("参加しているフレンド（{{count}}）", { count: list.total })}
       description={t(
-        "フレンドのうち、参加を「公開」または「フレンドのみ」にしている人",
+        "フレンドのうち、参加を「公開」または「フレンドのみ」にしている人（プロフィール非公開の人は除く）",
       )}
       list={list}
       emptyText={t("参加表明しているフレンドはまだいません")}
@@ -430,7 +430,7 @@ function PublicParticipantsSection({
       className="mt-6"
       title={t("参加者（{{count}}）", { count: list.total })}
       description={t(
-        "フレンドかどうかに関わらず、参加を「公開」にしているすべてのユーザー",
+        "フレンドかどうかに関わらず、参加を「公開」にしている人（プロフィール非公開の人は除く）",
       )}
       list={list}
       emptyText={t("公開している参加者はまだいません")}
