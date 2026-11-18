@@ -60,6 +60,18 @@ describe("profileUpdateSchema", () => {
     ).toBe(false);
   });
 
+  it("@を含むusernameを受け入れる", () => {
+    expect(
+      profileUpdateSchema.safeParse({ username: "kou050223@メイン垢" }).success,
+    ).toBe(true);
+  });
+
+  it("許可されていない記号を含むusernameを拒否する", () => {
+    expect(profileUpdateSchema.safeParse({ username: "user!" }).success).toBe(
+      false,
+    );
+  });
+
   it("予約語 admin をusernameとして拒否する", () => {
     expect(profileUpdateSchema.safeParse({ username: "admin" }).success).toBe(
       false,

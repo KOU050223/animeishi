@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile/index";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockMutateProfile = jest.fn();
@@ -268,6 +269,37 @@ describe("ProfileScreen の保存トースト", () => {
     expect(layerStyle.left).toBe(0);
     expect(layerStyle.right).toBe(0);
     expect(layerStyle.zIndex).toBeGreaterThan(0);
+  });
+
+  // issue #581: 400 のバリデーションエラーは API の具体メッセージを出し、
+  // 原因が分からない汎用表示だけにしない。
+  it("保存失敗時は API のエラーメッセージを表示する", async () => {
+    mockMutateProfile.mockImplementation((_input, options) => {
+      options?.onError?.(
+        new ApiRequestError(
+          400,
+          "ユーザー名に使用できない文字が含まれています",
+        ),
+      );
+    });
+    await render(<ProfileScreen />);
+
+    await fireEvent.press(screen.getByLabelText("プロフィールを保存"));
+
+    expect(
+      screen.getByText("ユーザー名に使用できない文字が含まれています"),
+    ).toBeTruthy();
+  });
+
+  it("API 応答以外の失敗時は汎用メッセージを表示する", async () => {
+    mockMutateProfile.mockImplementation((_input, options) => {
+      options?.onError?.(new Error("network down"));
+    });
+    await render(<ProfileScreen />);
+
+    await fireEvent.press(screen.getByLabelText("プロフィールを保存"));
+
+    expect(screen.getByText("保存に失敗しました")).toBeTruthy();
   });
 });
 

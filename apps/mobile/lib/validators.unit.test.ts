@@ -105,6 +105,13 @@ describe("signUpSchema", () => {
     ).toBe(true);
   });
 
+  it("@を含むユーザー名を受け入れる", () => {
+    expect(
+      signUpSchema.safeParse({ ...valid, username: "kou050223@メイン垢" })
+        .success,
+    ).toBe(true);
+  });
+
   it("無効なメールアドレスを拒否する", () => {
     expect(signUpSchema.safeParse({ ...valid, email: "invalid" }).success).toBe(
       false,
