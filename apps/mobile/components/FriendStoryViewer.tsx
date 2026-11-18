@@ -82,8 +82,8 @@ export function FriendStoryViewer({
     >
       <View className="flex-1 bg-black">
         <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
-          {/* 進行バー */}
-          <View className="flex-row gap-1 px-3 pt-2">
+          {/* 進行バー（画像がはみ出して上に重ならないよう z-10 を付ける） */}
+          <View className="z-10 flex-row gap-1 px-3 pt-2">
             {items.map((storyItem, i) => (
               <View
                 key={storyItem.id}
@@ -153,7 +153,8 @@ export function FriendStoryViewer({
                   source={{ uri: item.work.hostedImageUrl }}
                   style={styles.workImage}
                   className="bg-slate-800"
-                  resizeMode="cover"
+                  resizeMode="contain"
+                  testID="story-work-image"
                 />
               ) : (
                 <View
@@ -210,9 +211,13 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
   },
+  // 高さ起点でサイズを決める。width 起点（%）だと横幅が広い環境で高さが
+  // ビューポートを超え、画像が進捗バーに重なりタイトルが画面外に出る
+  // （issue #600）。maxWidth は横幅の絶対上限。
   workImage: {
-    width: "70%",
+    height: "55%",
     aspectRatio: 3 / 4,
+    maxWidth: "85%",
     borderRadius: 16,
   },
   prevZone: {
