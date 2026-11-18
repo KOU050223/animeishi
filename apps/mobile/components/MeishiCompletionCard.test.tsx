@@ -89,6 +89,23 @@ describe("MeishiCompletionCard", () => {
     ).toBeTruthy();
   });
 
+  it("各ステップの完了表示が「残り N ステップ」の件数と一致する", async () => {
+    mockCompletion = completion(["template"]);
+    await render(<MeishiCompletionCard />);
+
+    // 達成済み 3 件には完了行、未達 1 件には遷移ボタンが出る
+    for (const step of ["avatar", "displayName", "favorites"]) {
+      expect(
+        screen.getByTestId(`meishi-completion-step-done-${step}`),
+      ).toBeTruthy();
+      expect(screen.queryByTestId(`meishi-completion-step-${step}`)).toBeNull();
+    }
+    expect(
+      screen.queryByTestId("meishi-completion-step-done-template"),
+    ).toBeNull();
+    expect(screen.getByTestId("meishi-completion-step-template")).toBeTruthy();
+  });
+
   it("4 点すべて満たしたらカードを出さない", async () => {
     mockCompletion = completion([]);
     await render(<MeishiCompletionCard />);
