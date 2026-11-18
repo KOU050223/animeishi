@@ -24,6 +24,7 @@ import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
+import { getInspectorHeight } from "@/lib/meishi/inspectorLayout";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
@@ -134,10 +135,7 @@ export default function MeishiEditScreen() {
   } = useMeishiImageShare({ document: doc, context });
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
-  const inspectorHeight = Math.min(
-    336,
-    Math.max(236, Math.round(windowHeight * 0.28)),
-  );
+  const inspectorHeight = getInspectorHeight(windowHeight);
 
   const onSelect = useCallback((id: string | null) => setSelectedId(id), []);
 

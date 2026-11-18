@@ -1,6 +1,7 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
 import { PropertyPanel } from "@/components/meishi/PropertyPanel";
+import i18n from "@/lib/i18n";
 import type { MeishiRenderContext, TextElement } from "@/lib/meishi/types";
 
 const baseTextElement: TextElement = {
@@ -25,6 +26,56 @@ const context: MeishiRenderContext = {
 };
 
 describe("PropertyPanel", () => {
+  it("英語では内容チップと説明を翻訳する", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+    try {
+      await render(
+        <PropertyPanel
+          element={baseTextElement}
+          onChange={jest.fn()}
+          onOpenTextEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onDuplicate={jest.fn()}
+          onBringToFront={jest.fn()}
+          onSendToBack={jest.fn()}
+        />,
+      );
+      expect(screen.getByText("Content source")).toBeTruthy();
+      expect(screen.getByText("Quote")).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Custom shows typed text; Name, Bio, and Quote show your profile details.",
+        ),
+      ).toBeTruthy();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("ja");
+      });
+    }
+  });
+
+  it("内容の各チップが差し替える値を説明する", async () => {
+    await render(
+      <PropertyPanel
+        element={baseTextElement}
+        onChange={jest.fn()}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "自由は入力した文字、名前・紹介・セリフはプロフィールの内容を表示します",
+      ),
+    ).toBeTruthy();
+  });
+
   it("既存データ連携のテキスト要素でも文字列欄に要素の文字列を表示する", async () => {
     await render(
       <PropertyPanel

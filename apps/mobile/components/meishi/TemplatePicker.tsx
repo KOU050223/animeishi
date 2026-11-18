@@ -116,6 +116,39 @@ export function TemplatePicker({
                       {t(templateNameKeys[tpl.id] ?? "テンプレート")}
                     </Text>
                   </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      height: 18,
+                      borderRadius: 6,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      testID={`template-swatch-${tpl.id}-start`}
+                      style={{
+                        flex: 1,
+                        backgroundColor:
+                          doc.canvas.background.kind === "gradient"
+                            ? doc.canvas.background.from
+                            : doc.canvas.background.kind === "solid"
+                              ? doc.canvas.background.color
+                              : doc.canvas.background.base,
+                      }}
+                    />
+                    <View
+                      testID={`template-swatch-${tpl.id}-end`}
+                      style={{
+                        flex: 1,
+                        backgroundColor:
+                          doc.canvas.background.kind === "gradient"
+                            ? doc.canvas.background.to
+                            : doc.canvas.background.kind === "solid"
+                              ? doc.canvas.background.color
+                              : doc.canvas.background.accent,
+                      }}
+                    />
+                  </View>
                   <MeishiRenderer
                     document={doc}
                     context={{

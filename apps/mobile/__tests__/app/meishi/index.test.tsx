@@ -125,6 +125,11 @@ describe("名刺一覧画面", () => {
     expect(screen.getByText("名刺B")).toBeTruthy();
     // 既定バッジは既定のカードだけに付く
     expect(screen.getAllByText("既定")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "プロフィールや QR から表示される名刺は「既定」です。画像共有は開いている名刺を使います",
+      ),
+    ).toBeTruthy();
   });
 
   it("カードをタップすると全画面表示へ遷移する", async () => {
