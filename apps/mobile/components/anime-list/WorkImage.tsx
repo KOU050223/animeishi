@@ -11,7 +11,8 @@ import { apiUrl } from "@/lib/apiUrl";
 // プロキシは Annict / Kitsu / MAL の候補を取り込んで配信するので、
 // 読み込みに失敗した作品は外部 URL に切り替えても表示できない。
 // そのため失敗したらすぐ placeholder に切り替える。
-// 読み込み中も同じ placeholder を下に敷き、画像が上にフェードインする。
+// 読み込み中は loadingPlaceholder（省略時は placeholder）を下に敷き、
+// 画像が上にフェードインする。
 
 /** 一覧に出す画像のフェードイン時間（ms）。 */
 const DEFAULT_TRANSITION_MS = 200;
@@ -44,6 +45,7 @@ export function WorkImage({
   uri,
   style,
   placeholder,
+  loadingPlaceholder,
   accessibilityLabel,
   transition = DEFAULT_TRANSITION_MS,
   onLoadEnd,
@@ -51,8 +53,14 @@ export function WorkImage({
   uri: string | null | undefined;
   /** 画像の枠（幅・高さ・角丸など）。placeholder は同じ大きさで描く前提。 */
   style: StyleProp<ViewStyle>;
-  /** URL が無い・読み込み中・読み込み失敗のときに見せる要素。 */
+  /** URL が無い・読み込み失敗のときに見せる要素。 */
   placeholder: ReactNode;
+  /**
+   * 読み込み中（失敗後の再試行待ちを含む）に画像の下へ敷く要素。
+   * 省略時は placeholder を使う。読み込み中と画像欠落を見分けたい
+   * 一覧だけ指定する（issue #606）。
+   */
+  loadingPlaceholder?: ReactNode;
   accessibilityLabel?: string;
   /** フェードイン時間（ms）。0 で即時表示。 */
   transition?: number;
@@ -129,7 +137,9 @@ export function WorkImage({
 
   return (
     <View style={[style, styles.frame]}>
-      <View style={StyleSheet.absoluteFill}>{placeholder}</View>
+      <View style={StyleSheet.absoluteFill}>
+        {loadingPlaceholder ?? placeholder}
+      </View>
       {current.waiting ? null : (
         <Image
           source={{ uri: retryUri(uri, current.attempt) }}

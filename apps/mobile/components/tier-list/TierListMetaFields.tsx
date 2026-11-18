@@ -9,7 +9,8 @@ const DESCRIPTION_MAX_LENGTH = 500;
 /**
  * tier 表の説明文と公開設定の入力欄（issue #476）。
  * シーズン版・キャラクター版・自由作成版で見た目と挙動を揃えるため共有する。
- * 文言は作品リスト画面（work-list.tsx）と同じ。
+ * ひろば公開の補足文は作品リスト画面（work-list.tsx）に揃える。
+ * リンク共有の説明はここ独自（issue #606）。
  */
 export function TierListMetaFields({
   description,
@@ -51,9 +52,7 @@ export function TierListMetaFields({
           <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {isPublic
               ? t("公開中。ひろばの一覧に表示されます")
-              : shareToken
-                ? t("ひろばには表示されません。共有リンクからは閲覧できます")
-                : t("ひろばには表示されません")}
+              : t("ひろばには表示されません")}
           </Text>
         </View>
         <Switch
@@ -66,8 +65,16 @@ export function TierListMetaFields({
         />
       </View>
       {shareToken ? (
+        // 「ひろばに公開する」とは別の設定なので、リンクを知っている人への
+        // 公開範囲を一文で示す（issue #606）。
         <Text className="text-xs text-slate-500 dark:text-slate-400">
-          {t("リンク共有中")}
+          {isPublic
+            ? t(
+                "リンク共有中です。ひろばへの掲載とは別に、URL を知っている人も見られます",
+              )
+            : t(
+                "リンク共有中です。ひろばには載らず、URL を知っている人だけが見られます",
+              )}
         </Text>
       ) : null}
     </>
