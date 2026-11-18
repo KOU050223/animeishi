@@ -71,16 +71,25 @@ export function MeishiCompletionCard() {
       </Text>
       {MEISHI_COMPLETION_STEPS.map((step) => {
         const done = !missing.includes(step);
+        const label = t(MEISHI_COMPLETION_STEP_LABELS[step]);
         if (done) {
+          // グレーアウトだけだと「無効=未達」と読み違える（issue #597）ため、
+          // 取り消し線で「済」であることを明示する
           return (
-            <View key={step} className="flex-row items-center py-1.5">
+            <View
+              key={step}
+              className="flex-row items-center py-1.5"
+              accessible
+              accessibilityLabel={`${label} ${t("完了")}`}
+              testID={`meishi-completion-step-done-${step}`}
+            >
               <Ionicons
                 name="checkmark-circle"
                 size={18}
                 color={colors.success}
               />
-              <Text className="ml-2 text-sm text-slate-400 dark:text-slate-500">
-                {t(MEISHI_COMPLETION_STEP_LABELS[step])}
+              <Text className="ml-2 text-sm text-slate-400 line-through dark:text-slate-500">
+                {label}
               </Text>
             </View>
           );
@@ -97,10 +106,10 @@ export function MeishiCompletionCard() {
             <Ionicons
               name="ellipse-outline"
               size={18}
-              color={colors.primaryText}
+              color={colors.textMuted}
             />
             <Text className="ml-2 flex-1 text-sm font-medium text-indigo-700 dark:text-indigo-300">
-              {t(MEISHI_COMPLETION_STEP_LABELS[step])}
+              {label}
             </Text>
             <Ionicons
               name="chevron-forward"
