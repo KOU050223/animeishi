@@ -344,6 +344,14 @@ describe("tier 表の共有", () => {
     expect(html).toContain(
       'property="og:image" content="https://example.com/a.png"',
     );
+    // twitter:image / og:site_name / og:locale / favicon も head に出す
+    expect(html).toContain(
+      'name="twitter:image" content="https://example.com/a.png"',
+    );
+    expect(html).toContain('property="og:site_name" content="Animeishi"');
+    expect(html).toContain('property="og:locale" content="ja_JP"');
+    // favicon は canonical のオリジンから組み立てる
+    expect(html).toContain('rel="icon" href="http://localhost/favicon.ico"');
     expect(html).toContain("アニメA");
     expect(html).toContain("アニメB");
     expect(html).toContain("テストユーザー");

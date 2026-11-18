@@ -13,7 +13,61 @@ directory = "./dist"
 binding = "ASSETS"
 # SPA のためクライアントサイドルーティングへ未知のパスをフォールバックする
 not_found_handling = "single-page-application"
-run_worker_first = ["/share/*"]
+# Worker が関与するのは HTML ページに限る（アセット要求まで Worker へ
+# 回すと全リクエストが invocation 課金・1 ホップ増になる）。
+#   /share/* … 全員 API の OGP 付き静的 HTML へ転送（issue #408）
+#   /user/*  … クローラ UA のみ API の OGP HTML へ転送、ブラウザは SPA
+#   公開ページ … パス別メタを初期 HTML に注入
+#   その他の HTML ルート … noindex メタを注入
+# 新しいページ（app/ 以下のルート）を追加したらここにも登録する。
+# 登録漏れでも従来どおり SPA として動くだけで、壊れはしない。
+run_worker_first = [
+  "/share/*",
+  "/user/*",
+  "/",
+  "/welcome",
+  "/privacy",
+  "/terms",
+  "/support",
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/sso-callback",
+  "/incoming-share",
+  "/annict",
+  "/meishi",
+  "/meishi/*",
+  "/qr",
+  "/hiroba",
+  "/library",
+  "/profile",
+  "/social",
+  "/achievements",
+  "/analysis",
+  "/anime-list",
+  "/article/*",
+  "/blocked-users",
+  "/changelog",
+  "/character-tier-list",
+  "/custom-tier-list",
+  "/danime-import",
+  "/danime-import-review",
+  "/delete-account",
+  "/election/*",
+  "/event/*",
+  "/favorites",
+  "/feedback",
+  "/friends",
+  "/public-tier-list",
+  "/public-work-list",
+  "/tier-list",
+  "/tier-lists",
+  "/watch-history",
+  "/work-list",
+  "/work-lists",
+  "/onboarding",
+  "/passkey-prompt",
+]
 
 [vars]
 # /share/* の転送時にリクエスト URL のオリジンを書き換える API の公開オリジン
