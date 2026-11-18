@@ -12,6 +12,9 @@ E2E は CI では回さない（macOS ランナーのコストのため。issue 
 
 ## 前提
 
+- 新しい worktree では `pnpm task worktree:env` でメインのチェックアウトから
+  `apps/mobile/.env` と `apps/api/.dev.vars` をコピーする（既存ファイルはスキップ）。
+
 - maestro CLI 1.39.0 以降: `brew install mobile-dev-inc/tap/maestro`
   （JDK も必要。subflows の `optional: true` を使うため 1.39.0 以降）
 - Xcode + iOS シミュレーターランタイム
