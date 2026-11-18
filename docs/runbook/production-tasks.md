@@ -17,6 +17,11 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
+* users:excluded:         本番で公開一覧から除外中のユーザー一覧を表示（issue #580）
+* users:exclude:          本番ユーザーを公開一覧から除外（確認プロンプト付き）
+* users:unexclude:        本番ユーザーの公開一覧除外を解除（確認プロンプト付き）
+* users:excluded:local:   ローカル D1 で除外中のユーザー一覧を表示
+* users:exclusion:local:  ローカル D1 で除外の設定・解除（動作確認用）
 * feedback:list:          本番 D1 の不具合報告・ご意見を新しい順に表示（既定 50 件）
 * feedback:list:local:    ローカル D1 の不具合報告・ご意見を表示
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
@@ -206,6 +211,44 @@ pnpm exec wrangler secret delete ANNICT_SHARED_READ_TOKEN --env preview
 メモは環境変数経由でスクリプトに渡るため、引用符・`$`・バッククォート等を
 そのまま含めてよい。プレビュー D1 を見る場合は
 `bash apps/api/scripts/reports.sh --env preview list` を直接叩く。
+
+## 公開リストからのユーザーの除外（users.public_list_exclusion）
+
+みつける（Discover）の名刺・作品リスト・Tier 表、イベントの公開参加者
+一覧に出さないユーザー（審査用デモアカウント、BAN したアカウント等）を
+`users.public_list_exclusion` で管理する（issue #580）。値は除外の理由で、
+`demo` / `banned` など任意の文字列。NULL に戻すと一覧に出るようになる。
+
+除外が効くのは公開一覧への露出だけ。名刺詳細（`GET /user/:uid`）・
+公開リスト詳細・共有リンク・フレンド一覧・フレンド欄は変わらない
+（デモアカウントの審査・Explore 導線を壊さないための仕様）。
+
+`apps/api/scripts/public-list-exclusion.sh` の Taskfile ラッパー。使い方は
+`bash apps/api/scripts/public-list-exclusion.sh --help`。id は `--` 以降、
+理由は `REASON=` で渡す（更新系は確認プロンプト付き）。
+
+```bash
+# 除外する（<理由> は demo / banned 等）
+pnpm task users:exclude REASON=demo -- <ユーザーID>
+
+# 除外されているか確認する
+pnpm task users:excluded
+
+# 除外を解除する
+pnpm task users:unexclude -- <ユーザーID>
+```
+
+preview D1 は
+`bash apps/api/scripts/public-list-exclusion.sh --env preview list` のように
+スクリプトを直接叩く。
+
+### デモアカウントの除外
+
+`pnpm task review-account:seed` はデモデータの投入後に、ゲストアカウントと
+フレンド役の両方へ `public_list_exclusion = 'demo'` を自動で立てる。
+過去に作ったデモアカウントへは、この機能を含む API が本番にデプロイ
+（`users.public_list_exclusion` を足すマイグレーションが適用）されたあとに
+`pnpm task review-account:seed` を再実行すればよい。
 
 ## 不具合報告・ご意見（feedback:list）
 
@@ -457,6 +500,8 @@ App Store 審査のデモアカウントと Expo Explore のログインに使�
 - ゲストアカウント（ログインに使う。`REVIEW_ACCOUNT_EMAIL` / `REVIEW_ACCOUNT_PASSWORD`）
 - フレンド役アカウント（ログインしない。パスワードは毎回ランダム）
 - 両者のプロフィール・お気に入り・評価・作品リスト・ティア表と、両者のフレンド関係
+- 両者の `public_list_exclusion = 'demo'`（公開一覧からの除外。issue #580。
+  対象 D1 は API_URL から推測する）
 
 名刺は端末内保存、視聴履歴は Annict 連携が前提なので入らない。
 

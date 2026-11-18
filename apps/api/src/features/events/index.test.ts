@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
@@ -650,6 +651,41 @@ describe("イベント API", () => {
       expect(body.participants).toHaveLength(0);
       expect(body.participantTotal).toBe(0);
       expect(body.friends).toHaveLength(0);
+    });
+
+    it("公開一覧除外（public_list_exclusion）の参加者は公開欄に出ないが、フレンド欄には出る", async () => {
+      await insertEvent(db, ongoingEvent("joined"));
+      await insertUser(db, "user_excluded", "除外ユーザー");
+      await insertUser(db, "user_normal", "通常ユーザー");
+      await insertUser(db, "friend_excluded", "除外フレンド");
+      await befriend("friend_excluded");
+      await insertParticipation(db, "joined", "user_excluded", "public");
+      await insertParticipation(db, "joined", "user_normal", "public");
+      await insertParticipation(db, "joined", "friend_excluded", "public");
+      for (const id of ["user_excluded", "friend_excluded"]) {
+        await db
+          .update(users)
+          .set({ publicListExclusion: "demo" })
+          .where(eq(users.id, id));
+      }
+
+      const app = buildApp();
+      const res = await app.request(
+        "/events/joined/participants",
+        {},
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        participants: { userId: string }[];
+        participantTotal: number;
+        friends: { userId: string }[];
+      };
+      expect(body.participants.map((p) => p.userId)).toEqual(["user_normal"]);
+      expect(body.participantTotal).toBe(1);
+      // フレンド欄はフレンド向けの一覧なので除外は掛けない（issue #580）
+      expect(body.friends.map((p) => p.userId)).toEqual(["friend_excluded"]);
     });
 
     it("limit 件まで返し、残りは participantTotal にだけ残る", async () => {

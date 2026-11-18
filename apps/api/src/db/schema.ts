@@ -38,6 +38,12 @@ export const users = sqliteTable(
     bio: text("bio"),
     favoriteQuote: text("favorite_quote"),
     isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
+    // 公開一覧（みつける の名刺・作品リスト・Tier 表、イベントの公開
+    // 参加者）からの除外理由（issue #580）。NULL = 一覧に出す。
+    // 'demo'（審査用デモアカウント）・'banned'（モデレーション除外）等を
+    // 運営が D1 に直接書く運用で、クエリ側は NULL 判定だけを行う。
+    // 詳細・共有リンク・フレンド一覧など一覧以外の参照は除外しない。
+    publicListExclusion: text("public_list_exclusion"),
     profileImageUrl: text("profile_image_url"),
     // 視聴履歴の共有 URL（/share/watch-history/:token）のトークン。null は未共有。
     // 発行は POST /me/watch-histories/share、破棄は DELETE で行う。

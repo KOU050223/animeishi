@@ -7,6 +7,7 @@
 //   1. Clerk にゲストアカウントとフレンド役アカウントを作る（既存ならパスワードを合わせる）
 //   2. 本番 API にプロフィール・お気に入り・評価・作品リスト・ティア表を入れる
 //   3. 2 つのアカウントをフレンドにする
+//   4. D1 の users.public_list_exclusion に 'demo' を立て、公開一覧から外す（issue #580）
 //
 // 名刺は端末内（AsyncStorage）保存、視聴履歴は Annict 連携が正なので、ここでは入れない。
 //
@@ -20,6 +21,9 @@
 //   CLERK_PUBLISHABLE_KEY    省略可。既定は本番の pk_live（Frontend API のホスト名を取り出す）
 
 import { randomBytes } from "node:crypto";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const DEFAULT_API_URL = "https://animeishi-api.uomi.dev";
 const DEFAULT_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYW5pbWVpc2hpLnVvbWkuZGV2JA";
@@ -336,6 +340,100 @@ async function makeFriends(reviewApi, friendApi, reviewUserId, friendUserId) {
   console.log("  フレンド: 成立を確認");
 }
 
+// 公開一覧（みつける の名刺・作品リスト・Tier 表等）からの除外理由を
+// users.public_list_exclusion に書く（issue #580）。Clerk の
+// demoAccount メタデータと同じ「デモ用アカウント」の印だが、一覧の
+// 絞り込みは D1 側のカラムを見るためここで同期する。運営操作を受ける
+// API は無いため、publish-article.mjs と同じく wrangler d1 execute で書く。
+// 対象の D1 は API の向き先（API_URL）から推測する。
+function d1Target(apiUrl) {
+  const host = new URL(apiUrl).hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return { dbName: "animeishi-db", args: ["--local"] };
+  }
+  // PR プレビュー（pr-<N>-animeishi-api-preview.*.workers.dev）
+  if (host.includes("animeishi-api-preview")) {
+    return {
+      dbName: "animeishi-db-preview",
+      args: ["--remote", "--env", "preview", "-y"],
+    };
+  }
+  return {
+    dbName: "animeishi-db",
+    args: ["--remote", "--env", "production", "-y"],
+  };
+}
+
+function sqlLiteral(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+// wrangler はバナー等を stdout に混ぜるため、JSON 本体（'[' 始まり以降）を
+// 取り出してパースする（reports.sh の print_rows と同じ切り分け方）。
+function parseD1Json(stdout) {
+  const match = /^\[/m.exec(stdout);
+  if (!match)
+    throw new Error("wrangler d1 execute の JSON 出力を読めませんでした");
+  return JSON.parse(stdout.slice(match.index));
+}
+
+// --remote --file はインポート API 経由で SELECT の行が返らないため、
+// 更新・検証とも結果が返る --command で実行する。
+function d1Execute(apiDir, dbName, args, sql) {
+  // wrangler は apps/api にだけ入っているため、どこから呼んでも
+  // apps/api で実行する（publish-article.mjs と同じ考え方）。
+  const result = spawnSync(
+    "pnpm",
+    ["wrangler", "d1", "execute", dbName, ...args, "--command", sql, "--json"],
+    { encoding: "utf8", cwd: apiDir },
+  );
+  if (result.status !== 0) {
+    const output = `${result.stderr ?? ""}${result.stdout ?? ""}`.slice(
+      0,
+      2000,
+    );
+    throw new Error(
+      `public_list_exclusion の更新に失敗しました（${dbName}。` +
+        "users.public_list_exclusion を足すマイグレーションが" +
+        `適用済みか確認してください）:\n${output}`,
+    );
+  }
+  return result.stdout;
+}
+
+// 指定ユーザーの public_list_exclusion を立て、書けたか SELECT で確かめる。
+// users 行が無い（プロビジョニング前）・マイグレーション未適用ならエラーにする。
+function setPublicListExclusion(apiUrl, userIds, reason) {
+  const { dbName, args } = d1Target(apiUrl);
+  const idList = userIds.map(sqlLiteral).join(", ");
+  const apiDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+  d1Execute(
+    apiDir,
+    dbName,
+    args,
+    `UPDATE users SET public_list_exclusion = ${sqlLiteral(reason)} WHERE id IN (${idList});`,
+  );
+  const statements = parseD1Json(
+    d1Execute(
+      apiDir,
+      dbName,
+      args,
+      `SELECT id, public_list_exclusion FROM users WHERE id IN (${idList}) ORDER BY id;`,
+    ),
+  );
+  const rows = statements[0]?.results ?? [];
+  const flagged = new Set(
+    rows.filter((r) => r.public_list_exclusion === reason).map((r) => r.id),
+  );
+  const missing = userIds.filter((id) => !flagged.has(id));
+  if (missing.length > 0) {
+    throw new Error(
+      `public_list_exclusion を立てられませんでした: ${missing.join(", ")}`,
+    );
+  }
+}
+
 async function main() {
   if (process.argv.includes("-h") || process.argv.includes("--help")) {
     console.log(usage());
@@ -416,6 +514,13 @@ async function main() {
   );
   await seedAccount(friendApi, ACCOUNTS.friend);
   await makeFriends(reviewApi, friendApi, reviewUserId, friendUserId);
+
+  // デモアカウントを公開一覧から外す（issue #580）。users 行は上の
+  // プロフィール投入（PUT /me/profile → ensureUserExists）で必ず作られ
+  // ているはずなので、ここでフラグを立てて検証まで行う。
+  console.log("公開一覧からの除外");
+  setPublicListExclusion(apiUrl, [reviewUserId, friendUserId], "demo");
+  console.log("  D1: public_list_exclusion='demo' を確認");
 
   console.log(`\n完了。ゲストアカウントのユーザー ID: ${reviewUserId}`);
   console.log(

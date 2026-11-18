@@ -1,4 +1,13 @@
-import { and, desc, eq, inArray, notExists, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import {
@@ -254,6 +263,11 @@ export function publicTierListsRepository(
       .where(
         and(
           visibilityCondition(db, currentUserId, tierLists),
+          // 公開一覧からの除外は一覧への露出だけに効かせる（issue #580）。
+          // 詳細・いいね・通報の対象解決（visibilityCondition 側）には
+          // 入れず、除外ユーザーの Tier 表も id 指定の直接参照は残す
+          // （デモアカウントの Explore リンクを壊さないため）。
+          isNull(users.publicListExclusion),
           cursor
             ? cursorCondition(sortExpr, tierLists.id, KIND_RANK.season, cursor)
             : undefined,
@@ -309,6 +323,7 @@ export function publicTierListsRepository(
       .where(
         and(
           visibilityCondition(db, currentUserId, characterTierLists),
+          isNull(users.publicListExclusion),
           cursor
             ? cursorCondition(
                 sortExpr,
@@ -362,6 +377,7 @@ export function publicTierListsRepository(
       .where(
         and(
           visibilityCondition(db, currentUserId, customTierLists),
+          isNull(users.publicListExclusion),
           cursor
             ? cursorCondition(
                 sortExpr,

@@ -707,7 +707,15 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         })
         .from(users)
         .where(
-          and(eq(users.isPublic, true), notBlockedCondition, cursorCondition),
+          and(
+            eq(users.isPublic, true),
+            // 公開一覧からの除外（issue #580）。詳細・いいね・フレンド
+            // 表示など一覧以外の経路は除外しない（unlisted 扱い）ため、
+            // ここ（一覧クエリ）だけに条件を置く。
+            isNull(users.publicListExclusion),
+            notBlockedCondition,
+            cursorCondition,
+          ),
         )
         .orderBy(desc(orderExpr), desc(users.id))
         .limit(input.limit + 1);
