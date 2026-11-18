@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -11,16 +11,29 @@ import {
 } from "react-native";
 import { CurrentSeasonConnectCard } from "@/components/CurrentSeasonConnectCard";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { currentSeason } from "@/components/anime-list/animeListUtils";
+import type { SeasonKey } from "@/components/anime-list/animeListUtils";
 import { useAnnictConnection } from "@/lib/annict";
 import { filterCurrentSeasonWatching } from "@/lib/currentSeasonWatching";
 import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
 import { useWatchHistory } from "@/lib/useWatchHistory";
+
+// シーズンキー → 季節名の i18n キー。SEASONS（アニメ一覧用）は日本語ラベルを
+// 直接持つため en で訳せないので、訳語の解決用に別マップを持つ。
+const SEASON_I18N_KEYS: Record<SeasonKey, TranslationKey> = {
+  winter: "冬",
+  spring: "春",
+  summer: "夏",
+  autumn: "秋",
+};
 
 // ホームの「今期視聴中」レール（issue #353）。今期の視聴中作品を横スクロールで
 // 並べ、タップで dアニメストアのタイトル検索を開く。
 export function CurrentSeasonWatchingRail() {
   const { t } = useTranslation();
+  const router = useRouter();
   const colors = useThemeColors();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
   const { data, isLoading, isError, refetch } = useWatchHistory();
@@ -49,10 +62,22 @@ export function CurrentSeasonWatchingRail() {
 
   const works = useMemo(() => filterCurrentSeasonWatching(data ?? []), [data]);
 
+  // 「今期」の対象範囲（放送開始シーズン）を画面に明記する（issue #598）。
+  // 範囲外の視聴中作品（過去シーズンの残存ステータス等）はレールに出ないため、
+  // 対象が見えないとライブラリ側の件数と不整合に見える。
+  const { year, key } = currentSeason();
+  const seasonLabel = t("{{year}}年{{season}}", {
+    year,
+    season: t(SEASON_I18N_KEYS[key]),
+  });
+
   return (
     <View className="mt-6" testID="home-current-season">
-      <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-100">
         {t("今期視聴中")}
+      </Text>
+      <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+        {t("{{season}}アニメのうち「視聴中」", { season: seasonLabel })}
       </Text>
       {isConnectionLoading ? (
         <ActivityIndicator color={colors.primary} />
@@ -81,9 +106,31 @@ export function CurrentSeasonWatchingRail() {
           </TouchableOpacity>
         </View>
       ) : works.length === 0 ? (
-        <Text className="text-sm text-slate-400 dark:text-slate-500">
-          {t("今期視聴中の作品はありません")}
-        </Text>
+        // 空表示では「今期」の範囲外に残っている視聴中作品（過去シーズンの
+        // ステータス等）がどこで確認できるかまで示す（issue #598）。
+        <View>
+          <Text className="text-sm text-slate-400 dark:text-slate-500">
+            {t("{{season}}アニメで「視聴中」の作品はありません", {
+              season: seasonLabel,
+            })}
+          </Text>
+          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            {t(
+              "過去のシーズンを含むすべての「視聴中」作品はライブラリの視聴履歴で確認できます",
+            )}
+          </Text>
+          <TouchableOpacity
+            className="mt-2 self-start"
+            onPress={() => router.push("/(tabs)/library?section=history")}
+            accessibilityRole="button"
+            accessibilityLabel={t("ライブラリの視聴履歴を見る")}
+            testID="home-current-season-library-link"
+          >
+            <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+              {t("ライブラリの視聴履歴を見る")}
+            </Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           horizontal
