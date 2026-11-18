@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { Image } from "expo-image";
+import { Image, type ImageLoadEventData } from "expo-image";
 import { apiUrl } from "@/lib/apiUrl";
 
 // 作品画像の表示に共通で使う expo-image のラッパー（issue #222 / #224）。
@@ -47,6 +47,7 @@ export function WorkImage({
   accessibilityLabel,
   transition = DEFAULT_TRANSITION_MS,
   onLoadEnd,
+  onLoad,
 }: {
   uri: string | null | undefined;
   /** 画像の枠（幅・高さ・角丸など）。placeholder は同じ大きさで描く前提。 */
@@ -58,6 +59,8 @@ export function WorkImage({
   transition?: number;
   /** 読み込みの成功・失敗どちらでも呼ばれる。 */
   onLoadEnd?: () => void;
+  /** 読み込み成功時に画像の実寸法などを返す。 */
+  onLoad?: (event: ImageLoadEventData) => void;
 }) {
   // 失敗フラグは表示中の URL と組で持ち、URL が変わったら下ろす
   // （A → B → A と戻ったときも A を読み込み直す）。レンダー中の setState は
@@ -143,6 +146,7 @@ export function WorkImage({
           cachePolicy="memory-disk"
           transition={transition}
           onError={onError}
+          onLoad={onLoad}
           onLoadEnd={onImageLoadEnd}
           accessibilityLabel={accessibilityLabel}
         />
