@@ -79,6 +79,7 @@ export function MeishiCompletionCard() {
             <View
               key={step}
               className="flex-row items-center py-1.5"
+              accessible
               accessibilityLabel={`${label} ${t("完了")}`}
               testID={`meishi-completion-step-done-${step}`}
             >
