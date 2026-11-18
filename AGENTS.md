@@ -20,6 +20,8 @@ curl -fsSL https://vite.plus | bash   # vp 本体（グローバル CLI）。初
 vp install                            # 依存インストール + Git フック設置。新しい worktree でも最初に実行する
 ```
 
+新しい worktree では `pnpm task worktree:env` でローカル用の `.env` / `.dev.vars` をコピーする。
+
 ## コマンド
 
 ```

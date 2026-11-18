@@ -11,6 +11,54 @@ tasks:
       - task --list
     silent: true
 
+  worktree:env:
+    desc: 新しい worktree にローカル用の秘密設定ファイルをコピー（既存は FORCE=1 で上書き）
+    cmds:
+      - |
+        bash -c '
+        set -eu
+        if ! worktree_list=$(git worktree list --porcelain); then
+          echo "エラー: git worktree list に失敗しました。" >&2
+          exit 1
+        fi
+        source_root=$(printf "%s\n" "$worktree_list" | sed -n "1s/^worktree //p")
+        if [ -z "$source_root" ]; then
+          echo "エラー: メイン checkout のパスを取得できませんでした。" >&2
+          exit 1
+        fi
+        target_root=$(pwd -P)
+        if [ "$source_root" = "$target_root" ]; then
+          echo "メインのチェックアウトで実行されたため、コピーはありません。"
+          exit 0
+        fi
+        files="apps/mobile/.env apps/api/.dev.vars"
+        for relative_path in $files; do
+          source_file="$source_root/$relative_path"
+          target_file="$target_root/$relative_path"
+          if [ ! -f "$source_file" ]; then
+            echo "警告: コピー元がありません: $source_file（.example から作成してください）" >&2
+            continue
+          fi
+          if [ -e "$target_file" ] && [ "${FORCE:-0}" != "1" ]; then
+            echo "スキップ（既存）: $relative_path"
+            continue
+          fi
+          mkdir -p "$(dirname "$target_file")"
+          temporary_file=$(mktemp "${target_file}.tmp.XXXXXX")
+          if ! cp "$source_file" "$temporary_file"; then
+            rm -f "$temporary_file"
+            echo "エラー: コピーに失敗しました: $relative_path" >&2
+            exit 1
+          fi
+          if ! mv "$temporary_file" "$target_file"; then
+            rm -f "$temporary_file"
+            echo "エラー: コピー先への配置に失敗しました: $relative_path" >&2
+            exit 1
+          fi
+          echo "コピー: $relative_path"
+        done
+        '
+
   db:migrate:prod:list:
     desc: 本番 D1 の未適用マイグレーションを確認（適用はしない）
     dir: apps/api
