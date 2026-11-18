@@ -23,16 +23,18 @@ const mockConfirm = jest.fn(
   ) => onConfirm(),
 );
 
+type MockRequestItem = {
+  id: number;
+  userId: string;
+  username: string;
+  bio: string | null;
+  favoriteQuote: string | null;
+  profileImageUrl: string | null;
+};
+
 let mockRequestsData: {
-  received: {
-    id: number;
-    userId: string;
-    username: string;
-    bio: string | null;
-    favoriteQuote: string | null;
-    profileImageUrl: string | null;
-  }[];
-  sent: unknown[];
+  received: MockRequestItem[];
+  sent: MockRequestItem[];
 } = { received: [], sent: [] };
 
 jest.mock("expo-router", () => ({
@@ -105,6 +107,74 @@ describe("FriendsSection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  it("フレンド行をタップすると相手のプロフィールへ進む", async () => {
+    await render(<FriendsSection />);
+    await fireEvent.press(screen.getByTestId("friend-item-friend_1"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "friend_1" },
+    });
+  });
+
+  it("送った申請があると「送ったフレンド申請」に出し、タップで相手のプロフィールへ進む", async () => {
+    mockRequestsData = {
+      received: [],
+      sent: [
+        {
+          id: 5,
+          userId: "addressee_1",
+          username: "申請先C",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+    };
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("送ったフレンド申請")).toBeTruthy();
+    expect(screen.getByText("フレンド申請中")).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByTestId("sent-friend-request-item-addressee_1"),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "addressee_1" },
+    });
+  });
+
+  it("届いた申請と送った申請が両方あると両方のグループを出す", async () => {
+    mockRequestsData = {
+      received: [
+        {
+          id: 3,
+          userId: "requester_1",
+          username: "申請者B",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+      sent: [
+        {
+          id: 5,
+          userId: "addressee_1",
+          username: "申請先C",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+    };
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("届いたフレンド申請")).toBeTruthy();
+    expect(screen.getByText("送ったフレンド申請")).toBeTruthy();
   });
 
   it("届いた申請があると一覧の先頭に出し、タップで相手のプロフィールへ進む", async () => {
