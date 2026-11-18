@@ -7,6 +7,7 @@ import { QrSection } from "@/components/social/QrSection";
 import { FriendsSection } from "@/components/social/FriendsSection";
 import { ActivityFeedSection } from "@/components/social/ActivityFeedSection";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useTranslation } from "react-i18next";
 
 const SECTIONS = ["qr", "activity", "friends"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -20,6 +21,7 @@ function isSection(value: unknown): value is Section {
 // 旧タブのパス（/qr, /friends）は app/ 直下のリダイレクトから
 // /social?section=... でここへ着地する。
 export default function SocialScreen() {
+  const { t } = useTranslation();
   // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
   // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
   // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
@@ -55,13 +57,13 @@ export default function SocialScreen() {
             testID: "social-section-qr",
           },
           {
-            label: "アクティビティ",
+            label: t("アクティビティ"),
             active: section === "activity",
             onPress: () => setSection("activity"),
             testID: "social-section-activity",
           },
           {
-            label: "フレンド",
+            label: t("フレンド"),
             active: section === "friends",
             onPress: () => setSection("friends"),
             testID: "social-section-friends",

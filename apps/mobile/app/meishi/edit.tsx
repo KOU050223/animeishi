@@ -418,6 +418,7 @@ export default function MeishiEditScreen() {
 
       <TemplatePicker
         visible={templatePicker}
+        title={t("テンプレートを選ぶ")}
         onClose={() => {
           setTemplatePicker(false);
           if (!doc) {

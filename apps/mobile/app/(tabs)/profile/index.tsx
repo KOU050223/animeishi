@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
@@ -37,7 +38,6 @@ import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { resolveMeishiDocument } from "@/lib/meishi/templates";
@@ -48,21 +48,29 @@ type Toast = { type: "success" | "error"; message: string };
 // Apple Wallet 追加の結果コードを、この画面で表示する文言へマッピングする。
 // 文言は低レベル基盤 (lib/wallet) には持たせず、呼び出し側で組み立てる。
 // 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
-function walletErrorMessage(result: AddToWalletResult): string | null {
+function walletErrorMessage(
+  result: AddToWalletResult,
+  t: ReturnType<typeof useTranslation>["t"],
+): string | null {
   switch (result.type) {
     case "success":
     case "not-supported":
       return null;
     case "not-configured":
-      return "サーバー側で pkpass 署名が未設定のため Wallet に追加できません";
+      return t(
+        "サーバー側で pkpass 署名が未設定のため Wallet に追加できません",
+      );
     case "auth-failed":
-      return "認証トークンが取得できませんでした";
+      return t("認証トークンが取得できませんでした");
     case "request-failed":
-      return `Wallet 追加リクエストが失敗しました (${result.status})`;
+      return t("Wallet 追加リクエストが失敗しました ({{status}})", {
+        status: result.status,
+      });
   }
 }
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   // iOS のネイティブヘッダーは large title 指定で透過になり、ScrollView が
   // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
   // 効かないケースがあるため、library / social と同じくヘッダー高さ分だけ
@@ -109,12 +117,10 @@ export default function ProfileScreen() {
   const favoriteIds = useFavoriteIds();
   const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
     useToggleFavorite(favoriteIds, {
-      onError: (e) =>
+      onError: () =>
         alert(
-          "お気に入りを更新できませんでした",
-          e instanceof ApiRequestError
-            ? e.message
-            : "お気に入りの更新に失敗しました",
+          t("お気に入りを更新できませんでした"),
+          t("お気に入りの更新に失敗しました"),
           { okLabel: "OK" },
         ),
     });
@@ -183,12 +189,15 @@ export default function ProfileScreen() {
       {
         onSuccess: () => {
           haptics.success();
-          showToast({ type: "success", message: "プロフィールを保存しました" });
+          showToast({
+            type: "success",
+            message: t("プロフィールを保存しました"),
+          });
         },
-        onError: (e) =>
+        onError: () =>
           showToast({
             type: "error",
-            message: e instanceof Error ? e.message : "保存に失敗しました",
+            message: t("保存に失敗しました"),
           }),
       },
     );
@@ -199,14 +208,13 @@ export default function ProfileScreen() {
       onSuccess: (data) => {
         if (data) {
           haptics.success();
-          showToast({ type: "success", message: "画像を更新しました" });
+          showToast({ type: "success", message: t("画像を更新しました") });
         }
       },
-      onError: (e) =>
+      onError: () =>
         showToast({
           type: "error",
-          message:
-            e instanceof Error ? e.message : "画像のアップロードに失敗しました",
+          message: t("画像のアップロードに失敗しました"),
         }),
     });
   }
@@ -232,15 +240,15 @@ export default function ProfileScreen() {
         ) : isError ? (
           <>
             <Text className="mb-4 text-center text-red-500 dark:text-red-400">
-              プロフィールの取得に失敗しました
+              {t("プロフィールの取得に失敗しました")}
             </Text>
             <TouchableOpacity
               className="rounded-lg bg-indigo-600 px-6 py-3"
               onPress={() => refetch()}
               accessibilityRole="button"
-              accessibilityLabel="プロフィールを再取得"
+              accessibilityLabel={t("プロフィールを再取得")}
             >
-              <Text className="font-semibold text-white">再試行</Text>
+              <Text className="font-semibold text-white">{t("再試行")}</Text>
             </TouchableOpacity>
             {/* 連携の確認・解除の集約先として、プロフィール取得に失敗している間も
                 解除導線を残す（ホームにはカードを出さないため）。連携カードは
@@ -265,10 +273,10 @@ export default function ProfileScreen() {
 
             <View className="px-4">
               <Text className="mb-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
-                名刺プレビュー
+                {t("名刺プレビュー")}
               </Text>
               <Text className="mb-2 text-xs text-slate-400 dark:text-slate-500">
-                2本指を広げると拡大できます
+                {t("2本指を広げると拡大できます")}
               </Text>
               <View
                 style={styles.meishiPreviewFrame}
@@ -278,7 +286,7 @@ export default function ProfileScreen() {
                 }
               >
                 <MeishiCard
-                  username={username || profile?.username || "ユーザー"}
+                  username={username || profile?.username || t("ユーザー")}
                   bio={bio}
                   favoriteQuote={favoriteQuote}
                   profileImageUrl={profile?.profileImageUrl}
@@ -311,7 +319,7 @@ export default function ProfileScreen() {
                 className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
                 onPress={() => router.push("/meishi")}
                 accessibilityRole="button"
-                accessibilityLabel="名刺一覧を開く"
+                accessibilityLabel={t("名刺一覧を開く")}
               >
                 <View className="flex-row items-center gap-1.5">
                   <Ionicons
@@ -320,7 +328,7 @@ export default function ProfileScreen() {
                     color={colors.primaryText}
                   />
                   <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                    名刺一覧を開く
+                    {t("名刺一覧を開く")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -332,7 +340,7 @@ export default function ProfileScreen() {
                   className="mt-2 items-center rounded-xl bg-black dark:border dark:border-slate-700 py-3"
                   onPress={() => {
                     void addToWallet().then((result) => {
-                      const message = walletErrorMessage(result);
+                      const message = walletErrorMessage(result, t);
                       if (message) {
                         showToast({ type: "error", message });
                       }
@@ -340,7 +348,7 @@ export default function ProfileScreen() {
                   }}
                   disabled={isWalletPending}
                   accessibilityRole="button"
-                  accessibilityLabel="Apple Wallet に名刺を追加"
+                  accessibilityLabel={t("Apple Wallet に名刺を追加")}
                 >
                   {isWalletPending ? (
                     <ActivityIndicator color={colors.onPrimary} />
@@ -352,7 +360,7 @@ export default function ProfileScreen() {
                         color={colors.onPrimary}
                       />
                       <Text className="font-semibold text-white">
-                        Apple Wallet に追加
+                        {t("Apple Wallet に追加")}
                       </Text>
                     </View>
                   )}
@@ -366,13 +374,13 @@ export default function ProfileScreen() {
                 onPress={onChangeAvatar}
                 disabled={uploadAvatar.isPending}
                 accessibilityRole="button"
-                accessibilityLabel="プロフィール画像を変更"
+                accessibilityLabel={t("プロフィール画像を変更")}
               >
                 {uploadAvatar.isPending ? (
                   <ActivityIndicator color={colors.primaryText} />
                 ) : (
                   <Text className="font-semibold text-indigo-600 dark:text-indigo-300">
-                    プロフィール画像を変更
+                    {t("プロフィール画像を変更")}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -381,54 +389,54 @@ export default function ProfileScreen() {
             <View className="mt-6 gap-4 px-4">
               <View>
                 <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  ユーザー名
+                  {t("ユーザー名")}
                 </Text>
                 <Input
                   value={username}
                   onChangeText={setUsername}
-                  placeholder="ユーザー名"
+                  placeholder={t("ユーザー名")}
                   className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
                   maxLength={20}
-                  accessibilityLabel="ユーザー名入力"
+                  accessibilityLabel={t("ユーザー名入力")}
                 />
               </View>
 
               <View>
                 <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  自己紹介
+                  {t("自己紹介")}
                 </Text>
                 <Input
                   value={bio}
                   onChangeText={setBio}
-                  placeholder="自己紹介"
+                  placeholder={t("自己紹介")}
                   multiline
                   numberOfLines={3}
                   className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
                   maxLength={500}
-                  accessibilityLabel="自己紹介入力"
+                  accessibilityLabel={t("自己紹介入力")}
                 />
               </View>
 
               <View>
                 <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  好きなセリフ
+                  {t("好きなセリフ")}
                 </Text>
                 <Input
                   value={favoriteQuote}
                   onChangeText={setFavoriteQuote}
-                  placeholder="好きなセリフ"
+                  placeholder={t("好きなセリフ")}
                   className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
                   maxLength={500}
-                  accessibilityLabel="好きなセリフ入力"
+                  accessibilityLabel={t("好きなセリフ入力")}
                 />
               </View>
 
               <View className="mt-2">
                 <Button
-                  label="保存"
+                  label={t("保存")}
                   onPress={onSave}
                   loading={updateProfile.isPending}
-                  accessibilityLabel="プロフィールを保存"
+                  accessibilityLabel={t("プロフィールを保存")}
                 />
               </View>
             </View>
@@ -446,7 +454,7 @@ export default function ProfileScreen() {
             {featureFlags.passkey && (
               <View className="mt-8 px-4">
                 <Text className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  セキュリティ
+                  {t("セキュリティ")}
                 </Text>
                 <PasskeySection
                   onSuccess={(message) =>
@@ -463,73 +471,73 @@ export default function ProfileScreen() {
               sections={[
                 {
                   key: "analysis",
-                  title: "分析",
+                  title: t("分析"),
                   rows: [
                     {
                       key: "analysis",
-                      label: "AI 視聴傾向分析",
+                      label: t("AI 視聴傾向分析"),
                       onPress: () => router.push("/analysis"),
-                      accessibilityLabel: "AI 視聴傾向分析を開く",
+                      accessibilityLabel: t("AI 視聴傾向分析を開く"),
                     },
                   ],
                 },
                 {
                   key: "achievements",
-                  title: "実績",
+                  title: t("実績"),
                   rows: [
                     {
                       key: "achievements",
-                      label: "実績バッジ",
+                      label: t("実績バッジ"),
                       onPress: () => router.push("/achievements"),
-                      accessibilityLabel: "実績バッジ一覧を開く",
+                      accessibilityLabel: t("実績バッジ一覧を開く"),
                     },
                   ],
                 },
                 {
                   key: "privacy-safety",
-                  title: "プライバシーと安全",
+                  title: t("プライバシーと安全"),
                   rows: [
                     {
                       key: "blocked-users",
-                      label: "ブロック中のユーザー",
+                      label: t("ブロック中のユーザー"),
                       onPress: () => router.push("/blocked-users"),
-                      accessibilityLabel: "ブロック中のユーザーを開く",
+                      accessibilityLabel: t("ブロック中のユーザーを開く"),
                     },
                   ],
                 },
                 {
                   key: "about",
-                  title: "このアプリについて",
+                  title: t("このアプリについて"),
                   rows: [
                     {
                       key: "changelog",
-                      label: "機能一覧・更新情報",
+                      label: t("機能一覧・更新情報"),
                       onPress: () => router.push("/changelog"),
-                      accessibilityLabel: "機能一覧・更新情報を開く",
+                      accessibilityLabel: t("機能一覧・更新情報を開く"),
                     },
                   ],
                 },
                 {
                   key: "legal",
-                  title: "法務情報",
+                  title: t("法務情報"),
                   rows: [
                     {
                       key: "privacy",
-                      label: "プライバシーポリシー",
+                      label: t("プライバシーポリシー"),
                       onPress: () => router.push("/privacy"),
-                      accessibilityLabel: "プライバシーポリシーを開く",
+                      accessibilityLabel: t("プライバシーポリシーを開く"),
                     },
                     {
                       key: "terms",
-                      label: "利用規約",
+                      label: t("利用規約"),
                       onPress: () => router.push("/terms"),
-                      accessibilityLabel: "利用規約を開く",
+                      accessibilityLabel: t("利用規約を開く"),
                     },
                     {
                       key: "support",
-                      label: "サポート",
+                      label: t("サポート"),
                       onPress: () => router.push("/support"),
-                      accessibilityLabel: "サポートを開く",
+                      accessibilityLabel: t("サポートを開く"),
                     },
                   ],
                 },
@@ -543,11 +551,11 @@ export default function ProfileScreen() {
                 置く（issue #395 Phase 4）。 */}
             <View className="mt-8 px-4">
               <Button
-                label="サインアウト"
+                label={t("サインアウト")}
                 icon="log-out-outline"
                 variant="secondary"
                 onPress={() => signOut()}
-                accessibilityLabel="サインアウト"
+                accessibilityLabel={t("サインアウト")}
                 testID="sign-out-button"
               />
             </View>

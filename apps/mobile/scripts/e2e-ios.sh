@@ -215,6 +215,16 @@ APP_BUNDLE_ID="com.animeishi.app"
 DERIVED_DATA="ios/build/e2e-dd"
 SKIP_BUILD="${E2E_SKIP_BUILD:-0}"
 
+set_simulator_japanese_locale() {
+  # Maestro フローが日本語ラベルに依存するため、再利用時も毎回設定する。
+  xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array ja
+  xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string ja_JP
+  # iOS は優先言語を起動時に読むため、defaults の変更を反映させてからアプリを起動する。
+  xcrun simctl shutdown "$UDID" 2>/dev/null || true
+  xcrun simctl boot "$UDID"
+  xcrun simctl bootstatus "$UDID" -b
+}
+
 # ネイティブビルドの使い回しキャッシュ（issue #292）。
 # ビルド済みの Release .app を worktree 間で共有し、ヒット時は JS バンドルだけ
 # 差し替えて使う。E2E_NATIVE_CACHE=0 でキャッシュを一切使わずフルビルドする。
@@ -774,6 +784,7 @@ open -a Simulator --args -CurrentDeviceUDID "$UDID" 2>/dev/null || true
 # そのまま driver のインストール・起動に入ると応答待ちが長引いて
 # "iOS driver not ready in time" の flake になる（issue #320）
 xcrun simctl bootstatus "$UDID" -b
+set_simulator_japanese_locale
 # 認証状態を確実にリセットするため再インストールする
 xcrun simctl uninstall "$UDID" "$APP_BUNDLE_ID" 2>/dev/null || true
 xcrun simctl install "$UDID" "$APP_PATH"
@@ -896,4 +907,5 @@ while :; do
   xcrun simctl shutdown "$UDID" 2>/dev/null || true
   xcrun simctl boot "$UDID" 2>/dev/null || true
   xcrun simctl bootstatus "$UDID" -b
+  set_simulator_japanese_locale
 done

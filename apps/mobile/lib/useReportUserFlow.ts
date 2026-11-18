@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { alert, confirm } from "@/lib/dialog";
 import { useBlockUser, useReportUser } from "@/lib/useModeration";
 import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
@@ -12,6 +13,7 @@ import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
  * POST /users/:id/report を使う。
  */
 export function useReportUserFlow() {
+  const { t } = useTranslation();
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   const reportUser = useReportUser();
@@ -28,36 +30,39 @@ export function useReportUserFlow() {
             void queryClient.invalidateQueries({ queryKey: PUBLIC_USERS_KEY });
             if (input.userId !== userId) {
               confirm(
-                "通報を受け付けました",
-                `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${input.username}」をブロックしますか？`,
+                t("通報を受け付けました"),
+                t(
+                  "ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「{{username}}」をブロックしますか？",
+                  {
+                    username: input.username,
+                  },
+                ),
                 () => {
                   blockUser.mutate(input.userId);
                 },
                 {
-                  confirmLabel: "ブロックする",
-                  cancelLabel: "しない",
+                  confirmLabel: t("ブロックする"),
+                  cancelLabel: t("しない"),
                   destructive: true,
                 },
               );
             } else {
               alert(
-                "通報を受け付けました",
-                "ご報告ありがとうございます。運営が内容を確認します。",
+                t("通報を受け付けました"),
+                t("ご報告ありがとうございます。運営が内容を確認します。"),
                 { okLabel: "OK" },
               );
             }
           },
-          onError: (e) => {
-            alert(
-              "通報できませんでした",
-              e instanceof Error ? e.message : "通報に失敗しました",
-              { okLabel: "OK" },
-            );
+          onError: () => {
+            alert(t("通報できませんでした"), t("通報に失敗しました"), {
+              okLabel: "OK",
+            });
           },
         },
       );
     },
-    [reportUser, blockUser, userId, queryClient],
+    [reportUser, blockUser, userId, queryClient, t],
   );
 
   return { submit, isPending: reportUser.isPending };

@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
 
 /**
  * ひろばタブ内のネスト Stack（issue #352）。
@@ -9,6 +10,7 @@ import { useThemeColors } from "@/lib/theme";
  */
 export default function HirobaLayout() {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   const headerOptions = useStackHeaderOptions();
 
   return (
@@ -27,7 +29,7 @@ export default function HirobaLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "ひろば", headerLargeTitle: true }}
+        options={{ title: t("ひろば"), headerLargeTitle: true }}
       />
     </Stack>
   );

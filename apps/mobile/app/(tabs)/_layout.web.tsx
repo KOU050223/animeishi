@@ -5,6 +5,7 @@ import { Platform, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useTranslation } from "react-i18next";
 
 // tabBarIcon の color は型上 ColorValue（null | number | NativeColorValue を
 // 含みうる）だが、タブバーが実際に渡すのは tint の文字列のみ。Ionicons は
@@ -16,6 +17,7 @@ const tabIcon =
   );
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   // 下端（ホームインジケータ等）との干渉を避けるため、safe area 分を上乗せしてタブバーを縦に広げる。
@@ -51,7 +53,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: "ホーム",
+          title: t("ホーム"),
           tabBarIcon: tabIcon("home-outline"),
         }}
       />
@@ -59,8 +61,8 @@ export default function TabsLayout() {
         name="library"
         options={{
           // アニメ一覧・視聴履歴・推しを束ねるタブ（issue #170）。
-          title: "ライブラリ",
-          tabBarAccessibilityLabel: "ライブラリタブ",
+          title: t("ライブラリ"),
+          tabBarAccessibilityLabel: t("ライブラリタブ"),
           tabBarIcon: tabIcon("library-outline"),
         }}
       />
@@ -68,8 +70,8 @@ export default function TabsLayout() {
         name="hiroba"
         options={{
           // Tier 表・作品リスト・アニメ分析を束ねるタブ（issue #352）。
-          title: "ひろば",
-          tabBarAccessibilityLabel: "ひろばタブ",
+          title: t("ひろば"),
+          tabBarAccessibilityLabel: t("ひろばタブ"),
           tabBarIcon: tabIcon("compass-outline"),
         }}
       />
@@ -77,8 +79,8 @@ export default function TabsLayout() {
         name="social"
         options={{
           // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。
-          title: "QR・フレンド",
-          tabBarAccessibilityLabel: "QR・フレンドタブ",
+          title: t("QR・フレンド"),
+          tabBarAccessibilityLabel: t("QR・フレンドタブ"),
           tabBarBadge: friendRequestCount > 0 ? friendRequestCount : undefined,
           tabBarIcon: tabIcon("people-outline"),
         }}
@@ -86,8 +88,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "プロフ",
-          tabBarAccessibilityLabel: "プロフィールタブ",
+          title: t("プロフ"),
+          tabBarAccessibilityLabel: t("プロフィールタブ"),
           tabBarButtonTestID: "profile-tab-button",
           tabBarIcon: tabIcon("person-outline"),
         }}

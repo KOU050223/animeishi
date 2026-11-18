@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
 import { tabBadgeText } from "@/lib/tabBadge";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
+import { useTranslation } from "react-i18next";
 
 // SF Symbols / Material Icons ではなく Ionicons のままにし、NativeTabs 化で
 // アイコンの見た目が変わらないようにする。
@@ -14,6 +15,7 @@ const tabIcon = (name: ComponentProps<typeof Ionicons>["name"]) => (
 );
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   // 届いたフレンド申請をタブバッジで知らせる（issue #417。
   // プッシュ通知 #410 までの代用）。
@@ -32,22 +34,28 @@ export default function TabsLayout() {
       shadowColor={colors.border}
     >
       <NativeTabs.Trigger name="(home)">
-        <NativeTabs.Trigger.Label>ホーム</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("ホーム")}</NativeTabs.Trigger.Label>
         {tabIcon("home-outline")}
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="library" accessibilityLabel="ライブラリタブ">
+      <NativeTabs.Trigger
+        name="library"
+        accessibilityLabel={t("ライブラリタブ")}
+      >
         {/* アニメ一覧・視聴履歴・推しを束ねるタブ（issue #170）。 */}
-        <NativeTabs.Trigger.Label>ライブラリ</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("ライブラリ")}</NativeTabs.Trigger.Label>
         {tabIcon("library-outline")}
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="hiroba" accessibilityLabel="ひろばタブ">
+      <NativeTabs.Trigger name="hiroba" accessibilityLabel={t("ひろばタブ")}>
         {/* Tier 表・作品リスト・アニメ分析を束ねるタブ（issue #352）。 */}
-        <NativeTabs.Trigger.Label>ひろば</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("ひろば")}</NativeTabs.Trigger.Label>
         {tabIcon("compass-outline")}
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="social" accessibilityLabel="QR・フレンドタブ">
+      <NativeTabs.Trigger
+        name="social"
+        accessibilityLabel={t("QR・フレンドタブ")}
+      >
         {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
-        <NativeTabs.Trigger.Label>QR・フレンド</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("QR・フレンド")}</NativeTabs.Trigger.Label>
         {tabIcon("people-outline")}
         <NativeTabs.Trigger.Badge hidden={friendRequestCount === 0}>
           {tabBadgeText(friendRequestCount)}
@@ -55,10 +63,10 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="profile"
-        accessibilityLabel="プロフィールタブ"
+        accessibilityLabel={t("プロフィールタブ")}
         testID="profile-tab-button"
       >
-        <NativeTabs.Trigger.Label>プロフ</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t("プロフ")}</NativeTabs.Trigger.Label>
         {tabIcon("person-outline")}
       </NativeTabs.Trigger>
     </NativeTabs>

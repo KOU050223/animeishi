@@ -9,11 +9,11 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 
@@ -21,6 +21,7 @@ import { useThemeColors } from "@/lib/theme";
 // 画面上部の safe area とセクション切り替えはタブ画面側が持つため、
 // ここではセクション名の見出しを出さず人数だけを表示する。
 export function FriendsSection() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
@@ -44,26 +45,27 @@ export function FriendsSection() {
 
   function confirmRemove(friendId: string, name: string) {
     confirm(
-      "フレンドを削除",
-      `「${name}」をフレンドから削除しますか？`,
+      t("フレンドを削除"),
+      t("{{username}} をフレンドから削除しますか？", { username: name }),
       () => {
         // 削除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
         // ため、mutateAsync の promise で失敗を個別に拾う。
-        // ApiRequestError はユーザー向け日本語メッセージを持つ。
         void remove
           .mutateAsync(friendId)
-          .catch((e: unknown) =>
+          .catch(() =>
             alert(
-              "フレンドを削除できませんでした",
-              e instanceof ApiRequestError
-                ? e.message
-                : "フレンドの削除に失敗しました",
+              t("フレンドを削除できませんでした"),
+              t("フレンドの削除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
       },
-      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("削除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
   }
 
@@ -79,15 +81,15 @@ export function FriendsSection() {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">
-          フレンド一覧の取得に失敗しました
+          {t("フレンド一覧の取得に失敗しました")}
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={() => refetch()}
           accessibilityRole="button"
-          accessibilityLabel="フレンド一覧を再取得"
+          accessibilityLabel={t("フレンド一覧を再取得")}
         >
-          <Text className="text-white font-semibold">再試行</Text>
+          <Text className="text-white font-semibold">{t("再試行")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -99,7 +101,7 @@ export function FriendsSection() {
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          {list.length} 人
+          {t("{{count}} 人のフレンド", { count: list.length })}
         </Text>
       </View>
 
@@ -113,7 +115,7 @@ export function FriendsSection() {
           received.length > 0 ? (
             <View className="mb-4">
               <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                届いたフレンド申請
+                {t("届いたフレンド申請")}
               </Text>
               {received.map((request, index) => (
                 <View key={request.id}>
@@ -152,8 +154,9 @@ export function FriendsSection() {
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
             <Text className="text-slate-400 dark:text-slate-500 text-center">
-              フレンドがいません。{"\n"}QR
-              コードをスキャンして追加してください。
+              {t(
+                "フレンドがいません。QR コードをスキャンして追加してください。",
+              )}
             </Text>
           </View>
         }
@@ -169,6 +172,7 @@ function FriendRow({
   friend: FriendItem;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       className="flex-row items-center py-3 gap-3"
@@ -214,9 +218,13 @@ function FriendRow({
         onPress={onRemove}
         className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel={`${friend.username}をフレンドから削除`}
+        accessibilityLabel={t("{{username}}をフレンドから削除", {
+          username: friend.username,
+        })}
       >
-        <Text className="text-xs text-red-500 dark:text-red-400">削除</Text>
+        <Text className="text-xs text-red-500 dark:text-red-400">
+          {t("削除")}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -231,12 +239,15 @@ function FriendRequestRow({
   request: FriendRequestItem;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       className="flex-row items-center py-3 gap-3"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${request.username}からのフレンド申請`}
+      accessibilityLabel={t("{{username}}からのフレンド申請", {
+        username: request.username,
+      })}
       testID={`friend-request-item-${request.userId}`}
     >
       {request.profileImageUrl ? (
@@ -265,7 +276,7 @@ function FriendRequestRow({
           {request.username}
         </Text>
         <Text className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
-          フレンド申請が届いています
+          {t("フレンド申請が届いています")}
         </Text>
       </View>
 

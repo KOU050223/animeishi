@@ -1,5 +1,6 @@
 import { Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 /**
  * アカウント削除セクション（App Store / Google Play 審査要件）。
@@ -9,6 +10,7 @@ import { useRouter } from "expo-router";
  */
 export function DeleteAccountSection() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <View className="mt-10 border-t border-slate-200 dark:border-slate-700 px-4 pt-6">
@@ -16,14 +18,14 @@ export function DeleteAccountSection() {
         className="items-center rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 py-3"
         onPress={() => router.push("/delete-account")}
         accessibilityRole="button"
-        accessibilityLabel="アカウントを削除"
+        accessibilityLabel={t("アカウントを削除")}
       >
         <Text className="font-semibold text-red-600 dark:text-red-400">
-          アカウントを削除
+          {t("アカウントを削除")}
         </Text>
       </TouchableOpacity>
       <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
-        削除するとすべてのデータが失われ、元に戻せません
+        {t("削除するとすべてのデータが失われ、元に戻せません")}
       </Text>
     </View>
   );

@@ -11,11 +11,12 @@ import { Stack, useRouter } from "expo-router";
 import { BackButton } from "@/components/ui";
 import { useBlockedUsers, useUnblockUser } from "@/lib/useModeration";
 import type { BlockedUserItem } from "@/lib/useModeration";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
 
 export default function BlockedUsersScreen() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const { data: blocked, isLoading, isError, refetch } = useBlockedUsers();
@@ -37,12 +38,12 @@ export default function BlockedUsersScreen() {
   const screenOptions = (
     <Stack.Screen
       options={{
-        title: "ブロック中のユーザー",
+        title: t("ブロック中のユーザー"),
         headerBackVisible: false,
         headerLeft: () => (
           <BackButton
             onPress={handleBack}
-            accessibilityLabel="戻る"
+            accessibilityLabel={t("戻る")}
             testID="blocked-users-back-button"
           />
         ),
@@ -52,26 +53,25 @@ export default function BlockedUsersScreen() {
 
   function confirmUnblock(item: BlockedUserItem) {
     confirm(
-      "ブロックを解除",
-      `「${item.username}」のブロックを解除しますか？`,
+      t("ブロックを解除"),
+      t("「{{username}}」のブロックを解除しますか？", {
+        username: item.username,
+      }),
       () => {
         // 解除失敗は画面に変化が残らないため、ダイアログで必ず伝える。
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
         // ため、mutateAsync の promise で失敗を個別に拾う。
-        // ApiRequestError はユーザー向け日本語メッセージを持つ。
         void unblock
           .mutateAsync(item.blockedId)
-          .catch((e: unknown) =>
+          .catch(() =>
             alert(
-              "ブロックを解除できませんでした",
-              e instanceof ApiRequestError
-                ? e.message
-                : "ブロックの解除に失敗しました",
+              t("ブロックを解除できませんでした"),
+              t("ブロックの解除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
       },
-      { confirmLabel: "解除", cancelLabel: "キャンセル" },
+      { confirmLabel: t("解除"), cancelLabel: t("キャンセル") },
     );
   }
 
@@ -92,15 +92,15 @@ export default function BlockedUsersScreen() {
         {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-red-500 dark:text-red-400">
-            ブロック一覧の取得に失敗しました
+            {t("ブロック一覧の取得に失敗しました")}
           </Text>
           <TouchableOpacity
             className="rounded-lg bg-indigo-600 px-6 py-3"
             onPress={() => refetch()}
             accessibilityRole="button"
-            accessibilityLabel="ブロック一覧を再取得"
+            accessibilityLabel={t("ブロック一覧を再取得")}
           >
-            <Text className="font-semibold text-white">再試行</Text>
+            <Text className="font-semibold text-white">{t("再試行")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -117,7 +117,7 @@ export default function BlockedUsersScreen() {
       {screenOptions}
       <View className="px-4 pb-3 pt-3">
         <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          {list.length} 人
+          {t("{{count}} 人", { count: list.length })}
         </Text>
       </View>
 
@@ -165,10 +165,12 @@ export default function BlockedUsersScreen() {
               disabled={unblock.isPending}
               className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5"
               accessibilityRole="button"
-              accessibilityLabel={`${item.username}のブロックを解除`}
+              accessibilityLabel={t("{{username}}のブロックを解除", {
+                username: item.username,
+              })}
             >
               <Text className="text-xs text-slate-700 dark:text-slate-200">
-                解除
+                {t("解除")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -176,7 +178,7 @@ export default function BlockedUsersScreen() {
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
             <Text className="text-center text-slate-400 dark:text-slate-500">
-              ブロックしているユーザーはいません
+              {t("ブロックしているユーザーはいません")}
             </Text>
           </View>
         }

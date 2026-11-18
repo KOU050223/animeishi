@@ -2,7 +2,17 @@ import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import { MeishiRenderer } from "./MeishiRenderer";
+
+const templateNameKeys: Record<string, TranslationKey> = {
+  blank: "白紙",
+  classic: "クラシック",
+  sunset: "サンセット",
+  midnight: "ミッドナイト",
+  sakura: "さくら",
+};
 
 export function TemplatePicker({
   visible,
@@ -17,6 +27,7 @@ export function TemplatePicker({
   title?: string;
   warningMessage?: string;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <Modal
@@ -79,7 +90,9 @@ export function TemplatePicker({
                     gap: 8,
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`${tpl.name}テンプレートを選ぶ`}
+                  accessibilityLabel={t("{{name}}テンプレートを選ぶ", {
+                    name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
+                  })}
                 >
                   <View
                     style={{
@@ -100,16 +113,16 @@ export function TemplatePicker({
                         color: colors.text,
                       }}
                     >
-                      {tpl.name}
+                      {t(templateNameKeys[tpl.id] ?? "テンプレート")}
                     </Text>
                   </View>
                   <MeishiRenderer
                     document={doc}
                     context={{
                       profile: {
-                        username: "サンプル",
-                        bio: "自己紹介テキスト",
-                        favoriteQuote: "「好きなセリフ」",
+                        username: t("サンプル"),
+                        bio: t("自己紹介テキスト"),
+                        favoriteQuote: t("「好きなセリフ」"),
                         profileUrl: "https://example.com",
                       },
                     }}
@@ -128,7 +141,7 @@ export function TemplatePicker({
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="閉じる"
+              accessibilityLabel={t("閉じる")}
               style={{
                 paddingVertical: 12,
                 borderRadius: 8,
@@ -137,7 +150,7 @@ export function TemplatePicker({
               }}
             >
               <Text style={{ fontWeight: "600", color: colors.text }}>
-                閉じる
+                {t("閉じる")}
               </Text>
             </Pressable>
           </View>

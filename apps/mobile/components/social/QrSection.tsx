@@ -33,6 +33,7 @@ type Mode = "generate" | "scan";
 // セクション自体が非表示の間はアンマウントされるため、
 // 計測・カメラはこのコンポーネントのマウント状態に追従する。
 export function QrSection() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("generate");
   const isFocused = useIsFocused();
 
@@ -61,12 +62,12 @@ export function QrSection() {
       <SegmentedControl
         items={[
           {
-            label: "マイQR",
+            label: t("マイQR"),
             active: mode === "generate",
             onPress: () => setMode("generate"),
           },
           {
-            label: "スキャン",
+            label: t("スキャン"),
             active: mode === "scan",
             onPress: () => setMode("scan"),
           },
@@ -122,7 +123,7 @@ function GenerateView() {
     return (
       <View className="flex-1 items-center justify-center px-8">
         <Text className="text-slate-400 dark:text-slate-500 text-center">
-          QR コードを表示するにはサインインしてください
+          {t("QR コードを表示するにはサインインしてください")}
         </Text>
       </View>
     );
@@ -209,7 +210,9 @@ function GenerateView() {
         <QRCode value={qrValue} size={240} />
       </View>
       <Text className="text-slate-500 dark:text-slate-400 text-sm mt-6 text-center">
-        この QR コードを相手に読み取ってもらうと{"\n"}名刺を交換できます
+        {t("この QR コードを相手に読み取ってもらうと")}
+        {"\n"}
+        {t("名刺を交換できます")}
       </Text>
       {/* 離れた相手とも名刺交換できるよう、リンク・画像での共有導線を置く
           （issue #413）。 */}
@@ -254,6 +257,7 @@ function GenerateView() {
 }
 
 function ScanView() {
+  const { t } = useTranslation();
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
   const router = useRouter();
@@ -287,17 +291,16 @@ function ScanView() {
             ) {
               // 期限切れ・無効なトークンは申請フローに誘導する。
               alert(
-                "QR の有効期限が切れています",
-                "プロフィール画面からフレンド申請を送れます",
+                t("QR の有効期限が切れています"),
+                t("プロフィール画面からフレンド申請を送れます"),
                 { okLabel: "OK", onClose: () => openProfile(userId) },
               );
               return;
             }
-            alert(
-              "追加できませんでした",
-              e instanceof Error ? e.message : "フレンド追加に失敗しました",
-              { okLabel: "OK", onClose: reset },
-            );
+            alert(t("追加できませんでした"), t("フレンド追加に失敗しました"), {
+              okLabel: "OK",
+              onClose: reset,
+            });
           },
         },
       );
@@ -323,7 +326,7 @@ function ScanView() {
     return (
       <View className="flex-1 items-center justify-center px-8">
         <Text className="text-slate-400 dark:text-slate-500">
-          カメラを準備しています...
+          {t("カメラを準備しています...")}
         </Text>
       </View>
     );
@@ -334,15 +337,15 @@ function ScanView() {
     return (
       <View className="flex-1 items-center justify-center px-8">
         <Text className="text-slate-600 dark:text-slate-300 text-center mb-4">
-          QR コードをスキャンするにはカメラの許可が必要です
+          {t("QR コードをスキャンするにはカメラの許可が必要です")}
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={requestPermission}
           accessibilityRole="button"
-          accessibilityLabel="カメラの使用を許可"
+          accessibilityLabel={t("カメラの使用を許可")}
         >
-          <Text className="text-white font-semibold">カメラを許可</Text>
+          <Text className="text-white font-semibold">{t("カメラを許可")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -366,10 +369,10 @@ function ScanView() {
       <View className="absolute bottom-12 left-0 right-0 items-center">
         <Text className="text-white text-sm bg-black/50 px-4 py-2 rounded-full">
           {addFriend.isPending
-            ? "フレンド登録中..."
+            ? t("フレンド登録中...")
             : scanned
-              ? "読み取り完了"
-              : "QR コードを枠内に収めてください"}
+              ? t("読み取り完了")
+              : t("QR コードを枠内に収めてください")}
         </Text>
       </View>
       {exchangeUid ? (

@@ -23,7 +23,6 @@ import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
-import { ApiRequestError } from "@/lib/apiError";
 import { trackEvent } from "@/lib/events";
 import {
   REPORT_REASONS,
@@ -42,6 +41,7 @@ import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
 
 export default function PublicProfilePage() {
+  const { t } = useTranslation();
   const { uid } = useLocalSearchParams<{ uid: string }>();
   const router = useRouter();
   const { getToken, isSignedIn, userId } = useAuth();
@@ -99,7 +99,7 @@ export default function PublicProfilePage() {
         headerLeft: () => (
           <BackButton
             onPress={handleBack}
-            accessibilityLabel="戻る"
+            accessibilityLabel={t("戻る")}
             testID="public-profile-back-button"
           />
         ),
@@ -114,7 +114,7 @@ export default function PublicProfilePage() {
         <ActivityIndicator
           size="large"
           color={colors.primary}
-          accessibilityLabel="読み込み中"
+          accessibilityLabel={t("読み込み中")}
         />
       </View>
     );
@@ -123,8 +123,8 @@ export default function PublicProfilePage() {
   if (error || !data) {
     const message =
       error?.message === "not_found"
-        ? "このプロフィールは存在しないか、非公開です。"
-        : "プロフィールの取得に失敗しました。";
+        ? t("このプロフィールは存在しないか、非公開です。")
+        : t("プロフィールの取得に失敗しました。");
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900"
@@ -273,12 +273,10 @@ function useFriendActions({
           setExchangeUid(uid);
         }
       },
-      onError: (e) => {
-        alert(
-          t("申請できませんでした"),
-          e instanceof Error ? e.message : t("フレンド申請に失敗しました"),
-          { okLabel: "OK" },
-        );
+      onError: () => {
+        alert(t("申請できませんでした"), t("フレンド申請に失敗しました"), {
+          okLabel: "OK",
+        });
       },
     });
   }
@@ -289,54 +287,60 @@ function useFriendActions({
       onSuccess: () => {
         setExchangeUid(uid);
       },
-      onError: (e) => {
-        alert(
-          t("承認できませんでした"),
-          e instanceof Error ? e.message : t("申請の承認に失敗しました"),
-          { okLabel: "OK" },
-        );
+      onError: () => {
+        alert(t("承認できませんでした"), t("申請の承認に失敗しました"), {
+          okLabel: "OK",
+        });
       },
     });
   }
 
   function deleteReceived(requestId: number, name: string) {
     confirm(
-      "フレンド申請を削除",
-      `「${name}」からのフレンド申請を削除しますか？`,
+      t("フレンド申請を削除"),
+      t("{{username}}からのフレンド申請を削除しますか？", {
+        username: name,
+      }),
       () => {
         void deleteFriendRequest
           .mutateAsync(requestId)
-          .catch((e: unknown) =>
+          .catch(() =>
             alert(
-              "申請を削除できませんでした",
-              e instanceof Error ? e.message : "申請の削除に失敗しました",
+              t("申請を削除できませんでした"),
+              t("申請の削除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
       },
-      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("削除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
   }
 
   function cancelSent() {
     if (!username || !relation.sentRequest) return;
     confirm(
-      "申請を取り消す",
-      `「${username}」へのフレンド申請を取り消しますか？`,
+      t("申請を取り消す"),
+      t("「{{username}}」へのフレンド申請を取り消しますか？", {
+        username,
+      }),
       () => {
         void deleteFriendRequest
           .mutateAsync(relation.sentRequest!.id)
-          .catch((e: unknown) =>
+          .catch(() =>
             alert(
-              "申請を取り消せませんでした",
-              e instanceof Error ? e.message : "申請の取消に失敗しました",
+              t("申請を取り消せませんでした"),
+              t("申請の取消に失敗しました"),
               { okLabel: "OK" },
             ),
           );
       },
       {
-        confirmLabel: "取り消す",
-        cancelLabel: "キャンセル",
+        confirmLabel: t("取り消す"),
+        cancelLabel: t("キャンセル"),
         destructive: true,
       },
     );
@@ -364,6 +368,7 @@ function useModerationActions({
   uid: string | undefined;
   username: string | undefined;
 }) {
+  const { t } = useTranslation();
   const reportUser = useReportUser();
   const blockUser = useBlockUser();
   const [reportSheetVisible, setReportSheetVisible] = useState(false);
@@ -373,19 +378,17 @@ function useModerationActions({
     blockUser.mutate(uid, {
       onSuccess: () => {
         alert(
-          "ブロックしました",
-          "ブロック一覧はプロフィール画面から確認できます",
+          t("ブロックしました"),
+          t("ブロック一覧はプロフィール画面から確認できます"),
           {
             okLabel: "OK",
           },
         );
       },
-      onError: (e) => {
-        alert(
-          "ブロックできませんでした",
-          e instanceof Error ? e.message : "ブロックに失敗しました",
-          { okLabel: "OK" },
-        );
+      onError: () => {
+        alert(t("ブロックできませんでした"), t("ブロックに失敗しました"), {
+          okLabel: "OK",
+        });
       },
     });
   }
@@ -393,12 +396,17 @@ function useModerationActions({
   function pressBlock() {
     if (!username || !uid) return;
     confirm(
-      "このユーザーをブロック",
-      `「${username}」をブロックしますか？\nフレンド関係は解除され、お互いの名刺が見えなくなります。`,
+      t("このユーザーをブロック"),
+      t(
+        "「{{username}}」をブロックしますか？\nフレンド関係は解除され、お互いの名刺が見えなくなります。",
+        {
+          username,
+        },
+      ),
       runBlock,
       {
-        confirmLabel: "ブロック",
-        cancelLabel: "キャンセル",
+        confirmLabel: t("ブロック"),
+        cancelLabel: t("キャンセル"),
         destructive: true,
       },
     );
@@ -413,23 +421,26 @@ function useModerationActions({
           setReportSheetVisible(false);
           // 通報に続けてブロックを提案する（issue #148）。
           confirm(
-            "通報を受け付けました",
-            `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${username ?? "このユーザー"}」をブロックしますか？`,
+            t("通報を受け付けました"),
+            t(
+              "ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「{{username}}」をブロックしますか？",
+              {
+                username: username ?? t("このユーザー"),
+              },
+            ),
             runBlock,
             {
-              confirmLabel: "ブロックする",
-              cancelLabel: "しない",
+              confirmLabel: t("ブロックする"),
+              cancelLabel: t("しない"),
               destructive: true,
             },
           );
         },
-        onError: (e) => {
+        onError: () => {
           setReportSheetVisible(false);
-          alert(
-            "通報できませんでした",
-            e instanceof Error ? e.message : "通報に失敗しました",
-            { okLabel: "OK" },
-          );
+          alert(t("通報できませんでした"), t("通報に失敗しました"), {
+            okLabel: "OK",
+          });
         },
       },
     );
@@ -454,6 +465,7 @@ function ProfileHeader({
   profile: PublicProfile;
   onPressNowWatching: (work: WorkDetailSheetTarget) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       {/* 「いま見ている」吹き出し（issue #420）。直近 24h の話数記録が
@@ -473,12 +485,16 @@ function ProfileHeader({
         <Image
           source={{ uri: profile.profileImageUrl }}
           className="w-24 h-24 rounded-full bg-slate-200 dark:bg-slate-700"
-          accessibilityLabel={`${profile.username}のアイコン`}
+          accessibilityLabel={t("{{username}}のアイコン", {
+            username: profile.username,
+          })}
         />
       ) : (
         <View
           className="w-24 h-24 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center"
-          accessibilityLabel={`${profile.username}のアイコン`}
+          accessibilityLabel={t("{{username}}のアイコン", {
+            username: profile.username,
+          })}
         >
           <Text className="text-3xl text-slate-400 dark:text-slate-500">
             {profile.username.charAt(0).toUpperCase()}
@@ -495,6 +511,7 @@ function ProfileHeader({
 
 // bio・名言・ジャンルのプロフィール詳細部。
 function ProfileDetails({ profile }: { profile: PublicProfile }) {
+  const { t } = useTranslation();
   return (
     <>
       {profile.bio ? (
@@ -514,7 +531,7 @@ function ProfileDetails({ profile }: { profile: PublicProfile }) {
       {profile.genres.length > 0 ? (
         <View className="mt-6 self-start w-full">
           <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-            好きなジャンル
+            {t("好きなジャンル")}
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {profile.genres.map((g) => (
@@ -544,17 +561,18 @@ function ModerationSection({
   onReport: () => void;
   onBlock: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-10 w-full border-t border-slate-100 dark:border-slate-800 pt-4">
       <TouchableOpacity
         className="items-center py-2"
         onPress={onReport}
         accessibilityRole="button"
-        accessibilityLabel="このユーザーを通報"
+        accessibilityLabel={t("このユーザーを通報")}
         testID="report-user-button"
       >
         <Text className="text-sm text-slate-500 dark:text-slate-400">
-          このユーザーを通報
+          {t("このユーザーを通報")}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -562,11 +580,11 @@ function ModerationSection({
         onPress={onBlock}
         disabled={isBlocking}
         accessibilityRole="button"
-        accessibilityLabel="このユーザーをブロック"
+        accessibilityLabel={t("このユーザーをブロック")}
         testID="block-user-button"
       >
         <Text className="text-sm text-red-500 dark:text-red-400">
-          このユーザーをブロック
+          {t("このユーザーをブロック")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -587,12 +605,10 @@ function ProfileWorkDetailSheet({
   const favoriteIds = useFavoriteIds();
   const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
     useToggleFavorite(favoriteIds, {
-      onError: (e) =>
+      onError: () =>
         alert(
           t("お気に入りを更新できませんでした"),
-          e instanceof ApiRequestError
-            ? e.message
-            : t("お気に入りの更新に失敗しました"),
+          t("お気に入りの更新に失敗しました"),
           { okLabel: "OK" },
         ),
     });
@@ -789,18 +805,19 @@ function ReportSheet({
   onClose: () => void;
   onSubmit: (reason: ReportReason) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      scrimAccessibilityLabel="通報をやめる"
+      scrimAccessibilityLabel={t("通報をやめる")}
     >
       <View className="px-4 pb-8 pt-4">
         <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-          このユーザーを通報
+          {t("このユーザーを通報")}
         </Text>
         <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          理由を選択してください。運営が内容を確認します。
+          {t("理由を選択してください。運営が内容を確認します。")}
         </Text>
         <View className="mt-4 gap-2">
           {REPORT_REASONS.map((reason) => (
@@ -810,11 +827,11 @@ function ReportSheet({
               onPress={() => onSubmit(reason)}
               disabled={isSubmitting}
               accessibilityRole="button"
-              accessibilityLabel={`${reason}で通報`}
+              accessibilityLabel={t("{{reason}}で通報", { reason: t(reason) })}
               testID={`report-reason-${reason}`}
             >
               <Text className="text-slate-900 dark:text-slate-100">
-                {reason}
+                {t(reason)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -823,9 +840,11 @@ function ReportSheet({
           className="mt-4 items-center py-2"
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="キャンセル"
+          accessibilityLabel={t("キャンセル")}
         >
-          <Text className="text-slate-500 dark:text-slate-400">キャンセル</Text>
+          <Text className="text-slate-500 dark:text-slate-400">
+            {t("キャンセル")}
+          </Text>
         </TouchableOpacity>
       </View>
     </BottomSheet>
