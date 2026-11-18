@@ -17,6 +17,16 @@ export type BlockedUserItem = BlocksResponse[number];
 
 export const BLOCKS_QUERY_KEY = ["blocks"] as const;
 
+export function getReportErrorMessage(error: unknown) {
+  if (error instanceof ApiRequestError && error.status === 429) {
+    if (error.code === "duplicate_target")
+      return "同じユーザーへの通報は24時間に1回までです";
+    if (error.code === "hourly_limit")
+      return "通報の送信回数が上限に達しました。しばらくしてから再度お試しください";
+  }
+  return "通報に失敗しました";
+}
+
 const blocksQueryKey = (userId: string) =>
   [...BLOCKS_QUERY_KEY, userId] as const;
 
@@ -55,10 +65,12 @@ export function useReportUser() {
         if (res.status === 429) {
           const body = (await res.json().catch(() => null)) as {
             error?: string;
+            code?: string;
           } | null;
           throw new ApiRequestError(
             res.status,
             body?.error ?? "通報の送信回数が上限に達しました",
+            body?.code,
           );
         }
         throw new ApiRequestError(res.status, "通報に失敗しました");

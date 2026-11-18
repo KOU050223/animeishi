@@ -86,9 +86,7 @@ export function CharacterTierWorkPicker({
           ) : (
             <AnnictSoftGate
               variant="compact"
-              description={t(
-                "キャラクター Tier 表の作成には Annict との連携が必要です。連携すると作品のキャラクターを並べ替えられます。",
-              )}
+              description="キャラクター Tier 表の作成には Annict との連携が必要です。連携すると作品のキャラクターを並べ替えられます。"
               surface="character_tier_list"
             />
           )}

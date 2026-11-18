@@ -1,7 +1,11 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useReportUser, useBlockUser } from "@/lib/useModeration";
+import {
+  getReportErrorMessage,
+  useReportUser,
+  useBlockUser,
+} from "@/lib/useModeration";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
@@ -88,6 +92,7 @@ describe("useReportUser", () => {
     const err = result.current.error as ApiRequestError;
     expect(err.status).toBe(429);
     expect(err.message).toBe("同じユーザーへの通報は24時間に1回までです");
+    expect(err.code).toBe("duplicate_target");
   });
 
   it("429 で body が読めないときは既定の上限メッセージ", async () => {
@@ -113,6 +118,27 @@ describe("useReportUser", () => {
     const err = result.current.error as ApiRequestError;
     expect(err.status).toBe(404);
     expect(err.message).toBe("通報に失敗しました");
+  });
+});
+
+describe("getReportErrorMessage", () => {
+  it("429 の理由を既知の翻訳キーへ対応させる", () => {
+    expect(
+      getReportErrorMessage(
+        new ApiRequestError(429, "reason", "duplicate_target"),
+      ),
+    ).toBe("同じユーザーへの通報は24時間に1回までです");
+    expect(
+      getReportErrorMessage(new ApiRequestError(429, "reason", "hourly_limit")),
+    ).toBe(
+      "通報の送信回数が上限に達しました。しばらくしてから再度お試しください",
+    );
+  });
+
+  it("未知のエラーは汎用文言にする", () => {
+    expect(getReportErrorMessage(new Error("unknown"))).toBe(
+      "通報に失敗しました",
+    );
   });
 });
 

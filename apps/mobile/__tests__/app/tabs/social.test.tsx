@@ -10,6 +10,7 @@ import SocialScreen from "@/app/(tabs)/social/index";
 // setParams は実際はナビゲーション状態を更新して再描画するため、
 // モックでは params の差し替えまで行い、再描画は rerender で再現する。
 let mockParams: { section?: string } = {};
+let mockFriendRequestCount = 0;
 const mockSetParams = jest.fn((p: Record<string, string>) => {
   mockParams = { ...mockParams, ...p };
 });
@@ -47,11 +48,12 @@ jest.mock("@/components/social/ActivityFeedSection", () => ({
 
 // セグメントのバッジ件数（フレンド申請）は本テストの関心外のため 0 固定にする。
 jest.mock("@/lib/useFriendRequests", () => ({
-  useReceivedFriendRequestCount: () => 0,
+  useReceivedFriendRequestCount: () => mockFriendRequestCount,
 }));
 
 beforeEach(() => {
   mockParams = {};
+  mockFriendRequestCount = 0;
   mockSetParams.mockClear();
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
@@ -74,6 +76,15 @@ describe("SocialScreen", () => {
 
     expect(screen.getByTestId("section-friends")).toBeTruthy();
     expect(screen.queryByTestId("section-activity")).toBeNull();
+  });
+
+  it("フレンド申請件数を翻訳済みアクセシビリティラベルに含める", async () => {
+    mockFriendRequestCount = 2;
+    await render(<SocialScreen />);
+
+    expect(
+      screen.getByTestId("social-section-friends").props.accessibilityLabel,
+    ).toBe("フレンド、2件の通知");
   });
 
   it("セグメント操作は URL の section を更新して QR へ切り替わる", async () => {
