@@ -165,21 +165,18 @@ function HomeHeaderButtons() {
         testID="home-open-meishi-edit"
         icon="id-card-outline"
         label={t("名刺を作る")}
-        accessibilityLabel={t("名刺をデザインする")}
         onPress={() => router.push("/meishi/edit")}
       />
       <HeaderIconButton
         testID="home-open-qr"
         icon="qr-code-outline"
         label={t("QR 交換")}
-        accessibilityLabel={t("QR で名刺を交換")}
         onPress={() => router.push("/(tabs)/social?section=qr")}
       />
       <HeaderIconButton
         testID="home-open-feedback"
         icon="chatbubble-ellipses-outline"
         label={t("不具合報告")}
-        accessibilityLabel={t("不具合報告・ご意見を送る")}
         onPress={() => router.push("/feedback")}
       />
     </View>
@@ -187,27 +184,26 @@ function HomeHeaderButtons() {
 }
 
 // ヘッダーの 44pt に収めるため、アイコンをやや小さくしてラベルを下に置く。
-// 視覚ラベルは短く絞り、正式な名称は accessibilityLabel に残す。
+// accessibilityLabel は表示ラベルと揃える（音声操作は見えている文言でボタンを
+// 指定するため、別名を置くと呼び出せなくなる）。
 function HeaderIconButton({
   testID,
   icon,
   label,
-  accessibilityLabel,
   onPress,
 }: {
   testID: string;
   icon: IconName;
   label: string;
-  accessibilityLabel: string;
   onPress: () => void;
 }) {
   const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
-      className="h-11 items-center justify-center px-1"
+      className="h-11 min-w-11 items-center justify-center px-1"
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={label}
       testID={testID}
     >
       <Icon name={icon} size={22} color={colors.primaryText} />
@@ -215,6 +211,7 @@ function HeaderIconButton({
         className="mt-0.5 text-[10px] leading-3"
         style={{ color: colors.primaryText }}
         numberOfLines={1}
+        maxFontSizeMultiplier={1.3}
       >
         {label}
       </Text>

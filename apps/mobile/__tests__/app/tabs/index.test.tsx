@@ -1,6 +1,11 @@
 import React from "react";
 import { Linking, Platform } from "react-native";
-import { render, screen, fireEvent } from "@testing-library/react-native";
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+} from "@testing-library/react-native";
 import HomeScreen from "@/app/(tabs)/(home)/index";
 import { featureFlags } from "@/lib/featureFlags";
 
@@ -253,13 +258,18 @@ describe("HomeScreen", () => {
     expect(screen.queryByTestId("home-share-meishi-image")).toBeNull();
   });
 
-  it("ヘッダーの各アイコンに行き先が分かるラベルを併記する", async () => {
-    loggedInUser();
-    await render(<HomeScreen />);
-    expect(screen.getByText("名刺を作る")).toBeTruthy();
-    expect(screen.getByText("QR 交換")).toBeTruthy();
-    expect(screen.getByText("不具合報告")).toBeTruthy();
-  });
+  it.each([
+    ["home-open-meishi-edit", "名刺を作る"],
+    ["home-open-qr", "QR 交換"],
+    ["home-open-feedback", "不具合報告"],
+  ])(
+    "ヘッダーアイコン（%s）に行き先が分かるラベルを併記する",
+    async (testID, label) => {
+      loggedInUser();
+      await render(<HomeScreen />);
+      expect(within(screen.getByTestId(testID)).getByText(label)).toBeTruthy();
+    },
+  );
 
   it("ヘッダーの名刺アイコンで名刺エディタへ遷移する", async () => {
     loggedInUser();
