@@ -206,6 +206,41 @@ describe("GET /user/:uid", () => {
     expect(html).toContain("og:title");
     expect(html).toContain("og:description");
     expect(html).toContain("OGPユーザー");
+    // canonical / og:url / og:site_name はプロフィール URL（Web 版）を指す。
+    // PUBLIC_WEB_URL 未設定時はリクエスト自身のオリジンにフォールバックする。
+    expect(html).toContain(
+      'property="og:url" content="http://localhost/user/user_ogp001"',
+    );
+    expect(html).toContain(
+      'rel="canonical" href="http://localhost/user/user_ogp001"',
+    );
+    expect(html).toContain('property="og:site_name" content="Animeishi"');
+  });
+
+  it("PUBLIC_WEB_URL 設定時は og:url / canonical が Web ドメインを指す", async () => {
+    const now = new Date();
+    await db.insert(users).values({
+      id: "user_ogp002",
+      username: "Web正規ユーザー",
+      isPublic: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const app = buildApp();
+    const res = await app.request(
+      "/user/user_ogp002",
+      { method: "GET", headers: { Accept: "text/html" } },
+      { ...TEST_BINDINGS, PUBLIC_WEB_URL: "https://animeishi.uomi.dev" },
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain(
+      'property="og:url" content="https://animeishi.uomi.dev/user/user_ogp002"',
+    );
+    expect(html).toContain(
+      'rel="canonical" href="https://animeishi.uomi.dev/user/user_ogp002"',
+    );
   });
 
   it("存在しない uid を text/html で取得すると 404 HTML を返す", async () => {

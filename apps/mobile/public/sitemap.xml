@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 検索に出したい公開ページのみ。/user/:uid・/share/* は動的で
+     列挙できないため載せない。公開トップの正規 URL は /welcome
+     （/ はクライアント側リダイレクトで /welcome へ移る）。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://animeishi.uomi.dev/welcome</loc></url>
+  <url><loc>https://animeishi.uomi.dev/privacy</loc></url>
+  <url><loc>https://animeishi.uomi.dev/terms</loc></url>
+  <url><loc>https://animeishi.uomi.dev/support</loc></url>
+</urlset>

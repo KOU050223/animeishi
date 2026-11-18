@@ -144,6 +144,11 @@ export function buildOgpHtml(
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:type" content="profile" />
+  <meta property="og:site_name" content="Animeishi" />
+  <meta property="og:locale" content="ja_JP" />
+  <meta property="og:url" content="${escapeHtml(webProfileUrl)}" />
+  <link rel="canonical" href="${escapeHtml(webProfileUrl)}" />
+  <link rel="icon" href="${escapeHtml(new URL(webProfileUrl).origin)}/favicon.ico" />
   ${image ? `<meta property="og:image" content="${image}" />` : ""}
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />

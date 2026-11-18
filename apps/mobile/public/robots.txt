@@ -1,0 +1,8 @@
+# クロール自体は全許可にし、インデックス可否は各ページの meta robots で
+# 制御する（Disallow で遮断すると noindex を読み取れず、URL だけが
+# 検索結果に残りうる）。非公開ルートは worker が noindex を注入する
+# （apps/mobile/worker/index.ts, wrangler.toml の run_worker_first）。
+User-agent: *
+Allow: /
+
+Sitemap: https://animeishi.uomi.dev/sitemap.xml

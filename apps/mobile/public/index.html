@@ -22,6 +22,19 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://animeishi.uomi.dev/" />
+    <meta property="og:site_name" content="アニ名刺" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:image" content="https://animeishi.uomi.dev/ogp.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="アニ名刺 — 好きの記録が、あなたの名刺になる。"
+    />
+    <meta
+      name="twitter:description"
+      content="アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。"
+    />
+    <meta name="twitter:image" content="https://animeishi.uomi.dev/ogp.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -70,11 +83,34 @@
         }
       }
     </style>
+    <!-- 検索エンジンのサイト名表示用（JSON-LD WebSite）。 -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "アニ名刺",
+        "alternateName": "Animeishi",
+        "url": "https://animeishi.uomi.dev/",
+        "description": "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。"
+      }
+    </script>
   </head>
 
   <body>
-    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
-    <noscript> You need to enable JavaScript to run this app. </noscript>
+    <!-- JS を実行しないクローラにもサイトの概要と公開ページへの導線を残す。
+         ブラウザは noscript を表示しないのでユーザーへの影響はない。 -->
+    <noscript>
+      <p>
+        アニ名刺は、アニメの視聴記録がそのまま名刺になるアプリです。好きな作品や推しを共有して、アニメ好きとつながりましょう。
+      </p>
+      <p>このページの表示には JavaScript が必要です。</p>
+      <ul>
+        <li><a href="/welcome">アニ名刺について</a></li>
+        <li><a href="/privacy">プライバシーポリシー</a></li>
+        <li><a href="/terms">利用規約</a></li>
+        <li><a href="/support">サポート</a></li>
+      </ul>
+    </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"><div id="boot-spinner"></div></div>
   </body>

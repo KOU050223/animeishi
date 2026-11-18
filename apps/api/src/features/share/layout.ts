@@ -116,6 +116,8 @@ export function renderSharePage(input: SharePageInput): string {
       ? `<div class="guest-cta"><a href="${esc(guestCtaHref(input.canonicalUrl, input.guestCta.source))}" data-source="${esc(input.guestCta.source)}">${esc(input.guestCta.label)}</a></div>`
       : "";
   const meta = [
+    `<meta property="og:site_name" content="Animeishi" />
+  <meta property="og:locale" content="ja_JP" />`,
     input.metaDescription
       ? `<meta name="description" content="${input.metaDescription}" />
   <meta property="og:title" content="${input.title}" />
@@ -124,10 +126,12 @@ export function renderSharePage(input: SharePageInput): string {
       : "",
     input.canonicalUrl
       ? `<meta property="og:url" content="${esc(input.canonicalUrl)}" />
-  <link rel="canonical" href="${esc(input.canonicalUrl)}" />`
+  <link rel="canonical" href="${esc(input.canonicalUrl)}" />
+  <link rel="icon" href="${esc(new URL(input.canonicalUrl).origin)}/favicon.ico" />`
       : "",
     input.ogImage
-      ? `<meta property="og:image" content="${esc(input.ogImage)}" />`
+      ? `<meta property="og:image" content="${esc(input.ogImage)}" />
+  <meta name="twitter:image" content="${esc(input.ogImage)}" />`
       : "",
     input.metaDescription
       ? `<meta name="twitter:card" content="summary" />
