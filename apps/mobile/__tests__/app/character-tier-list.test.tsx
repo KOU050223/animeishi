@@ -259,6 +259,23 @@ describe("CharacterTierListScreen の盤面 hydrate（レンダー中の状態�
   });
 });
 
+describe("CharacterTierListScreen の案内文言（issue #606）", () => {
+  it("共有と保存の役割・キャラクターの読み込み元を表示する", async () => {
+    await render(<CharacterTierListScreen />);
+
+    expect(
+      screen.getByText(
+        "「共有」は閲覧用リンクや画像の発行、「保存」は編集内容の保存です",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "キャラクターは作品のキャストから読み込まれます。長押しドラッグで tier を移動でき、tier 名はタップで変更できます",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 describe("CharacterTierListScreen の説明文と公開設定（issue #476）", () => {
   it("保存済みデータの説明文と公開設定を反映する", async () => {
     mockSaved = savedList("説明つき", [], {
