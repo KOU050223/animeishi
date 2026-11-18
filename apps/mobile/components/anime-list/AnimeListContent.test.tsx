@@ -297,6 +297,20 @@ describe("AnimeListContent", () => {
     expect(lastSort()).toEqual({ sortKey: "title", sortOrder: "asc" });
   });
 
+  it("検索結果のタグ件数を数える間は後続ページも取得する", async () => {
+    await render(contentElement({ initialQuery: "アニメ" }));
+
+    await fireEvent.press(screen.getByTestId("anime-filter-button"));
+
+    expect(mockUseAnimeList).toHaveBeenLastCalledWith(
+      "アニメ",
+      expect.any(String),
+      {
+        fetchAllPages: true,
+      },
+    );
+  });
+
   it("カードには日本語タイトルだけを出し、放送年や英語タイトルは出さない", async () => {
     await render(contentElement());
 

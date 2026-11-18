@@ -6,6 +6,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
 import en from "./locales/en/translation.json";
+import genreEn from "./locales/en/genreTranslation.json";
 
 /** 現状サポートする言語。言語を追加する場合はここと resources を増やす。 */
 export const SUPPORTED_LANGUAGES = ["ja", "en"] as const;
@@ -17,7 +18,7 @@ export const FALLBACK_LANGUAGE: SupportedLanguage = "ja";
 // ja はリソースを持たず、翻訳が見つからないときに i18next がキー文字列（=日本語）を
 // そのまま返す挙動を利用する。en だけが「日本語キー → 英訳」のマップを持つ。
 export const resources = {
-  en: { translation: en },
+  en: { translation: { ...en, ...genreEn } },
 } as const;
 
 /** 端末/ブラウザのロケールから対応言語を解決する。未対応ならフォールバック言語。

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  animeGenreJapaneseName,
+  matchesAnimeGenreSearch,
+} from "./animeGenreTags";
+import {
   ANIME_LIST_DEFAULT_SORT_KEY,
   ANIME_LIST_DEFAULT_SORT_ORDER,
   ANIME_LIST_SORT_DEFAULT_ORDER,
@@ -114,7 +118,11 @@ describe("collectAnimeGenres", () => {
       entry(2, { genres: ["Action"] }),
       entry(3, { genres: ["Comedy", "Action"] }),
     ];
-    expect(collectAnimeGenres(items)).toEqual(["Action", "Comedy", "Drama"]);
+    expect(collectAnimeGenres(items)).toEqual([
+      { key: "Action", count: 3 },
+      { key: "Comedy", count: 1 },
+      { key: "Drama", count: 1 },
+    ]);
   });
 
   it("ジャンル未取得（null）の作品があるときだけ「不明」を末尾に足す", () => {
@@ -123,10 +131,13 @@ describe("collectAnimeGenres", () => {
         entry(1, { genres: ["Action"] }),
         entry(2, { genres: null }),
       ]),
-    ).toEqual(["Action", UNKNOWN_GENRE_KEY]);
+    ).toEqual([
+      { key: "Action", count: 1 },
+      { key: UNKNOWN_GENRE_KEY, count: 1 },
+    ]);
     // 全件取得済みなら「不明」は出さない
     expect(collectAnimeGenres([entry(1, { genres: ["Action"] })])).toEqual([
-      "Action",
+      { key: "Action", count: 1 },
     ]);
   });
 
@@ -134,6 +145,55 @@ describe("collectAnimeGenres", () => {
     expect(
       collectAnimeGenres([entry(1, { genres: [] }), entry(2, { genres: [] })]),
     ).toEqual([]);
+  });
+
+  it("同義タグを統合し、1作品に両方あっても件数を重複しない", () => {
+    expect(
+      collectAnimeGenres([
+        entry(1, { genres: ["Sci-Fi", "Science Fiction"] }),
+        entry(2, { genres: ["Science Fiction"] }),
+        entry(3, { genres: ["Mahou Shoujo", "Magical Girl"] }),
+      ]),
+    ).toEqual([
+      { key: "Sci-Fi", count: 2 },
+      { key: "Magical Girl", count: 1 },
+    ]);
+  });
+
+  it("成人向けの同義タグも表示候補として統合する", () => {
+    expect(
+      collectAnimeGenres([
+        entry(1, { genres: ["Hentai"] }),
+        entry(2, { genres: ["Erotica", "Ecchi"] }),
+      ]),
+    ).toEqual([{ key: "Hentai", count: 2 }]);
+  });
+
+  it("メディア指定中の件数はそのメディアの作品だけを数える", () => {
+    expect(
+      collectAnimeGenres(
+        [
+          entry(1, { media: "TV", genres: ["Sci-Fi"] }),
+          entry(2, { media: "MOVIE", genres: ["Science Fiction"] }),
+        ],
+        "TV",
+      ),
+    ).toEqual([{ key: "Sci-Fi", count: 1 }]);
+  });
+});
+
+describe("ジャンル名と検索", () => {
+  it("既知タグを日本語表示し、未知タグは原文を維持する", () => {
+    expect(animeGenreJapaneseName("Science Fiction")).toBe("SF");
+    expect(animeGenreJapaneseName("Unlisted Genre")).toBe("Unlisted Genre");
+  });
+
+  it("日本語・原語・同義語のいずれでも検索できる", () => {
+    expect(matchesAnimeGenreSearch("Sci-Fi", "SF", "science fiction")).toBe(
+      true,
+    );
+    expect(matchesAnimeGenreSearch("Sci-Fi", "SF", "ＳＦ")).toBe(true);
+    expect(matchesAnimeGenreSearch("Sci-Fi", "SF", "恋愛")).toBe(false);
   });
 });
 
@@ -179,6 +239,17 @@ describe("filterAnimeList", () => {
       genres: ["Action"],
     });
     expect(result.map((w) => w.annictWorkId)).toEqual([2]);
+  });
+
+  it("統合後のタグを選ぶと同義タグの作品にも一致する", () => {
+    const result = filterAnimeList(
+      [
+        entry(1, { genres: ["Sci-Fi"] }),
+        entry(2, { genres: ["Science Fiction"] }),
+      ],
+      { media: null, genres: ["Sci-Fi"] },
+    );
+    expect(result.map((w) => w.annictWorkId)).toEqual([1, 2]);
   });
 });
 

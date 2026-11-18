@@ -1,5 +1,17 @@
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import {
+  animeGenreJapaneseName,
+  matchesAnimeGenreSearch,
+} from "@/lib/animeGenreTags";
 import {
   ANIME_LIST_MEDIA_KEYS,
   ANIME_LIST_MEDIA_LABELS,
@@ -9,23 +21,19 @@ import {
   type AnimeListMedia,
 } from "@/lib/animeListSortFilter";
 
-/**
- * メディア種別・ジャンル/タグの絞り込みシート（issue #346）。
- * 選択は即時に一覧へ反映し、「閉じる」またはスワイプで閉じる。
- * 構造は視聴履歴の絞り込みシート（WatchHistorySection の FilterSheet）に揃える。
- */
 export function AnimeListFilterSheet({
   genreOptions,
   filters,
   onChange,
   onClose,
 }: {
-  /** 一覧に出る作品から集めたジャンル選択肢（"不明" は UNKNOWN_GENRE_KEY）。 */
-  genreOptions: string[];
+  genreOptions: { key: string; count: number }[];
   filters: AnimeListFilters;
   onChange: (next: AnimeListFilters) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
+  const [genreQuery, setGenreQuery] = useState("");
   const selectedGenres = new Set(filters.genres);
   const toggleGenre = (genre: string) =>
     onChange({
@@ -38,71 +46,106 @@ export function AnimeListFilterSheet({
   const selectMedia = (media: AnimeListMedia | null) =>
     onChange({ ...filters, media });
 
-  const genreLabel = (key: string) =>
-    key === UNKNOWN_GENRE_KEY ? "不明" : key;
+  const genreLabel = (key: string) => {
+    if (key === UNKNOWN_GENRE_KEY) return t("不明");
+    const name = animeGenreJapaneseName(key);
+    return name === key ? key : t(name, { defaultValue: name });
+  };
+  const visibleGenres = genreOptions.filter(({ key }) =>
+    matchesAnimeGenreSearch(key, genreLabel(key), genreQuery),
+  );
 
   return (
     <BottomSheet
       visible
       onClose={onClose}
-      scrimAccessibilityLabel="絞り込みを閉じる"
+      scrimAccessibilityLabel={t("絞り込みを閉じる")}
       testID="anime-list-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
         <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
-          絞り込み
+          {t("絞り込み")}
         </Text>
 
         <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-          メディア種別
+          {t("メディア種別")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
           <SelectChip
-            label="すべて"
+            label={t("すべて")}
             selected={filters.media === null}
             onPress={() => selectMedia(null)}
-            accessibilityLabel="すべてのメディア種別"
+            accessibilityLabel={t("すべてのメディア種別")}
             testID="anime-filter-media-all"
           />
           {ANIME_LIST_MEDIA_KEYS.map((key) => (
             <SelectChip
               key={key}
-              label={ANIME_LIST_MEDIA_LABELS[key]}
+              label={t(ANIME_LIST_MEDIA_LABELS[key], {
+                defaultValue: ANIME_LIST_MEDIA_LABELS[key],
+              })}
               selected={filters.media === key}
               onPress={() => selectMedia(key)}
-              accessibilityLabel={`${ANIME_LIST_MEDIA_LABELS[key]}で絞り込む`}
+              accessibilityLabel={t("{{name}}で絞り込む", {
+                name: t(ANIME_LIST_MEDIA_LABELS[key], {
+                  defaultValue: ANIME_LIST_MEDIA_LABELS[key],
+                }),
+              })}
               testID={`anime-filter-media-${key}`}
             />
           ))}
         </View>
 
         <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-          ジャンル・タグ
+          {t("ジャンル・タグ")}
         </Text>
         {genreOptions.length > 0 ? (
-          // ジャンルは選択肢が多くなりうるため、シート内で縦にスクロールする。
+          <TextInput
+            value={genreQuery}
+            onChangeText={setGenreQuery}
+            placeholder={t("タグを検索")}
+            accessibilityLabel={t("タグを検索")}
+            testID="anime-filter-genre-search"
+            className="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 mb-3 text-slate-900 dark:text-slate-100"
+          />
+        ) : null}
+        {genreOptions.length > 0 ? (
           <ScrollView className="max-h-56 mb-2">
             <View className="flex-row flex-wrap gap-2">
-              {genreOptions.map((genre) => (
+              {visibleGenres.map(({ key, count }) => (
                 <SelectChip
-                  key={genre}
-                  label={genreLabel(genre)}
-                  selected={selectedGenres.has(genre)}
-                  onPress={() => toggleGenre(genre)}
-                  accessibilityLabel={`${genreLabel(genre)}で絞り込む`}
-                  testID={`anime-filter-genre-${genre}`}
+                  key={key}
+                  label={t("{{name}}（{{count}}）", {
+                    name: genreLabel(key),
+                    count,
+                  })}
+                  selected={selectedGenres.has(key)}
+                  onPress={() => toggleGenre(key)}
+                  accessibilityLabel={t("{{name}}、{{count}}作品で絞り込む", {
+                    name: genreLabel(key),
+                    count,
+                  })}
+                  testID={`anime-filter-genre-${key}`}
                 />
               ))}
             </View>
           </ScrollView>
         ) : (
           <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
-            表示中の作品にジャンル情報がありません（順次取り込み中です）。
+            {t(
+              "表示中の作品にジャンル情報がありません（順次取り込み中です）。",
+            )}
           </Text>
         )}
+        {genreOptions.length > 0 && visibleGenres.length === 0 ? (
+          <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
+            {t("一致するタグがありません")}
+          </Text>
+        ) : null}
         <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
-          ジャンルを複数選ぶといずれかに一致する作品を表示します。「不明」は
-          ジャンルが未取得の作品だけを表示します。
+          {t(
+            "ジャンルを複数選ぶといずれかに一致する作品を表示します。「不明」はジャンルが未取得の作品だけを表示します。",
+          )}
         </Text>
 
         <View className="flex-row gap-3">
@@ -110,21 +153,23 @@ export function AnimeListFilterSheet({
             className="flex-1 border border-slate-200 dark:border-slate-600 rounded-xl py-3 items-center"
             onPress={() => onChange(NO_ANIME_LIST_FILTERS)}
             accessibilityRole="button"
-            accessibilityLabel="絞り込みをリセット"
+            accessibilityLabel={t("絞り込みをリセット")}
             testID="anime-filter-reset"
           >
             <Text className="text-slate-600 dark:text-slate-300 font-medium">
-              リセット
+              {t("リセット")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="絞り込みを適用して閉じる"
+            accessibilityLabel={t("絞り込みを適用")}
             testID="anime-filter-close"
           >
-            <Text className="text-white font-semibold">閉じる</Text>
+            <Text className="text-white font-semibold">
+              {t("絞り込みを適用")}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -132,7 +177,6 @@ export function AnimeListFilterSheet({
   );
 }
 
-// 絞り込みの選択チップ。視聴履歴の SelectChip と同じ見た目。
 function SelectChip({
   label,
   selected,

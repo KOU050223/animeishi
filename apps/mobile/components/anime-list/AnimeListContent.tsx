@@ -125,7 +125,9 @@ export function AnimeListContent({
     canBrowseWorks,
     isAccessLoading,
     isSeason,
-  } = useAnimeList(query, seasonParam, { fetchAllPages: filterActive });
+  } = useAnimeList(query, seasonParam, {
+    fetchAllPages: filterActive || filterSheetOpen,
+  });
   const hasQuery = query.trim().length > 0;
 
   // 前後シーズンを先読みして切り替え直後の待ちを消す（issue #173）。
@@ -161,7 +163,10 @@ export function AnimeListContent({
   );
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
-  const genreOptions = useMemo(() => collectAnimeGenres(data ?? []), [data]);
+  const genreOptions = useMemo(
+    () => collectAnimeGenres(data ?? [], filters.media),
+    [data, filters.media],
+  );
 
   async function onRefresh() {
     // refetch は react-query の enabled を無視して手動実行されるため、作品情報を
