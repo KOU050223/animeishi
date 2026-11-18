@@ -17,6 +17,11 @@ go-task に依存しているため Taskfile.yml に残している。go-task �
 * reports:reopen:         本番の通報を未対応に戻す（確認プロンプト付き）
 * reports:list:local:     ローカル D1 の通報一覧を表示
 * reports:update:local:   ローカル D1 の通報ステータスを更新（動作確認用）
+* users:excluded:         本番で公開一覧から除外中のユーザー一覧を表示（issue #580）
+* users:exclude:          本番ユーザーを公開一覧から除外（確認プロンプト付き）
+* users:unexclude:        本番ユーザーの公開一覧除外を解除（確認プロンプト付き）
+* users:excluded:local:   ローカル D1 で除外中のユーザー一覧を表示
+* users:exclusion:local:  ローカル D1 で除外の設定・解除（動作確認用）
 * feedback:list:          本番 D1 の不具合報告・ご意見を新しい順に表示（既定 50 件）
 * feedback:list:local:    ローカル D1 の不具合報告・ご意見を表示
 * images:backfill:        本番の未取り込み作品画像を画像プロキシ経由で一括取り込み
@@ -218,22 +223,24 @@ pnpm exec wrangler secret delete ANNICT_SHARED_READ_TOKEN --env preview
 公開リスト詳細・共有リンク・フレンド一覧・フレンド欄は変わらない
 （デモアカウントの審査・Explore 導線を壊さないための仕様）。
 
+`apps/api/scripts/public-list-exclusion.sh` の Taskfile ラッパー。使い方は
+`bash apps/api/scripts/public-list-exclusion.sh --help`。id は `--` 以降、
+理由は `REASON=` で渡す（更新系は確認プロンプト付き）。
+
 ```bash
 # 除外する（<理由> は demo / banned 等）
-pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
-  --command "UPDATE users SET public_list_exclusion = '<理由>' WHERE id = '<ユーザーID>'"
+pnpm task users:exclude REASON=demo -- <ユーザーID>
 
 # 除外されているか確認する
-pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
-  --command "SELECT id, username, public_list_exclusion FROM users WHERE public_list_exclusion IS NOT NULL"
+pnpm task users:excluded
 
 # 除外を解除する
-pnpm --filter @animeishi/api exec wrangler d1 execute animeishi-db --remote --env production \
-  --command "UPDATE users SET public_list_exclusion = NULL WHERE id = '<ユーザーID>'"
+pnpm task users:unexclude -- <ユーザーID>
 ```
 
-preview D1 は `--env production` を `--env preview` に、DB 名を
-`animeishi-db-preview` に変えて同じコマンドを叩く。
+preview D1 は
+`bash apps/api/scripts/public-list-exclusion.sh --env preview list` のように
+スクリプトを直接叩く。
 
 ### デモアカウントの除外
 

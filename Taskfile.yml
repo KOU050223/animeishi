@@ -182,6 +182,52 @@ tasks:
     cmds:
       - bash scripts/reports.sh --local {{.CLI_ARGS}}
 
+  # ---- 公開一覧からのユーザー除外（issue #580）----
+  # users.public_list_exclusion の確認・設定・解除は
+  # scripts/public-list-exclusion.sh に集約する。
+  # 値は除外の理由（demo / banned 等）、NULL は一覧に出す。
+  users:excluded:
+    desc: "本番で公開一覧から除外中のユーザー一覧を表示"
+    dir: apps/api
+    cmds:
+      - bash scripts/public-list-exclusion.sh --env production list {{.CLI_ARGS}}
+
+  users:excluded:local:
+    desc: "ローカル D1 で公開一覧から除外中のユーザー一覧を表示"
+    dir: apps/api
+    cmds:
+      - bash scripts/public-list-exclusion.sh --local list {{.CLI_ARGS}}
+
+  # 更新系は reports:* と同じく id・理由を CLI_ARGS ではなく env 変数で渡す
+  # （CLI_ARGS は `sh -c` で再評価されるため）。
+  users:exclude:
+    desc: "本番ユーザーを公開一覧から除外（task users:exclude REASON=demo -- <id>）"
+    dir: apps/api
+    prompt: 本番 D1 の users を更新します。続行しますか？
+    env:
+      EXCLUDE_USER_ID: "{{.CLI_ARGS}}"
+      EXCLUDE_REASON: '{{.REASON | default ""}}'
+    cmds:
+      - bash scripts/public-list-exclusion.sh --env production exclude
+
+  users:unexclude:
+    desc: "本番ユーザーの公開一覧除外を解除（task users:unexclude -- <id>）"
+    dir: apps/api
+    prompt: 本番 D1 の users を更新します。続行しますか？
+    env:
+      EXCLUDE_USER_ID: "{{.CLI_ARGS}}"
+    cmds:
+      - bash scripts/public-list-exclusion.sh --env production unexclude
+
+  users:exclusion:local:
+    desc: "ローカル D1 で public-list-exclusion.sh の全コマンドを実行（例: task users:exclusion:local ID=user_xxx REASON=demo -- exclude）"
+    dir: apps/api
+    env:
+      EXCLUDE_USER_ID: '{{.ID | default ""}}'
+      EXCLUDE_REASON: '{{.REASON | default ""}}'
+    cmds:
+      - bash scripts/public-list-exclusion.sh --local {{.CLI_ARGS}}
+
   # ---- 特集記事（issue #437）----
   # frontmatter 付き Markdown を D1 に upsert する。形式は
   # docs/runbook/production-tasks.md と scripts/publish-article.mjs 冒頭の

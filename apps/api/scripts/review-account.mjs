@@ -21,9 +21,7 @@
 //   CLERK_PUBLISHABLE_KEY    省略可。既定は本番の pk_live（Frontend API のホスト名を取り出す）
 
 import { randomBytes } from "node:crypto";
-import { writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
@@ -379,64 +377,60 @@ function parseD1Json(stdout) {
   return JSON.parse(stdout.slice(match.index));
 }
 
+// --remote --file はインポート API 経由で SELECT の行が返らないため、
+// 更新・検証とも結果が返る --command で実行する。
+function d1Execute(apiDir, dbName, args, sql) {
+  // wrangler は apps/api にだけ入っているため、どこから呼んでも
+  // apps/api で実行する（publish-article.mjs と同じ考え方）。
+  const result = spawnSync(
+    "pnpm",
+    ["wrangler", "d1", "execute", dbName, ...args, "--command", sql, "--json"],
+    { encoding: "utf8", cwd: apiDir },
+  );
+  if (result.status !== 0) {
+    const output = `${result.stderr ?? ""}${result.stdout ?? ""}`.slice(
+      0,
+      2000,
+    );
+    throw new Error(
+      `public_list_exclusion の更新に失敗しました（${dbName}。` +
+        "users.public_list_exclusion を足すマイグレーションが" +
+        `適用済みか確認してください）:\n${output}`,
+    );
+  }
+  return result.stdout;
+}
+
 // 指定ユーザーの public_list_exclusion を立て、書けたか SELECT で確かめる。
 // users 行が無い（プロビジョニング前）・マイグレーション未適用ならエラーにする。
 function setPublicListExclusion(apiUrl, userIds, reason) {
   const { dbName, args } = d1Target(apiUrl);
   const idList = userIds.map(sqlLiteral).join(", ");
-  const sql = [
-    `UPDATE users SET public_list_exclusion = ${sqlLiteral(reason)} WHERE id IN (${idList});`,
-    `SELECT id, public_list_exclusion FROM users WHERE id IN (${idList}) ORDER BY id;`,
-  ].join("\n");
-
-  const tmpFile = join(
-    tmpdir(),
-    `animeishi-review-exclusion-${process.pid}-${Date.now()}.sql`,
-  );
-  writeFileSync(tmpFile, sql);
-
-  // wrangler は apps/api にだけ入っているため、どこから呼んでも
-  // apps/api で実行する（publish-article.mjs と同じ考え方）。
   const apiDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  try {
-    const result = spawnSync(
-      "pnpm",
-      [
-        "wrangler",
-        "d1",
-        "execute",
-        dbName,
-        ...args,
-        `--file=${tmpFile}`,
-        "--json",
-      ],
-      { encoding: "utf8", cwd: apiDir },
+
+  d1Execute(
+    apiDir,
+    dbName,
+    args,
+    `UPDATE users SET public_list_exclusion = ${sqlLiteral(reason)} WHERE id IN (${idList});`,
+  );
+  const statements = parseD1Json(
+    d1Execute(
+      apiDir,
+      dbName,
+      args,
+      `SELECT id, public_list_exclusion FROM users WHERE id IN (${idList}) ORDER BY id;`,
+    ),
+  );
+  const rows = statements[0]?.results ?? [];
+  const flagged = new Set(
+    rows.filter((r) => r.public_list_exclusion === reason).map((r) => r.id),
+  );
+  const missing = userIds.filter((id) => !flagged.has(id));
+  if (missing.length > 0) {
+    throw new Error(
+      `public_list_exclusion を立てられませんでした: ${missing.join(", ")}`,
     );
-    if (result.status !== 0) {
-      const output = `${result.stderr ?? ""}${result.stdout ?? ""}`.slice(
-        0,
-        2000,
-      );
-      throw new Error(
-        `public_list_exclusion の更新に失敗しました（${dbName}。` +
-          "users.public_list_exclusion を足すマイグレーションが" +
-          `適用済みか確認してください）:\n${output}`,
-      );
-    }
-    // --file の各 statement ごとの結果配列。最後の要素が SELECT の結果。
-    const statements = parseD1Json(result.stdout);
-    const rows = statements.at(-1)?.results ?? [];
-    const flagged = new Set(
-      rows.filter((r) => r.public_list_exclusion === reason).map((r) => r.id),
-    );
-    const missing = userIds.filter((id) => !flagged.has(id));
-    if (missing.length > 0) {
-      throw new Error(
-        `public_list_exclusion を立てられませんでした: ${missing.join(", ")}`,
-      );
-    }
-  } finally {
-    rmSync(tmpFile, { force: true });
   }
 }
 
