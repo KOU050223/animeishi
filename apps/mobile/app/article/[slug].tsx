@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,6 +13,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useArticle } from "@/lib/useArticles";
+import { AccessibleLinkRenderer } from "@/lib/markdownRenderer";
 import { useThemeColors } from "@/lib/theme";
 
 // 特集記事の詳細（issue #437）。ホームの特集枠（ArticleRail）から遷移し、
@@ -104,7 +105,9 @@ function ArticleBody({
   // useMarkdown は要素の配列を返すため、Markdown コンポーネント（内部が
   // FlatList）ではなく ScrollView に載せて、カバー画像・タイトルも
   // 同じスクロールの中に置けるようにする。
+  const renderer = useMemo(() => new AccessibleLinkRenderer(), []);
   const elements = useMarkdown(body, {
+    renderer,
     colorScheme: colorScheme ?? "light",
     theme: {
       colors: {
@@ -119,6 +122,19 @@ function ArticleBody({
     },
   });
 
+  // カバー画像のアスペクト比は記事ごとに違う（例: 3:2 のバナー）。16:9 固定
+  // + contentFit="cover" だと上下が切れて帯の文字が欠けるため（issue #607）、
+  // 読み込んだ画像の実寸法に合わせて枠を決める。URL と組で持つのは、別記事へ
+  // 遷移したときに前の記事の比率を引きずらないため。
+  const [coverSize, setCoverSize] = useState<{
+    uri: string;
+    aspectRatio: number;
+  } | null>(null);
+  const coverAspectRatio =
+    coverImageUrl !== null && coverSize?.uri === coverImageUrl
+      ? coverSize.aspectRatio
+      : 16 / 9;
+
   return (
     <ScrollView className="flex-1">
       <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
@@ -127,11 +143,20 @@ function ArticleBody({
             uri={coverImageUrl}
             style={{
               width: "100%",
-              aspectRatio: 16 / 9,
+              aspectRatio: coverAspectRatio,
               borderRadius: 12,
               backgroundColor: colors.surfaceMuted,
             }}
             placeholder=<View className="aspect-video w-full items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900" />
+            onLoad={(event) => {
+              const { width, height } = event.source;
+              if (width > 0 && height > 0) {
+                setCoverSize({
+                  uri: coverImageUrl,
+                  aspectRatio: width / height,
+                });
+              }
+            }}
           />
         ) : null}
         <Text
