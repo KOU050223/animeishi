@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -13,7 +14,6 @@ import {
   matchesFavoriteQuery,
 } from "@/lib/useFavorites";
 import type { FavoriteItem } from "@/lib/useFavorites";
-import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
@@ -27,6 +27,7 @@ import { useThemeColors } from "@/lib/theme";
 // 画面上部の safe area とセクション切り替えはライブラリ画面側が持つため、
 // ここではセクション名の見出しを出さず件数と検索欄だけを表示する。
 export function FavoritesSection() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
@@ -54,8 +55,8 @@ export function FavoritesSection() {
 
   function confirmRemove(annictWorkId: number) {
     confirm(
-      "お気に入りを解除",
-      "このアニメをお気に入りから外しますか？",
+      t("お気に入りを解除"),
+      t("このアニメをお気に入りから外しますか？"),
       () => {
         // お気に入り解除の操作を計測する（issue #214）。
         // 一覧画面のトグルは useToggleFavorite 側で送るため、ここは
@@ -69,17 +70,19 @@ export function FavoritesSection() {
         // ApiRequestError はユーザー向け日本語メッセージを持つ。
         void remove
           .mutateAsync(annictWorkId)
-          .catch((e: unknown) =>
+          .catch(() =>
             alert(
-              "お気に入りを解除できませんでした",
-              e instanceof ApiRequestError
-                ? e.message
-                : "お気に入りの解除に失敗しました",
+              t("お気に入りを解除できませんでした"),
+              t("お気に入りの解除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
       },
-      { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("解除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
   }
 
@@ -95,15 +98,15 @@ export function FavoritesSection() {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">
-          お気に入りの取得に失敗しました
+          {t("お気に入りの取得に失敗しました")}
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={() => refetch()}
           accessibilityRole="button"
-          accessibilityLabel="お気に入りを再取得"
+          accessibilityLabel={t("お気に入りを再取得")}
         >
-          <Text className="text-white font-semibold">再試行</Text>
+          <Text className="text-white font-semibold">{t("再試行")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -118,7 +121,7 @@ export function FavoritesSection() {
           className="mb-3 flex-row items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-800 dark:bg-indigo-950"
           onPress={() => router.push("/work-lists")}
           accessibilityRole="button"
-          accessibilityLabel="作品リストを開く"
+          accessibilityLabel={t("作品リストを開く")}
           testID="favorites-open-work-lists"
         >
           <View className="flex-row items-center gap-1.5">
@@ -128,22 +131,22 @@ export function FavoritesSection() {
               color={colors.primaryText}
             />
             <Text className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-              作品リスト
+              {t("作品リスト")}
             </Text>
           </View>
           <Text className="text-xs text-indigo-500 dark:text-indigo-400">
-            テーマ別のリストを作って共有
+            {t("テーマ別のリストを作って共有")}
           </Text>
         </TouchableOpacity>
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          {enriched.length} 件
+          {t("{{count}} 件", { count: enriched.length })}
         </Text>
         <Input
           value={query}
           onChangeText={setQuery}
-          placeholder="作品名で検索"
+          placeholder={t("作品名で検索")}
           className="mt-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
-          accessibilityLabel="お気に入りを検索"
+          accessibilityLabel={t("お気に入りを検索")}
           clearButtonMode="while-editing"
         />
       </View>
@@ -170,8 +173,10 @@ export function FavoritesSection() {
           <View className="items-center justify-center py-16">
             <Text className="text-slate-400 dark:text-slate-500 text-center">
               {query.trim()
-                ? "該当するお気に入りが見つかりません。"
-                : "お気に入りがありません。\nアニメ一覧から追加してください。"}
+                ? t("該当するお気に入りが見つかりません。")
+                : t(
+                    "お気に入りがありません。\nアニメ一覧から追加してください。",
+                  )}
             </Text>
           </View>
         }
@@ -187,6 +192,7 @@ function FavoriteRow({
   favorite: FavoriteItem;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       className="flex-row items-center py-3 gap-3"
@@ -207,9 +213,13 @@ function FavoriteRow({
         onPress={onRemove}
         className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel={`${favorite.title} をお気に入りから解除`}
+        accessibilityLabel={t("{{title}} をお気に入りから解除", {
+          title: favorite.title,
+        })}
       >
-        <Text className="text-xs text-red-500 dark:text-red-400">解除</Text>
+        <Text className="text-xs text-red-500 dark:text-red-400">
+          {t("解除")}
+        </Text>
       </TouchableOpacity>
     </View>
   );

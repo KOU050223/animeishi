@@ -1,10 +1,13 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Platform, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton, Button, Input, SegmentedControl } from "@/components/ui";
 import { getAppInfo } from "@/lib/appInfo";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import {
   FEEDBACK_BODY_MAX_LENGTH,
   type FeedbackCategory,
@@ -13,8 +16,8 @@ import {
 
 const CATEGORIES: {
   value: FeedbackCategory;
-  label: string;
-  placeholder: string;
+  label: TranslationKey;
+  placeholder: TranslationKey;
 }[] = [
   {
     value: "bug",
@@ -49,6 +52,7 @@ function describeApp(): { appVersion: string; platform: string } {
 }
 
 export default function FeedbackScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [category, setCategory] = useState<FeedbackCategory>("bug");
   const [body, setBody] = useState("");
@@ -82,15 +86,19 @@ export default function FeedbackScreen() {
           // 送信中に追記された本文は消さない。
           setBody((current) => (current === sentBody ? "" : current));
           alert(
-            "送信しました",
-            "ご協力ありがとうございます。いただいた内容は開発の参考にさせていただきます。",
+            t("送信しました"),
+            t(
+              "ご協力ありがとうございます。いただいた内容は開発の参考にさせていただきます。",
+            ),
             { okLabel: "OK", onClose: handleBack },
           );
         },
-        onError: (e) => {
+        onError: (error) => {
           alert(
-            "送信できませんでした",
-            e instanceof Error ? e.message : "送信に失敗しました",
+            t("送信できませんでした"),
+            error instanceof ApiRequestError && error.status === 429
+              ? t("時間あたりの送信上限に達しました")
+              : t("送信に失敗しました"),
             { okLabel: "OK" },
           );
         },
@@ -105,12 +113,12 @@ export default function FeedbackScreen() {
     >
       <Stack.Screen
         options={{
-          title: "不具合報告・ご意見",
+          title: t("不具合報告・ご意見"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="feedback-back-button"
             />
           ),
@@ -122,13 +130,15 @@ export default function FeedbackScreen() {
         contentContainerClassName="w-full max-w-2xl self-center pb-16 pt-4"
       >
         <Text className="px-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          アプリの不具合や、ほしい機能・ご意見をお送りください。すべて開発者が読んでいます。個別のお返事はできませんのでご了承ください。
+          {t(
+            "アプリの不具合や、ほしい機能・ご意見をお送りください。すべて開発者が読んでいます。個別のお返事はできませんのでご了承ください。",
+          )}
         </Text>
 
         <View className="mt-4">
           <SegmentedControl
             items={CATEGORIES.map((c) => ({
-              label: c.label,
+              label: t(c.label),
               active: c.value === category,
               onPress: () => setCategory(c.value),
               testID: `feedback-category-${c.value}`,
@@ -140,30 +150,31 @@ export default function FeedbackScreen() {
           <Input
             value={body}
             onChangeText={setBody}
-            placeholder={current.placeholder}
+            placeholder={t(current.placeholder)}
             multiline
             textAlignVertical="top"
             maxLength={FEEDBACK_BODY_MAX_LENGTH}
             className="min-h-40 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            accessibilityLabel="内容"
+            accessibilityLabel={t("内容")}
             testID="feedback-body-input"
           />
           <Text className="mt-1 text-right text-xs text-slate-400 dark:text-slate-500">
             {body.length}/{FEEDBACK_BODY_MAX_LENGTH}
           </Text>
           <Text className="mt-2 text-xs leading-5 text-slate-400 dark:text-slate-500">
-            不具合の調査のため、アプリのバージョンと OS
-            の情報も一緒に送信されます。
+            {t(
+              "不具合の調査のため、アプリのバージョンと OS の情報も一緒に送信されます。",
+            )}
           </Text>
 
           <View className="mt-6">
             <Button
-              label="送信する"
+              label={t("送信する")}
               icon="send-outline"
               onPress={onSubmit}
               disabled={!canSubmit}
               loading={sendFeedback.isPending}
-              accessibilityLabel="不具合報告・ご意見を送信"
+              accessibilityLabel={t("不具合報告・ご意見を送信")}
               testID="feedback-submit"
             />
           </View>

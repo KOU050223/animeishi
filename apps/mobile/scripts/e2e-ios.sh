@@ -216,13 +216,18 @@ DERIVED_DATA="ios/build/e2e-dd"
 SKIP_BUILD="${E2E_SKIP_BUILD:-0}"
 
 set_simulator_japanese_locale() {
-  # Maestro フローが日本語ラベルに依存するため、再利用時も毎回設定する。
-  xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array ja
-  xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string ja_JP
-  # iOS は優先言語を起動時に読むため、defaults の変更を反映させてからアプリを起動する。
-  xcrun simctl shutdown "$UDID" 2>/dev/null || true
-  xcrun simctl boot "$UDID"
-  xcrun simctl bootstatus "$UDID" -b
+  case "$SIM_NAME" in
+    animeishi-e2e-*)
+      # E2E 専用シミュレーターだけを日本語にする。指定名の開発用端末は変更しない。
+      xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array ja
+      xcrun simctl spawn "$UDID" defaults write -g AppleLocale -string ja_JP
+      # iOS は優先言語を起動時に読むため、変更を反映させてからアプリを起動する。
+      xcrun simctl shutdown "$UDID" 2>/dev/null || true
+      xcrun simctl boot "$UDID"
+      xcrun simctl bootstatus "$UDID" -b
+      ;;
+    *) echo "E2E 専用名ではないため言語・地域の変更をスキップします: $SIM_NAME" ;;
+  esac
 }
 
 # ネイティブビルドの使い回しキャッシュ（issue #292）。

@@ -25,6 +25,7 @@ import type { WorkDetailSheetTarget } from "@/components/anime-list";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { trackEvent } from "@/lib/events";
 import {
+  getReportErrorMessage,
   REPORT_REASONS,
   useBlockUser,
   useReportUser,
@@ -436,9 +437,9 @@ function useModerationActions({
             },
           );
         },
-        onError: () => {
+        onError: (error) => {
           setReportSheetVisible(false);
-          alert(t("通報できませんでした"), t("通報に失敗しました"), {
+          alert(t("通報できませんでした"), t(getReportErrorMessage(error)), {
             okLabel: "OK",
           });
         },

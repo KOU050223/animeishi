@@ -169,7 +169,7 @@ describe("FeedbackScreen", () => {
 
     expect(mockAlert).toHaveBeenCalledWith(
       "送信できませんでした",
-      "上限に達しました",
+      "時間あたりの送信上限に達しました",
       { okLabel: "OK" },
     );
   });

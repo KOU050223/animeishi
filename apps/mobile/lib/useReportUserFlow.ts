@@ -3,7 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { alert, confirm } from "@/lib/dialog";
-import { useBlockUser, useReportUser } from "@/lib/useModeration";
+import {
+  getReportErrorMessage,
+  useBlockUser,
+  useReportUser,
+} from "@/lib/useModeration";
 import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
 
 /**
@@ -54,8 +58,8 @@ export function useReportUserFlow() {
               );
             }
           },
-          onError: () => {
-            alert(t("通報できませんでした"), t("通報に失敗しました"), {
+          onError: (error) => {
+            alert(t("通報できませんでした"), t(getReportErrorMessage(error)), {
               okLabel: "OK",
             });
           },

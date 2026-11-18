@@ -64,6 +64,12 @@ export default function SocialScreen() {
           },
           {
             label: t("フレンド"),
+            accessibilityLabel: friendRequestCount
+              ? t("{{label}}、{{count}}件の通知", {
+                  label: t("フレンド"),
+                  count: friendRequestCount,
+                })
+              : t("フレンド"),
             active: section === "friends",
             onPress: () => setSection("friends"),
             testID: "social-section-friends",

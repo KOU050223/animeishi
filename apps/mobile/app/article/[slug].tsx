@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMarkdown } from "react-native-marked";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
@@ -21,6 +22,7 @@ import { useThemeColors } from "@/lib/theme";
 export default function ArticleScreen() {
   const router = useRouter();
   const colors = useThemeColors();
+  const { t, i18n } = useTranslation();
   const colorScheme = useColorScheme();
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === "string" ? params.slug : null;
@@ -43,12 +45,12 @@ export default function ArticleScreen() {
     >
       <Stack.Screen
         options={{
-          title: data?.title ?? "特集記事",
+          title: data?.title ?? t("特集記事"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="article-back"
             />
           ),
@@ -60,7 +62,7 @@ export default function ArticleScreen() {
             className="text-center text-slate-500 dark:text-slate-400"
             testID="article-not-found"
           >
-            この記事は表示できません
+            {t("この記事は表示できません")}
           </Text>
         </View>
       ) : detail.isLoading || !data ? (
@@ -75,6 +77,7 @@ export default function ArticleScreen() {
           publishedAt={data.publishedAt}
           colors={colors}
           colorScheme={colorScheme}
+          locale={i18n.language}
         />
       )}
     </SafeAreaView>
@@ -88,6 +91,7 @@ function ArticleBody({
   publishedAt,
   colors,
   colorScheme,
+  locale,
 }: {
   title: string;
   body: string;
@@ -95,6 +99,7 @@ function ArticleBody({
   publishedAt: string;
   colors: ReturnType<typeof useThemeColors>;
   colorScheme: "light" | "dark" | null | undefined;
+  locale: string;
 }) {
   // useMarkdown は要素の配列を返すため、Markdown コンポーネント（内部が
   // FlatList）ではなく ScrollView に載せて、カバー画像・タイトルも
@@ -136,7 +141,7 @@ function ArticleBody({
           {title}
         </Text>
         <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          {formatPublishedAt(publishedAt)}
+          {formatPublishedAt(publishedAt, locale)}
         </Text>
         <View className="mt-4">
           {elements.map((element, index) => (
@@ -148,9 +153,12 @@ function ArticleBody({
   );
 }
 
-/** 「2026年11月10日公開」のような表示用の日付に整形する。 */
-function formatPublishedAt(iso: string): string {
+function formatPublishedAt(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日公開`;
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
 }

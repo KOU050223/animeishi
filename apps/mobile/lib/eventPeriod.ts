@@ -30,10 +30,28 @@ const formatJstDay = (d: Date, withYear: boolean) => {
  * 同日なら 1 日分だけ。年をまたぐときは終了側にも年を付ける。
  * 日付の区切りは日本時間（Asia/Tokyo）基準。解釈できない日時は空文字を返す。
  */
-export function formatEventPeriod(startsAt: string, endsAt: string): string {
+export function formatEventPeriod(
+  startsAt: string,
+  endsAt: string,
+  locale = "ja-JP",
+): string {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
+
+  if (!locale.startsWith("ja")) {
+    const format = new Intl.DateTimeFormat(locale, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+    const jstStart = toJst(start);
+    const jstEnd = toJst(end);
+    return isSameJstDay(start, end)
+      ? format.format(jstStart)
+      : `${format.format(jstStart)} – ${format.format(jstEnd)}`;
+  }
 
   if (isSameJstDay(start, end)) return formatJstDay(start, true);
   const js = toJst(start);

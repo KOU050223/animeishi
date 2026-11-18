@@ -1,4 +1,5 @@
 import { Switch, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
 
@@ -27,6 +28,7 @@ export function TierListMetaFields({
   disabled: boolean;
   testIDPrefix: string;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
 
   return (
@@ -34,7 +36,7 @@ export function TierListMetaFields({
       <Input
         value={description}
         onChangeText={onChangeDescription}
-        placeholder="説明（任意）"
+        placeholder={t("説明（任意）")}
         maxLength={DESCRIPTION_MAX_LENGTH}
         multiline
         numberOfLines={2}
@@ -44,14 +46,14 @@ export function TierListMetaFields({
       <View className="flex-row items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
         <View className="mr-3 flex-1">
           <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
-            ひろばに公開する
+            {t("ひろばに公開する")}
           </Text>
           <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {isPublic
-              ? "公開中。ひろばの一覧に表示されます"
+              ? t("公開中。ひろばの一覧に表示されます")
               : shareToken
-                ? "ひろばには表示されません。共有リンクからは閲覧できます"
-                : "ひろばには表示されません"}
+                ? t("ひろばには表示されません。共有リンクからは閲覧できます")
+                : t("ひろばには表示されません")}
           </Text>
         </View>
         <Switch
@@ -59,13 +61,13 @@ export function TierListMetaFields({
           onValueChange={onChangeIsPublic}
           disabled={disabled}
           trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-          accessibilityLabel="ひろばに公開する"
+          accessibilityLabel={t("ひろばに公開する")}
           testID={`${testIDPrefix}-public-toggle`}
         />
       </View>
       {shareToken ? (
         <Text className="text-xs text-slate-500 dark:text-slate-400">
-          リンク共有中
+          {t("リンク共有中")}
         </Text>
       ) : null}
     </>

@@ -9,6 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
@@ -28,6 +29,7 @@ import type { ReportReason } from "@/lib/useModeration";
 // 「いいね順 / 新着順」の切り替え・いいね・通報ができる。
 // カーソルページングで末尾スクロールのたびに続きを読む。
 export function DiscoverWorkLists() {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const router = useRouter();
   const { userId } = useAuth();
@@ -59,9 +61,13 @@ export function DiscoverWorkLists() {
       { id: item.id, like: !item.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   }
@@ -83,13 +89,13 @@ export function DiscoverWorkLists() {
       <SegmentedControl
         items={[
           {
-            label: "いいね順",
+            label: t("いいね順"),
             active: sort === "likes",
             onPress: () => setSort("likes"),
             testID: "hiroba-discover-sort-likes",
           },
           {
-            label: "新着順",
+            label: t("新着順"),
             active: sort === "new",
             onPress: () => setSort("new"),
             testID: "hiroba-discover-sort-new",
@@ -109,10 +115,10 @@ export function DiscoverWorkLists() {
             className="rounded-lg bg-indigo-600 px-6 py-3"
             onPress={() => void list.refetch()}
             accessibilityRole="button"
-            accessibilityLabel="再読み込み"
+            accessibilityLabel={t("再読み込み")}
             testID="hiroba-discover-retry"
           >
-            <Text className="font-semibold text-white">再読み込み</Text>
+            <Text className="font-semibold text-white">{t("再読み込み")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -182,6 +188,7 @@ function PublicWorkListCard({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <View
@@ -259,12 +266,12 @@ function PublicWorkListCard({
             className="flex-row items-center gap-1 rounded-md px-1.5 py-1"
             onPress={onPressReport}
             accessibilityRole="button"
-            accessibilityLabel={`「${item.title}」を通報`}
+            accessibilityLabel={t("「{{name}}」を通報", { name: item.title })}
             testID={`work-list-report-${item.id}`}
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
             <Text className="text-xs text-slate-500 dark:text-slate-400">
-              通報
+              {t("通報")}
             </Text>
           </TouchableOpacity>
         ) : null}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { episodeLabel } from "@/lib/episodeLabel";
 import type { NowWatching } from "@/lib/publicProfile";
 import { useThemeColors } from "@/lib/theme";
@@ -43,6 +44,7 @@ export function NowWatchingBubble({
   onPress: () => void;
   testID?: string;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { data } = useWorkEpisodes(nowWatching.annictWorkId);
   // API は直近 24h の記録だけを返すが、画面を開いたまま期限を跨いでも
@@ -80,7 +82,9 @@ export function NowWatchingBubble({
     <TouchableOpacity
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`いま見ている作品 ${label} の詳細を開く`}
+      accessibilityLabel={t("いま見ている作品 {{title}} の詳細を開く", {
+        title: label,
+      })}
       testID={testID}
       style={styles.container}
     >
