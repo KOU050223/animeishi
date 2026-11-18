@@ -1,4 +1,5 @@
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { useWorkCatalogAccess } from "@/lib/annict";
@@ -28,6 +29,7 @@ export function CharacterTierWorkPicker({
   /** 検索結果の作品が選ばれたとき。 */
   onSelect: (work: TierItem) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { canBrowseWorks, isLoading } = useWorkCatalogAccess();
 
@@ -38,9 +40,11 @@ export function CharacterTierWorkPicker({
         onClose={onClose}
         onAdd={onSelect}
         existingWorkIds={NO_EXISTING}
-        heading="作品を選ぶ"
-        description="キャラクター Tier 表を作る作品のタイトルを検索してください"
-        actionLabel="選ぶ"
+        heading={t("作品を選ぶ")}
+        description={t(
+          "キャラクター Tier 表を作る作品のタイトルを検索してください",
+        )}
+        actionLabel={t("選ぶ")}
       />
     );
   }
@@ -82,14 +86,16 @@ export function CharacterTierWorkPicker({
           ) : (
             <AnnictSoftGate
               variant="compact"
-              description="キャラクター Tier 表の作成には Annict との連携が必要です。連携すると作品のキャラクターを並べ替えられます。"
+              description={t(
+                "キャラクター Tier 表の作成には Annict との連携が必要です。連携すると作品のキャラクターを並べ替えられます。",
+              )}
               surface="character_tier_list"
             />
           )}
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="閉じる"
+            accessibilityLabel={t("閉じる")}
             testID="character-tier-picker-close"
             style={{
               marginTop: 12,
@@ -100,7 +106,7 @@ export function CharacterTierWorkPicker({
             }}
           >
             <Text style={{ fontWeight: "600", color: colors.text }}>
-              閉じる
+              {t("閉じる")}
             </Text>
           </Pressable>
         </Pressable>
