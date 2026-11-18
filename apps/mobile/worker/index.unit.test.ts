@@ -222,7 +222,7 @@ describe("/user/:uid のクローラ転送", () => {
     expect(forwarded?.url).toBe("https://api.example.com/user/user_abc");
   });
 
-  it("末尾スラッシュの /user/:uid/ もクローラ転送する", async () => {
+  it("末尾スラッシュの /user/:uid/ はスラッシュを落として API 転送する", async () => {
     const env = makeEnv();
     await worker.fetch(
       req("https://animeishi.uomi.dev/user/user_abc/", {
@@ -231,6 +231,11 @@ describe("/user/:uid のクローラ転送", () => {
       env,
     );
     expect(env.API?.fetch).toHaveBeenCalledTimes(1);
+    // API のルートは /:uid のみ受け付ける strict ルーティングのため、
+    // 末尾スラッシュを残すと公開プロフィールでも 404 になる
+    expect(env.API?.fetch.mock.calls[0]?.[0]?.url).toBe(
+      "https://api.example.com/user/user_abc",
+    );
   });
 
   it("クローラ転送では Cookie / Authorization を落とす", async () => {

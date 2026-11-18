@@ -277,6 +277,9 @@ export default {
         (request.method === "GET" || request.method === "HEAD") &&
         isCrawler(request)
       ) {
+        // API は /:uid のみ受け付ける strict ルーティングのため、
+        // 末尾スラッシュ付き URL をそのまま転送すると 404 になる
+        url.pathname = pathname.replace(/\/$/, "");
         const res = await forwardToApi(request, url, env, { crawler: true });
         return withVary(res, "User-Agent");
       }
