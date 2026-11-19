@@ -107,7 +107,7 @@ export function DiscoverUsers() {
       ) : list.isError && items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
-            公開名刺を取得できませんでした
+            {t("公開名刺を取得できませんでした")}
           </Text>
           <TouchableOpacity
             className="rounded-lg bg-indigo-600 px-6 py-3"
@@ -147,7 +147,7 @@ export function DiscoverUsers() {
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
               <Text className="text-center text-slate-400 dark:text-slate-500">
-                まだ公開されている名刺はありません
+                {t("まだ公開されている名刺はありません")}
               </Text>
             </View>
           }
@@ -221,8 +221,10 @@ function PublicUserCard({
           accessibilityRole="button"
           accessibilityLabel={
             item.likedByMe
-              ? `「${item.username}」の名刺へのいいねを取り消す`
-              : `「${item.username}」の名刺にいいね`
+              ? t("「{{username}}」の名刺へのいいねを取り消す", {
+                  username: item.username,
+                })
+              : t("「{{username}}」の名刺にいいね", { username: item.username })
           }
           accessibilityState={{ disabled: isOwn || likePending }}
           testID={`public-user-like-${item.id}`}

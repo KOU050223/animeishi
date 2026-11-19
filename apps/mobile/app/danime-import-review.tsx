@@ -565,7 +565,7 @@ export default function DanimeImportReviewScreen() {
         )}
         {bulk.isError && (
           <Text className="text-xs text-red-500 dark:text-red-400 text-center mb-2">
-            {bulk.error.message}
+            {t(bulk.error.message, { defaultValue: bulk.error.message })}
           </Text>
         )}
         <TouchableOpacity

@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 import { CONTACT_EMAIL } from "@/lib/legal/operator";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 // ストア掲載のサポート URL（https://animeishi.uomi.dev/support）として公開するページ。
 // 回答は apps/mobile の実画面・実機能と照合して書くこと。未実装の案内は書かない。
@@ -49,11 +51,24 @@ const SECTIONS: LegalSection[] = [
 ];
 
 export default function SupportScreen() {
+  const { t } = useTranslation();
+  const sections: LegalSection[] = SECTIONS.map((section) => ({
+    ...section,
+    heading: t(section.heading as TranslationKey),
+    paragraphs: section.paragraphs?.map((paragraph) =>
+      paragraph.includes(CONTACT_EMAIL)
+        ? t("連絡先: {{email}}", { email: CONTACT_EMAIL })
+        : t(paragraph as TranslationKey),
+    ),
+    action: section.action
+      ? { ...section.action, label: t(section.action.label as TranslationKey) }
+      : undefined,
+  }));
   return (
     <LegalDocument
-      title="サポート"
-      effectiveDate="最終更新: 2026年11月11日"
-      sections={SECTIONS}
+      title={t("サポート")}
+      effectiveDate={t("最終更新: 2026年11月11日")}
+      sections={sections}
     />
   );
 }

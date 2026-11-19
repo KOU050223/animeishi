@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
@@ -13,8 +14,10 @@ const ISSUES_URL = "https://github.com/KOU050223/animeishi/issues";
 
 // アプリの機能一覧・更新情報・今後の予定をまとめた静的ページ（issue #98）。
 // 表示内容は lib/changelog.ts の静的データがソースオブトゥルース。
-// 文言は日本語固定（support.tsx / LegalDocument と同じく i18n 対象外）。
+// 更新履歴・機能一覧の本文（lib/changelog.ts）はリリースノートとして日本語を
+// 正本とし i18n 対象外。ページの枠（タイトル・見出し・案内）だけは t() 化する。
 export default function ChangelogScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   // LegalDocument / meishi/edit と同じ規約。直リンクでは遷移履歴が無いため、
@@ -37,12 +40,12 @@ export default function ChangelogScreen() {
           E2E が参照する testID を維持するため。 */}
       <Stack.Screen
         options={{
-          title: "機能一覧・更新情報",
+          title: t("機能一覧・更新情報"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="changelog-back-button"
             />
           ),
@@ -52,11 +55,11 @@ export default function ChangelogScreen() {
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
           <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            最終更新: {UPDATES[0].date}
+            {t("最終更新:")} {UPDATES[0].date}
           </Text>
 
           <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">
-            このアプリでできること
+            {t("このアプリでできること")}
           </Text>
           <View className="mt-3 gap-4">
             {FEATURES.map((feature) => (
@@ -72,7 +75,7 @@ export default function ChangelogScreen() {
           </View>
 
           <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
-            更新情報
+            {t("更新情報")}
           </Text>
           <View className="mt-3 gap-5">
             {UPDATES.map((entry) => (
@@ -93,10 +96,10 @@ export default function ChangelogScreen() {
           </View>
 
           <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
-            今後追加したい機能
+            {t("今後追加したい機能")}
           </Text>
           <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            タップすると対応する GitHub issue を開きます。
+            {t("タップすると対応する GitHub issue を開きます。")}
           </Text>
           <View className="mt-3 flex-row flex-wrap gap-2">
             {PLANNED_FEATURES.map((item) => (
@@ -110,6 +113,7 @@ export default function ChangelogScreen() {
 }
 
 function PlannedFeatureChip({ item }: { item: PlannedFeature }) {
+  const { t } = useTranslation();
   const label = (
     <>
       <Text className="text-sm text-indigo-700 dark:text-indigo-300">
@@ -137,7 +141,9 @@ function PlannedFeatureChip({ item }: { item: PlannedFeature }) {
       className="flex-row items-center rounded-full bg-indigo-50 dark:bg-indigo-950 px-3 py-1.5"
       onPress={() => void Linking.openURL(`${ISSUES_URL}/${item.issue}`)}
       accessibilityRole="link"
-      accessibilityLabel={`${item.title}（GitHub issue を開く）`}
+      accessibilityLabel={t("{{title}}（GitHub issue を開く）", {
+        title: item.title,
+      })}
       testID={`planned-feature-${item.issue}`}
     >
       {label}

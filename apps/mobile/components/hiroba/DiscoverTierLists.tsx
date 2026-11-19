@@ -113,7 +113,7 @@ export function DiscoverTierLists() {
       ) : list.isError && items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
-            公開 tier 表を取得できませんでした
+            {t("公開 tier 表を取得できませんでした")}
           </Text>
           <TouchableOpacity
             className="rounded-lg bg-indigo-600 px-6 py-3"
@@ -154,7 +154,7 @@ export function DiscoverTierLists() {
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
               <Text className="text-center text-slate-400 dark:text-slate-500">
-                まだ公開されている tier 表はありません
+                {t("まだ公開されている tier 表はありません")}
               </Text>
             </View>
           }
@@ -207,7 +207,7 @@ function PublicTierListCard({
           入れ子を避ける CardPressable でカード側を作る。 */}
       <CardPressable
         onPress={onPress}
-        accessibilityLabel={`「${item.title}」を開く`}
+        accessibilityLabel={t("「{{title}}」を開く", { title: item.title })}
         testID={`public-tier-list-open-${item.kind}-${item.id}`}
       >
         {item.thumbnails.length > 0 ? (
@@ -254,8 +254,8 @@ function PublicTierListCard({
           {item.title}
         </Text>
         <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-          {TIER_KIND_LABELS[item.kind]} ・ {item.owner.username} ・{" "}
-          {item.itemCount} アイテム
+          {t(TIER_KIND_LABELS[item.kind])} ・ {item.owner.username} ・{" "}
+          {t("{{count}} アイテム", { count: item.itemCount })}
         </Text>
       </CardPressable>
       <View className="mt-2 flex-row items-center justify-between">
@@ -267,8 +267,8 @@ function PublicTierListCard({
           accessibilityRole="button"
           accessibilityLabel={
             item.likedByMe
-              ? `「${item.title}」のいいねを取り消す`
-              : `「${item.title}」にいいね`
+              ? t("「{{title}}」のいいねを取り消す", { title: item.title })
+              : t("「{{title}}」にいいね", { title: item.title })
           }
           accessibilityState={{ disabled: isOwn || likePending }}
           testID={`tier-list-like-${item.kind}-${item.id}`}

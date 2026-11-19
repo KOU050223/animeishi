@@ -73,6 +73,7 @@ function ElectionCard({
   item: ElectionListItem;
   onPress: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const colors = useThemeColors();
   const voting = eventPhase(item.startsAt, item.endsAt) === "ongoing";
   return (
@@ -80,7 +81,7 @@ function ElectionCard({
       style={{ width: CARD_WIDTH }}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}を見る`}
+      accessibilityLabel={t("{{title}}を見る", { title: item.title })}
       testID={`election-card-${item.slug}`}
     >
       <WorkImage
@@ -97,7 +98,7 @@ function ElectionCard({
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
             <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-              総選挙
+              {t("総選挙")}
             </Text>
           </View>
         }
@@ -108,7 +109,7 @@ function ElectionCard({
             className="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
             testID={`election-voting-${item.slug}`}
           >
-            投票受付中
+            {t("投票受付中")}
           </Text>
         ) : null}
         {item.voted ? (
@@ -116,7 +117,7 @@ function ElectionCard({
             className="text-xs font-semibold text-indigo-500 dark:text-indigo-300"
             testID={`election-voted-${item.slug}`}
           >
-            投票済み
+            {t("投票済み")}
           </Text>
         ) : null}
       </View>
@@ -130,7 +131,7 @@ function ElectionCard({
         className="text-xs text-slate-400 dark:text-slate-500"
         numberOfLines={1}
       >
-        {formatEventPeriod(item.startsAt, item.endsAt)}
+        {formatEventPeriod(item.startsAt, item.endsAt, i18n.language)}
       </Text>
     </TouchableOpacity>
   );

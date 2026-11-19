@@ -25,7 +25,7 @@ export function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         {t("予期しないエラーが発生しました")}
       </Text>
       <Text className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
-        {error.message}
+        {t(error.message, { defaultValue: error.message })}
       </Text>
       <TouchableOpacity
         className="bg-indigo-600 rounded-lg px-6 py-3"

@@ -72,13 +72,14 @@ function ArticleCard({
   item: ArticleListItem;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <TouchableOpacity
       style={{ width: CARD_WIDTH }}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}を読む`}
+      accessibilityLabel={t("{{title}}を読む", { title: item.title })}
       testID={`article-card-${item.slug}`}
     >
       <WorkImage
@@ -95,7 +96,7 @@ function ArticleCard({
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
             <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-              特集
+              {t("特集")}
             </Text>
           </View>
         }

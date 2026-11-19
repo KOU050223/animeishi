@@ -74,6 +74,7 @@ function EventCard({
   item: EventListItem;
   onPress: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const colors = useThemeColors();
   const ongoing = eventPhase(item.startsAt, item.endsAt) === "ongoing";
   return (
@@ -81,7 +82,7 @@ function EventCard({
       style={{ width: CARD_WIDTH }}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}を見る`}
+      accessibilityLabel={t("{{title}}を見る", { title: item.title })}
       testID={`event-card-${item.slug}`}
     >
       <WorkImage
@@ -98,7 +99,7 @@ function EventCard({
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
             <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-              イベント
+              {t("イベント")}
             </Text>
           </View>
         }
@@ -109,7 +110,7 @@ function EventCard({
             className="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
             testID={`event-ongoing-${item.slug}`}
           >
-            開催中
+            {t("開催中")}
           </Text>
         ) : null}
         {item.participating ? (
@@ -117,7 +118,7 @@ function EventCard({
             className="text-xs font-semibold text-indigo-500 dark:text-indigo-300"
             testID={`event-participating-${item.slug}`}
           >
-            参加予定
+            {t("参加予定")}
           </Text>
         ) : null}
       </View>
@@ -131,7 +132,7 @@ function EventCard({
         className="text-xs text-slate-400 dark:text-slate-500"
         numberOfLines={1}
       >
-        {formatEventPeriod(item.startsAt, item.endsAt)}
+        {formatEventPeriod(item.startsAt, item.endsAt, i18n.language)}
       </Text>
     </TouchableOpacity>
   );
