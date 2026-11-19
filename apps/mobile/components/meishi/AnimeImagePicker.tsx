@@ -22,6 +22,7 @@ import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { initialWindowMetrics } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
 import { useThemeColors } from "@/lib/theme";
 
@@ -358,7 +359,10 @@ export function AnimeImagePicker({
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             padding: 16,
-            paddingBottom: 24,
+            // Modal は全画面を覆うため下端はホームインジケータまで届く。
+            // 固定 24 ではホームインジケータ領域に掛かるので inset を足す
+            // （issue #462。タブバーではなくウィンドウの inset を使う）。
+            paddingBottom: 24 + (initialWindowMetrics?.insets.bottom ?? 0),
             height: Math.min(Math.round(height * 0.75), 640),
             width: "100%",
             maxWidth: 560,

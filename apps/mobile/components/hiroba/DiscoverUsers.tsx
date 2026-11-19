@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
@@ -32,6 +33,7 @@ import { DiscoverReportSheet } from "./DiscoverReportSheet";
 export function DiscoverUsers() {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { userId } = useAuth();
   const [sort, setSort] = useState<PublicUsersSort>("likes");
@@ -127,7 +129,15 @@ export function DiscoverUsers() {
           onRefresh={onRefresh}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
-          contentContainerClassName="gap-3 px-4 pb-8 pt-2"
+          // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+          // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={{
+            gap: 12,
+            paddingHorizontal: 16,
+            paddingBottom: 32 + insets.bottom,
+            paddingTop: 8,
+          }}
           testID="hiroba-user-list"
           renderItem={({ item }) => (
             <PublicUserCard

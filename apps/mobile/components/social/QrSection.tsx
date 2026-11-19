@@ -14,6 +14,7 @@ import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend, useQrExchangeToken } from "@/lib/useFriends";
 import { ApiRequestError } from "@/lib/apiError";
@@ -86,6 +87,7 @@ export function QrSection() {
 
 function GenerateView() {
   const { userId, isSignedIn } = useAuth();
+  const insets = useSafeAreaInsets();
   // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
   // 発火させるためフォーカスも見る。
   const isFocused = useIsFocused();
@@ -217,7 +219,18 @@ function GenerateView() {
     // スクロールする ScrollView にする（issue #527）。
     <ScrollView
       className="flex-1"
-      contentContainerClassName="flex-grow items-center justify-center px-8 py-4"
+      // 下端はネイティブのタブバーに潜り込むため、収まらずスクロールした
+      // 最後の要素がその下に隠れないようタブバー分の inset を余白へ足す
+      // （issue #462）。
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={{
+        flexGrow: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 32,
+        paddingTop: 16,
+        paddingBottom: 16 + insets.bottom,
+      }}
       testID="qr-generate-scroll"
     >
       {/* 渡す名刺を QR の主役として出す（issue #595）。document の解決は
@@ -357,6 +370,7 @@ function GenerateView() {
 
 function ScanView() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
   const router = useRouter();
@@ -470,7 +484,12 @@ function ScanView() {
         // フォーカスが外れている間はカメラを描画しない（メモリ解放）。
         <View className="flex-1 bg-black" />
       )}
-      <View className="absolute bottom-12 left-0 right-0 items-center">
+      {/* bottom-12 (48px) はタブバー＋ホームインジケータ (~83px) より浅く、
+          ヒントがその下に隠れるためタブバー分の inset を足す（issue #462）。 */}
+      <View
+        className="absolute left-0 right-0 items-center"
+        style={{ bottom: insets.bottom + 16 }}
+      >
         <Text className="text-white text-sm bg-black/50 px-4 py-2 rounded-full">
           {addFriend.isPending
             ? t("フレンド登録中...")

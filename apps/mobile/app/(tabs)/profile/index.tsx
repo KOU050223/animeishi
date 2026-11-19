@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
@@ -79,6 +80,7 @@ function walletErrorMessage(
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   // iOS のネイティブヘッダーは large title 指定で透過になり、ScrollView が
   // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
   // 効かないケースがあるため、library / social と同じくヘッダー高さ分だけ
@@ -240,10 +242,13 @@ export default function ProfileScreen() {
       <ScrollView
         ref={scrollRef}
         className="flex-1"
-        contentContainerClassName={
+        // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={
           isLoading || (isError && !profile)
-            ? "flex-1 items-center justify-center px-8"
-            : "pb-12"
+            ? styles.loadingContent
+            : { paddingBottom: 48 + insets.bottom }
         }
       >
         {isLoading ? (
@@ -683,6 +688,12 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
   meishiPreviewFrame: {
     width: "100%",
     maxWidth: 420,

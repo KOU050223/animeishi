@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActivityFeed } from "@/lib/useActivityFeed";
 import { useFriends } from "@/lib/useFriends";
 import { useTranslation } from "react-i18next";
@@ -59,6 +60,7 @@ export function ActivityFeedList({
 }: ActivityFeedListProps) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const {
     data,
@@ -111,7 +113,13 @@ export function ActivityFeedList({
           className="bg-slate-100 dark:bg-slate-800"
         />
       )}
-      contentContainerStyle={styles.listContent}
+      // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+      // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={[
+        styles.listContent,
+        { paddingBottom: 32 + insets.bottom },
+      ]}
       refreshing={refreshing}
       onRefresh={handleRefresh}
       onEndReached={onEndReached}
