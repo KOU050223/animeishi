@@ -54,6 +54,11 @@ describe("i18n の言語切り替え", () => {
     );
   });
 
+  it("タグ名も en では英語で解決される", async () => {
+    await i18n.changeLanguage("en");
+    expect(i18n.t("SF", { defaultValue: "SF" })).toBe("Sci-Fi");
+  });
+
   it("補間が en でも機能する", async () => {
     await i18n.changeLanguage("en");
     expect(
