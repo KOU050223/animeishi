@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAnimeListPalette, useAnimeListStyles } from "./animeListStyles";
@@ -13,6 +14,7 @@ export function FavoriteButton({
   onPress: () => void;
   title: string;
 }) {
+  const { t } = useTranslation();
   const styles = useAnimeListStyles();
   const palette = useAnimeListPalette();
   return (
@@ -24,8 +26,8 @@ export function FavoriteButton({
       accessibilityState={{ selected: isFavorite, disabled }}
       accessibilityLabel={
         isFavorite
-          ? `${title}をお気に入りから解除`
-          : `${title}をお気に入りに追加`
+          ? t("{{title}}をお気に入りから解除", { title })
+          : t("{{title}}をお気に入りに追加", { title })
       }
     >
       <Ionicons

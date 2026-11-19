@@ -9,6 +9,7 @@
 //   4. 転送に失敗した場合は結果がクリップボードにコピーされるので、
 //      フォールバックとして手動貼り付けにも対応する
 // 抽出コアはネイティブ注入スクリプトと同一のものを共有する。
+import { useTranslation } from "react-i18next";
 import { createElement, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,6 +34,7 @@ import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { useThemeColors } from "@/lib/theme";
 
 export default function DanimeImportWebScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
@@ -62,7 +64,7 @@ export default function DanimeImportWebScreen() {
       handled = true;
       const lists = parseDanimeExtractedLists(data.payload);
       if (!lists) {
-        setError("抽出結果の形式が正しくありませんでした。");
+        setError(t("抽出結果の形式が正しくありませんでした。"));
         return;
       }
       // ack を返すと送信側の再送が止まる。
@@ -79,7 +81,7 @@ export default function DanimeImportWebScreen() {
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [isReceiver, setLists, router]);
+  }, [isReceiver, setLists, router, t]);
 
   function proceed() {
     setError(null);
@@ -88,13 +90,15 @@ export default function DanimeImportWebScreen() {
       parsed = JSON.parse(pasted.trim());
     } catch {
       setError(
-        "JSON として解釈できませんでした。コピー内容をそのまま貼り付けてください。",
+        t(
+          "JSON として解釈できませんでした。コピー内容をそのまま貼り付けてください。",
+        ),
       );
       return;
     }
     const lists = parseDanimeExtractedLists(parsed);
     if (!lists) {
-      setError("抽出結果の形式が正しくありません。");
+      setError(t("抽出結果の形式が正しくありません。"));
       return;
     }
     setLists(lists);
@@ -107,11 +111,12 @@ export default function DanimeImportWebScreen() {
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <ActivityIndicator size="large" color={colors.primary} />
         <Text className="text-sm text-slate-600 dark:text-slate-300 mt-4 text-center">
-          dアニメのタブから抽出結果を受け取っています…
+          {t("dアニメのタブから抽出結果を受け取っています…")}
         </Text>
         <Text className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
-          しばらく待っても進まない場合は、dアニメのタブにコピーされた JSON
-          をインポート画面の貼り付け欄に貼ってください。
+          {t(
+            "しばらく待っても進まない場合は、dアニメのタブにコピーされた JSON をインポート画面の貼り付け欄に貼ってください。",
+          )}
         </Text>
         {error && (
           <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
@@ -122,10 +127,10 @@ export default function DanimeImportWebScreen() {
           className="mt-6 py-2"
           onPress={() => router.replace("/danime-import")}
           accessibilityRole="button"
-          accessibilityLabel="インポート画面へ戻る"
+          accessibilityLabel={t("インポート画面へ戻る")}
         >
           <Text className="text-slate-500 dark:text-slate-400">
-            インポート画面へ戻る
+            {t("インポート画面へ戻る")}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -154,12 +159,12 @@ export default function DanimeImportWebScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "dアニメからインポート",
+          title: t("dアニメからインポート"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="danime-import-back-button"
             />
           ),
@@ -167,19 +172,17 @@ export default function DanimeImportWebScreen() {
       />
       <ScrollView contentContainerClassName="px-4 py-6">
         <Text className="text-xs text-slate-500 dark:text-slate-400 leading-5">
-          Web 版ではブラウザのブックマークレットで履歴を抽出します。
+          {t("Web 版ではブラウザのブックマークレットで履歴を抽出します。")}
         </Text>
 
         <View className="mt-5 bg-slate-50 dark:bg-slate-800 rounded-xl p-4">
           <Text className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            手順
+            {t("手順")}
           </Text>
           <Text className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-5">
-            1. 下のリンクをブックマークバーへドラッグして登録（初回のみ）{"\n"}
-            2. 「dアニメの履歴ページを開く」で dアニメストアを開いてログイン
-            {"\n"}
-            3. そのページで登録したブックマークをクリック{"\n"}
-            　→ Animeishi のタブが開き、抽出結果が自動で転送されます
+            {t(
+              "1. 下のリンクをブックマークバーへドラッグして登録（初回のみ）\n2. 「dアニメの履歴ページを開く」で dアニメストアを開いてログイン\n3. そのページで登録したブックマークをクリック\n　→ Animeishi のタブが開き、抽出結果が自動で転送されます",
+            )}
           </Text>
 
           {/* ブックマークレットは javascript: URL を href に持つ実際の <a>
@@ -225,23 +228,23 @@ export default function DanimeImportWebScreen() {
                         cursor: "grab",
                       },
               },
-              "dアニメ履歴を取得（ドラッグでブックマーク登録）",
+              t("dアニメ履歴を取得（ドラッグでブックマーク登録）"),
             )}
             <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-              ドラッグできない場合は右クリック → 「リンクをブックマーク」。
-              それも難しい場合は下のボタンで URL をコピーし、新規ブックマークの
-              URL 欄に貼り付けてください。
+              {t(
+                "ドラッグできない場合は右クリック → 「リンクをブックマーク」。それも難しい場合は下のボタンで URL をコピーし、新規ブックマークの URL 欄に貼り付けてください。",
+              )}
             </Text>
             <TouchableOpacity
               className="mt-1 py-1"
               accessibilityRole="button"
-              accessibilityLabel="ブックマークレットをコピー"
+              accessibilityLabel={t("ブックマークレットをコピー")}
               onPress={() => {
                 void navigator.clipboard?.writeText(bookmarklet);
               }}
             >
               <Text className="text-[11px] text-indigo-500 dark:text-indigo-400 underline">
-                ブックマークレットをコピー
+                {t("ブックマークレットをコピー")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -249,28 +252,29 @@ export default function DanimeImportWebScreen() {
           <TouchableOpacity
             className="mt-4 bg-indigo-600 rounded-xl py-3 items-center"
             accessibilityRole="button"
-            accessibilityLabel="dアニメの履歴ページを開く"
+            accessibilityLabel={t("dアニメの履歴ページを開く")}
             onPress={() => window.open(DANIME_HISTORY_URL, "_blank")}
           >
             <Text className="text-white font-semibold">
-              dアニメの履歴ページを開く
+              {t("dアニメの履歴ページを開く")}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
           <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            うまくいかない場合（手動貼り付け）
+            {t("うまくいかない場合（手動貼り付け）")}
           </Text>
           <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-4">
-            ブックマークレットの転送に失敗した場合、結果がクリップボードに
-            コピーされます。以下に貼り付けて進んでください。
+            {t(
+              "ブックマークレットの転送に失敗した場合、結果がクリップボードにコピーされます。以下に貼り付けて進んでください。",
+            )}
           </Text>
           <Input
             className="mt-3 border border-slate-300 dark:border-slate-600 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800"
             style={{ minHeight: 120, textAlignVertical: "top" }}
             multiline
-            placeholder="抽出結果の JSON をここに貼り付け"
+            placeholder={t("抽出結果の JSON をここに貼り付け")}
             value={pasted}
             onChangeText={setPasted}
             testID="danime-paste-input"
@@ -288,10 +292,12 @@ export default function DanimeImportWebScreen() {
             onPress={proceed}
             disabled={!pasted.trim()}
             accessibilityRole="button"
-            accessibilityLabel="レビューへ進む"
+            accessibilityLabel={t("レビューへ進む")}
             testID="danime-proceed-button"
           >
-            <Text className="text-white font-semibold">レビューへ進む</Text>
+            <Text className="text-white font-semibold">
+              {t("レビューへ進む")}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

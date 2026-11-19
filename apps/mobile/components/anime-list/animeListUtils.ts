@@ -1,6 +1,8 @@
+import type { TFunction } from "i18next";
 import type { AnimeTitle } from "@/lib/useAnimeList";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
-export const SEASONS: Record<string, string> = {
+export const SEASONS: Record<string, TranslationKey> = {
   spring: "春",
   summer: "夏",
   autumn: "秋",
@@ -97,10 +99,17 @@ export function workBroadcastSeason(
 }
 
 /** シーズン選択チップの表示ラベル（例: "2026年 春"、通年は "2026年"）。 */
-export function formatSeasonLabel(year: number, key: SeasonFilterKey): string {
+export function formatSeasonLabel(
+  year: number,
+  key: SeasonFilterKey,
+  t: TFunction,
+): string {
   return key === SEASON_FILTER_ALL
-    ? `${year}年`
-    : `${year}年 ${SEASONS[key] ?? ""}`;
+    ? t("{{year}}年", { year })
+    : t("{{year}}年 {{season}}", {
+        year,
+        season: SEASONS[key] ? t(SEASONS[key]) : "",
+      });
 }
 
 /**
@@ -216,9 +225,15 @@ const POSTER_PALETTES_DARK = [
 export function formatYearSeason(
   year: number | null | undefined,
   season: string | null | undefined,
+  t: TFunction,
 ) {
   if (!year) return "";
-  return `${year}年${season ? (SEASONS[season] ?? "") : ""}`;
+  return season
+    ? t("{{year}}年{{season}}", {
+        year,
+        season: SEASONS[season] ? t(SEASONS[season]) : "",
+      })
+    : t("{{year}}年", { year });
 }
 
 /**
@@ -227,12 +242,14 @@ export function formatYearSeason(
  */
 export function formatWorkSeason(
   work: Pick<AnimeTitle, "seasonYear" | "seasonName">,
+  t: TFunction,
 ) {
   return formatYearSeason(
     work.seasonYear,
     work.seasonName?.includes("-")
       ? work.seasonName.split("-")[1]
       : work.seasonName,
+    t,
   );
 }
 

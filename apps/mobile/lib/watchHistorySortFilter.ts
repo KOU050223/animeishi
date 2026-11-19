@@ -1,5 +1,6 @@
 import type { WatchState } from "./watchStatusLabels";
 import { compareBroadcastSeason } from "./broadcastSeason";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 // 視聴履歴セクションのソート・絞り込み（issue #345）。
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。
@@ -12,7 +13,10 @@ export const WATCH_HISTORY_SORT_KEYS = [
 ] as const;
 export type WatchHistorySortKey = (typeof WATCH_HISTORY_SORT_KEYS)[number];
 
-export const WATCH_HISTORY_SORT_LABELS: Record<WatchHistorySortKey, string> = {
+export const WATCH_HISTORY_SORT_LABELS: Record<
+  WatchHistorySortKey,
+  TranslationKey
+> = {
   updatedAt: "更新日順",
   seasonYear: "放送年順",
   watchersCount: "視聴者数順",

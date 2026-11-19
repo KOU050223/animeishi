@@ -96,7 +96,7 @@ export default function AnalysisScreen() {
 
   const generateErrorMessage =
     generate.error instanceof ApiRequestError
-      ? generate.error.message
+      ? t(generate.error.message, { defaultValue: generate.error.message })
       : generate.isError
         ? t("分析に失敗しました。時間をおいて再度お試しください")
         : null;
@@ -347,7 +347,7 @@ function RecommendationsSection() {
         alert(
           t("お気に入りを更新できませんでした"),
           e instanceof ApiRequestError
-            ? e.message
+            ? t(e.message, { defaultValue: e.message })
             : t("お気に入りの更新に失敗しました"),
           { okLabel: "OK" },
         ),
@@ -388,7 +388,7 @@ function RecommendationsSection() {
           alert(
             t("「見たい」の登録に失敗しました"),
             error instanceof ApiRequestError
-              ? error.message
+              ? t(error.message, { defaultValue: error.message })
               : t("視聴履歴の更新に失敗しました"),
             { okLabel: "OK" },
           );
@@ -408,7 +408,7 @@ function RecommendationsSection() {
 
   const errorMessage =
     generate.error instanceof ApiRequestError
-      ? generate.error.message
+      ? t(generate.error.message, { defaultValue: generate.error.message })
       : generate.isError
         ? t("おすすめの生成に失敗しました。時間をおいて再度お試しください")
         : null;
@@ -543,7 +543,7 @@ function RecommendationCard({
         </Text>
         {work.seasonYear ? (
           <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-            {formatWorkSeason(work)}
+            {formatWorkSeason(work, t)}
           </Text>
         ) : null}
         {work.reason ? (

@@ -62,6 +62,7 @@ import {
   workBroadcastSeason,
 } from "./animeListUtils";
 import { useAnimeListPalette } from "./animeListStyles";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 const WATCH_STATUSES = Object.keys(WATCH_STATUS_LABELS) as WatchState[];
 
@@ -72,6 +73,8 @@ type SaveFeedbackState = "saving" | "saved" | "error";
 const WORK_RATINGS: WorkRating[] = ["bad", "good", "great"];
 
 // Annict Work.media（TV / OVA / MOVIE / WEB / OTHER）の表示ラベル。
+// TV / OVA / Web はそのまま出すため日本語キーに含めない。値は表示時に
+// TranslationKey として t() に通す（未知キーはそのまま表示される）。
 const MEDIA_LABELS: Record<string, string> = {
   TV: "TV",
   OVA: "OVA",
@@ -315,7 +318,9 @@ export function AnimeWorkDetailSheet({
 
   const detailWork = detail.data?.work;
   const mediaLabel = detailWork
-    ? (MEDIA_LABELS[detailWork.media] ?? detailWork.media)
+    ? MEDIA_LABELS[detailWork.media]
+      ? t(MEDIA_LABELS[detailWork.media] as TranslationKey)
+      : detailWork.media
     : null;
 
   return (
@@ -329,8 +334,8 @@ export function AnimeWorkDetailSheet({
             pendingListTarget.current = null;
           }
         }}
-        scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
-        closeButtonAccessibilityLabel="作品詳細を閉じる"
+        scrimAccessibilityLabel={t("背景をタップして作品詳細を閉じる")}
+        closeButtonAccessibilityLabel={t("作品詳細を閉じる")}
         testID="anime-work-detail-sheet"
         snapPoints={[{ fraction: 0.8 }, "full"]}
       >
@@ -467,6 +472,7 @@ function HeaderSection({
   mediaLabel: string | null;
   onOpenSeasonList: (seasonParam: string) => void;
 }) {
+  const { t } = useTranslation();
   // 放送シーズンのチップ（issue #535）。押すとそのシーズン / 年通年の
   // 作品一覧へ移る。seasonYear / seasonName が無い作品（または Annict が
   // 返さない形式）はチップを出さない。年だけ取れた作品は年チップのみ出す。
@@ -494,7 +500,7 @@ function HeaderSection({
           <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
             {season ? (
               <SeasonLinkChip
-                label={formatSeasonLabel(season.year, season.key)}
+                label={formatSeasonLabel(season.year, season.key, t)}
                 onPress={() =>
                   onOpenSeasonList(toSeasonParam(season.year, season.key))
                 }
@@ -503,7 +509,7 @@ function HeaderSection({
             ) : null}
             {work.seasonYear ? (
               <SeasonLinkChip
-                label={formatSeasonLabel(work.seasonYear, SEASON_FILTER_ALL)}
+                label={formatSeasonLabel(work.seasonYear, SEASON_FILTER_ALL, t)}
                 onPress={() => onOpenSeasonList(`${work.seasonYear}`)}
                 testID="work-detail-year-chip"
               />
@@ -530,13 +536,14 @@ function SeasonLinkChip({
   onPress: () => void;
   testID: string;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       onPress={onPress}
       hitSlop={8}
       className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 dark:border-indigo-800 dark:bg-indigo-950"
       accessibilityRole="button"
-      accessibilityLabel={`${label}の作品一覧を見る`}
+      accessibilityLabel={t("{{label}}の作品一覧を見る", { label })}
       testID={testID}
     >
       <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
@@ -585,9 +592,10 @@ function SaveFeedbackText({
 
 /** 「視聴ステータス」見出しの枠。チップ・ゲート・読み込みの各表示で共有する。 */
 function StatusSectionFrame({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   return (
     <View>
-      <SectionTitle>視聴ステータス</SectionTitle>
+      <SectionTitle>{t("視聴ステータス")}</SectionTitle>
       {children}
     </View>
   );
@@ -605,6 +613,7 @@ function StatusSection({
   onSelect: (state: WatchState) => void;
   feedback: SaveFeedbackState | null;
 }) {
+  const { t } = useTranslation();
   return (
     <StatusSectionFrame>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -621,7 +630,9 @@ function StatusSection({
               }`}
               accessibilityRole="button"
               accessibilityState={{ selected: currentState === s }}
-              accessibilityLabel={`視聴ステータスを${WATCH_STATUS_LABELS[s]}にする`}
+              accessibilityLabel={t("視聴ステータスを{{state}}にする", {
+                state: t(WATCH_STATUS_LABELS[s]),
+              })}
               testID={`work-detail-status-${s}`}
             >
               <Text
@@ -631,7 +642,7 @@ function StatusSection({
                     : "text-slate-500 dark:text-slate-400"
                 }`}
               >
-                {WATCH_STATUS_LABELS[s]}
+                {t(WATCH_STATUS_LABELS[s])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -761,7 +772,7 @@ function RatingSection({
 
   return (
     <View>
-      <SectionTitle>この作品の評価</SectionTitle>
+      <SectionTitle>{t("この作品の評価")}</SectionTitle>
       {feedback?.workId === work.annictWorkId ? (
         <SaveFeedbackText
           state={feedback.state}
@@ -771,7 +782,7 @@ function RatingSection({
       ) : null}
       {showHint ? (
         <Text className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-          評価するとおすすめの精度が上がります
+          {t("評価するとおすすめの精度が上がります")}
         </Text>
       ) : null}
       {ratingQuery.isLoading ? (
@@ -781,16 +792,16 @@ function RatingSection({
       ) : ratingQuery.isError ? (
         <View className="items-center py-2 gap-2">
           <Text className="text-xs text-slate-400 dark:text-slate-500">
-            評価を取得できませんでした
+            {t("評価を取得できませんでした")}
           </Text>
           <TouchableOpacity
             onPress={() => ratingQuery.refetch()}
             accessibilityRole="button"
-            accessibilityLabel="評価を再取得"
+            accessibilityLabel={t("評価を再取得")}
             testID="work-rating-retry"
           >
             <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-              再試行
+              {t("再試行")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -808,7 +819,9 @@ function RatingSection({
               }`}
               accessibilityRole="button"
               accessibilityState={{ selected: displayedRating === r }}
-              accessibilityLabel={`この作品を${WORK_RATING_LABELS[r]}と評価する`}
+              accessibilityLabel={t("この作品を{{rating}}と評価する", {
+                rating: t(WORK_RATING_LABELS[r]),
+              })}
               testID={`work-detail-rating-${r}`}
             >
               <Text
@@ -818,7 +831,7 @@ function RatingSection({
                     : "text-slate-500 dark:text-slate-400"
                 }`}
               >
-                {WORK_RATING_LABELS[r]}
+                {t(WORK_RATING_LABELS[r])}
               </Text>
             </TouchableOpacity>
           ))}
@@ -988,7 +1001,7 @@ function EpisodeSection({
 
   return (
     <View>
-      <SectionTitle>話数</SectionTitle>
+      <SectionTitle>{t("話数")}</SectionTitle>
       {isWatched && nextEpisode != null ? (
         <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
           {t("視聴ステータスと話数の記録は別です。未記録の話を記録できます。")}
@@ -1023,21 +1036,22 @@ function EpisodeSection({
 
 /** 話数一覧の取得失敗表示。 */
 function EpisodeSectionError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <View>
-      <SectionTitle>話数</SectionTitle>
+      <SectionTitle>{t("話数")}</SectionTitle>
       <View className="items-center py-2 gap-2">
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          話数情報を取得できませんでした
+          {t("話数情報を取得できませんでした")}
         </Text>
         <TouchableOpacity
           onPress={onRetry}
           accessibilityRole="button"
-          accessibilityLabel="話数情報を再取得"
+          accessibilityLabel={t("話数情報を再取得")}
           testID="episode-list-retry"
         >
           <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-            再試行
+            {t("再試行")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1071,8 +1085,10 @@ function EpisodeNextRecordButton({
       accessibilityRole="button"
       accessibilityLabel={
         nextEpisode
-          ? `${episodeLabel(nextEpisode)}を視聴済みにする`
-          : "全話記録済み"
+          ? t("{{episode}}を視聴済みにする", {
+              episode: episodeLabel(nextEpisode, t),
+            })
+          : t("全話記録済み")
       }
       testID="episode-record-next"
     >
@@ -1084,10 +1100,12 @@ function EpisodeNextRecordButton({
         {nextEpisode
           ? isWatched
             ? t("{{episode}}の視聴を記録", {
-                episode: episodeLabel(nextEpisode),
+                episode: episodeLabel(nextEpisode, t),
               })
-            : `${episodeLabel(nextEpisode)}を記録`
-          : "全話記録済み"}
+            : t("{{episode}}を記録", {
+                episode: episodeLabel(nextEpisode, t),
+              })
+          : t("全話記録済み")}
       </Text>
     </TouchableOpacity>
   );
@@ -1103,6 +1121,7 @@ function EpisodeCheckRow({
   disabled: boolean;
   onToggle: (episode: WorkEpisode) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <TouchableOpacity
@@ -1111,7 +1130,9 @@ function EpisodeCheckRow({
       disabled={disabled}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: episode.watched, disabled }}
-      accessibilityLabel={`${episodeLabel(episode)}の視聴記録`}
+      accessibilityLabel={t("{{episode}}の視聴記録", {
+        episode: episodeLabel(episode, t),
+      })}
       testID={`episode-check-${episode.annictEpisodeId}`}
     >
       <Ionicons
@@ -1127,7 +1148,7 @@ function EpisodeCheckRow({
               : "text-slate-500 dark:text-slate-400"
           }`}
         >
-          {episodeLabel(episode)}
+          {episodeLabel(episode, t)}
         </Text>
         {episode.title ? (
           <Text
@@ -1156,6 +1177,7 @@ function ActionRow({
   onToggleFavorite: () => void;
   onOpenCharacterTierList: () => void;
 }) {
+  const { t } = useTranslation();
   const palette = useAnimeListPalette();
 
   return (
@@ -1166,7 +1188,9 @@ function ActionRow({
         disabled={isTogglingFavorite}
         accessibilityRole="button"
         accessibilityLabel={
-          isFavorite ? `${title}を推しから解除` : `${title}を推しに登録`
+          isFavorite
+            ? t("{{title}}を推しから解除", { title })
+            : t("{{title}}を推しに登録", { title })
         }
         testID="work-detail-favorite"
       >
@@ -1176,18 +1200,20 @@ function ActionRow({
           color={isFavorite ? palette.favoriteIconActive : palette.favoriteIcon}
         />
         <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-          {isFavorite ? "推し登録を解除" : "推しに登録"}
+          {isFavorite ? t("推し登録を解除") : t("推しに登録")}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
         className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
         onPress={onOpenCharacterTierList}
         accessibilityRole="button"
-        accessibilityLabel={`${title} のキャラクター Tier 表を作る`}
+        accessibilityLabel={t("{{title}} のキャラクター Tier 表を作る", {
+          title,
+        })}
         testID="work-detail-character-tier-list"
       >
         <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-          キャラ Tier 表を作る
+          {t("キャラ Tier 表を作る")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -1200,6 +1226,7 @@ function DetailFetchSection({
 }: {
   detail: ReturnType<typeof useWorkDetail>;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
 
   if (detail.isLoading) {
@@ -1213,16 +1240,16 @@ function DetailFetchSection({
     return (
       <View className="items-center py-2 gap-2">
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          詳細情報を取得できませんでした
+          {t("詳細情報を取得できませんでした")}
         </Text>
         <TouchableOpacity
           onPress={() => detail.refetch()}
           accessibilityRole="button"
-          accessibilityLabel="詳細情報を再取得"
+          accessibilityLabel={t("詳細情報を再取得")}
           testID="work-detail-retry"
         >
           <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-            再試行
+            {t("再試行")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1329,6 +1356,7 @@ function CreditsSection({
   staffs: WorkDetail["staffs"];
   casts: WorkDetail["casts"];
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const visibleStaffs = expanded ? staffs : staffs.filter(isVisibleStaff);
   const visibleCasts = expanded ? casts : casts.slice(0, INITIAL_CAST_COUNT);
@@ -1341,7 +1369,7 @@ function CreditsSection({
     <View className="gap-3">
       {visibleStaffs.length > 0 ? (
         <View>
-          <SectionTitle>スタッフ・制作会社</SectionTitle>
+          <SectionTitle>{t("スタッフ・制作会社")}</SectionTitle>
           <View className="flex-row flex-wrap gap-1.5">
             {visibleStaffs.map((staff) => (
               <CreditChip
@@ -1352,7 +1380,13 @@ function CreditsSection({
                     ? `https://annict.com/organizations/${staff.resource.annictId}`
                     : `https://annict.com/people/${staff.resource.annictId}`
                 }
-                accessibilityLabel={`${staff.name}（${staff.role}）の Annict ページを開く`}
+                accessibilityLabel={t(
+                  "{{name}}（{{role}}）の Annict ページを開く",
+                  {
+                    name: staff.name,
+                    role: staff.role,
+                  },
+                )}
                 testID={`work-detail-staff-${staff.annictStaffId}`}
               />
             ))}
@@ -1361,7 +1395,7 @@ function CreditsSection({
       ) : null}
       {visibleCasts.length > 0 ? (
         <View>
-          <SectionTitle>キャスト</SectionTitle>
+          <SectionTitle>{t("キャスト")}</SectionTitle>
           <View className="flex-row flex-wrap gap-1.5">
             {visibleCasts.map((cast) => {
               // 読み上げでも兼役の担当キャラを区別できるよう、表示と
@@ -1374,7 +1408,9 @@ function CreditsSection({
                   key={cast.annictCastId}
                   label={castName}
                   url={`https://annict.com/people/${cast.annictPersonId}`}
-                  accessibilityLabel={`${castName}の Annict ページを開く`}
+                  accessibilityLabel={t("{{name}}の Annict ページを開く", {
+                    name: castName,
+                  })}
                   testID={`work-detail-cast-${cast.annictCastId}`}
                 />
               );
@@ -1390,13 +1426,17 @@ function CreditsSection({
           accessibilityRole="button"
           accessibilityLabel={
             expanded
-              ? "スタッフ・キャストの表示を折りたたむ"
-              : `他${hiddenCount}件のスタッフ・キャストを表示`
+              ? t("スタッフ・キャストの表示を折りたたむ")
+              : t("他{{count}}件のスタッフ・キャストを表示", {
+                  count: hiddenCount,
+                })
           }
           testID="work-detail-credits-toggle"
         >
           <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-            {expanded ? "折りたたむ" : `もっと見る（他${hiddenCount}件）`}
+            {expanded
+              ? t("折りたたむ")
+              : t("もっと見る（他{{count}}件）", { count: hiddenCount })}
           </Text>
         </TouchableOpacity>
       ) : null}
@@ -1433,40 +1473,52 @@ function CreditChip({
 }
 
 function WorkDetailSection({ work }: { work: WorkDetail }) {
+  const { t, i18n } = useTranslation();
   const colors = useThemeColors();
 
   const episodes =
     work.noEpisodes || work.episodesCount === 0
-      ? "話数未定"
-      : `全${work.episodesCount}話`;
+      ? t("話数未定")
+      : t("全{{count}}話", { count: work.episodesCount });
   const rows: { label: string; value: string }[] = [
-    { label: "話数", value: episodes },
-    { label: "視聴者数", value: `${work.watchersCount.toLocaleString()}人` },
+    { label: t("話数"), value: episodes },
+    {
+      label: t("視聴者数"),
+      value: t("{{countText}}人", {
+        count: work.watchersCount,
+        countText: work.watchersCount.toLocaleString(i18n.language),
+      }),
+    },
     ...(work.satisfactionRate != null
       ? [
           {
-            label: "満足度",
+            label: t("満足度"),
             value: `${Math.round(work.satisfactionRate)}%`,
           },
         ]
       : []),
     ...(work.reviewsCount > 0
-      ? [{ label: "レビュー数", value: `${work.reviewsCount}件` }]
+      ? [
+          {
+            label: t("レビュー数"),
+            value: t("{{count}} 件", { count: work.reviewsCount }),
+          },
+        ]
       : []),
   ];
 
   const links: { label: string; url: string }[] = [
     ...(work.officialSiteUrl
-      ? [{ label: "公式サイト", url: work.officialSiteUrl }]
+      ? [{ label: t("公式サイト"), url: work.officialSiteUrl }]
       : []),
     ...(work.officialSiteUrlEn
-      ? [{ label: "公式サイト（英語）", url: work.officialSiteUrlEn }]
+      ? [{ label: t("公式サイト（英語）"), url: work.officialSiteUrlEn }]
       : []),
     ...(work.wikipediaUrl
       ? [{ label: "Wikipedia", url: work.wikipediaUrl }]
       : []),
     ...(work.wikipediaUrlEn
-      ? [{ label: "Wikipedia（英語）", url: work.wikipediaUrlEn }]
+      ? [{ label: t("Wikipedia（英語）"), url: work.wikipediaUrlEn }]
       : []),
     ...(work.twitterUsername
       ? [

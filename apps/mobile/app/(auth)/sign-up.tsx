@@ -31,6 +31,7 @@ import { onboardingPending } from "@/lib/onboarding";
 import { PasskeyRegisterPrompt } from "@/components/auth/PasskeyRegisterPrompt";
 import { useThemeColors } from "@/lib/theme";
 import { trackEvent } from "@/lib/events";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -101,7 +102,9 @@ export default function SignUpScreen() {
     });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message ?? t("入力内容を確認してください"),
+        parsed.error.issues[0]?.message
+          ? t(parsed.error.issues[0].message as TranslationKey)
+          : t("入力内容を確認してください"),
       );
       return;
     }

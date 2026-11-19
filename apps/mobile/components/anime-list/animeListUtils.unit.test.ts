@@ -16,6 +16,14 @@ import {
   workBroadcastSeason,
 } from "./animeListUtils";
 
+// ja ロケールの表示を固定してテストするため、キーをそのまま返しつつ
+// {{var}} 補間だけ実装したスタブ（i18next 依存を持ち込まない）。
+const stubT = ((key: string, opts?: Record<string, unknown>) =>
+  Object.entries(opts ?? {}).reduce(
+    (acc, [k, v]) => acc.replaceAll(`{{${k}}}`, String(v)),
+    key,
+  )) as never;
+
 describe("toSeasonParam", () => {
   it("季節キーは <年>-<季節> の season 文字列になる", () => {
     expect(toSeasonParam(2026, "spring")).toBe("2026-spring");
@@ -102,11 +110,11 @@ describe("workBroadcastSeason", () => {
 
 describe("formatSeasonLabel", () => {
   it("季節キーは「<年>年 <季節名>」のラベルになる", () => {
-    expect(formatSeasonLabel(2026, "spring")).toBe("2026年 春");
+    expect(formatSeasonLabel(2026, "spring", stubT)).toBe("2026年 春");
   });
 
   it("通年は「<年>年」だけのラベルになる", () => {
-    expect(formatSeasonLabel(2026, SEASON_FILTER_ALL)).toBe("2026年");
+    expect(formatSeasonLabel(2026, SEASON_FILTER_ALL, stubT)).toBe("2026年");
   });
 });
 

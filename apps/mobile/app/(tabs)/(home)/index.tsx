@@ -93,7 +93,7 @@ export default function HomeScreen() {
   async function clearCache() {
     await AsyncStorage.removeItem("animeishi-query-cache");
     await queryClient.resetQueries({ queryKey: ANIME_LIST_QUERY_KEY });
-    alert("キャッシュクリア完了", "キャッシュをクリアしました", {
+    alert(t("キャッシュクリア完了"), t("キャッシュをクリアしました"), {
       okLabel: "OK",
     });
   }
@@ -133,17 +133,17 @@ export default function HomeScreen() {
                   className="bg-yellow-400 rounded-lg px-4 py-2"
                   onPress={clearCache}
                   accessibilityRole="button"
-                  accessibilityLabel="クエリキャッシュをクリア"
+                  accessibilityLabel={t("クエリキャッシュをクリア")}
                 >
                   <Text className="text-yellow-900 font-semibold">
-                    QueryCache クリア
+                    {t("QueryCache クリア")}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
 
             <Text className="mb-1 mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
-              フレンドの動き
+              {t("フレンドの動き")}
             </Text>
           </View>
         }

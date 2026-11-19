@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
@@ -30,13 +31,14 @@ type PublicWorkListDetail = NonNullable<
 type PublicWorkListItem = PublicWorkListDetail["items"][number];
 
 function NotFound() {
+  const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center px-8">
       <Text
         className="text-center text-slate-500 dark:text-slate-400"
         testID="public-work-list-not-found"
       >
-        この作品リストは表示できません
+        {t("この作品リストは表示できません")}
       </Text>
     </View>
   );
@@ -63,6 +65,7 @@ function LikeButton({
   colors: ThemeColors;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   // 自分のリストにはいいね不可（API 側も 400 で弾く）。
   const disabled = isOwn || pending;
   return (
@@ -71,7 +74,9 @@ function LikeButton({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={data.likedByMe ? "いいねを取り消す" : "いいねする"}
+      accessibilityLabel={
+        data.likedByMe ? t("いいねを取り消す") : t("いいねする")
+      }
       accessibilityState={{ disabled }}
       testID="public-work-list-like"
     >
@@ -106,16 +111,19 @@ function ReportButton({
   colors: ThemeColors;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       className="flex-row items-center gap-1 rounded-md px-2 py-1.5"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="このリストを通報"
+      accessibilityLabel={t("このリストを通報")}
       testID="public-work-list-report"
     >
       <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
-      <Text className="text-xs text-slate-500 dark:text-slate-400">通報</Text>
+      <Text className="text-xs text-slate-500 dark:text-slate-400">
+        {t("通報")}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -137,6 +145,7 @@ function DetailHeader({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="pb-4 pt-4">
       <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -151,7 +160,9 @@ function DetailHeader({
         className="mt-2 flex-row items-center"
         onPress={onPressOwner}
         accessibilityRole="button"
-        accessibilityLabel={`${data.owner.username}のプロフィールを見る`}
+        accessibilityLabel={t("{{username}}のプロフィールを見る", {
+          username: data.owner.username,
+        })}
         testID="public-work-list-owner"
       >
         <Text className="text-sm text-indigo-600 dark:text-indigo-400">
@@ -214,6 +225,7 @@ function WorkItemRow({
  * （非公開化・ブロックで開いたあとに見えなくなった場合も同じ扱い）。
  */
 export default function PublicWorkListScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const { userId } = useAuth();
@@ -243,9 +255,13 @@ export default function PublicWorkListScreen() {
       { id: data.id, like: !data.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   };
@@ -268,12 +284,12 @@ export default function PublicWorkListScreen() {
     >
       <Stack.Screen
         options={{
-          title: data?.title ?? "作品リスト",
+          title: data?.title ?? t("作品リスト"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="public-work-list-back"
             />
           ),
@@ -308,7 +324,7 @@ export default function PublicWorkListScreen() {
           )}
           ListEmptyComponent={
             <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-              作品が登録されていません
+              {t("作品が登録されていません")}
             </Text>
           }
         />

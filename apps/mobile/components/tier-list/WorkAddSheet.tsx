@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
@@ -48,6 +49,7 @@ export function WorkAddSheet({
       追加済み表示は常に「追加済み」。 */
   actionLabel: string;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const [query, setQuery] = useState("");
   // 開くたびに新しい検索として始める（前回の語・結果を引きずらない）。
@@ -132,7 +134,7 @@ export function WorkAddSheet({
               value={query}
               onChangeText={setQuery}
               autoFocus
-              placeholder="タイトル・よみがな・英語名で検索"
+              placeholder={t("タイトル・よみがな・英語名で検索")}
               returnKeyType="search"
               testID="work-add-input"
               style={{
@@ -154,24 +156,24 @@ export function WorkAddSheet({
                     marginTop: 24,
                   }}
                 >
-                  追加する作品のタイトルを入力してください
+                  {t("追加する作品のタイトルを入力してください")}
                 </Text>
               ) : works.length === 0 && (isFetching || resultsStale) ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
                   <ActivityIndicator color={colors.textFaint} />
                   <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-                    検索しています
+                    {t("検索しています")}
                   </Text>
                 </View>
               ) : isError ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
                   <Text style={{ color: colors.danger, fontSize: 13 }}>
-                    検索に失敗しました
+                    {t("検索に失敗しました")}
                   </Text>
                   <TouchableOpacity
                     onPress={() => refetch()}
                     accessibilityRole="button"
-                    accessibilityLabel="作品検索を再試行"
+                    accessibilityLabel={t("作品検索を再試行")}
                     testID="work-add-retry"
                     style={{
                       backgroundColor: colors.primary,
@@ -183,7 +185,7 @@ export function WorkAddSheet({
                     <Text
                       style={{ color: colors.onPrimary, fontWeight: "600" }}
                     >
-                      再試行
+                      {t("再試行")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -196,7 +198,7 @@ export function WorkAddSheet({
                     marginTop: 24,
                   }}
                 >
-                  見つかりませんでした
+                  {t("見つかりませんでした")}
                 </Text>
               ) : (
                 <FlatList
@@ -215,7 +217,9 @@ export function WorkAddSheet({
                           paddingVertical: 12,
                         }}
                       >
-                        上位の結果のみを表示しています。タイトルを絞り込んでください
+                        {t(
+                          "上位の結果のみを表示しています。タイトルを絞り込んでください",
+                        )}
                       </Text>
                     ) : undefined
                   }
@@ -231,6 +235,7 @@ export function WorkAddSheet({
                       item.seasonName?.includes("-")
                         ? item.seasonName.split("-")[1]
                         : item.seasonName,
+                      t,
                     );
                     return (
                       <TouchableOpacity
@@ -243,7 +248,10 @@ export function WorkAddSheet({
                         }
                         disabled={disabled}
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.title}を${actionLabel}`}
+                        accessibilityLabel={t("{{title}}を{{action}}", {
+                          title: item.title,
+                          action: actionLabel,
+                        })}
                         accessibilityState={{ disabled }}
                         testID={`work-add-item-${item.annictWorkId}`}
                         style={{
@@ -310,7 +318,7 @@ export function WorkAddSheet({
                               : colors.primaryText,
                           }}
                         >
-                          {added ? "追加済み" : actionLabel}
+                          {added ? t("追加済み") : actionLabel}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -321,7 +329,7 @@ export function WorkAddSheet({
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="閉じる"
+              accessibilityLabel={t("閉じる")}
               testID="work-add-close"
               style={{
                 marginTop: 12,
@@ -332,7 +340,7 @@ export function WorkAddSheet({
               }}
             >
               <Text style={{ fontWeight: "600", color: colors.text }}>
-                閉じる
+                {t("閉じる")}
               </Text>
             </Pressable>
           </Pressable>

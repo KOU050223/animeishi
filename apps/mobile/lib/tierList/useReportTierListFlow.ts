@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@clerk/expo";
 import { alert, confirm } from "@/lib/dialog";
 import { useBlockUser } from "@/lib/useModeration";
@@ -12,6 +13,7 @@ import type { TierListKind } from "./useMergedTierLists";
  * みつける一覧カードと詳細画面の両方から使う。
  */
 export function useReportTierListFlow() {
+  const { t } = useTranslation();
   const { userId } = useAuth();
   const reportTierList = useReportTierList();
   const blockUser = useBlockUser();
@@ -32,36 +34,41 @@ export function useReportTierListFlow() {
             // 出さないのでここに来るのは他人のリストだけ。
             if (input.ownerUserId !== userId) {
               confirm(
-                "通報を受け付けました",
-                `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${input.ownerUsername}」をブロックしますか？`,
+                t("通報を受け付けました"),
+                t(
+                  "ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「{{username}}」をブロックしますか？",
+                  { username: input.ownerUsername },
+                ),
                 () => {
                   blockUser.mutate(input.ownerUserId);
                 },
                 {
-                  confirmLabel: "ブロックする",
-                  cancelLabel: "しない",
+                  confirmLabel: t("ブロックする"),
+                  cancelLabel: t("しない"),
                   destructive: true,
                 },
               );
             } else {
               alert(
-                "通報を受け付けました",
-                "ご報告ありがとうございます。運営が内容を確認します。",
+                t("通報を受け付けました"),
+                t("ご報告ありがとうございます。運営が内容を確認します。"),
                 { okLabel: "OK" },
               );
             }
           },
           onError: (e) => {
             alert(
-              "通報できませんでした",
-              e instanceof Error ? e.message : "通報に失敗しました",
+              t("通報できませんでした"),
+              e instanceof Error
+                ? t(e.message, { defaultValue: e.message })
+                : t("通報に失敗しました"),
               { okLabel: "OK" },
             );
           },
         },
       );
     },
-    [reportTierList, blockUser, userId],
+    [reportTierList, blockUser, userId, t],
   );
 
   return { submit, isPending: reportTierList.isPending };

@@ -6,9 +6,11 @@ import { useCustomTierLists } from "./useCustomTierList";
 // tier 表 3 種類（シーズン・キャラ・自由）を 1 つの一覧として扱うための
 // 共通型とフック（issue #352）。ひろばの横スクロールとハブ画面
 // （/tier-lists）で同じ並びを出すためにまとめている。
+import type { TranslationKey } from "@/lib/i18n/keys";
+
 export type TierListKind = "season" | "character" | "custom";
 
-export const TIER_KIND_LABELS: Record<TierListKind, string> = {
+export const TIER_KIND_LABELS: Record<TierListKind, TranslationKey> = {
   season: "シーズン",
   character: "キャラ",
   custom: "自由",

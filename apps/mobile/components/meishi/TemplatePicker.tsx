@@ -73,7 +73,7 @@ export function TemplatePicker({
             <Text
               style={{ fontSize: 16, fontWeight: "bold", color: colors.text }}
             >
-              {title}
+              {t(title as TranslationKey)}
             </Text>
             {warningMessage ? (
               <Text

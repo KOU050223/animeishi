@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AnimeListContent } from "@/components/anime-list";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { ApiRequestError } from "@/lib/apiError";
@@ -18,6 +19,7 @@ export function AnimeSection({
   initialSeason?: string;
   navNonce?: string;
 }) {
+  const { t } = useTranslation();
   const favoriteIds = useFavoriteIds();
   const { toggle, isPending: isToggling } = useToggleFavorite(favoriteIds, {
     // トグル失敗は画面に変化が残らないため、OK を押すまで消えない
@@ -26,10 +28,10 @@ export function AnimeSection({
     // 技術メッセージはそのまま出さず固定文言に寄せる。
     onError: (e) =>
       alert(
-        "お気に入りを更新できませんでした",
+        t("お気に入りを更新できませんでした"),
         e instanceof ApiRequestError
-          ? e.message
-          : "お気に入りの更新に失敗しました",
+          ? t(e.message, { defaultValue: e.message })
+          : t("お気に入りの更新に失敗しました"),
         { okLabel: "OK" },
       ),
   });

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
@@ -70,6 +71,7 @@ import {
 const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
+  const { t } = useTranslation();
   const openWork = useOpenWorkDetail();
   const router = useRouter();
   const styles = useTierListStyles();
@@ -284,19 +286,19 @@ export default function TierListScreen() {
     // 並べ替えが丸ごと消える。破棄する前に一度だけ確認する。
     if (isDirty) {
       confirm(
-        "保存していない変更があります",
-        "このまま戻ると並べ替えた内容は失われます。",
+        t("保存していない変更があります"),
+        t("このまま戻ると並べ替えた内容は失われます。"),
         goBack,
         {
-          confirmLabel: "破棄して戻る",
-          cancelLabel: "編集を続ける",
+          confirmLabel: t("破棄して戻る"),
+          cancelLabel: t("編集を続ける"),
           destructive: true,
         },
       );
       return;
     }
     goBack();
-  }, [isDirty, router]);
+  }, [isDirty, router, t]);
 
   // シーズンを変えると上の effect が盤面を丸ごと差し替えるため、
   // 未保存の並べ替えは確認なしに消える。戻るときと同じく一度だけ確認する。
@@ -307,17 +309,17 @@ export default function TierListScreen() {
         return;
       }
       confirm(
-        "保存していない変更があります",
-        "シーズンを切り替えると並べ替えた内容は失われます。",
+        t("保存していない変更があります"),
+        t("シーズンを切り替えると並べ替えた内容は失われます。"),
         apply,
         {
-          confirmLabel: "破棄して切り替える",
-          cancelLabel: "編集を続ける",
+          confirmLabel: t("破棄して切り替える"),
+          cancelLabel: t("編集を続ける"),
           destructive: true,
         },
       );
     },
-    [isDirty],
+    [isDirty, t],
   );
 
   const handleChangeSeason = useCallback(
@@ -372,15 +374,15 @@ export default function TierListScreen() {
     const hasUnassignedManual = manualWorks.some((w) => !assignment.has(w.id));
     if (hasUnassignedManual) {
       confirm(
-        "未配置の追加作品があります",
-        "未分類に残っている追加分は保存されず、このままだと消えます。",
+        t("未配置の追加作品があります"),
+        t("未分類に残っている追加分は保存されず、このままだと消えます。"),
         doSave,
-        { confirmLabel: "このまま保存", cancelLabel: "編集を続ける" },
+        { confirmLabel: t("このまま保存"), cancelLabel: t("編集を続ける") },
       );
       return;
     }
     doSave();
-  }, [assignment, manualWorks, save]);
+  }, [assignment, manualWorks, save, t]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -438,7 +440,7 @@ export default function TierListScreen() {
       await presentShareUrl(url);
     } catch {
       cancelShare();
-      alert("共有に失敗しました", "時間をおいて再度お試しください。", {
+      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
         okLabel: "OK",
       });
     } finally {
@@ -451,10 +453,19 @@ export default function TierListScreen() {
     saveTierListData,
     share,
     season,
+    t,
   ]);
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
   // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
+  // useCallback 内で t を呼ぶと react/memo-dependencies が deps を余剰と
+  // 誤検知するため、文言は ref 経由で最新を参照する（saveTierListDataRef と同じ形）
+  const snapshotRenderFailedMessageRef = useRef("");
+  useEffect(() => {
+    snapshotRenderFailedMessageRef.current = t(
+      "スナップショットの描画に失敗しました",
+    );
+  });
   const withRenderedSnapshot = useCallback(
     async <T,>(run: () => Promise<T>): Promise<T> => {
       setIsSharing(true);
@@ -481,7 +492,7 @@ export default function TierListScreen() {
         // レイアウト確定のため 1 フレーム待つ
         await new Promise((resolve) => requestAnimationFrame(resolve));
         if (!snapshotRef.current) {
-          throw new Error("スナップショットの描画に失敗しました");
+          throw new Error(snapshotRenderFailedMessageRef.current);
         }
         return await run();
       } finally {
@@ -502,11 +513,15 @@ export default function TierListScreen() {
         }),
       );
     } catch {
-      alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
-        okLabel: "OK",
-      });
+      alert(
+        t("画像の共有に失敗しました"),
+        t("時間をおいて再度お試しください。"),
+        {
+          okLabel: "OK",
+        },
+      );
     }
-  }, [withRenderedSnapshot, title, colors]);
+  }, [withRenderedSnapshot, title, colors, t]);
 
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
@@ -532,8 +547,8 @@ export default function TierListScreen() {
     if (shareDisabled) return;
     if (isWorksError) {
       alert(
-        "共有できません",
-        "作品を取得できませんでした。時間をおいて再度お試しください。",
+        t("共有できません"),
+        t("作品を取得できませんでした。時間をおいて再度お試しください。"),
         {
           okLabel: "OK",
         },
@@ -543,10 +558,10 @@ export default function TierListScreen() {
     // 共有ボタンの押下と、続く選択肢の方式（issue #214）を計測する。
     trackEvent("tier_share_open");
     presentTierShareOptions({
-      dialogTitle: "Tier 表を共有",
-      urlLabel: "URL を共有",
-      imageLabel: "画像で共有",
-      cancelLabel: "キャンセル",
+      dialogTitle: t("Tier 表を共有"),
+      urlLabel: t("URL を共有"),
+      imageLabel: t("画像で共有"),
+      cancelLabel: t("キャンセル"),
       // 方式の計測は選択肢を実際に提示する側（options.native.ts / Web は
       // モーダル内の各ボタン）で行う。ここで送ると Web でモーダルを
       // 開いただけなのに method:url が記録されてしまう。
@@ -555,7 +570,7 @@ export default function TierListScreen() {
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage, isWorksError, shareDisabled]);
+  }, [handleShareUrl, handleShareImage, isWorksError, shareDisabled, t]);
 
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。
@@ -564,7 +579,7 @@ export default function TierListScreen() {
       <BackButton
         onPress={handleBack}
         style={styles.backButton}
-        accessibilityLabel="戻る"
+        accessibilityLabel={t("戻る")}
         testID="tier-list-back"
       />
     </View>
@@ -614,8 +629,9 @@ export default function TierListScreen() {
           testIDPrefix="tier-list"
         />
         <Text style={styles.headerHint}>
-          作品を長押ししてドラッグすると tier を移動できます。tier
-          名はタップで変更できます
+          {t(
+            "作品を長押ししてドラッグすると tier を移動できます。tier 名はタップで変更できます",
+          )}
         </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -626,14 +642,14 @@ export default function TierListScreen() {
             onPress={handleShare}
             disabled={shareDisabled}
             accessibilityRole="button"
-            accessibilityLabel="tier 表を共有"
+            accessibilityLabel={t("tier 表を共有")}
             accessibilityState={{ disabled: shareDisabled }}
             testID="tier-list-share"
           >
             {isSharing ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.saveButtonText}>共有</Text>
+              <Text style={styles.saveButtonText}>{t("共有")}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -645,7 +661,7 @@ export default function TierListScreen() {
             onPress={handleSave}
             disabled={!isDirty || save.isPending || isSavedLoading}
             accessibilityRole="button"
-            accessibilityLabel="tier 表を保存"
+            accessibilityLabel={t("tier 表を保存")}
             accessibilityState={{
               disabled: !isDirty || save.isPending || isSavedLoading,
             }}
@@ -655,12 +671,12 @@ export default function TierListScreen() {
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text style={styles.saveButtonText}>
-                {isDirty ? "保存" : "保存済み"}
+                {isDirty ? t("保存") : t("保存済み")}
               </Text>
             )}
           </TouchableOpacity>
           {save.isError && (
-            <Text style={styles.centeredText}>保存に失敗しました</Text>
+            <Text style={styles.centeredText}>{t("保存に失敗しました")}</Text>
           )}
         </View>
       </View>
@@ -674,13 +690,15 @@ export default function TierListScreen() {
       {isWorksError ? (
         <View style={styles.centered}>
           <Text style={styles.centeredText}>
-            シーズンの作品を取得できませんでした
+            {t("シーズンの作品を取得できませんでした")}
           </Text>
         </View>
       ) : isWorksLoading || isSavedLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.textMuted} />
-          <Text style={styles.centeredText}>シーズンの作品を集めています</Text>
+          <Text style={styles.centeredText}>
+            {t("シーズンの作品を集めています")}
+          </Text>
         </View>
       ) : (
         // シーズン候補が 0 件でも盤面を出す。＋ボタンから手動追加できる
@@ -700,7 +718,7 @@ export default function TierListScreen() {
           onRenameTier={handleRenameTier}
           onAddItem={handleAddWork}
           labelsEditable={!isSharing && !save.isPending}
-          trayEmptyLabel="すべての作品を配置しました"
+          trayEmptyLabel={t("すべての作品を配置しました")}
         />
       )}
 

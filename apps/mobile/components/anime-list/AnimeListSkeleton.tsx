@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useAnimeListStyles } from "./animeListStyles";
 
@@ -22,13 +23,14 @@ export function AnimeListSkeleton({
   /** 実グリッドと同じ列数。スケルトン枚数の算出に使う。 */
   numColumns: number;
 }) {
+  const { t } = useTranslation();
   const styles = useAnimeListStyles();
   const count = Math.max(numColumns * 3, SKELETON_MIN_COUNT);
   return (
     <View
       style={[styles.skeletonContainer, { width: contentWidth }]}
       accessible
-      accessibilityLabel="作品を読み込んでいます"
+      accessibilityLabel={t("作品を読み込んでいます")}
       accessibilityState={{ busy: true }}
       testID="anime-list-skeleton"
     >

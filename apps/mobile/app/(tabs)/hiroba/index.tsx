@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Platform, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useHeaderHeight } from "expo-router/react-navigation";
@@ -12,6 +13,7 @@ import { useMarkScreenInteractive } from "@/lib/observe";
 // 同じく、ラージタイトルの下にセグメント「つくる / みつける」を置く。
 // みつけるは公開作品リスト（#422）・公開 tier 表・公開名刺（#418）の一覧。
 export default function HirobaScreen() {
+  const { t } = useTranslation();
   useMarkScreenInteractive();
   // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
   // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
@@ -33,13 +35,13 @@ export default function HirobaScreen() {
       <SegmentedControl
         items={[
           {
-            label: "つくる",
+            label: t("つくる"),
             active: section === "create",
             onPress: () => setSection("create"),
             testID: "hiroba-section-create",
           },
           {
-            label: "みつける",
+            label: t("みつける"),
             active: section === "discover",
             onPress: () => setSection("discover"),
             testID: "hiroba-section-discover",

@@ -5,6 +5,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useThemeColors } from "@/lib/theme";
 import {
   AddElementSheetContent,
@@ -24,6 +25,7 @@ export function AddElementSheet({
   onPickAvatarImage,
   onPickAnimeImage,
 }: AddElementSheetProps) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { height: windowHeight } = useWindowDimensions();
   if (!visible) return null;
@@ -36,7 +38,7 @@ export function AddElementSheet({
       <Pressable
         onPress={onClose}
         accessibilityRole="button"
-        accessibilityLabel="要素の追加をやめる"
+        accessibilityLabel={t("要素の追加をやめる")}
         style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
       />
       <View style={styles.cardPosition} pointerEvents="box-none">

@@ -5,6 +5,8 @@
 // 全ページの履歴を取得 → postMessage で受け取ってレビュー画面へ遷移する。
 // dアカウントの認証情報・セッション Cookie は WebView 内に留まり、
 // アプリ側にも Animeishi API にも送信されない。
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Component, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -48,23 +50,32 @@ const DANIME_IMPORT_WEB_URL = `${(
   process.env.EXPO_PUBLIC_WEB_URL ?? "https://animeishi.uomi.dev"
 ).replace(/\/+$/, "")}/danime-import`;
 
-function errorMessage(code: string): string {
+function errorMessage(t: TFunction, code: string): string {
   if (code === "wrong_page") {
-    return "dアニメストアのページが表示された状態で実行してください。ログイン画面の場合はログインを完了させてください。";
+    return t(
+      "dアニメストアのページが表示された状態で実行してください。ログイン画面の場合はログインを完了させてください。",
+    );
   }
   if (code === "network_error") {
-    return "通信に失敗しました。ネットワーク接続を確認して再度お試しください。";
+    return t(
+      "通信に失敗しました。ネットワーク接続を確認して再度お試しください。",
+    );
   }
   if (code === "not_logged_in") {
-    return "dアニメストアにログインしていません。WebView 内でログインしてから再度お試しください。";
+    return t(
+      "dアニメストアにログインしていません。WebView 内でログインしてから再度お試しください。",
+    );
   }
   if (code === "empty_result") {
-    return "履歴データが取得できませんでした。履歴が空か、ページ構造が変更された可能性があります。";
+    return t(
+      "履歴データが取得できませんでした。履歴が空か、ページ構造が変更された可能性があります。",
+    );
   }
-  return `読み取りに失敗しました: ${code}`;
+  return t("読み取りに失敗しました: {{code}}", { code });
 }
 
 export default function DanimeImportScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const webViewRef = useRef<DanimeWebViewInstance>(null);
@@ -81,24 +92,24 @@ export default function DanimeImportScreen() {
         edges={["top", "bottom"]}
       >
         <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-          dアニメからインポート
+          {t("dアニメからインポート")}
         </Text>
         <Text className="text-sm text-slate-600 dark:text-slate-300 mt-3 text-center leading-5">
-          この機能は現在 Web 版でのみ利用できます。
+          {t("この機能は現在 Web 版でのみ利用できます。")}
         </Text>
         <TouchableOpacity
           className="mt-6 bg-indigo-600 rounded-xl px-8 py-3"
           onPress={() => void Linking.openURL(DANIME_IMPORT_WEB_URL)}
           accessibilityRole="button"
-          accessibilityLabel="Web 版を開く"
+          accessibilityLabel={t("Web 版を開く")}
           testID="danime-open-web-button"
         >
-          <Text className="text-white font-semibold">Web 版を開く</Text>
+          <Text className="text-white font-semibold">{t("Web 版を開く")}</Text>
         </TouchableOpacity>
         <BackButton
           className="mt-4"
           onPress={() => router.back()}
-          accessibilityLabel="戻る"
+          accessibilityLabel={t("戻る")}
         />
       </SafeAreaView>
     );
@@ -119,14 +130,14 @@ export default function DanimeImportScreen() {
     }
     setExtracting(false);
     if (msg.type === DANIME_EXTRACT_ERR) {
-      setError(errorMessage(msg.message));
+      setError(errorMessage(t, msg.message));
       return;
     }
     if (msg.type !== DANIME_EXTRACT_OK) return;
     // ページから届く入力なので保存前に形を検証する。
     const lists = parseDanimeExtractedLists(msg.payload);
     if (!lists) {
-      setError("抽出結果の形式が正しくありませんでした。");
+      setError(t("抽出結果の形式が正しくありませんでした。"));
       return;
     }
     setLists(lists);
@@ -140,11 +151,12 @@ export default function DanimeImportScreen() {
     >
       <View className="px-4 pt-2 pb-3 border-b border-slate-100 dark:border-slate-800">
         <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-          dアニメからインポート
+          {t("dアニメからインポート")}
         </Text>
         <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-4">
-          WebView 内で dアニメストアにログインし、視聴履歴ページが表示されたら
-          「読み取り開始」を押してください。ログイン情報はアプリに送信されません。
+          {t(
+            "WebView 内で dアニメストアにログインし、視聴履歴ページが表示されたら「読み取り開始」を押してください。ログイン情報はアプリに送信されません。",
+          )}
         </Text>
         {error && (
           <Text className="text-xs text-red-500 dark:text-red-400 mt-2">
@@ -178,19 +190,21 @@ export default function DanimeImportScreen() {
           onPress={startExtract}
           disabled={extracting}
           accessibilityRole="button"
-          accessibilityLabel="視聴履歴を読み取る"
+          accessibilityLabel={t("視聴履歴を読み取る")}
           testID="danime-extract-button"
         >
           {extracting ? (
             <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
-            <Text className="text-white font-semibold">読み取り開始</Text>
+            <Text className="text-white font-semibold">
+              {t("読み取り開始")}
+            </Text>
           )}
         </TouchableOpacity>
         <BackButton
           className="mt-2 self-center"
           onPress={() => router.back()}
-          accessibilityLabel="戻る"
+          accessibilityLabel={t("戻る")}
         />
       </View>
 
@@ -201,7 +215,9 @@ export default function DanimeImportScreen() {
           pointerEvents="none"
         >
           <View className="bg-black/70 rounded-xl px-4 py-2">
-            <Text className="text-white text-xs">履歴を読み取っています…</Text>
+            <Text className="text-white text-xs">
+              {t("履歴を読み取っています…")}
+            </Text>
           </View>
         </View>
       )}

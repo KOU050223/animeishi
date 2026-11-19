@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/expo";
+import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -88,13 +89,16 @@ function StoryRing({
   unread: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <TouchableOpacity
       className="w-16 items-center"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${friend.actor.username}の視聴ストーリー`}
+      accessibilityLabel={t("{{username}}の視聴ストーリー", {
+        username: friend.actor.username,
+      })}
       testID={`story-ring-${unread ? "unread" : "read"}-${friend.actor.userId}`}
     >
       <View

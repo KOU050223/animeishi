@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import type { ShareTierListUrl, UseTierUrlShare } from "./types";
 import { copyTierListUrl } from "./sheet";
@@ -34,6 +35,7 @@ function TierUrlShareModal({
   generateImageFile?: () => Promise<File>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [imagePhase, setImagePhase] = useState<ImagePhase>("idle");
@@ -69,7 +71,7 @@ function TierUrlShareModal({
       setImagePhase("ready");
     } catch {
       setImagePhase("idle");
-      setImageError("画像の生成に失敗しました");
+      setImageError(t("画像の生成に失敗しました"));
     }
   };
 
@@ -81,7 +83,7 @@ function TierUrlShareModal({
       await shareImageFile(imageFile, tweetText ?? imageFile.name);
       onClose();
     } catch {
-      setImageError("共有に失敗しました。ダウンロードをお試しください。");
+      setImageError(t("共有に失敗しました。ダウンロードをお試しください。"));
     }
   };
 
@@ -102,7 +104,7 @@ function TierUrlShareModal({
           accessibilityViewIsModal
         >
           <Text className="text-base font-bold text-slate-900 dark:text-slate-100">
-            Tier 表を共有
+            {t("Tier 表を共有")}
           </Text>
           <Text
             selectable
@@ -116,7 +118,7 @@ function TierUrlShareModal({
             accessibilityRole="button"
           >
             <Text className="text-sm font-semibold text-white dark:text-slate-900">
-              Xで共有
+              {t("Xで共有")}
             </Text>
           </Pressable>
           <Pressable
@@ -125,22 +127,23 @@ function TierUrlShareModal({
             accessibilityRole="button"
           >
             <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {copied ? "コピーしました" : "URLをコピー"}
+              {copied ? t("コピーしました") : t("URLをコピー")}
             </Text>
           </Pressable>
           {copyFailed && (
             <Text className="text-xs text-red-600 dark:text-red-400">
-              コピーに失敗しました。URL を選択してコピーしてください。
+              {t("コピーに失敗しました。URL を選択してコピーしてください。")}
             </Text>
           )}
           {generateImageFile &&
             (imagePhase === "ready" && imageFile ? (
               <>
                 <Text className="text-xs text-slate-500 dark:text-slate-400">
-                  画像を生成しました。
                   {shareable
-                    ? "共有またはダウンロードで保存できます。"
-                    : "ダウンロードで保存できます。"}
+                    ? t(
+                        "画像を生成しました。共有またはダウンロードで保存できます。",
+                      )
+                    : t("画像を生成しました。ダウンロードで保存できます。")}
                 </Text>
                 {shareable && (
                   <Pressable
@@ -149,7 +152,7 @@ function TierUrlShareModal({
                     accessibilityRole="button"
                   >
                     <Text className="text-sm font-semibold text-white dark:text-slate-900">
-                      画像を共有
+                      {t("画像を共有")}
                     </Text>
                   </Pressable>
                 )}
@@ -159,7 +162,7 @@ function TierUrlShareModal({
                   accessibilityRole="button"
                 >
                   <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    画像をダウンロード
+                    {t("画像をダウンロード")}
                   </Text>
                 </Pressable>
               </>
@@ -171,7 +174,9 @@ function TierUrlShareModal({
                 accessibilityRole="button"
               >
                 <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {imagePhase === "generating" ? "画像を生成中…" : "画像を生成"}
+                  {imagePhase === "generating"
+                    ? t("画像を生成中…")
+                    : t("画像を生成")}
                 </Text>
               </Pressable>
             ))}
@@ -186,7 +191,7 @@ function TierUrlShareModal({
             accessibilityRole="button"
           >
             <Text className="text-sm text-slate-500 dark:text-slate-400">
-              閉じる
+              {t("閉じる")}
             </Text>
           </Pressable>
         </View>
@@ -199,6 +204,7 @@ export const useTierUrlShare: UseTierUrlShare = ({
   tweetText,
   generateImageFile,
 } = {}) => {
+  const { t } = useTranslation();
   const [modalUrl, setModalUrl] = useState<string | null | undefined>(
     undefined,
   );
@@ -222,7 +228,7 @@ export const useTierUrlShare: UseTierUrlShare = ({
             <View className="w-full max-w-sm items-center gap-3 rounded-2xl bg-white dark:bg-slate-800 p-5">
               <ActivityIndicator />
               <Text className="text-sm text-slate-900 dark:text-slate-100">
-                共有リンクを準備中…
+                {t("共有リンクを準備中…")}
               </Text>
             </View>
           </View>

@@ -526,6 +526,7 @@ function useMeishiImageElements({
   updateElement: UseMeishiDocument["updateElement"];
   setSelectedId: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const uploadMeishiAsset = useMeishiAssetUpload();
   const [animePickerTarget, setAnimePickerTarget] = useState<string | null>(
     null,
@@ -558,8 +559,10 @@ function useMeishiImageElements({
     } catch (error) {
       // RN の Alert.alert は Web で表示できないため dialog 経由にする
       alert(
-        "画像を追加できませんでした",
-        error instanceof Error ? error.message : "画像の追加に失敗しました",
+        t("画像を追加できませんでした"),
+        error instanceof Error
+          ? t(error.message, { defaultValue: error.message })
+          : t("画像の追加に失敗しました"),
         { okLabel: "OK" },
       );
     }

@@ -21,6 +21,8 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useThemeColors } from "@/lib/theme";
 
 // ピッカー行として必要な最小フィールド。FavoriteItem / WatchHistoryItem /
@@ -47,16 +49,16 @@ const LIBRARY_KEYS: LibraryKey[] = [
   "STOP_WATCHING",
 ];
 
-function libraryLabel(key: LibraryKey): string {
-  return key === "favorites" ? "お気に入り" : WATCH_STATUS_LABELS[key];
+function libraryLabel(key: LibraryKey, t: TFunction): string {
+  return key === "favorites" ? t("お気に入り") : t(WATCH_STATUS_LABELS[key]);
 }
 
-function seasonText(item: AnimePickItem): string {
+function seasonText(item: AnimePickItem, t: TFunction): string {
   // seasonName は "2026-spring" 形式。formatYearSeason は "spring" 部を期待する。
   const season = item.seasonName?.includes("-")
     ? item.seasonName.split("-")[1]
     : item.seasonName;
-  return formatYearSeason(item.seasonYear, season);
+  return formatYearSeason(item.seasonYear, season, t);
 }
 
 /** ピッカーの 1 行（サムネイル + タイトル + シーズン）。画像 URL を解決できない作品は選択不可。 */
@@ -67,9 +69,10 @@ function AnimePickRow({
   item: AnimePickItem;
   onPick: (uri: string) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const uri = item.hostedImageUrl ?? null;
-  const sub = seasonText(item);
+  const sub = seasonText(item, t);
   return (
     <Pressable
       onPress={() => uri && onPick(uri)}
@@ -82,7 +85,7 @@ function AnimePickRow({
         opacity: uri ? 1 : 0.4,
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}の画像を追加`}
+      accessibilityLabel={t("{{title}}の画像を追加", { title: item.title })}
     >
       <WorkThumbnail uri={uri} title={item.title} width={44} height={58} />
       <View style={{ flex: 1 }}>
@@ -127,6 +130,7 @@ function LibraryList({
   isConnectionLoading: boolean;
   onPick: (uri: string) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const [listKey, setListKey] = useState<LibraryKey>("favorites");
   const renderItem = useRenderRow(onPick);
@@ -152,7 +156,7 @@ function LibraryList({
             key={key}
             onPress={() => setListKey(key)}
             accessibilityRole="button"
-            accessibilityLabel={libraryLabel(key)}
+            accessibilityLabel={libraryLabel(key, t)}
             style={{
               paddingVertical: 6,
               paddingHorizontal: 10,
@@ -167,7 +171,7 @@ function LibraryList({
                 color: listKey === key ? colors.onPrimary : colors.text,
               }}
             >
-              {libraryLabel(key)}
+              {libraryLabel(key, t)}
             </Text>
           </Pressable>
         ))}
@@ -196,8 +200,8 @@ function LibraryList({
               }}
             >
               {listKey === "favorites"
-                ? "お気に入りに作品がありません"
-                : "このリストに作品がありません"}
+                ? t("お気に入りに作品がありません")
+                : t("このリストに作品がありません")}
             </Text>
           }
         />
@@ -227,6 +231,7 @@ function SearchList({
     hasNextPage,
     isFetchingNextPage,
   } = useAnimeList(query);
+  const { t } = useTranslation();
   const renderItem = useRenderRow(onPick);
 
   if (isAccessLoading) {
@@ -247,12 +252,12 @@ function SearchList({
     return (
       <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
         <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-          検索に失敗しました
+          {t("検索に失敗しました")}
         </Text>
         <Pressable
           onPress={() => refetch()}
           accessibilityRole="button"
-          accessibilityLabel="再試行"
+          accessibilityLabel={t("再試行")}
           style={{
             paddingHorizontal: 16,
             paddingVertical: 8,
@@ -261,7 +266,7 @@ function SearchList({
           }}
         >
           <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
-            再試行
+            {t("再試行")}
           </Text>
         </Pressable>
       </View>
@@ -289,7 +294,9 @@ function SearchList({
               marginTop: 32,
             }}
           >
-            {query.trim() ? "見つかりませんでした" : "作品を読み込んでいます"}
+            {query.trim()
+              ? t("見つかりませんでした")
+              : t("作品を読み込んでいます")}
           </Text>
         )
       }
@@ -321,6 +328,7 @@ export function AnimeImagePicker({
   favorites?: AnimePickItem[];
   watchHistory?: (AnimePickItem & { state: string | null })[];
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const { height } = useWindowDimensions();
   const [tab, setTab] = useState<"search" | "library">("search");
@@ -368,12 +376,12 @@ export function AnimeImagePicker({
             <Text
               style={{ fontSize: 16, fontWeight: "bold", color: colors.text }}
             >
-              アニメ画像を選ぶ
+              {t("アニメ画像を選ぶ")}
             </Text>
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="閉じる"
+              accessibilityLabel={t("閉じる")}
               style={{ padding: 6 }}
             >
               <Ionicons name="close" size={18} color={colors.textMuted} />
@@ -383,8 +391,8 @@ export function AnimeImagePicker({
           <View style={{ flexDirection: "row", gap: 6, marginBottom: 12 }}>
             {(
               [
-                { key: "search", label: "検索" },
-                { key: "library", label: "マイリスト" },
+                { key: "search", label: t("検索") },
+                { key: "library", label: t("マイリスト") },
               ] as const
             ).map((t) => (
               <Pressable
@@ -418,7 +426,7 @@ export function AnimeImagePicker({
               <Input
                 value={query}
                 onChangeText={setQuery}
-                placeholder="タイトルで検索"
+                placeholder={t("タイトルで検索")}
                 autoFocus
                 testID="anime-image-search-input"
                 style={{

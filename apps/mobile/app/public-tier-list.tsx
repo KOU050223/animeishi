@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
@@ -46,13 +47,14 @@ function parseKindParam(kind: string | undefined): TierListKind | null {
 }
 
 function NotFound() {
+  const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center px-8">
       <Text
         className="text-center text-slate-500 dark:text-slate-400"
         testID="public-tier-list-not-found"
       >
-        この Tier 表は表示できません
+        {t("この Tier 表は表示できません")}
       </Text>
     </View>
   );
@@ -83,11 +85,12 @@ function DetailHeader({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   const likeDisabled = isOwn || likePending;
   return (
     <View className="pb-4 pt-4">
       <Text className="text-xs text-slate-500 dark:text-slate-400">
-        {TIER_KIND_LABELS[data.kind]} Tier 表
+        {t(TIER_KIND_LABELS[data.kind])} {t("Tier 表")}
         {data.kind === "character" && data.workTitle
           ? ` ・ ${data.workTitle}`
           : ""}
@@ -104,7 +107,9 @@ function DetailHeader({
         className="mt-2 flex-row items-center"
         onPress={onPressOwner}
         accessibilityRole="button"
-        accessibilityLabel={`${data.owner.username}のプロフィールを見る`}
+        accessibilityLabel={t("{{username}}のプロフィールを見る", {
+          username: data.owner.username,
+        })}
         testID="public-tier-list-owner"
       >
         <Text className="text-sm text-indigo-600 dark:text-indigo-400">
@@ -119,7 +124,7 @@ function DetailHeader({
           disabled={likeDisabled}
           accessibilityRole="button"
           accessibilityLabel={
-            data.likedByMe ? "いいねを取り消す" : "いいねする"
+            data.likedByMe ? t("いいねを取り消す") : t("いいねする")
           }
           accessibilityState={{ disabled: likeDisabled }}
           testID="public-tier-list-like"
@@ -150,12 +155,12 @@ function DetailHeader({
             className="flex-row items-center gap-1 rounded-md px-2 py-1.5"
             onPress={onPressReport}
             accessibilityRole="button"
-            accessibilityLabel="この Tier 表を通報"
+            accessibilityLabel={t("この Tier 表を通報")}
             testID="public-tier-list-report"
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
             <Text className="text-xs text-slate-500 dark:text-slate-400">
-              通報
+              {t("通報")}
             </Text>
           </TouchableOpacity>
         )}
@@ -297,6 +302,7 @@ function ScreenContent({
   onPressLike: () => void;
   onPressReport: () => void;
 }) {
+  const { t } = useTranslation();
   if (kind === null || listId === null || isHidden) {
     return <NotFound />;
   }
@@ -337,7 +343,7 @@ function ScreenContent({
         ))}
         {data.items.length === 0 ? (
           <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-            アイテムが登録されていません
+            {t("アイテムが登録されていません")}
           </Text>
         ) : null}
       </View>
@@ -353,6 +359,7 @@ function ScreenContent({
  * （非公開化・ブロックで開いたあとに見えなくなった場合も同じ扱い）。
  */
 export default function PublicTierListScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const { userId } = useAuth();
@@ -390,9 +397,13 @@ export default function PublicTierListScreen() {
       { kind, id: data.id, like: !data.likedByMe },
       {
         onError: () =>
-          alert("いいねできませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("いいねできませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
       },
     );
   };
@@ -416,12 +427,12 @@ export default function PublicTierListScreen() {
     >
       <Stack.Screen
         options={{
-          title: data?.title ?? "Tier 表",
+          title: data?.title ?? t("Tier 表"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="public-tier-list-back"
             />
           ),
@@ -450,7 +461,7 @@ export default function PublicTierListScreen() {
       <DiscoverReportSheet
         visible={reportSheetOpen}
         pending={reportFlow.isPending}
-        title="この Tier 表を通報"
+        title={t("この Tier 表を通報")}
         testIdPrefix="tier-list-report"
         onSelect={onSelectReason}
         onClose={() => setReportSheetOpen(false)}

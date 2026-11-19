@@ -11,6 +11,7 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
@@ -50,6 +51,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const COPIED_LABEL_MS = 2000;
 
 export default function WorkListScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -210,19 +212,19 @@ export default function WorkListScreen() {
 
     if (isDirty) {
       confirm(
-        "保存していない変更があります",
-        "このまま戻ると編集した内容は失われます。",
+        t("保存していない変更があります"),
+        t("このまま戻ると編集した内容は失われます。"),
         goBack,
         {
-          confirmLabel: "破棄して戻る",
-          cancelLabel: "編集を続ける",
+          confirmLabel: t("破棄して戻る"),
+          cancelLabel: t("編集を続ける"),
           destructive: true,
         },
       );
       return;
     }
     goBack();
-  }, [isDirty, router]);
+  }, [isDirty, router, t]);
 
   // 詳細取得の完了前に保存すると空の内容で全置換し、既存の作品が消える。
   // 404（削除済み）のリストも PUT が失敗するだけなので、id 指定では
@@ -278,47 +280,62 @@ export default function WorkListScreen() {
       const savedData = await saveWorkListData();
       await share.mutateAsync(savedData.id);
     } catch {
-      alert("共有に失敗しました", "時間をおいて再度お試しください。", {
+      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
         okLabel: "OK",
       });
     }
     // React Compiler は finally 句を持つ try を最適化対象にできないため、
     // catch 側で必ず握りつぶす形にして finally を避ける（react-doctor）。
     setIsSharing(false);
-  }, [shareDisabled, saveWorkListData, share]);
+  }, [shareDisabled, saveWorkListData, share, t]);
 
-  const handleCopyUrl = useCallback(async (url: string) => {
-    try {
-      await Clipboard.setStringAsync(url);
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-      setCopied(true);
-      copiedTimerRef.current = setTimeout(
-        () => setCopied(false),
-        COPIED_LABEL_MS,
-      );
-    } catch {
-      alert("コピーできませんでした", "URL を長押しして選択してください。", {
-        okLabel: "OK",
-      });
-    }
-  }, []);
+  const handleCopyUrl = useCallback(
+    async (url: string) => {
+      try {
+        await Clipboard.setStringAsync(url);
+        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+        setCopied(true);
+        copiedTimerRef.current = setTimeout(
+          () => setCopied(false),
+          COPIED_LABEL_MS,
+        );
+      } catch {
+        alert(
+          t("コピーできませんでした"),
+          t("URL を長押しして選択してください。"),
+          {
+            okLabel: "OK",
+          },
+        );
+      }
+    },
+    [t],
+  );
 
   const handleRevoke = useCallback(() => {
     if (listId === null) return;
     const id = listId;
     confirm(
-      "共有を解除",
-      "この URL では作品リストを見られなくなります。解除しますか？",
+      t("共有を解除"),
+      t("この URL では作品リストを見られなくなります。解除しますか？"),
       () => {
         void unshare.mutateAsync(id).catch(() =>
-          alert("解除できませんでした", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("解除できませんでした"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
         );
       },
-      { confirmLabel: "解除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("解除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
-  }, [listId, unshare]);
+  }, [listId, unshare, t]);
 
   // リスト内の作品を #348 の作成画面へ引き継ぐ。作品は検索追加時点で
   // annict_works にキャッシュ済みなので、未保存の並びでも解決できる。
@@ -342,12 +359,12 @@ export default function WorkListScreen() {
   const screenOptions = (
     <Stack.Screen
       options={{
-        title: "作品リスト",
+        title: t("作品リスト"),
         headerBackVisible: false,
         headerLeft: () => (
           <BackButton
             onPress={handleBack}
-            accessibilityLabel="戻る"
+            accessibilityLabel={t("戻る")}
             testID="work-list-back"
           />
         ),
@@ -405,14 +422,16 @@ export default function WorkListScreen() {
               onPress={handleShare}
               disabled={shareDisabled}
               accessibilityRole="button"
-              accessibilityLabel="作品リストを共有"
+              accessibilityLabel={t("作品リストを共有")}
               accessibilityState={{ disabled: shareDisabled }}
               testID="work-list-share"
             >
               {isSharing ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-sm font-semibold text-white">共有</Text>
+                <Text className="text-sm font-semibold text-white">
+                  {t("共有")}
+                </Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -424,7 +443,7 @@ export default function WorkListScreen() {
               onPress={handleSave}
               disabled={saveDisabled}
               accessibilityRole="button"
-              accessibilityLabel="作品リストを保存"
+              accessibilityLabel={t("作品リストを保存")}
               accessibilityState={{ disabled: saveDisabled }}
               testID="work-list-save"
             >
@@ -432,7 +451,7 @@ export default function WorkListScreen() {
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Text className="text-sm font-semibold text-white">
-                  {isDirty ? "保存" : "保存済み"}
+                  {isDirty ? t("保存") : t("保存済み")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -440,7 +459,7 @@ export default function WorkListScreen() {
         </View>
         {save.isError && (
           <Text className="mb-2 text-center text-xs text-red-500 dark:text-red-400">
-            保存に失敗しました
+            {t("保存に失敗しました")}
           </Text>
         )}
 
@@ -449,7 +468,7 @@ export default function WorkListScreen() {
         <Input
           value={title}
           onChangeText={handleChangeTitle}
-          placeholder="リスト名（例: 必修アニメリスト）"
+          placeholder={t("リスト名（例: 必修アニメリスト）")}
           maxLength={TITLE_MAX_LENGTH}
           testID="work-list-title"
           className="rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
@@ -457,7 +476,7 @@ export default function WorkListScreen() {
         <Input
           value={description}
           onChangeText={handleChangeDescription}
-          placeholder="説明（任意）"
+          placeholder={t("説明（任意）")}
           maxLength={DESCRIPTION_MAX_LENGTH}
           multiline
           numberOfLines={2}
@@ -472,12 +491,12 @@ export default function WorkListScreen() {
         <View className="mt-3 flex-row items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
           <View className="mr-3 flex-1">
             <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
-              ひろばに公開する
+              {t("ひろばに公開する")}
             </Text>
             <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               {isPublic
-                ? "公開中。ひろばの一覧に表示されます"
-                : "非公開。共有 URL を知る人だけが見られます"}
+                ? t("公開中。ひろばの一覧に表示されます")
+                : t("非公開。共有 URL を知る人だけが見られます")}
             </Text>
           </View>
           <Switch
@@ -489,7 +508,7 @@ export default function WorkListScreen() {
             }}
             disabled={editingDisabled}
             trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
-            accessibilityLabel="ひろばに公開する"
+            accessibilityLabel={t("ひろばに公開する")}
             testID="work-list-public-toggle"
           />
         </View>
@@ -498,7 +517,7 @@ export default function WorkListScreen() {
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={colors.textMuted} />
             <Text className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              作品リストを読み込んでいます
+              {t("作品リストを読み込んでいます")}
             </Text>
           </View>
         ) : (
@@ -508,7 +527,9 @@ export default function WorkListScreen() {
             keyExtractor={(item) => String(item.id)}
             ListEmptyComponent={
               <Text className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                作品がありません。下の「作品を追加」から検索して追加できます
+                {t(
+                  "作品がありません。下の「作品を追加」から検索して追加できます",
+                )}
               </Text>
             }
             renderItem={({ item, index }) => (
@@ -546,7 +567,9 @@ export default function WorkListScreen() {
                   onPress={() => handleMoveWork(item.id, -1)}
                   disabled={editingDisabled || index === 0}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.title}を上に移動`}
+                  accessibilityLabel={t("{{title}}を上に移動", {
+                    title: item.title,
+                  })}
                   testID={`work-list-move-up-${item.id}`}
                   className="p-1"
                 >
@@ -564,7 +587,9 @@ export default function WorkListScreen() {
                   onPress={() => handleMoveWork(item.id, 1)}
                   disabled={editingDisabled || index === works.length - 1}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.title}を下に移動`}
+                  accessibilityLabel={t("{{title}}を下に移動", {
+                    title: item.title,
+                  })}
                   testID={`work-list-move-down-${item.id}`}
                   className="p-1"
                 >
@@ -582,7 +607,9 @@ export default function WorkListScreen() {
                   onPress={() => handleRemoveWork(item.id)}
                   disabled={editingDisabled}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.title}をリストから外す`}
+                  accessibilityLabel={t("{{title}}をリストから外す", {
+                    title: item.title,
+                  })}
                   testID={`work-list-remove-${item.id}`}
                   className="p-1"
                 >
@@ -598,11 +625,11 @@ export default function WorkListScreen() {
           onPress={() => setAddSheetOpen(true)}
           disabled={editingDisabled}
           accessibilityRole="button"
-          accessibilityLabel="作品を追加"
+          accessibilityLabel={t("作品を追加")}
           testID="work-list-add"
         >
           <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            ＋ 作品を追加
+            {t("＋ 作品を追加")}
           </Text>
         </TouchableOpacity>
 
@@ -615,12 +642,12 @@ export default function WorkListScreen() {
           onPress={handleCreateTierList}
           disabled={works.length === 0}
           accessibilityRole="button"
-          accessibilityLabel="このリストで Tier 表を作る"
+          accessibilityLabel={t("このリストで Tier 表を作る")}
           accessibilityState={{ disabled: works.length === 0 }}
           testID="work-list-create-tier"
         >
           <Text className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            このリストで Tier 表を作る
+            {t("このリストで Tier 表を作る")}
           </Text>
         </TouchableOpacity>
 
@@ -628,7 +655,7 @@ export default function WorkListScreen() {
         {shareUrl ? (
           <View className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
             <Text className="mb-1 text-xs text-slate-500 dark:text-slate-400">
-              共有 URL（知っている人は誰でもリストを見られます）
+              {t("共有 URL（知っている人は誰でもリストを見られます）")}
             </Text>
             <Text
               className="mb-2 text-xs text-slate-900 dark:text-slate-100"
@@ -642,11 +669,11 @@ export default function WorkListScreen() {
                 className="flex-1 items-center rounded-lg border border-indigo-200 bg-indigo-50 py-1.5 dark:border-indigo-800 dark:bg-indigo-950"
                 onPress={() => void handleCopyUrl(shareUrl)}
                 accessibilityRole="button"
-                accessibilityLabel="共有 URL をコピー"
+                accessibilityLabel={t("共有 URL をコピー")}
                 testID="work-list-share-copy"
               >
                 <Text className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
-                  {copied ? "コピーしました" : "コピー"}
+                  {copied ? t("コピーしました") : t("コピー")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -654,11 +681,11 @@ export default function WorkListScreen() {
                 onPress={handleRevoke}
                 disabled={unshare.isPending}
                 accessibilityRole="button"
-                accessibilityLabel="共有 URL を解除"
+                accessibilityLabel={t("共有 URL を解除")}
                 testID="work-list-share-revoke"
               >
                 <Text className="text-xs text-red-500 dark:text-red-400">
-                  解除
+                  {t("解除")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -671,9 +698,11 @@ export default function WorkListScreen() {
         onClose={() => setAddSheetOpen(false)}
         onAdd={handleAddWork}
         existingWorkIds={existingWorkIds}
-        heading="作品を追加"
-        description="タイトルで検索してリストの末尾に追加できます。並び順はあとから変更できます"
-        actionLabel="追加"
+        heading={t("作品を追加")}
+        description={t(
+          "タイトルで検索してリストの末尾に追加できます。並び順はあとから変更できます",
+        )}
+        actionLabel={t("追加")}
       />
     </SafeAreaView>
   );

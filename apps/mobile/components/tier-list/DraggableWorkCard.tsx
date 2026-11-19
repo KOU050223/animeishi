@@ -284,7 +284,7 @@ export function DraggableWorkCard({
         accessibilityLabel={
           onPress
             ? t("{{title}} の詳細を開く", { title: item.title })
-            : `${item.title}（長押しでドラッグ）`
+            : t("{{title}}（長押しでドラッグ）", { title: item.title })
         }
         accessible={onPress ? true : undefined}
         accessibilityRole={onPress ? "button" : undefined}
@@ -326,7 +326,7 @@ export function DraggableWorkCard({
               <ActivityIndicator size="small" color={colors.textMuted} />
             </View>
           }
-          accessibilityLabel={`${item.title}のサムネイル`}
+          accessibilityLabel={t("{{title}}のサムネイル", { title: item.title })}
         />
         <View style={styles.cardLabel}>
           <Text style={styles.cardLabelText} numberOfLines={2}>

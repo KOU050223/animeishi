@@ -21,6 +21,7 @@ import {
 } from "@/lib/meishi/imageFocus";
 import { resolveImageUri } from "@/lib/meishi/renderableImages";
 import type { ThemeColors } from "@/lib/theme";
+import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import type {
   CollageStateFilter,
@@ -86,11 +87,12 @@ export function PropertyPanel(props: Props) {
         showsVerticalScrollIndicator
       >
         <Text style={{ fontSize: 12, color: colors.textMuted }}>
-          {typeLabel(element.type)}
+          {typeLabel(element.type, t)}
         </Text>
         {renderEditor(
           props,
           colors,
+          t,
           t("表示内容"),
           t(
             "自由は入力した文字、名前・紹介・セリフはプロフィールの内容を表示します",
@@ -108,10 +110,14 @@ export function PropertyPanel(props: Props) {
           gap: 8,
         }}
       >
-        <ActionButton label="↑最前" onPress={onBringToFront} />
-        <ActionButton label="↓最背" onPress={onSendToBack} />
-        <ActionButton label="複製" onPress={onDuplicate} />
-        <ActionButton label="削除" onPress={onDelete} tint={colors.danger} />
+        <ActionButton label={t("↑最前")} onPress={onBringToFront} />
+        <ActionButton label={t("↓最背")} onPress={onSendToBack} />
+        <ActionButton label={t("複製")} onPress={onDuplicate} />
+        <ActionButton
+          label={t("削除")}
+          onPress={onDelete}
+          tint={colors.danger}
+        />
       </View>
     </View>
   );
@@ -313,6 +319,7 @@ function ImageFocusPreview({
 function renderEditor(
   props: Props,
   colors: ThemeColors,
+  t: TFunction,
   contentLabel: string,
   contentHelp: string,
   focusLabel: string,
@@ -323,7 +330,7 @@ function renderEditor(
     case "text":
       return (
         <>
-          <Row label="文字列">
+          <Row label={t("文字列")}>
             <Pressable
               onPress={onOpenTextEdit}
               style={{
@@ -340,7 +347,7 @@ function renderEditor(
             >
               <Text style={{ flex: 1, color: colors.text }} numberOfLines={1}>
                 {resolveTextValue(element, props.context) ||
-                  `【${sourceLabel(element.source)}】`}
+                  t("【{{label}}】", { label: t(sourceLabel(element.source)) })}
               </Text>
               <Ionicons name="pencil" size={14} color={colors.textMuted} />
             </Pressable>
@@ -355,11 +362,11 @@ function renderEditor(
           <Text style={{ fontSize: 11, color: colors.textMuted }}>
             {contentHelp}
           </Text>
-          <Row label="フォント">
+          <Row label={t("フォント")}>
             <SegmentedControl
               options={FONT_FAMILY_OPTIONS.map((f) => ({
                 value: f.value,
-                label: f.label,
+                label: t(f.label, { defaultValue: f.label }),
               }))}
               value={element.fontFamily}
               onChange={(v) =>
@@ -369,7 +376,7 @@ function renderEditor(
               }
             />
           </Row>
-          <Row label="サイズ">
+          <Row label={t("サイズ")}>
             <StepControl
               value={element.fontSize}
               onChange={(v) =>
@@ -380,12 +387,12 @@ function renderEditor(
               step={2}
             />
           </Row>
-          <Row label="太さ">
+          <Row label={t("太さ")}>
             <SegmentedControl
               options={[
-                { value: "normal", label: "細" },
-                { value: "bold", label: "太" },
-                { value: "black", label: "極太" },
+                { value: "normal", label: t("細") },
+                { value: "bold", label: t("太") },
+                { value: "black", label: t("極太") },
               ]}
               value={element.fontWeight}
               onChange={(v) =>
@@ -395,11 +402,11 @@ function renderEditor(
               }
             />
           </Row>
-          <Row label="斜体">
+          <Row label={t("斜体")}>
             <SegmentedControl
               options={[
-                { value: "normal", label: "なし" },
-                { value: "italic", label: "斜" },
+                { value: "normal", label: t("なし") },
+                { value: "italic", label: t("斜") },
               ]}
               value={element.fontStyle}
               onChange={(v) =>
@@ -409,18 +416,18 @@ function renderEditor(
               }
             />
           </Row>
-          <Row label="配置">
+          <Row label={t("配置")}>
             <SegmentedControl
               options={[
-                { value: "left", label: "左" },
-                { value: "center", label: "中" },
-                { value: "right", label: "右" },
+                { value: "left", label: t("左") },
+                { value: "center", label: t("中") },
+                { value: "right", label: t("右") },
               ]}
               value={element.align}
               onChange={(v) => onChange({ align: v })}
             />
           </Row>
-          <Row label="色">
+          <Row label={t("色")}>
             <ColorGrid
               value={element.color}
               onChange={(v) => onChange({ color: v })}
@@ -432,18 +439,18 @@ function renderEditor(
     case "image":
       return (
         <>
-          <Row label="形">
+          <Row label={t("形")}>
             <SegmentedControl
               options={[
-                { value: "rect", label: "矩形" },
-                { value: "rounded", label: "角丸" },
-                { value: "circle", label: "円" },
+                { value: "rect", label: t("矩形") },
+                { value: "rounded", label: t("角丸") },
+                { value: "circle", label: t("円") },
               ]}
               value={element.shape}
               onChange={(v) => onChange({ shape: v })}
             />
           </Row>
-          <Row label="フィット">
+          <Row label={t("フィット")}>
             <SegmentedControl
               options={[
                 { value: "cover", label: "cover" },
@@ -468,25 +475,25 @@ function renderEditor(
               />
             </Row>
           ) : null}
-          <Row label="ソース">
+          <Row label={t("ソース")}>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
               {element.source === "avatar"
-                ? "プロフィール画像を表示"
+                ? t("プロフィール画像を表示")
                 : element.source === "anime"
-                  ? "アニメ画像"
+                  ? t("アニメ画像")
                   : element.uri
-                    ? "アップロード済み"
-                    : "URLは追加時に指定"}
+                    ? t("アップロード済み")
+                    : t("URLは追加時に指定")}
             </Text>
           </Row>
           {props.onReplaceImage ? (
-            <Row label="差し替え">
+            <Row label={t("差し替え")}>
               <ImagePickButton
-                label="アニメから選ぶ"
+                label={t("アニメから選ぶ")}
                 onPress={() => props.onReplaceImage?.("anime")}
               />
               <ImagePickButton
-                label="端末から選ぶ"
+                label={t("端末から選ぶ")}
                 onPress={() => props.onReplaceImage?.("upload")}
               />
             </Row>
@@ -497,29 +504,29 @@ function renderEditor(
     case "shape":
       return (
         <>
-          <Row label="形">
+          <Row label={t("形")}>
             <SegmentedControl
               options={[
-                { value: "rectangle", label: "矩形" },
-                { value: "circle", label: "円" },
+                { value: "rectangle", label: t("矩形") },
+                { value: "circle", label: t("円") },
               ]}
               value={element.shape}
               onChange={(v) => onChange({ shape: v })}
             />
           </Row>
-          <Row label="塗り">
+          <Row label={t("塗り")}>
             <ColorGrid
               value={element.fill}
               onChange={(v) => onChange({ fill: v })}
             />
           </Row>
-          <Row label="枠色">
+          <Row label={t("枠色")}>
             <ColorGrid
               value={element.stroke}
               onChange={(v) => onChange({ stroke: v })}
             />
           </Row>
-          <Row label="枠幅">
+          <Row label={t("枠幅")}>
             <StepControl
               value={element.strokeWidth}
               onChange={(v) =>
@@ -531,7 +538,7 @@ function renderEditor(
             />
           </Row>
           {element.shape === "rectangle" ? (
-            <Row label="角丸">
+            <Row label={t("角丸")}>
               <StepControl
                 value={element.cornerRadius}
                 onChange={(v) =>
@@ -549,18 +556,18 @@ function renderEditor(
     case "qr":
       return (
         <>
-          <Row label="ソース">
+          <Row label={t("ソース")}>
             <SegmentedControl
               options={[
-                { value: "profile", label: "プロフィールURL" },
-                { value: "custom", label: "自由入力" },
+                { value: "profile", label: t("プロフィールURL") },
+                { value: "custom", label: t("自由入力") },
               ]}
               value={element.source}
               onChange={(v) => onChange({ source: v })}
             />
           </Row>
           {element.source === "custom" ? (
-            <Row label="内容">
+            <Row label={t("内容")}>
               <Pressable
                 onPress={onOpenTextEdit}
                 style={{
@@ -573,18 +580,18 @@ function renderEditor(
                 }}
               >
                 <Text numberOfLines={1} style={{ color: colors.text }}>
-                  {element.data || "タップして編集"}
+                  {element.data || t("タップして編集")}
                 </Text>
               </Pressable>
             </Row>
           ) : null}
-          <Row label="色">
+          <Row label={t("色")}>
             <ColorGrid
               value={element.fgColor}
               onChange={(v) => onChange({ fgColor: v })}
             />
           </Row>
-          <Row label="背景">
+          <Row label={t("背景")}>
             <ColorGrid
               value={element.bgColor}
               onChange={(v) => onChange({ bgColor: v })}
@@ -596,7 +603,7 @@ function renderEditor(
     case "animeCollage":
       return (
         <>
-          <Row label="列">
+          <Row label={t("列")}>
             <StepControl
               value={element.cols}
               onChange={(v) =>
@@ -607,7 +614,7 @@ function renderEditor(
               step={1}
             />
           </Row>
-          <Row label="行">
+          <Row label={t("行")}>
             <StepControl
               value={element.rows}
               onChange={(v) =>
@@ -618,22 +625,22 @@ function renderEditor(
               step={1}
             />
           </Row>
-          <Row label="並び順">
+          <Row label={t("並び順")}>
             <SegmentedControl
               options={[
-                { value: "recent", label: "新しい順" },
-                { value: "popular", label: "人気順" },
+                { value: "recent", label: t("新しい順") },
+                { value: "popular", label: t("人気順") },
               ]}
               value={element.sortBy}
               onChange={(v) => onChange({ sortBy: v })}
             />
           </Row>
-          <Row label="リスト">
+          <Row label={t("リスト")}>
             <SegmentedControl
               options={[
-                { value: "auto", label: "自動" },
-                { value: "watchHistory", label: "視聴履歴" },
-                { value: "favorites", label: "お気に入り" },
+                { value: "auto", label: t("自動") },
+                { value: "watchHistory", label: t("視聴履歴") },
+                { value: "favorites", label: t("お気に入り") },
               ]}
               value={element.listSource ?? "auto"}
               onChange={(v) => {
@@ -649,9 +656,12 @@ function renderEditor(
             />
           </Row>
           {element.listSource !== "favorites" ? (
-            <Row label="ステータス">
+            <Row label={t("ステータス")}>
               <SegmentedControl
-                options={COLLAGE_STATE_OPTIONS}
+                options={COLLAGE_STATE_OPTIONS.map((o) => ({
+                  ...o,
+                  label: t(o.label),
+                }))}
                 value={element.state ?? "all"}
                 onChange={(v) =>
                   onChange({
@@ -667,17 +677,17 @@ function renderEditor(
     case "animeCountBadge":
       return (
         <>
-          <Row label="種別">
+          <Row label={t("種別")}>
             <SegmentedControl
               options={[
-                { value: "watched", label: "視聴済" },
-                { value: "favorites", label: "お気に入り" },
+                { value: "watched", label: t("視聴済") },
+                { value: "favorites", label: t("お気に入り") },
               ]}
               value={element.metric}
               onChange={(v) => onChange({ metric: v })}
             />
           </Row>
-          <Row label="サイズ">
+          <Row label={t("サイズ")}>
             <StepControl
               value={element.fontSize}
               onChange={(v) =>
@@ -688,13 +698,13 @@ function renderEditor(
               step={2}
             />
           </Row>
-          <Row label="文字色">
+          <Row label={t("文字色")}>
             <ColorGrid
               value={element.color}
               onChange={(v) => onChange({ color: v })}
             />
           </Row>
-          <Row label="背景色">
+          <Row label={t("背景色")}>
             <ColorGrid
               value={element.bgColor}
               onChange={(v) => onChange({ bgColor: v })}
@@ -706,18 +716,18 @@ function renderEditor(
     case "achievementBadge":
       return (
         <>
-          <Row label="実績">
+          <Row label={t("実績")}>
             <SegmentedControl
               options={[
-                { value: "watch_count", label: "視聴数" },
-                { value: "record_streak", label: "連続記録" },
-                { value: "season_completion", label: "今期完走" },
+                { value: "watch_count", label: t("視聴数") },
+                { value: "record_streak", label: t("連続記録") },
+                { value: "season_completion", label: t("今期完走") },
               ]}
               value={element.kind}
               onChange={(v) => onChange({ kind: v })}
             />
           </Row>
-          <Row label="サイズ">
+          <Row label={t("サイズ")}>
             <StepControl
               value={element.fontSize}
               onChange={(v) =>
@@ -728,13 +738,13 @@ function renderEditor(
               step={2}
             />
           </Row>
-          <Row label="文字色">
+          <Row label={t("文字色")}>
             <ColorGrid
               value={element.color}
               onChange={(v) => onChange({ color: v })}
             />
           </Row>
-          <Row label="背景色">
+          <Row label={t("背景色")}>
             <ColorGrid
               value={element.bgColor}
               onChange={(v) => onChange({ bgColor: v })}
@@ -754,7 +764,10 @@ const SOURCES: { value: TextSource; label: TranslationKey }[] = [
 
 // Annict の視聴ステータス（useWatchHistory の WATCH_STATUS_LABELS と同じ並び）。
 // コラージュ要素の絞り込み用に「すべて」を先頭へ足したもの。
-const COLLAGE_STATE_OPTIONS: { value: CollageStateFilter; label: string }[] = [
+const COLLAGE_STATE_OPTIONS: {
+  value: CollageStateFilter;
+  label: TranslationKey;
+}[] = [
   { value: "all", label: "すべて" },
   { value: "WATCHING", label: "視聴中" },
   { value: "WATCHED", label: "視聴済" },
@@ -763,9 +776,9 @@ const COLLAGE_STATE_OPTIONS: { value: CollageStateFilter; label: string }[] = [
   { value: "STOP_WATCHING", label: "断念" },
 ];
 
-function sourceLabel(s: TextSource): string {
+function sourceLabel(s: TextSource): TranslationKey {
   const found = SOURCES.find((x) => x.value === s);
-  return found?.label ?? s;
+  return found?.label ?? (s as TranslationKey);
 }
 
 function resolveTextValue(
@@ -785,22 +798,22 @@ function resolveTextValue(
   }
 }
 
-function typeLabel(t: MeishiElement["type"]): string {
-  switch (t) {
+function typeLabel(type: MeishiElement["type"], t: TFunction): string {
+  switch (type) {
     case "text":
-      return "テキスト";
+      return t("テキスト");
     case "image":
-      return "画像";
+      return t("画像");
     case "shape":
-      return "図形";
+      return t("図形");
     case "qr":
       return "QR";
     case "animeCollage":
-      return "視聴コラージュ";
+      return t("視聴コラージュ");
     case "animeCountBadge":
-      return "視聴数バッジ";
+      return t("視聴数バッジ");
     case "achievementBadge":
-      return "実績バッジ";
+      return t("実績バッジ");
   }
 }
 

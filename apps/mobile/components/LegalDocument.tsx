@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { type Href, Link, Stack, useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -27,6 +28,7 @@ type Props = {
  * 文言は日本語固定（i18n 対象外。profile.tsx 等と同じく直書き）。
  */
 export function LegalDocument({ title, effectiveDate, sections }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
 
   // meishi/edit.tsx と同じ規約。直リンク（ストア審査・ブラウザからの直接アクセス）
@@ -54,7 +56,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="legal-back-button"
             />
           ),
@@ -108,12 +110,12 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
           <View className="mt-12 flex-row justify-center gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
             <Link href="/privacy" testID="legal-privacy-link">
               <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-                プライバシーポリシー
+                {t("プライバシーポリシー")}
               </Text>
             </Link>
             <Link href="/terms" testID="legal-terms-link">
               <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-                利用規約
+                {t("利用規約")}
               </Text>
             </Link>
           </View>

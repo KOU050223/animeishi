@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { MenuPicker } from "@/components/ui/menu-picker";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import { haptics } from "@/lib/haptics";
 import { useAnimeListStyles } from "./animeListStyles";
 import {
@@ -15,7 +17,7 @@ import {
 // 「通年」チップのラベル。期チップの先頭に置く（その年の 4 クール全部。issue #346）。
 const SEASON_CHIP_KEYS = [SEASON_FILTER_ALL, ...SEASON_KEYS] as const;
 
-const SEASON_CHIP_LABELS: Record<SeasonFilterKey, string> = {
+const SEASON_CHIP_LABELS: Record<SeasonFilterKey, TranslationKey> = {
   [SEASON_FILTER_ALL]: "通年",
   winter: SEASONS.winter,
   spring: SEASONS.spring,
@@ -52,6 +54,7 @@ type SeasonFilterProps = { year: number } & (
  * このフィルタを隠す（season は無視されるため）。
  */
 export function SeasonFilter(props: SeasonFilterProps) {
+  const { t } = useTranslation();
   const { year, season } = props;
   const styles = useAnimeListStyles();
   const years = seasonPickerYears();
@@ -91,14 +94,14 @@ export function SeasonFilter(props: SeasonFilterProps) {
       <View style={styles.filterRow}>
         <MenuPicker
           testID="season-filter-year"
-          accessibilityLabel="年を選択"
-          title="年を選択"
-          closeAccessibilityLabel="年の選択を閉じる"
+          accessibilityLabel={t("年を選択")}
+          title={t("年を選択")}
+          closeAccessibilityLabel={t("年の選択を閉じる")}
           selectedValue={year}
           options={years.map((y) => ({
-            label: `${y}年`,
+            label: t("{{year}}年", { year: y }),
             value: y,
-            accessibilityLabel: `${y}年で絞り込む`,
+            accessibilityLabel: t("{{year}}年で絞り込む", { year: y }),
           }))}
           onValueChange={selectYear}
         />
@@ -130,7 +133,9 @@ export function SeasonFilter(props: SeasonFilterProps) {
                 disabled={disabled}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active, disabled }}
-                accessibilityLabel={`${SEASON_CHIP_LABELS[key]}で絞り込む`}
+                accessibilityLabel={t("{{label}}で絞り込む", {
+                  label: t(SEASON_CHIP_LABELS[key]),
+                })}
                 testID={`season-filter-season-${key}`}
               >
                 <Text
@@ -140,7 +145,7 @@ export function SeasonFilter(props: SeasonFilterProps) {
                     disabled && styles.filterChipTextDisabled,
                   ]}
                 >
-                  {SEASON_CHIP_LABELS[key]}
+                  {t(SEASON_CHIP_LABELS[key])}
                 </Text>
               </TouchableOpacity>
             );

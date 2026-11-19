@@ -111,7 +111,7 @@ export function DiscoverWorkLists() {
       ) : list.isError && items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
-            公開作品リストを取得できませんでした
+            {t("公開作品リストを取得できませんでした")}
           </Text>
           <TouchableOpacity
             className="rounded-lg bg-indigo-600 px-6 py-3"
@@ -151,7 +151,7 @@ export function DiscoverWorkLists() {
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
               <Text className="text-center text-slate-400 dark:text-slate-500">
-                まだ公開されている作品リストはありません
+                {t("まだ公開されている作品リストはありません")}
               </Text>
             </View>
           }
@@ -202,7 +202,7 @@ function PublicWorkListCard({
           入れ子を避ける CardPressable でカード側を作る。 */}
       <CardPressable
         onPress={onPress}
-        accessibilityLabel={`「${item.title}」を開く`}
+        accessibilityLabel={t("「{{title}}」を開く", { title: item.title })}
         testID={`public-work-list-open-${item.id}`}
       >
         {item.thumbnails.length > 0 ? (
@@ -231,7 +231,8 @@ function PublicWorkListCard({
           {item.title}
         </Text>
         <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-          {item.owner.username} ・ {item.itemCount} 作品
+          {item.owner.username} ・{" "}
+          {t("{{count}} 作品", { count: item.itemCount })}
         </Text>
       </CardPressable>
       <View className="mt-2 flex-row items-center justify-between">
@@ -243,8 +244,8 @@ function PublicWorkListCard({
           accessibilityRole="button"
           accessibilityLabel={
             item.likedByMe
-              ? `「${item.title}」のいいねを取り消す`
-              : `「${item.title}」にいいね`
+              ? t("「{{title}}」のいいねを取り消す", { title: item.title })
+              : t("「{{title}}」にいいね", { title: item.title })
           }
           accessibilityState={{ disabled: isOwn || likePending }}
           testID={`work-list-like-${item.id}`}

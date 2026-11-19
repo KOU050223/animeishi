@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@clerk/expo";
 import { alert, confirm } from "@/lib/dialog";
 import { useBlockUser } from "@/lib/useModeration";
@@ -11,6 +12,7 @@ import { useReportWorkList } from "@/lib/workList/useWorkLists";
  * みつける一覧カードと詳細画面の両方から使う。
  */
 export function useReportWorkListFlow() {
+  const { t } = useTranslation();
   const { userId } = useAuth();
   const reportWorkList = useReportWorkList();
   const blockUser = useBlockUser();
@@ -30,36 +32,41 @@ export function useReportWorkListFlow() {
             // 出さないのでここに来るのは他人のリストだけ。
             if (input.ownerUserId !== userId) {
               confirm(
-                "通報を受け付けました",
-                `ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「${input.ownerUsername}」をブロックしますか？`,
+                t("通報を受け付けました"),
+                t(
+                  "ご報告ありがとうございます。運営が内容を確認します。\n\nあわせて「{{username}}」をブロックしますか？",
+                  { username: input.ownerUsername },
+                ),
                 () => {
                   blockUser.mutate(input.ownerUserId);
                 },
                 {
-                  confirmLabel: "ブロックする",
-                  cancelLabel: "しない",
+                  confirmLabel: t("ブロックする"),
+                  cancelLabel: t("しない"),
                   destructive: true,
                 },
               );
             } else {
               alert(
-                "通報を受け付けました",
-                "ご報告ありがとうございます。運営が内容を確認します。",
+                t("通報を受け付けました"),
+                t("ご報告ありがとうございます。運営が内容を確認します。"),
                 { okLabel: "OK" },
               );
             }
           },
           onError: (e) => {
             alert(
-              "通報できませんでした",
-              e instanceof Error ? e.message : "通報に失敗しました",
+              t("通報できませんでした"),
+              e instanceof Error
+                ? t(e.message, { defaultValue: e.message })
+                : t("通報に失敗しました"),
               { okLabel: "OK" },
             );
           },
         },
       );
     },
-    [reportWorkList, blockUser, userId],
+    [reportWorkList, blockUser, userId, t],
   );
 
   return { submit, isPending: reportWorkList.isPending };

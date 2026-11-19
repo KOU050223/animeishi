@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
 
@@ -21,6 +22,7 @@ export function TextEditSheet({
   onClose: () => void;
   onSubmit: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const [value, setValue] = useState(initialValue);
   // シートが開くたび（あるいは開いたまま初期値が変わったとき）入力値を
@@ -72,7 +74,7 @@ export function TextEditSheet({
                 color: colors.text,
               }}
             >
-              文字を編集
+              {t("文字を編集")}
             </Text>
             <Input
               value={value}
@@ -94,7 +96,7 @@ export function TextEditSheet({
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
-                accessibilityLabel="キャンセル"
+                accessibilityLabel={t("キャンセル")}
                 style={{
                   flex: 1,
                   paddingVertical: 12,
@@ -104,7 +106,7 @@ export function TextEditSheet({
                 }}
               >
                 <Text style={{ fontWeight: "600", color: colors.text }}>
-                  キャンセル
+                  {t("キャンセル")}
                 </Text>
               </Pressable>
               <Pressable
@@ -113,7 +115,7 @@ export function TextEditSheet({
                   onClose();
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="完了"
+                accessibilityLabel={t("完了")}
                 style={{
                   flex: 1,
                   paddingVertical: 12,
@@ -123,7 +125,7 @@ export function TextEditSheet({
                 }}
               >
                 <Text style={{ fontWeight: "600", color: colors.onPrimary }}>
-                  完了
+                  {t("完了")}
                 </Text>
               </Pressable>
             </View>

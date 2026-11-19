@@ -8,6 +8,8 @@ import {
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
+import i18n from "@/lib/i18n";
 import { useMarkdown } from "react-native-marked";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
@@ -27,6 +29,7 @@ import { alert } from "@/lib/dialog";
 // 候補をタップして投票する。1 アカウント 1 票で、期間中は別の候補を
 // 選び直せる。途中経過は出さず、終了後の結果は特集記事で発表される。
 export default function ElectionScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ slug?: string }>();
@@ -50,12 +53,12 @@ export default function ElectionScreen() {
     >
       <Stack.Screen
         options={{
-          title: data?.title ?? "総選挙",
+          title: data?.title ?? t("総選挙"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="election-back"
             />
           ),
@@ -67,7 +70,7 @@ export default function ElectionScreen() {
             className="text-center text-slate-500 dark:text-slate-400"
             testID="election-not-found"
           >
-            この総選挙は表示できません
+            {t("この総選挙は表示できません")}
           </Text>
         </View>
       ) : detail.isLoading || !data ? (
@@ -88,6 +91,7 @@ function ElectionBody({
   slug: string;
   election: ElectionDetail;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
   const vote = useElectionVote();
@@ -112,7 +116,8 @@ function ElectionBody({
     vote.mutate(
       { slug, candidateId },
       {
-        onError: () => alert("エラー", "投票に失敗しました", { okLabel: "OK" }),
+        onError: () =>
+          alert(t("エラー"), t("投票に失敗しました"), { okLabel: "OK" }),
       },
     );
   };
@@ -122,7 +127,9 @@ function ElectionBody({
       { slug },
       {
         onError: () =>
-          alert("エラー", "投票の取り消しに失敗しました", { okLabel: "OK" }),
+          alert(t("エラー"), t("投票の取り消しに失敗しました"), {
+            okLabel: "OK",
+          }),
       },
     );
   };
@@ -152,7 +159,8 @@ function ElectionBody({
           {election.title}
         </Text>
         <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          投票期間: {formatEventPeriod(election.startsAt, election.endsAt)}
+          {t("投票期間:")}{" "}
+          {formatEventPeriod(election.startsAt, election.endsAt, i18n.language)}
         </Text>
 
         <VotingNotice
@@ -200,6 +208,7 @@ function VotingNotice({
   pending: boolean;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-4 flex-row items-center gap-3">
       {phase === "before" ? (
@@ -207,14 +216,14 @@ function VotingNotice({
           className="text-sm text-slate-500 dark:text-slate-400"
           testID="election-notice"
         >
-          投票期間が始まったら候補を選べます
+          {t("投票期間が始まったら候補を選べます")}
         </Text>
       ) : phase === "ended" ? (
         <Text
           className="text-sm text-slate-500 dark:text-slate-400"
           testID="election-notice"
         >
-          投票は終了しました。結果は特集で発表します
+          {t("投票は終了しました。結果は特集で発表します")}
         </Text>
       ) : voted ? (
         <>
@@ -222,17 +231,17 @@ function VotingNotice({
             className="text-sm font-semibold text-indigo-500 dark:text-indigo-300"
             testID="election-notice"
           >
-            投票済み（期間中は選び直せます）
+            {t("投票済み（期間中は選び直せます）")}
           </Text>
           <TouchableOpacity
             onPress={onCancel}
             disabled={pending}
             accessibilityRole="button"
-            accessibilityLabel="投票を取り消す"
+            accessibilityLabel={t("投票を取り消す")}
             testID="election-cancel-vote"
           >
             <Text className="text-sm text-slate-400 dark:text-slate-500">
-              取り消す
+              {t("取り消す")}
             </Text>
           </TouchableOpacity>
         </>
@@ -241,7 +250,7 @@ function VotingNotice({
           className="text-sm text-slate-500 dark:text-slate-400"
           testID="election-notice"
         >
-          推しの候補を 1 つ選んでください
+          {t("推しの候補を 1 つ選んでください")}
         </Text>
       )}
       {pending ? <ActivityIndicator size="small" /> : null}
@@ -267,6 +276,7 @@ function CandidateRow({
   pending: boolean;
   onVote: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useThemeColors();
   return (
     <View
@@ -299,7 +309,7 @@ function CandidateRow({
                 className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
               >
                 <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-                  作品
+                  {t("作品")}
                 </Text>
               </View>
             }
@@ -325,7 +335,7 @@ function CandidateRow({
             }}
             placeholder=<View className="h-16 w-16 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900">
               <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-                キャラ
+                {t("キャラ")}
               </Text>
             </View>
           />
@@ -340,7 +350,7 @@ function CandidateRow({
             className="rounded-lg bg-indigo-600 px-4 py-2 dark:bg-indigo-500"
             testID={`election-voted-badge-${candidate.id}`}
           >
-            <Text className="font-semibold text-white">投票済み</Text>
+            <Text className="font-semibold text-white">{t("投票済み")}</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -348,11 +358,13 @@ function CandidateRow({
             disabled={pending}
             className="rounded-lg border border-indigo-500 px-4 py-2 dark:border-indigo-400"
             accessibilityRole="button"
-            accessibilityLabel={`${candidate.name}に投票する`}
+            accessibilityLabel={t("{{name}}に投票する", {
+              name: candidate.name,
+            })}
             testID={`election-vote-${candidate.id}`}
           >
             <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
-              投票する
+              {t("投票する")}
             </Text>
           </TouchableOpacity>
         )

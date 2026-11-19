@@ -69,7 +69,8 @@ type DoneResult = {
   succeeded: number;
   failed: number;
   aborted: boolean;
-  requestError: string | null;
+  requestError: TranslationKey | null;
+  requestErrorStatus: number | null;
   /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
   elapsedMs: number;
 };
@@ -365,6 +366,7 @@ export default function DanimeImportReviewScreen() {
             failed: res.results.filter((r) => !r.ok).length,
             aborted: res.aborted,
             requestError: res.requestError,
+            requestErrorStatus: res.requestErrorStatus,
             elapsedMs: res.elapsedMs,
           });
         },
@@ -451,7 +453,9 @@ export default function DanimeImportReviewScreen() {
         )}
         {doneResult.requestError && (
           <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
-            {doneResult.requestError}
+            {t(doneResult.requestError, {
+              status: doneResult.requestErrorStatus,
+            })}
           </Text>
         )}
         <TouchableOpacity
@@ -503,7 +507,7 @@ export default function DanimeImportReviewScreen() {
         />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-sm text-red-500 dark:text-red-400 text-center">
-            {danimeMatchErrorMessage(match.error)}
+            {t(danimeMatchErrorMessage(match.error) as TranslationKey)}
           </Text>
           <TouchableOpacity
             className="mt-4 bg-indigo-600 rounded-xl px-8 py-3"
@@ -565,7 +569,7 @@ export default function DanimeImportReviewScreen() {
         )}
         {bulk.isError && (
           <Text className="text-xs text-red-500 dark:text-red-400 text-center mb-2">
-            {bulk.error.message}
+            {t(bulk.error.message, { defaultValue: bulk.error.message })}
           </Text>
         )}
         <TouchableOpacity

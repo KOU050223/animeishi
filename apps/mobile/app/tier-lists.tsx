@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { BackButton } from "@/components/ui";
 import { alert, confirm } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
@@ -40,6 +41,7 @@ const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
  * ここから開き直せる（#352 で全種類の一覧に拡張）。
  */
 export default function TierListsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
   const lists = useMergedTierLists();
@@ -58,8 +60,13 @@ export default function TierListsScreen() {
 
   const handleDelete = (item: MergedTierListItem) => {
     confirm(
-      "この Tier 表を削除しますか？",
-      `「${item.title}」を削除します。共有リンクも無効になり、この操作は取り消せません。`,
+      t("この Tier 表を削除しますか？"),
+      t(
+        "「{{title}}」を削除します。共有リンクも無効になり、この操作は取り消せません。",
+        {
+          title: item.title,
+        },
+      ),
       () => {
         haptics.warning();
         // 呼び出し別コールバックは連続 mutate で前の呼び出し分が発火しない
@@ -72,14 +79,18 @@ export default function TierListsScreen() {
               ? removeCharacter.mutateAsync(Number(item.id))
               : removeCustom.mutateAsync(Number(item.id));
         void remove.catch(() =>
-          alert("削除に失敗しました", "時間をおいて再度お試しください。", {
-            okLabel: "OK",
-          }),
+          alert(
+            t("削除に失敗しました"),
+            t("時間をおいて再度お試しください。"),
+            {
+              okLabel: "OK",
+            },
+          ),
         );
       },
       {
-        confirmLabel: "削除する",
-        cancelLabel: "キャンセル",
+        confirmLabel: t("削除する"),
+        cancelLabel: t("キャンセル"),
         destructive: true,
       },
     );
@@ -119,12 +130,12 @@ export default function TierListsScreen() {
           E2E が参照する testID を維持するため。 */}
       <Stack.Screen
         options={{
-          title: "Tier 表",
+          title: t("Tier 表"),
           headerBackVisible: false,
           headerLeft: () => (
             <BackButton
               onPress={handleBack}
-              accessibilityLabel="戻る"
+              accessibilityLabel={t("戻る")}
               testID="tier-lists-back"
             />
           ),
@@ -132,55 +143,57 @@ export default function TierListsScreen() {
       />
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
         <Text className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">
-          新しく作る
+          {t("新しく作る")}
         </Text>
         <View className="mt-3 gap-3">
           <TouchableOpacity
             className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950"
             onPress={() => router.push("/tier-list")}
             accessibilityRole="button"
-            accessibilityLabel="シーズンから作る"
+            accessibilityLabel={t("シーズンから作る")}
             testID="tier-lists-create-season"
           >
             <Text className="text-base font-semibold text-indigo-700 dark:text-indigo-300">
-              シーズンから作る
+              {t("シーズンから作る")}
             </Text>
             <Text className="mt-1 text-sm text-indigo-900/70 dark:text-indigo-200/70">
-              放送シーズンの全作品を並べて振り分けます
+              {t("放送シーズンの全作品を並べて振り分けます")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950"
             onPress={() => setPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="キャラクターで作る"
+            accessibilityLabel={t("キャラクターで作る")}
             testID="tier-lists-create-character"
           >
             <Text className="text-base font-semibold text-rose-700 dark:text-rose-300">
-              キャラクターで作る
+              {t("キャラクターで作る")}
             </Text>
             <Text className="mt-1 text-sm text-rose-900/70 dark:text-rose-200/70">
-              作品を選んで、そのキャラクターを並べて振り分けます
+              {t("作品を選んで、そのキャラクターを並べて振り分けます")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950"
             onPress={() => router.push("/custom-tier-list")}
             accessibilityRole="button"
-            accessibilityLabel="テーマを決めて自由に作る"
+            accessibilityLabel={t("テーマを決めて自由に作る")}
             testID="tier-lists-create-custom"
           >
             <Text className="text-base font-semibold text-emerald-700 dark:text-emerald-300">
-              テーマを決めて自由に作る
+              {t("テーマを決めて自由に作る")}
             </Text>
             <Text className="mt-1 text-sm text-emerald-900/70 dark:text-emerald-200/70">
-              「歴代で好きなアニメ」など好きなテーマで、作品を検索して追加します
+              {t(
+                "「歴代で好きなアニメ」など好きなテーマで、作品を検索して追加します",
+              )}
             </Text>
           </TouchableOpacity>
         </View>
 
         <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
-          作った Tier 表
+          {t("作った Tier 表")}
         </Text>
         {lists.isLoading ? (
           <View className="items-center py-8">
@@ -188,7 +201,7 @@ export default function TierListsScreen() {
           </View>
         ) : lists.isError ? (
           <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            一覧を取得できませんでした
+            {t("一覧を取得できませんでした")}
           </Text>
         ) : (
           <FlatList
@@ -201,14 +214,16 @@ export default function TierListsScreen() {
                   className="flex-1"
                   onPress={() => handleOpen(item)}
                   accessibilityRole="button"
-                  accessibilityLabel={`「${item.title}」を開く`}
+                  accessibilityLabel={t("「{{title}}」を開く", {
+                    title: item.title,
+                  })}
                   testID={`tier-lists-item-${item.key}`}
                 >
                   <View className="flex-row items-center gap-2">
                     <Text
                       className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${KIND_BADGE_STYLES[item.kind]}`}
                     >
-                      {TIER_KIND_LABELS[item.kind]}
+                      {t(TIER_KIND_LABELS[item.kind])}
                     </Text>
                     <Text
                       className="flex-1 text-base font-medium text-slate-900 dark:text-slate-100"
@@ -220,8 +235,8 @@ export default function TierListsScreen() {
                   {item.shared || item.isPublic ? (
                     <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       {[
-                        item.shared ? "リンク共有中" : null,
-                        item.isPublic ? "ひろばに公開中" : null,
+                        item.shared ? t("リンク共有中") : null,
+                        item.isPublic ? t("ひろばに公開中") : null,
                       ]
                         .filter(Boolean)
                         .join(" ・ ")}
@@ -231,19 +246,21 @@ export default function TierListsScreen() {
                 <TouchableOpacity
                   onPress={() => handleDelete(item)}
                   accessibilityRole="button"
-                  accessibilityLabel={`「${item.title}」を削除`}
+                  accessibilityLabel={t("「{{title}}」を削除", {
+                    title: item.title,
+                  })}
                   testID={`tier-lists-delete-${item.key}`}
                   className="ml-3 rounded-md px-2 py-1"
                 >
                   <Text className="text-sm font-medium text-red-500 dark:text-red-400">
-                    削除
+                    {t("削除")}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
             ListEmptyComponent={
               <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                まだありません。上のボタンから作れます
+                {t("まだありません。上のボタンから作れます")}
               </Text>
             }
           />

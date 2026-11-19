@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { SortOrder } from "@/lib/useAnimeList";
@@ -16,6 +17,7 @@ export function SortButton({
   order: SortOrder | null;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const styles = useAnimeListStyles();
   const palette = useAnimeListPalette();
   const iconColor = active ? palette.title : palette.subtitle;
@@ -24,7 +26,13 @@ export function SortButton({
       style={[styles.sortButton, active && styles.sortButtonActive]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}${order === "asc" ? " 昇順" : order === "desc" ? " 降順" : ""}`}
+      accessibilityLabel={
+        order === "asc"
+          ? t("{{label}} 昇順", { label })
+          : order === "desc"
+            ? t("{{label}} 降順", { label })
+            : label
+      }
       accessibilityState={{ selected: active }}
     >
       <Ionicons name={icon} size={14} color={iconColor} />
