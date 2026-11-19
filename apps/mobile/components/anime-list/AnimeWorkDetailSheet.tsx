@@ -1473,7 +1473,7 @@ function CreditChip({
 }
 
 function WorkDetailSection({ work }: { work: WorkDetail }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const colors = useThemeColors();
 
   const episodes =
@@ -1486,7 +1486,7 @@ function WorkDetailSection({ work }: { work: WorkDetail }) {
       label: t("視聴者数"),
       value: t("{{countText}}人", {
         count: work.watchersCount,
-        countText: work.watchersCount.toLocaleString(),
+        countText: work.watchersCount.toLocaleString(i18n.language),
       }),
     },
     ...(work.satisfactionRate != null

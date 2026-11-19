@@ -749,7 +749,7 @@ function WatchHistoryRow({
   onAddToList: () => void;
   onOpenDetail: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // 放送年・視聴者数はソートの判断材料になるため補足として並べる
   // （issue #345）。どちらも未取得の作品は該当部分を出さない。
@@ -760,7 +760,7 @@ function WatchHistoryRow({
     history.watchersCount != null
       ? t("視聴者 {{countText}}人", {
           count: history.watchersCount,
-          countText: history.watchersCount.toLocaleString(),
+          countText: history.watchersCount.toLocaleString(i18n.language),
         })
       : null,
   ]
