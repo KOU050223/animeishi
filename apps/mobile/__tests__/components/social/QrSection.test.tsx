@@ -197,6 +197,23 @@ const PARTNER_PROFILE = {
   genres: [],
 };
 
+// 自分の公開プロフィール（GET /user/:uid）が返す meishiSnapshotUrl を
+// テストごとに差し替えるための fetch モック（issue #593/#595）。
+function mockPublicProfileFetch(meishiSnapshotUrl: string | null) {
+  global.fetch = jest.fn(async () => ({
+    status: 200,
+    ok: true,
+    json: async () => ({ ...PARTNER_PROFILE, id: USER_ID, meishiSnapshotUrl }),
+  })) as unknown as typeof fetch;
+}
+
+// expo-image の Image は testID を持たないため、要素タイプで拾う
+// （DiscoverUsers.test.tsx と同じ手法）。
+const findExpoImages = () =>
+  screen.container.queryAll(
+    (node) => typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+  );
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -225,7 +242,7 @@ beforeEach(async () => {
 describe("マイQR（QR コード生成）", () => {
   it("カードが画面高さに収まらないときセグメントに被さらないよう、カードと共有ボタンはスクロール可能なコンテナ内にある", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     const scroll = screen.getByTestId("qr-generate-scroll");
     expect(within(scroll).getByTestId("qr-code-container")).toBeTruthy();
@@ -236,7 +253,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("Web 版プロフィール URL に対面交換トークンを付けて QR に埋め込む", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(mockQRCodeProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -248,7 +265,7 @@ describe("マイQR（QR コード生成）", () => {
   it("トークン未取得時はトークン無しの URL に落ちる", async () => {
     mockQrToken = undefined;
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(mockQRCodeProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -259,7 +276,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("生の userId ではなく /user/<id> 形式の URL になる", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     const qr = screen.getByTestId("qr-code");
     expect(qr.props.children).toContain(`/user/${USER_ID}`);
@@ -268,7 +285,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("リンクの共有・コピーにはトークンを載せない", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByTestId("qr-copy-link"));
 
@@ -281,7 +298,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("未サインインなら QR を表示しない", async () => {
     signedOutUser();
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(mockQRCodeProps).not.toHaveBeenCalled();
     expect(
@@ -291,7 +308,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("リンクをコピーでプロフィール URL がクリップボードに入り「コピーしました」になる", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByTestId("qr-copy-link"));
 
@@ -308,7 +325,7 @@ describe("マイQR（QR コード生成）", () => {
   it("リンクを共有で共有処理にプロフィール URL が渡される", async () => {
     mockShareTierListUrl.mockResolvedValue("shared");
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByTestId("qr-share-link"));
 
@@ -322,7 +339,7 @@ describe("マイQR（QR コード生成）", () => {
   it("共有を自動で渡せなかった（blocked）ときは URL 入りのアラートを出す", async () => {
     mockShareTierListUrl.mockResolvedValue("blocked");
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByTestId("qr-share-link"));
 
@@ -338,7 +355,7 @@ describe("マイQR（QR コード生成）", () => {
   it("画像で保存で QR カードの画像化・保存が呼ばれる", async () => {
     mockSaveQrImage.mockResolvedValue(undefined);
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByTestId("qr-save-image"));
 
@@ -355,7 +372,7 @@ describe("マイQR（QR コード生成）", () => {
 
   it("名刺ライブラリが空のとき名刺には document が渡らず、ユーザー名が表示される", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(mockMeishiCardProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -379,7 +396,7 @@ describe("マイQR（QR コード生成）", () => {
     ];
     mockDefaultCardId = "card-a";
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(mockMeishiCardProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -398,7 +415,7 @@ describe("マイQR（QR コード生成）", () => {
     ];
     mockDefaultCardId = "card-a";
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     // ピッカーには既定の目印が付く。
     expect(screen.getByText("名刺 1（既定）")).toBeTruthy();
@@ -422,16 +439,103 @@ describe("マイQR（QR コード生成）", () => {
     ];
     mockDefaultCardId = "card-a";
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     expect(screen.queryByTestId("qr-meishi-picker")).toBeNull();
+  });
+
+  it("既定の名刺に公開スナップショットがあるとき画像を出し、読み込み完了まで端末内レンダリングを見せる（issue #593/#595）", async () => {
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: meishiDoc("#111") },
+    ];
+    mockDefaultCardId = "card-a";
+    mockPublicProfileFetch(
+      "https://api.example/me/meishi-assets/x/public-snapshot.png?v=v1",
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    // スナップショット URL が取れたら画像がマウントされるが、実寸法が
+    // 取れるまでは端末内レンダリングの MeishiCard を出し続ける。
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
+    const image = findExpoImages()[0];
+    expect(JSON.stringify(image.props.source)).toContain(
+      "public-snapshot.png?v=v1",
+    );
+    expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();
+
+    await fireEvent(image, "onLoad", {
+      nativeEvent: { source: { width: 1280, height: 824 } },
+    });
+
+    // 読み込みが終わったら画像が主役になる。フォールバックは透明に
+    // なるだけでツリーには残し、名刺本文の読み上げを維持する。
+    const fallback = screen.getByTestId("meishi-snapshot-a11y-fallback");
+    expect(fallback.props.pointerEvents).toBe("none");
+    expect(within(fallback).getByTestId("meishi-card-stub")).toBeTruthy();
+  });
+
+  it("既定の名刺でも公開スナップショットが無ければ端末内レンダリングのままにする", async () => {
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: meishiDoc("#111") },
+    ];
+    mockDefaultCardId = "card-a";
+    mockPublicProfileFetch(null);
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    expect(findExpoImages()).toHaveLength(0);
+    expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();
+  });
+
+  it("既定以外の名刺を選んだときは公開スナップショットを使わず端末内レンダリングにする", async () => {
+    const docA = meishiDoc("#111");
+    const docB = meishiDoc("#222");
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: docA },
+      { id: "card-b", name: "名刺 2", document: docB },
+    ];
+    mockDefaultCardId = "card-a";
+    mockPublicProfileFetch(
+      "https://api.example/me/meishi-assets/x/public-snapshot.png?v=v1",
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
+    await fireEvent.press(screen.getByTestId("qr-meishi-pick-card-b"));
+
+    expect(findExpoImages()).toHaveLength(0);
+    expect(mockMeishiCardProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ document: docB }),
+    );
+  });
+
+  it("スナップショット画像の読み込みに失敗したら端末内レンダリングにフォールバックする", async () => {
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: meishiDoc("#111") },
+    ];
+    mockDefaultCardId = "card-a";
+    mockPublicProfileFetch(
+      "https://api.example/me/meishi-assets/x/public-snapshot.png?v=v1",
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
+    await fireEvent(findExpoImages()[0], "onError", { nativeEvent: {} });
+
+    expect(findExpoImages()).toHaveLength(0);
+    expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();
   });
 });
 
 describe("スキャン", () => {
   it("スキャンタブに切り替えられる", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByLabelText("スキャン"));
 
@@ -556,7 +660,7 @@ describe("スキャン", () => {
   it("カメラ権限が拒否されているときは許可を求めるフォールバックを出す", async () => {
     mockScannerPermission = { granted: false };
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByLabelText("スキャン"));
 
@@ -571,7 +675,7 @@ describe("スキャン", () => {
 
   it("カメラの起動に失敗したらフォールバックを出し、再試行で再マウントする", async () => {
     loggedInUser({ userId: USER_ID });
-    await render(<QrSection />);
+    await render(<QrSection />, { wrapper });
 
     await fireEvent.press(screen.getByLabelText("スキャン"));
     expect(screen.getByTestId("qr-camera-view")).toBeTruthy();

@@ -1,4 +1,4 @@
-// 作品画像の読み通しプロキシ（GET /images/works/:annictWorkId）。
+// 作品画像の配信（GET /images/works/:annictWorkId）。
 //
 // 背景: 以前は cron が今期・来期の作品画像を R2 へ事前取り込みしていた
 // （issue #174）が、シーズン表記の不一致（DB は "AUTUMN" + season_year、
@@ -6,16 +6,18 @@
 // また Annict の画像 URL は「文字列としてはまともでも実体は 404」の作品が
 // 多く、URL の見た目だけで placeholder 判定する方式では欠損を拾えなかった。
 //
-// そこで「表示されたときに実際に取りに行き、取れたものを R2 に保存する」
-// 読み通し方式にする:
-//   1. R2 に取り込み済みならそれを返す
-//   2. 無ければ候補 URL（workImageSourceCandidates）を順に fetch し、
-//      最初に画像が返ったものを R2 に保存して返す
-//   3. 全滅したら Kitsu で補完 URL を引き直してもう一度試す
-//      （Kitsu の新しい作品は 15 分で失効する署名付き URL を返すため、
-//      解決済みでも URL が死んでいる作品はここで再解決して救う）
-//   4. それでもダメなら 404。試行時刻を立て、クールダウン中は外部を叩かない
+// 配信時は Kitsu / MAL の解決済み画像、再解決した画像を優先して R2 に保存する。
+// Annict の画像 URL は API 利用規約 第 10 条の「再配布」禁止に当たりやすいため
+// R2 には保存せず（issue #559 案 B / #636）、実体が画像として取得できたときだけ
+// 302 で元 URL へ誘導する。どれも使えなければ 404 を返す。
 // 季節で対象を絞らないので過去作品も同じ経路で救える。
+//
+// Annict URL の検証は表示のたびに行うと公式サイトへ fetch が繰り返されるため、
+// 検証できた URL のキー（works/<id>/<URL ハッシュ>.<ext>）を R2 オブジェクトを
+// 置かずに image_r2_key へ記録し、以後はキーの照合だけでリダイレクトする。
+// image_r2_key は「R2 オブジェクトのキー」または「検証済み Annict URL の記録」
+// のどちらかを持つ。記録から一定期間が経つか、記録後に補完 URL が更新された
+// 場合は取り直し・再検証に戻る。
 //
 // クライアントに渡す URL は作品単位で安定（/images/works/<id>）なので、
 // 取り込み元が変わってもクライアント側は何も変えなくてよい。
@@ -40,6 +42,14 @@ import {
 
 /** 全候補が失敗した作品で、外部 fetch を再試行するまでの間隔。 */
 export const WORK_IMAGE_FAILURE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * 検証済み Annict URL の記録（image_r2_key）をそのまま信じる期間。
+ * 切れたら元 URL が生きているかを取り直して検証する。死んだ URL へ
+ * リダイレクトし続けるとクライアントが読み込み失敗でプレースホルダーに
+ * 落ちるため、長すぎない間隔で確かめ直す。
+ */
+const ANNICT_URL_REVERIFY_AFTER_MS = 24 * 60 * 60 * 1000;
 
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const IMAGE_FETCH_MAX_REDIRECTS = 3;
@@ -85,8 +95,7 @@ export function workImageSourceCandidates(row: {
   resolvedImageUrl: string | null | undefined;
 }): string[] {
   // 優先順:
-  //   1. resolvedImageUrl（Kitsu / MAL のポスター。縦長で統一感があり、
-  //      CDN も安定している。Annict 側が使えないと分かった作品にしか無い）
+  //   1. resolvedImageUrl（Kitsu / MAL のポスター）
   //   2. Annict の imageUrl（公式サイトの OG 画像が多く、古い作品はリンク切れが多い）
   //   3. http: の Annict URL を https に上げたもの（公式サイトの多くは https にも
   //      対応しており、Mixed Content で捨てていた画像を救える）
@@ -253,10 +262,22 @@ function notFound(): Response {
   });
 }
 
+/** 検証済みの外部画像 URL への誘導。edge・クライアント双方で短くキャッシュする。 */
+function redirectToSource(url: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: url,
+      "cache-control": "public, max-age=300",
+    },
+  });
+}
+
 /**
  * GET /images/works/:annictWorkId の本体。
- * R2 ヒット（取り込み元が今の候補と一致）→ そのまま返す /
- * ミス・取り込み元の差し替え → 候補を fetch して R2 に保存して返す。
+ * R2 ヒット（Kitsu / MAL 由来。取り込み元が今の候補と一致）→ そのまま返す /
+ * 検証済み Annict URL の記録 → 元 URL へリダイレクト /
+ * ミス → 補完候補を fetch して R2 に保存、Annict 候補は検証のうえ誘導する。
  */
 export async function serveWorkImage(
   db: DrizzleDb,
@@ -284,6 +305,17 @@ export async function serveWorkImage(
     imageUrl: row.imageUrl,
     resolvedImageUrl: blocked ? null : row.resolvedImageUrl,
   });
+  const resolvedCandidates = workImageSourceCandidates({
+    imageUrl: null,
+    resolvedImageUrl: blocked ? null : row.resolvedImageUrl,
+  });
+  const allAnnictCandidates = workImageSourceCandidates({
+    imageUrl: row.imageUrl,
+    resolvedImageUrl: null,
+  });
+  const annictCandidates = allAnnictCandidates.filter(
+    (url) => !resolvedCandidates.includes(url),
+  );
   const inCooldown =
     row.imageR2AttemptedAt != null &&
     now.getTime() - row.imageR2AttemptedAt.getTime() <
@@ -296,6 +328,18 @@ export async function serveWorkImage(
       ? row.imageR2Key
       : null;
   const stored = ownKey ? await bucket.get(ownKey) : null;
+  // 旧オブジェクトに取得元の metadata は無い。URL ハッシュで補完元と
+  // 確認できないものは Annict 由来の可能性があるため配信しない。
+  const storedFromFallback =
+    ownKey != null &&
+    (stored?.customMetadata?.source === "kitsu" ||
+      stored?.customMetadata?.source === "mal" ||
+      (resolvedCandidates.some((url) =>
+        ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
+      ) &&
+        !allAnnictCandidates.some((url) =>
+          ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
+        )));
   const storedResponse = () =>
     stored
       ? imageResponse(
@@ -314,11 +358,8 @@ export async function serveWorkImage(
     candidates.some((url) =>
       ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
     );
-  // 'blocked' の行は、Annict の画像から取り込み直したキー（候補と一致する
-  // もの）だけを配信する。削除スクリプトは行を 'blocked' にしてから R2 を
-  // 消すので、その間に残っている MAL 画像のキーは配信しない。
-  // キーの掃除（DB から外す・R2 から消す）も削除スクリプトに任せる。
-  const storedServable = !blocked || keyMatchesCandidate;
+  // 'blocked' の行は補完画像を配信しない。キーの掃除は削除スクリプトに任せる。
+  const storedServable = !blocked && storedFromFallback;
   if (stored && ownKey && storedServable) {
     // 候補が 1 つも無い（上流の画像が消えた）場合は、無いよりマシなので
     // 取り込み済みの画像を返し続ける。
@@ -328,12 +369,46 @@ export async function serveWorkImage(
     if (isFresh || inCooldown) return storedResponse();
   }
 
+  // --- 検証済み Annict URL の記録 ---
+  // Annict 画像は R2 に置かず、検証できた元 URL のキーだけを image_r2_key に
+  // 残す。キーのハッシュが今の Annict 候補と一致する行は「その URL へ誘導
+  // してよい」記録なので、外部を叩き直さずリダイレクトする。同じキーに旧式の
+  // Annict オブジェクトが残っている行も同じ判定で誘導する（そのオブジェクトは
+  // 取得元が Annict と確定しているため配信・削除はせず、後片付けは
+  // ルールブックの手順に任せる）。
+  // 記録が古い（REVERIFY 超過）か、記録後に補完 URL が更新されている
+  // （resolved_at > attempted_at）場合は優先度の高い補完から取り直す。
+  const verifiedAnnictUrl =
+    ownKey != null
+      ? annictCandidates.find((url) =>
+          ownKey.startsWith(`${workImageKeyPrefix(annictWorkId, url)}.`),
+        )
+      : undefined;
+  const annictVerifyStale =
+    row.imageR2AttemptedAt == null ||
+    now.getTime() - row.imageR2AttemptedAt.getTime() >=
+      ANNICT_URL_REVERIFY_AFTER_MS;
+  const resolvedUpdatedAfterVerify =
+    row.resolvedAt != null &&
+    row.imageR2AttemptedAt != null &&
+    row.resolvedAt.getTime() > row.imageR2AttemptedAt.getTime();
+  if (
+    verifiedAnnictUrl &&
+    !annictVerifyStale &&
+    !(resolvedUpdatedAfterVerify && resolvedCandidates.length > 0)
+  ) {
+    return redirectToSource(verifiedAnnictUrl);
+  }
+
   // --- クールダウン（直近に全候補が失敗した作品は外部を叩かない） ---
   // キーだけ残ってオブジェクトが消えている行はクールダウンに関わらず
   // 取り込みを試す（失敗すれば末尾でキーを外して試行時刻を立てるので、
-  // 次回以降はここで止まる）。
-  // 'blocked' の行に残った MAL 画像（配信しない）も、取り込み済みが無い
-  // ものとしてクールダウンに従う。
+  // 次回以降はここで止まる）。Annict URL の検証記録もオブジェクトが無い
+  // 点では同じで、古い記録はここを通って再検証される。
+  // 逆にオブジェクトが残るが配信できない行（'blocked' の残りや
+  // 取得元不明の旧画像）は、オブジェクトが取り除かれるまで状態が
+  // 変わらないため、クールダウンで止める（止めないと失敗した
+  // Annict URL へ表示のたびに外部 fetch が繰り返される）。
   if (
     inCooldown &&
     ((!stored && !ownKey) || (stored != null && !storedServable))
@@ -353,20 +428,17 @@ export async function serveWorkImage(
     return null;
   };
 
-  let hit = await tryCandidates(candidates);
+  let hit = await tryCandidates(resolvedCandidates);
 
   // --- 3. 全滅なら Kitsu で補完 URL を引き直す ---
-  // Annict の URL が「見た目はまとも・実体は 404」の作品は、検索経路でも cron
-  // でも補完対象にならない（placeholder 判定は URL 文字列しか見ない）。
+  // Annict の URL が「見た目はまとも・実体は 404」の作品も先に補完を試す。
   // また Kitsu の新しい作品は 15 分で失効する署名付き URL を resolvedImageUrl
   // に持つため、解決済みでも URL が死んでいる作品がある。実際に取れなかった
   // ことが分かったここで MAL ID（無ければ Kitsu 作品 ID。issue #227 の
   // タイトル検索で採った行）から Kitsu を 1 回引き直し、得た新しい URL を
   // その場で取り込む（R2 に入れば以後は失効しても関係ない）。
   // 'none'（Kitsu にも無いことが確定済み）は TTL 内なら引き直さない。
-  // TTL 切れならここでも 1 回引き直す — 'none' 確定後に Annict 側の URL が
-  // 「見た目は正常だが実体は 404」に更新された作品は cron の pending 対象外
-  // （非 placeholder URL は対象外）のため、ここが唯一の拾い直し経路になる。
+  // TTL 切れならここでも 1 回引き直す。
   // 再解決結果は確定済みの 'none' を含めて書き戻し、resolvedAt を起点に
   // 次の再解決を TTL 分先送りする（cron と同じ扱い）。
   // 'blocked'（削除依頼で画像を消した作品。issue #241）は引き直さない。
@@ -407,7 +479,7 @@ export async function serveWorkImage(
       if (resolved.resolvedImageUrl) {
         hit = await tryCandidates(
           workImageSourceCandidates({
-            imageUrl: row.imageUrl,
+            imageUrl: null,
             resolvedImageUrl: resolved.resolvedImageUrl,
           }),
         );
@@ -415,13 +487,47 @@ export async function serveWorkImage(
     }
   }
 
+  if (!hit && stored && storedServable) {
+    await repo.markImageR2Attempted(annictWorkId, now);
+    return storedResponse();
+  }
+  // 補完が取れなければ検証済みの Annict URL へ誘導する。今回の補完試行を
+  // 記録しておかないと、記録後に補完 URL が更新された行は表示のたびに
+  // 補完を取り直してしまう。
+  if (!hit && verifiedAnnictUrl && !annictVerifyStale) {
+    await repo.markImageR2Attempted(annictWorkId, now);
+    return redirectToSource(verifiedAnnictUrl);
+  }
+  if (!hit) hit = await tryCandidates(annictCandidates);
+
+  if (hit && annictCandidates.includes(hit.url)) {
+    // 元 URL が画像として取得できたので、検証済みとしてキーだけを記録して
+    // 誘導する（Annict 画像は R2 に保存しない）。記録に失敗しても
+    // （取り込み中に行が 'blocked' 等へ変わった場合）リダイレクトは返す。
+    await repo.linkImageR2Key(
+      annictWorkId,
+      workImageKey(annictWorkId, hit.url, hit.image.ext),
+      now,
+      resolvedSource ?? null,
+    );
+    return redirectToSource(hit.url);
+  }
+
   if (!hit) {
     if (stored && !storedServable) {
-      // 'blocked' の行に残った MAL 画像。配信せず、キーも削除スクリプトに任せる。
-      await repo.markImageR2Attempted(annictWorkId, now);
+      // 取得元が確認できない旧画像は配信も削除もしない。
+      // キーが検証済み Annict URL の記録だった場合、再検証に失敗した
+      // ことになるので記録は外す（残したまま試行時刻だけ立てると、
+      // 失敗した時刻が検証期限を延ばして死んだ URL へ誘導し続ける）。
+      // 残ったオブジェクトの後片付けはルールブックの手順で行う。
+      if (verifiedAnnictUrl != null) {
+        await repo.updateImageR2Key(annictWorkId, null, now);
+      } else {
+        await repo.markImageR2Attempted(annictWorkId, now);
+      }
       return notFound();
     }
-    if (stored) {
+    if (stored && storedServable) {
       // 取り込み直しに失敗しただけなら、古い画像を返し続ける。
       await repo.markImageR2Attempted(annictWorkId, now);
       return storedResponse();
@@ -440,6 +546,10 @@ export async function serveWorkImage(
   const key = workImageKey(annictWorkId, hit.url, hit.image.ext);
   await bucket.put(key, hit.image.data, {
     httpMetadata: { contentType: hit.image.contentType },
+    customMetadata:
+      resolvedSource === "mal" || resolvedSource === "kitsu"
+        ? { source: resolvedSource }
+        : {},
   });
   // 取り込み中に削除スクリプトが行を 'blocked' にしていたら（issue #241）、
   // キーを書き戻さず、置いたオブジェクトも消して配信しない。
@@ -455,7 +565,7 @@ export async function serveWorkImage(
   }
   // 取り込み元が変わって残った旧オブジェクトは消す（参照されないゴミを増やさない）。
   // 消すのはこの作品自身のキーだけ（別作品のオブジェクトには触れない）。
-  if (ownKey && ownKey !== key) {
+  if (ownKey && ownKey !== key && storedServable) {
     await bucket.delete(ownKey).catch(() => {});
   }
   return imageResponse(hit.image.data, hit.image.contentType, {

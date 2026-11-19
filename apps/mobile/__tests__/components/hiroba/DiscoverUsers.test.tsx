@@ -3,12 +3,13 @@
 // いいね操作・自分の名刺ではいいねボタンが無効になること・
 // 通報シートを確かめる（作品リストフィードと同じ振る舞い）。
 import React from "react";
+import { View } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { DiscoverUsers } from "@/components/hiroba/DiscoverUsers";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
 
-const mockMeishiCard = jest.fn((_props: unknown) => null);
+const mockMeishiCard = jest.fn((_props: unknown): React.ReactNode => null);
 jest.mock("@/components/MeishiCard", () => ({
   MeishiCard: (props: unknown) => mockMeishiCard(props),
 }));
@@ -39,6 +40,7 @@ type Item = {
   profileImageUrl: string | null;
   bio: string | null;
   favoriteQuote: string | null;
+  meishiSnapshotUrl: string | null;
   genres: string[];
   likeCount: number;
   likedByMe: boolean;
@@ -52,6 +54,7 @@ function publicItem(id: string, over: Partial<Item> = {}): Item {
     profileImageUrl: null,
     bio: "アニメ好きです",
     favoriteQuote: null,
+    meishiSnapshotUrl: null,
     genres: ["SF", "アクション"],
     likeCount: 10,
     likedByMe: false,
@@ -89,9 +92,17 @@ jest.mock("@/lib/useReportUserFlow", () => ({
   }),
 }));
 
+// 公開スナップショットは expo-image（ネイティブビュー名が ExpoImage で終わる
+// ホスト）で読む（issue #591 第 2 段階）。
+const findExpoImages = () =>
+  screen.container.queryAll(
+    (node) => typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+  );
+
 beforeEach(() => {
   resetAuth();
   jest.clearAllMocks();
+  mockMeishiCard.mockImplementation(() => null);
   loggedInUser();
   mockItems = [publicItem("other-user")];
   mockLoading = false;
@@ -129,6 +140,58 @@ describe("DiscoverUsers", () => {
       }),
     );
     expect(screen.getByText("42")).toBeTruthy();
+  });
+
+  it("スナップショット URL があるカードは画像を読み、読了で classic 名刺と入れ替わる", async () => {
+    mockMeishiCard.mockImplementation(() => (
+      <View testID="meishi-card-fallback" />
+    ));
+    const url =
+      "https://api.example.com/me/meishi-assets/meishi-assets/u-1/public-snapshot.png?v=1";
+    mockItems = [publicItem("u-1", { meishiSnapshotUrl: url })];
+    await render(<DiscoverUsers />);
+
+    // 読み込み中は classic 名刺（フォールバック）を出しつつ裏で画像を読む
+    expect(screen.getByTestId("meishi-card-fallback")).toBeTruthy();
+    const images = findExpoImages();
+    expect(images).toHaveLength(1);
+    expect(images[0].props.source).toEqual([{ uri: url }]);
+
+    // 読み込みが終わるとスナップショット画像に切り替わる
+    await fireEvent(images[0], "onLoad", {
+      nativeEvent: { source: { width: 1280, height: 824 } },
+    });
+    expect(screen.queryByTestId("meishi-card-fallback")).toBeNull();
+    expect(findExpoImages()).toHaveLength(1);
+  });
+
+  it("スナップショットの読み込みに失敗したら classic 名刺のままにする", async () => {
+    mockMeishiCard.mockImplementation(() => (
+      <View testID="meishi-card-fallback" />
+    ));
+    mockItems = [
+      publicItem("u-1", {
+        meishiSnapshotUrl: "https://api.example.com/broken.png",
+      }),
+    ];
+    await render(<DiscoverUsers />);
+
+    await fireEvent(findExpoImages()[0], "onError", { nativeEvent: {} });
+
+    expect(screen.getByTestId("meishi-card-fallback")).toBeTruthy();
+    expect(findExpoImages()).toHaveLength(0);
+  });
+
+  it("スナップショット URL が無いカードは画像を読まず classic 名刺だけを出す", async () => {
+    mockMeishiCard.mockImplementation(() => (
+      <View testID="meishi-card-fallback" />
+    ));
+    mockItems = [publicItem("u-1", { meishiSnapshotUrl: null })];
+    await render(<DiscoverUsers />);
+
+    expect(screen.getByTestId("meishi-card-fallback")).toBeTruthy();
+    expect(findExpoImages()).toHaveLength(0);
+    expect(screen.queryByTestId("public-user-snapshot-u-1")).toBeNull();
   });
 
   it("名刺の下にジャンルを補助情報として出す", async () => {

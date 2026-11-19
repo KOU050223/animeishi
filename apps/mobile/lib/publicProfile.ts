@@ -20,6 +20,9 @@ export type PublicProfile = {
   bio: string | null;
   favoriteQuote: string | null;
   profileImageUrl: string | null;
+  // 既定の名刺の公開スナップショット（issue #593）。未作成なら null。
+  // ?v= に版が入るため、再生成されると URL ごと変わる。
+  meishiSnapshotUrl: string | null;
   genres: string[];
   nowWatching: NowWatching | null;
 };

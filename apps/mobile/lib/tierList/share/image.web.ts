@@ -23,18 +23,16 @@ function buildImageProxyUrl(imageUrl: string): string {
 
 /**
  * API 自身が配信し CORS 付きで返す画像のパス接頭辞。
- * - /images/...: 取り込み済み作品画像（issue #174）
  * - /me/profile/avatar/...: プロフィールのアバター（名刺の本人画像、issue #425）
  * - /me/meishi-assets/...: 名刺エディタからアップロードした画像（issue #425）
  * これらは CORS 付きで配信されるためプロキシ不要。それどころか image-proxy の
  * known-URL 照合（annict_works / annict_characters の画像カラム照合）を通らず
  * 403 になるので、ここで弾いてそのまま使う。
+ * /images/works/:id は含めない。Annict 由来のとき元 URL への 302 を返し
+ * （issue #636）、最終応答が CORS 無しの外部オリジンになると html-to-image が
+ * 取り込めないため、image-proxy 経由に差し替える対象にする。
  */
-const API_HOSTED_IMAGE_PATHS = [
-  "/images/",
-  "/me/profile/avatar/",
-  "/me/meishi-assets/",
-];
+const API_HOSTED_IMAGE_PATHS = ["/me/profile/avatar/", "/me/meishi-assets/"];
 
 function isApiHostedImageUrl(src: string): boolean {
   try {
@@ -117,7 +115,7 @@ export const captureTierListImageFile: CaptureTierListImageFile = async (
       const src = img.getAttribute("src") ?? "";
       // data:/blob: や既にプロキシ済みの URL はそのまま使える
       if (!/^https?:\/\//i.test(src)) return;
-      // API 配信の取り込み済み画像は CORS 付きなのでそのまま使える
+      // API 配信の画像（アバター等）は CORS 付きなのでそのまま使える
       if (isApiHostedImageUrl(src)) return;
       img.src = buildImageProxyUrl(src);
       if (!(await waitForImage(img))) img.remove();
