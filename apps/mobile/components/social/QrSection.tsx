@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   StyleSheet,
   type ViewInstance,
 } from "react-native";
@@ -250,16 +251,16 @@ function GenerateView() {
           <Text className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">
             {t("渡す名刺")}
           </Text>
-          <ScrollView
+          <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerClassName="gap-2"
-          >
-            {meishiCards.map((card) => {
+            data={meishiCards}
+            keyExtractor={(card) => card.id}
+            renderItem={({ item: card }) => {
               const active = card.id === displayCard?.id;
               return (
                 <TouchableOpacity
-                  key={card.id}
                   className={`rounded-full border px-3 py-1.5 ${
                     active
                       ? "border-indigo-600 bg-indigo-600"
@@ -287,8 +288,8 @@ function GenerateView() {
                   </Text>
                 </TouchableOpacity>
               );
-            })}
-          </ScrollView>
+            }}
+          />
         </View>
       ) : null}
       {/* QR コードは読み取り精度のため常に白いカードに描画する

@@ -75,7 +75,7 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
             onPress={() =>
               router.push({
                 pathname: "/(tabs)/hiroba",
-                params: { section: "discover" },
+                params: { section: "discover", target: "users" },
               })
             }
             accessibilityRole="button"

@@ -57,7 +57,7 @@ describe("ScanFallback (Web)", () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/(tabs)/hiroba",
-      params: { section: "discover" },
+      params: { section: "discover", target: "users" },
     });
   });
 });
