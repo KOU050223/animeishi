@@ -12,6 +12,7 @@ import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -190,6 +191,17 @@ function PublicUserCard({
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const fallbackCard = (
+    <MeishiCard
+      username={item.username}
+      bio={item.bio}
+      favoriteQuote={item.favoriteQuote}
+      profileImageUrl={item.profileImageUrl}
+      profileUrl={buildProfileUrl(item.id)}
+      profileOnly
+      hideUnsetFields
+    />
+  );
   return (
     <View
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
@@ -203,14 +215,13 @@ function PublicUserCard({
         })}
         testID={`public-user-open-${item.id}`}
       >
-        <MeishiCard
-          username={item.username}
-          bio={item.bio}
-          favoriteQuote={item.favoriteQuote}
-          profileImageUrl={item.profileImageUrl}
-          profileUrl={buildProfileUrl(item.id)}
-          profileOnly
-          hideUnsetFields
+        {/* エディタで作った既定名刺の公開スナップショットがあればそれを出す。
+            未作成・読み込み中・失敗は classic テンプレにフォールバックする
+            （issue #591 第 2 段階）。 */}
+        <MeishiSnapshotImage
+          uri={item.meishiSnapshotUrl}
+          testID={`public-user-snapshot-${item.id}`}
+          fallback={fallbackCard}
         />
       </TouchableOpacity>
       {/* 名刺には載らない補助情報として、PR #621 で消えたジャンルを
