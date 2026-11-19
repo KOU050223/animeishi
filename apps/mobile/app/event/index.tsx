@@ -56,7 +56,10 @@ export default function EventListScreen() {
           ),
         }}
       />
-      {list.isLoading ? (
+      {/* 取得前（オフライン等で pending のまま）はローディングにする。
+          isLoading だと pending であっても false になり、未取得のまま
+          空状態を出してしまうため isPending で判定する。 */}
+      {list.isPending ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.textMuted} />
         </View>
