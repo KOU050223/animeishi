@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -105,6 +106,7 @@ type StatusUndoToast = {
 export function WatchHistorySection() {
   const router = useRouter();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   // 「リストに追加」シートの対象作品（issue #379）。
   const [listTarget, setListTarget] = useState<WatchHistoryItem | null>(null);
@@ -414,8 +416,11 @@ export function WatchHistorySection() {
         data={visible}
         numColumns={grid.numColumns}
         keyExtractor={(item) => String(item.annictWorkId)}
+        // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{
-          paddingBottom: 32,
+          paddingBottom: 32 + insets.bottom,
           ...(isGrid ? { alignItems: "center" as const } : null),
         }}
         columnWrapperStyle={

@@ -18,6 +18,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
@@ -46,6 +47,7 @@ export function FavoritesSection() {
 
   const { data: favorites, isLoading, isError, refetch } = useFavorites();
   const remove = useRemoveFavorite();
+  const insets = useSafeAreaInsets();
 
   const filtered = useMemo(() => {
     const trimmed = query.trim();
@@ -178,8 +180,12 @@ export function FavoritesSection() {
         data={enriched}
         numColumns={grid.numColumns}
         keyExtractor={(item) => String(item.favorite.annictWorkId)}
+        // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: 32 + insets.bottom },
           isGrid && { paddingHorizontal: 0, alignItems: "center" },
         ]}
         columnWrapperStyle={
