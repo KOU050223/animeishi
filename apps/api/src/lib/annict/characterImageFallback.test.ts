@@ -145,6 +145,19 @@ describe("matchCharacterImages", () => {
     expect(result.get(1)).toBe("https://img.example/ab.png");
   });
 
+  it("直接候補（nameKana・nameEn 含む）をすべて試してから入れ替え候補を試す", () => {
+    // name の入れ替え形「太郎 山田」に別キャラが居ても、nameEn の直接一致が
+    // 先に当たる。入れ替え候補を各名前の直後に試すと「B A 順の別キャラ」に
+    // 誤割当する（PR #643 の Devin Review 指摘）。
+    const correct = kitsu(["Taro Yamada"], "https://img.example/taro.png");
+    const decoy = kitsu(["太郎 山田"], "https://img.example/decoy.png");
+    const result = matchCharacterImages(
+      [annict(1, "山田 太郎", null, "Taro Yamada")],
+      [correct, decoy],
+    );
+    expect(result.get(1)).toBe("https://img.example/taro.png");
+  });
+
   it("「本名（通称）」表記は括弧を外した名前でも一致する", () => {
     const result = matchCharacterImages(
       [annict(1, "桜内梨子（りこちゃん）")],

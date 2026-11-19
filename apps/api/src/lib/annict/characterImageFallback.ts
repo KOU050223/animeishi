@@ -248,28 +248,29 @@ export function normalizeCharacterName(name: string): string {
  * （Annict 側の候補生成だけに使う。Kitsu 側に足すと「A B」と「B A」の
  * 両方がいる作品で新たに ambiguous 衝突が起き、Annict 側だけでも
  * 両方向の順序差は拾えるため）。
+ * 返す候補は「全ての直接候補 → 全ての入れ替え候補」の順。入れ替えを
+ * 先に試すと、nameKana / nameEn 等で正しく一致できるキャラが
+ * 「B A 順で登録された別キャラ」に誤割当されうるため。
  */
 function nameCandidates(
   rawNames: string[],
   options: { includeOrderSwapped?: boolean } = {},
 ): string[] {
-  const out = new Set<string>();
-  const add = (raw: string) => {
-    const normalized = normalizeCharacterName(raw);
-    if (normalized) out.add(normalized);
-    if (options.includeOrderSwapped) {
-      const swapped = orderSwappedName(raw);
-      if (swapped) {
-        const normalizedSwapped = normalizeCharacterName(swapped);
-        if (normalizedSwapped) out.add(normalizedSwapped);
+  const direct = new Set<string>();
+  const swapped = new Set<string>();
+  for (const raw of rawNames) {
+    for (const variant of [raw, raw.replace(/[(（][^)）]*[)）]/g, "")]) {
+      const normalized = normalizeCharacterName(variant);
+      if (normalized) direct.add(normalized);
+      const orderSwapped = orderSwappedName(variant);
+      if (orderSwapped) {
+        const normalizedSwapped = normalizeCharacterName(orderSwapped);
+        if (normalizedSwapped) swapped.add(normalizedSwapped);
       }
     }
-  };
-  for (const raw of rawNames) {
-    add(raw);
-    add(raw.replace(/[(（][^)）]*[)）]/g, ""));
   }
-  return [...out];
+  if (!options.includeOrderSwapped) return [...direct];
+  return [...direct, ...[...swapped].filter((key) => !direct.has(key))];
 }
 
 /**
