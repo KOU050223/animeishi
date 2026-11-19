@@ -283,9 +283,11 @@ URL が後で変わったものや、DB から参照が外れた孤立オブジ�
 NULL にしても、次回の配信時に再検証されて同じ記録が戻るだけなので害はない。
 
 1. 本番 D1 の `annict_works` で `annict_work_id`, `image_url`,
-   `resolved_image_url`, `image_r2_key` を確認し、Annict URL のハッシュと
-   `image_r2_key` が一致する対象だけを控える。R2 のオブジェクトの
-   `customMetadata.source` が `kitsu` / `mal` なら削除対象から外す。
+   `resolved_image_url`, `image_r2_key` を確認し、`image_url` のハッシュから
+   計算したキーに一致する R2 オブジェクトを控える。再検証に失敗した作品は
+   `image_r2_key` が NULL でもオブジェクトが残りうるため、キーの一致だけで
+   判断しない。`customMetadata.source` が `kitsu` / `mal` のオブジェクトは
+   削除対象から外す。
 2. 対象 ID・キーを記録してから `wrangler r2 object delete` で該当キーのみ削除する。
    `images:takedown` の R2 バケット指定・キー形式の検証を参照する。
 3. 削除に成功したキーだけ、`WHERE annict_work_id = <ID> AND image_r2_key =

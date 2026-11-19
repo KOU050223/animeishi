@@ -405,7 +405,14 @@ export async function serveWorkImage(
   // 取り込みを試す（失敗すれば末尾でキーを外して試行時刻を立てるので、
   // 次回以降はここで止まる）。Annict URL の検証記録もオブジェクトが無い
   // 点では同じで、古い記録はここを通って再検証される。
-  if (inCooldown && !stored && !ownKey) {
+  // 逆にオブジェクトが残るが配信できない行（'blocked' の残りや
+  // 取得元不明の旧画像）は、オブジェクトが取り除かれるまで状態が
+  // 変わらないため、クールダウンで止める（止めないと失敗した
+  // Annict URL へ表示のたびに外部 fetch が繰り返される）。
+  if (
+    inCooldown &&
+    ((!stored && !ownKey) || (stored != null && !storedServable))
+  ) {
     return notFound();
   }
 
@@ -509,7 +516,15 @@ export async function serveWorkImage(
   if (!hit) {
     if (stored && !storedServable) {
       // 取得元が確認できない旧画像は配信も削除もしない。
-      await repo.markImageR2Attempted(annictWorkId, now);
+      // キーが検証済み Annict URL の記録だった場合、再検証に失敗した
+      // ことになるので記録は外す（残したまま試行時刻だけ立てると、
+      // 失敗した時刻が検証期限を延ばして死んだ URL へ誘導し続ける）。
+      // 残ったオブジェクトの後片付けはルールブックの手順で行う。
+      if (verifiedAnnictUrl != null) {
+        await repo.updateImageR2Key(annictWorkId, null, now);
+      } else {
+        await repo.markImageR2Attempted(annictWorkId, now);
+      }
       return notFound();
     }
     if (stored && storedServable) {

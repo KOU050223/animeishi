@@ -99,21 +99,15 @@ export async function proxyImage(
   } catch {
     return c.json({ error: "Invalid url" }, 400);
   }
-  if (target.protocol !== "https:") {
-    return c.json({ error: "Only https URLs are allowed" }, 400);
-  }
-  // 画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
-  // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
-  // （SSRF 対策、Devin Review 指摘）。
-  if (!isPublicImageUrl(target.toString())) {
-    return c.json({ error: "Only public https URLs are allowed" }, 400);
-  }
 
   // 自前の作品画像 URL（同一オリジンの /images/works/:id）は、Annict 由来の
   // とき元 URL への 302 を返す（issue #636）。遷移先は検証済み Annict URL の
   // 記録で DB の画像カラムと一致しないことがあり、known-URL 照合を通らない。
   // そのため配信ロジックで内部解決して中継先を確定する。R2 の画像が返れば
   // そのまま中継し、302 なら誘導先（検証済みの公開 URL）を中継対象にする。
+  // 外部取得向けのスキーム・公開ホスト検証より先に行う。自前の配信は
+  // ローカル開発（http://localhost:8787）でも動かす必要があり、
+  // 解決後の中継先には引き続き同じ検証を掛けるため。
   let resolvedInternally = false;
   const workImageMatch = /^\/images\/works\/(\d+)$/.exec(target.pathname);
   if (
@@ -139,6 +133,15 @@ export async function proxyImage(
     resolvedInternally = true;
   }
 
+  if (target.protocol !== "https:") {
+    return c.json({ error: "Only https URLs are allowed" }, 400);
+  }
+  // 画像 CDN は https の公開ホストのみ。内部宛先（IP リテラル・
+  // localhost 系・標準外ポート）を指す既知 URL が紛れていても fetch しない
+  // （SSRF 対策、Devin Review 指摘）。
+  if (!isPublicImageUrl(target.toString())) {
+    return c.json({ error: "Only public https URLs are allowed" }, 400);
+  }
   if (!resolvedInternally && !(await isKnownImageUrl(db, target.toString()))) {
     return c.json({ error: "Image URL is not a known image" }, 403);
   }

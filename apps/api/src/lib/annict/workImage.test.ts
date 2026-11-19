@@ -241,6 +241,61 @@ describe("serveWorkImage", () => {
     expect((await getWork(db)).imageR2Key).toBeNull();
   });
 
+  it("旧オブジェクトが残る行で再検証に失敗したら記録を外し、以後は誘導しない", async () => {
+    // オブジェクトがあると「キーだけ残った行」の掃除分岐に入らず、
+    // 記録を残したまま試行時刻だけ立てると、失敗した時刻が検証期限を
+    // 延ばして死んだ URL へ 302 を返し続ける（Devin Review 指摘）。
+    const source = "https://img.example.com/annict.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: key,
+      imageR2AttemptedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    const fetchImpl = routeFetch({});
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect((await getWork(db)).imageR2Key).toBeNull();
+    // オブジェクト自体は後片付けまで残す
+    expect(await env.AVATARS.get(key)).not.toBeNull();
+
+    // 2 回目以降はクールダウンで外部を叩かず 404 のまま。
+    // （死んだ URL への 302 復活が無いことの回帰確認）
+    const second = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+    expect(second.status).toBe(404);
+  });
+
+  it("blocked 行にオブジェクトが残っていてもクールダウン中は外部を叩かない", async () => {
+    // 削除スクリプトが R2 削除に失敗してオブジェクトを残した行では、
+    // クールダウン中も失敗した Annict URL へ再 fetch が繰り返される
+    // （Devin Review 指摘）。配信できないオブジェクトが残る行も
+    // クールダウン対象に含める。
+    const annict = "https://img.example.com/poster.png";
+    const malKey = "works/1/deadbeef.jpg";
+    await env.AVATARS.put(malKey, PNG_BYTES, {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+    await insertWork(db, {
+      imageUrl: annict,
+      imageSource: "blocked",
+      imageR2Key: malKey,
+      imageR2AttemptedAt: new Date(),
+    });
+    const fetchImpl = vi.fn();
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("検証記録後に補完 URL が更新された作品は補完を優先して R2 に保存する", async () => {
     const source = "https://img.example.com/annict.png";
     const cover = "https://media.kitsu.app/cover.png";

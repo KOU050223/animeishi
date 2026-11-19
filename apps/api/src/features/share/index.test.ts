@@ -1198,6 +1198,30 @@ describe("GET /share/image-proxy", () => {
     );
     expect(res.status).toBe(502);
   });
+
+  it("http のローカル API でも自前の作品画像 URL は内部解決して中継する", async () => {
+    // ローカル開発（http://localhost:8787）の Web 共有でも作品画像が
+    // 欠けないよう、同一オリジンの /images/works/:id は外部取得向けの
+    // https・公開ホスト検証より先に内部解決する（Devin Review 指摘）。
+    const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(imageBytes, {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        }),
+    );
+    const app = buildProxyApp();
+    const selfUrl = "http://localhost:8787/images/works/9001";
+    const res = await app.request(
+      `http://localhost:8787/share/image-proxy?url=${encodeURIComponent(selfUrl)}`,
+      {},
+      { ...TEST_BINDINGS, AVATARS: env.AVATARS },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(fetchMock).toHaveBeenCalledWith(KNOWN_IMAGE_URL, expect.anything());
+  });
 });
 
 describe("視聴履歴の共有", () => {
