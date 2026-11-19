@@ -410,9 +410,7 @@ export default function CustomTierListScreen() {
   // 共通処理（シーズン版と同じ流れ）。
   // useCallback 内で t を呼ぶと react/memo-dependencies が deps を余剰と
   // 誤検知するため、文言は ref 経由で最新を参照する（saveTierListDataRef と同じ形）
-  const snapshotRenderFailedMessageRef = useRef(
-    t("スナップショットの描画に失敗しました"),
-  );
+  const snapshotRenderFailedMessageRef = useRef("");
   useEffect(() => {
     snapshotRenderFailedMessageRef.current = t(
       "スナップショットの描画に失敗しました",
