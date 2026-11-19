@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -38,7 +37,7 @@ import {
   AddToWorkListButton,
   AddToWorkListSheet,
 } from "@/components/work-list";
-import { useThemeColors } from "@/lib/theme";
+import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import {
   NO_WATCH_HISTORY_FILTERS,
   WATCH_HISTORY_SORT_KEYS,
@@ -95,7 +94,6 @@ type StatusUndoToast = {
 // ここではセクション名の見出しを出さず件数と操作だけを表示する。
 export function WatchHistorySection() {
   const router = useRouter();
-  const colors = useThemeColors();
   const { t } = useTranslation();
   const [refreshing, setRefreshing] = useState(false);
   // 「リストに追加」シートの対象作品（issue #379）。
@@ -337,8 +335,8 @@ export function WatchHistorySection() {
   // 連携状態の確定前はスピナー（未連携かどうかが分かるまで履歴 UI を出さない）。
   if (isConnectionLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View className="flex-1 bg-white dark:bg-slate-900">
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
@@ -358,13 +356,13 @@ export function WatchHistorySection() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View className="flex-1 bg-white dark:bg-slate-900">
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
 
-  if (isError) {
+  if (isError && !histories) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">

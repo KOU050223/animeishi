@@ -58,6 +58,7 @@ type PublicUserItem = {
   id: string;
   username: string;
   bio: string | null;
+  favoriteQuote: string | null;
   genres: string[];
   likeCount: number;
   likedByMe: boolean;
@@ -83,6 +84,7 @@ describe("公開名刺 API", () => {
         id: OTHER_USER_ID,
         username: "名刺の人",
         bio: "アニメ好きです",
+        favoriteQuote: "好きなセリフ",
         isPublic: true,
         createdAt: now,
         updatedAt: now,
@@ -135,6 +137,10 @@ describe("公開名刺 API", () => {
       const other = body.items.find((i) => i.id === OTHER_USER_ID);
       expect(other?.username).toBe("名刺の人");
       expect(other?.bio).toBe("アニメ好きです");
+      expect(other?.favoriteQuote).toBe("好きなセリフ");
+      expect(
+        body.items.find((i) => i.id === THIRD_USER_ID)?.favoriteQuote,
+      ).toBeNull();
       // genres は genre 名の昇順（BINARY 照合）で返る
       expect(other?.genres).toEqual(["SF", "アクション"]);
       expect(other?.likedByMe).toBe(false);

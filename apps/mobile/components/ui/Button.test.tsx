@@ -30,6 +30,26 @@ describe("Button", () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
+  it("disabled のときはグレー面に差し替わる", async () => {
+    await render(
+      <Button label="保存" onPress={jest.fn()} disabled testID="button" />,
+    );
+
+    const button = screen.getByTestId("button");
+    expect(button.props.className).toContain("bg-slate-200");
+    expect(button.props.className).not.toContain("bg-indigo-600");
+  });
+
+  it("loading 中は variant の面のままインジケータを出す", async () => {
+    await render(
+      <Button label="保存" onPress={jest.fn()} loading testID="button" />,
+    );
+
+    const button = screen.getByTestId("button");
+    expect(button.props.className).toContain("bg-indigo-600");
+    expect(button.props.className).not.toContain("bg-slate-200");
+  });
+
   it("loading 中はラベルの代わりにインジケータを出しタップを無効化する", async () => {
     const onPress = jest.fn();
     await render(

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { Image } from "expo-image";
+import { Image, type ImageLoadEventData } from "expo-image";
 import { apiUrl } from "@/lib/apiUrl";
 
 // 作品画像の表示に共通で使う expo-image のラッパー（issue #222 / #224）。
@@ -11,7 +11,8 @@ import { apiUrl } from "@/lib/apiUrl";
 // プロキシは Annict / Kitsu / MAL の候補を取り込んで配信するので、
 // 読み込みに失敗した作品は外部 URL に切り替えても表示できない。
 // そのため失敗したらすぐ placeholder に切り替える。
-// 読み込み中も同じ placeholder を下に敷き、画像が上にフェードインする。
+// 読み込み中は loadingPlaceholder（省略時は placeholder）を下に敷き、
+// 画像が上にフェードインする。
 
 /** 一覧に出す画像のフェードイン時間（ms）。 */
 const DEFAULT_TRANSITION_MS = 200;
@@ -44,20 +45,32 @@ export function WorkImage({
   uri,
   style,
   placeholder,
+  loadingPlaceholder,
   accessibilityLabel,
   transition = DEFAULT_TRANSITION_MS,
   onLoadEnd,
+  onLoad,
 }: {
   uri: string | null | undefined;
   /** 画像の枠（幅・高さ・角丸など）。placeholder は同じ大きさで描く前提。 */
   style: StyleProp<ViewStyle>;
-  /** URL が無い・読み込み中・読み込み失敗のときに見せる要素。 */
+  /** URL が無い・読み込み失敗のときに見せる要素。 */
   placeholder: ReactNode;
+  /**
+   * 読み込み中（失敗後の再試行待ちを含む）に画像の下へ敷く要素。
+   * 省略時は placeholder を使う。読み込み中と画像欠落を見分けたい
+   * 一覧だけ指定する（issue #606）。
+   * 読み込みが完了すると placeholder に戻す（スピナー等の動的な
+   * 要素を載せても、不透明になった画像の下で動き続けない）。
+   */
+  loadingPlaceholder?: ReactNode;
   accessibilityLabel?: string;
   /** フェードイン時間（ms）。0 で即時表示。 */
   transition?: number;
   /** 読み込みの成功・失敗どちらでも呼ばれる。 */
   onLoadEnd?: () => void;
+  /** 読み込み成功時に画像の実寸法などを返す。 */
+  onLoad?: (event: ImageLoadEventData) => void;
 }) {
   // 失敗フラグは表示中の URL と組で持ち、URL が変わったら下ろす
   // （A → B → A と戻ったときも A を読み込み直す）。レンダー中の setState は
@@ -67,14 +80,15 @@ export function WorkImage({
     attempt: 0,
     waiting: false,
     failed: false,
+    loaded: false,
   });
   if (state.uri !== uri) {
-    setState({ uri, attempt: 0, waiting: false, failed: false });
+    setState({ uri, attempt: 0, waiting: false, failed: false, loaded: false });
   }
   const current =
     state.uri === uri
       ? state
-      : { uri, attempt: 0, waiting: false, failed: false };
+      : { uri, attempt: 0, waiting: false, failed: false, loaded: false };
 
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -100,7 +114,13 @@ export function WorkImage({
 
   const onError = () => {
     if (current.attempt >= RETRY_DELAYS_MS.length) {
-      setState({ uri, attempt: current.attempt, waiting: false, failed: true });
+      setState({
+        uri,
+        attempt: current.attempt,
+        waiting: false,
+        failed: true,
+        loaded: false,
+      });
       return;
     }
     // 待機中は壊れた img 要素を画面に残さない（web で alt+破損アイコンが
@@ -115,6 +135,7 @@ export function WorkImage({
               attempt: s.attempt + 1,
               waiting: false,
               failed: false,
+              loaded: false,
             }
           : s,
       );
@@ -124,12 +145,15 @@ export function WorkImage({
       attempt: current.attempt,
       waiting: true,
       failed: false,
+      loaded: false,
     });
   };
 
   return (
     <View style={[style, styles.frame]}>
-      <View style={StyleSheet.absoluteFill}>{placeholder}</View>
+      <View style={StyleSheet.absoluteFill}>
+        {current.loaded ? placeholder : (loadingPlaceholder ?? placeholder)}
+      </View>
       {current.waiting ? null : (
         <Image
           source={{ uri: retryUri(uri, current.attempt) }}
@@ -143,6 +167,10 @@ export function WorkImage({
           cachePolicy="memory-disk"
           transition={transition}
           onError={onError}
+          onLoad={(event) => {
+            setState((s) => (s.uri === uri ? { ...s, loaded: true } : s));
+            onLoad?.(event);
+          }}
           onLoadEnd={onImageLoadEnd}
           accessibilityLabel={accessibilityLabel}
         />

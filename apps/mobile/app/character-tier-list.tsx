@@ -6,6 +6,7 @@ import {
   View,
   type ViewInstance,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { webUrl } from "@/lib/webUrl";
@@ -68,6 +69,7 @@ export default function CharacterTierListScreen() {
   const router = useRouter();
   const styles = useTierListStyles();
   const colors = useThemeColors();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{
     workId?: string;
     workTitle?: string;
@@ -540,8 +542,9 @@ export default function CharacterTierListScreen() {
           testIDPrefix="character-tier-list"
         />
         <Text style={styles.headerHint}>
-          キャラクターを長押ししてドラッグすると tier を移動できます。tier
-          名はタップで変更できます
+          {t(
+            "キャラクターは作品のキャストから読み込まれます。長押しドラッグで tier を移動でき、tier 名はタップで変更できます",
+          )}
         </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -592,6 +595,11 @@ export default function CharacterTierListScreen() {
             <Text style={styles.centeredText}>保存に失敗しました</Text>
           )}
         </View>
+        <Text style={styles.headerHint}>
+          {t(
+            "「共有」は閲覧用リンクや画像の発行、「保存」は編集内容の保存です",
+          )}
+        </Text>
       </View>
 
       {isCharactersError ? (

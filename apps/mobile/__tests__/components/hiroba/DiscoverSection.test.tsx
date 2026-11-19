@@ -19,6 +19,10 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
 }));
 
+jest.mock("@/components/MeishiCard", () => ({
+  MeishiCard: () => null,
+}));
+
 // BottomSheet はネイティブ実装を描画せず、visible のとき children を出す。
 jest.mock("@/components/ui/bottom-sheet", () => {
   const React = require("react");

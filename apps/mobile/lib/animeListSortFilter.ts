@@ -1,4 +1,5 @@
 import { compareBroadcastSeason } from "./broadcastSeason";
+import { canonicalAnimeGenre } from "./animeGenreTags";
 
 // アニメセクション（ライブラリタブ）のソート・絞り込み（issue #346）。
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。
@@ -89,22 +90,40 @@ export function animeListFilterCount(filters: AnimeListFilters): number {
  * 出さない）。出現するジャンルを件数の多い順（同数は名前順）に並べ、
  * ジャンルが未取得の作品があるときだけ末尾に「不明」を足す。
  */
-export function collectAnimeGenres(items: AnimeListFilterEntry[]): string[] {
+export function collectAnimeGenres(
+  items: AnimeListFilterEntry[],
+  media: AnimeListMedia | null = null,
+  selectedGenres: string[] = [],
+): { key: string; count: number }[] {
   const counts = new Map<string, number>();
-  let hasUnknown = false;
+  let unknownCount = 0;
   for (const item of items) {
+    if (media !== null && item.media !== media) continue;
     if (item.genres == null) {
-      hasUnknown = true;
+      unknownCount += 1;
       continue;
     }
-    for (const genre of item.genres) {
+    for (const genre of new Set(item.genres.map(canonicalAnimeGenre))) {
       counts.set(genre, (counts.get(genre) ?? 0) + 1);
     }
   }
   const sorted = [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "en"))
-    .map(([genre]) => genre);
-  return hasUnknown ? [...sorted, UNKNOWN_GENRE_KEY] : sorted;
+    .map(([key, count]) => ({ key, count }));
+  const selectedWithoutMatches = [
+    ...new Set(selectedGenres.map(canonicalAnimeGenre)),
+  ]
+    .filter((key) => key !== UNKNOWN_GENRE_KEY && !counts.has(key))
+    .map((key) => ({ key, count: 0 }));
+  const showUnknown =
+    unknownCount > 0 || selectedGenres.includes(UNKNOWN_GENRE_KEY);
+  return showUnknown
+    ? [
+        ...sorted,
+        ...selectedWithoutMatches,
+        { key: UNKNOWN_GENRE_KEY, count: unknownCount },
+      ]
+    : [...sorted, ...selectedWithoutMatches];
 }
 
 /** 絞り込みを適用した一覧を返す。フィルタ無効時は入力をそのまま返す。 */
@@ -120,7 +139,7 @@ export function filterAnimeList<T extends AnimeListFilterEntry>(
     // ジャンル未取得（null）は「不明」の選択にだけ一致する。
     // genres=[]（取得済み・供給元にも無い）はどのジャンルにも一致しない。
     if (item.genres == null) return genres.has(UNKNOWN_GENRE_KEY);
-    return item.genres.some((genre) => genres.has(genre));
+    return item.genres.some((genre) => genres.has(canonicalAnimeGenre(genre)));
   });
 }
 

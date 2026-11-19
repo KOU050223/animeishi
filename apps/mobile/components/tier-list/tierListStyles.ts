@@ -164,6 +164,12 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.tierCardFallback,
     },
     cardImageFallbackText: { color: colors.textMuted, fontSize: 20 },
+    // 「画像なし」の明記。60px 幅のカードに収まるサイズにする。
+    cardImageFallbackLabel: {
+      color: colors.textMuted,
+      fontSize: 9,
+      marginTop: 2,
+    },
     cardLabel: {
       height: CARD_LABEL_HEIGHT,
       paddingHorizontal: 2,

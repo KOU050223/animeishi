@@ -59,6 +59,23 @@ describe("WorkThumbnail", () => {
     expect(findImages()[0].props.source).toEqual([{ uri: HOSTED }]);
   });
 
+  it("onLoad は expo-image の onLoad にそのまま渡る", async () => {
+    const onLoad = jest.fn();
+    await render(
+      <WorkImage
+        uri={HOSTED}
+        style={{ width: 48, height: 64 }}
+        placeholder={null}
+        onLoad={onLoad}
+      />,
+    );
+    const event = { nativeEvent: { source: { width: 960, height: 640 } } };
+    await fireEvent(findImages()[0], "onLoad", event);
+    expect(onLoad).toHaveBeenCalledWith(
+      expect.objectContaining({ source: { width: 960, height: 640 } }),
+    );
+  });
+
   it("画像 URL が無ければ最初からプレースホルダー", async () => {
     const { getByText, queryByText } = await render(
       <WorkThumbnail uri={null} title={TITLE} />,

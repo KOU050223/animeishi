@@ -13,6 +13,8 @@ import { ApiRequestError } from "@/lib/apiError";
 const mockRemoveMutateAsync = jest.fn();
 const mockPush = jest.fn();
 const mockAlert = jest.fn();
+let mockFriendsLoading = false;
+let mockFriendsError = false;
 // confirm は「ユーザーが承諾した」として即座に onConfirm を呼ぶ。
 const mockConfirm = jest.fn(
   (
@@ -23,16 +25,18 @@ const mockConfirm = jest.fn(
   ) => onConfirm(),
 );
 
+type MockRequestItem = {
+  id: number;
+  userId: string;
+  username: string;
+  bio: string | null;
+  favoriteQuote: string | null;
+  profileImageUrl: string | null;
+};
+
 let mockRequestsData: {
-  received: {
-    id: number;
-    userId: string;
-    username: string;
-    bio: string | null;
-    favoriteQuote: string | null;
-    profileImageUrl: string | null;
-  }[];
-  sent: unknown[];
+  received: MockRequestItem[];
+  sent: MockRequestItem[];
 } = { received: [], sent: [] };
 
 jest.mock("expo-router", () => ({
@@ -49,8 +53,8 @@ jest.mock("@/lib/useFriends", () => ({
         profileImageUrl: null,
       },
     ],
-    isLoading: false,
-    isError: false,
+    isLoading: mockFriendsLoading,
+    isError: mockFriendsError,
     refetch: jest.fn(),
   }),
   useRemoveFriend: () => ({
@@ -78,12 +82,27 @@ jest.mock("@/lib/dialog", () => ({
 beforeEach(async () => {
   jest.clearAllMocks();
   mockRemoveMutateAsync.mockReset();
+  mockFriendsLoading = false;
+  mockFriendsError = false;
   mockRequestsData = { received: [], sent: [] };
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
 
 describe("FriendsSection", () => {
+  it("初回取得中は一覧のスケルトンを表示する", async () => {
+    mockFriendsLoading = true;
+    await render(<FriendsSection />);
+
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+  });
+
+  it("再取得に失敗しても取得済みのフレンドを表示する", async () => {
+    mockFriendsError = true;
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("友達A")).toBeTruthy();
+  });
   it("削除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
     await render(<FriendsSection />);
     await fireEvent.press(screen.getByLabelText("友達Aをフレンドから削除"));
@@ -105,6 +124,74 @@ describe("FriendsSection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  it("フレンド行をタップすると相手のプロフィールへ進む", async () => {
+    await render(<FriendsSection />);
+    await fireEvent.press(screen.getByTestId("friend-item-friend_1"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "friend_1" },
+    });
+  });
+
+  it("送った申請があると「送ったフレンド申請」に出し、タップで相手のプロフィールへ進む", async () => {
+    mockRequestsData = {
+      received: [],
+      sent: [
+        {
+          id: 5,
+          userId: "addressee_1",
+          username: "申請先C",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+    };
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("送ったフレンド申請")).toBeTruthy();
+    expect(screen.getByText("フレンド申請中")).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByTestId("sent-friend-request-item-addressee_1"),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/user/[uid]",
+      params: { uid: "addressee_1" },
+    });
+  });
+
+  it("届いた申請と送った申請が両方あると両方のグループを出す", async () => {
+    mockRequestsData = {
+      received: [
+        {
+          id: 3,
+          userId: "requester_1",
+          username: "申請者B",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+      sent: [
+        {
+          id: 5,
+          userId: "addressee_1",
+          username: "申請先C",
+          bio: null,
+          favoriteQuote: null,
+          profileImageUrl: null,
+        },
+      ],
+    };
+    await render(<FriendsSection />);
+
+    expect(screen.getByText("届いたフレンド申請")).toBeTruthy();
+    expect(screen.getByText("送ったフレンド申請")).toBeTruthy();
   });
 
   it("届いた申請があると一覧の先頭に出し、タップで相手のプロフィールへ進む", async () => {

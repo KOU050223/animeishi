@@ -85,13 +85,14 @@ beforeEach(() => {
 });
 
 describe("ActivityFeedSection", () => {
-  it("読み込み中はインジケータを表示する", async () => {
+  it("初回取得中はフィードのスケルトンを表示する", async () => {
     mockFeed = {
       ...loadedFeed([]),
       isLoading: true,
     };
     await render(<ActivityFeedSection />);
-    expect(findIndicators().length).toBeGreaterThan(0);
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+    expect(findIndicators()).toHaveLength(0);
     expect(screen.queryByText("まだフレンドの活動はありません")).toBeNull();
   });
 
@@ -140,11 +141,18 @@ describe("ActivityFeedSection", () => {
 
   it("エラー時はメッセージと再読み込みボタンを表示し、ボタンで refetch する", async () => {
     const refetch = jest.fn();
-    mockFeed = { ...loadedFeed([]), isError: true, refetch };
+    mockFeed = { ...loadedFeed([]), data: undefined, isError: true, refetch };
     await render(<ActivityFeedSection />);
     expect(screen.getByText("活動の取得に失敗しました")).toBeTruthy();
     await fireEvent.press(screen.getByText("再読み込み"));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("再取得に失敗しても取得済みの活動を表示する", async () => {
+    mockFeed = { ...loadedFeed([feedItem()]), isError: true };
+    await render(<ActivityFeedSection />);
+
+    expect(screen.getByTestId("activity-item-1")).toBeTruthy();
   });
 
   it("末尾までスクロールすると次ページを読む（無限スクロール）", async () => {

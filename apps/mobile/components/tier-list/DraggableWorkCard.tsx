@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  ActivityIndicator,
   Text,
   View,
   type AccessibilityActionEvent,
   type ViewInstance,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -95,6 +97,7 @@ export function DraggableWorkCard({
 }: DraggableWorkCardProps) {
   const styles = useTierListStyles();
   const colors = useThemeColors();
+  const { t } = useTranslation();
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -260,13 +263,21 @@ export function DraggableWorkCard({
         <WorkImage
           uri={item.imageUrl}
           style={styles.cardImage}
+          // 画像が無い・読み込みに失敗したカード。同じ灰色のままだと
+          // 読み込み中と区別が付かないため、「画像なし」と明記する（issue #606）。
           placeholder={
             <View style={styles.cardImageFallback}>
               <Ionicons
-                name="film-outline"
+                name="image-outline"
                 size={20}
                 color={colors.textMuted}
               />
+              <Text style={styles.cardImageFallbackLabel}>{t("画像なし")}</Text>
+            </View>
+          }
+          loadingPlaceholder={
+            <View style={styles.cardImageFallback}>
+              <ActivityIndicator size="small" color={colors.textMuted} />
             </View>
           }
           accessibilityLabel={`${item.title}のサムネイル`}

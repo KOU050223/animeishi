@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
@@ -11,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Icon } from "@/components/ui";
+import type { IconName } from "@/components/ui";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { FriendStoryRail } from "@/components/FriendStoryRail";
 import { CurrentSeasonWatchingRail } from "@/components/CurrentSeasonWatchingRail";
@@ -152,43 +154,67 @@ export default function HomeScreen() {
 }
 
 // 自分の名刺・QR 交換・不具合報告の導線。画面上部の大きな導線は縮めて
-// ヘッダーアイコンに集約する（issue #353）。
+// ヘッダーアイコンに集約する（issue #353）。アイコンだけでは行き先が
+// 分からないため、短いラベルをアイコン下に併記する（issue #596）。
 function HomeHeaderButtons() {
   const router = useRouter();
-  const colors = useThemeColors();
+  const { t } = useTranslation();
   return (
     <View className="flex-row items-center">
-      <Pressable
-        onPress={() => router.push("/meishi/edit")}
-        className="h-11 w-11 items-center justify-center"
-        accessibilityRole="button"
-        accessibilityLabel="名刺をデザインする"
+      <HeaderIconButton
         testID="home-open-meishi-edit"
-      >
-        <Icon name="id-card-outline" size={24} color={colors.primaryText} />
-      </Pressable>
-      <Pressable
-        onPress={() => router.push("/(tabs)/social?section=qr")}
-        className="h-11 w-11 items-center justify-center"
-        accessibilityRole="button"
-        accessibilityLabel="QR で名刺を交換"
+        icon="id-card-outline"
+        label={t("名刺を作る")}
+        onPress={() => router.push("/meishi/edit")}
+      />
+      <HeaderIconButton
         testID="home-open-qr"
-      >
-        <Icon name="qr-code-outline" size={24} color={colors.primaryText} />
-      </Pressable>
-      <Pressable
-        onPress={() => router.push("/feedback")}
-        className="h-11 w-11 items-center justify-center"
-        accessibilityRole="button"
-        accessibilityLabel="不具合報告・ご意見を送る"
+        icon="qr-code-outline"
+        label={t("QR 交換")}
+        onPress={() => router.push("/(tabs)/social?section=qr")}
+      />
+      <HeaderIconButton
         testID="home-open-feedback"
-      >
-        <Icon
-          name="chatbubble-ellipses-outline"
-          size={24}
-          color={colors.primaryText}
-        />
-      </Pressable>
+        icon="chatbubble-ellipses-outline"
+        label={t("不具合報告")}
+        onPress={() => router.push("/feedback")}
+      />
     </View>
+  );
+}
+
+// ヘッダーの 44pt に収めるため、アイコンをやや小さくしてラベルを下に置く。
+// accessibilityLabel は表示ラベルと揃える（音声操作は見えている文言でボタンを
+// 指定するため、別名を置くと呼び出せなくなる）。
+function HeaderIconButton({
+  testID,
+  icon,
+  label,
+  onPress,
+}: {
+  testID: string;
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  const colors = useThemeColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      className="h-11 min-w-11 items-center justify-center px-1"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <Icon name={icon} size={22} color={colors.primaryText} />
+      <Text
+        className="mt-0.5 text-[10px] leading-3"
+        style={{ color: colors.primaryText }}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.3}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }

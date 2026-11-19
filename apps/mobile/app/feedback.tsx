@@ -61,7 +61,8 @@ export default function FeedbackScreen() {
   const submitting = useRef(false);
 
   const current = CATEGORIES.find((c) => c.value === category) ?? CATEGORIES[0];
-  const canSubmit = body.trim().length > 0 && !sendFeedback.isPending;
+  const bodyEmpty = body.trim().length === 0;
+  const canSubmit = !bodyEmpty && !sendFeedback.isPending;
 
   // 直リンク（Web の URL 直打ち等）では履歴が無いため、ホームへ戻す。
   const handleBack = () => {
@@ -175,8 +176,16 @@ export default function FeedbackScreen() {
               disabled={!canSubmit}
               loading={sendFeedback.isPending}
               accessibilityLabel={t("不具合報告・ご意見を送信")}
+              accessibilityHint={
+                bodyEmpty ? t("内容を入力してください") : undefined
+              }
               testID="feedback-submit"
             />
+            {bodyEmpty ? (
+              <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                {t("内容を入力してください")}
+              </Text>
+            ) : null}
           </View>
         </View>
       </ScrollView>
