@@ -114,6 +114,12 @@ jest.mock("@/lib/useActivityFeed", () => ({
   ACTIVITY_FEED_QUERY_KEY: ["activity-feed"],
 }));
 
+// フィードの空状態がフレンド数で案内を出し分けるため（issue #533）、
+// フレンドありで固定する。
+jest.mock("@/lib/useFriends", () => ({
+  useFriends: () => ({ data: [{ friendId: "f1" }], isLoading: false }),
+}));
+
 jest.mock("@/lib/useFriendWatchStories", () => ({
   useFriendWatchStories: () => ({ data: undefined, refetch: jest.fn() }),
   FRIEND_WATCH_STORIES_QUERY_KEY: ["friend-watch-stories"],

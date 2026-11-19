@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { activityText, formatRelativeTime } from "./activityText";
+import {
+  activityText,
+  activityGroupText,
+  formatRelativeTime,
+} from "./activityText";
 import type { ActivityFeedItem } from "./useActivityFeed";
 import type { TFunction } from "i18next";
 
@@ -21,6 +25,11 @@ const translations: Record<string, string> = {
   作品: "anime",
   視聴: "watching",
   視聴中: "watching",
+  断念: "dropped",
+  "{{username}} は {{count}} 件の記録を {{status}} に更新しました":
+    "{{username}} updated {{count}} records to {{status}}",
+  "{{username}} は {{count}} 件の記録を更新しました":
+    "{{username}} updated {{count}} records",
 };
 const t = ((key: string, values?: Record<string, unknown>) =>
   (translations[key] ?? key).replace(/{{(\w+)}}/g, (_match, name: string) => {
@@ -113,6 +122,27 @@ describe("activityText", () => {
         t,
       ),
     ).toBe("たろう changed the watch status of ‘テストアニメ’ to watching");
+  });
+});
+
+describe("activityGroupText", () => {
+  it("同じステータスへの一括変更は件数つきの更新文にする", () => {
+    const group = [
+      item({ meta: { state: "STOP_WATCHING" } }),
+      item({ id: 2, meta: { state: "STOP_WATCHING" } }),
+      item({ id: 3, meta: { state: "STOP_WATCHING" } }),
+    ];
+    expect(activityGroupText(group, t)).toBe(
+      "たろう updated 3 records to dropped",
+    );
+  });
+
+  it("未知のステータスを含むまとめはステータス名なしの文にする", () => {
+    const group = [
+      item({ meta: { state: "UNKNOWN" } }),
+      item({ id: 2, meta: { state: "UNKNOWN" } }),
+    ];
+    expect(activityGroupText(group, t)).toBe("たろう updated 2 records");
   });
 });
 

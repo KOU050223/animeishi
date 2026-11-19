@@ -39,6 +39,32 @@ export function activityText(item: ActivityFeedItem, t: TFunction): string {
   }
 }
 
+// まとめた活動 1 行分を「N 件の記録を…しました」という行にする（issue #533）。
+// items は同じステータスへの変更だけを含む（groupActivityItems が保証）。
+// 先頭（最新）の活動を代表としてユーザー名・ステータスを取る。
+export function activityGroupText(
+  items: ActivityFeedItem[],
+  t: TFunction,
+): string {
+  const first = items[0];
+  const state = first?.meta?.state;
+  const label =
+    typeof state === "string" && state in WATCH_STATUS_LABELS
+      ? WATCH_STATUS_LABELS[state as keyof typeof WATCH_STATUS_LABELS]
+      : null;
+  if (label) {
+    return t("{{username}} は {{count}} 件の記録を {{status}} に更新しました", {
+      username: first?.actor.username,
+      count: items.length,
+      status: t(label),
+    });
+  }
+  return t("{{username}} は {{count}} 件の記録を更新しました", {
+    username: first?.actor.username,
+    count: items.length,
+  });
+}
+
 // Tier 表の題材。キャラクター版は対象作品名、シーズン版は表のタイトルがある。
 function tierListLabel(item: ActivityFeedItem, t: TFunction): string {
   const title = item.meta?.title;
