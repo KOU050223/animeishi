@@ -56,6 +56,7 @@ jest.mock("@/components/AnnictSoftGate", () => ({
 
 // 盤面への反映内容を検査するため TierBoard はスタブ化する。
 let mockBoardProps: {
+  header?: React.ReactNode;
   tiers: TierRow[];
   assignment: TierAssignment;
   onAssign: (itemId: number, tierKey: string | null) => void;
@@ -63,7 +64,7 @@ let mockBoardProps: {
 jest.mock("@/components/tier-list/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
     mockBoardProps = props;
-    return null;
+    return props.header;
   },
 }));
 

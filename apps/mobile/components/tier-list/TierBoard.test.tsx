@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import {
   StyleSheet,
+  Text,
   useColorScheme,
   type StyleProp,
   type TextStyle,
@@ -112,6 +113,7 @@ const boardElement = (
     onAddItem?: jest.Mock;
     items?: TierItem[];
     assignment?: TierAssignment;
+    header?: React.ReactNode;
   } = {},
 ) => (
   <TierBoard
@@ -123,6 +125,7 @@ const boardElement = (
     onAddItem={props.onAddItem ?? jest.fn()}
     labelsEditable={props.labelsEditable ?? true}
     trayEmptyLabel="すべて配置しました"
+    header={props.header}
   />
 );
 
@@ -135,6 +138,54 @@ const backgroundColorOf = (el: { props: { style?: unknown } }) =>
 // スキームを切り替えたテストが後続へ漏れないよう、各テストの前に light へ戻す。
 beforeEach(async () => {
   setScheme("light");
+});
+
+describe("TierBoard のスクロール領域", () => {
+  it("上部ブロックと tier 行を同じ ScrollView 内に描く", async () => {
+    const { getByTestId } = await render(
+      boardElement({ header: <Text testID="tier-page-header">説明</Text> }),
+    );
+    const scrollViewOf = (node: ReturnType<typeof getByTestId>) => {
+      let current = node.parent;
+      while (current && current.type !== "RCTScrollView")
+        current = current.parent;
+      return current;
+    };
+
+    const headerScrollView = scrollViewOf(getByTestId("tier-page-header"));
+    expect(headerScrollView).not.toBeNull();
+    expect(headerScrollView).toBe(scrollViewOf(getByTestId("tier-row-0")));
+  });
+
+  it("上部ブロックの高さが変わるとドロップ先を再計測する", async () => {
+    mockCardRegistry = undefined;
+    const { getByTestId } = await render(
+      boardElement({
+        header: <Text testID="tier-page-header">説明</Text>,
+        items: ITEMS,
+        assignment: ASSIGNMENT,
+      }),
+    );
+    const registry = mockCardRegistry!;
+    let headerHeight = 100;
+    registry.registerMeasurer("0", () =>
+      registry.register("0", {
+        x: 0,
+        y: headerHeight,
+        width: 300,
+        height: 100,
+      }),
+    );
+    const headerContainer = getByTestId("tier-page-header").parent!;
+
+    await fireEvent(headerContainer, "layout");
+    expect(registry.hitTest(50, 150)).toBe("0");
+
+    headerHeight = 180;
+    await fireEvent(headerContainer, "layout");
+    expect(registry.hitTest(50, 150)).toBeUndefined();
+    expect(registry.hitTest(50, 230)).toBe("0");
+  });
 });
 
 describe("TierBoard の配色", () => {
