@@ -23,7 +23,7 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { TierBoard } from "@/components/tier-list/TierBoard";
-import { useOpenWorkDetail } from "@/components/anime-list/WorkDetailPressable";
+import { useOpenWorkDetail } from "@/lib/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,

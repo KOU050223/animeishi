@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { FriendStoryViewer } from "@/components/FriendStoryViewer";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
+import { WorkDetailContext } from "@/lib/workDetailContext";
 
 function friend(items: FriendWatchStory["items"]): FriendWatchStory {
   return {
@@ -45,6 +46,23 @@ function itemWithImage(
 }
 
 describe("FriendStoryViewer", () => {
+  it("作品を選ぶとビューアを閉じて詳細を開く", async () => {
+    const openWork = jest.fn();
+    const onClose = jest.fn();
+    await render(
+      <WorkDetailContext.Provider value={openWork}>
+        <FriendStoryViewer
+          friend={friend([item(1, "作品A")])}
+          onClose={onClose}
+        />
+      </WorkDetailContext.Provider>,
+    );
+    await fireEvent.press(screen.getByTestId("story-work-detail"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(openWork).toHaveBeenCalledWith(
+      expect.objectContaining({ annictWorkId: 1, title: "作品A" }),
+    );
+  });
   it("最初のスライドとして作品名と視聴状態を表示する", async () => {
     await render(
       <FriendStoryViewer

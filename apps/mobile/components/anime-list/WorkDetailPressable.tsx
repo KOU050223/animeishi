@@ -1,22 +1,8 @@
-import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
-
-export type WorkDetailTarget = Pick<
-  WorkDetailSheetTarget,
-  "annictWorkId" | "title"
-> &
-  Partial<Omit<WorkDetailSheetTarget, "annictWorkId" | "title">>;
-
-export const WorkDetailContext = createContext<
-  (work: WorkDetailTarget) => void
->(() => {});
-
-export function useOpenWorkDetail() {
-  return useContext(WorkDetailContext);
-}
+import { useOpenWorkDetail } from "@/lib/workDetailContext";
+import type { WorkDetailTarget } from "@/lib/workDetailContext";
 
 export function WorkDetailPressable({
   work,

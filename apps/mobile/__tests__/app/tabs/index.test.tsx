@@ -1,6 +1,6 @@
 import React from "react";
 import { Platform } from "react-native";
-import { WorkDetailContext } from "@/components/anime-list/WorkDetailPressable";
+import { WorkDetailContext } from "@/lib/workDetailContext";
 import {
   render,
   screen,
