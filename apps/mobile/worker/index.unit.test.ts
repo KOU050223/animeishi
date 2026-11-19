@@ -228,13 +228,16 @@ describe("GET / の認証 Cookie 判定", () => {
     expect(res.headers.get("location")).toBe(
       "https://animeishi.uomi.dev/welcome",
     );
+    // 応答が Cookie 依存なので、キャッシュが別状態の応答を
+    // 使い回さないよう Vary: Cookie を付ける
+    expect(res.headers.get("vary")).toContain("cookie");
     expect(env.ASSETS.fetch).not.toHaveBeenCalled();
   });
 
   it.each(["__session=token", "__client_uat=123"])(
     "Cookie %s があればトップを配信する",
     async (cookie) => {
-      const env = makeEnv();
+      const env = makeEnv({ assetsResponse: shellResponse });
       const res = await worker.fetch(
         req("https://animeishi.uomi.dev/", {
           headers: { cookie },
@@ -242,6 +245,7 @@ describe("GET / の認証 Cookie 判定", () => {
         env,
       );
       expect(res.status).toBe(200);
+      expect(res.headers.get("vary")).toContain("cookie");
       expect(env.ASSETS.fetch).toHaveBeenCalledTimes(1);
     },
   );

@@ -31,6 +31,8 @@ export default function Html({ children }: PropsWithChildren) {
               name: "アニ名刺",
               alternateName: "Animeishi",
               url: "https://animeishi.uomi.dev/",
+              description:
+                "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。",
             }),
           }}
         />

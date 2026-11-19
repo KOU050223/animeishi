@@ -189,7 +189,12 @@ export default {
       request.method === "GET" &&
       !hasClerkSession(request)
     ) {
-      return Response.redirect(new URL("/welcome", request.url), 302);
+      // 同一 URL の応答が Cookie で分かれるため、ブラウザ・中間キャッシュが
+      // 別状態の応答を使い回さないよう Vary を付ける（下の 200 側にも付く）。
+      return withVary(
+        Response.redirect(new URL("/welcome", request.url), 302),
+        "Cookie",
+      );
     }
 
     // /user/:uid はクローラにだけ API の OGP HTML を返す。ブラウザは
@@ -237,10 +242,15 @@ export default {
     headers.delete("content-length");
     headers.delete("etag");
     headers.delete("content-encoding");
-    return new Response(request.method === "HEAD" ? null : html, {
+    let response = new Response(request.method === "HEAD" ? null : html, {
       status: res.status,
       statusText: res.statusText,
       headers,
     });
+    // GET / は Cookie の有無で 302 と分かれるため、200 側にも Vary を付ける。
+    if (pathname === "/") {
+      response = withVary(response, "Cookie");
+    }
+    return response;
   },
 } satisfies ExportedHandler<Env>;
