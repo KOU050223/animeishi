@@ -81,6 +81,7 @@ export type ImageElement = {
   source: ImageSource;
   shape: ImageShape;
   objectFit: ImageObjectFit;
+  focus?: { x: number; y: number };
 };
 
 export type ShapeElement = {

@@ -1,4 +1,5 @@
 import { Image, Text, View } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Svg, { Circle, Rect } from "react-native-svg";
 import QRCode from "react-native-qrcode-svg";
@@ -8,6 +9,7 @@ import {
   type OnImageLoadEnd,
 } from "@/lib/meishi/renderableImages";
 import { achievementBadgeLabel } from "@/lib/achievements/definitions";
+import { imageContentPosition } from "@/lib/meishi/imageFocus";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,
@@ -144,10 +146,11 @@ function ImageRender({
         overflow: "hidden",
       }}
     >
-      <Image
+      <ExpoImage
         source={{ uri }}
         style={{ width: "100%", height: "100%" }}
-        resizeMode={el.objectFit}
+        contentFit={el.objectFit}
+        contentPosition={imageContentPosition(el.focus)}
         // 読み込み完了直後に撮るため共有画像は transition を付けない。
         // onLoadEnd は成功・失敗どちらでも来る。
         onLoadEnd={onImageLoadEnd}

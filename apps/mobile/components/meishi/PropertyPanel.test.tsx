@@ -2,7 +2,24 @@ import React from "react";
 import { act, render, screen } from "@testing-library/react-native";
 import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import i18n from "@/lib/i18n";
-import type { MeishiRenderContext, TextElement } from "@/lib/meishi/types";
+import type {
+  ImageElement,
+  MeishiRenderContext,
+  TextElement,
+} from "@/lib/meishi/types";
+
+jest.mock("react-native-gesture-handler", () => {
+  const pan = {
+    runOnJS: () => pan,
+    onUpdate: () => pan,
+    onEnd: () => pan,
+    onFinalize: () => pan,
+  };
+  return {
+    Gesture: { Pan: () => pan },
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+  };
+});
 
 const baseTextElement: TextElement = {
   id: "text-1",
@@ -25,7 +42,62 @@ const context: MeishiRenderContext = {
   },
 };
 
+const imageElement: ImageElement = {
+  id: "image-1",
+  type: "image",
+  transform: { x: 0, y: 0, width: 0.5, height: 0.5, rotation: 0 },
+  uri: "https://img.example/photo.jpg",
+  source: "upload",
+  shape: "rect",
+  objectFit: "cover",
+};
+
 describe("PropertyPanel", () => {
+  it("cover 画像に切り抜き位置をドラッグ調整する枠を表示する", async () => {
+    await render(
+      <PropertyPanel
+        element={imageElement}
+        canvasAspectRatio={1.5}
+        onChange={jest.fn()}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+    expect(screen.getByText("切り抜き位置")).toBeTruthy();
+    expect(screen.getByTestId("meishi-image-focus-preview")).toBeTruthy();
+  });
+
+  it("英語では切り抜き位置の案内を翻訳する", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+    try {
+      await render(
+        <PropertyPanel
+          element={imageElement}
+          onChange={jest.fn()}
+          onOpenTextEdit={jest.fn()}
+          onDelete={jest.fn()}
+          onDuplicate={jest.fn()}
+          onBringToFront={jest.fn()}
+          onSendToBack={jest.fn()}
+        />,
+      );
+      expect(screen.getByText("Crop position")).toBeTruthy();
+      expect(
+        screen.getByText("Drag the image to adjust its position"),
+      ).toBeTruthy();
+      expect(screen.getByText("Reset to center")).toBeTruthy();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("ja");
+      });
+    }
+  });
+
   it("英語では内容チップと説明を翻訳する", async () => {
     await act(async () => {
       await i18n.changeLanguage("en");
