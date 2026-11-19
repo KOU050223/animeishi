@@ -204,7 +204,7 @@ type PublicListItem = {
   likedByMe: boolean;
   itemCount: number;
   owner: { userId: string; username: string };
-  thumbnails: { url: string; label: string }[];
+  thumbnails: { url: string; label: string; annictWorkId: number | null }[];
 };
 
 describe("公開 Tier 表 API", () => {
@@ -327,13 +327,18 @@ describe("公開 Tier 表 API", () => {
         expect.objectContaining({
           url: expect.stringContaining(`/images/works/${WORK_A}`),
           label: "アニメA",
+          annictWorkId: WORK_A,
         }),
       ]);
       const character = body.items.find(
         (i) => i.kind === "character" && i.title === "キャラ表",
       );
       expect(character?.thumbnails).toEqual([
-        { url: "https://example.com/char-a.png", label: "キャラA" },
+        {
+          url: "https://example.com/char-a.png",
+          label: "キャラA",
+          annictWorkId: null,
+        },
       ]);
       const noImage = body.items.find((i) => i.title === "画像なしキャラ表");
       expect(noImage?.thumbnails).toEqual([]);

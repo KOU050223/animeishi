@@ -44,6 +44,7 @@ export type TierBoardProps = {
     tierKey: string | null,
     beforeItemId?: number,
   ) => void;
+  onItemPress?: (item: TierItem) => void;
   /** tier 名の編集確定時。呼び出し側で tiers を差し替える。 */
   onRenameTier: (tierKey: string, label: string) => void;
   /**
@@ -75,6 +76,7 @@ export function TierBoard({
   items,
   assignment,
   onAssign,
+  onItemPress,
   onRenameTier,
   onAddItem,
   labelsEditable,
@@ -269,6 +271,7 @@ export function TierBoard({
     <DraggableWorkCard
       key={item.id}
       item={item}
+      onPress={onItemPress ? () => onItemPress(item) : undefined}
       onDragStart={() => handleDragStart(item.id)}
       onDragMove={(x, y) => handleDragMove(item.id, x, y)}
       onDragEnd={(x, y) => handleDragEnd(item.id, x, y)}

@@ -12,6 +12,7 @@ import { useMarkdown } from "react-native-marked";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import {
   useElection,
   useElectionVote,
@@ -272,36 +273,67 @@ function CandidateRow({
       className="flex-row items-center gap-3 border-b border-slate-100 py-3 dark:border-slate-800"
       testID={`election-candidate-${candidate.id}`}
     >
-      <WorkImage
-        uri={candidate.imageUrl}
-        style={{
-          width: CANDIDATE_IMAGE_SIZE,
-          height: CANDIDATE_IMAGE_SIZE,
-          borderRadius: 8,
-          backgroundColor: colors.surfaceMuted,
-        }}
-        placeholder={
-          <View
+      {candidate.kind === "work" ? (
+        <WorkDetailPressable
+          work={{
+            annictWorkId: candidate.annictId,
+            title: candidate.name,
+            hostedImageUrl: candidate.imageUrl,
+          }}
+          className="flex-1 flex-row items-center gap-3"
+        >
+          <WorkImage
+            uri={candidate.imageUrl}
             style={{
               width: CANDIDATE_IMAGE_SIZE,
               height: CANDIDATE_IMAGE_SIZE,
+              borderRadius: 8,
+              backgroundColor: colors.surfaceMuted,
             }}
-            className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
-          >
-            <Text className="text-xs text-indigo-400 dark:text-indigo-300">
-              {candidate.kind === "character" ? "キャラ" : "作品"}
+            placeholder={
+              <View
+                style={{
+                  width: CANDIDATE_IMAGE_SIZE,
+                  height: CANDIDATE_IMAGE_SIZE,
+                }}
+                className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
+              >
+                <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+                  作品
+                </Text>
+              </View>
+            }
+          />
+          <View className="flex-1">
+            <Text
+              className="text-base font-medium text-slate-900 dark:text-slate-100"
+              numberOfLines={2}
+            >
+              {candidate.name}
             </Text>
           </View>
-        }
-      />
-      <View className="flex-1">
-        <Text
-          className="text-base font-medium text-slate-900 dark:text-slate-100"
-          numberOfLines={2}
-        >
-          {candidate.name}
-        </Text>
-      </View>
+        </WorkDetailPressable>
+      ) : (
+        <View className="flex-1 flex-row items-center gap-3">
+          <WorkImage
+            uri={candidate.imageUrl}
+            style={{
+              width: CANDIDATE_IMAGE_SIZE,
+              height: CANDIDATE_IMAGE_SIZE,
+              borderRadius: 8,
+              backgroundColor: colors.surfaceMuted,
+            }}
+            placeholder=<View className="h-16 w-16 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900">
+              <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+                キャラ
+              </Text>
+            </View>
+          />
+          <Text className="flex-1 text-base font-medium text-slate-900 dark:text-slate-100">
+            {candidate.name}
+          </Text>
+        </View>
+      )}
       {votable ? (
         voted ? (
           <View

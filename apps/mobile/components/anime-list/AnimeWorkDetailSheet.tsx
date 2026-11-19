@@ -431,14 +431,15 @@ export function AnimeWorkDetailSheet({
           </ScrollView>
         ) : null}
       </BottomSheet>
-      <AddToWorkListSheet
-        work={
-          listTarget
-            ? { annictWorkId: listTarget.annictWorkId, title: listTarget.title }
-            : null
-        }
-        onClose={() => setListTarget(null)}
-      />
+      {listTarget ? (
+        <AddToWorkListSheet
+          work={{
+            annictWorkId: listTarget.annictWorkId,
+            title: listTarget.title,
+          }}
+          onClose={() => setListTarget(null)}
+        />
+      ) : null}
     </>
   );
 }

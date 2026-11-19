@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
@@ -212,32 +213,60 @@ function TierRowView({
         </Text>
       </View>
       <View className="flex-1 flex-row flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 dark:bg-slate-800">
-        {items.map((item) => (
-          <View key={itemKey(item)} style={{ width: ITEM_CARD_SIZE }}>
-            <WorkImage
-              uri={itemImageUrl(item)}
-              style={{
-                width: ITEM_CARD_SIZE,
-                height: ITEM_CARD_SIZE,
-                borderRadius: 4,
+        {items.map((item) =>
+          item.kind === "work" ? (
+            <WorkDetailPressable
+              key={itemKey(item)}
+              work={{
+                annictWorkId: item.annictWorkId,
+                title: item.title,
+                hostedImageUrl: item.hostedImageUrl,
               }}
-              placeholder=<View
+              className="w-14 items-center"
+            >
+              <WorkImage
+                uri={itemImageUrl(item)}
                 style={{
                   width: ITEM_CARD_SIZE,
                   height: ITEM_CARD_SIZE,
                   borderRadius: 4,
                 }}
-                className="bg-slate-200 dark:bg-slate-700"
+                placeholder=<View
+                  style={{
+                    width: ITEM_CARD_SIZE,
+                    height: ITEM_CARD_SIZE,
+                    borderRadius: 4,
+                  }}
+                  className="bg-slate-200 dark:bg-slate-700"
+                />
               />
-            />
-            <Text
-              className="mt-0.5 text-center text-[9px] leading-3 text-slate-700 dark:text-slate-300"
-              numberOfLines={2}
-            >
-              {itemTitle(item)}
-            </Text>
-          </View>
-        ))}
+              <Text
+                className="mt-0.5 text-center text-[9px] leading-3 text-slate-700 dark:text-slate-300"
+                numberOfLines={2}
+              >
+                {itemTitle(item)}
+              </Text>
+            </WorkDetailPressable>
+          ) : (
+            <View key={itemKey(item)} style={{ width: ITEM_CARD_SIZE }}>
+              <WorkImage
+                uri={item.imageUrl}
+                style={{
+                  width: ITEM_CARD_SIZE,
+                  height: ITEM_CARD_SIZE,
+                  borderRadius: 4,
+                }}
+                placeholder=<View className="h-14 w-14 bg-slate-200 dark:bg-slate-700" />
+              />
+              <Text
+                className="mt-0.5 text-center text-[9px] leading-3 text-slate-700 dark:text-slate-300"
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+            </View>
+          ),
+        )}
       </View>
     </View>
   );

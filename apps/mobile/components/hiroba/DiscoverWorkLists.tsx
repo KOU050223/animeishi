@@ -12,6 +12,7 @@ import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -205,13 +206,14 @@ function PublicWorkListCard({
         {item.thumbnails.length > 0 ? (
           <View className="mb-2 flex-row gap-1.5">
             {item.thumbnails.map((thumb) => (
-              <WorkThumbnail
-                key={thumb.annictWorkId}
-                uri={thumb.hostedImageUrl}
-                title={thumb.title}
-                width={40}
-                height={56}
-              />
+              <WorkDetailPressable key={thumb.annictWorkId} work={thumb}>
+                <WorkThumbnail
+                  uri={thumb.hostedImageUrl}
+                  title={thumb.title}
+                  width={40}
+                  height={56}
+                />
+              </WorkDetailPressable>
             ))}
           </View>
         ) : null}

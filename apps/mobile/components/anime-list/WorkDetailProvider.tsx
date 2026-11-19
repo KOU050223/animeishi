@@ -1,26 +1,13 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
-import { TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
+import { WorkDetailContext } from "./WorkDetailPressable";
+import type { WorkDetailTarget } from "./WorkDetailPressable";
 import { useFavoriteIds, useToggleFavorite } from "@/lib/useFavorites";
 import { alert } from "@/lib/dialog";
-
-export type WorkDetailTarget = Pick<
-  WorkDetailSheetTarget,
-  "annictWorkId" | "title"
-> &
-  Partial<Omit<WorkDetailSheetTarget, "annictWorkId" | "title">>;
-
-const WorkDetailContext = createContext<(work: WorkDetailTarget) => void>(
-  () => {},
-);
-
-export function useOpenWorkDetail() {
-  return useContext(WorkDetailContext);
-}
 
 export function WorkDetailProvider({ children }: { children: ReactNode }) {
   const [work, setWork] = useState<WorkDetailSheetTarget | null>(null);
@@ -66,31 +53,5 @@ export function WorkDetailProvider({ children }: { children: ReactNode }) {
         }
       />
     </WorkDetailContext.Provider>
-  );
-}
-
-export function WorkDetailPressable({
-  work,
-  children,
-  testID,
-  className,
-}: {
-  work: WorkDetailTarget;
-  children: ReactNode;
-  testID?: string;
-  className?: string;
-}) {
-  const openWork = useOpenWorkDetail();
-  const { t } = useTranslation();
-  return (
-    <TouchableOpacity
-      className={className}
-      onPress={() => openWork(work)}
-      accessibilityRole="button"
-      accessibilityLabel={t("{{title}} の詳細を開く", { title: work.title })}
-      testID={testID}
-    >
-      {children}
-    </TouchableOpacity>
   );
 }

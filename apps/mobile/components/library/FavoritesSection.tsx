@@ -20,6 +20,7 @@ import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useRouter } from "expo-router";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 
@@ -198,16 +199,20 @@ function FavoriteRow({
       className="flex-row items-center py-3 gap-3"
       testID={`favorite-item-${favorite.annictWorkId}`}
     >
-      <WorkThumbnail uri={favorite.hostedImageUrl} title={favorite.title} />
-
-      <View className="flex-1">
-        <Text
-          className="text-slate-900 dark:text-slate-100 font-medium"
-          numberOfLines={2}
-        >
-          {favorite.title}
-        </Text>
-      </View>
+      <WorkDetailPressable
+        work={favorite}
+        className="flex-1 flex-row items-center gap-3"
+      >
+        <WorkThumbnail uri={favorite.hostedImageUrl} title={favorite.title} />
+        <View className="flex-1">
+          <Text
+            className="text-slate-900 dark:text-slate-100 font-medium"
+            numberOfLines={2}
+          >
+            {favorite.title}
+          </Text>
+        </View>
+      </WorkDetailPressable>
 
       <TouchableOpacity
         onPress={onRemove}

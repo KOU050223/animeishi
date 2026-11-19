@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { FriendWatchStory } from "@/lib/useFriendWatchStories";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { formatRelativeTime } from "@/lib/activityText";
+import { useOpenWorkDetail } from "@/components/anime-list/WorkDetailPressable";
 
 // 1 スライドの表示時間。Instagram のストーリー（写真 5 秒）に合わせる。
 const SLIDE_DURATION_MS = 5000;
@@ -29,6 +30,7 @@ export function FriendStoryViewer({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const openWork = useOpenWorkDetail();
   const items = friend.items;
   const [index, setIndex] = useState(0);
   const [progress] = useState(() => new Animated.Value(0));
@@ -66,6 +68,7 @@ export function FriendStoryViewer({
   }, [progress, goNext]);
 
   if (!item) return null;
+  const storyWork = item.work;
 
   const state = item.meta?.state;
   const statusLabel =
@@ -183,6 +186,20 @@ export function FriendStoryViewer({
                 accessibilityLabel={t("前のストーリー")}
                 testID="story-prev"
               />
+              {storyWork ? (
+                <Pressable
+                  className="h-full flex-[3]"
+                  onPress={() => {
+                    onClose();
+                    openWork(storyWork);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("{{title}} の詳細を開く", {
+                    title: storyWork.title,
+                  })}
+                  testID="story-work-detail"
+                />
+              ) : null}
               <Pressable
                 className="h-full flex-1"
                 onPress={goNext}

@@ -12,6 +12,7 @@ import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -211,15 +212,32 @@ function PublicTierListCard({
           <View className="mb-2 flex-row gap-1.5">
             {/* 別キャラが同じ imageUrl を持つことがあるため重複を除く */}
             {[...new Map(item.thumbnails.map((t) => [t.url, t])).values()].map(
-              (t) => (
-                <WorkThumbnail
-                  key={t.url}
-                  uri={t.url}
-                  title={t.label}
-                  width={40}
-                  height={56}
-                />
-              ),
+              (t) =>
+                t.annictWorkId ? (
+                  <WorkDetailPressable
+                    key={t.url}
+                    work={{
+                      annictWorkId: t.annictWorkId,
+                      title: t.label,
+                      hostedImageUrl: t.url,
+                    }}
+                  >
+                    <WorkThumbnail
+                      uri={t.url}
+                      title={t.label}
+                      width={40}
+                      height={56}
+                    />
+                  </WorkDetailPressable>
+                ) : (
+                  <WorkThumbnail
+                    key={t.url}
+                    uri={t.url}
+                    title={t.label}
+                    width={40}
+                    height={56}
+                  />
+                ),
             )}
           </View>
         ) : null}

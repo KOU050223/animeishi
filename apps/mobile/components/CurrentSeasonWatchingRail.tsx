@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Text,
   TouchableOpacity,
   View,
@@ -15,7 +14,7 @@ import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { SeasonKey } from "@/components/anime-list/animeListUtils";
 import { useAnnictConnection } from "@/lib/annict";
 import { filterWatchingBySeason } from "@/lib/currentSeasonWatching";
-import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
 import { useWatchHistory } from "@/lib/useWatchHistory";
@@ -29,8 +28,6 @@ const SEASON_I18N_KEYS: Record<SeasonKey, TranslationKey> = {
   autumn: "秋",
 };
 
-// ホームの「今期視聴中」レール（issue #353）。今期の視聴中作品を横スクロールで
-// 並べ、タップで dアニメストアのタイトル検索を開く。
 export function CurrentSeasonWatchingRail() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -142,15 +139,9 @@ export function CurrentSeasonWatchingRail() {
           data={works}
           keyExtractor={(work) => String(work.annictWorkId)}
           renderItem={({ item: work }) => (
-            <TouchableOpacity
+            <WorkDetailPressable
+              work={work}
               className="w-24"
-              onPress={() =>
-                void Linking.openURL(buildDanimeWorkSearchUrl(work.title))
-              }
-              accessibilityRole="link"
-              accessibilityLabel={t("{{title}}をdアニメストアで検索", {
-                title: work.title,
-              })}
               testID={`home-watching-work-${work.annictWorkId}`}
             >
               <WorkThumbnail
@@ -166,7 +157,7 @@ export function CurrentSeasonWatchingRail() {
               >
                 {work.title}
               </Text>
-            </TouchableOpacity>
+            </WorkDetailPressable>
           )}
           ItemSeparatorComponent={() => <View className="w-3" />}
           showsHorizontalScrollIndicator={false}
