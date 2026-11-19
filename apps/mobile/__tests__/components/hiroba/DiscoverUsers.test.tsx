@@ -124,9 +124,23 @@ describe("DiscoverUsers", () => {
         favoriteQuote: "好きなセリフ",
         profileUrl: "https://example.com/user/u-1",
         profileOnly: true,
+        // 公開一覧では未設定欄のプレースホルダーを出さない（issue #591）
+        hideUnsetFields: true,
       }),
     );
     expect(screen.getByText("42")).toBeTruthy();
+  });
+
+  it("名刺の下にジャンルを補助情報として出す", async () => {
+    mockItems = [
+      publicItem("u-1", { genres: ["SF", "アクション"] }),
+      publicItem("u-2", { genres: [] }),
+    ];
+    await render(<DiscoverUsers />);
+
+    expect(screen.getByText("SF・アクション")).toBeTruthy();
+    // ジャンルが無いユーザーには行を出さない
+    expect(screen.queryByTestId("public-user-genres-u-2")).toBeNull();
   });
 
   it("カードを押すと名刺（公開プロフィール）画面へ遷移する", async () => {
