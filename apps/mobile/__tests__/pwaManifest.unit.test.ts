@@ -44,19 +44,21 @@ describe("PWA manifest", () => {
   });
 });
 
-describe("index.html テンプレート", () => {
-  const html = readFileSync(join(publicDir, "index.html"), "utf8");
+// テンプレートは web.output: "static" 移行で app/+html.tsx へ移った。
+// ルート固有のメタは各画面の generateMetadata が生成するため、ここでは
+// テンプレートが持つ固定要素だけを検証する。
+describe("+html.tsx テンプレート", () => {
+  const html = readFileSync(join(__dirname, "../app/+html.tsx"), "utf8");
 
-  it("日本語のアプリ名と説明用メタデータを持つ", () => {
-    expect(html).toContain("<title>アニ名刺</title>");
-    expect(html).toContain("%LANG_ISO_CODE%");
-    expect(html).toContain('name="description"');
-    expect(html).toContain('property="og:description"');
+  it("日本語のアプリ名を持つ", () => {
+    expect(html).toContain('lang="ja"');
+    expect(html).toContain("アニ名刺");
   });
 
   it("manifest と apple-touch-icon を参照する", () => {
-    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
-    expect(html).toContain('rel="apple-touch-icon"');
+    expect(html).toContain('href="/manifest.webmanifest"');
+    expect(html).toContain('href="/apple-touch-icon.png"');
+    expect(html).toContain("apple-mobile-web-app-title");
   });
 
   it("apple-touch-icon が iOS 要求の 180x180 不透過 PNG である", () => {

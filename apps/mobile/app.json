@@ -9,7 +9,7 @@
     "icon": "./assets/images/icon.png",
     "web": {
       "bundler": "metro",
-      "output": "single",
+      "output": "static",
       "lang": "ja",
       "favicon": "./assets/images/favicon.png"
     },

@@ -185,7 +185,7 @@ describe("web 転送 Worker", () => {
 
   it("/share/* 以外は ASSETS へ渡す", async () => {
     const env = makeEnv();
-    for (const path of ["/", "/user/abc", "/sharex", "/shares/1"]) {
+    for (const path of ["/user/abc", "/sharex", "/shares/1"]) {
       env.API?.fetch.mockClear();
       env.ASSETS.fetch.mockClear();
       const res = await worker.fetch(
@@ -197,6 +197,58 @@ describe("web 転送 Worker", () => {
       expect(await res.text()).toBe("assets");
     }
   });
+});
+
+describe("GET / の認証 Cookie 判定", () => {
+  it("HEAD / はリダイレクトしない", async () => {
+    const env = makeEnv();
+    const res = await worker.fetch(
+      req("https://animeishi.uomi.dev/", { method: "HEAD" }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(env.ASSETS.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    undefined,
+    "other=value",
+    "__client_uat=0",
+    "__session=; __client_uat=0",
+    "__session=token; __client_uat=0",
+  ])("Cookie %s は /welcome へ 302 で移す", async (cookie) => {
+    const env = makeEnv();
+    const res = await worker.fetch(
+      req("https://animeishi.uomi.dev/", {
+        headers: cookie ? { cookie } : {},
+      }),
+      env,
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "https://animeishi.uomi.dev/welcome",
+    );
+    // 応答が Cookie 依存なので、キャッシュが別状態の応答を
+    // 使い回さないよう Vary: Cookie を付ける
+    expect(res.headers.get("vary")).toContain("cookie");
+    expect(env.ASSETS.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["__session=token", "__client_uat=123"])(
+    "Cookie %s があればトップを配信する",
+    async (cookie) => {
+      const env = makeEnv({ assetsResponse: shellResponse });
+      const res = await worker.fetch(
+        req("https://animeishi.uomi.dev/", {
+          headers: { cookie },
+        }),
+        env,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("vary")).toContain("cookie");
+      expect(env.ASSETS.fetch).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("/user/:uid のクローラ転送", () => {
@@ -342,109 +394,44 @@ describe("/user/:uid のクローラ転送", () => {
   });
 });
 
-describe("HTML メタ注入", () => {
-  const BROWSER_UA = "Mozilla/5.0 Chrome/131";
-
-  function envWithShell() {
-    return makeEnv({
-      assetsResponse: () => shellResponse(),
-    });
-  }
-
-  it("/welcome は個別メタと /welcome への canonical を返す", async () => {
-    const env = envWithShell();
-    const res = await worker.fetch(
-      req("https://animeishi.uomi.dev/welcome", {
-        headers: { "user-agent": BROWSER_UA },
-      }),
-      env,
-    );
-    const html = await res.text();
-    expect(html).toContain(
-      "<title>アニ名刺 — 好きの記録が、あなたの名刺になる。</title>",
-    );
-    expect(html).toContain(
-      'rel="canonical" href="https://animeishi.uomi.dev/welcome"',
-    );
-    expect(html).toContain(
-      'property="og:url" content="https://animeishi.uomi.dev/welcome"',
-    );
-    expect(html).not.toContain('name="robots" content="noindex"');
-  });
-
-  it("/ は公開トップの正規 URL /welcome を canonical に指す", async () => {
-    const env = envWithShell();
-    const res = await worker.fetch(
-      req("https://animeishi.uomi.dev/", {
-        headers: { "user-agent": BROWSER_UA },
-      }),
-      env,
-    );
-    const html = await res.text();
-    expect(html).toContain(
-      'rel="canonical" href="https://animeishi.uomi.dev/welcome"',
-    );
-  });
-
-  it("/privacy は個別タイトルと canonical を返す", async () => {
-    const env = envWithShell();
-    const res = await worker.fetch(
-      req("https://animeishi.uomi.dev/privacy"),
-      env,
-    );
-    const html = await res.text();
-    expect(html).toContain("<title>プライバシーポリシー - アニ名刺</title>");
-    expect(html).toContain(
-      'rel="canonical" href="https://animeishi.uomi.dev/privacy"',
-    );
-    // twitter:title / description もページ別に書き換える
-    // （残したままだとカードの文言がトップページのものになる）
-    expect(html).toMatch(
-      /name="twitter:title"[^>]*content="プライバシーポリシー - アニ名刺"/,
-    );
-    expect(html).toMatch(
-      /name="twitter:description"[^>]*content="アニ名刺のプライバシーポリシー。収集する情報とその利用目的について。"/,
-    );
-  });
-
-  it("非公開ルート（/sign-in 等）には noindex を注入する", async () => {
-    const env = envWithShell();
-    for (const path of ["/sign-in", "/meishi/edit", "/article/abc"]) {
+describe("プリレンダ HTML と SPA フォールバック", () => {
+  it.each(["/welcome", "/privacy", "/terms", "/support"])(
+    "%s の HTML は書き換えない",
+    async (path) => {
+      const html =
+        "<html><head><title>公開ページ</title></head><body>本文</body></html>";
+      const env = makeEnv({ assetsResponse: () => shellResponse(html) });
       const res = await worker.fetch(
         req(`https://animeishi.uomi.dev${path}`),
         env,
       );
-      const html = await res.text();
-      expect(html).toContain('name="robots" content="noindex"');
-    }
-  });
+      expect(await res.text()).toBe(html);
+    },
+  );
 
-  it("Accept が text/html でなくても HTML 応答なら注入する", async () => {
-    const env = envWithShell();
-    const res = await worker.fetch(
-      req("https://animeishi.uomi.dev/welcome", {
-        headers: { accept: "*/*" },
-      }),
-      env,
-    );
-    const html = await res.text();
-    expect(html).toContain(
-      'rel="canonical" href="https://animeishi.uomi.dev/welcome"',
-    );
-  });
+  it.each(["/", "/sign-in", "/article/example", "/event/example"])(
+    "%s の SPA フォールバックに noindex を付ける",
+    async (path) => {
+      const env = makeEnv({ assetsResponse: () => shellResponse() });
+      const res = await worker.fetch(
+        req(`https://animeishi.uomi.dev${path}`, {
+          headers: { cookie: "__session=token" },
+        }),
+        env,
+      );
+      expect(await res.text()).toContain('name="robots" content="noindex"');
+    },
+  );
 
-  it("text/html でない ASSETS 応答はそのまま返す", async () => {
+  it("HTML 以外のアセットは書き換えない", async () => {
     const env = makeEnv({
       assetsResponse: () =>
-        new Response("png-bytes", {
-          headers: { "content-type": "image/png", "x-keep": "1" },
-        }),
+        new Response("png-bytes", { headers: { "content-type": "image/png" } }),
     });
     const res = await worker.fetch(
-      req("https://animeishi.uomi.dev/welcome"),
+      req("https://animeishi.uomi.dev/sign-in"),
       env,
     );
     expect(await res.text()).toBe("png-bytes");
-    expect(res.headers.get("x-keep")).toBe("1");
   });
 });
