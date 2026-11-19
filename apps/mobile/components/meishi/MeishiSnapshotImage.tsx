@@ -11,10 +11,20 @@ export function MeishiSnapshotImage({
   uri,
   fallback,
   testID,
+  accessibilityLabel,
+  keepFallbackForA11y = false,
 }: {
   uri: string | null | undefined;
   fallback: ReactNode;
   testID?: string;
+  /** 読み込み完了した画像に付ける読み上げラベル。 */
+  accessibilityLabel?: string;
+  /**
+   * true のとき読み込み完了後も fallback を透明なまま残す。アンマウント
+   * すると名刺本文のテキストが VoiceOver / TalkBack の読み上げ対象から
+   * 消えるため、名刺の中身を伝えたい画面で使う（issue #595）。
+   */
+  keepFallbackForA11y?: boolean;
 }) {
   // 読了/失敗フラグは URL と組で持ち、URL が変わったら下ろす
   // （?v= クエリで再撮影後のスナップショットは別 URL になる）。
@@ -36,7 +46,21 @@ export function MeishiSnapshotImage({
 
   return (
     <View testID={testID}>
-      {current.loaded ? null : fallback}
+      {current.loaded ? (
+        keepFallbackForA11y ? (
+          // 画面には出さずアクセシビリティツリーだけに残す
+          // （opacity: 0 は読み上げ対象から外れない）。
+          <View
+            style={styles.a11yOnly}
+            pointerEvents="none"
+            testID="meishi-snapshot-a11y-fallback"
+          >
+            {fallback}
+          </View>
+        ) : null
+      ) : (
+        fallback
+      )}
       <Image
         source={{ uri }}
         style={
@@ -49,6 +73,9 @@ export function MeishiSnapshotImage({
         draggable={false}
         cachePolicy="memory-disk"
         transition={150}
+        // 裏読み込み中の見えない画像は読み上げ対象にしない。
+        accessible={accessibilityLabel == null ? undefined : current.loaded}
+        accessibilityLabel={accessibilityLabel}
         onLoad={(event) =>
           setState((s) =>
             s.uri === uri
@@ -78,5 +105,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.15)",
+  },
+  a11yOnly: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    opacity: 0,
   },
 });
