@@ -667,7 +667,7 @@ function SelectChip({
 }
 
 // 放送年代・視聴状態の絞り込みシート（issue #345）。
-// 選択は即時に一覧へ反映し、「閉じる」またはスワイプで閉じる。
+// 選択は即時に一覧へ反映し、「絞り込みを適用」またはスワイプで閉じる。
 function FilterSheet({
   decades,
   filters,
@@ -764,9 +764,11 @@ function FilterSheet({
             className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel={t("絞り込みを適用して閉じる")}
+            accessibilityLabel={t("絞り込みを適用")}
           >
-            <Text className="text-white font-semibold">{t("閉じる")}</Text>
+            <Text className="text-white font-semibold">
+              {t("絞り込みを適用")}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
