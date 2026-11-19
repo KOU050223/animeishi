@@ -4,6 +4,7 @@ import type { InferRequestType, InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { buildAnnictAuthHeader } from "@/lib/annict";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 type WorkRatingResponse = InferResponseType<
   (typeof apiClient.me)["work-ratings"][":annictWorkId"]["$get"],
@@ -19,7 +20,7 @@ export type WorkRating = NonNullable<WorkRatingResponse["rating"]>;
 
 // 評価値の表示ラベル。API 側の RATING_LABELS
 // （apps/api/src/features/analysis/service.ts）と同じ対応に保つ。
-export const WORK_RATING_LABELS: Record<WorkRating, string> = {
+export const WORK_RATING_LABELS: Record<WorkRating, TranslationKey> = {
   bad: "イマイチ",
   good: "良い",
   great: "最高",

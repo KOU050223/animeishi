@@ -73,7 +73,7 @@ export function NowWatchingBubble({
     (e) => e.annictEpisodeId === nowWatching.annictEpisodeId,
   );
   const label = episode
-    ? `${nowWatching.title} ${episodeLabel(episode)}`
+    ? `${nowWatching.title} ${episodeLabel(episode, t)}`
     : nowWatching.title;
 
   if (expired) return null;

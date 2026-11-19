@@ -23,6 +23,7 @@ import {
   toAuthErrorMessage,
 } from "@/lib/authErrors";
 import { useThemeColors } from "@/lib/theme";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 const INPUT_CLASS =
   "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100";
@@ -51,7 +52,9 @@ export default function ForgotPasswordScreen() {
     const parsed = passwordResetEmailSchema.safeParse({ email });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message ?? t("入力内容を確認してください"),
+        parsed.error.issues[0]?.message
+          ? t(parsed.error.issues[0].message as TranslationKey)
+          : t("入力内容を確認してください"),
       );
       return;
     }
@@ -84,7 +87,9 @@ export default function ForgotPasswordScreen() {
     });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message ?? t("入力内容を確認してください"),
+        parsed.error.issues[0]?.message
+          ? t(parsed.error.issues[0].message as TranslationKey)
+          : t("入力内容を確認してください"),
       );
       return;
     }

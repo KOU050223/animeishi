@@ -30,6 +30,7 @@ import {
 } from "@/lib/reviewAccount";
 import { getIncompleteSignInMessage } from "@/lib/signInStatus";
 import { useThemeColors } from "@/lib/theme";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 const INPUT_CLASS =
   "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100";
@@ -61,7 +62,9 @@ export default function SignInScreen() {
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message ?? t("入力内容を確認してください"),
+        parsed.error.issues[0]?.message
+          ? t(parsed.error.issues[0].message as TranslationKey)
+          : t("入力内容を確認してください"),
       );
       return;
     }
