@@ -80,7 +80,7 @@ export function MeishiCompletionCard() {
               key={step}
               className="flex-row items-center py-1.5"
               accessible
-              accessibilityLabel={`${label} ${t("完了")}`}
+              accessibilityLabel={t("{{label}} 完了", { label })}
               testID={`meishi-completion-step-done-${step}`}
             >
               <Ionicons

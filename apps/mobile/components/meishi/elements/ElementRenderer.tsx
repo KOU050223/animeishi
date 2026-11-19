@@ -112,6 +112,7 @@ function ImageRender({
   renderScale: number;
   onImageLoadEnd?: OnImageLoadEnd;
 }) {
+  const { t } = useTranslation();
   const uri = resolveImageUri(el, ctx);
   const borderRadius =
     el.shape === "circle"
@@ -132,7 +133,7 @@ function ImageRender({
           justifyContent: "center",
         }}
       >
-        <Text style={{ color: "#94a3b8", fontSize: 10 }}>画像</Text>
+        <Text style={{ color: "#94a3b8", fontSize: 10 }}>{t("画像")}</Text>
       </View>
     );
   }

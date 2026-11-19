@@ -3,6 +3,7 @@ import { View } from "react-native";
 import type { ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import type { MeishiElement, Transform } from "@/lib/meishi/types";
 
 type CanvasOrigin = { x: number; y: number };
@@ -29,6 +30,7 @@ export function SelectionOverlay({
   onTransform: (t: Transform) => void;
   onCommit?: () => void;
 }) {
+  const { t: tr } = useTranslation();
   const t = element.transform;
   const boxW = t.width * canvasSize.width;
   const boxH = t.height * canvasSize.height;
@@ -167,7 +169,7 @@ export function SelectionOverlay({
       {/* 移動用の透明ハンドル（枠内） */}
       <GestureDetector gesture={move}>
         <View
-          accessibilityLabel="要素を移動"
+          accessibilityLabel={tr("要素を移動")}
           style={{
             position: "absolute",
             inset: 0,
@@ -187,7 +189,7 @@ export function SelectionOverlay({
       {/* 上辺外側の回転ハンドル */}
       <GestureDetector gesture={rotate}>
         <View
-          accessibilityLabel="要素を回転"
+          accessibilityLabel={tr("要素を回転")}
           style={{
             position: "absolute",
             left: boxW / 2 - HANDLE_SIZE / 2,
@@ -224,12 +226,13 @@ function ResizeHandle({
   corner: Corner;
   gesture: ReturnType<typeof Gesture.Pan>;
 }) {
+  const { t } = useTranslation();
   const offset = -HANDLE_SIZE / 2;
   const cornerLabel: Record<Corner, string> = {
-    tl: "左上",
-    tr: "右上",
-    bl: "左下",
-    br: "右下",
+    tl: t("左上"),
+    tr: t("右上"),
+    bl: t("左下"),
+    br: t("右下"),
   };
   const pos: ViewStyle = {
     position: "absolute",
@@ -248,7 +251,9 @@ function ResizeHandle({
     <GestureDetector gesture={gesture}>
       <View
         style={pos}
-        accessibilityLabel={`サイズ変更ハンドル（${cornerLabel[corner]}）`}
+        accessibilityLabel={t("サイズ変更ハンドル（{{corner}}）", {
+          corner: cornerLabel[corner],
+        })}
       />
     </GestureDetector>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   AddElementSheetContent,
@@ -11,11 +12,12 @@ export function AddElementSheet({
   onPickAvatarImage,
   onPickAnimeImage,
 }: AddElementSheetProps) {
+  const { t } = useTranslation();
   return (
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      scrimAccessibilityLabel="要素の追加をやめる"
+      scrimAccessibilityLabel={t("要素の追加をやめる")}
     >
       <AddElementSheetContent
         onPick={onPick}
