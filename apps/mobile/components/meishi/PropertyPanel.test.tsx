@@ -9,15 +9,22 @@ import type {
 } from "@/lib/meishi/types";
 
 jest.mock("react-native-gesture-handler", () => {
+  let end:
+    | ((event: { translationX: number; translationY: number }) => void)
+    | undefined;
   const pan = {
     runOnJS: () => pan,
     onUpdate: () => pan,
-    onEnd: () => pan,
+    onEnd: (handler: typeof end) => {
+      end = handler;
+      return pan;
+    },
     onFinalize: () => pan,
   };
   return {
     Gesture: { Pan: () => pan },
     GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+    getPanEnd: () => end,
   };
 });
 
@@ -68,6 +75,39 @@ describe("PropertyPanel", () => {
     );
     expect(screen.getByText("切り抜き位置")).toBeTruthy();
     expect(screen.getByTestId("meishi-image-focus-preview")).toBeTruthy();
+  });
+
+  it("プレビュー内のドラッグ終了時に正規化した焦点を保存する", async () => {
+    const onChange = jest.fn();
+    await render(
+      <PropertyPanel
+        element={imageElement}
+        onChange={onChange}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+    const image = screen.container.queryAll(
+      (node) => node.props.contentFit === "cover",
+    )[0];
+    await act(async () => {
+      image.props.onLoad({
+        nativeEvent: { source: { width: 240, height: 120 } },
+      });
+    });
+    const { getPanEnd } = jest.requireMock("react-native-gesture-handler") as {
+      getPanEnd: () => (event: {
+        translationX: number;
+        translationY: number;
+      }) => void;
+    };
+    await act(async () => {
+      getPanEnd()({ translationX: 30, translationY: 0 });
+    });
+    expect(onChange).toHaveBeenCalledWith({ focus: { x: 0.25, y: 0.5 } });
   });
 
   it("支援技術のカスタムアクションで切り抜き位置をずらせる", async () => {
