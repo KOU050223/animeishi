@@ -9,6 +9,7 @@ import {
   type ViewInstance,
 } from "react-native";
 import { useAuth } from "@clerk/expo";
+import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
@@ -20,7 +21,9 @@ import { ApiRequestError } from "@/lib/apiError";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
 import { alert } from "@/lib/dialog";
@@ -85,7 +88,7 @@ export function QrSection() {
 }
 
 function GenerateView() {
-  const { userId, isSignedIn } = useAuth();
+  const { userId, isSignedIn, getToken } = useAuth();
   // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
   // 発火させるためフォーカスも見る。
   const isFocused = useIsFocused();
@@ -110,12 +113,31 @@ function GenerateView() {
   } = useMeishiLibrary();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
+  // 既定の名刺の公開スナップショット URL（issue #593）。相手が受け取るのと
+  // 同じ画像を出すため、公開プロフィールの meishiSnapshotUrl をそのまま使う。
+  // 非公開プロフィールは 404 になるが、配信側も非公開なら 404 なので
+  // どのみち画像は取れず、端末内レンダリングにフォールバックする。
+  const { data: ownPublicProfile, refetch: refetchOwnPublicProfile } = useQuery(
+    {
+      queryKey: publicProfileQueryKey(userId ?? ""),
+      queryFn: async () => fetchPublicProfile(userId!, await getToken()),
+      enabled: !!isSignedIn && !!userId,
+      retry: false,
+    },
+  );
+
   // 名刺エディタで内容が変わっていることがあるため、フォーカスのたびに
   // ライブラリを読み直す（プロフィール画面と同じ作法）。
+  // 公開プロフィールも取り直す。名刺を編集するとスナップショットが
+  // 再生成されて ?v= の版が変わるので、編集直後に古い画像が残らない
+  // ようにする。
   useFocusEffect(
     useCallback(() => {
       void reloadMeishi();
-    }, [reloadMeishi]),
+      if (isSignedIn && userId) {
+        void refetchOwnPublicProfile();
+      }
+    }, [reloadMeishi, refetchOwnPublicProfile, isSignedIn, userId]),
   );
 
   useEffect(
@@ -157,6 +179,23 @@ function GenerateView() {
   // （さらにライブラリが空なら MeishiCard 側の classic テンプレに落ちる）。
   const displayCard =
     meishiCards.find((card) => card.id === selectedCardId) ?? meishiDefaultCard;
+  // 公開スナップショットは既定の名刺の分だけが存在する（issue #593）。
+  // 選択中の名刺が既定なら相手が受け取るのと同じ画像を表示し、
+  // 既定以外やスナップショット未作成のときは端末内レンダリングに留める。
+  const snapshotUrl =
+    displayCard != null && displayCard.id === meishiDefaultCard?.id
+      ? (ownPublicProfile?.meishiSnapshotUrl ?? null)
+      : null;
+  const meishiCardElement = (
+    <MeishiCard
+      username={profile?.username}
+      bio={profile?.bio}
+      favoriteQuote={profile?.favoriteQuote}
+      profileImageUrl={profile?.profileImageUrl}
+      profileUrl={shareUrl}
+      document={displayCard?.document ?? null}
+    />
+  );
   // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
   // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
   // 載せない shareUrl を使い回し、遠隔では申請フローに限定する。
@@ -222,20 +261,25 @@ function GenerateView() {
     >
       {/* 渡す名刺を QR の主役として出す（issue #595）。document の解決は
           プロフィールの名刺プレビューと同じく、端末内ライブラリの
-          カードをプロフィール情報で描画する。 */}
+          カードをプロフィール情報で描画する。既定の名刺では公開
+          スナップショット画像を出し、読み込み中・失敗・未作成では
+          端末内レンダリングにフォールバックする。 */}
       <View
         className="w-full"
         style={styles.meishiCard}
         testID="qr-meishi-card"
       >
-        <MeishiCard
-          username={profile?.username}
-          bio={profile?.bio}
-          favoriteQuote={profile?.favoriteQuote}
-          profileImageUrl={profile?.profileImageUrl}
-          profileUrl={shareUrl}
-          document={displayCard?.document ?? null}
-        />
+        {snapshotUrl ? (
+          // ?v= が変わったら古い画像の状態を残さないよう key でリマウントする
+          <MeishiSnapshotImage
+            key={snapshotUrl}
+            uri={snapshotUrl}
+            fallback={meishiCardElement}
+            accessibilityLabel={t("渡す名刺")}
+          />
+        ) : (
+          meishiCardElement
+        )}
       </View>
       {/* スクリーンショットでも誰の QR か分かるよう名を添える
           （issue #595）。 */}
