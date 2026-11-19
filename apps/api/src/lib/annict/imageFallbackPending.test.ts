@@ -175,7 +175,7 @@ describe("resolvePendingImageFallbacks", () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
-  it("解決済み / MAL ID なし / 画像が非 placeholder の行は対象外", async () => {
+  it("解決済み / MAL ID なしの行は対象外", async () => {
     await insertWork(db, {
       annictWorkId: 500,
       malAnimeId: 21,
@@ -189,17 +189,33 @@ describe("resolvePendingImageFallbacks", () => {
       malAnimeId: null,
       imageUrl: null,
     });
-    await insertWork(db, {
-      annictWorkId: 502,
-      malAnimeId: 21,
-      imageUrl: "https://shonenjumpplus.com/uploads/poster.png",
-    });
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const persisted = await resolvePendingImageFallbacks(db);
 
     expect(persisted).toBe(0);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Annict URL が非 placeholder でも Kitsu 画像を先に補完する", async () => {
+    await insertWork(db, {
+      annictWorkId: 502,
+      malAnimeId: 21,
+      imageUrl: "https://shonenjumpplus.com/uploads/poster.png",
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () =>
+        makeKitsuResponse({
+          m21: { coverImage: { extraLarge: "https://media.kitsu.app/21.jpg" } },
+        }),
+      );
+    expect(await resolvePendingImageFallbacks(db)).toBe(1);
+    expect(fetchMock).toHaveBeenCalled();
+    const row = await db.query.annictWorks.findFirst({
+      where: (t, { eq }) => eq(t.annictWorkId, 502),
+    });
+    expect(row?.resolvedImageUrl).toBe("https://media.kitsu.app/21.jpg");
   });
 
   it("削除依頼で画像を消した作品（'blocked'）は対象外（issue #241）", async () => {

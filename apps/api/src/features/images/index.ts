@@ -4,8 +4,8 @@ import { serveWorkImage } from "@/lib/annict/workImage";
 
 /**
  * 作品画像の配信（公開・認証不要）。
- * GET /images/works/:annictWorkId は読み通しプロキシで、R2 に取り込み済みなら
- * それを返し、未取り込みなら外部の画像を取りに行って R2 に保存してから返す
+ * GET /images/works/:annictWorkId は Kitsu / MAL 由来を R2 から配信し、
+ * Annict 由来は元 URL へリダイレクトする
  * （詳細は lib/annict/workImage.ts）。
  * アプリの <Image> と共有ページ HTML の <img> の両方から参照される。
  *
@@ -27,7 +27,10 @@ export const images = new Hono<{
   }
 
   // クエリ文字列でキャッシュを分けられないよう、パスだけでキーを作る。
-  const cacheKey = new Request(new URL(c.req.path, c.req.url).toString());
+  // 旧キーには Annict 画像の 200 が残り得るため、配信方式変更時に世代を切る。
+  const cacheUrl = new URL(c.req.path, c.req.url);
+  cacheUrl.searchParams.set("image-policy", "2");
+  const cacheKey = new Request(cacheUrl.toString());
   const cache = defaultCache();
   // ?r=N はクライアント（WorkImage）のリトライ合図。取り込み完了直前の 404 が
   // edge に残っていると画像が用意できてもキャッシュが返り続けるため、この要求
@@ -51,7 +54,10 @@ export const images = new Hono<{
     annictWorkId,
     { malClientId: c.env.MAL_CLIENT_ID },
   );
-  if (cache && (res.status === 200 || res.status === 404)) {
+  if (
+    cache &&
+    (res.status === 200 || res.status === 302 || res.status === 404)
+  ) {
     // ゾーンの Purge Cache（タグ指定）でこのエントリを消せるよう、保存する
     // エントリにだけ Cache-Tag を付ける（MISS 時の直接レスポンスには付けない）。
     // Cache API のエントリは caches.default.delete() だと実行した DC しか

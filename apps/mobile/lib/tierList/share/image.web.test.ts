@@ -165,17 +165,22 @@ describe("shareTierListImage (web)", () => {
     expect(node.querySelector("img")!.src).toBe(dataSrc);
   });
 
-  it("API 配信の取り込み済み画像（/images/...）はプロキシに差し替えない", async () => {
-    // R2 自前配信 URL は CORS 付きなので html-to-image がそのまま fetch できる。
-    // image-proxy に通すと known-URL 照合で 403 になるため差し替えない（issue #174）。
-    const hostedSrc = `${apiUrl}/images/works/1/abc12345.png`;
+  it("API 配信の作品画像（/images/works/...）は image-proxy に差し替える", async () => {
+    // Annict 由来のとき元 URL への 302 を返す（issue #636）。302 の最終応答は
+    // 外部オリジンで CORS が無く html-to-image が取り込めないため、
+    // image-proxy が内部解決して CORS 付きで中継する経路に差し替える。
+    const hostedSrc = `${apiUrl}/images/works/1`;
     const target = buildTarget(`<img src="${hostedSrc}" />`);
     const node = target.current as unknown as HTMLElement;
-    await shareTierListImage(target, {
+    const promise = shareTierListImage(target, {
       dialogTitle: "t",
       backgroundColor: "#ffffff",
     });
-    expect(node.querySelector("img")!.src).toBe(hostedSrc);
+    const img = node.querySelector("img")!;
+    expect(img.src).toContain("/share/image-proxy?url=");
+    expect(img.src).toContain(encodeURIComponent(hostedSrc));
+    fireImageEvents(node, "load");
+    await promise;
   });
 
   it("API 配信のアバター・名刺アセット画像（/me/...）はプロキシに差し替えない", async () => {

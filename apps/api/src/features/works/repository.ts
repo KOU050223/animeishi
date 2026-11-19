@@ -34,7 +34,8 @@ export type AnnictWorkMeta = {
   // 'kitsu' | 'none' | null（'anilist' / 'jikan' は過去の供給元で
   // 既存行にのみ残る値）。運用調査用に露出する。
   imageSource: string | null;
-  // R2 に取り込み済みの作品画像キー。配信 URL は作品 ID から組み立てる
+  // R2 に取り込み済みの作品画像キー、または検証済み Annict URL の記録
+  // （#636。Annict 画像は R2 に置かない）。配信 URL は作品 ID から組み立てる
   // （GET /images/works/<id>）ので、ルート層では使わない。運用調査用。
   imageR2Key: string | null;
   // Annict Work.watchersCount（作品の人気指標）。null は未取得。
@@ -390,6 +391,7 @@ export function worksRepository(db: DrizzleDb) {
      * （検索経路は内容が変わらない作品を書き直さないので、厳密な「最終閲覧順」ではない）。
      * attemptedStaleBefore 以降に試行済みの作品（クールダウン生存中）は除外する。
      *
+     * Annict の画像 URL が見た目上有効でも、Kitsu / MAL を先に補完する。
      * 対象は「未解決（image_source is null）」の作品に加えて、
      * 「'none'（Kitsu にも無いと確定）だが確定時刻 resolved_at が
      * noneResolvedStaleBefore より古い」作品。'none' のままだと二度と
@@ -423,15 +425,6 @@ export function worksRepository(db: DrizzleDb) {
             sql`
           (${annictWorks.malAnimeId} is not null
            or ${annictWorks.kitsuAnimeId} is not null)
-          and (
-            ${annictWorks.imageUrl} is null
-            or trim(${annictWorks.imageUrl}) = ''
-            or lower(trim(${annictWorks.imageUrl})) like 'http:%'
-            or lower(${annictWorks.imageUrl}) like '%pbs.twimg.com%'
-            or lower(${annictWorks.imageUrl}) like '%twimg.com%'
-            or lower(${annictWorks.imageUrl}) like '%graph.facebook.com%'
-            or lower(${annictWorks.imageUrl}) like '%fbcdn.net%'
-          )
         `,
             or(
               isNull(annictWorks.imageSource),
