@@ -39,9 +39,6 @@ export function activityText(item: ActivityFeedItem, t: TFunction): string {
   }
 }
 
-// まとめた活動 1 行分を「N 件の記録を…しました」という行にする（issue #533）。
-// items は同じステータスへの変更だけを含む（groupActivityItems が保証）。
-// 先頭（最新）の活動を代表としてユーザー名・ステータスを取る。
 export function activityGroupText(
   items: ActivityFeedItem[],
   t: TFunction,

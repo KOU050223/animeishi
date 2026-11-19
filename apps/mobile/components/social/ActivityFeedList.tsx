@@ -73,7 +73,6 @@ export function ActivityFeedList({
     isLoading || (isError && !data)
       ? []
       : (data?.pages.flatMap((page) => page.items) ?? []);
-  // 一括操作で連続した同種のステータス変更は 1 行にまとめる（issue #533）。
   // maxItems はまとめ後の行数に掛ける（1 まとめ = 1 行）。
   const entries = groupActivityItems(allItems);
   const isLimited = maxItems !== undefined;
@@ -189,9 +188,8 @@ function FeedStatus({
   return <FeedEmptyState />;
 }
 
-// フレンド 0 人の空状態では、フレンドの探し方への導線を出す（issue #533）。
-// フレンド数は別クエリなので、結果が来るまでは従来の空メッセージのままにする
-// （取得失敗・ゲストも同じ扱い）。
+// フレンド数は別クエリなので、0 人と確定するまでは導線を出さず従来の
+// 空メッセージのままにする（issue #533）。
 function FeedEmptyState() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -247,8 +245,8 @@ function FeedEmptyState() {
   );
 }
 
-// まとめた活動の 1 行（issue #533）。複数作品のまとめなので個別の
-// 作品詳細リンクは付けず、件数つきの文と最新の記録時刻だけを出す。
+// 複数作品をまとめた行なので、どれか 1 作品への詳細リンクは付けない
+// （issue #533）。
 function ActivityGroupRow({ items }: { items: ActivityFeedItem[] }) {
   const { t } = useTranslation();
   const first = items[0];
