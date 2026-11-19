@@ -565,7 +565,9 @@ describe("GET /me/profile & PUT /me/profile", () => {
           {
             method: "POST",
             headers: { "Content-Type": "image/png" },
-            body: new Uint8Array([137, 80, 78, 71]),
+            body: new Uint8Array([
+              0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+            ]),
           },
           testBindings(),
         );
@@ -647,6 +649,28 @@ describe("GET /me/profile & PUT /me/profile", () => {
         testBindings(),
       );
       expect(res.status).toBe(201);
+    });
+
+    it("公開スナップショットは PNG シグネチャでない本文を保存しない", async () => {
+      const app = buildApp();
+      const key = `meishi-assets/${USER_ID}/public-snapshot.png`;
+      await env.AVATARS.put(key, new Uint8Array([9]), {
+        httpMetadata: { contentType: "image/png" },
+      });
+      const res = await app.request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: new TextEncoder().encode("<html>not a png</html>"),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+      const stored = await env.AVATARS.get(key);
+      expect(new Uint8Array(await stored!.arrayBuffer())).toEqual(
+        new Uint8Array([9]),
+      );
     });
 
     it("公開スナップショットは Content-Length が上限超なら本文を読まず拒否する", async () => {

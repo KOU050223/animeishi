@@ -30,6 +30,7 @@ import {
   MAX_AVATAR_BYTES,
   MEISHI_ASSET_MAX_BYTES,
   MEISHI_ASSET_MAX_PER_USER,
+  isPngData,
   PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
   publicMeishiSnapshotKey,
   publicMeishiSnapshotUrl,
@@ -72,6 +73,9 @@ app.post("/meishi-snapshot", async (c) => {
     return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
   }
   const body = read.data;
+  if (!isPngData(body)) {
+    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+  }
   const version = crypto.randomUUID();
   await getBindings(c).AVATARS.put(
     publicMeishiSnapshotKey(c.var.clerkUserId),
