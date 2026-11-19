@@ -5,6 +5,7 @@ import { ElementRenderer } from "@/components/meishi/elements/ElementRenderer";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,
+  ImageElement,
   MeishiElement,
   MeishiRenderContext,
   TextElement,
@@ -55,6 +56,16 @@ const collageElement: AnimeCollageElement = {
   gap: 0.02,
 };
 
+const imageElement: ImageElement = {
+  id: "image-1",
+  type: "image",
+  transform: { x: 0, y: 0, width: 0.5, height: 0.3, rotation: 0 },
+  uri: "https://img.example/photo.jpg",
+  source: "upload",
+  shape: "rect",
+  objectFit: "cover",
+};
+
 const collageCtx: MeishiRenderContext = {
   profile: {},
   // 旧ドキュメント用フォールバック（自動時はこれを見る）
@@ -94,6 +105,25 @@ async function renderedUris(
 }
 
 describe("ElementRenderer", () => {
+  it("画像要素の焦点を expo-image の contentPosition に渡す", async () => {
+    await render(
+      <ElementRenderer
+        element={{ ...imageElement, focus: { x: 0.2, y: 0.75 } }}
+        ctx={{ profile: {} }}
+        boxWidth={200}
+        boxHeight={100}
+        renderScale={1}
+      />,
+    );
+    const image = screen.container.queryAll(
+      (node) => node.props.contentPosition,
+    )[0];
+    expect(image.props.contentPosition).toEqual({ left: "20%", top: "75%" });
+    expect(image.props.contentFit).toBe("cover");
+    // web のネイティブ画像ドラッグが要素移動のジェスチャを奪わない（issue #327）
+    expect(image.props.draggable).toBe(false);
+  });
+
   it("テキストの fontSize を renderScale に合わせて縮小する", async () => {
     await render(
       <ElementRenderer

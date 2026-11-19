@@ -6,16 +6,25 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { useEffect, useRef, type ComponentRef } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { Image as ExpoImage } from "expo-image";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import { Ionicons } from "@expo/vector-icons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
+import {
+  dragImageFocus,
+  imageContentPosition,
+  nudgeImageFocus,
+} from "@/lib/meishi/imageFocus";
+import { resolveImageUri } from "@/lib/meishi/renderableImages";
 import type { ThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import type {
   CollageStateFilter,
+  ImageElement,
   MeishiRenderContext,
   MeishiElement,
   TextSource,
@@ -24,6 +33,7 @@ import type {
 type Props = {
   element: MeishiElement;
   context?: MeishiRenderContext;
+  canvasAspectRatio?: number;
   style?: StyleProp<ViewStyle>;
   onChange: (patch: Partial<MeishiElement>) => void;
   onOpenTextEdit: () => void;
@@ -85,6 +95,7 @@ export function PropertyPanel(props: Props) {
           t(
             "自由は入力した文字、名前・紹介・セリフはプロフィールの内容を表示します",
           ),
+          t("切り抜き位置"),
           sourceOptions,
         )}
       </ScrollView>
@@ -106,11 +117,205 @@ export function PropertyPanel(props: Props) {
   );
 }
 
+function ImageFocusPreview({
+  element,
+  context,
+  canvasAspectRatio,
+  onChange,
+  colors,
+}: {
+  element: ImageElement;
+  context?: MeishiRenderContext;
+  canvasAspectRatio: number;
+  onChange: Props["onChange"];
+  colors: ThemeColors;
+}) {
+  const { t } = useTranslation();
+  const uri = resolveImageUri(element, context ?? { profile: {} });
+  const ratio = Math.max(
+    0.1,
+    (element.transform.width * canvasAspectRatio) /
+      Math.max(element.transform.height, 0.001),
+  );
+  const frame = useMemo(
+    () => ({
+      width: Math.min(160, 120 * ratio),
+      height: Math.min(120, 160 / ratio),
+    }),
+    [ratio],
+  );
+  const [imageSize, setImageSize] = useState<{
+    uri: string;
+    width: number;
+    height: number;
+  } | null>(null);
+  const loadedImageSize = imageSize?.uri === uri ? imageSize : null;
+  const [previewFocus, setPreviewFocus] = useState<{
+    id: string;
+    focus: NonNullable<ImageElement["focus"]>;
+  } | null>(null);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .onUpdate((event) => {
+          if (!loadedImageSize) return;
+          setPreviewFocus({
+            id: element.id,
+            focus: dragImageFocus(
+              element.focus,
+              { x: event.translationX, y: event.translationY },
+              frame,
+              loadedImageSize,
+            ),
+          });
+        })
+        .onEnd((event) => {
+          if (!loadedImageSize) return;
+          onChange({
+            focus: dragImageFocus(
+              element.focus,
+              { x: event.translationX, y: event.translationY },
+              frame,
+              loadedImageSize,
+            ),
+          });
+          setPreviewFocus(null);
+        })
+        .onFinalize(() => setPreviewFocus(null)),
+    [element.id, element.focus, frame, loadedImageSize, onChange],
+  );
+
+  // ドラッグはスイッチ操作・VoiceOver・Web のキーボード操作では使えないため、
+  // 一定量ずつ焦点をずらす手段をカスタムアクションとボタンの両方で用意する。
+  const focusActions = [
+    {
+      name: "left",
+      label: t("表示位置を左へ"),
+      icon: "arrow-back",
+      delta: { x: -0.1, y: 0 },
+    },
+    {
+      name: "right",
+      label: t("表示位置を右へ"),
+      icon: "arrow-forward",
+      delta: { x: 0.1, y: 0 },
+    },
+    {
+      name: "up",
+      label: t("表示位置を上へ"),
+      icon: "arrow-up",
+      delta: { x: 0, y: -0.1 },
+    },
+    {
+      name: "down",
+      label: t("表示位置を下へ"),
+      icon: "arrow-down",
+      delta: { x: 0, y: 0.1 },
+    },
+  ] as const;
+  const currentFocus = element.focus ?? { x: 0.5, y: 0.5 };
+
+  if (!uri) return null;
+  return (
+    <View style={{ alignItems: "flex-start", gap: 6 }}>
+      <GestureDetector gesture={pan}>
+        <View
+          testID="meishi-image-focus-preview"
+          accessible
+          accessibilityLabel={t("切り抜き位置")}
+          accessibilityHint={t("画像をドラッグして表示位置を調整")}
+          accessibilityValue={{
+            text: t("横 {{x}}%、縦 {{y}}%", {
+              x: Math.round(currentFocus.x * 100),
+              y: Math.round(currentFocus.y * 100),
+            }),
+          }}
+          accessibilityActions={focusActions.map(({ name, label }) => ({
+            name,
+            label,
+          }))}
+          onAccessibilityAction={(event) => {
+            const action = focusActions.find(
+              (a) => a.name === event.nativeEvent.actionName,
+            );
+            if (action)
+              onChange({ focus: nudgeImageFocus(element.focus, action.delta) });
+          }}
+          style={{
+            width: frame.width,
+            height: frame.height,
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius:
+              element.shape === "circle"
+                ? Math.min(frame.width, frame.height) / 2
+                : element.shape === "rounded"
+                  ? 8
+                  : 0,
+          }}
+        >
+          <ExpoImage
+            source={{ uri }}
+            style={{ width: "100%", height: "100%" }}
+            // web ではネイティブ画像ドラッグが Pan を pointercancel で切る（issue #327）
+            draggable={false}
+            contentFit="cover"
+            contentPosition={imageContentPosition(
+              previewFocus?.id === element.id
+                ? previewFocus.focus
+                : element.focus,
+            )}
+            onLoad={(event) =>
+              setImageSize({
+                uri,
+                width: event.source.width,
+                height: event.source.height,
+              })
+            }
+          />
+        </View>
+      </GestureDetector>
+      <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+        {t("画像をドラッグして表示位置を調整")}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        {focusActions.map(({ name, label, icon, delta }) => (
+          <Pressable
+            key={name}
+            testID={`meishi-image-focus-${name}`}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            hitSlop={6}
+            onPress={() =>
+              onChange({ focus: nudgeImageFocus(element.focus, delta) })
+            }
+            style={{ padding: 4 }}
+          >
+            <Ionicons name={icon} size={16} color={colors.primary} />
+          </Pressable>
+        ))}
+        <Pressable
+          onPress={() => onChange({ focus: { x: 0.5, y: 0.5 } })}
+          style={{ marginLeft: 8 }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 12 }}>
+            {t("中央に戻す")}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function renderEditor(
   props: Props,
   colors: ThemeColors,
   contentLabel: string,
   contentHelp: string,
+  focusLabel: string,
   sourceOptions: { value: TextSource; label: string }[],
 ) {
   const { element, onChange, onOpenTextEdit } = props;
@@ -252,6 +457,17 @@ function renderEditor(
               }
             />
           </Row>
+          {element.objectFit === "cover" ? (
+            <Row label={focusLabel}>
+              <ImageFocusPreview
+                element={element}
+                context={props.context}
+                canvasAspectRatio={props.canvasAspectRatio ?? 1}
+                onChange={onChange}
+                colors={colors}
+              />
+            </Row>
+          ) : null}
           <Row label="ソース">
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
               {element.source === "avatar"

@@ -385,6 +385,7 @@ export default function MeishiEditScreen() {
             <PropertyPanel
               element={selected}
               context={context}
+              canvasAspectRatio={doc?.canvas.aspectRatio}
               style={styles.propertyPanel}
               onChange={(patch) => updateElement(selected.id, patch)}
               onOpenTextEdit={() => setTextSheet(true)}
