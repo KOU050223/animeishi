@@ -19,5 +19,13 @@ describe("TemplatePicker", () => {
     expect(screen.getByTestId("template-swatch-sakura-end")).toHaveStyle({
       backgroundColor: "#fbcfe8",
     });
+    expect(
+      screen.getByLabelText(
+        "サンセットテンプレートを選ぶ。配色: オレンジとコーラル",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText("ミッドナイトテンプレートを選ぶ。配色: 紺と紫"),
+    ).toBeTruthy();
   });
 });

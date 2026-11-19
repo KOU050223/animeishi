@@ -127,7 +127,7 @@ describe("名刺一覧画面", () => {
     expect(screen.getAllByText("既定")).toHaveLength(1);
     expect(
       screen.getByText(
-        "プロフィールや QR から表示される名刺は「既定」です。画像共有は開いている名刺を使います",
+        "既定の名刺はプロフィールタブに表示されます。プロフィール用 QR は公開プロフィールを開き、画像共有は編集中の名刺を使います",
       ),
     ).toBeTruthy();
   });

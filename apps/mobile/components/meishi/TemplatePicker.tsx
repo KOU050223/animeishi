@@ -14,6 +14,14 @@ const templateNameKeys: Record<string, TranslationKey> = {
   sakura: "さくら",
 };
 
+const templatePaletteKeys: Record<string, TranslationKey> = {
+  blank: "白",
+  classic: "白",
+  sunset: "オレンジとコーラル",
+  midnight: "紺と紫",
+  sakura: "淡いピンクの濃淡",
+};
+
 export function TemplatePicker({
   visible,
   onClose,
@@ -90,9 +98,13 @@ export function TemplatePicker({
                     gap: 8,
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={t("{{name}}テンプレートを選ぶ", {
-                    name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
-                  })}
+                  accessibilityLabel={t(
+                    "{{name}}テンプレートを選ぶ。配色: {{colors}}",
+                    {
+                      name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
+                      colors: t(templatePaletteKeys[tpl.id] ?? "白"),
+                    },
+                  )}
                 >
                   <View
                     style={{

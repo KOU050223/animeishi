@@ -24,7 +24,10 @@ import { alert } from "@/lib/dialog";
 import { haptics } from "@/lib/haptics";
 import { trackEvent } from "@/lib/events";
 import { makeDefaultElement, newId } from "@/lib/meishi/defaults";
-import { getInspectorHeight } from "@/lib/meishi/inspectorLayout";
+import {
+  getFittedCanvasWidth,
+  getInspectorHeight,
+} from "@/lib/meishi/inspectorLayout";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
@@ -86,6 +89,10 @@ export default function MeishiEditScreen() {
   );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [canvasAreaSize, setCanvasAreaSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [addSheet, setAddSheet] = useState(false);
   // 画像要素の追加・差し替えフロー（端末アップロード / アニメ画像ピッカー）
   const {
@@ -310,7 +317,16 @@ export default function MeishiEditScreen() {
       <View style={styles.editorBody} testID="meishi-editor-body">
         <GestureDetector gesture={tapCanvasBackdrop}>
           <View
+            testID="meishi-canvas-area"
             style={[styles.canvasArea, { paddingBottom: inspectorHeight + 12 }]}
+            onLayout={(event) => {
+              const { width, height } = event.nativeEvent.layout;
+              setCanvasAreaSize((previous) =>
+                previous?.width === width && previous.height === height
+                  ? previous
+                  : { width, height },
+              );
+            }}
           >
             {/* Tap ジェスチャはスクリーンリーダーから実行できないため、
                 選択中だけアクセシブルな解除導線を置く */}
@@ -322,7 +338,22 @@ export default function MeishiEditScreen() {
                 onPress={() => onSelect(null)}
               />
             ) : null}
-            <View style={styles.canvasWrapper}>
+            <View
+              testID="meishi-canvas-wrapper"
+              style={[
+                styles.canvasWrapper,
+                doc && canvasAreaSize
+                  ? {
+                      width: getFittedCanvasWidth(
+                        canvasAreaSize.width,
+                        canvasAreaSize.height,
+                        inspectorHeight,
+                        doc.canvas.aspectRatio,
+                      ),
+                    }
+                  : null,
+              ]}
+            >
               {doc ? (
                 <EditorCanvas
                   document={doc}

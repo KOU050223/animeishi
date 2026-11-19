@@ -712,7 +712,7 @@
   "削除するとすべてのデータが失われ、元に戻せません": "Deleting your account permanently removes all your data.",
   "{{username}}のアイコン": "{{username}}'s avatar",
   "読み込み中": "Loading...",
-  "プロフィールや QR から表示される名刺は「既定」です。画像共有は開いている名刺を使います": "The default card appears on your profile and through its QR code. Image sharing uses the card you have open.",
+  "既定の名刺はプロフィールタブに表示されます。プロフィール用 QR は公開プロフィールを開き、画像共有は編集中の名刺を使います": "The default card appears on your Profile tab. A profile QR code opens your public profile, and image sharing uses the card you're editing.",
   "自由は入力した文字、名前・紹介・セリフはプロフィールの内容を表示します": "Custom shows typed text; Name, Bio, and Quote show your profile details.",
   "視聴した作品の画像を並べます": "Arranges images of anime you've watched",
   "視聴済み作品の数を表示します": "Shows your watched anime count",
@@ -735,5 +735,10 @@
   "表示内容": "Content source",
   "名前": "Name",
   "紹介": "Bio",
-  "セリフ": "Quote"
+  "セリフ": "Quote",
+  "{{name}}テンプレートを選ぶ。配色: {{colors}}": "Choose the {{name}} template. Colors: {{colors}}",
+  "白": "white",
+  "オレンジとコーラル": "orange and coral",
+  "紺と紫": "navy and purple",
+  "淡いピンクの濃淡": "shades of pale pink"
 }
