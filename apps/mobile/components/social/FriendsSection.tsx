@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -15,14 +14,13 @@ import type { FriendItem } from "@/lib/useFriends";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
-import { useThemeColors } from "@/lib/theme";
+import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 
 // QR・フレンドタブの「フレンド」セクション（旧フレンドタブ）。
 // 画面上部の safe area とセクション切り替えはタブ画面側が持つため、
 // ここではセクション名の見出しを出さず人数だけを表示する。
 export function FriendsSection() {
   const { t } = useTranslation();
-  const colors = useThemeColors();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -76,13 +74,13 @@ export function FriendsSection() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View className="flex-1 bg-white dark:bg-slate-900">
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
 
-  if (isError) {
+  if (isError && !friends) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">

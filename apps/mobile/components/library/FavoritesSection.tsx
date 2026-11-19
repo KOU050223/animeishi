@@ -5,7 +5,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import {
@@ -22,6 +21,7 @@ import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
+import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 
 // ライブラリタブの「推し」セクション（旧お気に入りタブ）。
 // 画面上部の safe area とセクション切り替えはライブラリ画面側が持つため、
@@ -88,13 +88,13 @@ export function FavoritesSection() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View className="flex-1 bg-white dark:bg-slate-900">
+        <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
       </View>
     );
   }
 
-  if (isError) {
+  if (isError && !favorites) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">
