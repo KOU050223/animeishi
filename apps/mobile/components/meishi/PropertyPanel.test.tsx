@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { PropertyPanel } from "@/components/meishi/PropertyPanel";
 import i18n from "@/lib/i18n";
 import type {
@@ -94,6 +94,24 @@ describe("PropertyPanel", () => {
       });
     });
     expect(onChange).toHaveBeenCalledWith({ focus: { x: 0.4, y: 0.5 } });
+  });
+
+  it("方向ボタンで切り抜き位置をずらせる", async () => {
+    const onChange = jest.fn();
+    await render(
+      <PropertyPanel
+        element={{ ...imageElement, focus: { x: 0.5, y: 0.5 } }}
+        canvasAspectRatio={1.5}
+        onChange={onChange}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByLabelText("表示位置を下へ"));
+    expect(onChange).toHaveBeenCalledWith({ focus: { x: 0.5, y: 0.6 } });
   });
 
   it("web のネイティブ画像ドラッグがプレビューの Pan を奪わない（issue #327）", async () => {

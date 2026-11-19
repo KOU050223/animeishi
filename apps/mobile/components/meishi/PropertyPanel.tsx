@@ -187,14 +187,34 @@ function ImageFocusPreview({
     [element.id, element.focus, frame, loadedImageSize, onChange],
   );
 
-  // ドラッグはスイッチ操作や VoiceOver では使えないため、一定量ずつ焦点を
-  // ずらすカスタムアクションを用意する。
+  // ドラッグはスイッチ操作・VoiceOver・Web のキーボード操作では使えないため、
+  // 一定量ずつ焦点をずらす手段をカスタムアクションとボタンの両方で用意する。
   const focusActions = [
-    { name: "left", label: t("表示位置を左へ"), delta: { x: -0.1, y: 0 } },
-    { name: "right", label: t("表示位置を右へ"), delta: { x: 0.1, y: 0 } },
-    { name: "up", label: t("表示位置を上へ"), delta: { x: 0, y: -0.1 } },
-    { name: "down", label: t("表示位置を下へ"), delta: { x: 0, y: 0.1 } },
-  ];
+    {
+      name: "left",
+      label: t("表示位置を左へ"),
+      icon: "arrow-back",
+      delta: { x: -0.1, y: 0 },
+    },
+    {
+      name: "right",
+      label: t("表示位置を右へ"),
+      icon: "arrow-forward",
+      delta: { x: 0.1, y: 0 },
+    },
+    {
+      name: "up",
+      label: t("表示位置を上へ"),
+      icon: "arrow-up",
+      delta: { x: 0, y: -0.1 },
+    },
+    {
+      name: "down",
+      label: t("表示位置を下へ"),
+      icon: "arrow-down",
+      delta: { x: 0, y: 0.1 },
+    },
+  ] as const;
   const currentFocus = element.focus ?? { x: 0.5, y: 0.5 };
 
   if (!uri) return null;
@@ -261,11 +281,31 @@ function ImageFocusPreview({
       <Text style={{ color: colors.textMuted, fontSize: 11 }}>
         {t("画像をドラッグして表示位置を調整")}
       </Text>
-      <Pressable onPress={() => onChange({ focus: { x: 0.5, y: 0.5 } })}>
-        <Text style={{ color: colors.primary, fontSize: 12 }}>
-          {t("中央に戻す")}
-        </Text>
-      </Pressable>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        {focusActions.map(({ name, label, icon, delta }) => (
+          <Pressable
+            key={name}
+            testID={`meishi-image-focus-${name}`}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            hitSlop={6}
+            onPress={() =>
+              onChange({ focus: nudgeImageFocus(element.focus, delta) })
+            }
+            style={{ padding: 4 }}
+          >
+            <Ionicons name={icon} size={16} color={colors.primary} />
+          </Pressable>
+        ))}
+        <Pressable
+          onPress={() => onChange({ focus: { x: 0.5, y: 0.5 } })}
+          style={{ marginLeft: 8 }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 12 }}>
+            {t("中央に戻す")}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
