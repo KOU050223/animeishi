@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ScrollView,
   Text,
@@ -32,6 +32,7 @@ import { tierLabelFontSize, tierLabelTextColor } from "@/lib/tierList/label";
 import type { TierAssignment, TierRow, TierItem } from "@/lib/tierList/types";
 
 export type TierBoardProps = {
+  header?: ReactNode;
   tiers: TierRow[];
   items: TierItem[];
   assignment: TierAssignment;
@@ -73,6 +74,7 @@ export type TierBoardProps = {
  * 行の矩形を知っているのは DropZone を並べたこのコンポーネントだからである。
  */
 export function TierBoard({
+  header,
   tiers,
   items,
   assignment,
@@ -342,8 +344,10 @@ export function TierBoard({
         onMomentumScrollEnd={registry.remeasureAll}
         onScrollEndDrag={registry.remeasureAll}
         scrollEventThrottle={16}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 40 }}
       >
+        {header ? <View onLayout={registry.remeasureAll}>{header}</View> : null}
         <View
           style={[styles.board, draggingInBoard && styles.draggingFront]}
           testID="tier-board"

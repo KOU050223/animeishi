@@ -540,9 +540,14 @@ export default function CharacterTierListScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
+  const boardReady =
+    !isCharactersError &&
+    !isSavedError &&
+    !isCharactersLoading &&
+    !isSavedLoading &&
+    characters.length > 0;
+  const boardHeader = (
+    <>
       <View style={styles.header}>
         {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
@@ -617,6 +622,13 @@ export default function CharacterTierListScreen() {
           )}
         </Text>
       </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {!boardReady ? boardHeader : null}
 
       {isCharactersError ? (
         <View style={styles.centered}>
@@ -647,6 +659,7 @@ export default function CharacterTierListScreen() {
         </View>
       ) : (
         <TierBoard
+          header={boardHeader}
           tiers={tiers}
           items={characters}
           assignment={assignment}

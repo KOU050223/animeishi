@@ -613,9 +613,9 @@ export default function TierListScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
+  const boardReady = !isWorksError && !isWorksLoading && !isSavedLoading;
+  const boardHeader = (
+    <>
       <View style={styles.header}>
         {backBar}
         <Text style={styles.headerTitle}>{title}</Text>
@@ -686,6 +686,13 @@ export default function TierListScreen() {
         season={seasonKey}
         onChange={handleChangeSeason}
       />
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {!boardReady ? boardHeader : null}
 
       {isWorksError ? (
         <View style={styles.centered}>
@@ -704,6 +711,7 @@ export default function TierListScreen() {
         // シーズン候補が 0 件でも盤面を出す。＋ボタンから手動追加できる
         // 道を残すため（issue #168）、空のときだけ別画面にはしない。
         <TierBoard
+          header={boardHeader}
           onItemPress={(item) =>
             openWork({
               annictWorkId: item.id,

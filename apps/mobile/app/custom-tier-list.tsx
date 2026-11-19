@@ -551,9 +551,9 @@ export default function CustomTierListScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
+  const boardReady = !isSavedLoading;
+  const boardHeader = (
+    <>
       <View style={styles.header}>
         {backBar}
         {/* タイトルはテーマ名そのもの。シーズン版の固定タイトルと違い
@@ -632,6 +632,13 @@ export default function CustomTierListScreen() {
           )}
         </View>
       </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
+      {!boardReady ? boardHeader : null}
 
       {isSavedLoading ? (
         <View style={styles.centered}>
@@ -642,6 +649,7 @@ export default function CustomTierListScreen() {
         </View>
       ) : (
         <TierBoard
+          header={boardHeader}
           onItemPress={(item) =>
             openWork({
               annictWorkId: item.id,
