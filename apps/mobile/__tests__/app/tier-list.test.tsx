@@ -66,6 +66,7 @@ jest.mock("@/components/anime-list/SeasonFilter", () => ({
 // 盤面への反映内容（tiers / assignment / title 反映後の props）を
 // そのまま検査するため TierBoard はスタブ化する。
 let mockBoardProps: {
+  header?: React.ReactNode;
   tiers: TierRow[];
   items: TierItem[];
   assignment: TierAssignment;
@@ -75,7 +76,7 @@ let mockBoardProps: {
 jest.mock("@/components/tier-list/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
     mockBoardProps = props;
-    return null;
+    return props.header;
   },
 }));
 

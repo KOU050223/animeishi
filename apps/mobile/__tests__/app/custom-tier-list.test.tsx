@@ -52,6 +52,7 @@ jest.mock("@/lib/annict", () => ({
 }));
 
 let mockBoardProps: {
+  header?: React.ReactNode;
   tiers: TierRow[];
   items: { id: number; title: string }[];
   assignment: TierAssignment;
@@ -61,7 +62,7 @@ let mockBoardProps: {
 jest.mock("@/components/tier-list/TierBoard", () => ({
   TierBoard: (props: NonNullable<typeof mockBoardProps>) => {
     mockBoardProps = props;
-    return null;
+    return props.header;
   },
 }));
 
