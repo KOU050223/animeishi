@@ -59,14 +59,21 @@ export function MeishiCompletionCard() {
 
   if (isLoading || isComplete || isError) return null;
 
+  // 「残り N ステップ」だけだと中身が分からない（issue #531）ため、
+  // 未達ステップの行動名を列挙する。区切りは他画面の列挙と同じく中点。
+  const remaining = missing
+    .map((step) => t(STEP_ACTION_LABELS[step]))
+    .join("・");
+
   return (
     <View
       className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950"
       testID="meishi-completion-card"
     >
       <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        {t("名刺を完成させよう（残り {{count}} ステップ）", {
+        {t("名刺を完成させよう（残り {{count}} ステップ：{{steps}}）", {
           count: missing.length,
+          steps: remaining,
         })}
       </Text>
       {MEISHI_COMPLETION_STEPS.map((step) => {
