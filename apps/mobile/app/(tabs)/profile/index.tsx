@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
@@ -50,9 +51,13 @@ type Toast = { type: "success" | "error"; message: string };
 // Apple Wallet 追加の結果コードを、この画面で表示する文言へマッピングする。
 // 文言は低レベル基盤 (lib/wallet) には持たせず、呼び出し側で組み立てる。
 // 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
+// t はキー補完つきの厳密な型（ReturnType<typeof useTranslation>["t"]）ではなく
+// TFunction で受ける。キー数が増えると厳密な型の展開が TypeScript の
+// インスタンス化上限（TS2589）に達してこの呼び出しがエラーになるため
+// （issue #599 で翻訳キーを追加した際に到達）。他画面の t 引数と同じ形。
 function walletErrorMessage(
   result: AddToWalletResult,
-  t: ReturnType<typeof useTranslation>["t"],
+  t: TFunction,
 ): string | null {
   switch (result.type) {
     case "success":
@@ -473,6 +478,53 @@ export default function ProfileScreen() {
             （@expo/ui）、Web では従来のカード行に切り替わる（issue #313）。 */}
             <GroupedList
               sections={[
+                // 運営コンテンツの一覧への入口（issue #599）。ホームの
+                // 各レールは公開中のものがあるときだけ出るため、常設の
+                // 導線をここに置く。
+                {
+                  key: "contents",
+                  title: t("イベント・特集"),
+                  rows: [
+                    {
+                      key: "events",
+                      label: t("イベント"),
+                      onPress: () => router.push("/event"),
+                      accessibilityLabel: t("イベント一覧を開く"),
+                    },
+                    {
+                      key: "elections",
+                      label: t("総選挙"),
+                      onPress: () => router.push("/election"),
+                      accessibilityLabel: t("総選挙一覧を開く"),
+                    },
+                    {
+                      key: "articles",
+                      label: t("特集記事"),
+                      onPress: () => router.push("/article"),
+                      accessibilityLabel: t("特集記事一覧を開く"),
+                    },
+                  ],
+                },
+                // dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。
+                // ネイティブでフラグが無効な間はセクションごと出さない。
+                ...(featureFlags.danimeImport
+                  ? [
+                      {
+                        key: "import",
+                        title: t("データの取り込み"),
+                        rows: [
+                          {
+                            key: "danime-import",
+                            label: t("dアニメストアから視聴履歴をインポート"),
+                            onPress: () => router.push("/danime-import"),
+                            accessibilityLabel: t(
+                              "dアニメストアからのインポートを開く",
+                            ),
+                          },
+                        ],
+                      },
+                    ]
+                  : []),
                 {
                   key: "analysis",
                   title: t("分析"),

@@ -1,5 +1,6 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useLatestArticles } from "@/lib/useArticles";
 import type { ArticleListItem } from "@/lib/useArticles";
 import { WorkImage } from "@/components/anime-list/WorkImage";
@@ -13,6 +14,7 @@ const IMAGE_HEIGHT = Math.round((CARD_WIDTH * 9) / 16);
 // 公開中の新着記事を横スクロールで並べる。タップで記事詳細へ。
 // 公開中の記事が無い（・取得失敗）ときはセクションごと出さない。
 export function ArticleRail() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { data } = useLatestArticles();
 
@@ -21,9 +23,25 @@ export function ArticleRail() {
 
   return (
     <View className="mt-8" testID="article-rail">
-      <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
-        特集記事
-      </Text>
+      <View className="mb-2 flex-row items-baseline justify-between">
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("特集記事")}
+        </Text>
+        {/* 一覧ページへの導線（issue #599）。レールは新着数件しか出さない
+            ため、残りは一覧ページで見てもらう。 */}
+        <TouchableOpacity
+          onPress={() => router.push("/article")}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}}をすべて見る", {
+            title: t("特集記事"),
+          })}
+          testID="article-rail-see-all"
+        >
+          <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+            {t("すべて見る")}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         horizontal
         data={items}

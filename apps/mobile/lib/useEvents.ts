@@ -56,6 +56,10 @@ const eventParticipantsQueryKey = (slug: string) =>
 // ホームのイベント枠に出す件数（issue #411）。公開中のイベントは
 // 運営が登録する大型イベントだけなので、小さな上限で十分。
 const HOME_EVENTS_LIMIT = "10";
+// イベント一覧ページ（issue #599）が出す件数。API の上限（50）に合わせる。
+// 公開中のイベントは運営が登録するものだけなので、上限いっぱいで全件を
+// カバーできる想定。増えたら API 側に offset ページングを足す。
+const EVENTS_LIST_LIMIT = "50";
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -77,6 +81,29 @@ export function useEvents() {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.events.$get(
         { query: { limit: HOME_EVENTS_LIMIT } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "イベントの取得に失敗しました");
+      }
+      return res.json();
+    },
+  });
+}
+
+// イベント一覧ページ（issue #599、/event）用。useEvents より多い件数を
+// 取るため、ホーム枠とクエリキーを分ける（ホーム枠の 10 件で
+// 一覧ページのキャッシュを汚染しない）。
+export function useEventList() {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [...EVENTS_QUERY_KEY, "list"],
+    enabled: !!isSignedIn,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.events.$get(
+        { query: { limit: EVENTS_LIST_LIMIT } },
         { headers },
       );
       if (!res.ok) {

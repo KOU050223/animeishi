@@ -24,6 +24,8 @@ const electionQueryKey = (slug: string) =>
 // ホームの総選挙枠に出す件数（issue #438）。公開中の総選挙は
 // 運営が登録するものだけなので、小さな上限で十分。
 const HOME_ELECTIONS_LIMIT = "10";
+// 総選挙一覧ページ（issue #599）が出す件数。API の上限（50）に合わせる。
+const ELECTIONS_LIST_LIMIT = "50";
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -45,6 +47,28 @@ export function useElections() {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.elections.$get(
         { query: { limit: HOME_ELECTIONS_LIMIT } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "総選挙の取得に失敗しました");
+      }
+      return res.json();
+    },
+  });
+}
+
+// 総選挙一覧ページ（issue #599、/election）用。useElections より多い
+// 件数を取るため、ホーム枠とクエリキーを分ける。
+export function useElectionList() {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [...ELECTIONS_QUERY_KEY, "list"],
+    enabled: !!isSignedIn,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.elections.$get(
+        { query: { limit: ELECTIONS_LIST_LIMIT } },
         { headers },
       );
       if (!res.ok) {

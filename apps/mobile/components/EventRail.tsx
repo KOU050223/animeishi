@@ -1,5 +1,6 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useEvents } from "@/lib/useEvents";
 import type { EventListItem } from "@/lib/useEvents";
 import { WorkImage } from "@/components/anime-list/WorkImage";
@@ -15,6 +16,7 @@ const IMAGE_HEIGHT = Math.round((CARD_WIDTH * 9) / 16);
 // 会期中に交換した名刺のまとめ）へ。公開中のイベントが無い
 // （・取得失敗）ときはセクションごと出さない。
 export function EventRail() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { data } = useEvents();
 
@@ -23,9 +25,25 @@ export function EventRail() {
 
   return (
     <View className="mt-8" testID="event-rail">
-      <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
-        イベント
-      </Text>
+      <View className="mb-2 flex-row items-baseline justify-between">
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("イベント")}
+        </Text>
+        {/* 一覧ページへの導線（issue #599）。レールは先頭数件しか出さない
+            ため、残りは一覧ページで見てもらう。 */}
+        <TouchableOpacity
+          onPress={() => router.push("/event")}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}}をすべて見る", {
+            title: t("イベント"),
+          })}
+          testID="event-rail-see-all"
+        >
+          <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+            {t("すべて見る")}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         horizontal
         data={items}
