@@ -30,6 +30,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Web では初回タブ切替まで画面モジュールを待つと、遷移後に前画面の
+        // 残像や空白が見えるため、タブ画面を先にマウントする。
+        lazy: false,
         // 選択中のタブはアイコン・ラベルともに暗背景でも読める強調色にする
         // （dark で primary の塗り色のままだと slate-900 背景上のコントラストが足りない）。
         tabBarActiveTintColor: colors.primaryText,

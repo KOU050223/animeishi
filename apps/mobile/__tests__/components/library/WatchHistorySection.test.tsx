@@ -39,11 +39,13 @@ const mockRemoveMutateAsync = jest.fn();
 let mockHistories: unknown[] = [
   { annictWorkId: 1, title: "テスト作品", state: "WATCHED" },
 ];
+let mockHistoryLoading = false;
+let mockHistoryError = false;
 jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({
     data: mockHistories,
-    isLoading: false,
-    isError: false,
+    isLoading: mockHistoryLoading,
+    isError: mockHistoryError,
     refetch: jest.fn(),
   }),
   useUpsertWatchHistory: () => ({
@@ -211,6 +213,8 @@ async function pickStatus(annictWorkId: number, state: string) {
 beforeEach(async () => {
   jest.clearAllMocks();
   mockDanimeImport = false;
+  mockHistoryLoading = false;
+  mockHistoryError = false;
   mockHistories = [{ annictWorkId: 1, title: "テスト作品", state: "WATCHED" }];
   mockFavoriteIds = new Set();
   mockUpsertMutateAsync.mockReset();
@@ -239,6 +243,19 @@ beforeEach(async () => {
 });
 
 describe("WatchHistorySection", () => {
+  it("初回取得中は一覧のスケルトンを表示する", async () => {
+    mockHistoryLoading = true;
+    await render(<WatchHistorySection />);
+
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+  });
+
+  it("再取得に失敗しても取得済みの視聴履歴を表示する", async () => {
+    mockHistoryError = true;
+    await render(<WatchHistorySection />);
+
+    expect(screen.getByTestId("watch-history-item-1")).toBeTruthy();
+  });
   it("フラグ無効（ネイティブ）では dアニメ取り込み導線を表示しない", async () => {
     await render(<WatchHistorySection />);
 

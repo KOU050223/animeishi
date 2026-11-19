@@ -171,6 +171,22 @@ beforeEach(async () => {
   });
 });
 
+describe("ProfileScreen の読み込み表示", () => {
+  it("初回取得中はプロフィールのスケルトンを表示する", async () => {
+    mockProfile = { ...mockProfile, data: undefined, isLoading: true };
+    await render(<ProfileScreen />);
+
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+  });
+
+  it("再取得に失敗しても取得済みのプロフィールを表示する", async () => {
+    mockProfile = { ...mockProfile, isError: true };
+    await render(<ProfileScreen />);
+
+    expect(screen.getByDisplayValue("テストユーザー")).toBeTruthy();
+  });
+});
+
 describe("ProfileScreen の名刺プレビュー", () => {
   it("画面フォーカス時に名刺ドキュメントを再読み込みする", async () => {
     await render(<ProfileScreen />);

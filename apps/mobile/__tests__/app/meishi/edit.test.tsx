@@ -145,6 +145,7 @@ jest.mock("@/lib/meishi/imageShare", () => ({
 const defaultDoc = {
   version: 1,
   canvas: {
+    aspectRatio: 1.6,
     width: 360,
     height: 216,
     background: { type: "solid", color: "#ffffff" },
@@ -367,6 +368,23 @@ describe("MeishiEditScreen のカード指定（issue #427）", () => {
     await renderScreen();
 
     expect(mockUseMeishiDocument).toHaveBeenCalledWith(undefined);
+  });
+});
+
+describe("MeishiEditScreen のキャンバス配置", () => {
+  it("横長画面でも設定パネルに名刺の下端を隠さない幅へ縮小する", async () => {
+    mockDoc = docWithTextElement;
+    await renderScreen();
+    await fireEvent.press(screen.getByLabelText("名刺の要素を選択"));
+    await fireEvent(screen.getByTestId("meishi-canvas-area"), "layout", {
+      nativeEvent: { layout: { width: 1024, height: 700 } },
+    });
+
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId("meishi-canvas-wrapper").props.style,
+      ).width,
+    ).toBeLessThan(560);
   });
 });
 

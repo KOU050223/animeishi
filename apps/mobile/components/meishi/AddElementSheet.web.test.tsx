@@ -36,6 +36,13 @@ describe("AddElementSheet (Web)", () => {
     await fireEvent.press(screen.getByLabelText("テキストを追加"));
 
     expect(onPick).toHaveBeenCalledWith("text");
+    expect(
+      screen.getByText("自由文やプロフィール情報を表示します"),
+    ).toBeTruthy();
+    expect(screen.getByText("プロフィールのリンクを表示します")).toBeTruthy();
+    expect(screen.getByText("視聴した作品の画像を並べます")).toBeTruthy();
+    expect(screen.getByText("視聴済み作品の数を表示します")).toBeTruthy();
+    expect(screen.getByText("獲得した実績を表示します")).toBeTruthy();
   });
 
   it("背景スクリムを押すと onClose を呼ぶ", async () => {

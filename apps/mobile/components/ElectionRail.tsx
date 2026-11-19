@@ -1,5 +1,6 @@
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useElections } from "@/lib/useElections";
 import type { ElectionListItem } from "@/lib/useElections";
 import { WorkImage } from "@/components/anime-list/WorkImage";
@@ -14,6 +15,7 @@ const IMAGE_HEIGHT = Math.round((CARD_WIDTH * 9) / 16);
 // タップで総選挙詳細（候補への投票・投票先の変更）へ。公開中の総選挙が
 // 無い（・取得失敗）ときはセクションごと出さない。
 export function ElectionRail() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { data } = useElections();
 
@@ -22,9 +24,25 @@ export function ElectionRail() {
 
   return (
     <View className="mt-8" testID="election-rail">
-      <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
-        総選挙
-      </Text>
+      <View className="mb-2 flex-row items-baseline justify-between">
+        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {t("総選挙")}
+        </Text>
+        {/* 一覧ページへの導線（issue #599）。レールは先頭数件しか出さない
+            ため、残りは一覧ページで見てもらう。 */}
+        <TouchableOpacity
+          onPress={() => router.push("/election")}
+          accessibilityRole="button"
+          accessibilityLabel={t("{{title}}をすべて見る", {
+            title: t("総選挙"),
+          })}
+          testID="election-rail-see-all"
+        >
+          <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+            {t("すべて見る")}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         horizontal
         data={items}

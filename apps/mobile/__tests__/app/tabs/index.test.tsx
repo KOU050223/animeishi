@@ -1,5 +1,6 @@
 import React from "react";
-import { Linking, Platform } from "react-native";
+import { Platform } from "react-native";
+import { WorkDetailContext } from "@/components/anime-list/WorkDetailPressable";
 import {
   render,
   screen,
@@ -310,19 +311,22 @@ describe("HomeScreen", () => {
     },
   );
 
-  it("今期視聴中の作品をタップすると dアニメストアのタイトル検索を開く", async () => {
-    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+  it("今期視聴中の作品をタップすると詳細シートを開く", async () => {
+    const openWork = jest.fn();
     mockWatchHistory = {
       ...mockWatchHistory,
       data: [historyItem({ title: "テスト アニメ" })],
     };
     loggedInUser();
-    await render(<HomeScreen />);
-    await fireEvent.press(screen.getByTestId("home-watching-work-1"));
-    expect(openURL).toHaveBeenCalledWith(
-      `https://animestore.docomo.ne.jp/animestore/sch_pc?searchKey=${encodeURIComponent("テスト アニメ")}`,
+    await render(
+      <WorkDetailContext.Provider value={openWork}>
+        <HomeScreen />
+      </WorkDetailContext.Provider>,
     );
-    openURL.mockRestore();
+    await fireEvent.press(screen.getByTestId("home-watching-work-1"));
+    expect(openWork).toHaveBeenCalledWith(
+      expect.objectContaining({ annictWorkId: 1, title: "テスト アニメ" }),
+    );
   });
 
   it("今期以外・視聴中でない作品はレールに出さない", async () => {
