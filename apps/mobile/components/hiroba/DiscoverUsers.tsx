@@ -210,8 +210,20 @@ function PublicUserCard({
           profileImageUrl={item.profileImageUrl}
           profileUrl={buildProfileUrl(item.id)}
           profileOnly
+          hideUnsetFields
         />
       </TouchableOpacity>
+      {/* 名刺には載らない補助情報として、PR #621 で消えたジャンルを
+          カードの下に小さく戻す（issue #591）。 */}
+      {item.genres.length > 0 ? (
+        <Text
+          className="mt-1.5 text-xs text-slate-400 dark:text-slate-500"
+          numberOfLines={1}
+          testID={`public-user-genres-${item.id}`}
+        >
+          {item.genres.join("・")}
+        </Text>
+      ) : null}
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity
           className="flex-row items-center gap-1 rounded-md px-1.5 py-1"

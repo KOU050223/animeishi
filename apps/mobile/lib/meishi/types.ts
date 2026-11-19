@@ -211,6 +211,10 @@ export type MeishiRenderContext = {
     profileImageUrl?: string | null;
     profileUrl?: string | null;
   };
+  // バインド先が未設定の欄を、プレースホルダーではなく非表示にする。
+  // 公開一覧など未設定項目を見せたくない表示向け（issue #591）。
+  // 自分のプロフィール画面のプレビューでは従来どおりプレースホルダーを出す。
+  hideUnsetFields?: boolean;
   animeCollageImages?: string[];
   // リスト別の画像。古い呼び出し側が animeCollageImages だけ渡すケースに備え optional。
   animeLists?: AnimeCollageLists;
