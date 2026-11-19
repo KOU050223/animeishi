@@ -287,6 +287,70 @@ describe("ElementRenderer", () => {
     });
   });
 
+  describe("hideUnsetFields（issue #591。公開一覧で未設定欄を隠す）", () => {
+    const bioElement: TextElement = {
+      ...textElement,
+      id: "bio-1",
+      text: "自己紹介",
+      source: "bio",
+    };
+    const avatarElement: ImageElement = {
+      ...imageElement,
+      id: "avatar-1",
+      uri: "",
+      source: "avatar",
+    };
+
+    function renderElement(
+      element: MeishiElement,
+      renderCtx: MeishiRenderContext,
+    ) {
+      return render(
+        <ElementRenderer
+          element={element}
+          ctx={renderCtx}
+          boxWidth={200}
+          boxHeight={40}
+          renderScale={1}
+        />,
+      );
+    }
+
+    it("bio 未設定でも既定ではプレースホルダーの文言を出す", async () => {
+      await renderElement(bioElement, { profile: {} });
+      expect(screen.getByText("自己紹介")).toBeTruthy();
+    });
+
+    it("hideUnsetFields では bio 未設定の欄を描画しない", async () => {
+      const rendered = await renderElement(bioElement, {
+        profile: {},
+        hideUnsetFields: true,
+      });
+      expect(rendered.container.children).toHaveLength(0);
+    });
+
+    it("hideUnsetFields でも bio が設定済みなら値を出す", async () => {
+      await renderElement(bioElement, {
+        profile: { bio: "アニメ好きです" },
+        hideUnsetFields: true,
+      });
+      expect(screen.getByText("アニメ好きです")).toBeTruthy();
+    });
+
+    it("hideUnsetFields では画像未設定の欄を描画しない", async () => {
+      const rendered = await renderElement(avatarElement, {
+        profile: {},
+        hideUnsetFields: true,
+      });
+      expect(rendered.container.children).toHaveLength(0);
+    });
+
+    it("画像未設定でも既定ではプレースホルダーを出す", async () => {
+      await renderElement(avatarElement, { profile: {} });
+      expect(screen.getByText("画像")).toBeTruthy();
+    });
+  });
+
   it("未知の要素種別は描画を省略してもエラーにしない", async () => {
     // 新しいバージョンで追加された要素を含むドキュメントを旧バージョンが
     // 開いた場合に、その要素だけをスキップしてカード全体は描画する。

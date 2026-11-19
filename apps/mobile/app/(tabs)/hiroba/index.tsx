@@ -19,6 +19,8 @@ function isSection(value: unknown): value is Section {
 // 「作って遊ぶ」機能を束ねる。レイアウトはライブラリ・QR・フレンドと
 // 同じく、ラージタイトルの下にセグメント「つくる / みつける」を置く。
 // みつけるは公開作品リスト（#422）・公開 tier 表・公開名刺（#418）の一覧。
+// section は URL パラメータで制御し、フィードの空状態から
+// 「みつける」へ直接誘導できるようにする（issue #533）。
 export default function HirobaScreen() {
   const { t } = useTranslation();
   useMarkScreenInteractive();
@@ -31,9 +33,8 @@ export default function HirobaScreen() {
   const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
-  // social タブと同じく、セグメントの表示状態は URL の section に持つ
-  // （Web のスキャン不可時の案内から「みつける」へ直接飛べるようにするため。
-  // issue #595）。
+  // セグメント操作も URL の section に反映し、URL を表示状態の唯一の
+  // 参照元にする（social タブと同じ考え方）。
   const section = isSection(params.section) ? params.section : "create";
   const setSection = (next: Section) => router.setParams({ section: next });
 

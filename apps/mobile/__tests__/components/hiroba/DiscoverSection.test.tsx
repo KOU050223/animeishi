@@ -11,8 +11,16 @@ import { alert } from "@/lib/dialog";
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
 const mockPush = jest.fn();
+// useLocalSearchParams の値はテストごとに差し替える。
+// setParams は実際はナビゲーション状態を更新して再描画するため、
+// モックでは params の差し替えまで行い、再描画は rerender で再現する。
+let mockParams: { target?: string } = {};
+const mockSetParams = jest.fn((p: Record<string, string>) => {
+  mockParams = { ...mockParams, ...p };
+});
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
 }));
 
 jest.mock("@/components/anime-list/WorkThumbnail", () => ({
@@ -142,6 +150,7 @@ beforeEach(() => {
   resetAuth();
   jest.clearAllMocks();
   loggedInUser();
+  mockParams = {};
   mockItems = [publicItem(1)];
   mockLoading = false;
   mockError = false;
@@ -161,18 +170,37 @@ describe("DiscoverSection", () => {
   });
 
   it("初期表示は作品リストフィードで、Tier 表・名刺セグメントで切り替わる", async () => {
-    await render(<DiscoverSection />);
+    const { rerender } = await render(<DiscoverSection />);
     expect(screen.getByTestId("hiroba-discover-work-lists")).toBeTruthy();
 
     await fireEvent.press(
       screen.getByTestId("hiroba-discover-target-tier-lists"),
     );
+    expect(mockSetParams).toHaveBeenCalledWith({ target: "tier-lists" });
+    await rerender(<DiscoverSection />);
     expect(screen.getByTestId("hiroba-discover-tier-lists")).toBeTruthy();
     expect(screen.queryByTestId("hiroba-discover-work-lists")).toBeNull();
 
     await fireEvent.press(screen.getByTestId("hiroba-discover-target-users"));
+    expect(mockSetParams).toHaveBeenCalledWith({ target: "users" });
+    await rerender(<DiscoverSection />);
     expect(screen.getByTestId("hiroba-discover-users")).toBeTruthy();
     expect(screen.queryByTestId("hiroba-discover-tier-lists")).toBeNull();
+  });
+
+  it("?target=users で名刺フィードを開く（issue #533 の導線）", async () => {
+    mockParams = { target: "users" };
+    await render(<DiscoverSection />);
+
+    expect(screen.getByTestId("hiroba-discover-users")).toBeTruthy();
+    expect(screen.queryByTestId("hiroba-discover-work-lists")).toBeNull();
+  });
+
+  it("未知の target 値は無視して作品リストフィードを開く", async () => {
+    mockParams = { target: "unknown" };
+    await render(<DiscoverSection />);
+
+    expect(screen.getByTestId("hiroba-discover-work-lists")).toBeTruthy();
   });
 
   it("ソート切り替えの 2 つのセグメントを出す", async () => {
