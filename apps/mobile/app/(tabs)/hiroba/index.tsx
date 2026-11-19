@@ -1,12 +1,19 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { SegmentedControl } from "@/components/ui";
 import { CreateSection } from "@/components/hiroba/CreateSection";
 import { DiscoverSection } from "@/components/hiroba/DiscoverSection";
 import { useMarkScreenInteractive } from "@/lib/observe";
+
+const SECTIONS = ["create", "discover"] as const;
+type Section = (typeof SECTIONS)[number];
+
+function isSection(value: unknown): value is Section {
+  return SECTIONS.includes(value as Section);
+}
 
 // ひろばタブ（issue #352）。Tier 表・作品リスト・アニメ分析など
 // 「作って遊ぶ」機能を束ねる。レイアウトはライブラリ・QR・フレンドと
@@ -22,7 +29,13 @@ export default function HirobaScreen() {
   // ヘッダー下に空白ができてしまう（issue #491）。
   const headerHeight = useHeaderHeight();
   const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
-  const [section, setSection] = useState<"create" | "discover">("create");
+  const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
+  // social タブと同じく、セグメントの表示状態は URL の section に持つ
+  // （Web のスキャン不可時の案内から「みつける」へ直接飛べるようにするため。
+  // issue #595）。
+  const section = isSection(params.section) ? params.section : "create";
+  const setSection = (next: Section) => router.setParams({ section: next });
 
   return (
     // 上端はネイティブの large title、下端はタブバーが safe area を吸収する。

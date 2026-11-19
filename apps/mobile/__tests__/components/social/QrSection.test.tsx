@@ -27,8 +27,20 @@ jest.mock("react-native-qrcode-svg", () => {
   return { __esModule: true, default: MockQRCode };
 });
 
+// CameraView の props（onMountError など）を捕捉するため実体を記録する。
+let capturedCameraProps: {
+  onMountError?: (event: { nativeEvent: { message: string } }) => void;
+} | null = null;
 jest.mock("expo-camera", () => ({
-  CameraView: () => null,
+  CameraView: (props: {
+    onMountError?: (event: { nativeEvent: { message: string } }) => void;
+    testID?: string;
+  }) => {
+    capturedCameraProps = props;
+    const { View } = require("react-native");
+    const React = require("react");
+    return React.createElement(View, { testID: props.testID });
+  },
   useCameraPermissions: () => [
     { granted: true, canAskAgain: true, expires: "never", status: "granted" },
     jest.fn(),
@@ -39,6 +51,10 @@ const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useIsFocused: () => true,
   useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const React = require("react");
+    React.useEffect(effect, [effect]);
+  },
 }));
 
 const mockAddFriendMutate = jest.fn();
@@ -56,9 +72,12 @@ jest.mock("@/lib/useFriends", () => ({
 // 成立演出の見た目は ExchangeSuccessOverlay 側のテストで担保する。
 // ここでは「演出が出る・遷移する・スキャン状態が戻る」の結線だけを見る。
 const mockScannerReset = jest.fn();
+const mockRequestPermission = jest.fn();
 let capturedOnScanned:
   | ((result: { userId: string; qrToken?: string; raw: string }) => void)
   | undefined;
+// カメラ権限の状態。テストごとに差し替える。
+let mockScannerPermission: { granted: boolean } | null = { granted: true };
 jest.mock("@/lib/useQrScanner", () => ({
   useQrScanner: (options: {
     onScanned?: (result: {
@@ -69,8 +88,8 @@ jest.mock("@/lib/useQrScanner", () => ({
   }) => {
     capturedOnScanned = options.onScanned;
     return {
-      permission: { granted: true },
-      requestPermission: jest.fn(),
+      permission: mockScannerPermission,
+      requestPermission: mockRequestPermission,
       scanned: false,
       handleBarcodeScanned: jest.fn(),
       reset: mockScannerReset,
@@ -115,7 +134,59 @@ jest.mock("@/lib/profileUrl", () => ({
     userId ? `https://animeishi.uomi.dev/user/${userId}` : null,
 }));
 
+// 名刺カードの描画内容ではなく「どの document / プロフィールが渡ったか」を
+// 検証するため props を記録するスタブに差し替える。
+const mockMeishiCardProps = jest.fn();
+jest.mock("@/components/MeishiCard", () => ({
+  MeishiCard: (props: unknown) => {
+    mockMeishiCardProps(props);
+    const { Text } = require("react-native");
+    const React = require("react");
+    return React.createElement(Text, { testID: "meishi-card-stub" });
+  },
+}));
+
+let mockProfile: { username: string } | undefined = {
+  username: "テストユーザー",
+};
+jest.mock("@/lib/useProfile", () => ({
+  useProfile: () => ({ data: mockProfile }),
+}));
+
+// 端末内の名刺ライブラリ（issue #427）。カード構成はテストごとに差し替える。
+let mockMeishiCards: { id: string; name: string; document: unknown }[] = [];
+let mockDefaultCardId: string | null = null;
+jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
+  useMeishiLibrary: () => ({
+    library: {
+      version: 1,
+      cards: mockMeishiCards,
+      defaultCardId: mockDefaultCardId,
+    },
+    loaded: true,
+    cards: mockMeishiCards,
+    defaultCard:
+      mockMeishiCards.find((card) => card.id === mockDefaultCardId) ?? null,
+    reload: jest.fn(),
+    addCard: jest.fn(),
+    duplicateCard: jest.fn(),
+    removeCard: jest.fn(),
+    setDefault: jest.fn(),
+    updateCardDocument: jest.fn(),
+  }),
+}));
+
 const USER_ID = "user_2abcDEF1234567890ghijKLMN";
+
+// MeishiDocument の最小形。document の同一性だけを見る。
+const meishiDoc = (tag: string) => ({
+  version: 1 as const,
+  canvas: {
+    aspectRatio: 1.6,
+    background: { kind: "solid" as const, color: tag },
+  },
+  elements: [],
+});
 
 const PARTNER_PROFILE = {
   id: "user_partner",
@@ -137,6 +208,11 @@ beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   capturedOnScanned = undefined;
+  capturedCameraProps = null;
+  mockScannerPermission = { granted: true };
+  mockProfile = { username: "テストユーザー" };
+  mockMeishiCards = [];
+  mockDefaultCardId = null;
   mockQrToken = { token: "test-qt-token", expiresAt: 1999999999 };
   // 成立演出が取りに行く公開プロフィール。
   global.fetch = jest.fn(async () => ({
@@ -276,6 +352,80 @@ describe("マイQR（QR コード生成）", () => {
       ),
     );
   });
+
+  it("名刺ライブラリが空のとき名刺には document が渡らず、ユーザー名が表示される", async () => {
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    expect(mockMeishiCardProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document: null,
+        username: "テストユーザー",
+      }),
+    );
+    expect(screen.getByTestId("qr-owner-username").props.children).toBe(
+      "テストユーザー",
+    );
+    // カードが 1 枚以下なら渡す名刺の切り替えは出さない。
+    expect(screen.queryByTestId("qr-meishi-picker")).toBeNull();
+  });
+
+  it("既定の名刺の document が名刺に渡り、プロフィール URL が共有 URL と一致する", async () => {
+    const docA = meishiDoc("#111");
+    const docB = meishiDoc("#222");
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: docA },
+      { id: "card-b", name: "名刺 2", document: docB },
+    ];
+    mockDefaultCardId = "card-a";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    expect(mockMeishiCardProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document: docA,
+        profileUrl: `https://animeishi.uomi.dev/user/${USER_ID}`,
+      }),
+    );
+  });
+
+  it("複数の名刺があるとき渡す名刺を切り替えられる", async () => {
+    const docA = meishiDoc("#111");
+    const docB = meishiDoc("#222");
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: docA },
+      { id: "card-b", name: "名刺 2", document: docB },
+    ];
+    mockDefaultCardId = "card-a";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    // ピッカーには既定の目印が付く。
+    expect(screen.getByText("名刺 1（既定）")).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId("qr-meishi-pick-card-b"));
+
+    expect(mockMeishiCardProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ document: docB }),
+    );
+
+    await fireEvent.press(screen.getByTestId("qr-meishi-pick-card-a"));
+
+    expect(mockMeishiCardProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ document: docA }),
+    );
+  });
+
+  it("名刺が 1 枚だけのとき渡す名刺の切り替えは出さない", async () => {
+    mockMeishiCards = [
+      { id: "card-a", name: "名刺 1", document: meishiDoc("#111") },
+    ];
+    mockDefaultCardId = "card-a";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    expect(screen.queryByTestId("qr-meishi-picker")).toBeNull();
+  });
 });
 
 describe("スキャン", () => {
@@ -401,6 +551,43 @@ describe("スキャン", () => {
       pathname: "/user/[uid]",
       params: { uid: "user_partner" },
     });
+  });
+
+  it("カメラ権限が拒否されているときは許可を求めるフォールバックを出す", async () => {
+    mockScannerPermission = { granted: false };
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+
+    expect(
+      screen.getByText("QR コードをスキャンするにはカメラの許可が必要です"),
+    ).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId("scan-fallback-retry"));
+
+    expect(mockRequestPermission).toHaveBeenCalled();
+  });
+
+  it("カメラの起動に失敗したらフォールバックを出し、再試行で再マウントする", async () => {
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />);
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    expect(screen.getByTestId("qr-camera-view")).toBeTruthy();
+
+    await act(async () =>
+      capturedCameraProps?.onMountError?.({
+        nativeEvent: { message: "Could not start camera" },
+      }),
+    );
+
+    expect(screen.getByText("カメラを起動できませんでした")).toBeTruthy();
+    expect(screen.queryByTestId("qr-camera-view")).toBeNull();
+
+    await fireEvent.press(screen.getByTestId("scan-fallback-retry"));
+
+    expect(screen.getByTestId("qr-camera-view")).toBeTruthy();
   });
 
   it("フレンド追加に失敗したら従来どおりエラーの alert を出す", async () => {

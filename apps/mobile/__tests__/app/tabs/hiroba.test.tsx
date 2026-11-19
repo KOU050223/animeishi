@@ -10,6 +10,15 @@ jest.mock("expo-router/react-navigation", () => ({
   useHeaderHeight: () => 96,
 }));
 
+// セクションの表示状態は URL の section パラメータがソースオブトゥルース
+// （social タブと同じ方式。issue #595）。
+const mockSetParams = jest.fn();
+let mockParams: { section?: string } = {};
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ setParams: mockSetParams }),
+}));
+
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
 jest.mock("@/components/hiroba/CreateSection", () => ({
   CreateSection: () => {
@@ -28,6 +37,8 @@ jest.mock("@/components/hiroba/DiscoverSection", () => ({
 
 beforeEach(() => {
   Object.defineProperty(Platform, "OS", { value: "ios" });
+  mockParams = {};
+  jest.clearAllMocks();
 });
 
 describe("HirobaScreen", () => {
@@ -42,11 +53,18 @@ describe("HirobaScreen", () => {
     await render(<HirobaScreen />);
 
     await fireEvent.press(screen.getByTestId("hiroba-section-discover"));
-    expect(screen.getByTestId("section-discover")).toBeTruthy();
-    expect(screen.queryByTestId("section-create")).toBeNull();
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "discover" });
 
     await fireEvent.press(screen.getByTestId("hiroba-section-create"));
-    expect(screen.getByTestId("section-create")).toBeTruthy();
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "create" });
+  });
+
+  it("section=discover の URL で開くとみつけるセクションを初期表示する", async () => {
+    mockParams = { section: "discover" };
+    await render(<HirobaScreen />);
+
+    expect(screen.getByTestId("section-discover")).toBeTruthy();
+    expect(screen.queryByTestId("section-create")).toBeNull();
   });
 
   // iOS の透過ネイティブヘッダーはコンテンツが下に潜り込むため、
