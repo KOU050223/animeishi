@@ -213,8 +213,11 @@ export function AnimeListContent({
 
   // 絞り込み中は「絞り込み後 / 絞り込み前」の件数を出す（視聴履歴と同じ表記）。
   const resultCountText = filterActive
-    ? `${sorted.length}/${data?.length ?? 0}件`
-    : `${sorted.length}件`;
+    ? t("{{visible}} / {{total}} 件", {
+        visible: sorted.length,
+        total: data?.length ?? 0,
+      })
+    : t("{{count}} 件", { count: sorted.length });
   // サーバーの結果はあったが絞り込みで全件落ちた状態（空状態の案内を分ける）。
   const filteredOutAll = filterActive && (data?.length ?? 0) > 0;
 
@@ -246,8 +249,11 @@ export function AnimeListContent({
           onPress={() => setSelectedWork(item)}
           accessibilityLabel={
             isWatched
-              ? `${item.title}（${WATCH_STATUS_LABELS.WATCHED}）の詳細を開く`
-              : `${item.title}の詳細を開く`
+              ? t("{{title}}（{{state}}）の詳細を開く", {
+                  title: item.title,
+                  state: t(WATCH_STATUS_LABELS.WATCHED),
+                })
+              : t("{{title}}の詳細を開く", { title: item.title })
           }
         >
           <AnimePoster uri={item.hostedImageUrl} title={item.title} />
@@ -287,6 +293,7 @@ export function AnimeListContent({
       favoriteIds,
       isToggling,
       styles,
+      t,
       toggleFavorite,
       watchStateByWorkId,
     ],
@@ -323,18 +330,18 @@ export function AnimeListContent({
               <Ionicons name="search" size={20} color={palette.searchIcon} />
               <Input
                 style={styles.searchInput}
-                placeholder="タイトル・よみがな・英語名で検索"
+                placeholder={t("タイトル・よみがな・英語名で検索")}
                 value={query}
                 onChangeText={setQuery}
                 testID="search-input"
-                accessibilityLabel="アニメ検索"
+                accessibilityLabel={t("アニメ検索")}
               />
               {query ? (
                 <TouchableOpacity
                   style={styles.clearButton}
                   onPress={() => setQuery("")}
                   accessibilityRole="button"
-                  accessibilityLabel="検索語をクリア"
+                  accessibilityLabel={t("検索語をクリア")}
                 >
                   <Ionicons name="close" size={17} color={palette.clearIcon} />
                 </TouchableOpacity>
@@ -345,14 +352,23 @@ export function AnimeListContent({
               <View style={styles.toolbarTop}>
                 <View style={styles.toolbarCopy}>
                   <Text style={styles.sectionLabel}>
-                    {hasQuery ? "コレクション" : "シーズンで探す"}
+                    {hasQuery ? t("コレクション") : t("シーズンで探す")}
                   </Text>
                   <Text style={styles.resultText}>
                     {hasQuery
                       ? showLoading
-                        ? `「${query.trim()}」を検索しています`
-                        : `「${query.trim()}」の検索結果・${resultCountText}`
-                      : `${formatSeasonLabel(filterYear, filterSeason)}${showLoading ? "を読み込んでいます" : `・${resultCountText}`}`}
+                        ? t("「{{query}}」を検索しています", {
+                            query: query.trim(),
+                          })
+                        : t("「{{query}}」の検索結果・{{count}}", {
+                            query: query.trim(),
+                            count: resultCountText,
+                          })
+                      : `${formatSeasonLabel(filterYear, filterSeason, t)}${
+                          showLoading
+                            ? t("を読み込んでいます")
+                            : t("・{{count}}", { count: resultCountText })
+                        }`}
                   </Text>
                 </View>
                 {/* Tier 表の作成導線（issue #169/#348）。ヒーロー内の大きな
@@ -362,7 +378,7 @@ export function AnimeListContent({
                   className="items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-950"
                   onPress={() => router.push("/tier-lists")}
                   accessibilityRole="button"
-                  accessibilityLabel="Tier 表を作る"
+                  accessibilityLabel={t("Tier 表を作る")}
                   testID="open-tier-list"
                 >
                   <View className="flex-row items-center gap-1">
@@ -372,28 +388,28 @@ export function AnimeListContent({
                       color={palette.seasonChipText}
                     />
                     <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                      Tier 表
+                      {t("Tier 表")}
                     </Text>
                   </View>
                 </TouchableOpacity>
               </View>
               <View style={[styles.sortGroup, isWide && styles.sortGroupWide]}>
                 <SortButton
-                  label="タイトル"
+                  label={t("タイトル")}
                   icon="text-outline"
                   active={sortKey === "title"}
                   order={sortKey === "title" ? sortOrder : null}
                   onPress={() => toggleSort("title")}
                 />
                 <SortButton
-                  label="年度"
+                  label={t("年度")}
                   icon="calendar-clear-outline"
                   active={sortKey === "year"}
                   order={sortKey === "year" ? sortOrder : null}
                   onPress={() => toggleSort("year")}
                 />
                 <SortButton
-                  label="人気"
+                  label={t("人気")}
                   icon="flame-outline"
                   active={sortKey === "watchersCount"}
                   order={sortKey === "watchersCount" ? sortOrder : null}
@@ -411,7 +427,7 @@ export function AnimeListContent({
                   onPress={() => setFilterSheetOpen(true)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: filterActive }}
-                  accessibilityLabel="メディア・ジャンルで絞り込む"
+                  accessibilityLabel={t("メディア・ジャンルで絞り込む")}
                   testID="anime-filter-button"
                 >
                   <Text
@@ -420,7 +436,9 @@ export function AnimeListContent({
                       filterActive && styles.filterChipTextActive,
                     ]}
                   >
-                    {filterActive ? `絞り込み(${filterCount})` : "絞り込み"}
+                    {filterActive
+                      ? t("絞り込み({{count}})", { count: filterCount })
+                      : t("絞り込み")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -450,7 +468,7 @@ export function AnimeListContent({
               <View style={styles.loadingMark}>
                 <ActivityIndicator size="small" color={palette.spinner} />
               </View>
-              <Text style={styles.emptyTitle}>読み込んでいます</Text>
+              <Text style={styles.emptyTitle}>{t("読み込んでいます")}</Text>
             </View>
           ) : needsAnnictLink ? (
             // 未連携でも共用トークンで検索できる（issue #561）。共用トークンが無い・
@@ -478,26 +496,26 @@ export function AnimeListContent({
                   color={palette.errorIcon}
                 />
               </View>
-              <Text style={styles.emptyTitle}>検索に失敗しました</Text>
+              <Text style={styles.emptyTitle}>{t("検索に失敗しました")}</Text>
               <Text style={styles.emptyCopy}>
                 {isAnnictRateLimitedError(error)
                   ? t(
                       "作品情報の取得が混み合っています。しばらく待ってからお試しください。",
                     )
-                  : "通信状態を確認して、もう一度お試しください。"}
+                  : t("通信状態を確認して、もう一度お試しください。")}
               </Text>
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={() => refetch()}
                 accessibilityRole="button"
-                accessibilityLabel="作品検索を再試行"
+                accessibilityLabel={t("作品検索を再試行")}
               >
                 <Ionicons
                   name="refresh"
                   size={17}
                   color={palette.primaryButtonText}
                 />
-                <Text style={styles.primaryButtonText}>再試行</Text>
+                <Text style={styles.primaryButtonText}>{t("再試行")}</Text>
               </TouchableOpacity>
             </View>
           ) : !hasQuery ? (
@@ -513,13 +531,17 @@ export function AnimeListContent({
               </View>
               <Text style={styles.emptyTitle}>
                 {filteredOutAll
-                  ? "絞り込み条件に一致する作品がありません"
-                  : `${formatSeasonLabel(filterYear, filterSeason)}の作品が見つかりません`}
+                  ? t("絞り込み条件に一致する作品がありません")
+                  : t("{{season}}の作品が見つかりません", {
+                      season: formatSeasonLabel(filterYear, filterSeason, t),
+                    })}
               </Text>
               <Text style={styles.emptyCopy}>
                 {filteredOutAll
-                  ? "絞り込みを変えるか、リセットしてみてください。"
-                  : "別の年・シーズンを選ぶか、タイトルで検索してみてください。"}
+                  ? t("絞り込みを変えるか、リセットしてみてください。")
+                  : t(
+                      "別の年・シーズンを選ぶか、タイトルで検索してみてください。",
+                    )}
               </Text>
             </View>
           ) : (
@@ -533,13 +555,15 @@ export function AnimeListContent({
               </View>
               <Text style={styles.emptyTitle}>
                 {filteredOutAll
-                  ? "絞り込み条件に一致する作品がありません"
-                  : "見つかりませんでした"}
+                  ? t("絞り込み条件に一致する作品がありません")
+                  : t("見つかりませんでした")}
               </Text>
               <Text style={styles.emptyCopy}>
                 {filteredOutAll
-                  ? "絞り込みを変えるか、リセットしてみてください。"
-                  : "タイトル、よみがな、英語名を少し変えて探してみてください。"}
+                  ? t("絞り込みを変えるか、リセットしてみてください。")
+                  : t(
+                      "タイトル、よみがな、英語名を少し変えて探してみてください。",
+                    )}
               </Text>
             </View>
           )

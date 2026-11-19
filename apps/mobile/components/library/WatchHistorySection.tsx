@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
   useWatchHistory,
@@ -69,10 +70,14 @@ type FailureNotice = { kind: FailureKind; title: string; message: string };
 
 // 同種の失敗を1件にまとめたときの件数入り文言。単体通知は各呼び出し側が
 // 文言を組み立てるため、まとめた場合だけこの固定文に切り替える。
-function mergedFailureMessage(kind: FailureKind, count: number): string {
+function mergedFailureMessage(
+  kind: FailureKind,
+  count: number,
+  t: TFunction,
+): string {
   return kind === "update"
-    ? `${count}件の視聴ステータス更新に失敗しました。`
-    : `${count}件の視聴履歴削除に失敗しました`;
+    ? t("{{count}}件の視聴ステータス更新に失敗しました。", { count })
+    : t("{{count}}件の視聴履歴削除に失敗しました", { count });
 }
 
 // 「元に戻す」トーストの自動で消えるまでの時間。スナックバー相当の
@@ -117,29 +122,34 @@ export function WatchHistorySection() {
   const failureAlertOpenRef = useRef(false);
   // onClose から再帰するため関数名式にしている（const 名を本体から参照すると
   // 初期化中の変数アクセスとして React Compiler 系 lint に引っかかる）。
-  const flushFailures = useCallback(function flushFailures() {
-    if (failureAlertOpenRef.current) return;
-    const first = failureQueueRef.current.shift();
-    if (!first) return;
-    // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
-    let count = 1;
-    while (failureQueueRef.current[0]?.kind === first.kind) {
-      failureQueueRef.current.shift();
-      count += 1;
-    }
-    failureAlertOpenRef.current = true;
-    alert(
-      first.title,
-      count === 1 ? first.message : mergedFailureMessage(first.kind, count),
-      {
-        okLabel: "OK",
-        onClose: () => {
-          failureAlertOpenRef.current = false;
-          flushFailures();
+  const flushFailures = useCallback(
+    function flushFailures() {
+      if (failureAlertOpenRef.current) return;
+      const first = failureQueueRef.current.shift();
+      if (!first) return;
+      // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
+      let count = 1;
+      while (failureQueueRef.current[0]?.kind === first.kind) {
+        failureQueueRef.current.shift();
+        count += 1;
+      }
+      failureAlertOpenRef.current = true;
+      alert(
+        first.title,
+        count === 1
+          ? first.message
+          : mergedFailureMessage(first.kind, count, t),
+        {
+          okLabel: "OK",
+          onClose: () => {
+            failureAlertOpenRef.current = false;
+            flushFailures();
+          },
         },
-      },
-    );
-  }, []);
+      );
+    },
+    [t],
+  );
   const notifyFailure = useCallback(
     (kind: FailureKind, title: string, message: string) => {
       failureQueueRef.current.push({ kind, title, message });
@@ -165,7 +175,7 @@ export function WatchHistorySection() {
         alert(
           t("お気に入りを更新できませんでした"),
           e instanceof ApiRequestError
-            ? e.message
+            ? t(e.message, { defaultValue: e.message })
             : t("お気に入りの更新に失敗しました"),
           { okLabel: t("OK") },
         ),
@@ -213,8 +223,8 @@ export function WatchHistorySection() {
 
   function confirmDelete(annictWorkId: number) {
     confirm(
-      "視聴履歴を削除",
-      "この視聴履歴を削除しますか？",
+      t("視聴履歴を削除"),
+      t("この視聴履歴を削除しますか？"),
       () => {
         // 呼び出し別コールバック（mutate の第2引数）は連続 mutate で
         // 前の呼び出し分が発火しないため、mutation 個別に reject する
@@ -226,14 +236,18 @@ export function WatchHistorySection() {
           .catch((e: unknown) =>
             notifyFailure(
               "delete",
-              "削除できませんでした",
+              t("削除できませんでした"),
               e instanceof ApiRequestError
-                ? e.message
-                : "視聴履歴の削除に失敗しました",
+                ? t(e.message, { defaultValue: e.message })
+                : t("視聴履歴の削除に失敗しました"),
             ),
           );
       },
-      { confirmLabel: "削除", cancelLabel: "キャンセル", destructive: true },
+      {
+        confirmLabel: t("削除"),
+        cancelLabel: t("キャンセル"),
+        destructive: true,
+      },
     );
   }
 
@@ -248,10 +262,10 @@ export function WatchHistorySection() {
     const rolledBack = (e as UpsertWatchHistoryError).rolledBack === true;
     notifyFailure(
       "update",
-      "更新できませんでした",
+      t("更新できませんでした"),
       rolledBack
-        ? "視聴ステータスを更新できませんでした。元の状態に戻しました。"
-        : "一部の更新に失敗しました。",
+        ? t("視聴ステータスを更新できませんでした。元の状態に戻しました。")
+        : t("一部の更新に失敗しました。"),
     );
   }
 
@@ -366,15 +380,15 @@ export function WatchHistorySection() {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">
-          視聴履歴の取得に失敗しました
+          {t("視聴履歴の取得に失敗しました")}
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={() => refetch()}
           accessibilityRole="button"
-          accessibilityLabel="視聴履歴を再取得"
+          accessibilityLabel={t("視聴履歴を再取得")}
         >
-          <Text className="text-white font-semibold">再試行</Text>
+          <Text className="text-white font-semibold">{t("再試行")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -397,9 +411,11 @@ export function WatchHistorySection() {
             <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
               <Text className="text-xs text-slate-400 dark:text-slate-500">
                 {filterActive
-                  ? `${visible.length} / ${enriched.length}`
-                  : enriched.length}{" "}
-                件
+                  ? t("{{visible}} / {{total}} 件", {
+                      visible: visible.length,
+                      total: enriched.length,
+                    })
+                  : t("{{count}} 件", { count: enriched.length })}
               </Text>
               {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
                   フラグが無効な間は導線を出さない。 */}
@@ -408,11 +424,11 @@ export function WatchHistorySection() {
                   className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
                   onPress={() => router.push("/danime-import")}
                   accessibilityRole="button"
-                  accessibilityLabel="dアニメストアからインポート"
+                  accessibilityLabel={t("dアニメストアからインポート")}
                   testID="danime-import-button"
                 >
                   <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
-                    dアニメからインポート
+                    {t("dアニメからインポート")}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -436,18 +452,20 @@ export function WatchHistorySection() {
               {WATCH_HISTORY_SORT_KEYS.map((key) => (
                 <SelectChip
                   key={key}
-                  label={WATCH_HISTORY_SORT_LABELS[key]}
+                  label={t(WATCH_HISTORY_SORT_LABELS[key])}
                   selected={sortKey === key}
                   onPress={() => setSortKey(key)}
-                  accessibilityLabel={`${WATCH_HISTORY_SORT_LABELS[key]}で並べ替え`}
+                  accessibilityLabel={t("{{label}}で並べ替え", {
+                    label: t(WATCH_HISTORY_SORT_LABELS[key]),
+                  })}
                   testID={`watch-history-sort-${key}`}
                 />
               ))}
               <SelectChip
-                label="絞り込み"
+                label={t("絞り込み")}
                 selected={filterActive}
                 onPress={() => setFilterSheetOpen(true)}
-                accessibilityLabel="視聴履歴を絞り込む"
+                accessibilityLabel={t("視聴履歴を絞り込む")}
                 testID="watch-history-filter-button"
               />
             </ScrollView>
@@ -475,8 +493,8 @@ export function WatchHistorySection() {
           <View className="items-center justify-center py-16">
             <Text className="text-slate-400 dark:text-slate-500 text-center">
               {enriched.length > 0 && filterActive
-                ? "絞り込み条件に一致する履歴がありません。"
-                : "視聴履歴がありません。\nアニメ一覧から追加してください。"}
+                ? t("絞り込み条件に一致する履歴がありません。")
+                : t("視聴履歴がありません。\nアニメ一覧から追加してください。")}
             </Text>
           </View>
         }
@@ -614,6 +632,7 @@ function FilterSheet({
   onChange: (next: WatchHistoryFilters) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const toggleState = (state: WatchStatus) =>
     onChange({
       ...filters,
@@ -626,55 +645,61 @@ function FilterSheet({
     <BottomSheet
       visible
       onClose={onClose}
-      scrimAccessibilityLabel="絞り込みを閉じる"
+      scrimAccessibilityLabel={t("絞り込みを閉じる")}
       testID="watch-history-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
         <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
-          絞り込み
+          {t("絞り込み")}
         </Text>
 
         <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-          放送年代
+          {t("放送年代")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
           <SelectChip
-            label="すべて"
+            label={t("すべて")}
             selected={filters.decade === null}
             onPress={() => onChange({ ...filters, decade: null })}
-            accessibilityLabel="すべての放送年代"
+            accessibilityLabel={t("すべての放送年代")}
           />
           {decades.map((decade) => (
             <SelectChip
               key={String(decade)}
-              label={decade === "unknown" ? "年不明" : `${decade}年代`}
+              label={
+                decade === "unknown"
+                  ? t("年不明")
+                  : t("{{decade}}年代", { decade })
+              }
               selected={filters.decade === decade}
               onPress={() => onChange({ ...filters, decade })}
               accessibilityLabel={
                 decade === "unknown"
-                  ? "放送年が未設定の作品"
-                  : `${decade}年代で絞り込む`
+                  ? t("放送年が未設定の作品")
+                  : t("{{decade}}年代で絞り込む", { decade })
               }
             />
           ))}
         </View>
 
         <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-          視聴状態
+          {t("視聴状態")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-6">
           {WATCH_STATUSES.map((s) => (
             <SelectChip
               key={s}
-              label={WATCH_STATUS_LABELS[s]}
+              label={t(WATCH_STATUS_LABELS[s])}
               selected={filters.states.includes(s)}
               onPress={() => toggleState(s)}
-              accessibilityLabel={`${WATCH_STATUS_LABELS[s]}で絞り込む`}
+              accessibilityLabel={t("{{label}}で絞り込む", {
+                label: t(WATCH_STATUS_LABELS[s]),
+              })}
             />
           ))}
         </View>
         <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
-          視聴状態を未選択にするとすべての状態を表示します
+          {t("視聴状態を未選択にするとすべての状態を表示します")}
         </Text>
 
         <View className="flex-row gap-3">
@@ -682,19 +707,19 @@ function FilterSheet({
             className="flex-1 border border-slate-200 dark:border-slate-600 rounded-xl py-3 items-center"
             onPress={() => onChange(NO_WATCH_HISTORY_FILTERS)}
             accessibilityRole="button"
-            accessibilityLabel="絞り込みをリセット"
+            accessibilityLabel={t("絞り込みをリセット")}
           >
             <Text className="text-slate-600 dark:text-slate-300 font-medium">
-              リセット
+              {t("リセット")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="絞り込みを適用して閉じる"
+            accessibilityLabel={t("絞り込みを適用して閉じる")}
           >
-            <Text className="text-white font-semibold">閉じる</Text>
+            <Text className="text-white font-semibold">{t("閉じる")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -729,9 +754,11 @@ function WatchHistoryRow({
   // 放送年・視聴者数はソートの判断材料になるため補足として並べる
   // （issue #345）。どちらも未取得の作品は該当部分を出さない。
   const meta = [
-    history.seasonYear != null ? `${history.seasonYear}年` : null,
+    history.seasonYear != null
+      ? t("{{year}}年", { year: history.seasonYear })
+      : null,
     history.watchersCount != null
-      ? `視聴者 ${history.watchersCount.toLocaleString("ja-JP")}人`
+      ? t("視聴者 {{count}}人", { count: history.watchersCount })
       : null,
   ]
     .filter((part): part is string => part != null)
@@ -811,9 +838,13 @@ function WatchHistoryRow({
             onPress={onDelete}
             className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
             accessibilityRole="button"
-            accessibilityLabel={`${history.title} の視聴履歴を削除`}
+            accessibilityLabel={t("{{title}} の視聴履歴を削除", {
+              title: history.title,
+            })}
           >
-            <Text className="text-xs text-red-500 dark:text-red-400">削除</Text>
+            <Text className="text-xs text-red-500 dark:text-red-400">
+              {t("削除")}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

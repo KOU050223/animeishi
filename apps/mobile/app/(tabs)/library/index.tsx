@@ -1,4 +1,5 @@
 import { Platform, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
@@ -22,6 +23,7 @@ function isSection(value: unknown): value is Section {
 // /library?section=... でここへ着地する。
 export default function LibraryScreen() {
   useMarkScreenInteractive();
+  const { t } = useTranslation();
   // iOS のネイティブヘッダーは large title 指定で透過になりコンテンツが
   // 下に潜り込むため、固定配置のセグメント切り替えはヘッダー高さ分だけ
   // 下げる（large title が畳まれると値も変わる）。Android/Web はヘッダーが
@@ -75,20 +77,20 @@ export default function LibraryScreen() {
       <SegmentedControl
         items={[
           {
-            label: "アニメ",
+            label: t("アニメ"),
             active: section === "anime",
             onPress: () => setSection("anime"),
             testID: "library-section-anime",
           },
           {
-            label: "視聴履歴",
+            label: t("視聴履歴"),
             active: section === "history",
             onPress: () => setSection("history"),
             testID: "library-section-history",
           },
           {
-            label: "推し",
-            accessibilityLabel: "お気に入り",
+            label: t("推し"),
+            accessibilityLabel: t("お気に入り"),
             active: section === "favorites",
             onPress: () => setSection("favorites"),
             testID: "library-section-favorites",

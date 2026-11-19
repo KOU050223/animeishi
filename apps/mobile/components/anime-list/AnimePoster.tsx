@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Text, View, useColorScheme } from "react-native";
 import { useAnimeListStyles } from "./animeListStyles";
 import { getPosterInitial, getPosterPalette } from "./animeListUtils";
@@ -11,6 +12,7 @@ export function AnimePoster({
   uri: string | null | undefined;
   title: string;
 }) {
+  const { t } = useTranslation();
   const styles = useAnimeListStyles();
   const colorScheme = useColorScheme();
   const palette = getPosterPalette(
@@ -45,7 +47,7 @@ export function AnimePoster({
       uri={uri}
       style={styles.poster}
       placeholder={placeholder}
-      accessibilityLabel={`${title}のサムネイル`}
+      accessibilityLabel={t("{{title}}のサムネイル", { title })}
     />
   );
 }

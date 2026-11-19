@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Text, View, useColorScheme } from "react-native";
 import { getPosterPalette } from "./animeListUtils";
 import { WorkImage } from "./WorkImage";
@@ -20,8 +21,9 @@ export function WorkThumbnail({
   height?: number;
   radius?: number;
 }) {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
-  const label = title?.trim() || "作品";
+  const label = title?.trim() || t("作品");
   const palette = getPosterPalette(
     label,
     colorScheme === "dark" ? "dark" : "light",
@@ -39,7 +41,7 @@ export function WorkThumbnail({
     <WorkImage
       uri={uri}
       style={[containerStyle, { backgroundColor: palette.bg }]}
-      accessibilityLabel={`${label}のサムネイル`}
+      accessibilityLabel={t("{{title}}のサムネイル", { title: label })}
       placeholder={
         <View
           style={{
