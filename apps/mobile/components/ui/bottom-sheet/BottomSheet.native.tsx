@@ -1,5 +1,6 @@
 import { BottomSheet as ExpoUIBottomSheet } from "@expo/ui";
 import { useThemeColors } from "@/lib/theme";
+import { useDeferredOnClosed } from "./useDeferredOnClosed";
 import type { BottomSheetProps } from "./types";
 
 /**
@@ -13,10 +14,12 @@ import type { BottomSheetProps } from "./types";
 export function BottomSheet({
   visible,
   onClose,
+  onClosed,
   children,
   testID,
 }: BottomSheetProps) {
   const colors = useThemeColors();
+  useDeferredOnClosed(visible, onClosed);
   return (
     <ExpoUIBottomSheet
       isPresented={visible}

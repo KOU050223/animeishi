@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
+import { CardPressable } from "@/components/ui/card-pressable";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -196,24 +197,30 @@ function PublicWorkListCard({
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
       testID={`public-work-list-${item.id}`}
     >
-      {/* カード本体は詳細画面へ遷移。いいね・通報は内側の個別ボタン。 */}
-      <TouchableOpacity
+      {/* カード本体は詳細画面へ遷移。いいね・通報は内側の個別ボタン。
+          サムネイルも個別のボタン（作品詳細）なので、Web の <button>
+          入れ子を避ける CardPressable でカード側を作る。 */}
+      <CardPressable
         onPress={onPress}
-        accessibilityRole="button"
         accessibilityLabel={`「${item.title}」を開く`}
         testID={`public-work-list-open-${item.id}`}
       >
         {item.thumbnails.length > 0 ? (
           <View className="mb-2 flex-row gap-1.5">
             {item.thumbnails.map((thumb) => (
-              <WorkDetailPressable key={thumb.annictWorkId} work={thumb}>
-                <WorkThumbnail
-                  uri={thumb.hostedImageUrl}
-                  title={thumb.title}
-                  width={40}
-                  height={56}
-                />
-              </WorkDetailPressable>
+              // Web ではカード全面のボタンがコンテンツの下に敷かれるため、
+              // 個別作品ボタンのイベントを pointerEvents="auto" で復活させる
+              // （ui/card-pressable/CardPressable.web.tsx 参照）
+              <View key={thumb.annictWorkId} pointerEvents="auto">
+                <WorkDetailPressable work={thumb}>
+                  <WorkThumbnail
+                    uri={thumb.hostedImageUrl}
+                    title={thumb.title}
+                    width={40}
+                    height={56}
+                  />
+                </WorkDetailPressable>
+              </View>
             ))}
           </View>
         ) : null}
@@ -226,7 +233,7 @@ function PublicWorkListCard({
         <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
           {item.owner.username} ・ {item.itemCount} 作品
         </Text>
-      </TouchableOpacity>
+      </CardPressable>
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity
           className="flex-row items-center gap-1 rounded-md px-1.5 py-1"

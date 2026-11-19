@@ -212,21 +212,34 @@ export function DraggableWorkCard({
   // ドラッグ&ドロップはスイッチ操作や VoiceOver では使えないため、
   // 移動先を選ぶだけのカスタムアクションを各カードに登録する。
   const accessibilityActions = useMemo(
-    () =>
-      moveDestinations.map((dest, i) => ({
+    () => [
+      ...(onPress
+        ? [
+            {
+              name: "activate",
+              label: t("{{title}} の詳細を開く", { title: item.title }),
+            },
+          ]
+        : []),
+      ...moveDestinations.map((dest, i) => ({
         name: `move-${i}`,
         label: dest.label,
       })),
-    [moveDestinations],
+    ],
+    [moveDestinations, onPress, t, item.title],
   );
 
   const handleAccessibilityAction = useCallback(
     (event: AccessibilityActionEvent) => {
+      if (event.nativeEvent.actionName === "activate") {
+        onPress?.();
+        return;
+      }
       const index = Number(event.nativeEvent.actionName.slice("move-".length));
       const dest = moveDestinations[index];
       if (dest) onMove(dest.tierKey);
     },
-    [moveDestinations, onMove],
+    [moveDestinations, onMove, onPress],
   );
 
   // 行内の挿入位置判定用に自分の矩形をレジストリへ登録する。
@@ -268,7 +281,27 @@ export function DraggableWorkCard({
         ref={cardRef}
         onLayout={registry ? measureCard : undefined}
         style={[styles.card, animatedStyle]}
-        accessibilityLabel={`${item.title}（長押しでドラッグ）`}
+        accessibilityLabel={
+          onPress
+            ? t("{{title}} の詳細を開く", { title: item.title })
+            : `${item.title}（長押しでドラッグ）`
+        }
+        accessible={onPress ? true : undefined}
+        accessibilityRole={onPress ? "button" : undefined}
+        focusable={onPress ? true : undefined}
+        onKeyDown={
+          onPress
+            ? (event) => {
+                if (
+                  event.nativeEvent.key === "Enter" ||
+                  event.nativeEvent.key === " "
+                ) {
+                  event.preventDefault();
+                  onPress();
+                }
+              }
+            : undefined
+        }
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}
         testID={`tier-card-${item.id}`}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -34,7 +34,36 @@ export function FriendStoryViewer({
   const items = friend.items;
   const [index, setIndex] = useState(0);
   const [progress] = useState(() => new Animated.Value(0));
+  const [isPresented, setIsPresented] = useState(true);
+  const pendingWork = useRef<FriendWatchStory["items"][number]["work"]>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const item = items[index];
+
+  // 退場が終わってから詳細シートを開く。iOS でビューアのモーダルの
+  // 退場中に次のモーダルを出すと、表示処理が競合して開かれない。
+  const openPendingWork = useCallback(() => {
+    const target = pendingWork.current;
+    if (!target) return;
+    pendingWork.current = null;
+    onClose();
+    openWork(target);
+  }, [onClose, openWork]);
+
+  // Modal.onDismiss は iOS しか実装されていない。Android は退場完了を
+  // 検知できないので、フェードの完了見込み時間後にタイマーで代替する。
+  // iOS は onDismiss が先に呼ばれるためタイマー側は打ち消される。
+  const dismissToWork = useCallback(() => {
+    progress.stopAnimation();
+    setIsPresented(false);
+    dismissTimer.current = setTimeout(openPendingWork, 300);
+  }, [progress, openPendingWork]);
+
+  useEffect(
+    () => () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    },
+    [],
+  );
 
   const goNext = useCallback(() => {
     // 最後のスライドで「次へ」はビューアを閉じる
@@ -78,9 +107,16 @@ export function FriendStoryViewer({
 
   return (
     <Modal
-      visible
+      visible={isPresented}
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={() => {
+        if (dismissTimer.current) {
+          clearTimeout(dismissTimer.current);
+          dismissTimer.current = null;
+        }
+        openPendingWork();
+      }}
       testID="friend-story-viewer"
     >
       <View className="flex-1 bg-black">
@@ -190,8 +226,8 @@ export function FriendStoryViewer({
                 <Pressable
                   className="h-full flex-[3]"
                   onPress={() => {
-                    onClose();
-                    openWork(storyWork);
+                    pendingWork.current = storyWork;
+                    dismissToWork();
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={t("{{title}} の詳細を開く", {

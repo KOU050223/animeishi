@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
+import { CardPressable } from "@/components/ui/card-pressable";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -201,10 +202,11 @@ function PublicTierListCard({
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
       testID={`public-tier-list-${item.kind}-${item.id}`}
     >
-      {/* カード本体は詳細画面へ遷移。いいね・通報は内側の個別ボタン。 */}
-      <TouchableOpacity
+      {/* カード本体は詳細画面へ遷移。いいね・通報は内側の個別ボタン。
+          サムネイルも個別のボタン（作品詳細）なので、Web の <button>
+          入れ子を避ける CardPressable でカード側を作る。 */}
+      <CardPressable
         onPress={onPress}
-        accessibilityRole="button"
         accessibilityLabel={`「${item.title}」を開く`}
         testID={`public-tier-list-open-${item.kind}-${item.id}`}
       >
@@ -214,21 +216,25 @@ function PublicTierListCard({
             {[...new Map(item.thumbnails.map((t) => [t.url, t])).values()].map(
               (t) =>
                 t.annictWorkId ? (
-                  <WorkDetailPressable
-                    key={t.url}
-                    work={{
-                      annictWorkId: t.annictWorkId,
-                      title: t.label,
-                      hostedImageUrl: t.url,
-                    }}
-                  >
-                    <WorkThumbnail
-                      uri={t.url}
-                      title={t.label}
-                      width={40}
-                      height={56}
-                    />
-                  </WorkDetailPressable>
+                  // Web ではカード全面のボタンがコンテンツの下に敷かれるため、
+                  // 個別作品ボタンのイベントを pointerEvents="auto" で復活させる
+                  // （ui/card-pressable/CardPressable.web.tsx 参照）
+                  <View key={t.url} pointerEvents="auto">
+                    <WorkDetailPressable
+                      work={{
+                        annictWorkId: t.annictWorkId,
+                        title: t.label,
+                        hostedImageUrl: t.url,
+                      }}
+                    >
+                      <WorkThumbnail
+                        uri={t.url}
+                        title={t.label}
+                        width={40}
+                        height={56}
+                      />
+                    </WorkDetailPressable>
+                  </View>
                 ) : (
                   <WorkThumbnail
                     key={t.url}
@@ -251,7 +257,7 @@ function PublicTierListCard({
           {TIER_KIND_LABELS[item.kind]} ・ {item.owner.username} ・{" "}
           {item.itemCount} アイテム
         </Text>
-      </TouchableOpacity>
+      </CardPressable>
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity
           className="flex-row items-center gap-1 rounded-md px-1.5 py-1"

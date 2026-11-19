@@ -148,6 +148,13 @@ export function AnimeWorkDetailSheet({
   const [listTarget, setListTarget] = useState<WorkDetailSheetTarget | null>(
     null,
   );
+  const pendingListTarget = useRef<WorkDetailSheetTarget | null>(null);
+  // 閉じる要求の直後に別の作品で開き直した場合、閉じ切り通知が来ない
+  // （onClosed の遅延タイマーが解除される）ので保留中の追加要求は捨てる。
+  // 残したままだと次に閉じたときに古い作品の追加シートが不意に開く。
+  useEffect(() => {
+    if (work != null) pendingListTarget.current = null;
+  }, [work]);
   const [statusFeedback, setStatusFeedback] = useState<{
     workId: number;
     session: number;
@@ -316,6 +323,12 @@ export function AnimeWorkDetailSheet({
       <BottomSheet
         visible={work != null}
         onClose={onClose}
+        onClosed={() => {
+          if (pendingListTarget.current) {
+            setListTarget(pendingListTarget.current);
+            pendingListTarget.current = null;
+          }
+        }}
         scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
         closeButtonAccessibilityLabel="作品詳細を閉じる"
         testID="anime-work-detail-sheet"
@@ -394,7 +407,7 @@ export function AnimeWorkDetailSheet({
                 <TouchableOpacity
                   className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
                   onPress={() => {
-                    setListTarget(work);
+                    pendingListTarget.current = work;
                     onClose();
                   }}
                   accessibilityRole="button"

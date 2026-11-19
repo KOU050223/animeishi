@@ -11,6 +11,7 @@ import type { BottomSheetProps } from "./types";
 export function BottomSheet({
   visible,
   onClose,
+  onClosed,
   children,
   scrimAccessibilityLabel,
   closeButtonAccessibilityLabel,
@@ -23,6 +24,7 @@ export function BottomSheet({
       visible={visible}
       animationType="slide"
       onRequestClose={onClose}
+      onDismiss={onClosed}
     >
       <View
         style={{
