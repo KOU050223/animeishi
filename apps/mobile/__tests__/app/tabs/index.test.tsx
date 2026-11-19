@@ -9,7 +9,7 @@ import {
 import HomeScreen from "@/app/(tabs)/(home)/index";
 import { featureFlags } from "@/lib/featureFlags";
 
-import { currentSeason } from "@/components/anime-list/animeListUtils";
+import { currentSeason, SEASONS } from "@/components/anime-list/animeListUtils";
 import type { WatchState } from "@/lib/watchStatusLabels";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
@@ -174,6 +174,8 @@ jest.mock("@/lib/useElections", () => ({
 // 今期（JST）の seasonName。テスト実行日に依らずレールの今期判定に合わせる。
 const { year, key } = currentSeason();
 const CURRENT_SEASON = `${year}-${key}`;
+// レールが画面に出す対象範囲のラベル（例: "2026年秋"）。
+const SEASON_LABEL = `${year}年${SEASONS[key]}`;
 
 const historyItem = (
   overrides: Record<string, unknown> = {},
@@ -354,10 +356,29 @@ describe("HomeScreen", () => {
     expect(screen.queryByText("Annict連携")).toBeNull();
   });
 
-  it("連携済みで今期視聴中が空なら空メッセージを出す", async () => {
+  it("今期視聴中は対象範囲（シーズン名）を明記する", async () => {
     loggedInUser();
     await render(<HomeScreen />);
-    expect(screen.getByText("今期視聴中の作品はありません")).toBeTruthy();
+    expect(
+      screen.getByText(`${SEASON_LABEL}アニメのうち「視聴中」`),
+    ).toBeTruthy();
+  });
+
+  it("連携済みで今期視聴中が空なら、対象範囲とライブラリへの導線を出す", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(
+      screen.getByText(`${SEASON_LABEL}アニメで「視聴中」の作品はありません`),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "過去のシーズンを含むすべての「視聴中」作品はライブラリの視聴履歴で確認できます",
+      ),
+    ).toBeTruthy();
+    await fireEvent.press(
+      screen.getByTestId("home-current-season-library-link"),
+    );
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/library?section=history");
   });
 
   it("公開中の記事がないとき特集枠は出さない", async () => {
