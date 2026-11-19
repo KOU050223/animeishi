@@ -88,9 +88,21 @@ const publicTierListsRoute = new Hono<AuthVariables>()
                 // label は画像が取れないときの代替表示に使う（issue #522）。
                 return url == null
                   ? null
-                  : { url, label: t.kind === "work" ? t.title : t.name };
+                  : {
+                      url,
+                      label: t.kind === "work" ? t.title : t.name,
+                      annictWorkId: t.kind === "work" ? t.annictWorkId : null,
+                    };
               })
-              .filter((t): t is { url: string; label: string } => t != null),
+              .filter(
+                (
+                  t,
+                ): t is {
+                  url: string;
+                  label: string;
+                  annictWorkId: number | null;
+                } => t != null,
+              ),
           })),
           nextCursor,
         },

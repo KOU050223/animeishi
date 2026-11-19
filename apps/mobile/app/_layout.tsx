@@ -31,6 +31,7 @@ import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useGuestCtaReturn } from "@/lib/guestCta";
 import { guestLandingPath } from "@/lib/guestLandingRoute";
+import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -211,7 +212,9 @@ export default wrapWithObserveRoot(
               <ThemeProvider
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
               >
-                <AuthGuard />
+                <WorkDetailProvider>
+                  <AuthGuard />
+                </WorkDetailProvider>
                 {/* 実績の新規獲得を検出してお祝いを出す（issue #415）。
                     QueryClient・Clerk・Theme の内側でだけ動くためこの位置。 */}
                 <AchievementCelebrationHost />

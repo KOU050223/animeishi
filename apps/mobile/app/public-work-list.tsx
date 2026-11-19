@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { BackButton } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -181,7 +182,8 @@ function WorkItemRow({
   index: number;
 }) {
   return (
-    <View
+    <WorkDetailPressable
+      work={item}
       className="mb-2 flex-row items-center gap-3 rounded-lg border border-slate-200 p-2.5 dark:border-slate-700"
       testID={`public-work-list-item-${item.annictWorkId}`}
     >
@@ -200,7 +202,7 @@ function WorkItemRow({
       >
         {item.title}
       </Text>
-    </View>
+    </WorkDetailPressable>
   );
 }
 

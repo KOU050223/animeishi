@@ -348,6 +348,17 @@ describe("AnimeWorkDetailSheet", () => {
     await AsyncStorage.clear();
   });
 
+  it("作品リストへの追加と d アニメストア検索を詳細から選べる", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+    expect(screen.getByTestId("work-detail-add-to-list")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("work-detail-danime-search"));
+    expect(openURL).toHaveBeenCalledWith(
+      `https://animestore.docomo.ne.jp/animestore/sch_pc?searchKey=${encodeURIComponent(WORK.title)}`,
+    );
+    openURL.mockRestore();
+  });
+
   it("ステータスの保存中と完了を操作欄に表示する", async () => {
     let finish: (value: unknown) => void = () => {};
     mockMutateAsync.mockImplementation(

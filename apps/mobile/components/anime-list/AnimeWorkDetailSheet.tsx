@@ -53,6 +53,8 @@ import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import type { AnimeTitle } from "@/lib/useAnimeList";
 import { AnimePoster } from "./AnimePoster";
+import { AddToWorkListSheet } from "@/components/work-list";
+import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
 import {
   formatSeasonLabel,
   SEASON_FILTER_ALL,
@@ -143,6 +145,16 @@ export function AnimeWorkDetailSheet({
     workId: number;
     state: WatchState | null;
   } | null>(null);
+  const [listTarget, setListTarget] = useState<WorkDetailSheetTarget | null>(
+    null,
+  );
+  const pendingListTarget = useRef<WorkDetailSheetTarget | null>(null);
+  // 閉じる要求の直後に別の作品で開き直した場合、閉じ切り通知が来ない
+  // （onClosed の遅延タイマーが解除される）ので保留中の追加要求は捨てる。
+  // 残したままだと次に閉じたときに古い作品の追加シートが不意に開く。
+  useEffect(() => {
+    if (work != null) pendingListTarget.current = null;
+  }, [work]);
   const [statusFeedback, setStatusFeedback] = useState<{
     workId: number;
     session: number;
@@ -307,91 +319,141 @@ export function AnimeWorkDetailSheet({
     : null;
 
   return (
-    <BottomSheet
-      visible={work != null}
-      onClose={onClose}
-      scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
-      closeButtonAccessibilityLabel="作品詳細を閉じる"
-      testID="anime-work-detail-sheet"
-      snapPoints={[{ fraction: 0.8 }, "full"]}
-    >
-      {work ? (
-        <ScrollView style={{ maxHeight: height * 0.8 }}>
-          <View className="px-6 pt-6 pb-10 gap-5">
-            <HeaderSection
-              work={work}
-              mediaLabel={mediaLabel}
-              onOpenSeasonList={openSeasonList}
-            />
-            {isConnectionLoading ? (
-              // 連携状態が確定するまでチップ/ゲートのどちらも出さない
-              // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
-              <StatusSectionFrame>
-                <View className="items-center py-4">
-                  <ActivityIndicator size="small" color={palette.spinner} />
-                </View>
-              </StatusSectionFrame>
-            ) : !isConnected ? (
-              // 未連携でステータスを選んでも API が必ず失敗するため、
-              // チップではなくその場で連携できる導線に差し替える。
-              <StatusSectionFrame>
-                <AnnictSoftGate
-                  variant="compact"
-                  description="視聴ステータスの変更には Annict との連携が必要です。連携すると視聴記録を残せます。"
-                  surface="work_detail_sheet"
-                  testID="work-detail-status-gate"
+    <>
+      <BottomSheet
+        visible={work != null}
+        onClose={onClose}
+        onClosed={() => {
+          if (pendingListTarget.current) {
+            setListTarget(pendingListTarget.current);
+            pendingListTarget.current = null;
+          }
+        }}
+        scrimAccessibilityLabel="背景をタップして作品詳細を閉じる"
+        closeButtonAccessibilityLabel="作品詳細を閉じる"
+        testID="anime-work-detail-sheet"
+        snapPoints={[{ fraction: 0.8 }, "full"]}
+      >
+        {work ? (
+          <ScrollView style={{ maxHeight: height * 0.8 }}>
+            <View className="px-6 pt-6 pb-10 gap-5">
+              <HeaderSection
+                work={work}
+                mediaLabel={mediaLabel}
+                onOpenSeasonList={openSeasonList}
+              />
+              {isConnectionLoading ? (
+                // 連携状態が確定するまでチップ/ゲートのどちらも出さない
+                // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
+                <StatusSectionFrame>
+                  <View className="items-center py-4">
+                    <ActivityIndicator size="small" color={palette.spinner} />
+                  </View>
+                </StatusSectionFrame>
+              ) : !isConnected ? (
+                // 未連携でステータスを選んでも API が必ず失敗するため、
+                // チップではなくその場で連携できる導線に差し替える。
+                <StatusSectionFrame>
+                  <AnnictSoftGate
+                    variant="compact"
+                    description="視聴ステータスの変更には Annict との連携が必要です。連携すると視聴記録を残せます。"
+                    surface="work_detail_sheet"
+                    testID="work-detail-status-gate"
+                  />
+                </StatusSectionFrame>
+              ) : (
+                <StatusSection
+                  currentState={currentState}
+                  disabled={upsert.isPending || remove.isPending}
+                  onSelect={selectStatus}
+                  feedback={
+                    statusFeedback?.workId === work.annictWorkId &&
+                    statusFeedback.session === statusSession.revision
+                      ? statusFeedback.state
+                      : null
+                  }
                 />
-              </StatusSectionFrame>
-            ) : (
-              <StatusSection
-                currentState={currentState}
-                disabled={upsert.isPending || remove.isPending}
-                onSelect={selectStatus}
-                feedback={
-                  statusFeedback?.workId === work.annictWorkId &&
-                  statusFeedback.session === statusSession.revision
-                    ? statusFeedback.state
-                    : null
-                }
+              )}
+              {
+                // 評価は作品への意見なので、視聴状態を戻しても D1 の評価は残す
+                // （issue #416）。そのため出し分けは「視聴済み、または既に評価が
+                // ある」作品: 視聴中に戻した作品でも評価を外せるようにする。
+                // API 側も視聴状態では拒否しない。
+                // 視聴済みかの判定が Annict 由来の state に依存するため、未連携
+                // では評価済み作品しかセクションは出ない。
+                <RatingSection
+                  work={work}
+                  isWatched={currentState === "WATCHED"}
+                />
+              }
+              {isConnected ? (
+                // 話数記録は Annict 連携必須（record の読み書きを API 経由で
+                // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
+                <EpisodeSection
+                  work={work}
+                  isWatched={currentState === "WATCHED"}
+                  onTokenError={promptAnnictTokenError}
+                  onEpisodesRecorded={handleEpisodesRecorded}
+                />
+              ) : null}
+              <ActionRow
+                title={work.title}
+                isFavorite={isFavorite}
+                isTogglingFavorite={isTogglingFavorite}
+                onToggleFavorite={onToggleFavorite}
+                onOpenCharacterTierList={openCharacterTierList}
               />
-            )}
-            {
-              // 評価は作品への意見なので、視聴状態を戻しても D1 の評価は残す
-              // （issue #416）。そのため出し分けは「視聴済み、または既に評価が
-              // ある」作品: 視聴中に戻した作品でも評価を外せるようにする。
-              // API 側も視聴状態では拒否しない。
-              // 視聴済みかの判定が Annict 由来の state に依存するため、未連携
-              // では評価済み作品しかセクションは出ない。
-              <RatingSection
-                work={work}
-                isWatched={currentState === "WATCHED"}
-              />
-            }
-            {isConnected ? (
-              // 話数記録は Annict 連携必須（record の読み書きを API 経由で
-              // Annict に行うため。issue #439）。未連携は上の連携導線を使う。
-              <EpisodeSection
-                work={work}
-                isWatched={currentState === "WATCHED"}
-                onTokenError={promptAnnictTokenError}
-                onEpisodesRecorded={handleEpisodesRecorded}
-              />
-            ) : null}
-            <ActionRow
-              title={work.title}
-              isFavorite={isFavorite}
-              isTogglingFavorite={isTogglingFavorite}
-              onToggleFavorite={onToggleFavorite}
-              onOpenCharacterTierList={openCharacterTierList}
-            />
-            {work.annictWorkId ? (
-              <AnnictWorkLink annictWorkId={work.annictWorkId} />
-            ) : null}
-            <DetailFetchSection detail={detail} />
-          </View>
-        </ScrollView>
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
+                  onPress={() => {
+                    pendingListTarget.current = work;
+                    onClose();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("{{title}}をリストに追加", {
+                    title: work.title,
+                  })}
+                  testID="work-detail-add-to-list"
+                >
+                  <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    {t("リストに追加")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="flex-1 items-center rounded-lg bg-indigo-50 py-2.5 dark:bg-indigo-950"
+                  onPress={() =>
+                    void Linking.openURL(buildDanimeWorkSearchUrl(work.title))
+                  }
+                  accessibilityRole="link"
+                  accessibilityLabel={t("{{title}}をdアニメストアで検索", {
+                    title: work.title,
+                  })}
+                  testID="work-detail-danime-search"
+                >
+                  <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    {t("dアニメストアで検索")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {work.annictWorkId ? (
+                <AnnictWorkLink annictWorkId={work.annictWorkId} />
+              ) : null}
+              <DetailFetchSection detail={detail} />
+            </View>
+          </ScrollView>
+        ) : null}
+      </BottomSheet>
+      {listTarget ? (
+        <AddToWorkListSheet
+          work={{
+            annictWorkId: listTarget.annictWorkId,
+            title: listTarget.title,
+          }}
+          onClose={() => setListTarget(null)}
+        />
       ) : null}
-    </BottomSheet>
+    </>
   );
 }
 

@@ -23,6 +23,7 @@ import {
   type SeasonKey,
 } from "@/components/anime-list/animeListUtils";
 import { TierBoard } from "@/components/tier-list/TierBoard";
+import { useOpenWorkDetail } from "@/lib/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,
@@ -69,6 +70,7 @@ import {
 const SNAPSHOT_WAIT_MAX_MS = 5000;
 
 export default function TierListScreen() {
+  const openWork = useOpenWorkDetail();
   const router = useRouter();
   const styles = useTierListStyles();
   const colors = useThemeColors();
@@ -684,6 +686,13 @@ export default function TierListScreen() {
         // シーズン候補が 0 件でも盤面を出す。＋ボタンから手動追加できる
         // 道を残すため（issue #168）、空のときだけ別画面にはしない。
         <TierBoard
+          onItemPress={(item) =>
+            openWork({
+              annictWorkId: item.id,
+              title: item.title,
+              hostedImageUrl: item.imageUrl,
+            })
+          }
           tiers={tiers}
           items={boardWorks}
           assignment={assignment}

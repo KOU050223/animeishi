@@ -19,6 +19,7 @@ import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { useThemeColors } from "@/lib/theme";
 import { buildWorkListShareUrl } from "@/lib/workList/shareUrl";
 import type { TierItem } from "@/lib/tierList/types";
@@ -518,18 +519,27 @@ export default function WorkListScreen() {
                 <Text className="w-6 text-right text-sm font-semibold text-slate-400 dark:text-slate-500">
                   {index + 1}
                 </Text>
-                <WorkThumbnail
-                  uri={item.imageUrl}
-                  title={item.title}
-                  width={36}
-                  height={50}
-                />
-                <Text
-                  className="flex-1 text-sm text-slate-900 dark:text-slate-100"
-                  numberOfLines={2}
+                <WorkDetailPressable
+                  work={{
+                    annictWorkId: item.id,
+                    title: item.title,
+                    hostedImageUrl: item.imageUrl,
+                  }}
+                  className="flex-row flex-1 items-center gap-3"
                 >
-                  {item.title}
-                </Text>
+                  <WorkThumbnail
+                    uri={item.imageUrl}
+                    title={item.title}
+                    width={36}
+                    height={50}
+                  />
+                  <Text
+                    className="flex-1 text-sm text-slate-900 dark:text-slate-100"
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                </WorkDetailPressable>
                 {/* 並べ替えはドラッグではなく上下ボタン。web / native で
                     同じ操作系にし、長いリストでも確実に動かせるようにする。 */}
                 <TouchableOpacity

@@ -16,6 +16,7 @@ import { useWorkCatalogAccess } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { BackButton, Input } from "@/components/ui";
 import { TierBoard } from "@/components/tier-list/TierBoard";
+import { useOpenWorkDetail } from "@/lib/workDetailContext";
 import {
   TierBoardSnapshot,
   type SnapshotItem,
@@ -76,6 +77,7 @@ function parseWorkIdsParam(raw: string | undefined): number[] {
 }
 
 export default function CustomTierListScreen() {
+  const openWork = useOpenWorkDetail();
   const router = useRouter();
   const styles = useTierListStyles();
   const colors = useThemeColors();
@@ -623,6 +625,13 @@ export default function CustomTierListScreen() {
         </View>
       ) : (
         <TierBoard
+          onItemPress={(item) =>
+            openWork({
+              annictWorkId: item.id,
+              title: item.title,
+              hostedImageUrl: item.imageUrl,
+            })
+          }
           tiers={tiers}
           items={boardWorks}
           assignment={assignment}

@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { ActivityFeedItem } from "@/lib/useActivityFeed";
 import { activityText, formatRelativeTime } from "@/lib/activityText";
 import { useThemeColors } from "@/lib/theme";
+import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 
 export type ActivityFeedListProps = {
@@ -203,14 +204,25 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
         </View>
       )}
 
-      <View className="flex-1">
-        <Text className="text-sm text-slate-900 dark:text-slate-100">
-          {activityText(item, t)}
-        </Text>
-        <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          {formatRelativeTime(item.createdAt, t)}
-        </Text>
-      </View>
+      {item.work ? (
+        <WorkDetailPressable work={item.work} className="flex-1">
+          <Text className="text-sm text-slate-900 dark:text-slate-100">
+            {activityText(item, t)}
+          </Text>
+          <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            {formatRelativeTime(item.createdAt, t)}
+          </Text>
+        </WorkDetailPressable>
+      ) : (
+        <View className="flex-1">
+          <Text className="text-sm text-slate-900 dark:text-slate-100">
+            {activityText(item, t)}
+          </Text>
+          <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            {formatRelativeTime(item.createdAt, t)}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
