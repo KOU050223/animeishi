@@ -149,6 +149,9 @@ function ImageRender({
       <ExpoImage
         source={{ uri }}
         style={{ width: "100%", height: "100%" }}
+        // web の既定 draggable=true だと、エディタで画像要素を動かすドラッグに
+        // ブラウザのネイティブ画像ドラッグが割り込みジェスチャが切れる（issue #327）。
+        draggable={false}
         contentFit={el.objectFit}
         contentPosition={imageContentPosition(el.focus)}
         // 読み込み完了直後に撮るため共有画像は transition を付けない。

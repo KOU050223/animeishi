@@ -14,7 +14,11 @@ import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import { Ionicons } from "@expo/vector-icons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
-import { dragImageFocus, imageContentPosition } from "@/lib/meishi/imageFocus";
+import {
+  dragImageFocus,
+  imageContentPosition,
+  nudgeImageFocus,
+} from "@/lib/meishi/imageFocus";
 import { resolveImageUri } from "@/lib/meishi/renderableImages";
 import type { ThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
@@ -183,12 +187,42 @@ function ImageFocusPreview({
     [element.id, element.focus, frame, loadedImageSize, onChange],
   );
 
+  // ドラッグはスイッチ操作や VoiceOver では使えないため、一定量ずつ焦点を
+  // ずらすカスタムアクションを用意する。
+  const focusActions = [
+    { name: "left", label: t("表示位置を左へ"), delta: { x: -0.1, y: 0 } },
+    { name: "right", label: t("表示位置を右へ"), delta: { x: 0.1, y: 0 } },
+    { name: "up", label: t("表示位置を上へ"), delta: { x: 0, y: -0.1 } },
+    { name: "down", label: t("表示位置を下へ"), delta: { x: 0, y: 0.1 } },
+  ];
+  const currentFocus = element.focus ?? { x: 0.5, y: 0.5 };
+
   if (!uri) return null;
   return (
     <View style={{ alignItems: "flex-start", gap: 6 }}>
       <GestureDetector gesture={pan}>
         <View
           testID="meishi-image-focus-preview"
+          accessible
+          accessibilityLabel={t("切り抜き位置")}
+          accessibilityHint={t("画像をドラッグして表示位置を調整")}
+          accessibilityValue={{
+            text: t("横 {{x}}%、縦 {{y}}%", {
+              x: Math.round(currentFocus.x * 100),
+              y: Math.round(currentFocus.y * 100),
+            }),
+          }}
+          accessibilityActions={focusActions.map(({ name, label }) => ({
+            name,
+            label,
+          }))}
+          onAccessibilityAction={(event) => {
+            const action = focusActions.find(
+              (a) => a.name === event.nativeEvent.actionName,
+            );
+            if (action)
+              onChange({ focus: nudgeImageFocus(element.focus, action.delta) });
+          }}
           style={{
             width: frame.width,
             height: frame.height,
@@ -206,6 +240,8 @@ function ImageFocusPreview({
           <ExpoImage
             source={{ uri }}
             style={{ width: "100%", height: "100%" }}
+            // web ではネイティブ画像ドラッグが Pan を pointercancel で切る（issue #327）
+            draggable={false}
             contentFit="cover"
             contentPosition={imageContentPosition(
               previewFocus?.id === element.id

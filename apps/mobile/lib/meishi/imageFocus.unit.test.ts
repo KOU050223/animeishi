@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { dragImageFocus, imageContentPosition } from "./imageFocus";
+import {
+  dragImageFocus,
+  imageContentPosition,
+  nudgeImageFocus,
+} from "./imageFocus";
 
 describe("image focus", () => {
   it("焦点未設定の画像は中央で切り抜く", () => {
@@ -36,5 +40,19 @@ describe("image focus", () => {
         { width: 100, height: 200 },
       ),
     ).toEqual({ x: 0.3, y: 1 });
+  });
+
+  it("支援技術からの位置調整は未設定を中央とみなして一定量ずらす", () => {
+    expect(nudgeImageFocus(undefined, { x: -0.1, y: 0 })).toEqual({
+      x: 0.4,
+      y: 0.5,
+    });
+  });
+
+  it("支援技術からの位置調整は枠の端を越えない", () => {
+    expect(nudgeImageFocus({ x: 0.95, y: 0.05 }, { x: 0.1, y: -0.1 })).toEqual({
+      x: 1,
+      y: 0,
+    });
   });
 });

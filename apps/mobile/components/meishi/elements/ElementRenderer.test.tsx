@@ -120,6 +120,8 @@ describe("ElementRenderer", () => {
     )[0];
     expect(image.props.contentPosition).toEqual({ left: "20%", top: "75%" });
     expect(image.props.contentFit).toBe("cover");
+    // web のネイティブ画像ドラッグが要素移動のジェスチャを奪わない（issue #327）
+    expect(image.props.draggable).toBe(false);
   });
 
   it("テキストの fontSize を renderScale に合わせて縮小する", async () => {

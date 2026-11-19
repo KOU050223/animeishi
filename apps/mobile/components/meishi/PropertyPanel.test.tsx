@@ -70,6 +70,51 @@ describe("PropertyPanel", () => {
     expect(screen.getByTestId("meishi-image-focus-preview")).toBeTruthy();
   });
 
+  it("支援技術のカスタムアクションで切り抜き位置をずらせる", async () => {
+    const onChange = jest.fn();
+    await render(
+      <PropertyPanel
+        element={{ ...imageElement, focus: { x: 0.5, y: 0.5 } }}
+        canvasAspectRatio={1.5}
+        onChange={onChange}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+    const preview = screen.getByTestId("meishi-image-focus-preview");
+    expect(preview.props.accessibilityValue).toEqual({
+      text: "横 50%、縦 50%",
+    });
+    await act(async () => {
+      preview.props.onAccessibilityAction({
+        nativeEvent: { actionName: "left" },
+      });
+    });
+    expect(onChange).toHaveBeenCalledWith({ focus: { x: 0.4, y: 0.5 } });
+  });
+
+  it("web のネイティブ画像ドラッグがプレビューの Pan を奪わない（issue #327）", async () => {
+    await render(
+      <PropertyPanel
+        element={imageElement}
+        canvasAspectRatio={1.5}
+        onChange={jest.fn()}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+    const image = screen.container.queryAll(
+      (node) => node.props.contentPosition,
+    )[0];
+    expect(image.props.draggable).toBe(false);
+  });
+
   it("英語では切り抜き位置の案内を翻訳する", async () => {
     await act(async () => {
       await i18n.changeLanguage("en");

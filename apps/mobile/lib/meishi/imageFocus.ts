@@ -46,3 +46,13 @@ export function dragImageFocus(
         : (focus?.y ?? 0.5),
   };
 }
+
+export function nudgeImageFocus(
+  focus: ImageFocus | undefined,
+  delta: Delta,
+): ImageFocus {
+  return {
+    x: clamp01((focus?.x ?? 0.5) + delta.x),
+    y: clamp01((focus?.y ?? 0.5) + delta.y),
+  };
+}
