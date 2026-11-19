@@ -50,7 +50,7 @@ const LIBRARY_KEYS: LibraryKey[] = [
 ];
 
 function libraryLabel(key: LibraryKey, t: TFunction): string {
-  return key === "favorites" ? t("お気に入り") : t(WATCH_STATUS_LABELS[key]);
+  return key === "favorites" ? t("推し") : t(WATCH_STATUS_LABELS[key]);
 }
 
 function seasonText(item: AnimePickItem, t: TFunction): string {
@@ -200,7 +200,7 @@ function LibraryList({
               }}
             >
               {listKey === "favorites"
-                ? t("お気に入りに作品がありません")
+                ? t("推しに作品がありません")
                 : t("このリストに作品がありません")}
             </Text>
           }

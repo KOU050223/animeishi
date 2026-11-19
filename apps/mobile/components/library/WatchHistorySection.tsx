@@ -5,6 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import type { TFunction } from "i18next";
@@ -39,6 +40,10 @@ import {
   AddToWorkListSheet,
 } from "@/components/work-list";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
+import {
+  GRID_GAP,
+  getRowListGridLayout,
+} from "@/components/anime-list/animeListUtils";
 import {
   NO_WATCH_HISTORY_FILTERS,
   WATCH_HISTORY_SORT_KEYS,
@@ -164,6 +169,11 @@ export function WatchHistorySection() {
   const { data: histories, isLoading, isError, refetch } = useWatchHistory();
   const upsert = useUpsertWatchHistory();
   const remove = useDeleteWatchHistory();
+  // Web の広い幅では行一覧を複数列にする（issue #602）。Platform.OS ではなく
+  // 幅だけで判定し、狭い幅では従来どおり 1 列の全幅リストにする。
+  const { width } = useWindowDimensions();
+  const grid = getRowListGridLayout(width);
+  const isGrid = grid.numColumns > 1;
 
   // 各行の「推しに追加」（issue #379）。アニメ一覧と同じフック・ボタンを使う。
   const favoriteIds = useFavoriteIds();
@@ -173,10 +183,10 @@ export function WatchHistorySection() {
       // ダイアログで必ず伝える（アニメ一覧と同じ方針）。
       onError: (e) =>
         alert(
-          t("お気に入りを更新できませんでした"),
+          t("推しを更新できませんでした"),
           e instanceof ApiRequestError
             ? t(e.message, { defaultValue: e.message })
-            : t("お気に入りの更新に失敗しました"),
+            : t("推しの更新に失敗しました"),
           { okLabel: t("OK") },
         ),
     });
@@ -398,16 +408,39 @@ export function WatchHistorySection() {
     <View className="flex-1 bg-white dark:bg-slate-900">
       <FlatList
         testID="watch-history-list"
+        // numColumns の途中変更は未対応なので、列数が変わるたびに再マウントする
+        // （アニメ一覧と同じ対処）。
+        key={`watch-history-${grid.numColumns}`}
         data={visible}
+        numColumns={grid.numColumns}
         keyExtractor={(item) => String(item.annictWorkId)}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingBottom: 32,
+          ...(isGrid ? { alignItems: "center" as const } : null),
+        }}
+        columnWrapperStyle={
+          isGrid
+            ? {
+                width: grid.contentWidth,
+                gap: GRID_GAP,
+                justifyContent: "flex-start",
+              }
+            : undefined
+        }
         refreshing={refreshing}
         onRefresh={onRefresh}
         // 件数・共有 URL・ソート/絞り込みはヘッダーとして一覧と一緒に流す
         // （issue #470）。要素として渡し、コンポーネント関数の再生成による
         // リマウント（スクロール位置リセット）を避ける。
         ListHeaderComponent={
-          <View>
+          // グリッド時は行の並ぶコンテンツ幅に揃えて中央寄せする。
+          <View
+            style={
+              isGrid
+                ? { width: grid.contentWidth, alignSelf: "center" }
+                : undefined
+            }
+          >
             <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
               <Text className="text-xs text-slate-400 dark:text-slate-500">
                 {filterActive
@@ -471,23 +504,37 @@ export function WatchHistorySection() {
             </ScrollView>
           </View>
         }
-        ItemSeparatorComponent={() => (
-          <View
-            style={{ height: 1 }}
-            className="mx-4 bg-slate-100 dark:bg-slate-800"
-          />
-        )}
+        ItemSeparatorComponent={
+          isGrid
+            ? undefined
+            : () => (
+                <View
+                  style={{ height: 1 }}
+                  className="mx-4 bg-slate-100 dark:bg-slate-800"
+                />
+              )
+        }
         renderItem={({ item }) => (
-          <WatchHistoryRow
-            history={item}
-            onStatusChange={(next) => changeStatus(item, next)}
-            onDelete={() => confirmDelete(item.annictWorkId)}
-            isFavorite={favoriteIds.has(item.annictWorkId)}
-            favoriteDisabled={isTogglingFavorite}
-            onToggleFavorite={() => toggleFavorite(item.annictWorkId)}
-            onAddToList={() => setListTarget(item)}
-            onOpenDetail={() => setDetailWork(item)}
-          />
+          <View style={isGrid ? { width: grid.columnWidth } : undefined}>
+            <WatchHistoryRow
+              history={item}
+              onStatusChange={(next) => changeStatus(item, next)}
+              onDelete={() => confirmDelete(item.annictWorkId)}
+              isFavorite={favoriteIds.has(item.annictWorkId)}
+              favoriteDisabled={isTogglingFavorite}
+              onToggleFavorite={() => toggleFavorite(item.annictWorkId)}
+              onAddToList={() => setListTarget(item)}
+              onOpenDetail={() => setDetailWork(item)}
+            />
+            {/* グリッドでは行間セパレータが列をまたいで引けないため、
+                各行と同じ余白でセルの下辺に線を引く。 */}
+            {isGrid ? (
+              <View
+                style={{ height: 1 }}
+                className="mx-4 bg-slate-100 dark:bg-slate-800"
+              />
+            ) : null}
+          </View>
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">

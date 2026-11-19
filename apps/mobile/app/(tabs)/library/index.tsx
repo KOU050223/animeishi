@@ -90,7 +90,7 @@ export default function LibraryScreen() {
           },
           {
             label: t("推し"),
-            accessibilityLabel: t("お気に入り"),
+            accessibilityLabel: t("推し"),
             active: section === "favorites",
             onPress: () => setSection("favorites"),
             testID: "library-section-favorites",

@@ -607,11 +607,9 @@ function ProfileWorkDetailSheet({
   const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
     useToggleFavorite(favoriteIds, {
       onError: () =>
-        alert(
-          t("お気に入りを更新できませんでした"),
-          t("お気に入りの更新に失敗しました"),
-          { okLabel: "OK" },
-        ),
+        alert(t("推しを更新できませんでした"), t("推しの更新に失敗しました"), {
+          okLabel: "OK",
+        }),
     });
 
   return (

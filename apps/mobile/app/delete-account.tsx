@@ -362,7 +362,7 @@ export default function DeleteAccountScreen() {
   const summaryRows: SummaryRow[] | null = summary.data
     ? [
         { label: t("視聴履歴"), count: summary.data.watchHistories },
-        { label: t("お気に入り"), count: summary.data.favorites },
+        { label: t("推し"), count: summary.data.favorites },
         { label: t("フレンド"), count: summary.data.friends },
         { label: t("Tier 表"), count: summary.data.tierLists },
         { label: t("作品リスト"), count: summary.data.workLists },

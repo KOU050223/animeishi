@@ -248,6 +248,14 @@ function createStyles(p: AnimeListPalette) {
       lineHeight: 22,
       fontWeight: "900",
     },
+    // 「人気」ソートの定義・シーズン件数の意味（issue #602）を注記する
+    // 小さな副テキスト。主表示より小さく muted 色で添える。
+    noteText: {
+      marginTop: 2,
+      color: p.subtitle,
+      fontSize: 11,
+      lineHeight: 15,
+    },
     sortGroup: {
       flexDirection: "row",
       justifyContent: "space-between",

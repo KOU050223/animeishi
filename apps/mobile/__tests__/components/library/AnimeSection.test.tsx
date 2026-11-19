@@ -43,16 +43,14 @@ beforeEach(async () => {
 });
 
 describe("AnimeSection", () => {
-  it("お気に入りトグルの失敗をダイアログで通知する", async () => {
+  it("推しトグルの失敗をダイアログで通知する", async () => {
     await render(<AnimeSection />);
 
-    capturedOnError?.(
-      new ApiRequestError(500, "お気に入りの追加に失敗しました"),
-    );
+    capturedOnError?.(new ApiRequestError(500, "推しの登録に失敗しました"));
 
     expect(mockAlert).toHaveBeenCalledWith(
-      "お気に入りを更新できませんでした",
-      "お気に入りの追加に失敗しました",
+      "推しを更新できませんでした",
+      "推しの登録に失敗しました",
       expect.objectContaining({ okLabel: "OK" }),
     );
   });
@@ -63,8 +61,8 @@ describe("AnimeSection", () => {
     capturedOnError?.(new Error("Network request failed"));
 
     expect(mockAlert).toHaveBeenCalledWith(
-      "お気に入りを更新できませんでした",
-      "お気に入りの更新に失敗しました",
+      "推しを更新できませんでした",
+      "推しの更新に失敗しました",
       expect.objectContaining({ okLabel: "OK" }),
     );
   });
