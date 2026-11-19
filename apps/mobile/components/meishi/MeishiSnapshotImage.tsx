@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 
 export type MeishiSnapshotImageProps = {
@@ -33,10 +33,19 @@ export function MeishiSnapshotImage({
   if (failed) return <>{fallback}</>;
 
   return (
-    <>
+    <View>
       {/* 実寸法が取れるまではフォールバックを表に出し、画像は見えない
-          プローブとして裏で読み込ませる */}
-      {loadedAspectRatio === null ? fallback : null}
+          プローブとして裏で読み込ませる。画像に差し替わったあとも
+          フォールバックは透明なまま残す。アンマウントすると自己紹介
+          など名刺のテキストが VoiceOver / TalkBack の読み上げ対象
+          から消えるため（opacity: 0 はアクセシビリティツリーに残る） */}
+      <View
+        testID="meishi-snapshot-fallback"
+        style={loadedAspectRatio === null ? undefined : styles.a11yOnly}
+        pointerEvents={loadedAspectRatio === null ? "auto" : "none"}
+      >
+        {fallback}
+      </View>
       <Image
         source={{ uri }}
         style={
@@ -55,7 +64,7 @@ export function MeishiSnapshotImage({
         accessibilityLabel={accessibilityLabel}
         testID="meishi-snapshot-image"
       />
-    </>
+    </View>
   );
 }
 
@@ -69,6 +78,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 1,
     height: 1,
+    opacity: 0,
+  },
+  a11yOnly: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     opacity: 0,
   },
 });

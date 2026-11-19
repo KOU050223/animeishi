@@ -460,8 +460,12 @@ describe("マイQR（QR コード生成）", () => {
       nativeEvent: { source: { width: 1280, height: 824 } },
     });
 
-    // 読み込みが終わったら画像が主役になり、フォールバックは外れる。
-    expect(screen.queryByTestId("meishi-card-stub")).toBeNull();
+    // 読み込みが終わったら画像が主役になる。フォールバックは透明に
+    // なるだけでツリーには残し、名刺本文の読み上げを維持する。
+    expect(image.props.accessible).toBe(true);
+    const fallback = screen.getByTestId("meishi-snapshot-fallback");
+    expect(fallback.props.pointerEvents).toBe("none");
+    expect(within(fallback).getByTestId("meishi-card-stub")).toBeTruthy();
   });
 
   it("既定の名刺でも公開スナップショットが無ければ端末内レンダリングのままにする", async () => {
