@@ -323,6 +323,13 @@ export default function ProfileScreen() {
                   </View>
                 ) : null}
               </View>
+              {/* プレビューとエディタの名刺が同じものだと分かる説明（issue #531）。
+                  公開表現は #593 の「既定の名刺を公開」に揃える。 */}
+              <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                {t(
+                  "名刺一覧で「既定」にした名刺がここに表示されます。まだ名刺が無いときは既定のデザインで表示され、公開プロフィールにも同じ名刺が出ます",
+                )}
+              </Text>
               <TouchableOpacity
                 className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
                 onPress={() => router.push("/meishi")}
