@@ -34,8 +34,12 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       imageR2Key: "works/42/deadbeef.png",
       updatedAt: new Date(),
     });
-    await caches.default.delete("http://localhost/images/works/42");
-    await caches.default.delete("http://localhost/images/works/999");
+    await caches.default.delete(
+      "http://localhost/images/works/42?image-policy=2",
+    );
+    await caches.default.delete(
+      "http://localhost/images/works/999?image-policy=2",
+    );
     const listed = await env.AVATARS.list();
     if (listed.objects.length > 0) {
       await env.AVATARS.delete(listed.objects.map((o) => o.key));
@@ -45,6 +49,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
   it("取り込み済みの画像を配信する", async () => {
     await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
     });
     const res = await buildApp().request(
       "/images/works/42",
@@ -61,6 +66,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
   it("2 回目はエッジキャッシュから返し、R2 を読まない", async () => {
     await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
     });
     const app = buildApp();
     const first = await app.request(
@@ -105,6 +111,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     });
     await env.AVATARS.put("works/999/deadbeef.png", PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
     });
 
     // ?r= なしでは edge の 404 が返り続ける
@@ -139,6 +146,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
   it("キャッシュに保存したレスポンスにだけ Cache-Tag が付く", async () => {
     await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
     });
     const app = buildApp();
     const res = await app.request(
@@ -161,7 +169,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
     expect(second.headers.get("cache-tag")).toBeNull();
     await second.arrayBuffer();
     const cached = await caches.default.match(
-      "http://localhost/images/works/42",
+      "http://localhost/images/works/42?image-policy=2",
     );
     expect(cached?.headers.get("cache-tag")).toBe("work-image-42");
   });

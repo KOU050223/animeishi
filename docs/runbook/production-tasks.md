@@ -260,6 +260,40 @@ Discord（#bot-log）には「投稿あり」と件数だけが届くので、�
 
 ## 作品画像の削除（images:takedown）
 
+### #636 の Annict 由来画像の後片付け（オーナー作業）
+
+#636 のデプロイ後、旧 Annict 画像の R2 オブジェクトを削除する。デプロイに含まれる
+配信コードは旧画像を返さず、新しい画像も R2 に保存しない。削除は自動実行しない。
+
+`images:takedown` は **流用しない**。指定した作品を `image_source='blocked'` にし、
+Kitsu / MAL の補完まで止めてしまうため。対象を特定したうえで R2 のオブジェクト
+だけを削除し、該当する `image_r2_key` を NULL にする。必要に応じて後述の
+`scripts/purge-image-cache.mjs` で作品 ID のキャッシュを Purge する。
+
+旧 R2 オブジェクトには取得元を示す `customMetadata` が無い。キーは
+`works/<作品 ID>/<元 URL の FNV-1a ハッシュ>.<拡張子>` なので、現行の
+`image_url` から計算したキーと一致する場合は Annict 由来と判別できる。
+URL が後で変わったものや、DB から参照が外れた孤立オブジェクトはキーだけでは
+断定できない。R2 の一覧と Annict URL の履歴を照合し、判別不能なものは保留する。
+新規の Kitsu / MAL オブジェクトには `customMetadata.source` が付く。
+
+デプロイ後の行は、検証済み Annict URL の記録として R2 オブジェクトを伴わない
+`image_r2_key` を持ちうる。これらは削除対象のオブジェクトが無いため、
+一覧と照合した時点で「R2 に無いキー」として分かる。誤って `image_r2_key` を
+NULL にしても、次回の配信時に再検証されて同じ記録が戻るだけなので害はない。
+
+1. 本番 D1 の `annict_works` で `annict_work_id`, `image_url`,
+   `resolved_image_url`, `image_r2_key` を確認し、Annict URL のハッシュと
+   `image_r2_key` が一致する対象だけを控える。R2 のオブジェクトの
+   `customMetadata.source` が `kitsu` / `mal` なら削除対象から外す。
+2. 対象 ID・キーを記録してから `wrangler r2 object delete` で該当キーのみ削除する。
+   `images:takedown` の R2 バケット指定・キー形式の検証を参照する。
+3. 削除に成功したキーだけ、`WHERE annict_work_id = <ID> AND image_r2_key =
+   '<削除済みキー>'` を付けて D1 の `image_r2_key` を NULL にする。
+   `image_source` と `resolved_image_url` は変更しない。
+4. 後述のキャッシュ Purge 手順で対象作品 ID を消し、`GET /images/works/<ID>`
+   が旧画像の 200 を返さないことを確認する。
+
 `apps/api/scripts/takedown-work-images.sh` の Taskfile ラッパー（issue #241）。
 MAL API の規約により、MAL から削除依頼が来たら
 MAL 由来の画像（`image_source='mal'`）を **24 時間以内**に消す必要がある。

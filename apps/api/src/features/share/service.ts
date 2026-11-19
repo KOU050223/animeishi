@@ -6,7 +6,7 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { serveWorkImage, workImageUrl } from "@/lib/annict/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";
@@ -84,7 +84,15 @@ export function buildCanonicalShareUrl(
  * - 応答 Content-Type が image/* であること（SVG はスクリプトを含み得るため除外）
  * - サイズ上限・nosniff を必須条件にする
  */
-export async function proxyImage(c: Context, db: DrizzleDb, url: string) {
+export async function proxyImage(
+  c: Context,
+  db: DrizzleDb,
+  url: string,
+  options: {
+    bucket?: R2Bucket | undefined;
+    malClientId?: string | undefined;
+  } = {},
+) {
   let target: URL;
   try {
     target = new URL(url);
@@ -100,17 +108,51 @@ export async function proxyImage(c: Context, db: DrizzleDb, url: string) {
   if (!isPublicImageUrl(target.toString())) {
     return c.json({ error: "Only public https URLs are allowed" }, 400);
   }
-  if (!(await isKnownImageUrl(db, target.toString()))) {
+
+  // 自前の作品画像 URL（同一オリジンの /images/works/:id）は、Annict 由来の
+  // とき元 URL への 302 を返す（issue #636）。遷移先は検証済み Annict URL の
+  // 記録で DB の画像カラムと一致しないことがあり、known-URL 照合を通らない。
+  // そのため配信ロジックで内部解決して中継先を確定する。R2 の画像が返れば
+  // そのまま中継し、302 なら誘導先（検証済みの公開 URL）を中継対象にする。
+  let resolvedInternally = false;
+  const workImageMatch = /^\/images\/works\/(\d+)$/.exec(target.pathname);
+  if (
+    options.bucket != null &&
+    workImageMatch != null &&
+    target.origin === new URL(c.req.url).origin
+  ) {
+    const served = await serveWorkImage(
+      db,
+      options.bucket,
+      Number(workImageMatch[1]),
+      { malClientId: options.malClientId },
+    );
+    if (served.status === 200) return served;
+    if (served.status !== 302) {
+      return c.json({ error: "Upstream image not available" }, 502);
+    }
+    try {
+      target = new URL(served.headers.get("location") ?? "");
+    } catch {
+      return c.json({ error: "Upstream image not available" }, 502);
+    }
+    resolvedInternally = true;
+  }
+
+  if (!resolvedInternally && !(await isKnownImageUrl(db, target.toString()))) {
     return c.json({ error: "Image URL is not a known image" }, 403);
   }
 
   // リダイレクトは自動追従しない。遷移先が公開ホスト検証・DB 照合の
   // 両方を通らない限り追わず、最大ホップ数を超えた場合も拒否する。
+  // 内部解決した中継先は serveWorkImage が検証済みの URL なので、
+  // 遷移先には公開ホスト検証だけを掛ける（配信側と同じ許可条件）。
   const followed = await fetchFollowingRedirects(target.toString(), {
     timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
     maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
     isAllowed: async (url) =>
-      isPublicImageUrl(url) && (await isKnownImageUrl(db, url)),
+      isPublicImageUrl(url) &&
+      (resolvedInternally || (await isKnownImageUrl(db, url))),
   });
   if (followed.kind === "failed") {
     const message = {

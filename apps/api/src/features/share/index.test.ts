@@ -11,6 +11,7 @@ import { customTierLists } from "@/features/custom-tier-lists";
 import { watchHistory } from "@/features/watch-history";
 import { workListsRoute } from "@/features/work-lists";
 import { share } from "@/features/share";
+import { workImageKey } from "@/lib/annict/workImage";
 import {
   users,
   annictWorks,
@@ -1118,6 +1119,82 @@ describe("GET /share/image-proxy", () => {
       `/share/image-proxy?url=${encodeURIComponent(KNOWN_IMAGE_URL)}`,
       {},
       TEST_BINDINGS,
+    );
+    expect(res.status).toBe(502);
+  });
+
+  // issue #636: Web 版の画像エクスポート（html-to-image）が /images/works/:id の
+  // 302 を辿ると最終応答が CORS 無しの外部オリジンになり取り込めないため、
+  // image-proxy が配信ロジックで内部解決して CORS 付きで中継する。
+  it("自前の作品画像 URL は内部解決して中継する（Annict 由来は誘導先の画像を返す）", async () => {
+    const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    // 検証 fetch と中継 fetch で同じ URL を 2 回取りに行くため、
+    // 呼ばれるたびに新しい Response を返す（単一インスタンスだと
+    // 1 回目でボディが消費される）。
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(imageBytes, {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        }),
+    );
+    const app = buildProxyApp();
+    const selfUrl = "https://api.example.com/images/works/9001";
+    const res = await app.request(
+      `https://api.example.com/share/image-proxy?url=${encodeURIComponent(selfUrl)}`,
+      {},
+      { ...TEST_BINDINGS, AVATARS: env.AVATARS },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    // serveWorkImage の検証 fetch と中継 fetch の両方が元 URL を取りに行く
+    expect(fetchMock).toHaveBeenCalledWith(KNOWN_IMAGE_URL, expect.anything());
+    const body = new Uint8Array(await res.arrayBuffer());
+    expect(Array.from(body)).toEqual(Array.from(imageBytes));
+  });
+
+  it("自前の作品画像 URL が R2 配信（Kitsu / MAL）なら画像をそのまま中継する", async () => {
+    const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const key = workImageKey(9002, KNOWN_IMAGE_URL_2, "png");
+    await env.AVATARS.put(key, imageBytes, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
+    });
+    try {
+      const db = drizzle(env.DB, { schema });
+      await db
+        .update(annictWorks)
+        .set({ imageR2Key: key })
+        .where(eq(annictWorks.annictWorkId, 9002));
+
+      const app = buildProxyApp();
+      const selfUrl = "https://api.example.com/images/works/9002";
+      const res = await app.request(
+        `https://api.example.com/share/image-proxy?url=${encodeURIComponent(selfUrl)}`,
+        {},
+        { ...TEST_BINDINGS, AVATARS: env.AVATARS },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+      const body = new Uint8Array(await res.arrayBuffer());
+      expect(Array.from(body)).toEqual(Array.from(imageBytes));
+    } finally {
+      await env.AVATARS.delete(key);
+    }
+  });
+
+  it("自前の作品画像 URL で画像が無い作品は 502 を返す", async () => {
+    // 9002 は KNOWN_IMAGE_URL_2 を持つが fetch が 404 なら画像なし。
+    // /images/works/:id が 404 → image-proxy は 502 に畳む。
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("not found", { status: 404 }),
+    );
+    const app = buildProxyApp();
+    const selfUrl = "https://api.example.com/images/works/9002";
+    const res = await app.request(
+      `https://api.example.com/share/image-proxy?url=${encodeURIComponent(selfUrl)}`,
+      {},
+      { ...TEST_BINDINGS, AVATARS: env.AVATARS },
     );
     expect(res.status).toBe(502);
   });

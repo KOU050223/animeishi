@@ -44,6 +44,14 @@ type ShareBindings = {
     // （例: https://animeishi.uomi.dev。issue #408）。未設定時は
     // リクエスト URL 自身を正規 URL とする。
     PUBLIC_WEB_URL?: string;
+    // /share/image-proxy が自前の作品画像 URL（/images/works/:id）を
+    // 内部解決するときに使う（issue #636）。wrangler.toml で全環境に
+    // バインド済みだが、未バインドでも従来の DB 照合だけは機能するよう
+    // 省略可にしておく。
+    AVATARS?: R2Bucket;
+    // MAL API の Client ID（Workers Secret。issue #238）。serveWorkImage
+    // の再解決にそのまま渡す。未設定なら MAL は使わない。
+    MAL_CLIENT_ID?: string;
   };
 };
 
@@ -300,7 +308,10 @@ const share = new Hono<ShareBindings>()
     async (c) => {
       const { url } = c.req.valid("query");
       const db = createDb(c.env.DB);
-      return proxyImage(c, db, url);
+      return proxyImage(c, db, url, {
+        bucket: c.env.AVATARS,
+        malClientId: c.env.MAL_CLIENT_ID,
+      });
     },
   );
 
