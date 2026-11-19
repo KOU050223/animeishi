@@ -49,10 +49,15 @@ describe("ChangelogScreen", () => {
 
     expect(screen.getByText("アニメ名刺の作成")).toBeTruthy();
     expect(screen.getByText("シーズン Tier 表")).toBeTruthy();
+    expect(screen.getByText("キャラクター・自由テーマの Tier 表")).toBeTruthy();
     expect(
       screen.getByText("シーズンごとのアニメ Tier 表を追加しました"),
     ).toBeTruthy();
-    expect(screen.getByText("ダークモード対応")).toBeTruthy();
+    expect(screen.getByText("ダークモード")).toBeTruthy();
+    // 「今後追加したい機能」には open issue だけを並べる運用。
+    // 実装済み（closed）の機能が残っていないことを代表例で確認する。
+    expect(screen.queryByText("キャラクターの Tier 表")).toBeNull();
+    expect(screen.getByText("どの画面からも作品詳細を開く")).toBeTruthy();
   });
 
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
@@ -78,10 +83,10 @@ describe("ChangelogScreen", () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
     await render(<ChangelogScreen />);
 
-    await fireEvent.press(screen.getByTestId("planned-feature-171"));
+    await fireEvent.press(screen.getByTestId("planned-feature-628"));
 
     expect(openURL).toHaveBeenCalledWith(
-      "https://github.com/KOU050223/animeishi/issues/171",
+      "https://github.com/KOU050223/animeishi/issues/628",
     );
   });
 });
