@@ -93,6 +93,7 @@ export function animeListFilterCount(filters: AnimeListFilters): number {
 export function collectAnimeGenres(
   items: AnimeListFilterEntry[],
   media: AnimeListMedia | null = null,
+  selectedGenres: string[] = [],
 ): { key: string; count: number }[] {
   const counts = new Map<string, number>();
   let unknownCount = 0;
@@ -109,9 +110,20 @@ export function collectAnimeGenres(
   const sorted = [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "en"))
     .map(([key, count]) => ({ key, count }));
-  return unknownCount > 0
-    ? [...sorted, { key: UNKNOWN_GENRE_KEY, count: unknownCount }]
-    : sorted;
+  const selectedWithoutMatches = [
+    ...new Set(selectedGenres.map(canonicalAnimeGenre)),
+  ]
+    .filter((key) => key !== UNKNOWN_GENRE_KEY && !counts.has(key))
+    .map((key) => ({ key, count: 0 }));
+  const showUnknown =
+    unknownCount > 0 || selectedGenres.includes(UNKNOWN_GENRE_KEY);
+  return showUnknown
+    ? [
+        ...sorted,
+        ...selectedWithoutMatches,
+        { key: UNKNOWN_GENRE_KEY, count: unknownCount },
+      ]
+    : [...sorted, ...selectedWithoutMatches];
 }
 
 /** 絞り込みを適用した一覧を返す。フィルタ無効時は入力をそのまま返す。 */

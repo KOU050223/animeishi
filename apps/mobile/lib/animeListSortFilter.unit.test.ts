@@ -180,6 +180,22 @@ describe("collectAnimeGenres", () => {
       ),
     ).toEqual([{ key: "Sci-Fi", count: 1 }]);
   });
+
+  it("メディア変更後も選択済みタグは 0 件で残す", () => {
+    expect(
+      collectAnimeGenres(
+        [
+          entry(1, { media: "TV", genres: ["Action"] }),
+          entry(2, { media: "MOVIE", genres: ["Romance"] }),
+        ],
+        "MOVIE",
+        ["Action"],
+      ),
+    ).toEqual([
+      { key: "Romance", count: 1 },
+      { key: "Action", count: 0 },
+    ]);
+  });
 });
 
 describe("ジャンル名と検索", () => {

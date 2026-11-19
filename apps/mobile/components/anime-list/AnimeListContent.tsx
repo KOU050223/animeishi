@@ -164,8 +164,8 @@ export function AnimeListContent({
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
   const genreOptions = useMemo(
-    () => collectAnimeGenres(data ?? [], filters.media),
-    [data, filters.media],
+    () => collectAnimeGenres(data ?? [], filters.media, filters.genres),
+    [data, filters.media, filters.genres],
   );
 
   async function onRefresh() {

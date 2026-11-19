@@ -32,7 +32,12 @@ export function AnimeListFilterSheet({
   onChange: (next: AnimeListFilters) => void;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t: translate } = useTranslation();
+  // 動的なタグ名を翻訳キーの型集合へ足すと、無関係な画面で型の展開上限を超える。
+  const t = translate as (
+    key: string,
+    options?: Record<string, string | number>,
+  ) => string;
   const [genreQuery, setGenreQuery] = useState("");
   const selectedGenres = new Set(filters.genres);
   const toggleGenre = (genre: string) =>
@@ -110,7 +115,10 @@ export function AnimeListFilterSheet({
           />
         ) : null}
         {genreOptions.length > 0 ? (
-          <ScrollView className="max-h-56 mb-2">
+          <ScrollView
+            className="max-h-56 mb-2"
+            keyboardShouldPersistTaps="handled"
+          >
             <View className="flex-row flex-wrap gap-2">
               {visibleGenres.map(({ key, count }) => (
                 <SelectChip

@@ -79,4 +79,23 @@ describe("AnimeListFilterSheet", () => {
     expect(screen.getByText("Sci-Fi (2)")).toBeTruthy();
     expect(screen.getByText("恋愛 (1)")).toBeTruthy();
   });
+
+  it("メディア変更後に 0 件の選択済みタグを解除できる", async () => {
+    const onChange = jest.fn();
+    await render(
+      <AnimeListFilterSheet
+        genreOptions={[
+          { key: "Romance", count: 1 },
+          { key: "Action", count: 0 },
+        ]}
+        filters={{ media: "MOVIE", genres: ["Action"] }}
+        onChange={onChange}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("アクション（0）")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("anime-filter-genre-Action"));
+    expect(onChange).toHaveBeenCalledWith({ media: "MOVIE", genres: [] });
+  });
 });
