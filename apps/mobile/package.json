@@ -11,7 +11,7 @@
     "ios": "expo run:ios",
     "ios:device:release": "bash scripts/ios-device-release.sh",
     "typecheck": "tsc --noEmit --checkers 1",
-    "build:web": "expo export -p web",
+    "build:web": "expo export -p web && node scripts/prune-web-html.mjs",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
     "lint": "vp lint . --deny-warnings",

@@ -1,5 +1,14 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 import { OPERATOR_NAME } from "@/lib/legal/operator";
+import { publicMetadata } from "@/lib/web/publicMetadata";
+
+export function generateMetadata() {
+  return publicMetadata(
+    "/terms",
+    "利用規約 - アニ名刺",
+    "アニ名刺の利用規約。",
+  );
+}
 
 const SECTIONS: LegalSection[] = [
   {

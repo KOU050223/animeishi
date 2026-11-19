@@ -1,5 +1,14 @@
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 import { CONTACT_EMAIL, OPERATOR_NAME } from "@/lib/legal/operator";
+import { publicMetadata } from "@/lib/web/publicMetadata";
+
+export function generateMetadata() {
+  return publicMetadata(
+    "/privacy",
+    "プライバシーポリシー - アニ名刺",
+    "アニ名刺のプライバシーポリシー。収集する情報とその利用目的について。",
+  );
+}
 
 // 収集データと外部送信先は apps/api・apps/mobile の実装を調査して記載している。
 // 変更時はコード（外部通信・永続化）と照合してこの文面も更新すること。

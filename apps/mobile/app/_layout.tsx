@@ -32,6 +32,7 @@ import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useGuestCtaReturn } from "@/lib/guestCta";
 import { guestLandingPath } from "@/lib/guestLandingRoute";
 import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
+import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";
 
 // グローバルエラーハンドラを先に有効化するため、レンダリング前に初期化する。
 // SENTRY_DSN 未設定の環境では no-op になる（lib/observability.ts 参照）。
@@ -99,6 +100,8 @@ function AuthGuard() {
       router.replace("/");
     }
   }, [isLoaded, isSignedIn, segments, router]);
+
+  if (shouldDeferRouteRender(segments[0], isLoaded)) return null;
 
   return (
     // 画面遷移中に見えるスタックの下地もスキームに合わせる。

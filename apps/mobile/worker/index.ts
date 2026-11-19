@@ -1,10 +1,10 @@
-// /share/* を API Worker へ転送し、それ以外を静的アセット
-// （Expo Router の web エクスポート + SPA フォールバック）へ渡す Worker。
+// /share/* を API Worker へ転送し、未ログインの / を /welcome に移す。
+// それ以外はプリレンダ HTML または SPA フォールバックの静的アセットへ渡す。
 // 共有ページは API が OGP 付き静的 HTML を返すが、ユーザーに見せる URL を
 // animeishi.uomi.dev に揃えるため Web 側が中継する（issue #408）。
 //
-// assets.run_worker_first = ["/share/*"] により本番では /share/* だけが
-// このスクリプトに届くが、ローカル開発やパターン変更時に他パスが来ても
+// assets.run_worker_first に列挙したパスだけが本番でこのスクリプトに
+// 届くが、ローカル開発やパターン変更時に他パスが来ても
 // ASSETS へフォールバックできるよう、ここでもパスを見て振り分ける。
 
 type Env = {
@@ -38,6 +38,19 @@ type Env = {
 
 function isSharePath(pathname: string): boolean {
   return pathname === "/share" || pathname.startsWith("/share/");
+}
+
+function hasClerkSession(request: Request): boolean {
+  const cookies = request.headers.get("cookie")?.split(";") ?? [];
+  const values = new Map(
+    cookies.map((part) => {
+      const [name, ...rest] = part.trim().split("=");
+      return [name, rest.join("=")] as const;
+    }),
+  );
+  const clientUat = values.get("__client_uat");
+  if (clientUat === "0") return false;
+  return Boolean(values.get("__session") || clientUat);
 }
 
 /** 公開プロフィール URL（/user/:uid）。名刺 QR・共有で外部に出る URL。 */
@@ -87,106 +100,10 @@ function isCrawler(request: Request): boolean {
   return CRAWLER_UA_TOKENS.some((token) => ua.includes(token));
 }
 
-/** canonical / og:url に使う本番オリジン（index.html の og:url と同じ値）。 */
-const CANONICAL_ORIGIN = "https://animeishi.uomi.dev";
-
-/**
- * 公開ページの初期 HTML に注入するメタ。SPA（web.output: "single"）では
- * 全ルートが同じ index.html を返すため、JS を実行しないクローラ・
- * リンクプレビューにはここでパス別のタイトル・canonical を返す。
- * 新しい公開ページを足すときはここと wrangler.toml の
- * run_worker_first の両方に登録する。
- */
-const PUBLIC_PAGE_META: Record<
-  string,
-  { title: string; description: string; canonicalPath: string }
-> = {
-  // 未ログインの / はクライアント側で /welcome へ移るため、検索上の
-  // 正規 URL は /welcome に寄せる。
-  "/": {
-    title: "アニ名刺 — 好きの記録が、あなたの名刺になる。",
-    description:
-      "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。",
-    canonicalPath: "/welcome",
-  },
-  "/welcome": {
-    title: "アニ名刺 — 好きの記録が、あなたの名刺になる。",
-    description:
-      "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。",
-    canonicalPath: "/welcome",
-  },
-  "/privacy": {
-    title: "プライバシーポリシー - アニ名刺",
-    description:
-      "アニ名刺のプライバシーポリシー。収集する情報とその利用目的について。",
-    canonicalPath: "/privacy",
-  },
-  "/terms": {
-    title: "利用規約 - アニ名刺",
-    description: "アニ名刺の利用規約。",
-    canonicalPath: "/terms",
-  },
-  "/support": {
-    title: "サポート - アニ名刺",
-    description: "アニ名刺のサポートページ。お問い合わせ先とヘルプ。",
-    canonicalPath: "/support",
-  },
-};
-
-function escapeAttr(s: string): string {
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-/** <meta name/property="..." content="..."> の content 値を書き換える。 */
-function setMetaContent(
-  html: string,
-  attr: "name" | "property",
-  key: string,
-  content: string,
-): string {
-  const re = new RegExp(`(<meta[^>]*${attr}="${key}"[^>]*content=")[^"]*(")`);
-  return html.replace(re, `$1${escapeAttr(content)}$2`);
-}
-
-/**
- * SPA の index.html にパス別の head メタを注入する。
- * 公開ページは個別メタ＋canonical、それ以外の列挙ルートは noindex。
- * 未登録の新規ルートは公開メタが無い状態で配信されるため、noindex 寄りに
- * 倒す（誤って内部画面がインデックスされるより安全）。
- */
-function injectShellMeta(html: string, pathname: string): string {
-  const meta = PUBLIC_PAGE_META[pathname];
-  if (!meta) {
-    return html.replace(
-      "</head>",
-      '  <meta name="robots" content="noindex" />\n</head>',
-    );
-  }
-  const canonical = `${CANONICAL_ORIGIN}${meta.canonicalPath}`;
-  let out = html
-    .replace(
-      /<title>[^<]*<\/title>/,
-      `<title>${escapeAttr(meta.title)}</title>`,
-    )
-    // 共有 URL は /welcome に一本化しているため og:url も canonical と同じにする
-    .replace(
-      /(<meta[^>]*property="og:url"[^>]*content=")[^"]*(")/,
-      `$1${escapeAttr(canonical)}$2`,
-    );
-  out = setMetaContent(out, "name", "description", meta.description);
-  out = setMetaContent(out, "property", "og:title", meta.title);
-  out = setMetaContent(out, "property", "og:description", meta.description);
-  // og だけ書き換えると twitter: がトップの値のまま残り、カードの文言が
-  // ページと食い違うため合わせる
-  out = setMetaContent(out, "name", "twitter:title", meta.title);
-  out = setMetaContent(out, "name", "twitter:description", meta.description);
-  return out.replace(
+function addNoindex(html: string): string {
+  return html.replace(
     "</head>",
-    `  <link rel="canonical" href="${escapeAttr(canonical)}" />\n</head>`,
+    '  <meta name="robots" content="noindex" />\n</head>',
   );
 }
 
@@ -267,6 +184,14 @@ export default {
       return forwardToApi(request, url, env, { crawler: false });
     }
 
+    if (
+      pathname === "/" &&
+      request.method === "GET" &&
+      !hasClerkSession(request)
+    ) {
+      return Response.redirect(new URL("/welcome", request.url), 302);
+    }
+
     // /user/:uid はクローラにだけ API の OGP HTML を返す。ブラウザは
     // 従来どおり SPA（フレンド申請等のインタラクションを維持するため）。
     // 同一 URL で UA により応答が変わるので両分岐に Vary: User-Agent を付ける。
@@ -287,7 +212,12 @@ export default {
       return withVary(res, "User-Agent");
     }
 
-    // それ以外の列挙ルート: ASSETS の SPA shell にパス別メタを注入する。
+    // 公開4ページはプリレンダ HTML をそのまま配信する。
+    if (["/welcome", "/privacy", "/terms", "/support"].includes(pathname)) {
+      return env.ASSETS.fetch(request);
+    }
+
+    // SPA フォールバックには noindex を付ける。
     // HTML 以外の応答（アセット・manifest 等）はそのまま返す。
     if (request.method !== "GET" && request.method !== "HEAD") {
       return env.ASSETS.fetch(request);
@@ -301,7 +231,7 @@ export default {
     if (!(res.headers.get("content-type") ?? "").includes("text/html")) {
       return res;
     }
-    const html = injectShellMeta(await res.text(), pathname);
+    const html = addNoindex(await res.text());
     const headers = new Headers(res.headers);
     // 本文書き換えで古くなるキャッシュ検証系のヘッダを落とす。
     headers.delete("content-length");
