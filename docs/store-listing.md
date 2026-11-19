@@ -241,11 +241,11 @@ The account can be deleted inside the app without contacting support: open the "
 
 ### プライバシーポリシーとの照合結果（`apps/mobile/app/privacy.tsx`）
 
-上表の内容はポリシー第2条・第4条に記載があり概ね一致。以下は実装またはポリシーとずれているため、提出前にオーナー確認が必要:
+上表の内容はポリシー第2条・第4条に記載があり一致する。#590 で以下のずれを解消済み:
 
-- **通報の記載がポリシーにない**: ユーザー通報（対象ユーザー・理由）をサーバーに保存するが、`privacy.tsx` 第2条に「通報」が列挙されていない（「不具合報告・ご意見」のみ）。取得情報への追記を検討。
-- **EAS Observe の記載がポリシーにない**: `privacy.tsx` 第4条には Expo / EAS Update（アプリ更新配信）の記載があるが、EAS Observe への計測データ送信（起動・画面タイミング・ネイティブクラッシュ・client ID・IP 由来の国）は記載がない。送信先一覧への追記を検討。
-- **プライバシーマニフェストの記載が少ない可能性**: `app.json` の `ios.privacyManifests.NSPrivacyCollectedDataTypes` は Crash Data / Performance Data / Other Diagnostic Data のみで、アプリ自身が収集する Contact Info・User Content・Identifiers・Usage Data が宣言されていない（`expo-observe` は SDK 同梱のマニフェストで Crash/Performance/OtherDiagnostic/DeviceID/ProductInteraction を宣言済みだが、アプリ側の宣言は別途必要な可能性あり）。提出前に確認・更新を検討（コード変更が必要になるため本 PR のスコープ外）。
+- 第2条にユーザー通報（通報対象・理由）の保存を追記
+- 第4条に EAS Observe への計測データ送信（起動・画面遷移タイミング・ネイティブクラッシュ・端末情報・client ID・IP 由来の国）を追記
+- `app.json` の `ios.privacyManifests.NSPrivacyCollectedDataTypes` を上表と同じデータ種別に更新（expo-observe の SDK 同梱マニフェストは Crash/Performance/OtherDiagnostic/DeviceID/ProductInteraction のみで Coarse Location が無いため、アプリ側で上表の全項目を宣言して Xcode プライバシーレポートと回答を一致させている）
 
 ## 掲載文言の機能照合（ガイドライン 2.3）
 
@@ -261,6 +261,4 @@ The account can be deleted inside the app without contacting support: open the "
 - App Review 用連絡先（氏名・メール・電話番号）を決め、`store.config.json` の `apple.review` と App Store Connect に登録する
 - デモアカウントの認証情報を App Store Connect のサインイン情報に入力する（アカウント本体は `pnpm task review-account:seed` で作成済みのはず。パスワードを変えたら seed を再実行）
 - 著作権表記の確定: `store.config.json` の `apple.copyright` は現在 `2026 アニ名刺製作委員会`。issue #512 の方針（`2026 Kohei Uozumi` に揃えるか）を確定して更新する
-- `privacy.tsx` への追記検討: 「取得する情報」へのユーザー通報、「外部サービスへの送信」への EAS Observe（上の照合結果参照）
-- `app.json` のプライバシーマニフェストに栄養ラベルと同じ収集データ種別を宣言するか確認（上の照合結果参照）
 - Apple Wallet 追加（#81 / #103）が完成したら説明文への追記を検討（現状 pkpass 署名未設定のため未提供。審査ガイドライン 2.3 抵触回避のため掲載文言からは除外済み）

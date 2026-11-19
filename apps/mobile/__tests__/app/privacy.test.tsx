@@ -54,7 +54,7 @@ describe("PrivacyScreen", () => {
     expect(screen.getByText(/利用状況の分析、機能・品質の改善/)).toBeTruthy();
     expect(screen.getByText("第4条（外部サービスへの送信）")).toBeTruthy();
     expect(screen.getByText("第7条（アカウントの削除）")).toBeTruthy();
-    expect(screen.getByText("最終更新日: 2026年11月17日")).toBeTruthy();
+    expect(screen.getByText("最終更新日: 2026年11月18日")).toBeTruthy();
   });
 
   it("実装で実際に利用している外部サービスを列挙する", async () => {
@@ -70,6 +70,13 @@ describe("PrivacyScreen", () => {
     expect(
       screen.getByText(/リクエスト IP アドレス等が処理される場合があります/),
     ).toBeTruthy();
+    expect(screen.getByText(/EAS Observe（アプリ計測）/)).toBeTruthy();
+  });
+
+  it("取得する情報にユーザー通報を含める", async () => {
+    await render(<PrivacyScreen />);
+
+    expect(screen.getByText(/通報対象と理由/)).toBeTruthy();
   });
 
   it("アカウント削除の手順を案内する", async () => {
