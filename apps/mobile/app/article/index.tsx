@@ -12,6 +12,7 @@ import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useArticleList } from "@/lib/useArticles";
 import type { ArticleListItem } from "@/lib/useArticles";
+import { formatArticlePublishedAt } from "@/lib/articlePublishedAt";
 import { useThemeColors } from "@/lib/theme";
 
 // 行のカバー画像サイズ。比率はホームの特集枠と同じ 16:9。
@@ -148,20 +149,9 @@ function ArticleListRow({
           className="text-xs text-slate-400 dark:text-slate-500"
           numberOfLines={1}
         >
-          {formatPublishedAt(item.publishedAt, i18n.language)}
+          {formatArticlePublishedAt(item.publishedAt, i18n.language)}
         </Text>
       </View>
     </TouchableOpacity>
   );
-}
-
-// 記事詳細（app/article/[slug].tsx）の公開日表記と同じ整形。
-function formatPublishedAt(iso: string, locale: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
 }

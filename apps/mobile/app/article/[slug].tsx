@@ -13,6 +13,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useArticle } from "@/lib/useArticles";
+import { formatArticlePublishedAt } from "@/lib/articlePublishedAt";
 import { AccessibleLinkRenderer } from "@/lib/markdownRenderer";
 import { useThemeColors } from "@/lib/theme";
 
@@ -166,7 +167,7 @@ function ArticleBody({
           {title}
         </Text>
         <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          {formatPublishedAt(publishedAt, locale)}
+          {formatArticlePublishedAt(publishedAt, locale)}
         </Text>
         <View className="mt-4">
           {elements.map((element, index) => (
@@ -176,14 +177,4 @@ function ArticleBody({
       </View>
     </ScrollView>
   );
-}
-
-function formatPublishedAt(iso: string, locale: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
 }
