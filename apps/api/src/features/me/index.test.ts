@@ -573,8 +573,10 @@ describe("GET /me/profile & PUT /me/profile", () => {
       const second = await upload();
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);
-      const firstUrl = (await first.json()).url;
-      const secondUrl = (await second.json()).url;
+      const firstBody: unknown = await first.json();
+      const secondBody: unknown = await second.json();
+      const firstUrl = (firstBody as { url: string }).url;
+      const secondUrl = (secondBody as { url: string }).url;
       expect(new URL(firstUrl).pathname).toBe(new URL(secondUrl).pathname);
       expect(firstUrl).not.toBe(secondUrl);
       expect(
