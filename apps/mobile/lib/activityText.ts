@@ -39,6 +39,29 @@ export function activityText(item: ActivityFeedItem, t: TFunction): string {
   }
 }
 
+export function activityGroupText(
+  items: ActivityFeedItem[],
+  t: TFunction,
+): string {
+  const first = items[0];
+  const state = first?.meta?.state;
+  const label =
+    typeof state === "string" && state in WATCH_STATUS_LABELS
+      ? WATCH_STATUS_LABELS[state as keyof typeof WATCH_STATUS_LABELS]
+      : null;
+  if (label) {
+    return t("{{username}} は {{count}} 件の記録を {{status}} に更新しました", {
+      username: first?.actor.username,
+      count: items.length,
+      status: t(label),
+    });
+  }
+  return t("{{username}} は {{count}} 件の記録を更新しました", {
+    username: first?.actor.username,
+    count: items.length,
+  });
+}
+
 // Tier 表の題材。キャラクター版は対象作品名、シーズン版は表のタイトルがある。
 function tierListLabel(item: ActivityFeedItem, t: TFunction): string {
   const title = item.meta?.title;

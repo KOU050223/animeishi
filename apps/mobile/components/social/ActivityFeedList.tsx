@@ -9,10 +9,17 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useActivityFeed } from "@/lib/useActivityFeed";
+import { useFriends } from "@/lib/useFriends";
 import { useTranslation } from "react-i18next";
 import type { ActivityFeedItem } from "@/lib/useActivityFeed";
-import { activityText, formatRelativeTime } from "@/lib/activityText";
+import {
+  activityText,
+  activityGroupText,
+  formatRelativeTime,
+} from "@/lib/activityText";
+import { groupActivityItems } from "@/lib/groupActivityItems";
 import { useThemeColors } from "@/lib/theme";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
@@ -66,9 +73,11 @@ export function ActivityFeedList({
     isLoading || (isError && !data)
       ? []
       : (data?.pages.flatMap((page) => page.items) ?? []);
+  // maxItems はまとめ後の行数に掛ける（1 まとめ = 1 行）。
+  const entries = groupActivityItems(allItems);
   const isLimited = maxItems !== undefined;
-  const items = isLimited ? allItems.slice(0, maxItems) : allItems;
-  const hasMore = isLimited && (allItems.length > maxItems || !!hasNextPage);
+  const rows = isLimited ? entries.slice(0, maxItems) : entries;
+  const hasMore = isLimited && (entries.length > maxItems || !!hasNextPage);
 
   // try/finally（catch 無しの try）は React Compiler が未対応で最適化を
   // 外れるため、Promise.finally で書く
@@ -86,9 +95,15 @@ export function ActivityFeedList({
 
   return (
     <FlatList
-      data={items}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <ActivityRow item={item} />}
+      data={rows}
+      keyExtractor={(entry) => entry.key}
+      renderItem={({ item: entry }) =>
+        entry.kind === "group" ? (
+          <ActivityGroupRow items={entry.items} />
+        ) : (
+          <ActivityRow item={entry.item} />
+        )
+      }
       ListHeaderComponent={ListHeaderComponent}
       ItemSeparatorComponent={() => (
         <View
@@ -170,10 +185,104 @@ function FeedStatus({
       </View>
     );
   }
+  return <FeedEmptyState />;
+}
+
+// フレンド数は別クエリなので、0 人と確定するまでは導線を出さず従来の
+// 空メッセージのままにする（issue #533）。
+function FeedEmptyState() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { data: friends, isLoading: friendsLoading } = useFriends();
+
+  if (friendsLoading) {
+    return <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />;
+  }
+
+  if (!friends || friends.length > 0) {
+    return (
+      <View className="items-center justify-center py-16">
+        <Text className="text-center text-slate-400 dark:text-slate-500">
+          {t("まだフレンドの活動はありません")}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View className="items-center justify-center py-16">
+    <View className="items-center justify-center px-8 py-16">
       <Text className="text-center text-slate-400 dark:text-slate-500">
-        {t("まだフレンドの活動はありません")}
+        {t("まだフレンドがいません")}
+      </Text>
+      <Text className="mt-1 text-center text-sm text-slate-400 dark:text-slate-500">
+        {t("フレンドを見つけると、ここに活動が表示されます")}
+      </Text>
+      <View className="mt-6 gap-3 self-stretch">
+        <TouchableOpacity
+          className="items-center rounded-lg bg-indigo-600 px-6 py-3"
+          onPress={() => router.push("/(tabs)/social?section=qr")}
+          accessibilityRole="button"
+          accessibilityLabel={t("QR で名刺交換")}
+          testID="activity-feed-find-friends-qr"
+        >
+          <Text className="font-semibold text-white">{t("QR で名刺交換")}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="items-center rounded-lg border border-indigo-200 bg-indigo-50 px-6 py-3 dark:border-indigo-800 dark:bg-indigo-950"
+          onPress={() =>
+            router.push("/(tabs)/hiroba?section=discover&target=users")
+          }
+          accessibilityRole="button"
+          accessibilityLabel={t("ひろばで名刺を探す")}
+          testID="activity-feed-find-friends-hiroba"
+        >
+          <Text className="font-semibold text-indigo-600 dark:text-indigo-300">
+            {t("ひろばで名刺を探す")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// 複数作品をまとめた行なので、どれか 1 作品への詳細リンクは付けない
+// （issue #533）。
+function ActivityGroupRow({ items }: { items: ActivityFeedItem[] }) {
+  const { t } = useTranslation();
+  const first = items[0];
+  return (
+    <View
+      className="flex-row items-center gap-3 py-3"
+      testID={`activity-group-${first.id}`}
+    >
+      <ActivityAvatar actor={first.actor} />
+      <View className="flex-1">
+        <Text className="text-sm text-slate-900 dark:text-slate-100">
+          {activityGroupText(items, t)}
+        </Text>
+        <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          {formatRelativeTime(first.createdAt, t)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function ActivityAvatar({ actor }: { actor: ActivityFeedItem["actor"] }) {
+  return actor.profileImageUrl ? (
+    <Image
+      source={{ uri: actor.profileImageUrl }}
+      style={styles.avatar}
+      className="bg-slate-200 dark:bg-slate-700"
+      resizeMode="cover"
+    />
+  ) : (
+    <View
+      style={styles.avatar}
+      className="items-center justify-center bg-indigo-100 dark:bg-indigo-900"
+    >
+      <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
+        {actor.username.charAt(0)}
       </Text>
     </View>
   );
@@ -186,23 +295,7 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
       className="flex-row items-center gap-3 py-3"
       testID={`activity-item-${item.id}`}
     >
-      {item.actor.profileImageUrl ? (
-        <Image
-          source={{ uri: item.actor.profileImageUrl }}
-          style={styles.avatar}
-          className="bg-slate-200 dark:bg-slate-700"
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          style={styles.avatar}
-          className="items-center justify-center bg-indigo-100 dark:bg-indigo-900"
-        >
-          <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
-            {item.actor.username.charAt(0)}
-          </Text>
-        </View>
-      )}
+      <ActivityAvatar actor={item.actor} />
 
       {item.work ? (
         <WorkDetailPressable work={item.work} className="flex-1">
