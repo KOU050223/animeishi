@@ -51,7 +51,13 @@ type Toast = { type: "success" | "error"; message: string };
 // 成功・非対応端末 (ボタン非表示) はトーストを出さないため null を返す。
 function walletErrorMessage(
   result: AddToWalletResult,
-  t: ReturnType<typeof useTranslation>["t"],
+  t: (
+    key:
+      | "サーバー側で pkpass 署名が未設定のため Wallet に追加できません"
+      | "認証トークンが取得できませんでした"
+      | "Wallet 追加リクエストが失敗しました ({{status}})",
+    options?: { status: number },
+  ) => string,
 ): string | null {
   switch (result.type) {
     case "success":
