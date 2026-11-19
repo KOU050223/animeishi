@@ -38,6 +38,7 @@ const HOME_FEED_MAX_ITEMS = 5;
 
 export default function HomeScreen() {
   useMarkScreenInteractive();
+  const { t } = useTranslation();
   // iOS のネイティブヘッダーは large title 指定で透過になり、FlatList が
   // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
   // 効かないケースがあるため、library / profile と同じくヘッダー高さ分だけ
@@ -148,6 +149,23 @@ export default function HomeScreen() {
         }
         maxItems={HOME_FEED_MAX_ITEMS}
         onShowAll={() => router.push("/(tabs)/social?section=activity")}
+        ListFooterComponent={
+          // 「できること」の一覧への控えめな入口（issue #608）。
+          // フィード末尾の小さなリンクに留め、主役のレール・フィードを邪魔しない。
+          <View className="items-center pt-8">
+            <TouchableOpacity
+              className="min-h-11 items-center justify-center px-4"
+              onPress={() => router.push("/changelog")}
+              accessibilityRole="button"
+              accessibilityLabel={t("機能一覧・更新情報を開く")}
+              testID="home-open-changelog"
+            >
+              <Text className="text-xs text-slate-400 dark:text-slate-500">
+                {t("機能一覧・更新情報")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );

@@ -294,6 +294,13 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/feedback");
   });
 
+  it("フィード末尾のリンクで機能一覧・更新情報を開く", async () => {
+    loggedInUser();
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByTestId("home-open-changelog"));
+    expect(mockPush).toHaveBeenCalledWith("/changelog");
+  });
+
   // Web ではアイコンフォントの読み込みに失敗した環境で @expo/vector-icons が
   // 空の <Text> を描画し、ボタンが DOM に残ったまま不可視になる（issue #519）。
   // フォントに依存しない SVG で描画することを保証する。
