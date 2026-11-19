@@ -12,7 +12,11 @@ import {
 } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { usersRepository, DeletedUserError } from "../users/repository";
+import {
+  usersRepository,
+  findUserById,
+  DeletedUserError,
+} from "../users/repository";
 import { findNowWatching } from "../user/repository";
 import { nowWatchingResponse } from "../user/service";
 import { createDb } from "@/db/client";
@@ -233,7 +237,11 @@ const me = app
       prefix: `meishi-assets/${userId}/`,
       limit: MEISHI_ASSET_MAX_PER_USER + 1,
     });
-    if (listed.objects.length >= MEISHI_ASSET_MAX_PER_USER) {
+    if (
+      listed.objects.filter(
+        (object) => object.key !== publicMeishiSnapshotKey(userId),
+      ).length >= MEISHI_ASSET_MAX_PER_USER
+    ) {
       return c.json(
         {
           error: `名刺画像のアップロード上限（${MEISHI_ASSET_MAX_PER_USER}件）に達しています`,
@@ -350,11 +358,19 @@ const avatar = new Hono<{
 // 名刺アセット画像を R2 から配信する。アバターと同じく認証不要
 // （名刺は公開前提で他者からも閲覧される）。
 const meishiAssets = new Hono<{
-  Bindings: { AVATARS: R2Bucket };
+  Bindings: { AVATARS: R2Bucket; DB: D1Database };
 }>().get("/meishi-assets/*", async (c) => {
   const key = meishiAssetKeyFromUrl(c.req.url);
   if (!key) {
     return c.json({ error: "Not found" }, 404);
+  }
+  if (key.endsWith("/public-snapshot.png")) {
+    const userId = key.slice(
+      "meishi-assets/".length,
+      -"/public-snapshot.png".length,
+    );
+    const user = await findUserById(createDb(c.env.DB), userId);
+    if (!user?.isPublic) return c.json({ error: "Not found" }, 404);
   }
 
   const object = await c.env.AVATARS.get(key);

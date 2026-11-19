@@ -90,7 +90,7 @@ export function r2ImageResponse(object: R2ObjectBody): Response {
   headers.set(
     "cache-control",
     object.key.endsWith("/public-snapshot.png")
-      ? "public, max-age=60"
+      ? "no-store"
       : "public, max-age=31536000, immutable",
   );
   return new Response(object.body, { headers });
