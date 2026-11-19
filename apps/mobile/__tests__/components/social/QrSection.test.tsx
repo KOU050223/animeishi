@@ -207,6 +207,13 @@ function mockPublicProfileFetch(meishiSnapshotUrl: string | null) {
   })) as unknown as typeof fetch;
 }
 
+// expo-image の Image は testID を持たないため、要素タイプで拾う
+// （DiscoverUsers.test.tsx と同じ手法）。
+const findExpoImages = () =>
+  screen.container.queryAll(
+    (node) => typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+  );
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -450,7 +457,8 @@ describe("マイQR（QR コード生成）", () => {
 
     // スナップショット URL が取れたら画像がマウントされるが、実寸法が
     // 取れるまでは端末内レンダリングの MeishiCard を出し続ける。
-    const image = await screen.findByTestId("meishi-snapshot-image");
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
+    const image = findExpoImages()[0];
     expect(JSON.stringify(image.props.source)).toContain(
       "public-snapshot.png?v=v1",
     );
@@ -462,8 +470,7 @@ describe("マイQR（QR コード生成）", () => {
 
     // 読み込みが終わったら画像が主役になる。フォールバックは透明に
     // なるだけでツリーには残し、名刺本文の読み上げを維持する。
-    expect(image.props.accessible).toBe(true);
-    const fallback = screen.getByTestId("meishi-snapshot-fallback");
+    const fallback = screen.getByTestId("meishi-snapshot-a11y-fallback");
     expect(fallback.props.pointerEvents).toBe("none");
     expect(within(fallback).getByTestId("meishi-card-stub")).toBeTruthy();
   });
@@ -479,7 +486,7 @@ describe("マイQR（QR コード生成）", () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
 
-    expect(screen.queryByTestId("meishi-snapshot-image")).toBeNull();
+    expect(findExpoImages()).toHaveLength(0);
     expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();
   });
 
@@ -497,10 +504,10 @@ describe("マイQR（QR コード生成）", () => {
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
 
-    await screen.findByTestId("meishi-snapshot-image");
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
     await fireEvent.press(screen.getByTestId("qr-meishi-pick-card-b"));
 
-    expect(screen.queryByTestId("meishi-snapshot-image")).toBeNull();
+    expect(findExpoImages()).toHaveLength(0);
     expect(mockMeishiCardProps).toHaveBeenLastCalledWith(
       expect.objectContaining({ document: docB }),
     );
@@ -517,10 +524,10 @@ describe("マイQR（QR コード生成）", () => {
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
 
-    const image = await screen.findByTestId("meishi-snapshot-image");
-    await fireEvent(image, "onError", { nativeEvent: {} });
+    await waitFor(() => expect(findExpoImages()).toHaveLength(1));
+    await fireEvent(findExpoImages()[0], "onError", { nativeEvent: {} });
 
-    expect(screen.queryByTestId("meishi-snapshot-image")).toBeNull();
+    expect(findExpoImages()).toHaveLength(0);
     expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();
   });
 });

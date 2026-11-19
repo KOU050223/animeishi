@@ -269,17 +269,16 @@ function GenerateView() {
         style={styles.meishiCard}
         testID="qr-meishi-card"
       >
-        {snapshotUrl ? (
-          // ?v= が変わったら古い画像の状態を残さないよう key でリマウントする
-          <MeishiSnapshotImage
-            key={snapshotUrl}
-            uri={snapshotUrl}
-            fallback={meishiCardElement}
-            accessibilityLabel={t("渡す名刺")}
-          />
-        ) : (
-          meishiCardElement
-        )}
+        {/* uri が null（既定以外・スナップショット未作成）なら中で
+            fallback に落ちる。?v= で URL が変わると内部状態が
+            リセットされるため key は不要。 */}
+        <MeishiSnapshotImage
+          uri={snapshotUrl}
+          fallback={meishiCardElement}
+          accessibilityLabel={t("渡す名刺")}
+          keepFallbackForA11y
+          testID="meishi-snapshot"
+        />
       </View>
       {/* スクリーンショットでも誰の QR か分かるよう名を添える
           （issue #595）。 */}
