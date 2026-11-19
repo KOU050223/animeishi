@@ -31,8 +31,11 @@ const REMOTE_FETCH_TIMEOUT_MS = 6000;
 // 上限は 20）。キャラの多い作品でもサブリクエストを食い潰さないよう
 // ページ数に上限を設ける。sort=role で main が先に来るため、上限で
 // 打ち切られても主要キャラは取りこぼしにくい。
+// 上限はこのルート全体のサブリクエスト予算（Workers の 50/リクエスト）に
+// 収まる範囲で取る（issue #493: Annict 本体・mappings・D1 を含めても
+// 10 ページで 30 未満）。
 const KITSU_CHARACTERS_PAGE_LIMIT = 20;
-const KITSU_CHARACTERS_MAX_PAGES = 5;
+const KITSU_CHARACTERS_MAX_PAGES = 10;
 
 /** Kitsu キャラクター 1 件（名寄せに必要な名前候補と画像のみ）。 */
 export type KitsuCharacter = {
@@ -241,18 +244,46 @@ export function normalizeCharacterName(name: string): string {
 /**
  * 括弧内を取り除いた派生名を候補に追加する（「本名（通称）」表記対策）。
  * 括弧だけ除去した名前と括弧ごと除去した名前の両方を照合に使う。
+ * includeOrderSwapped のときは姓名の順序を入れ替えた候補も足す
+ * （Annict 側の候補生成だけに使う。Kitsu 側に足すと「A B」と「B A」の
+ * 両方がいる作品で新たに ambiguous 衝突が起き、Annict 側だけでも
+ * 両方向の順序差は拾えるため）。
  */
-function nameCandidates(rawNames: string[]): string[] {
+function nameCandidates(
+  rawNames: string[],
+  options: { includeOrderSwapped?: boolean } = {},
+): string[] {
   const out = new Set<string>();
-  for (const raw of rawNames) {
+  const add = (raw: string) => {
     const normalized = normalizeCharacterName(raw);
     if (normalized) out.add(normalized);
-    const withoutParens = normalizeCharacterName(
-      raw.replace(/[(（][^)）]*[)）]/g, ""),
-    );
-    if (withoutParens) out.add(withoutParens);
+    if (options.includeOrderSwapped) {
+      const swapped = orderSwappedName(raw);
+      if (swapped) {
+        const normalizedSwapped = normalizeCharacterName(swapped);
+        if (normalizedSwapped) out.add(normalizedSwapped);
+      }
+    }
+  };
+  for (const raw of rawNames) {
+    add(raw);
+    add(raw.replace(/[(（][^)）]*[)）]/g, ""));
   }
   return [...out];
+}
+
+/**
+ * 2 語の名前の前後を入れ替える（「姓 名」↔「名 姓」。issue #493）。
+ * Annict と Kitsu で姓名順が逆に登録されているキャラを拾うため。
+ * 3 語以上はどの並べ替えが姓名の入れ替えか一意に決まらないので対象外。
+ */
+function orderSwappedName(raw: string): string | null {
+  const tokens = raw
+    .replace(/[(（][^)）]*[)）]/g, "")
+    .split(/[\s・･·]+/)
+    .filter(Boolean);
+  if (tokens.length !== 2) return null;
+  return `${tokens[1]} ${tokens[0]}`;
 }
 
 /**
@@ -272,8 +303,13 @@ export function matchCharacterImages(
 ): Map<number, string> {
   // Annict のレスポンス型は nameKana/nameEn を非 null と宣言しているが、
   // 実データで null が来ても正規化で落ちないよう文字列だけを候補にする。
+  // 姓名の順序入れ替えは Annict 側の候補にだけ足す（Kitsu 側に足すと
+  // ambiguous 衝突が増え、両方向の順序差はこちらだけで拾える。issue #493）。
   const toKeys = (names: (string | null | undefined)[]) =>
-    nameCandidates(names.filter((n): n is string => typeof n === "string"));
+    nameCandidates(
+      names.filter((n): n is string => typeof n === "string"),
+      { includeOrderSwapped: true },
+    );
   // 正規化名 → Kitsu キャラの索引。同名キャラが複数いるキーは
   // 一意に決められないので除外する。
   const byName = new Map<string, KitsuCharacter | "ambiguous">();

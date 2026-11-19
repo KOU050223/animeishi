@@ -109,6 +109,42 @@ describe("matchCharacterImages", () => {
     expect(result.has(1)).toBe(true);
   });
 
+  it("姓名の順序が逆でも一致する（「姓 名」↔「名 姓」。issue #493）", () => {
+    // Annict と Kitsu で姓名順が逆に登録されているキャラを拾う。
+    // 日本語名・ローマ字名のどちらでも 2 語なら入れ替え候補になる。
+    const result = matchCharacterImages(
+      [annict(1, "小鳥遊 六花"), annict(2, "六花", null, "Rikka Takanashi")],
+      [kitsu(["六花 小鳥遊"]), kitsu(["Takanashi Rikka"])],
+    );
+    expect(result.has(1)).toBe(true);
+    expect(result.has(2)).toBe(true);
+  });
+
+  it("3 語以上の名前は順序入れ替えの対象外にする", () => {
+    // 並べ替えの組が一意に決まらないため、入れ替え候補は作らない。
+    const result = matchCharacterImages(
+      [annict(1, "アインズ・ウール・ゴウン")],
+      [kitsu(["ゴウン アインズ"]), kitsu(["アインズ・ウール・ゴウン"])],
+    );
+    expect(result.get(1)).toBe("https://img.example/c.png");
+    // 入れ替えだけで一致させることはない
+    const miss = matchCharacterImages(
+      [annict(1, "ウール アインズ ゴウン")],
+      [kitsu(["ゴウン ウール"])],
+    );
+    expect(miss.has(1)).toBe(false);
+  });
+
+  it("順序入れ替えは Annict 側の候補だけに足す（Kitsu 側の ambiguous 衝突を増やさない）", () => {
+    // Kitsu に「A B」と「B A」の両キャラがいても、Annict「A B」は
+    // 従来どおり「A B」のキャラに一致する（Kitsu 側に入れ替え候補を
+    // 足すと "ab"/"ba" が両方 ambiguous になって取りこぼす）。
+    const ab = kitsu(["山田 太郎"], "https://img.example/ab.png");
+    const ba = kitsu(["太郎 山田"], "https://img.example/ba.png");
+    const result = matchCharacterImages([annict(1, "山田 太郎")], [ab, ba]);
+    expect(result.get(1)).toBe("https://img.example/ab.png");
+  });
+
   it("「本名（通称）」表記は括弧を外した名前でも一致する", () => {
     const result = matchCharacterImages(
       [annict(1, "桜内梨子（りこちゃん）")],
@@ -350,7 +386,7 @@ describe("fetchKitsuCharacters", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("ページ数には上限がある（links.next が続いても 5 ページで打ち切る）", async () => {
+  it("ページ数には上限がある（links.next が続いても 10 ページで打ち切る）", async () => {
     const next =
       "https://kitsu.io/api/edge/anime/k1234/characters?page%5Boffset%5D=20";
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
@@ -368,6 +404,6 @@ describe("fetchKitsuCharacters", () => {
       );
     });
     await fetchKitsuCharacters(1234, fetchMock);
-    expect(fetchMock).toHaveBeenCalledTimes(1 + 5);
+    expect(fetchMock).toHaveBeenCalledTimes(1 + 10);
   });
 });
