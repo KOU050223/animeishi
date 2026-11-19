@@ -8,6 +8,7 @@ import {
   type ViewInstance,
 } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import { useEdgeAutoScroll } from "./autoScroll";
 import {
   DraggableWorkCard,
@@ -82,6 +83,7 @@ export function TierBoard({
   labelsEditable,
   trayEmptyLabel,
 }: TierBoardProps) {
+  const { t } = useTranslation();
   const styles = useTierListStyles();
   const registry = useDropZoneRegistry();
   // ドラッグ中に指が乗っている行。ハイライト表示だけに使う。
@@ -260,11 +262,14 @@ export function TierBoard({
     () => [
       ...tiers.map((tier) => ({
         tierKey: tier.key as string | null,
-        label: `${tier.label} に移動`,
+        label: t("{{tier}} に移動", { tier: tier.label }),
       })),
-      { tierKey: null, label: `${UNASSIGNED_LABEL} に戻す` },
+      {
+        tierKey: null,
+        label: t("{{tier}} に戻す", { tier: t(UNASSIGNED_LABEL) }),
+      },
     ],
-    [tiers],
+    [tiers, t],
   );
 
   const renderCard = (item: TierItem, currentTierKey: string | null) => (
@@ -362,7 +367,9 @@ export function TierBoard({
                   onPress={() => setEditingTier(tier)}
                   disabled={!labelsEditable}
                   accessibilityRole="button"
-                  accessibilityLabel={`${tier.label} の名前を編集`}
+                  accessibilityLabel={t("{{tier}} の名前を編集", {
+                    tier: tier.label,
+                  })}
                   accessibilityState={{ disabled: !labelsEditable }}
                   testID={`tier-label-${tier.key}`}
                 >
@@ -396,7 +403,10 @@ export function TierBoard({
 
         <View style={styles.trayHeaderRow}>
           <Text style={styles.trayHeader}>
-            {UNASSIGNED_LABEL}（{tray.length}）
+            {t("{{label}}（{{count}}）", {
+              label: t(UNASSIGNED_LABEL),
+              count: tray.length,
+            })}
           </Text>
           {/* シーズン候補に載らない作品を検索で追加する入口（issue #168）。
               編集ロック中（共有処理中など）は無効化する。
@@ -414,11 +424,11 @@ export function TierBoard({
               }}
               disabled={!labelsEditable}
               accessibilityRole="button"
-              accessibilityLabel="作品を検索して追加"
+              accessibilityLabel={t("作品を検索して追加")}
               accessibilityState={{ disabled: !labelsEditable }}
               testID="tier-tray-add"
             >
-              <Text style={styles.trayAddButtonText}>＋ 追加</Text>
+              <Text style={styles.trayAddButtonText}>{t("＋ 追加")}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -435,7 +445,7 @@ export function TierBoard({
           {tray.length === 0 ? (
             <Text style={styles.trayEmpty}>
               {boardItems.length === 0 && onAddItem
-                ? "シーズンの候補がありません。＋から作品を追加できます"
+                ? t("シーズンの候補がありません。＋から作品を追加できます")
                 : trayEmptyLabel}
             </Text>
           ) : (
@@ -457,11 +467,11 @@ export function TierBoard({
             onClose={() => setAddSheetOpen(false)}
             onAdd={onAddItem}
             existingWorkIds={existingItemIds}
-            heading="作品を追加"
-            description={
-              "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です"
-            }
-            actionLabel="追加"
+            heading={t("作品を追加")}
+            description={t(
+              "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です",
+            )}
+            actionLabel={t("追加")}
           />
         ) : null}
       </ScrollView>

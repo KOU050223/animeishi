@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { webUrl } from "@/lib/webUrl";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
@@ -77,6 +78,7 @@ function parseWorkIdsParam(raw: string | undefined): number[] {
 }
 
 export default function CustomTierListScreen() {
+  const { t } = useTranslation();
   const openWork = useOpenWorkDetail();
   const router = useRouter();
   const styles = useTierListStyles();
@@ -277,19 +279,19 @@ export default function CustomTierListScreen() {
 
     if (isDirty) {
       confirm(
-        "保存していない変更があります",
-        "このまま戻ると編集した内容は失われます。",
+        t("保存していない変更があります"),
+        t("このまま戻ると編集した内容は失われます。"),
         goBack,
         {
-          confirmLabel: "破棄して戻る",
-          cancelLabel: "編集を続ける",
+          confirmLabel: t("破棄して戻る"),
+          cancelLabel: t("編集を続ける"),
           destructive: true,
         },
       );
       return;
     }
     goBack();
-  }, [isDirty, router]);
+  }, [isDirty, router, t]);
 
   // 詳細取得の完了前に保存すると空の盤面で全置換し、既存の配置が消える。
   // 404（削除済み）の表も PUT が失敗するだけなので、id 指定では saved が
@@ -340,15 +342,15 @@ export default function CustomTierListScreen() {
     );
     if (hasUnassigned) {
       confirm(
-        "未配置の作品があります",
-        "未分類に残っている作品は保存されず、このままだと消えます。",
+        t("未配置の作品があります"),
+        t("未分類に残っている作品は保存されず、このままだと消えます。"),
         doSave,
-        { confirmLabel: "このまま保存", cancelLabel: "編集を続ける" },
+        { confirmLabel: t("このまま保存"), cancelLabel: t("編集を続ける") },
       );
       return;
     }
     doSave();
-  }, [assignment, manualWorks, lookupWorks, save, saveDisabled]);
+  }, [assignment, manualWorks, lookupWorks, save, saveDisabled, t]);
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
@@ -396,13 +398,13 @@ export default function CustomTierListScreen() {
       await presentShareUrl(url);
     } catch {
       cancelShare();
-      alert("共有に失敗しました", "時間をおいて再度お試しください。", {
+      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
         okLabel: "OK",
       });
     } finally {
       setIsSharing(false);
     }
-  }, [beginShare, cancelShare, presentShareUrl, saveTierListData, share]);
+  }, [beginShare, cancelShare, presentShareUrl, saveTierListData, share, t]);
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
   // 共通処理（シーズン版と同じ流れ）。
@@ -428,7 +430,7 @@ export default function CustomTierListScreen() {
         ]);
         await new Promise((resolve) => requestAnimationFrame(resolve));
         if (!snapshotRef.current) {
-          throw new Error("スナップショットの描画に失敗しました");
+          throw new Error(t("スナップショットの描画に失敗しました"));
         }
         return await run();
       } finally {
@@ -448,11 +450,15 @@ export default function CustomTierListScreen() {
         }),
       );
     } catch {
-      alert("画像の共有に失敗しました", "時間をおいて再度お試しください。", {
-        okLabel: "OK",
-      });
+      alert(
+        t("画像の共有に失敗しました"),
+        t("時間をおいて再度お試しください。"),
+        {
+          okLabel: "OK",
+        },
+      );
     }
-  }, [withRenderedSnapshot, title, colors]);
+  }, [withRenderedSnapshot, title, colors, t]);
 
   const generateImageFile = useCallback(() => {
     trackEvent("tier_image_generate");
@@ -477,8 +483,8 @@ export default function CustomTierListScreen() {
     if (shareDisabled) return;
     if (savedMissing) {
       alert(
-        "共有できません",
-        "Tier 表を取得できませんでした。時間をおいて再度お試しください。",
+        t("共有できません"),
+        t("Tier 表を取得できませんでした。時間をおいて再度お試しください。"),
         {
           okLabel: "OK",
         },
@@ -487,23 +493,23 @@ export default function CustomTierListScreen() {
     }
     trackEvent("tier_share_open");
     presentTierShareOptions({
-      dialogTitle: "Tier 表を共有",
-      urlLabel: "URL を共有",
-      imageLabel: "画像で共有",
-      cancelLabel: "キャンセル",
+      dialogTitle: t("Tier 表を共有"),
+      urlLabel: t("URL を共有"),
+      imageLabel: t("画像で共有"),
+      cancelLabel: t("キャンセル"),
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareUrl: () => void handleShareUrl(),
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage, savedMissing, shareDisabled]);
+  }, [handleShareUrl, handleShareImage, savedMissing, shareDisabled, t]);
 
   const backBar = (
     <View style={styles.headerTop}>
       <BackButton
         onPress={handleBack}
         style={styles.backButton}
-        accessibilityLabel="戻る"
+        accessibilityLabel={t("戻る")}
         testID="custom-tier-list-back"
       />
     </View>
@@ -548,7 +554,7 @@ export default function CustomTierListScreen() {
         <Input
           value={title}
           onChangeText={handleChangeTitle}
-          placeholder="テーマ名（例: 歴代で好きなアニメ）"
+          placeholder={t("テーマ名（例: 歴代で好きなアニメ）")}
           maxLength={TITLE_MAX_LENGTH}
           testID="custom-tier-list-title"
           style={{
@@ -570,8 +576,9 @@ export default function CustomTierListScreen() {
           testIDPrefix="custom-tier-list"
         />
         <Text style={styles.headerHint}>
-          作品を検索して追加し、長押しドラッグで tier を移動できます。tier
-          名はタップで変更できます
+          {t(
+            "作品を検索して追加し、長押しドラッグで tier を移動できます。tier 名はタップで変更できます",
+          )}
         </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -582,14 +589,14 @@ export default function CustomTierListScreen() {
             onPress={handleShare}
             disabled={shareDisabled}
             accessibilityRole="button"
-            accessibilityLabel="tier 表を共有"
+            accessibilityLabel={t("tier 表を共有")}
             accessibilityState={{ disabled: shareDisabled }}
             testID="custom-tier-list-share"
           >
             {isSharing ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.saveButtonText}>共有</Text>
+              <Text style={styles.saveButtonText}>{t("共有")}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -600,7 +607,7 @@ export default function CustomTierListScreen() {
             onPress={handleSave}
             disabled={saveDisabled}
             accessibilityRole="button"
-            accessibilityLabel="tier 表を保存"
+            accessibilityLabel={t("tier 表を保存")}
             accessibilityState={{ disabled: saveDisabled }}
             testID="custom-tier-list-save"
           >
@@ -608,12 +615,12 @@ export default function CustomTierListScreen() {
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text style={styles.saveButtonText}>
-                {isDirty ? "保存" : "保存済み"}
+                {isDirty ? t("保存") : t("保存済み")}
               </Text>
             )}
           </TouchableOpacity>
           {save.isError && (
-            <Text style={styles.centeredText}>保存に失敗しました</Text>
+            <Text style={styles.centeredText}>{t("保存に失敗しました")}</Text>
           )}
         </View>
       </View>
@@ -621,7 +628,9 @@ export default function CustomTierListScreen() {
       {isSavedLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.textMuted} />
-          <Text style={styles.centeredText}>Tier 表を読み込んでいます</Text>
+          <Text style={styles.centeredText}>
+            {t("Tier 表を読み込んでいます")}
+          </Text>
         </View>
       ) : (
         <TierBoard
@@ -639,7 +648,7 @@ export default function CustomTierListScreen() {
           onRenameTier={handleRenameTier}
           onAddItem={handleAddWork}
           labelsEditable={!isSharing && !save.isPending}
-          trayEmptyLabel="作品を検索して追加できます"
+          trayEmptyLabel={t("作品を検索して追加できます")}
         />
       )}
 
