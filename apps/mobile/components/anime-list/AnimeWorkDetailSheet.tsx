@@ -1484,7 +1484,10 @@ function WorkDetailSection({ work }: { work: WorkDetail }) {
     { label: t("話数"), value: episodes },
     {
       label: t("視聴者数"),
-      value: t("{{count}}人", { count: work.watchersCount.toLocaleString() }),
+      value: t("{{countText}}人", {
+        count: work.watchersCount,
+        countText: work.watchersCount.toLocaleString(),
+      }),
     },
     ...(work.satisfactionRate != null
       ? [

@@ -139,10 +139,11 @@ function TierUrlShareModal({
             (imagePhase === "ready" && imageFile ? (
               <>
                 <Text className="text-xs text-slate-500 dark:text-slate-400">
-                  {t("画像を生成しました。")}
                   {shareable
-                    ? t("共有またはダウンロードで保存できます。")
-                    : t("ダウンロードで保存できます。")}
+                    ? t(
+                        "画像を生成しました。共有またはダウンロードで保存できます。",
+                      )
+                    : t("画像を生成しました。ダウンロードで保存できます。")}
                 </Text>
                 {shareable && (
                   <Pressable

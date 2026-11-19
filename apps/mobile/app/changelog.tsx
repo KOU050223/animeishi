@@ -17,8 +17,22 @@ const ISSUES_URL = "https://github.com/KOU050223/animeishi/issues";
 // 更新履歴・機能一覧の本文（lib/changelog.ts）はリリースノートとして日本語を
 // 正本とし i18n 対象外。ページの枠（タイトル・見出し・案内）だけは t() 化する。
 export default function ChangelogScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
+
+  // UPDATES の date は「2026年11月19日」形式固定のため、日本語以外では
+  // ロケール書式に変換して出す（本文自体は日本語正本で i18n 対象外）。
+  const lastUpdated = (() => {
+    const match = UPDATES[0].date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+    if (!match || i18n.language.startsWith("ja")) return UPDATES[0].date;
+    return new Intl.DateTimeFormat(i18n.language, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(
+      new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+    );
+  })();
 
   // LegalDocument / meishi/edit と同じ規約。直リンクでは遷移履歴が無いため、
   // ホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
@@ -55,7 +69,7 @@ export default function ChangelogScreen() {
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
           <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            {t("最終更新:")} {UPDATES[0].date}
+            {t("最終更新:")} {lastUpdated}
           </Text>
 
           <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">

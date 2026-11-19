@@ -758,7 +758,10 @@ function WatchHistoryRow({
       ? t("{{year}}年", { year: history.seasonYear })
       : null,
     history.watchersCount != null
-      ? t("視聴者 {{count}}人", { count: history.watchersCount })
+      ? t("視聴者 {{countText}}人", {
+          count: history.watchersCount,
+          countText: history.watchersCount.toLocaleString(),
+        })
       : null,
   ]
     .filter((part): part is string => part != null)

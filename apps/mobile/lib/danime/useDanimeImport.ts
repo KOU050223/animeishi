@@ -17,6 +17,7 @@ import {
 } from "@animeishi/danime-core";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
 // （API 側がキャッシュ→Annict の順で正規解決する。クライアント提供値を
@@ -31,8 +32,10 @@ export type BulkRegisterResult = {
   results: { annictWorkId: number; ok: boolean; error?: string }[];
   /** Annict トークン失効などで API が残りを打ち切った場合 true。 */
   aborted: boolean;
-  /** 途中のチャンクで通信/HTTP エラーが起きた場合のメッセージ。 */
-  requestError: string | null;
+  /** 途中のチャンクで通信/HTTP エラーが起きた場合のメッセージキー。 */
+  requestError: TranslationKey | null;
+  /** requestError が HTTP 失敗のときのステータス（補間用）。 */
+  requestErrorStatus: number | null;
   /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
   elapsedMs: number;
 };
@@ -259,7 +262,8 @@ export function useBulkRegisterWatchHistory() {
       const startedAt = Date.now();
       const results: BulkRegisterResult["results"] = [];
       let aborted = false;
-      let requestError: string | null = null;
+      let requestError: TranslationKey | null = null;
+      let requestErrorStatus: number | null = null;
 
       for (let i = 0; i < entries.length; i += BULK_CHUNK_SIZE) {
         const chunk = entries.slice(i, i + BULK_CHUNK_SIZE);
@@ -272,7 +276,9 @@ export function useBulkRegisterWatchHistory() {
             { headers: { ...headers, ...annictHeader } },
           );
           if (!res.ok) {
-            requestError = `一括登録リクエストが失敗しました（HTTP ${res.status}）`;
+            requestError =
+              "一括登録リクエストが失敗しました（HTTP {{status}}）";
+            requestErrorStatus = res.status;
           } else {
             body = await res.json();
           }
@@ -313,6 +319,7 @@ export function useBulkRegisterWatchHistory() {
         results,
         aborted,
         requestError,
+        requestErrorStatus,
         elapsedMs: Date.now() - startedAt,
       };
     },

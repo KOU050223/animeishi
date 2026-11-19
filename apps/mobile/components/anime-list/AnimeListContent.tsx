@@ -360,15 +360,28 @@ export function AnimeListContent({
                         ? t("「{{query}}」を検索しています", {
                             query: query.trim(),
                           })
-                        : t("「{{query}}」の検索結果・{{count}}", {
+                        : t("「{{query}}」の検索結果・{{countText}}", {
                             query: query.trim(),
-                            count: resultCountText,
+                            count: sorted.length,
+                            countText: resultCountText,
                           })
-                      : `${formatSeasonLabel(filterYear, filterSeason, t)}${
-                          showLoading
-                            ? t("を読み込んでいます")
-                            : t("・{{count}}", { count: resultCountText })
-                        }`}
+                      : showLoading
+                        ? t("{{season}}を読み込んでいます", {
+                            season: formatSeasonLabel(
+                              filterYear,
+                              filterSeason,
+                              t,
+                            ),
+                          })
+                        : t("{{season}}・{{countText}}", {
+                            season: formatSeasonLabel(
+                              filterYear,
+                              filterSeason,
+                              t,
+                            ),
+                            count: sorted.length,
+                            countText: resultCountText,
+                          })}
                   </Text>
                 </View>
                 {/* Tier 表の作成導線（issue #169/#348）。ヒーロー内の大きな

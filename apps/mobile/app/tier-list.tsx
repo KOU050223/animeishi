@@ -458,6 +458,9 @@ export default function TierListScreen() {
 
   // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
   // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
+  // useCallback 内で t を呼ぶと react/memo-dependencies が deps を余剰と
+  // 誤検知するため、文言は外で解決する
+  const snapshotRenderFailedMessage = t("スナップショットの描画に失敗しました");
   const withRenderedSnapshot = useCallback(
     async <T,>(run: () => Promise<T>): Promise<T> => {
       setIsSharing(true);
@@ -484,7 +487,7 @@ export default function TierListScreen() {
         // レイアウト確定のため 1 フレーム待つ
         await new Promise((resolve) => requestAnimationFrame(resolve));
         if (!snapshotRef.current) {
-          throw new Error(t("スナップショットの描画に失敗しました"));
+          throw new Error(snapshotRenderFailedMessage);
         }
         return await run();
       } finally {
