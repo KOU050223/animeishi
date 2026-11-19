@@ -288,3 +288,19 @@ export function getAnimeListLayout(width: number) {
     isWide: contentWidth >= 900,
   };
 }
+
+/**
+ * 行タイプの作品一覧（ライブラリの視聴履歴・推し）用のグリッドレイアウト。
+ * 行はカードより低く横長なので、同じ幅でも列数は少なめにする（issue #602）。
+ * 1 列のときは従来どおり全幅で描き、contentWidth は使わない。
+ */
+export function getRowListGridLayout(width: number) {
+  const numColumns = width >= 1440 ? 3 : width >= 900 ? 2 : 1;
+  const contentWidth =
+    numColumns === 1 ? width : Math.min(Math.max(width - 64, 0), 1440);
+  const columnWidth =
+    numColumns === 1
+      ? contentWidth
+      : (contentWidth - GRID_GAP * (numColumns - 1)) / numColumns;
+  return { contentWidth, columnWidth, numColumns };
+}

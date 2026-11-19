@@ -272,11 +272,11 @@ describe("GET /user/:uid", () => {
       // og:description にサマリを載せる（SNS カードでの訴求）。
       // カードが主な露出面なのでスナップショット時点もここに含める。
       expect(html).toContain(
-        "視聴済み2作品・視聴中1作品・お気に入り1作品（2026/10/13時点）",
+        "視聴済み2作品・視聴中1作品・推し1作品（2026/10/13時点）",
       );
-      // 本文の統計セクションとお気に入り作品タイトル。
+      // 本文の統計セクションと推し作品タイトル。
       expect(html).toContain('class="stats"');
-      expect(html).toContain("お気に入り: 作品A");
+      expect(html).toContain("推し: 作品A");
       // キャッシュ由来のスナップショットである旨の注記（鮮度の UX 表示）。
       expect(html).toContain("スナップショット");
       expect(html).toContain("2026/10/13");

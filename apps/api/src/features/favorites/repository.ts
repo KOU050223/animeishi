@@ -52,7 +52,7 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
         where: (t, { and, eq: eq_ }) =>
           and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
-      if (!favorite) throw new Error("お気に入りの追加に失敗しました");
+      if (!favorite) throw new Error("推しの登録に失敗しました");
       // 「新規追加か」は書き込み件数で判定する。事前 SELECT だと並行リクエストが
       // 両方とも未登録を読み、片方の insert が無視されても活動記録が重複する。
       return { favorite, inserted: res.meta.changes === 1 };

@@ -28,10 +28,10 @@ export function AnimeSection({
     // 技術メッセージはそのまま出さず固定文言に寄せる。
     onError: (e) =>
       alert(
-        t("お気に入りを更新できませんでした"),
+        t("推しを更新できませんでした"),
         e instanceof ApiRequestError
           ? t(e.message, { defaultValue: e.message })
-          : t("お気に入りの更新に失敗しました"),
+          : t("推しの更新に失敗しました"),
         { okLabel: "OK" },
       ),
   });

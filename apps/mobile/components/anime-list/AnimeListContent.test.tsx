@@ -285,6 +285,42 @@ describe("AnimeListContent", () => {
     ).toBe(true);
   });
 
+  it("シーズン表示の件数は「全 N 件」で、Annict の全作品数である旨を注記する（issue #602）", async () => {
+    await render(contentElement({ initialSeason: "2025-winter" }));
+
+    expect(screen.getByText("2025年 冬・全1件")).toBeTruthy();
+    expect(
+      screen.getByText("件数は Annict から取得したそのシーズンの全作品数です"),
+    ).toBeTruthy();
+  });
+
+  it("シーズン表示の絞り込み中は「絞り込み後 / 全件」で出す（issue #602）", async () => {
+    await render(contentElement({ initialSeason: "2025-winter" }));
+
+    await fireEvent.press(screen.getByTestId("anime-filter-button"));
+    // テスト作品は media 未設定なので TV 絞り込みで 0 件になる。
+    await fireEvent.press(screen.getByTestId("anime-filter-media-TV"));
+
+    expect(screen.getByText("2025年 冬・0 / 全1件")).toBeTruthy();
+  });
+
+  it("検索結果の件数には「全」を付けず注記も出さない（issue #602）", async () => {
+    await render(contentElement({ initialQuery: "進撃" }));
+
+    expect(screen.getByText("「進撃」の検索結果・1 件")).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "件数は Annict から取得したそのシーズンの全作品数です",
+      ),
+    ).toBeNull();
+  });
+
+  it("「人気」ソートが Annict の視聴者数順であることを注記する（issue #602）", async () => {
+    await render(contentElement());
+
+    expect(screen.getByText("「人気」は Annict の視聴者数順です")).toBeTruthy();
+  });
+
   it("ソートボタンで選んだキーは既定値に戻されず切り替わる", async () => {
     await render(contentElement());
 

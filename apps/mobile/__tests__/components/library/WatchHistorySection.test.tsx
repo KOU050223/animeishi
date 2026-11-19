@@ -458,18 +458,14 @@ describe("WatchHistorySection", () => {
       await render(<WatchHistorySection />);
 
       // 登録済みなら解除導線のラベルになる。
-      expect(
-        screen.getByLabelText("テスト作品をお気に入りから解除"),
-      ).toBeTruthy();
+      expect(screen.getByLabelText("テスト作品を推しから解除")).toBeTruthy();
       expect(screen.getByTestId("watch-history-add-to-list-1")).toBeTruthy();
     });
 
     it("推しボタンを押すとその作品のトグルが呼ばれる", async () => {
       await render(<WatchHistorySection />);
 
-      await fireEvent.press(
-        screen.getByLabelText("テスト作品をお気に入りに追加"),
-      );
+      await fireEvent.press(screen.getByLabelText("テスト作品を推しに登録"));
 
       expect(mockToggleFavorite).toHaveBeenCalledWith(1);
     });

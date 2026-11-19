@@ -26,8 +26,8 @@ export function FavoriteButton({
       accessibilityState={{ selected: isFavorite, disabled }}
       accessibilityLabel={
         isFavorite
-          ? t("{{title}}をお気に入りから解除", { title })
-          : t("{{title}}をお気に入りに追加", { title })
+          ? t("{{title}}を推しから解除", { title })
+          : t("{{title}}を推しに登録", { title })
       }
     >
       <Ionicons

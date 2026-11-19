@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  GRID_GAP,
   SEASON_FILTER_ALL,
   SEASON_KEYS,
   SEASON_PICKER_MIN_YEAR,
   adjacentSeasonParams,
   currentSeason,
   formatSeasonLabel,
+  getAnimeListLayout,
+  getRowListGridLayout,
   maxSelectableSeason,
   parseSeasonFilterParam,
   parseSeasonParam,
@@ -264,5 +267,35 @@ describe("adjacentSeasonParams", () => {
     expect(
       adjacentSeasonParams(SEASON_PICKER_MIN_YEAR, SEASON_FILTER_ALL, now),
     ).toEqual([`${SEASON_PICKER_MIN_YEAR + 1}`]);
+  });
+});
+
+describe("getAnimeListLayout", () => {
+  it("Web の広い幅（1080px）では複数列になる（issue #602）", () => {
+    const layout = getAnimeListLayout(1080);
+    expect(layout.numColumns).toBe(2);
+    expect(layout.cardWidth).toBeCloseTo((1016 - GRID_GAP) / 2);
+  });
+});
+
+describe("getRowListGridLayout", () => {
+  it("モバイル幅では 1 列で全幅のまま", () => {
+    const layout = getRowListGridLayout(375);
+    expect(layout.numColumns).toBe(1);
+    expect(layout.columnWidth).toBe(375);
+  });
+
+  it("Web の広い幅（1080px）では 2 列になる（issue #602）", () => {
+    const layout = getRowListGridLayout(1080);
+    expect(layout.numColumns).toBe(2);
+    expect(layout.columnWidth).toBeCloseTo((1080 - 64 - GRID_GAP) / 2);
+  });
+
+  it("900px 未満は 1 列、1440px 以上は 3 列", () => {
+    expect(getRowListGridLayout(899).numColumns).toBe(1);
+    expect(getRowListGridLayout(900).numColumns).toBe(2);
+    expect(getRowListGridLayout(1440).numColumns).toBe(3);
+    // コンテンツ幅は 1440px に抑えて余白を左右に振る。
+    expect(getRowListGridLayout(1920).contentWidth).toBe(1440);
   });
 });
