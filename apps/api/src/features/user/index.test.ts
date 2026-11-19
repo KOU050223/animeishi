@@ -42,6 +42,7 @@ vi.mock("@clerk/hono", () => ({
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     PUBLIC_WEB_URL?: string;
     CLERK_SECRET_KEY?: string;
     CLERK_PUBLISHABLE_KEY?: string;
@@ -54,7 +55,7 @@ function buildApp() {
   return app;
 }
 
-const TEST_BINDINGS = { DB: env.DB };
+const TEST_BINDINGS = { DB: env.DB, AVATARS: env.AVATARS };
 
 async function insertPublicUser(
   db: Awaited<ReturnType<typeof setupTestDb>>,

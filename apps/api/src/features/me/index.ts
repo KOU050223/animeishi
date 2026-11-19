@@ -12,19 +12,28 @@ import {
 } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { usersRepository, DeletedUserError } from "../users/repository";
+import {
+  usersRepository,
+  findUserById,
+  DeletedUserError,
+} from "../users/repository";
 import { findNowWatching } from "../user/repository";
 import { nowWatchingResponse } from "../user/service";
 import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
 import { createOpenApiApp } from "@/lib/openapi";
+import { readBodyWithLimit } from "@/lib/http";
 import {
   ALLOWED_AVATAR_TYPES,
   avatarKeyFromUrl,
   MAX_AVATAR_BYTES,
   MEISHI_ASSET_MAX_BYTES,
   MEISHI_ASSET_MAX_PER_USER,
+  isPngData,
+  PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
+  publicMeishiSnapshotKey,
+  publicMeishiSnapshotUrl,
   MEISHI_ASSET_PATH_PREFIX,
   meishiAssetKeyFromUrl,
   r2ImageResponse,
@@ -42,6 +51,45 @@ function getBindings(c: Context): MeBindings {
 
 const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
+app.delete("/meishi-snapshot", async (c) => {
+  await getBindings(c).AVATARS.delete(
+    publicMeishiSnapshotKey(c.var.clerkUserId),
+  );
+  return c.body(null, 204);
+});
+app.post("/meishi-snapshot", async (c) => {
+  if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
+    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+  }
+  const declaredLength = Number(c.req.header("content-length") ?? 0);
+  if (declaredLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES) {
+    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+  }
+  const read = await readBodyWithLimit(
+    c.req.raw.body,
+    PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
+  );
+  if (!read.ok || read.data.byteLength === 0) {
+    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+  }
+  const body = read.data;
+  if (!isPngData(body)) {
+    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+  }
+  const version = crypto.randomUUID();
+  await getBindings(c).AVATARS.put(
+    publicMeishiSnapshotKey(c.var.clerkUserId),
+    body,
+    {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { version },
+    },
+  );
+  return c.json(
+    { url: publicMeishiSnapshotUrl(c.req.url, c.var.clerkUserId, version) },
+    201,
+  );
+});
 const me = app
   .openapi(getProfileRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
@@ -199,7 +247,11 @@ const me = app
       prefix: `meishi-assets/${userId}/`,
       limit: MEISHI_ASSET_MAX_PER_USER + 1,
     });
-    if (listed.objects.length >= MEISHI_ASSET_MAX_PER_USER) {
+    if (
+      listed.objects.filter(
+        (object) => object.key !== publicMeishiSnapshotKey(userId),
+      ).length >= MEISHI_ASSET_MAX_PER_USER
+    ) {
       return c.json(
         {
           error: `名刺画像のアップロード上限（${MEISHI_ASSET_MAX_PER_USER}件）に達しています`,
@@ -316,11 +368,19 @@ const avatar = new Hono<{
 // 名刺アセット画像を R2 から配信する。アバターと同じく認証不要
 // （名刺は公開前提で他者からも閲覧される）。
 const meishiAssets = new Hono<{
-  Bindings: { AVATARS: R2Bucket };
+  Bindings: { AVATARS: R2Bucket; DB: D1Database };
 }>().get("/meishi-assets/*", async (c) => {
   const key = meishiAssetKeyFromUrl(c.req.url);
   if (!key) {
     return c.json({ error: "Not found" }, 404);
+  }
+  if (key.endsWith("/public-snapshot.png")) {
+    const userId = key.slice(
+      "meishi-assets/".length,
+      -"/public-snapshot.png".length,
+    );
+    const user = await findUserById(createDb(c.env.DB), userId);
+    if (!user?.isPublic) return c.json({ error: "Not found" }, 404);
   }
 
   const object = await c.env.AVATARS.get(key);

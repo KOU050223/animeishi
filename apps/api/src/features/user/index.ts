@@ -14,9 +14,13 @@ import {
 } from "./service";
 import { optionalAuth } from "@/middleware/auth";
 import type { Env } from "@/db/client";
+import {
+  publicMeishiSnapshotKey,
+  publicMeishiSnapshotUrl,
+} from "../me/service";
 
 type UserRouteEnv = {
-  Bindings: Env & { DB: D1Database } & {
+  Bindings: Env & { DB: D1Database; AVATARS: R2Bucket } & {
     CLERK_SECRET_KEY?: string;
     CLERK_PUBLISHABLE_KEY?: string;
     // Web 版プロフィールのベース URL（例: https://animeishi.uomi.dev）。
@@ -89,6 +93,7 @@ const user = new Hono<UserRouteEnv>()
     // 「いま見ている」吹き出し用の直近話数記録（issue #420）。JSON 応答に
     // だけ載せ、OGP HTML（共有ページ）には出さない。
     const nowWatching = await findNowWatching(db, uid);
+    const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
 
     return c.json(
       {
@@ -97,6 +102,14 @@ const user = new Hono<UserRouteEnv>()
         bio: profile.bio,
         favoriteQuote: profile.favoriteQuote,
         profileImageUrl: profile.profileImageUrl,
+        meishiSnapshotUrl: snapshot
+          ? publicMeishiSnapshotUrl(
+              c.req.url,
+              uid,
+              snapshot.customMetadata?.version ??
+                snapshot.uploaded.toISOString(),
+            )
+          : null,
         genres: genreList,
         watchSummary,
         nowWatching: nowWatching

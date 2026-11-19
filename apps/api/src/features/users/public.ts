@@ -7,11 +7,18 @@ import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { usersRepository } from "./repository";
 import type { PublicUserSummary } from "./repository";
 import { createDb } from "@/db/client";
+import {
+  publicMeishiSnapshotKey,
+  publicMeishiSnapshotUrl,
+} from "../me/service";
 
 function getBindings(
   c: Context,
-): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
-  return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database; AVATARS: R2Bucket } {
+  return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
+    DB: D1Database;
+    AVATARS: R2Bucket;
+  };
 }
 
 // ひろば「みつける」の名刺一覧（issue #418）。公開条件は既存の
@@ -71,7 +78,25 @@ const publicUsersRoute = new Hono<AuthVariables>()
       hasMore && lastItem
         ? `${sort === "likes" ? lastItem.likeCount : Math.floor(lastItem.createdAt.getTime() / 1000)}_${lastItem.id}`
         : null;
-    return c.json({ items: items.map(listItemResponse), nextCursor }, 200);
+    const responseItems = await Promise.all(
+      items.map(async (item) => {
+        const snapshot = await getBindings(c).AVATARS.head(
+          publicMeishiSnapshotKey(item.id),
+        );
+        return {
+          ...listItemResponse(item),
+          meishiSnapshotUrl: snapshot
+            ? publicMeishiSnapshotUrl(
+                c.req.url,
+                item.id,
+                snapshot.customMetadata?.version ??
+                  snapshot.uploaded.toISOString(),
+              )
+            : null,
+        };
+      }),
+    );
+    return c.json({ items: responseItems, nextCursor }, 200);
   })
   // 名刺へのいいね（冪等）。自分の名刺にはいいね不可。
   .put("/:id/like", zValidator("param", publicUserIdParamSchema), async (c) => {
