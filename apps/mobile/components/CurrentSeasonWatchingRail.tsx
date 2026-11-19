@@ -14,7 +14,7 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
 import type { SeasonKey } from "@/components/anime-list/animeListUtils";
 import { useAnnictConnection } from "@/lib/annict";
-import { filterCurrentSeasonWatching } from "@/lib/currentSeasonWatching";
+import { filterWatchingBySeason } from "@/lib/currentSeasonWatching";
 import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { useThemeColors } from "@/lib/theme";
@@ -60,12 +60,17 @@ export function CurrentSeasonWatchingRail() {
     }, [refetch]),
   );
 
-  const works = useMemo(() => filterCurrentSeasonWatching(data ?? []), [data]);
-
   // 「今期」の対象範囲（放送開始シーズン）を画面に明記する（issue #598）。
   // 範囲外の視聴中作品（過去シーズンの残存ステータス等）はレールに出ないため、
   // 対象が見えないとライブラリ側の件数と不整合に見える。
   const { year, key } = currentSeason();
+  // 抽出と表示で同じ currentSeason() の結果を使い、年・季節をメモ化の単位に
+  // する。data が変わらないままクールを跨いで再描画されても、表示だけ
+  // 新しいクールになって古い抽出結果が残ることがない。
+  const works = useMemo(
+    () => filterWatchingBySeason(data ?? [], `${year}-${key}`),
+    [data, year, key],
+  );
   const seasonLabel = t("{{year}}年{{season}}", {
     year,
     season: t(SEASON_I18N_KEYS[key]),

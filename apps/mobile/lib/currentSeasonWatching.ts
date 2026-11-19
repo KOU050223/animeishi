@@ -13,18 +13,25 @@ function normalizeSeasonName(seasonName: string): string {
   return seasonName.replace(/-fall$/, "-autumn");
 }
 
-// 今期の判定はアニメ一覧の currentSeason と同じ JST 基準に揃える（issue #353）。
+// 指定シーズン（"2026-autumn" 形式）の視聴中作品だけに絞る。
 // API が更新日時降順で返すので、ここでは絞り込みだけして並び替えはしない。
+export function filterWatchingBySeason<T extends WatchingWork>(
+  items: readonly T[],
+  season: string,
+): T[] {
+  return items.filter(
+    (item) =>
+      item.state === "WATCHING" &&
+      item.seasonName != null &&
+      normalizeSeasonName(item.seasonName) === season,
+  );
+}
+
+// 今期の判定はアニメ一覧の currentSeason と同じ JST 基準に揃える（issue #353）。
 export function filterCurrentSeasonWatching<T extends WatchingWork>(
   items: readonly T[],
   now: Date = new Date(),
 ): T[] {
   const { year, key } = currentSeason(now);
-  const current = `${year}-${key}`;
-  return items.filter(
-    (item) =>
-      item.state === "WATCHING" &&
-      item.seasonName != null &&
-      normalizeSeasonName(item.seasonName) === current,
-  );
+  return filterWatchingBySeason(items, `${year}-${key}`);
 }
