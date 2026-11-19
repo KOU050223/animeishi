@@ -23,6 +23,7 @@ import { createDb } from "@/db/client";
 import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { captureApiError } from "@/observability";
 import { createOpenApiApp } from "@/lib/openapi";
+import { readBodyWithLimit } from "@/lib/http";
 import {
   ALLOWED_AVATAR_TYPES,
   avatarKeyFromUrl,
@@ -59,13 +60,18 @@ app.post("/meishi-snapshot", async (c) => {
   if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
     return c.json({ error: "PNG 画像のみ対応しています" }, 400);
   }
-  const body = await c.req.arrayBuffer();
-  if (
-    body.byteLength === 0 ||
-    body.byteLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES
-  ) {
+  const declaredLength = Number(c.req.header("content-length") ?? 0);
+  if (declaredLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES) {
     return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
   }
+  const read = await readBodyWithLimit(
+    c.req.raw.body,
+    PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
+  );
+  if (!read.ok || read.data.byteLength === 0) {
+    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+  }
+  const body = read.data;
   const version = crypto.randomUUID();
   await getBindings(c).AVATARS.put(
     publicMeishiSnapshotKey(c.var.clerkUserId),

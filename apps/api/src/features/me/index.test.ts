@@ -649,6 +649,35 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(res.status).toBe(201);
     });
 
+    it("公開スナップショットは Content-Length が上限超なら本文を読まず拒否する", async () => {
+      const res = await buildApp().request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "image/png",
+            "Content-Length": String(5 * 1024 * 1024 + 1),
+          },
+          body: new Uint8Array([1]),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("公開スナップショットは Content-Length がなくても上限で読み取りを止める", async () => {
+      const res = await buildApp().request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: new Uint8Array(5 * 1024 * 1024 + 1),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+    });
+
     it("POST /me/meishi-assets: 画像をアップロードして配信 URL が返る（GET は認証不要）", async () => {
       const app = buildApp();
       const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00]);

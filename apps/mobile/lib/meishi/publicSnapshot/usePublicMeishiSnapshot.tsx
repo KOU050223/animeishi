@@ -6,6 +6,7 @@ import { apiUrl } from "@/lib/apiUrl";
 import { resolveMeishiDocument } from "../templates";
 import type { MeishiDocument, MeishiRenderContext } from "../types";
 import { capturePublicSnapshot } from "./capture";
+import { enqueueSnapshotOperation } from "./queue";
 
 export function usePublicMeishiSnapshot(
   document: MeishiDocument | null | undefined,
@@ -17,47 +18,55 @@ export function usePublicMeishiSnapshot(
   const readyKeyRef = useRef<string | null>(null);
   const resolved = useMemo(() => resolveMeishiDocument(document), [document]);
   const snapshotKey = JSON.stringify({ resolved, context });
-  const publish = useCallback(async () => {
-    const token = await getToken();
-    if (!token) throw new Error("Authentication token unavailable");
-    if (readyKeyRef.current !== snapshotKey)
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          readyRef.current = resolve;
-        }),
-        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-      ]);
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => resolve()),
-    );
-    const blob = await capturePublicSnapshot(ref);
-    const response = await fetch(
-      `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "image/png",
-        },
-        body: blob,
-      },
-    );
-    if (!response.ok)
-      throw new Error(`Snapshot upload failed: ${response.status}`);
-  }, [getToken, snapshotKey]);
-  const clear = useCallback(async () => {
-    const token = await getToken();
-    if (!token) throw new Error("Authentication token unavailable");
-    const response = await fetch(
-      `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    if (!response.ok)
-      throw new Error(`Snapshot delete failed: ${response.status}`);
-  }, [getToken]);
+  const publish = useCallback(
+    () =>
+      enqueueSnapshotOperation(async () => {
+        const token = await getToken();
+        if (!token) throw new Error("Authentication token unavailable");
+        if (readyKeyRef.current !== snapshotKey)
+          await Promise.race([
+            new Promise<void>((resolve) => {
+              readyRef.current = resolve;
+            }),
+            new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+          ]);
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => resolve()),
+        );
+        const blob = await capturePublicSnapshot(ref);
+        const response = await fetch(
+          `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "image/png",
+            },
+            body: blob,
+          },
+        );
+        if (!response.ok)
+          throw new Error(`Snapshot upload failed: ${response.status}`);
+      }),
+    [getToken, snapshotKey],
+  );
+  const clear = useCallback(
+    () =>
+      enqueueSnapshotOperation(async () => {
+        const token = await getToken();
+        if (!token) throw new Error("Authentication token unavailable");
+        const response = await fetch(
+          `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (!response.ok)
+          throw new Error(`Snapshot delete failed: ${response.status}`);
+      }),
+    [getToken],
+  );
   const snapshotElement = (
     <View style={styles.offscreen}>
       <MeishiShareSnapshot

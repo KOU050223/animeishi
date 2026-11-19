@@ -109,23 +109,23 @@ export default function MeishiDeckScreen() {
       t("名刺を削除"),
       t("削除した名刺は元に戻せません"),
       () =>
-        void removeCard(card.id)
-          .then(async () => {
-            if (card.id !== defaultCard?.id) return;
-            const library = await loadMeishiLibrary();
-            const next = library?.cards.find(
-              (candidate) => candidate.id === library.defaultCardId,
-            );
-            if (next) {
-              publishPending.current = true;
-              setPublishDocument(next.document);
-            } else {
-              await clear();
-            }
-          })
-          .catch((error: unknown) =>
-            console.warn("Public meishi snapshot update failed", error),
-          ),
+        void (async () => {
+          const before = await loadMeishiLibrary();
+          await removeCard(card.id);
+          const after = await loadMeishiLibrary();
+          if (before?.defaultCardId === after?.defaultCardId) return;
+          const next = after?.cards.find(
+            (candidate) => candidate.id === after.defaultCardId,
+          );
+          if (next) {
+            publishPending.current = true;
+            setPublishDocument(next.document);
+          } else {
+            await clear();
+          }
+        })().catch((error: unknown) =>
+          console.warn("Public meishi snapshot update failed", error),
+        ),
       {
         confirmLabel: t("削除する"),
         cancelLabel: t("キャンセル"),
