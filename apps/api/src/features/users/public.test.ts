@@ -24,6 +24,7 @@ const PRIVATE_USER_ID = "user_testpubu4";
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
   };
@@ -34,6 +35,7 @@ type TestEnv = {
 
 const TEST_BINDINGS = {
   DB: env.DB,
+  AVATARS: env.AVATARS,
   CLERK_SECRET_KEY: "test_secret",
   CLERK_PUBLISHABLE_KEY: "test_pub",
 };
@@ -121,6 +123,28 @@ describe("公開名刺 API", () => {
   });
 
   describe("GET /users/public", () => {
+    it("公開スナップショットがあるユーザーだけ URL を返す", async () => {
+      await env.AVATARS.put(
+        `meishi-assets/${OTHER_USER_ID}/public-snapshot.png`,
+        new Uint8Array([1]),
+        {
+          httpMetadata: { contentType: "image/png" },
+          customMetadata: { version: "test-version" },
+        },
+      );
+      asUser(USER_ID);
+      const res = await getPublic(buildApp());
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        items: Array<{ id: string; meishiSnapshotUrl: string | null }>;
+      };
+      expect(
+        body.items.find((item) => item.id === OTHER_USER_ID)?.meishiSnapshotUrl,
+      ).toContain("v=test-version");
+      expect(
+        body.items.find((item) => item.id === THIRD_USER_ID)?.meishiSnapshotUrl,
+      ).toBeNull();
+    });
     beforeEach(() => asUser(USER_ID));
 
     it("公開プロフィール（is_public=true）だけがジャンルつきで返る", async () => {

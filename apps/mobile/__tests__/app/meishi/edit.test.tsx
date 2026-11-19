@@ -141,6 +141,16 @@ jest.mock("@/lib/meishi/imageShare", () => ({
     snapshotElement: null,
   }),
 }));
+jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
+  usePublicMeishiSnapshot: () => ({
+    publish: jest.fn(),
+    clear: jest.fn(),
+    snapshotElement: null,
+  }),
+}));
+jest.mock("@/lib/meishi/storage", () => ({
+  loadMeishiLibrary: jest.fn().mockResolvedValue(null),
+}));
 
 const defaultDoc = {
   version: 1,

@@ -557,6 +557,31 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(newRes.status).toBe(200);
     });
 
+    it("公開スナップショットは固定キーを上書きし URL の版が変わる", async () => {
+      const app = buildApp();
+      const upload = () =>
+        app.request(
+          "/me/meishi-snapshot",
+          {
+            method: "POST",
+            headers: { "Content-Type": "image/png" },
+            body: new Uint8Array([137, 80, 78, 71]),
+          },
+          testBindings(),
+        );
+      const first = await upload();
+      const second = await upload();
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      const firstUrl = (await first.json()).url;
+      const secondUrl = (await second.json()).url;
+      expect(new URL(firstUrl).pathname).toBe(new URL(secondUrl).pathname);
+      expect(firstUrl).not.toBe(secondUrl);
+      expect(
+        await env.AVATARS.head(`meishi-assets/${USER_ID}/public-snapshot.png`),
+      ).not.toBeNull();
+    });
+
     it("POST /me/meishi-assets: 画像をアップロードして配信 URL が返る（GET は認証不要）", async () => {
       const app = buildApp();
       const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00]);

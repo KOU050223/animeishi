@@ -25,6 +25,9 @@ import {
   MAX_AVATAR_BYTES,
   MEISHI_ASSET_MAX_BYTES,
   MEISHI_ASSET_MAX_PER_USER,
+  PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
+  publicMeishiSnapshotKey,
+  publicMeishiSnapshotUrl,
   MEISHI_ASSET_PATH_PREFIX,
   meishiAssetKeyFromUrl,
   r2ImageResponse,
@@ -42,6 +45,37 @@ function getBindings(c: Context): MeBindings {
 
 const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
+app.delete("/meishi-snapshot", async (c) => {
+  await getBindings(c).AVATARS.delete(
+    publicMeishiSnapshotKey(c.var.clerkUserId),
+  );
+  return c.body(null, 204);
+});
+app.post("/meishi-snapshot", async (c) => {
+  if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
+    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+  }
+  const body = await c.req.arrayBuffer();
+  if (
+    body.byteLength === 0 ||
+    body.byteLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES
+  ) {
+    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+  }
+  const version = crypto.randomUUID();
+  await getBindings(c).AVATARS.put(
+    publicMeishiSnapshotKey(c.var.clerkUserId),
+    body,
+    {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { version },
+    },
+  );
+  return c.json(
+    { url: publicMeishiSnapshotUrl(c.req.url, c.var.clerkUserId, version) },
+    201,
+  );
+});
 const me = app
   .openapi(getProfileRoute, async (c) => {
     const db = createDb(getBindings(c).DB);

@@ -33,6 +33,8 @@ import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { useMeishiImageShare } from "@/lib/meishi/imageShare";
+import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
+import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAchievements } from "@/lib/achievements/useAchievements";
 import { useFavorites } from "@/lib/useFavorites";
@@ -140,6 +142,8 @@ export default function MeishiEditScreen() {
     shareImage: shareMeishiImage,
     snapshotElement: meishiSnapshotElement,
   } = useMeishiImageShare({ document: doc, context });
+  const { publish: publishSnapshot, snapshotElement: publicSnapshotElement } =
+    usePublicMeishiSnapshot(doc, context);
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
   const inspectorHeight = getInspectorHeight(windowHeight);
@@ -223,7 +227,15 @@ export default function MeishiEditScreen() {
   const onSave = async () => {
     // 名刺エディタの保存ボタン押下を計測する（issue #214）。
     trackEvent("meishi_save");
-    await saveDocument();
+    const savedId = await saveDocument();
+    void loadMeishiLibrary()
+      .then((library) => {
+        if (savedId && savedId === library?.defaultCardId)
+          return publishSnapshot();
+      })
+      .catch((error: unknown) =>
+        console.warn("Public meishi snapshot upload failed", error),
+      );
     haptics.success();
     const message = t("名刺を保存しました");
     setSaveFeedbackVisible(true);
@@ -508,6 +520,7 @@ export default function MeishiEditScreen() {
 
       {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
       {meishiSnapshotElement}
+      {publicSnapshotElement}
     </SafeAreaView>
   );
 }

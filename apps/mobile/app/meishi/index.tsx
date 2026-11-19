@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -18,6 +18,12 @@ import { confirm } from "@/lib/dialog";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { MEISHI_ASPECT_RATIO } from "@/lib/meishi/defaults";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { loadMeishiLibrary } from "@/lib/meishi/storage";
+import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
+import { useFavorites } from "@/lib/useFavorites";
+import { useWatchHistory } from "@/lib/useWatchHistory";
+import { useAchievements } from "@/lib/achievements/useAchievements";
+import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
 import type { MeishiCardData } from "@/lib/meishi/types";
 import { useProfile } from "@/lib/useProfile";
 import { useThemeColors } from "@/lib/theme";
@@ -33,6 +39,9 @@ export default function MeishiDeckScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data: profile } = useProfile();
+  const { data: favorites } = useFavorites();
+  const { data: watchHistory } = useWatchHistory();
+  const { data: achievements } = useAchievements();
   const {
     cards,
     defaultCard,
@@ -43,6 +52,35 @@ export default function MeishiDeckScreen() {
     reload,
   } = useMeishiLibrary();
   const [menuCard, setMenuCard] = useState<MeishiCardData | null>(null);
+  const [publishDocument, setPublishDocument] = useState<
+    MeishiCardData["document"] | null
+  >(null);
+  const snapshotContext = useMemo(
+    () => ({
+      profile: {
+        username: profile?.username,
+        bio: profile?.bio,
+        favoriteQuote: profile?.favoriteQuote,
+        profileImageUrl: profile?.profileImageUrl,
+        profileUrl: buildProfileUrl(profile?.id),
+      },
+      ...buildMeishiAnimeContext({ favorites, watchHistory }),
+      achievements: achievements?.achievements,
+    }),
+    [profile, favorites, watchHistory, achievements],
+  );
+  const { publish, clear, snapshotElement } = usePublicMeishiSnapshot(
+    publishDocument,
+    snapshotContext,
+  );
+  const publishPending = useRef(false);
+  useEffect(() => {
+    if (!publishPending.current || !publishDocument) return;
+    publishPending.current = false;
+    void publish().catch((error: unknown) =>
+      console.warn("Public meishi snapshot upload failed", error),
+    );
+  }, [publishDocument, publish]);
 
   // エディタや全画面表示から戻ってきたときに最新の内容を反映する
   useFocusEffect(
@@ -70,7 +108,24 @@ export default function MeishiDeckScreen() {
     confirm(
       t("名刺を削除"),
       t("削除した名刺は元に戻せません"),
-      () => void removeCard(card.id),
+      () =>
+        void removeCard(card.id)
+          .then(async () => {
+            if (card.id !== defaultCard?.id) return;
+            const library = await loadMeishiLibrary();
+            const next = library?.cards.find(
+              (candidate) => candidate.id === library.defaultCardId,
+            );
+            if (next) {
+              publishPending.current = true;
+              setPublishDocument(next.document);
+            } else {
+              await clear();
+            }
+          })
+          .catch((error: unknown) =>
+            console.warn("Public meishi snapshot update failed", error),
+          ),
       {
         confirmLabel: t("削除する"),
         cancelLabel: t("キャンセル"),
@@ -221,7 +276,10 @@ export default function MeishiDeckScreen() {
                 onPress={() => {
                   const card = menuCard;
                   setMenuCard(null);
-                  void setDefault(card.id);
+                  void setDefault(card.id).then(() => {
+                    publishPending.current = true;
+                    setPublishDocument(card.document);
+                  });
                 }}
                 styles={styles}
               />
@@ -239,6 +297,7 @@ export default function MeishiDeckScreen() {
           </View>
         ) : null}
       </BottomSheet>
+      {snapshotElement}
     </SafeAreaView>
   );
 }
