@@ -112,6 +112,13 @@ export default function MeishiDeckScreen() {
           numColumns={2}
           keyExtractor={(card) => card.id}
           contentContainerStyle={styles.grid}
+          ListHeaderComponent={
+            <Text style={styles.defaultHelp}>
+              {t(
+                "既定の名刺はプロフィールタブに表示されます。プロフィール用 QR は公開プロフィールを開き、画像共有は編集中の名刺を使います",
+              )}
+            </Text>
+          }
           renderItem={({ item: card }) => (
             <View style={styles.cell}>
               <Pressable
@@ -280,6 +287,13 @@ function createStyles(colors: ThemeColors) {
     // BackButton と同じ幅のスペーサーでタイトルを中央に置く
     headerSpacer: { width: 40 },
     grid: { padding: 8 },
+    defaultHelp: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 18,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+    },
     // FlatList の numColumns=2 が列幅を分けるので、セルは列いっぱいに広げる
     cell: { flex: 1, padding: 8 },
     // ListFooterComponent は全幅になるため、1 セル分の見た目に合わせて半分に

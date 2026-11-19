@@ -14,6 +14,14 @@ const templateNameKeys: Record<string, TranslationKey> = {
   sakura: "さくら",
 };
 
+const templatePaletteKeys: Record<string, TranslationKey> = {
+  blank: "白",
+  classic: "白",
+  sunset: "オレンジとコーラル",
+  midnight: "紺と紫",
+  sakura: "淡いピンクの濃淡",
+};
+
 export function TemplatePicker({
   visible,
   onClose,
@@ -90,9 +98,13 @@ export function TemplatePicker({
                     gap: 8,
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={t("{{name}}テンプレートを選ぶ", {
-                    name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
-                  })}
+                  accessibilityLabel={t(
+                    "{{name}}テンプレートを選ぶ。配色: {{colors}}",
+                    {
+                      name: t(templateNameKeys[tpl.id] ?? "テンプレート"),
+                      colors: t(templatePaletteKeys[tpl.id] ?? "白"),
+                    },
+                  )}
                 >
                   <View
                     style={{
@@ -115,6 +127,39 @@ export function TemplatePicker({
                     >
                       {t(templateNameKeys[tpl.id] ?? "テンプレート")}
                     </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      height: 18,
+                      borderRadius: 6,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      testID={`template-swatch-${tpl.id}-start`}
+                      style={{
+                        flex: 1,
+                        backgroundColor:
+                          doc.canvas.background.kind === "gradient"
+                            ? doc.canvas.background.from
+                            : doc.canvas.background.kind === "solid"
+                              ? doc.canvas.background.color
+                              : doc.canvas.background.base,
+                      }}
+                    />
+                    <View
+                      testID={`template-swatch-${tpl.id}-end`}
+                      style={{
+                        flex: 1,
+                        backgroundColor:
+                          doc.canvas.background.kind === "gradient"
+                            ? doc.canvas.background.to
+                            : doc.canvas.background.kind === "solid"
+                              ? doc.canvas.background.color
+                              : doc.canvas.background.accent,
+                      }}
+                    />
                   </View>
                   <MeishiRenderer
                     document={doc}

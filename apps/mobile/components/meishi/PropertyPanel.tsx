@@ -6,11 +6,14 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { useEffect, useRef, type ComponentRef } from "react";
+import { useTranslation } from "react-i18next";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import { Ionicons } from "@expo/vector-icons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
+import type { TranslationKey } from "@/lib/i18n/keys";
 import type {
   CollageStateFilter,
   MeishiRenderContext,
@@ -37,8 +40,23 @@ type Props = {
  */
 export function PropertyPanel(props: Props) {
   const colors = useThemeColors();
+  const { t } = useTranslation();
+  const sourceOptions = SOURCES.map((source) => ({
+    ...source,
+    label: t(source.label),
+  }));
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const lastSelectedId = useRef<string | null>(null);
   const { element, onDelete, onDuplicate, onBringToFront, onSendToBack } =
     props;
+  useEffect(() => {
+    if (lastSelectedId.current === element.id) return;
+    lastSelectedId.current = element.id;
+    scrollRef.current?.scrollTo({
+      y: element.type === "text" ? 80 : 0,
+      animated: true,
+    });
+  }, [element.id, element.type]);
   return (
     <View
       style={[
@@ -51,6 +69,7 @@ export function PropertyPanel(props: Props) {
       ]}
     >
       <ScrollView
+        ref={scrollRef}
         horizontal={false}
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 12, gap: 12 }}
@@ -59,7 +78,15 @@ export function PropertyPanel(props: Props) {
         <Text style={{ fontSize: 12, color: colors.textMuted }}>
           {typeLabel(element.type)}
         </Text>
-        {renderEditor(props, colors)}
+        {renderEditor(
+          props,
+          colors,
+          t("表示内容"),
+          t(
+            "自由は入力した文字、名前・紹介・セリフはプロフィールの内容を表示します",
+          ),
+          sourceOptions,
+        )}
       </ScrollView>
       <View
         style={{
@@ -79,7 +106,13 @@ export function PropertyPanel(props: Props) {
   );
 }
 
-function renderEditor(props: Props, colors: ThemeColors) {
+function renderEditor(
+  props: Props,
+  colors: ThemeColors,
+  contentLabel: string,
+  contentHelp: string,
+  sourceOptions: { value: TextSource; label: string }[],
+) {
   const { element, onChange, onOpenTextEdit } = props;
   switch (element.type) {
     case "text":
@@ -107,13 +140,16 @@ function renderEditor(props: Props, colors: ThemeColors) {
               <Ionicons name="pencil" size={14} color={colors.textMuted} />
             </Pressable>
           </Row>
-          <Row label="内容">
+          <Row label={contentLabel}>
             <SegmentedControl
-              options={SOURCES}
+              options={sourceOptions}
               value={element.source}
               onChange={(v) => onChange({ source: v })}
             />
           </Row>
+          <Text style={{ fontSize: 11, color: colors.textMuted }}>
+            {contentHelp}
+          </Text>
           <Row label="フォント">
             <SegmentedControl
               options={FONT_FAMILY_OPTIONS.map((f) => ({
@@ -493,7 +529,7 @@ function renderEditor(props: Props, colors: ThemeColors) {
   }
 }
 
-const SOURCES: { value: TextSource; label: string }[] = [
+const SOURCES: { value: TextSource; label: TranslationKey }[] = [
   { value: "custom", label: "自由" },
   { value: "username", label: "名前" },
   { value: "bio", label: "紹介" },

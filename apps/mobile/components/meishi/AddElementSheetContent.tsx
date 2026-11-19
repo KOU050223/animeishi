@@ -3,6 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import type { MeishiElementType } from "@/lib/meishi/types";
 import { useThemeColors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -16,13 +18,18 @@ export type AddElementSheetProps = {
 
 type Item = {
   type: MeishiElementType;
-  label: string;
+  label: TranslationKey;
   icon: IconName;
-  sub?: string;
+  sub?: TranslationKey;
 };
 
 const ITEMS: Item[] = [
-  { type: "text", label: "テキスト", icon: "text-outline" },
+  {
+    type: "text",
+    label: "テキスト",
+    icon: "text-outline",
+    sub: "自由文やプロフィール情報を表示します",
+  },
   {
     type: "image",
     label: "画像",
@@ -30,14 +37,29 @@ const ITEMS: Item[] = [
     sub: "端末からアップロード",
   },
   { type: "shape", label: "図形", icon: "square-outline", sub: "矩形・円" },
-  { type: "qr", label: "QR", icon: "qr-code-outline" },
-  { type: "animeCollage", label: "視聴コラージュ", icon: "film-outline" },
-  { type: "animeCountBadge", label: "視聴数バッジ", icon: "pricetag-outline" },
+  {
+    type: "qr",
+    label: "QR",
+    icon: "qr-code-outline",
+    sub: "プロフィールのリンクを表示します",
+  },
+  {
+    type: "animeCollage",
+    label: "視聴コラージュ",
+    icon: "film-outline",
+    sub: "視聴した作品の画像を並べます",
+  },
+  {
+    type: "animeCountBadge",
+    label: "視聴数バッジ",
+    icon: "pricetag-outline",
+    sub: "視聴済み作品の数を表示します",
+  },
   {
     type: "achievementBadge",
     label: "実績バッジ",
     icon: "medal-outline",
-    sub: "獲得した実績を表示",
+    sub: "獲得した実績を表示します",
   },
 ];
 
@@ -59,6 +81,7 @@ export function AddElementSheetContent({
   onClose?: () => void;
 }) {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -81,14 +104,14 @@ export function AddElementSheetContent({
             color: colors.text,
           }}
         >
-          要素を追加
+          {t("要素を追加")}
         </Text>
         {onClose ? (
           <Pressable
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="閉じる"
+            accessibilityLabel={t("閉じる")}
           >
             <Ionicons name="close" size={20} color={colors.textMuted} />
           </Pressable>
@@ -98,16 +121,16 @@ export function AddElementSheetContent({
         {onPickAvatarImage ? (
           <PickButton
             icon="person-outline"
-            label="アバター"
-            sub="プロフィール画像"
+            label={t("アバター")}
+            sub={t("プロフィール画像")}
             onPress={onPickAvatarImage}
           />
         ) : null}
         {onPickAnimeImage ? (
           <PickButton
             icon="images-outline"
-            label="アニメ画像"
-            sub="Annict 検索/リスト"
+            label={t("アニメ画像")}
+            sub={t("Annict 検索/リスト")}
             onPress={onPickAnimeImage}
           />
         ) : null}
@@ -115,8 +138,8 @@ export function AddElementSheetContent({
           <PickButton
             key={it.type}
             icon={it.icon}
-            label={it.label}
-            sub={it.sub}
+            label={t(it.label)}
+            sub={it.sub ? t(it.sub) : undefined}
             onPress={() => onPick(it.type)}
           />
         ))}
@@ -137,12 +160,13 @@ function PickButton({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
       style={{
         width: "30%",
-        aspectRatio: 1,
+        minHeight: 112,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: colors.border,
@@ -151,7 +175,7 @@ function PickButton({
         padding: 8,
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${label}を追加`}
+      accessibilityLabel={t("{{name}}を追加", { name: label })}
     >
       <Ionicons name={icon} size={26} color={colors.text} />
       <Text
