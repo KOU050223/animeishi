@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -22,7 +23,7 @@ export default function ChangelogScreen() {
 
   // UPDATES の date は「2026年11月19日」形式固定のため、日本語以外では
   // ロケール書式に変換して出す（本文自体は日本語正本で i18n 対象外）。
-  const lastUpdated = (() => {
+  const lastUpdated = useMemo(() => {
     const match = UPDATES[0].date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
     if (!match || i18n.language.startsWith("ja")) return UPDATES[0].date;
     return new Intl.DateTimeFormat(i18n.language, {
@@ -32,7 +33,7 @@ export default function ChangelogScreen() {
     }).format(
       new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
     );
-  })();
+  }, [i18n.language]);
 
   // LegalDocument / meishi/edit と同じ規約。直リンクでは遷移履歴が無いため、
   // ホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。
