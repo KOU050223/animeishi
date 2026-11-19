@@ -95,4 +95,11 @@ describe("ElectionRail", () => {
       params: { slug: "megane" },
     });
   });
+
+  it("「すべて見る」をタップすると総選挙一覧へ遷移する", async () => {
+    mockElections = { data: { items: [electionItem("megane")] } };
+    await render(<ElectionRail />);
+    await fireEvent.press(screen.getByTestId("election-rail-see-all"));
+    expect(mockPush).toHaveBeenCalledWith("/election");
+  });
 });

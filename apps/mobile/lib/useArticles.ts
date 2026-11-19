@@ -22,6 +22,8 @@ const articleQueryKey = (slug: string) => ["articles", "detail", slug] as const;
 
 // ホームの特集枠に出す新着件数（issue #437）。
 const HOME_ARTICLES_LIMIT = "3";
+// 記事一覧ページ（issue #599）が出す件数。API の上限（50）に合わせる。
+const ARTICLES_LIST_LIMIT = "50";
 
 async function getAuthHeaders(
   getToken: () => Promise<string | null>,
@@ -43,6 +45,28 @@ export function useLatestArticles() {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.articles.$get(
         { query: { limit: HOME_ARTICLES_LIMIT } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "特集記事の取得に失敗しました");
+      }
+      return res.json();
+    },
+  });
+}
+
+// 記事一覧ページ（issue #599、/article）用。useLatestArticles より多い
+// 件数を取るため、ホーム枠とクエリキーを分ける。
+export function useArticleList() {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [...ARTICLES_QUERY_KEY, "list"],
+    enabled: !!isSignedIn,
+    queryFn: async () => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.articles.$get(
+        { query: { limit: ARTICLES_LIST_LIMIT } },
         { headers },
       );
       if (!res.ok) {

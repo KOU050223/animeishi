@@ -91,4 +91,11 @@ describe("EventRail", () => {
       params: { slug: "comiket" },
     });
   });
+
+  it("「すべて見る」をタップするとイベント一覧へ遷移する", async () => {
+    mockEvents = { data: { items: [eventItem("comiket")] } };
+    await render(<EventRail />);
+    await fireEvent.press(screen.getByTestId("event-rail-see-all"));
+    expect(mockPush).toHaveBeenCalledWith("/event");
+  });
 });
