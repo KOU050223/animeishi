@@ -3,6 +3,7 @@
 // 両方から使う。状態遷移はジョブ表・アイテム表を直接更新し、画面側の
 // ポーリングはこの表を見る。
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import {
   danimeEpisodeImportItems,
@@ -24,6 +25,10 @@ export const RUNNING_JOB_STATUSES: readonly DanimeEpisodeJobStatus[] = [
   "writing",
 ];
 
+// db.batch 1 回あたりに入れる文の数。数百文を 1 バッチにすると
+// D1 側のバッチ制限に当たり得るため、適度に分割して送る。
+const BATCH_STATEMENTS = 10;
+
 /** 対応付けループが順に処理する作品の参照（大きい episodesJson は含めない）。 */
 export type DanimeEpisodeJobWorkRef = {
   id: number;
@@ -38,6 +43,8 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         id,
         userId,
         status: "matching",
+        // 初回インスタンスは job.id と同じ ID で起動する。
+        workflowInstanceId: id,
         createdAt: now,
         updatedAt: now,
       });
@@ -72,6 +79,31 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       });
     },
 
+    /**
+     * このジョブを処理している Workflow インスタンスの ID を記録する。
+     * expectedCurrentId を渡すと「記録値がいまもそれと一致するときだけ」
+     * 更新する。引き継ぎのハンドオフステップがリトライで再実行されたときに、
+     * すでに先のインスタンスへ進んだ記録を古い値へ巻き戻さないため
+     * （Devin Review #702）。
+     */
+    async setJobInstanceId(
+      jobId: string,
+      instanceId: string,
+      expectedCurrentId?: string,
+    ): Promise<void> {
+      await db
+        .update(danimeEpisodeImportJobs)
+        .set({ workflowInstanceId: instanceId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(danimeEpisodeImportJobs.id, jobId),
+            expectedCurrentId === undefined
+              ? undefined
+              : sql`COALESCE(${danimeEpisodeImportJobs.workflowInstanceId}, ${danimeEpisodeImportJobs.id}) = ${expectedCurrentId}`,
+          ),
+        );
+    },
+
     async insertJobWorks(
       rows: {
         jobId: string;
@@ -82,8 +114,21 @@ export function episodeImportJobRepository(db: DrizzleDb) {
     ): Promise<void> {
       // D1 は 1 文あたり 100 バインド変数まで。4 変数/行なので
       // 20 行ずつに分けて挿入する（26 行で上限超過になる）。
+      // 文ごとに実行するとサブリクエストがその都度消費されるため
+      // （issue #701）、db.batch でまとめて実行数を減らす。
+      const statements: BatchItem<"sqlite">[] = [];
       for (let i = 0; i < rows.length; i += 20) {
-        await db.insert(danimeEpisodeImportWorks).values(rows.slice(i, i + 20));
+        statements.push(
+          db.insert(danimeEpisodeImportWorks).values(rows.slice(i, i + 20)),
+        );
+      }
+      for (let i = 0; i < statements.length; i += BATCH_STATEMENTS) {
+        await db.batch(
+          statements.slice(i, i + BATCH_STATEMENTS) as [
+            BatchItem<"sqlite">,
+            ...BatchItem<"sqlite">[],
+          ],
+        );
       }
     },
 
@@ -120,11 +165,26 @@ export function episodeImportJobRepository(db: DrizzleDb) {
     ): Promise<void> {
       // D1 は 1 文あたり 100 バインド変数まで。6 変数/行なので
       // 15 行ずつに分けて挿入する（17 行で上限超過になる）。
+      // 文ごとに実行するとサブリクエストがその都度消費されるため
+      // （issue #701）、db.batch でまとめて実行数を減らす。
       const now = new Date();
+      const statements: BatchItem<"sqlite">[] = [];
       for (let i = 0; i < rows.length; i += 15) {
-        await db
-          .insert(danimeEpisodeImportItems)
-          .values(rows.slice(i, i + 15).map((r) => ({ ...r, updatedAt: now })));
+        statements.push(
+          db
+            .insert(danimeEpisodeImportItems)
+            .values(
+              rows.slice(i, i + 15).map((r) => ({ ...r, updatedAt: now })),
+            ),
+        );
+      }
+      for (let i = 0; i < statements.length; i += BATCH_STATEMENTS) {
+        await db.batch(
+          statements.slice(i, i + BATCH_STATEMENTS) as [
+            BatchItem<"sqlite">,
+            ...BatchItem<"sqlite">[],
+          ],
+        );
       }
     },
 
@@ -148,6 +208,22 @@ export function episodeImportJobRepository(db: DrizzleDb) {
           ),
         );
       return new Set(rows.map((r) => r.annictEpisodeId));
+    },
+
+    /**
+     * アイテム表の最新の更新時刻。対応付け・書き込みが進んでいる間は
+     * アイテムの挿入・終了更新で定期的に進むため、「追跡列のない旧ジョブ
+     * の引き継ぎ先がまだ生きているか」を活動の新しさで見るために使う
+     * （CodeRabbit #702）。
+     */
+    async latestItemActivityAt(jobId: string): Promise<Date | null> {
+      const [row] = await db
+        .select({ updatedAt: danimeEpisodeImportItems.updatedAt })
+        .from(danimeEpisodeImportItems)
+        .where(eq(danimeEpisodeImportItems.jobId, jobId))
+        .orderBy(desc(danimeEpisodeImportItems.updatedAt))
+        .limit(1);
+      return row?.updatedAt ?? null;
     },
 
     /** 書き込み待ちのアイテムを挿入順に取る（Workflow の再実行でも pending のみ）。 */
@@ -233,6 +309,33 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         .update(danimeEpisodeImportJobs)
         .set({ status, error: error ?? null, updatedAt: new Date() })
         .where(eq(danimeEpisodeImportJobs.id, jobId));
+    },
+
+    /**
+     * 進捗照合の結果へジョブを追従させる。照合で見たインスタンス ID が
+     * D1 の記録値とまだ一致するときだけ更新する（Devin Review #702）。
+     * 照合は「ジョブ行を読む → インスタンス状態を取る」の順なので、
+     * その隙間に引き継ぎが進むと、完了・消滅した旧インスタンスを見て
+     * 生きているジョブを終了状態にしてしまう。条件に合わず更新し
+     * なかった（＝追跡先が進んだ）ときは false を返す。
+     */
+    async settleJobStatus(
+      jobId: string,
+      status: DanimeEpisodeJobStatus,
+      error: string | undefined,
+      expectedInstanceId: string,
+    ): Promise<boolean> {
+      const res = await db
+        .update(danimeEpisodeImportJobs)
+        .set({ status, error: error ?? null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(danimeEpisodeImportJobs.id, jobId),
+            inArray(danimeEpisodeImportJobs.status, [...RUNNING_JOB_STATUSES]),
+            sql`COALESCE(${danimeEpisodeImportJobs.workflowInstanceId}, ${danimeEpisodeImportJobs.id}) = ${expectedInstanceId}`,
+          ),
+        );
+      return res.meta.changes > 0;
     },
   };
 }

@@ -34,3 +34,58 @@ export function createSubrequestBudget(limit: number): SubrequestBudget {
     },
   };
 }
+
+/**
+ * D1Database を包んで、実際にクエリを発行するメソッドの呼び出しを数える
+ * （issue #701）。prepare 自体はリクエストを発生させないため、実行系の
+ * first/run/all/raw・batch・exec・dump だけを数える。
+ * db.batch は中身の文数に関わらず 1 回の呼び出しなので 1 回と数える。
+ */
+export function countingD1Database(
+  db: D1Database,
+  consume: () => void,
+): D1Database {
+  const wrapStatement = (stmt: D1PreparedStatement): D1PreparedStatement =>
+    new Proxy(stmt, {
+      get(target, prop, receiver) {
+        if (prop === "bind") {
+          return (...args: unknown[]) => wrapStatement(target.bind(...args));
+        }
+        const value = Reflect.get(target, prop, receiver);
+        if (
+          prop === "first" ||
+          prop === "run" ||
+          prop === "all" ||
+          prop === "raw"
+        ) {
+          return (...args: unknown[]) => {
+            consume();
+            return (value as (...a: unknown[]) => unknown).apply(target, args);
+          };
+        }
+        return value;
+      },
+    });
+  return new Proxy(db, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop === "prepare") {
+        return (query: string) => wrapStatement(target.prepare(query));
+      }
+      if (prop === "batch" || prop === "exec" || prop === "dump") {
+        return (...args: unknown[]) => {
+          consume();
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      if (prop === "withSession") {
+        return (...args: unknown[]) =>
+          countingD1Database(
+            (value as (...a: unknown[]) => D1Database).apply(target, args),
+            consume,
+          );
+      }
+      return value;
+    },
+  });
+}
