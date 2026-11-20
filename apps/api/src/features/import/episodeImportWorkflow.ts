@@ -410,14 +410,19 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     );
     const items = res.matched
       .filter((m) => !existing.has(m.annictEpisodeId))
-      .map((m) => ({
-        jobId,
-        annictWorkId: work.annictWorkId,
-        annictEpisodeId: m.annictEpisodeId,
-        episodeNodeId: m.episodeNodeId,
+      .map((m) => {
         // Annict に記録済みの話は書かない（事前突き合わせ）。
-        status: tracked.get(m.annictEpisodeId) ? "skipped" : "pending",
-      }));
+        const status: "pending" | "skipped" = tracked.get(m.annictEpisodeId)
+          ? "skipped"
+          : "pending";
+        return {
+          jobId,
+          annictWorkId: work.annictWorkId,
+          annictEpisodeId: m.annictEpisodeId,
+          episodeNodeId: m.episodeNodeId,
+          status,
+        };
+      });
     await repo.insertJobItems(items);
     return { unmatched: res.unresolved.length };
   }
