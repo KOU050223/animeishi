@@ -10,8 +10,33 @@
 #
 #   pnpm ios:device:release                       # 接続中の実機に Release ビルド
 #   pnpm ios:device:release --device <名前/UDID>  # 端末を指定
+#   pnpm ios:device:release:nearby-spike          # 「近づけて交換」試作を有効化して入れる（issue #698）
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# --nearby-spike: 「近づけて交換」試作（#698）の入口を有効化する。
+# EXPO_PUBLIC_* はバンドル埋め込み時の環境変数から JS にインラインされるが、
+# vp run はクリーンな環境変数でタスクを実行するため呼び出し側の export は
+# 届かない。スクリプト内で export する経路なら vp 経由・直接実行のどちらでも
+# 確実に JS に焼き込まれる。
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --nearby-spike)
+      export EXPO_PUBLIC_NEARBY_SPIKE=true
+      ;;
+    *)
+      args+=("$1")
+      ;;
+  esac
+  shift
+done
+# bash 3.2（macOS 同梱）では空配列の "${args[@]}" が set -u で落ちるため分岐する。
+if [ "${#args[@]}" -gt 0 ]; then
+  set -- "${args[@]}"
+else
+  set --
+fi
 
 # プロセス置換（< <(node ...)）だと node の失敗が set -e に拾われず、
 # EXPO_PUBLIC_* 未設定のまま .env の開発用値でビルドが進んでしまうため、
