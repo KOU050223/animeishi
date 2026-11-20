@@ -33,6 +33,7 @@ import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { useMeishiImageShare } from "@/lib/meishi/imageShare";
+import { useMeishiPrintExport } from "@/lib/meishi/printExport";
 import { usePublicMeishiSnapshot } from "@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot";
 import { loadMeishiLibrary } from "@/lib/meishi/storage";
 import { buildProfileUrl } from "@/lib/profileUrl";
@@ -144,6 +145,12 @@ export default function MeishiEditScreen() {
   } = useMeishiImageShare({ document: doc, context });
   const { publish: publishSnapshot, snapshotElement: publicSnapshotElement } =
     usePublicMeishiSnapshot(doc, context);
+  // 印刷用データ（表・裏の高解像度 PNG）の書き出し（issue #665）。
+  const {
+    exportPrintImages,
+    isExporting: isPrintExporting,
+    snapshotElement: printSnapshotElement,
+  } = useMeishiPrintExport({ document: doc, context });
 
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
   const inspectorHeight = getInspectorHeight(windowHeight);
@@ -322,6 +329,22 @@ export default function MeishiEditScreen() {
           <View style={styles.subBtnContent}>
             <Ionicons name="layers-outline" size={13} color={colors.text} />
             <Text style={styles.subBtnText}>{t("名刺一覧")}</Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={() => void exportPrintImages()}
+          disabled={!doc || isPrintExporting}
+          style={[
+            styles.subBtn,
+            (!doc || isPrintExporting) && { opacity: 0.5 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={t("印刷用に書き出す")}
+          testID="meishi-print-export"
+        >
+          <View style={styles.subBtnContent}>
+            <Ionicons name="print-outline" size={13} color={colors.text} />
+            <Text style={styles.subBtnText}>{t("印刷用")}</Text>
           </View>
         </Pressable>
       </View>
@@ -521,6 +544,7 @@ export default function MeishiEditScreen() {
       {/* 画像共有用の画面外スナップショット（共有実行中のみ描画される） */}
       {meishiSnapshotElement}
       {publicSnapshotElement}
+      {printSnapshotElement}
     </SafeAreaView>
   );
 }

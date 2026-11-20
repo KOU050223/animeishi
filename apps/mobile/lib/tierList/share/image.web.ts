@@ -100,7 +100,7 @@ function downloadBlob(blob: Blob, fileName: string) {
  */
 export const captureTierListImageFile: CaptureTierListImageFile = async (
   target,
-  { title, backgroundColor },
+  { title, backgroundColor, pixelRatio = 2 },
 ) => {
   const node = target.current as unknown;
   if (!(node instanceof HTMLElement)) {
@@ -123,7 +123,7 @@ export const captureTierListImageFile: CaptureTierListImageFile = async (
   );
 
   const dataUrl = await toPng(node, {
-    pixelRatio: 2,
+    pixelRatio,
     // 撮影時点のカラースキームに合わせた盤面の背景色を呼び出し側から受け取る
     // （スナップショットの塗りと同じ色で PNG の下地を埋める）。
     backgroundColor,

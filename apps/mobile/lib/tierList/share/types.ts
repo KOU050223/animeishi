@@ -91,5 +91,14 @@ export type ShareTierListImage = (
  */
 export type CaptureTierListImageFile = (
   target: RefObject<ViewInstance | null>,
-  options: { title: string; backgroundColor: string },
+  options: {
+    title: string;
+    backgroundColor: string;
+    /**
+     * 出力 PNG のピクセル倍率（DOM の CSS サイズに掛ける）。
+     * 既定は 2。印刷用書き出し（issue #665）のように出力サイズを
+     * 実ピクセルで指定したいときは描画を実寸にして 1 を渡す。
+     */
+    pixelRatio?: number;
+  },
 ) => Promise<File>;
