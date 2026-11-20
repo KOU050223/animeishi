@@ -1348,5 +1348,18 @@
   "プロフィールと名刺": "Profile and card",
   "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります": "When public, your card is listed under \"Discover\" in Discover, and anyone can see your profile through its share link and your card's public image. When private, none of these are visible.",
   "公開設定を更新しました": "Visibility settings updated.",
-  "公開設定の更新に失敗しました": "Couldn't update visibility settings."
+  "公開設定の更新に失敗しました": "Couldn't update visibility settings.",
+  "SNS リンク": "Social links",
+  "全体公開 {{public}}・交換した相手だけ {{friends}}・非公開 {{private}}": "Public {{public}} · Exchanged contacts {{friends}} · Private {{private}}",
+  "リンクごとに公開範囲を選べます。既定は交換した相手だけです。": "Choose who can see each link. Exchanged contacts is the default.",
+  "SNS リンクの取得に失敗しました。再試行": "Couldn't load social links. Retry",
+  "SNS リンクの保存に失敗しました。入力内容を確認してください。": "Couldn't save social links. Check your entries.",
+  "ユーザー ID": "User ID",
+  "URL": "URL",
+  "全体公開": "Public",
+  "交換した相手だけ": "Exchanged contacts only",
+  "非公開": "Private",
+  "上へ": "Move up",
+  "下へ": "Move down",
+  "リンクを追加": "Add link"
 }

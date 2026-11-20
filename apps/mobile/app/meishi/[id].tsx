@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,6 +22,8 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { useProfile } from "@/lib/useProfile";
 import { useThemeColors } from "@/lib/theme";
+import { useSocialLinks } from "@/lib/socialLinks";
+import { SocialLinksList } from "@/components/profile/SocialLinksList";
 import type { ThemeColors } from "@/lib/theme";
 
 /**
@@ -35,6 +38,7 @@ export default function MeishiViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cards, loaded, reload } = useMeishiLibrary();
   const { data: profile } = useProfile();
+  const { data: socialLinks } = useSocialLinks();
 
   // 編集画面から戻ってきたときに保存済みの最新デザインを反映する
   useFocusEffect(
@@ -88,7 +92,10 @@ export default function MeishiViewerScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : card ? (
-        <View style={styles.body}>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+        >
           <View style={styles.cardWrapper}>
             <MeishiCard
               username={profile?.username}
@@ -100,7 +107,8 @@ export default function MeishiViewerScreen() {
               zoomable
             />
           </View>
-        </View>
+          <SocialLinksList links={socialLinks?.items ?? []} />
+        </ScrollView>
       ) : (
         <View style={[styles.center, { padding: 24 }]}>
           <Text style={styles.emptyText}>
@@ -136,6 +144,12 @@ function createStyles(colors: ThemeColors) {
     headerSpacer: { width: 40 },
     body: {
       flex: 1,
+    },
+    // SNS リンクが多いと名刺＋一覧が画面からはみ出すため縦スクロールにする
+    // （issue #658）。中央寄せは一覧が短いときの見た目を維持するため
+    // contentContainer の justifyContent 側で行う。
+    bodyContent: {
+      flexGrow: 1,
       alignItems: "center",
       justifyContent: "center",
       padding: 12,

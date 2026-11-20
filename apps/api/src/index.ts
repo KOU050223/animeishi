@@ -30,6 +30,7 @@ import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
 import { friendRequests } from "./features/friend-requests";
 import { friends } from "./features/friends";
+import { socialLinks } from "./features/social-links";
 import { health } from "./features/health";
 import { images } from "./features/images";
 import { importRoute } from "./features/import";
@@ -116,6 +117,7 @@ const routes = app
   .route("/works", workEpisodes)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
+  .route("/me/social-links", socialLinks)
   .route("/me/friend-requests", friendRequests)
   .route("/me/feed", feed)
   .route("/articles", articles)

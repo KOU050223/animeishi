@@ -6,7 +6,7 @@ import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
-import { publicProfileQueryKey } from "@/lib/publicProfile";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 
 type WorkEpisodesResponse = InferResponseType<
   (typeof apiClient.works)[":annictWorkId"]["episodes"]["$get"],
@@ -167,8 +167,11 @@ function optimisticWatchedHandlers(
         // プロフィール系クエリも取り直す。
         void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
         if (userId) {
+          // 公開プロフィールのキーは閲覧者ごとに分かれている（SNS リンクの
+          // 可視範囲が閲覧者依存のため）ので、uid までの prefix で全閲覧者分を
+          // 無効化する。
           void queryClient.invalidateQueries({
-            queryKey: publicProfileQueryKey(userId),
+            queryKey: [...PUBLIC_PROFILE_QUERY_KEY, userId],
           });
         }
       }

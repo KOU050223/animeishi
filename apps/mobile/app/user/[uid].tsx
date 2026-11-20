@@ -42,6 +42,7 @@ import {
 } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { useThemeColors } from "@/lib/theme";
+import { SocialLinksList } from "@/components/profile/SocialLinksList";
 
 export default function PublicProfilePage() {
   const { t } = useTranslation();
@@ -51,7 +52,7 @@ export default function PublicProfilePage() {
   const colors = useThemeColors();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: publicProfileQueryKey(uid),
+    queryKey: publicProfileQueryKey(uid, userId),
     queryFn: async () => fetchPublicProfile(uid, await getToken()),
     enabled: !!uid,
     retry: false,
@@ -211,6 +212,7 @@ export default function PublicProfilePage() {
           ) : null}
 
           <ProfileDetails profile={data} />
+          <SocialLinksList links={data.socialLinks ?? []} />
           {relation.isFriend ? <CommonPoints uid={uid} /> : null}
 
           {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}

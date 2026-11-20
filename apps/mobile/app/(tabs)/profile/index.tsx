@@ -50,6 +50,7 @@ import type { ImageElement } from "@/lib/meishi/types";
 import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
 import type { PublicSettingItem } from "@/components/profile/PublicSettingsSection";
 import { usePublicSettings } from "@/lib/usePublicSettings";
+import { useSocialLinks } from "@/lib/socialLinks";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -97,6 +98,7 @@ export default function ProfileScreen() {
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const publicSettings = usePublicSettings();
+  const { data: socialLinks } = useSocialLinks();
   const uploadAvatar = useProfileAvatarUpload();
   // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
   const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
@@ -167,6 +169,26 @@ export default function ProfileScreen() {
         "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります",
       ),
       visibility: publicSettings.profileVisibility,
+    },
+    {
+      key: "social-links",
+      label: t("SNS リンク"),
+      description: t(
+        "全体公開 {{public}}・交換した相手だけ {{friends}}・非公開 {{private}}",
+        {
+          public:
+            socialLinks?.items.filter((item) => item.visibility === "public")
+              .length ?? 0,
+          friends:
+            socialLinks?.items.filter((item) => item.visibility === "friends")
+              .length ?? 0,
+          private:
+            socialLinks?.items.filter((item) => item.visibility === "private")
+              .length ?? 0,
+        },
+      ),
+      visibility: "friends",
+      onPress: () => router.push("/social-links"),
     },
   ];
 

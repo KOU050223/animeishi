@@ -15,7 +15,11 @@ import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { haptics } from "@/lib/haptics";
-import { fetchPublicProfile, type PublicProfile } from "@/lib/publicProfile";
+import {
+  fetchPublicProfile,
+  publicProfileQueryKey,
+  type PublicProfile,
+} from "@/lib/publicProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useFriends } from "@/lib/useFriends";
 import { CommonPoints } from "./CommonPoints";
@@ -103,7 +107,7 @@ export function ExchangeSuccessOverlay({
   showProfileLink = true,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const reduceMotion = useReducedMotion();
@@ -111,7 +115,7 @@ export function ExchangeSuccessOverlay({
 
   const { data: profile, isLoading } = useQuery({
     // app/user/[uid].tsx と同じクエリキー（無効化・キャッシュ共有のため）。
-    queryKey: ["public-profile", uid],
+    queryKey: publicProfileQueryKey(uid, userId),
     queryFn: async () => fetchPublicProfile(uid, await getToken()),
     retry: false,
   });

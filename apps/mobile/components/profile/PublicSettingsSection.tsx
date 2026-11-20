@@ -1,4 +1,4 @@
-import { Switch, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 // 公開範囲の語彙はイベント参加の公開範囲（issue #440 の
@@ -15,6 +15,7 @@ export type PublicSettingItem = {
   label: string;
   description: string;
   visibility: PublicSettingVisibility;
+  onPress?: () => void;
 };
 
 export function PublicSettingsSection({
@@ -53,6 +54,27 @@ function VisibilityRow({
   disabled: boolean;
   onChange: (key: string, visibility: PublicSettingVisibility) => void;
 }) {
+  if (item.onPress) {
+    return (
+      <Pressable
+        className="mb-2 flex-row items-center rounded-xl bg-white dark:bg-slate-900 px-4 py-3"
+        onPress={item.onPress}
+        accessibilityRole="button"
+        accessibilityLabel={item.label}
+        testID={`visibility-${item.key}`}
+      >
+        <View className="mr-3 flex-1">
+          <Text className="font-medium text-slate-900 dark:text-slate-100">
+            {item.label}
+          </Text>
+          <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+            {item.description}
+          </Text>
+        </View>
+        <Text className="text-indigo-600 dark:text-indigo-400">›</Text>
+      </Pressable>
+    );
+  }
   return (
     <View className="mb-2 flex-row items-center rounded-xl bg-white dark:bg-slate-900 px-4 py-3">
       <View className="mr-3 flex-1">

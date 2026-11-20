@@ -61,3 +61,28 @@ it("2 段階の行はスイッチで公開範囲を切り替えられる", async
   );
   expect(onChange).toHaveBeenCalledWith("profile", "public");
 });
+
+it("SNS リンクの行は公開内訳を表示し編集画面へ進める", async () => {
+  const onOpen = jest.fn();
+  await render(
+    <PublicSettingsSection
+      items={[
+        profileItem,
+        {
+          key: "social-links",
+          label: "SNS リンク",
+          description: "全体公開 1・交換した相手だけ 2・非公開 1",
+          visibility: "friends",
+          onPress: onOpen,
+        },
+      ]}
+      pendingKey={null}
+      onChange={jest.fn()}
+    />,
+  );
+  expect(
+    screen.getByText("全体公開 1・交換した相手だけ 2・非公開 1"),
+  ).toBeTruthy();
+  await fireEvent.press(screen.getByTestId("visibility-social-links"));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+});

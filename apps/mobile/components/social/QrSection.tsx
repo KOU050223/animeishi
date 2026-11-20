@@ -121,7 +121,7 @@ function GenerateView() {
   // どのみち画像は取れず、端末内レンダリングにフォールバックする。
   const { data: ownPublicProfile, refetch: refetchOwnPublicProfile } = useQuery(
     {
-      queryKey: publicProfileQueryKey(userId ?? ""),
+      queryKey: publicProfileQueryKey(userId ?? "", userId),
       queryFn: async () => fetchPublicProfile(userId!, await getToken()),
       enabled: !!isSignedIn && !!userId,
       retry: false,

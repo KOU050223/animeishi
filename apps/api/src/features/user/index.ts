@@ -13,6 +13,7 @@ import {
   nowWatchingResponse,
 } from "./service";
 import { optionalAuth } from "@/middleware/auth";
+import { socialLinksRepository } from "../social-links/repository";
 import type { Env } from "@/db/client";
 import {
   publicMeishiSnapshotKey,
@@ -94,6 +95,8 @@ const user = new Hono<UserRouteEnv>()
     // だけ載せ、OGP HTML（共有ページ）には出さない。
     const nowWatching = await findNowWatching(db, uid);
     const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
+    const socialLinks = await socialLinksRepository(db).list(uid, viewerId);
+    c.header("Cache-Control", "private, no-store");
 
     return c.json(
       {
@@ -111,6 +114,7 @@ const user = new Hono<UserRouteEnv>()
             )
           : null,
         genres: genreList,
+        socialLinks,
         watchSummary,
         nowWatching: nowWatching
           ? nowWatchingResponse(nowWatching, c.req.url)
