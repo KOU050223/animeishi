@@ -1,54 +1,63 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { PublicSettingsSection } from "./PublicSettingsSection";
+import type { PublicSettingItem } from "./PublicSettingsSection";
 
-it("名刺、作品リスト、各 Tier 表の公開状態を一覧して切り替えられる", async () => {
-  const onToggle = jest.fn();
+const profileItem: PublicSettingItem = {
+  key: "profile",
+  label: "プロフィールと名刺",
+  description:
+    "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります",
+  visibility: "public",
+};
+
+it("一覧の各行をラベル・説明文つきで表示する", async () => {
   await render(
     <PublicSettingsSection
-      profilePublic={true}
-      items={[
-        {
-          key: "work-1",
-          kind: "work",
-          id: "1",
-          title: "好きな作品",
-          isPublic: false,
-        },
-        {
-          key: "season-2026-spring",
-          kind: "season",
-          id: "2026-spring",
-          title: "春",
-          isPublic: true,
-        },
-        {
-          key: "character-2",
-          kind: "character",
-          id: "2",
-          title: "キャラ",
-          isPublic: false,
-        },
-        {
-          key: "custom-3",
-          kind: "custom",
-          id: "3",
-          title: "自由",
-          isPublic: false,
-        },
-      ]}
+      items={[profileItem]}
       pendingKey={null}
-      onToggle={onToggle}
+      onChange={jest.fn()}
     />,
   );
+
   expect(screen.getByText("公開設定")).toBeTruthy();
-  expect(screen.getByText("名刺・プロフィール")).toBeTruthy();
-  expect(screen.getByText("好きな作品")).toBeTruthy();
-  expect(screen.getByText("春")).toBeTruthy();
-  expect(screen.getByText("キャラ")).toBeTruthy();
-  expect(screen.getByText("自由")).toBeTruthy();
-  fireEvent(screen.getByTestId("visibility-profile"), "valueChange", false);
-  expect(onToggle).toHaveBeenCalledWith("profile", "", false);
-  fireEvent(screen.getByTestId("visibility-work-1"), "valueChange", true);
-  expect(onToggle).toHaveBeenCalledWith("work", "1", true);
+  expect(screen.getByText("プロフィールと名刺")).toBeTruthy();
+  expect(screen.getByText(/ひろばの「みつける」に名刺が掲載され/)).toBeTruthy();
+});
+
+it("保存中はすべての行のスイッチを無効にする", async () => {
+  await render(
+    <PublicSettingsSection
+      items={[profileItem]}
+      pendingKey="profile"
+      onChange={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId("visibility-profile").props.disabled).toBe(true);
+});
+
+it("2 段階の行はスイッチで公開範囲を切り替えられる", async () => {
+  const onChange = jest.fn();
+  await render(
+    <PublicSettingsSection
+      items={[profileItem]}
+      pendingKey={null}
+      onChange={onChange}
+    />,
+  );
+
+  await fireEvent(
+    screen.getByTestId("visibility-profile"),
+    "valueChange",
+    false,
+  );
+  expect(onChange).toHaveBeenCalledWith("profile", "private");
+
+  await fireEvent(
+    screen.getByTestId("visibility-profile"),
+    "valueChange",
+    true,
+  );
+  expect(onChange).toHaveBeenCalledWith("profile", "public");
 });

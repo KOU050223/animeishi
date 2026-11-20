@@ -1326,13 +1326,8 @@
   "お問い合わせ": "Contact",
   "上記で解決しない場合は、以下の連絡先までお問い合わせください。": "If the above doesn't solve your issue, please contact us at:",
   "公開設定": "Visibility settings",
-  "名刺・プロフィール": "Card and profile",
-  "公開すると、名刺とプロフィールが誰でも見られ、ひろばに表示されます": "When public, anyone can see your card and profile, and they appear in Discover.",
-  "公開すると、作品リストが誰でも見られ、ひろばに表示されます": "When public, anyone can see this work list, and it appears in Discover.",
-  "公開すると、Tier 表が誰でも見られ、ひろばに表示されます": "When public, anyone can see this tier list, and it appears in Discover.",
-  "公開を切り替えられる作品リスト・Tier 表はまだありません": "You don't have any work lists or tier lists to configure yet.",
-  "共有 URL を発行した作品リスト・Tier 表は、非公開でも URL を知る人が見られます": "Anyone with a share URL can still see a work list or tier list even when it is private.",
-  "公開設定の取得に失敗しました": "Couldn't load visibility settings.",
+  "プロフィールと名刺": "Profile and card",
+  "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります": "When public, your card is listed under \"Discover\" in Discover, and anyone can see your profile through its share link and your card's public image. When private, none of these are visible.",
   "公開設定を更新しました": "Visibility settings updated.",
   "公開設定の更新に失敗しました": "Couldn't update visibility settings."
 }

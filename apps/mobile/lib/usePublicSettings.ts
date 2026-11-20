@@ -1,147 +1,42 @@
 import { useState } from "react";
-import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
-import { useWorkLists, useSaveWorkList } from "@/lib/workList/useWorkLists";
-import { useMergedTierLists } from "@/lib/tierList/useMergedTierLists";
-import { useSaveTierList } from "@/lib/tierList/useTierList";
-import { useSaveCharacterTierList } from "@/lib/tierList/useCharacterTierList";
-import { useSaveCustomTierList } from "@/lib/tierList/useCustomTierList";
-import { parseTiersJson } from "@/lib/tierList/board";
-import type {
-  PublicSettingItem,
-  PublicSettingKind,
-} from "@/components/profile/PublicSettingsSection";
+import type { PublicSettingVisibility } from "@/components/profile/PublicSettingsSection";
 
+// プロフィール画面の「公開設定」セクション（issue #604）の現在値と
+// 切り替えの保存。一覧に行を足すときは key ごとの保存先をここに分岐させる。
 export function usePublicSettings() {
-  const { getToken } = useAuth();
   const profile = useProfile();
-  const workLists = useWorkLists();
-  const tierLists = useMergedTierLists();
   const updateProfile = useUpdateProfile();
-  const saveWork = useSaveWorkList();
-  const saveSeason = useSaveTierList();
-  const saveCharacter = useSaveCharacterTierList();
-  const saveCustom = useSaveCustomTierList();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  const items: PublicSettingItem[] = [
-    ...(workLists.data ?? []).map((item) => ({
-      key: `work-${item.id}`,
-      kind: "work" as const,
-      id: String(item.id),
-      title: item.title,
-      isPublic: item.isPublic,
-    })),
-    ...tierLists.items.map(({ key, kind, id, title, isPublic }) => ({
-      key,
-      kind,
-      id,
-      title,
-      isPublic,
-    })),
-  ];
+  // 「プロフィールと名刺」行は users.is_public の 2 段階（公開／非公開）。
+  // 未取得時は API 側の既定（公開）に合わせる。
+  const profileVisibility: PublicSettingVisibility =
+    profile.data?.isPublic === false ? "private" : "public";
 
-  async function toggle(
-    kind: PublicSettingKind,
-    id: string,
-    isPublic: boolean,
-  ) {
+  async function toggle(key: string, visibility: PublicSettingVisibility) {
     if (pendingKey) return;
-    setPendingKey(`${kind}-${id}`);
+    setPendingKey(key);
     try {
-      if (kind === "profile") {
-        await updateProfile.mutateAsync({ isPublic });
-        return;
-      }
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const headers = { Authorization: `Bearer ${token}` };
-      if (kind === "work") {
-        const response = await apiClient.me["work-lists"][":id"].$get(
-          { param: { id } },
-          { headers },
-        );
-        if (!response.ok) throw new Error("作品リストの取得に失敗しました");
-        const detail = await response.json();
-        await saveWork.mutateAsync({
-          id: Number(id),
-          title: detail.title,
-          description: detail.description,
-          isPublic,
-          items: detail.items.map(({ annictWorkId }) => ({ annictWorkId })),
-        });
-      } else if (kind === "season") {
-        const response = await apiClient.me["tier-lists"][":season"].$get(
-          { param: { season: id } },
-          { headers },
-        );
-        if (!response.ok) throw new Error("Tier 表の取得に失敗しました");
-        const detail = await response.json();
-        const tiers = parseTiersJson(detail.tiersJson);
-        if (!tiers) throw new Error("Tier 表の取得に失敗しました");
-        await saveSeason.mutateAsync({
-          season: id,
-          title: detail.title,
-          description: detail.description,
-          isPublic,
-          tiers,
-          items: detail.items.map(({ annictWorkId, tierKey }) => ({
-            annictWorkId,
-            tierKey,
-          })),
-        });
-      } else if (kind === "character") {
-        const response = await apiClient.me["character-tier-lists"][
-          ":annictWorkId"
-        ].$get({ param: { annictWorkId: id } }, { headers });
-        if (!response.ok) throw new Error("Tier 表の取得に失敗しました");
-        const detail = await response.json();
-        const tiers = parseTiersJson(detail.tiersJson);
-        if (!tiers) throw new Error("Tier 表の取得に失敗しました");
-        await saveCharacter.mutateAsync({
-          annictWorkId: Number(id),
-          title: detail.title,
-          description: detail.description,
-          isPublic,
-          tiers,
-          items: detail.items.map(({ annictCharacterId, tierKey }) => ({
-            annictCharacterId,
-            tierKey,
-          })),
+      if (key === "profile") {
+        const current = profile.data;
+        if (!current) throw new Error("プロフィールが未取得です");
+        // PUT /me/profile は未送信の項目を消す（bio / favoriteQuote は
+        // null、username は Clerk ID に戻る）ため、公開範囲の切り替えでも
+        // 取得済みの値を全部送る。
+        await updateProfile.mutateAsync({
+          username: current.username,
+          bio: current.bio ?? undefined,
+          favoriteQuote: current.favoriteQuote ?? undefined,
+          isPublic: visibility === "public",
         });
       } else {
-        const response = await apiClient.me["custom-tier-lists"][":id"].$get(
-          { param: { id } },
-          { headers },
-        );
-        if (!response.ok) throw new Error("Tier 表の取得に失敗しました");
-        const detail = await response.json();
-        const tiers = parseTiersJson(detail.tiersJson);
-        if (!tiers) throw new Error("Tier 表の取得に失敗しました");
-        await saveCustom.mutateAsync({
-          id: Number(id),
-          title: detail.title,
-          description: detail.description,
-          isPublic,
-          tiers,
-          items: detail.items.map(({ annictWorkId, tierKey }) => ({
-            annictWorkId,
-            tierKey,
-          })),
-        });
+        throw new Error(`未知の公開設定キーです: ${key}`);
       }
     } finally {
       setPendingKey(null);
     }
   }
 
-  return {
-    profilePublic: profile.data?.isPublic ?? false,
-    items,
-    isLoading: workLists.isLoading || tierLists.isLoading,
-    isError: workLists.isError || tierLists.isError,
-    pendingKey,
-    toggle,
-  };
+  return { profileVisibility, pendingKey, toggle };
 }

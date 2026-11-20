@@ -1,30 +1,30 @@
 import { Switch, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-export type PublicSettingKind =
-  | "profile"
-  | "work"
-  | "season"
-  | "character"
-  | "custom";
+// 公開範囲の語彙はイベント参加の公開範囲（issue #440 の
+// public / friends / private）に揃える。いまある 2 段階の行は
+// "public" / "private" だけを取り、SNS リンクの 3 段階の行
+// （交換した相手だけ = friends、#637 テーマ D）を足すときも同じ型を使う。
+export type PublicSettingVisibility = "public" | "friends" | "private";
+
+// 「公開設定」セクションの 1 行。行を足すときは呼び出し側がこの配列の
+// 項目を増やす。現在の行はすべて 2 段階でスイッチを出すため、3 段階の
+// 行を足すときは VisibilityRow に選択式の操作部品を追加する。
 export type PublicSettingItem = {
   key: string;
-  kind: Exclude<PublicSettingKind, "profile">;
-  id: string;
-  title: string;
-  isPublic: boolean;
+  label: string;
+  description: string;
+  visibility: PublicSettingVisibility;
 };
 
 export function PublicSettingsSection({
-  profilePublic,
   items,
   pendingKey,
-  onToggle,
+  onChange,
 }: {
-  profilePublic: boolean;
   items: PublicSettingItem[];
   pendingKey: string | null;
-  onToggle: (kind: PublicSettingKind, id: string, isPublic: boolean) => void;
+  onChange: (key: string, visibility: PublicSettingVisibility) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -32,76 +32,45 @@ export function PublicSettingsSection({
       <Text className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">
         {t("公開設定")}
       </Text>
-      <VisibilityRow
-        label={t("名刺・プロフィール")}
-        description={t(
-          "公開すると、名刺とプロフィールが誰でも見られ、ひろばに表示されます",
-        )}
-        value={profilePublic}
-        disabled={pendingKey !== null}
-        testID="visibility-profile"
-        onChange={(value) => onToggle("profile", "", value)}
-      />
       {items.map((item) => (
         <VisibilityRow
           key={item.key}
-          label={item.title}
-          description={
-            item.kind === "work"
-              ? t("公開すると、作品リストが誰でも見られ、ひろばに表示されます")
-              : t("公開すると、Tier 表が誰でも見られ、ひろばに表示されます")
-          }
-          value={item.isPublic}
+          item={item}
           disabled={pendingKey !== null}
-          testID={`visibility-${item.key}`}
-          onChange={(value) => onToggle(item.kind, item.id, value)}
+          onChange={onChange}
         />
       ))}
-      {items.length === 0 ? (
-        <Text className="text-sm text-slate-500 dark:text-slate-400">
-          {t("公開を切り替えられる作品リスト・Tier 表はまだありません")}
-        </Text>
-      ) : null}
-      <Text className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-        {t(
-          "共有 URL を発行した作品リスト・Tier 表は、非公開でも URL を知る人が見られます",
-        )}
-      </Text>
     </View>
   );
 }
 
 function VisibilityRow({
-  label,
-  description,
-  value,
+  item,
   disabled,
-  testID,
   onChange,
 }: {
-  label: string;
-  description: string;
-  value: boolean;
+  item: PublicSettingItem;
   disabled: boolean;
-  testID: string;
-  onChange: (value: boolean) => void;
+  onChange: (key: string, visibility: PublicSettingVisibility) => void;
 }) {
   return (
     <View className="mb-2 flex-row items-center rounded-xl bg-white dark:bg-slate-900 px-4 py-3">
       <View className="mr-3 flex-1">
         <Text className="font-medium text-slate-900 dark:text-slate-100">
-          {label}
+          {item.label}
         </Text>
         <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          {description}
+          {item.description}
         </Text>
       </View>
       <Switch
-        value={value}
+        value={item.visibility === "public"}
         disabled={disabled}
-        onValueChange={onChange}
-        testID={testID}
-        accessibilityLabel={label}
+        onValueChange={(value) =>
+          onChange(item.key, value ? "public" : "private")
+        }
+        testID={`visibility-${item.key}`}
+        accessibilityLabel={item.label}
       />
     </View>
   );
