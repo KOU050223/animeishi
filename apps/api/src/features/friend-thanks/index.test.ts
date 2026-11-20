@@ -499,6 +499,65 @@ describe("名刺交換後のお礼 API（issue #694）", () => {
       const list = (await (await getThanks(app)).json()) as ThanksListBody;
       expect(list.received).toHaveLength(1);
     });
+
+    it("取り消し済みのお礼を再度取り消すと 404（冪等にはしない）", async () => {
+      const app = buildApp();
+      await makeFriends(db);
+      const created = (await (await postThanks(app, USER_B)).json()) as {
+        id: number;
+      };
+      await app.request(
+        `/me/friend-thanks/${created.id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      const res = await app.request(
+        `/me/friend-thanks/${created.id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("取り消しても同日は再送できない（論理削除で 1 日 1 通を維持する）", async () => {
+      const app = buildApp();
+      await makeFriends(db);
+      const created = (await (await postThanks(app, USER_B)).json()) as {
+        id: number;
+      };
+      await app.request(
+        `/me/friend-thanks/${created.id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      // 取り消した直後の再送は「今日すでに送っている」扱いにする。
+      // 物理削除だとこのチェックをすり抜けて同日再送できてしまう。
+      const res = await postThanks(app, USER_B);
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("daily_limit");
+    });
+
+    it("取り消すと送り手の sent 一覧からも消え、行は deleted_at だけが立って残る", async () => {
+      const app = buildApp();
+      await makeFriends(db);
+      const created = (await (await postThanks(app, USER_B)).json()) as {
+        id: number;
+      };
+      await app.request(
+        `/me/friend-thanks/${created.id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      const list = (await (await getThanks(app)).json()) as ThanksListBody;
+      expect(list.sent).toHaveLength(0);
+      const rows = await db.select().from(friendThanksTable);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.deletedAt).not.toBeNull();
+    });
   });
 
   describe("寿命（解除・ブロック・退会で消える）", () => {

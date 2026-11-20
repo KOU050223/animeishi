@@ -41,6 +41,8 @@ let mockRequestsData: {
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
+  // フォーカス復帰の再取得（issue #694）。効果自体はここでは見ない。
+  useFocusEffect: () => {},
 }));
 
 // MeishiCard が Gesture を import するため、ネイティブモジュールを読まない
@@ -127,6 +129,7 @@ jest.mock("@/lib/useExchangeRecords", () => ({
 let mockUnreadThanksCount = 0;
 jest.mock("@/lib/useFriendThanks", () => ({
   useUnreadThanksCount: () => mockUnreadThanksCount,
+  useFriendThanks: () => ({ refetch: jest.fn() }),
 }));
 
 jest.mock("@/lib/dialog", () => ({

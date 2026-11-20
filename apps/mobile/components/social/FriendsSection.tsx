@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,13 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useExchangeRecords } from "@/lib/useExchangeRecords";
-import { useUnreadThanksCount } from "@/lib/useFriendThanks";
+import { useFriendThanks, useUnreadThanksCount } from "@/lib/useFriendThanks";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
@@ -56,6 +56,7 @@ export function FriendsSection() {
   // 届いたお礼の未読（issue #694）。未読があるときだけ上部に 1 行出し、
   // 押すと届いたお礼の一覧へ。カードには印を付けない（静かに保つ）。
   const unreadThanksCount = useUnreadThanksCount();
+  const { refetch: refetchThanks } = useFriendThanks();
   const received = friendRequests?.received ?? [];
   const sent = friendRequests?.sent ?? [];
   const remove = useRemoveFriend();
@@ -65,6 +66,14 @@ export function FriendsSection() {
     router.push({ pathname: "/user/[uid]", params: { uid: userId } });
   }
 
+  // 届いたお礼の未読はフォーカス復帰のたびに取り直す。新しいお礼が
+  // 届いていても気づけるようにする（issue #694）。
+  useFocusEffect(
+    useCallback(() => {
+      void refetchThanks();
+    }, [refetchThanks]),
+  );
+
   function onRefresh() {
     setRefreshing(true);
     // refetch が失敗してもインジケータは必ず戻す。React Compiler が
@@ -73,6 +82,7 @@ export function FriendsSection() {
       refetch(),
       refetchRequests(),
       refetchRecords(),
+      refetchThanks(),
     ]).finally(() => {
       setRefreshing(false);
     });

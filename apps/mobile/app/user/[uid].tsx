@@ -166,6 +166,9 @@ export default function PublicProfilePage() {
             {/* 公開プロフィールが 404 の相手でも、本人の交換記録は
                 名刺帳側のデータなので編集できるようにする（issue #661） */}
             <ExchangeRecordSection uid={uid} />
+            {/* お礼も同様にフレンド宛の機能なので、プロフィールが
+                非公開でも送信・届いた分の表示を出す（issue #694） */}
+            <FriendThanksSection uid={uid} />
           </ScrollView>
         </SafeAreaView>
       );

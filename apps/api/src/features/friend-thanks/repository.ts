@@ -92,7 +92,14 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
           })
           .from(friendThanks)
           .innerJoin(users, eq(users.id, friendThanks.senderId))
-          .where(eq(friendThanks.recipientId, currentUserId))
+          .where(
+            and(
+              eq(friendThanks.recipientId, currentUserId),
+              // 送り手が取り消した分は一覧に出さない（行は 1 日 1 通の
+              // 判定のため残す）。
+              isNull(friendThanks.deletedAt),
+            ),
+          )
           .orderBy(desc(friendThanks.createdAt)),
         db
           .select({
@@ -106,7 +113,12 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
           })
           .from(friendThanks)
           .innerJoin(users, eq(users.id, friendThanks.recipientId))
-          .where(eq(friendThanks.senderId, currentUserId))
+          .where(
+            and(
+              eq(friendThanks.senderId, currentUserId),
+              isNull(friendThanks.deletedAt),
+            ),
+          )
           .orderBy(desc(friendThanks.createdAt)),
       ]);
       return { received, sent };
@@ -182,20 +194,25 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
     },
 
     /**
-     * 送ったお礼を取り消す。送り手本人の行だけを消し、受け手のお礼や
+     * 送ったお礼を取り消す。送り手本人の行だけを対象にし、受け手のお礼や
      * 他人のお礼は FriendThanksNotFoundError にする（存在も漏らさない）。
+     * 取り消しは論理削除（deleted_at を立てる）。物理削除すると
+     * 「取り消して再送」で 1 日 1 通の NOT EXISTS 判定をすり抜けられる
+     * ため、行は残して一覧から隠すだけにする（Devin Review 指摘）。
      */
     async remove(thanksId: number): Promise<void> {
-      const deleted = await db
-        .delete(friendThanks)
+      const updated = await db
+        .update(friendThanks)
+        .set({ deletedAt: new Date() })
         .where(
           and(
             eq(friendThanks.id, thanksId),
             eq(friendThanks.senderId, currentUserId),
+            isNull(friendThanks.deletedAt),
           ),
         )
         .returning({ id: friendThanks.id });
-      if (deleted.length === 0) {
+      if (updated.length === 0) {
         throw new FriendThanksNotFoundError(thanksId);
       }
     },
@@ -214,6 +231,8 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
             eq(friendThanks.recipientId, currentUserId),
             friendId ? eq(friendThanks.senderId, friendId) : undefined,
             isNull(friendThanks.readAt),
+            // 取り消し済みは一覧に出ないため既読化の対象にしない。
+            isNull(friendThanks.deletedAt),
           ),
         );
     },

@@ -526,6 +526,11 @@ export const friendThanks = sqliteTable(
     // 受け手が開いた時刻。受け手側の未読表示にだけ使い、送り手には
     // 返さない（issue #694「既読を送り手に見せない」）。
     readAt: integer("read_at", { mode: "timestamp" }),
+    // 送り手の取り消し時刻（論理削除）。物理削除すると「取り消して
+    // 再送」で 1 日 1 通をすり抜けられるため、取り消しは一覧から隠す
+    // だけで行は残し、同日判定にも数える。解除・ブロック・退会時の
+    // 当事者削除は物理削除のまま（deleteFriendThanksBetween 等）。
+    deletedAt: integer("deleted_at", { mode: "timestamp" }),
   },
   (t) => [
     index("friend_thanks_recipient_idx").on(t.recipientId),

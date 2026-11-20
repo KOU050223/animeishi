@@ -149,6 +149,7 @@ const DDL_STATEMENTS = [
     body TEXT,
     created_at INTEGER NOT NULL,
     read_at INTEGER,
+    deleted_at INTEGER,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
