@@ -222,4 +222,33 @@ describe("ExchangeSuccessOverlay", () => {
 
     expect(screen.queryByTestId("exchange-success-show-my-qr")).toBeNull();
   });
+
+  it("onSendThanks を渡すと「お礼を送る」を出し、押すと呼ばれる（issue #694）", async () => {
+    const onSendThanks = jest.fn();
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay
+        uid="user_partner"
+        onClose={mockOnClose}
+        onSendThanks={onSendThanks}
+      />,
+      { wrapper },
+    );
+
+    await fireEvent.press(screen.getByTestId("exchange-success-thanks-button"));
+
+    // 送信シートの開閉は呼び出し側が持つので、オーバーレイ自身は閉じない。
+    expect(onSendThanks).toHaveBeenCalledTimes(1);
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it("onSendThanks を渡さないとき「お礼を送る」は出さない", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay uid="user_partner" onClose={mockOnClose} />,
+      { wrapper },
+    );
+
+    expect(screen.queryByTestId("exchange-success-thanks-button")).toBeNull();
+  });
 });

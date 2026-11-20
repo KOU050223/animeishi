@@ -2,6 +2,7 @@
 // OK を押すまで消えないダイアログで必ず通知することを確認する。
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -39,8 +40,14 @@ let mockRequestsData: {
   sent: MockRequestItem[];
 } = { received: [], sent: [] };
 
+// フォーカス復帰時に実行されるコールバック。テストから直接呼んで
+// 再取得の配線を見る（issue #694）。
+let mockFocusCallback: (() => void) | undefined;
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
+  useFocusEffect: (cb: () => void) => {
+    mockFocusCallback = cb;
+  },
 }));
 
 // MeishiCard が Gesture を import するため、ネイティブモジュールを読まない
@@ -123,6 +130,14 @@ jest.mock("@/lib/useExchangeRecords", () => ({
   }),
 }));
 
+// 届いたお礼の未読件数（issue #694）。既定は 0（未読バナーなし）。
+let mockUnreadThanksCount = 0;
+const mockThanksRefetch = jest.fn();
+jest.mock("@/lib/useFriendThanks", () => ({
+  useUnreadThanksCount: () => mockUnreadThanksCount,
+  useFriendThanks: () => ({ refetch: mockThanksRefetch }),
+}));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -141,6 +156,8 @@ beforeEach(async () => {
   mockRequestsData = { received: [], sent: [] };
   mockFriendsData = [mockFriend];
   mockExchangeRecordsData = [];
+  mockUnreadThanksCount = 0;
+  mockFocusCallback = undefined;
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
@@ -337,5 +354,43 @@ describe("FriendsSection", () => {
     // 同じチップを再度押すと絞り込み解除
     await fireEvent.press(screen.getByLabelText("コミックマーケット"));
     expect(screen.queryByLabelText("友達Bをフレンドから削除")).toBeTruthy();
+  });
+
+  it("届いたお礼の未読があると上部に「新しいお礼が N 件」を出し、押すと届いたお礼一覧へ進む（issue #694）", async () => {
+    mockUnreadThanksCount = 2;
+    await render(<FriendsSection />);
+
+    const banner = screen.getByTestId("unread-thanks-banner");
+    expect(screen.getByText("新しいお礼が 2 件")).toBeTruthy();
+    await fireEvent.press(banner);
+    expect(mockPush).toHaveBeenCalledWith("/thanks");
+  });
+
+  it("届いたお礼の未読が 0 なら未読の 1 行は出さない（issue #694）", async () => {
+    await render(<FriendsSection />);
+
+    expect(screen.queryByTestId("unread-thanks-banner")).toBeNull();
+  });
+
+  it("プル更新とフォーカス復帰で届いたお礼を再取得する（issue #694）", async () => {
+    await render(<FriendsSection />);
+
+    // RNTL 14 では UNSAFE_getByType が無いため、onRefresh を持つ
+    // ホスト要素（RefreshControl）を探して発火させる
+    // （ActivityFeedSection.test.tsx と同じ手法）。
+    const refreshControl = screen.container.queryAll(
+      (node) =>
+        typeof node.type === "string" &&
+        typeof node.props?.onRefresh === "function",
+    )[0];
+    await act(async () => {
+      refreshControl.props.onRefresh();
+    });
+    expect(mockThanksRefetch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      mockFocusCallback?.();
+    });
+    expect(mockThanksRefetch).toHaveBeenCalledTimes(2);
   });
 });

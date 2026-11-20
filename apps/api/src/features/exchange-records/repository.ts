@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import { events, exchangeRecords } from "@/db/schema";
 import type { ExchangeRecord, ExchangeRecordSource } from "@/db/schema";
+import { jstDayRange } from "@/lib/jst";
 import { copyPublicCardSnapshot } from "./cardSnapshot";
 
 /** 記録が存在しない、または呼び出し側の記録ではないときに投げる。ルート層で 404 に変換する。 */
@@ -131,20 +132,6 @@ async function resolveRecordEventName(
   });
   if (!event) throw new EventNotFoundError(input.eventSlug);
   return event.title;
-}
-
-// JST（Asia/Tokyo）は常に UTC+9 で夏時間がないため、固定オフセットで
-// 暦日を取れる。UTC の暦日でまとめると JST 9:00 に日付が切り替わり、
-// 同じ午前のイベント内での再交換が別日に分かれてしまう（issue #662）。
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/** metAt が収まる日本時間（UTC+9）の暦日範囲（同日判定用）。 */
-function jstDayRange(metAt: Date): { start: Date; end: Date } {
-  const shifted = new Date(metAt.getTime() + JST_OFFSET_MS);
-  shifted.setUTCHours(0, 0, 0, 0);
-  const start = new Date(shifted.getTime() - JST_OFFSET_MS);
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return { start, end };
 }
 
 /**

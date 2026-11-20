@@ -48,6 +48,13 @@ export type ExchangeSuccessOverlayProps = {
    */
   onShowMyQr?: () => void;
   /**
+   * 「お礼を送る」ボタンを出すときに渡す（issue #694）。
+   * 押すとオーバーレイを閉じて呼び出し側の送信シートを開く。
+   * オーバーレイの Modal 内に別の Modal を重ねないため、シートの
+   * 表示状態は呼び出し側が持つ（onRecordPress と同じやり方）。
+   */
+  onSendThanks?: () => void;
+  /**
    * この相手との交換記録の件数。「◯回目」の表示に使う（issue #662）。
    * 申請→承認など初回交換しかあり得ない呼び出しでは 1 を渡す。
    */
@@ -125,6 +132,7 @@ export function ExchangeSuccessOverlay({
   showProfileLink = true,
   onRecordPress,
   onShowMyQr,
+  onSendThanks,
   meetingCount,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
@@ -244,6 +252,19 @@ export function ExchangeSuccessOverlay({
               >
                 <Text className="text-white font-semibold">
                   {t("出会いを記録する")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {onSendThanks ? (
+              <TouchableOpacity
+                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
+                onPress={onSendThanks}
+                accessibilityRole="button"
+                accessibilityLabel={t("お礼を送る")}
+                testID="exchange-success-thanks-button"
+              >
+                <Text className="text-white font-semibold">
+                  {t("お礼を送る")}
                 </Text>
               </TouchableOpacity>
             ) : null}

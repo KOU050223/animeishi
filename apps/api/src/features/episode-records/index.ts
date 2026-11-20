@@ -41,10 +41,15 @@ export async function ensureAnnictWork(
   worksRepo: ReturnType<typeof worksRepository>,
   token: string,
   annictWorkId: number,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<NewAnnictWork | null> {
   const cached = await worksRepo.getAnnictWorkById(annictWorkId);
   if (cached) return null;
-  const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+  const resolved = await fetchAnnictWorkByAnnictId(
+    token,
+    annictWorkId,
+    fetchImpl,
+  );
   if (!resolved) return null;
   return {
     annictWorkId: resolved.annictWorkId,

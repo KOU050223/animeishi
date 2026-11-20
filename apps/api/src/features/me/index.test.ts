@@ -20,6 +20,7 @@ import {
   favorites,
   friends,
   friendNotes,
+  friendThanks,
   reports,
   tierListItems,
   tierLists,
@@ -1110,6 +1111,23 @@ describe("DELETE /me（アカウント削除）", () => {
         updatedAt: now,
       },
     ]);
+    // お礼（issue #694）も「自分 → 相手」「相手 → 自分」両方を作る。
+    await db.insert(friendThanks).values([
+      {
+        senderId: USER_ID,
+        recipientId: OTHER_ID,
+        presetKey: "thanks_for_card",
+        body: "自分が送ったお礼",
+        createdAt: now,
+      },
+      {
+        senderId: OTHER_ID,
+        recipientId: USER_ID,
+        presetKey: "enjoyed_talking",
+        body: "相手から届いたお礼",
+        createdAt: now,
+      },
+    ]);
     await db.insert(userGenres).values([
       { userId: USER_ID, genre: "SF" },
       { userId: OTHER_ID, genre: "日常" },
@@ -1273,6 +1291,18 @@ describe("DELETE /me（アカウント削除）", () => {
           or(
             eq(exchangeRecords.ownerId, USER_ID),
             eq(exchangeRecords.friendId, USER_ID),
+          ),
+        ),
+    ).toHaveLength(0);
+    // friend_thanks も両方向が消える（issue #694、退会時は全消去）
+    expect(
+      await db
+        .select()
+        .from(friendThanks)
+        .where(
+          or(
+            eq(friendThanks.senderId, USER_ID),
+            eq(friendThanks.recipientId, USER_ID),
           ),
         ),
     ).toHaveLength(0);

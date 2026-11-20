@@ -345,9 +345,16 @@ export default function DanimeImportReviewScreen() {
   }
 
   const checkedCount = rows?.filter((r) => r.checked && r.selected).length ?? 0;
+  // same_state（Annict に同じ状態で登録済み）は作品登録の既定チェックが
+  // 外れているが、話の記録は対象にする。チェック済み作品だけだと
+  // Annict 利用者の大半の話がジョブに載らない（issue #691）。
+  // ユーザーが既定チェックを自分で外した作品は checked/note とも対象外のまま。
   const episodeWorks: DanimeEpisodeJobWorkInput[] = (rows ?? [])
     .filter(
-      (r) => r.item.status === "exact" && r.selected && (r.checked || r.locked),
+      (r) =>
+        r.item.status === "exact" &&
+        r.selected &&
+        (r.checked || r.locked || r.note?.kind === "same_state"),
     )
     .map((r) => ({
       danimeWorkId: r.item.danimeWorkId,

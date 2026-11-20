@@ -20,6 +20,12 @@ import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { FriendThanksSection } from "@/components/social/FriendThanksSection";
+import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
+import {
+  useSendFriendThanks,
+  type ThanksPresetKey,
+} from "@/lib/useFriendThanks";
 import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
@@ -160,6 +166,9 @@ export default function PublicProfilePage() {
             {/* 公開プロフィールが 404 の相手でも、本人の交換記録は
                 名刺帳側のデータなので編集できるようにする（issue #661） */}
             <ExchangeRecordSection uid={uid} />
+            {/* お礼も同様にフレンド宛の機能なので、プロフィールが
+                非公開でも送信・届いた分の表示を出す（issue #694） */}
+            <FriendThanksSection uid={uid} />
           </ScrollView>
         </SafeAreaView>
       );
@@ -199,12 +208,21 @@ export default function PublicProfilePage() {
           meetingCount={1}
           onClose={friendActions.dismissExchange}
           onRecordPress={friendActions.openRecordSheet}
+          onSendThanks={friendActions.openThanksSheet}
         />
       ) : null}
       {friendActions.recordSheetVisible && uid ? (
         <PostExchangeRecordSheet
           uid={uid}
           onClose={friendActions.closeRecordSheet}
+        />
+      ) : null}
+      {friendActions.thanksSheetVisible && uid ? (
+        <FriendThanksSheet
+          visible
+          sending={friendActions.isSendingThanks}
+          onClose={friendActions.closeThanksSheet}
+          onSubmit={friendActions.sendThanks}
         />
       ) : null}
       <ScrollView className="flex-1">
@@ -248,6 +266,10 @@ export default function PublicProfilePage() {
 
           {/* 出会いの記録（issue #661）。本人の名刺帳にだけ残る */}
           {relation.isFriend ? <ExchangeRecordSection uid={uid} /> : null}
+
+          {/* 名刺交換のお礼（issue #694）。届いたお礼の表示と送信。
+              フレンド以外には送れないので詳細にだけ出す */}
+          {relation.isFriend ? <FriendThanksSection uid={uid} /> : null}
 
           {canModerate ? (
             <ModerationSection
@@ -343,6 +365,25 @@ function useFriendActions({
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
   // 交換直後の任意シート（issue #661）。成立演出を閉じてから開く。
   const [recordSheetVisible, setRecordSheetVisible] = useState(false);
+  // 交換直後のお礼シート（issue #694）。成立演出を閉じてから開く。
+  const [thanksSheetVisible, setThanksSheetVisible] = useState(false);
+  const sendThanksMutation = useSendFriendThanks();
+
+  function sendThanks(presetKey: ThanksPresetKey, body: string | null) {
+    if (!uid) return;
+    sendThanksMutation.mutate(
+      { friendId: uid, presetKey, body },
+      {
+        onSuccess: () => setThanksSheetVisible(false),
+        onError: (e) =>
+          alert(
+            t("お礼を送れませんでした"),
+            e instanceof Error ? e.message : t("お礼の送信に失敗しました"),
+            { okLabel: "OK" },
+          ),
+      },
+    );
+  }
 
   function send() {
     if (!uid) return;
@@ -436,6 +477,14 @@ function useFriendActions({
       setRecordSheetVisible(true);
     },
     closeRecordSheet: () => setRecordSheetVisible(false),
+    thanksSheetVisible,
+    openThanksSheet: () => {
+      setExchangeUid(null);
+      setThanksSheetVisible(true);
+    },
+    closeThanksSheet: () => setThanksSheetVisible(false),
+    sendThanks,
+    isSendingThanks: sendThanksMutation.isPending,
     send,
     accept,
     deleteReceived,
