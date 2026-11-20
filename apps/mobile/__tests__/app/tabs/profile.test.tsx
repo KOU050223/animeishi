@@ -131,6 +131,10 @@ jest.mock("@/lib/usePublicSettings", () => ({
   }),
 }));
 
+jest.mock("@/lib/socialLinks", () => ({
+  useSocialLinks: () => ({ data: { items: [] } }),
+}));
+
 jest.mock("@/lib/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),

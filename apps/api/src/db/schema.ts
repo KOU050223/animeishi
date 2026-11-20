@@ -62,6 +62,25 @@ export const users = sqliteTable(
   ],
 );
 
+export const socialLinks = sqliteTable(
+  "social_links",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", {
+      enum: ["x", "pixiv", "fanbox", "dlsite", "dmm", "youtube", "other"],
+    }).notNull(),
+    value: text("value").notNull(),
+    visibility: text("visibility", { enum: ["public", "friends", "private"] })
+      .notNull()
+      .default("friends"),
+    position: integer("position").notNull(),
+  },
+  (t) => [index("social_links_user_position_idx").on(t.userId, t.position)],
+);
+
 // ---- annict_works (Annict 作品キャッシュ) ----
 export const annictWorks = sqliteTable("annict_works", {
   annictWorkId: integer("annict_work_id").primaryKey(), // Annict の annictId をそのまま主キー

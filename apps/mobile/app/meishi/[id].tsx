@@ -21,6 +21,8 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { useProfile } from "@/lib/useProfile";
 import { useThemeColors } from "@/lib/theme";
+import { useSocialLinks } from "@/lib/socialLinks";
+import { SocialLinksList } from "@/components/profile/SocialLinksList";
 import type { ThemeColors } from "@/lib/theme";
 
 /**
@@ -35,6 +37,7 @@ export default function MeishiViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cards, loaded, reload } = useMeishiLibrary();
   const { data: profile } = useProfile();
+  const { data: socialLinks } = useSocialLinks();
 
   // 編集画面から戻ってきたときに保存済みの最新デザインを反映する
   useFocusEffect(
@@ -100,6 +103,7 @@ export default function MeishiViewerScreen() {
               zoomable
             />
           </View>
+          <SocialLinksList links={socialLinks?.items ?? []} />
         </View>
       ) : (
         <View style={[styles.center, { padding: 24 }]}>

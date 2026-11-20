@@ -10,6 +10,7 @@ import {
   EVENT_PARTICIPANTS_QUERY_KEY,
 } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
+import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
@@ -54,6 +55,9 @@ export function invalidateFriendRelatedQueries(
   void queryClient.invalidateQueries({
     queryKey: EVENT_PARTICIPANTS_QUERY_KEY,
   });
+  // 公開プロフィールに載る SNS リンクの可視範囲は閲覧者とのフレンド関係で
+  // 変わる（issue #658）ため、全プロフィール分を prefix で無効化する。
+  void queryClient.invalidateQueries({ queryKey: PUBLIC_PROFILE_QUERY_KEY });
 }
 
 async function getAuthHeaders(

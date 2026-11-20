@@ -164,7 +164,7 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
   it("記録が settle すると本人のプロフィール系クエリも無効化する", async () => {
     client.setQueryData(queryKey, seedEpisodes());
     const profileKey = [...PROFILE_QUERY_KEY, USER_ID];
-    const publicProfileKey = publicProfileQueryKey(USER_ID);
+    const publicProfileKey = publicProfileQueryKey(USER_ID, USER_ID);
     client.setQueryData(profileKey, {});
     client.setQueryData(publicProfileKey, {});
     mockPut.mockResolvedValue({
@@ -189,7 +189,7 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
   it("解除が settle すると本人のプロフィール系クエリも無効化する", async () => {
     client.setQueryData(queryKey, seedEpisodes());
     const profileKey = [...PROFILE_QUERY_KEY, USER_ID];
-    const publicProfileKey = publicProfileQueryKey(USER_ID);
+    const publicProfileKey = publicProfileQueryKey(USER_ID, USER_ID);
     client.setQueryData(profileKey, {});
     client.setQueryData(publicProfileKey, {});
     mockDelete.mockResolvedValue({

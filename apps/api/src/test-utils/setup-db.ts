@@ -2,6 +2,17 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "@/db/schema";
 
 const DDL_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS social_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    value TEXT NOT NULL,
+    visibility TEXT DEFAULT 'friends' NOT NULL,
+    position INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT social_links_visibility_check CHECK (visibility IN ('public', 'friends', 'private'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS social_links_user_position_idx ON social_links (user_id, position)`,
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY NOT NULL,
     username TEXT NOT NULL,
@@ -465,6 +476,7 @@ export async function setupTestDb(d1: D1Database) {
   const db = drizzle(d1, { schema });
   // テスト間でデータをリセット（外部キー制約のある順番で削除）
   await d1.prepare("DELETE FROM deleted_users").run();
+  await d1.prepare("DELETE FROM social_links").run();
   await d1.prepare("DELETE FROM analyses").run();
   await d1.prepare("DELETE FROM recommendations").run();
   await d1.prepare("DELETE FROM reports").run();
