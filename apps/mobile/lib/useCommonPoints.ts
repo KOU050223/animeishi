@@ -1,9 +1,15 @@
 import { useAuth } from "@clerk/expo";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
 export const COMMON_POINTS_QUERY_KEY = ["common-points"] as const;
+
+export function invalidateCommonPoints(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({
+    queryKey: COMMON_POINTS_QUERY_KEY,
+  });
+}
 
 export function useCommonPoints(uid: string, enabled = true) {
   const { getToken, isSignedIn, userId } = useAuth();

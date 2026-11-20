@@ -15,6 +15,7 @@ import {
   WATCH_HISTORY_WRITE_SCOPE,
 } from "@/lib/watchHistoryKey";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
+import { invalidateCommonPoints } from "@/lib/useCommonPoints";
 
 type WatchHistoriesResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["$get"],
@@ -85,6 +86,9 @@ export function useWatchHistory() {
       void queryClient.invalidateQueries({
         queryKey: ACHIEVEMENTS_QUERY_KEY,
       });
+      // 同期される D1 の履歴は共通点（視聴済み数・一緒に視聴中）の入力でも
+      // あるため、共通点クエリも無効化する。
+      invalidateCommonPoints(queryClient);
       // 詳細シートの state は別経路（viewerStatusState 直取り）で
       // キャッシュされ、同期後の履歴と食い違ったまま staleTime いっぱい
       // 残りうる。食い違うキャッシュだけ無効化して、画面間で
@@ -197,6 +201,7 @@ export function useUpsertWatchHistory() {
         (error as UpsertWatchHistoryError).rolledBack = rolledBack;
       }
     },
+    onSuccess: () => invalidateCommonPoints(queryClient),
     onSettled: (_data, _error, { annictWorkId }) => {
       // 他の upsert が残っている間は再取得しない。残っている間に refetch
       // するとまだ PUT 未反映のサーバー状態でキャッシュ全体が上書きされ、
@@ -296,6 +301,7 @@ export function useDeleteWatchHistory() {
         (error as UpsertWatchHistoryError).rolledBack = stillMissing;
       }
     },
+    onSuccess: () => invalidateCommonPoints(queryClient),
     onSettled: (_data, _error, annictWorkId) => {
       // 他の書き込みが残っている間は再取得しない（upsert の onSettled と同じ）。
       const pendingWrites = queryClient.isMutating({
