@@ -18,6 +18,8 @@ import {
   findUserById,
   DeletedUserError,
 } from "../users/repository";
+import { listCardSnapshotKeysForUserDeletion } from "../exchange-records/repository";
+import { EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX } from "../exchange-records/cardSnapshot";
 import { findNowWatching } from "../user/repository";
 import { nowWatchingResponse } from "../user/service";
 import { createDb } from "@/db/client";
@@ -302,24 +304,33 @@ const me = app
   })
   // アカウント削除。App Store / Google Play の審査要件（アプリ内でアカウントを
   // 作成できる場合はアプリ内からの削除導線が必須）に対応する。
-  // 削除順序は「D1 → R2 → Clerk」。Clerk を先に消すと D1 削除が失敗したときに
-  // 認証手段を失った孤立データが残り、再試行もできなくなるため D1 を先に処理する。
+  // 削除順序は「R2 → D1 → Clerk」。Clerk を先に消すと D1 削除が失敗したときに
+  // 認証手段を失った孤立データが残り、再試行もできなくなるため最後に処理する。
+  // R2 を D1 より先に消すのは、名刺コピーの対象キーが交換記録の行にしか
+  // 書かれていないため（issue #662 レビュー。D1 を先に消すと R2 削除が
+  // 失敗したとき再試行で消すべきキーをもう取得できない）。
   .openapi(deleteMeRoute, async (c) => {
     const bindings = getBindings(c);
     const userId = c.var.clerkUserId;
     const db = createDb(bindings.DB);
 
-    // ユーザー関連テーブル（watch_history / favorites / friends / user_genres /
-    // tier_lists(+items) / annict_tokens / users）を 1 batch で削除する。
-    await usersRepository(db, userId).deleteMyAccount();
+    // 消える交換記録に紐付く名刺コピー（issue #662）の R2 キーを
+    // 削除前に取る。自分の記録のコピーは自分のプレフィックス配下、
+    // 相手が自分について持つ記録のコピーは相手のプレフィックス配下に
+    // あるため、prefix 掃除だけでは消えず個別に消す。
+    const snapshotKeys = await listCardSnapshotKeysForUserDeletion(db, userId);
 
     // R2 上の画像は残ると配信 URL から取得し続けられるため、本人の
-    // プレフィックス（アバター avatars/{userId}/ と名刺アセット
-    // meishi-assets/{userId}/）のオブジェクトを全て消す。
-    // 削除自体は完了させたいので、失敗は Sentry に送るだけで握り潰す。
-    // 片方のプレフィックスの掃除が失敗してももう片方は実行できるよう、
-    // try/catch はプレフィックス単位にする。
-    for (const prefix of [`avatars/${userId}/`, `meishi-assets/${userId}/`]) {
+    // プレフィックス（アバター avatars/{userId}/・名刺アセット
+    // meishi-assets/{userId}/・名刺コピー exchange-card-snapshots/{userId}/）
+    // のオブジェクトを全て消す。
+    // 失敗時は D1 がまだ残っているためそのままエラーにし、クライアントに
+    // 再試行させる（記録行が残っていれば同じキーを再取得できる）。
+    for (const prefix of [
+      `avatars/${userId}/`,
+      `meishi-assets/${userId}/`,
+      `${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${userId}/`,
+    ]) {
       try {
         let cursor: string | undefined;
         do {
@@ -334,8 +345,23 @@ const me = app
         } while (cursor);
       } catch (err) {
         captureApiError(err, c);
+        throw err;
       }
     }
+
+    // 相手側の記録に残る自分の名刺コピー（相手のプレフィックス配下）も消す。
+    if (snapshotKeys.length > 0) {
+      try {
+        await bindings.AVATARS.delete(snapshotKeys);
+      } catch (err) {
+        captureApiError(err, c);
+        throw err;
+      }
+    }
+
+    // ユーザー関連テーブル（watch_history / favorites / friends / user_genres /
+    // tier_lists(+items) / annict_tokens / users）を 1 batch で削除する。
+    await usersRepository(db, userId).deleteMyAccount();
 
     // Clerk Backend API でユーザー本体を削除する。ここで失敗した場合、D1 側は
     // 既に削除済みだが Clerk ユーザーは残るため、クライアントは再試行できる

@@ -84,6 +84,38 @@ describe("parseDanimeExtractedLists", () => {
     expect(lists?.history[0]?.partIds).toEqual([]);
   });
 
+  it("episodes マップを検証・正規化して通す", () => {
+    const lists = parseDanimeExtractedLists({
+      completed: [],
+      history: [VALID_WORK],
+      episodes: {
+        "1": [
+          { partId: "00001", watched: true, label: "第1話", subtitle: "サブ" },
+          // label/subtitle 欠落は空文字に補完、watched の非真値は false。
+          { partId: "00002" },
+          // partId の無い要素は対応付けに使えないので落とす。
+          { watched: true },
+        ],
+        "2": "壊れた値", // 配列でない workId エントリは落とす
+      },
+      episodeFetchFailures: 2,
+    });
+    expect(lists?.episodes?.["1"]).toEqual([
+      { partId: "00001", watched: true, label: "第1話", subtitle: "サブ" },
+      { partId: "00002", watched: false, label: "", subtitle: "" },
+    ]);
+    expect(lists?.episodes?.["2"]).toBeUndefined();
+    expect(lists?.episodeFetchFailures).toBe(2);
+  });
+
+  it("episodes が無い旧ペイロードも受理する", () => {
+    const lists = parseDanimeExtractedLists({
+      completed: [],
+      history: [VALID_WORK],
+    });
+    expect(lists?.episodes).toBeUndefined();
+  });
+
   it("workId が空文字や非文字列の要素は弾く", () => {
     expect(
       parseDanimeExtractedLists({

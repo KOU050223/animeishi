@@ -37,7 +37,7 @@ function getBindings(c: Context): Omit<AuthEnv["Bindings"], "DB"> & {
 // キャッシュされていることを保証し、無ければ Annict から引いて upsert する
 // （searchWorks は read-only なので先に解決し、Annict への書き込み成功後に
 // キャッシュする watch-history と同じ不変条件を守る）。
-async function ensureAnnictWork(
+export async function ensureAnnictWork(
   worksRepo: ReturnType<typeof worksRepository>,
   token: string,
   annictWorkId: number,

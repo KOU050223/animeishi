@@ -191,9 +191,12 @@ export default function PublicProfilePage() {
       {screenOptions}
       {friendActions.exchangeUid ? (
         // すでにこの画面（user/[uid]）にいるため「プロフィールを見る」は出さない。
+        // この画面の成立は申請→承認の初回交換だけ（解除で記録は消え、
+        // 再承認は再会に数えない）ため「◯回目」は常に 1。
         <ExchangeSuccessOverlay
           uid={friendActions.exchangeUid}
           showProfileLink={false}
+          meetingCount={1}
           onClose={friendActions.dismissExchange}
           onRecordPress={friendActions.openRecordSheet}
         />

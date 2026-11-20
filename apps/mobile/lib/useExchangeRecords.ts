@@ -62,6 +62,40 @@ export function useExchangeRecordsForFriend(friendId: string | undefined) {
   return { data: records, ...rest };
 }
 
+/**
+ * 名刺帳から手動で「会った」記録を足す（issue #662）。
+ * 自分だけの記録で、相手への通知・相手側の履歴への記録は起きない。
+ * 「同日・同じ場所／イベント」は API 側で既存記録にまとめられる。
+ */
+export function useCreateExchangeRecord() {
+  const { getToken, userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      friendId: string;
+      record: ExchangeRecordUpdate;
+    }) => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["exchange-records"].$post(
+        {
+          json: { friendId: input.friendId, ...input.record },
+        },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(res.status, "交換記録の追加に失敗しました");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: exchangeRecordsQueryKey(userId ?? ""),
+      });
+    },
+  });
+}
+
 /** 交換記録の場所・イベントを上書き保存する。 */
 export function useUpdateExchangeRecord() {
   const { getToken, userId } = useAuth();

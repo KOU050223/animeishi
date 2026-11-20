@@ -27,11 +27,14 @@ import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { featureFlags } from "@/lib/featureFlags";
 import {
   useBulkRegisterWatchHistory,
+  useCreateDanimeEpisodeJob,
   useDanimeMatch,
 } from "@/lib/danime/useDanimeImport";
 import { danimeMatchErrorMessage } from "@/lib/danime/matchErrorMessage";
+import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import type {
   BulkRegisterEntry,
+  DanimeEpisodeJobWorkInput,
   DanimeMatchStats,
 } from "@/lib/danime/useDanimeImport";
 import {
@@ -73,6 +76,13 @@ type DoneResult = {
   requestErrorStatus: number | null;
   /** 登録フェーズの経過時間（ms、クライアント側計測）。 */
   elapsedMs: number;
+  /**
+   * 話記録ジョブ（issue #477）の登録結果。
+   * null = 対象の話データが無く登録しなかった。true/false は
+   * サーバーがジョブを新規作成したか（false = 実行中ジョブが既にあり、
+   * 今回の話はキューされなかった）。
+   */
+  episodeJobCreated: boolean | null;
 };
 
 // フェーズ所要時間の可視化（issue #115）。抽出は抽出スクリプトが payload に
@@ -179,6 +189,7 @@ export default function DanimeImportReviewScreen() {
 
   const match = useDanimeMatch();
   const bulk = useBulkRegisterWatchHistory();
+  const episodeJob = useCreateDanimeEpisodeJob();
   // isLoading はクエリ無効化（Annict 未連携）時も false になるため、
   // 「ロード完了 or 無効 or 失敗」= !isLoading を待機条件に使う。
   const { data: histories, isLoading: isHistoriesLoading } = useWatchHistory();
@@ -360,7 +371,41 @@ export default function DanimeImportReviewScreen() {
         onProgress: (done, total) => setProgress({ done, total }),
       },
       {
-        onSuccess: (res) => {
+        onSuccess: async (res) => {
+          // 話記録ジョブ（issue #477）。作品ステータスの登録が終わってから
+          // exact 確定作品の話一覧をジョブとして登録する。登録自体は
+          // すぐ返り、Annict への話記録はサーバーがバックグラウンドで続ける。
+          const okWorkIds = new Set(
+            res.results.filter((r) => r.ok).map((r) => r.annictWorkId),
+          );
+          // 対象は作品照合が exact 確定した作品だけ（issue の決定事項）。
+          // candidates からユーザーが選んだ作品は対象外とする。
+          const episodeWorks = rows
+            .filter(
+              (r) =>
+                r.checked &&
+                r.selected &&
+                r.item.status === "exact" &&
+                okWorkIds.has(r.selected.annictWorkId),
+            )
+            .map((r): DanimeEpisodeJobWorkInput => ({
+              danimeWorkId: r.item.danimeWorkId,
+              annictWorkId: r.selected!.annictWorkId,
+              episodes: lists?.episodes?.[r.item.danimeWorkId] ?? [],
+            }))
+            .filter((w) => w.episodes.some((e) => e.watched));
+          let episodeJobCreated: boolean | null = null;
+          if (episodeWorks.length > 0) {
+            try {
+              const out = await episodeJob.mutateAsync({
+                works: episodeWorks,
+              });
+              episodeJobCreated = out.created;
+            } catch {
+              // ジョブ登録の失敗は作品登録の成功を巻き戻さない。
+              // null のまま残し、結果画面では話記録を表示しない。
+            }
+          }
           setDoneResult({
             succeeded: res.results.filter((r) => r.ok).length,
             failed: res.results.filter((r) => !r.ok).length,
@@ -368,6 +413,7 @@ export default function DanimeImportReviewScreen() {
             requestError: res.requestError,
             requestErrorStatus: res.requestErrorStatus,
             elapsedMs: res.elapsedMs,
+            episodeJobCreated,
           });
         },
         onSettled: () => setProgress(null),
@@ -456,6 +502,18 @@ export default function DanimeImportReviewScreen() {
             {t(doneResult.requestError, {
               status: doneResult.requestErrorStatus,
             })}
+          </Text>
+        )}
+        {doneResult.episodeJobCreated === true && (
+          <View className="mt-4 self-stretch">
+            <DanimeEpisodeJobStatus />
+          </View>
+        )}
+        {doneResult.episodeJobCreated === false && (
+          <Text className="text-xs text-amber-600 dark:text-amber-400 mt-3 text-center">
+            {t(
+              "実行中の話数記録ジョブがあるため、今回の話数は登録されませんでした。完了後にもう一度お試しください。",
+            )}
           </Text>
         )}
         <TouchableOpacity

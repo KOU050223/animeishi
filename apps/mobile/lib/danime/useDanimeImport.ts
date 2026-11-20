@@ -3,7 +3,7 @@
 //     （読み取り専用の照合なのでキャッシュ無効化は不要）
 //   - useBulkRegisterWatchHistory: 確定済みの作品を /me/watch-histories/bulk に
 //     上限件数ずつチャンクして逐次送信する（進捗コールバック付き）
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
@@ -12,6 +12,7 @@ import {
   normalizeTitle,
   toMatchWorks,
   type DanimeAnnictWork,
+  type DanimeExtractedEpisode,
   type DanimeExtractedLists,
   type DanimeMatchItem,
 } from "@animeishi/danime-core";
@@ -336,6 +337,100 @@ export function useBulkRegisterWatchHistory() {
       // 登録された履歴は共通点（視聴済み数・一緒に視聴中）の入力でも
       // あるため、共通点クエリも無効化する。
       invalidateCommonPoints(queryClient);
+    },
+  });
+}
+
+// ---- 話単位の記録ジョブ（issue #477） ----
+//
+// レビュー画面の「登録」完了後、確定（exact）作品の dアニメ話一覧を
+// POST /me/import/danime/episode-jobs に渡してジョブを登録する。
+// API はジョブを登録して即座に返し、Annict への話記録は
+// Cloudflare Workflows がバックグラウンドで約 1 秒間隔に実行する。
+// 画面は GET /episode-jobs/current をポーリングして進捗を出す。
+
+/** GET /episode-jobs/current が返すジョブ状態。 */
+export type DanimeEpisodeJob = {
+  id: string;
+  status: "matching" | "writing" | "completed" | "failed";
+  /** 書き込み予定の話数（matching 完了後に確定）。 */
+  total: number;
+  done: number;
+  failed: number;
+  /** Annict に記録済みで書かなかった話数。 */
+  skipped: number;
+  /** 対応付けが確定しなかった話数。 */
+  unmatched: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const DANIME_EPISODE_JOB_QUERY_KEY = ["danime-episode-job"] as const;
+
+/** 最新の話記録ジョブを取得する。実行中（matching/writing）だけ 5 秒ごとに再取得する。 */
+export function useDanimeEpisodeJob(enabled = true) {
+  const { getToken, isSignedIn, userId } = useAuth();
+  return useQuery({
+    // アカウントを切り替えても前ユーザーのジョブが残らないよう
+    // キーにユーザー ID を含める（キャッシュは共有・永続化される）。
+    queryKey: [...DANIME_EPISODE_JOB_QUERY_KEY, userId],
+    enabled: enabled && !!isSignedIn && !!userId,
+    queryFn: async (): Promise<DanimeEpisodeJob | null> => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["import"].danime[
+        "episode-jobs"
+      ].current.$get({}, { headers });
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          `話数記録ジョブの取得に失敗しました（HTTP ${res.status}）`,
+        );
+      }
+      return (await res.json()).job;
+    },
+    refetchInterval: (query) => {
+      const job = query.state.data;
+      return job && (job.status === "matching" || job.status === "writing")
+        ? 5_000
+        : false;
+    },
+  });
+}
+
+/** ジョブ登録の入力。episodes は作品ページから抽出した dアニメ話一覧。 */
+export type DanimeEpisodeJobWorkInput = {
+  danimeWorkId: string;
+  annictWorkId: number;
+  episodes: DanimeExtractedEpisode[];
+};
+
+export function useCreateDanimeEpisodeJob() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      works,
+    }: {
+      works: DanimeEpisodeJobWorkInput[];
+    }): Promise<{ job: DanimeEpisodeJob | null; created: boolean }> => {
+      const headers = await getAuthHeaders(getToken);
+      const res = await apiClient.me["import"].danime["episode-jobs"].$post(
+        { json: { works } },
+        { headers },
+      );
+      if (!res.ok) {
+        throw new ApiRequestError(
+          res.status,
+          `話数記録ジョブの登録に失敗しました（HTTP ${res.status}）`,
+        );
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: DANIME_EPISODE_JOB_QUERY_KEY,
+      });
     },
   });
 }

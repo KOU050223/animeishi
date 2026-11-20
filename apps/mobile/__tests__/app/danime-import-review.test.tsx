@@ -43,6 +43,7 @@ jest.mock("@/lib/featureFlags", () => ({
 }));
 
 const mockUseDanimeMatch = jest.fn();
+const mockCreateEpisodeJobMutateAsync = jest.fn();
 jest.mock("@/lib/danime/useDanimeImport", () => ({
   useDanimeMatch: () => mockUseDanimeMatch(),
   useBulkRegisterWatchHistory: () => ({
@@ -51,6 +52,10 @@ jest.mock("@/lib/danime/useDanimeImport", () => ({
     mutate: jest.fn(),
     error: null,
   }),
+  useCreateDanimeEpisodeJob: () => ({
+    mutateAsync: mockCreateEpisodeJobMutateAsync,
+  }),
+  useDanimeEpisodeJob: () => ({ data: null }),
 }));
 
 // 履歴取得結果はテストごとに差し替える（保護ステータスの検証で

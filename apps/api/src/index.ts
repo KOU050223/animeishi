@@ -146,6 +146,10 @@ registerOpenApiDocs(app);
 
 export type AppType = typeof routes;
 
+// Cloudflare Workflows（dアニメ話記録ジョブ, issue #477）。
+// wrangler.toml の [[workflows]] class_name がこの名前付きエクスポートを参照する。
+export { DanimeEpisodeImportWorkflow } from "./features/import/episodeImportWorkflow";
+
 // withSentry が fetch / scheduled の全ハンドラを instrument する。
 // ハンドラの外に漏れた例外は SDK が自動で capture し、app.onError で
 // 応答に変換した例外は handleError 側で明示的に capture する。

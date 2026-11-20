@@ -4,6 +4,7 @@ import { createDb } from "@/db/client";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { danimeMatchRequestSchema } from "./schema";
+import { danimeEpisodeJobs } from "./episodeJobs";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { requireAnnictToken } from "@/lib/annict/middleware";
@@ -156,6 +157,10 @@ const importRoute = new Hono<AuthVariables>()
       );
       return c.json({ results, stats: statsWithRetries }, 200);
     },
-  );
+  )
+  // 話単位の記録ジョブ（issue #477）。POST /danime/episode-jobs で
+  // ジョブを登録して即座に返し、GET /danime/episode-jobs/current で
+  // 進捗を返す。書き込み自体は Cloudflare Workflows が担う。
+  .route("/danime", danimeEpisodeJobs);
 
 export { importRoute };

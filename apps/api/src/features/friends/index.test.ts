@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
@@ -10,10 +11,10 @@ import {
   OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   QR_EXCHANGE_TOKEN_TTL_SEC,
 } from "@/features/friends/qrExchangeToken";
-import { eq } from "drizzle-orm";
 import {
   users,
   friends as friendsTable,
+  exchangeRecords as exchangeRecordsTable,
   activities,
   annictWorks,
   blocks,
@@ -102,12 +103,25 @@ async function postFriend(
   );
 }
 
+// テスト間で R2 がリセットされないため、公開スナップショットと
+// 交換当時の名刺コピー（issue #662）は毎回掃除してから始める。
+async function cleanR2() {
+  const prefixes = ["meishi-assets/", "exchange-card-snapshots/", "avatars/"];
+  for (const prefix of prefixes) {
+    const listed = await env.AVATARS.list({ prefix });
+    if (listed.objects.length > 0) {
+      await env.AVATARS.delete(listed.objects.map((o) => o.key));
+    }
+  }
+}
+
 describe("フレンド API", () => {
   let db: Awaited<ReturnType<typeof setupTestDb>>;
 
   beforeEach(async () => {
     db = await setupTestDb(env.DB);
     vi.mocked(getAuth).mockReset();
+    await cleanR2();
 
     const now = new Date();
     await db.insert(users).values([
@@ -254,10 +268,163 @@ describe("フレンド API", () => {
         friendRows[0]?.createdAt.getTime(),
       );
       expect(records.every((r) => r.source === "qr")).toBe(true);
-      // 場所・イベント・名刺コピー参照は後から本人が足す／#662 の列で NULL
+      // 場所・イベントは後から本人が足す。相手が公開スナップショットを
+      // 出していないので名刺コピー参照は NULL（#662）
       expect(records.every((r) => r.placeName === null)).toBe(true);
       expect(records.every((r) => r.eventName === null)).toBe(true);
       expect(records.every((r) => r.cardSnapshotKey === null)).toBe(true);
+    });
+
+    // 交換当時の名刺コピー（issue #662）。成立時に相手の公開
+    // スナップショットを各 owner 専用の R2 キーに複製して紐付ける。
+    it("POST /me/friends: 初回交換で相手の公開スナップショットが各 owner 専用にコピーされる", async () => {
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([9, 9, 9]),
+      );
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const records = await db.query.exchangeRecords.findMany();
+      const recordForA = records.find((r) => r.ownerId === USER_A)!;
+      // B→A 側は A のスナップショットを見ていないので NULL
+      const recordForB = records.find((r) => r.ownerId === USER_B)!;
+      expect(recordForA.cardSnapshotKey).toMatch(
+        /^exchange-card-snapshots\/user_friendA001\//,
+      );
+      expect(recordForB.cardSnapshotKey).toBeNull();
+
+      // コピーは公開キーとは別オブジェクトで、同じ画像を持つ
+      const copied = await env.AVATARS.get(recordForA.cardSnapshotKey!);
+      expect(copied).not.toBeNull();
+      expect(new Uint8Array(await copied!.arrayBuffer())).toEqual(
+        new Uint8Array([9, 9, 9]),
+      );
+    });
+
+    // 公開配信エンドポイントと同じく、非公開に切り替えたユーザーの
+    // 公開スナップショットは残存していても参照させない（issue #662
+    // レビュー。非公開の名刺が他人の記録に残るのを防ぐ）。
+    it("POST /me/friends: 相手が非公開なら残存する公開スナップショットはコピーしない", async () => {
+      await db
+        .update(users)
+        .set({ isPublic: false })
+        .where(eq(users.id, USER_B));
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([9, 9, 9]),
+      );
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records.every((r) => r.cardSnapshotKey === null)).toBe(true);
+      const listed = await env.AVATARS.list({
+        prefix: "exchange-card-snapshots/",
+      });
+      expect(listed.objects).toHaveLength(0);
+    });
+
+    // 再会の記録（issue #662）。既フレンドとの QR 再交換は「再会」として
+    // 新しい記録を積む。同日・同じ場所／イベントは 1 回にまとめる。
+    it("POST /me/friends: 既フレンドとの QR 再交換は別日なら再会の記録が両方向に積まれる", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 初回記録の met_at を昨日にずらして別日の再会にする
+      // （同日マージは owner ごとの判定なので両側の行をずらす）。
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: yesterday })
+        .where(eq(exchangeRecordsTable.friendId, USER_B));
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: yesterday })
+        .where(eq(exchangeRecordsTable.friendId, USER_A));
+
+      const res = await postFriend(app, USER_B);
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { meetingCount: number };
+      expect(body.meetingCount).toBe(2);
+
+      const records = await db.query.exchangeRecords.findMany();
+      const recordsForA = records.filter((r) => r.ownerId === USER_A);
+      // A 側には初回＋再会の 2 件。B 側は B→A の再会も 1 件増える
+      expect(recordsForA).toHaveLength(2);
+      expect(records.filter((r) => r.ownerId === USER_B)).toHaveLength(2);
+    });
+
+    it("POST /me/friends: 同日の QR 再交換は記録を増やさない（1 回にまとめる）", async () => {
+      const app = buildApp();
+      const first = (await (await postFriend(app, USER_B)).json()) as {
+        recordId: number;
+      };
+      // 同日の再交換。場所・イベントの無い初回記録と同じまとめ対象。
+      const res = await postFriend(app, USER_B);
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as {
+        meetingCount: number;
+        recordId: number;
+      };
+      expect(body.meetingCount).toBe(1);
+      // 今回の交換で対象になった記録の id を返す。まとめ先は初回記録
+      // （成立直後シートが「一覧の先頭」ではなくこの記録を編集する）。
+      expect(body.recordId).toBe(first.recordId);
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+    });
+
+    // 「同日」は日本時間の暦日で判定する（issue #662）。UTC の暦日だと
+    // JST 9:00 で切り替わり、午前のイベントでの 8 時台・9 時台の交換が
+    // 別日に分かれてしまうため。
+    it("POST /me/friends: UTC の日付をまたぐ JST 同日の QR 再交換はまとめる（JST 8:59 → 9:00）", async () => {
+      const app = buildApp();
+      // 初回交換が JST 8:59（UTC 前日 23:59）だったことにする
+      await postFriend(app, USER_B);
+      const before9am = new Date("2026-11-21T23:59:00Z");
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: before9am })
+        .where(eq(exchangeRecordsTable.friendId, USER_B));
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: before9am })
+        .where(eq(exchangeRecordsTable.friendId, USER_A));
+
+      // 再交換は JST 9:00（UTC 0:00）。UTC の暦日では別日、JST では同日。
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date("2026-11-22T00:00:00Z"));
+        const res = await postFriend(app, USER_B);
+        expect(res.status).toBe(201);
+        const body = (await res.json()) as { meetingCount: number };
+        expect(body.meetingCount).toBe(1);
+        expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("DELETE /me/friends/:friendId: フレンド解除で名刺コピーの R2 オブジェクトも消える", async () => {
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([9, 9, 9]),
+      );
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      const records = await db.query.exchangeRecords.findMany();
+      const copyKey = records.find(
+        (r) => r.ownerId === USER_A,
+      )!.cardSnapshotKey!;
+      expect(await env.AVATARS.get(copyKey)).not.toBeNull();
+
+      await app.request(
+        `/me/friends/${USER_B}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+      expect(await env.AVATARS.get(copyKey)).toBeNull();
     });
 
     it("POST /me/friends: 冪等の再 POST では記録を増やさない", async () => {
@@ -329,22 +496,72 @@ describe("フレンド API", () => {
       );
     });
 
-    // 同時交換の「負け側」（INSERT が既存行に当たる側）は記録を足さない
-    // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
-    it("POST /me/friends: friends 行が先行して作られていれば記録は足さない", async () => {
-      // 相手側の同時交換が先に A→B 行を作った状態（この POST の INSERT は
-      // onConflict で増えず returning が空になる）
+    // 再会の記録（issue #662）でも scannedAt を met_at に使う。
+    // 同日判定（日本時間）はこの met_at 基準で行う。
+    it("POST /me/friends: 既フレンドとの QR 再交換でも scannedAt が met_at に採用される", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 初回記録の met_at を十分前にずらして別日の再会にする
+      // （同日マージは owner ごとの判定なので両側の行をずらす）。
+      const old = new Date("2026-01-01T00:00:00Z");
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: old })
+        .where(eq(exchangeRecordsTable.friendId, USER_B));
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: old })
+        .where(eq(exchangeRecordsTable.friendId, USER_A));
+
+      const scannedAt = new Date(
+        Math.floor(Date.now() / 1000) * 1000 - 60 * 60 * 1000,
+      );
+      const res = await postFriend(app, USER_B, {
+        scannedAt: scannedAt.toISOString(),
+      });
+      expect(res.status).toBe(201);
+
+      const records = await db.query.exchangeRecords.findMany();
+      const reunionRecords = records.filter(
+        (r) => r.metAt.getTime() !== old.getTime(),
+      );
+      // 両方向の再会記録に scannedAt が入る
+      expect(reunionRecords).toHaveLength(2);
+      expect(
+        reunionRecords.every((r) => r.metAt.getTime() === scannedAt.getTime()),
+      ).toBe(true);
+    });
+
+    // 同時交換の「負け側」（INSERT が既存行に当たる側）は再会の記録化に
+    // 回るが、勝ち側が積んだ初回記録と同日・同じ場所／イベントなので
+    // まとめられて増えない（issue #662 の同日マージ。issue #661 レビュー）。
+    it("POST /me/friends: friends 行と初回記録が先行していれば記録は増えない", async () => {
+      // 相手側の同時交換が先に A→B 行と初回記録を作った状態
+      // （この POST の INSERT は onConflict で増えず returning が空になる）
+      const now = new Date();
       await db.insert(friendsTable).values({
         userId: USER_A,
         friendId: USER_B,
         source: "qr",
-        createdAt: new Date(),
+        createdAt: now,
+      });
+      await db.insert(exchangeRecordsTable).values({
+        ownerId: USER_A,
+        friendId: USER_B,
+        source: "qr",
+        metAt: now,
+        createdAt: now,
+        updatedAt: now,
       });
 
       const app = buildApp();
       await postFriend(app, USER_B);
 
-      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+      const records = await db.query.exchangeRecords.findMany();
+      // 負け側が自分側の再会記録として積もうとしても同日の既存記録に
+      // まとまるため自分側は増えない。B 側だけ「A から見えない再会記録」が
+      // 増えうる点は同日判定の範囲内のずれとして許容する。
+      expect(records.filter((r) => r.ownerId === USER_A)).toHaveLength(1);
     });
 
     it("DELETE /me/friends/:friendId: フレンド解除で両方向の交換記録が消える", async () => {

@@ -326,6 +326,45 @@ const DDL_STATEMENTS = [
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  `CREATE TABLE IF NOT EXISTS danime_episode_import_jobs (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    total INTEGER DEFAULT 0 NOT NULL,
+    done INTEGER DEFAULT 0 NOT NULL,
+    failed INTEGER DEFAULT 0 NOT NULL,
+    skipped INTEGER DEFAULT 0 NOT NULL,
+    unmatched INTEGER DEFAULT 0 NOT NULL,
+    error TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT danime_episode_import_jobs_status_check CHECK (status IN ('matching', 'writing', 'completed', 'failed'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS danime_episode_import_jobs_user_idx ON danime_episode_import_jobs (user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS danime_episode_import_jobs_running_idx ON danime_episode_import_jobs (user_id) WHERE status IN ('matching', 'writing')`,
+  `CREATE TABLE IF NOT EXISTS danime_episode_import_works (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    job_id TEXT NOT NULL,
+    danime_work_id TEXT NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    episodes_json TEXT NOT NULL,
+    FOREIGN KEY (job_id) REFERENCES danime_episode_import_jobs(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS danime_episode_import_works_job_idx ON danime_episode_import_works (job_id)`,
+  `CREATE TABLE IF NOT EXISTS danime_episode_import_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    job_id TEXT NOT NULL,
+    annict_work_id INTEGER NOT NULL,
+    annict_episode_id INTEGER NOT NULL,
+    episode_node_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error TEXT,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (job_id) REFERENCES danime_episode_import_jobs(id) ON DELETE CASCADE,
+    CONSTRAINT danime_episode_import_items_status_check CHECK (status IN ('pending', 'done', 'failed', 'skipped'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS danime_episode_import_items_job_status_idx ON danime_episode_import_items (job_id, status)`,
   `CREATE TABLE IF NOT EXISTS reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     reporter_id TEXT NOT NULL,
@@ -511,6 +550,9 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM reports").run();
   await d1.prepare("DELETE FROM blocks").run();
   await d1.prepare("DELETE FROM annict_tokens").run();
+  await d1.prepare("DELETE FROM danime_episode_import_items").run();
+  await d1.prepare("DELETE FROM danime_episode_import_works").run();
+  await d1.prepare("DELETE FROM danime_episode_import_jobs").run();
   await d1.prepare("DELETE FROM tier_list_likes").run();
   await d1.prepare("DELETE FROM user_likes").run();
   await d1.prepare("DELETE FROM character_tier_list_items").run();
@@ -547,7 +589,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'exchange_records', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'exchange_records', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes', 'danime_episode_import_works', 'danime_episode_import_items')",
     )
     .run();
   return db;
