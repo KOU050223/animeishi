@@ -218,6 +218,50 @@ describe("フレンド API", () => {
       expect(rows.every((row) => row.source === "qr")).toBe(true);
     });
 
+    // 交換記録（issue #661）。初回交換は両方向の名刺帳に記録を積む。
+    it("POST /me/friends: 初回交換の記録が両方向に作られる（場所・イベントは空）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records).toHaveLength(2);
+      const recordForA = records.find((r) => r.ownerId === USER_A);
+      const recordForB = records.find((r) => r.ownerId === USER_B);
+      expect(recordForA?.friendId).toBe(USER_B);
+      expect(recordForB?.friendId).toBe(USER_A);
+      // met_at はフレンド成立時刻と同じ
+      const friendRows = await db.query.friends.findMany();
+      expect(recordForA?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+      expect(records.every((r) => r.source === "qr")).toBe(true);
+      // 場所・イベント・名刺コピー参照は後から本人が足す／#662 の列で NULL
+      expect(records.every((r) => r.placeName === null)).toBe(true);
+      expect(records.every((r) => r.eventName === null)).toBe(true);
+      expect(records.every((r) => r.cardSnapshotKey === null)).toBe(true);
+    });
+
+    it("POST /me/friends: 冪等の再 POST では記録を増やさない", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+    });
+
+    it("DELETE /me/friends/:friendId: フレンド解除で両方向の交換記録が消える", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+
+      await app.request(
+        `/me/friends/${USER_B}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+    });
+
     it("POST /me/friends: 自分自身を追加しようとすると 400", async () => {
       const app = buildApp();
       const res = await postFriend(app, USER_A);

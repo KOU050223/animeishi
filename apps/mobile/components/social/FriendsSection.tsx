@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
+import { useExchangeRecords } from "@/lib/useExchangeRecords";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
@@ -41,6 +42,11 @@ export function FriendsSection() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: friends, isLoading, isError, refetch } = useFriends();
+  // イベント絞り込み（issue #661）。交換記録につけたイベント名を
+  // 候補にして、そのイベントで会った人だけに絞る。並び順・
+  // グループ表示は変えず、リストを間引くだけにする。
+  const { data: exchangeRecords } = useExchangeRecords();
+  const [eventFilter, setEventFilter] = useState<string | null>(null);
   // 届いた・送ったフレンド申請（issue #417、#603）。承認・取消は相手の
   // プロフィールで行うため、ここでは状態表示とプロフィールへの導線だけを出す。
   const { data: friendRequests, refetch: refetchRequests } =
@@ -117,16 +123,56 @@ export function FriendsSection() {
 
   const list = friends ?? [];
 
+  // 絞り込み候補は記録に付いたイベント名（重複を除き出現順）。
+  const eventNames = [
+    ...new Set(
+      (exchangeRecords ?? [])
+        .map((r) => r.eventName)
+        .filter((name): name is string => !!name),
+    ),
+  ];
+  // 選択中のイベントで会った相手の ID。フレンド解除で記録が消えると
+  // この集合も自然に小さくなる。
+  const filteredIds = eventFilter
+    ? new Set(
+        (exchangeRecords ?? [])
+          .filter((r) => r.eventName === eventFilter)
+          .map((r) => r.friendId),
+      )
+    : null;
+  const visibleList = filteredIds
+    ? list.filter((f) => filteredIds.has(f.friendId))
+    : list;
+
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
         <Text className="text-xs text-slate-400 dark:text-slate-500">
-          {t("{{count}} 人のフレンド", { count: list.length })}
+          {t("{{count}} 人のフレンド", { count: visibleList.length })}
         </Text>
+        {eventNames.length > 0 ? (
+          <View className="flex-row flex-wrap gap-2 mt-2">
+            <EventFilterChip
+              label={t("すべて")}
+              selected={eventFilter === null}
+              onPress={() => setEventFilter(null)}
+            />
+            {eventNames.map((name) => (
+              <EventFilterChip
+                key={name}
+                label={name}
+                selected={eventFilter === name}
+                onPress={() =>
+                  setEventFilter(eventFilter === name ? null : name)
+                }
+              />
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <FlatList
-        data={list}
+        data={visibleList}
         keyExtractor={(item) => item.friendId}
         // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
         // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
@@ -191,6 +237,39 @@ export function FriendsSection() {
         }
       />
     </View>
+  );
+}
+
+// イベント絞り込みのチップ（issue #661）。
+function EventFilterChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      className={`rounded-full border px-3 py-1.5 ${
+        selected
+          ? "border-indigo-600 bg-indigo-600"
+          : "border-slate-200 dark:border-slate-700"
+      }`}
+    >
+      <Text
+        className={`text-xs ${
+          selected ? "text-white" : "text-slate-600 dark:text-slate-300"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 

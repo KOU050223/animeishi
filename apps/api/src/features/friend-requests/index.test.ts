@@ -262,6 +262,11 @@ describe("フレンド申請 API", () => {
       expect(friendRows.every((row) => row.source === "request")).toBe(true);
       const after = await listRequests(app);
       expect(after.received).toHaveLength(0);
+
+      // 初回交換の記録（issue #661）も両方向に作られる（source='request'）
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records).toHaveLength(2);
+      expect(records.every((r) => r.source === "request")).toBe(true);
     });
 
     it("POST /{id}/accept: 送信者は自分の申請を承認できない（404）", async () => {

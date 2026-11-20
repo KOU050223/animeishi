@@ -123,6 +123,24 @@ const DDL_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS friend_notes_owner_friend_unique ON friend_notes (owner_id, friend_id)`,
   `CREATE INDEX IF NOT EXISTS friend_notes_owner_idx ON friend_notes (owner_id)`,
+  `CREATE TABLE IF NOT EXISTS exchange_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    owner_id TEXT NOT NULL,
+    friend_id TEXT NOT NULL,
+    source TEXT,
+    met_at INTEGER NOT NULL,
+    place_name TEXT,
+    event_slug TEXT,
+    event_name TEXT,
+    card_snapshot_key TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (event_slug) REFERENCES events(slug) ON DELETE SET NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS exchange_records_owner_friend_idx ON exchange_records (owner_id, friend_id)`,
+  `CREATE INDEX IF NOT EXISTS exchange_records_owner_idx ON exchange_records (owner_id)`,
   `CREATE TABLE IF NOT EXISTS work_ratings (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id TEXT NOT NULL,
@@ -508,6 +526,7 @@ export async function setupTestDb(d1: D1Database) {
   await d1.prepare("DELETE FROM user_genres").run();
   await d1.prepare("DELETE FROM friend_requests").run();
   await d1.prepare("DELETE FROM friend_notes").run();
+  await d1.prepare("DELETE FROM exchange_records").run();
   await d1.prepare("DELETE FROM friends").run();
   await d1.prepare("DELETE FROM favorites").run();
   await d1.prepare("DELETE FROM work_ratings").run();
@@ -528,7 +547,7 @@ export async function setupTestDb(d1: D1Database) {
   // AUTOINCREMENTカウンターをリセット
   await d1
     .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes')",
+      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'exchange_records', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes')",
     )
     .run();
   return db;

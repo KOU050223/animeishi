@@ -1,13 +1,20 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { SQLWrapper } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, friends, friendRequests, blocks } from "@/db/schema";
+import {
+  users,
+  friends,
+  friendRequests,
+  exchangeRecords,
+  blocks,
+} from "@/db/schema";
 import type { FriendRequest } from "@/db/schema";
 import {
   UserBlockedError,
   UserNotFoundError,
   usersRepository,
 } from "../users/repository";
+import { initialExchangeRecordValues } from "../exchange-records/repository";
 
 /** すでにフレンド関係にある相手へ申請したときに投げる。ルート層で 409 に変換する。 */
 export class AlreadyFriendsError extends Error {
@@ -98,6 +105,13 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
     const now = new Date();
     // 申請→承認（または相互申請の即成立）経由なので成立経路 source は
     // 'request'（issue #411 の「QR で交換した名刺」には数えない）。
+    // friends 行が残っている経路外ケース（解除で消えた申請行の残存など）
+    // では初回交換の記録（issue #661）を二重に足さない。
+    const alreadyFriend = await db.query.friends.findFirst({
+      where: (t, { and, eq: eq_ }) =>
+        and(eq_(t.userId, currentUserId), eq_(t.friendId, otherUserId)),
+      columns: { id: true },
+    });
     await db.batch([
       db
         .insert(friends)
@@ -118,6 +132,30 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
         })
         .onConflictDoNothing(),
       deleteRequestsBetween(currentUserId, otherUserId),
+      // 初回交換の記録（issue #661）。対面 QR と同じく各側の名刺帳に
+      // 1 行ずつ積む。
+      ...(alreadyFriend
+        ? []
+        : [
+            db.insert(exchangeRecords).values(
+              initialExchangeRecordValues({
+                ownerId: currentUserId,
+                friendId: otherUserId,
+                source: "request",
+                metAt: now,
+                now,
+              }),
+            ),
+            db.insert(exchangeRecords).values(
+              initialExchangeRecordValues({
+                ownerId: otherUserId,
+                friendId: currentUserId,
+                source: "request",
+                metAt: now,
+                now,
+              }),
+            ),
+          ]),
     ]);
   }
 

@@ -5,10 +5,15 @@ import {
   friends,
   friendRequests,
   friendNotes,
+  exchangeRecords,
   blocks,
 } from "@/db/schema";
 import type { Friend } from "@/db/schema";
 import { UserBlockedError, usersRepository } from "../users/repository";
+import {
+  deleteExchangeRecordsBetween,
+  initialExchangeRecordValues,
+} from "../exchange-records/repository";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
 export class FriendNotFoundError extends Error {
@@ -119,6 +124,13 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
         throw new UserBlockedError(friendId);
       }
       const now = new Date();
+      // 冪等の再 POST（すでにフレンド）では初回交換の記録を足さない
+      // （issue #661。再会としての記録は issue #662 が担う）。
+      const alreadyFriend = await db.query.friends.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+        columns: { id: true },
+      });
       // ここを通るのは対面 QR の即時成立（qrToken 必須）だけなので
       // 成立経路 source は 'qr'（issue #411 の「QR で交換した名刺」に数える）。
       await db.batch([
@@ -156,6 +168,30 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
               ),
             ),
           ),
+        // 初回交換の記録（issue #661）。各側の名刺帳に 1 行ずつ積み、
+        // 場所・イベントは本人が後から任意で足す。
+        ...(alreadyFriend
+          ? []
+          : [
+              db.insert(exchangeRecords).values(
+                initialExchangeRecordValues({
+                  ownerId: currentUserId,
+                  friendId,
+                  source: "qr",
+                  metAt: now,
+                  now,
+                }),
+              ),
+              db.insert(exchangeRecords).values(
+                initialExchangeRecordValues({
+                  ownerId: friendId,
+                  friendId: currentUserId,
+                  source: "qr",
+                  metAt: now,
+                  now,
+                }),
+              ),
+            ]),
       ]);
       const created = await db.query.friends.findFirst({
         where: (t, { and, eq: eq_ }) =>
@@ -168,7 +204,8 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
     /**
      * フレンドを双方向で削除する（A→B 削除時に B→A も削除）。
      * 私用メモは解除で消す方針（issue #659）のため、両方向の
-     * friend_notes も同じ batch で消す。
+     * friend_notes も同じ batch で消す。交換記録（issue #661）も
+     * 同方針で両方向とも消す。
      */
     async removeFriend(friendId: string): Promise<void> {
       await db.batch([
@@ -204,6 +241,7 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
               eq(friendNotes.friendId, currentUserId),
             ),
           ),
+        deleteExchangeRecordsBetween(db, currentUserId, friendId),
       ]);
     },
 

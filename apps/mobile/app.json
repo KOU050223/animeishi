@@ -177,6 +177,12 @@
           "photosPermission": "プロフィール画像を設定するために写真へのアクセスを許可してください"
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "交換した名刺に「出会った場所」を記録するために位置情報を使います。座標は地名に変換したあと端末上で破棄され、位置情報そのものは保存されません"
+        }
+      ],
       "expo-localization",
       [
         "expo-sharing",
@@ -211,6 +217,9 @@
         }
       ]
     ],
+    "locales": {
+      "en": "./locales/en.json"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

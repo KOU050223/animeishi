@@ -20,6 +20,8 @@ import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
+import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
@@ -189,6 +191,13 @@ export default function PublicProfilePage() {
           uid={friendActions.exchangeUid}
           showProfileLink={false}
           onClose={friendActions.dismissExchange}
+          onRecordPress={friendActions.openRecordSheet}
+        />
+      ) : null}
+      {friendActions.recordSheetVisible && uid ? (
+        <PostExchangeRecordSheet
+          uid={uid}
+          onClose={friendActions.closeRecordSheet}
         />
       ) : null}
       <ScrollView className="flex-1">
@@ -225,6 +234,9 @@ export default function PublicProfilePage() {
 
           {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}
           {relation.isFriend ? <FriendNoteSection uid={uid} /> : null}
+
+          {/* 出会いの記録（issue #661）。本人の名刺帳にだけ残る */}
+          {relation.isFriend ? <ExchangeRecordSection uid={uid} /> : null}
 
           {canModerate ? (
             <ModerationSection
@@ -318,6 +330,8 @@ function useFriendActions({
   const deleteFriendRequest = useDeleteFriendRequest();
   // 名刺交換の成立演出（issue #414）を出す相手。この画面では uid 固定。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // 交換直後の任意シート（issue #661）。成立演出を閉じてから開く。
+  const [recordSheetVisible, setRecordSheetVisible] = useState(false);
 
   function send() {
     if (!uid) return;
@@ -405,6 +419,12 @@ function useFriendActions({
   return {
     exchangeUid,
     dismissExchange: () => setExchangeUid(null),
+    recordSheetVisible,
+    openRecordSheet: () => {
+      setExchangeUid(null);
+      setRecordSheetVisible(true);
+    },
+    closeRecordSheet: () => setRecordSheetVisible(false),
     send,
     accept,
     deleteReceived,

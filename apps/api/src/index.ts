@@ -28,6 +28,7 @@ import { events } from "./features/events";
 import { workRatings } from "./features/work-ratings";
 import { favorites } from "./features/favorites";
 import { feed } from "./features/feed";
+import { exchangeRecords } from "./features/exchange-records";
 import { friendRequests } from "./features/friend-requests";
 import { friends } from "./features/friends";
 import { socialLinks } from "./features/social-links";
@@ -117,6 +118,7 @@ const routes = app
   .route("/works", workEpisodes)
   .route("/me/favorites", favorites)
   .route("/me/friends", friends)
+  .route("/me/exchange-records", exchangeRecords)
   .route("/me/social-links", socialLinks)
   .route("/me/friend-requests", friendRequests)
   .route("/me/feed", feed)
