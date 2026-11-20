@@ -12,6 +12,7 @@ import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
+import { Ionicons } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
@@ -90,6 +91,7 @@ export function QrSection() {
 
 function GenerateView() {
   const { userId, isSignedIn, getToken } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
   // 発火させるためフォーカスも見る。
@@ -364,6 +366,36 @@ function GenerateView() {
             （qrParser の後方互換）。対面交換トークンは ?qt= で付ける。 */}
         <QRCode value={qrValue} size={240} />
       </View>
+      {/* 非公開プロフィールの QR は /user/:uid が 404 になり、
+          アプリを持っていない相手は名刺を見られない（issue #676）。
+          渡す側が気づけるよう、QR の隣に警告と公開設定への導線を出す。
+          取得中（undefined）は出さず、isPublic === false が確定した
+          ときだけ表示する。 */}
+      {profile?.isPublic === false ? (
+        <View
+          className="mt-4 flex-row items-center self-stretch rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950"
+          accessibilityRole="alert"
+          testID="qr-private-warning"
+        >
+          <Ionicons name="warning-outline" size={16} color="#d97706" />
+          <Text className="ml-2 flex-1 text-xs text-amber-800 dark:text-amber-200">
+            {t(
+              "プロフィールが非公開のため、アプリを持っていない相手には名刺が表示されません",
+            )}
+          </Text>
+          <TouchableOpacity
+            className="ml-2 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 dark:border-amber-700 dark:bg-amber-900"
+            onPress={() => router.push("/(tabs)/profile")}
+            accessibilityRole="button"
+            accessibilityLabel={t("公開設定を開く")}
+            testID="qr-private-warning-open-settings"
+          >
+            <Text className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              {t("公開設定を開く")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <Text className="text-slate-500 dark:text-slate-400 text-sm mt-6 text-center">
         {t("この QR コードを相手に読み取ってもらうと")}
         {"\n"}

@@ -1345,6 +1345,8 @@
   "お問い合わせ": "Contact",
   "上記で解決しない場合は、以下の連絡先までお問い合わせください。": "If the above doesn't solve your issue, please contact us at:",
   "公開設定": "Visibility settings",
+  "公開設定を開く": "Open visibility settings",
+  "プロフィールが非公開のため、アプリを持っていない相手には名刺が表示されません": "Your profile is private, so people without the app won't see your card.",
   "プロフィールと名刺": "Profile and card",
   "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります": "When public, your card is listed under \"Discover\" in Discover, and anyone can see your profile through its share link and your card's public image. When private, none of these are visible.",
   "公開設定を更新しました": "Visibility settings updated.",
