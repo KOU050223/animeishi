@@ -131,6 +131,17 @@ jest.mock("@/lib/useFriendRequests", () => ({
   }),
 }));
 
+// 名刺交換のお礼（issue #694）。既定は空（届いた・送ったともに無し）。
+jest.mock("@/lib/useFriendThanks", () => ({
+  useFriendThanksFor: () => ({ received: [], sent: [], isError: false }),
+  useSendFriendThanks: () => ({ mutate: jest.fn(), isPending: false }),
+  useDeleteFriendThanks: () => ({ mutateAsync: jest.fn() }),
+  useMarkFriendThanksRead: () => ({ mutate: jest.fn() }),
+  THANKS_PRESET_TEXT: {},
+  THANKS_PRESET_KEYS: [],
+  FRIEND_THANKS_BODY_MAX_LENGTH: 60,
+}));
+
 // 吹き出しタップで開く作品詳細シート。シート本体の挙動は別テストに任せ、
 // ここでは「開いたか・対象作品が正しいか」だけを見る。
 jest.mock("@/components/anime-list", () => ({

@@ -24,6 +24,11 @@ import { enqueueExchange } from "@/lib/exchangeQueue";
 import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
+import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
+import {
+  useSendFriendThanks,
+  type ThanksPresetKey,
+} from "@/lib/useFriendThanks";
 import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
@@ -533,6 +538,9 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
   } | null>(null);
   // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
   const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
+  // 交換直後のお礼シート（issue #694）。成功オーバーレイを閉じてから開く。
+  const [thanksSheetUid, setThanksSheetUid] = useState<string | null>(null);
+  const sendThanks = useSendFriendThanks();
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
   // ブラウザ非対応のときに起きる）。失敗後は再マウントできるよう
   // カメラの key を持つ。
@@ -699,6 +707,12 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
             setExchangeUid(null);
             setRecordSheetUid(exchangeUid);
           }}
+          onSendThanks={() => {
+            // 記録シートと同じ。オーバーレイだけを閉じ、シートの裏で
+            // QR の再検出が走らないよう reset はシートを閉じるまで待つ。
+            setExchangeUid(null);
+            setThanksSheetUid(exchangeUid);
+          }}
         />
       ) : null}
       {recordSheetUid ? (
@@ -709,6 +723,35 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
             setRecordSheetUid(null);
             setExchangeRecordId(null);
             reset();
+          }}
+        />
+      ) : null}
+      {thanksSheetUid ? (
+        <FriendThanksSheet
+          visible
+          sending={sendThanks.isPending}
+          onClose={() => {
+            setThanksSheetUid(null);
+            reset();
+          }}
+          onSubmit={(presetKey: ThanksPresetKey, body: string | null) => {
+            sendThanks.mutate(
+              { friendId: thanksSheetUid, presetKey, body },
+              {
+                onSuccess: () => {
+                  setThanksSheetUid(null);
+                  reset();
+                },
+                onError: (e) =>
+                  alert(
+                    t("お礼を送れませんでした"),
+                    e instanceof Error
+                      ? e.message
+                      : t("お礼の送信に失敗しました"),
+                    { okLabel: "OK" },
+                  ),
+              },
+            );
           }}
         />
       ) : null}

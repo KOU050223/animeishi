@@ -27,6 +27,7 @@ import {
   createReunionRecords,
   deleteExchangeRecordsBetween,
 } from "../exchange-records/repository";
+import { deleteFriendThanksBetween } from "../friend-thanks/repository";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
 export class FriendNotFoundError extends Error {
@@ -277,8 +278,8 @@ export function friendsRepository(
     /**
      * フレンドを双方向で削除する（A→B 削除時に B→A も削除）。
      * 私用メモは解除で消す方針（issue #659）のため、両方向の
-     * friend_notes も同じ batch で消す。交換記録（issue #661）も
-     * 同方針で両方向とも消す。記録に紐付く名刺コピー（R2）は
+     * friend_notes も同じ batch で消す。交換記録（issue #661）と
+     * お礼（issue #694）も同方針で両方向とも消す。記録に紐付く名刺コピー（R2）は
      * 呼び出し側が D1 削除の前に消す（キーは listCardSnapshotKeysBetween
      * で取得。issue #662「記録と一緒にコピーも消す」）。
      */
@@ -317,6 +318,8 @@ export function friendsRepository(
             ),
           ),
         deleteExchangeRecordsBetween(db, currentUserId, friendId),
+        // お礼（issue #694）も同じ方針で両方向とも消す。
+        deleteFriendThanksBetween(db, currentUserId, friendId),
       ]);
     },
 
