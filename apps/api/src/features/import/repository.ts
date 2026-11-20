@@ -24,6 +24,12 @@ export const RUNNING_JOB_STATUSES: readonly DanimeEpisodeJobStatus[] = [
   "writing",
 ];
 
+/** 対応付けループが順に処理する作品の参照（大きい episodesJson は含めない）。 */
+export type DanimeEpisodeJobWorkRef = {
+  id: number;
+  annictWorkId: number;
+};
+
 export function episodeImportJobRepository(db: DrizzleDb) {
   return {
     async createJob(id: string, userId: string): Promise<void> {
@@ -78,12 +84,26 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       await db.insert(danimeEpisodeImportWorks).values(rows);
     },
 
-    async listJobWorks(jobId: string): Promise<DanimeEpisodeImportWork[]> {
+    /**
+     * 対象作品の参照一覧。episodesJson は行ごとに大きくなり得るため
+     * ここでは返さず、各対応付けステップが getJobWork で読み直す
+     * （Workflow のステップ結果に巨大なペイロードを残さないため）。
+     */
+    async listJobWorkRefs(jobId: string): Promise<DanimeEpisodeJobWorkRef[]> {
       return db
-        .select()
+        .select({
+          id: danimeEpisodeImportWorks.id,
+          annictWorkId: danimeEpisodeImportWorks.annictWorkId,
+        })
         .from(danimeEpisodeImportWorks)
         .where(eq(danimeEpisodeImportWorks.jobId, jobId))
         .orderBy(asc(danimeEpisodeImportWorks.id));
+    },
+
+    async getJobWork(id: number): Promise<DanimeEpisodeImportWork | undefined> {
+      return db.query.danimeEpisodeImportWorks.findFirst({
+        where: eq(danimeEpisodeImportWorks.id, id),
+      });
     },
 
     async insertJobItems(
@@ -100,6 +120,28 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       await db
         .insert(danimeEpisodeImportItems)
         .values(rows.map((r) => ({ ...r, updatedAt: now })));
+    },
+
+    /**
+     * 指定した Annict 話 ID のうち、既にアイテムとして登録済みのものを返す。
+     * 対応付けステップが再実行（ステップリトライや引き継ぎインスタンスの
+     * 範囲重複）されても同じ Annict 話を二重に積まないための冪等フィルタ。
+     */
+    async listItemEpisodeIdsIn(
+      jobId: string,
+      annictEpisodeIds: number[],
+    ): Promise<Set<number>> {
+      if (annictEpisodeIds.length === 0) return new Set();
+      const rows = await db
+        .select({ annictEpisodeId: danimeEpisodeImportItems.annictEpisodeId })
+        .from(danimeEpisodeImportItems)
+        .where(
+          and(
+            eq(danimeEpisodeImportItems.jobId, jobId),
+            inArray(danimeEpisodeImportItems.annictEpisodeId, annictEpisodeIds),
+          ),
+        );
+      return new Set(rows.map((r) => r.annictEpisodeId));
     },
 
     /** 書き込み待ちのアイテムを挿入順に取る（Workflow の再実行でも pending のみ）。 */
@@ -120,15 +162,53 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         .limit(limit);
     },
 
-    async setItemStatus(
-      id: number,
-      status: DanimeEpisodeItemStatus,
+    /**
+     * アイテムの終了状態とジョブのカウンタ更新を 1 バッチで書く。
+     * 別々に書くと、片方だけコミットした状態でステップが死んだときに
+     * リトライでカウンタがずれる（done にしたのにカウントされない、
+     * またはその逆）ため、D1 バッチのアトミック性に頼る。
+     */
+    async finishItem(
+      jobId: string,
+      itemId: number,
+      status: "done" | "failed",
       error?: string,
     ): Promise<void> {
+      const now = new Date();
+      const counter =
+        status === "done"
+          ? { done: sql`${danimeEpisodeImportJobs.done} + 1` }
+          : { failed: sql`${danimeEpisodeImportJobs.failed} + 1` };
+      await db.batch([
+        db
+          .update(danimeEpisodeImportItems)
+          .set({ status, error: error ?? null, updatedAt: now })
+          .where(eq(danimeEpisodeImportItems.id, itemId)),
+        db
+          .update(danimeEpisodeImportJobs)
+          .set({ ...counter, updatedAt: now })
+          .where(eq(danimeEpisodeImportJobs.id, jobId)),
+      ]);
+    },
+
+    /**
+     * 対応付け完了後にカウンタを再計算して絶対値で書き込む。
+     * 加算ではなく派生値の代入なので、ステップのリトライ・インスタンス
+     * 引き継ぎを挟んでも結果が変わらない（冪等）。
+     * total はこれから書き込む件数（pending）、skipped は Annict に
+     * 記録済みで書かない話、unmatched は入力の視聴済み話から
+     * アイテム化できなかった話数（json_each で episodesJson を数え直す）。
+     */
+    async finalizeJobMatchCounts(jobId: string): Promise<void> {
       await db
-        .update(danimeEpisodeImportItems)
-        .set({ status, error: error ?? null, updatedAt: new Date() })
-        .where(eq(danimeEpisodeImportItems.id, id));
+        .update(danimeEpisodeImportJobs)
+        .set({
+          total: sql`(SELECT COUNT(*) FROM danime_episode_import_items WHERE job_id = ${jobId} AND status = 'pending')`,
+          skipped: sql`(SELECT COUNT(*) FROM danime_episode_import_items WHERE job_id = ${jobId} AND status = 'skipped')`,
+          unmatched: sql`MAX(0, (SELECT COUNT(*) FROM danime_episode_import_works w, json_each(w.episodes_json) e WHERE w.job_id = ${jobId} AND json_extract(e.value, '$.watched') = 1) - (SELECT COUNT(*) FROM danime_episode_import_items WHERE job_id = ${jobId}))`,
+          updatedAt: new Date(),
+        })
+        .where(eq(danimeEpisodeImportJobs.id, jobId));
     },
 
     async setJobStatus(
@@ -139,39 +219,6 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       await db
         .update(danimeEpisodeImportJobs)
         .set({ status, error: error ?? null, updatedAt: new Date() })
-        .where(eq(danimeEpisodeImportJobs.id, jobId));
-    },
-
-    /**
-     * カウンタを加算しつつ status も更新できる更新。
-     * Workflow のステップごとに呼び、画面の進捗表示が最新値を読めるようにする。
-     */
-    async updateJobProgress(
-      jobId: string,
-      counts: {
-        total?: number;
-        done?: number;
-        failed?: number;
-        skipped?: number;
-        unmatched?: number;
-      },
-      status?: DanimeEpisodeJobStatus,
-    ): Promise<void> {
-      const set: Record<string, unknown> = { updatedAt: new Date() };
-      if (status) set.status = status;
-      if (counts.total)
-        set.total = sql`${danimeEpisodeImportJobs.total} + ${counts.total}`;
-      if (counts.done)
-        set.done = sql`${danimeEpisodeImportJobs.done} + ${counts.done}`;
-      if (counts.failed)
-        set.failed = sql`${danimeEpisodeImportJobs.failed} + ${counts.failed}`;
-      if (counts.skipped)
-        set.skipped = sql`${danimeEpisodeImportJobs.skipped} + ${counts.skipped}`;
-      if (counts.unmatched)
-        set.unmatched = sql`${danimeEpisodeImportJobs.unmatched} + ${counts.unmatched}`;
-      await db
-        .update(danimeEpisodeImportJobs)
-        .set(set)
         .where(eq(danimeEpisodeImportJobs.id, jobId));
     },
   };
