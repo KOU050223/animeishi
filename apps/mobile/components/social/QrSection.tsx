@@ -20,13 +20,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend, useQrExchangeToken } from "@/lib/useFriends";
 import { ApiRequestError } from "@/lib/apiError";
+import { enqueueExchange } from "@/lib/exchangeQueue";
+import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { buildQrExchangeUrl } from "@/lib/qrParser";
+import { buildQrExchangeUrl, type MiniMeishi } from "@/lib/qrParser";
 import { readOfflineExchangeToken } from "@/lib/offlineExchangeToken";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
@@ -513,6 +515,12 @@ function ScanView() {
   const addFriend = useAddFriend();
   // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // オフラインでキューへ積んだ交換。非 null の間は受付画面（issue #681）を
+  // 表示する。成立演出とは同時に出ない（成立したときはキューしない）。
+  const [queuedExchange, setQueuedExchange] = useState<{
+    uid: string;
+    miniMeishi?: MiniMeishi;
+  } | null>(null);
   // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
   const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
@@ -528,14 +536,13 @@ function ScanView() {
     handleBarcodeScanned,
     reset,
   } = useQrScanner({
-    onScanned: ({ userId, qrToken, offlineToken }) => {
+    onScanned: ({ userId, qrToken, offlineToken, miniMeishi }) => {
       if (!qrToken && !offlineToken) {
         openProfile(userId);
         return;
       }
       // 対面交換トークン付き = 相手が目の前で QR を提示した場合だけ即時成立。
       // 相手がオフラインだった QR には qt の代わりに ot が載る（issue #663）。
-      // 読み取り側がオフラインで POST 自体が失敗する場合のキューは #681 で作る。
       addFriend.mutate(
         { friendId: userId, qrToken, offlineToken },
         {
@@ -543,10 +550,30 @@ function ScanView() {
             setExchangeUid(userId);
           },
           onError: (e) => {
-            if (
-              e instanceof ApiRequestError &&
-              e.code === "qr_exchange_required"
-            ) {
+            if (!(e instanceof ApiRequestError)) {
+              // HTTP 応答が無い失敗 = ネットワークに届かない（オフライン等）。
+              // 交換キューへ積んで受付画面を出し、通信復帰後の flush で
+              // 成立させる（issue #681）。キュー保存自体に失敗したときだけ
+              // 失敗の alert に落ちる。
+              void enqueueExchange({
+                friendId: userId,
+                qrToken,
+                offlineToken,
+                miniMeishi,
+              })
+                .then(() => {
+                  setQueuedExchange({ uid: userId, miniMeishi });
+                })
+                .catch(() => {
+                  alert(
+                    t("追加できませんでした"),
+                    t("フレンド追加に失敗しました"),
+                    { okLabel: "OK", onClose: reset },
+                  );
+                });
+              return;
+            }
+            if (e.code === "qr_exchange_required") {
               // 期限切れ・無効なトークンは申請フローに誘導する。
               alert(
                 t("QR の有効期限が切れています"),
@@ -576,6 +603,11 @@ function ScanView() {
 
   const closeExchangeOverlay = () => {
     setExchangeUid(null);
+    reset();
+  };
+
+  const closeQueuedOverlay = () => {
+    setQueuedExchange(null);
     reset();
   };
 
@@ -658,6 +690,13 @@ function ScanView() {
             setRecordSheetUid(null);
             reset();
           }}
+        />
+      ) : null}
+      {queuedExchange ? (
+        <ExchangeQueuedOverlay
+          uid={queuedExchange.uid}
+          miniMeishi={queuedExchange.miniMeishi}
+          onClose={closeQueuedOverlay}
         />
       ) : null}
     </View>

@@ -110,7 +110,7 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
      * A→B を追加する際に B→A も同時に登録し、片方向だけの不整合を防ぐ。
      * D1 では BEGIN TRANSACTION が使えないため db.batch() でアトミックに実行する。
      */
-    async addFriend(friendId: string): Promise<Friend> {
+    async addFriend(friendId: string, metAt?: Date): Promise<Friend> {
       if (friendId === currentUserId) {
         throw new Error("自分自身をフレンドに追加することはできません");
       }
@@ -171,15 +171,18 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
       // A→B 行をこのリクエストが作った（= 冪等の再 POST・同時交換の
       // 負け側でない）ときだけ、各側の名刺帳に初回記録を 1 行ずつ積む。
       // 場所・イベントは本人が後から任意で足す。
+      // metAt はオフライン交換キュー（issue #681）の scannedAt を反映
+      // でき、未指定時は成立時刻（friends.created_at と同じ now）。
       const becameFriend = results[0].length > 0;
       if (becameFriend) {
+        const initialMetAt = metAt ?? now;
         await db.batch([
           db.insert(exchangeRecords).values(
             initialExchangeRecordValues({
               ownerId: currentUserId,
               friendId,
               source: "qr",
-              metAt: now,
+              metAt: initialMetAt,
               now,
             }),
           ),
@@ -188,7 +191,7 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
               ownerId: friendId,
               friendId: currentUserId,
               source: "qr",
-              metAt: now,
+              metAt: initialMetAt,
               now,
             }),
           ),

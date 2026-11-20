@@ -30,6 +30,7 @@ import { useThemeColors } from "@/lib/theme";
 import { useStackHeaderOptions } from "@/lib/theme/stackHeaderOptions";
 import { useEventTrackingContext } from "@/lib/useEventTrackingContext";
 import { useGuestCtaReturn } from "@/lib/guestCta";
+import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
 import { guestLandingPath } from "@/lib/guestLandingRoute";
 import { WorkDetailProvider } from "@/components/anime-list/WorkDetailProvider";
 import { shouldDeferRouteRender } from "@/lib/staticRendering/shouldDeferRouteRender";
@@ -61,6 +62,9 @@ function AuthGuard() {
   // 公開プロフィールの登録 CTA から来た人を、登録後に元のプロフィールへ戻す
   // （issue #562）。
   useGuestCtaReturn();
+  // オフラインで積んだ交換キューを起動・フォーカス・通信復帰のたびに
+  // POST /me/friends へ流す（issue #681）。
+  useExchangeQueueSync();
 
   useEffect(() => {
     if (!isLoaded) return;
