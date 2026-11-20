@@ -43,16 +43,60 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
 }));
 
+// MeishiCard が Gesture を import するため、ネイティブモジュールを読まない
+// スタブに差し替える（PropertyPanel.test.tsx と同じパターン）。
+jest.mock("react-native-gesture-handler", () => {
+  const chain: Record<string, unknown> = {};
+  for (const name of [
+    "runOnJS",
+    "onUpdate",
+    "onStart",
+    "onEnd",
+    "onFinalize",
+    "onTouchesDown",
+    "onTouchesMove",
+    "onTouchesUp",
+    "simultaneousWithExternalGesture",
+    "enabled",
+    "minDistance",
+    "minPointers",
+    "maxPointers",
+    "activeOffsetX",
+    "activeOffsetY",
+  ]) {
+    chain[name] = () => chain;
+  }
+  const gesture = () => chain;
+  return {
+    Gesture: {
+      Pan: gesture,
+      Pinch: gesture,
+      Tap: gesture,
+      Exclusive: gesture,
+      Simultaneous: gesture,
+    },
+    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+  };
+});
+
+// 名刺帳の既定のモック相手。createdAt / source は名刺カードの
+// 交換日表示に使う（issue #659）。
+const mockFriend = {
+  friendId: "friend_1",
+  createdAt: "2026-11-10T00:00:00.000Z",
+  source: "qr" as "qr" | "request" | null,
+  username: "友達A",
+  bio: null,
+  favoriteQuote: null,
+  profileImageUrl: null,
+  meishiSnapshotUrl: null,
+};
+
+let mockFriendsData: (typeof mockFriend)[] = [mockFriend];
+
 jest.mock("@/lib/useFriends", () => ({
   useFriends: () => ({
-    data: [
-      {
-        friendId: "friend_1",
-        username: "友達A",
-        favoriteQuote: null,
-        profileImageUrl: null,
-      },
-    ],
+    data: mockFriendsData,
     isLoading: mockFriendsLoading,
     isError: mockFriendsError,
     refetch: jest.fn(),
@@ -85,6 +129,7 @@ beforeEach(async () => {
   mockFriendsLoading = false;
   mockFriendsError = false;
   mockRequestsData = { received: [], sent: [] };
+  mockFriendsData = [mockFriend];
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
@@ -101,7 +146,24 @@ describe("FriendsSection", () => {
     mockFriendsError = true;
     await render(<FriendsSection />);
 
-    expect(screen.getByText("友達A")).toBeTruthy();
+    expect(screen.getByTestId("friend-card-friend_1")).toBeTruthy();
+  });
+  it("QR で交換した相手には交換日と「QRで交換」を表示する", async () => {
+    await render(<FriendsSection />);
+
+    expect(screen.getByText(/2026年11月10日にQRで交換/)).toBeTruthy();
+  });
+  it("申請経由で交換した相手には「申請で交換」を表示する", async () => {
+    mockFriendsData = [{ ...mockFriend, source: "request" }];
+    await render(<FriendsSection />);
+
+    expect(screen.getByText(/2026年11月10日に申請で交換/)).toBeTruthy();
+  });
+  it("交換経路が不明な相手には交換日だけを表示する", async () => {
+    mockFriendsData = [{ ...mockFriend, source: null }];
+    await render(<FriendsSection />);
+
+    expect(screen.getByText(/^2026年11月10日に交換$/)).toBeTruthy();
   });
   it("削除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
     await render(<FriendsSection />);

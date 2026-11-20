@@ -25,6 +25,7 @@ const USER_B = "user_friendB002";
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
   };
@@ -35,6 +36,7 @@ type TestEnv = {
 
 const TEST_BINDINGS = {
   DB: env.DB,
+  AVATARS: env.AVATARS,
   CLERK_SECRET_KEY: "test_secret",
   CLERK_PUBLISHABLE_KEY: "test_pub",
 };
@@ -274,6 +276,208 @@ describe("フレンド API", () => {
         TEST_BINDINGS,
       );
       expect(await resB.json()).toHaveLength(0);
+    });
+
+    it("GET /me/friends: 交換経路（source）と名刺スナップショット URL を含む（名刺帳。issue #659）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 相手の既定名刺の公開スナップショットが置いてある状態を再現する
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([1, 2, 3]),
+        { customMetadata: { version: "v1" } },
+      );
+
+      const res = await app.request(
+        "/me/friends",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await res.json()) as {
+        friendId: string;
+        source: string | null;
+        meishiSnapshotUrl: string | null;
+      }[];
+      expect(body[0]?.source).toBe("qr");
+      expect(body[0]?.meishiSnapshotUrl).toContain(
+        `/me/meishi-assets/meishi-assets/${USER_B}/public-snapshot.png`,
+      );
+    });
+
+    it("GET /me/friends: スナップショット未作成の相手は meishiSnapshotUrl が null", async () => {
+      // R2 はテスト間でリセットされないため、別テストが置いた
+      // スナップショットを消してから未作成の状態を作る
+      await env.AVATARS.delete(`meishi-assets/${USER_B}/public-snapshot.png`);
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const res = await app.request(
+        "/me/friends",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      const body = (await res.json()) as {
+        meishiSnapshotUrl: string | null;
+      }[];
+      expect(body[0]?.meishiSnapshotUrl).toBeNull();
+    });
+  });
+
+  // 名刺帳の私用メモ（issue #659）。本人以外には一切返さず、
+  // フレンド解除で消えることを担保する。
+  describe("私用メモ", () => {
+    beforeEach(() => {
+      signInAs(USER_A);
+    });
+
+    function putNote(
+      app: ReturnType<typeof buildApp>,
+      friendId: string,
+      body: string,
+    ) {
+      return app.request(
+        `/me/friends/${friendId}/note`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        },
+        TEST_BINDINGS,
+      );
+    }
+
+    function getNote(app: ReturnType<typeof buildApp>, friendId: string) {
+      return app.request(
+        `/me/friends/${friendId}/note`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+    }
+
+    it("メモ未作成なら body/updatedAt は null", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const res = await getNote(app, USER_B);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ body: null, updatedAt: null });
+    });
+
+    it("メモを保存・取得・上書きできる", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const put = await putNote(app, USER_B, "コミケで会った人");
+      expect(put.status).toBe(200);
+      const saved = (await put.json()) as { body: string; updatedAt: string };
+      expect(saved.body).toBe("コミケで会った人");
+      expect(saved.updatedAt).not.toBeNull();
+
+      const got = (await (await getNote(app, USER_B)).json()) as {
+        body: string;
+        updatedAt: string;
+      };
+      expect(got.body).toBe("コミケで会った人");
+
+      const put2 = await putNote(app, USER_B, "2 回目も会った");
+      const updated = (await put2.json()) as { body: string };
+      expect(updated.body).toBe("2 回目も会った");
+      const got2 = (await (await getNote(app, USER_B)).json()) as {
+        body: string;
+      };
+      expect(got2.body).toBe("2 回目も会った");
+    });
+
+    it("相手には自分のメモが見えない（相手が取れるのは自分のメモだけ）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await putNote(app, USER_B, "A だけのメモ");
+
+      // B が GET /me/friends/{A}/note を呼んでも、B 自身のメモ
+      // （未作成なら null）しか返らない。A のメモ本文はどの応答にも出ない。
+      signInAs(USER_B);
+      const resB = await getNote(app, USER_A);
+      expect(resB.status).toBe(200);
+      expect(await resB.json()).toEqual({ body: null, updatedAt: null });
+
+      // B が自分用のメモを書いても A 側のメモは別行で保持される
+      await putNote(app, USER_A, "B だけのメモ");
+      signInAs(USER_A);
+      const resA = await getNote(app, USER_B);
+      const noteA = (await resA.json()) as { body: string; updatedAt: string };
+      expect(noteA.body).toBe("A だけのメモ");
+      expect(noteA.updatedAt).not.toBeNull();
+    });
+
+    it("501 文字以上は 400", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const res = await putNote(app, USER_B, "あ".repeat(501));
+      expect(res.status).toBe(400);
+    });
+
+    it("空文字・空白のみの PUT はメモを消す", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await putNote(app, USER_B, "消す前のメモ");
+
+      const res = await putNote(app, USER_B, "  ");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ body: null, updatedAt: null });
+      expect(await (await getNote(app, USER_B)).json()).toEqual({
+        body: null,
+        updatedAt: null,
+      });
+      // 行自体も残らない
+      expect(await db.query.friendNotes.findMany()).toHaveLength(0);
+    });
+
+    it("フレンドでない相手のメモは GET/PUT とも 404（存在も漏らさない）", async () => {
+      const app = buildApp();
+      // フレンドではない存在ユーザーへのメモ
+      const USER_C = "user_friendC003";
+      const now = new Date();
+      await db.insert(users).values({
+        id: USER_C,
+        username: "ユーザーC",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      expect((await getNote(app, USER_C)).status).toBe(404);
+      expect((await putNote(app, USER_C, "メモ")).status).toBe(404);
+      // 存在しないユーザー宛も同じく 404
+      expect((await getNote(app, "user_nonexistent")).status).toBe(404);
+    });
+
+    it("フレンドを解除すると両方向のメモが消える（解除で消す方針）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await putNote(app, USER_B, "A→B のメモ");
+      signInAs(USER_B);
+      await putNote(app, USER_A, "B→A のメモ");
+      expect(await db.query.friendNotes.findMany()).toHaveLength(2);
+
+      signInAs(USER_A);
+      await app.request(
+        `/me/friends/${USER_B}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+
+      expect(await db.query.friendNotes.findMany()).toHaveLength(0);
+      // 解除後はメモ API 自体も 404 になる
+      expect((await getNote(app, USER_B)).status).toBe(404);
+    });
+
+    it("未認証は 401", async () => {
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const app = buildApp();
+      expect((await getNote(app, USER_B)).status).toBe(401);
     });
   });
 

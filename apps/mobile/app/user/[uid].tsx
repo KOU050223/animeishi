@@ -18,6 +18,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { FriendNoteSection } from "@/components/social/FriendNoteSection";
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
@@ -211,6 +212,9 @@ export default function PublicProfilePage() {
 
           <ProfileDetails profile={data} />
           {relation.isFriend ? <CommonPoints uid={uid} /> : null}
+
+          {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}
+          {relation.isFriend ? <FriendNoteSection uid={uid} /> : null}
 
           {canModerate ? (
             <ModerationSection

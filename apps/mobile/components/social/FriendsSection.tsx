@@ -16,10 +16,25 @@ import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
+import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { buildProfileUrl } from "@/lib/profileUrl";
+
+// 交換日の表示（「2026年11月1日」形式）。解釈できない値は空文字。
+function formatExchangedAt(iso: string, language: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(language, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
 
 // QR・フレンドタブの「フレンド」セクション（旧フレンドタブ）。
-// 画面上部の safe area とセクション切り替えはタブ画面側が持つため、
-// ここではセクション名の見出しを出さず人数だけを表示する。
+// 名刺帳（issue #659）として、交換した相手の名刺そのものを交換日の
+// 新しい順に並べる。画面上部の safe area とセクション切り替えはタブ画面側が
+// 持つため、ここではセクション名の見出しを出さず人数だけを表示する。
 export function FriendsSection() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -158,14 +173,8 @@ export function FriendsSection() {
             </View>
           ) : undefined
         }
-        ItemSeparatorComponent={() => (
-          <View
-            style={styles.separator}
-            className="bg-slate-100 dark:bg-slate-800"
-          />
-        )}
         renderItem={({ item }) => (
-          <FriendRow
+          <FriendCard
             friend={item}
             onPress={() => openProfile(item.friendId)}
             onRemove={() => confirmRemove(item.friendId, item.username)}
@@ -185,7 +194,11 @@ export function FriendsSection() {
   );
 }
 
-function FriendRow({
+// 名刺帳の 1 件（issue #659）。相手の名刺そのものを並べ、交換日と
+// 交換経路（QR／申請）を小さく添える。経路導入前の既存行は source が
+// null なので交換日だけを出す。カードをタップすると相手の詳細（名刺・
+// 私用メモ）へ進む。
+function FriendCard({
   friend,
   onPress,
   onRemove,
@@ -194,70 +207,73 @@ function FriendRow({
   onPress: () => void;
   onRemove: () => void;
 }) {
-  const { t } = useTranslation();
-  // プロフィールを開く領域と削除ボタンは兄弟にする。TouchableOpacity の
-  // 内側にボタンを重ねると iOS VoiceOver が親で一括りにして
-  // 削除ボタンへ個別にフォーカスできなくなる。
+  const { t, i18n } = useTranslation();
+  const date = formatExchangedAt(friend.createdAt, i18n.language);
+  const exchangedLabel =
+    friend.source === "qr"
+      ? t("{{date}}にQRで交換", { date })
+      : friend.source === "request"
+        ? t("{{date}}に申請で交換", { date })
+        : t("{{date}}に交換", { date });
+
+  const fallbackCard = (
+    <MeishiCard
+      username={friend.username}
+      bio={friend.bio}
+      favoriteQuote={friend.favoriteQuote}
+      profileImageUrl={friend.profileImageUrl}
+      profileUrl={buildProfileUrl(friend.friendId)}
+      profileOnly
+      hideUnsetFields
+    />
+  );
+
+  // 名刺を開く領域と削除ボタンは兄弟にする。TouchableOpacity の内側に
+  // ボタンを重ねると iOS VoiceOver が親で一括りにして削除ボタンへ
+  // 個別にフォーカスできなくなる。
   return (
-    <View className="flex-row items-center py-3 gap-3">
+    <View
+      className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
+      testID={`friend-card-${friend.friendId}`}
+    >
       <TouchableOpacity
-        className="flex-1 flex-row items-center gap-3"
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={t("{{username}}のプロフィールを見る", {
-          username: friend.username,
+        accessibilityLabel={t("「{{name}}」の名刺を開く", {
+          name: friend.username,
         })}
         testID={`friend-item-${friend.friendId}`}
       >
-        {friend.profileImageUrl ? (
-          <Image
-            source={{ uri: friend.profileImageUrl }}
-            style={styles.avatar}
-            // 画像読み込み中の下地。dark では slate-700 系に揃える。
-            className="bg-slate-200 dark:bg-slate-700"
-            resizeMode="cover"
-          />
-        ) : (
-          <View
-            style={styles.avatarPlaceholder}
-            className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
-          >
-            <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
-              {friend.username.charAt(0)}
-            </Text>
-          </View>
-        )}
-
-        <View className="flex-1">
-          <Text
-            className="text-slate-900 dark:text-slate-100 font-medium"
-            numberOfLines={1}
-          >
-            {friend.username}
-          </Text>
-          {friend.favoriteQuote ? (
-            <Text
-              className="text-xs text-slate-400 dark:text-slate-500 mt-0.5"
-              numberOfLines={1}
-            >
-              {friend.favoriteQuote}
-            </Text>
-          ) : null}
-        </View>
+        {/* エディタで作った既定名刺の公開スナップショットがあればそれを出す。
+            未作成・読み込み中・失敗は classic テンプレにフォールバックする
+            （issue #591 第 2 段階、#593）。 */}
+        <MeishiSnapshotImage
+          uri={friend.meishiSnapshotUrl}
+          testID={`friend-snapshot-${friend.friendId}`}
+          fallback={fallbackCard}
+        />
       </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={onRemove}
-        className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
-        accessibilityRole="button"
-        accessibilityLabel={t("{{username}}をフレンドから削除", {
-          username: friend.username,
-        })}
-      >
-        <Text className="text-xs text-red-500 dark:text-red-400">
-          {t("削除")}
+      <View className="mt-2 flex-row items-center justify-between">
+        <Text
+          className="text-xs text-slate-400 dark:text-slate-500"
+          testID={`friend-exchanged-${friend.friendId}`}
+        >
+          {exchangedLabel}
         </Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onRemove}
+          className="rounded-md px-1.5 py-1"
+          accessibilityRole="button"
+          accessibilityLabel={t("{{username}}をフレンドから削除", {
+            username: friend.username,
+          })}
+          testID={`friend-remove-${friend.friendId}`}
+        >
+          <Text className="text-xs text-red-500 dark:text-red-400">
+            {t("削除")}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -363,7 +379,7 @@ function FriendRequestRow({
 }
 
 const styles = StyleSheet.create({
-  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 16 },
   separator: { height: 1 },
   avatar: {
     width: 48,
