@@ -10,6 +10,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:device:release": "bash scripts/ios-device-release.sh",
+    "ios:device:release:nearby-spike": "bash scripts/ios-device-release.sh --nearby-spike",
     "typecheck": "tsc --noEmit --checkers 1",
     "build:web": "expo export -p web && node scripts/prune-web-html.mjs",
     "deploy:web": "wrangler deploy --env production",

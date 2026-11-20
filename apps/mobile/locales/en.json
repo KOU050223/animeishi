@@ -1,3 +1,5 @@
 {
-  "NSLocationWhenInUseUsageDescription": "Used to record where you met when exchanging cards. Coordinates are converted to a place name and discarded on-device; your location itself is never saved."
+  "NSLocationWhenInUseUsageDescription": "Used to record where you met when exchanging cards. Coordinates are converted to a place name and discarded on-device; your location itself is never saved.",
+  "NSLocalNetworkUsageDescription": "Used to find nearby devices to exchange cards with.",
+  "NSNearbyInteractionUsageDescription": "Used to measure the distance to a nearby person you bring your phone close to."
 }

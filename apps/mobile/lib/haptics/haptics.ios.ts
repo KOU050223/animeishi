@@ -22,4 +22,10 @@ export const haptics: Haptics = {
   impactLight: () => {
     void ExpoHaptics.impactAsync(ExpoHaptics.ImpactFeedbackStyle.Light);
   },
+  impactMedium: () => {
+    void ExpoHaptics.impactAsync(ExpoHaptics.ImpactFeedbackStyle.Medium);
+  },
+  impactHeavy: () => {
+    void ExpoHaptics.impactAsync(ExpoHaptics.ImpactFeedbackStyle.Heavy);
+  },
 };

@@ -16,4 +16,8 @@ export type Haptics = {
   selection: () => void;
   /** ドラッグ&ドロップの吸着など、軽い物理フィードバック。 */
   impactLight: () => void;
+  /** 近接度の上がった一段階目など、中程度の物理フィードバック。 */
+  impactMedium: () => void;
+  /** 交換成立などの節目で 1 回だけ鳴らす強い物理フィードバック。 */
+  impactHeavy: () => void;
 };
