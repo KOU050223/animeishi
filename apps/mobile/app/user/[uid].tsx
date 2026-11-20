@@ -20,6 +20,7 @@ import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 import { ExchangeRecordSection } from "@/components/social/ExchangeRecordSection";
 import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { CommonPoints } from "@/components/social/CommonPoints";
@@ -237,6 +238,10 @@ export default function PublicProfilePage() {
           <ProfileDetails profile={data} />
           <SocialLinksList links={data.socialLinks ?? []} />
           {relation.isFriend ? <CommonPoints uid={uid} /> : null}
+
+          {/* 名刺帳の相手の近況（issue #660）の「最近」欄。
+              フレンドの詳細にだけ出し、相手が非公開なら API が空を返す */}
+          {relation.isFriend ? <FriendUpdatesSection uid={uid} /> : null}
 
           {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}
           {relation.isFriend ? <FriendNoteSection uid={uid} /> : null}

@@ -15,7 +15,11 @@ import {
   users,
   friends as friendsTable,
   exchangeRecords as exchangeRecordsTable,
+  activities,
+  annictWorks,
+  blocks,
 } from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -834,6 +838,255 @@ describe("フレンド API", () => {
       );
       const app = buildApp();
       expect((await getNote(app, USER_B)).status).toBe(401);
+    });
+  });
+
+  // 名刺帳の相手の近況（issue #660）。フレンドの公開な活動 3 種
+  // （今期作品の視聴ステータス・推しの変更・名刺の更新）だけを
+  // 新しい順に返し、非フレンド・非公開には返さない。
+  describe("相手の近況", () => {
+    const WORK_ID = 12345;
+
+    type UpdatesBody = {
+      items: {
+        id: number | null;
+        type: string;
+        createdAt: string;
+        work: {
+          annictWorkId: number;
+          title: string;
+          titleEn: string | null;
+          hostedImageUrl: string | null;
+        } | null;
+        meta: Record<string, unknown> | null;
+      }[];
+    };
+
+    beforeEach(async () => {
+      signInAs(USER_A);
+      const now = new Date();
+      await db.insert(annictWorks).values({
+        annictWorkId: WORK_ID,
+        title: "テストアニメ",
+        titleEn: "Test Anime",
+        // watch_status の近況は今期の作品に絞るため、今期として登録する
+        seasonName: currentAnnictSeason(),
+        updatedAt: now,
+      });
+      // R2 はテスト間でリセットされないため、他テストが置いた
+      // スナップショットを消して「未作成」の状態に揃える
+      await env.AVATARS.delete(`meishi-assets/${USER_B}/public-snapshot.png`);
+    });
+
+    function getUpdates(app: ReturnType<typeof buildApp>, friendId: string) {
+      return app.request(
+        `/me/friends/${friendId}/updates`,
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+    }
+
+    async function addActivity(input: {
+      userId: string;
+      type: "watch_status" | "favorite_added" | "tier_list_created";
+      annictWorkId?: number;
+      meta?: Record<string, unknown>;
+      createdAt?: Date;
+    }) {
+      await db.insert(activities).values({
+        userId: input.userId,
+        type: input.type,
+        annictWorkId: input.annictWorkId ?? null,
+        meta: input.meta ? JSON.stringify(input.meta) : null,
+        createdAt: input.createdAt ?? new Date(),
+      });
+    }
+
+    it("フレンドの活動を新しい順に返す（作品情報・meta 付き）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      const base = Date.now();
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: WORK_ID,
+        createdAt: new Date(base - 1000),
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "watch_status",
+        annictWorkId: WORK_ID,
+        meta: { state: "WATCHING" },
+        createdAt: new Date(base),
+      });
+
+      const res = await getUpdates(app, USER_B);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as UpdatesBody;
+      expect(body.items).toHaveLength(2);
+      expect(body.items[0]?.type).toBe("watch_status");
+      expect(body.items[0]?.work?.title).toBe("テストアニメ");
+      expect(body.items[0]?.work?.hostedImageUrl).toContain(
+        `/images/works/${WORK_ID}`,
+      );
+      expect(body.items[0]?.meta).toEqual({ state: "WATCHING" });
+      expect(body.items[1]?.type).toBe("favorite_added");
+    });
+
+    it("今期以外の作品の watch_status は出さない（推しの変更は出す）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 今期ではない過去シーズンの作品
+      const PAST_WORK_ID = 99999;
+      await db.insert(annictWorks).values({
+        annictWorkId: PAST_WORK_ID,
+        title: "過去アニメ",
+        seasonName: "2000-winter",
+        updatedAt: new Date(),
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "watch_status",
+        annictWorkId: PAST_WORK_ID,
+        meta: { state: "WATCHING" },
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: PAST_WORK_ID,
+      });
+
+      const body = (await (
+        await getUpdates(app, USER_B)
+      ).json()) as UpdatesBody;
+      expect(body.items.map((item) => item.type)).toEqual(["favorite_added"]);
+    });
+
+    it("tier_list_* の活動は近況に含めない", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await addActivity({
+        userId: USER_B,
+        type: "tier_list_created",
+        meta: { kind: "season", title: "春アニメ Tier" },
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: WORK_ID,
+      });
+
+      const body = (await (
+        await getUpdates(app, USER_B)
+      ).json()) as UpdatesBody;
+      expect(body.items).toHaveLength(1);
+      expect(body.items[0]?.type).toBe("favorite_added");
+    });
+
+    it("公開スナップショットがあれば撮り直し時刻の meishi_updated を含む", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([1, 2, 3]),
+      );
+
+      const body = (await (
+        await getUpdates(app, USER_B)
+      ).json()) as UpdatesBody;
+      const meishi = body.items.find((item) => item.type === "meishi_updated");
+      expect(meishi).toBeDefined();
+      // R2 オブジェクトの uploaded（= 撮り直し時刻）が createdAt になる。
+      // put 直後なので現在時刻の近い値のはず。
+      expect(Date.now() - Date.parse(meishi?.createdAt ?? "")).toBeLessThan(
+        60_000,
+      );
+    });
+
+    it("活動と名刺更新は時系列の新しい順に並ぶ", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 名刺更新（= put した今）より古い活動は後ろに並ぶ
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: WORK_ID,
+        createdAt: new Date(Date.now() - 60_000),
+      });
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([1, 2, 3]),
+      );
+
+      const body = (await (
+        await getUpdates(app, USER_B)
+      ).json()) as UpdatesBody;
+      expect(body.items.map((item) => item.type)).toEqual([
+        "meishi_updated",
+        "favorite_added",
+      ]);
+    });
+
+    it("フレンドでない相手の近況は 404（存在も漏らさない）", async () => {
+      const app = buildApp();
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: WORK_ID,
+      });
+
+      expect((await getUpdates(app, USER_B)).status).toBe(404);
+      expect((await getUpdates(app, "user_nonexistent")).status).toBe(404);
+    });
+
+    it("非公開（is_public=false）の相手の近況は返さない", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await db
+        .update(users)
+        .set({ isPublic: false })
+        .where(eq(users.id, USER_B));
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: WORK_ID,
+      });
+      // 非公開でも R2 に残る想定でスナップショットも置いておく
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([1, 2, 3]),
+      );
+
+      const res = await getUpdates(app, USER_B);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as UpdatesBody;
+      expect(body.items).toEqual([]);
+    });
+
+    it("ブロック関係にある相手の近況は 404", async () => {
+      const app = buildApp();
+      // friends 行が残っている経路もあるため（feed のコメント参照）、
+      // 行を直接残したうえでブロックを入れて絞れることを確かめる
+      const now = new Date();
+      await db.insert(friendsTable).values([
+        { userId: USER_A, friendId: USER_B, createdAt: now },
+        { userId: USER_B, friendId: USER_A, createdAt: now },
+      ]);
+      await db.insert(blocks).values({
+        blockerId: USER_A,
+        blockedId: USER_B,
+        createdAt: now,
+      });
+
+      expect((await getUpdates(app, USER_B)).status).toBe(404);
+    });
+
+    it("未認証は 401", async () => {
+      vi.mocked(getAuth).mockReturnValue(
+        null as unknown as ReturnType<typeof getAuth>,
+      );
+      const app = buildApp();
+      expect((await getUpdates(app, USER_B)).status).toBe(401);
     });
   });
 

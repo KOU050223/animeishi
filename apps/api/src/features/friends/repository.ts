@@ -1,4 +1,13 @@
-import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  exists,
+  inArray,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
@@ -6,8 +15,11 @@ import {
   friendRequests,
   friendNotes,
   blocks,
+  activities,
+  annictWorks,
 } from "@/db/schema";
 import type { Friend } from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 import { UserBlockedError, usersRepository } from "../users/repository";
 import {
   countMeetingRecords,
@@ -41,6 +53,32 @@ export type FriendWithUser = {
 export type FriendNote = {
   body: string;
   updatedAt: Date;
+};
+
+// 名刺帳の相手の近況（issue #660）に出す活動の種類。
+// tier_list_* は近況の対象外（issue #660 の「3 種に絞る」）。
+// watch_status はさらに今期の作品に絞って出す（「今期見ている作品の
+// 追加・変更」の仕様。フィルタは getFriendUpdates 内）。
+export const FRIEND_UPDATE_ACTIVITY_TYPES = [
+  "watch_status",
+  "favorite_added",
+] as const;
+
+// 「最近」欄に出す件数。相手の詳細に静かに出す分だけ取ればよいため、
+// ページングはせず新しい順の固定件数にする。
+export const FRIEND_UPDATES_LIMIT = 10;
+
+/** 近況の 1 件（activities 行 + 作品メタ）。meta は JSON 文字列のまま。 */
+export type FriendUpdateActivityRow = {
+  id: number;
+  type: (typeof FRIEND_UPDATE_ACTIVITY_TYPES)[number];
+  meta: string | null;
+  createdAt: Date;
+  work: {
+    annictWorkId: number;
+    title: string;
+    titleEn: string | null;
+  } | null;
 };
 
 /**
@@ -327,6 +365,133 @@ export function friendsRepository(
           set: { body, updatedAt: now },
         });
       return { body, updatedAt: now };
+    },
+
+    /**
+     * 名刺帳の相手の近況（issue #660）。今期作品の視聴ステータス変更と
+     * 推しの変更の activities を新しい順に最大 FRIEND_UPDATES_LIMIT 件返す。
+     *
+     * フレンドでなければ FriendNotFoundError を投げる（存在も漏らさない）。
+     * friends 行は通常ブロック時に消えるが、経路に依存せず絞るため
+     * ブロック関係も同じ 404 に寄せる（feedRepository と同じ考え方）。
+     * 相手が非公開（is_public=false）なら近況は出さず items を空にする
+     * — 名刺スナップショットの合成も呼び出し側で行わない判断材料として
+     * friendIsPublic を返す。
+     */
+    async getFriendUpdates(friendId: string): Promise<{
+      friendIsPublic: boolean;
+      items: FriendUpdateActivityRow[];
+    }> {
+      const friendRow = await db.query.friends.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+        columns: { id: true },
+      });
+      if (!friendRow) throw new FriendNotFoundError(friendId);
+      if (await usersRepository(db, currentUserId).isBlockedWith(friendId)) {
+        throw new FriendNotFoundError(friendId);
+      }
+
+      const target = await db.query.users.findFirst({
+        where: eq(users.id, friendId),
+        columns: { isPublic: true },
+      });
+      if (!target?.isPublic) {
+        return { friendIsPublic: false, items: [] };
+      }
+
+      // 「今期見ている作品の追加・変更」はオーナー仕様どおり今期の作品に
+      // 絞る。今期判定は共通点（features/common、issue #657）と同じく
+      // currentAnnictSeason() と season_name（-autumn/-fall の別名も）で
+      // 行う。annict_works に無い作品はシーズン不明のため出さない。
+      // favorite_added（推しの変更）はシーズンに関係なく出す。
+      const season = currentAnnictSeason();
+      const alternateSeason = season.replace(/-autumn$/, "-fall");
+      const rows = await db
+        .select({
+          id: activities.id,
+          type: activities.type,
+          meta: activities.meta,
+          createdAt: activities.createdAt,
+          workAnnictWorkId: annictWorks.annictWorkId,
+          workTitle: annictWorks.title,
+          workTitleEn: annictWorks.titleEn,
+        })
+        .from(activities)
+        .leftJoin(
+          annictWorks,
+          eq(activities.annictWorkId, annictWorks.annictWorkId),
+        )
+        .where(
+          and(
+            eq(activities.userId, friendId),
+            or(
+              eq(activities.type, "favorite_added"),
+              and(
+                eq(activities.type, "watch_status"),
+                inArray(annictWorks.seasonName, [season, alternateSeason]),
+              ),
+            ),
+            // 上の認可チェックとこの取得の間に公開取り消し・ブロック・
+            // フレンド解除が起きても近況を返さないよう、取得クエリ自体に
+            // も同じ条件を入れて原子的に絞る（Devin Review 指摘対応）
+            exists(
+              db
+                .select({ one: sql`1` })
+                .from(users)
+                .where(and(eq(users.id, friendId), eq(users.isPublic, true))),
+            ),
+            exists(
+              db
+                .select({ one: sql`1` })
+                .from(friends)
+                .where(
+                  and(
+                    eq(friends.userId, currentUserId),
+                    eq(friends.friendId, friendId),
+                  ),
+                ),
+            ),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(blocks)
+                .where(
+                  or(
+                    and(
+                      eq(blocks.blockerId, currentUserId),
+                      eq(blocks.blockedId, friendId),
+                    ),
+                    and(
+                      eq(blocks.blockerId, friendId),
+                      eq(blocks.blockedId, currentUserId),
+                    ),
+                  ),
+                ),
+            ),
+          ),
+        )
+        .orderBy(desc(activities.id))
+        .limit(FRIEND_UPDATES_LIMIT);
+
+      return {
+        friendIsPublic: true,
+        items: rows.map((row) => ({
+          id: row.id,
+          // WHERE で FRIEND_UPDATE_ACTIVITY_TYPES に絞っているため狭めてよい
+          type: row.type as FriendUpdateActivityRow["type"],
+          meta: row.meta,
+          createdAt: row.createdAt,
+          work:
+            row.workAnnictWorkId === null
+              ? null
+              : {
+                  annictWorkId: row.workAnnictWorkId,
+                  title: row.workTitle ?? "",
+                  titleEn: row.workTitleEn,
+                },
+        })),
+      };
     },
   };
 }
