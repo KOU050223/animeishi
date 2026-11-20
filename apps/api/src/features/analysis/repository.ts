@@ -192,9 +192,12 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
      * 条件付きの単一 statement にして並行リクエストのすり抜けを防ぐ。
      * 行が無い or 窓切れ → INSERT/UPSERT で新しい窓を 1 から開始、
      * 窓内 → generation_count < 上限 の場合だけインクリメント。
+     * @returns 確保したスロットが属する計測窓の window_started_at（unix 秒）。
+     *   releaseGeneration に渡して、窓切り替え後の行を誤って戻さない
+     *   ようにする。
      * @throws AnalysisRateLimitError 窓内の残スロットが無いとき
      */
-    async claimGeneration(nowSec: number, inputHash: string): Promise<void> {
+    async claimGeneration(nowSec: number, inputHash: string): Promise<number> {
       const windowStartThresholdSec = nowSec - ANALYSIS_RATE_LIMIT_WINDOW_SEC;
 
       // 行が無い・窓切れのケースを 1 ステートメントで処理する。
@@ -220,10 +223,12 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
           generated_at = NULL
         WHERE ${analyses.windowStartedAt} <= ${windowStartThresholdSec}
       `);
-      if (claimed.meta.changes > 0) return;
+      if (claimed.meta.changes > 0) return nowSec;
 
-      // 行あり・窓内: 上限未満の場合だけ消費する。
-      const incremented = await db.run(sql`
+      // 行あり・窓内: 上限未満の場合だけ消費する。確保した窓を呼び出し側へ
+      // 返すため RETURNING で読む（UPDATE と読み取りを分けると、間に窓の
+      // リセットが割り込んで新しい窓の値を拾ってしまう）。
+      const incremented = await db.get<{ window_started_at: number }>(sql`
         UPDATE ${analyses}
         SET generation_count = generation_count + 1,
           input_hash = ${inputHash},
@@ -234,8 +239,9 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
         WHERE user_id = ${currentUserId}
           AND window_started_at > ${windowStartThresholdSec}
           AND generation_count < ${ANALYSIS_MAX_GENERATIONS_PER_WINDOW}
+        RETURNING window_started_at
       `);
-      if (incremented.meta.changes > 0) return;
+      if (incremented) return incremented.window_started_at;
 
       // 上限到達。窓の解放時刻（window_started_at + 24h）までの待ち時間を返す。
       const row = await db.query.analyses.findFirst({
@@ -256,13 +262,16 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
     /**
      * claimGeneration で消費した生成枠を 1 つ返す。
      * claim 後の生成・保存に失敗したときに呼ぶ（issue #463）。
-     * 窓のリセットが先行していてもカウントを負にしない。
+     * claim が確保した計測窓（window_started_at）と一致する行だけを戻す。
+     * 返却前に窓切れのリセットが先行している場合は、新しい窓の消費を
+     * 誤って減らしてしまうため何もしない。
      */
-    async releaseGeneration(): Promise<void> {
+    async releaseGeneration(windowStartedAtSec: number): Promise<void> {
       await db.run(sql`
         UPDATE ${analyses}
         SET generation_count = generation_count - 1
         WHERE user_id = ${currentUserId}
+          AND window_started_at = ${windowStartedAtSec}
           AND generation_count > 0
       `);
     },

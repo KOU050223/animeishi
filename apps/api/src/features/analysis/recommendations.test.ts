@@ -524,6 +524,49 @@ describe("AI おすすめ生成 API", () => {
       expect(row?.worksJson).not.toBeNull();
     });
 
+    it("POST: 返却時に窓が切り替わっていたら新しい窓の回数を減らさない", async () => {
+      await seedHistory([101]);
+      let rejectAi!: (reason: unknown) => void;
+      aiRun.mockImplementation(
+        () =>
+          new Promise((_, reject) => {
+            rejectAi = reject;
+          }),
+      );
+
+      // 先行リクエストが claim したあと AI 応答待ちで止まる。
+      const pending = postRecommendations();
+      const findRow = () =>
+        db.query.recommendations.findFirst({
+          where: eq(recommendations.userId, USER_ID),
+        });
+      let claimedRow: Awaited<ReturnType<typeof findRow>>;
+      for (let i = 0; i < 100 && !claimedRow?.inputHash; i++) {
+        claimedRow = await findRow();
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      expect(claimedRow?.inputHash).not.toBeNull();
+
+      // 生成中に窓切れのリセットが先行し、別リクエストが新しい窓で
+      // 生成回数を消費した状態を作る（issue #463 レビュー指摘の再現）。
+      const claimedWindowMs = claimedRow!.windowStartedAt.getTime();
+      await db
+        .update(recommendations)
+        .set({
+          windowStartedAt: new Date(claimedWindowMs + 60_000),
+          generationCount: 2,
+          inputHash: "newer-claim",
+        })
+        .where(eq(recommendations.userId, USER_ID));
+
+      rejectAi(new Error("workers ai is down"));
+      expect((await pending).status).toBe(502);
+
+      // 先行リクエストの枠返却は古い窓に紐づくため、新しい窓の消費は減らない。
+      const row = await findRow();
+      expect(row?.generationCount).toBe(2);
+    });
+
     it("POST: Annict の照合が 401 なら annict_token_invalid を返し枠も消費しない", async () => {
       await seedHistory([101]);
       vi.stubGlobal(

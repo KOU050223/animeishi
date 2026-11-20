@@ -120,9 +120,11 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
      * （失敗時は枠を消費しない方針。issue #463）。
      * 構造は analysisRepository.claimGeneration と同じ（生成中マークで
      * 先行生成との compare-and-swap を成立させる）。
+     * @returns 確保したスロットが属する計測窓の window_started_at（unix 秒）。
+     *   releaseGeneration に渡す。
      * @throws RecommendationRateLimitError 窓内の残スロットが無いとき
      */
-    async claimGeneration(nowSec: number, inputHash: string): Promise<void> {
+    async claimGeneration(nowSec: number, inputHash: string): Promise<number> {
       const windowStartThresholdSec =
         nowSec - RECOMMENDATION_RATE_LIMIT_WINDOW_SEC;
 
@@ -142,9 +144,9 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
           generated_at = NULL
         WHERE ${recommendations.windowStartedAt} <= ${windowStartThresholdSec}
       `);
-      if (claimed.meta.changes > 0) return;
+      if (claimed.meta.changes > 0) return nowSec;
 
-      const incremented = await db.run(sql`
+      const incremented = await db.get<{ window_started_at: number }>(sql`
         UPDATE ${recommendations}
         SET generation_count = generation_count + 1,
           input_hash = ${inputHash},
@@ -153,8 +155,9 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
         WHERE user_id = ${currentUserId}
           AND window_started_at > ${windowStartThresholdSec}
           AND generation_count < ${RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW}
+        RETURNING window_started_at
       `);
-      if (incremented.meta.changes > 0) return;
+      if (incremented) return incremented.window_started_at;
 
       const row = await db.query.recommendations.findFirst({
         where: eq(recommendations.userId, currentUserId),
@@ -174,13 +177,16 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
     /**
      * claimGeneration で消費した生成枠を 1 つ返す。
      * claim 後の生成・保存に失敗したときに呼ぶ（issue #463）。
-     * 窓のリセットが先行していてもカウントを負にしない。
+     * claim が確保した計測窓（window_started_at）と一致する行だけを戻す。
+     * 返却前に窓切れのリセットが先行している場合は、新しい窓の消費を
+     * 誤って減らしてしまうため何もしない。
      */
-    async releaseGeneration(): Promise<void> {
+    async releaseGeneration(windowStartedAtSec: number): Promise<void> {
       await db.run(sql`
         UPDATE ${recommendations}
         SET generation_count = generation_count - 1
         WHERE user_id = ${currentUserId}
+          AND window_started_at = ${windowStartedAtSec}
           AND generation_count > 0
       `);
     },

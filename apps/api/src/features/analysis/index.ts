@@ -123,8 +123,9 @@ const analysis = app
     // 生成回数制限。claim はカウンタを原子的に消費し、同時に行を
     // 「この入力ハッシュで生成中」にマークする。生成に失敗したときは
     // releaseGeneration で枠を返す（失敗時は枠を消費しない。issue #463）。
+    let claimedWindowSec: number;
     try {
-      await repo.claimGeneration(nowSec, inputHash);
+      claimedWindowSec = await repo.claimGeneration(nowSec, inputHash);
     } catch (e) {
       if (e instanceof AnalysisRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -145,7 +146,7 @@ const analysis = app
     } catch (e) {
       // 生成失敗は枠を消費しない。返却自体の失敗（DB 障害）は
       // 応答を変えないため握り潰す。
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       // Workers AI の障害・応答解釈失敗。上流起因のため 502 にし、
       // Sentry・Discord へは明示的に送る。
       reportApiFailure(e, c, 502);
@@ -169,12 +170,12 @@ const analysis = app
     try {
       persisted = await repo.saveMyAnalysis({ ...saved, inputHash });
     } catch (e) {
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       throw e;
     }
     if (!persisted) {
       // 自分の結果は保存されなかったので claim 分の枠を返す。
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       const current = await repo.getMyAnalysis();
       if (current) {
         return c.json({ analysis: toResponse(current), cached: true }, 200);
@@ -270,8 +271,9 @@ const analysis = app
     // 生成回数制限。claim の意味づけは分析と同じ（失敗時は
     // releaseGeneration で枠を返す。issue #463）。
     // 比較・保存のトークンには複合キャッシュキーを使う。
+    let claimedWindowSec: number;
     try {
-      await repo.claimGeneration(nowSec, cacheKey);
+      claimedWindowSec = await repo.claimGeneration(nowSec, cacheKey);
     } catch (e) {
       if (e instanceof RecommendationRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -290,7 +292,7 @@ const analysis = app
         analysis: usableAnalysis,
       });
     } catch (e) {
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       reportApiFailure(e, c, 502);
       return c.json(
         {
@@ -323,7 +325,7 @@ const analysis = app
         enriched.map((w) => [w.annictWorkId, w.hostedImageUrl]),
       );
     } catch (e) {
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       throw e;
     }
 
@@ -336,12 +338,12 @@ const analysis = app
         generatedAt,
       });
     } catch (e) {
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       throw e;
     }
     if (!persisted) {
       // 自分の結果は保存されなかったので claim 分の枠を返す。
-      await repo.releaseGeneration().catch(() => {});
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       const current = await repo.getMyRecommendations();
       if (current) {
         return c.json(
