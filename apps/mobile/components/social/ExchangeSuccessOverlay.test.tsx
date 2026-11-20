@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { haptics } from "@/lib/haptics";
 import { useFavorites } from "@/lib/useFavorites";
+import { useCommonPoints } from "@/lib/useCommonPoints";
+import { useFriends } from "@/lib/useFriends";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const PROFILE = {
@@ -42,6 +44,8 @@ jest.mock("@/lib/haptics", () => ({
 jest.mock("@/lib/useFavorites", () => ({
   useFavorites: jest.fn(() => ({ data: undefined })),
 }));
+jest.mock("@/lib/useCommonPoints", () => ({ useCommonPoints: jest.fn() }));
+jest.mock("@/lib/useFriends", () => ({ useFriends: jest.fn() }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
@@ -62,6 +66,22 @@ beforeEach(async () => {
   jest.clearAllMocks();
   resetAuth();
   mockProfileFetch();
+  jest
+    .mocked(useFriends)
+    .mockReturnValue({ data: [] } as unknown as ReturnType<typeof useFriends>);
+  jest.mocked(useCommonPoints).mockReturnValue({
+    data: {
+      watchingTogether: [
+        { annictWorkId: 1, title: "共通のアニメ", hostedImageUrl: null },
+      ],
+      watchedTogetherCount: 0,
+      favoriteTogether: [],
+      conversationStarters: [],
+    },
+    isPending: false,
+    isError: false,
+    refetch: jest.fn(),
+  } as unknown as ReturnType<typeof useCommonPoints>);
 });
 
 describe("ExchangeSuccessOverlay", () => {
@@ -77,6 +97,7 @@ describe("ExchangeSuccessOverlay", () => {
     await waitFor(() => {
       expect(screen.getByText("交換相手")).toBeTruthy();
       expect(screen.getByText("よろしく")).toBeTruthy();
+      expect(screen.getByText("共通のアニメ")).toBeTruthy();
     });
     // 相手のカードに閲覧者自身の favorites / watch history が混入しない。
     expect(useFavorites).not.toHaveBeenCalled();
@@ -96,6 +117,27 @@ describe("ExchangeSuccessOverlay", () => {
       pathname: "/user/[uid]",
       params: { uid: "user_partner" },
     });
+  });
+
+  it("相手が非公開でも交換済みフレンドの名刺情報と共通点を表示する", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockProfileFetch({}, 404);
+    jest.mocked(useFriends).mockReturnValue({
+      data: [
+        {
+          friendId: "user_partner",
+          username: "非公開の相手",
+          bio: "交換済み",
+          profileImageUrl: null,
+        },
+      ],
+    } as unknown as ReturnType<typeof useFriends>);
+    await render(
+      <ExchangeSuccessOverlay uid="user_partner" onClose={mockOnClose} />,
+      { wrapper },
+    );
+    expect(screen.getByText("非公開の相手")).toBeTruthy();
+    expect(screen.getByText("共通のアニメ")).toBeTruthy();
   });
 
   it("showProfileLink=false のとき「プロフィールを見る」を出さない", async () => {

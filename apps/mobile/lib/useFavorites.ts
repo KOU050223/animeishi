@@ -8,6 +8,7 @@ import { buildAnnictAuthHeader } from "@/lib/annict";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { hiraganaToKana } from "@/lib/textNormalize";
+import { invalidateCommonPoints } from "@/lib/useCommonPoints";
 
 type FavoritesResponse = InferResponseType<
   (typeof apiClient.me.favorites)["$get"],
@@ -109,6 +110,7 @@ export function useAddFavorite() {
       return res.json();
     },
     onSuccess: () => {
+      invalidateCommonPoints(queryClient);
       void queryClient.invalidateQueries({
         queryKey: userId ? favoritesQueryKey(userId) : FAVORITES_QUERY_KEY,
       });
@@ -134,6 +136,7 @@ export function useRemoveFavorite() {
       return ct.includes("application/json") ? res.json() : null;
     },
     onSuccess: () => {
+      invalidateCommonPoints(queryClient);
       void queryClient.invalidateQueries({
         queryKey: userId ? favoritesQueryKey(userId) : FAVORITES_QUERY_KEY,
       });

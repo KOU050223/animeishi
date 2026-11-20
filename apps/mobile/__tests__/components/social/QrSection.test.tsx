@@ -65,6 +65,7 @@ let mockQrToken: { token: string; expiresAt: number } | undefined = {
   expiresAt: 1999999999,
 };
 jest.mock("@/lib/useFriends", () => ({
+  useFriends: () => ({ data: [] }),
   useAddFriend: () => ({ mutate: mockAddFriendMutate, isPending: false }),
   useQrExchangeToken: () => ({ data: mockQrToken }),
 }));

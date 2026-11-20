@@ -17,6 +17,7 @@ import {
 } from "@animeishi/danime-core";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
+import { invalidateCommonPoints } from "@/lib/useCommonPoints";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
@@ -332,6 +333,9 @@ export function useBulkRegisterWatchHistory() {
       void queryClient.invalidateQueries({
         queryKey: ACHIEVEMENTS_QUERY_KEY,
       });
+      // 登録された履歴は共通点（視聴済み数・一緒に視聴中）の入力でも
+      // あるため、共通点クエリも無効化する。
+      invalidateCommonPoints(queryClient);
     },
   });
 }

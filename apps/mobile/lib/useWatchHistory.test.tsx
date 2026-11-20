@@ -14,6 +14,10 @@ import {
   useWatchHistory,
 } from "@/lib/useWatchHistory";
 import { WORK_DETAIL_QUERY_KEY, useWorkDetail } from "@/lib/useWorkDetail";
+import {
+  COMMON_POINTS_QUERY_KEY,
+  useCommonPoints,
+} from "@/lib/useCommonPoints";
 import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
@@ -22,6 +26,7 @@ const mockPut = jest.fn();
 const mockDelete = jest.fn();
 const mockGetHistories = jest.fn();
 const mockGetWork = jest.fn();
+const mockGetCommon = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -36,6 +41,11 @@ jest.mock("@/lib/api", () => ({
     works: {
       ":annictWorkId": {
         $get: (...args: unknown[]) => mockGetWork(...args),
+      },
+    },
+    users: {
+      ":id": {
+        common: { $get: (...args: unknown[]) => mockGetCommon(...args) },
       },
     },
   },
@@ -525,6 +535,99 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     const error = result.current.error as { rolledBack?: boolean } | null;
     expect(error?.rolledBack).toBe(true);
+  });
+});
+
+describe("視聴状態を変更した後の共通点", () => {
+  const userId = "user_test";
+
+  function createWrapper(client: QueryClient) {
+    return function wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      );
+    };
+  }
+
+  let client: QueryClient;
+  beforeEach(async () => {
+    resetAuth();
+    jest.clearAllMocks();
+    loggedInUser({ userId });
+    setMockClerkState({ getToken: async () => "test-token" });
+    client = new QueryClient();
+  });
+
+  afterEach(async () => {
+    await cleanup();
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((m) => m.destroy());
+    client.clear();
+  });
+
+  it("視聴状態の保存・削除後に開いている共通点を再取得する", async () => {
+    let commonCount = 0;
+    mockGetCommon.mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        watchingTogether: [],
+        watchedTogetherCount: commonCount,
+        favoriteTogether: [],
+        conversationStarters: [],
+      }),
+    }));
+    mockPut.mockImplementation(async () => {
+      commonCount = 1;
+      return { ok: true, json: async () => ({}) };
+    });
+    mockDelete.mockImplementation(async () => {
+      commonCount = 0;
+      return { ok: true, headers: { get: () => "" } };
+    });
+    const { result } = await renderHook(
+      () => ({
+        common: useCommonPoints("user_friend"),
+        upsert: useUpsertWatchHistory(),
+        remove: useDeleteWatchHistory(),
+      }),
+      { wrapper: createWrapper(client) },
+    );
+    await waitFor(() =>
+      expect(result.current.common.data?.watchedTogetherCount).toBe(0),
+    );
+    await act(async () => {
+      await result.current.upsert.mutateAsync({
+        annictWorkId: 1,
+        data: { state: "WATCHED" },
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.common.data?.watchedTogetherCount).toBe(1),
+    );
+    await act(async () => {
+      await result.current.remove.mutateAsync(1);
+    });
+    await waitFor(() =>
+      expect(result.current.common.data?.watchedTogetherCount).toBe(0),
+    );
+  });
+
+  it("履歴の read-through 同期でも共通点のキャッシュを無効化する", async () => {
+    const commonKey = [...COMMON_POINTS_QUERY_KEY, userId, "user_friend"];
+    client.setQueryData(commonKey, {});
+    mockGetHistories.mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    const { result } = await renderHook(() => useWatchHistory(), {
+      wrapper: createWrapper(client),
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(client.getQueryState(commonKey)?.isInvalidated).toBe(true);
   });
 });
 

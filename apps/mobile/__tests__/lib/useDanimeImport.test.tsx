@@ -5,7 +5,11 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useDanimeMatch } from "@/lib/danime/useDanimeImport";
+import {
+  useBulkRegisterWatchHistory,
+  useDanimeMatch,
+} from "@/lib/danime/useDanimeImport";
+import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { ApiRequestError } from "@/lib/apiError";
 import { DANIME_EXTRACT_SCHEMA_VERSION } from "@animeishi/danime-core";
 import type {
@@ -17,6 +21,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockMatchPost = jest.fn();
+const mockBulkPost = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -24,6 +29,9 @@ jest.mock("@/lib/api", () => ({
         danime: {
           match: { $post: (...args: unknown[]) => mockMatchPost(...args) },
         },
+      },
+      "watch-histories": {
+        bulk: { $post: (...args: unknown[]) => mockBulkPost(...args) },
       },
     },
   },
@@ -319,5 +327,47 @@ describe("useDanimeMatch", () => {
     expect(
       result.current.data?.items.every((i) => i.status === "pending"),
     ).toBe(true);
+  });
+});
+
+describe("useBulkRegisterWatchHistory", () => {
+  // 一括登録は共通点（視聴済み数・一緒に視聴中）の入力である履歴を
+  // 書き換えるため、完了後に共通点キャッシュを無効化する必要がある。
+  it("一括登録が完了したら共通点のキャッシュを無効化する", async () => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const commonKey = [...COMMON_POINTS_QUERY_KEY, "user_me", "user_friend"];
+    client.setQueryData(commonKey, {});
+    mockBulkPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ annictWorkId: 1, ok: true }],
+        aborted: false,
+      }),
+    });
+    const bulkWrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result } = await renderHook(() => useBulkRegisterWatchHistory(), {
+      wrapper: bulkWrapper,
+    });
+    await act(async () => {
+      await result.current.mutateAsync({
+        entries: [{ annictWorkId: 1, state: "WATCHED" }],
+      });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryState(commonKey)?.isInvalidated).toBe(true);
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((m) => m.destroy());
+    client.clear();
   });
 });

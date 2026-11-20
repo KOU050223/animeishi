@@ -4,6 +4,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
+import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/lib/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 import { PUBLIC_TIER_LISTS_KEY } from "@/lib/tierList/usePublicTierLists";
@@ -97,6 +98,7 @@ export function useBlockUser() {
       return res.json();
     },
     onSuccess: (_data, targetUserId) => {
+      queryClient.removeQueries({ queryKey: COMMON_POINTS_QUERY_KEY });
       // フレンド一覧・フレンド申請から消え、ブロック一覧に現れ、名刺は
       // 見えなくなる（ブロックで申請行もサーバー側で消える。issue #417）。
       void queryClient.invalidateQueries({
