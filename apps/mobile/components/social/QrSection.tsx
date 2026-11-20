@@ -110,25 +110,23 @@ function GenerateView() {
   // 読む。取得・再取得のたびにキャッシュが新しくなるため、その都度読み直す。
   const [offlineToken, setOfflineToken] = useState<string | null>(null);
   // Date.now はレンダー中に呼べない（React Compiler の purity 制約）ため、
-  // 時刻は effect 側で保持する。qt の期限到達時刻にタイマーで nowMs を
-  // 更新し、オフラインで再取得が止まっていても期限切れの qt を QR から
-  // 外して ot へ切り替える（errorUpdatedAt も依存に入れるのは、再取得
-  // 失敗でも時刻評価をやり直すため）。
+  // 時刻は state に持ちタイマー発火時にだけ更新する。qt の期限到達時刻に
+  // nowMs を更新し、オフラインで再取得が止まっていても期限切れの qt を
+  // QR から外して ot へ切り替える（errorUpdatedAt も依存に入れるのは、
+  // 再取得失敗でも時刻評価をやり直すため）。初期値 0 は「qt 有効」と同じ
+  // 評価になる。期限切れ済みの qt でも遅延 0 のタイマーが即時発火して
+  // 1 ティック後に ot へ切り替わる。
   const [nowMs, setNowMs] = useState(0);
   useEffect(() => {
-    const now = Date.now();
-    setNowMs(now);
     const expMs = qrToken.data ? qrToken.data.expiresAt * 1000 : null;
     // setTimeout の遅延は 32bit 上限（約 24.8 日）まで。超えると即時
     // 発火扱いになるためキャップする（qt の実際の TTL は 5 分で、
     // 上限を超えるのはテストなど人為的な値だけ）。
-    const timer =
-      expMs !== null && expMs > now
-        ? setTimeout(
-            () => setNowMs(Date.now()),
-            Math.min(expMs - now, 2 ** 31 - 1),
-          )
-        : undefined;
+    const delay =
+      expMs === null
+        ? 2 ** 31 - 1
+        : Math.min(Math.max(expMs - Date.now(), 0), 2 ** 31 - 1);
+    const timer = setTimeout(() => setNowMs(Date.now()), delay);
     let cancelled = false;
     if (userId) {
       void readOfflineExchangeToken(userId).then((token) => {
@@ -137,7 +135,7 @@ function GenerateView() {
     }
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, qrToken.dataUpdatedAt, qrToken.errorUpdatedAt]);
