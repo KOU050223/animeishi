@@ -1,0 +1,3 @@
+{
+  "NSLocationWhenInUseUsageDescription": "Used to record where you met when exchanging cards. Coordinates are converted to a place name and discarded on-device; your location itself is never saved."
+}

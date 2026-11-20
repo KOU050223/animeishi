@@ -113,6 +113,16 @@ jest.mock("@/lib/useFriendRequests", () => ({
   }),
 }));
 
+// イベント絞り込み（issue #661）の交換記録。既定は空（絞り込み UI なし）。
+let mockExchangeRecordsData: { friendId: string; eventName: string | null }[] =
+  [];
+jest.mock("@/lib/useExchangeRecords", () => ({
+  useExchangeRecords: () => ({
+    data: mockExchangeRecordsData,
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -130,6 +140,7 @@ beforeEach(async () => {
   mockFriendsError = false;
   mockRequestsData = { received: [], sent: [] };
   mockFriendsData = [mockFriend];
+  mockExchangeRecordsData = [];
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
@@ -301,5 +312,30 @@ describe("FriendsSection", () => {
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
+  });
+
+  it("記録にイベント名があると絞り込みチップが出て、そのイベントの相手だけに絞れる（issue #661）", async () => {
+    mockFriendsData = [
+      mockFriend,
+      { ...mockFriend, friendId: "user_friend002", username: "友達B" },
+    ];
+    mockExchangeRecordsData = [
+      { friendId: "friend_1", eventName: "コミックマーケット" },
+      { friendId: "user_friend002", eventName: null },
+    ];
+    await render(<FriendsSection />);
+
+    // イベント名のチップと「すべて」が出る
+    expect(screen.getByLabelText("コミックマーケット")).toBeTruthy();
+    expect(screen.getByLabelText("すべて")).toBeTruthy();
+
+    // 絞り込むとイベントで会った友達Aだけが残り、順序は変えずに間引く
+    await fireEvent.press(screen.getByLabelText("コミックマーケット"));
+    expect(screen.queryByLabelText("友達Aをフレンドから削除")).toBeTruthy();
+    expect(screen.queryByLabelText("友達Bをフレンドから削除")).toBeNull();
+
+    // 同じチップを再度押すと絞り込み解除
+    await fireEvent.press(screen.getByLabelText("コミックマーケット"));
+    expect(screen.queryByLabelText("友達Bをフレンドから削除")).toBeTruthy();
   });
 });

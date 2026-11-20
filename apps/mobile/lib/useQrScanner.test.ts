@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react-native";
 import type { BarcodeScanningResult } from "expo-camera";
 import { useQrScanner } from "@/lib/useQrScanner";
+import { encodeMiniMeishi } from "@/lib/qrParser";
 
 // expo-camera のネイティブ依存を排し、権限フックだけをモックする。
 jest.mock("expo-camera", () => ({
@@ -54,6 +55,24 @@ describe("useQrScanner", () => {
     expect(onScanned).toHaveBeenCalledWith({
       userId: CLERK_ID,
       qrToken: "1730000000.sig",
+      raw,
+    });
+  });
+
+  it("オフライン交換 QR の ?ot= と ?mc= を offlineToken / miniMeishi として渡す（issue #680）", async () => {
+    const onScanned = jest.fn();
+    const { result } = await renderHook(() => useQrScanner({ onScanned }));
+
+    // 表示側と同じエンコード関数で mc を作り、ラウンドトリップを見る。
+    const mc = encodeMiniMeishi({ username: "会場たろう" });
+    const raw = `https://animeishi.uomi.dev/user/${CLERK_ID}?ot=1760000000.sig&mc=${mc}`;
+    await act(() => result.current.handleBarcodeScanned(scan(raw)));
+
+    expect(onScanned).toHaveBeenCalledWith({
+      userId: CLERK_ID,
+      qrToken: undefined,
+      offlineToken: "1760000000.sig",
+      miniMeishi: { username: "会場たろう" },
       raw,
     });
   });

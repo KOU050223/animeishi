@@ -9,13 +9,26 @@
 // 混ざることはない）。
 //
 // 形式: `${exp}.${base64url(sig)}`
-//   sig = HMAC-SHA256(CLERK_SECRET_KEY, "animeishi-qr-exchange-v1:${userId}:${exp}")
+//   sig = HMAC-SHA256(CLERK_SECRET_KEY, "${purpose}:${userId}:${exp}")
 // userId は QR を表示した側（addFriend の friendId になる相手）の ID。
+//
+// 用途（purpose）は 2 種類あり、署名メッセージの用途名で相互流用を弾く。
+// - qt（animeishi-qr-exchange-v1）: 対面で読み合う即時成立用。TTL 5 分。
+// - ot（animeishi-qr-exchange-offline-v1）: オフライン交換用（issue #663、
+//   設計 docs/13_offline-exchange-design.md）。表示側がオフラインで qt を
+//   取れないとき QR に載せる事前発行トークン。スキャンから同期までの
+//   遅延を覆うため TTL 24 時間（オーナー決定 2026-11-21）。
 
 const encoder = new TextEncoder();
 
 /** トークンの有効期間（秒）。対面で画面を見せて読み合う用途なので短くする。 */
 export const QR_EXCHANGE_TOKEN_TTL_SEC = 300;
+
+/** オフライン交換トークンの有効期間（秒）。会場を出て通信が回復するまでを覆う長さ。 */
+export const OFFLINE_EXCHANGE_TOKEN_TTL_SEC = 24 * 60 * 60;
+
+const QR_EXCHANGE_PURPOSE = "animeishi-qr-exchange-v1";
+const OFFLINE_EXCHANGE_PURPOSE = "animeishi-qr-exchange-offline-v1";
 
 function base64url(bytes: Uint8Array): string {
   let bin = "";
@@ -35,8 +48,20 @@ async function hmac(secret: string, message: string): Promise<Uint8Array> {
   return new Uint8Array(buf);
 }
 
-const message = (userId: string, exp: number) =>
-  `animeishi-qr-exchange-v1:${userId}:${exp}`;
+const message = (purpose: string, userId: string, exp: number) =>
+  `${purpose}:${userId}:${exp}`;
+
+async function issueToken(
+  secret: string,
+  purpose: string,
+  userId: string,
+  ttlSec: number,
+  nowSec: number,
+): Promise<{ token: string; expiresAt: number }> {
+  const exp = nowSec + ttlSec;
+  const sig = await hmac(secret, message(purpose, userId, exp));
+  return { token: `${exp}.${base64url(sig)}`, expiresAt: exp };
+}
 
 /**
  * userId の QR に埋め込む交換トークンを発行する。
@@ -47,9 +72,31 @@ export async function issueQrExchangeToken(
   userId: string,
   nowSec = Math.floor(Date.now() / 1000),
 ): Promise<{ token: string; expiresAt: number }> {
-  const exp = nowSec + QR_EXCHANGE_TOKEN_TTL_SEC;
-  const sig = await hmac(secret, message(userId, exp));
-  return { token: `${exp}.${base64url(sig)}`, expiresAt: exp };
+  return issueToken(
+    secret,
+    QR_EXCHANGE_PURPOSE,
+    userId,
+    QR_EXCHANGE_TOKEN_TTL_SEC,
+    nowSec,
+  );
+}
+
+/**
+ * オフライン交換用の長寿命トークン（ot）を発行する。
+ * 呼び出し側は userId = 認証ユーザー（自分の QR 用）に限定すること。
+ */
+export async function issueOfflineExchangeToken(
+  secret: string,
+  userId: string,
+  nowSec = Math.floor(Date.now() / 1000),
+): Promise<{ token: string; expiresAt: number }> {
+  return issueToken(
+    secret,
+    OFFLINE_EXCHANGE_PURPOSE,
+    userId,
+    OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
+    nowSec,
+  );
 }
 
 // 時間依存を避けた固定長比較。長さが違うものは早期に弾く（長さ自体は秘密でない）。
@@ -60,12 +107,12 @@ function safeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-/** token が userId 宛に発行された有効期限内のものかを検証する。 */
-export async function verifyQrExchangeToken(
+async function verifyToken(
   secret: string,
+  purpose: string,
   userId: string,
   token: string | undefined,
-  nowSec = Math.floor(Date.now() / 1000),
+  nowSec: number,
 ): Promise<boolean> {
   if (!token) return false;
   const dot = token.indexOf(".");
@@ -88,6 +135,26 @@ export async function verifyQrExchangeToken(
   } catch {
     return false;
   }
-  const expected = await hmac(secret, message(userId, exp));
+  const expected = await hmac(secret, message(purpose, userId, exp));
   return safeEqual(actual, expected);
+}
+
+/** token が userId 宛に発行された有効期限内のものかを検証する。 */
+export async function verifyQrExchangeToken(
+  secret: string,
+  userId: string,
+  token: string | undefined,
+  nowSec = Math.floor(Date.now() / 1000),
+): Promise<boolean> {
+  return verifyToken(secret, QR_EXCHANGE_PURPOSE, userId, token, nowSec);
+}
+
+/** offlineToken が userId 宛に発行された有効期限内の ot かを検証する。 */
+export async function verifyOfflineExchangeToken(
+  secret: string,
+  userId: string,
+  token: string | undefined,
+  nowSec = Math.floor(Date.now() / 1000),
+): Promise<boolean> {
+  return verifyToken(secret, OFFLINE_EXCHANGE_PURPOSE, userId, token, nowSec);
 }

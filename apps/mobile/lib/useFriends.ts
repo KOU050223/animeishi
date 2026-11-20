@@ -10,8 +10,10 @@ import {
   EVENT_PARTICIPANTS_QUERY_KEY,
 } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
+import { EXCHANGE_RECORDS_QUERY_KEY } from "./useExchangeRecords";
 import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
 import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
+import { saveOfflineExchangeToken } from "./offlineExchangeToken";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
@@ -46,6 +48,10 @@ export function invalidateFriendRelatedQueries(
       : FRIEND_REQUESTS_QUERY_KEY,
   });
   void queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY });
+  // フレンド成立で交換記録が作られ、解除・ブロックで消える（issue #661）
+  void queryClient.invalidateQueries({
+    queryKey: EXCHANGE_RECORDS_QUERY_KEY,
+  });
   void queryClient.invalidateQueries({
     queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
   });
@@ -126,7 +132,17 @@ export function useQrExchangeToken() {
           "QR トークンの取得に失敗しました",
         );
       }
-      return res.json();
+      const data = await res.json();
+      // ot はオフライン時の QR フォールバック用。オンラインのうちに端末へ
+      // 保存しておく（issue #680）。
+      if (userId) {
+        await saveOfflineExchangeToken({
+          userId,
+          token: data.offlineToken,
+          expiresAt: data.offlineExpiresAt,
+        });
+      }
+      return data;
     },
   });
 }
@@ -136,7 +152,13 @@ export function useAddFriend() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { friendId: string; qrToken: string }) => {
+    // qrToken（qt）または offlineToken（ot）のどちらかで即時成立する
+    // （issue #663）。オフライン側の QR には ot しか載っていない。
+    mutationFn: async (input: {
+      friendId: string;
+      qrToken?: string;
+      offlineToken?: string;
+    }) => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.friends.$post(
         { json: input },

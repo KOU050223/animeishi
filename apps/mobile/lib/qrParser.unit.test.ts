@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseQrPayload, parseUserIdFromQr } from "@/lib/qrParser";
+import {
+  buildQrExchangeUrl,
+  encodeMiniMeishi,
+  parseQrPayload,
+  parseUserIdFromQr,
+} from "@/lib/qrParser";
 
 // Clerk ID は user_ + base58。旧 Firebase UID は 28 文字英数字。
 const CLERK_ID = "user_2abcDEF1234567890ghijKLMN";
@@ -146,5 +151,183 @@ describe("parseQrPayload", () => {
       parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}?qt=%E0%A4%A`),
     ).toBeNull();
     expect(parseQrPayload(`animeishi://user/${CLERK_ID}?qt=%`)).toBeNull();
+  });
+
+  describe("オフライン交換パラメータ（issue #663/#680）", () => {
+    const OFFLINE_TOKEN = "1760000000.OfFLiNe-sig_nature";
+
+    it("?ot= 付き QR から offlineToken を取り出す", () => {
+      expect(
+        parseQrPayload(
+          `https://animeishi.uomi.dev/user/${CLERK_ID}?ot=${OFFLINE_TOKEN}`,
+        ),
+      ).toEqual({
+        userId: CLERK_ID,
+        qrToken: undefined,
+        offlineToken: OFFLINE_TOKEN,
+        miniMeishi: undefined,
+      });
+    });
+
+    it("qt と ot が併記されていても両方取り出す", () => {
+      expect(
+        parseQrPayload(
+          `https://animeishi.uomi.dev/user/${CLERK_ID}?qt=${TOKEN}&ot=${OFFLINE_TOKEN}`,
+        ),
+      ).toEqual({
+        userId: CLERK_ID,
+        qrToken: TOKEN,
+        offlineToken: OFFLINE_TOKEN,
+        miniMeishi: undefined,
+      });
+    });
+
+    it("ot の値が不正なパーセントエンコードでも QR は有効なままにする", () => {
+      expect(
+        parseQrPayload(
+          `https://animeishi.uomi.dev/user/${CLERK_ID}?qt=${TOKEN}&ot=%`,
+        ),
+      ).toEqual({
+        userId: CLERK_ID,
+        qrToken: TOKEN,
+        offlineToken: undefined,
+        miniMeishi: undefined,
+      });
+    });
+
+    it("?mc= のミニ名刺をデコードする（日本語ユーザ名を含む）", () => {
+      const mc = encodeMiniMeishi({
+        username: "会場たろう",
+        avatarUrl: "https://img.example/avatar.webp",
+      });
+      expect(mc).not.toBeNull();
+      const payload = parseQrPayload(
+        `https://animeishi.uomi.dev/user/${CLERK_ID}?ot=${OFFLINE_TOKEN}&mc=${mc}`,
+      );
+      expect(payload).toEqual({
+        userId: CLERK_ID,
+        qrToken: undefined,
+        offlineToken: OFFLINE_TOKEN,
+        miniMeishi: {
+          username: "会場たろう",
+          avatarUrl: "https://img.example/avatar.webp",
+        },
+      });
+    });
+
+    it("mc が壊れていても QR は有効なままにする", () => {
+      const payload = parseQrPayload(
+        `https://animeishi.uomi.dev/user/${CLERK_ID}?qt=${TOKEN}&mc=not-base64!!!`,
+      );
+      expect(payload?.userId).toBe(CLERK_ID);
+      expect(payload?.qrToken).toBe(TOKEN);
+      expect(payload?.miniMeishi).toBeUndefined();
+    });
+
+    it("mc が JSON でもオブジェクトでもない値なら miniMeishi は undefined", () => {
+      // base64url("42") → オブジェクトでない JSON
+      const mc = encodeURIComponent(
+        btoa("42").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+      );
+      const payload = parseQrPayload(
+        `https://animeishi.uomi.dev/user/${CLERK_ID}?mc=${mc}`,
+      );
+      expect(payload?.miniMeishi).toBeUndefined();
+    });
+
+    it("旧形式（トークン無し・qt のみ）の QR も従来どおり読める", () => {
+      expect(
+        parseQrPayload(`https://animeishi.uomi.dev/user/${CLERK_ID}`),
+      ).toEqual({
+        userId: CLERK_ID,
+        qrToken: undefined,
+        offlineToken: undefined,
+        miniMeishi: undefined,
+      });
+    });
+  });
+});
+
+describe("encodeMiniMeishi", () => {
+  it("username と avatarUrl を JSON→base64url にエンコードする", () => {
+    const encoded = encodeMiniMeishi({
+      username: "たろう",
+      avatarUrl: "https://img.example/a.webp",
+    });
+    // base64url に使えない文字が出ないこと + 復号で元に戻ること。
+    expect(encoded).toMatch(/^[0-9A-Za-z_-]+$/);
+    const bin = atob((encoded ?? "").replace(/-/g, "+").replace(/_/g, "/"));
+    expect(JSON.parse(decodeURIComponent(escape(bin)))).toEqual({
+      username: "たろう",
+      avatarUrl: "https://img.example/a.webp",
+    });
+  });
+
+  it("avatarUrl が無くても username だけでエンコードする", () => {
+    const encoded = encodeMiniMeishi({ username: "たろう" });
+    const bin = atob((encoded ?? "").replace(/-/g, "+").replace(/_/g, "/"));
+    expect(JSON.parse(decodeURIComponent(escape(bin)))).toEqual({
+      username: "たろう",
+    });
+  });
+
+  it("username も avatarUrl も無ければ null", () => {
+    expect(encodeMiniMeishi({})).toBeNull();
+    expect(
+      encodeMiniMeishi({ username: undefined, avatarUrl: undefined }),
+    ).toBeNull();
+  });
+});
+
+describe("buildQrExchangeUrl", () => {
+  const SHARE_URL = `https://animeishi.uomi.dev/user/${CLERK_ID}`;
+  const QT = "1730000000.sig_qt";
+  const OT = "1760000000.sig_ot";
+
+  it("qt があれば ?qt= と &mc= を付ける", () => {
+    const url = buildQrExchangeUrl(SHARE_URL, {
+      qt: QT,
+      miniMeishi: { username: "たろう" },
+    });
+    expect(url).toContain("?qt=");
+    expect(url).toContain("&mc=");
+    // 表示側の QR と読み取り側のパーサーでラウンドトリップできる。
+    expect(parseQrPayload(url)).toEqual({
+      userId: CLERK_ID,
+      qrToken: QT,
+      offlineToken: undefined,
+      miniMeishi: { username: "たろう" },
+    });
+  });
+
+  it("qt が無く ot があれば ?ot= にフォールバックする", () => {
+    const url = buildQrExchangeUrl(SHARE_URL, {
+      ot: OT,
+      miniMeishi: { username: "たろう" },
+    });
+    expect(url).toContain("?ot=");
+    expect(url).not.toContain("qt=");
+    expect(parseQrPayload(url)?.offlineToken).toBe(OT);
+  });
+
+  it("qt があればキャッシュ済みの ot は載せない（フォールバック併記）", () => {
+    const url = buildQrExchangeUrl(SHARE_URL, {
+      qt: QT,
+      ot: OT,
+      miniMeishi: { username: "たろう" },
+    });
+    expect(url).toContain("?qt=");
+    expect(url).not.toContain("ot=");
+  });
+
+  it("qt も ot も無ければ shareUrl をそのまま返す", () => {
+    expect(
+      buildQrExchangeUrl(SHARE_URL, { miniMeishi: { username: "たろう" } }),
+    ).toBe(SHARE_URL);
+  });
+
+  it("ミニ名刺が空なら mc は付けない", () => {
+    const url = buildQrExchangeUrl(SHARE_URL, { qt: QT, miniMeishi: {} });
+    expect(url).toBe(`${SHARE_URL}?qt=${encodeURIComponent(QT)}`);
   });
 });

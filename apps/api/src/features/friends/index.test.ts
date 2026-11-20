@@ -5,10 +5,12 @@ import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { friends } from "@/features/friends";
 import {
+  issueOfflineExchangeToken,
   issueQrExchangeToken,
+  OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   QR_EXCHANGE_TOKEN_TTL_SEC,
 } from "@/features/friends/qrExchangeToken";
-import { users } from "@/db/schema";
+import { users, friends as friendsTable } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -58,6 +60,16 @@ function signInAs(userId: string) {
 // トークンで再現する。
 async function qrTokenFor(userId: string, skewSec = 0): Promise<string> {
   const { token } = await issueQrExchangeToken(
+    "test_secret",
+    userId,
+    Math.floor(Date.now() / 1000) + skewSec,
+  );
+  return token;
+}
+
+// オフライン交換用の長寿命トークン（ot。issue #663）の発行を再現する。
+async function offlineTokenFor(userId: string, skewSec = 0): Promise<string> {
+  const { token } = await issueOfflineExchangeToken(
     "test_secret",
     userId,
     Math.floor(Date.now() / 1000) + skewSec,
@@ -216,6 +228,68 @@ describe("フレンド API", () => {
       const rows = await db.query.friends.findMany();
       expect(rows).toHaveLength(2);
       expect(rows.every((row) => row.source === "qr")).toBe(true);
+    });
+
+    // 交換記録（issue #661）。初回交換は両方向の名刺帳に記録を積む。
+    it("POST /me/friends: 初回交換の記録が両方向に作られる（場所・イベントは空）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records).toHaveLength(2);
+      const recordForA = records.find((r) => r.ownerId === USER_A);
+      const recordForB = records.find((r) => r.ownerId === USER_B);
+      expect(recordForA?.friendId).toBe(USER_B);
+      expect(recordForB?.friendId).toBe(USER_A);
+      // met_at はフレンド成立時刻と同じ
+      const friendRows = await db.query.friends.findMany();
+      expect(recordForA?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+      expect(records.every((r) => r.source === "qr")).toBe(true);
+      // 場所・イベント・名刺コピー参照は後から本人が足す／#662 の列で NULL
+      expect(records.every((r) => r.placeName === null)).toBe(true);
+      expect(records.every((r) => r.eventName === null)).toBe(true);
+      expect(records.every((r) => r.cardSnapshotKey === null)).toBe(true);
+    });
+
+    it("POST /me/friends: 冪等の再 POST では記録を増やさない", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+    });
+
+    // 同時交換の「負け側」（INSERT が既存行に当たる側）は記録を足さない
+    // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
+    it("POST /me/friends: friends 行が先行して作られていれば記録は足さない", async () => {
+      // 相手側の同時交換が先に A→B 行を作った状態（この POST の INSERT は
+      // onConflict で増えず returning が空になる）
+      await db.insert(friendsTable).values({
+        userId: USER_A,
+        friendId: USER_B,
+        source: "qr",
+        createdAt: new Date(),
+      });
+
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+    });
+
+    it("DELETE /me/friends/:friendId: フレンド解除で両方向の交換記録が消える", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+
+      await app.request(
+        `/me/friends/${USER_B}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
     });
 
     it("POST /me/friends: 自分自身を追加しようとすると 400", async () => {
@@ -500,9 +574,16 @@ describe("フレンド API", () => {
       const body = (await res.json()) as {
         token: string;
         expiresAt: number;
+        offlineToken: string;
+        offlineExpiresAt: number;
       };
       expect(body.token.split(".")).toHaveLength(2);
       expect(body.expiresAt).toBeGreaterThan(Date.now() / 1000);
+      // オフライン交換用の長寿命トークン（ot）も同時に返す（issue #663）
+      expect(body.offlineToken.split(".")).toHaveLength(2);
+      expect(body.offlineExpiresAt).toBeGreaterThan(
+        Date.now() / 1000 + OFFLINE_EXCHANGE_TOKEN_TTL_SEC - 60,
+      );
 
       // 発行したトークンは即時成立に使える（USER_A が QR を出した想定で
       // USER_B がスキャンしたケースを再現する）。
@@ -559,6 +640,88 @@ describe("フレンド API", () => {
 
       expect(res.status).toBe(403);
       const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
+    });
+
+    // オフライン交換トークン（ot。issue #663）。
+    // 表示側がオフラインで qt を取れないときの代替経路で、
+    // 用途名の違いで qt との相互流用を弾くことを担保する。
+    it("POST /me/friends: offlineToken だけでも即時成立する", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await offlineTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { friendId: string };
+      expect(body.friendId).toBe(USER_B);
+    });
+
+    it("POST /me/friends: 期限切れの offlineToken は 403", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await offlineTokenFor(
+              USER_B,
+              -(OFFLINE_EXCHANGE_TOKEN_TTL_SEC + 60),
+            ),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
+    });
+
+    it("POST /me/friends: qt を offlineToken に、ot を qrToken に入れても弾く", async () => {
+      const app = buildApp();
+      // 短期トークン（qt）を offlineToken 欄に入れた場合。
+      // 署名メッセージの用途名が違うため検証を通らない。
+      const asOffline = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await qrTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(asOffline.status).toBe(403);
+
+      // オフライントークン（ot）を qrToken 欄に入れた場合も同様。
+      const asQr = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            qrToken: await offlineTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(asQr.status).toBe(403);
+      const body = (await asQr.json()) as { code?: string };
       expect(body.code).toBe("qr_exchange_required");
     });
   });

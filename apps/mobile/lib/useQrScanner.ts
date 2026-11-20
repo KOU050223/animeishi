@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
-import { parseQrPayload } from "@/lib/qrParser";
+import { parseQrPayload, type MiniMeishi } from "@/lib/qrParser";
 
 export type QrScanResult = {
   /** スキャンして抽出されたユーザー ID。 */
@@ -10,6 +10,13 @@ export type QrScanResult = {
    * 共有 URL 由来の QR には無く、その場合は undefined。
    */
   qrToken?: string;
+  /**
+   * オフライン交換 QR にだけ載る長寿命トークン（issue #663）。
+   * 表示側がオフラインで qt を取れなかった QR にだけ付く。
+   */
+  offlineToken?: string;
+  /** ミニ名刺（`?mc=`）。オフラインでも相手の名前を出すための最小情報。 */
+  miniMeishi?: MiniMeishi;
   /** スキャンした生データ（デバッグ・表示用）。 */
   raw: string;
 };

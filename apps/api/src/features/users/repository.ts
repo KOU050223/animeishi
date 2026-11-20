@@ -24,6 +24,7 @@ import {
   friends,
   friendRequests,
   friendNotes,
+  exchangeRecords,
   userGenres,
   annictTokens,
   tierLists,
@@ -40,6 +41,7 @@ import {
   userLikes,
 } from "@/db/schema";
 import type { User, NewUser, Report, TierListKind } from "@/db/schema";
+import { deleteExchangeRecordsBetween } from "../exchange-records/repository";
 
 /** 通報・ブロックの対象ユーザーが存在しないときに投げるエラー。ルート層で 404 に変換する。 */
 export class UserNotFoundError extends Error {
@@ -666,6 +668,8 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               ),
             ),
           ),
+        // 交換記録（issue #661）も私用メモと同じ方針で両方向とも消す。
+        deleteExchangeRecordsBetween(db, currentUserId, targetUserId),
       ]);
     },
 
@@ -990,6 +994,15 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
             or(
               eq(friendNotes.ownerId, currentUserId),
               eq(friendNotes.friendId, currentUserId),
+            ),
+          ),
+        // 交換記録（issue #661）も両方向を対象にする（退会時は全消去）。
+        db
+          .delete(exchangeRecords)
+          .where(
+            or(
+              eq(exchangeRecords.ownerId, currentUserId),
+              eq(exchangeRecords.friendId, currentUserId),
             ),
           ),
         // friends と同様に両方向の行を対象にする
