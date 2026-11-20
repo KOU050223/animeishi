@@ -21,11 +21,14 @@ export const friendCreateSchema = z.object({
 export type FriendCreateInput = z.infer<typeof friendCreateSchema>;
 
 // friends 行（Drizzle Friend 型の JSON 表現）。createdAt は ISO 文字列。
+// meetingCount はこの相手との交換記録の件数（issue #662 の「◯回目」
+// 表示用。既フレンドとの QR 再交換は再会として記録され件数が増える）。
 const friendSchema = z.object({
   id: z.number().int(),
   userId: z.string(),
   friendId: z.string(),
   createdAt: z.string(),
+  meetingCount: z.number().int(),
 });
 
 // GET /me/friends の 1 件（FriendWithUser。相手プロフィールを含む）。
@@ -99,7 +102,7 @@ export const addFriendRoute = createRoute({
   path: "/",
   tags: ["friends"],
   summary:
-    "対面 QR 交換でフレンドを即時追加する（双方向・冪等。qrToken または offlineToken 必須）",
+    "対面 QR 交換でフレンドを即時追加する（双方向・冪等。qrToken または offlineToken 必須。既フレンドとの再交換は再会として記録）",
   security: bearerAuth,
   request: {
     body: {

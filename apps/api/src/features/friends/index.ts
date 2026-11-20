@@ -110,7 +110,11 @@ const friends = app
     }
 
     const db = createDb(getBindings(c).DB);
-    const repo = friendsRepository(db, c.var.clerkUserId);
+    const repo = friendsRepository(
+      db,
+      c.var.clerkUserId,
+      getBindings(c).AVATARS,
+    );
 
     try {
       const result = await repo.addFriend(friendId);
@@ -171,7 +175,13 @@ const friends = app
 
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
-    await repo.removeFriend(friendId);
+    // 解除で消えた交換記録に紐付く名刺コピー（issue #662）も R2 から消す。
+    // コピーは本人専用で URL が他者に漏れていても本人認証でしか配信
+    // されないが、記録が消えた以上オブジェクトも残さない。
+    const snapshotKeys = await repo.removeFriend(friendId);
+    if (snapshotKeys.length > 0) {
+      await getBindings(c).AVATARS.delete(snapshotKeys);
+    }
     return c.json({ success: true }, 200);
   });
 

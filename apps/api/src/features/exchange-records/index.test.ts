@@ -27,6 +27,7 @@ const USER_B = "user_exchB002";
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
   };
@@ -37,6 +38,7 @@ type TestEnv = {
 
 const TEST_BINDINGS = {
   DB: env.DB,
+  AVATARS: env.AVATARS,
   CLERK_SECRET_KEY: "test_secret",
   CLERK_PUBLISHABLE_KEY: "test_pub",
 };
@@ -85,12 +87,24 @@ async function insertRecord(
   return inserted[0]!;
 }
 
-describe("交換記録 API（issue #661）", () => {
+// テスト間で R2 がリセットされないため、名刺コピー系のプレフィックスは
+// 毎回掃除してから始める（issue #662）。
+async function cleanR2() {
+  for (const prefix of ["meishi-assets/", "exchange-card-snapshots/"]) {
+    const listed = await env.AVATARS.list({ prefix });
+    if (listed.objects.length > 0) {
+      await env.AVATARS.delete(listed.objects.map((o) => o.key));
+    }
+  }
+}
+
+describe("交換記録 API（issue #661 / #662）", () => {
   let db: Db;
 
   beforeEach(async () => {
     db = await setupTestDb(env.DB);
     vi.mocked(getAuth).mockReset();
+    await cleanR2();
 
     const now = new Date();
     await db.insert(users).values([
@@ -133,6 +147,140 @@ describe("交換記録 API（issue #661）", () => {
     const app = buildApp();
     const res = await app.request("/me/exchange-records", {}, TEST_BINDINGS);
     expect(res.status).toBe(401);
+  });
+
+  describe("POST /me/exchange-records（手動「会った」。issue #662）", () => {
+    function postRecord(body: unknown) {
+      const app = buildApp();
+      return app.request(
+        "/me/exchange-records",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        TEST_BINDINGS,
+      );
+    }
+
+    it("自分だけの手動記録を追加できる（相手側には積まれない）", async () => {
+      signInAs(USER_A);
+      const before = await db.query.exchangeRecords.findMany();
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: "渋谷のカフェ",
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(201);
+      const created = (await res.json()) as {
+        source: string | null;
+        placeName: string | null;
+      };
+      expect(created.source).toBe("manual");
+      expect(created.placeName).toBe("渋谷のカフェ");
+
+      const after = await db.query.exchangeRecords.findMany();
+      // A 側だけ 1 件増え、B 側の記録は増えない（相手に積まない）
+      expect(after).toHaveLength(before.length + 1);
+      expect(after.filter((r) => r.ownerId === USER_B)).toHaveLength(
+        before.filter((r) => r.ownerId === USER_B).length,
+      );
+    });
+
+    it("フレンドではない相手は 404（存在も漏らさない）", async () => {
+      signInAs(USER_A);
+      const res = await postRecord({
+        friendId: "user_stranger",
+        placeName: null,
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it("同日・同じ場所の手動記録は既存記録にまとめる（200 で既存行を返す）", async () => {
+      signInAs(USER_A);
+      // 既存の初回記録に場所を付けてから、同日・同じ場所で手動登録する
+      const record = await db.query.exchangeRecords.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+      });
+      await db
+        .update(exchangeRecordsTable)
+        .set({ placeName: "東京ビッグサイト" })
+        .where(eq(exchangeRecordsTable.id, record!.id));
+
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: "東京ビッグサイト",
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(200);
+      expect(
+        (await db.query.exchangeRecords.findMany()).filter(
+          (r) => r.ownerId === USER_A,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it("同日でも場所が違えば別の記録になる", async () => {
+      signInAs(USER_A);
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: "別の場所",
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(201);
+      expect(
+        (await db.query.exchangeRecords.findMany()).filter(
+          (r) => r.ownerId === USER_A,
+        ),
+      ).toHaveLength(2);
+    });
+
+    it("場所・イベントが無い記録同士も同日なら 1 回にまとめる", async () => {
+      signInAs(USER_A);
+      // 既存の初回記録は場所・イベントが無い。手動でも何も付けずに
+      // 登録すると同日の無記録同士としてまとまる。
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: null,
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(200);
+      expect(
+        (await db.query.exchangeRecords.findMany()).filter(
+          (r) => r.ownerId === USER_A,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it("手動記録にも登録時点の公開スナップショットのコピーが紐付く", async () => {
+      await env.AVATARS.put(
+        `meishi-assets/${USER_B}/public-snapshot.png`,
+        new Uint8Array([7, 7, 7]),
+      );
+      signInAs(USER_A);
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: "どこか",
+        eventSlug: null,
+        eventName: null,
+      });
+      expect(res.status).toBe(201);
+      const created = (await res.json()) as { id: number };
+      const row = await db.query.exchangeRecords.findFirst({
+        where: (t, { eq }) => eq(t.id, created.id),
+      });
+      expect(row?.cardSnapshotKey).toMatch(
+        /^exchange-card-snapshots\/user_exchA001\//,
+      );
+      expect(await env.AVATARS.get(row!.cardSnapshotKey!)).not.toBeNull();
+    });
   });
 
   describe("GET /me/exchange-records", () => {
@@ -452,6 +600,102 @@ describe("交換記録 API（issue #661）", () => {
         TEST_BINDINGS,
       );
       expect(res.status).toBe(404);
+    });
+
+    it("記録と一緒に名刺コピーの R2 オブジェクトも消える", async () => {
+      // A の記録にコピーを紐付ける
+      const record = await db.query.exchangeRecords.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+      });
+      const key = `exchange-card-snapshots/${USER_A}/test-copy.png`;
+      await env.AVATARS.put(key, new Uint8Array([1, 2, 3]));
+      await db
+        .update(exchangeRecordsTable)
+        .set({ cardSnapshotKey: key })
+        .where(eq(exchangeRecordsTable.id, record!.id));
+
+      signInAs(USER_A);
+      const app = buildApp();
+      const res = await app.request(
+        `/me/exchange-records/${record!.id}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      expect(await env.AVATARS.get(key)).toBeNull();
+    });
+  });
+
+  // 交換当時の名刺コピー（issue #662）の本人認証付き配信。
+  // 相手・第三者には 404 で存在も漏らさないことを担保する。
+  describe("GET /me/exchange-records/:recordId/snapshot", () => {
+    async function recordWithSnapshot() {
+      const key = `exchange-card-snapshots/${USER_A}/a-copy.png`;
+      await env.AVATARS.put(key, new Uint8Array([4, 5, 6]));
+      const record = await db.query.exchangeRecords.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+      });
+      await db
+        .update(exchangeRecordsTable)
+        .set({ cardSnapshotKey: key })
+        .where(eq(exchangeRecordsTable.id, record!.id));
+      return record!;
+    }
+
+    it("本人には画像を返す", async () => {
+      const record = await recordWithSnapshot();
+      signInAs(USER_A);
+      const app = buildApp();
+      const res = await app.request(
+        `/me/exchange-records/${record.id}/snapshot`,
+        {},
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(
+        new Uint8Array([4, 5, 6]),
+      );
+    });
+
+    it("交換相手・第三者には 404（自分専用のコピーは漏らさない）", async () => {
+      const record = await recordWithSnapshot();
+      // B は記録上の相手だが、コピーの owner は A なので取れない
+      signInAs(USER_B);
+      const app = buildApp();
+      const res = await app.request(
+        `/me/exchange-records/${record.id}/snapshot`,
+        {},
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("cardSnapshotUrl は一覧 API の中でのみ返り、URL からは本人だけが辿れる", async () => {
+      const record = await recordWithSnapshot();
+      signInAs(USER_A);
+      const app = buildApp();
+      const list = await app.request("/me/exchange-records", {}, TEST_BINDINGS);
+      const body = (await list.json()) as {
+        id: number;
+        cardSnapshotUrl: string | null;
+      }[];
+      const item = body.find((r) => r.id === record.id)!;
+      expect(item.cardSnapshotUrl).toContain(
+        `/me/exchange-records/${record.id}/snapshot`,
+      );
+      // 相手側の記録には A のコピーの URL は載らない
+      signInAs(USER_B);
+      const listB = await app.request(
+        "/me/exchange-records",
+        {},
+        TEST_BINDINGS,
+      );
+      const bodyB = (await listB.json()) as {
+        cardSnapshotUrl: string | null;
+      }[];
+      expect(bodyB.every((r) => r.cardSnapshotUrl === null)).toBe(true);
     });
   });
 });

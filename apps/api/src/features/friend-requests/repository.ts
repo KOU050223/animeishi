@@ -1,20 +1,14 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { SQLWrapper } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import {
-  users,
-  friends,
-  friendRequests,
-  exchangeRecords,
-  blocks,
-} from "@/db/schema";
+import { users, friends, friendRequests, blocks } from "@/db/schema";
 import type { FriendRequest } from "@/db/schema";
 import {
   UserBlockedError,
   UserNotFoundError,
   usersRepository,
 } from "../users/repository";
-import { initialExchangeRecordValues } from "../exchange-records/repository";
+import { createInitialExchangeRecords } from "../exchange-records/repository";
 
 /** すでにフレンド関係にある相手へ申請したときに投げる。ルート層で 409 に変換する。 */
 export class AlreadyFriendsError extends Error {
@@ -58,7 +52,11 @@ export type SendFriendRequestResult =
  * db.batch() でアトミックに行う（D1 では BEGIN TRANSACTION が使えない）。
  * ブロック判定は usersRepository に委譲する。
  */
-export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
+export function friendRequestsRepository(
+  db: DrizzleDb,
+  currentUserId: string,
+  avatars?: R2Bucket,
+) {
   // フレンド一覧と同じく、ブロック関係（どちら方向でも）にある申請は
   // 一覧から除く。ブロック時に申請行自体も消すが、消し忘れ・経路外の
   // 残存に対する防御として毎回フィルタする。
@@ -135,26 +133,15 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
     // A→B 行をこのリクエストが作ったときだけ、各側の名刺帳に初回記録を
     // 1 行ずつ積む（対面 QR と同じ）。
     if (results[0].length > 0) {
-      await db.batch([
-        db.insert(exchangeRecords).values(
-          initialExchangeRecordValues({
-            ownerId: currentUserId,
-            friendId: otherUserId,
-            source: "request",
-            metAt: now,
-            now,
-          }),
-        ),
-        db.insert(exchangeRecords).values(
-          initialExchangeRecordValues({
-            ownerId: otherUserId,
-            friendId: currentUserId,
-            source: "request",
-            metAt: now,
-            now,
-          }),
-        ),
-      ]);
+      await createInitialExchangeRecords({
+        db,
+        avatars: avatars ?? null,
+        userA: currentUserId,
+        userB: otherUserId,
+        source: "request",
+        metAt: now,
+        now,
+      });
     }
   }
 

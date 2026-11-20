@@ -18,8 +18,11 @@ import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
-): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
-  return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database; AVATARS: R2Bucket } {
+  return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
+    DB: D1Database;
+    AVATARS: R2Bucket;
+  };
 }
 
 const app = createOpenApiApp<AuthVariables>();
@@ -27,7 +30,11 @@ app.use("*", requireAuth);
 const friendRequests = app
   .openapi(getFriendRequestsRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
-    const repo = friendRequestsRepository(db, c.var.clerkUserId);
+    const repo = friendRequestsRepository(
+      db,
+      c.var.clerkUserId,
+      getBindings(c).AVATARS,
+    );
     const [received, sent] = await Promise.all([
       repo.listReceived(),
       repo.listSent(),
@@ -41,7 +48,11 @@ const friendRequests = app
     }
 
     const db = createDb(getBindings(c).DB);
-    const repo = friendRequestsRepository(db, c.var.clerkUserId);
+    const repo = friendRequestsRepository(
+      db,
+      c.var.clerkUserId,
+      getBindings(c).AVATARS,
+    );
 
     try {
       const result = await repo.sendRequest(userId);
@@ -63,7 +74,11 @@ const friendRequests = app
     const { id } = c.req.valid("param");
 
     const db = createDb(getBindings(c).DB);
-    const repo = friendRequestsRepository(db, c.var.clerkUserId);
+    const repo = friendRequestsRepository(
+      db,
+      c.var.clerkUserId,
+      getBindings(c).AVATARS,
+    );
 
     try {
       await repo.accept(id);
@@ -82,7 +97,11 @@ const friendRequests = app
     const { id } = c.req.valid("param");
 
     const db = createDb(getBindings(c).DB);
-    const repo = friendRequestsRepository(db, c.var.clerkUserId);
+    const repo = friendRequestsRepository(
+      db,
+      c.var.clerkUserId,
+      getBindings(c).AVATARS,
+    );
 
     try {
       await repo.deleteRequest(id);

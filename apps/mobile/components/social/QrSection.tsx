@@ -513,6 +513,9 @@ function ScanView() {
   const addFriend = useAddFriend();
   // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // 成立画面の「◯回目」に出す交換記録の件数（issue #662）。
+  // 既フレンドとの QR 再交換では 2 回目以降になる。
+  const [meetingCount, setMeetingCount] = useState<number | null>(null);
   // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
   const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
@@ -539,7 +542,8 @@ function ScanView() {
       addFriend.mutate(
         { friendId: userId, qrToken, offlineToken },
         {
-          onSuccess: () => {
+          onSuccess: (result) => {
+            setMeetingCount(result.meetingCount);
             setExchangeUid(userId);
           },
           onError: (e) => {
@@ -576,6 +580,7 @@ function ScanView() {
 
   const closeExchangeOverlay = () => {
     setExchangeUid(null);
+    setMeetingCount(null);
     reset();
   };
 
@@ -641,6 +646,7 @@ function ScanView() {
       {exchangeUid ? (
         <ExchangeSuccessOverlay
           uid={exchangeUid}
+          meetingCount={meetingCount ?? undefined}
           onClose={closeExchangeOverlay}
           onRecordPress={() => {
             // オーバーレイだけを閉じる。ここで reset() まで呼ぶと

@@ -11,6 +11,8 @@ import { EXCHANGE_RECORD_SOURCES } from "@/db/schema";
 // metAt が「会った日時」、placeName は地名・施設名のテキスト（座標は
 // 保存しない）、eventSlug / eventName は紐付けた登録イベントまたは
 // 自由入力名（登録イベントを選んだ場合も当時の表示名を eventName に写す）。
+// cardSnapshotUrl は交換当時の名刺コピー（issue #662）の配信 URL で、
+// 本人認証付きのエンドポイントだけが返す（未コピーなら null）。
 const exchangeRecordSchema = z.object({
   id: z.number().int(),
   friendId: z.string(),
@@ -21,6 +23,7 @@ const exchangeRecordSchema = z.object({
   placeName: z.string().nullable(),
   eventSlug: z.string().nullable(),
   eventName: z.string().nullable(),
+  cardSnapshotUrl: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -49,6 +52,58 @@ export const exchangeRecordUpdateSchema = z.object({
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
   description,
+});
+
+// POST /me/exchange-records のボディ（issue #662 の手動「会った」）。
+// 自分だけの記録で、相手への通知・相手側の履歴への記録は行わない。
+// eventSlug を指定すると登録イベントに紐付け、表示名は API が
+// events.title から写す。eventSlug を null にすると自由入力の
+// eventName が使われる。
+export const exchangeRecordCreateSchema = z.object({
+  friendId: z.string().min(1),
+  placeName: z
+    .string()
+    .max(100, "場所は 100 文字以内で入力してください")
+    .nullable()
+    .default(null),
+  eventSlug: z.string().min(1).nullable().default(null),
+  eventName: z
+    .string()
+    .max(100, "イベント名は 100 文字以内で入力してください")
+    .nullable()
+    .default(null),
+});
+
+export const createExchangeRecordRoute = createRoute({
+  method: "post",
+  path: "/",
+  tags: ["exchange-records"],
+  summary:
+    "名刺帳から手動で「会った」記録を足す（本人のみ・自分だけの記録。フレンドでなければ 404。同日・同じ場所／イベントは既存記録にまとめる）",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: exchangeRecordCreateSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: exchangeRecordSchema },
+      },
+      description: "同日・同じ場所／イベントの既存記録にまとめた",
+    },
+    201: {
+      content: {
+        "application/json": { schema: exchangeRecordSchema },
+      },
+      description: "作成した交換記録",
+    },
+    400: jsonError("入力エラー / 存在しないイベント slug"),
+    401: jsonError("未認証"),
+    404: jsonError("フレンドではない"),
+  },
 });
 
 export const listExchangeRecordsRoute = createRoute({
@@ -106,5 +161,22 @@ export const deleteExchangeRecordRoute = createRoute({
     },
     401: jsonError("未認証"),
     404: jsonError("記録が存在しない（または自分の記録ではない）"),
+  },
+});
+
+// 交換当時の名刺コピー（issue #662）の配信。自分専用の非公開コピーの
+// ため本人認証が必須（openapi の createRoute ではバイナリ応答を
+// 書きにくいので、配信自体は index.ts の通常ルートで実装する）。
+export const exchangeCardSnapshotRoute = createRoute({
+  method: "get",
+  path: "/{recordId}/snapshot",
+  tags: ["exchange-records"],
+  summary: "交換当時の名刺コピーを配信する（本人のみ。他人の記録は 404）",
+  security: bearerAuth,
+  request: { params: recordIdParamSchema },
+  responses: {
+    200: { description: "名刺コピー画像（image/png）" },
+    401: jsonError("未認証"),
+    404: jsonError("記録・コピーが存在しない（または自分の記録ではない）"),
   },
 });

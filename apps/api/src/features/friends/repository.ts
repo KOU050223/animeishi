@@ -5,14 +5,16 @@ import {
   friends,
   friendRequests,
   friendNotes,
-  exchangeRecords,
   blocks,
 } from "@/db/schema";
 import type { Friend } from "@/db/schema";
 import { UserBlockedError, usersRepository } from "../users/repository";
 import {
+  countMeetingRecords,
+  createInitialExchangeRecords,
+  createReunionRecords,
   deleteExchangeRecordsBetween,
-  initialExchangeRecordValues,
+  listCardSnapshotKeysBetween,
 } from "../exchange-records/repository";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -47,7 +49,11 @@ export type FriendNote = {
  * リポジトリ層（旧 repository/authorizedDb.ts の Friends セクション）。
  * ブロック判定は usersRepository に委譲する。
  */
-export function friendsRepository(db: DrizzleDb, currentUserId: string) {
+export function friendsRepository(
+  db: DrizzleDb,
+  currentUserId: string,
+  avatars?: R2Bucket,
+) {
   // メモの読み書きは現在のフレンドに限るための関係チェック。
   // フレンドでなければ FriendNotFoundError を投げる。
   async function assertFriend(friendId: string): Promise<void> {
@@ -109,8 +115,12 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
      * フレンドを双方向で登録する。
      * A→B を追加する際に B→A も同時に登録し、片方向だけの不整合を防ぐ。
      * D1 では BEGIN TRANSACTION が使えないため db.batch() でアトミックに実行する。
+     * 戻り値の meetingCount はこの相手との交換記録の件数で、
+     * 交換成立画面の「◯回目」表示に使う（issue #662）。
      */
-    async addFriend(friendId: string): Promise<Friend> {
+    async addFriend(
+      friendId: string,
+    ): Promise<Friend & { meetingCount: number }> {
       if (friendId === currentUserId) {
         throw new Error("自分自身をフレンドに追加することはできません");
       }
@@ -173,42 +183,63 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
       // 場所・イベントは本人が後から任意で足す。
       const becameFriend = results[0].length > 0;
       if (becameFriend) {
-        await db.batch([
-          db.insert(exchangeRecords).values(
-            initialExchangeRecordValues({
-              ownerId: currentUserId,
-              friendId,
-              source: "qr",
-              metAt: now,
-              now,
-            }),
-          ),
-          db.insert(exchangeRecords).values(
-            initialExchangeRecordValues({
-              ownerId: friendId,
-              friendId: currentUserId,
-              source: "qr",
-              metAt: now,
-              now,
-            }),
-          ),
-        ]);
+        await createInitialExchangeRecords({
+          db,
+          avatars: avatars ?? null,
+          userA: currentUserId,
+          userB: friendId,
+          source: "qr",
+          metAt: now,
+          now,
+        });
+      } else {
+        // friends 行が既にあった = フレンドの相手との QR 再交換は
+        // 「再会」として記録する（issue #662）。同日の再交換は
+        // createReunionRecords 内で 1 回にまとめる。
+        const existing = await db.query.friends.findFirst({
+          where: (t, { and, eq: eq_ }) =>
+            and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+          columns: { id: true },
+        });
+        if (existing) {
+          await createReunionRecords({
+            db,
+            avatars: avatars ?? null,
+            userA: currentUserId,
+            userB: friendId,
+            metAt: now,
+          });
+        }
       }
       const created = await db.query.friends.findFirst({
         where: (t, { and, eq: eq_ }) =>
           and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
       });
       if (!created) throw new Error("フレンド追加に失敗しました");
-      return created;
+      const meetingCount = await countMeetingRecords(
+        db,
+        currentUserId,
+        friendId,
+      );
+      return { ...created, meetingCount };
     },
 
     /**
      * フレンドを双方向で削除する（A→B 削除時に B→A も削除）。
      * 私用メモは解除で消す方針（issue #659）のため、両方向の
      * friend_notes も同じ batch で消す。交換記録（issue #661）も
-     * 同方針で両方向とも消す。
+     * 同方針で両方向とも消す。戻り値は消えた記録に紐付いていた
+     * 名刺コピー（R2）のキーで、呼び出し側がオブジェクトも消す
+     * （issue #662「記録と一緒にコピーも消す」）。
      */
-    async removeFriend(friendId: string): Promise<void> {
+    async removeFriend(friendId: string): Promise<string[]> {
+      // 記録と一緒に消す名刺コピー（R2）のキーを先に取る（issue #662。
+      // 削除後では SELECT できないため）。
+      const snapshotKeys = await listCardSnapshotKeysBetween(
+        db,
+        currentUserId,
+        friendId,
+      );
       await db.batch([
         db
           .delete(friends)
@@ -244,6 +275,7 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
           ),
         deleteExchangeRecordsBetween(db, currentUserId, friendId),
       ]);
+      return snapshotKeys;
     },
 
     /**

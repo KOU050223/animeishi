@@ -41,6 +41,11 @@ export type ExchangeSuccessOverlayProps = {
    * 表示状態は呼び出し側が持つ。
    */
   onRecordPress?: () => void;
+  /**
+   * この相手との交換記録の件数。「◯回目」の表示に使う（issue #662）。
+   * 申請→承認など初回交換しかあり得ない呼び出しでは 1 を渡す。
+   */
+  meetingCount?: number;
 };
 
 // カード登場の控えめなポップ（0.92 → 1.0）。Modal 自体の fade と合わせて
@@ -113,6 +118,7 @@ export function ExchangeSuccessOverlay({
   onClose,
   showProfileLink = true,
   onRecordPress,
+  meetingCount,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
   const { getToken, userId } = useAuth();
@@ -169,6 +175,16 @@ export function ExchangeSuccessOverlay({
           <Text className="text-2xl font-bold text-white">
             {t("名刺交換成立")}
           </Text>
+          {/* 再会も含めた「◯回目」（issue #662）。再会履歴の入口になる
+              合図として成立の下に添える。 */}
+          {meetingCount != null && meetingCount > 0 ? (
+            <Text
+              className="text-sm font-medium text-white/80 mt-1"
+              testID="exchange-success-count"
+            >
+              {t("{{count}}回目の出会い", { count: meetingCount })}
+            </Text>
+          ) : null}
           <ScrollView
             className="w-full max-w-sm mt-6"
             style={{ maxHeight: 460 }}

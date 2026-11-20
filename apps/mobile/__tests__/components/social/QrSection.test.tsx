@@ -727,8 +727,10 @@ describe("スキャン", () => {
 
   it("トークン付き QR のフレンド追加が成立したら名刺交換成立の演出を出し、「プロフィールを見る」で遷移する", async () => {
     mockAddFriendMutate.mockImplementation(
-      (_vars: unknown, options?: { onSuccess?: () => void }) =>
-        options?.onSuccess?.(),
+      (
+        _vars: unknown,
+        options?: { onSuccess?: (result: { meetingCount: number }) => void },
+      ) => options?.onSuccess?.({ meetingCount: 1 }),
     );
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
@@ -761,8 +763,10 @@ describe("スキャン", () => {
 
   it("成立演出を「閉じる」で閉じるとスキャン状態がリセットされる", async () => {
     mockAddFriendMutate.mockImplementation(
-      (_vars: unknown, options?: { onSuccess?: () => void }) =>
-        options?.onSuccess?.(),
+      (
+        _vars: unknown,
+        options?: { onSuccess?: (result: { meetingCount: number }) => void },
+      ) => options?.onSuccess?.({ meetingCount: 1 }),
     );
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
@@ -785,8 +789,10 @@ describe("スキャン", () => {
 
   it("ot だけ載った QR は offlineToken で即時追加を試す（issue #680）", async () => {
     mockAddFriendMutate.mockImplementation(
-      (_vars: unknown, options?: { onSuccess?: () => void }) =>
-        options?.onSuccess?.(),
+      (
+        _vars: unknown,
+        options?: { onSuccess?: (result: { meetingCount: number }) => void },
+      ) => options?.onSuccess?.({ meetingCount: 1 }),
     );
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });

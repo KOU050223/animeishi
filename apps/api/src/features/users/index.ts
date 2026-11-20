@@ -10,11 +10,15 @@ import {
 import { createDb } from "@/db/client";
 import { notifyUserReport } from "@/observability";
 import { createOpenApiApp } from "@/lib/openapi";
+import { listCardSnapshotKeysBetween } from "../exchange-records/repository";
 
 function getBindings(
   c: Context,
-): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
-  return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database; AVATARS: R2Bucket } {
+  return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
+    DB: D1Database;
+    AVATARS: R2Bucket;
+  };
 }
 
 // ユーザー通報・ブロック（App Store Guideline 1.2 の UGC 対策, issue #135）。
@@ -61,6 +65,13 @@ const usersRoute = app
 
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
+    // ブロックで消える交換記録に紐付く名刺コピー（issue #662）の
+    // R2 キーを削除前に取る。
+    const snapshotKeys = await listCardSnapshotKeysBetween(
+      db,
+      c.var.clerkUserId,
+      targetId,
+    );
     try {
       await repo.blockUser(targetId);
     } catch (e) {
@@ -68,6 +79,9 @@ const usersRoute = app
         return c.json({ error: "User not found" }, 404);
       }
       throw e;
+    }
+    if (snapshotKeys.length > 0) {
+      await getBindings(c).AVATARS.delete(snapshotKeys);
     }
     return c.json({ success: true }, 200);
   })

@@ -18,6 +18,8 @@ import {
   findUserById,
   DeletedUserError,
 } from "../users/repository";
+import { listCardSnapshotKeysForUserDeletion } from "../exchange-records/repository";
+import { EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX } from "../exchange-records/cardSnapshot";
 import { findNowWatching } from "../user/repository";
 import { nowWatchingResponse } from "../user/service";
 import { createDb } from "@/db/client";
@@ -309,17 +311,28 @@ const me = app
     const userId = c.var.clerkUserId;
     const db = createDb(bindings.DB);
 
+    // 消える交換記録に紐付く名刺コピー（issue #662）の R2 キーを
+    // 削除前に取る。自分の記録のコピーは自分のプレフィックス配下、
+    // 相手が自分について持つ記録のコピーは相手のプレフィックス配下に
+    // あるため、prefix 掃除だけでは消えず個別に消す。
+    const snapshotKeys = await listCardSnapshotKeysForUserDeletion(db, userId);
+
     // ユーザー関連テーブル（watch_history / favorites / friends / user_genres /
     // tier_lists(+items) / annict_tokens / users）を 1 batch で削除する。
     await usersRepository(db, userId).deleteMyAccount();
 
     // R2 上の画像は残ると配信 URL から取得し続けられるため、本人の
-    // プレフィックス（アバター avatars/{userId}/ と名刺アセット
-    // meishi-assets/{userId}/）のオブジェクトを全て消す。
+    // プレフィックス（アバター avatars/{userId}/・名刺アセット
+    // meishi-assets/{userId}/・名刺コピー exchange-card-snapshots/{userId}/）
+    // のオブジェクトを全て消す。
     // 削除自体は完了させたいので、失敗は Sentry に送るだけで握り潰す。
     // 片方のプレフィックスの掃除が失敗してももう片方は実行できるよう、
     // try/catch はプレフィックス単位にする。
-    for (const prefix of [`avatars/${userId}/`, `meishi-assets/${userId}/`]) {
+    for (const prefix of [
+      `avatars/${userId}/`,
+      `meishi-assets/${userId}/`,
+      `${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${userId}/`,
+    ]) {
       try {
         let cursor: string | undefined;
         do {
@@ -332,6 +345,15 @@ const me = app
           }
           cursor = listed.truncated ? listed.cursor : undefined;
         } while (cursor);
+      } catch (err) {
+        captureApiError(err, c);
+      }
+    }
+
+    // 相手側の記録に残る自分の名刺コピー（相手のプレフィックス配下）も消す。
+    if (snapshotKeys.length > 0) {
+      try {
+        await bindings.AVATARS.delete(snapshotKeys);
       } catch (err) {
         captureApiError(err, c);
       }
