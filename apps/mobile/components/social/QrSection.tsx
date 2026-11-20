@@ -99,26 +99,45 @@ function GenerateView() {
   // 発火させるためフォーカスも見る。
   const isFocused = useIsFocused();
   const { t } = useTranslation();
-  // 画像で保存のキャプチャ対象（QR カード View）。
-  const qrCardRef = useRef<ViewInstance>(null);
+  // 画像で保存のキャプチャ対象（画面外に描画したトークン無しの QR カード）。
+  const qrSaveCardRef = useRef<ViewInstance>(null);
   // 対面交換 QR に埋め込む短期トークン。トークン無しの QR を提示しても
   // 読み取り側は即時成立できず申請画面に送られるだけなので、取得失敗時も
   // トークン無しのまま表示してよい（issue #417）。
   const qrToken = useQrExchangeToken();
   // qt が取れないとき（オフライン）だけ QR に載せる ot（issue #680）。
   // オンラインのうちに useQrExchangeToken が AsyncStorage へ保存したものを
-  // 読む。取得・再取得のたびにキャッシュが新しくなるため、その都度読み直す
-  // （errorUpdatedAt も依存に入れるのは、再取得失敗でも再描画して
-  // 期限切れの qt を QR から外すため）。
+  // 読む。取得・再取得のたびにキャッシュが新しくなるため、その都度読み直す。
   const [offlineToken, setOfflineToken] = useState<string | null>(null);
+  // Date.now はレンダー中に呼べない（React Compiler の purity 制約）ため、
+  // 時刻は effect 側で保持する。qt の期限到達時刻にタイマーで nowMs を
+  // 更新し、オフラインで再取得が止まっていても期限切れの qt を QR から
+  // 外して ot へ切り替える（errorUpdatedAt も依存に入れるのは、再取得
+  // 失敗でも時刻評価をやり直すため）。
+  const [nowMs, setNowMs] = useState(0);
   useEffect(() => {
-    if (!userId) return;
+    const now = Date.now();
+    setNowMs(now);
+    const expMs = qrToken.data ? qrToken.data.expiresAt * 1000 : null;
+    // setTimeout の遅延は 32bit 上限（約 24.8 日）まで。超えると即時
+    // 発火扱いになるためキャップする（qt の実際の TTL は 5 分で、
+    // 上限を超えるのはテストなど人為的な値だけ）。
+    const timer =
+      expMs !== null && expMs > now
+        ? setTimeout(
+            () => setNowMs(Date.now()),
+            Math.min(expMs - now, 2 ** 31 - 1),
+          )
+        : undefined;
     let cancelled = false;
-    void readOfflineExchangeToken(userId).then((token) => {
-      if (!cancelled) setOfflineToken(token);
-    });
+    if (userId) {
+      void readOfflineExchangeToken(userId).then((token) => {
+        if (!cancelled) setOfflineToken(token);
+      });
+    }
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, qrToken.dataUpdatedAt, qrToken.errorUpdatedAt]);
@@ -225,7 +244,7 @@ function GenerateView() {
   // qt は期限内のものだけ有効。取れない・期限切れのときだけキャッシュ済みの
   // ot にフォールバックする（issue #680、オーナー決定 2026-11-21）。
   const qt =
-    qrToken.data && qrToken.data.expiresAt * 1000 > Date.now()
+    qrToken.data && qrToken.data.expiresAt * 1000 > nowMs
       ? qrToken.data.token
       : undefined;
   const qrValue = buildQrExchangeUrl(shareUrl, {
@@ -269,7 +288,10 @@ function GenerateView() {
     setIsSavingImage(true);
     try {
       // QR カードの白背景に合わせて PNG の下地も白にする（web のみで使う）。
-      await saveQrImage(qrCardRef, {
+      // 撮るのは画面外の qrSaveCardRef 側。表示中の QR には qt/ot が載って
+      // おり、保存画像に残すと画像経由で誰でも期限内にフレンドを成立
+      // できてしまうため、トークン無しの URL を撮る（issue #680 レビュー）。
+      await saveQrImage(qrSaveCardRef, {
         title: t("マイ QR"),
         backgroundColor: "#ffffff",
       });
@@ -382,11 +404,7 @@ function GenerateView() {
       ) : null}
       {/* QR コードは読み取り精度のため常に白いカードに描画する
           （周囲の quiet zone も白が前提）。dark でも白のままにする。 */}
-      {/* collapsable={false} は Android の captureRef 対策（View が
-          フラット化されると view-shot が失敗するため）。 */}
       <View
-        ref={qrCardRef}
-        collapsable={false}
         className="mt-6 p-6 bg-white rounded-2xl border border-slate-100"
         style={styles.qrCard}
         testID="qr-code-container"
@@ -468,6 +486,20 @@ function GenerateView() {
             {isSavingImage ? t("保存中...") : t("画像で保存")}
           </Text>
         </TouchableOpacity>
+      </View>
+      {/* 「画像で保存」で撮る用のトークン無し QR カード。表示中の QR には
+          qt/ot が載るため、画像に残らないようトークン無しの URL を別に
+          描画しておく。display: none だと captureRef / html-to-image で
+          撮れないため、画面外へ飛ばす。 */}
+      <View
+        ref={qrSaveCardRef}
+        collapsable={false}
+        accessible={false}
+        className="p-6 bg-white rounded-2xl border border-slate-100"
+        style={[styles.offscreenCard, styles.qrCard]}
+        testID="qr-save-card"
+      >
+        <QRCode value={shareUrl} size={240} testID="qr-code-save" />
       </View>
     </ScrollView>
   );
@@ -623,6 +655,13 @@ const styles = StyleSheet.create({
   },
   qrCard: {
     boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.08)",
+  },
+  // 「画像で保存」のキャプチャ対象を画面外へ飛ばす（display: none では
+  // view-shot / html-to-image で撮れないため）。
+  offscreenCard: {
+    position: "absolute",
+    top: -10000,
+    left: -10000,
   },
   camera: {
     flex: 1,

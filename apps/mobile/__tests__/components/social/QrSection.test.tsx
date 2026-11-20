@@ -21,9 +21,17 @@ const mockQRCodeProps = jest.fn();
 jest.mock("react-native-qrcode-svg", () => {
   const React = require("react");
   const { Text } = require("react-native");
-  const MockQRCode = (props: { value: string; size?: number }) => {
+  const MockQRCode = (props: {
+    value: string;
+    size?: number;
+    testID?: string;
+  }) => {
     mockQRCodeProps(props);
-    return React.createElement(Text, { testID: "qr-code" }, props.value);
+    return React.createElement(
+      Text,
+      { testID: props.testID ?? "qr-code" },
+      props.value,
+    );
   };
   return { __esModule: true, default: MockQRCode };
 });
@@ -272,7 +280,9 @@ describe("マイQR（QR コード生成）", () => {
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
 
-    const qrValue = mockQRCodeProps.mock.calls[0]?.[0]?.value as string;
+    const qrValue = mockQRCodeProps.mock.calls
+      .map((c) => c[0].value as string)
+      .find((v) => v.includes("?qt="));
     expect(qrValue).toContain(
       `https://animeishi.uomi.dev/user/${USER_ID}?qt=test-qt-token`,
     );
@@ -303,13 +313,15 @@ describe("マイQR（QR コード生成）", () => {
 
     // ot は AsyncStorage からの読み出し後に反映される。
     await waitFor(() =>
-      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+      expect(mockQRCodeProps).toHaveBeenCalledWith(
         expect.objectContaining({
           value: expect.stringContaining("?ot=cached-ot-token"),
         }),
       ),
     );
-    const qrValue = mockQRCodeProps.mock.calls.at(-1)?.[0]?.value as string;
+    const qrValue = mockQRCodeProps.mock.calls
+      .map((c) => c[0].value as string)
+      .find((v) => v.includes("?ot="));
     expect(qrValue).not.toContain("qt=");
     expect(qrValue).toContain("&mc=");
     expect(parseQrPayload(qrValue)?.offlineToken).toBe("cached-ot-token");
@@ -324,13 +336,15 @@ describe("マイQR（QR コード生成）", () => {
     await render(<QrSection />, { wrapper });
 
     await waitFor(() =>
-      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+      expect(mockQRCodeProps).toHaveBeenCalledWith(
         expect.objectContaining({
           value: expect.stringContaining("?qt=test-qt-token"),
         }),
       ),
     );
-    const qrValue = mockQRCodeProps.mock.calls.at(-1)?.[0]?.value as string;
+    const qrValue = mockQRCodeProps.mock.calls
+      .map((c) => c[0].value as string)
+      .find((v) => v.includes("?qt="));
     expect(qrValue).not.toContain("ot=");
   });
 
@@ -343,10 +357,72 @@ describe("マイQR（QR コード生成）", () => {
     await render(<QrSection />, { wrapper });
 
     await waitFor(() =>
-      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+      expect(mockQRCodeProps).toHaveBeenCalledWith(
         expect.objectContaining({
           value: expect.stringContaining("?ot=cached-ot-token"),
         }),
+      ),
+    );
+  });
+
+  it("表示中の qt が期限を迎えると再取得を待たずに ot へ切り替わる", async () => {
+    // 再取得が止まるオフライン中でも、期限到達のタイマーで表示を更新する。
+    // expiresAt は秒刻みのため 1 秒強で期限を迎える qt を使い、実タイマーで待つ。
+    mockQrToken = {
+      token: "short-lived-qt",
+      expiresAt: Math.floor(Date.now() / 1000) + 1,
+    };
+    mockOfflineToken = "cached-ot-token";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() =>
+      expect(mockQRCodeProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          value: expect.stringContaining("?qt=short-lived-qt"),
+        }),
+      ),
+    );
+
+    // qt の期限到達で再描画され、期限切れの qt ではなく ot が載る。
+    await waitFor(
+      () =>
+        expect(mockQRCodeProps).toHaveBeenCalledWith(
+          expect.objectContaining({
+            value: expect.stringContaining("?ot=cached-ot-token"),
+          }),
+        ),
+      { timeout: 5000 },
+    );
+  });
+
+  it("画像で保存のキャプチャ対象はトークン無しの URL を載せた QR カード", async () => {
+    // 表示中の QR には qt/ot が載るため、画像に残ると画像経由で期限内に
+    // 誰でもフレンドを成立できてしまう。保存用にはトークン無しの
+    // shareUrl を載せた別カードを撮る（issue #680 レビュー）。
+    mockSaveQrImage.mockResolvedValue(undefined);
+    mockOfflineToken = "cached-ot-token";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    // 画面外にトークン無しの QR が描画されている。
+    expect(mockQRCodeProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: `https://animeishi.uomi.dev/user/${USER_ID}`,
+      }),
+    );
+
+    await fireEvent.press(screen.getByTestId("qr-save-image"));
+
+    // 撮られるのは画面外カード（qr-save-card）の ref。
+    await waitFor(() =>
+      expect(mockSaveQrImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          current: expect.objectContaining({
+            props: expect.objectContaining({ testID: "qr-save-card" }),
+          }),
+        }),
+        expect.anything(),
       ),
     );
   });
