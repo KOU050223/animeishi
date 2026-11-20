@@ -155,6 +155,31 @@ describe("ExchangeSuccessOverlay", () => {
     expect(screen.queryByTestId("exchange-success-profile-link")).toBeNull();
   });
 
+  it("meetingCount を渡すと「◯回目の出会い」を出す（issue #662）", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay
+        uid="user_partner"
+        onClose={mockOnClose}
+        meetingCount={3}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByTestId("exchange-success-count")).toBeTruthy();
+    expect(screen.getByText("3回目の出会い")).toBeTruthy();
+  });
+
+  it("meetingCount を渡さないときは回数を出さない", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay uid="user_partner" onClose={mockOnClose} />,
+      { wrapper },
+    );
+
+    expect(screen.queryByTestId("exchange-success-count")).toBeNull();
+  });
+
   it("「閉じる」で onClose が呼ばれる", async () => {
     loggedInUser({ userId: "user_me" });
     await render(

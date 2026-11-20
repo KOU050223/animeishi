@@ -461,8 +461,8 @@ export const exchangeRecords = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     // 成立経路。friends.source と同じく 'qr'（対面 QR）/ 'request'
     // （申請→承認）。'manual' は名刺帳から手動で足した「会った」記録
-    // （issue #662。本 Issue では使わない）。導入前の既存行から補填
-    // した記録は friends.source と同じく NULL（経路不明）。
+    // （issue #662）。導入前の既存行から補填した記録は friends.source
+    // と同じく NULL（経路不明）。
     source: text("source", { enum: EXCHANGE_RECORD_SOURCES }),
     // 会った日時。初回交換は friends.created_at と同時刻。
     metAt: integer("met_at", { mode: "timestamp" }).notNull(),
@@ -476,7 +476,10 @@ export const exchangeRecords = sqliteTable(
     // イベントの表示名。登録イベントを選んだ場合は投入時の title を写し、
     // 自由入力の場合は入力文字列をそのまま持つ。
     eventName: text("event_name"),
-    // 交換当時の名刺コピー（R2 キー。issue #662 で使う。本 Issue では NULL）。
+    // 交換当時の相手の名刺コピーの R2 キー（issue #662）。公開配信される
+    // meishi-assets/ とは別の exchange-card-snapshots/{ownerId}/ 配下に
+    // 置き、本人認証付きの GET /me/exchange-records/{id}/snapshot だけが
+    // 配信する。相手がスナップショットを出していない記録は NULL。
     cardSnapshotKey: text("card_snapshot_key"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
