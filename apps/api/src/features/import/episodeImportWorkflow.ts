@@ -24,6 +24,12 @@
 //   リセットされない）ため、自前の予算を使い切る前に新しいインスタンスへ
 //   引き継ぐことでしか上限を回避できない。予算切れ・実上限到達で中断した
 //   話は failed にせず pending のまま残し、引き継ぎ先が書き込む。
+// - 予算を見て引き継ぐのはユニット（1 作品の対応付け・1 話の書き込み）の
+//   境界だけで、ユニットの途中では中断しない。話一覧のページング途中で
+//   止めると引き継ぎ先が同じ作品を最初から取り直し、小さい予算では同じ
+//   位置で繰り返し枯渇して永久に進まない。各インスタンスが最低 1 ユニット
+//   完結してから引き継ぐことで必ず進捗する。引き継ぎ回数自体にも上限を
+//   設け、異常に収束しない場合はジョブを failed に倒す。
 import { WorkflowEntrypoint } from "cloudflare:workers";
 import type {
   WorkflowEvent,
@@ -56,6 +62,7 @@ import {
 import { episodeImportJobRepository } from "./repository";
 import type { DanimeEpisodeJobWorkRef } from "./repository";
 import { createSubrequestBudget } from "./subrequestBudget";
+import type { SubrequestBudget } from "./subrequestBudget";
 
 export type DanimeEpisodeImportWorkflowEnv = {
   DB: D1Database;
@@ -73,6 +80,9 @@ export type DanimeEpisodeImportWorkflowEnv = {
   // 1 インスタンスが使う Annict fetch 数の予算（テストで小さくして
   // サブリクエスト上限での引き継ぎを検証する）。
   DANIME_SUBREQUEST_BUDGET?: string;
+  // インスタンス引き継ぎ回数の上限（テストで小さくして収束しない
+  // 場合の failed 化を検証する）。
+  DANIME_MAX_HANDOFFS?: string;
 };
 
 // Workflow パラメータには識別子だけを載せる。話一覧（大きい）と
@@ -87,6 +97,12 @@ export type DanimeEpisodeImportParams = {
    * 対応付け自体がスキップされる。
    */
   resumeWorkIndex?: number;
+  /**
+   * このインスタンスまでに積み上がった引き継ぎ回数。
+   * 初回インスタンスは未設定（0 扱い）。異常に収束しないジョブが
+   * インスタンスを無限に作り続けないための上限判定に使う。
+   */
+  handoffCount?: number;
 };
 
 // Annict 話一覧の一括取得（WORKS_EPISODES_QUERY）は searchWorks first:50
@@ -105,6 +121,12 @@ const WRITE_CHUNK = 8;
 // ため、Sentry 送信・障害通知等の余裕分を残して手前で次インスタンスへ
 // 引き継ぐ。
 const SUBREQUEST_BUDGET_DEFAULT = 40;
+// インスタンス引き継ぎ回数の上限。1 ユニット（1 作品の対応付け・
+// 1 話の書き込み）ごとに必ず進む設計のため、通常は必要な分だけ
+// 素直に引き継ぐ。これだけの引き継ぎでも終わらないのはユニット自体が
+// 完結しない異常系（実上限を超える巨大ユニット等）なので failed に
+// 倒して無限にインスタンスを作らせない。
+const HANDOFF_LIMIT_DEFAULT = 100;
 // 1 インスタンスのステップ数上限は 1,024（Free プラン）。末尾の
 // finalize/begin-writing/finish/handoff と余裕を残して手前で引き継ぐ。
 const STEP_BUDGET_DEFAULT = 900;
@@ -189,6 +211,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     step: WorkflowStep,
   ): Promise<void> {
     const { jobId, userId } = event.payload;
+    const handoffs = event.payload.handoffCount ?? 0;
     const db = createDb(this.env.DB);
     const repo = episodeImportJobRepository(db);
     // このインスタンスで消費したステップ数。上限に近づいたら残りを
@@ -211,16 +234,23 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     // Annict への fetch を数えるインスタンス単位の予算（issue #695）。
     // Workers のサブリクエスト上限はインスタンスで累計されるため、
     // 使い切る前に新インスタンスへ引き継いで上限到達を避ける。
+    // fetch 自体は拒否しない: ユニット（1 作品の対応付け・1 話の
+    // 書き込み）の途中で拒否すると、引き継ぎ先が同じユニットを
+    // 最初からやり直して小さい予算では永久に進まなくなる。
+    // 引き継ぎ判断はユニットの境界でだけ fetchBudget.remaining を
+    // 見て行い、各インスタンスが最低 1 ユニットは完結させる。
     // （インスタンスがハイバネートから再開した場合 run() は最初から
     // 再実行され予算も満タンに戻るが、その場合でも実上限に当たれば
     // "Too many subrequests." を検知して引き継ぐ安全網がある）
     const fetchBudget = createSubrequestBudget(this.subrequestBudget());
-    const budgetedFetch: typeof fetch = (input, init) => {
-      if (!fetchBudget.tryConsume()) {
-        return Promise.reject(new AnnictBudgetExhaustedError());
-      }
+    const countedFetch: typeof fetch = (input, init) => {
+      fetchBudget.tryConsume();
       return fetch(input, init);
     };
+    const outOfBudget = () => fetchBudget.remaining <= 0;
+    // このインスタンスで完結したユニット数。最初のユニットは予算を
+    // 見ずに必ず処理する（0 のまま引き継ぐと進捗なしで無限ループ）。
+    let unitsDone = 0;
 
     try {
       const job = await doStep("load-job", null, () => repo.getJob(jobId));
@@ -239,13 +269,19 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         let i = event.payload.resumeWorkIndex ?? 0;
         let resumeIndex: number | null = null;
         while (i < refs.length) {
+          // まだ 1 作品も終えていないなら予算を見ずに進める（進捗 0 の
+          // 引き継ぎを繰り返さない）。
+          if (unitsDone > 0 && outOfBudget()) {
+            resumeIndex = i;
+            break;
+          }
           const batchRefs = refs.slice(i, i + EPISODES_BATCH_WORKS);
           const fetched = await doStep(
             `annict-episodes-${i}`,
             { retries: { limit: 2, delay: "10 seconds" } },
-            () => this.fetchBatchEpisodes(db, userId, batchRefs, budgetedFetch),
+            () => this.fetchBatchEpisodes(db, userId, batchRefs, countedFetch),
           );
-          // 予算切れならこのバッチは未処理のまま。バッチ先頭から引き継ぐ。
+          // 実上限到達ならこのバッチは未処理のまま。バッチ先頭から引き継ぐ。
           if (fetched.budgetExhausted) {
             resumeIndex = i;
             break;
@@ -254,6 +290,9 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
           let j = 0;
           let matchBudgetHit = false;
           for (; j < batchRefs.length && !overBudget(); j++) {
+            // 1 作品の対応付け（個別ページングを含む）は中断しない。
+            // 予算の確認は作品の境界だけで行う。
+            if (unitsDone > 0 && outOfBudget()) break;
             const matched = await doStep(
               `match-${i + j}`,
               { retries: { limit: 2, delay: "10 seconds" } },
@@ -265,7 +304,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
                   userId,
                   batchRefs[j]!,
                   episodesByWork,
-                  budgetedFetch,
+                  countedFetch,
                 ),
             );
             // この作品は未処理（アイテム未登録）。その位置から引き継ぐ。
@@ -273,6 +312,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
               matchBudgetHit = true;
               break;
             }
+            unitsDone += 1;
           }
           i += j;
           if (matchBudgetHit || j < batchRefs.length || overBudget()) {
@@ -282,7 +322,10 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         }
         if (resumeIndex !== null) {
           await doStep("handoff", null, () =>
-            this.createContinuation(jobId, userId, resumeIndex),
+            this.createContinuation(jobId, userId, {
+              resumeWorkIndex: resumeIndex,
+              handoffs,
+            }),
           );
           return;
         }
@@ -306,13 +349,23 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
             retries: { limit: 2, delay: "30 seconds" },
             timeout: "10 minutes",
           },
-          () => this.writeChunk(db, repo, jobId, userId, budgetedFetch),
+          () =>
+            this.writeChunk(
+              db,
+              repo,
+              jobId,
+              userId,
+              countedFetch,
+              fetchBudget,
+              unitsDone,
+            ),
         );
+        unitsDone += written.processed;
         // サブリクエスト予算を使い切った。残りの pending は新しい
         // インスタンス（予算が満タンの実行単位）に引き継ぐ。
         if (written.budgetExhausted) {
           await doStep("handoff", null, () =>
-            this.createContinuation(jobId, userId),
+            this.createContinuation(jobId, userId, { handoffs }),
           );
           return;
         }
@@ -320,7 +373,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
       }
       if (overBudget()) {
         await doStep("handoff", null, () =>
-          this.createContinuation(jobId, userId),
+          this.createContinuation(jobId, userId, { handoffs }),
         );
         return;
       }
@@ -356,11 +409,17 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     }
   }
 
-  /** ステップ上限に近づいたとき、残りを処理する後続インスタンスを起動する。 */
+  /**
+   * 残りを処理する後続インスタンスを起動する。
+   * 引き継ぎ回数をパラメータで引き回し、上限を超えたら
+   * NonRetryableError でジョブを failed に倒す。ユニット単位で
+   * 必ず進む設計のためここに来るのは異常系だが、異常時に
+   * インスタンスを無限に作り続けないための上限。
+   */
   private async createContinuation(
     jobId: string,
     userId: string,
-    resumeWorkIndex?: number,
+    opts: { resumeWorkIndex?: number; handoffs: number },
   ): Promise<void> {
     const binding = this.env.DANIME_EPISODE_IMPORT;
     if (!binding) {
@@ -368,12 +427,21 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         "DANIME_EPISODE_IMPORT binding is required for continuation",
       );
     }
+    const limit = this.handoffLimit();
+    if (opts.handoffs >= limit) {
+      throw new NonRetryableError(
+        `episode import job exceeded the workflow handoff limit (${limit})`,
+      );
+    }
     // インスタンス ID は自動採番（呼び出し元の ID を使い回せない）。
     await binding.create({
       params: {
         jobId,
         userId,
-        ...(resumeWorkIndex === undefined ? {} : { resumeWorkIndex }),
+        handoffCount: opts.handoffs + 1,
+        ...(opts.resumeWorkIndex === undefined
+          ? {}
+          : { resumeWorkIndex: opts.resumeWorkIndex }),
       },
     });
   }
@@ -382,6 +450,12 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     const raw = this.env.DANIME_WORKFLOW_STEP_BUDGET;
     const v = Number(raw);
     return Number.isFinite(v) && v >= 1 ? v : STEP_BUDGET_DEFAULT;
+  }
+
+  private handoffLimit(): number {
+    const raw = this.env.DANIME_MAX_HANDOFFS;
+    const v = Number(raw);
+    return Number.isFinite(v) && v >= 1 ? v : HANDOFF_LIMIT_DEFAULT;
   }
 
   private subrequestBudget(): number {
@@ -423,7 +497,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
    * 戻り値は Rpc.Serializable にするため [workId, batch] の配列で返し、
    * match-* ステップへはクロージャ経由で Map に戻して渡す。
    * トークンはこのステップ内で復号し、戻り値には含めない。
-   * サブリクエスト予算切れ・実上限到達は budgetExhausted で返し、
+   * 実上限到達（"Too many subrequests."）は budgetExhausted で返し、
    * 失敗（リトライ対象）にはしない（呼び出し側が引き継ぎを判断する）。
    */
   private async fetchBatchEpisodes(
@@ -460,8 +534,10 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
    * 確定分はアイテム表に登録（既登録の Annict 話 ID は除く）。
    * カウンタはここでは触らず finalize-match で一括再計算する
    * （このステップがリトライしても副作用が重ならないように）。
-   * サブリクエスト予算切れ・実上限到達はアイテム未登録のまま
-   * budgetExhausted で返し、呼び出し側がその作品から引き継ぐ。
+   * 個別ページングは自前予算では中断しない（中断すると引き継ぎ先が
+   * 同じ作品を最初から取り直して進まない）。実上限到達だけ
+   * アイテム未登録のまま budgetExhausted で返し、呼び出し側が
+   * その作品から引き継ぐ。
    */
   private async matchWork(
     db: DrizzleDb,
@@ -542,11 +618,12 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
   /**
    * 書き込み 1 チャンク: pending を WRITE_CHUNK 件だけ取り、約 1 秒間隔で
    * createRecord。processed は確定できた件数（0 で終了判定に使う）。
-   * サブリクエスト予算切れ・実上限到達は budgetExhausted で返し、
-   * 途中の話は failed にせず pending のまま残す（issue #695）。
-   * 1 作品あたりの fetch 上限（話一覧ページング + メタ解決 + createRecord）
-   * が予算全体を超えることはないので、pending の先頭を残した引き継ぎは
-   * 必ず進捗する（無限引き継ぎにならない）。
+   * サブリクエスト予算は「1 話ぶん（記録再確認〜createRecord）」を中断
+   * しない単位の境界でだけ見る（priorUnits + processed が 1 以上になって
+   * から残りを確認する）。途中で拒否すると引き継ぎ先が同じ話をやり直して
+   * 進まなくなるため、各インスタンスで最低 1 話は必ず処理する。
+   * 実上限到達・境界での予算切れは budgetExhausted で返し、途中の話は
+   * failed にせず pending のまま残す（issue #695）。
    */
   private async writeChunk(
     db: DrizzleDb,
@@ -554,6 +631,8 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     jobId: string,
     userId: string,
     fetchImpl: typeof fetch,
+    fetchBudget: SubrequestBudget,
+    priorUnits: number,
   ): Promise<{ processed: number; budgetExhausted: boolean }> {
     const items = await repo.listPendingItems(jobId, WRITE_CHUNK);
     if (items.length === 0) return { processed: 0, budgetExhausted: false };
@@ -575,6 +654,11 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     let processed = 0;
     try {
       for (const item of items) {
+        // 話の境界でだけ予算を見る。1 話ぶん（再確認〜createRecord）の
+        // 途中では中断しないので、小さい予算でも最低 1 話は進む。
+        if (priorUnits + processed > 0 && fetchBudget.remaining <= 0) {
+          return { processed, budgetExhausted: true };
+        }
         if (!trackedNow.has(item.annictWorkId)) {
           try {
             const eps = await fetchAnnictWorkEpisodes(

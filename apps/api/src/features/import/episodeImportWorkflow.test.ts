@@ -287,6 +287,8 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     env.DANIME_WORKFLOW_STEP_BUDGET = "5";
     // サブリクエスト予算の既定（テストごとに小さくして上限を再現する）。
     env.DANIME_SUBREQUEST_BUDGET = "40";
+    // 引き継ぎ回数上限の既定（上限検証テストだけ小さくする）。
+    env.DANIME_MAX_HANDOFFS = "100";
   });
 
   afterEach(() => {
@@ -771,5 +773,175 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
       .from(danimeEpisodeImportItems)
       .where(eq(danimeEpisodeImportItems.jobId, jobId));
     expect(items.find((i) => i.annictEpisodeId === 101)?.status).toBe("done");
+  });
+
+  it("予算が 1 話ぶん未満でも 1 話ずつ進み、無限引き継ぎにならず完了する", async () => {
+    // Devin Review #699: 小さい予算で fetch を途中拒否すると、引き継ぎ先が
+    // 同じ話を最初からやり直して永久に進まない。ユニット境界でだけ
+    // 予算を見るため、各インスタンスが最低 1 話ずつ進んで収束する。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values(
+      [101, 102, 103].map((annictEpisodeId) => ({
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId,
+        episodeNodeId: `Ep-${annictEpisodeId}`,
+        status: "pending" as const,
+        updatedAt: now,
+      })),
+    );
+    // 再確認 1 + createRecord 1 で 1 話ぶんの最小コストより小さい予算。
+    env.DANIME_SUBREQUEST_BUDGET = "1";
+    const calls = installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.every((i) => i.status === "done")).toBe(true);
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      3,
+    );
+  });
+
+  it("予算が話一覧 1 作品ぶん未満でも、ページング途中で中断せず作品ごとに進んで完了する", async () => {
+    // Devin Review #699 の再現: 予算 2 で 2 ページの話一覧を持つ作品を
+    // 処理すると、ページング途中で中断すると毎回同じ作品を取り直して
+    // 無限引き継ぎになる。ページングは中断しないので収束する。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    // バッチ取得 1 + ページング 2 で 1 作品ぶんを下回る予算。
+    env.DANIME_SUBREQUEST_BUDGET = "2";
+    const pagedEpisodes = (call: AnnictMockCall) =>
+      jsonResponse({
+        data: {
+          searchWorks: {
+            nodes: [
+              {
+                annictId: ANNICT_WORK_ID,
+                episodes: {
+                  pageInfo:
+                    call.after == null
+                      ? { hasNextPage: true, endCursor: "page-2" }
+                      : { hasNextPage: false, endCursor: null },
+                  nodes:
+                    call.after == null
+                      ? [
+                          {
+                            id: "Ep-101",
+                            annictId: 101,
+                            number: 1,
+                            numberText: "第1話",
+                            sortNumber: 1,
+                            title: "サブタイトル1",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ]
+                      : [
+                          {
+                            id: "Ep-102",
+                            annictId: 102,
+                            number: 2,
+                            numberText: "第2話",
+                            sortNumber: 2,
+                            title: "サブタイトル2",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ],
+                },
+              },
+            ],
+          },
+        },
+      });
+    const calls = installAnnictMock({
+      trackedEpisodes: [],
+      batchEpisodes: () =>
+        jsonResponse({
+          data: {
+            searchWorks: {
+              nodes: [
+                {
+                  annictId: ANNICT_WORK_ID,
+                  episodes: {
+                    pageInfo: { hasNextPage: true, endCursor: null },
+                    nodes: [],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      workEpisodes: pagedEpisodes,
+    });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.status === "done")).toBe(true);
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      2,
+    );
+  });
+
+  it("引き継ぎ回数の上限を超えたジョブは failed になる", async () => {
+    // Devin Review #699: ユニット単位で必ず進む設計のため上限到達は
+    // 異常系だが、収束しない場合にインスタンスを無限に作らせない
+    // 保証として引き継ぎ回数の上限で failed に倒す。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values(
+      [101, 102, 103].map((annictEpisodeId) => ({
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId,
+        episodeNodeId: `Ep-${annictEpisodeId}`,
+        status: "pending" as const,
+        updatedAt: now,
+      })),
+    );
+    // 1 話ごとに引き継ぐ予算 + 引き継ぎ 1 回までの上限。
+    env.DANIME_SUBREQUEST_BUDGET = "1";
+    env.DANIME_MAX_HANDOFFS = "1";
+    installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["failed"]);
+    expect(job.status).toBe("failed");
+    expect(job.error).toContain("handoff limit");
+    // 上限までに進んだ分は残る（2 話 done、残り 1 話は pending のまま）。
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.filter((i) => i.status === "done")).toHaveLength(2);
+    expect(items.filter((i) => i.status === "pending")).toHaveLength(1);
   });
 });

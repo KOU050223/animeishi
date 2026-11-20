@@ -137,7 +137,16 @@ export const danimeEpisodeJobs = new Hono<AuthVariables>()
             st.error?.message ?? "workflow terminated",
           );
         } else if (st.status === "complete") {
-          await repo.setJobStatus(job.id, "completed");
+          // 予算・ステップ上限の引き継ぎで正常終了した元インスタンスも
+          // complete になる（引き継ぎ先は別インスタンス ID で動く）。
+          // 後続が残りを処理中なのに完了扱いすると、引き継ぎ先の
+          // load-job が終了済みと判定して止まり残りの話が記録されない
+          // （issue #695 の引き継ぎ経路）。完了に追従するのは
+          // 書き込みフェーズで pending が残っていないときだけ。
+          const [pending] = await repo.listPendingItems(job.id, 1);
+          if (job.status === "writing" && !pending) {
+            await repo.setJobStatus(job.id, "completed");
+          }
         } else {
           return c.json({ job: toJobDto(job) }, 200);
         }

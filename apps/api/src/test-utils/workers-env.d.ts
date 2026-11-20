@@ -18,6 +18,7 @@ declare namespace Cloudflare {
     DANIME_TRANSIENT_RETRY_WAIT_MS?: string;
     DANIME_WORKFLOW_STEP_BUDGET?: string;
     DANIME_SUBREQUEST_BUDGET?: string;
+    DANIME_MAX_HANDOFFS?: string;
   }
 }
 
