@@ -17,7 +17,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.animeishi.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "近くの端末を見つけて名刺を交換するためにローカルネットワークを使用します",
+        "NSBonjourServices": ["_animeishi-nx._tcp"],
+        "NSNearbyInteractionUsageDescription": "近づけた相手との距離を測るために近距離無線を使用します"
       },
       "privacyManifests": {
         "NSPrivacyCollectedDataTypes": [

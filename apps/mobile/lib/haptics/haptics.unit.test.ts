@@ -8,7 +8,7 @@ vi.mock("expo-haptics", () => ({
   selectionAsync: vi.fn(),
   impactAsync: vi.fn(),
   NotificationFeedbackType: { Success: "success", Warning: "warning" },
-  ImpactFeedbackStyle: { Light: "light" },
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
 }));
 
 describe("haptics.ios", () => {
@@ -31,6 +31,16 @@ describe("haptics.ios", () => {
     hapticsIos.impactLight();
     expect(ExpoHaptics.impactAsync).toHaveBeenCalledWith("light");
   });
+
+  it("impactMedium は impactAsync(Medium) を呼ぶ", () => {
+    hapticsIos.impactMedium();
+    expect(ExpoHaptics.impactAsync).toHaveBeenCalledWith("medium");
+  });
+
+  it("impactHeavy は impactAsync(Heavy) を呼ぶ", () => {
+    hapticsIos.impactHeavy();
+    expect(ExpoHaptics.impactAsync).toHaveBeenCalledWith("heavy");
+  });
 });
 
 describe("haptics (Android/Web フォールバック)", () => {
@@ -40,6 +50,8 @@ describe("haptics (Android/Web フォールバック)", () => {
       hapticsFallback.warning();
       hapticsFallback.selection();
       hapticsFallback.impactLight();
+      hapticsFallback.impactMedium();
+      hapticsFallback.impactHeavy();
     }).not.toThrow();
   });
 

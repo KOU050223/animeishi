@@ -12,4 +12,6 @@ export const haptics: Haptics = {
   warning: noop,
   selection: noop,
   impactLight: noop,
+  impactMedium: noop,
+  impactHeavy: noop,
 };

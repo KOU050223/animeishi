@@ -686,6 +686,26 @@ export default function ProfileScreen() {
                     },
                   ],
                 },
+                // 近づけて交換の試作（issue #698）。EXPO_PUBLIC_NEARBY_SPIKE=true
+                // のビルドでだけ入口を出す。通常のビルドでは見えない。
+                ...(process.env.EXPO_PUBLIC_NEARBY_SPIKE === "true"
+                  ? [
+                      {
+                        key: "dev",
+                        title: t("開発（試作）"),
+                        rows: [
+                          {
+                            key: "nearby-exchange",
+                            label: t("近づけて交換（試作）"),
+                            onPress: () => router.push("/dev/nearby"),
+                            accessibilityLabel: t(
+                              "近づけて交換の試作画面を開く",
+                            ),
+                          },
+                        ],
+                      },
+                    ]
+                  : []),
               ]}
             />
             <View className="px-4">
