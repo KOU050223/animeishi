@@ -65,6 +65,20 @@ jest.mock("@/lib/useWatchHistory", () => ({
   useWatchHistory: () => ({ data: [] }),
 }));
 
+jest.mock("@/lib/achievements/useAchievements", () => ({
+  useAchievements: () => ({ data: undefined }),
+}));
+
+const mockExportPrintImages = jest.fn();
+// 印刷用書き出しのスナップショット描画・撮像は本テストの対象外。
+jest.mock("@/lib/meishi/printExport", () => ({
+  useMeishiPrintExport: () => ({
+    exportPrintImages: mockExportPrintImages,
+    isExporting: false,
+    snapshotElement: null,
+  }),
+}));
+
 jest.mock("@/lib/profileUrl", () => ({
   buildProfileUrl: (userId: string | null | undefined) =>
     userId ? `http://localhost:8081/user/${userId}` : null,
@@ -119,6 +133,14 @@ describe("名刺の全画面表示", () => {
 
     expect(screen.getByText("名刺本体")).toBeTruthy();
     expect(screen.getByText("名刺B")).toBeTruthy();
+  });
+
+  it("印刷用に書き出すボタンで書き出しを実行する", async () => {
+    await render(<MeishiViewerScreen />);
+
+    await fireEvent.press(screen.getByLabelText("印刷用に書き出す"));
+
+    expect(mockExportPrintImages).toHaveBeenCalled();
   });
 
   it("編集ボタンでそのカードのエディタへ遷移する", async () => {

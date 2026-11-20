@@ -13,6 +13,7 @@ export const TRACKED_EVENTS = [
   "qr_scan_start",
   "meishi_share",
   "meishi_save",
+  "meishi_print_export",
   // Tier 表
   "tier_share_open",
   "tier_share",

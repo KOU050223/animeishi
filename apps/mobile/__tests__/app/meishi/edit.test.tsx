@@ -148,6 +148,14 @@ jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
     snapshotElement: null,
   }),
 }));
+// 印刷用書き出しのスナップショット描画・撮像は本テストの対象外。
+jest.mock("@/lib/meishi/printExport", () => ({
+  useMeishiPrintExport: () => ({
+    exportPrintImages: jest.fn(),
+    isExporting: false,
+    snapshotElement: null,
+  }),
+}));
 jest.mock("@/lib/meishi/storage", () => ({
   loadMeishiLibrary: jest.fn().mockResolvedValue(null),
 }));

@@ -20,6 +20,8 @@ import { MeishiCard } from "@/components/MeishiCard";
 import { BackButton } from "@/components/ui";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
+import { useMeishiPrintExport } from "@/lib/meishi/printExport";
+import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 import { useProfile } from "@/lib/useProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useSocialLinks } from "@/lib/socialLinks";
@@ -40,6 +42,18 @@ export default function MeishiViewerScreen() {
   const { data: profile } = useProfile();
   const { data: socialLinks } = useSocialLinks();
 
+  const cardProfile = useMemo(
+    () => ({
+      username: profile?.username,
+      bio: profile?.bio,
+      favoriteQuote: profile?.favoriteQuote,
+      profileImageUrl: profile?.profileImageUrl,
+      profileUrl: buildProfileUrl(profile?.id),
+    }),
+    [profile],
+  );
+  const context = useMeishiRenderContext(cardProfile);
+
   // 編集画面から戻ってきたときに保存済みの最新デザインを反映する
   useFocusEffect(
     useCallback(() => {
@@ -48,6 +62,13 @@ export default function MeishiViewerScreen() {
   );
 
   const card = cards.find((c) => c.id === id) ?? null;
+
+  // 印刷用データ（表・裏の高解像度 PNG）の書き出し（issue #665）。
+  const {
+    exportPrintImages,
+    isExporting: isPrintExporting,
+    snapshotElement: printSnapshotElement,
+  } = useMeishiPrintExport({ document: card?.document, context });
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -107,6 +128,19 @@ export default function MeishiViewerScreen() {
               zoomable
             />
           </View>
+          <Pressable
+            onPress={() => void exportPrintImages()}
+            disabled={isPrintExporting}
+            style={[styles.printButton, isPrintExporting && { opacity: 0.5 }]}
+            accessibilityRole="button"
+            accessibilityLabel={t("印刷用に書き出す")}
+            testID="meishi-print-export"
+          >
+            <Ionicons name="print-outline" size={16} color={colors.primary} />
+            <Text style={styles.printButtonText}>
+              {isPrintExporting ? t("書き出し中...") : t("印刷用に書き出す")}
+            </Text>
+          </Pressable>
           <SocialLinksList links={socialLinks?.items ?? []} />
         </ScrollView>
       ) : (
@@ -116,6 +150,8 @@ export default function MeishiViewerScreen() {
           </Text>
         </View>
       )}
+      {/* 印刷用書き出しの画面外スナップショット（実行中のみ描画される） */}
+      {printSnapshotElement}
     </SafeAreaView>
   );
 }
@@ -159,6 +195,24 @@ function createStyles(colors: ThemeColors) {
       maxWidth: 720,
       borderRadius: 16,
       boxShadow: "0px 6px 16px rgba(0, 0, 0, 0.15)",
+    },
+    printButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 16,
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    printButtonText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.primary,
     },
     emptyText: { fontSize: 14, color: colors.textMuted },
   });
