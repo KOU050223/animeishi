@@ -297,7 +297,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         // 進捗参照・新規作成時の調停が「いま動いているインスタンス」を
         // 追えるよう、自分のインスタンス ID を記録する（issue #701）。
         // 引き継ぎ先は初回インスタンス（job.id）とは別の ID で起動する。
-        await repo.setJobInstanceId(jobId, event.instanceId);
+        await repo.setJobInstanceId(jobId, event.instanceId, event.instanceId);
         return repo.getJob(jobId);
       });
       if (!job) {
@@ -372,6 +372,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         if (resumeIndex !== null) {
           await doStep("handoff", null, () =>
             this.createContinuation(repo, jobId, userId, {
+              fromInstanceId: event.instanceId,
               resumeWorkIndex: resumeIndex,
               handoffs,
             }),
@@ -417,7 +418,10 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
         // インスタンス（予算が満タンの実行単位）に引き継ぐ。
         if (written.budgetExhausted) {
           await doStep("handoff", null, () =>
-            this.createContinuation(repo, jobId, userId, { handoffs }),
+            this.createContinuation(repo, jobId, userId, {
+              fromInstanceId: event.instanceId,
+              handoffs,
+            }),
           );
           return;
         }
@@ -425,7 +429,10 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
       }
       if (overBudget()) {
         await doStep("handoff", null, () =>
-          this.createContinuation(repo, jobId, userId, { handoffs }),
+          this.createContinuation(repo, jobId, userId, {
+            fromInstanceId: event.instanceId,
+            handoffs,
+          }),
         );
         return;
       }
@@ -439,6 +446,7 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
       if (isSubrequestCapError(err)) {
         try {
           await this.createContinuation(repo, jobId, userId, {
+            fromInstanceId: event.instanceId,
             handoffs,
             ...(matchIndex == null ? {} : { resumeWorkIndex: matchIndex }),
           });
@@ -488,7 +496,11 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     repo: ReturnType<typeof episodeImportJobRepository>,
     jobId: string,
     userId: string,
-    opts: { resumeWorkIndex?: number; handoffs: number },
+    opts: {
+      fromInstanceId: string;
+      resumeWorkIndex?: number;
+      handoffs: number;
+    },
   ): Promise<void> {
     const binding = this.env.DANIME_EPISODE_IMPORT;
     if (!binding) {
@@ -510,7 +522,10 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     // 進捗参照・新規作成時の調停が追うべきインスタンスを先に記録する
     // （issue #701）。記録した ID のインスタンスが存在しない間は
     // 起動中として扱われるため、create との前後関係で取りこぼさない。
-    await repo.setJobInstanceId(jobId, nextId);
+    // 記録は「いまの記録値がこの引き継ぎ元の ID」のときだけ行う。
+    // このステップがリトライで再実行され、その間に引き継ぎ先がさらに
+    // 先へ進んでいた場合に記録を巻き戻さないため（Devin Review #702）。
+    await repo.setJobInstanceId(jobId, nextId, opts.fromInstanceId);
     try {
       await binding.create({
         id: nextId,

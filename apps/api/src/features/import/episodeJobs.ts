@@ -51,6 +51,11 @@ function toJobDto(job: DanimeEpisodeImportJob) {
  * 追跡するのは job.workflowInstanceId のインスタンス（引き継ぎ先を含む
  * 最新の実行主体）。未設定の旧ジョブは初回インスタンス（= job.id）を見る。
  * "settled" は D1 側を終了状態に書き換えたことを意味する。
+ * 終了への書き換えは、照合で見たインスタンス ID が D1 の記録値とまだ
+ * 一致するときだけ行う。照合がジョブ行を読んでからインスタンス状態を
+ * 取るまでの間に引き継ぎが進むと、完了・消滅した旧インスタンスを見て
+ * 生きているジョブを終了させてしまうため（Devin Review #702）。
+ * 記録が進んでいて書き換えなかった場合は "running" を返す。
  */
 async function reconcileJobWithWorkflow(
   repo: ReturnType<typeof episodeImportJobRepository>,
@@ -62,18 +67,20 @@ async function reconcileJobWithWorkflow(
   // 厳密に判定できる。無い旧ジョブは初回インスタンスしか見えず、
   // 引き継ぎ先が自動採番で動いている可能性を排除できないため緩く扱う。
   const tracked = job.workflowInstanceId != null;
+  const settle = async (
+    status: "completed" | "failed",
+    error?: string,
+  ): Promise<"running" | "settled"> =>
+    (await repo.settleJobStatus(job.id, status, error, instanceId))
+      ? "settled"
+      : "running";
   const failIfMissing = async (): Promise<"running" | "settled"> => {
     // 記録されたインスタンスが存在しない。引き継ぎの「ID 記録 → create」
     // の隙間なら起動中であり、記録から時間が経っているなら create が
     // 失敗して止まっている（もしくはインスタンス状態が保持期限切れ）。
     const ageMs = Date.now() - job.updatedAt.getTime();
     if (ageMs < MISSING_INSTANCE_GRACE_MS) return "running";
-    await repo.setJobStatus(
-      job.id,
-      "failed",
-      `workflow instance was lost: ${instanceId}`,
-    );
-    return "settled";
+    return settle("failed", `workflow instance was lost: ${instanceId}`);
   };
 
   let st: InstanceStatus;
@@ -88,12 +95,7 @@ async function reconcileJobWithWorkflow(
 
   if (st.status === "unknown") return failIfMissing();
   if (st.status === "errored" || st.status === "terminated") {
-    await repo.setJobStatus(
-      job.id,
-      "failed",
-      st.error?.message ?? `workflow ${st.status}`,
-    );
-    return "settled";
+    return settle("failed", st.error?.message ?? `workflow ${st.status}`);
   }
   if (st.status === "complete") {
     // 予算・ステップ上限の引き継ぎで正常終了した元インスタンスも
@@ -104,18 +106,15 @@ async function reconcileJobWithWorkflow(
     // 書き込みフェーズで pending が残っていないときだけ。
     const [pending] = await repo.listPendingItems(job.id, 1);
     if (job.status === "writing" && !pending) {
-      await repo.setJobStatus(job.id, "completed");
-      return "settled";
+      return settle("completed");
     }
     // 追跡対象のインスタンスが後続を残さず完了したのにジョブが
     // 実行中のままなら、処理を引き継ぐ先の無い行き止まり。
     if (tracked) {
-      await repo.setJobStatus(
-        job.id,
+      return settle(
         "failed",
         `workflow instance completed while the job is still ${job.status}`,
       );
-      return "settled";
     }
   }
   return "running";

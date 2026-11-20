@@ -15,6 +15,7 @@ import {
   danimeEpisodeImportItems,
   danimeEpisodeImportJobs,
 } from "@/db/schema";
+import { episodeImportJobRepository } from "./repository";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -541,6 +542,95 @@ describe("dアニメ話記録ジョブ API", () => {
     );
     const body = (await res.json()) as { job: { status: string } };
     expect(body.job.status).toBe("failed");
+  });
+
+  it("照合の隙間に追跡先が次インスタンスへ進んだ場合、旧インスタンスの complete では failed にしない", async () => {
+    // Devin Review #702: 進捗照合は「ジョブ行を読む → インスタンス状態を
+    // 取る」の順なので、その隙間に引き継ぎが進むと、正常終了した
+    // 引き継ぎ元（complete）を見て生きているジョブを failed にしてしまう。
+    // 終了への書き換えは記録中のインスタンス ID と一致するときだけ行う。
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "running" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    const nextId = `${job.id}-h1`;
+    // 照合がインスタンス状態を取る直前に、引き継ぎ側が追跡先を
+    // 次インスタンスへ書き換えた状態を再現する。
+    wf.stub.get.mockImplementation(async () => {
+      await db
+        .update(danimeEpisodeImportJobs)
+        .set({ workflowInstanceId: nextId })
+        .where(eq(danimeEpisodeImportJobs.id, job.id));
+      return {
+        status: async () => ({ status: "complete", error: undefined }),
+      };
+    });
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as { job: { status: string } };
+    // 旧インスタンスの complete を見ても failed にならない
+    expect(body.job.status).toBe("matching");
+    const row = await db.query.danimeEpisodeImportJobs.findFirst({
+      where: eq(danimeEpisodeImportJobs.id, job.id),
+    });
+    expect(row?.status).toBe("matching");
+    expect(row?.workflowInstanceId).toBe(nextId);
+  });
+
+  it("引き継ぎ先の記録は引き継ぎ元が記録中のときだけ行い、巻き戻さない", async () => {
+    // Devin Review #702: ハンドオフステップがリトライで再実行されると、
+    // すでに先へ進んだ記録を古いインスタンスへ巻き戻し得る。
+    // 記録は「現在値が引き継ぎ元の ID」のときだけ更新する。
+    await seedUserAndToken(db);
+    const repo = episodeImportJobRepository(db);
+    const { app, bindings } = buildApp(workflowStub().stub);
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    const recorded = async () =>
+      (
+        await db.query.danimeEpisodeImportJobs.findFirst({
+          where: eq(danimeEpisodeImportJobs.id, job.id),
+        })
+      )?.workflowInstanceId;
+
+    // h1 が記録中なら、h1 からの引き継ぎ（→h2）は記録できる
+    await db
+      .update(danimeEpisodeImportJobs)
+      .set({ workflowInstanceId: `${job.id}-h1` })
+      .where(eq(danimeEpisodeImportJobs.id, job.id));
+    await repo.setJobInstanceId(job.id, `${job.id}-h2`, `${job.id}-h1`);
+    expect(await recorded()).toBe(`${job.id}-h2`);
+
+    // h2 がさらに h3 へ引き継ぐと記録は h3 に進む
+    await repo.setJobInstanceId(job.id, `${job.id}-h3`, `${job.id}-h2`);
+    expect(await recorded()).toBe(`${job.id}-h3`);
+
+    // h1 のハンドオフステップがリトライで再実行されても、
+    // 記録値はすでに引き継ぎ元（h1）ではないため h2 へ巻き戻らない
+    await repo.setJobInstanceId(job.id, `${job.id}-h2`, `${job.id}-h1`);
+    expect(await recorded()).toBe(`${job.id}-h3`);
   });
 
   it("実行中ジョブのインスタンスが止まっているとき、POST はそのジョブを終了させて新規作成する", async () => {

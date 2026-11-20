@@ -79,12 +79,29 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       });
     },
 
-    /** このジョブを処理している Workflow インスタンスの ID を記録する。 */
-    async setJobInstanceId(jobId: string, instanceId: string): Promise<void> {
+    /**
+     * このジョブを処理している Workflow インスタンスの ID を記録する。
+     * expectedCurrentId を渡すと「記録値がいまもそれと一致するときだけ」
+     * 更新する。引き継ぎのハンドオフステップがリトライで再実行されたときに、
+     * すでに先のインスタンスへ進んだ記録を古い値へ巻き戻さないため
+     * （Devin Review #702）。
+     */
+    async setJobInstanceId(
+      jobId: string,
+      instanceId: string,
+      expectedCurrentId?: string,
+    ): Promise<void> {
       await db
         .update(danimeEpisodeImportJobs)
         .set({ workflowInstanceId: instanceId, updatedAt: new Date() })
-        .where(eq(danimeEpisodeImportJobs.id, jobId));
+        .where(
+          and(
+            eq(danimeEpisodeImportJobs.id, jobId),
+            expectedCurrentId === undefined
+              ? undefined
+              : sql`COALESCE(${danimeEpisodeImportJobs.workflowInstanceId}, ${danimeEpisodeImportJobs.id}) = ${expectedCurrentId}`,
+          ),
+        );
     },
 
     async insertJobWorks(
@@ -276,6 +293,33 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         .update(danimeEpisodeImportJobs)
         .set({ status, error: error ?? null, updatedAt: new Date() })
         .where(eq(danimeEpisodeImportJobs.id, jobId));
+    },
+
+    /**
+     * 進捗照合の結果へジョブを追従させる。照合で見たインスタンス ID が
+     * D1 の記録値とまだ一致するときだけ更新する（Devin Review #702）。
+     * 照合は「ジョブ行を読む → インスタンス状態を取る」の順なので、
+     * その隙間に引き継ぎが進むと、完了・消滅した旧インスタンスを見て
+     * 生きているジョブを終了状態にしてしまう。条件に合わず更新し
+     * なかった（＝追跡先が進んだ）ときは false を返す。
+     */
+    async settleJobStatus(
+      jobId: string,
+      status: DanimeEpisodeJobStatus,
+      error: string | undefined,
+      expectedInstanceId: string,
+    ): Promise<boolean> {
+      const res = await db
+        .update(danimeEpisodeImportJobs)
+        .set({ status, error: error ?? null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(danimeEpisodeImportJobs.id, jobId),
+            inArray(danimeEpisodeImportJobs.status, [...RUNNING_JOB_STATUSES]),
+            sql`COALESCE(${danimeEpisodeImportJobs.workflowInstanceId}, ${danimeEpisodeImportJobs.id}) = ${expectedInstanceId}`,
+          ),
+        );
+      return res.meta.changes > 0;
     },
   };
 }
