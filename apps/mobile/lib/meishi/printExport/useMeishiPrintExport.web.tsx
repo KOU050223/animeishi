@@ -49,7 +49,9 @@ export const useMeishiPrintExport: UseMeishiPrintExport = ({
       snapshotReadyRef,
       deliver: async (front, back) => {
         // スナップショットは出力サイズ（1146×720）と同じ実寸で
-        // 描いているため pixelRatio は 1。
+        // 描いているため pixelRatio は 1。2 面の撮影は逐次にする
+        // （html-to-image は面ごとに画像プロキシ差し替えと canvas 変換を
+        // 行うため、並列で走らせると描画が競合しうる）。
         const frontFile = await captureTierListImageFile(front, {
           title: "meishi-front",
           backgroundColor: "#ffffff",

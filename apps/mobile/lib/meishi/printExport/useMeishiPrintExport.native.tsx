@@ -53,6 +53,9 @@ export const useMeishiPrintExport: UseMeishiPrintExport = ({
           width: layout.widthPx,
           height: layout.heightPx,
         };
+        // 2 面の撮影は逐次にする。view-shot のキャプチャは画面外でも
+        // レンダリング資源を使うため、並列で走らせると大きな面
+        // （1146×720 × 2 面）の描画が競合しうる。
         const frontUri = await captureRef(front, {
           ...options,
           fileName: "meishi-front",
