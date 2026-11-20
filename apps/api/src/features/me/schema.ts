@@ -173,6 +173,34 @@ export const updateProfileRoute = createRoute({
   },
 });
 
+export const profileVisibilitySchema = z.object({
+  isPublic: z.boolean(),
+});
+
+// 公開設定（issue #604）だけを更新する。PUT /profile は未送信の項目を
+// 消す upsert なので、公開範囲の切り替えはこのエンドポイントに分ける。
+export const updateVisibilityRoute = createRoute({
+  method: "put",
+  path: "/profile/visibility",
+  tags: ["me"],
+  summary: "プロフィールの公開設定を更新する",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: profileVisibilitySchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { "application/json": { schema: userProfileSchema } },
+      description: "更新後のプロフィール",
+    },
+    400: jsonError("入力エラー"),
+    401: jsonError("未認証"),
+  },
+});
+
 export const getBlocksRoute = createRoute({
   method: "get",
   path: "/blocks",

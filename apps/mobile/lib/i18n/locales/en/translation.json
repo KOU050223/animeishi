@@ -1324,5 +1324,10 @@
   "アプリの不具合やほしい機能・ご意見は、アプリ内のフォームから送信できます。サインイン後、ホーム画面右上の吹き出しアイコンからも開けます。": "You can send bug reports, feature requests, and feedback from the in-app form. After signing in, you can also open it from the speech bubble icon at the top right of the Home screen.",
   "不具合報告・ご意見を送る": "Send a bug report or feedback",
   "お問い合わせ": "Contact",
-  "上記で解決しない場合は、以下の連絡先までお問い合わせください。": "If the above doesn't solve your issue, please contact us at:"
+  "上記で解決しない場合は、以下の連絡先までお問い合わせください。": "If the above doesn't solve your issue, please contact us at:",
+  "公開設定": "Visibility settings",
+  "プロフィールと名刺": "Profile and card",
+  "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります": "When public, your card is listed under \"Discover\" in Discover, and anyone can see your profile through its share link and your card's public image. When private, none of these are visible.",
+  "公開設定を更新しました": "Visibility settings updated.",
+  "公開設定の更新に失敗しました": "Couldn't update visibility settings."
 }

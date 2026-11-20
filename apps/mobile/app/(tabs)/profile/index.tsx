@@ -47,6 +47,9 @@ import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { resolveMeishiDocument } from "@/lib/meishi/templates";
 import type { ImageElement } from "@/lib/meishi/types";
+import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
+import type { PublicSettingItem } from "@/components/profile/PublicSettingsSection";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -93,6 +96,7 @@ export default function ProfileScreen() {
   const { signOut } = useAuth();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
+  const publicSettings = usePublicSettings();
   const uploadAvatar = useProfileAvatarUpload();
   // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
   const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
@@ -154,6 +158,17 @@ export default function ProfileScreen() {
       bottom: cardHeight - avatar.transform.y * cardHeight + 4,
     };
   }, [meishiDoc, meishiPreviewWidth, nowWatching]);
+
+  const publicSettingItems: PublicSettingItem[] = [
+    {
+      key: "profile",
+      label: t("プロフィールと名刺"),
+      description: t(
+        "公開にすると、ひろばの「みつける」に名刺が掲載され、共有リンクや名刺の公開画像から誰でもプロフィールを見られるようになります。非公開にするとこれらはすべて見られなくなります",
+      ),
+      visibility: publicSettings.profileVisibility,
+    },
+  ];
 
   useFocusEffect(
     useCallback(() => {
@@ -460,6 +475,27 @@ export default function ProfileScreen() {
                 />
               </View>
             </View>
+
+            {/* 「公開設定」セクション（issue #604）。行を足していける一覧で、
+                いまは「プロフィールと名刺」（users.is_public）の 1 行だけ。 */}
+            <PublicSettingsSection
+              items={publicSettingItems}
+              pendingKey={publicSettings.pendingKey}
+              onChange={(key, visibility) => {
+                void publicSettings.toggle(key, visibility).then(
+                  () =>
+                    showToast({
+                      type: "success",
+                      message: t("公開設定を更新しました"),
+                    }),
+                  () =>
+                    showToast({
+                      type: "error",
+                      message: t("公開設定の更新に失敗しました"),
+                    }),
+                );
+              }}
+            />
 
             <View
               className="mt-6 px-4"
