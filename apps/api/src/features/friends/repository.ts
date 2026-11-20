@@ -1,4 +1,13 @@
-import { and, desc, eq, inArray, notExists, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  exists,
+  inArray,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import {
   users,
@@ -422,6 +431,43 @@ export function friendsRepository(
                 eq(activities.type, "watch_status"),
                 inArray(annictWorks.seasonName, [season, alternateSeason]),
               ),
+            ),
+            // 上の認可チェックとこの取得の間に公開取り消し・ブロック・
+            // フレンド解除が起きても近況を返さないよう、取得クエリ自体に
+            // も同じ条件を入れて原子的に絞る（Devin Review 指摘対応）
+            exists(
+              db
+                .select({ one: sql`1` })
+                .from(users)
+                .where(and(eq(users.id, friendId), eq(users.isPublic, true))),
+            ),
+            exists(
+              db
+                .select({ one: sql`1` })
+                .from(friends)
+                .where(
+                  and(
+                    eq(friends.userId, currentUserId),
+                    eq(friends.friendId, friendId),
+                  ),
+                ),
+            ),
+            notExists(
+              db
+                .select({ one: sql`1` })
+                .from(blocks)
+                .where(
+                  or(
+                    and(
+                      eq(blocks.blockerId, currentUserId),
+                      eq(blocks.blockedId, friendId),
+                    ),
+                    and(
+                      eq(blocks.blockerId, friendId),
+                      eq(blocks.blockedId, currentUserId),
+                    ),
+                  ),
+                ),
             ),
           ),
         )
