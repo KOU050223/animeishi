@@ -21,6 +21,12 @@ export type ExchangeQueuedOverlayProps = {
   miniMeishi?: MiniMeishi;
   /** 閉じるボタン・スクリム・Android 戻るで呼ばれる。 */
   onClose: () => void;
+  /**
+   * 「自分の QR も見せる」ボタンを出すときに渡す（issue #682）。
+   * オフラインでも両手で渡し合えるよう相互スキャンを促す導線。任意の
+   * 操作なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
+   */
+  onShowMyQr?: () => void;
 };
 
 // ExchangeSuccessOverlay と同じ控えめなポップ演出（0.92 → 1.0）。
@@ -73,6 +79,7 @@ export function ExchangeQueuedOverlay({
   uid,
   miniMeishi,
   onClose,
+  onShowMyQr,
 }: ExchangeQueuedOverlayProps) {
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -125,6 +132,19 @@ export function ExchangeQueuedOverlay({
             </Text>
           </ScrollView>
           <View className="mt-8 self-stretch items-center gap-3">
+            {onShowMyQr ? (
+              <TouchableOpacity
+                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
+                onPress={onShowMyQr}
+                accessibilityRole="button"
+                accessibilityLabel={t("自分の QR も見せる")}
+                testID="exchange-queued-show-my-qr"
+              >
+                <Text className="text-white font-semibold">
+                  {t("自分の QR も見せる")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               className="px-6 py-3 items-center"
               onPress={onClose}

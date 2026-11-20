@@ -41,6 +41,12 @@ export type ExchangeSuccessOverlayProps = {
    * 表示状態は呼び出し側が持つ。
    */
   onRecordPress?: () => void;
+  /**
+   * 「自分の QR も見せる」ボタンを出すときに渡す（issue #682）。
+   * 両手で渡し合う名刺交換らしく相互スキャンを促す導線。任意の操作
+   * なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
+   */
+  onShowMyQr?: () => void;
 };
 
 // カード登場の控えめなポップ（0.92 → 1.0）。Modal 自体の fade と合わせて
@@ -113,6 +119,7 @@ export function ExchangeSuccessOverlay({
   onClose,
   showProfileLink = true,
   onRecordPress,
+  onShowMyQr,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
   const { getToken, userId } = useAuth();
@@ -195,6 +202,19 @@ export function ExchangeSuccessOverlay({
               >
                 <Text className="text-white font-semibold">
                   {t("プロフィールを見る")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {onShowMyQr ? (
+              <TouchableOpacity
+                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
+                onPress={onShowMyQr}
+                accessibilityRole="button"
+                accessibilityLabel={t("自分の QR も見せる")}
+                testID="exchange-success-show-my-qr"
+              >
+                <Text className="text-white font-semibold">
+                  {t("自分の QR も見せる")}
                 </Text>
               </TouchableOpacity>
             ) : null}

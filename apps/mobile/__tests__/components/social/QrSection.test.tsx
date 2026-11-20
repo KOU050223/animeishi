@@ -989,6 +989,59 @@ describe("スキャン", () => {
     expect(screen.queryByTestId("exchange-queued-overlay")).toBeNull();
   });
 
+  it("成立画面の「自分の QR も見せる」でマイ QR 表示へ切り替わる（issue #682）", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        qrToken: "scanned-qt",
+        raw: "https://animeishi.uomi.dev/user/user_partner?qt=scanned-qt",
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId("exchange-success-show-my-qr"));
+
+    // 相互スキャンを促すため、オーバーレイを畳んで自分の QR 表示に戻る。
+    expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
+    expect(screen.getByTestId("qr-code-container")).toBeTruthy();
+  });
+
+  it("オフライン受付画面の「自分の QR も見せる」でもマイ QR 表示へ切り替わる", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>
+        options?.onError?.(new TypeError("Network request failed")),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        offlineToken: "scanned-ot",
+        raw: "https://animeishi.uomi.dev/user/user_partner?ot=scanned-ot",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("名刺交換を受け付けました")).toBeTruthy(),
+    );
+
+    await fireEvent.press(screen.getByTestId("exchange-queued-show-my-qr"));
+
+    expect(screen.queryByTestId("exchange-queued-overlay")).toBeNull();
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
+    expect(screen.getByTestId("qr-code-container")).toBeTruthy();
+  });
+
   it("キューへの保存自体に失敗したら従来どおりエラーの alert を出す", async () => {
     mockAddFriendMutate.mockImplementation(
       (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>

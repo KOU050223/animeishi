@@ -89,7 +89,11 @@ export function QrSection() {
         ]}
       />
 
-      {mode === "generate" ? <GenerateView /> : <ScanView />}
+      {mode === "generate" ? (
+        <GenerateView />
+      ) : (
+        <ScanView onShowMyQr={() => setMode("generate")} />
+      )}
     </View>
   );
 }
@@ -506,7 +510,7 @@ function GenerateView() {
   );
 }
 
-function ScanView() {
+function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
@@ -674,6 +678,9 @@ function ScanView() {
         <ExchangeSuccessOverlay
           uid={exchangeUid}
           onClose={closeExchangeOverlay}
+          // マイ QR への切り替えでこのビューごとアンマウントされるため、
+          // オーバーレイやスキャンの状態を戻す処理は要らない（issue #682）。
+          onShowMyQr={onShowMyQr}
           onRecordPress={() => {
             // オーバーレイだけを閉じる。ここで reset() まで呼ぶと
             // scanned が戻り、シートの裏で QR の再検出・再交換が
@@ -697,6 +704,7 @@ function ScanView() {
           uid={queuedExchange.uid}
           miniMeishi={queuedExchange.miniMeishi}
           onClose={closeQueuedOverlay}
+          onShowMyQr={onShowMyQr}
         />
       ) : null}
     </View>
