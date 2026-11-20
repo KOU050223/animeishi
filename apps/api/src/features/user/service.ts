@@ -81,6 +81,9 @@ export function buildOgpHtml(
   genres: string[],
   watchSummary: UserWatchSummary,
   webProfileUrl: string,
+  // 既定の名刺の公開スナップショット URL（issue #675）。あれば
+  // og:image / twitter:image に使い、無ければ従来どおりアバター。
+  meishiSnapshotUrl: string | null,
 ): string {
   const title = `${escapeHtml(profile.username)} - Animeishi`;
   // 名刺としての訴求を優先し、視聴サマリを description 先頭に置く
@@ -92,6 +95,14 @@ export function buildOgpHtml(
   const description = summaryText
     ? `${summaryText} / ${baseDescription}`
     : baseDescription;
+  // og:image は名刺そのものを見せる（issue #675）。スナップショット未作成の
+  // ときだけアバターにフォールバックする。幅のある名刺画像が SNS カードで
+  // 正方形に切り抜かれないよう、名刺があるときは large image カードにする。
+  const ogImage = meishiSnapshotUrl
+    ? escapeHtml(meishiSnapshotUrl)
+    : profile.profileImageUrl
+      ? escapeHtml(profile.profileImageUrl)
+      : "";
   const image = profile.profileImageUrl
     ? escapeHtml(profile.profileImageUrl)
     : "";
@@ -149,11 +160,11 @@ export function buildOgpHtml(
   <meta property="og:url" content="${escapeHtml(webProfileUrl)}" />
   <link rel="canonical" href="${escapeHtml(webProfileUrl)}" />
   <link rel="icon" href="${escapeHtml(new URL(webProfileUrl).origin)}/favicon.ico" />
-  ${image ? `<meta property="og:image" content="${image}" />` : ""}
-  <meta name="twitter:card" content="summary" />
+  ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ""}
+  <meta name="twitter:card" content="${meishiSnapshotUrl ? "summary_large_image" : "summary"}" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
-  ${image ? `<meta name="twitter:image" content="${image}" />` : ""}
+  ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ""}
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
     .avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; }
