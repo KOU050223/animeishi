@@ -1506,6 +1506,99 @@ export type AnnictWorkEpisodeIds = {
   hasMoreEpisodes: boolean;
 };
 
+// --- 複数作品の話一覧一括取得（dアニメ話対応付け, issue #477） ---
+//
+// 話対応付けには title / number / numberText / viewerDidTrack が要るため
+// episodeIds 版ではなく全フィールドを取る。話数が 50 話を超える作品は
+// hasMoreEpisodes を返し、呼び出し側が fetchAnnictWorkEpisodes で
+// ページング取得する。
+const WORKS_EPISODES_FIRST = 50;
+
+const WORKS_EPISODES_QUERY = `
+query WorksEpisodes($annictIds: [Int!]) {
+  searchWorks(annictIds: $annictIds, first: 50) {
+    nodes {
+      annictId
+      episodes(first: ${WORKS_EPISODES_FIRST}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+        pageInfo { hasNextPage }
+        nodes {
+          id
+          annictId
+          number
+          numberText
+          sortNumber
+          title
+          viewerDidTrack
+          viewerRecordsCount
+        }
+      }
+    }
+  }
+}`;
+
+type WorksEpisodesResponse = {
+  searchWorks: {
+    nodes: {
+      annictId: number;
+      episodes: {
+        pageInfo: { hasNextPage: boolean };
+        nodes: {
+          id: string;
+          annictId: number;
+          number: number | null;
+          numberText: string | null;
+          sortNumber: number;
+          title: string | null;
+          viewerDidTrack: boolean;
+          viewerRecordsCount: number;
+        }[];
+      } | null;
+    }[];
+  } | null;
+};
+
+/** 1 作品分の話一覧。hasMoreEpisodes は 50 話超で打ち切られたとき true。 */
+export type AnnictWorkEpisodesBatch = {
+  annictWorkId: number;
+  episodes: AnnictWorkEpisode[];
+  hasMoreEpisodes: boolean;
+};
+
+/**
+ * 複数作品の話一覧を 1 クエリで取得する。
+ * annictWorkIds は 50 件まで（searchWorks の first と同じ上限）。
+ * 結果に含まれない作品（存在しない等）・50 話超の作品の扱いは呼び出し側に委ねる。
+ */
+export async function fetchAnnictWorksEpisodesBatch(
+  accessToken: string,
+  annictWorkIds: number[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<AnnictWorkEpisodesBatch[]> {
+  if (annictWorkIds.length === 0) return [];
+  const data = await withAnnictRetry(() =>
+    annictGraphQL<WorksEpisodesResponse>(
+      accessToken,
+      WORKS_EPISODES_QUERY,
+      { annictIds: annictWorkIds },
+      fetchImpl,
+    ),
+  );
+  return (data.searchWorks?.nodes ?? []).map((work) => ({
+    annictWorkId: work.annictId,
+    episodes: (work.episodes?.nodes ?? []).map((node) => ({
+      annictEpisodeId: node.annictId,
+      nodeId: node.id,
+      number: node.number,
+      numberText: node.numberText,
+      sortNumber: node.sortNumber,
+      title: node.title,
+      viewerDidTrack: node.viewerDidTrack,
+      viewerRecordsCount: node.viewerRecordsCount,
+    })),
+    hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+  }));
+}
+
 /**
  * 複数作品の話 ID マスタを 1 クエリで取得する。
  * annictWorkIds は 50 件まで（searchWorks の first と同じ上限）。

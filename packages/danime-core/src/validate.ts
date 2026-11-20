@@ -3,9 +3,38 @@
 // ここで検証してから集約・レビュー処理に渡す。
 import {
   DANIME_EXTRACT_SCHEMA_VERSION,
+  type DanimeExtractedEpisode,
   type DanimeExtractedLists,
   type DanimeExtractedWork,
 } from "./types";
+
+// 話データ 1 件の境界検証。partId が無いものは対応付けに使えないので落とす。
+function isEpisode(value: unknown): value is DanimeExtractedEpisode {
+  if (typeof value !== "object" || value === null) return false;
+  const e = value as Record<string, unknown>;
+  return typeof e.partId === "string" && e.partId.length > 0;
+}
+
+// workId → 話配列のマップを検証する。壊れた要素だけ落とし、残りは救済する。
+function normalizeEpisodes(
+  value: unknown,
+): Record<string, DanimeExtractedEpisode[]> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const out: Record<string, DanimeExtractedEpisode[]> = {};
+  for (const [workId, list] of Object.entries(value)) {
+    if (!Array.isArray(list)) continue;
+    const episodes = (list as unknown[]).filter(isEpisode).map((e) => ({
+      partId: e.partId,
+      watched: e.watched === true,
+      label: typeof e.label === "string" ? e.label : "",
+      subtitle: typeof e.subtitle === "string" ? e.subtitle : "",
+    }));
+    if (episodes.length > 0) out[workId] = episodes;
+  }
+  return out;
+}
 
 function isWork(value: unknown): value is DanimeExtractedWork {
   if (typeof value !== "object" || value === null) return false;
@@ -69,6 +98,17 @@ export function parseDanimeExtractedLists(
     v.extractElapsedMs >= 0
   ) {
     result.extractElapsedMs = v.extractElapsedMs;
+  }
+  if (v.episodes !== undefined) {
+    const episodes = normalizeEpisodes(v.episodes);
+    if (episodes) result.episodes = episodes;
+  }
+  if (
+    typeof v.episodeFetchFailures === "number" &&
+    Number.isFinite(v.episodeFetchFailures) &&
+    v.episodeFetchFailures >= 0
+  ) {
+    result.episodeFetchFailures = v.episodeFetchFailures;
   }
   return result;
 }

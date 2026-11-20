@@ -37,6 +37,8 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
 import type { AddToWalletResult } from "@/lib/wallet";
 import { featureFlags } from "@/lib/featureFlags";
+import { useDanimeEpisodeJob } from "@/lib/danime/useDanimeImport";
+import { episodeJobStatusText } from "@/lib/danime/episodeJobStatus";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
@@ -99,6 +101,8 @@ export default function ProfileScreen() {
   const updateProfile = useUpdateProfile();
   const publicSettings = usePublicSettings();
   const { data: socialLinks } = useSocialLinks();
+  // 話記録ジョブ（issue #477）の進捗。Web 版の取り込み機能が有効なときだけ取得する。
+  const { data: episodeJob } = useDanimeEpisodeJob(featureFlags.danimeImport);
   const uploadAvatar = useProfileAvatarUpload();
   // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
   const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
@@ -590,6 +594,22 @@ export default function ProfileScreen() {
                               "dアニメストアからのインポートを開く",
                             ),
                           },
+                          // 話記録ジョブ（issue #477）があれば進捗行を出す。
+                          // タップで取り込み画面（詳細な進捗カード）へ誘導する。
+                          ...(episodeJob
+                            ? [
+                                {
+                                  key: "danime-episode-job",
+                                  label: t("話数記録: {{status}}", {
+                                    status: episodeJobStatusText(episodeJob, t),
+                                  }),
+                                  onPress: () => router.push("/danime-import"),
+                                  accessibilityLabel: t(
+                                    "話数記録の進行状況を開く",
+                                  ),
+                                },
+                              ]
+                            : []),
                         ],
                       },
                     ]

@@ -28,3 +28,31 @@ export const danimeMatchRequestSchema = z.object({
 });
 
 export type DanimeMatchRequestInput = z.infer<typeof danimeMatchRequestSchema>;
+
+// --- 話単位の記録ジョブ（issue #477） ---
+//
+// クライアントが送るのは「作品照合で exact 確定した作品」と
+// 「その作品ページから抽出した dアニメ話一覧」。Annict 話 ID の対応付けは
+// サーバー（Workflow）側で Annict 話一覧と突き合わせて行うので、
+// クライアントは任意の話 ID を直接指定できない。
+export const danimeEpisodeJobEpisodeSchema = z.object({
+  partId: z.string().trim().min(1).max(64),
+  watched: z.boolean(),
+  label: z.string().max(200),
+  subtitle: z.string().max(500),
+});
+
+export const danimeEpisodeJobWorkSchema = z.object({
+  danimeWorkId: z.string().trim().min(1).max(512),
+  annictWorkId: z.number().int().positive(),
+  episodes: z.array(danimeEpisodeJobEpisodeSchema).max(2000),
+});
+
+export const danimeEpisodeJobCreateSchema = z.object({
+  // 作品単位の取り込み上限（danimeMatchRequestSchema.works と同程度）。
+  works: z.array(danimeEpisodeJobWorkSchema).min(1).max(1000),
+});
+
+export type DanimeEpisodeJobCreateInput = z.infer<
+  typeof danimeEpisodeJobCreateSchema
+>;

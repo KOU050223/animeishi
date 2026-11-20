@@ -6,6 +6,10 @@ declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
     AVATARS: R2Bucket;
+    // dアニメ話記録ジョブ（issue #477）。wrangler.toml の [[workflows]] に対応。
+    // miniflare が実クラスをバインドするためテストからも利用できるが、
+    // ルートテストではスタブに差し替える。
+    DANIME_EPISODE_IMPORT: Workflow;
   }
 }
 

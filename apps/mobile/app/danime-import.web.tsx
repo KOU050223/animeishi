@@ -30,6 +30,7 @@ import {
   parseDanimeExtractedLists,
 } from "@animeishi/danime-core";
 import { BackButton, Input } from "@/components/ui";
+import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { useThemeColors } from "@/lib/theme";
 
@@ -171,6 +172,10 @@ export default function DanimeImportWebScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-4 py-6">
+        {/* 実行中・直近の話記録ジョブ（issue #477）があれば進捗を出す */}
+        <View className="mb-3">
+          <DanimeEpisodeJobStatus />
+        </View>
         <Text className="text-xs text-slate-500 dark:text-slate-400 leading-5">
           {t("Web 版ではブラウザのブックマークレットで履歴を抽出します。")}
         </Text>
