@@ -241,6 +241,55 @@ describe("交換記録 API（issue #661 / #662）", () => {
       ).toHaveLength(2);
     });
 
+    // 「同じイベント」は登録イベントなら slug で判定する。event_name は
+    // 紐付け当時の表示名なので、イベント改名後に event_name まで比較
+    // すると同じイベントの再登録が別記録になってしまう。
+    it("登録イベントの改名後も同日・同じ場所・同じ slug ならまとめる", async () => {
+      signInAs(USER_A);
+      const record = await db.query.exchangeRecords.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+      });
+      const now = new Date();
+      await db.insert(eventsTable).values({
+        slug: "rename-fes",
+        title: "アニメ祭",
+        startsAt: now,
+        endsAt: now,
+        publishedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db
+        .update(exchangeRecordsTable)
+        .set({
+          placeName: "会場A",
+          eventSlug: "rename-fes",
+          eventName: "アニメ祭",
+        })
+        .where(eq(exchangeRecordsTable.id, record!.id));
+
+      // 記録後にイベントが改名されても、同じ slug の同日登録は
+      // 「同じイベント」としてまとまる（表示名は当時のものを保つ）
+      await db
+        .update(eventsTable)
+        .set({ title: "アニメ祭2026" })
+        .where(eq(eventsTable.slug, "rename-fes"));
+
+      const res = await postRecord({
+        friendId: USER_B,
+        placeName: "会場A",
+        eventSlug: "rename-fes",
+        eventName: null,
+      });
+      expect(res.status).toBe(200);
+      const rows = (await db.query.exchangeRecords.findMany()).filter(
+        (r) => r.ownerId === USER_A,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.eventName).toBe("アニメ祭");
+    });
+
     it("場所・イベントが無い記録同士も同日なら 1 回にまとめる", async () => {
       signInAs(USER_A);
       // 既存の初回記録は場所・イベントが無い。手動でも何も付けずに

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import { events, exchangeRecords } from "@/db/schema";
 import type { ExchangeRecord, ExchangeRecordSource } from "@/db/schema";
@@ -174,14 +174,68 @@ async function findSameMeetingRecord(
       opts.placeName === null
         ? isNull(exchangeRecords.placeName)
         : eq(exchangeRecords.placeName, opts.placeName),
+      // 「同じイベント」は登録イベントなら slug で判定する。event_name は
+      // 紐付け当時の表示名なので、slug 指定時に event_name まで比較すると
+      // イベント改名後の同日登録が別記録になってしまう（slug が無い
+      // 自由入力の記録だけ event_name で比較する）。
       opts.eventSlug === null
-        ? isNull(exchangeRecords.eventSlug)
+        ? and(
+            isNull(exchangeRecords.eventSlug),
+            opts.eventName === null
+              ? isNull(exchangeRecords.eventName)
+              : eq(exchangeRecords.eventName, opts.eventName),
+          )
         : eq(exchangeRecords.eventSlug, opts.eventSlug),
-      opts.eventName === null
-        ? isNull(exchangeRecords.eventName)
-        : eq(exchangeRecords.eventName, opts.eventName),
     ),
   });
+}
+
+/**
+ * 「同日・同じ場所／イベント」の記録が無ければ 1 ステートメントで挿入する。
+ * 重複確認と挿入を NOT EXISTS まで含めた 1 ステートメントにすることで、
+ * 確認と挿入の間に別リクエストが割り込む二重登録（同時交換の負け側が
+ * 先に「再会」記録を積む競合など）を防ぐ。D1 には複数文をまたぐ
+ * トランザクションがないため、単文のアトミック性で担保する。
+ * 「同じイベント」の判定ルールは findSameMeetingRecord と同じ
+ * （登録イベントは slug、自由入力は event_name）。place_name /
+ * event_slug / event_name の IS 比較は null 同士を等しいとみなす。
+ */
+async function ensureMeetingRecord(
+  db: DrizzleDb,
+  opts: {
+    ownerId: string;
+    friendId: string;
+    source: ExchangeRecordSource;
+    metAt: Date;
+    placeName: string | null;
+    eventSlug: string | null;
+    eventName: string | null;
+  },
+): Promise<{ record: ExchangeRecord; created: boolean }> {
+  const { start, end } = jstDayRange(opts.metAt);
+  const now = new Date();
+  const inserted = await db.run(sql`
+    INSERT INTO ${exchangeRecords} (
+      owner_id, friend_id, source, met_at, place_name,
+      event_slug, event_name, card_snapshot_key, created_at, updated_at
+    )
+    SELECT ${opts.ownerId}, ${opts.friendId}, ${opts.source},
+      ${opts.metAt.getTime()}, ${opts.placeName}, ${opts.eventSlug},
+      ${opts.eventName}, NULL, ${now.getTime()}, ${now.getTime()}
+    WHERE NOT EXISTS (
+      SELECT 1 FROM ${exchangeRecords}
+      WHERE owner_id = ${opts.ownerId}
+        AND friend_id = ${opts.friendId}
+        AND met_at >= ${start.getTime()}
+        AND met_at < ${end.getTime()}
+        AND place_name IS ${opts.placeName}
+        AND event_slug IS ${opts.eventSlug}
+        AND (${opts.eventSlug} IS NOT NULL OR event_name IS ${opts.eventName})
+    )
+  `);
+  const record = await findSameMeetingRecord(db, opts);
+  if (!record) throw new Error("交換記録の作成に失敗しました");
+  return { record, created: inserted.meta.changes > 0 };
 }
 
 /**
@@ -190,6 +244,8 @@ async function findSameMeetingRecord(
  * 新規作成時は相手の現行公開スナップショットを owner 専用の非公開
  * コピーとして R2 に複製し、card_snapshot_key に紐付ける
  * （avatars 未指定のテスト等ではコピーを省略する）。
+ * まとめられた既存記録のコピーは「最初に会った時点」のものを保ち、
+ * 再交換で差し替えない。
  */
 async function createDedupedRecord(
   db: DrizzleDb,
@@ -204,29 +260,22 @@ async function createDedupedRecord(
     eventName: string | null;
   },
 ): Promise<{ record: ExchangeRecord; created: boolean }> {
-  const existing = await findSameMeetingRecord(db, opts);
-  if (existing) return { record: existing, created: false };
-
-  const cardSnapshotKey = avatars
-    ? await copyPublicCardSnapshot(avatars, opts.ownerId, opts.friendId)
-    : null;
-  const now = new Date();
-  const inserted = await db
-    .insert(exchangeRecords)
-    .values({
-      ownerId: opts.ownerId,
-      friendId: opts.friendId,
-      source: opts.source,
-      metAt: opts.metAt,
-      placeName: opts.placeName,
-      eventSlug: opts.eventSlug,
-      eventName: opts.eventName,
-      cardSnapshotKey,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-  return { record: inserted[0]!, created: true };
+  const { record, created } = await ensureMeetingRecord(db, opts);
+  if (created && avatars) {
+    const key = await copyPublicCardSnapshot(
+      avatars,
+      opts.ownerId,
+      opts.friendId,
+    );
+    if (key) {
+      await db
+        .update(exchangeRecords)
+        .set({ cardSnapshotKey: key })
+        .where(eq(exchangeRecords.id, record.id));
+      record.cardSnapshotKey = key;
+    }
+  }
+  return { record, created };
 }
 
 /**
@@ -234,6 +283,9 @@ async function createDedupedRecord(
  * （friends.created_at と同じ値を渡す）。場所・イベントは後から本人が
  * 任意で足し、交換当時の名刺は相手の現行公開スナップショットを
  * それぞれの owner 専用にコピーして紐付ける（issue #662）。
+ * 同時交換の負け側が先に「再会」記録を積んでいることがあるため、
+ * 無条件の INSERT ではなく同日まとめ判定つきで積む（重複を作らない）。
+ * 戻り値は各 owner 側の記録（forA は userA の記録）。
  */
 export async function createInitialExchangeRecords(opts: {
   db: DrizzleDb;
@@ -242,34 +294,26 @@ export async function createInitialExchangeRecords(opts: {
   userB: string;
   source: ExchangeRecordSource;
   metAt: Date;
-  now: Date;
-}): Promise<void> {
-  const [keyForA, keyForB] = opts.avatars
-    ? await Promise.all([
-        copyPublicCardSnapshot(opts.avatars, opts.userA, opts.userB),
-        copyPublicCardSnapshot(opts.avatars, opts.userB, opts.userA),
-      ])
-    : [null, null];
-  await opts.db.batch([
-    opts.db.insert(exchangeRecords).values({
-      ownerId: opts.userA,
-      friendId: opts.userB,
-      source: opts.source,
-      metAt: opts.metAt,
-      cardSnapshotKey: keyForA,
-      createdAt: opts.now,
-      updatedAt: opts.now,
-    }),
-    opts.db.insert(exchangeRecords).values({
-      ownerId: opts.userB,
-      friendId: opts.userA,
-      source: opts.source,
-      metAt: opts.metAt,
-      cardSnapshotKey: keyForB,
-      createdAt: opts.now,
-      updatedAt: opts.now,
-    }),
-  ]);
+}): Promise<{ forA: ExchangeRecord; forB: ExchangeRecord }> {
+  const forA = await createDedupedRecord(opts.db, opts.avatars, {
+    ownerId: opts.userA,
+    friendId: opts.userB,
+    source: opts.source,
+    metAt: opts.metAt,
+    placeName: null,
+    eventSlug: null,
+    eventName: null,
+  });
+  const forB = await createDedupedRecord(opts.db, opts.avatars, {
+    ownerId: opts.userB,
+    friendId: opts.userA,
+    source: opts.source,
+    metAt: opts.metAt,
+    placeName: null,
+    eventSlug: null,
+    eventName: null,
+  });
+  return { forA: forA.record, forB: forB.record };
 }
 
 /**
@@ -277,6 +321,7 @@ export async function createInitialExchangeRecords(opts: {
  * （issue #662）。場所・イベントが付いていない同日の記録があれば
  * その側は新たに積まない（同日の再交換は 1 回にまとめる）。
  * 相手側・自分側で履歴がずれても各 owner の記録で独立に判定する。
+ * 戻り値は各 owner 側の記録（forA は userA の記録）。
  */
 export async function createReunionRecords(opts: {
   db: DrizzleDb;
@@ -284,21 +329,26 @@ export async function createReunionRecords(opts: {
   userA: string;
   userB: string;
   metAt: Date;
-}): Promise<void> {
-  for (const [ownerId, friendId] of [
-    [opts.userA, opts.userB],
-    [opts.userB, opts.userA],
-  ] as const) {
-    await createDedupedRecord(opts.db, opts.avatars, {
-      ownerId,
-      friendId,
-      source: "qr",
-      metAt: opts.metAt,
-      placeName: null,
-      eventSlug: null,
-      eventName: null,
-    });
-  }
+}): Promise<{ forA: ExchangeRecord; forB: ExchangeRecord }> {
+  const forA = await createDedupedRecord(opts.db, opts.avatars, {
+    ownerId: opts.userA,
+    friendId: opts.userB,
+    source: "qr",
+    metAt: opts.metAt,
+    placeName: null,
+    eventSlug: null,
+    eventName: null,
+  });
+  const forB = await createDedupedRecord(opts.db, opts.avatars, {
+    ownerId: opts.userB,
+    friendId: opts.userA,
+    source: "qr",
+    metAt: opts.metAt,
+    placeName: null,
+    eventSlug: null,
+    eventName: null,
+  });
+  return { forA: forA.record, forB: forB.record };
 }
 
 /** 相手との記録の件数（「◯回目」の表示に使う。本人の記録だけ数える）。 */
@@ -423,12 +473,27 @@ export function exchangeRecordsRepository(
     },
 
     /**
+     * 削除対象の自分の記録に紐付く名刺コピーの R2 キーを取る。
+     * 削除は R2 → D1 の順で行う（先に D1 行を消すと、R2 削除が失敗
+     * したときに再試行で消すべきキーをもう取得できない。issue #662
+     * レビュー）。他人の記録・存在しない記録は
+     * ExchangeRecordNotFoundError（存在も漏らさない）。
+     */
+    async snapshotKeyForDelete(recordId: number): Promise<string | null> {
+      const row = await db.query.exchangeRecords.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.id, recordId), eq_(t.ownerId, currentUserId)),
+        columns: { cardSnapshotKey: true },
+      });
+      if (!row) throw new ExchangeRecordNotFoundError(recordId);
+      return row.cardSnapshotKey;
+    },
+
+    /**
      * 自分の交換記録を削除する（issue #661「自分の記録の編集・削除は
      * 常時可」）。他人の記録・存在しない記録は ExchangeRecordNotFoundError。
-     * 消えた記録に紐付いていた名刺コピーの R2 キーを返す（呼び出し側が
-     * オブジェクトも削除する。issue #662）。
      */
-    async remove(recordId: number): Promise<string | null> {
+    async remove(recordId: number): Promise<void> {
       const deleted = await db
         .delete(exchangeRecords)
         .where(
@@ -437,9 +502,8 @@ export function exchangeRecordsRepository(
             eq(exchangeRecords.ownerId, currentUserId),
           ),
         )
-        .returning({ key: exchangeRecords.cardSnapshotKey });
+        .returning({ id: exchangeRecords.id });
       if (deleted.length === 0) throw new ExchangeRecordNotFoundError(recordId);
-      return deleted[0]!.key;
     },
   };
 }

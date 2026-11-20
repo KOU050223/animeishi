@@ -330,12 +330,20 @@ describe("フレンド API", () => {
 
     it("POST /me/friends: 同日の QR 再交換は記録を増やさない（1 回にまとめる）", async () => {
       const app = buildApp();
-      await postFriend(app, USER_B);
+      const first = (await (await postFriend(app, USER_B)).json()) as {
+        recordId: number;
+      };
       // 同日の再交換。場所・イベントの無い初回記録と同じまとめ対象。
       const res = await postFriend(app, USER_B);
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { meetingCount: number };
+      const body = (await res.json()) as {
+        meetingCount: number;
+        recordId: number;
+      };
       expect(body.meetingCount).toBe(1);
+      // 今回の交換で対象になった記録の id を返す。まとめ先は初回記録
+      // （成立直後シートが「一覧の先頭」ではなくこの記録を編集する）。
+      expect(body.recordId).toBe(first.recordId);
       expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
     });
 

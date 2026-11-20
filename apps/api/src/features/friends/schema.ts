@@ -23,12 +23,17 @@ export type FriendCreateInput = z.infer<typeof friendCreateSchema>;
 // friends 行（Drizzle Friend 型の JSON 表現）。createdAt は ISO 文字列。
 // meetingCount はこの相手との交換記録の件数（issue #662 の「◯回目」
 // 表示用。既フレンドとの QR 再交換は再会として記録され件数が増える）。
+// recordId は今回の交換で対象になった呼び出し側の交換記録の id で、
+// 成立直後の場所・イベント入力シートが編集する記録を特定するために
+// 返す（再会が古い記録にまとめられても「一覧の先頭」ではなく対象を
+// 更新できる）。
 const friendSchema = z.object({
   id: z.number().int(),
   userId: z.string(),
   friendId: z.string(),
   createdAt: z.string(),
   meetingCount: z.number().int(),
+  recordId: z.number().int().nullable(),
 });
 
 // GET /me/friends の 1 件（FriendWithUser。相手プロフィールを含む）。

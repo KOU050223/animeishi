@@ -140,7 +140,6 @@ export function friendRequestsRepository(
         userB: otherUserId,
         source: "request",
         metAt: now,
-        now,
       });
     }
   }

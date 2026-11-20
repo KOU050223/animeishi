@@ -14,7 +14,6 @@ import {
   createInitialExchangeRecords,
   createReunionRecords,
   deleteExchangeRecordsBetween,
-  listCardSnapshotKeysBetween,
 } from "../exchange-records/repository";
 
 /** 指定したフレンド（user）が存在しないときに投げるエラー。ルート層で 404 に変換する。 */
@@ -117,10 +116,12 @@ export function friendsRepository(
      * D1 では BEGIN TRANSACTION が使えないため db.batch() でアトミックに実行する。
      * 戻り値の meetingCount はこの相手との交換記録の件数で、
      * 交換成立画面の「◯回目」表示に使う（issue #662）。
+     * recordId は今回の交換で対象になった呼び出し側の交換記録の id で、
+     * 成立直後の場所・イベント入力シートの編集対象に使う。
      */
     async addFriend(
       friendId: string,
-    ): Promise<Friend & { meetingCount: number }> {
+    ): Promise<Friend & { meetingCount: number; recordId: number | null }> {
       if (friendId === currentUserId) {
         throw new Error("自分自身をフレンドに追加することはできません");
       }
@@ -181,17 +182,21 @@ export function friendsRepository(
       // A→B 行をこのリクエストが作った（= 冪等の再 POST・同時交換の
       // 負け側でない）ときだけ、各側の名刺帳に初回記録を 1 行ずつ積む。
       // 場所・イベントは本人が後から任意で足す。
+      // recordId は今回の交換で作成・まとめ対象になった呼び出し側の
+      // 記録で、成立直後シートが「一覧の先頭」ではなく対象の記録を
+      // 編集できるように返す（issue #662 レビュー）。
       const becameFriend = results[0].length > 0;
+      let recordId: number | null = null;
       if (becameFriend) {
-        await createInitialExchangeRecords({
+        const records = await createInitialExchangeRecords({
           db,
           avatars: avatars ?? null,
           userA: currentUserId,
           userB: friendId,
           source: "qr",
           metAt: now,
-          now,
         });
+        recordId = records.forA.id;
       } else {
         // friends 行が既にあった = フレンドの相手との QR 再交換は
         // 「再会」として記録する（issue #662）。同日の再交換は
@@ -202,13 +207,14 @@ export function friendsRepository(
           columns: { id: true },
         });
         if (existing) {
-          await createReunionRecords({
+          const records = await createReunionRecords({
             db,
             avatars: avatars ?? null,
             userA: currentUserId,
             userB: friendId,
             metAt: now,
           });
+          recordId = records.forA.id;
         }
       }
       const created = await db.query.friends.findFirst({
@@ -221,25 +227,18 @@ export function friendsRepository(
         currentUserId,
         friendId,
       );
-      return { ...created, meetingCount };
+      return { ...created, meetingCount, recordId };
     },
 
     /**
      * フレンドを双方向で削除する（A→B 削除時に B→A も削除）。
      * 私用メモは解除で消す方針（issue #659）のため、両方向の
      * friend_notes も同じ batch で消す。交換記録（issue #661）も
-     * 同方針で両方向とも消す。戻り値は消えた記録に紐付いていた
-     * 名刺コピー（R2）のキーで、呼び出し側がオブジェクトも消す
-     * （issue #662「記録と一緒にコピーも消す」）。
+     * 同方針で両方向とも消す。記録に紐付く名刺コピー（R2）は
+     * 呼び出し側が D1 削除の前に消す（キーは listCardSnapshotKeysBetween
+     * で取得。issue #662「記録と一緒にコピーも消す」）。
      */
-    async removeFriend(friendId: string): Promise<string[]> {
-      // 記録と一緒に消す名刺コピー（R2）のキーを先に取る（issue #662。
-      // 削除後では SELECT できないため）。
-      const snapshotKeys = await listCardSnapshotKeysBetween(
-        db,
-        currentUserId,
-        friendId,
-      );
+    async removeFriend(friendId: string): Promise<void> {
       await db.batch([
         db
           .delete(friends)
@@ -275,7 +274,6 @@ export function friendsRepository(
           ),
         deleteExchangeRecordsBetween(db, currentUserId, friendId),
       ]);
-      return snapshotKeys;
     },
 
     /**

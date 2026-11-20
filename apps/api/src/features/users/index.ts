@@ -65,13 +65,17 @@ const usersRoute = app
 
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);
-    // ブロックで消える交換記録に紐付く名刺コピー（issue #662）の
-    // R2 キーを削除前に取る。
+    // ブロックで消える交換記録に紐付く名刺コピー（issue #662）は
+    // R2 を先に消す。削除が失敗したとき D1 の記録が残っていれば
+    // 再試行で同じキーを消せるが、逆順だと行は消えてコピーだけが残る。
     const snapshotKeys = await listCardSnapshotKeysBetween(
       db,
       c.var.clerkUserId,
       targetId,
     );
+    if (snapshotKeys.length > 0) {
+      await getBindings(c).AVATARS.delete(snapshotKeys);
+    }
     try {
       await repo.blockUser(targetId);
     } catch (e) {
@@ -79,9 +83,6 @@ const usersRoute = app
         return c.json({ error: "User not found" }, 404);
       }
       throw e;
-    }
-    if (snapshotKeys.length > 0) {
-      await getBindings(c).AVATARS.delete(snapshotKeys);
     }
     return c.json({ success: true }, 200);
   })

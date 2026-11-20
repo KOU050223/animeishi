@@ -516,6 +516,9 @@ function ScanView() {
   // 成立画面の「◯回目」に出す交換記録の件数（issue #662）。
   // 既フレンドとの QR 再交換では 2 回目以降になる。
   const [meetingCount, setMeetingCount] = useState<number | null>(null);
+  // 今回の交換で対象になった交換記録の id。成立直後シートが
+  // 「一覧の先頭」ではなくこの記録を編集する（issue #662）。
+  const [exchangeRecordId, setExchangeRecordId] = useState<number | null>(null);
   // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
   const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
@@ -544,6 +547,7 @@ function ScanView() {
         {
           onSuccess: (result) => {
             setMeetingCount(result.meetingCount);
+            setExchangeRecordId(result.recordId);
             setExchangeUid(userId);
           },
           onError: (e) => {
@@ -581,6 +585,7 @@ function ScanView() {
   const closeExchangeOverlay = () => {
     setExchangeUid(null);
     setMeetingCount(null);
+    setExchangeRecordId(null);
     reset();
   };
 
@@ -660,8 +665,10 @@ function ScanView() {
       {recordSheetUid ? (
         <PostExchangeRecordSheet
           uid={recordSheetUid}
+          recordId={exchangeRecordId ?? undefined}
           onClose={() => {
             setRecordSheetUid(null);
+            setExchangeRecordId(null);
             reset();
           }}
         />

@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { friendsRepository, FriendNotFoundError } from "./repository";
+import { listCardSnapshotKeysBetween } from "../exchange-records/repository";
 import {
   issueOfflineExchangeToken,
   issueQrExchangeToken,
@@ -175,13 +176,21 @@ const friends = app
 
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
-    // 解除で消えた交換記録に紐付く名刺コピー（issue #662）も R2 から消す。
+    // 解除で消える交換記録に紐付く名刺コピー（issue #662）も R2 から消す。
     // コピーは本人専用で URL が他者に漏れていても本人認証でしか配信
     // されないが、記録が消えた以上オブジェクトも残さない。
-    const snapshotKeys = await repo.removeFriend(friendId);
+    // R2 を先に消すのは、削除が失敗したとき D1 の記録が残っていれば
+    // 再試行で同じキーを消せるようにするため（逆順だと行は消えて
+    // コピーだけが残る）。
+    const snapshotKeys = await listCardSnapshotKeysBetween(
+      db,
+      c.var.clerkUserId,
+      friendId,
+    );
     if (snapshotKeys.length > 0) {
       await getBindings(c).AVATARS.delete(snapshotKeys);
     }
+    await repo.removeFriend(friendId);
     return c.json({ success: true }, 200);
   });
 

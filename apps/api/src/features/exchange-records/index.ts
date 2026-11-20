@@ -116,11 +116,15 @@ const exchangeRecords = app
     const db = createDb(getBindings(c).DB);
     const repo = exchangeRecordsRepository(db, c.var.clerkUserId);
     try {
-      // 記録に紐付く名刺コピー（issue #662）も R2 から消す
-      const snapshotKey = await repo.remove(recordId);
+      // 記録に紐付く名刺コピー（issue #662）も R2 から消す。
+      // R2 を先に消すのは、削除が失敗したとき D1 行が残っていれば
+      // 再試行で同じキーを消せるようにするため（逆順だと行は消えて
+      // コピーだけが残る）。
+      const snapshotKey = await repo.snapshotKeyForDelete(recordId);
       if (snapshotKey) {
         await getBindings(c).AVATARS.delete(snapshotKey);
       }
+      await repo.remove(recordId);
       return c.json({ success: true }, 200);
     } catch (e) {
       if (e instanceof ExchangeRecordNotFoundError) {
@@ -161,11 +165,14 @@ app.get("/:recordId/snapshot", async (c) => {
     return c.json({ error: "Not found" }, 404);
   }
   // コピーはキーごとにイミュータブル（記録ごとに新キー）。本人専用なので
-  // private キャッシュに留め、共有キャッシュへは載せない。
+  // private キャッシュに留め、共有キャッシュへは載せない。クライアントは
+  // Authorization ヘッダ付きで取るため Vary を付け、別ユーザーの
+  // クレデンシャルではキャッシュが再利用されないようにする。
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
   headers.set("cache-control", "private, max-age=31536000, immutable");
+  headers.set("vary", "Authorization");
   return new Response(object.body, { headers });
 });
 
