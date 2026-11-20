@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useExchangeRecords } from "@/lib/useExchangeRecords";
+import { useUnreadThanksCount } from "@/lib/useFriendThanks";
 import { useFriendRequests } from "@/lib/useFriendRequests";
 import type { FriendRequestItem } from "@/lib/useFriendRequests";
 import { alert, confirm } from "@/lib/dialog";
@@ -52,6 +53,9 @@ export function FriendsSection() {
   // プロフィールで行うため、ここでは状態表示とプロフィールへの導線だけを出す。
   const { data: friendRequests, refetch: refetchRequests } =
     useFriendRequests();
+  // 届いたお礼の未読（issue #694）。未読があるときだけ上部に 1 行出し、
+  // 押すと届いたお礼の一覧へ。カードには印を付けない（静かに保つ）。
+  const unreadThanksCount = useUnreadThanksCount();
   const received = friendRequests?.received ?? [];
   const sent = friendRequests?.sent ?? [];
   const remove = useRemoveFriend();
@@ -157,6 +161,21 @@ export function FriendsSection() {
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
       <View className="px-4 pt-1 pb-3">
+        {unreadThanksCount > 0 ? (
+          <TouchableOpacity
+            onPress={() => router.push("/thanks")}
+            accessibilityRole="button"
+            accessibilityLabel={t("新しいお礼が {{count}} 件", {
+              count: unreadThanksCount,
+            })}
+            testID="unread-thanks-banner"
+            className="mb-2"
+          >
+            <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-300">
+              {t("新しいお礼が {{count}} 件", { count: unreadThanksCount })}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <Text className="text-xs text-slate-400 dark:text-slate-500">
           {t("{{count}} 人のフレンド", { count: visibleList.length })}
         </Text>

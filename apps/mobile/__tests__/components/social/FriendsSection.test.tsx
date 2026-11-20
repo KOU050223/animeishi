@@ -123,6 +123,12 @@ jest.mock("@/lib/useExchangeRecords", () => ({
   }),
 }));
 
+// 届いたお礼の未読件数（issue #694）。既定は 0（未読バナーなし）。
+let mockUnreadThanksCount = 0;
+jest.mock("@/lib/useFriendThanks", () => ({
+  useUnreadThanksCount: () => mockUnreadThanksCount,
+}));
+
 jest.mock("@/lib/dialog", () => ({
   confirm: (
     title: string,
@@ -141,6 +147,7 @@ beforeEach(async () => {
   mockRequestsData = { received: [], sent: [] };
   mockFriendsData = [mockFriend];
   mockExchangeRecordsData = [];
+  mockUnreadThanksCount = 0;
   // 既定は成功扱い（画面側は .catch で失敗だけ拾う）。
   mockRemoveMutateAsync.mockResolvedValue(null);
 });
@@ -337,5 +344,21 @@ describe("FriendsSection", () => {
     // 同じチップを再度押すと絞り込み解除
     await fireEvent.press(screen.getByLabelText("コミックマーケット"));
     expect(screen.queryByLabelText("友達Bをフレンドから削除")).toBeTruthy();
+  });
+
+  it("届いたお礼の未読があると上部に「新しいお礼が N 件」を出し、押すと届いたお礼一覧へ進む（issue #694）", async () => {
+    mockUnreadThanksCount = 2;
+    await render(<FriendsSection />);
+
+    const banner = screen.getByTestId("unread-thanks-banner");
+    expect(screen.getByText("新しいお礼が 2 件")).toBeTruthy();
+    await fireEvent.press(banner);
+    expect(mockPush).toHaveBeenCalledWith("/thanks");
+  });
+
+  it("届いたお礼の未読が 0 なら未読の 1 行は出さない（issue #694）", async () => {
+    await render(<FriendsSection />);
+
+    expect(screen.queryByTestId("unread-thanks-banner")).toBeNull();
   });
 });

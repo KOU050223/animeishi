@@ -11,6 +11,7 @@ import {
 } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
 import { EXCHANGE_RECORDS_QUERY_KEY } from "./useExchangeRecords";
+import { FRIEND_THANKS_QUERY_KEY } from "./useFriendThanks";
 import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
 import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
 import { saveOfflineExchangeToken } from "./offlineExchangeToken";
@@ -52,6 +53,8 @@ export function invalidateFriendRelatedQueries(
   void queryClient.invalidateQueries({
     queryKey: EXCHANGE_RECORDS_QUERY_KEY,
   });
+  // お礼も解除・ブロックで消える（issue #694）
+  void queryClient.invalidateQueries({ queryKey: FRIEND_THANKS_QUERY_KEY });
   void queryClient.invalidateQueries({
     queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
   });

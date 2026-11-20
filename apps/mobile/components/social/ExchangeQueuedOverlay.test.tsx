@@ -81,4 +81,29 @@ describe("ExchangeQueuedOverlay", () => {
 
     expect(screen.queryByTestId("exchange-queued-show-my-qr")).toBeNull();
   });
+
+  it("onSendThanks を渡すと「お礼を送る」を出し、押すと呼ばれる（issue #694）", async () => {
+    const onSendThanks = jest.fn();
+    await render(
+      <ExchangeQueuedOverlay
+        uid="user_partner"
+        onClose={mockOnClose}
+        onSendThanks={onSendThanks}
+      />,
+    );
+
+    await fireEvent.press(screen.getByTestId("exchange-queued-thanks-button"));
+
+    // 受付時点ではフレンド未成立なので、遷移の制御は呼び出し側。
+    expect(onSendThanks).toHaveBeenCalledTimes(1);
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it("onSendThanks を渡さないとき「お礼を送る」は出さない", async () => {
+    await render(
+      <ExchangeQueuedOverlay uid="user_partner" onClose={mockOnClose} />,
+    );
+
+    expect(screen.queryByTestId("exchange-queued-thanks-button")).toBeNull();
+  });
 });

@@ -9,6 +9,7 @@ import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/lib/useEvents";
 import { PUBLIC_WORK_LISTS_KEY } from "@/lib/workList/useWorkLists";
 import { PUBLIC_TIER_LISTS_KEY } from "@/lib/tierList/usePublicTierLists";
 import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
+import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";
 
 type BlocksResponse = InferResponseType<
   (typeof apiClient.me.blocks)["$get"],
@@ -120,6 +121,10 @@ export function useBlockUser() {
       // （issue #440）。
       void queryClient.invalidateQueries({
         queryKey: EVENT_PARTICIPANTS_QUERY_KEY,
+      });
+      // お礼もブロックで消える（issue #694）。
+      void queryClient.invalidateQueries({
+        queryKey: FRIEND_THANKS_QUERY_KEY,
       });
     },
   });
