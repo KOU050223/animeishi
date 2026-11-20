@@ -231,6 +231,7 @@
   "{{count}} 件 / {{seconds}} 秒経過_other": "{{count}} works · {{seconds}} sec elapsed",
   "インポート内容の確認": "Review import",
   "{{total}} 件中 {{selected}} 件を登録します": "Register {{selected}} of {{total}} works",
+  "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します": "Of {{episodes}} watched episodes, matched episodes will be recorded on Annict",
   "登録中… {{done}} / {{total}}（{{seconds}} 秒経過）": "Registering {{done}} of {{total}} · {{seconds}} sec elapsed",
   "Annict に登録": "Register on Annict",
   "{{count}} 件を Annict に登録": "Register {{count}} works on Annict",

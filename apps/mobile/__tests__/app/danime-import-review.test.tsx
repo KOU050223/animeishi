@@ -2,7 +2,14 @@
 // ネイティブでは featureFlags.danimeImport が無効（#158）のため、
 // 直接遷移されても視聴履歴タブへリダイレクトされることを検証する。
 import React from "react";
-import { act, render, renderHook, screen } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import DanimeImportReviewScreen, {
   useElapsedSeconds,
 } from "@/app/danime-import-review";
@@ -43,13 +50,14 @@ jest.mock("@/lib/featureFlags", () => ({
 }));
 
 const mockUseDanimeMatch = jest.fn();
+const mockBulkMutate = jest.fn();
 const mockCreateEpisodeJobMutateAsync = jest.fn();
 jest.mock("@/lib/danime/useDanimeImport", () => ({
   useDanimeMatch: () => mockUseDanimeMatch(),
   useBulkRegisterWatchHistory: () => ({
     isPending: false,
     isError: false,
-    mutate: jest.fn(),
+    mutate: mockBulkMutate,
     error: null,
   }),
   useCreateDanimeEpisodeJob: () => ({
@@ -77,11 +85,17 @@ jest.mock("@/components/anime-list/WorkThumbnail", () => ({
   WorkThumbnail: () => null,
 }));
 
-function setStoreLists() {
+function setStoreLists(
+  episodes?: Record<
+    string,
+    { partId: string; watched: boolean; label: string; subtitle: string }[]
+  >,
+) {
   useDanimeImportStore.getState().setLists({
     schemaVersion: DANIME_EXTRACT_SCHEMA_VERSION,
     completed: [],
     history: [{ workId: "w1", title: "作品1", partIds: ["p1"] }],
+    episodes,
   });
 }
 
@@ -96,6 +110,7 @@ beforeEach(async () => {
   });
   mockHistories.data = [];
   mockHistories.isLoading = false;
+  mockCreateEpisodeJobMutateAsync.mockResolvedValue({ created: true });
   useDanimeImportStore.getState().setLists(null);
 });
 
@@ -243,6 +258,122 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
     expect(
       screen.getByLabelText("視聴予定作品 を登録対象にする").props
         .accessibilityState.checked,
+    ).toBe(true);
+  });
+
+  it("作品がすべて登録済みでも視聴済みの話をジョブに登録できる", async () => {
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
+    });
+    mockHistories.data = [{ annictWorkId: 1, state: "WATCHED" }];
+    stubMatchSuccess([matchItem("w1", "登録済み作品", 1)]);
+
+    await render(<DanimeImportReviewScreen />);
+    expect(
+      screen.getByLabelText("登録済み作品 を登録対象にする").props
+        .accessibilityState.disabled,
+    ).toBe(true);
+    const button = screen.getByTestId("danime-register-button");
+    expect(button.props.accessibilityState?.disabled).toBe(false);
+    expect(
+      screen.getByText(
+        "視聴済み 1 話のうち、対応付けできた話を Annict に記録します",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Annict に登録")).toBeTruthy();
+    await act(async () => fireEvent.press(button));
+
+    await waitFor(() =>
+      expect(mockCreateEpisodeJobMutateAsync).toHaveBeenCalledWith({
+        works: [
+          {
+            danimeWorkId: "w1",
+            annictWorkId: 1,
+            episodes: [
+              {
+                partId: "p1",
+                watched: true,
+                label: "第1話",
+                subtitle: "始まり",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(mockBulkMutate).not.toHaveBeenCalled();
+  });
+
+  it("作品登録に失敗した作品は話ジョブから外し、登録済み作品は含める", async () => {
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
+      w2: [{ partId: "p2", watched: true, label: "第1話", subtitle: "失敗" }],
+      w3: [{ partId: "p3", watched: true, label: "第1話", subtitle: "除外" }],
+    });
+    mockHistories.data = [{ annictWorkId: 1, state: "WATCHED" }];
+    stubMatchSuccess([
+      matchItem("w1", "登録済み作品", 1),
+      matchItem("w2", "新規作品", 2),
+      matchItem("w3", "除外する作品", 3),
+    ]);
+    mockBulkMutate.mockImplementation((_args, opts) => {
+      void opts.onSuccess({
+        results: [{ annictWorkId: 2, ok: false }],
+        aborted: false,
+        requestError: null,
+        requestErrorStatus: null,
+        elapsedMs: 1,
+      });
+      opts.onSettled();
+    });
+
+    await render(<DanimeImportReviewScreen />);
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText("除外する作品 を登録対象にする")),
+    );
+    await act(async () =>
+      fireEvent.press(screen.getByTestId("danime-register-button")),
+    );
+
+    await waitFor(() =>
+      expect(mockCreateEpisodeJobMutateAsync).toHaveBeenCalledWith({
+        works: [
+          {
+            danimeWorkId: "w1",
+            annictWorkId: 1,
+            episodes: [
+              {
+                partId: "p1",
+                watched: true,
+                label: "第1話",
+                subtitle: "始まり",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+  });
+
+  it("ユーザーがチェックを外した作品だけなら話ジョブを開始できない", async () => {
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "除外" }],
+    });
+    stubMatchSuccess([matchItem("w1", "除外する作品", 1)]);
+
+    await render(<DanimeImportReviewScreen />);
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("除外する作品 を登録対象にする"),
+      ).toBeTruthy(),
+    );
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText("除外する作品 を登録対象にする")),
+    );
+
+    expect(
+      screen.getByTestId("danime-register-button").props.accessibilityState
+        ?.disabled,
     ).toBe(true);
   });
 });

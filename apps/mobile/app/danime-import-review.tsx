@@ -34,6 +34,7 @@ import { danimeMatchErrorMessage } from "@/lib/danime/matchErrorMessage";
 import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import type {
   BulkRegisterEntry,
+  BulkRegisterResult,
   DanimeEpisodeJobWorkInput,
   DanimeMatchStats,
 } from "@/lib/danime/useDanimeImport";
@@ -200,6 +201,7 @@ export default function DanimeImportReviewScreen() {
     total: number;
   } | null>(null);
   const [doneResult, setDoneResult] = useState<DoneResult | null>(null);
+  const [episodeJobPending, setEpisodeJobPending] = useState(false);
   const [matchTiming, setMatchTiming] = useState<MatchTiming | null>(null);
   const startedRef = useRef(false);
 
@@ -343,9 +345,56 @@ export default function DanimeImportReviewScreen() {
   }
 
   const checkedCount = rows?.filter((r) => r.checked && r.selected).length ?? 0;
+  const episodeWorks: DanimeEpisodeJobWorkInput[] = (rows ?? [])
+    .filter(
+      (r) => r.item.status === "exact" && r.selected && (r.checked || r.locked),
+    )
+    .map((r) => ({
+      danimeWorkId: r.item.danimeWorkId,
+      annictWorkId: r.selected!.annictWorkId,
+      episodes: lists.episodes?.[r.item.danimeWorkId] ?? [],
+    }))
+    .filter((w) => w.episodes.some((e) => e.watched));
+  const episodeCount = episodeWorks.reduce(
+    (count, work) => count + work.episodes.filter((e) => e.watched).length,
+    0,
+  );
+
+  async function finishRegistration(
+    res: BulkRegisterResult,
+    attemptedIds: Set<number>,
+  ) {
+    const okWorkIds = new Set(
+      res.results.filter((r) => r.ok).map((r) => r.annictWorkId),
+    );
+    const eligibleWorks = episodeWorks.filter(
+      (w) => !attemptedIds.has(w.annictWorkId) || okWorkIds.has(w.annictWorkId),
+    );
+    let episodeJobCreated: boolean | null = null;
+    if (eligibleWorks.length > 0) {
+      setEpisodeJobPending(true);
+      try {
+        const out = await episodeJob.mutateAsync({ works: eligibleWorks });
+        episodeJobCreated = out.created;
+      } catch {
+        // ジョブ登録の失敗は作品登録の成功を巻き戻さない。
+        // null のまま残し、結果画面では話記録を表示しない。
+      }
+      setEpisodeJobPending(false);
+    }
+    setDoneResult({
+      succeeded: res.results.filter((r) => r.ok).length,
+      failed: res.results.filter((r) => !r.ok).length,
+      aborted: res.aborted,
+      requestError: res.requestError,
+      requestErrorStatus: res.requestErrorStatus,
+      elapsedMs: res.elapsedMs,
+      episodeJobCreated,
+    });
+  }
 
   function register() {
-    if (!rows) return;
+    if (!rows || progress !== null || episodeJobPending) return;
     // 同一 Annict 作品への重複登録は WATCHED を優先して 1 件に潰す
     // （buildRows の UI 側除外とは別の最終防衛線）。
     const byId = new Map<number, BulkRegisterEntry>();
@@ -363,7 +412,21 @@ export default function DanimeImportReviewScreen() {
       });
     }
     const entries = [...byId.values()];
-    if (entries.length === 0) return;
+    if (entries.length === 0) {
+      if (episodeWorks.length > 0) {
+        void finishRegistration(
+          {
+            results: [],
+            aborted: false,
+            requestError: null,
+            requestErrorStatus: null,
+            elapsedMs: 0,
+          },
+          new Set(),
+        );
+      }
+      return;
+    }
     setProgress({ done: 0, total: entries.length });
     bulk.mutate(
       {
@@ -371,50 +434,11 @@ export default function DanimeImportReviewScreen() {
         onProgress: (done, total) => setProgress({ done, total }),
       },
       {
-        onSuccess: async (res) => {
-          // 話記録ジョブ（issue #477）。作品ステータスの登録が終わってから
-          // exact 確定作品の話一覧をジョブとして登録する。登録自体は
-          // すぐ返り、Annict への話記録はサーバーがバックグラウンドで続ける。
-          const okWorkIds = new Set(
-            res.results.filter((r) => r.ok).map((r) => r.annictWorkId),
+        onSuccess: (res) => {
+          void finishRegistration(
+            res,
+            new Set(entries.map((entry) => entry.annictWorkId)),
           );
-          // 対象は作品照合が exact 確定した作品だけ（issue の決定事項）。
-          // candidates からユーザーが選んだ作品は対象外とする。
-          const episodeWorks = rows
-            .filter(
-              (r) =>
-                r.checked &&
-                r.selected &&
-                r.item.status === "exact" &&
-                okWorkIds.has(r.selected.annictWorkId),
-            )
-            .map((r): DanimeEpisodeJobWorkInput => ({
-              danimeWorkId: r.item.danimeWorkId,
-              annictWorkId: r.selected!.annictWorkId,
-              episodes: lists?.episodes?.[r.item.danimeWorkId] ?? [],
-            }))
-            .filter((w) => w.episodes.some((e) => e.watched));
-          let episodeJobCreated: boolean | null = null;
-          if (episodeWorks.length > 0) {
-            try {
-              const out = await episodeJob.mutateAsync({
-                works: episodeWorks,
-              });
-              episodeJobCreated = out.created;
-            } catch {
-              // ジョブ登録の失敗は作品登録の成功を巻き戻さない。
-              // null のまま残し、結果画面では話記録を表示しない。
-            }
-          }
-          setDoneResult({
-            succeeded: res.results.filter((r) => r.ok).length,
-            failed: res.results.filter((r) => !r.ok).length,
-            aborted: res.aborted,
-            requestError: res.requestError,
-            requestErrorStatus: res.requestErrorStatus,
-            elapsedMs: res.elapsedMs,
-            episodeJobCreated,
-          });
         },
         onSettled: () => setProgress(null),
       },
@@ -601,6 +625,16 @@ export default function DanimeImportReviewScreen() {
             total: rows.length,
           })}
         </Text>
+        {episodeCount > 0 && (
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {t(
+              "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します",
+              {
+                episodes: episodeCount,
+              },
+            )}
+          </Text>
+        )}
         {timingSummary !== "" && (
           <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
             {timingSummary}
@@ -632,21 +666,29 @@ export default function DanimeImportReviewScreen() {
         )}
         <TouchableOpacity
           className={`rounded-xl py-3 items-center ${
-            checkedCount > 0 && !bulk.isPending
+            (checkedCount > 0 || episodeWorks.length > 0) &&
+            progress === null &&
+            !episodeJobPending
               ? "bg-indigo-600"
               : "bg-slate-300 dark:bg-slate-700"
           }`}
           onPress={register}
-          disabled={checkedCount === 0 || bulk.isPending}
+          disabled={
+            (checkedCount === 0 && episodeWorks.length === 0) ||
+            progress !== null ||
+            episodeJobPending
+          }
           accessibilityRole="button"
           accessibilityLabel={t("Annict に登録")}
           testID="danime-register-button"
         >
-          {bulk.isPending ? (
+          {progress !== null || episodeJobPending ? (
             <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text className="text-white font-semibold">
-              {t("{{count}} 件を Annict に登録", { count: checkedCount })}
+              {episodeCount > 0
+                ? t("Annict に登録")
+                : t("{{count}} 件を Annict に登録", { count: checkedCount })}
             </Text>
           )}
         </TouchableOpacity>
