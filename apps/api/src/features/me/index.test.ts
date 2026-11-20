@@ -18,6 +18,7 @@ import {
   episodeRecords,
   favorites,
   friends,
+  friendNotes,
   reports,
   tierListItems,
   tierLists,
@@ -1073,6 +1074,22 @@ describe("DELETE /me（アカウント削除）", () => {
       { userId: USER_ID, friendId: OTHER_ID, createdAt: now },
       { userId: OTHER_ID, friendId: USER_ID, createdAt: now },
     ]);
+    // 私用メモ（issue #659）も「自分 → 相手」「相手 → 自分」両方を作る。
+    // 「相手が自分に書いたメモ」も削除対象。
+    await db.insert(friendNotes).values([
+      {
+        ownerId: USER_ID,
+        friendId: OTHER_ID,
+        body: "自分のメモ",
+        updatedAt: now,
+      },
+      {
+        ownerId: OTHER_ID,
+        friendId: USER_ID,
+        body: "相手のメモ",
+        updatedAt: now,
+      },
+    ]);
     await db.insert(userGenres).values([
       { userId: USER_ID, genre: "SF" },
       { userId: OTHER_ID, genre: "日常" },
@@ -1214,6 +1231,18 @@ describe("DELETE /me（アカウント削除）", () => {
         .select()
         .from(friends)
         .where(or(eq(friends.userId, USER_ID), eq(friends.friendId, USER_ID))),
+    ).toHaveLength(0);
+    // friend_notes も両方向が消える（issue #659）
+    expect(
+      await db
+        .select()
+        .from(friendNotes)
+        .where(
+          or(
+            eq(friendNotes.ownerId, USER_ID),
+            eq(friendNotes.friendId, USER_ID),
+          ),
+        ),
     ).toHaveLength(0);
     expect(
       await db.select().from(userGenres).where(eq(userGenres.userId, USER_ID)),

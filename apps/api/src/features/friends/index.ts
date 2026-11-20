@@ -5,9 +5,15 @@ import { friendsRepository, FriendNotFoundError } from "./repository";
 import { issueQrExchangeToken, verifyQrExchangeToken } from "./qrExchangeToken";
 import { UserBlockedError } from "../users/repository";
 import {
+  publicMeishiSnapshotKey,
+  publicMeishiSnapshotUrl,
+} from "../me/service";
+import {
   addFriendRoute,
+  getFriendNoteRoute,
   getFriendsRoute,
   getQrTokenRoute,
+  putFriendNoteRoute,
   removeFriendRoute,
 } from "./schema";
 import { createDb } from "@/db/client";
@@ -15,8 +21,11 @@ import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
   c: Context,
-): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database } {
-  return c.env as Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database };
+): Omit<AuthEnv["Bindings"], "DB"> & { DB: D1Database; AVATARS: R2Bucket } {
+  return c.env as Omit<AuthEnv["Bindings"], "DB"> & {
+    DB: D1Database;
+    AVATARS: R2Bucket;
+  };
 }
 
 const app = createOpenApiApp<AuthVariables>();
@@ -26,7 +35,28 @@ const friends = app
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
     const data = await repo.getMyFriends();
-    return c.json(data, 200);
+    // 名刺帳（issue #659）で名刺そのものを並べるため、相手ごとの公開
+    // スナップショット（issue #593）の有無を R2 で確認して配信 URL を付ける。
+    // 公開名刺一覧（features/users/public.ts）と同じ方式。
+    const items = await Promise.all(
+      data.map(async (item) => {
+        const snapshot = await getBindings(c).AVATARS.head(
+          publicMeishiSnapshotKey(item.friendId),
+        );
+        return {
+          ...item,
+          meishiSnapshotUrl: snapshot
+            ? publicMeishiSnapshotUrl(
+                c.req.url,
+                item.friendId,
+                snapshot.customMetadata?.version ??
+                  snapshot.uploaded.toISOString(),
+              )
+            : null,
+        };
+      }),
+    );
+    return c.json(items, 200);
   })
   .openapi(getQrTokenRoute, async (c) => {
     // 対面交換 QR に埋め込む短期トークンを発行する（issue #417）。
@@ -72,6 +102,47 @@ const friends = app
       }
       if (e instanceof UserBlockedError) {
         return c.json({ error: "このユーザーは追加できません" }, 403);
+      }
+      throw e;
+    }
+  })
+  .openapi(getFriendNoteRoute, async (c) => {
+    const { friendId } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = friendsRepository(db, c.var.clerkUserId);
+    try {
+      const note = await repo.getFriendNote(friendId);
+      return c.json(
+        {
+          body: note?.body ?? null,
+          updatedAt: note?.updatedAt.toISOString() ?? null,
+        },
+        200,
+      );
+    } catch (e) {
+      if (e instanceof FriendNotFoundError) {
+        return c.json({ error: "フレンドではありません" }, 404);
+      }
+      throw e;
+    }
+  })
+  .openapi(putFriendNoteRoute, async (c) => {
+    const { friendId } = c.req.valid("param");
+    const { body } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const repo = friendsRepository(db, c.var.clerkUserId);
+    try {
+      const note = await repo.putFriendNote(friendId, body);
+      return c.json(
+        {
+          body: note?.body ?? null,
+          updatedAt: note?.updatedAt.toISOString() ?? null,
+        },
+        200,
+      );
+    } catch (e) {
+      if (e instanceof FriendNotFoundError) {
+        return c.json({ error: "フレンドではありません" }, 404);
       }
       throw e;
     }

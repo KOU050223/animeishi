@@ -1,6 +1,12 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, friends, friendRequests, blocks } from "@/db/schema";
+import {
+  users,
+  friends,
+  friendRequests,
+  friendNotes,
+  blocks,
+} from "@/db/schema";
 import type { Friend } from "@/db/schema";
 import { UserBlockedError, usersRepository } from "../users/repository";
 
@@ -16,10 +22,19 @@ export class FriendNotFoundError extends Error {
 export type FriendWithUser = {
   friendId: string;
   createdAt: Date;
+  // 交換経路（issue #659 の名刺帳で「QR／申請」の表示に使う）。
+  // 経路導入前の既存行は null。
+  source: "qr" | "request" | null;
   username: string;
   bio: string | null;
   favoriteQuote: string | null;
   profileImageUrl: string | null;
+};
+
+/** 名刺帳の私用メモ（issue #659）。本人以外には返さない。 */
+export type FriendNote = {
+  body: string;
+  updatedAt: Date;
 };
 
 /**
@@ -28,6 +43,17 @@ export type FriendWithUser = {
  * ブロック判定は usersRepository に委譲する。
  */
 export function friendsRepository(db: DrizzleDb, currentUserId: string) {
+  // メモの読み書きは現在のフレンドに限るための関係チェック。
+  // フレンドでなければ FriendNotFoundError を投げる。
+  async function assertFriend(friendId: string): Promise<void> {
+    const row = await db.query.friends.findFirst({
+      where: (t, { and, eq: eq_ }) =>
+        and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+      columns: { id: true },
+    });
+    if (!row) throw new FriendNotFoundError(friendId);
+  }
+
   return {
     /**
      * フレンド一覧を取得する。
@@ -40,6 +66,7 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
         .select({
           friendId: friends.friendId,
           createdAt: friends.createdAt,
+          source: friends.source,
           username: users.username,
           bio: users.bio,
           favoriteQuote: users.favoriteQuote,
@@ -140,6 +167,8 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * フレンドを双方向で削除する（A→B 削除時に B→A も削除）。
+     * 私用メモは解除で消す方針（issue #659）のため、両方向の
+     * friend_notes も同じ batch で消す。
      */
     async removeFriend(friendId: string): Promise<void> {
       await db.batch([
@@ -159,7 +188,70 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
               eq(friends.friendId, currentUserId),
             ),
           ),
+        db
+          .delete(friendNotes)
+          .where(
+            and(
+              eq(friendNotes.ownerId, currentUserId),
+              eq(friendNotes.friendId, friendId),
+            ),
+          ),
+        db
+          .delete(friendNotes)
+          .where(
+            and(
+              eq(friendNotes.ownerId, friendId),
+              eq(friendNotes.friendId, currentUserId),
+            ),
+          ),
       ]);
+    },
+
+    /**
+     * 相手の私用メモを取得する（issue #659）。
+     * メモは名刺帳（＝フレンド）の要素なので、フレンドでなければ
+     * FriendNotFoundError を投げ、存在も漏らさない。
+     */
+    async getFriendNote(friendId: string): Promise<FriendNote | null> {
+      await assertFriend(friendId);
+      const row = await db.query.friendNotes.findFirst({
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, currentUserId), eq_(t.friendId, friendId)),
+        columns: { body: true, updatedAt: true },
+      });
+      return row ?? null;
+    },
+
+    /**
+     * 私用メモを上書き保存する（issue #659）。空文字・空白のみなら
+     * メモを消す（空のメモ行を残さない）。フレンドでなければ
+     * FriendNotFoundError を投げる。
+     */
+    async putFriendNote(
+      friendId: string,
+      body: string,
+    ): Promise<FriendNote | null> {
+      await assertFriend(friendId);
+      if (body.trim() === "") {
+        await db
+          .delete(friendNotes)
+          .where(
+            and(
+              eq(friendNotes.ownerId, currentUserId),
+              eq(friendNotes.friendId, friendId),
+            ),
+          );
+        return null;
+      }
+      const now = new Date();
+      await db
+        .insert(friendNotes)
+        .values({ ownerId: currentUserId, friendId, body, updatedAt: now })
+        .onConflictDoUpdate({
+          target: [friendNotes.ownerId, friendNotes.friendId],
+          set: { body, updatedAt: now },
+        });
+      return { body, updatedAt: now };
     },
   };
 }

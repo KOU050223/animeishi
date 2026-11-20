@@ -26,13 +26,18 @@ const friendSchema = z.object({
 });
 
 // GET /me/friends の 1 件（FriendWithUser。相手プロフィールを含む）。
+// source は交換経路（issue #411）。meishiSnapshotUrl は相手の既定名刺の
+// 公開スナップショット（issue #593）の配信 URL。名刺帳（issue #659）で
+// 名刺そのものを並べるために返す。スナップショット未作成なら null。
 const friendItemSchema = z.object({
   friendId: z.string(),
   createdAt: z.string(),
+  source: z.enum(["qr", "request"]).nullable(),
   username: z.string(),
   bio: z.string().nullable(),
   favoriteQuote: z.string().nullable(),
   profileImageUrl: z.string().nullable(),
+  meishiSnapshotUrl: z.string().nullable(),
 });
 
 const friendIdParamSchema = z.object({
@@ -113,6 +118,62 @@ export const addFriendRoute = createRoute({
       description: "ブロック関係にある相手 / qrToken が無い・無効・期限切れ",
     },
     404: jsonError("対象ユーザーが存在しない"),
+  },
+});
+
+// 名刺帳の私用メモ（issue #659）の応答。メモ未作成・空で消した直後は
+// 両方 null の 200 を返す（404 は「フレンドでない」場合だけ）。
+const friendNoteSchema = z.object({
+  body: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+});
+
+// PUT /me/friends/{friendId}/note のボディ。500 文字まで。
+// 空文字・空白のみは「メモを消す」として扱う（空行を残さない）。
+export const friendNoteUpdateSchema = z.object({
+  body: z.string().max(500, "メモは 500 文字以内で入力してください"),
+});
+
+export const getFriendNoteRoute = createRoute({
+  method: "get",
+  path: "/{friendId}/note",
+  tags: ["friends"],
+  summary:
+    "相手の私用メモを取得する（名刺帳・本人のみ。フレンドでなければ 404）",
+  security: bearerAuth,
+  request: { params: friendIdParamSchema },
+  responses: {
+    200: {
+      content: { "application/json": { schema: friendNoteSchema } },
+      description: "私用メモ（未作成なら body/updatedAt は null）",
+    },
+    401: jsonError("未認証"),
+    404: jsonError("フレンドではない（またはユーザーが存在しない）"),
+  },
+});
+
+export const putFriendNoteRoute = createRoute({
+  method: "put",
+  path: "/{friendId}/note",
+  tags: ["friends"],
+  summary:
+    "相手の私用メモを上書き保存する（500 文字まで。空文字は削除。フレンドでなければ 404）",
+  security: bearerAuth,
+  request: {
+    params: friendIdParamSchema,
+    body: {
+      content: { "application/json": { schema: friendNoteUpdateSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { "application/json": { schema: friendNoteSchema } },
+      description: "保存したメモ（空文字なら削除され body/updatedAt は null）",
+    },
+    400: jsonError("メモが 500 文字を超えるなどの入力エラー"),
+    401: jsonError("未認証"),
+    404: jsonError("フレンドではない（またはユーザーが存在しない）"),
   },
 });
 

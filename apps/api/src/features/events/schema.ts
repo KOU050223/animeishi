@@ -77,6 +77,7 @@ const eventDetailSchema = z.object({
 const exchangedFriendItemSchema = z.object({
   friendId: z.string(),
   createdAt: z.string(),
+  source: z.enum(["qr", "request"]).nullable(),
   username: z.string(),
   bio: z.string().nullable(),
   favoriteQuote: z.string().nullable(),

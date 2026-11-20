@@ -23,6 +23,7 @@ import {
   favorites,
   friends,
   friendRequests,
+  friendNotes,
   userGenres,
   annictTokens,
   tierLists,
@@ -649,6 +650,22 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
               ),
             ),
           ),
+        // 名刺帳の私用メモ（issue #659）も両方向で消す。
+        // ブロックはフレンド解除を伴うため「解除で消す」方針に揃える。
+        db
+          .delete(friendNotes)
+          .where(
+            or(
+              and(
+                eq(friendNotes.ownerId, currentUserId),
+                eq(friendNotes.friendId, targetUserId),
+              ),
+              and(
+                eq(friendNotes.ownerId, targetUserId),
+                eq(friendNotes.friendId, currentUserId),
+              ),
+            ),
+          ),
       ]);
     },
 
@@ -964,6 +981,17 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
             ),
           ),
         db.delete(userGenres).where(eq(userGenres.userId, currentUserId)),
+        // friends と同様に両方向の行を対象にする。
+        // friend_notes も同じく「自分が書いたメモ」と「相手が自分に書いたメモ」
+        // の両方向を消す（issue #659）。
+        db
+          .delete(friendNotes)
+          .where(
+            or(
+              eq(friendNotes.ownerId, currentUserId),
+              eq(friendNotes.friendId, currentUserId),
+            ),
+          ),
         // friends と同様に両方向の行を対象にする
         db
           .delete(friendRequests)
