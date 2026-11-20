@@ -214,20 +214,23 @@ async function ensureMeetingRecord(
 ): Promise<{ record: ExchangeRecord; created: boolean }> {
   const { start, end } = jstDayRange(opts.metAt);
   const now = new Date();
+  // timestamp 列は unix 秒で保存される（mode: "timestamp"）ため、
+  // 生 SQL のパラメータは drizzle の写し方に合わせて秒にする。
+  const sec = (d: Date) => Math.floor(d.getTime() / 1000);
   const inserted = await db.run(sql`
     INSERT INTO ${exchangeRecords} (
       owner_id, friend_id, source, met_at, place_name,
       event_slug, event_name, card_snapshot_key, created_at, updated_at
     )
     SELECT ${opts.ownerId}, ${opts.friendId}, ${opts.source},
-      ${opts.metAt.getTime()}, ${opts.placeName}, ${opts.eventSlug},
-      ${opts.eventName}, NULL, ${now.getTime()}, ${now.getTime()}
+      ${sec(opts.metAt)}, ${opts.placeName}, ${opts.eventSlug},
+      ${opts.eventName}, NULL, ${sec(now)}, ${sec(now)}
     WHERE NOT EXISTS (
       SELECT 1 FROM ${exchangeRecords}
       WHERE owner_id = ${opts.ownerId}
         AND friend_id = ${opts.friendId}
-        AND met_at >= ${start.getTime()}
-        AND met_at < ${end.getTime()}
+        AND met_at >= ${sec(start)}
+        AND met_at < ${sec(end)}
         AND place_name IS ${opts.placeName}
         AND event_slug IS ${opts.eventSlug}
         AND (${opts.eventSlug} IS NOT NULL OR event_name IS ${opts.eventName})
@@ -263,6 +266,7 @@ async function createDedupedRecord(
   const { record, created } = await ensureMeetingRecord(db, opts);
   if (created && avatars) {
     const key = await copyPublicCardSnapshot(
+      db,
       avatars,
       opts.ownerId,
       opts.friendId,

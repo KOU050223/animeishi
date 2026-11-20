@@ -121,6 +121,7 @@ export function friendsRepository(
      */
     async addFriend(
       friendId: string,
+      metAt?: Date,
     ): Promise<Friend & { meetingCount: number; recordId: number | null }> {
       if (friendId === currentUserId) {
         throw new Error("自分自身をフレンドに追加することはできません");
@@ -185,6 +186,11 @@ export function friendsRepository(
       // recordId は今回の交換で作成・まとめ対象になった呼び出し側の
       // 記録で、成立直後シートが「一覧の先頭」ではなく対象の記録を
       // 編集できるように返す（issue #662 レビュー）。
+      // metAt はオフライン交換キュー（issue #681）の scannedAt を反映
+      // でき、未指定時は成立時刻（friends.created_at と同じ now）。
+      // 初回記録だけでなく再会の記録も「実際に会った日時」として
+      // 同じ metAt を使い、同日判定（日本時間）もこの met_at 基準で行う。
+      const exchangeMetAt = metAt ?? now;
       const becameFriend = results[0].length > 0;
       let recordId: number | null = null;
       if (becameFriend) {
@@ -194,7 +200,7 @@ export function friendsRepository(
           userA: currentUserId,
           userB: friendId,
           source: "qr",
-          metAt: now,
+          metAt: exchangeMetAt,
         });
         recordId = records.forA.id;
       } else {
@@ -212,7 +218,7 @@ export function friendsRepository(
             avatars: avatars ?? null,
             userA: currentUserId,
             userB: friendId,
-            metAt: now,
+            metAt: exchangeMetAt,
           });
           recordId = records.forA.id;
         }

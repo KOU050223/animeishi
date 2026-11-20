@@ -16,6 +16,11 @@ export const friendCreateSchema = z.object({
   friendId: z.string().min(1, "friendId を指定してください"),
   qrToken: z.string().min(1).optional(),
   offlineToken: z.string().min(1).optional(),
+  // 読み取り側の交換キュー（issue #681）が送るスキャン時刻。交換記録
+  // （issue #661）の「実際に会った日時」に使う補助情報で、クライアント
+  // 時計は信用できないため採用範囲はハンドラ側で絞る。セキュリティ
+  // 判断には使わない（設計 docs/13_offline-exchange-design.md）。
+  scannedAt: z.string().optional(),
 });
 
 export type FriendCreateInput = z.infer<typeof friendCreateSchema>;

@@ -67,6 +67,12 @@ jest.mock("expo-router", () => ({
 }));
 
 const mockAddFriendMutate = jest.fn();
+// 交換キュー（issue #681）。オフライン時の積み上げを検証するため差し替える。
+const mockEnqueueExchange = jest.fn();
+jest.mock("@/lib/exchangeQueue", () => ({
+  enqueueExchange: (item: unknown) => mockEnqueueExchange(item),
+}));
+
 // 対面交換トークン（issue #417）。QR 値への埋め込みを検証するため
 // テストごとに差し替えられるよう変数で持つ。
 let mockQrToken: { token: string; expiresAt: number } | undefined = {
@@ -96,6 +102,7 @@ let capturedOnScanned:
       userId: string;
       qrToken?: string;
       offlineToken?: string;
+      miniMeishi?: { username?: string; avatarUrl?: string };
       raw: string;
     }) => void)
   | undefined;
@@ -107,6 +114,7 @@ jest.mock("@/lib/useQrScanner", () => ({
       userId: string;
       qrToken?: string;
       offlineToken?: string;
+      miniMeishi?: { username?: string; avatarUrl?: string };
       raw: string;
     }) => void;
   }) => {
@@ -256,6 +264,11 @@ beforeEach(async () => {
   mockDefaultCardId = null;
   mockQrToken = { token: "test-qt-token", expiresAt: 1999999999 };
   mockOfflineToken = null;
+  mockEnqueueExchange.mockResolvedValue({
+    id: "queue-id",
+    friendId: "user_partner",
+    scannedAt: "2026-11-21T10:00:00.000Z",
+  });
   // 成立演出が取りに行く公開プロフィール。
   global.fetch = jest.fn(async () => ({
     status: 200,
@@ -914,7 +927,9 @@ describe("スキャン", () => {
   it("フレンド追加に失敗したら従来どおりエラーの alert を出す", async () => {
     mockAddFriendMutate.mockImplementation(
       (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>
-        options?.onError?.(new Error("すでにフレンドです")),
+        options?.onError?.(
+          new ApiRequestError(500, "フレンド追加に失敗しました"),
+        ),
     );
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
@@ -934,5 +949,77 @@ describe("スキャン", () => {
       { okLabel: "OK", onClose: expect.any(Function) },
     );
     expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  });
+
+  it("POST がネットワークに届かない失敗では交換キューへ積み、オフライン受付画面を出す（issue #681）", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>
+        options?.onError?.(new TypeError("Network request failed")),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        offlineToken: "scanned-ot",
+        miniMeishi: { username: "オフライン相手" },
+        raw: "https://animeishi.uomi.dev/user/user_partner?ot=scanned-ot",
+      }),
+    );
+
+    // キューにはミニ名刺とトークンが入る（scannedAt は登録側でスタンプする）。
+    await waitFor(() =>
+      expect(mockEnqueueExchange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          friendId: "user_partner",
+          offlineToken: "scanned-ot",
+          miniMeishi: { username: "オフライン相手" },
+        }),
+      ),
+    );
+    // 成立ではなく受付なので「接続が回復したら交換が完了する」旨を出し、
+    // 失敗の alert は出さない。
+    await waitFor(() =>
+      expect(
+        screen.getByText("接続が回復したら名刺交換が完了します"),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByText("オフライン相手")).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+
+    // 受付画面を閉じるとスキャン状態がリセットされる。
+    await fireEvent.press(screen.getByTestId("exchange-queued-close"));
+    expect(mockScannerReset).toHaveBeenCalled();
+    expect(screen.queryByTestId("exchange-queued-overlay")).toBeNull();
+  });
+
+  it("キューへの保存自体に失敗したら従来どおりエラーの alert を出す", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: unknown) => void }) =>
+        options?.onError?.(new TypeError("Network request failed")),
+    );
+    mockEnqueueExchange.mockRejectedValueOnce(new Error("storage full"));
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        offlineToken: "scanned-ot",
+        raw: "https://animeishi.uomi.dev/user/user_partner?ot=scanned-ot",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        "追加できませんでした",
+        "フレンド追加に失敗しました",
+        { okLabel: "OK", onClose: expect.any(Function) },
+      ),
+    );
+    expect(screen.queryByTestId("exchange-queued-overlay")).toBeNull();
   });
 });
