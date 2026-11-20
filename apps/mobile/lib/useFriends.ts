@@ -10,6 +10,7 @@ import {
   EVENT_PARTICIPANTS_QUERY_KEY,
 } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
+import { EXCHANGE_RECORDS_QUERY_KEY } from "./useExchangeRecords";
 import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
 import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
 import { saveOfflineExchangeToken } from "./offlineExchangeToken";
@@ -47,6 +48,10 @@ export function invalidateFriendRelatedQueries(
       : FRIEND_REQUESTS_QUERY_KEY,
   });
   void queryClient.invalidateQueries({ queryKey: ACTIVITY_FEED_QUERY_KEY });
+  // フレンド成立で交換記録が作られ、解除・ブロックで消える（issue #661）
+  void queryClient.invalidateQueries({
+    queryKey: EXCHANGE_RECORDS_QUERY_KEY,
+  });
   void queryClient.invalidateQueries({
     queryKey: FRIEND_WATCH_STORIES_QUERY_KEY,
   });

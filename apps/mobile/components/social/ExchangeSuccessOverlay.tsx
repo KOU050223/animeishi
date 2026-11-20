@@ -34,6 +34,13 @@ export type ExchangeSuccessOverlayProps = {
    * user/[uid] 画面から開いた場合はすでにその画面にいるため false にする。
    */
   showProfileLink?: boolean;
+  /**
+   * 「出会いを記録する」ボタンを出すときに渡す（issue #661）。
+   * 押すとオーバーレイを閉じて呼び出し側の記録シートを開く。
+   * オーバーレイの Modal 内に別の Modal を重ねないため、シートの
+   * 表示状態は呼び出し側が持つ。
+   */
+  onRecordPress?: () => void;
 };
 
 // カード登場の控えめなポップ（0.92 → 1.0）。Modal 自体の fade と合わせて
@@ -105,6 +112,7 @@ export function ExchangeSuccessOverlay({
   uid,
   onClose,
   showProfileLink = true,
+  onRecordPress,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
   const { getToken, userId } = useAuth();
@@ -187,6 +195,19 @@ export function ExchangeSuccessOverlay({
               >
                 <Text className="text-white font-semibold">
                   {t("プロフィールを見る")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {onRecordPress ? (
+              <TouchableOpacity
+                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
+                onPress={onRecordPress}
+                accessibilityRole="button"
+                accessibilityLabel={t("出会いを記録する")}
+                testID="exchange-success-record-button"
+              >
+                <Text className="text-white font-semibold">
+                  {t("出会いを記録する")}
                 </Text>
               </TouchableOpacity>
             ) : null}

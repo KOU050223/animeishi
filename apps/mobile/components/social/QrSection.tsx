@@ -23,6 +23,7 @@ import { ApiRequestError } from "@/lib/apiError";
 import { enqueueExchange } from "@/lib/exchangeQueue";
 import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
 import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
@@ -520,6 +521,8 @@ function ScanView() {
     uid: string;
     miniMeishi?: MiniMeishi;
   } | null>(null);
+  // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
+  const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
   // ブラウザ非対応のときに起きる）。失敗後は再マウントできるよう
   // カメラの key を持つ。
@@ -671,6 +674,22 @@ function ScanView() {
         <ExchangeSuccessOverlay
           uid={exchangeUid}
           onClose={closeExchangeOverlay}
+          onRecordPress={() => {
+            // オーバーレイだけを閉じる。ここで reset() まで呼ぶと
+            // scanned が戻り、シートの裏で QR の再検出・再交換が
+            // 走りうるため、スキャナの再開はシートを閉じるまで待つ。
+            setExchangeUid(null);
+            setRecordSheetUid(exchangeUid);
+          }}
+        />
+      ) : null}
+      {recordSheetUid ? (
+        <PostExchangeRecordSheet
+          uid={recordSheetUid}
+          onClose={() => {
+            setRecordSheetUid(null);
+            reset();
+          }}
         />
       ) : null}
       {queuedExchange ? (
