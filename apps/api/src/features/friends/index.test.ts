@@ -19,6 +19,7 @@ import {
   annictWorks,
   blocks,
 } from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -841,8 +842,8 @@ describe("フレンド API", () => {
   });
 
   // 名刺帳の相手の近況（issue #660）。フレンドの公開な活動 3 種
-  // （視聴ステータス・推しの変更・名刺の更新）だけを新しい順に返し、
-  // 非フレンド・非公開には返さない。
+  // （今期作品の視聴ステータス・推しの変更・名刺の更新）だけを
+  // 新しい順に返し、非フレンド・非公開には返さない。
   describe("相手の近況", () => {
     const WORK_ID = 12345;
 
@@ -868,6 +869,8 @@ describe("フレンド API", () => {
         annictWorkId: WORK_ID,
         title: "テストアニメ",
         titleEn: "Test Anime",
+        // watch_status の近況は今期の作品に絞るため、今期として登録する
+        seasonName: currentAnnictSeason(),
         updatedAt: now,
       });
       // R2 はテスト間でリセットされないため、他テストが置いた
@@ -928,6 +931,35 @@ describe("フレンド API", () => {
       );
       expect(body.items[0]?.meta).toEqual({ state: "WATCHING" });
       expect(body.items[1]?.type).toBe("favorite_added");
+    });
+
+    it("今期以外の作品の watch_status は出さない（推しの変更は出す）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      // 今期ではない過去シーズンの作品
+      const PAST_WORK_ID = 99999;
+      await db.insert(annictWorks).values({
+        annictWorkId: PAST_WORK_ID,
+        title: "過去アニメ",
+        seasonName: "2000-winter",
+        updatedAt: new Date(),
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "watch_status",
+        annictWorkId: PAST_WORK_ID,
+        meta: { state: "WATCHING" },
+      });
+      await addActivity({
+        userId: USER_B,
+        type: "favorite_added",
+        annictWorkId: PAST_WORK_ID,
+      });
+
+      const body = (await (
+        await getUpdates(app, USER_B)
+      ).json()) as UpdatesBody;
+      expect(body.items.map((item) => item.type)).toEqual(["favorite_added"]);
     });
 
     it("tier_list_* の活動は近況に含めない", async () => {

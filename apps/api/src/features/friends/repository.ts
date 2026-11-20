@@ -10,6 +10,7 @@ import {
   annictWorks,
 } from "@/db/schema";
 import type { Friend } from "@/db/schema";
+import { currentAnnictSeason } from "@/lib/annict/client";
 import { UserBlockedError, usersRepository } from "../users/repository";
 import {
   countMeetingRecords,
@@ -47,6 +48,8 @@ export type FriendNote = {
 
 // 名刺帳の相手の近況（issue #660）に出す活動の種類。
 // tier_list_* は近況の対象外（issue #660 の「3 種に絞る」）。
+// watch_status はさらに今期の作品に絞って出す（「今期見ている作品の
+// 追加・変更」の仕様。フィルタは getFriendUpdates 内）。
 export const FRIEND_UPDATE_ACTIVITY_TYPES = [
   "watch_status",
   "favorite_added",
@@ -356,8 +359,8 @@ export function friendsRepository(
     },
 
     /**
-     * 名刺帳の相手の近況（issue #660）。視聴ステータス・推しの変更の
-     * activities を新しい順に最大 FRIEND_UPDATES_LIMIT 件返す。
+     * 名刺帳の相手の近況（issue #660）。今期作品の視聴ステータス変更と
+     * 推しの変更の activities を新しい順に最大 FRIEND_UPDATES_LIMIT 件返す。
      *
      * フレンドでなければ FriendNotFoundError を投げる（存在も漏らさない）。
      * friends 行は通常ブロック時に消えるが、経路に依存せず絞るため
@@ -388,6 +391,13 @@ export function friendsRepository(
         return { friendIsPublic: false, items: [] };
       }
 
+      // 「今期見ている作品の追加・変更」はオーナー仕様どおり今期の作品に
+      // 絞る。今期判定は共通点（features/common、issue #657）と同じく
+      // currentAnnictSeason() と season_name（-autumn/-fall の別名も）で
+      // 行う。annict_works に無い作品はシーズン不明のため出さない。
+      // favorite_added（推しの変更）はシーズンに関係なく出す。
+      const season = currentAnnictSeason();
+      const alternateSeason = season.replace(/-autumn$/, "-fall");
       const rows = await db
         .select({
           id: activities.id,
@@ -406,7 +416,13 @@ export function friendsRepository(
         .where(
           and(
             eq(activities.userId, friendId),
-            inArray(activities.type, [...FRIEND_UPDATE_ACTIVITY_TYPES]),
+            or(
+              eq(activities.type, "favorite_added"),
+              and(
+                eq(activities.type, "watch_status"),
+                inArray(annictWorks.seasonName, [season, alternateSeason]),
+              ),
+            ),
           ),
         )
         .orderBy(desc(activities.id))

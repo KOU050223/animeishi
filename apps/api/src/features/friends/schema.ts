@@ -243,7 +243,7 @@ export const getFriendUpdatesRoute = createRoute({
     200: {
       content: { "application/json": { schema: friendUpdatesResponseSchema } },
       description:
-        "近況（視聴ステータス・推しの変更・名刺の更新）を新しい順に最大件数まで",
+        "近況（今期作品の視聴ステータス・推しの変更・名刺の更新）を新しい順に最大件数まで",
     },
     401: jsonError("未認証"),
     404: jsonError("フレンドではない（またはユーザーが存在しない）"),
