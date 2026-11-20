@@ -304,6 +304,52 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
     expect(mockBulkMutate).not.toHaveBeenCalled();
   });
 
+  it("Annict に同じ状態で登録済み（same_state）の作品も視聴済みの話をジョブに登録できる", async () => {
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
+    });
+    // Annict 側も WATCHED = 取り込み対象の WATCHED と同じ → same_state。
+    mockHistories.data = [{ annictWorkId: 1, state: "WATCHED" }];
+    stubMatchSuccess([matchItem("w1", "同状態登録済み作品", 1, "WATCHED")]);
+
+    await render(<DanimeImportReviewScreen />);
+    // same_state は既定オフだが保護ではないのでチェック自体はできる。
+    const checkbox = screen.getByLabelText(
+      "同状態登録済み作品 を登録対象にする",
+    );
+    expect(checkbox.props.accessibilityState.checked).toBe(false);
+    expect(checkbox.props.accessibilityState.disabled).toBeFalsy();
+    expect(screen.getByText("Annict で「視聴済」登録済み")).toBeTruthy();
+    const button = screen.getByTestId("danime-register-button");
+    expect(button.props.accessibilityState?.disabled).toBe(false);
+    expect(
+      screen.getByText(
+        "視聴済み 1 話のうち、対応付けできた話を Annict に記録します",
+      ),
+    ).toBeTruthy();
+    await act(async () => fireEvent.press(button));
+
+    await waitFor(() =>
+      expect(mockCreateEpisodeJobMutateAsync).toHaveBeenCalledWith({
+        works: [
+          {
+            danimeWorkId: "w1",
+            annictWorkId: 1,
+            episodes: [
+              {
+                partId: "p1",
+                watched: true,
+                label: "第1話",
+                subtitle: "始まり",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(mockBulkMutate).not.toHaveBeenCalled();
+  });
+
   it("作品登録に失敗した作品は話ジョブから外し、登録済み作品は含める", async () => {
     setStoreLists({
       w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
