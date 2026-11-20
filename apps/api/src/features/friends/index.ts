@@ -2,7 +2,12 @@ import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { friendsRepository, FriendNotFoundError } from "./repository";
-import { issueQrExchangeToken, verifyQrExchangeToken } from "./qrExchangeToken";
+import {
+  issueOfflineExchangeToken,
+  issueQrExchangeToken,
+  verifyOfflineExchangeToken,
+  verifyQrExchangeToken,
+} from "./qrExchangeToken";
 import { UserBlockedError } from "../users/repository";
 import {
   publicMeishiSnapshotKey,
@@ -61,24 +66,38 @@ const friends = app
   .openapi(getQrTokenRoute, async (c) => {
     // 対面交換 QR に埋め込む短期トークンを発行する（issue #417）。
     // トークンは認証ユーザー自身に紐づくため、他人のトークンは取れない。
+    // あわせてオフライン交換用の長寿命トークン（ot）も返す。表示側が
+    // オフラインでこのエンドポイントを呼べない状況に備え、クライアントは
+    // ot を端末に保持しておく（issue #663）。
+    const secret = getBindings(c).CLERK_SECRET_KEY;
     const { token, expiresAt } = await issueQrExchangeToken(
-      getBindings(c).CLERK_SECRET_KEY,
+      secret,
       c.var.clerkUserId,
     );
-    return c.json({ token, expiresAt }, 200);
+    const offline = await issueOfflineExchangeToken(secret, c.var.clerkUserId);
+    return c.json(
+      {
+        token,
+        expiresAt,
+        offlineToken: offline.token,
+        offlineExpiresAt: offline.expiresAt,
+      },
+      200,
+    );
   })
   .openapi(addFriendRoute, async (c) => {
-    const { friendId, qrToken } = c.req.valid("json");
+    const { friendId, qrToken, offlineToken } = c.req.valid("json");
     if (friendId === c.var.clerkUserId) {
       return c.json({ error: "自分自身をフレンドに追加できません" }, 400);
     }
     // 即時成立は対面 QR 交換に限る。トークンが無い・無効・期限切れの場合は
     // 申請フロー（/me/friend-requests）を使うよう code で知らせる（issue #417）。
-    const tokenOk = await verifyQrExchangeToken(
-      getBindings(c).CLERK_SECRET_KEY,
-      friendId,
-      qrToken,
-    );
+    // offlineToken はオフライン交換用の長寿命トークン（issue #663）で、
+    // qt とは別の用途名で署名されるため相互流用は検証で弾かれる。
+    const secret = getBindings(c).CLERK_SECRET_KEY;
+    const tokenOk =
+      (await verifyQrExchangeToken(secret, friendId, qrToken)) ||
+      (await verifyOfflineExchangeToken(secret, friendId, offlineToken));
     if (!tokenOk) {
       return c.json(
         {

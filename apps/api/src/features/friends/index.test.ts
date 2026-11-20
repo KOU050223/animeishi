@@ -5,7 +5,9 @@ import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { friends } from "@/features/friends";
 import {
+  issueOfflineExchangeToken,
   issueQrExchangeToken,
+  OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   QR_EXCHANGE_TOKEN_TTL_SEC,
 } from "@/features/friends/qrExchangeToken";
 import { users } from "@/db/schema";
@@ -58,6 +60,16 @@ function signInAs(userId: string) {
 // トークンで再現する。
 async function qrTokenFor(userId: string, skewSec = 0): Promise<string> {
   const { token } = await issueQrExchangeToken(
+    "test_secret",
+    userId,
+    Math.floor(Date.now() / 1000) + skewSec,
+  );
+  return token;
+}
+
+// オフライン交換用の長寿命トークン（ot。issue #663）の発行を再現する。
+async function offlineTokenFor(userId: string, skewSec = 0): Promise<string> {
+  const { token } = await issueOfflineExchangeToken(
     "test_secret",
     userId,
     Math.floor(Date.now() / 1000) + skewSec,
@@ -500,9 +512,16 @@ describe("フレンド API", () => {
       const body = (await res.json()) as {
         token: string;
         expiresAt: number;
+        offlineToken: string;
+        offlineExpiresAt: number;
       };
       expect(body.token.split(".")).toHaveLength(2);
       expect(body.expiresAt).toBeGreaterThan(Date.now() / 1000);
+      // オフライン交換用の長寿命トークン（ot）も同時に返す（issue #663）
+      expect(body.offlineToken.split(".")).toHaveLength(2);
+      expect(body.offlineExpiresAt).toBeGreaterThan(
+        Date.now() / 1000 + OFFLINE_EXCHANGE_TOKEN_TTL_SEC - 60,
+      );
 
       // 発行したトークンは即時成立に使える（USER_A が QR を出した想定で
       // USER_B がスキャンしたケースを再現する）。
@@ -559,6 +578,88 @@ describe("フレンド API", () => {
 
       expect(res.status).toBe(403);
       const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
+    });
+
+    // オフライン交換トークン（ot。issue #663）。
+    // 表示側がオフラインで qt を取れないときの代替経路で、
+    // 用途名の違いで qt との相互流用を弾くことを担保する。
+    it("POST /me/friends: offlineToken だけでも即時成立する", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await offlineTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { friendId: string };
+      expect(body.friendId).toBe(USER_B);
+    });
+
+    it("POST /me/friends: 期限切れの offlineToken は 403", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await offlineTokenFor(
+              USER_B,
+              -(OFFLINE_EXCHANGE_TOKEN_TTL_SEC + 60),
+            ),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { code?: string };
+      expect(body.code).toBe("qr_exchange_required");
+    });
+
+    it("POST /me/friends: qt を offlineToken に、ot を qrToken に入れても弾く", async () => {
+      const app = buildApp();
+      // 短期トークン（qt）を offlineToken 欄に入れた場合。
+      // 署名メッセージの用途名が違うため検証を通らない。
+      const asOffline = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            offlineToken: await qrTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(asOffline.status).toBe(403);
+
+      // オフライントークン（ot）を qrToken 欄に入れた場合も同様。
+      const asQr = await app.request(
+        "/me/friends",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            friendId: USER_B,
+            qrToken: await offlineTokenFor(USER_B),
+          }),
+        },
+        TEST_BINDINGS,
+      );
+      expect(asQr.status).toBe(403);
+      const body = (await asQr.json()) as { code?: string };
       expect(body.code).toBe("qr_exchange_required");
     });
   });

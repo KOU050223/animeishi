@@ -10,9 +10,12 @@ import {
 // （GET /me/friends/qr-token で相手が発行したもの）。即時成立は QR を
 // 読み合った対面交換に限るため必須で、無い・無効・期限切れは 403。
 // リモートからの追加は /me/friend-requests の申請フローを使う（issue #417）。
+// offlineToken はオフライン交換用の長寿命トークン（issue #663）。どちらか
+// 一方でも検証を通れば即時成立する。
 export const friendCreateSchema = z.object({
   friendId: z.string().min(1, "friendId を指定してください"),
   qrToken: z.string().min(1).optional(),
+  offlineToken: z.string().min(1).optional(),
 });
 
 export type FriendCreateInput = z.infer<typeof friendCreateSchema>;
@@ -65,9 +68,14 @@ export const getFriendsRoute = createRoute({
 });
 
 // GET /me/friends/qr-token の応答。expiresAt は UNIX 秒。
+// offlineToken はオフライン交換用の長寿命トークン（issue #663）。
+// 表示側がオフラインで qt を取れないとき QR のフォールバックに使うため、
+// オンラインのうちにクライアントへ渡しておく。
 const qrTokenSchema = z.object({
   token: z.string(),
   expiresAt: z.number().int(),
+  offlineToken: z.string(),
+  offlineExpiresAt: z.number().int(),
 });
 
 export const getQrTokenRoute = createRoute({
@@ -75,7 +83,7 @@ export const getQrTokenRoute = createRoute({
   path: "/qr-token",
   tags: ["friends"],
   summary:
-    "対面 QR 交換用の短期トークンを発行する（自分の QR に埋め込む。約 5 分有効）",
+    "対面 QR 交換用のトークンを発行する（自分の QR に埋め込む。qt は約 5 分、ot は 24 時間有効）",
   security: bearerAuth,
   responses: {
     200: {
@@ -90,7 +98,8 @@ export const addFriendRoute = createRoute({
   method: "post",
   path: "/",
   tags: ["friends"],
-  summary: "対面 QR 交換でフレンドを即時追加する（双方向・冪等。qrToken 必須）",
+  summary:
+    "対面 QR 交換でフレンドを即時追加する（双方向・冪等。qrToken または offlineToken 必須）",
   security: bearerAuth,
   request: {
     body: {
@@ -115,7 +124,8 @@ export const addFriendRoute = createRoute({
           }),
         },
       },
-      description: "ブロック関係にある相手 / qrToken が無い・無効・期限切れ",
+      description:
+        "ブロック関係にある相手 / qrToken・offlineToken が無い・無効・期限切れ",
     },
     404: jsonError("対象ユーザーが存在しない"),
   },
