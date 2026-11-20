@@ -210,6 +210,22 @@ export function episodeImportJobRepository(db: DrizzleDb) {
       return new Set(rows.map((r) => r.annictEpisodeId));
     },
 
+    /**
+     * アイテム表の最新の更新時刻。対応付け・書き込みが進んでいる間は
+     * アイテムの挿入・終了更新で定期的に進むため、「追跡列のない旧ジョブ
+     * の引き継ぎ先がまだ生きているか」を活動の新しさで見るために使う
+     * （CodeRabbit #702）。
+     */
+    async latestItemActivityAt(jobId: string): Promise<Date | null> {
+      const [row] = await db
+        .select({ updatedAt: danimeEpisodeImportItems.updatedAt })
+        .from(danimeEpisodeImportItems)
+        .where(eq(danimeEpisodeImportItems.jobId, jobId))
+        .orderBy(desc(danimeEpisodeImportItems.updatedAt))
+        .limit(1);
+      return row?.updatedAt ?? null;
+    },
+
     /** 書き込み待ちのアイテムを挿入順に取る（Workflow の再実行でも pending のみ）。 */
     async listPendingItems(
       jobId: string,

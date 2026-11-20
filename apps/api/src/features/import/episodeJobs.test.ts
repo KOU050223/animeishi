@@ -544,6 +544,83 @@ describe("dアニメ話記録ジョブ API", () => {
     expect(body.job.status).toBe("failed");
   });
 
+  it("追跡列のない旧ジョブは、インスタンスが errored で最終活動が古いと failed にする", async () => {
+    // issue #701 の本番ジョブ相当: workflow_instance_id 列が無い時代に
+    // 作られたジョブは追跡先を持たず初回インスタンス（job.id）しか
+    // 見えないが、最終活動が古ければ見えない後続も止まっているとみなす。
+    // これで matching,total=0 のまま残ったジョブが進捗参照で自動的に
+    // failed になる。
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "errored", error: "boom" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    // 旧ジョブ相当にする（追跡列なし・最終活動は 20 分前）
+    await db
+      .update(danimeEpisodeImportJobs)
+      .set({
+        workflowInstanceId: null,
+        updatedAt: new Date(Date.now() - 20 * 60_000),
+      })
+      .where(eq(danimeEpisodeImportJobs.id, job.id));
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as {
+      job: { status: string; error: string | null };
+    };
+    expect(body.job.status).toBe("failed");
+    expect(body.job.error).toBe("boom");
+  });
+
+  it("追跡列のない旧ジョブは、初回インスタンスが complete で最終活動が古いと failed にする", async () => {
+    // CodeRabbit #702: 追跡列のない旧ジョブでは初回インスタンスの
+    // complete しか見えず、自動採番の引き継ぎ先が errored でも
+    // 見つけられない。後続が生きていればアイテム・ジョブ行が定期的に
+    // 更新されるため、最終活動が古いなら後続は止まっているとみなす。
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "complete" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    await db
+      .update(danimeEpisodeImportJobs)
+      .set({
+        workflowInstanceId: null,
+        updatedAt: new Date(Date.now() - 20 * 60_000),
+      })
+      .where(eq(danimeEpisodeImportJobs.id, job.id));
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as { job: { status: string } };
+    expect(body.job.status).toBe("failed");
+  });
+
   it("照合の隙間に追跡先が次インスタンスへ進んだ場合、旧インスタンスの complete では failed にしない", async () => {
     // Devin Review #702: 進捗照合は「ジョブ行を読む → インスタンス状態を
     // 取る」の順なので、その隙間に引き継ぎが進むと、正常終了した

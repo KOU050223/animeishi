@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { introspectWorkflowInstance } from "cloudflare:test";
-import { eq } from "drizzle-orm";
+import { eq, DrizzleQueryError } from "drizzle-orm";
 import { setupTestDb } from "../../test-utils/setup-db";
 import {
   annictTokens,
@@ -25,6 +25,7 @@ import {
 } from "@/db/schema";
 import { encryptToken } from "@/lib/annict/crypto";
 import type { DanimeEpisodeJobStatus } from "@/db/schema";
+import { isSubrequestLimitError } from "./episodeImportWorkflow";
 
 const USER_ID = "user_epwf01";
 const ANNICT_WORK_ID = 555;
@@ -986,5 +987,25 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
       .where(eq(danimeEpisodeImportItems.jobId, jobId));
     expect(items.filter((i) => i.status === "done")).toHaveLength(2);
     expect(items.filter((i) => i.status === "pending")).toHaveLength(1);
+  });
+
+  it("D1 の上限エラーが DrizzleQueryError に包まれていても cause を見て上限到達と判定する", () => {
+    // CodeRabbit #702: drizzle-orm はクエリ失敗を DrizzleQueryError に
+    // 包み、元の "Too many subrequests." は cause に入る。message だけを
+    // 見ると通常の失敗経路へ進んで引き継ぎ対象にならない。
+    const wrapped = new DrizzleQueryError(
+      "SELECT 1",
+      [],
+      new Error("Too many subrequests."),
+    );
+    expect(isSubrequestLimitError(wrapped)).toBe(true);
+    // 上限と無関係なクエリ失敗は従来どおりのエラー扱い
+    const other = new DrizzleQueryError(
+      "SELECT 1",
+      [],
+      new Error("no such table: foo"),
+    );
+    expect(isSubrequestLimitError(other)).toBe(false);
+    expect(isSubrequestLimitError(new Error("some other failure"))).toBe(false);
   });
 });

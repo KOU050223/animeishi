@@ -26,6 +26,10 @@ type EpisodeJobBindings = {
 // 記録直後の一瞬だけ「ID はあるがインスタンスが無い」状態が正しい。
 // その隙間で failed に倒すと引き継ぎ先が起動直後に止まってしまう。
 const MISSING_INSTANCE_GRACE_MS = 60_000;
+// 追跡列のない旧ジョブの「見えない引き継ぎ先」が止まったとみなす猶予。
+// 生きていればアイテムの挿入・終了更新かジョブ行の更新で定期的に時刻が
+// 進む。書き込みステップのタイムアウト（10 分）より長く取る。
+const UNTRACKED_STALLED_GRACE_MS = 15 * 60_000;
 
 function toJobDto(job: DanimeEpisodeImportJob) {
   return {
@@ -74,12 +78,30 @@ async function reconcileJobWithWorkflow(
     (await repo.settleJobStatus(job.id, status, error, instanceId))
       ? "settled"
       : "running";
+  // 追跡列のない旧ジョブが「見えない引き継ぎ先」でまだ動いているかを
+  // 活動の新しさで判定する。引き継ぎの自動採番時代に作られた後続
+  // インスタンスは ID を記録できず、こちらから状態を見られない。
+  // 生きていればアイテムの挿入・終了更新かジョブ行の更新で定期的に
+  // 時刻が進むため、最終活動が古いなら後続は止まっている（CodeRabbit
+  // #702。新しいジョブは常に追跡されるためこの経路に来ない）。
+  const untrackedActivityIsStale = async (): Promise<boolean> => {
+    const itemAt = await repo.latestItemActivityAt(job.id);
+    const lastActivityMs = Math.max(
+      job.updatedAt.getTime(),
+      itemAt?.getTime() ?? 0,
+    );
+    return Date.now() - lastActivityMs > UNTRACKED_STALLED_GRACE_MS;
+  };
   const failIfMissing = async (): Promise<"running" | "settled"> => {
     // 記録されたインスタンスが存在しない。引き継ぎの「ID 記録 → create」
     // の隙間なら起動中であり、記録から時間が経っているなら create が
     // 失敗して止まっている（もしくはインスタンス状態が保持期限切れ）。
-    const ageMs = Date.now() - job.updatedAt.getTime();
-    if (ageMs < MISSING_INSTANCE_GRACE_MS) return "running";
+    if (tracked) {
+      const ageMs = Date.now() - job.updatedAt.getTime();
+      if (ageMs < MISSING_INSTANCE_GRACE_MS) return "running";
+    } else if (!(await untrackedActivityIsStale())) {
+      return "running";
+    }
     return settle("failed", `workflow instance was lost: ${instanceId}`);
   };
 
@@ -95,6 +117,10 @@ async function reconcileJobWithWorkflow(
 
   if (st.status === "unknown") return failIfMissing();
   if (st.status === "errored" || st.status === "terminated") {
+    // 初回インスタンスの死では原則後続は無い（後続は正常終了の直前に
+    // だけ作られる）が、create 成功後にステップが落ちた稀なケースでは
+    // 追跡列のない旧ジョブの見えない後続が生きている可能性がある。
+    if (!tracked && !(await untrackedActivityIsStale())) return "running";
     return settle("failed", st.error?.message ?? `workflow ${st.status}`);
   }
   if (st.status === "complete") {
@@ -114,6 +140,17 @@ async function reconcileJobWithWorkflow(
       return settle(
         "failed",
         `workflow instance completed while the job is still ${job.status}`,
+      );
+    }
+    // 追跡列のない旧ジョブでは、正常終了した初回インスタンスの
+    // 自動採番の後続が見えない。生きていればアイテム・ジョブ行が
+    // 定期的に更新されるため、最終活動が古いなら後続は止まっている
+    // とみなして failed にし、新規作成できるようにする（CodeRabbit
+    // #702）。活動が新しい間は後続が処理中として何もしない。
+    if (await untrackedActivityIsStale()) {
+      return settle(
+        "failed",
+        `untracked workflow successor appears stalled (instance ${instanceId} completed)`,
       );
     }
   }

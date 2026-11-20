@@ -167,18 +167,28 @@ function isRetriable(err: unknown): boolean {
 // Workers のサブリクエスト上限（"Too many subrequests."）に達して
 // 呼び出しが例外になったか。annictFetch が生の例外を detail に包んで
 // status 0 にするため、中身のメッセージを見て判別する（issue #695）。
-// D1 等の Cloudflare 内部サービス向けの上限超過は生のエラーのまま
-// 届くため（issue #701）、AnnictApiError 以外もメッセージで判別する。
+// D1 等の Cloudflare 内部サービス向けの上限超過は drizzle-orm が
+// DrizzleQueryError（message は SQL 文のみ）に包んで cause に入れて
+// 届くため、AnnictApiError 以外は cause を順にたどって判別する
+// （issue #701, CodeRabbit #702）。
 // status 0 の一時障害と同じ顔をしているが、リトライも failed 確定も
 // できない（このインスタンスではもう発行できない）ため特別扱いする。
-function isSubrequestLimitError(err: unknown): boolean {
+export function isSubrequestLimitError(err: unknown): boolean {
   if (err instanceof AnnictApiError) {
     if (err.status !== 0) return false;
     const detail = err.detail;
     const message = detail instanceof Error ? detail.message : String(detail);
     return /too many subrequests/i.test(message);
   }
-  return /too many subrequests/i.test(errorMessage(err));
+  for (
+    let cur: unknown = err;
+    cur != null;
+    cur =
+      typeof cur === "object" ? (cur as { cause?: unknown }).cause : undefined
+  ) {
+    if (/too many subrequests/i.test(errorMessage(cur))) return true;
+  }
+  return false;
 }
 
 // サブリクエスト枯渇系のエラーか（自前の予算切れ or Workers の実上限）。
