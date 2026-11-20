@@ -192,6 +192,56 @@ export const putFriendNoteRoute = createRoute({
   },
 });
 
+// 名刺帳の相手の近況（issue #660）で返す種類。watch_status /
+// favorite_added は activities 行、meishi_updated は公開スナップショット
+// （R2）の撮り直し時刻からサーバー側で合成する。
+export const FRIEND_UPDATE_TYPES = [
+  "watch_status",
+  "favorite_added",
+  "meishi_updated",
+] as const;
+export type FriendUpdateType = (typeof FRIEND_UPDATE_TYPES)[number];
+
+// 近況 1 件。id は activities 行の id で、R2 から合成した
+// meishi_updated には無いため null。work を持たない活動・名刺更新は null。
+const friendUpdateItemSchema = z.object({
+  id: z.number().int().nullable(),
+  type: z.enum(FRIEND_UPDATE_TYPES),
+  createdAt: z.string(),
+  work: z
+    .object({
+      annictWorkId: z.number().int(),
+      title: z.string(),
+      titleEn: z.string().nullable(),
+      hostedImageUrl: z.string().nullable(),
+    })
+    .nullable(),
+  meta: z.record(z.string(), z.unknown()).nullable(),
+});
+
+const friendUpdatesResponseSchema = z.object({
+  items: z.array(friendUpdateItemSchema),
+});
+
+export const getFriendUpdatesRoute = createRoute({
+  method: "get",
+  path: "/{friendId}/updates",
+  tags: ["friends"],
+  summary:
+    "名刺帳の相手の近況を新しい順に取得する（フレンドでなければ 404、相手が非公開なら空）",
+  security: bearerAuth,
+  request: { params: friendIdParamSchema },
+  responses: {
+    200: {
+      content: { "application/json": { schema: friendUpdatesResponseSchema } },
+      description:
+        "近況（視聴ステータス・推しの変更・名刺の更新）を新しい順に最大件数まで",
+    },
+    401: jsonError("未認証"),
+    404: jsonError("フレンドではない（またはユーザーが存在しない）"),
+  },
+});
+
 export const removeFriendRoute = createRoute({
   method: "delete",
   path: "/{friendId}",

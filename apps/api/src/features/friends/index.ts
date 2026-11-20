@@ -1,7 +1,11 @@
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { friendsRepository, FriendNotFoundError } from "./repository";
+import {
+  friendsRepository,
+  FriendNotFoundError,
+  FRIEND_UPDATES_LIMIT,
+} from "./repository";
 import {
   issueOfflineExchangeToken,
   issueQrExchangeToken,
@@ -17,12 +21,15 @@ import {
 import {
   addFriendRoute,
   getFriendNoteRoute,
+  getFriendUpdatesRoute,
   getFriendsRoute,
   getQrTokenRoute,
   putFriendNoteRoute,
   removeFriendRoute,
 } from "./schema";
+import type { FriendUpdateType } from "./schema";
 import { createDb } from "@/db/client";
+import { workImageUrl } from "@/lib/annict/workImage";
 import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
@@ -173,6 +180,71 @@ const friends = app
         },
         200,
       );
+    } catch (e) {
+      if (e instanceof FriendNotFoundError) {
+        return c.json({ error: "フレンドではありません" }, 404);
+      }
+      throw e;
+    }
+  })
+  // 名刺帳の相手の近況（issue #660）。フレンドでなければ 404、相手が
+  // 非公開なら空を返す。名刺デザインの更新は活動として記録せず、
+  // 公開スナップショット（R2）の撮り直し時刻からここで合成する
+  // （別データを二重管理しない / 既存 feed に新種類を載せないため）。
+  .openapi(getFriendUpdatesRoute, async (c) => {
+    const { friendId } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = friendsRepository(db, c.var.clerkUserId);
+
+    type UpdateItem = {
+      id: number | null;
+      type: FriendUpdateType;
+      createdAt: string;
+      work: {
+        annictWorkId: number;
+        title: string;
+        titleEn: string | null;
+        hostedImageUrl: string | null;
+      } | null;
+      meta: Record<string, unknown> | null;
+    };
+
+    try {
+      const { friendIsPublic, items } = await repo.getFriendUpdates(friendId);
+      const updates: UpdateItem[] = items.map((row) => ({
+        id: row.id,
+        type: row.type,
+        createdAt: row.createdAt.toISOString(),
+        work: row.work
+          ? {
+              ...row.work,
+              hostedImageUrl: workImageUrl(c.req.url, row.work.annictWorkId),
+            }
+          : null,
+        meta: row.meta
+          ? (JSON.parse(row.meta) as Record<string, unknown>)
+          : null,
+      }));
+
+      if (friendIsPublic) {
+        const snapshot = await getBindings(c).AVATARS.head(
+          publicMeishiSnapshotKey(friendId),
+        );
+        if (snapshot) {
+          updates.push({
+            id: null,
+            type: "meishi_updated",
+            createdAt: snapshot.uploaded.toISOString(),
+            work: null,
+            meta: null,
+          });
+        }
+        updates.sort(
+          (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+        );
+        updates.splice(FRIEND_UPDATES_LIMIT);
+      }
+      return c.json({ items: updates }, 200);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
         return c.json({ error: "フレンドではありません" }, 404);
