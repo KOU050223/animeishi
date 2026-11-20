@@ -145,6 +145,8 @@ describe("SNS リンク", () => {
     for (const item of [
       { kind: "other", value: "http://example.com", visibility: "public" },
       { kind: "x", value: "user/other", visibility: "public" },
+      { kind: "youtube", value: "user/name", visibility: "public" },
+      { kind: "pixiv", value: "not-a-number", visibility: "public" },
     ]) {
       const response = await api.request(
         "/me/social-links",
@@ -160,5 +162,30 @@ describe("SNS リンク", () => {
       );
       expect(response.status).toBe(400);
     }
+  });
+
+  it("ピリオド・ハイフン・アンダースコアを含む YouTube ハンドルを保存できる", async () => {
+    const api = app();
+    const response = await api.request(
+      "/me/social-links",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer test",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              kind: "youtube",
+              value: "anime.channel_jp-1",
+              visibility: "public",
+            },
+          ],
+        }),
+      },
+      bindings,
+    );
+    expect(response.status).toBe(200);
   });
 });

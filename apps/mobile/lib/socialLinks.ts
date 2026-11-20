@@ -29,6 +29,25 @@ export const SOCIAL_LINK_KINDS: SocialLinkKind[] = [
   "other",
 ];
 
+export function socialLinkLabel(kind: SocialLinkKind): string {
+  switch (kind) {
+    case "x":
+      return "X";
+    case "pixiv":
+      return "pixiv";
+    case "fanbox":
+      return "FANBOX";
+    case "dlsite":
+      return "DLsite";
+    case "dmm":
+      return "DMM / FANZA";
+    case "youtube":
+      return "YouTube";
+    case "other":
+      return "URL";
+  }
+}
+
 export function useSocialLinks() {
   const { getToken, userId } = useAuth();
   return useQuery({

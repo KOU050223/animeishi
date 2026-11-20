@@ -11,6 +11,21 @@ export const socialLinkKinds = [
 ] as const;
 export const socialLinkVisibilities = ["public", "friends", "private"] as const;
 
+export type SocialLinkKind = (typeof socialLinkKinds)[number];
+
+// 種別ごとの ID 形式。既知のサービスは ID（ユーザー名等）を受け取り
+// URL をサーバー側で組み立てるため、ホスト部に使える文字だけを許す。
+// YouTube のハンドルはピリオド・ハイフン・アンダースコアを含みうる
+// （例: @anime.channel）ため、種別ごとに分けている。
+const ID_PATTERNS: Record<Exclude<SocialLinkKind, "other">, RegExp> = {
+  x: /^[A-Za-z0-9_]+$/,
+  pixiv: /^[0-9]+$/,
+  fanbox: /^[A-Za-z0-9-]+$/,
+  dlsite: /^[A-Za-z0-9]+$/,
+  dmm: /^[0-9]+$/,
+  youtube: /^[A-Za-z0-9_.-]+$/,
+};
+
 export const socialLinkInputSchema = z
   .object({
     kind: z.enum(socialLinkKinds),
@@ -31,7 +46,7 @@ export const socialLinkInputSchema = z
       } catch {
         /* invalid URL */
       }
-    } else if (/^[a-zA-Z0-9_-]+$/.test(link.value)) {
+    } else if (ID_PATTERNS[link.kind].test(link.value)) {
       return;
     }
     ctx.addIssue({ code: "custom", message: "Invalid social link value" });

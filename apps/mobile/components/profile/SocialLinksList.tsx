@@ -2,25 +2,7 @@ import { Linking, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { SocialLink, SocialLinkKind } from "@/lib/socialLinks";
-
-export function socialLinkLabel(kind: SocialLinkKind): string {
-  switch (kind) {
-    case "x":
-      return "X";
-    case "pixiv":
-      return "pixiv";
-    case "fanbox":
-      return "FANBOX";
-    case "dlsite":
-      return "DLsite";
-    case "dmm":
-      return "DMM / FANZA";
-    case "youtube":
-      return "YouTube";
-    case "other":
-      return "URL";
-  }
-}
+import { socialLinkLabel } from "@/lib/socialLinks";
 
 const icons: Record<SocialLinkKind, keyof typeof Ionicons.glyphMap> = {
   x: "logo-twitter",
@@ -41,9 +23,9 @@ export function SocialLinksList({ links }: { links: SocialLink[] }) {
         {t("SNS リンク")}
       </Text>
       <View className="gap-2">
-        {links.map((link, index) => (
+        {links.map((link) => (
           <Pressable
-            key={`${index}-${link.kind}-${link.value}`}
+            key={`${link.kind}-${link.value}`}
             className="flex-row items-center rounded-xl bg-slate-50 dark:bg-slate-800 px-4 py-3"
             onPress={() => {
               void Linking.openURL(link.url);

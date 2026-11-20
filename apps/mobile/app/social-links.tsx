@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,24 +14,34 @@ import {
   useSocialLinks,
   useSaveSocialLinks,
   SOCIAL_LINK_KINDS,
+  socialLinkLabel,
 } from "@/lib/socialLinks";
 import type {
   SocialLinkInput,
   SocialLinkKind,
   SocialLinkVisibility,
 } from "@/lib/socialLinks";
-import { socialLinkLabel } from "@/components/profile/SocialLinksList";
 
 const VISIBILITIES: SocialLinkVisibility[] = ["public", "friends", "private"];
+
+// 編集中の並べ替え・削除で index がずれてもフォーカスや入力状態が
+// ずれないよう、ドラフトは安定した key を持つ。保存時に取り除く。
+type DraftItem = SocialLinkInput & { key: number };
 
 export default function SocialLinksScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useSocialLinks();
   const save = useSaveSocialLinks();
-  const [draft, setDraft] = useState<SocialLinkInput[] | null>(null);
+  const [draft, setDraft] = useState<DraftItem[] | null>(null);
   const [error, setError] = useState(false);
-  const items = draft ?? data?.items ?? [];
+  // 取得済みの項目は位置が変わらないため -1-i を初期 key にする。
+  // 追加する項目の key は既存の最大値+1（イベントハンドラ内で計算）。
+  const items = useMemo<DraftItem[]>(
+    () =>
+      draft ?? (data?.items ?? []).map((item, i) => ({ ...item, key: -1 - i })),
+    [draft, data?.items],
+  );
 
   function update(index: number, patch: Partial<SocialLinkInput>) {
     setDraft(
@@ -51,7 +61,11 @@ export default function SocialLinksScreen() {
     setError(false);
     try {
       await save.mutateAsync(
-        items.map((item) => ({ ...item, value: item.value.trim() })),
+        items.map((item) => ({
+          kind: item.kind,
+          value: item.value.trim(),
+          visibility: item.visibility,
+        })),
       );
       router.back();
     } catch {
@@ -86,7 +100,7 @@ export default function SocialLinksScreen() {
           </Text>
           {items.map((item, index) => (
             <View
-              key={index}
+              key={item.key}
               className="rounded-xl bg-white dark:bg-slate-900 p-4 gap-3"
             >
               <View className="flex-row flex-wrap gap-2">
@@ -173,7 +187,12 @@ export default function SocialLinksScreen() {
             onPress={() =>
               setDraft([
                 ...items,
-                { kind: "x", value: "", visibility: "friends" },
+                {
+                  kind: "x",
+                  value: "",
+                  visibility: "friends",
+                  key: Math.max(-1, ...items.map((i) => i.key)) + 1,
+                },
               ])
             }
             disabled={items.length >= 20}
