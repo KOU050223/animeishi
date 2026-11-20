@@ -156,6 +156,9 @@ export default function PublicProfilePage() {
               </Text>
             ) : null}
             <CommonPoints uid={uid} />
+            {/* 公開プロフィールが 404 の相手でも、本人の交換記録は
+                名刺帳側のデータなので編集できるようにする（issue #661） */}
+            <ExchangeRecordSection uid={uid} />
           </ScrollView>
         </SafeAreaView>
       );

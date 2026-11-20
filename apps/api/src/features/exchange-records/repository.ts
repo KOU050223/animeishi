@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, lte, or } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
 import { events, exchangeRecords } from "@/db/schema";
 import type {
@@ -121,11 +121,17 @@ export function exchangeRecordsRepository(
 
       let eventName = input.eventName;
       if (input.eventSlug !== null) {
-        // 紐付けられるのは登録イベントだけ。存在しない slug は 400 に変換
-        // するためここで投げる。公開期間外でも過去の開催への紐付けは
-        // 記録として正当なため公開期間では絞らない。
+        // 紐付けられるのは公開済みの登録イベントだけ（公開日時を
+        // 過ぎたもの。公開前のイベント slug を指定してタイトルを
+        // レスポンス経由で読み出されるのを防ぐ）。過去に開催された
+        // 公開済みイベントへの紐付けは記録として正当なため開催期間では
+        // 絞らない。存在しない・公開前の slug は 400 に変換するため
+        // ここで投げる。
         const event = await db.query.events.findFirst({
-          where: eq(events.slug, input.eventSlug),
+          where: and(
+            eq(events.slug, input.eventSlug),
+            lte(events.publishedAt, new Date()),
+          ),
           columns: { title: true },
         });
         if (!event) throw new EventNotFoundError(input.eventSlug);

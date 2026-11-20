@@ -269,6 +269,31 @@ describe("フレンド申請 API", () => {
       expect(records.every((r) => r.source === "request")).toBe(true);
     });
 
+    // 同時承認の「負け側」（INSERT が既存行に当たる側）は記録を足さない
+    // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
+    it("POST /{id}/accept: friends 行が先行して作られていれば記録は足さない", async () => {
+      const app = buildApp();
+      await postRequest(app, USER_B);
+      // 相手側の同時成立が先に承認者→申請者の行を作った状態
+      // （この承認の INSERT は onConflict で増えず returning が空になる）
+      await db.insert(friends).values({
+        userId: USER_B,
+        friendId: USER_A,
+        source: "request",
+        createdAt: new Date(),
+      });
+
+      signInAs(USER_B);
+      const list = await listRequests(app);
+      await app.request(
+        `/me/friend-requests/${list.received[0]!.id}/accept`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+    });
+
     it("POST /{id}/accept: 送信者は自分の申請を承認できない（404）", async () => {
       const app = buildApp();
       await postRequest(app, USER_B);

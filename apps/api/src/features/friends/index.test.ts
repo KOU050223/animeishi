@@ -8,7 +8,7 @@ import {
   issueQrExchangeToken,
   QR_EXCHANGE_TOKEN_TTL_SEC,
 } from "@/features/friends/qrExchangeToken";
-import { users } from "@/db/schema";
+import { users, friends as friendsTable } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -247,6 +247,24 @@ describe("フレンド API", () => {
       await postFriend(app, USER_B);
 
       expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+    });
+
+    // 同時交換の「負け側」（INSERT が既存行に当たる側）は記録を足さない
+    // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
+    it("POST /me/friends: friends 行が先行して作られていれば記録は足さない", async () => {
+      // 相手側の同時交換が先に A→B 行を作った状態（この POST の INSERT は
+      // onConflict で増えず returning が空になる）
+      await db.insert(friendsTable).values({
+        userId: USER_A,
+        friendId: USER_B,
+        source: "qr",
+        createdAt: new Date(),
+      });
+
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
     });
 
     it("DELETE /me/friends/:friendId: フレンド解除で両方向の交換記録が消える", async () => {

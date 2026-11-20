@@ -105,14 +105,12 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
     const now = new Date();
     // 申請→承認（または相互申請の即成立）経由なので成立経路 source は
     // 'request'（issue #411 の「QR で交換した名刺」には数えない）。
-    // friends 行が残っている経路外ケース（解除で消えた申請行の残存など）
-    // では初回交換の記録（issue #661）を二重に足さない。
-    const alreadyFriend = await db.query.friends.findFirst({
-      where: (t, { and, eq: eq_ }) =>
-        and(eq_(t.userId, currentUserId), eq_(t.friendId, otherUserId)),
-      columns: { id: true },
-    });
-    await db.batch([
+    //
+    // 初回交換の記録（issue #661）は「friends 行を実際に増やした側」
+    // だけが積む。事前 SELECT での既フレンド判定は同時承認で両方
+    // 「まだフレンドでない」を見て記録が二重になるため、INSERT の
+    // returning()（onConflict で行が増えなければ 0 件）で判定する。
+    const results = await db.batch([
       db
         .insert(friends)
         .values({
@@ -121,7 +119,8 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
           source: "request",
           createdAt: now,
         })
-        .onConflictDoNothing(),
+        .onConflictDoNothing()
+        .returning({ id: friends.id }),
       db
         .insert(friends)
         .values({
@@ -132,31 +131,31 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
         })
         .onConflictDoNothing(),
       deleteRequestsBetween(currentUserId, otherUserId),
-      // 初回交換の記録（issue #661）。対面 QR と同じく各側の名刺帳に
-      // 1 行ずつ積む。
-      ...(alreadyFriend
-        ? []
-        : [
-            db.insert(exchangeRecords).values(
-              initialExchangeRecordValues({
-                ownerId: currentUserId,
-                friendId: otherUserId,
-                source: "request",
-                metAt: now,
-                now,
-              }),
-            ),
-            db.insert(exchangeRecords).values(
-              initialExchangeRecordValues({
-                ownerId: otherUserId,
-                friendId: currentUserId,
-                source: "request",
-                metAt: now,
-                now,
-              }),
-            ),
-          ]),
     ]);
+    // A→B 行をこのリクエストが作ったときだけ、各側の名刺帳に初回記録を
+    // 1 行ずつ積む（対面 QR と同じ）。
+    if (results[0].length > 0) {
+      await db.batch([
+        db.insert(exchangeRecords).values(
+          initialExchangeRecordValues({
+            ownerId: currentUserId,
+            friendId: otherUserId,
+            source: "request",
+            metAt: now,
+            now,
+          }),
+        ),
+        db.insert(exchangeRecords).values(
+          initialExchangeRecordValues({
+            ownerId: otherUserId,
+            friendId: currentUserId,
+            source: "request",
+            metAt: now,
+            now,
+          }),
+        ),
+      ]);
+    }
   }
 
   return {

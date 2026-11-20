@@ -267,6 +267,58 @@ describe("交換記録 API（issue #661）", () => {
       expect(res.status).toBe(400);
     });
 
+    // 公開前イベントの slug を指定してタイトルをレスポンス経由で
+    // 読み出す裏口を塞ぐ（紐付けられるのは公開済みイベントだけ）。
+    it("公開前のイベント slug は 400（タイトルを漏らさない）", async () => {
+      signInAs(USER_A);
+      const record = await myRecord();
+      const now = new Date();
+      await db.insert(eventsTable).values({
+        slug: "secret-event-2027",
+        title: "未発表イベント",
+        startsAt: now,
+        endsAt: now,
+        // 公開は未来
+        publishedAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const res = await putRecord(record!.id, {
+        placeName: null,
+        eventSlug: "secret-event-2027",
+        eventName: null,
+      });
+      expect(res.status).toBe(400);
+    });
+
+    // 過去に開催が終わっていても公開済みなら紐付けられる
+    // （履歴としての後付けは正当）。
+    it("開催済みの公開イベントは紐付けられる", async () => {
+      signInAs(USER_A);
+      const record = await myRecord();
+      const now = new Date();
+      const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      await db.insert(eventsTable).values({
+        slug: "past-event-2026",
+        title: "過去イベント",
+        startsAt: past,
+        endsAt: past,
+        publishedAt: past,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const res = await putRecord(record!.id, {
+        placeName: null,
+        eventSlug: "past-event-2026",
+        eventName: null,
+      });
+      expect(res.status).toBe(200);
+      const updated = (await res.json()) as { eventName: string | null };
+      expect(updated.eventName).toBe("過去イベント");
+    });
+
     it("他人の記録は 404（存在も漏らさない）", async () => {
       signInAs(USER_A);
       const bRecord = await db.query.exchangeRecords.findFirst({

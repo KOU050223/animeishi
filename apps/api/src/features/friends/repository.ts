@@ -124,16 +124,14 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
         throw new UserBlockedError(friendId);
       }
       const now = new Date();
-      // 冪等の再 POST（すでにフレンド）では初回交換の記録を足さない
-      // （issue #661。再会としての記録は issue #662 が担う）。
-      const alreadyFriend = await db.query.friends.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
-        columns: { id: true },
-      });
       // ここを通るのは対面 QR の即時成立（qrToken 必須）だけなので
       // 成立経路 source は 'qr'（issue #411 の「QR で交換した名刺」に数える）。
-      await db.batch([
+      //
+      // 初回交換の記録（issue #661）は「friends 行を実際に増やした側」
+      // だけが積む。事前 SELECT での既フレンド判定は同時実行で両方
+      // 「まだフレンドでない」を見て記録が二重になるため、INSERT の
+      // returning()（onConflict で行が増えなければ 0 件）で判定する。
+      const results = await db.batch([
         db
           .insert(friends)
           .values({
@@ -142,7 +140,8 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
             source: "qr",
             createdAt: now,
           })
-          .onConflictDoNothing(),
+          .onConflictDoNothing()
+          .returning({ id: friends.id }),
         db
           .insert(friends)
           .values({
@@ -168,31 +167,33 @@ export function friendsRepository(db: DrizzleDb, currentUserId: string) {
               ),
             ),
           ),
-        // 初回交換の記録（issue #661）。各側の名刺帳に 1 行ずつ積み、
-        // 場所・イベントは本人が後から任意で足す。
-        ...(alreadyFriend
-          ? []
-          : [
-              db.insert(exchangeRecords).values(
-                initialExchangeRecordValues({
-                  ownerId: currentUserId,
-                  friendId,
-                  source: "qr",
-                  metAt: now,
-                  now,
-                }),
-              ),
-              db.insert(exchangeRecords).values(
-                initialExchangeRecordValues({
-                  ownerId: friendId,
-                  friendId: currentUserId,
-                  source: "qr",
-                  metAt: now,
-                  now,
-                }),
-              ),
-            ]),
       ]);
+      // A→B 行をこのリクエストが作った（= 冪等の再 POST・同時交換の
+      // 負け側でない）ときだけ、各側の名刺帳に初回記録を 1 行ずつ積む。
+      // 場所・イベントは本人が後から任意で足す。
+      const becameFriend = results[0].length > 0;
+      if (becameFriend) {
+        await db.batch([
+          db.insert(exchangeRecords).values(
+            initialExchangeRecordValues({
+              ownerId: currentUserId,
+              friendId,
+              source: "qr",
+              metAt: now,
+              now,
+            }),
+          ),
+          db.insert(exchangeRecords).values(
+            initialExchangeRecordValues({
+              ownerId: friendId,
+              friendId: currentUserId,
+              source: "qr",
+              metAt: now,
+              now,
+            }),
+          ),
+        ]);
+      }
       const created = await db.query.friends.findFirst({
         where: (t, { and, eq: eq_ }) =>
           and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
