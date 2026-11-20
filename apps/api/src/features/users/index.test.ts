@@ -12,6 +12,7 @@ import { usersRoute } from "@/features/users";
 import {
   friends as friendsTable,
   friendNotes,
+  exchangeRecords,
   reports,
   users,
 } from "@/db/schema";
@@ -596,6 +597,22 @@ describe("ユーザー通報・ブロック API", () => {
       );
 
       expect(await db.select().from(friendNotes)).toHaveLength(0);
+    });
+
+    it("ブロックすると交換記録も両方向で消える（issue #661）", async () => {
+      const app = buildApp();
+      // フレンド成立で交換記録が両方向に作られる
+      await makeFriends(app);
+      expect(await db.select().from(exchangeRecords)).toHaveLength(2);
+
+      signInAs(USER_A);
+      await app.request(
+        `/users/${USER_B}/block`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      expect(await db.select().from(exchangeRecords)).toHaveLength(0);
     });
 
     it("ブロックした相手はフレンド一覧から除外される（双方向）", async () => {

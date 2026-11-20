@@ -1,13 +1,20 @@
 import { and, desc, eq, notExists, or, sql } from "drizzle-orm";
 import type { SQLWrapper } from "drizzle-orm";
 import type { DrizzleDb } from "@/db/client";
-import { users, friends, friendRequests, blocks } from "@/db/schema";
+import {
+  users,
+  friends,
+  friendRequests,
+  exchangeRecords,
+  blocks,
+} from "@/db/schema";
 import type { FriendRequest } from "@/db/schema";
 import {
   UserBlockedError,
   UserNotFoundError,
   usersRepository,
 } from "../users/repository";
+import { initialExchangeRecordValues } from "../exchange-records/repository";
 
 /** すでにフレンド関係にある相手へ申請したときに投げる。ルート層で 409 に変換する。 */
 export class AlreadyFriendsError extends Error {
@@ -98,7 +105,12 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
     const now = new Date();
     // 申請→承認（または相互申請の即成立）経由なので成立経路 source は
     // 'request'（issue #411 の「QR で交換した名刺」には数えない）。
-    await db.batch([
+    //
+    // 初回交換の記録（issue #661）は「friends 行を実際に増やした側」
+    // だけが積む。事前 SELECT での既フレンド判定は同時承認で両方
+    // 「まだフレンドでない」を見て記録が二重になるため、INSERT の
+    // returning()（onConflict で行が増えなければ 0 件）で判定する。
+    const results = await db.batch([
       db
         .insert(friends)
         .values({
@@ -107,7 +119,8 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
           source: "request",
           createdAt: now,
         })
-        .onConflictDoNothing(),
+        .onConflictDoNothing()
+        .returning({ id: friends.id }),
       db
         .insert(friends)
         .values({
@@ -119,6 +132,30 @@ export function friendRequestsRepository(db: DrizzleDb, currentUserId: string) {
         .onConflictDoNothing(),
       deleteRequestsBetween(currentUserId, otherUserId),
     ]);
+    // A→B 行をこのリクエストが作ったときだけ、各側の名刺帳に初回記録を
+    // 1 行ずつ積む（対面 QR と同じ）。
+    if (results[0].length > 0) {
+      await db.batch([
+        db.insert(exchangeRecords).values(
+          initialExchangeRecordValues({
+            ownerId: currentUserId,
+            friendId: otherUserId,
+            source: "request",
+            metAt: now,
+            now,
+          }),
+        ),
+        db.insert(exchangeRecords).values(
+          initialExchangeRecordValues({
+            ownerId: otherUserId,
+            friendId: currentUserId,
+            source: "request",
+            metAt: now,
+            now,
+          }),
+        ),
+      ]);
+    }
   }
 
   return {

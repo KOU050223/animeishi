@@ -10,7 +10,7 @@ import {
   OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   QR_EXCHANGE_TOKEN_TTL_SEC,
 } from "@/features/friends/qrExchangeToken";
-import { users } from "@/db/schema";
+import { users, friends as friendsTable } from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -228,6 +228,68 @@ describe("フレンド API", () => {
       const rows = await db.query.friends.findMany();
       expect(rows).toHaveLength(2);
       expect(rows.every((row) => row.source === "qr")).toBe(true);
+    });
+
+    // 交換記録（issue #661）。初回交換は両方向の名刺帳に記録を積む。
+    it("POST /me/friends: 初回交換の記録が両方向に作られる（場所・イベントは空）", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records).toHaveLength(2);
+      const recordForA = records.find((r) => r.ownerId === USER_A);
+      const recordForB = records.find((r) => r.ownerId === USER_B);
+      expect(recordForA?.friendId).toBe(USER_B);
+      expect(recordForB?.friendId).toBe(USER_A);
+      // met_at はフレンド成立時刻と同じ
+      const friendRows = await db.query.friends.findMany();
+      expect(recordForA?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+      expect(records.every((r) => r.source === "qr")).toBe(true);
+      // 場所・イベント・名刺コピー参照は後から本人が足す／#662 の列で NULL
+      expect(records.every((r) => r.placeName === null)).toBe(true);
+      expect(records.every((r) => r.eventName === null)).toBe(true);
+      expect(records.every((r) => r.cardSnapshotKey === null)).toBe(true);
+    });
+
+    it("POST /me/friends: 冪等の再 POST では記録を増やさない", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+    });
+
+    // 同時交換の「負け側」（INSERT が既存行に当たる側）は記録を足さない
+    // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
+    it("POST /me/friends: friends 行が先行して作られていれば記録は足さない", async () => {
+      // 相手側の同時交換が先に A→B 行を作った状態（この POST の INSERT は
+      // onConflict で増えず returning が空になる）
+      await db.insert(friendsTable).values({
+        userId: USER_A,
+        friendId: USER_B,
+        source: "qr",
+        createdAt: new Date(),
+      });
+
+      const app = buildApp();
+      await postFriend(app, USER_B);
+
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
+    });
+
+    it("DELETE /me/friends/:friendId: フレンド解除で両方向の交換記録が消える", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B);
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+
+      await app.request(
+        `/me/friends/${USER_B}`,
+        { method: "DELETE" },
+        TEST_BINDINGS,
+      );
+      expect(await db.query.exchangeRecords.findMany()).toHaveLength(0);
     });
 
     it("POST /me/friends: 自分自身を追加しようとすると 400", async () => {

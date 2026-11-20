@@ -16,6 +16,7 @@ import {
   deletionFeedbacks,
   feedbacks,
   episodeRecords,
+  exchangeRecords,
   favorites,
   friends,
   friendNotes,
@@ -1090,6 +1091,25 @@ describe("DELETE /me（アカウント削除）", () => {
         updatedAt: now,
       },
     ]);
+    // 交換記録（issue #661）も両方向に作り、退会で全消去されることを見る。
+    await db.insert(exchangeRecords).values([
+      {
+        ownerId: USER_ID,
+        friendId: OTHER_ID,
+        source: "qr",
+        metAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        ownerId: OTHER_ID,
+        friendId: USER_ID,
+        source: "qr",
+        metAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
     await db.insert(userGenres).values([
       { userId: USER_ID, genre: "SF" },
       { userId: OTHER_ID, genre: "日常" },
@@ -1241,6 +1261,18 @@ describe("DELETE /me（アカウント削除）", () => {
           or(
             eq(friendNotes.ownerId, USER_ID),
             eq(friendNotes.friendId, USER_ID),
+          ),
+        ),
+    ).toHaveLength(0);
+    // exchange_records も両方向が消える（issue #661、退会時は全消去）
+    expect(
+      await db
+        .select()
+        .from(exchangeRecords)
+        .where(
+          or(
+            eq(exchangeRecords.ownerId, USER_ID),
+            eq(exchangeRecords.friendId, USER_ID),
           ),
         ),
     ).toHaveLength(0);
