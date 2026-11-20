@@ -761,14 +761,6 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
           miniMeishi={queuedExchange.miniMeishi}
           onClose={closeQueuedOverlay}
           onShowMyQr={onShowMyQr}
-          onSendThanks={() => {
-            // 受付はオフライン時でフレンド未成立のため、この場では送れない。
-            // 送信面はプロフィール詳細のお礼セクションなのでそこへ誘導する
-            // （issue #694）。
-            const uid = queuedExchange.uid;
-            closeQueuedOverlay();
-            router.push({ pathname: "/user/[uid]", params: { uid } });
-          }}
         />
       ) : null}
     </View>

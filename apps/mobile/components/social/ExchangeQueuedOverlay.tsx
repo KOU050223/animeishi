@@ -27,13 +27,6 @@ export type ExchangeQueuedOverlayProps = {
    * 操作なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
    */
   onShowMyQr?: () => void;
-  /**
-   * 「お礼を送る」ボタンを出すときに渡す（issue #694）。
-   * 受付時点ではフレンド未成立（オフライン等）なので、この場では
-   * 送れない。押したときの動作（プロフィール詳細への誘導など）は
-   * 呼び出し側が決める。
-   */
-  onSendThanks?: () => void;
 };
 
 // ExchangeSuccessOverlay と同じ控えめなポップ演出（0.92 → 1.0）。
@@ -87,7 +80,6 @@ export function ExchangeQueuedOverlay({
   miniMeishi,
   onClose,
   onShowMyQr,
-  onSendThanks,
 }: ExchangeQueuedOverlayProps) {
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -150,19 +142,6 @@ export function ExchangeQueuedOverlay({
               >
                 <Text className="text-white font-semibold">
                   {t("自分の QR も見せる")}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-            {onSendThanks ? (
-              <TouchableOpacity
-                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
-                onPress={onSendThanks}
-                accessibilityRole="button"
-                accessibilityLabel={t("お礼を送る")}
-                testID="exchange-queued-thanks-button"
-              >
-                <Text className="text-white font-semibold">
-                  {t("お礼を送る")}
                 </Text>
               </TouchableOpacity>
             ) : null}
