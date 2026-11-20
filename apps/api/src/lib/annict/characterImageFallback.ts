@@ -36,6 +36,18 @@ const REMOTE_FETCH_TIMEOUT_MS = 6000;
 // 10 ページで 30 未満）。
 const KITSU_CHARACTERS_PAGE_LIMIT = 20;
 const KITSU_CHARACTERS_MAX_PAGES = 10;
+// 元作品の一覧が空のときだけ探索する。関連先 2 件 × 10 ページ、
+// 関係取得 2 件、元作品 1 ページ、mappings 3、Annict 3、Clerk 1、
+// D1 9 でも最大 39 サブリクエストで Workers Free の 50 未満。
+const KITSU_RELATED_ANIME_MAX = 2;
+const KITSU_RELATIONSHIP_MAX_HOPS = 2;
+const KITSU_RELATED_ROLES = new Set([
+  "prequel",
+  "parent_story",
+  "full_story",
+  "sequel",
+  "side_story",
+]);
 
 /** Kitsu キャラクター 1 件（名寄せに必要な名前候補と画像のみ）。 */
 export type KitsuCharacter = {
@@ -69,6 +81,15 @@ type KitsuMediaCharactersResponse = {
   links?: { next?: string | null } | null;
 };
 
+type KitsuMediaRelationshipsResponse = {
+  data?: ({
+    attributes?: { role?: string | null } | null;
+    relationships?: {
+      destination?: { data?: { id?: string; type?: string } | null } | null;
+    } | null;
+  } | null)[];
+};
+
 /**
  * 作品（MAL ID）に紐づく Kitsu キャラクター一覧を取得する。
  * MAL ID → Kitsu 作品 ID は mappings で引き（imageFallback.ts と同じ
@@ -84,6 +105,67 @@ export async function fetchKitsuCharacters(
   const kitsuAnimeId = animeIds.get(malAnimeId);
   if (!kitsuAnimeId) return [];
 
+  const out = new Map<string, KitsuCharacter>();
+  await fetchCharactersForAnime(kitsuAnimeId, fetchImpl, out);
+  if (out.size > 0) return [...out.values()];
+
+  const seen = new Set([kitsuAnimeId]);
+  const queue: { id: string; hops: number }[] = [{ id: kitsuAnimeId, hops: 0 }];
+  let checked = 0;
+  while (queue.length && checked < KITSU_RELATED_ANIME_MAX) {
+    const current = queue.shift()!;
+    if (current.hops >= KITSU_RELATIONSHIP_MAX_HOPS) continue;
+    const related = await fetchRelatedAnimeIds(current.id, fetchImpl);
+    for (const id of related) {
+      if (seen.has(id) || checked >= KITSU_RELATED_ANIME_MAX) continue;
+      seen.add(id);
+      checked++;
+      await fetchCharactersForAnime(id, fetchImpl, out);
+      if (current.hops + 1 < KITSU_RELATIONSHIP_MAX_HOPS) {
+        queue.push({ id, hops: current.hops + 1 });
+      }
+    }
+  }
+  return [...out.values()];
+}
+
+async function fetchRelatedAnimeIds(
+  animeId: string,
+  fetchImpl: typeof fetch,
+): Promise<string[]> {
+  const url = new URL(
+    `${KITSU_CHARACTERS_ENDPOINT_BASE}/${animeId}/media-relationships`,
+  );
+  url.searchParams.set("page[limit]", "20");
+  const res = await safeFetch(
+    fetchImpl,
+    url.toString(),
+    {
+      headers: { Accept: "application/vnd.api+json" },
+    },
+    REMOTE_FETCH_TIMEOUT_MS,
+  );
+  if (!res?.ok) return [];
+  try {
+    const json = (await res.json()) as KitsuMediaRelationshipsResponse;
+    return (json.data ?? []).flatMap((row) => {
+      const destination = row?.relationships?.destination?.data;
+      return KITSU_RELATED_ROLES.has(row?.attributes?.role ?? "") &&
+        destination?.type === "anime" &&
+        destination.id
+        ? [destination.id]
+        : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCharactersForAnime(
+  kitsuAnimeId: string,
+  fetchImpl: typeof fetch,
+  out: Map<string, KitsuCharacter>,
+): Promise<void> {
   const first = new URL(
     `${KITSU_CHARACTERS_ENDPOINT_BASE}/${kitsuAnimeId}/characters`,
   );
@@ -99,7 +181,6 @@ export async function fetchKitsuCharacters(
     "canonicalName,names,otherNames,name,image",
   );
 
-  const out = new Map<string, KitsuCharacter>();
   let next: string | null = first.toString();
   for (let page = 0; next && page < KITSU_CHARACTERS_MAX_PAGES; page++) {
     const res = await safeFetch(
@@ -151,7 +232,6 @@ export async function fetchKitsuCharacters(
       ? (json.links?.next ?? null)
       : null;
   }
-  return [...out.values()];
 }
 
 function isKitsuCharactersPageUrl(
