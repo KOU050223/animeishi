@@ -124,7 +124,7 @@ const me = app
       username: data.username ?? c.var.clerkUserId,
       bio: data.bio ?? null,
       favoriteQuote: data.favoriteQuote ?? null,
-      isPublic: data.isPublic ?? true,
+      isPublic: data.isPublic ?? existing?.isPublic ?? true,
       profileImageUrl: existing?.profileImageUrl ?? null,
     });
 

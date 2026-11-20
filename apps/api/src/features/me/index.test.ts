@@ -348,6 +348,43 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(body.isPublic).toBe(false);
     });
 
+    // issue #604: 公開設定は isPublic を送らないフォーム保存（自己紹介等）
+    // で巻き戻さない。未指定なら既存値を保つ。
+    it("PUT /me/profile: isPublic 未指定の更新は既存の公開設定を維持する", async () => {
+      const now = new Date();
+      await db.insert(users).values({
+        id: USER_ID,
+        username: "非公開ユーザー",
+        isPublic: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        "/me/profile",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bio: "自己紹介を更新" }),
+        },
+        {
+          DB: env.DB,
+          CLERK_SECRET_KEY: "test_secret",
+          CLERK_PUBLISHABLE_KEY: "test_pub",
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        username: string;
+        bio: string | null;
+        isPublic: boolean;
+      };
+      expect(body.bio).toBe("自己紹介を更新");
+      expect(body.isPublic).toBe(false);
+    });
+
     // issue #581: 過去に「@」入りで登録されたユーザー名のまま保存しても
     // バリデーションで弾かれないこと。
     it("PUT /me/profile: 「@」を含むユーザー名で更新できる", async () => {
