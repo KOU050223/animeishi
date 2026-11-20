@@ -46,6 +46,8 @@ import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { resolveMeishiDocument } from "@/lib/meishi/templates";
 import type { ImageElement } from "@/lib/meishi/types";
+import { PublicSettingsSection } from "@/components/profile/PublicSettingsSection";
+import { usePublicSettings } from "@/lib/usePublicSettings";
 
 type Toast = { type: "success" | "error"; message: string };
 
@@ -91,6 +93,7 @@ export default function ProfileScreen() {
   const { signOut } = useAuth();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
+  const publicSettings = usePublicSettings();
   const uploadAvatar = useProfileAvatarUpload();
   // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
   const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
@@ -450,6 +453,38 @@ export default function ProfileScreen() {
                 />
               </View>
             </View>
+
+            {publicSettings.isLoading ? (
+              <View className="mt-8 px-4">
+                <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
+              </View>
+            ) : publicSettings.isError ? (
+              <View className="mt-8 px-4">
+                <Text className="text-red-500">
+                  {t("公開設定の取得に失敗しました")}
+                </Text>
+              </View>
+            ) : (
+              <PublicSettingsSection
+                profilePublic={publicSettings.profilePublic}
+                items={publicSettings.items}
+                pendingKey={publicSettings.pendingKey}
+                onToggle={(kind, id, value) => {
+                  void publicSettings.toggle(kind, id, value).then(
+                    () =>
+                      showToast({
+                        type: "success",
+                        message: t("公開設定を更新しました"),
+                      }),
+                    () =>
+                      showToast({
+                        type: "error",
+                        message: t("公開設定の更新に失敗しました"),
+                      }),
+                  );
+                }}
+              />
+            )}
 
             <View
               className="mt-6 px-4"

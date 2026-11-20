@@ -122,6 +122,17 @@ jest.mock("@/lib/useProfile", () => ({
   }),
 }));
 
+jest.mock("@/lib/usePublicSettings", () => ({
+  usePublicSettings: () => ({
+    profilePublic: mockProfile?.data?.isPublic ?? false,
+    items: [],
+    isLoading: false,
+    isError: false,
+    pendingKey: null,
+    toggle: jest.fn(),
+  }),
+}));
+
 jest.mock("@/lib/annict/storage", () => ({
   annictTokenStorage: {
     get: jest.fn(async () => null),
