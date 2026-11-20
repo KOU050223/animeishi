@@ -64,7 +64,7 @@ export function invalidateFriendRelatedQueries(
   void queryClient.invalidateQueries({ queryKey: PUBLIC_PROFILE_QUERY_KEY });
 }
 
-async function getAuthHeaders(
+export async function getAuthHeaders(
   getToken: () => Promise<string | null>,
 ): Promise<{ Authorization: string }> {
   const token = await getToken();
