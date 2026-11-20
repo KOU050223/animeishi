@@ -63,6 +63,8 @@ fi
 # 外さないと、BACKFILL_LIMIT 付きの再実行が失敗行ばかりを選び続け、
 # 後続の作品に進めない。値は WORK_IMAGE_FAILURE_COOLDOWN_MS（6 時間）と揃える。
 # image_r2_attempted_at は drizzle の timestamp モード（UNIX 秒）で保存されている。
+# Annict 由来の作品は配信方式変更（issue #636）で R2 ではなく検証済み URL の
+# 記録として image_r2_key を持つため、ここの対象には入らない。
 COOLDOWN_SECONDS=$((6 * 60 * 60))
 
 echo "対象を取得中（${DB_NAME} / --env ${ENV}）..." >&2
@@ -101,8 +103,10 @@ echo >&2
 
 echo "== 結果（status: 件数）=="
 cut -d' ' -f1 "$RESULTS" | sort | uniq -c | awk '{ printf "  %s: %s 件\n", $2, $1 }'
-FAILED=$(awk '$1 != "200" { print $2 }' "$RESULTS" | head -50 | paste -sd ' ' -)
+# 302 は Annict 元 URL への誘導（issue #636 の正常系）。未検証の作品は
+# image_r2_key が無いため対象外なので、ここに出る 302 は実質無いはず。
+FAILED=$(awk '$1 != "200" && $1 != "302" { print $2 }' "$RESULTS" | head -50 | paste -sd ' ' -)
 if [ -n "$FAILED" ]; then
-  echo "== 200 以外の作品 ID（先頭 50 件）=="
+  echo "== 200 / 302 以外の作品 ID（先頭 50 件）=="
   echo "$FAILED"
 fi

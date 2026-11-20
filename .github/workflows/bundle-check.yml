@@ -58,10 +58,11 @@ jobs:
         with:
           cache: true
 
-      # EXPO_PUBLIC_* は値がバンドルへインライン化されるだけでモジュール評価は
-      # 行われない（web.output: "single" のため静的プリレンダも走らない）ので、
-      # 未設定でも export は成功する。secrets 不要。
-      # 将来 web.output を "static" に変えると export 時にルートが Node で
-      # レンダリングされるため、env 未設定で失敗し得る点に注意。
+      # web.output: "static" のため export 時にルートが Node でレンダリングされ、
+      # app/_layout.tsx が publishable key を必須とする。publishable key は
+      # クライアント公開値（deploy-web.yml と同じ vars）で、export 物は検証後
+      # 破棄するため本番値を使ってよい。ios/android では不要だが害もない。
       - name: Expo export (${{ matrix.platform }})
         run: pnpm --filter @animeishi/mobile exec expo export --platform ${{ matrix.platform }}
+        env:
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}

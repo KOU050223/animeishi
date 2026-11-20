@@ -557,6 +557,151 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(newRes.status).toBe(200);
     });
 
+    it("公開スナップショットは固定キーを上書きし URL の版が変わる", async () => {
+      const app = buildApp();
+      const upload = () =>
+        app.request(
+          "/me/meishi-snapshot",
+          {
+            method: "POST",
+            headers: { "Content-Type": "image/png" },
+            body: new Uint8Array([
+              0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+            ]),
+          },
+          testBindings(),
+        );
+      const first = await upload();
+      const second = await upload();
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      const firstBody: unknown = await first.json();
+      const secondBody: unknown = await second.json();
+      const firstUrl = (firstBody as { url: string }).url;
+      const secondUrl = (secondBody as { url: string }).url;
+      expect(new URL(firstUrl).pathname).toBe(new URL(secondUrl).pathname);
+      expect(firstUrl).not.toBe(secondUrl);
+      expect(
+        await env.AVATARS.head(`meishi-assets/${USER_ID}/public-snapshot.png`),
+      ).not.toBeNull();
+    });
+
+    it("公開プロフィールでは配信し、非公開化後は同じ URL に 404 を返す", async () => {
+      const app = buildApp();
+      const key = `meishi-assets/${USER_ID}/public-snapshot.png`;
+      await env.AVATARS.put(key, new Uint8Array([1]), {
+        httpMetadata: { contentType: "image/png" },
+      });
+      await db
+        .insert(users)
+        .values({
+          id: USER_ID,
+          username: "public",
+          isPublic: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({ target: users.id, set: { isPublic: true } });
+      const path = `/me/meishi-assets/${key}`;
+      const publicRes = await app.request(
+        path,
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(publicRes.status).toBe(200);
+      await db
+        .update(users)
+        .set({ isPublic: false })
+        .where(eq(users.id, USER_ID));
+      const privateRes = await app.request(
+        path,
+        { method: "GET" },
+        testBindings(),
+      );
+      expect(privateRes.status).toBe(404);
+    });
+
+    it("公開スナップショットは任意画像の200件上限に数えない", async () => {
+      const app = buildApp();
+      const countUserId = "user_testme_count";
+      vi.mocked(getAuth).mockReturnValue({ userId: countUserId } as ReturnType<
+        typeof getAuth
+      >);
+      await Promise.all(
+        Array.from({ length: 199 }, (_, i) =>
+          env.AVATARS.put(
+            `meishi-assets/${countUserId}/count-${i}.webp`,
+            new Uint8Array([1]),
+          ),
+        ),
+      );
+      await env.AVATARS.put(
+        `meishi-assets/${countUserId}/public-snapshot.png`,
+        new Uint8Array([1]),
+      );
+      const res = await app.request(
+        "/me/meishi-assets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/webp" },
+          body: new Uint8Array([1]),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(201);
+    });
+
+    it("公開スナップショットは PNG シグネチャでない本文を保存しない", async () => {
+      const app = buildApp();
+      const key = `meishi-assets/${USER_ID}/public-snapshot.png`;
+      await env.AVATARS.put(key, new Uint8Array([9]), {
+        httpMetadata: { contentType: "image/png" },
+      });
+      const res = await app.request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: new TextEncoder().encode("<html>not a png</html>"),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+      const stored = await env.AVATARS.get(key);
+      expect(new Uint8Array(await stored!.arrayBuffer())).toEqual(
+        new Uint8Array([9]),
+      );
+    });
+
+    it("公開スナップショットは Content-Length が上限超なら本文を読まず拒否する", async () => {
+      const res = await buildApp().request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "image/png",
+            "Content-Length": String(5 * 1024 * 1024 + 1),
+          },
+          body: new Uint8Array([1]),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("公開スナップショットは Content-Length がなくても上限で読み取りを止める", async () => {
+      const res = await buildApp().request(
+        "/me/meishi-snapshot",
+        {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: new Uint8Array(5 * 1024 * 1024 + 1),
+        },
+        testBindings(),
+      );
+      expect(res.status).toBe(400);
+    });
+
     it("POST /me/meishi-assets: 画像をアップロードして配信 URL が返る（GET は認証不要）", async () => {
       const app = buildApp();
       const bytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00]);

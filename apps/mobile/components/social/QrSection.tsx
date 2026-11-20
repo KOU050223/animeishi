@@ -1,27 +1,36 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   StyleSheet,
   type ViewInstance,
 } from "react-native";
 import { useAuth } from "@clerk/expo";
-import { useIsFocused, useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { CameraView } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQrScanner } from "@/lib/useQrScanner";
 import { useAddFriend, useQrExchangeToken } from "@/lib/useFriends";
 import { ApiRequestError } from "@/lib/apiError";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { ScanFallback } from "@/components/social/ScanFallback";
+import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
 import { alert } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
+import { useProfile } from "@/lib/useProfile";
+import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import { SegmentedControl } from "@/components/ui";
 
 // 「コピーしました」表示を元に戻すまでの時間。
@@ -80,7 +89,8 @@ export function QrSection() {
 }
 
 function GenerateView() {
-  const { userId, isSignedIn } = useAuth();
+  const { userId, isSignedIn, getToken } = useAuth();
+  const insets = useSafeAreaInsets();
   // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
   // 発火させるためフォーカスも見る。
   const isFocused = useIsFocused();
@@ -94,6 +104,43 @@ function GenerateView() {
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
+  const { data: profile } = useProfile();
+  // 渡す名刺（issue #595）。外に出る名刺は常に既定の 1 枚（issue #427）
+  // だが、対面で画面に見せる名刺は端末内の一覧から選べる。選択は
+  // この画面の表示だけに効き、既定の切り替えは名刺一覧側の操作に残す。
+  const {
+    cards: meishiCards,
+    defaultCard: meishiDefaultCard,
+    reload: reloadMeishi,
+  } = useMeishiLibrary();
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  // 既定の名刺の公開スナップショット URL（issue #593）。相手が受け取るのと
+  // 同じ画像を出すため、公開プロフィールの meishiSnapshotUrl をそのまま使う。
+  // 非公開プロフィールは 404 になるが、配信側も非公開なら 404 なので
+  // どのみち画像は取れず、端末内レンダリングにフォールバックする。
+  const { data: ownPublicProfile, refetch: refetchOwnPublicProfile } = useQuery(
+    {
+      queryKey: publicProfileQueryKey(userId ?? ""),
+      queryFn: async () => fetchPublicProfile(userId!, await getToken()),
+      enabled: !!isSignedIn && !!userId,
+      retry: false,
+    },
+  );
+
+  // 名刺エディタで内容が変わっていることがあるため、フォーカスのたびに
+  // ライブラリを読み直す（プロフィール画面と同じ作法）。
+  // 公開プロフィールも取り直す。名刺を編集するとスナップショットが
+  // 再生成されて ?v= の版が変わるので、編集直後に古い画像が残らない
+  // ようにする。
+  useFocusEffect(
+    useCallback(() => {
+      void reloadMeishi();
+      if (isSignedIn && userId) {
+        void refetchOwnPublicProfile();
+      }
+    }, [reloadMeishi, refetchOwnPublicProfile, isSignedIn, userId]),
+  );
 
   useEffect(
     () => () => {
@@ -130,6 +177,27 @@ function GenerateView() {
   }
 
   const shareUrl = buildProfileUrl(userId) ?? userId;
+  // 表示する名刺。選択中のカードが削除・切替済みなら既定の名刺に戻る
+  // （さらにライブラリが空なら MeishiCard 側の classic テンプレに落ちる）。
+  const displayCard =
+    meishiCards.find((card) => card.id === selectedCardId) ?? meishiDefaultCard;
+  // 公開スナップショットは既定の名刺の分だけが存在する（issue #593）。
+  // 選択中の名刺が既定なら相手が受け取るのと同じ画像を表示し、
+  // 既定以外やスナップショット未作成のときは端末内レンダリングに留める。
+  const snapshotUrl =
+    displayCard != null && displayCard.id === meishiDefaultCard?.id
+      ? (ownPublicProfile?.meishiSnapshotUrl ?? null)
+      : null;
+  const meishiCardElement = (
+    <MeishiCard
+      username={profile?.username}
+      bio={profile?.bio}
+      favoriteQuote={profile?.favoriteQuote}
+      profileImageUrl={profile?.profileImageUrl}
+      profileUrl={shareUrl}
+      document={displayCard?.document ?? null}
+    />
+  );
   // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
   // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
   // 載せない shareUrl を使い回し、遠隔では申請フローに限定する。
@@ -190,9 +258,96 @@ function GenerateView() {
     // スクロールする ScrollView にする（issue #527）。
     <ScrollView
       className="flex-1"
-      contentContainerClassName="flex-grow items-center justify-center px-8 py-4"
+      // 下端はネイティブのタブバーに潜り込むため、収まらずスクロールした
+      // 最後の要素がその下に隠れないようタブバー分の inset を余白へ足す
+      // （issue #462）。
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={{
+        flexGrow: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 32,
+        paddingTop: 16,
+        paddingBottom: 16 + insets.bottom,
+      }}
       testID="qr-generate-scroll"
     >
+      {/* 渡す名刺を QR の主役として出す（issue #595）。document の解決は
+          プロフィールの名刺プレビューと同じく、端末内ライブラリの
+          カードをプロフィール情報で描画する。既定の名刺では公開
+          スナップショット画像を出し、読み込み中・失敗・未作成では
+          端末内レンダリングにフォールバックする。 */}
+      <View
+        className="w-full"
+        style={styles.meishiCard}
+        testID="qr-meishi-card"
+      >
+        {/* uri が null（既定以外・スナップショット未作成）なら中で
+            fallback に落ちる。?v= で URL が変わると内部状態が
+            リセットされるため key は不要。 */}
+        <MeishiSnapshotImage
+          uri={snapshotUrl}
+          fallback={meishiCardElement}
+          accessibilityLabel={t("渡す名刺")}
+          keepFallbackForA11y
+          testID="meishi-snapshot"
+        />
+      </View>
+      {/* スクリーンショットでも誰の QR か分かるよう名を添える
+          （issue #595）。 */}
+      <Text
+        className="mt-2 text-base font-semibold text-slate-900 dark:text-slate-100"
+        testID="qr-owner-username"
+      >
+        {profile?.username ?? userId}
+      </Text>
+      {/* 複数の名刺があるときは渡す 1 枚を選べる（issue #427 連携）。 */}
+      {meishiCards.length > 1 ? (
+        <View className="mt-3 self-stretch" testID="qr-meishi-picker">
+          <Text className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">
+            {t("渡す名刺")}
+          </Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="gap-2"
+            data={meishiCards}
+            keyExtractor={(card) => card.id}
+            renderItem={({ item: card }) => {
+              const active = card.id === displayCard?.id;
+              return (
+                <TouchableOpacity
+                  className={`rounded-full border px-3 py-1.5 ${
+                    active
+                      ? "border-indigo-600 bg-indigo-600"
+                      : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"
+                  }`}
+                  onPress={() => setSelectedCardId(card.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("{{name}}を渡す名刺にする", {
+                    name: card.name,
+                  })}
+                  accessibilityState={{ selected: active }}
+                  testID={`qr-meishi-pick-${card.id}`}
+                >
+                  <Text
+                    className={`text-xs font-medium ${
+                      active
+                        ? "text-white"
+                        : "text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    {card.name}
+                    {card.id === meishiDefaultCard?.id
+                      ? `（${t("既定")}）`
+                      : ""}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      ) : null}
       {/* QR コードは読み取り精度のため常に白いカードに描画する
           （周囲の quiet zone も白が前提）。dark でも白のままにする。 */}
       {/* collapsable={false} は Android の captureRef 対策（View が
@@ -200,7 +355,7 @@ function GenerateView() {
       <View
         ref={qrCardRef}
         collapsable={false}
-        className="p-6 bg-white rounded-2xl border border-slate-100"
+        className="mt-6 p-6 bg-white rounded-2xl border border-slate-100"
         style={styles.qrCard}
         testID="qr-code-container"
       >
@@ -258,12 +413,18 @@ function GenerateView() {
 
 function ScanView() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   // 画面を離れたらカメラをアンマウントしてリソースを解放する。
   const isFocused = useIsFocused();
   const router = useRouter();
   const addFriend = useAddFriend();
   // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
+  // ブラウザ非対応のときに起きる）。失敗後は再マウントできるよう
+  // カメラの key を持つ。
+  const [mountError, setMountError] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
 
   const {
     permission,
@@ -332,22 +493,20 @@ function ScanView() {
     );
   }
 
-  // 権限が拒否されている
+  // 権限が拒否されている / カメラを起動できない。フォールバックの
+  // 内容はプラットフォームで分岐する（ScanFallback、issue #595）。
   if (!permission.granted) {
+    return <ScanFallback reason="denied" onRetry={requestPermission} />;
+  }
+  if (mountError) {
     return (
-      <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-slate-600 dark:text-slate-300 text-center mb-4">
-          {t("QR コードをスキャンするにはカメラの許可が必要です")}
-        </Text>
-        <TouchableOpacity
-          className="bg-indigo-600 rounded-lg px-6 py-3"
-          onPress={requestPermission}
-          accessibilityRole="button"
-          accessibilityLabel={t("カメラの使用を許可")}
-        >
-          <Text className="text-white font-semibold">{t("カメラを許可")}</Text>
-        </TouchableOpacity>
-      </View>
+      <ScanFallback
+        reason="error"
+        onRetry={() => {
+          setMountError(false);
+          setCameraKey((k) => k + 1);
+        }}
+      />
     );
   }
 
@@ -355,8 +514,10 @@ function ScanView() {
     <View className="flex-1">
       {isFocused ? (
         <CameraView
+          key={cameraKey}
           style={styles.camera}
           facing="back"
+          onMountError={() => setMountError(true)}
           // スキャン済みのときはハンドラを外して発火を止める。
           onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
@@ -366,7 +527,12 @@ function ScanView() {
         // フォーカスが外れている間はカメラを描画しない（メモリ解放）。
         <View className="flex-1 bg-black" />
       )}
-      <View className="absolute bottom-12 left-0 right-0 items-center">
+      {/* bottom-12 (48px) はタブバー＋ホームインジケータ (~83px) より浅く、
+          ヒントがその下に隠れるためタブバー分の inset を足す（issue #462）。 */}
+      <View
+        className="absolute left-0 right-0 items-center"
+        style={{ bottom: insets.bottom + 16 }}
+      >
         <Text className="text-white text-sm bg-black/50 px-4 py-2 rounded-full">
           {addFriend.isPending
             ? t("フレンド登録中...")
@@ -386,6 +552,11 @@ function ScanView() {
 }
 
 const styles = StyleSheet.create({
+  // 名刺を主役として出しつつ、横幅のある Web でカードが
+  // 伸びすぎないよう上限を設ける。
+  meishiCard: {
+    maxWidth: 440,
+  },
   qrCard: {
     boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.08)",
   },

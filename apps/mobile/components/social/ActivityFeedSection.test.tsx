@@ -51,6 +51,18 @@ jest.mock("@/lib/useActivityFeed", () => ({
   useActivityFeed: () => mockFeed,
 }));
 
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+// 空状態の案内出し分け（issue #533）はフレンド数で決まるため差し替えられる
+// ようにする。フィードと同じくテストごとに上書きする。
+let mockFriends: { data?: { friendId: string }[]; isLoading: boolean };
+jest.mock("@/lib/useFriends", () => ({
+  useFriends: () => mockFriends,
+}));
+
 function feedItem(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
@@ -82,6 +94,9 @@ function loadedFeed(items: unknown[], nextCursor: number | null = null) {
 
 beforeEach(() => {
   mockFeed = loadedFeed([]);
+  // 既定はフレンドあり。フレンド 0 人のケースは各テストで上書きする。
+  mockFriends = { data: [{ friendId: "f1" }], isLoading: false };
+  mockPush.mockClear();
 });
 
 describe("ActivityFeedSection", () => {
@@ -139,6 +154,88 @@ describe("ActivityFeedSection", () => {
     expect(screen.getByText("まだフレンドの活動はありません")).toBeTruthy();
   });
 
+  it("フレンドがいるのに活動が無いときは導線を出さない", async () => {
+    await render(<ActivityFeedSection />);
+    expect(screen.getByText("まだフレンドの活動はありません")).toBeTruthy();
+    expect(screen.queryByTestId("activity-feed-find-friends-qr")).toBeNull();
+  });
+
+  it("フレンド 0 人の空状態はフレンドの探し方の導線を出す（issue #533）", async () => {
+    mockFriends = { data: [], isLoading: false };
+    await render(<ActivityFeedSection />);
+    expect(screen.getByText("まだフレンドがいません")).toBeTruthy();
+    expect(
+      screen.getByText("フレンドを見つけると、ここに活動が表示されます"),
+    ).toBeTruthy();
+    expect(screen.queryByText("まだフレンドの活動はありません")).toBeNull();
+  });
+
+  it("フレンド 0 人の導線ボタンから QR 交換とひろばの名刺一覧へ進める", async () => {
+    mockFriends = { data: [], isLoading: false };
+    await render(<ActivityFeedSection />);
+
+    await fireEvent.press(screen.getByTestId("activity-feed-find-friends-qr"));
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/social?section=qr");
+
+    await fireEvent.press(
+      screen.getByTestId("activity-feed-find-friends-hiroba"),
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      "/(tabs)/hiroba?section=discover&target=users",
+    );
+  });
+
+  it("フレンド数の取得中は案内を出さず読み込み表示にする", async () => {
+    mockFriends = { data: undefined, isLoading: true };
+    await render(<ActivityFeedSection />);
+    expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
+    expect(screen.queryByText("まだフレンドがいません")).toBeNull();
+  });
+
+  it("フレンド数の取得に失敗したときは従来の空メッセージを出す", async () => {
+    mockFriends = { data: undefined, isLoading: false };
+    await render(<ActivityFeedSection />);
+    expect(screen.getByText("まだフレンドの活動はありません")).toBeTruthy();
+  });
+
+  it("同じユーザーの連続した同種のステータス変更はまとめて 1 行で出す（issue #533）", async () => {
+    mockFeed = loadedFeed([
+      feedItem({ id: 1, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 2, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 3, meta: { state: "STOP_WATCHING" } }),
+    ]);
+    await render(<ActivityFeedSection />);
+    expect(screen.getByTestId("activity-group-1")).toBeTruthy();
+    expect(screen.getByText(/3 件の記録を 断念 に更新しました/)).toBeTruthy();
+    expect(screen.queryByTestId("activity-item-1")).toBeNull();
+    expect(screen.queryByTestId("activity-item-2")).toBeNull();
+  });
+
+  it("まとめの条件を満たさない活動は個別に出す", async () => {
+    mockFeed = loadedFeed([
+      feedItem({ id: 1, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 2, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 3, meta: { state: "WATCHING" } }),
+    ]);
+    await render(<ActivityFeedSection />);
+    expect(screen.getByTestId("activity-item-1")).toBeTruthy();
+    expect(screen.getByTestId("activity-item-2")).toBeTruthy();
+    expect(screen.getByTestId("activity-item-3")).toBeTruthy();
+    expect(screen.queryByTestId(/activity-group-/)).toBeNull();
+  });
+
+  it("まとめと個別の活動が混在しても順に表示する", async () => {
+    mockFeed = loadedFeed([
+      feedItem({ id: 1, type: "favorite_added", meta: null }),
+      feedItem({ id: 2, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 3, meta: { state: "STOP_WATCHING" } }),
+      feedItem({ id: 4, meta: { state: "STOP_WATCHING" } }),
+    ]);
+    await render(<ActivityFeedSection />);
+    expect(screen.getByTestId("activity-item-1")).toBeTruthy();
+    expect(screen.getByTestId("activity-group-2")).toBeTruthy();
+  });
+
   it("エラー時はメッセージと再読み込みボタンを表示し、ボタンで refetch する", async () => {
     const refetch = jest.fn();
     mockFeed = { ...loadedFeed([]), data: undefined, isError: true, refetch };
@@ -173,10 +270,12 @@ describe("ActivityFeedSection", () => {
 
   it("maxItems を超える活動は表示せず、すべて見るで onShowAll を呼ぶ", async () => {
     const onShowAll = jest.fn();
+    // 同じユーザー・同じステータスの連続は 1 行にまとまるため（issue #533）、
+    // 行数の検証にはまとまらない異なるステータスの活動を使う。
     mockFeed = loadedFeed([
-      feedItem({ id: 1 }),
-      feedItem({ id: 2 }),
-      feedItem({ id: 3 }),
+      feedItem({ id: 1, meta: { state: "WATCHING" } }),
+      feedItem({ id: 2, meta: { state: "WATCHED" } }),
+      feedItem({ id: 3, meta: { state: "STOP_WATCHING" } }),
     ]);
     await render(<ActivityFeedSection maxItems={2} onShowAll={onShowAll} />);
     expect(screen.getByTestId("activity-item-2")).toBeTruthy();

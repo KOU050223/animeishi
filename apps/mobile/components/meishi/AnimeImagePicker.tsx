@@ -22,6 +22,7 @@ import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { initialWindowMetrics } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";
 import { useThemeColors } from "@/lib/theme";
 
@@ -50,7 +51,7 @@ const LIBRARY_KEYS: LibraryKey[] = [
 ];
 
 function libraryLabel(key: LibraryKey, t: TFunction): string {
-  return key === "favorites" ? t("お気に入り") : t(WATCH_STATUS_LABELS[key]);
+  return key === "favorites" ? t("推し") : t(WATCH_STATUS_LABELS[key]);
 }
 
 function seasonText(item: AnimePickItem, t: TFunction): string {
@@ -200,7 +201,7 @@ function LibraryList({
               }}
             >
               {listKey === "favorites"
-                ? t("お気に入りに作品がありません")
+                ? t("推しに作品がありません")
                 : t("このリストに作品がありません")}
             </Text>
           }
@@ -358,7 +359,10 @@ export function AnimeImagePicker({
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             padding: 16,
-            paddingBottom: 24,
+            // Modal は全画面を覆うため下端はホームインジケータまで届く。
+            // 固定 24 ではホームインジケータ領域に掛かるので inset を足す
+            // （issue #462。タブバーではなくウィンドウの inset を使う）。
+            paddingBottom: 24 + (initialWindowMetrics?.insets.bottom ?? 0),
             height: Math.min(Math.round(height * 0.75), 640),
             width: "100%",
             maxWidth: 560,

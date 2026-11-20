@@ -70,7 +70,7 @@ export function useFavorites() {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.favorites.$get({}, { headers });
       if (!res.ok) {
-        throw new ApiRequestError(res.status, "お気に入りの取得に失敗しました");
+        throw new ApiRequestError(res.status, "推しの取得に失敗しました");
       }
       return res.json();
     },
@@ -104,7 +104,7 @@ export function useAddFavorite() {
         { headers: { ...headers, ...annictHeader } },
       );
       if (!res.ok) {
-        throw new ApiRequestError(res.status, "お気に入りの追加に失敗しました");
+        throw new ApiRequestError(res.status, "推しの登録に失敗しました");
       }
       return res.json();
     },
@@ -128,7 +128,7 @@ export function useRemoveFavorite() {
         { headers },
       );
       if (!res.ok) {
-        throw new ApiRequestError(res.status, "お気に入りの削除に失敗しました");
+        throw new ApiRequestError(res.status, "推しの解除に失敗しました");
       }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;

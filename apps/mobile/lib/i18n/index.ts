@@ -25,6 +25,11 @@ export const resources = {
  *  Web では navigator.languages の優先順リストを順にチェックして最初にマッチした言語を使う。
  */
 function detectLanguage(): SupportedLanguage {
+  // Web の静的プリレンダは Node 上で実行され、Node の navigator.languages は
+  // ブラウザではなくビルド機のロケールを返す。これに引きずられると生成 HTML の
+  // 言語がビルド環境依存になる。メタ・OGP は ja 固定なので、サーバー側では
+  // フォールバック言語に揃える（RN 環境には window があるため影響しない）。
+  if (typeof window === "undefined") return FALLBACK_LANGUAGE;
   // Web: ブラウザの言語優先リストを順にチェック
   if (typeof navigator !== "undefined" && navigator.languages?.length) {
     for (const lang of navigator.languages) {

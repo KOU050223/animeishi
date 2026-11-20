@@ -21,6 +21,12 @@ export type MeishiCardProps = {
   /** ピンチ&ズームを有効にするか。一覧のサムネイル等では false にする。 */
   zoomable?: boolean;
   profileOnly?: boolean;
+  /**
+   * bio・好きなセリフ・画像などバインド先が未設定の欄を、プレースホルダー
+   * ではなく非表示にする。公開一覧用（issue #591）。既定は false で、
+   * 自分のプロフィール画面のプレビューは従来どおりプレースホルダーを出す。
+   */
+  hideUnsetFields?: boolean;
 };
 
 const MIN_SCALE = 1;
@@ -85,6 +91,7 @@ function FullMeishiCard(props: MeishiCardProps) {
 function MeishiCardView({
   document,
   zoomable = false,
+  hideUnsetFields = false,
   context,
 }: MeishiCardProps & { context: MeishiRenderContext }) {
   const scale = useSharedValue(1);
@@ -133,6 +140,10 @@ function MeishiCardView({
   }));
 
   const doc = useMemo(() => resolveMeishiDocument(document), [document]);
+  const renderContext = useMemo<MeishiRenderContext>(
+    () => (hideUnsetFields ? { ...context, hideUnsetFields } : context),
+    [context, hideUnsetFields],
+  );
 
   const card = (
     <Animated.View
@@ -146,7 +157,7 @@ function MeishiCardView({
         },
       ]}
     >
-      <MeishiRenderer document={doc} context={context} />
+      <MeishiRenderer document={doc} context={renderContext} />
     </Animated.View>
   );
 

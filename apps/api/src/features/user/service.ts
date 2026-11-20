@@ -36,7 +36,7 @@ function formatSnapshotDate(d: Date): string {
 
 /**
  * og:description 等に載せる視聴サマリの 1 行テキスト
- * （例: "視聴済み120作品・見たい5作品・お気に入り8作品（2026/10/13時点）"）。
+ * （例: "視聴済み120作品・見たい5作品・推し8作品（2026/10/13時点）"）。
  * 0 件だけ・未同期なら空文字を返す（呼び出し側でサマリ自体を省略する）。
  * SNS カードでは description が主な露出面のため、スナップショットの時点も
  * ここに含める（本文の注記だけではカード上で読めない）。
@@ -46,7 +46,7 @@ function buildWatchSummaryText(summary: UserWatchSummary): string {
     summary.watchedCount > 0 ? `視聴済み${summary.watchedCount}作品` : "",
     summary.watchingCount > 0 ? `視聴中${summary.watchingCount}作品` : "",
     summary.wannaWatchCount > 0 ? `見たい${summary.wannaWatchCount}作品` : "",
-    summary.favoriteCount > 0 ? `お気に入り${summary.favoriteCount}作品` : "",
+    summary.favoriteCount > 0 ? `推し${summary.favoriteCount}作品` : "",
   ].filter(Boolean);
   if (parts.length === 0) return "";
   const synced = summary.syncedAt
@@ -107,7 +107,7 @@ export function buildOgpHtml(
       ["視聴済み", watchSummary.watchedCount],
       ["視聴中", watchSummary.watchingCount],
       ["見たい", watchSummary.wannaWatchCount],
-      ["お気に入り", watchSummary.favoriteCount],
+      ["推し", watchSummary.favoriteCount],
     ] as const
   ).filter(([, n]) => n > 0);
   const statsHtml =
@@ -121,7 +121,7 @@ export function buildOgpHtml(
       : "";
   const favoriteTitlesHtml =
     watchSummary.favoriteTitles.length > 0
-      ? `<p class="favorite-works">お気に入り: ${watchSummary.favoriteTitles
+      ? `<p class="favorite-works">推し: ${watchSummary.favoriteTitles
           .map((t) => escapeHtml(t))
           .join(" / ")}</p>`
       : "";

@@ -1,16 +1,22 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect, Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
 import LandingPage from "@/components/landing/LandingPage";
+import { publicMetadata } from "@/lib/web/publicMetadata";
+
+export function generateMetadata() {
+  return publicMetadata(
+    "/welcome",
+    "アニ名刺 — 好きの記録が、あなたの名刺になる。",
+    "アニメの視聴記録がそのまま名刺に。好きな作品や推しを共有して、アニメ好きとつながろう。",
+  );
+}
 
 export default function WelcomeScreen() {
   const { isLoaded, isSignedIn } = useAuth();
   const { t } = useTranslation();
 
-  if (!isLoaded)
-    return <View className="flex-1 bg-slate-50 dark:bg-slate-950" />;
-  if (isSignedIn) return <Redirect href="/" />;
+  if (isLoaded && isSignedIn) return <Redirect href="/" />;
 
   return (
     <>

@@ -185,7 +185,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   // updateMeishiLibrary のキューで一覧側の操作とも直列化されるので、
   // 編集中に他画面でカード操作が入っても保存が別カードを巻き戻さない。
   const saveDocument = useCallback(async () => {
-    if (!doc) return;
+    if (!doc) return null;
     const currentDoc = doc;
     const { result: newCardId } = await updateMeishiLibrary((library) => {
       if (boundCardId && findCard(library, boundCardId)) {
@@ -199,6 +199,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
       return { library: added.library, result: added.card.id };
     });
     if (newCardId) setBoundCardId(newCardId);
+    return newCardId ?? boundCardId;
   }, [doc, boundCardId]);
 
   const updateElement = useCallback(

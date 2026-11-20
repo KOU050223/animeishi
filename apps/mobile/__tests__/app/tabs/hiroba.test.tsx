@@ -10,6 +10,19 @@ jest.mock("expo-router/react-navigation", () => ({
   useHeaderHeight: () => 96,
 }));
 
+// useLocalSearchParams の値はテストごとに差し替える。
+// setParams は実際はナビゲーション状態を更新して再描画するため、
+// モックでは params の差し替えまで行い、再描画は rerender で再現する
+// （social タブのテストと同じやり方）。
+let mockParams: { section?: string; target?: string } = {};
+const mockSetParams = jest.fn((p: Record<string, string>) => {
+  mockParams = { ...mockParams, ...p };
+});
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ setParams: mockSetParams }),
+}));
+
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
 jest.mock("@/components/hiroba/CreateSection", () => ({
   CreateSection: () => {
@@ -27,6 +40,8 @@ jest.mock("@/components/hiroba/DiscoverSection", () => ({
 }));
 
 beforeEach(() => {
+  mockParams = {};
+  mockSetParams.mockClear();
   Object.defineProperty(Platform, "OS", { value: "ios" });
 });
 
@@ -38,14 +53,33 @@ describe("HirobaScreen", () => {
     expect(screen.queryByTestId("section-discover")).toBeNull();
   });
 
-  it("みつけるセグメントで公開一覧セクションに切り替わる", async () => {
-    await render(<HirobaScreen />);
+  it("セグメント操作は URL の section を更新して公開一覧セクションに切り替わる", async () => {
+    const { rerender } = await render(<HirobaScreen />);
 
     await fireEvent.press(screen.getByTestId("hiroba-section-discover"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "discover" });
+    await rerender(<HirobaScreen />);
     expect(screen.getByTestId("section-discover")).toBeTruthy();
     expect(screen.queryByTestId("section-create")).toBeNull();
 
     await fireEvent.press(screen.getByTestId("hiroba-section-create"));
+    expect(mockSetParams).toHaveBeenCalledWith({ section: "create" });
+    await rerender(<HirobaScreen />);
+    expect(screen.getByTestId("section-create")).toBeTruthy();
+  });
+
+  it("?section=discover でみつけるセクションを開く（issue #533 の導線）", async () => {
+    mockParams = { section: "discover" };
+    await render(<HirobaScreen />);
+
+    expect(screen.getByTestId("section-discover")).toBeTruthy();
+    expect(screen.queryByTestId("section-create")).toBeNull();
+  });
+
+  it("未知の section 値は無視してつくるセクションを開く", async () => {
+    mockParams = { section: "unknown" };
+    await render(<HirobaScreen />);
+
     expect(screen.getByTestId("section-create")).toBeTruthy();
   });
 

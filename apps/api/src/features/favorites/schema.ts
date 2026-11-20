@@ -47,12 +47,12 @@ export const getFavoritesRoute = createRoute({
   method: "get",
   path: "/",
   tags: ["favorites"],
-  summary: "自分のお気に入り一覧を取得する",
+  summary: "自分の推し一覧を取得する",
   security: bearerAuth,
   responses: {
     200: {
       content: { "application/json": { schema: z.array(favoriteItemSchema) } },
-      description: "お気に入り一覧（登録日時の降順）",
+      description: "推し一覧（登録日時の降順）",
     },
     401: jsonError("未認証"),
   },
@@ -62,13 +62,13 @@ export const addFavoriteRoute = createRoute({
   method: "post",
   path: "/{annictWorkId}",
   tags: ["favorites"],
-  summary: "作品をお気に入りに追加する（冪等）",
+  summary: "作品を推しに登録する（冪等）",
   security: bearerAuth,
   request: { params: annictWorkIdParamSchema },
   responses: {
     201: {
       content: { "application/json": { schema: favoriteSchema } },
-      description: "追加したお気に入り",
+      description: "登録した推し作品",
     },
     400: jsonError("annictWorkId が不正"),
     401: jsonError("未認証"),
@@ -80,7 +80,7 @@ export const removeFavoriteRoute = createRoute({
   method: "delete",
   path: "/{annictWorkId}",
   tags: ["favorites"],
-  summary: "お気に入りを解除する（冪等）",
+  summary: "推しを解除する（冪等）",
   security: bearerAuth,
   request: { params: annictWorkIdParamSchema },
   responses: {

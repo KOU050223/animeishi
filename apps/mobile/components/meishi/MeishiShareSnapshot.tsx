@@ -12,6 +12,7 @@ const SNAPSHOT_WIDTH = 640;
 export type MeishiShareSnapshotProps = {
   document: MeishiDocument;
   context: MeishiRenderContext;
+  includeFooter?: boolean;
   /**
    * カード内の全画像の読み込みが完了（成功・失敗問わず onLoadEnd 到達）
    * したときに一度だけ呼ばれる。view-shot のキャプチャ開始タイミングに使う。
@@ -30,7 +31,10 @@ export type MeishiShareSnapshotProps = {
 export const MeishiShareSnapshot = forwardRef<
   ViewInstance,
   MeishiShareSnapshotProps
->(function MeishiShareSnapshot({ document, context, onReady }, ref) {
+>(function MeishiShareSnapshot(
+  { document, context, onReady, includeFooter = true },
+  ref,
+) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const imageCount = useMemo(
@@ -67,7 +71,7 @@ export const MeishiShareSnapshot = forwardRef<
         borderRadius={12}
         onImageLoadEnd={markImageSettled}
       />
-      {profileUrl ? (
+      {includeFooter && profileUrl ? (
         <View style={styles.footer}>
           {/* QR は読み取り精度のため常に白い面に描画する */}
           <View style={styles.qrBox}>

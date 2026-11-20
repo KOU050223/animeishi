@@ -1,5 +1,5 @@
 # Web フロント（Expo Router の web エクスポート）を Cloudflare Workers の
-# 静的アセットとして配信する設定。`expo export -p web` が dist/ に SPA を出力する。
+# 静的アセットとして配信する設定。`expo export -p web` が dist/ に公開ページの HTML を出力する。
 # /share/* だけは worker/index.ts が API Worker へ転送し、
 # API が返す OGP 付き共有ページをこのドメインで配信する（issue #408）。
 name = "animeishi-web"
@@ -17,18 +17,14 @@ not_found_handling = "single-page-application"
 # 回すと全リクエストが invocation 課金・1 ホップ増になる）。
 #   /share/* … 全員 API の OGP 付き静的 HTML へ転送（issue #408）
 #   /user/*  … クローラ UA のみ API の OGP HTML へ転送、ブラウザは SPA
-#   公開ページ … パス別メタを初期 HTML に注入
-#   その他の HTML ルート … noindex メタを注入
+#   公開ページ … プリレンダ HTML をアセットから直接配信
+#   その他の HTML ルート … SPA フォールバックに noindex メタを注入
 # 新しいページ（app/ 以下のルート）を追加したらここにも登録する。
 # 登録漏れでも従来どおり SPA として動くだけで、壊れはしない。
 run_worker_first = [
   "/share/*",
   "/user/*",
   "/",
-  "/welcome",
-  "/privacy",
-  "/terms",
-  "/support",
   "/sign-in",
   "/sign-up",
   "/forgot-password",

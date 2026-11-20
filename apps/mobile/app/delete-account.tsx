@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -362,7 +364,7 @@ export default function DeleteAccountScreen() {
   const summaryRows: SummaryRow[] | null = summary.data
     ? [
         { label: t("視聴履歴"), count: summary.data.watchHistories },
-        { label: t("お気に入り"), count: summary.data.favorites },
+        { label: t("推し"), count: summary.data.favorites },
         { label: t("フレンド"), count: summary.data.friends },
         { label: t("Tier 表"), count: summary.data.tierLists },
         { label: t("作品リスト"), count: summary.data.workLists },
@@ -388,37 +390,43 @@ export default function DeleteAccountScreen() {
           ),
         }}
       />
-      <ScrollView
+      {/* 理由入力など下部の要素がキーボードに隠れないよう持ち上げる（issue #462） */}
+      <KeyboardAvoidingView
         className="flex-1"
-        contentContainerClassName="px-4 pb-8 pt-2"
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {step === "reason" && (
-          <ReasonStep
-            selectedReasons={selectedReasons}
-            onToggleReason={toggleReason}
-            freeText={freeText}
-            onChangeFreeText={setFreeText}
-            onNext={() => setStep("summary")}
-          />
-        )}
-        {step === "summary" && (
-          <SummaryStep
-            rows={summaryRows}
-            isLoading={summary.isLoading}
-            isError={summary.isError}
-            onRetry={() => summary.refetch()}
-            onNext={() => setStep("confirm")}
-          />
-        )}
-        {step === "confirm" && (
-          <ConfirmStep
-            countsUnavailable={!summary.data}
-            deleting={deleteAccount.isPending}
-            onDelete={() => void runDelete()}
-          />
-        )}
-      </ScrollView>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-4 pb-8 pt-2"
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === "reason" && (
+            <ReasonStep
+              selectedReasons={selectedReasons}
+              onToggleReason={toggleReason}
+              freeText={freeText}
+              onChangeFreeText={setFreeText}
+              onNext={() => setStep("summary")}
+            />
+          )}
+          {step === "summary" && (
+            <SummaryStep
+              rows={summaryRows}
+              isLoading={summary.isLoading}
+              isError={summary.isError}
+              onRetry={() => summary.refetch()}
+              onNext={() => setStep("confirm")}
+            />
+          )}
+          {step === "confirm" && (
+            <ConfirmStep
+              countsUnavailable={!summary.data}
+              deleting={deleteAccount.isPending}
+              onDelete={() => void runDelete()}
+            />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -7,11 +7,13 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
 import { useThemeColors } from "@/lib/theme";
@@ -32,6 +34,7 @@ import { DiscoverReportSheet } from "./DiscoverReportSheet";
 export function DiscoverUsers() {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { userId } = useAuth();
   const [sort, setSort] = useState<PublicUsersSort>("likes");
@@ -127,7 +130,15 @@ export function DiscoverUsers() {
           onRefresh={onRefresh}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
-          contentContainerClassName="gap-3 px-4 pb-8 pt-2"
+          // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+          // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+          contentInsetAdjustmentBehavior="never"
+          contentContainerStyle={{
+            gap: 12,
+            paddingHorizontal: 16,
+            paddingBottom: 32 + insets.bottom,
+            paddingTop: 8,
+          }}
           testID="hiroba-user-list"
           renderItem={({ item }) => (
             <PublicUserCard
@@ -190,6 +201,17 @@ function PublicUserCard({
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
+  const fallbackCard = (
+    <MeishiCard
+      username={item.username}
+      bio={item.bio}
+      favoriteQuote={item.favoriteQuote}
+      profileImageUrl={item.profileImageUrl}
+      profileUrl={buildProfileUrl(item.id)}
+      profileOnly
+      hideUnsetFields
+    />
+  );
   return (
     <View
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800"
@@ -203,15 +225,26 @@ function PublicUserCard({
         })}
         testID={`public-user-open-${item.id}`}
       >
-        <MeishiCard
-          username={item.username}
-          bio={item.bio}
-          favoriteQuote={item.favoriteQuote}
-          profileImageUrl={item.profileImageUrl}
-          profileUrl={buildProfileUrl(item.id)}
-          profileOnly
+        {/* エディタで作った既定名刺の公開スナップショットがあればそれを出す。
+            未作成・読み込み中・失敗は classic テンプレにフォールバックする
+            （issue #591 第 2 段階）。 */}
+        <MeishiSnapshotImage
+          uri={item.meishiSnapshotUrl}
+          testID={`public-user-snapshot-${item.id}`}
+          fallback={fallbackCard}
         />
       </TouchableOpacity>
+      {/* 名刺には載らない補助情報として、PR #621 で消えたジャンルを
+          カードの下に小さく戻す（issue #591）。 */}
+      {item.genres.length > 0 ? (
+        <Text
+          className="mt-1.5 text-xs text-slate-400 dark:text-slate-500"
+          numberOfLines={1}
+          testID={`public-user-genres-${item.id}`}
+        >
+          {item.genres.join("・")}
+        </Text>
+      ) : null}
       <View className="mt-2 flex-row items-center justify-between">
         <TouchableOpacity
           className="flex-row items-center gap-1 rounded-md px-1.5 py-1"

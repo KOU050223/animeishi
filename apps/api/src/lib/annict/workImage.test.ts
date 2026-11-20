@@ -177,10 +177,268 @@ describe("serveWorkImage", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("Annict の画像は元 URL にリダイレクトし R2 に保存しない", async () => {
+    const source = "https://img.example.com/annict.png";
+    await insertWork(db, { imageUrl: source });
+    const fetchImpl = routeFetch({ [source]: () => makeImageResponse() });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    // R2 には置かず、検証済みの記録としてキーだけを DB に残す。
+    expect((await getWork(db)).imageR2Key).toBe(workImageKey(1, source, "png"));
+    expect((await env.AVATARS.list()).objects).toHaveLength(0);
+  });
+
+  it("検証済みの Annict URL は再検証せずリダイレクトする", async () => {
+    const source = "https://img.example.com/annict.png";
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: workImageKey(1, source, "png"),
+      imageR2AttemptedAt: new Date(),
+    });
+    const fetchImpl = vi.fn();
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("検証記録が古い場合は元 URL を取り直して検証する", async () => {
+    const source = "https://img.example.com/annict.png";
+    const stale = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: workImageKey(1, source, "png"),
+      imageR2AttemptedAt: stale,
+    });
+    const fetchImpl = routeFetch({ [source]: () => makeImageResponse() });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    expect((await getWork(db)).imageR2AttemptedAt?.getTime()).toBeGreaterThan(
+      stale.getTime(),
+    );
+  });
+
+  it("検証記録が古く元 URL が死んでいたら記録を外して 404", async () => {
+    const source = "https://img.example.com/annict.png";
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: workImageKey(1, source, "png"),
+      imageR2AttemptedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    const fetchImpl = routeFetch({});
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect((await getWork(db)).imageR2Key).toBeNull();
+  });
+
+  it("旧オブジェクトが残る行で再検証に失敗したら記録を外し、以後は誘導しない", async () => {
+    // オブジェクトがあると「キーだけ残った行」の掃除分岐に入らず、
+    // 記録を残したまま試行時刻だけ立てると、失敗した時刻が検証期限を
+    // 延ばして死んだ URL へ 302 を返し続ける（Devin Review 指摘）。
+    const source = "https://img.example.com/annict.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: key,
+      imageR2AttemptedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    const fetchImpl = routeFetch({});
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect((await getWork(db)).imageR2Key).toBeNull();
+    // オブジェクト自体は後片付けまで残す
+    expect(await env.AVATARS.get(key)).not.toBeNull();
+
+    // 2 回目以降はクールダウンで外部を叩かず 404 のまま。
+    // （死んだ URL への 302 復活が無いことの回帰確認）
+    const second = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+    expect(second.status).toBe(404);
+  });
+
+  it("blocked 行にオブジェクトが残っていてもクールダウン中は外部を叩かない", async () => {
+    // 削除スクリプトが R2 削除に失敗してオブジェクトを残した行では、
+    // クールダウン中も失敗した Annict URL へ再 fetch が繰り返される
+    // （Devin Review 指摘）。配信できないオブジェクトが残る行も
+    // クールダウン対象に含める。
+    const annict = "https://img.example.com/poster.png";
+    const malKey = "works/1/deadbeef.jpg";
+    await env.AVATARS.put(malKey, PNG_BYTES, {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+    await insertWork(db, {
+      imageUrl: annict,
+      imageSource: "blocked",
+      imageR2Key: malKey,
+      imageR2AttemptedAt: new Date(),
+    });
+    const fetchImpl = vi.fn();
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("検証記録後に補完 URL が更新された作品は補完を優先して R2 に保存する", async () => {
+    const source = "https://img.example.com/annict.png";
+    const cover = "https://media.kitsu.app/cover.png";
+    await insertWork(db, {
+      imageUrl: source,
+      resolvedImageUrl: cover,
+      imageSource: "kitsu",
+      resolvedAt: new Date(Date.now() - 30 * 60 * 1000),
+      imageR2Key: workImageKey(1, source, "png"),
+      imageR2AttemptedAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    const fetchImpl = routeFetch({ [cover]: () => makeImageResponse() });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(200);
+    expect((await getWork(db)).imageR2Key).toBe(workImageKey(1, cover, "png"));
+    expect(await env.AVATARS.get(workImageKey(1, cover, "png"))).not.toBeNull();
+  });
+
+  it("検証記録より古い補完 URL は取り直さずリダイレクトする", async () => {
+    const source = "https://img.example.com/annict.png";
+    await insertWork(db, {
+      imageUrl: source,
+      resolvedImageUrl: "https://media.kitsu.app/cover.png",
+      imageSource: "kitsu",
+      resolvedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      imageR2Key: workImageKey(1, source, "png"),
+      imageR2AttemptedAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    const fetchImpl = vi.fn();
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("旧式の Annict オブジェクトが残っていても検証記録があれば再検証せずリダイレクトする", async () => {
+    // #636 より前の実装は Annict 画像も R2 に置いていた。オブジェクトが
+    // 同じキーに残っていても、キーのハッシュが今の Annict 候補と一致するなら
+    // 「その URL へ誘導してよい」記録なので、表示のたびに元 URL を
+    // 取り直さない（後片付けはルールブックの手順で行う）。
+    const source = "https://img.example.com/annict.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, {
+      imageUrl: source,
+      imageR2Key: key,
+      imageR2AttemptedAt: new Date(),
+    });
+    const fetchImpl = vi.fn();
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    // 旧オブジェクトは配信も削除もしない（後片付けはオーナー作業）
+    expect(await env.AVATARS.get(key)).not.toBeNull();
+  });
+
+  it("保存済みの Annict 画像を配信せず元 URL にリダイレクトする", async () => {
+    const source = "https://img.example.com/annict.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, { imageUrl: source, imageR2Key: key });
+    const fetchImpl = routeFetch({ [source]: () => makeImageResponse() });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(source);
+    expect(await env.AVATARS.get(key)).not.toBeNull();
+  });
+
+  it("Annict と補完 URL が同じでも取得元不明の旧 R2 画像は配信しない", async () => {
+    const source = "https://img.example.com/shared.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+    });
+    await insertWork(db, {
+      imageUrl: source,
+      resolvedImageUrl: source,
+      imageR2Key: key,
+    });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: routeFetch({}) as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+    expect(await env.AVATARS.get(key)).not.toBeNull();
+  });
+
+  it("blocked の作品は取得元メタデータがあっても補完画像を配信しない", async () => {
+    const source = "https://img.example.com/shared.png";
+    const key = workImageKey(1, source, "png");
+    await env.AVATARS.put(key, PNG_BYTES, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "mal" },
+    });
+    await insertWork(db, {
+      imageUrl: source,
+      imageSource: "blocked",
+      imageR2Key: key,
+    });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: routeFetch({}) as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("Annict URL が有効でも Kitsu の画像を優先して R2 に保存する", async () => {
+    const annict = "https://img.example.com/annict.png";
+    const cover = "https://media.kitsu.app/cover.png";
+    await insertWork(db, { imageUrl: annict, malAnimeId: 21 });
+    const fetchImpl = routeFetch({
+      [KITSU]: () =>
+        makeKitsuResponse({ m21: { coverImage: { extraLarge: cover } } }),
+      [cover]: () => makeImageResponse(),
+      [annict]: () => makeImageResponse(),
+    });
+    const res = await serveWorkImage(db, env.AVATARS, 1, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(res.status).toBe(200);
+    expect((await getWork(db)).imageR2Key).toBe(workImageKey(1, cover, "png"));
+    expect(await env.AVATARS.get(workImageKey(1, annict, "png"))).toBeNull();
+    expect(
+      fetchImpl.mock.calls.map(([input]) => requestUrl(input)),
+    ).not.toContain(annict);
+  });
+
   it("取り込み済みなら R2 から返し、外部を叩かない", async () => {
     const key = "works/1/deadbeef.png";
     await env.AVATARS.put(key, PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "kitsu" },
     });
     await insertWork(db, { imageR2Key: key });
     const fetchImpl = vi.fn();
@@ -399,6 +657,7 @@ describe("serveWorkImage", () => {
     const key = "works/1/deadbeef.png";
     await env.AVATARS.put(key, PNG_BYTES, {
       httpMetadata: { contentType: "image/png" },
+      customMetadata: { source: "mal" },
     });
     await insertWork(db, { imageR2Key: key, imageSource: "mal" });
     const stored = await serveWorkImage(db, env.AVATARS, 1, {
@@ -447,7 +706,7 @@ describe("serveWorkImage", () => {
   });
 
   describe("削除依頼で画像を消した作品（image_source='blocked'。issue #241）", () => {
-    it("補完 URL は使わず、Annict の元の画像だけを取り込む", async () => {
+    it("補完 URL は使わず、Annict の元 URL にリダイレクトする", async () => {
       const annict = "https://img.example.com/poster.png";
       const mal = "https://cdn.myanimelist.net/images/anime/21l.jpg";
       // 削除後に補完 URL が書き戻っていても拾わないことを確かめる。
@@ -467,7 +726,8 @@ describe("serveWorkImage", () => {
         malClientId: "client-id",
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(annict);
       expect(fetchImpl).not.toHaveBeenCalledWith(mal, expect.anything());
       expect((await getWork(db)).imageR2Key).toBe(
         workImageKey(1, annict, "png"),
@@ -757,7 +1017,7 @@ describe("serveWorkImage", () => {
   });
 
   describe("取り込み済み画像の鮮度・所有者チェック", () => {
-    const OLD_SOURCE = "https://old-official.example.com/og.png";
+    const OLD_SOURCE = "https://media.kitsu.app/old.png";
     const NEW_SOURCE = "https://s4.anilist.co/1.jpg";
     const oldKey = () => workImageKey(1, OLD_SOURCE, "png");
     const longAgo = new Date("2026-01-01T00:00:00Z");
@@ -767,6 +1027,7 @@ describe("serveWorkImage", () => {
     ) {
       await env.AVATARS.put(oldKey(), PNG_BYTES, {
         httpMetadata: { contentType: "image/png" },
+        customMetadata: { source: "kitsu" },
       });
       await insertWork(db, {
         imageR2Key: oldKey(),
@@ -776,7 +1037,7 @@ describe("serveWorkImage", () => {
     }
 
     it("取り込み元が今の候補に含まれていれば外部を叩かない", async () => {
-      await seedStored({ imageUrl: OLD_SOURCE });
+      await seedStored({ resolvedImageUrl: OLD_SOURCE, imageSource: "kitsu" });
       const fetchImpl = vi.fn();
 
       const res = await serveWorkImage(db, env.AVATARS, 1, {
@@ -889,6 +1150,7 @@ describe("serveWorkImage", () => {
       const oldKey = workImageKey(1, oldUrl, "jpg");
       await env.AVATARS.put(oldKey, PNG_BYTES, {
         httpMetadata: { contentType: "image/jpeg" },
+        customMetadata: { source: "kitsu" },
       });
       await insertWork(db, {
         resolvedImageUrl: newUrl,

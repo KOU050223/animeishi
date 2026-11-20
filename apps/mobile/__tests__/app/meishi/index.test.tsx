@@ -1,7 +1,13 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import MeishiDeckScreen from "@/app/meishi/index";
 import type { MeishiCardData } from "@/lib/meishi/types";
+import { loadMeishiLibrary } from "@/lib/meishi/storage";
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -10,6 +16,8 @@ let mockCanGoBack = true;
 const mockDuplicateCard = jest.fn();
 const mockRemoveCard = jest.fn();
 const mockSetDefault = jest.fn();
+const mockPublishSnapshot = jest.fn();
+const mockLoadMeishiLibrary = jest.mocked(loadMeishiLibrary);
 const mockConfirm = jest.fn(
   (
     _title: string,
@@ -74,6 +82,23 @@ jest.mock("@/lib/useProfile", () => ({
     },
   }),
 }));
+jest.mock("@/lib/useFavorites", () => ({ useFavorites: () => ({ data: [] }) }));
+jest.mock("@/lib/useWatchHistory", () => ({
+  useWatchHistory: () => ({ data: [] }),
+}));
+jest.mock("@/lib/achievements/useAchievements", () => ({
+  useAchievements: () => ({ data: undefined }),
+}));
+jest.mock("@/lib/meishi/publicSnapshot/usePublicMeishiSnapshot", () => ({
+  usePublicMeishiSnapshot: () => ({
+    publish: mockPublishSnapshot,
+    clear: jest.fn(),
+    snapshotElement: null,
+  }),
+}));
+jest.mock("@/lib/meishi/storage", () => ({
+  loadMeishiLibrary: jest.fn(),
+}));
 
 const makeCard = (id: string, name: string): MeishiCardData => ({
   id,
@@ -111,6 +136,10 @@ jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPublishSnapshot.mockResolvedValue(undefined);
+  mockLoadMeishiLibrary.mockResolvedValue(null);
+  mockSetDefault.mockResolvedValue(undefined);
+  mockRemoveCard.mockResolvedValue(undefined);
   mockCards = cards;
   mockDefaultCard = cards[0];
   mockLoaded = true;
@@ -170,6 +199,7 @@ describe("名刺一覧画面", () => {
     await fireEvent.press(screen.getByText("既定にする"));
 
     expect(mockSetDefault).toHaveBeenCalledWith("card_b");
+    await waitFor(() => expect(mockPublishSnapshot).toHaveBeenCalledTimes(1));
   });
 
   it("既定のカードには「既定にする」を出さない", async () => {
@@ -187,7 +217,21 @@ describe("名刺一覧画面", () => {
     await fireEvent.press(screen.getByText("削除する"));
 
     expect(mockConfirm).toHaveBeenCalled();
-    expect(mockRemoveCard).toHaveBeenCalledWith("card_a");
+    await waitFor(() => expect(mockRemoveCard).toHaveBeenCalledWith("card_a"));
+  });
+
+  it("削除前後に保存された既定が変われば新しい名刺を公開する", async () => {
+    mockLoadMeishiLibrary
+      .mockResolvedValueOnce({ version: 1, cards, defaultCardId: "card_b" })
+      .mockResolvedValueOnce({
+        version: 1,
+        cards: [cards[0]],
+        defaultCardId: "card_a",
+      });
+    await render(<MeishiDeckScreen />);
+    await fireEvent.press(screen.getByLabelText("名刺Bのメニュー"));
+    await fireEvent.press(screen.getByText("削除する"));
+    await waitFor(() => expect(mockPublishSnapshot).toHaveBeenCalledTimes(1));
   });
 
   it("メニューから全画面表示へ遷移する", async () => {

@@ -81,7 +81,7 @@ describe("FavoritesSection", () => {
     expect(screen.getByTestId("list-loading-skeleton")).toBeTruthy();
   });
 
-  it("再取得に失敗しても取得済みのお気に入りを表示する", async () => {
+  it("再取得に失敗しても取得済みの推しを表示する", async () => {
     mockFavoritesError = true;
     await render(<FavoritesSection />);
 
@@ -96,26 +96,22 @@ describe("FavoritesSection", () => {
 
   it("解除ボタンを押すと確認ダイアログ経由で remove が呼ばれる", async () => {
     await render(<FavoritesSection />);
-    await fireEvent.press(
-      screen.getByLabelText("テスト作品 をお気に入りから解除"),
-    );
+    await fireEvent.press(screen.getByLabelText("テスト作品を推しから解除"));
 
     expect(mockRemoveMutateAsync).toHaveBeenCalledWith(1);
   });
 
   it("解除に失敗したらダイアログで通知する", async () => {
     mockRemoveMutateAsync.mockRejectedValue(
-      new ApiRequestError(500, "お気に入りの削除に失敗しました"),
+      new ApiRequestError(500, "推しの解除に失敗しました"),
     );
     await render(<FavoritesSection />);
-    await fireEvent.press(
-      screen.getByLabelText("テスト作品 をお気に入りから解除"),
-    );
+    await fireEvent.press(screen.getByLabelText("テスト作品を推しから解除"));
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
-        "お気に入りを解除できませんでした",
-        "お気に入りの解除に失敗しました",
+        "推しを解除できませんでした",
+        "推しの解除に失敗しました",
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );
@@ -126,14 +122,12 @@ describe("FavoritesSection", () => {
       new Error("Network request failed"),
     );
     await render(<FavoritesSection />);
-    await fireEvent.press(
-      screen.getByLabelText("テスト作品 をお気に入りから解除"),
-    );
+    await fireEvent.press(screen.getByLabelText("テスト作品を推しから解除"));
 
     await waitFor(() =>
       expect(mockAlert).toHaveBeenCalledWith(
-        "お気に入りを解除できませんでした",
-        "お気に入りの解除に失敗しました",
+        "推しを解除できませんでした",
+        "推しの解除に失敗しました",
         expect.objectContaining({ okLabel: "OK" }),
       ),
     );

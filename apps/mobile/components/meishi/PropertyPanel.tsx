@@ -640,7 +640,7 @@ function renderEditor(
               options={[
                 { value: "auto", label: t("自動") },
                 { value: "watchHistory", label: t("視聴履歴") },
-                { value: "favorites", label: t("お気に入り") },
+                { value: "favorites", label: t("推し") },
               ]}
               value={element.listSource ?? "auto"}
               onChange={(v) => {
@@ -681,7 +681,7 @@ function renderEditor(
             <SegmentedControl
               options={[
                 { value: "watched", label: t("視聴済") },
-                { value: "favorites", label: t("お気に入り") },
+                { value: "favorites", label: t("推し") },
               ]}
               value={element.metric}
               onChange={(v) => onChange({ metric: v })}

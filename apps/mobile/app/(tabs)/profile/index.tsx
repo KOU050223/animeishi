@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "@/components/ui";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
@@ -81,6 +82,7 @@ function walletErrorMessage(
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   // iOS のネイティブヘッダーは large title 指定で透過になり、ScrollView が
   // ヘッダーの下に潜り込む。scroll inset の自動調整はトップの ScrollView に
   // 効かないケースがあるため、library / social と同じくヘッダー高さ分だけ
@@ -129,11 +131,9 @@ export default function ProfileScreen() {
   const { toggle: toggleFavorite, isPending: isTogglingFavorite } =
     useToggleFavorite(favoriteIds, {
       onError: () =>
-        alert(
-          t("お気に入りを更新できませんでした"),
-          t("お気に入りの更新に失敗しました"),
-          { okLabel: "OK" },
-        ),
+        alert(t("推しを更新できませんでした"), t("推しの更新に失敗しました"), {
+          okLabel: "OK",
+        }),
     });
   // 吹き出しを名刺内のアバター画像の上に重ねるため、プレビュー枠の
   // 実幅からアバター位置（document の transform はカード幅/高さに対する
@@ -245,10 +245,13 @@ export default function ProfileScreen() {
       <ScrollView
         ref={scrollRef}
         className="flex-1"
-        contentContainerClassName={
+        // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={
           isLoading || (isError && !profile)
-            ? "flex-1 items-center justify-center px-8"
-            : "pb-12"
+            ? styles.loadingContent
+            : { paddingBottom: 48 + insets.bottom }
         }
       >
         {isLoading ? (
@@ -328,6 +331,13 @@ export default function ProfileScreen() {
                   </View>
                 ) : null}
               </View>
+              {/* プレビューとエディタの名刺が同じものだと分かる説明（issue #531）。
+                  公開表現は #593 の「既定の名刺を公開」に揃える。 */}
+              <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                {t(
+                  "名刺一覧で「既定」にした名刺がここに表示されます。まだ名刺が無いときは既定のデザインで表示され、公開プロフィールにも同じ名刺が出ます",
+                )}
+              </Text>
               <TouchableOpacity
                 className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
                 onPress={() => router.push("/meishi")}
@@ -713,6 +723,12 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
   meishiPreviewFrame: {
     width: "100%",
     maxWidth: 420,

@@ -48,10 +48,30 @@ beforeEach(() => {
 });
 
 describe("MeishiCompletionCard", () => {
-  it("未達の件数を「残り N ステップ」で表示する", async () => {
+  it("残り 1 ステップなら未達ステップの内容を件数つきで表示する", async () => {
+    mockCompletion = completion(["template"]);
     await render(<MeishiCompletionCard />);
     expect(
-      screen.getByText("名刺を完成させよう（残り 4 ステップ）"),
+      screen.getByText(
+        "名刺を完成させよう（残り 1 ステップ：テンプレートを選ぶ）",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("複数残っていれば未達ステップをすべて中点で列挙する", async () => {
+    await render(<MeishiCompletionCard />);
+    expect(
+      screen.getByText(
+        "名刺を完成させよう（残り 4 ステップ：アイコンを設定する・表示名を設定する・推し作品を登録する・テンプレートを選ぶ）",
+      ),
+    ).toBeTruthy();
+
+    mockCompletion = completion(["displayName", "favorites"]);
+    await render(<MeishiCompletionCard />);
+    expect(
+      screen.getByText(
+        "名刺を完成させよう（残り 2 ステップ：表示名を設定する・推し作品を登録する）",
+      ),
     ).toBeTruthy();
   });
 
@@ -85,7 +105,9 @@ describe("MeishiCompletionCard", () => {
     // 達成済みでも進捗は見せる
     expect(screen.getByText("アイコン")).toBeTruthy();
     expect(
-      screen.getByText("名刺を完成させよう（残り 1 ステップ）"),
+      screen.getByText(
+        "名刺を完成させよう（残り 1 ステップ：テンプレートを選ぶ）",
+      ),
     ).toBeTruthy();
   });
 

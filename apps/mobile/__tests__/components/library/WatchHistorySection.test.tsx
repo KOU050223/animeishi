@@ -458,18 +458,14 @@ describe("WatchHistorySection", () => {
       await render(<WatchHistorySection />);
 
       // 登録済みなら解除導線のラベルになる。
-      expect(
-        screen.getByLabelText("テスト作品をお気に入りから解除"),
-      ).toBeTruthy();
+      expect(screen.getByLabelText("テスト作品を推しから解除")).toBeTruthy();
       expect(screen.getByTestId("watch-history-add-to-list-1")).toBeTruthy();
     });
 
     it("推しボタンを押すとその作品のトグルが呼ばれる", async () => {
       await render(<WatchHistorySection />);
 
-      await fireEvent.press(
-        screen.getByLabelText("テスト作品をお気に入りに追加"),
-      );
+      await fireEvent.press(screen.getByLabelText("テスト作品を推しに登録"));
 
       expect(mockToggleFavorite).toHaveBeenCalledWith(1);
     });
@@ -623,6 +619,19 @@ describe("WatchHistorySection", () => {
       // リセットで全件に戻る。
       await fireEvent.press(screen.getByLabelText("絞り込みをリセット"));
       expect(renderedOrder()).toEqual(["1", "2", "3"]);
+    });
+
+    it("確定ボタンは「絞り込みを適用」と表示し、押すとシートが閉じる", async () => {
+      await render(<WatchHistorySection />);
+      await fireEvent.press(screen.getByTestId("watch-history-filter-button"));
+
+      // ライブラリ側の絞り込みシートと表記を揃え、表示ラベルと
+      // アクセシビリティラベルを一致させる（issue #635）。
+      const applyButton = screen.getByLabelText("絞り込みを適用");
+      expect(screen.getByText("絞り込みを適用")).toBeTruthy();
+
+      await fireEvent.press(applyButton);
+      expect(screen.queryByTestId("watch-history-filter-sheet")).toBeNull();
     });
 
     it("絞り込みシートで放送年代を選ぶと該当年代だけになる", async () => {

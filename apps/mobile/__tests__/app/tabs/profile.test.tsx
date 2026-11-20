@@ -199,6 +199,23 @@ describe("ProfileScreen の読み込み表示", () => {
 });
 
 describe("ProfileScreen の名刺プレビュー", () => {
+  // issue #531: プレビューとエディタの名刺が同じものだと分かる説明を出す
+  it("プレビューと名刺一覧・公開プロフィールの関係を説明する", async () => {
+    await render(<ProfileScreen />);
+
+    expect(
+      screen.getByText(
+        "名刺一覧で「既定」にした名刺がここに表示されます。まだ名刺が無いときは既定のデザインで表示され、公開プロフィールにも同じ名刺が出ます",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("名刺一覧への導線を表示する", async () => {
+    await render(<ProfileScreen />);
+
+    expect(screen.getByLabelText("名刺一覧を開く")).toBeTruthy();
+  });
+
   it("画面フォーカス時に名刺ドキュメントを再読み込みする", async () => {
     await render(<ProfileScreen />);
 

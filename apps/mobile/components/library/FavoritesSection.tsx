@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import {
   useFavorites,
@@ -17,12 +18,17 @@ import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
+import {
+  GRID_GAP,
+  getRowListGridLayout,
+} from "@/components/anime-list/animeListUtils";
 
 // ライブラリタブの「推し」セクション（旧お気に入りタブ）。
 // 画面上部の safe area とセクション切り替えはライブラリ画面側が持つため、
@@ -33,9 +39,15 @@ export function FavoritesSection() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
+  // Web の広い幅では行一覧を複数列にする（issue #602）。Platform.OS ではなく
+  // 幅だけで判定し、狭い幅では従来どおり 1 列の全幅リストにする。
+  const { width } = useWindowDimensions();
+  const grid = getRowListGridLayout(width);
+  const isGrid = grid.numColumns > 1;
 
   const { data: favorites, isLoading, isError, refetch } = useFavorites();
   const remove = useRemoveFavorite();
+  const insets = useSafeAreaInsets();
 
   const filtered = useMemo(() => {
     const trimmed = query.trim();
@@ -56,8 +68,8 @@ export function FavoritesSection() {
 
   function confirmRemove(annictWorkId: number) {
     confirm(
-      t("お気に入りを解除"),
-      t("このアニメをお気に入りから外しますか？"),
+      t("推し登録を解除"),
+      t("このアニメを推しから外しますか？"),
       () => {
         // お気に入り解除の操作を計測する（issue #214）。
         // 一覧画面のトグルは useToggleFavorite 側で送るため、ここは
@@ -73,8 +85,8 @@ export function FavoritesSection() {
           .mutateAsync(annictWorkId)
           .catch(() =>
             alert(
-              t("お気に入りを解除できませんでした"),
-              t("お気に入りの解除に失敗しました"),
+              t("推しを解除できませんでした"),
+              t("推しの解除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
@@ -99,13 +111,13 @@ export function FavoritesSection() {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
         <Text className="text-red-500 dark:text-red-400 text-center mb-4">
-          {t("お気に入りの取得に失敗しました")}
+          {t("推しの取得に失敗しました")}
         </Text>
         <TouchableOpacity
           className="bg-indigo-600 rounded-lg px-6 py-3"
           onPress={() => refetch()}
           accessibilityRole="button"
-          accessibilityLabel={t("お気に入りを再取得")}
+          accessibilityLabel={t("推しを再取得")}
         >
           <Text className="text-white font-semibold">{t("再試行")}</Text>
         </TouchableOpacity>
@@ -115,7 +127,16 @@ export function FavoritesSection() {
 
   return (
     <View className="flex-1 bg-white dark:bg-slate-900">
-      <View className="px-4 pt-1 pb-3">
+      {/* グリッド時は行の並ぶコンテンツ幅に揃えてヘッダーを中央寄せする
+          （px-4 の内側が contentWidth になるよう +32 している）。 */}
+      <View
+        className="px-4 pt-1 pb-3"
+        style={
+          isGrid
+            ? { width: grid.contentWidth + 32, alignSelf: "center" }
+            : undefined
+        }
+      >
         {/* 作品リスト（issue #349）への入口。#352 で恒久的な置き場所は
             ひろばタブに決まったが、既存導線は残す決定のためこのボタンも残す。 */}
         <TouchableOpacity
@@ -147,37 +168,69 @@ export function FavoritesSection() {
           onChangeText={setQuery}
           placeholder={t("作品名で検索")}
           className="mt-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
-          accessibilityLabel={t("お気に入りを検索")}
+          accessibilityLabel={t("推しを検索")}
           clearButtonMode="while-editing"
         />
       </View>
 
       <FlatList
+        // numColumns の途中変更は未対応なので、列数が変わるたびに再マウントする
+        // （アニメ一覧と同じ対処）。
+        key={`favorites-${grid.numColumns}`}
         data={enriched}
+        numColumns={grid.numColumns}
         keyExtractor={(item) => String(item.favorite.annictWorkId)}
-        contentContainerStyle={styles.listContent}
+        // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: 32 + insets.bottom },
+          isGrid && { paddingHorizontal: 0, alignItems: "center" },
+        ]}
+        columnWrapperStyle={
+          isGrid
+            ? {
+                width: grid.contentWidth,
+                gap: GRID_GAP,
+                justifyContent: "flex-start",
+              }
+            : undefined
+        }
         refreshing={refreshing}
         onRefresh={onRefresh}
-        ItemSeparatorComponent={() => (
-          <View
-            style={styles.separator}
-            className="bg-slate-100 dark:bg-slate-800"
-          />
-        )}
+        ItemSeparatorComponent={
+          isGrid
+            ? undefined
+            : () => (
+                <View
+                  style={styles.separator}
+                  className="bg-slate-100 dark:bg-slate-800"
+                />
+              )
+        }
         renderItem={({ item }) => (
-          <FavoriteRow
-            favorite={item.favorite}
-            onRemove={() => confirmRemove(item.favorite.annictWorkId)}
-          />
+          <View style={isGrid ? { width: grid.columnWidth } : undefined}>
+            <FavoriteRow
+              favorite={item.favorite}
+              onRemove={() => confirmRemove(item.favorite.annictWorkId)}
+            />
+            {/* グリッドでは行間セパレータが列をまたいで引けないため、
+                各セルの下辺に同じ色の線を引く。 */}
+            {isGrid ? (
+              <View
+                style={styles.separator}
+                className="bg-slate-100 dark:bg-slate-800"
+              />
+            ) : null}
+          </View>
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
             <Text className="text-slate-400 dark:text-slate-500 text-center">
               {query.trim()
-                ? t("該当するお気に入りが見つかりません。")
-                : t(
-                    "お気に入りがありません。\nアニメ一覧から追加してください。",
-                  )}
+                ? t("該当する推しが見つかりません。")
+                : t("推しがありません。\nアニメ一覧から登録してください。")}
             </Text>
           </View>
         }
@@ -218,7 +271,7 @@ function FavoriteRow({
         onPress={onRemove}
         className="bg-red-50 dark:bg-red-950 rounded-lg px-3 py-1.5"
         accessibilityRole="button"
-        accessibilityLabel={t("{{title}} をお気に入りから解除", {
+        accessibilityLabel={t("{{title}}を推しから解除", {
           title: favorite.title,
         })}
       >

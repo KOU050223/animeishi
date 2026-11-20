@@ -1,6 +1,12 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform, ScrollView, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton, Button, Input, SegmentedControl } from "@/components/ui";
@@ -125,70 +131,76 @@ export default function FeedbackScreen() {
           ),
         }}
       />
-      <ScrollView
+      {/* 下部の入力・送信ボタンがキーボードに隠れないよう持ち上げる（issue #462） */}
+      <KeyboardAvoidingView
         className="flex-1"
-        keyboardShouldPersistTaps="handled"
-        contentContainerClassName="w-full max-w-2xl self-center pb-16 pt-4"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Text className="px-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          {t(
-            "アプリの不具合や、ほしい機能・ご意見をお送りください。すべて開発者が読んでいます。個別のお返事はできませんのでご了承ください。",
-          )}
-        </Text>
-
-        <View className="mt-4">
-          <SegmentedControl
-            items={CATEGORIES.map((c) => ({
-              label: t(c.label),
-              active: c.value === category,
-              onPress: () => setCategory(c.value),
-              testID: `feedback-category-${c.value}`,
-            }))}
-          />
-        </View>
-
-        <View className="mt-2 px-4">
-          <Input
-            value={body}
-            onChangeText={setBody}
-            placeholder={t(current.placeholder)}
-            multiline
-            textAlignVertical="top"
-            maxLength={FEEDBACK_BODY_MAX_LENGTH}
-            className="min-h-40 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            accessibilityLabel={t("内容")}
-            testID="feedback-body-input"
-          />
-          <Text className="mt-1 text-right text-xs text-slate-400 dark:text-slate-500">
-            {body.length}/{FEEDBACK_BODY_MAX_LENGTH}
-          </Text>
-          <Text className="mt-2 text-xs leading-5 text-slate-400 dark:text-slate-500">
+        <ScrollView
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="w-full max-w-2xl self-center pb-16 pt-4"
+        >
+          <Text className="px-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
             {t(
-              "不具合の調査のため、アプリのバージョンと OS の情報も一緒に送信されます。",
+              "アプリの不具合や、ほしい機能・ご意見をお送りください。すべて開発者が読んでいます。個別のお返事はできませんのでご了承ください。",
             )}
           </Text>
 
-          <View className="mt-6">
-            <Button
-              label={t("送信する")}
-              icon="send-outline"
-              onPress={onSubmit}
-              disabled={!canSubmit}
-              loading={sendFeedback.isPending}
-              accessibilityLabel={t("不具合報告・ご意見を送信")}
-              accessibilityHint={
-                bodyEmpty ? t("内容を入力してください") : undefined
-              }
-              testID="feedback-submit"
+          <View className="mt-4">
+            <SegmentedControl
+              items={CATEGORIES.map((c) => ({
+                label: t(c.label),
+                active: c.value === category,
+                onPress: () => setCategory(c.value),
+                testID: `feedback-category-${c.value}`,
+              }))}
             />
-            {bodyEmpty ? (
-              <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
-                {t("内容を入力してください")}
-              </Text>
-            ) : null}
           </View>
-        </View>
-      </ScrollView>
+
+          <View className="mt-2 px-4">
+            <Input
+              value={body}
+              onChangeText={setBody}
+              placeholder={t(current.placeholder)}
+              multiline
+              textAlignVertical="top"
+              maxLength={FEEDBACK_BODY_MAX_LENGTH}
+              className="min-h-40 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              accessibilityLabel={t("内容")}
+              testID="feedback-body-input"
+            />
+            <Text className="mt-1 text-right text-xs text-slate-400 dark:text-slate-500">
+              {body.length}/{FEEDBACK_BODY_MAX_LENGTH}
+            </Text>
+            <Text className="mt-2 text-xs leading-5 text-slate-400 dark:text-slate-500">
+              {t(
+                "不具合の調査のため、アプリのバージョンと OS の情報も一緒に送信されます。",
+              )}
+            </Text>
+
+            <View className="mt-6">
+              <Button
+                label={t("送信する")}
+                icon="send-outline"
+                onPress={onSubmit}
+                disabled={!canSubmit}
+                loading={sendFeedback.isPending}
+                accessibilityLabel={t("不具合報告・ご意見を送信")}
+                accessibilityHint={
+                  bodyEmpty ? t("内容を入力してください") : undefined
+                }
+                testID="feedback-submit"
+              />
+              {bodyEmpty ? (
+                <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                  {t("内容を入力してください")}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

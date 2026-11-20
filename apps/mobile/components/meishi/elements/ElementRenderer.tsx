@@ -37,14 +37,20 @@ function fontWeightToRn(w: TextElement["fontWeight"]): "400" | "700" | "900" {
   return w === "black" ? "900" : w === "bold" ? "700" : "400";
 }
 
-function resolveTextValue(el: TextElement, ctx: MeishiRenderContext): string {
+// バインド先が未設定のときの文字列。hideUnsetFields なら null（非表示）、
+// さもなくばプレースホルダーとして要素の text をそのまま返す。
+function resolveTextValue(
+  el: TextElement,
+  ctx: MeishiRenderContext,
+): string | null {
+  const fallback = ctx.hideUnsetFields ? null : el.text;
   switch (el.source) {
     case "username":
-      return ctx.profile.username ?? el.text;
+      return ctx.profile.username ?? fallback;
     case "bio":
-      return ctx.profile.bio ?? el.text;
+      return ctx.profile.bio ?? fallback;
     case "favoriteQuote":
-      return ctx.profile.favoriteQuote ?? el.text;
+      return ctx.profile.favoriteQuote ?? fallback;
     case "custom":
     default:
       return el.text;
@@ -72,6 +78,7 @@ function TextRender({
   renderScale: number;
 }) {
   const value = resolveTextValue(el, ctx);
+  if (value === null) return null;
   return (
     <View
       style={{
@@ -122,6 +129,7 @@ function ImageRender({
         : 0;
 
   if (!uri) {
+    if (ctx.hideUnsetFields) return null;
     return (
       <View
         style={{

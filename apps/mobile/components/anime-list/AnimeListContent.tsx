@@ -212,12 +212,21 @@ export function AnimeListContent({
     !canBrowseWorks || (hideForError && isAnnictTokenError(error));
 
   // 絞り込み中は「絞り込み後 / 絞り込み前」の件数を出す（視聴履歴と同じ表記）。
-  const resultCountText = filterActive
-    ? t("{{visible}} / {{total}} 件", {
-        visible: sorted.length,
-        total: data?.length ?? 0,
-      })
-    : t("{{count}} 件", { count: sorted.length });
+  // シーズン表示の件数は「Annict から取得したそのシーズンの全作品数」
+  // （自分の記録数ではない）であることが伝わるよう「全」を冠する（issue #602）。
+  const resultCountText = hasQuery
+    ? filterActive
+      ? t("{{visible}} / {{total}} 件", {
+          visible: sorted.length,
+          total: data?.length ?? 0,
+        })
+      : t("{{count}} 件", { count: sorted.length })
+    : filterActive
+      ? t("{{visible}} / 全{{total}}件", {
+          visible: sorted.length,
+          total: data?.length ?? 0,
+        })
+      : t("全{{count}}件", { count: sorted.length });
   // サーバーの結果はあったが絞り込みで全件落ちた状態（空状態の案内を分ける）。
   const filteredOutAll = filterActive && (data?.length ?? 0) > 0;
 
@@ -383,6 +392,15 @@ export function AnimeListContent({
                             countText: resultCountText,
                           })}
                   </Text>
+                  {/* シーズン件数は自分の記録数ではなく Annict の全作品数
+                      であることを注記する（issue #602）。 */}
+                  {!hasQuery ? (
+                    <Text style={styles.noteText}>
+                      {t(
+                        "件数は Annict から取得したそのシーズンの全作品数です",
+                      )}
+                    </Text>
+                  ) : null}
                 </View>
                 {/* Tier 表の作成導線（issue #169/#348）。ヒーロー内の大きな
                     ボタンをやめ、ツールバー行のコンパクトなボタンにする（issue #170）。
@@ -429,6 +447,11 @@ export function AnimeListContent({
                   onPress={() => toggleSort("watchersCount")}
                 />
               </View>
+              {/* 「人気」が Annict の視聴者数（watchersCount）順であることを
+                  ユーザーに伝える注記（issue #602）。 */}
+              <Text style={styles.noteText}>
+                {t("「人気」は Annict の視聴者数順です")}
+              </Text>
               {/* メディア種別・ジャンル/タグの絞り込み導線（issue #346）。
                   選択自体は AnimeListFilterSheet（ボトムシート）で行う。 */}
               <View style={styles.filterRow}>

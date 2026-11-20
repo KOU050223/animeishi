@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Input } from "@/components/ui";
+import { initialWindowMetrics } from "react-native-safe-area-context";
 import { useThemeColors } from "@/lib/theme";
 import { TIER_LABEL_MAX_LENGTH, tierLabelError } from "@/lib/tierList/label";
 
@@ -70,7 +71,10 @@ export function TierLabelEditSheet({
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               padding: 16,
-              paddingBottom: 32,
+              // Modal は全画面を覆うため下端はホームインジケータまで届く。
+              // 固定 32 ではホームインジケータ領域に掛かるので inset を足す
+              // （issue #462。タブバーではなくウィンドウの inset を使う）。
+              paddingBottom: 32 + (initialWindowMetrics?.insets.bottom ?? 0),
               width: "100%",
               maxWidth: 560,
             }}

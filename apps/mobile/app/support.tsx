@@ -1,7 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { LegalDocument, type LegalSection } from "@/components/LegalDocument";
 import { CONTACT_EMAIL } from "@/lib/legal/operator";
+import { publicMetadata } from "@/lib/web/publicMetadata";
 import type { TranslationKey } from "@/lib/i18n/keys";
+
+export function generateMetadata() {
+  return publicMetadata(
+    "/support",
+    "サポート - アニ名刺",
+    "アニ名刺のサポートページ。お問い合わせ先とヘルプ。",
+  );
+}
 
 // ストア掲載のサポート URL（https://animeishi.uomi.dev/support）として公開するページ。
 // 回答は apps/mobile の実画面・実機能と照合して書くこと。未実装の案内は書かない。
@@ -27,7 +36,7 @@ const SECTIONS: LegalSection[] = [
   {
     heading: "Q. アカウントやデータを削除したいです",
     paragraphs: [
-      "サインイン後、プロフィール画面の「アカウントを削除」から削除できます。名刺・視聴履歴・お気に入り・フレンド・Tier表など、すべてのデータが削除され、この操作は取り消せません。",
+      "サインイン後、プロフィール画面の「アカウントを削除」から削除できます。名刺・視聴履歴・推し・フレンド・Tier表など、すべてのデータが削除され、この操作は取り消せません。",
     ],
   },
   {

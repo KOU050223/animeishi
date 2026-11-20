@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "@/lib/theme";
 import {
@@ -42,6 +43,7 @@ export function CreateSection() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const mergedTierLists = useMergedTierLists();
@@ -79,7 +81,17 @@ export function CreateSection() {
   };
 
   return (
-    <ScrollView className="flex-1" contentContainerClassName="px-4 pb-8 pt-1">
+    // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
+    // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+    <ScrollView
+      className="flex-1"
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingBottom: 32 + insets.bottom,
+        paddingTop: 4,
+      }}
+    >
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
         {t("新しく作る")}
       </Text>

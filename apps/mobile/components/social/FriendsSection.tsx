@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFriends, useRemoveFriend } from "@/lib/useFriends";
 import type { FriendItem } from "@/lib/useFriends";
 import { useFriendRequests } from "@/lib/useFriendRequests";
@@ -32,6 +33,7 @@ export function FriendsSection() {
   const received = friendRequests?.received ?? [];
   const sent = friendRequests?.sent ?? [];
   const remove = useRemoveFriend();
+  const insets = useSafeAreaInsets();
 
   function openProfile(userId: string) {
     router.push({ pathname: "/user/[uid]", params: { uid: userId } });
@@ -111,7 +113,13 @@ export function FriendsSection() {
       <FlatList
         data={list}
         keyExtractor={(item) => item.friendId}
-        contentContainerStyle={styles.listContent}
+        // 下端はネイティブのタブバーに潜り込むため、最後の行がその下に
+        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: 32 + insets.bottom },
+        ]}
         refreshing={refreshing}
         onRefresh={onRefresh}
         ListHeaderComponent={
