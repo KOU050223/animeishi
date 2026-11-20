@@ -358,6 +358,7 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
         .select({
           friendId: friends.friendId,
           createdAt: friends.createdAt,
+          source: friends.source,
           username: users.username,
           bio: users.bio,
           favoriteQuote: users.favoriteQuote,

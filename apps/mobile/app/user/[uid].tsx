@@ -18,6 +18,7 @@ import { alert, confirm } from "@/lib/dialog";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
+import { FriendNoteSection } from "@/components/social/FriendNoteSection";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
@@ -179,6 +180,9 @@ export default function PublicProfilePage() {
           ) : null}
 
           <ProfileDetails profile={data} />
+
+          {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}
+          {relation.isFriend ? <FriendNoteSection uid={uid} /> : null}
 
           {canModerate ? (
             <ModerationSection

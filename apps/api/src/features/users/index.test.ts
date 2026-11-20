@@ -9,7 +9,12 @@ import { issueQrExchangeToken } from "@/features/friends/qrExchangeToken";
 import { avatar, me } from "@/features/me";
 import { user } from "@/features/user";
 import { usersRoute } from "@/features/users";
-import { friends as friendsTable, reports, users } from "@/db/schema";
+import {
+  friends as friendsTable,
+  friendNotes,
+  reports,
+  users,
+} from "@/db/schema";
 import { resetLocalSuppression } from "@/lib/discordAlert";
 
 vi.mock("@clerk/hono", () => ({
@@ -563,6 +568,34 @@ describe("ユーザー通報・ブロック API", () => {
 
       const remaining = await db.select().from(friendsTable);
       expect(remaining).toHaveLength(0);
+    });
+
+    it("ブロックすると私用メモも両方向で消える（issue #659）", async () => {
+      const app = buildApp();
+      await makeFriends(app);
+      await db.insert(friendNotes).values([
+        {
+          ownerId: USER_A,
+          friendId: USER_B,
+          body: "A→B のメモ",
+          updatedAt: new Date(),
+        },
+        {
+          ownerId: USER_B,
+          friendId: USER_A,
+          body: "B→A のメモ",
+          updatedAt: new Date(),
+        },
+      ]);
+
+      signInAs(USER_A);
+      await app.request(
+        `/users/${USER_B}/block`,
+        { method: "POST" },
+        TEST_BINDINGS,
+      );
+
+      expect(await db.select().from(friendNotes)).toHaveLength(0);
     });
 
     it("ブロックした相手はフレンド一覧から除外される（双方向）", async () => {

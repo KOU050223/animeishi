@@ -286,6 +286,29 @@ export const friendRequests = sqliteTable(
   ],
 );
 
+// ---- friend_notes (名刺帳の私用メモ。issue #659) ----
+// owner が friend について書く、本人にだけ見えるメモ。相手には一切返さない。
+// フレンド解除・ブロック時は両方向のメモを消し（解除で消す方針）、
+// アカウント削除時も deleteMyAccount で消す。
+export const friendNotes = sqliteTable(
+  "friend_notes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    friendId: text("friend_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [
+    unique("friend_notes_owner_friend_unique").on(t.ownerId, t.friendId),
+    index("friend_notes_owner_idx").on(t.ownerId),
+  ],
+);
+
 // ---- tier_lists (シーズン単位のアニメ tier 表) ----
 // tiers（S/A/B... の行定義）は行数・ラベル・色をユーザーが自由に決められるため
 // 正規化せず JSON 1 カラムに持つ。行の並び順は配列順そのもの。
@@ -1071,6 +1094,8 @@ export type Friend = typeof friends.$inferSelect;
 export type NewFriend = typeof friends.$inferInsert;
 export type FriendRequest = typeof friendRequests.$inferSelect;
 export type NewFriendRequest = typeof friendRequests.$inferInsert;
+export type FriendNote = typeof friendNotes.$inferSelect;
+export type NewFriendNote = typeof friendNotes.$inferInsert;
 export type UserGenre = typeof userGenres.$inferSelect;
 export type TierList = typeof tierLists.$inferSelect;
 export type NewTierList = typeof tierLists.$inferInsert;
