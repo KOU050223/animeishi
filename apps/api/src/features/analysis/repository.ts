@@ -12,6 +12,7 @@ import type { AnalysisSection } from "./report";
 //   一致する場合だけ再利用する（履歴の変更＝ハッシュ不一致で自然に無効化）。
 // - レート制限: window_started_at から 24h あたり generation_count 回まで。
 //   窓が切れたら次の claim でカウンタを 1 にリセットする。
+//   失敗した生成は枠を消費しない（releaseGeneration で返す。issue #463）。
 export const ANALYSIS_CACHE_TTL_SEC = 24 * 60 * 60;
 export const ANALYSIS_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
 export const ANALYSIS_MAX_GENERATIONS_PER_WINDOW = 5;
@@ -179,8 +180,8 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * 生成スロットを 1 つ確保する（原子的なレート制限カウンタ）。
-     * 成功した場合、AI 生成の成否に関わらず 1 回消費した扱いにする
-     * （失敗時に巻き戻すと障害中の AI への連打を止められないため）。
+     * claim 後の生成に失敗した場合は releaseGeneration で枠を返す
+     * （失敗時は枠を消費しない方針。issue #463）。
      *
      * claim は行の input_hash を「この生成の入力」で上書きし、結果カラムを
      * NULL に戻す（生成中マーク）。これにより後から別入力の生成が先行すると
@@ -250,6 +251,20 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
           )
         : ANALYSIS_RATE_LIMIT_WINDOW_SEC;
       throw new AnalysisRateLimitError(waitSec);
+    },
+
+    /**
+     * claimGeneration で消費した生成枠を 1 つ返す。
+     * claim 後の生成・保存に失敗したときに呼ぶ（issue #463）。
+     * 窓のリセットが先行していてもカウントを負にしない。
+     */
+    async releaseGeneration(): Promise<void> {
+      await db.run(sql`
+        UPDATE ${analyses}
+        SET generation_count = generation_count - 1
+        WHERE user_id = ${currentUserId}
+          AND generation_count > 0
+      `);
     },
 
     /**

@@ -700,7 +700,7 @@ describe("視聴傾向分析 API", () => {
       expect(row?.generationCount).toBe(1);
     });
 
-    it("POST /me/analysis: AI が失敗したら 502 で結果は保存されない", async () => {
+    it("POST /me/analysis: AI が失敗したら 502 で結果は保存されず枠も消費しない", async () => {
       await seedHistory([101]);
       aiRun.mockRejectedValue(new Error("workers ai is down"));
 
@@ -715,12 +715,29 @@ describe("視聴傾向分析 API", () => {
       const body = (await getRes.json()) as { analysis: unknown };
       expect(body.analysis).toBeNull();
 
-      // 呼び出し自体は回数制限の消費としてカウントされる（障害中の連打防止）。
+      // 失敗した生成は枠を消費しない（issue #463）。ユーザーは障害を
+      // 踏み抜いても残り回数を失わない。
       const row = await db.query.analyses.findFirst({
         where: eq(analyses.userId, USER_ID),
       });
       expect(row?.summary).toBeNull();
+      expect(row?.generationCount).toBe(0);
+    });
+
+    it("POST /me/analysis: 失敗で枠が戻るので直後の再生成が成功する", async () => {
+      await seedHistory([101]);
+      aiRun
+        .mockRejectedValueOnce(new Error("workers ai is down"))
+        .mockResolvedValueOnce(aiChatCompletion(AI_PAYLOAD));
+
+      expect((await postAnalysis()).status).toBe(502);
+      expect((await postAnalysis()).status).toBe(200);
+
+      const row = await db.query.analyses.findFirst({
+        where: eq(analyses.userId, USER_ID),
+      });
       expect(row?.generationCount).toBe(1);
+      expect(row?.summary).not.toBeNull();
     });
 
     it("POST /me/analysis: 思考で打ち切られ content が空なら 502 で保存しない", async () => {
@@ -741,8 +758,8 @@ describe("視聴傾向分析 API", () => {
         where: eq(analyses.userId, USER_ID),
       });
       expect(row?.summary ?? null).toBeNull();
-      // 呼び出し自体は生成回数を消費する（障害中の連打防止。既存方針どおり）。
-      expect(row?.generationCount).toBe(1);
+      // 失敗した生成は枠を消費しない（issue #463）。
+      expect(row?.generationCount).toBe(0);
     });
 
     it("POST /me/analysis: content に <think> ブロックが混ざっても後段の JSON を解釈する", async () => {

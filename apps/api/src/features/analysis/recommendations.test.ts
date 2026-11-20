@@ -490,7 +490,7 @@ describe("AI おすすめ生成 API", () => {
       expect(row?.generationCount).toBe(1);
     });
 
-    it("POST: AI が失敗したら 502 で結果は保存されない", async () => {
+    it("POST: AI が失敗したら 502 で結果は保存されず枠も消費しない", async () => {
       await seedHistory([101]);
       stubAnnictFetch([workNode(9001)]);
       aiRun.mockRejectedValue(new Error("workers ai is down"));
@@ -500,14 +500,31 @@ describe("AI おすすめ生成 API", () => {
       const getRes = await getRecommendations();
       const body = (await getRes.json()) as { recommendations: unknown };
       expect(body.recommendations).toBeNull();
-      // 呼び出し自体は回数制限の消費としてカウントされる（障害中の連打防止）。
+      // 失敗した生成は枠を消費しない（issue #463）。
+      const row = await db.query.recommendations.findFirst({
+        where: eq(recommendations.userId, USER_ID),
+      });
+      expect(row?.generationCount).toBe(0);
+    });
+
+    it("POST: 失敗で枠が戻るので直後の再生成が成功する", async () => {
+      await seedHistory([101]);
+      stubAnnictFetch([workNode(9001)]);
+      aiRun
+        .mockRejectedValueOnce(new Error("workers ai is down"))
+        .mockResolvedValueOnce(aiChatCompletion(AI_PAYLOAD));
+
+      expect((await postRecommendations()).status).toBe(502);
+      expect((await postRecommendations()).status).toBe(200);
+
       const row = await db.query.recommendations.findFirst({
         where: eq(recommendations.userId, USER_ID),
       });
       expect(row?.generationCount).toBe(1);
+      expect(row?.worksJson).not.toBeNull();
     });
 
-    it("POST: Annict の照合が 401 なら annict_token_invalid を返す", async () => {
+    it("POST: Annict の照合が 401 なら annict_token_invalid を返し枠も消費しない", async () => {
       await seedHistory([101]);
       vi.stubGlobal(
         "fetch",
@@ -519,9 +536,13 @@ describe("AI おすすめ生成 API", () => {
       expect(res.status).toBe(401);
       const body = (await res.json()) as { code: string };
       expect(body.code).toBe("annict_token_invalid");
+      const row = await db.query.recommendations.findFirst({
+        where: eq(recommendations.userId, USER_ID),
+      });
+      expect(row?.generationCount).toBe(0);
     });
 
-    it("POST: Annict の照合が 500 なら上流障害として 502 を返す", async () => {
+    it("POST: Annict の照合が 500 なら上流障害として 502 を返し枠も消費しない", async () => {
       await seedHistory([101]);
       vi.stubGlobal(
         "fetch",
@@ -531,6 +552,10 @@ describe("AI おすすめ生成 API", () => {
 
       const res = await postRecommendations();
       expect(res.status).toBe(502);
+      const row = await db.query.recommendations.findFirst({
+        where: eq(recommendations.userId, USER_ID),
+      });
+      expect(row?.generationCount).toBe(0);
     });
 
     it("GET: 他ユーザーの結果は返らない", async () => {
