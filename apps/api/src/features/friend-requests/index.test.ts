@@ -22,6 +22,7 @@ const USER_C = "user_reqC003";
 type TestEnv = {
   Bindings: {
     DB: D1Database;
+    AVATARS: R2Bucket;
     CLERK_SECRET_KEY: string;
     CLERK_PUBLISHABLE_KEY: string;
   };
@@ -32,6 +33,7 @@ type TestEnv = {
 
 const TEST_BINDINGS = {
   DB: env.DB,
+  AVATARS: env.AVATARS,
   CLERK_SECRET_KEY: "test_secret",
   CLERK_PUBLISHABLE_KEY: "test_pub",
 };

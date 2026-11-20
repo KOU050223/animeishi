@@ -1413,5 +1413,10 @@
   "交換記録を削除できませんでした": "Couldn't delete the exchange record",
   "交換記録の削除に失敗しました": "Failed to delete the exchange record",
   "交換記録の取得に失敗しました": "Failed to load exchange records",
-  "交換記録を再読み込み": "Reload exchange records"
+  "交換記録を再読み込み": "Reload exchange records",
+  "{{count}}回目の出会い": "Meeting #{{count}}",
+  "会った記録を追加": "Add a met-up record",
+  "+ 会った記録を追加": "+ Add a met-up record",
+  "交換記録を追加できませんでした": "Couldn't add the exchange record",
+  "交換記録の追加に失敗しました": "Failed to add the exchange record"
 }

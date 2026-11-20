@@ -515,6 +515,12 @@ function ScanView() {
   const addFriend = useAddFriend();
   // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
   const [exchangeUid, setExchangeUid] = useState<string | null>(null);
+  // 成立画面の「◯回目」に出す交換記録の件数（issue #662）。
+  // 既フレンドとの QR 再交換では 2 回目以降になる。
+  const [meetingCount, setMeetingCount] = useState<number | null>(null);
+  // 今回の交換で対象になった交換記録の id。成立直後シートが
+  // 「一覧の先頭」ではなくこの記録を編集する（issue #662）。
+  const [exchangeRecordId, setExchangeRecordId] = useState<number | null>(null);
   // オフラインでキューへ積んだ交換。非 null の間は受付画面（issue #681）を
   // 表示する。成立演出とは同時に出ない（成立したときはキューしない）。
   const [queuedExchange, setQueuedExchange] = useState<{
@@ -546,7 +552,9 @@ function ScanView() {
       addFriend.mutate(
         { friendId: userId, qrToken, offlineToken },
         {
-          onSuccess: () => {
+          onSuccess: (result) => {
+            setMeetingCount(result.meetingCount);
+            setExchangeRecordId(result.recordId);
             setExchangeUid(userId);
           },
           onError: (e) => {
@@ -603,6 +611,8 @@ function ScanView() {
 
   const closeExchangeOverlay = () => {
     setExchangeUid(null);
+    setMeetingCount(null);
+    setExchangeRecordId(null);
     reset();
   };
 
@@ -673,6 +683,7 @@ function ScanView() {
       {exchangeUid ? (
         <ExchangeSuccessOverlay
           uid={exchangeUid}
+          meetingCount={meetingCount ?? undefined}
           onClose={closeExchangeOverlay}
           onRecordPress={() => {
             // オーバーレイだけを閉じる。ここで reset() まで呼ぶと
@@ -686,8 +697,10 @@ function ScanView() {
       {recordSheetUid ? (
         <PostExchangeRecordSheet
           uid={recordSheetUid}
+          recordId={exchangeRecordId ?? undefined}
           onClose={() => {
             setRecordSheetUid(null);
+            setExchangeRecordId(null);
             reset();
           }}
         />
