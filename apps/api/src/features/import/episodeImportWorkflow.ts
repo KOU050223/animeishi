@@ -245,7 +245,16 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     const fetchBudget = createSubrequestBudget(this.subrequestBudget());
     const countedFetch: typeof fetch = (input, init) => {
       fetchBudget.tryConsume();
-      return fetch(input, init);
+      return fetch(input, init).catch((err: unknown) => {
+        // 実上限到達は AnnictApiError(status 0) に包まれる前に枯渇系の
+        // 型に変換する。status 0 のままだと withAnnictRetry が一時障害
+        // として無駄にリトライする（同じインスタンスでは以降の fetch
+        // も必ず失敗するため回復しない）。
+        if (err instanceof Error && /too many subrequests/i.test(err.message)) {
+          throw new AnnictBudgetExhaustedError();
+        }
+        throw err;
+      });
     };
     const outOfBudget = () => fetchBudget.remaining <= 0;
     // このインスタンスで完結したユニット数。最初のユニットは予算を
