@@ -261,6 +261,67 @@ describe("フレンド API", () => {
       expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
     });
 
+    // scannedAt（issue #681 のオフライン交換キューが送るスキャン時刻）。
+    // 範囲内なら初回交換記録の met_at に採用し、範囲外・未指定は成立時刻
+    // （issue #661）。クライアント時計は信用できず、成立可否の判断にも
+    // 使わない。
+    it("POST /me/friends: scannedAt が 24h 以内なら met_at に採用する", async () => {
+      const app = buildApp();
+      // met_at 列は秒精度（mode: "timestamp"）なので比較値も秒に揃える。
+      const scannedAt = new Date(
+        Math.floor(Date.now() / 1000) * 1000 - 60 * 60 * 1000,
+      );
+      await postFriend(app, USER_B, { scannedAt: scannedAt.toISOString() });
+
+      const records = await db.query.exchangeRecords.findMany();
+      expect(records).toHaveLength(2);
+      expect(
+        records.every((r) => r.metAt.getTime() === scannedAt.getTime()),
+      ).toBe(true);
+    });
+
+    it("POST /me/friends: 未来の scannedAt は成立時刻に倒す", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B, {
+        scannedAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
+
+      const records = await db.query.exchangeRecords.findMany();
+      const friendRows = await db.query.friends.findMany();
+      expect(records).toHaveLength(2);
+      expect(records[0]?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+    });
+
+    it("POST /me/friends: ot の有効期限より古い scannedAt は成立時刻に倒す", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B, {
+        scannedAt: new Date(
+          Date.now() - (OFFLINE_EXCHANGE_TOKEN_TTL_SEC + 60) * 1000,
+        ).toISOString(),
+      });
+
+      const records = await db.query.exchangeRecords.findMany();
+      const friendRows = await db.query.friends.findMany();
+      expect(records).toHaveLength(2);
+      expect(records[0]?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+    });
+
+    it("POST /me/friends: 解釈できない scannedAt は成立時刻に倒す", async () => {
+      const app = buildApp();
+      await postFriend(app, USER_B, { scannedAt: "not-a-date" });
+
+      const records = await db.query.exchangeRecords.findMany();
+      const friendRows = await db.query.friends.findMany();
+      expect(records).toHaveLength(2);
+      expect(records[0]?.metAt.getTime()).toBe(
+        friendRows[0]?.createdAt.getTime(),
+      );
+    });
+
     // 同時交換の「負け側」（INSERT が既存行に当たる側）は記録を足さない
     // ことを、friends 行が先行してあるケースで担保する（issue #661 レビュー）。
     it("POST /me/friends: friends 行が先行して作られていれば記録は足さない", async () => {

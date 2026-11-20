@@ -80,8 +80,8 @@ describe("useExchangeQueueSync", () => {
     await renderHook(() => useExchangeQueueSync(), { wrapper });
 
     await waitFor(() => expect(mockFriendsPost).toHaveBeenCalledTimes(2));
-    // scannedAt は API がまだ受け取らないため送らない（#661 で受け取る
-    // ようになったら渡す）。
+    // scannedAt は交換記録（issue #661）の「実際に会った日時」に使うため
+    // キューに保持した値をそのまま送る。
     expect(mockFriendsPost).toHaveBeenNthCalledWith(
       1,
       {
@@ -89,6 +89,7 @@ describe("useExchangeQueueSync", () => {
           friendId: USER_A,
           qrToken: `qt-${USER_A}`,
           offlineToken: undefined,
+          scannedAt: "2026-11-21T10:00:00.000Z",
         },
       },
       { headers: { Authorization: "Bearer token_test" } },

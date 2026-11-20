@@ -5,6 +5,7 @@ import { friendsRepository, FriendNotFoundError } from "./repository";
 import {
   issueOfflineExchangeToken,
   issueQrExchangeToken,
+  OFFLINE_EXCHANGE_TOKEN_TTL_SEC,
   verifyOfflineExchangeToken,
   verifyQrExchangeToken,
 } from "./qrExchangeToken";
@@ -86,7 +87,7 @@ const friends = app
     );
   })
   .openapi(addFriendRoute, async (c) => {
-    const { friendId, qrToken, offlineToken } = c.req.valid("json");
+    const { friendId, qrToken, offlineToken, scannedAt } = c.req.valid("json");
     if (friendId === c.var.clerkUserId) {
       return c.json({ error: "自分自身をフレンドに追加できません" }, 400);
     }
@@ -109,11 +110,24 @@ const friends = app
       );
     }
 
+    // scannedAt（issue #681 の交換キュー送信）は交換記録の「実際に会った
+    // 日時」に使う。クライアント時計は信用できないため、未来の値や ot の
+    // 有効期限（24h）より古い値は採用せず現在時刻に倒す。成立可否の
+    // 判断には使わない。
+    const nowMs = Date.now();
+    const scannedMs = scannedAt ? Date.parse(scannedAt) : NaN;
+    const metAt =
+      Number.isFinite(scannedMs) &&
+      scannedMs <= nowMs &&
+      nowMs - scannedMs <= OFFLINE_EXCHANGE_TOKEN_TTL_SEC * 1000
+        ? new Date(scannedMs)
+        : undefined;
+
     const db = createDb(getBindings(c).DB);
     const repo = friendsRepository(db, c.var.clerkUserId);
 
     try {
-      const result = await repo.addFriend(friendId);
+      const result = await repo.addFriend(friendId, metAt);
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {

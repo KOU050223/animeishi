@@ -28,8 +28,8 @@ let flushInFlight: Promise<FlushExchangeResult> | null = null;
 
 /**
  * キュー項目を POST /me/friends へ送り、結果を分類する。
- * scannedAt は API がまだ受け取らないため送らない（#661 の交換記録で使う
- * 予定。設計 docs/13_offline-exchange-design.md）。
+ * scannedAt は交換記録（issue #661）の「実際に会った日時」に使うため
+ * そのまま送る。範囲外の値はサーバー側で成立時刻に倒される。
  */
 async function sendExchangeItem(
   item: ExchangeQueueItem,
@@ -43,6 +43,7 @@ async function sendExchangeItem(
           friendId: item.friendId,
           qrToken: item.qrToken,
           offlineToken: item.offlineToken,
+          scannedAt: item.scannedAt,
         },
       },
       { headers },
