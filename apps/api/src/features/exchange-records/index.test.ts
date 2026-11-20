@@ -259,6 +259,76 @@ describe("交換記録 API（issue #661 / #662）", () => {
       ).toHaveLength(1);
     });
 
+    // 「同日」は日本時間の暦日で判定する（issue #662 の仕様決定）。
+    // UTC の暦日だと JST 9:00（UTC 0:00）で日付が切り替わり、午前の
+    // イベントで 8 時台と 9 時台に会った記録が別日に分かれてしまう。
+    describe("同日判定の境界（JST の暦日）", () => {
+      async function moveMyRecordTo(metAt: Date) {
+        const record = await db.query.exchangeRecords.findFirst({
+          where: (t, { and, eq }) =>
+            and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        });
+        await db
+          .update(exchangeRecordsTable)
+          .set({ metAt })
+          .where(eq(exchangeRecordsTable.id, record!.id));
+      }
+
+      it("UTC の日付をまたいでも JST では同日ならまとめる（JST 8:59 → 9:00）", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          // 既存記録は JST 8:59（UTC 前日 23:59）に会ったことになっている。
+          // 手動登録の時刻は JST 9:00（UTC 0:00）。UTC の暦日では別日、
+          // JST では同日なので 1 件にまとまる。
+          await moveMyRecordTo(new Date("2026-11-21T23:59:00Z"));
+          vi.setSystemTime(new Date("2026-11-22T00:00:00Z"));
+          signInAs(USER_A);
+
+          const res = await postRecord({
+            friendId: USER_B,
+            placeName: null,
+            eventSlug: null,
+            eventName: null,
+          });
+          expect(res.status).toBe(200);
+          expect(
+            (await db.query.exchangeRecords.findMany()).filter(
+              (r) => r.ownerId === USER_A,
+            ),
+          ).toHaveLength(1);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("JST の日付をまたぐ記録は別日として積む（JST 23:59 → 0:00）", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          // 既存記録は JST 23:59（UTC 14:59）。手動登録は翌 JST 0:00
+          // （UTC 15:00）。UTC の暦日では同日だが JST では別日なので
+          // まとめずに新しい記録になる。
+          await moveMyRecordTo(new Date("2026-11-22T14:59:00Z"));
+          vi.setSystemTime(new Date("2026-11-22T15:00:00Z"));
+          signInAs(USER_A);
+
+          const res = await postRecord({
+            friendId: USER_B,
+            placeName: null,
+            eventSlug: null,
+            eventName: null,
+          });
+          expect(res.status).toBe(201);
+          expect(
+            (await db.query.exchangeRecords.findMany()).filter(
+              (r) => r.ownerId === USER_A,
+            ),
+          ).toHaveLength(2);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+    });
+
     it("手動記録にも登録時点の公開スナップショットのコピーが紐付く", async () => {
       await env.AVATARS.put(
         `meishi-assets/${USER_B}/public-snapshot.png`,

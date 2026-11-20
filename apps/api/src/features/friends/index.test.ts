@@ -339,6 +339,37 @@ describe("フレンド API", () => {
       expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
     });
 
+    // 「同日」は日本時間の暦日で判定する（issue #662）。UTC の暦日だと
+    // JST 9:00 で切り替わり、午前のイベントでの 8 時台・9 時台の交換が
+    // 別日に分かれてしまうため。
+    it("POST /me/friends: UTC の日付をまたぐ JST 同日の QR 再交換はまとめる（JST 8:59 → 9:00）", async () => {
+      const app = buildApp();
+      // 初回交換が JST 8:59（UTC 前日 23:59）だったことにする
+      await postFriend(app, USER_B);
+      const before9am = new Date("2026-11-21T23:59:00Z");
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: before9am })
+        .where(eq(exchangeRecordsTable.friendId, USER_B));
+      await db
+        .update(exchangeRecordsTable)
+        .set({ metAt: before9am })
+        .where(eq(exchangeRecordsTable.friendId, USER_A));
+
+      // 再交換は JST 9:00（UTC 0:00）。UTC の暦日では別日、JST では同日。
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date("2026-11-22T00:00:00Z"));
+        const res = await postFriend(app, USER_B);
+        expect(res.status).toBe(201);
+        const body = (await res.json()) as { meetingCount: number };
+        expect(body.meetingCount).toBe(1);
+        expect(await db.query.exchangeRecords.findMany()).toHaveLength(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("DELETE /me/friends/:friendId: フレンド解除で名刺コピーの R2 オブジェクトも消える", async () => {
       await env.AVATARS.put(
         `meishi-assets/${USER_B}/public-snapshot.png`,

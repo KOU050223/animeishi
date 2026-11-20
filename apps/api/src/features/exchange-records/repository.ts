@@ -133,12 +133,17 @@ async function resolveRecordEventName(
   return event.title;
 }
 
-/** metAt が収まる UTC の暦日範囲（同日判定用）。 */
-function utcDayRange(metAt: Date): { start: Date; end: Date } {
-  const start = new Date(metAt);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
+// JST（Asia/Tokyo）は常に UTC+9 で夏時間がないため、固定オフセットで
+// 暦日を取れる。UTC の暦日でまとめると JST 9:00 に日付が切り替わり、
+// 同じ午前のイベント内での再交換が別日に分かれてしまう（issue #662）。
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** metAt が収まる日本時間（UTC+9）の暦日範囲（同日判定用）。 */
+function jstDayRange(metAt: Date): { start: Date; end: Date } {
+  const shifted = new Date(metAt.getTime() + JST_OFFSET_MS);
+  shifted.setUTCHours(0, 0, 0, 0);
+  const start = new Date(shifted.getTime() - JST_OFFSET_MS);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
 }
 
@@ -146,7 +151,7 @@ function utcDayRange(metAt: Date): { start: Date; end: Date } {
  * 「同日・同じ場所／イベント」の既存記録を探す（issue #662 の
  * まとめ判定）。場所もイベントも付いていない記録同士も同日なら
  * 同一とみなす（null 同士は等しいため IS NULL / = を値で振り分ける）。
- * 同日の比較は UTC の暦日で行う。
+ * 同日の比較は日本時間の暦日で行う。
  */
 async function findSameMeetingRecord(
   db: DrizzleDb,
@@ -159,7 +164,7 @@ async function findSameMeetingRecord(
     eventName: string | null;
   },
 ): Promise<ExchangeRecord | undefined> {
-  const { start, end } = utcDayRange(opts.metAt);
+  const { start, end } = jstDayRange(opts.metAt);
   return db.query.exchangeRecords.findFirst({
     where: and(
       eq(exchangeRecords.ownerId, opts.ownerId),
