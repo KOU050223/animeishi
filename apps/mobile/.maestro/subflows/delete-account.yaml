@@ -21,15 +21,14 @@ appId: com.animeishi.app
 # RNGH の pan ジェスチャを掴み、Maestro の "swipe from center" がリストを
 # 動かせない（sign-out.yaml と同じ問題）。カードより下（65%）からの座標
 # スワイプでリスト末尾までスクロールしてからボタンを待つ。
-- swipe:
-    start: "50%, 65%"
-    end: "50%, 20%"
-- swipe:
-    start: "50%, 65%"
-    end: "50%, 20%"
-- swipe:
-    start: "50%, 65%"
-    end: "50%, 20%"
+# 回数はセクション追加で画面が伸びても届くよう余裕を持たせる。末尾で
+# 余分にスワイプしても害はない（sign-out.yaml と同じ理由）。
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: "50%, 65%"
+          end: "50%, 20%"
 - extendedWaitUntil:
     visible:
       text: アカウントを削除
