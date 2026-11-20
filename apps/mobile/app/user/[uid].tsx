@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
+import type { ViewInstance } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -21,6 +22,8 @@ import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverl
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
 import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
+import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
+import { saveReceivedMeishi } from "@/lib/receivedMeishi";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
 import type { WorkDetailSheetTarget } from "@/components/anime-list";
@@ -190,6 +193,11 @@ export default function PublicProfilePage() {
       ) : null}
       <ScrollView className="flex-1">
         <View className="items-center pt-4 pb-6 px-6">
+          {/* 受け取った側にまず名刺そのものを見せる（issue #675）。
+              スナップショット未作成なら従来のプロフィール表示のまま。 */}
+          {data.meishiSnapshotUrl ? (
+            <ReceivedMeishiCard profile={data} />
+          ) : null}
           <ProfileHeader profile={data} onPressNowWatching={setSelectedWork} />
 
           {showFriendAction ? (
@@ -503,6 +511,78 @@ function useModerationActions({
     isBlocking: blockUser.isPending,
     isReporting: reportUser.isPending,
   };
+}
+
+// 受け取り画面の名刺表示＋保存導線（issue #675）。公開スナップショットが
+// あるときだけ呼ばれ、プロフィールのヘッダより先に名刺そのものを出す。
+function ReceivedMeishiCard({ profile }: { profile: PublicProfile }) {
+  const { t } = useTranslation();
+  const cardRef = useRef<ViewInstance>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  // 読み込みに失敗した名刺の URL。失敗したら名刺ごと非表示にして従来の
+  // プロフィール表示に戻す。残った保存ボタンで空の View を撮らせないため
+  // （保存ボタン単体の非表示ではなくセクションごと消す）。
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+
+  if (failedUri === profile.meishiSnapshotUrl) {
+    return null;
+  }
+
+  async function onSave() {
+    if (!profile.meishiSnapshotUrl) return;
+    setIsSaving(true);
+    try {
+      await saveReceivedMeishi({
+        imageUrl: profile.meishiSnapshotUrl,
+        target: cardRef,
+        title: t("{{username}}の名刺", { username: profile.username }),
+      });
+    } catch {
+      alert(
+        t("画像の保存に失敗しました"),
+        t("時間をおいて再度お試しください。"),
+        { okLabel: "OK" },
+      );
+    }
+    setIsSaving(false);
+  }
+
+  return (
+    <View className="mb-4 w-full items-center" testID="received-meishi">
+      {/* native の保存はこの View を view-shot で撮るため
+          collapsable={false}（Android でフラット化されると撮れない）。 */}
+      <View
+        ref={cardRef}
+        collapsable={false}
+        className="w-full"
+        style={{ maxWidth: 440 }}
+      >
+        {/* 読み込み中・失敗時の代替は出さない（その場合は名刺ごと
+            非表示になり、従来のプロフィール表示だけが残る）。 */}
+        <MeishiSnapshotImage
+          uri={profile.meishiSnapshotUrl}
+          fallback={null}
+          accessibilityLabel={t("{{username}}の名刺", {
+            username: profile.username,
+          })}
+          testID="received-meishi-snapshot"
+          onError={() => setFailedUri(profile.meishiSnapshotUrl)}
+        />
+      </View>
+      <TouchableOpacity
+        className="mt-3 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-2 items-center"
+        onPress={() => void onSave()}
+        disabled={isSaving}
+        accessibilityRole="button"
+        accessibilityLabel={t("名刺を保存")}
+        testID="save-meishi-button"
+      >
+        <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+          {isSaving ? t("保存中...") : t("名刺を保存")}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 // アバター・ユーザー名・「いま見ている」吹き出しのヘッダ部。

@@ -72,6 +72,16 @@ const user = new Hono<UserRouteEnv>()
     // スナップショット）からの集計（issue #65）。公開・非ブロックが
     // 確認できた後にだけ集計する。
     const watchSummary = await findUserWatchSummary(db, uid);
+    // 既定の名刺の公開スナップショット（issue #593）。JSON の
+    // meishiSnapshotUrl と OGP の og:image（issue #675）の両方で使う。
+    const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
+    const meishiSnapshotUrl = snapshot
+      ? publicMeishiSnapshotUrl(
+          c.req.url,
+          uid,
+          snapshot.customMetadata?.version ?? snapshot.uploaded.toISOString(),
+        )
+      : null;
 
     if (wantsHtml) {
       const webProfileUrl = buildWebProfileUrl(
@@ -84,6 +94,7 @@ const user = new Hono<UserRouteEnv>()
         genreList,
         watchSummary,
         webProfileUrl,
+        meishiSnapshotUrl,
       );
       // ブロック判定が閲覧者依存なので共有キャッシュには載せない（private）。
       return c.html(html, 200, {
@@ -94,7 +105,6 @@ const user = new Hono<UserRouteEnv>()
     // 「いま見ている」吹き出し用の直近話数記録（issue #420）。JSON 応答に
     // だけ載せ、OGP HTML（共有ページ）には出さない。
     const nowWatching = await findNowWatching(db, uid);
-    const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
     const socialLinks = await socialLinksRepository(db).list(uid, viewerId);
     c.header("Cache-Control", "private, no-store");
 
@@ -105,14 +115,7 @@ const user = new Hono<UserRouteEnv>()
         bio: profile.bio,
         favoriteQuote: profile.favoriteQuote,
         profileImageUrl: profile.profileImageUrl,
-        meishiSnapshotUrl: snapshot
-          ? publicMeishiSnapshotUrl(
-              c.req.url,
-              uid,
-              snapshot.customMetadata?.version ??
-                snapshot.uploaded.toISOString(),
-            )
-          : null,
+        meishiSnapshotUrl,
         genres: genreList,
         socialLinks,
         watchSummary,
