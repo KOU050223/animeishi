@@ -346,7 +346,9 @@ export default function DanimeImportReviewScreen() {
 
   const checkedCount = rows?.filter((r) => r.checked && r.selected).length ?? 0;
   const episodeWorks: DanimeEpisodeJobWorkInput[] = (rows ?? [])
-    .filter((r) => r.item.status === "exact" && r.selected)
+    .filter(
+      (r) => r.item.status === "exact" && r.selected && (r.checked || r.locked),
+    )
     .map((r) => ({
       danimeWorkId: r.item.danimeWorkId,
       annictWorkId: r.selected!.annictWorkId,
@@ -377,9 +379,8 @@ export default function DanimeImportReviewScreen() {
       } catch {
         // ジョブ登録の失敗は作品登録の成功を巻き戻さない。
         // null のまま残し、結果画面では話記録を表示しない。
-      } finally {
-        setEpisodeJobPending(false);
       }
+      setEpisodeJobPending(false);
     }
     setDoneResult({
       succeeded: res.results.filter((r) => r.ok).length,
@@ -626,10 +627,12 @@ export default function DanimeImportReviewScreen() {
         </Text>
         {episodeCount > 0 && (
           <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {t("{{works}} 作品・{{episodes}} 話の視聴記録を登録します", {
-              works: episodeWorks.length,
-              episodes: episodeCount,
-            })}
+            {t(
+              "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します",
+              {
+                episodes: episodeCount,
+              },
+            )}
           </Text>
         )}
         {timingSummary !== "" && (
@@ -684,10 +687,7 @@ export default function DanimeImportReviewScreen() {
           ) : (
             <Text className="text-white font-semibold">
               {episodeCount > 0
-                ? t("{{works}} 作品と {{episodes}} 話を Annict に登録", {
-                    works: checkedCount,
-                    episodes: episodeCount,
-                  })
+                ? t("Annict に登録")
                 : t("{{count}} 件を Annict に登録", { count: checkedCount })}
             </Text>
           )}

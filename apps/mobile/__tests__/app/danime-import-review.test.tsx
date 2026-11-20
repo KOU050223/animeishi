@@ -275,6 +275,12 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
     ).toBe(true);
     const button = screen.getByTestId("danime-register-button");
     expect(button.props.accessibilityState?.disabled).toBe(false);
+    expect(
+      screen.getByText(
+        "視聴済み 1 話のうち、対応付けできた話を Annict に記録します",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Annict に登録")).toBeTruthy();
     await act(async () => fireEvent.press(button));
 
     await waitFor(() =>
@@ -302,11 +308,13 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
     setStoreLists({
       w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "始まり" }],
       w2: [{ partId: "p2", watched: true, label: "第1話", subtitle: "失敗" }],
+      w3: [{ partId: "p3", watched: true, label: "第1話", subtitle: "除外" }],
     });
-    mockHistories.data = [{ annictWorkId: 1, state: "WATCHING" }];
+    mockHistories.data = [{ annictWorkId: 1, state: "WATCHED" }];
     stubMatchSuccess([
       matchItem("w1", "登録済み作品", 1),
       matchItem("w2", "新規作品", 2),
+      matchItem("w3", "除外する作品", 3),
     ]);
     mockBulkMutate.mockImplementation((_args, opts) => {
       void opts.onSuccess({
@@ -320,6 +328,9 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
     });
 
     await render(<DanimeImportReviewScreen />);
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText("除外する作品 を登録対象にする")),
+    );
     await act(async () =>
       fireEvent.press(screen.getByTestId("danime-register-button")),
     );
@@ -342,6 +353,28 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
         ],
       }),
     );
+  });
+
+  it("ユーザーがチェックを外した作品だけなら話ジョブを開始できない", async () => {
+    setStoreLists({
+      w1: [{ partId: "p1", watched: true, label: "第1話", subtitle: "除外" }],
+    });
+    stubMatchSuccess([matchItem("w1", "除外する作品", 1)]);
+
+    await render(<DanimeImportReviewScreen />);
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("除外する作品 を登録対象にする"),
+      ).toBeTruthy(),
+    );
+    await act(async () =>
+      fireEvent.press(screen.getByLabelText("除外する作品 を登録対象にする")),
+    );
+
+    expect(
+      screen.getByTestId("danime-register-button").props.accessibilityState
+        ?.disabled,
+    ).toBe(true);
   });
 });
 
