@@ -124,11 +124,11 @@ export function useExchangeQueueSync() {
       return result;
     })();
     flushInFlight = promise;
-    try {
-      return await promise;
-    } finally {
+    // catch の無い try/finally は React Compiler が扱えない
+    // （BuildHIR::lowerStatement の制限）ため、finally チェーンで掃除する。
+    return await promise.finally(() => {
       if (flushInFlight === promise) flushInFlight = null;
-    }
+    });
   }, [isSignedIn, userId, getToken, queryClient, router, t]);
 
   useEffect(() => {
