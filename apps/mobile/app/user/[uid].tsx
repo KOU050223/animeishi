@@ -19,6 +19,7 @@ import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
+import { CommonPoints } from "@/components/social/CommonPoints";
 import { GuestSignUpCta } from "@/components/social/GuestSignUpCta";
 import { NowWatchingBubble } from "@/components/NowWatchingBubble";
 import { AnimeWorkDetailSheet } from "@/components/anime-list";
@@ -96,7 +97,7 @@ export default function PublicProfilePage() {
   const screenOptions = (
     <Stack.Screen
       options={{
-        title: data?.username ?? "",
+        title: data?.username ?? relation.friend?.username ?? "",
         headerBackVisible: false,
         headerLeft: () => (
           <BackButton
@@ -123,6 +124,36 @@ export default function PublicProfilePage() {
   }
 
   if (error || !data) {
+    if (error?.message === "not_found" && relation.friend) {
+      return (
+        <SafeAreaView
+          className="flex-1 bg-white dark:bg-slate-900"
+          edges={["bottom"]}
+        >
+          {screenOptions}
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ alignItems: "center", padding: 24 }}
+          >
+            {relation.friend.profileImageUrl ? (
+              <Image
+                source={{ uri: relation.friend.profileImageUrl }}
+                className="w-20 h-20 rounded-full"
+              />
+            ) : null}
+            <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-3">
+              {relation.friend.username}
+            </Text>
+            {relation.friend.bio ? (
+              <Text className="text-slate-600 dark:text-slate-300 mt-2">
+                {relation.friend.bio}
+              </Text>
+            ) : null}
+            <CommonPoints uid={uid} />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     const message =
       error?.message === "not_found"
         ? t("このプロフィールは存在しないか、非公開です。")
@@ -180,6 +211,7 @@ export default function PublicProfilePage() {
           ) : null}
 
           <ProfileDetails profile={data} />
+          {relation.isFriend ? <CommonPoints uid={uid} /> : null}
 
           {/* 名刺帳の私用メモ（issue #659）。フレンドの詳細にだけ出す */}
           {relation.isFriend ? <FriendNoteSection uid={uid} /> : null}
@@ -229,7 +261,8 @@ function useFriendRelation(uid: string | undefined) {
     refetch: refetchRequests,
   } = useFriendRequests();
 
-  const isFriend = !!uid && !!friends?.some((f) => f.friendId === uid);
+  const friend = friends?.find((f) => f.friendId === uid);
+  const isFriend = !!friend;
   const receivedRequest = friendRequests?.received.find(
     (r) => r.userId === uid,
   );
@@ -247,7 +280,15 @@ function useFriendRelation(uid: string | undefined) {
     void refetchRequests();
   };
 
-  return { isFriend, receivedRequest, sentRequest, isLoading, hasError, retry };
+  return {
+    friend,
+    isFriend,
+    receivedRequest,
+    sentRequest,
+    isLoading,
+    hasError,
+    retry,
+  };
 }
 
 // フレンド申請・承認・取消・削除のハンドラ群。相互成立時の

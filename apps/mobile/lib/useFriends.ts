@@ -10,6 +10,7 @@ import {
   EVENT_PARTICIPANTS_QUERY_KEY,
 } from "./useEvents";
 import { FRIEND_WATCH_STORIES_QUERY_KEY } from "./useFriendWatchStories";
+import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
 
 type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
@@ -33,6 +34,8 @@ export function invalidateFriendRelatedQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   userId: string | null | undefined,
 ) {
+  // 解除・ブロック後に以前の共通点をキャッシュから表示しない。
+  queryClient.removeQueries({ queryKey: COMMON_POINTS_QUERY_KEY });
   void queryClient.invalidateQueries({
     queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
   });
