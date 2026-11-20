@@ -147,7 +147,7 @@ jest.mock("@/components/MeishiCard", () => ({
   },
 }));
 
-let mockProfile: { username: string } | undefined = {
+let mockProfile: { username: string; isPublic?: boolean } | undefined = {
   username: "テストユーザー",
 };
 jest.mock("@/lib/useProfile", () => ({
@@ -513,6 +513,36 @@ describe("マイQR（QR コード生成）", () => {
       expect.objectContaining({ document: docB }),
     );
   });
+
+  it("プロフィールが非公開のとき警告を出し、「公開設定を開く」でプロフィールタブへ遷移する（issue #676）", async () => {
+    mockProfile = { username: "テストユーザー", isPublic: false };
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    const warning = screen.getByTestId("qr-private-warning");
+    expect(
+      within(warning).getByText(
+        "プロフィールが非公開のため、アプリを持っていない相手には名刺が表示されません",
+      ),
+    ).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByTestId("qr-private-warning-open-settings"),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/profile");
+  });
+
+  it.each([true, undefined])(
+    "プロフィールの isPublic が %s のとき警告は出さない",
+    async (isPublic) => {
+      mockProfile = { username: "テストユーザー", isPublic };
+      loggedInUser({ userId: USER_ID });
+      await render(<QrSection />, { wrapper });
+
+      expect(screen.queryByTestId("qr-private-warning")).toBeNull();
+    },
+  );
 
   it("スナップショット画像の読み込みに失敗したら端末内レンダリングにフォールバックする", async () => {
     mockMeishiCards = [
