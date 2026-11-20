@@ -279,6 +279,24 @@ export async function findUserGenres(
  * tombstone・ジャンル・通報/ブロック・アカウント削除を担う）。
  */
 export function usersRepository(db: DrizzleDb, currentUserId: string) {
+  // upsertMyProfile / setMyProfileVisibility の書き込み後の読み戻し。
+  // INSERT が tombstone に抑止されたケース（requireAuth 通過後に
+  // DELETE /me が割り込んだ race）は削除済みとして区別する。
+  async function readMyProfileOrThrow(): Promise<User> {
+    const updated = await db.query.users.findFirst({
+      where: eq(users.id, currentUserId),
+    });
+    if (!updated) {
+      const tombstoned = await db.query.deletedUsers.findFirst({
+        where: eq(deletedUsers.userId, currentUserId),
+        columns: { userId: true },
+      });
+      if (tombstoned) throw new DeletedUserError(currentUserId);
+      throw new Error("ユーザーの更新に失敗しました");
+    }
+    return updated;
+  }
+
   return {
     // ---- User ----
     async getMyProfile(): Promise<User | undefined> {
@@ -338,20 +356,33 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         ON CONFLICT(id) DO UPDATE SET
           ${sql.join(updateFragments, sql`, `)}
       `);
-      const updated = await db.query.users.findFirst({
-        where: eq(users.id, currentUserId),
-      });
-      if (!updated) {
-        // INSERT が tombstone に抑止されたケース（requireAuth 通過後に
-        // DELETE /me が割り込んだ race）は削除済みとして区別する。
-        const tombstoned = await db.query.deletedUsers.findFirst({
-          where: eq(deletedUsers.userId, currentUserId),
-          columns: { userId: true },
-        });
-        if (tombstoned) throw new DeletedUserError(currentUserId);
-        throw new Error("ユーザーの更新に失敗しました");
-      }
-      return updated;
+      return readMyProfileOrThrow();
+    },
+
+    /**
+     * 公開設定（users.is_public）だけを更新する（issue #604）。
+     * upsertMyProfile は省略された項目を消さない部分更新だが、呼び出し側の
+     * PUT /profile が省略項目を null / 既定値に潰してから渡すため、
+     * 公開範囲の切り替えはこの専用メソッドを使う。
+     * 行が無ければ upsertMyProfile と同じく tombstone 非存在時のみ作成し、
+     * username の初期値は Clerk ユーザー ID（既存 upsert ルートと同じ）。
+     */
+    async setMyProfileVisibility(isPublic: boolean): Promise<User> {
+      const now = Math.floor(Date.now() / 1000);
+      await db.run(sql`
+        INSERT INTO ${users} (id, username, is_public, created_at, updated_at)
+        SELECT
+          ${currentUserId}, ${currentUserId}, ${isPublic ? 1 : 0},
+          ${now}, ${now}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM ${deletedUsers}
+          WHERE ${deletedUsers.userId} = ${currentUserId}
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          is_public = excluded.is_public,
+          updated_at = excluded.updated_at
+      `);
+      return readMyProfileOrThrow();
     },
 
     /**

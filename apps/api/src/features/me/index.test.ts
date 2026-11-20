@@ -385,6 +385,90 @@ describe("GET /me/profile & PUT /me/profile", () => {
       expect(body.isPublic).toBe(false);
     });
 
+    // issue #604: 公開設定の切り替え専用エンドポイント。PUT /me/profile は
+    // 未送信の項目を消すため、公開範囲だけの更新ではこちらを使う。
+    describe("PUT /me/profile/visibility", () => {
+      it("is_public だけを更新し、他のプロフィール項目は変えない", async () => {
+        const now = new Date();
+        await db.insert(users).values({
+          id: USER_ID,
+          username: "表示名そのまま",
+          bio: "自己紹介そのまま",
+          favoriteQuote: "名セリフそのまま",
+          isPublic: true,
+          profileImageUrl: "http://localhost/avatar.png",
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        const app = buildApp();
+        const res = await app.request(
+          "/me/profile/visibility",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic: false }),
+          },
+          testBindings(),
+        );
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          username: string;
+          bio: string | null;
+          favoriteQuote: string | null;
+          isPublic: boolean;
+          profileImageUrl: string | null;
+        };
+        expect(body.isPublic).toBe(false);
+        expect(body.username).toBe("表示名そのまま");
+        expect(body.bio).toBe("自己紹介そのまま");
+        expect(body.favoriteQuote).toBe("名セリフそのまま");
+        expect(body.profileImageUrl).toBe("http://localhost/avatar.png");
+      });
+
+      it("非公開から公開に切り替えられる", async () => {
+        const now = new Date();
+        await db.insert(users).values({
+          id: USER_ID,
+          username: "ユーザー",
+          isPublic: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        const app = buildApp();
+        const res = await app.request(
+          "/me/profile/visibility",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic: true }),
+          },
+          testBindings(),
+        );
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { isPublic: boolean };
+        expect(body.isPublic).toBe(true);
+      });
+
+      it("isPublic が boolean でなければ 400", async () => {
+        const app = buildApp();
+        const res = await app.request(
+          "/me/profile/visibility",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublic: "yes" }),
+          },
+          testBindings(),
+        );
+
+        expect(res.status).toBe(400);
+      });
+    });
+
     // issue #581: 過去に「@」入りで登録されたユーザー名のまま保存しても
     // バリデーションで弾かれないこと。
     it("PUT /me/profile: 「@」を含むユーザー名で更新できる", async () => {

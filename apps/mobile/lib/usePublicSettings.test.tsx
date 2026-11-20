@@ -1,90 +1,167 @@
-import { act, renderHook } from "@testing-library/react-native";
+import { act } from "react";
+import { renderHook } from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { usePublicSettings } from "@/lib/usePublicSettings";
+import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
+import { loggedInUser } from "@/test-utils/auth";
+import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
-const mockMutateAsync = jest.fn(async () => ({}));
-let mockProfileData:
-  | {
-      username: string;
-      bio: string | null;
-      favoriteQuote: string | null;
-      isPublic: boolean;
-    }
-  | undefined;
-
-jest.mock("@/lib/useProfile", () => ({
-  useProfile: () => ({ data: mockProfileData }),
-  useUpdateProfile: () => ({ mutateAsync: mockMutateAsync }),
+// PUT /me/profile/visibility（is_public だけを更新する専用エンドポイント）への
+// リクエストが正しく組み立てられるかだけを確認する。
+const mockVisibilityPut = jest.fn();
+jest.mock("@/lib/api", () => ({
+  apiClient: {
+    me: {
+      profile: {
+        // jest.mock ファクトリは定数の初期化前に評価されるため、
+        // 呼び出し時に参照する形にしておく。
+        visibility: {
+          $put: (...args: unknown[]) => mockVisibilityPut(...args),
+        },
+      },
+    },
+  },
 }));
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockProfileData = {
-    username: "テストユーザー",
-    bio: "よろしく",
-    favoriteQuote: "名言",
-    isPublic: true,
+// useProfile（GET /me/profile の取得側）だけ差し替える
+const mockUseProfile = jest.fn(
+  (): { data?: { username: string; isPublic: boolean } } => ({
+    data: { username: "testuser", isPublic: true },
+  }),
+);
+jest.mock("@/lib/useProfile", () => ({
+  useProfile: () => mockUseProfile(),
+  PROFILE_QUERY_KEY: ["profile"],
+}));
+
+function createWrapper(client = new QueryClient()) {
+  return function wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
   };
+}
+
+const getToken = jest.fn(async () => "token_test");
+
+beforeEach(() => {
+  mockVisibilityPut.mockReset();
+  mockVisibilityPut.mockResolvedValue({ ok: true, status: 200 });
+  mockUseProfile.mockReturnValue({
+    data: { username: "testuser", isPublic: true },
+  });
+  loggedInUser({ userId: "user_test" });
+  setMockClerkState({ getToken });
 });
 
 describe("usePublicSettings", () => {
-  it("users.is_public の現在値を公開範囲として返す", async () => {
-    expect(
-      (await renderHook(() => usePublicSettings())).result.current
-        .profileVisibility,
-    ).toBe("public");
-
-    mockProfileData = { ...mockProfileData!, isPublic: false };
-    expect(
-      (await renderHook(() => usePublicSettings())).result.current
-        .profileVisibility,
-    ).toBe("private");
+  it("プロフィールが公開のとき profileVisibility は public を返す", async () => {
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    expect(q.result.current.profileVisibility).toBe("public");
   });
 
-  it("「プロフィールと名刺」行の切り替えは users.is_public を更新する", async () => {
-    const { result } = await renderHook(() => usePublicSettings());
+  it("プロフィールが非公開のとき profileVisibility は private を返す", async () => {
+    mockUseProfile.mockReturnValue({
+      data: { username: "testuser", isPublic: false },
+    });
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    expect(q.result.current.profileVisibility).toBe("private");
+  });
 
-    await act(() => result.current.toggle("profile", "private"));
-    expect(mockMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ isPublic: false }),
-    );
+  it("未取得のときは公開扱いにする", async () => {
+    mockUseProfile.mockReturnValue({ data: undefined });
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    expect(q.result.current.profileVisibility).toBe("public");
+  });
 
-    await act(() => result.current.toggle("profile", "public"));
-    expect(mockMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ isPublic: true }),
+  it("public への切り替えは isPublic: true だけを送る", async () => {
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await q.result.current.toggle("profile", "public");
+    });
+    expect(mockVisibilityPut).toHaveBeenCalledWith(
+      { json: { isPublic: true } },
+      { headers: { Authorization: "Bearer token_test" } },
     );
   });
 
-  // PUT /me/profile は未送信の項目を消すため、切り替え時も取得済みの
-  // プロフィール項目をすべて送る（issue #604）。
-  it("切り替え時は他のプロフィール項目も現在値で送る", async () => {
-    const { result } = await renderHook(() => usePublicSettings());
+  it("private への切り替えは isPublic: false だけを送る", async () => {
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await q.result.current.toggle("profile", "private");
+    });
+    expect(mockVisibilityPut).toHaveBeenCalledWith(
+      { json: { isPublic: false } },
+      { headers: { Authorization: "Bearer token_test" } },
+    );
+  });
 
-    await act(() => result.current.toggle("profile", "private"));
-
-    expect(mockMutateAsync).toHaveBeenCalledWith({
-      username: "テストユーザー",
-      bio: "よろしく",
-      favoriteQuote: "名言",
-      isPublic: false,
+  it("保存に成功するとプロフィールの取得クエリを無効化する", async () => {
+    const client = new QueryClient();
+    const invalidate = jest.spyOn(client, "invalidateQueries");
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    await act(async () => {
+      await q.result.current.toggle("profile", "private");
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: PROFILE_QUERY_KEY,
     });
   });
 
-  it("プロフィール未取得の状態では切り替えを保存しない", async () => {
-    mockProfileData = undefined;
-    const { result } = await renderHook(() => usePublicSettings());
-
-    await expect(
-      act(() => result.current.toggle("profile", "private")),
-    ).rejects.toThrow();
-    expect(mockMutateAsync).not.toHaveBeenCalled();
+  it("更新が失敗したときエラーを投げる", async () => {
+    mockVisibilityPut.mockResolvedValue({ ok: false, status: 500 });
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await expect(
+        q.result.current.toggle("profile", "private"),
+      ).rejects.toThrow("公開設定の更新に失敗しました");
+    });
+    expect(q.result.current.pendingKey).toBeNull();
   });
 
-  it("一覧に無いキーの切り替えは失敗する", async () => {
-    const { result } = await renderHook(() => usePublicSettings());
+  it("保存中は pendingKey にキーが入り、連打しても再送しない", async () => {
+    let release: (() => void) | undefined;
+    mockVisibilityPut.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ ok: true, status: 200 });
+        }),
+    );
+    const q = await renderHook(() => usePublicSettings(), {
+      wrapper: createWrapper(),
+    });
 
-    await expect(
-      act(() => result.current.toggle("unknown", "public")),
-    ).rejects.toThrow();
-    expect(mockMutateAsync).not.toHaveBeenCalled();
+    let first: Promise<void> | undefined;
+    await act(async () => {
+      first = q.result.current.toggle("profile", "private");
+    });
+    expect(q.result.current.pendingKey).toBe("profile");
+
+    await act(async () => {
+      await q.result.current.toggle("profile", "public");
+    });
+    expect(mockVisibilityPut).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      release?.();
+      await first;
+    });
+    expect(q.result.current.pendingKey).toBeNull();
   });
 });

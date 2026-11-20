@@ -7,6 +7,7 @@ import {
   getProfileRoute,
   postDeletionFeedbackRoute,
   updateProfileRoute,
+  updateVisibilityRoute,
   uploadAvatarRoute,
   uploadMeishiAssetRoute,
 } from "./schema";
@@ -132,6 +133,13 @@ const me = app
       await repo.setMyGenres(data.selectedGenres);
     }
 
+    return c.json(profile, 200);
+  })
+  .openapi(updateVisibilityRoute, async (c) => {
+    const { isPublic } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const repo = usersRepository(db, c.var.clerkUserId);
+    const profile = await repo.setMyProfileVisibility(isPublic);
     return c.json(profile, 200);
   })
   // 自分がブロックしているユーザーの一覧（ブロック解除画面用）。
