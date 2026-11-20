@@ -25,6 +25,8 @@ import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
+import { buildQrExchangeUrl } from "@/lib/qrParser";
+import { readOfflineExchangeToken } from "@/lib/offlineExchangeToken";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
@@ -103,6 +105,23 @@ function GenerateView() {
   // 読み取り側は即時成立できず申請画面に送られるだけなので、取得失敗時も
   // トークン無しのまま表示してよい（issue #417）。
   const qrToken = useQrExchangeToken();
+  // qt が取れないとき（オフライン）だけ QR に載せる ot（issue #680）。
+  // オンラインのうちに useQrExchangeToken が AsyncStorage へ保存したものを
+  // 読む。取得・再取得のたびにキャッシュが新しくなるため、その都度読み直す
+  // （errorUpdatedAt も依存に入れるのは、再取得失敗でも再描画して
+  // 期限切れの qt を QR から外すため）。
+  const [offlineToken, setOfflineToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void readOfflineExchangeToken(userId).then((token) => {
+      if (!cancelled) setOfflineToken(token);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, qrToken.dataUpdatedAt, qrToken.errorUpdatedAt]);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
@@ -203,9 +222,20 @@ function GenerateView() {
   // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
   // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
   // 載せない shareUrl を使い回し、遠隔では申請フローに限定する。
-  const qrValue = qrToken.data?.token
-    ? `${shareUrl}?qt=${encodeURIComponent(qrToken.data.token)}`
-    : shareUrl;
+  // qt は期限内のものだけ有効。取れない・期限切れのときだけキャッシュ済みの
+  // ot にフォールバックする（issue #680、オーナー決定 2026-11-21）。
+  const qt =
+    qrToken.data && qrToken.data.expiresAt * 1000 > Date.now()
+      ? qrToken.data.token
+      : undefined;
+  const qrValue = buildQrExchangeUrl(shareUrl, {
+    qt,
+    ot: qt ? undefined : offlineToken,
+    miniMeishi: {
+      username: profile?.username,
+      avatarUrl: profile?.profileImageUrl ?? undefined,
+    },
+  });
 
   async function onShareLink() {
     try {
@@ -465,14 +495,16 @@ function ScanView() {
     handleBarcodeScanned,
     reset,
   } = useQrScanner({
-    onScanned: ({ userId, qrToken }) => {
-      if (!qrToken) {
+    onScanned: ({ userId, qrToken, offlineToken }) => {
+      if (!qrToken && !offlineToken) {
         openProfile(userId);
         return;
       }
       // 対面交換トークン付き = 相手が目の前で QR を提示した場合だけ即時成立。
+      // 相手がオフラインだった QR には qt の代わりに ot が載る（issue #663）。
+      // 読み取り側がオフラインで POST 自体が失敗する場合のキューは #681 で作る。
       addFriend.mutate(
-        { friendId: userId, qrToken },
+        { friendId: userId, qrToken, offlineToken },
         {
           onSuccess: () => {
             setExchangeUid(userId);

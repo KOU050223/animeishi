@@ -12,6 +12,7 @@ import * as Clipboard from "expo-clipboard";
 import { QrSection } from "@/components/social/QrSection";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
+import { parseQrPayload } from "@/lib/qrParser";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 
 // react-native-qrcode-svg の描画結果ではなく、QR に埋め込む値を検証するため
@@ -70,12 +71,25 @@ jest.mock("@/lib/useFriends", () => ({
   useQrExchangeToken: () => ({ data: mockQrToken }),
 }));
 
+// オフライン交換トークンの端末キャッシュ（issue #680）。テストごとに
+// 差し替えられるよう変数で持つ。
+let mockOfflineToken: string | null = null;
+jest.mock("@/lib/offlineExchangeToken", () => ({
+  readOfflineExchangeToken: () => Promise.resolve(mockOfflineToken),
+  saveOfflineExchangeToken: jest.fn(),
+}));
+
 // 成立演出の見た目は ExchangeSuccessOverlay 側のテストで担保する。
 // ここでは「演出が出る・遷移する・スキャン状態が戻る」の結線だけを見る。
 const mockScannerReset = jest.fn();
 const mockRequestPermission = jest.fn();
 let capturedOnScanned:
-  | ((result: { userId: string; qrToken?: string; raw: string }) => void)
+  | ((result: {
+      userId: string;
+      qrToken?: string;
+      offlineToken?: string;
+      raw: string;
+    }) => void)
   | undefined;
 // カメラ権限の状態。テストごとに差し替える。
 let mockScannerPermission: { granted: boolean } | null = { granted: true };
@@ -84,6 +98,7 @@ jest.mock("@/lib/useQrScanner", () => ({
     onScanned?: (result: {
       userId: string;
       qrToken?: string;
+      offlineToken?: string;
       raw: string;
     }) => void;
   }) => {
@@ -232,6 +247,7 @@ beforeEach(async () => {
   mockMeishiCards = [];
   mockDefaultCardId = null;
   mockQrToken = { token: "test-qt-token", expiresAt: 1999999999 };
+  mockOfflineToken = null;
   // 成立演出が取りに行く公開プロフィール。
   global.fetch = jest.fn(async () => ({
     status: 200,
@@ -252,15 +268,19 @@ describe("マイQR（QR コード生成）", () => {
     expect(within(scroll).getByTestId("qr-save-image")).toBeTruthy();
   });
 
-  it("Web 版プロフィール URL に対面交換トークンを付けて QR に埋め込む", async () => {
+  it("Web 版プロフィール URL に対面交換トークンとミニ名刺を付けて QR に埋め込む", async () => {
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
 
-    expect(mockQRCodeProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        value: `https://animeishi.uomi.dev/user/${USER_ID}?qt=test-qt-token`,
-      }),
+    const qrValue = mockQRCodeProps.mock.calls[0]?.[0]?.value as string;
+    expect(qrValue).toContain(
+      `https://animeishi.uomi.dev/user/${USER_ID}?qt=test-qt-token`,
     );
+    expect(qrValue).toContain("&mc=");
+    // ミニ名刺には表示名が入り、読み取り側のパーサーで復元できる。
+    expect(parseQrPayload(qrValue)?.miniMeishi).toEqual({
+      username: "テストユーザー",
+    });
   });
 
   it("トークン未取得時はトークン無しの URL に落ちる", async () => {
@@ -272,6 +292,62 @@ describe("マイQR（QR コード生成）", () => {
       expect.objectContaining({
         value: `https://animeishi.uomi.dev/user/${USER_ID}`,
       }),
+    );
+  });
+
+  it("qt を取得できずキャッシュ済みの ot があるとき ?ot= とミニ名刺を載せる（issue #680）", async () => {
+    mockQrToken = undefined;
+    mockOfflineToken = "cached-ot-token";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    // ot は AsyncStorage からの読み出し後に反映される。
+    await waitFor(() =>
+      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          value: expect.stringContaining("?ot=cached-ot-token"),
+        }),
+      ),
+    );
+    const qrValue = mockQRCodeProps.mock.calls.at(-1)?.[0]?.value as string;
+    expect(qrValue).not.toContain("qt=");
+    expect(qrValue).toContain("&mc=");
+    expect(parseQrPayload(qrValue)?.offlineToken).toBe("cached-ot-token");
+    expect(parseQrPayload(qrValue)?.miniMeishi).toEqual({
+      username: "テストユーザー",
+    });
+  });
+
+  it("qt があればキャッシュ済みの ot があっても載せない", async () => {
+    mockOfflineToken = "cached-ot-token";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() =>
+      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          value: expect.stringContaining("?qt=test-qt-token"),
+        }),
+      ),
+    );
+    const qrValue = mockQRCodeProps.mock.calls.at(-1)?.[0]?.value as string;
+    expect(qrValue).not.toContain("ot=");
+  });
+
+  it("qt が期限切れならキャッシュ済みの ot にフォールバックする", async () => {
+    // オフラインに落ちると直近取得の qt が残るが、期限切れなら載せる意味が
+    // ないため ot に切り替える。
+    mockQrToken = { token: "expired-qt", expiresAt: 1_000_000_000 };
+    mockOfflineToken = "cached-ot-token";
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await waitFor(() =>
+      expect(mockQRCodeProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          value: expect.stringContaining("?ot=cached-ot-token"),
+        }),
+      ),
     );
   });
 
@@ -629,6 +705,34 @@ describe("スキャン", () => {
 
     expect(mockScannerReset).toHaveBeenCalled();
     expect(screen.queryByTestId("exchange-success-overlay")).toBeNull();
+  });
+
+  it("ot だけ載った QR は offlineToken で即時追加を試す（issue #680）", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars: unknown, options?: { onSuccess?: () => void }) =>
+        options?.onSuccess?.(),
+    );
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    await fireEvent.press(screen.getByLabelText("スキャン"));
+    await act(async () =>
+      capturedOnScanned?.({
+        userId: "user_partner",
+        offlineToken: "scanned-ot",
+        raw: "https://animeishi.uomi.dev/user/user_partner?ot=scanned-ot",
+      }),
+    );
+
+    expect(mockAddFriendMutate).toHaveBeenCalledWith(
+      {
+        friendId: "user_partner",
+        qrToken: undefined,
+        offlineToken: "scanned-ot",
+      },
+      expect.any(Object),
+    );
+    await waitFor(() => expect(screen.getByText("名刺交換成立")).toBeTruthy());
   });
 
   it("トークン無しの QR（共有 URL）は即時追加せずプロフィールへ誘導する", async () => {
