@@ -519,6 +519,14 @@ function ReceivedMeishiCard({ profile }: { profile: PublicProfile }) {
   const { t } = useTranslation();
   const cardRef = useRef<ViewInstance>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // 読み込みに失敗した名刺の URL。失敗したら名刺ごと非表示にして従来の
+  // プロフィール表示に戻す。残った保存ボタンで空の View を撮らせないため
+  // （保存ボタン単体の非表示ではなくセクションごと消す）。
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+
+  if (failedUri === profile.meishiSnapshotUrl) {
+    return null;
+  }
 
   async function onSave() {
     if (!profile.meishiSnapshotUrl) return;
@@ -558,6 +566,7 @@ function ReceivedMeishiCard({ profile }: { profile: PublicProfile }) {
             username: profile.username,
           })}
           testID="received-meishi-snapshot"
+          onError={() => setFailedUri(profile.meishiSnapshotUrl)}
         />
       </View>
       <TouchableOpacity

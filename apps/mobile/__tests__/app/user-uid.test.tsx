@@ -185,6 +185,13 @@ jest.mock("@/lib/receivedMeishi", () => ({
   saveReceivedMeishi: (input: unknown) => mockSaveReceivedMeishi(input),
 }));
 
+// expo-image の Image は testID を持たないため、要素タイプで拾う
+// （QrSection.test.tsx と同じ手法）。
+const findExpoImages = () =>
+  screen.container.queryAll(
+    (node) => typeof node.type === "string" && node.type.endsWith("ExpoImage"),
+  );
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -750,6 +757,27 @@ describe("PublicProfilePage", () => {
           }),
         ),
       );
+    });
+
+    it("名刺画像の読み込みに失敗したら保存ボタンごと消して従来の表示に戻る", async () => {
+      loggedInUser({ userId: "user_me" });
+      mockProfileWithSnapshot(SNAPSHOT_URL);
+      await render(<PublicProfilePage />, { wrapper });
+      await waitFor(() =>
+        expect(screen.getByTestId("save-meishi-button")).toBeTruthy(),
+      );
+
+      await fireEvent(findExpoImages()[0], "onError", {
+        nativeEvent: { error: "failed" },
+      });
+
+      // 空の View を撮らせる保存ボタンが残らないよう、名刺の表示領域ごと消す
+      await waitFor(() =>
+        expect(screen.queryByTestId("received-meishi")).toBeNull(),
+      );
+      expect(screen.queryByTestId("save-meishi-button")).toBeNull();
+      // 従来のプロフィール表示は残る
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0);
     });
 
     it("保存に失敗したらアラートを出す", async () => {

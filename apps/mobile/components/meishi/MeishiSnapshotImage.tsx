@@ -13,6 +13,7 @@ export function MeishiSnapshotImage({
   testID,
   accessibilityLabel,
   keepFallbackForA11y = false,
+  onError,
 }: {
   uri: string | null | undefined;
   fallback: ReactNode;
@@ -25,6 +26,12 @@ export function MeishiSnapshotImage({
    * 消えるため、名刺の中身を伝えたい画面で使う（issue #595）。
    */
   keepFallbackForA11y?: boolean;
+  /**
+   * 現在の uri の読み込みに失敗したときに呼ばれる。差し替え前の古い uri の
+   * 失敗では呼ばれない。画像の表示可否に連動する導線（保存ボタン等）を
+   * 出し分ける呼び出し側が使う（issue #675）。
+   */
+  onError?: () => void;
 }) {
   // 読了/失敗フラグは URL と組で持ち、URL が変わったら下ろす
   // （?v= クエリで再撮影後のスナップショットは別 URL になる）。
@@ -87,9 +94,10 @@ export function MeishiSnapshotImage({
               : s,
           )
         }
-        onError={() =>
-          setState((s) => (s.uri === uri ? { ...s, failed: true } : s))
-        }
+        onError={() => {
+          setState((s) => (s.uri === uri ? { ...s, failed: true } : s));
+          if (state.uri === uri) onError?.();
+        }}
       />
     </View>
   );
