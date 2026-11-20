@@ -50,7 +50,9 @@ export function PostExchangeRecordSheet({
       initialPlaceName={latest.placeName}
       initialEventSlug={latest.eventSlug}
       initialEventName={latest.eventName}
-      saving={update.isPending}
+      // 一覧の再取得中は latest が古いキャッシュの記録を指しうるため
+      // 保存を無効にする（旧記録の上書きを防ぐ）。
+      saving={update.isPending || records.isFetching}
       onClose={onClose}
       onSubmit={onSubmit}
     />

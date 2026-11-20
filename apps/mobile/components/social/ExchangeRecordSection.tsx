@@ -77,6 +77,29 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
   }
 
   const list = records.data ?? [];
+  if (records.isError) {
+    // 取得失敗は「記録なし」と見分けがつくようエラー表示と再試行を出す。
+    return (
+      <View className="mt-6 w-full self-start" testID="exchange-record-section">
+        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {t("出会いの記録")}
+        </Text>
+        <Text className="text-xs text-red-500 dark:text-red-400 mt-1">
+          {t("交換記録の取得に失敗しました")}
+        </Text>
+        <TouchableOpacity
+          onPress={() => void records.refetch()}
+          accessibilityRole="button"
+          accessibilityLabel={t("交換記録を再読み込み")}
+          className="mt-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5"
+        >
+          <Text className="text-xs text-slate-600 dark:text-slate-300">
+            {t("再試行")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   if (list.length === 0) return null;
 
   return (

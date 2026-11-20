@@ -581,7 +581,10 @@ function ScanView() {
           uid={exchangeUid}
           onClose={closeExchangeOverlay}
           onRecordPress={() => {
-            closeExchangeOverlay();
+            // オーバーレイだけを閉じる。ここで reset() まで呼ぶと
+            // scanned が戻り、シートの裏で QR の再検出・再交換が
+            // 走りうるため、スキャナの再開はシートを閉じるまで待つ。
+            setExchangeUid(null);
             setRecordSheetUid(exchangeUid);
           }}
         />
@@ -589,7 +592,10 @@ function ScanView() {
       {recordSheetUid ? (
         <PostExchangeRecordSheet
           uid={recordSheetUid}
-          onClose={() => setRecordSheetUid(null)}
+          onClose={() => {
+            setRecordSheetUid(null);
+            reset();
+          }}
         />
       ) : null}
     </View>

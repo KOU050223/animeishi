@@ -121,21 +121,28 @@ export function exchangeRecordsRepository(
 
       let eventName = input.eventName;
       if (input.eventSlug !== null) {
-        // 紐付けられるのは公開済みの登録イベントだけ（公開日時を
-        // 過ぎたもの。公開前のイベント slug を指定してタイトルを
-        // レスポンス経由で読み出されるのを防ぐ）。過去に開催された
-        // 公開済みイベントへの紐付けは記録として正当なため開催期間では
-        // 絞らない。存在しない・公開前の slug は 400 に変換するため
-        // ここで投げる。
-        const event = await db.query.events.findFirst({
-          where: and(
-            eq(events.slug, input.eventSlug),
-            lte(events.publishedAt, new Date()),
-          ),
-          columns: { title: true },
-        });
-        if (!event) throw new EventNotFoundError(input.eventSlug);
-        eventName = event.title;
+        if (input.eventSlug === existing.eventSlug) {
+          // 同じイベントへの再保存（場所だけの編集など）では当時の
+          // 表示名を保つ。紐付け時の title を記録する仕様のため、
+          // あとから events.title が改名されても記録を書き換えない。
+          eventName = existing.eventName;
+        } else {
+          // 紐付けられるのは公開済みの登録イベントだけ（公開日時を
+          // 過ぎたもの。公開前のイベント slug を指定してタイトルを
+          // レスポンス経由で読み出されるのを防ぐ）。過去に開催された
+          // 公開済みイベントへの紐付けは記録として正当なため開催期間では
+          // 絞らない。存在しない・公開前の slug は 400 に変換するため
+          // ここで投げる。
+          const event = await db.query.events.findFirst({
+            where: and(
+              eq(events.slug, input.eventSlug),
+              lte(events.publishedAt, new Date()),
+            ),
+            columns: { title: true },
+          });
+          if (!event) throw new EventNotFoundError(input.eventSlug);
+          eventName = event.title;
+        }
       }
 
       const now = new Date();

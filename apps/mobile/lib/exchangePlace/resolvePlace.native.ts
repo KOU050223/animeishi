@@ -8,12 +8,14 @@ import type { ResolvePlaceName } from "./types";
  * 戻り値にも state にも持たせない。
  */
 export const resolvePlaceName: ResolvePlaceName = async () => {
-  const permission = await Location.requestForegroundPermissionsAsync();
-  if (permission.status !== Location.PermissionStatus.GRANTED) {
-    return { kind: "denied" };
-  }
-
   try {
+    // 権限要求も try の内側。ネイティブ側で例外が起きても
+    // 「取得できなかった」に畳み込み、呼び出し側の案内に繋げる。
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== Location.PermissionStatus.GRANTED) {
+      return { kind: "denied" };
+    }
+
     // 低精度で十分（地名・施設名まで取れればよい。正確な座標は不要）。
     const position = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Low,

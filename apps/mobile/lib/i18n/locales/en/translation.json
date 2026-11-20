@@ -1395,5 +1395,7 @@
   "交換記録を保存できませんでした": "Couldn't save the exchange record",
   "交換記録の保存に失敗しました": "Failed to save the exchange record",
   "交換記録を削除できませんでした": "Couldn't delete the exchange record",
-  "交換記録の削除に失敗しました": "Failed to delete the exchange record"
+  "交換記録の削除に失敗しました": "Failed to delete the exchange record",
+  "交換記録の取得に失敗しました": "Failed to load exchange records",
+  "交換記録を再読み込み": "Reload exchange records"
 }

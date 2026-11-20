@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -235,6 +235,10 @@ export function ExchangeRecordSheet({
   const [eventSlug, setEventSlug] = useState(initialEventSlug);
   const [eventName, setEventName] = useState(initialEventName ?? "");
   const [resolvingPlace, setResolvingPlace] = useState(false);
+  // 場所解決の待機中に手入力があったことを記録する。完了時に
+  // 手入力を上書きしないためのフラグ（state にすると解決完了より
+  // 先に再レンダーされるので ref で持つ）。
+  const placeEditedWhileResolving = useRef(false);
 
   // シートが開くたび入力を最新の記録値に戻す（FriendNoteSheet と同じ
   // レンダー中リセットで effect の同期 setState を避ける）。
@@ -277,9 +281,14 @@ export function ExchangeRecordSheet({
 
   async function onPressResolvePlace() {
     setResolvingPlace(true);
+    placeEditedWhileResolving.current = false;
+    // try/finally は React Compiler が扱えないため、catch の後に
+    // 解除を書く構造にしている。
     try {
       const result = await resolvePlaceName();
-      if (result.kind === "ok") {
+      // 待機中に場所欄を手入力していたら、その入力を優先して
+      // 取得結果は適用しない。
+      if (result.kind === "ok" && !placeEditedWhileResolving.current) {
         setPlaceName(result.name);
       } else if (result.kind === "denied") {
         alert(
@@ -289,7 +298,7 @@ export function ExchangeRecordSheet({
             okLabel: "OK",
           },
         );
-      } else {
+      } else if (result.kind === "unavailable") {
         alert(t("場所を特定できませんでした"), t("場所は手入力でも残せます"), {
           okLabel: "OK",
         });
@@ -298,9 +307,13 @@ export function ExchangeRecordSheet({
       alert(t("場所を特定できませんでした"), t("場所は手入力でも残せます"), {
         okLabel: "OK",
       });
-    } finally {
-      setResolvingPlace(false);
     }
+    setResolvingPlace(false);
+  }
+
+  function onChangePlaceName(text: string) {
+    setPlaceName(text);
+    if (resolvingPlace) placeEditedWhileResolving.current = true;
   }
 
   function onPickEvent(candidate: RankedEventCandidate) {
@@ -393,7 +406,7 @@ export function ExchangeRecordSheet({
                 value={placeName}
                 resolving={resolvingPlace}
                 colors={colors}
-                onChange={setPlaceName}
+                onChange={onChangePlaceName}
                 onResolve={onPressResolvePlace}
               />
               <EventField

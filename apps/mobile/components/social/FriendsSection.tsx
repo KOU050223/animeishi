@@ -45,7 +45,8 @@ export function FriendsSection() {
   // イベント絞り込み（issue #661）。交換記録につけたイベント名を
   // 候補にして、そのイベントで会った人だけに絞る。並び順・
   // グループ表示は変えず、リストを間引くだけにする。
-  const { data: exchangeRecords } = useExchangeRecords();
+  const { data: exchangeRecords, refetch: refetchRecords } =
+    useExchangeRecords();
   const [eventFilter, setEventFilter] = useState<string | null>(null);
   // 届いた・送ったフレンド申請（issue #417、#603）。承認・取消は相手の
   // プロフィールで行うため、ここでは状態表示とプロフィールへの導線だけを出す。
@@ -64,7 +65,11 @@ export function FriendsSection() {
     setRefreshing(true);
     // refetch が失敗してもインジケータは必ず戻す。React Compiler が
     // try/finally 構文を扱えないため Promise の .finally() で戻す（React Doctor 指摘）。
-    void Promise.allSettled([refetch(), refetchRequests()]).finally(() => {
+    void Promise.allSettled([
+      refetch(),
+      refetchRequests(),
+      refetchRecords(),
+    ]).finally(() => {
       setRefreshing(false);
     });
   }
@@ -131,12 +136,17 @@ export function FriendsSection() {
         .filter((name): name is string => !!name),
     ),
   ];
+  // 選択中のイベントが候補から消えた（対象の記録が消えた等）場合は
+  // 絞り込みを無効化する。残すと候補チップ自体が消えて
+  // 解除不能な空一覧になる（issue #661 レビュー指摘）。
+  const effectiveFilter =
+    eventFilter && eventNames.includes(eventFilter) ? eventFilter : null;
   // 選択中のイベントで会った相手の ID。フレンド解除で記録が消えると
   // この集合も自然に小さくなる。
-  const filteredIds = eventFilter
+  const filteredIds = effectiveFilter
     ? new Set(
         (exchangeRecords ?? [])
-          .filter((r) => r.eventName === eventFilter)
+          .filter((r) => r.eventName === effectiveFilter)
           .map((r) => r.friendId),
       )
     : null;
@@ -154,16 +164,16 @@ export function FriendsSection() {
           <View className="flex-row flex-wrap gap-2 mt-2">
             <EventFilterChip
               label={t("すべて")}
-              selected={eventFilter === null}
+              selected={effectiveFilter === null}
               onPress={() => setEventFilter(null)}
             />
             {eventNames.map((name) => (
               <EventFilterChip
                 key={name}
                 label={name}
-                selected={eventFilter === name}
+                selected={effectiveFilter === name}
                 onPress={() =>
-                  setEventFilter(eventFilter === name ? null : name)
+                  setEventFilter(effectiveFilter === name ? null : name)
                 }
               />
             ))}

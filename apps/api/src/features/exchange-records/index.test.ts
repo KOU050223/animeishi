@@ -292,6 +292,48 @@ describe("交換記録 API（issue #661）", () => {
       expect(res.status).toBe(400);
     });
 
+    // 紐付けた後に events.title が改名されても、同じ slug での
+    // 再保存（場所だけの編集など）では記録の表示名を保つ
+    // （「当時の表示名」を記録する仕様）。
+    it("同じ eventSlug の再保存ではイベント改名後も既存の eventName を保つ", async () => {
+      signInAs(USER_A);
+      const record = await myRecord();
+      const now = new Date();
+      await db.insert(eventsTable).values({
+        slug: "renamed-event",
+        title: "旧タイトル",
+        startsAt: now,
+        endsAt: now,
+        publishedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const first = await putRecord(record!.id, {
+        placeName: null,
+        eventSlug: "renamed-event",
+        eventName: null,
+      });
+      expect(first.status).toBe(200);
+
+      // イベント側のタイトルを改名してから、場所だけを編集して再保存する
+      await db
+        .update(eventsTable)
+        .set({ title: "新タイトル" })
+        .where(eq(eventsTable.slug, "renamed-event"));
+      const res = await putRecord(record!.id, {
+        placeName: "幕張メッセ",
+        eventSlug: "renamed-event",
+        eventName: null,
+      });
+      expect(res.status).toBe(200);
+      const updated = (await res.json()) as {
+        placeName: string | null;
+        eventName: string | null;
+      };
+      expect(updated.placeName).toBe("幕張メッセ");
+      expect(updated.eventName).toBe("旧タイトル");
+    });
+
     // 過去に開催が終わっていても公開済みなら紐付けられる
     // （履歴としての後付けは正当）。
     it("開催済みの公開イベントは紐付けられる", async () => {
