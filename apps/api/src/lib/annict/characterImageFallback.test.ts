@@ -213,7 +213,25 @@ describe("fetchKitsuCharacters", () => {
       if (url.includes("/anime/k1234/characters"))
         return makeKitsuCharactersResponse([]);
       if (url.includes("/anime/k1234/media-relationships"))
-        return relationships([{ id: "related", role: "prequel" }]);
+        return new URL(url).searchParams.get("include") === "destination"
+          ? relationships([{ id: "related", role: "prequel" }])
+          : new Response(
+              JSON.stringify({
+                data: [
+                  {
+                    attributes: { role: "prequel" },
+                    relationships: {
+                      destination: {
+                        links: {
+                          related:
+                            "https://kitsu.io/api/edge/media-relationships/1/destination",
+                        },
+                      },
+                    },
+                  },
+                ],
+              }),
+            );
       if (url.includes("/anime/related/characters"))
         return makeKitsuCharactersResponse([
           {

@@ -136,6 +136,7 @@ async function fetchRelatedAnimeIds(
   const url = new URL(
     `${KITSU_CHARACTERS_ENDPOINT_BASE}/${animeId}/media-relationships`,
   );
+  url.searchParams.set("include", "destination");
   url.searchParams.set("page[limit]", "20");
   const res = await safeFetch(
     fetchImpl,
