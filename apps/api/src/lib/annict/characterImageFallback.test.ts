@@ -194,6 +194,129 @@ describe("matchCharacterImages", () => {
 });
 
 describe("fetchKitsuCharacters", () => {
+  const relationships = (entries: { id: string; role: string }[]) =>
+    new Response(
+      JSON.stringify({
+        data: entries.map(({ id, role }) => ({
+          type: "mediaRelationships",
+          attributes: { role },
+          relationships: { destination: { data: { type: "anime", id } } },
+        })),
+        links: {},
+      }),
+    );
+
+  it("一覧が空なら関連作品のキャラを取得し、既存の完全一致で画像を付ける", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = requestUrl(input);
+      if (isKitsuMappingsUrl(url)) return makeKitsuResponse({ m1234: {} });
+      if (url.includes("/anime/k1234/characters"))
+        return makeKitsuCharactersResponse([]);
+      if (url.includes("/anime/k1234/media-relationships"))
+        return new URL(url).searchParams.get("include") === "destination"
+          ? relationships([{ id: "related", role: "prequel" }])
+          : new Response(
+              JSON.stringify({
+                data: [
+                  {
+                    attributes: { role: "prequel" },
+                    relationships: {
+                      destination: {
+                        links: {
+                          related:
+                            "https://kitsu.io/api/edge/media-relationships/1/destination",
+                        },
+                      },
+                    },
+                  },
+                ],
+              }),
+            );
+      if (url.includes("/anime/related/characters"))
+        return makeKitsuCharactersResponse([
+          {
+            id: "c1",
+            canonicalName: "太郎 山田",
+            image: { original: "https://img.example/related.png" },
+          },
+        ]);
+      return new Response("unexpected", { status: 500 });
+    });
+    const characters = await fetchKitsuCharacters(1234, fetchMock);
+    expect(
+      matchCharacterImages([annict(1, "山田 太郎")], characters).get(1),
+    ).toBe("https://img.example/related.png");
+  });
+
+  it("関連作品にキャラがいても名前が一致しなければ画像を付けない", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = requestUrl(input);
+      if (isKitsuMappingsUrl(url)) return makeKitsuResponse({ m1234: {} });
+      if (url.includes("/anime/k1234/characters"))
+        return makeKitsuCharactersResponse([]);
+      if (url.includes("/anime/k1234/media-relationships"))
+        return relationships([{ id: "related", role: "parent_story" }]);
+      if (url.includes("/anime/related/characters"))
+        return makeKitsuCharactersResponse([
+          {
+            id: "c1",
+            canonicalName: "別人",
+            image: { original: "https://img.example/wrong.png" },
+          },
+        ]);
+      return new Response("unexpected", { status: 500 });
+    });
+    const characters = await fetchKitsuCharacters(1234, fetchMock);
+    expect(
+      matchCharacterImages([annict(1, "山田 太郎")], characters).size,
+    ).toBe(0);
+  });
+
+  it("関連作品は 2 件で打ち切り、3 件目を取得しない", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = requestUrl(input);
+      if (isKitsuMappingsUrl(url)) return makeKitsuResponse({ m1234: {} });
+      if (url.includes("/anime/k1234/characters"))
+        return makeKitsuCharactersResponse([]);
+      if (url.includes("/anime/k1234/media-relationships"))
+        return relationships(
+          ["a", "b", "c"].map((id) => ({ id, role: "full_story" })),
+        );
+      if (url.includes("/characters")) return makeKitsuCharactersResponse([]);
+      if (url.includes("/media-relationships")) return relationships([]);
+      return new Response("unexpected", { status: 500 });
+    });
+    await fetchKitsuCharacters(1234, fetchMock);
+    const urls = fetchMock.mock.calls.map(([input]) => requestUrl(input));
+    expect(urls.some((url) => url.includes("/anime/c/characters"))).toBe(false);
+    expect(urls.filter((url) => url.includes("/characters"))).toHaveLength(3);
+  });
+
+  it("1 ホップ目が空なら 2 ホップ目まで探す", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = requestUrl(input);
+      if (isKitsuMappingsUrl(url)) return makeKitsuResponse({ m1234: {} });
+      if (url.includes("/anime/k1234/media-relationships"))
+        return relationships([{ id: "middle", role: "sequel" }]);
+      if (url.includes("/anime/middle/media-relationships"))
+        return relationships([{ id: "last", role: "prequel" }]);
+      if (url.includes("/anime/last/characters"))
+        return makeKitsuCharactersResponse([
+          { id: "c1", canonicalName: "キャラA" },
+        ]);
+      if (url.includes("/characters")) return makeKitsuCharactersResponse([]);
+      return new Response("unexpected", { status: 500 });
+    });
+    const result = await fetchKitsuCharacters(1234, fetchMock);
+    expect(result.map((character) => character.names[0])).toEqual(["キャラA"]);
+  });
+
+  it("元作品にキャラがあれば関連作品には問い合わせない", async () => {
+    const fetchMock = mockFetch([{ id: "c1", canonicalName: "キャラA" }]);
+    const result = await fetchKitsuCharacters(1234, fetchMock);
+    expect(result.map((character) => character.names[0])).toEqual(["キャラA"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   // mappings で MAL ID → Kitsu 作品 ID（k<malId>）を解決し、
   // /anime/<id>/characters には渡したキャラクター一覧を返すモック。
   const mockFetch = (

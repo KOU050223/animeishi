@@ -1,4 +1,64 @@
-import { nextFavoriteAction, matchesFavoriteQuery } from "@/lib/useFavorites";
+import React from "react";
+import {
+  act,
+  cleanup,
+  renderHook,
+  waitFor,
+} from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  nextFavoriteAction,
+  matchesFavoriteQuery,
+  useAddFavorite,
+  useRemoveFavorite,
+} from "@/lib/useFavorites";
+import { useCommonPoints } from "@/lib/useCommonPoints";
+import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { setMockClerkState } from "../__mocks__/@clerk/expo";
+
+let mockFavoriteMatchCount = 0;
+jest.mock("@/lib/api", () => ({
+  apiClient: {
+    me: {
+      favorites: {
+        ":annictWorkId": {
+          $post: async () => {
+            mockFavoriteMatchCount = 1;
+            return { ok: true, json: async () => ({}) };
+          },
+          $delete: async () => {
+            mockFavoriteMatchCount = 0;
+            return { ok: true, headers: { get: () => "" } };
+          },
+        },
+      },
+    },
+    users: {
+      ":id": {
+        common: {
+          $get: async () => ({
+            ok: true,
+            json: async () => ({
+              watchingTogether: [],
+              watchedTogetherCount: 0,
+              favoriteTogether: mockFavoriteMatchCount
+                ? [
+                    {
+                      annictWorkId: 1,
+                      title: "共通の推し",
+                      hostedImageUrl: null,
+                    },
+                  ]
+                : [],
+              conversationStarters: [],
+            }),
+          }),
+        },
+      },
+    },
+  },
+}));
+jest.mock("@/lib/annict", () => ({ buildAnnictAuthHeader: async () => ({}) }));
 
 describe("matchesFavoriteQuery", () => {
   const favorite = {
@@ -46,5 +106,52 @@ describe("nextFavoriteAction", () => {
   it("空の Set ではどの animeId も add を返す", () => {
     const favoriteIds = new Set<number>();
     expect(nextFavoriteAction(favoriteIds, 1)).toBe("add");
+  });
+});
+
+describe("推しを変更した後の共通点", () => {
+  let client: QueryClient;
+  beforeEach(async () => {
+    resetAuth();
+    loggedInUser({ userId: "user_me" });
+    setMockClerkState({ getToken: async () => "test-token" });
+    mockFavoriteMatchCount = 0;
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
+  afterEach(async () => {
+    await cleanup();
+    client
+      .getMutationCache()
+      .getAll()
+      .forEach((mutation) => mutation.destroy());
+    client.clear();
+  });
+
+  it("推しの追加と解除後、開いているフレンドの共通点を再取得する", async () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client }, children);
+    const { result } = await renderHook(
+      () => ({
+        common: useCommonPoints("user_friend"),
+        add: useAddFavorite(),
+        remove: useRemoveFavorite(),
+      }),
+      { wrapper },
+    );
+    await waitFor(() =>
+      expect(result.current.common.data?.favoriteTogether).toHaveLength(0),
+    );
+    await act(async () => {
+      await result.current.add.mutateAsync(1);
+    });
+    await waitFor(() =>
+      expect(result.current.common.data?.favoriteTogether).toHaveLength(1),
+    );
+    await act(async () => {
+      await result.current.remove.mutateAsync(1);
+    });
+    await waitFor(() =>
+      expect(result.current.common.data?.favoriteTogether).toHaveLength(0),
+    );
   });
 });
