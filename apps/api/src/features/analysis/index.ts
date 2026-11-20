@@ -120,11 +120,12 @@ const analysis = app
       return c.json({ analysis: toResponse(cached), cached: true }, 200);
     }
 
-    // 生成回数制限。claim はカウンタを原子的に消費する（AI 呼び出しが
-    // 失敗しても 1 回消費した扱い。障害中の連打防止のため）。
-    // 同時に行を「この入力ハッシュで生成中」にマークする。
+    // 生成回数制限。claim はカウンタを原子的に消費し、同時に行を
+    // 「この入力ハッシュで生成中」にマークする。生成に失敗したときは
+    // releaseGeneration で枠を返す（失敗時は枠を消費しない。issue #463）。
+    let claimedWindowSec: number;
     try {
-      await repo.claimGeneration(nowSec, inputHash);
+      claimedWindowSec = await repo.claimGeneration(nowSec, inputHash);
     } catch (e) {
       if (e instanceof AnalysisRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -143,6 +144,9 @@ const analysis = app
     try {
       output = await runAnalysis(env.AI, input, drafts);
     } catch (e) {
+      // 生成失敗は枠を消費しない。返却自体の失敗（DB 障害）は
+      // 応答を変えないため握り潰す。
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       // Workers AI の障害・応答解釈失敗。上流起因のため 502 にし、
       // Sentry・Discord へは明示的に送る。
       reportApiFailure(e, c, 502);
@@ -162,8 +166,16 @@ const analysis = app
     };
     // claim 後に別入力の生成が先行した場合は保存を破棄する（古い結果が
     // 新しい結果を上書きしないよう compare-and-swap）。
-    const persisted = await repo.saveMyAnalysis({ ...saved, inputHash });
+    let persisted: boolean;
+    try {
+      persisted = await repo.saveMyAnalysis({ ...saved, inputHash });
+    } catch (e) {
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
+      throw e;
+    }
     if (!persisted) {
+      // 自分の結果は保存されなかったので claim 分の枠を返す。
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       const current = await repo.getMyAnalysis();
       if (current) {
         return c.json({ analysis: toResponse(current), cached: true }, 200);
@@ -256,10 +268,12 @@ const analysis = app
       );
     }
 
-    // 生成回数制限。claim の意味づけは分析と同じ（失敗も 1 回消費）。
+    // 生成回数制限。claim の意味づけは分析と同じ（失敗時は
+    // releaseGeneration で枠を返す。issue #463）。
     // 比較・保存のトークンには複合キャッシュキーを使う。
+    let claimedWindowSec: number;
     try {
-      await repo.claimGeneration(nowSec, cacheKey);
+      claimedWindowSec = await repo.claimGeneration(nowSec, cacheKey);
     } catch (e) {
       if (e instanceof RecommendationRateLimitError) {
         c.header("Retry-After", String(e.retryAfterSeconds));
@@ -278,6 +292,7 @@ const analysis = app
         analysis: usableAnalysis,
       });
     } catch (e) {
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       reportApiFailure(e, c, 502);
       return c.json(
         {
@@ -287,35 +302,48 @@ const analysis = app
       );
     }
 
-    // AnnictApiError（トークン失効・上流障害）はそのまま throw し、
-    // app.onError の handleError が 401/502 に変換する。
-    const matched = await matchCandidateWorks(
-      annictToken,
-      candidates,
-      new Set(history.map((h) => h.annictWorkId)),
-    );
-    const works: RecommendedWork[] = matched.map((m) =>
-      toRecommendedWork(m.work, m.reason),
-    );
+    let works: RecommendedWork[];
+    let hostedImageById: Map<number, string | null>;
+    try {
+      // AnnictApiError（トークン失効・上流障害）はそのまま throw し、
+      // app.onError の handleError が 401/502 に変換する。
+      const matched = await matchCandidateWorks(
+        annictToken,
+        candidates,
+        new Set(history.map((h) => h.annictWorkId)),
+      );
+      works = matched.map((m) => toRecommendedWork(m.work, m.reason));
 
-    // 検索応答と同じく、見せる作品は annict_works にキャッシュして画像
-    // プロキシ URL を載せる（WANNA_WATCH 登録時の nodeId 解決にも使う）。
-    const enriched = await attachResolvedImages(
-      worksRepository(db),
-      matched.map((m) => m.work),
-      c.req.url,
-    );
-    const hostedImageById = new Map(
-      enriched.map((w) => [w.annictWorkId, w.hostedImageUrl]),
-    );
+      // 検索応答と同じく、見せる作品は annict_works にキャッシュして画像
+      // プロキシ URL を載せる（WANNA_WATCH 登録時の nodeId 解決にも使う）。
+      const enriched = await attachResolvedImages(
+        worksRepository(db),
+        matched.map((m) => m.work),
+        c.req.url,
+      );
+      hostedImageById = new Map(
+        enriched.map((w) => [w.annictWorkId, w.hostedImageUrl]),
+      );
+    } catch (e) {
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
+      throw e;
+    }
 
     const generatedAt = new Date();
-    const persisted = await repo.saveMyRecommendations({
-      works,
-      inputHash: cacheKey,
-      generatedAt,
-    });
+    let persisted: boolean;
+    try {
+      persisted = await repo.saveMyRecommendations({
+        works,
+        inputHash: cacheKey,
+        generatedAt,
+      });
+    } catch (e) {
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
+      throw e;
+    }
     if (!persisted) {
+      // 自分の結果は保存されなかったので claim 分の枠を返す。
+      await repo.releaseGeneration(claimedWindowSec).catch(() => {});
       const current = await repo.getMyRecommendations();
       if (current) {
         return c.json(

@@ -12,6 +12,7 @@ import type { Recommendation } from "@/db/schema";
 //   再利用する（条件の変更＝ハッシュ不一致で自然に無効化）。
 // - レート制限: window_started_at から 24h あたり generation_count 回まで。
 //   窓が切れたら次の claim でカウンタを 1 にリセットする。
+//   失敗した生成は枠を消費しない（releaseGeneration で返す。issue #463）。
 export const RECOMMENDATION_CACHE_TTL_SEC = 24 * 60 * 60;
 export const RECOMMENDATION_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
 export const RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW = 5;
@@ -115,13 +116,15 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
 
     /**
      * 生成スロットを 1 つ確保する（原子的なレート制限カウンタ）。
-     * 成功した場合、AI 生成の成否に関わらず 1 回消費した扱いにする
-     * （失敗時に巻き戻すと障害中の AI への連打を止められないため）。
+     * claim 後の生成に失敗した場合は releaseGeneration で枠を返す
+     * （失敗時は枠を消費しない方針。issue #463）。
      * 構造は analysisRepository.claimGeneration と同じ（生成中マークで
      * 先行生成との compare-and-swap を成立させる）。
+     * @returns 確保したスロットが属する計測窓の window_started_at（unix 秒）。
+     *   releaseGeneration に渡す。
      * @throws RecommendationRateLimitError 窓内の残スロットが無いとき
      */
-    async claimGeneration(nowSec: number, inputHash: string): Promise<void> {
+    async claimGeneration(nowSec: number, inputHash: string): Promise<number> {
       const windowStartThresholdSec =
         nowSec - RECOMMENDATION_RATE_LIMIT_WINDOW_SEC;
 
@@ -141,9 +144,9 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
           generated_at = NULL
         WHERE ${recommendations.windowStartedAt} <= ${windowStartThresholdSec}
       `);
-      if (claimed.meta.changes > 0) return;
+      if (claimed.meta.changes > 0) return nowSec;
 
-      const incremented = await db.run(sql`
+      const incremented = await db.get<{ window_started_at: number }>(sql`
         UPDATE ${recommendations}
         SET generation_count = generation_count + 1,
           input_hash = ${inputHash},
@@ -152,8 +155,9 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
         WHERE user_id = ${currentUserId}
           AND window_started_at > ${windowStartThresholdSec}
           AND generation_count < ${RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW}
+        RETURNING window_started_at
       `);
-      if (incremented.meta.changes > 0) return;
+      if (incremented) return incremented.window_started_at;
 
       const row = await db.query.recommendations.findFirst({
         where: eq(recommendations.userId, currentUserId),
@@ -168,6 +172,23 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
           )
         : RECOMMENDATION_RATE_LIMIT_WINDOW_SEC;
       throw new RecommendationRateLimitError(waitSec);
+    },
+
+    /**
+     * claimGeneration で消費した生成枠を 1 つ返す。
+     * claim 後の生成・保存に失敗したときに呼ぶ（issue #463）。
+     * claim が確保した計測窓（window_started_at）と一致する行だけを戻す。
+     * 返却前に窓切れのリセットが先行している場合は、新しい窓の消費を
+     * 誤って減らしてしまうため何もしない。
+     */
+    async releaseGeneration(windowStartedAtSec: number): Promise<void> {
+      await db.run(sql`
+        UPDATE ${recommendations}
+        SET generation_count = generation_count - 1
+        WHERE user_id = ${currentUserId}
+          AND window_started_at = ${windowStartedAtSec}
+          AND generation_count > 0
+      `);
     },
 
     /**
