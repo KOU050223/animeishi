@@ -76,23 +76,34 @@ export const danimeEpisodeJobs = new Hono<AuthVariables>()
       }
 
       const jobId = crypto.randomUUID();
-      await repo.createJob(jobId, userId);
-      await repo.insertJobWorks(
-        works.map((w) => ({
-          jobId,
-          danimeWorkId: w.danimeWorkId,
-          annictWorkId: w.annictWorkId,
-          episodesJson: JSON.stringify(w.episodes),
-        })),
-      );
       try {
+        await repo.createJob(jobId, userId);
+      } catch (err) {
+        // 実行中ジョブの部分一意インデックスに当たった側はここで落ちる。
+        // 先に作られたジョブを返して既存進捗を見せる（同時 POST 競合）。
+        const concurrent = await repo.getRunningJobForUser(userId);
+        if (concurrent) {
+          return c.json({ job: toJobDto(concurrent), created: false }, 200);
+        }
+        throw err;
+      }
+      try {
+        await repo.insertJobWorks(
+          works.map((w) => ({
+            jobId,
+            danimeWorkId: w.danimeWorkId,
+            annictWorkId: w.annictWorkId,
+            episodesJson: JSON.stringify(w.episodes),
+          })),
+        );
         await DANIME_EPISODE_IMPORT.create({
           id: jobId,
           params: { jobId, userId },
         });
       } catch (err) {
-        // Workflow 起動自体に失敗したら実行中ジョブが残って以後の
-        // 作成を塞がないよう failed に倒してから投げ直す。
+        // 入力保存・Workflow 起動の失敗時に matching のまま残ると、
+        // 以後の POST がこのジョブを返し続けて取り込めなくなる。
+        // 実行中扱いを外すため failed に倒してから投げ直す。
         await repo.setJobStatus(
           jobId,
           "failed",

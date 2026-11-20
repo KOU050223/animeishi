@@ -162,6 +162,18 @@ describe("matchDanimeWorkEpisodes", () => {
     expect(res.unresolved).toEqual([{ partId: "00006001", reason: "merged" }]);
   });
 
+  it("合併話が位置とサブタイトルで通常話に一致しても確定しない", () => {
+    // 配信上「第1話～第4話」が一覧の 1 番目にあり、たまたま Annict の
+    // 1 話と A（位置）・C（サブタイトル）が一致しても、通常話には書かない。
+    const annict = [annictEp(1, { title: "まとめ" })];
+    const res = matchDanimeWorkEpisodes(
+      [danimeEp("00006001", "第1話～第4話", "まとめ")],
+      annict,
+    );
+    expect(res.matched).toEqual([]);
+    expect(res.unresolved).toEqual([{ partId: "00006001", reason: "merged" }]);
+  });
+
   it("Annict にも合併話として存在する場合は A+C で確定できる", () => {
     // 計測で 2 件あった「Annict 側も合併話として登録されている」ケース。
     const annict = [

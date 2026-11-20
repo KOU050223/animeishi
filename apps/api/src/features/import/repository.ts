@@ -80,8 +80,11 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         episodesJson: string;
       }[],
     ): Promise<void> {
-      if (rows.length === 0) return;
-      await db.insert(danimeEpisodeImportWorks).values(rows);
+      // D1 は 1 文あたり 100 バインド変数まで。4 変数/行なので
+      // 20 行ずつに分けて挿入する（26 行で上限超過になる）。
+      for (let i = 0; i < rows.length; i += 20) {
+        await db.insert(danimeEpisodeImportWorks).values(rows.slice(i, i + 20));
+      }
     },
 
     /**
@@ -115,11 +118,14 @@ export function episodeImportJobRepository(db: DrizzleDb) {
         status: DanimeEpisodeItemStatus;
       }[],
     ): Promise<void> {
-      if (rows.length === 0) return;
+      // D1 は 1 文あたり 100 バインド変数まで。6 変数/行なので
+      // 15 行ずつに分けて挿入する（17 行で上限超過になる）。
       const now = new Date();
-      await db
-        .insert(danimeEpisodeImportItems)
-        .values(rows.map((r) => ({ ...r, updatedAt: now })));
+      for (let i = 0; i < rows.length; i += 15) {
+        await db
+          .insert(danimeEpisodeImportItems)
+          .values(rows.slice(i, i + 15).map((r) => ({ ...r, updatedAt: now })));
+      }
     },
 
     /**
@@ -171,14 +177,21 @@ export function episodeImportJobRepository(db: DrizzleDb) {
     async finishItem(
       jobId: string,
       itemId: number,
-      status: "done" | "failed",
+      status: "done" | "failed" | "skipped",
       error?: string,
     ): Promise<void> {
       const now = new Date();
+      // skipped は書き込みフェーズで「既に記録済み」と判明したケース。
+      // 書き込み予定数（total）から外して skipped 側に回す。
       const counter =
         status === "done"
           ? { done: sql`${danimeEpisodeImportJobs.done} + 1` }
-          : { failed: sql`${danimeEpisodeImportJobs.failed} + 1` };
+          : status === "failed"
+            ? { failed: sql`${danimeEpisodeImportJobs.failed} + 1` }
+            : {
+                skipped: sql`${danimeEpisodeImportJobs.skipped} + 1`,
+                total: sql`MAX(0, ${danimeEpisodeImportJobs.total} - 1)`,
+              };
       await db.batch([
         db
           .update(danimeEpisodeImportItems)

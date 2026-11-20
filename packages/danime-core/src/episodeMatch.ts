@@ -236,11 +236,27 @@ export function matchDanimeWorkEpisodes(
       unresolved.push({ partId: ep.partId, reason: "no_annict_episodes" });
       continue;
     }
+    // 合併話（「第1話～第4話」等）が通常話へ確定するのを防ぐ。B の数字
+    // 候補は merged で無効化されるが、A（位置）と C（サブタイトル）が
+    // たまたま通常話に一致すると確定してしまう。Annict 側も合併話として
+    // 登録されている場合だけ確定を許す。
+    if (parsed.merged) {
+      const decidedEp =
+        decided === undefined
+          ? undefined
+          : sorted.find((e) => e.annictEpisodeId === decided);
+      const annictMerged =
+        decidedEp !== undefined &&
+        parseDanimeEpisodeNumber(decidedEp.numberText ?? "")?.merged === true;
+      if (!annictMerged) {
+        unresolved.push({ partId: ep.partId, reason: "merged" });
+        continue;
+      }
+    }
     if (decided === undefined) {
       const ambiguous = [a, b, c].some((v) => v?.ambiguous);
-      const reason: DanimeEpisodeUnresolvedReason = parsed.merged
-        ? "merged"
-        : votes.length >= 2
+      const reason: DanimeEpisodeUnresolvedReason =
+        votes.length >= 2
           ? "disagreement"
           : ambiguous
             ? "ambiguous"

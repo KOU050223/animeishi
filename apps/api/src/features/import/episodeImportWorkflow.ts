@@ -448,7 +448,33 @@ export class DanimeEpisodeImportWorkflow extends WorkflowEntrypoint<
     // 同じ作品が連続するため 1 ステップ内では解決済みを覚えて使い回す。
     const ensured = new Set<number>();
 
+    // createRecord は非冪等なので、書き込み直前に Annict 側の記録状況を
+    // 再確認する。対応付け〜書き込みの間に別経路で記録された話や、
+    // createRecord 成功後に finishItem 前で落ちて pending が残った話を
+    // 二重に書かないため。失敗した作品は状況不明として通常経路
+    // （429・一時エラーの再試行あり）に任せる。
+    const trackedNow = new Map<number, Set<number>>();
+    for (const workId of new Set(items.map((i) => i.annictWorkId))) {
+      try {
+        const eps = await fetchAnnictWorkEpisodes(token, workId);
+        if (eps) {
+          trackedNow.set(
+            workId,
+            new Set(
+              eps.filter((e) => e.viewerDidTrack).map((e) => e.annictEpisodeId),
+            ),
+          );
+        }
+      } catch {
+        // 状況不明の作品は writeOne の再試行に任せる
+      }
+    }
+
     for (const item of items) {
+      if (trackedNow.get(item.annictWorkId)?.has(item.annictEpisodeId)) {
+        await repo.finishItem(jobId, item.id, "skipped");
+        continue;
+      }
       // 書き込み間隔（429 予防）。先頭アイテムも前ステップ末尾からの
       // 間隔を保証できないため先に待つ。
       await sleep(this.writeIntervalMs());

@@ -342,6 +342,7 @@ const DDL_STATEMENTS = [
     CONSTRAINT danime_episode_import_jobs_status_check CHECK (status IN ('matching', 'writing', 'completed', 'failed'))
   )`,
   `CREATE INDEX IF NOT EXISTS danime_episode_import_jobs_user_idx ON danime_episode_import_jobs (user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS danime_episode_import_jobs_running_idx ON danime_episode_import_jobs (user_id) WHERE status IN ('matching', 'writing')`,
   `CREATE TABLE IF NOT EXISTS danime_episode_import_works (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     job_id TEXT NOT NULL,

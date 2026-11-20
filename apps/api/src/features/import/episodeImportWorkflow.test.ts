@@ -134,7 +134,10 @@ function installAnnictMock(opts?: {
     call: { episodeId: string | undefined },
     index: number,
   ) => Response;
+  // Annict 側で記録済みにする annictEpisodeId（既定は 102）。
+  trackedEpisodes?: number[];
 }) {
+  const tracked = new Set(opts?.trackedEpisodes ?? [102]);
   const calls: { query: string; episodeId: string | undefined }[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
     const body =
@@ -180,8 +183,8 @@ function installAnnictMock(opts?: {
                       numberText: "第1話",
                       sortNumber: 1,
                       title: "サブタイトル1",
-                      viewerDidTrack: false,
-                      viewerRecordsCount: 0,
+                      viewerDidTrack: tracked.has(101),
+                      viewerRecordsCount: tracked.has(101) ? 1 : 0,
                     },
                     {
                       id: "Ep-102",
@@ -191,8 +194,8 @@ function installAnnictMock(opts?: {
                       sortNumber: 2,
                       title: "サブタイトル2",
                       // Annict 記録済み。書き込み対象から外れるべき話。
-                      viewerDidTrack: true,
-                      viewerRecordsCount: 1,
+                      viewerDidTrack: tracked.has(102),
+                      viewerRecordsCount: tracked.has(102) ? 1 : 0,
                     },
                   ],
                 },
@@ -347,6 +350,41 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
         updatedAt: now,
       },
     ]);
+    const calls = installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+
+    // 対応付けフェーズは走らない。episodes 問い合わせは書き込み直前の
+    // 記録状況の再確認（pending アイテムの作品分）1 件だけ。
+    expect(calls.filter((c) => c.query.includes("episodes"))).toHaveLength(1);
+    const recordCalls = calls.filter((c) => c.query.includes("createRecord"));
+    expect(recordCalls).toHaveLength(1);
+    expect(recordCalls[0]!.episodeId).toBe("Ep-102");
+  });
+
+  it("書き込み直前の再確認で記録済みが見つかった話は送らずスキップする", async () => {
+    // createRecord 成功後に D1 確定前で落ちたケースの再現。pending の
+    // アイテムが Annict 上では記録済み → 再送せず skipped にする。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values([
+      {
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId: 102,
+        episodeNodeId: "Ep-102",
+        status: "pending",
+        updatedAt: now,
+      },
+    ]);
+    // モックは Ep-102 を記録済みとして返す（既定値）
     const calls = installAnnictMock();
 
     await env.DANIME_EPISODE_IMPORT.create({
@@ -357,11 +395,11 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     const job = await waitForJob(db, jobId, ["completed", "failed"]);
     expect(job.status).toBe("completed");
 
-    // 話一覧の対応付けフェーズは走らず、createRecord も pending の 1 件だけ
-    expect(calls.filter((c) => c.query.includes("episodes"))).toHaveLength(0);
-    const recordCalls = calls.filter((c) => c.query.includes("createRecord"));
-    expect(recordCalls).toHaveLength(1);
-    expect(recordCalls[0]!.episodeId).toBe("Ep-102");
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      0,
+    );
+    const item = await db.query.danimeEpisodeImportItems.findFirst();
+    expect(item?.status).toBe("skipped");
   });
 
   it("対応付けステップが 1 回落ちてもリトライで最後まで走る", async () => {

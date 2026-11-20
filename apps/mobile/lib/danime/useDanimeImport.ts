@@ -370,10 +370,12 @@ export const DANIME_EPISODE_JOB_QUERY_KEY = ["danime-episode-job"] as const;
 
 /** 最新の話記録ジョブを取得する。実行中（matching/writing）だけ 5 秒ごとに再取得する。 */
 export function useDanimeEpisodeJob(enabled = true) {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
   return useQuery({
-    queryKey: DANIME_EPISODE_JOB_QUERY_KEY,
-    enabled,
+    // アカウントを切り替えても前ユーザーのジョブが残らないよう
+    // キーにユーザー ID を含める（キャッシュは共有・永続化される）。
+    queryKey: [...DANIME_EPISODE_JOB_QUERY_KEY, userId],
+    enabled: enabled && !!isSignedIn && !!userId,
     queryFn: async (): Promise<DanimeEpisodeJob | null> => {
       const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["import"].danime[

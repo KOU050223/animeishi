@@ -5,6 +5,7 @@ import {
   text,
   index,
   unique,
+  uniqueIndex,
   check,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
@@ -281,6 +282,12 @@ export const danimeEpisodeImportJobs = sqliteTable(
   },
   (t) => [
     index("danime_episode_import_jobs_user_idx").on(t.userId),
+    // 同時に 1 ユーザ 1 実行中ジョブにする部分一意インデックス。
+    // POST が同時に来ても INSERT の片方が制約で落ち、ルート側が
+    // 先に作られたジョブを返す（二重取り込み防止）。
+    uniqueIndex("danime_episode_import_jobs_running_idx")
+      .on(t.userId)
+      .where(sql`${t.status} IN ('matching', 'writing')`),
     check(
       "danime_episode_import_jobs_status_check",
       sql`${t.status} IN ('matching', 'writing', 'completed', 'failed')`,
