@@ -15,6 +15,18 @@ export type DanimeExtractedWork = {
   partIds: string[];
 };
 
+/** 作品ページ（ci_pc）から抽出した 1 話分。 */
+export type DanimeExtractedEpisode = {
+  /** 話数リンクの partId= クエリの値。 */
+  partId: string;
+  /** 話カードの .watched。同じ partId の重複カードは OR で集約する。 */
+  watched: boolean;
+  /** 話数表記（「第1話」「#1」等）。 */
+  label: string;
+  /** サブタイトル。dアニメ側は長いタイトルを先頭で切ることがある。 */
+  subtitle: string;
+};
+
 /** 抽出スクリプトが返すペイロード。 */
 export type DanimeExtractedLists = {
   schemaVersion: typeof DANIME_EXTRACT_SCHEMA_VERSION;
@@ -27,6 +39,14 @@ export type DanimeExtractedLists = {
    * 手動貼り付けや古いスクリプトのペイロードには含まれないため任意。
    */
   extractElapsedMs?: number;
+  /**
+   * 作品ページから抽出した話一覧（workId → 話の配列）。話単位の記録
+   * 取り込み用（issue #477）。話の取得を行わない旧スクリプトや手動
+   * 貼り付けのペイロードには含まれないため任意。
+   */
+  episodes?: Record<string, DanimeExtractedEpisode[]>;
+  /** 作品ページの取得に失敗した作品数（抽出時の参考情報）。 */
+  episodeFetchFailures?: number;
 };
 
 // WebView postMessage / ブックマークレットで運ばれるメッセージ。

@@ -294,6 +294,178 @@ export function danimeExtractScript(appOrigin: string): string {
     return items;
   }
 
+  // ---- 話単位の視聴済み抽出（issue #477）----
+  // 作品ページ ci_pc?workId= には話カードが並び、視聴済みの話は
+  // カード（.itemModule）に .watched が付く。同じ partId のカードが
+  // 「続きから」用に重複して出るため、partId ごとに視聴済みフラグを
+  // OR でまとめる（先頭のカードだけを見ると取りこぼす）。
+
+  var PROGRESS_ID = "animeishi-danime-progress";
+
+  // 抽出に数分かかるため、実行中であることと「タブを閉じないでほしい」ことを
+  // ページ上のオーバーレイで示す。
+  function showProgress(text) {
+    try {
+      var el = document.getElementById(PROGRESS_ID);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = PROGRESS_ID;
+        el.setAttribute(
+          "style",
+          "position:fixed;top:8px;right:8px;z-index:2147483647;" +
+            "background:rgba(30,30,60,0.92);color:#fff;font-size:12px;" +
+            "padding:10px 14px;border-radius:8px;max-width:320px;" +
+            "line-height:1.6;box-shadow:0 2px 8px rgba(0,0,0,0.3)",
+        );
+        document.body.appendChild(el);
+      }
+      el.textContent = text;
+    } catch (e) {}
+  }
+
+  function hideProgress() {
+    try {
+      var el = document.getElementById(PROGRESS_ID);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    } catch (e) {}
+  }
+
+  function textOf(el) {
+    return el && el.textContent ? el.textContent.trim() : "";
+  }
+
+  // element から最も近い話カード（.itemModule または祖先の .watched を
+  // 持つ要素までの最小単位）を取る。closest の無い環境はほぼ無いが、
+  // 保険として要素自身を返す。
+  function episodeCard(el) {
+    if (!el || !el.closest) return el;
+    return el.closest(".itemModule") || el;
+  }
+
+  function isWatchedCard(card, el) {
+    if (card.classList && card.classList.contains("watched")) return true;
+    if (card.querySelector && card.querySelector(".watched")) return true;
+    // カードが取れずリンクが直接 .watched の中にいる場合
+    if (el && el.closest && el.closest(".watched")) return true;
+    return false;
+  }
+
+  // 話カード内の話数表記・サブタイトルを拾う。
+  // サムネイル側のリンクにはテキストが無いため、同じ partId の
+  // テキストリンク側が後からラベルを補完できるよう先勝ちせず
+  // 空欄は上書きマージする。
+  function mergeEpisode(byPart, partId, card, link) {
+    var label = "";
+    var subtitle = "";
+    if (card && card.querySelector) {
+      var numEl =
+        card.querySelector(".number") ||
+        card.querySelector(".textContainer .line1") ||
+        card.querySelector("h3.line1");
+      label = textOf(numEl);
+      var subEl =
+        card.querySelector(".line2") || card.querySelector("h3.line2");
+      subtitle = textOf(subEl);
+    }
+    if (!label) label = textOf(link);
+    var watched = isWatchedCard(card, link);
+    var prev = byPart[partId];
+    if (prev) {
+      prev.watched = prev.watched || watched;
+      if (!prev.label && label) prev.label = label;
+      if (!prev.subtitle && subtitle) prev.subtitle = subtitle;
+    } else {
+      byPart[partId] = {
+        partId: partId,
+        watched: watched,
+        label: label,
+        subtitle: subtitle,
+      };
+    }
+  }
+
+  // 作品ページの HTML から partId → 話情報の対応表を作る。
+  // partId= クエリを持つリンクと、onclick に partId を埋めた
+  // 再生ボタンの両方を走査する。
+  function extractEpisodeCards(doc) {
+    var byPart = {};
+    var re = /[?&]partId=([^&#"']*)/;
+    var links = doc.querySelectorAll("a[href]");
+    var i, m;
+    for (i = 0; i < links.length; i++) {
+      m = (links[i].getAttribute("href") || "").match(re);
+      if (!m || !m[1]) continue;
+      var card = episodeCard(links[i]);
+      mergeEpisode(byPart, m[1], card, links[i]);
+    }
+    var clickable = doc.querySelectorAll("[onclick]");
+    for (i = 0; i < clickable.length; i++) {
+      m = (clickable[i].getAttribute("onclick") || "").match(
+        /partId=([^&#"']+)/,
+      );
+      if (!m || !m[1]) continue;
+      var c2 = episodeCard(clickable[i]);
+      mergeEpisode(byPart, m[1], c2, clickable[i]);
+    }
+    var out = [];
+    for (var k in byPart) {
+      if (Object.prototype.hasOwnProperty.call(byPart, k)) out.push(byPart[k]);
+    }
+    return out;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  // 視聴済み作品の話一覧を作品ページから集める。
+  // 同一サイトへの数百リクエストになるため並列度は小さく（2）、
+  // リクエスト開始間隔も空ける。失敗した作品は飛ばして続行する。
+  var EPISODE_CONCURRENCY = 2;
+  var EPISODE_FETCH_INTERVAL_MS = 150;
+
+  async function fetchAllWorkEpisodes(workIds) {
+    var episodes = {};
+    var failures = 0;
+    var next = 0;
+    var done = 0;
+    var nextAt = 0;
+    var worker = async function () {
+      while (next < workIds.length) {
+        var workId = workIds[next++];
+        // リクエスト開始間隔を揃える（workers 間で nextAt を共有）。
+        var now = Date.now();
+        var wait = nextAt - now;
+        nextAt = (wait > 0 ? nextAt : now) + EPISODE_FETCH_INTERVAL_MS;
+        if (wait > 0) await sleep(wait);
+        try {
+          var doc = await fetchDoc(
+            BASE + "ci_pc?workId=" + encodeURIComponent(workId),
+          );
+          episodes[workId] = extractEpisodeCards(doc);
+        } catch (e) {
+          failures++;
+        }
+        done++;
+        showProgress(
+          "Animeishi: 話の情報を取得しています（" +
+            done +
+            " / " +
+            workIds.length +
+            " 作品）\n取得が終わるまでこのタブは閉じないでください。",
+        );
+      }
+    };
+    var workers = [];
+    for (var i = 0; i < Math.min(EPISODE_CONCURRENCY, workIds.length); i++) {
+      workers.push(worker());
+    }
+    await Promise.all(workers);
+    return { episodes: episodes, failures: failures };
+  }
+
   // 実行ページのオリジン検査。dアニメ以外のページ（アプリ側ページや
   // docomo ログイン画面）で実行すると same-origin でない fetch が CORS で
   // 失敗するため、先に分かりやすいエラーを返す。
@@ -317,6 +489,26 @@ export function danimeExtractScript(appOrigin: string): string {
       // ページがマイページ形式かどうかで判定する。
       throw new Error("empty_result");
     }
+
+    // 話単位の視聴済み（issue #477）。数値 workId を持つ作品だけを対象に
+    // 作品ページを追加取得する。タブを閉じると中断されるため、進捗は
+    // ページ上のオーバーレイに出す。
+    var episodeWorkIds = {};
+    var allWorks = completed.concat(history);
+    for (var wi = 0; wi < allWorks.length; wi++) {
+      var wid = allWorks[wi].workId;
+      if (/^\d+$/.test(wid)) episodeWorkIds[wid] = true;
+    }
+    var epResult = { episodes: {}, failures: 0 };
+    var epTargets = Object.keys(episodeWorkIds);
+    if (epTargets.length > 0) {
+      try {
+        epResult = await fetchAllWorkEpisodes(epTargets);
+      } finally {
+        hideProgress();
+      }
+    }
+
     report({
       type: MSG_OK,
       payload: {
@@ -324,9 +516,12 @@ export function danimeExtractScript(appOrigin: string): string {
         completed: completed,
         history: history,
         extractElapsedMs: Date.now() - t0,
+        episodes: epResult.episodes,
+        episodeFetchFailures: epResult.failures,
       },
     });
   } catch (e) {
+    hideProgress();
     report({
       type: MSG_ERR,
       message: e && e.message ? String(e.message) : String(e),

@@ -8,4 +8,5 @@ export * from "./extractScript";
 export * from "./validate";
 export * from "./titleNormalize";
 export * from "./match";
+export * from "./episodeMatch";
 export * from "./importDecision";

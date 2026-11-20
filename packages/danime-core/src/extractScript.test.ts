@@ -79,6 +79,42 @@ function pageHtml(opts: {
   </body></html>`;
 }
 
+// 作品ページ（ci_pc）の話カードフィクスチャ。
+// .itemModule.watched が視聴済み。duplicates は同じ partId のカードが
+// 「続きから」用に重複して出るケースの再現。
+function workPageHtml(opts: {
+  episodes: {
+    partId: string;
+    label?: string;
+    subtitle?: string;
+    watched?: boolean;
+    duplicate?: boolean;
+  }[];
+}): string {
+  const card = (e: {
+    partId: string;
+    label?: string;
+    subtitle?: string;
+    watched?: boolean;
+  }) => `
+    <div class="itemModule${e.watched ? " watched" : ""}">
+      <div class="itemThumbnail">
+        <a href="/animestore/ci?workId=99999&partId=${e.partId}"><img src="x.png"/></a>
+      </div>
+      <a class="textContainer" href="/animestore/ci?workId=99999&partId=${e.partId}">
+        <h3 class="line1"><span class="number">${e.label ?? ""}</span></h3>
+        <p class="line2">${e.subtitle ?? ""}</p>
+      </a>
+    </div>`;
+  return `<html><body>
+    ${opts.episodes.map(card).join("")}
+    ${opts.episodes
+      .filter((e) => e.duplicate)
+      .map(card)
+      .join("")}
+  </body></html>`;
+}
+
 async function runScript(): Promise<PostMessage> {
   // eval は IIFE の Promise を返す。スクリプト内の非同期処理完了を待つ。
   const promise = eval(DANIME_EXTRACT_SCRIPT) as Promise<void>;
@@ -94,6 +130,9 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
         return htmlResponse(
           pageHtml({ cards: [{ workId: "101", title: "作品A" }] }),
         );
+      }
+      if (url.includes("ci_pc")) {
+        return htmlResponse(workPageHtml({ episodes: [] }));
       }
       return htmlResponse(
         pageHtml({
@@ -282,6 +321,185 @@ describe("DANIME_EXTRACT_SCRIPT", () => {
     const msg = await runScript();
     expect(msg.type).toBe(DANIME_EXTRACT_ERR);
     expect(msg.message).toBe("HTTP 500");
+  });
+});
+
+describe("話単位の抽出（ci_pc）", () => {
+  // 作品ページの話カードを partId ごとにまとめて payload.episodes に入れる。
+  // 一覧ページの partId リンクとは別系統の情報（視聴済み・話数表記・
+  // サブタイトル）を拾う。
+  function mockWithWorkPages(
+    workPages: Record<
+      string,
+      {
+        partId: string;
+        label?: string;
+        subtitle?: string;
+        watched?: boolean;
+        duplicate?: boolean;
+      }[]
+    >,
+  ) {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      const m = url.match(/ci_pc\?workId=(\d+)/);
+      if (m) {
+        return htmlResponse(workPageHtml({ episodes: workPages[m[1]!] ?? [] }));
+      }
+      return htmlResponse(
+        pageHtml({
+          cards: Object.keys(workPages).map((workId) => ({
+            workId,
+            title: `作品${workId}`,
+          })),
+        }),
+      );
+    });
+  }
+
+  it("話カードの .watched・話数表記・サブタイトルを payload.episodes に入れる", async () => {
+    mockWithWorkPages({
+      "700": [
+        {
+          partId: "00070001",
+          label: "第1話",
+          subtitle: "はじまり",
+          watched: true,
+        },
+        { partId: "00070002", label: "第2話", subtitle: "つづき" },
+      ],
+    });
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_OK);
+    const payload = msg.payload as {
+      episodes: Record<
+        string,
+        { partId: string; watched: boolean; label: string; subtitle: string }[]
+      >;
+      episodeFetchFailures?: number;
+    };
+    expect(payload.episodes["700"]).toEqual([
+      {
+        partId: "00070001",
+        watched: true,
+        label: "第1話",
+        subtitle: "はじまり",
+      },
+      {
+        partId: "00070002",
+        watched: false,
+        label: "第2話",
+        subtitle: "つづき",
+      },
+    ]);
+    expect(payload.episodeFetchFailures).toBe(0);
+  });
+
+  it("同じ partId の重複カードは視聴済みを OR でまとめる", async () => {
+    mockWithWorkPages({
+      "710": [
+        { partId: "00071001", label: "第1話", watched: true, duplicate: true },
+        // duplicate カードの再掲は元の watched のまま（先頭が未視聴・
+        // 続きから側が視聴済み、のような順序差を OR で救う）
+        { partId: "00071002", label: "第2話", duplicate: true, watched: true },
+      ],
+    });
+    // 2 枚目のカードは視聴済みで出るが 1 枚目は未視聴、という並びを作るため
+    // フィクスチャでは duplicate 側を watched=true にしている。
+    // → 先頭カードだけを見る実装だと取りこぼす。
+
+    const msg = await runScript();
+    const payload = msg.payload as {
+      episodes: Record<string, { partId: string; watched: boolean }[]>;
+    };
+    expect(payload.episodes["710"]).toHaveLength(2);
+    expect(payload.episodes["710"]).toEqual(
+      expect.arrayContaining([
+        { partId: "00071001", watched: true, label: "第1話", subtitle: "" },
+        { partId: "00071002", watched: true, label: "第2話", subtitle: "" },
+      ]),
+    );
+  });
+
+  it("作品ページの取得に失敗した作品は飛ばして failures に数える", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      if (url.includes("ci_pc?workId=721")) {
+        return htmlResponse(
+          workPageHtml({
+            episodes: [{ partId: "00072101", watched: true, label: "第1話" }],
+          }),
+        );
+      }
+      if (url.includes("ci_pc")) {
+        return { ok: false, status: 500, url: "", text: async () => "" };
+      }
+      return htmlResponse(
+        pageHtml({
+          cards: [
+            { workId: "720", title: "失敗する作品" },
+            { workId: "721", title: "成功する作品" },
+          ],
+        }),
+      );
+    });
+
+    const msg = await runScript();
+    expect(msg.type).toBe(DANIME_EXTRACT_OK);
+    const payload = msg.payload as {
+      episodes: Record<string, unknown[]>;
+      episodeFetchFailures: number;
+    };
+    expect(payload.episodes["720"]).toBeUndefined();
+    expect(payload.episodes["721"]).toHaveLength(1);
+    expect(payload.episodeFetchFailures).toBe(1);
+  });
+
+  it("onclick に partId を持つ再生ボタンからも話を拾う", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("mpa_cmp_pc")) {
+        return htmlResponse(pageHtml({ cards: [] }));
+      }
+      if (url.includes("ci_pc")) {
+        return htmlResponse(
+          `<html><body>
+            <div class="itemModule watched">
+              <a class="open-btn in" href="/animestore/sc_d_pc?partId=00073001">視聴</a>
+              <a class="textContainer" href="/animestore/ci?workId=730&partId=00073001">
+                <h3 class="line1"><span class="number">第1話</span></h3>
+                <p class="line2">サブタイトル</p>
+              </a>
+            </div>
+            <div class="itemModule">
+              <a class="open-btn out" onclick="location.href='/animestore/ci?workId=730&partId=00073002'">視聴</a>
+              <a class="textContainer" href="/animestore/ci?workId=730&partId=00073002">
+                <h3 class="line1"><span class="number">第2話</span></h3>
+              </a>
+            </div>
+          </body></html>`,
+        );
+      }
+      return htmlResponse(
+        pageHtml({ cards: [{ workId: "730", title: "作品" }] }),
+      );
+    });
+
+    const msg = await runScript();
+    const payload = msg.payload as {
+      episodes: Record<string, { partId: string; watched: boolean }[]>;
+    };
+    expect(payload.episodes["730"]).toHaveLength(2);
+    expect(
+      payload.episodes["730"]!.find((e) => e.partId === "00073001")?.watched,
+    ).toBe(true);
+    expect(
+      payload.episodes["730"]!.find((e) => e.partId === "00073002")?.watched,
+    ).toBe(false);
   });
 });
 
