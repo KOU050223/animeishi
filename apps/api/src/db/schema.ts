@@ -276,6 +276,11 @@ export const danimeEpisodeImportJobs = sqliteTable(
     skipped: integer("skipped").notNull().default(0),
     // 対応付けが確定しなかった話数（書き込み対象外の参考値）。
     unmatched: integer("unmatched").notNull().default(0),
+    // いまこのジョブを処理している Workflow インスタンスの ID（issue #701）。
+    // 引き継ぎインスタンスは job.id とは別の ID で起動されるため、進捗参照・
+    // 新規作成時の調停はこの列のインスタンスを見る。NULL は列追加前の
+    // ジョブで、従来どおり job.id のインスタンスを見る。
+    workflowInstanceId: text("workflow_instance_id"),
     error: text("error"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),

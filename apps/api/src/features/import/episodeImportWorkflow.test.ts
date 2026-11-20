@@ -287,6 +287,7 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     env.DANIME_WORKFLOW_STEP_BUDGET = "5";
     // サブリクエスト予算の既定（テストごとに小さくして上限を再現する）。
     env.DANIME_SUBREQUEST_BUDGET = "40";
+    env.DANIME_D1_SUBREQUEST_BUDGET = "500";
     // 引き継ぎ回数上限の既定（上限検証テストだけ小さくする）。
     env.DANIME_MAX_HANDOFFS = "100";
   });
@@ -903,6 +904,48 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     expect(items.every((i) => i.status === "done")).toBe(true);
     expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
       2,
+    );
+  });
+
+  it("D1 呼び出しが多いジョブは D1 予算の上限前に引き継ぎ、記録インスタンスが引き継ぎ先になる", async () => {
+    // issue #701: D1 への問い合わせもインスタンス単位のサブリクエスト
+    // （内部サービス向け 1,000）として数えられる。fetch だけを数える
+    // 予算では上限に達して Errored になったため、D1 も予算化して
+    // 手前で次インスタンスへ引き継ぐ。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db);
+    for (let i = 0; i < 6; i++) {
+      await seedWork(db, jobId, WORK_EPISODES_JSON);
+    }
+    // fetch・ステップ数ではなく D1 呼び出し数だけが律速になる設定
+    // （作品あたり 2〜3 クエリなので、予算 12 では数作品ごとに引き継ぐ）。
+    env.DANIME_WORKFLOW_STEP_BUDGET = "100";
+    env.DANIME_D1_SUBREQUEST_BUDGET = "12";
+    const calls = installAnnictMock();
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    // D1 予算で引き継いだため、記録されるインスタンスは引き継ぎ先の
+    // `${jobId}-hN`（進捗参照・新規作成時の調停はこの ID を見る）。
+    expect(job.workflowInstanceId).toMatch(new RegExp(`^${jobId}-h\\d+$`));
+    // 引き継ぎを挟んでも対応付け〜書き込みは最後まで走る。
+    // 全作品が同じ Annict 話に確定するため、重複排除でアイテムは 2 件。
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items).toHaveLength(2);
+    expect(items.find((i) => i.annictEpisodeId === 101)?.status).toBe("done");
+    expect(items.find((i) => i.annictEpisodeId === 102)?.status).toBe(
+      "skipped",
+    );
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      1,
     );
   });
 

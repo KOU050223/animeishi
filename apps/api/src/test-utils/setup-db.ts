@@ -350,6 +350,7 @@ const DDL_STATEMENTS = [
     skipped INTEGER DEFAULT 0 NOT NULL,
     unmatched INTEGER DEFAULT 0 NOT NULL,
     error TEXT,
+    workflow_instance_id TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
