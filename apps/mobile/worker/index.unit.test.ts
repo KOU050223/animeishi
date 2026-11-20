@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./index";
 
@@ -409,19 +410,24 @@ describe("プリレンダ HTML と SPA フォールバック", () => {
     },
   );
 
-  it.each(["/", "/sign-in", "/article/example", "/event/example"])(
-    "%s の SPA フォールバックに noindex を付ける",
-    async (path) => {
-      const env = makeEnv({ assetsResponse: () => shellResponse() });
-      const res = await worker.fetch(
-        req(`https://animeishi.uomi.dev${path}`, {
-          headers: { cookie: "__session=token" },
-        }),
-        env,
-      );
-      expect(await res.text()).toContain('name="robots" content="noindex"');
-    },
-  );
+  it.each([
+    "/",
+    "/sign-in",
+    "/article",
+    "/article/example",
+    "/event",
+    "/event/example",
+    "/election",
+  ])("%s の HTML に noindex を付ける", async (path) => {
+    const env = makeEnv({ assetsResponse: () => shellResponse() });
+    const res = await worker.fetch(
+      req(`https://animeishi.uomi.dev${path}`, {
+        headers: { cookie: "__session=token" },
+      }),
+      env,
+    );
+    expect(await res.text()).toContain('name="robots" content="noindex"');
+  });
 
   it("HTML 以外のアセットは書き換えない", async () => {
     const env = makeEnv({
@@ -434,4 +440,21 @@ describe("プリレンダ HTML と SPA フォールバック", () => {
     );
     expect(await res.text()).toBe("png-bytes");
   });
+});
+
+describe("wrangler.toml の run_worker_first", () => {
+  // 一覧ルート（app/<name>/index.tsx）の裸パスは /<name>/* には
+  // マッチせず静的アセットが直配信されるため noindex が付かない。
+  // Worker を通すには裸パスも個別に登録が必要（issue #652）。
+  const wranglerToml = readFileSync(
+    new URL("../wrangler.toml", import.meta.url),
+    "utf8",
+  );
+
+  it.each(["/article", "/event", "/election"])(
+    "一覧パス %s が Worker 経由になる",
+    (path) => {
+      expect(wranglerToml).toContain(`"${path}"`);
+    },
+  );
 });
