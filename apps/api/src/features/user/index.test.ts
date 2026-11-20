@@ -554,6 +554,98 @@ describe("GET /user/:uid", () => {
     });
   });
 
+  // issue #675: OGP の og:image は公開名刺スナップショットを優先する。
+  describe("og:image", () => {
+    const snapshotKey = (uid: string) =>
+      `meishi-assets/${uid}/public-snapshot.png`;
+
+    it("スナップショットがあるとき og:image / twitter:image に名刺画像を使い large image カードにする", async () => {
+      const uid = "user_ogpimg001";
+      const now = new Date();
+      await db.insert(users).values({
+        id: uid,
+        username: "名刺持ちユーザー",
+        profileImageUrl: "https://img.example/avatar.png",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await env.AVATARS.put(snapshotKey(uid), new Uint8Array([1]), {
+        httpMetadata: { contentType: "image/png" },
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        `/user/${uid}`,
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      const snapshotPath = `/me/meishi-assets/${snapshotKey(uid)}`;
+      expect(html).toContain(
+        `property="og:image" content="http://localhost${snapshotPath}`,
+      );
+      expect(html).toContain(
+        `name="twitter:image" content="http://localhost${snapshotPath}`,
+      );
+      expect(html).toContain(
+        'name="twitter:card" content="summary_large_image"',
+      );
+      // 本文のアバター表示は従来どおりアバター画像のまま。
+      expect(html).toContain(
+        'class="avatar" src="https://img.example/avatar.png"',
+      );
+    });
+
+    it("スナップショットが無いとき og:image は従来どおりアバターで summary カードのまま", async () => {
+      const uid = "user_ogpimg002";
+      const now = new Date();
+      await db.insert(users).values({
+        id: uid,
+        username: "アバターのみ",
+        profileImageUrl: "https://img.example/avatar.png",
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        `/user/${uid}`,
+        { method: "GET", headers: { Accept: "text/html" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain(
+        'property="og:image" content="https://img.example/avatar.png"',
+      );
+      expect(html).toContain('name="twitter:card" content="summary"');
+      expect(html).not.toContain("summary_large_image");
+    });
+
+    it("スナップショットがあるとき JSON の meishiSnapshotUrl に同じ画像 URL が載る", async () => {
+      const uid = "user_ogpimg003";
+      await insertPublicUser(db, uid);
+      await env.AVATARS.put(snapshotKey(uid), new Uint8Array([1]), {
+        httpMetadata: { contentType: "image/png" },
+      });
+
+      const app = buildApp();
+      const res = await app.request(
+        `/user/${uid}`,
+        { method: "GET", headers: { Accept: "application/json" } },
+        TEST_BINDINGS,
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { meishiSnapshotUrl: string | null };
+      expect(body.meishiSnapshotUrl).toContain(
+        `/me/meishi-assets/${snapshotKey(uid)}`,
+      );
+    });
+  });
+
   // issue #154: 本番で Accept: text/html のリクエストが Clerk handshake に
   // 突入して getAuth が throw し 500 になっていた回帰。
   describe("optionalAuth 回帰（Accept: text/html）", () => {
