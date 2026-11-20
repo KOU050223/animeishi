@@ -20,6 +20,7 @@ import { analysis } from "./features/analysis";
 import { annict } from "./features/annict";
 import { articles } from "./features/articles";
 import { characterTierLists } from "./features/character-tier-lists";
+import { common } from "./features/common";
 import { customTierLists } from "./features/custom-tier-lists";
 import { elections } from "./features/elections";
 import { episodeRecords, workEpisodes } from "./features/episode-records";
@@ -129,6 +130,7 @@ const routes = app
   .route("/tier-lists", publicTierListsRoute)
   .route("/user", user)
   .route("/users", usersRoute)
+  .route("/users", common)
   .route("/users", publicUsersRoute)
   .route("/feedback", feedbackRoute);
 

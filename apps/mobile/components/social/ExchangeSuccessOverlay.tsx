@@ -4,6 +4,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -16,6 +17,8 @@ import { useTranslation } from "react-i18next";
 import { haptics } from "@/lib/haptics";
 import { fetchPublicProfile, type PublicProfile } from "@/lib/publicProfile";
 import { useThemeColors } from "@/lib/theme";
+import { useFriends } from "@/lib/useFriends";
+import { CommonPoints } from "./CommonPoints";
 
 export type ExchangeSuccessOverlayProps = {
   /** 交換相手のユーザー ID。 */
@@ -39,7 +42,11 @@ const cardEntering = ZoomIn.withInitialValues({
 // 公開プロフィールの項目だけで組む軽量カードにする（MeishiCard の
 // classic テンプレートは閲覧者自身の favorites / watch history を
 // 参照してしまう）。見た目は app/user/[uid].tsx のヘッダーに揃える。
-function ExchangeCard({ profile }: { profile: PublicProfile }) {
+function ExchangeCard({
+  profile,
+}: {
+  profile: Pick<PublicProfile, "username" | "bio" | "profileImageUrl">;
+}) {
   const { t } = useTranslation();
   return (
     <View
@@ -100,6 +107,7 @@ export function ExchangeSuccessOverlay({
   const { t } = useTranslation();
   const colors = useThemeColors();
   const reduceMotion = useReducedMotion();
+  const { data: friends } = useFriends();
 
   const { data: profile, isLoading } = useQuery({
     // app/user/[uid].tsx と同じクエリキー（無効化・キャッシュ共有のため）。
@@ -107,6 +115,8 @@ export function ExchangeSuccessOverlay({
     queryFn: async () => fetchPublicProfile(uid, await getToken()),
     retry: false,
   });
+  const cardProfile =
+    profile ?? friends?.find((friend) => friend.friendId === uid);
 
   useEffect(() => {
     // 成立の感触は視覚だけに頼らずハプティクスでも伝える（マウント = 開く）。
@@ -147,16 +157,21 @@ export function ExchangeSuccessOverlay({
           <Text className="text-2xl font-bold text-white">
             {t("名刺交換成立")}
           </Text>
-          <View className="w-full max-w-sm mt-6" style={{ minHeight: 140 }}>
-            {profile ? (
-              <ExchangeCard profile={profile} />
+          <ScrollView
+            className="w-full max-w-sm mt-6"
+            style={{ maxHeight: 460 }}
+            contentContainerStyle={{ paddingBottom: 4 }}
+          >
+            {cardProfile ? (
+              <ExchangeCard profile={cardProfile} />
             ) : isLoading ? (
               <ActivityIndicator
                 color="#ffffff"
                 accessibilityLabel={t("読み込み中")}
               />
             ) : null}
-          </View>
+            <CommonPoints uid={uid} />
+          </ScrollView>
           <View className="mt-8 self-stretch items-center gap-3">
             {showProfileLink ? (
               <TouchableOpacity
