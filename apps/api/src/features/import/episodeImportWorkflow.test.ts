@@ -127,28 +127,78 @@ async function waitForJob(
   );
 }
 
+type AnnictMockCall = {
+  query: string;
+  episodeId: string | undefined;
+  after: string | null | undefined;
+};
+
 // Annict GraphQL の POST ボディを種類別に振り分けるモック。
-// query 文字列に含まれるフィールド名で判別する。
+// query のオペレーション名で判別する（WorksEpisodes=一括取得、
+// WorkEpisodes=1 作品のページング取得）。
 function installAnnictMock(opts?: {
-  createRecord?: (
-    call: { episodeId: string | undefined },
-    index: number,
-  ) => Response;
+  createRecord?: (call: AnnictMockCall, index: number) => Response;
+  // 複数作品の話一覧一括取得（WORKS_EPISODES_QUERY）の応答差し替え。
+  batchEpisodes?: (call: AnnictMockCall) => Response;
+  // 1 作品の話一覧ページング取得（WORK_EPISODES_QUERY）の応答差し替え。
+  workEpisodes?: (call: AnnictMockCall) => Response;
   // Annict 側で記録済みにする annictEpisodeId（既定は 102）。
   trackedEpisodes?: number[];
 }) {
   const tracked = new Set(opts?.trackedEpisodes ?? [102]);
-  const calls: { query: string; episodeId: string | undefined }[] = [];
+  const defaultEpisodes = () =>
+    jsonResponse({
+      data: {
+        searchWorks: {
+          nodes: [
+            {
+              annictId: ANNICT_WORK_ID,
+              episodes: {
+                pageInfo: { hasNextPage: false, endCursor: null },
+                nodes: [
+                  {
+                    id: "Ep-101",
+                    annictId: 101,
+                    number: 1,
+                    numberText: "第1話",
+                    sortNumber: 1,
+                    title: "サブタイトル1",
+                    viewerDidTrack: tracked.has(101),
+                    viewerRecordsCount: tracked.has(101) ? 1 : 0,
+                  },
+                  {
+                    id: "Ep-102",
+                    annictId: 102,
+                    number: 2,
+                    numberText: "第2話",
+                    sortNumber: 2,
+                    title: "サブタイトル2",
+                    // Annict 記録済み。書き込み対象から外れるべき話。
+                    viewerDidTrack: tracked.has(102),
+                    viewerRecordsCount: tracked.has(102) ? 1 : 0,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+  const calls: AnnictMockCall[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
     const body =
       typeof init?.body === "string"
         ? (JSON.parse(init.body) as {
             query?: string;
-            variables?: { episodeId?: string };
+            variables?: { episodeId?: string; after?: string | null };
           })
         : {};
     const q = body.query ?? "";
-    const call = { query: q, episodeId: body.variables?.episodeId };
+    const call = {
+      query: q,
+      episodeId: body.variables?.episodeId,
+      after: body.variables?.after,
+    };
     calls.push(call);
     if (q.includes("createRecord")) {
       return (
@@ -166,44 +216,11 @@ function installAnnictMock(opts?: {
         })
       );
     }
-    if (q.includes("episodes")) {
-      return jsonResponse({
-        data: {
-          searchWorks: {
-            nodes: [
-              {
-                annictId: ANNICT_WORK_ID,
-                episodes: {
-                  pageInfo: { hasNextPage: false, endCursor: null },
-                  nodes: [
-                    {
-                      id: "Ep-101",
-                      annictId: 101,
-                      number: 1,
-                      numberText: "第1話",
-                      sortNumber: 1,
-                      title: "サブタイトル1",
-                      viewerDidTrack: tracked.has(101),
-                      viewerRecordsCount: tracked.has(101) ? 1 : 0,
-                    },
-                    {
-                      id: "Ep-102",
-                      annictId: 102,
-                      number: 2,
-                      numberText: "第2話",
-                      sortNumber: 2,
-                      title: "サブタイトル2",
-                      // Annict 記録済み。書き込み対象から外れるべき話。
-                      viewerDidTrack: tracked.has(102),
-                      viewerRecordsCount: tracked.has(102) ? 1 : 0,
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        },
-      });
+    if (q.includes("query WorksEpisodes")) {
+      return opts?.batchEpisodes?.(call) ?? defaultEpisodes();
+    }
+    if (q.includes("query WorkEpisodes")) {
+      return opts?.workEpisodes?.(call) ?? defaultEpisodes();
     }
     // annict_works キャッシュ済みなら作品メタ解決は来ないが、
     // 来ても 1 件だけ返す（ensureAnnictWork のフォールバック経路）。
@@ -268,6 +285,10 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     env.DANIME_RATE_LIMIT_WAIT_MS = "1";
     env.DANIME_TRANSIENT_RETRY_WAIT_MS = "1";
     env.DANIME_WORKFLOW_STEP_BUDGET = "5";
+    // サブリクエスト予算の既定（テストごとに小さくして上限を再現する）。
+    env.DANIME_SUBREQUEST_BUDGET = "40";
+    // 引き継ぎ回数上限の既定（上限検証テストだけ小さくする）。
+    env.DANIME_MAX_HANDOFFS = "100";
   });
 
   afterEach(() => {
@@ -506,5 +527,421 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
     expect(
       calls.filter((c) => c.query.includes("createRecord")).length,
     ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("サブリクエスト予算を使い切った話は failed にせず pending のまま残し、後続インスタンスが書き込む", async () => {
+    // issue #695: Workers のサブリクエスト上限はインスタンス累計のため、
+    // 自前の予算を使い切ったら新しいインスタンスに引き継ぐ。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values(
+      [101, 102, 103, 104, 105].map((annictEpisodeId) => ({
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId,
+        episodeNodeId: `Ep-${annictEpisodeId}`,
+        status: "pending" as const,
+        updatedAt: now,
+      })),
+    );
+    // 再確認 1 + createRecord 3 で枯渇する予算。残り 2 話は引き継ぎ先へ。
+    env.DANIME_SUBREQUEST_BUDGET = "4";
+    const calls = installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    // 中断した話は failed にならず、引き継ぎ先で全件 done になる。
+    // （failed に倒すと pending 一覧に載らず永久に書かれないため、
+    // 全件 done = 引き継ぎが機能した証拠）
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.map((i) => i.status).sort()).toEqual([
+      "done",
+      "done",
+      "done",
+      "done",
+      "done",
+    ]);
+    // 中断した話に createRecord が二度飛ばない（再送しない）。
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      5,
+    );
+  });
+
+  it("Workers のサブリクエスト上限で fetch が例外になった話も pending のまま後続インスタンスで書き込まれる", async () => {
+    // issue #695: 予算を超えてプラットフォーム上限（"Too many
+    // subrequests." の status 0 例外）に当たった場合の安全網。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values([
+      {
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId: 101,
+        episodeNodeId: "Ep-101",
+        status: "pending",
+        updatedAt: now,
+      },
+      {
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId: 102,
+        episodeNodeId: "Ep-102",
+        status: "pending",
+        updatedAt: now,
+      },
+    ]);
+    // Ep-102 の最初の createRecord だけ、上限到達相当の例外を投げる
+    // （後続インスタンスでは成功する＝新しい実行では回復する）。
+    let ep102Attempts = 0;
+    const calls = installAnnictMock({
+      trackedEpisodes: [],
+      createRecord: (call) => {
+        if (call.episodeId === "Ep-102" && ep102Attempts++ === 0) {
+          throw new Error("Too many subrequests.");
+        }
+        return jsonResponse({
+          data: {
+            createRecord: {
+              record: {
+                id: "Rec-1",
+                annictId: 9001,
+                createdAt: "2026-01-01T00:00:00Z",
+              },
+            },
+          },
+        });
+      },
+    });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.map((i) => i.status).sort()).toEqual(["done", "done"]);
+    // 上限で投げられた 1 回と、引き継ぎ先での再送 1 回。
+    const ep102Calls = calls.filter((c) => c.episodeId === "Ep-102");
+    expect(ep102Calls).toHaveLength(2);
+  });
+
+  it("対応付けの途中で予算を使い切ったジョブは、中断した作品から引き継いで完了する", async () => {
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db);
+    // バッチに話一覧が載らない作品 2 件（各フォールバック取得が 2 往復）。
+    // 予算 3 ではバッチ取得 + 1 作品分で尽き、2 作品目は引き継ぎになる。
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    env.DANIME_SUBREQUEST_BUDGET = "3";
+    const pagedEpisodes = (call: AnnictMockCall) =>
+      jsonResponse({
+        data: {
+          searchWorks: {
+            nodes: [
+              {
+                annictId: ANNICT_WORK_ID,
+                episodes: {
+                  pageInfo:
+                    call.after == null
+                      ? { hasNextPage: true, endCursor: "page-2" }
+                      : { hasNextPage: false, endCursor: null },
+                  nodes:
+                    call.after == null
+                      ? [
+                          {
+                            id: "Ep-101",
+                            annictId: 101,
+                            number: 1,
+                            numberText: "第1話",
+                            sortNumber: 1,
+                            title: "サブタイトル1",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ]
+                      : [
+                          {
+                            id: "Ep-102",
+                            annictId: 102,
+                            number: 2,
+                            numberText: "第2話",
+                            sortNumber: 2,
+                            title: "サブタイトル2",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ],
+                },
+              },
+            ],
+          },
+        },
+      });
+    const calls = installAnnictMock({
+      trackedEpisodes: [],
+      batchEpisodes: () =>
+        jsonResponse({
+          data: {
+            searchWorks: {
+              nodes: [
+                {
+                  annictId: ANNICT_WORK_ID,
+                  episodes: {
+                    // 50 話超で打ち切られた扱い → matchWork は個別
+                    // ページングにフォールバックする。
+                    pageInfo: { hasNextPage: true, endCursor: null },
+                    nodes: [],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      workEpisodes: pagedEpisodes,
+    });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    // 引き継ぎ先で対応付けが再開され、確定した話が書き込まれる。
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    // 2 作品とも同じ Annict 話（101/102）に確定するが、ジョブ内の
+    // 重複排除でアイテムは 2 件だけ。
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.status === "done")).toBe(true);
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      2,
+    );
+  });
+
+  it("前のジョブで failed になった話は、新しいジョブで再び書き込み対象になる", async () => {
+    // issue #695: 記録済みの話は対応付け時に skipped になるため、
+    // ジョブを作り直せば failed の話だけが再送される（二重にならない）。
+    await seedUserAndToken(db);
+    const oldJobId = await seedJob(db, { status: "completed" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values({
+      jobId: oldJobId,
+      annictWorkId: ANNICT_WORK_ID,
+      annictEpisodeId: 101,
+      episodeNodeId: "Ep-101",
+      status: "failed",
+      error: "Annict GraphQL request failed",
+      updatedAt: now,
+    });
+
+    const jobId = await seedJob(db);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    const calls = installAnnictMock();
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    // 前ジョブで failed だった 101 が新ジョブで書き込まれる
+    // （102 は Annict 記録済みとして skipped）。
+    const recordCalls = calls.filter((c) => c.query.includes("createRecord"));
+    expect(recordCalls).toHaveLength(1);
+    expect(recordCalls[0]!.episodeId).toBe("Ep-101");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.find((i) => i.annictEpisodeId === 101)?.status).toBe("done");
+  });
+
+  it("予算が 1 話ぶん未満でも 1 話ずつ進み、無限引き継ぎにならず完了する", async () => {
+    // Devin Review #699: 小さい予算で fetch を途中拒否すると、引き継ぎ先が
+    // 同じ話を最初からやり直して永久に進まない。ユニット境界でだけ
+    // 予算を見るため、各インスタンスが最低 1 話ずつ進んで収束する。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values(
+      [101, 102, 103].map((annictEpisodeId) => ({
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId,
+        episodeNodeId: `Ep-${annictEpisodeId}`,
+        status: "pending" as const,
+        updatedAt: now,
+      })),
+    );
+    // 再確認 1 + createRecord 1 で 1 話ぶんの最小コストより小さい予算。
+    env.DANIME_SUBREQUEST_BUDGET = "1";
+    const calls = installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.every((i) => i.status === "done")).toBe(true);
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      3,
+    );
+  });
+
+  it("予算が話一覧 1 作品ぶん未満でも、ページング途中で中断せず作品ごとに進んで完了する", async () => {
+    // Devin Review #699 の再現: 予算 2 で 2 ページの話一覧を持つ作品を
+    // 処理すると、ページング途中で中断すると毎回同じ作品を取り直して
+    // 無限引き継ぎになる。ページングは中断しないので収束する。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    await seedWork(db, jobId, WORK_EPISODES_JSON);
+    // バッチ取得 1 + ページング 2 で 1 作品ぶんを下回る予算。
+    env.DANIME_SUBREQUEST_BUDGET = "2";
+    const pagedEpisodes = (call: AnnictMockCall) =>
+      jsonResponse({
+        data: {
+          searchWorks: {
+            nodes: [
+              {
+                annictId: ANNICT_WORK_ID,
+                episodes: {
+                  pageInfo:
+                    call.after == null
+                      ? { hasNextPage: true, endCursor: "page-2" }
+                      : { hasNextPage: false, endCursor: null },
+                  nodes:
+                    call.after == null
+                      ? [
+                          {
+                            id: "Ep-101",
+                            annictId: 101,
+                            number: 1,
+                            numberText: "第1話",
+                            sortNumber: 1,
+                            title: "サブタイトル1",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ]
+                      : [
+                          {
+                            id: "Ep-102",
+                            annictId: 102,
+                            number: 2,
+                            numberText: "第2話",
+                            sortNumber: 2,
+                            title: "サブタイトル2",
+                            viewerDidTrack: false,
+                            viewerRecordsCount: 0,
+                          },
+                        ],
+                },
+              },
+            ],
+          },
+        },
+      });
+    const calls = installAnnictMock({
+      trackedEpisodes: [],
+      batchEpisodes: () =>
+        jsonResponse({
+          data: {
+            searchWorks: {
+              nodes: [
+                {
+                  annictId: ANNICT_WORK_ID,
+                  episodes: {
+                    pageInfo: { hasNextPage: true, endCursor: null },
+                    nodes: [],
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      workEpisodes: pagedEpisodes,
+    });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["completed", "failed"]);
+    expect(job.status).toBe("completed");
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.status === "done")).toBe(true);
+    expect(calls.filter((c) => c.query.includes("createRecord"))).toHaveLength(
+      2,
+    );
+  });
+
+  it("引き継ぎ回数の上限を超えたジョブは failed になる", async () => {
+    // Devin Review #699: ユニット単位で必ず進む設計のため上限到達は
+    // 異常系だが、収束しない場合にインスタンスを無限に作らせない
+    // 保証として引き継ぎ回数の上限で failed に倒す。
+    await seedUserAndToken(db);
+    const jobId = await seedJob(db, { status: "writing" });
+    const now = new Date();
+    await db.insert(danimeEpisodeImportItems).values(
+      [101, 102, 103].map((annictEpisodeId) => ({
+        jobId,
+        annictWorkId: ANNICT_WORK_ID,
+        annictEpisodeId,
+        episodeNodeId: `Ep-${annictEpisodeId}`,
+        status: "pending" as const,
+        updatedAt: now,
+      })),
+    );
+    // 1 話ごとに引き継ぐ予算 + 引き継ぎ 1 回までの上限。
+    env.DANIME_SUBREQUEST_BUDGET = "1";
+    env.DANIME_MAX_HANDOFFS = "1";
+    installAnnictMock({ trackedEpisodes: [] });
+
+    await env.DANIME_EPISODE_IMPORT.create({
+      id: jobId,
+      params: { jobId, userId: USER_ID },
+    });
+
+    const job = await waitForJob(db, jobId, ["failed"]);
+    expect(job.status).toBe("failed");
+    expect(job.error).toContain("handoff limit");
+    // 上限までに進んだ分は残る（2 話 done、残り 1 話は pending のまま）。
+    const items = await db
+      .select()
+      .from(danimeEpisodeImportItems)
+      .where(eq(danimeEpisodeImportItems.jobId, jobId));
+    expect(items.filter((i) => i.status === "done")).toHaveLength(2);
+    expect(items.filter((i) => i.status === "pending")).toHaveLength(1);
   });
 });

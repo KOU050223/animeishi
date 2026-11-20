@@ -8,7 +8,13 @@ import { Hono } from "hono";
 import { setupTestDb } from "../../test-utils/setup-db";
 import { applyApiErrorHandling } from "../../test-utils/apiApp";
 import { importRoute } from "@/features/import";
-import { users, annictTokens } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  users,
+  annictTokens,
+  danimeEpisodeImportItems,
+  danimeEpisodeImportJobs,
+} from "@/db/schema";
 
 vi.mock("@clerk/hono", () => ({
   clerkMiddleware: () => async (_c: unknown, next: () => Promise<void>) => {
@@ -261,6 +267,103 @@ describe("dアニメ話記録ジョブ API", () => {
     };
     expect(body.job.status).toBe("matching");
     expect(body.job).toMatchObject({ total: 0, done: 0, failed: 0 });
+  });
+
+  it("インスタンスが complete でも、writing で pending が残るジョブは完了扱いしない", async () => {
+    // issue #695: サブリクエスト予算の引き継ぎで元インスタンスは正常
+    // 終了（complete）するが、後続インスタンスが残りの pending を
+    // 処理中。ここで completed にすると引き継ぎ先の load-job が
+    // 終了済み判定で止まり、残りの話が永久に書かれない。
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "complete" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    // 引き継ぎ後の状態を再現（書き込み中・pending 残り）。
+    await db
+      .update(danimeEpisodeImportJobs)
+      .set({ status: "writing" })
+      .where(eq(danimeEpisodeImportJobs.id, job.id));
+    await db.insert(danimeEpisodeImportItems).values({
+      jobId: job.id,
+      annictWorkId: 555,
+      annictEpisodeId: 101,
+      episodeNodeId: "Ep-101",
+      status: "pending",
+      updatedAt: new Date(),
+    });
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as { job: { status: string } };
+    expect(body.job.status).toBe("writing");
+  });
+
+  it("インスタンスが complete でも、matching のジョブは完了扱いしない", async () => {
+    // 対応付け中の引き継ぎではアイテムがまだ 1 件も無い（pending=0）
+    // ことがあるため、pending 0 だけでは完了と判定できない。
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "complete" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as { job: { status: string } };
+    expect(body.job.status).toBe("matching");
+  });
+
+  it("writing で pending が残っていなければインスタンスの complete に追従する", async () => {
+    await seedUserAndToken(db);
+    const wf = workflowStub({ instanceStatus: "complete" });
+    const { app, bindings } = buildApp(wf.stub);
+
+    const created = await app.request(
+      "/me/import/danime/episode-jobs",
+      {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(WORKS_BODY),
+      },
+      bindings,
+    );
+    const { job } = (await created.json()) as { job: { id: string } };
+    await db
+      .update(danimeEpisodeImportJobs)
+      .set({ status: "writing" })
+      .where(eq(danimeEpisodeImportJobs.id, job.id));
+
+    const res = await app.request(
+      "/me/import/danime/episode-jobs/current",
+      {},
+      bindings,
+    );
+    const body = (await res.json()) as { job: { status: string } };
+    expect(body.job.status).toBe("completed");
   });
 
   it("実行中のままインスタンスが errored なら D1 側も failed に追従する", async () => {
