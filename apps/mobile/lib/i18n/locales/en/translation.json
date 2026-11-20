@@ -351,6 +351,7 @@
   "名刺交換成立": "Cards exchanged",
   "名刺交換を受け付けました": "Exchange accepted",
   "接続が回復したら名刺交換が完了します": "The exchange will complete once you're back online.",
+  "自分の QR も見せる": "Show my QR too",
   "名刺を交換できませんでした": "Couldn't complete the card exchange",
   "{{name}}との名刺交換を完了できませんでした。プロフィール画面からフレンド申請を送れます": "Couldn't complete the card exchange with {{name}}. You can send a friend request from their profile.",
   "名刺交換を完了できませんでした。プロフィール画面からフレンド申請を送れます": "Couldn't complete the card exchange. You can send a friend request from their profile.",

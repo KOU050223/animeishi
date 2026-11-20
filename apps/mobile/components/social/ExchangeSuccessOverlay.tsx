@@ -42,6 +42,12 @@ export type ExchangeSuccessOverlayProps = {
    */
   onRecordPress?: () => void;
   /**
+   * 「自分の QR も見せる」ボタンを出すときに渡す（issue #682）。
+   * 両手で渡し合う名刺交換らしく相互スキャンを促す導線。任意の操作
+   * なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
+   */
+  onShowMyQr?: () => void;
+  /**
    * この相手との交換記録の件数。「◯回目」の表示に使う（issue #662）。
    * 申請→承認など初回交換しかあり得ない呼び出しでは 1 を渡す。
    */
@@ -118,6 +124,7 @@ export function ExchangeSuccessOverlay({
   onClose,
   showProfileLink = true,
   onRecordPress,
+  onShowMyQr,
   meetingCount,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
@@ -211,6 +218,19 @@ export function ExchangeSuccessOverlay({
               >
                 <Text className="text-white font-semibold">
                   {t("プロフィールを見る")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {onShowMyQr ? (
+              <TouchableOpacity
+                className="bg-white/15 border border-white/40 rounded-lg px-6 py-3 self-stretch items-center"
+                onPress={onShowMyQr}
+                accessibilityRole="button"
+                accessibilityLabel={t("自分の QR も見せる")}
+                testID="exchange-success-show-my-qr"
+              >
+                <Text className="text-white font-semibold">
+                  {t("自分の QR も見せる")}
                 </Text>
               </TouchableOpacity>
             ) : null}

@@ -57,4 +57,28 @@ describe("ExchangeQueuedOverlay", () => {
 
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
+
+  it("onShowMyQr を渡すと「自分の QR も見せる」を出し、押すと呼ばれる（issue #682）", async () => {
+    const onShowMyQr = jest.fn();
+    await render(
+      <ExchangeQueuedOverlay
+        uid="user_partner"
+        onClose={mockOnClose}
+        onShowMyQr={onShowMyQr}
+      />,
+    );
+
+    await fireEvent.press(screen.getByTestId("exchange-queued-show-my-qr"));
+
+    expect(onShowMyQr).toHaveBeenCalledTimes(1);
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it("onShowMyQr を渡さないとき「自分の QR も見せる」は出さない", async () => {
+    await render(
+      <ExchangeQueuedOverlay uid="user_partner" onClose={mockOnClose} />,
+    );
+
+    expect(screen.queryByTestId("exchange-queued-show-my-qr")).toBeNull();
+  });
 });

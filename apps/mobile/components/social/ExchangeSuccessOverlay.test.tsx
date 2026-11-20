@@ -192,4 +192,34 @@ describe("ExchangeSuccessOverlay", () => {
     expect(mockOnClose).toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it("onShowMyQr を渡すと「自分の QR も見せる」を出し、押すと呼ばれる（issue #682）", async () => {
+    const onShowMyQr = jest.fn();
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay
+        uid="user_partner"
+        onClose={mockOnClose}
+        onShowMyQr={onShowMyQr}
+      />,
+      { wrapper },
+    );
+
+    await fireEvent.press(screen.getByTestId("exchange-success-show-my-qr"));
+
+    // 遷移先の制御は呼び出し側なので、オーバーレイ自身は閉じず遷移もしない。
+    expect(onShowMyQr).toHaveBeenCalledTimes(1);
+    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("onShowMyQr を渡さないとき「自分の QR も見せる」は出さない", async () => {
+    loggedInUser({ userId: "user_me" });
+    await render(
+      <ExchangeSuccessOverlay uid="user_partner" onClose={mockOnClose} />,
+      { wrapper },
+    );
+
+    expect(screen.queryByTestId("exchange-success-show-my-qr")).toBeNull();
+  });
 });
