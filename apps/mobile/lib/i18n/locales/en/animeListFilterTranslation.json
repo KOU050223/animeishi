@@ -86,6 +86,5 @@
   "表示中の作品にジャンル情報がありません（順次取り込み中です）。": "No genre information is available for these works yet.",
   "ジャンルを複数選ぶといずれかに一致する作品を表示します。「不明」はジャンルが未取得の作品だけを表示します。": "Selecting multiple genres shows works matching any of them. Unknown shows works whose genres have not been fetched.",
   "絞り込みをリセット": "Reset filters",
-  "絞り込みを適用": "Apply filters",
   "絞り込みを閉じる": "Close filters"
 }
