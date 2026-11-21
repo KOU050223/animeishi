@@ -24,13 +24,28 @@ export type DistancePayload = {
   direction?: DirectionVector;
 };
 
+export type NearbyExchangeSendOptions = {
+  peerId: string;
+  /** 相手へ渡す交換データ。中身は QR に載せるのと同じ URL 文字列。 */
+  payload: string;
+};
+
+export type PayloadPayload = {
+  peerId: string;
+  payload: string;
+};
+
 export type ErrorCode =
   | "listener_failed"
   | "browser_failed"
   | "connection_failed"
   | "ni_token_invalid"
   | "ni_invalidated"
-  | "unsupported_platform";
+  | "unsupported_platform"
+  /** ローカルネットワークの許可が拒否された。 */
+  | "local_network_denied"
+  /** Nearby Interaction の許可が拒否された。 */
+  | "ni_permission_denied";
 
 export type ErrorPayload = {
   code: ErrorCode | (string & {});
@@ -48,4 +63,5 @@ export type NearbyExchangeModuleEvents = {
   onDistance: (payload: DistancePayload) => void;
   onError: (payload: ErrorPayload) => void;
   onCapability: (payload: CapabilityPayload) => void;
+  onPayload: (payload: PayloadPayload) => void;
 };

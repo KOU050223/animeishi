@@ -18,6 +18,25 @@ export type {
   NearbyExchange,
   NearbyExchangeModuleEvents,
   NearbyExchangeStartOptions,
+  PayloadPayload,
   PeerFoundPayload,
   PeerLostPayload,
 } from "./types";
+export {
+  approachProgress,
+  initialNearbySessionState,
+  nearbySessionReducer,
+  selectTargetPeer,
+} from "./exchangeSession";
+export type {
+  NearbyExchange as NearbyExchangeState,
+  NearbyPeer,
+  NearbySessionEvent,
+  NearbySessionState,
+  NearbySessionStatus,
+} from "./exchangeSession";
+export {
+  SWAP_RECEIVE_TIMEOUT_MS,
+  useNearbyExchangeSession,
+} from "./useNearbyExchangeSession";
+export type { NearbyExchangeSession } from "./useNearbyExchangeSession";

@@ -702,6 +702,14 @@ export default function ProfileScreen() {
                               "近づけて交換の試作画面を開く",
                             ),
                           },
+                          {
+                            key: "nearby-exchange-stage",
+                            label: t("近づけて交換の演出（試作）"),
+                            onPress: () => router.push("/dev/nearby-stage"),
+                            accessibilityLabel: t(
+                              "近づけて交換の演出を確かめる画面を開く",
+                            ),
+                          },
                         ],
                       },
                     ]

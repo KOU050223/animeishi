@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import dnssd
 import NearbyInteraction
 
 /// Network framework（Bonjour + peer-to-peer）で近くの端末を見つけて接続し、
@@ -45,6 +46,22 @@ final class NearbyExchangeManager: NSObject {
     queue.async { self.stopOnQueue() }
   }
 
+  /// 交換成立のときに自分の交換データ（QR と同じ URL）を相手 1 人だけへ送る。
+  /// hello と違い、近くにいるだけの相手には流さない。
+  func sendPayload(peerId: String, payload: String) {
+    queue.async {
+      guard self.running, let peer = self.connectionByPeerId[peerId] else { return }
+      self.send(peer, ["sessionId": self.sessionId, "type": "payload", "payload": payload])
+    }
+  }
+
+  static func isPreciseDistanceSupported() -> Bool {
+    if #available(iOS 16.0, *) {
+      return NISession.deviceCapabilities.supportsPreciseDistanceMeasurement
+    }
+    return NISession.isSupported
+  }
+
   private func emit(_ event: String, _ payload: [String: Any?]) {
     emitter?(event, payload)
   }
@@ -54,11 +71,7 @@ final class NearbyExchangeManager: NSObject {
     running = true
     self.displayName = displayName
 
-    if #available(iOS 16.0, *) {
-      supportsUwb = NISession.deviceCapabilities.supportsPreciseDistanceMeasurement
-    } else {
-      supportsUwb = NISession.isSupported
-    }
+    supportsUwb = Self.isPreciseDistanceSupported()
     emit("onCapability", ["uwb": supportsUwb])
     if supportsUwb {
       // discoveryToken を最初に確定させて hello に載せる。UWB 非対応機では
@@ -125,8 +138,17 @@ final class NearbyExchangeManager: NSObject {
     params.includePeerToPeer = true
     let browser = NWBrowser(for: .bonjour(type: Self.serviceType, domain: nil), using: params)
     browser.stateUpdateHandler = { [weak self] state in
-      if case .failed(let error) = state {
+      switch state {
+      case .failed(let error):
         self?.emit("onError", ["code": "browser_failed", "message": error.localizedDescription])
+      case .waiting(let error):
+        // ローカルネットワークの許可が拒否されていると、失敗ではなく
+        // PolicyDenied の waiting で止まり続ける。
+        if case .dns(let code) = error, code == DNSServiceErrorType(kDNSServiceErr_PolicyDenied) {
+          self?.emit("onError", ["code": "local_network_denied", "message": error.localizedDescription])
+        }
+      default:
+        break
       }
     }
     browser.browseResultsChangedHandler = { [weak self] results, _ in
@@ -259,6 +281,13 @@ final class NearbyExchangeManager: NSObject {
       connectionByPeerId[peerId] = peer
     }
 
+    if message["type"] as? String == "payload" {
+      if let payload = message["payload"] as? String {
+        emit("onPayload", ["peerId": peerId, "payload": payload])
+      }
+      return
+    }
+
     let name = message["displayName"] as? String ?? ""
     if displayNameByPeerId[peerId] == nil {
       emit("onPeerFound", ["peerId": peerId, "displayName": name])
@@ -358,6 +387,19 @@ extension NearbyExchangeManager: NISessionDelegate {
   }
 
   func session(_ session: NISession, didInvalidateWith error: Error) {
+    if (error as? NIError)?.code == .userDidNotAllow {
+      // 許可が拒否された。作り直しても同じエラーで無効化され続けるため
+      // 測定をやめて JS に知らせる（QR へのフォールバックは JS 側）。
+      supportsUwb = false
+      primarySession = nil
+      if let peerId = peerIdBySession.removeValue(forKey: ObjectIdentifier(session)) {
+        sessionByPeerId.removeValue(forKey: peerId)
+      }
+      if running {
+        emit("onError", ["code": "ni_permission_denied", "message": error.localizedDescription])
+      }
+      return
+    }
     if session === primarySession {
       primarySession = nil
       if running {

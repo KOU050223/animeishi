@@ -7,7 +7,10 @@ import type { NearbyExchange } from "./types";
  * のネイティブモジュールにそのまま委譲する。
  */
 export const nearbyExchange: NearbyExchange = {
+  platformAvailable: true,
+  isSupported: () => native.isSupported(),
   start: (options) => native.start(options),
   stop: () => native.stop(),
+  sendPayload: (peerId, payload) => native.sendPayload(peerId, payload),
   addListener: (event, listener) => native.addListener(event, listener),
 };
