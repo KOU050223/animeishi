@@ -7,7 +7,8 @@ import type { NearbyExchange } from "./types";
  * のネイティブモジュールにそのまま委譲する。
  */
 export const nearbyExchange: NearbyExchange = {
-  platformAvailable: true,
+  // モジュールを含まないビルドでは「近づける」セグメント自体を出さない。
+  platformAvailable: native.isModuleAvailable(),
   isSupported: () => native.isSupported(),
   start: (options) => native.start(options),
   stop: () => native.stop(),

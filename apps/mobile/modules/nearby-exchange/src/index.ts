@@ -19,6 +19,11 @@ export type {
   PeerLostPayload,
 } from "./NearbyExchange.types";
 
+/** ネイティブモジュールがこのビルドに組み込まれているか（Expo Go などでは false）。 */
+export function isModuleAvailable(): boolean {
+  return NearbyExchangeModule != null;
+}
+
 /** ネイティブモジュールが組み込まれていて、端末が UWB の精密測距に対応しているか。 */
 export function isSupported(): boolean {
   // 試作（#700）のモジュールだけを含むビルドには isSupported / sendPayload が

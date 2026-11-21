@@ -108,15 +108,36 @@ describe("nearbySessionReducer", () => {
     expect(state.exchangedPeerIds).toEqual(["a"]);
   });
 
-  it("成立しなかったときは同じ相手ともう一度交換できる", () => {
-    const state = run(
+  it("成立しなかった相手とは、10cm の外へ離れてから近づけ直すともう一度交換できる", () => {
+    const failed = [
       found("a"),
       distance("a", 0.05),
-      { type: "finish", exchanged: false },
-      distance("a", 0.3),
+      { type: "finish", exchanged: false } as const,
+    ];
+    // 触れたままでは再開しない（失敗と再開を繰り返さない）。
+    expect(run(...failed, distance("a", 0.05)).exchange).toEqual({
+      kind: "idle",
+    });
+    expect(
+      run(...failed, distance("a", 0.3), distance("a", 0.05)).exchange,
+    ).toMatchObject({ kind: "swapping", peerId: "a" });
+  });
+
+  it("時間切れは受信待ちの同じ相手にだけ効き、受け取り済みのデータは捨てない", () => {
+    const waiting = run(found("a"), distance("a", 0.05), {
+      type: "timeout",
+      peerId: "a",
+    });
+    expect(waiting.exchange).toEqual({ kind: "idle" });
+    expect(waiting.heldPeerIds).toEqual(["a"]);
+
+    const received = run(
+      found("a"),
       distance("a", 0.05),
+      { type: "payload", peerId: "a", payload: "x" },
+      { type: "timeout", peerId: "a" },
     );
-    expect(state.exchange).toMatchObject({ kind: "swapping", peerId: "a" });
+    expect(received.exchange).toMatchObject({ received: "x" });
   });
 
   it("探索を止めたら見つけていた相手を捨て、受け取り済みの入れ替わりだけ残す", () => {

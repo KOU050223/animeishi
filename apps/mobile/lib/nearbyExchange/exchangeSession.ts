@@ -38,6 +38,11 @@ export type NearbySessionState = {
   exchange: NearbyExchange;
   /** この画面を開いている間に交換を済ませた相手。触れ続けても再交換しない。 */
   exchangedPeerIds: string[];
+  /**
+   * 入れ替わりに失敗した相手。10cm から離れたと測れるまで再開しない
+   * （触れたままだと失敗と再開を繰り返すため）。
+   */
+  heldPeerIds: string[];
 };
 
 export type NearbySessionEvent =
@@ -48,6 +53,8 @@ export type NearbySessionEvent =
   | { type: "payload"; peerId: string; payload: string }
   | { type: "error"; code: string }
   | { type: "sent" }
+  /** 相手のデータが待ち時間内に届かなかった。 */
+  | { type: "timeout"; peerId: string }
   /** 成立（または失敗）を見せ終えた。相手を交換済みにして探索へ戻る。 */
   | { type: "finish"; exchanged: boolean }
   /**
@@ -63,6 +70,7 @@ export const initialNearbySessionState: NearbySessionState = {
   peers: {},
   exchange: { kind: "idle" },
   exchangedPeerIds: [],
+  heldPeerIds: [],
 };
 
 /**
@@ -137,17 +145,25 @@ export function nearbySessionReducer(
     case "distance": {
       const peer = state.peers[event.peerId];
       if (!peer) return state;
+      const touching = proximityLevel(event.meters) === "touch";
+      const held = state.heldPeerIds.includes(event.peerId);
       const next = {
         ...state,
         peers: {
           ...state.peers,
           [event.peerId]: { ...peer, meters: event.meters },
         },
+        // 10cm の外へ離れたと測れたら、失敗した相手とも再び交換できる。
+        heldPeerIds:
+          held && event.meters != null && !touching
+            ? state.heldPeerIds.filter((id) => id !== event.peerId)
+            : state.heldPeerIds,
       };
       if (
         state.exchange.kind === "idle" &&
         !state.exchangedPeerIds.includes(event.peerId) &&
-        proximityLevel(event.meters) === "touch"
+        !held &&
+        touching
       ) {
         return startSwap(next, event.peerId, null);
       }
@@ -189,6 +205,21 @@ export function nearbySessionReducer(
       return state.status === "denied"
         ? { ...state, status: "active", peers: {} }
         : state;
+    case "timeout": {
+      const exchange = state.exchange;
+      if (
+        exchange.kind !== "swapping" ||
+        exchange.peerId !== event.peerId ||
+        exchange.received != null
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        exchange: { kind: "idle" },
+        heldPeerIds: [...state.heldPeerIds, event.peerId],
+      };
+    }
     case "sent":
       return state.exchange.kind === "swapping"
         ? { ...state, exchange: { ...state.exchange, sent: true } }
@@ -202,6 +233,9 @@ export function nearbySessionReducer(
         exchangedPeerIds: event.exchanged
           ? [...state.exchangedPeerIds, exchange.peerId]
           : state.exchangedPeerIds,
+        heldPeerIds: event.exchanged
+          ? state.heldPeerIds
+          : [...state.heldPeerIds, exchange.peerId],
       };
     }
   }

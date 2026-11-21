@@ -125,7 +125,7 @@ export function useNearbyExchangeSession({
   useEffect(() => {
     if (waitingPeerId == null) return;
     const timer = setTimeout(
-      () => dispatch({ type: "finish", exchanged: false }),
+      () => dispatch({ type: "timeout", peerId: waitingPeerId }),
       SWAP_RECEIVE_TIMEOUT_MS,
     );
     return () => clearTimeout(timer);

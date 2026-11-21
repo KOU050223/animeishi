@@ -33,8 +33,8 @@ export type {
  */
 export type NearbyExchange = {
   /**
-   * このプラットフォームに近づけて交換の実装があるか（iOS のみ true）。
-   * false なら「近づける」セグメント自体を出さない。
+   * このビルドに近づけて交換の実装があるか（iOS でネイティブモジュールを
+   * 含むビルドだけ true）。false なら「近づける」セグメント自体を出さない。
    */
   platformAvailable: boolean;
   /**
