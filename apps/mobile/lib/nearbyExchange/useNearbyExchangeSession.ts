@@ -118,18 +118,20 @@ export function useNearbyExchangeSession({
     dispatch({ type: "sent" });
   }, [pendingSendPeerId, myPayload]);
 
-  const waitingPeerId =
+  // 同じ相手との入れ替わりが続けて始まっても古いタイマーが効かないよう、
+  // 相手ではなく入れ替わりの番号で待つ。
+  const waitingAttempt =
     exchange.kind === "swapping" && exchange.received == null
-      ? exchange.peerId
+      ? exchange.attempt
       : null;
   useEffect(() => {
-    if (waitingPeerId == null) return;
+    if (waitingAttempt == null) return;
     const timer = setTimeout(
-      () => dispatch({ type: "timeout", peerId: waitingPeerId }),
+      () => dispatch({ type: "timeout", attempt: waitingAttempt }),
       SWAP_RECEIVE_TIMEOUT_MS,
     );
     return () => clearTimeout(timer);
-  }, [waitingPeerId]);
+  }, [waitingAttempt]);
 
   const finish = useCallback(
     (exchanged: boolean) => dispatch({ type: "finish", exchanged }),
@@ -139,10 +141,10 @@ export function useNearbyExchangeSession({
   // 呼び出し側の finish を経ずに入れ替わりが消えた = 相手のデータが届かな
   // かった。レンダー中に前回値と比べて数える（effect で setState しない）。
   const [failureCount, setFailureCount] = useState(0);
-  const [prevWaitingPeerId, setPrevWaitingPeerId] = useState(waitingPeerId);
-  if (prevWaitingPeerId !== waitingPeerId) {
-    setPrevWaitingPeerId(waitingPeerId);
-    if (prevWaitingPeerId != null && exchange.kind === "idle") {
+  const [prevWaitingAttempt, setPrevWaitingAttempt] = useState(waitingAttempt);
+  if (prevWaitingAttempt !== waitingAttempt) {
+    setPrevWaitingAttempt(waitingAttempt);
+    if (prevWaitingAttempt != null && exchange.kind === "idle") {
       setFailureCount((n) => n + 1);
     }
   }

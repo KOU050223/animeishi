@@ -24,6 +24,8 @@ export type NearbyExchange =
   | { kind: "idle" }
   | {
       kind: "swapping";
+      /** 入れ替わりごとの番号。古い時間切れが新しい入れ替わりを終わらせないように。 */
+      attempt: number;
       peerId: string;
       displayName: string;
       /** 自分の交換データを相手へ送り終えたか。 */
@@ -43,6 +45,8 @@ export type NearbySessionState = {
    * （触れたままだと失敗と再開を繰り返すため）。
    */
   heldPeerIds: string[];
+  /** 次の入れ替わりに振る番号。 */
+  nextAttempt: number;
 };
 
 export type NearbySessionEvent =
@@ -54,7 +58,7 @@ export type NearbySessionEvent =
   | { type: "error"; code: string }
   | { type: "sent" }
   /** 相手のデータが待ち時間内に届かなかった。 */
-  | { type: "timeout"; peerId: string }
+  | { type: "timeout"; attempt: number }
   /** 成立（または失敗）を見せ終えた。相手を交換済みにして探索へ戻る。 */
   | { type: "finish"; exchanged: boolean }
   /**
@@ -71,6 +75,7 @@ export const initialNearbySessionState: NearbySessionState = {
   exchange: { kind: "idle" },
   exchangedPeerIds: [],
   heldPeerIds: [],
+  nextAttempt: 1,
 };
 
 /**
@@ -92,8 +97,10 @@ function startSwap(
 ): NearbySessionState {
   return {
     ...state,
+    nextAttempt: state.nextAttempt + 1,
     exchange: {
       kind: "swapping",
+      attempt: state.nextAttempt,
       peerId,
       displayName: state.peers[peerId]?.displayName ?? "",
       sent: false,
@@ -184,6 +191,8 @@ export function nearbySessionReducer(
       const peer = state.peers[event.peerId];
       if (
         state.exchangedPeerIds.includes(event.peerId) ||
+        // 失敗して保留中の相手から遅れて届いたデータでは再開しない。
+        state.heldPeerIds.includes(event.peerId) ||
         peer?.meters == null ||
         peer.meters > REPLY_MAX_METERS
       ) {
@@ -209,7 +218,7 @@ export function nearbySessionReducer(
       const exchange = state.exchange;
       if (
         exchange.kind !== "swapping" ||
-        exchange.peerId !== event.peerId ||
+        exchange.attempt !== event.attempt ||
         exchange.received != null
       ) {
         return state;
@@ -217,7 +226,7 @@ export function nearbySessionReducer(
       return {
         ...state,
         exchange: { kind: "idle" },
-        heldPeerIds: [...state.heldPeerIds, event.peerId],
+        heldPeerIds: [...state.heldPeerIds, exchange.peerId],
       };
     }
     case "sent":

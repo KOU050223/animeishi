@@ -35,6 +35,7 @@ describe("nearbySessionReducer", () => {
     );
     expect(state.exchange).toEqual({
       kind: "swapping",
+      attempt: 1,
       peerId: "a",
       displayName: "ハル",
       sent: false,
@@ -126,7 +127,7 @@ describe("nearbySessionReducer", () => {
   it("時間切れは受信待ちの同じ相手にだけ効き、受け取り済みのデータは捨てない", () => {
     const waiting = run(found("a"), distance("a", 0.05), {
       type: "timeout",
-      peerId: "a",
+      attempt: 1,
     });
     expect(waiting.exchange).toEqual({ kind: "idle" });
     expect(waiting.heldPeerIds).toEqual(["a"]);
@@ -135,9 +136,31 @@ describe("nearbySessionReducer", () => {
       found("a"),
       distance("a", 0.05),
       { type: "payload", peerId: "a", payload: "x" },
-      { type: "timeout", peerId: "a" },
+      { type: "timeout", attempt: 1 },
     );
     expect(received.exchange).toMatchObject({ received: "x" });
+  });
+
+  it("前の入れ替わりの時間切れは、同じ相手との新しい入れ替わりを終わらせない", () => {
+    const state = run(
+      found("a"),
+      distance("a", 0.05),
+      { type: "peerLost", peerId: "a" },
+      found("a"),
+      distance("a", 0.05),
+      { type: "timeout", attempt: 1 },
+    );
+    expect(state.exchange).toMatchObject({ kind: "swapping", attempt: 2 });
+  });
+
+  it("保留中の相手から遅れて届いたデータでは再開しない", () => {
+    const state = run(
+      found("a"),
+      distance("a", 0.05),
+      { type: "timeout", attempt: 1 },
+      { type: "payload", peerId: "a", payload: "x" },
+    );
+    expect(state.exchange).toEqual({ kind: "idle" });
   });
 
   it("探索を止めたら見つけていた相手を捨て、受け取り済みの入れ替わりだけ残す", () => {

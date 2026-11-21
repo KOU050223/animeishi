@@ -89,11 +89,22 @@ export function useExchangeQrValue(): {
     ot: qt ? undefined : offlineToken,
     miniMeishi,
   });
-  const nearbyPayload = buildQrExchangeUrl(shareUrl, {
-    qt,
-    ot: offlineToken,
-    miniMeishi,
-    includeOfflineWithQt: true,
-  });
+  // 端末に保存した ot の読み出しは非同期なので、取得済みの応答に ot が
+  // あればそれを優先する（読み出し前に送ると ot の無いデータが送信済みになる）。
+  const nearbyOt =
+    qrToken.data && qrToken.data.offlineExpiresAt * 1000 > nowMs
+      ? qrToken.data.offlineToken
+      : offlineToken;
+  // トークンが 1 つも無いデータは受け取った側で交換に使えないので、
+  // 送らない（探索も始めない）。
+  const nearbyPayload =
+    qt || nearbyOt
+      ? buildQrExchangeUrl(shareUrl, {
+          qt,
+          ot: nearbyOt,
+          miniMeishi,
+          includeOfflineWithQt: true,
+        })
+      : null;
   return { qrValue, nearbyPayload, shareUrl };
 }
