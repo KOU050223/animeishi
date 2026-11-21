@@ -51,12 +51,15 @@ async function advance(ms: number) {
 }
 
 const MY_QR = "https://animeishi.uomi.dev/user/user_me?qt=my-qt";
+const MY_NEARBY_PAYLOAD =
+  "https://animeishi.uomi.dev/user/user_me?qt=my-qt&ot=my-ot";
 const PARTNER_QR =
   "https://animeishi.uomi.dev/user/user_partner2abcDEF?qt=partner-qt";
 
 jest.mock("@/lib/useExchangeQrValue", () => ({
   useExchangeQrValue: () => ({
     qrValue: MY_QR,
+    nearbyPayload: MY_NEARBY_PAYLOAD,
     shareUrl: "https://animeishi.uomi.dev/user/user_me",
   }),
 }));
@@ -159,7 +162,7 @@ describe("NearbyExchangeView", () => {
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
     await touchPartner();
 
-    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_QR);
+    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_NEARBY_PAYLOAD);
     expect(screen.getByText("あなたの名刺を ハルさんへ")).toBeTruthy();
 
     await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
@@ -191,9 +194,10 @@ describe("NearbyExchangeView", () => {
   it("相手が先に送ってきたら、こちらからも送り返す", async () => {
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
     await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
+    await emit("onDistance", { peerId: "p1", meters: 0.15 });
     await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
 
-    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_QR);
+    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_NEARBY_PAYLOAD);
     expect(mockAddFriendMutate).toHaveBeenCalledTimes(1);
   });
 
@@ -235,6 +239,34 @@ describe("NearbyExchangeView", () => {
       expect.objectContaining({ okLabel: "OK" }),
     );
     expect(screen.queryByTestId("result-success")).toBeNull();
+  });
+
+  it("近くにいると測れていない相手から届いたデータには応じない", async () => {
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
+    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+
+    expect(mockSendPayload).not.toHaveBeenCalled();
+    expect(mockAddFriendMutate).not.toHaveBeenCalled();
+  });
+
+  it("許可を拒否した後、アプリに戻ると探索をやり直す", async () => {
+    const { AppState } = require("react-native");
+    const handlers: ((s: string) => void)[] = [];
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_e: unknown, h: unknown) => {
+        handlers.push(h as (s: string) => void);
+        return { remove: jest.fn() };
+      });
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onError", { code: "local_network_denied", message: "" });
+    expect(screen.getByTestId("nearby-fallback-denied")).toBeTruthy();
+    mockStart.mockClear();
+
+    await act(async () => handlers.forEach((h) => h("active")));
+    expect(screen.getByTestId("nearby-exchange-view")).toBeTruthy();
+    expect(mockStart).toHaveBeenCalledTimes(1);
   });
 
   it("交換トークンの無いデータは登録せず知らせる", async () => {

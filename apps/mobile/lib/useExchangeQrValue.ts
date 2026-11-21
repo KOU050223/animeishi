@@ -13,6 +13,11 @@ import { useQrExchangeToken } from "@/lib/useFriends";
  */
 export function useExchangeQrValue(): {
   qrValue: string | null;
+  /**
+   * 近づけて交換で相手へ送るデータ。qrValue と同じ URL に、qt があっても
+   * ot を併記する（qt の期限後にオフラインの交換キューを同期できるように）。
+   */
+  nearbyPayload: string | null;
   shareUrl: string | null;
 } {
   const { userId, isSignedIn } = useAuth();
@@ -56,7 +61,9 @@ export function useExchangeQrValue(): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, qrToken.dataUpdatedAt, qrToken.errorUpdatedAt]);
 
-  if (!isSignedIn || !userId) return { qrValue: null, shareUrl: null };
+  if (!isSignedIn || !userId) {
+    return { qrValue: null, nearbyPayload: null, shareUrl: null };
+  }
   const shareUrl = buildProfileUrl(userId) ?? userId;
   // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
   // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
@@ -67,13 +74,20 @@ export function useExchangeQrValue(): {
     qrToken.data && qrToken.data.expiresAt * 1000 > nowMs
       ? qrToken.data.token
       : undefined;
+  const miniMeishi = {
+    username: profile?.username,
+    avatarUrl: profile?.profileImageUrl ?? undefined,
+  };
   const qrValue = buildQrExchangeUrl(shareUrl, {
     qt,
     ot: qt ? undefined : offlineToken,
-    miniMeishi: {
-      username: profile?.username,
-      avatarUrl: profile?.profileImageUrl ?? undefined,
-    },
+    miniMeishi,
   });
-  return { qrValue, shareUrl };
+  const nearbyPayload = buildQrExchangeUrl(shareUrl, {
+    qt,
+    ot: offlineToken,
+    miniMeishi,
+    includeOfflineWithQt: true,
+  });
+  return { qrValue, nearbyPayload, shareUrl };
 }

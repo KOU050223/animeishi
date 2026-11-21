@@ -1,8 +1,10 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 // 相手の名刺ドキュメントを取る公開 API は無い（ExchangeSuccessOverlay と同じ
-// 事情）ため、近づけて交換の演出中は名前とアイコンだけの名刺を見せる。
+// 事情）ため、近づけて交換の演出中は名前と頭文字だけの名刺を見せる。
+// 相手が送ってきたアイコン URL は、登録前に読み込むと相手の指定した配信先へ
+// こちらの IP と時刻が伝わるため使わない。
 // 色は名刺テンプレ「ミッドナイト」に揃える。
 
 function GradientFill({
@@ -39,11 +41,9 @@ function GradientFill({
 
 export function NearbyPeerCardFront({
   name,
-  avatarUrl,
   width,
 }: {
   name: string;
-  avatarUrl?: string | null;
   width: number;
 }) {
   const height = width / 1.6;
@@ -78,16 +78,9 @@ export function NearbyPeerCardFront({
           },
         ]}
       >
-        {avatarUrl ? (
-          <Image
-            source={{ uri: avatarUrl }}
-            style={{ width: avatarSize, height: avatarSize }}
-          />
-        ) : (
-          <Text style={[styles.initial, { fontSize: avatarSize * 0.42 }]}>
-            {name.charAt(0).toUpperCase()}
-          </Text>
-        )}
+        <Text style={[styles.initial, { fontSize: avatarSize * 0.42 }]}>
+          {name.charAt(0).toUpperCase()}
+        </Text>
       </View>
     </View>
   );

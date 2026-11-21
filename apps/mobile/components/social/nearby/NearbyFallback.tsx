@@ -57,7 +57,7 @@ export function NearbyFallback({
             </Text>
             <Text className="mt-0.5 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
               {t(
-                "iPhone 11 以降（SE を除く）で使えます。いまは QR で交換しましょう。",
+                "UWB を搭載した iPhone（iPhone 11 以降。SE と 16e を除く）で使えます。いまは QR で交換しましょう。",
               )}
             </Text>
           </View>

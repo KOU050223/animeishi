@@ -48,7 +48,7 @@ describe("nearbySessionReducer", () => {
   });
 
   it("相手が先に送ってきたら、こちらも同じ相手との入れ替わりを始めて送り返す", () => {
-    const state = run(found("a"), {
+    const state = run(found("a"), distance("a", 0.15), {
       type: "payload",
       peerId: "a",
       payload: "https://example.com/user/x?qt=t",
@@ -58,6 +58,14 @@ describe("nearbySessionReducer", () => {
       peerId: "a",
       sent: false,
       received: "https://example.com/user/x?qt=t",
+    });
+  });
+
+  it("こちらで近くにいると測れていない相手から届いたデータには応じない", () => {
+    const payload = { type: "payload" as const, peerId: "a", payload: "x" };
+    expect(run(found("a"), payload).exchange).toEqual({ kind: "idle" });
+    expect(run(found("a"), distance("a", 0.5), payload).exchange).toEqual({
+      kind: "idle",
     });
   });
 
@@ -109,6 +117,34 @@ describe("nearbySessionReducer", () => {
       distance("a", 0.05),
     );
     expect(state.exchange).toMatchObject({ kind: "swapping", peerId: "a" });
+  });
+
+  it("探索を止めたら見つけていた相手を捨て、受け取り済みの入れ替わりだけ残す", () => {
+    const waiting = run(found("a"), distance("a", 0.05), { type: "stopped" });
+    expect(waiting.peers).toEqual({});
+    expect(waiting.exchange).toEqual({ kind: "idle" });
+
+    const received = run(
+      found("a"),
+      distance("a", 0.05),
+      { type: "payload", peerId: "a", payload: "x" },
+      { type: "stopped" },
+    );
+    expect(received.exchange).toMatchObject({
+      kind: "swapping",
+      received: "x",
+    });
+  });
+
+  it("許可の拒否は retry で探索中に戻る", () => {
+    const state = run(
+      { type: "error", code: "local_network_denied" },
+      { type: "retry" },
+    );
+    expect(state.status).toBe("active");
+    expect(
+      run({ type: "capability", uwb: false }, { type: "retry" }).status,
+    ).toBe("unsupported");
   });
 
   it("許可の拒否は denied、UWB 非対応は unsupported にする", () => {

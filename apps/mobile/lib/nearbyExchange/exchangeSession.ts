@@ -49,7 +49,14 @@ export type NearbySessionEvent =
   | { type: "error"; code: string }
   | { type: "sent" }
   /** 成立（または失敗）を見せ終えた。相手を交換済みにして探索へ戻る。 */
-  | { type: "finish"; exchanged: boolean };
+  | { type: "finish"; exchanged: boolean }
+  /**
+   * ネイティブの探索を止めた（タブを離れた・作り直す）。止めている間の
+   * 切断は届かないので、見つけていた相手と距離を捨てる。
+   */
+  | { type: "stopped" }
+  /** 許可を見直してもらった後に探索をやり直す。拒否状態を解く。 */
+  | { type: "retry" };
 
 export const initialNearbySessionState: NearbySessionState = {
   status: "active",
@@ -57,6 +64,13 @@ export const initialNearbySessionState: NearbySessionState = {
   exchange: { kind: "idle" },
   exchangedPeerIds: [],
 };
+
+/**
+ * 相手から先にデータが届いたときに、こちらも送り返してよい距離。
+ * 相手の端末は 10cm を測っているはずだが、こちらの測定は少し遅れるため
+ * 10cm より緩める。これより遠い（または測れていない）相手には送らない。
+ */
+export const REPLY_MAX_METERS = 0.2;
 
 const DENIED_ERROR_CODES = new Set([
   "local_network_denied",
@@ -149,14 +163,32 @@ export function nearbySessionReducer(
       }
       // 相手の方が先に 10cm を測った。こちらも同じ相手との入れ替わりを始め、
       // 自分のデータを送り返す（片方だけ受け取って終わらないように）。
+      // ただし、こちらでも近くにいると測れている相手に限る。近づけずに
+      // データだけ送ってくる相手にトークンを渡さないため。
+      const peer = state.peers[event.peerId];
       if (
         state.exchangedPeerIds.includes(event.peerId) ||
-        !state.peers[event.peerId]
+        peer?.meters == null ||
+        peer.meters > REPLY_MAX_METERS
       ) {
         return state;
       }
       return startSwap(state, event.peerId, event.payload);
     }
+    case "stopped": {
+      // 相手のデータを受け取り済みの入れ替わりは手元で成立させられるので残す。
+      const keep =
+        state.exchange.kind === "swapping" && state.exchange.received != null;
+      return {
+        ...state,
+        peers: {},
+        exchange: keep ? state.exchange : { kind: "idle" },
+      };
+    }
+    case "retry":
+      return state.status === "denied"
+        ? { ...state, status: "active", peers: {} }
+        : state;
     case "sent":
       return state.exchange.kind === "swapping"
         ? { ...state, exchange: { ...state.exchange, sent: true } }
@@ -180,8 +212,9 @@ export function nearbySessionReducer(
  * 最初に見つかった人。交換済みの相手は除く。
  */
 export function selectTargetPeer(state: NearbySessionState): NearbyPeer | null {
+  const exchanged = new Set(state.exchangedPeerIds);
   const candidates = Object.values(state.peers).filter(
-    (peer) => !state.exchangedPeerIds.includes(peer.peerId),
+    (peer) => !exchanged.has(peer.peerId),
   );
   if (candidates.length === 0) return null;
   const measured = candidates

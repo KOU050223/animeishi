@@ -9,8 +9,9 @@ import type {
 declare class NearbyExchangeModule extends NativeModule<NearbyExchangeModuleEvents> {
   start(options: NearbyExchangeStartOptions): void;
   stop(): void;
-  sendPayload(options: NearbyExchangeSendOptions): void;
-  isSupported(): boolean;
+  // 試作（#700）のビルドには無いので optional にしておく。
+  sendPayload?(options: NearbyExchangeSendOptions): void;
+  isSupported?(): boolean;
 }
 
 // 「QR・フレンド」タブから常に読み込まれるため、モジュールを含まない

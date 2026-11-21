@@ -1,15 +1,19 @@
+import CryptoKit
 import Foundation
 import Network
 import dnssd
 import NearbyInteraction
 
 /// Network framework（Bonjour + peer-to-peer）で近くの端末を見つけて接続し、
-/// Nearby Interaction（UWB）で距離を測る。すべてのコールバックは `queue` 上で
-/// 処理するため内部状態のロックは持たない。
+/// Nearby Interaction（UWB）で距離を測る。NWListener / NWBrowser / NWConnection
+/// と NISession のコールバックはすべて `queue` 上で処理するため、内部状態の
+/// ロックは持たない。
 final class NearbyExchangeManager: NSObject {
   static let serviceType = "_animeishi-nx._tcp"
-  /// メッセージ本文の上限。hello しか流れないので小さく抑える。
+  /// メッセージ本文の上限。hello と交換データしか流れないので小さく抑える。
   static let maxMessageBytes = 64 * 1024
+  /// 交換データの暗号鍵を導く HKDF の salt。両端で同じ値を使う。
+  static let payloadKeySalt = Data("animeishi-nearby-exchange-v1".utf8)
 
   /// JS へイベントを流す出口。モジュール側から sendEvent を差し込む。
   var emitter: ((String, [String: Any?]) -> Void)?
@@ -29,14 +33,11 @@ final class NearbyExchangeManager: NSObject {
   /// 発見済みで接続中・接続済みのエンドポイント。browseResultsChanged は
   /// 何度も来るので、接続開始済みのエンドポイントには重複接続しない。
   private var pendingEndpoints: Set<NWEndpoint> = []
-
-  /// 自分の discoveryToken を持つセッション。トークンの所有者として
-  /// 保持するだけで、距離イベントは相手ごとのセッションから取る。
-  private var primarySession: NISession?
-  private var sessionByPeerId: [String: NISession] = [:]
-  private var peerIdBySession: [ObjectIdentifier: String] = [:]
-  private var tokenByPeerId: [String: NIDiscoveryToken] = [:]
   private var supportsUwb = false
+  /// 交換データを暗号化するための鍵交換用の秘密鍵。start のたびに作り直す。
+  /// 同じ Wi-Fi にいる第三者が通信を覗いても交換トークンを読めないようにする
+  /// （接続自体は暗号化していない TCP のため）。
+  private var agreementKey = Curve25519.KeyAgreement.PrivateKey()
 
   func start(displayName: String) {
     queue.async { self.startOnQueue(displayName: displayName) }
@@ -50,16 +51,21 @@ final class NearbyExchangeManager: NSObject {
   /// hello と違い、近くにいるだけの相手には流さない。
   func sendPayload(peerId: String, payload: String) {
     queue.async {
-      guard self.running, let peer = self.connectionByPeerId[peerId] else { return }
-      self.send(peer, ["sessionId": self.sessionId, "type": "payload", "payload": payload])
+      guard self.running, let peer = self.connectionByPeerId[peerId],
+        let key = self.payloadKey(for: peer),
+        let sealed = try? ChaChaPoly.seal(Data(payload.utf8), using: key)
+      else { return }
+      self.send(peer, [
+        "sessionId": self.sessionId,
+        "type": "payload",
+        "box": sealed.combined.base64EncodedString(),
+      ])
     }
   }
 
   static func isPreciseDistanceSupported() -> Bool {
-    if #available(iOS 16.0, *) {
-      return NISession.deviceCapabilities.supportsPreciseDistanceMeasurement
-    }
-    return NISession.isSupported
+    // Expo Modules の最低 iOS が 16.4 なので、16 以降の API だけで判定する。
+    NISession.deviceCapabilities.supportsPreciseDistanceMeasurement
   }
 
   private func emit(_ event: String, _ payload: [String: Any?]) {
@@ -70,14 +76,10 @@ final class NearbyExchangeManager: NSObject {
     if running { return }
     running = true
     self.displayName = displayName
+    agreementKey = Curve25519.KeyAgreement.PrivateKey()
 
     supportsUwb = Self.isPreciseDistanceSupported()
     emit("onCapability", ["uwb": supportsUwb])
-    if supportsUwb {
-      // discoveryToken を最初に確定させて hello に載せる。UWB 非対応機では
-      // トークン自体を送らない（発見・接続は動かす）。
-      primarySession = makeSession()
-    }
 
     startListener()
     startBrowser()
@@ -93,30 +95,29 @@ final class NearbyExchangeManager: NSObject {
     browser = nil
 
     for connection in connections {
+      connection.niSession?.invalidate()
+      connection.niSession = nil
       connection.connection.cancel()
     }
     connections.removeAll()
     connectionByPeerId.removeAll()
     displayNameByPeerId.removeAll()
     pendingEndpoints.removeAll()
-
-    for session in sessionByPeerId.values {
-      session.invalidate()
-    }
-    sessionByPeerId.removeAll()
-    peerIdBySession.removeAll()
-    tokenByPeerId.removeAll()
-    primarySession?.invalidate()
-    primarySession = nil
   }
 
   // MARK: - 発見と接続（Network framework）
 
+  /// Wi-Fi ルーターを介さない端末間（AWDL）でもつながるよう、待ち受け・探索・
+  /// 接続のすべてで peer-to-peer を有効にする。
+  private static func peerToPeerParameters() -> NWParameters {
+    let params = NWParameters.tcp
+    params.includePeerToPeer = true
+    return params
+  }
+
   private func startListener() {
     do {
-      let params = NWParameters.tcp
-      params.includePeerToPeer = true
-      let listener = try NWListener(using: params)
+      let listener = try NWListener(using: Self.peerToPeerParameters())
       listener.service = NWListener.Service(name: sessionId, type: Self.serviceType)
       listener.stateUpdateHandler = { [weak self] state in
         if case .failed(let error) = state {
@@ -134,9 +135,8 @@ final class NearbyExchangeManager: NSObject {
   }
 
   private func startBrowser() {
-    let params = NWParameters.tcp
-    params.includePeerToPeer = true
-    let browser = NWBrowser(for: .bonjour(type: Self.serviceType, domain: nil), using: params)
+    let browser = NWBrowser(
+      for: .bonjour(type: Self.serviceType, domain: nil), using: Self.peerToPeerParameters())
     browser.stateUpdateHandler = { [weak self] state in
       switch state {
       case .failed(let error):
@@ -165,7 +165,8 @@ final class NearbyExchangeManager: NSObject {
       // 自分自身の広告と、接続開始済みのエンドポイントは除外する。
       if name == sessionId || pendingEndpoints.contains(result.endpoint) { continue }
       pendingEndpoints.insert(result.endpoint)
-      accept(NWConnection(to: result.endpoint, using: .tcp), isInbound: false)
+      accept(
+        NWConnection(to: result.endpoint, using: Self.peerToPeerParameters()), isInbound: false)
     }
   }
 
@@ -182,6 +183,11 @@ final class NearbyExchangeManager: NSObject {
   private func handleConnectionState(_ peer: PeerConnection, _ state: NWConnection.State) {
     switch state {
     case .ready:
+      // NI のトークンは NISession ごとの識別子なので、この接続の相手と
+      // 測るセッションを接続ごとに作り、そのセッションのトークンを送る。
+      if supportsUwb {
+        peer.niSession = makeSession()
+      }
       sendHello(peer)
     case .failed(let error):
       // 二重接続で不要側を捨てた・相手側が捨てた場合の切断はエラーにしない。
@@ -198,13 +204,13 @@ final class NearbyExchangeManager: NSObject {
   }
 
   private func teardown(_ peer: PeerConnection) {
-    connections.remove(peer)
+    guard connections.remove(peer) != nil else { return }
     pendingEndpoints.remove(peer.connection.endpoint)
+    peer.niSession?.invalidate()
+    peer.niSession = nil
     if let peerId = peer.peerId, connectionByPeerId[peerId] === peer {
       connectionByPeerId.removeValue(forKey: peerId)
       displayNameByPeerId.removeValue(forKey: peerId)
-      sessionByPeerId.removeValue(forKey: peerId)?.invalidate()
-      tokenByPeerId.removeValue(forKey: peerId)
       if running {
         emit("onPeerLost", ["peerId": peerId])
       }
@@ -217,8 +223,9 @@ final class NearbyExchangeManager: NSObject {
     var hello: [String: Any] = [
       "sessionId": sessionId,
       "displayName": displayName,
+      "pubKey": agreementKey.publicKey.rawRepresentation.base64EncodedString(),
     ]
-    if let token = primarySession?.discoveryToken,
+    if let token = peer.niSession?.discoveryToken,
       let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
     {
       hello["niToken"] = data.base64EncodedString()
@@ -264,6 +271,21 @@ final class NearbyExchangeManager: NSObject {
 
   private func handleMessage(_ peer: PeerConnection, _ message: [String: Any]) {
     guard running, let peerId = message["sessionId"] as? String, peerId != sessionId else { return }
+
+    if message["type"] as? String == "payload" {
+      // hello を受け取って登録済みの接続から来た交換データだけを受け付ける。
+      guard peer.peerId == peerId, connectionByPeerId[peerId] === peer,
+        let boxBase64 = message["box"] as? String,
+        let boxData = Data(base64Encoded: boxBase64),
+        let key = payloadKey(for: peer),
+        let sealed = try? ChaChaPoly.SealedBox(combined: boxData),
+        let opened = try? ChaChaPoly.open(sealed, using: key),
+        let payload = String(data: opened, encoding: .utf8)
+      else { return }
+      emit("onPayload", ["peerId": peerId, "payload": payload])
+      return
+    }
+
     peer.peerId = peerId
 
     if let existing = connectionByPeerId[peerId], existing !== peer {
@@ -281,11 +303,10 @@ final class NearbyExchangeManager: NSObject {
       connectionByPeerId[peerId] = peer
     }
 
-    if message["type"] as? String == "payload" {
-      if let payload = message["payload"] as? String {
-        emit("onPayload", ["peerId": peerId, "payload": payload])
-      }
-      return
+    if let pubKeyBase64 = message["pubKey"] as? String,
+      let pubKeyData = Data(base64Encoded: pubKeyBase64)
+    {
+      peer.peerPublicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: pubKeyData)
     }
 
     let name = message["displayName"] as? String ?? ""
@@ -297,7 +318,7 @@ final class NearbyExchangeManager: NSObject {
     if let tokenBase64 = message["niToken"] as? String,
       let data = Data(base64Encoded: tokenBase64)
     {
-      handlePeerToken(peerId, data: data)
+      handlePeerToken(peer, data: data)
     }
   }
 
@@ -307,32 +328,45 @@ final class NearbyExchangeManager: NSObject {
     return candidate.isInbound == preferInbound
   }
 
+  /// 自分の秘密鍵と相手の公開鍵から、この相手との交換データ用の共通鍵を導く。
+  /// 両端で同じ鍵になる（X25519 の共有秘密 → HKDF）。
+  private func payloadKey(for peer: PeerConnection) -> SymmetricKey? {
+    guard let peerPublicKey = peer.peerPublicKey,
+      let shared = try? agreementKey.sharedSecretFromKeyAgreement(with: peerPublicKey)
+    else { return nil }
+    return shared.hkdfDerivedSymmetricKey(
+      using: SHA256.self, salt: Self.payloadKeySalt, sharedInfo: Data(), outputByteCount: 32)
+  }
+
   // MARK: - 距離の測定（Nearby Interaction）
 
   private func makeSession() -> NISession {
     let session = NISession()
     session.delegate = self
+    // 状態の読み書きを 1 本のキューに揃える（既定はメインキュー）。
+    session.delegateQueue = queue
     return session
   }
 
-  private func handlePeerToken(_ peerId: String, data: Data) {
+  private func handlePeerToken(_ peer: PeerConnection, data: Data) {
     do {
       guard let token = try NSKeyedUnarchiver.unarchivedObject(
         ofClass: NIDiscoveryToken.self, from: data
-      ) as? NIDiscoveryToken else { return }
-      tokenByPeerId[peerId] = token
-      runNearbySession(for: peerId)
+      ) else { return }
+      peer.peerToken = token
+      runNearbySession(peer)
     } catch {
       emit("onError", ["code": "ni_token_invalid", "message": error.localizedDescription])
     }
   }
 
-  private func runNearbySession(for peerId: String) {
-    guard supportsUwb, let token = tokenByPeerId[peerId] else { return }
-    let session = sessionByPeerId[peerId] ?? makeSession()
-    sessionByPeerId[peerId] = session
-    peerIdBySession[ObjectIdentifier(session)] = peerId
+  private func runNearbySession(_ peer: PeerConnection) {
+    guard supportsUwb, let session = peer.niSession, let token = peer.peerToken else { return }
     session.run(NINearbyPeerConfiguration(peerToken: token))
+  }
+
+  private func peer(for session: NISession) -> PeerConnection? {
+    connections.first { $0.niSession === session }
   }
 }
 
@@ -341,6 +375,12 @@ final class PeerConnection: Hashable {
   let isInbound: Bool
   /// hello を受信するまでは不明。相手の sessionId が入る。
   var peerId: String?
+  /// この接続の相手と距離を測るセッション。hello で送るトークンもこれのもの。
+  var niSession: NISession?
+  /// 相手が hello で送ってきた、相手側セッションのトークン。
+  var peerToken: NIDiscoveryToken?
+  /// 交換データの暗号化に使う相手の公開鍵。
+  var peerPublicKey: Curve25519.KeyAgreement.PublicKey?
 
   init(connection: NWConnection, isInbound: Bool) {
     self.connection = connection
@@ -358,7 +398,7 @@ final class PeerConnection: Hashable {
 
 extension NearbyExchangeManager: NISessionDelegate {
   func session(_ session: NISession, didUpdate nearbyObjects: [NINearbyObject]) {
-    guard let peerId = peerIdBySession[ObjectIdentifier(session)] else { return }
+    guard let peer = peer(for: session), let peerId = peer.peerId else { return }
     for object in nearbyObjects {
       var payload: [String: Any?] = ["peerId": peerId]
       payload["meters"] = object.distance.map { Double($0) } ?? NSNull()
@@ -374,7 +414,7 @@ extension NearbyExchangeManager: NISessionDelegate {
   }
 
   func session(_ session: NISession, didRemove nearbyObjects: [NINearbyObject], reason: NINearbyObject.RemovalReason) {
-    guard let peerId = peerIdBySession[ObjectIdentifier(session)], !nearbyObjects.isEmpty else { return }
+    guard let peer = peer(for: session), let peerId = peer.peerId, !nearbyObjects.isEmpty else { return }
     emit("onDistance", ["peerId": peerId, "meters": NSNull()])
   }
 
@@ -382,45 +422,30 @@ extension NearbyExchangeManager: NISessionDelegate {
 
   func sessionSuspensionEnded(_ session: NISession) {
     // 中断から復帰したセッションは run を呼び直さないと測定が再開しない。
-    guard let peerId = peerIdBySession[ObjectIdentifier(session)] else { return }
-    runNearbySession(for: peerId)
+    guard let peer = peer(for: session) else { return }
+    runNearbySession(peer)
   }
 
   func session(_ session: NISession, didInvalidateWith error: Error) {
+    // 停止・切断で自分から invalidate したセッションは接続から外れている。
+    guard running, let peer = peer(for: session) else { return }
+    peer.niSession = nil
     if (error as? NIError)?.code == .userDidNotAllow {
       // 許可が拒否された。作り直しても同じエラーで無効化され続けるため
       // 測定をやめて JS に知らせる（QR へのフォールバックは JS 側）。
       supportsUwb = false
-      primarySession = nil
-      if let peerId = peerIdBySession.removeValue(forKey: ObjectIdentifier(session)) {
-        sessionByPeerId.removeValue(forKey: peerId)
+      for other in connections {
+        other.niSession?.invalidate()
+        other.niSession = nil
       }
-      if running {
-        emit("onError", ["code": "ni_permission_denied", "message": error.localizedDescription])
-      }
+      emit("onError", ["code": "ni_permission_denied", "message": error.localizedDescription])
       return
     }
-    if session === primarySession {
-      primarySession = nil
-      if running {
-        // 広告しているトークンが無効になったので新しいセッションを立て直し、
-        // 新しいトークンを接続済みの全ピアへ送り直す。
-        if supportsUwb {
-          primarySession = makeSession()
-        }
-        for connection in connections {
-          sendHello(connection)
-        }
-      }
-      return
-    }
-    guard let peerId = peerIdBySession[ObjectIdentifier(session)] else { return }
-    peerIdBySession.removeValue(forKey: ObjectIdentifier(session))
-    sessionByPeerId.removeValue(forKey: peerId)
-    if running {
-      emit("onError", ["code": "ni_invalidated", "message": error.localizedDescription])
-      // トークンが残っていればセッションを作り直して再開する。
-      runNearbySession(for: peerId)
-    }
+    emit("onError", ["code": "ni_invalidated", "message": error.localizedDescription])
+    // 新しいセッションを立て直し、新しいトークンを相手へ送り直してから、
+    // 手元にある相手のトークンで測定を再開する。
+    peer.niSession = makeSession()
+    sendHello(peer)
+    runNearbySession(peer)
   }
 }

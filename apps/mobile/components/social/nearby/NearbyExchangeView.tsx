@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "expo-router";
@@ -16,7 +16,6 @@ import { haptics } from "@/lib/haptics";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import {
   approachProgress,
-  proximityLevel,
   selectTargetPeer,
   useNearbyExchangeSession,
 } from "@/lib/nearbyExchange";
@@ -27,14 +26,22 @@ import { useAddFriend } from "@/lib/useFriends";
 import { useProfile } from "@/lib/useProfile";
 import { NearbyExchangeStage, type StagePhase } from "./NearbyExchangeStage";
 import { NearbyFallback } from "./NearbyFallback";
+import { nearbyHint } from "./nearbyHint";
 
 /** 「うまく交換できませんでした」を出しておく時間。 */
 const FAILURE_NOTICE_MS = 4000;
 
 type Registration =
-  | { status: "pending" }
-  | { status: "done"; result: ExchangeResult }
-  | { status: "failed" };
+  | { raw: string; status: "done"; result: ExchangeResult }
+  | { raw: string; status: "failed" };
+
+/** 届いたデータが交換に使えるか（QR を読み取ったときと同じ条件）。 */
+function parseIncoming(raw: string | null): QrPayload | null {
+  if (raw == null) return null;
+  const payload = parseQrPayload(raw);
+  if (!payload || (!payload.qrToken && !payload.offlineToken)) return null;
+  return payload;
+}
 
 /**
  * 「近づける」セグメント（issue #693）。iPhone の上の端どうしを近づけると
@@ -48,97 +55,47 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { data: profile } = useProfile();
-  const { qrValue, shareUrl } = useExchangeQrValue();
+  const { qrValue, nearbyPayload, shareUrl } = useExchangeQrValue();
   const { defaultCard } = useMeishiLibrary();
-  const addFriend = useAddFriend();
   const displayName = profile?.username?.trim() || t("名もなきユーザー");
 
   const { state, finish, failureCount } = useNearbyExchangeSession({
-    enabled: isFocused && qrValue != null,
+    enabled: isFocused && nearbyPayload != null,
     displayName,
-    myPayload: qrValue,
+    myPayload: nearbyPayload,
   });
 
   const exchange = state.exchange;
   const swapping = exchange.kind === "swapping";
   const receivedRaw = swapping ? exchange.received : null;
-  const [incoming, setIncoming] = useState<QrPayload | null>(null);
-  const [registration, setRegistration] = useState<Registration | null>(null);
+  const incoming = useMemo(() => parseIncoming(receivedRaw), [receivedRaw]);
+  const { registration, resetRegistration } = useRegisterIncoming({
+    receivedRaw,
+    incoming,
+    onInvalid: () => finish(false),
+  });
   const [landed, setLanded] = useState(false);
-
-  // 相手のデータが届いたら QR を読み取ったときと同じ検証・登録をする。
-  // 演出（受け取り → 着地）は登録の応答を待たずに進める。
-  const handledRaw = useRef<string | null>(null);
-  useEffect(() => {
-    if (receivedRaw == null || handledRaw.current === receivedRaw) return;
-    handledRaw.current = receivedRaw;
-    const payload = parseQrPayload(receivedRaw);
-    if (!payload || (!payload.qrToken && !payload.offlineToken)) {
-      alert(
-        t("交換できませんでした"),
-        t("相手のアプリを最新にしてから、もう一度近づけてください"),
-        { okLabel: "OK", onClose: () => finish(false) },
-      );
-      return;
-    }
-    setIncoming(payload);
-    setRegistration({ status: "pending" });
-    const { userId, qrToken, offlineToken, miniMeishi } = payload;
-    addFriend.mutate(
-      { friendId: userId, qrToken, offlineToken },
-      {
-        onSuccess: (result) =>
-          setRegistration({
-            status: "done",
-            result: {
-              kind: "success",
-              uid: userId,
-              meetingCount: result.meetingCount,
-              recordId: result.recordId,
-            },
-          }),
-        onError: (e) => {
-          if (!(e instanceof ApiRequestError)) {
-            // 通信できない（電波の無い会場など）。QR と同じく交換キューへ積み、
-            // 通信が戻ったら成立させる（issue #681）。
-            void enqueueExchange({
-              friendId: userId,
-              qrToken,
-              offlineToken,
-              miniMeishi,
-            })
-              .then(() =>
-                setRegistration({
-                  status: "done",
-                  result: { kind: "queued", uid: userId, miniMeishi },
-                }),
-              )
-              .catch(() => setRegistration({ status: "failed" }));
-            return;
-          }
-          setRegistration({ status: "failed" });
-        },
-      },
-    );
-    // addFriend は毎レンダー新しい参照になるため依存に入れない。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [receivedRaw, finish, t]);
 
   const resetExchange = useCallback(
     (exchanged: boolean) => {
-      handledRaw.current = null;
-      setIncoming(null);
-      setRegistration(null);
+      resetRegistration();
       setLanded(false);
       finish(exchanged);
     },
-    [finish],
+    [finish, resetRegistration],
   );
 
   const onLanded = useCallback(() => {
     haptics.success();
     setLanded(true);
   }, []);
+
+  // 入れ替わりが途中で消えた（タイムアウト・切断）ときは演出の状態も戻す。
+  const [prevSwapping, setPrevSwapping] = useState(swapping);
+  if (prevSwapping !== swapping) {
+    setPrevSwapping(swapping);
+    if (!swapping) setLanded(false);
+  }
 
   // 着地して登録も失敗していたら、知らせて探索に戻る。
   const registrationFailed = landed && registration?.status === "failed";
@@ -150,28 +107,7 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     });
   }, [registrationFailed, resetExchange, t]);
 
-  // 相手のデータが届かずに入れ替わりが終わったら、しばらく案内を出す。
-  const [dismissedFailureCount, setDismissedFailureCount] = useState(0);
-  const showFailureNotice = failureCount > dismissedFailureCount;
-  useEffect(() => {
-    if (!showFailureNotice) return;
-    const timer = setTimeout(
-      () => setDismissedFailureCount(failureCount),
-      FAILURE_NOTICE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [showFailureNotice, failureCount]);
-  const [prevSwapping, setPrevSwapping] = useState(swapping);
-  if (prevSwapping !== swapping) {
-    setPrevSwapping(swapping);
-    // 入れ替わりが途中で消えた（タイムアウト・切断）ときは演出の状態も戻す。
-    if (!swapping) {
-      handledRaw.current = null;
-      setIncoming(null);
-      setRegistration(null);
-      setLanded(false);
-    }
-  }
+  const showFailureNotice = useFailureNotice(failureCount);
 
   if (qrValue == null || shareUrl == null) {
     return (
@@ -199,42 +135,14 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   const peerName = swapping
     ? exchange.displayName || incoming?.miniMeishi?.username || ""
     : (target?.displayName ?? "");
-  const progress = swapping ? 1 : approachProgress(target?.meters ?? null);
-
-  let title: string;
-  let subtitle: string;
-  if (phase === "search") {
-    title = t("近くの人を探しています");
-    subtitle = t("相手にも「近づける」を開いてもらってください");
-  } else if (phase === "found") {
-    const level = proximityLevel(target?.meters ?? null);
-    if (target?.meters == null) {
-      title = t("{{name}}さんが見つかりました", { name: peerName });
-      subtitle = t("iPhone の上の端どうしを近づけてください");
-    } else if (level === "far") {
-      title = t("もっと近づけて");
-      subtitle = t("iPhone の上の端どうしを近づけてください");
-    } else if (level === "near") {
-      title = t("その調子");
-      subtitle = t("上の端の光が強くなったら、あと少しです");
-    } else {
-      title = t("あと少し");
-      subtitle = t("端どうしが触れるくらいまで");
-    }
-  } else if (landed) {
-    title = t("交換成立");
-    subtitle =
-      registration?.status === "pending"
-        ? t("登録しています…")
-        : t("{{name}}さんの名刺を受け取りました", { name: peerName });
-  } else if (incoming) {
-    title = t("{{name}}さんの名刺が届きました", { name: peerName });
-    subtitle = "";
-  } else {
-    title = t("あなたの名刺を {{name}}さんへ", { name: peerName });
-    subtitle = t("上の端から相手の iPhone へ");
-  }
-
+  const { title, subtitle } = nearbyHint(t, {
+    phase,
+    peerName,
+    meters: target?.meters ?? null,
+    received: incoming != null,
+    landed,
+    registering: registration == null,
+  });
   const result =
     landed && registration?.status === "done" ? registration.result : null;
 
@@ -242,10 +150,9 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     <View className="flex-1" testID="nearby-exchange-view">
       <NearbyExchangeStage
         phase={phase}
-        progress={progress}
+        progress={swapping ? 1 : approachProgress(target?.meters ?? null)}
         received={incoming != null}
         peerName={peerName}
-        peerAvatarUrl={incoming?.miniMeishi?.avatarUrl}
         onLanded={onLanded}
         myCard=<MeishiCard
           username={profile?.username}
@@ -310,4 +217,103 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
       ) : null}
     </View>
   );
+}
+
+/**
+ * 相手のデータが届いたら QR を読み取ったときと同じ登録をする。
+ * 演出（受け取り → 着地）は登録の応答を待たずに進めるため、結果は
+ * 届いたデータ（raw）ごとに持ち、現在のデータの結果だけを返す。
+ */
+function useRegisterIncoming({
+  receivedRaw,
+  incoming,
+  onInvalid,
+}: {
+  receivedRaw: string | null;
+  incoming: QrPayload | null;
+  onInvalid: () => void;
+}) {
+  const { t } = useTranslation();
+  const addFriend = useAddFriend();
+  const [stored, setStored] = useState<Registration | null>(null);
+  const handledRaw = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (receivedRaw == null) {
+      handledRaw.current = null;
+      return;
+    }
+    if (handledRaw.current === receivedRaw) return;
+    handledRaw.current = receivedRaw;
+    if (!incoming) {
+      alert(
+        t("交換できませんでした"),
+        t("相手のアプリを最新にしてから、もう一度近づけてください"),
+        { okLabel: "OK", onClose: onInvalid },
+      );
+      return;
+    }
+    const raw = receivedRaw;
+    const { userId, qrToken, offlineToken, miniMeishi } = incoming;
+    addFriend.mutate(
+      { friendId: userId, qrToken, offlineToken },
+      {
+        onSuccess: (result) =>
+          setStored({
+            raw,
+            status: "done",
+            result: {
+              kind: "success",
+              uid: userId,
+              meetingCount: result.meetingCount,
+              recordId: result.recordId,
+            },
+          }),
+        onError: (e) => {
+          if (e instanceof ApiRequestError) {
+            setStored({ raw, status: "failed" });
+            return;
+          }
+          // 通信できない（電波の無い会場など）。QR と同じく交換キューへ積み、
+          // 通信が戻ったら成立させる（issue #681）。
+          void enqueueExchange({
+            friendId: userId,
+            qrToken,
+            offlineToken,
+            miniMeishi,
+          })
+            .then(() =>
+              setStored({
+                raw,
+                status: "done",
+                result: { kind: "queued", uid: userId, miniMeishi },
+              }),
+            )
+            .catch(() => setStored({ raw, status: "failed" }));
+        },
+      },
+    );
+    // addFriend・onInvalid は毎レンダー新しい参照になるため依存に入れない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receivedRaw, incoming, t]);
+
+  const registration =
+    stored != null && stored.raw === receivedRaw ? stored : null;
+  const resetRegistration = useCallback(() => setStored(null), []);
+  return { registration, resetRegistration };
+}
+
+/** 相手のデータが届かずに入れ替わりが終わったら、しばらく案内を出す。 */
+function useFailureNotice(failureCount: number): boolean {
+  const [dismissedFailureCount, setDismissedFailureCount] = useState(0);
+  const show = failureCount > dismissedFailureCount;
+  useEffect(() => {
+    if (!show) return;
+    const timer = setTimeout(
+      () => setDismissedFailureCount(failureCount),
+      FAILURE_NOTICE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [show, failureCount]);
+  return show;
 }

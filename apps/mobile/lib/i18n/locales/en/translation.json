@@ -1487,7 +1487,7 @@
   "うまく交換できませんでした。もう一度近づけてください": "The exchange didn't go through. Bring your phones together again",
   "QR で交換する": "Exchange with QR",
   "この iPhone は「近づけて交換」に対応していません": "This iPhone doesn't support \"Tap phones\"",
-  "iPhone 11 以降（SE を除く）で使えます。いまは QR で交換しましょう。": "Available on iPhone 11 and later (except SE). Use QR for now.",
+  "UWB を搭載した iPhone（iPhone 11 以降。SE と 16e を除く）で使えます。いまは QR で交換しましょう。": "Available on iPhones with UWB (iPhone 11 and later, except SE and 16e). Use QR for now.",
   "近くの iPhone を探す許可がオフです": "Permission to find nearby iPhones is off",
   "設定の「ローカルネットワーク」と「近くのデバイスとのやり取り」をオンにすると使えます。": "Turn on \"Local Network\" and \"Nearby Interactions\" in Settings to use it.",
   "設定を開く": "Open Settings",

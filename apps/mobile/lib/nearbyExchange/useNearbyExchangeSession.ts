@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { haptics } from "@/lib/haptics";
 import {
   initialNearbySessionState,
@@ -49,9 +50,19 @@ export function useNearbyExchangeSession({
   );
   const hapticsByPeer = useRef(new Map<string, ProximityHaptics>());
   const supported = state.status !== "unsupported";
+  // 許可を拒否されたら探索を作り直すまで止める。設定から戻ってきたら
+  // retry で拒否状態を解き、作り直した探索でもう一度確かめる。
+  const denied = state.status === "denied";
+  useEffect(() => {
+    if (!denied) return;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") dispatch({ type: "retry" });
+    });
+    return () => subscription.remove();
+  }, [denied]);
 
   useEffect(() => {
-    if (!enabled || !supported) return;
+    if (!enabled || !supported || denied) return;
     const decider = hapticsByPeer.current;
     const subscriptions = [
       nearbyExchange.addListener("onCapability", ({ uwb }) =>
@@ -92,8 +103,9 @@ export function useNearbyExchangeSession({
       subscriptions.forEach((s) => s.remove());
       decider.clear();
       nearbyExchange.stop();
+      dispatch({ type: "stopped" });
     };
-  }, [enabled, supported, displayName]);
+  }, [enabled, supported, denied, displayName]);
 
   // 入れ替わりが始まったら自分のデータを送る。相手の方が先に送ってきた
   // 場合もここで送り返すので、両方の端末が必ずお互いのデータを受け取る。

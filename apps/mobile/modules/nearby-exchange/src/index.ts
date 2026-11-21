@@ -21,7 +21,9 @@ export type {
 
 /** ネイティブモジュールが組み込まれていて、端末が UWB の精密測距に対応しているか。 */
 export function isSupported(): boolean {
-  return NearbyExchangeModule?.isSupported() ?? false;
+  // 試作（#700）のモジュールだけを含むビルドには isSupported / sendPayload が
+  // 無いため、メソッドの有無も確かめる。
+  return NearbyExchangeModule?.isSupported?.() ?? false;
 }
 
 export function start(options: NearbyExchangeStartOptions): void {
@@ -33,7 +35,7 @@ export function stop(): void {
 }
 
 export function sendPayload(peerId: string, payload: string): void {
-  NearbyExchangeModule?.sendPayload({ peerId, payload });
+  NearbyExchangeModule?.sendPayload?.({ peerId, payload });
 }
 
 export function addListener<E extends keyof NearbyExchangeModuleEvents>(
