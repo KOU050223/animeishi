@@ -47,7 +47,13 @@ export function useExchangeQrValue(): {
       expMs === null
         ? 2 ** 31 - 1
         : Math.min(Math.max(expMs - Date.now(), 0), 2 ** 31 - 1);
-    const timer = setTimeout(() => setNowMs(Date.now()), delay);
+    // タイマーは期限より 1ms ほど早く発火することがあり、そのまま Date.now()
+    // を入れると qt が有効のまま残って二度と再評価されない（このタイマーは
+    // 張り直さない）。期限に達したことを確実に反映するため期限以上に揃える。
+    const timer = setTimeout(
+      () => setNowMs(Math.max(Date.now(), expMs ?? 0)),
+      delay,
+    );
     let cancelled = false;
     if (userId) {
       void readOfflineExchangeToken(userId).then((token) => {
