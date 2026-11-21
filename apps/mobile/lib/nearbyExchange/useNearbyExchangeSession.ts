@@ -1,0 +1,139 @@
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { haptics } from "@/lib/haptics";
+import {
+  initialNearbySessionState,
+  nearbySessionReducer,
+  type NearbySessionState,
+} from "./exchangeSession";
+import { nearbyExchange } from "./nearbyExchange";
+import {
+  createProximityHaptics,
+  type ProximityHaptics,
+} from "./proximityLevel";
+
+/** 相手のデータがこの時間内に届かなければ、入れ替わりをやめて探索へ戻す。 */
+export const SWAP_RECEIVE_TIMEOUT_MS = 6000;
+
+export type NearbyExchangeSession = {
+  state: NearbySessionState;
+  /** 成立（exchanged: true）・失敗を見せ終えたら呼ぶ。探索へ戻る。 */
+  finish: (exchanged: boolean) => void;
+  /**
+   * 相手のデータが届かないまま入れ替わりが終わった回数（タイムアウト・切断）。
+   * 変わったら「もう一度近づけて」を出す。
+   */
+  failureCount: number;
+};
+
+/**
+ * 近づけて交換のセッション（issue #693）。enabled の間だけ広告・探索し、
+ * 距離に応じたハプティクスを鳴らし、10cm で自分の交換データ（myPayload）を
+ * 相手へ送る。受け取ったデータの登録（フレンド追加）は呼び出し側が行う。
+ */
+export function useNearbyExchangeSession({
+  enabled,
+  displayName,
+  myPayload,
+}: {
+  enabled: boolean;
+  displayName: string;
+  myPayload: string | null;
+}): NearbyExchangeSession {
+  const [state, dispatch] = useReducer(
+    nearbySessionReducer,
+    initialNearbySessionState,
+    (initial) =>
+      nearbyExchange.isSupported()
+        ? initial
+        : { ...initial, status: "unsupported" as const },
+  );
+  const hapticsByPeer = useRef(new Map<string, ProximityHaptics>());
+  const supported = state.status !== "unsupported";
+
+  useEffect(() => {
+    if (!enabled || !supported) return;
+    const decider = hapticsByPeer.current;
+    const subscriptions = [
+      nearbyExchange.addListener("onCapability", ({ uwb }) =>
+        dispatch({ type: "capability", uwb }),
+      ),
+      nearbyExchange.addListener("onError", ({ code }) =>
+        dispatch({ type: "error", code }),
+      ),
+      nearbyExchange.addListener("onPeerFound", ({ peerId, displayName }) =>
+        dispatch({ type: "peerFound", peerId, displayName }),
+      ),
+      nearbyExchange.addListener("onPeerLost", ({ peerId }) => {
+        decider.delete(peerId);
+        dispatch({ type: "peerLost", peerId });
+      }),
+      nearbyExchange.addListener("onDistance", ({ peerId, meters }) => {
+        const peerHaptics = decider.get(peerId) ?? createProximityHaptics();
+        decider.set(peerId, peerHaptics);
+        switch (peerHaptics.next(meters, Date.now())) {
+          case "light":
+            haptics.impactLight();
+            break;
+          case "medium":
+            haptics.impactMedium();
+            break;
+          case "strong":
+            haptics.impactHeavy();
+            break;
+        }
+        dispatch({ type: "distance", peerId, meters });
+      }),
+      nearbyExchange.addListener("onPayload", ({ peerId, payload }) =>
+        dispatch({ type: "payload", peerId, payload }),
+      ),
+    ];
+    nearbyExchange.start({ displayName });
+    return () => {
+      subscriptions.forEach((s) => s.remove());
+      decider.clear();
+      nearbyExchange.stop();
+    };
+  }, [enabled, supported, displayName]);
+
+  // 入れ替わりが始まったら自分のデータを送る。相手の方が先に送ってきた
+  // 場合もここで送り返すので、両方の端末が必ずお互いのデータを受け取る。
+  const exchange = state.exchange;
+  const pendingSendPeerId =
+    exchange.kind === "swapping" && !exchange.sent ? exchange.peerId : null;
+  useEffect(() => {
+    if (pendingSendPeerId == null || myPayload == null) return;
+    nearbyExchange.sendPayload(pendingSendPeerId, myPayload);
+    dispatch({ type: "sent" });
+  }, [pendingSendPeerId, myPayload]);
+
+  const waitingPeerId =
+    exchange.kind === "swapping" && exchange.received == null
+      ? exchange.peerId
+      : null;
+  useEffect(() => {
+    if (waitingPeerId == null) return;
+    const timer = setTimeout(
+      () => dispatch({ type: "finish", exchanged: false }),
+      SWAP_RECEIVE_TIMEOUT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [waitingPeerId]);
+
+  const finish = useCallback(
+    (exchanged: boolean) => dispatch({ type: "finish", exchanged }),
+    [],
+  );
+
+  // 呼び出し側の finish を経ずに入れ替わりが消えた = 相手のデータが届かな
+  // かった。レンダー中に前回値と比べて数える（effect で setState しない）。
+  const [failureCount, setFailureCount] = useState(0);
+  const [prevWaitingPeerId, setPrevWaitingPeerId] = useState(waitingPeerId);
+  if (prevWaitingPeerId !== waitingPeerId) {
+    setPrevWaitingPeerId(waitingPeerId);
+    if (prevWaitingPeerId != null && exchange.kind === "idle") {
+      setFailureCount((n) => n + 1);
+    }
+  }
+
+  return { state, finish, failureCount };
+}

@@ -18,23 +18,20 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQrScanner } from "@/lib/useQrScanner";
-import { useAddFriend, useQrExchangeToken } from "@/lib/useFriends";
+import { useAddFriend } from "@/lib/useFriends";
+import { useExchangeQrValue } from "@/lib/useExchangeQrValue";
+import { nearbyExchange } from "@/lib/nearbyExchange";
+import { NearbyExchangeView } from "@/components/social/nearby/NearbyExchangeView";
 import { ApiRequestError } from "@/lib/apiError";
 import { enqueueExchange } from "@/lib/exchangeQueue";
-import { ExchangeQueuedOverlay } from "@/components/social/ExchangeQueuedOverlay";
-import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
-import { PostExchangeRecordSheet } from "@/components/social/PostExchangeRecordSheet";
-import { FriendThanksSheet } from "@/components/social/FriendThanksSheet";
 import {
-  useSendFriendThanks,
-  type ThanksPresetKey,
-} from "@/lib/useFriendThanks";
+  ExchangeResultLayer,
+  type ExchangeResult,
+} from "@/components/social/ExchangeResultLayer";
 import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { buildQrExchangeUrl, type MiniMeishi } from "@/lib/qrParser";
-import { readOfflineExchangeToken } from "@/lib/offlineExchangeToken";
 import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
@@ -47,14 +44,18 @@ import { SegmentedControl } from "@/components/ui";
 // 「コピーしました」表示を元に戻すまでの時間。
 const COPIED_LABEL_MS = 2000;
 
-type Mode = "generate" | "scan";
+type Mode = "nearby" | "generate" | "scan";
 
 // QR・フレンドタブの「QR」セクション（旧 QR タブ）。
 // セクション自体が非表示の間はアンマウントされるため、
 // 計測・カメラはこのコンポーネントのマウント状態に追従する。
 export function QrSection() {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<Mode>("generate");
+  // 近づけて交換（issue #693）に対応した端末では「近づける」を既定にし、
+  // QR は予備に回す。iOS 以外ではセグメント自体を出さない。
+  const [mode, setMode] = useState<Mode>(() =>
+    nearbyExchange.isSupported() ? "nearby" : "generate",
+  );
   const isFocused = useIsFocused();
 
   // 名刺交換（QR）画面への進入を計測する（issue #214）。タブの再訪でも
@@ -81,6 +82,16 @@ export function QrSection() {
     <View className="flex-1 bg-white dark:bg-slate-900">
       <SegmentedControl
         items={[
+          ...(nearbyExchange.platformAvailable
+            ? [
+                {
+                  label: t("近づける"),
+                  active: mode === "nearby",
+                  onPress: () => setMode("nearby"),
+                  testID: "qr-mode-nearby",
+                },
+              ]
+            : []),
           {
             label: t("マイQR"),
             active: mode === "generate",
@@ -94,7 +105,9 @@ export function QrSection() {
         ]}
       />
 
-      {mode === "generate" ? (
+      {mode === "nearby" ? (
+        <NearbyExchangeView onShowQr={() => setMode("generate")} />
+      ) : mode === "generate" ? (
         <GenerateView />
       ) : (
         <ScanView onShowMyQr={() => setMode("generate")} />
@@ -113,44 +126,9 @@ function GenerateView() {
   const { t } = useTranslation();
   // 画像で保存のキャプチャ対象（画面外に描画したトークン無しの QR カード）。
   const qrSaveCardRef = useRef<ViewInstance>(null);
-  // 対面交換 QR に埋め込む短期トークン。トークン無しの QR を提示しても
-  // 読み取り側は即時成立できず申請画面に送られるだけなので、取得失敗時も
-  // トークン無しのまま表示してよい（issue #417）。
-  const qrToken = useQrExchangeToken();
-  // qt が取れないとき（オフライン）だけ QR に載せる ot（issue #680）。
-  // オンラインのうちに useQrExchangeToken が AsyncStorage へ保存したものを
-  // 読む。取得・再取得のたびにキャッシュが新しくなるため、その都度読み直す。
-  const [offlineToken, setOfflineToken] = useState<string | null>(null);
-  // Date.now はレンダー中に呼べない（React Compiler の purity 制約）ため、
-  // 時刻は state に持ちタイマー発火時にだけ更新する。qt の期限到達時刻に
-  // nowMs を更新し、オフラインで再取得が止まっていても期限切れの qt を
-  // QR から外して ot へ切り替える（errorUpdatedAt も依存に入れるのは、
-  // 再取得失敗でも時刻評価をやり直すため）。初期値 0 は「qt 有効」と同じ
-  // 評価になる。期限切れ済みの qt でも遅延 0 のタイマーが即時発火して
-  // 1 ティック後に ot へ切り替わる。
-  const [nowMs, setNowMs] = useState(0);
-  useEffect(() => {
-    const expMs = qrToken.data ? qrToken.data.expiresAt * 1000 : null;
-    // setTimeout の遅延は 32bit 上限（約 24.8 日）まで。超えると即時
-    // 発火扱いになるためキャップする（qt の実際の TTL は 5 分で、
-    // 上限を超えるのはテストなど人為的な値だけ）。
-    const delay =
-      expMs === null
-        ? 2 ** 31 - 1
-        : Math.min(Math.max(expMs - Date.now(), 0), 2 ** 31 - 1);
-    const timer = setTimeout(() => setNowMs(Date.now()), delay);
-    let cancelled = false;
-    if (userId) {
-      void readOfflineExchangeToken(userId).then((token) => {
-        if (!cancelled) setOfflineToken(token);
-      });
-    }
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, qrToken.dataUpdatedAt, qrToken.errorUpdatedAt]);
+  // 対面で見せる QR の値（qt / ot / ミニ名刺付き）。近づけて交換で相手へ
+  // 送るデータと同じものを使う（issue #693）。
+  const { qrValue } = useExchangeQrValue();
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
@@ -248,23 +226,6 @@ function GenerateView() {
       document={displayCard?.document ?? null}
     />
   );
-  // 対面の読み合いだけ即時成立にするため、表示する QR には本人紐づきの
-  // 短期トークンを載せる（issue #417）。リンク・画像共有にはトークンを
-  // 載せない shareUrl を使い回し、遠隔では申請フローに限定する。
-  // qt は期限内のものだけ有効。取れない・期限切れのときだけキャッシュ済みの
-  // ot にフォールバックする（issue #680、オーナー決定 2026-11-21）。
-  const qt =
-    qrToken.data && qrToken.data.expiresAt * 1000 > nowMs
-      ? qrToken.data.token
-      : undefined;
-  const qrValue = buildQrExchangeUrl(shareUrl, {
-    qt,
-    ot: qt ? undefined : offlineToken,
-    miniMeishi: {
-      username: profile?.username,
-      avatarUrl: profile?.profileImageUrl ?? undefined,
-    },
-  });
 
   async function onShareLink() {
     try {
@@ -422,7 +383,7 @@ function GenerateView() {
         {/* OS 標準カメラでも開けるよう、生の userId ではなく Web 版プロフィール
             URL を埋め込む。アプリ内スキャナは URL / 生 userId の両方を受理する
             （qrParser の後方互換）。対面交換トークンは ?qt= で付ける。 */}
-        <QRCode value={qrValue} size={240} />
+        <QRCode value={qrValue ?? shareUrl} size={240} />
       </View>
       {/* 非公開プロフィールの QR は /user/:uid が 404 になり、
           アプリを持っていない相手は名刺を見られない（issue #676）。
@@ -522,25 +483,11 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
   const isFocused = useIsFocused();
   const router = useRouter();
   const addFriend = useAddFriend();
-  // 交換が成立した相手。非 null の間は成立演出（issue #414）を表示する。
-  const [exchangeUid, setExchangeUid] = useState<string | null>(null);
-  // 成立画面の「◯回目」に出す交換記録の件数（issue #662）。
-  // 既フレンドとの QR 再交換では 2 回目以降になる。
-  const [meetingCount, setMeetingCount] = useState<number | null>(null);
-  // 今回の交換で対象になった交換記録の id。成立直後シートが
-  // 「一覧の先頭」ではなくこの記録を編集する（issue #662）。
-  const [exchangeRecordId, setExchangeRecordId] = useState<number | null>(null);
-  // オフラインでキューへ積んだ交換。非 null の間は受付画面（issue #681）を
-  // 表示する。成立演出とは同時に出ない（成立したときはキューしない）。
-  const [queuedExchange, setQueuedExchange] = useState<{
-    uid: string;
-    miniMeishi?: MiniMeishi;
-  } | null>(null);
-  // 交換直後の任意シート（issue #661）。成功オーバーレイを閉じてから開く。
-  const [recordSheetUid, setRecordSheetUid] = useState<string | null>(null);
-  // 交換直後のお礼シート（issue #694）。成功オーバーレイを閉じてから開く。
-  const [thanksSheetUid, setThanksSheetUid] = useState<string | null>(null);
-  const sendThanks = useSendFriendThanks();
+  // 交換の結果。非 null の間は成立演出（issue #414）か、オフラインで
+  // キューへ積んだ受付画面（issue #681）と、その後のシートを出す。
+  const [exchangeResult, setExchangeResult] = useState<ExchangeResult | null>(
+    null,
+  );
   // カメラの起動失敗（権限は通ったが映像が取れない。Web でカメラ無し・
   // ブラウザ非対応のときに起きる）。失敗後は再マウントできるよう
   // カメラの key を持つ。
@@ -565,9 +512,12 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
         { friendId: userId, qrToken, offlineToken },
         {
           onSuccess: (result) => {
-            setMeetingCount(result.meetingCount);
-            setExchangeRecordId(result.recordId);
-            setExchangeUid(userId);
+            setExchangeResult({
+              kind: "success",
+              uid: userId,
+              meetingCount: result.meetingCount,
+              recordId: result.recordId,
+            });
           },
           onError: (e) => {
             if (!(e instanceof ApiRequestError)) {
@@ -582,7 +532,11 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
                 miniMeishi,
               })
                 .then(() => {
-                  setQueuedExchange({ uid: userId, miniMeishi });
+                  setExchangeResult({
+                    kind: "queued",
+                    uid: userId,
+                    miniMeishi,
+                  });
                 })
                 .catch(() => {
                   alert(
@@ -621,15 +575,8 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
     router.push({ pathname: "/user/[uid]", params: { uid: userId } });
   }
 
-  const closeExchangeOverlay = () => {
-    setExchangeUid(null);
-    setMeetingCount(null);
-    setExchangeRecordId(null);
-    reset();
-  };
-
-  const closeQueuedOverlay = () => {
-    setQueuedExchange(null);
+  const closeExchangeResult = () => {
+    setExchangeResult(null);
     reset();
   };
 
@@ -692,74 +639,15 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
               : t("QR コードを枠内に収めてください")}
         </Text>
       </View>
-      {exchangeUid ? (
-        <ExchangeSuccessOverlay
-          uid={exchangeUid}
-          meetingCount={meetingCount ?? undefined}
-          onClose={closeExchangeOverlay}
-          // マイ QR への切り替えでこのビューごとアンマウントされるため、
-          // オーバーレイやスキャンの状態を戻す処理は要らない（issue #682）。
-          onShowMyQr={onShowMyQr}
-          onRecordPress={() => {
-            // オーバーレイだけを閉じる。ここで reset() まで呼ぶと
-            // scanned が戻り、シートの裏で QR の再検出・再交換が
-            // 走りうるため、スキャナの再開はシートを閉じるまで待つ。
-            setExchangeUid(null);
-            setRecordSheetUid(exchangeUid);
-          }}
-          onSendThanks={() => {
-            // 記録シートと同じ。オーバーレイだけを閉じ、シートの裏で
-            // QR の再検出が走らないよう reset はシートを閉じるまで待つ。
-            setExchangeUid(null);
-            setThanksSheetUid(exchangeUid);
-          }}
-        />
-      ) : null}
-      {recordSheetUid ? (
-        <PostExchangeRecordSheet
-          uid={recordSheetUid}
-          recordId={exchangeRecordId ?? undefined}
-          onClose={() => {
-            setRecordSheetUid(null);
-            setExchangeRecordId(null);
-            reset();
-          }}
-        />
-      ) : null}
-      {thanksSheetUid ? (
-        <FriendThanksSheet
-          visible
-          sending={sendThanks.isPending}
-          onClose={() => {
-            setThanksSheetUid(null);
-            reset();
-          }}
-          onSubmit={(presetKey: ThanksPresetKey, body: string | null) => {
-            sendThanks.mutate(
-              { friendId: thanksSheetUid, presetKey, body },
-              {
-                onSuccess: () => {
-                  setThanksSheetUid(null);
-                  reset();
-                },
-                onError: (e) =>
-                  alert(
-                    t("お礼を送れませんでした"),
-                    e instanceof Error
-                      ? e.message
-                      : t("お礼の送信に失敗しました"),
-                    { okLabel: "OK" },
-                  ),
-              },
-            );
-          }}
-        />
-      ) : null}
-      {queuedExchange ? (
-        <ExchangeQueuedOverlay
-          uid={queuedExchange.uid}
-          miniMeishi={queuedExchange.miniMeishi}
-          onClose={closeQueuedOverlay}
+      {exchangeResult ? (
+        // マイ QR への切り替えでこのビューごとアンマウントされるため、
+        // オーバーレイやスキャンの状態を戻す処理は要らない（issue #682）。
+        // シートの裏で QR の再検出・再交換が走らないよう、スキャナの
+        // 再開（reset）はすべて閉じるまで待つ。
+        <ExchangeResultLayer
+          key={`${exchangeResult.kind}-${exchangeResult.uid}`}
+          result={exchangeResult}
+          onDone={closeExchangeResult}
           onShowMyQr={onShowMyQr}
         />
       ) : null}
