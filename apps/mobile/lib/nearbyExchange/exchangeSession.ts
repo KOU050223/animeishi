@@ -167,13 +167,20 @@ function startSwap(
   };
 }
 
-/** 新しく交換を始めてよい相手か（入れ替わり中・交換済み・保留中でない）。 */
+/**
+ * 新しく交換を始めてよい相手か（入れ替わり中・交換済みでない）。
+ * 失敗後の保留は近づけて交換する相手だけに効かせる。保留は触れたままの
+ * 自動再開を防ぐためのもので、10cm の外へ離れた測定で解ける。タップで
+ * 交換する相手は距離を測れず解けないうえ、再開には本人の操作が要るので
+ * 保留しない。
+ */
 function canStartWith(state: NearbySessionState, peerId: string): boolean {
+  const peer = state.peers[peerId];
   return (
     state.exchange.kind === "idle" &&
-    state.peers[peerId] != null &&
+    peer != null &&
     !state.exchangedPeerIds.includes(peerId) &&
-    !state.heldPeerIds.includes(peerId)
+    !(usesTouch(state, peer) && state.heldPeerIds.includes(peerId))
   );
 }
 

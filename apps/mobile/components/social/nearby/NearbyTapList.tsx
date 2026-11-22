@@ -1,4 +1,4 @@
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { NearbyPeer, NearbyTapRequest } from "@/lib/nearbyExchange";
 
@@ -29,14 +29,16 @@ export function NearbyTapList({
       <Text className="px-1 pb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
         {t("近くにいる人")}
       </Text>
-      <ScrollView style={{ maxHeight: 152 }}>
-        {peers.map((peer) => {
+      <FlatList
+        style={{ maxHeight: 152 }}
+        data={peers}
+        keyExtractor={(peer) => peer.peerId}
+        renderItem={({ item: peer }) => {
           const waiting =
             request.kind === "outgoing" && request.peerId === peer.peerId;
           const busy = request.kind !== "none" || disabled;
           return (
             <View
-              key={peer.peerId}
               className="flex-row items-center gap-3 py-1.5"
               testID={`nearby-tap-peer-${peer.peerId}`}
             >
@@ -97,8 +99,8 @@ export function NearbyTapList({
               )}
             </View>
           );
-        })}
-      </ScrollView>
+        }}
+      />
     </View>
   );
 }

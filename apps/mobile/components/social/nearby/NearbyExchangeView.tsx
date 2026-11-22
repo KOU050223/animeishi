@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Text, View } from "react-native";
 import { useIsFocused } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,7 +20,6 @@ import {
   useNearbyExchangeSession,
 } from "@/lib/nearbyExchange";
 import { parseQrPayload, type QrPayload } from "@/lib/qrParser";
-import { useThemeColors } from "@/lib/theme";
 import { useExchangeQrValue } from "@/lib/useExchangeQrValue";
 import { useAddFriend } from "@/lib/useFriends";
 import { useProfile } from "@/lib/useProfile";
@@ -29,6 +27,12 @@ import { NearbyExchangeStage, type StagePhase } from "./NearbyExchangeStage";
 import { NearbyFallback } from "./NearbyFallback";
 import { nearbyHint } from "./nearbyHint";
 import { NearbyRequestCard, NearbyTapList } from "./NearbyTapList";
+import {
+  NearbyHintPanel,
+  NearbyNotices,
+  ShowQrLink,
+  TapModeBanner,
+} from "./NearbyPanels";
 
 /** 「うまく交換できませんでした」を出しておく時間。 */
 const FAILURE_NOTICE_MS = 4000;
@@ -55,7 +59,6 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   const { t } = useTranslation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const colors = useThemeColors();
   const { data: profile } = useProfile();
   const { qrValue, nearbyPayload, shareUrl } = useExchangeQrValue();
   const { defaultCard } = useMeishiLibrary();
@@ -147,7 +150,6 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     state.request.kind === "incoming" && !swapping
       ? state.peers[state.request.peerId]
       : undefined;
-  const outcome = state.lastOutcome;
   const peerName = swapping
     ? exchange.displayName || incoming?.miniMeishi?.username || ""
     : (target?.displayName ?? "");
@@ -165,26 +167,7 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
 
   return (
     <View className="flex-1" testID="nearby-exchange-view">
-      {!state.selfUwb ? (
-        // UWB 非対応の iPhone（16e・SE など）は距離を測れないので、近づけて
-        // ではなくタップで交換することを最初に伝える。
-        <View
-          pointerEvents="none"
-          className="absolute left-4 right-4 top-3 z-10 flex-row items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 dark:bg-indigo-950"
-          testID="nearby-tap-mode-banner"
-        >
-          <Ionicons
-            name="hand-left-outline"
-            size={16}
-            color={colors.primaryText}
-          />
-          <Text className="flex-1 text-xs leading-4 text-slate-700 dark:text-slate-200">
-            {t(
-              "この iPhone は距離を測れないため、近くの人をタップして交換します",
-            )}
-          </Text>
-        </View>
-      ) : null}
+      {!state.selfUwb ? <TapModeBanner /> : null}
       <NearbyExchangeStage
         phase={phase}
         progress={swapping ? 1 : approachProgress(target?.meters ?? null)}
@@ -201,27 +184,12 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
           document={defaultCard?.document ?? null}
         />
       />
-      <View
-        pointerEvents="box-none"
-        className="absolute left-6 right-6 items-center"
-        style={{ bottom: insets.bottom + 72 }}
+      <NearbyHintPanel
+        title={title}
+        subtitle={subtitle}
+        landed={landed}
+        bottom={insets.bottom + 72}
       >
-        <Text
-          className={`text-center text-[17px] font-bold ${
-            landed
-              ? "text-emerald-700 dark:text-emerald-300"
-              : "text-slate-900 dark:text-slate-100"
-          }`}
-          accessibilityLiveRegion="polite"
-          testID="nearby-title"
-        >
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text className="mt-1.5 text-center text-[13px] leading-5 text-slate-500 dark:text-slate-400">
-            {subtitle}
-          </Text>
-        ) : null}
         {!swapping && tapPeers.length > 0 ? (
           <View className="mt-3 self-stretch">
             <NearbyTapList
@@ -233,44 +201,16 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
             />
           </View>
         ) : null}
-        {showOutcomeNotice && outcome && phase !== "swap" ? (
-          <Text
-            className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400"
-            accessibilityRole="alert"
-            testID="nearby-request-outcome"
-          >
-            {outcome.kind === "declined"
-              ? t("{{name}}さんとは交換しませんでした", {
-                  name: outcome.displayName,
-                })
-              : t("{{name}}さんから返事がありませんでした", {
-                  name: outcome.displayName,
-                })}
-          </Text>
-        ) : null}
-        {showFailureNotice && phase !== "swap" ? (
-          <Text
-            className="mt-2 text-center text-xs text-red-600 dark:text-red-400"
-            accessibilityRole="alert"
-            testID="nearby-failure-notice"
-          >
-            {t("うまく交換できませんでした。もう一度近づけてください")}
-          </Text>
-        ) : null}
-      </View>
-      <TouchableOpacity
-        className="absolute self-center flex-row items-center gap-1.5 py-2"
-        style={{ bottom: insets.bottom + 24 }}
-        onPress={onShowQr}
+        <NearbyNotices
+          outcome={showOutcomeNotice && !swapping ? state.lastOutcome : null}
+          failed={showFailureNotice && !swapping}
+        />
+      </NearbyHintPanel>
+      <ShowQrLink
+        bottom={insets.bottom + 24}
         disabled={swapping}
-        accessibilityRole="button"
-        testID="nearby-show-qr"
-      >
-        <Ionicons name="qr-code-outline" size={16} color={colors.primaryText} />
-        <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-          {t("QR で交換する")}
-        </Text>
-      </TouchableOpacity>
+        onPress={onShowQr}
+      />
       {incomingPeer ? (
         <NearbyRequestCard
           name={incomingPeer.displayName}

@@ -338,6 +338,24 @@ describe("タップで交換（どちらかが UWB 非対応）", () => {
     ).toEqual({ kind: "none" });
   });
 
+  it("失敗した相手にも、タップでもう一度申し込める", () => {
+    const failed = run(
+      tapPeer("a"),
+      { type: "requestSent", peerId: "a" },
+      { type: "acceptReceived", peerId: "a" },
+      { type: "timeout", attempt: 1 },
+    );
+    expect(failed.exchange).toEqual({ kind: "idle" });
+    expect(
+      nearbySessionReducer(failed, { type: "requestSent", peerId: "a" })
+        .request,
+    ).toEqual({ kind: "outgoing", peerId: "a" });
+    expect(
+      nearbySessionReducer(failed, { type: "requestReceived", peerId: "a" })
+        .request,
+    ).toEqual({ kind: "incoming", peerId: "a" });
+  });
+
   it("申し込みは同時に 1 件だけ。返事待ちの間に別の申し込みが来ても受けない", () => {
     const state = run(
       tapPeer("a"),
