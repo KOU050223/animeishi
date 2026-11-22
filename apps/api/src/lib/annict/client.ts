@@ -167,6 +167,24 @@ export async function annictGraphQL<T>(
   return json.data;
 }
 
+/**
+ * Annict GraphQL の Work.seasonName（enum: "WINTER" | "SPRING" | "SUMMER" |
+ * "AUTUMN"。年は seasonYear に分かれる）を、annict_works.season_name と
+ * searchWorks(seasons:) が使う "<年>-<シーズン>" 形式（例: "2026-autumn"）に
+ * 揃える。今期判定・シーズン表示はすべてこの形式を前提に比較するため、
+ * enum のまま保存すると一致しない。既に "<年>-<シーズン>"
+ * 形式の値や年が不明な値は小文字化だけして返す。
+ */
+export function normalizeAnnictSeasonName(
+  seasonName: string | null,
+  seasonYear: number | null,
+): string | null {
+  if (!seasonName) return null;
+  const lower = seasonName.toLowerCase();
+  if (lower.includes("-") || seasonYear == null) return lower;
+  return `${seasonYear}-${lower}`;
+}
+
 // --- viewer.libraryEntries（本人の視聴ライブラリ取得） ---
 
 // libraryEntries の 1 ページ分を取得するクエリ。
@@ -301,7 +319,7 @@ export async function fetchAnnictLibraryEntries(
         title: work.title,
         titleKana: work.titleKana,
         titleEn: work.titleEn,
-        seasonName: work.seasonName,
+        seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
         seasonYear: work.seasonYear,
         imageUrl: resolveWorkImageUrl(work.image),
         malAnimeId: parseMalAnimeId(work.malAnimeId),
@@ -435,7 +453,7 @@ export async function fetchAnnictWorkByAnnictId(
     title: work.title,
     titleKana: work.titleKana,
     titleEn: work.titleEn,
-    seasonName: work.seasonName,
+    seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
@@ -582,7 +600,7 @@ function mapSearchWorksConnection(
     title: work.title,
     titleKana: work.titleKana,
     titleEn: work.titleEn,
-    seasonName: work.seasonName,
+    seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
@@ -784,7 +802,7 @@ export async function searchAnnictWorksByIds(
 // --- searchWorks（シーズン検索・初期表示の「今期アニメ」） ---
 
 // Annict のシーズン区分（1-3:winter / 4-6:spring / 7-9:summer / 10-12:autumn）。
-// seasonName は "2026-spring" のような "<年>-<シーズン>" 形式。
+// searchWorks の seasons 引数は "2026-spring" のような "<年>-<シーズン>" 形式。
 const ANNICT_SEASON_NAMES = ["winter", "spring", "summer", "autumn"] as const;
 
 /**
@@ -1146,7 +1164,7 @@ export async function fetchAnnictWorkDetail(
     title: work.title,
     titleKana: work.titleKana,
     titleEn: work.titleEn,
-    seasonName: work.seasonName,
+    seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
     seasonYear: work.seasonYear,
     imageUrl: resolveWorkImageUrl(work.image),
     malAnimeId: parseMalAnimeId(work.malAnimeId),
@@ -1323,7 +1341,7 @@ export async function fetchAnnictWorkCasts(
       title: work.title,
       titleKana: work.titleKana,
       titleEn: work.titleEn,
-      seasonName: work.seasonName,
+      seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
       seasonYear: work.seasonYear,
       imageUrl: resolveWorkImageUrl(work.image),
       malAnimeId: parseMalAnimeId(work.malAnimeId),
