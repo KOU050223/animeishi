@@ -761,11 +761,8 @@ const SEASON_ORDER: Record<string, number> = {
   fall: 3,
 };
 
-/**
- * 年度順の並びキー。season_name は Annict GraphQL の列挙値（"AUTUMN"）と
- * "2026-spring" 形式のどちらも来得るので、大文字小文字を問わず読む。
- * season_year が無くても "2026-spring" 形式なら年を補う。
- */
+// season_name は Annict GraphQL の列挙値（"AUTUMN"）と "2026-spring" 形式の
+// どちらも来得るため、年の有無・大文字小文字を問わず読む。
 function seasonSortKey(entry: {
   seasonName: string | null;
   seasonYear: number | null;
@@ -795,6 +792,8 @@ function compareSeason(
     if (kb.year === null) return -1;
     return (ka.year - kb.year) * direction;
   }
+  // 年不明どうしはシーズンだけ分かっても時期を決められないので、更新順を保つ。
+  if (ka.year === null) return 0;
   if (ka.season === kb.season) return 0;
   if (ka.season === null) return 1;
   if (kb.season === null) return -1;

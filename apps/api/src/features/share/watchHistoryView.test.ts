@@ -160,6 +160,23 @@ describe("applyWatchHistoryView", () => {
     ]);
   });
 
+  it("年度順で放送年不明の作品どうしはシーズンの有無に関わらず更新順を保つ", () => {
+    const noYear = {
+      ownerUsername: "u",
+      items: [
+        entry({ entryId: 1, title: "季節も不明" }),
+        entry({ entryId: 2, title: "年なしの秋", seasonName: "AUTUMN" }),
+      ],
+    };
+    for (const sort of ["year_desc", "year_asc"] as const) {
+      expect(
+        applyWatchHistoryView(noYear, { sort, state: null }).items.map(
+          (i) => i.title,
+        ),
+      ).toEqual(["季節も不明", "年なしの秋"]);
+    }
+  });
+
   it("ステータスで絞り込める", () => {
     expect(titles({ sort: "updated", state: "WATCHED" })).toEqual([
       "最後に追加",
