@@ -104,4 +104,17 @@ describe("compareBroadcastSeason", () => {
     ];
     expect(sortedIds(items, "desc")).toEqual([2, 1, 3]);
   });
+
+  it("D1 に保存される Annict の列挙値（WINTER / AUTUMN など大文字）でも同年はシーズン順になる", () => {
+    const items = [
+      entry(1, 2026, "WINTER"),
+      entry(2, 2025, "AUTUMN"),
+      entry(3, 2026, "SUMMER"),
+      entry(4, 2026, "AUTUMN"),
+      entry(5, 2026, "SPRING"),
+      entry(6, 2026, null),
+    ];
+    expect(sortedIds(items, "desc")).toEqual([4, 3, 5, 1, 6, 2]);
+    expect(sortedIds(items, "asc")).toEqual([2, 1, 5, 3, 4, 6]);
+  });
 });

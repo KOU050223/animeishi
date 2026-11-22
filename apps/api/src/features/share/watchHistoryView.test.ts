@@ -109,6 +109,57 @@ describe("applyWatchHistoryView", () => {
     ]);
   });
 
+  it("年度順は Annict の列挙値（大文字）の season_name でもシーズン順に並び、シーズン不明は同年の末尾に置く", () => {
+    const enumHistory = {
+      ownerUsername: "u",
+      items: [
+        entry({
+          entryId: 1,
+          title: "冬",
+          seasonName: "WINTER",
+          seasonYear: 2026,
+        }),
+        entry({ entryId: 2, title: "シーズン不明", seasonYear: 2026 }),
+        entry({
+          entryId: 3,
+          title: "秋",
+          seasonName: "AUTUMN",
+          seasonYear: 2026,
+        }),
+        entry({
+          entryId: 4,
+          title: "前年の秋",
+          seasonName: "AUTUMN",
+          seasonYear: 2025,
+        }),
+        entry({
+          entryId: 5,
+          title: "夏",
+          seasonName: "SUMMER",
+          seasonYear: 2026,
+        }),
+      ],
+    };
+    const order = (sort: "year_desc" | "year_asc") =>
+      applyWatchHistoryView(enumHistory, { sort, state: null }).items.map(
+        (i) => i.title,
+      );
+    expect(order("year_desc")).toEqual([
+      "秋",
+      "夏",
+      "冬",
+      "シーズン不明",
+      "前年の秋",
+    ]);
+    expect(order("year_asc")).toEqual([
+      "前年の秋",
+      "冬",
+      "夏",
+      "秋",
+      "シーズン不明",
+    ]);
+  });
+
   it("ステータスで絞り込める", () => {
     expect(titles({ sort: "updated", state: "WATCHED" })).toEqual([
       "最後に追加",

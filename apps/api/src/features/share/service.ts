@@ -758,21 +758,47 @@ const SEASON_ORDER: Record<string, number> = {
   spring: 1,
   summer: 2,
   autumn: 3,
+  fall: 3,
 };
 
 /**
- * 年度順の並びキー。season_year が無くても season_name（"2026-spring"）から
- * 年を補う。放送時期が分からない作品は null（昇順・降順とも末尾に置く）。
+ * 年度順の並びキー。season_name は Annict GraphQL の列挙値（"AUTUMN"）と
+ * "2026-spring" 形式のどちらも来得るので、大文字小文字を問わず読む。
+ * season_year が無くても "2026-spring" 形式なら年を補う。
  */
 function seasonSortKey(entry: {
   seasonName: string | null;
   seasonYear: number | null;
-}): number | null {
-  const match = /^(\d{4})-(\w+)$/.exec(entry.seasonName ?? "");
+}): { year: number | null; season: number | null } {
+  const match = /^(?:(\d{4})-)?(\w+)$/.exec(entry.seasonName ?? "");
   const year = entry.seasonYear ?? (match?.[1] ? Number(match[1]) : null);
-  if (year === null) return null;
-  const season = match?.[2] ? (SEASON_ORDER[match[2]] ?? 0) : 0;
-  return year * 4 + season;
+  const season = match?.[2]
+    ? (SEASON_ORDER[match[2].toLowerCase()] ?? null)
+    : null;
+  return { year, season };
+}
+
+/**
+ * 年 → 年内のシーズン順で比べる。放送時期が分からない作品は全体の末尾、
+ * シーズンだけ分からない作品はその年の末尾に置く（昇順・降順とも。
+ * 向きを反転させると昇順で先頭に来てしまうため専用に後置きする）。
+ */
+function compareSeason(
+  a: { seasonName: string | null; seasonYear: number | null },
+  b: { seasonName: string | null; seasonYear: number | null },
+  direction: 1 | -1,
+): number {
+  const ka = seasonSortKey(a);
+  const kb = seasonSortKey(b);
+  if (ka.year !== kb.year) {
+    if (ka.year === null) return 1;
+    if (kb.year === null) return -1;
+    return (ka.year - kb.year) * direction;
+  }
+  if (ka.season === kb.season) return 0;
+  if (ka.season === null) return 1;
+  if (kb.season === null) return -1;
+  return (ka.season - kb.season) * direction;
 }
 
 /**
@@ -791,14 +817,7 @@ export function applyWatchHistoryView(
     filtered.sort((a, b) => (a.entryId - b.entryId) * direction);
   } else if (view.sort === "year_desc" || view.sort === "year_asc") {
     const direction = view.sort === "year_desc" ? -1 : 1;
-    filtered.sort((a, b) => {
-      const ka = seasonSortKey(a);
-      const kb = seasonSortKey(b);
-      if (ka === kb) return 0;
-      if (ka === null) return 1;
-      if (kb === null) return -1;
-      return (ka - kb) * direction;
-    });
+    filtered.sort((a, b) => compareSeason(a, b, direction));
   }
   return { ...history, items: filtered };
 }
