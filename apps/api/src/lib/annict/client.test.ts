@@ -229,7 +229,6 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(entries.map((e) => e.annictWorkId)).toEqual([1, 2]);
     expect(entries[0]?.state).toBe("WATCHING");
     expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
-    // enum の seasonName を今期判定と同じ "<年>-<シーズン>" 形式に揃える
     expect(entries[0]?.seasonName).toBe("2026-spring");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 2 ページ目は前ページの endCursor を after に載せる
@@ -476,6 +475,7 @@ describe("searchAnnictWorksByTitle", () => {
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
     expect(result.works[0]?.nodeId).toBe("node-1");
+    expect(result.works[0]?.seasonName).toBe("2026-spring");
     expect(result.works[0]?.state).toBeNull();
     expect(result.works[0]?.imageUrl).toBe("https://img/1.jpg");
     expect(result.hasNextPage).toBe(true);
@@ -805,6 +805,7 @@ describe("searchAnnictWorksBySeason", () => {
     );
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
+    expect(result.works[0]?.seasonName).toBe("2026-spring");
     expect(result.hasNextPage).toBe(false);
     expect(result.endCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);

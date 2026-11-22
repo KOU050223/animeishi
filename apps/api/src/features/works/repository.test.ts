@@ -62,6 +62,32 @@ describe("worksRepository", () => {
       expect(work?.title).toBe("進撃の巨人");
     });
 
+    it("enum の季節名を書き込んでも年付き形式で保存する", async () => {
+      const repo = worksRepository(db);
+      await repo.upsertAnnictWork({
+        annictWorkId: WORK_ID_1,
+        title: "進撃の巨人",
+        seasonName: "SPRING",
+        seasonYear: 2013,
+        updatedAt: new Date(),
+      });
+      await repo.upsertAnnictWorks([
+        {
+          annictWorkId: 1003,
+          title: "新作",
+          seasonName: "AUTUMN",
+          seasonYear: 2026,
+          updatedAt: new Date(),
+        },
+      ]);
+      expect((await repo.getAnnictWorkById(WORK_ID_1))?.seasonName).toBe(
+        "2013-spring",
+      );
+      expect((await repo.getAnnictWorkById(1003))?.seasonName).toBe(
+        "2026-autumn",
+      );
+    });
+
     it("存在しない作品IDは undefined", async () => {
       const repo = worksRepository(db);
       const work = await repo.getAnnictWorkById(99999);
