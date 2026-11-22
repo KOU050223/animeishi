@@ -223,6 +223,8 @@ final class NearbyExchangeManager: NSObject {
     var hello: [String: Any] = [
       "sessionId": sessionId,
       "displayName": displayName,
+      // 相手が UWB 非対応なら、10cm の測定ではなくタップの申し込みで交換する。
+      "uwb": supportsUwb,
       "pubKey": agreementKey.publicKey.rawRepresentation.base64EncodedString(),
     ]
     if let token = peer.niSession?.discoveryToken,
@@ -311,7 +313,9 @@ final class NearbyExchangeManager: NSObject {
 
     let name = message["displayName"] as? String ?? ""
     if displayNameByPeerId[peerId] == nil {
-      emit("onPeerFound", ["peerId": peerId, "displayName": name])
+      emit("onPeerFound", [
+        "peerId": peerId, "displayName": name, "uwb": message["uwb"] as? Bool ?? false,
+      ])
     }
     displayNameByPeerId[peerId] = name
 

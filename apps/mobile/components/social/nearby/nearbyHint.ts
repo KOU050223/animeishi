@@ -12,6 +12,7 @@ export function nearbyHint(
     received,
     landed,
     registering,
+    tapPeersOnly = false,
   }: {
     phase: StagePhase;
     peerName: string;
@@ -23,8 +24,16 @@ export function nearbyHint(
     landed: boolean;
     /** 着地後、まだ登録の応答を待っているか。 */
     registering: boolean;
+    /** 近づけて交換できる相手がおらず、タップで交換する相手だけがいる。 */
+    tapPeersOnly?: boolean;
   },
 ): { title: string; subtitle: string } {
+  if (phase === "search" && tapPeersOnly) {
+    return {
+      title: t("相手をタップして交換を申し込めます"),
+      subtitle: t("相手が承認すると、名刺が入れ替わります"),
+    };
+  }
   if (phase === "search") {
     return {
       title: t("近くの人を探しています"),

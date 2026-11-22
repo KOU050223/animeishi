@@ -5,6 +5,8 @@ export type NearbyExchangeStartOptions = {
 export type PeerFoundPayload = {
   peerId: string;
   displayName: string;
+  /** 相手の端末が UWB で距離を測れるか。試作（#700）のビルドには無い。 */
+  uwb?: boolean;
 };
 
 export type PeerLostPayload = {

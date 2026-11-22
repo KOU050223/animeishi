@@ -56,6 +56,7 @@ export function NearbyExchangeStage({
   peerName,
   myCard,
   onLanded,
+  compact = false,
 }: {
   phase: StagePhase;
   /** 接近の進み具合（1m → 0、10cm → 1）。 */
@@ -66,6 +67,8 @@ export function NearbyExchangeStage({
   /** 自分の名刺（幅いっぱいに描画される要素）。 */
   myCard: ReactNode;
   onLanded: () => void;
+  /** 画面下にタップで交換する相手の一覧を出すとき。名刺を上寄せ・小さめにする。 */
+  compact?: boolean;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const onLayout = (e: LayoutChangeEvent) =>
@@ -73,12 +76,12 @@ export function NearbyExchangeStage({
       width: e.nativeEvent.layout.width,
       height: e.nativeEvent.layout.height,
     });
-  const cardW = Math.max(0, Math.min(size.width - 64, 320));
+  const cardW = Math.max(0, Math.min(size.width - 64, compact ? 260 : 320));
   const geometry: Geometry = {
     width: size.width,
     cardW,
     cardH: cardW / 1.6,
-    restY: size.height * 0.4,
+    restY: size.height * (compact ? 0.3 : 0.4),
   };
 
   const { approach, found, send, recv, land, spin } = useStageTimeline({

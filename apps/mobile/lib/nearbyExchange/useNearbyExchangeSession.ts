@@ -4,8 +4,14 @@ import { haptics } from "@/lib/haptics";
 import {
   initialNearbySessionState,
   nearbySessionReducer,
+  type NearbySessionEvent,
   type NearbySessionState,
 } from "./exchangeSession";
+import {
+  decodeNearbyMessage,
+  encodeNearbyMessage,
+  type NearbyMessage,
+} from "./messages";
 import { nearbyExchange } from "./nearbyExchange";
 import {
   createProximityHaptics,
@@ -14,6 +20,8 @@ import {
 
 /** 相手のデータがこの時間内に届かなければ、入れ替わりをやめて探索へ戻す。 */
 export const SWAP_RECEIVE_TIMEOUT_MS = 6000;
+/** タップの申し込みに返事が来ないまま待つ時間。過ぎたら取り下げる。 */
+export const TAP_REQUEST_TIMEOUT_MS = 30_000;
 
 export type NearbyExchangeSession = {
   state: NearbySessionState;
@@ -21,15 +29,45 @@ export type NearbyExchangeSession = {
   finish: (exchanged: boolean) => void;
   /**
    * 相手のデータが届かないまま入れ替わりが終わった回数（タイムアウト・切断）。
-   * 変わったら「もう一度近づけて」を出す。
+   * 変わったら「もう一度」を出す。
    */
   failureCount: number;
+  /** 一覧の相手をタップして交換を申し込む。 */
+  requestExchange: (peerId: string) => void;
+  /** 自分の申し込みを取り下げる。 */
+  cancelRequest: () => void;
+  /** 相手からの申し込みに返事をする。 */
+  respond: (accept: boolean) => void;
 };
 
+function send(peerId: string, message: NearbyMessage) {
+  nearbyExchange.sendPayload(peerId, encodeNearbyMessage(message));
+}
+
+/** 相手から届いたメッセージを状態遷移のイベントにする。 */
+function messageEvent(
+  peerId: string,
+  message: NearbyMessage,
+): NearbySessionEvent {
+  switch (message.kind) {
+    case "data":
+      return { type: "data", peerId, url: message.url };
+    case "request":
+      return { type: "requestReceived", peerId };
+    case "accept":
+      return { type: "acceptReceived", peerId };
+    case "decline":
+      return { type: "declineReceived", peerId };
+    case "cancel":
+      return { type: "cancelReceived", peerId };
+  }
+}
+
 /**
- * 近づけて交換のセッション（issue #693）。enabled の間だけ広告・探索し、
- * 距離に応じたハプティクスを鳴らし、10cm で自分の交換データ（myPayload）を
- * 相手へ送る。受け取ったデータの登録（フレンド追加）は呼び出し側が行う。
+ * 近づけて交換のセッション（issue #693）。enabled の間だけ広告・探索する。
+ * 両方が UWB に対応した相手とは距離に応じたハプティクスを鳴らして 10cm で、
+ * それ以外の相手とはタップの申し込みと承認で入れ替わりを始め、自分の交換
+ * データ（myPayload）を相手へ送る。受け取ったデータの登録は呼び出し側が行う。
  */
 export function useNearbyExchangeSession({
   enabled,
@@ -43,13 +81,10 @@ export function useNearbyExchangeSession({
   const [state, dispatch] = useReducer(
     nearbySessionReducer,
     initialNearbySessionState,
-    (initial) =>
-      nearbyExchange.isSupported()
-        ? initial
-        : { ...initial, status: "unsupported" as const },
+    (initial) => ({ ...initial, selfUwb: nearbyExchange.isSupported() }),
   );
   const hapticsByPeer = useRef(new Map<string, ProximityHaptics>());
-  const supported = state.status !== "unsupported";
+  const unsupported = state.status === "unsupported";
   // 許可を拒否されたら探索を作り直すまで止める。設定から戻ってきたら
   // retry で拒否状態を解き、作り直した探索でもう一度確かめる。
   const denied = state.status === "denied";
@@ -62,7 +97,7 @@ export function useNearbyExchangeSession({
   }, [denied]);
 
   useEffect(() => {
-    if (!enabled || !supported || denied) return;
+    if (!enabled || unsupported || denied) return;
     const decider = hapticsByPeer.current;
     const subscriptions = [
       nearbyExchange.addListener("onCapability", ({ uwb }) =>
@@ -71,8 +106,15 @@ export function useNearbyExchangeSession({
       nearbyExchange.addListener("onError", ({ code }) =>
         dispatch({ type: "error", code }),
       ),
-      nearbyExchange.addListener("onPeerFound", ({ peerId, displayName }) =>
-        dispatch({ type: "peerFound", peerId, displayName }),
+      nearbyExchange.addListener(
+        "onPeerFound",
+        ({ peerId, displayName, uwb }) =>
+          dispatch({
+            type: "peerFound",
+            peerId,
+            displayName,
+            uwb: uwb ?? false,
+          }),
       ),
       nearbyExchange.addListener("onPeerLost", ({ peerId }) => {
         decider.delete(peerId);
@@ -94,9 +136,13 @@ export function useNearbyExchangeSession({
         }
         dispatch({ type: "distance", peerId, meters });
       }),
-      nearbyExchange.addListener("onPayload", ({ peerId, payload }) =>
-        dispatch({ type: "payload", peerId, payload }),
-      ),
+      nearbyExchange.addListener("onPayload", ({ peerId, payload }) => {
+        const message = decodeNearbyMessage(payload);
+        if (!message) return;
+        if (message.kind === "request") haptics.impactMedium();
+        if (message.kind === "accept") haptics.impactHeavy();
+        dispatch(messageEvent(peerId, message));
+      }),
     ];
     nearbyExchange.start({ displayName });
     return () => {
@@ -105,7 +151,7 @@ export function useNearbyExchangeSession({
       nearbyExchange.stop();
       dispatch({ type: "stopped" });
     };
-  }, [enabled, supported, denied, displayName]);
+  }, [enabled, unsupported, denied, displayName]);
 
   // 入れ替わりが始まったら自分のデータを送る。相手の方が先に送ってきた
   // 場合もここで送り返すので、両方の端末が必ずお互いのデータを受け取る。
@@ -114,7 +160,7 @@ export function useNearbyExchangeSession({
     exchange.kind === "swapping" && !exchange.sent ? exchange.peerId : null;
   useEffect(() => {
     if (pendingSendPeerId == null || myPayload == null) return;
-    nearbyExchange.sendPayload(pendingSendPeerId, myPayload);
+    send(pendingSendPeerId, { kind: "data", url: myPayload });
     dispatch({ type: "sent" });
   }, [pendingSendPeerId, myPayload]);
 
@@ -133,9 +179,53 @@ export function useNearbyExchangeSession({
     return () => clearTimeout(timer);
   }, [waitingAttempt]);
 
+  // 申し込みに返事が来なければ取り下げ、相手の確認も閉じてもらう。
+  const outgoingPeerId =
+    state.request.kind === "outgoing" ? state.request.peerId : null;
+  useEffect(() => {
+    if (outgoingPeerId == null) return;
+    const timer = setTimeout(() => {
+      send(outgoingPeerId, { kind: "cancel" });
+      dispatch({ type: "requestExpired", peerId: outgoingPeerId });
+    }, TAP_REQUEST_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [outgoingPeerId]);
+
   const finish = useCallback(
     (exchanged: boolean) => dispatch({ type: "finish", exchanged }),
     [],
+  );
+
+  const requestExchange = useCallback(
+    (peerId: string) => {
+      if (state.request.kind !== "none" || state.exchange.kind !== "idle") {
+        return;
+      }
+      haptics.selection();
+      send(peerId, { kind: "request" });
+      dispatch({ type: "requestSent", peerId });
+    },
+    [state.request.kind, state.exchange.kind],
+  );
+
+  const cancelRequest = useCallback(() => {
+    if (outgoingPeerId == null) return;
+    send(outgoingPeerId, { kind: "cancel" });
+    dispatch({ type: "requestCanceled" });
+  }, [outgoingPeerId]);
+
+  const incomingPeerId =
+    state.request.kind === "incoming" ? state.request.peerId : null;
+  const respond = useCallback(
+    (accept: boolean) => {
+      if (incomingPeerId == null) return;
+      // 承認を先に送ってから入れ替わりを始める。同じ接続で順に届くため、
+      // 相手は承認を受けてから交換データを受け取る。
+      send(incomingPeerId, { kind: accept ? "accept" : "decline" });
+      if (accept) haptics.impactHeavy();
+      dispatch({ type: "respond", accept });
+    },
+    [incomingPeerId],
   );
 
   // 呼び出し側の finish を経ずに入れ替わりが消えた = 相手のデータが届かな
@@ -149,5 +239,12 @@ export function useNearbyExchangeSession({
     }
   }
 
-  return { state, finish, failureCount };
+  return {
+    state,
+    finish,
+    failureCount,
+    requestExchange,
+    cancelRequest,
+    respond,
+  };
 }

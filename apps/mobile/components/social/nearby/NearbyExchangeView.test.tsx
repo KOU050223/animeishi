@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { NearbyExchangeView } from "./NearbyExchangeView";
 import {
   GAP_MIN_MS,
@@ -9,7 +9,16 @@ import {
 } from "./NearbyExchangeStage";
 import { alert } from "@/lib/dialog";
 import { ApiRequestError } from "@/lib/apiError";
-import type { NearbyExchangeModuleEvents } from "@/lib/nearbyExchange";
+import { TAP_REQUEST_TIMEOUT_MS } from "@/lib/nearbyExchange/useNearbyExchangeSession";
+import {
+  encodeNearbyMessage,
+  type NearbyExchangeModuleEvents,
+  type NearbyMessage,
+} from "@/lib/nearbyExchange";
+
+const dataMessage = (url: string) => encodeNearbyMessage({ kind: "data", url });
+const signal = (kind: Exclude<NearbyMessage["kind"], "data">) =>
+  encodeNearbyMessage({ kind });
 
 // ネイティブモジュールの窓口だけを差し替え、状態遷移（reducer）と
 // ハプティクスの判定は本物を通す。
@@ -112,6 +121,7 @@ jest.mock("@/lib/dialog", () => ({ alert: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   haptics: {
     success: jest.fn(),
+    selection: jest.fn(),
     impactLight: jest.fn(),
     impactMedium: jest.fn(),
     impactHeavy: jest.fn(),
@@ -137,7 +147,7 @@ afterEach(() => {
 });
 
 async function touchPartner() {
-  await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
+  await emit("onPeerFound", { peerId: "p1", displayName: "ハル", uwb: true });
   await emit("onDistance", { peerId: "p1", meters: 0.08 });
 }
 
@@ -147,7 +157,7 @@ describe("NearbyExchangeView", () => {
     expect(mockStart).toHaveBeenCalledWith({ displayName: "みお" });
     expect(screen.getByText("近くの人を探しています")).toBeTruthy();
 
-    await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
+    await emit("onPeerFound", { peerId: "p1", displayName: "ハル", uwb: true });
     expect(screen.getByText("ハルさんが見つかりました")).toBeTruthy();
 
     await emit("onDistance", { peerId: "p1", meters: 0.4 });
@@ -162,10 +172,13 @@ describe("NearbyExchangeView", () => {
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
     await touchPartner();
 
-    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_NEARBY_PAYLOAD);
+    expect(mockSendPayload).toHaveBeenCalledWith(
+      "p1",
+      dataMessage(MY_NEARBY_PAYLOAD),
+    );
     expect(screen.getByText("あなたの名刺を ハルさんへ")).toBeTruthy();
 
-    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
     expect(mockAddFriendMutate).toHaveBeenCalledWith(
       {
         friendId: "user_partner2abcDEF",
@@ -193,11 +206,14 @@ describe("NearbyExchangeView", () => {
 
   it("相手が先に送ってきたら、こちらからも送り返す", async () => {
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
-    await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
+    await emit("onPeerFound", { peerId: "p1", displayName: "ハル", uwb: true });
     await emit("onDistance", { peerId: "p1", meters: 0.15 });
-    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
 
-    expect(mockSendPayload).toHaveBeenCalledWith("p1", MY_NEARBY_PAYLOAD);
+    expect(mockSendPayload).toHaveBeenCalledWith(
+      "p1",
+      dataMessage(MY_NEARBY_PAYLOAD),
+    );
     expect(mockAddFriendMutate).toHaveBeenCalledTimes(1);
   });
 
@@ -209,7 +225,7 @@ describe("NearbyExchangeView", () => {
     mockEnqueueExchange.mockResolvedValue({ id: "q1" });
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
     await touchPartner();
-    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
     await playSwap();
 
     expect(mockEnqueueExchange).toHaveBeenCalledWith(
@@ -230,7 +246,7 @@ describe("NearbyExchangeView", () => {
     );
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
     await touchPartner();
-    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
     await playSwap();
 
     expect(alert).toHaveBeenCalledWith(
@@ -243,8 +259,8 @@ describe("NearbyExchangeView", () => {
 
   it("近くにいると測れていない相手から届いたデータには応じない", async () => {
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
-    await emit("onPeerFound", { peerId: "p1", displayName: "ハル" });
-    await emit("onPayload", { peerId: "p1", payload: PARTNER_QR });
+    await emit("onPeerFound", { peerId: "p1", displayName: "ハル", uwb: true });
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
 
     expect(mockSendPayload).not.toHaveBeenCalled();
     expect(mockAddFriendMutate).not.toHaveBeenCalled();
@@ -274,7 +290,9 @@ describe("NearbyExchangeView", () => {
     await touchPartner();
     await emit("onPayload", {
       peerId: "p1",
-      payload: "https://animeishi.uomi.dev/user/user_partner2abcDEF",
+      payload: dataMessage(
+        "https://animeishi.uomi.dev/user/user_partner2abcDEF",
+      ),
     });
 
     expect(mockAddFriendMutate).not.toHaveBeenCalled();
@@ -294,12 +312,117 @@ describe("NearbyExchangeView", () => {
     expect(mockAddFriendMutate).not.toHaveBeenCalled();
   });
 
-  it("UWB 非対応の端末では理由と QR を出す", async () => {
+  it("実装の無いプラットフォームでは理由と QR を出す", async () => {
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onError", { code: "unsupported_platform", message: "" });
+
+    expect(screen.getByTestId("nearby-fallback-unsupported")).toBeTruthy();
+  });
+});
+
+describe("NearbyExchangeView（タップで交換）", () => {
+  const PARTNER = { peerId: "p1", displayName: "ハル" };
+
+  it("UWB 非対応の端末でも探索を始め、タップで交換することを伝える", async () => {
     mockSupported = false;
     await render(<NearbyExchangeView onShowQr={jest.fn()} />);
 
-    expect(screen.getByTestId("nearby-fallback-unsupported")).toBeTruthy();
-    expect(mockStart).not.toHaveBeenCalled();
+    expect(mockStart).toHaveBeenCalledWith({ displayName: "みお" });
+    expect(screen.getByTestId("nearby-tap-mode-banner")).toBeTruthy();
+    await emit("onPeerFound", { ...PARTNER, uwb: true });
+    expect(screen.getByTestId("nearby-tap-peer-p1")).toBeTruthy();
+    expect(screen.getByText("相手をタップして交換を申し込めます")).toBeTruthy();
+  });
+
+  it("相手が UWB 非対応なら、10cm を測っても始めずタップの一覧に出す", async () => {
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+    await emit("onDistance", { peerId: "p1", meters: 0.05 });
+
+    expect(mockSendPayload).not.toHaveBeenCalled();
+    expect(screen.getByTestId("nearby-tap-peer-p1")).toBeTruthy();
+  });
+
+  it("タップで申し込み、相手が承認したら交換データを送り、届いたデータで成立させる", async () => {
+    mockAddFriendMutate.mockImplementation(
+      (_vars, options: { onSuccess: (r: unknown) => void }) =>
+        options.onSuccess({ meetingCount: 1, recordId: 7 }),
+    );
+    mockSupported = false;
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+
+    await fireEvent.press(screen.getByTestId("nearby-tap-request-p1"));
+    expect(mockSendPayload).toHaveBeenCalledWith("p1", signal("request"));
+    expect(screen.getByText("返事を待っています…")).toBeTruthy();
+    // 承認が来るまで交換データは送らない。
+    expect(mockSendPayload).not.toHaveBeenCalledWith(
+      "p1",
+      dataMessage(MY_NEARBY_PAYLOAD),
+    );
+
+    await emit("onPayload", { peerId: "p1", payload: signal("accept") });
+    expect(mockSendPayload).toHaveBeenCalledWith(
+      "p1",
+      dataMessage(MY_NEARBY_PAYLOAD),
+    );
+
+    await emit("onPayload", { peerId: "p1", payload: dataMessage(PARTNER_QR) });
+    expect(mockAddFriendMutate).toHaveBeenCalledTimes(1);
+    await playSwap();
+    expect(screen.getByTestId("result-success")).toBeTruthy();
+  });
+
+  it("申し込まれたら確認を出し、承認したときだけ承認と交換データを送る", async () => {
+    mockSupported = false;
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+    await emit("onPayload", { peerId: "p1", payload: signal("request") });
+
+    expect(screen.getByText("ハルさんと名刺を交換しますか？")).toBeTruthy();
+    expect(mockSendPayload).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId("nearby-request-accept"));
+    expect(mockSendPayload.mock.calls).toEqual([
+      ["p1", signal("accept")],
+      ["p1", dataMessage(MY_NEARBY_PAYLOAD)],
+    ]);
+    expect(screen.queryByTestId("nearby-request-card")).toBeNull();
+  });
+
+  it("申し込みを断ったら断りだけを送り、交換データは送らない", async () => {
+    mockSupported = false;
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+    await emit("onPayload", { peerId: "p1", payload: signal("request") });
+    await fireEvent.press(screen.getByTestId("nearby-request-decline"));
+
+    expect(mockSendPayload.mock.calls).toEqual([["p1", signal("decline")]]);
+  });
+
+  it("相手が申し込みを取り下げたら確認を閉じる", async () => {
+    mockSupported = false;
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+    await emit("onPayload", { peerId: "p1", payload: signal("request") });
+    await emit("onPayload", { peerId: "p1", payload: signal("cancel") });
+
+    expect(screen.queryByTestId("nearby-request-card")).toBeNull();
+  });
+
+  it("断られたら知らせ、返事が無ければ時間切れで申し込みを取り下げる", async () => {
+    mockSupported = false;
+    await render(<NearbyExchangeView onShowQr={jest.fn()} />);
+    await emit("onPeerFound", { ...PARTNER, uwb: false });
+    await fireEvent.press(screen.getByTestId("nearby-tap-request-p1"));
+    await emit("onPayload", { peerId: "p1", payload: signal("decline") });
+    expect(screen.getByText("ハルさんとは交換しませんでした")).toBeTruthy();
+
+    await advance(4000);
+    await fireEvent.press(screen.getByTestId("nearby-tap-request-p1"));
+    await advance(TAP_REQUEST_TIMEOUT_MS);
+    expect(mockSendPayload).toHaveBeenLastCalledWith("p1", signal("cancel"));
+    expect(screen.getByText("ハルさんから返事がありませんでした")).toBeTruthy();
   });
 
   it("許可が拒否されたら設定への導線と QR を出す", async () => {

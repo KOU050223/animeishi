@@ -51,10 +51,12 @@ type Mode = "nearby" | "generate" | "scan";
 // 計測・カメラはこのコンポーネントのマウント状態に追従する。
 export function QrSection() {
   const { t } = useTranslation();
-  // 近づけて交換（issue #693）に対応した端末では「近づける」を既定にし、
-  // QR は予備に回す。iOS 以外ではセグメント自体を出さない。
+  // 近づけて交換（issue #693）を組み込んだビルドでは「近づける」を既定にし、
+  // QR は予備に回す。UWB 非対応の iPhone でも近くの人をタップして交換できる
+  // ため既定は変えない。実装の無いビルド（Android・Web・Expo Go）では
+  // セグメント自体を出さない。
   const [mode, setMode] = useState<Mode>(() =>
-    nearbyExchange.isSupported() ? "nearby" : "generate",
+    nearbyExchange.platformAvailable ? "nearby" : "generate",
   );
   const isFocused = useIsFocused();
 

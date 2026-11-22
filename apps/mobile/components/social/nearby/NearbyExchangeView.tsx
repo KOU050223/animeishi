@@ -16,6 +16,7 @@ import { haptics } from "@/lib/haptics";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
 import {
   approachProgress,
+  selectTapPeers,
   selectTargetPeer,
   useNearbyExchangeSession,
 } from "@/lib/nearbyExchange";
@@ -27,6 +28,7 @@ import { useProfile } from "@/lib/useProfile";
 import { NearbyExchangeStage, type StagePhase } from "./NearbyExchangeStage";
 import { NearbyFallback } from "./NearbyFallback";
 import { nearbyHint } from "./nearbyHint";
+import { NearbyRequestCard, NearbyTapList } from "./NearbyTapList";
 
 /** 「うまく交換できませんでした」を出しておく時間。 */
 const FAILURE_NOTICE_MS = 4000;
@@ -59,7 +61,14 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   const { defaultCard } = useMeishiLibrary();
   const displayName = profile?.username?.trim() || t("名もなきユーザー");
 
-  const { state, finish, failureCount } = useNearbyExchangeSession({
+  const {
+    state,
+    finish,
+    failureCount,
+    requestExchange,
+    cancelRequest,
+    respond,
+  } = useNearbyExchangeSession({
     enabled: isFocused && nearbyPayload != null,
     displayName,
     myPayload: nearbyPayload,
@@ -107,7 +116,8 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     });
   }, [registrationFailed, resetExchange, t]);
 
-  const showFailureNotice = useFailureNotice(failureCount);
+  const showFailureNotice = useTimedNotice(failureCount);
+  const showOutcomeNotice = useTimedNotice(state.lastOutcome?.id ?? 0);
 
   if (qrValue == null || shareUrl == null) {
     return (
@@ -131,7 +141,13 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   }
 
   const target = selectTargetPeer(state);
+  const tapPeers = selectTapPeers(state);
   const phase: StagePhase = swapping ? "swap" : target ? "found" : "search";
+  const incomingPeer =
+    state.request.kind === "incoming" && !swapping
+      ? state.peers[state.request.peerId]
+      : undefined;
+  const outcome = state.lastOutcome;
   const peerName = swapping
     ? exchange.displayName || incoming?.miniMeishi?.username || ""
     : (target?.displayName ?? "");
@@ -142,18 +158,40 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     received: incoming != null,
     landed,
     registering: registration == null,
+    tapPeersOnly: tapPeers.length > 0,
   });
   const result =
     landed && registration?.status === "done" ? registration.result : null;
 
   return (
     <View className="flex-1" testID="nearby-exchange-view">
+      {!state.selfUwb ? (
+        // UWB 非対応の iPhone（16e・SE など）は距離を測れないので、近づけて
+        // ではなくタップで交換することを最初に伝える。
+        <View
+          pointerEvents="none"
+          className="absolute left-4 right-4 top-3 z-10 flex-row items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 dark:bg-indigo-950"
+          testID="nearby-tap-mode-banner"
+        >
+          <Ionicons
+            name="hand-left-outline"
+            size={16}
+            color={colors.primaryText}
+          />
+          <Text className="flex-1 text-xs leading-4 text-slate-700 dark:text-slate-200">
+            {t(
+              "この iPhone は距離を測れないため、近くの人をタップして交換します",
+            )}
+          </Text>
+        </View>
+      ) : null}
       <NearbyExchangeStage
         phase={phase}
         progress={swapping ? 1 : approachProgress(target?.meters ?? null)}
         received={incoming != null}
         peerName={peerName}
         onLanded={onLanded}
+        compact={!swapping && tapPeers.length > 0}
         myCard=<MeishiCard
           username={profile?.username}
           bio={profile?.bio}
@@ -184,6 +222,32 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
             {subtitle}
           </Text>
         ) : null}
+        {!swapping && tapPeers.length > 0 ? (
+          <View className="mt-3 self-stretch">
+            <NearbyTapList
+              peers={tapPeers}
+              request={state.request}
+              disabled={swapping}
+              onRequest={requestExchange}
+              onCancel={cancelRequest}
+            />
+          </View>
+        ) : null}
+        {showOutcomeNotice && outcome && phase !== "swap" ? (
+          <Text
+            className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400"
+            accessibilityRole="alert"
+            testID="nearby-request-outcome"
+          >
+            {outcome.kind === "declined"
+              ? t("{{name}}さんとは交換しませんでした", {
+                  name: outcome.displayName,
+                })
+              : t("{{name}}さんから返事がありませんでした", {
+                  name: outcome.displayName,
+                })}
+          </Text>
+        ) : null}
         {showFailureNotice && phase !== "swap" ? (
           <Text
             className="mt-2 text-center text-xs text-red-600 dark:text-red-400"
@@ -207,6 +271,13 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
           {t("QR で交換する")}
         </Text>
       </TouchableOpacity>
+      {incomingPeer ? (
+        <NearbyRequestCard
+          name={incomingPeer.displayName}
+          onAccept={() => respond(true)}
+          onDecline={() => respond(false)}
+        />
+      ) : null}
       {result ? (
         <ExchangeResultLayer
           key={`${result.kind}-${result.uid}`}
@@ -303,17 +374,17 @@ function useRegisterIncoming({
   return { registration, resetRegistration };
 }
 
-/** 相手のデータが届かずに入れ替わりが終わったら、しばらく案内を出す。 */
-function useFailureNotice(failureCount: number): boolean {
-  const [dismissedFailureCount, setDismissedFailureCount] = useState(0);
-  const show = failureCount > dismissedFailureCount;
+/**
+ * 失敗・断られたなどの知らせをしばらく出す。key（増えていく番号）が
+ * 変わるたびに一定時間 true を返す。
+ */
+function useTimedNotice(key: number): boolean {
+  const [dismissedKey, setDismissedKey] = useState(0);
+  const show = key > dismissedKey;
   useEffect(() => {
     if (!show) return;
-    const timer = setTimeout(
-      () => setDismissedFailureCount(failureCount),
-      FAILURE_NOTICE_MS,
-    );
+    const timer = setTimeout(() => setDismissedKey(key), FAILURE_NOTICE_MS);
     return () => clearTimeout(timer);
-  }, [show, failureCount]);
+  }, [show, key]);
   return show;
 }

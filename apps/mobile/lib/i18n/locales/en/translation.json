@@ -1497,5 +1497,18 @@
   "リンクの共有・画像で保存": "Share link or save image",
   "近づけて交換の演出（試作）": "Tap phones animation (prototype)",
   "近づけて交換の演出を確かめる画面を開く": "Open the Tap phones animation preview",
-  "相手の名刺が届いた": "Their card arrived"
+  "相手の名刺が届いた": "Their card arrived",
+  "近くにいる人": "People nearby",
+  "返事を待っています…": "Waiting for a reply…",
+  "{{name}}さんへの申し込みを取り消す": "Cancel your request to {{name}}",
+  "{{name}}さんに交換を申し込む": "Ask {{name}} to exchange cards",
+  "交換する": "Exchange",
+  "{{name}}さんと名刺を交換しますか？": "Exchange cards with {{name}}?",
+  "交換すると、お互いの名刺が相手に届きます": "You'll each receive the other's card",
+  "やめておく": "Not now",
+  "相手をタップして交換を申し込めます": "Tap someone to ask to exchange cards",
+  "相手が承認すると、名刺が入れ替わります": "When they accept, your cards are swapped",
+  "この iPhone は距離を測れないため、近くの人をタップして交換します": "This iPhone can't measure distance, so tap someone nearby to exchange",
+  "{{name}}さんとは交換しませんでした": "{{name}} didn't exchange cards",
+  "{{name}}さんから返事がありませんでした": "No reply from {{name}}"
 }

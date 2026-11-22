@@ -1120,15 +1120,15 @@ describe("近づける（issue #693）", () => {
     expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
   });
 
-  it("iOS でも UWB 非対応の端末はマイ QR を既定にし、「近づける」は選べる", async () => {
+  it("UWB 非対応の iPhone でも「近づける」を既定にする（近くの人をタップして交換できる）", async () => {
     mockNearbyPlatformAvailable = true;
     mockNearbySupported = false;
     loggedInUser({ userId: USER_ID });
     await render(<QrSection />, { wrapper });
 
-    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
-    await fireEvent.press(screen.getByTestId("qr-mode-nearby"));
     expect(screen.getByTestId("nearby-exchange-view-stub")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("マイQR"));
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
   });
 
   it("近づけて交換の実装が無いプラットフォームでは「近づける」を出さない", async () => {
