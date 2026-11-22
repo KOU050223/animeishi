@@ -8,6 +8,7 @@ import {
 import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
+import { loggedInUser, signedOutUser } from "@/test-utils/auth";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 
@@ -321,6 +322,7 @@ const sheetElement = (
 describe("AnimeWorkDetailSheet", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    loggedInUser();
     mockUseWorkDetail.mockReturnValue(detailState());
     mockMutateAsync.mockResolvedValue({});
     mockDeleteAsync.mockResolvedValue({});
@@ -987,18 +989,44 @@ describe("AnimeWorkDetailSheet", () => {
     expect(screen.queryByTestId("work-detail-credits-toggle")).toBeNull();
   });
 
-  it("詳細取得中や失敗時も Annict リンクを表示する", async () => {
+  it("「作品ページを見る」を押すとシートを閉じて animeishi の作品ページへ移る", async () => {
+    const onClose = jest.fn();
+    await render(sheetElement({ onClose }));
+
+    await fireEvent.press(screen.getByTestId("work-detail-open-page"));
+
+    // 作品ページから戻ったときにシートが残らないよう先に閉じる。
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/work/[id]",
+      params: { id: "42" },
+    });
+  });
+
+  it("詳細取得中や失敗時も作品ページへの導線を表示する", async () => {
     mockUseWorkDetail.mockReturnValue(
       detailState({ data: undefined, isLoading: true }),
     );
     await render(sheetElement());
-    expect(screen.getByText("Annict で見る")).toBeTruthy();
+    expect(screen.getByText("作品ページを見る")).toBeTruthy();
   });
 
-  it("annictWorkId が無い作品では Annict リンクを表示しない", async () => {
+  it("未ログインの閲覧者には作品ページではなく Annict へのリンクを出す", async () => {
+    signedOutUser();
+    // 未ログインでは useWorkDetail が無効になり詳細は取れない。
+    mockUseWorkDetail.mockReturnValue(detailState({ data: undefined }));
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+
+    expect(screen.queryByTestId("work-detail-open-page")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("Annict で見る"));
+    expect(openURL).toHaveBeenCalledWith("https://annict.com/works/42");
+  });
+
+  it("annictWorkId が無い作品では作品ページへの導線を表示しない", async () => {
     await render(sheetElement({ work: { ...WORK, annictWorkId: 0 } }));
 
-    expect(screen.queryByText("Annict で見る")).toBeNull();
+    expect(screen.queryByTestId("work-detail-open-page")).toBeNull();
   });
 
   it("話数チェック一覧を表示し、視聴済みの話はチェック済みになる", async () => {

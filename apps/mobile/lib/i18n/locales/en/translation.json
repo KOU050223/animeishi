@@ -1465,5 +1465,9 @@
   "10cm 以内に近づけると成立します": "Bring devices within 10 cm to complete",
   "相手まで {{cm}}cm 以内で成立（試作）。フレンド登録は行いません。": "Completes within {{cm}} cm of the other device (prototype). No friend is registered.",
   "開発（試作）": "Development (Prototype)",
-  "近づけて交換の試作画面を開く": "Open the bring-close exchange prototype"
+  "近づけて交換の試作画面を開く": "Open the bring-close exchange prototype",
+  "この作品は表示できません": "This work can't be displayed",
+  "作品情報の表示には Annict との連携が必要です。": "Connect Annict to view work details.",
+  "{{title}}の作品ページを見る": "View the work page for {{title}}",
+  "作品ページを見る": "View work page"
 }

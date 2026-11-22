@@ -131,6 +131,8 @@ function AuthGuard() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="user/[uid]" />
+      {/* 作品ページ。作品詳細シートの「作品ページを見る」から遷移する。 */}
+      <Stack.Screen name="work/[id]" />
       {/* 他アプリからの共有受信の中継画面（issue #316）。処理中 or エラー表示だけの
           画面で、エラー時は自前の「閉じる」ボタンを持つためヘッダーは出さない。 */}
       <Stack.Screen name="incoming-share" options={{ headerShown: false }} />
