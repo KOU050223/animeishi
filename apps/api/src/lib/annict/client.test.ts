@@ -24,6 +24,7 @@ import {
   fetchAnnictViewerRecords,
   fetchAnnictWorkDetail,
   fetchAnnictWorkEpisodes,
+  normalizeAnnictSeasonName,
   searchAnnictWorksByTitles,
 } from "@/lib/annict/client";
 
@@ -153,6 +154,25 @@ describe("exchangeAnnictCode", () => {
   });
 });
 
+describe("normalizeAnnictSeasonName", () => {
+  it("enum のシーズン名を年付きの小文字形式にする", () => {
+    expect(normalizeAnnictSeasonName("AUTUMN", 2026)).toBe("2026-autumn");
+    expect(normalizeAnnictSeasonName("WINTER", 2025)).toBe("2025-winter");
+  });
+
+  it("既に年付き形式の値はそのまま返す", () => {
+    expect(normalizeAnnictSeasonName("2026-spring", 2026)).toBe("2026-spring");
+  });
+
+  it("年が不明なら小文字化だけする", () => {
+    expect(normalizeAnnictSeasonName("SUMMER", null)).toBe("summer");
+  });
+
+  it("シーズン名が無ければ null を返す", () => {
+    expect(normalizeAnnictSeasonName(null, 2026)).toBeNull();
+  });
+});
+
 describe("fetchAnnictLibraryEntries", () => {
   function libraryPage(
     nodes: unknown[],
@@ -175,7 +195,8 @@ describe("fetchAnnictLibraryEntries", () => {
         title: `作品${annictId}`,
         titleKana: null,
         titleEn: null,
-        seasonName: "2026-spring",
+        // Annict GraphQL の Work.seasonName は年を含まない enum
+        seasonName: "SPRING",
         seasonYear: 2026,
         image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
         ...overrides,
@@ -208,6 +229,7 @@ describe("fetchAnnictLibraryEntries", () => {
     expect(entries.map((e) => e.annictWorkId)).toEqual([1, 2]);
     expect(entries[0]?.state).toBe("WATCHING");
     expect(entries[0]?.imageUrl).toBe("https://img/1.jpg");
+    expect(entries[0]?.seasonName).toBe("2026-spring");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     // 2 ページ目は前ページの endCursor を after に載せる
     const secondBody = JSON.parse(fetchMock.mock.calls[1]![1].body);
@@ -429,7 +451,7 @@ describe("searchAnnictWorksByTitle", () => {
       title: `作品${annictId}`,
       titleKana: null,
       titleEn: null,
-      seasonName: "2026-spring",
+      seasonName: "SPRING",
       seasonYear: 2026,
       image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
       ...overrides,
@@ -453,6 +475,7 @@ describe("searchAnnictWorksByTitle", () => {
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
     expect(result.works[0]?.nodeId).toBe("node-1");
+    expect(result.works[0]?.seasonName).toBe("2026-spring");
     expect(result.works[0]?.state).toBeNull();
     expect(result.works[0]?.imageUrl).toBe("https://img/1.jpg");
     expect(result.hasNextPage).toBe(true);
@@ -758,7 +781,7 @@ describe("searchAnnictWorksBySeason", () => {
       title: `作品${annictId}`,
       titleKana: null,
       titleEn: null,
-      seasonName: "2026-spring",
+      seasonName: "SPRING",
       seasonYear: 2026,
       image: { recommendedImageUrl: `https://img/${annictId}.jpg` },
     };
@@ -782,6 +805,7 @@ describe("searchAnnictWorksBySeason", () => {
     );
 
     expect(result.works.map((w) => w.annictWorkId)).toEqual([1, 2]);
+    expect(result.works[0]?.seasonName).toBe("2026-spring");
     expect(result.hasNextPage).toBe(false);
     expect(result.endCursor).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
