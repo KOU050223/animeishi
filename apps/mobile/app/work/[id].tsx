@@ -5,11 +5,13 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import {
-  seasonListHref,
   WorkDetailHeader,
   WorkDetailInfo,
-  workMediaLabel,
 } from "@/components/anime-list/WorkDetailInfo";
+import {
+  seasonListHref,
+  workMediaLabel,
+} from "@/components/anime-list/workDetailFormat";
 import { useWorkCatalogAccess } from "@/lib/annict";
 import { useWorkDetail } from "@/lib/useWorkDetail";
 

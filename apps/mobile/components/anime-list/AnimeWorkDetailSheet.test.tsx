@@ -8,6 +8,7 @@ import {
 import { Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiRequestError } from "@/lib/apiError";
+import { loggedInUser, signedOutUser } from "@/test-utils/auth";
 import { AnimeWorkDetailSheet } from "./AnimeWorkDetailSheet";
 import type { WorkDetailSheetTarget } from "./AnimeWorkDetailSheet";
 
@@ -321,6 +322,7 @@ const sheetElement = (
 describe("AnimeWorkDetailSheet", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    loggedInUser();
     mockUseWorkDetail.mockReturnValue(detailState());
     mockMutateAsync.mockResolvedValue({});
     mockDeleteAsync.mockResolvedValue({});
@@ -1007,6 +1009,18 @@ describe("AnimeWorkDetailSheet", () => {
     );
     await render(sheetElement());
     expect(screen.getByText("作品ページを見る")).toBeTruthy();
+  });
+
+  it("未ログインの閲覧者には作品ページではなく Annict へのリンクを出す", async () => {
+    signedOutUser();
+    // 未ログインでは useWorkDetail が無効になり詳細は取れない。
+    mockUseWorkDetail.mockReturnValue(detailState({ data: undefined }));
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    await render(sheetElement());
+
+    expect(screen.queryByTestId("work-detail-open-page")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("Annict で見る"));
+    expect(openURL).toHaveBeenCalledWith("https://annict.com/works/42");
   });
 
   it("annictWorkId が無い作品では作品ページへの導線を表示しない", async () => {

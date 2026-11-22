@@ -53,13 +53,17 @@ import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { AddToWorkListSheet } from "@/components/work-list";
 import { buildDanimeWorkSearchUrl } from "@/lib/danime/workSearchUrl";
 import {
+  DetailLink,
   SectionTitle,
-  seasonListHref,
   WorkDetailHeader,
   WorkDetailInfo,
-  workMediaLabel,
 } from "./WorkDetailInfo";
-import type { WorkDetailSheetTarget } from "./WorkDetailInfo";
+import {
+  annictWorkUrl,
+  seasonListHref,
+  workMediaLabel,
+} from "./workDetailFormat";
+import type { WorkDetailSheetTarget } from "./workDetailFormat";
 import { useAnimeListPalette } from "./animeListStyles";
 
 const WATCH_STATUSES = Object.keys(WATCH_STATUS_LABELS) as WatchState[];
@@ -74,7 +78,7 @@ function normalizeState(state: string | null | undefined): WatchState | null {
   return state && state in WATCH_STATUS_LABELS ? (state as WatchState) : null;
 }
 
-export type { WorkDetailSheetTarget } from "./WorkDetailInfo";
+export type { WorkDetailSheetTarget } from "./workDetailFormat";
 
 /**
  * アニメ一覧カードを押したときに開く作品詳細シート（issue #347）。
@@ -104,6 +108,7 @@ export function AnimeWorkDetailSheet({
   const { userId } = useAuth();
   const { height } = useWindowDimensions();
   const palette = useAnimeListPalette();
+  const colors = useThemeColors();
   const { t } = useTranslation();
   const detail = useWorkDetail(work?.annictWorkId ?? null);
   const upsert = useUpsertWatchHistory();
@@ -317,7 +322,16 @@ export function AnimeWorkDetailSheet({
                 mediaLabel={mediaLabel}
                 onOpenSeasonList={openSeasonList}
               />
-              {work.annictWorkId ? (
+              {!work.annictWorkId ? null : userId == null ? (
+                // 未ログイン（公開プロフィールの閲覧者）は作品ページも詳細情報も
+                // 開けない（AuthGuard と useWorkDetail がサインインを要求する）ため、
+                // 作品を追える唯一の導線として Annict リンクを出す。
+                <DetailLink
+                  label={t("Annict で見る")}
+                  url={annictWorkUrl(work.annictWorkId)}
+                  color={colors.primaryText}
+                />
+              ) : (
                 <TouchableOpacity
                   className="flex-row items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-3"
                   onPress={openWorkPage}
@@ -332,7 +346,7 @@ export function AnimeWorkDetailSheet({
                   </Text>
                   <Ionicons name="chevron-forward" size={16} color="#ffffff" />
                 </TouchableOpacity>
-              ) : null}
+              )}
               {isConnectionLoading ? (
                 // 連携状態が確定するまでチップ/ゲートのどちらも出さない
                 // （連携済みユーザーに一瞬ゲートを見せないため。一覧と同じ扱い）。
