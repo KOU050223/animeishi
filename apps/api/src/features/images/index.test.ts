@@ -321,12 +321,23 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
           rateLimiter,
         );
         expect(res.status).toBe(404);
-        // r パラメータ付きの応答は、リトライとみなさない値でもクライアントに残さない
         expect(res.headers.get("cache-control")).toBe("no-store");
         await res.arrayBuffer();
         expect(rateLimiter.limit).not.toHaveBeenCalled();
       },
     );
+
+    it("リトライとみなさない r 値でもキャッシュミスの応答はクライアントに残さない", async () => {
+      const rateLimiter = limiter(true);
+      const res = await requestWithLimiter(
+        "/images/works/999?r=3",
+        rateLimiter,
+      );
+      expect(res.status).toBe(404);
+      expect(res.headers.get("cache-control")).toBe("no-store");
+      await res.arrayBuffer();
+      expect(rateLimiter.limit).not.toHaveBeenCalled();
+    });
 
     it("limit() が失敗したらキャッシュ済みの応答を返し、オリジンを引かない", async () => {
       const failing = {
