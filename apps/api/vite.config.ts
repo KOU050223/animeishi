@@ -34,6 +34,7 @@ const NODE_POOL_TESTS = [
   "src/lib/annict/client.test.ts",
   "src/features/*/schema.test.ts",
   "src/features/share/guestCta.test.ts",
+  "src/features/share/layout.test.ts",
   "scripts/**/*.test.ts",
 ];
 

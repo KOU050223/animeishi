@@ -14,13 +14,15 @@ function item(overrides: Partial<Item>): Item {
 
 describe("workImageHtml", () => {
   it("プロキシ URL を src に、残りの候補をすべて順に data-fallback へ載せる", () => {
+    // workImageHtml は HtmlEscapedString（他のテンプレートへ安全に埋め込める
+    // ブランド型）を返すため、文字列アサーション用にプリミティブへ戻す。
     const html = workImageHtml(
       item({
         resolvedImageUrl: "https://s4.anilist.co/42.jpg",
         imageUrl: "https://official.example.com/og.png",
       }),
       "https://api.example.com/share/tier-lists/tok",
-    );
+    ).toString();
 
     expect(html).toContain('src="https://api.example.com/images/works/42"');
     expect(html).toContain(
@@ -33,7 +35,7 @@ describe("workImageHtml", () => {
     const html = workImageHtml(
       item({}),
       "https://api.example.com/share/tier-lists/tok",
-    );
+    ).toString();
 
     expect(html).toContain('src="https://api.example.com/images/works/42"');
     expect(html).not.toContain("data-fallback");
@@ -44,7 +46,7 @@ describe("workImageHtml", () => {
     const html = workImageHtml(
       item({ imageUrl: "https://evil.example.com/x.png?'),alert(1)//" }),
       "https://api.example.com/share/tier-lists/tok",
-    );
+    ).toString();
     const onerror = /onerror="([^"]*)"/.exec(html)?.[1] ?? "";
     expect(onerror).not.toContain("evil.example.com");
   });
