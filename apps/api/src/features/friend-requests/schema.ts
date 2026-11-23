@@ -4,6 +4,7 @@ import {
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /me/friend-requests のボディ。userId は申請先（addressee）の Clerk user ID。
 export const friendRequestCreateSchema = z.object({
@@ -79,6 +80,7 @@ export const sendFriendRequestRoute = createRoute({
   tags: ["friend-requests"],
   summary: "フレンド申請を送る（冪等）。相手からの申請済みなら即成立",
   security: bearerAuth,
+  middleware: userRateLimit("FRIEND_REQUEST_RATE_LIMITER"),
   request: {
     body: {
       content: { "application/json": { schema: friendRequestCreateSchema } },
@@ -97,6 +99,7 @@ export const sendFriendRequestRoute = createRoute({
     403: jsonError("ブロック関係にある相手"),
     404: jsonError("対象ユーザーが存在しない"),
     409: jsonError("すでにフレンド"),
+    429: jsonError("レート制限（Retry-After ヘッダ付き）"),
   },
 });
 

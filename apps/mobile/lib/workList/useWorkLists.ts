@@ -353,7 +353,19 @@ export function useToggleWorkListLike() {
             { headers },
           );
       if (!res.ok) {
-        throw new ApiRequestError(res.status, "いいねの更新に失敗しました");
+        // 流量制限ミドルウェアの 429 は OpenAPI 経由ではないのでルートの型に
+        // 含まれない。実行時には返るため number として比較する
+        const status = res.status as number;
+        if (status === 429) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new ApiRequestError(
+            status,
+            body?.error ?? "いいねの更新に失敗しました",
+          );
+        }
+        throw new ApiRequestError(status, "いいねの更新に失敗しました");
       }
       return res.json();
     },
