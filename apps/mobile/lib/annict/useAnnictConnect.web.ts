@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import * as Sentry from "@sentry/react-native";
+import { flushSentry } from "@/lib/observability";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@clerk/expo";
 import {
@@ -235,7 +235,7 @@ export function useAnnictConnect(): UseAnnictConnect {
         await flushAnnictFunnel();
         try {
           await Promise.race([
-            Sentry.flush(),
+            flushSentry(),
             new Promise((resolve) => setTimeout(resolve, 2000)),
           ]);
         } catch {

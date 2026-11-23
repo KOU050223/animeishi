@@ -8,7 +8,7 @@
 import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import Constants from "expo-constants";
-import * as Sentry from "@sentry/react-native";
+import { logInfo } from "@/lib/observability";
 import {
   ANNICT_FUNNEL_EVENT,
   EventRateLimiter,
@@ -130,7 +130,7 @@ async function send(
         attrs[options?.userKeyAttr ?? TRACK_EVENT_ATTRS.userKey] = userKey;
       }
     }
-    Sentry.logger.info(name, attrs);
+    logInfo(name, attrs);
   } catch {
     // 計測送信の失敗は握りつぶす（UI 操作に影響させない）。
   }
