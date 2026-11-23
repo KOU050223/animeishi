@@ -260,8 +260,11 @@ function tierLabelTextColor(backgroundColor: string): string {
 // JSON 配列で載せた残りの候補を先頭から順に試し、尽きたら要素ごと消す
 // （壊れた画像アイコンを出さない）。URL は属性値として escape 済みのものを
 // dataset から読むだけで、スクリプト本体にユーザー由来の値は埋め込まない。
-const WORK_IMAGE_ONERROR =
+export const WORK_IMAGE_ONERROR =
   "var a=[];try{a=JSON.parse(this.dataset.fallback||'[]')}catch(e){}var u=a.shift();if(u){this.dataset.fallback=JSON.stringify(a);this.src=u}else{this.remove()}";
+
+/** 候補が無い画像の読み込み失敗時に要素ごと消すハンドラ。 */
+export const REMOVE_IMAGE_ONERROR = "this.remove()";
 
 export function workImageHtml(
   item: {
@@ -290,7 +293,7 @@ export function workImageHtml(
   const fallbackAttr =
     fallbacks.length > 0
       ? ` data-fallback="${escapeHtml(JSON.stringify(fallbacks))}" onerror="${WORK_IMAGE_ONERROR}"`
-      : ` onerror="this.remove()"`;
+      : ` onerror="${REMOVE_IMAGE_ONERROR}"`;
   return `<img class="work-image" src="${escapeHtml(src)}"${fallbackAttr} alt="" loading="lazy" />`;
 }
 
@@ -539,7 +542,7 @@ export function characterImageHtml(
 ): string {
   const src = item.imageUrl;
   if (!src || !isSafeImageUrl(src)) return "";
-  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.remove()" />`;
+  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="${REMOVE_IMAGE_ONERROR}" />`;
 }
 
 export function buildSharedCharacterTierListHtml(

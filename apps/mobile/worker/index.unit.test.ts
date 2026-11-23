@@ -458,3 +458,88 @@ describe("wrangler.toml の run_worker_first", () => {
     },
   );
 });
+
+describe("セキュリティヘッダ", () => {
+  const FORCED = {
+    "strict-transport-security": "max-age=31536000; includeSubDomains",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "x-frame-options": "DENY",
+  };
+
+  it.each([
+    ["/share/tier-lists/tok-1", {}],
+    ["/", {}],
+    ["/welcome", {}],
+    ["/sign-in", {}],
+    ["/sign-in", { method: "POST" }],
+  ])(
+    "%s の応答に強制ヘッダと Report-Only の CSP が付く",
+    async (path, init) => {
+      const env = makeEnv({ assetsResponse: () => shellResponse() });
+      const res = await worker.fetch(
+        req(`https://animeishi.uomi.dev${path}`, init),
+        env,
+      );
+      for (const [name, value] of Object.entries(FORCED)) {
+        expect(res.headers.get(name)).toBe(value);
+      }
+      expect(res.headers.get("content-security-policy")).toBeNull();
+      expect(res.headers.get("content-security-policy-report-only")).toContain(
+        "frame-ancestors 'none'",
+      );
+    },
+  );
+
+  it("API から中継した共有ページの CSP は上書きしない", async () => {
+    const apiCsp = "default-src 'none'; img-src 'self' https:";
+    const env = makeEnv({
+      apiResponse: () =>
+        new Response("<p>share</p>", {
+          headers: {
+            "content-type": "text/html",
+            "content-security-policy-report-only": apiCsp,
+          },
+        }),
+    });
+    const res = await worker.fetch(
+      req("https://animeishi.uomi.dev/share/tier-lists/tok-1"),
+      env,
+    );
+    expect(res.headers.get("content-security-policy-report-only")).toBe(apiCsp);
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("リダイレクトの Location と Vary は保たれる", async () => {
+    const res = await worker.fetch(
+      req("https://animeishi.uomi.dev/"),
+      makeEnv(),
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "https://animeishi.uomi.dev/welcome",
+    );
+    expect(res.headers.get("vary")).toContain("cookie");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("CSP の connect-src に API_ORIGIN を含める", async () => {
+    const res = await worker.fetch(
+      req("https://animeishi.uomi.dev/welcome"),
+      makeEnv(),
+    );
+    expect(res.headers.get("content-security-policy-report-only")).toMatch(
+      /connect-src [^;]*https:\/\/api\.example\.com/,
+    );
+  });
+
+  it("静的アセット直配信用の public/_headers も同じ値を付ける", () => {
+    const headersFile = readFileSync(
+      new URL("../public/_headers", import.meta.url),
+      "utf8",
+    ).toLowerCase();
+    for (const [name, value] of Object.entries(FORCED)) {
+      expect(headersFile).toContain(`  ${name}: ${value.toLowerCase()}`);
+    }
+  });
+});

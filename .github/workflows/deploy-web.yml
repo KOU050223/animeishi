@@ -60,7 +60,16 @@ jobs:
           # （preview-web.yml と同じ既定値・apps/mobile/lib/annict/oauth.ts 参照）。
           EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI: ${{ vars.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI || format('https://animeishi-web-production.{0}.workers.dev/annict', vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05') }}
 
+      # Worker が CSP（Report-Only）の許可先と違反レポート先をビルド時と同じ
+      # 公開値から組み立てるため --var で渡す（issue #714、worker/securityHeaders.ts）。
       - name: Deploy
-        run: pnpm --filter @animeishi/mobile exec wrangler deploy --env production
+        run: |
+          set -euo pipefail
+          vars=()
+          [ -n "$CLERK_PUBLISHABLE_KEY" ] && vars+=(--var "CLERK_PUBLISHABLE_KEY:${CLERK_PUBLISHABLE_KEY}")
+          [ -n "$SENTRY_DSN" ] && vars+=(--var "SENTRY_DSN:${SENTRY_DSN}")
+          pnpm --filter @animeishi/mobile exec wrangler deploy --env production "${vars[@]}"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
