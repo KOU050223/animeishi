@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";

@@ -50,7 +50,7 @@ import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { BackButton } from "@/components/ui";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeColors } from "@/lib/theme";
 
 // 行に出す「登録しない理由」。表示文言（i18n）への変換は描画側で行う。

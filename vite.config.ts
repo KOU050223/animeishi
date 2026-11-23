@@ -101,6 +101,20 @@ export default defineConfig({
           "react/preserve-manual-memoization": "error",
           "react/incompatible-library": "error",
           "react/no-deriving-state-in-effects": "error",
+          // パッケージのトップから import すると全アイコンセットの glyphmap が
+          // Web バンドルに入る（issue #717）。
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@expo/vector-icons",
+                  message:
+                    'Import the icon set by subpath (e.g. "@expo/vector-icons/Ionicons") so unused glyphmaps stay out of the bundle.',
+                },
+              ],
+            },
+          ],
         },
       },
       // apps/api の旧 .oxlintrc.json。db.insert / update / delete の直叩きを

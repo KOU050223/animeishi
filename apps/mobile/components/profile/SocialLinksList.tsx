@@ -1,5 +1,5 @@
 import { Linking, Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import type { SocialLink, SocialLinkKind } from "@/lib/socialLinks";
 import { socialLinkLabel } from "@/lib/socialLinks";
