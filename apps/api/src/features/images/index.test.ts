@@ -159,7 +159,6 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       TEST_BINDINGS,
     );
     expect(retried.status).toBe(200);
-    // リトライ URL の応答はクライアントに保存させない
     expect(retried.headers.get("cache-control")).toBe("no-store");
     expect(new Uint8Array(await retried.arrayBuffer())).toEqual(PNG_BYTES);
 
@@ -322,6 +321,8 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
           rateLimiter,
         );
         expect(res.status).toBe(404);
+        // r パラメータ付きの応答は、リトライとみなさない値でもクライアントに残さない
+        expect(res.headers.get("cache-control")).toBe("no-store");
         await res.arrayBuffer();
         expect(rateLimiter.limit).not.toHaveBeenCalled();
       },

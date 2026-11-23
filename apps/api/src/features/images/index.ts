@@ -48,7 +48,8 @@ export const images = new Hono<{
   // edge に残っていると画像が用意できてもキャッシュが返り続けるため、この要求
   // だけは参照を飛ばしてオリジンで再評価する。取り込みが済んでいれば後段の
   // cache.put で正規キーのエントリも更新される。
-  const retry = isRetryAttempt(c.req.query("r"));
+  const rParam = c.req.query("r");
+  const retry = isRetryAttempt(rParam);
   const gate: RetryGate = retry
     ? await retryGate(
         c.env.IMAGE_RETRY_RATE_LIMITER,
@@ -77,7 +78,9 @@ export const images = new Hono<{
     hit.headers.delete("cache-tag");
     // ?r= は再評価の合図なので、迂回を許さなかった応答（保存済みの 404 等）を
     // リトライ URL でクライアントに残すと、制限解除後も同じ再試行が API に届かない。
-    if (retry) hit.headers.set("cache-control", "no-store");
+    // リトライとみなさない値（r=3 等）の URL も、将来有効になったとき残っていると
+    // 同じ問題になるため、r パラメータ付きの応答は一律保存させない。
+    if (rParam !== undefined) hit.headers.set("cache-control", "no-store");
     return hit;
   }
 
@@ -109,7 +112,7 @@ export const images = new Hono<{
   }
   // ?r= への応答はリトライ URL でクライアントに残さない（stored へは
   // 写らないよう cache.put の後で上書きする）。
-  if (retry) res.headers.set("cache-control", "no-store");
+  if (rParam !== undefined) res.headers.set("cache-control", "no-store");
   return res;
 });
 
