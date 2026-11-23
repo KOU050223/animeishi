@@ -125,6 +125,17 @@ describe("CORS プリフライト", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-methods")).toContain("PUT");
   });
+
+  it("セキュリティヘッダを付けても CORS の許可は変わらない", async () => {
+    const res = await preflight("GET");
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "https://animeishi.uomi.dev",
+    );
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("cross-origin-resource-policy")).toBeNull();
+  });
 });
 
 describe("scheduled cron の失敗通知（issue #233）", () => {
