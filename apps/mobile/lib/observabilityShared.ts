@@ -14,6 +14,7 @@ import {
   type ErrorKind,
 } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
+import { resolveRuntime } from "@/lib/observabilityRuntime";
 
 // Sentry.init に渡すパラメータ。initObservability が
 // EXPO_PUBLIC_* 環境変数と app.json の値から組み立てる。
@@ -126,11 +127,4 @@ function isConnectivityError(type: string, message: string): boolean {
   return /network request failed|failed to fetch|load failed|networkerror|timed? ?out|econn|aborted/i.test(
     `${type} ${message}`,
   );
-}
-
-function resolveRuntime(): string {
-  if (Platform.OS === "web") return "browser";
-  return (globalThis as { HermesInternal?: unknown }).HermesInternal
-    ? "hermes"
-    : "jsc";
 }

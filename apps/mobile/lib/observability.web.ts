@@ -13,8 +13,14 @@ export type { ObservabilityEnv } from "@/lib/observabilityShared";
 
 // SDK ロード前に積むイベント。初期化後に順番通り流す。
 // DSN 未設定では SDK を読み込まずバッファが溜まり続けるため上限を設ける。
+// mechanism はグローバルハンドラ由来のイベントに付け、再送時も
+// 「未処理」のまま Sentry に届くようにする。
 type QueuedEvent =
-  | { kind: "error"; error: unknown }
+  | {
+      kind: "error";
+      error: unknown;
+      mechanism?: { type: string; handled: boolean };
+    }
   | { kind: "log"; name: string; attributes: Record<string, string> };
 
 const BUFFER_LIMIT = 50;
@@ -23,22 +29,43 @@ const pendingEvents: QueuedEvent[] = [];
 let initialized = false;
 let sentry: SentryModule | null = null;
 let loadPromise: Promise<SentryModule | null> | null = null;
+// 初回の遅延ロードがスケジュールどおり発火したか。失敗後の再試行を
+// 新しいイベント契機に限定するためのフラグ（発火前にイベントが来ても
+// このフラグのおかげで遅延性は崩れない）。
+let initialLoadRequested = false;
+
+function sentryEnabled(): boolean {
+  return isSentryEnabled(process.env.EXPO_PUBLIC_SENTRY_DSN);
+}
 
 function enqueue(event: QueuedEvent): void {
   if (pendingEvents.length >= BUFFER_LIMIT) pendingEvents.shift();
   pendingEvents.push(event);
+  // 初回ロードが失敗していると loadPromise が null のまま残る。
+  // 次のイベントを契機に再試行して取りこぼしを減らす。
+  if (initialLoadRequested && !loadPromise && !sentry && sentryEnabled()) {
+    void loadSentry();
+  }
 }
 
 // SDK ロード前に window 上のエラーを拾う。init 後は SDK 自身の
 // GlobalHandlers が捕捉するため、こちらは外して二重送信を防ぐ。
 function onGlobalError(event: ErrorEvent): void {
   if (sentry) return;
-  enqueue({ kind: "error", error: event.error ?? event.message });
+  enqueue({
+    kind: "error",
+    error: event.error ?? event.message,
+    mechanism: { type: "onerror", handled: false },
+  });
 }
 
 function onUnhandledRejection(event: PromiseRejectionEvent): void {
   if (sentry) return;
-  enqueue({ kind: "error", error: event.reason });
+  enqueue({
+    kind: "error",
+    error: event.reason,
+    mechanism: { type: "onunhandledrejection", handled: false },
+  });
 }
 
 // 初回描画を優先するため SDK の読み込みはアイドル時に回す。
@@ -74,10 +101,17 @@ function loadSentry(): Promise<SentryModule | null> {
       );
       sentry = module;
       // init 以降のイベントは SDK 側のハンドラが拾うので、溜まった分だけ
-      // 流してから自前のグローバルハンドラを外す。
+      // 流してから自前のグローバルハンドラを外す。グローバルハンドラ由来
+      // のイベントは mechanism を復元して「未処理」として送る。
       for (const event of pendingEvents.splice(0)) {
         if (event.kind === "error") {
-          module.captureException(event.error);
+          if (event.mechanism) {
+            module.captureException(event.error, {
+              mechanism: event.mechanism,
+            });
+          } else {
+            module.captureException(event.error);
+          }
         } else {
           module.logger.info(event.name, event.attributes);
         }
@@ -101,12 +135,15 @@ function loadSentry(): Promise<SentryModule | null> {
 export function initObservability(): void {
   if (initialized) return;
   initialized = true;
+  // DSN 未設定では SDK を読み込まないので、送り先のないバッファや
+  // グローバルハンドラを残さない。
+  if (!sentryEnabled()) return;
   if (typeof window !== "undefined") {
     window.addEventListener("error", onGlobalError);
     window.addEventListener("unhandledrejection", onUnhandledRejection);
   }
-  if (!isSentryEnabled(process.env.EXPO_PUBLIC_SENTRY_DSN)) return;
   scheduleAfterFirstPaint(() => {
+    initialLoadRequested = true;
     void loadSentry();
   });
 }
@@ -127,6 +164,7 @@ export function captureException(error: unknown): void {
     sentry.captureException(error);
     return;
   }
+  if (!sentryEnabled()) return;
   enqueue({ kind: "error", error });
 }
 
@@ -139,13 +177,15 @@ export function logInfo(
     sentry.logger.info(name, attributes);
     return;
   }
+  if (!sentryEnabled()) return;
   enqueue({ kind: "log", name, attributes });
 }
 
 // ページ遷移前に送信待ちのイベントを流す（lib/annict/useAnnictConnect.web.ts）。
 // SDK の読み込みがまだ始まっていなければここで開始してから flush する。
 export async function flushSentry(): Promise<boolean> {
-  if (!sentry && isSentryEnabled(process.env.EXPO_PUBLIC_SENTRY_DSN)) {
+  if (!sentry && sentryEnabled()) {
+    initialLoadRequested = true;
     await loadSentry();
   }
   return sentry ? sentry.flush() : false;
@@ -157,6 +197,7 @@ export function resetObservabilityForTest(): void {
   initialized = false;
   sentry = null;
   loadPromise = null;
+  initialLoadRequested = false;
   pendingEvents.length = 0;
   if (typeof window !== "undefined") {
     window.removeEventListener("error", onGlobalError);

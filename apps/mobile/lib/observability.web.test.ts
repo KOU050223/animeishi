@@ -55,6 +55,7 @@ let removeEventListenerSpy: jest.Spied<typeof window.removeEventListener>;
 beforeEach(() => {
   jest.useFakeTimers();
   process.env.EXPO_PUBLIC_SENTRY_DSN = VALID_DSN;
+  jest.mocked(loadSentrySdk).mockClear();
   jest.mocked(loadSentrySdk).mockResolvedValue(Sentry);
   jest.mocked(Sentry.init).mockClear();
   jest.mocked(Sentry.captureException).mockClear();
@@ -107,6 +108,8 @@ describe("initObservability (web)", () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
     expect(Sentry.logger.info).not.toHaveBeenCalled();
     expect(Sentry.flush).not.toHaveBeenCalled();
+    // 送り先のないバッファやグローバルハンドラは残さない
+    expect(addEventListenerSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -140,8 +143,13 @@ describe("初期化前のイベントバッファ", () => {
 
     await flushLazyInit();
     expect(Sentry.captureException).toHaveBeenCalledTimes(2);
-    expect(Sentry.captureException).toHaveBeenNthCalledWith(1, syncError);
-    expect(Sentry.captureException).toHaveBeenNthCalledWith(2, rejection);
+    // グローバルハンドラ由来は「未処理」として届くよう mechanism を復元する
+    expect(Sentry.captureException).toHaveBeenNthCalledWith(1, syncError, {
+      mechanism: { type: "onerror", handled: false },
+    });
+    expect(Sentry.captureException).toHaveBeenNthCalledWith(2, rejection, {
+      mechanism: { type: "onunhandledrejection", handled: false },
+    });
   });
 
   test("error イベントに error が無いときは message を送る", async () => {
@@ -150,7 +158,26 @@ describe("初期化前のイベントバッファ", () => {
     onError?.({ message: "Script error." });
 
     await flushLazyInit();
-    expect(Sentry.captureException).toHaveBeenCalledWith("Script error.");
+    expect(Sentry.captureException).toHaveBeenCalledWith("Script error.", {
+      mechanism: { type: "onerror", handled: false },
+    });
+  });
+
+  test("初回ロード失敗後は次のイベントで SDK ロードを再試行する", async () => {
+    jest.mocked(loadSentrySdk).mockRejectedValueOnce(new Error("offline"));
+    initObservability();
+    await flushLazyInit();
+    expect(loadSentrySdk).toHaveBeenCalledTimes(1);
+    expect(Sentry.init).not.toHaveBeenCalled();
+
+    // ロード失敗後に届いたイベントを契機に再試行し、バッファと一緒に送る
+    const error = new Error("retry trigger");
+    captureException(error);
+    await flushLazyInit();
+
+    expect(loadSentrySdk).toHaveBeenCalledTimes(2);
+    expect(Sentry.init).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(error);
   });
 
   test("初期化後のイベントはバッファを介さずそのまま送る", async () => {
