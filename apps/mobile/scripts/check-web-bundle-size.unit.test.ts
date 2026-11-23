@@ -44,7 +44,7 @@ describe("extractScriptSrcs", () => {
 });
 
 describe("measureDist", () => {
-  it("各 HTML が読む script の gzip 合計をページごとに返す", async () => {
+  it("各 HTML が読む script の gzip 合計をページごとに返す", () => {
     addFile("a.js", "a".repeat(1000));
     addFile("b.js", "b".repeat(500));
     addFile(
@@ -59,7 +59,7 @@ describe("measureDist", () => {
     // どの HTML からも読まれない遅延チャンクはページの合計に入らない
     addFile("lazy.js", "lazy".repeat(10000));
 
-    const { pages, missing } = await measureDist(dist);
+    const { pages, missing } = measureDist(dist);
     expect(missing).toEqual([]);
     const byPage = new Map(pages.map((p) => [p.page, p]));
     const index = byPage.get("index.html");
@@ -79,7 +79,7 @@ describe("measureDist", () => {
     expect(route?.totalGzip).toBeGreaterThan(0);
   });
 
-  it("外部 URL と data: の script は計測対象にしない", async () => {
+  it("外部 URL と data: の script は計測対象にしない", () => {
     addFile("a.js", "a".repeat(100));
     addFile(
       "index.html",
@@ -87,20 +87,20 @@ describe("measureDist", () => {
         '<script src="//cdn.example.com/y.js"></script>' +
         '<script defer src="/a.js"></script>',
     );
-    const { pages } = await measureDist(dist);
+    const { pages } = measureDist(dist);
     expect(pages[0].scripts.map((s: { file: string }) => s.file)).toEqual([
       "a.js",
     ]);
   });
 
-  it("HTML が参照するファイルが無いとき missing に列挙する", async () => {
+  it("HTML が参照するファイルが無いとき missing に列挙する", () => {
     addFile("index.html", '<script defer src="/gone.js"></script>');
-    const { missing } = await measureDist(dist);
+    const { missing } = measureDist(dist);
     expect(missing).toEqual(["index.html: /gone.js"]);
   });
 
-  it("dist が無いとき案内メッセージで失敗する", async () => {
-    await expect(measureDist(path.join(dist, "nope"))).rejects.toThrow(
+  it("dist が無いとき案内メッセージで失敗する", () => {
+    expect(() => measureDist(path.join(dist, "nope"))).toThrow(
       "expo export -p web",
     );
   });

@@ -13,15 +13,18 @@
 // いずれも apps/mobile 直下からの実行を想定するが、--dist はどこからでもよい。
 // GITHUB_STEP_SUMMARY があればレポートを Markdown で追記する。
 
-import { readdir, readFile, writeFile, appendFile } from "node:fs/promises";
+import {
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
 // ページあたりの初回 JS 合計（gzip）の上限。
-// 2026-11-24 計測: index.html 1,054,009 B、全ページ最大 1,071,533 B
-// （(tabs)/social/index.html）。最大ページ比で約 +17% の余裕を持たせてある。
-// 変えるときは計測値と根拠を PR に書く。
+// 根拠・計測値・変更手順は docs/development/web-bundle-size.md。
 export const BUDGET_GZIP_BYTES = Math.round(1.2 * 1024 * 1024); // 1,258,291 B
 
 const DEFAULT_DIST = path.resolve(import.meta.dirname, "../dist");
@@ -58,12 +61,12 @@ function resolveScriptFile(distDir, htmlPath, src) {
   return path.resolve(path.dirname(htmlPath), pathname);
 }
 
-async function listHtmlFiles(dir, base = dir) {
+function listHtmlFiles(dir, base = dir) {
   const files = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...(await listHtmlFiles(full, base)));
+      files.push(...listHtmlFiles(full, base));
     } else if (entry.isFile() && entry.name.endsWith(".html")) {
       files.push(path.relative(base, full));
     }
@@ -75,17 +78,20 @@ async function listHtmlFiles(dir, base = dir) {
  * dist 以下の全 *.html について、<script src> が読むファイルの
  * バイト数と gzip サイズを計測する。
  * @param {string} distDir
- * @returns {Promise<{pages: Array, missing: string[]}>}
+ * @returns {{pages: Array, missing: string[]}}
  */
-export async function measureDist(distDir) {
-  const htmlFiles = await listHtmlFiles(distDir).catch((e) => {
+export function measureDist(distDir) {
+  let htmlFiles;
+  try {
+    htmlFiles = listHtmlFiles(distDir);
+  } catch (e) {
     if (e.code === "ENOENT") {
       throw new Error(
         `${distDir} が見つかりません。先に expo export -p web を実行してください`,
       );
     }
     throw e;
-  });
+  }
   if (htmlFiles.length === 0) {
     throw new Error(`${distDir} に *.html がありません`);
   }
@@ -96,7 +102,7 @@ export async function measureDist(distDir) {
 
   for (const page of htmlFiles) {
     const htmlPath = path.join(distDir, page);
-    const html = await readFile(htmlPath, "utf8");
+    const html = readFileSync(htmlPath, "utf8");
     const scripts = [];
     const seen = new Set();
     for (const src of extractScriptSrcs(html)) {
@@ -104,14 +110,16 @@ export async function measureDist(distDir) {
       if (file === null || seen.has(file)) continue;
       seen.add(file);
       if (!gzipCache.has(file)) {
-        const content = await readFile(file).catch((e) => {
+        let content;
+        try {
+          content = readFileSync(file);
+        } catch (e) {
           if (e.code === "ENOENT") {
             missing.push(`${page}: ${src}`);
-            return null;
+            continue;
           }
           throw e;
-        });
-        if (content === null) continue;
+        }
         gzipCache.set(file, {
           file: path.relative(distDir, file),
           bytes: content.byteLength,
@@ -192,14 +200,16 @@ export function renderMarkdown(report, { budgetGzipBytes, baseline }) {
   if (report.label) lines.push(`対象: ${report.label}`);
   lines.push("");
 
-  const violations = budgetViolations(report, budgetGzipBytes);
+  const violations = new Set(
+    budgetViolations(report, budgetGzipBytes).map((p) => p.page),
+  );
   const shown = report.pages.slice(0, 8);
   const indexPage = report.pages.find((p) => p.page === "index.html");
   if (indexPage && !shown.includes(indexPage)) shown.push(indexPage);
   lines.push("| page | gzip (B) | raw (B) |");
   lines.push("| --- | ---: | ---: |");
   for (const p of shown) {
-    const mark = violations.includes(p) ? " ❌" : "";
+    const mark = violations.has(p.page) ? " ❌" : "";
     lines.push(
       `| ${p.page}${mark} | ${fmt(p.totalGzip)} | ${fmt(p.totalBytes)} |`,
     );
@@ -251,14 +261,15 @@ export function renderMarkdown(report, { budgetGzipBytes, baseline }) {
     lines.push("");
   }
 
-  if (violations.length > 0) {
-    const names = violations
+  if (violations.size > 0) {
+    const names = report.pages
+      .filter((p) => violations.has(p.page))
       .slice(0, 10)
       .map((p) => p.page)
       .join(", ");
     const rest =
-      violations.length > 10 ? ` 他 ${violations.length - 10} ページ` : "";
-    lines.push(`**${violations.length} ページが上限超過**: ${names}${rest}`);
+      violations.size > 10 ? ` 他 ${violations.size - 10} ページ` : "";
+    lines.push(`**${violations.size} ページが上限超過**: ${names}${rest}`);
     lines.push("");
   }
   return lines.join("\n");
@@ -313,9 +324,9 @@ function parseArgs(argv) {
   return opts;
 }
 
-async function main() {
+function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const { pages, missing } = await measureDist(opts.dist);
+  const { pages, missing } = measureDist(opts.dist);
   if (missing.length > 0) {
     console.error("HTML が参照するファイルが見つかりません:");
     for (const m of missing) console.error(`  ${m}`);
@@ -326,10 +337,10 @@ async function main() {
 
   let baseline = null;
   if (opts.baseline) {
-    baseline = JSON.parse(await readFile(opts.baseline, "utf8"));
+    baseline = JSON.parse(readFileSync(opts.baseline, "utf8"));
   }
   if (opts.writeReport) {
-    await writeFile(opts.writeReport, JSON.stringify(report, null, 2) + "\n");
+    writeFileSync(opts.writeReport, JSON.stringify(report, null, 2) + "\n");
   }
 
   const markdown = renderMarkdown(report, {
@@ -338,7 +349,7 @@ async function main() {
   });
   console.log(markdown);
   if (process.env.GITHUB_STEP_SUMMARY) {
-    await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
   }
 
   if (opts.check) {
@@ -371,8 +382,10 @@ const invokedAs =
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedAs) {
-  main().catch((e) => {
+  try {
+    main();
+  } catch (e) {
     console.error(e.message ?? e);
     process.exit(2);
-  });
+  }
 }

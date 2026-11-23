@@ -77,8 +77,10 @@ jobs:
         env:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
-          git fetch --depth 1 origin "${{ github.base_ref }}"
-          git worktree add bundle-base FETCH_HEAD
+          # ベースはイベント発火時点の base.sha で固定する。先端 ref を取ると
+          # ベース更新後の再実行で差分に無関係な変化が混ざる
+          git fetch --depth 1 origin "${{ github.event.pull_request.base.sha }}"
+          git worktree add bundle-base "${{ github.event.pull_request.base.sha }}"
           vp -C bundle-base install
           pnpm -C bundle-base --filter @animeishi/mobile exec expo export --platform web
           node apps/mobile/scripts/check-web-bundle-size.mjs \
