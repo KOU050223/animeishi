@@ -25,6 +25,8 @@ const DEFAULT_TRANSITION_MS = 200;
  * （issue #522 で観測された全面「No img」の再現経路）。
  * 本当に画像が無い作品でも数回は叩くが、プロキシ側の 404 は
  * MISS_CACHE_CONTROL でキャッシュされるため再試行は edge で完結する。
+ * 回数を増やすときは API の MAX_RETRY_ATTEMPT と IMAGE_RETRY_RATE_LIMITER
+ * （apps/api の features/images と wrangler.toml）も合わせる（issue #713）。
  */
 const RETRY_DELAYS_MS = [1500, 4000];
 
