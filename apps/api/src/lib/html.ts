@@ -27,7 +27,8 @@ type HtmlValue =
 /**
  * hono/html の html を同期値専用に絞ったタグ。hono 側の型は Promise の
  * 補間を許すため戻り値が Promise との union になるが、ここでは値の型から
- * Promise を外しているので常に同期的に解決し、HtmlEscapedString が返る。
+ * Promise（と raw のコールバック用の関数型）を外しているので常に同期的に
+ * 解決し、HtmlEscapedString が返る。
  */
 export const html = honoHtml as (
   strings: TemplateStringsArray,

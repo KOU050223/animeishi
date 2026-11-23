@@ -17,7 +17,6 @@ describe("renderSharePage のエスケープ（issue #716）", () => {
       guestCta: { source: "share_tier_list", label: `<u>作る</u>` },
     });
 
-    // 埋め込んだタグ・属性はすべて実体参照になり、ページ内に生のまま出ない
     expect(page).toContain(
       "<title>&lt;img src=x onerror=&quot;alert(1)&quot;&gt;</title>",
     );
@@ -34,11 +33,9 @@ describe("renderSharePage のエスケープ（issue #716）", () => {
       "<li><strong>3</strong> &lt;i&gt;作品&lt;/i&gt;</li>",
     );
     expect(page).toContain("&lt;u&gt;作る&lt;/u&gt;</a>");
-    // canonical のクエリの & は属性内で &amp; になる
     expect(page).toContain(
       'rel="canonical" href="https://animeishi.uomi.dev/share/x?a=1&amp;b=2"',
     );
-    // html`` で組み立てた bodyHtml はそのまま、中の文字列はエスケープされる
     expect(page).toContain("<p>body &lt;em&gt;escaped&lt;/em&gt;</p>");
     expect(page).not.toContain("<script>");
   });
