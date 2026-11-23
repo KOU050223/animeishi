@@ -61,6 +61,7 @@ export function CharacterTierWorkPicker({
     >
       <Pressable
         onPress={onClose}
+        accessibilityRole="button"
         style={{
           flex: 1,
           backgroundColor: colors.scrim,
@@ -70,6 +71,7 @@ export function CharacterTierWorkPicker({
       >
         <Pressable
           onPress={() => {}}
+          accessibilityRole="none"
           style={{
             backgroundColor: colors.surface,
             borderTopLeftRadius: 16,

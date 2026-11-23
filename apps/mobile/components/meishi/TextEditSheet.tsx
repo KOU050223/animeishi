@@ -48,6 +48,7 @@ export function TextEditSheet({
       >
         <Pressable
           onPress={onClose}
+          accessibilityRole="button"
           style={{
             flex: 1,
             backgroundColor: colors.scrim,
@@ -57,6 +58,7 @@ export function TextEditSheet({
         >
           <Pressable
             onPress={() => {}}
+            accessibilityRole="none"
             style={{
               backgroundColor: colors.surface,
               borderTopLeftRadius: 16,

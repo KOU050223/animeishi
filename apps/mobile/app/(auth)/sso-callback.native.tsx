@@ -28,6 +28,7 @@ export default function SsoCallbackScreen() {
         <Link href="/sign-in" asChild>
           <TouchableOpacity
             className="mt-6"
+            accessibilityRole="link"
             testID="sso-callback-back-to-sign-in"
           >
             <Text className="text-blue-600 dark:text-blue-400">

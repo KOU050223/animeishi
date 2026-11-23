@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { AccessibilityRole, StyleProp, ViewStyle } from "react-native";
 
 /**
  * 子にボタンを含められる押下可能なコンテナの共通インターフェース。
@@ -24,5 +24,10 @@ export type CardPressableProps = {
   contentStyle?: StyleProp<ViewStyle>;
   /** コンテナ自体のアクセシビリティラベル（「{title}の詳細を開く」等）。 */
   accessibilityLabel: string;
+  /**
+   * コンテナのロール。既定は "button"。リンクとして振る舞うものは
+   * 呼び出し側が "link" 等を渡して上書きする。
+   */
+  accessibilityRole?: AccessibilityRole;
   testID?: string;
 };

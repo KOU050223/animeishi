@@ -236,6 +236,7 @@ export default function SignInScreen() {
                   className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
                   onPress={handleSignIn}
                   disabled={loading}
+                  accessibilityRole="button"
                   testID="sign-in-button"
                 >
                   {loading ? (

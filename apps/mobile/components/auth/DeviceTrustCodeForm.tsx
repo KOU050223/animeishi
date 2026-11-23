@@ -127,6 +127,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
         className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
         onPress={handleVerify}
         disabled={loading}
+        accessibilityRole="button"
         testID="verify-device-code-button"
       >
         {loading ? (
@@ -142,6 +143,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
         className="items-center mb-4"
         onPress={handleResend}
         disabled={loading}
+        accessibilityRole="button"
         testID="resend-device-code-button"
       >
         <Text className="text-sm text-indigo-600 dark:text-indigo-400">
@@ -152,6 +154,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
         className="items-center mb-4"
         onPress={onBack}
         disabled={loading}
+        accessibilityRole="button"
         testID="back-to-credentials-button"
       >
         <Text className="text-sm text-slate-500 dark:text-slate-400">

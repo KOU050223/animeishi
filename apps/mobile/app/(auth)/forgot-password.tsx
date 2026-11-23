@@ -222,6 +222,7 @@ export default function ForgotPasswordScreen() {
               className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
               onPress={step === "email" ? handleSendCode : handleReset}
               disabled={loading}
+              accessibilityRole="button"
               testID={
                 step === "email"
                   ? "send-reset-code-button"
@@ -244,6 +245,7 @@ export default function ForgotPasswordScreen() {
                 className="items-center mb-4"
                 onPress={handleSendCode}
                 disabled={loading}
+                accessibilityRole="button"
                 testID="resend-reset-code-button"
               >
                 <Text className="text-sm text-indigo-600 dark:text-indigo-400">

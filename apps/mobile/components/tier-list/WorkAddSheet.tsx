@@ -90,6 +90,7 @@ export function WorkAddSheet({
       >
         <Pressable
           onPress={onClose}
+          accessibilityRole="button"
           style={{
             flex: 1,
             backgroundColor: colors.scrim,
@@ -99,6 +100,7 @@ export function WorkAddSheet({
         >
           <Pressable
             onPress={() => {}}
+            accessibilityRole="none"
             style={{
               backgroundColor: colors.surface,
               borderTopLeftRadius: 16,

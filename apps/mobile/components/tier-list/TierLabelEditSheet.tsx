@@ -57,6 +57,7 @@ export function TierLabelEditSheet({
       >
         <Pressable
           onPress={onClose}
+          accessibilityRole="button"
           style={{
             flex: 1,
             backgroundColor: colors.scrim,
@@ -66,6 +67,7 @@ export function TierLabelEditSheet({
         >
           <Pressable
             onPress={() => {}}
+            accessibilityRole="none"
             style={{
               backgroundColor: colors.surface,
               borderTopLeftRadius: 16,
