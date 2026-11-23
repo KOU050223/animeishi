@@ -4,7 +4,7 @@
 # API が返す OGP 付き共有ページをこのドメインで配信する（issue #408）。
 name = "animeishi-web"
 main = "worker/index.ts"
-compatibility_date = "2025-04-01"
+compatibility_date = "2026-11-23"
 account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 preview_urls = true
 

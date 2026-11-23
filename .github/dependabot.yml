@@ -10,3 +10,84 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # npm。pnpm workspace なので directory は "/" のみでよい
+  # （pnpm-lock.yaml を起点に各パッケージの package.json も更新される）。
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    # groups は version update だけに適用する。security update は
+    # グループ化せず個別 PR で即座に上げる。
+    groups:
+      # Expo SDK 系は expo install --fix が管理する版の範囲（minor / patch）だけを
+      # まとめる。SDK のメジャー更新は react / react-native も含めて手動で行う
+      # （下の ignore 参照）。
+      expo-sdk:
+        applies-to: "version-updates"
+        patterns:
+          - "expo"
+          - "expo-*"
+          - "@expo/*"
+          - "jest-expo"
+          - "babel-preset-expo"
+          - "react-native-*"
+        update-types:
+          - "minor"
+          - "patch"
+      cloudflare:
+        applies-to: "version-updates"
+        patterns:
+          - "wrangler"
+          - "@cloudflare/*"
+          - "workerd"
+          - "miniflare"
+      # 上のグループに入らない patch / minor は 1 PR にまとめる。
+      patch-minor:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # pnpm-workspace.yaml の catalog で版を固定しているもの。
+      # vite / vitest / vite-plus は vp の版に揃えて手動で上げる（issue #250）。
+      # typescript / @typescript/native は TypeScript 6/7 併用構成のため手動（issue #248）。
+      - dependency-name: "vite-plus"
+      - dependency-name: "vite"
+      - dependency-name: "vitest"
+      - dependency-name: "typescript"
+      - dependency-name: "@typescript/native"
+      # react / react-native は Expo SDK のメジャー更新と一体のため手動。
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      # @types/react は react のメジャーに追随させるため、メジャーだけ手動。
+      - dependency-name: "@types/react"
+        update-types:
+          - "version-update:semver-major"
+      # Expo SDK 系のメジャー更新は expo install --fix による SDK 全体の
+      # 更新と一緒に手動で行う（patch / minor は expo-sdk グループで自動化）。
+      - dependency-name: "expo"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "expo-*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@expo/*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "jest-expo"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "babel-preset-expo"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "react-native-*"
+        update-types:
+          - "version-update:semver-major"
