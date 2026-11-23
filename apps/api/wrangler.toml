@@ -15,8 +15,11 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 # 2. 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
 #    issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
 # 作品画像の R2 取り込みは cron ではなく GET /images/works/:id が表示時に行う。
+# cron は production env でのみ回す。デフォルト env も本番 D1 にバインドして
+# いるため、ここで有効にすると同じ DB へ二重に発火し、D1 の rows_read を
+# 倍に消費する（issue #704）。
 [triggers]
-crons = ["*/10 * * * *"]
+crons = []
 
 # Sentry release 識別用。デプロイごとの version id / tag が
 # env.CF_VERSION_METADATA に入る（animeishi-api@<id> を組み立てる）。
@@ -75,7 +78,9 @@ CLERK_AUTHORIZED_PARTIES = "https://animeishi.uomi.dev,https://animeishi-web-pro
 PUBLIC_WEB_URL = "https://animeishi.uomi.dev"
 
 [env.production.triggers]
-crons = ["*/10 * * * *"]
+# 10 分おきだと未解決行の棚卸しクエリが annict_works を全行スキャンし続け、
+# D1 無料枠の rows_read 上限に達したため 30 分おきに伸ばす（issue #704）。
+crons = ["*/30 * * * *"]
 
 # version_metadata は env 間で継承されないため各 env にも定義する。
 [env.production.version_metadata]
