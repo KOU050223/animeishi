@@ -951,24 +951,31 @@ function ColorGrid({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: 6 }}
     >
-      {COLOR_PALETTE.map((c) => (
-        <Pressable
-          key={c}
-          onPress={() => onChange(c)}
-          accessibilityRole="button"
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            backgroundColor: c,
-            borderWidth: c.toLowerCase() === value.toLowerCase() ? 2 : 1,
-            borderColor:
-              c.toLowerCase() === value.toLowerCase()
-                ? colors.primaryBorder
-                : colors.border,
-          }}
-        />
-      ))}
+      {COLOR_PALETTE.map((c) => {
+        const selected = c.toLowerCase() === value.toLowerCase();
+        return (
+          <Pressable
+            key={c}
+            onPress={() => onChange(c)}
+            accessibilityRole="button"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 13,
+              backgroundColor: c,
+              borderWidth: selected ? 2 : 1,
+              borderColor: selected ? colors.primaryBorder : colors.border,
+              // 見本色と同系色の選択枠（indigo 見本など）でも選択状態が
+              // 判別できるよう、間隔を空けた外側リングを足す。
+              // border だけだと見本の塗りと同化する。
+              outlineColor: colors.primaryBorder,
+              outlineStyle: "solid",
+              outlineWidth: selected ? 2 : 0,
+              outlineOffset: 1,
+            }}
+          />
+        );
+      })}
     </ScrollView>
   );
 }

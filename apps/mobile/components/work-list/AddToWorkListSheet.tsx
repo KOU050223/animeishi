@@ -194,7 +194,12 @@ function CreateListFooter({
         {submitting ? (
           <ActivityIndicator size="small" color={colors.onPrimary} />
         ) : (
-          <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
+          <Text
+            style={{
+              color: canSubmit ? colors.onPrimary : colors.textMuted,
+              fontWeight: "600",
+            }}
+          >
             {t("作成して追加")}
           </Text>
         )}

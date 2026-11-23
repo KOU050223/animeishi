@@ -104,7 +104,7 @@ function StoryRing({
       <View
         style={[
           styles.ring,
-          { borderColor: unread ? colors.primaryBorder : colors.textMuted },
+          { borderColor: unread ? colors.primaryBorder : colors.border },
         ]}
       >
         {friend.actor.profileImageUrl ? (

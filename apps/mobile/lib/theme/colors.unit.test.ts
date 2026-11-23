@@ -243,6 +243,14 @@ function combos(c: ThemeColors, disabledSurface: string): Combo[] {
       bg: c.primarySoft,
       min: WCAG_AA_UI,
     },
+    // 同じ位置に切り替わる 2 状態（未読リング/既読リング）は隣接色として
+    // 互いに見分けられる必要がある。
+    {
+      usage: "状態区別: 未読リングと既読リング (FriendStoryRail)",
+      fg: c.primaryBorder,
+      bg: c.border,
+      min: WCAG_AA_UI,
+    },
   ];
 }
 

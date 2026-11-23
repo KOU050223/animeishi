@@ -85,7 +85,7 @@ function LikeButton({
         size={22}
         color={
           isOwn
-            ? colors.textMuted
+            ? colors.border
             : data.likedByMe
               ? colors.danger
               : colors.textMuted

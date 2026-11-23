@@ -134,7 +134,7 @@ function DetailHeader({
             size={22}
             color={
               isOwn
-                ? colors.textMuted
+                ? colors.border
                 : data.likedByMe
                   ? colors.danger
                   : colors.textMuted

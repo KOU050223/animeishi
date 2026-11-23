@@ -265,7 +265,7 @@ function PublicWorkListCard({
             size={18}
             color={
               isOwn
-                ? colors.textMuted
+                ? colors.border
                 : item.likedByMe
                   ? colors.danger
                   : colors.textMuted
