@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # PR では新しいコミットで中断するが、main push は Vite Task のキャッシュを保存するため中断しない
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Vite Task のキャッシュ（issue #253、https://viteplus.dev/guide/github-actions-cache）
 #
 # vp run の typecheck / lint / fmt:check / test はタスクの結果を node_modules/.vite/task-cache に

@@ -97,7 +97,7 @@ async function genresOf(
   annictWorkId: number,
 ) {
   const row = await db.query.annictWorks.findFirst({
-    where: (t, { eq }) => eq(t.annictWorkId, annictWorkId),
+    where: (t, { eq: eq_ }) => eq_(t.annictWorkId, annictWorkId),
   });
   return row;
 }

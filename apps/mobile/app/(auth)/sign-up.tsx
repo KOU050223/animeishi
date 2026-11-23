@@ -68,12 +68,12 @@ export default function SignUpScreen() {
     if (showPasskeyPrompt) passkeyPromptPending.current = true;
     // finalize() は { error } を返すが、ネットワーク障害等では例外も
     // あり得る。どちらで失敗しても促進フラグが残らないよう例外も捕捉する。
-    const { error } = await signUp
+    const { error: finalizeError } = await signUp
       .finalize()
       .catch((err: unknown) => ({ error: err }));
-    if (error) {
+    if (finalizeError) {
       passkeyPromptPending.current = false;
-      return error;
+      return finalizeError;
     }
     if (showPasskeyPrompt) {
       setPendingPasskeyPrompt(true);
@@ -185,8 +185,10 @@ export default function SignUpScreen() {
     setError(null);
 
     try {
-      const { error } = await signUp.verifications.verifyEmailCode({ code });
-      throwIfAuthError(error);
+      const { error: verifyError } = await signUp.verifications.verifyEmailCode(
+        { code },
+      );
+      throwIfAuthError(verifyError);
       if (signUp.status === "complete" && signUp.createdSessionId) {
         throwIfAuthError(await activateSessionAndContinue());
       }

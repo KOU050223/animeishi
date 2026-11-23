@@ -51,6 +51,13 @@ export default defineConfig({
         files: ["apps/mobile/**", "apps/api/**", "packages/danime-core/**"],
         options: { printWidth: 80 },
       },
+      {
+        // hono/html の html`` テンプレートの中身は生成される HTML そのものに
+        // なるため、埋め込み言語の整形で空白を変えられると出力が変わる
+        // （issue #716）。api では埋め込み言語の整形を無効にする。
+        files: ["apps/api/**"],
+        options: { printWidth: 80, embeddedLanguageFormatting: "off" },
+      },
     ],
   },
   // `vp lint`（vite-plus 同梱の oxlint 1.89）の設定（issue #267）。旧来は各パッケージが
@@ -75,6 +82,8 @@ export default defineConfig({
       "typescript/await-thenable": "error",
       "typescript/no-unnecessary-type-assertion": "error",
       "typescript/restrict-template-expressions": "error",
+      "no-shadow": "error",
+      "typescript/switch-exhaustiveness-check": "error",
     },
     overrides: [
       // apps/mobile の旧 oxlint.config.ts。universe/native プリセットに
@@ -101,6 +110,20 @@ export default defineConfig({
           "react/preserve-manual-memoization": "error",
           "react/incompatible-library": "error",
           "react/no-deriving-state-in-effects": "error",
+          // パッケージのトップから import すると全アイコンセットの glyphmap が
+          // Web バンドルに入る（issue #717）。
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@expo/vector-icons",
+                  message:
+                    'Import the icon set by subpath (e.g. "@expo/vector-icons/Ionicons") so unused glyphmaps stay out of the bundle.',
+                },
+              ],
+            },
+          ],
         },
       },
       // apps/api の旧 .oxlintrc.json。db.insert / update / delete の直叩きを
@@ -108,6 +131,10 @@ export default defineConfig({
       {
         files: ["apps/api/**"],
         rules: {
+          // toSorted() を使えるのは Workers で動く apps/api だけ。RN 0.88 の Hermes V1
+          // （hermes-v260318099）は Array.prototype.toSorted を実装していないため、
+          // mobile と、mobile にも取り込まれる packages では有効にしない（issue #737）。
+          "unicorn/no-array-sort": "error",
           "no-restricted-properties": [
             "error",
             {

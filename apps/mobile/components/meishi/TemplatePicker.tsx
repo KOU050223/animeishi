@@ -1,5 +1,5 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useThemeColors } from "@/lib/theme";
 import { useTranslation } from "react-i18next";

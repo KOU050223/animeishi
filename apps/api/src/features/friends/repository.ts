@@ -96,8 +96,8 @@ export function friendsRepository(
   // フレンドでなければ FriendNotFoundError を投げる。
   async function assertFriend(friendId: string): Promise<void> {
     const row = await db.query.friends.findFirst({
-      where: (t, { and, eq: eq_ }) =>
-        and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+      where: (t, { and: and_, eq: eq_ }) =>
+        and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
       columns: { id: true },
     });
     if (!row) throw new FriendNotFoundError(friendId);
@@ -247,8 +247,8 @@ export function friendsRepository(
         // 「再会」として記録する（issue #662）。同日の再交換は
         // createReunionRecords 内で 1 回にまとめる。
         const existing = await db.query.friends.findFirst({
-          where: (t, { and, eq: eq_ }) =>
-            and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+          where: (t, { and: and_, eq: eq_ }) =>
+            and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
           columns: { id: true },
         });
         if (existing) {
@@ -263,8 +263,8 @@ export function friendsRepository(
         }
       }
       const created = await db.query.friends.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
       });
       if (!created) throw new Error("フレンド追加に失敗しました");
       const meetingCount = await countMeetingRecords(
@@ -331,8 +331,8 @@ export function friendsRepository(
     async getFriendNote(friendId: string): Promise<FriendNote | null> {
       await assertFriend(friendId);
       const row = await db.query.friendNotes.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.ownerId, currentUserId), eq_(t.friendId, friendId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.ownerId, currentUserId), eq_(t.friendId, friendId)),
         columns: { body: true, updatedAt: true },
       });
       return row ?? null;
@@ -386,8 +386,8 @@ export function friendsRepository(
       items: FriendUpdateActivityRow[];
     }> {
       const friendRow = await db.query.friends.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
         columns: { id: true },
       });
       if (!friendRow) throw new FriendNotFoundError(friendId);

@@ -854,7 +854,7 @@ export function publicTierListsRepository(
             : row.kind === "character"
               ? characterItems.filter((i) => i.listId === row.id)
               : customItems.filter((i) => i.listId === row.id);
-        const sorted = [...source].sort(
+        const sorted = [...source].toSorted(
           (a, b) =>
             rankOf(a.tierKey) - rankOf(b.tierKey) || a.position - b.position,
         );

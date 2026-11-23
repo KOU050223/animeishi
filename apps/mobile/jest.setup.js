@@ -47,12 +47,13 @@ jest.mock("react-native-reanimated", () =>
 // @expo/vector-icons は初回レンダリング時にフォント読み込み状態を setState する。
 // アイコンそのものを検証しないテストでは非同期更新だけがノイズになるため、
 // 軽量な no-op コンポーネントに差し替える。
-jest.mock("@expo/vector-icons", () => {
+jest.mock("@expo/vector-icons/Ionicons", () => {
   const Icon = () => null;
   Icon.glyphMap = {};
 
   return {
-    Ionicons: Icon,
+    __esModule: true,
+    default: Icon,
   };
 });
 

@@ -133,6 +133,10 @@ describe("getReportErrorMessage", () => {
     ).toBe(
       "通報の送信回数が上限に達しました。しばらくしてから再度お試しください",
     );
+    // edge のユーザー単位流量制限（issue #715）
+    expect(
+      getReportErrorMessage(new ApiRequestError(429, "reason", "rate_limited")),
+    ).toBe("リクエストが多すぎます。しばらくしてからお試しください");
   });
 
   it("未知のエラーは汎用文言にする", () => {
@@ -149,10 +153,12 @@ describe("useBlockUser", () => {
       status: 200,
       json: async () => ({ ok: true }),
     });
-    const { client, wrapper } = makeWrapper();
+    const { client, wrapper: clientWrapper } = makeWrapper();
     const invalidateSpy = jest.spyOn(client, "invalidateQueries");
 
-    const { result } = await renderHook(() => useBlockUser(), { wrapper });
+    const { result } = await renderHook(() => useBlockUser(), {
+      wrapper: clientWrapper,
+    });
     await act(async () => {
       result.current.mutate("user_target");
     });

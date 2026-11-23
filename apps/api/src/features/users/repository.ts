@@ -193,7 +193,7 @@ function reportDedupCondition(
         eq(reports.reportedTierListKind, target.tierListKind),
         eq(reports.reportedTierListId, target.id),
       );
-    default:
+    case "user":
       return and(
         eq(reports.reporterId, reporterId),
         eq(reports.reportedUserId, targetUserId),
@@ -401,6 +401,33 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
         columns: { deletedAt: true },
       });
       return row?.deletedAt;
+    },
+
+    /**
+     * requireAuth が残存 JWT の拒否（tombstone 確認）とプロビジョニング要否
+     * （users 存在確認）を判定するための値をまとめて取得する。
+     * db.batch で D1 への往復を 1 回にまとめる（issue #711）。
+     * LEFT JOIN 1 本にしないのは、「tombstone あり・users 行なし」状態を
+     * 「両方なし」と区別できないため。
+     */
+    async getMyAuthState(): Promise<{
+      userExists: boolean;
+      deletedAt: Date | undefined;
+    }> {
+      const [tombstoneRows, userRows] = await db.batch([
+        db
+          .select({ deletedAt: deletedUsers.deletedAt })
+          .from(deletedUsers)
+          .where(eq(deletedUsers.userId, currentUserId)),
+        db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, currentUserId)),
+      ]);
+      return {
+        userExists: userRows.length > 0,
+        deletedAt: tombstoneRows[0]?.deletedAt,
+      };
     },
 
     /**

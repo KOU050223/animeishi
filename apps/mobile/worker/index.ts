@@ -7,7 +7,12 @@
 // 届くが、ローカル開発やパターン変更時に他パスが来ても
 // ASSETS へフォールバックできるよう、ここでもパスを見て振り分ける。
 
-type Env = {
+import {
+  type SecurityHeadersEnv,
+  withSecurityHeaders,
+} from "./securityHeaders";
+
+type Env = SecurityHeadersEnv & {
   /** 静的アセット（dist/）へのバインディング。 */
   ASSETS: Fetcher;
   /**
@@ -175,82 +180,87 @@ function forwardToApi(
   return fetch(forwarded);
 }
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const pathname = url.pathname;
+async function route(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
-    if (isSharePath(pathname)) {
-      return forwardToApi(request, url, env, { crawler: false });
-    }
+  if (isSharePath(pathname)) {
+    return forwardToApi(request, url, env, { crawler: false });
+  }
 
+  if (
+    pathname === "/" &&
+    request.method === "GET" &&
+    !hasClerkSession(request)
+  ) {
+    // 同一 URL の応答が Cookie で分かれるため、ブラウザ・中間キャッシュが
+    // 別状態の応答を使い回さないよう Vary を付ける（下の 200 側にも付く）。
+    return withVary(
+      Response.redirect(new URL("/welcome", request.url), 302),
+      "Cookie",
+    );
+  }
+
+  // /user/:uid はクローラにだけ API の OGP HTML を返す。ブラウザは
+  // 従来どおり SPA（フレンド申請等のインタラクションを維持するため）。
+  // 同一 URL で UA により応答が変わるので両分岐に Vary: User-Agent を付ける。
+  // 転送は GET/HEAD のみ。API の該当ルートは GET 専用で、UA 偽装した
+  // POST ボディを API に流す意味がないため SPA へ回す。
+  if (isUserProfilePath(pathname)) {
     if (
-      pathname === "/" &&
-      request.method === "GET" &&
-      !hasClerkSession(request)
+      (request.method === "GET" || request.method === "HEAD") &&
+      isCrawler(request)
     ) {
-      // 同一 URL の応答が Cookie で分かれるため、ブラウザ・中間キャッシュが
-      // 別状態の応答を使い回さないよう Vary を付ける（下の 200 側にも付く）。
-      return withVary(
-        Response.redirect(new URL("/welcome", request.url), 302),
-        "Cookie",
-      );
-    }
-
-    // /user/:uid はクローラにだけ API の OGP HTML を返す。ブラウザは
-    // 従来どおり SPA（フレンド申請等のインタラクションを維持するため）。
-    // 同一 URL で UA により応答が変わるので両分岐に Vary: User-Agent を付ける。
-    // 転送は GET/HEAD のみ。API の該当ルートは GET 専用で、UA 偽装した
-    // POST ボディを API に流す意味がないため SPA へ回す。
-    if (isUserProfilePath(pathname)) {
-      if (
-        (request.method === "GET" || request.method === "HEAD") &&
-        isCrawler(request)
-      ) {
-        // API は /:uid のみ受け付ける strict ルーティングのため、
-        // 末尾スラッシュ付き URL をそのまま転送すると 404 になる
-        url.pathname = pathname.replace(/\/$/, "");
-        const res = await forwardToApi(request, url, env, { crawler: true });
-        return withVary(res, "User-Agent");
-      }
-      const res = await env.ASSETS.fetch(request);
+      // API は /:uid のみ受け付ける strict ルーティングのため、
+      // 末尾スラッシュ付き URL をそのまま転送すると 404 になる
+      url.pathname = pathname.replace(/\/$/, "");
+      const res = await forwardToApi(request, url, env, { crawler: true });
       return withVary(res, "User-Agent");
     }
+    const res = await env.ASSETS.fetch(request);
+    return withVary(res, "User-Agent");
+  }
 
-    // 公開4ページはプリレンダ HTML をそのまま配信する。
-    if (["/welcome", "/privacy", "/terms", "/support"].includes(pathname)) {
-      return env.ASSETS.fetch(request);
-    }
+  // 公開4ページはプリレンダ HTML をそのまま配信する。
+  if (["/welcome", "/privacy", "/terms", "/support"].includes(pathname)) {
+    return env.ASSETS.fetch(request);
+  }
 
-    // SPA フォールバックには noindex を付ける。
-    // HTML 以外の応答（アセット・manifest 等）はそのまま返す。
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return env.ASSETS.fetch(request);
-    }
-    // HEAD も GET と同じ注入済みヘッダを返すため、本文取得は GET で行う。
-    const assetRequest =
-      request.method === "GET"
-        ? request
-        : new Request(request.url, { headers: request.headers });
-    const res = await env.ASSETS.fetch(assetRequest);
-    if (!(res.headers.get("content-type") ?? "").includes("text/html")) {
-      return res;
-    }
-    const html = addNoindex(await res.text());
-    const headers = new Headers(res.headers);
-    // 本文書き換えで古くなるキャッシュ検証系のヘッダを落とす。
-    headers.delete("content-length");
-    headers.delete("etag");
-    headers.delete("content-encoding");
-    let response = new Response(request.method === "HEAD" ? null : html, {
-      status: res.status,
-      statusText: res.statusText,
-      headers,
-    });
-    // GET / は Cookie の有無で 302 と分かれるため、200 側にも Vary を付ける。
-    if (pathname === "/") {
-      response = withVary(response, "Cookie");
-    }
-    return response;
+  // SPA フォールバックには noindex を付ける。
+  // HTML 以外の応答（アセット・manifest 等）はそのまま返す。
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return env.ASSETS.fetch(request);
+  }
+  // HEAD も GET と同じ注入済みヘッダを返すため、本文取得は GET で行う。
+  const assetRequest =
+    request.method === "GET"
+      ? request
+      : new Request(request.url, { headers: request.headers });
+  const res = await env.ASSETS.fetch(assetRequest);
+  if (!(res.headers.get("content-type") ?? "").includes("text/html")) {
+    return res;
+  }
+  const html = addNoindex(await res.text());
+  const headers = new Headers(res.headers);
+  // 本文書き換えで古くなるキャッシュ検証系のヘッダを落とす。
+  headers.delete("content-length");
+  headers.delete("etag");
+  headers.delete("content-encoding");
+  let response = new Response(request.method === "HEAD" ? null : html, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+  // GET / は Cookie の有無で 302 と分かれるため、200 側にも Vary を付ける。
+  if (pathname === "/") {
+    response = withVary(response, "Cookie");
+  }
+  return response;
+}
+
+export default {
+  async fetch(request, env) {
+    // public/_headers は Worker が返した応答には付かないため、ここで全応答に付ける。
+    return withSecurityHeaders(await route(request, env), env);
   },
 } satisfies ExportedHandler<Env>;

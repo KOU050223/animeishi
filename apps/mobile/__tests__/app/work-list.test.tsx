@@ -50,11 +50,11 @@ jest.mock("@/lib/webUrl", () => ({
 }));
 
 jest.mock("@/components/AnnictSoftGate", () => {
-  const React = require("react");
+  const ActualReact = require("react");
   const { View } = require("react-native");
   return {
     AnnictSoftGate: (props: { testID?: string }) =>
-      React.createElement(View, { testID: props.testID }),
+      ActualReact.createElement(View, { testID: props.testID }),
   };
 });
 

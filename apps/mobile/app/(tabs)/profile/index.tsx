@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Input } from "@/components/ui";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import { Button } from "@/components/ui/Button";

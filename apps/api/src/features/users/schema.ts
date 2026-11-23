@@ -4,6 +4,7 @@ import {
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /users/:id/report のボディ。reason はプリセット理由ラベル or 自由入力を
 // そのまま受ける（UGC モデレーション用の通報理由）。
@@ -28,9 +29,10 @@ const jsonError = (description: string) => ({
 });
 
 // 通報レート制限（429）の応答。code で制限種別を区別する（issue #148）。
+// "rate_limited" は edge のユーザー単位流量制限（issue #715）で返す種別。
 const reportRateLimitedSchema = z.object({
   error: z.string(),
-  code: z.enum(["duplicate_target", "hourly_limit"]),
+  code: z.enum(["duplicate_target", "hourly_limit", "rate_limited"]),
 });
 
 export const reportUserRoute = createRoute({
@@ -39,6 +41,7 @@ export const reportUserRoute = createRoute({
   tags: ["users"],
   summary: "ユーザーを通報する",
   security: bearerAuth,
+  middleware: userRateLimit("REPORT_RATE_LIMITER"),
   request: {
     params: userIdParamSchema,
     body: {

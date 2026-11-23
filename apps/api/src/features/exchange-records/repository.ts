@@ -389,8 +389,8 @@ export function exchangeRecordsRepository(
       },
     ): Promise<{ record: ExchangeRecord; created: boolean }> {
       const friend = await db.query.friends.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
         columns: { id: true },
       });
       if (!friend) throw new NotFriendError(friendId);
@@ -436,8 +436,8 @@ export function exchangeRecordsRepository(
       },
     ): Promise<ExchangeRecord> {
       const existing = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.id, recordId), eq_(t.ownerId, currentUserId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.id, recordId), eq_(t.ownerId, currentUserId)),
       });
       if (!existing) throw new ExchangeRecordNotFoundError(recordId);
 
@@ -472,8 +472,8 @@ export function exchangeRecordsRepository(
      */
     async snapshotKeyForDelete(recordId: number): Promise<string | null> {
       const row = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.id, recordId), eq_(t.ownerId, currentUserId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.id, recordId), eq_(t.ownerId, currentUserId)),
         columns: { cardSnapshotKey: true },
       });
       if (!row) throw new ExchangeRecordNotFoundError(recordId);

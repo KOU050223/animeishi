@@ -241,7 +241,7 @@ describe("POST /me/watch-histories/bulk", () => {
         where: (t, { eq }) => eq(t.userId, USER_ID),
       });
       expect(
-        histories.map((h) => h.annictWorkId).sort((a, b) => a - b),
+        histories.map((h) => h.annictWorkId).toSorted((a, b) => a - b),
       ).toEqual([1, 2]);
       expect(histories[0]?.state).toBe("WATCHED");
 
@@ -256,7 +256,7 @@ describe("POST /me/watch-histories/bulk", () => {
         .filter((b) => (b.query as string).includes("updateStatus"))
         .map((b) => b.variables.workId);
       expect(
-        updateVars.sort((a: string, b: string) => a.localeCompare(b)),
+        updateVars.toSorted((a: string, b: string) => a.localeCompare(b)),
       ).toEqual(["Work-1", "Work-2"]);
     });
 
@@ -286,7 +286,7 @@ describe("POST /me/watch-histories/bulk", () => {
       });
       // Annict 更新に失敗した作品は D1 にも書かれない（Annict が正）。
       expect(
-        histories.map((h) => h.annictWorkId).sort((a, b) => a - b),
+        histories.map((h) => h.annictWorkId).toSorted((a, b) => a - b),
       ).toEqual([1, 3]);
     });
 
@@ -373,7 +373,7 @@ describe("POST /me/watch-histories/bulk", () => {
       const updateWorkIds = calls
         .filter((b) => (b.query as string).includes("updateStatus"))
         .map((b) => b.variables.workId)
-        .sort((a: string, b: string) => a.localeCompare(b));
+        .toSorted((a: string, b: string) => a.localeCompare(b));
       // 5 はキャッシュの nodeId、6 は searchWorks で解決した Node ID が使われる。
       expect(updateWorkIds).toEqual(["Work-6", "Work-cached"]);
       // キャッシュ済みの 5 には nodeId 解決の searchWorks を投げない。
@@ -568,7 +568,7 @@ describe("POST /me/watch-histories/bulk", () => {
       expect(
         histories
           .map((h) => `${h.annictWorkId}:${h.state}`)
-          .sort((a, b) => a.localeCompare(b)),
+          .toSorted((a, b) => a.localeCompare(b)),
       ).toEqual(["1:WATCHED", "2:WATCHING"]);
     });
 

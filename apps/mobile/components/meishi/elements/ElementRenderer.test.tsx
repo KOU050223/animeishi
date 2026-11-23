@@ -261,7 +261,7 @@ describe("ElementRenderer", () => {
     });
 
     it("未獲得なら（未獲得）付きで表示する", async () => {
-      const ctx: MeishiRenderContext = {
+      const unearnedCtx: MeishiRenderContext = {
         profile: {},
         achievements: [
           {
@@ -272,7 +272,7 @@ describe("ElementRenderer", () => {
           },
         ],
       };
-      expect(await renderedText(badgeElement, ctx)).toBe(
+      expect(await renderedText(badgeElement, unearnedCtx)).toBe(
         "視聴 10 作品（未獲得）",
       );
     });

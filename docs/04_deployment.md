@@ -14,6 +14,8 @@ D1 マイグレーションはデプロイワークフローに組み込み済�
 | API（プレビュー） | `animeishi-api-preview` | 同上。本番とは別の D1 / R2 を持つ | 同上の `[env.preview]` |
 | Web | `animeishi-web-production` | Expo Router の web エクスポート（SPA 静的アセット）＋ `/share/*` を API へ転送する小さな Worker（issue #408） | [`apps/mobile/wrangler.toml`](../apps/mobile/wrangler.toml) の `[env.production]` |
 
+`apps/api/wrangler.toml` のトップレベル（`--env` なしのデフォルト env）はローカル開発（`wrangler dev`・`db:migrate:local`）と vitest 専用で、Cloudflare 上には対応する Worker を置かない。D1 はダミー ID（`00000000-...`）、R2 は存在しない `animeishi-avatars-local` に向けてあり、`--env` を付け忘れた `wrangler deploy` や `wrangler d1 execute animeishi-db --remote` でも本番の D1 / R2 には触れない（issue #712）。wrangler.toml のバインディングを使って Cloudflare 上の Worker・D1・R2 を操作するコマンド（`deploy`・`versions upload`・`secret put`・`d1 execute --remote`・`d1 migrations apply --remote` など）には必ず `--env production` か `--env preview` を付ける（`d1 create`・`r2 bucket create` のようにリソース名を直接指定するコマンドは対象外）。
+
 ### 共有ページ URL（`/share/*`）の経路
 
 ユーザー向けの共有 URL（tier 表・作品リスト・視聴履歴など）はすべて
@@ -252,9 +254,11 @@ ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-anime
 GitHub Actions を待たずにデプロイする場合:
 
 ```bash
-# Web
+# Web（--var を省くと CSP から Clerk の許可先と Sentry への違反レポート先が抜ける。issue #714）
 pnpm --filter @animeishi/mobile build:web
-pnpm --filter @animeishi/mobile deploy:web
+pnpm --filter @animeishi/mobile deploy:web \
+  --var "CLERK_PUBLISHABLE_KEY:${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}" \
+  --var "SENTRY_DSN:${EXPO_PUBLIC_SENTRY_DSN}"
 
 # API
 pnpm --filter @animeishi/api exec wrangler deploy --env production

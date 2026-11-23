@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
 import type { MeishiElementType } from "@/lib/meishi/types";
 import { useThemeColors } from "@/lib/theme";

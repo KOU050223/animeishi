@@ -41,17 +41,20 @@ export default function NearbySpikeScreen() {
     if (!spikeEnabled) return;
 
     const subscriptions = [
-      nearbyExchange.addListener("onPeerFound", ({ peerId, displayName }) => {
-        setPeers((prev) => ({
-          ...prev,
-          [peerId]: {
-            peerId,
-            displayName,
-            meters: null,
-            exchanged: false,
-          },
-        }));
-      }),
+      nearbyExchange.addListener(
+        "onPeerFound",
+        ({ peerId, displayName: peerName }) => {
+          setPeers((prev) => ({
+            ...prev,
+            [peerId]: {
+              peerId,
+              displayName: peerName,
+              meters: null,
+              exchanged: false,
+            },
+          }));
+        },
+      ),
       nearbyExchange.addListener("onPeerLost", ({ peerId }) => {
         hapticsByPeer.current.delete(peerId);
         setPeers((prev) => {
@@ -76,6 +79,8 @@ export default function NearbySpikeScreen() {
             case "strong":
               haptics.impactHeavy();
               break;
+            case "none":
+              break;
           }
           setPeers((prev) => {
             const peer = prev[peerId];
@@ -99,8 +104,8 @@ export default function NearbySpikeScreen() {
         }
         setErrorMessage(`${code}: ${message}`);
       }),
-      nearbyExchange.addListener("onCapability", ({ uwb }) => {
-        setUwb(uwb);
+      nearbyExchange.addListener("onCapability", ({ uwb: supported }) => {
+        setUwb(supported);
       }),
     ];
     nearbyExchange.start({ displayName });

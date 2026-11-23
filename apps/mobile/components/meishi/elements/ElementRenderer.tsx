@@ -28,6 +28,11 @@ function resolveFontFamily(
   // フォント組み込みは Phase 12。現状は system 相当で描画する。
   switch (family) {
     case "system":
+    case "notoSansJp":
+    case "notoSerifJp":
+    case "mPlusRounded":
+    case "rocknRoll":
+    case "shipporiMincho":
     default:
       return undefined;
   }

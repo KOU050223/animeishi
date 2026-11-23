@@ -1,0 +1,7 @@
+# Worker を通らずに静的アセットが直接返す応答のセキュリティヘッダ（issue #714）。
+# Worker が返す応答には worker/securityHeaders.ts が付ける。値は両方で揃える。
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

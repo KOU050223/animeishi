@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { DrizzleDb } from "@/db/client";
-import { escapeHtml } from "@/lib/html";
+import { html, joinHtml, raw, type HtmlEscapedString } from "@/lib/html";
 import {
   fetchFollowingRedirects,
   isPublicImageUrl,
@@ -153,9 +153,9 @@ export async function proxyImage(
   const followed = await fetchFollowingRedirects(target.toString(), {
     timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
     maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
-    isAllowed: async (url) =>
-      isPublicImageUrl(url) &&
-      (resolvedInternally || (await isKnownImageUrl(db, url))),
+    isAllowed: async (location) =>
+      isPublicImageUrl(location) &&
+      (resolvedInternally || (await isKnownImageUrl(db, location))),
   });
   if (followed.kind === "failed") {
     const message = {
@@ -260,8 +260,11 @@ function tierLabelTextColor(backgroundColor: string): string {
 // JSON 配列で載せた残りの候補を先頭から順に試し、尽きたら要素ごと消す
 // （壊れた画像アイコンを出さない）。URL は属性値として escape 済みのものを
 // dataset から読むだけで、スクリプト本体にユーザー由来の値は埋め込まない。
-const WORK_IMAGE_ONERROR =
+export const WORK_IMAGE_ONERROR =
   "var a=[];try{a=JSON.parse(this.dataset.fallback||'[]')}catch(e){}var u=a.shift();if(u){this.dataset.fallback=JSON.stringify(a);this.src=u}else{this.remove()}";
+
+/** 候補が無い画像の読み込み失敗時に要素ごと消すハンドラ。 */
+export const REMOVE_IMAGE_ONERROR = "this.remove()";
 
 export function workImageHtml(
   item: {
@@ -270,7 +273,7 @@ export function workImageHtml(
     imageUrl: string | null;
   },
   requestUrl: string,
-): string {
+): HtmlEscapedString {
   // 自前の画像プロキシ URL を最優先（外部候補の取得・R2 保存はプロキシが担う）。
   // プロキシが 404 を返す作品（サーバからは取れないがブラウザなら表示できる
   // 外部画像など）に備えて、残りの候補を onerror の切り替え先に載せる。
@@ -286,20 +289,22 @@ export function workImageHtml(
     ),
   ];
   const [src, ...fallbacks] = candidates;
-  if (!src) return "";
+  if (!src) return html``;
+  // onerror のハンドラ本文は CSP ハッシュ（SHARE_INLINE_HANDLER_HASHES）と
+  // バイト単位で一致させる必要があるため raw() で埋め、エスケープさせない。
   const fallbackAttr =
     fallbacks.length > 0
-      ? ` data-fallback="${escapeHtml(JSON.stringify(fallbacks))}" onerror="${WORK_IMAGE_ONERROR}"`
-      : ` onerror="this.remove()"`;
-  return `<img class="work-image" src="${escapeHtml(src)}"${fallbackAttr} alt="" loading="lazy" />`;
+      ? html` data-fallback="${JSON.stringify(fallbacks)}" onerror="${raw(WORK_IMAGE_ONERROR)}"`
+      : html` onerror="${raw(REMOVE_IMAGE_ONERROR)}"`;
+  return html`<img class="work-image" src="${src}"${fallbackAttr} alt="" loading="lazy" />`;
 }
 
 /** 作品ポスター。画像が無い・読み込めないときも枠だけは残す。 */
 function posterHtml(
   item: Parameters<typeof workImageHtml>[0],
   requestUrl: string,
-): string {
-  return `<div class="poster">${workImageHtml(item, requestUrl)}</div>`;
+): HtmlEscapedString {
+  return html`<div class="poster">${workImageHtml(item, requestUrl)}</div>`;
 }
 
 /** og:image 用の作品画像 URL。https を優先し、無ければ最初の安全な URL。 */
@@ -344,11 +349,11 @@ const TIER_BOARD_CSS = `
 const TIER_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const TIER_FALLBACK_COLOR = "#e2e8f0";
 
-function tierLabelHtml(tier: TierRow): string {
+function tierLabelHtml(tier: TierRow): HtmlEscapedString {
   const color = TIER_COLOR_PATTERN.test(tier.color.trim())
     ? tier.color.trim()
     : TIER_FALLBACK_COLOR;
-  return `<div class="tier-label" style="background-color: ${color}; color: ${tierLabelTextColor(color)}">${escapeHtml(tier.label)}</div>`;
+  return html`<div class="tier-label" style="background-color: ${color}; color: ${tierLabelTextColor(color)}">${tier.label}</div>`;
 }
 
 export function buildSharedTierListHtml(
@@ -363,7 +368,7 @@ export function buildSharedTierListHtml(
       tiersJson: list.tiersJson,
       items: list.items,
     },
-    ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表（${escapeHtml(list.season)}）`,
+    ownerLine: `${list.ownerUsername} の Tier 表（${list.season}）`,
     ownerUsername: list.ownerUsername,
     requestUrl,
     canonicalUrl,
@@ -387,7 +392,7 @@ export function buildSharedCustomTierListHtml(
       tiersJson: list.tiersJson,
       items: list.items,
     },
-    ownerLine: `${escapeHtml(list.ownerUsername)} の Tier 表`,
+    ownerLine: `${list.ownerUsername} の Tier 表`,
     ownerUsername: list.ownerUsername,
     requestUrl,
     canonicalUrl,
@@ -424,41 +429,40 @@ function buildWorkTierListHtml(input: {
     0,
   );
 
-  const rowsHtml = tiers
-    .map((tier) => {
-      const worksHtml = (itemsByTier.get(tier.key) ?? [])
-        .map(
-          (item) => `<div class="card">
+  const rowsHtml = joinHtml(
+    tiers.map((tier) => {
+      const worksHtml = (itemsByTier.get(tier.key) ?? []).map(
+        (item) => html`<div class="card">
         ${posterHtml(item, input.requestUrl)}
-        <span class="card-title">${escapeHtml(item.title)}</span>
+        <span class="card-title">${item.title}</span>
       </div>`,
-        )
-        .join("");
-      return `<div class="tier-row">
+      );
+      return html`<div class="tier-row">
       ${tierLabelHtml(tier)}
       <div class="tier-items">${worksHtml}</div>
     </div>`;
-    })
-    .join("\n    ");
+    }),
+    "\n    ",
+  );
 
   return renderSharePage({
-    title: `${escapeHtml(input.list.title)} - Animeishi`,
-    metaDescription: `${escapeHtml(input.ownerUsername)} のアニメ Tier 表`,
+    title: `${input.list.title} - Animeishi`,
+    metaDescription: `${input.ownerUsername} のアニメ Tier 表`,
     canonicalUrl: input.canonicalUrl,
     // og:image には先頭の作品画像を使う。クローラは直接取得できる。
     ogImage: pickWorkOgImage(input.list.items, input.requestUrl),
     kind: "Tier 表",
-    heading: escapeHtml(input.list.title),
+    heading: input.list.title,
     ownerLine: input.ownerLine,
     description: input.list.description,
     statsHtml: statsHtml([{ label: "作品", value: placedCount }]),
     bodyHtml:
       tiers.length > 0
-        ? `<div class="board">
+        ? html`<div class="board">
     ${rowsHtml}
   </div>`
-        : `<p class="empty">Tier 表はまだありません。</p>`,
-    pageCss: TIER_BOARD_CSS,
+        : html`<p class="empty">Tier 表はまだありません。</p>`,
+    pageCss: raw(TIER_BOARD_CSS),
     width: "wide",
     guestCta: { source: input.ctaSource, label: TIER_LIST_CTA_LABEL },
   });
@@ -477,42 +481,43 @@ export function buildSharedWorkListHtml(
   requestUrl: string,
   canonicalUrl: string,
 ): string {
-  const itemsHtml = list.items
-    .map((item) => {
+  const itemsHtml = joinHtml(
+    list.items.map((item) => {
       const rank = item.position + 1;
       const season =
         item.seasonName || item.seasonYear !== null
-          ? `<span class="work-meta">${escapeHtml(sharedWatchSeasonLabel(item))}</span>`
+          ? html`<span class="work-meta">${sharedWatchSeasonLabel(item)}</span>`
           : "";
-      return `<li class="rank-item">
+      return html`<li class="rank-item">
       <span class="rank${rank <= 3 ? ` rank-${rank}` : ""}">${rank}</span>
       ${posterHtml(item, requestUrl)}
       <div class="rank-body">
-        <span class="work-title">${escapeHtml(item.title)}</span>
+        <span class="work-title">${item.title}</span>
         ${season}
       </div>
     </li>`;
-    })
-    .join("\n    ");
+    }),
+    "\n    ",
+  );
 
   return renderSharePage({
-    title: `${escapeHtml(list.title)} - Animeishi`,
-    metaDescription: `${escapeHtml(list.ownerUsername)} の作品リスト`,
+    title: `${list.title} - Animeishi`,
+    metaDescription: `${list.ownerUsername} の作品リスト`,
     canonicalUrl,
     ogImage: pickWorkOgImage(list.items, requestUrl),
     kind: "作品リスト",
     guestCta: { source: "share_work_list", label: "あなたも作品リストを作る" },
-    heading: escapeHtml(list.title),
-    ownerLine: `${escapeHtml(list.ownerUsername)} の作品リスト`,
+    heading: list.title,
+    ownerLine: `${list.ownerUsername} の作品リスト`,
     description: list.description,
     statsHtml: statsHtml([{ label: "作品", value: list.items.length }]),
     bodyHtml:
       list.items.length > 0
-        ? `<ol class="ranking">
+        ? html`<ol class="ranking">
     ${itemsHtml}
   </ol>`
-        : `<p class="empty">作品はまだありません。</p>`,
-    pageCss: `
+        : html`<p class="empty">作品はまだありません。</p>`,
+    pageCss: raw(`
     .ranking { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .rank-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; background: var(--surface);
       border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
@@ -526,7 +531,7 @@ export function buildSharedWorkListHtml(
     .rank-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .work-title { font-weight: 600; overflow-wrap: anywhere; }
     .work-meta { color: var(--text-muted); font-size: 0.8rem; }
-`,
+`),
   });
 }
 
@@ -536,10 +541,10 @@ export function workListNotFoundHtml(): string {
 
 export function characterImageHtml(
   item: SharedCharacterTierList["items"][number],
-): string {
+): HtmlEscapedString {
   const src = item.imageUrl;
-  if (!src || !isSafeImageUrl(src)) return "";
-  return `<img class="character-image" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.remove()" />`;
+  if (!src || !isSafeImageUrl(src)) return html``;
+  return html`<img class="character-image" src="${src}" alt="" loading="lazy" onerror="${raw(REMOVE_IMAGE_ONERROR)}" />`;
 }
 
 export function buildSharedCharacterTierListHtml(
@@ -558,26 +563,25 @@ export function buildSharedCharacterTierListHtml(
     0,
   );
 
-  const rowsHtml = tiers
-    .map((tier) => {
-      const charactersHtml = (itemsByTier.get(tier.key) ?? [])
-        .map(
-          (item) => `<div class="card">
+  const rowsHtml = joinHtml(
+    tiers.map((tier) => {
+      const charactersHtml = (itemsByTier.get(tier.key) ?? []).map(
+        (item) => html`<div class="card">
         <div class="poster">${characterImageHtml(item)}</div>
-        <span class="card-title">${escapeHtml(item.name)}</span>
+        <span class="card-title">${item.name}</span>
       </div>`,
-        )
-        .join("");
-      return `<div class="tier-row">
+      );
+      return html`<div class="tier-row">
       ${tierLabelHtml(tier)}
       <div class="tier-items">${charactersHtml}</div>
     </div>`;
-    })
-    .join("\n    ");
+    }),
+    "\n    ",
+  );
 
   return renderSharePage({
-    title: `${escapeHtml(list.title)} - Animeishi`,
-    metaDescription: `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`,
+    title: `${list.title} - Animeishi`,
+    metaDescription: `${list.ownerUsername} の${list.workTitle} キャラクター Tier 表`,
     canonicalUrl,
     // og:image には先頭のキャラクター画像を使う。
     ogImage: list.items
@@ -588,17 +592,17 @@ export function buildSharedCharacterTierListHtml(
       source: "share_character_tier_list",
       label: TIER_LIST_CTA_LABEL,
     },
-    heading: escapeHtml(list.title),
-    ownerLine: `${escapeHtml(list.ownerUsername)} の${escapeHtml(list.workTitle)} キャラクター Tier 表`,
+    heading: list.title,
+    ownerLine: `${list.ownerUsername} の${list.workTitle} キャラクター Tier 表`,
     description: list.description,
     statsHtml: statsHtml([{ label: "キャラクター", value: placedCount }]),
     bodyHtml:
       tiers.length > 0
-        ? `<div class="board">
+        ? html`<div class="board">
     ${rowsHtml}
   </div>`
-        : `<p class="empty">Tier 表はまだありません。</p>`,
-    pageCss: TIER_BOARD_CSS,
+        : html`<p class="empty">Tier 表はまだありません。</p>`,
+    pageCss: raw(TIER_BOARD_CSS),
     width: "wide",
   });
 }
@@ -609,12 +613,12 @@ export function notFoundHtml(): string {
 
 /** 共有リンクが無効なときのページ。kind は「Tier 表」等のプレーンテキスト。 */
 function notFoundPage(kind: string): string {
-  const heading = `${escapeHtml(kind)}が見つかりません`;
+  const heading = `${kind}が見つかりません`;
   return renderSharePage({
     title: `${heading} - Animeishi`,
     kind,
     heading,
-    bodyHtml: `<p class="empty">この共有リンクは無効になったか、存在しません。</p>`,
+    bodyHtml: html`<p class="empty">この共有リンクは無効になったか、存在しません。</p>`,
   });
 }
 
@@ -826,7 +830,7 @@ function watchHistoryViewHref(view: WatchHistoryView): string {
   const params = new URLSearchParams();
   if (view.state) params.set("state", view.state);
   if (view.sort !== "updated") params.set("sort", view.sort);
-  return escapeHtml(`?${params.toString()}`);
+  return `?${params.toString()}`;
 }
 
 function chipHtml(
@@ -834,8 +838,8 @@ function chipHtml(
   href: string,
   current: boolean,
   count?: number,
-) {
-  return `<a class="chip" href="${href}"${current ? ` aria-current="page"` : ""}>${escapeHtml(label)}${count !== undefined ? ` <span class="chip-count">${count}</span>` : ""}</a>`;
+): HtmlEscapedString {
+  return html`<a class="chip" href="${href}"${current ? html` aria-current="page"` : ""}>${label}${count !== undefined ? html` <span class="chip-count">${count}</span>` : ""}</a>`;
 }
 
 const STATE_CLASS: Record<string, string> = {
@@ -880,27 +884,28 @@ export function buildSharedWatchHistoryHtml(
         counts.get(state) ?? 0,
       ),
     ),
-  ].join("");
-  const sortChips = (Object.keys(WATCH_HISTORY_SORTS) as WatchHistorySort[])
-    .map((sort) =>
-      chipHtml(
-        WATCH_HISTORY_SORTS[sort],
-        watchHistoryViewHref({ ...view, sort }),
-        view.sort === sort,
-      ),
-    )
-    .join("");
+  ];
+  const sortChips = (
+    Object.keys(WATCH_HISTORY_SORTS) as WatchHistorySort[]
+  ).map((sort) =>
+    chipHtml(
+      WATCH_HISTORY_SORTS[sort],
+      watchHistoryViewHref({ ...view, sort }),
+      view.sort === sort,
+    ),
+  );
 
-  const rowsHtml = visible
-    .map(
-      (item) => `<tr>
-      <td class="cell-work">${posterHtml(item, requestUrl)}<span class="work-title">${escapeHtml(item.title)}</span></td>
-      <td class="cell-meta">${escapeHtml(sharedWatchSeasonLabel(item))}</td>
-      <td><span class="state ${STATE_CLASS[item.state] ?? ""}">${escapeHtml(WATCH_STATE_LABELS[item.state] ?? item.state)}</span></td>
+  const rowsHtml = joinHtml(
+    visible.map(
+      (item) => html`<tr>
+      <td class="cell-work">${posterHtml(item, requestUrl)}<span class="work-title">${item.title}</span></td>
+      <td class="cell-meta">${sharedWatchSeasonLabel(item)}</td>
+      <td><span class="state ${STATE_CLASS[item.state] ?? ""}">${WATCH_STATE_LABELS[item.state] ?? item.state}</span></td>
       <td class="cell-meta">${sharedWatchDateLabel(item.updatedAt)}</td>
     </tr>`,
-    )
-    .join("\n    ");
+    ),
+    "\n    ",
+  );
 
   const emptyMessage =
     history.items.length === 0
@@ -908,8 +913,8 @@ export function buildSharedWatchHistoryHtml(
       : "条件に合う作品はありません。";
 
   return renderSharePage({
-    title: `${escapeHtml(history.ownerUsername)} の視聴履歴 - Animeishi`,
-    metaDescription: `${escapeHtml(history.ownerUsername)} のアニメ視聴履歴`,
+    title: `${history.ownerUsername} の視聴履歴 - Animeishi`,
+    metaDescription: `${history.ownerUsername} のアニメ視聴履歴`,
     canonicalUrl,
     // og:image にプロキシ URL を使わない。プロキシ URL は画像の有無に関わらず
     // 生成されるため先頭作品の画像が 404 だと OGP 画像自体が欠落する。
@@ -926,14 +931,14 @@ export function buildSharedWatchHistoryHtml(
       source: "share_watch_history",
       label: "あなたも視聴履歴を記録する",
     },
-    heading: `${escapeHtml(history.ownerUsername)} の視聴履歴`,
+    heading: `${history.ownerUsername} の視聴履歴`,
     ownerLine: "Animeishi で共有された視聴履歴",
     statsHtml: statsHtml([
       { label: "作品", value: history.items.length },
       { label: "視聴済", value: counts.get("WATCHED") ?? 0 },
       { label: "視聴中", value: counts.get("WATCHING") ?? 0 },
     ]),
-    bodyHtml: `<nav class="controls" aria-label="絞り込みと並び替え">
+    bodyHtml: html`<nav class="controls" aria-label="絞り込みと並び替え">
     <div class="control-group"><span class="control-label">ステータス</span><div class="chips">${stateChips}</div></div>
     <div class="control-group"><span class="control-label">並び順</span><div class="chips">${sortChips}</div></div>
   </nav>
@@ -946,8 +951,8 @@ export function buildSharedWatchHistoryHtml(
     ${rowsHtml}
     </tbody>
   </table>
-  ${visible.length === 0 ? `<p class="empty">${emptyMessage}</p>` : ""}`,
-    pageCss: `
+  ${visible.length === 0 ? html`<p class="empty">${emptyMessage}</p>` : ""}`,
+    pageCss: raw(`
     .controls { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--surface);
       border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
     .control-group { display: flex; align-items: baseline; gap: 10px; }
@@ -986,7 +991,7 @@ export function buildSharedWatchHistoryHtml(
       .state-hold { background: #78350f; color: #fde68a; }
       .state-stop { background: #334155; color: #cbd5e1; }
     }
-`,
+`),
   });
 }
 

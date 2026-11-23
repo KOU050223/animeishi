@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { useThemeColors } from "@/lib/theme";
 import type { BottomSheetProps } from "./types";

@@ -27,7 +27,7 @@ const setScheme = (colorScheme: "light" | "dark") =>
 let mockDropPoint = { x: 0, y: 0 };
 let mockCardRegistry: import("./dropZones").DropZoneRegistry | undefined;
 jest.mock("./DraggableWorkCard", () => {
-  const { Pressable, Text } =
+  const { Pressable, Text: ActualText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     DraggableWorkCard: ({
@@ -51,7 +51,7 @@ jest.mock("./DraggableWorkCard", () => {
           onLongPress={() => onDragEnd(mockDropPoint.x, mockDropPoint.y)}
           onTouchCancel={onDragCancel}
         >
-          <Text>{item.title}</Text>
+          <ActualText>{item.title}</ActualText>
         </Pressable>
       );
     },
@@ -62,7 +62,7 @@ jest.mock("./DraggableWorkCard", () => {
 // シートは「開いているときだけ visible マーカーを出し、onAdd を直通する」
 // スタブに差し替える。
 jest.mock("./WorkAddSheet", () => {
-  const { Pressable, Text } =
+  const { Pressable, Text: ActualText } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
     WorkAddSheet: ({
@@ -80,7 +80,7 @@ jest.mock("./WorkAddSheet", () => {
           onPress={() => onAdd({ id: 99, title: "追加作品" })}
           onLongPress={onClose}
         >
-          <Text>sheet</Text>
+          <ActualText>sheet</ActualText>
         </Pressable>
       ) : null,
   };

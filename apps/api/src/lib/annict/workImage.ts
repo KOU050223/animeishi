@@ -418,8 +418,8 @@ export async function serveWorkImage(
 
   // --- 2. 候補を順に取りに行く ---
   const tried = new Set<string>();
-  const tryCandidates = async (candidates: string[]) => {
-    for (const url of candidates) {
+  const tryCandidates = async (urls: string[]) => {
+    for (const url of urls) {
       if (tried.has(url)) continue;
       tried.add(url);
       const image = await fetchWorkImage(url, fetchImpl);

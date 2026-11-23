@@ -362,8 +362,8 @@ describe("イベント API", () => {
       expect(res.status).toBe(200);
 
       const rows = await db.query.eventParticipations.findMany({
-        where: (t, { and, eq }) =>
-          and(eq(t.eventSlug, "joined"), eq(t.userId, USER_ID)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.eventSlug, "joined"), eq_(t.userId, USER_ID)),
       });
       expect(rows).toHaveLength(1);
 
@@ -386,7 +386,7 @@ describe("イベント API", () => {
       }
 
       const rows = await db.query.eventParticipations.findMany({
-        where: (t, { eq }) => eq(t.eventSlug, "joined"),
+        where: (t, { eq: eq_ }) => eq_(t.eventSlug, "joined"),
       });
       expect(rows).toHaveLength(1);
     });
@@ -478,8 +478,8 @@ describe("イベント API", () => {
       expect(res.status).toBe(200);
 
       const row = await db.query.eventParticipations.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.eventSlug, "joined"), eq(t.userId, USER_ID)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.eventSlug, "joined"), eq_(t.userId, USER_ID)),
       });
       expect(row?.visibility).toBe("public");
 
@@ -603,7 +603,7 @@ describe("イベント API", () => {
       };
       // 「フレンドのみ」表明はフレンド欄にだけ出る（公開一覧には出ない）
       expect(body.participants.map((p) => p.userId)).toEqual(["friend_pub"]);
-      expect(body.friends.map((p) => p.userId).sort()).toEqual([
+      expect(body.friends.map((p) => p.userId).toSorted()).toEqual([
         "friend_only",
         "friend_pub",
       ]);
@@ -748,7 +748,7 @@ describe("イベント API", () => {
       ];
       expect(page1Body.participants).toHaveLength(2);
       expect(page2Body.participants).toHaveLength(1);
-      expect([...all].sort()).toEqual(["user_a", "user_b", "user_c"]);
+      expect([...all].toSorted()).toEqual(["user_a", "user_b", "user_c"]);
     });
 
     it("参加しているフレンドも friendsLimit + friendsOffset でページングし friendsTotal を返す", async () => {

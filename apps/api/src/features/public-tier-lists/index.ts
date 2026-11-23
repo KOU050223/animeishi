@@ -18,6 +18,7 @@ import { usersRepository, ReportRateLimitError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/annict/workImage";
 import { notifyUserReport } from "@/observability";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 function getBindings(
   c: Context,
@@ -158,6 +159,7 @@ const publicTierListsRoute = new Hono<AuthVariables>()
   // いいね（冪等）。自分のリストにはいいね不可。
   .put(
     "/:kind/:id/like",
+    userRateLimit("LIKE_RATE_LIMITER"),
     zValidator("param", publicTierListParamSchema),
     async (c) => {
       const { kind, id } = c.req.valid("param");
@@ -179,6 +181,7 @@ const publicTierListsRoute = new Hono<AuthVariables>()
   // 見えないリストには 404（閲覧できないリストの反応数を返さない）。
   .delete(
     "/:kind/:id/like",
+    userRateLimit("LIKE_RATE_LIMITER"),
     zValidator("param", publicTierListParamSchema),
     async (c) => {
       const { kind, id } = c.req.valid("param");
@@ -195,6 +198,7 @@ const publicTierListsRoute = new Hono<AuthVariables>()
   // レート制限・通知経路に乗せる。
   .post(
     "/:kind/:id/report",
+    userRateLimit("REPORT_RATE_LIMITER"),
     zValidator("param", publicTierListParamSchema),
     zValidator("json", tierListReportSchema),
     async (c) => {

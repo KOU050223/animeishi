@@ -3,6 +3,13 @@ import { createDb } from "@/db/client";
 import { serveWorkImage } from "@/lib/annict/workImage";
 
 /**
+ * ?r= で受け付けるリトライ番号の上限。WorkImage（apps/mobile）の
+ * RETRY_DELAYS_MS の要素数（r=1, 2）と揃える。範囲外の値はリトライとみなさず、
+ * 通常の要求と同じくキャッシュを経由させる。
+ */
+const MAX_RETRY_ATTEMPT = 2;
+
+/**
  * 作品画像の配信（公開・認証不要）。
  * GET /images/works/:annictWorkId は Kitsu / MAL 由来を R2 から配信し、
  * Annict 由来は元 URL へリダイレクトする
@@ -18,8 +25,13 @@ import { serveWorkImage } from "@/lib/annict/workImage";
  * MAL 由来を短くしているのは、削除依頼から 24 時間以内に消すため（issue #241）。
  */
 export const images = new Hono<{
-  // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
-  Bindings: { AVATARS: R2Bucket; DB: D1Database; MAL_CLIENT_ID?: string };
+  Bindings: {
+    AVATARS: R2Bucket;
+    DB: D1Database;
+    // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
+    MAL_CLIENT_ID?: string;
+    IMAGE_RETRY_RATE_LIMITER?: RateLimit;
+  };
 }>().get("/works/:annictWorkId{[0-9]+}", async (c) => {
   const annictWorkId = Number(c.req.param("annictWorkId"));
   if (!Number.isSafeInteger(annictWorkId)) {
@@ -36,15 +48,39 @@ export const images = new Hono<{
   // edge に残っていると画像が用意できてもキャッシュが返り続けるため、この要求
   // だけは参照を飛ばしてオリジンで再評価する。取り込みが済んでいれば後段の
   // cache.put で正規キーのエントリも更新される。
-  const cached = c.req.query("r")
-    ? undefined
-    : await cache?.match(cacheKey).catch(() => undefined);
+  const rParam = c.req.query("r");
+  const retry = isRetryAttempt(rParam);
+  const gate: RetryGate = retry
+    ? await retryGate(
+        c.env.IMAGE_RETRY_RATE_LIMITER,
+        c.req.header("CF-Connecting-IP"),
+      )
+    : "bypass";
+  const cached =
+    retry && gate === "bypass"
+      ? undefined
+      : await cache?.match(cacheKey).catch(() => undefined);
+  // 制限を超えたリトライはキャッシュに無くてもオリジンへ通さない（issue #713）。
+  // 429 がブラウザ / expo-image に残ると制限が解けても失敗が返り続けるので保存させない。
+  if (!cached && gate === "deny") {
+    c.header("Cache-Control", "no-store");
+    c.header("Retry-After", "60");
+    return c.json(
+      { error: "リクエストが多すぎます。しばらくしてからお試しください" },
+      429,
+    );
+  }
   // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
   // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。
   if (cached) {
     const hit = new Response(cached.body, cached);
     // Cache-Tag は Purge 用に保存エントリへ付けたもので、クライアントには出さない。
     hit.headers.delete("cache-tag");
+    // ?r= は再評価の合図なので、迂回を許さなかった応答（保存済みの 404 等）を
+    // リトライ URL でクライアントに残すと、制限解除後も同じ再試行が API に届かない。
+    // リトライとみなさない値（r=3 等）の URL も、将来有効になったとき残っていると
+    // 同じ問題になるため、r パラメータ付きの応答は一律保存させない。
+    if (rParam !== undefined) hit.headers.set("cache-control", "no-store");
     return hit;
   }
 
@@ -74,8 +110,43 @@ export const images = new Hono<{
       await put;
     }
   }
+  // ?r= への応答はリトライ URL でクライアントに残さない（stored へは
+  // 写らないよう cache.put の後で上書きする）。
+  if (rParam !== undefined) res.headers.set("cache-control", "no-store");
   return res;
 });
+
+function isRetryAttempt(r: string | undefined): boolean {
+  if (r === undefined || !/^[0-9]+$/.test(r)) return false;
+  const attempt = Number(r);
+  return attempt >= 1 && attempt <= MAX_RETRY_ATTEMPT;
+}
+
+/**
+ * ?r= の要求の振り分け。
+ * - "bypass": キャッシュを飛ばしてオリジン（D1・R2・外部 API）で再評価する。
+ * - "deny": 制限超過。キャッシュ済みの応答を返し、無ければ 429。
+ * - "degraded": 制限が掛けられないのでキャッシュを優先し、ミスだけオリジンへ通す。
+ *
+ * 画像は公開配信で、binding の設定漏れや limit() の失敗で全画像が 500 になるのを
+ * 避けるため throw しない（demo-sign-in とは違う）。ただし binding が設定
+ * されているのに limit() が失敗した状態で無制限にオリジンへ通すと制限の意味が
+ * 無いため、その場合はキャッシュに倒す（binding 未設定は機能自体が無いので
+ * 従来どおりオリジンへ通す）。
+ */
+type RetryGate = "bypass" | "deny" | "degraded";
+
+async function retryGate(
+  limiter: RateLimit | undefined,
+  ip: string | undefined,
+): Promise<RetryGate> {
+  if (!limiter) return "bypass";
+  const result = await limiter
+    .limit({ key: `ip:${ip ?? "unknown"}` })
+    .catch(() => null);
+  if (result === null) return "degraded";
+  return result.success ? "bypass" : "deny";
+}
 
 // Workers では caches.default が既定キャッシュ。ブラウザの DOM CacheStorage には
 // default が無く、本ファイルは mobile 側の型検査（AppType 経由）でも検査対象に

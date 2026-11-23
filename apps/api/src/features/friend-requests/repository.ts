@@ -211,8 +211,8 @@ export function friendRequestsRepository(
         throw new UserBlockedError(addresseeId);
       }
       const alreadyFriend = await db.query.friends.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.friendId, addresseeId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.friendId, addresseeId)),
         columns: { id: true },
       });
       if (alreadyFriend) {
@@ -222,8 +222,8 @@ export function friendRequestsRepository(
       const now = new Date();
       // 相手からの申請が届いていれば相互意思として即成立させる。
       const reverse = await db.query.friendRequests.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(
             eq_(t.requesterId, addresseeId),
             eq_(t.addresseeId, currentUserId),
           ),
@@ -238,8 +238,8 @@ export function friendRequestsRepository(
         .values({ requesterId: currentUserId, addresseeId, createdAt: now })
         .onConflictDoNothing();
       const request = await db.query.friendRequests.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(
             eq_(t.requesterId, currentUserId),
             eq_(t.addresseeId, addresseeId),
           ),
@@ -254,8 +254,8 @@ export function friendRequestsRepository(
      */
     async accept(requestId: number): Promise<void> {
       const request = await db.query.friendRequests.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.id, requestId), eq_(t.addresseeId, currentUserId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.id, requestId), eq_(t.addresseeId, currentUserId)),
       });
       if (!request) {
         throw new FriendRequestNotFoundError(requestId);

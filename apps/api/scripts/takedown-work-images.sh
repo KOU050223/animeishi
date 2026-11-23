@@ -80,6 +80,7 @@ BUCKET="animeishi-avatars"
 D1_TARGET=(--remote --env "$ENV" -y)
 R2_TARGET=(--remote --env "$ENV")
 if [ "$LOCAL" = 1 ]; then
+  BUCKET="animeishi-avatars-local"
   D1_TARGET=(--local)
   R2_TARGET=(--local)
 elif [ "$ENV" = "preview" ]; then

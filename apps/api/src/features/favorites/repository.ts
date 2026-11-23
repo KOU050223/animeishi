@@ -49,8 +49,8 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
         .values({ userId: currentUserId, annictWorkId, createdAt: now })
         .onConflictDoNothing();
       const favorite = await db.query.favorites.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       if (!favorite) throw new Error("推しの登録に失敗しました");
       // 「新規追加か」は書き込み件数で判定する。事前 SELECT だと並行リクエストが
