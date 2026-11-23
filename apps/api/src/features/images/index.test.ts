@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
@@ -16,6 +16,35 @@ const TEST_BINDINGS = {
 };
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+
+function limiter(success: boolean) {
+  return { limit: vi.fn(async () => ({ success })) };
+}
+
+function requestWithLimiter(
+  path: string,
+  rateLimiter: ReturnType<typeof limiter>,
+) {
+  return buildApp().request(
+    path,
+    { method: "GET", headers: { "CF-Connecting-IP": "203.0.113.1" } },
+    { ...TEST_BINDINGS, IMAGE_RETRY_RATE_LIMITER: rateLimiter },
+  );
+}
+
+async function putImportedImage999() {
+  const db = drizzle(env.DB, { schema });
+  await db.insert(schema.annictWorks).values({
+    annictWorkId: 999,
+    title: "遅れて取り込まれた作品",
+    imageR2Key: "works/999/deadbeef.png",
+    updatedAt: new Date(),
+  });
+  await env.AVATARS.put("works/999/deadbeef.png", PNG_BYTES, {
+    httpMetadata: { contentType: "image/png" },
+    customMetadata: { source: "kitsu" },
+  });
+}
 
 function buildApp() {
   const app = applyApiErrorHandling(
@@ -200,5 +229,116 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       );
       expect(res.status).toBe(404);
     }
+  });
+
+  // issue #713。?r= はキャッシュを飛ばしてオリジン（D1・R2・外部 API）を
+  // 動かすため、IP ごとの流量制限を超えた分はオリジンへ通さない。
+  describe("?r= の流量制限", () => {
+    it("制限内の ?r= は IP をキーに数えてオリジンを引き直す", async () => {
+      const rateLimiter = limiter(true);
+      const miss = await requestWithLimiter("/images/works/999", rateLimiter);
+      expect(miss.status).toBe(404);
+      await miss.arrayBuffer();
+      await putImportedImage999();
+
+      const retried = await requestWithLimiter(
+        "/images/works/999?r=1",
+        rateLimiter,
+      );
+      expect(retried.status).toBe(200);
+      await retried.arrayBuffer();
+      expect(rateLimiter.limit).toHaveBeenCalledTimes(1);
+      expect(rateLimiter.limit).toHaveBeenCalledWith({
+        key: "ip:203.0.113.1",
+      });
+    });
+
+    it("制限を超えた ?r= はキャッシュ済みの応答を返し、オリジンを引かない", async () => {
+      const miss = await requestWithLimiter("/images/works/999", limiter(true));
+      expect(miss.status).toBe(404);
+      await miss.arrayBuffer();
+      // オリジンを引けば 200 になる状態にしても、キャッシュの 404 が返る
+      await putImportedImage999();
+
+      const limited = await requestWithLimiter(
+        "/images/works/999?r=1",
+        limiter(false),
+      );
+      expect(limited.status).toBe(404);
+      await limited.arrayBuffer();
+    });
+
+    it("制限を超えた ?r= はキャッシュが無ければ 429 を返し、オリジンを引かない", async () => {
+      // オリジンを引けば 200 になる状態
+      await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+        httpMetadata: { contentType: "image/png" },
+        customMetadata: { source: "kitsu" },
+      });
+
+      const limited = await requestWithLimiter(
+        "/images/works/42?r=1",
+        limiter(false),
+      );
+      expect(limited.status).toBe(429);
+      expect(limited.headers.get("cache-control")).toBe("no-store");
+      await limited.arrayBuffer();
+      // オリジンを引いていないので、正規キーのキャッシュも作られない
+      expect(
+        await caches.default.match(
+          "http://localhost/images/works/42?image-policy=2",
+        ),
+      ).toBeUndefined();
+    });
+
+    it("?r= の無い要求は制限の対象にしない", async () => {
+      const rateLimiter = limiter(false);
+      await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+        httpMetadata: { contentType: "image/png" },
+        customMetadata: { source: "kitsu" },
+      });
+
+      const res = await requestWithLimiter("/images/works/42", rateLimiter);
+      expect(res.status).toBe(200);
+      await res.arrayBuffer();
+      expect(rateLimiter.limit).not.toHaveBeenCalled();
+    });
+
+    it.each(["0", "3", "abc", "1.5", ""])(
+      "r=%s はリトライとみなさずキャッシュを経由する",
+      async (r) => {
+        const rateLimiter = limiter(true);
+        const miss = await requestWithLimiter("/images/works/999", rateLimiter);
+        expect(miss.status).toBe(404);
+        await miss.arrayBuffer();
+        await putImportedImage999();
+
+        const res = await requestWithLimiter(
+          `/images/works/999?r=${r}`,
+          rateLimiter,
+        );
+        expect(res.status).toBe(404);
+        await res.arrayBuffer();
+        expect(rateLimiter.limit).not.toHaveBeenCalled();
+      },
+    );
+
+    it("binding が未設定なら制限せずにオリジンを引き直す", async () => {
+      const miss = await buildApp().request(
+        "/images/works/999",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      expect(miss.status).toBe(404);
+      await miss.arrayBuffer();
+      await putImportedImage999();
+
+      const retried = await buildApp().request(
+        "/images/works/999?r=2",
+        { method: "GET" },
+        TEST_BINDINGS,
+      );
+      expect(retried.status).toBe(200);
+      await retried.arrayBuffer();
+    });
   });
 });

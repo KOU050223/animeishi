@@ -3,6 +3,13 @@ import { createDb } from "@/db/client";
 import { serveWorkImage } from "@/lib/annict/workImage";
 
 /**
+ * ?r= で受け付けるリトライ番号の上限。WorkImage（apps/mobile）の
+ * RETRY_DELAYS_MS の要素数（r=1, 2）と揃える。範囲外の値はリトライとみなさず、
+ * 通常の要求と同じくキャッシュを経由させる。
+ */
+const MAX_RETRY_ATTEMPT = 2;
+
+/**
  * 作品画像の配信（公開・認証不要）。
  * GET /images/works/:annictWorkId は Kitsu / MAL 由来を R2 から配信し、
  * Annict 由来は元 URL へリダイレクトする
@@ -18,8 +25,13 @@ import { serveWorkImage } from "@/lib/annict/workImage";
  * MAL 由来を短くしているのは、削除依頼から 24 時間以内に消すため（issue #241）。
  */
 export const images = new Hono<{
-  // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
-  Bindings: { AVATARS: R2Bucket; DB: D1Database; MAL_CLIENT_ID?: string };
+  Bindings: {
+    AVATARS: R2Bucket;
+    DB: D1Database;
+    // MAL_CLIENT_ID は Workers Secret（画像補完の MAL API 用。issue #238）。
+    MAL_CLIENT_ID?: string;
+    IMAGE_RETRY_RATE_LIMITER?: RateLimit;
+  };
 }>().get("/works/:annictWorkId{[0-9]+}", async (c) => {
   const annictWorkId = Number(c.req.param("annictWorkId"));
   if (!Number.isSafeInteger(annictWorkId)) {
@@ -36,9 +48,27 @@ export const images = new Hono<{
   // edge に残っていると画像が用意できてもキャッシュが返り続けるため、この要求
   // だけは参照を飛ばしてオリジンで再評価する。取り込みが済んでいれば後段の
   // cache.put で正規キーのエントリも更新される。
-  const cached = c.req.query("r")
-    ? undefined
-    : await cache?.match(cacheKey).catch(() => undefined);
+  const retry = isRetryAttempt(c.req.query("r"));
+  const rateLimited =
+    retry &&
+    !(await allowCacheBypass(
+      c.env.IMAGE_RETRY_RATE_LIMITER,
+      c.req.header("CF-Connecting-IP"),
+    ));
+  const cached =
+    retry && !rateLimited
+      ? undefined
+      : await cache?.match(cacheKey).catch(() => undefined);
+  // 制限を超えたリトライはキャッシュに無くてもオリジンへ通さない（issue #713）。
+  // 429 がブラウザ / expo-image に残ると制限が解けても失敗が返り続けるので保存させない。
+  if (!cached && rateLimited) {
+    c.header("Cache-Control", "no-store");
+    c.header("Retry-After", "60");
+    return c.json(
+      { error: "リクエストが多すぎます。しばらくしてからお試しください" },
+      429,
+    );
+  }
   // キャッシュ由来の Response はヘッダが immutable なことがあり、後段の
   // CORS ミドルウェアがヘッダを足せなくなるので作り直して返す。
   if (cached) {
@@ -76,6 +106,26 @@ export const images = new Hono<{
   }
   return res;
 });
+
+function isRetryAttempt(r: string | undefined): boolean {
+  if (r === undefined || !/^[0-9]+$/.test(r)) return false;
+  const attempt = Number(r);
+  return attempt >= 1 && attempt <= MAX_RETRY_ATTEMPT;
+}
+
+/**
+ * ?r= の要求がキャッシュを飛ばしてオリジン（D1・R2・外部 API）へ行ってよいか。
+ * 画像は公開配信で、binding の設定漏れで全画像が 500 になるのを避けるため、
+ * 未設定のときは制限せずに通す（demo-sign-in のように throw しない）。
+ */
+async function allowCacheBypass(
+  limiter: RateLimit | undefined,
+  ip: string | undefined,
+): Promise<boolean> {
+  if (!limiter) return true;
+  const { success } = await limiter.limit({ key: `ip:${ip ?? "unknown"}` });
+  return success;
+}
 
 // Workers では caches.default が既定キャッシュ。ブラウザの DOM CacheStorage には
 // default が無く、本ファイルは mobile 側の型検査（AppType 経由）でも検査対象に
