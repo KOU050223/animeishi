@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import type { Ionicons } from "@expo/vector-icons";
+import type Ionicons from "@expo/vector-icons/Ionicons";
 import { MEISHI_ASPECT_RATIO, newId } from "./defaults";
 import type { MeishiDocument, MeishiElement, TextElement } from "./types";
 

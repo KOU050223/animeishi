@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from "react-native";
 import type { StyleProp, ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeColors } from "@/lib/theme";
 
 export type BackButtonProps = {
