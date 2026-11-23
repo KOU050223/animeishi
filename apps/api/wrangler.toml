@@ -15,9 +15,7 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 # 2. 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
 #    issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
 # 作品画像の R2 取り込みは cron ではなく GET /images/works/:id が表示時に行う。
-# cron は production env でのみ回す。デフォルト env も本番 D1 にバインドして
-# いるため、ここで有効にすると同じ DB へ二重に発火し、D1 の rows_read を
-# 倍に消費する（issue #704）。
+# cron は production env でのみ回す（issue #704）。
 [triggers]
 crons = []
 
@@ -26,17 +24,23 @@ crons = []
 [version_metadata]
 binding = "CF_VERSION_METADATA"
 
+# デフォルト env（--env なし）はローカル開発・テスト専用で、本番 D1 / R2 には
+# 繋がないダミーを置く。本番 ID にすると --env を付け忘れた deploy や
+# d1 execute --remote が本番データに触れる（issue #712）。
+# database_name を本番と同じにしているのは、`wrangler d1 ... animeishi-db` を
+# --env なしで叩いたときに設定のダミー ID に解決させるため。設定に無い名前だと
+# wrangler はアカウント内の DB 名で検索し、本番 DB に解決してしまう。
 [[d1_databases]]
 binding = "DB"
 database_name = "animeishi-db"
-database_id = "ae2dfdcb-2d1e-4436-97b4-552c6ca31ede"
+database_id = "00000000-0000-0000-0000-000000000000"
 
 # 画像保存用 R2 バケット。用途はオブジェクトキーのプレフィックスで分ける:
 #   avatars/ … プロフィール画像（アバター）
 #   works/   … 作品画像（GET /images/works/:id が表示時に外部から取り込む）
 [[r2_buckets]]
 binding = "AVATARS"
-bucket_name = "animeishi-avatars"
+bucket_name = "animeishi-avatars-local"
 
 # Workers AI（視聴傾向分析 POST /me/analysis, issue #22）。
 # named env には継承されないため preview / production にも個別に定義する。
