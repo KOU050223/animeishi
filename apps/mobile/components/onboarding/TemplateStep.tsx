@@ -1,6 +1,6 @@
 import { FlatList, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
 import { MeishiRenderer } from "@/components/meishi/MeishiRenderer";
 import { MEISHI_TEMPLATES } from "@/lib/meishi/templates";

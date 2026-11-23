@@ -51,6 +51,13 @@ export default defineConfig({
         files: ["apps/mobile/**", "apps/api/**", "packages/danime-core/**"],
         options: { printWidth: 80 },
       },
+      {
+        // hono/html の html`` テンプレートの中身は生成される HTML そのものに
+        // なるため、埋め込み言語の整形で空白を変えられると出力が変わる
+        // （issue #716）。api では埋め込み言語の整形を無効にする。
+        files: ["apps/api/**"],
+        options: { printWidth: 80, embeddedLanguageFormatting: "off" },
+      },
     ],
   },
   // `vp lint`（vite-plus 同梱の oxlint 1.89）の設定（issue #267）。旧来は各パッケージが
@@ -103,6 +110,20 @@ export default defineConfig({
           "react/preserve-manual-memoization": "error",
           "react/incompatible-library": "error",
           "react/no-deriving-state-in-effects": "error",
+          // パッケージのトップから import すると全アイコンセットの glyphmap が
+          // Web バンドルに入る（issue #717）。
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@expo/vector-icons",
+                  message:
+                    'Import the icon set by subpath (e.g. "@expo/vector-icons/Ionicons") so unused glyphmaps stay out of the bundle.',
+                },
+              ],
+            },
+          ],
         },
       },
       // apps/api の旧 .oxlintrc.json。db.insert / update / delete の直叩きを

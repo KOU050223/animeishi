@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import { parseAllowedOrigins, resolveAllowedOrigin } from "./cors";
 import { createDb } from "./db/client";
+import { securityHeaders } from "./securityHeaders";
 import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
@@ -77,6 +78,9 @@ const app = new OpenAPIHono<{ Bindings: AppBindings }>();
 // 受信済みの X-Request-Id を引き継ぎ、無ければ UUID を採番して
 // レスポンスヘッダに載せる。c.get("requestId") で参照できる。
 app.use("*", requestId());
+
+// CORS のプリフライト応答（cors が next を呼ばずに返す）にも付くよう cors より先に置く。
+app.use("*", securityHeaders());
 
 app.use("*", (c, next) => {
   const allowlist = parseAllowedOrigins(c.env.ALLOWED_ORIGINS);

@@ -229,6 +229,66 @@ describe("認証ミドルウェア", () => {
   });
 
   describe("requireAuth", () => {
+    it("同じリクエストで重ねて呼ばれても Clerk 検証は 1 回だけ走る（issue #710）", async () => {
+      signInAs(USER_ID);
+      const app = applyApiErrorHandling(new Hono<TestEnv>());
+      app.use("/protected/*", requireAuth);
+      app.use("/protected/*", requireAuth);
+      app.get("/protected/ping", (c) => c.json({ ok: true }));
+
+      const res = await app.request(
+        "/protected/ping",
+        { method: "GET" },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(200);
+      expect(clerkMiddlewareArgs.calls).toHaveLength(1);
+    });
+
+    function buildOptionalThenRequireApp() {
+      const app = applyApiErrorHandling(new Hono<TestEnv>());
+      app.use("/protected/*", optionalAuth);
+      app.use("/protected/*", requireAuth);
+      app.get("/protected/ping", (c) => c.json({ ok: true }));
+      return app;
+    }
+
+    it("optionalAuth の後でも requireAuth の本体が走り、users 行をプロビジョニングする（issue #710）", async () => {
+      const db = await setupTestDb(env.DB);
+      signInAs(USER_ID);
+
+      const res = await buildOptionalThenRequireApp().request(
+        "/protected/ping",
+        { method: "GET", headers: { Authorization: "Bearer test-token" } },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(200);
+      expect(clerkMiddlewareArgs.calls).toHaveLength(2);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(1);
+    });
+
+    it("optionalAuth の後でも requireAuth が削除済みユーザーの JWT を 401 にする（issue #710）", async () => {
+      const db = await setupTestDb(env.DB);
+      const deletedAt = new Date();
+      await db.insert(deletedUsers).values({ userId: USER_ID, deletedAt });
+      signInAs(USER_ID, { iat: Math.floor(deletedAt.getTime() / 1000) - 60 });
+
+      const res = await buildOptionalThenRequireApp().request(
+        "/protected/ping",
+        { method: "GET", headers: { Authorization: "Bearer test-token" } },
+        testBindings(),
+      );
+
+      expect(res.status).toBe(401);
+      expect(
+        await db.select().from(users).where(eq(users.id, USER_ID)),
+      ).toHaveLength(0);
+    });
+
     it("clerkMiddleware が handshake 応答を返したら 401 を返す", async () => {
       // Accept: text/html のドキュメント取得などで Clerk が handshake を
       // 返すと auth が未設定のままになる。以前は getAuth が throw して
@@ -511,6 +571,25 @@ describe("認証ミドルウェア", () => {
   });
 
   describe("optionalAuth", () => {
+    it("同じリクエストで重ねて呼ばれても Clerk 検証は 1 回だけ走る（issue #710）", async () => {
+      signInAs(USER_ID);
+      const app = applyApiErrorHandling(new Hono<TestEnv>());
+      app.use("/public/*", optionalAuth);
+      app.use("/public/*", optionalAuth);
+      app.get("/public/ping", (c) =>
+        c.json({ viewer: c.get("clerkUserId") ?? null }),
+      );
+
+      const res = await app.request(
+        "/public/ping",
+        { method: "GET", headers: { Authorization: "Bearer test-token" } },
+        testBindings(),
+      );
+
+      expect(await res.json()).toEqual({ viewer: USER_ID });
+      expect(clerkMiddlewareArgs.calls).toHaveLength(1);
+    });
+
     it("未認証でも匿名として通過する", async () => {
       signInAs(null);
       const app = buildApp();

@@ -19,6 +19,7 @@ import { usersRepository, ReportRateLimitError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/annict/workImage";
 import { notifyUserReport } from "@/observability";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 function getBindings(
   c: Context,
@@ -108,25 +109,31 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
     );
   })
   // いいね（冪等）。自分のリストにはいいね不可。
-  .put("/:id/like", zValidator("param", workListIdParamSchema), async (c) => {
-    const { id } = c.req.valid("param");
-    const db = createDb(getBindings(c).DB);
-    const repo = workListsRepository(db, c.var.clerkUserId);
-    try {
-      const result = await repo.likeWorkList(id);
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
-    } catch (e) {
-      if (e instanceof OwnWorkListError) {
-        return c.json({ error: e.message }, 400);
+  .put(
+    "/:id/like",
+    userRateLimit("LIKE_RATE_LIMITER"),
+    zValidator("param", workListIdParamSchema),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const db = createDb(getBindings(c).DB);
+      const repo = workListsRepository(db, c.var.clerkUserId);
+      try {
+        const result = await repo.likeWorkList(id);
+        if (!result) return c.json({ error: "Work list not found" }, 404);
+        return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
+      } catch (e) {
+        if (e instanceof OwnWorkListError) {
+          return c.json({ error: e.message }, 400);
+        }
+        throw e;
       }
-      throw e;
-    }
-  })
+    },
+  )
   // いいねの取り消し（冪等。いいねしていなくても成功）。
   // 見えないリストには 404（閲覧できないリストの反応数を返さない）。
   .delete(
     "/:id/like",
+    userRateLimit("LIKE_RATE_LIMITER"),
     zValidator("param", workListIdParamSchema),
     async (c) => {
       const { id } = c.req.valid("param");
@@ -142,6 +149,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
   // 記録し、ユーザー通報と同じレート制限・通知経路に乗せる。
   .post(
     "/:id/report",
+    userRateLimit("REPORT_RATE_LIMITER"),
     zValidator("param", workListIdParamSchema),
     zValidator("json", workListReportSchema),
     async (c) => {

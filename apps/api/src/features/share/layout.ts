@@ -2,7 +2,7 @@ import {
   GUEST_CTA_SOURCE_PARAM,
   type GuestCtaSource,
 } from "@animeishi/observability";
-import { escapeHtml } from "@/lib/html";
+import { html, raw, type HtmlEscapedString } from "@/lib/html";
 
 /**
  * 共有ページ（/share/*）の HTML 骨格と共通スタイル（issue #518）。
@@ -65,9 +65,9 @@ const BASE_CSS = `
 `;
 
 export type SharePageInput = {
-  /** <title> / og:title。HTML エスケープ済みであること。 */
+  /** <title> / og:title。プレーンテキスト（テンプレートが自動でエスケープする）。 */
   title: string;
-  /** meta description / og:description。HTML エスケープ済みであること。 */
+  /** meta description / og:description。プレーンテキスト。 */
   metaDescription?: string | undefined;
   /** og:url / canonical。未エスケープの URL（ここでエスケープする）。 */
   canonicalUrl?: string | undefined;
@@ -75,18 +75,18 @@ export type SharePageInput = {
   ogImage?: string | undefined;
   /** ヒーロー上部のページ種別ラベル（例: 「Tier 表」）。プレーンテキスト。 */
   kind: string;
-  /** 見出し。HTML エスケープ済みであること。 */
+  /** 見出し。プレーンテキスト。 */
   heading: string;
-  /** 所有者行。HTML エスケープ済みであること。 */
+  /** 所有者行。プレーンテキスト。 */
   ownerLine?: string | undefined;
-  /** 説明文。未エスケープのプレーンテキスト（ここでエスケープする）。 */
+  /** 説明文。プレーンテキスト。 */
   description?: string | null | undefined;
-  /** ヒーロー下部の件数表示など。HTML。 */
-  statsHtml?: string | undefined;
-  /** main の中身。HTML。 */
-  bodyHtml: string;
-  /** ページ固有のスタイル。 */
-  pageCss?: string | undefined;
+  /** ヒーロー下部の件数表示など。html`` で組み立てた HTML。 */
+  statsHtml?: HtmlEscapedString | undefined;
+  /** main の中身。html`` で組み立てた HTML。 */
+  bodyHtml: HtmlEscapedString;
+  /** ページ固有のスタイル。raw() で包んだ静的 CSS。 */
+  pageCss?: HtmlEscapedString | undefined;
   /** 本文の最大幅。tier 表のように横に広い盤面は wide にする。 */
   width?: "narrow" | "wide" | undefined;
   /**
@@ -110,39 +110,12 @@ export function guestCtaHref(
 }
 
 export function renderSharePage(input: SharePageInput): string {
-  const esc = escapeHtml;
   const ctaHtml =
     input.guestCta && input.canonicalUrl
-      ? `<div class="guest-cta"><a href="${esc(guestCtaHref(input.canonicalUrl, input.guestCta.source))}" data-source="${esc(input.guestCta.source)}">${esc(input.guestCta.label)}</a></div>`
+      ? html`<div class="guest-cta"><a href="${guestCtaHref(input.canonicalUrl, input.guestCta.source)}" data-source="${input.guestCta.source}">${input.guestCta.label}</a></div>`
       : "";
-  const meta = [
-    `<meta property="og:site_name" content="Animeishi" />
-  <meta property="og:locale" content="ja_JP" />`,
-    input.metaDescription
-      ? `<meta name="description" content="${input.metaDescription}" />
-  <meta property="og:title" content="${input.title}" />
-  <meta property="og:description" content="${input.metaDescription}" />
-  <meta property="og:type" content="website" />`
-      : "",
-    input.canonicalUrl
-      ? `<meta property="og:url" content="${esc(input.canonicalUrl)}" />
-  <link rel="canonical" href="${esc(input.canonicalUrl)}" />
-  <link rel="icon" href="${esc(new URL(input.canonicalUrl).origin)}/favicon.ico" />`
-      : "",
-    input.ogImage
-      ? `<meta property="og:image" content="${esc(input.ogImage)}" />
-  <meta name="twitter:image" content="${esc(input.ogImage)}" />`
-      : "",
-    input.metaDescription
-      ? `<meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${input.title}" />
-  <meta name="twitter:description" content="${input.metaDescription}" />`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n  ");
 
-  return `<!DOCTYPE html>
+  return html`<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -150,18 +123,47 @@ export function renderSharePage(input: SharePageInput): string {
   <!-- ダーク閲覧時にスクロールバー等の UI クロームも追従させる -->
   <meta name="color-scheme" content="light dark" />
   <title>${input.title}</title>
-  ${meta}
-  <style>${BASE_CSS}${input.width === "wide" ? "    :root { --page-width: 960px; }\n" : ""}${input.pageCss ?? ""}  </style>
+  <meta property="og:site_name" content="Animeishi" />
+  <meta property="og:locale" content="ja_JP" />${
+    input.metaDescription
+      ? html`
+  <meta name="description" content="${input.metaDescription}" />
+  <meta property="og:title" content="${input.title}" />
+  <meta property="og:description" content="${input.metaDescription}" />
+  <meta property="og:type" content="website" />`
+      : ""
+  }${
+    input.canonicalUrl
+      ? html`
+  <meta property="og:url" content="${input.canonicalUrl}" />
+  <link rel="canonical" href="${input.canonicalUrl}" />
+  <link rel="icon" href="${new URL(input.canonicalUrl).origin}/favicon.ico" />`
+      : ""
+  }${
+    input.ogImage
+      ? html`
+  <meta property="og:image" content="${input.ogImage}" />
+  <meta name="twitter:image" content="${input.ogImage}" />`
+      : ""
+  }${
+    input.metaDescription
+      ? html`
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${input.title}" />
+  <meta name="twitter:description" content="${input.metaDescription}" />`
+      : ""
+  }
+  <style>${raw(BASE_CSS)}${input.width === "wide" ? "    :root { --page-width: 960px; }\n" : ""}${input.pageCss ?? ""}  </style>
 </head>
-<body${ctaHtml ? ' class="has-cta"' : ""}>
+<body${input.guestCta && input.canonicalUrl ? raw(' class="has-cta"') : ""}>
   <header class="hero">
     <div class="container">
       <p class="brand">ANIMEISHI</p>
-      <p class="kind">${esc(input.kind)}</p>
+      <p class="kind">${input.kind}</p>
       <h1>${input.heading}</h1>
-      ${input.ownerLine ? `<p class="owner">${input.ownerLine}</p>` : ""}
-      ${input.description ? `<p class="description">${esc(input.description)}</p>` : ""}
-      ${input.statsHtml ?? ""}
+      ${input.ownerLine ? html`<p class="owner">${input.ownerLine}</p>` : ""}
+      ${input.description ? html`<p class="description">${input.description}</p>` : ""}
+      ${input.statsHtml}
     </div>
   </header>
   <main class="container">
@@ -172,13 +174,15 @@ export function renderSharePage(input: SharePageInput): string {
   </footer>
   ${ctaHtml}
 </body>
-</html>`;
+</html>`.toString();
 }
 
-/** 件数などをヒーローに並べる。label はプレーンテキスト（ここでエスケープする）。 */
-export function statsHtml(stats: { label: string; value: number }[]): string {
-  if (stats.length === 0) return "";
-  return `<ul class="stats">${stats
-    .map((s) => `<li><strong>${s.value}</strong> ${escapeHtml(s.label)}</li>`)
-    .join("")}</ul>`;
+/** 件数などをヒーローに並べる。label はプレーンテキスト（テンプレートがエスケープする）。 */
+export function statsHtml(
+  stats: { label: string; value: number }[],
+): HtmlEscapedString {
+  if (stats.length === 0) return html``;
+  return html`<ul class="stats">${stats.map(
+    (s) => html`<li><strong>${s.value}</strong> ${s.label}</li>`,
+  )}</ul>`;
 }

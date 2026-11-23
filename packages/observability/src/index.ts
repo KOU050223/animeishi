@@ -19,3 +19,4 @@ export type { TrackedEventName } from "./events";
 export { EVENT_RATE_LIMIT, EventRateLimiter } from "./rateLimit";
 export { GUEST_CTA_SOURCE_PARAM, GUEST_CTA_SOURCES, normalizeGuestCtaSource } from "./guestCta";
 export type { GuestCtaSource } from "./guestCta";
+export { buildCspReportUri, sentryIngestOrigin } from "./cspReport";

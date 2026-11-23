@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, Input } from "@/components/ui";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { useWorkCandidates, type WorkCandidate } from "@/lib/useWorkCandidates";

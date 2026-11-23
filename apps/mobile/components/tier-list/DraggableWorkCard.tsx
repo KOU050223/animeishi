@@ -15,7 +15,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors } from "@/lib/theme";
 import type { TierItem } from "@/lib/tierList/types";

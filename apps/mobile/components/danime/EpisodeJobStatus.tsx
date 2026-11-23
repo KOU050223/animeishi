@@ -3,7 +3,7 @@
 // （ポーリングの切り替えは useDanimeEpisodeJob 内）。
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useDanimeEpisodeJob } from "@/lib/danime/useDanimeImport";
 import { episodeJobStatusText } from "@/lib/danime/episodeJobStatus";
 

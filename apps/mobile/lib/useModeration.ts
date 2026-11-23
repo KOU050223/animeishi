@@ -25,6 +25,9 @@ export function getReportErrorMessage(error: unknown) {
       return "同じユーザーへの通報は24時間に1回までです";
     if (error.code === "hourly_limit")
       return "通報の送信回数が上限に達しました。しばらくしてから再度お試しください";
+    // edge のユーザー単位流量制限（issue #715）
+    if (error.code === "rate_limited")
+      return "リクエストが多すぎます。しばらくしてからお試しください";
   }
   return "通報に失敗しました";
 }
