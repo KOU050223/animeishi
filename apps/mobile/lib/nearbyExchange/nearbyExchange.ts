@@ -23,11 +23,14 @@ function emit<E extends keyof NearbyExchangeModuleEvents>(
 }
 
 export const nearbyExchange: NearbyExchange = {
+  platformAvailable: false,
+  isSupported: () => false,
   start: () => {
     emit("onCapability", { uwb: false });
     emit("onError", { code: "unsupported_platform", message: "" });
   },
   stop: () => {},
+  sendPayload: () => {},
   addListener: (event, listener) => {
     const entry = {
       event,

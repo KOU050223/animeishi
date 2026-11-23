@@ -320,6 +320,21 @@ describe("buildQrExchangeUrl", () => {
     expect(url).not.toContain("ot=");
   });
 
+  it("近づけて交換用（includeOfflineWithQt）は qt と ot を両方載せ、パーサーで両方取り出せる", () => {
+    const url = buildQrExchangeUrl(SHARE_URL, {
+      qt: QT,
+      ot: OT,
+      miniMeishi: { username: "たろう" },
+      includeOfflineWithQt: true,
+    });
+    expect(parseQrPayload(url)).toEqual({
+      userId: CLERK_ID,
+      qrToken: QT,
+      offlineToken: OT,
+      miniMeishi: { username: "たろう" },
+    });
+  });
+
   it("qt も ot も無ければ shareUrl をそのまま返す", () => {
     expect(
       buildQrExchangeUrl(SHARE_URL, { miniMeishi: { username: "たろう" } }),

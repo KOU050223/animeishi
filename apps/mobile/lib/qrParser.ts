@@ -134,12 +134,24 @@ function decodeMiniMeishi(encoded: string): MiniMeishi | undefined {
  */
 export function buildQrExchangeUrl(
   shareUrl: string,
-  params: { qt?: string; ot?: string | null; miniMeishi?: MiniMeishi },
+  params: {
+    qt?: string;
+    ot?: string | null;
+    miniMeishi?: MiniMeishi;
+    /**
+     * qt があっても ot を併記する。画面に出す QR では ot を広めないよう
+     * qt を優先するが、近づけて交換（issue #693）で 10cm の相手 1 人だけに
+     * 送るデータでは、qt の期限後にオフラインの交換キューを同期できるよう
+     * 両方を載せる。
+     */
+    includeOfflineWithQt?: boolean;
+  },
 ): string {
   const query: string[] = [];
   if (params.qt) {
     query.push(`${QR_TOKEN_PARAM}=${encodeURIComponent(params.qt)}`);
-  } else if (params.ot) {
+  }
+  if (params.ot && (!params.qt || params.includeOfflineWithQt)) {
     query.push(`${QR_OFFLINE_TOKEN_PARAM}=${encodeURIComponent(params.ot)}`);
   }
   if (query.length > 0 && params.miniMeishi) {

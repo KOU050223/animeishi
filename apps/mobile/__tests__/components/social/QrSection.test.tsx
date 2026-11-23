@@ -129,6 +129,31 @@ jest.mock("@/lib/useQrScanner", () => ({
   },
 }));
 
+// 近づけて交換（issue #693）。既定は非対応端末（従来どおりマイ QR が既定）
+// とし、対応端末の分岐だけテストごとに切り替える。中身の画面は
+// NearbyExchangeView 側のテストで担保する。
+let mockNearbySupported = false;
+let mockNearbyPlatformAvailable = false;
+jest.mock("@/lib/nearbyExchange", () => ({
+  nearbyExchange: {
+    get platformAvailable() {
+      return mockNearbyPlatformAvailable;
+    },
+    isSupported: () => mockNearbySupported,
+  },
+}));
+jest.mock("@/components/social/nearby/NearbyExchangeView", () => ({
+  NearbyExchangeView: ({ onShowQr }: { onShowQr: () => void }) => {
+    const { Text } = require("react-native");
+    const React = require("react");
+    return React.createElement(
+      Text,
+      { testID: "nearby-exchange-view-stub", onPress: onShowQr },
+      "nearby",
+    );
+  },
+}));
+
 jest.mock("@/lib/haptics", () => ({
   haptics: {
     success: jest.fn(),
@@ -259,6 +284,8 @@ beforeEach(async () => {
   capturedOnScanned = undefined;
   capturedCameraProps = null;
   mockScannerPermission = { granted: true };
+  mockNearbySupported = false;
+  mockNearbyPlatformAvailable = false;
   mockProfile = { username: "テストユーザー" };
   mockMeishiCards = [];
   mockDefaultCardId = null;
@@ -1076,5 +1103,39 @@ describe("スキャン", () => {
       ),
     );
     expect(screen.queryByTestId("exchange-queued-overlay")).toBeNull();
+  });
+});
+
+describe("近づける（issue #693）", () => {
+  it("対応端末では「近づける」が既定で開き、QR へ切り替えられる", async () => {
+    mockNearbyPlatformAvailable = true;
+    mockNearbySupported = true;
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    expect(screen.getByTestId("nearby-exchange-view-stub")).toBeTruthy();
+    expect(screen.queryByTestId("qr-generate-scroll")).toBeNull();
+
+    await fireEvent.press(screen.getByTestId("nearby-exchange-view-stub"));
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
+  });
+
+  it("UWB 非対応の iPhone でも「近づける」を既定にする（近くの人をタップして交換できる）", async () => {
+    mockNearbyPlatformAvailable = true;
+    mockNearbySupported = false;
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    expect(screen.getByTestId("nearby-exchange-view-stub")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("マイQR"));
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
+  });
+
+  it("近づけて交換の実装が無いプラットフォームでは「近づける」を出さない", async () => {
+    loggedInUser({ userId: USER_ID });
+    await render(<QrSection />, { wrapper });
+
+    expect(screen.queryByTestId("qr-mode-nearby")).toBeNull();
+    expect(screen.getByTestId("qr-generate-scroll")).toBeTruthy();
   });
 });
