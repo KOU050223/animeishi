@@ -13,6 +13,7 @@
     "ios:device:release:nearby-spike": "bash scripts/ios-device-release.sh --nearby-spike",
     "typecheck": "tsc --noEmit --checkers 1",
     "build:web": "expo export -p web && node scripts/prune-web-html.mjs",
+    "bundle:size": "node scripts/check-web-bundle-size.mjs",
     "deploy:web": "wrangler deploy --env production",
     "preview:web": "wrangler dev",
     "lint": "vp lint . --deny-warnings",
