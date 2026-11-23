@@ -447,6 +447,14 @@ export function worksRepository(db: DrizzleDb) {
           (${annictWorks.malAnimeId} is not null
            or ${annictWorks.kitsuAnimeId} is not null)
         `,
+            // 下の複合条件から論理的には含意されるが、部分インデックス
+            // annict_works_pending_image_idx を SQLite が使える形にするため
+            // 単独の項としても置く（含意の形が複合だとインデックスが
+            // 選ばれないことをローカルで確認済み。issue #704）。
+            or(
+              isNull(annictWorks.imageSource),
+              eq(annictWorks.imageSource, "none"),
+            ),
             or(
               isNull(annictWorks.imageSource),
               and(
@@ -795,6 +803,11 @@ export function worksRepository(db: DrizzleDb) {
               sql`${annictWorks.malAnimeId} is not null`,
               sql`${annictWorks.kitsuAnimeId} is not null`,
             ),
+            // 下の複合条件から論理的には含意されるが、部分インデックス
+            // annict_works_pending_genre_idx を SQLite が使える形にするため
+            // 単独の項としても置く（getPendingImageFallbackWorks と同じ理由。
+            // issue #704）。
+            or(isNull(annictWorks.genres), sql`${annictWorks.genres} = '[]'`),
             or(
               and(
                 isNull(annictWorks.genres),
