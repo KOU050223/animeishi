@@ -2,19 +2,23 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "@clerk/expo";
 import { clearQueryCache } from "@/lib/queryClient";
 
+async function signOutAndClearQueryCache(
+  signOut: () => Promise<void>,
+): Promise<void> {
+  try {
+    await signOut();
+  } finally {
+    await clearQueryCache();
+  }
+}
+
 /**
  * アプリからのサインアウトはすべてこれを通す。前のユーザーのデータを
  * 端末に残さないよう、Clerk のサインアウト後にクエリキャッシュを消す。
  */
 export function useSignOut(): () => Promise<void> {
   const { signOut } = useAuth();
-  return async () => {
-    try {
-      await signOut();
-    } finally {
-      await clearQueryCache();
-    }
-  };
+  return () => signOutAndClearQueryCache(signOut);
 }
 
 /**
