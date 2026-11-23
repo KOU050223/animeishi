@@ -66,3 +66,34 @@ jobs:
         run: pnpm --filter @animeishi/mobile exec expo export --platform ${{ matrix.platform }}
         env:
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+
+      # web は export 物の初回 JS サイズ（各 *.html の <script src> の gzip 合計）も
+      # 検査する（issue #721）。PR ではベース側も export して差分をジョブサマリーに出す。
+      # ベース側の計測失敗でチェック全体を落とさないよう continue-on-error にする
+      # （その場合は差分なしで上限チェックだけが走る）。
+      - name: Export and measure base bundle
+        if: matrix.platform == 'web' && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+        run: |
+          git fetch --depth 1 origin "${{ github.base_ref }}"
+          git worktree add bundle-base FETCH_HEAD
+          vp -C bundle-base install
+          pnpm -C bundle-base --filter @animeishi/mobile exec expo export --platform web
+          node apps/mobile/scripts/check-web-bundle-size.mjs \
+            --dist bundle-base/apps/mobile/dist \
+            --write-report /tmp/animeishi-bundle-base.json \
+            --label "base $(git -C bundle-base rev-parse --short HEAD)" \
+            --no-check
+
+      - name: Check web bundle size
+        if: matrix.platform == 'web'
+        run: |
+          args=()
+          if [ -f /tmp/animeishi-bundle-base.json ]; then
+            args+=(--baseline /tmp/animeishi-bundle-base.json)
+          fi
+          node apps/mobile/scripts/check-web-bundle-size.mjs \
+            --label "head ${{ github.event.pull_request.head.sha || github.sha }}" \
+            "${args[@]}"

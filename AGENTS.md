@@ -7,6 +7,7 @@
 | ツールチェーン（vp・Oxlint/Oxfmt・TypeScript 7・キャッシュ・Git フック）の版上げ・設定変更 | `docs/development/toolchain.md` |
 | テスト設定の変更、テストがどの環境で動くかの確認 | `docs/development/testing.md` |
 | E2E の初回実行・失敗調査・スクリプト変更 | `docs/development/e2e-ios.md` |
+| Web バンドルサイズの計測・上限の変更 | `docs/development/web-bundle-size.md` |
 | 本番・プレビューの手動操作（マイグレーション・通報対応・画像削除） | `docs/runbook/production-tasks.md` |
 | 機能の設計 | `docs/NN_*.md` |
 
