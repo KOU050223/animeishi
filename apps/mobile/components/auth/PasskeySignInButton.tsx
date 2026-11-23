@@ -10,6 +10,7 @@ import {
   toAuthErrorMessage,
 } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { useSignOut } from "@/lib/useSignOut";
 import { useThemeColors } from "@/lib/theme";
 
 type Props = {
@@ -28,7 +29,8 @@ type Props = {
 export function PasskeySignInButton({ onError }: Props) {
   const { t } = useTranslation();
   const { signIn } = useSignIn();
-  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const signOut = useSignOut();
   const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();

@@ -23,6 +23,7 @@ import {
   toAuthErrorMessage,
 } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { useSignOut } from "@/lib/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
 import {
   isReviewAccountEmail,
@@ -42,7 +43,8 @@ type Step = "credentials" | "device-code";
 export default function SignInScreen() {
   const { t } = useTranslation();
   const { signIn } = useSignIn();
-  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const signOut = useSignOut();
   const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();
