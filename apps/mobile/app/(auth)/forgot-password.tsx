@@ -13,6 +13,7 @@ import { useState } from "react";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
+import * as v from "valibot";
 import {
   passwordResetEmailSchema,
   passwordResetSchema,
@@ -49,11 +50,11 @@ export default function ForgotPasswordScreen() {
 
   async function handleSendCode() {
     if (!signIn) return;
-    const parsed = passwordResetEmailSchema.safeParse({ email });
+    const parsed = v.safeParse(passwordResetEmailSchema, { email });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message
-          ? t(parsed.error.issues[0].message as TranslationKey)
+        parsed.issues[0]?.message
+          ? t(parsed.issues[0].message as TranslationKey)
           : t("入力内容を確認してください"),
       );
       return;
@@ -63,7 +64,7 @@ export default function ForgotPasswordScreen() {
     setError(null);
     try {
       throwIfAuthError(
-        (await signIn.create({ identifier: parsed.data.email })).error,
+        (await signIn.create({ identifier: parsed.output.email })).error,
       );
       throwIfAuthError((await signIn.resetPasswordEmailCode.sendCode()).error);
       setStep("reset");
@@ -80,15 +81,15 @@ export default function ForgotPasswordScreen() {
 
   async function handleReset() {
     if (!signIn) return;
-    const parsed = passwordResetSchema.safeParse({
+    const parsed = v.safeParse(passwordResetSchema, {
       code,
       password,
       passwordConfirmation,
     });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message
-          ? t(parsed.error.issues[0].message as TranslationKey)
+        parsed.issues[0]?.message
+          ? t(parsed.issues[0].message as TranslationKey)
           : t("入力内容を確認してください"),
       );
       return;
@@ -102,7 +103,7 @@ export default function ForgotPasswordScreen() {
         throwIfAuthError(
           (
             await signIn.resetPasswordEmailCode.verifyCode({
-              code: parsed.data.code,
+              code: parsed.output.code,
             })
           ).error,
         );
@@ -110,7 +111,7 @@ export default function ForgotPasswordScreen() {
       throwIfAuthError(
         (
           await signIn.resetPasswordEmailCode.submitPassword({
-            password: parsed.data.password,
+            password: parsed.output.password,
             // パスワードを忘れた理由が漏洩の可能性もあるため、他の端末のセッションは切る
             signOutOfOtherSessions: true,
           })

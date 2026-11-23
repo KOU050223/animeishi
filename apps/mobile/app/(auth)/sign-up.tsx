@@ -18,6 +18,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import * as v from "valibot";
 import { signUpSchema } from "@/lib/validators";
 import {
   getClerkErrorCode,
@@ -96,7 +97,7 @@ export default function SignUpScreen() {
   async function handleSignUp() {
     if (!isLoaded || !signUp) return;
 
-    const parsed = signUpSchema.safeParse({
+    const parsed = v.safeParse(signUpSchema, {
       email,
       password,
       passwordConfirmation,
@@ -104,8 +105,8 @@ export default function SignUpScreen() {
     });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message
-          ? t(parsed.error.issues[0].message as TranslationKey)
+        parsed.issues[0]?.message
+          ? t(parsed.issues[0].message as TranslationKey)
           : t("入力内容を確認してください"),
       );
       return;
@@ -120,9 +121,9 @@ export default function SignUpScreen() {
       // そのまま使うため、throwIfAuthError で例外へ戻す。
       // 結果は戻り値ではなく signUp リソースの status 等に反映される。
       const { error: signUpError } = await signUp.password({
-        emailAddress: parsed.data.email,
-        password: parsed.data.password,
-        username: parsed.data.username,
+        emailAddress: parsed.output.email,
+        password: parsed.output.password,
+        username: parsed.output.username,
       });
       throwIfAuthError(signUpError);
 

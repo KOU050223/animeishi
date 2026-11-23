@@ -121,6 +121,19 @@ export default defineConfig({
                   message:
                     'Import the icon set by subpath (e.g. "@expo/vector-icons/Ionicons") so unused glyphmaps stay out of the bundle.',
                 },
+                {
+                  name: "zod",
+                  message:
+                    "Use valibot instead so zod's locale files stay out of the web bundle (issue #718).",
+                },
+              ],
+              // paths は完全一致なので zod/v4 などのサブパスは別途禁止する。
+              patterns: [
+                {
+                  group: ["zod/**"],
+                  message:
+                    "Use valibot instead so zod's locale files stay out of the web bundle (issue #718).",
+                },
               ],
             },
           ],
