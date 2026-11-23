@@ -199,8 +199,8 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
     /** 参加表明済みかどうか。 */
     async isParticipating(eventSlug: string): Promise<boolean> {
       const row = await db.query.eventParticipations.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.eventSlug, eventSlug), eq_(t.userId, currentUserId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.eventSlug, eventSlug), eq_(t.userId, currentUserId)),
         columns: { id: true },
       });
       return row !== undefined;

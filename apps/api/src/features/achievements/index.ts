@@ -64,7 +64,7 @@ async function judgeSeasonCompletion(
 
   // 記録話数の多い順に並べ、早いチャンクで完走を見つけやすくする
   // （完走は 1 本でもあれば獲得なので、確定した時点で残りは取らない）。
-  const sorted = [...candidates].sort(
+  const sorted = [...candidates].toSorted(
     (a, b) => b.recordedEpisodeIds.size - a.recordedEpisodeIds.size,
   );
 

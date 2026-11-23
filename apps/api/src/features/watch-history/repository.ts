@@ -245,8 +245,8 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
         changed = inserted.meta.changes === 1;
       }
       const entry = await db.query.watchHistory.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       if (!entry) throw new Error("視聴履歴の更新に失敗しました");
       return { entry, changed };

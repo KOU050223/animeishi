@@ -100,8 +100,8 @@ describe("groupActivityItems", () => {
     });
     const later = bulkRun(ACTIVITY_GROUP_MIN_ITEMS - 1, {
       // far よりさらに後（時刻が古い）側の連続
-    }).map((it, i) => ({
-      ...it,
+    }).map((run, i) => ({
+      ...run,
       createdAt: new Date(
         new Date(far.createdAt).getTime() - (i + 1) * 60_000,
       ).toISOString(),

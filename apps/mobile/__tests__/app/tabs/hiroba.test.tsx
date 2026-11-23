@@ -26,16 +26,16 @@ jest.mock("expo-router", () => ({
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
 jest.mock("@/components/hiroba/CreateSection", () => ({
   CreateSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-create" });
+    return ActualReact.createElement(Text, { testID: "section-create" });
   },
 }));
 jest.mock("@/components/hiroba/DiscoverSection", () => ({
   DiscoverSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-discover" });
+    return ActualReact.createElement(Text, { testID: "section-discover" });
   },
 }));
 

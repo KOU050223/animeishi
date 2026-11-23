@@ -565,7 +565,7 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
       .select()
       .from(danimeEpisodeImportItems)
       .where(eq(danimeEpisodeImportItems.jobId, jobId));
-    expect(items.map((i) => i.status).sort()).toEqual([
+    expect(items.map((i) => i.status).toSorted()).toEqual([
       "done",
       "done",
       "done",
@@ -636,7 +636,7 @@ describe("dアニメ話記録 Workflow（issue #477）", () => {
       .select()
       .from(danimeEpisodeImportItems)
       .where(eq(danimeEpisodeImportItems.jobId, jobId));
-    expect(items.map((i) => i.status).sort()).toEqual(["done", "done"]);
+    expect(items.map((i) => i.status).toSorted()).toEqual(["done", "done"]);
     // 上限で投げられた 1 回と、引き継ぎ先での再送 1 回。
     const ep102Calls = calls.filter((c) => c.episodeId === "Ep-102");
     expect(ep102Calls).toHaveLength(2);

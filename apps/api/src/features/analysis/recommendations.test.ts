@@ -622,7 +622,10 @@ describe("matchCandidateWorks", () => {
     vi.unstubAllGlobals();
   });
 
-  function workNode(annictId: number, overrides: Record<string, unknown> = {}) {
+  function candidateWorkNode(
+    annictId: number,
+    overrides: Record<string, unknown> = {},
+  ) {
     return {
       id: `node-${annictId}`,
       annictId,
@@ -647,9 +650,9 @@ describe("matchCandidateWorks", () => {
             searchWorks: {
               pageInfo: { hasNextPage: false, endCursor: null },
               nodes: [
-                workNode(1, { title: "進撃の巨人" }),
-                workNode(2, { title: "呪術廻戦" }),
-                workNode(3, { title: "無関係な作品" }),
+                candidateWorkNode(1, { title: "進撃の巨人" }),
+                candidateWorkNode(2, { title: "呪術廻戦" }),
+                candidateWorkNode(3, { title: "無関係な作品" }),
               ],
             },
           },
@@ -701,8 +704,8 @@ describe("matchCandidateWorks", () => {
         const title = body.variables.titles[0] ?? "";
         const nodes =
           title === "存在しない作品"
-            ? [workNode(99, { title: "全然違う作品" })]
-            : [workNode(7, { title })];
+            ? [candidateWorkNode(99, { title: "全然違う作品" })]
+            : [candidateWorkNode(7, { title })];
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -748,7 +751,7 @@ describe("matchCandidateWorks", () => {
             data: {
               searchWorks: {
                 pageInfo: { hasNextPage: false, endCursor: null },
-                nodes: [workNode(1, { title: "名探偵コナン" })],
+                nodes: [candidateWorkNode(1, { title: "名探偵コナン" })],
               },
             },
           }),
@@ -762,7 +765,9 @@ describe("matchCandidateWorks", () => {
               searchWorks: {
                 pageInfo: { hasNextPage: false, endCursor: null },
                 nodes: [
-                  workNode(2, { title: "劇場版 名探偵コナン 黒鉄の魚影" }),
+                  candidateWorkNode(2, {
+                    title: "劇場版 名探偵コナン 黒鉄の魚影",
+                  }),
                 ],
               },
             },
@@ -797,7 +802,7 @@ describe("matchCandidateWorks", () => {
               data: {
                 searchWorks: {
                   pageInfo: { hasNextPage: false, endCursor: null },
-                  nodes: [workNode(1, { title: "鬼滅の刃" })],
+                  nodes: [candidateWorkNode(1, { title: "鬼滅の刃" })],
                 },
               },
             }),

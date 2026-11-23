@@ -203,8 +203,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
       signInAs(USER_A);
       // 既存の初回記録に場所を付けてから、同日・同じ場所で手動登録する
       const record = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       await db
         .update(exchangeRecordsTable)
@@ -247,8 +247,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("登録イベントの改名後も同日・同じ場所・同じ slug ならまとめる", async () => {
       signInAs(USER_A);
       const record = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       const now = new Date();
       await db.insert(eventsTable).values({
@@ -314,8 +314,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     describe("同日判定の境界（JST の暦日）", () => {
       async function moveMyRecordTo(metAt: Date) {
         const record = await db.query.exchangeRecords.findFirst({
-          where: (t, { and, eq }) =>
-            and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+          where: (t, { and, eq: eq_ }) =>
+            and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
         });
         await db
           .update(exchangeRecordsTable)
@@ -393,7 +393,7 @@ describe("交換記録 API（issue #661 / #662）", () => {
       expect(res.status).toBe(201);
       const created = (await res.json()) as { id: number };
       const row = await db.query.exchangeRecords.findFirst({
-        where: (t, { eq }) => eq(t.id, created.id),
+        where: (t, { eq: eq_ }) => eq_(t.id, created.id),
       });
       expect(row?.cardSnapshotKey).toMatch(
         /^exchange-card-snapshots\/user_exchA001\//,
@@ -430,8 +430,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("他人の記録は返らない（場所・イベントが相手に漏れない）", async () => {
       // A が自分の記録に場所・イベントを付けても、B からは見えない。
       const aRecord = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       await db
         .update(exchangeRecordsTable)
@@ -457,8 +457,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
   describe("PUT /me/exchange-records/:recordId", () => {
     async function myRecord() {
       return db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
     }
 
@@ -631,8 +631,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("他人の記録は 404（存在も漏らさない）", async () => {
       signInAs(USER_A);
       const bRecord = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_B), eq(t.friendId, USER_A)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_B), eq_(t.friendId, USER_A)),
       });
 
       const res = await putRecord(bRecord!.id, {
@@ -644,7 +644,7 @@ describe("交換記録 API（issue #661 / #662）", () => {
 
       // B 側の記録が書き換わっていないことも確認する
       const after = await db.query.exchangeRecords.findFirst({
-        where: (t, { eq }) => eq(t.id, bRecord!.id),
+        where: (t, { eq: eq_ }) => eq_(t.id, bRecord!.id),
       });
       expect(after?.placeName).toBeNull();
     });
@@ -687,8 +687,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("自分の記録を削除できる", async () => {
       signInAs(USER_A);
       const record = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       const app = buildApp();
 
@@ -700,7 +700,7 @@ describe("交換記録 API（issue #661 / #662）", () => {
       expect(res.status).toBe(200);
       expect(
         await db.query.exchangeRecords.findFirst({
-          where: (t, { eq }) => eq(t.id, record!.id),
+          where: (t, { eq: eq_ }) => eq_(t.id, record!.id),
         }),
       ).toBeUndefined();
     });
@@ -708,8 +708,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("他人の記録は 404", async () => {
       signInAs(USER_A);
       const bRecord = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_B), eq(t.friendId, USER_A)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_B), eq_(t.friendId, USER_A)),
       });
       const app = buildApp();
 
@@ -724,8 +724,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
     it("記録と一緒に名刺コピーの R2 オブジェクトも消える", async () => {
       // A の記録にコピーを紐付ける
       const record = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       const key = `exchange-card-snapshots/${USER_A}/test-copy.png`;
       await env.AVATARS.put(key, new Uint8Array([1, 2, 3]));
@@ -753,8 +753,8 @@ describe("交換記録 API（issue #661 / #662）", () => {
       const key = `exchange-card-snapshots/${USER_A}/a-copy.png`;
       await env.AVATARS.put(key, new Uint8Array([4, 5, 6]));
       const record = await db.query.exchangeRecords.findFirst({
-        where: (t, { and, eq }) =>
-          and(eq(t.ownerId, USER_A), eq(t.friendId, USER_B)),
+        where: (t, { and, eq: eq_ }) =>
+          and(eq_(t.ownerId, USER_A), eq_(t.friendId, USER_B)),
       });
       await db
         .update(exchangeRecordsTable)

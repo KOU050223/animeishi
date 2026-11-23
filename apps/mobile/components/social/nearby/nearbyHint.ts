@@ -58,7 +58,8 @@ export function nearbyHint(
           title: t("その調子"),
           subtitle: t("上の端の光が強くなったら、あと少しです"),
         };
-      default:
+      case "close":
+      case "touch":
         return {
           title: t("あと少し"),
           subtitle: t("端どうしが触れるくらいまで"),

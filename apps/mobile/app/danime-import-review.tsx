@@ -151,7 +151,7 @@ function initialRowState(
         // protected_state が返るのは currentState が保護対象の値のときだけ。
         note: { kind: "protected_state", state: currentState! },
       };
-    default:
+    case "apply":
       return { checked: true, locked: false, note: null };
   }
 }

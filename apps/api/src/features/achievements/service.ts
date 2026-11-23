@@ -56,7 +56,7 @@ export function computeWeeklyStreak(
   recordedAts: readonly number[],
   nowMs: number,
 ): WeeklyStreakStats {
-  const weeks = [...new Set(recordedAts.map(jstWeekIndex))].sort(
+  const weeks = [...new Set(recordedAts.map(jstWeekIndex))].toSorted(
     (a, b) => a - b,
   );
   if (weeks.length === 0) return { currentWeeks: 0, bestWeeks: 0 };

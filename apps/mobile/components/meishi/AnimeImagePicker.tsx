@@ -398,28 +398,31 @@ export function AnimeImagePicker({
                 { key: "search", label: t("検索") },
                 { key: "library", label: t("マイリスト") },
               ] as const
-            ).map((t) => (
+            ).map((tabOption) => (
               <Pressable
-                key={t.key}
-                onPress={() => setTab(t.key)}
+                key={tabOption.key}
+                onPress={() => setTab(tabOption.key)}
                 accessibilityRole="button"
-                accessibilityLabel={t.label}
+                accessibilityLabel={tabOption.label}
                 style={{
                   paddingVertical: 6,
                   paddingHorizontal: 12,
                   borderRadius: 8,
                   backgroundColor:
-                    tab === t.key ? colors.primary : colors.surfaceMuted,
+                    tab === tabOption.key
+                      ? colors.primary
+                      : colors.surfaceMuted,
                 }}
               >
                 <Text
                   style={{
                     fontSize: 13,
                     fontWeight: "600",
-                    color: tab === t.key ? colors.onPrimary : colors.text,
+                    color:
+                      tab === tabOption.key ? colors.onPrimary : colors.text,
                   }}
                 >
-                  {t.label}
+                  {tabOption.label}
                 </Text>
               </Pressable>
             ))}

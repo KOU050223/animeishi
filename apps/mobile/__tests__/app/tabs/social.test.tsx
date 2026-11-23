@@ -26,23 +26,23 @@ jest.mock("expo-router", () => ({
 // セクション中身は別テストで担保するため、表示識別だけのスタブにする。
 jest.mock("@/components/social/QrSection", () => ({
   QrSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-qr" });
+    return ActualReact.createElement(Text, { testID: "section-qr" });
   },
 }));
 jest.mock("@/components/social/FriendsSection", () => ({
   FriendsSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-friends" });
+    return ActualReact.createElement(Text, { testID: "section-friends" });
   },
 }));
 jest.mock("@/components/social/ActivityFeedSection", () => ({
   ActivityFeedSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-activity" });
+    return ActualReact.createElement(Text, { testID: "section-activity" });
   },
 }));
 

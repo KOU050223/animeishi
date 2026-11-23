@@ -180,7 +180,7 @@ describe("GET /user/:uid", () => {
     expect(body.username).toBe("公開ユーザー");
     expect(body.bio).toBe("自己紹介です");
     expect(body.favoriteQuote).toBe("好きな言葉");
-    expect(body.genres.sort()).toEqual(["SF", "アクション"]);
+    expect(body.genres.toSorted()).toEqual(["SF", "アクション"]);
   });
 
   it("Accept: text/html のとき OGP 付き HTML を返す", async () => {

@@ -26,8 +26,8 @@ export function episodeRecordsRepository(db: DrizzleDb, currentUserId: string) {
     /** 本人の、ある作品の記録ログを全部返す（同期・応答マージ用）。 */
     async listByWork(annictWorkId: number): Promise<EpisodeRecord[]> {
       return db.query.episodeRecords.findMany({
-        where: (t, { and, eq }) =>
-          and(eq(t.userId, currentUserId), eq(t.annictWorkId, annictWorkId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
     },
 
@@ -65,8 +65,8 @@ export function episodeRecordsRepository(db: DrizzleDb, currentUserId: string) {
       reconcile: boolean,
     ): Promise<void> {
       const existing = await db.query.episodeRecords.findMany({
-        where: (t, { and, eq }) =>
-          and(eq(t.userId, currentUserId), eq(t.annictWorkId, annictWorkId)),
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(eq_(t.userId, currentUserId), eq_(t.annictWorkId, annictWorkId)),
       });
       const existingByRecordId = new Map(
         existing

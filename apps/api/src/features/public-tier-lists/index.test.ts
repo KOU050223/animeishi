@@ -287,7 +287,7 @@ describe("公開 Tier 表 API", () => {
       const res = await getPublic(app);
       expect(res.status).toBe(200);
       const body = (await res.json()) as { items: PublicListItem[] };
-      expect(body.items.map((i) => i.kind).sort()).toEqual([
+      expect(body.items.map((i) => i.kind).toSorted()).toEqual([
         "character",
         "custom",
         "season",

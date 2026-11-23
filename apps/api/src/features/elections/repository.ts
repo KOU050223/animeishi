@@ -136,8 +136,8 @@ export function electionsRepository(db: DrizzleDb, currentUserId: string) {
       candidateId: number;
     }): Promise<boolean> {
       const row = await db.query.electionCandidates.findFirst({
-        where: (t, { and, eq: eq_ }) =>
-          and(
+        where: (t, { and: and_, eq: eq_ }) =>
+          and_(
             eq_(t.electionSlug, opts.electionSlug),
             eq_(t.id, opts.candidateId),
           ),
