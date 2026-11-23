@@ -259,6 +259,7 @@ export default function SignUpScreen() {
                 className="bg-indigo-600 rounded-lg py-4 items-center"
                 onPress={handleVerify}
                 disabled={loading}
+                accessibilityRole="button"
                 testID="verify-button"
               >
                 {loading ? (
@@ -359,6 +360,7 @@ export default function SignUpScreen() {
               className="bg-indigo-600 rounded-lg py-4 items-center mb-4"
               onPress={handleSignUp}
               disabled={loading}
+              accessibilityRole="button"
               testID="sign-up-button"
             >
               {loading ? (

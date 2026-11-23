@@ -352,6 +352,7 @@ export function AnimeImagePicker({
         <Pressable
           onPress={onClose}
           style={{ flex: 1, backgroundColor: colors.scrim }}
+          accessibilityRole="button"
         />
         <View
           style={{

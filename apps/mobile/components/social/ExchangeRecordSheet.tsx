@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  StyleSheet,
   ScrollView,
   Text,
   View,
@@ -358,17 +359,21 @@ export function ExchangeRecordSheet({
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable
-          onPress={onClose}
+        <View
           style={{
             flex: 1,
-            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
         >
           <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+          />
+          <Pressable
             onPress={() => {}}
+            accessibilityRole="none"
             style={{
               backgroundColor: colors.surface,
               borderTopLeftRadius: 16,
@@ -457,7 +462,7 @@ export function ExchangeRecordSheet({
               </View>
             </ScrollView>
           </Pressable>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -118,6 +118,7 @@ export function GoogleAuthButton({ onError }: Props) {
       className="border border-slate-300 dark:border-slate-600 rounded-lg py-4 items-center mb-4 flex-row justify-center"
       onPress={handlePress}
       disabled={loading}
+      accessibilityRole="button"
       testID="google-sign-in-button"
     >
       {loading ? (

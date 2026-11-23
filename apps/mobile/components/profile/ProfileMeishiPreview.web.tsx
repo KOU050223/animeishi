@@ -49,6 +49,7 @@ export function ProfileMeishiPreview(props: MeishiCardProps) {
               bottom: 0,
               left: 0,
             }}
+            accessibilityRole="button"
           />
           <View
             style={{

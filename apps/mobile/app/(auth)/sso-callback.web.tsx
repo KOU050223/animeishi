@@ -82,7 +82,10 @@ export default function SsoCallbackScreen() {
             {t("サインインを完了できませんでした。もう一度お試しください。")}
           </Text>
           <Link href="/sign-in" asChild>
-            <TouchableOpacity testID="sso-callback-back-to-sign-in">
+            <TouchableOpacity
+              accessibilityRole="link"
+              testID="sso-callback-back-to-sign-in"
+            >
               <Text className="text-blue-600 dark:text-blue-400">
                 {t("サインイン画面に戻る")}
               </Text>

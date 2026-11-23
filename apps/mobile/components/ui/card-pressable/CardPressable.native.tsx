@@ -6,6 +6,7 @@ export function CardPressable({
   onPress,
   style,
   accessibilityLabel,
+  accessibilityRole = "button",
   testID,
 }: CardPressableProps) {
   return (
@@ -13,7 +14,7 @@ export function CardPressable({
       style={style}
       testID={testID}
       onPress={onPress}
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
     >
       {children}

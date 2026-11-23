@@ -1,4 +1,11 @@
-import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { WorkAddSheet } from "@/components/tier-list/WorkAddSheet";
@@ -59,17 +66,21 @@ export function CharacterTierWorkPicker({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable
-        onPress={onClose}
+      <View
         style={{
           flex: 1,
-          backgroundColor: colors.scrim,
           justifyContent: "flex-end",
           alignItems: "center",
         }}
       >
         <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+        />
+        <Pressable
           onPress={() => {}}
+          accessibilityRole="none"
           style={{
             backgroundColor: colors.surface,
             borderTopLeftRadius: 16,
@@ -112,7 +123,7 @@ export function CharacterTierWorkPicker({
             </Text>
           </Pressable>
         </Pressable>
-      </Pressable>
+      </View>
     </Modal>
   );
 }

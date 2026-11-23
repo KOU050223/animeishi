@@ -305,6 +305,7 @@ function ImageFocusPreview({
         ))}
         <Pressable
           onPress={() => onChange({ focus: { x: 0.5, y: 0.5 } })}
+          accessibilityRole="button"
           style={{ marginLeft: 8 }}
         >
           <Text style={{ color: colors.primary, fontSize: 12 }}>
@@ -333,6 +334,7 @@ function renderEditor(
           <Row label={t("文字列")}>
             <Pressable
               onPress={onOpenTextEdit}
+              accessibilityRole="button"
               style={{
                 flex: 1,
                 paddingVertical: 8,
@@ -570,6 +572,7 @@ function renderEditor(
             <Row label={t("内容")}>
               <Pressable
                 onPress={onOpenTextEdit}
+                accessibilityRole="button"
                 style={{
                   flex: 1,
                   paddingVertical: 8,
@@ -864,6 +867,7 @@ function SegmentedControl<T extends string>({
               if (!active) haptics.selection();
               onChange(opt.value);
             }}
+            accessibilityRole="button"
             style={{
               paddingVertical: 6,
               paddingHorizontal: 10,
@@ -900,6 +904,7 @@ function StepControl({
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       <Pressable
         onPress={() => onChange(value - step)}
+        accessibilityRole="button"
         style={{
           width: 32,
           height: 32,
@@ -916,6 +921,7 @@ function StepControl({
       </Text>
       <Pressable
         onPress={() => onChange(value + step)}
+        accessibilityRole="button"
         style={{
           width: 32,
           height: 32,
@@ -949,6 +955,7 @@ function ColorGrid({
         <Pressable
           key={c}
           onPress={() => onChange(c)}
+          accessibilityRole="button"
           style={{
             width: 26,
             height: 26,
@@ -1006,6 +1013,7 @@ function ActionButton({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
       style={{
         flex: 1,
         paddingVertical: 10,

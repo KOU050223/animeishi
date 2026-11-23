@@ -14,6 +14,7 @@ export function CardPressable({
   style,
   contentStyle,
   accessibilityLabel,
+  accessibilityRole = "button",
   testID,
 }: CardPressableProps) {
   return (
@@ -21,7 +22,7 @@ export function CardPressable({
       <TouchableOpacity
         style={StyleSheet.absoluteFill}
         onPress={onPress}
-        accessibilityRole="button"
+        accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
         testID={testID}
       />

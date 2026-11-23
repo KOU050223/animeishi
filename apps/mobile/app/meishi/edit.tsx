@@ -530,6 +530,7 @@ export default function MeishiEditScreen() {
             <Pressable
               onPress={() => void shareMeishiImage()}
               style={styles.saveFeedbackShareBtn}
+              accessibilityRole="button"
               accessibilityLabel={t("画像で共有")}
               testID="meishi-save-share-image"
             >
