@@ -252,9 +252,11 @@ ALLOWED_ORIGINS = "https://animeishi-web-production.uozumi05.workers.dev,*-anime
 GitHub Actions を待たずにデプロイする場合:
 
 ```bash
-# Web
+# Web（--var を省くと CSP から Clerk の許可先と Sentry への違反レポート先が抜ける。issue #714）
 pnpm --filter @animeishi/mobile build:web
-pnpm --filter @animeishi/mobile deploy:web
+pnpm --filter @animeishi/mobile deploy:web \
+  --var "CLERK_PUBLISHABLE_KEY:${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}" \
+  --var "SENTRY_DSN:${EXPO_PUBLIC_SENTRY_DSN}"
 
 # API
 pnpm --filter @animeishi/api exec wrangler deploy --env production
