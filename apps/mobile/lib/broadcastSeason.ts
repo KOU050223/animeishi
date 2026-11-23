@@ -21,12 +21,12 @@ function broadcastSeasonRank(
   seasonName: string | null | undefined,
 ): number | null {
   if (seasonName == null) return null;
-  // "2026-spring" 形式から季節部分だけを取る。ハイフンが無い値は
-  // 全体をシーズン名として解釈する（formatWorkSeason と同じパース）。
+  // D1 の annict_works.season_name は Annict GraphQL の列挙値（"AUTUMN"）で、
+  // "2026-spring" 形式も混在し得るため、どちらも大文字小文字を問わず読む。
   const season = seasonName.includes("-")
     ? seasonName.split("-")[1]
     : seasonName;
-  return SEASON_RANK[season] ?? null;
+  return SEASON_RANK[season?.toLowerCase() ?? ""] ?? null;
 }
 
 /**

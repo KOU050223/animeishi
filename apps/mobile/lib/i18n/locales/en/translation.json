@@ -1510,5 +1510,9 @@
   "相手が承認すると、名刺が入れ替わります": "When they accept, your cards are swapped",
   "この iPhone は距離を測れないため、近くの人をタップして交換します": "This iPhone can't measure distance, so tap someone nearby to exchange",
   "{{name}}さんとは交換しませんでした": "{{name}} didn't exchange cards",
-  "{{name}}さんから返事がありませんでした": "No reply from {{name}}"
+  "{{name}}さんから返事がありませんでした": "No reply from {{name}}",
+  "この作品は表示できません": "This work can't be displayed",
+  "作品情報の表示には Annict との連携が必要です。": "Connect Annict to view work details.",
+  "{{title}}の作品ページを見る": "View the work page for {{title}}",
+  "作品ページを見る": "View work page"
 }

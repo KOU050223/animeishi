@@ -35,6 +35,7 @@ export const ANNICT_FUNNEL_SURFACES = [
   "home_current_season",
   "profile_header",
   "work_detail_sheet",
+  "work_page",
   "analysis",
   "onboarding",
 ] as const;

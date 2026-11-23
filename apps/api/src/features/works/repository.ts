@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { annictWorks, annictCharacters, annictWorkCasts } from "@/db/schema";
+import { normalizeAnnictSeasonName } from "@/lib/annict/client";
 import { IMAGE_SOURCE_BLOCKED } from "@/lib/annict/imageFallback";
 import type {
   AnnictWork,
@@ -191,6 +192,19 @@ function notBlockedImageSource() {
   );
 }
 
+// Cache API に残った正規化前の検索結果・作品詳細（enum の seasonName）が
+// 書き戻されて、マイグレーション 0045 で揃えた形式が巻き戻らないよう、
+// 書き込み口でも正規化する。
+function withNormalizedSeasonName(data: NewAnnictWork): NewAnnictWork {
+  return {
+    ...data,
+    seasonName: normalizeAnnictSeasonName(
+      data.seasonName ?? null,
+      data.seasonYear ?? null,
+    ),
+  };
+}
+
 // 1 行あたりのバインド変数 = カラム数。D1 上限 100 を下回るよう余裕を持たせる。
 // annict_works は 22 カラム（genres / genres_fetched_at / genres_attempted_at
 // 追加後）なので 4 行 × 22 = 88 変数 < 100。これ以上カラムが増える場合は
@@ -254,10 +268,13 @@ export function worksRepository(db: DrizzleDb) {
     },
 
     async upsertAnnictWork(data: NewAnnictWork): Promise<void> {
-      await db.insert(annictWorks).values(data).onConflictDoUpdate({
-        target: annictWorks.annictWorkId,
-        set: annictWorkConflictSet(),
-      });
+      await db
+        .insert(annictWorks)
+        .values(withNormalizedSeasonName(data))
+        .onConflictDoUpdate({
+          target: annictWorks.annictWorkId,
+          set: annictWorkConflictSet(),
+        });
     },
 
     /**
@@ -273,7 +290,11 @@ export function worksRepository(db: DrizzleDb) {
         queries.push(
           db
             .insert(annictWorks)
-            .values(data.slice(i, i + ANNICT_WORK_UPSERT_CHUNK))
+            .values(
+              data
+                .slice(i, i + ANNICT_WORK_UPSERT_CHUNK)
+                .map(withNormalizedSeasonName),
+            )
             .onConflictDoUpdate({
               target: annictWorks.annictWorkId,
               set: annictWorkConflictSet(),
@@ -426,6 +447,14 @@ export function worksRepository(db: DrizzleDb) {
           (${annictWorks.malAnimeId} is not null
            or ${annictWorks.kitsuAnimeId} is not null)
         `,
+            // 下の複合条件から論理的には含意されるが、部分インデックス
+            // annict_works_pending_image_idx を SQLite が使える形にするため
+            // 単独の項としても置く（含意の形が複合だとインデックスが
+            // 選ばれないことをローカルで確認済み。issue #704）。
+            or(
+              isNull(annictWorks.imageSource),
+              eq(annictWorks.imageSource, "none"),
+            ),
             or(
               isNull(annictWorks.imageSource),
               and(
@@ -774,6 +803,11 @@ export function worksRepository(db: DrizzleDb) {
               sql`${annictWorks.malAnimeId} is not null`,
               sql`${annictWorks.kitsuAnimeId} is not null`,
             ),
+            // 下の複合条件から論理的には含意されるが、部分インデックス
+            // annict_works_pending_genre_idx を SQLite が使える形にするため
+            // 単独の項としても置く（getPendingImageFallbackWorks と同じ理由。
+            // issue #704）。
+            or(isNull(annictWorks.genres), sql`${annictWorks.genres} = '[]'`),
             or(
               and(
                 isNull(annictWorks.genres),
