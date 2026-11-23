@@ -75,6 +75,12 @@ export type NearbySessionState = {
   heldPeerIds: string[];
   /** 次の入れ替わりに振る番号。 */
   nextAttempt: number;
+  /**
+   * こちらで距離を測れる前に、近づけて交換する相手から届いた交換データ。
+   * 相手が先に 10cm を測って送ってきたときに捨てると、相手は送り直さない
+   * ので片側しか成立しない。こちらでも近いと測れたら、これを使って始める。
+   */
+  pendingData: Record<string, string>;
 };
 
 export type NearbySessionEvent =
@@ -125,6 +131,7 @@ export const initialNearbySessionState: NearbySessionState = {
   exchangedPeerIds: [],
   heldPeerIds: [],
   nextAttempt: 1,
+  pendingData: {},
 };
 
 /**
@@ -147,6 +154,16 @@ export function usesTouch(
   return state.selfUwb && peer.uwb;
 }
 
+function withoutPending(
+  pendingData: Record<string, string>,
+  peerId?: string,
+): Record<string, string> {
+  if (peerId == null) return {};
+  if (!(peerId in pendingData)) return pendingData;
+  const { [peerId]: _dropped, ...rest } = pendingData;
+  return rest;
+}
+
 function startSwap(
   state: NearbySessionState,
   peerId: string,
@@ -154,6 +171,7 @@ function startSwap(
 ): NearbySessionState {
   return {
     ...state,
+    pendingData: withoutPending(state.pendingData, peerId),
     request: { kind: "none" },
     nextAttempt: state.nextAttempt + 1,
     exchange: {
@@ -293,6 +311,7 @@ export function nearbySessionReducer(
       return {
         ...state,
         peers,
+        pendingData: withoutPending(state.pendingData, event.peerId),
         exchange: aborted ? { kind: "idle" } : exchange,
         request:
           requestPeerId(state.request) === event.peerId
@@ -303,10 +322,17 @@ export function nearbySessionReducer(
     case "distance": {
       const peer = state.peers[event.peerId];
       if (!peer) return state;
-      const touching = proximityLevel(event.meters) === "touch";
+      const level = proximityLevel(event.meters);
+      const touching = level === "touch";
       const held = state.heldPeerIds.includes(event.peerId);
+      const pendingUrl = state.pendingData[event.peerId];
       const next = {
         ...state,
+        // 離れていったら、先に届いていたデータは使わない。
+        pendingData:
+          level === "far" && event.meters != null
+            ? withoutPending(state.pendingData, event.peerId)
+            : state.pendingData,
         peers: {
           ...state.peers,
           [event.peerId]: { ...peer, meters: event.meters },
@@ -317,12 +343,21 @@ export function nearbySessionReducer(
             ? state.heldPeerIds.filter((id) => id !== event.peerId)
             : state.heldPeerIds,
       };
-      if (
-        touching &&
+      const canStart =
         usesTouch(state, peer) &&
         state.request.kind === "none" &&
-        canStartWith(state, event.peerId)
+        canStartWith(state, event.peerId);
+      // 相手から先に届いていたデータがあれば、こちらでも返信してよい距離と
+      // 測れた時点で、それを受け取り済みとして入れ替わりを始める。
+      if (
+        canStart &&
+        pendingUrl != null &&
+        event.meters != null &&
+        event.meters <= REPLY_MAX_METERS
       ) {
+        return startSwap(next, event.peerId, pendingUrl);
+      }
+      if (canStart && touching) {
         return startSwap(next, event.peerId, null);
       }
       return next;
@@ -345,11 +380,17 @@ export function nearbySessionReducer(
         !peer ||
         !usesTouch(state, peer) ||
         state.request.kind !== "none" ||
-        !canStartWith(state, event.peerId) ||
-        peer.meters == null ||
-        peer.meters > REPLY_MAX_METERS
+        !canStartWith(state, event.peerId)
       ) {
         return state;
+      }
+      // まだ近いと測れていない相手には返信しない。データだけ預かり、
+      // こちらでも近いと測れた時点で始める（distance）。
+      if (peer.meters == null || peer.meters > REPLY_MAX_METERS) {
+        return {
+          ...state,
+          pendingData: { ...state.pendingData, [event.peerId]: event.url },
+        };
       }
       return startSwap(state, event.peerId, event.url);
     }
@@ -360,6 +401,7 @@ export function nearbySessionReducer(
       return {
         ...state,
         peers: {},
+        pendingData: withoutPending(state.pendingData),
         request: { kind: "none" },
         exchange: keep ? state.exchange : { kind: "idle" },
       };

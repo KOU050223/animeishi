@@ -122,12 +122,11 @@ export function NearbyRequestCard({
   return (
     <View
       className="absolute inset-0 items-center justify-center bg-black/40 px-6"
+      // 背景の「QR で交換する」などを VoiceOver の対象から外す。
+      accessibilityViewIsModal
       testID="nearby-request-card"
     >
-      <View
-        className="w-full max-w-sm items-center rounded-3xl bg-white px-6 pb-5 pt-6 dark:bg-slate-800"
-        accessibilityViewIsModal
-      >
+      <View className="w-full max-w-sm items-center rounded-3xl bg-white px-6 pb-5 pt-6 dark:bg-slate-800">
         <View className="h-14 w-14 items-center justify-center rounded-full bg-indigo-500">
           <Text className="text-xl font-bold text-white">
             {name.charAt(0).toUpperCase()}

@@ -74,6 +74,27 @@ describe("nearbySessionReducer", () => {
     });
   });
 
+  it("測れる前に届いたデータは預かり、こちらでも近いと測れたらそれを使って始める", () => {
+    const data = { type: "data" as const, peerId: "a", url: "x" };
+    // 距離が測れていない・遠いあいだは返信しない（始めない）。
+    const pending = run(found("a"), data, distance("a", 0.4));
+    expect(pending.exchange).toEqual({ kind: "idle" });
+    // 20cm 以内と測れたら、預かっていたデータを受け取り済みとして始める。
+    expect(
+      nearbySessionReducer(pending, distance("a", 0.15)).exchange,
+    ).toMatchObject({ kind: "swapping", peerId: "a", received: "x" });
+  });
+
+  it("預かったデータは、相手が離れていったら使わない", () => {
+    const state = run(
+      found("a"),
+      { type: "data", peerId: "a", url: "x" },
+      distance("a", 0.8),
+      distance("a", 0.05),
+    );
+    expect(state.exchange).toMatchObject({ kind: "swapping", received: null });
+  });
+
   it("こちらで近くにいると測れていない相手から届いたデータには応じない", () => {
     const payload = { type: "data" as const, peerId: "a", url: "x" };
     expect(run(found("a"), payload).exchange).toEqual({ kind: "idle" });
