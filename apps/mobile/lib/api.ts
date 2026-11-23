@@ -67,7 +67,14 @@ export function apiFetch(options: ApiFetchOptions): typeof fetch {
     const token = await clerkSessionToken();
     if (!token)
       throw new Error(i18next.t("認証トークンが取得できませんでした"));
-    const headers = new Headers(init?.headers);
+    // hono client は URL 文字列 + init.headers で呼ぶが、Request をそのまま
+    // 渡す呼び方でも元のヘッダを保持する（fetch と同じく init.headers が優先）。
+    const headers = new Headers(
+      init?.headers ??
+        (typeof input === "object" && "headers" in input
+          ? input.headers
+          : undefined),
+    );
     headers.set("Authorization", `Bearer ${token}`);
     if (annict) {
       const annictHeader = await buildAnnictAuthHeader();

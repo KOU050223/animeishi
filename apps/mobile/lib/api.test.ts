@@ -103,6 +103,21 @@ describe("apiFetch", () => {
     expect(sentHeaders().authorization).toBe("Bearer clerk_jwt");
   });
 
+  it("Request を直接渡したときも元のヘッダを保持する", async () => {
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+    mockFetch.mockResolvedValue(okResponse());
+
+    await apiFetch({ errorMessage: "作品の取得に失敗しました" })(
+      new Request("https://api.example.com/works", {
+        headers: { "X-Custom": "keep" },
+      }),
+    );
+
+    expect(sentHeaders()["x-custom"]).toBe("keep");
+    expect(sentHeaders().authorization).toBe("Bearer clerk_jwt");
+  });
+
   it("トークンが取れないときは ApiRequestError ではなく plain の Error を投げる", async () => {
     loggedInUser();
     // セッションがあっても getToken が null を返す（失効直後など）ケース。
