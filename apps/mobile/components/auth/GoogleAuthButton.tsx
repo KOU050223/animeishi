@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useAuth, useClerk } from "@clerk/expo";
 import { useTranslation } from "react-i18next";

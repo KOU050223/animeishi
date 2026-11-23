@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import type { Href } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   MEISHI_COMPLETION_STEPS,
   MEISHI_COMPLETION_STEP_LABELS,

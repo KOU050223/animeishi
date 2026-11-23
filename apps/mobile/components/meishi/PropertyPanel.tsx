@@ -11,7 +11,7 @@ import { Image as ExpoImage } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
 import {

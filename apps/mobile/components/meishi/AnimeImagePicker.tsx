@@ -20,7 +20,7 @@ import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { formatYearSeason } from "@/components/anime-list/animeListUtils";
 import { Input } from "@/components/ui";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import type { TFunction } from "i18next";

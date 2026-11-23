@@ -1,7 +1,7 @@
 // 実績（バッジ）の表示名・アイコン・「新規獲得」判定のヘルパー（issue #415）。
 // 獲得判定自体は API（/me/achievements）が行い、ここは表示用の純関数だけを持つ。
 import type { ComponentProps } from "react";
-import type { Ionicons } from "@expo/vector-icons";
+import type Ionicons from "@expo/vector-icons/Ionicons";
 import type { TFunction } from "i18next";
 import type {
   Achievement,

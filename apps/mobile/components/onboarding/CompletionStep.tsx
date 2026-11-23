@@ -1,6 +1,6 @@
 import { ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button } from "@/components/ui";
 import { MeishiCard } from "@/components/MeishiCard";
 import { useMeishiCompletion } from "@/lib/meishi/useMeishiCompletion";

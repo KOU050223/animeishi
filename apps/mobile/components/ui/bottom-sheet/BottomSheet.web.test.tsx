@@ -14,7 +14,10 @@
 // ため、renderer と act はコンポーネントと同じコピーを同じく require する。
 // （JSX の要素はプレーンなオブジェクトなので React コピー間で共有できる）
 jest.doMock("react-native", () => jest.requireActual("react-native-web"));
-jest.doMock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.doMock("@expo/vector-icons/Ionicons", () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.doMock("@/lib/theme", () => ({
   useThemeColors: () => ({
     scrim: "rgba(0, 0, 0, 0.5)",

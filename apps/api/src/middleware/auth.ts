@@ -10,6 +10,10 @@ import { usersRepository, DeletedUserError } from "@/features/users/repository";
 export type AuthVariables = {
   Variables: {
     clerkUserId: string;
+    // requireAuth の本体が最後まで成功したときだけ立つ。optionalAuth も
+    // clerkUserId を入れるため、requireAuth の重複スキップは clerkUserId ではなく
+    // これで判定する（issue #710）。
+    requireAuthDone?: true;
   };
 };
 
@@ -65,6 +69,13 @@ const SELF_HEAL_TOKEN_GRACE_MS = 5_000;
  * 認証失敗時は 401 を返す。
  */
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
+  // 同じパスに requireAuth 付きのサブアプリを重ねてマウントしていると
+  // 1 リクエストで複数回呼ばれるため、2 回目以降は Clerk 検証と D1 照会を
+  // 繰り返さない（issue #710）。
+  if (c.get("requireAuthDone")) {
+    await next();
+    return;
+  }
   // @hono/clerk-auth はリクエストごとに動的に secretKey を渡す必要がある
   const authorizedParties = resolveAuthorizedParties(
     c.env.CLERK_AUTHORIZED_PARTIES,
@@ -173,6 +184,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     throw err;
   }
 
+  c.set("requireAuthDone", true);
   await next();
 });
 
@@ -184,6 +196,11 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
  */
 export const optionalAuth = createMiddleware<OptionalAuthEnv>(
   async (c, next) => {
+    // 重ねてマウントしたサブアプリで既に認証済みなら再検証しない（issue #710）。
+    if (c.get("clerkUserId")) {
+      await next();
+      return;
+    }
     // Bearer トークンを持たないリクエスト（SNS クローラーやブラウザの
     // ドキュメント取得など）は Clerk を呼ばず匿名扱いにする。
     // 呼ぶと Accept: text/html なリクエストで Clerk が handshake 応答を返し、
