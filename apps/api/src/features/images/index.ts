@@ -49,19 +49,19 @@ export const images = new Hono<{
   // だけは参照を飛ばしてオリジンで再評価する。取り込みが済んでいれば後段の
   // cache.put で正規キーのエントリも更新される。
   const retry = isRetryAttempt(c.req.query("r"));
-  const rateLimited =
-    retry &&
-    !(await allowCacheBypass(
-      c.env.IMAGE_RETRY_RATE_LIMITER,
-      c.req.header("CF-Connecting-IP"),
-    ));
+  const gate: RetryGate = retry
+    ? await retryGate(
+        c.env.IMAGE_RETRY_RATE_LIMITER,
+        c.req.header("CF-Connecting-IP"),
+      )
+    : "bypass";
   const cached =
-    retry && !rateLimited
+    retry && gate === "bypass"
       ? undefined
       : await cache?.match(cacheKey).catch(() => undefined);
   // 制限を超えたリトライはキャッシュに無くてもオリジンへ通さない（issue #713）。
   // 429 がブラウザ / expo-image に残ると制限が解けても失敗が返り続けるので保存させない。
-  if (!cached && rateLimited) {
+  if (!cached && gate === "deny") {
     c.header("Cache-Control", "no-store");
     c.header("Retry-After", "60");
     return c.json(
@@ -75,6 +75,9 @@ export const images = new Hono<{
     const hit = new Response(cached.body, cached);
     // Cache-Tag は Purge 用に保存エントリへ付けたもので、クライアントには出さない。
     hit.headers.delete("cache-tag");
+    // ?r= は再評価の合図なので、迂回を許さなかった応答（保存済みの 404 等）を
+    // リトライ URL でクライアントに残すと、制限解除後も同じ再試行が API に届かない。
+    if (retry) hit.headers.set("cache-control", "no-store");
     return hit;
   }
 
@@ -104,6 +107,9 @@ export const images = new Hono<{
       await put;
     }
   }
+  // ?r= への応答はリトライ URL でクライアントに残さない（stored へは
+  // 写らないよう cache.put の後で上書きする）。
+  if (retry) res.headers.set("cache-control", "no-store");
   return res;
 });
 
@@ -114,19 +120,29 @@ function isRetryAttempt(r: string | undefined): boolean {
 }
 
 /**
- * ?r= の要求がキャッシュを飛ばしてオリジン（D1・R2・外部 API）へ行ってよいか。
- * 画像は公開配信で、binding の設定漏れで全画像が 500 になるのを避けるため、
- * 未設定のとき・limit() が失敗したときは制限せずに通す（demo-sign-in のように throw しない）。
+ * ?r= の要求の振り分け。
+ * - "bypass": キャッシュを飛ばしてオリジン（D1・R2・外部 API）で再評価する。
+ * - "deny": 制限超過。キャッシュ済みの応答を返し、無ければ 429。
+ * - "degraded": 制限が掛けられないのでキャッシュを優先し、ミスだけオリジンへ通す。
+ *
+ * 画像は公開配信で、binding の設定漏れや limit() の失敗で全画像が 500 になるのを
+ * 避けるため throw しない（demo-sign-in とは違う）。ただし binding が設定
+ * されているのに limit() が失敗した状態で無制限にオリジンへ通すと制限の意味が
+ * 無いため、その場合はキャッシュに倒す（binding 未設定は機能自体が無いので
+ * 従来どおりオリジンへ通す）。
  */
-async function allowCacheBypass(
+type RetryGate = "bypass" | "deny" | "degraded";
+
+async function retryGate(
   limiter: RateLimit | undefined,
   ip: string | undefined,
-): Promise<boolean> {
-  if (!limiter) return true;
-  const { success } = await limiter
+): Promise<RetryGate> {
+  if (!limiter) return "bypass";
+  const result = await limiter
     .limit({ key: `ip:${ip ?? "unknown"}` })
-    .catch(() => ({ success: true }));
-  return success;
+    .catch(() => null);
+  if (result === null) return "degraded";
+  return result.success ? "bypass" : "deny";
 }
 
 // Workers では caches.default が既定キャッシュ。ブラウザの DOM CacheStorage には

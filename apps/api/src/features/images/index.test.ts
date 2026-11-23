@@ -159,6 +159,8 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       TEST_BINDINGS,
     );
     expect(retried.status).toBe(200);
+    // リトライ URL の応答はクライアントに保存させない
+    expect(retried.headers.get("cache-control")).toBe("no-store");
     expect(new Uint8Array(await retried.arrayBuffer())).toEqual(PNG_BYTES);
 
     const after = await app.request(
@@ -265,6 +267,9 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
         limiter(false),
       );
       expect(limited.status).toBe(404);
+      // キャッシュの 404 の Cache-Control ではなく no-store を返す。
+      // リトライ URL に 404 が残ると制限解除後も再試行が API に届かなくなる。
+      expect(limited.headers.get("cache-control")).toBe("no-store");
       await limited.arrayBuffer();
     });
 
@@ -322,7 +327,7 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       },
     );
 
-    it("limit() が失敗したら制限せずにオリジンを引き直す", async () => {
+    it("limit() が失敗したらキャッシュ済みの応答を返し、オリジンを引かない", async () => {
       const failing = {
         limit: vi.fn(async (): Promise<{ success: boolean }> => {
           throw new Error("rate limiter unavailable");
@@ -331,12 +336,31 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       const miss = await requestWithLimiter("/images/works/999", failing);
       expect(miss.status).toBe(404);
       await miss.arrayBuffer();
+      // オリジンを引けば 200 になる状態にしても、キャッシュの 404 が返る
       await putImportedImage999();
 
       const retried = await requestWithLimiter(
         "/images/works/999?r=1",
         failing,
       );
+      expect(retried.status).toBe(404);
+      await retried.arrayBuffer();
+    });
+
+    it("limit() が失敗してもキャッシュが無ければオリジンを引く", async () => {
+      const failing = {
+        limit: vi.fn(async (): Promise<{ success: boolean }> => {
+          throw new Error("rate limiter unavailable");
+        }),
+      };
+      // limiter の障害で新規画像が配信できなくなるのを避けるため、
+      // キャッシュが無い ?r= はオリジンへ通す（fail-open）
+      await env.AVATARS.put("works/42/deadbeef.png", PNG_BYTES, {
+        httpMetadata: { contentType: "image/png" },
+        customMetadata: { source: "kitsu" },
+      });
+
+      const retried = await requestWithLimiter("/images/works/42?r=1", failing);
       expect(retried.status).toBe(200);
       await retried.arrayBuffer();
     });
