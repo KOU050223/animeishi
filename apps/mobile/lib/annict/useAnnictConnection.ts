@@ -19,15 +19,3 @@ export function useAnnictConnection(): UseAnnictConnection {
     "useAnnictConnection: プラットフォーム実装が解決されていません（.native / .web）",
   );
 }
-
-/**
- * 記録系 API 呼び出しに付ける Annict 認可ヘッダを組み立てる。
- * - ネイティブ: SecureStore のトークンを X-Annict-Token ヘッダで運ぶ。
- * - Web:        空オブジェクト（サーバーが Clerk 認証で D1 のトークンを参照するため）。
- * 呼び出し側は戻り値を fetch の headers に spread するだけでよい。
- */
-export function buildAnnictAuthHeader(): Promise<Record<string, string>> {
-  throw new Error(
-    "buildAnnictAuthHeader: プラットフォーム実装が解決されていません（.native / .web）",
-  );
-}

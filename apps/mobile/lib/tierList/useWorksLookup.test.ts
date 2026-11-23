@@ -2,22 +2,26 @@ import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useWorksLookup } from "./useWorksLookup";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 
 // apiClient の /works/lookup 呼び出しをモックし、ID まとめ解決の
 // バッチ分割（50 件上限）と結果の連結順を検証する。
 const mockLookupGet = jest.fn();
+// 認証ヘッダ・Annict ヘッダの付与は共通 fetch（apiFetch）側の責務になったため、
+// ここでは apiFetch が適切なオプションで呼ばれたことだけを見る
+// （ヘッダ実装の検証は lib/api.test.ts）。
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     works: { lookup: { $get: (...args: unknown[]) => mockLookupGet(...args) } },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-const mockBuildAnnictAuthHeader = jest.fn();
 let mockCanBrowseWorks = true;
 jest.mock("@/lib/annict", () => ({
-  buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
   // 本人は未連携のまま（共用トークンで作品情報だけ使える状態）を既定にして、
   // 取得条件が連携状態ではなく canBrowseWorks で決まることを確かめる（issue #561）。
   useWorkCatalogAccess: () => ({
@@ -48,13 +52,10 @@ describe("useWorksLookup", () => {
   beforeEach(async () => {
     resetAuth();
     mockLookupGet.mockReset();
-    mockBuildAnnictAuthHeader.mockReset();
+    mockApiFetch.mockReset();
     mockCanBrowseWorks = true;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
-    mockBuildAnnictAuthHeader.mockResolvedValue({
-      "X-Annict-Token": "annict_tok",
-    });
     mockLookupGet.mockImplementation((arg: { query: { ids: string } }) =>
       Promise.resolve(
         okResponse({
@@ -76,10 +77,12 @@ describe("useWorksLookup", () => {
 
     await waitFor(() => expect(result.current.data?.works).toHaveLength(3));
     expect(mockLookupGet).toHaveBeenCalledTimes(1);
-    const [arg, opts] = mockLookupGet.mock.calls[0];
+    const [arg] = mockLookupGet.mock.calls[0];
     expect(arg.query).toEqual({ ids: "3,1,2" });
-    expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
-    expect(opts.headers.Authorization).toBe("Bearer clerk_jwt");
+    // Annict トークン付きの共通 fetch で呼んでいる。
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
     expect(result.current.data?.works.map((w) => w.annictWorkId)).toEqual([
       3, 1, 2,
     ]);
@@ -121,11 +124,11 @@ describe("useWorksLookup", () => {
           }),
         ),
       )
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: async () => ({}),
-      });
+      // 失敗応答は共通 fetch（apiFetch）が ApiRequestError に変換して
+      // $get を reject させるため、モック側も reject で表現する。
+      .mockRejectedValueOnce(
+        new ApiRequestError(400, "作品の取得に失敗しました"),
+      );
 
     const { result } = await renderHook(() => useWorksLookup(ids), {
       wrapper: makeWrapper(),

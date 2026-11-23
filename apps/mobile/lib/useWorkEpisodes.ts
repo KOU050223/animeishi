@@ -1,32 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
+import { workQueries } from "@/lib/queries/works";
+import type { WorkEpisodesResponse } from "@/lib/queries/works";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
+import { useAnnictConnection } from "@/lib/annict";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 
-type WorkEpisodesResponse = InferResponseType<
-  (typeof apiClient.works)[":annictWorkId"]["episodes"]["$get"],
-  200
->;
-export type WorkEpisode = WorkEpisodesResponse["episodes"][number];
+export type { WorkEpisode, WorkEpisodesResponse } from "@/lib/queries/works";
 
 // 話数一覧のクエリキー。watched は閲覧ユーザー固有の値（Annict viewerDidTrack
 // 由来）なので、視聴履歴と同じく userId でスコープする。
-export const WORK_EPISODES_QUERY_KEY = ["works", "episodes"] as const;
-export const workEpisodesQueryKey = (userId: string, annictWorkId: number) =>
-  [...WORK_EPISODES_QUERY_KEY, userId, annictWorkId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export const WORK_EPISODES_QUERY_KEY = workQueries.episodes.all;
+export const workEpisodesQueryKey = workQueries.episodes.key;
 
 /**
  * 作品詳細シートの話数チェック一覧が使う話数マスタ + 記録状況
@@ -36,36 +23,17 @@ async function getAuthHeaders(
  * 未連携のうちはクエリを無効化する（useWorkDetail と同じ扱い）。
  */
 export function useWorkEpisodes(annictWorkId: number | null) {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const { isConnected } = useAnnictConnection();
-  const queryClient = useQueryClient();
 
   return useQuery({
-    queryKey: userId
-      ? workEpisodesQueryKey(userId, annictWorkId ?? 0)
-      : WORK_EPISODES_QUERY_KEY,
+    // userId 未確定の間はファクトリ側がプレフィックスキーに分岐する
+    // （enabled=false で発火しない）。
+    ...workQueries.episodes.query({
+      userId: userId ?? null,
+      annictWorkId: annictWorkId ?? 0,
+    }),
     enabled: !!isSignedIn && !!userId && isConnected && annictWorkId != null,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.works[":annictWorkId"].episodes.$get(
-        { param: { annictWorkId: String(annictWorkId) } },
-        { headers: { ...headers, ...annictHeader } },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "話数情報の取得に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
-      // この GET は API 側で Annict の既存記録を D1 の記録ログに同期する。
-      // 同期で判定入力が変わりうるため実績クエリを無効化する（issue #415）。
-      void queryClient.invalidateQueries({
-        queryKey: ACHIEVEMENTS_QUERY_KEY,
-      });
-      return res.json();
-    },
   });
 }
 
@@ -185,31 +153,27 @@ function optimisticWatchedHandlers(
  * 記録ログが残る。
  */
 export function useRecordEpisode(annictWorkId: number | null) {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const queryKey =
     userId && annictWorkId != null
-      ? workEpisodesQueryKey(userId, annictWorkId)
-      : WORK_EPISODES_QUERY_KEY;
+      ? workQueries.episodes.key(userId, annictWorkId)
+      : workQueries.episodes.all;
 
   return useMutation({
     scope: { id: EPISODE_RECORD_WRITE_SCOPE },
     mutationFn: async (annictEpisodeId: number) => {
-      const headers = await getAuthHeaders(getToken);
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["episode-records"][
         ":annictEpisodeId"
       ].$put(
         { param: { annictEpisodeId: String(annictEpisodeId) } },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "話の記録に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "話の記録に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       return res.json();
     },
     ...optimisticWatchedHandlers(queryClient, queryKey, true, userId),
@@ -221,31 +185,27 @@ export function useRecordEpisode(annictWorkId: number | null) {
  * API 側で Annict deleteRecord も行われ、D1 の記録ログが消える。
  */
 export function useUnrecordEpisode(annictWorkId: number | null) {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const queryKey =
     userId && annictWorkId != null
-      ? workEpisodesQueryKey(userId, annictWorkId)
-      : WORK_EPISODES_QUERY_KEY;
+      ? workQueries.episodes.key(userId, annictWorkId)
+      : workQueries.episodes.all;
 
   return useMutation({
     scope: { id: EPISODE_RECORD_WRITE_SCOPE },
     mutationFn: async (annictEpisodeId: number) => {
-      const headers = await getAuthHeaders(getToken);
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["episode-records"][
         ":annictEpisodeId"
       ].$delete(
         { param: { annictEpisodeId: String(annictEpisodeId) } },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "話の記録解除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "話の記録解除に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },

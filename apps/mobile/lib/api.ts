@@ -1,5 +1,88 @@
 import { hc } from "hono/client";
 import type { AppType } from "@animeishi/api";
+import { getClerkInstance } from "@clerk/expo";
+import i18next from "i18next";
 import { apiUrl } from "@/lib/apiUrl";
+import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { buildAnnictAuthHeader } from "@/lib/annict/buildAnnictAuthHeader";
+import type { TranslationKey } from "@/lib/i18n/keys";
 
 export const apiClient = hc<AppType>(apiUrl);
+
+export type ApiFetchOptions = {
+  /**
+   * !res.ok のとき ApiRequestError の message に使う文言。
+   * i18next 経由で解決されるため、en リソースに無いキーだと ja 文言が出る
+   * （型としては TranslationKey を要求するので、新しい文言は en.json に足す）。
+   */
+  errorMessage: TranslationKey;
+  /**
+   * Annict 認可ヘッダ（X-Annict-Token）を付けるか。
+   * 記録系・Annict 参照系のリクエストだけ true にする。既定では付けない
+   * （サーバーがヘッダの有無で Annict 解決を分岐するため、不要なリクエストに
+   * 付けると挙動が変わる）。
+   */
+  annict?: boolean;
+};
+
+/**
+ * セッションの Clerk JWT を React の外から取得する。
+ * getClerkInstance は native ではシングルトンの Clerk インスタンス、
+ * web では window.Clerk を返す（初期化前は undefined になり得る）。
+ * publishableKey を渡すのは、ClerkProvider のマウント前に呼ばれた場合でも
+ * native でインスタンスを初期化できるようにするため。
+ */
+async function clerkSessionToken(): Promise<string | null> {
+  const clerk = getClerkInstance({
+    publishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  });
+  return (await clerk?.session?.getToken()) ?? null;
+}
+
+/**
+ * 認証付き API 呼び出し用の共通 fetch（issue #726）。
+ * hono client のリクエスト単位オプションに渡す:
+ *
+ *   const res = await apiClient.me["work-ratings"][":annictWorkId"].$get(
+ *     { param: { annictWorkId: "42" } },
+ *     { fetch: apiFetch({ annict: true, errorMessage: "評価の取得に失敗しました" }) },
+ *   );
+ *   return res.json(); // !res.ok は既に ApiRequestError として投げられている
+ *
+ * やること:
+ * - Clerk セッショントークンの Authorization 付与（useAuth の getToken と同じ
+ *   セッションを getClerkInstance 経由で参照する）
+ * - annict: true のとき X-Annict-Token の付与
+ * - !res.ok のとき ApiRequestError(status, i18n 済み errorMessage, code) の送出
+ *   （401 も他のステータスと同じく ApiRequestError に正規化する。annict_token_*
+ *   系の code は失効検知（isAnnictTokenError）にそのまま伝わる）
+ *
+ * トークンが取れない（セッション切れ等）ときは plain の Error を投げる。
+ * ApiRequestError にすると observability の 4xx ドロップ対象になり、
+ * セッション異常を Sentry で追えなくなるため。
+ */
+export function apiFetch(options: ApiFetchOptions): typeof fetch {
+  const { errorMessage, annict = false } = options;
+  return async (input, init) => {
+    const token = await clerkSessionToken();
+    if (!token)
+      throw new Error(i18next.t("認証トークンが取得できませんでした"));
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    if (annict) {
+      const annictHeader = await buildAnnictAuthHeader();
+      for (const [key, value] of Object.entries(annictHeader)) {
+        headers.set(key, value);
+      }
+    }
+    const res = await fetch(input, { ...init, headers });
+    if (!res.ok) {
+      throw new ApiRequestError(
+        res.status,
+        i18next.t(errorMessage),
+        await readApiErrorCode(res),
+      );
+    }
+    return res;
+  };
+}

@@ -2,11 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { useWorkCatalogAccess } from "@/lib/annict";
-import {
-  dedupeWorksById,
-  fetchWorksSearchPage,
-  seasonWorksQueryKey,
-} from "@/lib/useAnimeList";
+import { dedupeWorksById, workQueries } from "@/lib/queries/works";
 import type { TierItem } from "./types";
 
 /**
@@ -17,23 +13,18 @@ import type { TierItem } from "./types";
  * useInfiniteQuery の追い読みはその継続取得の受け口として残す。
  */
 export function useSeasonWorks(season: string) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
 
   const query = useInfiniteQuery({
     // シーズン作品のキャッシュはアニメ一覧画面と共有する（同一の
     // /works/search?season= レスポンス）。一覧側の前後シーズンプリフェッチ
     // （issue #173）がこちらのシーズン切り替えにも効き、ここで取得した
-    // データが一覧にも使い回される。
-    queryKey: seasonWorksQueryKey(season),
+    // データが一覧にも使い回される。クエリキーを共有している以上、
+    // 取得ロジックも同一ファクトリ経由に揃える（片方だけ変更されると
+    // 同一キーに別ロジックが書き込まれる危険がある）。
+    ...workQueries.search.query({ query: "", season }),
     enabled: !!isSignedIn && canBrowseWorks && !!season,
-    initialPageParam: undefined as string | undefined,
-    // クエリキーを共有している以上、取得ロジックも一覧側と同一関数に揃える
-    // （片方だけ変更されると同一キーに別ロジックが書き込まれる危険がある）。
-    queryFn: ({ pageParam }) =>
-      fetchWorksSearchPage(getToken, { query: "", season, pageParam }),
-    getNextPageParam: (last) =>
-      last.hasNextPage ? (last.endCursor ?? undefined) : undefined,
   });
 
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;

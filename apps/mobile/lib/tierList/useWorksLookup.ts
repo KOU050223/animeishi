@@ -1,14 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
-import { dedupeWorksById } from "@/lib/useAnimeList";
-
-// GET /works/lookup の ids 上限（worksLookupQuerySchema.max(50)）と揃える。
-// 作品リスト（issue #349）は 500 作品まで持てるため、全 ID を 1 リクエストで
-// 送ると 400 になる。50 件ずつに分けて引く。
-const LOOKUP_ID_CHUNK = 50;
+import { useWorkCatalogAccess } from "@/lib/annict";
+import { workQueries } from "@/lib/queries/works";
 
 /**
  * 作品 ID のまとめ解決（GET /works/lookup）。
@@ -21,46 +14,13 @@ const LOOKUP_ID_CHUNK = 50;
  * ids が空の間はクエリを無効化する（初期リスト無しの通常作成で発火しない）。
  */
 export function useWorksLookup(ids: number[]) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   // 本人の Annict トークンか共用トークンが要る（issue #561）。
   // どちらも無いうちは 401 になるだけなので無効化する。
   const { canBrowseWorks } = useWorkCatalogAccess();
-  // ids の内容が変わったときだけクエリキーを変える（参照ではなく値で比較）。
-  const key = ids.join(",");
 
   return useQuery({
-    queryKey: ["works", "lookup", key] as const,
+    ...workQueries.lookup.query({ ids }),
     enabled: !!isSignedIn && canBrowseWorks && ids.length > 0,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const annictHeader = await buildAnnictAuthHeader();
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        ...annictHeader,
-      };
-
-      const fetchBatch = async (chunk: number[]) => {
-        const res = await apiClient.works.lookup.$get(
-          { query: { ids: chunk.join(",") } },
-          { headers },
-        );
-        if (!res.ok) {
-          throw new ApiRequestError(res.status, "作品の取得に失敗しました");
-        }
-        return (await res.json()).works;
-      };
-
-      // API がキャッシュ未命中の分を Annict へ問い合わせるため、バッチは
-      // 直列にして同時リクエストを増やさない。返却は各バッチとも
-      // リクエスト ID 順なので、取った順に連結すれば元の並びが保たれる。
-      const works: Awaited<ReturnType<typeof fetchBatch>> = [];
-      for (let i = 0; i < ids.length; i += LOOKUP_ID_CHUNK) {
-        works.push(...(await fetchBatch(ids.slice(i, i + LOOKUP_ID_CHUNK))));
-      }
-      // 入力 ids に重複がある・応答が id を複数返す経路でも
-      // 同じ作品を 1 件に畳む（issue #521）。
-      return { works: dedupeWorksById(works) };
-    },
   });
 }
