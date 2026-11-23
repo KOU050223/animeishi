@@ -24,8 +24,8 @@ jest.mock("@/lib/useFavorites", () => ({
 let mountCount = 0;
 jest.mock("@/components/anime-list", () => ({
   AnimeListContent: () => {
-    const React = require("react");
-    React.useEffect(() => {
+    const ActualReact = require("react");
+    ActualReact.useEffect(() => {
       mountCount += 1;
     }, []);
     return null;

@@ -108,11 +108,11 @@ export function useNearbyExchangeSession({
       ),
       nearbyExchange.addListener(
         "onPeerFound",
-        ({ peerId, displayName, uwb }) =>
+        ({ peerId, displayName: peerName, uwb }) =>
           dispatch({
             type: "peerFound",
             peerId,
-            displayName,
+            displayName: peerName,
             uwb: uwb ?? false,
           }),
       ),
@@ -132,6 +132,8 @@ export function useNearbyExchangeSession({
             break;
           case "strong":
             haptics.impactHeavy();
+            break;
+          case "none":
             break;
         }
         dispatch({ type: "distance", peerId, meters });

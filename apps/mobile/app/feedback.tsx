@@ -91,7 +91,7 @@ export default function FeedbackScreen() {
         },
         onSuccess: () => {
           // 送信中に追記された本文は消さない。
-          setBody((current) => (current === sentBody ? "" : current));
+          setBody((latest) => (latest === sentBody ? "" : latest));
           alert(
             t("送信しました"),
             t(

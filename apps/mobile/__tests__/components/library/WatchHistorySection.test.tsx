@@ -77,7 +77,7 @@ jest.mock("@/lib/useFavorites", () => ({
 // 「リストに追加」シートは API 取得を伴うためスタブにする。対象作品を開いた
 // ことだけ検証する（シート自体の振る舞いは components/work-list のテスト側）。
 jest.mock("@/components/work-list", () => {
-  const React = jest.requireActual<typeof import("react")>("react");
+  const ActualReact = jest.requireActual<typeof import("react")>("react");
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
@@ -90,7 +90,7 @@ jest.mock("@/components/work-list", () => {
       title: string;
       testID?: string;
     }) =>
-      React.createElement(Pressable, {
+      ActualReact.createElement(Pressable, {
         onPress,
         testID,
         accessibilityRole: "button",
@@ -98,7 +98,7 @@ jest.mock("@/components/work-list", () => {
       }),
     AddToWorkListSheet: ({ work }: { work: { title: string } | null }) =>
       work
-        ? React.createElement(
+        ? ActualReact.createElement(
             Text,
             { testID: "add-to-work-list-sheet" },
             work.title,
@@ -111,7 +111,7 @@ jest.mock("@/components/work-list", () => {
 // 挙動は AnimeWorkDetailSheet 側のテストに任せ、ここでは「開いたか・
 // 対象作品が正しいか」とキャラ Tier 表への遷移配線だけを見る。
 jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
-  const React = jest.requireActual<typeof import("react")>("react");
+  const ActualReact = jest.requireActual<typeof import("react")>("react");
   const { Pressable, Text } =
     jest.requireActual<typeof import("react-native")>("react-native");
   return {
@@ -126,15 +126,15 @@ jest.mock("@/components/anime-list/AnimeWorkDetailSheet", () => {
       }) => void;
     }) =>
       work
-        ? React.createElement(
-            React.Fragment,
+        ? ActualReact.createElement(
+            ActualReact.Fragment,
             null,
-            React.createElement(
+            ActualReact.createElement(
               Text,
               { testID: "work-detail-sheet" },
               work.title,
             ),
-            React.createElement(Pressable, {
+            ActualReact.createElement(Pressable, {
               testID: "work-detail-open-tier",
               onPress: () => onOpenCharacterTierList(work),
             }),

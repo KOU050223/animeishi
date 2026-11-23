@@ -41,23 +41,23 @@ jest.mock("@/components/library/AnimeSection", () => ({
     navNonce?: string;
   }) => {
     mockAnimeSectionCalls.push(props);
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-anime" });
+    return ActualReact.createElement(Text, { testID: "section-anime" });
   },
 }));
 jest.mock("@/components/library/WatchHistorySection", () => ({
   WatchHistorySection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-history" });
+    return ActualReact.createElement(Text, { testID: "section-history" });
   },
 }));
 jest.mock("@/components/library/FavoritesSection", () => ({
   FavoritesSection: () => {
-    const React = require("react");
+    const ActualReact = require("react");
     const { Text } = require("react-native");
-    return React.createElement(Text, { testID: "section-favorites" });
+    return ActualReact.createElement(Text, { testID: "section-favorites" });
   },
 }));
 

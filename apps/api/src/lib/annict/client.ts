@@ -1346,7 +1346,7 @@ export async function fetchAnnictWorkCasts(
       imageUrl: resolveWorkImageUrl(work.image),
       malAnimeId: parseMalAnimeId(work.malAnimeId),
     },
-    characters: [...charactersById.values()].sort(
+    characters: [...charactersById.values()].toSorted(
       (a, b) => a.sortNumber - b.sortNumber,
     ),
   };

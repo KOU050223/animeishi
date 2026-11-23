@@ -223,37 +223,40 @@ function PublicTierListCard({
         {item.thumbnails.length > 0 ? (
           <View className="mb-2 flex-row gap-1.5">
             {/* 別キャラが同じ imageUrl を持つことがあるため重複を除く */}
-            {[...new Map(item.thumbnails.map((t) => [t.url, t])).values()].map(
-              (t) =>
-                t.annictWorkId ? (
-                  // Web ではカード全面のボタンがコンテンツの下に敷かれるため、
-                  // 個別作品ボタンのイベントを pointerEvents="auto" で復活させる
-                  // （ui/card-pressable/CardPressable.web.tsx 参照）
-                  <View key={t.url} pointerEvents="auto">
-                    <WorkDetailPressable
-                      work={{
-                        annictWorkId: t.annictWorkId,
-                        title: t.label,
-                        hostedImageUrl: t.url,
-                      }}
-                    >
-                      <WorkThumbnail
-                        uri={t.url}
-                        title={t.label}
-                        width={40}
-                        height={56}
-                      />
-                    </WorkDetailPressable>
-                  </View>
-                ) : (
-                  <WorkThumbnail
-                    key={t.url}
-                    uri={t.url}
-                    title={t.label}
-                    width={40}
-                    height={56}
-                  />
-                ),
+            {[
+              ...new Map(
+                item.thumbnails.map((thumb) => [thumb.url, thumb]),
+              ).values(),
+            ].map((thumb) =>
+              thumb.annictWorkId ? (
+                // Web ではカード全面のボタンがコンテンツの下に敷かれるため、
+                // 個別作品ボタンのイベントを pointerEvents="auto" で復活させる
+                // （ui/card-pressable/CardPressable.web.tsx 参照）
+                <View key={thumb.url} pointerEvents="auto">
+                  <WorkDetailPressable
+                    work={{
+                      annictWorkId: thumb.annictWorkId,
+                      title: thumb.label,
+                      hostedImageUrl: thumb.url,
+                    }}
+                  >
+                    <WorkThumbnail
+                      uri={thumb.url}
+                      title={thumb.label}
+                      width={40}
+                      height={56}
+                    />
+                  </WorkDetailPressable>
+                </View>
+              ) : (
+                <WorkThumbnail
+                  key={thumb.url}
+                  uri={thumb.url}
+                  title={thumb.label}
+                  width={40}
+                  height={56}
+                />
+              ),
             )}
           </View>
         ) : null}

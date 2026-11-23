@@ -222,9 +222,24 @@ function requestPeerId(request: NearbyTapRequest): string | null {
   return request.kind === "none" ? null : request.peerId;
 }
 
+type NearbyTapEvent = Extract<
+  NearbySessionEvent,
+  {
+    type:
+      | "requestSent"
+      | "requestCanceled"
+      | "requestExpired"
+      | "respond"
+      | "requestReceived"
+      | "acceptReceived"
+      | "declineReceived"
+      | "cancelReceived";
+  }
+>;
+
 function reduceTap(
   state: NearbySessionState,
-  event: NearbySessionEvent,
+  event: NearbyTapEvent,
 ): NearbySessionState {
   const request = state.request;
   switch (event.type) {
@@ -268,8 +283,6 @@ function reduceTap(
       return request.kind === "incoming" && request.peerId === event.peerId
         ? { ...state, request: { kind: "none" } }
         : state;
-    default:
-      return state;
   }
 }
 
@@ -443,7 +456,14 @@ export function nearbySessionReducer(
           : [...state.heldPeerIds, exchange.peerId],
       };
     }
-    default:
+    case "requestSent":
+    case "requestCanceled":
+    case "requestExpired":
+    case "respond":
+    case "requestReceived":
+    case "acceptReceived":
+    case "declineReceived":
+    case "cancelReceived":
       return reduceTap(state, event);
   }
 }

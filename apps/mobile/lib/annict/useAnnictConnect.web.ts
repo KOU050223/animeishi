@@ -258,10 +258,11 @@ export function useAnnictConnect(): UseAnnictConnect {
   );
 
   const disconnect = useCallback(async () => {
-    const { getToken, queryClient } = authApiRef.current;
+    const { getToken: getLatestToken, queryClient: latestQueryClient } =
+      authApiRef.current;
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。
     try {
-      const clerkToken = await getToken();
+      const clerkToken = await getLatestToken();
       if (clerkToken) {
         await apiClient.me.annict.disconnect.$post(undefined, {
           headers: { Authorization: `Bearer ${clerkToken}` },
@@ -272,16 +273,16 @@ export function useAnnictConnect(): UseAnnictConnect {
       // 作品詳細（viewerStatusState 由来の視聴状態を含む。issue #347）も
       // 同様に破棄する。キーは useWorkDetail の WORK_DETAIL_QUERY_KEY と
       // 一致させる（import すると循環参照になる）。
-      queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
-      queryClient.removeQueries({ queryKey: ["works", "detail"] });
+      latestQueryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      latestQueryClient.removeQueries({ queryKey: ["works", "detail"] });
       // 評価の annictRating（Annict レビュー由来の初期値候補）も連携前提の
       // ため破棄する。キーは useWorkRating の WORK_RATING_QUERY_KEY と一致。
-      queryClient.removeQueries({ queryKey: ["work-ratings"] });
+      latestQueryClient.removeQueries({ queryKey: ["work-ratings"] });
       // 実績（今期完走の判定はトークン前提）も同様に破棄し、解除前の
       // 獲得済み表示を残さない。キーは useAchievements の
       // ACHIEVEMENTS_QUERY_KEY と一致（issue #415）。
-      queryClient.removeQueries({ queryKey: ["achievements"] });
-      await queryClient.invalidateQueries({
+      latestQueryClient.removeQueries({ queryKey: ["achievements"] });
+      await latestQueryClient.invalidateQueries({
         queryKey: ANNICT_CONNECTION_QUERY_KEY,
       });
     }

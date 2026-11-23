@@ -153,9 +153,9 @@ export async function proxyImage(
   const followed = await fetchFollowingRedirects(target.toString(), {
     timeoutMs: IMAGE_PROXY_TIMEOUT_MS,
     maxRedirects: IMAGE_PROXY_MAX_REDIRECTS,
-    isAllowed: async (url) =>
-      isPublicImageUrl(url) &&
-      (resolvedInternally || (await isKnownImageUrl(db, url))),
+    isAllowed: async (location) =>
+      isPublicImageUrl(location) &&
+      (resolvedInternally || (await isKnownImageUrl(db, location))),
   });
   if (followed.kind === "failed") {
     const message = {

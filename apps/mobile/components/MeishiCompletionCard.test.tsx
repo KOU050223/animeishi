@@ -17,8 +17,8 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
   // フォーカス時の再読み込み。テストでは即時実行に差し替える。
   useFocusEffect: (effect: () => void | (() => void)) => {
-    const React = require("react");
-    React.useEffect(effect, [effect]);
+    const ActualReact = require("react");
+    ActualReact.useEffect(effect, [effect]);
   },
 }));
 

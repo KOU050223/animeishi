@@ -673,8 +673,8 @@ describe("dアニメインポート API", () => {
       );
       // D1 で確定したタイトルは Annict の検索語に含まれない
       const sentTitles = fetchSpy.mock.calls.flatMap(([, init]) => {
-        const body = JSON.parse((init?.body as string) ?? "{}");
-        return (body.variables?.titles ?? []) as string[];
+        const requestBody = JSON.parse((init?.body as string) ?? "{}");
+        return (requestBody.variables?.titles ?? []) as string[];
       });
       expect(sentTitles).not.toContain("鬼滅の刃");
       expect(sentTitles).toContain("呪術廻戦");

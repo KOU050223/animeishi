@@ -163,8 +163,8 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
       `);
       if (inserted.meta.changes === 0) {
         const isFriend = await db.query.friends.findFirst({
-          where: (t, { and, eq: eq_ }) =>
-            and(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
+          where: (t, { and: and_, eq: eq_ }) =>
+            and_(eq_(t.userId, currentUserId), eq_(t.friendId, friendId)),
           columns: { id: true },
         });
         if (!isFriend) throw new NotFriendError(friendId);

@@ -153,10 +153,12 @@ describe("useBlockUser", () => {
       status: 200,
       json: async () => ({ ok: true }),
     });
-    const { client, wrapper } = makeWrapper();
+    const { client, wrapper: clientWrapper } = makeWrapper();
     const invalidateSpy = jest.spyOn(client, "invalidateQueries");
 
-    const { result } = await renderHook(() => useBlockUser(), { wrapper });
+    const { result } = await renderHook(() => useBlockUser(), {
+      wrapper: clientWrapper,
+    });
     await act(async () => {
       result.current.mutate("user_target");
     });

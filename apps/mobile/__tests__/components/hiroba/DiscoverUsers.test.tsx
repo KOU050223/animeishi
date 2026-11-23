@@ -26,11 +26,13 @@ jest.mock("expo-router", () => ({
 
 // BottomSheet はネイティブ実装を描画せず、visible のとき children を出す。
 jest.mock("@/components/ui/bottom-sheet", () => {
-  const React = require("react");
-  const { View } = require("react-native");
+  const ActualReact = require("react");
+  const { View: ActualView } = require("react-native");
   return {
     BottomSheet: (props: { visible: boolean; children: React.ReactNode }) =>
-      props.visible ? React.createElement(View, null, props.children) : null,
+      props.visible
+        ? ActualReact.createElement(ActualView, null, props.children)
+        : null,
   };
 });
 

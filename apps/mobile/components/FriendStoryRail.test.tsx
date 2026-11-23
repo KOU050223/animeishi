@@ -26,8 +26,8 @@ jest.mock("@/lib/useFriendWatchStories", () => ({
 // フォーカス時の再取得。テストでは即時実行に差し替える。
 jest.mock("expo-router", () => ({
   useFocusEffect: (effect: () => void | (() => void)) => {
-    const React = require("react");
-    React.useEffect(effect, [effect]);
+    const ActualReact = require("react");
+    ActualReact.useEffect(effect, [effect]);
   },
 }));
 

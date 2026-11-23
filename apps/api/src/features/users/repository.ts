@@ -193,7 +193,7 @@ function reportDedupCondition(
         eq(reports.reportedTierListKind, target.tierListKind),
         eq(reports.reportedTierListId, target.id),
       );
-    default:
+    case "user":
       return and(
         eq(reports.reporterId, reporterId),
         eq(reports.reportedUserId, targetUserId),

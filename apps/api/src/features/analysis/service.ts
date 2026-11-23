@@ -178,13 +178,16 @@ export async function computeInputHash(input: AnalysisInput): Promise<string> {
     // works はプロンプトに載る順序のままハッシュ対象にする（並び順の変化＝
     // プロンプトの変化として無効化する）。
     works: input.works,
-    workKeys: [...input.workKeys].sort(
+    workKeys: [...input.workKeys].toSorted(
       (a, b) => a.annictWorkId - b.annictWorkId,
     ),
     workMeta: input.workMeta
-      .map((m) => ({ ...m, genres: m.genres ? [...m.genres].sort() : null }))
-      .sort((a, b) => a.annictWorkId - b.annictWorkId),
-    selectedGenres: [...input.selectedGenres].sort(),
+      .map((m) => ({
+        ...m,
+        genres: m.genres ? [...m.genres].toSorted() : null,
+      }))
+      .toSorted((a, b) => a.annictWorkId - b.annictWorkId),
+    selectedGenres: [...input.selectedGenres].toSorted(),
   };
   return sha256Hex(JSON.stringify(canonical));
 }

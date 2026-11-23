@@ -111,7 +111,7 @@ function buildGenreSection(
     }
   }
   const top = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .toSorted((a, b) => b[1] - a[1])
     .slice(0, TOP_FACTS);
   const topGenre = top[0];
   if (!topGenre || covered.length === 0) return null;
@@ -152,7 +152,7 @@ function buildSeasonSection(
   }
   // 同数なら新しい年を先に出す。
   const top = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || b[0] - a[0])
+    .toSorted((a, b) => b[1] - a[1] || b[0] - a[0])
     .slice(0, TOP_FACTS);
   const topYear = top[0];
   if (!topYear || covered.length === 0) return null;
@@ -235,7 +235,7 @@ function buildPopularitySection(
   if (covered.length === 0) return null;
   const counts = covered
     .map((w) => w.watchersCount as number)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   const mid = Math.floor(counts.length / 2);
   const median =
     counts.length % 2 === 1
@@ -250,7 +250,7 @@ function buildPopularitySection(
   const midRange = covered.length - popular - niche;
   // 「どの作品」かが分かるよう、視聴者が少ない側（ニッチ側）を根拠に出す。
   const evidence = [...covered]
-    .sort((a, b) => (a.watchersCount ?? 0) - (b.watchersCount ?? 0))
+    .toSorted((a, b) => (a.watchersCount ?? 0) - (b.watchersCount ?? 0))
     .slice(0, MAX_EVIDENCE_WORKS)
     .map(toEvidenceWork);
   return {

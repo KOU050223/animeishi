@@ -199,9 +199,9 @@ export default function MeishiEditScreen() {
   }
 
   const handleTemplatePick = (id: string) => {
-    const t = getTemplate(id);
-    if (!t) return;
-    setDocFromTemplate(t.build());
+    const template = getTemplate(id);
+    if (!template) return;
+    setDocFromTemplate(template.build());
     setTemplatePicker(false);
     setSelectedId(null);
   };

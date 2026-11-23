@@ -25,8 +25,8 @@ jest.mock("expo-router", () => ({
     back: jest.fn(),
   }),
   useFocusEffect: (effect: () => void | (() => void)) => {
-    const React = require("react");
-    React.useEffect(effect, [effect]);
+    const ActualReact = require("react");
+    ActualReact.useEffect(effect, [effect]);
   },
 }));
 

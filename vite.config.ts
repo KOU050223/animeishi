@@ -82,6 +82,8 @@ export default defineConfig({
       "typescript/await-thenable": "error",
       "typescript/no-unnecessary-type-assertion": "error",
       "typescript/restrict-template-expressions": "error",
+      "no-shadow": "error",
+      "typescript/switch-exhaustiveness-check": "error",
     },
     overrides: [
       // apps/mobile の旧 oxlint.config.ts。universe/native プリセットに
@@ -129,6 +131,10 @@ export default defineConfig({
       {
         files: ["apps/api/**"],
         rules: {
+          // toSorted() を使えるのは Workers で動く apps/api だけ。RN 0.88 の Hermes V1
+          // （hermes-v260318099）は Array.prototype.toSorted を実装していないため、
+          // mobile と、mobile にも取り込まれる packages では有効にしない（issue #737）。
+          "unicorn/no-array-sort": "error",
           "no-restricted-properties": [
             "error",
             {

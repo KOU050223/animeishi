@@ -53,11 +53,11 @@ jest.mock("@/components/anime-list/WorkImage", () => ({
 // MenuPicker は @expo/ui のネイティブ Picker を使うため、jest では
 // 置き物に差し替える（公開範囲ピッカーの存在は testID で検証する）。
 jest.mock("@/components/ui/menu-picker", () => {
-  const React = require("react");
+  const ActualReact = require("react");
   const { View } = require("react-native");
   return {
     MenuPicker: (props: { testID?: string }) =>
-      React.createElement(View, { testID: props.testID }),
+      ActualReact.createElement(View, { testID: props.testID }),
   };
 });
 
