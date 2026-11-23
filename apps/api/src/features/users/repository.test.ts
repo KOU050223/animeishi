@@ -198,6 +198,39 @@ describe("usersRepository", () => {
     });
   });
 
+  describe("getMyAuthState（issue #711）", () => {
+    const DELETED_ID = "user_deleted001";
+
+    it("users 行も tombstone も無いユーザーは userExists: false / deletedAt: undefined", async () => {
+      const repo = usersRepository(db, "user_never_seen001");
+      await expect(repo.getMyAuthState()).resolves.toEqual({
+        userExists: false,
+        deletedAt: undefined,
+      });
+    });
+
+    it("users 行があるユーザーは userExists: true / deletedAt: undefined", async () => {
+      const repo = usersRepository(db, USER_ID);
+      await expect(repo.getMyAuthState()).resolves.toEqual({
+        userExists: true,
+        deletedAt: undefined,
+      });
+    });
+
+    it("tombstone があるユーザーは deletedAt を返す（users 行は無い）", async () => {
+      const deletedAt = new Date();
+      await db.insert(deletedUsers).values({ userId: DELETED_ID, deletedAt });
+
+      const repo = usersRepository(db, DELETED_ID);
+      const state = await repo.getMyAuthState();
+      expect(state.userExists).toBe(false);
+      // mode: "timestamp" は秒精度で保存されるため、秒単位で一致を見る
+      expect(state.deletedAt?.getTime()).toBe(
+        Math.floor(deletedAt.getTime() / 1000) * 1000,
+      );
+    });
+  });
+
   describe("ジャンル操作", () => {
     it("ジャンルを設定・取得できる", async () => {
       const repo = usersRepository(db, USER_ID);

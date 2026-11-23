@@ -119,7 +119,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 削除済みユーザーの残存 JWT を拒否する（issue #144）。
   // tombstone は DELETE /me の削除 batch と同じくアトミックに書かれるため、
   // users 行が消えていれば必ずここで検出できる。
-  const deletedAt = await repo.getMyDeletedAt();
+  const { deletedAt, userExists } = await repo.getMyAuthState();
   if (deletedAt !== undefined) {
     // DELETE /me は tombstone が残っていても通す。Clerk deleteUser が
     // 失敗したあとの再試行は同じ残存 JWT で来るため、ここで弾くと
@@ -157,31 +157,37 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 認証を必要とする全エンドポイントで初回アクセス時に登録される。
   // 表示名は Clerk のユーザー情報（username / 氏名）から解決する。
   // Clerk API 呼び出しは users 未登録の初回のみ行われる（ensureUserExists 側で制御）。
-  try {
-    await repo.ensureUserExists(async () => {
-      const clerk = c.get("clerk");
-      try {
-        const user = await clerk.users.getUser(userId);
-        const fullName = [user.firstName, user.lastName]
-          .filter(Boolean)
-          .join(" ")
-          .trim();
-        return user.username ?? (fullName || null);
-      } catch (err) {
-        // Clerk 側にユーザーが存在しない（404）= tombstone を伴わない削除
-        // （運用での手動削除など）。この場合も users 行を再作成せず
-        // プロビジョニングを中止する（issue #144）。
-        if (isClerkAPIResponseError(err) && err.status === 404) {
-          throw new DeletedUserError(userId);
+  // users 行の有無は getMyAuthState の結果で済ませ、既存ユーザーでは
+  // ensureUserExists 自体を呼ばない（issue #711）。行が無い場合にだけ呼ぶ
+  // が、内部でも存在確認をやり直すため、確認〜挿入の間に別リクエストが
+  // 割り込んでも二重作成にはならない。
+  if (!userExists) {
+    try {
+      await repo.ensureUserExists(async () => {
+        const clerk = c.get("clerk");
+        try {
+          const user = await clerk.users.getUser(userId);
+          const fullName = [user.firstName, user.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          return user.username ?? (fullName || null);
+        } catch (err) {
+          // Clerk 側にユーザーが存在しない（404）= tombstone を伴わない削除
+          // （運用での手動削除など）。この場合も users 行を再作成せず
+          // プロビジョニングを中止する（issue #144）。
+          if (isClerkAPIResponseError(err) && err.status === 404) {
+            throw new DeletedUserError(userId);
+          }
+          throw err;
         }
-        throw err;
+      });
+    } catch (err) {
+      if (err instanceof DeletedUserError) {
+        return c.json({ error: "Unauthorized" }, 401);
       }
-    });
-  } catch (err) {
-    if (err instanceof DeletedUserError) {
-      return c.json({ error: "Unauthorized" }, 401);
+      throw err;
     }
-    throw err;
   }
 
   c.set("requireAuthDone", true);
