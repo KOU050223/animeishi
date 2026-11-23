@@ -10,6 +10,10 @@ import { usersRepository, DeletedUserError } from "@/features/users/repository";
 export type AuthVariables = {
   Variables: {
     clerkUserId: string;
+    // requireAuth の本体が最後まで成功したときだけ立つ。optionalAuth も
+    // clerkUserId を入れるため、requireAuth の重複スキップは clerkUserId ではなく
+    // これで判定する（issue #710）。
+    requireAuthDone?: true;
   };
 };
 
@@ -67,10 +71,8 @@ const SELF_HEAL_TOKEN_GRACE_MS = 5_000;
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 同じパスに requireAuth 付きのサブアプリを重ねてマウントしていると
   // 1 リクエストで複数回呼ばれるため、2 回目以降は Clerk 検証と D1 照会を
-  // 繰り返さない（issue #710）。optionalAuth も clerkUserId を入れるため、
-  // optionalAuth の後に requireAuth が走る構成にすると削除済み判定と
-  // プロビジョニングを飛ばしてしまう。同じパスに両方を掛けないこと。
-  if (c.get("clerkUserId")) {
+  // 繰り返さない（issue #710）。
+  if (c.get("requireAuthDone")) {
     await next();
     return;
   }
@@ -182,6 +184,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     throw err;
   }
 
+  c.set("requireAuthDone", true);
   await next();
 });
 
