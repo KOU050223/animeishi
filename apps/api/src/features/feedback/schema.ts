@@ -5,6 +5,7 @@ import {
   errorResponseSchema,
   successResponseSchema,
 } from "@/lib/openapi";
+import { userRateLimit } from "@/middleware/rateLimit";
 
 export const FEEDBACK_BODY_MAX_LENGTH = 2000;
 
@@ -37,6 +38,7 @@ export const createFeedbackRoute = createRoute({
   tags: ["feedback"],
   summary: "不具合報告・ご意見を送る",
   security: bearerAuth,
+  middleware: userRateLimit("FEEDBACK_RATE_LIMITER"),
   request: {
     body: {
       content: { "application/json": { schema: feedbackCreateSchema } },

@@ -65,6 +65,34 @@ name = "IMAGE_RETRY_RATE_LIMITER"
 namespace_id = "1004"
 simple = { limit = 200, period = 60 }
 
+# 書き込み系 API のユーザー単位の流量制限（issue #715）。
+# 適用は src/middleware/rateLimit.ts で、キーは clerkUserId。
+# Workers Rate Limiting の period は 10 / 60 秒しか選べないため、
+# 通報 10 回/時・フィードバック 5 回/時のような時間単位の上限は
+# 引き続き DB 側の既存制限（issue #148 等）が担い、こちらは
+# バーストを Worker に到達する前に止める役割。
+# 通報・フレンド申請は通常利用で分単位に 1〜2 件程度、いいねは一覧を
+# 眺めながら連打しうる操作のため上限を高めにしている。
+[[ratelimits]]
+name = "REPORT_RATE_LIMITER"
+namespace_id = "1007"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "FEEDBACK_RATE_LIMITER"
+namespace_id = "1010"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "FRIEND_REQUEST_RATE_LIMITER"
+namespace_id = "1013"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "LIKE_RATE_LIMITER"
+namespace_id = "1016"
+simple = { limit = 60, period = 60 }
+
 # dアニメ話記録ジョブのバックグラウンド実行（issue #477）。
 # POST /me/import/danime/episode-jobs がインスタンスを起動し、
 # DanimeEpisodeImportWorkflow が対応付けと createRecord を行う。
@@ -135,6 +163,28 @@ name = "IMAGE_RETRY_RATE_LIMITER"
 namespace_id = "1005"
 simple = { limit = 200, period = 60 }
 
+# 書き込み系 API のユーザー単位の流量制限（issue #715）。
+# 用途・上限値の理由はデフォルト env の定義を参照。
+[[env.production.ratelimits]]
+name = "REPORT_RATE_LIMITER"
+namespace_id = "1008"
+simple = { limit = 10, period = 60 }
+
+[[env.production.ratelimits]]
+name = "FEEDBACK_RATE_LIMITER"
+namespace_id = "1011"
+simple = { limit = 5, period = 60 }
+
+[[env.production.ratelimits]]
+name = "FRIEND_REQUEST_RATE_LIMITER"
+namespace_id = "1014"
+simple = { limit = 20, period = 60 }
+
+[[env.production.ratelimits]]
+name = "LIKE_RATE_LIMITER"
+namespace_id = "1017"
+simple = { limit = 60, period = 60 }
+
 [[env.production.workflows]]
 binding = "DANIME_EPISODE_IMPORT"
 name = "danime-episode-import"
@@ -188,6 +238,28 @@ simple = { limit = 5, period = 60 }
 name = "IMAGE_RETRY_RATE_LIMITER"
 namespace_id = "1006"
 simple = { limit = 200, period = 60 }
+
+# 書き込み系 API のユーザー単位の流量制限（issue #715）。
+# 用途・上限値の理由はデフォルト env の定義を参照。
+[[env.preview.ratelimits]]
+name = "REPORT_RATE_LIMITER"
+namespace_id = "1009"
+simple = { limit = 10, period = 60 }
+
+[[env.preview.ratelimits]]
+name = "FEEDBACK_RATE_LIMITER"
+namespace_id = "1012"
+simple = { limit = 5, period = 60 }
+
+[[env.preview.ratelimits]]
+name = "FRIEND_REQUEST_RATE_LIMITER"
+namespace_id = "1015"
+simple = { limit = 20, period = 60 }
+
+[[env.preview.ratelimits]]
+name = "LIKE_RATE_LIMITER"
+namespace_id = "1018"
+simple = { limit = 60, period = 60 }
 
 # ワークフロー名はアカウント内で一意にする必要があるため env ごとに分ける
 # （preview のインスタンスが production の実行中ジョブと混ざらないようにする）。

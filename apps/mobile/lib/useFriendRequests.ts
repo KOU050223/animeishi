@@ -84,6 +84,16 @@ export function useSendFriendRequest() {
         if (res.status === 409) {
           throw new ApiRequestError(409, "すでにフレンドです");
         }
+        // 429（送信数の上限）はサーバーの文言をそのまま見せる
+        if (res.status === 429) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new ApiRequestError(
+            res.status,
+            body?.error ?? "フレンド申請に失敗しました",
+          );
+        }
         throw new ApiRequestError(res.status, "フレンド申請に失敗しました");
       }
       return res.json();
