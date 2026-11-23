@@ -217,7 +217,7 @@ function SheetStatus({
     <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
       {kind === "loading" ? (
         <>
-          <ActivityIndicator color={colors.textFaint} />
+          <ActivityIndicator color={colors.textMuted} />
           <Text style={{ color: colors.textMuted, fontSize: 13 }}>
             {t("読み込んでいます")}
           </Text>

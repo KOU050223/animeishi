@@ -94,7 +94,7 @@ export default function SsoCallbackScreen() {
         </View>
       ) : (
         <View className="items-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primaryText} />
           <Text className="mt-4 text-slate-600 dark:text-slate-300">
             {t("サインインを完了しています…")}
           </Text>

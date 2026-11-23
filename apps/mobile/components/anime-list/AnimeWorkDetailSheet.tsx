@@ -1035,7 +1035,7 @@ function EpisodeCheckRow({
       <Ionicons
         name={episode.watched ? "checkbox" : "square-outline"}
         size={18}
-        color={episode.watched ? colors.primaryText : colors.textFaint}
+        color={episode.watched ? colors.primaryText : colors.textMuted}
       />
       <View className="flex-1 min-w-0 flex-row items-baseline gap-2">
         <Text

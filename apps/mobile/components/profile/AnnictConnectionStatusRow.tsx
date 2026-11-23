@@ -94,7 +94,7 @@ export function AnnictConnectionStatusRow({
           {t(connectedLabel)}
         </Text>
         {onShowDetails ? (
-          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         ) : null}
       </TouchableOpacity>
     );

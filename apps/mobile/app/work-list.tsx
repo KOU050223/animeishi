@@ -507,7 +507,10 @@ export default function WorkListScreen() {
               markDirty();
             }}
             disabled={editingDisabled}
-            trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+            trackColor={{
+              false: colors.surfaceMuted,
+              true: colors.primaryText,
+            }}
             accessibilityLabel={t("ひろばに公開する")}
             testID="work-list-public-toggle"
           />
@@ -578,8 +581,8 @@ export default function WorkListScreen() {
                     size={18}
                     color={
                       editingDisabled || index === 0
-                        ? colors.textFaint
-                        : colors.primary
+                        ? colors.textMuted
+                        : colors.primaryText
                     }
                   />
                 </TouchableOpacity>
@@ -598,8 +601,8 @@ export default function WorkListScreen() {
                     size={18}
                     color={
                       editingDisabled || index === works.length - 1
-                        ? colors.textFaint
-                        : colors.primary
+                        ? colors.textMuted
+                        : colors.primaryText
                     }
                   />
                 </TouchableOpacity>

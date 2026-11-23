@@ -62,7 +62,7 @@ export function CommonPoints({
       </Text>
       {!data && isPending ? (
         <ActivityIndicator
-          color={colors.primary}
+          color={colors.primaryText}
           accessibilityLabel={t("読み込み中")}
         />
       ) : null}

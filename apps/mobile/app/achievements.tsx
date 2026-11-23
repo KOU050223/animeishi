@@ -69,7 +69,7 @@ export default function AchievementsScreen() {
       />
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primaryText} />
         </View>
       ) : isError ? (
         <View className="flex-1 items-center justify-center px-8">

@@ -110,7 +110,7 @@ export default function DanimeImportWebScreen() {
   if (isReceiver) {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primaryText} />
         <Text className="text-sm text-slate-600 dark:text-slate-300 mt-4 text-center">
           {t("dアニメのタブから抽出結果を受け取っています…")}
         </Text>

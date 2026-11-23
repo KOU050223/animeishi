@@ -168,7 +168,7 @@ export function DiscoverWorkLists() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View className="py-4">
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={colors.primaryText} />
               </View>
             ) : undefined
           }
@@ -265,7 +265,7 @@ function PublicWorkListCard({
             size={18}
             color={
               isOwn
-                ? colors.textFaint
+                ? colors.textMuted
                 : item.likedByMe
                   ? colors.danger
                   : colors.textMuted

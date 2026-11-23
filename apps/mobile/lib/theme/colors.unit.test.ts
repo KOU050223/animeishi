@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { colors } from "./colors";
+import type { ThemeColors } from "./colors";
 
 // WCAG 2.x の相対輝度・コントラスト比計算（テスト専用ヘルパー）。
 // https://www.w3.org/TR/WCAG/#dfn-relative-luminance
@@ -25,11 +26,238 @@ function contrastRatio(a: string, b: string): number {
 }
 
 const WCAG_AA_NORMAL_TEXT = 4.5;
+const WCAG_AA_UI = 3;
 
 describe("contrastRatio ヘルパー自身の検証", () => {
   it("黒と白で 21:1 を返す", () => {
     expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 0);
   });
+});
+
+// 実際に画面で使われている前景×背景の組み合わせと下限（issue #723）。
+// 本文・小さい補助文字は AA の 4.5:1。大きい文字（18pt 以上 / 14pt 以上の
+// 太字）、意味を持つアイコン、UI 部品の境界は 3:1。無効状態は WCAG 上
+// 免除されるが、有効状態と見分けが付く最低限として 3:1 で固定する。
+// border / borderMuted / scrim は装飾的な区切り・暗幕で、部品の識別に
+// 必須な前景を運ばないため対象外（選択枠など識別用途は primaryBorder
+// 側の組み合わせで担保する）。
+// className 直書きの組み合わせはこのテストの対象外。トークン値と同じ
+// Tailwind 値を使っている限り同じ比率になるが、独自の組み合わせは別途
+// 監査が必要。
+type Combo = { usage: string; fg: string; bg: string; min: number };
+
+function combos(c: ThemeColors, disabledSurface: string): Combo[] {
+  return [
+    // 本文・見出し
+    {
+      usage: "本文・見出し: 画面背景",
+      fg: c.text,
+      bg: c.background,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "本文・見出し: 薄い下地 (backgroundMuted)",
+      fg: c.text,
+      bg: c.backgroundMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "本文・見出し: カード/シート (surface)",
+      fg: c.text,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "本文・見出し: チップ/控えめボタン面 (surfaceMuted)",
+      fg: c.text,
+      bg: c.surfaceMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "本文・見出し: tier ドロップ領域上の作品タイトル",
+      fg: c.text,
+      bg: c.tierDropArea,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "本文・見出し: tier カードのタイトル帯",
+      fg: c.text,
+      bg: c.tierCardLabel,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // 副テキスト
+    {
+      usage: "副テキスト: 画面背景",
+      fg: c.textSecondary,
+      bg: c.background,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "副テキスト: 薄い下地 (backgroundMuted)",
+      fg: c.textSecondary,
+      bg: c.backgroundMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "副テキスト: カード/シート (surface)",
+      fg: c.textSecondary,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "副テキスト: トレイ空表示 (tierDropArea)",
+      fg: c.textSecondary,
+      bg: c.tierDropArea,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "副テキスト: 「画像なし」カード面 (tierCardFallback)",
+      fg: c.textSecondary,
+      bg: c.tierCardFallback,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // 補助テキスト（本文として使う場面）
+    {
+      usage: "補助テキスト: 画面背景 (タブ未選択・空状態)",
+      fg: c.textMuted,
+      bg: c.background,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "補助テキスト: 薄い下地 (backgroundMuted)",
+      fg: c.textMuted,
+      bg: c.backgroundMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "補助テキスト: カード/シート (surface)",
+      fg: c.textMuted,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // 補助アイコン・無効状態（意味を持つ図形/UI 部品として 3:1）
+    {
+      usage: "補助アイコン・無効ボタン: チップ面 (surfaceMuted)",
+      fg: c.textMuted,
+      bg: c.surfaceMuted,
+      min: WCAG_AA_UI,
+    },
+    {
+      usage: "無効ボタン: ラベル/アイコン",
+      fg: c.textMuted,
+      bg: disabledSurface,
+      min: WCAG_AA_UI,
+    },
+    // 強調・リンク文字
+    {
+      usage: "強調文字: 画面背景 (タブ選択中・リンク)",
+      fg: c.primaryText,
+      bg: c.background,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "強調文字: 薄い下地 (backgroundMuted)",
+      fg: c.primaryText,
+      bg: c.backgroundMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "強調文字: カード/シート (surface)",
+      fg: c.primaryText,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "強調文字: プライマリ面 (NowWatchingBubble)",
+      fg: c.primaryText,
+      bg: c.primarySoft,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // プライマリ塗り上の文字
+    {
+      usage: "ボタン文字: primary 塗り",
+      fg: c.onPrimary,
+      bg: c.primary,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "ボタン文字: 共有ボタンの violet 塗り",
+      fg: c.onPrimary,
+      bg: "#7c3aed",
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // エラー・危険操作
+    {
+      usage: "エラー文字: カード/シート (surface)",
+      fg: c.danger,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "エラー文字: チップ面 (プロパティパネルの危険ボタン)",
+      fg: c.danger,
+      bg: c.surfaceMuted,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // 成功表示
+    {
+      usage: "成功表示: 画面背景",
+      fg: c.success,
+      bg: c.background,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "成功表示: カード/シート (surface)",
+      fg: c.success,
+      bg: c.surface,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    {
+      usage: "成功文字: 成功面 (successSoft)",
+      fg: c.successText,
+      bg: c.successSoft,
+      min: WCAG_AA_NORMAL_TEXT,
+    },
+    // UI 部品の境界（選択枠・吹き出し輪郭）
+    {
+      usage: "選択枠・吹き出し輪郭: 画面背景",
+      fg: c.primaryBorder,
+      bg: c.background,
+      min: WCAG_AA_UI,
+    },
+    {
+      usage: "選択枠: カード/シート (surface)",
+      fg: c.primaryBorder,
+      bg: c.surface,
+      min: WCAG_AA_UI,
+    },
+    {
+      usage: "選択枠: チップ面 (surfaceMuted)",
+      fg: c.primaryBorder,
+      bg: c.surfaceMuted,
+      min: WCAG_AA_UI,
+    },
+    {
+      usage: "吹き出し輪郭: プライマリ面 (primarySoft)",
+      fg: c.primaryBorder,
+      bg: c.primarySoft,
+      min: WCAG_AA_UI,
+    },
+  ];
+}
+
+describe.each([
+  // 無効ボタンの面はスキームで違う（bg-slate-200 / bg-slate-700）。
+  // dark 側は surfaceMuted と同値なのでトークンを参照する。
+  ["light", colors.light, "#e2e8f0"],
+  ["dark", colors.dark, colors.dark.surfaceMuted],
+])("colors.%s の前景×背景 (WCAG AA)", (_scheme, c, disabledSurface) => {
+  it.each(combos(c, disabledSurface))(
+    "$usage で $min:1 以上",
+    ({ fg, bg, min }) => {
+      expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(min);
+    },
+  );
 });
 
 describe("colors.light.placeholder のコントラスト (WCAG AA)", () => {

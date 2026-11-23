@@ -134,7 +134,7 @@ export function ActivityFeedList({
         <>
           {isFetchingNextPage ? (
             <View className="py-4">
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.primaryText} />
             </View>
           ) : null}
           {hasMore && onShowAll ? (

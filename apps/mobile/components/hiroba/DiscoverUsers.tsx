@@ -165,7 +165,7 @@ export function DiscoverUsers() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View className="py-4">
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={colors.primaryText} />
               </View>
             ) : undefined
           }
@@ -267,7 +267,7 @@ function PublicUserCard({
             size={18}
             color={
               isOwn
-                ? colors.textFaint
+                ? colors.textMuted
                 : item.likedByMe
                   ? colors.danger
                   : colors.textMuted

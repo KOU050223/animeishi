@@ -176,7 +176,7 @@ export default function DanimeImportScreen() {
           startInLoadingState
           renderLoading={() => (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color={colors.primary} />
+              <ActivityIndicator size="large" color={colors.primaryText} />
             </View>
           )}
         />

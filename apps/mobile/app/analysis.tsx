@@ -104,7 +104,7 @@ export default function AnalysisScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primaryText} />
       </View>
     );
   }
@@ -449,7 +449,10 @@ function RecommendationsSection() {
       </Text>
 
       {isLoadingRecommendations ? (
-        <ActivityIndicator className="my-4 self-start" color={colors.primary} />
+        <ActivityIndicator
+          className="my-4 self-start"
+          color={colors.primaryText}
+        />
       ) : null}
 
       {recommendations && recommendations.works.length > 0 ? (

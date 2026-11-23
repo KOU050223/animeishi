@@ -31,25 +31,37 @@ export const colors = {
     textSecondary: "#475569",
     /** 補助テキスト（text-slate-500 相当）。 */
     textMuted: "#64748b",
-    /** さらに薄い補助テキスト（text-slate-400 相当）。 */
-    textFaint: "#94a3b8",
     /**
-     * プライマリボタンの塗り・アイコン色（indigo-600）。
+     * プライマリボタンの塗り（indigo-600）。
      * 白文字と組み合わせるため、dark でも同じ塗り色を使う。
+     * dark でアイコン・スピナー等の前景に使うと暗背景で 3:1 を割るため、
+     * 前景側は primaryText を使うこと。
      */
     primary: "#4f46e5",
     /** 暗背景上で読めるリンク/アイコンの強調色（indigo-600 / indigo-400）。 */
     primaryText: "#4f46e5",
-    /** 控えめなプライマリ面（bg-indigo-50 相当）。 */
+    /** 控えめなプライマリ面（indigo-50 / indigo-950）。 */
     primarySoft: "#eef2ff",
-    /** プライマリ面の境界線（indigo-300 / indigo-700）。 */
-    primaryBorder: "#a5b4fc",
+    /**
+     * プライマリ面の境界線・選択枠（indigo-500 / indigo-300）。
+     * UI 部品の判別に必要な 3:1 を背景面で確保する値にしている
+     * （indigo-300 の light / indigo-700 の dark では 3:1 未満）。
+     */
+    primaryBorder: "#6366f1",
     /** primary 塗りの上に置く文字色。 */
     onPrimary: "#ffffff",
-    /** エラー・危険操作（text-red-600 / dark では red-400）。 */
-    danger: "#dc2626",
-    /** 成功表示（green-600 / dark では green-400）。 */
-    success: "#16a34a",
+    /**
+     * エラー・危険操作（red-700 / red-300）。
+     * 薄い面（surfaceMuted）の上でも 4.5:1 を確保する値にしている
+     * （red-600 / red-400 では 4.5:1 未満）。
+     */
+    danger: "#b91c1c",
+    /**
+     * 成功表示（green-700 / green-400）。
+     * 文字として使う場面（視聴済ラベル等）で 4.5:1 を確保する値にしている
+     * （green-600 では 3.3:1）。
+     */
+    success: "#15803d",
     /** 成功トースト等の薄い緑面（emerald-50 / emerald-900）。 */
     successSoft: "#ecfdf5",
     /** successSoft の上に置く文字色（emerald-700 / emerald-300）。 */
@@ -97,13 +109,12 @@ export const colors = {
     text: "#f1f5f9",
     textSecondary: "#cbd5e1",
     textMuted: "#94a3b8",
-    textFaint: "#64748b",
     primary: "#4f46e5",
     primaryText: "#818cf8",
-    primarySoft: "#312e81",
-    primaryBorder: "#4338ca",
+    primarySoft: "#1e1b4b",
+    primaryBorder: "#a5b4fc",
     onPrimary: "#ffffff",
-    danger: "#f87171",
+    danger: "#fca5a5",
     success: "#4ade80",
     successSoft: "#064e3b",
     successText: "#6ee7b7",

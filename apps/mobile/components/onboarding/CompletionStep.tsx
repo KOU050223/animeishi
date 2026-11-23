@@ -73,7 +73,7 @@ export function CompletionStep({
                 <Ionicons
                   name={done ? "checkmark-circle" : "ellipse-outline"}
                   size={18}
-                  color={done ? colors.success : colors.textFaint}
+                  color={done ? colors.success : colors.textMuted}
                 />
                 <Text className="ml-2 text-sm text-slate-700 dark:text-slate-300">
                   {t(MEISHI_COMPLETION_STEP_LABELS[step])}

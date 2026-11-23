@@ -300,7 +300,7 @@ function ImageFocusPreview({
             }
             style={{ padding: 4 }}
           >
-            <Ionicons name={icon} size={16} color={colors.primary} />
+            <Ionicons name={icon} size={16} color={colors.primaryText} />
           </Pressable>
         ))}
         <Pressable
@@ -308,7 +308,7 @@ function ImageFocusPreview({
           accessibilityRole="button"
           style={{ marginLeft: 8 }}
         >
-          <Text style={{ color: colors.primary, fontSize: 12 }}>
+          <Text style={{ color: colors.primaryText, fontSize: 12 }}>
             {t("中央に戻す")}
           </Text>
         </Pressable>
@@ -964,7 +964,7 @@ function ColorGrid({
             borderWidth: c.toLowerCase() === value.toLowerCase() ? 2 : 1,
             borderColor:
               c.toLowerCase() === value.toLowerCase()
-                ? colors.primary
+                ? colors.primaryBorder
                 : colors.border,
           }}
         />
