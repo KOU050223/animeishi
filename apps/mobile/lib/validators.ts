@@ -1,10 +1,16 @@
 import * as v from "valibot";
 
+// v.email() は zod の z.email() より厳しく、アポストロフィ入りのローカル部や
+// Punycode ラベル（連続ハイフン）を含むドメインを拒否する。従来と同じ判定に
+// するため zod v4 の email 正規表現をそのまま使う。
 const emailSchema = v.pipe(
   v.string(),
   v.minLength(1, "メールアドレスを入力してください"),
   v.maxLength(254, "メールアドレスが長すぎます"),
-  v.email("有効なメールアドレスを入力してください"),
+  v.regex(
+    /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/,
+    "有効なメールアドレスを入力してください",
+  ),
 );
 
 const WEAK_PATTERNS = [
