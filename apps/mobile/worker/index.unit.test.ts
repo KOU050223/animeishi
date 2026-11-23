@@ -457,6 +457,15 @@ describe("wrangler.toml の run_worker_first", () => {
       expect(wranglerToml).toContain(`"${path}"`);
     },
   );
+
+  // Workers の _headers では CSP の許可先（Clerk・Sentry）を環境ごとに
+  // 組み立てられないため、公開ページも Worker を通す（issue #714）。
+  it.each(["/welcome", "/privacy", "/terms", "/support"])(
+    "公開ページ %s が Worker 経由になる",
+    (path) => {
+      expect(wranglerToml).toContain(`"${path}"`);
+    },
+  );
 });
 
 describe("セキュリティヘッダ", () => {
