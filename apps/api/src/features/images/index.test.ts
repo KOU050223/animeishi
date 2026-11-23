@@ -322,6 +322,25 @@ describe("GET /images/works/:annictWorkId（作品画像プロキシ）", () => 
       },
     );
 
+    it("limit() が失敗したら制限せずにオリジンを引き直す", async () => {
+      const failing = {
+        limit: vi.fn(async (): Promise<{ success: boolean }> => {
+          throw new Error("rate limiter unavailable");
+        }),
+      };
+      const miss = await requestWithLimiter("/images/works/999", failing);
+      expect(miss.status).toBe(404);
+      await miss.arrayBuffer();
+      await putImportedImage999();
+
+      const retried = await requestWithLimiter(
+        "/images/works/999?r=1",
+        failing,
+      );
+      expect(retried.status).toBe(200);
+      await retried.arrayBuffer();
+    });
+
     it("binding が未設定なら制限せずにオリジンを引き直す", async () => {
       const miss = await buildApp().request(
         "/images/works/999",

@@ -116,14 +116,16 @@ function isRetryAttempt(r: string | undefined): boolean {
 /**
  * ?r= の要求がキャッシュを飛ばしてオリジン（D1・R2・外部 API）へ行ってよいか。
  * 画像は公開配信で、binding の設定漏れで全画像が 500 になるのを避けるため、
- * 未設定のときは制限せずに通す（demo-sign-in のように throw しない）。
+ * 未設定のとき・limit() が失敗したときは制限せずに通す（demo-sign-in のように throw しない）。
  */
 async function allowCacheBypass(
   limiter: RateLimit | undefined,
   ip: string | undefined,
 ): Promise<boolean> {
   if (!limiter) return true;
-  const { success } = await limiter.limit({ key: `ip:${ip ?? "unknown"}` });
+  const { success } = await limiter
+    .limit({ key: `ip:${ip ?? "unknown"}` })
+    .catch(() => ({ success: true }));
   return success;
 }
 
