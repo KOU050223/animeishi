@@ -71,7 +71,9 @@ function findElementsWithoutRole(
     const element = match[1];
     if (!PRESSABLE_ELEMENTS.has(element)) continue;
     const tag = readOpeningTag(source, match.index);
-    if (!/\baccessibilityRole\b/.test(tag)) {
+    // 別属性の文字列内に "accessibilityRole" が現れるだけでは合格にしないよう、
+    // 属性構文（accessibilityRole=...）だけを数える
+    if (!/\baccessibilityRole\s*=/.test(tag)) {
       found.push({
         element,
         line: source.slice(0, match.index).split("\n").length,
@@ -94,5 +96,15 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
       ),
     );
     expect(missing).toEqual([]);
+  });
+
+  // 呼び出し側はロール未指定の CardPressable を既定値 "button" 任せにできる。
+  // 既定値が消えても属性の記述自体は残りうるため、既定値の存在を別途固定する。
+  test.each([
+    "components/ui/card-pressable/CardPressable.native.tsx",
+    "components/ui/card-pressable/CardPressable.web.tsx",
+  ])("CardPressable（%s）の既定ロールは button", (file) => {
+    const source = fs.readFileSync(path.join(rootDir, file), "utf8");
+    expect(source).toContain('accessibilityRole = "button"');
   });
 });

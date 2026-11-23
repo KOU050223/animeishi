@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -366,18 +367,20 @@ export function AddToWorkListSheet({
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
+        <View
           style={{
             flex: 1,
-            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
-          accessibilityLabel={t("リストに追加を閉じる")}
-          testID="add-to-work-list-scrim"
         >
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+            accessibilityLabel={t("リストに追加を閉じる")}
+            testID="add-to-work-list-scrim"
+          />
           <Pressable
             onPress={() => {}}
             accessibilityRole="none"
@@ -488,7 +491,7 @@ export function AddToWorkListSheet({
               </Text>
             </Pressable>
           </Pressable>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

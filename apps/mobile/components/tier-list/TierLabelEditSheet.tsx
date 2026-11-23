@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -55,16 +56,18 @@ export function TierLabelEditSheet({
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
+        <View
           style={{
             flex: 1,
-            backgroundColor: colors.scrim,
             justifyContent: "flex-end",
             alignItems: "center",
           }}
         >
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+          />
           <Pressable
             onPress={() => {}}
             accessibilityRole="none"
@@ -179,7 +182,7 @@ export function TierLabelEditSheet({
               </Pressable>
             </View>
           </Pressable>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
