@@ -119,7 +119,6 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 削除済みユーザーの残存 JWT を拒否する（issue #144）。
   // tombstone は DELETE /me の削除 batch と同じくアトミックに書かれるため、
   // users 行が消えていれば必ずここで検出できる。
-  // tombstone 確認と users 存在確認は 1 往復でまとめて取る（issue #711）。
   const { deletedAt, userExists } = await repo.getMyAuthState();
   if (deletedAt !== undefined) {
     // DELETE /me は tombstone が残っていても通す。Clerk deleteUser が

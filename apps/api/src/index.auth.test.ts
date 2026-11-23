@@ -184,15 +184,16 @@ describe("requireAuth の D1 往復回数（issue #711）", () => {
     CLERK_PUBLISHABLE_KEY: "test_pub",
   });
 
+  let db: Awaited<ReturnType<typeof setupTestDb>>;
+
   beforeEach(async () => {
-    await setupTestDb(env.DB);
+    db = await setupTestDb(env.DB);
     counts.clerkMiddleware = 0;
     counts.getMyAuthState = 0;
     counts.ensureUserExists = 0;
   });
 
   it("既存ユーザーのリクエストでは D1 への往復が 1 回になる", async () => {
-    const db = await setupTestDb(env.DB);
     const now = new Date();
     await db.insert(users).values({
       id: USER_ID,
@@ -210,7 +211,6 @@ describe("requireAuth の D1 往復回数（issue #711）", () => {
 
     expect(res.status).toBe(200);
     expect(counting.roundtrips()).toBe(1);
-    // 既存ユーザーならプロビジョニング自体も走らない。
     expect(counts.getMyAuthState).toBe(1);
     expect(counts.ensureUserExists).toBe(0);
   });
