@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
-import * as Sentry from "@sentry/react-native";
+import { captureException } from "@/lib/observability";
 import type { ErrorBoundaryProps } from "expo-router";
 
 /**
@@ -16,7 +16,7 @@ export function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const { t } = useTranslation();
 
   useEffect(() => {
-    Sentry.captureException(error);
+    captureException(error);
   }, [error]);
 
   return (

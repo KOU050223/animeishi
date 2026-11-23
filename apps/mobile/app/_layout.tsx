@@ -1,7 +1,6 @@
 import "../global.css";
 import "@/lib/i18n";
-import * as Sentry from "@sentry/react-native";
-import { initObservability } from "@/lib/observability";
+import { initObservability, wrapWithSentry } from "@/lib/observability";
 import { configureObserve, wrapWithObserveRoot } from "@/lib/observe";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -202,10 +201,11 @@ export function ErrorBoundary(props: ErrorBoundaryProps) {
   return <RootErrorBoundary {...props} />;
 }
 
-// Sentry.wrap で ErrorBoundary を付与し、レンダリング中の例外も捕捉する。
-// さらに外側を ObserveRoot で包んで TTR（初回描画までの時間）を計測する。
+// wrapWithSentry でルートを包む（ネイティブは Sentry.wrap、Web は SDK を
+// 遅延ロードするため素通し）。さらに外側を ObserveRoot で包んで
+// TTR（初回描画までの時間）を計測する。
 export default wrapWithObserveRoot(
-  Sentry.wrap(function RootLayout() {
+  wrapWithSentry(function RootLayout() {
     // expo-router の NavigationContainer は theme 未指定だと DefaultTheme
     // （light）で固定される。渡さないとネイティブヘッダーがダーク時も
     // 白いままになるため、スキームに応じて ThemeProvider を被せる。
