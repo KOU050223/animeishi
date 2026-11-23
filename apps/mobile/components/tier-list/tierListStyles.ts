@@ -163,10 +163,13 @@ function createStyles(colors: ThemeColors) {
       justifyContent: "center",
       backgroundColor: colors.tierCardFallback,
     },
-    cardImageFallbackText: { color: colors.textMuted, fontSize: 20 },
+    // 薄灰のフォールバック面上でも WCAG AA を満たすよう一段濃い補助文字色を使う
+    // （trayEmpty と同じ理由。textMuted の #64748b/#e2e8f0、#94a3b8/#475569 では
+    // いずれも 4.5:1 を割る）。
+    cardImageFallbackText: { color: colors.textSecondary, fontSize: 20 },
     // 「画像なし」の明記。60px 幅のカードに収まるサイズにする。
     cardImageFallbackLabel: {
-      color: colors.textMuted,
+      color: colors.textSecondary,
       fontSize: 9,
       marginTop: 2,
     },

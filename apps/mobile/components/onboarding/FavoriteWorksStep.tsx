@@ -101,7 +101,7 @@ export function FavoriteWorksStep({
       />
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryText} />
         </View>
       ) : (
         <FlatList
@@ -138,7 +138,7 @@ export function FavoriteWorksStep({
                 <Ionicons
                   name={isSelected ? "checkmark-circle" : "ellipse-outline"}
                   size={24}
-                  color={isSelected ? colors.primary : colors.textFaint}
+                  color={isSelected ? colors.primaryText : colors.textMuted}
                 />
               </Pressable>
             );

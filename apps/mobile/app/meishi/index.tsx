@@ -147,7 +147,7 @@ export default function MeishiDeckScreen() {
 
       {!loaded ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryText} />
         </View>
       ) : cards.length === 0 ? (
         <View style={[styles.center, { padding: 24 }]}>

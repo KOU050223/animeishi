@@ -161,7 +161,7 @@ export default function IncomingShareScreen() {
     <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900">
       <ActivityIndicator
         size="large"
-        color={colors.primary}
+        color={colors.primaryText}
         accessibilityLabel={t("名刺を開いています…")}
       />
       <Text className="mt-4 text-sm text-slate-500 dark:text-slate-400">

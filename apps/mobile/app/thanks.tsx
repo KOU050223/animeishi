@@ -79,7 +79,7 @@ export default function ThanksScreen() {
         {screenOptions}
         <ActivityIndicator
           size="large"
-          color={colors.primary}
+          color={colors.primaryText}
           accessibilityLabel={t("読み込み中")}
         />
       </View>

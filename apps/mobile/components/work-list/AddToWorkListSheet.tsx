@@ -194,7 +194,12 @@ function CreateListFooter({
         {submitting ? (
           <ActivityIndicator size="small" color={colors.onPrimary} />
         ) : (
-          <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>
+          <Text
+            style={{
+              color: canSubmit ? colors.onPrimary : colors.textMuted,
+              fontWeight: "600",
+            }}
+          >
             {t("作成して追加")}
           </Text>
         )}
@@ -217,7 +222,7 @@ function SheetStatus({
     <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
       {kind === "loading" ? (
         <>
-          <ActivityIndicator color={colors.textFaint} />
+          <ActivityIndicator color={colors.textMuted} />
           <Text style={{ color: colors.textMuted, fontSize: 13 }}>
             {t("読み込んでいます")}
           </Text>

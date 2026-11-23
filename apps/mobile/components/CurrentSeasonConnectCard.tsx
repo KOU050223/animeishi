@@ -71,7 +71,7 @@ export function CurrentSeasonConnectCard({
               key={i}
               className="h-20 w-14 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-700"
             >
-              <Ionicons name="tv-outline" size={20} color={colors.textFaint} />
+              <Ionicons name="tv-outline" size={20} color={colors.textMuted} />
             </View>
           ))}
         </View>

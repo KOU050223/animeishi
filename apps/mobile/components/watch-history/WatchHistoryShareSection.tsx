@@ -109,7 +109,7 @@ export function WatchHistoryShareSection() {
           testID="watch-history-share-create"
         >
           {busy ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={colors.primaryText} />
           ) : (
             <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
               {t("AI に渡す URL を作る")}

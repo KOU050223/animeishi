@@ -169,7 +169,7 @@ export function WorkAddSheet({
                 </Text>
               ) : works.length === 0 && (isFetching || resultsStale) ? (
                 <View style={{ alignItems: "center", marginTop: 24, gap: 8 }}>
-                  <ActivityIndicator color={colors.textFaint} />
+                  <ActivityIndicator color={colors.textMuted} />
                   <Text style={{ color: colors.textMuted, fontSize: 13 }}>
                     {t("検索しています")}
                   </Text>

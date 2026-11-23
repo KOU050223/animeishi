@@ -104,7 +104,7 @@ function ReasonStep({
               <Ionicons
                 name={selected ? "checkbox" : "square-outline"}
                 size={22}
-                color={selected ? colors.primary : colors.placeholder}
+                color={selected ? colors.primaryText : colors.placeholder}
               />
               <Text className="flex-1 text-slate-900 dark:text-slate-100">
                 {reasonLabels[key]}
@@ -176,7 +176,7 @@ function SummaryStep({
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primaryText} />
       ) : isError || !rows ? (
         <View className="items-center gap-3 py-4">
           <Text className="text-center text-red-500 dark:text-red-400">

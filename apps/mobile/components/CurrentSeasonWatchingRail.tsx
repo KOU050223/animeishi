@@ -82,7 +82,7 @@ export function CurrentSeasonWatchingRail() {
         {t("{{season}}アニメのうち「視聴中」", { season: seasonLabel })}
       </Text>
       {isConnectionLoading ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryText} />
       ) : !isConnected ? (
         // 閉じるボタンを付けない: 連携すれば自然に消えるため（#424 の決定）
         <CurrentSeasonConnectCard
@@ -91,7 +91,7 @@ export function CurrentSeasonWatchingRail() {
           surface="home_current_season"
         />
       ) : isLoading ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryText} />
       ) : isError ? (
         <View className="flex-row items-center gap-3">
           <Text className="text-sm text-slate-500 dark:text-slate-400">

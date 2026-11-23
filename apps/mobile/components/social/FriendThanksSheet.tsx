@@ -128,7 +128,9 @@ export function FriendThanksSheet({
                     testID={`thanks-preset-${key}`}
                     style={{
                       borderWidth: 1,
-                      borderColor: selected ? colors.primary : colors.border,
+                      borderColor: selected
+                        ? colors.primaryBorder
+                        : colors.border,
                       borderRadius: 8,
                       paddingVertical: 12,
                       paddingHorizontal: 12,

@@ -110,7 +110,7 @@ export default function MeishiViewerScreen() {
 
       {!loaded ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryText} />
         </View>
       ) : card ? (
         <ScrollView
@@ -136,7 +136,11 @@ export default function MeishiViewerScreen() {
             accessibilityLabel={t("印刷用に書き出す")}
             testID="meishi-print-export"
           >
-            <Ionicons name="print-outline" size={16} color={colors.primary} />
+            <Ionicons
+              name="print-outline"
+              size={16}
+              color={colors.primaryText}
+            />
             <Text style={styles.printButtonText}>
               {isPrintExporting ? t("書き出し中...") : t("印刷用に書き出す")}
             </Text>
@@ -212,7 +216,7 @@ function createStyles(colors: ThemeColors) {
     printButtonText: {
       fontSize: 14,
       fontWeight: "600",
-      color: colors.primary,
+      color: colors.primaryText,
     },
     emptyText: { fontSize: 14, color: colors.textMuted },
   });

@@ -138,7 +138,7 @@ export function WorkDetailInfo({
   if (detail.isLoading) {
     return (
       <View className="items-center py-4">
-        <ActivityIndicator size="small" color={colors.textFaint} />
+        <ActivityIndicator size="small" color={colors.textMuted} />
       </View>
     );
   }

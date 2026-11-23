@@ -59,7 +59,7 @@ export function TierListMetaFields({
           value={isPublic}
           onValueChange={onChangeIsPublic}
           disabled={disabled}
-          trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+          trackColor={{ false: colors.surfaceMuted, true: colors.primaryText }}
           accessibilityLabel={t("ひろばに公開する")}
           testID={`${testIDPrefix}-public-toggle`}
         />

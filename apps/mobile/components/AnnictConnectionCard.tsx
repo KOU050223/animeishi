@@ -100,7 +100,7 @@ export function AnnictConnectionCard({
         <Ionicons
           name={isConnected ? "checkmark-circle" : "ellipse-outline"}
           size={18}
-          color={isConnected ? colors.success : colors.textFaint}
+          color={isConnected ? colors.success : colors.textMuted}
         />
         <Text
           className={`ml-2 text-sm ${

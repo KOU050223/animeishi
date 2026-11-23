@@ -193,7 +193,7 @@ export default function MeishiEditScreen() {
       <SafeAreaView
         style={[styles.center, { backgroundColor: colors.background }]}
       >
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryText} />
       </SafeAreaView>
     );
   }

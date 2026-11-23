@@ -84,7 +84,7 @@ export function TemplateStep({
               onPress={() => onSelect(tpl.id)}
               style={{
                 borderWidth: 2,
-                borderColor: isSelected ? colors.primary : colors.border,
+                borderColor: isSelected ? colors.primaryBorder : colors.border,
                 borderRadius: 12,
                 padding: 12,
                 gap: 8,

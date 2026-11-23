@@ -565,7 +565,7 @@ export default function DanimeImportReviewScreen() {
   if (rows === null && (match.isPending || isHistoriesLoading)) {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primaryText} />
         <Text className="text-sm text-slate-500 dark:text-slate-400 mt-4">
           {t("Annict の作品と照合しています…")}
         </Text>

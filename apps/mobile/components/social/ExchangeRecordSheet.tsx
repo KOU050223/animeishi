@@ -86,7 +86,7 @@ function PlaceField({
           opacity: resolving ? 0.6 : 1,
         }}
       >
-        {resolving ? <ActivityIndicator color={colors.primary} /> : null}
+        {resolving ? <ActivityIndicator color={colors.primaryText} /> : null}
         <Text style={{ fontWeight: "600", color: colors.text }}>
           {t("場所を残す")}
         </Text>
@@ -127,7 +127,7 @@ function EventCandidateChips({
               paddingVertical: 8,
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: selected ? colors.primary : colors.border,
+              borderColor: selected ? colors.primaryBorder : colors.border,
               backgroundColor: selected ? colors.primary : "transparent",
             }}
           >

@@ -171,7 +171,7 @@ export function DiscoverTierLists() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View className="py-4">
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={colors.primaryText} />
               </View>
             ) : undefined
           }
@@ -291,7 +291,7 @@ function PublicTierListCard({
             size={18}
             color={
               isOwn
-                ? colors.textFaint
+                ? colors.border
                 : item.likedByMe
                   ? colors.danger
                   : colors.textMuted
