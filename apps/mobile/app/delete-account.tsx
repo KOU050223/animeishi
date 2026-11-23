@@ -19,6 +19,7 @@ import { haptics } from "@/lib/haptics";
 import { annictTokenStorage } from "@/lib/annict/storage";
 import { clearMeishiDocument, loadMeishiLibrary } from "@/lib/meishi/storage";
 import { queryClient } from "@/lib/queryClient";
+import { useSignOut } from "@/lib/useSignOut";
 import { useThemeColors } from "@/lib/theme";
 import {
   submitDeletionFeedback,
@@ -274,7 +275,8 @@ function ConfirmStep({
 export default function DeleteAccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { signOut, getToken } = useAuth();
+  const { getToken } = useAuth();
+  const signOut = useSignOut();
   const [step, setStep] = useState<Step>("reason");
   const [selectedReasons, setSelectedReasons] = useState<Set<ReasonKey>>(
     new Set(),

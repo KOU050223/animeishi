@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useGoogleAuth } from "@/lib/googleAuth";
 import { getClerkErrorCode, toAuthErrorMessage } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { useSignOut } from "@/lib/useSignOut";
 import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
 
@@ -23,7 +24,8 @@ type Props = {
 export function GoogleAuthButton({ onError }: Props) {
   const { t } = useTranslation();
   const { startGoogleAuth } = useGoogleAuth();
-  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  const signOut = useSignOut();
   const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();

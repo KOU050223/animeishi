@@ -23,7 +23,12 @@ import { StatusBar } from "expo-status-bar";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AchievementCelebrationHost } from "@/components/achievements/AchievementCelebrationHost";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
+import {
+  queryClient,
+  asyncStoragePersister,
+  queryCacheBuster,
+} from "@/lib/queryClient";
+import { useClearQueryCacheOnSignOut } from "@/lib/useSignOut";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
 import { useThemeColors } from "@/lib/theme";
@@ -65,6 +70,8 @@ function AuthGuard() {
   // オフラインで積んだ交換キューを起動・フォーカス・通信復帰のたびに
   // POST /me/friends へ流す（issue #681）。
   useExchangeQueueSync();
+  // セッション切れ等、アプリ外の要因でサインアウトされたときもキャッシュを消す（issue #727）。
+  useClearQueryCacheOnSignOut();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -216,7 +223,10 @@ export default wrapWithObserveRoot(
           >
             <PersistQueryClientProvider
               client={queryClient}
-              persistOptions={{ persister: asyncStoragePersister }}
+              persistOptions={{
+                persister: asyncStoragePersister,
+                buster: queryCacheBuster,
+              }}
             >
               <ThemeProvider
                 value={colorScheme === "dark" ? DarkTheme : DefaultTheme}

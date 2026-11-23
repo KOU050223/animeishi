@@ -25,6 +25,7 @@ import {
   toAuthErrorMessage,
 } from "@/lib/authErrors";
 import { recoverExistingSession } from "@/lib/recoverExistingSession";
+import { useSignOut } from "@/lib/useSignOut";
 import { featureFlags } from "@/lib/featureFlags";
 import { passkeyPromptPending } from "@/lib/passkeyPromptPending";
 import { onboardingPending } from "@/lib/onboarding";
@@ -36,7 +37,8 @@ import type { TranslationKey } from "@/lib/i18n/keys";
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const { signUp } = useSignUp();
-  const { isLoaded, signOut } = useAuth();
+  const { isLoaded } = useAuth();
+  const signOut = useSignOut();
   const { client, setActive } = useClerk();
   const router = useRouter();
   const colors = useThemeColors();

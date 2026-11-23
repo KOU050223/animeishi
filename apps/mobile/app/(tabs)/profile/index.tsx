@@ -10,7 +10,6 @@ import {
   View,
   type ScrollViewInstance,
 } from "react-native";
-import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -30,6 +29,7 @@ import { MalAttribution } from "@/components/profile/MalAttribution";
 import { PasskeySection } from "@/components/profile/PasskeySection";
 import { AppVersionFooter } from "@/components/AppVersionFooter";
 import { useProfile, useUpdateProfile } from "@/lib/useProfile";
+import { useSignOut } from "@/lib/useSignOut";
 import { ApiRequestError } from "@/lib/apiError";
 import { useProfileAvatarUpload } from "@/lib/useProfileAvatar";
 import { useMeishiLibrary } from "@/lib/meishi/useMeishiLibrary";
@@ -96,7 +96,7 @@ export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const contentTopPadding = Platform.OS === "ios" ? headerHeight : 0;
   const colors = useThemeColors();
-  const { signOut } = useAuth();
+  const signOut = useSignOut();
   const { data: profile, isLoading, isError, refetch } = useProfile();
   const updateProfile = useUpdateProfile();
   const publicSettings = usePublicSettings();
