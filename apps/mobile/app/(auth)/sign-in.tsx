@@ -16,6 +16,7 @@ import { Input } from "@/components/ui";
 import { DeviceTrustCodeForm } from "@/components/auth/DeviceTrustCodeForm";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { PasskeySignInButton } from "@/components/auth/PasskeySignInButton";
+import * as v from "valibot";
 import { signInSchema } from "@/lib/validators";
 import {
   getClerkErrorCode,
@@ -59,11 +60,11 @@ export default function SignInScreen() {
   async function handleSignIn() {
     if (!isLoaded || !signIn) return;
 
-    const parsed = signInSchema.safeParse({ email, password });
+    const parsed = v.safeParse(signInSchema, { email, password });
     if (!parsed.success) {
       setError(
-        parsed.error.issues[0]?.message
-          ? t(parsed.error.issues[0].message as TranslationKey)
+        parsed.issues[0]?.message
+          ? t(parsed.issues[0].message as TranslationKey)
           : t("入力内容を確認してください"),
       );
       return;
@@ -84,15 +85,15 @@ export default function SignInScreen() {
       // そのまま使うため、throwIfAuthError で例外へ戻す。
       // 結果は戻り値ではなく signIn リソースの status / createdSessionId に反映される。
       const { error: signInError } = await signIn.password({
-        identifier: parsed.data.email,
-        password: parsed.data.password,
+        identifier: parsed.output.email,
+        password: parsed.output.password,
       });
       throwIfAuthError(signInError);
 
       if (signIn.status === "complete") {
         await finishSignIn();
       } else if (signIn.status === "needs_client_trust") {
-        await handleNewDevice(parsed.data.email, parsed.data.password);
+        await handleNewDevice(parsed.output.email, parsed.output.password);
       } else {
         setError(getIncompleteSignInMessage(signIn.status, t));
       }
