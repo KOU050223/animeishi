@@ -129,9 +129,7 @@ name = "DEMO_SIGN_IN_RATE_LIMITER"
 namespace_id = "1002"
 simple = { limit = 5, period = 60 }
 
-# 作品画像プロキシ（src/features/images）の ?r= によるキャッシュ回避の流量制限（issue #713）。
-# IP ごとに 1 分 200 回まで。WorkImage は 1 枚につき最大 2 回リトライするため、
-# 1 画面で数十枚がリトライしても収まる値にしている。
+# 作品画像の ?r= の流量制限。上限値の理由はデフォルト env の定義を参照。
 [[env.production.ratelimits]]
 name = "IMAGE_RETRY_RATE_LIMITER"
 namespace_id = "1005"
@@ -185,9 +183,7 @@ name = "DEMO_SIGN_IN_RATE_LIMITER"
 namespace_id = "1003"
 simple = { limit = 5, period = 60 }
 
-# 作品画像プロキシ（src/features/images）の ?r= によるキャッシュ回避の流量制限（issue #713）。
-# IP ごとに 1 分 200 回まで。WorkImage は 1 枚につき最大 2 回リトライするため、
-# 1 画面で数十枚がリトライしても収まる値にしている。
+# 作品画像の ?r= の流量制限。上限値の理由はデフォルト env の定義を参照。
 [[env.preview.ratelimits]]
 name = "IMAGE_RETRY_RATE_LIMITER"
 namespace_id = "1006"
