@@ -66,7 +66,6 @@ function isTranslationCall(node: ts.Node): node is ts.CallExpression {
   );
 }
 
-// 式に含まれる文字列リテラルをすべて集める。
 // 三項演算子の条件部（state === "saving" 等）はキーにならないので枝だけを辿る。
 // ?? / || / ?.[] など、実際に t() に渡りうる値を構成する式はすべて辿る。
 function collectStringLiterals(node: ts.Node, out: Set<string>): void {
