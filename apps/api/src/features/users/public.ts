@@ -27,7 +27,7 @@ function getBindings(
 // 詳細画面は既存の GET /user/:uid（名刺）で、通報も既存の
 // POST /users/:id/report を使うため、ここに追加するのは一覧と
 // いいねだけ。構造は公開作品リスト（work-lists/public.ts）と同じ。
-export const publicUsersQuerySchema = z.object({
+const publicUsersQuerySchema = z.object({
   sort: z.enum(["likes", "new"]).optional(),
   // "<ソートキー>_<userId>"。user_id 自体が "_" を含むので
   // 先頭の数値 + "_" + 残り全部、という形にする。

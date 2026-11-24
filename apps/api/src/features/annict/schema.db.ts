@@ -20,4 +20,3 @@ export const annictTokens = sqliteTable("annict_tokens", {
 });
 
 export type AnnictToken = typeof annictTokens.$inferSelect;
-export type NewAnnictToken = typeof annictTokens.$inferInsert;

@@ -1184,5 +1184,3 @@ export function usersRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type UsersRepository = ReturnType<typeof usersRepository>;

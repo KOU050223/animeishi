@@ -28,4 +28,3 @@ export const favorites = sqliteTable(
 );
 
 export type Favorite = typeof favorites.$inferSelect;
-export type NewFavorite = typeof favorites.$inferInsert;

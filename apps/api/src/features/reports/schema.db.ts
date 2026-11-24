@@ -12,8 +12,7 @@ import { workLists } from "@/features/work-lists/schema.db";
 
 // reports.status の許可値（モデレーション対応状況, issue #186）。
 // open: 未対応 / resolved: 対応済み / dismissed: 却下（対応不要と判断）。
-export const REPORT_STATUSES = ["open", "resolved", "dismissed"] as const;
-export type ReportStatus = (typeof REPORT_STATUSES)[number];
+const REPORT_STATUSES = ["open", "resolved", "dismissed"] as const;
 
 // ---- reports (ユーザー通報) ----
 // App Store Guideline 1.2 (UGC) 対応。運営がモデレーションするための通報を記録する。
@@ -69,4 +68,3 @@ export const reports = sqliteTable(
 );
 
 export type Report = typeof reports.$inferSelect;
-export type NewReport = typeof reports.$inferInsert;

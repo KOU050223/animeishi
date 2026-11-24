@@ -23,7 +23,7 @@ export const bearerAuth = [{ bearerAuth: [] }];
  * スキーマに書かれたエラーメッセージの先頭 1 件を返す。
  * OpenAPIHono サブアプリの `defaultHook` に指定して使う。
  */
-export function openapiValidationHook(
+function openapiValidationHook(
   result: { success: boolean; error?: { issues: { message: string }[] } },
   c: Context,
 ) {

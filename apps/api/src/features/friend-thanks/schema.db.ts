@@ -48,6 +48,3 @@ export const friendThanks = sqliteTable(
     index("friend_thanks_sender_recipient_idx").on(t.senderId, t.recipientId),
   ],
 );
-
-export type FriendThanks = typeof friendThanks.$inferSelect;
-export type NewFriendThanks = typeof friendThanks.$inferInsert;

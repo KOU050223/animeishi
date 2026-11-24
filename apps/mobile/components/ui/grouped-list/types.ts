@@ -20,7 +20,7 @@ export type GroupedListRow = {
   testID?: string;
 };
 
-export type GroupedListSection = {
+type GroupedListSection = {
   key: string;
   /** セクション見出し。 */
   title: string;

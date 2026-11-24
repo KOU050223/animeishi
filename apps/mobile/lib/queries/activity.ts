@@ -2,10 +2,7 @@ import { infiniteQueryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type FeedResponse = InferResponseType<
-  (typeof apiClient.me.feed)["$get"],
-  200
->;
+type FeedResponse = InferResponseType<(typeof apiClient.me.feed)["$get"], 200>;
 export type ActivityFeedItem = FeedResponse["items"][number];
 
 const FEED_PAGE_LIMIT = "20";

@@ -6,7 +6,7 @@
 import type {} from "../graphql-env";
 import type {} from "../graphql-config";
 import { graphql } from "gql.tada";
-import type { ResultOf, VariablesOf } from "gql.tada";
+import type { ResultOf } from "gql.tada";
 
 // Annict GraphQL のクエリ文字列リテラルから、スキーマ由来の Result / Variables
 // 型を導くヘルパー（issue #734）。クエリは実行時に文字列のまま Annict へ送る
@@ -22,16 +22,11 @@ import type { ResultOf, VariablesOf } from "gql.tada";
 const tadaDocument = <Query extends string>(query: Query) => graphql(query);
 
 /** クエリ文字列に対応する型付き DocumentNode 型。 */
-export type AnnictDocument<Query extends string> = ReturnType<
+type AnnictDocument<Query extends string> = ReturnType<
   typeof tadaDocument<Query>
 >;
 
 /** クエリ文字列のレスポンス（data）型。 */
 export type AnnictResult<Query extends string> = ResultOf<
-  AnnictDocument<Query>
->;
-
-/** クエリ文字列の変数型。 */
-export type AnnictVariables<Query extends string> = VariablesOf<
   AnnictDocument<Query>
 >;

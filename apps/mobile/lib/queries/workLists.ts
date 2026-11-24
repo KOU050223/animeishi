@@ -14,11 +14,7 @@ export type SavedWorkListResponse = InferResponseType<
   (typeof apiClient.me)["work-lists"][":id"]["$get"],
   200
 >;
-export type WorkListsResponse = InferResponseType<
-  (typeof apiClient.me)["work-lists"]["$get"],
-  200
->;
-export type PublicWorkListDetailResponse = InferResponseType<
+type PublicWorkListDetailResponse = InferResponseType<
   (typeof apiClient)["work-lists"][":id"]["$get"],
   200
 >;

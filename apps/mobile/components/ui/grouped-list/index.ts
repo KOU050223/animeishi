@@ -1,6 +1,2 @@
 export { GroupedList } from "./GroupedList";
-export type {
-  GroupedListProps,
-  GroupedListRow,
-  GroupedListSection,
-} from "./types";
+export type { GroupedListRow } from "./types";

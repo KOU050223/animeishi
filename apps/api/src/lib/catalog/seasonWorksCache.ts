@@ -7,7 +7,7 @@ import { readWorkCache, workCacheUrl, writeWorkCache } from "./workSearchCache";
 
 // キャッシュ鮮度。シーズン中盤の追加作品や watchers 順位変動への追従と、
 // Annict 負荷・応答速度のバランスで 30 分に設定。
-export const SEASON_WORKS_CACHE_TTL_MS = 30 * 60 * 1000;
+const SEASON_WORKS_CACHE_TTL_MS = 30 * 60 * 1000;
 
 export function seasonWorksCacheUrl(season: string): string {
   return workCacheUrl(`season-works/${encodeURIComponent(season)}`);

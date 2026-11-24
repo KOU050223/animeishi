@@ -37,7 +37,7 @@ const recordIdParamSchema = z.object({
 // eventSlug を指定すると登録イベントに紐付け、表示名は API が
 // events.title から写す。eventSlug を null にすると自由入力の
 // eventName が使われる。両方 null でイベント紐付けを外す。
-export const exchangeRecordUpdateSchema = z.object({
+const exchangeRecordUpdateSchema = z.object({
   placeName: z
     .string()
     .max(100, "場所は 100 文字以内で入力してください")
@@ -59,7 +59,7 @@ const jsonError = (description: string) => ({
 // eventSlug を指定すると登録イベントに紐付け、表示名は API が
 // events.title から写す。eventSlug を null にすると自由入力の
 // eventName が使われる。
-export const exchangeRecordCreateSchema = z.object({
+const exchangeRecordCreateSchema = z.object({
   friendId: z.string().min(1),
   placeName: z
     .string()
@@ -161,22 +161,5 @@ export const deleteExchangeRecordRoute = createRoute({
     },
     401: jsonError("未認証"),
     404: jsonError("記録が存在しない（または自分の記録ではない）"),
-  },
-});
-
-// 交換当時の名刺コピー（issue #662）の配信。自分専用の非公開コピーの
-// ため本人認証が必須（openapi の createRoute ではバイナリ応答を
-// 書きにくいので、配信自体は index.ts の通常ルートで実装する）。
-export const exchangeCardSnapshotRoute = createRoute({
-  method: "get",
-  path: "/{recordId}/snapshot",
-  tags: ["exchange-records"],
-  summary: "交換当時の名刺コピーを配信する（本人のみ。他人の記録は 404）",
-  security: bearerAuth,
-  request: { params: recordIdParamSchema },
-  responses: {
-    200: { description: "名刺コピー画像（image/png）" },
-    401: jsonError("未認証"),
-    404: jsonError("記録・コピーが存在しない（または自分の記録ではない）"),
   },
 });

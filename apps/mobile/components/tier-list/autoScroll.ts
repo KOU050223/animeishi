@@ -6,9 +6,9 @@ import type { DropZoneRegistry } from "./dropZones";
 /** 指がビューポートの端からこの距離（px）以内に入ると自動スクロールを始める。 */
 export const AUTO_SCROLL_EDGE_PX = 56;
 /** 1 tick あたりの最大スクロール量（px）。端に近いほど速くなる。 */
-export const AUTO_SCROLL_MAX_STEP_PX = 12;
+const AUTO_SCROLL_MAX_STEP_PX = 12;
 /** スクロール tick の間隔（ms）。 */
-export const AUTO_SCROLL_TICK_MS = 16;
+const AUTO_SCROLL_TICK_MS = 16;
 
 /**
  * 自動スクロールの方向。

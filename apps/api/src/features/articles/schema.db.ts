@@ -22,4 +22,3 @@ export const articles = sqliteTable(
 );
 
 export type Article = typeof articles.$inferSelect;
-export type NewArticle = typeof articles.$inferInsert;

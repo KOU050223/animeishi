@@ -125,9 +125,3 @@ export const deletionFeedbacks = sqliteTable("deletion_feedbacks", {
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-export type Block = typeof blocks.$inferSelect;
-export type NewBlock = typeof blocks.$inferInsert;
-export type UserGenre = typeof userGenres.$inferSelect;
-export type DeletedUser = typeof deletedUsers.$inferSelect;
-export type DeletionFeedback = typeof deletionFeedbacks.$inferSelect;
-export type NewDeletionFeedback = typeof deletionFeedbacks.$inferInsert;

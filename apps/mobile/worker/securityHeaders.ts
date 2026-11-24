@@ -18,7 +18,7 @@ export type SecurityHeadersEnv = {
  * （Workers の _headers は Worker が返した応答には適用されないため両方に必要）。
  * 値を変えるときは両方を揃える（index.unit.test.ts が一致を検査する）。
  */
-export const STATIC_SECURITY_HEADERS = {
+const STATIC_SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",

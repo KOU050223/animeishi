@@ -25,5 +25,3 @@ export const annictExchangeSchema = z
     error: 'Web の redirect_uri では mode:"web" が必要です',
     path: ["mode"],
   });
-
-export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;

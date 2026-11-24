@@ -339,7 +339,3 @@ export function episodeImportJobRepository(db: DrizzleDb) {
     },
   };
 }
-
-export type EpisodeImportJobRepository = ReturnType<
-  typeof episodeImportJobRepository
->;

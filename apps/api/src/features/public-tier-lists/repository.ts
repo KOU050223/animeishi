@@ -69,7 +69,7 @@ export type PublicTierListRow = {
 };
 
 /** 詳細レスポンスの items 要素。kind で中身が変わる。 */
-export type PublicTierListItem =
+type PublicTierListItem =
   | {
       kind: "work";
       annictWorkId: number;
@@ -169,9 +169,7 @@ function likedByMeExpr(
 /** cursor は "<ソートキー>_<kind 順位>_<id>"。 */
 type ParsedCursor = { sortKey: number; rank: number; id: number };
 
-export function parsePublicTierListCursor(
-  cursor: string,
-): ParsedCursor | undefined {
+function parsePublicTierListCursor(cursor: string): ParsedCursor | undefined {
   const m = /^(\d+)_(\d+)_(\d+)$/.exec(cursor);
   if (!m) return undefined;
   return {
@@ -881,7 +879,3 @@ export function publicTierListsRepository(
     },
   };
 }
-
-export type PublicTierListsRepository = ReturnType<
-  typeof publicTierListsRepository
->;

@@ -279,7 +279,3 @@ export function customTierListsRepository(
     },
   };
 }
-
-export type CustomTierListsRepository = ReturnType<
-  typeof customTierListsRepository
->;

@@ -2,14 +2,14 @@ export type NearbyExchangeStartOptions = {
   displayName: string;
 };
 
-export type PeerFoundPayload = {
+type PeerFoundPayload = {
   peerId: string;
   displayName: string;
   /** 相手の端末が UWB で距離を測れるか。試作（#700）のビルドには無い。 */
   uwb?: boolean;
 };
 
-export type PeerLostPayload = {
+type PeerLostPayload = {
   peerId: string;
 };
 
@@ -19,7 +19,7 @@ export type DirectionVector = {
   z: number;
 };
 
-export type DistancePayload = {
+type DistancePayload = {
   peerId: string;
   /** 相手までの距離（m）。測れないときは null。 */
   meters: number | null;
@@ -32,12 +32,12 @@ export type NearbyExchangeSendOptions = {
   payload: string;
 };
 
-export type PayloadPayload = {
+type PayloadPayload = {
   peerId: string;
   payload: string;
 };
 
-export type ErrorCode =
+type ErrorCode =
   | "listener_failed"
   | "browser_failed"
   | "connection_failed"
@@ -49,12 +49,12 @@ export type ErrorCode =
   /** Nearby Interaction の許可が拒否された。 */
   | "ni_permission_denied";
 
-export type ErrorPayload = {
+type ErrorPayload = {
   code: ErrorCode | (string & {});
   message: string;
 };
 
-export type CapabilityPayload = {
+type CapabilityPayload = {
   /** Nearby Interaction（UWB）による精密測距が使えるか。 */
   uwb: boolean;
 };

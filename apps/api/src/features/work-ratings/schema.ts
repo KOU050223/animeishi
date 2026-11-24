@@ -8,5 +8,3 @@ export const workRatingUpsertSchema = z.object({
     error: () => "有効な評価を選択してください",
   }),
 });
-
-export type WorkRatingUpsertInput = z.infer<typeof workRatingUpsertSchema>;

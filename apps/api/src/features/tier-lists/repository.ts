@@ -273,5 +273,3 @@ export function tierListsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type TierListsRepository = ReturnType<typeof tierListsRepository>;

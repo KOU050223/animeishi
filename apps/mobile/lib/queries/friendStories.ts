@@ -2,12 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type StoriesResponse = InferResponseType<
+type StoriesResponse = InferResponseType<
   (typeof apiClient.me.feed.stories)["$get"],
   200
 >;
 export type FriendWatchStory = StoriesResponse["friends"][number];
-export type FriendWatchStoryItem = FriendWatchStory["items"][number];
 
 // フレンド視聴ストーリー（/me/feed/stories）のクエリファクトリ
 // （issue #726）。直近 24 時間に視聴記録をつけたフレンドとその活動

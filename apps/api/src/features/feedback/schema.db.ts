@@ -4,7 +4,6 @@ import { users } from "@/features/users/schema.db";
 // ---- feedbacks (アプリ内の不具合報告・ご意見) ----
 // category の許可値はクライアントの選択肢と揃える（features/feedback/schema.ts）。
 export const FEEDBACK_CATEGORIES = ["bug", "request", "other"] as const;
-export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
 
 export const feedbacks = sqliteTable(
   "feedbacks",
@@ -21,5 +20,3 @@ export const feedbacks = sqliteTable(
   },
   (t) => [index("feedbacks_user_created_idx").on(t.userId, t.createdAt)],
 );
-
-export type Feedback = typeof feedbacks.$inferSelect;

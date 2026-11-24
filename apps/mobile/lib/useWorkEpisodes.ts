@@ -8,12 +8,11 @@ import { useAnnictConnection } from "@/lib/annict";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 
-export type { WorkEpisode, WorkEpisodesResponse } from "@/lib/queries/works";
+export type { WorkEpisode } from "@/lib/queries/works";
 
 // 話数一覧のクエリキー。watched は閲覧ユーザー固有の値（Annict viewerDidTrack
 // 由来）なので、視聴履歴と同じく userId でスコープする。
 export const WORK_EPISODES_QUERY_KEY = workQueries.episodes.all;
-export const workEpisodesQueryKey = workQueries.episodes.key;
 
 /**
  * 作品詳細シートの話数チェック一覧が使う話数マスタ + 記録状況

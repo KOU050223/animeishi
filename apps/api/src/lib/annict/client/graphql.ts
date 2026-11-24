@@ -26,7 +26,7 @@ export class AnnictBudgetExhaustedError extends AnnictApiError {
   }
 }
 
-export type GraphQLResponse<T> = {
+type GraphQLResponse<T> = {
   data?: T;
   errors?: { message: string }[];
 };

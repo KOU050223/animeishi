@@ -23,8 +23,6 @@ export const worksSearchQuerySchema = z.object({
   after: z.string().trim().min(1).optional(),
 });
 
-export type WorksSearchQueryInput = z.infer<typeof worksSearchQuerySchema>;
-
 // /works/:annictWorkId 系パスのパラメータ。パスパラメータは文字列なので coerce。
 export const annictWorkIdParamSchema = z.object({
   annictWorkId: z.coerce.number().int().positive(),

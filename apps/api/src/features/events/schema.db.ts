@@ -69,6 +69,3 @@ export const eventParticipations = sqliteTable(
 );
 
 export type Event = typeof events.$inferSelect;
-export type NewEvent = typeof events.$inferInsert;
-export type EventParticipation = typeof eventParticipations.$inferSelect;
-export type NewEventParticipation = typeof eventParticipations.$inferInsert;

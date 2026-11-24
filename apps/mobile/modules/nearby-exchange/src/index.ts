@@ -7,16 +7,9 @@ import type {
 } from "./NearbyExchange.types";
 
 export type {
-  CapabilityPayload,
   DirectionVector,
-  DistancePayload,
-  ErrorPayload,
   NearbyExchangeModuleEvents,
-  NearbyExchangeSendOptions,
   NearbyExchangeStartOptions,
-  PayloadPayload,
-  PeerFoundPayload,
-  PeerLostPayload,
 } from "./NearbyExchange.types";
 
 /** ネイティブモジュールがこのビルドに組み込まれているか（Expo Go などでは false）。 */

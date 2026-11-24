@@ -72,7 +72,3 @@ export const characterTierListItems = sqliteTable(
 );
 
 export type CharacterTierList = typeof characterTierLists.$inferSelect;
-export type NewCharacterTierList = typeof characterTierLists.$inferInsert;
-export type CharacterTierListItem = typeof characterTierListItems.$inferSelect;
-export type NewCharacterTierListItem =
-  typeof characterTierListItems.$inferInsert;

@@ -54,7 +54,7 @@ export type DanimeMatchStats = {
   elapsedMs: number;
 };
 
-export type DanimeMatchOutput = {
+type DanimeMatchOutput = {
   items: DanimeMatchItem[];
   /** 照合フェーズの経過時間（ms、クライアント側計測）。 */
   elapsedMs: number;
@@ -80,7 +80,7 @@ const MATCH_CHUNK_SIZE = 100;
 // 曖昧さを検出できない。同一リクエスト内なら API が行う判定
 // （同名の複数 exact 候補 → candidates）を、結合後にクライアント側で
 // やり直し誤確定を防ぐ。
-export function demoteAmbiguousExactAcrossChunks(
+function demoteAmbiguousExactAcrossChunks(
   items: DanimeMatchItem[],
 ): DanimeMatchItem[] {
   const groups = new Map<string, DanimeMatchItem[]>();
@@ -351,7 +351,7 @@ export function useBulkRegisterWatchHistory() {
 
 export type { DanimeEpisodeJob } from "@/lib/queries/danime";
 
-export const DANIME_EPISODE_JOB_QUERY_KEY = danimeQueries.episodeJob.all;
+const DANIME_EPISODE_JOB_QUERY_KEY = danimeQueries.episodeJob.all;
 
 /** 最新の話記録ジョブを取得する。実行中（matching/writing）だけ 5 秒ごとに再取得する。 */
 export function useDanimeEpisodeJob(enabled = true) {

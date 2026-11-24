@@ -71,14 +71,10 @@ export const signUpSchema = v.pipe(
   ),
 );
 
-export type SignUpInput = v.InferOutput<typeof signUpSchema>;
-
 export const signInSchema = v.object({
   email: emailSchema,
   password: v.pipe(v.string(), v.minLength(1, "パスワードを入力してください")),
 });
-
-export type SignInInput = v.InferOutput<typeof signInSchema>;
 
 export const passwordResetEmailSchema = v.object({ email: emailSchema });
 

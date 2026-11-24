@@ -2,17 +2,16 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type ArticlesResponse = InferResponseType<
+type ArticlesResponse = InferResponseType<
   (typeof apiClient.articles)["$get"],
   200
 >;
 export type ArticleListItem = ArticlesResponse["items"][number];
 
-export type ArticleResponse = InferResponseType<
+type ArticleResponse = InferResponseType<
   (typeof apiClient.articles)[":slug"]["$get"],
   200
 >;
-export type Article = ArticleResponse;
 
 // ホームの特集枠に出す新着件数（issue #437）。
 const HOME_ARTICLES_LIMIT = "3";

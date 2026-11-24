@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { parseQrPayload, type MiniMeishi } from "@/lib/qrParser";
 
-export type QrScanResult = {
+type QrScanResult = {
   /** スキャンして抽出されたユーザー ID。 */
   userId: string;
   /**

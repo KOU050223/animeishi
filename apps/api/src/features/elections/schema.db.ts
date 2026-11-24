@@ -37,7 +37,6 @@ export const elections = sqliteTable(
 // Annict キャッシュに無い候補も出せるよう非正規化）。再投入で frontmatter
 // から外れた行は削除され、その候補への票は ON DELETE CASCADE で消える。
 export const ELECTION_CANDIDATE_KINDS = ["character", "work"] as const;
-export type ElectionCandidateKind = (typeof ELECTION_CANDIDATE_KINDS)[number];
 
 export const electionCandidates = sqliteTable(
   "election_candidates",
@@ -98,8 +97,4 @@ export const electionVotes = sqliteTable(
 );
 
 export type Election = typeof elections.$inferSelect;
-export type NewElection = typeof elections.$inferInsert;
 export type ElectionCandidate = typeof electionCandidates.$inferSelect;
-export type NewElectionCandidate = typeof electionCandidates.$inferInsert;
-export type ElectionVote = typeof electionVotes.$inferSelect;
-export type NewElectionVote = typeof electionVotes.$inferInsert;

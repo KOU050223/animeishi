@@ -42,11 +42,3 @@ export type TierItem = {
    */
   imageUrl?: string | null;
 };
-
-/** 画面が保持する編集中の tier 表の状態。 */
-export type TierBoard = {
-  season: string;
-  title: string;
-  tiers: TierRow[];
-  assignment: TierAssignment;
-};

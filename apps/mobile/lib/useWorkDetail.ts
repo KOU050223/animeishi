@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/expo";
 import { useWorkCatalogAccess } from "@/lib/annict";
 import { workQueries } from "@/lib/queries/works";
 
-export type { WorkDetail, WorkDetailResponse } from "@/lib/queries/works";
+export type { WorkDetail } from "@/lib/queries/works";
 
 // 詳細シートのクエリキー。state（viewerStatusState）は閲覧ユーザー固有の
 // 値なので、視聴履歴と同じく userId でスコープする。共有端末でユーザーが

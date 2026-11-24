@@ -51,7 +51,7 @@ export async function searchSeasonWorks(
 // タイトル検索のキャッシュ鮮度（issue #561）。共用トークンには未連携の利用者全員の
 // 検索が集まるため、同じ語の連続検索（インクリメンタル検索・別の利用者）を
 // まとめる。新作の登録や watchers 順位の変化を長く隠さないよう短めにする。
-export const TITLE_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const TITLE_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 
 // Annict のタイトル検索は大文字小文字を区別しない部分一致（ILIKE）なので、
 // 小文字化しても結果は変わらない。キーの揺れだけを吸収する。
@@ -85,7 +85,7 @@ export async function searchTitleWorks(
 
 // 共用トークン経路の作品詳細のキャッシュ鮮度（issue #561）。話数・クレジット等は
 // 変化が緩いので長めに取る。
-export const SHARED_WORK_DETAIL_CACHE_TTL_MS = 60 * 60 * 1000;
+const SHARED_WORK_DETAIL_CACHE_TTL_MS = 60 * 60 * 1000;
 
 export function sharedWorkDetailCacheUrl(annictWorkId: number): string {
   return workCacheUrl(`work-detail/${annictWorkId}`);

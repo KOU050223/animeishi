@@ -55,7 +55,7 @@ export const RATING_LABELS: Record<WorkRatingValue, string> = {
  * Workers AI の呼び出し・応答の解釈に失敗したときに投げるエラー。
  * ルート層で 502 に変換する。
  */
-export class AnalysisGenerationError extends Error {
+class AnalysisGenerationError extends Error {
   constructor(message = "AI の応答を解釈できませんでした") {
     super(message);
     this.name = "AnalysisGenerationError";

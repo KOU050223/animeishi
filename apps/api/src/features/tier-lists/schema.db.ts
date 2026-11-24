@@ -74,6 +74,3 @@ export const tierListItems = sqliteTable(
 );
 
 export type TierList = typeof tierLists.$inferSelect;
-export type NewTierList = typeof tierLists.$inferInsert;
-export type TierListItem = typeof tierListItems.$inferSelect;
-export type NewTierListItem = typeof tierListItems.$inferInsert;

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // エージェントの状態ディレクトリ（.oxfmtignore と同じ範囲）。
+  // 配下の JS は knip の解析対象にしない。
+  "ignore": [".agents/**"],
+  // Taskfile.yml の `dir: apps/api` 付きタスクが `pnpm wrangler` で起動する
+  // wrangler は apps/api の依存。タスクランナーの dir 指定は knip から見えない。
+  "ignoreBinaries": ["wrangler"],
+  "workspaces": {
+    "apps/mobile": {
+      // metro プラグインは metro.config.ts を評価するが、その過程で nativewind が
+      // リポジトリルートの tsconfig.json を書き換えてしまう（cwd がルートのため）。
+      // src/ 配下を持たないこの構成ではプラグインの entry 補完も不要なので無効化し、
+      // metro.config.ts は entry で個別に指定する。
+      "metro": false,
+      "entry": [
+        "metro.config.ts",
+        // Metro / Expo のプラットフォーム解決（*.native / *.web / *.ios / *.android）
+        // は knip の静的解析では辿れない。実装の対になるベースファイル（foo.ts）から
+        // `./foo` で import されるが、knip はベースだけを解決するため、各バリアントを
+        // エントリとして扱う（issue #738）。副作用としてバリアント内の export は
+        // 検査対象外になる。
+        "**/*.native.{ts,tsx,mts,cts}",
+        "**/*.web.{ts,tsx,mts,cts}",
+        "**/*.ios.{ts,tsx,mts,cts}",
+        // jest の @jest-environment pragma（*.test.ts の docblock）で参照される
+        // カスタム環境。jest.config.cjs の設定値からは辿れない。
+        "jest.jsdom-env.cjs"
+      ],
+      "ignoreDependencies": [
+        // EAS Build / Submit を手動で実行するための CLI（eas.json あり）。
+        // package.json scripts からは呼ばれない。
+        "eas-cli",
+        // jest-expo の babel-jest トランスフォームが解決するバージョンを
+        // Jest 30 系に揃えるための直接依存（jest-config 経由の推移的依存に
+        // 委ねると解決バージョンが変わり得る）。
+        "babel-jest"
+      ]
+    },
+    "apps/api": {
+      // drizzle.config.ts はローカル D1 の SQLite ファイルが無いと import 時に
+      // throw する（db:migrate:local 前提のガード）。knip が config を読み込むと
+      // 必ず失敗するためプラグインを無効化し、config と CLI スクリプトは
+      // entry で個別に指定する。
+      "drizzle": false,
+      "entry": [
+        "drizzle.config.ts",
+        // Taskfile の `dir: apps/api` 付きタスクから `node scripts/*.mjs` で
+        // 起動される CLI。knip の taskfile プラグインは dir を考慮せず
+        // ワークスペースルート基準で解決するため entry に含める。
+        "scripts/**/*.{mjs,ts}"
+      ]
+    }
+  }
+}

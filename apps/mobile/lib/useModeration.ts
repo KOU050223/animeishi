@@ -15,7 +15,7 @@ import { blockQueries } from "@/lib/queries/moderation";
 
 export type { BlockedUserItem } from "@/lib/queries/moderation";
 
-export const BLOCKS_QUERY_KEY = blockQueries.all;
+const BLOCKS_QUERY_KEY = blockQueries.all;
 
 export function getReportErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError && error.status === 429) {

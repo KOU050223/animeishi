@@ -58,7 +58,3 @@ export const characterTierListSaveSchema = z
       path: ["items"],
     },
   );
-
-export type CharacterTierListSaveInput = z.infer<
-  typeof characterTierListSaveSchema
->;

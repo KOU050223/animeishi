@@ -2,12 +2,12 @@ import { StyleSheet } from "react-native";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 
 /** ドラッグする作品カードの幅。 */
-export const CARD_WIDTH = 60;
-export const CARD_IMAGE_HEIGHT = Math.round((CARD_WIDTH * 3) / 2);
+const CARD_WIDTH = 60;
+const CARD_IMAGE_HEIGHT = Math.round((CARD_WIDTH * 3) / 2);
 /** タイトルラベル部の高さ（2 行分）。 */
-export const CARD_LABEL_HEIGHT = 26;
+const CARD_LABEL_HEIGHT = 26;
 /** カード全体の高さ。行の最小高もこれに合わせる。 */
-export const CARD_HEIGHT = CARD_IMAGE_HEIGHT + CARD_LABEL_HEIGHT;
+const CARD_HEIGHT = CARD_IMAGE_HEIGHT + CARD_LABEL_HEIGHT;
 
 /**
  * tier 表画面のスタイル。配色はカラースキームに追従するため、

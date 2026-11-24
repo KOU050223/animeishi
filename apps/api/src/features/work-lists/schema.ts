@@ -30,8 +30,6 @@ export const workListSaveSchema = z
     { error: "同じ作品が複数登録されています", path: ["items"] },
   );
 
-export type WorkListSaveInput = z.infer<typeof workListSaveSchema>;
-
 // /me/work-lists/:id 系パスのパラメータ。パスパラメータは文字列なので coerce。
 export const workListIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),

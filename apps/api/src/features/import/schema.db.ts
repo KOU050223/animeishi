@@ -15,7 +15,7 @@ import { users } from "@/features/users/schema.db";
 // 実行する。進捗はこの表に逐次記録し、Workflow の再実行・画面ポーリングは
 // ここを参照する。ユーザーは同時に 1 つだけ実行中ジョブを持てる
 // （実行中に新規作成されないよう API 側で拒否する）。
-export const DANIME_EPISODE_JOB_STATUSES = [
+const DANIME_EPISODE_JOB_STATUSES = [
   // Annict 話一覧の取得と対応付け（マッチング）を行っている。
   "matching",
   // 確定した話を Annict に順次書き込んでいる。
@@ -88,7 +88,7 @@ export const danimeEpisodeImportWorks = sqliteTable(
   (t) => [index("danime_episode_import_works_job_idx").on(t.jobId)],
 );
 
-export const DANIME_EPISODE_ITEM_STATUSES = [
+const DANIME_EPISODE_ITEM_STATUSES = [
   "pending",
   "done",
   "failed",
@@ -127,13 +127,7 @@ export const danimeEpisodeImportItems = sqliteTable(
 
 export type DanimeEpisodeImportJob =
   typeof danimeEpisodeImportJobs.$inferSelect;
-export type NewDanimeEpisodeImportJob =
-  typeof danimeEpisodeImportJobs.$inferInsert;
 export type DanimeEpisodeImportWork =
   typeof danimeEpisodeImportWorks.$inferSelect;
-export type NewDanimeEpisodeImportWork =
-  typeof danimeEpisodeImportWorks.$inferInsert;
 export type DanimeEpisodeImportItem =
   typeof danimeEpisodeImportItems.$inferSelect;
-export type NewDanimeEpisodeImportItem =
-  typeof danimeEpisodeImportItems.$inferInsert;

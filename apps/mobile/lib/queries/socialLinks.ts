@@ -1,11 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
-
-export type SocialLinksResponse = InferResponseType<
-  (typeof apiClient.me)["social-links"]["$get"],
-  200
->;
 
 // SNS リンク（/me/social-links）のクエリファクトリ（issue #726）。
 // キー値は移行前と同一（["social-links", userId]、userId 未確定でも

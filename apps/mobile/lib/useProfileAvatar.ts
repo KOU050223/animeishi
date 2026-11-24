@@ -12,7 +12,7 @@ const AVATAR_UPLOAD_URL = apiClient.me.profile.avatar.$url().toString();
  * 画像ライブラリから画像を 1 枚選択する。
  * 権限が拒否された場合・キャンセルされた場合は null を返す。
  */
-export async function pickAvatarImage(): Promise<ImagePicker.ImagePickerAsset | null> {
+async function pickAvatarImage(): Promise<ImagePicker.ImagePickerAsset | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     throw new Error("写真へのアクセスが許可されていません");

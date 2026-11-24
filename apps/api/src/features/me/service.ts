@@ -10,18 +10,18 @@ export const ALLOWED_AVATAR_TYPES: Record<string, string> = {
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 // アバター配信パスの接頭辞。URL からの R2 キー復元・配信ハンドラで共有する。
-export const AVATAR_PATH_PREFIX = "/me/profile/avatar/";
+const AVATAR_PATH_PREFIX = "/me/profile/avatar/";
 
 // 名刺エディタの任意画像（POST /me/meishi-assets）の上限・配信パス・R2 キー接頭辞。
 // アバターと同じ AVATARS バケットに meishi-assets/ プレフィックスで分けて置く
 // （docs/06: 任意アップロード画像は R2 に個別アップロード）。
 export const MEISHI_ASSET_MAX_BYTES = 500 * 1024;
 export const MEISHI_ASSET_PATH_PREFIX = "/me/meishi-assets/";
-export const MEISHI_ASSET_KEY_PREFIX = "meishi-assets/";
+const MEISHI_ASSET_KEY_PREFIX = "meishi-assets/";
 export const PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES = 5 * 1024 * 1024;
 // Content-Type ヘッダはクライアントの申告値にすぎないため、公開配信される
 // スナップショットは本文先頭の PNG シグネチャで実体を確認する。
-export const PNG_SIGNATURE = new Uint8Array([
+const PNG_SIGNATURE = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 export function isPngData(data: ArrayBuffer): boolean {
