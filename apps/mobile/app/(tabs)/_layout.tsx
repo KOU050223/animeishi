@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
+import { tabBadgeText } from "@/lib/tabBadge";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +20,7 @@ export default function TabsLayout() {
   // 届いたフレンド申請をタブバッジで知らせる（issue #417。
   // プッシュ通知 #410 までの代用）。
   const friendRequestCount = useReceivedFriendRequestCount();
+  const friendRequestBadgeText = tabBadgeText(friendRequestCount);
 
   return (
     <NativeTabs
@@ -56,11 +58,17 @@ export default function TabsLayout() {
         {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
         <NativeTabs.Trigger.Label>{t("QR・フレンド")}</NativeTabs.Trigger.Label>
         {tabIcon("people-outline")}
-        {friendRequestCount > 0 ? (
-          <NativeTabs.Trigger.Badge>
-            {String(friendRequestCount)}
-          </NativeTabs.Trigger.Badge>
-        ) : null}
+        {/* Badge 要素は常に描画し hidden で制御する。0 件で要素ごと消すと
+            ネイティブ側に表示済みのバッジが残る恐れがあるため。children は
+            string のみ許容で undefined を明示代入できない
+            （exactOptionalPropertyTypes）ため、0 件のときは props 自体を
+            渡さない。 */}
+        <NativeTabs.Trigger.Badge
+          hidden={friendRequestCount === 0}
+          {...(friendRequestBadgeText !== undefined
+            ? { children: friendRequestBadgeText }
+            : {})}
+        />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="profile"
