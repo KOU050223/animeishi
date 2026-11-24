@@ -208,11 +208,9 @@ export async function fetchAnnictViewerStatusStates(
         ),
       retryOptions,
     );
-    // nodes 欠損・null 要素はステータス未確認の作品が紛れていることを
-    // 意味し、「未登録」と誤認して既存ステータスを上書きしうるため失敗にする。
-    const nodes = data.searchWorks
-      ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks")
-      : [];
+    // searchWorks / nodes / 要素の欠損はステータス未確認の作品が紛れている
+    // ことを意味し、「未登録」と誤認して既存ステータスを上書きしうるため失敗にする。
+    const nodes = requireAnnictNodes(data.searchWorks?.nodes, "searchWorks");
     for (const node of nodes) {
       if (isPersistableState(node.viewerStatusState)) {
         states.set(node.annictId, node.viewerStatusState);
