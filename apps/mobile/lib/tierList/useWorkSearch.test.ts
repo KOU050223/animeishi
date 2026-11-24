@@ -9,10 +9,12 @@ import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 // useWorkSearch のタイトル検索フロー（発火条件・クエリ・レスポンス整形）を検証する。
 // jest.mock のファクトリは巻き上げられるため、参照する変数は mock 接頭辞が必須。
 const mockSearchGet = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     works: { search: { $get: (...args: unknown[]) => mockSearchGet(...args) } },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 const mockBuildAnnictAuthHeader = jest.fn();
@@ -110,8 +112,11 @@ describe("useWorkSearch", () => {
     const [arg, opts] = mockSearchGet.mock.calls[0];
     // title 検索なので season は載せない
     expect(arg.query).toEqual({ title: "進撃" });
-    expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
-    expect(opts.headers.Authorization).toBe("Bearer clerk_jwt");
+    // 認証・Annict ヘッダは apiFetch に委譲（中身は lib/api.test.ts で検証）。
+    expect(opts).toEqual({ fetch: expect.any(Function) });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("入力中に語が変わるとデバウンスされ、最後の語でだけ検索する", async () => {

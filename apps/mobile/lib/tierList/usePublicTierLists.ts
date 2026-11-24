@@ -5,38 +5,29 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { tierListQueries } from "@/lib/queries/tierLists";
+import type {
+  PublicTierListsResponse,
+  PublicTierListsSort,
+  TierListLikeResponse,
+} from "@/lib/queries/tierLists";
 import type { TierListKind } from "./useMergedTierLists";
 
 // 公開 tier 表（ひろば「みつける」タブ, issue #418）。sort ごとに
 // キャッシュを分ける。先頭 2 要素が共通プレフィックスなので、
 // これで一覧・詳細の両方を invalidate できる（useModeration の
 // ブロック操作からも使う。workList/useWorkLists と同じ構造）。
-export const PUBLIC_TIER_LISTS_KEY = ["tier-list", "public"] as const;
-const publicTierListsQueryKey = (sort: PublicTierListsSort) =>
-  [...PUBLIC_TIER_LISTS_KEY, sort] as const;
-const publicTierListQueryKey = (kind: TierListKind, id: number) =>
-  [...PUBLIC_TIER_LISTS_KEY, "detail", kind, id] as const;
+export const PUBLIC_TIER_LISTS_KEY = tierListQueries.public.all;
+const publicTierListsQueryKey = tierListQueries.public.key;
+const publicTierListQueryKey = tierListQueries.public.detail.key;
 
-export type PublicTierListsSort = "likes" | "new";
-
-type PublicTierListsResponse = InferResponseType<
-  (typeof apiClient)["tier-lists"]["public"]["$get"],
-  200
->;
-export type PublicTierListItem = PublicTierListsResponse["items"][number];
-
-const PUBLIC_LIST_PAGE_LIMIT = "20";
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export type {
+  PublicTierListItem,
+  PublicTierListsResponse,
+  PublicTierListsSort,
+} from "@/lib/queries/tierLists";
 
 /**
  * 公開 tier 表の一覧（3 種類の結合フィード）。
@@ -44,33 +35,11 @@ async function getAuthHeaders(
  * nextCursor がある限り続きを読める（usePublicWorkLists と同じ構造）。
  */
 export function usePublicTierLists(sort: PublicTierListsSort) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useInfiniteQuery({
-    queryKey: publicTierListsQueryKey(sort),
+    ...tierListQueries.public.list.query({ sort }),
     enabled: !!isSignedIn,
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient["tier-lists"].public.$get(
-        {
-          query: {
-            sort,
-            limit: PUBLIC_LIST_PAGE_LIMIT,
-            ...(pageParam !== undefined ? { cursor: pageParam } : {}),
-          },
-        },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "公開 tier 表の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
 
@@ -80,25 +49,11 @@ export function usePublicTierLists(sort: PublicTierListsSort) {
  * 見えないリストは 404（data undefined・isError）になる。
  */
 export function usePublicTierList(kind: TierListKind, id: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: publicTierListQueryKey(kind, id ?? 0),
+    ...tierListQueries.public.detail.query({ kind, id: id ?? 0 }),
     enabled: !!isSignedIn && id !== null,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient["tier-lists"][":kind"][":id"].$get(
-        { param: { kind, id: String(id) } },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "公開 tier 表の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -108,7 +63,6 @@ export function usePublicTierList(kind: TierListKind, id: number | null) {
  * 両ソートのキャッシュと詳細キャッシュにそのまま反映する。
  */
 export function useToggleTierListLike() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -117,33 +71,36 @@ export function useToggleTierListLike() {
       id: number;
       like: boolean;
     }) => {
-      const headers = await getAuthHeaders(getToken);
+      // 流量制限ミドルウェアの 429 は {error} に理由が入るため、
+      // 標準の ApiRequestError 化ではなく応答の文言を拾う。
+      const fetch = apiFetch({
+        onHttpError: async (errorRes) => {
+          if (errorRes.status === 429) {
+            const body = (await errorRes.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            return new ApiRequestError(
+              errorRes.status,
+              body?.error ?? "いいねの更新に失敗しました",
+            );
+          }
+          return new ApiRequestError(
+            errorRes.status,
+            "いいねの更新に失敗しました",
+          );
+        },
+      });
       const param = { kind: input.kind, id: String(input.id) };
       const res = input.like
         ? await apiClient["tier-lists"][":kind"][":id"].like.$put(
             { param },
-            { headers },
+            { fetch },
           )
         : await apiClient["tier-lists"][":kind"][":id"].like.$delete(
             { param },
-            { headers },
+            { fetch },
           );
-      if (!res.ok) {
-        // 流量制限ミドルウェアの 429 は OpenAPI 経由ではないのでルートの型に
-        // 含まれない。実行時には返るため number として比較する
-        const status = res.status as number;
-        if (status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new ApiRequestError(
-            status,
-            body?.error ?? "いいねの更新に失敗しました",
-          );
-        }
-        throw new ApiRequestError(status, "いいねの更新に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<TierListLikeResponse>;
     },
     onSuccess: (data, input) => {
       for (const sort of ["likes", "new"] as const) {
@@ -190,7 +147,6 @@ export function useToggleTierListLike() {
  * 429 はサーバーの理由を見せる（useReportWorkList と同じ扱い）。
  */
 export function useReportTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -199,26 +155,28 @@ export function useReportTierList() {
       id: number;
       reason: string;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient["tier-lists"][":kind"][":id"].report.$post(
         {
           param: { kind: input.kind, id: String(input.id) },
           json: { reason: input.reason },
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              if (errorRes.status === 429) {
+                const body = (await errorRes.json().catch(() => null)) as {
+                  error?: string;
+                } | null;
+                return new ApiRequestError(
+                  errorRes.status,
+                  body?.error ?? "通報の送信回数が上限に達しました",
+                );
+              }
+              return new ApiRequestError(errorRes.status, "通報に失敗しました");
+            },
+          }),
+        },
       );
-      if (!res.ok) {
-        if (res.status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new ApiRequestError(
-            res.status,
-            body?.error ?? "通報の送信回数が上限に達しました",
-          );
-        }
-        throw new ApiRequestError(res.status, "通報に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {

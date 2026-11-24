@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
+import { tierListQueries } from "@/lib/queries/tierLists";
+import { useWorkCatalogAccess } from "@/lib/annict";
 
 // 検索語入力のたびに Annict へ問い合わせないためのデバウンス時間（ms）。
 // useAnimeList と同じ値に揃える。
@@ -33,14 +32,14 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  * 旧語のクエリが有効なまま refetch 等で再フェッチされうるため。
  */
 export function useWorkSearch(query: string, enabled = true) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   // 検索は本人の Annict トークンか共用トークンが要る（issue #561）。
   // どちらも無いうちは 401 になるだけなので無効化する。
   const { canBrowseWorks } = useWorkCatalogAccess();
   const trimmed = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
 
   const result = useQuery({
-    queryKey: ["tier-list", "work-search", trimmed] as const,
+    ...tierListQueries.season.workSearch.query({ title: trimmed }),
     // `query === trimmed` の一致も条件に入れる。ずれている間（入力直後の
     // デバウンス待ちや、シートを閉じてクエリを空にした直後）はクエリキーの
     // 旧語で有効なまま残り、refetch / 再マウントで余計なリクエストが出るため。
@@ -52,22 +51,6 @@ export function useWorkSearch(query: string, enabled = true) {
       query.trim() === trimmed,
     // 語を変えた直後の取得中に一覧が空表示へ切り替わらないよう前回の結果を保持する。
     placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.works.search.$get(
-        { query: { title: trimmed } },
-        {
-          headers: { Authorization: `Bearer ${token}`, ...annictHeader },
-        },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "作品の検索に失敗しました");
-      }
-      return res.json();
-    },
   });
 
   return {

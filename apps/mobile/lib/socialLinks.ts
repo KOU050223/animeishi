@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
+import { socialLinkQueries } from "@/lib/queries/socialLinks";
 
 export type SocialLinkKind =
   | "x"
@@ -49,41 +49,35 @@ export function socialLinkLabel(kind: SocialLinkKind): string {
 }
 
 export function useSocialLinks() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   return useQuery({
-    queryKey: ["social-links", userId],
+    ...socialLinkQueries.list.query({ userId }),
     enabled: !!userId,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("Unauthorized");
-      const res = await apiClient.me["social-links"].$get(
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok)
-        throw new ApiRequestError(res.status, "SNS リンクの取得に失敗しました");
-      return res.json();
-    },
   });
 }
 
 export function useSaveSocialLinks() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (items: SocialLinkInput[]) => {
-      const token = await getToken();
-      if (!token) throw new Error("Unauthorized");
+      // トークン欠如は "Unauthorized" の plain Error を投げる
+      // 移行前の契約を維持する（apiFetch の i18n 文言とは別契約）。
+      if (!(await clerkSessionToken())) throw new Error("Unauthorized");
       const res = await apiClient.me["social-links"].$put(
         { json: { items } },
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          fetch: apiFetch({
+            errorMessage: "SNS リンクの保存に失敗しました",
+          }),
+        },
       );
-      if (!res.ok)
-        throw new ApiRequestError(res.status, "SNS リンクの保存に失敗しました");
       return res.json();
     },
     onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["social-links", userId] });
+      await client.invalidateQueries({
+        queryKey: socialLinkQueries.key(userId),
+      });
       await client.invalidateQueries({ queryKey: ["public-profile", userId] });
     },
   });

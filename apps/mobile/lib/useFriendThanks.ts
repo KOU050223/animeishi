@@ -1,20 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
+import { friendThanksQueries } from "@/lib/queries/friendThanks";
+import type { ThanksPresetKey } from "@/lib/queries/friendThanks";
 
 // 名刺交換後のお礼（issue #694）。フレンドへ「定型文 1 つ＋任意の 1 行」
 // を送る一方通行のメッセージ。定型文はキーで保存し、表示は受け手の
 // 言語で出す。API は /me/friend-thanks で本人の送受信しか返さない。
 
-type FriendThanksResponse = InferResponseType<
-  (typeof apiClient.me)["friend-thanks"]["$get"],
-  200
->;
-export type ReceivedThanksItem = FriendThanksResponse["received"][number];
-export type SentThanksItem = FriendThanksResponse["sent"][number];
-export type ThanksPresetKey = ReceivedThanksItem["presetKey"];
+export type {
+  ReceivedThanksItem,
+  SentThanksItem,
+  ThanksPresetKey,
+} from "@/lib/queries/friendThanks";
 
 /**
  * 定型文キー → 表示文言の日本語キー（i18n の t() に渡す）。
@@ -35,33 +34,15 @@ export const THANKS_PRESET_KEYS = Object.keys(
 /** 任意の 1 行の最大文字数（API 側も 60 文字・改行不可で弾く）。 */
 export const FRIEND_THANKS_BODY_MAX_LENGTH = 60;
 
-export const FRIEND_THANKS_QUERY_KEY = ["friend-thanks"] as const;
-const friendThanksQueryKey = (userId: string) =>
-  [...FRIEND_THANKS_QUERY_KEY, userId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export const FRIEND_THANKS_QUERY_KEY = friendThanksQueries.all;
 
 /** 届いた・送ったお礼の一覧（{ received, sent }、各新しい順）。 */
 export function useFriendThanks() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId ? friendThanksQueryKey(userId) : FRIEND_THANKS_QUERY_KEY,
+    ...friendThanksQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["friend-thanks"].$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "お礼の取得に失敗しました");
-      }
-      return res.json();
-    },
   });
 }
 
@@ -86,7 +67,6 @@ export function useUnreadThanksCount(): number {
 
 /** フレンドにお礼を送る。定型文は必須、ひとことは任意。 */
 export function useSendFriendThanks() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -95,7 +75,6 @@ export function useSendFriendThanks() {
       presetKey: ThanksPresetKey;
       body: string | null;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["friend-thanks"].$post(
         {
           json: {
@@ -104,22 +83,31 @@ export function useSendFriendThanks() {
             body: input.body,
           },
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              const code = await readApiErrorCode(errorRes);
+              if (errorRes.status === 409 && code === "daily_limit") {
+                return new ApiRequestError(
+                  errorRes.status,
+                  "この相手へのお礼は今日すでに送っています",
+                  code,
+                );
+              }
+              if (errorRes.status === 404) {
+                return new ApiRequestError(
+                  404,
+                  "お礼を送れる相手ではありません",
+                );
+              }
+              return new ApiRequestError(
+                errorRes.status,
+                "お礼の送信に失敗しました",
+              );
+            },
+          }),
+        },
       );
-      if (!res.ok) {
-        const code = await readApiErrorCode(res);
-        if (res.status === 409 && code === "daily_limit") {
-          throw new ApiRequestError(
-            res.status,
-            "この相手へのお礼は今日すでに送っています",
-            code,
-          );
-        }
-        if (res.status === 404) {
-          throw new ApiRequestError(404, "お礼を送れる相手ではありません");
-        }
-        throw new ApiRequestError(res.status, "お礼の送信に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -132,19 +120,18 @@ export function useSendFriendThanks() {
 
 /** 送ったお礼を取り消す（送り手本人のみ）。 */
 export function useDeleteFriendThanks() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (thanksId: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["friend-thanks"][":thanksId"].$delete(
         { param: { thanksId: String(thanksId) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "お礼の取り消しに失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "お礼の取り消しに失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -160,19 +147,18 @@ export function useDeleteFriendThanks() {
  * 省略すると全てを既読にする。「開いたら既読にする」タイミングで呼ぶ。
  */
 export function useMarkFriendThanksRead() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (friendId?: string) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["friend-thanks"].read.$post(
         { json: friendId ? { friendId } : {} },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "既読の更新に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "既読の更新に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {

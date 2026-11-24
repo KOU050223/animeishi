@@ -59,6 +59,7 @@ jest.mock("@/lib/api", () => ({
     },
   },
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  clerkSessionToken: async () => "clerk_jwt",
 }));
 jest.mock("@/lib/annict", () => ({ buildAnnictAuthHeader: async () => ({}) }));
 

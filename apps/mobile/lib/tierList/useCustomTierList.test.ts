@@ -11,6 +11,7 @@ import {
 import { loggedInUser, signedOutUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 import { DEFAULT_TIERS } from "./defaults";
+import { ApiRequestError } from "@/lib/apiError";
 
 // apiClient の経路ごとの呼び出しをモックし、自由作成 tier 表の
 // フック（CRUD・共有・404 の扱い・キャッシュ更新）を検証する。
@@ -20,6 +21,7 @@ const mockPost = jest.fn();
 const mockPut = jest.fn();
 const mockSharePost = jest.fn();
 const mockDelete = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -35,6 +37,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 function makeWrapper(
@@ -84,7 +87,7 @@ describe("useCustomTierLists", () => {
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     expect(mockListGet).toHaveBeenCalledWith(
       {},
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
@@ -107,16 +110,16 @@ describe("useSavedCustomTierList", () => {
     await waitFor(() => expect(result.current.data?.id).toBe(7));
     expect(mockDetailGet).toHaveBeenCalledWith(
       { param: { id: "7" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
   it("404 はエラーではなく null になる（削除済みの表を開いた場合）", async () => {
-    mockDetailGet.mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({}),
-    });
+    // apiFetch が投げる 404 の ApiRequestError は
+    // 「まだ作っていない」として null に倒される。
+    mockDetailGet.mockRejectedValue(
+      new ApiRequestError(404, "tier 表の取得に失敗しました"),
+    );
     const { wrapper } = makeWrapper();
     const { result } = await renderHook(() => useSavedCustomTierList(7), {
       wrapper,
@@ -156,7 +159,7 @@ describe("useSaveCustomTierList", () => {
           items: [{ annictWorkId: 1, tierKey: "0" }],
         },
       },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(mockPut).not.toHaveBeenCalled();
   });
@@ -185,7 +188,7 @@ describe("useSaveCustomTierList", () => {
           items: [{ annictWorkId: 1, tierKey: "0" }],
         },
       },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -225,7 +228,7 @@ describe("useShareCustomTierList", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockSharePost).toHaveBeenCalledWith(
       { param: { id: "7" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(
       client.getQueryData<{ shareToken: string }>([

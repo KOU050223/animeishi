@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader, useWorkCatalogAccess } from "@/lib/annict";
+import { tierListQueries } from "@/lib/queries/tierLists";
+import { useWorkCatalogAccess } from "@/lib/annict";
 import type { TierItem } from "./types";
 
 /**
@@ -15,30 +14,12 @@ import type { TierItem } from "./types";
  * 画像が取れないキャラクターは imageUrl: null で来る（プレースホルダー描画）。
  */
 export function useWorkCharacters(annictWorkId: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   const { canBrowseWorks, isLoading: isAccessLoading } = useWorkCatalogAccess();
 
   const query = useQuery({
-    queryKey: ["character-tier-list", "work-characters", annictWorkId] as const,
+    ...tierListQueries.character.workCharacters.query({ annictWorkId }),
     enabled: !!isSignedIn && canBrowseWorks && annictWorkId != null,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.works[":annictWorkId"].characters.$get(
-        { param: { annictWorkId: String(annictWorkId) } },
-        {
-          headers: { Authorization: `Bearer ${token}`, ...annictHeader },
-        },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "キャラクター一覧の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 
   // サーバーはキャラクター名簿を annictCharacterId で dedupe 済みだが、

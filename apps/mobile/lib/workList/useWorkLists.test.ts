@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
+import { ApiRequestError } from "@/lib/apiError";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useWorkLists,
@@ -33,6 +34,7 @@ const mockPublicDetailGet = jest.fn();
 const mockLikePut = jest.fn();
 const mockLikeDelete = jest.fn();
 const mockReportPost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     "work-lists": {
@@ -65,6 +67,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 function makeWrapper(
@@ -125,7 +128,7 @@ describe("useWorkLists", () => {
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     expect(mockListGet).toHaveBeenCalledWith(
       { query: {} },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
@@ -153,7 +156,7 @@ describe("useWorkListsContaining", () => {
     expect(result.current.data?.[0]?.containsWork).toBe(true);
     expect(mockListGet).toHaveBeenCalledWith(
       { query: { contains: "42" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
@@ -177,7 +180,7 @@ describe("useAddWorkToWorkList", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockItemsPost).toHaveBeenCalledWith(
       { param: { id: "7" }, json: { annictWorkId: 2 } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(client.getQueryData(["work-list", "saved", 7])).toEqual(SAVED);
   });
@@ -211,16 +214,14 @@ describe("useSavedWorkList", () => {
     await waitFor(() => expect(result.current.data?.id).toBe(7));
     expect(mockDetailGet).toHaveBeenCalledWith(
       { param: { id: "7" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
   it("404 はエラーではなく null になる（削除済みのリストを開いた場合）", async () => {
-    mockDetailGet.mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({}),
-    });
+    mockDetailGet.mockRejectedValue(
+      new ApiRequestError(404, "作品リストの取得に失敗しました"),
+    );
     const { wrapper } = makeWrapper();
     const { result } = await renderHook(() => useSavedWorkList(7), {
       wrapper,
@@ -258,7 +259,7 @@ describe("useSaveWorkList", () => {
           items: [{ annictWorkId: 1 }, { annictWorkId: 2 }],
         },
       },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(mockPut).not.toHaveBeenCalled();
   });
@@ -285,7 +286,7 @@ describe("useSaveWorkList", () => {
           items: [{ annictWorkId: 2 }, { annictWorkId: 1 }],
         },
       },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(mockPost).not.toHaveBeenCalled();
   });
@@ -319,7 +320,7 @@ describe("useShareWorkList", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockSharePost).toHaveBeenCalledWith(
       { param: { id: "7" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(
       client.getQueryData<{ shareToken: string }>(["work-list", "saved", 7])
@@ -345,7 +346,7 @@ describe("useUnshareWorkList", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockShareDelete).toHaveBeenCalledWith(
       { param: { id: "7" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(
       client.getQueryData<{ shareToken: string | null }>([
@@ -404,7 +405,7 @@ describe("usePublicWorkLists", () => {
     );
     expect(mockPublicGet).toHaveBeenCalledWith(
       { query: { sort: "likes", limit: "20" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
@@ -434,7 +435,7 @@ describe("usePublicWorkLists", () => {
     );
     expect(mockPublicGet).toHaveBeenLastCalledWith(
       { query: { sort: "likes", limit: "20", cursor: "12_3" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     expect(result.current.hasNextPage).toBe(false);
   });
@@ -467,7 +468,7 @@ describe("useToggleWorkListLike", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockLikePut).toHaveBeenCalledWith(
       { param: { id: "3" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
     for (const sort of ["likes", "new"] as const) {
       const cached = client.getQueryData<{
@@ -497,7 +498,7 @@ describe("useToggleWorkListLike", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockLikeDelete).toHaveBeenCalledWith(
       { param: { id: "3" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 });
@@ -514,16 +515,16 @@ describe("useReportWorkList", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockReportPost).toHaveBeenCalledWith(
       { param: { id: "3" }, json: { reason: "不適切な内容" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
   it("429 はサーバーの理由メッセージを投げる", async () => {
-    mockReportPost.mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => ({ error: "通報は1時間に5回までです" }),
-    });
+    // 429 のサーバー文言は apiFetch の onHttpError が ApiRequestError の
+    // message に保持する（issue #715）。
+    mockReportPost.mockRejectedValue(
+      new ApiRequestError(429, "通報は1時間に5回までです"),
+    );
     const { wrapper } = makeWrapper();
     const { result } = await renderHook(() => useReportWorkList(), {
       wrapper,
@@ -532,6 +533,34 @@ describe("useReportWorkList", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe("通報は1時間に5回までです");
+  });
+
+  it("onHttpError は 429 の応答 body の error 文言を使う", async () => {
+    mockReportPost.mockResolvedValue(okResponse({}));
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useReportWorkList(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, reason: "スパム" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 通報 POST 用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（モックした mockReportPost では通らない経路）。
+    const options = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(options).toBeDefined();
+    const error = await options!.onHttpError!(
+      new Response(JSON.stringify({ error: "通報は1時間に5回までです" }), {
+        status: 429,
+      }),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toBe("通報は1時間に5回までです");
   });
 });
 
@@ -548,7 +577,7 @@ describe("usePublicWorkList", () => {
     await waitFor(() => expect(result.current.data?.id).toBe(3));
     expect(mockPublicDetailGet).toHaveBeenCalledWith(
       { param: { id: "3" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      { fetch: expect.any(Function) },
     );
   });
 
