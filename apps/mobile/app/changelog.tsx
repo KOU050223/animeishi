@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
@@ -13,6 +12,30 @@ import {
 
 const ISSUES_URL = "https://github.com/KOU050223/animeishi/issues";
 
+// Intl.DateTimeFormat の生成は重いため言語ごとにキャッシュする。
+// コンポーネント内で毎回 new すると react-doctor の js-hoist-intl に
+// 引っかかるうえ、言語切替のたびに作り直すのも無駄。
+const updateDateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+// UPDATES の date は「2026年11月19日」形式固定のため、日本語以外では
+// ロケール書式に変換して出す（本文自体は日本語正本で i18n 対象外）。
+function formatLatestUpdateDate(language: string): string {
+  const match = UPDATES[0].date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+  if (!match || language.startsWith("ja")) return UPDATES[0].date;
+  let formatter = updateDateFormatters.get(language);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    updateDateFormatters.set(language, formatter);
+  }
+  return formatter.format(
+    new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  );
+}
+
 // アプリの機能一覧・更新情報・今後の予定をまとめた静的ページ（issue #98）。
 // 表示内容は lib/changelog.ts の静的データがソースオブトゥルース。
 // 更新履歴・機能一覧の本文（lib/changelog.ts）はリリースノートとして日本語を
@@ -21,19 +44,7 @@ export default function ChangelogScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
 
-  // UPDATES の date は「2026年11月19日」形式固定のため、日本語以外では
-  // ロケール書式に変換して出す（本文自体は日本語正本で i18n 対象外）。
-  const lastUpdated = useMemo(() => {
-    const match = UPDATES[0].date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
-    if (!match || i18n.language.startsWith("ja")) return UPDATES[0].date;
-    return new Intl.DateTimeFormat(i18n.language, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(
-      new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
-    );
-  }, [i18n.language]);
+  const lastUpdated = formatLatestUpdateDate(i18n.language);
 
   // LegalDocument / meishi/edit と同じ規約。直リンクでは遷移履歴が無いため、
   // ホーム（認証状態に応じて AuthGuard が振り分ける）へ戻す。

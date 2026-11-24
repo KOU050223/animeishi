@@ -193,42 +193,37 @@ export function useNearbyExchangeSession({
     return () => clearTimeout(timer);
   }, [outgoingPeerId]);
 
+  // 呼び出し側（NearbyExchangeView）の useCallback の依存に入るため参照を固定する。
   const finish = useCallback(
     (exchanged: boolean) => dispatch({ type: "finish", exchanged }),
     [],
   );
 
-  const requestExchange = useCallback(
-    (peerId: string) => {
-      if (state.request.kind !== "none" || state.exchange.kind !== "idle") {
-        return;
-      }
-      haptics.selection();
-      send(peerId, { kind: "request" });
-      dispatch({ type: "requestSent", peerId });
-    },
-    [state.request.kind, state.exchange.kind],
-  );
+  const requestExchange = (peerId: string) => {
+    if (state.request.kind !== "none" || state.exchange.kind !== "idle") {
+      return;
+    }
+    haptics.selection();
+    send(peerId, { kind: "request" });
+    dispatch({ type: "requestSent", peerId });
+  };
 
-  const cancelRequest = useCallback(() => {
+  const cancelRequest = () => {
     if (outgoingPeerId == null) return;
     send(outgoingPeerId, { kind: "cancel" });
     dispatch({ type: "requestCanceled" });
-  }, [outgoingPeerId]);
+  };
 
   const incomingPeerId =
     state.request.kind === "incoming" ? state.request.peerId : null;
-  const respond = useCallback(
-    (accept: boolean) => {
-      if (incomingPeerId == null) return;
-      // 承認を先に送ってから入れ替わりを始める。同じ接続で順に届くため、
-      // 相手は承認を受けてから交換データを受け取る。
-      send(incomingPeerId, { kind: accept ? "accept" : "decline" });
-      if (accept) haptics.impactHeavy();
-      dispatch({ type: "respond", accept });
-    },
-    [incomingPeerId],
-  );
+  const respond = (accept: boolean) => {
+    if (incomingPeerId == null) return;
+    // 承認を先に送ってから入れ替わりを始める。同じ接続で順に届くため、
+    // 相手は承認を受けてから交換データを受け取る。
+    send(incomingPeerId, { kind: accept ? "accept" : "decline" });
+    if (accept) haptics.impactHeavy();
+    dispatch({ type: "respond", accept });
+  };
 
   // 呼び出し側の finish を経ずに入れ替わりが消えた = 相手のデータが届かな
   // かった。レンダー中に前回値と比べて数える（effect で setState しない）。

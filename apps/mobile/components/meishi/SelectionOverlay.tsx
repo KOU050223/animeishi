@@ -94,11 +94,13 @@ export function SelectionOverlay({
     [start, latestTransform, canvasW, canvasH, onTransform, onCommit],
   );
 
+  // GestureDetector へ渡すジェスチャなので参照を固定する。
   const resizeTl = useMemo(() => buildResize("tl"), [buildResize]);
   const resizeTr = useMemo(() => buildResize("tr"), [buildResize]);
   const resizeBl = useMemo(() => buildResize("bl"), [buildResize]);
   const resizeBr = useMemo(() => buildResize("br"), [buildResize]);
 
+  // GestureDetector へ渡すジェスチャなので参照を固定する。
   const rotate = useMemo(
     () =>
       Gesture.Pan()
@@ -137,7 +139,8 @@ export function SelectionOverlay({
     ],
   );
 
-  // 移動ジェスチャ（選択枠の中央部分をドラッグ）
+  // 移動ジェスチャ（選択枠の中央部分をドラッグ）。
+  // GestureDetector へ渡すため参照を固定する。
   const move = useMemo(
     () =>
       Gesture.Pan()

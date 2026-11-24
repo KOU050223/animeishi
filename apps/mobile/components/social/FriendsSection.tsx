@@ -68,6 +68,7 @@ export function FriendsSection() {
 
   // 届いたお礼の未読はフォーカス復帰のたびに取り直す。新しいお礼が
   // 届いていても気づけるようにする（issue #694）。
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       void refetchThanks();

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
@@ -28,9 +28,9 @@ export const useMeishiImageShare: UseMeishiImageShare = ({
   // resolve はレンダー内の onReady から呼ぶので ref 経由で promise に逃がす。
   const snapshotReadyRef = useRef<(() => void) | null>(null);
 
-  const doc = useMemo(() => resolveMeishiDocument(document), [document]);
+  const doc = resolveMeishiDocument(document);
 
-  const shareImage = useCallback(async () => {
+  const shareImage = async () => {
     setIsSharing(true);
     await runMeishiImageShare({
       snapshotRef,
@@ -46,7 +46,7 @@ export const useMeishiImageShare: UseMeishiImageShare = ({
     setSnapshotRequested(false);
     setIsSharing(false);
     snapshotReadyRef.current = null;
-  }, [colors, t]);
+  };
 
   const snapshotElement = snapshotRequested ? (
     <View style={styles.snapshotOffscreen}>

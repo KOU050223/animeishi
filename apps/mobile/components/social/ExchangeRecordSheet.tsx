@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -274,16 +274,12 @@ export function ExchangeRecordSheet({
   // 当日開催中の候補。場所が決まると近い順に並び替わる。
   // now はシートが開いた時点（= このコンポーネントのマウント）で固定する。
   const [now] = useState(() => new Date());
-  const candidates: RankedEventCandidate[] = useMemo(
-    () =>
-      rankEventCandidates(
-        featureFlags.events ? (events.data?.items ?? []) : [],
-        {
-          now,
-          placeName: placeName || null,
-        },
-      ),
-    [events.data, placeName, now],
+  const candidates: RankedEventCandidate[] = rankEventCandidates(
+    featureFlags.events ? (events.data?.items ?? []) : [],
+    {
+      now,
+      placeName: placeName || null,
+    },
   );
 
   async function onPressResolvePlace() {

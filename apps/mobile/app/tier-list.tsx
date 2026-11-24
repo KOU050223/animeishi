@@ -48,6 +48,12 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
+// jest が "@/lib/tierList/share" をモックするため、フロー本体は
+// バレル経由ではなくサブモジュールから直接 import する。
+import {
+  shareTierListViaUrl,
+  withRenderedTierSnapshot,
+} from "@/lib/tierList/share/flow";
 import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
 import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
@@ -64,12 +70,6 @@ import {
  * 保存は明示的な操作（保存ボタン）で行う。ドロップのたびに PUT すると、
  * 数十回の並べ替えがそのまま数十リクエストになるため。
  */
-/**
- * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限。
- * これを超えても未読み込みなら欠けたまま撮る（共有自体を失敗させない）。
- */
-const SNAPSHOT_WAIT_MAX_MS = 5000;
-
 export default function TierListScreen() {
   const { t } = useTranslation();
   const openWork = useOpenWorkDetail();
@@ -195,6 +195,7 @@ export default function TierListScreen() {
   //   作品は season 検索に出ないので、works だけでは worksInTier が
   //   作品を引けず「配置済みなのに描画されない」状態になる。
   // - manualWorks（今回手動追加した作品。未配置のものも含む）。
+  // TierBoard の items prop（内部のジェスチャ依存チェーン）に渡すため参照を固定する。
   const boardWorks = useMemo<TierItem[]>(
     () =>
       mergeBoardItems(
@@ -209,6 +210,7 @@ export default function TierListScreen() {
     [works, saved, manualWorks],
   );
 
+  // TierBoard 内のドラッグ系コールバックの依存に入るため参照を固定する。
   const handleAssign = useCallback(
     (itemId: number, tierKey: string | null, beforeItemId?: number) => {
       // 共有・保存は「盤面を保存 → 応答を反映」を直列で行う。
@@ -223,57 +225,45 @@ export default function TierListScreen() {
 
   // 検索シートから選ばれた作品を未分類トレイ（works 側）へ追加する。
   // 追加だけでは保存 items に載らないため、配置までが一連の編集になる。
-  const handleAddWork = useCallback(
-    (work: TierItem) => {
-      // ドロップと同じく、共有・保存中の編集は受け付けない。
-      if (isSharing || save.isPending) return;
-      // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
-      if (boardWorks.some((w) => w.id === work.id)) return;
-      // 作品の追加（issue #214）。重複・共有中の早期 return より後で送る。
-      trackEvent("tier_work_add");
-      setManualWorks((prev) => [...prev, work]);
-      setIsDirty(true);
-    },
-    [isSharing, save.isPending, boardWorks],
-  );
+  const handleAddWork = (work: TierItem) => {
+    // ドロップと同じく、共有・保存中の編集は受け付けない。
+    if (isSharing || save.isPending) return;
+    // 既に盤面にある作品（シーズン候補・保存済み・追加済み）は無視する。
+    if (boardWorks.some((w) => w.id === work.id)) return;
+    // 作品の追加（issue #214）。重複・共有中の早期 return より後で送る。
+    trackEvent("tier_work_add");
+    setManualWorks((prev) => [...prev, work]);
+    setIsDirty(true);
+  };
 
-  const handleChangeDescription = useCallback(
-    (next: string) => {
-      // ドロップと同じく、共有・保存中の編集は受け付けない。
-      // 読み込み中も不可（hydrate が編集を上書きする上、未保存扱いで
-      // 空の盤面を保存できてしまうため）。
-      if (isSharing || save.isPending || isSavedLoading) return;
-      setDescription(next);
-      setIsDirty(true);
-    },
-    [isSharing, isSavedLoading, save.isPending],
-  );
+  const handleChangeDescription = (next: string) => {
+    // ドロップと同じく、共有・保存中の編集は受け付けない。
+    // 読み込み中も不可（hydrate が編集を上書きする上、未保存扱いで
+    // 空の盤面を保存できてしまうため）。
+    if (isSharing || save.isPending || isSavedLoading) return;
+    setDescription(next);
+    setIsDirty(true);
+  };
 
-  const handleChangeIsPublic = useCallback(
-    (next: boolean) => {
-      if (isSharing || save.isPending || isSavedLoading) return;
-      setIsPublic(next);
-      setIsDirty(true);
-    },
-    [isSharing, isSavedLoading, save.isPending],
-  );
+  const handleChangeIsPublic = (next: boolean) => {
+    if (isSharing || save.isPending || isSavedLoading) return;
+    setIsPublic(next);
+    setIsDirty(true);
+  };
 
-  const handleRenameTier = useCallback(
-    (tierKey: string, label: string) => {
-      // ドロップと同じく、共有・保存中の編集は受け付けない。
-      // ここで tiers を変えると保存応答の反映で消えるため。
-      if (isSharing || save.isPending) return;
-      // trim 後に名前が変わっていない（or 存在しない key）なら差分なし。
-      // renameTier が同じ配列を返すので、その場合は未保存扱いにしない。
-      const next = renameTier(tiers, tierKey, label);
-      if (next === tiers) return;
-      setTiers(next);
-      setIsDirty(true);
-    },
-    [isSharing, save.isPending, tiers],
-  );
+  const handleRenameTier = (tierKey: string, label: string) => {
+    // ドロップと同じく、共有・保存中の編集は受け付けない。
+    // ここで tiers を変えると保存応答の反映で消えるため。
+    if (isSharing || save.isPending) return;
+    // trim 後に名前が変わっていない（or 存在しない key）なら差分なし。
+    // renameTier が同じ配列を返すので、その場合は未保存扱いにしない。
+    const next = renameTier(tiers, tierKey, label);
+    if (next === tiers) return;
+    setTiers(next);
+    setIsDirty(true);
+  };
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     const goBack = () => {
       if (router.canGoBack()) {
         router.back();
@@ -298,48 +288,42 @@ export default function TierListScreen() {
       return;
     }
     goBack();
-  }, [isDirty, router, t]);
+  };
 
   // シーズンを変えると上の effect が盤面を丸ごと差し替えるため、
   // 未保存の並べ替えは確認なしに消える。戻るときと同じく一度だけ確認する。
-  const confirmIfDirty = useCallback(
-    (apply: () => void) => {
-      if (!isDirty) {
-        apply();
-        return;
-      }
-      confirm(
-        t("保存していない変更があります"),
-        t("シーズンを切り替えると並べ替えた内容は失われます。"),
-        apply,
-        {
-          confirmLabel: t("破棄して切り替える"),
-          cancelLabel: t("編集を続ける"),
-          destructive: true,
-        },
-      );
-    },
-    [isDirty, t],
-  );
+  const confirmIfDirty = (apply: () => void) => {
+    if (!isDirty) {
+      apply();
+      return;
+    }
+    confirm(
+      t("保存していない変更があります"),
+      t("シーズンを切り替えると並べ替えた内容は失われます。"),
+      apply,
+      {
+        confirmLabel: t("破棄して切り替える"),
+        cancelLabel: t("編集を続ける"),
+        destructive: true,
+      },
+    );
+  };
 
-  const handleChangeSeason = useCallback(
-    (nextYear: number, nextSeasonKey: SeasonKey) => {
-      if (isSharing || (nextYear === year && nextSeasonKey === seasonKey)) {
-        return;
-      }
-      confirmIfDirty(() => {
-        setYear(nextYear);
-        setSeasonKey(nextSeasonKey);
-        // 手動追加はシーズン単位の編集なので、切替先へ持ち越さない。
-        setManualWorks([]);
-      });
-    },
-    [confirmIfDirty, isSharing, year, seasonKey],
-  );
+  const handleChangeSeason = (nextYear: number, nextSeasonKey: SeasonKey) => {
+    if (isSharing || (nextYear === year && nextSeasonKey === seasonKey)) {
+      return;
+    }
+    confirmIfDirty(() => {
+      setYear(nextYear);
+      setSeasonKey(nextSeasonKey);
+      // 手動追加はシーズン単位の編集なので、切替先へ持ち越さない。
+      setManualWorks([]);
+    });
+  };
 
   // ボード層の汎用 itemId を作品用フィールド名（annictWorkId）に写す。
   // キャラクター版は annictCharacterId に写すため、ここで分岐する。
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     // 承認コールバックはダイアログを開いた時点ではなく承認時点の盤面で
     // 保存する（確認の表示中に配置を変えても古い配置で上書きされない）。
     const doSave = () => {
@@ -382,11 +366,11 @@ export default function TierListScreen() {
       return;
     }
     doSave();
-  }, [assignment, manualWorks, save, t]);
+  };
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
-  const saveTierListData = useCallback(async () => {
+  const saveTierListData = async () => {
     // 共有フローは isSharing で編集を止めるが、開始直前までの編集も
     // 反映できるよう実行時点の最新値から組み立てる。
     const cur = saveSourceRef.current;
@@ -405,15 +389,7 @@ export default function TierListScreen() {
     // 保存ボタンと同じく、保存に載らなかった未配置の追加分は盤面から外す。
     setManualWorks((prev) => prev.filter((w) => cur.assignment.has(w.id)));
     return savedData;
-  }, [save]);
-
-  // withRenderedSnapshot は try/finally を含むため react/memo-dependencies が
-  // deps を余剰と誤検知する。初回キャプチャに固定しないよう ref 経由で
-  // 最新の saveTierListData を呼ぶ。
-  const saveTierListDataRef = useRef(saveTierListData);
-  useEffect(() => {
-    saveTierListDataRef.current = saveTierListData;
-  });
+  };
 
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
@@ -428,82 +404,43 @@ export default function TierListScreen() {
     generateImageFile: () => generateImageFile(),
   });
 
-  const handleShareUrl = useCallback(async () => {
-    beginShare();
-    setIsSharing(true);
-    try {
-      await saveTierListData();
-      const { shareToken } = await share.mutateAsync(season);
-      const url = buildTierListShareUrl(shareToken, webUrl);
-      // native は OS 共有シート。web は urlShareElement のモーダルを開き、
-      // コピー / X 共有はモーダル内のボタン操作で行う。
-      await presentShareUrl(url);
-    } catch {
-      cancelShare();
-      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
-        okLabel: "OK",
-      });
-    } finally {
-      setIsSharing(false);
-    }
-  }, [
-    beginShare,
-    cancelShare,
-    presentShareUrl,
-    saveTierListData,
-    share,
-    season,
-    t,
-  ]);
+  const handleShareUrl = () =>
+    shareTierListViaUrl({
+      beginShare,
+      cancelShare,
+      setIsSharing,
+      createShareUrl: async () => {
+        await saveTierListData();
+        const { shareToken } = await share.mutateAsync(season);
+        return buildTierListShareUrl(shareToken, webUrl);
+      },
+      presentShareUrl,
+      onFailure: () =>
+        alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
+          okLabel: "OK",
+        }),
+    });
 
-  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
-  // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
-  // useCallback 内で t を呼ぶと react/memo-dependencies が deps を余剰と
-  // 誤検知するため、文言は ref 経由で最新を参照する（saveTierListDataRef と同じ形）
-  const snapshotRenderFailedMessageRef = useRef("");
-  useEffect(() => {
-    snapshotRenderFailedMessageRef.current = t(
-      "スナップショットの描画に失敗しました",
-    );
-  });
-  const withRenderedSnapshot = useCallback(
-    async <T,>(run: () => Promise<T>): Promise<T> => {
-      setIsSharing(true);
-      try {
-        const savedData = await saveTierListDataRef.current();
-        const snapshotReady = new Promise<void>((resolve) => {
-          snapshotReadyRef.current = resolve;
-        });
-        setSnapshotItems(
-          savedData.items.map((i) => ({
-            id: i.annictWorkId,
-            tierKey: i.tierKey,
-            title: i.title,
-            imageUrl: i.hostedImageUrl,
-          })),
-        );
-        // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
-        // 撮る。タイムアウトを超えたら読み込み途中のまま撮る
-        // （共有自体は失敗させない）。
-        await Promise.race([
-          snapshotReady,
-          new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
-        ]);
-        // レイアウト確定のため 1 フレーム待つ
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        if (!snapshotRef.current) {
-          throw new Error(snapshotRenderFailedMessageRef.current);
-        }
-        return await run();
-      } finally {
-        setSnapshotItems(null);
-        setIsSharing(false);
-      }
-    },
-    [],
-  );
+  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する。
+  // try/finally は React Compiler が最適化できないため lib/tierList/share/flow.ts に置く。
+  const withRenderedSnapshot = <T,>(run: () => Promise<T>): Promise<T> =>
+    withRenderedTierSnapshot({
+      saveBoard: saveTierListData,
+      mapItem: (i) => ({
+        id: i.annictWorkId,
+        tierKey: i.tierKey,
+        title: i.title,
+        imageUrl: i.hostedImageUrl,
+      }),
+      snapshotReadyRef,
+      snapshotRef,
+      setSnapshotItems,
+      setIsSharing,
+      renderFailedMessage: t("スナップショットの描画に失敗しました"),
+      run,
+    });
 
-  const handleShareImage = useCallback(async () => {
+  const handleShareImage = async () => {
     try {
       // 共有画像は撮影時点のスキームに合わせる（盤面と同じ見た目の画像にする）
       await withRenderedSnapshot(() =>
@@ -521,12 +458,12 @@ export default function TierListScreen() {
         },
       );
     }
-  }, [withRenderedSnapshot, title, colors, t]);
+  };
 
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
   // （生成待ちの後に navigator.share を呼ぶとユーザー操作期限で失敗するため）。
-  const generateImageFile = useCallback(() => {
+  const generateImageFile = () => {
     // web 共有モーダルの「画像を生成する」押下を計測する（issue #214）。
     trackEvent("tier_image_generate");
     return withRenderedSnapshot(() =>
@@ -535,7 +472,7 @@ export default function TierListScreen() {
         backgroundColor: colors.background,
       }),
     );
-  }, [withRenderedSnapshot, title, colors]);
+  };
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・作品一覧の
   // 読み込み中（or 取得失敗）に実行すると、初期状態や別シーズンの盤面を
@@ -543,7 +480,7 @@ export default function TierListScreen() {
   const shareDisabled =
     isSharing || save.isPending || isSavedLoading || isWorksLoading;
 
-  const handleShare = useCallback(() => {
+  const handleShare = () => {
     if (shareDisabled) return;
     if (isWorksError) {
       alert(
@@ -570,7 +507,7 @@ export default function TierListScreen() {
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [handleShareUrl, handleShareImage, isWorksError, shareDisabled, t]);
+  };
 
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
 
@@ -19,18 +18,16 @@ export const CARD_HEIGHT = CARD_IMAGE_HEIGHT + CARD_LABEL_HEIGHT;
  */
 export function useTierListStyles() {
   const colors = useThemeColors();
-  return useMemo(() => {
-    // カードは最大数百枚同時に描画され、それぞれがこのフックを呼ぶため、
-    // スキーム単位で StyleSheet を共有する。useThemeColors の返す
-    // colors.light / colors.dark はモジュール定数なので WeakMap の
-    // キーとして安定している。
-    let styles = stylesCache.get(colors);
-    if (!styles) {
-      styles = createStyles(colors);
-      stylesCache.set(colors, styles);
-    }
-    return styles;
-  }, [colors]);
+  // カードは最大数百枚同時に描画され、それぞれがこのフックを呼ぶため、
+  // スキーム単位で StyleSheet を共有する。useThemeColors の返す
+  // colors.light / colors.dark はモジュール定数なので WeakMap の
+  // キーとして安定している。
+  let styles = stylesCache.get(colors);
+  if (!styles) {
+    styles = createStyles(colors);
+    stylesCache.set(colors, styles);
+  }
+  return styles;
 }
 
 const stylesCache = new WeakMap<ThemeColors, ReturnType<typeof createStyles>>();

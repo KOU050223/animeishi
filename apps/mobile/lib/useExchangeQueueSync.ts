@@ -79,6 +79,7 @@ export function useExchangeQueueSync() {
   const router = useRouter();
   const { t } = useTranslation();
 
+  // effect の依存に使うため参照を固定する。
   const flush = useCallback(async (): Promise<FlushExchangeResult> => {
     const empty: FlushExchangeResult = {
       sent: [],

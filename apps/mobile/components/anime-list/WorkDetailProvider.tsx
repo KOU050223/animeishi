@@ -20,6 +20,7 @@ export function WorkDetailProvider({ children }: { children: ReactNode }) {
         okLabel: t("OK"),
       }),
   });
+  // コンテキストの value のため参照を固定する。
   const openWork = useCallback((target: WorkDetailTarget) => {
     setWork({
       annictWorkId: target.annictWorkId,
