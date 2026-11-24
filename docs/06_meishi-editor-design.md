@@ -319,4 +319,4 @@ ALTER TABLE users ADD COLUMN meishi_public INTEGER NOT NULL DEFAULT 0;
 8. **保存フロー**: ヘッダー「保存」ボタン → サーバ送信
 9. **フォント**: Expo Google Fonts 5書体組み込み、動的ロード
 
-各フェーズを個別 PR に分割することを推奨（`docs/02_pr-split-plan.md` の流儀）。
+各フェーズを個別 PR に分割することを推奨（`docs/archive/02_pr-split-plan.md` の流儀）。
