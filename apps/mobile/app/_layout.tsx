@@ -218,8 +218,10 @@ export default wrapWithObserveRoot(
         {/* 各画面の SafeAreaView / useSafeAreaInsets の供給元。ルートで 1 度だけ包む。 */}
         <SafeAreaProvider>
           <ClerkProvider
-            tokenCache={tokenCache}
             publishableKey={publishableKey}
+            // ClerkProvider の tokenCache は省略可能プロパティなので、
+            // 未指定時はキーごと渡さない（exactOptionalPropertyTypes 対応）。
+            {...(tokenCache !== undefined ? { tokenCache } : {})}
           >
             <PersistQueryClientProvider
               client={queryClient}

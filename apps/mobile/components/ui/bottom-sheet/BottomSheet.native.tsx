@@ -36,7 +36,9 @@ export function BottomSheet({
       // Web 側のカード面と同じテーマ色をシートの chrome にも塗る
       // （ドラッグハンドル部やセーフエリアがダーク画面で白く残るのを防ぐ）。
       containerColor={colors.surface}
-      testID={testID}
+      // expo-ui の testID は省略可能プロパティなので、未指定時はキーごと
+      // 渡さない（exactOptionalPropertyTypes 対応）。
+      {...(testID !== undefined ? { testID } : {})}
     >
       <RNHostView
         // M3 シートは内容の固有サイズに合わせるため、横幅は親・

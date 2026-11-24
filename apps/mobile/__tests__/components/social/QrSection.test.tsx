@@ -203,7 +203,12 @@ jest.mock("@/components/MeishiCard", () => ({
   },
 }));
 
-let mockProfile: { username: string; isPublic?: boolean } | undefined = {
+let mockProfile:
+  | {
+      username: string;
+      isPublic?: boolean | undefined;
+    }
+  | undefined = {
   username: "テストユーザー",
 };
 jest.mock("@/lib/useProfile", () => ({

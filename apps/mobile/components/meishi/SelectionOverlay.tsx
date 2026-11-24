@@ -26,9 +26,9 @@ export function SelectionOverlay({
   element: MeishiElement;
   canvasSize: Size;
   /** キャンバスの画面上絶対原点（measureInWindow 結果）。回転を絶対座標基準で扱うのに使う。 */
-  canvasOrigin?: SharedValue<CanvasOrigin>;
+  canvasOrigin?: SharedValue<CanvasOrigin> | undefined;
   onTransform: (t: Transform) => void;
-  onCommit?: () => void;
+  onCommit?: (() => void) | undefined;
 }) {
   const { t: tr } = useTranslation();
   const t = element.transform;

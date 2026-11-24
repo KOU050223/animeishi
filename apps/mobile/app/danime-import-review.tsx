@@ -90,7 +90,7 @@ type DoneResult = {
 // 載せ、照合/登録はクライアント側で計測する。
 type MatchTiming = {
   elapsedMs: number;
-  stats?: DanimeMatchStats;
+  stats?: DanimeMatchStats | undefined;
 };
 
 function formatSec(ms: number, t: TFunction): string {

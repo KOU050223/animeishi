@@ -68,7 +68,7 @@ async function runNativeAnnictConnect({
   setIsConnecting,
   queryClient,
 }: {
-  options?: AnnictConnectOptions;
+  options?: AnnictConnectOptions | undefined;
   userId: string | null | undefined;
   inFlightRef: { current: boolean };
   setIsConnecting: (connecting: boolean) => void;

@@ -62,7 +62,7 @@ export const NO_ANIME_LIST_FILTERS: AnimeListFilters = {
 // 絞り込みの入力に必要な最小限のフィールド。
 type AnimeListFilterEntry = {
   // API（Annict searchWorks）が返すメディア種別。取らない経路では undefined。
-  media?: string | null;
+  media?: string | null | undefined;
   // annict_works.genres。null は未取得（「不明」）、
   // 空配列は取得済みだが供給元にも無い確定値。
   genres: string[] | null;
@@ -72,8 +72,8 @@ type AnimeListFilterEntry = {
 type AnimeListSortEntry = {
   title: string;
   seasonYear: number | null;
-  seasonName?: string | null;
-  watchersCount?: number | null;
+  seasonName?: string | null | undefined;
+  watchersCount?: number | null | undefined;
 };
 
 export function isAnimeListFilterActive(filters: AnimeListFilters): boolean {

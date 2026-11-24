@@ -22,7 +22,7 @@ export type EditorCanvasProps = {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onTransform: (id: string, transform: Transform) => void;
-  onCommit?: () => void;
+  onCommit?: (() => void) | undefined;
 };
 
 /**
@@ -135,7 +135,7 @@ function ElementBox({
   isSelected: boolean;
   onSelect: () => void;
   onTransform: (t: Transform) => void;
-  onCommit?: () => void;
+  onCommit?: (() => void) | undefined;
 }) {
   const boxW = el.transform.width * canvasSize.width;
   const boxH = el.transform.height * canvasSize.height;

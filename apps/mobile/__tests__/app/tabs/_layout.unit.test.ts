@@ -72,10 +72,11 @@ describe("(tabs) layout", () => {
   });
 
   // NativeTabs.Trigger.Badge は子要素に "0" などの文字列があると hidden を無視して
-  // 表示する。件数は tabBadgeText を通し、0 件では子要素を渡さない。
-  test("ネイティブの QR・フレンドタブのバッジは 0 件で子要素を渡さない", () => {
+  // 表示する。0 件では Badge 自体を描画しない。
+  test("ネイティブの QR・フレンドタブのバッジは 0 件では描画しない", () => {
     const source = layoutSource("_layout.tsx");
-    expect(source).toContain("{tabBadgeText(friendRequestCount)}");
-    expect(source).not.toContain("{String(friendRequestCount)}");
+    expect(source).toContain("friendRequestCount > 0 ? (");
+    expect(source).toContain("<NativeTabs.Trigger.Badge>");
+    expect(source).toContain("{String(friendRequestCount)}");
   });
 });

@@ -54,13 +54,13 @@ export type DraggableWorkCardProps = {
   moveDestinations: TierMoveDestination[];
   /** アクセシビリティアクションで移動先が選ばれたとき。 */
   onMove: (tierKey: string | null) => void;
-  onPress?: () => void;
+  onPress?: (() => void) | undefined;
   /**
    * ドラッグ中に盤面が自動スクロールした累積量（px）。行が画面上を流れても
    * カードが指に追従するよう translateY に加算する。全カードで共有する値の
    * ため、ドラッグ中のカードでのみ効かせる（scrollCompensationOwner 参照）。
    */
-  scrollCompensation?: SharedValue<number>;
+  scrollCompensation?: SharedValue<number> | undefined;
   /**
    * 補正を受けるカードの item id。-1 は「補正中のドラッグなし」。
    * 盤面は同時に 1 枚のドラッグしか受け付けないが、2 指で掴まれたカードも
@@ -68,13 +68,13 @@ export type DraggableWorkCardProps = {
    * 掴んでいないカードが盤面上を流れてしまう。未指定なら従来通り
    * isDragging だけで判定する。
    */
-  scrollCompensationOwner?: SharedValue<number>;
+  scrollCompensationOwner?: SharedValue<number> | undefined;
   /**
    * 渡すと自分の矩形をカード単位で登録し、ドロップ時の行内挿入位置
    * （どのカードの前後に落とすか）のヒットテストに使わせる（issue #218）。
    * 順序を持たない未分類トレイのカードには渡さない。
    */
-  registry?: DropZoneRegistry;
+  registry?: DropZoneRegistry | undefined;
 };
 
 /**

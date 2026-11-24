@@ -2,7 +2,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
-import { tabBadgeText } from "@/lib/tabBadge";
 import { useReceivedFriendRequestCount } from "@/lib/useFriendRequests";
 import { useTranslation } from "react-i18next";
 
@@ -57,9 +56,11 @@ export default function TabsLayout() {
         {/* QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。 */}
         <NativeTabs.Trigger.Label>{t("QR・フレンド")}</NativeTabs.Trigger.Label>
         {tabIcon("people-outline")}
-        <NativeTabs.Trigger.Badge hidden={friendRequestCount === 0}>
-          {tabBadgeText(friendRequestCount)}
-        </NativeTabs.Trigger.Badge>
+        {friendRequestCount > 0 ? (
+          <NativeTabs.Trigger.Badge>
+            {String(friendRequestCount)}
+          </NativeTabs.Trigger.Badge>
+        ) : null}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="profile"

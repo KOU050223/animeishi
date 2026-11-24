@@ -71,8 +71,8 @@ const eventContext = {
 // 計測コンテキストの同期。useEventTrackingContext（ルートレイアウトで
 // 1 度だけ呼ばれる）からのみ呼ぶ。指定したキーだけ更新する。
 export function setEventContext(partial: {
-  userId?: string | null;
-  screen?: string;
+  userId?: string | null | undefined;
+  screen?: string | undefined;
 }): void {
   if ("userId" in partial) {
     eventContext.userId = partial.userId;

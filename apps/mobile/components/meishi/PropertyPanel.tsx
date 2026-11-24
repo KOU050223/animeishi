@@ -26,6 +26,7 @@ import type { TranslationKey } from "@/lib/i18n/keys";
 import type {
   CollageStateFilter,
   ImageElement,
+  MeishiElementPatch,
   MeishiRenderContext,
   MeishiElement,
   TextSource,
@@ -33,10 +34,10 @@ import type {
 
 type Props = {
   element: MeishiElement;
-  context?: MeishiRenderContext;
-  canvasAspectRatio?: number;
-  style?: StyleProp<ViewStyle>;
-  onChange: (patch: Partial<MeishiElement>) => void;
+  context?: MeishiRenderContext | undefined;
+  canvasAspectRatio?: number | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+  onChange: (patch: MeishiElementPatch) => void;
   onOpenTextEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -131,7 +132,7 @@ function ImageFocusPreview({
   colors,
 }: {
   element: ImageElement;
-  context?: MeishiRenderContext;
+  context?: MeishiRenderContext | undefined;
   canvasAspectRatio: number;
   onChange: Props["onChange"];
   colors: ThemeColors;

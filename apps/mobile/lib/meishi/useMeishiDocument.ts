@@ -8,7 +8,11 @@ import {
   undo as undoHistory,
 } from "./history";
 import type { History } from "./history";
-import type { MeishiDocument, MeishiElement } from "./types";
+import type {
+  MeishiDocument,
+  MeishiElement,
+  MeishiElementPatch,
+} from "./types";
 
 export type UseMeishiDocument = ReturnType<typeof useMeishiDocument>;
 
@@ -201,7 +205,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     return newCardId ?? boundCardId;
   };
 
-  const updateElement = (id: string, patch: Partial<MeishiElement>) => {
+  const updateElement = (id: string, patch: MeishiElementPatch) => {
     commit((prev) => ({
       ...prev,
       elements: prev.elements.map((el) =>

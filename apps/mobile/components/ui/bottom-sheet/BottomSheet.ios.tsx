@@ -34,18 +34,20 @@ export function BottomSheet({
       isPresented={visible}
       onDismiss={onClose}
       contentPadding={0}
-      snapPoints={snapPoints}
+      // expo-ui の props は省略可能プロパティなので、未指定時はキーごと
+      // 渡さない（exactOptionalPropertyTypes 対応）。
+      {...(snapPoints !== undefined ? { snapPoints } : {})}
       // children は RN ビューとしてホストされ独自の配色を持たないため、
       // Web 側のカード面と同じテーマ色をシートの chrome にも塗る
       // （ドラッグハンドル部やセーフエリアがダーク画面で白く残るのを防ぐ）。
       containerColor={colors.surface}
-      testID={testID}
+      {...(testID !== undefined ? { testID } : {})}
     >
       <RNHostView
         // snapPoints あり: 高さは detent が決めるので fill（既定）。
         // snapPoints なし: シートが内容に合わせるため、横幅だけ親・
         // 高さはコンテンツから取る { vertical: true }。
-        matchContents={fillsDetent ? undefined : { vertical: true }}
+        {...(fillsDetent ? {} : { matchContents: { vertical: true } })}
       >
         {/* RNHostView は first child しか測定・ホストしないため単一の
             View に束ねる。collapsable={false} で layout-only の畳み込み

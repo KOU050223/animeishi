@@ -32,8 +32,8 @@ export function TemplatePicker({
   visible: boolean;
   onClose: () => void;
   onPick: (templateId: string) => void;
-  title?: string;
-  warningMessage?: string;
+  title?: string | undefined;
+  warningMessage?: string | undefined;
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();

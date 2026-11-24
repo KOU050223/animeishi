@@ -382,7 +382,7 @@ describe("TierListScreen の盤面 hydrate（レンダー中の状態調整）",
   });
 
   it("保存成功で isDirty が解除されると最新の saved を反映する", async () => {
-    const onSuccessRef: { current?: () => void } = {};
+    const onSuccessRef: { current?: (() => void) | undefined } = {};
     mockSaveMutate.mockImplementation(
       (_input: unknown, options?: { onSuccess?: () => void }) => {
         onSuccessRef.current = options?.onSuccess;

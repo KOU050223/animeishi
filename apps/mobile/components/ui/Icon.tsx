@@ -114,7 +114,9 @@ export function Icon({ name, size = 24, color, testID }: IconProps) {
       height={size}
       viewBox="0 0 512 512"
       fill={color}
-      testID={testID}
+      // react-native-svg の testID は省略可能プロパティなので、
+      // 未指定時はキーごと渡さない（exactOptionalPropertyTypes 対応）。
+      {...(testID !== undefined ? { testID } : {})}
     >
       <Shapes color={color} />
     </Svg>

@@ -504,7 +504,7 @@ function AttendeeSection({
 }) {
   const { t } = useTranslation();
   return (
-    <View className={className}>
+    <View {...(className !== undefined ? { className } : {})}>
       <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
         {title}
       </Text>

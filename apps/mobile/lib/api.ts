@@ -46,9 +46,8 @@ export type ApiFetchOptions = {
  * native でインスタンスを初期化できるようにするため。
  */
 export async function clerkSessionToken(): Promise<string | null> {
-  const clerk = getClerkInstance({
-    publishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  });
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const clerk = getClerkInstance(publishableKey ? { publishableKey } : {});
   return (await clerk?.session?.getToken()) ?? null;
 }
 

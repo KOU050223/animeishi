@@ -44,7 +44,7 @@ export type DanimeExtractedLists = {
    * 取り込み用（issue #477）。話の取得を行わない旧スクリプトや手動
    * 貼り付けのペイロードには含まれないため任意。
    */
-  episodes?: Record<string, DanimeExtractedEpisode[]>;
+  episodes?: Record<string, DanimeExtractedEpisode[]> | undefined;
   /** 作品ページの取得に失敗した作品数（抽出時の参考情報）。 */
   episodeFetchFailures?: number;
 };

@@ -20,16 +20,16 @@ export type AppInfo = {
    */
   appVersion: string;
   /** ビルド番号（Application.nativeBuildVersion）。web では未設定。 */
-  buildVersion?: string;
+  buildVersion?: string | undefined;
   /** EAS Update の OTA 更新 ID。未適用時や web では未設定。 */
-  updateId?: string;
+  updateId?: string | undefined;
   /**
    * デプロイ時のコミット SHA（EXPO_PUBLIC_COMMIT_SHA）。
    * web では deploy-web.yml / preview-web.yml がビルド時に注入する。
    */
-  commitSha?: string;
+  commitSha?: string | undefined;
   /** デプロイ環境（EXPO_PUBLIC_ENVIRONMENT）。 */
-  environment?: string;
+  environment?: string | undefined;
 };
 
 export type GetAppInfo = () => AppInfo;

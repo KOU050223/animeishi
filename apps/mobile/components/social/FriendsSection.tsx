@@ -241,7 +241,7 @@ export function FriendsSection() {
                 />
               ) : null}
               {sent.length > 0 ? (
-                <View className={received.length > 0 ? "mt-4" : undefined}>
+                <View {...(received.length > 0 ? { className: "mt-4" } : {})}>
                   <FriendRequestGroup
                     label={t("送ったフレンド申請")}
                     requests={sent}

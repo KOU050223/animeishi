@@ -14,7 +14,7 @@ const SEASON_RANK: Record<string, number> = {
 // 比較の入力に必要な最小限のフィールド。
 export type BroadcastSeasonEntry = {
   seasonYear: number | null;
-  seasonName?: string | null;
+  seasonName?: string | null | undefined;
 };
 
 function broadcastSeasonRank(

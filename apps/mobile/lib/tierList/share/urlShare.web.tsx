@@ -31,8 +31,8 @@ function TierUrlShareModal({
   onClose,
 }: {
   url: string;
-  tweetText?: string;
-  generateImageFile?: () => Promise<File>;
+  tweetText?: string | undefined;
+  generateImageFile?: (() => Promise<File>) | undefined;
   onClose: () => void;
 }) {
   const { t } = useTranslation();

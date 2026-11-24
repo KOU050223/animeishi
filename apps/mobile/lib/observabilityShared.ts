@@ -19,9 +19,9 @@ import { resolveRuntime } from "@/lib/observabilityRuntime";
 // Sentry.init に渡すパラメータ。initObservability が
 // EXPO_PUBLIC_* 環境変数と app.json の値から組み立てる。
 export type ObservabilityEnv = {
-  sentryDsn?: string;
-  environment?: string;
-  appVersion?: string;
+  sentryDsn?: string | undefined;
+  environment?: string | undefined;
+  appVersion?: string | undefined;
 };
 
 type BeforeSend = NonNullable<Sentry.ReactNativeOptions["beforeSend"]>;

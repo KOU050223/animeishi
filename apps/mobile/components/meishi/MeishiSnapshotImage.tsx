@@ -81,8 +81,11 @@ export function MeishiSnapshotImage({
         cachePolicy="memory-disk"
         transition={150}
         // 裏読み込み中の見えない画像は読み上げ対象にしない。
-        accessible={accessibilityLabel == null ? undefined : current.loaded}
-        accessibilityLabel={accessibilityLabel}
+        // expo-image の accessible は省略可能プロパティなので、
+        // ラベル無しのときはキーごと渡さない（exactOptionalPropertyTypes 対応）。
+        {...(accessibilityLabel == null
+          ? {}
+          : { accessible: current.loaded, accessibilityLabel })}
         onLoad={(event) =>
           setState((s) =>
             s.uri === uri

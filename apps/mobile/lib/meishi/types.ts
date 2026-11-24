@@ -157,6 +157,19 @@ export type MeishiElement =
 
 export type MeishiElementType = MeishiElement["type"];
 
+// 要素の部分更新。値に undefined を明示して「そのキーを消す」更新を
+// 許すため、Partial ではなく各プロパティに | undefined を足した形にする
+// （exactOptionalPropertyTypes 対応。マージは {...el, ...patch}）。
+// MeishiElement はユニオンなので、型ごとのパッチのユニオンに分配する。
+type MeishiElementPatchFor<E> = {
+  [K in keyof E]?: E[K] | undefined;
+};
+export type MeishiElementPatch = MeishiElement extends infer E
+  ? E extends MeishiElement
+    ? MeishiElementPatchFor<E>
+    : never
+  : never;
+
 export type MeishiDocument = {
   version: 1;
   canvas: {
@@ -205,11 +218,11 @@ export type AchievementBadgeDatum = {
 // レンダラー側で source バインドや実データを解決するためのコンテキスト
 export type MeishiRenderContext = {
   profile: {
-    username?: string | null;
-    bio?: string | null;
-    favoriteQuote?: string | null;
-    profileImageUrl?: string | null;
-    profileUrl?: string | null;
+    username?: string | null | undefined;
+    bio?: string | null | undefined;
+    favoriteQuote?: string | null | undefined;
+    profileImageUrl?: string | null | undefined;
+    profileUrl?: string | null | undefined;
   };
   // バインド先が未設定の欄を、プレースホルダーではなく非表示にする。
   // 公開一覧など未設定項目を見せたくない表示向け（issue #591）。
@@ -220,5 +233,5 @@ export type MeishiRenderContext = {
   animeLists?: AnimeCollageLists;
   watchedCount?: number;
   favoritesCount?: number;
-  achievements?: AchievementBadgeDatum[];
+  achievements?: AchievementBadgeDatum[] | undefined;
 };

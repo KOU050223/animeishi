@@ -13,11 +13,11 @@ export type ExchangeQueueItem = {
   /** スキャンした相手のユーザー ID。 */
   friendId: string;
   /** 対面交換 QR の短期トークン（`?qt=`）。ot しか載っていない QR では undefined。 */
-  qrToken?: string;
+  qrToken?: string | undefined;
   /** オフライン交換用の長寿命トークン（`?ot=`、issue #663）。 */
-  offlineToken?: string;
+  offlineToken?: string | undefined;
   /** ミニ名刺（`?mc=`）。キュー失敗時の通知で相手の名前を出すために保持する。 */
-  miniMeishi?: MiniMeishi;
+  miniMeishi?: MiniMeishi | undefined;
   /**
    * スキャンした時刻（ISO 8601）。成立時刻と交換時刻がずれるため、
    * 交換記録（issue #661）の「実際に会った日時」としてサーバーへ送る。
@@ -35,7 +35,7 @@ export type NewExchangeQueueItem = Omit<
    * スキャンした時刻（ISO 8601）。省略時は登録時刻を使う
    * （キューへの登録はスキャン直後の POST 失敗時に行われるため実質同じ時刻）。
    */
-  scannedAt?: string;
+  scannedAt?: string | undefined;
 };
 
 // Date.now だけだと同一ミリ秒の連続登録で衝突するためカウンタを併用する。

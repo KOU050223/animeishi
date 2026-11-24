@@ -174,7 +174,9 @@ export function WorkImage({
             onLoad?.(event);
           }}
           onLoadEnd={onImageLoadEnd}
-          accessibilityLabel={accessibilityLabel}
+          // expo-image の accessibilityLabel は省略可能プロパティなので、
+          // 未指定時はキーごと渡さない（exactOptionalPropertyTypes 対応）。
+          {...(accessibilityLabel !== undefined ? { accessibilityLabel } : {})}
         />
       )}
     </View>

@@ -1,0 +1,20 @@
+diff --git a/src/index.tsx b/src/index.tsx
+index 584c073d575e365de1694a6a8a749c51874ded64..702473face185c014a926757b97a1383df9f6da3 100644
+--- a/src/index.tsx
++++ b/src/index.tsx
+@@ -117,13 +117,13 @@ const acceptedResults = ["tmpfile", "base64", "data-uri"].concat(
+   Platform.OS === "android" ? ["zip-base64"] : [],
+ );
+ 
+-const defaultOptions: CaptureOptions = {
++const defaultOptions = {
+   format: "png",
+   quality: 1,
+   result: "tmpfile",
+   snapshotContentContainer: false,
+   handleGLSurfaceViewOnAndroid: false,
+-};
++} as const satisfies CaptureOptions;
+ 
+ // validate and coerce options
+ function validateOptions(input?: CaptureOptions): {
