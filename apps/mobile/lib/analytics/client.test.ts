@@ -16,7 +16,10 @@ type FlagListener = () => void;
 
 class FakePostHog {
   static instances: FakePostHog[] = [];
-  distinctId = "anon";
+  // 端末に保存済みの識別子。実 SDK と同じく ready() までは ID が空になる。
+  static storedDistinctId: string | undefined;
+  restored = false;
+  distinctId = "";
   flags: Record<string, boolean | string> = {};
   flagListeners: FlagListener[] = [];
   capture = jest.fn();
@@ -26,7 +29,10 @@ class FakePostHog {
   reset = jest.fn();
   flush = jest.fn(async () => {});
   register = jest.fn(async () => {});
-  ready = jest.fn(async () => {});
+  ready = jest.fn(async () => {
+    this.restored = true;
+    this.distinctId = FakePostHog.storedDistinctId ?? "anon";
+  });
   constructor(
     public apiKey: string,
     public options: Record<string, unknown>,
@@ -37,7 +43,7 @@ class FakePostHog {
     return this.distinctId;
   }
   getAnonymousId() {
-    return "anon";
+    return this.restored ? "anon" : "";
   }
   getFeatureFlag(key: string) {
     return this.flags[key];
@@ -64,6 +70,7 @@ function lastClient(): FakePostHog {
 
 beforeEach(() => {
   FakePostHog.instances = [];
+  FakePostHog.storedDistinctId = undefined;
   resetAnalyticsClientForTest();
   loaderMock.mockReset();
   loaderMock.mockResolvedValue({
@@ -127,6 +134,13 @@ describe("キー設定時", () => {
     await captureAnalyticsEvent("meishi_save", {});
     expect(loaderMock).toHaveBeenCalledTimes(1);
     expect(lastClient().capture).toHaveBeenCalledTimes(2);
+  });
+
+  it("端末に保存済みの識別子は復元を待ってから判定し、起動直後のサインアウトでも reset する", async () => {
+    FakePostHog.storedDistinctId = "user_key_previous";
+    await resetAnalyticsUser();
+    expect(lastClient().ready).toHaveBeenCalled();
+    expect(lastClient().reset).toHaveBeenCalledTimes(1);
   });
 
   it("reset は identify 済みのときだけ呼び、environment を付け直す", async () => {
