@@ -12,15 +12,13 @@ export default defineConfig({
       typecheck: {
         command: "tsc --noEmit --checkers 1",
         cache: {
-          // TypeScript 7 の tsc はネイティブバイナリで、ファイルアクセスの自動追跡
-          // （DYLD_INSERT_LIBRARIES による介入）が効かず、読んだソースが入力に載らない。
-          // 放置するとソースを変えてもキャッシュが再生されて型エラーを見逃すため、
-          // 入力を明示する（issue #806）。tsconfig の include 変更への追随や
-          // 新規ファイル追加を考えなくて済むよう、src/** ではなくパッケージ全体を入れる。
-          // 依存パッケージの .d.ts の変更は pnpm-lock.yaml の変化で捕捉する。
+          // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
+          // （issue #806。詳細は docs/development/toolchain.md の
+          // 「typecheck のキャッシュ」）。glob は tsc が読みうる拡張子に絞り、
+          // gitignore されない生成物（ios/ や .wrangler 等）を入れない。
           input: [
             { auto: true },
-            "**",
+            "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
             "!node_modules",
             "!node_modules/**",
             { pattern: "pnpm-lock.yaml", base: "workspace" },

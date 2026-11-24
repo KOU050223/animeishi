@@ -131,13 +131,16 @@ script として `--cache` で実行していたため、script は `cache.input
 
 対策として、各パッケージの `typecheck` は package.json script ではなく各パッケージの
 `vite.config.ts` の `run.tasks` に定義し、`cache.input` で入力を明示している。
-tsc が読みうるものを過剰包含方向に入れ、`tsconfig.json` の include 変更や新規ファイル
-追加への追随を不要にするため、パッケージ全体を `"**"` で指定する
-（`!node_modules` / `!node_modules/**` は除く。依存の .d.ts の変更は
-`pnpm-lock.yaml` の入力で捕捉する）。api は packages/danime-core・observability の
-`src/**`、mobile はそれに加えて `apps/api/src/**` と `.expo/**` も入力に含める
+入力は tsc が読みうる拡張子（ts・tsx・mts・cts・js・jsx・mjs・cjs・json）に絞る。
+入力の glob は `.gitignore` を見ないため `"**"` でパッケージ全体を入れると
+`ios/`・`.wrangler/` 等の生成物までフィンガープリントに入り、型と無関係な変更でも
+ミスになる。`node_modules` は除外し、依存パッケージの .d.ts の変更は
+`pnpm-lock.yaml` の入力で捕捉する。api は packages/danime-core・observability の
+`src/**`、mobile はそれに加えて `apps/api/src/**` と `.expo/types/**` も入力に含める
 （内部パッケージは `exports` / `types` が `./src/index.ts` で、mobile の paths は
-`apps/api/src/*` を直接読むため）。
+`apps/api/src/*` を直接読み、`.expo/types` は Expo Router が生成する型で
+tsconfig の include に含まれるため）。tsc が他の拡張子を読む構成
+（resolveJsonModule 相当のプラグイン設定等）を足すときは、この glob にも追加する。
 
 ルートの `typecheck` タスク（`vp run -r typecheck` + ルートの tsc）は `cache: false` に
 してある。このタスクがヒットすると内側の `vp run -r` 自体が実行されず、各パッケージの
