@@ -45,6 +45,10 @@ export const worksLookupQuerySchema = z.object({
   ids: z
     .string()
     .min(1)
+    .openapi({
+      description: "カンマ区切りの annictWorkId（最大 50 件）",
+      example: "1,2,3",
+    })
     .transform((raw) => raw.split(",").map(Number))
     .pipe(
       z
@@ -194,7 +198,9 @@ export const searchWorksRoute = createRoute({
     },
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict トークンが無い"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -218,7 +224,9 @@ export const lookupWorksRoute = createRoute({
     },
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict トークンが無い"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -266,7 +274,9 @@ export const workDetailRoute = createRoute({
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict トークンが無い"),
     404: jsonError("作品が見つからない"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -303,6 +313,8 @@ export const workCharactersRoute = createRoute({
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict トークンが無い"),
     404: jsonError("作品が見つからない"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });

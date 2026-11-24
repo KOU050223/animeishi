@@ -122,7 +122,9 @@ export const listWatchHistoryRoute = createRoute({
       description: "視聴記録（更新日時の降順）",
     },
     401: codedJsonError("未認証・Annict 未連携"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -148,7 +150,9 @@ export const upsertWatchHistoryRoute = createRoute({
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict 未連携"),
     404: jsonError("作品が見つからない"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -191,7 +195,9 @@ export const bulkWatchHistoryRoute = createRoute({
     },
     400: jsonError("入力エラー"),
     401: codedJsonError("未認証・Annict 未連携"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -253,6 +259,8 @@ export const deleteWatchHistoryRoute = createRoute({
     400: jsonError("annictWorkId が不正"),
     401: codedJsonError("未認証・Annict 未連携"),
     404: jsonError("作品が見つからない"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
+    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
