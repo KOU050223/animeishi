@@ -69,6 +69,8 @@ async function clerkSessionToken(): Promise<string | null> {
  * - !res.ok のとき ApiRequestError(status, i18n 済み errorMessage, code) の送出
  *   （401 も他のステータスと同じく ApiRequestError に正規化する。annict_token_*
  *   系の code は失効検知（isAnnictTokenError）にそのまま伝わる）
+ *   errorMessage の代わりに onHttpError を渡すと、この変換を差し替えられる
+ *   （応答 body の error 文言を優先する、plain Error を維持する等）
  *
  * トークンが取れない（セッション切れ等）ときは plain の Error を投げる。
  * ApiRequestError にすると observability の 4xx ドロップ対象になり、

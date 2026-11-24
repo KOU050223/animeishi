@@ -42,14 +42,11 @@ export function useDeletionSummary() {
  * しない前提のため、呼び出し側はエラーを握り潰して進めてよい。
  * 無効化するキャッシュを持たない書き込みなので useMutation ではなく
  * 素の関数で呼び、完了待ち・タイムアウトは呼び出し側が制御する。
- * 引数の getToken は公開シグネチャ互換のために残し、トークン取得は
- * apiFetch 側に委譲する。
  */
-export async function submitDeletionFeedback(
-  getToken: () => Promise<string | null>,
-  input: { reasons: string[]; freeText?: string },
-): Promise<void> {
-  void getToken;
+export async function submitDeletionFeedback(input: {
+  reasons: string[];
+  freeText?: string;
+}): Promise<void> {
   await apiClient.me["deletion-feedback"].$post(
     { json: input },
     { fetch: apiFetch({ errorMessage: "回答の送信に失敗しました" }) },

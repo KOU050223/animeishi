@@ -151,6 +151,10 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     expect(mockPost).toHaveBeenCalledWith(undefined, {
       fetch: expect.any(Function),
     });
+    // 生成 POST は annict オプトインが必須。オプションそのものを検証する。
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("useGenerateRecommendations: 未連携なら同期せずそのまま生成を試みる", async () => {
@@ -199,6 +203,43 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     expect((result.current.error as ApiRequestError).message).toContain(
       "実行回数が上限",
     );
+  });
+
+  it("useGenerateRecommendations: onHttpError は応答 body の error 文言を使う", async () => {
+    mockPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...RECOMMENDATIONS_BODY, cached: false }),
+    });
+
+    const { result } = await renderHook(() => useGenerateRecommendations(), {
+      wrapper: createWrapper(client),
+    });
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 生成 POST 用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（モックした mockPost では通らない経路）。
+    const genOptions = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(genOptions).toBeDefined();
+    const error = await genOptions!.onHttpError!(
+      new Response(
+        JSON.stringify({
+          error:
+            "おすすめ生成の実行回数が上限に達しました。しばらくしてから再度お試しください",
+        }),
+        { status: 429 },
+      ),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toContain("実行回数が上限");
   });
 
   it("useGenerateRecommendations: 成功したらおすすめクエリを無効化する", async () => {

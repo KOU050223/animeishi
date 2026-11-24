@@ -175,6 +175,44 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     );
   });
 
+  it("useGenerateAnalysis: onHttpError は応答 body の error 文言を使う", async () => {
+    mockPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...ANALYSIS_BODY, cached: false }),
+    });
+
+    const { result } = await renderHook(() => useGenerateAnalysis(), {
+      wrapper: createWrapper(client),
+    });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 生成 POST 用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（モックした mockPost では通らない経路）。
+    const genOptions = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(genOptions).toBeDefined();
+    const error = await genOptions!.onHttpError!(
+      new Response(
+        JSON.stringify({
+          error:
+            "視聴傾向分析の実行回数が上限に達しました。しばらくしてから再度お試しください",
+        }),
+        { status: 429 },
+      ),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toContain("実行回数が上限");
+  });
+
   it("useGenerateAnalysis: 連携済みなら履歴を同期してから生成する", async () => {
     mockPost.mockResolvedValue({
       ok: true,
@@ -202,6 +240,11 @@ describe("useAnalysis / useGenerateAnalysis", () => {
       {},
       { fetch: expect.any(Function) },
     );
+    // 生成 POST 自体は Annict ヘッダを付けない（annict オプトインなし）。
+    const genOptions = mockApiFetch.mock.calls
+      .map((call) => call[0] as { annict?: boolean })
+      .find((opts) => !("errorMessage" in opts));
+    expect(genOptions?.annict).toBeUndefined();
   });
 
   it("useGenerateAnalysis: 未連携なら同期せずそのまま生成する", async () => {
