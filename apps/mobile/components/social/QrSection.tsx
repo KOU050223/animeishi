@@ -164,6 +164,7 @@ function GenerateView() {
   // 公開プロフィールも取り直す。名刺を編集するとスナップショットが
   // 再生成されて ?v= の版が変わるので、編集直後に古い画像が残らない
   // ようにする。
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       void reloadMeishi();

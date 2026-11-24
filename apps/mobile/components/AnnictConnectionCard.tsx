@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -45,7 +45,7 @@ export function AnnictConnectionCard({
     }
   }, [isLoading, isConnected, track]);
 
-  const onConnect = useCallback(async () => {
+  const onConnect = async () => {
     setMessage(null);
     track("cta_tap");
     const result: AnnictConnectResult = await connect({ surface });
@@ -56,9 +56,9 @@ export function AnnictConnectionCard({
     } else {
       setMessage({ type: "error", text: t(annictErrorKey(result.reason)) });
     }
-  }, [connect, surface, track, t]);
+  };
 
-  const onDisconnect = useCallback(() => {
+  const onDisconnect = () => {
     confirm(
       t("Annict 連携"),
       t("連携を解除する"),
@@ -79,7 +79,7 @@ export function AnnictConnectionCard({
         destructive: true,
       },
     );
-  }, [disconnect, t]);
+  };
 
   return (
     <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">

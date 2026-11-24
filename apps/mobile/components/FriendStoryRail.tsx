@@ -34,6 +34,7 @@ export function FriendStoryRail() {
 
   // タブ切替では画面のマウントが維持され stale のまま残るため、
   // ホームへ戻ったタイミングで再取得して新着を拾う
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) void refetch();

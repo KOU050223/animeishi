@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
@@ -59,7 +60,12 @@ export function useFavorites() {
  */
 export function useFavoriteIds(): Set<number> {
   const { data } = useFavorites();
-  return new Set((data ?? []).map((f) => f.annictWorkId));
+  // AnimeListContent の FlatList#renderItem（固定するコールバック）の依存に
+  // 入るため参照を固定する。
+  return useMemo(
+    () => new Set((data ?? []).map((f) => f.annictWorkId)),
+    [data],
+  );
 }
 
 export function useAddFavorite() {
