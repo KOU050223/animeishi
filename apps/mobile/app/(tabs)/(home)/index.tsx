@@ -55,6 +55,7 @@ export default function HomeScreen() {
   // 契機が無いため、ホーム復帰のタイミングでだけ無効化する。
   // 初回フォーカスは初回取得と重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
   const hasFocused = useRef(false);
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) {

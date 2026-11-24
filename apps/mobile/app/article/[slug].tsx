@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -106,7 +106,7 @@ function ArticleBody({
   // useMarkdown は要素の配列を返すため、Markdown コンポーネント（内部が
   // FlatList）ではなく ScrollView に載せて、カバー画像・タイトルも
   // 同じスクロールの中に置けるようにする。
-  const renderer = useMemo(() => new AccessibleLinkRenderer(), []);
+  const renderer = new AccessibleLinkRenderer();
   const elements = useMarkdown(body, {
     renderer,
     colorScheme: colorScheme ?? "light",

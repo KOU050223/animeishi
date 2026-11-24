@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -121,12 +121,12 @@ export default function ProfileScreen() {
   // 従来の連携カードの位置までスクロールするための参照。
   const scrollRef = useRef<ScrollViewInstance>(null);
   const annictCardY = useRef(0);
-  const scrollToAnnictCard = useCallback(() => {
+  const scrollToAnnictCard = () => {
     scrollRef.current?.scrollTo({
       y: Math.max(annictCardY.current - 12, 0),
       animated: true,
     });
-  }, []);
+  };
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
   // カード中央上端に寄せる。
   const [meishiPreviewWidth, setMeishiPreviewWidth] = useState(0);
   const nowWatching = profile?.nowWatching ?? null;
-  const nowWatchingAnchor = useMemo(() => {
+  const nowWatchingAnchor = (() => {
     if (!nowWatching || meishiPreviewWidth <= 0) return null;
     const doc = resolveMeishiDocument(meishiDoc);
     const cardHeight = meishiPreviewWidth / doc.canvas.aspectRatio;
@@ -163,7 +163,7 @@ export default function ProfileScreen() {
         (avatar.transform.x + avatar.transform.width / 2) * meishiPreviewWidth,
       bottom: cardHeight - avatar.transform.y * cardHeight + 4,
     };
-  }, [meishiDoc, meishiPreviewWidth, nowWatching]);
+  })();
 
   const publicSettingItems: PublicSettingItem[] = [
     {
@@ -196,6 +196,7 @@ export default function ProfileScreen() {
     },
   ];
 
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       void reloadMeishi();
@@ -207,12 +208,12 @@ export default function ProfileScreen() {
 
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((next: Toast) => {
+  const showToast = (next: Toast) => {
     setToast(next);
     AccessibilityInfo.announceForAccessibility(next.message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2500);
-  }, []);
+  };
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);

@@ -57,7 +57,7 @@ export default function MeishiEditScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
   const { height: windowHeight } = useWindowDimensions();
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
@@ -123,20 +123,17 @@ export default function MeishiEditScreen() {
     };
   }, []);
 
-  const context = useMemo<MeishiRenderContext>(
-    () => ({
-      profile: {
-        username: profile?.username,
-        bio: profile?.bio,
-        favoriteQuote: profile?.favoriteQuote,
-        profileImageUrl: profile?.profileImageUrl,
-        profileUrl: buildProfileUrl(profile?.id),
-      },
-      ...buildMeishiAnimeContext({ favorites, watchHistory }),
-      achievements: achievements?.achievements,
-    }),
-    [favorites, profile, watchHistory, achievements],
-  );
+  const context: MeishiRenderContext = {
+    profile: {
+      username: profile?.username,
+      bio: profile?.bio,
+      favoriteQuote: profile?.favoriteQuote,
+      profileImageUrl: profile?.profileImageUrl,
+      profileUrl: buildProfileUrl(profile?.id),
+    },
+    ...buildMeishiAnimeContext({ favorites, watchHistory }),
+    achievements: achievements?.achievements,
+  };
 
   // 名刺の画像共有（issue #425）。保存トースト内のボタンから起動する。
   const {
@@ -155,6 +152,7 @@ export default function MeishiEditScreen() {
   const selected = doc?.elements.find((e) => e.id === selectedId) ?? null;
   const inspectorHeight = getInspectorHeight(windowHeight);
 
+  // tapCanvasBackdrop のジェスチャ依存なので参照を固定する。
   const onSelect = useCallback((id: string | null) => setSelectedId(id), []);
 
   // 名刺の外側（灰色の領域）のタップでも要素選択を解除する（issue #494）。
@@ -162,6 +160,7 @@ export default function MeishiEditScreen() {
   // RN のレスポンダを取らないため、Pressable だと要素タップでも発火して
   // 選択が即座に解除されてしまう。Tap ジェスチャなら子側のジェスチャが
   // 優先され、ドラッグ・リサイズ中は Tap が成立しないので誤解除しない。
+  // GestureDetector へ渡すため参照を固定する。
   const tapCanvasBackdrop = useMemo(
     () =>
       Gesture.Tap()
@@ -174,6 +173,7 @@ export default function MeishiEditScreen() {
   // beginGesture はキャンバス側で「操作開始した時点」を検出できないため、
   // 最初の onTransform が来たタイミングで beginGesture を呼ぶ。
   const gestureActiveRef = useMeishiGestureFlag();
+  // EditorCanvas 内の pan/tap ジェスチャの依存なので参照を固定する。
   const onTransform = useCallback(
     (id: string, transform: MeishiElement["transform"]) => {
       if (!gestureActiveRef.current) {
@@ -184,6 +184,7 @@ export default function MeishiEditScreen() {
     },
     [beginGesture, setElementTransformLive, gestureActiveRef],
   );
+  // EditorCanvas 内の pan ジェスチャの依存なので参照を固定する。
   const onCommit = useCallback(() => {
     gestureActiveRef.current = false;
   }, [gestureActiveRef]);

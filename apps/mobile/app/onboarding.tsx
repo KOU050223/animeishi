@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/expo";
 import { useTranslation } from "react-i18next";
@@ -69,19 +69,16 @@ export default function OnboardingScreen() {
     });
   }, [allowed, userId, router]);
 
-  const finish = useCallback(
-    async (status: OnboardingStatus) => {
-      if (userId) await saveOnboardingStatus(userId, status);
-      router.replace("/");
-    },
-    [userId, router],
-  );
+  const finish = async (status: OnboardingStatus) => {
+    if (userId) await saveOnboardingStatus(userId, status);
+    router.replace("/");
+  };
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = () => {
     void finish("skipped");
-  }, [finish]);
+  };
 
-  const handleToggleWork = useCallback((work: WorkCandidate) => {
+  const handleToggleWork = (work: WorkCandidate) => {
     setSelectedWorks((prev) =>
       prev.some((w) => w.annictWorkId === work.annictWorkId)
         ? prev.filter((w) => w.annictWorkId !== work.annictWorkId)
@@ -89,13 +86,13 @@ export default function OnboardingScreen() {
           ? [...prev, work]
           : prev,
     );
-  }, []);
+  };
 
   // 1 問目 → 2 問目: 選んだ 3 作を既存のお気に入りとして保存する。
   // 候補は annict_works キャッシュ由来なので Annict トークン無しで登録できる。
   // addFavorite は重複時 no-op（API 側 onConflictDoNothing）なので
   // やり直しでも冪等。
-  const handleFavoritesNext = useCallback(async () => {
+  const handleFavoritesNext = async () => {
     if (saving) return;
     setSaving(true);
     setSaveError(null);
@@ -112,13 +109,13 @@ export default function OnboardingScreen() {
       );
     }
     setSaving(false);
-  }, [saving, selectedWorks, addFavorite, t]);
+  };
 
   // 2 問目 → 3 問目: テンプレート + 推しコラージュのドキュメントを
   // 名刺ライブラリ（issue #427）へカードとして保存する。
   // 最初の 1 枚だけ自動で既定カードになる（addCard の規則。既にカードが
   // あれば既定は変えず追加だけ）。
-  const handleTemplateNext = useCallback(async () => {
+  const handleTemplateNext = async () => {
     const template = templateId ? getTemplate(templateId) : undefined;
     if (!template || saving) return;
     const doc = buildOnboardingDocument(template);
@@ -147,7 +144,7 @@ export default function OnboardingScreen() {
       setSaveError(t("名刺の保存に失敗しました。もう一度お試しください。"));
     }
     setSaving(false);
-  }, [templateId, saving, t]);
+  };
 
   if (!allowed) {
     return <Redirect href="/" />;
