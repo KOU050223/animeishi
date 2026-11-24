@@ -107,7 +107,7 @@ export default function WorkListsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="mt-10 text-base font-semibold text-foreground">
           {t("作ったリスト")}
         </Text>
         {lists.isLoading ? (
@@ -115,7 +115,7 @@ export default function WorkListsScreen() {
             <ActivityIndicator color={colors.textMuted} />
           </View>
         ) : lists.isError ? (
-          <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          <Text className="mt-3 text-sm text-muted">
             {t("一覧を取得できませんでした")}
           </Text>
         ) : (
@@ -140,12 +140,12 @@ export default function WorkListsScreen() {
                   testID={`work-lists-item-${item.id}`}
                 >
                   <Text
-                    className="text-base font-medium text-slate-900 dark:text-slate-100"
+                    className="text-base font-medium text-foreground"
                     numberOfLines={1}
                   >
                     {item.title}
                   </Text>
-                  <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <Text className="mt-0.5 text-xs text-muted">
                     {t("{{count}} 作品", { count: item.itemCount })}
                     {item.shareToken ? ` ・ ${t("共有中")}` : ""}
                     {item.isPublic ? ` ・ ${t("公開中")}` : ""}
@@ -160,14 +160,14 @@ export default function WorkListsScreen() {
                   testID={`work-lists-delete-${item.id}`}
                   className="ml-3 rounded-md px-2 py-1"
                 >
-                  <Text className="text-sm font-medium text-red-500 dark:text-red-400">
+                  <Text className="text-sm font-medium text-danger">
                     {t("削除")}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
             ListEmptyComponent={
-              <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              <Text className="mt-3 text-sm text-muted">
                 {t("まだありません。「新しいリストを作る」から作れます")}
               </Text>
             }

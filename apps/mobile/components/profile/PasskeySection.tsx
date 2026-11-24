@@ -55,14 +55,14 @@ export function PasskeySection({ onSuccess, onError }: Props) {
         {loading ? (
           <ActivityIndicator color={colors.primaryText} />
         ) : (
-          <Text className="font-semibold text-indigo-600 dark:text-indigo-300">
+          <Text className="font-semibold text-primary-text">
             {t("パスキーを登録")}
           </Text>
         )}
       </TouchableOpacity>
       {registeredCount > 0 && (
         <Text
-          className="text-xs text-slate-500 dark:text-slate-400 pb-1"
+          className="text-xs text-muted pb-1"
           testID="passkey-registered-count"
         >
           {t("登録済みのパスキー: {{count}}件", { count: registeredCount })}

@@ -27,12 +27,12 @@ const VARIANT_CLASSES: Record<
   secondary: {
     button:
       "border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800",
-    label: "text-slate-900 dark:text-slate-100",
+    label: "text-foreground",
   },
   destructive: {
     button:
       "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950",
-    label: "text-red-600 dark:text-red-400",
+    label: "text-danger",
   },
 };
 
@@ -40,7 +40,7 @@ const VARIANT_CLASSES: Record<
 // variant の塗り色を薄めるだけでは有効なボタンと見分けが付かないため。
 const DISABLED_CLASSES = {
   button: "bg-slate-200 dark:bg-slate-700",
-  label: "text-slate-500 dark:text-slate-400",
+  label: "text-secondary",
 } as const;
 
 /**
@@ -67,7 +67,7 @@ export function Button({
         ? colors.danger
         : colors.text;
   const labelColor = showDisabled
-    ? colors.textMuted
+    ? colors.textSecondary
     : variant === "primary"
       ? colors.onPrimary
       : variant === "destructive"

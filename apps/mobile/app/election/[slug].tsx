@@ -73,10 +73,7 @@ function ElectionScreen() {
       />
       {slug === null || detail.isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="election-not-found"
-          >
+          <Text className="text-center text-muted" testID="election-not-found">
             {t("この総選挙は表示できません")}
           </Text>
         </View>
@@ -160,12 +157,12 @@ function ElectionBody({
           />
         ) : null}
         <Text
-          className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100"
+          className="mt-4 text-2xl font-bold text-foreground"
           testID="election-title"
         >
           {election.title}
         </Text>
-        <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-1 text-sm text-muted">
           {t("投票期間:")}{" "}
           {formatEventPeriod(election.startsAt, election.endsAt, i18n.language)}
         </Text>
@@ -219,23 +216,17 @@ function VotingNotice({
   return (
     <View className="mt-4 flex-row items-center gap-3">
       {phase === "before" ? (
-        <Text
-          className="text-sm text-slate-500 dark:text-slate-400"
-          testID="election-notice"
-        >
+        <Text className="text-sm text-muted" testID="election-notice">
           {t("投票期間が始まったら候補を選べます")}
         </Text>
       ) : phase === "ended" ? (
-        <Text
-          className="text-sm text-slate-500 dark:text-slate-400"
-          testID="election-notice"
-        >
+        <Text className="text-sm text-muted" testID="election-notice">
           {t("投票は終了しました。結果は特集で発表します")}
         </Text>
       ) : voted ? (
         <>
           <Text
-            className="text-sm font-semibold text-indigo-500 dark:text-indigo-300"
+            className="text-sm font-semibold text-primary-text"
             testID="election-notice"
           >
             {t("投票済み（期間中は選び直せます）")}
@@ -251,10 +242,7 @@ function VotingNotice({
           </TouchableOpacity>
         </>
       ) : (
-        <Text
-          className="text-sm text-slate-500 dark:text-slate-400"
-          testID="election-notice"
-        >
+        <Text className="text-sm text-muted" testID="election-notice">
           {t("推しの候補を 1 つ選んでください")}
         </Text>
       )}
@@ -313,7 +301,7 @@ function CandidateRow({
                 }}
                 className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
               >
-                <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+                <Text className="text-xs text-indigo-700 dark:text-indigo-300">
                   {t("作品")}
                 </Text>
               </View>
@@ -321,7 +309,7 @@ function CandidateRow({
           />
           <View className="flex-1">
             <Text
-              className="text-base font-medium text-slate-900 dark:text-slate-100"
+              className="text-base font-medium text-foreground"
               numberOfLines={2}
             >
               {candidate.name}
@@ -339,12 +327,12 @@ function CandidateRow({
               backgroundColor: colors.surfaceMuted,
             }}
             placeholder=<View className="h-16 w-16 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900">
-              <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+              <Text className="text-xs text-indigo-700 dark:text-indigo-300">
                 {t("キャラ")}
               </Text>
             </View>
           />
-          <Text className="flex-1 text-base font-medium text-slate-900 dark:text-slate-100">
+          <Text className="flex-1 text-base font-medium text-foreground">
             {candidate.name}
           </Text>
         </View>
@@ -352,7 +340,7 @@ function CandidateRow({
       {votable ? (
         voted ? (
           <View
-            className="rounded-lg bg-indigo-600 px-4 py-2 dark:bg-indigo-500"
+            className="rounded-lg bg-indigo-600 px-4 py-2"
             testID={`election-voted-badge-${candidate.id}`}
           >
             <Text className="font-semibold text-white">{t("投票済み")}</Text>
@@ -368,7 +356,7 @@ function CandidateRow({
             })}
             testID={`election-vote-${candidate.id}`}
           >
-            <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
+            <Text className="font-semibold text-primary-text">
               {t("投票する")}
             </Text>
           </TouchableOpacity>

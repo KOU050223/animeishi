@@ -94,7 +94,7 @@ export default function ThanksScreen() {
       >
         {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-red-500 dark:text-red-400 text-center mb-4">
+          <Text className="text-danger text-center mb-4">
             {t("お礼の取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -179,16 +179,14 @@ function ThanksRow({
         </View>
       )}
       <View className="flex-1 ml-3">
-        <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-sm font-semibold text-foreground">
           {item.username}
         </Text>
-        <Text className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+        <Text className="text-sm text-secondary mt-0.5">
           {t(THANKS_PRESET_TEXT[item.presetKey] ?? item.presetKey)}
         </Text>
         {item.body ? (
-          <Text className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {item.body}
-          </Text>
+          <Text className="text-sm text-muted mt-0.5">{item.body}</Text>
         ) : null}
         <Text className="text-xs text-muted mt-1">
           {formatThanksDate(item.createdAt, language)}

@@ -76,7 +76,7 @@ export default function SsoCallbackScreen() {
       {failed ? (
         <View className="items-center px-8">
           <Text
-            className="text-red-500 dark:text-red-400 text-center mb-4"
+            className="text-danger text-center mb-4"
             testID="sso-callback-error"
           >
             {t("サインインを完了できませんでした。もう一度お試しください。")}
@@ -95,7 +95,7 @@ export default function SsoCallbackScreen() {
       ) : (
         <View className="items-center">
           <ActivityIndicator size="large" color={colors.primaryText} />
-          <Text className="mt-4 text-slate-600 dark:text-slate-300">
+          <Text className="mt-4 text-secondary">
             {t("サインインを完了しています…")}
           </Text>
         </View>

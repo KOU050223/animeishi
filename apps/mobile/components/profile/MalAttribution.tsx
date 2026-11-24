@@ -20,9 +20,7 @@ export function MalAttribution() {
         accessibilityLabel={t("MyAnimeList を開く")}
         testID="mal-attribution-link"
       >
-        <Text className="text-xs text-indigo-600 dark:text-indigo-400">
-          MyAnimeList
-        </Text>
+        <Text className="text-xs text-primary-text">MyAnimeList</Text>
       </TouchableOpacity>
     </View>
   );

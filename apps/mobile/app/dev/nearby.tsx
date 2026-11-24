@@ -151,10 +151,10 @@ export default function NearbySpikeScreen() {
       />
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <Text className="text-sm text-slate-500 dark:text-slate-400">
+          <Text className="text-sm text-muted">
             {t("自分の名前:")} {displayName}
           </Text>
-          <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <Text className="mt-1 text-sm text-muted">
             UWB:{" "}
             {uwb == null
               ? t("確認中…")
@@ -166,7 +166,7 @@ export default function NearbySpikeScreen() {
           {errorMessage ? (
             <View className="mt-3 rounded-lg bg-red-50 px-4 py-3 dark:bg-red-950">
               <Text
-                className="text-sm font-medium text-red-600 dark:text-red-400"
+                className="text-sm font-medium text-danger"
                 accessibilityRole="alert"
               >
                 {errorMessage}
@@ -175,7 +175,7 @@ export default function NearbySpikeScreen() {
           ) : null}
 
           {peerList.length === 0 ? (
-            <Text className="mt-10 text-center text-base text-slate-500 dark:text-slate-400">
+            <Text className="mt-10 text-center text-base text-muted">
               {t("近くの相手を探しています…")}
             </Text>
           ) : (
@@ -186,11 +186,11 @@ export default function NearbySpikeScreen() {
                   className="rounded-2xl border border-slate-200 px-5 py-4 dark:border-slate-700"
                 >
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <Text className="text-lg font-semibold text-foreground">
                       {peer.displayName || peer.peerId.slice(0, 8)}
                     </Text>
                     {peer.exchanged ? (
-                      <Text className="rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700 dark:bg-green-900 dark:text-green-300">
+                      <Text className="rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-success dark:bg-green-900">
                         {t("成立")}
                       </Text>
                     ) : null}
@@ -198,12 +198,10 @@ export default function NearbySpikeScreen() {
                   <View className="mt-2 flex-row items-end justify-center">
                     {peer.meters != null ? (
                       <>
-                        <Text className="text-6xl font-bold text-slate-900 dark:text-slate-100">
+                        <Text className="text-6xl font-bold text-foreground">
                           {Math.max(0, Math.round(peer.meters * 100))}
                         </Text>
-                        <Text className="mb-2 ml-1 text-xl text-slate-500 dark:text-slate-400">
-                          cm
-                        </Text>
+                        <Text className="mb-2 ml-1 text-xl text-muted">cm</Text>
                       </>
                     ) : (
                       <Text className="py-4 text-3xl text-muted">

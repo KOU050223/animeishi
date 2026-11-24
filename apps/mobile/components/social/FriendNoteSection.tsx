@@ -37,9 +37,7 @@ export function FriendNoteSection({ uid }: { uid: string }) {
 
   return (
     <View className="mt-6 w-full self-start" testID="friend-note-section">
-      <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-        {t("メモ")}
-      </Text>
+      <Text className="text-sm font-semibold text-secondary">{t("メモ")}</Text>
       <Text className="text-xs text-muted mt-0.5">
         {t("自分だけが見えるメモです")}
       </Text>
@@ -51,7 +49,7 @@ export function FriendNoteSection({ uid }: { uid: string }) {
         testID="friend-note-edit-button"
       >
         {body ? (
-          <Text className="text-slate-700 dark:text-slate-300">{body}</Text>
+          <Text className="text-secondary">{body}</Text>
         ) : (
           <Text className="text-muted">{t("メモを追加")}</Text>
         )}

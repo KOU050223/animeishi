@@ -142,7 +142,7 @@ export default function FeedbackScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="w-full max-w-2xl self-center pb-16 pt-4"
         >
-          <Text className="px-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <Text className="px-4 text-sm leading-6 text-secondary">
             {t(
               "アプリの不具合や、ほしい機能・ご意見をお送りください。すべて開発者が読んでいます。個別のお返事はできませんのでご了承ください。",
             )}
@@ -167,7 +167,7 @@ export default function FeedbackScreen() {
               multiline
               textAlignVertical="top"
               maxLength={FEEDBACK_BODY_MAX_LENGTH}
-              className="min-h-40 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className="min-h-40 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-foreground dark:border-slate-600 dark:bg-slate-900"
               accessibilityLabel={t("内容")}
               testID="feedback-body-input"
             />

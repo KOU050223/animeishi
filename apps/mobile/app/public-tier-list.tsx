@@ -51,7 +51,7 @@ function NotFound() {
   return (
     <View className="flex-1 items-center justify-center px-8">
       <Text
-        className="text-center text-slate-500 dark:text-slate-400"
+        className="text-center text-muted"
         testID="public-tier-list-not-found"
       >
         {t("この Tier 表は表示できません")}
@@ -89,17 +89,17 @@ function DetailHeader({
   const likeDisabled = isOwn || likePending;
   return (
     <View className="pb-4 pt-4">
-      <Text className="text-xs text-slate-500 dark:text-slate-400">
+      <Text className="text-xs text-muted">
         {t(TIER_KIND_LABELS[data.kind])} {t("Tier 表")}
         {data.kind === "character" && data.workTitle
           ? ` ・ ${data.workTitle}`
           : ""}
       </Text>
-      <Text className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
+      <Text className="mt-1 text-xl font-bold text-foreground">
         {data.title}
       </Text>
       {data.description ? (
-        <Text className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
+        <Text className="mt-1.5 text-sm text-secondary">
           {data.description}
         </Text>
       ) : null}
@@ -112,9 +112,7 @@ function DetailHeader({
         })}
         testID="public-tier-list-owner"
       >
-        <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-          {data.owner.username}
-        </Text>
+        <Text className="text-sm text-primary-text">{data.owner.username}</Text>
       </TouchableOpacity>
       <View className="mt-3 flex-row items-center justify-between">
         <TouchableOpacity
@@ -142,9 +140,7 @@ function DetailHeader({
           />
           <Text
             className={`text-base font-medium ${
-              data.likedByMe
-                ? "text-red-500 dark:text-red-400"
-                : "text-slate-600 dark:text-slate-300"
+              data.likedByMe ? "text-danger" : "text-secondary"
             }`}
           >
             {data.likeCount}
@@ -159,9 +155,7 @@ function DetailHeader({
             testID="public-tier-list-report"
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
-            <Text className="text-xs text-slate-500 dark:text-slate-400">
-              {t("通報")}
-            </Text>
+            <Text className="text-xs text-muted">{t("通報")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -246,7 +240,7 @@ function TierRowView({
                 />
               />
               <Text
-                className="mt-0.5 text-center text-[9px] leading-3 text-slate-700 dark:text-slate-300"
+                className="mt-0.5 text-center text-[9px] leading-3 text-secondary"
                 numberOfLines={2}
               >
                 {itemTitle(item)}
@@ -264,7 +258,7 @@ function TierRowView({
                 placeholder=<View className="h-14 w-14 bg-slate-200 dark:bg-slate-700" />
               />
               <Text
-                className="mt-0.5 text-center text-[9px] leading-3 text-slate-700 dark:text-slate-300"
+                className="mt-0.5 text-center text-[9px] leading-3 text-secondary"
                 numberOfLines={2}
               >
                 {item.name}

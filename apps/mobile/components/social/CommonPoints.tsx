@@ -28,10 +28,7 @@ function WorkList({ works }: { works: Work[] }) {
           ) : (
             <View className="w-10 h-14 rounded bg-slate-200 dark:bg-slate-700" />
           )}
-          <Text
-            className="flex-1 text-sm text-slate-800 dark:text-slate-100"
-            numberOfLines={2}
-          >
+          <Text className="flex-1 text-sm text-foreground" numberOfLines={2}>
             {work.title}
           </Text>
         </View>
@@ -78,14 +75,14 @@ export function CommonPoints({
       ) : null}
       {data?.watchingTogether.length ? (
         <View className="gap-2">
-          <Text className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <Text className="text-sm font-medium text-secondary">
             {t("今期どちらも見ている作品")}
           </Text>
           <WorkList works={data.watchingTogether} />
         </View>
       ) : null}
       {data?.watchedTogetherCount ? (
-        <Text className="text-sm text-slate-700 dark:text-slate-200">
+        <Text className="text-sm text-secondary">
           {t("{{count}}作品をどちらも視聴済み", {
             count: data.watchedTogetherCount,
           })}
@@ -93,7 +90,7 @@ export function CommonPoints({
       ) : null}
       {data?.favoriteTogether.length ? (
         <View className="gap-2">
-          <Text className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <Text className="text-sm font-medium text-secondary">
             {t("好きな作品が同じ")}
           </Text>
           <WorkList works={data.favoriteTogether} />
@@ -104,13 +101,13 @@ export function CommonPoints({
       !data.watchedTogetherCount &&
       !data.favoriteTogether.length ? (
         <View className="gap-2">
-          <Text className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <Text className="text-sm font-medium text-secondary">
             {t("話のきっかけ")}
           </Text>
           {data.conversationStarters.length ? (
             <WorkList works={data.conversationStarters} />
           ) : (
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
+            <Text className="text-sm text-secondary">
               {t("相手の今期の視聴作品はまだありません")}
             </Text>
           )}

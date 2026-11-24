@@ -68,11 +68,11 @@ export function AnimeListFilterSheet({
       testID="anime-list-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
-        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
+        <Text className="text-lg font-bold text-foreground mb-5">
           {t("絞り込み")}
         </Text>
 
-        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-secondary mb-2">
           {t("メディア種別")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
@@ -101,7 +101,7 @@ export function AnimeListFilterSheet({
           ))}
         </View>
 
-        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-secondary mb-2">
           {t("ジャンル・タグ")}
         </Text>
         {genreOptions.length > 0 ? (
@@ -111,7 +111,7 @@ export function AnimeListFilterSheet({
             placeholder={t("タグを検索")}
             accessibilityLabel={t("タグを検索")}
             testID="anime-filter-genre-search"
-            className="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 mb-3 text-slate-900 dark:text-slate-100"
+            className="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 mb-3 text-foreground"
           />
         ) : null}
         {genreOptions.length > 0 ? (
@@ -164,9 +164,7 @@ export function AnimeListFilterSheet({
             accessibilityLabel={t("絞り込みをリセット")}
             testID="anime-filter-reset"
           >
-            <Text className="text-slate-600 dark:text-slate-300 font-medium">
-              {t("リセット")}
-            </Text>
+            <Text className="text-secondary font-medium">{t("リセット")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
@@ -213,9 +211,7 @@ function SelectChip({
     >
       <Text
         className={`text-xs font-medium ${
-          selected
-            ? "text-indigo-600 dark:text-indigo-300"
-            : "text-slate-500 dark:text-slate-400"
+          selected ? "text-primary-text" : "text-muted"
         }`}
       >
         {label}

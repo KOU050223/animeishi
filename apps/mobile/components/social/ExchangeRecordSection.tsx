@@ -133,10 +133,10 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
     // 取得失敗は「記録なし」と見分けがつくようエラー表示と再試行を出す。
     return (
       <View className="mt-6 w-full self-start" testID="exchange-record-section">
-        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-sm font-semibold text-secondary">
           {t("出会いの記録")}
         </Text>
-        <Text className="text-xs text-red-500 dark:text-red-400 mt-1">
+        <Text className="text-xs text-danger mt-1">
           {t("交換記録の取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -145,9 +145,7 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
           accessibilityLabel={t("交換記録を再読み込み")}
           className="mt-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5"
         >
-          <Text className="text-xs text-slate-600 dark:text-slate-300">
-            {t("再試行")}
-          </Text>
+          <Text className="text-xs text-secondary">{t("再試行")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -156,7 +154,7 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
   return (
     <View className="mt-6 w-full self-start" testID="exchange-record-section">
       <View className="flex-row items-baseline justify-between">
-        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-sm font-semibold text-secondary">
           {t("出会いの記録")}
         </Text>
         <TouchableOpacity
@@ -165,7 +163,7 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
           accessibilityLabel={t("会った記録を追加")}
           testID="exchange-record-add"
         >
-          <Text className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
+          <Text className="text-xs font-medium text-primary-text">
             {t("+ 会った記録を追加")}
           </Text>
         </TouchableOpacity>
@@ -189,10 +187,8 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
               accessibilityRole="button"
               accessibilityLabel={t("交換記録を編集")}
             >
-              <Text className="text-sm text-slate-700 dark:text-slate-300">
-                {met}
-              </Text>
-              <Text className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <Text className="text-sm text-secondary">{met}</Text>
+              <Text className="text-xs text-muted mt-0.5">
                 {details || t("場所・イベントを追加する")}
               </Text>
             </TouchableOpacity>
@@ -210,9 +206,7 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
               accessibilityLabel={t("この記録を削除")}
               className="mt-2 self-start"
             >
-              <Text className="text-xs text-red-500 dark:text-red-400">
-                {t("削除")}
-              </Text>
+              <Text className="text-xs text-danger">{t("削除")}</Text>
             </TouchableOpacity>
           </View>
         );

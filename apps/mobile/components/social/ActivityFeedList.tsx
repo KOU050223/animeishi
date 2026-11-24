@@ -145,7 +145,7 @@ export function ActivityFeedList({
               accessibilityLabel={t("フレンドの動きをすべて見る")}
               testID="activity-feed-show-all"
             >
-              <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+              <Text className="text-sm font-semibold text-primary-text">
                 {t("すべて見る")}
               </Text>
             </TouchableOpacity>
@@ -179,7 +179,7 @@ function FeedStatus({
   if (isError) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
+        <Text className="mb-4 text-center text-muted">
           {t("活動の取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -244,7 +244,7 @@ function FeedEmptyState() {
           accessibilityLabel={t("ひろばで名刺を探す")}
           testID="activity-feed-find-friends-hiroba"
         >
-          <Text className="font-semibold text-indigo-600 dark:text-indigo-300">
+          <Text className="font-semibold text-primary-text">
             {t("ひろばで名刺を探す")}
           </Text>
         </TouchableOpacity>
@@ -267,7 +267,7 @@ function ActivityGroupRow({ items }: { items: ActivityFeedItem[] }) {
     >
       <ActivityAvatar actor={first.actor} />
       <View className="flex-1">
-        <Text className="text-sm text-slate-900 dark:text-slate-100">
+        <Text className="text-sm text-foreground">
           {activityGroupText(items, t)}
         </Text>
         <Text className="mt-0.5 text-xs text-muted">
@@ -291,7 +291,7 @@ function ActivityAvatar({ actor }: { actor: ActivityFeedItem["actor"] }) {
       style={styles.avatar}
       className="items-center justify-center bg-indigo-100 dark:bg-indigo-900"
     >
-      <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
+      <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
         {actor.username.charAt(0)}
       </Text>
     </View>
@@ -309,7 +309,7 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
 
       {item.work ? (
         <WorkDetailPressable work={item.work} className="flex-1">
-          <Text className="text-sm text-slate-900 dark:text-slate-100">
+          <Text className="text-sm text-foreground">
             {activityText(item, t)}
           </Text>
           <Text className="mt-0.5 text-xs text-muted">
@@ -318,7 +318,7 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
         </WorkDetailPressable>
       ) : (
         <View className="flex-1">
-          <Text className="text-sm text-slate-900 dark:text-slate-100">
+          <Text className="text-sm text-foreground">
             {activityText(item, t)}
           </Text>
           <Text className="mt-0.5 text-xs text-muted">

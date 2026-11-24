@@ -126,7 +126,7 @@ export function GoogleAuthButton({ onError }: Props) {
       ) : (
         <>
           <Ionicons name="logo-google" size={18} color={colors.primaryText} />
-          <Text className="text-slate-800 dark:text-slate-100 font-semibold text-base ml-2">
+          <Text className="text-foreground font-semibold text-base ml-2">
             {t("Google で続ける")}
           </Text>
         </>

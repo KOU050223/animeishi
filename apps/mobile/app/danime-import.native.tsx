@@ -92,10 +92,10 @@ export default function DanimeImportScreen() {
         className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8"
         edges={["top", "bottom"]}
       >
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <Text className="text-xl font-bold text-foreground">
           {t("dアニメからインポート")}
         </Text>
-        <Text className="text-sm text-slate-600 dark:text-slate-300 mt-3 text-center leading-5">
+        <Text className="text-sm text-secondary mt-3 text-center leading-5">
           {t("この機能は現在 Web 版でのみ利用できます。")}
         </Text>
         <TouchableOpacity
@@ -151,19 +151,15 @@ export default function DanimeImportScreen() {
       edges={["top", "bottom"]}
     >
       <View className="px-4 pt-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <Text className="text-xl font-bold text-foreground">
           {t("dアニメからインポート")}
         </Text>
-        <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-4">
+        <Text className="text-xs text-muted mt-1 leading-4">
           {t(
             "WebView 内で dアニメストアにログインし、視聴履歴ページが表示されたら「読み取り開始」を押してください。ログイン情報はアプリに送信されません。",
           )}
         </Text>
-        {error && (
-          <Text className="text-xs text-red-500 dark:text-red-400 mt-2">
-            {error}
-          </Text>
-        )}
+        {error && <Text className="text-xs text-danger mt-2">{error}</Text>}
       </View>
 
       <View className="flex-1">

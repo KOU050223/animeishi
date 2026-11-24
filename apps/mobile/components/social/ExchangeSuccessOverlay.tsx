@@ -99,11 +99,11 @@ function ExchangeCard({
           </Text>
         </View>
       )}
-      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-3">
+      <Text className="text-xl font-bold text-foreground mt-3">
         {profile.username}
       </Text>
       {profile.bio ? (
-        <Text className="text-sm text-slate-500 dark:text-slate-400 mt-1 text-center">
+        <Text className="text-sm text-muted mt-1 text-center">
           {profile.bio}
         </Text>
       ) : null}

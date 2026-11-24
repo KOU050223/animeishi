@@ -85,12 +85,12 @@ export function AnnictConnectionCard({
     <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <View className="mb-2 flex-row items-center">
         <Ionicons name="link-outline" size={18} color={colors.primaryText} />
-        <Text className="ml-2 font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="ml-2 font-semibold text-foreground">
           {t("Annict 連携")}
         </Text>
       </View>
 
-      <Text className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+      <Text className="mb-3 text-xs leading-5 text-muted">
         {t(
           "Annict と連携すると、視聴記録があなたのアニメ名刺に反映されます。記録は Annict 側で管理されます。",
         )}
@@ -104,9 +104,7 @@ export function AnnictConnectionCard({
         />
         <Text
           className={`ml-2 text-sm ${
-            isConnected
-              ? "text-green-700 dark:text-green-300"
-              : "text-slate-500 dark:text-slate-400"
+            isConnected ? "text-success" : "text-muted"
           }`}
         >
           {isConnected ? t("Annict と連携済み") : t("未連携")}
@@ -116,9 +114,7 @@ export function AnnictConnectionCard({
       {message && (
         <Text
           className={`mb-3 text-sm ${
-            message.type === "success"
-              ? "text-green-600 dark:text-green-400"
-              : "text-red-500 dark:text-red-400"
+            message.type === "success" ? "text-success" : "text-danger"
           }`}
           testID="annict-message"
         >
@@ -130,7 +126,7 @@ export function AnnictConnectionCard({
         <ActivityIndicator color={colors.primaryText} />
       ) : isConnected ? (
         <View>
-          <Text className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          <Text className="mb-3 text-xs leading-5 text-muted">
             {t(
               "連携を解除すると、アニ名刺で Annict の視聴履歴を表示できなくなります。Annict 側の記録は削除されません。",
             )}
@@ -140,7 +136,7 @@ export function AnnictConnectionCard({
             className="items-center rounded-lg border border-red-300 dark:border-red-800 py-3"
             accessibilityRole="button"
           >
-            <Text className="font-semibold text-red-600 dark:text-red-400">
+            <Text className="font-semibold text-danger">
               {t("連携を解除する")}
             </Text>
           </TouchableOpacity>

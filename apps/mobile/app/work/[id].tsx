@@ -65,10 +65,7 @@ export default function WorkScreen() {
       >
         {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="work-page-not-found"
-          >
+          <Text className="text-center text-muted" testID="work-page-not-found">
             {t("この作品は表示できません")}
           </Text>
         </View>

@@ -43,17 +43,11 @@ export function WorkDetailHeader({
       <AnimePoster uri={work.hostedImageUrl} title={work.title} />
       {/* pr-6 は Web シート右上の閉じるボタンと長いタイトルの重なりを避ける余白 */}
       <View className="flex-1 min-w-0 justify-center pr-6">
-        <Text
-          className="text-lg font-bold text-slate-900 dark:text-slate-100"
-          numberOfLines={3}
-        >
+        <Text className="text-lg font-bold text-foreground" numberOfLines={3}>
           {work.title}
         </Text>
         {work.titleEn ? (
-          <Text
-            className="mt-1 text-xs text-slate-500 dark:text-slate-400"
-            numberOfLines={2}
-          >
+          <Text className="mt-1 text-xs text-muted" numberOfLines={2}>
             {work.titleEn}
           </Text>
         ) : null}
@@ -76,9 +70,7 @@ export function WorkDetailHeader({
               />
             ) : null}
             {mediaLabel ? (
-              <Text className="text-xs text-slate-500 dark:text-slate-400">
-                {mediaLabel}
-              </Text>
+              <Text className="text-xs text-muted">{mediaLabel}</Text>
             ) : null}
           </View>
         ) : null}
@@ -117,9 +109,7 @@ function SeasonLinkChip({
 /** セクションの見出し（視聴ステータス・評価・話数で共有）。 */
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-      {children}
-    </Text>
+    <Text className="text-sm font-medium text-secondary mb-2">{children}</Text>
   );
 }
 
@@ -154,7 +144,7 @@ export function WorkDetailInfo({
           accessibilityLabel={t("詳細情報を再取得")}
           testID="work-detail-retry"
         >
-          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+          <Text className="text-xs font-semibold text-primary-text">
             {t("再試行")}
           </Text>
         </TouchableOpacity>
@@ -174,9 +164,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row justify-between gap-4">
       <Text className="text-xs text-muted">{label}</Text>
-      <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-        {value}
-      </Text>
+      <Text className="text-xs font-semibold text-secondary">{value}</Text>
     </View>
   );
 }
@@ -198,9 +186,7 @@ export function DetailLink({
       accessibilityLabel={label}
     >
       <Ionicons name="open-outline" size={13} color={color} />
-      <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-        {label}
-      </Text>
+      <Text className="text-xs font-semibold text-primary-text">{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -326,7 +312,7 @@ function CreditsSection({
           }
           testID="work-detail-credits-toggle"
         >
-          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+          <Text className="text-xs font-semibold text-primary-text">
             {expanded
               ? t("折りたたむ")
               : t("もっと見る（他{{count}}件）", { count: hiddenCount })}

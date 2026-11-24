@@ -75,14 +75,14 @@ export function CurrentSeasonConnectCard({
             </View>
           ))}
         </View>
-        <Text className="flex-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
+        <Text className="flex-1 text-sm leading-5 text-secondary">
           {t(description)}
         </Text>
       </View>
 
       {errorText && (
         <Text
-          className="mb-2 text-xs text-red-500 dark:text-red-400"
+          className="mb-2 text-xs text-danger"
           testID="current-season-connect-error"
         >
           {errorText}

@@ -90,7 +90,7 @@ export function AnnictConnectionStatusRow({
         testID={testID ?? "annict-connection-status"}
       >
         <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-        <Text className="ml-2 flex-1 text-sm text-green-700 dark:text-green-300">
+        <Text className="ml-2 flex-1 text-sm text-success">
           {t(connectedLabel)}
         </Text>
         {onShowDetails ? (
@@ -107,7 +107,7 @@ export function AnnictConnectionStatusRow({
     >
       <View className="flex-row items-center">
         <Ionicons name="link-outline" size={16} color={colors.primaryText} />
-        <Text className="ml-2 flex-1 text-sm text-slate-600 dark:text-slate-300">
+        <Text className="ml-2 flex-1 text-sm text-secondary">
           {t(unconnectedLabel)}
         </Text>
         <TouchableOpacity
@@ -129,7 +129,7 @@ export function AnnictConnectionStatusRow({
       </View>
       {errorText ? (
         <Text
-          className="mt-2 text-xs text-red-500 dark:text-red-400"
+          className="mt-2 text-xs text-danger"
           testID="annict-connection-status-error"
         >
           {errorText}

@@ -536,9 +536,7 @@ function StatusSection({
             >
               <Text
                 className={`text-xs font-medium ${
-                  currentState === s
-                    ? "text-indigo-600 dark:text-indigo-300"
-                    : "text-slate-500 dark:text-slate-400"
+                  currentState === s ? "text-primary-text" : "text-muted"
                 }`}
               >
                 {t(WATCH_STATUS_LABELS[s])}
@@ -551,7 +549,7 @@ function StatusSection({
         <SaveFeedbackText
           state={feedback}
           testID="status-save-feedback"
-          className="mt-2 text-xs text-slate-500 dark:text-slate-400"
+          className="mt-2 text-xs text-muted"
         />
       ) : null}
     </StatusSectionFrame>
@@ -676,11 +674,11 @@ function RatingSection({
         <SaveFeedbackText
           state={feedback.state}
           testID="work-rating-save-feedback"
-          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+          className="mb-2 text-xs text-muted"
         />
       ) : null}
       {showHint ? (
-        <Text className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+        <Text className="text-xs text-muted mb-2">
           {t("評価するとおすすめの精度が上がります")}
         </Text>
       ) : null}
@@ -699,7 +697,7 @@ function RatingSection({
             accessibilityLabel={t("評価を再取得")}
             testID="work-rating-retry"
           >
-            <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            <Text className="text-xs font-semibold text-primary-text">
               {t("再試行")}
             </Text>
           </TouchableOpacity>
@@ -725,9 +723,7 @@ function RatingSection({
             >
               <Text
                 className={`text-xs font-medium ${
-                  displayedRating === r
-                    ? "text-indigo-600 dark:text-indigo-300"
-                    : "text-slate-500 dark:text-slate-400"
+                  displayedRating === r ? "text-primary-text" : "text-muted"
                 }`}
               >
                 {t(WORK_RATING_LABELS[r])}
@@ -902,7 +898,7 @@ function EpisodeSection({
     <View>
       <SectionTitle>{t("話数")}</SectionTitle>
       {isWatched && nextEpisode != null ? (
-        <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+        <Text className="mb-2 text-xs text-muted">
           {t("視聴ステータスと話数の記録は別です。未記録の話を記録できます。")}
         </Text>
       ) : null}
@@ -910,7 +906,7 @@ function EpisodeSection({
         <SaveFeedbackText
           state={feedback.state}
           testID="episode-save-feedback"
-          className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+          className="mb-2 text-xs text-muted"
         />
       ) : null}
       <EpisodeNextRecordButton
@@ -949,7 +945,7 @@ function EpisodeSectionError({ onRetry }: { onRetry: () => void }) {
           accessibilityLabel={t("話数情報を再取得")}
           testID="episode-list-retry"
         >
-          <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+          <Text className="text-xs font-semibold text-primary-text">
             {t("再試行")}
           </Text>
         </TouchableOpacity>
@@ -975,9 +971,7 @@ function EpisodeNextRecordButton({
   return (
     <TouchableOpacity
       className={`mb-3 items-center rounded-lg py-2.5 ${
-        active
-          ? "bg-indigo-600 dark:bg-indigo-500"
-          : "bg-slate-200 dark:bg-slate-700"
+        active ? "bg-indigo-600" : "bg-slate-200 dark:bg-slate-700"
       }`}
       onPress={() => nextEpisode && onRecord(nextEpisode)}
       disabled={!active}
@@ -993,7 +987,7 @@ function EpisodeNextRecordButton({
     >
       <Text
         className={`text-xs font-semibold ${
-          active ? "text-white" : "text-slate-500 dark:text-slate-400"
+          active ? "text-white" : "text-secondary"
         }`}
       >
         {nextEpisode
@@ -1042,9 +1036,7 @@ function EpisodeCheckRow({
       <View className="flex-1 min-w-0 flex-row items-baseline gap-2">
         <Text
           className={`text-xs font-medium ${
-            episode.watched
-              ? "text-slate-700 dark:text-slate-200"
-              : "text-slate-500 dark:text-slate-400"
+            episode.watched ? "text-secondary" : "text-muted"
           }`}
         >
           {episodeLabel(episode, t)}
@@ -1095,7 +1087,7 @@ function ActionRow({
           size={16}
           color={isFavorite ? palette.favoriteIconActive : palette.favoriteIcon}
         />
-        <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-xs font-semibold text-secondary">
           {isFavorite ? t("推し登録を解除") : t("推しに登録")}
         </Text>
       </TouchableOpacity>

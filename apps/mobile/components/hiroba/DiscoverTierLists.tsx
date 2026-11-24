@@ -117,7 +117,7 @@ export function DiscoverTierLists() {
         </View>
       ) : list.isError && items.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="mb-4 text-center text-slate-500 dark:text-slate-400">
+          <Text className="mb-4 text-center text-muted">
             {t("公開 tier 表を取得できませんでした")}
           </Text>
           <TouchableOpacity
@@ -263,13 +263,10 @@ function PublicTierListCard({
             )}
           </View>
         ) : null}
-        <Text
-          className="text-sm font-medium text-slate-900 dark:text-slate-100"
-          numberOfLines={2}
-        >
+        <Text className="text-sm font-medium text-foreground" numberOfLines={2}>
           {item.title}
         </Text>
-        <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+        <Text className="mt-0.5 text-xs text-muted">
           {t(TIER_KIND_LABELS[item.kind])} ・ {item.owner.username} ・{" "}
           {t("{{count}} アイテム", { count: item.itemCount })}
         </Text>
@@ -302,9 +299,7 @@ function PublicTierListCard({
           />
           <Text
             className={`text-sm font-medium ${
-              item.likedByMe
-                ? "text-red-500 dark:text-red-400"
-                : "text-slate-500 dark:text-slate-400"
+              item.likedByMe ? "text-danger" : "text-muted"
             }`}
           >
             {item.likeCount}
@@ -319,9 +314,7 @@ function PublicTierListCard({
             testID={`tier-list-report-${item.kind}-${item.id}`}
           >
             <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
-            <Text className="text-xs text-slate-500 dark:text-slate-400">
-              {t("通報")}
-            </Text>
+            <Text className="text-xs text-muted">{t("通報")}</Text>
           </TouchableOpacity>
         ) : null}
       </View>

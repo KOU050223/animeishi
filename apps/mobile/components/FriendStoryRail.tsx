@@ -120,16 +120,13 @@ function StoryRing({
             style={styles.avatar}
             className="items-center justify-center bg-indigo-100 dark:bg-indigo-900"
           >
-            <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
+            <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
               {friend.actor.username.charAt(0)}
             </Text>
           </View>
         )}
       </View>
-      <Text
-        className="mt-1 text-xs text-slate-600 dark:text-slate-400"
-        numberOfLines={1}
-      >
+      <Text className="mt-1 text-xs text-muted" numberOfLines={1}>
         {friend.actor.username}
       </Text>
     </TouchableOpacity>

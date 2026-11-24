@@ -22,10 +22,10 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
       testID="scan-fallback"
     >
       <View className="w-full max-w-md items-center">
-        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 text-center">
+        <Text className="text-lg font-bold text-foreground text-center">
           {t("カメラで QR コードをスキャンできません")}
         </Text>
-        <Text className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
+        <Text className="mt-2 text-sm text-muted text-center">
           {reason === "denied"
             ? t("ブラウザでカメラの使用が許可されていません")
             : t(
@@ -49,7 +49,7 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
         ) : null}
 
         <View className="mt-8 self-stretch rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-          <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <Text className="text-sm font-semibold text-secondary">
             {t("ほかの方法で名刺を交換する")}
           </Text>
           <View className="mt-2 gap-2">
@@ -62,10 +62,7 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
               ),
               t("ひろばの「みつける」で相手の公開名刺を探す"),
             ].map((line) => (
-              <Text
-                key={line}
-                className="text-sm text-slate-500 dark:text-slate-400"
-              >
+              <Text key={line} className="text-sm text-muted">
                 {`・${line}`}
               </Text>
             ))}
@@ -83,7 +80,7 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
             testID="scan-fallback-hiroba"
           >
             <Ionicons name="search" size={15} color={colors.primaryText} />
-            <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-300">
+            <Text className="text-sm font-medium text-primary-text">
               {t("ひろばで名刺を探す")}
             </Text>
           </TouchableOpacity>

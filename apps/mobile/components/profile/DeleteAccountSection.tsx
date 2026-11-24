@@ -20,7 +20,7 @@ export function DeleteAccountSection() {
         accessibilityRole="button"
         accessibilityLabel={t("アカウントを削除")}
       >
-        <Text className="font-semibold text-red-600 dark:text-red-400">
+        <Text className="font-semibold text-danger">
           {t("アカウントを削除")}
         </Text>
       </TouchableOpacity>

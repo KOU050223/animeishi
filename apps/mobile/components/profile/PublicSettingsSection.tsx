@@ -30,7 +30,7 @@ export function PublicSettingsSection({
   const { t } = useTranslation();
   return (
     <View className="mt-8 px-4" testID="public-settings">
-      <Text className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="mb-3 text-base font-semibold text-foreground">
         {t("公開設定")}
       </Text>
       {items.map((item) => (
@@ -64,26 +64,18 @@ function VisibilityRow({
         testID={`visibility-${item.key}`}
       >
         <View className="mr-3 flex-1">
-          <Text className="font-medium text-slate-900 dark:text-slate-100">
-            {item.label}
-          </Text>
-          <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-            {item.description}
-          </Text>
+          <Text className="font-medium text-foreground">{item.label}</Text>
+          <Text className="mt-1 text-xs text-muted">{item.description}</Text>
         </View>
-        <Text className="text-indigo-600 dark:text-indigo-400">›</Text>
+        <Text className="text-primary-text">›</Text>
       </Pressable>
     );
   }
   return (
     <View className="mb-2 flex-row items-center rounded-xl bg-white dark:bg-slate-900 px-4 py-3">
       <View className="mr-3 flex-1">
-        <Text className="font-medium text-slate-900 dark:text-slate-100">
-          {item.label}
-        </Text>
-        <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-          {item.description}
-        </Text>
+        <Text className="font-medium text-foreground">{item.label}</Text>
+        <Text className="mt-1 text-xs text-muted">{item.description}</Text>
       </View>
       <Switch
         value={item.visibility === "public"}

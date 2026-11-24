@@ -332,7 +332,7 @@ export default function ProfileScreen() {
           <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
         ) : isError && !profile ? (
           <>
-            <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+            <Text className="mb-4 text-center text-danger">
               {t("プロフィールの取得に失敗しました")}
             </Text>
             <TouchableOpacity
@@ -365,7 +365,7 @@ export default function ProfileScreen() {
             </View>
 
             <View className="px-4">
-              <Text className="mb-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <Text className="mb-0.5 text-sm font-medium text-secondary">
                 {t("名刺プレビュー")}
               </Text>
               <ProfileMeishiHint />
@@ -476,7 +476,7 @@ export default function ProfileScreen() {
                 {uploadAvatar.isPending ? (
                   <ActivityIndicator color={colors.primaryText} />
                 ) : (
-                  <Text className="font-semibold text-indigo-600 dark:text-indigo-300">
+                  <Text className="font-semibold text-primary-text">
                     {t("プロフィール画像を変更")}
                   </Text>
                 )}
@@ -485,21 +485,21 @@ export default function ProfileScreen() {
 
             <View className="mt-6 gap-4 px-4">
               <View>
-                <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <Text className="mb-1 text-sm font-medium text-secondary">
                   {t("ユーザー名")}
                 </Text>
                 <Input
                   value={username}
                   onChangeText={setUsername}
                   placeholder={t("ユーザー名")}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
                   maxLength={20}
                   accessibilityLabel={t("ユーザー名入力")}
                 />
               </View>
 
               <View>
-                <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <Text className="mb-1 text-sm font-medium text-secondary">
                   {t("自己紹介")}
                 </Text>
                 <Input
@@ -508,21 +508,21 @@ export default function ProfileScreen() {
                   placeholder={t("自己紹介")}
                   multiline
                   numberOfLines={3}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
                   maxLength={500}
                   accessibilityLabel={t("自己紹介入力")}
                 />
               </View>
 
               <View>
-                <Text className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <Text className="mb-1 text-sm font-medium text-secondary">
                   {t("好きなセリフ")}
                 </Text>
                 <Input
                   value={favoriteQuote}
                   onChangeText={setFavoriteQuote}
                   placeholder={t("好きなセリフ")}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
                   maxLength={500}
                   accessibilityLabel={t("好きなセリフ入力")}
                 />
@@ -571,7 +571,7 @@ export default function ProfileScreen() {
             {/* パスキー登録（#181）。Web のみ。フラグ未対応環境ではセクション自体を出さない */}
             {featureFlags.passkey && (
               <View className="mt-8 px-4">
-                <Text className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <Text className="mb-2 text-sm font-medium text-secondary">
                   {t("セキュリティ")}
                 </Text>
                 <PasskeySection
@@ -780,8 +780,8 @@ export default function ProfileScreen() {
             <Text
               className={
                 toast.type === "success"
-                  ? "text-sm font-medium text-green-700 dark:text-green-300"
-                  : "text-sm font-medium text-red-600 dark:text-red-400"
+                  ? "text-sm font-medium text-success"
+                  : "text-sm font-medium text-danger"
               }
             >
               {toast.message}

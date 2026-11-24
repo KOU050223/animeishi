@@ -67,10 +67,7 @@ function ArticleScreen() {
       />
       {slug === null || detail.isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="article-not-found"
-          >
+          <Text className="text-center text-muted" testID="article-not-found">
             {t("この記事は表示できません")}
           </Text>
         </View>
@@ -168,7 +165,7 @@ function ArticleBody({
           />
         ) : null}
         <Text
-          className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100"
+          className="mt-4 text-2xl font-bold text-foreground"
           testID="article-title"
         >
           {title}

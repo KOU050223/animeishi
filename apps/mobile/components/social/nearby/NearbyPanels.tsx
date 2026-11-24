@@ -19,7 +19,7 @@ export function TapModeBanner() {
       testID="nearby-tap-mode-banner"
     >
       <Ionicons name="hand-left-outline" size={16} color={colors.primaryText} />
-      <Text className="flex-1 text-xs leading-4 text-slate-700 dark:text-slate-200">
+      <Text className="flex-1 text-xs leading-4 text-secondary">
         {t("この iPhone は距離を測れないため、近くの人をタップして交換します")}
       </Text>
     </View>
@@ -49,9 +49,7 @@ export function NearbyHintPanel({
     >
       <Text
         className={`text-center text-[17px] font-bold ${
-          landed
-            ? "text-emerald-700 dark:text-emerald-300"
-            : "text-slate-900 dark:text-slate-100"
+          landed ? "text-success-text" : "text-foreground"
         }`}
         accessibilityLiveRegion="polite"
         testID="nearby-title"
@@ -59,7 +57,7 @@ export function NearbyHintPanel({
         {title}
       </Text>
       {subtitle ? (
-        <Text className="mt-1.5 text-center text-[13px] leading-5 text-slate-500 dark:text-slate-400">
+        <Text className="mt-1.5 text-center text-[13px] leading-5 text-muted">
           {subtitle}
         </Text>
       ) : null}
@@ -82,7 +80,7 @@ export function NearbyNotices({
     <>
       {outcome ? (
         <Text
-          className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400"
+          className="mt-2 text-center text-xs text-muted"
           accessibilityRole="alert"
           testID="nearby-request-outcome"
         >
@@ -97,7 +95,7 @@ export function NearbyNotices({
       ) : null}
       {failed ? (
         <Text
-          className="mt-2 text-center text-xs text-red-600 dark:text-red-400"
+          className="mt-2 text-center text-xs text-danger"
           accessibilityRole="alert"
           testID="nearby-failure-notice"
         >
@@ -130,7 +128,7 @@ export function ShowQrLink({
       testID="nearby-show-qr"
     >
       <Ionicons name="qr-code-outline" size={16} color={colors.primaryText} />
-      <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+      <Text className="text-sm font-semibold text-primary-text">
         {t("QR で交換する")}
       </Text>
     </TouchableOpacity>

@@ -325,7 +325,7 @@ function GenerateView() {
       {/* スクリーンショットでも誰の QR か分かるよう名を添える
           （issue #595）。 */}
       <Text
-        className="mt-2 text-base font-semibold text-slate-900 dark:text-slate-100"
+        className="mt-2 text-base font-semibold text-foreground"
         testID="qr-owner-username"
       >
         {profile?.username ?? userId}
@@ -333,9 +333,7 @@ function GenerateView() {
       {/* 複数の名刺があるときは渡す 1 枚を選べる（issue #427 連携）。 */}
       {meishiCards.length > 1 ? (
         <View className="mt-3 self-stretch" testID="qr-meishi-picker">
-          <Text className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">
-            {t("渡す名刺")}
-          </Text>
+          <Text className="mb-1.5 text-xs text-muted">{t("渡す名刺")}</Text>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -361,9 +359,7 @@ function GenerateView() {
                 >
                   <Text
                     className={`text-xs font-medium ${
-                      active
-                        ? "text-white"
-                        : "text-slate-600 dark:text-slate-300"
+                      active ? "text-white" : "text-secondary"
                     }`}
                   >
                     {card.name}
@@ -419,7 +415,7 @@ function GenerateView() {
           </TouchableOpacity>
         </View>
       ) : null}
-      <Text className="text-slate-500 dark:text-slate-400 text-sm mt-6 text-center">
+      <Text className="text-muted text-sm mt-6 text-center">
         {t("この QR コードを相手に読み取ってもらうと")}
         {"\n"}
         {t("名刺を交換できます")}
@@ -434,7 +430,7 @@ function GenerateView() {
           accessibilityLabel={t("リンクを共有")}
           testID="qr-share-link"
         >
-          <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+          <Text className="text-xs text-primary-text font-medium">
             {t("リンクを共有")}
           </Text>
         </TouchableOpacity>
@@ -445,7 +441,7 @@ function GenerateView() {
           accessibilityLabel={t("リンクをコピー")}
           testID="qr-copy-link"
         >
-          <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+          <Text className="text-xs text-primary-text font-medium">
             {copied ? t("コピーしました") : t("リンクをコピー")}
           </Text>
         </TouchableOpacity>
@@ -457,7 +453,7 @@ function GenerateView() {
           accessibilityLabel={t("画像で保存")}
           testID="qr-save-image"
         >
-          <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+          <Text className="text-xs text-primary-text font-medium">
             {isSavingImage ? t("保存中...") : t("画像で保存")}
           </Text>
         </TouchableOpacity>

@@ -57,7 +57,7 @@ function GuestSignUpCtaBar({
       className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 pt-3 pb-3"
       testID="guest-cta"
     >
-      <Text className="text-xs text-slate-500 dark:text-slate-400 text-center mb-2">
+      <Text className="text-xs text-muted text-center mb-2">
         {t("登録すると {{username}} さんにフレンド申請できます", { username })}
       </Text>
       <TouchableOpacity

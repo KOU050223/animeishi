@@ -19,7 +19,7 @@ export function SocialLinksList({ links }: { links: SocialLink[] }) {
   if (!links.length) return null;
   return (
     <View className="w-full mt-5" testID="social-links-list">
-      <Text className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="mb-2 text-base font-semibold text-foreground">
         {t("SNS リンク")}
       </Text>
       <View className="gap-2">
@@ -34,10 +34,7 @@ export function SocialLinksList({ links }: { links: SocialLink[] }) {
             accessibilityLabel={`${socialLinkLabel(link.kind)} ${link.value}`}
           >
             <Ionicons name={icons[link.kind]} size={20} color="#6366f1" />
-            <Text
-              className="ml-3 flex-1 text-slate-900 dark:text-slate-100"
-              numberOfLines={1}
-            >
+            <Text className="ml-3 flex-1 text-foreground" numberOfLines={1}>
               {socialLinkLabel(link.kind)} · {link.value}
             </Text>
             <Ionicons name="open-outline" size={17} color="#64748b" />

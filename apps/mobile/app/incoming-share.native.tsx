@@ -135,10 +135,10 @@ export default function IncomingShareScreen() {
         edges={["top", "bottom"]}
       >
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 text-center">
+          <Text className="text-lg font-bold text-foreground text-center">
             {t("名刺を開けませんでした")}
           </Text>
-          <Text className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
+          <Text className="mt-2 text-sm text-muted text-center">
             {t("Animeishi の名刺 URL か、名刺 QR の画像を共有してください")}
           </Text>
           <TouchableOpacity
@@ -164,7 +164,7 @@ export default function IncomingShareScreen() {
         color={colors.primaryText}
         accessibilityLabel={t("名刺を開いています…")}
       />
-      <Text className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+      <Text className="mt-4 text-sm text-muted">
         {t("名刺を開いています…")}
       </Text>
     </View>

@@ -52,10 +52,10 @@ export function NearbyFallback({
             color={colors.primaryText}
           />
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <Text className="text-sm font-semibold text-foreground">
               {t("この iPhone は「近づけて交換」に対応していません")}
             </Text>
-            <Text className="mt-0.5 text-[13px] leading-5 text-slate-600 dark:text-slate-300">
+            <Text className="mt-0.5 text-[13px] leading-5 text-secondary">
               {t(
                 "UWB を搭載した iPhone（iPhone 11 以降。SE と 16e を除く）で使えます。いまは QR で交換しましょう。",
               )}
@@ -71,10 +71,10 @@ export function NearbyFallback({
               color={colors.textMuted}
             />
           </View>
-          <Text className="mt-3 text-center text-[17px] font-bold text-slate-900 dark:text-slate-100">
+          <Text className="mt-3 text-center text-[17px] font-bold text-foreground">
             {t("近くの iPhone を探す許可がオフです")}
           </Text>
-          <Text className="mt-1.5 text-center text-[13px] leading-5 text-slate-500 dark:text-slate-400">
+          <Text className="mt-1.5 text-center text-[13px] leading-5 text-muted">
             {t(
               "設定の「ローカルネットワーク」と「近くのデバイスとのやり取り」をオンにすると使えます。",
             )}
@@ -96,7 +96,7 @@ export function NearbyFallback({
               accessibilityRole="button"
               testID="nearby-fallback-show-qr"
             >
-              <Text className="font-semibold text-slate-900 dark:text-slate-100">
+              <Text className="font-semibold text-foreground">
                 {t("QR で交換")}
               </Text>
             </TouchableOpacity>
@@ -114,10 +114,10 @@ export function NearbyFallback({
           testID="nearby-fallback-qr"
         />
       </View>
-      <Text className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="mt-3 text-base font-semibold text-foreground">
         {username}
       </Text>
-      <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+      <Text className="mt-0.5 text-xs text-muted">
         {t("相手のカメラで読み取ってもらってください")}
       </Text>
       {reason === "unsupported" ? (
@@ -127,7 +127,7 @@ export function NearbyFallback({
           accessibilityRole="button"
           testID="nearby-fallback-show-qr"
         >
-          <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+          <Text className="text-sm font-semibold text-primary-text">
             {t("リンクの共有・画像で保存")}
           </Text>
           <Ionicons

@@ -106,7 +106,7 @@ export function FavoritesSection() {
   if (isError && !favorites) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
-        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
+        <Text className="text-danger text-center mb-4">
           {t("推しの取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -152,7 +152,7 @@ export function FavoritesSection() {
               {t("作品リスト")}
             </Text>
           </View>
-          <Text className="text-xs text-indigo-500 dark:text-indigo-400">
+          <Text className="text-xs text-primary-text">
             {t("テーマ別のリストを作って共有")}
           </Text>
         </TouchableOpacity>
@@ -163,7 +163,7 @@ export function FavoritesSection() {
           value={query}
           onChangeText={setQuery}
           placeholder={t("作品名で検索")}
-          className="mt-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
+          className="mt-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-foreground"
           accessibilityLabel={t("推しを検索")}
           clearButtonMode="while-editing"
         />
@@ -254,10 +254,7 @@ function FavoriteRow({
       >
         <WorkThumbnail uri={favorite.hostedImageUrl} title={favorite.title} />
         <View className="flex-1">
-          <Text
-            className="text-slate-900 dark:text-slate-100 font-medium"
-            numberOfLines={2}
-          >
+          <Text className="text-foreground font-medium" numberOfLines={2}>
             {favorite.title}
           </Text>
         </View>
@@ -271,9 +268,7 @@ function FavoriteRow({
           title: favorite.title,
         })}
       >
-        <Text className="text-xs text-red-500 dark:text-red-400">
-          {t("解除")}
-        </Text>
+        <Text className="text-xs text-danger">{t("解除")}</Text>
       </TouchableOpacity>
     </View>
   );

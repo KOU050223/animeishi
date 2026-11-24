@@ -26,7 +26,7 @@ export function NearbyTapList({
       className="self-stretch rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/95"
       testID="nearby-tap-list"
     >
-      <Text className="px-1 pb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+      <Text className="px-1 pb-1 text-xs font-semibold text-muted">
         {t("近くにいる人")}
       </Text>
       <FlatList
@@ -42,7 +42,7 @@ export function NearbyTapList({
               className="flex-row items-center gap-3 py-1.5"
               testID={`nearby-tap-peer-${peer.peerId}`}
             >
-              <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-500">
+              <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-600">
                 <Text className="text-sm font-bold text-white">
                   {peer.displayName.charAt(0).toUpperCase()}
                 </Text>
@@ -50,12 +50,12 @@ export function NearbyTapList({
               <View className="min-w-0 flex-1">
                 <Text
                   numberOfLines={1}
-                  className="text-[15px] font-semibold text-slate-900 dark:text-slate-100"
+                  className="text-[15px] font-semibold text-foreground"
                 >
                   {peer.displayName}
                 </Text>
                 {waiting ? (
-                  <Text className="text-xs text-slate-500 dark:text-slate-400">
+                  <Text className="text-xs text-muted">
                     {t("返事を待っています…")}
                   </Text>
                 ) : null}
@@ -70,7 +70,7 @@ export function NearbyTapList({
                   })}
                   testID={`nearby-tap-cancel-${peer.peerId}`}
                 >
-                  <Text className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+                  <Text className="text-[13px] font-semibold text-secondary">
                     {t("取り消す")}
                   </Text>
                 </TouchableOpacity>
@@ -90,7 +90,7 @@ export function NearbyTapList({
                 >
                   <Text
                     className={`text-[13px] font-semibold ${
-                      busy ? "text-muted" : "text-white"
+                      busy ? "text-secondary" : "text-white"
                     }`}
                   >
                     {t("交換する")}
@@ -127,18 +127,18 @@ export function NearbyRequestCard({
       testID="nearby-request-card"
     >
       <View className="w-full max-w-sm items-center rounded-3xl bg-white px-6 pb-5 pt-6 dark:bg-slate-800">
-        <View className="h-14 w-14 items-center justify-center rounded-full bg-indigo-500">
+        <View className="h-14 w-14 items-center justify-center rounded-full bg-indigo-600">
           <Text className="text-xl font-bold text-white">
             {name.charAt(0).toUpperCase()}
           </Text>
         </View>
         <Text
-          className="mt-3 text-center text-[17px] font-bold text-slate-900 dark:text-slate-100"
+          className="mt-3 text-center text-[17px] font-bold text-foreground"
           accessibilityRole="header"
         >
           {t("{{name}}さんと名刺を交換しますか？", { name })}
         </Text>
-        <Text className="mt-1.5 text-center text-[13px] leading-5 text-slate-500 dark:text-slate-400">
+        <Text className="mt-1.5 text-center text-[13px] leading-5 text-muted">
           {t("交換すると、お互いの名刺が相手に届きます")}
         </Text>
         <TouchableOpacity
@@ -155,7 +155,7 @@ export function NearbyRequestCard({
           accessibilityRole="button"
           testID="nearby-request-decline"
         >
-          <Text className="font-semibold text-slate-600 dark:text-slate-300">
+          <Text className="font-semibold text-secondary">
             {t("やめておく")}
           </Text>
         </TouchableOpacity>

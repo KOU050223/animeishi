@@ -72,10 +72,7 @@ function EventListScreen() {
         </View>
       ) : list.isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="event-list-error"
-          >
+          <Text className="text-center text-muted" testID="event-list-error">
             {t("イベントを読み込めませんでした")}
           </Text>
         </View>
@@ -143,7 +140,7 @@ function EventListRow({
             style={{ width: THUMB_WIDTH, height: THUMB_HEIGHT }}
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
-            <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+            <Text className="text-xs text-indigo-700 dark:text-indigo-300">
               {t("イベント")}
             </Text>
           </View>
@@ -153,7 +150,7 @@ function EventListRow({
         <View className="flex-row items-center gap-1">
           {ongoing ? (
             <Text
-              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+              className="text-xs font-semibold text-success-text"
               testID={`event-list-ongoing-${item.slug}`}
             >
               {t("開催中")}
@@ -161,17 +158,14 @@ function EventListRow({
           ) : null}
           {item.participating ? (
             <Text
-              className="text-xs font-semibold text-indigo-500 dark:text-indigo-300"
+              className="text-xs font-semibold text-primary-text"
               testID={`event-list-participating-${item.slug}`}
             >
               {t("参加予定")}
             </Text>
           ) : null}
         </View>
-        <Text
-          className="text-sm text-slate-800 dark:text-slate-200"
-          numberOfLines={2}
-        >
+        <Text className="text-sm text-foreground" numberOfLines={2}>
           {item.title}
         </Text>
         <Text className="text-xs text-muted" numberOfLines={1}>
