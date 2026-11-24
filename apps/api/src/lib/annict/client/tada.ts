@@ -8,8 +8,8 @@ import type {} from "../graphql-config";
 import { graphql } from "gql.tada";
 import type { ResultOf } from "gql.tada";
 
-// Annict GraphQL のクエリ文字列リテラルから、スキーマ由来の Result / Variables
-// 型を導くヘルパー（issue #734）。クエリは実行時に文字列のまま Annict へ送る
+// Annict GraphQL のクエリ文字列リテラルから、スキーマ由来の Result 型を
+// 導くヘルパー（issue #734）。クエリは実行時に文字列のまま Annict へ送る
 // ため、graphql() が返す DocumentNode は使わず型だけを使う。
 //
 // graphql() のオーバーロードは先頭が persisted cache 用シグネチャで、

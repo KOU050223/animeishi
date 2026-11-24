@@ -23,6 +23,7 @@
         "**/*.native.{ts,tsx,mts,cts}",
         "**/*.web.{ts,tsx,mts,cts}",
         "**/*.ios.{ts,tsx,mts,cts}",
+        "**/*.android.{ts,tsx,mts,cts}",
         // jest の @jest-environment pragma（*.test.ts の docblock）で参照される
         // カスタム環境。jest.config.cjs の設定値からは辿れない。
         "jest.jsdom-env.cjs"
