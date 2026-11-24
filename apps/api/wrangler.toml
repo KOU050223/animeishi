@@ -14,6 +14,8 @@ account_id = "996d4f5f54227fcc10dd15a2baee0a5b"
 # 1. MAL ID を持たない作品の AniList タイトル検索（issue #223）。
 # 2. 画像フォールバックの定期解決（annict_works の未解決行を直接回す。
 #    issue #127 までは Queues 経由だったが ops 上限に即達したため廃止）。
+# 3. 作品ジャンル・タグの取り込み（issue #346）。1・2 とは別の cron で回す
+#    （issue #783）。
 # 作品画像の R2 取り込みは cron ではなく GET /images/works/:id が表示時に行う。
 # cron は production env でのみ回す（issue #704）。
 [triggers]
@@ -120,7 +122,9 @@ PUBLIC_WEB_URL = "https://animeishi.uomi.dev"
 [env.production.triggers]
 # 10 分おきだと未解決行の棚卸しクエリが annict_works を全行スキャンし続け、
 # D1 無料枠の rows_read 上限に達したため 30 分おきに伸ばす（issue #704）。
-crons = ["*/30 * * * *"]
+# 2 本目はジャンル取り込み専用（src/index.ts の GENRE_FETCH_CRON と同じ文字列に
+# する）。他ジョブと実行を分けて 1 実行あたりの上限を食い合わない（issue #783）。
+crons = ["*/30 * * * *", "15,45 * * * *"]
 
 # version_metadata は env 間で継承されないため各 env にも定義する。
 [env.production.version_metadata]

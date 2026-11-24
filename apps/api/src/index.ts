@@ -10,6 +10,7 @@ import { registerOpenApiDocs } from "./lib/openapi";
 import { resolvePendingImageFallbacks } from "./lib/catalog/imageFallbackPending";
 import { resolveMissingMalIds } from "./lib/providers/kitsu/titleSearch";
 import { resolvePendingWorkGenres } from "./lib/catalog/workGenres";
+import { GENRE_FETCH_CRON } from "./cronSchedules";
 import {
   buildSentryOptions,
   handleError,
@@ -167,23 +168,26 @@ export default Sentry.withSentry((env) => buildSentryOptions(env), {
   // 先に MAL ID を持たない作品を Kitsu のタイトル検索で補い
   // （issue #223 / #227。AniList は Workers から 403 で拒否されるため
   // Kitsu を使う）、見つかった作品を同じ実行の画像フォールバック解決に
-  // 乗せる。runCronJob がジョブごとに例外を握り、失敗を Sentry と
-  // （連続失敗時は）Discord に送る（issue #233）。
-  scheduled(_controller, env, ctx) {
+  // 乗せる。ジャンル・タグの取り込み（issue #346）は別の cron で回す
+  // （GENRE_FETCH_CRON）。runCronJob がジョブごとに例外を握り、失敗を
+  // Sentry と（連続失敗時は）Discord に送る（issue #233）。
+  scheduled(controller, env, ctx) {
     const db = createDb(env.DB as D1Database);
+    if (controller.cron === GENRE_FETCH_CRON) {
+      ctx.waitUntil(
+        runCronJob(env, "genre_fetch", () =>
+          resolvePendingWorkGenres(db, undefined, {
+            malClientId: env.MAL_CLIENT_ID,
+          }),
+        ),
+      );
+      return;
+    }
     ctx.waitUntil(
       (async () => {
         await runCronJob(env, "mal_id_search", () => resolveMissingMalIds(db));
         await runCronJob(env, "image_fallback", () =>
           resolvePendingImageFallbacks(db, undefined, {
-            malClientId: env.MAL_CLIENT_ID,
-          }),
-        );
-        // ジャンル・タグの取り込み（issue #346）。mal_id_search が
-        // kitsu_anime_id / mal_anime_id を埋めた作品を同じ実行で拾えるよう
-        // 後続に置く。
-        await runCronJob(env, "genre_fetch", () =>
-          resolvePendingWorkGenres(db, undefined, {
             malClientId: env.MAL_CLIENT_ID,
           }),
         );

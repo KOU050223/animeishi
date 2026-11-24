@@ -40,6 +40,7 @@ vi.mock("@/lib/catalog/workGenres", async (importOriginal) => ({
 }));
 
 import handler from "@/index";
+import { GENRE_FETCH_CRON } from "@/cronSchedules";
 
 const WEBHOOK = "https://discord.com/api/webhooks/1/secret-token";
 const captureException = vi.mocked(Sentry.captureException);
@@ -61,7 +62,7 @@ type ScheduledEnv = Parameters<NonNullable<typeof handler.scheduled>>[1];
 
 // scheduled は waitUntil に非同期処理を積むだけなので、積まれた promise が
 // すべて終わるのを待ってから検証する。
-function runScheduled(env: object): Promise<unknown[]> {
+function runScheduled(env: object, cron = "*/30 * * * *"): Promise<unknown[]> {
   const pending: Promise<unknown>[] = [];
   const ctx = {
     waitUntil: vi.fn((p: Promise<unknown>) => {
@@ -72,7 +73,7 @@ function runScheduled(env: object): Promise<unknown[]> {
     // 必須メンバを満たさない最小スタブを使う。構造的に満たせないため as unknown as が必要。
   } as unknown as ExecutionContext;
   handler.scheduled(
-    { cron: "*/10 * * * *", scheduledTime: Date.now(), noRetry: vi.fn() },
+    { cron, scheduledTime: Date.now(), noRetry: vi.fn() },
     env as ScheduledEnv,
     ctx,
   );
@@ -155,12 +156,44 @@ describe("scheduled cron の失敗通知（issue #233）", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     await runScheduled(cronEnv(fakeKv()));
+    await runScheduled(cronEnv(fakeKv()), GENRE_FETCH_CRON);
 
     expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(1);
     expect(jobs.resolvePendingImageFallbacks).toHaveBeenCalledTimes(1);
     expect(jobs.resolvePendingWorkGenres).toHaveBeenCalledTimes(1);
     expect(captureException).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("genre_fetch は専用の cron でだけ回り、他ジョブと同じ実行に載らない（issue #783）", async () => {
+    await runScheduled(cronEnv(fakeKv()));
+
+    expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(1);
+    expect(jobs.resolvePendingImageFallbacks).toHaveBeenCalledTimes(1);
+    expect(jobs.resolvePendingWorkGenres).not.toHaveBeenCalled();
+
+    await runScheduled(cronEnv(fakeKv()), GENRE_FETCH_CRON);
+
+    expect(jobs.resolveMissingMalIds).toHaveBeenCalledTimes(1);
+    expect(jobs.resolvePendingImageFallbacks).toHaveBeenCalledTimes(1);
+    expect(jobs.resolvePendingWorkGenres).toHaveBeenCalledTimes(1);
+  });
+
+  it("genre_fetch の連続失敗も通知される", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const env = cronEnv(fakeKv());
+    jobs.resolvePendingWorkGenres.mockRejectedValue(new Error("d1 down"));
+
+    await runScheduled(env, GENRE_FETCH_CRON);
+    await runScheduled(env, GENRE_FETCH_CRON);
+
+    expect(captureException).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]![1]?.body as string).toContain(
+      "`cron:genre_fetch` が 2 回連続で失敗",
+    );
   });
 
   it("1 回の失敗は Sentry にだけ送り、もう片方のジョブは実行される", async () => {
