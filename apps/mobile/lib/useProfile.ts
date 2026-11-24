@@ -1,49 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferRequestType, InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import type { InferRequestType } from "hono/client";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { profileQueries, type ProfileResponse } from "@/lib/queries/profile";
 
-type ProfileResponse = InferResponseType<
-  (typeof apiClient.me.profile)["$get"],
-  200
->;
 export type Profile = ProfileResponse;
 
 export type ProfileUpdateInput = InferRequestType<
   (typeof apiClient.me.profile)["$put"]
 >["json"];
 
-export const PROFILE_QUERY_KEY = ["profile"] as const;
+export const PROFILE_QUERY_KEY = profileQueries.all;
 
-const profileQueryKey = (userId: string) =>
-  [...PROFILE_QUERY_KEY, userId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+const profileQueryKey = (userId: string) => profileQueries.key(userId);
 
 export function useProfile() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId ? profileQueryKey(userId) : PROFILE_QUERY_KEY,
+    ...profileQueries.me.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.profile.$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "プロフィールの取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -51,22 +28,11 @@ export function useProfile() {
  * 退会フロー（issue #426）で消えるデータの件数（GET /me/deletion-summary）。
  */
 export function useDeletionSummary() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: ["deletion-summary", userId],
+    ...profileQueries.deletionSummary.query({ userId }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["deletion-summary"].$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "削除対象データの取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -76,19 +42,18 @@ export function useDeletionSummary() {
  * しない前提のため、呼び出し側はエラーを握り潰して進めてよい。
  * 無効化するキャッシュを持たない書き込みなので useMutation ではなく
  * 素の関数で呼び、完了待ち・タイムアウトは呼び出し側が制御する。
+ * 引数の getToken は公開シグネチャ互換のために残し、トークン取得は
+ * apiFetch 側に委譲する。
  */
 export async function submitDeletionFeedback(
   getToken: () => Promise<string | null>,
   input: { reasons: string[]; freeText?: string },
 ): Promise<void> {
-  const headers = await getAuthHeaders(getToken);
-  const res = await apiClient.me["deletion-feedback"].$post(
+  void getToken;
+  await apiClient.me["deletion-feedback"].$post(
     { json: input },
-    { headers },
+    { fetch: apiFetch({ errorMessage: "回答の送信に失敗しました" }) },
   );
-  if (!res.ok) {
-    throw new ApiRequestError(res.status, "回答の送信に失敗しました");
-  }
 }
 
 /**
@@ -98,43 +63,49 @@ export async function submitDeletionFeedback(
  * 片付けて signOut まで行うこと（profile 画面の削除導線を参照）。
  */
 export function useDeleteAccount() {
-  const { getToken } = useAuth();
-
   return useMutation({
     mutationFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.$delete({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "アカウントの削除に失敗しました");
-      }
+      await apiClient.me.$delete(
+        {},
+        {
+          fetch: apiFetch({
+            errorMessage: "アカウントの削除に失敗しました",
+          }),
+        },
+      );
       return null;
     },
   });
 }
 
 export function useUpdateProfile() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: ProfileUpdateInput) => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.profile.$put({ json: input }, { headers });
-      if (!res.ok) {
-        // 400 はバリデーションの具体的な理由（「ユーザー名に使用できない
-        // 文字が含まれています」等）が {error} に入るので、そのまま画面へ
-        // 渡せるようエラーメッセージに載せる。
-        const body = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new ApiRequestError(
-          res.status,
-          body?.error ??
-            (res.status === 400
-              ? "入力内容に誤りがあります"
-              : "プロフィールの更新に失敗しました"),
-        );
-      }
+      const res = await apiClient.me.profile.$put(
+        { json: input },
+        {
+          // 400 はバリデーションの具体的な理由（「ユーザー名に使用できない
+          // 文字が含まれています」等）が {error} に入るので、標準の
+          // ApiRequestError 化ではなく応答 body の文言をそのまま画面へ渡す。
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              const body = (await errorRes.json().catch(() => null)) as {
+                error?: string;
+              } | null;
+              return new ApiRequestError(
+                errorRes.status,
+                body?.error ??
+                  (errorRes.status === 400
+                    ? "入力内容に誤りがあります"
+                    : "プロフィールの更新に失敗しました"),
+              );
+            },
+          }),
+        },
+      );
       return res.json();
     },
     onSuccess: () => {

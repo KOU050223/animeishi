@@ -18,6 +18,7 @@ import { setMockClerkState } from "../__mocks__/@clerk/expo";
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockWatchHistoryGet = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -30,6 +31,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 // useGenerateAnalysis は生成前に連携状態を見て履歴同期を挟む。
@@ -100,10 +102,9 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(ANALYSIS_BODY);
-    expect(mockGet).toHaveBeenCalledWith(
-      {},
-      { headers: { Authorization: "Bearer test-token" } },
-    );
+    // 認証ヘッダの組み立ては apiFetch に委譲されたため、呼び出し側は
+    // fetch オプションを渡すだけになる。
+    expect(mockGet).toHaveBeenCalledWith({}, { fetch: expect.any(Function) });
   });
 
   it("useAnalysis: 未サインインではクエリを実行しない", async () => {
@@ -118,7 +119,11 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   });
 
   it("useAnalysis: API エラーは ApiRequestError になる", async () => {
-    mockGet.mockResolvedValue({ ok: false, status: 500 });
+    // 実際のエラー変換は apiFetch 側で行われるため、apiClient の
+    // モックは変換後の ApiRequestError を reject する。
+    mockGet.mockRejectedValue(
+      new ApiRequestError(500, "分析結果の取得に失敗しました"),
+    );
 
     const { result } = await renderHook(() => useAnalysis(), {
       wrapper: createWrapper(client),
@@ -147,15 +152,13 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   });
 
   it("useGenerateAnalysis: 429 はサーバーのエラーメッセージを ApiRequestError に載せる", async () => {
-    mockPost.mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => ({
-        error:
-          "視聴傾向分析の実行回数が上限に達しました。しばらくしてから再度お試しください",
-        code: "generation_limit",
-      }),
-    });
+    // {error} の文言を拾う変換は apiFetch の onHttpError 側で行われる。
+    mockPost.mockRejectedValue(
+      new ApiRequestError(
+        429,
+        "視聴傾向分析の実行回数が上限に達しました。しばらくしてから再度お試しください",
+      ),
+    );
 
     const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),
@@ -193,15 +196,11 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     expect(mockWatchHistoryGet.mock.invocationCallOrder[0]).toBeLessThan(
       mockPost.mock.invocationCallOrder[0],
     );
-    // 同期 GET には Clerk JWT と Annict トークンの両方が載る。
+    // 同期 GET には apiFetch（Clerk JWT + Annict トークン付与）が渡される。
+    // ヘッダの中身は apiFetch 側の責務（lib/api.test.ts で検証）。
     expect(mockWatchHistoryGet).toHaveBeenCalledWith(
       {},
-      {
-        headers: {
-          Authorization: "Bearer test-token",
-          "X-Annict-Token": "annict-token",
-        },
-      },
+      { fetch: expect.any(Function) },
     );
   });
 
@@ -225,7 +224,12 @@ describe("useAnalysis / useGenerateAnalysis", () => {
   });
 
   it("useGenerateAnalysis: 履歴同期に失敗したら生成せずエラーになる", async () => {
-    mockWatchHistoryGet.mockResolvedValue({ ok: false, status: 502 });
+    mockWatchHistoryGet.mockRejectedValue(
+      new ApiRequestError(
+        502,
+        "視聴履歴の同期に失敗しました。時間をおいて再度お試しください",
+      ),
+    );
 
     const { result } = await renderHook(() => useGenerateAnalysis(), {
       wrapper: createWrapper(client),

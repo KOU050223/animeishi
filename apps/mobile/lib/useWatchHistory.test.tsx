@@ -158,11 +158,11 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
   it("更新が失敗したら楽観値をロールバックする", async () => {
     client.setQueryData(queryKey, seedHistory());
-    mockPut.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    // 実際のエラー変換は apiFetch 側で行われるため、apiClient の
+    // モックは変換後の ApiRequestError を reject する。
+    mockPut.mockRejectedValue(
+      new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
+    );
 
     const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
@@ -183,11 +183,14 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
   it("別作品への連続編集中に片方が失敗しても、もう片方の楽観表示を巻き戻さない", async () => {
     client.setQueryData(queryKey, seedHistory());
-    const resolvers: Array<(v: unknown) => void> = [];
+    const resolvers: Array<{
+      resolve: (v: unknown) => void;
+      reject: (e: unknown) => void;
+    }> = [];
     mockPut.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
 
@@ -207,7 +210,9 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
 
     // A 側だけ失敗させる → A だけロールバックし、B の楽観表示は維持される。
     await act(async () => {
-      resolvers[0]({ ok: false, status: 500, json: async () => ({}) });
+      resolvers[0].reject(
+        new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
+      );
     });
     await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHING"));
     expect(getStates(client)?.[1].state).toBe("WATCHED");
@@ -215,17 +220,20 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     // upsert はスコープで直列化されているため、B の PUT は A の settle 後に走る。
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1]({ ok: true, json: async () => ({}) });
+      resolvers[1].resolve({ ok: true, json: async () => ({}) });
     });
   });
 
   it("同じ作品に後続の更新が乗っている場合はロールバックしない", async () => {
     client.setQueryData(queryKey, seedHistory());
-    const resolvers: Array<(v: unknown) => void> = [];
+    const resolvers: Array<{
+      resolve: (v: unknown) => void;
+      reject: (e: unknown) => void;
+    }> = [];
     mockPut.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
 
@@ -241,7 +249,9 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
 
     await act(async () => {
-      resolvers[0]({ ok: false, status: 500, json: async () => ({}) });
+      resolvers[0].reject(
+        new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
+      );
     });
     // 1 回目の失敗で 2 回目の楽観値（ユーザーの最新の意図）を巻き戻さない。
     expect(getStates(client)?.[0].state).toBe("ON_HOLD");
@@ -249,17 +259,20 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     // スコープで直列化されているため、2 回目の PUT は 1 回目の settle 後に走る。
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1]({ ok: true, json: async () => ({}) });
+      resolvers[1].resolve({ ok: true, json: async () => ({}) });
     });
   });
 
   it("連続した更新はスコープにより直列で実行される", async () => {
     client.setQueryData(queryKey, seedHistory());
-    const resolvers: Array<(v: unknown) => void> = [];
+    const resolvers: Array<{
+      resolve: (v: unknown) => void;
+      reject: (e: unknown) => void;
+    }> = [];
     mockPut.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
 
@@ -277,18 +290,21 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(resolvers).toHaveLength(1));
 
     await act(async () => {
-      resolvers[0]({ ok: true, json: async () => ({}) });
+      resolvers[0].resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
   });
 
   it("他の更新が残っている間は再取得を保留する", async () => {
     client.setQueryData(queryKey, seedHistory());
-    const resolvers: Array<(v: unknown) => void> = [];
+    const resolvers: Array<{
+      resolve: (v: unknown) => void;
+      reject: (e: unknown) => void;
+    }> = [];
     mockPut.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
 
@@ -306,14 +322,14 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     // （再取得すると B の PUT 未反映の一覧でキャッシュが上書きされ、
     // B の楽観値が一瞬巻き戻る）。
     await act(async () => {
-      resolvers[0]({ ok: true, json: async () => ({}) });
+      resolvers[0].resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
     expect(client.getQueryState(queryKey)?.isInvalidated ?? false).toBe(false);
 
     // B が settle してキューが空になった時点で初めて無効化される。
     await act(async () => {
-      resolvers[1]({ ok: true, json: async () => ({}) });
+      resolvers[1].resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() =>
       expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true),
@@ -323,14 +339,14 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
   it("失敗応答の code を ApiRequestError に載せる", async () => {
     client.setQueryData(queryKey, seedHistory());
     // Annict トークン未登録の 401 応答（requireAnnictToken）を再現する。
-    mockPut.mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({
-        error: "Annict 連携が必要です",
-        code: "annict_token_required",
-      }),
-    });
+    // code の伝播は apiFetch が行うため、変換後の ApiRequestError を reject する。
+    mockPut.mockRejectedValue(
+      new ApiRequestError(
+        401,
+        "視聴履歴の更新に失敗しました",
+        "annict_token_required",
+      ),
+    );
 
     const { result } = await renderHook(() => useUpsertWatchHistory(), {
       wrapper: createWrapper(client),
@@ -446,11 +462,11 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
 
   it("削除が失敗したら消した行を元の位置に戻す", async () => {
     client.setQueryData(queryKey, seedHistory());
-    mockDelete.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    // 実際のエラー変換は apiFetch 側で行われるため、apiClient の
+    // モックは変換後の ApiRequestError を reject する。
+    mockDelete.mockRejectedValue(
+      new ApiRequestError(500, "視聴履歴の削除に失敗しました"),
+    );
 
     const { result } = await renderHook(() => useDeleteWatchHistory(), {
       wrapper: createWrapper(client),
@@ -471,17 +487,20 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
 
   it("upsert と同じスコープで直列化される（解除 → 再設定の順序を保つ）", async () => {
     client.setQueryData(queryKey, seedHistory());
-    const resolvers: Array<(v: unknown) => void> = [];
+    const resolvers: Array<{
+      resolve: (v: unknown) => void;
+      reject: (e: unknown) => void;
+    }> = [];
     mockDelete.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
     mockPut.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          resolvers.push(resolve);
+        new Promise((resolve, reject) => {
+          resolvers.push({ resolve, reject });
         }),
     );
 
@@ -505,7 +524,7 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(resolvers).toHaveLength(1));
 
     await act(async () => {
-      resolvers[0]({
+      resolvers[0].resolve({
         ok: true,
         headers: { get: () => "application/json" },
         json: async () => ({ success: true }),
@@ -513,18 +532,18 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1]({ ok: true, json: async () => ({}) });
+      resolvers[1].resolve({ ok: true, json: async () => ({}) });
     });
   });
 
   it("キャッシュに対象行が無くても失敗時は rolledBack=true が付く", async () => {
     // 一覧未取得のまま作品詳細シートから解除したケース。
     // 消した行が無いので巻き戻す必要がなく、表示は元のまま＝rolledBack=true。
-    mockDelete.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    // 実際のエラー変換は apiFetch 側で行われるため、apiClient の
+    // モックは変換後の ApiRequestError を reject する。
+    mockDelete.mockRejectedValue(
+      new ApiRequestError(500, "視聴履歴の削除に失敗しました"),
+    );
 
     const { result } = await renderHook(() => useDeleteWatchHistory(), {
       wrapper: createWrapper(client),

@@ -193,4 +193,24 @@ describe("apiFetch", () => {
     expect(error).toBeInstanceOf(ApiRequestError);
     expect((error as ApiRequestError).code).toBeUndefined();
   });
+
+  it("onHttpError を渡すと標準の ApiRequestError 化を差し替えられる", async () => {
+    loggedInUser();
+    setMockClerkState({ getToken: async () => "clerk_jwt" });
+    mockFetch.mockResolvedValue(
+      errorResponse(429, { error: "実行回数が上限です" }),
+    );
+
+    const error = await apiFetch({
+      onHttpError: async (res) => {
+        const body = (await res.json()) as { error?: string };
+        return new ApiRequestError(res.status, body.error ?? "フォールバック");
+      },
+    })("https://api.example.com/me/analysis").catch((e: unknown) => e);
+
+    // 429 の {error} 文言がそのまま伝わる（body 優先のエンドポイント用）。
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect((error as ApiRequestError).message).toBe("実行回数が上限です");
+  });
 });

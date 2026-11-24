@@ -4,65 +4,34 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import {
+  publicUserQueries,
+  type PublicUsersResponse,
+  type PublicUsersSort,
+} from "@/lib/queries/users";
 
 // 公開名刺の一覧（ひろば「みつける」タブ, issue #418）。公開条件は
 // 既存のプロフィール公開設定（users.is_public）を使う。sort ごとに
 // キャッシュを分け、先頭 2 要素の共通プレフィックスでブロック操作
 // からまとめて invalidate できるようにする（PUBLIC_WORK_LISTS_KEY と同じ）。
-export const PUBLIC_USERS_KEY = ["users", "public"] as const;
+export const PUBLIC_USERS_KEY = publicUserQueries.all;
 const publicUsersQueryKey = (sort: PublicUsersSort) =>
-  [...PUBLIC_USERS_KEY, sort] as const;
+  publicUserQueries.key(sort);
 
-export type PublicUsersSort = "likes" | "new";
-
-type PublicUsersResponse = InferResponseType<
-  (typeof apiClient)["users"]["public"]["$get"],
-  200
->;
-export type PublicUserItem = PublicUsersResponse["items"][number];
-
-const PUBLIC_LIST_PAGE_LIMIT = "20";
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export type { PublicUsersSort, PublicUserItem } from "@/lib/queries/users";
 
 /**
  * 公開名刺の一覧。カーソルページングの API のため useInfiniteQuery で取り、
  * nextCursor がある限り続きを読める（usePublicWorkLists と同じ構造）。
  */
 export function usePublicUsers(sort: PublicUsersSort) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useInfiniteQuery({
-    queryKey: publicUsersQueryKey(sort),
+    ...publicUserQueries.list.query({ sort }),
     enabled: !!isSignedIn,
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.users.public.$get(
-        {
-          query: {
-            sort,
-            limit: PUBLIC_LIST_PAGE_LIMIT,
-            ...(pageParam !== undefined ? { cursor: pageParam } : {}),
-          },
-        },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "公開名刺の取得に失敗しました");
-      }
-      return res.json();
-    },
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
 
@@ -71,32 +40,41 @@ export function usePublicUsers(sort: PublicUsersSort) {
  * 応答の likeCount・likedByMe を両ソートのキャッシュに反映する。
  */
 export function useToggleUserLike() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: { id: string; like: boolean }) => {
-      const headers = await getAuthHeaders(getToken);
       const param = { id: input.id };
+      // 流量制限ミドルウェアの 429 応答は OpenAPI 経由ではないので
+      // ルートの型に含まれない。{error} の文言を拾うため標準の
+      // ApiRequestError 化ではなく応答を見て組み立てる。
+      const fetcher = apiFetch({
+        onHttpError: async (res) => {
+          const status = res.status;
+          if (status === 429) {
+            const body = (await res.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            return new ApiRequestError(
+              status,
+              body?.error ?? "いいねの更新に失敗しました",
+            );
+          }
+          return new ApiRequestError(status, "いいねの更新に失敗しました");
+        },
+      });
       const res = input.like
-        ? await apiClient.users[":id"].like.$put({ param }, { headers })
-        : await apiClient.users[":id"].like.$delete({ param }, { headers });
-      if (!res.ok) {
-        // 流量制限ミドルウェアの 429 は OpenAPI 経由ではないのでルートの型に
-        // 含まれない。実行時には返るため number として比較する
-        const status = res.status as number;
-        if (status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new ApiRequestError(
-            status,
-            body?.error ?? "いいねの更新に失敗しました",
+        ? await apiClient.users[":id"].like.$put({ param }, { fetch: fetcher })
+        : await apiClient.users[":id"].like.$delete(
+            { param },
+            { fetch: fetcher },
           );
-        }
-        throw new ApiRequestError(status, "いいねの更新に失敗しました");
-      }
-      return res.json();
+      // apiFetch が !ok を排除済みなので、res.json() の union から
+      // 成功型に絞る（PUT/DELETE の応答形は likeCount・likedByMe で共通）。
+      return res.json() as Promise<{
+        likeCount: number;
+        likedByMe: boolean;
+      }>;
     },
     onSuccess: (data, input) => {
       for (const sort of ["likes", "new"] as const) {

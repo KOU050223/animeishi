@@ -11,19 +11,32 @@ export const apiClient = hc<AppType>(apiUrl);
 
 export type ApiFetchOptions = {
   /**
-   * !res.ok のとき ApiRequestError の message に使う文言。
-   * i18next 経由で解決されるため、en リソースに無いキーだと ja 文言が出る
-   * （型としては TranslationKey を要求するので、新しい文言は en.json に足す）。
-   */
-  errorMessage: TranslationKey;
-  /**
    * Annict 認可ヘッダ（X-Annict-Token）を付けるか。
    * 記録系・Annict 参照系のリクエストだけ true にする。既定では付けない
    * （サーバーがヘッダの有無で Annict 解決を分岐するため、不要なリクエストに
    * 付けると挙動が変わる）。
    */
   annict?: boolean;
-};
+} & (
+  | {
+      /**
+       * !res.ok のとき ApiRequestError の message に使う文言。
+       * i18next 経由で解決されるため、en リソースに無いキーだと ja 文言が出る
+       * （型としては TranslationKey を要求するので、新しい文言は en.json に足す）。
+       */
+      errorMessage: TranslationKey;
+      onHttpError?: undefined;
+    }
+  | {
+      errorMessage?: undefined;
+      /**
+       * 標準の ApiRequestError 化を使わず、呼び出し側が非 2xx 応答から
+       * エラーを組み立てる。応答 body の error 文言を優先する等、
+       * エラー契約が標準と異なるエンドポイント用。
+       */
+      onHttpError: (res: Response) => Promise<Error>;
+    }
+);
 
 /**
  * セッションの Clerk JWT を React の外から取得する。
@@ -62,7 +75,7 @@ async function clerkSessionToken(): Promise<string | null> {
  * セッション異常を Sentry で追えなくなるため。
  */
 export function apiFetch(options: ApiFetchOptions): typeof fetch {
-  const { errorMessage, annict = false } = options;
+  const { annict = false } = options;
   return async (input, init) => {
     const token = await clerkSessionToken();
     if (!token)
@@ -84,9 +97,10 @@ export function apiFetch(options: ApiFetchOptions): typeof fetch {
     }
     const res = await fetch(input, { ...init, headers });
     if (!res.ok) {
+      if (options.onHttpError) throw await options.onHttpError(res);
       throw new ApiRequestError(
         res.status,
-        i18next.t(errorMessage),
+        i18next.t(options.errorMessage),
         await readApiErrorCode(res),
       );
     }
