@@ -111,18 +111,18 @@ export function WatchHistoryShareSection() {
           {busy ? (
             <ActivityIndicator size="small" color={colors.primaryText} />
           ) : (
-            <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+            <Text className="text-xs text-primary-text font-medium">
               {t("AI に渡す URL を作る")}
             </Text>
           )}
         </TouchableOpacity>
       ) : (
         <View className="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
-          <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+          <Text className="text-xs text-muted mb-1">
             {t("AI に渡す URL（知っている人は誰でも履歴を読めます）")}
           </Text>
           <Text
-            className="text-xs text-slate-900 dark:text-slate-100 mb-2"
+            className="text-xs text-foreground mb-2"
             numberOfLines={1}
             testID="watch-history-share-url"
           >
@@ -136,7 +136,7 @@ export function WatchHistoryShareSection() {
               accessibilityLabel={t("共有 URL をコピー")}
               testID="watch-history-share-copy"
             >
-              <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+              <Text className="text-xs text-primary-text font-medium">
                 {copied ? t("コピーしました") : t("コピー")}
               </Text>
             </TouchableOpacity>
@@ -148,9 +148,7 @@ export function WatchHistoryShareSection() {
               accessibilityLabel={t("共有 URL を解除")}
               testID="watch-history-share-revoke"
             >
-              <Text className="text-xs text-red-500 dark:text-red-400">
-                {t("解除")}
-              </Text>
+              <Text className="text-xs text-danger">{t("解除")}</Text>
             </TouchableOpacity>
           </View>
         </View>

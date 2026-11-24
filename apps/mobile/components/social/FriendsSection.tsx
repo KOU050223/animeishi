@@ -126,7 +126,7 @@ export function FriendsSection() {
   if (isError && !friends) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
-        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
+        <Text className="text-danger text-center mb-4">
           {t("フレンド一覧の取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -182,7 +182,7 @@ export function FriendsSection() {
             testID="unread-thanks-banner"
             className="mb-2"
           >
-            <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-300">
+            <Text className="text-sm font-medium text-primary-text">
               {t("新しいお礼が {{count}} 件", { count: unreadThanksCount })}
             </Text>
           </TouchableOpacity>
@@ -302,11 +302,7 @@ function EventFilterChip({
           : "border-slate-200 dark:border-slate-700"
       }`}
     >
-      <Text
-        className={`text-xs ${
-          selected ? "text-white" : "text-slate-600 dark:text-slate-300"
-        }`}
-      >
+      <Text className={`text-xs ${selected ? "text-white" : "text-secondary"}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -388,9 +384,7 @@ function FriendCard({
           })}
           testID={`friend-remove-${friend.friendId}`}
         >
-          <Text className="text-xs text-red-500 dark:text-red-400">
-            {t("削除")}
-          </Text>
+          <Text className="text-xs text-danger">{t("削除")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -415,9 +409,7 @@ function FriendRequestGroup({
 }) {
   return (
     <View>
-      <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-        {label}
-      </Text>
+      <Text className="text-xs font-semibold text-muted mb-1">{label}</Text>
       {requests.map((request, index) => (
         <View key={request.id}>
           {index > 0 ? (
@@ -474,25 +466,20 @@ function FriendRequestRow({
           style={styles.avatarPlaceholder}
           className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
         >
-          <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
+          <Text className="text-indigo-700 dark:text-indigo-300 font-semibold">
             {request.username.charAt(0)}
           </Text>
         </View>
       )}
 
       <View className="flex-1">
-        <Text
-          className="text-slate-900 dark:text-slate-100 font-medium"
-          numberOfLines={1}
-        >
+        <Text className="text-foreground font-medium" numberOfLines={1}>
           {request.username}
         </Text>
-        <Text className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
-          {statusLabel}
-        </Text>
+        <Text className="text-xs text-primary-text mt-0.5">{statusLabel}</Text>
       </View>
 
-      <Text className="text-slate-300 dark:text-slate-600 text-lg">›</Text>
+      <Text className="text-muted text-lg">›</Text>
     </TouchableOpacity>
   );
 }

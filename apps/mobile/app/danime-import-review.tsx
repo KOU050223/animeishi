@@ -517,10 +517,10 @@ export default function DanimeImportReviewScreen() {
   if (doneResult) {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
-        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100">
+        <Text className="text-lg font-bold text-foreground">
           {t("登録結果")}
         </Text>
-        <Text className="text-sm text-slate-600 dark:text-slate-300 mt-3 text-center">
+        <Text className="text-sm text-secondary mt-3 text-center">
           {t("成功: {{succeeded}} 件 / 失敗・未処理: {{failed}} 件", {
             succeeded: doneResult.succeeded,
             failed: doneResult.failed,
@@ -532,14 +532,14 @@ export default function DanimeImportReviewScreen() {
           </Text>
         )}
         {doneResult.aborted && (
-          <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
+          <Text className="text-xs text-danger mt-2 text-center">
             {t(
               "Annict 連携が切れたため途中で中断されました。連携を確認して再度お試しください。",
             )}
           </Text>
         )}
         {doneResult.requestError && (
-          <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
+          <Text className="text-xs text-danger mt-2 text-center">
             {t(doneResult.requestError, {
               status: doneResult.requestErrorStatus,
             })}
@@ -551,7 +551,7 @@ export default function DanimeImportReviewScreen() {
           </View>
         )}
         {doneResult.episodeJobCreated === false && (
-          <Text className="text-xs text-amber-600 dark:text-amber-400 mt-3 text-center">
+          <Text className="text-xs text-amber-700 dark:text-amber-300 mt-3 text-center">
             {t(
               "実行中の話数記録ジョブがあるため、今回の話数は登録されませんでした。完了後にもう一度お試しください。",
             )}
@@ -576,7 +576,7 @@ export default function DanimeImportReviewScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <ActivityIndicator size="large" color={colors.primaryText} />
-        <Text className="text-sm text-slate-500 dark:text-slate-400 mt-4">
+        <Text className="text-sm text-muted mt-4">
           {t("Annict の作品と照合しています…")}
         </Text>
         <Text className="text-[11px] text-muted mt-2">
@@ -605,7 +605,7 @@ export default function DanimeImportReviewScreen() {
           accessibilityLabel={t("戻る")}
         />
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-sm text-red-500 dark:text-red-400 text-center">
+          <Text className="text-sm text-danger text-center">
             {t(danimeMatchErrorMessage(match.error) as TranslationKey)}
           </Text>
           <TouchableOpacity
@@ -633,17 +633,17 @@ export default function DanimeImportReviewScreen() {
           onPress={() => router.back()}
           accessibilityLabel={t("戻る")}
         />
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        <Text className="text-xl font-bold text-foreground">
           {t("インポート内容の確認")}
         </Text>
-        <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <Text className="text-xs text-muted mt-1">
           {t("{{total}} 件中 {{selected}} 件を登録します", {
             selected: checkedCount,
             total: rows.length,
           })}
         </Text>
         {episodeCount > 0 && (
-          <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <Text className="text-xs text-muted mt-1">
             {t(
               "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します",
               {
@@ -666,7 +666,7 @@ export default function DanimeImportReviewScreen() {
 
       <View className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
         {progress !== null && (
-          <Text className="text-xs text-slate-500 dark:text-slate-400 text-center mb-2">
+          <Text className="text-xs text-muted text-center mb-2">
             {t("登録中… {{done}} / {{total}}（{{seconds}} 秒経過）", {
               done: progress.done,
               total: progress.total,
@@ -675,7 +675,7 @@ export default function DanimeImportReviewScreen() {
           </Text>
         )}
         {bulk.isError && (
-          <Text className="text-xs text-red-500 dark:text-red-400 text-center mb-2">
+          <Text className="text-xs text-danger text-center mb-2">
             {t(bulk.error.message, { defaultValue: bulk.error.message })}
           </Text>
         )}
@@ -700,7 +700,15 @@ export default function DanimeImportReviewScreen() {
           {progress !== null || episodeJobPending ? (
             <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
-            <Text className="text-white font-semibold">
+            <Text
+              className={`font-semibold ${
+                (checkedCount > 0 || episodeWorks.length > 0) &&
+                progress === null &&
+                !episodeJobPending
+                  ? "text-white"
+                  : "text-foreground"
+              }`}
+            >
               {episodeCount > 0
                 ? t("Annict に登録")
                 : t("{{count}} 件を Annict に登録", { count: checkedCount })}
@@ -760,10 +768,7 @@ function ReviewRow({
         </TouchableOpacity>
 
         <View className="flex-1">
-          <Text
-            className="text-slate-900 dark:text-slate-100 font-medium"
-            numberOfLines={2}
-          >
+          <Text className="text-foreground font-medium" numberOfLines={2}>
             {item.title}
           </Text>
           <RowBadges
@@ -817,9 +822,7 @@ function RowBadges({
         {t("{{status}}に登録", { status: targetLabel })}
       </Text>
       {status === "exact" && selected !== null && (
-        <Text className="text-xs text-green-600 dark:text-green-400">
-          {t("自動マッチ")}
-        </Text>
+        <Text className="text-xs text-success">{t("自動マッチ")}</Text>
       )}
       {status === "none" && (
         <Text className="text-xs text-muted">
@@ -832,7 +835,7 @@ function RowBadges({
         </Text>
       )}
       {note !== null && (
-        <Text className="text-xs text-amber-600 dark:text-amber-400">
+        <Text className="text-xs text-amber-700 dark:text-amber-300">
           {noteText(note, t)}
         </Text>
       )}
@@ -861,10 +864,7 @@ function SelectedWork({
         height={42}
       />
       <View className="flex-1">
-        <Text
-          className="text-xs text-slate-600 dark:text-slate-300"
-          numberOfLines={2}
-        >
+        <Text className="text-xs text-secondary" numberOfLines={2}>
           → {work.title}
         </Text>
         {stateLabel !== null && (
@@ -911,15 +911,12 @@ function CandidatePicker({
               width={24}
               height={32}
             />
-            <Text
-              className="flex-1 text-xs text-slate-700 dark:text-slate-200"
-              numberOfLines={2}
-            >
+            <Text className="flex-1 text-xs text-secondary" numberOfLines={2}>
               {c.title}
               {c.seasonYear ? ` (${c.seasonYear})` : ""}
             </Text>
             {isSelected && (
-              <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-bold">
+              <Text className="text-xs text-primary-text font-bold">
                 {t("選択中")}
               </Text>
             )}

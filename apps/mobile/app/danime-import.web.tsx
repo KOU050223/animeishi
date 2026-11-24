@@ -118,7 +118,7 @@ export default function DanimeImportWebScreen() {
     return (
       <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8">
         <ActivityIndicator size="large" color={colors.primaryText} />
-        <Text className="text-sm text-slate-600 dark:text-slate-300 mt-4 text-center">
+        <Text className="text-sm text-secondary mt-4 text-center">
           {t("dアニメのタブから抽出結果を受け取っています…")}
         </Text>
         <Text className="text-xs text-muted mt-2 text-center">
@@ -127,9 +127,7 @@ export default function DanimeImportWebScreen() {
           )}
         </Text>
         {error && (
-          <Text className="text-xs text-red-500 dark:text-red-400 mt-2 text-center">
-            {error}
-          </Text>
+          <Text className="text-xs text-danger mt-2 text-center">{error}</Text>
         )}
         <TouchableOpacity
           className="mt-6 py-2"
@@ -137,9 +135,7 @@ export default function DanimeImportWebScreen() {
           accessibilityRole="button"
           accessibilityLabel={t("インポート画面へ戻る")}
         >
-          <Text className="text-slate-500 dark:text-slate-400">
-            {t("インポート画面へ戻る")}
-          </Text>
+          <Text className="text-muted">{t("インポート画面へ戻る")}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -183,15 +179,15 @@ export default function DanimeImportWebScreen() {
         <View className="mb-3">
           <DanimeEpisodeJobStatus />
         </View>
-        <Text className="text-xs text-slate-500 dark:text-slate-400 leading-5">
+        <Text className="text-xs text-muted leading-5">
           {t("Web 版ではブラウザのブックマークレットで履歴を抽出します。")}
         </Text>
 
         <View className="mt-5 bg-slate-50 dark:bg-slate-800 rounded-xl p-4">
-          <Text className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <Text className="text-sm font-semibold text-foreground">
             {t("手順")}
           </Text>
-          <Text className="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-5">
+          <Text className="text-xs text-secondary mt-2 leading-5">
             {t(
               "1. 下のリンクをブックマークバーへドラッグして登録（初回のみ）\n2. 「dアニメの履歴ページを開く」で dアニメストアを開いてログイン\n3. そのページで登録したブックマークをクリック\n　→ Animeishi のタブが開き、抽出結果が自動で転送されます",
             )}
@@ -255,7 +251,7 @@ export default function DanimeImportWebScreen() {
                 void navigator.clipboard?.writeText(bookmarklet);
               }}
             >
-              <Text className="text-[11px] text-indigo-500 dark:text-indigo-400 underline">
+              <Text className="text-[11px] text-primary-text underline">
                 {t("ブックマークレットをコピー")}
               </Text>
             </TouchableOpacity>
@@ -274,7 +270,7 @@ export default function DanimeImportWebScreen() {
         </View>
 
         <View className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-          <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <Text className="text-xs font-semibold text-muted">
             {t("うまくいかない場合（手動貼り付け）")}
           </Text>
           <Text className="text-[11px] text-muted mt-1 leading-4">
@@ -283,7 +279,7 @@ export default function DanimeImportWebScreen() {
             )}
           </Text>
           <Input
-            className="mt-3 border border-slate-300 dark:border-slate-600 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800"
+            className="mt-3 border border-slate-300 dark:border-slate-600 rounded-xl p-3 text-xs text-foreground bg-white dark:bg-slate-800"
             style={{ minHeight: 120, textAlignVertical: "top" }}
             multiline
             placeholder={t("抽出結果の JSON をここに貼り付け")}
@@ -291,11 +287,7 @@ export default function DanimeImportWebScreen() {
             onChangeText={setPasted}
             testID="danime-paste-input"
           />
-          {error && (
-            <Text className="text-xs text-red-500 dark:text-red-400 mt-2">
-              {error}
-            </Text>
-          )}
+          {error && <Text className="text-xs text-danger mt-2">{error}</Text>}
 
           <TouchableOpacity
             className={`mt-4 rounded-xl py-3 items-center ${
@@ -307,7 +299,11 @@ export default function DanimeImportWebScreen() {
             accessibilityLabel={t("レビューへ進む")}
             testID="danime-proceed-button"
           >
-            <Text className="text-white font-semibold">
+            <Text
+              className={`font-semibold ${
+                pasted.trim() ? "text-white" : "text-foreground"
+              }`}
+            >
               {t("レビューへ進む")}
             </Text>
           </TouchableOpacity>

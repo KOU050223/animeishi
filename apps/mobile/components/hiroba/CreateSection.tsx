@@ -28,8 +28,7 @@ const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
   season:
     "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
   character: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  custom:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  custom: "bg-emerald-100 text-success-text dark:bg-emerald-950",
 };
 
 /**
@@ -92,7 +91,7 @@ export function CreateSection() {
         paddingTop: 4,
       }}
     >
-      <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="text-base font-semibold text-foreground">
         {t("新しく作る")}
       </Text>
       <View className="mt-3 flex-row gap-3">
@@ -165,11 +164,11 @@ export function CreateSection() {
           <ActivityIndicator color={colors.textMuted} />
         </View>
       ) : mergedTierLists.isError ? (
-        <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-3 text-sm text-muted">
           {t("一覧を取得できませんでした")}
         </Text>
       ) : tierItems.length === 0 ? (
-        <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-3 text-sm text-muted">
           {t("まだありません。上のボタンから作れます")}
         </Text>
       ) : (
@@ -212,7 +211,7 @@ export function CreateSection() {
                 </Text>
               </View>
               <Text
-                className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100"
+                className="mt-2 text-sm font-medium text-foreground"
                 numberOfLines={2}
               >
                 {item.title}
@@ -242,11 +241,11 @@ export function CreateSection() {
           <ActivityIndicator color={colors.textMuted} />
         </View>
       ) : workLists.isError ? (
-        <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-3 text-sm text-muted">
           {t("一覧を取得できませんでした")}
         </Text>
       ) : (workLists.data ?? []).length === 0 ? (
-        <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-3 text-sm text-muted">
           {t("まだありません。「作品リスト」から作れます")}
         </Text>
       ) : (
@@ -274,7 +273,7 @@ export function CreateSection() {
               testID={`hiroba-work-list-item-${item.id}`}
             >
               <Text
-                className="text-sm font-medium text-slate-900 dark:text-slate-100"
+                className="text-sm font-medium text-foreground"
                 numberOfLines={2}
               >
                 {item.title}
@@ -312,8 +311,8 @@ const TILE_TINTS = {
   },
   emerald: {
     tile: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950",
-    label: "text-emerald-700 dark:text-emerald-300",
-    sub: "text-emerald-900/70 dark:text-emerald-200/70",
+    label: "text-success-text",
+    sub: "text-success-text",
   },
   amber: {
     tile: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950",
@@ -369,16 +368,14 @@ function RailHeader({
   const { t } = useTranslation();
   return (
     <View className="mt-8 flex-row items-baseline justify-between">
-      <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        {title}
-      </Text>
+      <Text className="text-base font-semibold text-foreground">{title}</Text>
       <TouchableOpacity
         onPress={onSeeAll}
         accessibilityRole="button"
         accessibilityLabel={t("{{title}}をすべて見る", { title })}
         testID={seeAllTestID}
       >
-        <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+        <Text className="text-sm font-medium text-primary-text">
           {t("すべて見る")}
         </Text>
       </TouchableOpacity>

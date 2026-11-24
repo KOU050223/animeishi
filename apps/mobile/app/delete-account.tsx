@@ -76,7 +76,7 @@ function ReasonStep({
   return (
     <View className="gap-4">
       <View>
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("よろしければ、退会の理由を教えてください")}
         </Text>
         <Text className="mt-1 text-xs text-muted">
@@ -105,7 +105,7 @@ function ReasonStep({
                 size={22}
                 color={selected ? colors.primaryText : colors.placeholder}
               />
-              <Text className="flex-1 text-slate-900 dark:text-slate-100">
+              <Text className="flex-1 text-foreground">
                 {reasonLabels[key]}
               </Text>
             </TouchableOpacity>
@@ -120,7 +120,7 @@ function ReasonStep({
         multiline
         numberOfLines={3}
         maxLength={500}
-        className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-slate-100"
+        className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
         accessibilityLabel={t("その他の理由を入力")}
       />
 
@@ -164,7 +164,7 @@ function SummaryStep({
   return (
     <View className="gap-4">
       <View>
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("削除されるデータ")}
         </Text>
         <Text className="mt-1 text-xs text-muted">
@@ -176,7 +176,7 @@ function SummaryStep({
         <ActivityIndicator size="large" color={colors.primaryText} />
       ) : isError || !rows ? (
         <View className="items-center gap-3 py-4">
-          <Text className="text-center text-red-500 dark:text-red-400">
+          <Text className="text-center text-danger">
             {t("削除対象データの取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -197,10 +197,8 @@ function SummaryStep({
                 i > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""
               }`}
             >
-              <Text className="text-slate-900 dark:text-slate-100">
-                {row.label}
-              </Text>
-              <Text className="text-sm text-slate-500 dark:text-slate-400">
+              <Text className="text-foreground">{row.label}</Text>
+              <Text className="text-sm text-muted">
                 {t("{{count}} 件", { count: row.count })}
               </Text>
             </View>
@@ -208,7 +206,7 @@ function SummaryStep({
         </View>
       )}
 
-      <Text className="text-xs text-red-500 dark:text-red-400">
+      <Text className="text-xs text-danger">
         {t("削除したデータは復元できません")}
       </Text>
 
@@ -238,14 +236,14 @@ function ConfirmStep({
   return (
     <View className="gap-4">
       <View>
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("最終確認")}
         </Text>
-        <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-1 text-sm text-muted">
           {t("本当にアカウントを削除しますか？この操作は取り消せません。")}
         </Text>
         {countsUnavailable && (
-          <Text className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          <Text className="mt-2 text-xs text-amber-700 dark:text-amber-300">
             {t("消えるデータの件数を確認できませんでした")}
           </Text>
         )}

@@ -98,14 +98,14 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
 
   return (
     <>
-      <Text className="text-slate-500 dark:text-slate-400 mb-6">
+      <Text className="text-muted mb-6">
         {t(
           "新しい端末からのサインインです。{{email}} に送信された認証コードを入力してください",
           { email },
         )}
       </Text>
       <Input
-        className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100 tracking-widest text-center"
+        className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground tracking-widest text-center"
         placeholder={t("認証コード")}
         value={code}
         onChangeText={setCode}
@@ -115,10 +115,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
       />
 
       {error && (
-        <Text
-          className="text-red-500 dark:text-red-400 text-sm mb-4"
-          testID="error-message"
-        >
+        <Text className="text-danger text-sm mb-4" testID="error-message">
           {error}
         </Text>
       )}
@@ -146,7 +143,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
         accessibilityRole="button"
         testID="resend-device-code-button"
       >
-        <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+        <Text className="text-sm text-primary-text">
           {t("認証コードを再送する")}
         </Text>
       </TouchableOpacity>
@@ -157,7 +154,7 @@ export function DeviceTrustCodeForm({ email, onSignedIn, onBack }: Props) {
         accessibilityRole="button"
         testID="back-to-credentials-button"
       >
-        <Text className="text-sm text-slate-500 dark:text-slate-400">
+        <Text className="text-sm text-muted">
           {t("メールアドレスを入力し直す")}
         </Text>
       </TouchableOpacity>

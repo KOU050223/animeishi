@@ -87,14 +87,14 @@ export function AnnictSoftGate({
       >
         <View className="flex-row items-start gap-2">
           <Ionicons name="link-outline" size={16} color={colors.primaryText} />
-          <Text className="flex-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
+          <Text className="flex-1 text-sm leading-5 text-secondary">
             {t(description)}
           </Text>
         </View>
 
         {errorText && (
           <Text
-            className="mt-2 text-xs text-red-500 dark:text-red-400"
+            className="mt-2 text-xs text-danger"
             testID="annict-soft-gate-error"
           >
             {errorText}
@@ -115,16 +115,16 @@ export function AnnictSoftGate({
         <Ionicons name="link-outline" size={28} color={colors.primaryText} />
       </View>
 
-      <Text className="mb-2 text-center text-lg font-bold text-slate-900 dark:text-slate-100">
+      <Text className="mb-2 text-center text-lg font-bold text-foreground">
         {t("Annict 連携が必要です")}
       </Text>
-      <Text className="mb-6 text-center text-sm leading-5 text-slate-500 dark:text-slate-400">
+      <Text className="mb-6 text-center text-sm leading-5 text-muted">
         {t(description)}
       </Text>
 
       {errorText && (
         <Text
-          className="mb-4 text-center text-sm text-red-500 dark:text-red-400"
+          className="mb-4 text-center text-sm text-danger"
           testID="annict-soft-gate-error"
         >
           {errorText}

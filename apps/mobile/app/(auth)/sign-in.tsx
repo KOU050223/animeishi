@@ -35,7 +35,7 @@ import { useThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 const INPUT_CLASS =
-  "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100";
+  "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground";
 
 // credentials: メールアドレスとパスワード / device-code: 新しい端末の確認コード
 // （Clerk の Device Trust。https://clerk.com/docs/guides/secure/device-trust）
@@ -171,11 +171,11 @@ export default function SignInScreen() {
         >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
           <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
-            <Text className="text-3xl font-bold text-center mb-8 text-slate-900 dark:text-slate-100">
+            <Text className="text-3xl font-bold text-center mb-8 text-foreground">
               {t("アニ名刺")}
             </Text>
 
-            <Text className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">
+            <Text className="text-xl font-semibold mb-6 text-foreground">
               {t("サインイン")}
             </Text>
 
@@ -219,14 +219,14 @@ export default function SignInScreen() {
                   className="self-end mb-4"
                   testID="forgot-password-link"
                 >
-                  <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+                  <Text className="text-sm text-primary-text">
                     {t("パスワードを忘れた場合")}
                   </Text>
                 </Link>
 
                 {error && (
                   <Text
-                    className="text-red-500 dark:text-red-400 text-sm mb-4"
+                    className="text-danger text-sm mb-4"
                     testID="error-message"
                   >
                     {error}
@@ -267,11 +267,11 @@ export default function SignInScreen() {
                 )}
 
                 <View className="flex-row justify-center">
-                  <Text className="text-slate-600 dark:text-slate-300">
+                  <Text className="text-secondary">
                     {t("アカウントをお持ちでない方は ")}
                   </Text>
                   <Link href="/(auth)/sign-up" testID="sign-up-link">
-                    <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                    <Text className="text-primary-text font-semibold">
                       {t("サインアップ")}
                     </Text>
                   </Link>

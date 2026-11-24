@@ -67,9 +67,7 @@ function QueuedCard({
           </Text>
         </View>
       )}
-      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-3">
-        {name}
-      </Text>
+      <Text className="text-xl font-bold text-foreground mt-3">{name}</Text>
     </View>
   );
 }

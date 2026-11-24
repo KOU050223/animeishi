@@ -86,34 +86,34 @@ export default function ChangelogScreen() {
             {t("最終更新:")} {lastUpdated}
           </Text>
 
-          <Text className="mt-8 text-base font-semibold text-slate-900 dark:text-slate-100">
+          <Text className="mt-8 text-base font-semibold text-foreground">
             {t("このアプリでできること")}
           </Text>
           <View className="mt-3 gap-4">
             {FEATURES.map((feature) => (
               <View key={feature.title}>
-                <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                <Text className="text-sm font-medium text-foreground">
                   {feature.title}
                 </Text>
-                <Text className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
+                <Text className="mt-1 text-sm leading-6 text-secondary">
                   {feature.description}
                 </Text>
               </View>
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
+          <Text className="mt-10 text-base font-semibold text-foreground">
             {t("更新情報")}
           </Text>
           <View className="mt-3 gap-5">
             {UPDATES.map((entry) => (
               <View key={`${entry.date}-${entry.title}`}>
                 <Text className="text-xs text-muted">{entry.date}</Text>
-                <Text className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <Text className="mt-1 text-sm font-medium text-foreground">
                   {entry.title}
                 </Text>
                 {entry.description ? (
-                  <Text className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
+                  <Text className="mt-1 text-sm leading-6 text-secondary">
                     {entry.description}
                   </Text>
                 ) : null}
@@ -121,7 +121,7 @@ export default function ChangelogScreen() {
             ))}
           </View>
 
-          <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
+          <Text className="mt-10 text-base font-semibold text-foreground">
             {t("今後追加したい機能")}
           </Text>
           <Text className="mt-1 text-xs text-muted">
@@ -146,10 +146,7 @@ function PlannedFeatureChip({ item }: { item: PlannedFeature }) {
         {item.title}
       </Text>
       {item.issue ? (
-        <Text className="text-xs text-indigo-400 dark:text-indigo-500">
-          {" "}
-          #{item.issue}
-        </Text>
+        <Text className="text-xs text-primary-text"> #{item.issue}</Text>
       ) : null}
     </>
   );

@@ -27,10 +27,10 @@ export function WorkListReportSheet({
       scrimAccessibilityLabel={t("通報をやめる")}
     >
       <View className="px-4 pb-8 pt-4">
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("この作品リストを通報")}
         </Text>
-        <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <Text className="mt-1 text-xs text-muted">
           {t("理由を選択してください。運営が内容を確認します。")}
         </Text>
         <View className="mt-4 gap-2">
@@ -44,9 +44,7 @@ export function WorkListReportSheet({
               accessibilityLabel={t("{{reason}}で通報", { reason: t(reason) })}
               testID={`work-list-report-reason-${reason}`}
             >
-              <Text className="text-slate-900 dark:text-slate-100">
-                {t(reason)}
-              </Text>
+              <Text className="text-foreground">{t(reason)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -56,9 +54,7 @@ export function WorkListReportSheet({
           accessibilityRole="button"
           accessibilityLabel={t("キャンセル")}
         >
-          <Text className="text-slate-500 dark:text-slate-400">
-            {t("キャンセル")}
-          </Text>
+          <Text className="text-muted">{t("キャンセル")}</Text>
         </TouchableOpacity>
       </View>
     </BottomSheet>

@@ -24,7 +24,7 @@ export function ArticleRail() {
   return (
     <View className="mt-8" testID="article-rail">
       <View className="mb-2 flex-row items-baseline justify-between">
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("特集記事")}
         </Text>
         {/* 一覧ページへの導線（issue #599）。レールは新着数件しか出さない
@@ -37,7 +37,7 @@ export function ArticleRail() {
           })}
           testID="article-rail-see-all"
         >
-          <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+          <Text className="text-sm font-medium text-primary-text">
             {t("すべて見る")}
           </Text>
         </TouchableOpacity>
@@ -95,16 +95,13 @@ function ArticleCard({
             style={{ width: CARD_WIDTH, height: IMAGE_HEIGHT }}
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
-            <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+            <Text className="text-xs text-indigo-700 dark:text-indigo-300">
               {t("特集")}
             </Text>
           </View>
         }
       />
-      <Text
-        className="mt-1 text-sm text-slate-800 dark:text-slate-200"
-        numberOfLines={2}
-      >
+      <Text className="mt-1 text-sm text-foreground" numberOfLines={2}>
         {item.title}
       </Text>
     </TouchableOpacity>

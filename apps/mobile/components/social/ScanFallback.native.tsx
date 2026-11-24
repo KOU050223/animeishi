@@ -9,7 +9,7 @@ export function ScanFallback({ reason, onRetry }: ScanFallbackProps) {
   const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center px-8">
-      <Text className="text-slate-600 dark:text-slate-300 text-center mb-4">
+      <Text className="text-secondary text-center mb-4">
         {reason === "denied"
           ? t("QR コードをスキャンするにはカメラの許可が必要です")
           : t("カメラを起動できませんでした")}

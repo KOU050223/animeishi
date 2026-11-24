@@ -33,7 +33,7 @@ export default function LandingPage() {
           </Text>
           <View className="flex-row items-center gap-5">
             <Link href="/(auth)/sign-in" testID="landing-sign-in-top">
-              <Text className="font-semibold text-slate-700 dark:text-slate-200">
+              <Text className="font-semibold text-secondary">
                 {t("サインイン")}
               </Text>
             </Link>
@@ -54,10 +54,10 @@ export default function LandingPage() {
                 {t("好きなアニメが、出会いのきっかけに")}
               </Text>
             </View>
-            <Text className="text-4xl font-black leading-tight text-slate-950 dark:text-white md:text-6xl">
+            <Text className="text-4xl font-black leading-tight text-foreground md:text-6xl">
               {t("好きの記録が、\nあなたの名刺になる。")}
             </Text>
-            <Text className="mt-5 max-w-xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+            <Text className="mt-5 max-w-xl text-lg leading-8 text-secondary">
               {t(
                 "観た作品も、推しへの熱も。アニメ好きのあなたらしさを形にして、次の出会いにつなげよう。",
               )}
@@ -80,14 +80,14 @@ export default function LandingPage() {
                   </Text>
                 </View>
               </Link>
-              <Text className="text-sm text-slate-500 dark:text-slate-400">
+              <Text className="text-sm text-muted">
                 {t("登録して、あなたの好きから始めよう")}
               </Text>
             </View>
           </View>
           <View className="w-full max-w-md flex-1 rounded-3xl border border-indigo-100 bg-white p-5 shadow-xl shadow-indigo-200/50 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30 md:p-7">
             <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-bold tracking-widest text-indigo-600 dark:text-indigo-300">
+              <Text className="text-sm font-bold tracking-widest text-primary-text">
                 ANIMEISHI / YOUR CARD
               </Text>
               <View className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
@@ -97,16 +97,16 @@ export default function LandingPage() {
                 <Text className="text-3xl">✦</Text>
               </View>
               <View>
-                <Text className="text-2xl font-extrabold text-slate-900 dark:text-white">
+                <Text className="text-2xl font-extrabold text-foreground">
                   {t("星乃 みなと")}
                 </Text>
-                <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <Text className="mt-1 text-sm text-muted">
                   {t("物語の余韻を語りたい人")}
                 </Text>
               </View>
             </View>
             <View className="mt-6 rounded-2xl bg-indigo-50 p-4 dark:bg-slate-800">
-              <Text className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">
+              <Text className="text-xs font-bold uppercase tracking-wider text-primary-text">
                 {t("最近の好き")}
               </Text>
               {sampleWorks.map((work, index) => (
@@ -114,11 +114,11 @@ export default function LandingPage() {
                   <View
                     className={`h-10 w-10 items-center justify-center rounded-lg ${index === 0 ? "bg-rose-200 dark:bg-rose-900" : index === 1 ? "bg-sky-200 dark:bg-sky-900" : "bg-amber-200 dark:bg-amber-900"}`}
                   >
-                    <Text className="font-bold text-slate-700 dark:text-slate-200">
+                    <Text className="font-bold text-secondary">
                       {index + 1}
                     </Text>
                   </View>
-                  <Text className="font-semibold text-slate-800 dark:text-slate-100">
+                  <Text className="font-semibold text-foreground">
                     {t(work)}
                   </Text>
                 </View>
@@ -126,10 +126,10 @@ export default function LandingPage() {
             </View>
             <View className="mt-5 flex-row items-center justify-between rounded-2xl border border-slate-100 p-4 dark:border-slate-700">
               <View>
-                <Text className="font-bold text-slate-800 dark:text-slate-100">
+                <Text className="font-bold text-foreground">
                   {t("名刺交換はこちら")}
                 </Text>
-                <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <Text className="mt-1 text-xs text-muted">
                   animeishi.uomi.dev/m/minato
                 </Text>
               </View>
@@ -144,10 +144,10 @@ export default function LandingPage() {
         </View>
 
         <View className="items-center py-12 md:py-16">
-          <Text className="text-sm font-bold tracking-widest text-indigo-600 dark:text-indigo-300">
+          <Text className="text-sm font-bold tracking-widest text-primary-text">
             {t("好きなものから、会話が広がる")}
           </Text>
-          <Text className="mt-3 text-center text-3xl font-extrabold text-slate-900 dark:text-white md:text-4xl">
+          <Text className="mt-3 text-center text-3xl font-extrabold text-foreground md:text-4xl">
             {t("アニ名刺でできる、3つのこと")}
           </Text>
           <View className="mt-10 w-full flex-col gap-5 md:flex-row">
@@ -169,14 +169,14 @@ export default function LandingPage() {
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-bold text-slate-900 dark:text-white">
+                  <Text className="font-bold text-foreground">
                     {t("アニ名刺を交換しました")}
                   </Text>
-                  <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <Text className="mt-1 text-xs text-muted">
                     {t("共通の好きが 4 作品")}
                   </Text>
                 </View>
-                <Text className="text-xl text-emerald-500">✓</Text>
+                <Text className="text-xl text-success-text">✓</Text>
               </View>
             </SceneCard>
             <SceneCard
@@ -195,9 +195,9 @@ export default function LandingPage() {
                     <View
                       className={`w-10 items-center justify-center ${index === 0 ? "bg-rose-300" : index === 1 ? "bg-amber-300" : "bg-sky-300"}`}
                     >
-                      <Text className="font-black text-slate-800">{tier}</Text>
+                      <Text className="font-black text-foreground">{tier}</Text>
                     </View>
-                    <Text className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">
+                    <Text className="px-3 py-2 font-semibold text-foreground">
                       {t(work)}
                     </Text>
                   </View>
@@ -212,10 +212,10 @@ export default function LandingPage() {
               )}
             >
               <View className="rounded-xl bg-white p-4 dark:bg-slate-800">
-                <Text className="text-xs font-bold text-indigo-600 dark:text-indigo-300">
+                <Text className="text-xs font-bold text-primary-text">
                   {t("今期の視聴記録")}
                 </Text>
-                <Text className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+                <Text className="mt-2 text-2xl font-black text-foreground">
                   12{" "}
                   <Text className="text-sm font-semibold">
                     {t("作品を視聴")}
@@ -224,7 +224,7 @@ export default function LandingPage() {
                 <View className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                   <View className="h-full w-3/4 rounded-full bg-indigo-500" />
                 </View>
-                <Text className="mt-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                <Text className="mt-3 text-xs leading-5 text-secondary">
                   {t(
                     "AIのひとこと：心の距離が縮まる物語に惹かれる傾向がありそう。",
                   )}
@@ -288,12 +288,10 @@ export default function LandingPage() {
 
         <View className="w-full flex-row flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-slate-200 py-8 dark:border-slate-800">
           <Link href="/terms">
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
-              {t("利用規約")}
-            </Text>
+            <Text className="text-sm text-muted">{t("利用規約")}</Text>
           </Link>
           <Link href="/privacy">
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
+            <Text className="text-sm text-muted">
               {t("プライバシーポリシー")}
             </Text>
           </Link>
@@ -320,13 +318,13 @@ function SceneCard({
 }) {
   return (
     <View className="flex-1 rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 md:p-6">
-      <Text className="text-xs font-black tracking-widest text-indigo-500">
+      <Text className="text-xs font-black tracking-widest text-primary-text">
         SCENE {number}
       </Text>
-      <Text className="mt-3 text-xl font-extrabold leading-7 text-slate-900 dark:text-white">
+      <Text className="mt-3 text-xl font-extrabold leading-7 text-foreground">
         {title}
       </Text>
-      <Text className="mt-3 min-h-20 leading-6 text-slate-600 dark:text-slate-300">
+      <Text className="mt-3 min-h-20 leading-6 text-secondary">
         {description}
       </Text>
       <View className="mt-5 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950">

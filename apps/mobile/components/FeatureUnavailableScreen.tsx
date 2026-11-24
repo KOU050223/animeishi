@@ -38,7 +38,7 @@ export function FeatureUnavailableScreen() {
           ),
         }}
       />
-      <Text className="text-center text-sm leading-5 text-slate-600 dark:text-slate-300">
+      <Text className="text-center text-sm leading-5 text-secondary">
         {t("この機能は現在利用できません。")}
       </Text>
       <TouchableOpacity

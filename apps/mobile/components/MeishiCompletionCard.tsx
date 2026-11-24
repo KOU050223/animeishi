@@ -71,7 +71,7 @@ export function MeishiCompletionCard() {
       className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950"
       testID="meishi-completion-card"
     >
-      <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="text-sm font-semibold text-foreground">
         {t("名刺を完成させよう（残り {{count}} ステップ：{{steps}}）", {
           count: missing.length,
           steps: remaining,

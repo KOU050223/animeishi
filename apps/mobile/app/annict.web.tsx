@@ -96,18 +96,18 @@ export default function AnnictCallbackScreen() {
   return (
     <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
       {phase.kind === "processing" && (
-        <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-lg font-semibold text-foreground">
           {t("連携中...")}
         </Text>
       )}
       {phase.kind === "success" && (
-        <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-lg font-semibold text-foreground">
           {t("Annict と連携しました")}
         </Text>
       )}
       {phase.kind === "error" && (
         <View className="items-center">
-          <Text className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4 text-center">
+          <Text className="text-lg font-semibold text-danger mb-4 text-center">
             {t(annictErrorKey(phase.reason))}
           </Text>
           <TouchableOpacity
@@ -116,7 +116,7 @@ export default function AnnictCallbackScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("キャンセル")}
           >
-            <Text className="text-slate-700 dark:text-slate-200 font-semibold">
+            <Text className="text-secondary font-semibold">
               {t("キャンセル")}
             </Text>
           </TouchableOpacity>

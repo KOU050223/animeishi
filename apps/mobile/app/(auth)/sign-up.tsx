@@ -228,17 +228,17 @@ export default function SignUpScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
-              <Text className="text-xl font-semibold mb-2 text-slate-800 dark:text-slate-100">
+              <Text className="text-xl font-semibold mb-2 text-foreground">
                 {t("メールを確認してください")}
               </Text>
-              <Text className="text-slate-500 dark:text-slate-400 mb-6">
+              <Text className="text-muted mb-6">
                 {t("{{email}} に送信された認証コードを入力してください", {
                   email,
                 })}
               </Text>
 
               <Input
-                className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center dark:text-slate-100"
+                className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base tracking-widest text-center text-foreground"
                 placeholder={t("認証コード")}
                 value={code}
                 onChangeText={setCode}
@@ -248,7 +248,7 @@ export default function SignUpScreen() {
 
               {error && (
                 <Text
-                  className="text-red-500 dark:text-red-400 text-sm mb-4"
+                  className="text-danger text-sm mb-4"
                   testID="error-message"
                 >
                   {error}
@@ -292,16 +292,16 @@ export default function SignUpScreen() {
         >
           {/* PC (Web) で横に間延びしないよう幅を制限し、md 以上はカード表示 */}
           <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
-            <Text className="text-3xl font-bold text-center mb-8 text-slate-900 dark:text-slate-100">
+            <Text className="text-3xl font-bold text-center mb-8 text-foreground">
               {t("アニ名刺")}
             </Text>
 
-            <Text className="text-xl font-semibold mb-6 text-slate-800 dark:text-slate-100">
+            <Text className="text-xl font-semibold mb-6 text-foreground">
               {t("アカウント作成")}
             </Text>
 
             <Input
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground"
               placeholder={t("メールアドレス")}
               value={email}
               onChangeText={setEmail}
@@ -312,7 +312,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground"
               placeholder={t("ユーザー名")}
               value={username}
               onChangeText={setUsername}
@@ -321,7 +321,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground"
               placeholder={t("パスワード（英字+数字、8文字以上）")}
               value={password}
               onChangeText={setPassword}
@@ -331,7 +331,7 @@ export default function SignUpScreen() {
             />
 
             <Input
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground"
               placeholder={t("パスワード（確認）")}
               value={passwordConfirmation}
               onChangeText={setPasswordConfirmation}
@@ -340,10 +340,7 @@ export default function SignUpScreen() {
             />
 
             {error && (
-              <Text
-                className="text-red-500 dark:text-red-400 text-sm mb-4"
-                testID="error-message"
-              >
+              <Text className="text-danger text-sm mb-4" testID="error-message">
                 {error}
               </Text>
             )}
@@ -384,28 +381,28 @@ export default function SignUpScreen() {
               </>
             )}
 
-            <Text className="text-center text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <Text className="text-center text-xs text-muted mb-2">
               {t("アカウントを作成することで、以下に同意したものとみなします")}
             </Text>
             <View className="flex-row justify-center gap-4 mb-4">
               <Link href="/terms" testID="terms-link">
-                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                <Text className="text-primary-text font-semibold">
                   {t("利用規約")}
                 </Text>
               </Link>
               <Link href="/privacy" testID="privacy-link">
-                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                <Text className="text-primary-text font-semibold">
                   {t("プライバシーポリシー")}
                 </Text>
               </Link>
             </View>
 
             <View className="flex-row justify-center">
-              <Text className="text-slate-600 dark:text-slate-300">
+              <Text className="text-secondary">
                 {t("すでにアカウントをお持ちの方は ")}
               </Text>
               <Link href="/(auth)/sign-in" testID="sign-in-link">
-                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                <Text className="text-primary-text font-semibold">
                   {t("サインイン")}
                 </Text>
               </Link>

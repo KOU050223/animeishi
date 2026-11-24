@@ -36,7 +36,7 @@ function NotFound() {
   return (
     <View className="flex-1 items-center justify-center px-8">
       <Text
-        className="text-center text-slate-500 dark:text-slate-400"
+        className="text-center text-muted"
         testID="public-work-list-not-found"
       >
         {t("この作品リストは表示できません")}
@@ -94,9 +94,7 @@ function LikeButton({
       />
       <Text
         className={`text-base font-medium ${
-          data.likedByMe
-            ? "text-red-500 dark:text-red-400"
-            : "text-slate-600 dark:text-slate-300"
+          data.likedByMe ? "text-danger" : "text-secondary"
         }`}
       >
         {data.likeCount}
@@ -122,9 +120,7 @@ function ReportButton({
       testID="public-work-list-report"
     >
       <Ionicons name="flag-outline" size={14} color={colors.textMuted} />
-      <Text className="text-xs text-slate-500 dark:text-slate-400">
-        {t("通報")}
-      </Text>
+      <Text className="text-xs text-muted">{t("通報")}</Text>
     </TouchableOpacity>
   );
 }
@@ -149,11 +145,9 @@ function DetailHeader({
   const { t } = useTranslation();
   return (
     <View className="pb-4 pt-4">
-      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">
-        {data.title}
-      </Text>
+      <Text className="text-xl font-bold text-foreground">{data.title}</Text>
       {data.description ? (
-        <Text className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">
+        <Text className="mt-1.5 text-sm text-secondary">
           {data.description}
         </Text>
       ) : null}
@@ -166,9 +160,7 @@ function DetailHeader({
         })}
         testID="public-work-list-owner"
       >
-        <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-          {data.owner.username}
-        </Text>
+        <Text className="text-sm text-primary-text">{data.owner.username}</Text>
       </TouchableOpacity>
       <View className="mt-3 flex-row items-center justify-between">
         <LikeButton
@@ -207,7 +199,7 @@ function WorkItemRow({
         height={56}
       />
       <Text
-        className="flex-1 text-sm font-medium text-slate-900 dark:text-slate-100"
+        className="flex-1 text-sm font-medium text-foreground"
         numberOfLines={2}
       >
         {item.title}

@@ -72,10 +72,7 @@ function ElectionListScreen() {
         </View>
       ) : list.isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="election-list-error"
-          >
+          <Text className="text-center text-muted" testID="election-list-error">
             {t("総選挙を読み込めませんでした")}
           </Text>
         </View>
@@ -143,7 +140,7 @@ function ElectionListRow({
             style={{ width: THUMB_WIDTH, height: THUMB_HEIGHT }}
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
-            <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+            <Text className="text-xs text-indigo-700 dark:text-indigo-300">
               {t("総選挙")}
             </Text>
           </View>
@@ -153,7 +150,7 @@ function ElectionListRow({
         <View className="flex-row items-center gap-1">
           {voting ? (
             <Text
-              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+              className="text-xs font-semibold text-success-text"
               testID={`election-list-voting-${item.slug}`}
             >
               {t("投票受付中")}
@@ -161,17 +158,14 @@ function ElectionListRow({
           ) : null}
           {item.voted ? (
             <Text
-              className="text-xs font-semibold text-indigo-500 dark:text-indigo-300"
+              className="text-xs font-semibold text-primary-text"
               testID={`election-list-voted-${item.slug}`}
             >
               {t("投票済み")}
             </Text>
           ) : null}
         </View>
-        <Text
-          className="text-sm text-slate-800 dark:text-slate-200"
-          numberOfLines={2}
-        >
+        <Text className="text-sm text-foreground" numberOfLines={2}>
           {item.title}
         </Text>
         <Text className="text-xs text-muted" numberOfLines={1}>

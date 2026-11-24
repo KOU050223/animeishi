@@ -143,7 +143,7 @@ export default function HomeScreen() {
               </View>
             )}
 
-            <Text className="mb-1 mt-6 text-base font-semibold text-slate-900 dark:text-slate-100">
+            <Text className="mb-1 mt-6 text-base font-semibold text-foreground">
               {t("フレンドの動き")}
             </Text>
           </View>

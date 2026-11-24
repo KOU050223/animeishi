@@ -394,7 +394,7 @@ export function WatchHistorySection() {
   if (isError && !histories) {
     return (
       <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">
-        <Text className="text-red-500 dark:text-red-400 text-center mb-4">
+        <Text className="text-danger text-center mb-4">
           {t("視聴履歴の取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -469,7 +469,7 @@ export function WatchHistorySection() {
                   accessibilityLabel={t("dアニメストアからインポート")}
                   testID="danime-import-button"
                 >
-                  <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+                  <Text className="text-xs text-primary-text font-medium">
                     {t("dアニメからインポート")}
                   </Text>
                 </TouchableOpacity>
@@ -611,7 +611,7 @@ export function WatchHistorySection() {
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
           >
-            <Text className="flex-1 text-sm text-white dark:text-slate-100">
+            <Text className="flex-1 text-sm text-white">
               {t("{{title}}を「{{state}}」に変更しました", {
                 title: statusToast.title,
                 state: statusToast.toLabel,
@@ -664,9 +664,7 @@ function SelectChip({
     >
       <Text
         className={`text-xs font-medium ${
-          selected
-            ? "text-indigo-600 dark:text-indigo-300"
-            : "text-slate-500 dark:text-slate-400"
+          selected ? "text-primary-text" : "text-muted"
         }`}
       >
         {label}
@@ -705,11 +703,11 @@ function FilterSheet({
       testID="watch-history-filter-sheet"
     >
       <View className="px-6 pt-6 pb-10">
-        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">
+        <Text className="text-lg font-bold text-foreground mb-5">
           {t("絞り込み")}
         </Text>
 
-        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-secondary mb-2">
           {t("放送年代")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-5">
@@ -738,7 +736,7 @@ function FilterSheet({
           ))}
         </View>
 
-        <Text className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+        <Text className="text-sm font-medium text-secondary mb-2">
           {t("視聴状態")}
         </Text>
         <View className="flex-row flex-wrap gap-2 mb-6">
@@ -765,9 +763,7 @@ function FilterSheet({
             accessibilityRole="button"
             accessibilityLabel={t("絞り込みをリセット")}
           >
-            <Text className="text-slate-600 dark:text-slate-300 font-medium">
-              {t("リセット")}
-            </Text>
+            <Text className="text-secondary font-medium">{t("リセット")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-1 bg-indigo-600 rounded-xl py-3 items-center"
@@ -852,10 +848,7 @@ function WatchHistoryRow({
           })}
           testID={`watch-history-detail-title-${history.annictWorkId}`}
         >
-          <Text
-            className="text-slate-900 dark:text-slate-100 font-medium"
-            numberOfLines={2}
-          >
+          <Text className="text-foreground font-medium" numberOfLines={2}>
             {history.title}
           </Text>
         </TouchableOpacity>
@@ -899,9 +892,7 @@ function WatchHistoryRow({
               title: history.title,
             })}
           >
-            <Text className="text-xs text-red-500 dark:text-red-400">
-              {t("削除")}
-            </Text>
+            <Text className="text-xs text-danger">{t("削除")}</Text>
           </TouchableOpacity>
         </View>
       </View>

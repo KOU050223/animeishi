@@ -28,8 +28,7 @@ const KIND_BADGE_STYLES: Record<MergedTierListItem["kind"], string> = {
   season:
     "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
   character: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  custom:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  custom: "bg-emerald-100 text-success-text dark:bg-emerald-950",
 };
 
 /**
@@ -142,7 +141,7 @@ export default function TierListsScreen() {
         }}
       />
       <View className="w-full max-w-2xl flex-1 self-center px-6 pb-4 pt-4">
-        <Text className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="mt-4 text-base font-semibold text-foreground">
           {t("新しく作る")}
         </Text>
         <View className="mt-3 gap-3">
@@ -181,10 +180,10 @@ export default function TierListsScreen() {
             accessibilityLabel={t("テーマを決めて自由に作る")}
             testID="tier-lists-create-custom"
           >
-            <Text className="text-base font-semibold text-emerald-700 dark:text-emerald-300">
+            <Text className="text-base font-semibold text-success-text">
               {t("テーマを決めて自由に作る")}
             </Text>
-            <Text className="mt-1 text-sm text-emerald-900/70 dark:text-emerald-200/70">
+            <Text className="mt-1 text-sm text-success-text">
               {t(
                 "「歴代で好きなアニメ」など好きなテーマで、作品を検索して追加します",
               )}
@@ -192,7 +191,7 @@ export default function TierListsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="mt-10 text-base font-semibold text-foreground">
           {t("作った Tier 表")}
         </Text>
         {lists.isLoading ? (
@@ -200,7 +199,7 @@ export default function TierListsScreen() {
             <ActivityIndicator color={colors.textMuted} />
           </View>
         ) : lists.isError ? (
-          <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          <Text className="mt-3 text-sm text-muted">
             {t("一覧を取得できませんでした")}
           </Text>
         ) : (
@@ -226,14 +225,14 @@ export default function TierListsScreen() {
                       {t(TIER_KIND_LABELS[item.kind])}
                     </Text>
                     <Text
-                      className="flex-1 text-base font-medium text-slate-900 dark:text-slate-100"
+                      className="flex-1 text-base font-medium text-foreground"
                       numberOfLines={1}
                     >
                       {item.title}
                     </Text>
                   </View>
                   {item.shared || item.isPublic ? (
-                    <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Text className="mt-0.5 text-xs text-muted">
                       {[
                         item.shared ? t("リンク共有中") : null,
                         item.isPublic ? t("ひろばに公開中") : null,
@@ -252,14 +251,14 @@ export default function TierListsScreen() {
                   testID={`tier-lists-delete-${item.key}`}
                   className="ml-3 rounded-md px-2 py-1"
                 >
-                  <Text className="text-sm font-medium text-red-500 dark:text-red-400">
+                  <Text className="text-sm font-medium text-danger">
                     {t("削除")}
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
             ListEmptyComponent={
-              <Text className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              <Text className="mt-3 text-sm text-muted">
                 {t("まだありません。上のボタンから作れます")}
               </Text>
             }

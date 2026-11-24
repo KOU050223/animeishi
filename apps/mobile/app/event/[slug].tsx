@@ -88,10 +88,7 @@ function EventScreen() {
       />
       {slug === null || detail.isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text
-            className="text-center text-slate-500 dark:text-slate-400"
-            testID="event-not-found"
-          >
+          <Text className="text-center text-muted" testID="event-not-found">
             {t("このイベントは表示できません")}
           </Text>
         </View>
@@ -175,24 +172,22 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
         ) : null}
         <View className="mt-4 flex-row items-center gap-2">
           {ongoing ? (
-            <Text className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <Text className="text-xs font-semibold text-success-text">
               {t("開催中")}
             </Text>
           ) : null}
           <Text
-            className="text-2xl font-bold text-slate-900 dark:text-slate-100"
+            className="text-2xl font-bold text-foreground"
             testID="event-title"
           >
             {event.title}
           </Text>
         </View>
-        <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <Text className="mt-1 text-sm text-muted">
           {formatEventPeriod(event.startsAt, event.endsAt, i18n.language)}
         </Text>
         {event.location ? (
-          <Text className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {event.location}
-          </Text>
+          <Text className="mt-1 text-sm text-muted">{event.location}</Text>
         ) : null}
         {event.officialUrl ? (
           <TouchableOpacity
@@ -201,7 +196,7 @@ function EventBody({ slug, event }: { slug: string; event: EventDetail }) {
             accessibilityLabel={t("公式サイトを開く")}
             testID="event-official-link"
           >
-            <Text className="mt-1 text-sm text-indigo-500 dark:text-indigo-300">
+            <Text className="mt-1 text-sm text-primary-text">
               {t("公式サイト")}
             </Text>
           </TouchableOpacity>
@@ -257,7 +252,7 @@ function ParticipationButton({
     return (
       <View className="mt-4 flex-row items-center gap-3">
         <View
-          className="rounded-lg bg-indigo-600 px-4 py-2 dark:bg-indigo-500"
+          className="rounded-lg bg-indigo-600 px-4 py-2"
           testID="event-participating-badge"
         >
           <Text className="font-semibold text-white">{t("参加予定")}</Text>
@@ -285,7 +280,7 @@ function ParticipationButton({
       <TouchableOpacity
         onPress={onParticipate}
         disabled={pending}
-        className="items-center rounded-lg bg-indigo-600 py-3 dark:bg-indigo-500"
+        className="items-center rounded-lg bg-indigo-600 py-3"
         accessibilityRole="button"
         accessibilityLabel={t("このイベントに参加する")}
         testID="event-participate"
@@ -330,7 +325,7 @@ function ParticipationVisibilityPicker({
   return (
     <View className="mt-4" testID="event-visibility">
       <View className="flex-row items-center gap-2">
-        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-sm font-semibold text-secondary">
           {t("参加の公開範囲")}
         </Text>
         {pending ? <ActivityIndicator size="small" /> : null}
@@ -503,9 +498,7 @@ function AttendeeSection({
   const { t } = useTranslation();
   return (
     <View {...(className !== undefined ? { className } : {})}>
-      <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
-        {title}
-      </Text>
+      <Text className="text-base font-semibold text-foreground">{title}</Text>
       {description ? (
         <Text className="mt-1 text-xs text-muted">{description}</Text>
       ) : null}
@@ -554,9 +547,7 @@ function LoadMoreButton({
       {fetching ? (
         <ActivityIndicator size="small" />
       ) : (
-        <Text className="text-sm text-indigo-500 dark:text-indigo-300">
-          {t("もっと見る")}
-        </Text>
+        <Text className="text-sm text-primary-text">{t("もっと見る")}</Text>
       )}
     </TouchableOpacity>
   );
@@ -572,7 +563,7 @@ function ExchangedFriends({ slug }: { slug: string }) {
 
   return (
     <View className="mt-6" testID="event-exchanged-friends">
-      <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="text-base font-semibold text-foreground">
         {t("このイベントで交換した名刺")}
       </Text>
       {exchanged.isError ? (
@@ -634,7 +625,7 @@ function AttendeeAvatar({
       style={{ width: size, height: size, borderRadius: size / 2 }}
       className="bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
     >
-      <Text className="text-indigo-500 dark:text-indigo-300 font-semibold">
+      <Text className="text-indigo-700 dark:text-indigo-300 font-semibold">
         {username.charAt(0)}
       </Text>
     </View>
@@ -672,10 +663,7 @@ function AttendeeRow({
         size={40}
       />
       <View className="flex-1">
-        <Text
-          className="text-slate-900 dark:text-slate-100 font-medium"
-          numberOfLines={1}
-        >
+        <Text className="text-foreground font-medium" numberOfLines={1}>
           {item.username}
         </Text>
         {item.favoriteQuote ? (
@@ -714,7 +702,7 @@ function ParticipantChip({
         size={48}
       />
       <Text
-        className="mt-1 text-xs text-slate-600 dark:text-slate-300 text-center"
+        className="mt-1 text-xs text-secondary text-center"
         numberOfLines={1}
       >
         {item.username}

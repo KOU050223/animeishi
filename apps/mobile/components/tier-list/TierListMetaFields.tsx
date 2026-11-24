@@ -42,14 +42,14 @@ export function TierListMetaFields({
         multiline
         numberOfLines={2}
         testID={`${testIDPrefix}-description`}
-        className="rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
+        className="rounded-lg border border-slate-300 p-3 text-base text-foreground dark:border-slate-600"
       />
       <View className="flex-row items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
         <View className="mr-3 flex-1">
-          <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          <Text className="text-sm font-medium text-foreground">
             {t("ひろばに公開する")}
           </Text>
-          <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <Text className="mt-0.5 text-xs text-muted">
             {isPublic
               ? t("公開中。ひろばの一覧に表示されます")
               : t("ひろばには表示されません")}
@@ -67,7 +67,7 @@ export function TierListMetaFields({
       {shareToken ? (
         // 「ひろばに公開する」とは別の設定なので、リンクを知っている人への
         // 公開範囲を一文で示す（issue #606）。
-        <Text className="text-xs text-slate-500 dark:text-slate-400">
+        <Text className="text-xs text-muted">
           {isPublic
             ? t(
                 "リンク共有中です。ひろばへの掲載とは別に、URL を知っている人も見られます",

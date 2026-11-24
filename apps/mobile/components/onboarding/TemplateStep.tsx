@@ -48,7 +48,7 @@ export function TemplateStep({
     <View>
       {error ? (
         <Text
-          className="mb-2 text-center text-sm text-red-500 dark:text-red-400"
+          className="mb-2 text-center text-sm text-danger"
           testID="onboarding-template-error"
         >
           {error}
@@ -95,7 +95,7 @@ export function TemplateStep({
             >
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name={tpl.icon} size={16} color={colors.textMuted} />
-                <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <Text className="text-sm font-semibold text-foreground">
                   {t(templateNameKeys[tpl.id] ?? "テンプレート")}
                 </Text>
               </View>

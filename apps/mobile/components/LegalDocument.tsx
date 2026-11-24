@@ -68,13 +68,13 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
 
           {sections.map(({ action, ...section }) => (
             <View key={section.heading} className="mt-8">
-              <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+              <Text className="text-base font-semibold text-foreground">
                 {section.heading}
               </Text>
               {section.paragraphs?.map((paragraph) => (
                 <Text
                   key={paragraph}
-                  className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300"
+                  className="mt-2 text-sm leading-6 text-secondary"
                 >
                   {paragraph}
                 </Text>
@@ -84,7 +84,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
                   {section.bullets.map((bullet) => (
                     <Text
                       key={bullet}
-                      className="text-sm leading-6 text-slate-700 dark:text-slate-300"
+                      className="text-sm leading-6 text-secondary"
                     >
                       ・{bullet}
                     </Text>
@@ -107,14 +107,12 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
 
           <View className="mt-12 flex-row justify-center gap-6 border-t border-slate-100 dark:border-slate-800 pt-6">
             <Link href="/privacy" testID="legal-privacy-link">
-              <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+              <Text className="text-sm text-primary-text">
                 {t("プライバシーポリシー")}
               </Text>
             </Link>
             <Link href="/terms" testID="legal-terms-link">
-              <Text className="text-sm text-indigo-600 dark:text-indigo-400">
-                {t("利用規約")}
-              </Text>
+              <Text className="text-sm text-primary-text">{t("利用規約")}</Text>
             </Link>
           </View>
         </View>

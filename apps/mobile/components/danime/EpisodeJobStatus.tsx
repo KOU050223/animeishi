@@ -24,10 +24,10 @@ export function DanimeEpisodeJobStatus({
       ? "sync-outline"
       : "checkmark-circle-outline";
   const textClass = failed
-    ? "text-red-600 dark:text-red-400"
+    ? "text-danger"
     : running
-      ? "text-indigo-600 dark:text-indigo-300"
-      : "text-green-600 dark:text-green-400";
+      ? "text-primary-text"
+      : "text-success";
   const iconColor = failed ? "#dc2626" : running ? "#4f46e5" : "#16a34a";
 
   return (

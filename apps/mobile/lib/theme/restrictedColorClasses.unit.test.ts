@@ -1,12 +1,16 @@
-// className 直書きの色クラスのうち、WCAG コントラスト基準（#723 監査）を
-// 満たさないものの再発を検出する（issue #808）。置き換え先は colors.ts の
-// トークンを global.css の @theme に登録した色クラス（text-muted 等）。
+// className 直書きの色クラスの再発を検出する（issue #808）。テキスト色は
+// colors.ts のトークンを global.css の @theme に登録した色クラス
+// （text-foreground / text-secondary / text-muted / text-primary-text /
+// text-danger / text-success / text-success-text 等）で指定する決まりで、
+// トークンで表せる色スケールの直書きは WCAG コントラスト基準（#723 監査）
+// 未達のシェードを選びがちなため丸ごと禁止する。
 // oxlint 1.89 は no-restricted-syntax 未実装のため、vitest でソースを
 // 走査して検出する。
 //
-// 基準は満たしているがまだ直書きのクラス（text-slate-500 dark:text-slate-400
-// 等）はここでは対象にしない。トークンへの置き換えは画面単位の PR で進める
-// （issue #808 参照）。
+// 直書きを許す色: トークンに対応するペアがないアクセント系
+// （amber / rose / purple / violet / yellow / blue / white / black と、
+// 着色面上でしか使わない indigo-100/200/300/700/800/900）。
+// これらを新規に使うときは背景とのコントラスト比を個別に確認すること。
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +19,7 @@ import { describe, expect, it } from "vitest";
 const APP_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 // テスト・モック・生成物は画面の実装ではないため対象外。
+// lib/theme/ はトークン定義で、色クラス名がコメントに出るだけなので除外する。
 const EXCLUDED_DIRS = new Set([
   "__mocks__",
   "__tests__",
@@ -23,6 +28,7 @@ const EXCLUDED_DIRS = new Set([
   "node_modules",
   "dist",
   "coverage",
+  "theme",
 ]);
 const SOURCE_FILE = /\.tsx?$/;
 const TEST_FILE = /\.(unit\.)?test\.tsx?$/;
@@ -47,49 +53,55 @@ function collectSourceFiles(dir: string): string[] {
   return files;
 }
 
-// className トークンを `:` で区切ると、末尾がユーティリティ・それ以前が
-// バリアント（dark:・md: 等）になる。`md:dark:text-slate-500` のように
-// dark: が先頭でない並びもありうるため、バリアント列をまとめて取って判定する。
+// utility は className トークン末尾のユーティリティ名にマッチする正規表現。
+// `md:dark:` のようにバリアントが何段あっても検出する。
 const FORBIDDEN = [
   {
-    label: "text-slate-400（dark: 指定なし）",
-    utility: "text-slate-400",
-    isViolation: (variants: string[]) => !variants.includes("dark"),
+    label: "ニュートラル系テキスト色の直書き",
+    utility: "text-(?:slate|gray|zinc|neutral|stone)-\\d+",
     reason:
-      "白背景でコントラスト比 2.56:1（本文基準 4.5:1 未満）。text-muted を使う",
+      "text-foreground / text-secondary / text-muted を使う（直書きは基準未達のシェードを選びやすい）",
   },
   {
-    label: "text-slate-500（dark: 指定あり）",
-    utility: "text-slate-500",
-    isViolation: (variants: string[]) => variants.includes("dark"),
+    label: "red 系テキスト色の直書き",
+    utility: "text-red-\\d+",
+    reason: "text-danger を使う",
+  },
+  {
+    label: "green 系テキスト色の直書き",
+    utility: "text-green-\\d+",
+    reason: "text-success を使う",
+  },
+  {
+    label: "emerald 系テキスト色の直書き",
+    utility: "text-emerald-\\d+",
+    reason: "text-success-text を使う",
+  },
+  {
+    label: "indigo-400/500/600 のテキスト直書き",
+    utility: "text-indigo-(?:400|500|600)",
     reason:
-      "暗色面でコントラスト比 3.75:1（本文基準 4.5:1 未満）。text-muted を使う",
+      "text-primary-text を使う（indigo-100/900 の着色面上では text-indigo-700 dark:text-indigo-300）",
   },
 ];
 
-describe("コントラスト基準を満たさない直書き色クラス", () => {
+describe("トークンで指定すべきテキスト色の直書き", () => {
   const files = collectSourceFiles(APP_ROOT);
 
-  it.each(FORBIDDEN)(
-    "$label を使わない",
-    ({ utility, isViolation, reason }) => {
-      const pattern = new RegExp(
-        `(?<![\\w-])((?:[\\w-]+:)*)${utility}(?![\\w-])`,
-        "g",
-      );
-      const violations: string[] = [];
-      for (const file of files) {
-        const lines = readFileSync(file, "utf8").split("\n");
-        lines.forEach((line, i) => {
-          for (const match of line.matchAll(pattern)) {
-            const variants = (match[1] ?? "").split(":").filter(Boolean);
-            if (isViolation(variants)) {
-              violations.push(`${path.relative(APP_ROOT, file)}:${i + 1}`);
-            }
-          }
-        });
-      }
-      expect(violations, `${reason}\n${violations.join("\n")}`).toEqual([]);
-    },
-  );
+  it.each(FORBIDDEN)("$label を使わない", ({ utility, reason }) => {
+    const pattern = new RegExp(
+      `(?<![\\w-])(?:[\\w-]+:)*${utility}(?![\\w-])`,
+      "g",
+    );
+    const violations: string[] = [];
+    for (const file of files) {
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (pattern.test(line)) {
+          violations.push(`${path.relative(APP_ROOT, file)}:${i + 1}`);
+        }
+      });
+    }
+    expect(violations, `${reason}\n${violations.join("\n")}`).toEqual([]);
+  });
 });

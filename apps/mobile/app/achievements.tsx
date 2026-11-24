@@ -73,7 +73,7 @@ export default function AchievementsScreen() {
         </View>
       ) : isError ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+          <Text className="mb-4 text-center text-danger">
             {t("実績の取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -87,7 +87,7 @@ export default function AchievementsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerClassName="pb-12">
-          <Text className="mx-4 mb-2 mt-4 text-xs text-slate-500 dark:text-slate-400">
+          <Text className="mx-4 mb-2 mt-4 text-xs text-muted">
             {t(
               "記録を続けるとバッジが増えます。獲得したバッジは名刺に置けます。",
             )}
@@ -97,7 +97,7 @@ export default function AchievementsScreen() {
             if (section.length === 0) return null;
             return (
               <View key={kind} className="mt-4">
-                <Text className="mx-4 mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <Text className="mx-4 mb-2 text-sm font-semibold text-secondary">
                   {kindSectionTitle(t, kind)}
                 </Text>
                 <View className="mx-4 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -160,9 +160,7 @@ function AchievementRow({
       <View className="flex-1">
         <Text
           className={`text-sm font-semibold ${
-            achievement.earned
-              ? "text-slate-900 dark:text-slate-100"
-              : "text-muted"
+            achievement.earned ? "text-foreground" : "text-muted"
           }`}
         >
           {name}
@@ -171,15 +169,12 @@ function AchievementRow({
           {achievementDescription(t, achievement.kind)}
         </Text>
         {achievement.work ? (
-          <Text
-            className="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
-            numberOfLines={1}
-          >
+          <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
             {achievement.work.title}
           </Text>
         ) : null}
         {!achievement.available ? (
-          <Text className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+          <Text className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
             {t("Annict と連携すると判定できます")}
           </Text>
         ) : null}
@@ -187,9 +182,7 @@ function AchievementRow({
       {achievement.progress.target != null ? (
         <Text
           className={`text-sm font-semibold ${
-            achievement.earned
-              ? "text-indigo-600 dark:text-indigo-300"
-              : "text-muted"
+            achievement.earned ? "text-primary-text" : "text-muted"
           }`}
         >
           {achievement.progress.current}/{achievement.progress.target}

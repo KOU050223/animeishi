@@ -103,21 +103,21 @@ function TierUrlShareModal({
           className="w-full max-w-sm gap-3 rounded-2xl bg-white dark:bg-slate-800 p-5"
           accessibilityViewIsModal
         >
-          <Text className="text-base font-bold text-slate-900 dark:text-slate-100">
+          <Text className="text-base font-bold text-foreground">
             {t("Tier 表を共有")}
           </Text>
           <Text
             selectable
-            className="rounded bg-slate-100 dark:bg-slate-700 p-2 text-xs text-slate-700 dark:text-slate-200"
+            className="rounded bg-slate-100 dark:bg-slate-700 p-2 text-xs text-secondary"
           >
             {url}
           </Text>
           <Pressable
             onPress={handleShareX}
-            className="items-center rounded-lg bg-slate-900 dark:bg-slate-100 px-4 py-2.5"
+            className="items-center rounded-lg bg-foreground px-4 py-2.5"
             accessibilityRole="button"
           >
-            <Text className="text-sm font-semibold text-white dark:text-slate-900">
+            <Text className="text-sm font-semibold text-background">
               {t("Xで共有")}
             </Text>
           </Pressable>
@@ -126,19 +126,19 @@ function TierUrlShareModal({
             className="items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5"
             accessibilityRole="button"
           >
-            <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <Text className="text-sm font-semibold text-foreground">
               {copied ? t("コピーしました") : t("URLをコピー")}
             </Text>
           </Pressable>
           {copyFailed && (
-            <Text className="text-xs text-red-600 dark:text-red-400">
+            <Text className="text-xs text-danger">
               {t("コピーに失敗しました。URL を選択してコピーしてください。")}
             </Text>
           )}
           {generateImageFile &&
             (imagePhase === "ready" && imageFile ? (
               <>
-                <Text className="text-xs text-slate-500 dark:text-slate-400">
+                <Text className="text-xs text-muted">
                   {shareable
                     ? t(
                         "画像を生成しました。共有またはダウンロードで保存できます。",
@@ -148,10 +148,10 @@ function TierUrlShareModal({
                 {shareable && (
                   <Pressable
                     onPress={() => void handleShareImage()}
-                    className="items-center rounded-lg bg-slate-900 dark:bg-slate-100 px-4 py-2.5"
+                    className="items-center rounded-lg bg-foreground px-4 py-2.5"
                     accessibilityRole="button"
                   >
-                    <Text className="text-sm font-semibold text-white dark:text-slate-900">
+                    <Text className="text-sm font-semibold text-background">
                       {t("画像を共有")}
                     </Text>
                   </Pressable>
@@ -161,7 +161,7 @@ function TierUrlShareModal({
                   className="items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5"
                   accessibilityRole="button"
                 >
-                  <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <Text className="text-sm font-semibold text-foreground">
                     {t("画像をダウンロード")}
                   </Text>
                 </Pressable>
@@ -173,7 +173,7 @@ function TierUrlShareModal({
                 className={`items-center rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5${imagePhase === "generating" ? " opacity-50" : ""}`}
                 accessibilityRole="button"
               >
-                <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <Text className="text-sm font-semibold text-foreground">
                   {imagePhase === "generating"
                     ? t("画像を生成中…")
                     : t("画像を生成")}
@@ -181,18 +181,14 @@ function TierUrlShareModal({
               </Pressable>
             ))}
           {imageError && (
-            <Text className="text-xs text-red-600 dark:text-red-400">
-              {imageError}
-            </Text>
+            <Text className="text-xs text-danger">{imageError}</Text>
           )}
           <Pressable
             onPress={onClose}
             className="items-center px-4 py-2"
             accessibilityRole="button"
           >
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
-              {t("閉じる")}
-            </Text>
+            <Text className="text-sm text-muted">{t("閉じる")}</Text>
           </Pressable>
         </View>
       </View>
@@ -227,7 +223,7 @@ export const useTierUrlShare: UseTierUrlShare = ({
           <View className="flex-1 items-center justify-center bg-black/50 dark:bg-black/70 px-6">
             <View className="w-full max-w-sm items-center gap-3 rounded-2xl bg-white dark:bg-slate-800 p-5">
               <ActivityIndicator />
-              <Text className="text-sm text-slate-900 dark:text-slate-100">
+              <Text className="text-sm text-foreground">
                 {t("共有リンクを準備中…")}
               </Text>
             </View>

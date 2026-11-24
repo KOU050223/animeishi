@@ -69,17 +69,13 @@ export default function NearbyStagePreviewScreen() {
             accessibilityRole="button"
             testID={`nearby-stage-step-${i}`}
           >
-            <Text
-              className={
-                i === step ? "text-white" : "text-slate-700 dark:text-slate-200"
-              }
-            >
+            <Text className={i === step ? "text-white" : "text-secondary"}>
               {s.label}
             </Text>
           </TouchableOpacity>
         ))}
         <TouchableOpacity
-          className="rounded-full bg-emerald-600 px-3 py-1.5"
+          className="rounded-full bg-emerald-700 px-3 py-1.5"
           onPress={() => setReceived(true)}
           accessibilityRole="button"
           testID="nearby-stage-receive"

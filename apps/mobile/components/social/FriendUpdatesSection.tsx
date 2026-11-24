@@ -44,10 +44,10 @@ export function FriendUpdatesSection({ uid }: { uid: string }) {
     // （ExchangeRecordSection と同じ扱い）。
     return (
       <View className="mt-6 w-full self-start" testID="friend-updates-section">
-        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-sm font-semibold text-secondary">
           {t("最近")}
         </Text>
-        <Text className="text-xs text-red-500 dark:text-red-400 mt-1">
+        <Text className="text-xs text-danger mt-1">
           {t("近況の取得に失敗しました")}
         </Text>
         <TouchableOpacity
@@ -56,9 +56,7 @@ export function FriendUpdatesSection({ uid }: { uid: string }) {
           accessibilityLabel={t("近況を再読み込み")}
           className="mt-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5"
         >
-          <Text className="text-xs text-slate-600 dark:text-slate-300">
-            {t("再試行")}
-          </Text>
+          <Text className="text-xs text-secondary">{t("再試行")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -70,9 +68,7 @@ export function FriendUpdatesSection({ uid }: { uid: string }) {
 
   return (
     <View className="mt-6 w-full self-start" testID="friend-updates-section">
-      <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-        {t("最近")}
-      </Text>
+      <Text className="text-sm font-semibold text-secondary">{t("最近")}</Text>
       <View className="mt-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2">
         {items.map((item, index) => (
           <View
@@ -84,7 +80,7 @@ export function FriendUpdatesSection({ uid }: { uid: string }) {
             }
             testID={`friend-update-${item.type}-${index}`}
           >
-            <Text className="text-sm text-slate-700 dark:text-slate-300">
+            <Text className="text-sm text-secondary">
               {updateText(item, t)}
             </Text>
             <Text className="mt-0.5 text-xs text-muted">

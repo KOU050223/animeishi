@@ -90,13 +90,13 @@ export default function SocialLinksScreen() {
           className="p-6"
           accessibilityRole="button"
         >
-          <Text className="text-red-600">
+          <Text className="text-danger">
             {t("SNS リンクの取得に失敗しました。再試行")}
           </Text>
         </Pressable>
       ) : (
         <ScrollView contentContainerClassName="px-4 py-6 pb-12 gap-4">
-          <Text className="text-sm text-slate-600 dark:text-slate-300">
+          <Text className="text-sm text-secondary">
             {t("リンクごとに公開範囲を選べます。既定は交換した相手だけです。")}
           </Text>
           {items.map((item, index) => (
@@ -114,9 +114,7 @@ export default function SocialLinksScreen() {
                   >
                     <Text
                       className={
-                        item.kind === kind
-                          ? "text-white"
-                          : "text-slate-800 dark:text-slate-200"
+                        item.kind === kind ? "text-white" : "text-foreground"
                       }
                     >
                       {socialLinkLabel(kind)}
@@ -148,7 +146,7 @@ export default function SocialLinksScreen() {
                       className={
                         item.visibility === visibility
                           ? "text-white"
-                          : "text-slate-800 dark:text-slate-200"
+                          : "text-foreground"
                       }
                     >
                       {visibility === "public"
@@ -166,20 +164,20 @@ export default function SocialLinksScreen() {
                   disabled={index === 0}
                   accessibilityRole="button"
                 >
-                  <Text className="text-indigo-600">{t("上へ")}</Text>
+                  <Text className="text-primary-text">{t("上へ")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => move(index, 1)}
                   disabled={index === items.length - 1}
                   accessibilityRole="button"
                 >
-                  <Text className="text-indigo-600">{t("下へ")}</Text>
+                  <Text className="text-primary-text">{t("下へ")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setDraft(items.filter((_, i) => i !== index))}
                   accessibilityRole="button"
                 >
-                  <Text className="text-red-600">{t("削除")}</Text>
+                  <Text className="text-danger">{t("削除")}</Text>
                 </Pressable>
               </View>
             </View>
@@ -200,12 +198,10 @@ export default function SocialLinksScreen() {
             accessibilityRole="button"
             className="rounded-xl border border-indigo-500 px-4 py-3 items-center"
           >
-            <Text className="text-indigo-600 dark:text-indigo-400">
-              {t("リンクを追加")}
-            </Text>
+            <Text className="text-primary-text">{t("リンクを追加")}</Text>
           </Pressable>
           {error ? (
-            <Text className="text-red-600">
+            <Text className="text-danger">
               {t(
                 "SNS リンクの保存に失敗しました。入力内容を確認してください。",
               )}

@@ -153,13 +153,11 @@ export default function PublicProfilePage() {
                 className="w-20 h-20 rounded-full"
               />
             ) : null}
-            <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-3">
+            <Text className="text-xl font-bold text-foreground mt-3">
               {relation.friend.username}
             </Text>
             {relation.friend.bio ? (
-              <Text className="text-slate-600 dark:text-slate-300 mt-2">
-                {relation.friend.bio}
-              </Text>
+              <Text className="text-secondary mt-2">{relation.friend.bio}</Text>
             ) : null}
             <CommonPoints uid={uid} />
             {/* 公開プロフィールが 404 の相手でも、本人の交換記録は
@@ -183,9 +181,7 @@ export default function PublicProfilePage() {
       >
         {screenOptions}
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-slate-500 dark:text-slate-400 text-center">
-            {message}
-          </Text>
+          <Text className="text-muted text-center">{message}</Text>
         </View>
       </SafeAreaView>
     );
@@ -668,7 +664,7 @@ function ReceivedMeishiCard({ profile }: { profile: PublicProfile }) {
         accessibilityLabel={t("名刺を保存")}
         testID="save-meishi-button"
       >
-        <Text className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
+        <Text className="text-xs text-primary-text font-medium">
           {isSaving ? t("保存中...") : t("名刺を保存")}
         </Text>
       </TouchableOpacity>
@@ -721,7 +717,7 @@ function ProfileHeader({
         </View>
       )}
 
-      <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-4">
+      <Text className="text-2xl font-bold text-foreground mt-4">
         {profile.username}
       </Text>
     </>
@@ -734,22 +730,18 @@ function ProfileDetails({ profile }: { profile: PublicProfile }) {
   return (
     <>
       {profile.bio ? (
-        <Text className="text-slate-600 dark:text-slate-300 text-center mt-2">
-          {profile.bio}
-        </Text>
+        <Text className="text-secondary text-center mt-2">{profile.bio}</Text>
       ) : null}
 
       {profile.favoriteQuote ? (
         <View className="mt-4 border-l-4 border-purple-400 pl-3 self-start">
-          <Text className="text-slate-500 dark:text-slate-400 italic">
-            {profile.favoriteQuote}
-          </Text>
+          <Text className="text-muted italic">{profile.favoriteQuote}</Text>
         </View>
       ) : null}
 
       {profile.genres.length > 0 ? (
         <View className="mt-6 self-start w-full">
-          <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+          <Text className="text-sm font-semibold text-secondary mb-2">
             {t("好きなジャンル")}
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -790,9 +782,7 @@ function ModerationSection({
         accessibilityLabel={t("このユーザーを通報")}
         testID="report-user-button"
       >
-        <Text className="text-sm text-slate-500 dark:text-slate-400">
-          {t("このユーザーを通報")}
-        </Text>
+        <Text className="text-sm text-muted">{t("このユーザーを通報")}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         className="items-center py-2"
@@ -802,7 +792,7 @@ function ModerationSection({
         accessibilityLabel={t("このユーザーをブロック")}
         testID="block-user-button"
       >
-        <Text className="text-sm text-red-500 dark:text-red-400">
+        <Text className="text-sm text-danger">
           {t("このユーザーをブロック")}
         </Text>
       </TouchableOpacity>
@@ -897,7 +887,7 @@ function FriendActionArea({
         className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center gap-2"
         testID="friends-load-error"
       >
-        <Text className="text-sm text-slate-500 dark:text-slate-400">
+        <Text className="text-sm text-muted">
           {t("フレンド情報を取得できませんでした")}
         </Text>
         <TouchableOpacity
@@ -906,7 +896,7 @@ function FriendActionArea({
           accessibilityLabel={t("再試行")}
           testID="friends-retry-button"
         >
-          <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+          <Text className="text-sm font-semibold text-primary-text">
             {t("再試行")}
           </Text>
         </TouchableOpacity>
@@ -920,9 +910,7 @@ function FriendActionArea({
         className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center"
         testID="already-friends-badge"
       >
-        <Text className="text-sm text-slate-500 dark:text-slate-400">
-          {t("フレンド登録済み")}
-        </Text>
+        <Text className="text-sm text-muted">{t("フレンド登録済み")}</Text>
       </View>
     );
   }
@@ -932,7 +920,7 @@ function FriendActionArea({
     return (
       <View className="mt-4 w-full items-center gap-2">
         <Text
-          className="text-sm text-slate-500 dark:text-slate-400"
+          className="text-sm text-muted"
           testID="friend-request-received-label"
         >
           {t("フレンド申請が届いています")}
@@ -958,9 +946,7 @@ function FriendActionArea({
             accessibilityLabel={t("申請を削除")}
             testID="delete-friend-request-button"
           >
-            <Text className="text-slate-600 dark:text-slate-300 font-semibold">
-              {t("削除")}
-            </Text>
+            <Text className="text-secondary font-semibold">{t("削除")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -974,9 +960,7 @@ function FriendActionArea({
           className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 items-center self-stretch"
           testID="friend-request-sent-badge"
         >
-          <Text className="text-sm text-slate-500 dark:text-slate-400">
-            {t("フレンド申請中")}
-          </Text>
+          <Text className="text-sm text-muted">{t("フレンド申請中")}</Text>
         </View>
         <TouchableOpacity
           className="items-center py-1"
@@ -1028,10 +1012,10 @@ function ReportSheet({
       scrimAccessibilityLabel={t("通報をやめる")}
     >
       <View className="px-4 pb-8 pt-4">
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("このユーザーを通報")}
         </Text>
-        <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <Text className="mt-1 text-xs text-muted">
           {t("理由を選択してください。運営が内容を確認します。")}
         </Text>
         <View className="mt-4 gap-2">
@@ -1045,9 +1029,7 @@ function ReportSheet({
               accessibilityLabel={t("{{reason}}で通報", { reason: t(reason) })}
               testID={`report-reason-${reason}`}
             >
-              <Text className="text-slate-900 dark:text-slate-100">
-                {t(reason)}
-              </Text>
+              <Text className="text-foreground">{t(reason)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -1057,9 +1039,7 @@ function ReportSheet({
           accessibilityRole="button"
           accessibilityLabel={t("キャンセル")}
         >
-          <Text className="text-slate-500 dark:text-slate-400">
-            {t("キャンセル")}
-          </Text>
+          <Text className="text-muted">{t("キャンセル")}</Text>
         </TouchableOpacity>
       </View>
     </BottomSheet>

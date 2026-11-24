@@ -61,7 +61,7 @@ export function CompletionStep({
           profileUrl={profile?.id ? buildProfileUrl(profile.id) : undefined}
         />
         <View className="mt-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <Text className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <Text className="mb-2 text-sm font-semibold text-foreground">
             {isComplete
               ? t("名刺は完成しています")
               : t("名刺の完成まであと少し")}
@@ -75,14 +75,14 @@ export function CompletionStep({
                   size={18}
                   color={done ? colors.success : colors.textMuted}
                 />
-                <Text className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+                <Text className="ml-2 text-sm text-secondary">
                   {t(MEISHI_COMPLETION_STEP_LABELS[step])}
                 </Text>
               </View>
             );
           })}
           {!isComplete ? (
-            <Text className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <Text className="mt-2 text-xs leading-5 text-muted">
               {t("アイコンや表示名はプロフィールからいつでも設定できます。")}
             </Text>
           ) : null}

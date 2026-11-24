@@ -70,10 +70,10 @@ export function CurrentSeasonWatchingRail() {
 
   return (
     <View className="mt-6" testID="home-current-season">
-      <Text className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+      <Text className="mb-1 text-base font-semibold text-foreground">
         {t("今期視聴中")}
       </Text>
-      <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+      <Text className="mb-2 text-xs text-muted">
         {t("{{season}}アニメのうち「視聴中」", { season: seasonLabel })}
       </Text>
       {isConnectionLoading ? (
@@ -89,7 +89,7 @@ export function CurrentSeasonWatchingRail() {
         <ActivityIndicator color={colors.primaryText} />
       ) : isError ? (
         <View className="flex-row items-center gap-3">
-          <Text className="text-sm text-slate-500 dark:text-slate-400">
+          <Text className="text-sm text-muted">
             {t("視聴履歴を取得できませんでした")}
           </Text>
           <TouchableOpacity
@@ -97,7 +97,7 @@ export function CurrentSeasonWatchingRail() {
             accessibilityRole="button"
             accessibilityLabel={t("視聴履歴を再取得")}
           >
-            <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+            <Text className="text-sm font-semibold text-primary-text">
               {t("再試行")}
             </Text>
           </TouchableOpacity>
@@ -123,7 +123,7 @@ export function CurrentSeasonWatchingRail() {
             accessibilityLabel={t("ライブラリの視聴履歴を見る")}
             testID="home-current-season-library-link"
           >
-            <Text className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+            <Text className="text-sm font-semibold text-primary-text">
               {t("ライブラリの視聴履歴を見る")}
             </Text>
           </TouchableOpacity>
@@ -146,10 +146,7 @@ export function CurrentSeasonWatchingRail() {
                 height={136}
                 radius={8}
               />
-              <Text
-                className="mt-1 text-xs text-slate-700 dark:text-slate-300"
-                numberOfLines={2}
-              >
+              <Text className="mt-1 text-xs text-secondary" numberOfLines={2}>
                 {work.title}
               </Text>
             </WorkDetailPressable>

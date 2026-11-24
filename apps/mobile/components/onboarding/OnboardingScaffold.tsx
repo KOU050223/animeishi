@@ -38,7 +38,7 @@ export function OnboardingScaffold({
     >
       <View className="px-6 pt-3">
         <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-xs text-slate-500 dark:text-slate-400">
+          <Text className="text-xs text-muted">
             {t("{{current}} / {{total}}", {
               current: stepIndex + 1,
               total: totalSteps,
@@ -49,9 +49,7 @@ export function OnboardingScaffold({
             testID="onboarding-skip"
             accessibilityRole="button"
           >
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
-              {t("スキップ")}
-            </Text>
+            <Text className="text-sm text-muted">{t("スキップ")}</Text>
           </TouchableOpacity>
         </View>
         <View className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -63,15 +61,13 @@ export function OnboardingScaffold({
           />
         </View>
         <Text
-          className="mb-1 mt-5 text-xl font-bold text-slate-900 dark:text-slate-100"
+          className="mb-1 mt-5 text-xl font-bold text-foreground"
           testID="onboarding-title"
         >
           {title}
         </Text>
         {subtitle ? (
-          <Text className="mb-3 text-sm leading-5 text-slate-500 dark:text-slate-400">
-            {subtitle}
-          </Text>
+          <Text className="mb-3 text-sm leading-5 text-muted">{subtitle}</Text>
         ) : (
           <View className="mb-3" />
         )}

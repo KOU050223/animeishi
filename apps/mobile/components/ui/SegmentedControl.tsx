@@ -42,12 +42,12 @@ export function SegmentedControl({ items }: { items: SegmentItem[] }) {
         >
           <View className="flex-row items-center gap-1">
             <Text
-              className={`text-[13px] ${item.active ? "font-semibold text-slate-900 dark:text-slate-100" : "font-medium text-slate-500 dark:text-slate-400"}`}
+              className={`text-[13px] ${item.active ? "font-semibold text-foreground" : "font-medium text-muted"}`}
             >
               {item.label}
             </Text>
             {item.badgeCount ? (
-              <View className="min-w-4 items-center rounded-full bg-red-500 px-1">
+              <View className="min-w-4 items-center rounded-full bg-red-600 px-1">
                 <Text className="text-[10px] font-semibold text-white">
                   {item.badgeCount}
                 </Text>

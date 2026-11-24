@@ -25,7 +25,7 @@ export function ElectionRail() {
   return (
     <View className="mt-8" testID="election-rail">
       <View className="mb-2 flex-row items-baseline justify-between">
-        <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <Text className="text-base font-semibold text-foreground">
           {t("総選挙")}
         </Text>
         {/* 一覧ページへの導線（issue #599）。レールは先頭数件しか出さない
@@ -38,7 +38,7 @@ export function ElectionRail() {
           })}
           testID="election-rail-see-all"
         >
-          <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+          <Text className="text-sm font-medium text-primary-text">
             {t("すべて見る")}
           </Text>
         </TouchableOpacity>
@@ -97,7 +97,7 @@ function ElectionCard({
             style={{ width: CARD_WIDTH, height: IMAGE_HEIGHT }}
             className="items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900"
           >
-            <Text className="text-xs text-indigo-400 dark:text-indigo-300">
+            <Text className="text-xs text-indigo-700 dark:text-indigo-300">
               {t("総選挙")}
             </Text>
           </View>
@@ -106,7 +106,7 @@ function ElectionCard({
       <View className="mt-1 flex-row items-center gap-1">
         {voting ? (
           <Text
-            className="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+            className="text-xs font-semibold text-success-text"
             testID={`election-voting-${item.slug}`}
           >
             {t("投票受付中")}
@@ -114,17 +114,14 @@ function ElectionCard({
         ) : null}
         {item.voted ? (
           <Text
-            className="text-xs font-semibold text-indigo-500 dark:text-indigo-300"
+            className="text-xs font-semibold text-primary-text"
             testID={`election-voted-${item.slug}`}
           >
             {t("投票済み")}
           </Text>
         ) : null}
       </View>
-      <Text
-        className="text-sm text-slate-800 dark:text-slate-200"
-        numberOfLines={2}
-      >
+      <Text className="text-sm text-foreground" numberOfLines={2}>
         {item.title}
       </Text>
       <Text className="text-xs text-muted" numberOfLines={1}>

@@ -106,15 +106,15 @@ function AchievementCelebrationOverlay({
               color="#d97706"
             />
           </View>
-          <Text className="mt-3 text-lg font-bold text-slate-900 dark:text-slate-100">
+          <Text className="mt-3 text-lg font-bold text-foreground">
             {t("実績を獲得しました！")}
           </Text>
-          <Text className="mt-1 text-base font-semibold text-indigo-600 dark:text-indigo-300">
+          <Text className="mt-1 text-base font-semibold text-primary-text">
             {name}
           </Text>
           <Text
             selectable
-            className="mt-3 rounded bg-slate-100 p-2 text-xs text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+            className="mt-3 rounded bg-slate-100 p-2 text-xs text-secondary dark:bg-slate-700"
           >
             {message}
           </Text>
@@ -134,9 +134,7 @@ function AchievementCelebrationOverlay({
             accessibilityRole="button"
             accessibilityLabel={t("閉じる")}
           >
-            <Text className="text-sm text-slate-500 dark:text-slate-400">
-              {t("閉じる")}
-            </Text>
+            <Text className="text-sm text-muted">{t("閉じる")}</Text>
           </Pressable>
         </View>
       </View>

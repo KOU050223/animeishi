@@ -99,10 +99,10 @@ export function FriendThanksSection({ uid }: { uid: string }) {
   if (isError) {
     return (
       <View className="mt-6 w-full self-start" testID="friend-thanks-section">
-        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="text-sm font-semibold text-secondary">
           {t("お礼")}
         </Text>
-        <Text className="text-xs text-red-500 dark:text-red-400 mt-1">
+        <Text className="text-xs text-danger mt-1">
           {t("お礼の取得に失敗しました")}
         </Text>
       </View>
@@ -111,9 +111,7 @@ export function FriendThanksSection({ uid }: { uid: string }) {
 
   return (
     <View className="mt-6 w-full self-start" testID="friend-thanks-section">
-      <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-        {t("お礼")}
-      </Text>
+      <Text className="text-sm font-semibold text-secondary">{t("お礼")}</Text>
       {received.map((item) => (
         <ReceivedThanksRow key={item.id} item={item} language={i18n.language} />
       ))}
@@ -164,13 +162,11 @@ function ReceivedThanksRow({
       <Text className="text-xs text-muted">
         {t("届いたお礼")}・{formatThanksDate(item.createdAt, language)}
       </Text>
-      <Text className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+      <Text className="text-sm text-secondary mt-0.5">
         {t(THANKS_PRESET_TEXT[item.presetKey] ?? item.presetKey)}
       </Text>
       {item.body ? (
-        <Text className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          {item.body}
-        </Text>
+        <Text className="text-sm text-muted mt-0.5">{item.body}</Text>
       ) : null}
     </View>
   );
@@ -194,13 +190,11 @@ function SentThanksRow({
       <Text className="text-xs text-muted">
         {t("送ったお礼")}・{formatThanksDate(item.createdAt, language)}
       </Text>
-      <Text className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+      <Text className="text-sm text-secondary mt-0.5">
         {t(THANKS_PRESET_TEXT[item.presetKey] ?? item.presetKey)}
       </Text>
       {item.body ? (
-        <Text className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          {item.body}
-        </Text>
+        <Text className="text-sm text-muted mt-0.5">{item.body}</Text>
       ) : null}
       <TouchableOpacity
         onPress={onDelete}
@@ -208,9 +202,7 @@ function SentThanksRow({
         accessibilityLabel={t("お礼を取り消す")}
         className="mt-2 self-start"
       >
-        <Text className="text-xs text-red-500 dark:text-red-400">
-          {t("削除")}
-        </Text>
+        <Text className="text-xs text-danger">{t("削除")}</Text>
       </TouchableOpacity>
     </View>
   );

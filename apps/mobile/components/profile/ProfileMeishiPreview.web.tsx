@@ -62,9 +62,9 @@ export function ProfileMeishiPreview(props: MeishiCardProps) {
               accessibilityRole="button"
               accessibilityLabel={t("名刺を閉じる")}
               onPress={() => setIsOpen(false)}
-              className="mt-4 self-center rounded-lg bg-white px-5 py-2"
+              className="mt-4 self-center rounded-lg bg-surface px-5 py-2"
             >
-              <Text className="font-semibold text-slate-900">
+              <Text className="font-semibold text-foreground">
                 {t("閉じる")}
               </Text>
             </Pressable>

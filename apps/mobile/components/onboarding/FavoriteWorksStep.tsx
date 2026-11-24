@@ -71,12 +71,12 @@ export function FavoriteWorksStep({
       onSkip={onSkip}
       footer={
         <View>
-          <Text className="mb-2 text-center text-sm text-slate-500 dark:text-slate-400">
+          <Text className="mb-2 text-center text-sm text-muted">
             {t("{{count}} / 3 作品選択中", { count: selected.length })}
           </Text>
           {error ? (
             <Text
-              className="mb-2 text-center text-sm text-red-500 dark:text-red-400"
+              className="mb-2 text-center text-sm text-danger"
               testID="onboarding-favorites-error"
             >
               {error}
@@ -93,7 +93,7 @@ export function FavoriteWorksStep({
       }
     >
       <Input
-        className="mb-2 rounded-lg border border-slate-300 px-4 py-3 text-base dark:border-slate-600 dark:text-slate-100"
+        className="mb-2 rounded-lg border border-slate-300 px-4 py-3 text-base dark:border-slate-600 text-foreground"
         placeholder={t("作品を検索")}
         value={query}
         onChangeText={setQuery}
@@ -121,16 +121,13 @@ export function FavoriteWorksStep({
                 <WorkThumbnail uri={item.hostedImageUrl} title={item.title} />
                 <View className="ml-3 flex-1">
                   <Text
-                    className="text-base font-medium text-slate-900 dark:text-slate-100"
+                    className="text-base font-medium text-foreground"
                     numberOfLines={1}
                   >
                     {item.title}
                   </Text>
                   {item.titleEn ? (
-                    <Text
-                      className="text-xs text-slate-500 dark:text-slate-400"
-                      numberOfLines={1}
-                    >
+                    <Text className="text-xs text-muted" numberOfLines={1}>
                       {item.titleEn}
                     </Text>
                   ) : null}
@@ -145,7 +142,7 @@ export function FavoriteWorksStep({
           }}
           ListEmptyComponent={
             <View className="items-center py-10">
-              <Text className="text-sm text-slate-500 dark:text-slate-400">
+              <Text className="text-sm text-muted">
                 {t("作品が見つかりませんでした")}
               </Text>
             </View>

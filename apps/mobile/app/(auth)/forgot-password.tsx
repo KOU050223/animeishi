@@ -27,7 +27,7 @@ import { useThemeColors } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
 const INPUT_CLASS =
-  "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base dark:text-slate-100";
+  "border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 mb-4 text-base text-foreground";
 
 /**
  * パスワード再設定（issue #558）。
@@ -150,13 +150,13 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="w-full max-w-[420px] self-center md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700 md:p-8">
-            <Text className="text-xl font-semibold mb-2 text-slate-800 dark:text-slate-100">
+            <Text className="text-xl font-semibold mb-2 text-foreground">
               {t("パスワードの再設定")}
             </Text>
 
             {step === "email" ? (
               <>
-                <Text className="text-slate-500 dark:text-slate-400 mb-6">
+                <Text className="text-muted mb-6">
                   {t(
                     "登録したメールアドレスを入力してください。パスワード再設定用の認証コードを送ります。",
                   )}
@@ -174,7 +174,7 @@ export default function ForgotPasswordScreen() {
               </>
             ) : (
               <>
-                <Text className="text-slate-500 dark:text-slate-400 mb-6">
+                <Text className="text-muted mb-6">
                   {t(
                     "{{email}} に送信された認証コードと、新しいパスワードを入力してください",
                     { email },
@@ -211,10 +211,7 @@ export default function ForgotPasswordScreen() {
             )}
 
             {error && (
-              <Text
-                className="text-red-500 dark:text-red-400 text-sm mb-4"
-                testID="error-message"
-              >
+              <Text className="text-danger text-sm mb-4" testID="error-message">
                 {error}
               </Text>
             )}
@@ -249,7 +246,7 @@ export default function ForgotPasswordScreen() {
                 accessibilityRole="button"
                 testID="resend-reset-code-button"
               >
-                <Text className="text-sm text-indigo-600 dark:text-indigo-400">
+                <Text className="text-sm text-primary-text">
                   {t("認証コードを再送する")}
                 </Text>
               </TouchableOpacity>
@@ -257,7 +254,7 @@ export default function ForgotPasswordScreen() {
 
             <View className="flex-row justify-center">
               <Link href="/(auth)/sign-in" testID="back-to-sign-in-link">
-                <Text className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                <Text className="text-primary-text font-semibold">
                   {t("サインインに戻る")}
                 </Text>
               </Link>

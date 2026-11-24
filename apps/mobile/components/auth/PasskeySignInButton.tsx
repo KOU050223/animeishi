@@ -104,7 +104,7 @@ export function PasskeySignInButton({ onError }: Props) {
       ) : (
         <>
           <Ionicons name="key-outline" size={18} color={colors.primaryText} />
-          <Text className="text-slate-800 dark:text-slate-100 font-semibold text-base ml-2">
+          <Text className="text-foreground font-semibold text-base ml-2">
             {t("パスキーでサインイン")}
           </Text>
         </>

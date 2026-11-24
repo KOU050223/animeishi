@@ -399,7 +399,7 @@ export default function WorkListScreen() {
               className={`rounded-lg px-4 py-2 ${
                 shareDisabled
                   ? "bg-indigo-300 dark:bg-indigo-800"
-                  : "bg-indigo-500"
+                  : "bg-indigo-600"
               }`}
               onPress={handleShare}
               disabled={shareDisabled}
@@ -411,7 +411,11 @@ export default function WorkListScreen() {
               {isSharing ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-sm font-semibold text-white">
+                <Text
+                  className={`text-sm font-semibold ${
+                    shareDisabled ? "text-foreground" : "text-white"
+                  }`}
+                >
                   {t("共有")}
                 </Text>
               )}
@@ -432,7 +436,11 @@ export default function WorkListScreen() {
               {save.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-sm font-semibold text-white">
+                <Text
+                  className={`text-sm font-semibold ${
+                    saveDisabled ? "text-foreground" : "text-white"
+                  }`}
+                >
                   {isDirty ? t("保存") : t("保存済み")}
                 </Text>
               )}
@@ -440,7 +448,7 @@ export default function WorkListScreen() {
           </View>
         </View>
         {save.isError && (
-          <Text className="mb-2 text-center text-xs text-red-500 dark:text-red-400">
+          <Text className="mb-2 text-center text-xs text-danger">
             {t("保存に失敗しました")}
           </Text>
         )}
@@ -453,7 +461,7 @@ export default function WorkListScreen() {
           placeholder={t("リスト名（例: 必修アニメリスト）")}
           maxLength={TITLE_MAX_LENGTH}
           testID="work-list-title"
-          className="rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
+          className="rounded-lg border border-slate-300 p-3 text-base text-foreground dark:border-slate-600"
         />
         <Input
           value={description}
@@ -463,7 +471,7 @@ export default function WorkListScreen() {
           multiline
           numberOfLines={2}
           testID="work-list-description"
-          className="mt-2 rounded-lg border border-slate-300 p-3 text-base text-slate-900 dark:border-slate-600 dark:text-slate-100"
+          className="mt-2 rounded-lg border border-slate-300 p-3 text-base text-foreground dark:border-slate-600"
         />
 
         {/* 公開設定（issue #422）。ON にするとひろば「みつける」の
@@ -472,10 +480,10 @@ export default function WorkListScreen() {
             場合は OFF のまま共有できる。切り替えは保存で確定する。 */}
         <View className="mt-3 flex-row items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
           <View className="mr-3 flex-1">
-            <Text className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <Text className="text-sm font-medium text-foreground">
               {t("ひろばに公開する")}
             </Text>
-            <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <Text className="mt-0.5 text-xs text-muted">
               {isPublic
                 ? t("公開中。ひろばの一覧に表示されます")
                 : t("非公開。共有 URL を知る人だけが見られます")}
@@ -501,7 +509,7 @@ export default function WorkListScreen() {
         {isSavedLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={colors.textMuted} />
-            <Text className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <Text className="mt-2 text-sm text-muted">
               {t("作品リストを読み込んでいます")}
             </Text>
           </View>
@@ -511,7 +519,7 @@ export default function WorkListScreen() {
             data={works}
             keyExtractor={(item) => String(item.id)}
             ListEmptyComponent={
-              <Text className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+              <Text className="mt-8 text-center text-sm text-muted">
                 {t(
                   "作品がありません。下の「作品を追加」から検索して追加できます",
                 )}
@@ -540,7 +548,7 @@ export default function WorkListScreen() {
                     height={50}
                   />
                   <Text
-                    className="flex-1 text-sm text-slate-900 dark:text-slate-100"
+                    className="flex-1 text-sm text-foreground"
                     numberOfLines={2}
                   >
                     {item.title}
@@ -613,7 +621,7 @@ export default function WorkListScreen() {
           accessibilityLabel={t("作品を追加")}
           testID="work-list-add"
         >
-          <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <Text className="text-sm font-semibold text-secondary">
             {t("＋ 作品を追加")}
           </Text>
         </TouchableOpacity>
@@ -631,7 +639,7 @@ export default function WorkListScreen() {
           accessibilityState={{ disabled: works.length === 0 }}
           testID="work-list-create-tier"
         >
-          <Text className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+          <Text className="text-sm font-semibold text-success-text">
             {t("このリストで Tier 表を作る")}
           </Text>
         </TouchableOpacity>
@@ -639,11 +647,11 @@ export default function WorkListScreen() {
         {/* 共有 URL（発行済みのときだけ表示。視聴履歴の共有と同じ方式） */}
         {shareUrl ? (
           <View className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-            <Text className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+            <Text className="mb-1 text-xs text-muted">
               {t("共有 URL（知っている人は誰でもリストを見られます）")}
             </Text>
             <Text
-              className="mb-2 text-xs text-slate-900 dark:text-slate-100"
+              className="mb-2 text-xs text-foreground"
               numberOfLines={1}
               testID="work-list-share-url"
             >
@@ -657,7 +665,7 @@ export default function WorkListScreen() {
                 accessibilityLabel={t("共有 URL をコピー")}
                 testID="work-list-share-copy"
               >
-                <Text className="text-xs font-medium text-indigo-600 dark:text-indigo-300">
+                <Text className="text-xs font-medium text-primary-text">
                   {copied ? t("コピーしました") : t("コピー")}
                 </Text>
               </TouchableOpacity>
@@ -669,9 +677,7 @@ export default function WorkListScreen() {
                 accessibilityLabel={t("共有 URL を解除")}
                 testID="work-list-share-revoke"
               >
-                <Text className="text-xs text-red-500 dark:text-red-400">
-                  {t("解除")}
-                </Text>
+                <Text className="text-xs text-danger">{t("解除")}</Text>
               </TouchableOpacity>
             </View>
           </View>

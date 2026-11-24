@@ -91,7 +91,7 @@ export default function BlockedUsersScreen() {
       >
         {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+          <Text className="mb-4 text-center text-danger">
             {t("ブロック一覧の取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -145,17 +145,14 @@ export default function BlockedUsersScreen() {
                 style={{ width: 48, height: 48, borderRadius: 24 }}
                 className="items-center justify-center bg-indigo-100 dark:bg-indigo-900"
               >
-                <Text className="font-semibold text-indigo-500 dark:text-indigo-300">
+                <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
                   {item.username.charAt(0)}
                 </Text>
               </View>
             )}
 
             <View className="flex-1">
-              <Text
-                className="font-medium text-slate-900 dark:text-slate-100"
-                numberOfLines={1}
-              >
+              <Text className="font-medium text-foreground" numberOfLines={1}>
                 {item.username}
               </Text>
             </View>
@@ -169,9 +166,7 @@ export default function BlockedUsersScreen() {
                 username: item.username,
               })}
             >
-              <Text className="text-xs text-slate-700 dark:text-slate-200">
-                {t("解除")}
-              </Text>
+              <Text className="text-xs text-secondary">{t("解除")}</Text>
             </TouchableOpacity>
           </View>
         )}

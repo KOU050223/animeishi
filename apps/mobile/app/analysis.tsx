@@ -117,7 +117,7 @@ export default function AnalysisScreen() {
       >
         {screenOptions}
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="mb-4 text-center text-red-500 dark:text-red-400">
+          <Text className="mb-4 text-center text-danger">
             {t("分析結果の取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -171,16 +171,16 @@ export default function AnalysisScreen() {
         ) : (
           <View>
             <View className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-              <Text className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <Text className="mb-2 text-sm font-semibold text-secondary">
                 {t("視聴傾向")}
               </Text>
-              <Text className="text-base leading-6 text-slate-900 dark:text-slate-100">
+              <Text className="text-base leading-6 text-foreground">
                 {analysis.summary}
               </Text>
 
               {analysis.recommendedGenres.length > 0 ? (
                 <View className="mt-4">
-                  <Text className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <Text className="mb-2 text-sm font-semibold text-secondary">
                     {t("おすすめジャンル")}
                   </Text>
                   <View className="flex-row flex-wrap gap-2">
@@ -244,10 +244,7 @@ export default function AnalysisScreen() {
 
         {generateErrorMessage ? (
           <View className="mt-4 rounded-lg bg-red-50 dark:bg-red-950 px-4 py-3">
-            <Text
-              className="text-sm text-red-600 dark:text-red-400"
-              accessibilityRole="alert"
-            >
+            <Text className="text-sm text-danger" accessibilityRole="alert">
               {generateErrorMessage}
             </Text>
           </View>
@@ -276,15 +273,11 @@ function AnalysisSectionCard({
           : null;
   return (
     <View className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-      <Text className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <Text className="mb-1 text-sm font-semibold text-secondary">
         {section.title}
       </Text>
-      {scope ? (
-        <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-          {scope}
-        </Text>
-      ) : null}
-      <Text className="text-sm leading-6 text-slate-900 dark:text-slate-100">
+      {scope ? <Text className="mb-2 text-xs text-muted">{scope}</Text> : null}
+      <Text className="text-sm leading-6 text-foreground">
         {section.insight}
       </Text>
       <View className="mt-3 gap-1">
@@ -293,10 +286,8 @@ function AnalysisSectionCard({
             key={fact.label}
             className="flex-row items-baseline justify-between"
           >
-            <Text className="text-xs text-slate-500 dark:text-slate-400">
-              {fact.label}
-            </Text>
-            <Text className="ml-2 flex-1 text-right text-xs font-medium text-slate-700 dark:text-slate-300">
+            <Text className="text-xs text-muted">{fact.label}</Text>
+            <Text className="ml-2 flex-1 text-right text-xs font-medium text-secondary">
               {fact.value}
             </Text>
           </View>
@@ -310,7 +301,7 @@ function AnalysisSectionCard({
           {section.evidenceWorks.map((work) => (
             <Text
               key={work.annictWorkId}
-              className="text-xs leading-5 text-slate-600 dark:text-slate-300"
+              className="text-xs leading-5 text-secondary"
             >
               {`・${work.title}（${WATCH_STATUS_LABELS[work.state] ?? work.state}）`}
             </Text>
@@ -424,11 +415,11 @@ function RecommendationsSection() {
   if (isRecommendationsError && data === undefined) {
     return (
       <View className="mt-6">
-        <Text className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <Text className="mb-2 text-sm font-semibold text-secondary">
           {t("おすすめ作品")}
         </Text>
         <View className="items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-          <Text className="mb-3 text-center text-sm text-red-500 dark:text-red-400">
+          <Text className="mb-3 text-center text-sm text-danger">
             {t("おすすめの取得に失敗しました")}
           </Text>
           <TouchableOpacity
@@ -449,7 +440,7 @@ function RecommendationsSection() {
 
   return (
     <View className="mt-6">
-      <Text className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <Text className="mb-2 text-sm font-semibold text-secondary">
         {t("おすすめ作品")}
       </Text>
 
@@ -497,10 +488,7 @@ function RecommendationsSection() {
 
       {errorMessage ? (
         <View className="mt-4 rounded-lg bg-red-50 dark:bg-red-950 px-4 py-3">
-          <Text
-            className="text-sm text-red-600 dark:text-red-400"
-            accessibilityRole="alert"
-          >
+          <Text className="text-sm text-danger" accessibilityRole="alert">
             {errorMessage}
           </Text>
         </View>
@@ -544,7 +532,7 @@ function RecommendationCard({
       <WorkThumbnail uri={work.hostedImageUrl} title={work.title} />
       <View className="ml-3 flex-1">
         <Text
-          className="text-sm font-semibold text-slate-900 dark:text-slate-100"
+          className="text-sm font-semibold text-foreground"
           numberOfLines={2}
         >
           {work.title}
@@ -555,10 +543,7 @@ function RecommendationCard({
           </Text>
         ) : null}
         {work.reason ? (
-          <Text
-            className="mt-1 text-xs text-slate-500 dark:text-slate-400"
-            numberOfLines={2}
-          >
+          <Text className="mt-1 text-xs text-muted" numberOfLines={2}>
             {work.reason}
           </Text>
         ) : null}
@@ -580,7 +565,7 @@ function RecommendationCard({
             <Text
               className={
                 registered
-                  ? "text-xs font-semibold text-slate-600 dark:text-slate-300"
+                  ? "text-xs font-semibold text-foreground"
                   : "text-xs font-semibold text-white"
               }
             >
@@ -596,7 +581,7 @@ function RecommendationCard({
             })}
             testID={`recommendation-detail-${work.annictWorkId}`}
           >
-            <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <Text className="text-xs font-semibold text-secondary">
               {t("詳細")}
             </Text>
           </TouchableOpacity>
