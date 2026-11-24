@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
@@ -62,124 +62,120 @@ export function useAnnictConnect() {
   // openAuthSessionAsync が二重起動しうる。ref で同期的に再入をブロックする。
   const inFlightRef = useRef(false);
 
-  const connect = useCallback(
-    async (options?: AnnictConnectOptions): Promise<AnnictConnectResult> => {
-      // ネイティブは connect() 内で OAuth が完結するため、ここで
-      // oauth_result（成功/キャンセル/失敗理由）を送信する（issue #64）。
-      const finish = (result: AnnictConnectResult): AnnictConnectResult => {
-        trackAnnictFunnel({
-          step: "oauth_result",
-          surface: options?.surface,
-          userId,
-          result: result.status,
-          reason: result.status === "error" ? result.reason : undefined,
+  const connect = async (
+    options?: AnnictConnectOptions,
+  ): Promise<AnnictConnectResult> => {
+    // ネイティブは connect() 内で OAuth が完結するため、ここで
+    // oauth_result（成功/キャンセル/失敗理由）を送信する（issue #64）。
+    const finish = (result: AnnictConnectResult): AnnictConnectResult => {
+      trackAnnictFunnel({
+        step: "oauth_result",
+        surface: options?.surface,
+        userId,
+        result: result.status,
+        reason: result.status === "error" ? result.reason : undefined,
+      });
+      return result;
+    };
+
+    if (!ANNICT_CLIENT_ID) {
+      return finish({ status: "error", reason: "not_configured" });
+    }
+    // 進行中の連携があれば二重起動させない（成功/失敗/キャンセルで finally 解除）。
+    // 再入は OAuth の結果ではないため oauth_result は送らない。
+    if (inFlightRef.current) {
+      return { status: "cancelled" };
+    }
+    inFlightRef.current = true;
+
+    setIsConnecting(true);
+    try {
+      const redirectUri = getRedirectUri();
+      const state = Crypto.randomUUID();
+      const authorizeUrl = buildAuthorizeUrl({
+        clientId: ANNICT_CLIENT_ID,
+        redirectUri,
+        state,
+      });
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authorizeUrl,
+        redirectUri,
+      );
+
+      if (result.type === "cancel" || result.type === "dismiss") {
+        return finish({ status: "cancelled" });
+      }
+      if (result.type !== "success") {
+        return finish({ status: "error", reason: "browser_failed" });
+      }
+
+      const parsed = parseAuthCallback(result.url, state);
+      if (!parsed.ok) {
+        return finish({ status: "error", reason: parsed.error });
+      }
+
+      const clerkToken = await clerkSessionToken();
+      if (!clerkToken) {
+        return finish({ status: "error", reason: "unauthorized" });
+      }
+
+      // HTTP 失敗は exchange_failed、例外は外側の catch で unexpected。
+      const res = await apiClient.me.annict.exchange
+        .$post(
+          { json: { code: parsed.code, redirectUri, mode: "native" } },
+          {
+            fetch: apiFetch({
+              onHttpError: async (errorRes) =>
+                new ApiRequestError(errorRes.status, "annict exchange failed"),
+            }),
+          },
+        )
+        .catch((error: unknown) => {
+          if (error instanceof ApiRequestError) {
+            return null;
+          }
+          throw error;
         });
-        return result;
-      };
-
-      if (!ANNICT_CLIENT_ID) {
-        return finish({ status: "error", reason: "not_configured" });
+      if (!res) {
+        return finish({ status: "error", reason: "exchange_failed" });
       }
-      // 進行中の連携があれば二重起動させない（成功/失敗/キャンセルで finally 解除）。
-      // 再入は OAuth の結果ではないため oauth_result は送らない。
-      if (inFlightRef.current) {
-        return { status: "cancelled" };
+
+      // native は mode:"native" のため accessToken を含むレスポンスが返る。
+      // 型は Web モードとの union なので、accessToken の存在で判別する。
+      const data = await res.json();
+      if (!("accessToken" in data)) {
+        return finish({ status: "error", reason: "exchange_failed" });
       }
-      inFlightRef.current = true;
+      await annictTokenStorage.set(data.accessToken);
 
-      setIsConnecting(true);
-      try {
-        const redirectUri = getRedirectUri();
-        const state = Crypto.randomUUID();
-        const authorizeUrl = buildAuthorizeUrl({
-          clientId: ANNICT_CLIENT_ID,
-          redirectUri,
-          state,
-        });
+      // 連携状態を再取得させる。評価クエリも捨てる — 連携後は Annict
+      // レビュー由来の初期評価（annictRating）を GET で拾えるため、
+      // 未連携時に取った null 応答を残さない（issue #416 レビュー）。
+      // キーは useWorkRating の WORK_RATING_QUERY_KEY と一致させる
+      // （import すると循環参照になる）。
+      // 実績クエリも捨てる — 今期完走は Annict トークンが無いと判定不可
+      // で返るため、連携前の available=false 応答を残さない（issue #415）。
+      // キーは useAchievements の ACHIEVEMENTS_QUERY_KEY と一致。
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ANNICT_CONNECTION_QUERY_KEY,
+        }),
+        queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
+        queryClient.invalidateQueries({ queryKey: ["achievements"] }),
+        refetchWorksAfterAnnictConnect(queryClient),
+      ]);
 
-        const result = await WebBrowser.openAuthSessionAsync(
-          authorizeUrl,
-          redirectUri,
-        );
+      return finish({ status: "success" });
+    } catch {
+      return finish({ status: "error", reason: "unexpected" });
+    } finally {
+      inFlightRef.current = false;
+      setIsConnecting(false);
+    }
+  };
 
-        if (result.type === "cancel" || result.type === "dismiss") {
-          return finish({ status: "cancelled" });
-        }
-        if (result.type !== "success") {
-          return finish({ status: "error", reason: "browser_failed" });
-        }
-
-        const parsed = parseAuthCallback(result.url, state);
-        if (!parsed.ok) {
-          return finish({ status: "error", reason: parsed.error });
-        }
-
-        const clerkToken = await clerkSessionToken();
-        if (!clerkToken) {
-          return finish({ status: "error", reason: "unauthorized" });
-        }
-
-        // HTTP 失敗は exchange_failed、例外は外側の catch で unexpected。
-        const res = await apiClient.me.annict.exchange
-          .$post(
-            { json: { code: parsed.code, redirectUri, mode: "native" } },
-            {
-              fetch: apiFetch({
-                onHttpError: async (errorRes) =>
-                  new ApiRequestError(
-                    errorRes.status,
-                    "annict exchange failed",
-                  ),
-              }),
-            },
-          )
-          .catch((error: unknown) => {
-            if (error instanceof ApiRequestError) {
-              return null;
-            }
-            throw error;
-          });
-        if (!res) {
-          return finish({ status: "error", reason: "exchange_failed" });
-        }
-
-        // native は mode:"native" のため accessToken を含むレスポンスが返る。
-        // 型は Web モードとの union なので、accessToken の存在で判別する。
-        const data = await res.json();
-        if (!("accessToken" in data)) {
-          return finish({ status: "error", reason: "exchange_failed" });
-        }
-        await annictTokenStorage.set(data.accessToken);
-
-        // 連携状態を再取得させる。評価クエリも捨てる — 連携後は Annict
-        // レビュー由来の初期評価（annictRating）を GET で拾えるため、
-        // 未連携時に取った null 応答を残さない（issue #416 レビュー）。
-        // キーは useWorkRating の WORK_RATING_QUERY_KEY と一致させる
-        // （import すると循環参照になる）。
-        // 実績クエリも捨てる — 今期完走は Annict トークンが無いと判定不可
-        // で返るため、連携前の available=false 応答を残さない（issue #415）。
-        // キーは useAchievements の ACHIEVEMENTS_QUERY_KEY と一致。
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: ANNICT_CONNECTION_QUERY_KEY,
-          }),
-          queryClient.invalidateQueries({ queryKey: ["work-ratings"] }),
-          queryClient.invalidateQueries({ queryKey: ["achievements"] }),
-          refetchWorksAfterAnnictConnect(queryClient),
-        ]);
-
-        return finish({ status: "success" });
-      } catch {
-        return finish({ status: "error", reason: "unexpected" });
-      } finally {
-        inFlightRef.current = false;
-        setIsConnecting(false);
-      }
-    },
-    [queryClient, userId],
-  );
-
-  const disconnect = useCallback(async () => {
+  const disconnect = async () => {
     await annictTokenStorage.remove();
     // 視聴履歴は Annict 連携が前提。連携解除後はクエリ無効化（enabled:false）だけでは
     // 既存キャッシュが画面に残るため、キャッシュ自体を破棄する。
@@ -199,7 +195,7 @@ export function useAnnictConnect() {
     await queryClient.invalidateQueries({
       queryKey: ANNICT_CONNECTION_QUERY_KEY,
     });
-  }, [queryClient]);
+  };
 
   return { connect, disconnect, isConnecting };
 }

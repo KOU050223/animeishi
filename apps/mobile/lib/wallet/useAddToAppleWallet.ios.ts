@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import { apiUrl } from "@/lib/apiUrl";
 import { clerkSessionToken } from "@/lib/api";
@@ -17,7 +17,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 export const useAddToAppleWallet: UseAddToAppleWallet = () => {
   const [isPending, setIsPending] = useState(false);
 
-  const addToWallet = useCallback(async (): Promise<AddToWalletResult> => {
+  const addToWallet = async (): Promise<AddToWalletResult> => {
     setIsPending(true);
     try {
       const token = await clerkSessionToken();
@@ -56,7 +56,7 @@ export const useAddToAppleWallet: UseAddToAppleWallet = () => {
     } finally {
       setIsPending(false);
     }
-  }, []);
+  };
 
   return { addToWallet, isPending, canUse: true };
 };

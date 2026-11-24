@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useRef } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
 import { apiFetch } from "@/lib/api";
@@ -17,45 +17,39 @@ export function usePublicMeishiSnapshot(
   const ref = useRef<ViewInstance>(null);
   const readyRef = useRef<(() => void) | null>(null);
   const readyKeyRef = useRef<string | null>(null);
-  const resolved = useMemo(() => resolveMeishiDocument(document), [document]);
+  const resolved = resolveMeishiDocument(document);
   const snapshotKey = JSON.stringify({ resolved, context });
-  const publish = useCallback(
-    () =>
-      enqueueSnapshotOperation(async () => {
-        if (readyKeyRef.current !== snapshotKey)
-          await Promise.race([
-            new Promise<void>((resolve) => {
-              readyRef.current = resolve;
-            }),
-            new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-          ]);
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => resolve()),
-        );
-        const blob = await capturePublicSnapshot(ref);
-        // アップロードの失敗は呼び出し側で warn ログに留めるだけなので、
-        // ApiRequestError ではなく plain Error のままにする。
-        await apiFetch({
-          onHttpError: async (res) =>
-            new Error(`Snapshot upload failed: ${res.status}`),
-        })(SNAPSHOT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "image/png" },
-          body: blob,
-        });
-      }),
-    [snapshotKey],
-  );
-  const clear = useCallback(
-    () =>
-      enqueueSnapshotOperation(async () => {
-        await apiFetch({
-          onHttpError: async (res) =>
-            new Error(`Snapshot delete failed: ${res.status}`),
-        })(SNAPSHOT_URL, { method: "DELETE" });
-      }),
-    [],
-  );
+  const publish = () =>
+    enqueueSnapshotOperation(async () => {
+      if (readyKeyRef.current !== snapshotKey)
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            readyRef.current = resolve;
+          }),
+          new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+        ]);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      const blob = await capturePublicSnapshot(ref);
+      // アップロードの失敗は呼び出し側で warn ログに留めるだけなので、
+      // ApiRequestError ではなく plain Error のままにする。
+      await apiFetch({
+        onHttpError: async (res) =>
+          new Error(`Snapshot upload failed: ${res.status}`),
+      })(SNAPSHOT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "image/png" },
+        body: blob,
+      });
+    });
+  const clear = () =>
+    enqueueSnapshotOperation(async () => {
+      await apiFetch({
+        onHttpError: async (res) =>
+          new Error(`Snapshot delete failed: ${res.status}`),
+      })(SNAPSHOT_URL, { method: "DELETE" });
+    });
   const snapshotElement = (
     <View style={styles.offscreen}>
       <MeishiShareSnapshot

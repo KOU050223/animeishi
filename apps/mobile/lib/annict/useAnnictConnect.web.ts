@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { flushSentry } from "@/lib/observability";
 import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
@@ -158,115 +158,106 @@ export function useAnnictConnect(): UseAnnictConnect {
   // isConnecting(state) は非同期更新のため、反映前の連打で state（CSRF 値）が
   // 上書きされうる。ref で同期的に再入をブロックする。
   const inFlightRef = useRef(false);
-  // disconnect は try/finally を含み、react/memo-dependencies が deps を余剰と
-  // 誤検知する。初回キャプチャに固定しないよう ref 経由で最新値を読む。
-  const authApiRef = useRef({ queryClient });
-  useEffect(() => {
-    authApiRef.current = { queryClient };
-  });
+  const connect = async (
+    options?: AnnictConnectOptions,
+  ): Promise<AnnictConnectResult> => {
+    // Web は authorize 遷移までが connect() の責務で、OAuth の結果は
+    // exchangeAnnictWebCallback が送る。ここでは遷移前に確定する失敗だけ
+    // oauth_result を送信する（issue #64）。
+    const fail = (reason: string): AnnictConnectResult => {
+      trackAnnictFunnel({
+        step: "oauth_result",
+        surface: options?.surface,
+        userId,
+        result: "error",
+        reason,
+      });
+      return { status: "error", reason };
+    };
 
-  const connect = useCallback(
-    async (options?: AnnictConnectOptions): Promise<AnnictConnectResult> => {
-      // Web は authorize 遷移までが connect() の責務で、OAuth の結果は
-      // exchangeAnnictWebCallback が送る。ここでは遷移前に確定する失敗だけ
-      // oauth_result を送信する（issue #64）。
-      const fail = (reason: string): AnnictConnectResult => {
-        trackAnnictFunnel({
-          step: "oauth_result",
-          surface: options?.surface,
-          userId,
-          result: "error",
-          reason,
-        });
-        return { status: "error", reason };
-      };
+    const clientId = getAnnictClientId();
+    if (!clientId) {
+      return fail("not_configured");
+    }
+    // 進行中なら二重起動させない（遷移成功時のみ ref を立てたまま抜ける）。
+    // 再入は OAuth の結果ではないため oauth_result は送らない。
+    if (inFlightRef.current) {
+      return { status: "cancelled" };
+    }
+    inFlightRef.current = true;
 
-      const clientId = getAnnictClientId();
-      if (!clientId) {
-        return fail("not_configured");
-      }
-      // 進行中なら二重起動させない（遷移成功時のみ ref を立てたまま抜ける）。
-      // 再入は OAuth の結果ではないため oauth_result は送らない。
-      if (inFlightRef.current) {
-        return { status: "cancelled" };
-      }
-      inFlightRef.current = true;
-
-      setIsConnecting(true);
-      // 遷移が起きたら isConnecting は復元しない（ページが離れるため）。
-      let didNavigate = false;
+    setIsConnecting(true);
+    // 遷移が起きたら isConnecting は復元しない（ページが離れるため）。
+    let didNavigate = false;
+    try {
+      const redirectUri = getWebRedirectUri();
+      // crypto.randomUUID は Web で標準的に使える。CSRF 用の乱数に加えて
+      // 戻り先オリジンを state に埋め込み、正規オリジン着弾時の中継に使う。
+      const state = encodeWebOAuthState(
+        window.location.origin,
+        crypto.randomUUID(),
+      );
       try {
-        const redirectUri = getWebRedirectUri();
-        // crypto.randomUUID は Web で標準的に使える。CSRF 用の乱数に加えて
-        // 戻り先オリジンを state に埋め込み、正規オリジン着弾時の中継に使う。
-        const state = encodeWebOAuthState(
-          window.location.origin,
-          crypto.randomUUID(),
-        );
-        try {
-          window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
-        } catch {
-          // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
-          // ため連携は失敗させる。finally で isConnecting/ref を復元する。
-          return fail("storage_unavailable");
-        }
-        try {
-          // 前回 authorize で放棄した場合に残る surface を消してから書き込む。
-          // surface 無しで connect したときに古い値が oauth_result に付かないようにする。
-          // 計測用の退避失敗（容量制限等）は連携自体を止めない。
-          window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
-          if (options?.surface) {
-            window.sessionStorage.setItem(
-              ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
-              options.surface,
-            );
-          }
-        } catch {
-          // surface 無しで進むだけ（oauth_result の surface が欠けるだけ）。
-        }
-
-        const authorizeUrl = buildAuthorizeUrl({
-          clientId,
-          redirectUri,
-          state,
-        });
-
-        // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
-        // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
-        // 待たず、遷移が起きたこと自体を成功とみなす。
-        // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
-        // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
-        // trackAnnictFunnel はハッシュ化を経て非同期にログへ載るため、まず
-        // 進行中の送信がバッファに乗るのを待ってから flush する。
-        // RN 版 flush は timeout を取れず内部で握りつぶされるため、
-        // 遷移を阻害しないようこちらで時間上限を設ける。
-        await flushAnnictFunnel();
-        try {
-          await Promise.race([
-            flushSentry(),
-            new Promise((resolve) => setTimeout(resolve, 2000)),
-          ]);
-        } catch {
-          // 計測の失敗で連携遷移を止めない。
-        }
-        window.location.href = authorizeUrl;
-        didNavigate = true;
-        return { status: "success" };
+        window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, state);
       } catch {
-        return fail("unexpected");
-      } finally {
-        // 遷移しなかった（＝失敗）ときだけロック/ローディングを解除する。
-        if (!didNavigate) {
-          inFlightRef.current = false;
-          setIsConnecting(false);
-        }
+        // sessionStorage 無効化（プライベートブラウズ等）では state 照合ができない
+        // ため連携は失敗させる。finally で isConnecting/ref を復元する。
+        return fail("storage_unavailable");
       }
-    },
-    [userId],
-  );
+      try {
+        // 前回 authorize で放棄した場合に残る surface を消してから書き込む。
+        // surface 無しで connect したときに古い値が oauth_result に付かないようにする。
+        // 計測用の退避失敗（容量制限等）は連携自体を止めない。
+        window.sessionStorage.removeItem(ANNICT_FUNNEL_SURFACE_STORAGE_KEY);
+        if (options?.surface) {
+          window.sessionStorage.setItem(
+            ANNICT_FUNNEL_SURFACE_STORAGE_KEY,
+            options.surface,
+          );
+        }
+      } catch {
+        // surface 無しで進むだけ（oauth_result の surface が欠けるだけ）。
+      }
 
-  const disconnect = useCallback(async () => {
-    const { queryClient: latestQueryClient } = authApiRef.current;
+      const authorizeUrl = buildAuthorizeUrl({
+        clientId,
+        redirectUri,
+        state,
+      });
+
+      // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
+      // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
+      // 待たず、遷移が起きたこと自体を成功とみなす。
+      // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
+      // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
+      // trackAnnictFunnel はハッシュ化を経て非同期にログへ載るため、まず
+      // 進行中の送信がバッファに乗るのを待ってから flush する。
+      // RN 版 flush は timeout を取れず内部で握りつぶされるため、
+      // 遷移を阻害しないようこちらで時間上限を設ける。
+      await flushAnnictFunnel();
+      try {
+        await Promise.race([
+          flushSentry(),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
+      } catch {
+        // 計測の失敗で連携遷移を止めない。
+      }
+      window.location.href = authorizeUrl;
+      didNavigate = true;
+      return { status: "success" };
+    } catch {
+      return fail("unexpected");
+    } finally {
+      // 遷移しなかった（＝失敗）ときだけロック/ローディングを解除する。
+      if (!didNavigate) {
+        inFlightRef.current = false;
+        setIsConnecting(false);
+      }
+    }
+  };
+
+  const disconnect = async () => {
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。
     try {
       // サーバー側の削除の HTTP 失敗は、ローカルのキャッシュ破棄・連携
@@ -293,20 +284,20 @@ export function useAnnictConnect(): UseAnnictConnect {
       // 作品詳細（viewerStatusState 由来の視聴状態を含む。issue #347）も
       // 同様に破棄する。キーは useWorkDetail の WORK_DETAIL_QUERY_KEY と
       // 一致させる（import すると循環参照になる）。
-      latestQueryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
-      latestQueryClient.removeQueries({ queryKey: ["works", "detail"] });
+      queryClient.removeQueries({ queryKey: WATCH_HISTORY_QUERY_KEY });
+      queryClient.removeQueries({ queryKey: ["works", "detail"] });
       // 評価の annictRating（Annict レビュー由来の初期値候補）も連携前提の
       // ため破棄する。キーは useWorkRating の WORK_RATING_QUERY_KEY と一致。
-      latestQueryClient.removeQueries({ queryKey: ["work-ratings"] });
+      queryClient.removeQueries({ queryKey: ["work-ratings"] });
       // 実績（今期完走の判定はトークン前提）も同様に破棄し、解除前の
       // 獲得済み表示を残さない。キーは useAchievements の
       // ACHIEVEMENTS_QUERY_KEY と一致（issue #415）。
-      latestQueryClient.removeQueries({ queryKey: ["achievements"] });
-      await latestQueryClient.invalidateQueries({
+      queryClient.removeQueries({ queryKey: ["achievements"] });
+      await queryClient.invalidateQueries({
         queryKey: ANNICT_CONNECTION_QUERY_KEY,
       });
     }
-  }, []);
+  };
 
   return { connect, disconnect, isConnecting };
 }

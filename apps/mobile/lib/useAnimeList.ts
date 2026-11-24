@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -127,12 +127,12 @@ export function useAnimeList(
     fetchNextPage,
   ]);
 
-  const works = useMemo(() => {
+  const works = (() => {
     const flat = result.data?.pages.flatMap((page) => page.works);
     // ページを跨ぐと同じ作品が再出現し得る（順位変動・継続カーソル境界の
     // 取りこぼし）。重複がそのまま一覧・tier 表へ流れないようここで潰す。
     return flat ? dedupeWorksById(flat) : undefined;
-  }, [result.data]);
+  })();
   const lastPage = result.data?.pages.at(-1);
 
   return {
@@ -202,8 +202,5 @@ export function useSortedAnimeList(
   sortKey: AnimeListSortKey,
   sortOrder: AnimeListSortOrder,
 ) {
-  return useMemo(
-    () => (data ? sortAnimeList(data, sortKey, sortOrder) : []),
-    [data, sortKey, sortOrder],
-  );
+  return data ? sortAnimeList(data, sortKey, sortOrder) : [];
 }

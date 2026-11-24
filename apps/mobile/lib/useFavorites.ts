@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
@@ -60,10 +59,7 @@ export function useFavorites() {
  */
 export function useFavoriteIds(): Set<number> {
   const { data } = useFavorites();
-  return useMemo(
-    () => new Set((data ?? []).map((f) => f.annictWorkId)),
-    [data],
-  );
+  return new Set((data ?? []).map((f) => f.annictWorkId));
 }
 
 export function useAddFavorite() {

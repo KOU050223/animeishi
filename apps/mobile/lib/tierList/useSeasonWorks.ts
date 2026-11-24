@@ -39,6 +39,8 @@ export function useSeasonWorks(season: string) {
     }
   }, [hasNextPage, isFetchingNextPage, query.isError, fetchNextPage]);
 
+  // TierBoard のジェスチャ系 useCallback の依存（boardItems 経由）まで
+  // 連なる参照を固定するため手動メモ化を残す。
   const works = useMemo<TierItem[]>(() => {
     const flat = (query.data?.pages ?? []).flatMap((page) => page.works);
     // 追い読みしたページ境界で同じ作品が再出現し得るため、盤面へ流す前に

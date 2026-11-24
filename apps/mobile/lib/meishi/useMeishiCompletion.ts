@@ -52,6 +52,7 @@ export function useMeishiCompletion(): MeishiCompletion {
 
   // 読み込み失敗を「テンプレート未選択」の未達と誤判定しないよう
   // 失敗フラグで表す。
+  // マウント時 effect の依存に使うため参照を固定する。
   const readLibrary = useCallback(async () => {
     try {
       const library = await loadMeishiLibrary();
@@ -64,6 +65,7 @@ export function useMeishiCompletion(): MeishiCompletion {
     }
   }, []);
 
+  // 呼び出し側の useFocusEffect の依存に使うため参照を固定する。
   const reload = useCallback(async () => {
     const result = await readLibrary();
     setDocument(result.document);

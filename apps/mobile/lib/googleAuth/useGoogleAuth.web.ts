@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useSignIn } from "@clerk/expo";
 import { throwIfAuthError } from "@/lib/authErrors";
 import type { GoogleAuthResult, UseGoogleAuth } from "./types";
@@ -11,7 +10,7 @@ import type { GoogleAuthResult, UseGoogleAuth } from "./types";
 export const useGoogleAuth: UseGoogleAuth = () => {
   const { signIn } = useSignIn();
 
-  const startGoogleAuth = useCallback(async (): Promise<GoogleAuthResult> => {
+  const startGoogleAuth = async (): Promise<GoogleAuthResult> => {
     if (!signIn) return { status: "incomplete" };
     const origin = window.location.origin;
     // sso() のパラメータ名は旧 authenticateWithRedirect と意味が逆:
@@ -26,7 +25,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
     // 通常ここには到達しない（ページが Google へ遷移する）。
     // 戻った場合も遷移済み扱いにしてローディングだけ解除する。
     return { status: "redirected" };
-  }, [signIn]);
+  };
 
   return { startGoogleAuth };
 };
