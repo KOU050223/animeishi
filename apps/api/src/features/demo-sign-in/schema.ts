@@ -1,12 +1,12 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { errorResponseSchema } from "@/lib/openapi";
 
-export const demoSignInSchema = z.object({
+const demoSignInSchema = z.object({
   email: z.email("メールアドレスの形式が正しくありません").max(320),
   password: z.string().min(1, "パスワードを入力してください").max(256),
 });
 
-export const demoSignInResponseSchema = z.object({
+const demoSignInResponseSchema = z.object({
   ticket: z.string(),
 });
 

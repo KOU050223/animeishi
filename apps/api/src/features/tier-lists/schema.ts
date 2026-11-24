@@ -3,7 +3,7 @@ import { z } from "zod";
 // シーズン識別子。annict_works.seasonName と同じ "<年4桁>-<season>" 形式。
 // worksSearchQuerySchema.season と同じ制約だが、あちらは optional なので共有せず
 // 単体のスキーマとして切り出して両方から使う。
-export const seasonSchema = z
+const seasonSchema = z
   .string()
   .trim()
   .regex(
@@ -81,8 +81,5 @@ export const tierListSaveSchema = z
     (v) => new Set(v.items.map((i) => i.annictWorkId)).size === v.items.length,
     { error: "同じ作品が複数の tier に配置されています", path: ["items"] },
   );
-
-export type TierRowInput = z.infer<typeof tierRowSchema>;
-export type TierListSaveInput = z.infer<typeof tierListSaveSchema>;
 
 export const tierListSeasonParamSchema = z.object({ season: seasonSchema });

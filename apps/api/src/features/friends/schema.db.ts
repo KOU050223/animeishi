@@ -54,6 +54,3 @@ export const friendNotes = sqliteTable(
 );
 
 export type Friend = typeof friends.$inferSelect;
-export type NewFriend = typeof friends.$inferInsert;
-export type FriendNote = typeof friendNotes.$inferSelect;
-export type NewFriendNote = typeof friendNotes.$inferInsert;

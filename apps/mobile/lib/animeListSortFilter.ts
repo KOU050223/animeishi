@@ -5,7 +5,7 @@ import { canonicalAnimeGenre } from "./animeGenreTags";
 // コンポーネントから切り離した純関数にし、vitest（*.unit.test.ts）で検証する。
 
 // ソートキー。watchersCount は Annict の人気指標（視聴者数）。
-export const ANIME_LIST_SORT_KEYS = ["title", "year", "watchersCount"] as const;
+const ANIME_LIST_SORT_KEYS = ["title", "year", "watchersCount"] as const;
 export type AnimeListSortKey = (typeof ANIME_LIST_SORT_KEYS)[number];
 export type AnimeListSortOrder = "asc" | "desc";
 

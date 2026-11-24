@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from "react";
 
 /** ウィンドウ座標系での矩形。measureInWindow の戻り値と同じ意味。 */
-export type Rect = { x: number; y: number; width: number; height: number };
+type Rect = { x: number; y: number; width: number; height: number };
 
 /**
  * ドロップ先（tier 行・未分類トレイ）の矩形を集めるレジストリ。

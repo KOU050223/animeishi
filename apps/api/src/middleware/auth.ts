@@ -28,7 +28,7 @@ export type AuthEnv = AuthVariables & {
 };
 
 // 任意認証向け: サインインしていれば clerkUserId が入る。未認証でも通る。
-export type OptionalAuthVariables = {
+type OptionalAuthVariables = {
   Variables: {
     clerkUserId?: string;
   };

@@ -12,7 +12,7 @@ import {
 // リモートからの追加は /me/friend-requests の申請フローを使う（issue #417）。
 // offlineToken はオフライン交換用の長寿命トークン（issue #663）。どちらか
 // 一方でも検証を通れば即時成立する。
-export const friendCreateSchema = z.object({
+const friendCreateSchema = z.object({
   friendId: z.string().min(1, "friendId を指定してください"),
   qrToken: z.string().min(1).optional(),
   offlineToken: z.string().min(1).optional(),
@@ -22,8 +22,6 @@ export const friendCreateSchema = z.object({
   // 判断には使わない（設計 docs/13_offline-exchange-design.md）。
   scannedAt: z.string().optional(),
 });
-
-export type FriendCreateInput = z.infer<typeof friendCreateSchema>;
 
 // friends 行（Drizzle Friend 型の JSON 表現）。createdAt は ISO 文字列。
 // meetingCount はこの相手との交換記録の件数（issue #662 の「◯回目」
@@ -153,7 +151,7 @@ const friendNoteSchema = z.object({
 
 // PUT /me/friends/{friendId}/note のボディ。500 文字まで。
 // 空文字・空白のみは「メモを消す」として扱う（空行を残さない）。
-export const friendNoteUpdateSchema = z.object({
+const friendNoteUpdateSchema = z.object({
   body: z.string().max(500, "メモは 500 文字以内で入力してください"),
 });
 
@@ -203,7 +201,7 @@ export const putFriendNoteRoute = createRoute({
 // 名刺帳の相手の近況（issue #660）で返す種類。watch_status /
 // favorite_added は activities 行、meishi_updated は公開スナップショット
 // （R2）の撮り直し時刻からサーバー側で合成する。
-export const FRIEND_UPDATE_TYPES = [
+const FRIEND_UPDATE_TYPES = [
   "watch_status",
   "favorite_added",
   "meishi_updated",

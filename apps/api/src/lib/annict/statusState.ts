@@ -23,8 +23,6 @@ export const ANNICT_ALL_STATUS_STATES = [
   ...ANNICT_STATUS_STATES,
 ] as const;
 
-export type AnnictAllStatusState = (typeof ANNICT_ALL_STATUS_STATES)[number];
-
 const PERSISTABLE = new Set<string>(ANNICT_STATUS_STATES);
 
 /**

@@ -147,5 +147,3 @@ export function electionsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type ElectionsRepository = ReturnType<typeof electionsRepository>;

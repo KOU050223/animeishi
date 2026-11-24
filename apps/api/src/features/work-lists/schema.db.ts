@@ -81,8 +81,3 @@ export const workListLikes = sqliteTable(
 );
 
 export type WorkList = typeof workLists.$inferSelect;
-export type NewWorkList = typeof workLists.$inferInsert;
-export type WorkListItem = typeof workListItems.$inferSelect;
-export type NewWorkListItem = typeof workListItems.$inferInsert;
-export type WorkListLike = typeof workListLikes.$inferSelect;
-export type NewWorkListLike = typeof workListLikes.$inferInsert;

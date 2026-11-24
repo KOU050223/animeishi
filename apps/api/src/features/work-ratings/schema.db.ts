@@ -42,4 +42,3 @@ export const workRatings = sqliteTable(
 );
 
 export type WorkRating = typeof workRatings.$inferSelect;
-export type NewWorkRating = typeof workRatings.$inferInsert;

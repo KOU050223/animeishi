@@ -213,6 +213,9 @@ export default defineConfig({
         "vp run --cache -r fmt:check",
         `vp fmt --check --ignore-path .oxfmtignore ${ROOT_FMT_TARGETS}`,
       ],
+      // 未使用のファイル・export・依存を検出する（issue #738）。
+      // ワークスペースごとの設定と誤検出の抑制は knip.json に集約している。
+      knip: "knip",
       test: "vp run --cache -r test",
       dev: { command: "vp run -r --parallel dev", cache: false },
     },

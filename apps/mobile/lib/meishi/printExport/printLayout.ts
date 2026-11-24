@@ -2,7 +2,7 @@
 // 仕上がり 91×55mm・塗り足し 3mm・300dpi の入稿向けに、
 // 塗り足し込み（97×61mm 相当）の PNG サイズを決める。
 
-export const MM_PER_INCH = 25.4;
+const MM_PER_INCH = 25.4;
 
 /** 名刺の仕上がりサイズ（mm）。一般的な名刺サイズ。 */
 export const PRINT_CARD_WIDTH_MM = 91;
@@ -12,10 +12,10 @@ export const PRINT_CARD_HEIGHT_MM = 55;
 export const PRINT_BLEED_MM = 3;
 
 /** 書き出し解像度（dpi）。 */
-export const PRINT_DPI = 300;
+const PRINT_DPI = 300;
 
 /** 裏面の QR の一辺（mm）。 */
-export const PRINT_BACK_QR_MM = 30;
+const PRINT_BACK_QR_MM = 30;
 
 export function mmToPx(mm: number, dpi: number): number {
   return Math.round((mm / MM_PER_INCH) * dpi);

@@ -106,7 +106,7 @@ type WorkDetailNode = Omit<WorkDetailNodeFull, "viewerStatusState"> & {
 };
 
 /** 詳細シートに出すスタッフ・制作会社のクレジット 1 件（issue #536）。 */
-export type AnnictWorkStaff = {
+type AnnictWorkStaff = {
   // Annict の staff 行自体の ID。人物・団体の annictId ではない
   // （同一人物の別役職は別行なので行 ID があると区別できる）。
   annictStaffId: number;
@@ -124,7 +124,7 @@ export type AnnictWorkStaff = {
 };
 
 /** 詳細シートに出すキャスト（声優 × キャラクター）1 件（issue #536）。 */
-export type AnnictWorkCast = {
+type AnnictWorkCast = {
   // Annict の cast 行自体の ID。人物・キャラクターの annictId ではない
   // （一人二役は別行なので行 ID があると区別できる）。
   annictCastId: number;

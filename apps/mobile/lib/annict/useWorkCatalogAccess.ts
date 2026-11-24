@@ -4,10 +4,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { useAnnictConnection } from "./useAnnictConnection";
 
-export const WORK_CATALOG_STATUS_QUERY_KEY = [
-  "works",
-  "catalog-status",
-] as const;
+const WORK_CATALOG_STATUS_QUERY_KEY = ["works", "catalog-status"] as const;
 
 export type WorkCatalogAccess = {
   /** 作品検索・Tier 表・作品画像ピッカー等、作品情報だけを使う機能を使えるか。 */

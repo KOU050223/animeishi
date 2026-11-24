@@ -7,7 +7,7 @@
  * 位置解決の結果。座標はモジュール内で地名に変換して破棄し、
  * 呼び出し側にはテキストだけを返す（座標を返す API は作らない）。
  */
-export type ResolvePlaceResult =
+type ResolvePlaceResult =
   | { kind: "ok"; name: string }
   // 許可が下りなかった。呼び出し側は手入力で場所を残せるフォールバックを出す。
   | { kind: "denied" }

@@ -58,15 +58,6 @@ export function signedOutUser() {
 }
 
 /**
- * Clerk がまだ読み込み中（isLoaded: false）の状態を表現する。
- * AuthGuard や各画面の早期 return をテストしたいとき用。
- */
-export function authLoading() {
-  setMockClerkState({ isLoaded: false });
-  return getMockClerkState();
-}
-
-/**
  * 認証モックを初期状態（未サインイン・新しい jest.fn 群）へ戻す。
  * 各テストの beforeEach で呼ぶ。
  */

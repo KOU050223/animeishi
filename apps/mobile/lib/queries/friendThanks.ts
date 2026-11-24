@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type FriendThanksResponse = InferResponseType<
+type FriendThanksResponse = InferResponseType<
   (typeof apiClient.me)["friend-thanks"]["$get"],
   200
 >;

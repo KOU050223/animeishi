@@ -2,9 +2,9 @@
 // テスト用ヘルパー。画像フォールバック系（lib/catalog/*Fallback.ts）の
 // 各テストから共有する。
 
-export const KITSU_MAPPINGS_URL_PREFIX = "https://kitsu.io/api/edge/mappings";
-export const KITSU_ANIME_URL_PREFIX = "https://kitsu.io/api/edge/anime/";
-export const KITSU_ANIME_LIST_URL = "https://kitsu.io/api/edge/anime";
+const KITSU_MAPPINGS_URL_PREFIX = "https://kitsu.io/api/edge/mappings";
+const KITSU_ANIME_URL_PREFIX = "https://kitsu.io/api/edge/anime/";
+const KITSU_ANIME_LIST_URL = "https://kitsu.io/api/edge/anime";
 
 /** fetch の URL が Kitsu の mappings API か。 */
 export function isKitsuMappingsUrl(url: string): boolean {

@@ -14,8 +14,7 @@ import { annictWorks } from "@/features/works/schema.db";
 // 「記録した」イベントのログ。1 行 = Annict の 1 record（再視聴で同じ話に
 // 複数 record が付く場合は複数行）。#415 の実績バッジ（今期完走・週単位の
 // 連続記録）がこのテーブルだけで判定できる形にする。
-export const EPISODE_RECORD_SOURCES = ["animeishi", "annict"] as const;
-export type EpisodeRecordSource = (typeof EPISODE_RECORD_SOURCES)[number];
+const EPISODE_RECORD_SOURCES = ["animeishi", "annict"] as const;
 
 export const episodeRecords = sqliteTable(
   "episode_records",

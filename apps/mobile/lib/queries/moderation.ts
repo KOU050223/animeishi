@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type BlocksResponse = InferResponseType<
+type BlocksResponse = InferResponseType<
   (typeof apiClient.me.blocks)["$get"],
   200
 >;

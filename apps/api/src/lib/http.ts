@@ -1,6 +1,6 @@
 // 外部リソースへ fetch する経路で共有する HTTP ユーティリティ。
 
-export const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * 公開インターネット上の画像 URL か（SSRF 対策、Devin Review 指摘）。

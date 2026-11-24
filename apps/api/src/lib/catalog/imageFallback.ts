@@ -88,7 +88,7 @@ export const IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 /** 画像フォールバックの供給元。annict_works.image_source に保存する値。 */
 // 'anilist'・'jikan' は過去の供給元で既存行に残っている値（互換のため
 // カラムはフリーテキストのまま）。現在書き込むのは 'kitsu' | 'mal' | 'none' だけ。
-export type ImageSource = "kitsu" | "mal" | "none";
+type ImageSource = "kitsu" | "mal" | "none";
 
 /**
  * 削除依頼（MAL API 規約 3(e)）で画像を消した作品の image_source（issue #241）。

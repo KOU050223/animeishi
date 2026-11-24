@@ -24,7 +24,6 @@ export const WORK_RATING_LABELS: Record<WorkRating, TranslationKey> = {
 
 // 評価は作品（annictWorkId）× ユーザー固有なので両方でスコープする。
 export const WORK_RATING_QUERY_KEY = workRatingQueries.all;
-export const workRatingQueryKey = workRatingQueries.detail.key;
 
 // 評価の書き込み（保存・解除）のスコープ。同じスコープの mutation は
 // MutationCache が直列実行する（連打でリクエスト順が入れ替わり、

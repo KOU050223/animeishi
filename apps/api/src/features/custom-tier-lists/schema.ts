@@ -51,8 +51,6 @@ export const customTierListSaveSchema = z
     { error: "同じ作品が複数の tier に配置されています", path: ["items"] },
   );
 
-export type CustomTierListSaveInput = z.infer<typeof customTierListSaveSchema>;
-
 // /me/custom-tier-lists/:id 系パスのパラメータ。パスパラメータは文字列なので coerce。
 export const customTierListIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),

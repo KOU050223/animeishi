@@ -74,14 +74,6 @@ export function useFriends() {
   });
 }
 
-/**
- * 登録済みフレンドの ID Set を返す。「すでにフレンドか」を高速判定するためのヘルパー。
- */
-export function useFriendIds(): Set<string> {
-  const { data } = useFriends();
-  return new Set((data ?? []).map((f) => f.friendId));
-}
-
 // POST /me/friends は対面 QR の即時成立専用。トークン TTL より早い周期で
 // 再取得して、提示中の QR が期限切れにならないようにする。
 const QR_TOKEN_REFETCH_INTERVAL_MS = 60_000;

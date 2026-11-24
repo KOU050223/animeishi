@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-export type ScanFallbackReason =
+type ScanFallbackReason =
   /** カメラ権限が拒否されている。 */
   | "denied"
   /** 権限はあるがカメラの起動・映像取得に失敗した。 */

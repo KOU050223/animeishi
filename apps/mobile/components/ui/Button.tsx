@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
 import { useThemeColors } from "@/lib/theme";
 
-export type ButtonVariant = "primary" | "secondary" | "destructive";
+type ButtonVariant = "primary" | "secondary" | "destructive";
 
 export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
   /** ボタンに表示するラベル。文言は基盤側に既定値を持たせず呼び出し側が渡す。 */

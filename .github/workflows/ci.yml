@@ -124,6 +124,10 @@ jobs:
       - name: Oxlint check
         run: vp run lint
 
+      # 未使用のファイル・export・依存を検出する（issue #738。設定は knip.json）
+      - name: Knip check
+        run: vp run knip
+
       - name: Save Vite Task cache
         if: success()
         uses: actions/cache/save@v6

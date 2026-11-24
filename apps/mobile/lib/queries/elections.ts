@@ -2,13 +2,13 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type ElectionsResponse = InferResponseType<
+type ElectionsResponse = InferResponseType<
   (typeof apiClient.elections)["$get"],
   200
 >;
 export type ElectionListItem = ElectionsResponse["items"][number];
 
-export type ElectionResponse = InferResponseType<
+type ElectionResponse = InferResponseType<
   (typeof apiClient.elections)[":slug"]["$get"],
   200
 >;

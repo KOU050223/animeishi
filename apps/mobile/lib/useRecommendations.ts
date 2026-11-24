@@ -14,7 +14,7 @@ import {
 // GET は保存済みの結果を返し、POST が Workers AI＋Annict searchWorks で
 // 生成する。生成には Annict 照合が要るため POST には Annict トークンを載せ、
 // 生成前に履歴を read-through 同期する（POST /me/analysis と同じ流儀）。
-export type RecommendationsResult = NonNullable<
+type RecommendationsResult = NonNullable<
   GetRecommendationsResponse["recommendations"]
 >;
 export type RecommendedWork = RecommendationsResult["works"][number];

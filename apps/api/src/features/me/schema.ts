@@ -69,8 +69,6 @@ export const profileUpdateSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
-export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
-
 // ---- OpenAPI ルート定義（issue #14）----
 
 // users 行（Drizzle User 型の JSON 表現）。createdAt / updatedAt は ISO 文字列。
@@ -173,7 +171,7 @@ export const updateProfileRoute = createRoute({
   },
 });
 
-export const profileVisibilitySchema = z.object({
+const profileVisibilitySchema = z.object({
   isPublic: z.boolean(),
 });
 
@@ -312,7 +310,7 @@ const deletionSummarySchema = z.object({
 // POST /me/deletion-feedback のボディ。reasons のキーはクライアント側で
 // 管理するため、API 側は文字列の集合だけを検証する（選択肢を追加しても
 // サーバーのデプロイを要しないようにする）。
-export const deletionFeedbackSchema = z
+const deletionFeedbackSchema = z
   .object({
     reasons: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
     freeText: z.string().trim().min(1).max(500).optional(),
@@ -320,8 +318,6 @@ export const deletionFeedbackSchema = z
   .refine((v) => v.reasons.length > 0 || v.freeText !== undefined, {
     message: "理由または自由記述のどちらかを入力してください",
   });
-
-export type DeletionFeedbackInput = z.infer<typeof deletionFeedbackSchema>;
 
 export const getDeletionSummaryRoute = createRoute({
   method: "get",

@@ -149,7 +149,3 @@ export function episodeRecordsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type EpisodeRecordsRepository = ReturnType<
-  typeof episodeRecordsRepository
->;

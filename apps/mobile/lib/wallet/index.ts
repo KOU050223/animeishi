@@ -1,2 +1,2 @@
 export { useAddToAppleWallet } from "./useAddToAppleWallet";
-export type { AddToWalletResult, UseAddToAppleWallet } from "./types";
+export type { AddToWalletResult } from "./types";

@@ -29,7 +29,7 @@ import {
   getInspectorHeight,
 } from "@/lib/meishi/inspectorLayout";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
-import { buildBlankDocument, getTemplate } from "@/lib/meishi/templates";
+import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { useMeishiImageShare } from "@/lib/meishi/imageShare";
@@ -488,7 +488,8 @@ export default function MeishiEditScreen() {
         onClose={() => {
           setTemplatePicker(false);
           if (!doc) {
-            setDocFromTemplate(buildBlankDocument());
+            // MEISHI_TEMPLATES の先頭は blank テンプレートで空配列にはならない。
+            setDocFromTemplate(MEISHI_TEMPLATES[0]!.build());
           }
         }}
         onPick={handleTemplatePick}

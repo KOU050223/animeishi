@@ -8,7 +8,7 @@
  * 呼び出し側は常に `@/components/ui/menu-picker` から import する。
  * 表示文言は基盤側に既定値を持たせず、必ず呼び出し側が渡す。
  */
-export type MenuPickerOption<T extends string | number> = {
+type MenuPickerOption<T extends string | number> = {
   /** 選択肢に表示する文言。 */
   label: string;
   value: T;

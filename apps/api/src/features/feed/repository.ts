@@ -40,7 +40,7 @@ export type FeedItemRow = {
 };
 
 /** ストーリーの 1 スライド（watch_status 活動）。 */
-export type WatchStoryItemRow = {
+type WatchStoryItemRow = {
   id: number;
   meta: string | null;
   createdAt: Date;
@@ -314,5 +314,3 @@ export function feedRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type FeedRepository = ReturnType<typeof feedRepository>;

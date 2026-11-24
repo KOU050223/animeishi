@@ -2,12 +2,8 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type ProfileResponse = InferResponseType<
+type ProfileResponse = InferResponseType<
   (typeof apiClient.me.profile)["$get"],
-  200
->;
-export type UpdateProfileResponse = InferResponseType<
-  (typeof apiClient.me.profile)["$put"],
   200
 >;
 

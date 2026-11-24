@@ -222,7 +222,7 @@ export function getTemplate(id: string): MeishiTemplate | undefined {
   return MEISHI_TEMPLATES.find((t) => t.id === id);
 }
 
-export function buildBlankDocument(): MeishiDocument {
+function buildBlankDocument(): MeishiDocument {
   // MEISHI_TEMPLATES はモジュール内の固定リテラルで先頭は blank テンプレート。
   // 空配列にはならないため非 null アサーションを使う。
   return MEISHI_TEMPLATES[0]!.build();

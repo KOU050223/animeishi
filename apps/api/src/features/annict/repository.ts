@@ -53,5 +53,3 @@ export function annictRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type AnnictRepository = ReturnType<typeof annictRepository>;

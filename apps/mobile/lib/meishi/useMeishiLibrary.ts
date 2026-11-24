@@ -99,5 +99,3 @@ export function useMeishiLibrary() {
     updateCardDocument,
   };
 }
-
-export type UseMeishiLibrary = ReturnType<typeof useMeishiLibrary>;

@@ -70,5 +70,3 @@ export function favoritesRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type FavoritesRepository = ReturnType<typeof favoritesRepository>;

@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
 
-export type SocialLinksResponse = InferResponseType<
+type SocialLinksResponse = InferResponseType<
   (typeof apiClient.me)["social-links"]["$get"],
   200
 >;

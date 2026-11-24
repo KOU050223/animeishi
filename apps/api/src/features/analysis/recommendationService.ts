@@ -28,7 +28,7 @@ import type { RecommendedWork } from "./recommendationRepository";
 // 返却上限より多めに取る。
 const MAX_CANDIDATES = 15;
 // 保存・応答に載せるおすすめの上限。
-export const MAX_RECOMMENDATIONS = 10;
+const MAX_RECOMMENDATIONS = 10;
 
 // thinking を有効のまま上限を増やすより、推論を無効化して候補 JSON に枠を使う（実推論で確認）。
 const RECOMMENDATION_MAX_TOKENS = 2048;
@@ -76,7 +76,7 @@ export async function computeRecommendationInputHash(
  * Workers AI の呼び出し・応答の解釈に失敗したときに投げるエラー。
  * ルート層で 502 に変換する。
  */
-export class RecommendationGenerationError extends Error {
+class RecommendationGenerationError extends Error {
   constructor(message = "AI の応答を解釈できませんでした") {
     super(message);
     this.name = "RecommendationGenerationError";

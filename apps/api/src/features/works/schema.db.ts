@@ -141,5 +141,3 @@ export type AnnictWork = typeof annictWorks.$inferSelect;
 export type NewAnnictWork = typeof annictWorks.$inferInsert;
 export type AnnictCharacter = typeof annictCharacters.$inferSelect;
 export type NewAnnictCharacter = typeof annictCharacters.$inferInsert;
-export type AnnictWorkCast = typeof annictWorkCasts.$inferSelect;
-export type NewAnnictWorkCast = typeof annictWorkCasts.$inferInsert;
