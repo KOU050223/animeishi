@@ -45,6 +45,9 @@ export type UseMeishiDocumentOptions = {
 export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   const { cardId, fresh = false } = options;
   const [doc, setDoc] = useState<MeishiDocument | null>(null);
+  // state 更新関数を純粋にするため、最新の doc を ref でも持つ（issue #810）。
+  // setDoc を呼ぶ箇所では必ず docRef.current も同じ値で更新する。
+  const docRef = useRef<MeishiDocument | null>(null);
   const [loaded, setLoaded] = useState(false);
   // 編集対象カード。fresh / 未作成なら null（保存時に新規カードになる）。
   const [boundCardId, setBoundCardId] = useState<string | null>(null);
@@ -83,7 +86,9 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
         : library
           ? defaultCard(library)
           : null;
-    setDoc(card?.document ?? null);
+    const nextDoc = card?.document ?? null;
+    docRef.current = nextDoc;
+    setDoc(nextDoc);
     setBoundCardId(card?.id ?? null);
     setLoaded(true);
     historyRef.current = emptyHistory();
@@ -104,7 +109,9 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
           : library
             ? defaultCard(library)
             : null;
-      setDoc(card?.document ?? null);
+      const nextDoc = card?.document ?? null;
+      docRef.current = nextDoc;
+      setDoc(nextDoc);
       setBoundCardId(card?.id ?? null);
       setLoaded(true);
     });
@@ -118,31 +125,33 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
 
   // 履歴を積むコミット
   const commit = (updater: (prev: MeishiDocument) => MeishiDocument) => {
-    setDoc((prev) => {
-      if (!prev) return prev;
-      historyRef.current = commitHistory(historyRef.current, prev);
-      bumpHistoryVersion();
-      return updater(prev);
-    });
+    const prev = docRef.current;
+    if (!prev) return;
+    historyRef.current = commitHistory(historyRef.current, prev);
+    bumpHistoryVersion();
+    const next = updater(prev);
+    docRef.current = next;
+    setDoc(next);
   };
 
   // 履歴を積まないライブ更新（ジェスチャ中用）
   // setElementTransformLive 経由でジェスチャの useMemo 依存に入るため参照を固定する。
   const setDocLive = useCallback(
     (updater: (prev: MeishiDocument) => MeishiDocument) => {
-      setDoc((prev) => {
-        if (!prev) return prev;
-        // 事前スナップショットがあればコミットする（onStart で1度だけ）
-        if (pendingHistorySnapshotRef.current) {
-          historyRef.current = commitHistory(
-            historyRef.current,
-            pendingHistorySnapshotRef.current,
-          );
-          pendingHistorySnapshotRef.current = null;
-          bumpHistoryVersion();
-        }
-        return updater(prev);
-      });
+      const prev = docRef.current;
+      if (!prev) return;
+      // 事前スナップショットがあればコミットする（onStart で1度だけ）
+      if (pendingHistorySnapshotRef.current) {
+        historyRef.current = commitHistory(
+          historyRef.current,
+          pendingHistorySnapshotRef.current,
+        );
+        pendingHistorySnapshotRef.current = null;
+        bumpHistoryVersion();
+      }
+      const next = updater(prev);
+      docRef.current = next;
+      setDoc(next);
     },
     [bumpHistoryVersion],
   );
@@ -151,38 +160,36 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   // 入るため参照を固定する。
   const beginGesture = useCallback(() => {
     // その時点の doc をスナップショット。次の setDocLive で履歴に積む。
-    setDoc((prev) => {
-      pendingHistorySnapshotRef.current = prev;
-      return prev;
-    });
+    pendingHistorySnapshotRef.current = docRef.current;
   }, []);
 
   const replaceWithoutHistory = (next: MeishiDocument) => {
     historyRef.current = emptyHistory();
     bumpHistoryVersion();
+    docRef.current = next;
     setDoc(next);
   };
 
   const undo = () => {
-    setDoc((prev) => {
-      if (!prev) return prev;
-      const result = undoHistory(historyRef.current, prev);
-      if (!result) return prev;
-      historyRef.current = result.history;
-      bumpHistoryVersion();
-      return result.doc;
-    });
+    const prev = docRef.current;
+    if (!prev) return;
+    const result = undoHistory(historyRef.current, prev);
+    if (!result) return;
+    historyRef.current = result.history;
+    bumpHistoryVersion();
+    docRef.current = result.doc;
+    setDoc(result.doc);
   };
 
   const redo = () => {
-    setDoc((prev) => {
-      if (!prev) return prev;
-      const result = redoHistory(historyRef.current, prev);
-      if (!result) return prev;
-      historyRef.current = result.history;
-      bumpHistoryVersion();
-      return result.doc;
-    });
+    const prev = docRef.current;
+    if (!prev) return;
+    const result = redoHistory(historyRef.current, prev);
+    if (!result) return;
+    historyRef.current = result.history;
+    bumpHistoryVersion();
+    docRef.current = result.doc;
+    setDoc(result.doc);
   };
 
   // 保存は「ライブラリ全体の read-modify-write」で行う。
