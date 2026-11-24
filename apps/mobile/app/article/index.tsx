@@ -14,6 +14,8 @@ import { useArticleList } from "@/lib/useArticles";
 import type { ArticleListItem } from "@/lib/useArticles";
 import { formatArticlePublishedAt } from "@/lib/articlePublishedAt";
 import { useThemeColors } from "@/lib/theme";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 行のカバー画像サイズ。比率はホームの特集枠と同じ 16:9。
 const THUMB_WIDTH = 112;
@@ -22,7 +24,12 @@ const THUMB_HEIGHT = Math.round((THUMB_WIDTH * 9) / 16);
 // 公開中の特集記事の一覧（issue #599）。ホームの特集枠（ArticleRail）の
 // 「すべて見る」とプロフィールの導線から遷移する。API は公開期間外を
 // 返さないため、ここでは取得分をそのまま並べる。
-export default function ArticleListScreen() {
+export default function ArticleListRoute() {
+  if (!featureFlags.articles) return <FeatureUnavailableScreen />;
+  return <ArticleListScreen />;
+}
+
+function ArticleListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();

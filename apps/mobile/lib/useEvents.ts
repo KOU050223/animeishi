@@ -46,12 +46,12 @@ export function useEvents() {
 // イベント一覧ページ（issue #599、/event）用。useEvents より多い件数を
 // 取るため、ホーム枠とクエリキーを分ける（ホーム枠の 10 件で
 // 一覧ページのキャッシュを汚染しない）。
-export function useEventList() {
+export function useEventList({ enabled = true }: { enabled?: boolean } = {}) {
   const { isSignedIn } = useAuth();
 
   return useQuery({
     ...eventQueries.list.query(),
-    enabled: !!isSignedIn,
+    enabled: enabled && !!isSignedIn,
   });
 }
 

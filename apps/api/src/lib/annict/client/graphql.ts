@@ -31,6 +31,23 @@ export type GraphQLResponse<T> = {
   errors?: { message: string }[];
 };
 
+// Annict のコネクションはスキーマ上 nodes 自体と要素が nullable で、
+// エラー無しでも欠損がありうる。取れた分だけを「全件」として使うと
+// 呼び出し側（履歴の全置換・話対応付け等）を誤認させるため、null の
+// nodes / null 要素は上流の不完全な応答として失敗にする。
+export function requireAnnictNodes<T>(
+  nodes: readonly (T | null)[] | null | undefined,
+  context: string,
+): T[] {
+  if (nodes == null || nodes.some((n) => n == null)) {
+    throw new AnnictApiError(
+      `Annict ${context} returned incomplete nodes`,
+      502,
+    );
+  }
+  return nodes as T[];
+}
+
 // Annict との通信失敗（ネットワーク障害・タイムアウト等）も AnnictApiError に正規化する。
 // これがないと fetch の reject がそのまま漏れ、features/annict/index.ts の
 // `instanceof AnnictApiError` 分岐を通らず一時障害が 500 扱いに崩れる。
