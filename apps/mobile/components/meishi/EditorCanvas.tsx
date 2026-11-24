@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { View, type LayoutChangeEvent, type ViewInstance } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSharedValue } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useThemeColors } from "@/lib/theme";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { ElementRenderer } from "./elements/ElementRenderer";
@@ -60,8 +61,9 @@ export function EditorCanvas({
   };
 
   // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
   const tapBackground = useMemo(
-    () => Gesture.Tap().onEnd(() => onSelect(null)),
+    () => Gesture.Tap().onEnd(() => scheduleOnRN(onSelect, null)),
     [onSelect],
   );
 
@@ -157,7 +159,11 @@ function ElementBox({
   });
 
   // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
-  const tap = useMemo(() => Gesture.Tap().onEnd(() => onSelect()), [onSelect]);
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
+  const tap = useMemo(
+    () => Gesture.Tap().onEnd(() => scheduleOnRN(onSelect)),
+    [onSelect],
+  );
 
   const pan = useMemo(
     () =>
@@ -171,10 +177,10 @@ function ElementBox({
           const ny = clamp01(
             start.value.y + e.translationY / canvasSize.height,
           );
-          onTransform({ ...start.value, x: nx, y: ny });
+          scheduleOnRN(onTransform, { ...start.value, x: nx, y: ny });
         })
         .onEnd(() => {
-          onCommit?.();
+          if (onCommit) scheduleOnRN(onCommit);
         }),
     [
       isSelected,
@@ -215,5 +221,6 @@ function ElementBox({
 }
 
 function clamp01(v: number): number {
+  "worklet";
   return Math.min(1, Math.max(0, v));
 }
