@@ -107,6 +107,7 @@ export function TierBoard({
   // シーズン版・自由作成版は呼び出し側で既に mergeBoardItems 済みだが、
   // キャラクター版のように未マージの入力を渡す画面もあるため、
   // 表示の境界であるここでも潰す（issue #521）。
+  // ジェスチャ worklet 経由で呼ばれる handleDragEnd の依存に使うため参照を固定する。
   const boardItems = useMemo(() => mergeBoardItems(items), [items]);
 
   const scrollRef = useRef<ScrollViewInstance>(null);
@@ -145,6 +146,7 @@ export function TierBoard({
     }
   }
 
+  // ジェスチャ worklet から scheduleOnRN 経由で呼ばれるため参照を固定する。
   const handleDragMove = useCallback(
     (workId: number, x: number, y: number) => {
       // 開始を弾いたドラッグ（2 指目）からの更新は拾わない。
@@ -158,6 +160,7 @@ export function TierBoard({
     [autoScroll, registry],
   );
 
+  // ジェスチャ worklet から scheduleOnRN 経由で呼ばれるため参照を固定する。
   const handleDragEnd = useCallback(
     (itemId: number, x: number, y: number) => {
       // 開始を弾いたドラッグからの終了通知は、進行中のドラッグ状態を
@@ -229,6 +232,7 @@ export function TierBoard({
   // ジェスチャが onEnd を通らずキャンセルされたときの後始末。
   // これを戻さないと draggingId が残り、重なり順とスクロール停止が戻らない。
   const handleDragCancel = useCallback(
+    // ジェスチャ worklet から scheduleOnRN 経由で呼ばれるため参照を固定する。
     (workId: number) => {
       if (workId !== draggingIdRef.current) return;
       draggingIdRef.current = null;
@@ -243,6 +247,7 @@ export function TierBoard({
   );
 
   const handleDragStart = useCallback(
+    // ジェスチャ worklet から scheduleOnRN 経由で呼ばれるため参照を固定する。
     (itemId: number) => {
       // 別カードのドラッグ中に発火した開始（2 指操作）は無視する。
       // 受け付けると補正量やタイマーがリセットされ、進行中のカードが跳ぶ。
@@ -260,19 +265,16 @@ export function TierBoard({
   );
 
   // 支援技術からの移動用に、全 tier 行と未分類トレイを移動先として並べる。
-  const moveDestinations = useMemo<TierMoveDestination[]>(
-    () => [
-      ...tiers.map((tier) => ({
-        tierKey: tier.key as string | null,
-        label: t("{{tier}} に移動", { tier: tier.label }),
-      })),
-      {
-        tierKey: null,
-        label: t("{{tier}} に戻す", { tier: t(UNASSIGNED_LABEL) }),
-      },
-    ],
-    [tiers, t],
-  );
+  const moveDestinations: TierMoveDestination[] = [
+    ...tiers.map((tier) => ({
+      tierKey: tier.key as string | null,
+      label: t("{{tier}} に移動", { tier: tier.label }),
+    })),
+    {
+      tierKey: null,
+      label: t("{{tier}} に戻す", { tier: t(UNASSIGNED_LABEL) }),
+    },
+  ];
 
   const renderCard = (item: TierItem, currentTierKey: string | null) => (
     <DraggableWorkCard
@@ -298,10 +300,7 @@ export function TierBoard({
 
   const tray = unassignedItems(boardItems, assignment);
   // 追加シートの「追加済み」判定用。盤面に載っているアイテムは再追加させない。
-  const existingItemIds = useMemo(
-    () => new Set(boardItems.map((item) => item.id)),
-    [boardItems],
-  );
+  const existingItemIds = new Set(boardItems.map((item) => item.id));
 
   // ドラッグ中のカードを含む層（行・盤面・トレイ）を最前面に持ち上げる。
   // カード自身が付ける zIndex は同じ DropZone 内の兄弟にしか効かず、
