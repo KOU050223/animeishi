@@ -584,6 +584,100 @@ describe("PublicProfilePage", () => {
     await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(7));
   });
 
+  it("申請の送信に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockSendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(new Error("申請は1日に5回までです")),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "申請できませんでした",
+      "申請は1日に5回までです",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("承認に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    mockAcceptMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(new Error("このユーザーは承認できません")),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("accept-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "承認できませんでした",
+      "このユーザーは承認できません",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("届いた申請の削除に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    mockDeleteMutateAsync.mockRejectedValue(
+      new Error("申請が見つかりませんでした"),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("delete-friend-request-button"));
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "申請を削除できませんでした",
+        "申請が見つかりませんでした",
+        { okLabel: "OK" },
+      ),
+    );
+  });
+
+  it("送った申請の取消に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [],
+      sent: [{ id: 11, userId: "user_target", username: "対象ユーザー" }],
+    };
+    mockDeleteMutateAsync.mockRejectedValue(
+      new Error("申請が見つかりませんでした"),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("cancel-friend-request-button"));
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "申請を取り消せませんでした",
+        "申請が見つかりませんでした",
+        { okLabel: "OK" },
+      ),
+    );
+  });
+
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
     loggedInUser({ userId: "user_me" });
     await render(<PublicProfilePage />, { wrapper });

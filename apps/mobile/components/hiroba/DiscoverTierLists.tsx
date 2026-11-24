@@ -65,10 +65,12 @@ export function DiscoverTierLists() {
     toggleLike.mutate(
       { kind: item.kind, id: item.id, like: !item.likedByMe },
       {
-        onError: () =>
+        onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            t("時間をおいて再度お試しください。"),
+            e instanceof Error
+              ? t(e.message, { defaultValue: e.message })
+              : t("いいねの更新に失敗しました"),
             {
               okLabel: "OK",
             },

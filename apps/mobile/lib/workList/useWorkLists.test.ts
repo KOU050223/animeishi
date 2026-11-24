@@ -501,6 +501,43 @@ describe("useToggleWorkListLike", () => {
       { fetch: expect.any(Function) },
     );
   });
+
+  it("失敗しても一覧・詳細のキャッシュは元のまま", async () => {
+    // いいねは楽観更新していないため、失敗時は何も書き戻さないことが
+    // 「表示状態が元に戻る」ことの裏付けになる（issue #811）。
+    mockLikePut.mockRejectedValue(
+      new ApiRequestError(429, "いいねは1時間に10回までです"),
+    );
+    const { client, wrapper } = makeWrapper();
+    for (const sort of ["likes", "new"] as const) {
+      client.setQueryData(["work-list", "public", sort], {
+        pages: [{ items: [PUBLIC_ITEM], nextCursor: null }],
+      });
+    }
+    client.setQueryData(["work-list", "public", "detail", 3], {
+      likeCount: 12,
+      likedByMe: false,
+    });
+
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: true });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe("いいねは1時間に10回までです");
+    for (const sort of ["likes", "new"] as const) {
+      const cached = client.getQueryData<{
+        pages: { items: (typeof PUBLIC_ITEM)[] }[];
+      }>(["work-list", "public", sort]);
+      expect(cached?.pages[0]?.items[0]?.likedByMe).toBe(false);
+      expect(cached?.pages[0]?.items[0]?.likeCount).toBe(12);
+    }
+    expect(client.getQueryData(["work-list", "public", "detail", 3])).toEqual({
+      likeCount: 12,
+      likedByMe: false,
+    });
+  });
 });
 
 describe("useReportWorkList", () => {

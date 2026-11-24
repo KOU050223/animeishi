@@ -310,16 +310,16 @@ describe("DiscoverSection", () => {
     expect(screen.queryByText("この作品リストを通報")).toBeNull();
   });
 
-  it("いいね失敗はアラートを出す", async () => {
+  it("いいね失敗はサーバーの文言をアラートに出す", async () => {
     mockToggleMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("failed"));
+      options?.onError?.(new Error("いいねは1時間に10回までです"));
     });
     await render(<DiscoverSection />);
     await fireEvent.press(screen.getByTestId("work-list-like-1"));
 
     expect(alert).toHaveBeenCalledWith(
       "いいねできませんでした",
-      "時間をおいて再度お試しください。",
+      "いいねは1時間に10回までです",
       { okLabel: "OK" },
     );
   });
