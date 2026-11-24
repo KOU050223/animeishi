@@ -83,9 +83,8 @@ export function setEventContext(partial: {
   screen?: string;
 }): void {
   if ("userId" in partial) {
-    const previous = eventContext.userId;
     eventContext.userId = partial.userId;
-    syncAnalyticsIdentity(previous, partial.userId);
+    syncAnalyticsIdentity(partial.userId);
   }
   if ("screen" in partial) {
     eventContext.screen = partial.screen;
@@ -117,10 +116,7 @@ export async function flushTrackedEvents(): Promise<void> {
 // サインインしたらハッシュ済み user key で identify し、サインアウトしたら
 // reset して次の利用者のイベントと混ざらないようにする（issue #758）。
 // undefined は Clerk の読み込み中なので何もしない。
-function syncAnalyticsIdentity(
-  previous: string | null | undefined,
-  next: string | null | undefined,
-): void {
+function syncAnalyticsIdentity(next: string | null | undefined): void {
   if (next) {
     void hashedUserKey(next).then((userKey) => {
       // ハッシュ化の間にサインアウト・切り替えが起きたら古い値で identify しない。
@@ -128,7 +124,7 @@ function syncAnalyticsIdentity(
         return identifyAnalyticsUser(userKey);
       }
     });
-  } else if (next === null && previous) {
+  } else if (next === null) {
     void resetAnalyticsUser();
   }
 }

@@ -27,6 +27,14 @@ export function isAnalyticsEnabled(): boolean {
   return posthogKey() !== "";
 }
 
+// 開発・プレビューのイベントを本番と分けて集計できるよう全イベントに付ける。
+// reset() は登録済みの属性も消すため、reset のたびに付け直す。
+function registerSuperProperties(client: PostHog): void {
+  void client.register({
+    environment: resolveEnvironment(process.env.EXPO_PUBLIC_ENVIRONMENT),
+  });
+}
+
 function getClient(): Promise<PostHog | null> {
   if (!isAnalyticsEnabled()) return Promise.resolve(null);
   clientPromise ??= loadPostHogSdk()
@@ -44,10 +52,7 @@ function getClient(): Promise<PostHog | null> {
         // IP から所在地を引かせない（プライバシー申告に位置情報を足さないため）。
         disableGeoip: true,
       });
-      // 開発・プレビューのイベントを本番と分けて集計できるよう全イベントに付ける。
-      void client.register({
-        environment: resolveEnvironment(process.env.EXPO_PUBLIC_ENVIRONMENT),
-      });
+      registerSuperProperties(client);
       return client;
     })
     .catch(() => {
@@ -83,9 +88,16 @@ export async function identifyAnalyticsUser(distinctId: string): Promise<void> {
   }
 }
 
+// identify 済みのときだけ reset する。SDK は識別子を端末に保存するため、
+// アプリを閉じている間にサインアウト扱いになった場合も起動時にここで外す。
+// 未識別で reset すると匿名 ID が毎回変わり、未ログインの再訪を追えなくなる。
 export async function resetAnalyticsUser(): Promise<void> {
   try {
-    (await getClient())?.reset();
+    const client = await getClient();
+    if (client && client.getDistinctId() !== client.getAnonymousId()) {
+      client.reset();
+      registerSuperProperties(client);
+    }
   } catch {
     // 握りつぶす
   }

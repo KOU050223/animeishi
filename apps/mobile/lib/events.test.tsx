@@ -217,9 +217,17 @@ describe("PostHog の identify / reset", () => {
     );
   });
 
-  it("未サインインのまま（undefined → null）は reset しない", async () => {
+  it("起動時に未サインイン（undefined → null）でも reset を依頼する（端末に残った識別を外す）", async () => {
     setEventContext({ userId: undefined });
     setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+  });
+
+  it("Clerk の読み込み中（undefined）は reset しない", () => {
+    setEventContext({ userId: undefined });
 
     expect(jest.mocked(resetAnalyticsUser)).not.toHaveBeenCalled();
   });

@@ -35,6 +35,9 @@ class FakePostHog {
   getDistinctId() {
     return this.distinctId;
   }
+  getAnonymousId() {
+    return "anon";
+  }
   getFeatureFlag(key: string) {
     return this.flags[key];
   }
@@ -123,6 +126,20 @@ describe("キー設定時", () => {
     await captureAnalyticsEvent("meishi_save", {});
     expect(loaderMock).toHaveBeenCalledTimes(1);
     expect(lastClient().capture).toHaveBeenCalledTimes(2);
+  });
+
+  it("reset は identify 済みのときだけ呼び、environment を付け直す", async () => {
+    await resetAnalyticsUser();
+    const client = lastClient();
+    expect(client.reset).not.toHaveBeenCalled();
+
+    await identifyAnalyticsUser("user_key_1");
+    client.register.mockClear();
+    await resetAnalyticsUser();
+    expect(client.reset).toHaveBeenCalledTimes(1);
+    expect(client.register).toHaveBeenCalledWith({
+      environment: expect.any(String),
+    });
   });
 
   it("identify は distinct_id が変わるときだけ呼び、reset・flush は SDK へ渡す", async () => {
