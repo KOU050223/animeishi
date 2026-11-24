@@ -166,8 +166,7 @@ export default function MeishiEditScreen() {
     () =>
       Gesture.Tap()
         .withTestId("meishi-canvas-backdrop-tap")
-        // ジェスチャのコールバックは UI スレッドの worklet で実行されるため、
-        // JS 側の onSelect は scheduleOnRN 経由で呼ぶ（直接呼ぶとクラッシュする）。
+        // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
         .onEnd(() => scheduleOnRN(onSelect, null)),
     [onSelect],
   );

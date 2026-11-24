@@ -10,11 +10,19 @@ import path from "node:path";
 // JS 側へ戻すには scheduleOnRN（または runOnJS）を通す必要がある。
 // oxlint にはこれを表せるルールが無いため、ソースを走査して検査する。
 //
-// 検出は命名規約ベース: UI スレッドで動くコールバック本体から
-// scheduleOnRN / runOnJS で包まれた呼び出しを除き、onXxx という名前
-// （props コールバックの慣例名）の関数呼び出しが残っていれば違反とみなす。
+// 検出は命名規約ベース: UI スレッドで動くコールバック本体に onXxx という
+// 名前（props コールバックの慣例名）の関数呼び出しがあれば違反とみなす。
+// scheduleOnRN / runOnJS に包まれた関数参照は呼び出しではないので素通しする
+// （逆に scheduleOnRN(fn, onXxx()) のように引数を UI スレッドで評価する
+// 書き方も違反として検出する）。
 // .runOnJS(true) を付けたジェスチャはコールバックが JS スレッドで動くため
 // 対象外とする。
+//
+// 走査の限界: ジェスチャは `Gesture.X().onYyy(...)` のように
+// メソッドチェーンで組み立てられたものだけを対象にする
+// （`const g = Gesture.Tap(); g.onEnd(...)` のように文を分けた登録は
+// 拾わない）。このコードベースのジェスチャはすべてチェーン組み立てなので
+// その規約に頼る。
 const SCAN_DIRS = ["app", "components", "lib"];
 const EXCLUDED_DIRS = new Set([
   "__mocks__",
@@ -69,7 +77,7 @@ function maskNonCode(source: string): string {
         chars[i + 1] = " ";
         i += 2;
       }
-    } else if (c === '"' || c === "'" || c === "`") {
+    } else if (c === '"' || c === "'") {
       const quote = c;
       chars[i++] = " ";
       while (i < n && source[i] !== quote) {
@@ -81,11 +89,94 @@ function maskNonCode(source: string): string {
         i++;
       }
       if (i < n) chars[i++] = " ";
+    } else if (c === "`") {
+      i = maskTemplateLiteral(source, chars, i);
     } else {
       i++;
     }
   }
   return chars.join("");
+}
+
+// テンプレートリテラルをマスクする。`...${...}` のリテラル部分だけを潰し、
+// ${} の中の式はコードとして残す（worklet 内の `${onXxx()}` も検出するため）。
+// start は ` の位置。戻り値は終端 ` の直後の位置。
+function maskTemplateLiteral(
+  source: string,
+  chars: string[],
+  start: number,
+): number {
+  const n = source.length;
+  chars[start] = " ";
+  let i = start + 1;
+  while (i < n && source[i] !== "`") {
+    if (source[i] === "\\") {
+      chars[i] = " ";
+      i++;
+      if (i < n && source[i] !== "\n") chars[i] = " ";
+      i++;
+      continue;
+    }
+    if (source[i] === "$" && source[i + 1] === "{") {
+      chars[i] = " ";
+      chars[i + 1] = " ";
+      i += 2;
+      // ${} の中身は式なのでマスクしない。文字列・コメント・ネストした
+      // ブレースを読み飛ばしながら対応する } まで進める。
+      let depth = 1;
+      while (i < n && depth > 0) {
+        const c = source[i];
+        if (c === "/" && source[i + 1] === "/") {
+          while (i < n && source[i] !== "\n") chars[i++] = " ";
+          continue;
+        }
+        if (c === "/" && source[i + 1] === "*") {
+          while (i < n && !(source[i] === "*" && source[i + 1] === "/")) {
+            if (source[i] !== "\n") chars[i] = " ";
+            i++;
+          }
+          if (i < n) {
+            chars[i] = " ";
+            chars[i + 1] = " ";
+            i += 2;
+          }
+          continue;
+        }
+        if (c === "{") depth++;
+        else if (c === "}") {
+          depth--;
+          if (depth === 0) {
+            chars[i] = " ";
+            i++;
+            break;
+          }
+        } else if (c === '"' || c === "'") {
+          const quote = c;
+          chars[i] = " ";
+          i++;
+          while (i < n && source[i] !== quote) {
+            if (source[i] === "\\") {
+              chars[i] = " ";
+              i++;
+            }
+            if (i < n && source[i] !== "\n") chars[i] = " ";
+            i++;
+          }
+          if (i < n) chars[i++] = " ";
+          continue;
+        } else if (c === "`") {
+          i = maskTemplateLiteral(source, chars, i);
+          continue;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (source[i] !== "\n") chars[i] = " ";
+    i++;
+  }
+  if (i < n) chars[i] = " ";
+  return i + 1;
 }
 
 // masked[open] が '(' のとき、対応する ')' の直後の位置を返す。失敗時は -1。
@@ -118,12 +209,15 @@ function methodChainEnd(masked: string, pos: number): number {
 const GESTURE_START = /\bGesture\.[A-Za-z_$][\w$]*\s*\(/g;
 // ジェスチャのコールバック登録メソッド（.onStart / .onUpdate / ... 全般）。
 const CALLBACK_METHOD = /\.(on[A-Z]\w*)\s*\(/g;
-// コールバックを UI スレッドで実行するフック・関数。withTiming 等の
-// 完了コールバックも UI ランタイムで呼ばれるため対象に含める。
-const UI_THREAD_ENTRY =
-  /\b(useAnimatedStyle|useAnimatedProps|useAnimatedReaction|useDerivedValue|useAnimatedScrollHandler|useAnimatedGestureHandler|useFrameCallback|withTiming|withSpring|withDecay|withSequence|withRepeat|withDelay|runOnUI|executeOnUIRuntimeSync)\s*\(/g;
-// JS 側へ処理を戻す安全な呼び出し。これに包まれた onXxx は違反ではない。
-const SAFE_WRAP = /\b(scheduleOnRN|scheduleOnUI|runOnJS|runOnRuntime)\s*\(/g;
+// コールバックを UI スレッドで実行するフック・関数。引数の関数がそのまま
+// worklet になるため、呼び出し全体を検査する。
+const UI_THREAD_HOOK =
+  /\b(useAnimatedStyle|useAnimatedProps|useAnimatedReaction|useDerivedValue|useAnimatedScrollHandler|useAnimatedGestureHandler|useFrameCallback|runOnUI|executeOnUIRuntimeSync)\s*\(/g;
+// 完了コールバックを取るアニメーション関数。コールバックは最後の引数で、
+// それより前の引数（目標値・設定）は呼び出し側のスレッドで評価されるため
+// 最後の引数だけを検査する。withSequence / withRepeat / withDelay は
+// コールバックを直接取らないため対象外（内側の withTiming 等は個別に拾う）。
+const UI_THREAD_ANIMATION = /\b(withTiming|withSpring|withDecay)\s*\(/g;
 // JS 側コールバックの呼び出し（onXxx(...) / onXxx?.(...) / ref 経由）。
 const JS_CALL = /\bon[A-Z]\w*(?:\.current)?\s*(?:\?\.)?\s*\(/g;
 
@@ -150,14 +244,46 @@ function uiThreadCallbackBodies(masked: string): CallbackBody[] {
     }
   }
 
-  for (const m of masked.matchAll(UI_THREAD_ENTRY)) {
+  for (const m of masked.matchAll(UI_THREAD_HOOK)) {
     const open = m.index + m[0].length - 1;
     const end = callEnd(masked, open);
     if (end !== -1)
       bodies.push({ body: masked.slice(open, end), offset: open });
   }
 
+  // withTiming 系は最後の引数（完了コールバック）だけを検査する。
+  for (const m of masked.matchAll(UI_THREAD_ANIMATION)) {
+    const open = m.index + m[0].length - 1;
+    const end = callEnd(masked, open);
+    if (end === -1) continue;
+    const args = topLevelArgs(masked.slice(open, end));
+    const last = args.at(-1);
+    if (last !== undefined) {
+      bodies.push({ body: last.text, offset: open + last.offset });
+    }
+  }
+
   return bodies;
+}
+
+// `(a, b, c)` 形の呼び出し文字列を、最上位のカンマで引数に分割する。
+// offset は呼び出し文字列内での位置。
+function topLevelArgs(call: string): { text: string; offset: number }[] {
+  const args: { text: string; offset: number }[] = [];
+  let depth = 0;
+  let start = 1; // 先頭の '(' の次から
+  const last = call.length - 1; // 末尾の ')' の手前まで
+  for (let i = start; i < last; i++) {
+    const c = call[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) {
+      args.push({ text: call.slice(start, i), offset: start });
+      start = i + 1;
+    }
+  }
+  args.push({ text: call.slice(start, last), offset: start });
+  return args;
 }
 
 // source 中の違反（UI スレッドのコールバックからの onXxx 直接呼び出し）を
@@ -166,14 +292,8 @@ function findDirectJsCalls(source: string): { line: number; call: string }[] {
   const masked = maskNonCode(source);
   const found = new Map<number, { line: number; call: string }>();
   for (const { body, offset } of uiThreadCallbackBodies(masked)) {
-    const safeSpans: [number, number][] = [];
-    for (const sm of body.matchAll(SAFE_WRAP)) {
-      const end = callEnd(body, sm.index + sm[0].length - 1);
-      if (end !== -1) safeSpans.push([sm.index, end]);
-    }
     for (const jm of body.matchAll(JS_CALL)) {
       const position = offset + jm.index;
-      if (safeSpans.some(([s, e]) => jm.index >= s && jm.index < e)) continue;
       if (found.has(position)) continue;
       found.set(position, {
         line: masked.slice(0, position).split("\n").length,
@@ -207,8 +327,15 @@ describe("UI スレッドの worklet からの JS 関数直接呼び出し（iss
         .onEnd(() => {
           onCommit?.();
         });
+      // scheduleOnRN の引数も UI スレッドで評価されるため直接呼び出しは違反。
+      const bad = Gesture.Tap()
+        .onEnd(() => scheduleOnRN(onSelect, onBeforeSelect()));
+      // withTiming の完了コールバック（最後の引数）も UI スレッドで動く。
+      const animated = withTiming(1, { duration: 100 }, () => onFinished());
+      // テンプレートリテラルの補間式も実行される。
+      const label = Gesture.Tap().onEnd(() => \`\${onSelect()}\`);
     `;
-    expect(findDirectJsCalls(violating)).toHaveLength(2);
+    expect(findDirectJsCalls(violating)).toHaveLength(5);
 
     const safe = `
       const pan = Gesture.Pan()
@@ -221,6 +348,8 @@ describe("UI スレッドの worklet からの JS 関数直接呼び出し（iss
       const onJs = Gesture.Tap()
         .runOnJS(true)
         .onEnd(() => onSelect(null));
+      // 完了コールバックより前の引数は呼び出し側のスレッドで評価される。
+      const animated = withTiming(onTarget(), { duration: 100 });
     `;
     expect(findDirectJsCalls(safe)).toEqual([]);
   });

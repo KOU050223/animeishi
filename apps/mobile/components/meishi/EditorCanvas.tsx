@@ -61,8 +61,7 @@ export function EditorCanvas({
   };
 
   // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
-  // ジェスチャのコールバックは UI スレッドの worklet で実行されるため、
-  // JS 側の関数は scheduleOnRN 経由で呼ぶ（直接呼ぶとクラッシュする）。
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
   const tapBackground = useMemo(
     () => Gesture.Tap().onEnd(() => scheduleOnRN(onSelect, null)),
     [onSelect],
@@ -160,9 +159,7 @@ function ElementBox({
   });
 
   // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
-  // ジェスチャのコールバックは UI スレッドの worklet で実行されるため、
-  // JS 側の関数（onSelect / onTransform / onCommit）は scheduleOnRN 経由で
-  // 呼ぶ（直接呼ぶとクラッシュする）。
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
   const tap = useMemo(
     () => Gesture.Tap().onEnd(() => scheduleOnRN(onSelect)),
     [onSelect],

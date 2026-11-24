@@ -53,9 +53,7 @@ export function SelectionOverlay({
   });
 
   // Gesture インスタンス生成用のファクトリ。fresh な useMemo で1度だけ作る。
-  // ジェスチャのコールバックは UI スレッドの worklet で実行されるため、
-  // JS 側の関数（onTransform / onCommit）は scheduleOnRN 経由で呼ぶ
-  // （直接呼ぶとクラッシュする）。
+  // コールバックは UI スレッドで動くため JS 関数は scheduleOnRN 経由（issue #784）。
   const buildResize = useCallback(
     (corner: Corner) =>
       Gesture.Pan()
