@@ -1,13 +1,11 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
-import { danimeMatchRequestSchema } from "./schema";
+import { danimeMatchRoute } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { danimeEpisodeJobs } from "./episodeJobs";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
-import { requireAnnictToken } from "@/lib/annict/middleware";
 import {
   AnnictApiError,
   AnnictBudgetExhaustedError,
@@ -27,14 +25,12 @@ import {
 // 抽出はクライアント側（ネイティブ WebView 注入 / Web ブックマークレット）が担い、
 // ここでは抽出結果の作品タイトル群を Annict 作品へ照合する。
 // 登録（updateStatus + D1 追従）は既存の watch-history ルートが担う。
-const importRoute = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  // マッチングは Annict searchWorks を叩くため Annict トークン必須。
-  .post(
-    "/danime/match",
-    requireAnnictToken,
-    zValidator("json", danimeMatchRequestSchema),
-    async (c) => {
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const importRoute = app
+  // マッチングは Annict searchWorks を叩くため Annict トークン必須
+  // （requireAnnictToken は danimeMatchRoute の middleware に載せている）。
+  .openapi(danimeMatchRoute, async (c) => {
       const { works, registeredWorkIds } = c.req.valid("json");
       // Annict へのアクセスは AnnictSearcher として注入する
       // （core は通信を持たない）。並列化した検索で 429 / 一時障害に
@@ -56,7 +52,7 @@ const importRoute = new Hono<AuthVariables>()
       // D1 の annict_works キャッシュで先に照合し、確定したタイトルは
       // Annict に送らない。D1 クエリ自体もサブリクエストに数えられるので
       // 同じ予算から消費する。
-      const db = createDb(c.env.DB as D1Database);
+      const db = createDb((c.env as { DB: D1Database }).DB);
       const localSearch = createLocalWorkSearcher(db, () =>
         budget.tryConsume(),
       );
@@ -156,8 +152,7 @@ const importRoute = new Hono<AuthVariables>()
         }),
       );
       return c.json({ results, stats: statsWithRetries }, 200);
-    },
-  )
+  })
   // 話単位の記録ジョブ（issue #477）。POST /danime/episode-jobs で
   // ジョブを登録して即座に返し、GET /danime/episode-jobs/current で
   // 進捗を返す。書き込み自体は Cloudflare Workflows が担う。

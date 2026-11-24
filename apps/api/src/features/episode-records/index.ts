@@ -1,14 +1,16 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { episodeRecordsRepository } from "./repository";
 import type { AnnictRecordLogEntry } from "./repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
-import { annictEpisodeIdParamSchema } from "./schema";
-import { annictWorkIdParamSchema } from "../works/schema";
+import {
+  getWorkEpisodesRoute,
+  recordEpisodeRoute,
+  unrecordEpisodeRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import {
@@ -21,7 +23,6 @@ import {
   fetchAnnictWorkEpisodes,
 } from "@/lib/annict/client";
 import { annictRepository } from "../annict/repository";
-import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import type { NewAnnictWork } from "@/db/schema";
 
@@ -83,13 +84,10 @@ function isAnnictRecordNotFoundError(err: unknown): boolean {
 // PUT/DELETE は「記録した/消した」のイベント書き込みなので失敗時に
 // D1 だけ進めない。GET の D1 同期（既存 Annict 記録の取り込み）は
 // best-effort で、失敗しても話数一覧自体は返す（次回取得で収束する）。
-const episodeRecords = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .put(
-    "/:annictEpisodeId",
-    requireAnnictToken,
-    zValidator("param", annictEpisodeIdParamSchema),
-    async (c) => {
+const episodeRecordsApp = createOpenApiApp<AuthVariables>();
+episodeRecordsApp.use("*", requireAuth);
+const episodeRecords = episodeRecordsApp
+  .openapi(recordEpisodeRoute, async (c) => {
       const { annictEpisodeId } = c.req.valid("param");
       const token = c.var.annictToken;
       const db = createDb(getBindings(c).DB);
@@ -145,13 +143,8 @@ const episodeRecords = new Hono<AuthVariables>()
         { recorded: false, annictRecordId: null, recordedAt: null },
         200,
       );
-    },
-  )
-  .delete(
-    "/:annictEpisodeId",
-    requireAnnictToken,
-    zValidator("param", annictEpisodeIdParamSchema),
-    async (c) => {
+  })
+  .openapi(unrecordEpisodeRoute, async (c) => {
       const { annictEpisodeId } = c.req.valid("param");
       const token = c.var.annictToken;
       const db = createDb(getBindings(c).DB);
@@ -206,21 +199,17 @@ const episodeRecords = new Hono<AuthVariables>()
       // （先に消すと次回の同期で「Annict に残る記録」が復活してしまう）。
       await repo.deleteByEpisode(annictEpisodeId);
       return c.json({ success: true }, 200);
-    },
-  );
+  });
 
 // 作品詳細シートの話数チェック一覧が使う話数マスタ + 記録状況。
 // 話のマスタは Annict episodes が正。viewer.records を読み、D1 の
 // episode_records ログと合わせる（issue #439 の「Annict 側の既存の記録も
 // 読み込んで D1 のログと合わせる」）。返すのは Annict の viewerDidTrack を
 // 見たチェック状態と、D1 に取り込んだ記録日時（lastRecordedAt）。
-const workEpisodes = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get(
-    "/:annictWorkId/episodes",
-    requireAnnictToken,
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
+const workEpisodesApp = createOpenApiApp<AuthVariables>();
+workEpisodesApp.use("*", requireAuth);
+const workEpisodes = workEpisodesApp
+  .openapi(getWorkEpisodesRoute, async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const token = c.var.annictToken;
       const db = createDb(getBindings(c).DB);
@@ -338,7 +327,6 @@ const workEpisodes = new Hono<AuthVariables>()
         },
         200,
       );
-    },
-  );
+  });
 
 export { episodeRecords, workEpisodes };

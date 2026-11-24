@@ -5,14 +5,16 @@
 // 返す。ユーザーはそのまま画面を閉じてよい（書き込みはバックグラウンド）。
 // Annict トークンは Workflow 側でユーザー ID から復号するため、ここでは
 // Web 連携（D1 保存トークン）の有無だけを確認する。
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { annictRepository } from "../annict/repository";
 import type { DanimeEpisodeImportJob } from "@/db/schema";
-import { danimeEpisodeJobCreateSchema } from "./schema";
+import {
+  createDanimeEpisodeJobRoute,
+  getCurrentDanimeEpisodeJobRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { episodeImportJobRepository, RUNNING_JOB_STATUSES } from "./repository";
 import type { DanimeEpisodeImportParams } from "./episodeImportWorkflow";
 
@@ -157,12 +159,10 @@ async function reconcileJobWithWorkflow(
   return "running";
 }
 
-export const danimeEpisodeJobs = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .post(
-    "/episode-jobs",
-    zValidator("json", danimeEpisodeJobCreateSchema),
-    async (c) => {
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+export const danimeEpisodeJobs = app
+  .openapi(createDanimeEpisodeJobRoute, async (c) => {
       const userId = c.get("clerkUserId");
       const { works } = c.req.valid("json");
       const { DB, DANIME_EPISODE_IMPORT } = c.env as EpisodeJobBindings;
@@ -246,9 +246,8 @@ export const danimeEpisodeJobs = new Hono<AuthVariables>()
       }
       const job = await repo.getJob(jobId);
       return c.json({ job: job ? toJobDto(job) : null, created: true }, 201);
-    },
-  )
-  .get("/episode-jobs/current", async (c) => {
+  })
+  .openapi(getCurrentDanimeEpisodeJobRoute, async (c) => {
     const userId = c.get("clerkUserId");
     const { DB, DANIME_EPISODE_IMPORT } = c.env as EpisodeJobBindings;
     const db = createDb(DB);
