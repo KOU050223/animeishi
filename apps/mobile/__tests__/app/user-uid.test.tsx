@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { trackEvent } from "@/lib/events";
 
@@ -582,6 +583,122 @@ describe("PublicProfilePage", () => {
       expect.objectContaining({ destructive: true }),
     );
     await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith(7));
+  });
+
+  it("申請の送信に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockSendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(new ApiRequestError(429, "申請は1日に5回までです")),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "申請できませんでした",
+      "申請は1日に5回までです",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("申請の失敗が ApiRequestError でない（通信断等）は翻訳済みの案内を出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockSendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(new Error("Network request failed")),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "申請できませんでした",
+      "フレンド申請に失敗しました",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("承認に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    mockAcceptMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(
+          new ApiRequestError(403, "このユーザーは承認できません"),
+        ),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("accept-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "承認できませんでした",
+      "このユーザーは承認できません",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("届いた申請の削除に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [{ id: 7, userId: "user_target", username: "対象ユーザー" }],
+      sent: [],
+    };
+    mockDeleteMutateAsync.mockRejectedValue(
+      new ApiRequestError(404, "申請が見つかりませんでした"),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("delete-friend-request-button"));
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "申請を削除できませんでした",
+        "申請が見つかりませんでした",
+        { okLabel: "OK" },
+      ),
+    );
+  });
+
+  it("送った申請の取消に失敗したらサーバーの文言をアラートに出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockRequestsData = {
+      received: [],
+      sent: [{ id: 11, userId: "user_target", username: "対象ユーザー" }],
+    };
+    mockDeleteMutateAsync.mockRejectedValue(
+      new ApiRequestError(404, "申請が見つかりませんでした"),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("cancel-friend-request-button"));
+
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(
+        "申請を取り消せませんでした",
+        "申請が見つかりませんでした",
+        { okLabel: "OK" },
+      ),
+    );
   });
 
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {

@@ -501,6 +501,73 @@ describe("useToggleWorkListLike", () => {
       { fetch: expect.any(Function) },
     );
   });
+
+  it("失敗しても一覧・詳細のキャッシュは元のまま", async () => {
+    // いいねは楽観更新していないため、失敗時は何も書き戻さないことが
+    // 「表示状態が元に戻る」ことの裏付けになる（issue #811）。
+    mockLikePut.mockRejectedValue(
+      new ApiRequestError(429, "いいねは1時間に10回までです"),
+    );
+    const { client, wrapper } = makeWrapper();
+    for (const sort of ["likes", "new"] as const) {
+      client.setQueryData(["work-list", "public", sort], {
+        pages: [{ items: [PUBLIC_ITEM], nextCursor: null }],
+      });
+    }
+    client.setQueryData(["work-list", "public", "detail", 3], {
+      likeCount: 12,
+      likedByMe: false,
+    });
+
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: true });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe("いいねは1時間に10回までです");
+    for (const sort of ["likes", "new"] as const) {
+      const cached = client.getQueryData<{
+        pages: { items: (typeof PUBLIC_ITEM)[] }[];
+      }>(["work-list", "public", sort]);
+      expect(cached?.pages[0]?.items[0]?.likedByMe).toBe(false);
+      expect(cached?.pages[0]?.items[0]?.likeCount).toBe(12);
+    }
+    expect(client.getQueryData(["work-list", "public", "detail", 3])).toEqual({
+      likeCount: 12,
+      likedByMe: false,
+    });
+  });
+
+  it("onHttpError は 429 の応答 body の error 文言を使う", async () => {
+    mockLikePut.mockResolvedValue(
+      okResponse({ likeCount: 13, likedByMe: true }),
+    );
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useToggleWorkListLike(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, like: true });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // いいね用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（useReportWorkList のテストと同じ手法）。
+    const options = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(options).toBeDefined();
+    const error = await options!.onHttpError!(
+      new Response(JSON.stringify({ error: "いいねは1時間に10回までです" }), {
+        status: 429,
+      }),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toBe("いいねは1時間に10回までです");
+  });
 });
 
 describe("useReportWorkList", () => {

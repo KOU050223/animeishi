@@ -16,6 +16,7 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { CardPressable } from "@/components/ui/card-pressable";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
 import {
   usePublicTierLists,
@@ -65,10 +66,12 @@ export function DiscoverTierLists() {
     toggleLike.mutate(
       { kind: item.kind, id: item.id, like: !item.likedByMe },
       {
-        onError: () =>
+        onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            t("時間をおいて再度お試しください。"),
+            e instanceof ApiRequestError
+              ? t(e.message, { defaultValue: e.message })
+              : t("いいねの更新に失敗しました"),
             {
               okLabel: "OK",
             },

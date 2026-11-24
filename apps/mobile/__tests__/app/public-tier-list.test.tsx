@@ -4,6 +4,8 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import PublicTierListScreen from "@/app/public-tier-list";
+import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockPush = jest.fn();
@@ -211,6 +213,24 @@ describe("PublicTierListScreen", () => {
       { kind: "season", id: 3, like: true },
       expect.anything(),
     );
+  });
+
+  it("いいね失敗はサーバーの文言をアラートに出し、いいね表示は変わらない", async () => {
+    mockToggleMutate.mockImplementation((input, options) => {
+      options?.onError?.(
+        new ApiRequestError(429, "いいねは1時間に10回までです"),
+      );
+    });
+    await render(<PublicTierListScreen />);
+    await fireEvent.press(screen.getByTestId("public-tier-list-like"));
+
+    expect(alert).toHaveBeenCalledWith(
+      "いいねできませんでした",
+      "いいねは1時間に10回までです",
+      { okLabel: "OK" },
+    );
+    // 失敗時に likedByMe・likeCount の表示は元のまま（楽観更新していない）。
+    expect(screen.getByText("12")).toBeTruthy();
   });
 
   it("自分のリストはいいねが無効で通報ボタンも出ない", async () => {

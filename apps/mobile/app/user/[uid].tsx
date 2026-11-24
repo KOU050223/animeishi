@@ -16,6 +16,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
@@ -393,10 +394,14 @@ function useFriendActions({
           setExchangeUid(uid);
         }
       },
-      onError: () => {
-        alert(t("申請できませんでした"), t("フレンド申請に失敗しました"), {
-          okLabel: "OK",
-        });
+      onError: (e) => {
+        alert(
+          t("申請できませんでした"),
+          e instanceof ApiRequestError
+            ? t(e.message, { defaultValue: e.message })
+            : t("フレンド申請に失敗しました"),
+          { okLabel: "OK" },
+        );
       },
     });
   }
@@ -407,10 +412,14 @@ function useFriendActions({
       onSuccess: () => {
         setExchangeUid(uid);
       },
-      onError: () => {
-        alert(t("承認できませんでした"), t("申請の承認に失敗しました"), {
-          okLabel: "OK",
-        });
+      onError: (e) => {
+        alert(
+          t("承認できませんでした"),
+          e instanceof ApiRequestError
+            ? t(e.message, { defaultValue: e.message })
+            : t("申請の承認に失敗しました"),
+          { okLabel: "OK" },
+        );
       },
     });
   }
@@ -424,10 +433,12 @@ function useFriendActions({
       () => {
         void deleteFriendRequest
           .mutateAsync(requestId)
-          .catch(() =>
+          .catch((e) =>
             alert(
               t("申請を削除できませんでした"),
-              t("申請の削除に失敗しました"),
+              e instanceof ApiRequestError
+                ? t(e.message, { defaultValue: e.message })
+                : t("申請の削除に失敗しました"),
               { okLabel: "OK" },
             ),
           );
@@ -450,10 +461,12 @@ function useFriendActions({
       () => {
         void deleteFriendRequest
           .mutateAsync(relation.sentRequest!.id)
-          .catch(() =>
+          .catch((e) =>
             alert(
               t("申請を取り消せませんでした"),
-              t("申請の取消に失敗しました"),
+              e instanceof ApiRequestError
+                ? t(e.message, { defaultValue: e.message })
+                : t("申請の取消に失敗しました"),
               { okLabel: "OK" },
             ),
           );
