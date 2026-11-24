@@ -1,5 +1,5 @@
 import { withAnnictRetry } from "../retry";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
 import type { AnnictResult } from "./tada";
 
 // --- viewer.records（本人のエピソード記録, issue #439） ---
@@ -68,6 +68,10 @@ export async function fetchAnnictViewerRecords(
   const seenCursors = new Set<string>();
   let after: string | null = null;
   let viewerAnnictId: number | null = null;
+  // null 要素・episode/work を欠く記録は filter を評価できない。
+  // 拾えた分を「全件」とすると呼び出し側の reconcile が未取得の
+  // 既存記録を消しうるため、部分取得扱いにする（拾える分は拾い続ける）。
+  let sawNullRecord = false;
 
   for (let page = 0; page < maxPages; page++) {
     const data = await withAnnictRetry(() =>
@@ -82,7 +86,10 @@ export async function fetchAnnictViewerRecords(
 
     const connection = data.viewer?.records;
     for (const node of connection?.nodes ?? []) {
-      if (!node?.episode || !node.work) continue;
+      if (!node?.episode || !node.work) {
+        sawNullRecord = true;
+        continue;
+      }
       const record: AnnictViewerRecord = {
         annictRecordId: node.annictId,
         recordNodeId: node.id,
@@ -102,7 +109,8 @@ export async function fetchAnnictViewerRecords(
     };
     if (!hasNextPage) {
       // viewer.records を辿り切った = 対象の記録は全件拾えている。
-      return { records, complete: true, viewerAnnictId };
+      // ただし評価不能な記録があったなら漏れが否定できず部分扱いにする。
+      return { records, complete: !sawNullRecord, viewerAnnictId };
     }
     if (!endCursor || seenCursors.has(endCursor)) {
       // 壊れたページングはエラーにせず、取れた分を「部分」として返す。
@@ -116,7 +124,7 @@ export async function fetchAnnictViewerRecords(
 
   return {
     records,
-    complete: records.length >= expectedCount,
+    complete: records.length >= expectedCount && !sawNullRecord,
     viewerAnnictId,
   };
 }
@@ -171,9 +179,11 @@ export async function fetchAnnictViewerWorkRating(
     // レビューはユーザー×作品で 1 件。見つけた時点で打ち止める
     // （ratingOverallState が null なら「評価なし」の null を返す）。
     if (viewerId != null) {
-      const own = connection?.nodes?.find(
-        (n) => n?.user?.annictId === viewerId,
-      );
+      const own = connection
+        ? requireAnnictNodes(connection.nodes, "Work.reviews").find(
+            (n) => n.user?.annictId === viewerId,
+          )
+        : undefined;
       if (own) return own.ratingOverallState;
     }
     const { hasNextPage, endCursor } = connection?.pageInfo ?? {

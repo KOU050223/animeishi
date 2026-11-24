@@ -1,5 +1,5 @@
 import { withAnnictRetry } from "../retry";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
 import type { AnnictResult } from "./tada";
 
 // --- work.episodes（話数マスタ＋本人の記録状況, issue #439） ---
@@ -71,13 +71,23 @@ export async function fetchAnnictWorkEpisodes(
       ),
     );
 
-    const work = data.searchWorks?.nodes?.find(
-      (n) => n?.annictId === annictWorkId,
-    );
+    const work = data.searchWorks
+      ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks").find(
+          (n) => n.annictId === annictWorkId,
+        )
+      : undefined;
     if (!work) return null;
 
     for (const node of work.episodes?.nodes ?? []) {
-      if (!node) continue;
+      // 欠けた話を除いた一覧を「全話」として返すと、呼び出し側の
+      // 期待記録数が過少になり未取得の既存ログが消えうるため失敗にする。
+      if (!node) {
+        throw new AnnictApiError(
+          "Annict work episodes returned null episode",
+          502,
+          { annictWorkId },
+        );
+      }
       episodes.push({
         annictEpisodeId: node.annictId,
         nodeId: node.id,
@@ -201,32 +211,34 @@ export async function fetchAnnictWorksEpisodesBatch(
       fetchImpl,
     ),
   );
-  return (data.searchWorks?.nodes ?? []).flatMap((work) =>
-    work == null
-      ? []
-      : [
-          {
-            annictWorkId: work.annictId,
-            episodes: (work.episodes?.nodes ?? []).flatMap((node) =>
-              node == null
-                ? []
-                : [
-                    {
-                      annictEpisodeId: node.annictId,
-                      nodeId: node.id,
-                      number: node.number,
-                      numberText: node.numberText,
-                      sortNumber: node.sortNumber,
-                      title: node.title,
-                      viewerDidTrack: node.viewerDidTrack,
-                      viewerRecordsCount: node.viewerRecordsCount,
-                    },
-                  ],
-            ),
-            hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
-          },
-        ],
-  );
+  return (data.searchWorks?.nodes ?? []).map((work) => {
+    // null 要素を黙って落とすと話対応付けの対象作品が欠けるため失敗にする
+    if (!work) {
+      throw new AnnictApiError("Annict works episodes returned null work", 502);
+    }
+    return {
+      annictWorkId: work.annictId,
+      episodes: (work.episodes?.nodes ?? []).map((node) => {
+        if (!node) {
+          throw new AnnictApiError(
+            "Annict works episodes returned null episode",
+            502,
+          );
+        }
+        return {
+          annictEpisodeId: node.annictId,
+          nodeId: node.id,
+          number: node.number,
+          numberText: node.numberText,
+          sortNumber: node.sortNumber,
+          title: node.title,
+          viewerDidTrack: node.viewerDidTrack,
+          viewerRecordsCount: node.viewerRecordsCount,
+        };
+      }),
+      hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+    };
+  });
 }
 
 /**
@@ -248,19 +260,28 @@ export async function fetchAnnictWorksEpisodeIds(
       fetchImpl,
     ),
   );
-  return (data.searchWorks?.nodes ?? []).flatMap((work) =>
-    work == null
-      ? []
-      : [
-          {
-            annictWorkId: work.annictId,
-            episodeIds: (work.episodes?.nodes ?? []).flatMap((e) =>
-              e == null ? [] : [e.annictId],
-            ),
-            hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
-          },
-        ],
-  );
+  return (data.searchWorks?.nodes ?? []).map((work) => {
+    // null 要素を黙って落とすと対象作品の話 ID が欠けるため失敗にする
+    if (!work) {
+      throw new AnnictApiError(
+        "Annict works episodeIds returned null work",
+        502,
+      );
+    }
+    return {
+      annictWorkId: work.annictId,
+      episodeIds: (work.episodes?.nodes ?? []).map((e) => {
+        if (!e) {
+          throw new AnnictApiError(
+            "Annict works episodeIds returned null episode",
+            502,
+          );
+        }
+        return e.annictId;
+      }),
+      hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+    };
+  });
 }
 
 // --- searchEpisodes（annictEpisodeId → Node ID・所属作品の解決, issue #439） ---
@@ -308,9 +329,11 @@ export async function fetchAnnictEpisodeByAnnictId(
     ),
   );
 
-  const episode = data.searchEpisodes?.nodes?.find(
-    (n) => n?.annictId === annictEpisodeId,
-  );
+  const episode = data.searchEpisodes
+    ? requireAnnictNodes(data.searchEpisodes.nodes, "searchEpisodes").find(
+        (n) => n.annictId === annictEpisodeId,
+      )
+    : undefined;
   if (!episode?.work) return null;
 
   return {

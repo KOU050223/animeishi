@@ -15,11 +15,8 @@ import type { AnnictLibraryEntry } from "./workNodes";
 
 // libraryEntries の 1 ページ分を取得するクエリ。
 // 全状態（NO_STATE 含む）を一度に取り、ページングは after カーソルで回す。
-// image の選択は workNodes.ts の WORK_IMAGE_FRAGMENT と同一に保つ
-// （gql.tada の型推論には静的リテラルが必要なため、テンプレート展開せず
-// インラインで書く）。image { 直後の改行とフィールドの列0始まりは、
-// 旧 WORK_IMAGE_FIELDS 展開と同一の送信文字列を保つため意図的なレイアウト
-// （GraphQL では空白は意味を持たないので挙動は同一。他クエリの image 選択も同様）。
+// image の選択（フィールドとレイアウト）は workNodes.ts の
+// WORK_IMAGE_FRAGMENT と同一に保つ（理由はそちらを参照）。
 const LIBRARY_ENTRIES_QUERY = `
 query MyLibrary($after: String) {
   viewer {
@@ -89,6 +86,9 @@ export async function fetchAnnictLibraryEntries(
       throw new AnnictApiError("Annict libraryEntries missing", 502);
     }
 
+    // nodes 自体が null のページは内容不明のため部分取得扱いにする
+    // （空として処理すると呼び出し側の全置換で既存履歴が消える）。
+    if (connection.nodes == null) complete = false;
     for (const node of connection.nodes ?? []) {
       const work = node?.work;
       if (!work) {
@@ -209,7 +209,16 @@ export async function fetchAnnictViewerStatusStates(
       retryOptions,
     );
     for (const node of data.searchWorks?.nodes ?? []) {
-      if (node && isPersistableState(node.viewerStatusState)) {
+      // null 要素はその作品の現在ステータスを確認できなかったことを意味し、
+      // ここで飛ばすと呼び出し側が「未登録」と誤認して既存ステータスを
+      // 上書きしうるため失敗にする。
+      if (!node) {
+        throw new AnnictApiError(
+          "Annict viewerStatusState returned null work",
+          502,
+        );
+      }
+      if (isPersistableState(node.viewerStatusState)) {
         states.set(node.annictId, node.viewerStatusState);
       }
     }

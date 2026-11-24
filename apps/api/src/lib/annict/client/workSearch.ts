@@ -1,5 +1,5 @@
 import { withAnnictRetry } from "../retry";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
 import { expandSeasonQuery } from "./seasons";
 import type { AnnictResult } from "./tada";
 import {
@@ -62,9 +62,11 @@ export async function fetchAnnictWorkByAnnictId(
     fetchImpl,
   );
 
-  const work = data.searchWorks?.nodes?.find(
-    (n) => n?.annictId === annictWorkId,
-  );
+  const work = data.searchWorks
+    ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks").find(
+        (n) => n.annictId === annictWorkId,
+      )
+    : undefined;
   if (!work) return null;
 
   return {
@@ -153,6 +155,9 @@ twitterMiniAvatarUrl
 type SearchWorksByTitleResponse = AnnictResult<
   typeof SEARCH_WORKS_BY_TITLE_QUERY
 >;
+type SearchWorksByTitleRelevanceResponse = AnnictResult<
+  typeof SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY
+>;
 
 // 1 リクエストで返す最大件数。検索 UI は 1 ページ（first: 50）で十分なため、
 // libraryEntries のような全ページ走査はしない（追加ページはユーザー操作で取りに行く想定）。
@@ -170,30 +175,23 @@ function mapSearchWorksConnection(
     return { works: [], hasNextPage: false, endCursor: null };
   }
 
-  const works: AnnictLibraryEntry[] = (connection.nodes ?? []).flatMap(
-    (work) =>
-      work == null
-        ? []
-        : [
-            {
-              annictWorkId: work.annictId,
-              nodeId: work.id,
-              state: null,
-              title: work.title,
-              titleKana: work.titleKana,
-              titleEn: work.titleEn,
-              seasonName: normalizeAnnictSeasonName(
-                work.seasonName,
-                work.seasonYear,
-              ),
-              seasonYear: work.seasonYear,
-              imageUrl: resolveWorkImageUrl(work.image),
-              malAnimeId: parseMalAnimeId(work.malAnimeId),
-              media: work.media,
-              watchersCount: work.watchersCount,
-            },
-          ],
-  );
+  const works: AnnictLibraryEntry[] = requireAnnictNodes(
+    connection.nodes,
+    "searchWorks",
+  ).map((work) => ({
+    annictWorkId: work.annictId,
+    nodeId: work.id,
+    state: null,
+    title: work.title,
+    titleKana: work.titleKana,
+    titleEn: work.titleEn,
+    seasonName: normalizeAnnictSeasonName(work.seasonName, work.seasonYear),
+    seasonYear: work.seasonYear,
+    imageUrl: resolveWorkImageUrl(work.image),
+    malAnimeId: parseMalAnimeId(work.malAnimeId),
+    media: work.media,
+    watchersCount: work.watchersCount,
+  }));
 
   return {
     works,
@@ -222,14 +220,19 @@ export async function searchAnnictWorksByTitle(
   hasNextPage: boolean;
   endCursor: string | null;
 }> {
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
-    accessToken,
-    options.orderByWatchersCount
-      ? SEARCH_WORKS_BY_TITLE_QUERY
-      : SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
-    { titles: [title], after },
-    fetchImpl,
-  );
+  const data = options.orderByWatchersCount
+    ? await annictGraphQL<SearchWorksByTitleResponse>(
+        accessToken,
+        SEARCH_WORKS_BY_TITLE_QUERY,
+        { titles: [title], after },
+        fetchImpl,
+      )
+    : await annictGraphQL<SearchWorksByTitleRelevanceResponse>(
+        accessToken,
+        SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
+        { titles: [title], after },
+        fetchImpl,
+      );
 
   return mapSearchWorksConnection(data.searchWorks);
 }
@@ -308,7 +311,7 @@ export async function searchAnnictWorksByTitles(
   if (sanitized.length === 0) return [];
 
   const run = async (ts: string[]) => {
-    const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    const data = await annictGraphQL<SearchWorksByTitleRelevanceResponse>(
       accessToken,
       SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
       { titles: ts },

@@ -1,6 +1,6 @@
 import { withAnnictRetry } from "../retry";
 import { isPersistableState } from "../statusState";
-import { annictGraphQL } from "./graphql";
+import { annictGraphQL, requireAnnictNodes } from "./graphql";
 import type { AnnictResult } from "./tada";
 import {
   normalizeAnnictSeasonName,
@@ -189,9 +189,11 @@ export async function fetchAnnictWorkDetail(
     ),
   );
 
-  const work: WorkDetailNode | null | undefined = data.searchWorks?.nodes?.find(
-    (n) => n?.annictId === annictWorkId,
-  );
+  const work: WorkDetailNode | null | undefined = data.searchWorks
+    ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks").find(
+        (n) => n.annictId === annictWorkId,
+      )
+    : undefined;
   if (!work) return null;
 
   const roleOtherByStaffId = new Map<number, string>();
