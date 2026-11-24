@@ -98,10 +98,13 @@ describe("buildContentSecurityPolicy", () => {
   });
 
   it("PostHog の送信先は POSTHOG_HOST があるときだけ許可する", () => {
-    const withPostHog = buildContentSecurityPolicy({
-      API_ORIGIN: "https://api.example.com",
-      POSTHOG_HOST: "https://eu.i.posthog.com/",
-    });
+    const withPostHog = buildContentSecurityPolicy(
+      {
+        API_ORIGIN: "https://api.example.com",
+        POSTHOG_HOST: "https://eu.i.posthog.com/",
+      },
+      NONCE,
+    );
     expect(directive(withPostHog, "connect-src")).toContain(
       "https://eu.i.posthog.com",
     );
