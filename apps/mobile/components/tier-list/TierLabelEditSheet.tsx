@@ -66,6 +66,7 @@ export function TierLabelEditSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={t("tier 名の編集をやめる")}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable

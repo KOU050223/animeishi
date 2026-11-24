@@ -36,6 +36,7 @@ export function WorkAddSheet({
   heading,
   description,
   actionLabel,
+  scrimAccessibilityLabel,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -50,6 +51,8 @@ export function WorkAddSheet({
   /** 行末のアクション文言（「<タイトル>を<actionLabel>」で読み上げにも使う）。
       追加済み表示は常に「追加済み」。 */
   actionLabel: string;
+  /** タップで閉じる背景（スクリム）のアクセシビリティラベル。 */
+  scrimAccessibilityLabel: string;
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
@@ -99,6 +102,7 @@ export function WorkAddSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={scrimAccessibilityLabel}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable

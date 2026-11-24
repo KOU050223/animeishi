@@ -50,6 +50,7 @@ export function ProfileMeishiPreview(props: MeishiCardProps) {
               left: 0,
             }}
             accessibilityRole="button"
+            accessibilityLabel={t("名刺を閉じる")}
           />
           <View
             style={{

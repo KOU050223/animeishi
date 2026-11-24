@@ -1,3 +1,4 @@
+import type { TranslationKey } from "@/lib/i18n/keys";
 import type {
   AchievementBadgeElement,
   AnimeCollageElement,
@@ -17,37 +18,41 @@ export const MEISHI_ASPECT_RATIO = 1.6;
 // エディタの最大表示幅。fontSize など px 系の値はこの幅を基準に保存する。
 export const MEISHI_DESIGN_WIDTH = 560;
 
-export const COLOR_PALETTE = [
-  "#ffffff",
-  "#f9fafb",
-  "#f3f4f6",
-  "#111827",
-  "#1f2937",
-  "#374151",
-  "#ef4444",
-  "#f97316",
-  "#f59e0b",
-  "#eab308",
-  "#84cc16",
-  "#22c55e",
-  "#10b981",
-  "#14b8a6",
-  "#06b6d4",
-  "#0ea5e9",
-  "#3b82f6",
-  "#6366f1",
-  "#8b5cf6",
-  "#a855f7",
-  "#d946ef",
-  "#ec4899",
-  "#f43f5e",
-  "#fecaca",
-  "#fed7aa",
-  "#fef08a",
-  "#bbf7d0",
-  "#bae6fd",
-  "#c7d2fe",
-  "#f5d0fe",
+/**
+ * 名刺エディタの色見本。見た目の色だけではスクリーンリーダーで
+ * 区別できないため、翻訳可能な色名を併せて持つ（issue #809）。
+ */
+export const COLOR_PALETTE: { value: string; name: TranslationKey }[] = [
+  { value: "#ffffff", name: "白" },
+  { value: "#f9fafb", name: "オフホワイト" },
+  { value: "#f3f4f6", name: "淡いグレー" },
+  { value: "#111827", name: "黒" },
+  { value: "#1f2937", name: "濃いグレー" },
+  { value: "#374151", name: "グレー" },
+  { value: "#ef4444", name: "赤" },
+  { value: "#f97316", name: "オレンジ" },
+  { value: "#f59e0b", name: "アンバー" },
+  { value: "#eab308", name: "黄色" },
+  { value: "#84cc16", name: "黄緑" },
+  { value: "#22c55e", name: "緑" },
+  { value: "#10b981", name: "エメラルド" },
+  { value: "#14b8a6", name: "青緑" },
+  { value: "#06b6d4", name: "シアン" },
+  { value: "#0ea5e9", name: "スカイブルー" },
+  { value: "#3b82f6", name: "青" },
+  { value: "#6366f1", name: "インディゴ" },
+  { value: "#8b5cf6", name: "青紫" },
+  { value: "#a855f7", name: "紫" },
+  { value: "#d946ef", name: "フクシア" },
+  { value: "#ec4899", name: "ピンク" },
+  { value: "#f43f5e", name: "ローズ" },
+  { value: "#fecaca", name: "淡い赤" },
+  { value: "#fed7aa", name: "淡いオレンジ" },
+  { value: "#fef08a", name: "淡い黄色" },
+  { value: "#bbf7d0", name: "淡い緑" },
+  { value: "#bae6fd", name: "淡い水色" },
+  { value: "#c7d2fe", name: "淡いインディゴ" },
+  { value: "#f5d0fe", name: "淡い赤紫" },
 ];
 
 export const FONT_FAMILY_OPTIONS: {

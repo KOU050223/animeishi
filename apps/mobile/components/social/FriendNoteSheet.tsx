@@ -67,6 +67,7 @@ export function FriendNoteSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={t("メモの編集をやめる")}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Image as ExpoImage } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
-import { COLOR_PALETTE, FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
+import { FONT_FAMILY_OPTIONS } from "@/lib/meishi/defaults";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { haptics } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme";
@@ -20,6 +20,7 @@ import {
   nudgeImageFocus,
 } from "@/lib/meishi/imageFocus";
 import { resolveImageUri } from "@/lib/meishi/renderableImages";
+import { ColorGrid } from "./ColorGrid";
 import type { ThemeColors } from "@/lib/theme";
 import type { TFunction } from "i18next";
 import type { TranslationKey } from "@/lib/i18n/keys";
@@ -938,49 +939,6 @@ function StepControl({
         <Text style={{ fontSize: 16, color: colors.text }}>＋</Text>
       </Pressable>
     </View>
-  );
-}
-
-function ColorGrid({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const colors = useThemeColors();
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 6 }}
-    >
-      {COLOR_PALETTE.map((c) => {
-        const selected = c.toLowerCase() === value.toLowerCase();
-        return (
-          <Pressable
-            key={c}
-            onPress={() => onChange(c)}
-            accessibilityRole="button"
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 13,
-              backgroundColor: c,
-              borderWidth: selected ? 2 : 1,
-              borderColor: selected ? colors.primaryBorder : colors.border,
-              // 見本色と同系色の選択枠（indigo 見本など）でも選択状態が
-              // 判別できるよう、間隔を空けた外側リングを足す。
-              // border だけだと見本の塗りと同化する。
-              outlineColor: colors.primaryBorder,
-              outlineStyle: "solid",
-              outlineWidth: selected ? 2 : 0,
-              outlineOffset: 1,
-            }}
-          />
-        );
-      })}
-    </ScrollView>
   );
 }
 

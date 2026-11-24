@@ -371,6 +371,7 @@ export function ExchangeRecordSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={t("出会いの記録をやめる")}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable

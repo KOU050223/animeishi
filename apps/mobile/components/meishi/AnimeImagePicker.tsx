@@ -353,6 +353,7 @@ export function AnimeImagePicker({
           onPress={onClose}
           style={{ flex: 1, backgroundColor: colors.scrim }}
           accessibilityRole="button"
+          accessibilityLabel={t("アニメ画像の選択をやめる")}
         />
         <View
           style={{

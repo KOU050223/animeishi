@@ -62,6 +62,7 @@ const sheetElement = (
     heading="作品を追加"
     description="説明文"
     actionLabel={props.actionLabel ?? "追加"}
+    scrimAccessibilityLabel="作品の追加を閉じる"
   />
 );
 
@@ -94,6 +95,11 @@ describe("WorkAddSheet", () => {
     expect(getByTestId("work-add-item-42").props.accessibilityLabel).toBe(
       "劇場版テストを選ぶ",
     );
+  });
+
+  it("背景のスクリムは呼び出し側が渡したラベルで読み上げられる", async () => {
+    const { getByLabelText } = await render(sheetElement());
+    expect(getByLabelText("作品の追加を閉じる")).toBeTruthy();
   });
 
   it("同じ annictWorkId が検索結果に重複しても 1 件だけ表示する（issue #521）", async () => {

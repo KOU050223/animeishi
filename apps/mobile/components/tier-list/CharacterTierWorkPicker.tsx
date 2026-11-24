@@ -53,6 +53,7 @@ export function CharacterTierWorkPicker({
           "キャラクター Tier 表を作る作品のタイトルを検索してください",
         )}
         actionLabel={t("選ぶ")}
+        scrimAccessibilityLabel={t("作品の選択をやめる")}
       />
     );
   }
@@ -76,6 +77,7 @@ export function CharacterTierWorkPicker({
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
+          accessibilityLabel={t("作品の選択をやめる")}
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
         />
         <Pressable

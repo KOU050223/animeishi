@@ -83,6 +83,39 @@ function findElementsWithoutRole(
   return found;
 }
 
+// 子を持たない（自己完結タグの）押下要素を返す。子テキストやアイコンで
+// 内容を示せないため、シートの背景（スクリム）のような名無しの押下領域は
+// accessibilityLabel が無いとスクリーンリーダーで意味を伝えられない
+// （issue #809）。
+function findLeafElementsWithoutLabel(
+  filePath: string,
+): { element: string; line: number }[] {
+  const source = fs.readFileSync(filePath, "utf8");
+  const found: { element: string; line: number }[] = [];
+  const tagStart = /<([A-Za-z0-9_.]+)(?=[\s/>])/g;
+  let match: RegExpExecArray | null;
+  while ((match = tagStart.exec(source)) !== null) {
+    const element = match[1];
+    if (element === undefined || !PRESSABLE_ELEMENTS.has(element)) continue;
+    const tag = readOpeningTag(source, match.index);
+    // 子を持つ要素（</X> で閉じるもの）はラベル必須の対象外
+    if (!/\/\s*>$/.test(tag)) continue;
+    // 別属性の値の中に "accessibilityLabel=" が含まれても
+    // 合格にしないよう、文字列リテラルを除いてから属性名を調べる
+    const attributesOnly = tag.replace(
+      /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g,
+      "",
+    );
+    if (!/\baccessibilityLabel\s*=/.test(attributesOnly)) {
+      found.push({
+        element,
+        line: source.slice(0, match.index).split("\n").length,
+      });
+    }
+  }
+  return found;
+}
+
 describe("押せる要素の accessibilityRole（issue #722）", () => {
   const files = SCAN_DIRS.flatMap((dir) =>
     collectTsxFiles(path.join(rootDir, dir)),
@@ -91,6 +124,16 @@ describe("押せる要素の accessibilityRole（issue #722）", () => {
   test("app/ と components/ の全押下要素がロールを持つ", () => {
     const missing = files.flatMap((file) =>
       findElementsWithoutRole(file).map(
+        ({ element, line }) =>
+          `${path.relative(rootDir, file)}:${line} <${element}>`,
+      ),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  test("子を持たない押下要素（シートの背景等）は accessibilityLabel を持つ", () => {
+    const missing = files.flatMap((file) =>
+      findLeafElementsWithoutLabel(file).map(
         ({ element, line }) =>
           `${path.relative(rootDir, file)}:${line} <${element}>`,
       ),
