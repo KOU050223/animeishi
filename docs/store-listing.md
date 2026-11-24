@@ -4,7 +4,7 @@
 
 - **App Store**: [`apps/mobile/store.config.json`](../apps/mobile/store.config.json) でコード管理（EAS Metadata）。`eas metadata:push` で App Store Connect に反映する。
 - **Google Play**: EAS Metadata は現時点で App Store のみ対応のため、この文書の文言を Play Console に手動で転記する。
-- 文言の方針は [docs/03](03_next-actions-plan.md) の ASO 方針（機能ではなくベネフィットを前面に出す）に従う。
+- 文言の方針は [docs/archive/03](archive/03_next-actions-plan.md) の ASO 方針（機能ではなくベネフィットを前面に出す）に従う。
 
 ## 共通
 
@@ -88,7 +88,7 @@ Annictと連携すれば、作品の検索や「見てる・見た・見たい�
 
 ### 撮る画面（推奨・最初の3枚でベネフィットを伝える）
 
-docs/03 の ASO 方針に沿い、「得られる体験」を最初の 3 枚に置く。
+docs/archive/03 の ASO 方針に沿い、「得られる体験」を最初の 3 枚に置く。
 
 1. 完成したアニメ名刺（プロフィールタブ or 名刺エディタ）…「一瞬で自分だけのアニメ名刺が完成」
 2. QR 交換画面（マイQR / スキャン）…「QRで名刺交換」
