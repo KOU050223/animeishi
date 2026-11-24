@@ -8,7 +8,6 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit --checkers 1",
     "lint": "vp lint . --deny-warnings",
     "lint:fix": "vp lint . --fix --deny-warnings",
     "fmt": "vp fmt --ignore-path ../../.oxfmtignore .",

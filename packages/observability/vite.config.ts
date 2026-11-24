@@ -9,6 +9,23 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "tsc --noEmit --checkers 1",
+        cache: {
+          // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
+          // （issue #806。詳細は docs/development/toolchain.md の
+          // 「typecheck のキャッシュ」）。glob は tsc が読みうる拡張子に絞り、
+          // gitignore されない生成物（ios/ や .wrangler 等）を入れない。
+          input: [
+            { auto: true },
+            "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+          ],
+          output: [],
+        },
+      },
       test: {
         // vp test は vitest のキャッシュパス（node_modules/.vite-temp・.vite 内の
         // ファイル）を Vite Task に報告するため、中身の除外は要らない（issue #273）。

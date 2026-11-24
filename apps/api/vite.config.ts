@@ -115,6 +115,32 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "tsc --noEmit --checkers 1",
+        cache: {
+          // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
+          // （issue #806。詳細は docs/development/toolchain.md の
+          // 「typecheck のキャッシュ」）。glob は tsc が読みうる拡張子に絞り、
+          // gitignore されない生成物（.wrangler や dist 等）を入れない。
+          input: [
+            { auto: true },
+            "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            // workspace の内部パッケージは exports/types が ./src/index.ts で、
+            // tsc が依存先のソースを直接読む
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: [],
+        },
+      },
       test: {
         // vp test は vitest のキャッシュパス（node_modules/.vite-temp・.vite 内の
         // ファイル）を Vite Task に報告するため、中身の除外は要らない（issue #273）。

@@ -48,6 +48,39 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "tsc --noEmit --checkers 1",
+        cache: {
+          // tsc はネイティブバイナリで自動追跡に載らないため入力を明示する
+          // （issue #806。詳細は docs/development/toolchain.md の
+          // 「typecheck のキャッシュ」）。glob は tsc が読みうる拡張子に絞り、
+          // gitignore されない生成物（ios/ や android/ 等）を入れない。
+          input: [
+            { auto: true },
+            "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json}",
+            // tsconfig の include にある .expo/types（Expo Router が生成する
+            // 型）も tsc が読む。ドット始まりのディレクトリは別途明示する
+            ".expo/types/**",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            // tsconfig の paths（@/* → ../../apps/api/src/*）と @animeishi/api の
+            // types（./src/index.ts）で、apps/api のソースを直接読む
+            { pattern: "apps/api/src/**", base: "workspace" },
+            { pattern: "apps/api/package.json", base: "workspace" },
+            // workspace の内部パッケージは exports/types が ./src/index.ts で、
+            // tsc が依存先のソースを直接読む
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: [],
+        },
+      },
       // jest もキャッシュする（issue #251）。jest が読む設定・セットアップ・モック・ソース・依存は
       // 自動追跡で入力に入る。jest 自身のキャッシュ（変換結果・Haste マップ）は OS の一時
       // ディレクトリにあり、ワークスペース外なので入力にならない（消してもヒットする）。
