@@ -1,5 +1,6 @@
 import { withAnnictRetry } from "../retry";
 import { AnnictApiError, annictGraphQL } from "./graphql";
+import type { AnnictResult } from "./tada";
 
 // --- work.episodes（話数マスタ＋本人の記録状況, issue #439） ---
 //
@@ -28,26 +29,7 @@ query WorkEpisodes($annictIds: [Int!], $after: String) {
   }
 }`;
 
-type WorkEpisodesResponse = {
-  searchWorks: {
-    nodes: {
-      annictId: number;
-      episodes: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null };
-        nodes: {
-          id: string;
-          annictId: number;
-          number: number | null;
-          numberText: string | null;
-          sortNumber: number;
-          title: string | null;
-          viewerDidTrack: boolean;
-          viewerRecordsCount: number;
-        }[];
-      } | null;
-    }[];
-  } | null;
-};
+type WorkEpisodesResponse = AnnictResult<typeof WORK_EPISODES_QUERY>;
 
 /** 話数チェック一覧に出す 1 話分。watched 判定は viewerDidTrack を使う。 */
 export type AnnictWorkEpisode = {
@@ -89,12 +71,13 @@ export async function fetchAnnictWorkEpisodes(
       ),
     );
 
-    const work = data.searchWorks?.nodes.find(
-      (n) => n.annictId === annictWorkId,
+    const work = data.searchWorks?.nodes?.find(
+      (n) => n?.annictId === annictWorkId,
     );
     if (!work) return null;
 
     for (const node of work.episodes?.nodes ?? []) {
+      if (!node) continue;
       episodes.push({
         annictEpisodeId: node.annictId,
         nodeId: node.id,
@@ -139,14 +122,13 @@ export async function fetchAnnictWorkEpisodes(
 // searchWorks(annictIds:) でまとめて取る。1 作品 100 話を超える長期作品は
 // episodes のページングが必要になるため hasNextPage を返し、
 // 呼び出し側が fetchAnnictWorkEpisodes にフォールバックする。
-const WORKS_EPISODE_IDS_FIRST = 100;
-
+// gql.tada の型推論には静的リテラルが必要なため first は定数参照せず直接書く。
 const WORKS_EPISODE_IDS_QUERY = `
 query WorksEpisodeIds($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 50) {
     nodes {
       annictId
-      episodes(first: ${WORKS_EPISODE_IDS_FIRST}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      episodes(first: 100, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         pageInfo { hasNextPage }
         nodes { annictId }
       }
@@ -154,17 +136,7 @@ query WorksEpisodeIds($annictIds: [Int!]) {
   }
 }`;
 
-type WorksEpisodeIdsResponse = {
-  searchWorks: {
-    nodes: {
-      annictId: number;
-      episodes: {
-        pageInfo: { hasNextPage: boolean };
-        nodes: { annictId: number }[];
-      } | null;
-    }[];
-  } | null;
-};
+type WorksEpisodeIdsResponse = AnnictResult<typeof WORKS_EPISODE_IDS_QUERY>;
 
 /** 1 作品分の話 ID 一覧。hasMoreEpisodes は 100 話超で打ち切られたとき true。 */
 export type AnnictWorkEpisodeIds = {
@@ -179,14 +151,12 @@ export type AnnictWorkEpisodeIds = {
 // episodeIds 版ではなく全フィールドを取る。話数が 50 話を超える作品は
 // hasMoreEpisodes を返し、呼び出し側が fetchAnnictWorkEpisodes で
 // ページング取得する。
-const WORKS_EPISODES_FIRST = 50;
-
 const WORKS_EPISODES_QUERY = `
 query WorksEpisodes($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 50) {
     nodes {
       annictId
-      episodes(first: ${WORKS_EPISODES_FIRST}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      episodes(first: 50, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         pageInfo { hasNextPage }
         nodes {
           id
@@ -203,26 +173,7 @@ query WorksEpisodes($annictIds: [Int!]) {
   }
 }`;
 
-type WorksEpisodesResponse = {
-  searchWorks: {
-    nodes: {
-      annictId: number;
-      episodes: {
-        pageInfo: { hasNextPage: boolean };
-        nodes: {
-          id: string;
-          annictId: number;
-          number: number | null;
-          numberText: string | null;
-          sortNumber: number;
-          title: string | null;
-          viewerDidTrack: boolean;
-          viewerRecordsCount: number;
-        }[];
-      } | null;
-    }[];
-  } | null;
-};
+type WorksEpisodesResponse = AnnictResult<typeof WORKS_EPISODES_QUERY>;
 
 /** 1 作品分の話一覧。hasMoreEpisodes は 50 話超で打ち切られたとき true。 */
 export type AnnictWorkEpisodesBatch = {
@@ -250,20 +201,32 @@ export async function fetchAnnictWorksEpisodesBatch(
       fetchImpl,
     ),
   );
-  return (data.searchWorks?.nodes ?? []).map((work) => ({
-    annictWorkId: work.annictId,
-    episodes: (work.episodes?.nodes ?? []).map((node) => ({
-      annictEpisodeId: node.annictId,
-      nodeId: node.id,
-      number: node.number,
-      numberText: node.numberText,
-      sortNumber: node.sortNumber,
-      title: node.title,
-      viewerDidTrack: node.viewerDidTrack,
-      viewerRecordsCount: node.viewerRecordsCount,
-    })),
-    hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
-  }));
+  return (data.searchWorks?.nodes ?? []).flatMap((work) =>
+    work == null
+      ? []
+      : [
+          {
+            annictWorkId: work.annictId,
+            episodes: (work.episodes?.nodes ?? []).flatMap((node) =>
+              node == null
+                ? []
+                : [
+                    {
+                      annictEpisodeId: node.annictId,
+                      nodeId: node.id,
+                      number: node.number,
+                      numberText: node.numberText,
+                      sortNumber: node.sortNumber,
+                      title: node.title,
+                      viewerDidTrack: node.viewerDidTrack,
+                      viewerRecordsCount: node.viewerRecordsCount,
+                    },
+                  ],
+            ),
+            hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+          },
+        ],
+  );
 }
 
 /**
@@ -285,11 +248,19 @@ export async function fetchAnnictWorksEpisodeIds(
       fetchImpl,
     ),
   );
-  return (data.searchWorks?.nodes ?? []).map((work) => ({
-    annictWorkId: work.annictId,
-    episodeIds: (work.episodes?.nodes ?? []).map((e) => e.annictId),
-    hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
-  }));
+  return (data.searchWorks?.nodes ?? []).flatMap((work) =>
+    work == null
+      ? []
+      : [
+          {
+            annictWorkId: work.annictId,
+            episodeIds: (work.episodes?.nodes ?? []).flatMap((e) =>
+              e == null ? [] : [e.annictId],
+            ),
+            hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
+          },
+        ],
+  );
 }
 
 // --- searchEpisodes（annictEpisodeId → Node ID・所属作品の解決, issue #439） ---
@@ -307,17 +278,9 @@ query SearchEpisodeByAnnictId($annictIds: [Int!]) {
   }
 }`;
 
-type SearchEpisodesResponse = {
-  searchEpisodes: {
-    nodes: {
-      id: string;
-      annictId: number;
-      viewerDidTrack: boolean;
-      viewerRecordsCount: number;
-      work: { annictId: number } | null;
-    }[];
-  } | null;
-};
+type SearchEpisodesResponse = AnnictResult<
+  typeof SEARCH_EPISODE_BY_ANNICT_ID_QUERY
+>;
 
 export type AnnictEpisodeInfo = {
   annictEpisodeId: number;
@@ -345,8 +308,8 @@ export async function fetchAnnictEpisodeByAnnictId(
     ),
   );
 
-  const episode = data.searchEpisodes?.nodes.find(
-    (n) => n.annictId === annictEpisodeId,
+  const episode = data.searchEpisodes?.nodes?.find(
+    (n) => n?.annictId === annictEpisodeId,
   );
   if (!episode?.work) return null;
 

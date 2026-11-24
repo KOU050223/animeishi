@@ -1,12 +1,12 @@
 import { withAnnictRetry } from "../retry";
 import { annictGraphQL } from "./graphql";
+import type { AnnictResult } from "./tada";
 import {
-  WORK_IMAGE_FIELDS,
   normalizeAnnictSeasonName,
   parseMalAnimeId,
   resolveWorkImageUrl,
 } from "./workNodes";
-import type { AnnictLibraryEntry, AnnictWorkImage } from "./workNodes";
+import type { AnnictLibraryEntry } from "./workNodes";
 
 // --- work.casts（作品に紐づくキャラクター一覧） ---
 //
@@ -16,8 +16,11 @@ import type { AnnictLibraryEntry, AnnictWorkImage } from "./workNodes";
 
 // 1 作品から取るキャストの上限。SORT_NUMBER 順なので主要キャラが先に来る。
 // tier 表の対象として実用上十分な件数で、Annict 側の 1 ページ内に収まる量に抑える。
+// クエリ内の casts(first:) にも同じ値を書く（gql.tada の型推論には静的
+// リテラルが必要なためテンプレート展開できない）。
 export const WORK_CASTS_LIMIT = 50;
 
+// image の選択は workNodes.ts の WORK_IMAGE_FRAGMENT と同一に保つ。
 const WORK_CASTS_QUERY = `
 query WorkCasts($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 1) {
@@ -30,8 +33,16 @@ query WorkCasts($annictIds: [Int!]) {
       titleEn
       seasonName
       seasonYear
-      image { ${WORK_IMAGE_FIELDS} }
-      casts(first: ${WORK_CASTS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
+      casts(first: 50, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
           sortNumber
           character {
@@ -46,33 +57,7 @@ query WorkCasts($annictIds: [Int!]) {
   }
 }`;
 
-type WorkCastsResponse = {
-  searchWorks: {
-    nodes: {
-      id: string;
-      annictId: number;
-      malAnimeId: string | null;
-      title: string;
-      titleKana: string | null;
-      titleEn: string | null;
-      seasonName: string | null;
-      seasonYear: number | null;
-      image: AnnictWorkImage | null;
-      casts: {
-        nodes: {
-          sortNumber: number;
-          character: {
-            annictId: number;
-            name: string;
-            // Annict の Character 型では nameKana/nameEn は null を返しうる
-            nameKana: string | null;
-            nameEn: string | null;
-          } | null;
-        }[];
-      } | null;
-    }[];
-  } | null;
-};
+type WorkCastsResponse = AnnictResult<typeof WORK_CASTS_QUERY>;
 
 /** 作品に紐づくキャラクター 1 件。sortNumber は Annict のキャスト並び順。 */
 export type AnnictCharacterSummary = {
@@ -108,12 +93,14 @@ export async function fetchAnnictWorkCasts(
     ),
   );
 
-  const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
+  const work = data.searchWorks?.nodes?.find(
+    (n) => n?.annictId === annictWorkId,
+  );
   if (!work) return null;
 
   const charactersById = new Map<number, AnnictCharacterSummary>();
   for (const cast of work.casts?.nodes ?? []) {
-    const character = cast.character;
+    const character = cast?.character;
     if (!character) continue;
     const existing = charactersById.get(character.annictId);
     if (!existing || cast.sortNumber < existing.sortNumber) {

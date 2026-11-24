@@ -39,6 +39,7 @@
     "@typescript/native": "catalog:",
     "better-sqlite3": "^12.9.0",
     "drizzle-kit": "^0.31.1",
+    "gql.tada": "1.11.5",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
