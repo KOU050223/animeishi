@@ -300,7 +300,6 @@ describe("useMeishiDocument の undo / redo", () => {
     expect(result.current.doc?.elements[0]?.transform).toEqual(transform);
     expect(result.current.canUndo).toBe(true);
 
-    // 1 回の undo でジェスチャ前の状態に戻り、履歴は空になる
     await act(() => {
       result.current.undo();
     });
@@ -311,10 +310,12 @@ describe("useMeishiDocument の undo / redo", () => {
   // Strict Mode は更新関数を 2 回呼ぶ。更新関数の中で履歴を積んでいると
   // 1 操作で 2 件積まれてしまう（issue #810）。undo 側の更新関数も二重に
   // 呼ばれるため「undo 1 回で canUndo が false になるか」では観測できない
-  // （2 積み 2 ポップで帳消しになる）ので、history.commit の呼び出し回数で
-  // 1 操作あたり履歴 1 件になることを固定する。
-  it("Strict Mode で更新関数が 2 回呼ばれても履歴は 1 件だけ積まれる", async () => {
+  // （2 積み 2 ポップで帳消しになる）ので、history の commit / undo / redo
+  // の呼び出し回数で 1 操作あたり履歴 1 件ずつ進むことを固定する。
+  it("Strict Mode で更新関数が 2 回呼ばれても履歴は 1 件ずつ進む", async () => {
     const commitSpy = jest.spyOn(historyModule, "commit");
+    const undoSpy = jest.spyOn(historyModule, "undo");
+    const redoSpy = jest.spyOn(historyModule, "redo");
     try {
       const wrapper = ({ children }: { children: React.ReactNode }) => (
         <React.StrictMode>{children}</React.StrictMode>
@@ -328,15 +329,37 @@ describe("useMeishiDocument の undo / redo", () => {
       });
       commitSpy.mockClear();
 
+      const secondEdit: MeishiDocument = {
+        ...sampleDoc,
+        canvas: {
+          ...sampleDoc.canvas,
+          background: { kind: "solid", color: "#222222" },
+        },
+      };
+
       await act(() => {
         result.current.setBackground({ kind: "solid", color: "#111827" });
+        result.current.setBackground({ kind: "solid", color: "#222222" });
       });
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+      expect(result.current.doc).toEqual(secondEdit);
 
-      expect(commitSpy).toHaveBeenCalledTimes(1);
+      await act(() => {
+        result.current.undo();
+      });
+      expect(undoSpy).toHaveBeenCalledTimes(1);
       expect(result.current.doc).toEqual(updatedDoc);
-      expect(result.current.canUndo).toBe(true);
+
+      await act(() => {
+        result.current.redo();
+      });
+      expect(redoSpy).toHaveBeenCalledTimes(1);
+      expect(result.current.doc).toEqual(secondEdit);
+      expect(result.current.canRedo).toBe(false);
     } finally {
       commitSpy.mockRestore();
+      undoSpy.mockRestore();
+      redoSpy.mockRestore();
     }
   });
 });
