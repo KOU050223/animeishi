@@ -182,6 +182,7 @@ export function DraggableWorkCard({
       item.id,
     ],
   );
+  // GestureDetector へ渡すジェスチャなので参照を固定する。
   const tap = useMemo(
     () =>
       Gesture.Tap().onEnd((_event, success) => {
