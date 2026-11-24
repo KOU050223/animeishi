@@ -62,7 +62,7 @@ function QueuedCard({
           className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center"
           accessibilityLabel={t("{{username}}のアイコン", { username: name })}
         >
-          <Text className="text-2xl text-muted">
+          <Text className="text-2xl text-secondary">
             {name.charAt(0).toUpperCase()}
           </Text>
         </View>

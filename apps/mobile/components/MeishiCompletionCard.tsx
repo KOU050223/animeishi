@@ -96,7 +96,7 @@ export function MeishiCompletionCard() {
                 size={18}
                 color={colors.success}
               />
-              <Text className="ml-2 text-sm text-muted line-through">
+              <Text className="ml-2 text-sm text-secondary line-through">
                 {label}
               </Text>
             </View>

@@ -715,7 +715,7 @@ function ProfileHeader({
             username: profile.username,
           })}
         >
-          <Text className="text-3xl text-muted">
+          <Text className="text-3xl text-secondary">
             {profile.username.charAt(0).toUpperCase()}
           </Text>
         </View>

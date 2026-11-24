@@ -173,7 +173,7 @@ function ThanksRow({
         />
       ) : (
         <View className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center">
-          <Text className="text-base text-muted">
+          <Text className="text-base text-secondary">
             {item.username.charAt(0).toUpperCase()}
           </Text>
         </View>

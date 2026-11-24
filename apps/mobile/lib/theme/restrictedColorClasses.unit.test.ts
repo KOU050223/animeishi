@@ -47,18 +47,21 @@ function collectSourceFiles(dir: string): string[] {
   return files;
 }
 
-// className トークンは空白・引用符で区切られるため、直前が `:` のもの
-// （dark:text-slate-400 等のバリアント側）は別クラスとして扱う。
+// className トークンを `:` で区切ると、末尾がユーティリティ・それ以前が
+// バリアント（dark:・md: 等）になる。`md:dark:text-slate-500` のように
+// dark: が先頭でない並びもありうるため、バリアント列をまとめて取って判定する。
 const FORBIDDEN = [
   {
-    label: "text-slate-400（バリアントなし）",
-    pattern: /(?<![\w:-])text-slate-400(?![\w-])/g,
+    label: "text-slate-400（dark: 指定なし）",
+    utility: "text-slate-400",
+    isViolation: (variants: string[]) => !variants.includes("dark"),
     reason:
       "白背景でコントラスト比 2.56:1（本文基準 4.5:1 未満）。text-muted を使う",
   },
   {
-    label: "dark:text-slate-500",
-    pattern: /(?<![\w-])dark:text-slate-500(?![\w-])/g,
+    label: "text-slate-500（dark: 指定あり）",
+    utility: "text-slate-500",
+    isViolation: (variants: string[]) => variants.includes("dark"),
     reason:
       "暗色面でコントラスト比 3.75:1（本文基準 4.5:1 未満）。text-muted を使う",
   },
@@ -67,17 +70,26 @@ const FORBIDDEN = [
 describe("コントラスト基準を満たさない直書き色クラス", () => {
   const files = collectSourceFiles(APP_ROOT);
 
-  it.each(FORBIDDEN)("$label を使わない", ({ pattern, reason }) => {
-    const violations: string[] = [];
-    for (const file of files) {
-      const lines = readFileSync(file, "utf8").split("\n");
-      lines.forEach((line, i) => {
-        pattern.lastIndex = 0;
-        if (pattern.test(line)) {
-          violations.push(`${path.relative(APP_ROOT, file)}:${i + 1}`);
-        }
-      });
-    }
-    expect(violations, `${reason}\n${violations.join("\n")}`).toEqual([]);
-  });
+  it.each(FORBIDDEN)(
+    "$label を使わない",
+    ({ utility, isViolation, reason }) => {
+      const pattern = new RegExp(
+        `(?<![\\w-])((?:[\\w-]+:)*)${utility}(?![\\w-])`,
+        "g",
+      );
+      const violations: string[] = [];
+      for (const file of files) {
+        const lines = readFileSync(file, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          for (const match of line.matchAll(pattern)) {
+            const variants = (match[1] ?? "").split(":").filter(Boolean);
+            if (isViolation(variants)) {
+              violations.push(`${path.relative(APP_ROOT, file)}:${i + 1}`);
+            }
+          }
+        });
+      }
+      expect(violations, `${reason}\n${violations.join("\n")}`).toEqual([]);
+    },
+  );
 });
