@@ -25,9 +25,11 @@ export type CardPressableProps = {
   /** コンテナ自体のアクセシビリティラベル（「{title}の詳細を開く」等）。 */
   accessibilityLabel: string;
   /**
-   * コンテナのロール。既定は "button"。リンクとして振る舞うものは
-   * 呼び出し側が "link" 等を渡して上書きする。
+   * コンテナのロール。既定は "button"。
+   * "link" は型で受け付けない。Web 実装は <a href> ではなくオーバーレイの
+   * <button> なので、ロールだけ "link" にすると「リンクを開く」操作や
+   * Enter での遷移に対応しない半端なリンクになる（issue #809）。
    */
-  accessibilityRole?: AccessibilityRole;
+  accessibilityRole?: Exclude<AccessibilityRole, "link">;
   testID?: string;
 };

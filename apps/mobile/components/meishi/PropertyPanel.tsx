@@ -949,19 +949,22 @@ function ColorGrid({
   onChange: (v: string) => void;
 }) {
   const colors = useThemeColors();
+  const { t } = useTranslation();
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: 6 }}
     >
-      {COLOR_PALETTE.map((c) => {
+      {COLOR_PALETTE.map(({ value: c, name }) => {
         const selected = c.toLowerCase() === value.toLowerCase();
         return (
           <Pressable
             key={c}
             onPress={() => onChange(c)}
             accessibilityRole="button"
+            accessibilityLabel={t(name)}
+            accessibilityState={{ selected }}
             style={{
               width: 26,
               height: 26,

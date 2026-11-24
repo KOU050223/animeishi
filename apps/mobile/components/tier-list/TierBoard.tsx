@@ -475,6 +475,7 @@ export function TierBoard({
               "シーズンの候補にない作品をタイトルで検索して未分類に追加できます。\n保存対象は tier に配置した作品です",
             )}
             actionLabel={t("追加")}
+            scrimAccessibilityLabel={t("作品の追加をやめる")}
           />
         ) : null}
       </ScrollView>

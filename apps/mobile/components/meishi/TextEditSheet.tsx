@@ -57,6 +57,7 @@ export function TextEditSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={t("文字の編集をやめる")}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable

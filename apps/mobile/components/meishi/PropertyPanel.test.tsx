@@ -304,4 +304,28 @@ describe("PropertyPanel", () => {
 
     expect(screen.getByText("迷子でも進め")).toBeTruthy();
   });
+
+  it("色見本は色名で読み上げられ、選択中の色が selected で示される", async () => {
+    const onChange = jest.fn();
+    await render(
+      <PropertyPanel
+        element={baseTextElement}
+        onChange={onChange}
+        onOpenTextEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onDuplicate={jest.fn()}
+        onBringToFront={jest.fn()}
+        onSendToBack={jest.fn()}
+      />,
+    );
+
+    // #111827 は「黒」として読み上げられ、現在の色なので selected
+    const selected = screen.getByLabelText("黒");
+    expect(selected.props.accessibilityState).toEqual({ selected: true });
+    const unselected = screen.getByLabelText("白");
+    expect(unselected.props.accessibilityState).toEqual({ selected: false });
+
+    await fireEvent.press(unselected);
+    expect(onChange).toHaveBeenCalledWith({ color: "#ffffff" });
+  });
 });

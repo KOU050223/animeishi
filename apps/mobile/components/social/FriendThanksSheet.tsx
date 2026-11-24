@@ -78,6 +78,7 @@ export function FriendThanksSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
+            accessibilityLabel={t("お礼の送信をやめる")}
             style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
           />
           <Pressable
