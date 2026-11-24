@@ -29,7 +29,9 @@ export function BackButton({
   return (
     <Pressable
       onPress={onPress}
-      className={className}
+      // nativewind の className は省略可能プロパティなので、未指定時は
+      // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+      {...(className !== undefined ? { className } : {})}
       style={[styles.hitbox, style]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

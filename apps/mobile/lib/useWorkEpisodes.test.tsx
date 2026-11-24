@@ -320,11 +320,11 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
     await waitFor(() => expect(resolvers).toHaveLength(1));
 
     await act(async () => {
-      resolvers[0]({ ok: true, json: async () => ({}) });
+      resolvers[0]?.({ ok: true, json: async () => ({}) });
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1]({
+      resolvers[1]?.({
         ok: true,
         headers: { get: () => "application/json" },
         json: async () => ({ success: true }),

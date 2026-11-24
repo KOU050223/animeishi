@@ -97,6 +97,7 @@ export function useExchangeQueueSync() {
       }
       if (result.discarded.length > 0) {
         const first = result.discarded[0];
+        if (!first) return result;
         const name = first.miniMeishi?.username;
         const message =
           result.discarded.length === 1

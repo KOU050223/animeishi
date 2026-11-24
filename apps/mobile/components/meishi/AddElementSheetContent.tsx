@@ -12,8 +12,8 @@ export type AddElementSheetProps = {
   visible: boolean;
   onClose: () => void;
   onPick: (type: MeishiElementType) => void;
-  onPickAvatarImage?: () => void;
-  onPickAnimeImage?: () => void;
+  onPickAvatarImage?: (() => void) | undefined;
+  onPickAnimeImage?: (() => void) | undefined;
 };
 
 type Item = {
@@ -156,7 +156,7 @@ function PickButton({
 }: {
   icon: IconName;
   label: string;
-  sub?: string;
+  sub?: string | undefined;
   onPress: () => void;
 }) {
   const colors = useThemeColors();

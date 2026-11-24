@@ -59,18 +59,18 @@ const QR_MINI_MEISHI_PARAM = "mc";
 
 /** QR の `?mc=` に載るミニ名刺。読み取り直後にオフラインで名前を出すための最小情報。 */
 export type MiniMeishi = {
-  username?: string;
-  avatarUrl?: string;
+  username?: string | undefined;
+  avatarUrl?: string | undefined;
 };
 
 export type QrPayload = {
   userId: string;
   /** 対面交換 QR にだけ載る短期トークン。共有 URL の QR には無い。 */
-  qrToken?: string;
+  qrToken?: string | undefined;
   /** オフライン交換用の長寿命トークン。qt を取れない表示側の QR にだけ載る。 */
-  offlineToken?: string;
+  offlineToken?: string | undefined;
   /** ミニ名刺（`?mc=`）。デコードできない QR では undefined。 */
-  miniMeishi?: MiniMeishi;
+  miniMeishi?: MiniMeishi | undefined;
 };
 
 /** `?name=` / `&name=` の値を取り出す。無ければ undefined。 */
@@ -135,16 +135,16 @@ function decodeMiniMeishi(encoded: string): MiniMeishi | undefined {
 export function buildQrExchangeUrl(
   shareUrl: string,
   params: {
-    qt?: string;
-    ot?: string | null;
-    miniMeishi?: MiniMeishi;
+    qt?: string | undefined;
+    ot?: string | null | undefined;
+    miniMeishi?: MiniMeishi | undefined;
     /**
      * qt があっても ot を併記する。画面に出す QR では ot を広めないよう
      * qt を優先するが、近づけて交換（issue #693）で 10cm の相手 1 人だけに
      * 送るデータでは、qt の期限後にオフラインの交換キューを同期できるよう
      * 両方を載せる。
      */
-    includeOfflineWithQt?: boolean;
+    includeOfflineWithQt?: boolean | undefined;
   },
 ): string {
   const query: string[] = [];
@@ -219,7 +219,7 @@ export function parseQrPayload(
  */
 function extractFromUrlLike(input: string): string | null {
   // クエリ・フラグメントを除去
-  const withoutQuery = input.split(/[?#]/, 1)[0];
+  const withoutQuery = input.split(/[?#]/, 1)[0] ?? "";
 
   // スキーム（animeishi://, https://）以降のパス部分を取得
   const schemeStripped = withoutQuery.replace(
@@ -234,7 +234,7 @@ function extractFromUrlLike(input: string): string | null {
   // `/user/{uid}` 形式を優先
   const userIdx = segments.lastIndexOf("user");
   if (userIdx >= 0 && userIdx + 1 < segments.length) {
-    return segments[userIdx + 1];
+    return segments[userIdx + 1] ?? null;
   }
 
   // それ以外はパス末尾を候補にする（animeishi://{uid} 等）

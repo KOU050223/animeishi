@@ -84,7 +84,10 @@ export default function TabsLayout() {
           // QR（名刺交換）とフレンド一覧を束ねるタブ（issue #170）。
           title: t("QR・フレンド"),
           tabBarAccessibilityLabel: t("QR・フレンドタブ"),
-          tabBarBadge: friendRequestCount > 0 ? friendRequestCount : undefined,
+          // tabBarBadge は省略可能プロパティなので、未指定時はキーごと渡さない。
+          ...(friendRequestCount > 0
+            ? { tabBarBadge: friendRequestCount }
+            : {}),
           tabBarIcon: tabIcon("people-outline"),
         }}
       />

@@ -155,7 +155,7 @@ export function AnimeWorkDetailSheet({
   // 先行する操作の完了・失敗が後続の操作の「保存中」表示を上書きしないよう、
   // 結果表示を更新してよいのは最後に開始した操作だけという判定に使う。
   const statusSaveSeq = useRef(0);
-  const serverState = normalizeState(detail.data?.work.state);
+  const serverState = normalizeState(detail.data?.work?.state);
   const currentState =
     work && optimistic?.workId === work.annictWorkId
       ? optimistic.state
@@ -474,7 +474,9 @@ function SaveFeedbackText({
     <Text
       accessibilityLiveRegion="polite"
       testID={testID}
-      className={className}
+      // nativewind の className は省略可能プロパティなので、未指定時は
+      // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+      {...(className !== undefined ? { className } : {})}
     >
       {t(
         state === "saving"
@@ -798,7 +800,7 @@ function useEpisodeRecording({
     );
     const recorded = new Set(
       targets
-        .filter((_, i) => results[i].status === "fulfilled")
+        .filter((_, i) => results[i]?.status === "fulfilled")
         .map((e) => e.annictEpisodeId),
     );
     // 1 話も記録できなかった場合はステータスを進めない。

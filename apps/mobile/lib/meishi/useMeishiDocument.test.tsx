@@ -158,7 +158,7 @@ describe("useMeishiDocument の永続化", () => {
 
     const saved = (await loadMeishiLibrary())!;
     expect(saved.cards).toHaveLength(1);
-    const createdId = saved.cards[0].id;
+    const createdId = saved.cards[0]?.id;
     // ライブラリは空でも作られたカードが唯一なので既定になる
     expect(saved.defaultCardId).toBe(createdId);
     expect(result.current.boundCardId).toBe(createdId);
@@ -172,8 +172,8 @@ describe("useMeishiDocument の永続化", () => {
     });
     const saved2 = (await loadMeishiLibrary())!;
     expect(saved2.cards).toHaveLength(1);
-    expect(saved2.cards[0].id).toBe(createdId);
-    expect(saved2.cards[0].document).toEqual(updatedDoc);
+    expect(saved2.cards[0]?.id).toBe(createdId);
+    expect(saved2.cards[0]?.document).toEqual(updatedDoc);
   });
 
   it("名刺が 0 枚から 1 枚目を保存したときだけ meishi_create を送る", async () => {

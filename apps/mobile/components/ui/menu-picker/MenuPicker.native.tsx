@@ -20,12 +20,16 @@ export function MenuPicker<T extends string | number>({
     <Host
       matchContents
       accessibilityLabel={accessibilityLabel}
-      colorScheme={colorScheme}
+      // expo-ui の colorScheme は省略可能プロパティなので、未指定時は
+      // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+      {...(colorScheme !== undefined ? { colorScheme } : {})}
     >
       <Picker
         selectedValue={selectedValue}
         onValueChange={onValueChange}
-        testID={testID ? `${testID}-button` : undefined}
+        // expo-ui の testID は省略可能プロパティなので、未指定時は
+        // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+        {...(testID ? { testID: `${testID}-button` } : {})}
       >
         {options.map((option) => (
           <Picker.Item

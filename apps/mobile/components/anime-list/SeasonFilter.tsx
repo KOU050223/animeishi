@@ -19,10 +19,12 @@ const SEASON_CHIP_KEYS = [SEASON_FILTER_ALL, ...SEASON_KEYS] as const;
 
 const SEASON_CHIP_LABELS: Record<SeasonFilterKey, TranslationKey> = {
   [SEASON_FILTER_ALL]: "通年",
-  winter: SEASONS.winter,
-  spring: SEASONS.spring,
-  summer: SEASONS.summer,
-  autumn: SEASONS.autumn,
+  // SEASONS は Record<string, ...> のため参照に undefined が乗る。
+  // 4 キーは SEASONS に必ず存在するので非 null アサーションで絞る。
+  winter: SEASONS.winter!,
+  spring: SEASONS.spring!,
+  summer: SEASONS.summer!,
+  autumn: SEASONS.autumn!,
 };
 
 // allowAllYear で season/onChange の型を分岐させる（判別共用体）。

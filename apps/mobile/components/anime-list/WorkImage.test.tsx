@@ -11,6 +11,13 @@ const findImages = () =>
     (node) => typeof node.type === "string" && node.type.endsWith("ExpoImage"),
   );
 
+// 画像が描画されていることを前提にする箇所用。無ければテストを失敗させる。
+const firstImage = () => {
+  const image = findImages()[0];
+  if (!image) throw new Error("ExpoImage が見つかりません");
+  return image;
+};
+
 const HOSTED = "http://localhost:8787/images/works/1";
 
 const missing = <Text>missing</Text>;
@@ -34,16 +41,16 @@ describe("WorkImage の loadingPlaceholder", () => {
       expect(screen.queryByText("missing")).toBeNull();
 
       // 再試行を尽くして失敗が確定したら「画像なし」の見た目に切り替わる
-      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await fireEvent(firstImage(), "onError", { nativeEvent: {} });
       expect(screen.getByText("loading")).toBeTruthy();
       await act(async () => {
         jest.advanceTimersByTime(1500);
       });
-      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await fireEvent(firstImage(), "onError", { nativeEvent: {} });
       await act(async () => {
         jest.advanceTimersByTime(4000);
       });
-      await fireEvent(findImages()[0], "onError", { nativeEvent: {} });
+      await fireEvent(firstImage(), "onError", { nativeEvent: {} });
 
       expect(screen.getByText("missing")).toBeTruthy();
       expect(screen.queryByText("loading")).toBeNull();
@@ -64,7 +71,7 @@ describe("WorkImage の loadingPlaceholder", () => {
     );
     expect(screen.getByText("loading")).toBeTruthy();
 
-    await fireEvent(findImages()[0], "onLoad", { nativeEvent: {} });
+    await fireEvent(firstImage(), "onLoad", { nativeEvent: {} });
 
     expect(screen.getByText("missing")).toBeTruthy();
     expect(screen.queryByText("loading")).toBeNull();

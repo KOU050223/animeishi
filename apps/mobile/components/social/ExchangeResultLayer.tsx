@@ -24,7 +24,7 @@ export type ExchangeResult =
       /** オフラインで交換キューへ積んだ（issue #681）。 */
       kind: "queued";
       uid: string;
-      miniMeishi?: MiniMeishi;
+      miniMeishi?: MiniMeishi | undefined;
     };
 
 /**

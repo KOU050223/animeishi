@@ -53,7 +53,12 @@ function makeEnv({
 } = {}) {
   const env = {
     API_ORIGIN: "https://api.example.com",
-    SHARE_FORWARD_VIA_FETCH: forwardViaFetch,
+    // Env の SHARE_FORWARD_VIA_FETCH は省略可能プロパティなので、
+    // undefined を明示代入せず未指定のときはキー自体を持たせない
+    // （exactOptionalPropertyTypes 対応）。
+    ...(forwardViaFetch !== undefined
+      ? { SHARE_FORWARD_VIA_FETCH: forwardViaFetch }
+      : {}),
     ASSETS: {
       fetch: vi.fn(async () => assetsResponse?.() ?? new Response("assets")),
     },

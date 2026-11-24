@@ -122,7 +122,7 @@ function ImageRender({
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
-  onImageLoadEnd?: OnImageLoadEnd;
+  onImageLoadEnd?: OnImageLoadEnd | undefined;
 }) {
   const { t } = useTranslation();
   const uri = resolveImageUri(el, ctx);
@@ -170,7 +170,9 @@ function ImageRender({
         contentPosition={imageContentPosition(el.focus)}
         // 読み込み完了直後に撮るため共有画像は transition を付けない。
         // onLoadEnd は成功・失敗どちらでも来る。
-        onLoadEnd={onImageLoadEnd}
+        // expo-image の onLoadEnd は省略可能プロパティなので、未指定時は
+        // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+        {...(onImageLoadEnd !== undefined ? { onLoadEnd: onImageLoadEnd } : {})}
       />
     </View>
   );
@@ -272,7 +274,7 @@ function AnimeCollageRender({
   boxWidth: number;
   boxHeight: number;
   renderScale: number;
-  onImageLoadEnd?: OnImageLoadEnd;
+  onImageLoadEnd?: OnImageLoadEnd | undefined;
 }) {
   const images = resolveCollageImages(el, ctx).slice(0, el.cols * el.rows);
   const gapPx = el.gap * boxWidth;
@@ -420,7 +422,7 @@ export function ElementRenderer({
    * 各画像の読み込み終了を通知する。共有画像スナップショットの
    * キャプチャ待ち（onReady）にだけ使い、通常描画では未指定でよい。
    */
-  onImageLoadEnd?: OnImageLoadEnd;
+  onImageLoadEnd?: OnImageLoadEnd | undefined;
 }) {
   switch (element.type) {
     case "text":

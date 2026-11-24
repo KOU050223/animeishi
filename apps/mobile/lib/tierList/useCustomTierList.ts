@@ -50,7 +50,7 @@ export function useSaveCustomTierList() {
 
   return useMutation({
     mutationFn: async (input: {
-      id?: number;
+      id?: number | undefined;
       title: string;
       // 表の説明文と公開設定（issue #476）。省略時はサーバが既存値を維持する。
       description?: string | null;

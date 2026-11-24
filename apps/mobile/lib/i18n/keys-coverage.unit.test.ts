@@ -136,7 +136,7 @@ for (const file of collectSourceFiles(APP_ROOT)) {
   const visit = (node: ts.Node): void => {
     if (isTranslationCall(node)) {
       const literals = new Set<string>();
-      collectStringLiterals(node.arguments[0], literals);
+      collectStringLiterals(node.arguments[0]!, literals);
       const location = `${path.relative(APP_ROOT, file)}:${
         source.getLineAndCharacterOfPosition(node.getStart()).line + 1
       }`;

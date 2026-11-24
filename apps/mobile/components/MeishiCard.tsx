@@ -11,12 +11,12 @@ import type { MeishiDocument, MeishiRenderContext } from "@/lib/meishi/types";
 import { useMeishiRenderContext } from "@/lib/meishi/useMeishiRenderContext";
 
 export type MeishiCardProps = {
-  username?: string | null;
-  bio?: string | null;
-  favoriteQuote?: string | null;
-  profileImageUrl?: string | null;
-  profileUrl?: string | null;
-  document?: MeishiDocument | null;
+  username?: string | null | undefined;
+  bio?: string | null | undefined;
+  favoriteQuote?: string | null | undefined;
+  profileImageUrl?: string | null | undefined;
+  profileUrl?: string | null | undefined;
+  document?: MeishiDocument | null | undefined;
   /** ピンチ&ズームを有効にするか。一覧のサムネイル等では false にする。 */
   zoomable?: boolean;
   profileOnly?: boolean;

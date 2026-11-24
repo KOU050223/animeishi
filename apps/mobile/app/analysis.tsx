@@ -480,7 +480,7 @@ function RecommendationsSection() {
         </Text>
       ) : null}
 
-      <View className={recommendations ? "mt-4" : undefined}>
+      <View {...(recommendations ? { className: "mt-4" } : {})}>
         <GenerateButton
           label={t("おすすめを出す")}
           pendingLabel={t("おすすめを生成中...")}

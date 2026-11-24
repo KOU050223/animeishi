@@ -23,13 +23,13 @@ import { flushTrackedEvents, trackEvent } from "@/lib/events";
 export type AnnictFunnelInput = {
   step: AnnictFunnelStep;
   /** 誘導を表示した場所。Web の sessionStorage 経由等で不明なら省略する。 */
-  surface?: AnnictFunnelSurface;
+  surface?: AnnictFunnelSurface | undefined;
   /** 生の Clerk userId。送信前にハッシュ化する。未サインインなら省略・null 可。 */
-  userId?: string | null;
+  userId?: string | null | undefined;
   /** oauth_result ステップの結果。 */
-  result?: AnnictFunnelResult;
+  result?: AnnictFunnelResult | undefined;
   /** result=error のときの理由（exchange_failed 等）。 */
-  reason?: string;
+  reason?: string | undefined;
 };
 
 // UI イベントを送る。計測の失敗・遅延で連携フローを壊さないよう、

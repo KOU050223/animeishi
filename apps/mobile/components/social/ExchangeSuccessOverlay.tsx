@@ -30,32 +30,32 @@ export type ExchangeSuccessOverlayProps = {
    * 「プロフィールを見る」ボタンを出すか。
    * user/[uid] 画面から開いた場合はすでにその画面にいるため false にする。
    */
-  showProfileLink?: boolean;
+  showProfileLink?: boolean | undefined;
   /**
    * 「出会いを記録する」ボタンを出すときに渡す（issue #661）。
    * 押すとオーバーレイを閉じて呼び出し側の記録シートを開く。
    * オーバーレイの Modal 内に別の Modal を重ねないため、シートの
    * 表示状態は呼び出し側が持つ。
    */
-  onRecordPress?: () => void;
+  onRecordPress?: (() => void) | undefined;
   /**
    * 「自分の QR も見せる」ボタンを出すときに渡す（issue #682）。
    * 両手で渡し合う名刺交換らしく相互スキャンを促す導線。任意の操作
    * なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
    */
-  onShowMyQr?: () => void;
+  onShowMyQr?: (() => void) | undefined;
   /**
    * 「お礼を送る」ボタンを出すときに渡す（issue #694）。
    * 押すとオーバーレイを閉じて呼び出し側の送信シートを開く。
    * オーバーレイの Modal 内に別の Modal を重ねないため、シートの
    * 表示状態は呼び出し側が持つ（onRecordPress と同じやり方）。
    */
-  onSendThanks?: () => void;
+  onSendThanks?: (() => void) | undefined;
   /**
    * この相手との交換記録の件数。「◯回目」の表示に使う（issue #662）。
    * 申請→承認など初回交換しかあり得ない呼び出しでは 1 を渡す。
    */
-  meetingCount?: number;
+  meetingCount?: number | undefined;
 };
 
 // カード登場の控えめなポップ（0.92 → 1.0）。Modal 自体の fade と合わせて
@@ -179,7 +179,9 @@ export function ExchangeSuccessOverlay({
         />
         <Animated.View
           className="w-full items-center"
-          entering={reduceMotion ? undefined : cardEntering}
+          // reanimated の entering は省略可能プロパティなので、
+          // reduceMotion 時はキーごと渡さない（exactOptionalPropertyTypes 対応）。
+          {...(reduceMotion ? {} : { entering: cardEntering })}
           testID="exchange-success-overlay"
         >
           <Text className="text-2xl font-bold text-white">

@@ -33,9 +33,10 @@ describe("groupActivityItems", () => {
     const run = bulkRun(ACTIVITY_GROUP_MIN_ITEMS);
     const entries = groupActivityItems(run);
     expect(entries).toHaveLength(1);
-    expect(entries[0].kind).toBe("group");
-    if (entries[0].kind === "group") {
-      expect(entries[0].items).toHaveLength(ACTIVITY_GROUP_MIN_ITEMS);
+    const entry = entries[0];
+    expect(entry?.kind).toBe("group");
+    if (entry?.kind === "group") {
+      expect(entry.items).toHaveLength(ACTIVITY_GROUP_MIN_ITEMS);
     }
   });
 
@@ -93,7 +94,8 @@ describe("groupActivityItems", () => {
     const close = bulkRun(ACTIVITY_GROUP_MIN_ITEMS);
     const far = item({
       createdAt: new Date(
-        new Date(close[close.length - 1].createdAt).getTime() -
+        // bulkRun(3) は必ず 3 件返すため末尾は存在する。
+        new Date(close[close.length - 1]!.createdAt).getTime() -
           ACTIVITY_GROUP_GAP_MS -
           1,
       ).toISOString(),
@@ -110,13 +112,15 @@ describe("groupActivityItems", () => {
     // close の 3 件はまとまり、閾値超過で切れた far + later の 3 件は
     // 連続自体は続くが far 起点で再びまとまる（別グループ）
     expect(entries.map((e) => e.kind)).toEqual(["group", "group"]);
-    if (entries[1].kind === "group") {
-      expect(entries[1].items).toHaveLength(ACTIVITY_GROUP_MIN_ITEMS);
+    const entry = entries[1];
+    if (entry?.kind === "group") {
+      expect(entry.items).toHaveLength(ACTIVITY_GROUP_MIN_ITEMS);
     }
   });
 
   it("間隔が閾値ちょうどなら同じ連続に含める", () => {
-    const first = bulkRun(1)[0];
+    // bulkRun(1) は必ず 1 件返す。
+    const first = bulkRun(1)[0]!;
     const second = item({
       createdAt: new Date(
         new Date(first.createdAt).getTime() - ACTIVITY_GROUP_GAP_MS,
@@ -129,16 +133,18 @@ describe("groupActivityItems", () => {
     });
     const entries = groupActivityItems([first, second, third]);
     expect(entries).toHaveLength(1);
-    expect(entries[0].kind).toBe("group");
+    expect(entries[0]?.kind).toBe("group");
   });
 
   it("まとめの代表は先頭（最新）の活動", () => {
     const run = bulkRun(ACTIVITY_GROUP_MIN_ITEMS + 2);
     const entries = groupActivityItems(run);
-    expect(entries[0].kind).toBe("group");
-    if (entries[0].kind === "group") {
-      expect(entries[0].items[0].id).toBe(run[0].id);
-      expect(entries[0].key).toBe(`group-${run[0].id}`);
+    const entry = entries[0];
+    expect(entry?.kind).toBe("group");
+    if (entry?.kind === "group") {
+      // bulkRun は必ず要求件数を返すため run[0] は存在する。
+      expect(entry.items[0]?.id).toBe(run[0]!.id);
+      expect(entry.key).toBe(`group-${run[0]!.id}`);
     }
   });
 
@@ -150,7 +156,7 @@ describe("groupActivityItems", () => {
     ];
     const entries = groupActivityItems(items);
     expect(entries.map((e) => e.kind)).toEqual(["item", "item", "item"]);
-    expect(entries[0].key).toBe(`item-${items[0].id}`);
+    expect(entries[0]?.key).toBe(`item-${items[0]!.id}`);
   });
 
   it("空の一覧は空を返す", () => {

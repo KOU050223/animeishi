@@ -118,7 +118,7 @@ const makeCard = (id: string, name: string): MeishiCardData => ({
 const cards = [makeCard("card_a", "名刺A"), makeCard("card_b", "名刺B")];
 
 let mockCards: MeishiCardData[] = cards;
-let mockDefaultCard: MeishiCardData | null = cards[0];
+let mockDefaultCard: MeishiCardData | null = cards[0] ?? null;
 let mockLoaded = true;
 
 jest.mock("@/lib/meishi/useMeishiLibrary", () => ({
@@ -141,7 +141,7 @@ beforeEach(() => {
   mockSetDefault.mockResolvedValue(undefined);
   mockRemoveCard.mockResolvedValue(undefined);
   mockCards = cards;
-  mockDefaultCard = cards[0];
+  mockDefaultCard = cards[0] ?? null;
   mockLoaded = true;
   mockCanGoBack = true;
 });
@@ -225,7 +225,7 @@ describe("名刺一覧画面", () => {
       .mockResolvedValueOnce({ version: 1, cards, defaultCardId: "card_b" })
       .mockResolvedValueOnce({
         version: 1,
-        cards: [cards[0]],
+        cards: cards.slice(0, 1),
         defaultCardId: "card_a",
       });
     await render(<MeishiDeckScreen />);

@@ -104,8 +104,8 @@ export function useAddFriend() {
     // （issue #663）。オフライン側の QR には ot しか載っていない。
     mutationFn: async (input: {
       friendId: string;
-      qrToken?: string;
-      offlineToken?: string;
+      qrToken?: string | undefined;
+      offlineToken?: string | undefined;
     }) => {
       const res = await apiClient.me.friends.$post(
         { json: input },

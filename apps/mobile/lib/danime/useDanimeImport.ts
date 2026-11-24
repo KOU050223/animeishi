@@ -60,7 +60,7 @@ type DanimeMatchOutput = {
   /** 照合フェーズの経過時間（ms、クライアント側計測）。 */
   elapsedMs: number;
   /** API 側の検索統計（デプロイ前の旧 API では返らないため任意）。 */
-  stats?: DanimeMatchStats;
+  stats?: DanimeMatchStats | undefined;
 };
 
 // 1 リクエストあたりの上限（API 側スキーマ WATCH_HISTORY_BULK_MAX_ENTRIES と

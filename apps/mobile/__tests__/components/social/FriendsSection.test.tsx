@@ -384,7 +384,7 @@ describe("FriendsSection", () => {
         typeof node.props?.onRefresh === "function",
     )[0];
     await act(async () => {
-      refreshControl.props.onRefresh();
+      refreshControl?.props.onRefresh();
     });
     expect(mockThanksRefetch).toHaveBeenCalledTimes(1);
 

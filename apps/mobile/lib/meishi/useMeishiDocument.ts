@@ -8,7 +8,11 @@ import {
   undo as undoHistory,
 } from "./history";
 import type { History } from "./history";
-import type { MeishiDocument, MeishiElement } from "./types";
+import type {
+  MeishiDocument,
+  MeishiElement,
+  MeishiElementPatch,
+} from "./types";
 import { trackEvent } from "@/lib/events";
 
 export type UseMeishiDocument = ReturnType<typeof useMeishiDocument>;
@@ -209,7 +213,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     return newCardId ?? boundCardId;
   };
 
-  const updateElement = (id: string, patch: Partial<MeishiElement>) => {
+  const updateElement = (id: string, patch: MeishiElementPatch) => {
     commit((prev) => ({
       ...prev,
       elements: prev.elements.map((el) =>
@@ -262,9 +266,8 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
 
   const bringToFront = (id: string) => {
     commit((prev) => {
-      const idx = prev.elements.findIndex((el) => el.id === id);
-      if (idx < 0) return prev;
-      const el = prev.elements[idx];
+      const el = prev.elements.find((e) => e.id === id);
+      if (!el) return prev;
       const next = prev.elements.filter((e) => e.id !== id);
       next.push(el);
       return { ...prev, elements: next };
@@ -273,9 +276,8 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
 
   const sendToBack = (id: string) => {
     commit((prev) => {
-      const idx = prev.elements.findIndex((el) => el.id === id);
-      if (idx < 0) return prev;
-      const el = prev.elements[idx];
+      const el = prev.elements.find((e) => e.id === id);
+      if (!el) return prev;
       const next = prev.elements.filter((e) => e.id !== id);
       next.unshift(el);
       return { ...prev, elements: next };

@@ -121,7 +121,7 @@ export function useSaveWorkList() {
 
   return useMutation({
     mutationFn: async (input: {
-      id?: number;
+      id?: number | undefined;
       title: string;
       description?: string | null;
       isPublic?: boolean;

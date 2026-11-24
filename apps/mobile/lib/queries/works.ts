@@ -37,7 +37,10 @@ export type WorkDetailResponse = InferResponseType<
   (typeof apiClient.works)[":annictWorkId"]["$get"],
   200
 >;
-export type WorkDetail = WorkDetailResponse["work"];
+// API 側は attachResolvedImages の結果を分割代入しており、レスポンス型上は
+// work が undefined を含みうる（実際は 1:1 マップなので常に存在する）。
+// mobile 側では「詳細が取れた」前提の型として NonNullable に絞る。
+export type WorkDetail = NonNullable<WorkDetailResponse["work"]>;
 export type WorkEpisodesResponse = InferResponseType<
   (typeof apiClient.works)[":annictWorkId"]["episodes"]["$get"],
   200
@@ -192,10 +195,12 @@ export const workQueries = {
                 const index = old.findIndex(
                   (item) => item.annictWorkId === args.annictWorkId,
                 );
+                const existing = old[index];
                 // 変化が無いときは undefined を返して書き込み自体を行わない
                 // （setQueryData は同じ配列を返しても dataUpdatedAt を更新する）。
-                if (index < 0 || old[index].state === json.work.state)
-                  return undefined;
+                // work が無い応答（型上はありうる）では同期対象が無いので触らない。
+                if (existing == null || json.work == null) return undefined;
+                if (existing.state === json.work.state) return undefined;
                 // state=null（NO_STATE / ステータス解除）は履歴応答に行が
                 // 無い形と一致させるため、キャッシュからも除く。
                 const state = json.work.state;

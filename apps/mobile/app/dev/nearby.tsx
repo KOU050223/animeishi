@@ -18,7 +18,7 @@ type PeerView = {
   peerId: string;
   displayName: string;
   meters: number | null;
-  direction?: DirectionVector;
+  direction?: DirectionVector | undefined;
   /** 一度でも touch 閾値以内に入ったら立つ。離れても表示を残す。 */
   exchanged: boolean;
 };

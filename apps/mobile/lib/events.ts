@@ -34,7 +34,7 @@ export type TrackEventOptions = {
    * 「未サインインとして送る」場合は明示的に null を渡す
    * （annict ファネルのように呼び出し側が userId を持つ経路向け）。
    */
-  userId?: string | null;
+  userId?: string | null | undefined;
   /** ハッシュ済み userId を書き込む属性キー（既定 user_key）。 */
   userKeyAttr?: string;
   /**
@@ -79,8 +79,8 @@ const eventContext = {
 // 1 度だけ呼ばれる）からのみ呼ぶ。指定したキーだけ更新する。
 // userId の変化は PostHog の identify / reset にも反映する。
 export function setEventContext(partial: {
-  userId?: string | null;
-  screen?: string;
+  userId?: string | null | undefined;
+  screen?: string | undefined;
 }): void {
   if ("userId" in partial) {
     eventContext.userId = partial.userId;

@@ -13,32 +13,34 @@ const findIndicators = () =>
 // API・認証の振る舞いは lib/useActivityFeed の結合部なので、
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する。
 let mockFeed: {
-  data?: {
-    pages: {
-      items: {
-        id: number;
-        type:
-          | "watch_status"
-          | "favorite_added"
-          | "tier_list_created"
-          | "tier_list_shared";
-        createdAt: string;
-        actor: {
-          userId: string;
-          username: string;
-          profileImageUrl: string | null;
-        };
-        work: {
-          annictWorkId: number;
-          title: string;
-          titleEn: string | null;
-          hostedImageUrl: string | null;
-        } | null;
-        meta: Record<string, unknown> | null;
-      }[];
-      nextCursor: number | null;
-    }[];
-  };
+  data?:
+    | {
+        pages: {
+          items: {
+            id: number;
+            type:
+              | "watch_status"
+              | "favorite_added"
+              | "tier_list_created"
+              | "tier_list_shared";
+            createdAt: string;
+            actor: {
+              userId: string;
+              username: string;
+              profileImageUrl: string | null;
+            };
+            work: {
+              annictWorkId: number;
+              title: string;
+              titleEn: string | null;
+              hostedImageUrl: string | null;
+            } | null;
+            meta: Record<string, unknown> | null;
+          }[];
+          nextCursor: number | null;
+        }[];
+      }
+    | undefined;
   isLoading: boolean;
   isError: boolean;
   refetch: jest.Mock;
@@ -58,7 +60,10 @@ jest.mock("expo-router", () => ({
 
 // 空状態の案内出し分け（issue #533）はフレンド数で決まるため差し替えられる
 // ようにする。フィードと同じくテストごとに上書きする。
-let mockFriends: { data?: { friendId: string }[]; isLoading: boolean };
+let mockFriends: {
+  data?: { friendId: string }[] | undefined;
+  isLoading: boolean;
+};
 jest.mock("@/lib/useFriends", () => ({
   useFriends: () => mockFriends,
 }));

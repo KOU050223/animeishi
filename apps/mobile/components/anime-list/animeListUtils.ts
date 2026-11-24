@@ -35,7 +35,8 @@ export function currentSeason(now: Date = new Date()): {
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return {
     year: jst.getUTCFullYear(),
-    key: SEASON_KEYS[Math.floor(jst.getUTCMonth() / 3)],
+    // 月(0-11)/3 は 0-3 に収まり SEASON_KEYS は 4 要素なので範囲外にならない。
+    key: SEASON_KEYS[Math.floor(jst.getUTCMonth() / 3)]!,
   };
 }
 
@@ -132,7 +133,8 @@ export function shiftSeason(
     ((total % SEASON_KEYS.length) + SEASON_KEYS.length) % SEASON_KEYS.length;
   return {
     year: Math.floor(total / SEASON_KEYS.length),
-    key: SEASON_KEYS[index],
+    // index は mod SEASON_KEYS.length 済みで範囲内が保証される。
+    key: SEASON_KEYS[index]!,
   };
 }
 
@@ -266,7 +268,8 @@ export function getPosterPalette(
     0,
   );
   const palettes = scheme === "dark" ? POSTER_PALETTES_DARK : POSTER_PALETTES;
-  return palettes[index % palettes.length];
+  // index % palettes.length は範囲内が保証される（palettes は空にならない定数）。
+  return palettes[index % palettes.length]!;
 }
 
 export function getAnimeListLayout(width: number) {

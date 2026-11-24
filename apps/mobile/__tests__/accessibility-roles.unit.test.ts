@@ -69,7 +69,7 @@ function findElementsWithoutRole(
   let match: RegExpExecArray | null;
   while ((match = tagStart.exec(source)) !== null) {
     const element = match[1];
-    if (!PRESSABLE_ELEMENTS.has(element)) continue;
+    if (element === undefined || !PRESSABLE_ELEMENTS.has(element)) continue;
     const tag = readOpeningTag(source, match.index);
     // 別属性の文字列内に "accessibilityRole" が現れるだけでは合格にしないよう、
     // 属性構文（accessibilityRole=...）だけを数える

@@ -150,7 +150,7 @@ async function runWebAnnictConnect({
   inFlightRef,
   setIsConnecting,
 }: {
-  options?: AnnictConnectOptions;
+  options?: AnnictConnectOptions | undefined;
   userId: string | null | undefined;
   inFlightRef: { current: boolean };
   setIsConnecting: (connecting: boolean) => void;

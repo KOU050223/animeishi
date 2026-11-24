@@ -83,7 +83,7 @@ describe("initObservability (web)", () => {
 
     await flushLazyInit();
     expect(Sentry.init).toHaveBeenCalledTimes(1);
-    const options = jest.mocked(Sentry.init).mock.calls[0][0];
+    const options = jest.mocked(Sentry.init).mock.calls[0]![0];
     expect(options.dsn).toBe(VALID_DSN);
   });
 

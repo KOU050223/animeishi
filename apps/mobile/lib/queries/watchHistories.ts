@@ -72,7 +72,7 @@ export const watchHistoryQueries = {
             // 詳細キーは userId でスコープされている。他人のキーを現在
             // ユーザーの履歴と突き合わせて無効化すると、そのまま active
             // なら現在ユーザーの state が他人のキーへ書き込まれるため絞る。
-            if (!detail || key[2] !== args.userId) continue;
+            if (!detail?.work || key[2] !== args.userId) continue;
             if (
               (syncedState.get(detail.work.annictWorkId) ?? null) ===
               detail.work.state

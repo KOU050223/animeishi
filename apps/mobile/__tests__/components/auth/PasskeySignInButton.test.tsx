@@ -99,8 +99,8 @@ describe("PasskeySignInButton", () => {
       expect(auth.signOut).toHaveBeenCalledTimes(1);
       expect(auth.signIn.passkey).toHaveBeenCalled();
     });
-    expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.passkey.mock.invocationCallOrder[0],
+    expect(auth.signOut.mock.invocationCallOrder[0]!).toBeLessThan(
+      auth.signIn.passkey.mock.invocationCallOrder[0]!,
     );
   });
 });

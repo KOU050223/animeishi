@@ -15,9 +15,9 @@ export function AnimeSection({
   initialSeason,
   navNonce,
 }: {
-  initialQuery?: string;
-  initialSeason?: string;
-  navNonce?: string;
+  initialQuery?: string | undefined;
+  initialSeason?: string | undefined;
+  navNonce?: string | undefined;
 }) {
   const { t } = useTranslation();
   const favoriteIds = useFavoriteIds();

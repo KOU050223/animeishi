@@ -6,20 +6,22 @@ import { FriendUpdatesSection } from "@/components/social/FriendUpdatesSection";
 // ここではフックの戻り値を差し替えてセクションの UI 分岐を検証する
 // （ActivityFeedSection.test.tsx と同じ手法）。
 let mockUpdates: {
-  data?: {
-    items: {
-      id: number | null;
-      type: "watch_status" | "favorite_added" | "meishi_updated";
-      createdAt: string;
-      work: {
-        annictWorkId: number;
-        title: string;
-        titleEn: string | null;
-        hostedImageUrl: string | null;
-      } | null;
-      meta: Record<string, unknown> | null;
-    }[];
-  };
+  data?:
+    | {
+        items: {
+          id: number | null;
+          type: "watch_status" | "favorite_added" | "meishi_updated";
+          createdAt: string;
+          work: {
+            annictWorkId: number;
+            title: string;
+            titleEn: string | null;
+            hostedImageUrl: string | null;
+          } | null;
+          meta: Record<string, unknown> | null;
+        }[];
+      }
+    | undefined;
   isError: boolean;
   refetch: jest.Mock;
 };

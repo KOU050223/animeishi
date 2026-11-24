@@ -488,7 +488,8 @@ export default function MeishiEditScreen() {
         onClose={() => {
           setTemplatePicker(false);
           if (!doc) {
-            setDocFromTemplate(MEISHI_TEMPLATES[0].build());
+            // MEISHI_TEMPLATES の先頭は blank テンプレートで空配列にはならない。
+            setDocFromTemplate(MEISHI_TEMPLATES[0]!.build());
           }
         }}
         onPick={handleTemplatePick}

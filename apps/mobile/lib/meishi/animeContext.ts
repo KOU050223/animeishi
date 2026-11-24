@@ -4,8 +4,8 @@ import type { CollageStateFilter } from "./types";
 type WorkImageSource = { hostedImageUrl?: string | null };
 
 export type MeishiAnimeContextSource = {
-  favorites?: WorkImageSource[];
-  watchHistory?: (WorkImageSource & { state: string | null })[];
+  favorites?: WorkImageSource[] | undefined;
+  watchHistory?: (WorkImageSource & { state: string | null })[] | undefined;
 };
 
 export function buildMeishiAnimeContext(source: MeishiAnimeContextSource) {

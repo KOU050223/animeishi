@@ -192,7 +192,7 @@ describe("ファネル計測（oauth_result）", () => {
       "annict.result": "success",
     });
     // 生の userId は属性に出ない（ハッシュ不可環境では省略される）。
-    expect(attrs["annict.user_key"]).not.toBe("user_test");
+    expect(attrs?.["annict.user_key"]).not.toBe("user_test");
   });
 
   it("進行中の再入では oauth_result を送らない", async () => {
@@ -219,7 +219,7 @@ describe("ファネル計測（oauth_result）", () => {
     });
 
     await waitFor(() => expect(funnelCalls()).toHaveLength(1));
-    expect(funnelCalls()[0]["annict.result"]).toBe("cancelled");
+    expect(funnelCalls()[0]?.["annict.result"]).toBe("cancelled");
   });
 });
 

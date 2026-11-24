@@ -9,14 +9,14 @@ type QrScanResult = {
    * 対面交換 QR にだけ載る短期トークン（issue #417）。
    * 共有 URL 由来の QR には無く、その場合は undefined。
    */
-  qrToken?: string;
+  qrToken?: string | undefined;
   /**
    * オフライン交換 QR にだけ載る長寿命トークン（issue #663）。
    * 表示側がオフラインで qt を取れなかった QR にだけ付く。
    */
-  offlineToken?: string;
+  offlineToken?: string | undefined;
   /** ミニ名刺（`?mc=`）。オフラインでも相手の名前を出すための最小情報。 */
-  miniMeishi?: MiniMeishi;
+  miniMeishi?: MiniMeishi | undefined;
   /** スキャンした生データ（デバッグ・表示用）。 */
   raw: string;
 };

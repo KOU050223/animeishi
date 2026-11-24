@@ -490,7 +490,7 @@ describe("AnimeWorkDetailSheet", () => {
 
     // 先行する「視聴中」の保存が完了しても、後続の保存中は完了表示にしない。
     await act(async () => {
-      resolvers[0]({});
+      resolvers[0]?.({});
     });
     expect(screen.getByTestId("status-save-feedback").props.children).toBe(
       "保存中…",
@@ -498,7 +498,7 @@ describe("AnimeWorkDetailSheet", () => {
 
     // 後続の保存が完了して初めて完了表示に変わる。
     await act(async () => {
-      resolvers[1]({});
+      resolvers[1]?.({});
     });
     expect(screen.getByTestId("status-save-feedback").props.children).toBe(
       "保存しました",
@@ -528,7 +528,7 @@ describe("AnimeWorkDetailSheet", () => {
     // 先行する「視聴中」の保存が失敗しても、後続の保存中は失敗表示にしない。
     // 失敗自体の通知（ダイアログ）は従来どおり出す。
     await act(async () => {
-      rejecters[0](new ApiRequestError(500, "視聴履歴の更新に失敗しました"));
+      rejecters[0]?.(new ApiRequestError(500, "視聴履歴の更新に失敗しました"));
     });
     expect(mockAlert).toHaveBeenCalledWith(
       "更新できませんでした",
@@ -540,7 +540,7 @@ describe("AnimeWorkDetailSheet", () => {
     );
 
     await act(async () => {
-      resolvers[1]({});
+      resolvers[1]?.({});
     });
     expect(screen.getByTestId("status-save-feedback").props.children).toBe(
       "保存しました",

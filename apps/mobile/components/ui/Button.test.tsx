@@ -64,13 +64,13 @@ describe("Button", () => {
 
   it("primary のインジケータ色は onPrimary", async () => {
     await render(<Button label="保存" onPress={jest.fn()} loading />);
-    expect(findIndicators()[0].props.color).toBe(colors.light.onPrimary);
+    expect(findIndicators()[0]?.props.color).toBe(colors.light.onPrimary);
   });
 
   it("destructive のインジケータ色は danger", async () => {
     await render(
       <Button label="削除" onPress={jest.fn()} variant="destructive" loading />,
     );
-    expect(findIndicators()[0].props.color).toBe(colors.light.danger);
+    expect(findIndicators()[0]?.props.color).toBe(colors.light.danger);
   });
 });

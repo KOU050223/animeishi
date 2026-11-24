@@ -27,8 +27,9 @@ export function groupActivityItems(
   let run: ActivityFeedItem[] = [];
 
   const flush = () => {
-    if (run.length >= ACTIVITY_GROUP_MIN_ITEMS) {
-      entries.push({ kind: "group", key: `group-${run[0].id}`, items: run });
+    const first = run[0];
+    if (run.length >= ACTIVITY_GROUP_MIN_ITEMS && first) {
+      entries.push({ kind: "group", key: `group-${first.id}`, items: run });
     } else {
       for (const item of run) {
         entries.push({ kind: "item", key: `item-${item.id}`, item });

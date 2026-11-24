@@ -99,8 +99,8 @@ describe("shareTierListImage (web)", () => {
       title: string;
     };
     expect(shared.title).toBe("テスト表");
-    expect(shared.files[0].name).toBe("テスト表.png");
-    expect(shared.files[0].type).toBe("image/png");
+    expect(shared.files[0]?.name).toBe("テスト表.png");
+    expect(shared.files[0]?.type).toBe("image/png");
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
@@ -134,8 +134,8 @@ describe("shareTierListImage (web)", () => {
       dialogTitle: 'a/b:c?"d"',
       backgroundColor: "#ffffff",
     });
-    const file = (shareMock.mock.calls[0][0] as { files: File[] }).files[0];
-    expect(file.name).toBe("a_b_c__d_.png");
+    const file = (shareMock.mock.calls[0]![0] as { files: File[] }).files[0];
+    expect(file?.name).toBe("a_b_c__d_.png");
   });
 
   it("プロキシ画像の読み込みに失敗した img は取り除く", async () => {

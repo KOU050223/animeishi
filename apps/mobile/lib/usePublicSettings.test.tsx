@@ -28,7 +28,7 @@ jest.mock("@/lib/api", () => ({
 
 // useProfile（GET /me/profile の取得側）だけ差し替える
 const mockUseProfile = jest.fn(
-  (): { data?: { username: string; isPublic: boolean } } => ({
+  (): { data?: { username: string; isPublic: boolean } | undefined } => ({
     data: { username: "testuser", isPublic: true },
   }),
 );

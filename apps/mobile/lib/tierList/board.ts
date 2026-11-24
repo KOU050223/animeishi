@@ -191,14 +191,18 @@ export function sameBoard(a: BoardSnapshot, b: BoardSnapshot): boolean {
   for (let i = 0; i < a.tiers.length; i += 1) {
     const x = a.tiers[i];
     const y = b.tiers[i];
+    if (!x || !y) return false;
     if (x.key !== y.key || x.label !== y.label || x.color !== y.color) {
       return false;
     }
   }
   if (a.items.length !== b.items.length) return false;
   for (let i = 0; i < a.items.length; i += 1) {
-    if (a.items[i].itemId !== b.items[i].itemId) return false;
-    if (a.items[i].tierKey !== b.items[i].tierKey) return false;
+    const x = a.items[i];
+    const y = b.items[i];
+    if (!x || !y) return false;
+    if (x.itemId !== y.itemId) return false;
+    if (x.tierKey !== y.tierKey) return false;
   }
   return true;
 }

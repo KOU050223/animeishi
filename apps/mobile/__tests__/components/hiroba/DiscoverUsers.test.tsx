@@ -157,10 +157,11 @@ describe("DiscoverUsers", () => {
     expect(screen.getByTestId("meishi-card-fallback")).toBeTruthy();
     const images = findExpoImages();
     expect(images).toHaveLength(1);
-    expect(images[0].props.source).toEqual([{ uri: url }]);
+    expect(images[0]?.props.source).toEqual([{ uri: url }]);
 
     // 読み込みが終わるとスナップショット画像に切り替わる
-    await fireEvent(images[0], "onLoad", {
+    // 直前に toHaveLength(1) を確認済みのため images[0] は存在する。
+    await fireEvent(images[0]!, "onLoad", {
       nativeEvent: { source: { width: 1280, height: 824 } },
     });
     expect(screen.queryByTestId("meishi-card-fallback")).toBeNull();
@@ -178,7 +179,7 @@ describe("DiscoverUsers", () => {
     ];
     await render(<DiscoverUsers />);
 
-    await fireEvent(findExpoImages()[0], "onError", { nativeEvent: {} });
+    await fireEvent(findExpoImages()[0]!, "onError", { nativeEvent: {} });
 
     expect(screen.getByTestId("meishi-card-fallback")).toBeTruthy();
     expect(findExpoImages()).toHaveLength(0);

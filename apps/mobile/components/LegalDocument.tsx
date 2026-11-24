@@ -8,11 +8,11 @@ import { BackButton, Button } from "@/components/ui";
 export type LegalSection = {
   heading: string;
   /** 段落。複数指定すると空行区切りで表示する。 */
-  paragraphs?: string[];
+  paragraphs?: string[] | undefined;
   /** 箇条書き項目。 */
-  bullets?: string[];
+  bullets?: string[] | undefined;
   /** 段落の下に置くアプリ内画面へのボタン。 */
-  action?: { label: string; href: Href; testID?: string };
+  action?: { label: string; href: Href; testID?: string } | undefined;
 };
 
 type Props = {

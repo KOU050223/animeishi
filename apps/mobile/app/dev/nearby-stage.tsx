@@ -33,6 +33,7 @@ export default function NearbyStagePreviewScreen() {
     return <Redirect href="/" />;
   }
   const current = STEPS[step];
+  if (!current) return null;
   return (
     <SafeAreaView
       className="flex-1 bg-white dark:bg-slate-900"

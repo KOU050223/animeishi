@@ -1,4 +1,4 @@
-const genreDefinitions: string[][] = [
+const genreDefinitions: [string, string, ...string[]][] = [
   ["Action", "アクション"],
   ["Adventure", "冒険"],
   ["Anthropomorphic", "擬人化"],

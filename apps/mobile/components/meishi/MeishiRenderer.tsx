@@ -11,7 +11,7 @@ export type MeishiRendererProps = {
   context: MeishiRenderContext;
   borderRadius?: number;
   /** 共有画像スナップショットのキャプチャ待ち用。通常描画では未指定でよい。 */
-  onImageLoadEnd?: OnImageLoadEnd;
+  onImageLoadEnd?: OnImageLoadEnd | undefined;
 };
 
 /**

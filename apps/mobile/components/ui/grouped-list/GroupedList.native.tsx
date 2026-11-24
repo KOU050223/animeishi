@@ -35,7 +35,12 @@ export function GroupedList({ sections }: GroupedListProps) {
       fontScale,
   );
   return (
-    <Host style={{ width: "100%", height }} colorScheme={colorScheme}>
+    <Host
+      style={{ width: "100%", height }}
+      // expo-ui の colorScheme は省略可能プロパティなので、未指定時は
+      // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+      {...(colorScheme !== undefined ? { colorScheme } : {})}
+    >
       <FieldGroup
         style={{ backgroundColor: "transparent" }}
         // @expo/ui/swift-ui/modifiers は iOS 専用で .native からは
@@ -51,7 +56,9 @@ export function GroupedList({ sections }: GroupedListProps) {
               <ListItem
                 key={row.key}
                 onPress={row.onPress}
-                testID={row.testID}
+                // expo-ui の testID は省略可能プロパティなので、未指定時は
+                // キーごと渡さない（exactOptionalPropertyTypes 対応）。
+                {...(row.testID !== undefined ? { testID: row.testID } : {})}
                 // accessibilityLabel をネイティブ側の行へ適用する。
                 // iOS は accessibilityLabel、Android は semantics の
                 // contentDescription で同じ読み上げ文言にする

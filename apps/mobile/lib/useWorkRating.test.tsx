@@ -259,7 +259,7 @@ describe("useUpsertWorkRating / useDeleteWorkRating の楽観的更新", () => {
     // DELETE が settle するまで PUT は始まらない。
     await waitFor(() => expect(calls).toEqual(["delete"]));
     await act(async () => {
-      resolvers[0]({
+      resolvers[0]?.({
         ok: true,
         headers: { get: () => null },
         json: async () => ({}),

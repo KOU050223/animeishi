@@ -133,8 +133,8 @@ describe("useExchangeQueueSync", () => {
     );
 
     // confirm の承諾ボタンで相手のプロフィール（申請ボタン）へ誘導する。
-    const onConfirm = jest.mocked(confirm).mock.calls[0][2];
-    onConfirm();
+    const onConfirm = jest.mocked(confirm).mock.calls[0]?.[2];
+    onConfirm?.();
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/user/[uid]",
       params: { uid: USER_A },

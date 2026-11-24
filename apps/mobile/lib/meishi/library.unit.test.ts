@@ -80,7 +80,8 @@ describe("addCard", () => {
     lib = addCard(lib, docA).library; // 名刺 1
     lib = addCard(lib, docA).library; // 名刺 2
     lib = addCard(lib, docA).library; // 名刺 3
-    lib = removeCard(lib, lib.cards[1].id); // 名刺 2 を削除
+    // 直前に 3 枚追加しているため cards[1] は必ず存在する。
+    lib = removeCard(lib, lib.cards[1]!.id); // 名刺 2 を削除
 
     const { card } = addCard(lib, docB);
     expect(card.name).toBe("名刺 4");
@@ -170,9 +171,9 @@ describe("updateCardDocument", () => {
     const lib = addCard(emptyLibrary(), docA, { id: "a", now: 1 }).library;
     const next = updateCardDocument(lib, "a", docB, { now: 99 });
     const card = next.cards[0];
-    expect(card.document).toEqual(docB);
-    expect(card.updatedAt).toBe(99);
-    expect(card.createdAt).toBe(1);
+    expect(card?.document).toEqual(docB);
+    expect(card?.updatedAt).toBe(99);
+    expect(card?.createdAt).toBe(1);
   });
 });
 
@@ -196,8 +197,8 @@ describe("migrateLegacyDocument", () => {
     const lib = migrateLegacyDocument(docA, { id: "migrated", now: 7 });
     expect(lib.version).toBe(1);
     expect(lib.cards).toHaveLength(1);
-    expect(lib.cards[0].id).toBe("migrated");
-    expect(lib.cards[0].document).toEqual(docA);
+    expect(lib.cards[0]?.id).toBe("migrated");
+    expect(lib.cards[0]?.document).toEqual(docA);
     expect(lib.defaultCardId).toBe("migrated");
   });
 });

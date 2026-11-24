@@ -18,7 +18,7 @@ export type ExchangeQueuedOverlayProps = {
   /** スキャンした相手のユーザー ID（ミニ名刺が無いときの名代に使う）。 */
   uid: string;
   /** ミニ名刺（`?mc=`）。無い・項目が欠けた QR では undefined のまま出す。 */
-  miniMeishi?: MiniMeishi;
+  miniMeishi?: MiniMeishi | undefined;
   /** 閉じるボタン・スクリム・Android 戻るで呼ばれる。 */
   onClose: () => void;
   /**
@@ -26,7 +26,7 @@ export type ExchangeQueuedOverlayProps = {
    * オフラインでも両手で渡し合えるよう相互スキャンを促す導線。任意の
    * 操作なので副ボタンとして置く。遷移先（マイ QR）の制御は呼び出し側。
    */
-  onShowMyQr?: () => void;
+  onShowMyQr?: (() => void) | undefined;
 };
 
 // ExchangeSuccessOverlay と同じ控えめなポップ演出（0.92 → 1.0）。
@@ -34,7 +34,13 @@ const cardEntering = ZoomIn.withInitialValues({
   transform: [{ scale: 0.92 }],
 }).duration(240);
 
-function QueuedCard({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
+function QueuedCard({
+  name,
+  avatarUrl,
+}: {
+  name: string;
+  avatarUrl?: string | undefined;
+}) {
   const { t } = useTranslation();
   // オフラインではアバター画像を取れないことが多いため、読み込み失敗時は
   // 頭文字のアイコンに切り替える。
@@ -112,7 +118,9 @@ export function ExchangeQueuedOverlay({
         />
         <Animated.View
           className="w-full items-center"
-          entering={reduceMotion ? undefined : cardEntering}
+          // reanimated の entering は省略可能プロパティなので、
+          // reduceMotion 時はキーごと渡さない（exactOptionalPropertyTypes 対応）。
+          {...(reduceMotion ? {} : { entering: cardEntering })}
           testID="exchange-queued-overlay"
         >
           <Text className="text-2xl font-bold text-white">

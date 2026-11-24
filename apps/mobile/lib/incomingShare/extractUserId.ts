@@ -73,8 +73,11 @@ function extractFromSchemeUrl(url: URL): string | null {
 /** {webBase}/user/{uid} だけを受理する。パスの深い URL は名刺ではない。 */
 function extractUserPathSegment(url: URL): string | null {
   const segments = url.pathname.split("/").filter(Boolean);
-  if (segments.length !== 2 || segments[0] !== "user") return null;
-  const candidate = safeDecode(segments[1]);
+  const [first, second] = segments;
+  if (segments.length !== 2 || first !== "user" || second === undefined) {
+    return null;
+  }
+  const candidate = safeDecode(second);
   return isValidUserId(candidate) ? candidate : null;
 }
 

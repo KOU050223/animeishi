@@ -168,7 +168,8 @@ describe("exchangeAnnictWebCallback", () => {
         expect.objectContaining({ "annict.result": "success" }),
       ),
     );
-    const [, attributes] = jest.mocked(captureAnalyticsEvent).mock.calls[0];
+    // waitFor で呼び出し済みが保証されている。
+    const [, attributes] = jest.mocked(captureAnalyticsEvent).mock.calls[0]!;
     expect(attributes["annict.surface"]).toBeUndefined();
   });
 });

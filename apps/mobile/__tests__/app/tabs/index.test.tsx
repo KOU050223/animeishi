@@ -127,14 +127,16 @@ jest.mock("@/lib/useFriendWatchStories", () => ({
 
 // 特集記事（issue #437）はクエリ結果をテストごとに差し替える。
 let mockArticles: {
-  data?: {
-    items: {
-      slug: string;
-      title: string;
-      coverImageUrl: string | null;
-      publishedAt: string;
-    }[];
-  };
+  data?:
+    | {
+        items: {
+          slug: string;
+          title: string;
+          coverImageUrl: string | null;
+          publishedAt: string;
+        }[];
+      }
+    | undefined;
 };
 jest.mock("@/lib/useArticles", () => ({
   useLatestArticles: () => mockArticles,
@@ -143,17 +145,19 @@ jest.mock("@/lib/useArticles", () => ({
 
 // イベント（issue #411）はクエリ結果をテストごとに差し替える。
 let mockEvents: {
-  data?: {
-    items: {
-      slug: string;
-      title: string;
-      coverImageUrl: string | null;
-      location: string | null;
-      startsAt: string;
-      endsAt: string;
-      participating: boolean;
-    }[];
-  };
+  data?:
+    | {
+        items: {
+          slug: string;
+          title: string;
+          coverImageUrl: string | null;
+          location: string | null;
+          startsAt: string;
+          endsAt: string;
+          participating: boolean;
+        }[];
+      }
+    | undefined;
 };
 jest.mock("@/lib/useEvents", () => ({
   useEvents: () => mockEvents,
@@ -162,16 +166,18 @@ jest.mock("@/lib/useEvents", () => ({
 
 // 総選挙（issue #438）はクエリ結果をテストごとに差し替える。
 let mockElections: {
-  data?: {
-    items: {
-      slug: string;
-      title: string;
-      coverImageUrl: string | null;
-      startsAt: string;
-      endsAt: string;
-      voted: boolean;
-    }[];
-  };
+  data?:
+    | {
+        items: {
+          slug: string;
+          title: string;
+          coverImageUrl: string | null;
+          startsAt: string;
+          endsAt: string;
+          voted: boolean;
+        }[];
+      }
+    | undefined;
 };
 jest.mock("@/lib/useElections", () => ({
   useElections: () => mockElections,

@@ -23,7 +23,7 @@ export function PostExchangeRecordSheet({
   onClose,
 }: {
   uid: string;
-  recordId?: number;
+  recordId?: number | undefined;
   onClose: () => void;
 }) {
   const { t } = useTranslation();

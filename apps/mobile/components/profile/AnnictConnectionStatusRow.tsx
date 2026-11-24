@@ -39,7 +39,7 @@ export function AnnictConnectionStatusRow({
   /** ファネル計測の誘導元（prompt_view / cta_tap / oauth_result の surface 属性）。 */
   surface: AnnictFunnelSurface;
   /** 連携済み行のタップ時。従来の連携カード（詳細・解除）への移動に使う。 */
-  onShowDetails?: () => void;
+  onShowDetails?: (() => void) | undefined;
   testID?: string;
 }) {
   const { t } = useTranslation();

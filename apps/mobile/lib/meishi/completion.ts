@@ -40,9 +40,9 @@ export const MEISHI_COMPLETION_STEP_LABELS: Record<
 
 export type MeishiCompletionInput = {
   /** users.profile_image_url（アバター未設定は null/空文字）。 */
-  profileImageUrl?: string | null;
+  profileImageUrl?: string | null | undefined;
   /** users.username（表示名）。 */
-  username?: string | null;
+  username?: string | null | undefined;
   /** お気に入り（推し）の登録数。 */
   favoritesCount: number;
   /**

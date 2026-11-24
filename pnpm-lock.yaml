@@ -30,6 +30,9 @@ patchedDependencies:
   react-native-css@3.1.0-rc.1:
     hash: 3229553c6db29fa99eb5e09e26168906c27c138221361d32f8b14e084ae234ff
     path: patches/react-native-css@3.1.0-rc.1.patch
+  react-native-view-shot@6.1.1:
+    hash: 8b132b12ff8ff4c2c04e7791ba485bd959d0667336e76475b314506c664d519c
+    path: patches/react-native-view-shot@6.1.1.patch
 
 importers:
 
@@ -293,7 +296,7 @@ importers:
         version: 15.16.0(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
       react-native-view-shot:
         specifier: 6.1.1
-        version: 6.1.1(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
+        version: 6.1.1(patch_hash=8b132b12ff8ff4c2c04e7791ba485bd959d0667336e76475b314506c664d519c)(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
       react-native-web:
         specifier: ~0.21.4
         version: 0.21.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -18168,7 +18171,7 @@ snapshots:
     dependencies:
       react-native: 0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6)
 
-  react-native-view-shot@6.1.1(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0):
+  react-native-view-shot@6.1.1(patch_hash=8b132b12ff8ff4c2c04e7791ba485bd959d0667336e76475b314506c664d519c)(react-native@0.88.0(@babel/core@7.29.7)(@react-native/metro-config@0.88.0(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0):
     dependencies:
       react: 19.3.0
     optionalDependencies:

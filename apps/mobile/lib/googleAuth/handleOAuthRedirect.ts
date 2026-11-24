@@ -35,7 +35,11 @@ export async function handleOAuthRedirect(params: {
       // 認証画面へ飛ばさずホームへ戻す。
       signInFallbackRedirectUrl: "/",
       signUpFallbackRedirectUrl: "/",
-      signUpForceRedirectUrl: params.signUpForceRedirectUrl,
+      // clerk-js 側の型は省略可能プロパティなので、未指定時はキーごと省く
+      // （exactOptionalPropertyTypes 対応。undefined 明示代入と同義）。
+      ...(params.signUpForceRedirectUrl !== undefined
+        ? { signUpForceRedirectUrl: params.signUpForceRedirectUrl }
+        : {}),
     },
     params.navigate,
   );

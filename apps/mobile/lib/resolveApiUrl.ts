@@ -4,9 +4,9 @@ const DEFAULT_API_URL = "http://localhost:8787";
 const API_PORT = "8787";
 
 type ResolveApiUrlInput = {
-  configuredUrl?: string;
+  configuredUrl?: string | undefined;
   platformOS: PlatformOSType;
-  hostUri?: string | null;
+  hostUri?: string | null | undefined;
 };
 
 function extractHost(hostUri?: string | null): string | null {

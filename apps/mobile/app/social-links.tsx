@@ -50,7 +50,11 @@ export default function SocialLinksScreen() {
     const next = [...items];
     const other = index + direction;
     if (other < 0 || other >= next.length) return;
-    [next[index], next[other]] = [next[other], next[index]];
+    const current = next[index];
+    const target = next[other];
+    if (current === undefined || target === undefined) return;
+    next[index] = target;
+    next[other] = current;
     setDraft(next);
   }
 
