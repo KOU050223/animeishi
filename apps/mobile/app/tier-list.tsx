@@ -48,6 +48,12 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
+// jest が "@/lib/tierList/share" をモックするため、フロー本体は
+// バレル経由ではなくサブモジュールから直接 import する。
+import {
+  shareTierListViaUrl,
+  withRenderedTierSnapshot,
+} from "@/lib/tierList/share/flow";
 import type { TierAssignment, TierItem, TierRow } from "@/lib/tierList/types";
 import { useSeasonWorks } from "@/lib/tierList/useSeasonWorks";
 import { usePrefetchSeasonWorks } from "@/lib/useAnimeList";
@@ -64,12 +70,6 @@ import {
  * 保存は明示的な操作（保存ボタン）で行う。ドロップのたびに PUT すると、
  * 数十回の並べ替えがそのまま数十リクエストになるため。
  */
-/**
- * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限。
- * これを超えても未読み込みなら欠けたまま撮る（共有自体を失敗させない）。
- */
-const SNAPSHOT_WAIT_MAX_MS = 5000;
-
 export default function TierListScreen() {
   const { t } = useTranslation();
   const openWork = useOpenWorkDetail();
@@ -404,63 +404,41 @@ export default function TierListScreen() {
     generateImageFile: () => generateImageFile(),
   });
 
-  const handleShareUrl = async () => {
-    beginShare();
-    setIsSharing(true);
-    try {
-      await saveTierListData();
-      const { shareToken } = await share.mutateAsync(season);
-      const url = buildTierListShareUrl(shareToken, webUrl);
-      // native は OS 共有シート。web は urlShareElement のモーダルを開き、
-      // コピー / X 共有はモーダル内のボタン操作で行う。
-      await presentShareUrl(url);
-    } catch {
-      cancelShare();
-      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
-        okLabel: "OK",
-      });
-    } finally {
-      setIsSharing(false);
-    }
-  };
+  const handleShareUrl = () =>
+    shareTierListViaUrl({
+      beginShare,
+      cancelShare,
+      setIsSharing,
+      createShareUrl: async () => {
+        await saveTierListData();
+        const { shareToken } = await share.mutateAsync(season);
+        return buildTierListShareUrl(shareToken, webUrl);
+      },
+      presentShareUrl,
+      onFailure: () =>
+        alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
+          okLabel: "OK",
+        }),
+    });
 
-  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
-  // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
-  const withRenderedSnapshot = async <T,>(
-    run: () => Promise<T>,
-  ): Promise<T> => {
-    setIsSharing(true);
-    try {
-      const savedData = await saveTierListData();
-      const snapshotReady = new Promise<void>((resolve) => {
-        snapshotReadyRef.current = resolve;
-      });
-      setSnapshotItems(
-        savedData.items.map((i) => ({
-          id: i.annictWorkId,
-          tierKey: i.tierKey,
-          title: i.title,
-          imageUrl: i.hostedImageUrl,
-        })),
-      );
-      // スナップショットの描画と作品画像の読み込み（onReady）を待ってから
-      // 撮る。タイムアウトを超えたら読み込み途中のまま撮る
-      // （共有自体は失敗させない）。
-      await Promise.race([
-        snapshotReady,
-        new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
-      ]);
-      // レイアウト確定のため 1 フレーム待つ
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      if (!snapshotRef.current) {
-        throw new Error(t("スナップショットの描画に失敗しました"));
-      }
-      return await run();
-    } finally {
-      setSnapshotItems(null);
-      setIsSharing(false);
-    }
-  };
+  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する。
+  // try/finally は React Compiler が最適化できないため lib/tierList/share/flow.ts に置く。
+  const withRenderedSnapshot = <T,>(run: () => Promise<T>): Promise<T> =>
+    withRenderedTierSnapshot({
+      saveBoard: saveTierListData,
+      mapItem: (i) => ({
+        id: i.annictWorkId,
+        tierKey: i.tierKey,
+        title: i.title,
+        imageUrl: i.hostedImageUrl,
+      }),
+      snapshotReadyRef,
+      snapshotRef,
+      setSnapshotItems,
+      setIsSharing,
+      renderFailedMessage: t("スナップショットの描画に失敗しました"),
+      run,
+    });
 
   const handleShareImage = async () => {
     try {

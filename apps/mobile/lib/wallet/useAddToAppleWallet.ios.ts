@@ -7,6 +7,51 @@ import type { AddToWalletResult, UseAddToAppleWallet } from "./types";
 // 事前 fetch のタイムアウト (ms)。無応答時にボタンが永久 disabled になるのを防ぐ。
 const FETCH_TIMEOUT_MS = 15_000;
 
+// try/finally を含むため React Compiler が最適化できず、フック内に置くと
+// 自動メモ化が効かなくなる。モジュール関数として切り出す（lib/useSignOut.ts と同じ形）。
+async function addToAppleWallet(
+  setIsPending: (pending: boolean) => void,
+): Promise<AddToWalletResult> {
+  setIsPending(true);
+  try {
+    const token = await clerkSessionToken();
+    if (!token) return { type: "auth-failed" };
+
+    // Wallet は Bearer 認証を透過的には扱えないため、
+    // 一度事前に fetch して 501(未署名) の場合は結果コードで返す。
+    // 署名済みの場合のみ WebBrowser で開く。
+    // 無応答でボタンが永久 disabled にならないよう AbortController で期限を設ける。
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${apiUrl}/me/pass/meishi.pkpass`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (res.status === 501) {
+      return { type: "not-configured" };
+    }
+    if (!res.ok) {
+      return { type: "request-failed", status: res.status };
+    }
+
+    // 署名済みの場合、iOS 標準 UI で開くために WebBrowser にフォールバックする。
+    // NOTE: 認証ヘッダを付与しないと 401 になるため、
+    //       将来的には一時トークン付きの URL を返す設計に切り替える必要がある (#103)。
+    await WebBrowser.openBrowserAsync(`${apiUrl}/me/pass/meishi.pkpass`);
+    return { type: "success" };
+  } catch (error) {
+    return { type: "request-failed", status: 0, error };
+  } finally {
+    setIsPending(false);
+  }
+}
+
 // Apple Wallet に .pkpass を追加するためのフック (iOS 実装)。
 // iOS Safari が Content-Type: application/vnd.apple.pkpass を検知して
 // 自動的に Wallet 追加シートを起動する仕組みを使うため、
@@ -17,46 +62,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 export const useAddToAppleWallet: UseAddToAppleWallet = () => {
   const [isPending, setIsPending] = useState(false);
 
-  const addToWallet = async (): Promise<AddToWalletResult> => {
-    setIsPending(true);
-    try {
-      const token = await clerkSessionToken();
-      if (!token) return { type: "auth-failed" };
-
-      // Wallet は Bearer 認証を透過的には扱えないため、
-      // 一度事前に fetch して 501(未署名) の場合は結果コードで返す。
-      // 署名済みの場合のみ WebBrowser で開く。
-      // 無応答でボタンが永久 disabled にならないよう AbortController で期限を設ける。
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      let res: Response;
-      try {
-        res = await fetch(`${apiUrl}/me/pass/meishi.pkpass`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-
-      if (res.status === 501) {
-        return { type: "not-configured" };
-      }
-      if (!res.ok) {
-        return { type: "request-failed", status: res.status };
-      }
-
-      // 署名済みの場合、iOS 標準 UI で開くために WebBrowser にフォールバックする。
-      // NOTE: 認証ヘッダを付与しないと 401 になるため、
-      //       将来的には一時トークン付きの URL を返す設計に切り替える必要がある (#103)。
-      await WebBrowser.openBrowserAsync(`${apiUrl}/me/pass/meishi.pkpass`);
-      return { type: "success" };
-    } catch (error) {
-      return { type: "request-failed", status: 0, error };
-    } finally {
-      setIsPending(false);
-    }
-  };
+  const addToWallet = () => addToAppleWallet(setIsPending);
 
   return { addToWallet, isPending, canUse: true };
 };
