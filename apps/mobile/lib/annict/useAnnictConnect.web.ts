@@ -269,18 +269,24 @@ export function useAnnictConnect(): UseAnnictConnect {
     const { queryClient: latestQueryClient } = authApiRef.current;
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。
     try {
-      // サーバー側の削除に失敗してもローカルのキャッシュ破棄・連携状態の
-      // 再取得は必ず行う。apiFetch は HTTP 失敗を ApiRequestError で
-      // 投げるため、ここで飲み込んで finally へ進ませる。
+      // サーバー側の削除の HTTP 失敗は、ローカルのキャッシュ破棄・連携
+      // 状態の再取得を止めない。通信エラー自体は従来どおり呼び出し側へ
+      // 伝播させるため、ApiRequestError だけを飲み込む。
       const clerkToken = await clerkSessionToken();
       if (clerkToken) {
         await apiClient.me.annict.disconnect
           .$post(undefined, {
             fetch: apiFetch({
-              onHttpError: async () => new Error("annict disconnect failed"),
+              onHttpError: async (errorRes) =>
+                new ApiRequestError(
+                  errorRes.status,
+                  "annict disconnect failed",
+                ),
             }),
           })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            if (!(error instanceof ApiRequestError)) throw error;
+          });
       }
     } finally {
       // 視聴履歴キャッシュを破棄し、連携状態を再取得させる。

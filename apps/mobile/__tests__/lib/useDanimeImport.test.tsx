@@ -244,6 +244,28 @@ describe("useDanimeMatch", () => {
     expect(mockApiFetch).toHaveBeenCalledWith(
       expect.objectContaining({ annict: true }),
     );
+
+    mockApiFetch.mockClear();
+    mockBulkPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ annictWorkId: 1, ok: true }],
+        aborted: false,
+      }),
+    });
+    const { result: bulkResult } = await renderHook(
+      () => useBulkRegisterWatchHistory(),
+      { wrapper },
+    );
+    await act(async () => {
+      await bulkResult.current.mutateAsync({
+        entries: [{ annictWorkId: 1, state: "WATCHED" }],
+      });
+    });
+    await waitFor(() => expect(bulkResult.current.isSuccess).toBe(true));
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("チャンク越しで同じ annictWorkId に確定した場合は exact のまま", async () => {
