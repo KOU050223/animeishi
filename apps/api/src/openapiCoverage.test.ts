@@ -11,7 +11,7 @@ const NON_JSON_ROUTES = [
   /^GET \/me\/profile\/avatar\/\*$/,
   /^GET \/me\/meishi-assets\/\*$/,
   // Apple Wallet の pkpass
-  /^GET \/me\/pass\//,
+  /^GET \/me\/pass\/meishi\.pkpass$/,
   // OpenAPI ドキュメント自体
   /^GET \/doc$/,
   /^GET \/ui$/,
