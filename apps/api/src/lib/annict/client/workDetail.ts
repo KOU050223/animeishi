@@ -1,13 +1,13 @@
 import { withAnnictRetry } from "../retry";
 import { isPersistableState } from "../statusState";
-import { annictGraphQL } from "./graphql";
+import { annictGraphQL, requireAnnictNodes } from "./graphql";
+import type { AnnictResult } from "./tada";
 import {
-  WORK_IMAGE_FIELDS,
   normalizeAnnictSeasonName,
   parseMalAnimeId,
   resolveWorkImageUrl,
 } from "./workNodes";
-import type { AnnictLibraryEntry, AnnictWorkImage } from "./workNodes";
+import type { AnnictLibraryEntry } from "./workNodes";
 
 // --- work detail（作品詳細シート向けの単一作品メタ） ---
 //
@@ -18,16 +18,11 @@ import type { AnnictLibraryEntry, AnnictWorkImage } from "./workNodes";
 // なお Annict GraphQL の Work 型にはあらすじに相当するフィールドが無いため
 // 説明文は返さない（developers.annict.com の Work リファレンス参照）。
 //
-// 詳細クエリで取る staffs / casts の上限。SORT_NUMBER 順なので主要な
+// 詳細クエリで取る staffs / casts の上限は 50。SORT_NUMBER 順なので主要な
 // クレジットが先に来る。これを超える末尾の参加は表示しない
 // （詳細シートのチップ表示として十分な件数）。
-const WORK_DETAIL_CREDITS_LIMIT = 50;
-
-// includeViewerStatus=false は共用トークン（issue #561）向け。共用トークンでは
-// 利用者情報を取らない（Annict API 利用規約 第 5 条）ため、トークン所有者の
-// viewerStatusState をクエリから外す。
-function workDetailQuery(includeViewerStatus: boolean): string {
-  return `
+// image の選択は workNodes.ts の WORK_IMAGE_FRAGMENT と同一に保つ。
+const WORK_DETAIL_QUERY = `
 query WorkDetail($annictIds: [Int!]) {
   searchWorks(annictIds: $annictIds, first: 1) {
     nodes {
@@ -52,9 +47,17 @@ query WorkDetail($annictIds: [Int!]) {
       wikipediaUrlEn
       twitterUsername
       twitterHashtag
-      ${includeViewerStatus ? "viewerStatusState" : ""}
-      image { ${WORK_IMAGE_FIELDS} }
-      staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      viewerStatusState
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
+      staffs(first: 50, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
           annictId
           name
@@ -67,10 +70,10 @@ query WorkDetail($annictIds: [Int!]) {
           }
         }
       }
-      staffRoleOthers: staffs(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      staffRoleOthers: staffs(first: 50, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes { annictId roleOther }
       }
-      casts(first: ${WORK_DETAIL_CREDITS_LIMIT}, orderBy: { field: SORT_NUMBER, direction: ASC }) {
+      casts(first: 50, orderBy: { field: SORT_NUMBER, direction: ASC }) {
         nodes {
           annictId
           sortNumber
@@ -81,59 +84,25 @@ query WorkDetail($annictIds: [Int!]) {
     }
   }
 }`;
+
+// includeViewerStatus=false は共用トークン（issue #561）向け。共用トークンでは
+// 利用者情報を取らない（Annict API 利用規約 第 5 条）ため、トークン所有者の
+// viewerStatusState をクエリから外す。フィールド名を削るだけで、従来の
+// 動的生成と同一のクエリ文字列になる（viewerStatusState はクエリ中 1 箇所のみ）。
+function workDetailQuery(includeViewerStatus: boolean): string {
+  return includeViewerStatus
+    ? WORK_DETAIL_QUERY
+    : WORK_DETAIL_QUERY.replace("viewerStatusState", "");
 }
 
-type WorkDetailResponse = {
-  searchWorks: {
-    nodes: {
-      id: string;
-      annictId: number;
-      malAnimeId: string | null;
-      title: string;
-      titleKana: string | null;
-      titleEn: string | null;
-      titleRo: string | null;
-      seasonName: string | null;
-      seasonYear: number | null;
-      media: string;
-      episodesCount: number;
-      noEpisodes: boolean;
-      watchersCount: number;
-      reviewsCount: number;
-      satisfactionRate: number | null;
-      officialSiteUrl: string | null;
-      officialSiteUrlEn: string | null;
-      wikipediaUrl: string | null;
-      wikipediaUrlEn: string | null;
-      twitterUsername: string | null;
-      twitterHashtag: string | null;
-      viewerStatusState?: string | null;
-      image: AnnictWorkImage | null;
-      staffs: {
-        nodes: {
-          annictId: number;
-          name: string;
-          roleText: string;
-          sortNumber: number;
-          resource: {
-            __typename: string;
-            annictId: number;
-          } | null;
-        }[];
-      } | null;
-      staffRoleOthers: {
-        nodes: ({ annictId: number; roleOther: string | null } | null)[];
-      } | null;
-      casts: {
-        nodes: {
-          annictId: number;
-          sortNumber: number;
-          person: { annictId: number; name: string } | null;
-          character: { annictId: number; name: string } | null;
-        }[];
-      } | null;
-    }[];
-  } | null;
+type WorkDetailResponse = AnnictResult<typeof WORK_DETAIL_QUERY>;
+type WorkDetailNodeFull = NonNullable<
+  NonNullable<NonNullable<WorkDetailResponse["searchWorks"]>["nodes"]>[number]
+>;
+// includeViewerStatus=false では viewerStatusState がレスポンスに無いため
+// optional として扱う。
+type WorkDetailNode = Omit<WorkDetailNodeFull, "viewerStatusState"> & {
+  viewerStatusState?: WorkDetailNodeFull["viewerStatusState"];
 };
 
 /** 詳細シートに出すスタッフ・制作会社のクレジット 1 件（issue #536）。 */
@@ -220,7 +189,11 @@ export async function fetchAnnictWorkDetail(
     ),
   );
 
-  const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
+  const work: WorkDetailNode | null | undefined = data.searchWorks
+    ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks").find(
+        (n) => n.annictId === annictWorkId,
+      )
+    : undefined;
   if (!work) return null;
 
   const roleOtherByStaffId = new Map<number, string>();
@@ -257,7 +230,7 @@ export async function fetchAnnictWorkDetail(
     twitterUsername: work.twitterUsername,
     twitterHashtag: work.twitterHashtag,
     staffs: (work.staffs?.nodes ?? []).flatMap((node) => {
-      const resource = node.resource;
+      const resource = node?.resource;
       if (!resource) return [];
       return [
         {
@@ -275,7 +248,7 @@ export async function fetchAnnictWorkDetail(
       ];
     }),
     casts: (work.casts?.nodes ?? []).flatMap((node) => {
-      if (!node.person) return [];
+      if (!node?.person) return [];
       return [
         {
           annictCastId: node.annictId,

@@ -1,5 +1,6 @@
 import { withAnnictRetry } from "../retry";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
+import type { AnnictResult } from "./tada";
 
 // --- viewer.records（本人のエピソード記録, issue #439） ---
 //
@@ -24,23 +25,7 @@ query ViewerRecords($after: String) {
   }
 }`;
 
-type ViewerRecordsResponse = {
-  viewer: {
-    // トークン所有者の Annict ユーザー ID。annict_tokens.annict_user_id
-    // （Web 連携時に保存した連携アカウント）との突き合わせに使う（issue #439）。
-    annictId: number | null;
-    records: {
-      pageInfo: { hasNextPage: boolean; endCursor: string | null };
-      nodes: {
-        id: string;
-        annictId: number;
-        createdAt: string;
-        episode: { annictId: number } | null;
-        work: { annictId: number } | null;
-      }[];
-    } | null;
-  } | null;
-};
+type ViewerRecordsResponse = AnnictResult<typeof VIEWER_RECORDS_QUERY>;
 
 /** 本人のエピソード記録 1 件（D1 episode_records への書き込み単位）。 */
 export type AnnictViewerRecord = {
@@ -83,6 +68,10 @@ export async function fetchAnnictViewerRecords(
   const seenCursors = new Set<string>();
   let after: string | null = null;
   let viewerAnnictId: number | null = null;
+  // null 要素・episode/work を欠く記録は filter を評価できない。
+  // 拾えた分を「全件」とすると呼び出し側の reconcile が未取得の
+  // 既存記録を消しうるため、部分取得扱いにする（拾える分は拾い続ける）。
+  let sawNullRecord = false;
 
   for (let page = 0; page < maxPages; page++) {
     const data = await withAnnictRetry(() =>
@@ -96,8 +85,13 @@ export async function fetchAnnictViewerRecords(
     viewerAnnictId = data.viewer?.annictId ?? null;
 
     const connection = data.viewer?.records;
+    // コネクション・nodes の欠損は内容不明のページとして部分取得扱いにする
+    if (connection?.nodes == null) sawNullRecord = true;
     for (const node of connection?.nodes ?? []) {
-      if (!node.episode || !node.work) continue;
+      if (!node?.episode || !node.work) {
+        sawNullRecord = true;
+        continue;
+      }
       const record: AnnictViewerRecord = {
         annictRecordId: node.annictId,
         recordNodeId: node.id,
@@ -117,7 +111,8 @@ export async function fetchAnnictViewerRecords(
     };
     if (!hasNextPage) {
       // viewer.records を辿り切った = 対象の記録は全件拾えている。
-      return { records, complete: true, viewerAnnictId };
+      // ただし評価不能な記録があったなら漏れが否定できず部分扱いにする。
+      return { records, complete: !sawNullRecord, viewerAnnictId };
     }
     if (!endCursor || seenCursors.has(endCursor)) {
       // 壊れたページングはエラーにせず、取れた分を「部分」として返す。
@@ -131,7 +126,7 @@ export async function fetchAnnictViewerRecords(
 
   return {
     records,
-    complete: records.length >= expectedCount,
+    complete: records.length >= expectedCount && !sawNullRecord,
     viewerAnnictId,
   };
 }
@@ -158,20 +153,7 @@ query ViewerWorkReview($annictIds: [Int!], $after: String) {
   }
 }`;
 
-type WorkReviewsResponse = {
-  viewer: { annictId: number } | null;
-  searchWorks: {
-    nodes: {
-      reviews: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null };
-        nodes: {
-          ratingOverallState: string | null;
-          user: { annictId: number } | null;
-        }[];
-      } | null;
-    }[];
-  } | null;
-};
+type WorkReviewsResponse = AnnictResult<typeof WORK_REVIEWS_QUERY>;
 
 /**
  * viewer が対象作品に付けたレビューの総合評価（RatingState）を返す。
@@ -199,7 +181,11 @@ export async function fetchAnnictViewerWorkRating(
     // レビューはユーザー×作品で 1 件。見つけた時点で打ち止める
     // （ratingOverallState が null なら「評価なし」の null を返す）。
     if (viewerId != null) {
-      const own = connection?.nodes?.find((n) => n.user?.annictId === viewerId);
+      const own = connection
+        ? requireAnnictNodes(connection.nodes, "Work.reviews").find(
+            (n) => n.user?.annictId === viewerId,
+          )
+        : undefined;
       if (own) return own.ratingOverallState;
     }
     const { hasNextPage, endCursor } = connection?.pageInfo ?? {
@@ -226,11 +212,7 @@ mutation CreateRecord($episodeId: ID!) {
   }
 }`;
 
-type CreateRecordResponse = {
-  createRecord: {
-    record: { id: string; annictId: number; createdAt: string } | null;
-  } | null;
-};
+type CreateRecordResponse = AnnictResult<typeof CREATE_RECORD_MUTATION>;
 
 /**
  * 話に記録を付ける（Annict createRecord。write スコープ必須）。
@@ -270,9 +252,7 @@ mutation DeleteRecord($recordId: ID!) {
   }
 }`;
 
-type DeleteRecordResponse = {
-  deleteRecord: { clientMutationId: string | null } | null;
-};
+type DeleteRecordResponse = AnnictResult<typeof DELETE_RECORD_MUTATION>;
 
 /**
  * Annict の記録を削除する（deleteRecord。write スコープ必須）。
