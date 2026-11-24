@@ -19,6 +19,20 @@ export type SecurityHeadersEnv = {
 };
 
 /**
+ * PostHog Cloud の SDK は起動時設定（/array/<token>/config）を取り込み先とは
+ * 別の *-assets ホストから取得するため、Cloud のホストならそれも許可する。
+ */
+function posthogOrigins(host: string | undefined): (string | undefined)[] {
+  const origin = host ? originOf(host) : undefined;
+  if (!origin) return [];
+  const assets = origin.replace(
+    /^https:\/\/(us|eu)\.i\.posthog\.com$/,
+    "https://$1-assets.i.posthog.com",
+  );
+  return assets === origin ? [origin] : [origin, assets];
+}
+
+/**
  * Worker を通らずに静的アセットが直接返す応答には public/_headers が同じ値を付ける
  * （Workers の _headers は Worker が返した応答には適用されないため両方に必要）。
  * 値を変えるときは両方を揃える（index.unit.test.ts が一致を検査する）。
@@ -83,7 +97,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
   const clerk = clerkFrontendApiOrigin(env.CLERK_PUBLISHABLE_KEY);
   const sentry = sentryIngestOrigin(env.SENTRY_DSN);
   const api = originOf(env.API_ORIGIN);
-  const posthog = env.POSTHOG_HOST ? originOf(env.POSTHOG_HOST) : undefined;
+  const posthog = posthogOrigins(env.POSTHOG_HOST);
   const reportUri = buildCspReportUri(env.SENTRY_DSN, env.ENVIRONMENT);
   const directives: [string, (string | undefined)[]][] = [
     ["default-src", ["'self'"]],
@@ -108,7 +122,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
         clerk,
         "https://clerk-telemetry.com",
         sentry,
-        posthog,
+        ...posthog,
         "https://fastly.jsdelivr.net",
         "data:",
         "blob:",

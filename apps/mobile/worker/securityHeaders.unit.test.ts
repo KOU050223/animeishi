@@ -76,6 +76,9 @@ describe("buildContentSecurityPolicy", () => {
     expect(directive(withPostHog, "connect-src")).toContain(
       "https://eu.i.posthog.com",
     );
+    expect(directive(withPostHog, "connect-src")).toContain(
+      "https://eu-assets.i.posthog.com",
+    );
     expect(csp).not.toContain("posthog");
   });
 
