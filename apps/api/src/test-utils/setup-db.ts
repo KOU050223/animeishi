@@ -603,9 +603,8 @@ const RESET_STATEMENTS = [
  * drizzle migrator の代わりに D1.prepare() で各DDLを適用する。
  *
  * ステートメントを 1 つずつ await すると workerd ↔ Miniflare 間の往復が
- * 約 90 回発生し、高負荷時には beforeEach の hookTimeout（既定 10 秒）を
- * 超えて落ちることがあった（issue #812）。batch にまとめて
- * 1 トランザクション（=1 往復）で適用する。
+ * その本数だけ発生し、高負荷時には beforeEach の hookTimeout（既定 10 秒）を
+ * 超えて落ちることがあった（issue #812）。batch にまとめて 1 往復で適用する。
  */
 export async function setupTestDb(d1: D1Database) {
   await d1.batch(

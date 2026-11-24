@@ -1,6 +1,12 @@
 import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { defineConfig } from "vite-plus";
+
+// vitest の "50%" 指定は Math.round で解決されるため奇数コアで切り上げに
+// なる。apps/mobile/jest.config.cjs の maxWorkers "50%" は Math.floor なので、
+// 同じ切り捨てに揃えて数値で渡す。
+const maxWorkers = Math.max(1, Math.floor(availableParallelism() / 2));
 
 // このプールは vitest のワーカー（isolate: true の既定ではテストファイルごと）に
 // workerd（miniflare）を 1 つずつ起動し、その起動コストがテスト時間の大半を占める
@@ -72,7 +78,7 @@ export default defineConfig({
     // 以外のインラインプロジェクト（isolated / shared）に引き継がれる。
     // CI では未指定にしたいが exactOptionalPropertyTypes のため
     // undefined を明示代入できず、条件付きスプレッドでプロパティごと外す。
-    ...(process.env.CI ? {} : { maxWorkers: "50%" }),
+    ...(process.env.CI ? {} : { maxWorkers }),
     exclude: [...NODE_POOL_TESTS, "node_modules/**"],
     projects: [
       {
@@ -124,7 +130,7 @@ export default defineConfig({
           // Workers プールと同じ理由（issue #812）で同じ上限をこちらにも設定する。
           // CI では未指定にしたいが exactOptionalPropertyTypes のため
           // undefined を明示代入できず、条件付きスプレッドでプロパティごと外す。
-          ...(process.env.CI ? {} : { maxWorkers: "50%" }),
+          ...(process.env.CI ? {} : { maxWorkers }),
           environment: "node",
           include: NODE_POOL_TESTS,
         },

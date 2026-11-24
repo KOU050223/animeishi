@@ -41,6 +41,7 @@ let createRoot: (el: Element | DocumentFragment) => ReactRoot;
 let BottomSheet: typeof import("./BottomSheet.web").BottomSheet;
 let Pressable: (typeof import("react-native"))["Pressable"];
 let Text: (typeof import("react-native"))["Text"];
+const roots: ReactRoot[] = [];
 
 // resetModules 後の require では react / react-dom / react-native-web の
 // モジュール評価がすべてやり直しになる。テストごとに行うと高負荷時に
@@ -69,6 +70,7 @@ const renderSheet = async (
   container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
+  roots.push(root);
   await act(async () => {
     root.render(
       <BottomSheet
@@ -104,7 +106,14 @@ const closeButtonElement = () =>
 const innerButtonElement = () =>
   document.querySelector('[aria-label="シート内のボタン"]');
 
+// DOM を消すだけだと RNW Modal の focus / keyup リスナーが document に残る。
+// テスト間を独立させるため、先にルートをアンマウントしてリスナーを解除する。
 afterEach(() => {
+  for (const root of roots.splice(0)) {
+    act(() => {
+      root.unmount();
+    });
+  }
   document.body.replaceChildren();
 });
 

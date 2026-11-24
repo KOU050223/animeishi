@@ -42,6 +42,7 @@ let container: HTMLDivElement;
 let act: (typeof import("react"))["act"];
 let createRoot: (el: Element | DocumentFragment) => ReactRoot;
 let MenuPicker: typeof import("./MenuPicker.web").MenuPicker;
+const roots: ReactRoot[] = [];
 
 // resetModules 後の require では react / react-dom / react-native-web の
 // モジュール評価がすべてやり直しになる。テストごとに行うと高負荷時に
@@ -64,6 +65,7 @@ const renderPicker = async (onValueChange = jest.fn()) => {
   container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
+  roots.push(root);
   await act(async () => {
     root.render(
       <MenuPicker
@@ -114,7 +116,14 @@ const fireModalAnimationEnd = () => {
 const optionElement = () =>
   document.querySelector('[data-testid="test-menu-option-2025"]');
 
+// DOM を消すだけだと RNW Modal の focus / keyup リスナーが document に残る。
+// テスト間を独立させるため、先にルートをアンマウントしてリスナーを解除する。
 afterEach(() => {
+  for (const root of roots.splice(0)) {
+    act(() => {
+      root.unmount();
+    });
+  }
   document.body.replaceChildren();
 });
 
