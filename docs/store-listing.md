@@ -184,7 +184,10 @@ Reports are reviewed by the operator. New reports trigger an operations notifica
 6. ACCOUNT DELETION
 The account can be deleted inside the app without contacting support: open the "Profile" tab, scroll below "Sign out" (サインアウト), tap "Delete account" (アカウントを削除), and follow the confirmation steps.
 
-7. OTHER
+7. AI ANALYSIS
+Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Cloudflare Workers AI (our host; no other AI vendor). Sends titles, watch statuses, ratings, selected genres and stats from them; no account info. Not used to train AI.
+
+8. OTHER
 - The app is free and has no in-app purchases or subscriptions.
 - Behavior is the same in all regions. The UI is available in Japanese and English.
 ```
@@ -238,6 +241,7 @@ The account can be deleted inside the app without contacting support: open the "
 - AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
 - Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
 - dアニメ取り込み（作品タイトル送信）・Apple Wallet 追加は iOS では無効のため申告対象外（Web 版のみ / フラグ無効）。
+- AI 視聴傾向分析・おすすめ（#752）が Workers AI に送る項目（作品タイトル・視聴ステータス・作品評価・選択ジャンルと、そこからの集計値）は、上表の User Content → Other User Content（評価・視聴ステータス・ジャンル）に含まれ、新しい申告項目は要らない。送信先は Cloudflare（ホスティングと同じサービスプロバイダ）で、Cloudflare は Workers AI の入出力をモデル学習に使わず、推論後は原則として保持しない（[Workers AI Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)）。生成結果は利用者ごとに最新 1 件を D1 に保存する（`apps/api/src/features/analysis/`。24h キャッシュは再利用の判定で、削除期限ではない）。
 
 ### プライバシーポリシーとの照合結果（`apps/mobile/app/privacy.tsx`）
 
