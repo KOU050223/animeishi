@@ -1,13 +1,20 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { watchHistoryRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
-import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
+import {
+  bulkWatchHistoryRoute,
+  deleteWatchHistoryRoute,
+  getWatchHistoryShareRoute,
+  listWatchHistoryRoute,
+  shareWatchHistoryRoute,
+  unshareWatchHistoryRoute,
+  upsertWatchHistoryRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
 // モバイルの tsconfig は AppType 推論のため API ソースを読み込むが、その paths
 // （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を
@@ -22,7 +29,6 @@ import {
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { workImageUrl } from "@/lib/catalog/workImage";
-import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";
 import { reportApiFailure } from "../../observability";
@@ -85,11 +91,12 @@ async function resolveWorkNodeId(
 // （未着手分を aborted として返す分岐）が発動し得なくなるため。
 const BULK_ENTRY_CONCURRENCY = 2;
 
-const watchHistory = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const watchHistory = app
   // 本人の視聴履歴は Annict の libraryEntries を正として read-through する。
   // X-Annict-Token が無ければ取得できないため requireAnnictToken を GET だけに掛ける。
-  .get("/", requireAnnictToken, async (c) => {
+  .openapi(listWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
 
@@ -157,12 +164,8 @@ const watchHistory = new Hono<AuthVariables>()
   })
   // 視聴ステータス更新は「Annict updateStatus を正」とし、成功後に D1 キャッシュを
   // 追従させる。Annict が正なので、Annict 側更新が失敗したらキャッシュは触らない。
-  .put(
-    "/:annictWorkId",
-    requireAnnictToken,
-    zValidator("json", watchHistoryUpsertSchema),
-    async (c) => {
-      const annictWorkId = Number(c.req.param("annictWorkId"));
+  .openapi(upsertWatchHistoryRoute, async (c) => {
+      const annictWorkId = Number(c.req.valid("param").annictWorkId);
       if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
         return c.json({ error: "Invalid annictWorkId" }, 400);
       }
@@ -211,8 +214,7 @@ const watchHistory = new Hono<AuthVariables>()
       }
 
       return c.json(entry, 200);
-    },
-  )
+  })
   // dアニメインポート等の一括登録。各作品ごとに PUT と同じ不変条件
   // （Annict updateStatus が正・成功後にのみ D1 を追従）を守りつつ、
   // 1 リクエストで複数作品を同時実行数制限付きで並列処理する。
@@ -220,11 +222,7 @@ const watchHistory = new Hono<AuthVariables>()
   // 200 のまま（部分成功を捨てないため）で、認証切れ（Annict 401）は以降の
   // 作品を全滅させるだけなので検出した時点で未着手分を打ち切る
   // （処理中の分は実結果を返す）。
-  .post(
-    "/bulk",
-    requireAnnictToken,
-    zValidator("json", watchHistoryBulkSchema),
-    async (c) => {
+  .openapi(bulkWatchHistoryRoute, async (c) => {
       const { entries } = c.req.valid("json");
       const db = createDb(getBindings(c).DB);
       const repo = watchHistoryRepository(db, c.var.clerkUserId);
@@ -412,26 +410,25 @@ const watchHistory = new Hono<AuthVariables>()
         }),
       );
       return c.json({ results, aborted, elapsedMs }, 200);
-    },
-  )
+  })
   // 視聴履歴全体の共有トークン（/share/watch-history/:token）の発行・確認・
   // 解除（issue #236）。tier 表と同じくトークンは冪等で、再発行しても
   // 変わらない。トークン自体は Annict と無関係のため requireAnnictToken は
   // 掛けない。static な /share を /:annictWorkId より先に登録する。
-  .get("/share", async (c) => {
+  .openapi(getWatchHistoryShareRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const shareToken = await repo.getMyWatchHistoryShareToken();
     return c.json({ shareToken }, 200);
   })
-  .post("/share", async (c) => {
+  .openapi(shareWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const shareToken = await repo.shareMyWatchHistory();
     if (!shareToken) return c.json({ error: "User not found" }, 404);
     return c.json({ shareToken }, 200);
   })
-  .delete("/share", async (c) => {
+  .openapi(unshareWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const found = await repo.unshareMyWatchHistory();
@@ -442,8 +439,8 @@ const watchHistory = new Hono<AuthVariables>()
   // ステータスが残ると、次回の read-through 同期で履歴行が復活してしまう
   // ため、Annict に NO_STATE を送ってから D1 の行を削除する（issue #436）。
   // PUT と同じく「Annict 更新が正・成功後にのみ D1 を追従」の不変条件を守る。
-  .delete("/:annictWorkId", requireAnnictToken, async (c) => {
-    const annictWorkId = Number(c.req.param("annictWorkId"));
+  .openapi(deleteWatchHistoryRoute, async (c) => {
+    const annictWorkId = Number(c.req.valid("param").annictWorkId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
       return c.json({ error: "Invalid annictWorkId" }, 400);
     }

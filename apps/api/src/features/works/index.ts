@@ -1,21 +1,19 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
-  annictWorkIdParamSchema,
-  worksCandidatesQuerySchema,
-  worksLookupQuerySchema,
-  worksSearchQuerySchema,
+  catalogStatusRoute,
+  lookupWorksRoute,
+  searchWorksRoute,
+  workCandidatesRoute,
+  workCharactersRoute,
+  workDetailRoute,
 } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { currentAnnictSeason } from "@/lib/annict/client";
-import {
-  requireAnnictWorkCatalog,
-  sharedAnnictReadToken,
-} from "@/lib/annict/middleware";
+import { sharedAnnictReadToken } from "@/lib/annict/middleware";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import {
   fetchKitsuCharacters,
@@ -68,19 +66,16 @@ const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 // シーズン検索はサーバー側で全ページ取得する（issue #163: 先頭 50 件打ち切りの
 // 解消）。全件結果は全ユーザー共通データなのでシーズン単位で Cache API に
 // キャッシュし、直列の Annict 往復を繰り返さない（issue #173 の初回遅延も緩和）。
-const works = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const works = app
   // 未連携の利用者でも作品情報を引けるか（共用トークンが設定されているか）。
   // mobile は連携済みかこれが true のとき検索・Tier 表等のゲートを外す。
   // 共用トークンの値そのものは返さない。
-  .get("/catalog-status", (c) =>
+  .openapi(catalogStatusRoute, (c) =>
     c.json({ sharedCatalogAvailable: sharedAnnictReadToken(c) != null }, 200),
   )
-  .get(
-    "/search",
-    requireAnnictWorkCatalog,
-    zValidator("query", worksSearchQuerySchema),
-    async (c) => {
+  .openapi(searchWorksRoute, async (c) => {
       const { title, season, after } = c.req.valid("query");
       // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
       const trimmedTitle = title?.trim();
@@ -111,18 +106,13 @@ const works = new Hono<AuthVariables>()
       );
 
       return c.json({ ...result, works: enriched }, 200);
-    },
-  )
+  })
   // 作品 ID のまとめ解決（issue #348）。自由作成 tier 表の作成画面が
   // #349（作品リスト）からルートパラメータで引き継いだ初期作品 ID の
   // メタを解決するためのもの。検索（/works/search）では ID では引けない
   // ため別エンドポイントにしてある。キャッシュ（annict_works）を優先し、
   // 無い作品だけ Annict に問い合わせる。
-  .get(
-    "/lookup",
-    requireAnnictWorkCatalog,
-    zValidator("query", worksLookupQuerySchema),
-    async (c) => {
+  .openapi(lookupWorksRoute, async (c) => {
       const { ids } = c.req.valid("query");
       const db = createDb(getBindings(c).DB);
       const repo = worksRepository(db);
@@ -175,8 +165,7 @@ const works = new Hono<AuthVariables>()
         ];
       });
       return c.json({ works: result }, 200);
-    },
-  )
+  })
   // 作品候補の一覧（issue #412 初回オンボーディングの推し選択）。
   // Annict 未連携の新規ユーザーでも使えるよう annict_works キャッシュだけを
   // 読み、トークンは要求しない（requireAnnictWorkCatalog を付けない点に注意。
@@ -185,10 +174,7 @@ const works = new Hono<AuthVariables>()
   // 部分一致検索。応答は /works/lookup のキャッシュ行と同じ形に揃える。
   // /:annictWorkId より先に登録する（"candidates" がパスパラメータに
   // マッチして 400 になるのを防ぐ）。
-  .get(
-    "/candidates",
-    zValidator("query", worksCandidatesQuerySchema),
-    async (c) => {
+  .openapi(workCandidatesRoute, async (c) => {
       const { title, limit } = c.req.valid("query");
       const db = createDb(getBindings(c).DB);
       const repo = worksRepository(db);
@@ -217,8 +203,7 @@ const works = new Hono<AuthVariables>()
         },
         200,
       );
-    },
-  )
+  })
   // 作品詳細シートに出す単一作品のメタ（issue #347）。search で返さない
   // 詳細フィールド（話数・メディア種別・公式サイト等）と、viewerStatusState
   // 由来の視聴ステータス（state）を返す。共用トークン経路では state は常に null。画像は検索と同じく
@@ -226,11 +211,7 @@ const works = new Hono<AuthVariables>()
   // キャッシュ upsert もこの経路で行う）。
   // /lookup より後に登録する（先に置くと "lookup" が :annictWorkId に
   // マッチして 400 になる）。
-  .get(
-    "/:annictWorkId",
-    requireAnnictWorkCatalog,
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
+  .openapi(workDetailRoute, async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const detail = await fetchWorkDetail(
         c.var.annictWorkCatalog,
@@ -242,19 +223,14 @@ const works = new Hono<AuthVariables>()
       const repo = worksRepository(db);
       const [enriched] = await attachResolvedImages(repo, [detail], c.req.url);
       return c.json({ work: enriched }, 200);
-    },
-  )
+  })
   // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。
   // Annict GraphQL の Character 型は画像を持たないため、キャラクター画像は
   // work.malAnimeId 経由で Kitsu のキャラクター一覧を取り、正規化名の
   // 名寄せで補完する（characterImageFallback.ts。AniList は Workers から
   // 403 になるため #227 で Kitsu に切り替え）。取れないキャラは
   // imageUrl: null で返す（best-effort で応答自体は壊さない）。
-  .get(
-    "/:annictWorkId/characters",
-    requireAnnictWorkCatalog,
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
+  .openapi(workCharactersRoute, async (c) => {
       const { annictWorkId } = c.req.valid("param");
       const result = await c.var.annictWorkCatalog.fetchWorkCasts(annictWorkId);
       if (!result) return c.json({ error: "Work not found" }, 404);
@@ -393,7 +369,6 @@ const works = new Hono<AuthVariables>()
         },
         200,
       );
-    },
-  );
+  });
 
 export { works };
