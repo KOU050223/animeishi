@@ -11,7 +11,7 @@ import { customTierLists } from "@/features/custom-tier-lists";
 import { watchHistory } from "@/features/watch-history";
 import { workListsRoute } from "@/features/work-lists";
 import { share } from "@/features/share";
-import { workImageKey } from "@/lib/annict/workImage";
+import { workImageKey } from "@/lib/catalog/workImage";
 import {
   users,
   annictWorks,

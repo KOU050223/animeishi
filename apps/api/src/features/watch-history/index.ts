@@ -21,7 +21,7 @@ import {
   updateAnnictStatus,
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";

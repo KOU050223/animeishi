@@ -3,7 +3,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 import type { DrizzleDb } from "@/db/client";
 import { annictWorks, annictCharacters, annictWorkCasts } from "@/db/schema";
 import { normalizeAnnictSeasonName } from "@/lib/annict/client";
-import { IMAGE_SOURCE_BLOCKED } from "@/lib/annict/imageFallback";
+import { IMAGE_SOURCE_BLOCKED } from "@/lib/catalog/imageFallback";
 import type {
   AnnictWork,
   NewAnnictWork,

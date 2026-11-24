@@ -9,7 +9,7 @@ import {
   makeKitsuAnimeListResponse,
   makeKitsuResponse,
 } from "@/test-utils/kitsu";
-import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/catalog/imageFallback";
 import { annictWorks } from "@/db/schema";
 import {
   WORK_IMAGE_FAILURE_COOLDOWN_MS,
@@ -17,7 +17,7 @@ import {
   workImageKey,
   workImageSourceCandidates,
   workImageUrl,
-} from "@/lib/annict/workImage";
+} from "@/lib/catalog/workImage";
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
 

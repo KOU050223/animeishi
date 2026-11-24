@@ -8,7 +8,7 @@ import * as schema from "../../db/schema";
 import { images } from "./index";
 
 // /images/* は公開ルート（認証不要）。作品画像の読み通しプロキシを担う。
-// 取り込みの詳細なふるまいは lib/annict/workImage.test.ts で検証する。
+// 取り込みの詳細なふるまいは lib/catalog/workImage.test.ts で検証する。
 
 const TEST_BINDINGS = {
   AVATARS: env.AVATARS,

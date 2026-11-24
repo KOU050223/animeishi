@@ -16,13 +16,13 @@ import {
   requireAnnictWorkCatalog,
   sharedAnnictReadToken,
 } from "@/lib/annict/middleware";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import {
   fetchKitsuCharacters,
   isAnilistImageUrl,
   isKitsuDerivativeImageUrl,
   matchCharacterImages,
-} from "@/lib/annict/characterImageFallback";
+} from "@/lib/catalog/characterImageFallback";
 import { worksRepository } from "./repository";
 import {
   attachResolvedImages,

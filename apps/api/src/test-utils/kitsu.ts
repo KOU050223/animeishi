@@ -1,5 +1,5 @@
 // Kitsu の JSON:API（mappings / 作品のキャラクター一覧）のモック応答を組み立てる
-// テスト用ヘルパー。画像フォールバック系（lib/annict/*Fallback.ts）の
+// テスト用ヘルパー。画像フォールバック系（lib/catalog/*Fallback.ts）の
 // 各テストから共有する。
 
 export const KITSU_MAPPINGS_URL_PREFIX = "https://kitsu.io/api/edge/mappings";

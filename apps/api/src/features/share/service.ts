@@ -6,7 +6,7 @@ import {
   isPublicImageUrl,
   readBodyWithLimit,
 } from "@/lib/http";
-import { serveWorkImage, workImageUrl } from "@/lib/annict/workImage";
+import { serveWorkImage, workImageUrl } from "@/lib/catalog/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 import { renderSharePage, statsHtml } from "./layout";
 import { isKnownImageUrl } from "./repository";

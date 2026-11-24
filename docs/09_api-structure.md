@@ -22,6 +22,11 @@ apps/api/src/
   db/                         # schema・D1 クライアント
   lib/                        # 外部 API クライアント等のドメイン非依存ユーティリティ
     openapi.ts                # OpenAPI 基盤（共通スキーマ・/doc /ui 登録。issue #14）
+    annict/                   # Annict API クライアント（client/ にクエリ種別ごとに分割）と
+                              #   トークン関連（crypto / middleware / errors / retry / statusState）
+    catalog/                  # 作品カタログのドメイン（画像フォールバック・ジャンル・
+                              #   作品画像配信・検索結果キャッシュ）
+    providers/                # 外部 API のクライアント（現状は kitsu/ のみ）
   test-utils/                 # テスト基盤
   features/
     <domain>/                 # 機能単位のディレクトリ（例: tier-lists, works, me）
@@ -72,7 +77,7 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 | sharedTierLists.ts（公開共有リンク参照） | `features/share/repository.ts` |
 
 `works` は「作品カタログ」という共有リソースなので、他 feature のリポジトリ・
-ミドルウェア・cron・画像プロキシ（`lib/annict/workImage` 等）からも import される。
+ミドルウェア・cron・画像プロキシ（`lib/catalog/workImage` 等）からも import される。
 ユーザー束縛リポジトリからは `worksRepository(db)` を別途生成して使う
 （例: watch-history が作品メタを upsert する場合）。
 
