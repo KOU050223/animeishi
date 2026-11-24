@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MeishiRenderer } from "./MeishiRenderer";
@@ -36,21 +36,18 @@ export const MeishiShareSnapshot = forwardRef<
   ref,
 ) {
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const imageCount = useMemo(
-    () => countRenderableImages(document, context),
-    [document, context],
-  );
+  const styles = createStyles(colors);
+  const imageCount = countRenderableImages(document, context);
   const settledRef = useRef(0);
   const firedRef = useRef(false);
 
-  const markImageSettled = useCallback(() => {
+  const markImageSettled = () => {
     settledRef.current += 1;
     if (!firedRef.current && settledRef.current >= imageCount) {
       firedRef.current = true;
       onReady?.();
     }
-  }, [imageCount, onReady]);
+  };
 
   // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -37,11 +37,8 @@ export default function SocialLinksScreen() {
   const [error, setError] = useState(false);
   // 取得済みの項目は位置が変わらないため -1-i を初期 key にする。
   // 追加する項目の key は既存の最大値+1（イベントハンドラ内で計算）。
-  const items = useMemo<DraftItem[]>(
-    () =>
-      draft ?? (data?.items ?? []).map((item, i) => ({ ...item, key: -1 - i })),
-    [draft, data?.items],
-  );
+  const items: DraftItem[] =
+    draft ?? (data?.items ?? []).map((item, i) => ({ ...item, key: -1 - i }));
 
   function update(index: number, patch: Partial<SocialLinkInput>) {
     setDraft(

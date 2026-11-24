@@ -6,7 +6,6 @@
 // - annict_shared_token_unavailable: 未連携の利用者向けの共用トークンが使えない
 //   （運営側で失効・未設定。issue #561）。本人が連携すれば使えるようになる
 // どれも「連携すれば直る」ため、汎用エラーではなく連携導線を出す。
-import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { AnnictFunnelSurface } from "@animeishi/observability";
@@ -29,46 +28,43 @@ export function useAnnictTokenErrorPrompt(surface: AnnictFunnelSurface) {
   const track = useAnnictFunnel(surface);
   const queryClient = useQueryClient();
 
-  return useCallback(
-    (error: unknown): boolean => {
-      if (!isAnnictTokenError(error)) return false;
-      track("prompt_view");
-      confirm(
-        t("Annict 連携が必要です"),
-        t("Annict と連携すると視聴記録を残せます"),
-        () => {
-          track("cta_tap");
-          void connect({ surface }).then((result) => {
-            // 連携自体の失敗はソフトゲートと同じ文言対応（annictErrorKey）で
-            // 通知する。キャンセルはダイアログ側の導線が閉じるだけなので出さない。
-            if (result.status === "error") {
-              alert(
-                t("Annict 連携に失敗しました"),
-                t(annictErrorKey(result.reason)),
-                { okLabel: "OK" },
-              );
-              return;
-            }
-            if (result.status === "success") {
-              // 再連携で別アカウントに切り替わると、旧トークンで取った
-              // viewerStatusState が新アカウントの実状態とずれるため、
-              // 作品詳細と視聴履歴を新トークンで再取得させる。
-              // useWorkDetail を import すると循環参照になるため、
-              // WORK_DETAIL_QUERY_KEY（["works", "detail"]）はリテラルで書く
-              // （useAnnictConnect の disconnect と同じ扱い）。
-              void queryClient.invalidateQueries({
-                queryKey: ["works", "detail"],
-              });
-              void queryClient.invalidateQueries({
-                queryKey: WATCH_HISTORY_QUERY_KEY,
-              });
-            }
-          });
-        },
-        { confirmLabel: t("連携する"), cancelLabel: t("あとで") },
-      );
-      return true;
-    },
-    [connect, queryClient, surface, track, t],
-  );
+  return (error: unknown): boolean => {
+    if (!isAnnictTokenError(error)) return false;
+    track("prompt_view");
+    confirm(
+      t("Annict 連携が必要です"),
+      t("Annict と連携すると視聴記録を残せます"),
+      () => {
+        track("cta_tap");
+        void connect({ surface }).then((result) => {
+          // 連携自体の失敗はソフトゲートと同じ文言対応（annictErrorKey）で
+          // 通知する。キャンセルはダイアログ側の導線が閉じるだけなので出さない。
+          if (result.status === "error") {
+            alert(
+              t("Annict 連携に失敗しました"),
+              t(annictErrorKey(result.reason)),
+              { okLabel: "OK" },
+            );
+            return;
+          }
+          if (result.status === "success") {
+            // 再連携で別アカウントに切り替わると、旧トークンで取った
+            // viewerStatusState が新アカウントの実状態とずれるため、
+            // 作品詳細と視聴履歴を新トークンで再取得させる。
+            // useWorkDetail を import すると循環参照になるため、
+            // WORK_DETAIL_QUERY_KEY（["works", "detail"]）はリテラルで書く
+            // （useAnnictConnect の disconnect と同じ扱い）。
+            void queryClient.invalidateQueries({
+              queryKey: ["works", "detail"],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: WATCH_HISTORY_QUERY_KEY,
+            });
+          }
+        });
+      },
+      { confirmLabel: t("連携する"), cancelLabel: t("あとで") },
+    );
+    return true;
+  };
 }

@@ -55,6 +55,7 @@ export default function HomeScreen() {
   // 契機が無いため、ホーム復帰のタイミングでだけ無効化する。
   // 初回フォーカスは初回取得と重複するので飛ばす（FriendStoryRail 等と同じ仕組み）。
   const hasFocused = useRef(false);
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) {
@@ -115,13 +116,13 @@ export default function HomeScreen() {
             <CurrentSeasonWatchingRail />
             {/* 総選挙枠（issue #438）。投票期限のある参加型企画のため、 */}
             {/* 目に留めてもらいやすいレール群の先頭に置く */}
-            <ElectionRail />
+            {featureFlags.elections && <ElectionRail />}
             {/* イベント枠（issue #411）。参加表明したいイベントを会期前に */}
             {/* 目に留める位置のため、フィード上部のレール群に置く */}
-            <EventRail />
+            {featureFlags.events && <EventRail />}
             {/* 特集記事（issue #437）。フィードの下に置くと、フレンドの動きが */}
             {/* 多いときに辿り着けないため、イベントの下に置く */}
-            <ArticleRail />
+            {featureFlags.articles && <ArticleRail />}
             <MeishiCompletionCard />
 
             {featureFlags.debugPanel && (

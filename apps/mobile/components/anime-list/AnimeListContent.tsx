@@ -146,14 +146,13 @@ export function AnimeListContent({
   // 取得済みの一覧にメディア/ジャンルの絞り込みを掛けてからソートする
   // （Annict searchWorks には media・ジャンルの絞り込み引数が無いため
   // クライアント側で掛ける。issue #346）。
-  const filtered = useMemo(
-    () => filterAnimeList(data ?? [], filters),
-    [data, filters],
-  );
+  const filtered = filterAnimeList(data ?? [], filters);
   const sorted = useSortedAnimeList(filtered, sortKey, sortOrder);
   // 一覧 API は閲覧者の視聴状態を返さないため、自分の視聴履歴と突き合わせる（issue #421）。
   // Annict 未連携のうちは useWatchHistory が無効なので空になり、スタンプは出ない。
   const { data: watchHistory } = useWatchHistory();
+  // renderItem（FlatList に渡すため固定するコールバック）の依存に
+  // 入るため参照を固定する。
   const watchStateByWorkId = useMemo(
     () =>
       new Map<number, WatchState>(
@@ -163,9 +162,10 @@ export function AnimeListContent({
   );
   const filterCount = animeListFilterCount(filters);
   // ジャンル絞り込みの選択肢は一覧に出る作品から作る（存在しないジャンルを出さない）。
-  const genreOptions = useMemo(
-    () => collectAnimeGenres(data ?? [], filters.media, filters.genres),
-    [data, filters.media, filters.genres],
+  const genreOptions = collectAnimeGenres(
+    data ?? [],
+    filters.media,
+    filters.genres,
   );
 
   async function onRefresh() {
@@ -233,17 +233,14 @@ export function AnimeListContent({
   // キャラクター tier 表への入口（issue #169）。対象作品をパラメータで渡し、
   // 画面側は作品のキャスト一覧を取得する。#347 でカード上のボタンから
   // 詳細シートのボタンに移した。
-  const openCharacterTierList = useCallback(
-    (work: WorkDetailSheetTarget) => {
-      // キャラクター tier 表を開く操作を計測する（issue #214）。
-      trackEvent("character_tier_open");
-      router.push({
-        pathname: "/character-tier-list",
-        params: { workId: String(work.annictWorkId), workTitle: work.title },
-      });
-    },
-    [router],
-  );
+  const openCharacterTierList = (work: WorkDetailSheetTarget) => {
+    // キャラクター tier 表を開く操作を計測する（issue #214）。
+    trackEvent("character_tier_open");
+    router.push({
+      pathname: "/character-tier-list",
+      params: { workId: String(work.annictWorkId), workTitle: work.title },
+    });
+  };
 
   // renderItem を安定化して行ごとのコールバック生成を減らす。
   const renderItem = useCallback(

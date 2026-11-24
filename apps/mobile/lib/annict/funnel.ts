@@ -90,6 +90,7 @@ export function useAnnictFunnel(surface: AnnictFunnelSurface) {
   useEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
+  // 呼び出し側が effect の依存に入れるため参照を固定する。
   return useCallback(
     (
       step: AnnictFunnelStep,

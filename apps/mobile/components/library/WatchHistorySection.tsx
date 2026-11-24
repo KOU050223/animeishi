@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -90,6 +90,51 @@ function mergedFailureMessage(
 // 操作猶予として 5 秒取る（短すぎると気づく前に消える）。
 const STATUS_TOAST_MS = 5000;
 
+// 失敗通知キューを1件ずつダイアログに流す。コンポーネント内に置くと
+// 再帰する関数宣言が React Compiler の最適化を妨げるためモジュール関数にする。
+function flushFailureQueue(
+  queue: FailureNotice[],
+  alertOpenRef: { current: boolean },
+  t: TFunction,
+): void {
+  if (alertOpenRef.current) return;
+  const first = queue.shift();
+  if (!first) return;
+  // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
+  let count = 1;
+  while (queue[0]?.kind === first.kind) {
+    queue.shift();
+    count += 1;
+  }
+  alertOpenRef.current = true;
+  alert(
+    first.title,
+    count === 1 ? first.message : mergedFailureMessage(first.kind, count, t),
+    {
+      okLabel: "OK",
+      onClose: () => {
+        alertOpenRef.current = false;
+        flushFailureQueue(queue, alertOpenRef, t);
+      },
+    },
+  );
+}
+
+// pull-to-refresh。refetch が reject しても refreshing を必ず戻す。
+// try/finally を含むためコンポーネント内に置くと React Compiler が
+// 最適化できず、モジュール関数に切り出す。
+async function refreshWatchHistory(
+  setRefreshing: (refreshing: boolean) => void,
+  refetch: () => Promise<unknown>,
+): Promise<void> {
+  setRefreshing(true);
+  try {
+    await refetch();
+  } finally {
+    setRefreshing(false);
+  }
+}
+
 // ステータス変更直後に出す「元に戻す」トーストの内容。
 // previousState が「押すと直前のステータスに戻す」先。
 type StatusUndoToast = {
@@ -128,43 +173,12 @@ export function WatchHistorySection() {
   // 1件にまとめるため、ダイアログが積み上がらず取りこぼしもない。
   const failureQueueRef = useRef<FailureNotice[]>([]);
   const failureAlertOpenRef = useRef(false);
-  // onClose から再帰するため関数名式にしている（const 名を本体から参照すると
-  // 初期化中の変数アクセスとして React Compiler 系 lint に引っかかる）。
-  const flushFailures = useCallback(
-    function flushFailures() {
-      if (failureAlertOpenRef.current) return;
-      const first = failureQueueRef.current.shift();
-      if (!first) return;
-      // 直後に同じ種類が続くなら、件数をまとめて1件の通知にする。
-      let count = 1;
-      while (failureQueueRef.current[0]?.kind === first.kind) {
-        failureQueueRef.current.shift();
-        count += 1;
-      }
-      failureAlertOpenRef.current = true;
-      alert(
-        first.title,
-        count === 1
-          ? first.message
-          : mergedFailureMessage(first.kind, count, t),
-        {
-          okLabel: "OK",
-          onClose: () => {
-            failureAlertOpenRef.current = false;
-            flushFailures();
-          },
-        },
-      );
-    },
-    [t],
-  );
-  const notifyFailure = useCallback(
-    (kind: FailureKind, title: string, message: string) => {
-      failureQueueRef.current.push({ kind, title, message });
-      flushFailures();
-    },
-    [flushFailures],
-  );
+  const flushFailures = () =>
+    flushFailureQueue(failureQueueRef.current, failureAlertOpenRef, t);
+  const notifyFailure = (kind: FailureKind, title: string, message: string) => {
+    failureQueueRef.current.push({ kind, title, message });
+    flushFailures();
+  };
 
   // ソフトゲート: 視聴履歴は Annict 連携が前提。未連携のうちは useWatchHistory が
   // クエリを無効化しているため、ここで連携誘導を出して導線を与える。
@@ -201,38 +215,26 @@ export function WatchHistorySection() {
     [],
   );
 
-  // histories が undefined の間も参照を安定させ、下の useMemo（年代選択肢・
-  // 絞り込み＋ソート）が毎レンダー走り直さないようにする。
-  const enriched = useMemo(() => histories ?? [], [histories]);
+  const enriched = histories ?? [];
 
   // 年代フィルタの選択肢は一覧に出る作品から作る（存在しない年代を出さない）。
-  const decades = useMemo(
-    () => collectWatchHistoryDecades(enriched),
-    [enriched],
-  );
+  const decades = collectWatchHistoryDecades(enriched);
   const filterActive = isWatchHistoryFilterActive(filters);
-  const visible = useMemo(
-    () => sortWatchHistory(filterWatchHistory(enriched, filters), sortKey),
-    [enriched, filters, sortKey],
+  const visible = sortWatchHistory(
+    filterWatchHistory(enriched, filters),
+    sortKey,
   );
 
-  async function onRefresh() {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }
+  const onRefresh = () => refreshWatchHistory(setRefreshing, refetch);
 
-  const openCharacterTierList = useCallback(
-    (work: WorkDetailSheetTarget) => {
-      // キャラクター tier 表を開く操作を計測する（issue #214）。
-      trackEvent("character_tier_open");
-      router.push({
-        pathname: "/character-tier-list",
-        params: { workId: String(work.annictWorkId), workTitle: work.title },
-      });
-    },
-    [router],
-  );
+  const openCharacterTierList = (work: WorkDetailSheetTarget) => {
+    // キャラクター tier 表を開く操作を計測する（issue #214）。
+    trackEvent("character_tier_open");
+    router.push({
+      pathname: "/character-tier-list",
+      params: { workId: String(work.annictWorkId), workTitle: work.title },
+    });
+  };
 
   function confirmDelete(annictWorkId: number) {
     confirm(

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -36,25 +36,23 @@ export default function MeishiViewerScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cards, loaded, reload } = useMeishiLibrary();
   const { data: profile } = useProfile();
   const { data: socialLinks } = useSocialLinks();
 
-  const cardProfile = useMemo(
-    () => ({
-      username: profile?.username,
-      bio: profile?.bio,
-      favoriteQuote: profile?.favoriteQuote,
-      profileImageUrl: profile?.profileImageUrl,
-      profileUrl: buildProfileUrl(profile?.id),
-    }),
-    [profile],
-  );
+  const cardProfile = {
+    username: profile?.username,
+    bio: profile?.bio,
+    favoriteQuote: profile?.favoriteQuote,
+    profileImageUrl: profile?.profileImageUrl,
+    profileUrl: buildProfileUrl(profile?.id),
+  };
   const context = useMeishiRenderContext(cardProfile);
 
-  // 編集画面から戻ってきたときに保存済みの最新デザインを反映する
+  // 編集画面から戻ってきたときに保存済みの最新デザインを反映する。
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       void reload();

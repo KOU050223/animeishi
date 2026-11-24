@@ -107,6 +107,8 @@ export function DraggableWorkCard({
   // onEnd と onFinalize は両方通るため、二重に足さないよう旗で弾く。
   const compensationFolded = useSharedValue(false);
 
+  // GestureDetector へ渡すジェスチャは、ドラッグ途中で作り直されて
+  // 中断されないよう参照を固定する（deps の props は親が安定させる前提）。
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -180,6 +182,7 @@ export function DraggableWorkCard({
       item.id,
     ],
   );
+  // GestureDetector へ渡すジェスチャなので参照を固定する。
   const tap = useMemo(
     () =>
       Gesture.Tap().onEnd((_event, success) => {
@@ -211,36 +214,30 @@ export function DraggableWorkCard({
 
   // ドラッグ&ドロップはスイッチ操作や VoiceOver では使えないため、
   // 移動先を選ぶだけのカスタムアクションを各カードに登録する。
-  const accessibilityActions = useMemo(
-    () => [
-      ...(onPress
-        ? [
-            {
-              name: "activate",
-              label: t("{{title}} の詳細を開く", { title: item.title }),
-            },
-          ]
-        : []),
-      ...moveDestinations.map((dest, i) => ({
-        name: `move-${i}`,
-        label: dest.label,
-      })),
-    ],
-    [moveDestinations, onPress, t, item.title],
-  );
+  const accessibilityActions = [
+    ...(onPress
+      ? [
+          {
+            name: "activate",
+            label: t("{{title}} の詳細を開く", { title: item.title }),
+          },
+        ]
+      : []),
+    ...moveDestinations.map((dest, i) => ({
+      name: `move-${i}`,
+      label: dest.label,
+    })),
+  ];
 
-  const handleAccessibilityAction = useCallback(
-    (event: AccessibilityActionEvent) => {
-      if (event.nativeEvent.actionName === "activate") {
-        onPress?.();
-        return;
-      }
-      const index = Number(event.nativeEvent.actionName.slice("move-".length));
-      const dest = moveDestinations[index];
-      if (dest) onMove(dest.tierKey);
-    },
-    [moveDestinations, onMove, onPress],
-  );
+  const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === "activate") {
+      onPress?.();
+      return;
+    }
+    const index = Number(event.nativeEvent.actionName.slice("move-".length));
+    const dest = moveDestinations[index];
+    if (dest) onMove(dest.tierKey);
+  };
 
   // 行内の挿入位置判定用に自分の矩形をレジストリへ登録する。
   // 計測は DropZone と同じ仕組み（measureInWindow + ずらし世代で遅れ応答を
@@ -255,6 +252,7 @@ export function DraggableWorkCard({
     };
   }, []);
   // 再帰するため関数名式にしている（DropZone の measure と同じ経緯）。
+  // registerCardMeasurer へ登録する effect の依存に使うため参照を固定する。
   const measureCard = useCallback(
     function measureCard() {
       if (!registry) return;

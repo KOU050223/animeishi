@@ -59,6 +59,7 @@ export function EditorCanvas({
     measureCanvas();
   };
 
+  // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
   const tapBackground = useMemo(
     () => Gesture.Tap().onEnd(() => onSelect(null)),
     [onSelect],
@@ -155,6 +156,7 @@ function ElementBox({
     latestTransform.set(el.transform);
   });
 
+  // GestureDetector へ渡すジェスチャを固定する（再生成で誤発火しうるため）。
   const tap = useMemo(() => Gesture.Tap().onEnd(() => onSelect()), [onSelect]);
 
   const pan = useMemo(
@@ -185,6 +187,7 @@ function ElementBox({
     ],
   );
 
+  // pan/tap と同じく GestureDetector へ渡すため参照を固定する。
   const composed = useMemo(() => Gesture.Race(pan, tap), [pan, tap]);
 
   return (

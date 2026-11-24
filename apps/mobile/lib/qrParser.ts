@@ -5,7 +5,7 @@
  * iOS / Android / Web のどのクライアントでも同じロジックが動作し、
  * Jest で一度テストすれば全環境での挙動が保証される。
  *
- * 対応フォーマット（docs/01 PR8 仕様）:
+ * 対応フォーマット（docs/archive/01 PR8 仕様）:
  *  1. 旧 URL        : https://animeishi-viewer.web.app/user/{uid} など任意ホストの /user/{uid}
  *  2. カスタムスキーム: animeishi://user/{uid} / animeishi://{uid}
  *  3. 生 UID         : Clerk ID (user_xxxxx) または旧 Firebase 28 文字 UID

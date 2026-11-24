@@ -41,22 +41,22 @@ export function FriendStoryViewer({
 
   // 退場が終わってから詳細シートを開く。iOS でビューアのモーダルの
   // 退場中に次のモーダルを出すと、表示処理が競合して開かれない。
-  const openPendingWork = useCallback(() => {
+  const openPendingWork = () => {
     const target = pendingWork.current;
     if (!target) return;
     pendingWork.current = null;
     onClose();
     openWork(target);
-  }, [onClose, openWork]);
+  };
 
   // Modal.onDismiss は iOS しか実装されていない。Android は退場完了を
   // 検知できないので、フェードの完了見込み時間後にタイマーで代替する。
   // iOS は onDismiss が先に呼ばれるためタイマー側は打ち消される。
-  const dismissToWork = useCallback(() => {
+  const dismissToWork = () => {
     progress.stopAnimation();
     setIsPresented(false);
     dismissTimer.current = setTimeout(openPendingWork, 300);
-  }, [progress, openPendingWork]);
+  };
 
   useEffect(
     () => () => {
@@ -65,6 +65,9 @@ export function FriendStoryViewer({
     [],
   );
 
+  // 自動送りタイマーの effect 依存に使うため参照を固定する
+  // （index 変化時だけ再生成され、それ以外の再描画でタイマーが
+  // リセットされないようにする）。
   const goNext = useCallback(() => {
     // 最後のスライドで「次へ」はビューアを閉じる
     if (index + 1 >= items.length) {
@@ -74,9 +77,9 @@ export function FriendStoryViewer({
     setIndex(index + 1);
   }, [index, items.length, onClose]);
 
-  const goPrev = useCallback(() => {
+  const goPrev = () => {
     setIndex((current) => Math.max(0, current - 1));
-  }, []);
+  };
 
   // スライドごとの自動送りタイマー。プログレスバーの塗りつぶしと
   // 送りタイミングを同じ Animated で駆動する。

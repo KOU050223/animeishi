@@ -4,6 +4,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import EventScreen from "@/app/event/[slug]";
+import { featureFlags } from "@/lib/featureFlags";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import {
   useEvent,
@@ -111,6 +112,15 @@ const attendeesQuery = () =>
     isFetchingNextPage: false,
     fetchNextPage: jest.fn(),
   }) as unknown as ReturnType<typeof useEventParticipants>;
+
+// 画面本体のテスト。フラグで隠したときの表示は feature-flagged-routes.test.tsx。
+beforeAll(() => {
+  Object.defineProperty(featureFlags, "events", { value: true });
+});
+
+afterAll(() => {
+  Object.defineProperty(featureFlags, "events", { value: false });
+});
 
 beforeEach(() => {
   jest.clearAllMocks();

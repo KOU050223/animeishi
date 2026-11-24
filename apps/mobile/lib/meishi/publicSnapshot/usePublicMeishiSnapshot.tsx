@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
 import { apiFetch } from "@/lib/api";
@@ -17,8 +17,10 @@ export function usePublicMeishiSnapshot(
   const ref = useRef<ViewInstance>(null);
   const readyRef = useRef<(() => void) | null>(null);
   const readyKeyRef = useRef<string | null>(null);
-  const resolved = useMemo(() => resolveMeishiDocument(document), [document]);
+  const resolved = resolveMeishiDocument(document);
   const snapshotKey = JSON.stringify({ resolved, context });
+  // 呼び出し側（app/meishi/index.tsx）の effect 依存に入るため参照を固定する。
+  // snapshotKey は JSON 文字列なので context の実体が変わっても同値なら安定する。
   const publish = useCallback(
     () =>
       enqueueSnapshotOperation(async () => {
@@ -46,16 +48,13 @@ export function usePublicMeishiSnapshot(
       }),
     [snapshotKey],
   );
-  const clear = useCallback(
-    () =>
-      enqueueSnapshotOperation(async () => {
-        await apiFetch({
-          onHttpError: async (res) =>
-            new Error(`Snapshot delete failed: ${res.status}`),
-        })(SNAPSHOT_URL, { method: "DELETE" });
-      }),
-    [],
-  );
+  const clear = () =>
+    enqueueSnapshotOperation(async () => {
+      await apiFetch({
+        onHttpError: async (res) =>
+          new Error(`Snapshot delete failed: ${res.status}`),
+      })(SNAPSHOT_URL, { method: "DELETE" });
+    });
   const snapshotElement = (
     <View style={styles.offscreen}>
       <MeishiShareSnapshot

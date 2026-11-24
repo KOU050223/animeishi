@@ -45,6 +45,7 @@ export function DropZone({
 
   // 再帰するため関数名式にしている（const 名を本体から参照すると
   // 初期化中の変数アクセスとして React Compiler 系 lint に引っかかる）。
+  // registerMeasurer へ登録する effect の依存に使うため参照を固定する。
   const measure = useCallback(
     function measure() {
       // 計測要求から応答までに自動スクロールの shiftAll が走ると、応答値が

@@ -55,6 +55,8 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   // ジェスチャ開始時に呼ばれ、次の変更前に「その時点」を履歴に積むためのフラグ
   const pendingHistorySnapshotRef = useRef<MeishiDocument | null>(null);
 
+  // ジェスチャ系のライブ更新（setDocLive → setElementTransformLive）の
+  // useCallback 依存に入るため参照を固定する。
   const bumpHistoryVersion = useCallback(
     () =>
       setHistoryFlags({
@@ -64,7 +66,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     [],
   );
 
-  const reloadDocument = useCallback(async () => {
+  const reloadDocument = async () => {
     const library = await loadMeishiLibrary();
     // ライブラリを読み直した時点でのバインドを解決する。
     // 削除済みカードは未バインド（doc null）に落ちる。
@@ -83,7 +85,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     historyRef.current = emptyHistory();
     pendingHistorySnapshotRef.current = null;
     bumpHistoryVersion();
-  }, [bumpHistoryVersion, cardId, fresh]);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -111,19 +113,17 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   }, []);
 
   // 履歴を積むコミット
-  const commit = useCallback(
-    (updater: (prev: MeishiDocument) => MeishiDocument) => {
-      setDoc((prev) => {
-        if (!prev) return prev;
-        historyRef.current = commitHistory(historyRef.current, prev);
-        bumpHistoryVersion();
-        return updater(prev);
-      });
-    },
-    [bumpHistoryVersion],
-  );
+  const commit = (updater: (prev: MeishiDocument) => MeishiDocument) => {
+    setDoc((prev) => {
+      if (!prev) return prev;
+      historyRef.current = commitHistory(historyRef.current, prev);
+      bumpHistoryVersion();
+      return updater(prev);
+    });
+  };
 
   // 履歴を積まないライブ更新（ジェスチャ中用）
+  // setElementTransformLive 経由でジェスチャの useMemo 依存に入るため参照を固定する。
   const setDocLive = useCallback(
     (updater: (prev: MeishiDocument) => MeishiDocument) => {
       setDoc((prev) => {
@@ -143,6 +143,8 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     [bumpHistoryVersion],
   );
 
+  // ジェスチャコールバック（edit.tsx の onTransform）の useCallback 依存に
+  // 入るため参照を固定する。
   const beginGesture = useCallback(() => {
     // その時点の doc をスナップショット。次の setDocLive で履歴に積む。
     setDoc((prev) => {
@@ -151,16 +153,13 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     });
   }, []);
 
-  const replaceWithoutHistory = useCallback(
-    (next: MeishiDocument) => {
-      historyRef.current = emptyHistory();
-      bumpHistoryVersion();
-      setDoc(next);
-    },
-    [bumpHistoryVersion],
-  );
+  const replaceWithoutHistory = (next: MeishiDocument) => {
+    historyRef.current = emptyHistory();
+    bumpHistoryVersion();
+    setDoc(next);
+  };
 
-  const undo = useCallback(() => {
+  const undo = () => {
     setDoc((prev) => {
       if (!prev) return prev;
       const result = undoHistory(historyRef.current, prev);
@@ -169,9 +168,9 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
       bumpHistoryVersion();
       return result.doc;
     });
-  }, [bumpHistoryVersion]);
+  };
 
-  const redo = useCallback(() => {
+  const redo = () => {
     setDoc((prev) => {
       if (!prev) return prev;
       const result = redoHistory(historyRef.current, prev);
@@ -180,12 +179,12 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
       bumpHistoryVersion();
       return result.doc;
     });
-  }, [bumpHistoryVersion]);
+  };
 
   // 保存は「ライブラリ全体の read-modify-write」で行う。
   // updateMeishiLibrary のキューで一覧側の操作とも直列化されるので、
   // 編集中に他画面でカード操作が入っても保存が別カードを巻き戻さない。
-  const saveDocument = useCallback(async () => {
+  const saveDocument = async () => {
     if (!doc) return null;
     const currentDoc = doc;
     const { result } = await updateMeishiLibrary((library) => {
@@ -208,20 +207,19 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     if (result?.isFirst) trackEvent("meishi_create");
     if (newCardId) setBoundCardId(newCardId);
     return newCardId ?? boundCardId;
-  }, [doc, boundCardId]);
+  };
 
-  const updateElement = useCallback(
-    (id: string, patch: Partial<MeishiElement>) => {
-      commit((prev) => ({
-        ...prev,
-        elements: prev.elements.map((el) =>
-          el.id === id ? ({ ...el, ...patch } as MeishiElement) : el,
-        ),
-      }));
-    },
-    [commit],
-  );
+  const updateElement = (id: string, patch: Partial<MeishiElement>) => {
+    commit((prev) => ({
+      ...prev,
+      elements: prev.elements.map((el) =>
+        el.id === id ? ({ ...el, ...patch } as MeishiElement) : el,
+      ),
+    }));
+  };
 
+  // ジェスチャコールバック（edit.tsx の onTransform）の useCallback 依存に
+  // 入るため参照を固定する。
   const setElementTransformLive = useCallback(
     (id: string, transform: MeishiElement["transform"]) => {
       setDocLive((prev) => ({
@@ -234,80 +232,64 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
     [setDocLive],
   );
 
-  const addElement = useCallback(
-    (element: MeishiElement) => {
-      commit((prev) => ({ ...prev, elements: [...prev.elements, element] }));
-    },
-    [commit],
-  );
+  const addElement = (element: MeishiElement) => {
+    commit((prev) => ({ ...prev, elements: [...prev.elements, element] }));
+  };
 
-  const removeElement = useCallback(
-    (id: string) => {
-      commit((prev) => ({
-        ...prev,
-        elements: prev.elements.filter((el) => el.id !== id),
-      }));
-    },
-    [commit],
-  );
+  const removeElement = (id: string) => {
+    commit((prev) => ({
+      ...prev,
+      elements: prev.elements.filter((el) => el.id !== id),
+    }));
+  };
 
-  const duplicateElement = useCallback(
-    (id: string, newId: string) => {
-      commit((prev) => {
-        const source = prev.elements.find((el) => el.id === id);
-        if (!source) return prev;
-        const copy: MeishiElement = {
-          ...source,
-          id: newId,
-          transform: {
-            ...source.transform,
-            x: Math.min(0.95, source.transform.x + 0.03),
-            y: Math.min(0.95, source.transform.y + 0.03),
-          },
-        };
-        return { ...prev, elements: [...prev.elements, copy] };
-      });
-    },
-    [commit],
-  );
+  const duplicateElement = (id: string, newId: string) => {
+    commit((prev) => {
+      const source = prev.elements.find((el) => el.id === id);
+      if (!source) return prev;
+      const copy: MeishiElement = {
+        ...source,
+        id: newId,
+        transform: {
+          ...source.transform,
+          x: Math.min(0.95, source.transform.x + 0.03),
+          y: Math.min(0.95, source.transform.y + 0.03),
+        },
+      };
+      return { ...prev, elements: [...prev.elements, copy] };
+    });
+  };
 
-  const bringToFront = useCallback(
-    (id: string) => {
-      commit((prev) => {
-        const idx = prev.elements.findIndex((el) => el.id === id);
-        if (idx < 0) return prev;
-        const el = prev.elements[idx];
-        const next = prev.elements.filter((e) => e.id !== id);
-        next.push(el);
-        return { ...prev, elements: next };
-      });
-    },
-    [commit],
-  );
+  const bringToFront = (id: string) => {
+    commit((prev) => {
+      const idx = prev.elements.findIndex((el) => el.id === id);
+      if (idx < 0) return prev;
+      const el = prev.elements[idx];
+      const next = prev.elements.filter((e) => e.id !== id);
+      next.push(el);
+      return { ...prev, elements: next };
+    });
+  };
 
-  const sendToBack = useCallback(
-    (id: string) => {
-      commit((prev) => {
-        const idx = prev.elements.findIndex((el) => el.id === id);
-        if (idx < 0) return prev;
-        const el = prev.elements[idx];
-        const next = prev.elements.filter((e) => e.id !== id);
-        next.unshift(el);
-        return { ...prev, elements: next };
-      });
-    },
-    [commit],
-  );
+  const sendToBack = (id: string) => {
+    commit((prev) => {
+      const idx = prev.elements.findIndex((el) => el.id === id);
+      if (idx < 0) return prev;
+      const el = prev.elements[idx];
+      const next = prev.elements.filter((e) => e.id !== id);
+      next.unshift(el);
+      return { ...prev, elements: next };
+    });
+  };
 
-  const setBackground = useCallback(
-    (background: MeishiDocument["canvas"]["background"]) => {
-      commit((prev) => ({
-        ...prev,
-        canvas: { ...prev.canvas, background },
-      }));
-    },
-    [commit],
-  );
+  const setBackground = (
+    background: MeishiDocument["canvas"]["background"],
+  ) => {
+    commit((prev) => ({
+      ...prev,
+      canvas: { ...prev.canvas, background },
+    }));
+  };
 
   return {
     doc,

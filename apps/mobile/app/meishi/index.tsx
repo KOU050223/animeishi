@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -37,7 +37,7 @@ export default function MeishiDeckScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
   const { data: profile } = useProfile();
   const { data: favorites } = useFavorites();
   const { data: watchHistory } = useWatchHistory();
@@ -55,20 +55,17 @@ export default function MeishiDeckScreen() {
   const [publishDocument, setPublishDocument] = useState<
     MeishiCardData["document"] | null
   >(null);
-  const snapshotContext = useMemo(
-    () => ({
-      profile: {
-        username: profile?.username,
-        bio: profile?.bio,
-        favoriteQuote: profile?.favoriteQuote,
-        profileImageUrl: profile?.profileImageUrl,
-        profileUrl: buildProfileUrl(profile?.id),
-      },
-      ...buildMeishiAnimeContext({ favorites, watchHistory }),
-      achievements: achievements?.achievements,
-    }),
-    [profile, favorites, watchHistory, achievements],
-  );
+  const snapshotContext = {
+    profile: {
+      username: profile?.username,
+      bio: profile?.bio,
+      favoriteQuote: profile?.favoriteQuote,
+      profileImageUrl: profile?.profileImageUrl,
+      profileUrl: buildProfileUrl(profile?.id),
+    },
+    ...buildMeishiAnimeContext({ favorites, watchHistory }),
+    achievements: achievements?.achievements,
+  };
   const { publish, clear, snapshotElement } = usePublicMeishiSnapshot(
     publishDocument,
     snapshotContext,
@@ -82,7 +79,8 @@ export default function MeishiDeckScreen() {
     );
   }, [publishDocument, publish]);
 
-  // エディタや全画面表示から戻ってきたときに最新の内容を反映する
+  // エディタや全画面表示から戻ってきたときに最新の内容を反映する。
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       void reload();

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
@@ -24,9 +24,9 @@ export const useMeishiImageShare: UseMeishiImageShare = ({
   const [isSharing, setIsSharing] = useState(false);
   const snapshotRef = useRef<ViewInstance>(null);
 
-  const doc = useMemo(() => resolveMeishiDocument(document), [document]);
+  const doc = resolveMeishiDocument(document);
 
-  const shareImage = useCallback(async () => {
+  const shareImage = async () => {
     setIsSharing(true);
     await runMeishiImageShare({
       snapshotRef,
@@ -36,7 +36,7 @@ export const useMeishiImageShare: UseMeishiImageShare = ({
       failureMessage: t("時間をおいて再度お試しください。"),
     });
     setIsSharing(false);
-  }, [colors, t]);
+  };
 
   // 押下前から画面外に描画しておき、押したら即撮影する（上記コメント参照）。
   const snapshotElement = (

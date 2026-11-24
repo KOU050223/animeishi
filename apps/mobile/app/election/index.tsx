@@ -14,6 +14,8 @@ import { useElectionList } from "@/lib/useElections";
 import type { ElectionListItem } from "@/lib/useElections";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 行のカバー画像サイズ。比率はホームの総選挙枠と同じ 16:9。
 const THUMB_WIDTH = 112;
@@ -22,7 +24,12 @@ const THUMB_HEIGHT = Math.round((THUMB_WIDTH * 9) / 16);
 // 公開中の総選挙の一覧（issue #599）。ホームの総選挙枠（ElectionRail）の
 // 「すべて見る」とプロフィールの導線から遷移する。API は公開期間外を
 // 返さないため、ここでは取得分をそのまま並べる。
-export default function ElectionListScreen() {
+export default function ElectionListRoute() {
+  if (!featureFlags.elections) return <FeatureUnavailableScreen />;
+  return <ElectionListScreen />;
+}
+
+function ElectionListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();

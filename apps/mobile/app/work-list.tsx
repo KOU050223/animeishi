@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -129,79 +129,64 @@ export default function WorkListScreen() {
 
   const editingDisabled = isSharing || save.isPending;
 
-  const markDirty = useCallback(() => setIsDirty(true), []);
+  const markDirty = () => setIsDirty(true);
 
-  const handleChangeTitle = useCallback(
-    (next: string) => {
-      if (editingDisabled) return;
-      setTitle(next);
-      markDirty();
-    },
-    [editingDisabled, markDirty],
-  );
+  const handleChangeTitle = (next: string) => {
+    if (editingDisabled) return;
+    setTitle(next);
+    markDirty();
+  };
 
-  const handleChangeDescription = useCallback(
-    (next: string) => {
-      if (editingDisabled) return;
-      setDescription(next);
-      markDirty();
-    },
-    [editingDisabled, markDirty],
-  );
+  const handleChangeDescription = (next: string) => {
+    if (editingDisabled) return;
+    setDescription(next);
+    markDirty();
+  };
 
   // 検索シートから選ばれた作品を末尾に追加する。
   // シートの onAdd は TierItem（imageUrl が optional）で渡ってくるため
   // ここで WorkListEntry の形に寄せる。
-  const handleAddWork = useCallback(
-    (work: TierItem) => {
-      if (editingDisabled) return;
-      setWorks((prev) =>
-        prev.some((w) => w.id === work.id)
-          ? prev
-          : [
-              ...prev,
-              {
-                id: work.id,
-                title: work.title,
-                imageUrl: work.imageUrl ?? null,
-              },
-            ],
-      );
-      markDirty();
-    },
-    [editingDisabled, markDirty],
-  );
+  const handleAddWork = (work: TierItem) => {
+    if (editingDisabled) return;
+    setWorks((prev) =>
+      prev.some((w) => w.id === work.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              id: work.id,
+              title: work.title,
+              imageUrl: work.imageUrl ?? null,
+            },
+          ],
+    );
+    markDirty();
+  };
 
-  const handleRemoveWork = useCallback(
-    (workId: number) => {
-      if (editingDisabled) return;
-      setWorks((prev) => prev.filter((w) => w.id !== workId));
-      markDirty();
-    },
-    [editingDisabled, markDirty],
-  );
+  const handleRemoveWork = (workId: number) => {
+    if (editingDisabled) return;
+    setWorks((prev) => prev.filter((w) => w.id !== workId));
+    markDirty();
+  };
 
-  const handleMoveWork = useCallback(
-    (workId: number, direction: -1 | 1) => {
-      if (editingDisabled) return;
-      setWorks((prev) => {
-        const index = prev.findIndex((w) => w.id === workId);
-        const nextIndex = index + direction;
-        if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) {
-          return prev;
-        }
-        const next = [...prev];
-        const [moved] = next.splice(index, 1);
-        if (moved === undefined) return prev;
-        next.splice(nextIndex, 0, moved);
-        return next;
-      });
-      markDirty();
-    },
-    [editingDisabled, markDirty],
-  );
+  const handleMoveWork = (workId: number, direction: -1 | 1) => {
+    if (editingDisabled) return;
+    setWorks((prev) => {
+      const index = prev.findIndex((w) => w.id === workId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      if (moved === undefined) return prev;
+      next.splice(nextIndex, 0, moved);
+      return next;
+    });
+    markDirty();
+  };
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     const goBack = () => {
       if (router.canGoBack()) {
         router.back();
@@ -224,7 +209,7 @@ export default function WorkListScreen() {
       return;
     }
     goBack();
-  }, [isDirty, router, t]);
+  };
 
   // 詳細取得の完了前に保存すると空の内容で全置換し、既存の作品が消える。
   // 404（削除済み）のリストも PUT が失敗するだけなので、id 指定では
@@ -235,7 +220,7 @@ export default function WorkListScreen() {
   const saveDisabled = !isDirty || save.isPending || inputDisabled;
   const shareDisabled = isSharing || save.isPending || inputDisabled;
 
-  const saveWorkListData = useCallback(async () => {
+  const saveWorkListData = async () => {
     const cur = saveSourceRef.current;
     const savedData = await save.mutateAsync({
       id: cur.listId ?? undefined,
@@ -247,9 +232,9 @@ export default function WorkListScreen() {
     setListId(savedData.id);
     setIsDirty(false);
     return savedData;
-  }, [save]);
+  };
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     // ボタン無効化とは別に中側でも弾く（読み込み完了を待たずに
     // 空の内容で全置換されるのを防ぐ）。
     if (saveDisabled) return;
@@ -269,11 +254,11 @@ export default function WorkListScreen() {
         },
       },
     );
-  }, [save, saveDisabled, listId, title, description, isPublic, works]);
+  };
 
   // 共有は「保存された内容」を公開するため、未保存変更があっても
   // 先に保存してからトークンを発行する（custom-tier-list と同じ流れ）。
-  const handleShare = useCallback(async () => {
+  const handleShare = async () => {
     if (shareDisabled) return;
     setIsSharing(true);
     try {
@@ -287,32 +272,29 @@ export default function WorkListScreen() {
     // React Compiler は finally 句を持つ try を最適化対象にできないため、
     // catch 側で必ず握りつぶす形にして finally を避ける（react-doctor）。
     setIsSharing(false);
-  }, [shareDisabled, saveWorkListData, share, t]);
+  };
 
-  const handleCopyUrl = useCallback(
-    async (url: string) => {
-      try {
-        await Clipboard.setStringAsync(url);
-        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-        setCopied(true);
-        copiedTimerRef.current = setTimeout(
-          () => setCopied(false),
-          COPIED_LABEL_MS,
-        );
-      } catch {
-        alert(
-          t("コピーできませんでした"),
-          t("URL を長押しして選択してください。"),
-          {
-            okLabel: "OK",
-          },
-        );
-      }
-    },
-    [t],
-  );
+  const handleCopyUrl = async (url: string) => {
+    try {
+      await Clipboard.setStringAsync(url);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      setCopied(true);
+      copiedTimerRef.current = setTimeout(
+        () => setCopied(false),
+        COPIED_LABEL_MS,
+      );
+    } catch {
+      alert(
+        t("コピーできませんでした"),
+        t("URL を長押しして選択してください。"),
+        {
+          okLabel: "OK",
+        },
+      );
+    }
+  };
 
-  const handleRevoke = useCallback(() => {
+  const handleRevoke = () => {
     if (listId === null) return;
     const id = listId;
     confirm(
@@ -335,17 +317,17 @@ export default function WorkListScreen() {
         destructive: true,
       },
     );
-  }, [listId, unshare, t]);
+  };
 
   // リスト内の作品を #348 の作成画面へ引き継ぐ。作品は検索追加時点で
   // annict_works にキャッシュ済みなので、未保存の並びでも解決できる。
-  const handleCreateTierList = useCallback(() => {
+  const handleCreateTierList = () => {
     if (works.length === 0) return;
     router.push({
       pathname: "/custom-tier-list",
       params: { workIds: works.map((w) => w.id).join(",") },
     });
-  }, [works, router]);
+  };
 
   const shareToken = saved?.shareToken ?? null;
   const shareUrl = shareToken

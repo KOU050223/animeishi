@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 import { captureRef } from "react-native-view-shot";
@@ -27,10 +27,10 @@ export const useMeishiPrintExport: UseMeishiPrintExport = ({
   const backRef = useRef<ViewInstance>(null);
   const snapshotReadyRef = useRef<(() => void) | null>(null);
 
-  const doc = useMemo(() => resolveMeishiDocument(document), [document]);
+  const doc = resolveMeishiDocument(document);
   const profileUrl = context.profile.profileUrl;
 
-  const exportPrintImages = useCallback(async () => {
+  const exportPrintImages = async () => {
     if (!profileUrl) {
       alert(
         t("印刷用データを書き出せません"),
@@ -82,7 +82,7 @@ export const useMeishiPrintExport: UseMeishiPrintExport = ({
     setSnapshotRequested(false);
     setIsExporting(false);
     snapshotReadyRef.current = null;
-  }, [profileUrl, t]);
+  };
 
   const snapshotElement = snapshotRequested ? (
     <View style={styles.snapshotOffscreen}>

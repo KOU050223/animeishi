@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useTierLists } from "./useTierList";
 import { useCharacterTierLists } from "./useCharacterTierList";
 import { useCustomTierLists } from "./useCustomTierList";
@@ -39,7 +38,7 @@ export function useMergedTierLists() {
   const characterLists = useCharacterTierLists();
   const customLists = useCustomTierLists();
 
-  const items = useMemo<MergedTierListItem[]>(() => {
+  const items: MergedTierListItem[] = (() => {
     const merged: MergedTierListItem[] = [
       ...(seasonLists.data ?? []).map((l) => ({
         key: `season-${l.season}`,
@@ -72,7 +71,7 @@ export function useMergedTierLists() {
     ];
     merged.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
     return merged;
-  }, [seasonLists.data, characterLists.data, customLists.data]);
+  })();
 
   return {
     items,
