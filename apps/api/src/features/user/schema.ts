@@ -1,5 +1,5 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { errorResponseSchema } from "@/lib/openapi";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
 import {
   socialLinkKinds,
   socialLinkVisibilities,
@@ -56,6 +56,7 @@ export const getPublicUserRoute = createRoute({
   summary: "公開名刺を取得する（Accept で JSON / OGP HTML を出し分け）",
   description:
     "認証は任意。サインイン済みならブロック関係にある相手を 404 にする。",
+  security: [...bearerAuth, {}],
   request: {
     params: z.object({
       uid: z.string().min(1).openapi({ example: "user_xxxxxxxxxxxx" }),
