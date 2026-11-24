@@ -48,6 +48,41 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "tsc --noEmit --checkers 1",
+        cache: {
+          // TypeScript 7 の tsc はネイティブバイナリで、ファイルアクセスの自動追跡
+          // （DYLD_INSERT_LIBRARIES による介入）が効かず、読んだソースが入力に載らない。
+          // 放置するとソースを変えてもキャッシュが再生されて型エラーを見逃すため、
+          // 入力を明示する（issue #806）。tsconfig の include 変更への追随や
+          // 新規ファイル追加を考えなくて済むよう、src/** ではなくパッケージ全体を入れる。
+          // 依存パッケージの .d.ts の変更は pnpm-lock.yaml の変化で捕捉する。
+          input: [
+            { auto: true },
+            "**",
+            // tsconfig の include にある .expo/types（Expo Router が生成する型）も
+            // tsc が読む。** がドット始まりのディレクトリに及ぶかは実装依存なので明示する
+            ".expo/**",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            // tsconfig の paths（@/* → ../../apps/api/src/*）と @animeishi/api の
+            // types（./src/index.ts）で、apps/api のソースを直接読む
+            { pattern: "apps/api/src/**", base: "workspace" },
+            { pattern: "apps/api/package.json", base: "workspace" },
+            // workspace の内部パッケージは exports/types が ./src/index.ts で、
+            // tsc が依存先のソースを直接読む
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: [],
+        },
+      },
       // jest もキャッシュする（issue #251）。jest が読む設定・セットアップ・モック・ソース・依存は
       // 自動追跡で入力に入る。jest 自身のキャッシュ（変換結果・Haste マップ）は OS の一時
       // ディレクトリにあり、ワークスペース外なので入力にならない（消してもヒットする）。

@@ -120,6 +120,37 @@ mobile の jest と vitest（`test:vitest`）もキャッシュする（issue #2
 watchman と `find` を使わず Node の fs API でクロールさせている（外すと、テストファイルを
 足してもキャッシュヒットしてしまう）。
 
+### typecheck のキャッシュ（issue #806）
+
+自動追跡は `DYLD_INSERT_LIBRARIES` で子プロセスに注入するライブラリがファイルアクセスを
+介入して記録する仕組みのため、libc 経由でファイルを読まないプロセスの読み取りは載らない。
+TypeScript 7 の `tsc` は Node ラッパーからネイティブバイナリを `execve` する構成で、
+読んだソース・tsconfig が 1 件も入力に記録されず、ソースを変えても
+「cache hit, replaying」で成功出力が再生されて型エラーを見逃していた（package.json
+script として `--cache` で実行していたため、script は `cache.input` を持てず対処できなかった）。
+
+対策として、各パッケージの `typecheck` は package.json script ではなく各パッケージの
+`vite.config.ts` の `run.tasks` に定義し、`cache.input` で入力を明示している。
+tsc が読みうるものを過剰包含方向に入れ、`tsconfig.json` の include 変更や新規ファイル
+追加への追随を不要にするため、パッケージ全体を `"**"` で指定する
+（`!node_modules` / `!node_modules/**` は除く。依存の .d.ts の変更は
+`pnpm-lock.yaml` の入力で捕捉する）。api は packages/danime-core・observability の
+`src/**`、mobile はそれに加えて `apps/api/src/**` と `.expo/**` も入力に含める
+（内部パッケージは `exports` / `types` が `./src/index.ts` で、mobile の paths は
+`apps/api/src/*` を直接読むため）。
+
+ルートの `typecheck` タスク（`vp run -r typecheck` + ルートの tsc）は `cache: false` に
+してある。このタスクがヒットすると内側の `vp run -r` 自体が実行されず、各パッケージの
+キャッシュ判定がスキップされるため、集約側は常に実行させる（ルートの tsc は ~100ms）。
+`vp run -r` に `--cache` を付けていないのは、将来 typecheck を script として持つ
+パッケージが増えても自動追跡の効かないキャッシュが生まれないようにするため。
+新しいパッケージを追加するときは、他のパッケージと同じく `vite.config.ts` の
+`run.tasks` で `cache.input` 付きの `typecheck` タスクを定義する。
+
+古い（入力が空の）キャッシュエントリは、`cache.input` を変えた時点で
+「input configuration changed」でミスになるため、CI の task-cache 復元から
+持ち越されても再利用されない。
+
 > キャッシュするタスクは**クリーンな環境変数**で実行される（`PATH` `HOME` `CI` 等の
 > 共通の変数のみ引き継ぐ）。タスクが新たに環境変数を必要とする場合は、そのタスクの
 > `cache.env`（値が変わるとキャッシュを無効化）か `cache.untrackedEnv`（渡すだけ）に追加する。

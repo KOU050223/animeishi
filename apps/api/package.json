@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "wrangler dev --ip 0.0.0.0",
     "dev:scheduled": "wrangler dev --test-scheduled",
-    "typecheck": "tsc --noEmit --checkers 1",
     "test:watch": "vp test watch",
     "test:node": "vp test --project node",
     "lint": "vp lint . --deny-warnings",

@@ -115,6 +115,34 @@ export default defineConfig({
   },
   run: {
     tasks: {
+      typecheck: {
+        command: "tsc --noEmit --checkers 1",
+        cache: {
+          // TypeScript 7 の tsc はネイティブバイナリで、ファイルアクセスの自動追跡
+          // （DYLD_INSERT_LIBRARIES による介入）が効かず、読んだソースが入力に載らない。
+          // 放置するとソースを変えてもキャッシュが再生されて型エラーを見逃すため、
+          // 入力を明示する（issue #806）。tsconfig の include 変更への追随や
+          // 新規ファイル追加を考えなくて済むよう、src/** ではなくパッケージ全体を入れる。
+          // 依存パッケージの .d.ts の変更は pnpm-lock.yaml の変化で捕捉する。
+          input: [
+            { auto: true },
+            "**",
+            "!node_modules",
+            "!node_modules/**",
+            { pattern: "pnpm-lock.yaml", base: "workspace" },
+            // workspace の内部パッケージは exports/types が ./src/index.ts で、
+            // tsc が依存先のソースを直接読む
+            { pattern: "packages/danime-core/src/**", base: "workspace" },
+            { pattern: "packages/danime-core/package.json", base: "workspace" },
+            { pattern: "packages/observability/src/**", base: "workspace" },
+            {
+              pattern: "packages/observability/package.json",
+              base: "workspace",
+            },
+          ],
+          output: [],
+        },
+      },
       test: {
         // vp test は vitest のキャッシュパス（node_modules/.vite-temp・.vite 内の
         // ファイル）を Vite Task に報告するため、中身の除外は要らない（issue #273）。
