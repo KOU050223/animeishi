@@ -1,13 +1,14 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
-  workListIdParamSchema,
-  publicWorkListsQuerySchema,
-  workListReportSchema,
+  getPublicWorkListRoute,
+  likeWorkListRoute,
+  listPublicWorkListsRoute,
+  reportWorkListRoute,
+  unlikeWorkListRoute,
 } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import {
   workListsRepository,
   fetchWorkListTopWorks,
@@ -19,7 +20,6 @@ import { usersRepository, ReportRateLimitError } from "../users/repository";
 import { createDb } from "@/db/client";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import { notifyUserReport } from "@/observability";
-import { userRateLimit } from "@/middleware/rateLimit";
 
 function getBindings(
   c: Context,
@@ -34,15 +34,13 @@ function getBindings(
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
-const publicWorkListsRoute = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const publicWorkListsRoute = app
   // 公開リスト一覧。sort=likes（いいね数順）/ new（新着順）、
   // カーソルページング。カードには所有者・先頭作品サムネ・いいね数・
   // 自分のいいね済みフラグを載せる。
-  .get(
-    "/public",
-    zValidator("query", publicWorkListsQuerySchema),
-    async (c) => {
+  .openapi(listPublicWorkListsRoute, async (c) => {
       const { sort: rawSort, cursor, limit: rawLimit } = c.req.valid("query");
       const sort: PublicWorkListSort = rawSort ?? "likes";
       const limit = Math.min(Number(rawLimit ?? DEFAULT_LIMIT), MAX_LIMIT);
@@ -85,12 +83,11 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
         },
         200,
       );
-    },
-  )
+  })
   // 公開リスト 1 件の詳細（登録作品つき）。一覧カードの遷移先が読む。
   // /public より後に定義する（Hono は静的セグメントを優先するが、
   // 見通しのため一覧に続けて置く）。
-  .get("/:id", zValidator("param", workListIdParamSchema), async (c) => {
+  .openapi(getPublicWorkListRoute, async (c) => {
     const { id } = c.req.valid("param");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -109,11 +106,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
     );
   })
   // いいね（冪等）。自分のリストにはいいね不可。
-  .put(
-    "/:id/like",
-    userRateLimit("LIKE_RATE_LIMITER"),
-    zValidator("param", workListIdParamSchema),
-    async (c) => {
+  .openapi(likeWorkListRoute, async (c) => {
       const { id } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
       const repo = workListsRepository(db, c.var.clerkUserId);
@@ -127,32 +120,21 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
         }
         throw e;
       }
-    },
-  )
+  })
   // いいねの取り消し（冪等。いいねしていなくても成功）。
   // 見えないリストには 404（閲覧できないリストの反応数を返さない）。
-  .delete(
-    "/:id/like",
-    userRateLimit("LIKE_RATE_LIMITER"),
-    zValidator("param", workListIdParamSchema),
-    async (c) => {
+  .openapi(unlikeWorkListRoute, async (c) => {
       const { id } = c.req.valid("param");
       const db = createDb(getBindings(c).DB);
       const repo = workListsRepository(db, c.var.clerkUserId);
       const result = await repo.unlikeWorkList(id);
       if (!result) return c.json({ error: "Work list not found" }, 404);
       return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
-    },
-  )
+  })
   // 公開リストの通報（issue #186 の対象拡大）。reports 行は
   // reported_user_id = リスト所有者、reported_work_list_id = リスト id で
   // 記録し、ユーザー通報と同じレート制限・通知経路に乗せる。
-  .post(
-    "/:id/report",
-    userRateLimit("REPORT_RATE_LIMITER"),
-    zValidator("param", workListIdParamSchema),
-    zValidator("json", workListReportSchema),
-    async (c) => {
+  .openapi(reportWorkListRoute, async (c) => {
       const { id } = c.req.valid("param");
       const { reason } = c.req.valid("json");
       const db = createDb(getBindings(c).DB);
@@ -188,8 +170,7 @@ const publicWorkListsRoute = new Hono<AuthVariables>()
         workListId: id,
       });
       return c.json({ success: true }, 201);
-    },
-  );
+  });
 
 // cursor の parse/encode。new は id のみ、likes は likeCount_id の複合。
 // 形式が sort と合わない cursor は undefined（ルート側で 400）。
