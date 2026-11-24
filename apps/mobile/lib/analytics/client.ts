@@ -41,6 +41,8 @@ function getClient(): Promise<PostHog | null> {
         enableSessionReplay: false,
         disableSurveys: true,
         errorTracking: { autocapture: false },
+        // IP から所在地を引かせない（プライバシー申告に位置情報を足さないため）。
+        disableGeoip: true,
       });
       // 開発・プレビューのイベントを本番と分けて集計できるよう全イベントに付ける。
       void client.register({

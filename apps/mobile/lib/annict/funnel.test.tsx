@@ -66,7 +66,7 @@ describe("trackAnnictFunnel", () => {
     });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     // sha256 ダイジェストの先頭16文字。ソルト込み入力がそのまま出ないこと。
     expect(attributes["annict.user_key"]).toBe("0123456789abcdef");
     expect(JSON.stringify(attributes)).not.toContain("user_2abcRAW");
@@ -76,7 +76,7 @@ describe("trackAnnictFunnel", () => {
     trackAnnictFunnel({ step: "cta_tap", surface: "home_card" });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes["annict.user_key"]).toBeUndefined();
     expect(attributes["annict.step"]).toBe("cta_tap");
   });
@@ -92,7 +92,7 @@ describe("trackAnnictFunnel", () => {
     });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes["annict.step"]).toBe("prompt_view");
     expect(attributes["annict.user_key"]).toBeUndefined();
   });
@@ -111,9 +111,7 @@ describe("trackAnnictFunnel", () => {
         EVENT_RATE_LIMIT.maxPerWindow + 2,
       ),
     );
-    const steps = infoMock().mock.calls.map(
-      (c) => (c[1] as Record<string, string>)["annict.step"],
-    );
+    const steps = infoMock().mock.calls.map((c) => c[1]["annict.step"]);
     expect(steps.filter((s) => s === "prompt_view").length).toBe(
       EVENT_RATE_LIMIT.maxPerWindow,
     );
@@ -136,9 +134,7 @@ describe("annict_connect_complete", () => {
       (c) => c[0] === "annict_connect_complete",
     );
     expect(completes).toHaveLength(1);
-    expect((completes[0][1] as Record<string, string>).surface).toBe(
-      "anime_list",
-    );
+    expect(completes[0][1].surface).toBe("anime_list");
   });
 });
 
@@ -150,10 +146,7 @@ describe("useAnnictFunnel", () => {
     result.current("cta_tap");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const [message, attributes] = infoMock().mock.calls[0] as [
-      string,
-      Record<string, string>,
-    ];
+    const [message, attributes] = infoMock().mock.calls[0];
     expect(message).toBe(ANNICT_FUNNEL_EVENT);
     expect(attributes["annict.step"]).toBe("cta_tap");
     expect(attributes["annict.surface"]).toBe("profile_card");

@@ -1,12 +1,12 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { captureAnalyticsEvent } from "@/lib/analytics/client";
-import { EVENT_RATE_LIMIT } from "@animeishi/observability";
-import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import {
+  captureAnalyticsEvent,
   flushAnalytics,
   identifyAnalyticsUser,
   resetAnalyticsUser,
 } from "@/lib/analytics/client";
+import { EVENT_RATE_LIMIT } from "@animeishi/observability";
+import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import {
   flushTrackedEvents,
   resetEventTrackingForTest,
@@ -45,10 +45,7 @@ describe("trackEvent", () => {
     trackEvent("meishi_save");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const [message, attributes] = infoMock().mock.calls[0] as [
-      string,
-      Record<string, string>,
-    ];
+    const [message, attributes] = infoMock().mock.calls[0];
     expect(message).toBe("meishi_save");
     expect(attributes.platform).toEqual(expect.any(String));
     expect(attributes.app_version).toEqual(expect.any(String));
@@ -60,7 +57,7 @@ describe("trackEvent", () => {
     trackEvent("meishi_save");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes.screen).toBe("meishi/edit");
     // 生の userId は送らず、ソルト付きハッシュの先頭16文字を user_key にする。
     expect(attributes.user_key).toBe("0123456789abcdef");
@@ -71,7 +68,7 @@ describe("trackEvent", () => {
     trackEvent("qr_scan_start");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes.user_key).toBeUndefined();
   });
 
@@ -94,9 +91,10 @@ describe("trackEvent", () => {
     );
     // ハッシュ化の有無で送信順が入れ替わりうるため属性で引き当てる。
     const attrsOf = (action: string) =>
-      infoMock().mock.calls.find(
-        (c) => (c[1] as Record<string, string>).action === action,
-      )?.[1] as Record<string, string>;
+      infoMock().mock.calls.find((c) => c[1].action === action)?.[1] as Record<
+        string,
+        string
+      >;
     expect(attrsOf("add").user_key).toBe("0123456789abcdef");
     // null 指定では user_key が付かない（コンテキストへフォールバックしない）
     expect(attrsOf("remove").user_key).toBeUndefined();
@@ -106,7 +104,7 @@ describe("trackEvent", () => {
     trackEvent("watch_status_change", { from: "WATCHING", to: "WATCHED" });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes.from).toBe("WATCHING");
     expect(attributes.to).toBe("WATCHED");
   });
@@ -118,7 +116,7 @@ describe("trackEvent", () => {
     trackEvent("meishi_save", undefined, { userId: "user_x" });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes.user_key).toBeUndefined();
   });
 
@@ -128,16 +126,12 @@ describe("trackEvent", () => {
 
     trackEvent("meishi_save", undefined, { userId: "user_retry" });
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    expect(
-      (infoMock().mock.calls[0][1] as Record<string, string>).user_key,
-    ).toBeUndefined();
+    expect(infoMock().mock.calls[0][1].user_key).toBeUndefined();
 
     // 2 回目は digest が成功し user_key が付く（失敗をキャッシュしていない証拠）
     trackEvent("meishi_save", undefined, { userId: "user_retry" });
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(2));
-    expect(
-      (infoMock().mock.calls[1][1] as Record<string, string>).user_key,
-    ).toBe("0123456789abcdef");
+    expect(infoMock().mock.calls[1][1].user_key).toBe("0123456789abcdef");
   });
 
   it("screen オプションは同期済みコンテキストより優先される", async () => {
@@ -146,7 +140,7 @@ describe("trackEvent", () => {
     trackEvent("qr_exchange_start", undefined, { screen: "qr" });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     expect(attributes.screen).toBe("qr");
   });
 
@@ -209,9 +203,9 @@ describe("PostHog の identify / reset", () => {
         "0123456789abcdef",
       ),
     );
-    expect(JSON.stringify(jest.mocked(identifyAnalyticsUser).mock.calls)).not.toContain(
-      "user_identify_raw",
-    );
+    expect(
+      JSON.stringify(jest.mocked(identifyAnalyticsUser).mock.calls),
+    ).not.toContain("user_identify_raw");
   });
 
   it("サインアウト（userId → null）で reset する", async () => {
@@ -250,7 +244,7 @@ describe("useEventTrackingContext", () => {
     trackEvent("qr_exchange_start");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     // route group "(tabs)" を除いた残りを "/" で繋いだ値が screen になる
     expect(attributes.screen).toBe("qr");
     expect(attributes.user_key).toBe("0123456789abcdef");
@@ -264,7 +258,7 @@ describe("useEventTrackingContext", () => {
     trackEvent("qr_exchange_start");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const attributes = infoMock().mock.calls[0][1] as Record<string, string>;
+    const attributes = infoMock().mock.calls[0][1];
     // "/user/xxx" の実値ではなくルートパターンを送る
     expect(attributes.screen).toBe("user/[uid]");
   });

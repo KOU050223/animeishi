@@ -20,10 +20,12 @@ jest.mock("@/lib/annict/useAnnictConnect", () => ({
 }));
 
 const loggedFunnelCalls = () =>
-  jest.mocked(captureAnalyticsEvent).mock.calls.map(([message, attributes]) => ({
-    message,
-    attributes: attributes as Record<string, string>,
-  }));
+  jest
+    .mocked(captureAnalyticsEvent)
+    .mock.calls.map(([message, attributes]) => ({
+      message,
+      attributes,
+    }));
 
 beforeEach(async () => {
   jest.clearAllMocks();

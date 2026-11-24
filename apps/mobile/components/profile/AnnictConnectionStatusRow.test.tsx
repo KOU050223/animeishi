@@ -26,10 +26,12 @@ jest.mock("@/lib/annict/useAnnictConnection", () => ({
 }));
 
 const loggedFunnelCalls = () =>
-  jest.mocked(captureAnalyticsEvent).mock.calls.map(([message, attributes]) => ({
-    message,
-    attributes: attributes as Record<string, string>,
-  }));
+  jest
+    .mocked(captureAnalyticsEvent)
+    .mock.calls.map(([message, attributes]) => ({
+      message,
+      attributes,
+    }));
 
 const renderRow = (props?: { onShowDetails?: () => void }) =>
   render(

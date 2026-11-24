@@ -179,8 +179,7 @@ describe("useAnnictConnect (web)", () => {
     const oauthResults = jest
       .mocked(captureAnalyticsEvent)
       .mock.calls.filter(
-        ([, attrs]) =>
-          (attrs as Record<string, string>)["annict.step"] === "oauth_result",
+        ([, attrs]) => attrs["annict.step"] === "oauth_result",
       );
     expect(oauthResults).toHaveLength(0);
   });

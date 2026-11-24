@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { loadMeishiLibrary } from "@/lib/meishi/storage";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
+import { resetEventTrackingForTest } from "@/lib/events";
 import type {
   MeishiCardData,
   MeishiDocument,
@@ -52,6 +54,8 @@ async function seedLibrary(library: MeishiLibrary) {
 beforeEach(async () => {
   jest.useRealTimers();
   await AsyncStorage.clear();
+  jest.mocked(captureAnalyticsEvent).mockClear();
+  resetEventTrackingForTest();
 });
 
 afterEach(async () => {
@@ -170,6 +174,35 @@ describe("useMeishiDocument の永続化", () => {
     expect(saved2.cards).toHaveLength(1);
     expect(saved2.cards[0].id).toBe(createdId);
     expect(saved2.cards[0].document).toEqual(updatedDoc);
+  });
+
+  it("名刺が 0 枚から 1 枚目を保存したときだけ meishi_create を送る", async () => {
+    const { result } = await renderHook(() => useMeishiDocument());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    await act(async () => result.current.setDocFromTemplate(sampleDoc));
+    await act(async () => {
+      await result.current.saveDocument();
+    });
+    await waitFor(() =>
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
+        "meishi_create",
+        expect.any(Object),
+      ),
+    );
+
+    // 2 枚目（fresh）の保存では送らない
+    jest.mocked(captureAnalyticsEvent).mockClear();
+    const second = await renderHook(() => useMeishiDocument({ fresh: true }));
+    await waitFor(() => expect(second.result.current.loaded).toBe(true));
+    await act(async () => second.result.current.setDocFromTemplate(updatedDoc));
+    await act(async () => {
+      await second.result.current.saveDocument();
+    });
+    expect((await loadMeishiLibrary())?.cards).toHaveLength(2);
+    expect(captureAnalyticsEvent).not.toHaveBeenCalledWith(
+      "meishi_create",
+      expect.anything(),
+    );
   });
 
   it("reloadDocument でバインド中カードの最新ドキュメントを読み直す", async () => {

@@ -102,6 +102,7 @@ describe("キー設定時", () => {
       enableSessionReplay: false,
       disableSurveys: true,
       errorTracking: { autocapture: false },
+      disableGeoip: true,
     });
     expect(client.register).toHaveBeenCalledWith({
       environment: "development",
@@ -139,7 +140,9 @@ describe("キー設定時", () => {
 
   it("SDK の読み込みに失敗しても例外を漏らさず、次の呼び出しで再試行する", async () => {
     loaderMock.mockRejectedValueOnce(new Error("chunk load failed"));
-    await expect(captureAnalyticsEvent("app_open", {})).resolves.toBeUndefined();
+    await expect(
+      captureAnalyticsEvent("app_open", {}),
+    ).resolves.toBeUndefined();
     expect(FakePostHog.instances).toHaveLength(0);
 
     await captureAnalyticsEvent("app_open", {});

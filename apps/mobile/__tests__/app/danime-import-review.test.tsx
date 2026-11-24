@@ -14,6 +14,7 @@ import DanimeImportReviewScreen, {
   useElapsedSeconds,
 } from "@/app/danime-import-review";
 import { ApiRequestError } from "@/lib/apiError";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import {
   DANIME_EXTRACT_SCHEMA_VERSION,
@@ -398,6 +399,13 @@ describe("DanimeImportReviewScreen（既存ステータスの保護）", () => {
           },
         ],
       }),
+    );
+    // 結果画面への到達をオンボーディング完了として計測する（issue #758）。
+    await waitFor(() =>
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
+        "danime_import_complete",
+        expect.objectContaining({ succeeded: "0", failed: "1" }),
+      ),
     );
   });
 

@@ -168,10 +168,7 @@ describe("exchangeAnnictWebCallback", () => {
         expect.objectContaining({ "annict.result": "success" }),
       ),
     );
-    const [, attributes] = jest.mocked(captureAnalyticsEvent).mock.calls[0] as [
-      string,
-      Record<string, string>,
-    ];
+    const [, attributes] = jest.mocked(captureAnalyticsEvent).mock.calls[0];
     expect(attributes["annict.surface"]).toBeUndefined();
   });
 });

@@ -30,10 +30,12 @@ jest.mock("@/lib/dialog", () => ({
 }));
 
 const loggedFunnelCalls = () =>
-  jest.mocked(captureAnalyticsEvent).mock.calls.map(([message, attributes]) => ({
-    message,
-    attributes: attributes as Record<string, string>,
-  }));
+  jest
+    .mocked(captureAnalyticsEvent)
+    .mock.calls.map(([message, attributes]) => ({
+      message,
+      attributes,
+    }));
 
 // フックが useQueryClient を持つため全テストで Provider が必要。
 // QueryClient はテストごとに作って invalidateQueries を spy できるようにする。

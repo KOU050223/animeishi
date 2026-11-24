@@ -13,7 +13,7 @@ function okFetch() {
 
 function sentBody(fetchMock: ReturnType<typeof okFetch>) {
   const init = fetchMock.mock.calls[0]?.[1];
-  return JSON.parse(String(init?.body)) as Record<string, unknown> & {
+  return JSON.parse(init?.body as string) as Record<string, unknown> & {
     properties: Record<string, unknown>;
   };
 }
@@ -67,7 +67,9 @@ describe("sendServerEvent", () => {
       ),
     ).resolves.toBe(true);
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${DEFAULT_POSTHOG_HOST}/i/v0/e/`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${DEFAULT_POSTHOG_HOST}/i/v0/e/`,
+    );
     const body = sentBody(fetchMock);
     expect(body.api_key).toBe("phc_test");
     expect(body.event).toBe("exchange_complete");

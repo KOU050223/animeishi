@@ -44,7 +44,7 @@ const funnelCalls = () =>
   jest
     .mocked(captureAnalyticsEvent)
     .mock.calls.filter(([message]) => message === ANNICT_FUNNEL_EVENT)
-    .map(([, attributes]) => attributes as Record<string, string>);
+    .map(([, attributes]) => attributes);
 
 beforeEach(async () => {
   jest.clearAllMocks();
