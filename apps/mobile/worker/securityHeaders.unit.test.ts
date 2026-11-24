@@ -4,11 +4,14 @@ import {
   EXPO_ROUTER_HYDRATE_SCRIPT_HASH,
   buildContentSecurityPolicy,
   clerkFrontendApiOrigin,
+  generateCspNonce,
+  withSecurityHeaders,
 } from "./securityHeaders";
 
 // base64("clerk.animeishi.uomi.dev$")
 const CLERK_KEY = "pk_live_Y2xlcmsuYW5pbWVpc2hpLnVvbWkuZGV2JA==";
 const DSN = "https://abc123@o111.ingest.us.sentry.io/222";
+const NONCE = "dGVzdC1ub25jZQ==";
 
 function directive(csp: string, name: string): string[] {
   const found = csp
@@ -37,12 +40,15 @@ describe("clerkFrontendApiOrigin", () => {
 });
 
 describe("buildContentSecurityPolicy", () => {
-  const csp = buildContentSecurityPolicy({
-    API_ORIGIN: "https://animeishi-api.uomi.dev",
-    CLERK_PUBLISHABLE_KEY: CLERK_KEY,
-    SENTRY_DSN: DSN,
-    ENVIRONMENT: "production",
-  });
+  const csp = buildContentSecurityPolicy(
+    {
+      API_ORIGIN: "https://animeishi-api.uomi.dev",
+      CLERK_PUBLISHABLE_KEY: CLERK_KEY,
+      SENTRY_DSN: DSN,
+      ENVIRONMENT: "production",
+    },
+    NONCE,
+  );
 
   it("Clerk の読み込み元と Turnstile をスクリプトに許可する", () => {
     expect(directive(csp, "script-src")).toEqual(
@@ -54,7 +60,30 @@ describe("buildContentSecurityPolicy", () => {
     );
     expect(directive(csp, "frame-src")).toEqual([
       "https://challenges.cloudflare.com",
+      "https://*.protect.clerk.com",
     ]);
+  });
+
+  it("Clerk の Bot Protection を許可し、通信は 443 以外のポートも通す", () => {
+    expect(directive(csp, "script-src")).toContain(
+      "https://*.protect.clerk.com",
+    );
+    expect(directive(csp, "connect-src")).toContain(
+      "https://*.protect.clerk.com:*",
+    );
+  });
+
+  it("Cloudflare Web Analytics のビーコン読み込みと送信を許可する", () => {
+    expect(directive(csp, "script-src")).toContain(
+      "https://static.cloudflareinsights.com",
+    );
+    expect(directive(csp, "connect-src")).toContain(
+      "https://cloudflareinsights.com",
+    );
+  });
+
+  it("Cloudflare が挿入するインラインスクリプト向けに nonce を許可する", () => {
+    expect(directive(csp, "script-src")).toContain(`'nonce-${NONCE}'`);
   });
 
   it("API・Clerk・Sentry・zxing-wasm への通信を許可する", () => {
@@ -88,13 +117,35 @@ describe("buildContentSecurityPolicy", () => {
   });
 
   it("Clerk キーや DSN が無い環境では該当の許可先とレポート先を省く", () => {
-    const minimal = buildContentSecurityPolicy({
-      API_ORIGIN: "https://api.example.com",
-    });
+    const minimal = buildContentSecurityPolicy(
+      {
+        API_ORIGIN: "https://api.example.com",
+      },
+      NONCE,
+    );
     expect(minimal).not.toContain("report-uri");
     expect(minimal).not.toContain("undefined");
     expect(directive(minimal, "connect-src")).toContain(
       "https://api.example.com",
     );
+  });
+});
+
+describe("withSecurityHeaders", () => {
+  const nonceOf = (res: Response) =>
+    /'nonce-([^']+)'/.exec(
+      res.headers.get("content-security-policy-report-only") ?? "",
+    )?.[1];
+
+  it("応答ごとに別の nonce を CSP に入れる", () => {
+    const env = { API_ORIGIN: "https://api.example.com" };
+    const first = nonceOf(withSecurityHeaders(new Response("a"), env));
+    const second = nonceOf(withSecurityHeaders(new Response("b"), env));
+    expect(first).toBeTruthy();
+    expect(first).not.toBe(second);
+  });
+
+  it("nonce は 128 bit の乱数を base64 にしたもの", () => {
+    expect(atob(generateCspNonce())).toHaveLength(16);
   });
 });

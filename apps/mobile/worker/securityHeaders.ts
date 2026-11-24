@@ -52,6 +52,14 @@ export function clerkFrontendApiOrigin(
   return host ? `https://${host}` : undefined;
 }
 
+const CLERK_PROTECT_ORIGIN = "https://*.protect.clerk.com";
+
+/** CSP の nonce。Cloudflare が挿入するインラインスクリプトに付けさせるためリクエストごとに作る。 */
+export function generateCspNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
+}
+
 function originOf(url: string): string | undefined {
   try {
     return new URL(url).origin;
@@ -64,8 +72,14 @@ function originOf(url: string): string | undefined {
  * Web 版の CSP（issue #714。まずは Report-Only で出して違反を Sentry で集める）。
  * 許可先は実際に読み込むものだけに絞る:
  * - Clerk: Frontend API（clerk-js / UI の読み込みと API）と Bot 対策の
- *   Cloudflare Turnstile、開発インスタンスのテレメトリ
- *   （https://clerk.com/docs/guides/secure/best-practices/csp-headers）
+ *   Cloudflare Turnstile・protect.clerk.com、開発インスタンスのテレメトリ
+ *   （https://clerk.com/docs/guides/secure/best-practices/csp-headers）。
+ *   protect.clerk.com への通信は 443 以外のポートも使うため connect-src だけ :* を付ける
+ * - Cloudflare ゾーンが HTML に自動挿入するもの（issue #782）:
+ *   Web Analytics のビーコンと、Bot Fight Mode の JavaScript Detections の
+ *   インラインスクリプト。後者は中身がリクエストごとに変わりハッシュにできないが、
+ *   CSP ヘッダの nonce を Cloudflare が読み取って挿入スクリプトに付けるため nonce で許可する
+ *   （https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/#if-you-have-a-content-security-policy-csp）
  * - Sentry: DSN のホストへのイベント送信
  * - expo-camera（Web の QR 読み取り）: barcode-detector が zxing-wasm を
  *   jsDelivr から取得して WebAssembly としてコンパイルする
@@ -73,7 +87,10 @@ function originOf(url: string): string | undefined {
  *   列挙できず https: で許可する（Kitsu / MAL 由来は API の /images/works/:id が配信）
  * - style-src の 'unsafe-inline' は react-native-web が実行時に <style> を挿入するため
  */
-export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
+export function buildContentSecurityPolicy(
+  env: SecurityHeadersEnv,
+  nonce: string,
+): string {
   const clerk = clerkFrontendApiOrigin(env.CLERK_PUBLISHABLE_KEY);
   const sentry = sentryIngestOrigin(env.SENTRY_DSN);
   const api = originOf(env.API_ORIGIN);
@@ -85,9 +102,12 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
       [
         "'self'",
         EXPO_ROUTER_HYDRATE_SCRIPT_HASH,
+        `'nonce-${nonce}'`,
         "'wasm-unsafe-eval'",
         clerk,
         "https://challenges.cloudflare.com",
+        CLERK_PROTECT_ORIGIN,
+        "https://static.cloudflareinsights.com",
       ],
     ],
     ["style-src", ["'self'", "'unsafe-inline'"]],
@@ -100,6 +120,8 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
         api,
         clerk,
         "https://clerk-telemetry.com",
+        `${CLERK_PROTECT_ORIGIN}:*`,
+        "https://cloudflareinsights.com",
         sentry,
         "https://fastly.jsdelivr.net",
         "data:",
@@ -107,7 +129,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
       ],
     ],
     ["worker-src", ["'self'", "blob:"]],
-    ["frame-src", ["https://challenges.cloudflare.com"]],
+    ["frame-src", ["https://challenges.cloudflare.com", CLERK_PROTECT_ORIGIN]],
     ["object-src", ["'none'"]],
     ["base-uri", ["'self'"]],
     ["form-action", ["'self'"]],
@@ -139,7 +161,7 @@ export function withSecurityHeaders(
   if (!headers.has("Content-Security-Policy-Report-Only")) {
     headers.set(
       "Content-Security-Policy-Report-Only",
-      buildContentSecurityPolicy(env),
+      buildContentSecurityPolicy(env, generateCspNonce()),
     );
   }
   return new Response(res.body, {
