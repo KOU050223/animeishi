@@ -151,9 +151,13 @@ const friends = app
       // 交換の成立（issue #758）。qr_exchange_start との比で完了率を出すため、
       // クライアントの送信漏れに左右されないようサーバーで記録する。
       // 成立のたびに交換記録（exchange-records）が積まれるのもここ。
-      captureServerEvent(c, "exchange_complete", c.var.clerkUserId, {
-        [TRACK_EVENT_KEYS.token]: exchangeToken,
-      });
+      // QR を見せた側も qr_exchange_start を送るので、両者の完了として記録する
+      // （読み取り側だけだと提示側が離脱扱いになる）。
+      for (const userId of [c.var.clerkUserId, friendId]) {
+        captureServerEvent(c, "exchange_complete", userId, {
+          [TRACK_EVENT_KEYS.token]: exchangeToken,
+        });
+      }
       return c.json(result, 201);
     } catch (e) {
       if (e instanceof FriendNotFoundError) {
