@@ -207,7 +207,7 @@ The account can be deleted inside the app without contacting support: open the "
 
 ### トラッキング（Data Used to Track You）
 
-**なし。** 広告 SDK・広告目的のデータ共有・IDFA 取得はなく、App Tracking Transparency の表示も不要（依存パッケージに広告・計測系は `@sentry/react-native` のみ）。
+**なし。** 広告 SDK・広告目的のデータ共有・IDFA 取得はなく、App Tracking Transparency の表示も不要（依存パッケージの計測系は `@sentry/react-native`（エラー監視）と `posthog-react-native`（プロダクト計測。自社の分析にだけ使い、他社データとの結合・広告・データブローカーへの提供はしない）のみ）。
 
 ### ユーザーに紐づくデータ（Data Linked to the User）
 
@@ -215,10 +215,10 @@ The account can be deleted inside the app without contacting support: open the "
 | --- | --- | --- |
 | Contact Info → Email Address | サインアップ時に入力。Clerk が管理（`app/(auth)/sign-up.tsx`） | App Functionality |
 | Contact Info → Name | ユーザー名（サインアップ・プロフィールで入力） | App Functionality |
-| Identifiers → User ID | Clerk のアカウント ID。Sentry の UI イベントには生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を付与（`lib/events.ts`） | App Functionality / Analytics |
+| Identifiers → User ID | Clerk のアカウント ID。PostHog には生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を distinct_id として送る（`lib/events.ts`、API は `src/lib/posthog.ts`）。user key は同一利用者のイベントを結び付ける ID のため Analytics 目的でも申告する | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
 | User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
-| Usage Data → Product Interaction | 画面・主要操作イベントを Sentry Logs に送信（platform・アプリ版・screen・イベント属性 + 仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キー経由で紐づく Sentry 側があるため全体として「紐づく」で申告する | Analytics |
+| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）
 

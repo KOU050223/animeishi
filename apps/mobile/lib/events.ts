@@ -1,18 +1,25 @@
-// 汎用 UI イベント計測（issue #214）。主要ボタンの押下を Sentry Logs へ送る。
-// #64 の Annict ファネル計測（lib/annict/funnel.ts）の送信経路を汎用化した
-// もので、PII 非送信・userId のハッシュ化・fire-and-forget・送信失敗で
-// UI を止めない性質は共通。annict_connect_funnel もこの経路で送る
-// （イベント名・属性は既存ダッシュボード互換のため変えない）。
+// プロダクト計測（issue #214 / #758）。主要操作・起動・オンボーディングの
+// イベントを PostHog へ送る（送信クライアントは lib/analytics）。
+// PII 非送信・userId のハッシュ化・fire-and-forget・送信失敗で UI を止めない
+// 性質は #64 の Annict ファネル計測から引き継いでいる。
+// annict_connect_funnel もこの経路で送る。
 // イベント名・属性キーの一覧は @animeishi/observability、設計は
-// docs/08_observability-design.md の「UI イベント計測」節を参照。
+// docs/08_observability-design.md の「プロダクト計測」節を参照。
 import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import Constants from "expo-constants";
-import { logInfo } from "@/lib/observability";
+import {
+  captureAnalyticsEvent,
+  flushAnalytics,
+  identifyAnalyticsUser,
+  resetAnalyticsUser,
+} from "@/lib/analytics";
 import {
   ANNICT_FUNNEL_EVENT,
   EventRateLimiter,
   TRACK_EVENT_ATTRS,
+  userKeyDigestInput,
+  userKeyFromDigest,
   type TrackedEventName,
 } from "@animeishi/observability";
 
@@ -31,7 +38,7 @@ export type TrackEventOptions = {
   /** ハッシュ済み userId を書き込む属性キー（既定 user_key）。 */
   userKeyAttr?: string;
   /**
-   * 自動属性（event.name / platform / app_version / screen）を付けるか
+   * 自動属性（platform / app_version / screen）を付けるか
    * （既定 true）。annict_connect_funnel は既存の属性セットを変えないため
    * false で呼び、platform は呼び出し側が付ける。
    */
@@ -51,7 +58,7 @@ export type TrackEventOptions = {
 };
 
 // 進行中の送信を追跡する（Web のページ遷移前に flushTrackedEvents で
-// バッファへ乗るのを待つため）。send は例外を握りつぶすので Promise は
+// SDK のキューへ乗るのを待つため）。send は例外を握りつぶすので Promise は
 // 常に成功で解決する。
 const pendingSends = new Set<Promise<void>>();
 
@@ -70,12 +77,15 @@ const eventContext = {
 
 // 計測コンテキストの同期。useEventTrackingContext（ルートレイアウトで
 // 1 度だけ呼ばれる）からのみ呼ぶ。指定したキーだけ更新する。
+// userId の変化は PostHog の identify / reset にも反映する。
 export function setEventContext(partial: {
   userId?: string | null;
   screen?: string;
 }): void {
   if ("userId" in partial) {
+    const previous = eventContext.userId;
     eventContext.userId = partial.userId;
+    syncAnalyticsIdentity(previous, partial.userId);
   }
   if ("screen" in partial) {
     eventContext.screen = partial.screen;
@@ -96,11 +106,31 @@ export function trackEvent(
   void promise.finally(() => pendingSends.delete(promise));
 }
 
-// 進行中のイベント送信が Sentry のログバッファへ乗るのを待つ。
-// Web はページ遷移でバッファごと捨てられるため、遷移前にこれと
-// Sentry.flush() を呼んで消失を防ぐ（issue #64 と同じ理由）。
+// 進行中のイベント送信を SDK のキューへ乗せてから送信する。
+// Web はページ遷移でキューごと捨てられるため、遷移前に呼んで消失を防ぐ
+// （issue #64 と同じ理由）。
 export async function flushTrackedEvents(): Promise<void> {
   await Promise.all(pendingSends);
+  await flushAnalytics();
+}
+
+// サインインしたらハッシュ済み user key で identify し、サインアウトしたら
+// reset して次の利用者のイベントと混ざらないようにする（issue #758）。
+// undefined は Clerk の読み込み中なので何もしない。
+function syncAnalyticsIdentity(
+  previous: string | null | undefined,
+  next: string | null | undefined,
+): void {
+  if (next) {
+    void hashedUserKey(next).then((userKey) => {
+      // ハッシュ化の間にサインアウト・切り替えが起きたら古い値で identify しない。
+      if (userKey && eventContext.userId === next) {
+        return identifyAnalyticsUser(userKey);
+      }
+    });
+  } else if (next === null && previous) {
+    void resetAnalyticsUser();
+  }
 }
 
 async function send(
@@ -111,9 +141,6 @@ async function send(
   try {
     const attrs: Record<string, string> = { ...attributes };
     if (options?.autoAttributes ?? true) {
-      attrs[TRACK_EVENT_ATTRS.name] = name;
-      // beforeSend（finalizeEvent）はエラーイベントにだけ効くため、
-      // ログ側では platform を属性として自分で付ける。
       attrs[TRACK_EVENT_ATTRS.platform] = Platform.OS;
       attrs[TRACK_EVENT_ATTRS.appVersion] =
         Constants.expoConfig?.version ?? "dev";
@@ -130,19 +157,14 @@ async function send(
         attrs[options?.userKeyAttr ?? TRACK_EVENT_ATTRS.userKey] = userKey;
       }
     }
-    logInfo(name, attrs);
+    await captureAnalyticsEvent(name, attrs);
   } catch {
     // 計測送信の失敗は握りつぶす（UI 操作に影響させない）。
   }
 }
 
-// Clerk userId の生値を送らず、ソルト付き SHA-256 の先頭だけを擬似キーにする。
-// ソルトは Annict ファネル計測（issue #64）から据え置く。変えると
-// annict.user_key の過去分と値が変わって同一ユーザー追跡が切れる上、
-// 共有することで UI イベントの user_key と突き合わせられる。
-const USER_KEY_SALT = "animeishi-annict-funnel-v1:";
-const USER_KEY_LENGTH = 16;
-
+// Clerk userId の生値を送らず、ソルト付き SHA-256 の先頭だけを擬似キーにする
+// （ソルトと長さは API のサーバー記録と共有。@animeishi/observability の userKey.ts）。
 // 同一ユーザーのイベントごとに digest を取り直さないよう結果をキャッシュする。
 const userKeyCache = new Map<string, Promise<string | undefined>>();
 
@@ -155,10 +177,10 @@ function hashedUserKey(userId: string): Promise<string | undefined> {
     .then(() =>
       Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
-        USER_KEY_SALT + userId,
+        userKeyDigestInput(userId),
       ),
     )
-    .then((digest) => digest.slice(0, USER_KEY_LENGTH))
+    .then(userKeyFromDigest)
     .catch(() => undefined);
   userKeyCache.set(userId, promise);
   // 失敗（undefined 解決）はキャッシュに残さない。残すと一時的な障害のあと

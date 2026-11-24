@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import {
   ANNICT_FUNNEL_EVENT,
   EVENT_RATE_LIMIT,
@@ -18,7 +18,7 @@ jest.mock("expo-crypto", () => ({
   ),
 }));
 
-const infoMock = () => jest.mocked(Sentry.logger.info);
+const infoMock = () => jest.mocked(captureAnalyticsEvent);
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -29,7 +29,7 @@ beforeEach(async () => {
 });
 
 describe("trackAnnictFunnel", () => {
-  it("step / surface / platform を属性に付けて Sentry Logs へ送る", async () => {
+  it("step / surface / platform を属性に付けて送る", async () => {
     trackAnnictFunnel({ step: "prompt_view", surface: "anime_list" });
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
@@ -104,7 +104,7 @@ describe("trackAnnictFunnel", () => {
       trackAnnictFunnel({ step: "prompt_view" });
     }
     trackAnnictFunnel({ step: "cta_tap" });
-    trackAnnictFunnel({ step: "oauth_result", result: "success" });
+    trackAnnictFunnel({ step: "oauth_result", result: "error" });
 
     await waitFor(() =>
       expect(infoMock()).toHaveBeenCalledTimes(
@@ -119,6 +119,26 @@ describe("trackAnnictFunnel", () => {
     );
     expect(steps).toContain("cta_tap");
     expect(steps).toContain("oauth_result");
+  });
+});
+
+describe("annict_connect_complete", () => {
+  it("oauth_result が success のときだけ連携完了イベントも送る", async () => {
+    trackAnnictFunnel({
+      step: "oauth_result",
+      surface: "anime_list",
+      result: "success",
+    });
+    trackAnnictFunnel({ step: "oauth_result", result: "cancelled" });
+
+    await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(3));
+    const completes = infoMock().mock.calls.filter(
+      (c) => c[0] === "annict_connect_complete",
+    );
+    expect(completes).toHaveLength(1);
+    expect((completes[0][1] as Record<string, string>).surface).toBe(
+      "anime_list",
+    );
   });
 });
 

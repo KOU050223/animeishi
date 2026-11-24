@@ -10,6 +10,11 @@ export type SecurityHeadersEnv = {
   CLERK_PUBLISHABLE_KEY?: string;
   /** EXPO_PUBLIC_SENTRY_DSN と同じ値。デプロイ時に --var で渡す。 */
   SENTRY_DSN?: string;
+  /**
+   * PostHog の送信先ホスト（EXPO_PUBLIC_POSTHOG_HOST と同じ値）。
+   * EXPO_PUBLIC_POSTHOG_KEY を設定したビルドのときだけデプロイ時に --var で渡す。
+   */
+  POSTHOG_HOST?: string;
   ENVIRONMENT?: string;
 };
 
@@ -67,6 +72,7 @@ function originOf(url: string): string | undefined {
  *   Cloudflare Turnstile、開発インスタンスのテレメトリ
  *   （https://clerk.com/docs/guides/secure/best-practices/csp-headers）
  * - Sentry: DSN のホストへのイベント送信
+ * - PostHog: プロダクト計測の送信と機能フラグの取得（issue #758）
  * - expo-camera（Web の QR 読み取り）: barcode-detector が zxing-wasm を
  *   jsDelivr から取得して WebAssembly としてコンパイルする
  * - 画像: Annict 由来の作品画像は公式サイト等の任意ホストを指すためホストを
@@ -77,6 +83,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
   const clerk = clerkFrontendApiOrigin(env.CLERK_PUBLISHABLE_KEY);
   const sentry = sentryIngestOrigin(env.SENTRY_DSN);
   const api = originOf(env.API_ORIGIN);
+  const posthog = env.POSTHOG_HOST ? originOf(env.POSTHOG_HOST) : undefined;
   const reportUri = buildCspReportUri(env.SENTRY_DSN, env.ENVIRONMENT);
   const directives: [string, (string | undefined)[]][] = [
     ["default-src", ["'self'"]],
@@ -101,6 +108,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
         clerk,
         "https://clerk-telemetry.com",
         sentry,
+        posthog,
         "https://fastly.jsdelivr.net",
         "data:",
         "blob:",

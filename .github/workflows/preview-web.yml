@@ -55,6 +55,9 @@ jobs:
           EXPO_PUBLIC_ANNICT_CLIENT_ID: ${{ vars.EXPO_PUBLIC_ANNICT_CLIENT_ID }}
           EXPO_PUBLIC_ENVIRONMENT: preview
           EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          # プロダクト計測（issue #758）。未登録なら空になり、計測は何もしない（no-op）
+          EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.EXPO_PUBLIC_POSTHOG_KEY }}
+          EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST }}
           # App Store 審査・Expo Explore 用デモアカウント（apps/mobile/lib/reviewAccount.ts）。
           # 秘密ではない。native は eas.json に同じ値を持つ
           EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL: ${{ vars.EXPO_PUBLIC_REVIEW_ACCOUNT_EMAIL || 'animeishi-demodemo-account@uomi.dev' }}
@@ -76,12 +79,15 @@ jobs:
           WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN || 'uozumi05' }}
           CLERK_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY_PREVIEW }}
           SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          POSTHOG_KEY: ${{ vars.EXPO_PUBLIC_POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com' }}
         run: |
           set -euo pipefail
 
           csp_vars=(--var "ENVIRONMENT:preview")
           [ -n "$CLERK_PUBLISHABLE_KEY" ] && csp_vars+=(--var "CLERK_PUBLISHABLE_KEY:${CLERK_PUBLISHABLE_KEY}")
           [ -n "$SENTRY_DSN" ] && csp_vars+=(--var "SENTRY_DSN:${SENTRY_DSN}")
+          [ -n "$POSTHOG_KEY" ] && csp_vars+=(--var "POSTHOG_HOST:${POSTHOG_HOST}")
 
           deploy_output="$(pnpm --filter @animeishi/mobile exec wrangler versions upload --env production --preview-alias "$PREVIEW_ALIAS" --var "API_ORIGIN:${API_PREVIEW_URL}" --var "SHARE_FORWARD_VIA_FETCH:true" "${csp_vars[@]}" 2>&1)"
           printf '%s\n' "$deploy_output"

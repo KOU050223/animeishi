@@ -1,7 +1,12 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { EVENT_RATE_LIMIT } from "@animeishi/observability";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import {
+  flushAnalytics,
+  identifyAnalyticsUser,
+  resetAnalyticsUser,
+} from "@/lib/analytics/client";
 import {
   flushTrackedEvents,
   resetEventTrackingForTest,
@@ -26,7 +31,7 @@ jest.mock("expo-router", () => ({
   useSegments: () => mockSegments(),
 }));
 
-const infoMock = () => jest.mocked(Sentry.logger.info);
+const infoMock = () => jest.mocked(captureAnalyticsEvent);
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -36,7 +41,7 @@ beforeEach(async () => {
 });
 
 describe("trackEvent", () => {
-  it("イベント名を message と event.name 属性に付けて送る", async () => {
+  it("イベント名と自動属性を付けて送る", async () => {
     trackEvent("meishi_save");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
@@ -45,7 +50,6 @@ describe("trackEvent", () => {
       Record<string, string>,
     ];
     expect(message).toBe("meishi_save");
-    expect(attributes["event.name"]).toBe("meishi_save");
     expect(attributes.platform).toEqual(expect.any(String));
     expect(attributes.app_version).toEqual(expect.any(String));
   });
@@ -178,12 +182,63 @@ describe("trackEvent", () => {
     expect(names).toContain("meishi_save");
   });
 
-  it("Sentry 送信自体が例外を投げても呼び出し側へ漏れない", async () => {
+  it("送信自体が例外を投げても呼び出し側へ漏れない", async () => {
     infoMock().mockImplementationOnce(() => {
-      throw new Error("sentry down");
+      throw new Error("posthog down");
     });
     expect(() => trackEvent("meishi_save")).not.toThrow();
     await flushTrackedEvents();
+  });
+});
+
+describe("flushTrackedEvents", () => {
+  it("進行中の送信を待ってから SDK のキューを送信する", async () => {
+    trackEvent("meishi_save");
+    await flushTrackedEvents();
+    expect(infoMock()).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(flushAnalytics)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PostHog の identify / reset", () => {
+  it("サインインしたらハッシュ済み user key で identify し、生の userId は渡さない", async () => {
+    setEventContext({ userId: "user_identify_raw" });
+
+    await waitFor(() =>
+      expect(jest.mocked(identifyAnalyticsUser)).toHaveBeenCalledWith(
+        "0123456789abcdef",
+      ),
+    );
+    expect(JSON.stringify(jest.mocked(identifyAnalyticsUser).mock.calls)).not.toContain(
+      "user_identify_raw",
+    );
+  });
+
+  it("サインアウト（userId → null）で reset する", async () => {
+    setEventContext({ userId: "user_signout" });
+    setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+  });
+
+  it("未サインインのまま（undefined → null）は reset しない", async () => {
+    setEventContext({ userId: undefined });
+    setEventContext({ userId: null });
+
+    expect(jest.mocked(resetAnalyticsUser)).not.toHaveBeenCalled();
+  });
+
+  it("ハッシュ化の間にサインアウトしたら古いユーザーで identify しない", async () => {
+    setEventContext({ userId: "user_stale" });
+    setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+    await flushTrackedEvents();
+    expect(jest.mocked(identifyAnalyticsUser)).not.toHaveBeenCalled();
   });
 });
 

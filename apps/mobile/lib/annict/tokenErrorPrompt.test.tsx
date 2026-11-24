@@ -1,7 +1,7 @@
 import React from "react";
 import { renderHook, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
@@ -30,7 +30,7 @@ jest.mock("@/lib/dialog", () => ({
 }));
 
 const loggedFunnelCalls = () =>
-  jest.mocked(Sentry.logger.info).mock.calls.map(([message, attributes]) => ({
+  jest.mocked(captureAnalyticsEvent).mock.calls.map(([message, attributes]) => ({
     message,
     attributes: attributes as Record<string, string>,
   }));

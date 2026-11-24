@@ -1,11 +1,10 @@
 // Annict 連携ファネルの計測（issue #64）。ブラウザバック等で連携を
-// やめる層を含め、「誘導の表示 → CTA タップ → OAuth 結果」を Sentry Logs で
-// 追えるようにする。
-// 送信経路は汎用 UI イベント計測（lib/events.ts、issue #214）に共通化。
-// イベント名・属性は既存ダッシュボードとの互換のため変えない
-// （platform は呼び出し側で付けるため汎用経路側の自動付与は無効化する）。
+// やめる層を含め、「誘導の表示 → CTA タップ → OAuth 結果」を追えるようにする。
+// 送信経路は汎用のプロダクト計測（lib/events.ts、issue #214 / #758）に共通化。
+// 属性セットは #64 のまま（platform は呼び出し側で付けるため汎用経路側の
+// 自動付与は無効化する）。
 // Web は OAuth 画面へその場で遷移するため、遷移前に flushAnnictFunnel で
-// 送信済み分をバッファへ乗せてから Sentry.flush() する。
+// 送信待ちを流す。
 import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { useAuth } from "@clerk/expo";
@@ -15,6 +14,7 @@ import {
   type AnnictFunnelResult,
   type AnnictFunnelStep,
   type AnnictFunnelSurface,
+  TRACK_EVENT_KEYS,
 } from "@animeishi/observability";
 import { flushTrackedEvents, trackEvent } from "@/lib/events";
 
@@ -37,8 +37,6 @@ export type AnnictFunnelInput = {
 export function trackAnnictFunnel(input: AnnictFunnelInput): void {
   const attributes: Record<string, string> = {
     [ANNICT_FUNNEL_ATTRS.step]: input.step,
-    // beforeSend（finalizeEvent）はエラーイベントにだけ効くため、
-    // ログ側では platform を属性として自分で付ける。
     platform: Platform.OS,
   };
   if (input.surface) {
@@ -63,11 +61,19 @@ export function trackAnnictFunnel(input: AnnictFunnelInput): void {
     // ようにする（ファネル集計の完全性を守る）。
     rateLimitKey: `${ANNICT_FUNNEL_EVENT}:${input.step}`,
   });
+  // オンボーディングの完了率（issue #758）はファネルの step 属性で絞らずに
+  // 読めるよう、連携成功を独立したイベントでも送る。
+  if (input.step === "oauth_result" && input.result === "success") {
+    trackEvent(
+      "annict_connect_complete",
+      input.surface ? { [TRACK_EVENT_KEYS.surface]: input.surface } : undefined,
+      { userId: input.userId ?? undefined },
+    );
+  }
 }
 
-// 進行中のファネルイベント送信が Sentry のログバッファへ乗るのを待つ。
-// Web は OAuth 画面への遷移でバッファごと捨てられるため、遷移前にこれと
-// Sentry.flush() を呼んで消失を防ぐ。
+// 進行中のファネルイベントを送信しきる。Web は OAuth 画面への遷移で
+// 送信待ちのキューごと捨てられるため、遷移前に呼んで消失を防ぐ。
 export async function flushAnnictFunnel(): Promise<void> {
   await flushTrackedEvents();
 }

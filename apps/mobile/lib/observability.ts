@@ -41,14 +41,6 @@ export function captureException(error: unknown): void {
   Sentry.captureException(error);
 }
 
-// UI イベント計測（lib/events.ts）の送信先。
-export function logInfo(
-  name: string,
-  attributes: Record<string, string>,
-): void {
-  Sentry.logger.info(name, attributes);
-}
-
 // ページ遷移前に送信待ちのイベントを流す（lib/annict/useAnnictConnect.web.ts）。
 export function flushSentry(): Promise<boolean> {
   return Sentry.flush();

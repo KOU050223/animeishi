@@ -1,10 +1,10 @@
 // Annict 連携ファネルの計測イベント名と属性キー（issue #64）。
 // 「連携誘導の表示 → CTA タップ → OAuth 完了」のコンバージョンと
-// 未連携ユーザーの離脱ポイントを Sentry Logs で集計する。
+// 未連携ユーザーの離脱ポイントを PostHog で集計する（issue #758 で Sentry Logs から移行）。
 // イベントは 1 本の名前で送り、step 属性で段階を識別する。
 
-// イベント名。Sentry Logs の Explore で `message = annict_connect_funnel` に
-// 絞って step 別・surface 別に集計する想定。
+// イベント名。PostHog で `annict_connect_funnel` に絞って
+// step 別・surface 別に集計する想定。
 export const ANNICT_FUNNEL_EVENT = "annict_connect_funnel";
 
 // ファネルの段階。

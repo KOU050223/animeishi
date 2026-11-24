@@ -24,7 +24,9 @@ import type { ListRenderItem } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
-import { featureFlags } from "@/lib/featureFlags";
+import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
+import { trackEvent } from "@/lib/events";
+import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import {
   useBulkRegisterWatchHistory,
   useCreateDanimeEpisodeJob,
@@ -187,6 +189,7 @@ export default function DanimeImportReviewScreen() {
   const colors = useThemeColors();
   const lists = useDanimeImportStore((s) => s.lists);
   const setLists = useDanimeImportStore((s) => s.setLists);
+  const danimeImportEnabled = useDanimeImportEnabled();
 
   const match = useDanimeMatch();
   const bulk = useBulkRegisterWatchHistory();
@@ -334,8 +337,9 @@ export default function DanimeImportReviewScreen() {
     [currentStates, toggleRow, selectCandidate],
   );
 
-  // v1.0 ではネイティブで無効化（#158）。直接遷移されてもホームへ戻す。
-  if (!featureFlags.danimeImport) {
+  // v1.0 ではネイティブで無効化（#158）。停止スイッチ（#758）中も含め、
+  // 直接遷移されてもホームへ戻す。
+  if (!danimeImportEnabled) {
     return <Redirect href="/(tabs)/library?section=history" />;
   }
 
@@ -389,9 +393,16 @@ export default function DanimeImportReviewScreen() {
       }
       setEpisodeJobPending(false);
     }
+    const succeeded = res.results.filter((r) => r.ok).length;
+    const failed = res.results.filter((r) => !r.ok).length;
+    // オンボーディングの完了率（issue #758）。結果画面に到達した時点を完了とする。
+    trackEvent("danime_import_complete", {
+      [TRACK_EVENT_KEYS.succeeded]: String(succeeded),
+      [TRACK_EVENT_KEYS.failed]: String(failed),
+    });
     setDoneResult({
-      succeeded: res.results.filter((r) => r.ok).length,
-      failed: res.results.filter((r) => !r.ok).length,
+      succeeded,
+      failed,
       aborted: res.aborted,
       requestError: res.requestError,
       requestErrorStatus: res.requestErrorStatus,

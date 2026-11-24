@@ -143,6 +143,9 @@ bucket_name = "animeishi-avatars"
 # Discord 障害通知の重複抑止（src/lib/discordAlert.ts）。印を 30 分 TTL で置くだけ。
 # Webhook URL は `wrangler secret put DISCORD_WEBHOOK_URL --env production` で登録する。
 # preview / ローカルは Webhook を置かないため未バインド（通知自体が no-op）。
+# サーバー側のプロダクト計測（src/lib/posthog.ts、issue #758）の PostHog キーは
+# `wrangler secret put POSTHOG_KEY --env production` で登録する（コミットしない）。
+# 送信先を変えるときだけ POSTHOG_HOST も secret か var で足す。未登録なら送信は no-op。
 [[env.production.kv_namespaces]]
 binding = "ALERT_STATE"
 id = "fb229fd4fc634a53a2a0f30b912feb94"

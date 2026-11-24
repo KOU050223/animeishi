@@ -26,7 +26,7 @@ import { ApiRequestError } from "@/lib/apiError";
 import { alert, confirm } from "@/lib/dialog";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
-import { featureFlags } from "@/lib/featureFlags";
+import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { useAnnictConnection } from "@/lib/annict";
 import { AnnictSoftGate } from "@/components/AnnictSoftGate";
 import { WatchHistoryShareSection } from "@/components/watch-history/WatchHistoryShareSection";
@@ -107,6 +107,7 @@ export function WatchHistorySection() {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const danimeImportEnabled = useDanimeImportEnabled();
   const [refreshing, setRefreshing] = useState(false);
   // 「リストに追加」シートの対象作品（issue #379）。
   const [listTarget, setListTarget] = useState<WatchHistoryItem | null>(null);
@@ -456,8 +457,9 @@ export function WatchHistorySection() {
                   : t("{{count}} 件", { count: enriched.length })}
               </Text>
               {/* dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。ネイティブで
-                  フラグが無効な間は導線を出さない。 */}
-              {featureFlags.danimeImport && (
+                  フラグが無効な間・停止スイッチ（#758）が入っている間は
+                  導線を出さない。 */}
+              {danimeImportEnabled && (
                 <TouchableOpacity
                   className="bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5"
                   onPress={() => router.push("/danime-import")}
