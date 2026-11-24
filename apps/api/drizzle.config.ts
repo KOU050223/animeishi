@@ -1,24 +1,23 @@
 import { defineConfig } from "drizzle-kit";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { parse } from "smol-toml";
+import {
+  localD1DatabaseIds,
+  resolveLocalD1Sqlite,
+} from "./scripts/local-d1-sqlite.mjs";
 
-// wrangler dev が生成するローカルD1のSQLiteファイルを動的に解決する
-// ハッシュ値はwrangler起動ごとに変わらないが、念のため glob で取得する
+// wrangler dev が生成するローカルD1のSQLiteファイルは
+// .wrangler/state/v3/d1/<uniqueKey>/<objectId>.sqlite に置かれる。
+// objectId は database_id から計算できるため（workerd の idFromName と同じ）、
+// 設定外の古いファイルが残っていても今の wrangler.toml に対応する
+// ファイルを特定できる（issue #763）。
 const D1_DIR = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
-const sqliteFiles = existsSync(D1_DIR)
-  ? readdirSync(D1_DIR).filter(
-      (f) => f.endsWith(".sqlite") && f !== "metadata.sqlite",
-    )
-  : [];
 
-if (sqliteFiles.length !== 1) {
-  throw new Error(
-    sqliteFiles.length === 0
-      ? `ローカルD1のSQLiteファイルが見つかりません。先に 'pnpm dev' を一度起動してください。`
-      : `ローカルD1のSQLiteファイルを1つに絞れません: ${sqliteFiles.join(", ")}`,
-  );
-}
-
-const [sqliteFile] = sqliteFiles;
+const wranglerConfig = parse(readFileSync("wrangler.toml", "utf8"));
+const sqliteFile = resolveLocalD1Sqlite(
+  localD1DatabaseIds(wranglerConfig),
+  existsSync(D1_DIR) ? readdirSync(D1_DIR) : [],
+);
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
