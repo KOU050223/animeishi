@@ -78,16 +78,13 @@ export async function fetchAnnictWorkEpisodes(
       : undefined;
     if (!work) return null;
 
-    for (const node of work.episodes?.nodes ?? []) {
-      // 欠けた話を除いた一覧を「全話」として返すと、呼び出し側の
-      // 期待記録数が過少になり未取得の既存ログが消えうるため失敗にする。
-      if (!node) {
-        throw new AnnictApiError(
-          "Annict work episodes returned null episode",
-          502,
-          { annictWorkId },
-        );
-      }
+    // nodes 欠損・null 要素を含む一覧を「全話」として返すと、呼び出し側の
+    // 期待記録数が過少になり未取得の既存ログが消えうるため失敗にする。
+    const episodeNodes =
+      work.episodes == null
+        ? []
+        : requireAnnictNodes(work.episodes.nodes, "Work.episodes");
+    for (const node of episodeNodes) {
       episodes.push({
         annictEpisodeId: node.annictId,
         nodeId: node.id,
@@ -218,24 +215,19 @@ export async function fetchAnnictWorksEpisodesBatch(
     }
     return {
       annictWorkId: work.annictId,
-      episodes: (work.episodes?.nodes ?? []).map((node) => {
-        if (!node) {
-          throw new AnnictApiError(
-            "Annict works episodes returned null episode",
-            502,
-          );
-        }
-        return {
-          annictEpisodeId: node.annictId,
-          nodeId: node.id,
-          number: node.number,
-          numberText: node.numberText,
-          sortNumber: node.sortNumber,
-          title: node.title,
-          viewerDidTrack: node.viewerDidTrack,
-          viewerRecordsCount: node.viewerRecordsCount,
-        };
-      }),
+      episodes: (work.episodes == null
+        ? []
+        : requireAnnictNodes(work.episodes.nodes, "Work.episodes")
+      ).map((node) => ({
+        annictEpisodeId: node.annictId,
+        nodeId: node.id,
+        number: node.number,
+        numberText: node.numberText,
+        sortNumber: node.sortNumber,
+        title: node.title,
+        viewerDidTrack: node.viewerDidTrack,
+        viewerRecordsCount: node.viewerRecordsCount,
+      })),
       hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
     };
   });
@@ -270,15 +262,10 @@ export async function fetchAnnictWorksEpisodeIds(
     }
     return {
       annictWorkId: work.annictId,
-      episodeIds: (work.episodes?.nodes ?? []).map((e) => {
-        if (!e) {
-          throw new AnnictApiError(
-            "Annict works episodeIds returned null episode",
-            502,
-          );
-        }
-        return e.annictId;
-      }),
+      episodeIds: (work.episodes == null
+        ? []
+        : requireAnnictNodes(work.episodes.nodes, "Work.episodes")
+      ).map((e) => e.annictId),
       hasMoreEpisodes: work.episodes?.pageInfo.hasNextPage ?? false,
     };
   });

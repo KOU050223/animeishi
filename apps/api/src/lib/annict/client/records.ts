@@ -85,6 +85,8 @@ export async function fetchAnnictViewerRecords(
     viewerAnnictId = data.viewer?.annictId ?? null;
 
     const connection = data.viewer?.records;
+    // コネクション・nodes の欠損は内容不明のページとして部分取得扱いにする
+    if (connection?.nodes == null) sawNullRecord = true;
     for (const node of connection?.nodes ?? []) {
       if (!node?.episode || !node.work) {
         sawNullRecord = true;

@@ -2,7 +2,7 @@ import { withAnnictRetry } from "../retry";
 import type { AnnictRetryOptions } from "../retry";
 import { isPersistableState } from "../statusState";
 import type { AnnictStatusState } from "../statusState";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
 import type { AnnictResult } from "./tada";
 import {
   normalizeAnnictSeasonName,
@@ -208,16 +208,12 @@ export async function fetchAnnictViewerStatusStates(
         ),
       retryOptions,
     );
-    for (const node of data.searchWorks?.nodes ?? []) {
-      // null 要素はその作品の現在ステータスを確認できなかったことを意味し、
-      // ここで飛ばすと呼び出し側が「未登録」と誤認して既存ステータスを
-      // 上書きしうるため失敗にする。
-      if (!node) {
-        throw new AnnictApiError(
-          "Annict viewerStatusState returned null work",
-          502,
-        );
-      }
+    // nodes 欠損・null 要素はステータス未確認の作品が紛れていることを
+    // 意味し、「未登録」と誤認して既存ステータスを上書きしうるため失敗にする。
+    const nodes = data.searchWorks
+      ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks")
+      : [];
+    for (const node of nodes) {
       if (isPersistableState(node.viewerStatusState)) {
         states.set(node.annictId, node.viewerStatusState);
       }
