@@ -15,6 +15,321 @@
       "when": 1782376792089,
       "tag": "0001_regular_warbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793058312000,
+      "tag": "0002_annict_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793058312001,
+      "tag": "0003_annict_work_node_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793058312002,
+      "tag": "0004_annict_tokens",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793058312003,
+      "tag": "0005_annict_image_fallback",
+      "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793058312004,
+      "tag": "0006_tier_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793058312005,
+      "tag": "0007_annict_image_fallback_attempted_at",
+      "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793058312006,
+      "tag": "0008_tier_list_share_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793058312007,
+      "tag": "0009_reports_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793058312008,
+      "tag": "0010_deleted_users",
+      "breakpoints": false
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793058312009,
+      "tag": "0011_work_image_r2_key",
+      "breakpoints": false
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793058312010,
+      "tag": "0012_character_tier_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793058312011,
+      "tag": "0013_report_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793058312012,
+      "tag": "0014_analyses",
+      "breakpoints": false
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793058312013,
+      "tag": "0015_annict_work_mal_search",
+      "breakpoints": false
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793058312014,
+      "tag": "0016_annict_work_kitsu_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793260387000,
+      "tag": "0017_watch_history_share_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793261702000,
+      "tag": "0018_activities",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793305013000,
+      "tag": "0019_custom_tier_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793305013001,
+      "tag": "0020_recommendations",
+      "breakpoints": false
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793339240000,
+      "tag": "0021_annict_work_genres",
+      "breakpoints": false
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1793339240001,
+      "tag": "0022_work_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793339240002,
+      "tag": "0023_annict_work_watchers_count",
+      "breakpoints": false
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793701598000,
+      "tag": "0024_episode_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793703103000,
+      "tag": "0025_deletion_feedbacks",
+      "breakpoints": false
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793716643000,
+      "tag": "0026_public_work_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1793718843000,
+      "tag": "0027_work_ratings",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1793736392000,
+      "tag": "0028_articles",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1793742807000,
+      "tag": "0029_friend_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1793769430000,
+      "tag": "0030_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1793772147000,
+      "tag": "0031_event_participation_visibility",
+      "breakpoints": false
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1793874534000,
+      "tag": "0032_elections",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1793888163000,
+      "tag": "0033_public_tier_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1793893056000,
+      "tag": "0034_public_tier_lists_and_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1794658604000,
+      "tag": "0035_feedbacks",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1795003271000,
+      "tag": "0036_users_public_list_exclusion",
+      "breakpoints": false
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1795185688000,
+      "tag": "0037_friend_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1795186346000,
+      "tag": "0038_social_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1795199123000,
+      "tag": "0039_exchange_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1795200820000,
+      "tag": "0040_danime_episode_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1795202045000,
+      "tag": "0041_danime_episode_import_running_idx",
+      "breakpoints": false
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1795208138000,
+      "tag": "0042_friend_thanks",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1795208845000,
+      "tag": "0043_friend_thanks_deleted_at",
+      "breakpoints": false
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1795212571000,
+      "tag": "0044_danime_episode_import_instance_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1795380916000,
+      "tag": "0045_normalize_annict_season_name",
+      "breakpoints": false
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1795431985000,
+      "tag": "0046_annict_works_pending_idx",
+      "breakpoints": true
     }
   ]
 }
