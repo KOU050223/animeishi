@@ -68,7 +68,7 @@ Feature flags → New feature flag:
 - D1 / D7 リテンション: Retention で 初回イベント・再訪イベントとも `app_open`
   （Daily、`environment = production` で絞る）
 - オンボーディング: Funnel で `sign_up_complete` → `meishi_create` →
-  `annict_connect_complete`（d アニメは Web のみなので `danime_import_complete` は別インサイト）
+  `annict_connect_complete`（d アニメ取り込みは `danime_import_complete` の別インサイトで見る）
 
 ## 運営 AI（muse）から参照する
 

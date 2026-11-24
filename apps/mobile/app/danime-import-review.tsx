@@ -33,6 +33,7 @@ import {
   useDanimeMatch,
 } from "@/lib/danime/useDanimeImport";
 import { danimeMatchErrorMessage } from "@/lib/danime/matchErrorMessage";
+import { episodeJobSupported } from "@/lib/danime/episodeJobSupported";
 import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import type {
   BulkRegisterEntry,
@@ -86,6 +87,8 @@ type DoneResult = {
    * 今回の話はキューされなかった）。
    */
   episodeJobCreated: boolean | null;
+  /** 話データがあったがプラットフォーム未対応で記録しなかった。 */
+  episodeJobSkipped: boolean;
 };
 
 // フェーズ所要時間の可視化（issue #115）。抽出は抽出スクリプトが payload に
@@ -336,7 +339,7 @@ export default function DanimeImportReviewScreen() {
     [currentStates, toggleRow, selectCandidate],
   );
 
-  // v1.0 ではネイティブで無効化（#158）。停止スイッチ（#758）中も含め、
+  // フラグ無効時（#751 の env 切り戻し）・停止スイッチ（#758）中は、
   // 直接遷移されてもホームへ戻す。
   if (!danimeImportEnabled) {
     return <Redirect href="/(tabs)/library?section=history" />;
@@ -381,7 +384,9 @@ export default function DanimeImportReviewScreen() {
       (w) => !attemptedIds.has(w.annictWorkId) || okWorkIds.has(w.annictWorkId),
     );
     let episodeJobCreated: boolean | null = null;
-    if (eligibleWorks.length > 0) {
+    // 話数記録は Web 連携のサーバー保存トークン前提のジョブのため、
+    // ネイティブでは送らない（lib/danime/episodeJobSupported.ts 参照）。
+    if (episodeJobSupported && eligibleWorks.length > 0) {
       setEpisodeJobPending(true);
       try {
         const out = await episodeJob.mutateAsync({ works: eligibleWorks });
@@ -407,6 +412,7 @@ export default function DanimeImportReviewScreen() {
       requestErrorStatus: res.requestErrorStatus,
       elapsedMs: res.elapsedMs,
       episodeJobCreated,
+      episodeJobSkipped: !episodeJobSupported && eligibleWorks.length > 0,
     });
   }
 
@@ -557,6 +563,13 @@ export default function DanimeImportReviewScreen() {
             )}
           </Text>
         )}
+        {doneResult.episodeJobSkipped && (
+          <Text className="text-xs text-muted mt-3 text-center">
+            {t(
+              "話数の記録はアプリ版では利用できません。Web 版で取り込みを実行すると記録できます。",
+            )}
+          </Text>
+        )}
         <TouchableOpacity
           className="mt-6 bg-indigo-600 rounded-xl px-8 py-3"
           onPress={close}
@@ -644,12 +657,19 @@ export default function DanimeImportReviewScreen() {
         </Text>
         {episodeCount > 0 && (
           <Text className="text-xs text-muted mt-1">
-            {t(
-              "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します",
-              {
-                episodes: episodeCount,
-              },
-            )}
+            {episodeJobSupported
+              ? t(
+                  "視聴済み {{episodes}} 話のうち、対応付けできた話を Annict に記録します",
+                  {
+                    episodes: episodeCount,
+                  },
+                )
+              : t(
+                  "視聴済み {{episodes}} 話の記録はアプリ版では利用できません（Web 版の取り込みで記録できます）",
+                  {
+                    episodes: episodeCount,
+                  },
+                )}
           </Text>
         )}
         {timingSummary !== "" && (

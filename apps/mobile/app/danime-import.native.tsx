@@ -30,8 +30,11 @@ import {
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { BackButton } from "@/components/ui";
+import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
+import { isDanimeWebViewUrlAllowed } from "@/lib/danime/webviewAllowlist";
 import { useThemeColors } from "@/lib/theme";
+import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 
 // react-native-webview の WebView は型パラメータ既定値が `P = undefined` で、
 // `WebViewProps & P` が `WebViewProps & undefined` に潰れて JSX の props が
@@ -49,6 +52,20 @@ const DanimeWebView = WebView as unknown as new (
 const DANIME_IMPORT_WEB_URL = `${(
   process.env.EXPO_PUBLIC_WEB_URL ?? "https://animeishi.uomi.dev"
 ).replace(/\/+$/, "")}/danime-import`;
+
+// WebView の遷移先を dアニメストアと dアカウント認証の docomo ドメインに
+// 限定する（#751）。許可外のドメインへ WebView 内で遷移できると審査の
+// 「無制限の Web アクセス」に見なされ得るため、トップレベル遷移は
+// 外部ブラウザで開く（store.config.json の unrestrictedWebAccess: false
+// と揃える）。iframe 等のサブフレーム遷移（iOS では isTopFrame=false で
+// 届く）まで外部ブラウザへ流すと、ページ内 iframe の読み込みのたびに
+// ブラウザが開いてしまうため、外部へは開かずブロックだけする。
+function shouldStartLoadWithRequest(request: ShouldStartLoadRequest): boolean {
+  if (isDanimeWebViewUrlAllowed(request.url)) return true;
+  if (!request.isTopFrame) return false;
+  void Linking.openURL(request.url).catch(() => undefined);
+  return false;
+}
 
 function errorMessage(t: TFunction, code: string): string {
   if (code === "wrong_page") {
@@ -84,8 +101,9 @@ export default function DanimeImportScreen() {
   const [error, setError] = useState<string | null>(null);
   const setLists = useDanimeImportStore((s) => s.setLists);
 
-  // v1.0 ではネイティブで無効化（#158）。ディープリンク等で直接遷移された
-  // 場合に備え、Web 版への導線を案内する。停止スイッチ（#758）中も同じ扱い。
+  // フラグ無効時（審査 5.2.2 指摘時の env 切り戻し）・停止スイッチ
+  // （#758）中は、ディープリンク等で直接遷移された場合に備えて
+  // Web 版への導線を案内する。
   if (!danimeImportEnabled) {
     return (
       <SafeAreaView
@@ -160,6 +178,11 @@ export default function DanimeImportScreen() {
           )}
         </Text>
         {error && <Text className="text-xs text-danger mt-2">{error}</Text>}
+        {/* プロフィールの話数記録の進捗行からの遷移先として、ジョブが
+            あれば進行状況カードを出す（Web 版と同じ導線）。 */}
+        <View className="mt-2">
+          <DanimeEpisodeJobStatus />
+        </View>
       </View>
 
       <View className="flex-1">
@@ -167,7 +190,9 @@ export default function DanimeImportScreen() {
           ref={webViewRef}
           source={{ uri: DANIME_HISTORY_URL }}
           onMessage={onMessage}
-          // dアカウントログインは docomo の OIDC に遷移するため、ドメイン制限はしない。
+          // dアカウントログインは docomo の OIDC（*.smt.docomo.ne.jp）へ
+          // 遷移する。許可範囲は webviewAllowlist.ts を参照。
+          onShouldStartLoadWithRequest={shouldStartLoadWithRequest}
           domStorageEnabled
           sharedCookiesEnabled
           startInLoadingState
