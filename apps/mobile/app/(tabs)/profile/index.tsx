@@ -38,6 +38,7 @@ import { buildProfileUrl } from "@/lib/profileUrl";
 import { useAddToAppleWallet } from "@/lib/wallet";
 import type { AddToWalletResult } from "@/lib/wallet";
 import { featureFlags } from "@/lib/featureFlags";
+import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { useDanimeEpisodeJob } from "@/lib/danime/useDanimeImport";
 import { episodeJobStatusText } from "@/lib/danime/episodeJobStatus";
 import { haptics } from "@/lib/haptics";
@@ -103,7 +104,8 @@ export default function ProfileScreen() {
   const publicSettings = usePublicSettings();
   const { data: socialLinks } = useSocialLinks();
   // 話記録ジョブ（issue #477）の進捗。Web 版の取り込み機能が有効なときだけ取得する。
-  const { data: episodeJob } = useDanimeEpisodeJob(featureFlags.danimeImport);
+  const danimeImportEnabled = useDanimeImportEnabled();
+  const { data: episodeJob } = useDanimeEpisodeJob(danimeImportEnabled);
   const uploadAvatar = useProfileAvatarUpload();
   // プレビューは既定の名刺を出す（issue #427: 外に出るものはすべて既定の名刺）
   const { defaultCard: meishiDefaultCard, reload: reloadMeishi } =
@@ -598,8 +600,9 @@ export default function ProfileScreen() {
                     ]
                   : []),
                 // dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。
-                // ネイティブでフラグが無効な間はセクションごと出さない。
-                ...(featureFlags.danimeImport
+                // ネイティブでフラグが無効な間・停止スイッチ（#758）が
+                // 入っている間はセクションごと出さない。
+                ...(danimeImportEnabled
                   ? [
                       {
                         key: "import",

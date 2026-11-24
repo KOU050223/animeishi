@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { useAnnictConnection } from "./useAnnictConnection";
 
@@ -46,7 +47,12 @@ export function useWorkCatalogAccess(): WorkCatalogAccess {
           }),
         },
       );
-      return res.json();
+      return res.json() as Promise<
+        InferResponseType<
+          (typeof apiClient.works)["catalog-status"]["$get"],
+          200
+        >
+      >;
     },
   });
 

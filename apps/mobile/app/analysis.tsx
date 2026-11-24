@@ -148,6 +148,11 @@ export default function AnalysisScreen() {
               "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します",
             )}
           </Text>
+          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            {t(
+              "「分析する」「再分析する」「おすすめを出す」を押したときだけ、視聴履歴（作品タイトル・視聴ステータス・作品評価）と選択したジャンルを Cloudflare Workers AI で処理します。AI の学習には使われません",
+            )}
+          </Text>
         </View>
 
         {analysis === null ? (

@@ -131,7 +131,9 @@ export const tierListQueries = {
                 }),
               },
             );
-            return res.json();
+            return res.json() as Promise<
+              InferResponseType<typeof apiClient.works.search.$get, 200>
+            >;
           },
         }),
     },

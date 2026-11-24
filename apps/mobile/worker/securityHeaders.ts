@@ -10,8 +10,27 @@ export type SecurityHeadersEnv = {
   CLERK_PUBLISHABLE_KEY?: string;
   /** EXPO_PUBLIC_SENTRY_DSN と同じ値。デプロイ時に --var で渡す。 */
   SENTRY_DSN?: string;
+  /**
+   * PostHog の送信先ホスト（EXPO_PUBLIC_POSTHOG_HOST と同じ値）。
+   * EXPO_PUBLIC_POSTHOG_KEY を設定したビルドのときだけデプロイ時に --var で渡す。
+   */
+  POSTHOG_HOST?: string;
   ENVIRONMENT?: string;
 };
+
+/**
+ * PostHog Cloud の SDK は起動時設定（/array/<token>/config）を取り込み先とは
+ * 別の *-assets ホストから取得するため、Cloud のホストならそれも許可する。
+ */
+function posthogOrigins(host: string | undefined): (string | undefined)[] {
+  const origin = host ? originOf(host) : undefined;
+  if (!origin) return [];
+  const assets = origin.replace(
+    /^https:\/\/(us|eu)\.i\.posthog\.com$/,
+    "https://$1-assets.i.posthog.com",
+  );
+  return assets === origin ? [origin] : [origin, assets];
+}
 
 /**
  * Worker を通らずに静的アセットが直接返す応答には public/_headers が同じ値を付ける
@@ -67,6 +86,7 @@ function originOf(url: string): string | undefined {
  *   Cloudflare Turnstile、開発インスタンスのテレメトリ
  *   （https://clerk.com/docs/guides/secure/best-practices/csp-headers）
  * - Sentry: DSN のホストへのイベント送信
+ * - PostHog: プロダクト計測の送信と機能フラグの取得（issue #758）
  * - expo-camera（Web の QR 読み取り）: barcode-detector が zxing-wasm を
  *   jsDelivr から取得して WebAssembly としてコンパイルする
  * - 画像: Annict 由来の作品画像は公式サイト等の任意ホストを指すためホストを
@@ -77,6 +97,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
   const clerk = clerkFrontendApiOrigin(env.CLERK_PUBLISHABLE_KEY);
   const sentry = sentryIngestOrigin(env.SENTRY_DSN);
   const api = originOf(env.API_ORIGIN);
+  const posthog = posthogOrigins(env.POSTHOG_HOST);
   const reportUri = buildCspReportUri(env.SENTRY_DSN, env.ENVIRONMENT);
   const directives: [string, (string | undefined)[]][] = [
     ["default-src", ["'self'"]],
@@ -101,6 +122,7 @@ export function buildContentSecurityPolicy(env: SecurityHeadersEnv): string {
         clerk,
         "https://clerk-telemetry.com",
         sentry,
+        ...posthog,
         "https://fastly.jsdelivr.net",
         "data:",
         "blob:",

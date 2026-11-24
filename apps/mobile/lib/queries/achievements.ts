@@ -1,5 +1,11 @@
 import { queryOptions } from "@tanstack/react-query";
+import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
+
+export type AchievementsResponse = InferResponseType<
+  typeof apiClient.me.achievements.$get,
+  200
+>;
 
 // 実績一覧のクエリキー。話の記録・ステータス更新のミューテーションから
 // 無効化して獲得判定を再計算させるため、キーはここで共有する。
@@ -35,7 +41,7 @@ export const achievementQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<AchievementsResponse>;
         },
       }),
   },

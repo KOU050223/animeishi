@@ -51,6 +51,13 @@ ALLOWED_ORIGINS=
 # 例: PUBLIC_WEB_URL=http://localhost:8081
 # PUBLIC_WEB_URL=
 
+# PostHog（任意。サーバー側のプロダクト計測 sign_up_complete / exchange_complete、
+# issue #758）。mobile の EXPO_PUBLIC_POSTHOG_KEY と同じ Project API key（phc_...）。
+# 未設定なら何も送らない。本番は `wrangler secret put POSTHOG_KEY --env production` で登録する。
+# POSTHOG_KEY=
+# 送信先ホスト。未設定なら https://us.i.posthog.com。
+# POSTHOG_HOST=
+
 # Sentry（任意）。設定するとローカルからもイベントが送信される。
 # 未設定なら SDK は no-op。動作確認したい場合のみ設定する。
 # SENTRY_DSN=

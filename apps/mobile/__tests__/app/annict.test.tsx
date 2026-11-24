@@ -2,7 +2,7 @@
  * @jest-environment <rootDir>/jest.jsdom-env.cjs
  */
 import { waitFor } from "@testing-library/react-native";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import {
@@ -40,7 +40,7 @@ describe("exchangeAnnictWebCallback", () => {
 
   beforeEach(async () => {
     mockExchangePost.mockReset();
-    jest.mocked(Sentry.logger.info).mockClear();
+    jest.mocked(captureAnalyticsEvent).mockClear();
     window.sessionStorage.clear();
     setOrigin("https://animeishi.uomi.dev");
     delete process.env.EXPO_PUBLIC_ANNICT_WEB_REDIRECT_URI;
@@ -137,7 +137,7 @@ describe("exchangeAnnictWebCallback", () => {
 
     expect(res).toEqual({ status: "success" });
     await waitFor(() =>
-      expect(Sentry.logger.info).toHaveBeenCalledWith(
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
         ANNICT_FUNNEL_EVENT,
         expect.objectContaining({
           "annict.step": "oauth_result",
@@ -163,15 +163,13 @@ describe("exchangeAnnictWebCallback", () => {
     await exchangeAnnictWebCallback(CALLBACK, getClerkToken);
 
     await waitFor(() =>
-      expect(Sentry.logger.info).toHaveBeenCalledWith(
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
         ANNICT_FUNNEL_EVENT,
         expect.objectContaining({ "annict.result": "success" }),
       ),
     );
-    const [, attributes] = jest.mocked(Sentry.logger.info).mock.calls[0] as [
-      string,
-      Record<string, string>,
-    ];
+    // waitFor で呼び出し済みが保証されている。
+    const [, attributes] = jest.mocked(captureAnalyticsEvent).mock.calls[0]!;
     expect(attributes["annict.surface"]).toBeUndefined();
   });
 });

@@ -1,13 +1,16 @@
-// UI イベント計測のイベント名と共通属性キー（issue #214）。
-// 主要ボタンの押下回数・画面別内訳を Sentry Logs で集計する。
-// 送信ロジックは apps/mobile/lib/events.ts、設計は
-// docs/08_observability-design.md の「UI イベント計測」節を参照。
+// プロダクト計測のイベント名と共通属性キー（issue #214 / #758）。
+// 送信先は PostHog。mobile の送信ロジックは apps/mobile/lib/events.ts、
+// API 側（サーバーで成立を記録するもの）は apps/api/src/lib/posthog.ts。
+// 設計は docs/08_observability-design.md の「プロダクト計測」節を参照。
 
-// イベント名。Sentry Logs の message と event.name 属性に入る。
-// `<対象>_<動作>` の snake_case。新しい計測を足すときはここに追加し、
-// ダッシュボード（scripts/sentry/setup-ui-events-dashboard.sh）にも
-// ウィジェットを足す。
+// イベント名。PostHog のイベント名になる。
+// `<対象>_<動作>` の snake_case。新しい計測を足すときはここに追加する。
 export const TRACKED_EVENTS = [
+  // リテンション・オンボーディング（issue #758）
+  "app_open",
+  "meishi_create",
+  "annict_connect_complete",
+  "danime_import_complete",
   // 名刺
   "qr_exchange_start",
   "qr_scan_start",
@@ -40,12 +43,15 @@ export const TRACKED_EVENTS = [
 ] as const;
 export type TrackedEventName = (typeof TRACKED_EVENTS)[number];
 
+// API が PostHog の capture API へ直接送るイベント（issue #758）。
+// クライアントの送信漏れで率がぶれないよう、成立をサーバーで記録する。
+export const SERVER_TRACKED_EVENTS = ["sign_up_complete", "exchange_complete"] as const;
+export type ServerTrackedEventName = (typeof SERVER_TRACKED_EVENTS)[number];
+
 // 共通属性のキー。annict ファネルと同じく platform は接頭辞なし。
-// event.name は message と同じイベント名で、ダッシュボードの group-by 軸に
-// 使う（logs データセットでは message での group-by が効かないため）。
-// user_key は Clerk userId のソルト付きハッシュ（PII は送らない）。
+// user_key は Clerk userId のソルト付きハッシュ（PII は送らない）で、
+// PostHog の distinct_id と同じ値。
 export const TRACK_EVENT_ATTRS = {
-  name: "event.name",
   screen: "screen",
   appVersion: "app_version",
   userKey: "user_key",
@@ -65,4 +71,11 @@ export const TRACK_EVENT_KEYS = {
   runType: "run_type",
   // guest_cta_* の入口: GUEST_CTA_SOURCES（guestCta.ts）
   source: "source",
+  // annict_connect_complete の誘導元: ANNICT_FUNNEL_SURFACES（funnel.ts）
+  surface: "surface",
+  // danime_import_complete の登録件数（成功 / 失敗・未処理）
+  succeeded: "succeeded",
+  failed: "failed",
+  // exchange_complete の成立に使ったトークン: qr | offline
+  token: "token",
 } as const;

@@ -1,21 +1,19 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
-  annictWorkIdParamSchema,
-  worksCandidatesQuerySchema,
-  worksLookupQuerySchema,
-  worksSearchQuerySchema,
+  catalogStatusRoute,
+  lookupWorksRoute,
+  searchWorksRoute,
+  workCandidatesRoute,
+  workCharactersRoute,
+  workDetailRoute,
 } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import { currentAnnictSeason } from "@/lib/annict/client";
-import {
-  requireAnnictWorkCatalog,
-  sharedAnnictReadToken,
-} from "@/lib/annict/middleware";
+import { sharedAnnictReadToken } from "@/lib/annict/middleware";
 import { workImageUrl } from "@/lib/catalog/workImage";
 import {
   fetchKitsuCharacters,
@@ -68,115 +66,102 @@ const KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS = Date.UTC(2026, 10, 15);
 // シーズン検索はサーバー側で全ページ取得する（issue #163: 先頭 50 件打ち切りの
 // 解消）。全件結果は全ユーザー共通データなのでシーズン単位で Cache API に
 // キャッシュし、直列の Annict 往復を繰り返さない（issue #173 の初回遅延も緩和）。
-const works = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const works = app
   // 未連携の利用者でも作品情報を引けるか（共用トークンが設定されているか）。
   // mobile は連携済みかこれが true のとき検索・Tier 表等のゲートを外す。
   // 共用トークンの値そのものは返さない。
-  .get("/catalog-status", (c) =>
+  .openapi(catalogStatusRoute, (c) =>
     c.json({ sharedCatalogAvailable: sharedAnnictReadToken(c) != null }, 200),
   )
-  .get(
-    "/search",
-    requireAnnictWorkCatalog,
-    zValidator("query", worksSearchQuerySchema),
-    async (c) => {
-      const { title, season, after } = c.req.valid("query");
-      // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
-      const trimmedTitle = title?.trim();
+  .openapi(searchWorksRoute, async (c) => {
+    const { title, season, after } = c.req.valid("query");
+    // 空文字 title（?title=）は未指定扱いにしてシーズン検索へ流す。
+    const trimmedTitle = title?.trim();
 
-      const catalog = c.var.annictWorkCatalog;
-      const result = trimmedTitle
-        ? // 検索 UI は人気順（watchersCount 降順）で返す（issue #346）。
-          // 照合用途（インポート・おすすめ再検索）は関連度順のまま。
-          await searchTitleWorks(catalog, trimmedTitle, after ?? null)
-        : await searchSeasonWorks(
-            catalog,
-            season ?? currentAnnictSeason(),
-            after ?? null,
-          );
+    const catalog = c.var.annictWorkCatalog;
+    const result = trimmedTitle
+      ? // 検索 UI は人気順（watchersCount 降順）で返す（issue #346）。
+        // 照合用途（インポート・おすすめ再検索）は関連度順のまま。
+        await searchTitleWorks(catalog, trimmedTitle, after ?? null)
+      : await searchSeasonWorks(
+          catalog,
+          season ?? currentAnnictSeason(),
+          after ?? null,
+        );
 
-      // 検索結果に resolvedImageUrl（キャッシュ済みの Kitsu / MAL 由来 URL）を
-      // 添えて返す。imageUrl 自体は上書きしない。クライアントは画像プロキシの
-      // hostedImageUrl だけを表示に使い、候補の選択はプロキシが行う（issue #224）。
-      // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる Kitsu
-      // バッチだけここで同期解決する。取れなかった分は annict_works に upsert
-      // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。
-      const db = createDb(getBindings(c).DB);
-      const repo = worksRepository(db);
-      const enriched = await attachResolvedImages(
-        repo,
-        result.works,
-        c.req.url,
-      );
+    // 検索結果に resolvedImageUrl（キャッシュ済みの Kitsu / MAL 由来 URL）を
+    // 添えて返す。imageUrl 自体は上書きしない。クライアントは画像プロキシの
+    // hostedImageUrl だけを表示に使い、候補の選択はプロキシが行う（issue #224）。
+    // 未解決 + Annict 画像が placeholder な作品は、まとめて取れる Kitsu
+    // バッチだけここで同期解決する。取れなかった分は annict_works に upsert
+    // 済みの行として残り、cron が直接解決する（issue #127: Queue 廃止）。
+    const db = createDb(getBindings(c).DB);
+    const repo = worksRepository(db);
+    const enriched = await attachResolvedImages(repo, result.works, c.req.url);
 
-      return c.json({ ...result, works: enriched }, 200);
-    },
-  )
+    return c.json({ ...result, works: enriched }, 200);
+  })
   // 作品 ID のまとめ解決（issue #348）。自由作成 tier 表の作成画面が
   // #349（作品リスト）からルートパラメータで引き継いだ初期作品 ID の
   // メタを解決するためのもの。検索（/works/search）では ID では引けない
   // ため別エンドポイントにしてある。キャッシュ（annict_works）を優先し、
   // 無い作品だけ Annict に問い合わせる。
-  .get(
-    "/lookup",
-    requireAnnictWorkCatalog,
-    zValidator("query", worksLookupQuerySchema),
-    async (c) => {
-      const { ids } = c.req.valid("query");
-      const db = createDb(getBindings(c).DB);
-      const repo = worksRepository(db);
+  .openapi(lookupWorksRoute, async (c) => {
+    const { ids } = c.req.valid("query");
+    const db = createDb(getBindings(c).DB);
+    const repo = worksRepository(db);
 
-      const cached = await repo.getAnnictWorksByIds(ids);
-      const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
-      const missingIds = ids.filter((id) => !cachedById.has(id));
+    const cached = await repo.getAnnictWorksByIds(ids);
+    const cachedById = new Map(cached.map((w) => [w.annictWorkId, w]));
+    const missingIds = ids.filter((id) => !cachedById.has(id));
 
-      // キャッシュに無いものだけ Annict へ。attachResolvedImages が
-      // annict_works に upsert するので、tier 表保存の FK 前提も満たされる。
-      const fetched = missingIds.length
-        ? await attachResolvedImages(
-            repo,
-            await c.var.annictWorkCatalog.searchByIds(missingIds),
-            c.req.url,
-          )
-        : [];
-      const fetchedById = new Map(fetched.map((w) => [w.annictWorkId, w]));
+    // キャッシュに無いものだけ Annict へ。attachResolvedImages が
+    // annict_works に upsert するので、tier 表保存の FK 前提も満たされる。
+    const fetched = missingIds.length
+      ? await attachResolvedImages(
+          repo,
+          await c.var.annictWorkCatalog.searchByIds(missingIds),
+          c.req.url,
+        )
+      : [];
+    const fetchedById = new Map(fetched.map((w) => [w.annictWorkId, w]));
 
-      // 引き継ぎ元リストの並びを保つため、リクエストの ID 順で返す。
-      // Annict にも存在しない ID は落とす（参照不能な作品で一覧を壊さない）。
-      // キャッシュ由来の行は Annict 検索応答と違い nodeId/state が無い・
-      // nullable なので、広い方の要素型を明示して両分岐を統一する。
-      type LookupWork = Omit<SearchWorkWithResolved, "nodeId" | "state"> & {
-        nodeId: string | null;
-        state: string | null;
-      };
-      const result = ids.flatMap((id): LookupWork[] => {
-        const fetchedWork = fetchedById.get(id);
-        if (fetchedWork) return [fetchedWork];
-        const cachedWork = cachedById.get(id);
-        if (!cachedWork) return [];
-        return [
-          {
-            annictWorkId: cachedWork.annictWorkId,
-            nodeId: cachedWork.nodeId,
-            state: null,
-            title: cachedWork.title,
-            titleKana: cachedWork.titleKana,
-            titleEn: cachedWork.titleEn,
-            seasonName: cachedWork.seasonName,
-            seasonYear: cachedWork.seasonYear,
-            imageUrl: cachedWork.imageUrl,
-            malAnimeId: cachedWork.malAnimeId,
-            watchersCount: cachedWork.watchersCount,
-            resolvedImageUrl: cachedWork.resolvedImageUrl,
-            hostedImageUrl: workImageUrl(c.req.url, id),
-            genres: cachedWork.genres,
-          },
-        ];
-      });
-      return c.json({ works: result }, 200);
-    },
-  )
+    // 引き継ぎ元リストの並びを保つため、リクエストの ID 順で返す。
+    // Annict にも存在しない ID は落とす（参照不能な作品で一覧を壊さない）。
+    // キャッシュ由来の行は Annict 検索応答と違い nodeId/state が無い・
+    // nullable なので、広い方の要素型を明示して両分岐を統一する。
+    type LookupWork = Omit<SearchWorkWithResolved, "nodeId" | "state"> & {
+      nodeId: string | null;
+      state: string | null;
+    };
+    const result = ids.flatMap((id): LookupWork[] => {
+      const fetchedWork = fetchedById.get(id);
+      if (fetchedWork) return [fetchedWork];
+      const cachedWork = cachedById.get(id);
+      if (!cachedWork) return [];
+      return [
+        {
+          annictWorkId: cachedWork.annictWorkId,
+          nodeId: cachedWork.nodeId,
+          state: null,
+          title: cachedWork.title,
+          titleKana: cachedWork.titleKana,
+          titleEn: cachedWork.titleEn,
+          seasonName: cachedWork.seasonName,
+          seasonYear: cachedWork.seasonYear,
+          imageUrl: cachedWork.imageUrl,
+          malAnimeId: cachedWork.malAnimeId,
+          watchersCount: cachedWork.watchersCount,
+          resolvedImageUrl: cachedWork.resolvedImageUrl,
+          hostedImageUrl: workImageUrl(c.req.url, id),
+          genres: cachedWork.genres,
+        },
+      ];
+    });
+    return c.json({ works: result }, 200);
+  })
   // 作品候補の一覧（issue #412 初回オンボーディングの推し選択）。
   // Annict 未連携の新規ユーザーでも使えるよう annict_works キャッシュだけを
   // 読み、トークンは要求しない（requireAnnictWorkCatalog を付けない点に注意。
@@ -185,40 +170,36 @@ const works = new Hono<AuthVariables>()
   // 部分一致検索。応答は /works/lookup のキャッシュ行と同じ形に揃える。
   // /:annictWorkId より先に登録する（"candidates" がパスパラメータに
   // マッチして 400 になるのを防ぐ）。
-  .get(
-    "/candidates",
-    zValidator("query", worksCandidatesQuerySchema),
-    async (c) => {
-      const { title, limit } = c.req.valid("query");
-      const db = createDb(getBindings(c).DB);
-      const repo = worksRepository(db);
-      const rows = await repo.searchAnnictWorkCandidates({
-        title,
-        limit: limit ?? WORKS_CANDIDATES_DEFAULT_LIMIT,
-      });
-      return c.json(
-        {
-          works: rows.map((w) => ({
-            annictWorkId: w.annictWorkId,
-            nodeId: w.nodeId,
-            state: null,
-            title: w.title,
-            titleKana: w.titleKana,
-            titleEn: w.titleEn,
-            seasonName: w.seasonName,
-            seasonYear: w.seasonYear,
-            imageUrl: w.imageUrl,
-            malAnimeId: w.malAnimeId,
-            watchersCount: w.watchersCount,
-            resolvedImageUrl: w.resolvedImageUrl,
-            hostedImageUrl: workImageUrl(c.req.url, w.annictWorkId),
-            genres: w.genres,
-          })),
-        },
-        200,
-      );
-    },
-  )
+  .openapi(workCandidatesRoute, async (c) => {
+    const { title, limit } = c.req.valid("query");
+    const db = createDb(getBindings(c).DB);
+    const repo = worksRepository(db);
+    const rows = await repo.searchAnnictWorkCandidates({
+      title,
+      limit: limit ?? WORKS_CANDIDATES_DEFAULT_LIMIT,
+    });
+    return c.json(
+      {
+        works: rows.map((w) => ({
+          annictWorkId: w.annictWorkId,
+          nodeId: w.nodeId,
+          state: null,
+          title: w.title,
+          titleKana: w.titleKana,
+          titleEn: w.titleEn,
+          seasonName: w.seasonName,
+          seasonYear: w.seasonYear,
+          imageUrl: w.imageUrl,
+          malAnimeId: w.malAnimeId,
+          watchersCount: w.watchersCount,
+          resolvedImageUrl: w.resolvedImageUrl,
+          hostedImageUrl: workImageUrl(c.req.url, w.annictWorkId),
+          genres: w.genres,
+        })),
+      },
+      200,
+    );
+  })
   // 作品詳細シートに出す単一作品のメタ（issue #347）。search で返さない
   // 詳細フィールド（話数・メディア種別・公式サイト等）と、viewerStatusState
   // 由来の視聴ステータス（state）を返す。共用トークン経路では state は常に null。画像は検索と同じく
@@ -226,174 +207,162 @@ const works = new Hono<AuthVariables>()
   // キャッシュ upsert もこの経路で行う）。
   // /lookup より後に登録する（先に置くと "lookup" が :annictWorkId に
   // マッチして 400 になる）。
-  .get(
-    "/:annictWorkId",
-    requireAnnictWorkCatalog,
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
-      const { annictWorkId } = c.req.valid("param");
-      const detail = await fetchWorkDetail(
-        c.var.annictWorkCatalog,
-        annictWorkId,
-      );
-      if (!detail) return c.json({ error: "Work not found" }, 404);
+  .openapi(workDetailRoute, async (c) => {
+    const { annictWorkId } = c.req.valid("param");
+    const detail = await fetchWorkDetail(c.var.annictWorkCatalog, annictWorkId);
+    if (!detail) return c.json({ error: "Work not found" }, 404);
 
-      const db = createDb(getBindings(c).DB);
-      const repo = worksRepository(db);
-      const [enriched] = await attachResolvedImages(repo, [detail], c.req.url);
-      return c.json({ work: enriched }, 200);
-    },
-  )
+    const db = createDb(getBindings(c).DB);
+    const repo = worksRepository(db);
+    const [enriched] = await attachResolvedImages(repo, [detail], c.req.url);
+    if (!enriched) throw new Error("attachResolvedImages dropped the work");
+    return c.json({ work: enriched }, 200);
+  })
   // 作品に紐づくキャラクター一覧（キャラクター tier 表の対象名簿。issue #169）。
   // Annict GraphQL の Character 型は画像を持たないため、キャラクター画像は
   // work.malAnimeId 経由で Kitsu のキャラクター一覧を取り、正規化名の
   // 名寄せで補完する（characterImageFallback.ts。AniList は Workers から
   // 403 になるため #227 で Kitsu に切り替え）。取れないキャラは
   // imageUrl: null で返す（best-effort で応答自体は壊さない）。
-  .get(
-    "/:annictWorkId/characters",
-    requireAnnictWorkCatalog,
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
-      const { annictWorkId } = c.req.valid("param");
-      const result = await c.var.annictWorkCatalog.fetchWorkCasts(annictWorkId);
-      if (!result) return c.json({ error: "Work not found" }, 404);
-      const { work, characters } = result;
+  .openapi(workCharactersRoute, async (c) => {
+    const { annictWorkId } = c.req.valid("param");
+    const result = await c.var.annictWorkCatalog.fetchWorkCasts(annictWorkId);
+    if (!result) return c.json({ error: "Work not found" }, 404);
+    const { work, characters } = result;
 
-      const db = createDb(getBindings(c).DB);
-      const repo = worksRepository(db);
+    const db = createDb(getBindings(c).DB);
+    const repo = worksRepository(db);
 
-      // キャラクター tier 表（character_tier_lists）の FK 先となる作品行と
-      // キャラクター行をここでキャッシュする。作品自体は /works/search の
-      // read-through でキャッシュ済みのことが多いが、キャラ一覧が保存の
-      // 前提を満たすようこの経路でも upsert する。
-      if (work.title?.trim()) {
-        try {
-          await repo.upsertAnnictWork({
-            annictWorkId: work.annictWorkId,
-            nodeId: work.nodeId,
-            malAnimeId: work.malAnimeId,
-            title: work.title,
-            titleKana: work.titleKana,
-            titleEn: work.titleEn,
-            seasonName: work.seasonName,
-            seasonYear: work.seasonYear,
-            imageUrl: work.imageUrl,
-            updatedAt: new Date(),
-          });
-        } catch (err) {
-          // キャッシュ失敗は一覧応答を壊さない（保存時の 400 で検知される）。
-          console.error(
-            JSON.stringify({
-              level: "warn",
-              event: "work_cache_upsert_failed",
-              annictWorkId: work.annictWorkId,
-              error: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        }
-      }
-
-      // 既存キャッシュの imageUrl を拾い、未取得分だけ Kitsu 名寄せで補完する。
-      const cachedCharacters = await repo.getAnnictCharactersByIds(
-        characters.map((ch) => ch.annictCharacterId),
-      );
-      const cachedById = new Map(
-        cachedCharacters.map((ch) => [ch.annictCharacterId, ch]),
-      );
-
-      // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
-      // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
-      // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）と、Kitsu の
-      // 加工済み派生画像の URL（キャラによって中身が壊れている。issue #474）
-      // が残っているキャラは未解決扱いにして Kitsu で取り直す。
-      // 取れなかった場合は従来どおり既存値をフォールバックとして返す
-      // （下の ?? 連鎖と upsert の coalesce で温存される）。
-      //
-      // 派生 URL の取り直しは updatedAt が取り直し期限より古い行に限る
-      // （上の KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS。期限後の行は
-      // 「派生 URL しか取れない」と確定済みとみなす）。
-      const resolvedImages = new Map<number, string>();
-      const hasUnresolved = characters.some((ch) => {
-        const cached = cachedById.get(ch.annictCharacterId);
-        if (cached?.imageUrl == null) return true;
-        return (
-          isAnilistImageUrl(cached.imageUrl) ||
-          (isKitsuDerivativeImageUrl(cached.imageUrl) &&
-            cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS)
-        );
-      });
-      if (work.malAnimeId != null && hasUnresolved) {
-        try {
-          const kitsuCharacters = await fetchKitsuCharacters(work.malAnimeId);
-          for (const [id, url] of matchCharacterImages(
-            characters,
-            kitsuCharacters,
-          )) {
-            resolvedImages.set(id, url);
-          }
-        } catch (err) {
-          console.error(
-            JSON.stringify({
-              level: "warn",
-              event: "character_image_resolve_failed",
-              annictWorkId: work.annictWorkId,
-              error: err instanceof Error ? err.message : String(err),
-            }),
-          );
-        }
-      }
-
-      const now = new Date();
+    // キャラクター tier 表（character_tier_lists）の FK 先となる作品行と
+    // キャラクター行をここでキャッシュする。作品自体は /works/search の
+    // read-through でキャッシュ済みのことが多いが、キャラ一覧が保存の
+    // 前提を満たすようこの経路でも upsert する。
+    if (work.title?.trim()) {
       try {
-        await repo.upsertAnnictCharacters(
-          characters.map((ch) => ({
-            annictCharacterId: ch.annictCharacterId,
-            name: ch.name,
-            nameKana: ch.nameKana,
-            nameEn: ch.nameEn,
-            // 今回解決できた値だけ書き込み、取れなかった行は既存値を温存する
-            // （upsertAnnictCharacters 側で coalesce する）。
-            imageUrl: resolvedImages.get(ch.annictCharacterId) ?? null,
-            updatedAt: now,
-          })),
-        );
-        // 作品→キャラクターの所属もキャッシュする。tier 表保存時に
-        // 「その作品のキャストか」を検証するカタログ（annict_characters は
-        // 作品を跨ぐ共有カタログなので所属は別テーブルで持つ）。
-        await repo.upsertAnnictWorkCasts(
-          work.annictWorkId,
-          characters.map((ch) => ({
-            annictCharacterId: ch.annictCharacterId,
-            sortNumber: ch.sortNumber,
-          })),
-        );
+        await repo.upsertAnnictWork({
+          annictWorkId: work.annictWorkId,
+          nodeId: work.nodeId,
+          malAnimeId: work.malAnimeId,
+          title: work.title,
+          titleKana: work.titleKana,
+          titleEn: work.titleEn,
+          seasonName: work.seasonName,
+          seasonYear: work.seasonYear,
+          imageUrl: work.imageUrl,
+          updatedAt: new Date(),
+        });
       } catch (err) {
+        // キャッシュ失敗は一覧応答を壊さない（保存時の 400 で検知される）。
         console.error(
           JSON.stringify({
             level: "warn",
-            event: "character_cache_upsert_failed",
+            event: "work_cache_upsert_failed",
             annictWorkId: work.annictWorkId,
-            count: characters.length,
             error: err instanceof Error ? err.message : String(err),
           }),
         );
       }
+    }
 
-      return c.json(
-        {
-          work,
-          characters: characters.map((ch) => ({
-            ...ch,
-            imageUrl:
-              resolvedImages.get(ch.annictCharacterId) ??
-              cachedById.get(ch.annictCharacterId)?.imageUrl ??
-              null,
-          })),
-        },
-        200,
+    // 既存キャッシュの imageUrl を拾い、未取得分だけ Kitsu 名寄せで補完する。
+    const cachedCharacters = await repo.getAnnictCharactersByIds(
+      characters.map((ch) => ch.annictCharacterId),
+    );
+    const cachedById = new Map(
+      cachedCharacters.map((ch) => [ch.annictCharacterId, ch]),
+    );
+
+    // 全キャラクターの画像がキャッシュ済みなら Kitsu を呼ばない
+    // （キャッシュ済みでも毎回直列で往復すると応答が遅延する）。
+    // ただし旧 AniList 名寄せ時代の URL（s4.anilist.co 等）と、Kitsu の
+    // 加工済み派生画像の URL（キャラによって中身が壊れている。issue #474）
+    // が残っているキャラは未解決扱いにして Kitsu で取り直す。
+    // 取れなかった場合は従来どおり既存値をフォールバックとして返す
+    // （下の ?? 連鎖と upsert の coalesce で温存される）。
+    //
+    // 派生 URL の取り直しは updatedAt が取り直し期限より古い行に限る
+    // （上の KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS。期限後の行は
+    // 「派生 URL しか取れない」と確定済みとみなす）。
+    const resolvedImages = new Map<number, string>();
+    const hasUnresolved = characters.some((ch) => {
+      const cached = cachedById.get(ch.annictCharacterId);
+      if (cached?.imageUrl == null) return true;
+      return (
+        isAnilistImageUrl(cached.imageUrl) ||
+        (isKitsuDerivativeImageUrl(cached.imageUrl) &&
+          cached.updatedAt.getTime() < KITSU_DERIVATIVE_RERESOLVE_DEADLINE_MS)
       );
-    },
-  );
+    });
+    if (work.malAnimeId != null && hasUnresolved) {
+      try {
+        const kitsuCharacters = await fetchKitsuCharacters(work.malAnimeId);
+        for (const [id, url] of matchCharacterImages(
+          characters,
+          kitsuCharacters,
+        )) {
+          resolvedImages.set(id, url);
+        }
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            level: "warn",
+            event: "character_image_resolve_failed",
+            annictWorkId: work.annictWorkId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    const now = new Date();
+    try {
+      await repo.upsertAnnictCharacters(
+        characters.map((ch) => ({
+          annictCharacterId: ch.annictCharacterId,
+          name: ch.name,
+          nameKana: ch.nameKana,
+          nameEn: ch.nameEn,
+          // 今回解決できた値だけ書き込み、取れなかった行は既存値を温存する
+          // （upsertAnnictCharacters 側で coalesce する）。
+          imageUrl: resolvedImages.get(ch.annictCharacterId) ?? null,
+          updatedAt: now,
+        })),
+      );
+      // 作品→キャラクターの所属もキャッシュする。tier 表保存時に
+      // 「その作品のキャストか」を検証するカタログ（annict_characters は
+      // 作品を跨ぐ共有カタログなので所属は別テーブルで持つ）。
+      await repo.upsertAnnictWorkCasts(
+        work.annictWorkId,
+        characters.map((ch) => ({
+          annictCharacterId: ch.annictCharacterId,
+          sortNumber: ch.sortNumber,
+        })),
+      );
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: "warn",
+          event: "character_cache_upsert_failed",
+          annictWorkId: work.annictWorkId,
+          count: characters.length,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+
+    return c.json(
+      {
+        work,
+        characters: characters.map((ch) => ({
+          ...ch,
+          imageUrl:
+            resolvedImages.get(ch.annictCharacterId) ??
+            cachedById.get(ch.annictCharacterId)?.imageUrl ??
+            null,
+        })),
+      },
+      200,
+    );
+  });
 
 export { works };

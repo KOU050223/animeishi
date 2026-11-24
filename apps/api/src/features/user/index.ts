@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import { createDb } from "@/db/client";
 import {
   findUserById,
@@ -15,6 +14,8 @@ import {
 import { optionalAuth } from "@/middleware/auth";
 import { socialLinksRepository } from "../social-links/repository";
 import type { Env } from "@/db/client";
+import { createOpenApiApp } from "@/lib/openapi";
+import { getPublicUserRoute } from "./schema";
 import {
   publicMeishiSnapshotKey,
   publicMeishiSnapshotUrl,
@@ -34,97 +35,97 @@ type UserRouteEnv = {
   };
 };
 
-const user = new Hono<UserRouteEnv>()
-  // 公開エンドポイントだが、サインイン済みなら誰が見ているかを拾う。
-  // ブロック関係にある相手の名刺を見せないために必要。
-  .use("*", optionalAuth)
-  .get("/:uid", async (c) => {
-    const uid = c.req.param("uid");
-    const db = createDb(c.env.DB);
-    const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
-    // Accept で HTML / JSON を出し分けるため、すべての応答に Vary を付ける。
-    c.header("Vary", "Accept");
+const app = createOpenApiApp<UserRouteEnv>();
+// 公開エンドポイントだが、サインイン済みなら誰が見ているかを拾う。
+// ブロック関係にある相手の名刺を見せないために必要。
+app.use("*", optionalAuth);
+const user = app.openapi(getPublicUserRoute, async (c) => {
+  const { uid } = c.req.valid("param");
+  const db = createDb(c.env.DB);
+  const wantsHtml = (c.req.header("Accept") ?? "").includes("text/html");
+  // Accept で HTML / JSON を出し分けるため、すべての応答に Vary を付ける。
+  c.header("Vary", "Accept");
 
-    // ブロックは双方向で効かせる（自分がブロックした相手も、
-    // 自分をブロックした相手も閲覧不可）。404 で返してブロックの有無を窺えないようにする。
-    const viewerId = c.get("clerkUserId");
-    if (viewerId && viewerId !== uid) {
-      const blocked = await usersRepository(db, viewerId).isBlockedWith(uid);
-      if (blocked) {
-        if (wantsHtml) {
-          return c.html(notFoundHtml(), 404);
-        }
-        return c.json({ error: "User not found" }, 404);
-      }
-    }
-
-    const profile = await findUserById(db, uid);
-
-    if (!profile || !profile.isPublic) {
+  // ブロックは双方向で効かせる（自分がブロックした相手も、
+  // 自分をブロックした相手も閲覧不可）。404 で返してブロックの有無を窺えないようにする。
+  const viewerId = c.get("clerkUserId");
+  if (viewerId && viewerId !== uid) {
+    const blocked = await usersRepository(db, viewerId).isBlockedWith(uid);
+    if (blocked) {
       if (wantsHtml) {
         return c.html(notFoundHtml(), 404);
       }
       return c.json({ error: "User not found" }, 404);
     }
+  }
 
-    const genreList = await findUserGenres(db, uid);
-    // 視聴サマリは D1 キャッシュ（本人が最後に一覧を開いた時点の
-    // スナップショット）からの集計（issue #65）。公開・非ブロックが
-    // 確認できた後にだけ集計する。
-    const watchSummary = await findUserWatchSummary(db, uid);
-    // 既定の名刺の公開スナップショット（issue #593）。JSON の
-    // meishiSnapshotUrl と OGP の og:image（issue #675）の両方で使う。
-    const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
-    const meishiSnapshotUrl = snapshot
-      ? publicMeishiSnapshotUrl(
-          c.req.url,
-          uid,
-          snapshot.customMetadata?.version ?? snapshot.uploaded.toISOString(),
-        )
-      : null;
+  const profile = await findUserById(db, uid);
 
+  if (!profile || !profile.isPublic) {
     if (wantsHtml) {
-      const webProfileUrl = buildWebProfileUrl(
-        c.env.PUBLIC_WEB_URL,
-        c.req.url,
-        profile.id,
-      );
-      const html = buildOgpHtml(
-        profile,
-        genreList,
-        watchSummary,
-        webProfileUrl,
-        meishiSnapshotUrl,
-      );
-      // ブロック判定が閲覧者依存なので共有キャッシュには載せない（private）。
-      return c.html(html, 200, {
-        "Cache-Control": "private, max-age=60",
-      });
+      return c.html(notFoundHtml(), 404);
     }
+    return c.json({ error: "User not found" }, 404);
+  }
 
-    // 「いま見ている」吹き出し用の直近話数記録（issue #420）。JSON 応答に
-    // だけ載せ、OGP HTML（共有ページ）には出さない。
-    const nowWatching = await findNowWatching(db, uid);
-    const socialLinks = await socialLinksRepository(db).list(uid, viewerId);
-    c.header("Cache-Control", "private, no-store");
+  const genreList = await findUserGenres(db, uid);
+  // 視聴サマリは D1 キャッシュ（本人が最後に一覧を開いた時点の
+  // スナップショット）からの集計（issue #65）。公開・非ブロックが
+  // 確認できた後にだけ集計する。
+  const watchSummary = await findUserWatchSummary(db, uid);
+  // 既定の名刺の公開スナップショット（issue #593）。JSON の
+  // meishiSnapshotUrl と OGP の og:image（issue #675）の両方で使う。
+  const snapshot = await c.env.AVATARS.head(publicMeishiSnapshotKey(uid));
+  const meishiSnapshotUrl = snapshot
+    ? publicMeishiSnapshotUrl(
+        c.req.url,
+        uid,
+        snapshot.customMetadata?.version ?? snapshot.uploaded.toISOString(),
+      )
+    : null;
 
-    return c.json(
-      {
-        id: profile.id,
-        username: profile.username,
-        bio: profile.bio,
-        favoriteQuote: profile.favoriteQuote,
-        profileImageUrl: profile.profileImageUrl,
-        meishiSnapshotUrl,
-        genres: genreList,
-        socialLinks,
-        watchSummary,
-        nowWatching: nowWatching
-          ? nowWatchingResponse(nowWatching, c.req.url)
-          : null,
-      },
-      200,
+  if (wantsHtml) {
+    const webProfileUrl = buildWebProfileUrl(
+      c.env.PUBLIC_WEB_URL,
+      c.req.url,
+      profile.id,
     );
-  });
+    const html = buildOgpHtml(
+      profile,
+      genreList,
+      watchSummary,
+      webProfileUrl,
+      meishiSnapshotUrl,
+    );
+    // ブロック判定が閲覧者依存なので共有キャッシュには載せない（private）。
+    return c.html(html, 200, {
+      "Cache-Control": "private, max-age=60",
+    });
+  }
+
+  // 「いま見ている」吹き出し用の直近話数記録（issue #420）。JSON 応答に
+  // だけ載せ、OGP HTML（共有ページ）には出さない。
+  const nowWatching = await findNowWatching(db, uid);
+  const socialLinks = await socialLinksRepository(db).list(uid, viewerId);
+  c.header("Cache-Control", "private, no-store");
+
+  return c.json(
+    {
+      id: profile.id,
+      username: profile.username,
+      bio: profile.bio,
+      favoriteQuote: profile.favoriteQuote,
+      profileImageUrl: profile.profileImageUrl,
+      meishiSnapshotUrl,
+      genres: genreList,
+      socialLinks,
+      watchSummary,
+      nowWatching: nowWatching
+        ? nowWatchingResponse(nowWatching, c.req.url)
+        : null,
+    },
+    200,
+  );
+});
 
 export { user };

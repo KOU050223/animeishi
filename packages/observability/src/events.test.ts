@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { TRACKED_EVENTS, TRACK_EVENT_ATTRS } from "./events";
+import { SERVER_TRACKED_EVENTS, TRACKED_EVENTS, TRACK_EVENT_ATTRS } from "./events";
 import { EventRateLimiter } from "./rateLimit";
 
 describe("TRACKED_EVENTS", () => {
-  it("イベント名は一意で snake_case", () => {
-    expect(new Set(TRACKED_EVENTS).size).toBe(TRACKED_EVENTS.length);
-    for (const name of TRACKED_EVENTS) {
+  it("イベント名は（サーバー送信分を含めて）一意で snake_case", () => {
+    const all = [...TRACKED_EVENTS, ...SERVER_TRACKED_EVENTS];
+    expect(new Set(all).size).toBe(all.length);
+    for (const name of all) {
       expect(name).toMatch(/^[a-z][a-z0-9_]*$/);
     }
   });

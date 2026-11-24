@@ -1,5 +1,10 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import * as Sentry from "@sentry/react-native";
+import {
+  captureAnalyticsEvent,
+  flushAnalytics,
+  identifyAnalyticsUser,
+  resetAnalyticsUser,
+} from "@/lib/analytics/client";
 import { EVENT_RATE_LIMIT } from "@animeishi/observability";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import {
@@ -26,7 +31,7 @@ jest.mock("expo-router", () => ({
   useSegments: () => mockSegments(),
 }));
 
-const infoMock = () => jest.mocked(Sentry.logger.info);
+const infoMock = () => jest.mocked(captureAnalyticsEvent);
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -36,16 +41,13 @@ beforeEach(async () => {
 });
 
 describe("trackEvent", () => {
-  it("イベント名を message と event.name 属性に付けて送る", async () => {
+  it("イベント名と自動属性を付けて送る", async () => {
     trackEvent("meishi_save");
 
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    const [message, attributes] = infoMock().mock.calls[0] as [
-      string,
-      Record<string, string>,
-    ];
+    // waitFor で 1 回呼ばれたことが保証されている。
+    const [message, attributes] = infoMock().mock.calls[0]!;
     expect(message).toBe("meishi_save");
-    expect(attributes["event.name"]).toBe("meishi_save");
     expect(attributes.platform).toEqual(expect.any(String));
     expect(attributes.app_version).toEqual(expect.any(String));
   });
@@ -90,9 +92,10 @@ describe("trackEvent", () => {
     );
     // ハッシュ化の有無で送信順が入れ替わりうるため属性で引き当てる。
     const attrsOf = (action: string) =>
-      infoMock().mock.calls.find(
-        (c) => (c[1] as Record<string, string>).action === action,
-      )?.[1] as Record<string, string>;
+      infoMock().mock.calls.find((c) => c[1].action === action)?.[1] as Record<
+        string,
+        string
+      >;
     expect(attrsOf("add").user_key).toBe("0123456789abcdef");
     // null 指定では user_key が付かない（コンテキストへフォールバックしない）
     expect(attrsOf("remove").user_key).toBeUndefined();
@@ -124,16 +127,17 @@ describe("trackEvent", () => {
 
     trackEvent("meishi_save", undefined, { userId: "user_retry" });
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(1));
-    expect(
-      (infoMock().mock.calls[0]![1] as Record<string, string>).user_key,
-    ).toBeUndefined();
+    const attributes = infoMock().mock.calls[0]?.[1] as Record<string, string>;
+    expect(attributes.user_key).toBeUndefined();
 
     // 2 回目は digest が成功し user_key が付く（失敗をキャッシュしていない証拠）
     trackEvent("meishi_save", undefined, { userId: "user_retry" });
     await waitFor(() => expect(infoMock()).toHaveBeenCalledTimes(2));
-    expect(
-      (infoMock().mock.calls[1]![1] as Record<string, string>).user_key,
-    ).toBe("0123456789abcdef");
+    const secondAttributes = infoMock().mock.calls[1]?.[1] as Record<
+      string,
+      string
+    >;
+    expect(secondAttributes.user_key).toBe("0123456789abcdef");
   });
 
   it("screen オプションは同期済みコンテキストより優先される", async () => {
@@ -178,12 +182,71 @@ describe("trackEvent", () => {
     expect(names).toContain("meishi_save");
   });
 
-  it("Sentry 送信自体が例外を投げても呼び出し側へ漏れない", async () => {
+  it("送信自体が例外を投げても呼び出し側へ漏れない", async () => {
     infoMock().mockImplementationOnce(() => {
-      throw new Error("sentry down");
+      throw new Error("posthog down");
     });
     expect(() => trackEvent("meishi_save")).not.toThrow();
     await flushTrackedEvents();
+  });
+});
+
+describe("flushTrackedEvents", () => {
+  it("進行中の送信を待ってから SDK のキューを送信する", async () => {
+    trackEvent("meishi_save");
+    await flushTrackedEvents();
+    expect(infoMock()).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(flushAnalytics)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PostHog の identify / reset", () => {
+  it("サインインしたらハッシュ済み user key で identify し、生の userId は渡さない", async () => {
+    setEventContext({ userId: "user_identify_raw" });
+
+    await waitFor(() =>
+      expect(jest.mocked(identifyAnalyticsUser)).toHaveBeenCalledWith(
+        "0123456789abcdef",
+      ),
+    );
+    expect(
+      JSON.stringify(jest.mocked(identifyAnalyticsUser).mock.calls),
+    ).not.toContain("user_identify_raw");
+  });
+
+  it("サインアウト（userId → null）で reset する", async () => {
+    setEventContext({ userId: "user_signout" });
+    setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+  });
+
+  it("起動時に未サインイン（undefined → null）でも reset を依頼する（端末に残った識別を外す）", async () => {
+    setEventContext({ userId: undefined });
+    setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+  });
+
+  it("Clerk の読み込み中（undefined）は reset しない", () => {
+    setEventContext({ userId: undefined });
+
+    expect(jest.mocked(resetAnalyticsUser)).not.toHaveBeenCalled();
+  });
+
+  it("ハッシュ化の間にサインアウトしたら古いユーザーで identify しない", async () => {
+    setEventContext({ userId: "user_stale" });
+    setEventContext({ userId: null });
+
+    await waitFor(() =>
+      expect(jest.mocked(resetAnalyticsUser)).toHaveBeenCalledTimes(1),
+    );
+    await flushTrackedEvents();
+    expect(jest.mocked(identifyAnalyticsUser)).not.toHaveBeenCalled();
   });
 });
 

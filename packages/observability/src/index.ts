@@ -14,8 +14,14 @@ export {
   normalizeAnnictFunnelSurface,
 } from "./funnel";
 export type { AnnictFunnelResult, AnnictFunnelStep, AnnictFunnelSurface } from "./funnel";
-export { TRACKED_EVENTS, TRACK_EVENT_ATTRS, TRACK_EVENT_KEYS } from "./events";
-export type { TrackedEventName } from "./events";
+export {
+  SERVER_TRACKED_EVENTS,
+  TRACKED_EVENTS,
+  TRACK_EVENT_ATTRS,
+  TRACK_EVENT_KEYS,
+} from "./events";
+export type { ServerTrackedEventName, TrackedEventName } from "./events";
+export { USER_KEY_LENGTH, USER_KEY_SALT, userKeyDigestInput, userKeyFromDigest } from "./userKey";
 export { EVENT_RATE_LIMIT, EventRateLimiter } from "./rateLimit";
 export { GUEST_CTA_SOURCE_PARAM, GUEST_CTA_SOURCES, normalizeGuestCtaSource } from "./guestCta";
 export type { GuestCtaSource } from "./guestCta";

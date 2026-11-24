@@ -19,7 +19,7 @@ import {
   View,
   useColorScheme,
 } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import {
   buildDanimeBookmarklet,
@@ -33,6 +33,7 @@ import { BackButton, Input } from "@/components/ui";
 import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { useThemeColors } from "@/lib/theme";
+import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 
 export default function DanimeImportWebScreen() {
   const { t } = useTranslation();
@@ -43,6 +44,7 @@ export default function DanimeImportWebScreen() {
   const [pasted, setPasted] = useState("");
   const [error, setError] = useState<string | null>(null);
   const setLists = useDanimeImportStore((s) => s.setLists);
+  const danimeImportEnabled = useDanimeImportEnabled();
   // ブックマークレットは転送先オリジンを埋め込んで生成する（プレビュー/本番で
   // オリジンが変わるため location.origin から作る）。
   const bookmarklet = buildDanimeBookmarklet(window.location.origin);
@@ -104,6 +106,11 @@ export default function DanimeImportWebScreen() {
     }
     setLists(lists);
     router.push("/danime-import-review");
+  }
+
+  // 停止スイッチ（issue #758）が入っている間は取り込みを始めさせない。
+  if (!danimeImportEnabled) {
+    return <Redirect href="/(tabs)/library?section=history" />;
   }
 
   // ---- 受信待機モード（ブックマークレットが開いたタブ）----

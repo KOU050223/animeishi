@@ -151,6 +151,7 @@ const routes = app
 registerOpenApiDocs(app);
 
 export type AppType = typeof routes;
+export { routes };
 
 // Cloudflare Workflows（dアニメ話記録ジョブ, issue #477）。
 // wrangler.toml の [[workflows]] class_name がこの名前付きエクスポートを参照する。

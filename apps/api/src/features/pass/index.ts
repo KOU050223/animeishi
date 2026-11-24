@@ -1,10 +1,11 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { usersRepository } from "../users/repository";
 import { createDb } from "@/db/client";
 import { buildMeishiPassJson } from "@/lib/pass/buildPassJson";
+import { createOpenApiApp } from "@/lib/openapi";
+import { getMeishiPassJsonRoute } from "./schema";
 
 // Apple Wallet 用の Pass Type ID / Team ID / .p12(base64) は環境変数で受け取る。
 // 未設定なら .pkpass 署名は行わず 501 を返す（骨組み実装のため）。
@@ -21,10 +22,11 @@ function getBindings(c: Context): PassBindings {
   return c.env as PassBindings;
 }
 
-const pass = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const pass = app
   // pass.json の中身をプレビューする。証明書が無くても叩けるので開発時に便利。
-  .get("/meishi.json", async (c) => {
+  .openapi(getMeishiPassJsonRoute, async (c) => {
     const bindings = getBindings(c);
     const userId = c.var.clerkUserId;
     const db = createDb(bindings.DB);
@@ -51,7 +53,7 @@ const pass = new Hono<AuthVariables>()
       profileUrl: profileUrl.toString(),
     });
 
-    return c.json(passJson);
+    return c.json(passJson, 200);
   })
   // .pkpass バイナリを返す本命エンドポイント。
   // 署名証明書が設定されていれば署名済み zip を返す（TODO）。

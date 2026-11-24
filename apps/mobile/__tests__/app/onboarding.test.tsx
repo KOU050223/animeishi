@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import OnboardingScreen from "@/app/onboarding";
 import { onboardingPending } from "@/lib/onboarding";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 
 // issue #412: 初回オンボーディング画面のオーケストレーション。
 // ステップ各画面の UI はモックに置き換え、ここでは
@@ -212,6 +213,13 @@ describe("OnboardingScreen フロー", () => {
     expect(savedLibrary.cards).toHaveLength(1);
     // 最初の 1 枚は既定カードになる
     expect(savedLibrary.defaultCardId).toBe(savedLibrary.cards[0].id);
+    // 初めての名刺として記録する（issue #758）
+    await waitFor(() =>
+      expect(captureAnalyticsEvent).toHaveBeenCalledWith(
+        "meishi_create",
+        expect.any(Object),
+      ),
+    );
 
     // 3 問目（名刺完成）→ 4 問目（Annict）
     await fireEvent.press(screen.getByTestId("mock-next"));
@@ -244,6 +252,7 @@ describe("OnboardingScreen フロー", () => {
       }),
     );
 
+    jest.mocked(captureAnalyticsEvent).mockClear();
     await render(<OnboardingScreen />);
     await selectThreeWorksAndNext();
     await fireEvent.press(screen.getByTestId("mock-select-template"));
@@ -254,6 +263,11 @@ describe("OnboardingScreen フロー", () => {
     expect(savedLibrary.cards).toHaveLength(2);
     // 既定は既存カードのまま（オンボーディングのカードは奪わない）
     expect(savedLibrary.defaultCardId).toBe("existing-card");
+    // 2 枚目なので初めての名刺としては記録しない
+    expect(captureAnalyticsEvent).not.toHaveBeenCalledWith(
+      "meishi_create",
+      expect.anything(),
+    );
   });
 
   it("途中のスキップは skipped を記録してホームへ戻る", async () => {

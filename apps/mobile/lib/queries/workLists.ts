@@ -83,7 +83,7 @@ export const workListQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkListsResponse>;
         },
       }),
   },
@@ -103,7 +103,7 @@ export const workListQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkListsResponse>;
         },
       }),
   },

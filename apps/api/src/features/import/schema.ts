@@ -1,4 +1,12 @@
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { requireAnnictToken } from "@/lib/annict/middleware";
+import {
+  bearerAuth,
+  bearerAuthWithAnnict,
+  codedErrorResponseSchema,
+  errorResponseSchema,
+} from "@/lib/openapi";
+import { DANIME_EPISODE_JOB_STATUSES } from "./schema.db";
 
 // インポート対象の 1 作品。クライアント（WebView 注入 / ブックマークレット）が
 // マイページ HTML から抽出し、話数単位の履歴を作品単位に集約済みのものを受け取る。
@@ -56,3 +64,148 @@ export const danimeEpisodeJobCreateSchema = z.object({
 export type DanimeEpisodeJobCreateInput = z.infer<
   typeof danimeEpisodeJobCreateSchema
 >;
+
+const jsonError = (description: string) => ({
+  content: { "application/json": { schema: errorResponseSchema } },
+  description,
+});
+
+const codedJsonError = (description: string) => ({
+  content: { "application/json": { schema: codedErrorResponseSchema } },
+  description,
+});
+
+// @animeishi/danime-core の DanimeAnnictWork。
+const danimeAnnictWorkSchema = z.object({
+  annictWorkId: z.number(),
+  nodeId: z.string().nullable(),
+  title: z.string(),
+  titleKana: z.string().nullable(),
+  titleEn: z.string().nullable(),
+  seasonName: z.string().nullable(),
+  seasonYear: z.number().nullable(),
+  imageUrl: z.string().nullable(),
+  malAnimeId: z.number().nullable(),
+});
+
+export const danimeMatchRoute = createRoute({
+  method: "post",
+  path: "/danime/match",
+  tags: ["import"],
+  summary: "dアニメストアの作品タイトル群を Annict 作品に照合する",
+  description:
+    "サブリクエスト予算を使い切った作品は status:pending で返す（クライアントが再送する）。",
+  security: bearerAuthWithAnnict,
+  middleware: [requireAnnictToken] as const,
+  request: {
+    body: {
+      content: { "application/json": { schema: danimeMatchRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            results: z.array(
+              danimeMatchWorkSchema.extend({
+                status: z.enum(["exact", "candidates", "none", "pending"]),
+                work: danimeAnnictWorkSchema.nullable(),
+                candidates: z.array(danimeAnnictWorkSchema),
+              }),
+            ),
+            stats: z.object({
+              localPassSearches: z.number(),
+              firstPassSearches: z.number(),
+              secondPassSearches: z.number(),
+              pending: z.number(),
+              elapsedMs: z.number(),
+              retries: z.number(),
+            }),
+          }),
+        },
+      },
+      description: "照合結果（入力順）と検索の観測情報",
+    },
+    400: jsonError("入力エラー"),
+    401: codedJsonError("未認証・Annict 未連携"),
+    429: codedJsonError("Annict のレート制限（混雑）"),
+    502: codedJsonError("Annict の障害"),
+  },
+});
+
+const danimeEpisodeJobSchema = z.object({
+  id: z.string(),
+  status: z.enum(DANIME_EPISODE_JOB_STATUSES),
+  total: z.number(),
+  done: z.number(),
+  failed: z.number(),
+  skipped: z.number(),
+  unmatched: z.number(),
+  error: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createDanimeEpisodeJobRoute = createRoute({
+  method: "post",
+  path: "/episode-jobs",
+  tags: ["import"],
+  summary: "話単位の記録ジョブを登録する（実行中があれば既存を返す）",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: danimeEpisodeJobCreateSchema },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            job: danimeEpisodeJobSchema,
+            created: z.boolean(),
+          }),
+        },
+      },
+      description: "実行中の既存ジョブ（created:false）",
+    },
+    201: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            job: danimeEpisodeJobSchema.nullable(),
+            created: z.boolean(),
+          }),
+        },
+      },
+      description: "新規に登録したジョブ（created:true）",
+    },
+    400: jsonError("入力エラー"),
+    401: codedJsonError("未認証・Web の Annict 連携が無い"),
+    503: jsonError("バックグラウンド処理が利用できない"),
+  },
+});
+
+export const getCurrentDanimeEpisodeJobRoute = createRoute({
+  method: "get",
+  path: "/episode-jobs/current",
+  tags: ["import"],
+  summary: "最新の記録ジョブの進捗を取得する",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({ job: danimeEpisodeJobSchema.nullable() }),
+        },
+      },
+      description: "最新ジョブ（無ければ null）",
+    },
+    401: jsonError("未認証"),
+  },
+});

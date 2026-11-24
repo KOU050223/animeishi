@@ -184,7 +184,10 @@ Reports are reviewed by the operator. New reports trigger an operations notifica
 6. ACCOUNT DELETION
 The account can be deleted inside the app without contacting support: open the "Profile" tab, scroll below "Sign out" (サインアウト), tap "Delete account" (アカウントを削除), and follow the confirmation steps.
 
-7. OTHER
+7. AI ANALYSIS
+Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Cloudflare Workers AI (our host; no other AI vendor). Sends titles, watch statuses, ratings, selected genres and stats from them; no account info. Not used to train AI.
+
+8. OTHER
 - The app is free and has no in-app purchases or subscriptions.
 - Behavior is the same in all regions. The UI is available in Japanese and English.
 ```
@@ -207,7 +210,7 @@ The account can be deleted inside the app without contacting support: open the "
 
 ### トラッキング（Data Used to Track You）
 
-**なし。** 広告 SDK・広告目的のデータ共有・IDFA 取得はなく、App Tracking Transparency の表示も不要（依存パッケージに広告・計測系は `@sentry/react-native` のみ）。
+**なし。** 広告 SDK・広告目的のデータ共有・IDFA 取得はなく、App Tracking Transparency の表示も不要（依存パッケージの計測系は `@sentry/react-native`（エラー監視）と `posthog-react-native`（プロダクト計測。自社の分析にだけ使い、他社データとの結合・広告・データブローカーへの提供はしない）のみ）。
 
 ### ユーザーに紐づくデータ（Data Linked to the User）
 
@@ -215,10 +218,10 @@ The account can be deleted inside the app without contacting support: open the "
 | --- | --- | --- |
 | Contact Info → Email Address | サインアップ時に入力。Clerk が管理（`app/(auth)/sign-up.tsx`） | App Functionality |
 | Contact Info → Name | ユーザー名（サインアップ・プロフィールで入力） | App Functionality |
-| Identifiers → User ID | Clerk のアカウント ID。Sentry の UI イベントには生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を付与（`lib/events.ts`） | App Functionality / Analytics |
+| Identifiers → User ID | Clerk のアカウント ID。PostHog には生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を distinct_id として送る（`lib/events.ts`、API は `src/lib/posthog.ts`）。user key は同一利用者のイベントを結び付ける ID のため Analytics 目的でも申告する | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
 | User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
-| Usage Data → Product Interaction | 画面・主要操作イベントを Sentry Logs に送信（platform・アプリ版・screen・イベント属性 + 仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キー経由で紐づく Sentry 側があるため全体として「紐づく」で申告する | Analytics |
+| Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）
 
@@ -234,10 +237,12 @@ The account can be deleted inside the app without contacting support: open the "
 ### 申告外・補足
 
 - EAS Observe（`expo-observe`）は Expo のサービスプロバイダとしてデータを処理し、90 日で削除される。Expo は広告利用・データブローカーへの提供を行わない（[Expo の申告ガイド](https://docs.expo.dev/eas/observe/reference/store-privacy-declarations/)）。本アプリは `errorHandlingEnabled: false` で JS エラー収集を切り、ネットワークトレース・ユーザー定義イベントも使っていないため、ルート名・タイミング系とネイティブクラッシュのみが送信対象。ユーザー ID を載せる送信はない。
+- PostHog（`posthog-react-native`）は `disableGeoip: true` で IP から所在地を引かせず、プロジェクト設定でも「Discard client IP data」を ON にする（`docs/runbook/posthog.md`）。このため PostHog 由来の Location は申告しない。プロジェクトキー未設定のビルドでは SDK を読み込まず何も送らない。
 - Annict アクセストークンは iOS では SecureStore にのみ保持し、サーバーには保存しない。Annict API への送信は連携した利用者の操作時のみ（`lib/annict/storage.native.ts`）。
 - AniList・Jikan（MyAnimeList）には作品 ID のみをサーバー経由で送信し、個人情報は含まない（`privacy.tsx` 第4条）。
 - Cloudflare Workers のアクセスログ（リクエスト IP 等）はホスティング基盤側の処理で、ポリシーには記載済み。ASC の質問で第三者による収集に当たると判断された場合は回答を調整する。
 - dアニメ取り込み（作品タイトル送信）・Apple Wallet 追加は iOS では無効のため申告対象外（Web 版のみ / フラグ無効）。
+- AI 視聴傾向分析・おすすめ（#752）が Workers AI に送る項目（作品タイトル・視聴ステータス・作品評価・選択ジャンルと、そこからの集計値）は、上表の User Content → Other User Content（評価・視聴ステータス・ジャンル）に含まれ、新しい申告項目は要らない。送信先は Cloudflare（ホスティングと同じサービスプロバイダ）で、Cloudflare は Workers AI の入出力をモデル学習に使わず、推論後は原則として保持しない（[Workers AI Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)）。生成結果は利用者ごとに最新 1 件を D1 に保存する（`apps/api/src/features/analysis/`。24h キャッシュは再利用の判定で、削除期限ではない）。
 
 ### プライバシーポリシーとの照合結果（`apps/mobile/app/privacy.tsx`）
 

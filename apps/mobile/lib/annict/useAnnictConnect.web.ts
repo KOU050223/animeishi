@@ -222,16 +222,13 @@ async function runWebAnnictConnect({
     // authorize へ遷移する。以降の処理は /annict（app/annict.tsx）に引き継がれ、
     // この関数の Promise は遷移により事実上完了しない。呼び出し側は success を
     // 待たず、遷移が起きたこと自体を成功とみなす。
-    // Sentry Logs はバッファに溜まり一定間隔で送信されるため、遷移前に
+    // 計測イベントは SDK のキューに溜まり一定間隔で送信されるため、遷移前に
     // flush しないと直前の cta_tap / prompt_view が消失する（issue #64）。
-    // trackAnnictFunnel はハッシュ化を経て非同期にログへ載るため、まず
-    // 進行中の送信がバッファに乗るのを待ってから flush する。
-    // RN 版 flush は timeout を取れず内部で握りつぶされるため、
-    // 遷移を阻害しないようこちらで時間上限を設ける。
-    await flushAnnictFunnel();
+    // flush は timeout を取れないため、遷移を阻害しないようこちらで
+    // 時間上限を設ける。Sentry 側も送信待ちのエラーを流しておく。
     try {
       await Promise.race([
-        flushSentry(),
+        Promise.all([flushAnnictFunnel(), flushSentry()]),
         new Promise((resolve) => setTimeout(resolve, 2000)),
       ]);
     } catch {

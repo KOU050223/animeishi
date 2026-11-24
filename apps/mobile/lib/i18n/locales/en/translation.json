@@ -160,6 +160,7 @@
   "{{title}}をすべて見る": "View all {{title}}",
   "戻る": "Back",
   "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します": "AI analyzes your viewing trends and recommended genres from your watch history",
+  "「分析する」「再分析する」「おすすめを出す」を押したときだけ、視聴履歴（作品タイトル・視聴ステータス・作品評価）と選択したジャンルを Cloudflare Workers AI で処理します。AI の学習には使われません": "Only when you tap \"Analyze\", \"Analyze again\", or \"Get recommendations\", your watch history (titles, watch statuses, and ratings) and selected genres are processed with Cloudflare Workers AI. This data is not used to train AI models",
   "分析結果の取得に失敗しました": "Failed to load analysis",
   "分析結果を再取得": "Reload analysis",
   "まだ分析結果がありません": "No analysis yet",

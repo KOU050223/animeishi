@@ -1,6 +1,6 @@
 // Web 版の Sentry 初期化。初回描画までの JS を小さくするため、SDK は
 // requestIdleCallback 後に動的 import で読み込む（issue #719）。
-// 初期化前に起きたエラーと計測イベントはこのモジュール内でバッファし、
+// 初期化前に起きたエラーはこのモジュール内でバッファし、
 // SDK ロード後に順番通り流す。オプションと送信ポリシーは
 // observabilityShared.ts でネイティブと共有する。
 import type { ComponentType } from "react";
@@ -15,13 +15,10 @@ export type { ObservabilityEnv } from "@/lib/observabilityShared";
 // DSN 未設定では SDK を読み込まずバッファが溜まり続けるため上限を設ける。
 // mechanism はグローバルハンドラ由来のイベントに付け、再送時も
 // 「未処理」のまま Sentry に届くようにする。
-type QueuedEvent =
-  | {
-      kind: "error";
-      error: unknown;
-      mechanism?: { type: string; handled: boolean };
-    }
-  | { kind: "log"; name: string; attributes: Record<string, string> };
+type QueuedEvent = {
+  error: unknown;
+  mechanism?: { type: string; handled: boolean };
+};
 
 const BUFFER_LIMIT = 50;
 const pendingEvents: QueuedEvent[] = [];
@@ -53,7 +50,6 @@ function enqueue(event: QueuedEvent): void {
 function onGlobalError(event: ErrorEvent): void {
   if (sentry) return;
   enqueue({
-    kind: "error",
     error: event.error ?? event.message,
     mechanism: { type: "onerror", handled: false },
   });
@@ -62,7 +58,6 @@ function onGlobalError(event: ErrorEvent): void {
 function onUnhandledRejection(event: PromiseRejectionEvent): void {
   if (sentry) return;
   enqueue({
-    kind: "error",
     error: event.reason,
     mechanism: { type: "onunhandledrejection", handled: false },
   });
@@ -104,16 +99,12 @@ function loadSentry(): Promise<SentryModule | null> {
       // 流してから自前のグローバルハンドラを外す。グローバルハンドラ由来
       // のイベントは mechanism を復元して「未処理」として送る。
       for (const event of pendingEvents.splice(0)) {
-        if (event.kind === "error") {
-          if (event.mechanism) {
-            module.captureException(event.error, {
-              mechanism: event.mechanism,
-            });
-          } else {
-            module.captureException(event.error);
-          }
+        if (event.mechanism) {
+          module.captureException(event.error, {
+            mechanism: event.mechanism,
+          });
         } else {
-          module.logger.info(event.name, event.attributes);
+          module.captureException(event.error);
         }
       }
       if (typeof window !== "undefined") {
@@ -165,20 +156,7 @@ export function captureException(error: unknown): void {
     return;
   }
   if (!sentryEnabled()) return;
-  enqueue({ kind: "error", error });
-}
-
-// UI イベント計測（lib/events.ts）の送信先。初期化前はバッファに積む。
-export function logInfo(
-  name: string,
-  attributes: Record<string, string>,
-): void {
-  if (sentry) {
-    sentry.logger.info(name, attributes);
-    return;
-  }
-  if (!sentryEnabled()) return;
-  enqueue({ kind: "log", name, attributes });
+  enqueue({ error });
 }
 
 // ページ遷移前に送信待ちのイベントを流す（lib/annict/useAnnictConnect.web.ts）。
