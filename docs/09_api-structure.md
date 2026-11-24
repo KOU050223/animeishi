@@ -28,6 +28,7 @@ apps/api/src/
       index.ts                # ルート定義 + ハンドラ（Hono RPC チェーンをここに置く）
       index.test.ts           # ルートのテスト（vitest・D1 実体）
       schema.ts               # zod スキーマ + createRoute 定義
+      schema.db.ts            # Drizzle テーブル定義（db/schema.ts が再エクスポートする。issue #732）
       service.ts              # 純粋ロジック・外部連携・HTML 生成など（ある機能のみ）
       repository.ts           # DB アクセス層（ある機能のみ）
       repository.test.ts      # リポジトリのテスト
@@ -83,6 +84,10 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 - feature 間の参照は他 feature の `repository.ts` / `service.ts` を
   import する。schema の共有は最小限にとどめ、必要なら
   `lib/` または直接他 feature の `schema.ts` を import する
+- `schema.db.ts` は外部キー参照のため他 feature の `schema.db.ts` を
+  直接 import してよい（`db/schema.ts` のバレル経由だと循環 import に
+  なる）。repository など実行時コードは従来どおり `@/db/schema` から
+  import する
 - `index.ts` のルート mount 順は認証の適用範囲に影響するため、並び替えは
   挙動変更として扱う
 - Hono RPC の型互換を守るため、ルートチェーン（`new Hono().get(...)` 等）は
