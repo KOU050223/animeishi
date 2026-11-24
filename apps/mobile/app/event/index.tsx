@@ -14,6 +14,8 @@ import { useEventList } from "@/lib/useEvents";
 import type { EventListItem } from "@/lib/useEvents";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 行のカバー画像サイズ。比率はホームのイベント枠と同じ 16:9。
 const THUMB_WIDTH = 112;
@@ -22,7 +24,12 @@ const THUMB_HEIGHT = Math.round((THUMB_WIDTH * 9) / 16);
 // 公開中のイベントの一覧（issue #599）。ホームのイベント枠（EventRail）の
 // 「すべて見る」とプロフィールの導線から遷移する。API は公開期間外を
 // 返さないため、ここでは取得分をそのまま並べる。
-export default function EventListScreen() {
+export default function EventListRoute() {
+  if (!featureFlags.events) return <FeatureUnavailableScreen />;
+  return <EventListScreen />;
+}
+
+function EventListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();

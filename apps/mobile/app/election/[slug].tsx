@@ -24,11 +24,18 @@ import type { ElectionCandidate, ElectionDetail } from "@/lib/useElections";
 import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 総選挙の詳細（issue #438）。ホームの総選挙枠（ElectionRail）から遷移する。
 // 候補をタップして投票する。1 アカウント 1 票で、期間中は別の候補を
 // 選び直せる。途中経過は出さず、終了後の結果は特集記事で発表される。
-export default function ElectionScreen() {
+export default function ElectionRoute() {
+  if (!featureFlags.elections) return <FeatureUnavailableScreen />;
+  return <ElectionScreen />;
+}
+
+function ElectionScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();

@@ -252,7 +252,7 @@ The account can be deleted inside the app without contacting support: open the "
 `store.config.json` の説明文（ja / en-US）・キーワードと上のスクリーンショット計画を、提出ビルドで実際に使える機能と照合した結果:
 
 - 説明文にある機能はすべてネイティブで提供される: 名刺作成・QR 交換・Annict 連携・Tier 表・お気に入り・公開プロフィール URL・好きなセリフ。
-- **ネイティブにない機能は含まれていない**: Apple Wallet 追加（`featureFlags.wallet` は `EXPO_PUBLIC_FEATURE_WALLET` 未設定で無効、pkpass 署名未実装 #103）と dアニメ取り込み（ネイティブで無効 #158）は説明文にもスクリーンショット計画にも出ていない。
+- **ネイティブにない機能は含まれていない**: Apple Wallet 追加（`featureFlags.wallet` は `EXPO_PUBLIC_FEATURE_WALLET` 未設定で無効、pkpass 署名未実装 #103）・dアニメ取り込み（ネイティブで無効 #158）・総選挙・イベント・特集記事（`featureFlags.elections` / `events` / `articles` は `EXPO_PUBLIC_FEATURE_ELECTIONS` / `_EVENTS` / `_ARTICLES` 未設定で無効 #750）は説明文にもスクリーンショット計画にも出ていない。説明文の「イベントやオフ会で」は現地での QR 交換の場面を指し、アプリ内のイベント機能ではない。
 - App Store 用スクリーンショットは提出する Release ビルドで撮ること（下の撮影手順の注意書きどおり）。Web 版で撮ると dアニメ取り込みなどネイティブにない機能が写り込み得るため、App Store には使わない。
 
 ## TODO（ストア提出前に要解決・オーナー作業）

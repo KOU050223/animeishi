@@ -15,6 +15,12 @@ export const featureFlags = {
   // 回避のため v1.0 では Web 版のみ提供（#158）。ネイティブで再有効化する
   // 場合は EXPO_PUBLIC_FEATURE_DANIME_IMPORT_NATIVE=true を設定する。
   danimeImport,
+  // 総選挙・イベント・特集記事。公開作業が本番 D1 の手作業に頼っている
+  // （#743）ため v1.0 では既定非表示（#746）。Web も同じ扱い。
+  // EXPO_PUBLIC_FEATURE_ELECTIONS / _EVENTS / _ARTICLES=true で有効化する。
+  elections: process.env.EXPO_PUBLIC_FEATURE_ELECTIONS === "true",
+  events: process.env.EXPO_PUBLIC_FEATURE_EVENTS === "true",
+  articles: process.env.EXPO_PUBLIC_FEATURE_ARTICLES === "true",
   // Google ログイン（#89）。開発インスタンス（pk_test_）のみ既定 ON。
   googleSignIn,
   // パスキー（#181）。Web のみ。ネイティブは #107 待ちのため常に無効。

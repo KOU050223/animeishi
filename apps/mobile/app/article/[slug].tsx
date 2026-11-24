@@ -16,12 +16,19 @@ import { useArticle } from "@/lib/useArticles";
 import { formatArticlePublishedAt } from "@/lib/articlePublishedAt";
 import { AccessibleLinkRenderer } from "@/lib/markdownRenderer";
 import { useThemeColors } from "@/lib/theme";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // 特集記事の詳細（issue #437）。ホームの特集枠（ArticleRail）から遷移し、
 // API が返す本文 Markdown を react-native-marked で描画する。
 // 公開期間外・存在しない slug は API が 404 を返すため、エラーは
 // 「表示できません」の 1 種類に寄せる。
-export default function ArticleScreen() {
+export default function ArticleRoute() {
+  if (!featureFlags.articles) return <FeatureUnavailableScreen />;
+  return <ArticleScreen />;
+}
+
+function ArticleScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const { t, i18n } = useTranslation();
