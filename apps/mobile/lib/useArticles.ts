@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { articleQueries } from "@/lib/queries/articles";
 
-export type { Article, ArticleListItem } from "@/lib/queries/articles";
+export type { ArticleListItem } from "@/lib/queries/articles";
 
 export const ARTICLES_QUERY_KEY = articleQueries.all;
 

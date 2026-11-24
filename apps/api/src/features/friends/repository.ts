@@ -60,7 +60,7 @@ export type FriendNote = {
 // tier_list_* は近況の対象外（issue #660 の「3 種に絞る」）。
 // watch_status はさらに今期の作品に絞って出す（「今期見ている作品の
 // 追加・変更」の仕様。フィルタは getFriendUpdates 内）。
-export const FRIEND_UPDATE_ACTIVITY_TYPES = [
+const FRIEND_UPDATE_ACTIVITY_TYPES = [
   "watch_status",
   "favorite_added",
 ] as const;
@@ -498,5 +498,3 @@ export function friendsRepository(
     },
   };
 }
-
-export type FriendsRepository = ReturnType<typeof friendsRepository>;

@@ -79,7 +79,7 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
   "image/gif": "gif",
 };
 
-export const WORK_IMAGE_PATH_PREFIX = "/images/works/";
+const WORK_IMAGE_PATH_PREFIX = "/images/works/";
 
 // works/<annictWorkId>/<hash>.<ext> 以外のキーは読み書きしない
 // （DB 由来の値に異常値が混ざっても avatars/ 等へ到達しないように）。

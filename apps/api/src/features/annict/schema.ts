@@ -31,8 +31,6 @@ export const annictExchangeSchema = z
     path: ["mode"],
   });
 
-export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
-
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },
   description,

@@ -15,7 +15,8 @@ Annict GraphQL のクエリ・スキーマを変えるとき、または型エ�
 - `apps/api/src/lib/annict/graphql-config.d.ts`
   gql.tada の設定（fragment マスク無効化、`DateTime` → `string` のスカラーマッピング）。
 - `apps/api/src/lib/annict/client/tada.ts`
-  クエリ文字列リテラルから `AnnictResult` / `AnnictVariables` 型を導くヘルパー。
+  クエリ文字列リテラルからレスポンス型 `AnnictResult` を導くヘルパー
+  （変数型はクエリを文字列で送るため導出しない）。
   実行時に送るクエリは従来どおり文字列で、`annictGraphQL<T>` の `T` に
   `AnnictResult<typeof クエリ定数>` を渡して使う。
 

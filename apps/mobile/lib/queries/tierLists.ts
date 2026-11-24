@@ -13,35 +13,23 @@ export type PublicTierListsResponse = InferResponseType<
 export type PublicTierListItem = PublicTierListsResponse["items"][number];
 export type PublicTierListsSort = "likes" | "new";
 
-export type TierListsResponse = InferResponseType<
-  (typeof apiClient.me)["tier-lists"]["$get"],
-  200
->;
 export type SavedTierListResponse = InferResponseType<
   (typeof apiClient.me)["tier-lists"][":season"]["$get"],
-  200
->;
-export type CustomTierListsResponse = InferResponseType<
-  (typeof apiClient.me)["custom-tier-lists"]["$get"],
   200
 >;
 export type SavedCustomTierListResponse = InferResponseType<
   (typeof apiClient.me)["custom-tier-lists"][":id"]["$get"],
   200
 >;
-export type CharacterTierListsResponse = InferResponseType<
-  (typeof apiClient.me)["character-tier-lists"]["$get"],
-  200
->;
 export type SavedCharacterTierListResponse = InferResponseType<
   (typeof apiClient.me)["character-tier-lists"][":annictWorkId"]["$get"],
   200
 >;
-export type WorkCharactersResponse = InferResponseType<
+type WorkCharactersResponse = InferResponseType<
   (typeof apiClient.works)[":annictWorkId"]["characters"]["$get"],
   200
 >;
-export type PublicTierListDetailResponse = InferResponseType<
+type PublicTierListDetailResponse = InferResponseType<
   (typeof apiClient)["tier-lists"][":kind"][":id"]["$get"],
   200
 >;

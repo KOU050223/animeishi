@@ -9,10 +9,10 @@ import en from "./locales/en/translation.json";
 import filterEn from "./locales/en/animeListFilterTranslation.json";
 
 /** 現状サポートする言語。言語を追加する場合はここと resources を増やす。 */
-export const SUPPORTED_LANGUAGES = ["ja", "en"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+const SUPPORTED_LANGUAGES = ["ja", "en"] as const;
+type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-export const FALLBACK_LANGUAGE: SupportedLanguage = "ja";
+const FALLBACK_LANGUAGE: SupportedLanguage = "ja";
 
 // 日本語をキー兼デフォルト文言のソースオブトゥルースとして扱う（例: t("アニ名刺")）。
 // ja はリソースを持たず、翻訳が見つからないときに i18next がキー文字列（=日本語）を

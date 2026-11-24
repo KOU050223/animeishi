@@ -9,9 +9,9 @@ export type Transform = {
   rotation: number;
 };
 
-export type FontWeight = "normal" | "bold" | "black";
-export type FontStyle = "normal" | "italic";
-export type FontFamily =
+type FontWeight = "normal" | "bold" | "black";
+type FontStyle = "normal" | "italic";
+type FontFamily =
   | "system"
   | "notoSansJp"
   | "notoSerifJp"
@@ -29,27 +29,27 @@ export type BackgroundStyle =
       pattern: "dots" | "stripes" | "grid";
     };
 
-export type TextAlign = "left" | "center" | "right";
-export type ImageShape = "rect" | "circle" | "rounded";
-export type ImageObjectFit = "cover" | "contain";
-export type ShapeKind = "rectangle" | "circle";
+type TextAlign = "left" | "center" | "right";
+type ImageShape = "rect" | "circle" | "rounded";
+type ImageObjectFit = "cover" | "contain";
+type ShapeKind = "rectangle" | "circle";
 
 export type TextSource = "custom" | "username" | "bio" | "favoriteQuote";
-export type ImageSource = "avatar" | "upload" | "anime";
-export type QrSource = "profile" | "custom";
-export type CountMetric = "watched" | "favorites";
+type ImageSource = "avatar" | "upload" | "anime";
+type QrSource = "profile" | "custom";
+type CountMetric = "watched" | "favorites";
 // 実績バッジ要素（issue #415）が参照する実績カテゴリ。
 // API の AchievementKind と揃える（API 側に種類が増えても、ここに無い
 // 種類は名刺では選べないだけで従来どおり描画できる）。
-export type AchievementBadgeKind =
+type AchievementBadgeKind =
   | "watch_count"
   | "record_streak"
   | "season_completion";
-export type CollageSort = "recent" | "popular";
+type CollageSort = "recent" | "popular";
 
 // コラージュの画像をどのリストから取るか。undefined は「自動」
 // （視聴履歴 → 空ならお気に入り、の従来フォールバック）を表す。
-export type CollageListSource = "watchHistory" | "favorites";
+type CollageListSource = "watchHistory" | "favorites";
 // 視聴履歴リストを Annict の視聴ステータスで絞る。undefined/"all" は全ステータス。
 export type CollageStateFilter =
   | "all"
@@ -187,7 +187,7 @@ export type MeishiLibrary = {
 };
 
 // animeCollage が参照できるリスト別の画像 URL 集合（issue #96）。
-export type AnimeCollageLists = {
+type AnimeCollageLists = {
   watchHistory: string[];
   favorites: string[];
   byState: Partial<Record<Exclude<CollageStateFilter, "all">, string[]>>;
@@ -195,7 +195,7 @@ export type AnimeCollageLists = {
 
 // 実績バッジ要素が参照する獲得状況（issue #415）。
 // GET /me/achievements の実績項目と同じ形。未提供なら未獲得として描く。
-export type AchievementBadgeDatum = {
+type AchievementBadgeDatum = {
   id: string;
   kind: string;
   threshold: number | null;

@@ -9,7 +9,7 @@ import { loadPostHogSdk } from "./posthogLoader";
 
 // PostHog Cloud（US）の取り込みホスト。EU 等へ変えるときは
 // EXPO_PUBLIC_POSTHOG_HOST で上書きする。
-export const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
+const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 
 type FeatureFlagValue = boolean | string | undefined;
 
@@ -23,7 +23,7 @@ function posthogHost(): string {
   return process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_HOST;
 }
 
-export function isAnalyticsEnabled(): boolean {
+function isAnalyticsEnabled(): boolean {
   return posthogKey() !== "";
 }
 

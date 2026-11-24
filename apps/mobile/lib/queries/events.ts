@@ -2,23 +2,19 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type EventsResponse = InferResponseType<
-  (typeof apiClient.events)["$get"],
-  200
->;
+type EventsResponse = InferResponseType<(typeof apiClient.events)["$get"], 200>;
 export type EventListItem = EventsResponse["items"][number];
 
-export type EventResponse = InferResponseType<
+type EventResponse = InferResponseType<
   (typeof apiClient.events)[":slug"]["$get"],
   200
 >;
 export type EventDetail = EventResponse;
 
-export type ExchangedFriendsResponse = InferResponseType<
+type ExchangedFriendsResponse = InferResponseType<
   (typeof apiClient.events)[":slug"]["exchanged-friends"]["$get"],
   200
 >;
-export type ExchangedFriendItem = ExchangedFriendsResponse["items"][number];
 
 export type EventParticipantsResponse = InferResponseType<
   (typeof apiClient.events)[":slug"]["participants"]["$get"],

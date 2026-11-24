@@ -7,13 +7,9 @@ import {
 import { userRateLimit } from "@/middleware/rateLimit";
 
 // POST /me/friend-requests のボディ。userId は申請先（addressee）の Clerk user ID。
-export const friendRequestCreateSchema = z.object({
+const friendRequestCreateSchema = z.object({
   userId: z.string().min(1, "userId を指定してください"),
 });
-
-export type FriendRequestCreateInput = z.infer<
-  typeof friendRequestCreateSchema
->;
 
 // friend_requests 行（Drizzle FriendRequest 型の JSON 表現）。createdAt は ISO 文字列。
 const friendRequestSchema = z.object({

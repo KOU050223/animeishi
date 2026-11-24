@@ -14,7 +14,7 @@ const workListItemSchema = z.object({
   annictWorkId: z.number().int().positive(),
 });
 
-export const workListSaveSchema = z
+const workListSaveSchema = z
   .object({
     title: z
       .string()
@@ -37,10 +37,8 @@ export const workListSaveSchema = z
     { error: "同じ作品が複数登録されています", path: ["items"] },
   );
 
-export type WorkListSaveInput = z.infer<typeof workListSaveSchema>;
-
 // /me/work-lists/:id 系パスのパラメータ。パスパラメータは文字列なので coerce。
-export const workListIdParamSchema = z.object({
+const workListIdParamSchema = z.object({
   id: z.coerce
     .number()
     .int()
@@ -51,12 +49,12 @@ export const workListIdParamSchema = z.object({
 // GET /me/work-lists のクエリ。contains を指定すると各行に、その作品が
 // リストに入っているかのフラグ（containsWork）を付ける（issue #377 の
 // 「リストに追加」シートが追加済み表示に使う）。
-export const workListsQuerySchema = z.object({
+const workListsQuerySchema = z.object({
   contains: z.coerce.number().int().positive().optional(),
 });
 
 // POST /me/work-lists/:id/items の入力。末尾への 1 件追加。
-export const workListItemAddSchema = z.object({
+const workListItemAddSchema = z.object({
   annictWorkId: z.number().int().positive(),
 });
 
@@ -65,7 +63,7 @@ export const workListItemAddSchema = z.object({
 // cursor: 前ページ最後尾のキー。new ではリスト id、likes では
 // 「いいね数_id」の複合キー（いいね数は単調増加しないため
 // id だけだと順位が動いて重複・抜けが出る）。
-export const publicWorkListsQuerySchema = z.object({
+const publicWorkListsQuerySchema = z.object({
   sort: z.enum(["likes", "new"]).optional(),
   cursor: z
     .string()
@@ -79,7 +77,7 @@ export const publicWorkListsQuerySchema = z.object({
 
 // POST /work-lists/:id/report のボディ。ユーザー通報（features/users）と
 // 同じくプリセット理由ラベル or 自由入力をそのまま受ける。
-export const workListReportSchema = z.object({
+const workListReportSchema = z.object({
   reason: z
     .string()
     .trim()

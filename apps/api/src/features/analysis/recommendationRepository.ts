@@ -13,8 +13,8 @@ import type { Recommendation } from "@/db/schema";
 // - レート制限: window_started_at から 24h あたり generation_count 回まで。
 //   窓が切れたら次の claim でカウンタを 1 にリセットする。
 //   失敗した生成は枠を消費しない（releaseGeneration で返す。issue #463）。
-export const RECOMMENDATION_CACHE_TTL_SEC = 24 * 60 * 60;
-export const RECOMMENDATION_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
+const RECOMMENDATION_CACHE_TTL_SEC = 24 * 60 * 60;
+const RECOMMENDATION_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
 export const RECOMMENDATION_MAX_GENERATIONS_PER_WINDOW = 5;
 
 /**
@@ -213,7 +213,3 @@ export function recommendationRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type RecommendationRepository = ReturnType<
-  typeof recommendationRepository
->;

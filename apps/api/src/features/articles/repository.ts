@@ -47,5 +47,3 @@ export function articlesRepository(db: DrizzleDb) {
     },
   };
 }
-
-export type ArticlesRepository = ReturnType<typeof articlesRepository>;

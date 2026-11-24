@@ -33,6 +33,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@0no-co/graphqlsp": "^1.18.0",
     "@cloudflare/vitest-plugin": "^1.9.1",
     "@cloudflare/workers-types": "^5.20261123.1",
     "@types/better-sqlite3": "^7.6.13",

@@ -30,4 +30,3 @@ export const friendRequests = sqliteTable(
 );
 
 export type FriendRequest = typeof friendRequests.$inferSelect;
-export type NewFriendRequest = typeof friendRequests.$inferInsert;

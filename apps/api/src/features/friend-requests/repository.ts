@@ -293,7 +293,3 @@ export function friendRequestsRepository(
     },
   };
 }
-
-export type FriendRequestsRepository = ReturnType<
-  typeof friendRequestsRepository
->;

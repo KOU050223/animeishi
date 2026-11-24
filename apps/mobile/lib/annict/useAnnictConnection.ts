@@ -6,7 +6,6 @@
 
 // 連携状態クエリのキーは connectionKey.ts に集約し、ここから再 export する
 // （プラットフォーム実装 .web/.native も同じ connectionKey.ts を直接 import する）。
-export { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 
 export type UseAnnictConnection = {
   isConnected: boolean;

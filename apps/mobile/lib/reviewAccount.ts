@@ -15,7 +15,7 @@ export function isReviewAccountEmail(
   return email.trim().toLowerCase() === expected;
 }
 
-export class DemoSignInRejectedError extends Error {
+class DemoSignInRejectedError extends Error {
   constructor(readonly status: number) {
     super(`demo sign-in rejected: ${status}`);
     this.name = "DemoSignInRejectedError";

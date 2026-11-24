@@ -45,6 +45,4 @@ export const recommendations = sqliteTable("recommendations", {
 });
 
 export type Analysis = typeof analyses.$inferSelect;
-export type NewAnalysis = typeof analyses.$inferInsert;
 export type Recommendation = typeof recommendations.$inferSelect;
-export type NewRecommendation = typeof recommendations.$inferInsert;

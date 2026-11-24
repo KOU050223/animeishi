@@ -19,7 +19,7 @@ import {
 } from "./proximityLevel";
 
 /** 相手のデータがこの時間内に届かなければ、入れ替わりをやめて探索へ戻す。 */
-export const SWAP_RECEIVE_TIMEOUT_MS = 6000;
+const SWAP_RECEIVE_TIMEOUT_MS = 6000;
 /** タップの申し込みに返事が来ないまま待つ時間。過ぎたら取り下げる。 */
 export const TAP_REQUEST_TIMEOUT_MS = 30_000;
 

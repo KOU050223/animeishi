@@ -32,17 +32,12 @@ export type {
 // 検索応答の作品配列の dedupe と 1 ページ分の取得は
 // クエリファクトリ（lib/queries/works）に集約した。呼び出し側の互換のため
 // ここからも再 export する。
-export { dedupeWorksById, fetchWorksSearchPage } from "@/lib/queries/works";
+export { dedupeWorksById } from "@/lib/queries/works";
 
 // 検索クエリごとにキャッシュを分けるためのクエリキー。
 // query を含めることで、語を変えるたびに別エントリとしてキャッシュされる。
 // 検索語が空のときは season（明示された絞り込み、または今期の既定）でキャッシュを分ける。
 export const ANIME_LIST_QUERY_KEY = workQueries.search.all;
-
-// シーズン検索（検索語なし）のクエリキー。シーズン作品一覧は tier 表画面でも
-// 同じ /works/search?season= の結果を使うためキーを共有し、一方で取れた
-// キャッシュやプリフェッチ（issue #173）が他方の表示にも効くようにする。
-export const seasonWorksQueryKey = workQueries.search.seasonKey;
 
 /** 値が変化しても一定時間落ち着くまで反映を遅らせる（入力のたびの検索発火を防ぐ）。 */
 function useDebouncedValue<T>(value: T, delayMs: number): T {

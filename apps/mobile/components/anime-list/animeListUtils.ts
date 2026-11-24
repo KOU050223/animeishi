@@ -204,7 +204,7 @@ export function adjacentSeasonParams(
   return params;
 }
 
-export const POSTER_PALETTES = [
+const POSTER_PALETTES = [
   { bg: "#fff7ed", border: "#fed7aa", accent: "#f97316", text: "#7c2d12" },
   { bg: "#eff6ff", border: "#bfdbfe", accent: "#2563eb", text: "#1e3a8a" },
   { bg: "#fdf2f8", border: "#fbcfe8", accent: "#db2777", text: "#831843" },

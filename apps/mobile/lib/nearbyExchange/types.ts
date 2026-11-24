@@ -1,26 +1,10 @@
 import type {
-  CapabilityPayload,
   DirectionVector,
-  DistancePayload,
-  ErrorPayload,
   NearbyExchangeModuleEvents,
   NearbyExchangeStartOptions,
-  PayloadPayload,
-  PeerFoundPayload,
-  PeerLostPayload,
 } from "../../modules/nearby-exchange/src";
 
-export type {
-  CapabilityPayload,
-  DirectionVector,
-  DistancePayload,
-  ErrorPayload,
-  NearbyExchangeModuleEvents,
-  NearbyExchangeStartOptions,
-  PayloadPayload,
-  PeerFoundPayload,
-  PeerLostPayload,
-};
+export type { DirectionVector, NearbyExchangeModuleEvents };
 
 /**
  * 「近づけて交換」モジュール（issue #698 試作 → #693 本実装）の共通インターフェース。

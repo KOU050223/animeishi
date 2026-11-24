@@ -3,30 +3,30 @@ import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { saveOfflineExchangeToken } from "@/lib/offlineExchangeToken";
 
-export type FriendsResponse = InferResponseType<
+type FriendsResponse = InferResponseType<
   (typeof apiClient.me.friends)["$get"],
   200
 >;
 export type FriendItem = FriendsResponse[number];
 
-export type FriendRequestsResponse = InferResponseType<
+type FriendRequestsResponse = InferResponseType<
   (typeof apiClient.me)["friend-requests"]["$get"],
   200
 >;
 export type FriendRequestItem = FriendRequestsResponse["received"][number];
 
-export type FriendUpdatesResponse = InferResponseType<
+type FriendUpdatesResponse = InferResponseType<
   (typeof apiClient.me.friends)[":friendId"]["updates"]["$get"],
   200
 >;
 export type FriendUpdateItem = FriendUpdatesResponse["items"][number];
 
-export type QrTokenResponse = InferResponseType<
+type QrTokenResponse = InferResponseType<
   (typeof apiClient.me.friends)["qr-token"]["$get"],
   200
 >;
 
-export type FriendNoteResponse = InferResponseType<
+type FriendNoteResponse = InferResponseType<
   (typeof apiClient.me.friends)[":friendId"]["note"]["$get"],
   200
 >;

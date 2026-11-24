@@ -17,10 +17,10 @@ const TOP_FACTS = 3;
 const POPULAR_WATCHERS = 1000;
 const NICHE_WATCHERS = 100;
 
-export type AnalysisReportFact = { label: string; value: string };
+type AnalysisReportFact = { label: string; value: string };
 
 /** 根拠となったライブラリ内の作品。state は WATCH_STATES の値。 */
-export type AnalysisEvidenceWork = {
+type AnalysisEvidenceWork = {
   annictWorkId: number;
   title: string;
   state: (typeof WATCH_STATES)[number];

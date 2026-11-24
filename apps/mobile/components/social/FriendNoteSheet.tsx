@@ -14,7 +14,7 @@ import { Input } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme";
 
 /** 私用メモの最大文字数（API 側も 500 文字で弾く）。 */
-export const FRIEND_NOTE_MAX_LENGTH = 500;
+const FRIEND_NOTE_MAX_LENGTH = 500;
 
 /**
  * 名刺帳の私用メモ（issue #659）の編集シート。

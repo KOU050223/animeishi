@@ -69,7 +69,7 @@ export function socialLinksRepository(db: DrizzleDb) {
   return { list, replace };
 }
 
-export function socialLinkUrl(kind: string, value: string): string {
+function socialLinkUrl(kind: string, value: string): string {
   const id = encodeURIComponent(value);
   switch (kind) {
     case "x":

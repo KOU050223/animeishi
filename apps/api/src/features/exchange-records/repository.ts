@@ -498,7 +498,3 @@ export function exchangeRecordsRepository(
     },
   };
 }
-
-export type ExchangeRecordsRepository = ReturnType<
-  typeof exchangeRecordsRepository
->;

@@ -11,7 +11,7 @@ import {
 // title は Annict searchWorks に渡す検索語。省略時はサーバーが「今期シーズン」を
 // 既定にして初期表示（今期アニメ）を返す。season を明示すると任意シーズンを引ける。
 // after はカーソルページング用。
-export const worksSearchQuerySchema = z.object({
+const worksSearchQuerySchema = z.object({
   // title は任意。省略・空文字（?title=）はどちらも「未指定」とみなし、route 側で
   // trim して空ならシーズン検索へフォールバックする。ここで min(1) を課さないのは、
   // 空文字を 400 にせず今期シーズン検索に流すため。
@@ -30,8 +30,6 @@ export const worksSearchQuerySchema = z.object({
   after: z.string().trim().min(1).optional(),
 });
 
-export type WorksSearchQueryInput = z.infer<typeof worksSearchQuerySchema>;
-
 // /works/:annictWorkId 系パスのパラメータ。パスパラメータは文字列なので coerce。
 export const annictWorkIdParamSchema = z.object({
   annictWorkId: z.coerce.number().int().positive(),
@@ -41,7 +39,7 @@ export const annictWorkIdParamSchema = z.object({
 // 自由作成 tier 表（issue #348）の作成画面が、#349（作品リスト）から引き継いだ
 // 初期作品 ID のメタを解決するために使う。1 リクエスト 50 件まで
 // （Annict searchWorks の 1 ページ上限に合わせる）。
-export const worksLookupQuerySchema = z.object({
+const worksLookupQuerySchema = z.object({
   ids: z
     .string()
     .min(1)
@@ -62,7 +60,7 @@ export const worksLookupQuerySchema = z.object({
 // オンボーディングの推し選択など Annict 未連携でも使う用途向けに
 // annict_works キャッシュだけを読む。title 省略時は人気順の既定リスト、
 // 指定時はキャッシュ内の部分一致検索。limit 省略時はルート側の既定値。
-export const worksCandidatesQuerySchema = z.object({
+const worksCandidatesQuerySchema = z.object({
   title: z.string().trim().max(100).optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });

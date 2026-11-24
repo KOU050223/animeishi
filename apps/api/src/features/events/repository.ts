@@ -379,5 +379,3 @@ export function eventsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type EventsRepository = ReturnType<typeof eventsRepository>;

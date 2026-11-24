@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 
-export type FavoritesResponse = InferResponseType<
+type FavoritesResponse = InferResponseType<
   (typeof apiClient.me)["favorites"]["$get"],
   200
 >;

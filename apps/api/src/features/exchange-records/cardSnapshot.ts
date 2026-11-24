@@ -8,7 +8,7 @@ import { findUserById } from "../users/repository";
 // （自分専用の非公開コピー。他人のキーは API から一切返らない）。
 export const EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX = "exchange-card-snapshots/";
 
-export function exchangeCardSnapshotKey(ownerId: string): string {
+function exchangeCardSnapshotKey(ownerId: string): string {
   return `${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${ownerId}/${crypto.randomUUID()}.png`;
 }
 

@@ -47,6 +47,3 @@ export const activities = sqliteTable(
     ),
   ],
 );
-
-export type Activity = typeof activities.$inferSelect;
-export type NewActivity = typeof activities.$inferInsert;

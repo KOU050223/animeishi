@@ -14,12 +14,6 @@ import type { AnnictLibraryEntry } from "./workNodes";
 // キャラクター画像はここでは取らず、呼び出し側で Kitsu 等の別ソースから
 // 名寄せして補完する。
 
-// 1 作品から取るキャストの上限。SORT_NUMBER 順なので主要キャラが先に来る。
-// tier 表の対象として実用上十分な件数で、Annict 側の 1 ページ内に収まる量に抑える。
-// クエリ内の casts(first:) にも同じ値を書く（gql.tada の型推論には静的
-// リテラルが必要なためテンプレート展開できない）。
-export const WORK_CASTS_LIMIT = 50;
-
 // image の選択は workNodes.ts の WORK_IMAGE_FRAGMENT と同一に保つ。
 const WORK_CASTS_QUERY = `
 query WorkCasts($annictIds: [Int!]) {

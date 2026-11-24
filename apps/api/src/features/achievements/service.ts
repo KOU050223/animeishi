@@ -7,7 +7,7 @@ import {
   type AchievementKind,
 } from "./definitions";
 
-export type AchievementProgress = {
+type AchievementProgress = {
   current: number;
   // 目標値が取れない場合（今期の記録対象作品が無い等）は null。
   target: number | null;

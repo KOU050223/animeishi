@@ -13,7 +13,7 @@ import { FRIEND_THANKS_PRESET_KEYS } from "@/db/schema";
 // （#662 の「同日は 1 回」と同じ JST 基準）。
 
 /** 任意の 1 行の最大文字数。改行は不可。 */
-export const FRIEND_THANKS_BODY_MAX_LENGTH = 60;
+const FRIEND_THANKS_BODY_MAX_LENGTH = 60;
 
 // お礼 1 件の共通形。userId / username / profileImageUrl は相手
 // （received では送り手、sent では受け手）のプロフィール。
@@ -72,7 +72,7 @@ export const getFriendThanksRoute = createRoute({
 // POST /me/friend-thanks のボディ。friendId は送る相手の Clerk user ID。
 // presetKey は必須（定型文を 1 つ選ぶ）、body は任意の 1 行
 // （60 文字まで・改行不可・空文字や空白のみは未入力として扱う）。
-export const friendThanksSendSchema = z.object({
+const friendThanksSendSchema = z.object({
   friendId: z.string().min(1, "friendId を指定してください"),
   presetKey: z.enum(FRIEND_THANKS_PRESET_KEYS),
   body: z
@@ -126,7 +126,7 @@ export const sendFriendThanksRoute = createRoute({
 // からの未読だけを既読にし、省略すると全ての届いた未読を既読にする。
 // 「開いたら既読にする」タイミング（届いたお礼一覧・相手の詳細を開いた
 // とき）にクライアントが呼ぶ。
-export const friendThanksReadSchema = z.object({
+const friendThanksReadSchema = z.object({
   friendId: z.string().min(1).optional(),
 });
 

@@ -404,5 +404,3 @@ export function watchHistoryRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type WatchHistoryRepository = ReturnType<typeof watchHistoryRepository>;

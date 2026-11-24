@@ -13,8 +13,8 @@ import type { AnalysisSection } from "./report";
 // - レート制限: window_started_at から 24h あたり generation_count 回まで。
 //   窓が切れたら次の claim でカウンタを 1 にリセットする。
 //   失敗した生成は枠を消費しない（releaseGeneration で返す。issue #463）。
-export const ANALYSIS_CACHE_TTL_SEC = 24 * 60 * 60;
-export const ANALYSIS_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
+const ANALYSIS_CACHE_TTL_SEC = 24 * 60 * 60;
+const ANALYSIS_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
 export const ANALYSIS_MAX_GENERATIONS_PER_WINDOW = 5;
 
 /**
@@ -307,5 +307,3 @@ export function analysisRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type AnalysisRepository = ReturnType<typeof analysisRepository>;

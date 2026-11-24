@@ -3,7 +3,7 @@ import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 
-export type CommonPointsResponse = InferResponseType<
+type CommonPointsResponse = InferResponseType<
   (typeof apiClient.users)[":id"]["common"]["$get"],
   200
 >;

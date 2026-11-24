@@ -80,5 +80,3 @@ export function achievementsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type AchievementsRepository = ReturnType<typeof achievementsRepository>;

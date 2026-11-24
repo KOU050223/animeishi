@@ -238,5 +238,3 @@ export function friendThanksRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type FriendThanksRepository = ReturnType<typeof friendThanksRepository>;

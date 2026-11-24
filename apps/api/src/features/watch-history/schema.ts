@@ -16,8 +16,6 @@ export const watchHistoryUpsertSchema = z.object({
   }),
 });
 
-export type WatchHistoryUpsertInput = z.infer<typeof watchHistoryUpsertSchema>;
-
 // 一括登録の 1 件。作品メタや nodeId は受け付けず、サーバー側で
 // キャッシュ → Annict searchWorks の順に解決する。
 // クライアントが食い違う nodeId/メタを送ると共有作品キャッシュ（annict_works）
@@ -34,9 +32,9 @@ export type WatchHistoryUpsertInput = z.infer<typeof watchHistoryUpsertSchema>;
 //   検索 3 試行 + updateStatus 3 試行 + 作品 upsert 1 + 履歴 upsert
 //   UPDATE/INSERT/SELECT 3）
 // → 3 + 11 × N ≤ 40 を満たす最大の N が 3。
-export const WATCH_HISTORY_BULK_MAX_ENTRIES = 3;
+const WATCH_HISTORY_BULK_MAX_ENTRIES = 3;
 
-export const watchHistoryBulkSchema = z.object({
+const watchHistoryBulkSchema = z.object({
   entries: z
     .array(
       z.object({
@@ -52,8 +50,6 @@ export const watchHistoryBulkSchema = z.object({
       `一度に登録できるのは${WATCH_HISTORY_BULK_MAX_ENTRIES}作品までです`,
     ),
 });
-
-export type WatchHistoryBulkInput = z.infer<typeof watchHistoryBulkSchema>;
 
 const jsonError = (description: string) => ({
   content: { "application/json": { schema: errorResponseSchema } },

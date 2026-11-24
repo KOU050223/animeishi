@@ -211,7 +211,7 @@ export async function proxyImage(
  * 作品メタは外部データ由来なので、http(s) 以外のスキーム（data: 等）は
  * 属性エスケープだけでは表示先を制限できない。ここで絞る。
  */
-export function isSafeImageUrl(url: string): boolean {
+function isSafeImageUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
@@ -539,7 +539,7 @@ export function workListNotFoundHtml(): string {
   return notFoundPage("作品リスト");
 }
 
-export function characterImageHtml(
+function characterImageHtml(
   item: SharedCharacterTierList["items"][number],
 ): HtmlEscapedString {
   const src = item.imageUrl;
@@ -645,7 +645,7 @@ const SEASON_JA: Record<string, string> = {
  * annict_works.season_name（"2026-spring" 形式）を「2026年春」にする。
  * パースできない値はそのまま返し、どちらも無い作品は season_year に倒す。
  */
-export function sharedWatchSeasonLabel(entry: {
+function sharedWatchSeasonLabel(entry: {
   seasonName: string | null;
   seasonYear: number | null;
 }): string {
@@ -664,7 +664,7 @@ export function sharedWatchSeasonLabel(entry: {
  * ユーザーに見せる日付なので UTC ではなく JST 基準で丸める（+9:00 固定。
  * 日本には DST が無いため単純な時差加算でよい）。
  */
-export function sharedWatchDateLabel(updatedAt: Date): string {
+function sharedWatchDateLabel(updatedAt: Date): string {
   return new Date(updatedAt.getTime() + 9 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
@@ -733,7 +733,7 @@ const WATCH_HISTORY_SORTS = {
   year_desc: "放送年が新しい順",
   year_asc: "放送年が古い順",
 } as const;
-export type WatchHistorySort = keyof typeof WATCH_HISTORY_SORTS;
+type WatchHistorySort = keyof typeof WATCH_HISTORY_SORTS;
 
 export type WatchHistoryView = {
   sort: WatchHistorySort;

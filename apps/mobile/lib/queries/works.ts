@@ -63,7 +63,7 @@ type WatchHistoryCacheItem = { annictWorkId: number; state: string };
  * `query` が空ならシーズン検索（season 未指定はサーバー既定の今期）、
  * 非空なら title 検索が優先され season は送らない。
  */
-export async function fetchWorksSearchPage(params: {
+async function fetchWorksSearchPage(params: {
   query: string;
   season: string | undefined;
   pageParam: string | undefined;

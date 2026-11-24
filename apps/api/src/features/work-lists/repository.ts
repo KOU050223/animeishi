@@ -664,5 +664,3 @@ export function workListsRepository(db: DrizzleDb, currentUserId: string) {
     },
   };
 }
-
-export type WorkListsRepository = ReturnType<typeof workListsRepository>;

@@ -21,7 +21,7 @@ export type NearbyPeer = {
   meters: number | null;
 };
 
-export type NearbySessionStatus =
+type NearbySessionStatus =
   /** 探索中（相手の有無は peers で見る）。 */
   | "active"
   /** このプラットフォームにはネイティブ実装が無い。QR にフォールバックする。 */
@@ -29,7 +29,7 @@ export type NearbySessionStatus =
   /** ローカルネットワーク / Nearby Interaction の許可が拒否された。 */
   | "denied";
 
-export type NearbyExchange =
+type NearbyExchange =
   | { kind: "idle" }
   | {
       kind: "swapping";
@@ -139,7 +139,7 @@ export const initialNearbySessionState: NearbySessionState = {
  * 相手の端末は 10cm を測っているはずだが、こちらの測定は少し遅れるため
  * 10cm より緩める。これより遠い（または測れていない）相手には送らない。
  */
-export const REPLY_MAX_METERS = 0.2;
+const REPLY_MAX_METERS = 0.2;
 
 const DENIED_ERROR_CODES = new Set([
   "local_network_denied",
@@ -147,10 +147,7 @@ const DENIED_ERROR_CODES = new Set([
 ]);
 
 /** この相手とは近づけて（10cm の測定で）交換するか。false ならタップで交換する。 */
-export function usesTouch(
-  state: NearbySessionState,
-  peer: NearbyPeer,
-): boolean {
+function usesTouch(state: NearbySessionState, peer: NearbyPeer): boolean {
   return state.selfUwb && peer.uwb;
 }
 

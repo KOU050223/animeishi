@@ -11,7 +11,7 @@ export type WatchHistoriesResponse = InferResponseType<
   200
 >;
 export type WatchHistoryItem = WatchHistoriesResponse[number];
-export type WatchHistoryShareResponse = InferResponseType<
+type WatchHistoryShareResponse = InferResponseType<
   (typeof apiClient.me)["watch-histories"]["share"]["$get"],
   200
 >;

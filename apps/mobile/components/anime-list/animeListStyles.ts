@@ -164,7 +164,7 @@ const darkPalette: AnimeListPalette = {
   primaryButtonText: "#1c1917",
 };
 
-export const animeListPalettes = {
+const animeListPalettes = {
   light: lightPalette,
   dark: darkPalette,
 } as const;

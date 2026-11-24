@@ -24,8 +24,8 @@ import {
 } from "@/lib/exchangeEventCandidates";
 import type { ExchangeRecordUpdate } from "@/lib/useExchangeRecords";
 
-export const EXCHANGE_PLACE_MAX_LENGTH = 100;
-export const EXCHANGE_EVENT_MAX_LENGTH = 100;
+const EXCHANGE_PLACE_MAX_LENGTH = 100;
+const EXCHANGE_EVENT_MAX_LENGTH = 100;
 
 // 場所の入力欄 + 「場所を残す」ボタン。位置の解決中はボタンを無効化する。
 function PlaceField({

@@ -7,9 +7,9 @@ import {
 } from "@/lib/openapi";
 import { userRateLimit } from "@/middleware/rateLimit";
 
-export const FEEDBACK_BODY_MAX_LENGTH = 2000;
+const FEEDBACK_BODY_MAX_LENGTH = 2000;
 
-export const feedbackCreateSchema = z.object({
+const feedbackCreateSchema = z.object({
   category: z.enum(FEEDBACK_CATEGORIES, {
     message: "種類を選択してください",
   }),

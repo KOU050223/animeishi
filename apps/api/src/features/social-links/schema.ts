@@ -12,7 +12,7 @@ export const socialLinkKinds = [
 ] as const;
 export const socialLinkVisibilities = ["public", "friends", "private"] as const;
 
-export type SocialLinkKind = (typeof socialLinkKinds)[number];
+type SocialLinkKind = (typeof socialLinkKinds)[number];
 
 // 種別ごとの ID 形式。既知のサービスは ID（ユーザー名等）を受け取り
 // URL をサーバー側で組み立てるため、ホスト部に使える文字だけを許す。
@@ -27,7 +27,7 @@ const ID_PATTERNS: Record<Exclude<SocialLinkKind, "other">, RegExp> = {
   youtube: /^[A-Za-z0-9_.-]+$/,
 };
 
-export const socialLinkInputSchema = z
+const socialLinkInputSchema = z
   .object({
     kind: z.enum(socialLinkKinds),
     value: z.string().trim().min(1).max(200),
@@ -53,7 +53,7 @@ export const socialLinkInputSchema = z
     ctx.addIssue({ code: "custom", message: "Invalid social link value" });
   });
 
-export const updateSocialLinksSchema = z.object({
+const updateSocialLinksSchema = z.object({
   items: z.array(socialLinkInputSchema).max(20),
 });
 

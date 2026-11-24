@@ -66,6 +66,3 @@ export const customTierListItems = sqliteTable(
 );
 
 export type CustomTierList = typeof customTierLists.$inferSelect;
-export type NewCustomTierList = typeof customTierLists.$inferInsert;
-export type CustomTierListItem = typeof customTierListItems.$inferSelect;
-export type NewCustomTierListItem = typeof customTierListItems.$inferInsert;

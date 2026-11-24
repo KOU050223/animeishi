@@ -2,10 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { friendWatchStoriesQueries } from "@/lib/queries/friendStories";
 
-export type {
-  FriendWatchStory,
-  FriendWatchStoryItem,
-} from "@/lib/queries/friendStories";
+export type { FriendWatchStory } from "@/lib/queries/friendStories";
 
 export const FRIEND_WATCH_STORIES_QUERY_KEY = friendWatchStoriesQueries.all;
 

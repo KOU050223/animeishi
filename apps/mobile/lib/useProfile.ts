@@ -3,9 +3,7 @@ import { useAuth } from "@clerk/expo";
 import type { InferRequestType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { profileQueries, type ProfileResponse } from "@/lib/queries/profile";
-
-export type Profile = ProfileResponse;
+import { profileQueries } from "@/lib/queries/profile";
 
 export type ProfileUpdateInput = InferRequestType<
   (typeof apiClient.me.profile)["$put"]

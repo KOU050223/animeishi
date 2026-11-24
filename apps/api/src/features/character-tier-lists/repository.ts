@@ -277,7 +277,3 @@ export function characterTierListsRepository(
     },
   };
 }
-
-export type CharacterTierListsRepository = ReturnType<
-  typeof characterTierListsRepository
->;

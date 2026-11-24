@@ -88,7 +88,7 @@ export const danimeEpisodeImportWorks = sqliteTable(
   (t) => [index("danime_episode_import_works_job_idx").on(t.jobId)],
 );
 
-export const DANIME_EPISODE_ITEM_STATUSES = [
+const DANIME_EPISODE_ITEM_STATUSES = [
   "pending",
   "done",
   "failed",
@@ -127,13 +127,7 @@ export const danimeEpisodeImportItems = sqliteTable(
 
 export type DanimeEpisodeImportJob =
   typeof danimeEpisodeImportJobs.$inferSelect;
-export type NewDanimeEpisodeImportJob =
-  typeof danimeEpisodeImportJobs.$inferInsert;
 export type DanimeEpisodeImportWork =
   typeof danimeEpisodeImportWorks.$inferSelect;
-export type NewDanimeEpisodeImportWork =
-  typeof danimeEpisodeImportWorks.$inferInsert;
 export type DanimeEpisodeImportItem =
   typeof danimeEpisodeImportItems.$inferSelect;
-export type NewDanimeEpisodeImportItem =
-  typeof danimeEpisodeImportItems.$inferInsert;

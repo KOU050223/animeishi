@@ -14,7 +14,6 @@ export type {
   EventListItem,
   EventParticipantItem,
   EventParticipantsResponse,
-  ExchangedFriendItem,
 } from "@/lib/queries/events";
 
 // 「参加する」の公開範囲（issue #440）。詳細応答の

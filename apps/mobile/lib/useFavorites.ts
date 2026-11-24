@@ -10,7 +10,7 @@ import { favoriteQueries, type FavoriteItem } from "@/lib/queries/favorites";
 
 export type { FavoriteItem };
 
-export const FAVORITES_QUERY_KEY = favoriteQueries.all;
+const FAVORITES_QUERY_KEY = favoriteQueries.all;
 
 const favoritesQueryKey = (userId: string) => favoriteQueries.key(userId);
 

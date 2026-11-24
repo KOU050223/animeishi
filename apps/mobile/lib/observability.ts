@@ -10,7 +10,6 @@ import type { ComponentType } from "react";
 import { buildSentryOptions } from "@/lib/observabilityShared";
 
 export { buildSentryOptions, isSentryEnabled } from "@/lib/observabilityShared";
-export type { ObservabilityEnv } from "@/lib/observabilityShared";
 
 let initialized = false;
 

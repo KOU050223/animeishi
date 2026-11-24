@@ -43,7 +43,7 @@ const snapshotRecordIdParamSchema = z.object({
 // eventSlug を指定すると登録イベントに紐付け、表示名は API が
 // events.title から写す。eventSlug を null にすると自由入力の
 // eventName が使われる。両方 null でイベント紐付けを外す。
-export const exchangeRecordUpdateSchema = z.object({
+const exchangeRecordUpdateSchema = z.object({
   placeName: z
     .string()
     .max(100, "場所は 100 文字以内で入力してください")
@@ -65,7 +65,7 @@ const jsonError = (description: string) => ({
 // eventSlug を指定すると登録イベントに紐付け、表示名は API が
 // events.title から写す。eventSlug を null にすると自由入力の
 // eventName が使われる。
-export const exchangeRecordCreateSchema = z.object({
+const exchangeRecordCreateSchema = z.object({
   friendId: z.string().min(1),
   placeName: z
     .string()

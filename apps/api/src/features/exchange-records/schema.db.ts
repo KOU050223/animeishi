@@ -53,4 +53,3 @@ export const exchangeRecords = sqliteTable(
 );
 
 export type ExchangeRecord = typeof exchangeRecords.$inferSelect;
-export type NewExchangeRecord = typeof exchangeRecords.$inferInsert;
