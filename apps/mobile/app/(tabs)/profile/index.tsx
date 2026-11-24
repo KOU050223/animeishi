@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -316,451 +317,463 @@ export default function ProfileScreen() {
       style={{ paddingTop: contentTopPadding }}
       testID="profile-screen"
     >
-      <ScrollView
-        ref={scrollRef}
+      {/* 下部の入力欄（自己紹介・好きなセリフなど）がキーボードに
+          隠れないよう持ち上げる（issue #462）。 */}
+      <KeyboardAvoidingView
         className="flex-1"
-        // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
-        // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={
-          isLoading || (isError && !profile)
-            ? styles.loadingContent
-            : { paddingBottom: 48 + insets.bottom }
-        }
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {isLoading ? (
-          <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
-        ) : isError && !profile ? (
-          <>
-            <Text className="mb-4 text-center text-danger">
-              {t("プロフィールの取得に失敗しました")}
-            </Text>
-            <TouchableOpacity
-              className="rounded-lg bg-indigo-600 px-6 py-3"
-              onPress={() => refetch()}
-              accessibilityRole="button"
-              accessibilityLabel={t("プロフィールを再取得")}
-            >
-              <Text className="font-semibold text-white">{t("再試行")}</Text>
-            </TouchableOpacity>
-            {/* 連携の確認・解除の集約先として、プロフィール取得に失敗している間も
+        <ScrollView
+          ref={scrollRef}
+          className="flex-1"
+          // 下端はネイティブのタブバーに潜り込むため、最後の要素がその下に
+          // 隠れないようタブバー分の inset を余白へ足す（issue #462）。
+          contentInsetAdjustmentBehavior="never"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={
+            isLoading || (isError && !profile)
+              ? styles.loadingContent
+              : { paddingBottom: 48 + insets.bottom }
+          }
+        >
+          {isLoading ? (
+            <ListLoadingSkeleton accessibilityLabel={t("読み込み中")} />
+          ) : isError && !profile ? (
+            <>
+              <Text className="mb-4 text-center text-danger">
+                {t("プロフィールの取得に失敗しました")}
+              </Text>
+              <TouchableOpacity
+                className="rounded-lg bg-indigo-600 px-6 py-3"
+                onPress={() => refetch()}
+                accessibilityRole="button"
+                accessibilityLabel={t("プロフィールを再取得")}
+              >
+                <Text className="font-semibold text-white">{t("再試行")}</Text>
+              </TouchableOpacity>
+              {/* 連携の確認・解除の集約先として、プロフィール取得に失敗している間も
                 解除導線を残す（ホームにはカードを出さないため）。連携カードは
                 プロフィール取得とは独立したクエリで描画できる。 */}
-            <View className="mt-6 self-stretch">
-              <AnnictConnectionCard surface="profile_card" />
-            </View>
-          </>
-        ) : (
-          <>
-            {/* 連携状態をスクロールせずに見える位置に 1 行で出す（issue #424）。
+              <View className="mt-6 self-stretch">
+                <AnnictConnectionCard surface="profile_card" />
+              </View>
+            </>
+          ) : (
+            <>
+              {/* 連携状態をスクロールせずに見える位置に 1 行で出す（issue #424）。
                 詳細・解除は下の従来の連携カードに残す。 */}
-            <View className="mb-4 px-4 pt-2">
-              <AnnictConnectionStatusRow
-                connectedLabel="Annict と連携済み"
-                unconnectedLabel="Annict と連携していません"
-                connectLabel="連携する"
-                surface="profile_header"
-                onShowDetails={scrollToAnnictCard}
-              />
-            </View>
-
-            <View className="px-4">
-              <Text className="mb-0.5 text-sm font-medium text-secondary">
-                {t("名刺プレビュー")}
-              </Text>
-              <ProfileMeishiHint />
-              <View
-                style={styles.meishiPreviewFrame}
-                testID="meishi-preview-frame"
-                onLayout={(e) =>
-                  setMeishiPreviewWidth(e.nativeEvent.layout.width)
-                }
-              >
-                <ProfileMeishiPreview
-                  username={username || profile?.username || t("ユーザー")}
-                  bio={bio}
-                  favoriteQuote={favoriteQuote}
-                  profileImageUrl={profile?.profileImageUrl}
-                  profileUrl={buildProfileUrl(profile?.id)}
-                  document={meishiDoc}
+              <View className="mb-4 px-4 pt-2">
+                <AnnictConnectionStatusRow
+                  connectedLabel="Annict と連携済み"
+                  unconnectedLabel="Annict と連携していません"
+                  connectLabel="連携する"
+                  surface="profile_header"
+                  onShowDetails={scrollToAnnictCard}
                 />
-                {/* 「いま見ている」吹き出し（issue #420）。名刺内の
+              </View>
+
+              <View className="px-4">
+                <Text className="mb-0.5 text-sm font-medium text-secondary">
+                  {t("名刺プレビュー")}
+                </Text>
+                <ProfileMeishiHint />
+                <View
+                  style={styles.meishiPreviewFrame}
+                  testID="meishi-preview-frame"
+                  onLayout={(e) =>
+                    setMeishiPreviewWidth(e.nativeEvent.layout.width)
+                  }
+                >
+                  <ProfileMeishiPreview
+                    username={username || profile?.username || t("ユーザー")}
+                    bio={bio}
+                    favoriteQuote={favoriteQuote}
+                    profileImageUrl={profile?.profileImageUrl}
+                    profileUrl={buildProfileUrl(profile?.id)}
+                    document={meishiDoc}
+                  />
+                  {/* 「いま見ている」吹き出し（issue #420）。名刺内の
                     アバター画像の上に重ね、タップで作品詳細シートを開く。 */}
-                {nowWatching && nowWatchingAnchor ? (
-                  <View
-                    pointerEvents="box-none"
-                    style={[
-                      styles.nowWatchingAnchor,
-                      {
-                        left: nowWatchingAnchor.left,
-                        bottom: nowWatchingAnchor.bottom,
-                      },
-                    ]}
-                  >
-                    <NowWatchingBubble
-                      nowWatching={nowWatching}
-                      onPress={() => setSelectedWork(nowWatching)}
-                      testID="now-watching-bubble"
+                  {nowWatching && nowWatchingAnchor ? (
+                    <View
+                      pointerEvents="box-none"
+                      style={[
+                        styles.nowWatchingAnchor,
+                        {
+                          left: nowWatchingAnchor.left,
+                          bottom: nowWatchingAnchor.bottom,
+                        },
+                      ]}
+                    >
+                      <NowWatchingBubble
+                        nowWatching={nowWatching}
+                        onPress={() => setSelectedWork(nowWatching)}
+                        testID="now-watching-bubble"
+                      />
+                    </View>
+                  ) : null}
+                </View>
+                {/* プレビューとエディタの名刺が同じものだと分かる説明（issue #531）。
+                  公開表現は #593 の「既定の名刺を公開」に揃える。 */}
+                <Text className="mt-2 text-xs text-muted">
+                  {t(
+                    "名刺一覧で「既定」にした名刺がここに表示されます。まだ名刺が無いときは既定のデザインで表示され、公開プロフィールにも同じ名刺が出ます",
+                  )}
+                </Text>
+                <TouchableOpacity
+                  className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
+                  onPress={() => router.push("/meishi")}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("名刺一覧を開く")}
+                >
+                  <View className="flex-row items-center gap-1.5">
+                    <Ionicons
+                      name="albums-outline"
+                      size={16}
+                      color={colors.primaryText}
                     />
+                    <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
+                      {t("名刺一覧を開く")}
+                    </Text>
                   </View>
+                </TouchableOpacity>
+
+                {showWalletButton ? (
+                  <TouchableOpacity
+                    testID="add-to-wallet-button"
+                    // Apple Wallet ボタンはブランド上黒を維持。dark で背景に埋もれないよう枠を足す。
+                    className="mt-2 items-center rounded-xl bg-black dark:border dark:border-slate-700 py-3"
+                    onPress={() => {
+                      void addToWallet().then((result) => {
+                        const message = walletErrorMessage(result, t);
+                        if (message) {
+                          showToast({ type: "error", message });
+                        }
+                      });
+                    }}
+                    disabled={isWalletPending}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("Apple Wallet に名刺を追加")}
+                  >
+                    {isWalletPending ? (
+                      <ActivityIndicator color={colors.onPrimary} />
+                    ) : (
+                      <View className="flex-row items-center gap-1.5">
+                        <Ionicons
+                          name="wallet-outline"
+                          size={16}
+                          color={colors.onPrimary}
+                        />
+                        <Text className="font-semibold text-white">
+                          {t("Apple Wallet に追加")}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 ) : null}
               </View>
-              {/* プレビューとエディタの名刺が同じものだと分かる説明（issue #531）。
-                  公開表現は #593 の「既定の名刺を公開」に揃える。 */}
-              <Text className="mt-2 text-xs text-muted">
-                {t(
-                  "名刺一覧で「既定」にした名刺がここに表示されます。まだ名刺が無いときは既定のデザインで表示され、公開プロフィールにも同じ名刺が出ます",
-                )}
-              </Text>
-              <TouchableOpacity
-                className="mt-3 items-center rounded-xl bg-indigo-50 dark:bg-indigo-950 py-3"
-                onPress={() => router.push("/meishi")}
-                accessibilityRole="button"
-                accessibilityLabel={t("名刺一覧を開く")}
-              >
-                <View className="flex-row items-center gap-1.5">
-                  <Ionicons
-                    name="albums-outline"
-                    size={16}
-                    color={colors.primaryText}
-                  />
-                  <Text className="font-semibold text-indigo-700 dark:text-indigo-300">
-                    {t("名刺一覧を開く")}
-                  </Text>
-                </View>
-              </TouchableOpacity>
 
-              {showWalletButton ? (
+              <View className="mt-6 px-4">
                 <TouchableOpacity
-                  testID="add-to-wallet-button"
-                  // Apple Wallet ボタンはブランド上黒を維持。dark で背景に埋もれないよう枠を足す。
-                  className="mt-2 items-center rounded-xl bg-black dark:border dark:border-slate-700 py-3"
-                  onPress={() => {
-                    void addToWallet().then((result) => {
-                      const message = walletErrorMessage(result, t);
-                      if (message) {
-                        showToast({ type: "error", message });
-                      }
-                    });
-                  }}
-                  disabled={isWalletPending}
+                  className="items-center rounded-xl border border-dashed border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 py-4"
+                  onPress={onChangeAvatar}
+                  disabled={uploadAvatar.isPending}
                   accessibilityRole="button"
-                  accessibilityLabel={t("Apple Wallet に名刺を追加")}
+                  accessibilityLabel={t("プロフィール画像を変更")}
                 >
-                  {isWalletPending ? (
-                    <ActivityIndicator color={colors.onPrimary} />
+                  {uploadAvatar.isPending ? (
+                    <ActivityIndicator color={colors.primaryText} />
                   ) : (
-                    <View className="flex-row items-center gap-1.5">
-                      <Ionicons
-                        name="wallet-outline"
-                        size={16}
-                        color={colors.onPrimary}
-                      />
-                      <Text className="font-semibold text-white">
-                        {t("Apple Wallet に追加")}
-                      </Text>
-                    </View>
+                    <Text className="font-semibold text-primary-text">
+                      {t("プロフィール画像を変更")}
+                    </Text>
                   )}
                 </TouchableOpacity>
-              ) : null}
-            </View>
+              </View>
 
-            <View className="mt-6 px-4">
-              <TouchableOpacity
-                className="items-center rounded-xl border border-dashed border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 py-4"
-                onPress={onChangeAvatar}
-                disabled={uploadAvatar.isPending}
-                accessibilityRole="button"
-                accessibilityLabel={t("プロフィール画像を変更")}
-              >
-                {uploadAvatar.isPending ? (
-                  <ActivityIndicator color={colors.primaryText} />
-                ) : (
-                  <Text className="font-semibold text-primary-text">
-                    {t("プロフィール画像を変更")}
+              <View className="mt-6 gap-4 px-4">
+                <View>
+                  <Text className="mb-1 text-sm font-medium text-secondary">
+                    {t("ユーザー名")}
                   </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                  <Input
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder={t("ユーザー名")}
+                    className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
+                    maxLength={20}
+                    accessibilityLabel={t("ユーザー名入力")}
+                  />
+                </View>
 
-            <View className="mt-6 gap-4 px-4">
-              <View>
-                <Text className="mb-1 text-sm font-medium text-secondary">
-                  {t("ユーザー名")}
-                </Text>
-                <Input
-                  value={username}
-                  onChangeText={setUsername}
-                  placeholder={t("ユーザー名")}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
-                  maxLength={20}
-                  accessibilityLabel={t("ユーザー名入力")}
-                />
+                <View>
+                  <Text className="mb-1 text-sm font-medium text-secondary">
+                    {t("自己紹介")}
+                  </Text>
+                  <Input
+                    value={bio}
+                    onChangeText={setBio}
+                    placeholder={t("自己紹介")}
+                    multiline
+                    numberOfLines={3}
+                    className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
+                    maxLength={500}
+                    accessibilityLabel={t("自己紹介入力")}
+                  />
+                </View>
+
+                <View>
+                  <Text className="mb-1 text-sm font-medium text-secondary">
+                    {t("好きなセリフ")}
+                  </Text>
+                  <Input
+                    value={favoriteQuote}
+                    onChangeText={setFavoriteQuote}
+                    placeholder={t("好きなセリフ")}
+                    className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
+                    maxLength={500}
+                    accessibilityLabel={t("好きなセリフ入力")}
+                  />
+                </View>
+
+                <View className="mt-2">
+                  <Button
+                    label={t("保存")}
+                    onPress={onSave}
+                    loading={updateProfile.isPending}
+                    accessibilityLabel={t("プロフィールを保存")}
+                  />
+                </View>
               </View>
 
-              <View>
-                <Text className="mb-1 text-sm font-medium text-secondary">
-                  {t("自己紹介")}
-                </Text>
-                <Input
-                  value={bio}
-                  onChangeText={setBio}
-                  placeholder={t("自己紹介")}
-                  multiline
-                  numberOfLines={3}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
-                  maxLength={500}
-                  accessibilityLabel={t("自己紹介入力")}
-                />
-              </View>
-
-              <View>
-                <Text className="mb-1 text-sm font-medium text-secondary">
-                  {t("好きなセリフ")}
-                </Text>
-                <Input
-                  value={favoriteQuote}
-                  onChangeText={setFavoriteQuote}
-                  placeholder={t("好きなセリフ")}
-                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-foreground"
-                  maxLength={500}
-                  accessibilityLabel={t("好きなセリフ入力")}
-                />
-              </View>
-
-              <View className="mt-2">
-                <Button
-                  label={t("保存")}
-                  onPress={onSave}
-                  loading={updateProfile.isPending}
-                  accessibilityLabel={t("プロフィールを保存")}
-                />
-              </View>
-            </View>
-
-            {/* 「公開設定」セクション（issue #604）。行を足していける一覧で、
+              {/* 「公開設定」セクション（issue #604）。行を足していける一覧で、
                 いまは「プロフィールと名刺」（users.is_public）の 1 行だけ。 */}
-            <PublicSettingsSection
-              items={publicSettingItems}
-              pendingKey={publicSettings.pendingKey}
-              onChange={(key, visibility) => {
-                void publicSettings.toggle(key, visibility).then(
-                  () =>
-                    showToast({
-                      type: "success",
-                      message: t("公開設定を更新しました"),
-                    }),
-                  () =>
-                    showToast({
-                      type: "error",
-                      message: t("公開設定の更新に失敗しました"),
-                    }),
-                );
-              }}
-            />
+              <PublicSettingsSection
+                items={publicSettingItems}
+                pendingKey={publicSettings.pendingKey}
+                onChange={(key, visibility) => {
+                  void publicSettings.toggle(key, visibility).then(
+                    () =>
+                      showToast({
+                        type: "success",
+                        message: t("公開設定を更新しました"),
+                      }),
+                    () =>
+                      showToast({
+                        type: "error",
+                        message: t("公開設定の更新に失敗しました"),
+                      }),
+                  );
+                }}
+              />
 
-            <View
-              className="mt-6 px-4"
-              onLayout={(e) => {
-                annictCardY.current = e.nativeEvent.layout.y;
-              }}
-            >
-              <AnnictConnectionCard surface="profile_card" />
-            </View>
+              <View
+                className="mt-6 px-4"
+                onLayout={(e) => {
+                  annictCardY.current = e.nativeEvent.layout.y;
+                }}
+              >
+                <AnnictConnectionCard surface="profile_card" />
+              </View>
 
-            {/* パスキー登録（#181）。Web のみ。フラグ未対応環境ではセクション自体を出さない */}
-            {featureFlags.passkey && (
+              {/* パスキー登録（#181）。Web のみ。フラグ未対応環境ではセクション自体を出さない */}
+              {featureFlags.passkey && (
+                <View className="mt-8 px-4">
+                  <Text className="mb-2 text-sm font-medium text-secondary">
+                    {t("セキュリティ")}
+                  </Text>
+                  <PasskeySection
+                    onSuccess={(message) =>
+                      showToast({ type: "success", message })
+                    }
+                    onError={(message) => showToast({ type: "error", message })}
+                  />
+                </View>
+              )}
+
+              {/* 設定項目のセクション一覧。ネイティブでは純正のグループ化リスト
+            （@expo/ui）、Web では従来のカード行に切り替わる（issue #313）。 */}
+              <GroupedList
+                sections={[
+                  // 運営コンテンツの一覧への入口（issue #599）。ホームの
+                  // 各レールは公開中のものがあるときだけ出るため、常設の
+                  // 導線をここに置く。フラグで隠した機能の行は出さない（#750）。
+                  ...(contentRows.length > 0
+                    ? [
+                        {
+                          key: "contents",
+                          title: t("イベント・特集"),
+                          rows: contentRows,
+                        },
+                      ]
+                    : []),
+                  // dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。
+                  // ネイティブでフラグが無効な間・停止スイッチ（#758）が
+                  // 入っている間はセクションごと出さない。
+                  ...(danimeImportEnabled
+                    ? [
+                        {
+                          key: "import",
+                          title: t("データの取り込み"),
+                          rows: [
+                            {
+                              key: "danime-import",
+                              label: t("dアニメストアから視聴履歴をインポート"),
+                              onPress: () => router.push("/danime-import"),
+                              accessibilityLabel: t(
+                                "dアニメストアからのインポートを開く",
+                              ),
+                            },
+                            // 話記録ジョブ（issue #477）があれば進捗行を出す。
+                            // タップで取り込み画面（詳細な進捗カード）へ誘導する。
+                            ...(episodeJob
+                              ? [
+                                  {
+                                    key: "danime-episode-job",
+                                    label: t("話数記録: {{status}}", {
+                                      status: episodeJobStatusText(
+                                        episodeJob,
+                                        t,
+                                      ),
+                                    }),
+                                    onPress: () =>
+                                      router.push("/danime-import"),
+                                    accessibilityLabel: t(
+                                      "話数記録の進行状況を開く",
+                                    ),
+                                  },
+                                ]
+                              : []),
+                          ],
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "analysis",
+                    title: t("分析"),
+                    rows: [
+                      {
+                        key: "analysis",
+                        label: t("AI 視聴傾向分析"),
+                        onPress: () => router.push("/analysis"),
+                        accessibilityLabel: t("AI 視聴傾向分析を開く"),
+                      },
+                    ],
+                  },
+                  {
+                    key: "achievements",
+                    title: t("実績"),
+                    rows: [
+                      {
+                        key: "achievements",
+                        label: t("実績バッジ"),
+                        onPress: () => router.push("/achievements"),
+                        accessibilityLabel: t("実績バッジ一覧を開く"),
+                      },
+                    ],
+                  },
+                  {
+                    key: "privacy-safety",
+                    title: t("プライバシーと安全"),
+                    rows: [
+                      {
+                        key: "blocked-users",
+                        label: t("ブロック中のユーザー"),
+                        onPress: () => router.push("/blocked-users"),
+                        accessibilityLabel: t("ブロック中のユーザーを開く"),
+                      },
+                    ],
+                  },
+                  {
+                    key: "about",
+                    title: t("このアプリについて"),
+                    rows: [
+                      {
+                        key: "changelog",
+                        label: t("機能一覧・更新情報"),
+                        onPress: () => router.push("/changelog"),
+                        accessibilityLabel: t("機能一覧・更新情報を開く"),
+                      },
+                    ],
+                  },
+                  {
+                    key: "legal",
+                    title: t("法務情報"),
+                    rows: [
+                      {
+                        key: "privacy",
+                        label: t("プライバシーポリシー"),
+                        onPress: () => router.push("/privacy"),
+                        accessibilityLabel: t("プライバシーポリシーを開く"),
+                      },
+                      {
+                        key: "terms",
+                        label: t("利用規約"),
+                        onPress: () => router.push("/terms"),
+                        accessibilityLabel: t("利用規約を開く"),
+                      },
+                      {
+                        key: "support",
+                        label: t("サポート"),
+                        onPress: () => router.push("/support"),
+                        accessibilityLabel: t("サポートを開く"),
+                      },
+                    ],
+                  },
+                  // 近づけて交換の試作（issue #698）。EXPO_PUBLIC_NEARBY_SPIKE=true
+                  // のビルドでだけ入口を出す。通常のビルドでは見えない。
+                  ...(process.env.EXPO_PUBLIC_NEARBY_SPIKE === "true"
+                    ? [
+                        {
+                          key: "dev",
+                          title: t("開発（試作）"),
+                          rows: [
+                            {
+                              key: "nearby-exchange",
+                              label: t("近づけて交換（試作）"),
+                              onPress: () => router.push("/dev/nearby"),
+                              accessibilityLabel: t(
+                                "近づけて交換の試作画面を開く",
+                              ),
+                            },
+                            {
+                              key: "nearby-exchange-stage",
+                              label: t("近づけて交換の演出（試作）"),
+                              onPress: () => router.push("/dev/nearby-stage"),
+                              accessibilityLabel: t(
+                                "近づけて交換の演出を確かめる画面を開く",
+                              ),
+                            },
+                          ],
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+              <View className="px-4">
+                <MalAttribution />
+              </View>
+
+              {/* サインアウトはアカウント操作なのでホームではなく設定群の末尾に
+                置く（issue #395 Phase 4）。 */}
               <View className="mt-8 px-4">
-                <Text className="mb-2 text-sm font-medium text-secondary">
-                  {t("セキュリティ")}
-                </Text>
-                <PasskeySection
-                  onSuccess={(message) =>
-                    showToast({ type: "success", message })
-                  }
-                  onError={(message) => showToast({ type: "error", message })}
+                <Button
+                  label={t("サインアウト")}
+                  icon="log-out-outline"
+                  variant="secondary"
+                  onPress={() => signOut()}
+                  accessibilityLabel={t("サインアウト")}
+                  testID="sign-out-button"
                 />
               </View>
-            )}
 
-            {/* 設定項目のセクション一覧。ネイティブでは純正のグループ化リスト
-            （@expo/ui）、Web では従来のカード行に切り替わる（issue #313）。 */}
-            <GroupedList
-              sections={[
-                // 運営コンテンツの一覧への入口（issue #599）。ホームの
-                // 各レールは公開中のものがあるときだけ出るため、常設の
-                // 導線をここに置く。フラグで隠した機能の行は出さない（#750）。
-                ...(contentRows.length > 0
-                  ? [
-                      {
-                        key: "contents",
-                        title: t("イベント・特集"),
-                        rows: contentRows,
-                      },
-                    ]
-                  : []),
-                // dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。
-                // ネイティブでフラグが無効な間・停止スイッチ（#758）が
-                // 入っている間はセクションごと出さない。
-                ...(danimeImportEnabled
-                  ? [
-                      {
-                        key: "import",
-                        title: t("データの取り込み"),
-                        rows: [
-                          {
-                            key: "danime-import",
-                            label: t("dアニメストアから視聴履歴をインポート"),
-                            onPress: () => router.push("/danime-import"),
-                            accessibilityLabel: t(
-                              "dアニメストアからのインポートを開く",
-                            ),
-                          },
-                          // 話記録ジョブ（issue #477）があれば進捗行を出す。
-                          // タップで取り込み画面（詳細な進捗カード）へ誘導する。
-                          ...(episodeJob
-                            ? [
-                                {
-                                  key: "danime-episode-job",
-                                  label: t("話数記録: {{status}}", {
-                                    status: episodeJobStatusText(episodeJob, t),
-                                  }),
-                                  onPress: () => router.push("/danime-import"),
-                                  accessibilityLabel: t(
-                                    "話数記録の進行状況を開く",
-                                  ),
-                                },
-                              ]
-                            : []),
-                        ],
-                      },
-                    ]
-                  : []),
-                {
-                  key: "analysis",
-                  title: t("分析"),
-                  rows: [
-                    {
-                      key: "analysis",
-                      label: t("AI 視聴傾向分析"),
-                      onPress: () => router.push("/analysis"),
-                      accessibilityLabel: t("AI 視聴傾向分析を開く"),
-                    },
-                  ],
-                },
-                {
-                  key: "achievements",
-                  title: t("実績"),
-                  rows: [
-                    {
-                      key: "achievements",
-                      label: t("実績バッジ"),
-                      onPress: () => router.push("/achievements"),
-                      accessibilityLabel: t("実績バッジ一覧を開く"),
-                    },
-                  ],
-                },
-                {
-                  key: "privacy-safety",
-                  title: t("プライバシーと安全"),
-                  rows: [
-                    {
-                      key: "blocked-users",
-                      label: t("ブロック中のユーザー"),
-                      onPress: () => router.push("/blocked-users"),
-                      accessibilityLabel: t("ブロック中のユーザーを開く"),
-                    },
-                  ],
-                },
-                {
-                  key: "about",
-                  title: t("このアプリについて"),
-                  rows: [
-                    {
-                      key: "changelog",
-                      label: t("機能一覧・更新情報"),
-                      onPress: () => router.push("/changelog"),
-                      accessibilityLabel: t("機能一覧・更新情報を開く"),
-                    },
-                  ],
-                },
-                {
-                  key: "legal",
-                  title: t("法務情報"),
-                  rows: [
-                    {
-                      key: "privacy",
-                      label: t("プライバシーポリシー"),
-                      onPress: () => router.push("/privacy"),
-                      accessibilityLabel: t("プライバシーポリシーを開く"),
-                    },
-                    {
-                      key: "terms",
-                      label: t("利用規約"),
-                      onPress: () => router.push("/terms"),
-                      accessibilityLabel: t("利用規約を開く"),
-                    },
-                    {
-                      key: "support",
-                      label: t("サポート"),
-                      onPress: () => router.push("/support"),
-                      accessibilityLabel: t("サポートを開く"),
-                    },
-                  ],
-                },
-                // 近づけて交換の試作（issue #698）。EXPO_PUBLIC_NEARBY_SPIKE=true
-                // のビルドでだけ入口を出す。通常のビルドでは見えない。
-                ...(process.env.EXPO_PUBLIC_NEARBY_SPIKE === "true"
-                  ? [
-                      {
-                        key: "dev",
-                        title: t("開発（試作）"),
-                        rows: [
-                          {
-                            key: "nearby-exchange",
-                            label: t("近づけて交換（試作）"),
-                            onPress: () => router.push("/dev/nearby"),
-                            accessibilityLabel: t(
-                              "近づけて交換の試作画面を開く",
-                            ),
-                          },
-                          {
-                            key: "nearby-exchange-stage",
-                            label: t("近づけて交換の演出（試作）"),
-                            onPress: () => router.push("/dev/nearby-stage"),
-                            accessibilityLabel: t(
-                              "近づけて交換の演出を確かめる画面を開く",
-                            ),
-                          },
-                        ],
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-            <View className="px-4">
-              <MalAttribution />
-            </View>
+              <DeleteAccountSection />
 
-            {/* サインアウトはアカウント操作なのでホームではなく設定群の末尾に
-                置く（issue #395 Phase 4）。 */}
-            <View className="mt-8 px-4">
-              <Button
-                label={t("サインアウト")}
-                icon="log-out-outline"
-                variant="secondary"
-                onPress={() => signOut()}
-                accessibilityLabel={t("サインアウト")}
-                testID="sign-out-button"
-              />
-            </View>
-
-            <DeleteAccountSection />
-
-            <AppVersionFooter />
-          </>
-        )}
-      </ScrollView>
+              <AppVersionFooter />
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <View
         testID="profile-toast-layer"

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   View,
@@ -95,126 +97,139 @@ export default function SocialLinksScreen() {
           </Text>
         </Pressable>
       ) : (
-        <ScrollView contentContainerClassName="px-4 py-6 pb-12 gap-4">
-          <Text className="text-sm text-secondary">
-            {t("リンクごとに公開範囲を選べます。既定は交換した相手だけです。")}
-          </Text>
-          {items.map((item, index) => (
-            <View
-              key={item.key}
-              className="rounded-xl bg-white dark:bg-slate-900 p-4 gap-3"
-            >
-              <View className="flex-row flex-wrap gap-2">
-                {SOCIAL_LINK_KINDS.map((kind: SocialLinkKind) => (
-                  <Pressable
-                    key={kind}
-                    onPress={() => update(index, { kind, value: "" })}
-                    accessibilityRole="button"
-                    className={`rounded-full px-3 py-2 ${item.kind === kind ? "bg-indigo-600" : "bg-slate-100 dark:bg-slate-800"}`}
-                  >
-                    <Text
-                      className={
-                        item.kind === kind ? "text-white" : "text-foreground"
-                      }
-                    >
-                      {socialLinkLabel(kind)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Input
-                value={item.value}
-                onChangeText={(value) => update(index, { value })}
-                placeholder={
-                  item.kind === "other" ? "https://" : t("ユーザー ID")
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                accessibilityLabel={
-                  item.kind === "other" ? t("URL") : t("ユーザー ID")
-                }
-              />
-              <View className="flex-row flex-wrap gap-2">
-                {VISIBILITIES.map((visibility) => (
-                  <Pressable
-                    key={visibility}
-                    onPress={() => update(index, { visibility })}
-                    accessibilityRole="button"
-                    className={`rounded-lg px-3 py-2 ${item.visibility === visibility ? "bg-indigo-600" : "bg-slate-100 dark:bg-slate-800"}`}
-                  >
-                    <Text
-                      className={
-                        item.visibility === visibility
-                          ? "text-white"
-                          : "text-foreground"
-                      }
-                    >
-                      {visibility === "public"
-                        ? t("全体公開")
-                        : visibility === "friends"
-                          ? t("交換した相手だけ")
-                          : t("非公開")}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View className="flex-row gap-4">
-                <Pressable
-                  onPress={() => move(index, -1)}
-                  disabled={index === 0}
-                  accessibilityRole="button"
-                >
-                  <Text className="text-primary-text">{t("上へ")}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => move(index, 1)}
-                  disabled={index === items.length - 1}
-                  accessibilityRole="button"
-                >
-                  <Text className="text-primary-text">{t("下へ")}</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setDraft(items.filter((_, i) => i !== index))}
-                  accessibilityRole="button"
-                >
-                  <Text className="text-danger">{t("削除")}</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-          <Pressable
-            onPress={() =>
-              setDraft([
-                ...items,
-                {
-                  kind: "x",
-                  value: "",
-                  visibility: "friends",
-                  key: Math.max(-1, ...items.map((i) => i.key)) + 1,
-                },
-              ])
-            }
-            disabled={items.length >= 20}
-            accessibilityRole="button"
-            className="rounded-xl border border-indigo-500 px-4 py-3 items-center"
+        // 項目が増えると下側の入力欄がキーボードに隠れるため持ち上げる（issue #462）。
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            contentContainerClassName="px-4 py-6 pb-12 gap-4"
+            keyboardShouldPersistTaps="handled"
           >
-            <Text className="text-primary-text">{t("リンクを追加")}</Text>
-          </Pressable>
-          {error ? (
-            <Text className="text-danger">
+            <Text className="text-sm text-secondary">
               {t(
-                "SNS リンクの保存に失敗しました。入力内容を確認してください。",
+                "リンクごとに公開範囲を選べます。既定は交換した相手だけです。",
               )}
             </Text>
-          ) : null}
-          <Button
-            label={t("保存")}
-            onPress={() => {
-              void onSave();
-            }}
-            loading={save.isPending}
-          />
-        </ScrollView>
+            {items.map((item, index) => (
+              <View
+                key={item.key}
+                className="rounded-xl bg-white dark:bg-slate-900 p-4 gap-3"
+              >
+                <View className="flex-row flex-wrap gap-2">
+                  {SOCIAL_LINK_KINDS.map((kind: SocialLinkKind) => (
+                    <Pressable
+                      key={kind}
+                      onPress={() => update(index, { kind, value: "" })}
+                      accessibilityRole="button"
+                      className={`rounded-full px-3 py-2 ${item.kind === kind ? "bg-indigo-600" : "bg-slate-100 dark:bg-slate-800"}`}
+                    >
+                      <Text
+                        className={
+                          item.kind === kind ? "text-white" : "text-foreground"
+                        }
+                      >
+                        {socialLinkLabel(kind)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Input
+                  value={item.value}
+                  onChangeText={(value) => update(index, { value })}
+                  placeholder={
+                    item.kind === "other" ? "https://" : t("ユーザー ID")
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel={
+                    item.kind === "other" ? t("URL") : t("ユーザー ID")
+                  }
+                />
+                <View className="flex-row flex-wrap gap-2">
+                  {VISIBILITIES.map((visibility) => (
+                    <Pressable
+                      key={visibility}
+                      onPress={() => update(index, { visibility })}
+                      accessibilityRole="button"
+                      className={`rounded-lg px-3 py-2 ${item.visibility === visibility ? "bg-indigo-600" : "bg-slate-100 dark:bg-slate-800"}`}
+                    >
+                      <Text
+                        className={
+                          item.visibility === visibility
+                            ? "text-white"
+                            : "text-foreground"
+                        }
+                      >
+                        {visibility === "public"
+                          ? t("全体公開")
+                          : visibility === "friends"
+                            ? t("交換した相手だけ")
+                            : t("非公開")}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View className="flex-row gap-4">
+                  <Pressable
+                    onPress={() => move(index, -1)}
+                    disabled={index === 0}
+                    accessibilityRole="button"
+                  >
+                    <Text className="text-primary-text">{t("上へ")}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => move(index, 1)}
+                    disabled={index === items.length - 1}
+                    accessibilityRole="button"
+                  >
+                    <Text className="text-primary-text">{t("下へ")}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      setDraft(items.filter((_, i) => i !== index))
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text className="text-danger">{t("削除")}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+            <Pressable
+              onPress={() =>
+                setDraft([
+                  ...items,
+                  {
+                    kind: "x",
+                    value: "",
+                    visibility: "friends",
+                    key: Math.max(-1, ...items.map((i) => i.key)) + 1,
+                  },
+                ])
+              }
+              disabled={items.length >= 20}
+              accessibilityRole="button"
+              className="rounded-xl border border-indigo-500 px-4 py-3 items-center"
+            >
+              <Text className="text-primary-text">{t("リンクを追加")}</Text>
+            </Pressable>
+            {error ? (
+              <Text className="text-danger">
+                {t(
+                  "SNS リンクの保存に失敗しました。入力内容を確認してください。",
+                )}
+              </Text>
+            ) : null}
+            <Button
+              label={t("保存")}
+              onPress={() => {
+                void onSave();
+              }}
+              loading={save.isPending}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
