@@ -27,6 +27,13 @@ jest.mock("@/lib/featureFlags", () => ({
   },
 }));
 
+// 話数記録の進捗カードは useQuery に依存するため、描画有無だけを
+// 検証できるようスタブ化する。
+const mockEpisodeJobStatus = jest.fn((_props?: unknown) => null);
+jest.mock("@/components/danime/EpisodeJobStatus", () => ({
+  DanimeEpisodeJobStatus: (props: unknown) => mockEpisodeJobStatus(props),
+}));
+
 // WebView は props を退避するスタブにして、遷移先制限のハンドラを
 // テストから直接呼べるようにする。
 let webViewProps: {
@@ -56,6 +63,8 @@ describe("DanimeImportScreen（ネイティブ・フラグ有効）", () => {
     expect(screen.getByTestId("danime-extract-button")).toBeTruthy();
     expect(screen.getByLabelText("戻る")).toBeTruthy();
     expect(screen.queryByTestId("danime-open-web-button")).toBeNull();
+    // プロフィールの話数記録の進捗行からの遷移先として進捗カードを載せる
+    expect(mockEpisodeJobStatus).toHaveBeenCalled();
   });
 
   it("dアニメストアと dアカウント認証への遷移は WebView 内で許可する", async () => {

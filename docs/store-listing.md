@@ -174,7 +174,7 @@ Card exchange happens between two signed-in users: one shows a QR code and the o
 
 4. OPTIONAL INTEGRATIONS
 - Annict (watch-record service): optional. To connect, open "Profile" (プロフ) → the Annict card → "Connect to Annict" (Annict と連携する) and complete OAuth on annict.com. Only watch-record features (work search, statuses, history) require it.
-- d Anime Store history import: open "Profile" → "dアニメストアから視聴履歴をインポート". A browser view limited to the official d Anime Store site and docomo sign-in domains opens (other links go to the external browser). The user signs in on the official site and only their own watch history is read in the view. d Account credentials and cookies stay in the view and are never sent to our servers — only extracted work titles go to our API to match Annict works. A screen recording is attached (review requires a d Account).
+- d Anime Store history import: open "Profile" → "dアニメストアから視聴履歴をインポート". A browser view limited to the official d Anime Store site and docomo sign-in domains opens (other links go to the external browser). The user signs in on the official site and only their own watch history is read in the view. d Account credentials and cookies stay in the view and are never sent to our servers — extracted titles and watch statuses go to our API to match and record Annict works. A screen recording is attached (review requires a d Account).
 
 5. USER CONTENT AND MODERATION (GUIDELINE 1.2)
 User-generated content includes profile text and images, cards, tier lists, and work lists shown publicly.
@@ -187,7 +187,7 @@ New reports notify the operator, who reviews details and resolves or dismisses e
 The account can be deleted in-app without contacting support: open "Profile" → "Delete account" (アカウントを削除) below "Sign out" (サインアウト) and follow the steps.
 
 7. AI ANALYSIS
-Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Cloudflare Workers AI (our host; no other AI vendor). Sends titles, watch statuses, ratings, selected genres and stats from them; no account info. Not used to train AI.
+Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Cloudflare Workers AI (our host; no other AI vendor). Sends titles, statuses, ratings, genres and stats; no account info. Not used to train AI.
 
 8. OTHER
 - The app is free and has no in-app purchases or subscriptions.
@@ -223,7 +223,7 @@ Runs only on tapping "Analyze", "Analyze again" or "Get recommendations", on Clo
 | Contact Info → Name | ユーザー名（サインアップ・プロフィールで入力） | App Functionality |
 | Identifiers → User ID | Clerk のアカウント ID。PostHog には生 ID でなくソルト付き SHA-256 先頭 16 文字の user key を distinct_id として送る（`lib/events.ts`、API は `src/lib/posthog.ts`）。user key は同一利用者のイベントを結び付ける ID のため Analytics 目的でも申告する | App Functionality / Analytics |
 | User Content → Photos or Videos | 任意のプロフィール画像を R2 に保存（`apps/api` の `AVATARS` バケット） | App Functionality |
-| User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。dアニメ取り込みでは抽出した作品タイトルを Annict 作品との照合のためサーバーへ送信する（認証情報・Cookie は WebView 内に留まり送信しない）。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
+| User Content → Other User Content | プロフィール（自己紹介・好きなセリフ・ジャンル・公開設定）、お気に入り・評価・視聴ステータス・フレンド関係・Tier 表・作品リスト、通報・不具合報告フォームの投稿内容。dアニメ取り込みでは抽出した作品タイトル・作品 ID・視聴ステータスを Annict 作品との照合・記録のためサーバーへ送信する（認証情報・Cookie は WebView 内に留まり送信しない）。名刺は端末内（AsyncStorage）保存で、共有時は利用者が選んだ共有先へ渡す | App Functionality |
 | Usage Data → Product Interaction | 起動・画面・主要操作・オンボーディング完了等のイベントを PostHog に送信（platform・アプリ版・screen・イベント属性、SDK が付ける端末種別・OS 版・言語、distinct_id に仮名化 user key。`lib/events.ts`、`lib/annict/funnel.ts`）。サインアップ完了・名刺交換の成立は API が PostHog へ送る（`apps/api/src/lib/posthog.ts`）。自動収集（autocapture）・セッションリプレイ・アンケートは無効。EAS Observe にもルート名・画面遷移タイミングが送られるが、そちらは紐づけなし（下表）。仮名化キーで紐づく PostHog 側があるため全体として「紐づく」で申告する | Analytics |
 
 ### ユーザーに紐づかないデータ（Data Not Linked to the User）

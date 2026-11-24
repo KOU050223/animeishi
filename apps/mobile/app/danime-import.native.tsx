@@ -30,6 +30,7 @@ import {
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { BackButton } from "@/components/ui";
+import { DanimeEpisodeJobStatus } from "@/components/danime/EpisodeJobStatus";
 import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { isDanimeWebViewUrlAllowed } from "@/lib/danime/webviewAllowlist";
 import { useThemeColors } from "@/lib/theme";
@@ -177,6 +178,11 @@ export default function DanimeImportScreen() {
           )}
         </Text>
         {error && <Text className="text-xs text-danger mt-2">{error}</Text>}
+        {/* プロフィールの話数記録の進捗行からの遷移先として、ジョブが
+            あれば進行状況カードを出す（Web 版と同じ導線）。 */}
+        <View className="mt-2">
+          <DanimeEpisodeJobStatus />
+        </View>
       </View>
 
       <View className="flex-1">
