@@ -28,11 +28,13 @@ Workers バインディングに依存しないテストは `node` プロジェ�
 cloudflareTest プラグインが pool を Workers プールに書き換えるのを回避している。
 
 `maxWorkers` はルートの `test`（isolated / shared に継承される）と
-`node` プロジェクトで `"50%"` に設定している（issue #812）。Workers
-プールは各ワーカーが workerd を起動するため、vitest 既定のコア数 - 1 だと
-並列 worktree 運用でホストの CPU・メモリを圧迫し、D1 呼び出しの遅延で
-テストが落ちることがあった。`VP_RUN_CONCURRENCY_LIMIT` はプールの
-ワーカー数に効かない点は mobile の jest と同じ。
+`node` プロジェクトでローカルのみ `"50%"` に設定している（issue #812）。
+Workers プールは各ワーカーが workerd を起動するため、vitest 既定の
+コア数 - 1 だと並列 worktree 運用でホストの CPU・メモリを圧迫し、
+D1 呼び出しの遅延でテストが落ちることがあった。CI は占有ランナーで
+競合が起きないため既定のまま（減らすと transform が遅くなる）。
+`VP_RUN_CONCURRENCY_LIMIT` はプールのワーカー数に効かない点は
+mobile の jest と同じ。
 
 `shared` 側はモジュールグラフとストレージ（D1 / R2）をファイル間で共有するため、
 `vi.mock` でモジュールを差し替えるファイルを置くとモック実体のずれで失敗する。

@@ -63,12 +63,16 @@ export default defineConfig({
     // vitest の既定はコア数 - 1 のワーカーを立て、Workers プールでは各ワーカーが
     // workerd（miniflare）を起動する。並列 worktree 運用では各 worktree の
     // vitest がそれぞれ同数立ててホストの CPU・メモリを圧迫し、D1 呼び出しの
-    // 遅延でテストが落ちることがあったため、コア数の半分に絞る
+    // 遅延でテストが落ちることがあったため、ローカルではコア数の半分に絞る
     // （issue #812、apps/mobile/jest.config.cjs の maxWorkers と同じ考え方）。
+    // CI は占有ランナーで worktree 競合が起きないため既定のままにし、
+    // ワーカーを減らして transform が遅くなるのを避ける。
     // VP_RUN_CONCURRENCY_LIMIT は vp run のタスク並列数を絞るだけで
     // プールのワーカー数には効かない。ルートの test に置くと extends: false
     // 以外のインラインプロジェクト（isolated / shared）に引き継がれる。
-    maxWorkers: "50%",
+    // CI では未指定にしたいが exactOptionalPropertyTypes のため
+    // undefined を明示代入できず、条件付きスプレッドでプロパティごと外す。
+    ...(process.env.CI ? {} : { maxWorkers: "50%" }),
     exclude: [...NODE_POOL_TESTS, "node_modules/**"],
     projects: [
       {
@@ -118,7 +122,9 @@ export default defineConfig({
           globals: true,
           // extends: false なのでルートの test.maxWorkers は引き継がれない。
           // Workers プールと同じ理由（issue #812）で同じ上限をこちらにも設定する。
-          maxWorkers: "50%",
+          // CI では未指定にしたいが exactOptionalPropertyTypes のため
+          // undefined を明示代入できず、条件付きスプレッドでプロパティごと外す。
+          ...(process.env.CI ? {} : { maxWorkers: "50%" }),
           environment: "node",
           include: NODE_POOL_TESTS,
         },
