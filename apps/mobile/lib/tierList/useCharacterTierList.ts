@@ -1,45 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
 import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
+import { tierListQueries } from "@/lib/queries/tierLists";
+import type {
+  SavedCharacterTierListResponse,
+  TierListShareResponse,
+} from "@/lib/queries/tierLists";
 import type { TierRow } from "./types";
 
 // 作品版（useTierList.ts）のキャラクター版。クエリキーの名前空間を
 // 別にして、作品 tier 表のキャッシュと混ざらないようにする。
-const characterTierListQueryKey = (annictWorkId: number) =>
-  ["character-tier-list", "saved", annictWorkId] as const;
-const characterTierListsQueryKey = ["character-tier-list", "list"] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+const characterTierListQueryKey = tierListQueries.character.saved.key;
+const characterTierListsQueryKey = tierListQueries.character.list.all;
 
 /** 自分のキャラクター tier 表の一覧（ひろばの横スクロールとハブ画面で使う）。 */
 export function useCharacterTierLists() {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: characterTierListsQueryKey,
+    ...tierListQueries.character.list.query(),
     enabled: !!isSignedIn,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["character-tier-lists"].$get(
-        {},
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "キャラクター tier 表の一覧取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -48,26 +29,11 @@ export function useCharacterTierLists() {
  * （404 はエラーではなく「まだ作っていない」という正常な状態のため）。
  */
 export function useSavedCharacterTierList(annictWorkId: number) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: characterTierListQueryKey(annictWorkId),
+    ...tierListQueries.character.saved.query({ annictWorkId }),
     enabled: !!isSignedIn && Number.isFinite(annictWorkId) && annictWorkId > 0,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["character-tier-lists"][
-        ":annictWorkId"
-      ].$get({ param: { annictWorkId: String(annictWorkId) } }, { headers });
-      const status = res.status;
-      if (status === 404) return null;
-      if (!res.ok) {
-        throw new ApiRequestError(
-          status,
-          "キャラクター tier 表の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -77,7 +43,6 @@ export function useSavedCharacterTierList(annictWorkId: number) {
  * UI スレッドをまたぐ上、並べ替え途中の不完全な状態を保存してしまう。
  */
 export function useSaveCharacterTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -90,18 +55,15 @@ export function useSaveCharacterTierList() {
       tiers: TierRow[];
       items: { annictCharacterId: number; tierKey: string }[];
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["character-tier-lists"].$put(
         { json: input },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "キャラクター tier 表の保存に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "キャラクター tier 表の保存に失敗しました",
-        );
-      }
-      return res.json();
+      return res.json() as Promise<SavedCharacterTierListResponse>;
     },
     onSuccess: (data, variables) => {
       // invalidate で再取得させると、レスポンス到着までの間に進んだ編集を
@@ -128,22 +90,21 @@ export function useSaveCharacterTierList() {
  * useSaveCharacterTierList で保存を完了させておくこと。
  */
 export function useShareCharacterTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (annictWorkId: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["character-tier-lists"][
         ":annictWorkId"
       ].share.$post(
         { param: { annictWorkId: String(annictWorkId) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "共有リンクの発行に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "共有リンクの発行に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<TierListShareResponse>;
     },
     onSuccess: (data, annictWorkId) => {
       // 共有状態を保存済みキャッシュにも反映し、「共有中」判定に使えるようにする。
@@ -162,21 +123,20 @@ export function useShareCharacterTierList() {
 
 /** キャラクター tier 表を削除する（items もカスケードで消える）。 */
 export function useDeleteCharacterTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (annictWorkId: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["character-tier-lists"][
         ":annictWorkId"
-      ].$delete({ param: { annictWorkId: String(annictWorkId) } }, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "キャラクター tier 表の削除に失敗しました",
-        );
-      }
+      ].$delete(
+        { param: { annictWorkId: String(annictWorkId) } },
+        {
+          fetch: apiFetch({
+            errorMessage: "キャラクター tier 表の削除に失敗しました",
+          }),
+        },
+      );
       return res.json();
     },
     onSuccess: (_data, annictWorkId) => {

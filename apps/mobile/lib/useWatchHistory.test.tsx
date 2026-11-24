@@ -51,6 +51,7 @@ jest.mock("@/lib/api", () => ({
     },
   },
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  clerkSessionToken: async () => "clerk_jwt",
 }));
 
 // useWatchHistory の import 元（barrel）。連携状態は常に連携済み、

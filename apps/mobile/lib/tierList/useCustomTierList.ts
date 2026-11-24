@@ -1,43 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
 import { PUBLIC_TIER_LISTS_KEY } from "./usePublicTierLists";
+import { tierListQueries } from "@/lib/queries/tierLists";
+import type {
+  SavedCustomTierListResponse,
+  TierListShareResponse,
+} from "@/lib/queries/tierLists";
 import type { TierRow } from "./types";
 
 // 作品版（useTierList.ts）の自由作成版（issue #348）。クエリキーの名前空間を
 // 別にして、シーズン版・キャラクター版のキャッシュと混ざらないようにする。
 // シーズン版と違いスコープキー（season）を持たず、id で 1 件を指す。
-const customTierListQueryKey = (id: number) =>
-  ["custom-tier-list", "saved", id] as const;
-const customTierListsQueryKey = ["custom-tier-list", "list"] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+const customTierListQueryKey = tierListQueries.custom.saved.key;
+const customTierListsQueryKey = tierListQueries.custom.list.all;
 
 /** 自分の自由作成 tier 表の一覧（作成済みの表を開く導線に使う）。 */
 export function useCustomTierLists() {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: customTierListsQueryKey,
+    ...tierListQueries.custom.list.query(),
     enabled: !!isSignedIn,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["custom-tier-lists"].$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "tier 表の一覧取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -47,24 +31,11 @@ export function useCustomTierLists() {
  * null に倒す（削除済みの表を開いた場合にエラー画面にしないため）。
  */
 export function useSavedCustomTierList(id: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: customTierListQueryKey(id ?? 0),
+    ...tierListQueries.custom.saved.query({ id: id ?? 0 }),
     enabled: !!isSignedIn && id !== null && Number.isFinite(id) && id > 0,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["custom-tier-lists"][":id"].$get(
-        { param: { id: String(id) } },
-        { headers },
-      );
-      const status = res.status;
-      if (status === 404) return null;
-      if (!res.ok) {
-        throw new ApiRequestError(status, "tier 表の取得に失敗しました");
-      }
-      return res.json();
-    },
   });
 }
 
@@ -75,7 +46,6 @@ export function useSavedCustomTierList(id: number | null) {
  * （シーズン版と同じ理由）。
  */
 export function useSaveCustomTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -88,18 +58,17 @@ export function useSaveCustomTierList() {
       tiers: TierRow[];
       items: { annictWorkId: number; tierKey: string }[];
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const { id, ...json } = input;
+      const fetch = apiFetch({
+        errorMessage: "tier 表の保存に失敗しました",
+      });
       const res = id
         ? await apiClient.me["custom-tier-lists"][":id"].$put(
             { param: { id: String(id) }, json },
-            { headers },
+            { fetch },
           )
-        : await apiClient.me["custom-tier-lists"].$post({ json }, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "tier 表の保存に失敗しました");
-      }
-      return res.json();
+        : await apiClient.me["custom-tier-lists"].$post({ json }, { fetch });
+      return res.json() as Promise<SavedCustomTierListResponse>;
     },
     onSuccess: (data) => {
       // invalidate で再取得させると、レスポンス到着までの間に進んだ編集を
@@ -123,20 +92,19 @@ export function useSaveCustomTierList() {
  * 共有の対象はサーバに保存された内容なので、呼ぶ前に保存を完了させておくこと。
  */
 export function useShareCustomTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["custom-tier-lists"][":id"].share.$post(
         { param: { id: String(id) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "共有リンクの発行に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "共有リンクの発行に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<TierListShareResponse>;
     },
     onSuccess: (data, id) => {
       // 共有状態を保存済みキャッシュにも反映し、「共有中」判定に使えるようにする。
@@ -156,19 +124,18 @@ export function useShareCustomTierList() {
 
 /** 自由作成 tier 表を削除する（items もカスケードで消える）。 */
 export function useDeleteCustomTierList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["custom-tier-lists"][":id"].$delete(
         { param: { id: String(id) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "tier 表の削除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "tier 表の削除に失敗しました");
-      }
       return res.json();
     },
     onSuccess: (_data, id) => {

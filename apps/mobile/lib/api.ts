@@ -45,7 +45,7 @@ export type ApiFetchOptions = {
  * publishableKey を渡すのは、ClerkProvider のマウント前に呼ばれた場合でも
  * native でインスタンスを初期化できるようにするため。
  */
-async function clerkSessionToken(): Promise<string | null> {
+export async function clerkSessionToken(): Promise<string | null> {
   const clerk = getClerkInstance({
     publishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
   });

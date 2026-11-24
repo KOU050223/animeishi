@@ -6,9 +6,11 @@ import { useExchangeQueueSync } from "@/lib/useExchangeQueueSync";
 import { confirm } from "@/lib/dialog";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
+import { ApiRequestError } from "@/lib/apiError";
 
 // POST /me/friends の応答をテストごとに差し替える。
 const mockFriendsPost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -17,6 +19,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 // 破棄通知の confirm だけ捕捉する。
@@ -33,7 +36,6 @@ jest.mock("expo-router", () => ({
 // 認証ヘッダ組み立てとクエリ無効化は呼び出しの結線だけを見る。
 const mockInvalidate = jest.fn();
 jest.mock("@/lib/useFriends", () => ({
-  getAuthHeaders: async () => ({ Authorization: "Bearer token_test" }),
   invalidateFriendRelatedQueries: (...args: unknown[]) =>
     mockInvalidate(...args),
 }));
@@ -50,11 +52,10 @@ const queueItem = (friendId: string) => ({
 });
 
 const okResponse = () => ({ ok: true, status: 201, json: async () => ({}) });
-const errorResponse = (status: number, code?: string) => ({
-  ok: false,
-  status,
-  json: async () => (code ? { code } : {}),
-});
+// apiFetch が !ok を ApiRequestError に変換するため、エラー系は
+// 「apiFetch が投げた後」の reject として再現する。
+const errorResponse = (status: number, code?: string) =>
+  new ApiRequestError(status, "名刺交換の送信に失敗しました", code);
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
@@ -92,7 +93,7 @@ describe("useExchangeQueueSync", () => {
           scannedAt: "2026-11-21T10:00:00.000Z",
         },
       },
-      { headers: { Authorization: "Bearer token_test" } },
+      { fetch: expect.any(Function) },
     );
     await waitFor(async () =>
       expect(await readExchangeQueue()).toHaveLength(0),
@@ -114,7 +115,7 @@ describe("useExchangeQueueSync", () => {
 
   it("期限切れ・無効（qr_exchange_required）は項目を破棄し、申請導線の confirm を出す", async () => {
     await enqueueExchange(queueItem(USER_A));
-    mockFriendsPost.mockResolvedValue(
+    mockFriendsPost.mockRejectedValue(
       errorResponse(403, "qr_exchange_required"),
     );
 
@@ -146,7 +147,7 @@ describe("useExchangeQueueSync", () => {
       offlineToken: "ot-a",
       scannedAt: "2026-11-21T10:00:00.000Z",
     });
-    mockFriendsPost.mockResolvedValue(errorResponse(404));
+    mockFriendsPost.mockRejectedValue(errorResponse(404));
 
     await renderHook(() => useExchangeQueueSync(), { wrapper });
 
@@ -162,7 +163,7 @@ describe("useExchangeQueueSync", () => {
   it("複数破棄したときは件数の文言で 1 回だけ通知する", async () => {
     await enqueueExchange(queueItem(USER_A));
     await enqueueExchange(queueItem(USER_B));
-    mockFriendsPost.mockResolvedValue(
+    mockFriendsPost.mockRejectedValue(
       errorResponse(403, "qr_exchange_required"),
     );
 
@@ -190,7 +191,7 @@ describe("useExchangeQueueSync", () => {
 
   it("5xx は一時的失敗として項目を残す", async () => {
     await enqueueExchange(queueItem(USER_A));
-    mockFriendsPost.mockResolvedValue(errorResponse(503));
+    mockFriendsPost.mockRejectedValue(errorResponse(503));
 
     await renderHook(() => useExchangeQueueSync(), { wrapper });
 

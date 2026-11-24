@@ -1,18 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
+import { exchangeRecordQueries } from "@/lib/queries/exchangeRecords";
+import type { ExchangeRecordCreateResponse } from "@/lib/queries/exchangeRecords";
 
 // 交換記録（issue #661）。「いつ・どこで・どのイベントで」会ったかを
 // 本人の名刺帳にだけ残す私的な履歴。API は /me/exchange-records で
 // 本人の記録しか返さず、相手・第三者には見えない。
 
-type ExchangeRecordsResponse = InferResponseType<
-  (typeof apiClient.me)["exchange-records"]["$get"],
-  200
->;
-export type ExchangeRecordItem = ExchangeRecordsResponse[number];
+export type { ExchangeRecordItem } from "@/lib/queries/exchangeRecords";
 
 export type ExchangeRecordUpdate = {
   placeName: string | null;
@@ -20,35 +16,16 @@ export type ExchangeRecordUpdate = {
   eventName: string | null;
 };
 
-export const EXCHANGE_RECORDS_QUERY_KEY = ["exchange-records"] as const;
-const exchangeRecordsQueryKey = (userId: string) =>
-  [...EXCHANGE_RECORDS_QUERY_KEY, userId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export const EXCHANGE_RECORDS_QUERY_KEY = exchangeRecordQueries.all;
+const exchangeRecordsQueryKey = exchangeRecordQueries.key;
 
 /** 自分の交換記録を全件（会った日時の降順）で返す。 */
 export function useExchangeRecords() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId
-      ? exchangeRecordsQueryKey(userId)
-      : EXCHANGE_RECORDS_QUERY_KEY,
+    ...exchangeRecordQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["exchange-records"].$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "交換記録の取得に失敗しました");
-      }
-      return res.json();
-    },
   });
 }
 
@@ -68,7 +45,7 @@ export function useExchangeRecordsForFriend(friendId: string | undefined) {
  * 「同日・同じ場所／イベント」は API 側で既存記録にまとめられる。
  */
 export function useCreateExchangeRecord() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -76,17 +53,17 @@ export function useCreateExchangeRecord() {
       friendId: string;
       record: ExchangeRecordUpdate;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["exchange-records"].$post(
         {
           json: { friendId: input.friendId, ...input.record },
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "交換記録の追加に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "交換記録の追加に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<ExchangeRecordCreateResponse>;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -98,7 +75,7 @@ export function useCreateExchangeRecord() {
 
 /** 交換記録の場所・イベントを上書き保存する。 */
 export function useUpdateExchangeRecord() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -106,17 +83,17 @@ export function useUpdateExchangeRecord() {
       recordId: number;
       update: ExchangeRecordUpdate;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["exchange-records"][":recordId"].$put(
         {
           param: { recordId: String(input.recordId) },
           json: input.update,
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "交換記録の保存に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "交換記録の保存に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -129,19 +106,19 @@ export function useUpdateExchangeRecord() {
 
 /** 交換記録を削除する。 */
 export function useDeleteExchangeRecord() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (recordId: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["exchange-records"][":recordId"].$delete(
         { param: { recordId: String(recordId) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "交換記録の削除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "交換記録の削除に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {

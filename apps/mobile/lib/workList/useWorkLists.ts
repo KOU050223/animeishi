@@ -5,63 +5,42 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { workListQueries } from "@/lib/queries/workLists";
+import type {
+  PublicWorkListsResponse,
+  PublicWorkListSort,
+  SavedWorkListResponse,
+  WorkListLikeResponse,
+  WorkListShareResponse,
+} from "@/lib/queries/workLists";
 
 // 作品リスト（issue #349）の取得・保存フック。
 // useCustomTierList（issue #348）と同じ構造で、クエリキーの名前空間を
 // 別にして tier 表のキャッシュと混ざらないようにする。
-const workListQueryKey = (id: number) => ["work-list", "saved", id] as const;
-const workListsQueryKey = ["work-list", "list"] as const;
+const workListQueryKey = workListQueries.saved.key;
+const workListsQueryKey = workListQueries.list.all;
 // 公開一覧（ひろば「みつける」タブ, issue #422）。sort ごとにキャッシュを分ける。
 // 先頭 2 要素が共通プレフィックスなので、これで一覧・詳細の両方を
 // invalidate できる（useModeration のブロック操作からも使う）。
-export const PUBLIC_WORK_LISTS_KEY = ["work-list", "public"] as const;
-const publicWorkListsQueryKey = (sort: PublicWorkListSort) =>
-  [...PUBLIC_WORK_LISTS_KEY, sort] as const;
-const publicWorkListQueryKey = (id: number) =>
-  [...PUBLIC_WORK_LISTS_KEY, "detail", id] as const;
+export const PUBLIC_WORK_LISTS_KEY = workListQueries.public.all;
+const publicWorkListsQueryKey = workListQueries.public.key;
+const publicWorkListQueryKey = workListQueries.public.detail.key;
 
-export type PublicWorkListSort = "likes" | "new";
-
-type PublicWorkListsResponse = InferResponseType<
-  (typeof apiClient)["work-lists"]["public"]["$get"],
-  200
->;
-export type PublicWorkListItem = PublicWorkListsResponse["items"][number];
-
-const PUBLIC_LIST_PAGE_LIMIT = "20";
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+export type {
+  PublicWorkListItem,
+  PublicWorkListSort,
+  PublicWorkListsResponse,
+} from "@/lib/queries/workLists";
 
 /** 自分の作品リストの一覧（作成済みのリストを開く導線に使う）。 */
 export function useWorkLists() {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: workListsQueryKey,
+    ...workListQueries.list.query(),
     enabled: !!isSignedIn,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["work-lists"].$get(
-        { query: {} },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "作品リストの一覧取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -71,7 +50,7 @@ export function useWorkLists() {
  * annictWorkId が null の間はフェッチしない（シートが閉じている間）。
  */
 export function useWorkListsContaining(annictWorkId: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   const enabled =
     !!isSignedIn &&
     annictWorkId !== null &&
@@ -79,22 +58,8 @@ export function useWorkListsContaining(annictWorkId: number | null) {
     annictWorkId > 0;
 
   return useQuery({
-    queryKey: [...workListsQueryKey, "contains", annictWorkId ?? 0],
+    ...workListQueries.containing.query({ annictWorkId }),
     enabled,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["work-lists"].$get(
-        { query: { contains: String(annictWorkId) } },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "作品リストの一覧取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -104,25 +69,21 @@ export function useWorkListsContaining(annictWorkId: number | null) {
  * 既に入っている作品はサーバ側で no-op になり、現在のリストが返る。
  */
 export function useAddWorkToWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: { listId: number; annictWorkId: number }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["work-lists"][":id"].items.$post(
         {
           param: { id: String(input.listId) },
           json: { annictWorkId: input.annictWorkId },
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "作品リストへの追加に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "作品リストへの追加に失敗しました",
-        );
-      }
       return res.json();
     },
     onSuccess: (data, input) => {
@@ -142,24 +103,11 @@ export function useAddWorkToWorkList() {
  * として null に倒す（削除済みのリストを開いた場合にエラー画面にしない）。
  */
 export function useSavedWorkList(id: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: workListQueryKey(id ?? 0),
+    ...workListQueries.saved.query({ id: id ?? 0 }),
     enabled: !!isSignedIn && id !== null && Number.isFinite(id) && id > 0,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["work-lists"][":id"].$get(
-        { param: { id: String(id) } },
-        { headers },
-      );
-      const status = res.status;
-      if (status === 404) return null;
-      if (!res.ok) {
-        throw new ApiRequestError(status, "作品リストの取得に失敗しました");
-      }
-      return res.json();
-    },
   });
 }
 
@@ -169,7 +117,6 @@ export function useSavedWorkList(id: number | null) {
  * items の並び順がそのまま position になる（サーバが配列順から採番する）。
  */
 export function useSaveWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -180,18 +127,17 @@ export function useSaveWorkList() {
       isPublic?: boolean;
       items: { annictWorkId: number }[];
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const { id, ...json } = input;
+      const fetch = apiFetch({
+        errorMessage: "作品リストの保存に失敗しました",
+      });
       const res = id
         ? await apiClient.me["work-lists"][":id"].$put(
             { param: { id: String(id) }, json },
-            { headers },
+            { fetch },
           )
-        : await apiClient.me["work-lists"].$post({ json }, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "作品リストの保存に失敗しました");
-      }
-      return res.json();
+        : await apiClient.me["work-lists"].$post({ json }, { fetch });
+      return res.json() as Promise<SavedWorkListResponse>;
     },
     onSuccess: (data) => {
       // invalidate で再取得させると、レスポンス到着までの間に進んだ編集を
@@ -211,20 +157,19 @@ export function useSaveWorkList() {
  * 共有の対象はサーバに保存された内容なので、呼ぶ前に保存を完了させておくこと。
  */
 export function useShareWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["work-lists"][":id"].share.$post(
         { param: { id: String(id) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "共有リンクの発行に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "共有リンクの発行に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<WorkListShareResponse>;
     },
     onSuccess: (data, id) => {
       // 共有状態を保存済みキャッシュにも反映し、「共有中」判定に使えるようにする。
@@ -241,19 +186,18 @@ export function useShareWorkList() {
 
 /** 共有トークンを破棄する。破棄後は共有 URL が 404 を返す。 */
 export function useUnshareWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["work-lists"][":id"].share.$delete(
         { param: { id: String(id) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "共有リンクの解除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "共有リンクの解除に失敗しました");
-      }
       return res.json();
     },
     onSuccess: (_data, id) => {
@@ -273,33 +217,11 @@ export function useUnshareWorkList() {
  * nextCursor がある限り続きを読める（useActivityFeed と同じ構造）。
  */
 export function usePublicWorkLists(sort: PublicWorkListSort) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useInfiniteQuery({
-    queryKey: publicWorkListsQueryKey(sort),
+    ...workListQueries.public.list.query({ sort }),
     enabled: !!isSignedIn,
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient["work-lists"].public.$get(
-        {
-          query: {
-            sort,
-            limit: PUBLIC_LIST_PAGE_LIMIT,
-            ...(pageParam !== undefined ? { cursor: pageParam } : {}),
-          },
-        },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "公開作品リストの取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
 
@@ -309,25 +231,11 @@ export function usePublicWorkLists(sort: PublicWorkListSort) {
  * 見えないリストは 404（data undefined・isError）になる。
  */
 export function usePublicWorkList(id: number | null) {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: publicWorkListQueryKey(id ?? 0),
+    ...workListQueries.public.detail.query({ id: id ?? 0 }),
     enabled: !!isSignedIn && id !== null,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient["work-lists"][":id"].$get(
-        { param: { id: String(id) } },
-        { headers },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "公開作品リストの取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -337,37 +245,37 @@ export function usePublicWorkList(id: number | null) {
  * 両ソートのキャッシュにそのまま反映する。
  */
 export function useToggleWorkListLike() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: { id: number; like: boolean }) => {
-      const headers = await getAuthHeaders(getToken);
+      // 流量制限ミドルウェアの 429 は {error} に理由が入るため、
+      // 標準の ApiRequestError 化ではなく応答の文言を拾う。
+      const fetch = apiFetch({
+        onHttpError: async (errorRes) => {
+          if (errorRes.status === 429) {
+            const body = (await errorRes.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            return new ApiRequestError(
+              errorRes.status,
+              body?.error ?? "いいねの更新に失敗しました",
+            );
+          }
+          return new ApiRequestError(
+            errorRes.status,
+            "いいねの更新に失敗しました",
+          );
+        },
+      });
+      const param = { id: String(input.id) };
       const res = input.like
-        ? await apiClient["work-lists"][":id"].like.$put(
-            { param: { id: String(input.id) } },
-            { headers },
-          )
+        ? await apiClient["work-lists"][":id"].like.$put({ param }, { fetch })
         : await apiClient["work-lists"][":id"].like.$delete(
-            { param: { id: String(input.id) } },
-            { headers },
+            { param },
+            { fetch },
           );
-      if (!res.ok) {
-        // 流量制限ミドルウェアの 429 は OpenAPI 経由ではないのでルートの型に
-        // 含まれない。実行時には返るため number として比較する
-        const status = res.status as number;
-        if (status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new ApiRequestError(
-            status,
-            body?.error ?? "いいねの更新に失敗しました",
-          );
-        }
-        throw new ApiRequestError(status, "いいねの更新に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<WorkListLikeResponse>;
     },
     onSuccess: (data, input) => {
       for (const sort of ["likes", "new"] as const) {
@@ -414,31 +322,32 @@ export function useToggleWorkListLike() {
  * プリセット/自由入力をそのまま送る。429 はサーバーの理由を見せる。
  */
 export function useReportWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: { id: number; reason: string }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient["work-lists"][":id"].report.$post(
         {
           param: { id: String(input.id) },
           json: { reason: input.reason },
         },
-        { headers },
+        {
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              if (errorRes.status === 429) {
+                const body = (await errorRes.json().catch(() => null)) as {
+                  error?: string;
+                } | null;
+                return new ApiRequestError(
+                  errorRes.status,
+                  body?.error ?? "通報の送信回数が上限に達しました",
+                );
+              }
+              return new ApiRequestError(errorRes.status, "通報に失敗しました");
+            },
+          }),
+        },
       );
-      if (!res.ok) {
-        if (res.status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new ApiRequestError(
-            res.status,
-            body?.error ?? "通報の送信回数が上限に達しました",
-          );
-        }
-        throw new ApiRequestError(res.status, "通報に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -451,19 +360,18 @@ export function useReportWorkList() {
 
 /** 作品リストを削除する（items もカスケードで消える）。 */
 export function useDeleteWorkList() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["work-lists"][":id"].$delete(
         { param: { id: String(id) } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "作品リストの削除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "作品リストの削除に失敗しました");
-      }
       return res.json();
     },
     onSuccess: (_data, id) => {

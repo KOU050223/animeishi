@@ -4,8 +4,8 @@ import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { apiClient } from "@/lib/api";
-import { readApiErrorCode } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { confirm } from "@/lib/dialog";
 import {
   flushExchangeQueue,
@@ -13,10 +13,7 @@ import {
   type ExchangeSendOutcome,
   type FlushExchangeResult,
 } from "@/lib/exchangeQueue";
-import {
-  getAuthHeaders,
-  invalidateFriendRelatedQueries,
-} from "@/lib/useFriends";
+import { invalidateFriendRelatedQueries } from "@/lib/useFriends";
 
 // 通信復帰を直接検知する手段（NetInfo）を持たないため、キューが残っている
 // 間に備えて一定間隔でも flush を試す。試行自体は空キューなら即終わる。
@@ -33,11 +30,9 @@ let flushInFlight: Promise<FlushExchangeResult> | null = null;
  */
 async function sendExchangeItem(
   item: ExchangeQueueItem,
-  getToken: () => Promise<string | null>,
 ): Promise<ExchangeSendOutcome> {
   try {
-    const headers = await getAuthHeaders(getToken);
-    const res = await apiClient.me.friends.$post(
+    await apiClient.me.friends.$post(
       {
         json: {
           friendId: item.friendId,
@@ -46,16 +41,24 @@ async function sendExchangeItem(
           scannedAt: item.scannedAt,
         },
       },
-      { headers },
+      {
+        fetch: apiFetch({
+          errorMessage: "名刺交換の送信に失敗しました",
+        }),
+      },
     );
-    if (res.ok) return "sent";
-    const code = await readApiErrorCode(res);
+    return "sent";
+  } catch (error) {
     // 期限切れ・無効なトークン（qr_exchange_required）を含む 4xx は
     // 再送しても成立しないため破棄する（オーナー決定 2026-11-21）。
-    if (code === "qr_exchange_required" || res.status < 500) return "discard";
-    return "retry";
-  } catch {
-    // ネットワークに届かない（オフライン）・トークン取得失敗は一時的なので残す。
+    if (
+      error instanceof ApiRequestError &&
+      (error.code === "qr_exchange_required" || error.status < 500)
+    ) {
+      return "discard";
+    }
+    // ネットワークに届かない（オフライン）・トークン取得失敗・5xx は
+    // 一時的なので残す。
     return "retry";
   }
 }
@@ -71,7 +74,7 @@ async function sendExchangeItem(
  * 申請は自動送信しない（オーナー決定 2026-11-21）。
  */
 export function useExchangeQueueSync() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
   const { t } = useTranslation();
@@ -86,7 +89,7 @@ export function useExchangeQueueSync() {
     if (flushInFlight) return flushInFlight;
     const promise = (async () => {
       const result = await flushExchangeQueue({
-        send: (item) => sendExchangeItem(item, getToken),
+        send: sendExchangeItem,
       });
       if (result.sent.length > 0) {
         invalidateFriendRelatedQueries(queryClient, userId);
@@ -129,7 +132,7 @@ export function useExchangeQueueSync() {
     return await promise.finally(() => {
       if (flushInFlight === promise) flushInFlight = null;
     });
-  }, [isSignedIn, userId, getToken, queryClient, router, t]);
+  }, [isSignedIn, userId, queryClient, router, t]);
 
   useEffect(() => {
     if (!isSignedIn || !userId) return;

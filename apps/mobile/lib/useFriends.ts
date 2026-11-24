@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
 import { ACTIVITY_FEED_QUERY_KEY } from "./useActivityFeed";
 import {
@@ -14,21 +13,16 @@ import { EXCHANGE_RECORDS_QUERY_KEY } from "./useExchangeRecords";
 import { FRIEND_THANKS_QUERY_KEY } from "./useFriendThanks";
 import { PUBLIC_PROFILE_QUERY_KEY } from "./publicProfile";
 import { COMMON_POINTS_QUERY_KEY } from "./useCommonPoints";
-import { saveOfflineExchangeToken } from "./offlineExchangeToken";
+import { friendQueries } from "@/lib/queries/friends";
+import type { AddFriendResponse } from "@/lib/queries/friends";
 
-type FriendsResponse = InferResponseType<
-  (typeof apiClient.me.friends)["$get"],
-  200
->;
-export type FriendItem = FriendsResponse[number];
+export type { FriendItem } from "@/lib/queries/friends";
 
-export const FRIENDS_QUERY_KEY = ["friends"] as const;
-export const FRIEND_REQUESTS_QUERY_KEY = ["friend-requests"] as const;
+export const FRIENDS_QUERY_KEY = friendQueries.all;
+export const FRIEND_REQUESTS_QUERY_KEY = friendQueries.requests.all;
 
-const friendsQueryKey = (userId: string) =>
-  [...FRIENDS_QUERY_KEY, userId] as const;
-const friendRequestsQueryKey = (userId: string) =>
-  [...FRIEND_REQUESTS_QUERY_KEY, userId] as const;
+const friendsQueryKey = friendQueries.key;
+const friendRequestsQueryKey = friendQueries.requests.key;
 
 // フレンド関係が変わると一覧・申請一覧・活動フィード・ストーリーの内容が
 // 変わるため、すべて無効化する（各キャッシュは userId サフィックス付きなので
@@ -72,31 +66,12 @@ export function invalidateFriendRelatedQueries(
   void queryClient.invalidateQueries({ queryKey: PUBLIC_PROFILE_QUERY_KEY });
 }
 
-export async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
-
 export function useFriends() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId ? friendsQueryKey(userId) : FRIENDS_QUERY_KEY,
+    ...friendQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.friends.$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "フレンド一覧の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -119,39 +94,18 @@ const QR_TOKEN_REFETCH_INTERVAL_MS = 60_000;
  * 403 で拒否するため、リモート追加は申請フローしか通らない。
  */
 export function useQrExchangeToken() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: ["qr-exchange-token", userId] as const,
+    ...friendQueries.qrToken.query({ userId }),
     enabled: !!isSignedIn && !!userId,
     // QR を提示し続ける間トークンを生かし続けるため定期再取得する。
     refetchInterval: QR_TOKEN_REFETCH_INTERVAL_MS,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.friends["qr-token"].$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "QR トークンの取得に失敗しました",
-        );
-      }
-      const data = await res.json();
-      // ot はオフライン時の QR フォールバック用。オンラインのうちに端末へ
-      // 保存しておく（issue #680）。
-      if (userId) {
-        await saveOfflineExchangeToken({
-          userId,
-          token: data.offlineToken,
-          expiresAt: data.offlineExpiresAt,
-        });
-      }
-      return data;
-    },
   });
 }
 
 export function useAddFriend() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -162,30 +116,37 @@ export function useAddFriend() {
       qrToken?: string;
       offlineToken?: string;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.friends.$post(
         { json: input },
-        { headers },
+        {
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              const code = await readApiErrorCode(errorRes);
+              if (code === "qr_exchange_required") {
+                return new ApiRequestError(
+                  errorRes.status,
+                  "QR の有効期限が切れています",
+                  code,
+                );
+              }
+              if (errorRes.status === 404) {
+                return new ApiRequestError(404, "ユーザーが見つかりません");
+              }
+              if (errorRes.status === 400 || errorRes.status === 403) {
+                return new ApiRequestError(
+                  errorRes.status,
+                  "このユーザーは追加できません",
+                );
+              }
+              return new ApiRequestError(
+                errorRes.status,
+                "フレンド追加に失敗しました",
+              );
+            },
+          }),
+        },
       );
-      const status = res.status;
-      if (!res.ok) {
-        const code = await readApiErrorCode(res);
-        if (code === "qr_exchange_required") {
-          throw new ApiRequestError(
-            status,
-            "QR の有効期限が切れています",
-            code,
-          );
-        }
-        if (status === 404) {
-          throw new ApiRequestError(404, "ユーザーが見つかりません");
-        }
-        if (status === 400 || status === 403) {
-          throw new ApiRequestError(status, "このユーザーは追加できません");
-        }
-        throw new ApiRequestError(status, "フレンド追加に失敗しました");
-      }
-      return res.json();
+      return res.json() as Promise<AddFriendResponse>;
     },
     onSuccess: () => {
       invalidateFriendRelatedQueries(queryClient, userId);
@@ -194,19 +155,19 @@ export function useAddFriend() {
 }
 
 export function useRemoveFriend() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (friendId: string) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me.friends[":friendId"].$delete(
         { param: { friendId } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "フレンド削除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "フレンド削除に失敗しました");
-      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },
