@@ -180,3 +180,13 @@ export function BottomSheet({
     </View>
   ) : null;
 }
+
+export function RNHostView({ children, ...props }: AnyProps) {
+  // testID 用于测试断言“内容确实经过 RNHostView 托管”，真实实现里
+  // RNHostView 负责给 sheet 内的 RN 内容接上触摸分发。
+  return (
+    <View {...props} testID={(props.testID as string) ?? "expo-ui-rn-host"}>
+      {children}
+    </View>
+  );
+}

@@ -1,4 +1,5 @@
-import { BottomSheet as ExpoUIBottomSheet } from "@expo/ui";
+import { BottomSheet as ExpoUIBottomSheet, RNHostView } from "@expo/ui";
+import { View } from "react-native";
 import { useThemeColors } from "@/lib/theme";
 import { useDeferredOnClosed } from "./useDeferredOnClosed";
 import type { BottomSheetProps } from "./types";
@@ -9,6 +10,13 @@ import type { BottomSheetProps } from "./types";
  * 内側の余白は children 側の RN ビューが持つため contentPadding は 0 に
  * 潰す（二重余白になるのを防ぐ）。children はネイティブツリー内で
  * RN ビューとしてホストされるため、既存の RN コンポーネントをそのまま渡せる。
+ *
+ * RN コンテンツは必ず RNHostView 経由で渡す（UIViewHost 直置きに戻さない）。
+ * sheet は独立したビューコントローラに描画され、RN サーフェスルートの
+ * タッチハンドラが祖先に存在しないため、直置きだと描画はされるが
+ * タッチが一切届かない（upstream expo/expo#48969 で整備された機構）。
+ * RNHostView は presented コンテンツ内で layoutRoot になり、自前の
+ * RCTSurfaceTouchHandler をホストビューに付けてタッチを JS に流す。
  */
 export function BottomSheet({
   visible,
@@ -20,6 +28,7 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const colors = useThemeColors();
   useDeferredOnClosed(visible, onClosed);
+  const fillsDetent = Boolean(snapPoints?.length);
   return (
     <ExpoUIBottomSheet
       isPresented={visible}
@@ -32,7 +41,20 @@ export function BottomSheet({
       containerColor={colors.surface}
       testID={testID}
     >
-      {children}
+      <RNHostView
+        // snapPoints あり: 高さは detent が決めるので fill（既定）。
+        // snapPoints なし: シートが内容に合わせるため、横幅だけ親・
+        // 高さはコンテンツから取る { vertical: true }。
+        matchContents={fillsDetent ? undefined : { vertical: true }}
+      >
+        {/* RNHostView は first child しか測定・ホストしないため単一の
+            View に束ねる。collapsable={false} で layout-only の畳み込み
+            （Fabric flattening）を抑え、タッチハンドラの取り付け先の
+            UIView を必ず実体化する。 */}
+        <View collapsable={false} style={fillsDetent ? { flex: 1 } : undefined}>
+          {children}
+        </View>
+      </RNHostView>
     </ExpoUIBottomSheet>
   );
 }
