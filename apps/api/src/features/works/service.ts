@@ -3,17 +3,17 @@ import type { AnnictWorkCatalog } from "@/lib/annict/workCatalog";
 import {
   readSeasonWorksCache,
   writeSeasonWorksCache,
-} from "@/lib/annict/seasonWorksCache";
+} from "@/lib/catalog/seasonWorksCache";
 import {
   readWorkCache,
   workCacheUrl,
   writeWorkCache,
-} from "@/lib/annict/workSearchCache";
+} from "@/lib/catalog/workSearchCache";
 import {
   isPlaceholderImageUrl,
   resolveImagesViaKitsu,
-} from "@/lib/annict/imageFallback";
-import { workImageUrl } from "@/lib/annict/workImage";
+} from "@/lib/catalog/imageFallback";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { isUnchangedCachedWork, type WorksRepository } from "./repository";
 
 type WorksPage = {

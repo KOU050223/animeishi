@@ -35,7 +35,7 @@ import {
 } from "./schema";
 import { resolveAnnictToken } from "@/lib/annict/middleware";
 import { currentAnnictSeason } from "@/lib/annict/client";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { worksRepository } from "../works/repository";
 import { attachResolvedImages } from "../works/service";
 

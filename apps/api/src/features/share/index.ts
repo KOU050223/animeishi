@@ -26,7 +26,7 @@ import {
   watchHistoryNotFoundHtml,
   workListNotFoundHtml,
 } from "./service";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import type { GuestCtaSource } from "@animeishi/observability";
 
 // 共有ページの登録 CTA の表示を Workers Logs に残す（issue #217 / #562）。

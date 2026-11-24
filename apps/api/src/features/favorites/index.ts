@@ -11,7 +11,7 @@ import {
 } from "./schema";
 import { createDb } from "@/db/client";
 // 注: barrel ではなくサブモジュール直接 import（理由は features/watch-history/index.ts 参照）。
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { resolveAnnictWorkCatalog } from "@/lib/annict/middleware";
 import { createOpenApiApp } from "@/lib/openapi";
 

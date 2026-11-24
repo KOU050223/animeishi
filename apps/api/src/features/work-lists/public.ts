@@ -17,7 +17,7 @@ import {
 import type { PublicWorkListSort } from "./repository";
 import { usersRepository, ReportRateLimitError } from "../users/repository";
 import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { notifyUserReport } from "@/observability";
 import { userRateLimit } from "@/middleware/rateLimit";
 

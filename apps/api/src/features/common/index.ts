@@ -1,6 +1,6 @@
 import { createDb } from "@/db/client";
 import { createOpenApiApp } from "@/lib/openapi";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { commonRepository } from "./repository";

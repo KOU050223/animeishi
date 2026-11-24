@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createDb } from "@/db/client";
-import { serveWorkImage } from "@/lib/annict/workImage";
+import { serveWorkImage } from "@/lib/catalog/workImage";
 
 /**
  * ?r= で受け付けるリトライ番号の上限。WorkImage（apps/mobile）の
@@ -13,7 +13,7 @@ const MAX_RETRY_ATTEMPT = 2;
  * 作品画像の配信（公開・認証不要）。
  * GET /images/works/:annictWorkId は Kitsu / MAL 由来を R2 から配信し、
  * Annict 由来は元 URL へリダイレクトする
- * （詳細は lib/annict/workImage.ts）。
+ * （詳細は lib/catalog/workImage.ts）。
  * アプリの <Image> と共有ページ HTML の <img> の両方から参照される。
  *
  * パスは数値 ID のみ受け付けるので、同じバケットの avatars/ 等には到達できない。

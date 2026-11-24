@@ -8,13 +8,13 @@ import {
   makeKitsuResponse,
 } from "@/test-utils/kitsu";
 import { annictWorks } from "@/db/schema";
-import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/annict/imageFallback";
+import { IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS } from "@/lib/catalog/imageFallback";
 import {
   IMAGE_FALLBACK_ATTEMPT_COOLDOWN_MS,
   imageFallbackAttemptStaleBefore,
   imageFallbackNoneStaleBefore,
   resolvePendingImageFallbacks,
-} from "@/lib/annict/imageFallbackPending";
+} from "@/lib/catalog/imageFallbackPending";
 
 async function insertWork(
   db: Awaited<ReturnType<typeof setupTestDb>>,

@@ -4,7 +4,7 @@ import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { feedRepository } from "./repository";
 import { getFeedRoute, getWatchStoriesRoute } from "./schema";
 import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(

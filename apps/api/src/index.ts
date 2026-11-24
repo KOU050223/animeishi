@@ -7,9 +7,9 @@ import { createDb } from "./db/client";
 import { securityHeaders } from "./securityHeaders";
 import type { Env } from "./db/client";
 import { registerOpenApiDocs } from "./lib/openapi";
-import { resolvePendingImageFallbacks } from "./lib/annict/imageFallbackPending";
-import { resolveMissingMalIds } from "./lib/annict/kitsuTitleSearch";
-import { resolvePendingWorkGenres } from "./lib/annict/workGenres";
+import { resolvePendingImageFallbacks } from "./lib/catalog/imageFallbackPending";
+import { resolveMissingMalIds } from "./lib/providers/kitsu/titleSearch";
+import { resolvePendingWorkGenres } from "./lib/catalog/workGenres";
 import {
   buildSentryOptions,
   handleError,

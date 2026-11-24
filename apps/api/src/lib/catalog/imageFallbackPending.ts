@@ -3,7 +3,7 @@ import { worksRepository } from "@/features/works/repository";
 import {
   IMAGE_FALLBACK_NONE_RESOLVE_AFTER_MS,
   resolveImagesForWorks,
-} from "@/lib/annict/imageFallback";
+} from "./imageFallback";
 
 /**
  * 最終試行時刻（annict_works.image_fallback_attempted_at）のクールダウン期間。

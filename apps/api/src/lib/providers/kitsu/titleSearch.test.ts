@@ -12,7 +12,7 @@ import {
   searchKitsuAnimeByTitle,
   type KitsuSearchMedia,
   type MalSearchInput,
-} from "./kitsuTitleSearch";
+} from "./titleSearch";
 
 function input(overrides: Partial<MalSearchInput> = {}): MalSearchInput {
   return {

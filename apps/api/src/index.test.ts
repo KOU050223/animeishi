@@ -20,20 +20,22 @@ vi.mock("@sentry/cloudflare", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/annict/kitsuTitleSearch", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/annict/kitsuTitleSearch")>()),
+vi.mock("@/lib/providers/kitsu/titleSearch", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/lib/providers/kitsu/titleSearch")
+  >()),
   resolveMissingMalIds: jobs.resolveMissingMalIds,
 }));
 
-vi.mock("@/lib/annict/imageFallbackPending", async (importOriginal) => ({
+vi.mock("@/lib/catalog/imageFallbackPending", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("@/lib/annict/imageFallbackPending")
+    typeof import("@/lib/catalog/imageFallbackPending")
   >()),
   resolvePendingImageFallbacks: jobs.resolvePendingImageFallbacks,
 }));
 
-vi.mock("@/lib/annict/workGenres", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/annict/workGenres")>()),
+vi.mock("@/lib/catalog/workGenres", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/catalog/workGenres")>()),
   resolvePendingWorkGenres: jobs.resolvePendingWorkGenres,
 }));
 

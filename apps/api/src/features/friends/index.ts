@@ -30,7 +30,7 @@ import {
 } from "./schema";
 import type { FriendUpdateType } from "./schema";
 import { createDb } from "@/db/client";
-import { workImageUrl } from "@/lib/annict/workImage";
+import { workImageUrl } from "@/lib/catalog/workImage";
 import { createOpenApiApp } from "@/lib/openapi";
 
 function getBindings(
