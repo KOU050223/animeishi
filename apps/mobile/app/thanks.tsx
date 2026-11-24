@@ -136,7 +136,7 @@ export default function ThanksScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-slate-400 dark:text-slate-500 text-center">
+            <Text className="text-muted text-center">
               {t("届いたお礼はまだありません")}
             </Text>
           </View>
@@ -173,7 +173,7 @@ function ThanksRow({
         />
       ) : (
         <View className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center">
-          <Text className="text-base text-slate-400 dark:text-slate-500">
+          <Text className="text-base text-muted">
             {item.username.charAt(0).toUpperCase()}
           </Text>
         </View>
@@ -190,7 +190,7 @@ function ThanksRow({
             {item.body}
           </Text>
         ) : null}
-        <Text className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+        <Text className="text-xs text-muted mt-1">
           {formatThanksDate(item.createdAt, language)}
         </Text>
       </View>

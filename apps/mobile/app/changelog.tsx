@@ -82,7 +82,7 @@ export default function ChangelogScreen() {
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
           {/* 最終更新は UPDATES の先頭（最新エントリ）の日付から取る */}
-          <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-2 text-xs text-muted">
             {t("最終更新:")} {lastUpdated}
           </Text>
 
@@ -108,9 +108,7 @@ export default function ChangelogScreen() {
           <View className="mt-3 gap-5">
             {UPDATES.map((entry) => (
               <View key={`${entry.date}-${entry.title}`}>
-                <Text className="text-xs text-slate-400 dark:text-slate-500">
-                  {entry.date}
-                </Text>
+                <Text className="text-xs text-muted">{entry.date}</Text>
                 <Text className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
                   {entry.title}
                 </Text>
@@ -126,7 +124,7 @@ export default function ChangelogScreen() {
           <Text className="mt-10 text-base font-semibold text-slate-900 dark:text-slate-100">
             {t("今後追加したい機能")}
           </Text>
-          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-1 text-xs text-muted">
             {t("タップすると対応する GitHub issue を開きます。")}
           </Text>
           <View className="mt-3 flex-row flex-wrap gap-2">

@@ -116,7 +116,7 @@ export default function BlockedUsersScreen() {
     >
       {screenOptions}
       <View className="px-4 pb-3 pt-3">
-        <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-0.5 text-xs text-muted">
           {t("{{count}} 人", { count: list.length })}
         </Text>
       </View>
@@ -177,7 +177,7 @@ export default function BlockedUsersScreen() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-center text-slate-400 dark:text-slate-500">
+            <Text className="text-center text-muted">
               {t("ブロックしているユーザーはいません")}
             </Text>
           </View>

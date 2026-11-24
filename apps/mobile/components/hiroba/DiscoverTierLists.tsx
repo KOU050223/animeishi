@@ -166,7 +166,7 @@ export function DiscoverTierLists() {
           )}
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
-              <Text className="text-center text-slate-400 dark:text-slate-500">
+              <Text className="text-center text-muted">
                 {t("まだ公開されている tier 表はありません")}
               </Text>
             </View>

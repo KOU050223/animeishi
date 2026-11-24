@@ -87,7 +87,7 @@ export function FriendUpdatesSection({ uid }: { uid: string }) {
             <Text className="text-sm text-slate-700 dark:text-slate-300">
               {updateText(item, t)}
             </Text>
-            <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            <Text className="mt-0.5 text-xs text-muted">
               {formatRelativeTime(item.createdAt, t)}
             </Text>
           </View>

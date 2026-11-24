@@ -106,12 +106,12 @@ export function CurrentSeasonWatchingRail() {
         // 空表示では「今期」の範囲外に残っている視聴中作品（過去シーズンの
         // ステータス等）がどこで確認できるかまで示す（issue #598）。
         <View>
-          <Text className="text-sm text-slate-400 dark:text-slate-500">
+          <Text className="text-sm text-muted">
             {t("{{season}}アニメで「視聴中」の作品はありません", {
               season: seasonLabel,
             })}
           </Text>
-          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-1 text-xs text-muted">
             {t(
               "過去のシーズンを含むすべての「視聴中」作品はライブラリの視聴履歴で確認できます",
             )}

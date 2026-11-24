@@ -156,7 +156,7 @@ export function FavoritesSection() {
             {t("テーマ別のリストを作って共有")}
           </Text>
         </TouchableOpacity>
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("{{count}} 件", { count: enriched.length })}
         </Text>
         <Input
@@ -223,7 +223,7 @@ export function FavoritesSection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-slate-400 dark:text-slate-500 text-center">
+            <Text className="text-muted text-center">
               {query.trim()
                 ? t("該当する推しが見つかりません。")
                 : t("推しがありません。\nアニメ一覧から登録してください。")}

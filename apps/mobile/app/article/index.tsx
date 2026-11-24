@@ -99,7 +99,7 @@ function ArticleListScreen() {
           ItemSeparatorComponent={() => <View className="h-4" />}
           ListEmptyComponent={
             <Text
-              className="mt-8 text-center text-sm text-slate-400 dark:text-slate-500"
+              className="mt-8 text-center text-sm text-muted"
               testID="article-list-empty"
             >
               {t("公開中の記事はありません")}
@@ -155,10 +155,7 @@ function ArticleListRow({
         >
           {item.title}
         </Text>
-        <Text
-          className="text-xs text-slate-400 dark:text-slate-500"
-          numberOfLines={1}
-        >
+        <Text className="text-xs text-muted" numberOfLines={1}>
           {formatArticlePublishedAt(item.publishedAt, i18n.language)}
         </Text>
       </View>

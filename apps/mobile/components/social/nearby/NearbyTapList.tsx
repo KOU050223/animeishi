@@ -90,7 +90,7 @@ export function NearbyTapList({
                 >
                   <Text
                     className={`text-[13px] font-semibold ${
-                      busy ? "text-slate-400 dark:text-slate-500" : "text-white"
+                      busy ? "text-muted" : "text-white"
                     }`}
                   >
                     {t("交換する")}

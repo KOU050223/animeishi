@@ -269,9 +269,7 @@ function ParticipationButton({
           accessibilityLabel={t("参加を取りやめる")}
           testID="event-cancel-participation"
         >
-          <Text className="text-sm text-slate-400 dark:text-slate-500">
-            {t("取りやめる")}
-          </Text>
+          <Text className="text-sm text-muted">{t("取りやめる")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -279,7 +277,7 @@ function ParticipationButton({
   return (
     <View className="mt-4">
       <Text
-        className="mb-1.5 text-xs text-slate-400 dark:text-slate-500"
+        className="mb-1.5 text-xs text-muted"
         testID="event-participate-visibility-note"
       >
         {t("参加表明は既定で「非公開」です。公開範囲は参加後に変更できます")}
@@ -351,7 +349,7 @@ function ParticipationVisibilityPicker({
           onValueChange={onChange}
         />
       </View>
-      <Text className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+      <Text className="mt-1.5 text-xs text-muted">
         {t(VISIBILITY_DESCRIPTIONS[value])}
       </Text>
     </View>
@@ -509,23 +507,16 @@ function AttendeeSection({
         {title}
       </Text>
       {description ? (
-        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          {description}
-        </Text>
+        <Text className="mt-1 text-xs text-muted">{description}</Text>
       ) : null}
       {list.isError ? (
-        <Text
-          className="mt-2 text-sm text-slate-400 dark:text-slate-500"
-          testID={errorTestID}
-        >
+        <Text className="mt-2 text-sm text-muted" testID={errorTestID}>
           {t("参加者を読み込めませんでした")}
         </Text>
       ) : list.isLoading ? (
         <ActivityIndicator className="mt-4" />
       ) : list.items.length === 0 ? (
-        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
-          {emptyText}
-        </Text>
+        <Text className="mt-2 text-sm text-muted">{emptyText}</Text>
       ) : (
         children
       )}
@@ -586,7 +577,7 @@ function ExchangedFriends({ slug }: { slug: string }) {
       </Text>
       {exchanged.isError ? (
         <Text
-          className="mt-2 text-sm text-slate-400 dark:text-slate-500"
+          className="mt-2 text-sm text-muted"
           testID="event-exchanged-friends-error"
         >
           {t("交換した名刺を読み込めませんでした")}
@@ -594,7 +585,7 @@ function ExchangedFriends({ slug }: { slug: string }) {
       ) : exchanged.isLoading ? (
         <ActivityIndicator className="mt-4" />
       ) : items.length === 0 ? (
-        <Text className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+        <Text className="mt-2 text-sm text-muted">
           {t("会期中に QR で交換した名刺がここに表示されます")}
         </Text>
       ) : (
@@ -688,10 +679,7 @@ function AttendeeRow({
           {item.username}
         </Text>
         {item.favoriteQuote ? (
-          <Text
-            className="text-xs text-slate-400 dark:text-slate-500 mt-0.5"
-            numberOfLines={1}
-          >
+          <Text className="text-xs text-muted mt-0.5" numberOfLines={1}>
             {item.favoriteQuote}
           </Text>
         ) : null}

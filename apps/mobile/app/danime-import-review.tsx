@@ -527,7 +527,7 @@ export default function DanimeImportReviewScreen() {
           })}
         </Text>
         {timingSummary !== "" && (
-          <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-2 text-center">
+          <Text className="text-[11px] text-muted mt-2 text-center">
             {timingSummary}
           </Text>
         )}
@@ -579,7 +579,7 @@ export default function DanimeImportReviewScreen() {
         <Text className="text-sm text-slate-500 dark:text-slate-400 mt-4">
           {t("Annict の作品と照合しています…")}
         </Text>
-        <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
+        <Text className="text-[11px] text-muted mt-2">
           {t("{{count}} 件 / {{seconds}} 秒経過", {
             count: workCount,
             seconds: matchElapsedSec,
@@ -653,9 +653,7 @@ export default function DanimeImportReviewScreen() {
           </Text>
         )}
         {timingSummary !== "" && (
-          <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-            {timingSummary}
-          </Text>
+          <Text className="text-[10px] text-muted mt-0.5">{timingSummary}</Text>
         )}
       </View>
 
@@ -824,12 +822,12 @@ function RowBadges({
         </Text>
       )}
       {status === "none" && (
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("Annict に一致する作品が見つかりません（スキップ）")}
         </Text>
       )}
       {status === "pending" && (
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("照合を完了できませんでした（スキップ）")}
         </Text>
       )}
@@ -870,7 +868,7 @@ function SelectedWork({
           → {work.title}
         </Text>
         {stateLabel !== null && (
-          <Text className="text-[10px] text-slate-400 dark:text-slate-500">
+          <Text className="text-[10px] text-muted">
             {t("現在: {{status}}", { status: stateLabel })}
           </Text>
         )}

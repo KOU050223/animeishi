@@ -161,7 +161,7 @@ export default function HomeScreen() {
               accessibilityLabel={t("機能一覧・更新情報を開く")}
               testID="home-open-changelog"
             >
-              <Text className="text-xs text-slate-400 dark:text-slate-500">
+              <Text className="text-xs text-muted">
                 {t("機能一覧・更新情報")}
               </Text>
             </TouchableOpacity>

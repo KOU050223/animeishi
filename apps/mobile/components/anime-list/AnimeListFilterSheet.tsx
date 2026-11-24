@@ -139,18 +139,18 @@ export function AnimeListFilterSheet({
             </View>
           </ScrollView>
         ) : (
-          <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
+          <Text className="text-xs text-muted mb-2">
             {t(
               "表示中の作品にジャンル情報がありません（順次取り込み中です）。",
             )}
           </Text>
         )}
         {genreOptions.length > 0 && visibleGenres.length === 0 ? (
-          <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
+          <Text className="text-xs text-muted mb-2">
             {t("一致するタグがありません")}
           </Text>
         ) : null}
-        <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
+        <Text className="text-xs text-muted mb-5">
           {t(
             "ジャンルを複数選ぶといずれかに一致する作品を表示します。「不明」はジャンルが未取得の作品だけを表示します。",
           )}

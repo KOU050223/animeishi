@@ -298,7 +298,7 @@ export default function LandingPage() {
             </Text>
           </Link>
           <MalAttribution />
-          <Text className="w-full pt-3 text-center text-xs text-slate-400">
+          <Text className="w-full pt-3 text-center text-xs text-muted">
             © Animeishi
           </Text>
         </View>

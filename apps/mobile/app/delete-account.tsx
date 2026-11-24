@@ -79,7 +79,7 @@ function ReasonStep({
         <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
           {t("よろしければ、退会の理由を教えてください")}
         </Text>
-        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-1 text-xs text-muted">
           {t("回答は任意です。今後の改善の参考にします（匿名で送信されます）")}
         </Text>
       </View>
@@ -136,9 +136,7 @@ function ReasonStep({
         accessibilityLabel={t("スキップ")}
         className="py-2"
       >
-        <Text className="text-center text-sm text-slate-400 dark:text-slate-500">
-          {t("スキップ")}
-        </Text>
+        <Text className="text-center text-sm text-muted">{t("スキップ")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -169,7 +167,7 @@ function SummaryStep({
         <Text className="text-base font-semibold text-slate-900 dark:text-slate-100">
           {t("削除されるデータ")}
         </Text>
-        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-1 text-xs text-muted">
           {t("アカウントを削除すると、以下のデータがすべて失われます")}
         </Text>
       </View>

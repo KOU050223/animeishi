@@ -127,10 +127,7 @@ function ElectionCard({
       >
         {item.title}
       </Text>
-      <Text
-        className="text-xs text-slate-400 dark:text-slate-500"
-        numberOfLines={1}
-      >
+      <Text className="text-xs text-muted" numberOfLines={1}>
         {formatEventPeriod(item.startsAt, item.endsAt, i18n.language)}
       </Text>
     </TouchableOpacity>

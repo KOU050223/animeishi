@@ -342,7 +342,7 @@ function ScreenContent({
           />
         ))}
         {data.items.length === 0 ? (
-          <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <Text className="py-8 text-center text-sm text-muted">
             {t("アイテムが登録されていません")}
           </Text>
         ) : null}

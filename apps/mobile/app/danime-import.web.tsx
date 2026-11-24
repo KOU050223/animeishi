@@ -121,7 +121,7 @@ export default function DanimeImportWebScreen() {
         <Text className="text-sm text-slate-600 dark:text-slate-300 mt-4 text-center">
           {t("dアニメのタブから抽出結果を受け取っています…")}
         </Text>
-        <Text className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
+        <Text className="text-xs text-muted mt-2 text-center">
           {t(
             "しばらく待っても進まない場合は、dアニメのタブにコピーされた JSON をインポート画面の貼り付け欄に貼ってください。",
           )}
@@ -242,7 +242,7 @@ export default function DanimeImportWebScreen() {
               },
               t("dアニメ履歴を取得（ドラッグでブックマーク登録）"),
             )}
-            <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+            <Text className="text-[10px] text-muted mt-1">
               {t(
                 "ドラッグできない場合は右クリック → 「リンクをブックマーク」。それも難しい場合は下のボタンで URL をコピーし、新規ブックマークの URL 欄に貼り付けてください。",
               )}
@@ -277,7 +277,7 @@ export default function DanimeImportWebScreen() {
           <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             {t("うまくいかない場合（手動貼り付け）")}
           </Text>
-          <Text className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-4">
+          <Text className="text-[11px] text-muted mt-1 leading-4">
             {t(
               "ブックマークレットの転送に失敗した場合、結果がクリップボードにコピーされます。以下に貼り付けて進んでください。",
             )}

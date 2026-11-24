@@ -160,7 +160,7 @@ export function DiscoverUsers() {
           )}
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
-              <Text className="text-center text-slate-400 dark:text-slate-500">
+              <Text className="text-center text-muted">
                 {t("まだ公開されている名刺はありません")}
               </Text>
             </View>
@@ -241,7 +241,7 @@ function PublicUserCard({
           カードの下に小さく戻す（issue #591）。 */}
       {item.genres.length > 0 ? (
         <Text
-          className="mt-1.5 text-xs text-slate-400 dark:text-slate-500"
+          className="mt-1.5 text-xs text-muted"
           numberOfLines={1}
           testID={`public-user-genres-${item.id}`}
         >

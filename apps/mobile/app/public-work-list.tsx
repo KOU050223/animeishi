@@ -199,9 +199,7 @@ function WorkItemRow({
       className="mb-2 flex-row items-center gap-3 rounded-lg border border-slate-200 p-2.5 dark:border-slate-700"
       testID={`public-work-list-item-${item.annictWorkId}`}
     >
-      <Text className="w-6 text-center text-xs text-slate-400 dark:text-slate-500">
-        {index + 1}
-      </Text>
+      <Text className="w-6 text-center text-xs text-muted">{index + 1}</Text>
       <WorkThumbnail
         uri={item.hostedImageUrl}
         title={item.title}
@@ -326,7 +324,7 @@ export default function PublicWorkListScreen() {
             <WorkItemRow item={item} index={index} />
           )}
           ListEmptyComponent={
-            <Text className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+            <Text className="py-8 text-center text-sm text-muted">
               {t("作品が登録されていません")}
             </Text>
           }

@@ -206,12 +206,12 @@ export default function NearbySpikeScreen() {
                         </Text>
                       </>
                     ) : (
-                      <Text className="py-4 text-3xl text-slate-400 dark:text-slate-500">
+                      <Text className="py-4 text-3xl text-muted">
                         {uwb === false ? t("UWB 非対応") : "---"}
                       </Text>
                     )}
                   </View>
-                  <Text className="mt-1 text-center text-xs text-slate-400 dark:text-slate-500">
+                  <Text className="mt-1 text-center text-xs text-muted">
                     {peer.direction
                       ? t("方向を検出中")
                       : peer.meters != null
@@ -223,7 +223,7 @@ export default function NearbySpikeScreen() {
             </View>
           )}
 
-          <Text className="mt-8 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-8 text-xs text-muted">
             {t(
               "相手まで {{cm}}cm 以内で成立（試作）。フレンド登録は行いません。",
               {

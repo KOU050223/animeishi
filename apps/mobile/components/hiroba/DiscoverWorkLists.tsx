@@ -163,7 +163,7 @@ export function DiscoverWorkLists() {
           )}
           ListEmptyComponent={
             <View className="items-center justify-center py-16">
-              <Text className="text-center text-slate-400 dark:text-slate-500">
+              <Text className="text-center text-muted">
                 {t("まだ公開されている作品リストはありません")}
               </Text>
             </View>

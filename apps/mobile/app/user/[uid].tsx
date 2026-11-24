@@ -715,7 +715,7 @@ function ProfileHeader({
             username: profile.username,
           })}
         >
-          <Text className="text-3xl text-slate-400 dark:text-slate-500">
+          <Text className="text-3xl text-muted">
             {profile.username.charAt(0).toUpperCase()}
           </Text>
         </View>
@@ -986,9 +986,7 @@ function FriendActionArea({
           accessibilityLabel={t("申請を取り消す")}
           testID="cancel-friend-request-button"
         >
-          <Text className="text-xs text-slate-400 dark:text-slate-500">
-            {t("申請を取り消す")}
-          </Text>
+          <Text className="text-xs text-muted">{t("申請を取り消す")}</Text>
         </TouchableOpacity>
       </View>
     );

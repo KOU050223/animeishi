@@ -690,7 +690,7 @@ function RatingSection({
         </View>
       ) : ratingQuery.isError ? (
         <View className="items-center py-2 gap-2">
-          <Text className="text-xs text-slate-400 dark:text-slate-500">
+          <Text className="text-xs text-muted">
             {t("評価を取得できませんでした")}
           </Text>
           <TouchableOpacity
@@ -940,7 +940,7 @@ function EpisodeSectionError({ onRetry }: { onRetry: () => void }) {
     <View>
       <SectionTitle>{t("話数")}</SectionTitle>
       <View className="items-center py-2 gap-2">
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("話数情報を取得できませんでした")}
         </Text>
         <TouchableOpacity
@@ -1050,10 +1050,7 @@ function EpisodeCheckRow({
           {episodeLabel(episode, t)}
         </Text>
         {episode.title ? (
-          <Text
-            className="flex-1 text-xs text-slate-400 dark:text-slate-500"
-            numberOfLines={1}
-          >
+          <Text className="flex-1 text-xs text-muted" numberOfLines={1}>
             {episode.title}
           </Text>
         ) : null}

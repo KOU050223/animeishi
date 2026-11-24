@@ -162,12 +162,12 @@ function AchievementRow({
           className={`text-sm font-semibold ${
             achievement.earned
               ? "text-slate-900 dark:text-slate-100"
-              : "text-slate-400 dark:text-slate-500"
+              : "text-muted"
           }`}
         >
           {name}
         </Text>
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {achievementDescription(t, achievement.kind)}
         </Text>
         {achievement.work ? (
@@ -189,7 +189,7 @@ function AchievementRow({
           className={`text-sm font-semibold ${
             achievement.earned
               ? "text-indigo-600 dark:text-indigo-300"
-              : "text-slate-400 dark:text-slate-500"
+              : "text-muted"
           }`}
         >
           {achievement.progress.current}/{achievement.progress.target}

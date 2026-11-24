@@ -253,7 +253,7 @@ export default function SignInScreen() {
                 {(featureFlags.googleSignIn || featureFlags.passkey) && (
                   <View className="flex-row items-center mb-4">
                     <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                    <Text className="mx-3 text-sm text-slate-400 dark:text-slate-500">
+                    <Text className="mx-3 text-sm text-muted">
                       {t("または")}
                     </Text>
                     <View className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
