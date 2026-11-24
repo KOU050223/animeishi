@@ -258,6 +258,47 @@ export const uploadMeishiAssetRoute = createRoute({
   },
 });
 
+// 公開名刺スナップショット（issue #593）。既定名刺を PNG に描き出した
+// 画像で、公開名刺一覧・名刺帳が相手の名刺として表示する。
+export const uploadMeishiSnapshotRoute = createRoute({
+  method: "post",
+  path: "/meishi-snapshot",
+  tags: ["me"],
+  summary: "公開名刺スナップショットをアップロードする（上書き）",
+  description: "PNG 画像バイナリ（5MB まで）をそのまま body に載せる。",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: {
+        "image/png": { schema: z.string().openapi({ format: "binary" }) },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        "application/json": { schema: z.object({ url: z.string() }) },
+      },
+      description: "アップロードしたスナップショットの配信 URL",
+    },
+    400: jsonError("PNG 以外・空・サイズ超過"),
+    401: jsonError("未認証"),
+  },
+});
+
+export const deleteMeishiSnapshotRoute = createRoute({
+  method: "delete",
+  path: "/meishi-snapshot",
+  tags: ["me"],
+  summary: "公開名刺スナップショットを削除する",
+  security: bearerAuth,
+  responses: {
+    204: { description: "削除した（無くても 204）" },
+    401: jsonError("未認証"),
+  },
+});
+
 // DELETE /me で消えるデータの件数（退会フローの確認画面用, issue #426）。
 // tierLists はシーズン・キャラクター・自由作成の 3 種の合計。
 const deletionSummarySchema = z.object({

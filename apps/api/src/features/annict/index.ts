@@ -1,9 +1,12 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
-import { annictExchangeSchema } from "./schema";
+import {
+  annictDisconnectRoute,
+  annictExchangeRoute,
+  getAnnictConnectionRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { createDb } from "@/db/client";
 import { annictRepository } from "./repository";
 // NOTE: モバイル(apps/mobile)も同名の `@/lib/annict` を持つため、`@/` エイリアスだと
@@ -34,14 +37,15 @@ function getBindings(c: Context): AnnictBindings {
   return c.env as AnnictBindings;
 }
 
-const annict = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const annict = app
   // 認可コードをアクセストークンに交換する。
   // モバイルが deep link で受領した code をここに渡し、client_secret 付きで
   // Annict と交換する。
   //   - mode:"native"(既定): トークンをボディで返す（クライアントが SecureStore 保持）。
   //   - mode:"web":          トークンを D1 に暗号化保存し、ボディにトークンを含めない。
-  .post("/exchange", zValidator("json", annictExchangeSchema), async (c) => {
+  .openapi(annictExchangeRoute, async (c) => {
     const { code, redirectUri, mode } = c.req.valid("json");
     const { ANNICT_CLIENT_ID, ANNICT_CLIENT_SECRET, ANNICT_ENCRYPTION_KEY } =
       getBindings(c);
@@ -79,21 +83,27 @@ const annict = new Hono<AuthVariables>()
         });
         // トークンは返さない。連携済みフラグと所有者 ID のみ返す。
         c.header("Cache-Control", "no-store");
-        return c.json({
-          connected: true,
-          scope: token.scope,
-          annictUserId: info.resource_owner_id,
-        });
+        return c.json(
+          {
+            connected: true,
+            scope: token.scope,
+            annictUserId: info.resource_owner_id,
+          },
+          200,
+        );
       }
 
       // native: 生の accessToken を返すため、キャッシュさせない。
       c.header("Cache-Control", "no-store");
       c.header("Pragma", "no-cache");
-      return c.json({
-        accessToken: token.access_token,
-        scope: token.scope,
-        annictUserId: info.resource_owner_id,
-      });
+      return c.json(
+        {
+          accessToken: token.access_token,
+          scope: token.scope,
+          annictUserId: info.resource_owner_id,
+        },
+        200,
+      );
     } catch (err) {
       if (err instanceof AnnictApiError) {
         // 認可コードが不正・期限切れの場合は 400。それ以外は 502（上流障害）。
@@ -110,15 +120,15 @@ const annict = new Hono<AuthVariables>()
   })
   // Web 連携の解除。D1 に保存した暗号化トークンを削除する。
   // ネイティブは SecureStore をクライアント側で消すためこのルートは不要。
-  .post("/disconnect", async (c) => {
+  .openapi(annictDisconnectRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     await annictRepository(db, c.var.clerkUserId).deleteAnnictToken();
-    return c.json({ connected: false });
+    return c.json({ connected: false }, 200);
   })
   // 連携状態を確認する。
   //   - X-Annict-Token ヘッダがあればそれで検証（ネイティブ）。
   //   - 無ければ D1 に保存済みの Web 連携トークンを復号して検証する。
-  .get("/", async (c) => {
+  .openapi(getAnnictConnectionRoute, async (c) => {
     // 空白だけのヘッダで無駄な upstream 呼び出し（→5xx）を起こさないよう trim する。
     const header = c.req.header(ANNICT_TOKEN_HEADER)?.trim();
 
@@ -151,16 +161,19 @@ const annict = new Hono<AuthVariables>()
     }
 
     if (!token) {
-      return c.json({ connected: false });
+      return c.json({ connected: false }, 200);
     }
 
     try {
       const info = await fetchAnnictTokenInfo(token);
-      return c.json({
-        connected: true,
-        annictUserId: info.resource_owner_id,
-        scope: info.scope,
-      });
+      return c.json(
+        {
+          connected: true,
+          annictUserId: info.resource_owner_id,
+          scope: info.scope,
+        },
+        200,
+      );
     } catch (err) {
       if (err instanceof AnnictApiError && err.status === 401) {
         // トークンが失効・無効化されている。D1 由来なら行を掃除して、以降の
@@ -171,7 +184,7 @@ const annict = new Hono<AuthVariables>()
             c.var.clerkUserId,
           ).deleteAnnictToken();
         }
-        return c.json({ connected: false });
+        return c.json({ connected: false }, 200);
       }
       throw err;
     }

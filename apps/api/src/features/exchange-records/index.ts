@@ -12,6 +12,7 @@ import { EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX } from "./cardSnapshot";
 import {
   createExchangeRecordRoute,
   deleteExchangeRecordRoute,
+  exchangeCardSnapshotRoute,
   listExchangeRecordsRoute,
   updateExchangeRecordRoute,
 } from "./schema";
@@ -132,48 +133,46 @@ const exchangeRecords = app
       }
       throw e;
     }
+  })
+  // 交換当時の名刺コピー（issue #662）を本人認証付きで配信する。
+  // コピーは本人専用のため公開配信の meishi-assets とは別経路にし、
+  // 記録の owner 以外（相手・第三者）には 404 で存在も漏らさない。
+  .openapi(exchangeCardSnapshotRoute, async (c) => {
+    const { recordId } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const record = await db.query.exchangeRecords.findFirst({
+      where: and(
+        eq(exchangeRecordsTable.id, recordId),
+        eq(exchangeRecordsTable.ownerId, c.var.clerkUserId),
+      ),
+      columns: { cardSnapshotKey: true },
+    });
+    const key = record?.cardSnapshotKey;
+    // 防御として owner のプレフィックス配下のキーだけを配信する
+    // （card_snapshot_key が何らかの経路で別プレフィックスを指しても
+    // ここで弾く）。
+    if (
+      !key ||
+      !key.startsWith(
+        `${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${c.var.clerkUserId}/`,
+      )
+    ) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    const object = await getBindings(c).AVATARS.get(key);
+    if (!object) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    // コピーはキーごとにイミュータブル（記録ごとに新キー）。本人専用なので
+    // private キャッシュに留め、共有キャッシュへは載せない。クライアントは
+    // Authorization ヘッダ付きで取るため Vary を付け、別ユーザーの
+    // クレデンシャルではキャッシュが再利用されないようにする。
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("etag", object.httpEtag);
+    headers.set("cache-control", "private, max-age=31536000, immutable");
+    headers.set("vary", "Authorization");
+    return new Response(object.body, { headers });
   });
-
-// 交換当時の名刺コピー（issue #662）を本人認証付きで配信する。
-// コピーは本人専用のため公開配信の meishi-assets とは別経路にし、
-// 記録の owner 以外（相手・第三者）には 404 で存在も漏らさない。
-app.get("/:recordId/snapshot", async (c) => {
-  const recordId = Number(c.req.param("recordId"));
-  if (!Number.isInteger(recordId) || recordId <= 0) {
-    return c.json({ error: "Not found" }, 404);
-  }
-  const db = createDb(getBindings(c).DB);
-  const record = await db.query.exchangeRecords.findFirst({
-    where: and(
-      eq(exchangeRecordsTable.id, recordId),
-      eq(exchangeRecordsTable.ownerId, c.var.clerkUserId),
-    ),
-    columns: { cardSnapshotKey: true },
-  });
-  const key = record?.cardSnapshotKey;
-  // 防御として owner のプレフィックス配下のキーだけを配信する
-  // （card_snapshot_key が何らかの経路で別プレフィックスを指しても
-  // ここで弾く）。
-  if (
-    !key ||
-    !key.startsWith(`${EXCHANGE_CARD_SNAPSHOT_KEY_PREFIX}${c.var.clerkUserId}/`)
-  ) {
-    return c.json({ error: "Not found" }, 404);
-  }
-  const object = await getBindings(c).AVATARS.get(key);
-  if (!object) {
-    return c.json({ error: "Not found" }, 404);
-  }
-  // コピーはキーごとにイミュータブル（記録ごとに新キー）。本人専用なので
-  // private キャッシュに留め、共有キャッシュへは載せない。クライアントは
-  // Authorization ヘッダ付きで取るため Vary を付け、別ユーザーの
-  // クレデンシャルではキャッシュが再利用されないようにする。
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-  headers.set("cache-control", "private, max-age=31536000, immutable");
-  headers.set("vary", "Authorization");
-  return new Response(object.body, { headers });
-});
 
 export { exchangeRecords };

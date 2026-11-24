@@ -1,14 +1,16 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { createDb } from "@/db/client";
 import type { WorkRatingValue } from "@/db/schema";
 import { workRatingsRepository } from "./repository";
-import { workRatingUpsertSchema } from "./schema";
+import {
+  deleteWorkRatingRoute,
+  getWorkRatingRoute,
+  putWorkRatingRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { worksRepository } from "../works/repository";
-import { annictWorkIdParamSchema } from "../works/schema";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する
 // （理由は features/watch-history/index.ts 参照）。
 import {
@@ -53,84 +55,69 @@ async function fetchAnnictInitialRating(
 // 評価は Animeishi 独自に D1 へ保存し、Annict には書き込まない。
 // Annict 連携済みなら GET が Annict レビュー評価を初期値候補として返すが、
 // D1 に評価がある作品は D1 を優先する（Annict の値で上書きしない）。
-const workRatings = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get(
-    "/:annictWorkId",
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
-      const { annictWorkId } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = workRatingsRepository(db, c.var.clerkUserId);
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const workRatings = app
+  .openapi(getWorkRatingRoute, async (c) => {
+    const { annictWorkId } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workRatingsRepository(db, c.var.clerkUserId);
 
-      const row = await repo.getMyRating(annictWorkId);
-      if (row) {
-        // D1 の評価が正。Annict の値で上書きしないので参照もしない
-        // （参照するとサブリクエストを無駄に消費する）。
-        return c.json({ rating: row.rating, annictRating: null }, 200);
+    const row = await repo.getMyRating(annictWorkId);
+    if (row) {
+      // D1 の評価が正。Annict の値で上書きしないので参照もしない
+      // （参照するとサブリクエストを無駄に消費する）。
+      return c.json({ rating: row.rating, annictRating: null }, 200);
+    }
+    const annictRating = await fetchAnnictInitialRating(c, annictWorkId);
+    return c.json({ rating: null, annictRating }, 200);
+  })
+  .openapi(putWorkRatingRoute, async (c) => {
+    const { annictWorkId } = c.req.valid("param");
+    const { rating } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const worksRepo = worksRepository(db);
+
+    // annict_works への FK を満たす必要がある。お気に入りと同じく、
+    // キャッシュに無い作品は Annict トークンがある場合に限り
+    // searchWorks で解決してキャッシュへ補充する（トークン無しは 404）。
+    const existing = await worksRepo.getAnnictWorkById(annictWorkId);
+    if (!existing) {
+      const token = await resolveAnnictToken(c);
+      if (!token) {
+        return c.json({ error: "Work not found" }, 404);
       }
-      const annictRating = await fetchAnnictInitialRating(c, annictWorkId);
-      return c.json({ rating: null, annictRating }, 200);
-    },
-  )
-  .put(
-    "/:annictWorkId",
-    zValidator("param", annictWorkIdParamSchema),
-    zValidator("json", workRatingUpsertSchema),
-    async (c) => {
-      const { annictWorkId } = c.req.valid("param");
-      const { rating } = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
-      const worksRepo = worksRepository(db);
-
-      // annict_works への FK を満たす必要がある。お気に入りと同じく、
-      // キャッシュに無い作品は Annict トークンがある場合に限り
-      // searchWorks で解決してキャッシュへ補充する（トークン無しは 404）。
-      const existing = await worksRepo.getAnnictWorkById(annictWorkId);
-      if (!existing) {
-        const token = await resolveAnnictToken(c);
-        if (!token) {
-          return c.json({ error: "Work not found" }, 404);
-        }
-        const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
-        if (!resolved) {
-          return c.json({ error: "Work not found" }, 404);
-        }
-        await worksRepo.upsertAnnictWork({
-          annictWorkId: resolved.annictWorkId,
-          nodeId: resolved.nodeId,
-          title: resolved.title,
-          titleKana: resolved.titleKana,
-          titleEn: resolved.titleEn,
-          seasonName: resolved.seasonName,
-          seasonYear: resolved.seasonYear,
-          imageUrl: resolved.imageUrl,
-          watchersCount: resolved.watchersCount ?? null,
-          updatedAt: new Date(),
-        });
+      const resolved = await fetchAnnictWorkByAnnictId(token, annictWorkId);
+      if (!resolved) {
+        return c.json({ error: "Work not found" }, 404);
       }
+      await worksRepo.upsertAnnictWork({
+        annictWorkId: resolved.annictWorkId,
+        nodeId: resolved.nodeId,
+        title: resolved.title,
+        titleKana: resolved.titleKana,
+        titleEn: resolved.titleEn,
+        seasonName: resolved.seasonName,
+        seasonYear: resolved.seasonYear,
+        imageUrl: resolved.imageUrl,
+        watchersCount: resolved.watchersCount ?? null,
+        updatedAt: new Date(),
+      });
+    }
 
-      const row = await workRatingsRepository(
-        db,
-        c.var.clerkUserId,
-      ).upsertMyRating(annictWorkId, rating);
-      return c.json(
-        { annictWorkId: row.annictWorkId, rating: row.rating },
-        200,
-      );
-    },
-  )
-  .delete(
-    "/:annictWorkId",
-    zValidator("param", annictWorkIdParamSchema),
-    async (c) => {
-      const { annictWorkId } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      await workRatingsRepository(db, c.var.clerkUserId).deleteMyRating(
-        annictWorkId,
-      );
-      return c.json({ success: true }, 200);
-    },
-  );
+    const row = await workRatingsRepository(
+      db,
+      c.var.clerkUserId,
+    ).upsertMyRating(annictWorkId, rating);
+    return c.json({ annictWorkId: row.annictWorkId, rating: row.rating }, 200);
+  })
+  .openapi(deleteWorkRatingRoute, async (c) => {
+    const { annictWorkId } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    await workRatingsRepository(db, c.var.clerkUserId).deleteMyRating(
+      annictWorkId,
+    );
+    return c.json({ success: true }, 200);
+  });
 
 export { workRatings };

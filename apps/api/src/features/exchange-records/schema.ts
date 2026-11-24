@@ -165,8 +165,7 @@ export const deleteExchangeRecordRoute = createRoute({
 });
 
 // 交換当時の名刺コピー（issue #662）の配信。自分専用の非公開コピーの
-// ため本人認証が必須（openapi の createRoute ではバイナリ応答を
-// 書きにくいので、配信自体は index.ts の通常ルートで実装する）。
+// ため本人認証が必須。
 export const exchangeCardSnapshotRoute = createRoute({
   method: "get",
   path: "/{recordId}/snapshot",
@@ -175,7 +174,13 @@ export const exchangeCardSnapshotRoute = createRoute({
   security: bearerAuth,
   request: { params: recordIdParamSchema },
   responses: {
-    200: { description: "名刺コピー画像（image/png）" },
+    200: {
+      content: {
+        "image/png": { schema: z.string().openapi({ format: "binary" }) },
+      },
+      description: "名刺コピー画像",
+    },
+    400: jsonError("recordId が不正"),
     401: jsonError("未認証"),
     404: jsonError("記録・コピーが存在しない（または自分の記録ではない）"),
   },
