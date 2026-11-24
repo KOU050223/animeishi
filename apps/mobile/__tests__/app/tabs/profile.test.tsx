@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react-native";
 import ProfileScreen from "@/app/(tabs)/profile/index";
 import { ApiRequestError } from "@/lib/apiError";
+import { featureFlags } from "@/lib/featureFlags";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockMutateProfile = jest.fn();
@@ -398,6 +399,32 @@ describe("ProfileScreen のアカウント削除導線", () => {
     await render(<ProfileScreen />);
 
     expect(screen.getByLabelText("アカウントを削除")).toBeTruthy();
+  });
+});
+
+describe("ProfileScreen のイベント・特集セクション（#750）", () => {
+  afterEach(() => {
+    for (const flag of ["events", "elections", "articles"] as const) {
+      Object.defineProperty(featureFlags, flag, { value: false });
+    }
+  });
+
+  it("フラグ無効（既定）ではイベント・総選挙・特集記事への導線を出さない", async () => {
+    await render(<ProfileScreen />);
+
+    expect(screen.queryByText("イベント・特集")).toBeNull();
+    expect(screen.queryByLabelText("イベント一覧を開く")).toBeNull();
+    expect(screen.queryByLabelText("総選挙一覧を開く")).toBeNull();
+    expect(screen.queryByLabelText("特集記事一覧を開く")).toBeNull();
+  });
+
+  it("有効にしたフラグの導線だけを出す", async () => {
+    Object.defineProperty(featureFlags, "events", { value: true });
+    await render(<ProfileScreen />);
+
+    expect(screen.getByLabelText("イベント一覧を開く")).toBeTruthy();
+    expect(screen.queryByLabelText("総選挙一覧を開く")).toBeNull();
+    expect(screen.queryByLabelText("特集記事一覧を開く")).toBeNull();
   });
 });
 

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { buildMeishiAnimeContext } from "./animeContext";
 import type { MeishiRenderContext } from "./types";
 import { useAchievements } from "@/lib/achievements/useAchievements";
@@ -19,12 +18,9 @@ export function useMeishiRenderContext(
   const { data: watchHistory } = useWatchHistory();
   const { data: achievements } = useAchievements();
 
-  return useMemo<MeishiRenderContext>(
-    () => ({
-      profile,
-      ...buildMeishiAnimeContext({ favorites, watchHistory }),
-      achievements: achievements?.achievements,
-    }),
-    [profile, favorites, watchHistory, achievements],
-  );
+  return {
+    profile,
+    ...buildMeishiAnimeContext({ favorites, watchHistory }),
+    achievements: achievements?.achievements,
+  };
 }

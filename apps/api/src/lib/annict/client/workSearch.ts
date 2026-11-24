@@ -1,13 +1,17 @@
 import { withAnnictRetry } from "../retry";
-import { AnnictApiError, annictGraphQL } from "./graphql";
+import { AnnictApiError, annictGraphQL, requireAnnictNodes } from "./graphql";
 import { expandSeasonQuery } from "./seasons";
+import type { AnnictResult } from "./tada";
 import {
-  WORK_IMAGE_FIELDS,
   normalizeAnnictSeasonName,
   parseMalAnimeId,
   resolveWorkImageUrl,
 } from "./workNodes";
-import type { AnnictLibraryEntry, AnnictWorkImage } from "./workNodes";
+import type { AnnictLibraryEntry } from "./workNodes";
+
+// 各 searchWorks クエリの image { ... } 選択は workNodes.ts の
+// WORK_IMAGE_FRAGMENT と同一に保つ（gql.tada の型推論には静的リテラルが
+// 必要なため、テンプレート展開せずインラインで書く）。
 
 // --- searchWorks（annictId → Node ID 解決） ---
 
@@ -27,28 +31,20 @@ query SearchWorkNodeId($annictIds: [Int!]) {
       seasonYear
       media
       watchersCount
-      image { ${WORK_IMAGE_FIELDS} }
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
     }
   }
 }`;
 
-type SearchWorksResponse = {
-  searchWorks: {
-    nodes: {
-      id: string;
-      annictId: number;
-      malAnimeId: string | null;
-      title: string;
-      titleKana: string | null;
-      titleEn: string | null;
-      seasonName: string | null;
-      seasonYear: number | null;
-      media: string | null;
-      watchersCount: number | null;
-      image: AnnictWorkImage | null;
-    }[];
-  } | null;
-};
+type SearchWorksResponse = AnnictResult<typeof SEARCH_WORK_BY_ANNICT_ID_QUERY>;
 
 /**
  * annictId(Int) から作品メタ（Node ID 含む）を 1 件取得する。
@@ -66,7 +62,11 @@ export async function fetchAnnictWorkByAnnictId(
     fetchImpl,
   );
 
-  const work = data.searchWorks?.nodes.find((n) => n.annictId === annictWorkId);
+  const work = data.searchWorks
+    ? requireAnnictNodes(data.searchWorks.nodes, "searchWorks").find(
+        (n) => n.annictId === annictWorkId,
+      )
+    : undefined;
   if (!work) return null;
 
   return {
@@ -87,8 +87,13 @@ export async function fetchAnnictWorkByAnnictId(
 
 // --- searchWorks（タイトル検索・作品マスタの代替） ---
 
-// タイトル検索の 2 クエリで共有する返りフィールド。
-const SEARCH_WORKS_BY_TITLE_FIELDS = `
+// タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
+// 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
+// 並びはシーズン検索と同じく WATCHERS_COUNT 降順（人気順）で、
+// 有名どころが先に来るようにする（issue #346）。
+const SEARCH_WORKS_BY_TITLE_QUERY = `
+query SearchWorksByTitle($titles: [String!], $after: String) {
+  searchWorks(titles: $titles, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       id
@@ -101,16 +106,16 @@ const SEARCH_WORKS_BY_TITLE_FIELDS = `
       seasonYear
       media
       watchersCount
-      image { ${WORK_IMAGE_FIELDS} }
-    }`;
-
-// タイトル文字列で作品を検索するクエリ。Animeishi の「アニメを探す」画面の
-// 作品マスタは持たず、検索のたびに Annict の searchWorks をプロキシする。
-// 並びはシーズン検索と同じく WATCHERS_COUNT 降順（人気順）で、
-// 有名どころが先に来るようにする（issue #346）。
-const SEARCH_WORKS_BY_TITLE_QUERY = `
-query SearchWorksByTitle($titles: [String!], $after: String) {
-  searchWorks(titles: $titles, orderBy: { field: WATCHERS_COUNT, direction: DESC }, first: 50, after: $after) {${SEARCH_WORKS_BY_TITLE_FIELDS}
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
+    }
   }
 }`;
 
@@ -118,30 +123,41 @@ query SearchWorksByTitle($titles: [String!], $after: String) {
 // 「タイトルが一番近い作品」を上位 50 件の候補に入れたいので Annict 既定の
 // 関連度順を使う。人気順にすると、同名・類似タイトルだが無名な作品が
 // 候補圏外に押し出されて照合を外しうるため、UI 検索とはクエリを分ける。
+// 返りフィールドは SEARCH_WORKS_BY_TITLE_QUERY と同一。
 const SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY = `
 query SearchWorksByTitleRelevance($titles: [String!], $after: String) {
-  searchWorks(titles: $titles, first: 50, after: $after) {${SEARCH_WORKS_BY_TITLE_FIELDS}
+  searchWorks(titles: $titles, first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      annictId
+      malAnimeId
+      title
+      titleKana
+      titleEn
+      seasonName
+      seasonYear
+      media
+      watchersCount
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
+    }
   }
 }`;
 
-type SearchWorksByTitleResponse = {
-  searchWorks: {
-    pageInfo: { hasNextPage: boolean; endCursor: string | null };
-    nodes: {
-      id: string;
-      annictId: number;
-      malAnimeId: string | null;
-      title: string;
-      titleKana: string | null;
-      titleEn: string | null;
-      seasonName: string | null;
-      seasonYear: number | null;
-      media: string | null;
-      watchersCount: number | null;
-      image: AnnictWorkImage | null;
-    }[];
-  } | null;
-};
+type SearchWorksByTitleResponse = AnnictResult<
+  typeof SEARCH_WORKS_BY_TITLE_QUERY
+>;
+type SearchWorksByTitleRelevanceResponse = AnnictResult<
+  typeof SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY
+>;
 
 // 1 リクエストで返す最大件数。検索 UI は 1 ページ（first: 50）で十分なため、
 // libraryEntries のような全ページ走査はしない（追加ページはユーザー操作で取りに行く想定）。
@@ -159,7 +175,10 @@ function mapSearchWorksConnection(
     return { works: [], hasNextPage: false, endCursor: null };
   }
 
-  const works: AnnictLibraryEntry[] = connection.nodes.map((work) => ({
+  const works: AnnictLibraryEntry[] = requireAnnictNodes(
+    connection.nodes,
+    "searchWorks",
+  ).map((work) => ({
     annictWorkId: work.annictId,
     nodeId: work.id,
     state: null,
@@ -201,14 +220,19 @@ export async function searchAnnictWorksByTitle(
   hasNextPage: boolean;
   endCursor: string | null;
 }> {
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
-    accessToken,
-    options.orderByWatchersCount
-      ? SEARCH_WORKS_BY_TITLE_QUERY
-      : SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
-    { titles: [title], after },
-    fetchImpl,
-  );
+  const data = options.orderByWatchersCount
+    ? await annictGraphQL<SearchWorksByTitleResponse>(
+        accessToken,
+        SEARCH_WORKS_BY_TITLE_QUERY,
+        { titles: [title], after },
+        fetchImpl,
+      )
+    : await annictGraphQL<SearchWorksByTitleRelevanceResponse>(
+        accessToken,
+        SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
+        { titles: [title], after },
+        fetchImpl,
+      );
 
   return mapSearchWorksConnection(data.searchWorks);
 }
@@ -287,7 +311,7 @@ export async function searchAnnictWorksByTitles(
   if (sanitized.length === 0) return [];
 
   const run = async (ts: string[]) => {
-    const data = await annictGraphQL<SearchWorksByTitleResponse>(
+    const data = await annictGraphQL<SearchWorksByTitleRelevanceResponse>(
       accessToken,
       SEARCH_WORKS_BY_TITLE_RELEVANCE_QUERY,
       { titles: ts },
@@ -339,7 +363,15 @@ query SearchWorksByAnnictIds($annictIds: [Int!]) {
       seasonYear
       media
       watchersCount
-      image { ${WORK_IMAGE_FIELDS} }
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
     }
   }
 }`;
@@ -355,7 +387,9 @@ export async function searchAnnictWorksByIds(
   fetchImpl: typeof fetch = fetch,
 ): Promise<AnnictLibraryEntry[]> {
   if (annictWorkIds.length === 0) return [];
-  const data = await annictGraphQL<SearchWorksByTitleResponse>(
+  const data = await annictGraphQL<
+    AnnictResult<typeof SEARCH_WORKS_BY_ANNICT_IDS_QUERY>
+  >(
     accessToken,
     SEARCH_WORKS_BY_ANNICT_IDS_QUERY,
     { annictIds: annictWorkIds },
@@ -388,7 +422,15 @@ query SearchWorksBySeason($seasons: [String!], $after: String) {
       seasonYear
       media
       watchersCount
-      image { ${WORK_IMAGE_FIELDS} }
+      image { 
+internalUrl(size: "300")
+recommendedImageUrl
+facebookOgImageUrl
+twitterBiggerAvatarUrl
+twitterAvatarUrl
+twitterNormalAvatarUrl
+twitterMiniAvatarUrl
+ }
     }
   }
 }`;
@@ -426,7 +468,7 @@ export async function searchAnnictWorksBySeason(
     // ページ取得は直列なので 429 / 一時障害（status 0・5xx）はページ単位で
     // バックオフリトライする（401 等の非リトライ系はそのまま投げる）。
     const data = await withAnnictRetry(() =>
-      annictGraphQL<SearchWorksByTitleResponse>(
+      annictGraphQL<AnnictResult<typeof SEARCH_WORKS_BY_SEASON_QUERY>>(
         accessToken,
         SEARCH_WORKS_BY_SEASON_QUERY,
         { seasons: expandSeasonQuery(season), after: cursor },

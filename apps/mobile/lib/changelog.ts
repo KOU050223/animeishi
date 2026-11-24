@@ -1,6 +1,7 @@
 // /changelog 画面（app/changelog.tsx）に表示する静的データ。
 // 機能一覧・更新情報・今後の予定をここで管理し、追記は各配列への追記で済ませる。
 // 文言は日本語固定（support.tsx / LegalDocument と同じく i18n 対象外）。
+import { featureFlags } from "@/lib/featureFlags";
 
 /** 「このアプリでできること」の 1 項目。 */
 export type FeatureItem = {
@@ -75,11 +76,16 @@ export const FEATURES: FeatureItem[] = [
     title: "ひろばで他の人の作品を見つける",
     description: "公開された Tier 表・作品リスト・名刺を一覧で見られます。",
   },
-  {
-    title: "イベント・総選挙・特集記事",
-    description:
-      "参加表明できるイベントや期間限定の投票企画、運営の特集記事をホームから読めます。",
-  },
+  // 機能フラグで隠している間（#750）は「できること」に載せない
+  ...(featureFlags.events || featureFlags.elections || featureFlags.articles
+    ? [
+        {
+          title: "イベント・総選挙・特集記事",
+          description:
+            "参加表明できるイベントや期間限定の投票企画、運営の特集記事をホームから読めます。",
+        },
+      ]
+    : []),
   {
     title: "公開プロフィール",
     description:

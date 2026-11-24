@@ -50,6 +50,7 @@ export function MeishiCompletionCard() {
   // （初回フォーカスはフック内の初回ロードと重複するので飛ばす。
   // プロフィール・推しは react-query のキャッシュ更新で追随する）。
   const hasFocused = useRef(false);
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current) void reload();

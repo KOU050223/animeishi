@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -47,44 +46,26 @@ export function MeishiCard(props: MeishiCardProps) {
 }
 
 function ProfileOnlyMeishiCard(props: MeishiCardProps) {
-  const profile = useMemo(
-    () => ({
+  const context: MeishiRenderContext = {
+    profile: {
       username: props.username,
       bio: props.bio,
       favoriteQuote: props.favoriteQuote,
       profileImageUrl: props.profileImageUrl,
       profileUrl: props.profileUrl,
-    }),
-    [
-      props.username,
-      props.bio,
-      props.favoriteQuote,
-      props.profileImageUrl,
-      props.profileUrl,
-    ],
-  );
-  const context = useMemo<MeishiRenderContext>(() => ({ profile }), [profile]);
+    },
+  };
   return <MeishiCardView {...props} context={context} />;
 }
 
 function FullMeishiCard(props: MeishiCardProps) {
-  const profile = useMemo(
-    () => ({
-      username: props.username,
-      bio: props.bio,
-      favoriteQuote: props.favoriteQuote,
-      profileImageUrl: props.profileImageUrl,
-      profileUrl: props.profileUrl,
-    }),
-    [
-      props.username,
-      props.bio,
-      props.favoriteQuote,
-      props.profileImageUrl,
-      props.profileUrl,
-    ],
-  );
-  const context = useMeishiRenderContext(profile);
+  const context = useMeishiRenderContext({
+    username: props.username,
+    bio: props.bio,
+    favoriteQuote: props.favoriteQuote,
+    profileImageUrl: props.profileImageUrl,
+    profileUrl: props.profileUrl,
+  });
   return <MeishiCardView {...props} context={context} />;
 }
 
@@ -139,11 +120,10 @@ function MeishiCardView({
     ],
   }));
 
-  const doc = useMemo(() => resolveMeishiDocument(document), [document]);
-  const renderContext = useMemo<MeishiRenderContext>(
-    () => (hideUnsetFields ? { ...context, hideUnsetFields } : context),
-    [context, hideUnsetFields],
-  );
+  const doc = resolveMeishiDocument(document);
+  const renderContext: MeishiRenderContext = hideUnsetFields
+    ? { ...context, hideUnsetFields }
+    : context;
 
   const card = (
     <Animated.View

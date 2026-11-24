@@ -178,6 +178,8 @@ export function useAnimeListPalette(): AnimeListPalette {
 /** 現在スキームに対応する StyleSheet。パレット差し替え時だけ再生成する。 */
 export function useAnimeListStyles() {
   const palette = useAnimeListPalette();
+  // AnimeListContent の FlatList#renderItem（固定するコールバック）の依存に
+  // 入るため参照を固定する。
   return useMemo(() => createStyles(palette), [palette]);
 }
 

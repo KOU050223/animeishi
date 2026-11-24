@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { initialWindowMetrics } from "react-native-safe-area-context";
 import { Input } from "@/components/ui";
 import { alert } from "@/lib/dialog";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
+import { featureFlags } from "@/lib/featureFlags";
 import { useEventList } from "@/lib/useEvents";
 import { resolvePlaceName } from "@/lib/exchangePlace";
 import {
@@ -230,7 +231,9 @@ export function ExchangeRecordSheet({
 }) {
   const { t } = useTranslation();
   const colors = useThemeColors();
-  const events = useEventList();
+  // イベント機能を隠している間（#750）は登録イベントの候補も出さない。
+  // 永続化キャッシュに以前の一覧が残っていても使わないよう、取得と表示の両方で止める。
+  const events = useEventList({ enabled: featureFlags.events });
 
   const [placeName, setPlaceName] = useState(initialPlaceName ?? "");
   const [eventSlug, setEventSlug] = useState(initialEventSlug);
@@ -271,13 +274,12 @@ export function ExchangeRecordSheet({
   // 当日開催中の候補。場所が決まると近い順に並び替わる。
   // now はシートが開いた時点（= このコンポーネントのマウント）で固定する。
   const [now] = useState(() => new Date());
-  const candidates: RankedEventCandidate[] = useMemo(
-    () =>
-      rankEventCandidates(events.data?.items ?? [], {
-        now,
-        placeName: placeName || null,
-      }),
-    [events.data, placeName, now],
+  const candidates: RankedEventCandidate[] = rankEventCandidates(
+    featureFlags.events ? (events.data?.items ?? []) : [],
+    {
+      now,
+      placeName: placeName || null,
+    },
   );
 
   async function onPressResolvePlace() {

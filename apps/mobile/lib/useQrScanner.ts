@@ -62,6 +62,7 @@ export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
   });
   const scannedRef = useRef(false);
 
+  // CameraView の onBarcodeScanned に渡す購読コールバックのため参照を固定する。
   const handleBarcodeScanned = useCallback((result: BarcodeScanningResult) => {
     // 既にスキャン済みなら無視（同一フレームで複数回発火するため）。
     if (scannedRef.current) return;
@@ -75,10 +76,10 @@ export function useQrScanner(options: UseQrScannerOptions = {}): UseQrScanner {
     onScannedRef.current?.({ ...payload, raw: result.data });
   }, []);
 
-  const reset = useCallback(() => {
+  const reset = () => {
     scannedRef.current = false;
     setScanned(false);
-  }, []);
+  };
 
   return {
     permission,

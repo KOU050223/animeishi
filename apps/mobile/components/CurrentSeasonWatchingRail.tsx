@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -50,6 +50,7 @@ export function CurrentSeasonWatchingRail() {
   // （FriendStoryRail と同じ仕組み）。未連携だとクエリ自体が
   // 無効化されているが refetch は enabled を無視して投げるので、
   // 401 になるだけのリクエストを飛ばさないよう連携時だけに絞る。
+  // useFocusEffect はコールバックの参照変化で購読し直すため、useCallback を残す。
   useFocusEffect(
     useCallback(() => {
       if (hasFocused.current && isConnectedRef.current) void refetch();
@@ -61,13 +62,7 @@ export function CurrentSeasonWatchingRail() {
   // 範囲外の視聴中作品（過去シーズンの残存ステータス等）はレールに出ないため、
   // 対象が見えないとライブラリ側の件数と不整合に見える。
   const { year, key } = currentSeason();
-  // 抽出と表示で同じ currentSeason() の結果を使い、年・季節をメモ化の単位に
-  // する。data が変わらないままクールを跨いで再描画されても、表示だけ
-  // 新しいクールになって古い抽出結果が残ることがない。
-  const works = useMemo(
-    () => filterWatchingBySeason(data ?? [], `${year}-${key}`),
-    [data, year, key],
-  );
+  const works = filterWatchingBySeason(data ?? [], `${year}-${key}`);
   const seasonLabel = t("{{year}}年{{season}}", {
     year,
     season: t(SEASON_I18N_KEYS[key]),

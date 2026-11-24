@@ -80,6 +80,7 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   const exchange = state.exchange;
   const swapping = exchange.kind === "swapping";
   const receivedRaw = swapping ? exchange.received : null;
+  // useRegisterIncoming 内の effect 依存に使うため参照を固定する。
   const incoming = useMemo(() => parseIncoming(receivedRaw), [receivedRaw]);
   const { registration, resetRegistration } = useRegisterIncoming({
     receivedRaw,
@@ -88,6 +89,7 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   });
   const [landed, setLanded] = useState(false);
 
+  // 登録失敗時の effect 依存に使うため参照を固定する。
   const resetExchange = useCallback(
     (exchanged: boolean) => {
       resetRegistration();
@@ -97,10 +99,10 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
     [finish, resetRegistration],
   );
 
-  const onLanded = useCallback(() => {
+  const onLanded = () => {
     haptics.success();
     setLanded(true);
-  }, []);
+  };
 
   // 入れ替わりが途中で消えた（タイムアウト・切断）ときは演出の状態も戻す。
   const [prevSwapping, setPrevSwapping] = useState(swapping);
@@ -310,6 +312,8 @@ function useRegisterIncoming({
 
   const registration =
     stored != null && stored.raw === receivedRaw ? stored : null;
+  // 呼び出し側（NearbyExchangeView）の resetExchange/effect 依存に使うため
+  // 参照を固定する。
   const resetRegistration = useCallback(() => setStored(null), []);
   return { registration, resetRegistration };
 }

@@ -42,6 +42,12 @@ import {
   shareTierListImage,
   useTierUrlShare,
 } from "@/lib/tierList/share";
+// jest が "@/lib/tierList/share" をモックするため、フロー本体は
+// バレル経由ではなくサブモジュールから直接 import する。
+import {
+  shareTierListViaUrl,
+  withRenderedTierSnapshot,
+} from "@/lib/tierList/share/flow";
 import type { TierAssignment, TierRow } from "@/lib/tierList/types";
 import { useWorkCharacters } from "@/lib/tierList/useWorkCharacters";
 import {
@@ -59,12 +65,6 @@ import {
  * - 保存スコープのキーが season ではなく annictWorkId であること
  * - シーズン切替 UI がないこと（対象作品は一覧画面からの遷移で確定する）
  */
-/**
- * 画像キャプチャ前にスナップショットの画像読み込みを待つ上限。
- * これを超えても未読み込みなら欠けたまま撮る（共有自体を失敗させない）。
- */
-const SNAPSHOT_WAIT_MAX_MS = 5000;
-
 export default function CharacterTierListScreen() {
   const router = useRouter();
   const styles = useTierListStyles();
@@ -177,6 +177,7 @@ export default function CharacterTierListScreen() {
     }
   }
 
+  // TierBoard 内のドラッグ系コールバックの依存に入るため参照を固定する。
   const handleAssign = useCallback(
     (itemId: number, tierKey: string | null, beforeItemId?: number) => {
       // 共有処理は「盤面を保存 → トークン発行」を直列で行う。
@@ -191,39 +192,30 @@ export default function CharacterTierListScreen() {
     [isSharing],
   );
 
-  const handleRenameTier = useCallback(
-    (tierKey: string, label: string) => {
-      if (isSharing) return;
-      const next = renameTier(tiers, tierKey, label);
-      if (next === tiers) return;
-      setTiers(next);
-      setIsDirty(true);
-    },
-    [isSharing, tiers],
-  );
+  const handleRenameTier = (tierKey: string, label: string) => {
+    if (isSharing) return;
+    const next = renameTier(tiers, tierKey, label);
+    if (next === tiers) return;
+    setTiers(next);
+    setIsDirty(true);
+  };
 
-  const handleChangeDescription = useCallback(
-    (next: string) => {
-      // ドロップと同じく、共有中の編集は受け付けない。
-      // 読み込み中・取得失敗時も不可（isDirty が立つと hydrate が走らず、
-      // 空の盤面のまま既存配置を上書き保存できてしまうため）。
-      if (isSharing || isSavedLoading || isSavedError) return;
-      setDescription(next);
-      setIsDirty(true);
-    },
-    [isSharing, isSavedError, isSavedLoading],
-  );
+  const handleChangeDescription = (next: string) => {
+    // ドロップと同じく、共有中の編集は受け付けない。
+    // 読み込み中・取得失敗時も不可（isDirty が立つと hydrate が走らず、
+    // 空の盤面のまま既存配置を上書き保存できてしまうため）。
+    if (isSharing || isSavedLoading || isSavedError) return;
+    setDescription(next);
+    setIsDirty(true);
+  };
 
-  const handleChangeIsPublic = useCallback(
-    (next: boolean) => {
-      if (isSharing || isSavedLoading || isSavedError) return;
-      setIsPublic(next);
-      setIsDirty(true);
-    },
-    [isSharing, isSavedError, isSavedLoading],
-  );
+  const handleChangeIsPublic = (next: boolean) => {
+    if (isSharing || isSavedLoading || isSavedError) return;
+    setIsPublic(next);
+    setIsDirty(true);
+  };
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     const goBack = () => {
       if (router.canGoBack()) {
         router.back();
@@ -248,9 +240,9 @@ export default function CharacterTierListScreen() {
       return;
     }
     goBack();
-  }, [isDirty, router, t]);
+  };
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     // 送信した盤面をスナップショットとして取る。保存中に編集が進むと
     // 応答は送信時点の内容しか含まないため、現在の盤面と一致するとき
     // だけ「保存済み」（isDirty 解除）にする。
@@ -288,11 +280,11 @@ export default function CharacterTierListScreen() {
         },
       },
     );
-  }, [annictWorkId, assignment, description, isPublic, save, tiers, title]);
+  };
 
   // 共有は「見えている盤面そのもの」を渡したいので、未保存変更があっても
   // 確認ダイアログではなく先に保存してから共有フローへ進む。
-  const saveTierListData = useCallback(async () => {
+  const saveTierListData = async () => {
     // 共有フローは isSharing で編集を止めるが、開始直前までの編集も
     // 反映できるよう実行時点の最新値から組み立てる。
     const cur = boardStateRef.current;
@@ -309,15 +301,7 @@ export default function CharacterTierListScreen() {
     });
     setIsDirty(false);
     return savedData;
-  }, [annictWorkId, save]);
-
-  // withRenderedSnapshot は try/finally を含むため react/memo-dependencies が
-  // deps を余剰と誤検知する。初回キャプチャに固定しないよう ref 経由で
-  // 最新の saveTierListData を呼ぶ。
-  const saveTierListDataRef = useRef(saveTierListData);
-  useEffect(() => {
-    saveTierListDataRef.current = saveTierListData;
-  });
+  };
 
   // web では共有モーダル（コピー / X 共有 / 画像）、native では
   // OS 共有シート。generateImageFile は web のモーダルでのみ使われる。
@@ -332,82 +316,43 @@ export default function CharacterTierListScreen() {
     generateImageFile: () => generateImageFile(),
   });
 
-  const handleShareUrl = useCallback(async () => {
-    beginShare();
-    setIsSharing(true);
-    try {
-      await saveTierListData();
-      const { shareToken } = await share.mutateAsync(annictWorkId);
-      const url = buildCharacterTierListShareUrl(shareToken, webUrl);
-      // native は OS 共有シート。web は urlShareElement のモーダルを開き、
-      // コピー / X 共有はモーダル内のボタン操作で行う。
-      await presentShareUrl(url);
-    } catch {
-      cancelShare();
-      alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
-        okLabel: "OK",
-      });
-    } finally {
-      setIsSharing(false);
-    }
-  }, [
-    annictWorkId,
-    beginShare,
-    cancelShare,
-    presentShareUrl,
-    saveTierListData,
-    share,
-    t,
-  ]);
+  const handleShareUrl = () =>
+    shareTierListViaUrl({
+      beginShare,
+      cancelShare,
+      setIsSharing,
+      createShareUrl: async () => {
+        await saveTierListData();
+        const { shareToken } = await share.mutateAsync(annictWorkId);
+        return buildCharacterTierListShareUrl(shareToken, webUrl);
+      },
+      presentShareUrl,
+      onFailure: () =>
+        alert(t("共有に失敗しました"), t("時間をおいて再度お試しください。"), {
+          okLabel: "OK",
+        }),
+    });
 
-  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する
-  // 共通処理。画像には共有 URL が要らないためトークン発行はしない。
-  // useCallback 内で t を呼ぶと react/memo-dependencies が deps を余剰と
-  // 誤検知するため、文言は ref 経由で最新を参照する（saveTierListDataRef と同じ形）
-  const snapshotRenderFailedMessageRef = useRef("");
-  useEffect(() => {
-    snapshotRenderFailedMessageRef.current = t(
-      "スナップショットの描画に失敗しました",
-    );
-  });
-  const withRenderedSnapshot = useCallback(
-    async <T,>(run: () => Promise<T>): Promise<T> => {
-      setIsSharing(true);
-      try {
-        const savedData = await saveTierListDataRef.current();
-        const snapshotReady = new Promise<void>((resolve) => {
-          snapshotReadyRef.current = resolve;
-        });
-        setSnapshotItems(
-          savedData.items.map((i) => ({
-            id: i.annictCharacterId,
-            tierKey: i.tierKey,
-            title: i.name,
-            imageUrl: i.imageUrl,
-          })),
-        );
-        // スナップショットの描画とキャラクター画像の読み込み（onReady）を待って
-        // から撮る。タイムアウトを超えたら読み込み途中のまま撮る
-        // （共有自体は失敗させない）。
-        await Promise.race([
-          snapshotReady,
-          new Promise((resolve) => setTimeout(resolve, SNAPSHOT_WAIT_MAX_MS)),
-        ]);
-        // レイアウト確定のため 1 フレーム待つ
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        if (!snapshotRef.current) {
-          throw new Error(snapshotRenderFailedMessageRef.current);
-        }
-        return await run();
-      } finally {
-        setSnapshotItems(null);
-        setIsSharing(false);
-      }
-    },
-    [],
-  );
+  // 盤面を保存し、保存結果をスナップショットに描画させてから run を実行する。
+  // try/finally は React Compiler が最適化できないため lib/tierList/share/flow.ts に置く。
+  const withRenderedSnapshot = <T,>(run: () => Promise<T>): Promise<T> =>
+    withRenderedTierSnapshot({
+      saveBoard: saveTierListData,
+      mapItem: (i) => ({
+        id: i.annictCharacterId,
+        tierKey: i.tierKey,
+        title: i.name,
+        imageUrl: i.imageUrl,
+      }),
+      snapshotReadyRef,
+      snapshotRef,
+      setSnapshotItems,
+      setIsSharing,
+      renderFailedMessage: t("スナップショットの描画に失敗しました"),
+      run,
+    });
 
-  const handleShareImage = useCallback(async () => {
+  const handleShareImage = async () => {
     try {
       // 共有画像は撮影時点のスキームに合わせる（盤面と同じ見た目の画像にする）
       await withRenderedSnapshot(() =>
@@ -425,12 +370,12 @@ export default function CharacterTierListScreen() {
         },
       );
     }
-  }, [withRenderedSnapshot, title, colors, t]);
+  };
 
   // web 共有モーダル用: PNG 化した画像 File を生成して返す。
   // 共有・ダウンロードへの受け渡しはモーダル側の別ボタンが行う
   // （生成待ちの後に navigator.share を呼ぶとユーザー操作期限で失敗するため）。
-  const generateImageFile = useCallback(() => {
+  const generateImageFile = () => {
     // web 共有モーダルの「画像を生成する」押下を計測する（issue #214）。
     trackEvent("tier_image_generate");
     return withRenderedSnapshot(() =>
@@ -439,7 +384,7 @@ export default function CharacterTierListScreen() {
         backgroundColor: colors.background,
       }),
     );
-  }, [withRenderedSnapshot, title, colors]);
+  };
 
   // 共有は「盤面を保存 → トークン発行」を行う。保存済みデータ・名簿の
   // 読み込み中（or 取得失敗）に実行すると、初期状態の盤面を上書き保存
@@ -447,7 +392,7 @@ export default function CharacterTierListScreen() {
   const shareDisabled =
     isSharing || save.isPending || isSavedLoading || isCharactersLoading;
 
-  const handleShare = useCallback(() => {
+  const handleShare = () => {
     if (shareDisabled) return;
     if (isSavedError || isCharactersError) {
       alert(
@@ -476,14 +421,7 @@ export default function CharacterTierListScreen() {
       // eslint-disable-next-line no-void -- コールバックは同期シグネチャ、処理は非同期
       onShareImage: () => void handleShareImage(),
     });
-  }, [
-    handleShareUrl,
-    handleShareImage,
-    isSavedError,
-    isCharactersError,
-    shareDisabled,
-    t,
-  ]);
+  };
 
   // 戻る導線は盤面・ローディング・ソフトゲートの全分岐に必要なので切り出す
   // （どの状態でも画面に閉じ込められないようにするため）。

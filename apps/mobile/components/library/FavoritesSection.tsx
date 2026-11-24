@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -49,16 +49,12 @@ export function FavoritesSection() {
   const remove = useRemoveFavorite();
   const insets = useSafeAreaInsets();
 
-  const filtered = useMemo(() => {
-    const trimmed = query.trim();
-    if (!trimmed) return favorites ?? [];
-    return (favorites ?? []).filter((f) => matchesFavoriteQuery(f, trimmed));
-  }, [favorites, query]);
+  const trimmed = query.trim();
+  const filtered = !trimmed
+    ? (favorites ?? [])
+    : (favorites ?? []).filter((f) => matchesFavoriteQuery(f, trimmed));
 
-  const enriched = useMemo(
-    () => filtered.map((f) => ({ favorite: f })),
-    [filtered],
-  );
+  const enriched = filtered.map((f) => ({ favorite: f }));
 
   async function onRefresh() {
     setRefreshing(true);

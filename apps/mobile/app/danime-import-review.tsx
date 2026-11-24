@@ -206,10 +206,7 @@ export default function DanimeImportReviewScreen() {
   const startedRef = useRef(false);
 
   // 照合対象の作品数（照合中の進捗表示用）。
-  const workCount = useMemo(
-    () => (lists ? toMatchWorks(lists).length : 0),
-    [lists],
-  );
+  const workCount = lists ? toMatchWorks(lists).length : 0;
   const matchingActive =
     rows === null && (match.isPending || isHistoriesLoading);
   const matchElapsedSec = useElapsedSeconds(matchingActive);
@@ -219,6 +216,7 @@ export default function DanimeImportReviewScreen() {
   const historyUnknown = histories === undefined;
 
   // 既存ステータスの索引（ダウングレード防止用）。
+  // kept renderRow の依存なので参照を固定する。
   const currentStates = useMemo(() => {
     const m = new Map<number, string>();
     for (const h of histories ?? []) m.set(h.annictWorkId, h.state);
@@ -226,48 +224,46 @@ export default function DanimeImportReviewScreen() {
   }, [histories]);
 
   // 照合 API に渡す登録済み作品 ID（別シーズン候補の除外ヒント）。
+  // 照合 effect の依存なので参照を固定する。
   const registeredWorkIds = useMemo(
     () => (histories ?? []).map((h) => h.annictWorkId),
     [histories],
   );
 
-  const buildRows = useCallback(
-    (results: DanimeMatchItem[]): Row[] => {
-      const built = results.map((item) => {
-        const selected = item.status === "exact" ? item.work : null;
-        const state = initialRowState(
-          item,
-          selected,
-          selected
-            ? historyUnknown
-              ? undefined
-              : (currentStates.get(selected.annictWorkId) ?? null)
-            : undefined,
-        );
-        return { item, selected, ...state };
-      });
-      // 異なる dアニメ workId の行が同じ Annict 作品にマッチした場合、
-      // WATCHED と WATCHING の両方を送ると後勝ちで降格する。
-      // WATCHED 側を残し、WATCHING 側は既定で外す。
-      const watchedIds = new Set(
-        built
-          .filter((r) => r.checked && r.item.targetState === "WATCHED")
-          .map((r) => r.selected!.annictWorkId),
+  const buildRows = (results: DanimeMatchItem[]): Row[] => {
+    const built = results.map((item) => {
+      const selected = item.status === "exact" ? item.work : null;
+      const state = initialRowState(
+        item,
+        selected,
+        selected
+          ? historyUnknown
+            ? undefined
+            : (currentStates.get(selected.annictWorkId) ?? null)
+          : undefined,
       );
-      return built.map((r) =>
-        r.item.targetState === "WATCHING" &&
-        r.selected &&
-        watchedIds.has(r.selected.annictWorkId)
-          ? {
-              ...r,
-              checked: false,
-              note: { kind: "watched_duplicate" as const },
-            }
-          : r,
-      );
-    },
-    [currentStates, historyUnknown],
-  );
+      return { item, selected, ...state };
+    });
+    // 異なる dアニメ workId の行が同じ Annict 作品にマッチした場合、
+    // WATCHED と WATCHING の両方を送ると後勝ちで降格する。
+    // WATCHED 側を残し、WATCHING 側は既定で外す。
+    const watchedIds = new Set(
+      built
+        .filter((r) => r.checked && r.item.targetState === "WATCHED")
+        .map((r) => r.selected!.annictWorkId),
+    );
+    return built.map((r) =>
+      r.item.targetState === "WATCHING" &&
+      r.selected &&
+      watchedIds.has(r.selected.annictWorkId)
+        ? {
+            ...r,
+            checked: false,
+            note: { kind: "watched_duplicate" as const },
+          }
+        : r,
+    );
+  };
 
   // マッチングは 1 度だけ実行（StrictMode の二重 effect 対策）。
   // 既存ステータスによる降格防止を正しく効かせるため、履歴クエリの
@@ -287,6 +283,7 @@ export default function DanimeImportReviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lists, isHistoriesLoading, registeredWorkIds]);
 
+  // kept renderRow の依存なので参照を固定する。
   const toggleRow = useCallback((index: number) => {
     setRows(
       (prev) =>
@@ -298,6 +295,7 @@ export default function DanimeImportReviewScreen() {
     );
   }, []);
 
+  // kept renderRow の依存なので参照を固定する。
   const selectCandidate = useCallback(
     (rowIndex: number, work: DanimeAnnictWork) => {
       setRows(
@@ -321,6 +319,7 @@ export default function DanimeImportReviewScreen() {
     [currentStates, historyUnknown],
   );
 
+  // FlatList の renderItem は行の再描画を抑えるため参照を固定する。
   const renderRow = useCallback<ListRenderItem<Row>>(
     ({ item: row, index }) => (
       <ReviewRow

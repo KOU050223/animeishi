@@ -143,6 +143,7 @@ function ImageFocusPreview({
     (element.transform.width * canvasAspectRatio) /
       Math.max(element.transform.height, 0.001),
   );
+  // pan の useMemo 依存に入るため参照を固定する。
   const frame = useMemo(
     () => ({
       width: Math.min(160, 120 * ratio),
@@ -161,6 +162,8 @@ function ImageFocusPreview({
     focus: NonNullable<ImageElement["focus"]>;
   } | null>(null);
 
+  // GestureDetector へ渡すジェスチャを固定する（ドラッグ中の再生成で
+  // ジェスチャが中断されうるため）。
   const pan = useMemo(
     () =>
       Gesture.Pan()

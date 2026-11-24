@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -45,20 +45,17 @@ export function MeishiPrintSnapshot({
   onReady,
 }: MeishiPrintSnapshotProps) {
   const layout: PrintLayout = getPrintLayout();
-  const imageCount = useMemo(
-    () => countRenderableImages(document, context),
-    [document, context],
-  );
+  const imageCount = countRenderableImages(document, context);
   const settledRef = useRef(0);
   const firedRef = useRef(false);
 
-  const markImageSettled = useCallback(() => {
+  const markImageSettled = () => {
     settledRef.current += 1;
     if (!firedRef.current && settledRef.current >= imageCount) {
       firedRef.current = true;
       onReady?.();
     }
-  }, [imageCount, onReady]);
+  };
 
   // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
   useEffect(() => {

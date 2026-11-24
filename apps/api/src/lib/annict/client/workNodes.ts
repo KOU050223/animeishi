@@ -1,22 +1,23 @@
-export const WORK_IMAGE_FIELDS = `
-internalUrl(size: "300")
-recommendedImageUrl
-facebookOgImageUrl
-twitterBiggerAvatarUrl
-twitterAvatarUrl
-twitterNormalAvatarUrl
-twitterMiniAvatarUrl
-`;
+import type { AnnictResult } from "./tada";
 
-export type AnnictWorkImage = {
-  internalUrl: string | null;
-  recommendedImageUrl: string | null;
-  facebookOgImageUrl: string | null;
-  twitterBiggerAvatarUrl: string | null;
-  twitterAvatarUrl: string | null;
-  twitterNormalAvatarUrl: string | null;
-  twitterMiniAvatarUrl: string | null;
-};
+// 各クエリの image { ... } 選択と同一フィールドを持つ fragment。
+// AnnictWorkImage 型の導出専用で、実行時には使わない。クエリ側は gql.tada が
+// 静的リテラルを要求するためフィールドをインラインで持つ（テンプレート
+// 展開だと型推論できない）。選択を変えたらクエリ側も合わせて変えること。
+// クエリ内の image { 直後の改行・フィールドの列0始まりは、旧 WORK_IMAGE_FIELDS
+// のテンプレート展開が生成していた送信文字列をバイト同一に保つための
+// 意図的なレイアウト（GraphQL の空白は意味を持たない）。
+const WORK_IMAGE_FRAGMENT = `fragment AnnictWorkImageFields on WorkImage {
+  internalUrl(size: "300")
+  recommendedImageUrl
+  facebookOgImageUrl
+  twitterBiggerAvatarUrl
+  twitterAvatarUrl
+  twitterNormalAvatarUrl
+  twitterMiniAvatarUrl
+}`;
+
+export type AnnictWorkImage = AnnictResult<typeof WORK_IMAGE_FRAGMENT>;
 
 export function resolveWorkImageUrl(
   image: AnnictWorkImage | null,

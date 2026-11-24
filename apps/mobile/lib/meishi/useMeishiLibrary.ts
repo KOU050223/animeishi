@@ -26,15 +26,15 @@ export function useMeishiLibrary() {
   const [library, setLibrary] = useState<MeishiLibrary>(() => emptyLibrary());
   const [loaded, setLoaded] = useState(false);
 
-  const applyUpdate = useCallback(
-    async <T>(updater: (lib: MeishiLibrary) => MeishiLibraryUpdate<T>) => {
-      const { library: next, result } = await updateMeishiLibrary(updater);
-      setLibrary(next);
-      return result;
-    },
-    [],
-  );
+  const applyUpdate = async <T>(
+    updater: (lib: MeishiLibrary) => MeishiLibraryUpdate<T>,
+  ) => {
+    const { library: next, result } = await updateMeishiLibrary(updater);
+    setLibrary(next);
+    return result;
+  };
 
+  // useFocusEffect の依存に渡されるため参照を固定する。
   const reload = useCallback(async () => {
     const persisted = await loadMeishiLibrary();
     setLibrary(persisted ?? emptyLibrary());
@@ -53,53 +53,38 @@ export function useMeishiLibrary() {
     };
   }, []);
 
-  const addCard = useCallback(
-    (document: MeishiDocument): Promise<MeishiCardData> =>
-      applyUpdate((lib) => {
-        const r = addCardOp(lib, document);
-        return { library: r.library, result: r.card };
-      }),
-    [applyUpdate],
-  );
+  const addCard = (document: MeishiDocument): Promise<MeishiCardData> =>
+    applyUpdate((lib) => {
+      const r = addCardOp(lib, document);
+      return { library: r.library, result: r.card };
+    });
 
-  const duplicateCard = useCallback(
-    (id: string): Promise<MeishiCardData | null> =>
-      applyUpdate((lib) => {
-        const r = duplicateCardOp(lib, id);
-        return {
-          library: r ? r.library : lib,
-          result: r ? r.card : null,
-        };
-      }),
-    [applyUpdate],
-  );
+  const duplicateCard = (id: string): Promise<MeishiCardData | null> =>
+    applyUpdate((lib) => {
+      const r = duplicateCardOp(lib, id);
+      return {
+        library: r ? r.library : lib,
+        result: r ? r.card : null,
+      };
+    });
 
-  const removeCard = useCallback(
-    (id: string) =>
-      applyUpdate((lib) => ({
-        library: removeCardOp(lib, id),
-        result: undefined,
-      })),
-    [applyUpdate],
-  );
+  const removeCard = (id: string) =>
+    applyUpdate((lib) => ({
+      library: removeCardOp(lib, id),
+      result: undefined,
+    }));
 
-  const setDefault = useCallback(
-    (id: string) =>
-      applyUpdate((lib) => ({
-        library: setDefaultCard(lib, id),
-        result: undefined,
-      })),
-    [applyUpdate],
-  );
+  const setDefault = (id: string) =>
+    applyUpdate((lib) => ({
+      library: setDefaultCard(lib, id),
+      result: undefined,
+    }));
 
-  const updateCardDocument = useCallback(
-    (id: string, document: MeishiDocument) =>
-      applyUpdate((lib) => ({
-        library: updateCardDocumentOp(lib, id, document),
-        result: undefined,
-      })),
-    [applyUpdate],
-  );
+  const updateCardDocument = (id: string, document: MeishiDocument) =>
+    applyUpdate((lib) => ({
+      library: updateCardDocumentOp(lib, id, document),
+      result: undefined,
+    }));
 
   return {
     library,

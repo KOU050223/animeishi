@@ -60,6 +60,12 @@ describe("ChangelogScreen", () => {
     expect(screen.getByText("どの画面からも作品詳細を開く")).toBeTruthy();
   });
 
+  it("フラグで隠した総選挙・イベント・特集記事は「できること」に載せない（#750）", async () => {
+    await render(<ChangelogScreen />);
+
+    expect(screen.queryByText("イベント・総選挙・特集記事")).toBeNull();
+  });
+
   it("遷移履歴がある場合、戻るボタンで前の画面へ戻る", async () => {
     await render(<ChangelogScreen />);
 

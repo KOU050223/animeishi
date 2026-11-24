@@ -38,12 +38,19 @@ import { formatEventPeriod, eventPhase } from "@/lib/eventPeriod";
 import { useThemeColors } from "@/lib/theme";
 import { alert } from "@/lib/dialog";
 import type { TranslationKey } from "@/lib/i18n/keys";
+import { FeatureUnavailableScreen } from "@/components/FeatureUnavailableScreen";
+import { featureFlags } from "@/lib/featureFlags";
 
 // イベント詳細（issue #411 フェーズ 1 + #440）。ホームのイベント枠
 // （EventRail）から遷移する。「参加する」の表明とその公開範囲、
 // connpass の右カラムに相当する「参加しているフレンド」「参加者一覧」、
 // 会期中にフレンド成立した相手（= そのイベントで交換した名刺）を出す。
-export default function EventScreen() {
+export default function EventRoute() {
+  if (!featureFlags.events) return <FeatureUnavailableScreen />;
+  return <EventScreen />;
+}
+
+function EventScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const colors = useThemeColors();

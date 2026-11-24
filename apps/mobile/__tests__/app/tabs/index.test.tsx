@@ -224,6 +224,21 @@ beforeEach(async () => {
   mockElections = { data: undefined };
 });
 
+// 総選挙・イベント・特集記事は既定で隠れている（#750）。レールの表示を
+// 確かめるテストだけ有効にし、afterEach で既定に戻す。
+const CONTENT_FLAGS = ["elections", "events", "articles"] as const;
+function enableContentFlags() {
+  for (const flag of CONTENT_FLAGS) {
+    Object.defineProperty(featureFlags, flag, { value: true });
+  }
+}
+
+afterEach(() => {
+  for (const flag of CONTENT_FLAGS) {
+    Object.defineProperty(featureFlags, flag, { value: false });
+  }
+});
+
 describe("HomeScreen", () => {
   it("キャッシュクリア後に Web で完了を通知する", async () => {
     const previous = featureFlags.debugPanel;
@@ -398,13 +413,64 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/(tabs)/library?section=history");
   });
 
+  it("フラグ無効（既定）では公開中のものがあっても総選挙・イベント・特集枠を出さない（#750）", async () => {
+    mockArticles = {
+      data: {
+        items: [
+          {
+            slug: "autumn-2026",
+            title: "秋の特集",
+            coverImageUrl: null,
+            publishedAt: "2026-11-01T00:00:00Z",
+          },
+        ],
+      },
+    };
+    mockEvents = {
+      data: {
+        items: [
+          {
+            slug: "comiket-107",
+            title: "コミックマーケット107",
+            coverImageUrl: null,
+            location: "東京ビッグサイト",
+            startsAt: "2026-12-20T10:00:00+09:00",
+            endsAt: "2026-12-21T16:00:00+09:00",
+            participating: false,
+          },
+        ],
+      },
+    };
+    mockElections = {
+      data: {
+        items: [
+          {
+            slug: "megane-2026",
+            title: "みんなが推す眼鏡キャラ総選挙",
+            coverImageUrl: null,
+            startsAt: "2026-11-10T10:00:00+09:00",
+            endsAt: "2026-11-20T18:00:00+09:00",
+            voted: false,
+          },
+        ],
+      },
+    };
+    loggedInUser();
+    await render(<HomeScreen />);
+    expect(screen.queryByTestId("article-rail")).toBeNull();
+    expect(screen.queryByTestId("event-rail")).toBeNull();
+    expect(screen.queryByTestId("election-rail")).toBeNull();
+  });
+
   it("公開中の記事がないとき特集枠は出さない", async () => {
+    enableContentFlags();
     loggedInUser();
     await render(<HomeScreen />);
     expect(screen.queryByTestId("article-rail")).toBeNull();
   });
 
   it("公開中の記事を特集枠に出し、タップで記事詳細へ遷移する", async () => {
+    enableContentFlags();
     mockArticles = {
       data: {
         items: [
@@ -427,6 +493,7 @@ describe("HomeScreen", () => {
   });
 
   it("公開中のイベントをイベント枠に出し、タップでイベント詳細へ遷移する", async () => {
+    enableContentFlags();
     mockEvents = {
       data: {
         items: [
@@ -452,6 +519,7 @@ describe("HomeScreen", () => {
   });
 
   it("公開中の総選挙を総選挙枠に出し、タップで総選挙詳細へ遷移する", async () => {
+    enableContentFlags();
     mockElections = {
       data: {
         items: [

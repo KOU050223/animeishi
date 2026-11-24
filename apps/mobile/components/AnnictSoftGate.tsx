@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -48,7 +48,7 @@ export function AnnictSoftGate({
     track("prompt_view");
   }, [track]);
 
-  const onConnect = useCallback(async () => {
+  const onConnect = async () => {
     setErrorText(null);
     track("cta_tap");
     const result: AnnictConnectResult = await connect({ surface });
@@ -59,7 +59,7 @@ export function AnnictSoftGate({
     } else if (result.status === "error") {
       setErrorText(t(annictErrorKey(result.reason)));
     }
-  }, [connect, surface, track, t]);
+  };
 
   const connectButton = (className: string) => (
     <TouchableOpacity

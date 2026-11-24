@@ -60,6 +60,8 @@ export function useFavorites() {
  */
 export function useFavoriteIds(): Set<number> {
   const { data } = useFavorites();
+  // AnimeListContent の FlatList#renderItem（固定するコールバック）の依存に
+  // 入るため参照を固定する。
   return useMemo(
     () => new Set((data ?? []).map((f) => f.annictWorkId)),
     [data],

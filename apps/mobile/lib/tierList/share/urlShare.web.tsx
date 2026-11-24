@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import type { ShareTierListUrl, UseTierUrlShare } from "./types";
@@ -209,13 +209,13 @@ export const useTierUrlShare: UseTierUrlShare = ({
     undefined,
   );
 
-  const beginShare = useCallback(() => setModalUrl(null), []);
-  const cancelShare = useCallback(() => setModalUrl(undefined), []);
+  const beginShare = () => setModalUrl(null);
+  const cancelShare = () => setModalUrl(undefined);
 
-  const shareUrl = useCallback<ShareTierListUrl>(async (url) => {
+  const shareUrl: ShareTierListUrl = async (url) => {
     setModalUrl(url);
     return "shared";
-  }, []);
+  };
 
   return {
     beginShare,

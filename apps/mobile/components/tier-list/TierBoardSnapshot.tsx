@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { WorkImage } from "@/components/anime-list/WorkImage";
 import { useThemeColors, type ThemeColors } from "@/lib/theme";
@@ -47,25 +47,25 @@ export const TierBoardSnapshot = forwardRef<
   TierBoardSnapshotProps
 >(function TierBoardSnapshot({ title, tiers, items, onReady }, ref) {
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
   // 読み込み待ち対象は「実際に描画される画像」だけ。
   // tiers に無い tierKey のアイテムは描画されず onLoadEnd も来ないため、
   // 数に含めると onReady が発火せずキャプチャがタイムアウト待ちになる。
-  const imageCount = useMemo(() => {
+  const imageCount = (() => {
     const tierKeys = new Set(tiers.map((t) => t.key));
     return items.filter((item) => tierKeys.has(item.tierKey) && !!item.imageUrl)
       .length;
-  }, [items, tiers]);
+  })();
   const settledRef = useRef(0);
   const firedRef = useRef(false);
 
-  const markImageSettled = useCallback(() => {
+  const markImageSettled = () => {
     settledRef.current += 1;
     if (!firedRef.current && settledRef.current >= imageCount) {
       firedRef.current = true;
       onReady?.();
     }
-  }, [imageCount, onReady]);
+  };
 
   // 画像ゼロなら待つものが無いのでマウント直後に ready を通知する。
   useEffect(() => {

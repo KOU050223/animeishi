@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import { apiClient, apiFetch } from "@/lib/api";
@@ -80,7 +79,7 @@ export function useFriends() {
  */
 export function useFriendIds(): Set<string> {
   const { data } = useFriends();
-  return useMemo(() => new Set((data ?? []).map((f) => f.friendId)), [data]);
+  return new Set((data ?? []).map((f) => f.friendId));
 }
 
 // POST /me/friends は対面 QR の即時成立専用。トークン TTL より早い周期で

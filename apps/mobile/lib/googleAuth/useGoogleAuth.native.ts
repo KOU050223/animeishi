@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
@@ -37,7 +37,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
   useWarmUpBrowser();
   const { startSSOFlow } = useSSO();
 
-  const startGoogleAuth = useCallback(async (): Promise<GoogleAuthResult> => {
+  const startGoogleAuth = async (): Promise<GoogleAuthResult> => {
     const { createdSessionId, authSessionResult, signUp } = await startSSOFlow({
       strategy: "oauth_google",
       // カスタムスキームのコールバック。ブラウザセッション側が捕捉するため
@@ -67,7 +67,7 @@ export const useGoogleAuth: UseGoogleAuth = () => {
       return { status: "cancelled" };
     }
     return { status: "incomplete" };
-  }, [startSSOFlow]);
+  };
 
   return { startGoogleAuth };
 };
