@@ -132,7 +132,6 @@ export const danimeMatchRoute = createRoute({
     401: codedJsonError("未認証・Annict 未連携"),
     429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 

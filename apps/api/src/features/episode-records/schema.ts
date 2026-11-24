@@ -50,7 +50,6 @@ export const recordEpisodeRoute = createRoute({
     404: jsonError("話が見つからない"),
     429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -72,7 +71,6 @@ export const unrecordEpisodeRoute = createRoute({
     404: jsonError("話が見つからない"),
     429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害・記録一覧を取得しきれなかった"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
 
@@ -111,6 +109,5 @@ export const getWorkEpisodesRoute = createRoute({
     404: jsonError("作品が見つからない"),
     429: codedJsonError("Annict のレート制限（混雑）"),
     502: codedJsonError("Annict の障害"),
-    503: codedJsonError("共用トークンが使えない（本人の Annict 連携が必要）"),
   },
 });
