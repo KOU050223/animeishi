@@ -546,67 +546,69 @@ const DDL_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS election_votes_candidate_idx ON election_votes (candidate_id)`,
 ];
 
+// テスト間でデータをリセットするための削除（外部キー制約のある順番）。
+const RESET_STATEMENTS = [
+  "DELETE FROM deleted_users",
+  "DELETE FROM social_links",
+  "DELETE FROM analyses",
+  "DELETE FROM recommendations",
+  "DELETE FROM reports",
+  "DELETE FROM blocks",
+  "DELETE FROM annict_tokens",
+  "DELETE FROM danime_episode_import_items",
+  "DELETE FROM danime_episode_import_works",
+  "DELETE FROM danime_episode_import_jobs",
+  "DELETE FROM tier_list_likes",
+  "DELETE FROM user_likes",
+  "DELETE FROM character_tier_list_items",
+  "DELETE FROM character_tier_lists",
+  "DELETE FROM work_list_items",
+  "DELETE FROM work_list_likes",
+  "DELETE FROM work_lists",
+  "DELETE FROM custom_tier_list_items",
+  "DELETE FROM custom_tier_lists",
+  "DELETE FROM tier_list_items",
+  "DELETE FROM tier_lists",
+  "DELETE FROM activities",
+  "DELETE FROM user_genres",
+  "DELETE FROM friend_requests",
+  "DELETE FROM friend_notes",
+  "DELETE FROM exchange_records",
+  "DELETE FROM friend_thanks",
+  "DELETE FROM friends",
+  "DELETE FROM favorites",
+  "DELETE FROM work_ratings",
+  "DELETE FROM watch_history",
+  "DELETE FROM episode_records",
+  "DELETE FROM deletion_feedbacks",
+  "DELETE FROM feedbacks",
+  "DELETE FROM election_votes",
+  "DELETE FROM election_candidates",
+  "DELETE FROM elections",
+  "DELETE FROM event_participations",
+  "DELETE FROM events",
+  "DELETE FROM articles",
+  "DELETE FROM users",
+  "DELETE FROM annict_work_casts",
+  "DELETE FROM annict_characters",
+  "DELETE FROM annict_works",
+  // AUTOINCREMENTカウンターをリセット
+  "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'exchange_records', 'friend_thanks', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes', 'danime_episode_import_works', 'danime_episode_import_items')",
+];
+
 /**
  * テスト用DBのセットアップ。
  * Miniflare の D1 インスタンスを受け取り、DDL を直接実行してスキーマを作成する。
  * @cloudflare/vitest-pool-workers 環境ではファイルシステムが制限されるため、
- * drizzle migrator の代わりに D1.prepare().run() で各DDLを適用する。
+ * drizzle migrator の代わりに D1.prepare() で各DDLを適用する。
+ *
+ * ステートメントを 1 つずつ await すると workerd ↔ Miniflare 間の往復が
+ * その本数だけ発生し、高負荷時には beforeEach の hookTimeout（既定 10 秒）を
+ * 超えて落ちることがあった（issue #812）。batch にまとめて 1 往復で適用する。
  */
 export async function setupTestDb(d1: D1Database) {
-  for (const sql of DDL_STATEMENTS) {
-    await d1.prepare(sql).run();
-  }
-  const db = drizzle(d1, { schema });
-  // テスト間でデータをリセット（外部キー制約のある順番で削除）
-  await d1.prepare("DELETE FROM deleted_users").run();
-  await d1.prepare("DELETE FROM social_links").run();
-  await d1.prepare("DELETE FROM analyses").run();
-  await d1.prepare("DELETE FROM recommendations").run();
-  await d1.prepare("DELETE FROM reports").run();
-  await d1.prepare("DELETE FROM blocks").run();
-  await d1.prepare("DELETE FROM annict_tokens").run();
-  await d1.prepare("DELETE FROM danime_episode_import_items").run();
-  await d1.prepare("DELETE FROM danime_episode_import_works").run();
-  await d1.prepare("DELETE FROM danime_episode_import_jobs").run();
-  await d1.prepare("DELETE FROM tier_list_likes").run();
-  await d1.prepare("DELETE FROM user_likes").run();
-  await d1.prepare("DELETE FROM character_tier_list_items").run();
-  await d1.prepare("DELETE FROM character_tier_lists").run();
-  await d1.prepare("DELETE FROM work_list_items").run();
-  await d1.prepare("DELETE FROM work_list_likes").run();
-  await d1.prepare("DELETE FROM work_lists").run();
-  await d1.prepare("DELETE FROM custom_tier_list_items").run();
-  await d1.prepare("DELETE FROM custom_tier_lists").run();
-  await d1.prepare("DELETE FROM tier_list_items").run();
-  await d1.prepare("DELETE FROM tier_lists").run();
-  await d1.prepare("DELETE FROM activities").run();
-  await d1.prepare("DELETE FROM user_genres").run();
-  await d1.prepare("DELETE FROM friend_requests").run();
-  await d1.prepare("DELETE FROM friend_notes").run();
-  await d1.prepare("DELETE FROM exchange_records").run();
-  await d1.prepare("DELETE FROM friend_thanks").run();
-  await d1.prepare("DELETE FROM friends").run();
-  await d1.prepare("DELETE FROM favorites").run();
-  await d1.prepare("DELETE FROM work_ratings").run();
-  await d1.prepare("DELETE FROM watch_history").run();
-  await d1.prepare("DELETE FROM episode_records").run();
-  await d1.prepare("DELETE FROM deletion_feedbacks").run();
-  await d1.prepare("DELETE FROM feedbacks").run();
-  await d1.prepare("DELETE FROM election_votes").run();
-  await d1.prepare("DELETE FROM election_candidates").run();
-  await d1.prepare("DELETE FROM elections").run();
-  await d1.prepare("DELETE FROM event_participations").run();
-  await d1.prepare("DELETE FROM events").run();
-  await d1.prepare("DELETE FROM articles").run();
-  await d1.prepare("DELETE FROM users").run();
-  await d1.prepare("DELETE FROM annict_work_casts").run();
-  await d1.prepare("DELETE FROM annict_characters").run();
-  await d1.prepare("DELETE FROM annict_works").run();
-  // AUTOINCREMENTカウンターをリセット
-  await d1
-    .prepare(
-      "DELETE FROM sqlite_sequence WHERE name IN ('watch_history', 'episode_records', 'favorites', 'work_ratings', 'friends', 'friend_requests', 'friend_notes', 'exchange_records', 'friend_thanks', 'user_genres', 'tier_lists', 'tier_list_items', 'character_tier_lists', 'character_tier_list_items', 'custom_tier_lists', 'custom_tier_list_items', 'work_lists', 'work_list_items', 'work_list_likes', 'reports', 'blocks', 'activities', 'deletion_feedbacks', 'feedbacks', 'event_participations', 'election_candidates', 'election_votes', 'danime_episode_import_works', 'danime_episode_import_items')",
-    )
-    .run();
-  return db;
+  await d1.batch(
+    [...DDL_STATEMENTS, ...RESET_STATEMENTS].map((sql) => d1.prepare(sql)),
+  );
+  return drizzle(d1, { schema });
 }

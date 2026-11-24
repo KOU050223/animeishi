@@ -9,9 +9,10 @@
 // この環境ではファイル先頭の jest.mock("react-native") が後続の require に
 // 効かない（セットアップファイルが先に react-native を解決するため、
 // 登録時と参照時でモジュール ID が食い違う）。jest.resetModules() してから
-// require した場合だけ差し替わるので、コンポーネントは resetModules のあと
-// require で読み込む。reset すると react / react-dom も別コピーになる
-// ため、renderer と act はコンポーネントと同じコピーを同じく require する。
+// require した場合だけ差し替わるので、コンポーネントは beforeAll で
+// resetModules したあと require で読み込む。reset すると react / react-dom
+// も別コピーになるため、renderer と act はコンポーネントと同じコピーを
+// 同じく require する。
 // （JSX の要素はプレーンなオブジェクトなので React コピー間で共有できる）
 jest.doMock("react-native", () => jest.requireActual("react-native-web"));
 jest.doMock("@expo/vector-icons/Ionicons", () => ({
@@ -31,30 +32,40 @@ jest.doMock("@/lib/theme", () => ({
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
-let container: HTMLDivElement;
-let act: (typeof import("react"))["act"];
-
 // @types/react-dom は devDependency に無いため必要な分だけ自前で定義する
 type ReactRoot = {
   render: (node: import("react").ReactNode) => void;
   unmount: () => void;
 };
 
-const renderPicker = async (onValueChange = jest.fn()) => {
+let container: HTMLDivElement;
+let act: (typeof import("react"))["act"];
+let createRoot: (el: Element | DocumentFragment) => ReactRoot;
+let MenuPicker: typeof import("./MenuPicker.web").MenuPicker;
+const roots: ReactRoot[] = [];
+
+// resetModules 後の require では react / react-dom / react-native-web の
+// モジュール評価がすべてやり直しになる。テストごとに行うと高負荷時に
+// 評価コストが重なってタイムアウトに達したため（issue #812）、ファイル内で
+// 一度だけ読み込む。以降の require は同じコピーを返す。
+beforeAll(() => {
   jest.resetModules();
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- import() は変換されず vm-modules 前提になるため require を使う
   ({ act } = require("react") as typeof import("react"));
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createRoot } = require("react-dom/client") as {
-    createRoot: (el: Element | DocumentFragment) => ReactRoot;
-  };
+  ({ createRoot } = require("react-dom/client") as {
+    createRoot: typeof createRoot;
+  });
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { MenuPicker } =
-    require("./MenuPicker.web") as typeof import("./MenuPicker.web");
+  ({ MenuPicker } =
+    require("./MenuPicker.web") as typeof import("./MenuPicker.web"));
+});
 
+const renderPicker = async (onValueChange = jest.fn()) => {
   container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
+  roots.push(root);
   await act(async () => {
     root.render(
       <MenuPicker
@@ -105,7 +116,14 @@ const fireModalAnimationEnd = () => {
 const optionElement = () =>
   document.querySelector('[data-testid="test-menu-option-2025"]');
 
+// DOM を消すだけだと RNW Modal の focus / keyup リスナーが document に残る。
+// テスト間を独立させるため、先にルートをアンマウントしてリスナーを解除する。
 afterEach(() => {
+  for (const root of roots.splice(0)) {
+    act(() => {
+      root.unmount();
+    });
+  }
   document.body.replaceChildren();
 });
 
