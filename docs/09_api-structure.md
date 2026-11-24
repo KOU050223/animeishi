@@ -28,6 +28,7 @@ apps/api/src/
       index.ts                # ルート定義 + ハンドラ（Hono RPC チェーンをここに置く）
       index.test.ts           # ルートのテスト（vitest・D1 実体）
       schema.ts               # zod スキーマ + createRoute 定義
+      schema.db.ts            # Drizzle テーブル定義（db/schema.ts が再エクスポートする。issue #732）
       service.ts              # 純粋ロジック・外部連携・HTML 生成など（ある機能のみ）
       repository.ts           # DB アクセス層（ある機能のみ）
       repository.test.ts      # リポジトリのテスト
