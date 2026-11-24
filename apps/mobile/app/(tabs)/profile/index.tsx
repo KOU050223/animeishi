@@ -20,6 +20,7 @@ import { Input } from "@/components/ui";
 import { ListLoadingSkeleton } from "@/components/ui/ListLoadingSkeleton";
 import { Button } from "@/components/ui/Button";
 import { GroupedList } from "@/components/ui/grouped-list";
+import type { GroupedListRow } from "@/components/ui/grouped-list";
 import { ProfileMeishiPreview } from "@/components/profile/ProfileMeishiPreview";
 import { ProfileMeishiHint } from "@/components/profile/ProfileMeishiHint";
 import { AnnictConnectionCard } from "@/components/AnnictConnectionCard";
@@ -109,6 +110,38 @@ export default function ProfileScreen() {
     useMeishiLibrary();
   const meishiDoc = meishiDefaultCard?.document ?? null;
   const router = useRouter();
+  const contentRows: GroupedListRow[] = [
+    ...(featureFlags.events
+      ? [
+          {
+            key: "events",
+            label: t("イベント"),
+            onPress: () => router.push("/event"),
+            accessibilityLabel: t("イベント一覧を開く"),
+          },
+        ]
+      : []),
+    ...(featureFlags.elections
+      ? [
+          {
+            key: "elections",
+            label: t("総選挙"),
+            onPress: () => router.push("/election"),
+            accessibilityLabel: t("総選挙一覧を開く"),
+          },
+        ]
+      : []),
+    ...(featureFlags.articles
+      ? [
+          {
+            key: "articles",
+            label: t("特集記事"),
+            onPress: () => router.push("/article"),
+            accessibilityLabel: t("特集記事一覧を開く"),
+          },
+        ]
+      : []),
+  ];
   const {
     addToWallet,
     isPending: isWalletPending,
@@ -553,31 +586,16 @@ export default function ProfileScreen() {
               sections={[
                 // 運営コンテンツの一覧への入口（issue #599）。ホームの
                 // 各レールは公開中のものがあるときだけ出るため、常設の
-                // 導線をここに置く。
-                {
-                  key: "contents",
-                  title: t("イベント・特集"),
-                  rows: [
-                    {
-                      key: "events",
-                      label: t("イベント"),
-                      onPress: () => router.push("/event"),
-                      accessibilityLabel: t("イベント一覧を開く"),
-                    },
-                    {
-                      key: "elections",
-                      label: t("総選挙"),
-                      onPress: () => router.push("/election"),
-                      accessibilityLabel: t("総選挙一覧を開く"),
-                    },
-                    {
-                      key: "articles",
-                      label: t("特集記事"),
-                      onPress: () => router.push("/article"),
-                      accessibilityLabel: t("特集記事一覧を開く"),
-                    },
-                  ],
-                },
+                // 導線をここに置く。フラグで隠した機能の行は出さない（#750）。
+                ...(contentRows.length > 0
+                  ? [
+                      {
+                        key: "contents",
+                        title: t("イベント・特集"),
+                        rows: contentRows,
+                      },
+                    ]
+                  : []),
                 // dアニメ取り込みは v1.0 では Web 版のみ提供（#158）。
                 // ネイティブでフラグが無効な間はセクションごと出さない。
                 ...(featureFlags.danimeImport
