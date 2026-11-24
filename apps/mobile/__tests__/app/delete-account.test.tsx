@@ -12,9 +12,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
-const mockSubmitFeedback = jest.fn(
-  async (_getToken: unknown, _input: unknown) => {},
-);
+const mockSubmitFeedback = jest.fn(async (_input: unknown) => {});
 const mockDeleteAccount = jest.fn();
 const mockAlert = jest.fn();
 const mockAnnictTokenRemove = jest.fn(async () => {});
@@ -54,8 +52,7 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@/lib/useProfile", () => ({
   useDeletionSummary: () => mockSummary,
-  submitDeletionFeedback: (getToken: unknown, input: unknown) =>
-    mockSubmitFeedback(getToken, input),
+  submitDeletionFeedback: (input: unknown) => mockSubmitFeedback(input),
   useDeleteAccount: () => ({
     mutateAsync: mockDeleteAccount,
     isPending: false,
@@ -165,7 +162,7 @@ describe("DeleteAccountScreen", () => {
     await waitFor(() => {
       expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
     });
-    expect(mockSubmitFeedback).toHaveBeenCalledWith(expect.anything(), {
+    expect(mockSubmitFeedback).toHaveBeenCalledWith({
       reasons: expect.arrayContaining([
         "hard_to_use",
         "too_many_notifications",

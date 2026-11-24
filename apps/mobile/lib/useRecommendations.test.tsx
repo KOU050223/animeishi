@@ -18,6 +18,7 @@ import { setMockClerkState } from "../__mocks__/@clerk/expo";
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockWatchHistoryGet = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -32,6 +33,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 // 生成前に連携状態を見て履歴同期を挟む。連携状態はテストごとに差し替える。
@@ -111,11 +113,9 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(RECOMMENDATIONS_BODY);
-    // 保存済みの再表示は AI も Annict も呼ばない（GET には JWT だけ載せる）。
-    expect(mockGet).toHaveBeenCalledWith(
-      {},
-      { headers: { Authorization: "Bearer test-token" } },
-    );
+    // 保存済みの再表示は AI も Annict も呼ばない。認証ヘッダの組み立ては
+    // apiFetch に委譲されたため、呼び出し側は fetch オプションを渡すだけ。
+    expect(mockGet).toHaveBeenCalledWith({}, { fetch: expect.any(Function) });
   });
 
   it("useRecommendations: 未サインインではクエリを実行しない", async () => {
@@ -147,24 +147,27 @@ describe("useRecommendations / useGenerateRecommendations", () => {
       mockPost.mock.invocationCallOrder[0],
     );
     // POST には Annict トークンが要る（searchWorks で照合するため）。
+    // ヘッダの組み立ては apiFetch に委譲（ヘッダ内容は lib/api.test.ts で検証）。
     expect(mockPost).toHaveBeenCalledWith(undefined, {
-      headers: {
-        Authorization: "Bearer test-token",
-        "X-Annict-Token": "annict-token",
-      },
+      fetch: expect.any(Function),
     });
+    // 生成 POST は annict オプトインが必須。オプションそのものを検証する。
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("useGenerateRecommendations: 未連携なら同期せずそのまま生成を試みる", async () => {
     mockIsConnected = false;
-    mockPost.mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({
-        error: "Annict 連携が必要です",
-        code: "annict_token_required",
-      }),
-    });
+    // 実際のエラー変換は apiFetch 側で行われるため、apiClient の
+    // モックは変換後の ApiRequestError を reject する。
+    mockPost.mockRejectedValue(
+      new ApiRequestError(
+        401,
+        "Annict 連携が必要です",
+        "annict_token_required",
+      ),
+    );
 
     const { result } = await renderHook(() => useGenerateRecommendations(), {
       wrapper: createWrapper(client),
@@ -181,15 +184,13 @@ describe("useRecommendations / useGenerateRecommendations", () => {
   });
 
   it("useGenerateRecommendations: 429 はサーバーのエラーメッセージを ApiRequestError に載せる", async () => {
-    mockPost.mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => ({
-        error:
-          "おすすめ生成の実行回数が上限に達しました。しばらくしてから再度お試しください",
-        code: "generation_limit",
-      }),
-    });
+    // {error} の文言を拾う変換は apiFetch の onHttpError 側で行われる。
+    mockPost.mockRejectedValue(
+      new ApiRequestError(
+        429,
+        "おすすめ生成の実行回数が上限に達しました。しばらくしてから再度お試しください",
+      ),
+    );
 
     const { result } = await renderHook(() => useGenerateRecommendations(), {
       wrapper: createWrapper(client),
@@ -202,6 +203,43 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     expect((result.current.error as ApiRequestError).message).toContain(
       "実行回数が上限",
     );
+  });
+
+  it("useGenerateRecommendations: onHttpError は応答 body の error 文言を使う", async () => {
+    mockPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...RECOMMENDATIONS_BODY, cached: false }),
+    });
+
+    const { result } = await renderHook(() => useGenerateRecommendations(), {
+      wrapper: createWrapper(client),
+    });
+    await act(async () => {
+      result.current.mutate();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 生成 POST 用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（モックした mockPost では通らない経路）。
+    const genOptions = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(genOptions).toBeDefined();
+    const error = await genOptions!.onHttpError!(
+      new Response(
+        JSON.stringify({
+          error:
+            "おすすめ生成の実行回数が上限に達しました。しばらくしてから再度お試しください",
+        }),
+        { status: 429 },
+      ),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toContain("実行回数が上限");
   });
 
   it("useGenerateRecommendations: 成功したらおすすめクエリを無効化する", async () => {
@@ -222,7 +260,12 @@ describe("useRecommendations / useGenerateRecommendations", () => {
   });
 
   it("useGenerateRecommendations: 履歴同期に失敗したら生成せずエラーになる", async () => {
-    mockWatchHistoryGet.mockResolvedValue({ ok: false, status: 502 });
+    mockWatchHistoryGet.mockRejectedValue(
+      new ApiRequestError(
+        502,
+        "視聴履歴の同期に失敗しました。時間をおいて再度お試しください",
+      ),
+    );
 
     const { result } = await renderHook(() => useGenerateRecommendations(), {
       wrapper: createWrapper(client),

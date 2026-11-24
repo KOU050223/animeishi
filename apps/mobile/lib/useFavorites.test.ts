@@ -17,6 +17,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 let mockFavoriteMatchCount = 0;
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -57,6 +58,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 jest.mock("@/lib/annict", () => ({ buildAnnictAuthHeader: async () => ({}) }));
 

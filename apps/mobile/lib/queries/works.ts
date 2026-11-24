@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
-import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,

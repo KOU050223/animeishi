@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
 import { PROFILE_QUERY_KEY, useProfile } from "@/lib/useProfile";
 import type { PublicSettingVisibility } from "@/components/profile/PublicSettingsSection";
 
 // プロフィール画面の「公開設定」セクション（issue #604）の現在値と
 // 切り替えの保存。一覧に行を足すときは key ごとの保存先をここに分岐させる。
 export function usePublicSettings() {
-  const { getToken } = useAuth();
   const profile = useProfile();
   const queryClient = useQueryClient();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -26,15 +23,14 @@ export function usePublicSettings() {
       if (key === "profile") {
         // is_public だけを更新する専用エンドポイント。PUT /me/profile は
         // 未送信の項目を消すため、公開範囲の切り替えには使えない。
-        const token = await getToken();
-        if (!token) throw new Error("認証トークンが取得できませんでした");
-        const res = await apiClient.me.profile.visibility.$put(
+        await apiClient.me.profile.visibility.$put(
           { json: { isPublic: visibility === "public" } },
-          { headers: { Authorization: `Bearer ${token}` } },
+          {
+            fetch: apiFetch({
+              errorMessage: "公開設定の更新に失敗しました",
+            }),
+          },
         );
-        if (!res.ok) {
-          throw new ApiRequestError(res.status, "公開設定の更新に失敗しました");
-        }
         await queryClient.invalidateQueries({
           queryKey: PROFILE_QUERY_KEY,
         });

@@ -11,6 +11,7 @@ import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockGet = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -19,6 +20,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 // useAchievements の import 元（barrel）。Annict 認証ヘッダは空でよい

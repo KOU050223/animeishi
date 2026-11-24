@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import * as ImagePicker from "expo-image-picker";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
+import { apiClient, apiFetch } from "@/lib/api";
 import { compressAvatarImage } from "@/lib/imageCompression";
 import { PROFILE_QUERY_KEY } from "@/lib/useProfile";
 
@@ -40,16 +39,13 @@ export async function pickAvatarImage(): Promise<ImagePicker.ImagePickerAsset | 
  * 既に選択済みの asset がある場合は引数で渡せる。
  */
 export function useProfileAvatarUpload() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (asset?: ImagePicker.ImagePickerAsset) => {
       const picked = asset ?? (await pickAvatarImage());
       if (!picked) return null;
-
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
 
       const compressed = await compressAvatarImage(picked.uri, {
         width: picked.width,
@@ -60,20 +56,13 @@ export function useProfileAvatarUpload() {
       const fileRes = await fetch(compressed.uri);
       const blob = await fileRes.blob();
 
-      const res = await fetch(AVATAR_UPLOAD_URL, {
+      const res = await apiFetch({
+        errorMessage: "画像のアップロードに失敗しました",
+      })(AVATAR_UPLOAD_URL, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": compressed.mimeType,
-        },
+        headers: { "Content-Type": compressed.mimeType },
         body: blob,
       });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "画像のアップロードに失敗しました",
-        );
-      }
       return res.json();
     },
     onSuccess: () => {

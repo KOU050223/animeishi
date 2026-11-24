@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuth } from "@clerk/expo";
 import { Stack, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
@@ -275,7 +274,6 @@ function ConfirmStep({
 export default function DeleteAccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { getToken } = useAuth();
   const signOut = useSignOut();
   const [step, setStep] = useState<Step>("reason");
   const [selectedReasons, setSelectedReasons] = useState<Set<ReasonKey>>(
@@ -314,7 +312,7 @@ export default function DeleteAccountScreen() {
     if (reasons.length === 0 && text.length === 0) {
       return;
     }
-    const sent = submitDeletionFeedback(getToken, {
+    const sent = submitDeletionFeedback({
       reasons,
       ...(text.length > 0 ? { freeText: text } : {}),
     }).catch(() => {});

@@ -1,27 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType, InferRequestType } from "hono/client";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
-import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
-import { buildAnnictAuthHeader, useAnnictConnection } from "@/lib/annict";
-import {
-  WORK_DETAIL_QUERY_KEY,
-  workDetailQueryKey,
-  type WorkDetailResponse,
-} from "@/lib/useWorkDetail";
+import type { InferRequestType } from "hono/client";
+import { apiClient, apiFetch } from "@/lib/api";
+import { useAnnictConnection } from "@/lib/annict";
+import { workDetailQueryKey } from "@/lib/useWorkDetail";
 import {
   WATCH_HISTORY_QUERY_KEY,
   WATCH_HISTORY_WRITE_SCOPE,
 } from "@/lib/watchHistoryKey";
 import { WATCH_STATUS_LABELS } from "@/lib/watchStatusLabels";
 import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/queries/achievements";
+import {
+  watchHistoryQueries,
+  type WatchHistoriesResponse,
+} from "@/lib/queries/watchHistories";
 
-type WatchHistoriesResponse = InferResponseType<
-  (typeof apiClient.me)["watch-histories"]["$get"],
-  200
->;
-export type WatchHistoryItem = WatchHistoriesResponse[number];
+export type { WatchHistoryItem } from "@/lib/queries/watchHistories";
 
 type UpsertRequest = InferRequestType<
   (typeof apiClient.me)["watch-histories"][":annictWorkId"]["$put"]
@@ -31,7 +26,7 @@ type UpsertRequest = InferRequestType<
 export { WATCH_HISTORY_QUERY_KEY };
 
 const watchHistoryQueryKey = (userId: string) =>
-  [...WATCH_HISTORY_QUERY_KEY, userId] as const;
+  watchHistoryQueries.key(userId);
 
 // 書き込みスコープは @/lib/watchHistoryKey に集約（useWorkDetail も参照するため）。
 
@@ -47,80 +42,20 @@ export interface UpsertWatchHistoryError extends Error {
 
 export { WATCH_STATUS_LABELS };
 
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
-
 export function useWatchHistory() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   // 本人の視聴履歴は Annict libraryEntries を read-through する（API 側で X-Annict-Token 必須）。
   // 未連携のうちは取得しても 401 になるだけなので、連携済みになるまでクエリを無効化する。
   const { isConnected } = useAnnictConnection();
-  const queryClient = useQueryClient();
 
   return useQuery({
-    queryKey: userId ? watchHistoryQueryKey(userId) : WATCH_HISTORY_QUERY_KEY,
+    ...watchHistoryQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId && isConnected,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      // Annict トークンは native ではヘッダで、Web ではサーバー(D1)側で解決される。
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.me["watch-histories"].$get(
-        {},
-        { headers: { ...headers, ...annictHeader } },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "視聴履歴の取得に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
-      const items = await res.json();
-      // read-through 同期で D1 の履歴（視聴数バッジの判定入力）が
-      // 変わりうるため、実績クエリも無効化する（issue #415）。
-      void queryClient.invalidateQueries({
-        queryKey: ACHIEVEMENTS_QUERY_KEY,
-      });
-      // 同期される D1 の履歴は共通点（視聴済み数・一緒に視聴中）の入力でも
-      // あるため、共通点クエリも無効化する。
-      invalidateCommonPoints(queryClient);
-      // 詳細シートの state は別経路（viewerStatusState 直取り）で
-      // キャッシュされ、同期後の履歴と食い違ったまま staleTime いっぱい
-      // 残りうる。食い違うキャッシュだけ無効化して、画面間で
-      // ステータス表示を揃える（issue #520）。一致するものは触らない
-      // （開いている詳細シートを不要に再取得させないため）。
-      const syncedState = new Map(
-        items.map((item) => [item.annictWorkId, item.state]),
-      );
-      for (const [
-        key,
-        detail,
-      ] of queryClient.getQueriesData<WorkDetailResponse>({
-        queryKey: WORK_DETAIL_QUERY_KEY,
-      })) {
-        // 詳細キーは userId でスコープされている。他人のキーを現在
-        // ユーザーの履歴と突き合わせて無効化すると、そのまま active なら
-        // 現在ユーザーの state が他人のキーへ書き込まれるため絞る。
-        if (!detail || key[2] !== userId) continue;
-        if (
-          (syncedState.get(detail.work.annictWorkId) ?? null) ===
-          detail.work.state
-        )
-          continue;
-        void queryClient.invalidateQueries({ queryKey: key, exact: true });
-      }
-      return items;
-    },
   });
 }
 
 export function useUpsertWatchHistory() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const queryKey = userId
     ? watchHistoryQueryKey(userId)
@@ -138,21 +73,17 @@ export function useUpsertWatchHistory() {
       annictWorkId: number;
       data: UpsertRequest;
     }) => {
-      const headers = await getAuthHeaders(getToken);
       // ステータス更新は API 側で Annict updateStatus を叩くため Annict トークンが要る。
       // native はヘッダで、Web はサーバー(D1)で解決される。
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["watch-histories"][":annictWorkId"].$put(
         { param: { annictWorkId: String(annictWorkId) }, json: data },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "視聴履歴の更新に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "視聴履歴の更新に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       return res.json();
     },
     // ステータス変更は Annict updateStatus を往復するため応答が遅い。
@@ -233,7 +164,7 @@ export function useUpsertWatchHistory() {
 }
 
 export function useDeleteWatchHistory() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const queryKey = userId
     ? watchHistoryQueryKey(userId)
@@ -245,23 +176,19 @@ export function useDeleteWatchHistory() {
     // サーバーの最終状態が操作の意図と逆になる（issue #436）。
     scope: { id: WATCH_HISTORY_WRITE_SCOPE },
     mutationFn: async (annictWorkId: number) => {
-      const headers = await getAuthHeaders(getToken);
       // 解除は API 側で Annict updateStatus(NO_STATE) を叩くため
       // Annict トークンが要る（upsert と同じ解決経路）。
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["watch-histories"][
         ":annictWorkId"
       ].$delete(
         { param: { annictWorkId: String(annictWorkId) } },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "視聴履歴の削除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "視聴履歴の削除に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },

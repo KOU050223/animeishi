@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { useAuth } from "@clerk/expo";
 import * as ImagePicker from "expo-image-picker";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import { compressMeishiImage } from "@/lib/imageCompression";
 
@@ -37,15 +36,10 @@ export async function pickMeishiImage(): Promise<ImagePicker.ImagePickerAsset | 
  * 成功時の戻り値は { url }（要素の uri にそのまま保存する）。
  */
 export function useMeishiAssetUpload() {
-  const { getToken } = useAuth();
-
   // アップロード結果（URL）は名刺ドキュメントの要素に直接書き込むため、
   // 無効化すべきクエリキャッシュは存在しない（サーバー側に一覧 API もない）。
   return useMutation({
     mutationFn: async (asset: ImagePicker.ImagePickerAsset) => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-
       const compressed = await compressMeishiImage(asset.uri, {
         width: asset.width,
         height: asset.height,
@@ -59,24 +53,23 @@ export function useMeishiAssetUpload() {
         throw new Error("画像の読み込みに失敗しました");
       }
 
-      const res = await fetch(MEISHI_ASSET_UPLOAD_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": compressed.mimeType,
+      const res = await apiFetch({
+        // API は { error } を返す（サイズ超過・非対応形式など）。
+        // 拾える場合はその文言を見せる。
+        onHttpError: async (errorRes) => {
+          const errBody = (await errorRes.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          return new ApiRequestError(
+            errorRes.status,
+            errBody?.error ?? "画像のアップロードに失敗しました",
+          );
         },
+      })(MEISHI_ASSET_UPLOAD_URL, {
+        method: "POST",
+        headers: { "Content-Type": compressed.mimeType },
         body: blob,
       });
-      if (!res.ok) {
-        // API は { error } を返す（サイズ超過・非対応形式など）。拾える場合はその文言を見せる。
-        const errBody = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new ApiRequestError(
-          res.status,
-          errBody?.error ?? "画像のアップロードに失敗しました",
-        );
-      }
       return (await res.json()) as { url: string };
     },
   });

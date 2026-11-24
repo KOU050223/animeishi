@@ -1,33 +1,18 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader } from "@/lib/annict";
+import { apiClient, apiFetch } from "@/lib/api";
 import { trackEvent } from "@/lib/events";
 import { TRACK_EVENT_KEYS } from "@animeishi/observability";
 import { hiraganaToKana } from "@/lib/textNormalize";
 import { invalidateCommonPoints } from "@/lib/useCommonPoints";
+import { favoriteQueries, type FavoriteItem } from "@/lib/queries/favorites";
 
-type FavoritesResponse = InferResponseType<
-  (typeof apiClient.me.favorites)["$get"],
-  200
->;
-export type FavoriteItem = FavoritesResponse[number];
+export type { FavoriteItem };
 
-export const FAVORITES_QUERY_KEY = ["favorites"] as const;
+export const FAVORITES_QUERY_KEY = favoriteQueries.all;
 
-const favoritesQueryKey = (userId: string) =>
-  [...FAVORITES_QUERY_KEY, userId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+const favoritesQueryKey = (userId: string) => favoriteQueries.key(userId);
 
 /**
  * お気に入り検索の対象フィールド。title / titleKana / titleEn のいずれかにクエリがマッチすれば true を返す。
@@ -62,19 +47,11 @@ export function nextFavoriteAction(
 }
 
 export function useFavorites() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId ? favoritesQueryKey(userId) : FAVORITES_QUERY_KEY,
+    ...favoriteQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.favorites.$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "推しの取得に失敗しました");
-      }
-      return res.json();
-    },
   });
 }
 
@@ -90,23 +67,23 @@ export function useFavoriteIds(): Set<number> {
 }
 
 export function useAddFavorite() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (annictWorkId: number) => {
-      const headers = await getAuthHeaders(getToken);
       // 検索結果（未キャッシュ作品）からの追加では、API が searchWorks で作品を
       // 解決するため Annict トークンが要る。native は連携済みならヘッダで付与し、
       // Web はサーバー(D1)側で解決される。キャッシュ済み作品ならトークン無しでも追加可。
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me.favorites[":annictWorkId"].$post(
         { param: { annictWorkId: String(annictWorkId) } },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "推しの登録に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "推しの登録に失敗しました");
-      }
       return res.json();
     },
     onSuccess: () => {
@@ -119,19 +96,17 @@ export function useAddFavorite() {
 }
 
 export function useRemoveFavorite() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (annictWorkId: number) => {
-      const headers = await getAuthHeaders(getToken);
+      // 解除は Annict 照合を伴わないため Annict ヘッダは付けない
+      // （移行前のヘッダ構成を維持）。
       const res = await apiClient.me.favorites[":annictWorkId"].$delete(
         { param: { annictWorkId: String(annictWorkId) } },
-        { headers },
+        { fetch: apiFetch({ errorMessage: "推しの解除に失敗しました" }) },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "推しの解除に失敗しました");
-      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },

@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
-import { buildAnnictAuthHeader } from "@/lib/annict";
 import { currentSeason } from "@/components/anime-list/animeListUtils";
+import {
+  ACHIEVEMENTS_QUERY_KEY,
+  achievementQueries,
+} from "@/lib/queries/achievements";
 
-// 実績一覧のクエリキー。話の記録・ステータス更新のミューテーションから
-// 無効化して獲得判定を再計算させるため、キーはここで共有する。
-export const ACHIEVEMENTS_QUERY_KEY = ["achievements"] as const;
+export { ACHIEVEMENTS_QUERY_KEY };
 export const achievementsQueryKey = (userId: string, season: string) =>
-  [...ACHIEVEMENTS_QUERY_KEY, userId, season] as const;
+  achievementQueries.key(userId, season);
 
 // API の currentAnnictSeason と同じ "<year>-<season>"（JST 基準）を返す。
 // クエリキーに含め、シーズン境界を跨いだときに前期の応答が残らない
@@ -26,35 +25,11 @@ export function currentAchievementSeason(now: Date = new Date()): string {
  * available=false で返る）。
  */
 export function useAchievements() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const season = currentAchievementSeason();
 
   return useQuery({
-    queryKey: userId
-      ? achievementsQueryKey(userId, season)
-      : ACHIEVEMENTS_QUERY_KEY,
+    ...achievementQueries.list.query({ userId: userId ?? null, season }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.me.achievements.$get(
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...annictHeader,
-          },
-        },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "実績の取得に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
-      return res.json();
-    },
   });
 }

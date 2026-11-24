@@ -1,18 +1,19 @@
 import { useCallback, useMemo, useRef } from "react";
 import { StyleSheet, View, type ViewInstance } from "react-native";
-import { useAuth } from "@clerk/expo";
 import { MeishiShareSnapshot } from "@/components/meishi/MeishiShareSnapshot";
+import { apiFetch } from "@/lib/api";
 import { apiUrl } from "@/lib/apiUrl";
 import { resolveMeishiDocument } from "../templates";
 import type { MeishiDocument, MeishiRenderContext } from "../types";
 import { capturePublicSnapshot } from "./capture";
 import { enqueueSnapshotOperation } from "./queue";
 
+const SNAPSHOT_URL = `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`;
+
 export function usePublicMeishiSnapshot(
   document: MeishiDocument | null | undefined,
   context: MeishiRenderContext,
 ) {
-  const { getToken } = useAuth();
   const ref = useRef<ViewInstance>(null);
   const readyRef = useRef<(() => void) | null>(null);
   const readyKeyRef = useRef<string | null>(null);
@@ -21,8 +22,6 @@ export function usePublicMeishiSnapshot(
   const publish = useCallback(
     () =>
       enqueueSnapshotOperation(async () => {
-        const token = await getToken();
-        if (!token) throw new Error("Authentication token unavailable");
         if (readyKeyRef.current !== snapshotKey)
           await Promise.race([
             new Promise<void>((resolve) => {
@@ -34,38 +33,28 @@ export function usePublicMeishiSnapshot(
           requestAnimationFrame(() => resolve()),
         );
         const blob = await capturePublicSnapshot(ref);
-        const response = await fetch(
-          `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "image/png",
-            },
-            body: blob,
-          },
-        );
-        if (!response.ok)
-          throw new Error(`Snapshot upload failed: ${response.status}`);
+        // アップロードの失敗は呼び出し側で warn ログに留めるだけなので、
+        // ApiRequestError ではなく plain Error のままにする。
+        await apiFetch({
+          onHttpError: async (res) =>
+            new Error(`Snapshot upload failed: ${res.status}`),
+        })(SNAPSHOT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: blob,
+        });
       }),
-    [getToken, snapshotKey],
+    [snapshotKey],
   );
   const clear = useCallback(
     () =>
       enqueueSnapshotOperation(async () => {
-        const token = await getToken();
-        if (!token) throw new Error("Authentication token unavailable");
-        const response = await fetch(
-          `${apiUrl.replace(/\/$/, "")}/me/meishi-snapshot`,
-          {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!response.ok)
-          throw new Error(`Snapshot delete failed: ${response.status}`);
+        await apiFetch({
+          onHttpError: async (res) =>
+            new Error(`Snapshot delete failed: ${res.status}`),
+        })(SNAPSHOT_URL, { method: "DELETE" });
       }),
-    [getToken],
+    [],
   );
   const snapshotElement = (
     <View style={styles.offscreen}>
