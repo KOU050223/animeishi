@@ -336,7 +336,7 @@ export default function DanimeImportReviewScreen() {
     [currentStates, toggleRow, selectCandidate],
   );
 
-  // v1.0 ではネイティブで無効化（#158）。停止スイッチ（#758）中も含め、
+  // フラグ無効時（#751 の env 切り戻し）・停止スイッチ（#758）中は、
   // 直接遷移されてもホームへ戻す。
   if (!danimeImportEnabled) {
     return <Redirect href="/(tabs)/library?section=history" />;

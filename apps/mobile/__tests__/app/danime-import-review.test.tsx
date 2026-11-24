@@ -1,5 +1,5 @@
 // dアニメインポート レビュー画面のテスト。
-// ネイティブでは featureFlags.danimeImport が無効（#158）のため、
+// featureFlags.danimeImport が無効（env 切り戻し・停止スイッチ）の場合は、
 // 直接遷移されても視聴履歴タブへリダイレクトされることを検証する。
 import React from "react";
 import {
