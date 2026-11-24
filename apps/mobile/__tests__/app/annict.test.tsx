@@ -4,6 +4,7 @@
 import { waitFor } from "@testing-library/react-native";
 import * as Sentry from "@sentry/react-native";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
+import { ApiRequestError } from "@/lib/apiError";
 import {
   exchangeAnnictWebCallback,
   ANNICT_STATE_STORAGE_KEY,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/annict/useAnnictConnect.web";
 
 const mockExchangePost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -19,6 +21,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 function setOrigin(origin: string) {
@@ -59,7 +62,8 @@ describe("exchangeAnnictWebCallback", () => {
     expect(payload.json.code).toBe("auth_code");
     expect(payload.json.mode).toBe("web");
     expect(payload.json.redirectUri).toBe("https://animeishi.uomi.dev/annict");
-    expect(options.headers.Authorization).toBe("Bearer clerk_jwt");
+    // 認証ヘッダの組み立ては apiFetch に委譲したため fetch オプションのみ。
+    expect(options.fetch).toEqual(expect.any(Function));
     // 使い終わった state は消費される。
     expect(window.sessionStorage.getItem(ANNICT_STATE_STORAGE_KEY)).toBeNull();
   });
@@ -98,7 +102,8 @@ describe("exchangeAnnictWebCallback", () => {
 
   it("exchange が失敗したら exchange_failed", async () => {
     window.sessionStorage.setItem(ANNICT_STATE_STORAGE_KEY, STATE);
-    mockExchangePost.mockResolvedValue({ ok: false });
+    // apiFetch は HTTP 失敗を ApiRequestError に変換して投げる。
+    mockExchangePost.mockRejectedValue(new ApiRequestError(500, "boom"));
     const res = await exchangeAnnictWebCallback(CALLBACK, getClerkToken);
     expect(res).toEqual({ status: "error", reason: "exchange_failed" });
   });

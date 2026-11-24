@@ -11,6 +11,7 @@ import {
 } from "@/lib/annict";
 import { exchangeAnnictWebCallback } from "@/lib/annict/useAnnictConnect.web";
 import { refetchWorksAfterAnnictConnect } from "@/lib/annict/afterConnect";
+import { clerkSessionToken } from "@/lib/api";
 
 // 連携完了後に戻す画面。作品検索から連携する導線が主のためアニメ一覧へ戻す。
 const RETURN_PATH = "/(tabs)/library?section=anime";
@@ -30,7 +31,7 @@ type Phase =
 export default function AnnictCallbackScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>({ kind: "processing" });
   // React 18 の StrictMode / 再マウントで exchange を二重実行しないためのガード。
@@ -61,7 +62,7 @@ export default function AnnictCallbackScreen() {
     void (async () => {
       const result = await exchangeAnnictWebCallback(
         window.location.href,
-        getToken,
+        clerkSessionToken,
         // ファネル計測（issue #64）の oauth_result にハッシュ化して使う。
         { getUserId: () => userIdRef.current },
       );
@@ -90,7 +91,7 @@ export default function AnnictCallbackScreen() {
       setPhase({ kind: "success" });
       router.replace(RETURN_PATH);
     })();
-  }, [getToken, queryClient, router]);
+  }, [queryClient, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-white dark:bg-slate-900 px-8">

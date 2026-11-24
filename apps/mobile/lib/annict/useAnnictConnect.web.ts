@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { flushSentry } from "@/lib/observability";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { useAuth } from "@clerk/expo";
 import {
   normalizeAnnictFunnelSurface,
@@ -60,7 +61,7 @@ export function getWebRedirectUri(): string {
  * 成否のみを返す。UI（表示・遷移）は呼び出し側が担う。
  *
  * @param callbackUrl 戻ってきた URL（window.location.href）。
- * @param getClerkToken Clerk JWT を取得する関数。
+ * @param getClerkToken Clerk JWT を取得する関数（clerkSessionToken を渡す）。
  * @param meta.getUserId ファネル計測の user_key 元。コールバック着地直後は
  *   Clerk のセッション復元が未完で userId が未解決なことがあるため、
  *   結果確定時に評価する getter で渡す。
@@ -115,7 +116,9 @@ export async function exchangeAnnictWebCallback(
   }
 
   try {
-    const res = await apiClient.me.annict.exchange.$post(
+    // HTTP 失敗は exchange_failed、例外は unexpected。apiFetch が HTTP
+    // 失敗を ApiRequestError に変換して投げるため型で判別する。
+    await apiClient.me.annict.exchange.$post(
       {
         json: {
           code: parsed.code,
@@ -123,13 +126,18 @@ export async function exchangeAnnictWebCallback(
           mode: "web",
         },
       },
-      { headers: { Authorization: `Bearer ${clerkToken}` } },
+      {
+        fetch: apiFetch({
+          onHttpError: async (errorRes) =>
+            new ApiRequestError(errorRes.status, "annict exchange failed"),
+        }),
+      },
     );
-    if (!res.ok) {
+    return finish({ status: "success" });
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
       return finish({ status: "error", reason: "exchange_failed" });
     }
-    return finish({ status: "success" });
-  } catch {
     return finish({ status: "error", reason: "unexpected" });
   }
 }
@@ -144,7 +152,7 @@ export async function exchangeAnnictWebCallback(
  */
 export function useAnnictConnect(): UseAnnictConnect {
   const queryClient = useQueryClient();
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   // Web の connect はページ遷移で完了するため、ボタン連打防止に軽い state を持つ。
   const [isConnecting, setIsConnecting] = useState(false);
   // isConnecting(state) は非同期更新のため、反映前の連打で state（CSRF 値）が
@@ -152,9 +160,9 @@ export function useAnnictConnect(): UseAnnictConnect {
   const inFlightRef = useRef(false);
   // disconnect は try/finally を含み、react/memo-dependencies が deps を余剰と
   // 誤検知する。初回キャプチャに固定しないよう ref 経由で最新値を読む。
-  const authApiRef = useRef({ getToken, queryClient });
+  const authApiRef = useRef({ queryClient });
   useEffect(() => {
-    authApiRef.current = { getToken, queryClient };
+    authApiRef.current = { queryClient };
   });
 
   const connect = useCallback(
@@ -258,15 +266,27 @@ export function useAnnictConnect(): UseAnnictConnect {
   );
 
   const disconnect = useCallback(async () => {
-    const { getToken: getLatestToken, queryClient: latestQueryClient } =
-      authApiRef.current;
+    const { queryClient: latestQueryClient } = authApiRef.current;
     // Web はサーバー(D1)にトークンを持つため、サーバーの disconnect を叩いて削除する。
     try {
-      const clerkToken = await getLatestToken();
+      // サーバー側の削除の HTTP 失敗は、ローカルのキャッシュ破棄・連携
+      // 状態の再取得を止めない。通信エラー自体は従来どおり呼び出し側へ
+      // 伝播させるため、ApiRequestError だけを飲み込む。
+      const clerkToken = await clerkSessionToken();
       if (clerkToken) {
-        await apiClient.me.annict.disconnect.$post(undefined, {
-          headers: { Authorization: `Bearer ${clerkToken}` },
-        });
+        await apiClient.me.annict.disconnect
+          .$post(undefined, {
+            fetch: apiFetch({
+              onHttpError: async (errorRes) =>
+                new ApiRequestError(
+                  errorRes.status,
+                  "annict disconnect failed",
+                ),
+            }),
+          })
+          .catch((error: unknown) => {
+            if (!(error instanceof ApiRequestError)) throw error;
+          });
       }
     } finally {
       // 視聴履歴キャッシュを破棄し、連携状態を再取得させる。

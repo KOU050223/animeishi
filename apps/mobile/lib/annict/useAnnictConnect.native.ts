@@ -4,7 +4,8 @@ import * as Linking from "expo-linking";
 import * as Crypto from "expo-crypto";
 import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { annictTokenStorage } from "./storage";
 import { buildAuthorizeUrl, parseAuthCallback } from "./oauth";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
@@ -54,7 +55,7 @@ function getRedirectUri(): string {
  * トークンはサーバーに保存されず、端末の SecureStore のみが保持点。
  */
 export function useAnnictConnect() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
   // isConnecting(state) は非同期更新のため、ボタンの disabled だけでは反映前の連打で
@@ -113,16 +114,32 @@ export function useAnnictConnect() {
           return finish({ status: "error", reason: parsed.error });
         }
 
-        const clerkToken = await getToken();
+        const clerkToken = await clerkSessionToken();
         if (!clerkToken) {
           return finish({ status: "error", reason: "unauthorized" });
         }
 
-        const res = await apiClient.me.annict.exchange.$post(
-          { json: { code: parsed.code, redirectUri, mode: "native" } },
-          { headers: { Authorization: `Bearer ${clerkToken}` } },
-        );
-        if (!res.ok) {
+        // HTTP 失敗は exchange_failed、例外は外側の catch で unexpected。
+        const res = await apiClient.me.annict.exchange
+          .$post(
+            { json: { code: parsed.code, redirectUri, mode: "native" } },
+            {
+              fetch: apiFetch({
+                onHttpError: async (errorRes) =>
+                  new ApiRequestError(
+                    errorRes.status,
+                    "annict exchange failed",
+                  ),
+              }),
+            },
+          )
+          .catch((error: unknown) => {
+            if (error instanceof ApiRequestError) {
+              return null;
+            }
+            throw error;
+          });
+        if (!res) {
           return finish({ status: "error", reason: "exchange_failed" });
         }
 
@@ -159,7 +176,7 @@ export function useAnnictConnect() {
         setIsConnecting(false);
       }
     },
-    [getToken, queryClient, userId],
+    [queryClient, userId],
   );
 
   const disconnect = useCallback(async () => {

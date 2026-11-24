@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 import { FRIENDS_QUERY_KEY, FRIEND_REQUESTS_QUERY_KEY } from "@/lib/useFriends";
 import { COMMON_POINTS_QUERY_KEY } from "@/lib/useCommonPoints";
 import { EVENT_PARTICIPANTS_QUERY_KEY } from "@/lib/useEvents";
@@ -11,13 +11,11 @@ import { PUBLIC_TIER_LISTS_KEY } from "@/lib/tierList/usePublicTierLists";
 import { PUBLIC_USERS_KEY } from "@/lib/usePublicUsers";
 import { FRIEND_THANKS_QUERY_KEY } from "@/lib/useFriendThanks";
 
-type BlocksResponse = InferResponseType<
-  (typeof apiClient.me.blocks)["$get"],
-  200
->;
-export type BlockedUserItem = BlocksResponse[number];
+import { blockQueries } from "@/lib/queries/moderation";
 
-export const BLOCKS_QUERY_KEY = ["blocks"] as const;
+export type { BlockedUserItem } from "@/lib/queries/moderation";
+
+export const BLOCKS_QUERY_KEY = blockQueries.all;
 
 export function getReportErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError && error.status === 429) {
@@ -32,16 +30,7 @@ export function getReportErrorMessage(error: unknown) {
   return "通報に失敗しました";
 }
 
-const blocksQueryKey = (userId: string) =>
-  [...BLOCKS_QUERY_KEY, userId] as const;
-
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
+const blocksQueryKey = blockQueries.key;
 
 /** 通報理由のプリセット。理由は API にそのまま文字列として送る。 */
 export const REPORT_REASONS = [
@@ -55,50 +44,50 @@ export const REPORT_REASONS = [
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export function useReportUser() {
-  const { getToken } = useAuth();
-
   return useMutation({
     mutationFn: async (input: { userId: string; reason: string }) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.users[":id"].report.$post(
         { param: { id: input.userId }, json: { reason: input.reason } },
-        { headers },
+        {
+          fetch: apiFetch({
+            onHttpError: async (errorRes) => {
+              // 429（レート制限・重複通報）はサーバーの理由メッセージを
+              // そのまま見せる（同一対象の再通報と回数上限で文言が違うため）。
+              if (errorRes.status === 429) {
+                const body = (await errorRes.json().catch(() => null)) as {
+                  error?: string;
+                  code?: string;
+                } | null;
+                return new ApiRequestError(
+                  errorRes.status,
+                  body?.error ?? "通報の送信回数が上限に達しました",
+                  body?.code,
+                );
+              }
+              return new ApiRequestError(errorRes.status, "通報に失敗しました");
+            },
+          }),
+        },
       );
-      if (!res.ok) {
-        // 429（レート制限・重複通報）はサーバーの理由メッセージをそのまま見せる
-        // （同一対象の再通報と回数上限で文言が違うため）。
-        if (res.status === 429) {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string;
-            code?: string;
-          } | null;
-          throw new ApiRequestError(
-            res.status,
-            body?.error ?? "通報の送信回数が上限に達しました",
-            body?.code,
-          );
-        }
-        throw new ApiRequestError(res.status, "通報に失敗しました");
-      }
       return res.json();
     },
   });
 }
 
 export function useBlockUser() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (targetUserId: string) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.users[":id"].block.$post(
         { param: { id: targetUserId } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "ブロックに失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "ブロックに失敗しました");
-      }
       return res.json();
     },
     onSuccess: (_data, targetUserId) => {
@@ -113,7 +102,7 @@ export function useBlockUser() {
         queryKey: FRIEND_REQUESTS_QUERY_KEY,
       });
       void queryClient.invalidateQueries({
-        queryKey: ["public-profile", targetUserId],
+        queryKey: [...PUBLIC_PROFILE_QUERY_KEY, targetUserId],
       });
       // ブロックで相手の公開作品リストも見えなくなる（issue #422）。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
@@ -134,19 +123,19 @@ export function useBlockUser() {
 }
 
 export function useUnblockUser() {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (targetUserId: string) => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.users[":id"].block.$delete(
         { param: { id: targetUserId } },
-        { headers },
+        {
+          fetch: apiFetch({
+            errorMessage: "ブロック解除に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(res.status, "ブロック解除に失敗しました");
-      }
       return res.json();
     },
     onSuccess: (_data, targetUserId) => {
@@ -155,7 +144,7 @@ export function useUnblockUser() {
       });
       void queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY });
       void queryClient.invalidateQueries({
-        queryKey: ["public-profile", targetUserId],
+        queryKey: [...PUBLIC_PROFILE_QUERY_KEY, targetUserId],
       });
       // ブロック解除で相手の公開作品リストが見えるようになる。
       void queryClient.invalidateQueries({ queryKey: PUBLIC_WORK_LISTS_KEY });
@@ -169,21 +158,10 @@ export function useUnblockUser() {
 }
 
 export function useBlockedUsers() {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey: userId ? blocksQueryKey(userId) : BLOCKS_QUERY_KEY,
+    ...blockQueries.list.query({ userId: userId ?? null }),
     enabled: !!isSignedIn && !!userId,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me.blocks.$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "ブロック一覧の取得に失敗しました",
-        );
-      }
-      return res.json();
-    },
   });
 }

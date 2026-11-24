@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/expo";
+import { clerkSessionToken } from "@/lib/api";
 import type { ImageSource } from "expo-image";
 import type { UseAuthenticatedImageSource } from "./types";
 
@@ -12,7 +12,6 @@ import type { UseAuthenticatedImageSource } from "./types";
 export const useAuthenticatedImageSource: UseAuthenticatedImageSource = (
   uri,
 ) => {
-  const { getToken } = useAuth();
   const [source, setSource] = useState<ImageSource | null>(null);
   const [prevUri, setPrevUri] = useState(uri);
   if (prevUri !== uri) {
@@ -25,7 +24,7 @@ export const useAuthenticatedImageSource: UseAuthenticatedImageSource = (
     let cancelled = false;
     let objectUrl: string | null = null;
     void (async () => {
-      const token = await getToken();
+      const token = await clerkSessionToken();
       if (!token || cancelled) return;
       const res = await fetch(uri, {
         headers: { Authorization: `Bearer ${token}` },
@@ -38,7 +37,7 @@ export const useAuthenticatedImageSource: UseAuthenticatedImageSource = (
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [uri, getToken]);
+  }, [uri]);
 
   return source;
 };

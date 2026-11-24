@@ -16,6 +16,10 @@ jest.mock("@/lib/apiUrl", () => ({
   apiUrl: "http://localhost:8787",
 }));
 
+jest.mock("@/lib/api", () => ({
+  clerkSessionToken: jest.fn().mockResolvedValue("test-token"),
+}));
+
 const originalFetch = global.fetch;
 
 afterEach(async () => {
