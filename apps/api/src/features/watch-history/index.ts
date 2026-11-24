@@ -1,13 +1,20 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import { watchHistoryRepository } from "./repository";
 import { feedRepository } from "../feed/repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
-import { watchHistoryBulkSchema, watchHistoryUpsertSchema } from "./schema";
+import {
+  bulkWatchHistoryRoute,
+  deleteWatchHistoryRoute,
+  getWatchHistoryShareRoute,
+  listWatchHistoryRoute,
+  shareWatchHistoryRoute,
+  unshareWatchHistoryRoute,
+  upsertWatchHistoryRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する。
 // モバイルの tsconfig は AppType 推論のため API ソースを読み込むが、その paths
 // （@/* → apps/mobile/* を優先）が API 側の `@/lib/annict`(index) を
@@ -22,7 +29,6 @@ import {
 } from "@/lib/annict/client";
 import { isPersistableState } from "@/lib/annict/statusState";
 import { workImageUrl } from "@/lib/catalog/workImage";
-import { requireAnnictToken } from "@/lib/annict/middleware";
 import { withAnnictRetry } from "@/lib/annict/retry";
 import { decideDanimeImport, mapWithConcurrency } from "@animeishi/danime-core";
 import { reportApiFailure } from "../../observability";
@@ -85,11 +91,12 @@ async function resolveWorkNodeId(
 // （未着手分を aborted として返す分岐）が発動し得なくなるため。
 const BULK_ENTRY_CONCURRENCY = 2;
 
-const watchHistory = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const watchHistory = app
   // 本人の視聴履歴は Annict の libraryEntries を正として read-through する。
   // X-Annict-Token が無ければ取得できないため requireAnnictToken を GET だけに掛ける。
-  .get("/", requireAnnictToken, async (c) => {
+  .openapi(listWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
 
@@ -157,62 +164,57 @@ const watchHistory = new Hono<AuthVariables>()
   })
   // 視聴ステータス更新は「Annict updateStatus を正」とし、成功後に D1 キャッシュを
   // 追従させる。Annict が正なので、Annict 側更新が失敗したらキャッシュは触らない。
-  .put(
-    "/:annictWorkId",
-    requireAnnictToken,
-    zValidator("json", watchHistoryUpsertSchema),
-    async (c) => {
-      const annictWorkId = Number(c.req.param("annictWorkId"));
-      if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
-        return c.json({ error: "Invalid annictWorkId" }, 400);
-      }
+  .openapi(upsertWatchHistoryRoute, async (c) => {
+    const annictWorkId = Number(c.req.valid("param").annictWorkId);
+    if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
+      return c.json({ error: "Invalid annictWorkId" }, 400);
+    }
 
-      const data = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
-      const repo = watchHistoryRepository(db, c.var.clerkUserId);
-      const worksRepo = worksRepository(db);
-      const token = c.var.annictToken;
+    const data = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const worksRepo = worksRepository(db);
+    const token = c.var.annictToken;
 
-      const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
-      if (!resolved) {
-        return c.json({ error: "Work not found" }, 404);
-      }
-      const { nodeId, resolvedWork } = resolved;
-      let work = resolved.work;
+    const resolved = await resolveWorkNodeId(worksRepo, token, annictWorkId);
+    if (!resolved) {
+      return c.json({ error: "Work not found" }, 404);
+    }
+    const { nodeId, resolvedWork } = resolved;
+    let work = resolved.work;
 
-      await updateAnnictStatus(token, nodeId, data.state);
+    await updateAnnictStatus(token, nodeId, data.state);
 
-      // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
-      // （watch_history の FK 先 annict_works を満たす）。
-      if (resolvedWork) {
-        await worksRepo.upsertAnnictWork(resolvedWork);
-        work = await worksRepo.getAnnictWorkById(annictWorkId);
-      }
+    // Annict 更新が成功した後にだけ、解決した作品メタをキャッシュへ反映する
+    // （watch_history の FK 先 annict_works を満たす）。
+    if (resolvedWork) {
+      await worksRepo.upsertAnnictWork(resolvedWork);
+      work = await worksRepo.getAnnictWorkById(annictWorkId);
+    }
 
-      // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で
-      // 404 にしているため、ここでは必ずキャッシュに存在する前提で履歴を upsert する。
-      if (!work) {
-        return c.json({ error: "Work not found" }, 404);
-      }
+    // 作品メタがまだ無い（read-through 前で searchWorks も空振り）ことは上で
+    // 404 にしているため、ここでは必ずキャッシュに存在する前提で履歴を upsert する。
+    if (!work) {
+      return c.json({ error: "Work not found" }, 404);
+    }
 
-      const { entry, changed } = await repo.upsertWatchHistory(annictWorkId, {
-        state: data.state,
+    const { entry, changed } = await repo.upsertWatchHistory(annictWorkId, {
+      state: data.state,
+    });
+
+    // ステータスが変わった（または新規登録）ときだけ活動フィードに記録する。
+    // bulk 登録や GET の read-through 同期は「取り込み」であり活動ではないため、
+    // ユーザーが明示的に状態を変えたこの経路だけを記録対象にする。
+    if (changed) {
+      await feedRepository(db, c.var.clerkUserId).recordActivity({
+        type: "watch_status",
+        annictWorkId,
+        meta: { state: data.state },
       });
+    }
 
-      // ステータスが変わった（または新規登録）ときだけ活動フィードに記録する。
-      // bulk 登録や GET の read-through 同期は「取り込み」であり活動ではないため、
-      // ユーザーが明示的に状態を変えたこの経路だけを記録対象にする。
-      if (changed) {
-        await feedRepository(db, c.var.clerkUserId).recordActivity({
-          type: "watch_status",
-          annictWorkId,
-          meta: { state: data.state },
-        });
-      }
-
-      return c.json(entry, 200);
-    },
-  )
+    return c.json(entry, 200);
+  })
   // dアニメインポート等の一括登録。各作品ごとに PUT と同じ不変条件
   // （Annict updateStatus が正・成功後にのみ D1 を追従）を守りつつ、
   // 1 リクエストで複数作品を同時実行数制限付きで並列処理する。
@@ -220,218 +222,209 @@ const watchHistory = new Hono<AuthVariables>()
   // 200 のまま（部分成功を捨てないため）で、認証切れ（Annict 401）は以降の
   // 作品を全滅させるだけなので検出した時点で未着手分を打ち切る
   // （処理中の分は実結果を返す）。
-  .post(
-    "/bulk",
-    requireAnnictToken,
-    zValidator("json", watchHistoryBulkSchema),
-    async (c) => {
-      const { entries } = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
-      const repo = watchHistoryRepository(db, c.var.clerkUserId);
-      const worksRepo = worksRepository(db);
-      const token = c.var.annictToken;
-      const now = new Date();
-      const startedAt = Date.now();
+  .openapi(bulkWatchHistoryRoute, async (c) => {
+    const { entries } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const repo = watchHistoryRepository(db, c.var.clerkUserId);
+    const worksRepo = worksRepository(db);
+    const token = c.var.annictToken;
+    const now = new Date();
+    const startedAt = Date.now();
 
-      type BulkResult =
-        | { annictWorkId: number; ok: true }
-        | { annictWorkId: number; ok: false; error: string };
+    type BulkResult =
+      | { annictWorkId: number; ok: true }
+      | { annictWorkId: number; ok: false; error: string };
 
-      // 同一作品が異なる状態で並列処理されると Annict への反映順と D1 への
-      // 保存順が入れ替わり最終状態が食い違うため、並列化の前に作品ごと
-      // 最後の状態だけを残す（逐次実行時代の「後勝ち」と同じ結果になる）。
-      const deduped = new Map<number, (typeof entries)[number]>();
-      for (const e of entries) deduped.set(e.annictWorkId, e);
+    // 同一作品が異なる状態で並列処理されると Annict への反映順と D1 への
+    // 保存順が入れ替わり最終状態が食い違うため、並列化の前に作品ごと
+    // 最後の状態だけを残す（逐次実行時代の「後勝ち」と同じ結果になる）。
+    const deduped = new Map<number, (typeof entries)[number]>();
+    for (const e of entries) deduped.set(e.annictWorkId, e);
 
-      let aborted = false;
-      let retries = 0;
-      const retried = { onRetry: () => retries++ };
+    let aborted = false;
+    let retries = 0;
+    const retried = { onRetry: () => retries++ };
 
-      // 取り込みは既存の「視聴済・一時停止・断念」を上書きしない（issue #374）。
-      // クライアントのレビュー画面も同じ判定で既定除外するが、レビュー後に
-      // Annict 上で状態が変わった作品や画面を通さない呼び出しが降格を
-      // 起こさないよう、サーバー側でも Annict の現在ステータスと
-      // 突き合わせて最終的に弾く。取得自体が失敗した場合は登録可否を
-      // 判定できないため、リクエスト全体を失敗させる（onError で 401/502）。
-      const currentStates = await fetchAnnictViewerStatusStates(
-        token,
-        [...deduped.keys()],
-        undefined,
-        retried,
-      );
+    // 取り込みは既存の「視聴済・一時停止・断念」を上書きしない（issue #374）。
+    // クライアントのレビュー画面も同じ判定で既定除外するが、レビュー後に
+    // Annict 上で状態が変わった作品や画面を通さない呼び出しが降格を
+    // 起こさないよう、サーバー側でも Annict の現在ステータスと
+    // 突き合わせて最終的に弾く。取得自体が失敗した場合は登録可否を
+    // 判定できないため、リクエスト全体を失敗させる（onError で 401/502）。
+    const currentStates = await fetchAnnictViewerStatusStates(
+      token,
+      [...deduped.keys()],
+      undefined,
+      retried,
+    );
 
-      const workResults = await mapWithConcurrency(
-        [...deduped.values()],
-        BULK_ENTRY_CONCURRENCY,
-        async (entry): Promise<BulkResult> => {
-          if (aborted) {
+    const workResults = await mapWithConcurrency(
+      [...deduped.values()],
+      BULK_ENTRY_CONCURRENCY,
+      async (entry): Promise<BulkResult> => {
+        if (aborted) {
+          return {
+            annictWorkId: entry.annictWorkId,
+            ok: false,
+            error: "aborted",
+          };
+        }
+
+        try {
+          const action = decideDanimeImport(
+            entry.state,
+            currentStates.get(entry.annictWorkId) ?? null,
+          );
+          if (action === "protected_state") {
             return {
               annictWorkId: entry.annictWorkId,
               ok: false,
-              error: "aborted",
+              error: "state_protected",
             };
           }
+          // 既に同じステータスなら Annict への書き込み自体が不要
+          // （D1 は read-through で追従する）。
+          if (action === "same_state") {
+            return { annictWorkId: entry.annictWorkId, ok: true };
+          }
 
-          try {
-            const action = decideDanimeImport(
-              entry.state,
-              currentStates.get(entry.annictWorkId) ?? null,
-            );
-            if (action === "protected_state") {
-              return {
-                annictWorkId: entry.annictWorkId,
-                ok: false,
-                error: "state_protected",
-              };
-            }
-            // 既に同じステータスなら Annict への書き込み自体が不要
-            // （D1 は read-through で追従する）。
-            if (action === "same_state") {
-              return { annictWorkId: entry.annictWorkId, ok: true };
-            }
-
-            // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
-            // 使い、無ければ searchWorks で Annict の正データを取る
-            // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
-            let nodeId: string | null = null;
-            let resolvedWork: NewAnnictWork | null = null;
-            const cached = await worksRepo.getAnnictWorkById(
-              entry.annictWorkId,
-            );
-            nodeId = cached?.nodeId ?? null;
-            if (!nodeId) {
-              const resolved = await withAnnictRetry(
-                () => fetchAnnictWorkByAnnictId(token, entry.annictWorkId),
-                retried,
-              );
-              if (!resolved) {
-                return {
-                  annictWorkId: entry.annictWorkId,
-                  ok: false,
-                  error: "work_not_found",
-                };
-              }
-              nodeId = resolved.nodeId;
-              resolvedWork = {
-                annictWorkId: resolved.annictWorkId,
-                nodeId: resolved.nodeId,
-                malAnimeId: resolved.malAnimeId,
-                title: resolved.title,
-                titleKana: resolved.titleKana,
-                titleEn: resolved.titleEn,
-                seasonName: resolved.seasonName,
-                seasonYear: resolved.seasonYear,
-                imageUrl: resolved.imageUrl,
-                watchersCount: resolved.watchersCount ?? null,
-                updatedAt: now,
-              };
-            }
-
-            // updateStatus は冪等（同じ state の再適用は無害）なので
-            // 429 / 一時障害をリトライしてよい。
-            await withAnnictRetry(
-              () => updateAnnictStatus(token, nodeId, entry.state),
+          // nodeId と作品メタはサーバー側で解決する。キャッシュにあればそれを
+          // 使い、無ければ searchWorks で Annict の正データを取る
+          // （クライアント提供値を信頼すると共有キャッシュを汚染できるため）。
+          let nodeId: string | null = null;
+          let resolvedWork: NewAnnictWork | null = null;
+          const cached = await worksRepo.getAnnictWorkById(entry.annictWorkId);
+          nodeId = cached?.nodeId ?? null;
+          if (!nodeId) {
+            const resolved = await withAnnictRetry(
+              () => fetchAnnictWorkByAnnictId(token, entry.annictWorkId),
               retried,
             );
-
-            // Annict 更新が成功した後にのみキャッシュを追従させる。
-            // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
-            // 確定しているため、新規解決時だけ upsert すればよい。
-            if (resolvedWork) {
-              await worksRepo.upsertAnnictWork(resolvedWork);
-            }
-            await repo.upsertWatchHistory(entry.annictWorkId, {
-              state: entry.state,
-            });
-            return { annictWorkId: entry.annictWorkId, ok: true };
-          } catch (err) {
-            if (err instanceof AnnictApiError) {
-              // トークン失効は以降の全件が同じく失敗するため未着手分を打ち切る。
-              // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
-              if (err.status === 401) aborted = true;
-              // 部分成功で握りつぶす経路は onError を通らないため、
-              // 401 以外の障害はここで明示的に capture・通知する
-              // （単独のリクエストなら 502 になる上流障害として扱う）。
-              else reportApiFailure(err, c, 502);
+            if (!resolved) {
               return {
                 annictWorkId: entry.annictWorkId,
                 ok: false,
-                error:
-                  err.status === 401
-                    ? "annict_token_invalid"
-                    : "annict_upstream",
+                error: "work_not_found",
               };
             }
-            // 想定外の失敗（D1 書き込み等）も per-item の失敗として返す。
-            // 投げ直すと Promise.all が即 reject して、応答後も他ワーカーの
-            // Annict 更新と履歴保存が続き、クライアントの表示と実態が
-            // 食い違うため。握りつぶす経路は onError を通らないので
-            // Sentry・Discord にはここで明示的に送る。
-            reportApiFailure(err, c, 500);
-            console.error(
-              JSON.stringify({
-                level: "error",
-                event: "watch_history_bulk_entry",
-                annictWorkId: entry.annictWorkId,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            );
+            nodeId = resolved.nodeId;
+            resolvedWork = {
+              annictWorkId: resolved.annictWorkId,
+              nodeId: resolved.nodeId,
+              malAnimeId: resolved.malAnimeId,
+              title: resolved.title,
+              titleKana: resolved.titleKana,
+              titleEn: resolved.titleEn,
+              seasonName: resolved.seasonName,
+              seasonYear: resolved.seasonYear,
+              imageUrl: resolved.imageUrl,
+              watchersCount: resolved.watchersCount ?? null,
+              updatedAt: now,
+            };
+          }
+
+          // updateStatus は冪等（同じ state の再適用は無害）なので
+          // 429 / 一時障害をリトライしてよい。
+          await withAnnictRetry(
+            () => updateAnnictStatus(token, nodeId, entry.state),
+            retried,
+          );
+
+          // Annict 更新が成功した後にのみキャッシュを追従させる。
+          // キャッシュ済み作品は annict_works 行が既にありメタも Annict 由来で
+          // 確定しているため、新規解決時だけ upsert すればよい。
+          if (resolvedWork) {
+            await worksRepo.upsertAnnictWork(resolvedWork);
+          }
+          await repo.upsertWatchHistory(entry.annictWorkId, {
+            state: entry.state,
+          });
+          return { annictWorkId: entry.annictWorkId, ok: true };
+        } catch (err) {
+          if (err instanceof AnnictApiError) {
+            // トークン失効は以降の全件が同じく失敗するため未着手分を打ち切る。
+            // 上流障害（5xx 等）は該当作品だけ失敗として続行する。
+            if (err.status === 401) aborted = true;
+            // 部分成功で握りつぶす経路は onError を通らないため、
+            // 401 以外の障害はここで明示的に capture・通知する
+            // （単独のリクエストなら 502 になる上流障害として扱う）。
+            else reportApiFailure(err, c, 502);
             return {
               annictWorkId: entry.annictWorkId,
               ok: false,
-              error: "internal_error",
+              error:
+                err.status === 401 ? "annict_token_invalid" : "annict_upstream",
             };
           }
-        },
-      );
-
-      // 結果は入力エントリ（重複込み）と件数を揃えて返す。クライアントは
-      // 送ったエントリ数と結果数で進捗・残件を計算するため、集約で潰した
-      // 重複分は同じ作品の結果をそのまま返す。
-      const byWorkId = new Map(workResults.map((r) => [r.annictWorkId, r]));
-      const results = entries.map(
-        (e) =>
-          byWorkId.get(e.annictWorkId) ?? {
-            annictWorkId: e.annictWorkId,
-            ok: false as const,
+          // 想定外の失敗（D1 書き込み等）も per-item の失敗として返す。
+          // 投げ直すと Promise.all が即 reject して、応答後も他ワーカーの
+          // Annict 更新と履歴保存が続き、クライアントの表示と実態が
+          // 食い違うため。握りつぶす経路は onError を通らないので
+          // Sentry・Discord にはここで明示的に送る。
+          reportApiFailure(err, c, 500);
+          console.error(
+            JSON.stringify({
+              level: "error",
+              event: "watch_history_bulk_entry",
+              annictWorkId: entry.annictWorkId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+          return {
+            annictWorkId: entry.annictWorkId,
+            ok: false,
             error: "internal_error",
-          },
-      );
+          };
+        }
+      },
+    );
 
-      const elapsedMs = Date.now() - startedAt;
-      console.log(
-        JSON.stringify({
-          level: "info",
-          event: "watch_history_bulk",
-          entries: entries.length,
-          uniqueWorks: deduped.size,
-          succeeded: workResults.filter((r) => r.ok).length,
-          aborted,
-          retries,
-          elapsedMs,
-        }),
-      );
-      return c.json({ results, aborted, elapsedMs }, 200);
-    },
-  )
+    // 結果は入力エントリ（重複込み）と件数を揃えて返す。クライアントは
+    // 送ったエントリ数と結果数で進捗・残件を計算するため、集約で潰した
+    // 重複分は同じ作品の結果をそのまま返す。
+    const byWorkId = new Map(workResults.map((r) => [r.annictWorkId, r]));
+    const results = entries.map(
+      (e) =>
+        byWorkId.get(e.annictWorkId) ?? {
+          annictWorkId: e.annictWorkId,
+          ok: false as const,
+          error: "internal_error",
+        },
+    );
+
+    const elapsedMs = Date.now() - startedAt;
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "watch_history_bulk",
+        entries: entries.length,
+        uniqueWorks: deduped.size,
+        succeeded: workResults.filter((r) => r.ok).length,
+        aborted,
+        retries,
+        elapsedMs,
+      }),
+    );
+    return c.json({ results, aborted, elapsedMs }, 200);
+  })
   // 視聴履歴全体の共有トークン（/share/watch-history/:token）の発行・確認・
   // 解除（issue #236）。tier 表と同じくトークンは冪等で、再発行しても
   // 変わらない。トークン自体は Annict と無関係のため requireAnnictToken は
   // 掛けない。static な /share を /:annictWorkId より先に登録する。
-  .get("/share", async (c) => {
+  .openapi(getWatchHistoryShareRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const shareToken = await repo.getMyWatchHistoryShareToken();
     return c.json({ shareToken }, 200);
   })
-  .post("/share", async (c) => {
+  .openapi(shareWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const shareToken = await repo.shareMyWatchHistory();
     if (!shareToken) return c.json({ error: "User not found" }, 404);
     return c.json({ shareToken }, 200);
   })
-  .delete("/share", async (c) => {
+  .openapi(unshareWatchHistoryRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = watchHistoryRepository(db, c.var.clerkUserId);
     const found = await repo.unshareMyWatchHistory();
@@ -442,8 +435,8 @@ const watchHistory = new Hono<AuthVariables>()
   // ステータスが残ると、次回の read-through 同期で履歴行が復活してしまう
   // ため、Annict に NO_STATE を送ってから D1 の行を削除する（issue #436）。
   // PUT と同じく「Annict 更新が正・成功後にのみ D1 を追従」の不変条件を守る。
-  .delete("/:annictWorkId", requireAnnictToken, async (c) => {
-    const annictWorkId = Number(c.req.param("annictWorkId"));
+  .openapi(deleteWatchHistoryRoute, async (c) => {
+    const annictWorkId = Number(c.req.valid("param").annictWorkId);
     if (!Number.isSafeInteger(annictWorkId) || annictWorkId <= 0) {
       return c.json({ error: "Invalid annictWorkId" }, 400);
     }

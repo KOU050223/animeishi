@@ -11,6 +11,10 @@ export type WatchHistoriesResponse = InferResponseType<
   200
 >;
 export type WatchHistoryItem = WatchHistoriesResponse[number];
+type WatchHistoryShareResponse = InferResponseType<
+  (typeof apiClient.me)["watch-histories"]["share"]["$get"],
+  200
+>;
 
 // 視聴履歴ドメイン（/me/watch-histories*）のクエリファクトリ（issue #726）。
 // キー値は移行前と同一。all / key は無効化・楽観更新用、query は
@@ -43,7 +47,7 @@ export const watchHistoryQueries = {
               }),
             },
           );
-          const items = await res.json();
+          const items = (await res.json()) as WatchHistoriesResponse;
           // read-through 同期で D1 の履歴（視聴数バッジの判定入力）が
           // 変わりうるため、実績クエリも無効化する（issue #415）。
           void client.invalidateQueries({
@@ -108,7 +112,7 @@ export const watchHistoryQueries = {
                 }),
               },
             );
-            return res.json();
+            return res.json() as Promise<WatchHistoryShareResponse>;
           },
         }),
     },

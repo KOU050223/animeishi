@@ -15,7 +15,7 @@ import { users } from "@/features/users/schema.db";
 // 実行する。進捗はこの表に逐次記録し、Workflow の再実行・画面ポーリングは
 // ここを参照する。ユーザーは同時に 1 つだけ実行中ジョブを持てる
 // （実行中に新規作成されないよう API 側で拒否する）。
-const DANIME_EPISODE_JOB_STATUSES = [
+export const DANIME_EPISODE_JOB_STATUSES = [
   // Annict 話一覧の取得と対応付け（マッチング）を行っている。
   "matching",
   // 確定した話を Annict に順次書き込んでいる。

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import {
   deleteMeRoute,
+  deleteMeishiSnapshotRoute,
   getBlocksRoute,
   getDeletionSummaryRoute,
   getProfileRoute,
@@ -10,6 +11,7 @@ import {
   updateVisibilityRoute,
   uploadAvatarRoute,
   uploadMeishiAssetRoute,
+  uploadMeishiSnapshotRoute,
 } from "./schema";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
@@ -54,46 +56,46 @@ function getBindings(c: Context): MeBindings {
 
 const app = createOpenApiApp<AuthVariables>();
 app.use("*", requireAuth);
-app.delete("/meishi-snapshot", async (c) => {
-  await getBindings(c).AVATARS.delete(
-    publicMeishiSnapshotKey(c.var.clerkUserId),
-  );
-  return c.body(null, 204);
-});
-app.post("/meishi-snapshot", async (c) => {
-  if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
-    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
-  }
-  const declaredLength = Number(c.req.header("content-length") ?? 0);
-  if (declaredLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES) {
-    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
-  }
-  const read = await readBodyWithLimit(
-    c.req.raw.body,
-    PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
-  );
-  if (!read.ok || read.data.byteLength === 0) {
-    return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
-  }
-  const body = read.data;
-  if (!isPngData(body)) {
-    return c.json({ error: "PNG 画像のみ対応しています" }, 400);
-  }
-  const version = crypto.randomUUID();
-  await getBindings(c).AVATARS.put(
-    publicMeishiSnapshotKey(c.var.clerkUserId),
-    body,
-    {
-      httpMetadata: { contentType: "image/png" },
-      customMetadata: { version },
-    },
-  );
-  return c.json(
-    { url: publicMeishiSnapshotUrl(c.req.url, c.var.clerkUserId, version) },
-    201,
-  );
-});
 const me = app
+  .openapi(deleteMeishiSnapshotRoute, async (c) => {
+    await getBindings(c).AVATARS.delete(
+      publicMeishiSnapshotKey(c.var.clerkUserId),
+    );
+    return c.body(null, 204);
+  })
+  .openapi(uploadMeishiSnapshotRoute, async (c) => {
+    if (c.req.header("content-type")?.split(";")[0] !== "image/png") {
+      return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+    }
+    const declaredLength = Number(c.req.header("content-length") ?? 0);
+    if (declaredLength > PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES) {
+      return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+    }
+    const read = await readBodyWithLimit(
+      c.req.raw.body,
+      PUBLIC_MEISHI_SNAPSHOT_MAX_BYTES,
+    );
+    if (!read.ok || read.data.byteLength === 0) {
+      return c.json({ error: "画像サイズが不正です（5MBまで）" }, 400);
+    }
+    const body = read.data;
+    if (!isPngData(body)) {
+      return c.json({ error: "PNG 画像のみ対応しています" }, 400);
+    }
+    const version = crypto.randomUUID();
+    await getBindings(c).AVATARS.put(
+      publicMeishiSnapshotKey(c.var.clerkUserId),
+      body,
+      {
+        httpMetadata: { contentType: "image/png" },
+        customMetadata: { version },
+      },
+    );
+    return c.json(
+      { url: publicMeishiSnapshotUrl(c.req.url, c.var.clerkUserId, version) },
+      201,
+    );
+  })
   .openapi(getProfileRoute, async (c) => {
     const db = createDb(getBindings(c).DB);
     const repo = usersRepository(db, c.var.clerkUserId);

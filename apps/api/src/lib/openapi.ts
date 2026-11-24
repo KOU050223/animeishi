@@ -18,6 +18,22 @@ export const successResponseSchema = z.object({ success: z.boolean() });
 export const bearerAuth = [{ bearerAuth: [] }];
 
 /**
+ * Annict のトークンを使うルートの security 要件。ネイティブは
+ * X-Annict-Token ヘッダで運び、Web はサーバーが D1 に保存したトークンを
+ * 使うため、ヘッダ無し（Bearer のみ）も許す。
+ */
+export const bearerAuthWithAnnict: Record<string, string[]>[] = [
+  { bearerAuth: [], annictToken: [] },
+  { bearerAuth: [] },
+];
+
+/** `code` で失敗理由を区別するエラー応答（Annict 連携切れ・上流障害など）。 */
+export const codedErrorResponseSchema = z.object({
+  error: z.string(),
+  code: z.string().optional(),
+});
+
+/**
  * 入力バリデーション失敗時の応答を API 共通の `{error}` 形に揃えるフック。
  * @hono/zod-openapi 既定の `{success: false, error: ZodError}` ではなく、
  * スキーマに書かれたエラーメッセージの先頭 1 件を返す。
@@ -83,6 +99,13 @@ export function registerOpenApiDocs<E extends Env>(app: OpenAPIHono<E>): void {
     type: "http",
     scheme: "bearer",
     description: "Clerk の JWT（Authorization: Bearer <token>）",
+  });
+  app.openAPIRegistry.registerComponent("securitySchemes", "annictToken", {
+    type: "apiKey",
+    in: "header",
+    name: "X-Annict-Token",
+    description:
+      "Annict のアクセストークン（ネイティブのみ。Web は連携時に保存したトークンをサーバーが使う）",
   });
   app.get("/doc", (c) => c.json(app.getOpenAPIDocument(openApiDocumentConfig)));
   const ui = swaggerUI<E>({ url: "/doc" });

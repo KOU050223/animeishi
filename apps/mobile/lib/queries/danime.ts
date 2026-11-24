@@ -48,7 +48,7 @@ export const danimeQueries = {
               }),
             },
           );
-          return (await res.json()).job;
+          return ((await res.json()) as { job: DanimeEpisodeJob | null }).job;
         },
       }),
   },

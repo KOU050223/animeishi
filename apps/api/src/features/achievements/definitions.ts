@@ -3,7 +3,7 @@
 // 獲得履歴はテーブルを持たない（クライアント側が前回既見との差分で
 // 「新規獲得」を検出する）。
 
-const ACHIEVEMENT_KINDS = [
+export const ACHIEVEMENT_KINDS = [
   "watch_count",
   "record_streak",
   "season_completion",

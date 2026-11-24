@@ -30,7 +30,7 @@ import {
 } from "@animeishi/danime-core";
 import { useDanimeImportStore } from "@/store/danimeImportStore";
 import { BackButton } from "@/components/ui";
-import { featureFlags } from "@/lib/featureFlags";
+import { useDanimeImportEnabled } from "@/lib/featureFlags/useDanimeImportEnabled";
 import { useThemeColors } from "@/lib/theme";
 
 // react-native-webview の WebView は型パラメータ既定値が `P = undefined` で、
@@ -79,13 +79,14 @@ export default function DanimeImportScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const webViewRef = useRef<DanimeWebViewInstance>(null);
+  const danimeImportEnabled = useDanimeImportEnabled();
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setLists = useDanimeImportStore((s) => s.setLists);
 
   // v1.0 ではネイティブで無効化（#158）。ディープリンク等で直接遷移された
-  // 場合に備え、Web 版への導線を案内する。
-  if (!featureFlags.danimeImport) {
+  // 場合に備え、Web 版への導線を案内する。停止スイッチ（#758）中も同じ扱い。
+  if (!danimeImportEnabled) {
     return (
       <SafeAreaView
         className="flex-1 bg-white dark:bg-slate-900 items-center justify-center px-8"

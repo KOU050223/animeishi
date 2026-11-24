@@ -89,7 +89,7 @@ async function fetchWorksSearchPage(params: {
       }),
     },
   );
-  return res.json();
+  return res.json() as Promise<WorksSearchResponse>;
 }
 
 // 作品ドメイン（/works/*）のクエリファクトリ（issue #726）。
@@ -270,7 +270,7 @@ export const workQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkCandidatesResponse>;
         },
       }),
   },
@@ -299,7 +299,7 @@ export const workQueries = {
                 }),
               },
             );
-            return (await res.json()).works;
+            return ((await res.json()) as WorksLookupResponse).works;
           };
           // API がキャッシュ未命中の分を Annict へ問い合わせるため、バッチは
           // 直列にして同時リクエストを増やさない。返却は各バッチとも

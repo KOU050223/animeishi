@@ -5,6 +5,7 @@ import type { Context } from "hono";
 import type { Env } from "@/db/client";
 import { createDb } from "@/db/client";
 import { usersRepository, DeletedUserError } from "@/features/users/repository";
+import { captureServerEvent } from "@/lib/posthog";
 
 // hono/client (RPC) 向け: Bindingsを含まない型。RNアプリ側でも安全にimportできる
 export type AuthVariables = {
@@ -163,7 +164,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   // 割り込んでも二重作成にはならない。
   if (!userExists) {
     try {
-      await repo.ensureUserExists(async () => {
+      const created = await repo.ensureUserExists(async () => {
         const clerk = c.get("clerk");
         try {
           const user = await clerk.users.getUser(userId);
@@ -182,6 +183,10 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
           throw err;
         }
       });
+      // サインアップ完了（issue #758）。users 行の作成は認証経路（パスワード・
+      // Google・パスキー）やプラットフォームに関わらず初回の認証付きリクエストで
+      // 1 度だけ起きるため、ここをサーバー側の成立点にする。
+      if (created) captureServerEvent(c, "sign_up_complete", userId);
     } catch (err) {
       if (err instanceof DeletedUserError) {
         return c.json({ error: "Unauthorized" }, 401);

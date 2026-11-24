@@ -14,6 +14,10 @@ export type SavedWorkListResponse = InferResponseType<
   (typeof apiClient.me)["work-lists"][":id"]["$get"],
   200
 >;
+type WorkListsResponse = InferResponseType<
+  (typeof apiClient.me)["work-lists"]["$get"],
+  200
+>;
 type PublicWorkListDetailResponse = InferResponseType<
   (typeof apiClient)["work-lists"][":id"]["$get"],
   200
@@ -79,7 +83,7 @@ export const workListQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkListsResponse>;
         },
       }),
   },
@@ -99,7 +103,7 @@ export const workListQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkListsResponse>;
         },
       }),
   },

@@ -9,6 +9,7 @@ import {
 } from "./history";
 import type { History } from "./history";
 import type { MeishiDocument, MeishiElement } from "./types";
+import { trackEvent } from "@/lib/events";
 
 export type UseMeishiDocument = ReturnType<typeof useMeishiDocument>;
 
@@ -186,7 +187,7 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
   const saveDocument = async () => {
     if (!doc) return null;
     const currentDoc = doc;
-    const { result: newCardId } = await updateMeishiLibrary((library) => {
+    const { result } = await updateMeishiLibrary((library) => {
       if (boundCardId && findCard(library, boundCardId)) {
         return {
           library: updateCardDocument(library, boundCardId, currentDoc),
@@ -195,8 +196,15 @@ export function useMeishiDocument(options: UseMeishiDocumentOptions = {}) {
       }
       // 未バインド（新規作成）or バインド先が消えていた場合は新規カードを作る。
       const added = addCard(library, currentDoc);
-      return { library: added.library, result: added.card.id };
+      return {
+        library: added.library,
+        result: { id: added.card.id, isFirst: library.cards.length === 0 },
+      };
     });
+    const newCardId = result?.id ?? null;
+    // 初めての名刺の保存（issue #758）。保存のたびに送る meishi_save とは別に、
+    // 名刺が 0 枚の状態から 1 枚目を作ったときだけ送る。
+    if (result?.isFirst) trackEvent("meishi_create");
     if (newCardId) setBoundCardId(newCardId);
     return newCardId ?? boundCardId;
   };

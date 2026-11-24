@@ -5,6 +5,7 @@
 //     上限件数ずつチャンクして逐次送信する（進捗コールバック付き）
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
+import type { InferResponseType } from "hono/client";
 import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
 import {
@@ -170,7 +171,10 @@ export function useDanimeMatch() {
             }),
           },
         );
-        const body = await res.json();
+        const body = (await res.json()) as InferResponseType<
+          (typeof apiClient.me)["import"]["danime"]["match"]["$post"],
+          200
+        >;
         // チャンク分割・pending 再送時は各リクエストの統計を合算する。
         // 検索回数・リトライ・経過時間は累積でよいが、pending 件数は
         // 「その応答時点の未検索数」なので合算すると結果一覧とずれる。
@@ -274,7 +278,10 @@ export function useBulkRegisterWatchHistory() {
               }),
             },
           );
-          body = await res.json();
+          body = (await res.json()) as InferResponseType<
+            (typeof apiClient.me)["watch-histories"]["bulk"]["$post"],
+            200
+          >;
         } catch (error) {
           // apiFetch は HTTP 失敗を ApiRequestError に変換して投げる。
           // ステータスを文言に含める契約なので ApiRequestError だけを

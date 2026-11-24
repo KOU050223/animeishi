@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
-import * as Sentry from "@sentry/react-native";
+import { captureAnalyticsEvent } from "@/lib/analytics/client";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
 import { ApiRequestError } from "@/lib/apiError";
 import { getAuthMock, loggedInUser, resetAuth } from "@/test-utils/auth";
@@ -42,9 +42,9 @@ const { apiClient } = jest.requireMock("@/lib/api") as {
 
 const funnelCalls = () =>
   jest
-    .mocked(Sentry.logger.info)
+    .mocked(captureAnalyticsEvent)
     .mock.calls.filter(([message]) => message === ANNICT_FUNNEL_EVENT)
-    .map(([, attributes]) => attributes as Record<string, string>);
+    .map(([, attributes]) => attributes);
 
 beforeEach(async () => {
   jest.clearAllMocks();

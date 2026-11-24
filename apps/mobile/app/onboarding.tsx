@@ -16,6 +16,7 @@ import type { MeishiDocument } from "@/lib/meishi/types";
 import { useAddFavorite } from "@/lib/useFavorites";
 import type { WorkCandidate } from "@/lib/useWorkCandidates";
 import { ApiRequestError } from "@/lib/apiError";
+import { trackEvent } from "@/lib/events";
 import {
   FavoriteWorksStep,
   ONBOARDING_FAVORITE_COUNT,
@@ -127,17 +128,25 @@ export default function OnboardingScreen() {
     // try/catch 内に throw を置くと React Compiler が最適化を諦めるため、
     // 成否をフラグで返して分岐する。
     let saved = false;
+    let isFirst = false;
     try {
-      const { result: card } = await updateMeishiLibrary((library) => {
+      const { result } = await updateMeishiLibrary((library) => {
         const added = addCard(library, doc);
-        return { library: added.library, result: added.card };
+        return {
+          library: added.library,
+          result: { card: added.card, isFirst: library.cards.length === 0 },
+        };
       });
       const persisted = await loadMeishiLibrary();
-      saved = persisted !== null && findCard(persisted, card.id) !== null;
+      saved =
+        persisted !== null && findCard(persisted, result.card.id) !== null;
+      isFirst = result.isFirst;
     } catch {
       saved = false;
     }
     if (saved) {
+      // 初回ガイドは saveDocument を通らないため、ここでも初めての名刺を記録する（issue #758）。
+      if (isFirst) trackEvent("meishi_create");
       setDocument(doc);
       setStepIndex(2);
     } else {

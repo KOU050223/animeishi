@@ -31,7 +31,7 @@ import type { GuestCtaSource } from "@animeishi/observability";
 
 // 共有ページの登録 CTA の表示を Workers Logs に残す（issue #217 / #562）。
 // ページ自体は JS を持たない（issue #236）ため、HTML を返した時点を表示とみなす。
-// タップは遷移先（Web 版の新規登録画面）が Sentry Logs の guest_cta_tap で送る。
+// タップは遷移先（Web 版の新規登録画面）が 計測イベント guest_cta_tap で送る。
 function logGuestCtaView(source: GuestCtaSource): void {
   console.log(
     JSON.stringify({ level: "info", event: "guest_cta_view", source }),

@@ -41,7 +41,7 @@ export const publicUserQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<PublicUsersResponse>;
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
       }),

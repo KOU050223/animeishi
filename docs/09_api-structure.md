@@ -130,21 +130,29 @@ index.ts (route/handler)   … createRoute(schema) の .openapi で入力検証�
 - レスポンススキーマは `InferResponseType` を使う mobile 側の型にも効く。
   実際のハンドラ応答と一致させること（型チェックで検証される）
 
-### 移行状況（段階移行）
+### 全ルート OpenAPI と例外（issue #735）
 
-OpenAPI 化済み（/doc に掲載される）:
-- `health` / `users`（report・block）/ `favorites` / `friends` /
-  `friend-requests` /
-  `me`（profile・blocks・avatar 投稿・meishi-assets 投稿・アカウント削除）
+JSON を返すルートはすべて `createRoute` + `.openapi()` で定義し、`/doc` に載せる。
+`/doc` は運用 AI（#757・#758）が読む API 仕様であり、将来 OpenAPI からクライアントを
+生成する選択肢（#725）を残すため。レスポンススキーマは実際の応答と一致させる
+（mobile の `InferResponseType` はこのスキーマから型を作る）。
 
-未移行（素の Hono のまま。動作に影響なし、/doc には出ない）:
-- `share` / `images` / `user` / `annict` / `import` / `watch-histories` /
-  `works` / `episode-records` / `pass` / `tier-lists` /
-  `character-tier-lists` /
-  `me` の画像配信サブ app（`avatar`・`meishiAssets`。`/*` のワイルドカード
-  配信で OpenAPI 化の優先度が低い）
+`/doc` に載せないルートは `src/openapiCoverage.test.ts` の許可リストに列挙する。
+許可リスト外のルートが `/doc` に無い、または許可リストの項目が実在しないルートを
+指していると、このテストが落ちる。
 
-ルートを追加・変更する feature は、対象ルートの createRoute 化を優先する。
+恒久的な例外（JSON を返さない）:
+- `share`（共有ページの HTML）
+- `images`、`me` の `avatar`・`meishi-assets` 配信（画像バイナリ）
+- `me/pass/meishi.pkpass`（Apple Wallet の pkpass）
+- `/doc`・`/ui`（OpenAPI ドキュメント自体）
+
+一時的な例外:
+- Tier 表 3 系統（`tier-lists`・`character-tier-lists`・`custom-tier-lists`・
+  `tier-lists/public`）。#724 で作り直すときに OpenAPI 化し、許可リストから外す
+
+ルートを追加するときは `createRoute` で定義する。新しい例外を足すのは JSON を
+返さないルートだけにする。
 
 ## 旧構成からの対応
 
