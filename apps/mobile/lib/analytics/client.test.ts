@@ -26,6 +26,7 @@ class FakePostHog {
   reset = jest.fn();
   flush = jest.fn(async () => {});
   register = jest.fn(async () => {});
+  ready = jest.fn(async () => {});
   constructor(
     public apiKey: string,
     public options: Record<string, unknown>,

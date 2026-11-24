@@ -38,7 +38,7 @@ function registerSuperProperties(client: PostHog): void {
 function getClient(): Promise<PostHog | null> {
   if (!isAnalyticsEnabled()) return Promise.resolve(null);
   clientPromise ??= loadPostHogSdk()
-    .then(({ PostHog: PostHogClient }) => {
+    .then(async ({ PostHog: PostHogClient }) => {
       const client = new PostHogClient(posthogKey(), {
         host: posthogHost(),
         // 起動・復帰は app_open として自前で送るため、SDK の
@@ -52,6 +52,9 @@ function getClient(): Promise<PostHog | null> {
         // IP から所在地を引かせない（プライバシー申告に位置情報を足さないため）。
         disableGeoip: true,
       });
+      // 端末に保存した識別子の復元前は getDistinctId() が空を返し、
+      // resetAnalyticsUser の識別済み判定を誤るため、復元を待ってから使う。
+      await client.ready();
       registerSuperProperties(client);
       return client;
     })
