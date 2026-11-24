@@ -492,7 +492,7 @@ mobile のイベントが同じ利用者に紐づく）。
 |----------|----------|--------|
 | `app_open` | mobile | 起動時と、バックグラウンドからの復帰時（`useAppOpenTracking`。Web はタブの再表示）。リテンションの基準 |
 | `sign_up_complete` | API | `requireAuth` が users 行を作成した時（`ensureUserExists` が true）。認証経路・プラットフォームに関わらず 1 度だけ |
-| `meishi_create` | mobile | 名刺が 0 枚の状態から 1 枚目を保存した時（`useMeishiDocument.saveDocument`）。保存のたびの `meishi_save` とは別 |
+| `meishi_create` | mobile | 名刺が 0 枚の状態から 1 枚目を保存した時（`useMeishiDocument.saveDocument` と初回ガイドの `onboarding.tsx`）。保存のたびの `meishi_save` とは別 |
 | `exchange_complete` | API | `POST /me/friends`（対面 QR・オフライン交換の成立。交換記録もここで積まれる）が成功した時。読み取り側・提示側の両者の distinct_id で 1 件ずつ送る（両者とも `qr_exchange_start` を送るため）。`token: qr \| offline` |
 | `annict_connect_complete` | mobile | `annict_connect_funnel` の `oauth_result` が success の時（`surface` 付き） |
 | `danime_import_complete` | mobile | d アニメ取り込みの登録が終わり結果画面に進んだ時（`succeeded` / `failed` 件数付き） |
