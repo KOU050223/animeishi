@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9e88534e-6367-48b2-9566-c176c9296970",
+  "id": "ab1473fa-5170-4fba-82d2-247bbddcde15",
   "prevId": "",
   "tables": {
     "blocks": {
@@ -459,7 +459,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "social_links_visibility_check": {
+          "name": "social_links_visibility_check",
+          "value": "\"social_links\".\"visibility\" IN ('public', 'friends', 'private')"
+        }
+      }
     },
     "annict_characters": {
       "name": "annict_characters",

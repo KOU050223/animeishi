@@ -24,16 +24,24 @@ vp run @animeishi/api#db:generate
 ファイル名を意味のあるものにしたいときは `drizzle-kit generate --name <名前>` で生成する
 （main に入った後の改名は `d1_migrations` の適用記録とずれるため不可）。
 
-## 手書きが必要な変更（データ移行・generate が出せない DDL）
+## 手書きが必要な変更
+
+### スキーマ変更を含む手書き SQL
+
+`db:generate` で生成してから `.sql` の本文を手で修正する（partial index・
+generate が出せない DDL・コメントの追記など）。journal とスナップショットは
+生成物をそのまま使う。生成後の `.sql` の手直しがスキーマと一致しない場合は
+次回の `db:generate` で差分が出るので、後述の「確認」で整合を確かめる。
+
+### スキーマ変更を伴わないデータ移行
 
 ```bash
 vp -C apps/api exec drizzle-kit generate --custom --name <名前>
 ```
 
-`--custom` は空の `.sql` と journal・スナップショットだけを生成する。これに SQL を
-手で書く。スキーマ変更を伴う場合は先に `schema.db.ts` を更新してから実行し、
-スナップショットが変更後のスキーマを指すようにする。スキーマ変更を伴わない純粋な
-データ移行でもこの手順で作る（meta を同期させるため）。
+`--custom` は直前のスナップショットを複製して、空の `.sql` と journal エントリを
+作る。スキーマ変更を含む手書きには使えない（スナップショットが更新されず、
+次の `db:generate` で手書き済みの DDL が再び出力される）。
 
 > 手書きマイグレーションが多い実態に合わせてこの運用にしている。
 > 0000 からの適用で `db:generate` が「差分なし」になる状態を維持することが目的。
@@ -42,9 +50,14 @@ vp -C apps/api exec drizzle-kit generate --custom --name <名前>
 
 - 変更後に `vp run @animeishi/api#db:generate` をもう一度実行し、
   `No schema changes, nothing to migrate` になることを確認する。
-  差分が出たらスキーマとマイグレーションの結果がずれている
-- `drizzle-kit generate` は差分があると「新規テーブルか改名か」の対話プロンプトを
-  出すことがある。非対話環境では `--name` やスキーマ側の整理で回避する
+  差分が出たらスキーマとマイグレーションの結果がずれている。
+  これはスナップショットとスキーマ定義の一致だけを見るチェックで、適用後の
+  D1 は読まない。生成・手修正した SQL が意図した定義になるかは、空のローカル D1
+  に適用して `sqlite_master` の定義と照合する
+  （`.wrangler/state/v3/d1` を消して `vp run @animeishi/api#db:migrate:local`）
+- `drizzle-kit generate` はテーブル・列の追加と削除から改名候補を見つけると
+  「新規か改名か」の対話プロンプトを出す。`--name` は出力ファイル名を変える
+  だけで、この確認は省略できない
 
 ## `meta/` がずれたときの直し方
 
@@ -57,7 +70,9 @@ vp -C apps/api exec drizzle-kit generate --custom --name <名前>
    `drizzle-kit generate`（空の `out` ディレクトリを指す一時 config）が書き出す
    スナップショットを使う
 3. そのスナップショットを `meta/NNNN_snapshot.json`（NNNN = 最新マイグレーション番号）
-   として置き、`_journal.json` に全マイグレーション分のエントリを揃える
+   として置き、`prevId` は空文字にして履歴の末尾に新しいチェインとしてつなぐ
+   （生成直後の `prevId` は `0000_snapshot` と同じ値になり、既存スナップショットと
+   親が衝突する）。`_journal.json` に全マイグレーション分のエントリを揃える
    （`when` は初回コミット時刻、`breakpoints` はファイルの `--> statement-breakpoint`
    有無で揃える）
 4. `vp run @animeishi/api#db:generate` で `No schema changes` になることを確認する

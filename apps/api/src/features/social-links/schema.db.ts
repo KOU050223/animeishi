@@ -1,4 +1,11 @@
-import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import {
+  integer,
+  sqliteTable,
+  text,
+  index,
+  check,
+} from "drizzle-orm/sqlite-core";
 import { users } from "@/features/users/schema.db";
 
 export const socialLinks = sqliteTable(
@@ -17,5 +24,11 @@ export const socialLinks = sqliteTable(
       .default("friends"),
     position: integer("position").notNull(),
   },
-  (t) => [index("social_links_user_position_idx").on(t.userId, t.position)],
+  (t) => [
+    index("social_links_user_position_idx").on(t.userId, t.position),
+    check(
+      "social_links_visibility_check",
+      sql`${t.visibility} IN ('public', 'friends', 'private')`,
+    ),
+  ],
 );
