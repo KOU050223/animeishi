@@ -41,48 +41,48 @@ const publicWorkListsRoute = app
   // カーソルページング。カードには所有者・先頭作品サムネ・いいね数・
   // 自分のいいね済みフラグを載せる。
   .openapi(listPublicWorkListsRoute, async (c) => {
-      const { sort: rawSort, cursor, limit: rawLimit } = c.req.valid("query");
-      const sort: PublicWorkListSort = rawSort ?? "likes";
-      const limit = Math.min(Number(rawLimit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const { sort: rawSort, cursor, limit: rawLimit } = c.req.valid("query");
+    const sort: PublicWorkListSort = rawSort ?? "likes";
+    const limit = Math.min(Number(rawLimit ?? DEFAULT_LIMIT), MAX_LIMIT);
 
-      // cursor: new は「<id>」、likes は「<likeCount>_<id>」の複合キー。
-      const parsedCursor = parseCursor(cursor, sort);
-      if (cursor !== undefined && parsedCursor === undefined) {
-        return c.json({ error: "cursor の形式が正しくありません" }, 400);
-      }
+    // cursor: new は「<id>」、likes は「<likeCount>_<id>」の複合キー。
+    const parsedCursor = parseCursor(cursor, sort);
+    if (cursor !== undefined && parsedCursor === undefined) {
+      return c.json({ error: "cursor の形式が正しくありません" }, 400);
+    }
 
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const rows = await repo.getPublicWorkLists({
-        sort,
-        cursor: parsedCursor,
-        limit,
-      });
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const rows = await repo.getPublicWorkLists({
+      sort,
+      cursor: parsedCursor,
+      limit,
+    });
 
-      const hasMore = rows.length > limit;
-      const items = rows.slice(0, limit);
-      const thumbs = await fetchWorkListTopWorks(
-        db,
-        items.map((row) => row.id),
-        PUBLIC_LIST_THUMBNAILS,
-      );
-      const last = items[items.length - 1];
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit);
+    const thumbs = await fetchWorkListTopWorks(
+      db,
+      items.map((row) => row.id),
+      PUBLIC_LIST_THUMBNAILS,
+    );
+    const last = items[items.length - 1];
 
-      return c.json(
-        {
-          items: items.map((row) => ({
-            ...row,
-            createdAt: row.createdAt.toISOString(),
-            thumbnails: (thumbs.get(row.id) ?? []).map((thumb) => ({
-              annictWorkId: thumb.annictWorkId,
-              title: thumb.title,
-              hostedImageUrl: workImageUrl(c.req.url, thumb.annictWorkId),
-            })),
+    return c.json(
+      {
+        items: items.map((row) => ({
+          ...row,
+          createdAt: row.createdAt.toISOString(),
+          thumbnails: (thumbs.get(row.id) ?? []).map((thumb) => ({
+            annictWorkId: thumb.annictWorkId,
+            title: thumb.title,
+            hostedImageUrl: workImageUrl(c.req.url, thumb.annictWorkId),
           })),
-          nextCursor: hasMore && last ? encodeCursor(last, sort) : null,
-        },
-        200,
-      );
+        })),
+        nextCursor: hasMore && last ? encodeCursor(last, sort) : null,
+      },
+      200,
+    );
   })
   // 公開リスト 1 件の詳細（登録作品つき）。一覧カードの遷移先が読む。
   // /public より後に定義する（Hono は静的セグメントを優先するが、
@@ -107,69 +107,69 @@ const publicWorkListsRoute = app
   })
   // いいね（冪等）。自分のリストにはいいね不可。
   .openapi(likeWorkListRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      try {
-        const result = await repo.likeWorkList(id);
-        if (!result) return c.json({ error: "Work list not found" }, 404);
-        return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
-      } catch (e) {
-        if (e instanceof OwnWorkListError) {
-          return c.json({ error: e.message }, 400);
-        }
-        throw e;
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    try {
+      const result = await repo.likeWorkList(id);
+      if (!result) return c.json({ error: "Work list not found" }, 404);
+      return c.json({ likeCount: result.likeCount, likedByMe: true }, 200);
+    } catch (e) {
+      if (e instanceof OwnWorkListError) {
+        return c.json({ error: e.message }, 400);
       }
+      throw e;
+    }
   })
   // いいねの取り消し（冪等。いいねしていなくても成功）。
   // 見えないリストには 404（閲覧できないリストの反応数を返さない）。
   .openapi(unlikeWorkListRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const result = await repo.unlikeWorkList(id);
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const result = await repo.unlikeWorkList(id);
+    if (!result) return c.json({ error: "Work list not found" }, 404);
+    return c.json({ likeCount: result.likeCount, likedByMe: false }, 200);
   })
   // 公開リストの通報（issue #186 の対象拡大）。reports 行は
   // reported_user_id = リスト所有者、reported_work_list_id = リスト id で
   // 記録し、ユーザー通報と同じレート制限・通知経路に乗せる。
   .openapi(reportWorkListRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const { reason } = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
+    const { id } = c.req.valid("param");
+    const { reason } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
 
-      const list = await repo.findPublicWorkList(id);
-      if (!list) return c.json({ error: "Work list not found" }, 404);
-      if (list.userId === c.var.clerkUserId) {
-        return c.json(
-          { error: "自分の作品リストを通報することはできません" },
-          400,
-        );
-      }
+    const list = await repo.findPublicWorkList(id);
+    if (!list) return c.json({ error: "Work list not found" }, 404);
+    if (list.userId === c.var.clerkUserId) {
+      return c.json(
+        { error: "自分の作品リストを通報することはできません" },
+        400,
+      );
+    }
 
-      const usersRepo = usersRepository(db, c.var.clerkUserId);
-      try {
-        await usersRepo.createReport(list.userId, reason, {
-          kind: "work_list",
-          id,
-        });
-      } catch (e) {
-        if (e instanceof ReportRateLimitError) {
-          c.header("Retry-After", String(e.retryAfterSeconds));
-          return c.json({ error: e.message, code: e.kind }, 429);
-        }
-        throw e;
-      }
-
-      notifyUserReport(c, {
-        reporterId: c.var.clerkUserId,
-        reportedUserId: list.userId,
-        reason,
-        workListId: id,
+    const usersRepo = usersRepository(db, c.var.clerkUserId);
+    try {
+      await usersRepo.createReport(list.userId, reason, {
+        kind: "work_list",
+        id,
       });
-      return c.json({ success: true }, 201);
+    } catch (e) {
+      if (e instanceof ReportRateLimitError) {
+        c.header("Retry-After", String(e.retryAfterSeconds));
+        return c.json({ error: e.message, code: e.kind }, 429);
+      }
+      throw e;
+    }
+
+    notifyUserReport(c, {
+      reporterId: c.var.clerkUserId,
+      reportedUserId: list.userId,
+      reason,
+      workListId: id,
+    });
+    return c.json({ success: true }, 201);
   });
 
 // cursor の parse/encode。new は id のみ、likes は likeCount_id の複合。

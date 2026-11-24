@@ -258,7 +258,7 @@ export const workDetailRoute = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: z.object({ work: workDetailSchema.optional() }),
+          schema: z.object({ work: workDetailSchema }),
         },
       },
       description: "作品の詳細",

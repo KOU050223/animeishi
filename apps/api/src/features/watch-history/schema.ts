@@ -211,7 +211,8 @@ export const shareWatchHistoryRoute = createRoute({
   method: "post",
   path: "/share",
   tags: ["watch-histories"],
-  summary: "視聴記録を共有する（共有トークンを発行。発行済みなら同じものを返す）",
+  summary:
+    "視聴記録を共有する（共有トークンを発行。発行済みなら同じものを返す）",
   security: bearerAuth,
   responses: {
     200: shareTokenResponse("共有トークン"),

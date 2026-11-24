@@ -22,7 +22,7 @@ export const bearerAuth = [{ bearerAuth: [] }];
  * X-Annict-Token ヘッダで運び、Web はサーバーが D1 に保存したトークンを
  * 使うため、ヘッダ無し（Bearer のみ）も許す。
  */
-export const bearerAuthWithAnnict = [
+export const bearerAuthWithAnnict: Record<string, string[]>[] = [
   { bearerAuth: [], annictToken: [] },
   { bearerAuth: [] },
 ];

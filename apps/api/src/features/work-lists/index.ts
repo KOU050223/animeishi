@@ -80,47 +80,47 @@ const workListsRoute = app
   // 全置換更新。並べ替えは 1 操作で多数の position が動くため、部分更新
   // API よりリストを丸ごと送る（custom_tier_lists と同じ考え方）。
   .openapi(updateWorkListRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const input = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
+    const { id } = c.req.valid("param");
+    const input = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
 
-      const missing = await unknownWorkIds(
-        db,
-        input.items.map((item) => item.annictWorkId),
-      );
-      if (missing.length > 0) {
-        return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
-      }
+    const missing = await unknownWorkIds(
+      db,
+      input.items.map((item) => item.annictWorkId),
+    );
+    if (missing.length > 0) {
+      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+    }
 
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const result = await repo.saveMyWorkList({
-        id,
-        title: input.title,
-        description: input.description?.trim() ? input.description : null,
-        isPublic: input.isPublic,
-        items: withPositions(input.items),
-      });
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const result = await repo.saveMyWorkList({
+      id,
+      title: input.title,
+      description: input.description?.trim() ? input.description : null,
+      isPublic: input.isPublic,
+      items: withPositions(input.items),
+    });
+    if (!result) return c.json({ error: "Work list not found" }, 404);
+    return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
   })
   // 作品 1 件を末尾に追加（issue #377）。アニメ一覧の「リストに追加」からの
   // 1 件操作を全置換 PUT で表現すると、先の内容取得と編集画面との
   // 書き込み競合が要になるため、サーバ側の末尾追加として切り出す。
   // 既に入っている作品は no-op（冪等）で現在のリストを返す。
   .openapi(addWorkListItemRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const { annictWorkId } = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
+    const { id } = c.req.valid("param");
+    const { annictWorkId } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
 
-      const missing = await unknownWorkIds(db, [annictWorkId]);
-      if (missing.length > 0) {
-        return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
-      }
+    const missing = await unknownWorkIds(db, [annictWorkId]);
+    if (missing.length > 0) {
+      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+    }
 
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const result = await repo.addMyWorkListItem(id, annictWorkId);
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const result = await repo.addMyWorkListItem(id, annictWorkId);
+    if (!result) return c.json({ error: "Work list not found" }, 404);
+    return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
   })
   // 削除。items は FK CASCADE で消える。
   .openapi(deleteWorkListRoute, async (c) => {
@@ -141,12 +141,12 @@ const workListsRoute = app
     return c.json({ shareToken: result.shareToken }, 200);
   })
   .openapi(unshareWorkListRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const found = await repo.unshareMyWorkList(id);
-      if (!found) return c.json({ error: "Work list not found" }, 404);
-      return c.json({ success: true }, 200);
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const found = await repo.unshareMyWorkList(id);
+    if (!found) return c.json({ error: "Work list not found" }, 404);
+    return c.json({ success: true }, 200);
   });
 
 // position は配列順から採番する（クライアントの申告値は使わない）。

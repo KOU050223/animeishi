@@ -5,11 +5,7 @@ import { usersRepository } from "./repository";
 import type { PublicUserSummary } from "./repository";
 import { createDb } from "@/db/client";
 import { createOpenApiApp } from "@/lib/openapi";
-import {
-  likeUserRoute,
-  listPublicUsersRoute,
-  unlikeUserRoute,
-} from "./schema";
+import { likeUserRoute, listPublicUsersRoute, unlikeUserRoute } from "./schema";
 import {
   publicMeishiSnapshotKey,
   publicMeishiSnapshotUrl,
@@ -86,30 +82,30 @@ const publicUsersRoute = app
   })
   // 名刺へのいいね（冪等）。自分の名刺にはいいね不可。
   .openapi(likeUserRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = usersRepository(db, c.var.clerkUserId);
-      if (id === c.var.clerkUserId) {
-        return c.json({ error: "自分の名刺にいいねはできません" }, 400);
-      }
-      // 公開範囲外（非公開・ブロック関係）は 404。存在自体を隠す。
-      const target = await repo.findPublicUser(id);
-      if (!target) return c.json({ error: "User not found" }, 404);
-      await repo.likeUser(id);
-      const likeCount = await repo.countUserLikes(id);
-      return c.json({ likeCount, likedByMe: true }, 200);
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = usersRepository(db, c.var.clerkUserId);
+    if (id === c.var.clerkUserId) {
+      return c.json({ error: "自分の名刺にいいねはできません" }, 400);
+    }
+    // 公開範囲外（非公開・ブロック関係）は 404。存在自体を隠す。
+    const target = await repo.findPublicUser(id);
+    if (!target) return c.json({ error: "User not found" }, 404);
+    await repo.likeUser(id);
+    const likeCount = await repo.countUserLikes(id);
+    return c.json({ likeCount, likedByMe: true }, 200);
   })
   // 名刺へのいいねの取り消し（冪等。いいねしていなくても成功）。
   // 見えない名刺には 404（閲覧できない名刺の反応数を返さない）。
   .openapi(unlikeUserRoute, async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = usersRepository(db, c.var.clerkUserId);
-      const target = await repo.findPublicUser(id);
-      if (!target) return c.json({ error: "User not found" }, 404);
-      await repo.unlikeUser(id);
-      const likeCount = await repo.countUserLikes(id);
-      return c.json({ likeCount, likedByMe: false }, 200);
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = usersRepository(db, c.var.clerkUserId);
+    const target = await repo.findPublicUser(id);
+    if (!target) return c.json({ error: "User not found" }, 404);
+    await repo.unlikeUser(id);
+    const likeCount = await repo.countUserLikes(id);
+    return c.json({ likeCount, likedByMe: false }, 200);
   });
 
 export { publicUsersRoute };

@@ -272,7 +272,8 @@ export const shareWorkListRoute = createRoute({
   method: "post",
   path: "/{id}/share",
   tags: ["work-lists"],
-  summary: "作品リストを共有する（共有トークンを発行。発行済みなら同じものを返す）",
+  summary:
+    "作品リストを共有する（共有トークンを発行。発行済みなら同じものを返す）",
   security: bearerAuth,
   request: { params: workListIdParamSchema },
   responses: {
