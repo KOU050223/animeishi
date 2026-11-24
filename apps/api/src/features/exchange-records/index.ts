@@ -138,7 +138,10 @@ const exchangeRecords = app
   // コピーは本人専用のため公開配信の meishi-assets とは別経路にし、
   // 記録の owner 以外（相手・第三者）には 404 で存在も漏らさない。
   .openapi(exchangeCardSnapshotRoute, async (c) => {
-    const { recordId } = c.req.valid("param");
+    const recordId = Number(c.req.valid("param").recordId);
+    if (!Number.isInteger(recordId) || recordId <= 0) {
+      return c.json({ error: "Not found" }, 404);
+    }
     const db = createDb(getBindings(c).DB);
     const record = await db.query.exchangeRecords.findFirst({
       where: and(

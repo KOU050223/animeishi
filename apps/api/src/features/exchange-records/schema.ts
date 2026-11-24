@@ -32,6 +32,12 @@ const recordIdParamSchema = z.object({
   recordId: z.coerce.number().int().positive().openapi({ example: 1 }),
 });
 
+// 不正な ID も存在しない記録と同じ 404 で返す（移行前の応答を保つ）。
+// 数値への変換と検証はハンドラで行う。
+const snapshotRecordIdParamSchema = z.object({
+  recordId: z.string().openapi({ example: "1" }),
+});
+
 // PUT /me/exchange-records/{recordId} のボディ。編集できるのは
 // 場所・イベントだけ（会った日時・経路は書き換えない）。
 // eventSlug を指定すると登録イベントに紐付け、表示名は API が
@@ -172,7 +178,7 @@ export const exchangeCardSnapshotRoute = createRoute({
   tags: ["exchange-records"],
   summary: "交換当時の名刺コピーを配信する（本人のみ。他人の記録は 404）",
   security: bearerAuth,
-  request: { params: recordIdParamSchema },
+  request: { params: snapshotRecordIdParamSchema },
   responses: {
     200: {
       content: {
@@ -180,8 +186,9 @@ export const exchangeCardSnapshotRoute = createRoute({
       },
       description: "名刺コピー画像",
     },
-    400: jsonError("recordId が不正"),
     401: jsonError("未認証"),
-    404: jsonError("記録・コピーが存在しない（または自分の記録ではない）"),
+    404: jsonError(
+      "recordId が不正・記録やコピーが存在しない（または自分の記録ではない）",
+    ),
   },
 });
