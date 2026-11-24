@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { scheduleOnRN } from "react-native-worklets";
 import { EditorCanvas } from "@/components/meishi/EditorCanvas";
 import { AddElementSheet } from "@/components/meishi/AddElementSheet";
 import { AnimeImagePicker } from "@/components/meishi/AnimeImagePicker";
@@ -165,7 +166,9 @@ export default function MeishiEditScreen() {
     () =>
       Gesture.Tap()
         .withTestId("meishi-canvas-backdrop-tap")
-        .onEnd(() => onSelect(null)),
+        // ジェスチャのコールバックは UI スレッドの worklet で実行されるため、
+        // JS 側の onSelect は scheduleOnRN 経由で呼ぶ（直接呼ぶとクラッシュする）。
+        .onEnd(() => scheduleOnRN(onSelect, null)),
     [onSelect],
   );
 
