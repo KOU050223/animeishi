@@ -260,6 +260,13 @@ export const useClerk = () => ({
   handleRedirectCallback: state.handleRedirectCallback,
 });
 
+// lib/api の apiFetch が React の外からトークンを取るために使う
+// （getClerkInstance().session?.getToken()）。セッションの有無は
+// isSignedIn と同期させる。
+export const getClerkInstance = () => ({
+  session: state.isSignedIn ? { getToken: state.getToken } : null,
+});
+
 // useSSO は Google 等の SSO フロー用フック（ネイティブでは
 // expo-web-browser の認証セッション方式）。
 export const useSSO = () => ({

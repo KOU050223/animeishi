@@ -21,6 +21,10 @@ import { setMockClerkState } from "../__mocks__/@clerk/expo";
 const mockGet = jest.fn();
 const mockPut = jest.fn();
 const mockDelete = jest.fn();
+// 認証・Annict ヘッダ付与と !res.ok → ApiRequestError の変換は共通 fetch
+// （apiFetch）側の責務になったため、apiClient のモックは「成功時は res、
+// 失敗時は ApiRequestError で reject」という契約で表現する。
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -39,12 +43,11 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-// Annict 認証ヘッダは空でよい（apiClient 側はモック済み）。連携状態は
-// 既定で連携済みにして、クエリが発行される状態にする。
+// 連携状態は既定で連携済みにして、クエリが発行される状態にする。
 jest.mock("@/lib/annict", () => ({
-  buildAnnictAuthHeader: async () => ({}),
   useAnnictConnection: () => ({ isConnected: true, isLoading: false }),
 }));
 
@@ -214,11 +217,9 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
 
   it("記録が失敗したらチェックを元に戻し rolledBack を立てる", async () => {
     client.setQueryData(queryKey, seedEpisodes());
-    mockPut.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    mockPut.mockRejectedValue(
+      new ApiRequestError(500, "話の記録に失敗しました"),
+    );
 
     const { result } = await renderHook(
       () => useRecordEpisode(ANNICT_WORK_ID),
@@ -269,11 +270,9 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
 
   it("解除が失敗したらチェックを元に戻す", async () => {
     client.setQueryData(queryKey, seedEpisodes());
-    mockDelete.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    mockDelete.mockRejectedValue(
+      new ApiRequestError(500, "話の記録解除に失敗しました"),
+    );
 
     const { result } = await renderHook(
       () => useUnrecordEpisode(ANNICT_WORK_ID),
@@ -333,16 +332,17 @@ describe("useRecordEpisode / useUnrecordEpisode の楽観的更新", () => {
     });
   });
 
-  it("失敗応答の code を ApiRequestError に載せる", async () => {
+  it("code 付きの ApiRequestError がそのまま伝わる", async () => {
+    // code の抽出自体は apiFetch（lib/api.test.ts）の責務。
+    // ここでは code 付きエラーが呼び出し側へ届くことだけを見る。
     client.setQueryData(queryKey, seedEpisodes());
-    mockPut.mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({
-        error: "Annict 連携が必要です",
-        code: "annict_token_required",
-      }),
-    });
+    mockPut.mockRejectedValue(
+      new ApiRequestError(
+        401,
+        "話の記録に失敗しました",
+        "annict_token_required",
+      ),
+    );
 
     const { result } = await renderHook(
       () => useRecordEpisode(ANNICT_WORK_ID),

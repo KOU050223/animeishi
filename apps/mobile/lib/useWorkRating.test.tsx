@@ -13,12 +13,17 @@ import {
   WORK_RATING_QUERY_KEY,
 } from "@/lib/useWorkRating";
 import type { WorkRating } from "@/lib/useWorkRating";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { setMockClerkState } from "../__mocks__/@clerk/expo";
 
 const mockGet = jest.fn();
 const mockPut = jest.fn();
 const mockDelete = jest.fn();
+// 認証・Annict ヘッダ付与と !res.ok → ApiRequestError の変換は共通 fetch
+// （apiFetch）側の責務になったため、apiClient のモックは「成功時は res、
+// 失敗時は ApiRequestError で reject」という契約で表現する。
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -31,12 +36,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
-}));
-
-// 評価は Animeishi の D1 が正で Annict 連携を必須としない。
-// Annict ヘッダは初期値候補・未キャッシュ作品の解決用で、ここでは空でよい。
-jest.mock("@/lib/annict", () => ({
-  buildAnnictAuthHeader: async () => ({}),
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 const USER_ID = "user_test";
@@ -154,11 +154,9 @@ describe("useUpsertWorkRating / useDeleteWorkRating の楽観的更新", () => {
 
   it("保存が失敗したら選択を元に戻し rolledBack を立てる", async () => {
     client.setQueryData(queryKey, seedRating({ rating: "good" }));
-    mockPut.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    mockPut.mockRejectedValue(
+      new ApiRequestError(500, "評価の保存に失敗しました"),
+    );
 
     const { result } = await renderHook(
       () => useUpsertWorkRating(ANNICT_WORK_ID),
@@ -209,11 +207,9 @@ describe("useUpsertWorkRating / useDeleteWorkRating の楽観的更新", () => {
 
   it("解除が失敗したら選択を元に戻す", async () => {
     client.setQueryData(queryKey, seedRating());
-    mockDelete.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    });
+    mockDelete.mockRejectedValue(
+      new ApiRequestError(500, "評価の解除に失敗しました"),
+    );
 
     const { result } = await renderHook(
       () => useDeleteWorkRating(ANNICT_WORK_ID),

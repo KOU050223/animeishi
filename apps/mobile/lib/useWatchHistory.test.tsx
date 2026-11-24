@@ -27,6 +27,7 @@ const mockDelete = jest.fn();
 const mockGetHistories = jest.fn();
 const mockGetWork = jest.fn();
 const mockGetCommon = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -49,6 +50,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 // useWatchHistory の import 元（barrel）。連携状態は常に連携済み、

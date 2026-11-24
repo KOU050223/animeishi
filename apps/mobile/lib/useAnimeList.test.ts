@@ -14,17 +14,20 @@ import { setMockClerkState } from "@/__mocks__/@clerk/expo";
 // useAnimeList のサーバー検索フロー（クエリ駆動の取得・レスポンス整形）を検証する。
 // jest.mock のファクトリは巻き上げられるため、参照する変数は mock 接頭辞が必須。
 const mockSearchGet = jest.fn();
+// 認証ヘッダ・Annict ヘッダの付与は共通 fetch（apiFetch）側の責務になったため、
+// ここでは apiFetch が適切なオプションで呼ばれたことだけを見る
+// （ヘッダ実装の検証は lib/api.test.ts）。
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     works: { search: { $get: (...args: unknown[]) => mockSearchGet(...args) } },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-const mockBuildAnnictAuthHeader = jest.fn();
 let mockCanBrowseWorks = true;
 let mockIsAccessLoading = false;
 jest.mock("@/lib/annict", () => ({
-  buildAnnictAuthHeader: () => mockBuildAnnictAuthHeader(),
   // 実装では確認中は canBrowseWorks が未確定（false）になる。
   // useAnimeList は canBrowseWorks でフェッチを gate するため、
   // モックでも同じ契約（loading 中は canBrowseWorks=false）に揃える。
@@ -169,14 +172,11 @@ describe("useAnimeList", () => {
   beforeEach(async () => {
     resetAuth();
     mockSearchGet.mockReset();
-    mockBuildAnnictAuthHeader.mockReset();
+    mockApiFetch.mockReset();
     mockCanBrowseWorks = true;
     mockIsAccessLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
-    mockBuildAnnictAuthHeader.mockResolvedValue({
-      "X-Annict-Token": "annict_tok",
-    });
   });
 
   it("検索語が空のときは今期アニメ（season）を title なしで取得する", async () => {
@@ -250,10 +250,12 @@ describe("useAnimeList", () => {
 
     // 検索結果は今期アニメ初期表示ではない。
     expect(result.current.isSeason).toBe(false);
-    // title / X-Annict-Token を載せて呼んでいる。
-    const [arg, opts] = mockSearchGet.mock.calls[0];
+    // title を載せ、Annict トークン付きの共通 fetch で呼んでいる。
+    const [arg] = mockSearchGet.mock.calls[0];
     expect(arg.query.title).toBe("進撃");
-    expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("シーズン検索で hasNextPage があれば after で自動追い読みし結果を連結する", async () => {
@@ -404,14 +406,11 @@ describe("usePrefetchSeasonWorks", () => {
   beforeEach(async () => {
     resetAuth();
     mockSearchGet.mockReset();
-    mockBuildAnnictAuthHeader.mockReset();
+    mockApiFetch.mockReset();
     mockCanBrowseWorks = true;
     mockIsAccessLoading = false;
     loggedInUser();
     setMockClerkState({ getToken: async () => "clerk_jwt" });
-    mockBuildAnnictAuthHeader.mockResolvedValue({
-      "X-Annict-Token": "annict_tok",
-    });
   });
 
   it("enabled のとき指定シーズンを season 検索でプリフェッチする", async () => {
@@ -431,9 +430,10 @@ describe("usePrefetchSeasonWorks", () => {
     for (const [arg] of mockSearchGet.mock.calls) {
       expect(arg.query.title).toBeUndefined();
     }
-    // Annict トークンヘッダも載る。
-    const [, opts] = mockSearchGet.mock.calls[0];
-    expect(opts.headers["X-Annict-Token"]).toBe("annict_tok");
+    // Annict トークン付きの共通 fetch で呼んでいる。
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("enabled=false ならプリフェッチしない", async () => {

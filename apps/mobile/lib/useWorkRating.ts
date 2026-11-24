@@ -1,15 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import type { InferRequestType, InferResponseType } from "hono/client";
-import { apiClient } from "@/lib/api";
-import { ApiRequestError, readApiErrorCode } from "@/lib/apiError";
-import { buildAnnictAuthHeader } from "@/lib/annict";
+import type { InferRequestType } from "hono/client";
+import { apiClient, apiFetch } from "@/lib/api";
+import { workRatingQueries } from "@/lib/queries/workRatings";
+import type { WorkRatingResponse } from "@/lib/queries/workRatings";
 import type { TranslationKey } from "@/lib/i18n/keys";
 
-type WorkRatingResponse = InferResponseType<
-  (typeof apiClient.me)["work-ratings"][":annictWorkId"]["$get"],
-  200
->;
 type UpsertRequest = InferRequestType<
   (typeof apiClient.me)["work-ratings"][":annictWorkId"]["$put"]
 >["json"];
@@ -26,11 +22,9 @@ export const WORK_RATING_LABELS: Record<WorkRating, TranslationKey> = {
   great: "最高",
 };
 
-// 評価は作品（annictWorkId）× ユーザー固有なので両方でスコープする
-// （useWorkEpisodes のキー設計と同じ）。
-export const WORK_RATING_QUERY_KEY = ["work-ratings"] as const;
-export const workRatingQueryKey = (userId: string, annictWorkId: number) =>
-  [...WORK_RATING_QUERY_KEY, userId, annictWorkId] as const;
+// 評価は作品（annictWorkId）× ユーザー固有なので両方でスコープする。
+export const WORK_RATING_QUERY_KEY = workRatingQueries.all;
+export const workRatingQueryKey = workRatingQueries.detail.key;
 
 // 評価の書き込み（保存・解除）のスコープ。同じスコープの mutation は
 // MutationCache が直列実行する（連打でリクエスト順が入れ替わり、
@@ -46,14 +40,6 @@ export interface WorkRatingError extends Error {
   rolledBack?: boolean;
 }
 
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
-
 /**
  * 作品の評価（GET /me/work-ratings/:annictWorkId、issue #416）。
  * 評価本体は Animeishi の D1 が正で Annict 連携は不要。
@@ -61,30 +47,16 @@ async function getAuthHeaders(
  * （annictRating）として返すので、連携済みならヘッダを付けて呼ぶ。
  */
 export function useWorkRating(annictWorkId: number | null) {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   return useQuery({
-    queryKey:
-      userId && annictWorkId != null
-        ? workRatingQueryKey(userId, annictWorkId)
-        : WORK_RATING_QUERY_KEY,
+    // userId 未確定の間はファクトリ側がプレフィックスキーに分岐する
+    // （enabled=false で発火しない）。
+    ...workRatingQueries.detail.query({
+      userId: userId ?? null,
+      annictWorkId,
+    }),
     enabled: !!isSignedIn && !!userId && annictWorkId != null,
-    queryFn: async () => {
-      const headers = await getAuthHeaders(getToken);
-      const annictHeader = await buildAnnictAuthHeader();
-      const res = await apiClient.me["work-ratings"][":annictWorkId"].$get(
-        { param: { annictWorkId: String(annictWorkId ?? 0) } },
-        { headers: { ...headers, ...annictHeader } },
-      );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "評価の取得に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
-      return res.json();
-    },
   });
 }
 
@@ -141,31 +113,28 @@ function invalidateWhenLast(
  * searchWorks 解決するため（お気に入りの追加と同じ扱い）。
  */
 export function useUpsertWorkRating(annictWorkId: number) {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
-  const queryKey = userId
-    ? workRatingQueryKey(userId, annictWorkId)
-    : WORK_RATING_QUERY_KEY;
+  const queryKey =
+    userId != null
+      ? workRatingQueries.detail.key(userId, annictWorkId)
+      : workRatingQueries.all;
 
   return useMutation({
     scope: { id: WORK_RATING_WRITE_SCOPE },
     mutationFn: async (data: UpsertRequest) => {
-      const headers = await getAuthHeaders(getToken);
-      const annictHeader = await buildAnnictAuthHeader();
       const res = await apiClient.me["work-ratings"][":annictWorkId"].$put(
         {
           param: { annictWorkId: String(annictWorkId) },
           json: data,
         },
-        { headers: { ...headers, ...annictHeader } },
+        {
+          fetch: apiFetch({
+            annict: true,
+            errorMessage: "評価の保存に失敗しました",
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "評価の保存に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       return res.json();
     },
     onMutate: async (data): Promise<RatingMutationContext> => {
@@ -192,27 +161,20 @@ export function useUpsertWorkRating(annictWorkId: number) {
  * サーバーの最終状態が操作の意図と逆になる）。
  */
 export function useDeleteWorkRating(annictWorkId: number) {
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
-  const queryKey = userId
-    ? workRatingQueryKey(userId, annictWorkId)
-    : WORK_RATING_QUERY_KEY;
+  const queryKey =
+    userId != null
+      ? workRatingQueries.detail.key(userId, annictWorkId)
+      : workRatingQueries.all;
 
   return useMutation({
     scope: { id: WORK_RATING_WRITE_SCOPE },
     mutationFn: async () => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["work-ratings"][":annictWorkId"].$delete(
         { param: { annictWorkId: String(annictWorkId) } },
-        { headers },
+        { fetch: apiFetch({ errorMessage: "評価の解除に失敗しました" }) },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          "評価の解除に失敗しました",
-          await readApiErrorCode(res),
-        );
-      }
       const ct = res.headers.get("content-type") ?? "";
       return ct.includes("application/json") ? res.json() : null;
     },
