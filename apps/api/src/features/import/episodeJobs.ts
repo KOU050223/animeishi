@@ -5,14 +5,16 @@
 // 返す。ユーザーはそのまま画面を閉じてよい（書き込みはバックグラウンド）。
 // Annict トークンは Workflow 側でユーザー ID から復号するため、ここでは
 // Web 連携（D1 保存トークン）の有無だけを確認する。
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { createDb } from "@/db/client";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthVariables } from "@/middleware/auth";
 import { annictRepository } from "../annict/repository";
 import type { DanimeEpisodeImportJob } from "@/db/schema";
-import { danimeEpisodeJobCreateSchema } from "./schema";
+import {
+  createDanimeEpisodeJobRoute,
+  getCurrentDanimeEpisodeJobRoute,
+} from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { episodeImportJobRepository, RUNNING_JOB_STATUSES } from "./repository";
 import type { DanimeEpisodeImportParams } from "./episodeImportWorkflow";
 
@@ -157,98 +159,95 @@ async function reconcileJobWithWorkflow(
   return "running";
 }
 
-export const danimeEpisodeJobs = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .post(
-    "/episode-jobs",
-    zValidator("json", danimeEpisodeJobCreateSchema),
-    async (c) => {
-      const userId = c.get("clerkUserId");
-      const { works } = c.req.valid("json");
-      const { DB, DANIME_EPISODE_IMPORT } = c.env as EpisodeJobBindings;
-      const db = createDb(DB);
-      const repo = episodeImportJobRepository(db);
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+export const danimeEpisodeJobs = app
+  .openapi(createDanimeEpisodeJobRoute, async (c) => {
+    const userId = c.get("clerkUserId");
+    const { works } = c.req.valid("json");
+    const { DB, DANIME_EPISODE_IMPORT } = c.env as EpisodeJobBindings;
+    const db = createDb(DB);
+    const repo = episodeImportJobRepository(db);
 
-      // 同時に 1 ジョブだけ。実行中があれば新規作成せず既存を返す
-      // （画面は返ってきたジョブの進捗をそのまま表示する）。
-      const running = await repo.getRunningJobForUser(userId);
-      if (running) {
-        // 実行中に見えるジョブのインスタンスが実は止まっているなら、
-        // ここで終了させて新規作成に進む（issue #701）。
-        // そうでなければ既存ジョブをそのまま返す。
-        const settled = DANIME_EPISODE_IMPORT
-          ? (await reconcileJobWithWorkflow(
-              repo,
-              DANIME_EPISODE_IMPORT,
-              running,
-            )) === "settled"
-          : false;
-        if (!settled) {
-          return c.json({ job: toJobDto(running), created: false }, 200);
-        }
+    // 同時に 1 ジョブだけ。実行中があれば新規作成せず既存を返す
+    // （画面は返ってきたジョブの進捗をそのまま表示する）。
+    const running = await repo.getRunningJobForUser(userId);
+    if (running) {
+      // 実行中に見えるジョブのインスタンスが実は止まっているなら、
+      // ここで終了させて新規作成に進む（issue #701）。
+      // そうでなければ既存ジョブをそのまま返す。
+      const settled = DANIME_EPISODE_IMPORT
+        ? (await reconcileJobWithWorkflow(
+            repo,
+            DANIME_EPISODE_IMPORT,
+            running,
+          )) === "settled"
+        : false;
+      if (!settled) {
+        return c.json({ job: toJobDto(running), created: false }, 200);
       }
+    }
 
-      // Workflow は D1 保存の暗号化トークンしか使えない。ヘッダ方式の
-      // ネイティブ利用者はここで弾く（ジョブを作ってもトークン解決で
-      // 必ず失敗するため、作成時点で分かりやすく失敗にする）。
-      const tokenRow = await annictRepository(db, userId).getAnnictTokenRow();
-      if (!tokenRow) {
-        return c.json(
-          {
-            error: "話数記録には Web の Annict 連携が必要です",
-            code: "annict_token_required",
-          },
-          401,
-        );
-      }
-      if (!DANIME_EPISODE_IMPORT) {
-        return c.json(
-          { error: "話数記録のバックグラウンド処理が利用できません" },
-          503,
-        );
-      }
+    // Workflow は D1 保存の暗号化トークンしか使えない。ヘッダ方式の
+    // ネイティブ利用者はここで弾く（ジョブを作ってもトークン解決で
+    // 必ず失敗するため、作成時点で分かりやすく失敗にする）。
+    const tokenRow = await annictRepository(db, userId).getAnnictTokenRow();
+    if (!tokenRow) {
+      return c.json(
+        {
+          error: "話数記録には Web の Annict 連携が必要です",
+          code: "annict_token_required",
+        },
+        401,
+      );
+    }
+    if (!DANIME_EPISODE_IMPORT) {
+      return c.json(
+        { error: "話数記録のバックグラウンド処理が利用できません" },
+        503,
+      );
+    }
 
-      const jobId = crypto.randomUUID();
-      try {
-        await repo.createJob(jobId, userId);
-      } catch (err) {
-        // 実行中ジョブの部分一意インデックスに当たった側はここで落ちる。
-        // 先に作られたジョブを返して既存進捗を見せる（同時 POST 競合）。
-        const concurrent = await repo.getRunningJobForUser(userId);
-        if (concurrent) {
-          return c.json({ job: toJobDto(concurrent), created: false }, 200);
-        }
-        throw err;
+    const jobId = crypto.randomUUID();
+    try {
+      await repo.createJob(jobId, userId);
+    } catch (err) {
+      // 実行中ジョブの部分一意インデックスに当たった側はここで落ちる。
+      // 先に作られたジョブを返して既存進捗を見せる（同時 POST 競合）。
+      const concurrent = await repo.getRunningJobForUser(userId);
+      if (concurrent) {
+        return c.json({ job: toJobDto(concurrent), created: false }, 200);
       }
-      try {
-        await repo.insertJobWorks(
-          works.map((w) => ({
-            jobId,
-            danimeWorkId: w.danimeWorkId,
-            annictWorkId: w.annictWorkId,
-            episodesJson: JSON.stringify(w.episodes),
-          })),
-        );
-        await DANIME_EPISODE_IMPORT.create({
-          id: jobId,
-          params: { jobId, userId },
-        });
-      } catch (err) {
-        // 入力保存・Workflow 起動の失敗時に matching のまま残ると、
-        // 以後の POST がこのジョブを返し続けて取り込めなくなる。
-        // 実行中扱いを外すため failed に倒してから投げ直す。
-        await repo.setJobStatus(
+      throw err;
+    }
+    try {
+      await repo.insertJobWorks(
+        works.map((w) => ({
           jobId,
-          "failed",
-          err instanceof Error ? err.message : String(err),
-        );
-        throw err;
-      }
-      const job = await repo.getJob(jobId);
-      return c.json({ job: job ? toJobDto(job) : null, created: true }, 201);
-    },
-  )
-  .get("/episode-jobs/current", async (c) => {
+          danimeWorkId: w.danimeWorkId,
+          annictWorkId: w.annictWorkId,
+          episodesJson: JSON.stringify(w.episodes),
+        })),
+      );
+      await DANIME_EPISODE_IMPORT.create({
+        id: jobId,
+        params: { jobId, userId },
+      });
+    } catch (err) {
+      // 入力保存・Workflow 起動の失敗時に matching のまま残ると、
+      // 以後の POST がこのジョブを返し続けて取り込めなくなる。
+      // 実行中扱いを外すため failed に倒してから投げ直す。
+      await repo.setJobStatus(
+        jobId,
+        "failed",
+        err instanceof Error ? err.message : String(err),
+      );
+      throw err;
+    }
+    const job = await repo.getJob(jobId);
+    return c.json({ job: job ? toJobDto(job) : null, created: true }, 201);
+  })
+  .openapi(getCurrentDanimeEpisodeJobRoute, async (c) => {
     const userId = c.get("clerkUserId");
     const { DB, DANIME_EPISODE_IMPORT } = c.env as EpisodeJobBindings;
     const db = createDb(DB);

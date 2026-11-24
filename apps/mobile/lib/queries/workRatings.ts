@@ -41,7 +41,7 @@ export const workRatingQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<WorkRatingResponse>;
         },
       }),
   },

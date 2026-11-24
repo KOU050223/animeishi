@@ -1,4 +1,3 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
@@ -14,6 +13,8 @@ import {
   type SeasonEpisodeMaster,
 } from "./service";
 import { achievementId } from "./definitions";
+import { getAchievementsRoute } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 // 注: barrel（@/lib/annict）ではなくサブモジュールを直接 import する（理由は
 // features/watch-history/index.ts のコメント参照）。
 import {
@@ -110,58 +111,58 @@ async function judgeSeasonCompletion(
  * （トークン無し）や Annict 障害時はそのバッジだけ available=false に倒し、
  * 残りの実績は通常どおり返す。
  */
-const achievements = new Hono<AuthVariables>()
-  .use("*", requireAuth)
-  .get("/", async (c) => {
-    const db = createDb(getBindings(c).DB);
-    const repo = achievementsRepository(db, c.var.clerkUserId);
-    const season = currentAnnictSeason();
-    const now = Date.now();
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const achievements = app.openapi(getAchievementsRoute, async (c) => {
+  const db = createDb(getBindings(c).DB);
+  const repo = achievementsRepository(db, c.var.clerkUserId);
+  const season = currentAnnictSeason();
+  const now = Date.now();
 
-    const [watchedCount, recordedAts, seasonCandidates] = await Promise.all([
-      repo.countWatched(),
-      repo.listRecordedAts(),
-      repo.listSeasonRecordedEpisodes(season),
-    ]);
+  const [watchedCount, recordedAts, seasonCandidates] = await Promise.all([
+    repo.countWatched(),
+    repo.listRecordedAts(),
+    repo.listSeasonRecordedEpisodes(season),
+  ]);
 
-    const streak = computeWeeklyStreak(recordedAts, now);
-    const items: Achievement[] = [
-      ...evaluateWatchCount(watchedCount),
-      ...evaluateRecordStreak(streak),
-    ];
+  const streak = computeWeeklyStreak(recordedAts, now);
+  const items: Achievement[] = [
+    ...evaluateWatchCount(watchedCount),
+    ...evaluateRecordStreak(streak),
+  ];
 
-    const token = await resolveAnnictToken(c);
-    if (!token) {
+  const token = await resolveAnnictToken(c);
+  if (!token) {
+    items.push(unavailableSeasonCompletion());
+  } else {
+    try {
+      items.push(await judgeSeasonCompletion(token, seasonCandidates));
+    } catch (err) {
+      // 話数マスタの取得失敗で実績一覧全体を落とさない。
+      // 判定できなかったバッジだけ「判定不可」に倒して返す。
+      console.error(
+        JSON.stringify({
+          level: "warn",
+          event: "season_completion_judge_failed",
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
       items.push(unavailableSeasonCompletion());
-    } else {
-      try {
-        items.push(await judgeSeasonCompletion(token, seasonCandidates));
-      } catch (err) {
-        // 話数マスタの取得失敗で実績一覧全体を落とさない。
-        // 判定できなかったバッジだけ「判定不可」に倒して返す。
-        console.error(
-          JSON.stringify({
-            level: "warn",
-            event: "season_completion_judge_failed",
-            error: err instanceof Error ? err.message : String(err),
-          }),
-        );
-        items.push(unavailableSeasonCompletion());
-      }
     }
+  }
 
-    return c.json(
-      {
-        achievements: items,
-        season,
-        stats: {
-          watchedCount,
-          currentStreakWeeks: streak.currentWeeks,
-          bestStreakWeeks: streak.bestWeeks,
-        },
+  return c.json(
+    {
+      achievements: items,
+      season,
+      stats: {
+        watchedCount,
+        currentStreakWeeks: streak.currentWeeks,
+        bestStreakWeeks: streak.bestWeeks,
       },
-      200,
-    );
-  });
+    },
+    200,
+  );
+});
 
 export { achievements };

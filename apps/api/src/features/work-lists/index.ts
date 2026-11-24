@@ -1,14 +1,17 @@
-import { Hono } from "hono";
 import type { Context } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "@/middleware/auth";
 import type { AuthEnv, AuthVariables } from "@/middleware/auth";
 import {
-  workListSaveSchema,
-  workListIdParamSchema,
-  workListsQuerySchema,
-  workListItemAddSchema,
+  addWorkListItemRoute,
+  createWorkListRoute,
+  deleteWorkListRoute,
+  getMyWorkListRoute,
+  listMyWorkListsRoute,
+  shareWorkListRoute,
+  unshareWorkListRoute,
+  updateWorkListRoute,
 } from "./schema";
+import { createOpenApiApp } from "@/lib/openapi";
 import { workListsRepository, type WorkListWithItems } from "./repository";
 import { worksRepository } from "../works/repository";
 import { createDb } from "@/db/client";
@@ -28,12 +31,13 @@ function getBindings(
 // CHECK 制約が watch_status / favorite_added / tier_list_* だけを許し、
 // 作品リスト用の type を足すには制約変更（テーブル再作成）が必要なため
 // 今回は見送る（issue #349 の決定事項）。
-const workListsRoute = new Hono<AuthVariables>()
-  .use("*", requireAuth)
+const app = createOpenApiApp<AuthVariables>();
+app.use("*", requireAuth);
+const workListsRoute = app
   // 自分の作品リストの一覧（内容は含めず、登録作品数のみ）。
   // ?contains=<annictWorkId> を付けると各行に、その作品が入っているかの
   // containsWork フラグが載る（issue #377 の「リストに追加」シート用）。
-  .get("/", zValidator("query", workListsQuerySchema), async (c) => {
+  .openapi(listMyWorkListsRoute, async (c) => {
     const { contains } = c.req.valid("query");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -41,7 +45,7 @@ const workListsRoute = new Hono<AuthVariables>()
     return c.json(data, 200);
   })
   // 新規作成。複数作れるので冪等な PUT ではなく POST 作成。
-  .post("/", zValidator("json", workListSaveSchema), async (c) => {
+  .openapi(createWorkListRoute, async (c) => {
     const input = c.req.valid("json");
     const db = createDb(getBindings(c).DB);
 
@@ -65,7 +69,7 @@ const workListsRoute = new Hono<AuthVariables>()
     return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
   })
   // 1 件取得（内容ごと）。未作成・他人のリストは 404。
-  .get("/:id", zValidator("param", workListIdParamSchema), async (c) => {
+  .openapi(getMyWorkListRoute, async (c) => {
     const { id } = c.req.valid("param");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -75,61 +79,51 @@ const workListsRoute = new Hono<AuthVariables>()
   })
   // 全置換更新。並べ替えは 1 操作で多数の position が動くため、部分更新
   // API よりリストを丸ごと送る（custom_tier_lists と同じ考え方）。
-  .put(
-    "/:id",
-    zValidator("param", workListIdParamSchema),
-    zValidator("json", workListSaveSchema),
-    async (c) => {
-      const { id } = c.req.valid("param");
-      const input = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
+  .openapi(updateWorkListRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const input = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
 
-      const missing = await unknownWorkIds(
-        db,
-        input.items.map((item) => item.annictWorkId),
-      );
-      if (missing.length > 0) {
-        return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
-      }
+    const missing = await unknownWorkIds(
+      db,
+      input.items.map((item) => item.annictWorkId),
+    );
+    if (missing.length > 0) {
+      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+    }
 
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const result = await repo.saveMyWorkList({
-        id,
-        title: input.title,
-        description: input.description?.trim() ? input.description : null,
-        isPublic: input.isPublic,
-        items: withPositions(input.items),
-      });
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
-    },
-  )
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const result = await repo.saveMyWorkList({
+      id,
+      title: input.title,
+      description: input.description?.trim() ? input.description : null,
+      isPublic: input.isPublic,
+      items: withPositions(input.items),
+    });
+    if (!result) return c.json({ error: "Work list not found" }, 404);
+    return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
+  })
   // 作品 1 件を末尾に追加（issue #377）。アニメ一覧の「リストに追加」からの
   // 1 件操作を全置換 PUT で表現すると、先の内容取得と編集画面との
   // 書き込み競合が要になるため、サーバ側の末尾追加として切り出す。
   // 既に入っている作品は no-op（冪等）で現在のリストを返す。
-  .post(
-    "/:id/items",
-    zValidator("param", workListIdParamSchema),
-    zValidator("json", workListItemAddSchema),
-    async (c) => {
-      const { id } = c.req.valid("param");
-      const { annictWorkId } = c.req.valid("json");
-      const db = createDb(getBindings(c).DB);
+  .openapi(addWorkListItemRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const { annictWorkId } = c.req.valid("json");
+    const db = createDb(getBindings(c).DB);
 
-      const missing = await unknownWorkIds(db, [annictWorkId]);
-      if (missing.length > 0) {
-        return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
-      }
+    const missing = await unknownWorkIds(db, [annictWorkId]);
+    if (missing.length > 0) {
+      return c.json({ error: "Unknown works", annictWorkIds: missing }, 400);
+    }
 
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const result = await repo.addMyWorkListItem(id, annictWorkId);
-      if (!result) return c.json({ error: "Work list not found" }, 404);
-      return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
-    },
-  )
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const result = await repo.addMyWorkListItem(id, annictWorkId);
+    if (!result) return c.json({ error: "Work list not found" }, 404);
+    return c.json(withHostedImageUrls(result.workList, c.req.url), 200);
+  })
   // 削除。items は FK CASCADE で消える。
-  .delete("/:id", zValidator("param", workListIdParamSchema), async (c) => {
+  .openapi(deleteWorkListRoute, async (c) => {
     const { id } = c.req.valid("param");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -138,7 +132,7 @@ const workListsRoute = new Hono<AuthVariables>()
     return c.json({ success: true }, 200);
   })
   // 共有リンクの発行・破棄。トークンは冪等（tier 表と同じ方式）。
-  .post("/:id/share", zValidator("param", workListIdParamSchema), async (c) => {
+  .openapi(shareWorkListRoute, async (c) => {
     const { id } = c.req.valid("param");
     const db = createDb(getBindings(c).DB);
     const repo = workListsRepository(db, c.var.clerkUserId);
@@ -146,18 +140,14 @@ const workListsRoute = new Hono<AuthVariables>()
     if (!result) return c.json({ error: "Work list not found" }, 404);
     return c.json({ shareToken: result.shareToken }, 200);
   })
-  .delete(
-    "/:id/share",
-    zValidator("param", workListIdParamSchema),
-    async (c) => {
-      const { id } = c.req.valid("param");
-      const db = createDb(getBindings(c).DB);
-      const repo = workListsRepository(db, c.var.clerkUserId);
-      const found = await repo.unshareMyWorkList(id);
-      if (!found) return c.json({ error: "Work list not found" }, 404);
-      return c.json({ success: true }, 200);
-    },
-  );
+  .openapi(unshareWorkListRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const db = createDb(getBindings(c).DB);
+    const repo = workListsRepository(db, c.var.clerkUserId);
+    const found = await repo.unshareMyWorkList(id);
+    if (!found) return c.json({ error: "Work list not found" }, 404);
+    return c.json({ success: true }, 200);
+  });
 
 // position は配列順から採番する（クライアントの申告値は使わない）。
 // 順序の正が配列順とカラムの 2 か所に分かれると必ずズレるため

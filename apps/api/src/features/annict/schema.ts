@@ -1,4 +1,9 @@
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import {
+  bearerAuth,
+  bearerAuthWithAnnict,
+  errorResponseSchema,
+} from "@/lib/openapi";
 
 // Annict OAuth: モバイルが deep link で受領した認可コードを交換するリクエスト。
 // redirect_uri はトークン交換時の検証に使われるため、モバイルが実際に使った値を
@@ -27,3 +32,99 @@ export const annictExchangeSchema = z
   });
 
 export type AnnictExchangeInput = z.infer<typeof annictExchangeSchema>;
+
+const jsonError = (description: string) => ({
+  content: { "application/json": { schema: errorResponseSchema } },
+  description,
+});
+
+// mode:"web" はトークンを D1 に暗号化保存し、ボディには含めない。
+const annictExchangeWebResponseSchema = z.object({
+  connected: z.boolean(),
+  scope: z.string(),
+  annictUserId: z.number(),
+});
+
+// mode:"native" はトークンをボディで返し、クライアントが SecureStore に保持する。
+const annictExchangeNativeResponseSchema = z.object({
+  accessToken: z.string(),
+  scope: z.string(),
+  annictUserId: z.number(),
+});
+
+export const annictExchangeRoute = createRoute({
+  method: "post",
+  path: "/exchange",
+  tags: ["annict"],
+  summary: "Annict の認可コードをアクセストークンに交換する",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: annictExchangeSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.union([
+            annictExchangeWebResponseSchema,
+            annictExchangeNativeResponseSchema,
+          ]),
+        },
+      },
+      description:
+        "交換結果（mode:web は連携済みフラグ、mode:native はアクセストークン）",
+    },
+    400: jsonError("入力エラー・認可コードが不正または期限切れ"),
+    401: jsonError("未認証"),
+    500: jsonError("Annict 連携が構成されていない"),
+    502: jsonError("Annict の障害"),
+  },
+});
+
+export const annictDisconnectRoute = createRoute({
+  method: "post",
+  path: "/disconnect",
+  tags: ["annict"],
+  summary: "Web 連携を解除する（保存済みトークンを削除）",
+  security: bearerAuth,
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({ connected: z.boolean() }),
+        },
+      },
+      description: "解除した",
+    },
+    401: jsonError("未認証"),
+  },
+});
+
+export const getAnnictConnectionRoute = createRoute({
+  method: "get",
+  path: "/",
+  tags: ["annict"],
+  summary: "Annict の連携状態を確認する",
+  security: bearerAuthWithAnnict,
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.union([
+            z.object({ connected: z.boolean() }),
+            z.object({
+              connected: z.boolean(),
+              annictUserId: z.number(),
+              scope: z.array(z.string()),
+            }),
+          ]),
+        },
+      },
+      description: "連携状態（トークン失効時も connected:false）",
+    },
+    401: jsonError("未認証"),
+  },
+});

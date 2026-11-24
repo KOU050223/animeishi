@@ -1,4 +1,5 @@
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { bearerAuth, errorResponseSchema } from "@/lib/openapi";
 
 export const socialLinkKinds = [
   "x",
@@ -57,3 +58,55 @@ export const updateSocialLinksSchema = z.object({
 });
 
 export type SocialLinkInput = z.infer<typeof socialLinkInputSchema>;
+
+// 応答の 1 件。url は種別と ID からサーバー側で組み立てた遷移先。
+const socialLinkSchema = z.object({
+  kind: z.enum(socialLinkKinds),
+  value: z.string(),
+  visibility: z.enum(socialLinkVisibilities),
+  url: z.string(),
+});
+
+const socialLinksResponse = {
+  content: {
+    "application/json": {
+      schema: z.object({ items: z.array(socialLinkSchema) }),
+    },
+  },
+};
+
+const jsonError = (description: string) => ({
+  content: { "application/json": { schema: errorResponseSchema } },
+  description,
+});
+
+export const getSocialLinksRoute = createRoute({
+  method: "get",
+  path: "/",
+  tags: ["social-links"],
+  summary: "自分の SNS リンク一覧を取得する（全公開範囲）",
+  security: bearerAuth,
+  responses: {
+    200: { ...socialLinksResponse, description: "表示順の SNS リンク" },
+    401: jsonError("未認証"),
+  },
+});
+
+export const updateSocialLinksRoute = createRoute({
+  method: "put",
+  path: "/",
+  tags: ["social-links"],
+  summary: "自分の SNS リンクを丸ごと置き換える（配列の順が表示順）",
+  security: bearerAuth,
+  request: {
+    body: {
+      content: { "application/json": { schema: updateSocialLinksSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: { ...socialLinksResponse, description: "置き換え後の SNS リンク" },
+    400: jsonError("入力エラー"),
+    401: jsonError("未認証"),
+  },
+});

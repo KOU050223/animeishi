@@ -30,7 +30,7 @@ export const socialLinkQueries = {
               }),
             },
           );
-          return res.json();
+          return res.json() as Promise<SocialLinksResponse>;
         },
       }),
   },
