@@ -35,7 +35,7 @@ const PUBLIC_LIST_PAGE_LIMIT = "20";
 
 // 作品リスト（/me/work-lists・/work-lists/public、issue #349/#422）の
 // クエリファクトリ（issue #726）。キー値は移行前と同一。
-// saved/list/public は先頭 2 要素が共通プレフィックスなので、
+// saved/list/public はすべて先頭要素 "work-list" を共有するので、
 // all のプレフィックスでまとめて invalidate できる構造は既存のまま。
 export const workListQueries = {
   all: ["work-list"] as const,

@@ -534,6 +534,34 @@ describe("useReportWorkList", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe("通報は1時間に5回までです");
   });
+
+  it("onHttpError は 429 の応答 body の error 文言を使う", async () => {
+    mockReportPost.mockResolvedValue(okResponse({}));
+    const { wrapper } = makeWrapper();
+    const { result } = await renderHook(() => useReportWorkList(), {
+      wrapper,
+    });
+    result.current.mutate({ id: 3, reason: "スパム" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // 通報 POST 用の apiFetch オプションから本番の onHttpError を取り出して
+    // 文言変換そのものを検証する（モックした mockReportPost では通らない経路）。
+    const options = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(options).toBeDefined();
+    const error = await options!.onHttpError!(
+      new Response(JSON.stringify({ error: "通報は1時間に5回までです" }), {
+        status: 429,
+      }),
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect((error as ApiRequestError).status).toBe(429);
+    expect(error.message).toBe("通報は1時間に5回までです");
+  });
 });
 
 describe("usePublicWorkList", () => {
