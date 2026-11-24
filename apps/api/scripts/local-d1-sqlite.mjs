@@ -1,5 +1,4 @@
-// wrangler dev がローカル D1 用に生成する SQLite ファイル
-// （.wrangler/state/v3/d1/miniflare-D1DatabaseObject/<objectId>.sqlite）を
+// wrangler dev がローカル D1 用に生成する SQLite ファイルを
 // database_id から特定するための純関数群。drizzle.config.ts から使う。
 import { createHash, createHmac } from "node:crypto";
 
@@ -55,7 +54,7 @@ export function resolveLocalD1Sqlite(databaseIds, files) {
     throw new Error(
       matches.length === 0
         ? `ローカルD1のSQLiteファイルが見つかりません。` +
-            `先に 'pnpm dev' を一度起動してください。` +
+            `先に 'vp run @animeishi/api#dev' を一度起動してください。` +
             `（期待するファイル: ${[...expected].join(", ")}）`
         : `ローカルD1のSQLiteファイルを1つに絞れません: ${matches.join(", ")}`,
     );
