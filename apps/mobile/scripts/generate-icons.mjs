@@ -1,6 +1,6 @@
 // assets/images/*.svg から app.json と public/ の PWA アイコンが参照する PNG を生成する。
 // 使い方: pnpm --filter @animeishi/mobile generate:icons
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -9,10 +9,13 @@ const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const imagesDir = join(scriptsDir, "../assets/images");
 const publicDir = join(scriptsDir, "../public");
 
+// 地色。app.json の android.adaptiveIcon.backgroundColor と揃える
+const background = "#1D1C21";
+
 /** @type {{ src: string; out: string; size: number; flatten?: string }[]} */
 const targets = [
   // iOS / 共通アイコン。App Store 提出用にアルファを除去する
-  { src: "icon.svg", out: "icon.png", size: 1024, flatten: "#4F46E5" },
+  { src: "icon.svg", out: "icon.png", size: 1024, flatten: background },
   // Android アダプティブアイコン前景（透過）
   { src: "adaptive-icon.svg", out: "adaptive-icon.png", size: 1024 },
   // Android 13+ テーマアイコン用モノクロ前景（透過シルエット）
@@ -39,28 +42,43 @@ const publicTargets = [
     src: "adaptive-icon.svg",
     out: "icons/maskable-192.png",
     size: 192,
-    flatten: "#6D28D9",
+    flatten: background,
   },
   {
     src: "adaptive-icon.svg",
     out: "icons/maskable-512.png",
     size: 512,
-    flatten: "#6D28D9",
+    flatten: background,
   },
   // iOS ホーム画面追加用。透過を残すと黒背景になるためベタ塗りする
   {
     src: "icon.svg",
     out: "apple-touch-icon.png",
     size: 180,
-    flatten: "#4F46E5",
+    flatten: background,
   },
 ];
 
-for (const { src, out, size, flatten } of targets) {
-  let pipeline = sharp(join(imagesDir, src), { density: 384 }).resize(
-    size,
-    size,
+// アイコンはドット絵なので、viewBox のセルが出力サイズちょうどに描かれる density で
+// ラスタライズする。小さく描いてから拡大すると補間でドットの境界がぼける
+async function rasterize(src, size) {
+  const path = join(imagesDir, src);
+  const svg = await readFile(path, "utf8");
+  const viewBoxWidth = Number(
+    svg.match(/viewBox="[^"]*?\S+\s+\S+\s+(\S+)/)?.[1],
   );
+  if (!Number.isFinite(viewBoxWidth)) {
+    throw new Error(`${src}: viewBox が読めない`);
+  }
+  return sharp(path, { density: (72 * size) / viewBoxWidth }).resize(
+    size,
+    size,
+    { kernel: "nearest" },
+  );
+}
+
+for (const { src, out, size, flatten } of targets) {
+  let pipeline = await rasterize(src, size);
   if (flatten) {
     pipeline = pipeline.flatten({ background: flatten });
   }
@@ -69,10 +87,7 @@ for (const { src, out, size, flatten } of targets) {
 }
 
 for (const { src, out, size, flatten } of publicTargets) {
-  let pipeline = sharp(join(imagesDir, src), { density: 384 }).resize(
-    size,
-    size,
-  );
+  let pipeline = await rasterize(src, size);
   if (flatten) {
     pipeline = pipeline.flatten({ background: flatten });
   }
