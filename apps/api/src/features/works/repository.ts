@@ -803,30 +803,22 @@ export function worksRepository(db: DrizzleDb) {
               sql`${annictWorks.malAnimeId} is not null`,
               sql`${annictWorks.kitsuAnimeId} is not null`,
             ),
-            // 下の複合条件から論理的には含意されるが、部分インデックス
-            // annict_works_pending_genre_idx を SQLite が使える形にするため
-            // 単独の項としても置く（getPendingImageFallbackWorks と同じ理由。
-            // issue #704）。
+            // 部分インデックス annict_works_pending_genre_idx に対応する
+            // 単独項（下の条件はこの項の部分集合を表す。issue #704）。
             or(isNull(annictWorks.genres), sql`${annictWorks.genres} = '[]'`),
+            // 「genres is null でクールダウン切れ」∨「genres='[]' で
+            // クールダウン切れ かつ fetched が TTL 切れ」を、単独項の前提
+            // （genres is null or genres='[]'）の下で畳み込むと次の 2 項になる。
+            // 元の (A∧B)∨(C∧B∧D) のネストした OR-of-AND 形は D1 が internal
+            // error を返していたクエリ形なので、条件を単純化しておく（issue #783）。
             or(
-              and(
-                isNull(annictWorks.genres),
-                or(
-                  isNull(annictWorks.genresAttemptedAt),
-                  lt(annictWorks.genresAttemptedAt, attemptedStaleBefore),
-                ),
-              ),
-              and(
-                sql`${annictWorks.genres} = '[]'`,
-                or(
-                  isNull(annictWorks.genresAttemptedAt),
-                  lt(annictWorks.genresAttemptedAt, attemptedStaleBefore),
-                ),
-                or(
-                  isNull(annictWorks.genresFetchedAt),
-                  lt(annictWorks.genresFetchedAt, emptyGenresStaleBefore),
-                ),
-              ),
+              isNull(annictWorks.genresAttemptedAt),
+              lt(annictWorks.genresAttemptedAt, attemptedStaleBefore),
+            ),
+            or(
+              isNull(annictWorks.genres),
+              isNull(annictWorks.genresFetchedAt),
+              lt(annictWorks.genresFetchedAt, emptyGenresStaleBefore),
             ),
           ),
         )
