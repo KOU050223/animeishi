@@ -487,7 +487,7 @@ export function selectTargetPeer(state: NearbySessionState): NearbyPeer | null {
   const measured = candidates
     .filter((peer) => peer.meters != null)
     .sort((a, b) => (a.meters ?? 0) - (b.meters ?? 0));
-  return measured[0] ?? candidates[0];
+  return measured[0] ?? candidates[0] ?? null;
 }
 
 /** タップで交換する相手の一覧（見つかった順）。交換済みの相手は除く。 */

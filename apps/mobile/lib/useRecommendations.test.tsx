@@ -143,8 +143,8 @@ describe("useRecommendations / useGenerateRecommendations", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     // 同期 GET が POST より先に呼ばれる（POST は D1 スナップショットを見る）。
     expect(mockWatchHistoryGet).toHaveBeenCalledTimes(1);
-    expect(mockWatchHistoryGet.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPost.mock.invocationCallOrder[0],
+    expect(mockWatchHistoryGet.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockPost.mock.invocationCallOrder[0]!,
     );
     // POST には Annict トークンが要る（searchWorks で照合するため）。
     // ヘッダの組み立ては apiFetch に委譲（ヘッダ内容は lib/api.test.ts で検証）。

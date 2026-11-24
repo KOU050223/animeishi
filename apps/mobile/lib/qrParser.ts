@@ -219,7 +219,7 @@ export function parseQrPayload(
  */
 function extractFromUrlLike(input: string): string | null {
   // クエリ・フラグメントを除去
-  const withoutQuery = input.split(/[?#]/, 1)[0];
+  const withoutQuery = input.split(/[?#]/, 1)[0] ?? "";
 
   // スキーム（animeishi://, https://）以降のパス部分を取得
   const schemeStripped = withoutQuery.replace(
@@ -234,7 +234,7 @@ function extractFromUrlLike(input: string): string | null {
   // `/user/{uid}` 形式を優先
   const userIdx = segments.lastIndexOf("user");
   if (userIdx >= 0 && userIdx + 1 < segments.length) {
-    return segments[userIdx + 1];
+    return segments[userIdx + 1] ?? null;
   }
 
   // それ以外はパス末尾を候補にする（animeishi://{uid} 等）

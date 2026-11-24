@@ -118,10 +118,10 @@ describe("ElementRenderer", () => {
     const image = screen.container.queryAll(
       (node) => node.props.contentPosition,
     )[0];
-    expect(image.props.contentPosition).toEqual({ left: "20%", top: "75%" });
-    expect(image.props.contentFit).toBe("cover");
+    expect(image?.props.contentPosition).toEqual({ left: "20%", top: "75%" });
+    expect(image?.props.contentFit).toBe("cover");
     // web のネイティブ画像ドラッグが要素移動のジェスチャを奪わない（issue #327）
-    expect(image.props.draggable).toBe(false);
+    expect(image?.props.draggable).toBe(false);
   });
 
   it("テキストの fontSize を renderScale に合わせて縮小する", async () => {
@@ -136,6 +136,7 @@ describe("ElementRenderer", () => {
     );
 
     const text = screen.container.queryAll((node) => node.type === "Text")[0];
+    if (!text) throw new Error("Text が見つかりません");
     const style = StyleSheet.flatten(text.props.style);
 
     expect(style.fontSize).toBe(12);

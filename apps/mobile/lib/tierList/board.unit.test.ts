@@ -13,7 +13,7 @@ import {
 } from "./board";
 import type { TierRow, TierItem } from "./types";
 
-const TIERS: TierRow[] = [
+const TIERS: [TierRow, TierRow] = [
   { key: "s", label: "神", color: "#ff7f7f" },
   { key: "a", label: "強", color: "#ffbf7f" },
 ];
@@ -205,7 +205,7 @@ describe("mergeBoardItems", () => {
     const merged = mergeBoardItems(ITEMS, manual);
     expect(merged.map((item) => item.id)).toEqual([1, 2, 3, 4]);
     // シーズン候補側（先の供給元）のタイトルが残る
-    expect(merged[1].title).toBe("アニメ2");
+    expect(merged[1]?.title).toBe("アニメ2");
   });
 
   it("空・undefined の供給元を含めても動く", () => {
@@ -322,7 +322,8 @@ describe("sameBoard", () => {
 
   it("配置順が違うだけでも false（position に影響するため）", () => {
     const reordered = snapshot();
-    reordered.items = [reordered.items[1], reordered.items[0]];
+    // snapshot() の items はリテラルで 2 件固定のため添字は必ず存在する。
+    reordered.items = [reordered.items[1]!, reordered.items[0]!];
     expect(sameBoard(snapshot(), reordered)).toBe(false);
   });
 

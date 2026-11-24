@@ -231,8 +231,8 @@ describe("useAnalysis / useGenerateAnalysis", () => {
     // 見るため、read-through で先に最新化する必要がある）。
     expect(mockWatchHistoryGet).toHaveBeenCalledTimes(1);
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockWatchHistoryGet.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPost.mock.invocationCallOrder[0],
+    expect(mockWatchHistoryGet.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockPost.mock.invocationCallOrder[0]!,
     );
     // 同期 GET には apiFetch（Clerk JWT + Annict トークン付与）が渡される。
     // ヘッダの中身は apiFetch 側の責務（lib/api.test.ts で検証）。

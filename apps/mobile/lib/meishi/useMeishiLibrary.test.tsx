@@ -85,7 +85,7 @@ describe("useMeishiLibrary", () => {
     });
 
     expect(result.current.cards).toHaveLength(3);
-    expect(result.current.cards[1].name).toBe("名刺 1 のコピー");
+    expect(result.current.cards[1]?.name).toBe("名刺 1 のコピー");
     expect(result.current.defaultCard?.id).toBe("a");
   });
 
@@ -131,8 +131,8 @@ describe("useMeishiLibrary", () => {
       await result.current.updateCardDocument("b", nextDoc);
     });
 
-    expect(result.current.cards[1].document).toEqual(nextDoc);
-    expect(result.current.cards[0].document).toEqual(sampleDoc);
+    expect(result.current.cards[1]?.document).toEqual(nextDoc);
+    expect(result.current.cards[0]?.document).toEqual(sampleDoc);
   });
 
   it("複製→削除を await せず連続実行しても、両方の結果が保存に残る", async () => {

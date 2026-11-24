@@ -49,12 +49,12 @@ describe("renameTier", () => {
 
   it("入力値を trim して保存する（サーバの trim と見た目を一致させる）", () => {
     const next = renameTier(TIERS, "1", "  最強  ");
-    expect(next[1].label).toBe("最強");
+    expect(next[1]?.label).toBe("最強");
   });
 
   it("key は変えない（配置からの参照が壊れないように）", () => {
     const next = renameTier(TIERS, "0", "SSS");
-    expect(next[0].key).toBe("0");
+    expect(next[0]?.key).toBe("0");
   });
 
   it("trim 後に同じ名前なら同じ配列を返す（未保存扱いにしないための判定用）", () => {
@@ -68,7 +68,7 @@ describe("renameTier", () => {
 
   it("元の配列を破壊しない", () => {
     renameTier(TIERS, "0", "神");
-    expect(TIERS[0].label).toBe("S");
+    expect(TIERS[0]?.label).toBe("S");
   });
 });
 

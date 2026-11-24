@@ -54,23 +54,23 @@ describe("loadMeishiLibrary", () => {
     const lib = await loadMeishiLibrary();
     expect(lib).not.toBeNull();
     expect(lib!.cards).toHaveLength(1);
-    expect(lib!.cards[0].document).toEqual(sampleDoc);
-    expect(lib!.defaultCardId).toBe(lib!.cards[0].id);
+    expect(lib!.cards[0]?.document).toEqual(sampleDoc);
+    expect(lib!.defaultCardId).toBe(lib!.cards[0]?.id);
   });
 
   it("移行は初回読み込みで確定され、以後の読み込みでも同じカード ID を返す", async () => {
     await AsyncStorage.setItem("meishi-document:v1", JSON.stringify(sampleDoc));
     const first = await loadMeishiLibrary();
-    const firstId = first!.cards[0].id;
+    const firstId = first!.cards[0]?.id;
 
     // 移行がライブラリとして書き込まれ、レガシーは書き込み後に消えている
     expect(await AsyncStorage.getItem("meishi-document:v1")).toBeNull();
     const raw = await AsyncStorage.getItem("meishi-library:v1");
     expect(raw).not.toBeNull();
-    expect(JSON.parse(raw!).cards[0].id).toBe(firstId);
+    expect(JSON.parse(raw!).cards[0]?.id).toBe(firstId);
 
     const second = await loadMeishiLibrary();
-    expect(second!.cards[0].id).toBe(firstId);
+    expect(second!.cards[0]?.id).toBe(firstId);
   });
 
   it("同時に読み込んでも移行カードの ID は一致する", async () => {
@@ -79,7 +79,7 @@ describe("loadMeishiLibrary", () => {
       loadMeishiLibrary(),
       loadMeishiLibrary(),
     ]);
-    expect(a!.cards[0].id).toBe(b!.cards[0].id);
+    expect(a!.cards[0]?.id).toBe(b!.cards[0]?.id);
   });
 
   it("ライブラリとレガシーが両方あるときはライブラリを優先する", async () => {
@@ -149,7 +149,7 @@ describe("updateMeishiLibrary", () => {
       result: undefined,
     }));
     expect(out.library.cards).toHaveLength(1);
-    expect(out.library.defaultCardId).toBe(out.library.cards[0].id);
+    expect(out.library.defaultCardId).toBe(out.library.cards[0]?.id);
   });
 });
 

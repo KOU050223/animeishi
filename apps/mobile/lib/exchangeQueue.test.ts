@@ -62,8 +62,8 @@ describe("enqueueExchange / readExchangeQueue", () => {
 
     const queue = await readExchangeQueue();
     expect(queue).toHaveLength(1);
-    expect(queue[0].scannedAt).toBe("2026-11-21T11:00:00.000Z");
-    expect(queue[0].offlineToken).toBe("newer-ot");
+    expect(queue[0]?.scannedAt).toBe("2026-11-21T11:00:00.000Z");
+    expect(queue[0]?.offlineToken).toBe("newer-ot");
   });
 
   it("壊れた JSON・配列以外・不正な項目は空キュー扱いにする", async () => {
@@ -82,7 +82,7 @@ describe("enqueueExchange / readExchangeQueue", () => {
     );
     const queue = await readExchangeQueue();
     expect(queue).toHaveLength(1);
-    expect(queue[0].friendId).toBe(USER_A);
+    expect(queue[0]?.friendId).toBe(USER_A);
   });
 });
 

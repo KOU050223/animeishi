@@ -81,8 +81,13 @@ describe("TierBoardSnapshot", () => {
 
     // ルート View だけが collapsable={false} を持つ（view-shot 用）。
     // RNTL 14 では UNSAFE_root/findByProps が無いため queryAll で絞る。
-    const boardView = () =>
-      screen.container.queryAll((node) => node.props.collapsable === false)[0];
+    const boardView = () => {
+      const view = screen.container.queryAll(
+        (node) => node.props.collapsable === false,
+      )[0];
+      if (!view) throw new Error("board view が見つかりません");
+      return view;
+    };
 
     it("light スキームでは白系の背景で描く", async () => {
       await render(<TierBoardSnapshot title="t" tiers={TIERS} items={ITEMS} />);
@@ -143,11 +148,11 @@ describe("TierBoardSnapshot", () => {
       expect(images).toHaveLength(2);
 
       // 1 枚目の完了ではまだ呼ばれない
-      images[0].props.onLoadEnd();
+      images[0]?.props.onLoadEnd();
       expect(onReady).not.toHaveBeenCalled();
 
       // 全件完了で一度だけ呼ばれる（読み込み失敗でも onLoadEnd は来る）
-      images[1].props.onLoadEnd();
+      images[1]?.props.onLoadEnd();
       expect(onReady).toHaveBeenCalledTimes(1);
     });
 

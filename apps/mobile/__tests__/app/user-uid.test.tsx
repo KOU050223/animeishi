@@ -778,7 +778,7 @@ describe("PublicProfilePage", () => {
         expect(screen.getByTestId("save-meishi-button")).toBeTruthy(),
       );
 
-      await fireEvent(findExpoImages()[0], "onError", {
+      await fireEvent(findExpoImages()[0]!, "onError", {
         nativeEvent: { error: "failed" },
       });
 

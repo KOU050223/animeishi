@@ -106,7 +106,7 @@ describe("useWorkSearch", () => {
     });
 
     await waitFor(() => expect(result.current.works).toHaveLength(1));
-    expect(result.current.works[0].title).toBe("進撃の巨人");
+    expect(result.current.works[0]?.title).toBe("進撃の巨人");
     expect(result.current.hasQuery).toBe(true);
 
     const [arg, opts] = mockSearchGet.mock.calls[0];

@@ -94,7 +94,7 @@ describe("PropertyPanel", () => {
       (node) => node.props.contentFit === "cover",
     )[0];
     await act(async () => {
-      image.props.onLoad({
+      image?.props.onLoad({
         nativeEvent: { source: { width: 240, height: 120 } },
       });
     });
@@ -170,7 +170,7 @@ describe("PropertyPanel", () => {
     const image = screen.container.queryAll(
       (node) => node.props.contentPosition,
     )[0];
-    expect(image.props.draggable).toBe(false);
+    expect(image?.props.draggable).toBe(false);
   });
 
   it("英語では切り抜き位置の案内を翻訳する", async () => {

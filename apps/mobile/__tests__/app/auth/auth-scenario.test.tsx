@@ -101,8 +101,8 @@ describe("認証シナリオ: サインイン → ログアウト → 再サイ�
     });
 
     // 既存セッションの破棄 → 新規サインイン作成の順序を保証する
-    expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.password.mock.invocationCallOrder[0],
+    expect(auth.signOut.mock.invocationCallOrder[0]!).toBeLessThan(
+      auth.signIn.password.mock.invocationCallOrder[0]!,
     );
   });
 });

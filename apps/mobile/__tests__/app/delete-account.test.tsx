@@ -170,8 +170,8 @@ describe("DeleteAccountScreen", () => {
       freeText: "UI が分かりづらかった",
     });
     // POST が DELETE より先に開始される（tombstone による 401 回避）
-    expect(mockSubmitFeedback.mock.invocationCallOrder[0]).toBeLessThan(
-      mockDeleteAccount.mock.invocationCallOrder[0],
+    expect(mockSubmitFeedback.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockDeleteAccount.mock.invocationCallOrder[0]!,
     );
     await act(async () => {});
   });

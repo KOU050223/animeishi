@@ -211,7 +211,7 @@ describe("TierBoard の配色", () => {
       StyleSheet.flatten(
         getByTestId(testId).queryAll(
           (node) => node.props.numberOfLines === 3,
-        )[0].props.style as StyleProp<TextStyle>,
+        )[0]?.props.style as StyleProp<TextStyle>,
       )?.color;
     expect(labelTextColor("tier-label-0")).toBe("#ffffff");
     expect(labelTextColor("tier-label-1")).toBe("#1f2937");

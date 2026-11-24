@@ -23,7 +23,7 @@ describe("buildOnboardingDocument", () => {
   );
 
   it("元のテンプレート build 結果を書き換えない", () => {
-    const template = MEISHI_TEMPLATES[0];
+    const template = MEISHI_TEMPLATES[0]!;
     buildOnboardingDocument(template);
     expect(
       template.build().elements.some((e) => e.type === "animeCollage"),

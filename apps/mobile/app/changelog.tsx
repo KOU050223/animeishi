@@ -20,8 +20,10 @@ const updateDateFormatters = new Map<string, Intl.DateTimeFormat>();
 // UPDATES の date は「2026年11月19日」形式固定のため、日本語以外では
 // ロケール書式に変換して出す（本文自体は日本語正本で i18n 対象外）。
 function formatLatestUpdateDate(language: string): string {
-  const match = UPDATES[0].date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
-  if (!match || language.startsWith("ja")) return UPDATES[0].date;
+  const latest = UPDATES[0];
+  if (!latest) return "";
+  const match = latest.date.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+  if (!match || language.startsWith("ja")) return latest.date;
   let formatter = updateDateFormatters.get(language);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(language, {

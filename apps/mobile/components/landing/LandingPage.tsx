@@ -10,6 +10,13 @@ const sampleWorks = [
   "月面喫茶の夜",
 ] as const;
 
+// S/A/B ティアの見本。タプルのリテラル添字で取るため要素が undefined にならない。
+const sampleTiers = [
+  { tier: "S", work: sampleWorks[0] },
+  { tier: "A", work: sampleWorks[1] },
+  { tier: "B", work: sampleWorks[2] },
+] as const;
+
 export default function LandingPage() {
   const { t } = useTranslation();
 
@@ -180,7 +187,7 @@ export default function LandingPage() {
               )}
             >
               <View className="gap-2">
-                {["S", "A", "B"].map((tier, index) => (
+                {sampleTiers.map(({ tier, work }, index) => (
                   <View
                     key={tier}
                     className="flex-row overflow-hidden rounded-lg bg-white dark:bg-slate-800"
@@ -191,7 +198,7 @@ export default function LandingPage() {
                       <Text className="font-black text-slate-800">{tier}</Text>
                     </View>
                     <Text className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">
-                      {t(sampleWorks[index])}
+                      {t(work)}
                     </Text>
                   </View>
                 ))}

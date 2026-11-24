@@ -104,14 +104,17 @@ const MOCK_WORKS = [
 
 describe("dedupeWorksById", () => {
   it("同じ annictWorkId を先出の 1 件に畳み、並び順を保持する（issue #521）", () => {
-    const [w1, w2, w3] = MOCK_WORKS;
+    // MOCK_WORKS はリテラルで 3 件固定のため添字は必ず存在する。
+    const w1 = MOCK_WORKS[0]!;
+    const w2 = MOCK_WORKS[1]!;
+    const w3 = MOCK_WORKS[2]!;
     expect(
       dedupeWorksById([w1, w2, w1, w3, w2]).map((w) => w.annictWorkId),
     ).toEqual([1, 2, 3]);
   });
 
   it("同じタイトルでも id が違えば別の作品として残す", () => {
-    const [w1] = MOCK_WORKS;
+    const w1 = MOCK_WORKS[0]!;
     const sameTitle = { ...w1, annictWorkId: 999 };
     expect(dedupeWorksById([w1, sameTitle])).toHaveLength(2);
   });
@@ -196,9 +199,9 @@ describe("useAnimeList", () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.isSeason).toBe(true);
-    expect(result.current.data?.[0].title).toBe("今期アニメ");
+    expect(result.current.data?.[0]?.title).toBe("今期アニメ");
     // 検索語が空なので title を載せない（サーバーが今期シーズンを既定にする）。
-    const [arg] = mockSearchGet.mock.calls[0];
+    const [arg] = mockSearchGet.mock.calls[0]!;
     expect(arg.query.title).toBeUndefined();
   });
 
@@ -243,7 +246,7 @@ describe("useAnimeList", () => {
 
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.data).toHaveLength(1);
-    expect(result.current.data?.[0].title).toBe("進撃の巨人");
+    expect(result.current.data?.[0]?.title).toBe("進撃の巨人");
     // ページング情報を落とさず公開する。
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.endCursor).toBe("cur1");
@@ -251,7 +254,7 @@ describe("useAnimeList", () => {
     // 検索結果は今期アニメ初期表示ではない。
     expect(result.current.isSeason).toBe(false);
     // title を載せ、Annict トークン付きの共通 fetch で呼んでいる。
-    const [arg] = mockSearchGet.mock.calls[0];
+    const [arg] = mockSearchGet.mock.calls[0]!;
     expect(arg.query.title).toBe("進撃");
     expect(mockApiFetch).toHaveBeenCalledWith(
       expect.objectContaining({ annict: true }),
@@ -293,8 +296,8 @@ describe("useAnimeList", () => {
     expect(result.current.hasNextPage).toBe(false);
     expect(mockSearchGet).toHaveBeenCalledTimes(2);
     // 2 ページ目は endCursor を after に載せて継続取得する
-    const [first] = mockSearchGet.mock.calls[0];
-    const [second] = mockSearchGet.mock.calls[1];
+    const [first] = mockSearchGet.mock.calls[0]!;
+    const [second] = mockSearchGet.mock.calls[1]!;
     expect(first.query.season).toBe("2026-spring");
     expect(first.query.after).toBeUndefined();
     expect(second.query.season).toBe("2026-spring");
@@ -397,7 +400,7 @@ describe("useAnimeList", () => {
     ]);
     expect(result.current.hasNextPage).toBe(false);
     expect(mockSearchGet).toHaveBeenCalledTimes(2);
-    const [second] = mockSearchGet.mock.calls[1];
+    const [second] = mockSearchGet.mock.calls[1]!;
     expect(second.query.after).toBe("cur1");
   });
 });

@@ -258,6 +258,8 @@ function FeedEmptyState() {
 function ActivityGroupRow({ items }: { items: ActivityFeedItem[] }) {
   const { t } = useTranslation();
   const first = items[0];
+  // groupActivityItems は 3 件以上のまとまりだけを group にするため空にはならない。
+  if (!first) return null;
   return (
     <View
       className="flex-row items-center gap-3 py-3"

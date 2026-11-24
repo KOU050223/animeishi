@@ -317,8 +317,8 @@ describe("SignInScreen", () => {
     });
 
     // 既存セッションの破棄はサインイン作成より前に行われる
-    expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-      auth.signIn.password.mock.invocationCallOrder[0],
+    expect(auth.signOut.mock.invocationCallOrder[0]!).toBeLessThan(
+      auth.signIn.password.mock.invocationCallOrder[0]!,
     );
   });
 
@@ -421,8 +421,8 @@ describe("SignInScreen", () => {
         expect(auth.signOut).toHaveBeenCalledTimes(1);
         expect(auth.startSSOFlow).toHaveBeenCalled();
       });
-      expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(
-        auth.startSSOFlow.mock.invocationCallOrder[0],
+      expect(auth.signOut.mock.invocationCallOrder[0]!).toBeLessThan(
+        auth.startSSOFlow.mock.invocationCallOrder[0]!,
       );
     });
 

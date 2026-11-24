@@ -652,6 +652,7 @@ describe("マイQR（QR コード生成）", () => {
     // 取れるまでは端末内レンダリングの MeishiCard を出し続ける。
     await waitFor(() => expect(findExpoImages()).toHaveLength(1));
     const image = findExpoImages()[0];
+    if (!image) throw new Error("ExpoImage が見つかりません");
     expect(JSON.stringify(image.props.source)).toContain(
       "public-snapshot.png?v=v1",
     );
@@ -748,7 +749,7 @@ describe("マイQR（QR コード生成）", () => {
     await render(<QrSection />, { wrapper });
 
     await waitFor(() => expect(findExpoImages()).toHaveLength(1));
-    await fireEvent(findExpoImages()[0], "onError", { nativeEvent: {} });
+    await fireEvent(findExpoImages()[0]!, "onError", { nativeEvent: {} });
 
     expect(findExpoImages()).toHaveLength(0);
     expect(screen.getByTestId("meishi-card-stub")).toBeTruthy();

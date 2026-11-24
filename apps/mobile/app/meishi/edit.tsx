@@ -29,7 +29,7 @@ import {
   getInspectorHeight,
 } from "@/lib/meishi/inspectorLayout";
 import { buildMeishiAnimeContext } from "@/lib/meishi/animeContext";
-import { getTemplate, MEISHI_TEMPLATES } from "@/lib/meishi/templates";
+import { buildBlankDocument, getTemplate } from "@/lib/meishi/templates";
 import { useMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import type { UseMeishiDocument } from "@/lib/meishi/useMeishiDocument";
 import { useMeishiImageShare } from "@/lib/meishi/imageShare";
@@ -488,7 +488,7 @@ export default function MeishiEditScreen() {
         onClose={() => {
           setTemplatePicker(false);
           if (!doc) {
-            setDocFromTemplate(MEISHI_TEMPLATES[0].build());
+            setDocFromTemplate(buildBlankDocument());
           }
         }}
         onPick={handleTemplatePick}

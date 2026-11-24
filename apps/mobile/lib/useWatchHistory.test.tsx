@@ -145,9 +145,9 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
       });
     });
 
-    await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHED"));
+    await waitFor(() => expect(getStates(client)?.[0]?.state).toBe("WATCHED"));
     // 対象外の作品は書き換わらない。
-    expect(getStates(client)?.[1].state).toBe("ON_HOLD");
+    expect(getStates(client)?.[1]?.state).toBe("ON_HOLD");
 
     await act(async () => {
       resolvePut({ ok: true, json: async () => ({}) });
@@ -177,8 +177,8 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(getStates(client)?.[0].state).toBe("WATCHING");
-    expect(getStates(client)?.[1].state).toBe("ON_HOLD");
+    expect(getStates(client)?.[0]?.state).toBe("WATCHING");
+    expect(getStates(client)?.[1]?.state).toBe("ON_HOLD");
     expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
   });
 
@@ -205,23 +205,23 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
       result.current.mutate({ annictWorkId: 2, data: { state: "WATCHED" } });
     });
     await waitFor(() => {
-      expect(getStates(client)?.[0].state).toBe("WATCHED");
-      expect(getStates(client)?.[1].state).toBe("WATCHED");
+      expect(getStates(client)?.[0]?.state).toBe("WATCHED");
+      expect(getStates(client)?.[1]?.state).toBe("WATCHED");
     });
 
     // A 側だけ失敗させる → A だけロールバックし、B の楽観表示は維持される。
     await act(async () => {
-      resolvers[0].reject(
+      resolvers[0]?.reject(
         new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
       );
     });
-    await waitFor(() => expect(getStates(client)?.[0].state).toBe("WATCHING"));
-    expect(getStates(client)?.[1].state).toBe("WATCHED");
+    await waitFor(() => expect(getStates(client)?.[0]?.state).toBe("WATCHING"));
+    expect(getStates(client)?.[1]?.state).toBe("WATCHED");
 
     // upsert はスコープで直列化されているため、B の PUT は A の settle 後に走る。
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1].resolve({ ok: true, json: async () => ({}) });
+      resolvers[1]?.resolve({ ok: true, json: async () => ({}) });
     });
   });
 
@@ -247,20 +247,20 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
       result.current.mutate({ annictWorkId: 1, data: { state: "WATCHED" } });
       result.current.mutate({ annictWorkId: 1, data: { state: "ON_HOLD" } });
     });
-    await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
+    await waitFor(() => expect(getStates(client)?.[0]?.state).toBe("ON_HOLD"));
 
     await act(async () => {
-      resolvers[0].reject(
+      resolvers[0]?.reject(
         new ApiRequestError(500, "視聴履歴の更新に失敗しました"),
       );
     });
     // 1 回目の失敗で 2 回目の楽観値（ユーザーの最新の意図）を巻き戻さない。
-    expect(getStates(client)?.[0].state).toBe("ON_HOLD");
+    expect(getStates(client)?.[0]?.state).toBe("ON_HOLD");
 
     // スコープで直列化されているため、2 回目の PUT は 1 回目の settle 後に走る。
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1].resolve({ ok: true, json: async () => ({}) });
+      resolvers[1]?.resolve({ ok: true, json: async () => ({}) });
     });
   });
 
@@ -291,7 +291,7 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(resolvers).toHaveLength(1));
 
     await act(async () => {
-      resolvers[0].resolve({ ok: true, json: async () => ({}) });
+      resolvers[0]?.resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
   });
@@ -323,14 +323,14 @@ describe("useUpsertWatchHistory の楽観的更新", () => {
     // （再取得すると B の PUT 未反映の一覧でキャッシュが上書きされ、
     // B の楽観値が一瞬巻き戻る）。
     await act(async () => {
-      resolvers[0].resolve({ ok: true, json: async () => ({}) });
+      resolvers[0]?.resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
     expect(client.getQueryState(queryKey)?.isInvalidated ?? false).toBe(false);
 
     // B が settle してキューが空になった時点で初めて無効化される。
     await act(async () => {
-      resolvers[1].resolve({ ok: true, json: async () => ({}) });
+      resolvers[1]?.resolve({ ok: true, json: async () => ({}) });
     });
     await waitFor(() =>
       expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true),
@@ -479,7 +479,7 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(getStates(client)?.map((i) => i.annictWorkId)).toEqual([1, 2]);
-    expect(getStates(client)?.[0].state).toBe("WATCHING");
+    expect(getStates(client)?.[0]?.state).toBe("WATCHING");
     // 巻き戻したことがエラーに記録される（「元の状態に戻しました」の判定用）。
     const error = result.current.error as { rolledBack?: boolean } | null;
     expect(error?.rolledBack).toBe(true);
@@ -525,7 +525,7 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     await waitFor(() => expect(resolvers).toHaveLength(1));
 
     await act(async () => {
-      resolvers[0].resolve({
+      resolvers[0]?.resolve({
         ok: true,
         headers: { get: () => "application/json" },
         json: async () => ({ success: true }),
@@ -533,7 +533,7 @@ describe("useDeleteWatchHistory の楽観的更新", () => {
     });
     await waitFor(() => expect(resolvers).toHaveLength(2));
     await act(async () => {
-      resolvers[1].resolve({ ok: true, json: async () => ({}) });
+      resolvers[1]?.resolve({ ok: true, json: async () => ({}) });
     });
   });
 
@@ -793,8 +793,8 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // 詳細シートと一覧が同じステータスを出すように履歴側へ追従させる。
-    expect(getStates(client)?.[0].state).toBe("WATCHING");
-    expect(getStates(client)?.[1].state).toBe("ON_HOLD");
+    expect(getStates(client)?.[0]?.state).toBe("WATCHING");
+    expect(getStates(client)?.[1]?.state).toBe("ON_HOLD");
   });
 
   it("詳細の state が null（解除済み）なら履歴キャッシュから行を除く", async () => {
@@ -851,7 +851,7 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(getStates(client)?.[0].state).toBe("WATCHING");
+    expect(getStates(client)?.[0]?.state).toBe("WATCHING");
     expect(client.getQueryState(queryKey)?.dataUpdatedAt).toBe(past);
   });
 
@@ -927,10 +927,10 @@ describe("useWorkDetail 取得時の履歴キャッシュ追従", () => {
         data: { state: "ON_HOLD" },
       });
     });
-    await waitFor(() => expect(getStates(client)?.[0].state).toBe("ON_HOLD"));
+    await waitFor(() => expect(getStates(client)?.[0]?.state).toBe("ON_HOLD"));
     await waitFor(() => expect(result.current.detail.isSuccess).toBe(true));
 
-    expect(getStates(client)?.[0].state).toBe("ON_HOLD");
+    expect(getStates(client)?.[0]?.state).toBe("ON_HOLD");
     await act(async () => {
       resolvePut({ ok: true, json: async () => ({}) });
     });

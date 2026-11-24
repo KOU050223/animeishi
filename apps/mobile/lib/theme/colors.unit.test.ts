@@ -19,10 +19,10 @@ function relativeLuminance(hex: string): number {
 }
 
 function contrastRatio(a: string, b: string): number {
-  const [l1, l2] = [relativeLuminance(a), relativeLuminance(b)].sort(
+  const sorted = [relativeLuminance(a), relativeLuminance(b)].sort(
     (x, y) => y - x,
   );
-  return (l1 + 0.05) / (l2 + 0.05);
+  return (sorted[0]! + 0.05) / (sorted[1]! + 0.05);
 }
 
 const WCAG_AA_NORMAL_TEXT = 4.5;

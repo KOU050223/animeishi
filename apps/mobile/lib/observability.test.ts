@@ -111,7 +111,7 @@ describe("beforeSend の送信ポリシー", () => {
       ["TypeError", "Network request failed"],
       ["TypeError", "Failed to fetch"],
       ["AbortError", "The operation was aborted"],
-    ]) {
+    ] as const) {
       expect(send(enabledOptions(), errorEvent(type, value))).toBeNull();
     }
   });
@@ -165,7 +165,7 @@ describe("initObservability", () => {
     initObservability();
 
     expect(initMock).toHaveBeenCalledTimes(1);
-    const options = initMock.mock.calls[0][0];
+    const options = initMock.mock.calls[0]![0];
     expect(options.dsn).toBe(VALID_DSN);
     expect(options.environment).toBe("preview");
     expect(options.release).toMatch(/^animeishi-mobile@/);

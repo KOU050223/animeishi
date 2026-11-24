@@ -67,6 +67,7 @@ export default function FeedbackScreen() {
   const submitting = useRef(false);
 
   const current = CATEGORIES.find((c) => c.value === category) ?? CATEGORIES[0];
+  if (!current) return null;
   const bodyEmpty = body.trim().length === 0;
   const canSubmit = !bodyEmpty && !sendFeedback.isPending;
 
