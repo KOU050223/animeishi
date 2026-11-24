@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { useAnnictConnection } from "./useAnnictConnection";
 
 export const WORK_CATALOG_STATUS_QUERY_KEY = [
@@ -25,7 +25,7 @@ export type WorkCatalogAccess = {
  * で有無を確かめ、無ければ従来どおり連携誘導（AnnictSoftGate）を出させる。
  */
 export function useWorkCatalogAccess(): WorkCatalogAccess {
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn } = useAuth();
   const { isConnected, isLoading: isConnectionLoading } = useAnnictConnection();
 
   // 連携済みなら共用トークンの有無は関係ないので問い合わせない。
@@ -33,18 +33,19 @@ export function useWorkCatalogAccess(): WorkCatalogAccess {
     queryKey: WORK_CATALOG_STATUS_QUERY_KEY,
     enabled: !!isSignedIn && !isConnectionLoading && !isConnected,
     queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error("認証トークンが取得できませんでした");
       const res = await apiClient.works["catalog-status"].$get(
         {},
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          // 一時的な失敗を「共用トークン無し」として成功扱いでキャッシュ
+          // しない（残っている間ずっと連携誘導が出るため）。ApiRequestError
+          // ではなく plain Error のまま失敗にしてリトライ・再取得させ、
+          // 確定するまでの表示は canBrowseWorks=false（連携誘導）側に倒す。
+          fetch: apiFetch({
+            onHttpError: async (errorRes) =>
+              new Error(`catalog-status failed (${errorRes.status})`),
+          }),
+        },
       );
-      // 一時的な失敗を「共用トークン無し」として成功扱いでキャッシュしない
-      // （残っている間ずっと連携誘導が出るため）。失敗にしてリトライ・再取得させ、
-      // 確定するまでの表示は canBrowseWorks=false（連携誘導）側に倒す。
-      if (!res.ok) {
-        throw new Error(`catalog-status failed (${res.status})`);
-      }
       return res.json();
     },
   });

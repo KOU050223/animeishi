@@ -15,11 +15,8 @@ import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { haptics } from "@/lib/haptics";
-import {
-  fetchPublicProfile,
-  publicProfileQueryKey,
-  type PublicProfile,
-} from "@/lib/publicProfile";
+import type { PublicProfile } from "@/lib/publicProfile";
+import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { useThemeColors } from "@/lib/theme";
 import { useFriends } from "@/lib/useFriends";
 import { CommonPoints } from "./CommonPoints";
@@ -136,18 +133,16 @@ export function ExchangeSuccessOverlay({
   meetingCount,
 }: ExchangeSuccessOverlayProps) {
   const router = useRouter();
-  const { getToken, userId } = useAuth();
+  const { userId } = useAuth();
   const { t } = useTranslation();
   const colors = useThemeColors();
   const reduceMotion = useReducedMotion();
   const { data: friends } = useFriends();
 
-  const { data: profile, isLoading } = useQuery({
-    // app/user/[uid].tsx と同じクエリキー（無効化・キャッシュ共有のため）。
-    queryKey: publicProfileQueryKey(uid, userId),
-    queryFn: async () => fetchPublicProfile(uid, await getToken()),
-    retry: false,
-  });
+  // app/user/[uid].tsx と同じクエリキー（無効化・キャッシュ共有のため）。
+  const { data: profile, isLoading } = useQuery(
+    publicProfileQueries.detail.query({ uid, viewerId: userId }),
+  );
   const cardProfile =
     profile ?? friends?.find((friend) => friend.friendId === uid);
 

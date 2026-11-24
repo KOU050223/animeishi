@@ -22,6 +22,7 @@ import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockMatchPost = jest.fn();
 const mockBulkPost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -35,6 +36,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 jest.mock("@/lib/annict", () => ({
@@ -196,27 +198,52 @@ describe("useDanimeMatch", () => {
 
   // issue #219: 画面には code ごとのユーザー文言を出すため、API の
   // エラー JSON（{error, code}）の code だけ ApiRequestError に残す。
+  // 変換は apiFetch の onHttpError が担うため、本番のコールバックを
+  // 取り出して検証する。
   it("API エラー JSON の code を ApiRequestError に載せ、本文はメッセージに含めない", async () => {
-    mockMatchPost.mockResolvedValue({
-      ok: false,
-      status: 502,
-      text: async () =>
-        JSON.stringify({
-          error: "Annict との通信に失敗しました",
-          code: "annict_upstream",
-        }),
-    });
+    mockMatchPost.mockImplementation(async ({ json }) =>
+      okResponse(json.works),
+    );
     const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
     await act(async () => {
       result.current.mutate({ lists: listsOf(1) });
     });
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const error = result.current.error;
+    const options = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(options).toBeDefined();
+    const error = (await options!.onHttpError!(
+      new Response(
+        JSON.stringify({
+          error: "Annict との通信に失敗しました",
+          code: "annict_upstream",
+        }),
+        { status: 502 },
+      ),
+    )) as ApiRequestError;
     expect(error).toBeInstanceOf(ApiRequestError);
-    expect((error as ApiRequestError).status).toBe(502);
-    expect((error as ApiRequestError).code).toBe("annict_upstream");
-    expect(error?.message).not.toContain("annict_upstream");
+    expect(error.status).toBe(502);
+    expect(error.code).toBe("annict_upstream");
+    expect(error.message).not.toContain("annict_upstream");
+  });
+
+  it("match / bulk は Annict トークンを apiFetch 経由で付ける", async () => {
+    mockMatchPost.mockImplementation(async ({ json }) =>
+      okResponse(json.works),
+    );
+    const { result } = await renderHook(() => useDanimeMatch(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ lists: listsOf(1) });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ annict: true }),
+    );
   });
 
   it("チャンク越しで同じ annictWorkId に確定した場合は exact のまま", async () => {

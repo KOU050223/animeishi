@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import * as Sentry from "@sentry/react-native";
 import { ANNICT_FUNNEL_EVENT } from "@animeishi/observability";
+import { ApiRequestError } from "@/lib/apiError";
 import { getAuthMock, loggedInUser, resetAuth } from "@/test-utils/auth";
 
 // EXPO_PUBLIC_ANNICT_CLIENT_ID は useAnnictConnect.ts のモジュール評価時に
@@ -26,10 +27,13 @@ jest.mock("expo-crypto", () => ({
 jest.mock("@/lib/annict/storage", () => ({
   annictTokenStorage: { set: jest.fn(), remove: jest.fn(), get: jest.fn() },
 }));
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: { annict: { exchange: { $post: jest.fn() } } },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  clerkSessionToken: async () => "clerk_jwt",
 }));
 
 const { apiClient } = jest.requireMock("@/lib/api") as {
@@ -144,7 +148,10 @@ describe("ファネル計測（oauth_result）", () => {
       type: "success",
       url: "animeishi://annict?code=abc&state=test-state",
     });
-    apiClient.me.annict.exchange.$post.mockResolvedValueOnce({ ok: false });
+    // apiFetch は HTTP 失敗を ApiRequestError に変換して投げる。
+    apiClient.me.annict.exchange.$post.mockRejectedValueOnce(
+      new ApiRequestError(500, "boom"),
+    );
     const { result } = await renderHook(() => useAnnictConnect(), { wrapper });
 
     await act(async () => {

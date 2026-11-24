@@ -12,6 +12,7 @@ import { setMockClerkState } from "../../__mocks__/@clerk/expo";
 
 const mockReportPost = jest.fn();
 const mockBlockPost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     users: {
@@ -21,6 +22,7 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 function makeWrapper() {
@@ -75,47 +77,61 @@ describe("useReportUser", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockReportPost).toHaveBeenCalledWith(
       { param: { id: "user_target" }, json: { reason: "スパム・宣伝" } },
-      { headers: { Authorization: "Bearer clerk_jwt" } },
+      // 認証ヘッダの組み立ては apiFetch に委譲したため fetch オプションのみ。
+      { fetch: expect.any(Function) },
     );
   });
 
-  it("429 のときサーバーの error メッセージをそのままエラーにする", async () => {
+  // 429 / 失敗応答の文言変換は apiFetch の onHttpError が担うため、
+  // 本番のコールバックを取り出して応答を与えて検証する。
+  async function getReportHttpError() {
     mockReportPost.mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => ({
-        error: "同じユーザーへの通報は24時間に1回までです",
-        code: "duplicate_target",
-      }),
+      ok: true,
+      status: 201,
+      json: async () => ({ success: true }),
     });
-    const result = await runReport();
-    const err = result.current.error as ApiRequestError;
+    await runReport();
+    const options = mockApiFetch.mock.calls
+      .map(
+        (call) =>
+          call[0] as { onHttpError?: (res: Response) => Promise<Error> },
+      )
+      .find((opts) => typeof opts.onHttpError === "function");
+    expect(options).toBeDefined();
+    return options!.onHttpError!;
+  }
+
+  it("429 のときサーバーの error メッセージをそのままエラーにする", async () => {
+    const onHttpError = await getReportHttpError();
+    const err = (await onHttpError(
+      new Response(
+        JSON.stringify({
+          error: "同じユーザーへの通報は24時間に1回までです",
+          code: "duplicate_target",
+        }),
+        { status: 429 },
+      ),
+    )) as ApiRequestError;
     expect(err.status).toBe(429);
     expect(err.message).toBe("同じユーザーへの通報は24時間に1回までです");
     expect(err.code).toBe("duplicate_target");
   });
 
   it("429 で body が読めないときは既定の上限メッセージ", async () => {
-    mockReportPost.mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => {
-        throw new Error("invalid json");
-      },
-    });
-    const result = await runReport();
-    const err = result.current.error as ApiRequestError;
+    const onHttpError = await getReportHttpError();
+    const err = (await onHttpError(
+      new Response("invalid json", { status: 429 }),
+    )) as ApiRequestError;
     expect(err.message).toBe("通報の送信回数が上限に達しました");
   });
 
   it("429 以外の失敗は従来どおりの固定メッセージ", async () => {
-    mockReportPost.mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({ error: "User not found" }),
-    });
-    const result = await runReport();
-    const err = result.current.error as ApiRequestError;
+    const onHttpError = await getReportHttpError();
+    const err = (await onHttpError(
+      new Response(JSON.stringify({ error: "User not found" }), {
+        status: 404,
+      }),
+    )) as ApiRequestError;
     expect(err.status).toBe(404);
     expect(err.message).toBe("通報に失敗しました");
   });

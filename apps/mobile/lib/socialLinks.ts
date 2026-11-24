@@ -1,5 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PUBLIC_PROFILE_QUERY_KEY } from "@/lib/publicProfile";
 import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
 import { socialLinkQueries } from "@/lib/queries/socialLinks";
 
@@ -78,7 +79,9 @@ export function useSaveSocialLinks() {
       await client.invalidateQueries({
         queryKey: socialLinkQueries.key(userId),
       });
-      await client.invalidateQueries({ queryKey: ["public-profile", userId] });
+      await client.invalidateQueries({
+        queryKey: [...PUBLIC_PROFILE_QUERY_KEY, userId],
+      });
     },
   });
 }

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { useAuth } from "@clerk/expo";
 import { apiUrl } from "@/lib/apiUrl";
+import { clerkSessionToken } from "@/lib/api";
 import type { AddToWalletResult, UseAddToAppleWallet } from "./types";
 
 // 事前 fetch のタイムアウト (ms)。無応答時にボタンが永久 disabled になるのを防ぐ。
@@ -15,13 +15,12 @@ const FETCH_TIMEOUT_MS = 15_000;
 // 文言は持たず、判別可能な結果コード (AddToWalletResult) のみを返す。
 // 表示文言の組み立ては呼び出し側 (profile.tsx) の責務。
 export const useAddToAppleWallet: UseAddToAppleWallet = () => {
-  const { getToken } = useAuth();
   const [isPending, setIsPending] = useState(false);
 
   const addToWallet = useCallback(async (): Promise<AddToWalletResult> => {
     setIsPending(true);
     try {
-      const token = await getToken();
+      const token = await clerkSessionToken();
       if (!token) return { type: "auth-failed" };
 
       // Wallet は Bearer 認証を透過的には扱えないため、
@@ -57,7 +56,7 @@ export const useAddToAppleWallet: UseAddToAppleWallet = () => {
     } finally {
       setIsPending(false);
     }
-  }, [getToken]);
+  }, []);
 
   return { addToWallet, isPending, canUse: true };
 };

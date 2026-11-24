@@ -15,6 +15,7 @@ import {
 } from "@/lib/annict/useAnnictConnect.web";
 
 const mockDisconnectPost = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
@@ -23,6 +24,8 @@ jest.mock("@/lib/api", () => ({
       },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  clerkSessionToken: async () => "clerk_jwt",
 }));
 
 jest.mock("@clerk/expo", () => ({
@@ -225,7 +228,8 @@ describe("useAnnictConnect (web)", () => {
 
     await waitFor(() => expect(mockDisconnectPost).toHaveBeenCalledTimes(1));
     const [, options] = mockDisconnectPost.mock.calls[0];
-    expect(options.headers.Authorization).toBe("Bearer clerk_jwt");
+    // 認証ヘッダの組み立ては apiFetch に委譲したため fetch オプションのみ。
+    expect(options.fetch).toEqual(expect.any(Function));
   });
 
   it("disconnect: 評価クエリのキャッシュを破棄する", async () => {

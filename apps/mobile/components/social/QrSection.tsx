@@ -32,7 +32,7 @@ import { ScanFallback } from "@/components/social/ScanFallback";
 import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
-import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
+import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import { shareTierListUrl } from "@/lib/tierList/share";
 import { saveQrImage } from "@/lib/qrImage";
 import { alert } from "@/lib/dialog";
@@ -119,7 +119,7 @@ export function QrSection() {
 }
 
 function GenerateView() {
-  const { userId, isSignedIn, getToken } = useAuth();
+  const { userId, isSignedIn } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   // セクションは非表示の間アンマウントされるが、所属タブへの再訪でも
@@ -151,10 +151,11 @@ function GenerateView() {
   // どのみち画像は取れず、端末内レンダリングにフォールバックする。
   const { data: ownPublicProfile, refetch: refetchOwnPublicProfile } = useQuery(
     {
-      queryKey: publicProfileQueryKey(userId ?? "", userId),
-      queryFn: async () => fetchPublicProfile(userId!, await getToken()),
+      ...publicProfileQueries.detail.query({
+        uid: userId ?? "",
+        viewerId: userId,
+      }),
       enabled: !!isSignedIn && !!userId,
-      retry: false,
     },
   );
 

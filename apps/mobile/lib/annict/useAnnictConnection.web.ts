@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch, clerkSessionToken } from "@/lib/api";
+import { ApiRequestError } from "@/lib/apiError";
 import { ANNICT_CONNECTION_QUERY_KEY } from "./connectionKey";
 import { type UseAnnictConnection } from "./useAnnictConnection";
 
@@ -11,7 +12,7 @@ import { type UseAnnictConnection } from "./useAnnictConnection";
  * `GET /me/annict` の connected を判定に使う。Clerk 認証が前提。
  */
 export function useAnnictConnection(): UseAnnictConnection {
-  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
 
   const query = useQuery({
     // userId を含めて別ユーザーとキャッシュを分離する。同一ブラウザで別アカウントに
@@ -19,15 +20,27 @@ export function useAnnictConnection(): UseAnnictConnection {
     queryKey: [...ANNICT_CONNECTION_QUERY_KEY, userId],
     enabled: !!isSignedIn && !!userId,
     queryFn: async () => {
-      const clerkToken = await getToken();
+      const clerkToken = await clerkSessionToken();
       if (!clerkToken) return { connected: false };
-      const res = await apiClient.me.annict.$get(
-        {},
-        { headers: { Authorization: `Bearer ${clerkToken}` } },
-      );
-      if (!res.ok) return { connected: false };
-      const body = (await res.json()) as { connected: boolean };
-      return { connected: body.connected };
+      try {
+        const res = await apiClient.me.annict.$get(
+          {},
+          {
+            fetch: apiFetch({
+              // HTTP 失敗は「未連携」として返す契約のため ApiRequestError
+              // で判別する。ネットワーク不通などは従来どおりクエリの
+              // エラーとして扱う。
+              onHttpError: async (errorRes) =>
+                new ApiRequestError(errorRes.status, "annict status failed"),
+            }),
+          },
+        );
+        const body = (await res.json()) as { connected: boolean };
+        return { connected: body.connected };
+      } catch (error) {
+        if (error instanceof ApiRequestError) return { connected: false };
+        throw error;
+      }
     },
   });
 

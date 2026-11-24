@@ -9,12 +9,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAnnictConnection } from "@/lib/annict/useAnnictConnection.web";
 
 const mockAnnictGet = jest.fn();
+const mockApiFetch = jest.fn((..._args: unknown[]) => jest.fn());
 jest.mock("@/lib/api", () => ({
   apiClient: {
     me: {
       annict: { $get: (...a: unknown[]) => mockAnnictGet(...a) },
     },
   },
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  clerkSessionToken: () => mockAuth.getToken(),
 }));
 
 // Clerk の認証状態をテストごとに切り替えられるよう変数経由で返す。

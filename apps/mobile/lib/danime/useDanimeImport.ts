@@ -5,9 +5,8 @@
 //     上限件数ずつチャンクして逐次送信する（進捗コールバック付き）
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
-import { apiClient } from "@/lib/api";
+import { apiClient, apiFetch } from "@/lib/api";
 import { ApiRequestError } from "@/lib/apiError";
-import { buildAnnictAuthHeader } from "@/lib/annict";
 import {
   normalizeTitle,
   toMatchWorks,
@@ -20,6 +19,7 @@ import { WATCH_HISTORY_QUERY_KEY } from "@/lib/watchHistoryKey";
 import { ACHIEVEMENTS_QUERY_KEY } from "@/lib/achievements/useAchievements";
 import { invalidateCommonPoints } from "@/lib/useCommonPoints";
 import type { TranslationKey } from "@/lib/i18n/keys";
+import { danimeQueries, type DanimeEpisodeJob } from "@/lib/queries/danime";
 
 // bulk エンドポイントの入力 1 件。nodeId / 作品メタは送らない
 // （API 側がキャッシュ→Annict の順で正規解決する。クライアント提供値を
@@ -116,17 +116,7 @@ export function demoteAmbiguousExactAcrossChunks(
   });
 }
 
-async function getAuthHeaders(
-  getToken: () => Promise<string | null>,
-): Promise<{ Authorization: string }> {
-  const token = await getToken();
-  if (!token) throw new Error("認証トークンが取得できませんでした");
-  return { Authorization: `Bearer ${token}` };
-}
-
 export function useDanimeMatch() {
-  const { getToken } = useAuth();
-
   return useMutation({
     mutationFn: async ({
       lists,
@@ -137,7 +127,6 @@ export function useDanimeMatch() {
       // 外すヒントとして API に渡す。
       registeredWorkIds?: number[];
     }) => {
-      const annictHeader = await buildAnnictAuthHeader();
       const works = toMatchWorks(lists);
       if (works.length === 0) {
         throw new Error("照合対象の作品がありません");
@@ -150,34 +139,37 @@ export function useDanimeMatch() {
       let stats: DanimeMatchStats | undefined;
 
       const postMatch = async (chunk: typeof works) => {
-        const headers = await getAuthHeaders(getToken);
         const res = await apiClient.me["import"].danime.match.$post(
           {
             json: { works: chunk, registeredWorkIds },
           },
-          { headers: { ...headers, ...annictHeader } },
+          {
+            fetch: apiFetch({
+              annict: true,
+              onHttpError: async (errorRes) => {
+                // エラー JSON（{error, code}）の code を画面の文言切替に
+                // 使う。本文は内部向けの詳細を含むためメッセージには載せず、
+                // デバッグ用にコンソールへだけ残す（issue #219）。
+                const detail = await errorRes.text().catch(() => "");
+                let code: string | undefined;
+                try {
+                  const parsed = JSON.parse(detail) as { code?: unknown };
+                  if (typeof parsed.code === "string") code = parsed.code;
+                } catch {
+                  // エラー応答が JSON でない場合（WAF の HTML 等）は code なし。
+                }
+                console.error(
+                  `danime match request failed (HTTP ${errorRes.status}): ${detail.slice(0, 500)}`,
+                );
+                return new ApiRequestError(
+                  errorRes.status,
+                  `Annict とのマッチングに失敗しました（HTTP ${errorRes.status}）`,
+                  code,
+                );
+              },
+            }),
+          },
         );
-        if (!res.ok) {
-          // エラー JSON（{error, code}）の code を画面の文言切替に使う。
-          // 本文は内部向けの詳細を含むためメッセージには載せず、
-          // デバッグ用にコンソールへだけ残す（issue #219）。
-          const detail = await res.text().catch(() => "");
-          let code: string | undefined;
-          try {
-            const parsed = JSON.parse(detail) as { code?: unknown };
-            if (typeof parsed.code === "string") code = parsed.code;
-          } catch {
-            // エラー応答が JSON でない場合（WAF の HTML 等）は code なし。
-          }
-          console.error(
-            `danime match request failed (HTTP ${res.status}): ${detail.slice(0, 500)}`,
-          );
-          throw new ApiRequestError(
-            res.status,
-            `Annict とのマッチングに失敗しました（HTTP ${res.status}）`,
-            code,
-          );
-        }
         const body = await res.json();
         // チャンク分割・pending 再送時は各リクエストの統計を合算する。
         // 検索回数・リトライ・経過時間は累積でよいが、pending 件数は
@@ -248,7 +240,6 @@ export function useDanimeMatch() {
 }
 
 export function useBulkRegisterWatchHistory() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -259,8 +250,6 @@ export function useBulkRegisterWatchHistory() {
       entries: BulkRegisterEntry[];
       onProgress?: (done: number, total: number) => void;
     }): Promise<BulkRegisterResult> => {
-      const annictHeader = await buildAnnictAuthHeader();
-
       const startedAt = Date.now();
       const results: BulkRegisterResult["results"] = [];
       let aborted = false;
@@ -271,21 +260,32 @@ export function useBulkRegisterWatchHistory() {
         const chunk = entries.slice(i, i + BULK_CHUNK_SIZE);
         let body;
         try {
-          // Clerk トークンは短命なのでチャンクごとに取得し直す。
-          const headers = await getAuthHeaders(getToken);
+          // Clerk トークンは短命なので、apiFetch がリクエストごとに取得し直す。
           const res = await apiClient.me["watch-histories"].bulk.$post(
             { json: { entries: chunk } },
-            { headers: { ...headers, ...annictHeader } },
+            {
+              fetch: apiFetch({
+                annict: true,
+                onHttpError: async (errorRes) =>
+                  new ApiRequestError(
+                    errorRes.status,
+                    "一括登録リクエストが失敗しました（HTTP {{status}}）",
+                  ),
+              }),
+            },
           );
-          if (!res.ok) {
+          body = await res.json();
+        } catch (error) {
+          // apiFetch は HTTP 失敗を ApiRequestError に変換して投げる。
+          // ステータスを文言に含める契約なので ApiRequestError だけを
+          // HTTP 失敗として扱い、それ以外（通信エラー）は別メッセージにする。
+          if (error instanceof ApiRequestError) {
             requestError =
               "一括登録リクエストが失敗しました（HTTP {{status}}）";
-            requestErrorStatus = res.status;
+            requestErrorStatus = error.status;
           } else {
-            body = await res.json();
+            requestError = "一括登録リクエストで通信エラーが発生しました";
           }
-        } catch {
-          requestError = "一括登録リクエストで通信エラーが発生しました";
         }
 
         if (!body) {
@@ -349,46 +349,16 @@ export function useBulkRegisterWatchHistory() {
 // Cloudflare Workflows がバックグラウンドで約 1 秒間隔に実行する。
 // 画面は GET /episode-jobs/current をポーリングして進捗を出す。
 
-/** GET /episode-jobs/current が返すジョブ状態。 */
-export type DanimeEpisodeJob = {
-  id: string;
-  status: "matching" | "writing" | "completed" | "failed";
-  /** 書き込み予定の話数（matching 完了後に確定）。 */
-  total: number;
-  done: number;
-  failed: number;
-  /** Annict に記録済みで書かなかった話数。 */
-  skipped: number;
-  /** 対応付けが確定しなかった話数。 */
-  unmatched: number;
-  error: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
+export type { DanimeEpisodeJob } from "@/lib/queries/danime";
 
-export const DANIME_EPISODE_JOB_QUERY_KEY = ["danime-episode-job"] as const;
+export const DANIME_EPISODE_JOB_QUERY_KEY = danimeQueries.episodeJob.all;
 
 /** 最新の話記録ジョブを取得する。実行中（matching/writing）だけ 5 秒ごとに再取得する。 */
 export function useDanimeEpisodeJob(enabled = true) {
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   return useQuery({
-    // アカウントを切り替えても前ユーザーのジョブが残らないよう
-    // キーにユーザー ID を含める（キャッシュは共有・永続化される）。
-    queryKey: [...DANIME_EPISODE_JOB_QUERY_KEY, userId],
+    ...danimeQueries.episodeJob.query({ userId }),
     enabled: enabled && !!isSignedIn && !!userId,
-    queryFn: async (): Promise<DanimeEpisodeJob | null> => {
-      const headers = await getAuthHeaders(getToken);
-      const res = await apiClient.me["import"].danime[
-        "episode-jobs"
-      ].current.$get({}, { headers });
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          `話数記録ジョブの取得に失敗しました（HTTP ${res.status}）`,
-        );
-      }
-      return (await res.json()).job;
-    },
     refetchInterval: (query) => {
       const job = query.state.data;
       return job && (job.status === "matching" || job.status === "writing")
@@ -406,7 +376,6 @@ export type DanimeEpisodeJobWorkInput = {
 };
 
 export function useCreateDanimeEpisodeJob() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -414,18 +383,24 @@ export function useCreateDanimeEpisodeJob() {
     }: {
       works: DanimeEpisodeJobWorkInput[];
     }): Promise<{ job: DanimeEpisodeJob | null; created: boolean }> => {
-      const headers = await getAuthHeaders(getToken);
       const res = await apiClient.me["import"].danime["episode-jobs"].$post(
         { json: { works } },
-        { headers },
+        {
+          fetch: apiFetch({
+            // ステータスを文言に含める契約は TranslationKey では
+            // 表せないため onHttpError で維持する。
+            onHttpError: async (errorRes) =>
+              new ApiRequestError(
+                errorRes.status,
+                `話数記録ジョブの登録に失敗しました（HTTP ${errorRes.status}）`,
+              ),
+          }),
+        },
       );
-      if (!res.ok) {
-        throw new ApiRequestError(
-          res.status,
-          `話数記録ジョブの登録に失敗しました（HTTP ${res.status}）`,
-        );
-      }
-      return res.json();
+      return res.json() as Promise<{
+        job: DanimeEpisodeJob | null;
+        created: boolean;
+      }>;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({

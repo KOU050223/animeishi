@@ -16,7 +16,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
-import { fetchPublicProfile, publicProfileQueryKey } from "@/lib/publicProfile";
+import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
 import { FriendNoteSection } from "@/components/social/FriendNoteSection";
@@ -60,14 +60,12 @@ export default function PublicProfilePage() {
   const { t } = useTranslation();
   const { uid } = useLocalSearchParams<{ uid: string }>();
   const router = useRouter();
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const colors = useThemeColors();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: publicProfileQueryKey(uid, userId),
-    queryFn: async () => fetchPublicProfile(uid, await getToken()),
+    ...publicProfileQueries.detail.query({ uid, viewerId: userId }),
     enabled: !!uid,
-    retry: false,
   });
 
   const relation = useFriendRelation(uid);
