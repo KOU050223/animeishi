@@ -16,6 +16,7 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { CardPressable } from "@/components/ui/card-pressable";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
 import {
   usePublicTierLists,
@@ -68,7 +69,7 @@ export function DiscoverTierLists() {
         onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            e instanceof Error
+            e instanceof ApiRequestError
               ? t(e.message, { defaultValue: e.message })
               : t("いいねの更新に失敗しました"),
             {

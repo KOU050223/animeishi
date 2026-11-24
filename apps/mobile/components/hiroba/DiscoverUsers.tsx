@@ -16,6 +16,7 @@ import { MeishiCard } from "@/components/MeishiCard";
 import { MeishiSnapshotImage } from "@/components/meishi/MeishiSnapshotImage";
 import { buildProfileUrl } from "@/lib/profileUrl";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
 import {
   usePublicUsers,
@@ -65,7 +66,7 @@ export function DiscoverUsers() {
         onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            e instanceof Error
+            e instanceof ApiRequestError
               ? t(e.message, { defaultValue: e.message })
               : t("いいねの更新に失敗しました"),
             {

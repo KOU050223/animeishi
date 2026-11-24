@@ -7,6 +7,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { DiscoverSection } from "@/components/hiroba/DiscoverSection";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
@@ -312,7 +313,9 @@ describe("DiscoverSection", () => {
 
   it("いいね失敗はサーバーの文言をアラートに出す", async () => {
     mockToggleMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("いいねは1時間に10回までです"));
+      options?.onError?.(
+        new ApiRequestError(429, "いいねは1時間に10回までです"),
+      );
     });
     await render(<DiscoverSection />);
     await fireEvent.press(screen.getByTestId("work-list-like-1"));

@@ -16,6 +16,7 @@ import { SafeAreaView } from "@/components/ui/SafeAreaView";
 import { BackButton } from "@/components/ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { alert, confirm } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { publicProfileQueries } from "@/lib/queries/publicProfile";
 import type { PublicProfile } from "@/lib/publicProfile";
 import { ExchangeSuccessOverlay } from "@/components/social/ExchangeSuccessOverlay";
@@ -396,7 +397,7 @@ function useFriendActions({
       onError: (e) => {
         alert(
           t("申請できませんでした"),
-          e instanceof Error
+          e instanceof ApiRequestError
             ? t(e.message, { defaultValue: e.message })
             : t("フレンド申請に失敗しました"),
           { okLabel: "OK" },
@@ -414,7 +415,7 @@ function useFriendActions({
       onError: (e) => {
         alert(
           t("承認できませんでした"),
-          e instanceof Error
+          e instanceof ApiRequestError
             ? t(e.message, { defaultValue: e.message })
             : t("申請の承認に失敗しました"),
           { okLabel: "OK" },
@@ -435,7 +436,7 @@ function useFriendActions({
           .catch((e) =>
             alert(
               t("申請を削除できませんでした"),
-              e instanceof Error
+              e instanceof ApiRequestError
                 ? t(e.message, { defaultValue: e.message })
                 : t("申請の削除に失敗しました"),
               { okLabel: "OK" },
@@ -463,7 +464,7 @@ function useFriendActions({
           .catch((e) =>
             alert(
               t("申請を取り消せませんでした"),
-              e instanceof Error
+              e instanceof ApiRequestError
                 ? t(e.message, { defaultValue: e.message })
                 : t("申請の取消に失敗しました"),
               { okLabel: "OK" },

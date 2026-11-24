@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PublicProfilePage from "@/app/user/[uid]";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth, signedOutUser } from "@/test-utils/auth";
 import { trackEvent } from "@/lib/events";
 
@@ -588,7 +589,7 @@ describe("PublicProfilePage", () => {
     loggedInUser({ userId: "user_me" });
     mockSendMutate.mockImplementation(
       (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
-        options?.onError?.(new Error("申請は1日に5回までです")),
+        options?.onError?.(new ApiRequestError(429, "申請は1日に5回までです")),
     );
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
@@ -604,6 +605,26 @@ describe("PublicProfilePage", () => {
     );
   });
 
+  it("申請の失敗が ApiRequestError でない（通信断等）は翻訳済みの案内を出す", async () => {
+    loggedInUser({ userId: "user_me" });
+    mockSendMutate.mockImplementation(
+      (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
+        options?.onError?.(new Error("Network request failed")),
+    );
+    await render(<PublicProfilePage />, { wrapper });
+    await waitFor(() =>
+      expect(screen.getAllByText("対象ユーザー").length).toBeGreaterThan(0),
+    );
+
+    await fireEvent.press(screen.getByTestId("send-friend-request-button"));
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "申請できませんでした",
+      "フレンド申請に失敗しました",
+      { okLabel: "OK" },
+    );
+  });
+
   it("承認に失敗したらサーバーの文言をアラートに出す", async () => {
     loggedInUser({ userId: "user_me" });
     mockRequestsData = {
@@ -612,7 +633,9 @@ describe("PublicProfilePage", () => {
     };
     mockAcceptMutate.mockImplementation(
       (_vars: unknown, options?: { onError?: (e: Error) => void }) =>
-        options?.onError?.(new Error("このユーザーは承認できません")),
+        options?.onError?.(
+          new ApiRequestError(403, "このユーザーは承認できません"),
+        ),
     );
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
@@ -635,7 +658,7 @@ describe("PublicProfilePage", () => {
       sent: [],
     };
     mockDeleteMutateAsync.mockRejectedValue(
-      new Error("申請が見つかりませんでした"),
+      new ApiRequestError(404, "申請が見つかりませんでした"),
     );
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>
@@ -660,7 +683,7 @@ describe("PublicProfilePage", () => {
       sent: [{ id: 11, userId: "user_target", username: "対象ユーザー" }],
     };
     mockDeleteMutateAsync.mockRejectedValue(
-      new Error("申請が見つかりませんでした"),
+      new ApiRequestError(404, "申請が見つかりませんでした"),
     );
     await render(<PublicProfilePage />, { wrapper });
     await waitFor(() =>

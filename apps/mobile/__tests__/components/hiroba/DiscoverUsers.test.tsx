@@ -8,6 +8,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { DiscoverUsers } from "@/components/hiroba/DiscoverUsers";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 
 const mockMeishiCard = jest.fn((_props: unknown): React.ReactNode => null);
 jest.mock("@/components/MeishiCard", () => ({
@@ -281,7 +282,9 @@ describe("DiscoverUsers", () => {
 
   it("いいね失敗はサーバーの文言をアラートに出す", async () => {
     mockToggleMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("いいねは1時間に10回までです"));
+      options?.onError?.(
+        new ApiRequestError(429, "いいねは1時間に10回までです"),
+      );
     });
     await render(<DiscoverUsers />);
     await fireEvent.press(screen.getByTestId("public-user-like-other-user"));
@@ -289,6 +292,20 @@ describe("DiscoverUsers", () => {
     expect(alert).toHaveBeenCalledWith(
       "いいねできませんでした",
       "いいねは1時間に10回までです",
+      { okLabel: "OK" },
+    );
+  });
+
+  it("いいね失敗が ApiRequestError でない（通信断等）は翻訳済みの案内を出す", async () => {
+    mockToggleMutate.mockImplementation((input, options) => {
+      options?.onError?.(new Error("Network request failed"));
+    });
+    await render(<DiscoverUsers />);
+    await fireEvent.press(screen.getByTestId("public-user-like-other-user"));
+
+    expect(alert).toHaveBeenCalledWith(
+      "いいねできませんでした",
+      "いいねの更新に失敗しました",
       { okLabel: "OK" },
     );
   });

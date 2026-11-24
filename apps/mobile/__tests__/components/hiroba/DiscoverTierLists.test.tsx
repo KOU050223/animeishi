@@ -7,6 +7,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { DiscoverTierLists } from "@/components/hiroba/DiscoverTierLists";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 
 jest.mock("@/lib/dialog", () => ({ alert: jest.fn(), confirm: jest.fn() }));
 
@@ -227,7 +228,9 @@ describe("DiscoverTierLists", () => {
 
   it("いいね失敗はサーバーの文言をアラートに出す", async () => {
     mockToggleMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("いいねは1時間に10回までです"));
+      options?.onError?.(
+        new ApiRequestError(429, "いいねは1時間に10回までです"),
+      );
     });
     await render(<DiscoverTierLists />);
     await fireEvent.press(screen.getByTestId("tier-list-like-season-1"));

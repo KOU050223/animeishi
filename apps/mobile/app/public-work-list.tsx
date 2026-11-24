@@ -16,6 +16,7 @@ import { WorkThumbnail } from "@/components/anime-list/WorkThumbnail";
 import { WorkDetailPressable } from "@/components/anime-list/WorkDetailPressable";
 import { WorkListReportSheet } from "@/components/work-list/WorkListReportSheet";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { useThemeColors } from "@/lib/theme";
 import type { ThemeColors } from "@/lib/theme";
 import {
@@ -257,7 +258,7 @@ export default function PublicWorkListScreen() {
         onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            e instanceof Error
+            e instanceof ApiRequestError
               ? t(e.message, { defaultValue: e.message })
               : t("いいねの更新に失敗しました"),
             {

@@ -5,6 +5,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import PublicWorkListScreen from "@/app/public-work-list";
 import { alert } from "@/lib/dialog";
+import { ApiRequestError } from "@/lib/apiError";
 import { loggedInUser, resetAuth } from "@/test-utils/auth";
 
 const mockPush = jest.fn();
@@ -153,7 +154,9 @@ describe("PublicWorkListScreen", () => {
 
   it("いいね失敗はサーバーの文言をアラートに出し、いいね表示は変わらない", async () => {
     mockToggleMutate.mockImplementation((input, options) => {
-      options?.onError?.(new Error("いいねは1時間に10回までです"));
+      options?.onError?.(
+        new ApiRequestError(429, "いいねは1時間に10回までです"),
+      );
     });
     await render(<PublicWorkListScreen />);
     await fireEvent.press(screen.getByTestId("public-work-list-like"));

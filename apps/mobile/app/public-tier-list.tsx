@@ -399,7 +399,7 @@ export default function PublicTierListScreen() {
         onError: (e) =>
           alert(
             t("いいねできませんでした"),
-            e instanceof Error
+            e instanceof ApiRequestError
               ? t(e.message, { defaultValue: e.message })
               : t("いいねの更新に失敗しました"),
             {
