@@ -100,7 +100,13 @@ function findLeafElementsWithoutLabel(
     const tag = readOpeningTag(source, match.index);
     // 子を持つ要素（</X> で閉じるもの）はラベル必須の対象外
     if (!/\/\s*>$/.test(tag)) continue;
-    if (!/\baccessibilityLabel\s*=/.test(tag)) {
+    // 別属性の値の中に "accessibilityLabel=" が含まれても
+    // 合格にしないよう、文字列リテラルを除いてから属性名を調べる
+    const attributesOnly = tag.replace(
+      /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g,
+      "",
+    );
+    if (!/\baccessibilityLabel\s*=/.test(attributesOnly)) {
       found.push({
         element,
         line: source.slice(0, match.index).split("\n").length,

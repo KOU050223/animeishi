@@ -688,7 +688,7 @@ export default function WorkListScreen() {
           "タイトルで検索してリストの末尾に追加できます。並び順はあとから変更できます",
         )}
         actionLabel={t("追加")}
-        scrimAccessibilityLabel={t("作品の追加をやめる")}
+        scrimAccessibilityLabel={t("作品の追加を閉じる")}
       />
     </SafeAreaView>
   );
