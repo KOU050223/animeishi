@@ -54,7 +54,7 @@ describe("PrivacyScreen", () => {
     expect(screen.getByText(/利用状況の分析、機能・品質の改善/)).toBeTruthy();
     expect(screen.getByText("第4条（外部サービスへの送信）")).toBeTruthy();
     expect(screen.getByText("第7条（アカウントの削除）")).toBeTruthy();
-    expect(screen.getByText("最終更新日: 2026年11月18日")).toBeTruthy();
+    expect(screen.getByText("最終更新日: 2026年11月24日")).toBeTruthy();
   });
 
   it("実装で実際に利用している外部サービスを列挙する", async () => {
@@ -71,6 +71,23 @@ describe("PrivacyScreen", () => {
       screen.getByText(/リクエスト IP アドレス等が処理される場合があります/),
     ).toBeTruthy();
     expect(screen.getByText(/EAS Observe（アプリ計測）/)).toBeTruthy();
+  });
+
+  it("AI 視聴傾向分析で Workers AI に送る項目と結果の扱いを記載する", async () => {
+    await render(<PrivacyScreen />);
+
+    expect(
+      screen.getByText(/Cloudflare Workers AI（AI 視聴傾向分析・おすすめ）/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /作品タイトル・視聴ステータス・本サービスで付けた作品評価/,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/AI モデルの学習に使用せず/)).toBeTruthy();
+    expect(
+      screen.getByText(/最新の 1 件をデータベース（D1）に保存/),
+    ).toBeTruthy();
   });
 
   it("取得する情報にユーザー通報を含める", async () => {

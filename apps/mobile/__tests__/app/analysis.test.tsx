@@ -226,6 +226,16 @@ describe("AnalysisScreen のレポート項目", () => {
     });
   });
 
+  it("AI で処理する視聴データの範囲を説明する", async () => {
+    await render(<AnalysisScreen />);
+
+    expect(
+      screen.getByText(
+        /視聴履歴（作品タイトル・視聴ステータス・作品評価）と選択したジャンルを Cloudflare Workers AI で処理します/,
+      ),
+    ).toBeTruthy();
+  });
+
   it("セクションの項目名・解釈文・集計値・根拠作品を表示する", async () => {
     await render(<AnalysisScreen />);
 
