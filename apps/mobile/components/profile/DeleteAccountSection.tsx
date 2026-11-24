@@ -24,7 +24,7 @@ export function DeleteAccountSection() {
           {t("アカウントを削除")}
         </Text>
       </TouchableOpacity>
-      <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+      <Text className="mt-2 text-center text-xs text-muted">
         {t("削除するとすべてのデータが失われ、元に戻せません")}
       </Text>
     </View>

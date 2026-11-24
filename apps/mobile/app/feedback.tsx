@@ -171,10 +171,10 @@ export default function FeedbackScreen() {
               accessibilityLabel={t("内容")}
               testID="feedback-body-input"
             />
-            <Text className="mt-1 text-right text-xs text-slate-400 dark:text-slate-500">
+            <Text className="mt-1 text-right text-xs text-muted">
               {body.length}/{FEEDBACK_BODY_MAX_LENGTH}
             </Text>
-            <Text className="mt-2 text-xs leading-5 text-slate-400 dark:text-slate-500">
+            <Text className="mt-2 text-xs leading-5 text-muted">
               {t(
                 "不具合の調査のため、アプリのバージョンと OS の情報も一緒に送信されます。",
               )}
@@ -194,7 +194,7 @@ export default function FeedbackScreen() {
                 testID="feedback-submit"
               />
               {bodyEmpty ? (
-                <Text className="mt-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                <Text className="mt-2 text-center text-xs text-muted">
                   {t("内容を入力してください")}
                 </Text>
               ) : null}

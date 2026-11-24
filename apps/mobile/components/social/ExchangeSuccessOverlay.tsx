@@ -94,7 +94,7 @@ function ExchangeCard({
             username: profile.username,
           })}
         >
-          <Text className="text-2xl text-slate-400 dark:text-slate-500">
+          <Text className="text-2xl text-secondary">
             {profile.username.charAt(0).toUpperCase()}
           </Text>
         </View>

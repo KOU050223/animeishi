@@ -210,7 +210,7 @@ function FeedEmptyState() {
   if (!friends || friends.length > 0) {
     return (
       <View className="items-center justify-center py-16">
-        <Text className="text-center text-slate-400 dark:text-slate-500">
+        <Text className="text-center text-muted">
           {t("まだフレンドの活動はありません")}
         </Text>
       </View>
@@ -219,10 +219,10 @@ function FeedEmptyState() {
 
   return (
     <View className="items-center justify-center px-8 py-16">
-      <Text className="text-center text-slate-400 dark:text-slate-500">
+      <Text className="text-center text-muted">
         {t("まだフレンドがいません")}
       </Text>
-      <Text className="mt-1 text-center text-sm text-slate-400 dark:text-slate-500">
+      <Text className="mt-1 text-center text-sm text-muted">
         {t("フレンドを見つけると、ここに活動が表示されます")}
       </Text>
       <View className="mt-6 gap-3 self-stretch">
@@ -270,7 +270,7 @@ function ActivityGroupRow({ items }: { items: ActivityFeedItem[] }) {
         <Text className="text-sm text-slate-900 dark:text-slate-100">
           {activityGroupText(items, t)}
         </Text>
-        <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-0.5 text-xs text-muted">
           {formatRelativeTime(first.createdAt, t)}
         </Text>
       </View>
@@ -312,7 +312,7 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
           <Text className="text-sm text-slate-900 dark:text-slate-100">
             {activityText(item, t)}
           </Text>
-          <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-0.5 text-xs text-muted">
             {formatRelativeTime(item.createdAt, t)}
           </Text>
         </WorkDetailPressable>
@@ -321,7 +321,7 @@ function ActivityRow({ item }: { item: ActivityFeedItem }) {
           <Text className="text-sm text-slate-900 dark:text-slate-100">
             {activityText(item, t)}
           </Text>
-          <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-0.5 text-xs text-muted">
             {formatRelativeTime(item.createdAt, t)}
           </Text>
         </View>

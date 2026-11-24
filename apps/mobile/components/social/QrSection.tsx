@@ -201,7 +201,7 @@ function GenerateView() {
   if (!isSignedIn || !userId) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-slate-400 dark:text-slate-500 text-center">
+        <Text className="text-muted text-center">
           {t("QR コードを表示するにはサインインしてください")}
         </Text>
       </View>
@@ -588,9 +588,7 @@ function ScanView({ onShowMyQr }: { onShowMyQr: () => void }) {
   if (!permission) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-slate-400 dark:text-slate-500">
-          {t("カメラを準備しています...")}
-        </Text>
+        <Text className="text-muted">{t("カメラを準備しています...")}</Text>
       </View>
     );
   }

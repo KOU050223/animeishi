@@ -145,7 +145,7 @@ export function WorkDetailInfo({
   if (detail.isError) {
     return (
       <View className="items-center py-2 gap-2">
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("詳細情報を取得できませんでした")}
         </Text>
         <TouchableOpacity
@@ -173,9 +173,7 @@ export function WorkDetailInfo({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row justify-between gap-4">
-      <Text className="text-xs text-slate-400 dark:text-slate-500">
-        {label}
-      </Text>
+      <Text className="text-xs text-muted">{label}</Text>
       <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">
         {value}
       </Text>

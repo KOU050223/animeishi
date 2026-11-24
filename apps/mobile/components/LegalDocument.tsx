@@ -64,9 +64,7 @@ export function LegalDocument({ title, effectiveDate, sections }: Props) {
       />
       <ScrollView className="flex-1">
         <View className="w-full max-w-2xl self-center px-6 pb-16 pt-4">
-          <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            {effectiveDate}
-          </Text>
+          <Text className="mt-2 text-xs text-muted">{effectiveDate}</Text>
 
           {sections.map(({ action, ...section }) => (
             <View key={section.heading} className="mt-8">

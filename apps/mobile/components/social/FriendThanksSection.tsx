@@ -161,7 +161,7 @@ function ReceivedThanksRow({
       className="mt-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3"
       testID={`received-thanks-item-${item.id}`}
     >
-      <Text className="text-xs text-slate-400 dark:text-slate-500">
+      <Text className="text-xs text-muted">
         {t("届いたお礼")}・{formatThanksDate(item.createdAt, language)}
       </Text>
       <Text className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
@@ -191,7 +191,7 @@ function SentThanksRow({
       className="mt-2 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3"
       testID={`sent-thanks-item-${item.id}`}
     >
-      <Text className="text-xs text-slate-400 dark:text-slate-500">
+      <Text className="text-xs text-muted">
         {t("送ったお礼")}・{formatThanksDate(item.createdAt, language)}
       </Text>
       <Text className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">

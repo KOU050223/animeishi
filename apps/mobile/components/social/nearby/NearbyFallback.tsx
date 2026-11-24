@@ -101,7 +101,7 @@ export function NearbyFallback({
               </Text>
             </TouchableOpacity>
           </View>
-          <Text className="mt-6 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-6 text-xs text-muted">
             {t("いますぐ交換するなら")}
           </Text>
         </View>

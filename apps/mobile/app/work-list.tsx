@@ -522,7 +522,7 @@ export default function WorkListScreen() {
                 className="flex-row items-center gap-3 border-b border-slate-100 py-2 dark:border-slate-800"
                 testID={`work-list-item-${item.id}`}
               >
-                <Text className="w-6 text-right text-sm font-semibold text-slate-400 dark:text-slate-500">
+                <Text className="w-6 text-right text-sm font-semibold text-muted">
                   {index + 1}
                 </Text>
                 <WorkDetailPressable

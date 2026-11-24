@@ -127,7 +127,7 @@ export function NearbyExchangeView({ onShowQr }: { onShowQr: () => void }) {
   if (qrValue == null || shareUrl == null) {
     return (
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-center text-slate-400 dark:text-slate-500">
+        <Text className="text-center text-muted">
           {t("QR コードを表示するにはサインインしてください")}
         </Text>
       </View>

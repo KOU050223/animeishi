@@ -40,7 +40,7 @@ export function FriendNoteSection({ uid }: { uid: string }) {
       <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
         {t("メモ")}
       </Text>
-      <Text className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+      <Text className="text-xs text-muted mt-0.5">
         {t("自分だけが見えるメモです")}
       </Text>
       <TouchableOpacity
@@ -53,9 +53,7 @@ export function FriendNoteSection({ uid }: { uid: string }) {
         {body ? (
           <Text className="text-slate-700 dark:text-slate-300">{body}</Text>
         ) : (
-          <Text className="text-slate-400 dark:text-slate-500">
-            {t("メモを追加")}
-          </Text>
+          <Text className="text-muted">{t("メモを追加")}</Text>
         )}
       </TouchableOpacity>
       <FriendNoteSheet

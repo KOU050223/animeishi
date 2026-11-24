@@ -143,12 +143,12 @@ export default function AnalysisScreen() {
       {screenOptions}
       <ScrollView contentContainerClassName="px-4 pb-12">
         <View className="pb-3">
-          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-1 text-xs text-muted">
             {t(
               "あなたの視聴履歴をもとに、AI が視聴傾向とおすすめジャンルを分析します",
             )}
           </Text>
-          <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-1 text-xs text-muted">
             {t(
               "「分析する」「再分析する」「おすすめを出す」を押したときだけ、視聴履歴（作品タイトル・視聴ステータス・作品評価）と選択したジャンルを Cloudflare Workers AI で処理します。AI の学習には使われません",
             )}
@@ -157,7 +157,7 @@ export default function AnalysisScreen() {
 
         {analysis === null ? (
           <View className="items-center justify-center py-16">
-            <Text className="mb-6 text-center text-slate-400 dark:text-slate-500">
+            <Text className="mb-6 text-center text-muted">
               {t("まだ分析結果がありません")}
             </Text>
             <GenerateButton
@@ -203,12 +203,12 @@ export default function AnalysisScreen() {
               <AnalysisSectionCard key={section.key} section={section} />
             ))}
 
-            <Text className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+            <Text className="mt-3 text-xs text-muted">
               {t("集計時点の視聴履歴: {{count}} 件", {
                 count: analysis.workCount,
               })}
             </Text>
-            <Text className="text-xs text-slate-400 dark:text-slate-500">
+            <Text className="text-xs text-muted">
               {t("集計日時: {{date}}", {
                 date: formatGeneratedAt(analysis.generatedAt),
               })}
@@ -231,7 +231,7 @@ export default function AnalysisScreen() {
                 onPress={() => onGenerate("regenerate")}
                 colors={colors}
               />
-              <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              <Text className="mt-2 text-xs text-muted">
                 {t(
                   "視聴履歴が変わると次回の実行で結果が更新されます（1 日あたりの実行回数に上限があります）",
                 )}
@@ -304,7 +304,7 @@ function AnalysisSectionCard({
       </View>
       {section.evidenceWorks.length > 0 ? (
         <View className="mt-3 border-t border-slate-100 pt-2 dark:border-slate-700">
-          <Text className="mb-1 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mb-1 text-xs text-muted">
             {t("根拠となった作品")}
           </Text>
           {section.evidenceWorks.map((work) => (
@@ -475,7 +475,7 @@ function RecommendationsSection() {
         </View>
       ) : null}
       {recommendations && recommendations.works.length === 0 ? (
-        <Text className="mb-3 text-sm text-slate-400 dark:text-slate-500">
+        <Text className="mb-3 text-sm text-muted">
           {t("条件に合うおすすめが見つかりませんでした")}
         </Text>
       ) : null}
@@ -488,7 +488,7 @@ function RecommendationsSection() {
           onPress={() => onGenerate(recommendations ? "regenerate" : "initial")}
           colors={colors}
         />
-        <Text className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-2 text-xs text-muted">
           {t(
             "視聴履歴に無い作品から今期・過去作を提案します（1 日あたりの実行回数に上限があります）",
           )}
@@ -550,7 +550,7 @@ function RecommendationCard({
           {work.title}
         </Text>
         {work.seasonYear ? (
-          <Text className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          <Text className="mt-0.5 text-xs text-muted">
             {formatWorkSeason(work, t)}
           </Text>
         ) : null}

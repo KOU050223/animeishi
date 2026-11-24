@@ -38,7 +38,7 @@ export function DanimeEpisodeJobStatus({
           {episodeJobStatusText(job, t)}
         </Text>
         {running && (
-          <Text className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+          <Text className="text-[10px] text-muted mt-0.5">
             {t("画面を閉じてもバックグラウンドで記録が続きます。")}
           </Text>
         )}

@@ -170,7 +170,7 @@ export function ExchangeRecordSection({ uid }: { uid: string }) {
           </Text>
         </TouchableOpacity>
       </View>
-      <Text className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+      <Text className="text-xs text-muted mt-0.5">
         {t("自分の名刺帳にだけ残る記録です")}
       </Text>
       {list.map((record) => {

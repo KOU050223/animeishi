@@ -173,7 +173,7 @@ function ArticleBody({
         >
           {title}
         </Text>
-        <Text className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+        <Text className="mt-1 text-xs text-muted">
           {formatArticlePublishedAt(publishedAt, locale)}
         </Text>
         <View className="mt-4">

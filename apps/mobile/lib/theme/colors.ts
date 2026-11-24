@@ -2,7 +2,9 @@
  * アプリ共通のカラートークン。
  *
  * カラースキーム（light / dark）ごとに同名のセマンティックトークンを定義する。
- * NativeWind クラスで書ける箇所は `dark:` バリアントを使い、style prop や
+ * className では global.css の @theme に登録したトークン名
+ * （`text-muted`・`bg-surface` 等、対応表は tailwindColors.unit.test.ts）を
+ * 使い、dark 側の切り替えは変数側に任せる。style prop や
  * アイコン・ActivityIndicator の color のように JS 値が必要な箇所は
  * `useThemeColors()`（react-native の useColorScheme ベース）から引く。
  * どちらも同じ Appearance 判定を見るため、両方式で描画が食い違わない。

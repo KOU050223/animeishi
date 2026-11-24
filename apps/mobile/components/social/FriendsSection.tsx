@@ -187,7 +187,7 @@ export function FriendsSection() {
             </Text>
           </TouchableOpacity>
         ) : null}
-        <Text className="text-xs text-slate-400 dark:text-slate-500">
+        <Text className="text-xs text-muted">
           {t("{{count}} 人のフレンド", { count: visibleList.length })}
         </Text>
         {eventNames.length > 0 ? (
@@ -268,7 +268,7 @@ export function FriendsSection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-slate-400 dark:text-slate-500 text-center">
+            <Text className="text-muted text-center">
               {t(
                 "フレンドがいません。QR コードをスキャンして追加してください。",
               )}
@@ -374,7 +374,7 @@ function FriendCard({
       </TouchableOpacity>
       <View className="mt-2 flex-row items-center justify-between">
         <Text
-          className="text-xs text-slate-400 dark:text-slate-500"
+          className="text-xs text-muted"
           testID={`friend-exchanged-${friend.friendId}`}
         >
           {exchangedLabel}

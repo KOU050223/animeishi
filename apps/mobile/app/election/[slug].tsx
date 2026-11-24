@@ -247,9 +247,7 @@ function VotingNotice({
             accessibilityLabel={t("投票を取り消す")}
             testID="election-cancel-vote"
           >
-            <Text className="text-sm text-slate-400 dark:text-slate-500">
-              {t("取り消す")}
-            </Text>
+            <Text className="text-sm text-muted">{t("取り消す")}</Text>
           </TouchableOpacity>
         </>
       ) : (

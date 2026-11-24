@@ -14,3 +14,68 @@
     color-scheme: dark;
   }
 }
+
+/* lib/theme/colors.ts のカラートークンを Tailwind の色として登録する
+   （issue #808）。`text-muted`・`bg-surface` のようにトークン名で書ける。
+   dark 側の値は下の @media (prefers-color-scheme: dark) で同じ変数を
+   上書きする（dark: バリアントと同じ条件で切り替わる）。値は
+   lib/theme/tailwindColors.unit.test.ts で colors.ts との一致を検証する。 */
+@theme {
+  --color-foreground: #0f172a;
+  --color-secondary: #475569;
+  --color-muted: #64748b;
+  --color-placeholder: #475569;
+  --color-background: #ffffff;
+  --color-background-muted: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-muted: #f1f5f9;
+  --color-primary: #4f46e5;
+  --color-primary-text: #4f46e5;
+  --color-primary-soft: #eef2ff;
+  --color-primary-border: #6366f1;
+  --color-on-primary: #ffffff;
+  --color-danger: #b91c1c;
+  --color-success: #15803d;
+  --color-success-soft: #ecfdf5;
+  --color-success-text: #047857;
+  --color-scrim: rgba(0, 0, 0, 0.4);
+  --color-canvas-backdrop: #e2e8f0;
+  --color-tier-drop-area: #f1f5f9;
+  --color-tier-drop-area-active: #e0e7ff;
+  --color-tier-card: #ffffff;
+  --color-tier-card-fallback: #e2e8f0;
+  --color-tier-card-label: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-foreground: #f1f5f9;
+    --color-secondary: #cbd5e1;
+    --color-muted: #94a3b8;
+    --color-placeholder: #cbd5e1;
+    --color-background: #0f172a;
+    --color-background-muted: #020617;
+    --color-surface: #1e293b;
+    --color-surface-muted: #334155;
+    --color-border: #334155;
+    --color-border-muted: #1e293b;
+    --color-primary: #4f46e5;
+    --color-primary-text: #818cf8;
+    --color-primary-soft: #1e1b4b;
+    --color-primary-border: #a5b4fc;
+    --color-on-primary: #ffffff;
+    --color-danger: #fca5a5;
+    --color-success: #4ade80;
+    --color-success-soft: #064e3b;
+    --color-success-text: #6ee7b7;
+    --color-scrim: rgba(0, 0, 0, 0.6);
+    --color-canvas-backdrop: #020617;
+    --color-tier-drop-area: #1e293b;
+    --color-tier-drop-area-active: #334155;
+    --color-tier-card: #334155;
+    --color-tier-card-fallback: #475569;
+    --color-tier-card-label: #0f172a;
+  }
+}

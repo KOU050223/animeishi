@@ -218,7 +218,7 @@ export function CreateSection() {
                 {item.title}
               </Text>
               {item.shared || item.isPublic ? (
-                <Text className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                <Text className="mt-1 text-[11px] text-muted">
                   {[
                     item.shared ? t("リンク共有中") : null,
                     item.isPublic ? t("ひろばに公開中") : null,
@@ -279,7 +279,7 @@ export function CreateSection() {
               >
                 {item.title}
               </Text>
-              <Text className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+              <Text className="mt-1 text-[11px] text-muted">
                 {t("{{count}} 作品{{sharing}}", {
                   count: item.itemCount,
                   sharing: item.shareToken ? ` · ${t("共有中")}` : "",

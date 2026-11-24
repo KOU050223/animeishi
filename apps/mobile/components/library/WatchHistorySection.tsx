@@ -450,7 +450,7 @@ export function WatchHistorySection() {
             }
           >
             <View className="px-4 pt-1 pb-3 flex-row items-center justify-between">
-              <Text className="text-xs text-slate-400 dark:text-slate-500">
+              <Text className="text-xs text-muted">
                 {filterActive
                   ? t("{{visible}} / {{total}} 件", {
                       visible: visible.length,
@@ -547,7 +547,7 @@ export function WatchHistorySection() {
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-16">
-            <Text className="text-slate-400 dark:text-slate-500 text-center">
+            <Text className="text-muted text-center">
               {enriched.length > 0 && filterActive
                 ? t("絞り込み条件に一致する履歴がありません。")
                 : t("視聴履歴がありません。\nアニメ一覧から追加してください。")}
@@ -754,7 +754,7 @@ function FilterSheet({
             />
           ))}
         </View>
-        <Text className="text-xs text-slate-400 dark:text-slate-500 mb-5">
+        <Text className="text-xs text-muted mb-5">
           {t("視聴状態を未選択にするとすべての状態を表示します")}
         </Text>
 
@@ -877,11 +877,7 @@ function WatchHistoryRow({
             }))}
             onValueChange={onStatusChange}
           />
-          {meta ? (
-            <Text className="text-xs text-slate-400 dark:text-slate-500">
-              {meta}
-            </Text>
-          ) : null}
+          {meta ? <Text className="text-xs text-muted">{meta}</Text> : null}
         </View>
         <View className="flex-row items-center gap-2 mt-2">
           <FavoriteButton
